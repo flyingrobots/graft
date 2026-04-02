@@ -1,0 +1,81 @@
+import { readFile } from "node:fs/promises";
+import { evaluatePolicy } from "../policy/evaluate.js";
+import type { PolicyResult, SessionDepth } from "../policy/types.js";
+import { extractOutline } from "../parser/outline.js";
+import type { OutlineEntry, JumpEntry } from "../parser/types.js";
+
+export interface SafeReadResult {
+  path: string;
+  projection: "content" | "outline" | "refused" | "error";
+  reason: string;
+  content?: string | undefined;
+  outline?: OutlineEntry[] | undefined;
+  jumpTable?: JumpEntry[] | undefined;
+  estimatedBytesAvoided?: number | undefined;
+  next?: string[] | undefined;
+  actual?: { lines: number; bytes: number } | undefined;
+  thresholds?: { lines: number; bytes: number } | undefined;
+  sessionDepth?: SessionDepth | undefined;
+}
+
+export interface SafeReadOptions {
+  intent?: string | undefined;
+  sessionDepth?: SessionDepth | undefined;
+}
+
+export async function safeRead(
+  filePath: string,
+  options?: SafeReadOptions,
+): Promise<SafeReadResult> {
+  let raw: Buffer;
+  try {
+    raw = await readFile(filePath);
+  } catch {
+    return {
+      path: filePath,
+      projection: "error",
+      reason: "NOT_FOUND",
+    };
+  }
+
+  const content = raw.toString("utf-8");
+  const lines = content.split("\n").length;
+  const bytes = raw.byteLength;
+
+  const policy: PolicyResult = evaluatePolicy(
+    { path: filePath, lines, bytes },
+    { sessionDepth: options?.sessionDepth },
+  );
+
+  const base: SafeReadResult = {
+    path: filePath,
+    projection: policy.projection,
+    reason: policy.reason,
+    actual: policy.actual,
+    thresholds: policy.thresholds,
+    ...(policy.sessionDepth !== undefined ? { sessionDepth: policy.sessionDepth } : {}),
+  };
+
+  if (policy.projection === "content") {
+    return { ...base, content };
+  }
+
+  if (policy.projection === "refused") {
+    return {
+      ...base,
+      ...(policy.next !== undefined ? { next: policy.next } : {}),
+    };
+  }
+
+  // projection === "outline"
+  const outlineResult = extractOutline(content);
+  const outlineJson = JSON.stringify(outlineResult);
+  const estimatedBytesAvoided = bytes - Buffer.byteLength(outlineJson, "utf-8");
+
+  return {
+    ...base,
+    outline: outlineResult.entries,
+    jumpTable: outlineResult.jumpTable,
+    estimatedBytesAvoided: estimatedBytesAvoided > 0 ? estimatedBytesAvoided : 0,
+  };
+}

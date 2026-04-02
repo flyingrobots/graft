@@ -34,6 +34,8 @@
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
+    "@types/node": "^25.5.0",
+    "@types/picomatch": "^4.0.2",
     "eslint": "^10.1.0",
     "globals": "^17.4.0",
     "typescript": "^6.0.2",
@@ -42,8 +44,8 @@
   },
   "dependencies": {
     "picomatch": "^4.0.4",
-    "tree-sitter-wasms": "^0.1.13",
-    "web-tree-sitter": "^0.26.8"
+    "tree-sitter-wasms": "0.1.13",
+    "web-tree-sitter": "^0.20.8"
   },
   "pnpm": {
     "onlyBuiltDependencies": []
