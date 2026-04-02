@@ -127,7 +127,7 @@ export function createGraftServer(): GraftServer {
       parserHealthy: true,
       thresholds: { lines: 150, bytes: 12288 },
       sessionDepth: session.getSessionDepth(),
-      totalMessages: 0,
+      totalMessages: session.getMessageCount(),
     }));
   });
 

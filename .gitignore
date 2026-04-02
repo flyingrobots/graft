@@ -1,6 +1,7 @@
 node_modules/
 .graft/
 .claude/
+.mcp.json
 .DS_Store
 ._*
 .Spotlight-V100

@@ -10,6 +10,10 @@ export class SessionTracker {
   private editBashTransitions = 0;
   private lastEditBashTool: string | null = null;
 
+  getMessageCount(): number {
+    return this.totalMessages;
+  }
+
   recordMessage(): void {
     this.totalMessages++;
   }
