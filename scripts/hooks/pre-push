@@ -1,0 +1,6 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+echo "pre-push: running tests..."
+pnpm test
+echo "pre-push: tests passed."

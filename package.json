@@ -8,9 +8,11 @@
     "git-graft": "./bin/graft.js"
   },
   "scripts": {
+    "build": "tsc",
     "test": "vitest run",
     "test:watch": "vitest",
-    "lint": "eslint ."
+    "lint": "eslint .",
+    "typecheck": "tsc --noEmit"
   },
   "engines": {
     "node": ">=20.0.0"
@@ -29,5 +31,21 @@
   "repository": {
     "type": "git",
     "url": "https://github.com/flyingrobots/graft.git"
+  },
+  "devDependencies": {
+    "@eslint/js": "^10.0.1",
+    "eslint": "^10.1.0",
+    "globals": "^17.4.0",
+    "typescript": "^6.0.2",
+    "typescript-eslint": "^8.58.0",
+    "vitest": "^4.1.2"
+  },
+  "dependencies": {
+    "picomatch": "^4.0.4",
+    "tree-sitter-wasms": "^0.1.13",
+    "web-tree-sitter": "^0.26.8"
+  },
+  "pnpm": {
+    "onlyBuiltDependencies": []
   }
 }
