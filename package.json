@@ -47,7 +47,8 @@
     "@modelcontextprotocol/sdk": "^1.29.0",
     "picomatch": "^4.0.4",
     "tree-sitter-wasms": "0.1.13",
-    "web-tree-sitter": "^0.20.8"
+    "web-tree-sitter": "^0.20.8",
+    "zod": "4.3.6"
   },
   "pnpm": {
     "onlyBuiltDependencies": []

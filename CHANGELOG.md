@@ -18,10 +18,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   RUNAWAY_TOOLS, LATE_LARGE_READ) with session depth reporting.
 - **Metrics logger**: NDJSON decision logging with retention/rotation.
 - **Operations**: safe_read, file_outline, read_range, state_save/load.
+- **MCP server**: all 8 Phase 1 commands as MCP tools over stdio,
+  session tracking (tripwires + dynamic caps automatic), doctor and
+  stats tools. Entry point at `src/mcp/stdio.ts`.
 - 14 machine-stable reason codes.
-- 136 tests across 12 test files.
+- 157 tests across 14 test files.
 - Repository scaffolding, METHOD structure, community files.
 - Cycle 0001 design doc and retrospective.
+- Cycle 0002 design doc: MCP transport.
 
 ### Fixed
 
