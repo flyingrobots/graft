@@ -38,12 +38,25 @@ export default tseslint.config(
     },
   },
   {
+    files: ["test/**/*.test.ts"],
+    rules: {
+      "@typescript-eslint/no-unsafe-assignment": "off",
+      "@typescript-eslint/no-unsafe-call": "off",
+      "@typescript-eslint/no-unsafe-member-access": "off",
+      "@typescript-eslint/no-unsafe-argument": "off",
+      "@typescript-eslint/no-non-null-assertion": "off",
+      "@typescript-eslint/no-unnecessary-type-assertion": "off",
+      "@typescript-eslint/no-unsafe-return": "off",
+    },
+  },
+  {
     ignores: [
       "dist/",
       "coverage/",
       "node_modules/",
       ".graft/",
       ".claude/",
+      "test/fixtures/",
     ],
   },
 );
