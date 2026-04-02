@@ -88,8 +88,8 @@ Dynamic cap — tightens with session depth:
 
 | Session depth     | Max read output |
 |-------------------|-----------------|
-| Early (< 100 messages remaining)  | 20 KB |
-| Mid (100–500 messages remaining)  | 10 KB |
+| Early (< 100 messages elapsed)    | 20 KB |
+| Mid (100–500 messages elapsed)    | 10 KB |
 | Late (> 500 messages elapsed)     | 4 KB  |
 
 The static thresholds always apply. The dynamic cap is an additional
