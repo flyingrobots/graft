@@ -1,0 +1,9 @@
+node_modules/
+.graft/
+.DS_Store
+._*
+.Spotlight-V100
+.Trashes
+*.tgz
+coverage/
+.obsidian/

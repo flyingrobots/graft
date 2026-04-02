@@ -1,0 +1,33 @@
+{
+  "name": "@flyingrobots/graft",
+  "version": "0.0.0",
+  "description": "Replay-safe structural reads for coding agents",
+  "type": "module",
+  "bin": {
+    "graft": "./bin/graft.js",
+    "git-graft": "./bin/graft.js"
+  },
+  "scripts": {
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "lint": "eslint ."
+  },
+  "engines": {
+    "node": ">=20.0.0"
+  },
+  "keywords": [
+    "llm",
+    "agent",
+    "context",
+    "mcp",
+    "tree-sitter",
+    "code-navigation",
+    "structural-reads"
+  ],
+  "author": "James Ross <james@flyingrobots.dev>",
+  "license": "Apache-2.0",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/flyingrobots/graft.git"
+  }
+}
