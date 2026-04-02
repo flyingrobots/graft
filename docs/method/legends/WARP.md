@@ -72,6 +72,36 @@ Enables:
   structural operations that led to it
 - No unstaged state — every edit is a structural observation
 
+## Frontier
+
+Ideas that live under this legend but aren't shaped into levels yet.
+
+**Speculative merge forks** — use Strands and Braids to preview
+branch merges at the structural level. Fork the worldline, apply
+both branches' patches, see semantic conflicts (duplicate method
+names, incompatible signature changes, moved-then-modified symbols)
+without actually merging in git. Could also simulate rebase by
+replaying patches in a different order.
+
+**Symbol heatmap** — derive from metrics which symbols trigger
+outlines or re-reads most often. Hot symbols reveal where context
+pressure concentrates. Cross-reference with worldline to see if
+hot symbols are also high-churn symbols.
+
+**graft pack** — one-shot handoff bundle. Serialize the current
+worldline position, touched files, recent decisions, and suggested
+next reads into a single artifact for passing context between agents
+or sessions.
+
+**graft changed-since-last-read** — the Level 2 observation cache
+made into a first-class command. The doorway from governor into
+structural memory.
+
+**Receipt mode** — compact decision blobs for Blacklight. Instead
+of full NDJSON logs, emit minimal receipts that Blacklight can
+aggregate to compare pre-graft vs post-graft context burden. Each
+receipt references a worldline position.
+
 ## Who cares
 
 - **Agents**: structural deltas instead of line diffs, re-read
