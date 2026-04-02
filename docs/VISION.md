@@ -4,7 +4,7 @@ generated: 2026-04-02
 generator: claude (manual, following Method executive-summary process)
 cycles_completed: 2
 tests: 157
-legends: [WARP]
+legends: [CORE, WARP]
 backlog_items: 23
 commit: HEAD
 ---
@@ -76,6 +76,21 @@ automatically. Dogfooded on graft's own repo during playback.
 
 ## Legends
 
+### CORE — The governor itself
+
+Policy, enforcement, extraction, UX, observability — everything
+that makes graft useful as a context governor, independent of
+structural memory.
+
+Covers: policy engine (thresholds, bans, caps, budgets), extraction
+(outlines, jump tables, structural diffs, precision tools),
+enforcement (MCP server, Claude Code hooks, profiles), UX
+(onboarding, help, teaching, auto-focus), observability (metrics,
+receipts, self-tuning, token measurement), distribution (npm,
+Docker).
+
+**15 backlog items.** 2 cycles completed.
+
 ### WARP — Structural memory over Git
 
 The domain where graft grows from a governor into a provenance-aware
@@ -103,11 +118,13 @@ is a tick on the worldline. The causal chain of reads and writes IS
 the reasoning trace. Walk backward from a test failure through the
 structural operations that caused it. Like jj: no unstaged state.
 
-**Frontier ideas:**
+**Frontier:**
 - Speculative merge forks (Strands and Braids for semantic merge preview)
 - Symbol heatmap (which symbols cause the most context pressure)
 - graft pack (one-shot handoff bundle between sessions)
 - Receipt mode (compact decision blobs for Blacklight analysis)
+
+**8 backlog items.** 0 cycles completed.
 
 ---
 
@@ -115,46 +132,42 @@ structural operations that caused it. Like jj: no unstaged state.
 
 ### ASAP — pull next
 
-| Item | Summary | Effort | Legend |
-|------|---------|--------|--------|
-| [Re-read suppression](#reread-suppression) | Session hash cache — skip re-reads of unchanged files | S | — |
-| [graft diff](#graft-diff) | Structural git diff (symbol-level, not line hunks) | M | — |
-| [WARP AST-per-commit](#warp-commit-level-worldline) | Level 1 worldline with structural delta patches | L | WARP |
+| Item | Legend | Summary | Effort |
+|------|--------|---------|--------|
+| [Re-read suppression](#core-re-read-suppression) | CORE | Session hash cache — skip re-reads of unchanged files | S |
+| [graft diff](#core-graft-diff) | CORE | Structural git diff (symbol-level, not line hunks) | M |
+| [WARP AST-per-commit](#warp-commit-level-worldline) | WARP | Level 1 worldline with structural delta patches | L |
 
 ### Up-next
 
-| Item | Summary | Effort | Legend |
-|------|---------|--------|--------|
-| [Claude Code hooks](#claude-code-hooks-integration) | PreToolUse hooks enforcing graft policy on Read/Bash | L | — |
-| [Context budget](#context-budget) | Agent declares budget, governor adjusts dynamically | M | — |
-| [Dockerfile](#dockerfile) | Docker-based MCP server startup | S | — |
-| [Phase 2 precision tools](#phase-2-precision-tools) | code_show, code_find — symbol-level extraction | XL | — |
+| Item | Legend | Summary | Effort |
+|------|--------|---------|--------|
+| [Claude Code hooks](#core-claude-code-hooks-integration) | CORE | PreToolUse hooks enforcing graft policy on Read/Bash | L |
+| [Context budget](#core-context-budget) | CORE | Agent declares budget, governor adjusts dynamically | M |
+| [Dockerfile](#core-dockerfile) | CORE | Docker-based MCP server startup | S |
+| [Phase 2 precision tools](#core-phase-2-precision-tools) | CORE | code_show, code_find — symbol-level extraction | XL |
 
 ### Cool ideas (unshaped)
 
-**Governor improvements:**
-- [Policy profiles](#policy-profiles) (balanced / strict / feral)
-- [Auto-focus](#auto-focus) (intent-driven symbol targeting)
-- [Graft as teacher](#graft-as-training-signal) (hints in responses for better context hygiene)
-- [Self-tuning governor](#self-tuning-governor) (analyze metrics, suggest threshold changes)
-- [graft explain](#graft-explain-reason-code) (built-in help for reason codes)
-- [graft init](#graft-init) (scaffolding command for onboarding)
+**CORE — Governor improvements:**
+- [Policy profiles](#core-policy-profiles)
+- [Auto-focus](#core-auto-focus)
+- [Graft as teacher](#core-graft-as-training-signal)
+- [Self-tuning governor](#core-self-tuning-governor)
+- [graft explain](#core-graft-explain-reason-code)
+- [graft init](#core-graft-init)
+- [capture_range](#core-capture_rangehandle-start-end)
+- [Token usage comparison](#core-token-usage-graft-vs-no-graft)
+- [Receipt mode](#core-receipt-mode)
 
-**Structural tooling:**
-- [graft since \<ref\>](#graft-since-git-ref) (symbols changed since a commit)
-- [changed-since-last-read](#graft-changed-since-last-read) (structural delta from last observation)
-- [Outline diff in commit trailers](#outline-diff-in-commit-trailers) (structural summary in git log)
-- [capture_range](#capture_rangehandle-start-end) (opaque log handles for run_capture output)
-
-**WARP frontier:**
-- [Causal write tracking](#warp-causal-write-tracking) (every edit is a structural observation)
-- [Speculative merge forks](#warp-speculative-merge-forks) (semantic conflict detection via Braids)
-- [Symbol heatmap](#symbol-heatmap) (hot symbols from metrics + worldline churn)
-- [graft pack](#graft-pack) (session handoff bundle referencing worldline position)
-- [Receipt mode](#receipt-mode) (compact decision blobs for Blacklight)
-
-**Measurement:**
-- [Token usage comparison](#token-usage-graft-vs-no-graft) (graft vs no-graft, dogfooded on graft itself)
+**WARP — Structural memory:**
+- [graft since \<ref\>](#warp-graft-since-git-ref)
+- [changed-since-last-read](#warp-graft-changed-since-last-read)
+- [Outline diff in commit trailers](#warp-outline-diff-in-commit-trailers)
+- [graft pack](#warp-graft-pack)
+- [Symbol heatmap](#warp-symbol-heatmap)
+- [Causal write tracking](#warp-causal-write-tracking)
+- [Speculative merge forks](#warp-speculative-merge-forks)
 
 ---
 
@@ -237,22 +250,34 @@ This summary was generated by reading, in order:
 9. `docs/method/backlog/bad-code/*.md` — known debt
 10. `docs/method/graveyard/*.md` — rejected ideas
 
-Any project using The Method can produce this summary by reading
-those files in that order and synthesizing: vision, current state,
-legends with frontier, roadmap by priority tier, architecture,
-empirical basis, and open questions.
+**Method tooling opportunities identified during this process:**
+
+| Operation | Manual steps | Tool |
+|-----------|-------------|------|
+| Create a legend | Write file in legends/, pick a code | `legend.create(code, description)` |
+| Assign legend to backlog item | Rename file with prefix | `backlog.assign(legend, item)` |
+| Audit backlog for orphans | Find files without legend prefix | `backlog.audit()` |
+| List backlog by legend | Grep filenames for prefix | `backlog.list(legend?, lane?)` |
+| Generate executive summary | Read 10 artifact types, synthesize | `vision.generate()` |
+| Check cycle status | Read design doc, count tests, check phase | `cycle.status()` |
+| Inventory all artifacts | ls every Method directory | `method.inventory()` |
+
+The highest-value automation is `vision.generate()` — it touches
+every artifact type and produces the most complex output. Second
+is `backlog.audit()` + `backlog.assign()` which prevent orphaned
+items from drifting outside legend coverage.
 
 ---
 
 ## Appendix: Full backlog
 
-Complete text of every backlog item, organized by lane.
+Complete text of every backlog item, organized by lane and legend.
 
 ### ASAP
 
-#### Re-read suppression
+#### CORE: Re-read suppression
 
-> Source: `docs/method/backlog/asap/reread-suppression.md`
+> Source: `docs/method/backlog/asap/CORE_reread-suppression.md`
 
 Session-level observation cache in the MCP server. Track
 `Map<path, { hash, timestamp }>`. When the agent reads the same
@@ -271,9 +296,9 @@ Effort: S
 
 ---
 
-#### graft diff
+#### CORE: graft diff
 
-> Source: `docs/method/backlog/asap/graft-diff.md`
+> Source: `docs/method/backlog/asap/CORE_graft-diff.md`
 
 Diff two tree-sitter outlines (working tree vs HEAD, or any two
 refs) and return structural changes instead of line hunks.
@@ -320,9 +345,9 @@ Effort: L
 
 ### Up-next
 
-#### Claude Code Hooks Integration
+#### CORE: Claude Code Hooks Integration
 
-> Source: `docs/method/backlog/up-next/claude-code-hooks.md`
+> Source: `docs/method/backlog/up-next/CORE_claude-code-hooks.md`
 
 PreToolUse hooks on Read and Bash to enforce Graft policy in Claude
 Code sessions. Read calls routed through safe_read. Bash test runs
@@ -334,9 +359,9 @@ Effort: L
 
 ---
 
-#### Context budget
+#### CORE: Context budget
 
-> Source: `docs/method/backlog/up-next/context-budget.md`
+> Source: `docs/method/backlog/up-next/CORE_context-budget.md`
 
 Agent declares a token/byte budget at session start. Graft adjusts
 all thresholds dynamically to stay within it. The governor becomes
@@ -354,9 +379,9 @@ Effort: M
 
 ---
 
-#### Dockerfile
+#### CORE: Dockerfile
 
-> Source: `docs/method/backlog/up-next/dockerfile.md`
+> Source: `docs/method/backlog/up-next/CORE_dockerfile.md`
 
 Docker-based startup for the MCP server. Run graft without installing
 Node. Mounts the project directory at /workspace.
@@ -369,9 +394,9 @@ Effort: S
 
 ---
 
-#### Phase 2: Precision Tools
+#### CORE: Phase 2: Precision Tools
 
-> Source: `docs/method/backlog/up-next/phase2-precision-tools.md`
+> Source: `docs/method/backlog/up-next/CORE_phase2-precision-tools.md`
 
 Commands: code_show, code_find, exports view. Structural aperture —
 focus on a class, method, or export by name. Requires symbol-level
@@ -383,11 +408,11 @@ Effort: XL
 
 ---
 
-### Cool ideas
+### Cool ideas — CORE
 
-#### Auto-focus
+#### CORE: Auto-focus
 
-> Source: `docs/method/backlog/cool-ideas/auto-focus.md`
+> Source: `docs/method/backlog/cool-ideas/CORE_auto-focus.md`
 
 `focus: 'auto'` — intent-driven auto-focus. The governor infers which
 symbol or range the agent actually needs based on the request context,
@@ -395,9 +420,9 @@ instead of requiring explicit targeting.
 
 ---
 
-#### capture_range(handle, start, end)
+#### CORE: capture_range(handle, start, end)
 
-> Source: `docs/method/backlog/cool-ideas/capture-range.md`
+> Source: `docs/method/backlog/cool-ideas/CORE_capture-range.md`
 
 Opaque log handles for run_capture output. Instead of raw read_range
 on log files, return a scoped slice via a handle that the governor
@@ -406,19 +431,9 @@ limits.
 
 ---
 
-#### graft changed-since-last-read
+#### CORE: Graft as training signal
 
-> Source: `docs/method/backlog/cool-ideas/changed-since-last-read.md`
-
-The doorway to WARP territory. Track what the agent last observed and
-surface only the structural delta. Requires observation timestamps and
-symbol identity — the minimal provenance model.
-
----
-
-#### Graft as training signal
-
-> Source: `docs/method/backlog/cool-ideas/graft-as-teacher.md`
+> Source: `docs/method/backlog/cool-ideas/CORE_graft-as-teacher.md`
 
 Refusals and outlines currently block or downgrade. What if they
 also taught?
@@ -437,9 +452,9 @@ suggestion for better context hygiene.
 
 ---
 
-#### graft explain \<reason-code\>
+#### CORE: graft explain \<reason-code\>
 
-> Source: `docs/method/backlog/cool-ideas/graft-explain.md`
+> Source: `docs/method/backlog/cool-ideas/CORE_graft-explain.md`
 
 Built-in help for machine reason codes. `graft explain BINARY` returns
 a human-readable explanation of why binary files are refused and what
@@ -447,9 +462,9 @@ the agent should do instead.
 
 ---
 
-#### graft init
+#### CORE: graft init
 
-> Source: `docs/method/backlog/cool-ideas/graft-init.md`
+> Source: `docs/method/backlog/cool-ideas/CORE_graft-init.md`
 
 Scaffolds .graftignore, updates .gitignore, generates instruction
 snippets for CLAUDE.md / system prompts, and installs hooks. The
@@ -457,48 +472,9 @@ zero-friction onboarding command.
 
 ---
 
-#### graft pack
+#### CORE: Policy profiles
 
-> Source: `docs/method/backlog/cool-ideas/graft-pack.md`
-
-One-shot handoff bundle: state + touched files + decisions + next
-reads. For passing context between agents or sessions in a single
-artifact.
-
----
-
-#### graft since \<git-ref\>
-
-> Source: `docs/method/backlog/cool-ideas/graft-since.md`
-
-Symbols changed since a commit. The bridge between Graft (current
-structure) and WARP (structural history). Requires symbol identity
-across revisions.
-
----
-
-#### Outline diff in commit trailers
-
-> Source: `docs/method/backlog/cool-ideas/outline-diff-commit-trailer.md`
-
-Post-commit hook appends a structural summary to the commit message
-as a trailer:
-
-```
-Structural-Diff: added createGraftServer; changed SessionTracker.getMessageCount (new)
-```
-
-Machine-readable metadata that agents can consume from `git log`
-without reading the actual diff. Pairs naturally with `graft diff`
-(same structural diff primitive, different output target).
-
-Depends on: graft diff.
-
----
-
-#### Policy profiles
-
-> Source: `docs/method/backlog/cool-ideas/policy-profiles.md`
+> Source: `docs/method/backlog/cool-ideas/CORE_policy-profiles.md`
 
 Named policy presets: balanced / strict / feral. Different thresholds,
 different ban lists, different outline verbosity. Switchable per
@@ -506,9 +482,9 @@ session or per project via .graftrc or CLI flag.
 
 ---
 
-#### Receipt mode
+#### CORE: Receipt mode
 
-> Source: `docs/method/backlog/cool-ideas/receipt-mode.md`
+> Source: `docs/method/backlog/cool-ideas/CORE_receipt-mode.md`
 
 Compact decision blobs for Blacklight analysis. Instead of full
 NDJSON logs, emit minimal receipts that Blacklight can aggregate to
@@ -516,9 +492,9 @@ compare pre-graft vs post-graft context burden.
 
 ---
 
-#### Self-tuning governor
+#### CORE: Self-tuning governor
 
-> Source: `docs/method/backlog/cool-ideas/self-tuning-governor.md`
+> Source: `docs/method/backlog/cool-ideas/CORE_self-tuning-governor.md`
 
 Analyze the NDJSON metrics log to suggest threshold adjustments.
 
@@ -533,19 +509,9 @@ emits suggestions, or as a periodic self-check in the MCP server.
 
 ---
 
-#### Symbol heatmap
+#### CORE: Token usage: graft vs no-graft
 
-> Source: `docs/method/backlog/cool-ideas/symbol-heatmap.md`
-
-Derive from metrics: which symbols trigger outlines or re-reads most
-often? Surface hot symbols to help agents (and humans) understand
-where context pressure concentrates.
-
----
-
-#### Token usage: graft vs no-graft
-
-> Source: `docs/method/backlog/cool-ideas/token-usage-comparison.md`
+> Source: `docs/method/backlog/cool-ideas/CORE_token-usage-comparison.md`
 
 Track actual token consumption with and without graft during
 development. The tool's own build is the first test subject.
@@ -562,6 +528,67 @@ average).
 
 This is how we PROVE graft works — not with synthetic benchmarks,
 but with real sessions building graft itself.
+
+---
+
+### Cool ideas — WARP
+
+#### WARP: graft changed-since-last-read
+
+> Source: `docs/method/backlog/cool-ideas/WARP_changed-since-last-read.md`
+
+The doorway to WARP territory. Track what the agent last observed and
+surface only the structural delta. Requires observation timestamps and
+symbol identity — the minimal provenance model.
+
+---
+
+#### WARP: graft since \<git-ref\>
+
+> Source: `docs/method/backlog/cool-ideas/WARP_graft-since.md`
+
+Symbols changed since a commit. The bridge between Graft (current
+structure) and WARP (structural history). Requires symbol identity
+across revisions.
+
+---
+
+#### WARP: graft pack
+
+> Source: `docs/method/backlog/cool-ideas/WARP_graft-pack.md`
+
+One-shot handoff bundle: state + touched files + decisions + next
+reads. For passing context between agents or sessions in a single
+artifact.
+
+---
+
+#### WARP: Outline diff in commit trailers
+
+> Source: `docs/method/backlog/cool-ideas/WARP_outline-diff-commit-trailer.md`
+
+Post-commit hook appends a structural summary to the commit message
+as a trailer:
+
+```
+Structural-Diff: added createGraftServer; changed SessionTracker.getMessageCount (new)
+```
+
+Machine-readable metadata that agents can consume from `git log`
+without reading the actual diff. Pairs naturally with `graft diff`
+(same structural diff primitive, different output target).
+
+Depends on: graft diff.
+
+---
+
+#### WARP: Symbol heatmap
+
+> Source: `docs/method/backlog/cool-ideas/WARP_symbol-heatmap.md`
+
+Derive from metrics: which symbols trigger outlines or re-reads most
+often? Surface hot symbols to help agents (and humans) understand
+where context pressure concentrates.
 
 ---
 
