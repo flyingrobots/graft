@@ -4,7 +4,8 @@ Context governor for coding agents.
 
 Graft enforces read policy so coding agents consume the smallest
 structurally correct view of a codebase instead of dumping entire
-files into their context window. It is a tool for agents, not humans.
+files into their context window. Agent-first, but the structural
+tools (outlines, diffs, symbol history) are useful to anyone.
 
 ## Why
 

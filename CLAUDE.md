@@ -2,9 +2,9 @@
 
 ## What this is
 
-Graft is a context governor for coding agents. Not for humans —
-humans have IDEs. This tool exists because agents waste enormous
-context reading files they shouldn't read whole.
+Graft is a context governor for coding agents. Agent-first — the
+primary surface is MCP tools, not a terminal UI. But the structural
+tools (outlines, diffs, symbol history) are useful to anyone.
 
 Empirical basis: 96.2 GB Read burden across 1,091 sessions
 (Blacklight, ~/git/blacklight/LLM_TOKEN_USE.md).

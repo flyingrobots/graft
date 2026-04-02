@@ -25,9 +25,11 @@ were full-file. One file was read 1,053 times for 1.74 GB of
 burden. Dynamic read caps + session management reduce this by
 **75.1%**.
 
-Graft is not a tool for humans. Humans have IDEs. Graft is a tool
-for agents — an MCP server that enforces read policy, returns the
-smallest structurally correct view, and logs every decision.
+Graft is agent-first — an MCP server that enforces read policy,
+returns the smallest structurally correct view, and logs every
+decision. But the structural tools (outlines, diffs, symbol history)
+are useful to anyone. Don't market it as a human tool. Do leave the
+door unlocked.
 
 The long-term vision: Graft grows from a governor into a
 **provenance-aware substrate**. Git tracks bytes. Graft, powered
@@ -132,11 +134,16 @@ structural operations that caused it. Like jj: no unstaged state.
 
 ### ASAP — pull next
 
-| Item | Legend | Summary | Effort |
-|------|--------|---------|--------|
-| [Re-read suppression](#core-re-read-suppression) | CORE | Session hash cache — skip re-reads of unchanged files | S |
-| [graft diff](#core-graft-diff) | CORE | Structural git diff (symbol-level, not line hunks) | M |
-| [WARP AST-per-commit](#warp-commit-level-worldline) | WARP | Level 1 worldline with structural delta patches | L |
+Prescribed sequence: practical wins first, prove them, then go
+deeper.
+
+| # | Item | Legend | Summary | Effort |
+|---|------|--------|---------|--------|
+| 1 | [Re-read suppression](#core-re-read-suppression) | CORE | Session hash cache — skip re-reads of unchanged files | S |
+| 2 | [Receipt mode](#core-receipt-mode) | CORE | Compact decision blobs for Blacklight — prove graft works | S |
+| 3 | [changed-since-last-read](#warp-graft-changed-since-last-read) | WARP | Thinnest viable observation cache | M |
+| 4 | [graft diff](#core-graft-diff) | CORE | Structural git diff (symbol-level, not line hunks) | M |
+| 5 | [WARP AST-per-commit](#warp-commit-level-worldline) | WARP | Level 1 worldline with structural delta patches | L |
 
 ### Up-next
 
@@ -145,6 +152,7 @@ structural operations that caused it. Like jj: no unstaged state.
 | [Claude Code hooks](#core-claude-code-hooks-integration) | CORE | PreToolUse hooks enforcing graft policy on Read/Bash | L |
 | [Context budget](#core-context-budget) | CORE | Agent declares budget, governor adjusts dynamically | M |
 | [Dockerfile](#core-dockerfile) | CORE | Docker-based MCP server startup | S |
+| [Token usage comparison](#core-token-usage-graft-vs-no-graft) | CORE | Measure graft vs no-graft context burden | M |
 | [Phase 2 precision tools](#core-phase-2-precision-tools) | CORE | code_show, code_find — symbol-level extraction | XL |
 
 ### Cool ideas (unshaped)
@@ -157,12 +165,9 @@ structural operations that caused it. Like jj: no unstaged state.
 - [graft explain](#core-graft-explain-reason-code)
 - [graft init](#core-graft-init)
 - [capture_range](#core-capture_rangehandle-start-end)
-- [Token usage comparison](#core-token-usage-graft-vs-no-graft)
-- [Receipt mode](#core-receipt-mode)
 
 **WARP — Structural memory:**
 - [graft since \<ref\>](#warp-graft-since-git-ref)
-- [changed-since-last-read](#warp-graft-changed-since-last-read)
 - [Outline diff in commit trailers](#warp-outline-diff-in-commit-trailers)
 - [graft pack](#warp-graft-pack)
 - [Symbol heatmap](#warp-symbol-heatmap)
