@@ -2,30 +2,36 @@
 
 ## What this is
 
-Graft is a context governor for coding agents. It enforces read policy
-so agents consume the smallest structurally correct view of a codebase.
+Graft is a context governor for coding agents. Not for humans —
+humans have IDEs. This tool exists because agents waste enormous
+context reading files they shouldn't read whole.
+
+Empirical basis: 96.2 GB Read burden across 1,091 sessions
+(Blacklight, ~/git/blacklight/LLM_TOKEN_USE.md).
 
 - **npm**: `@flyingrobots/graft`
-- **CLI**: `graft`, `git-graft`
-- **Transport**: MCP server + Claude Code hooks + CLI
-- **Parser**: tree-sitter (JS/TS first, Rust later)
+- **Primary surface**: MCP server + Claude Code hooks
+- **Secondary**: CLI (`graft`, `git-graft`) for debugging/testing
+- **Parser**: web-tree-sitter WASM (JS/TS first, Rust later)
+- **Output**: Structured JSON. No pretty terminal formatting.
 
 ## Architecture
 
 ```
 src/
-  policy/       read policy engine (dual threshold, bans, .graftignore)
-  parser/       tree-sitter outline extraction
-  operations/   command implementations (safe_read, file_outline, etc.)
-  format/       output formatting (content, outline, refusal, error)
+  policy/       read policy engine (thresholds, bans, session depth)
+  parser/       tree-sitter outline extraction (WASM)
+  operations/   command implementations
+  format/       output formatting (JSON structured responses)
   metrics/      NDJSON decision logging
+  session/      session tracking, tripwires
   hooks/        Claude Code hook integration
   mcp/          MCP server transport
 ```
 
 ## Internal vocabulary
 
-These terms are internal doctrine, not public CLI names:
+These terms are internal doctrine, not public API names:
 
 - **projection** — output mode chosen by policy (content/outline/refused/error)
 - **focus** — file/class/method/range targeting
@@ -37,10 +43,10 @@ These terms are internal doctrine, not public CLI names:
 
 | Command | Policy |
 |---|---|
-| `safe_read` | Dual threshold: 150 lines + 12 KB. Returns content, outline, or refusal. |
-| `file_outline` | Always allowed. Output bounded per signature. |
+| `safe_read` | Dual threshold: 150 lines + 12 KB (static). Dynamic session-depth cap (20/10/4 KB). |
+| `file_outline` | Always allowed. Output bounded. Includes jump table. |
 | `read_range` | Max 250 lines, byte cap. No stealth cat. |
-| `run_capture` | Tail limit (default 60 lines). |
+| `run_capture` | Tee to log + tail (default 60 lines). |
 | `state_save` | Max 8 KB. |
 | `state_load` | Returns saved state or empty. |
 | `doctor` | No policy. Diagnostic. |
@@ -48,7 +54,16 @@ These terms are internal doctrine, not public CLI names:
 
 ## Reason codes
 
-Machine-stable enums, not prose. 13 codes defined in the design doc.
+Machine-stable enums, not prose. 14 codes defined in the design doc.
+
+## Tripwires
+
+| Signal | Threshold |
+|---|---|
+| `SESSION_LONG` | > 500 messages |
+| `EDIT_BASH_LOOP` | > 30 edit↔bash transitions |
+| `RUNAWAY_TOOLS` | > 80 tool calls since last user message |
+| `LATE_LARGE_READ` | Output > 20 KB after 300 messages |
 
 ## Development
 
@@ -64,5 +79,5 @@ Git hooks: `git config --local core.hooksPath scripts/hooks`
 
 1. `claude-think --recent --json` — reconstruct prior context.
 2. Check `docs/method/backlog/asap/` — what's hot.
-3. Check `.claude/bad_code.md` — anything in touched files.
-4. Check `.claude/cool_ideas.md` — anything to surface.
+3. Check `docs/method/backlog/bad-code/` — anything in touched files.
+4. Check `docs/method/backlog/cool-ideas/` — anything to surface.
