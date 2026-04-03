@@ -42,6 +42,7 @@ export function getFileAtRef(
     return execSync(`git show ${ref}:${filePath}`, {
       cwd,
       encoding: "utf-8",
+      stdio: ["pipe", "pipe", "pipe"],
     });
   } catch {
     return null;
