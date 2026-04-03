@@ -22,6 +22,7 @@ export interface SafeReadResult {
 
 export interface SafeReadOptions {
   fs: FileSystem;
+  content?: string | undefined;
   intent?: string | undefined;
   sessionDepth?: SessionDepth | undefined;
 }
@@ -30,20 +31,28 @@ export async function safeRead(
   filePath: string,
   options: SafeReadOptions,
 ): Promise<SafeReadResult> {
-  let raw: Buffer;
-  try {
-    raw = await options.fs.readFile(filePath);
-  } catch {
-    return {
-      path: filePath,
-      projection: "error",
-      reason: "NOT_FOUND",
-    };
+  let content: string;
+  let bytes: number;
+
+  if (options.content !== undefined) {
+    content = options.content;
+    bytes = Buffer.byteLength(content, "utf-8");
+  } else {
+    let raw: Buffer;
+    try {
+      raw = await options.fs.readFile(filePath);
+    } catch {
+      return {
+        path: filePath,
+        projection: "error",
+        reason: "NOT_FOUND",
+      };
+    }
+    content = raw.toString("utf-8");
+    bytes = raw.byteLength;
   }
 
-  const content = raw.toString("utf-8");
   const lines = content.split("\n").length;
-  const bytes = raw.byteLength;
 
   const policy = evaluatePolicy(
     { path: filePath, lines, bytes },
