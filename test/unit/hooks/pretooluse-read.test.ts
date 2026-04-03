@@ -19,43 +19,33 @@ function makeInput(filePath: string, cwd?: string): HookInput {
 
 describe("hooks: pretooluse-read", () => {
   // -----------------------------------------------------------------------
-  // Content projection (small files)
+  // Content projection (small files) — exit 0, let Read proceed
   // -----------------------------------------------------------------------
-  it("returns content for small files", async () => {
+  it("allows small files through (exit 0)", async () => {
     const input = makeInput(path.join(FIXTURES, "small.ts"));
     const output = await handleReadHook(input);
-    expect(output.exitCode).toBe(2);
-    expect(output.stderr).toContain("[graft]");
-    expect(output.stderr).toContain("export function greet");
-  });
-
-  it("includes line count and byte count in content response", async () => {
-    const input = makeInput(path.join(FIXTURES, "small.ts"));
-    const output = await handleReadHook(input);
-    expect(output.stderr).toMatch(/\d+ lines/);
-    expect(output.stderr).toMatch(/\d+ bytes/);
-  });
-
-  it("respects offset and limit for content", async () => {
-    const input = makeInput(path.join(FIXTURES, "medium.ts"));
-    input.tool_input.offset = 0;
-    input.tool_input.limit = 3;
-    const output = await handleReadHook(input);
-    const contentLines = output.stderr.split("\n").slice(2); // skip header + blank
-    expect(contentLines.length).toBeLessThanOrEqual(5); // 3 content lines + some metadata
+    expect(output.exitCode).toBe(0);
+    expect(output.stderr).toBe("");
   });
 
   // -----------------------------------------------------------------------
-  // Outline projection (large files)
+  // Outline projection (large files) — exit 2, return outline
   // -----------------------------------------------------------------------
-  it("returns outline for large files", async () => {
+  it("blocks large files with structural outline (exit 2)", async () => {
     const input = makeInput(path.join(FIXTURES, "large.ts"));
     const output = await handleReadHook(input);
     expect(output.exitCode).toBe(2);
-    expect(output.stderr).toContain("exceeds threshold");
-    expect(output.stderr).toContain("read_range");
+    expect(output.stderr).toContain("exceeds policy threshold");
     expect(output.stderr).toContain("outline");
     expect(output.stderr).toContain("jumpTable");
+  });
+
+  it("outline message references graft tools", async () => {
+    const input = makeInput(path.join(FIXTURES, "large.ts"));
+    const output = await handleReadHook(input);
+    expect(output.stderr).toContain("read_range");
+    expect(output.stderr).toContain("file_outline");
+    expect(output.stderr).toContain("safe_read");
   });
 
   it("outline includes jump table entries", async () => {
@@ -67,7 +57,7 @@ describe("hooks: pretooluse-read", () => {
   });
 
   // -----------------------------------------------------------------------
-  // Refused projection (banned files)
+  // Refused projection (banned files) — exit 2, return refusal
   // -----------------------------------------------------------------------
   it("refuses binary files", async () => {
     const input = makeInput(path.join(FIXTURES, "ban-targets/image.png"));
@@ -90,16 +80,18 @@ describe("hooks: pretooluse-read", () => {
     expect(output.stderr).toContain("Refused: SECRET");
   });
 
-  it("refused response includes next steps", async () => {
+  it("refusal message references graft tools", async () => {
     const input = makeInput(path.join(FIXTURES, "ban-targets/image.png"));
     const output = await handleReadHook(input);
     expect(output.stderr).toContain("Next steps:");
+    expect(output.stderr).toContain("file_outline");
+    expect(output.stderr).toContain("safe_read");
   });
 
   // -----------------------------------------------------------------------
   // Error handling
   // -----------------------------------------------------------------------
-  it("returns error for nonexistent files", async () => {
+  it("blocks nonexistent files (exit 2)", async () => {
     const input = makeInput("/nonexistent/file.ts");
     const output = await handleReadHook(input);
     expect(output.exitCode).toBe(2);
@@ -107,7 +99,7 @@ describe("hooks: pretooluse-read", () => {
   });
 
   // -----------------------------------------------------------------------
-  // Non-JS/TS files (no outline available)
+  // Non-JS/TS files — exit 0, let Read proceed (no outline available)
   // -----------------------------------------------------------------------
   describe("non-parseable files", () => {
     let tmpDir: string;
@@ -120,14 +112,13 @@ describe("hooks: pretooluse-read", () => {
       fs.rmSync(tmpDir, { recursive: true, force: true });
     });
 
-    it("returns content for large non-JS/TS files instead of empty outline", async () => {
+    it("allows large non-JS/TS files through (exit 0)", async () => {
       const largeMd = "# Heading\n\n" + "Lorem ipsum dolor sit amet.\n".repeat(200);
       fs.writeFileSync(path.join(tmpDir, "README.md"), largeMd);
       const input = makeInput(path.join(tmpDir, "README.md"), tmpDir);
       const output = await handleReadHook(input);
-      expect(output.exitCode).toBe(2);
-      expect(output.stderr).toContain("Lorem ipsum");
-      expect(output.stderr).not.toContain("jumpTable");
+      expect(output.exitCode).toBe(0);
+      expect(output.stderr).toBe("");
     });
   });
 
@@ -159,14 +150,14 @@ describe("hooks: pretooluse-read", () => {
   });
 
   // -----------------------------------------------------------------------
-  // Always exits 2
+  // Exit code correctness
   // -----------------------------------------------------------------------
-  it("always exits with code 2", async () => {
+  it("exit 0 for allowed, exit 2 for governed", async () => {
     const small = await handleReadHook(makeInput(path.join(FIXTURES, "small.ts")));
     const large = await handleReadHook(makeInput(path.join(FIXTURES, "large.ts")));
     const banned = await handleReadHook(makeInput(path.join(FIXTURES, "ban-targets/.env")));
     const missing = await handleReadHook(makeInput("/nope"));
-    expect(small.exitCode).toBe(2);
+    expect(small.exitCode).toBe(0);
     expect(large.exitCode).toBe(2);
     expect(banned.exitCode).toBe(2);
     expect(missing.exitCode).toBe(2);

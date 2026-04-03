@@ -2,9 +2,10 @@
 // PreToolUse hook for Read — enforces graft policy on Claude Code reads
 // ---------------------------------------------------------------------------
 //
-// Intercepts Claude Code's Read tool, evaluates graft policy, and returns
-// the policy-controlled response (content, outline, or refusal) via stderr.
-// Always exits with code 2 (block) — graft handles all file reads.
+// Intercepts Claude Code's Read tool and evaluates graft policy:
+//   - Content (small file): exit 0 — let native Read proceed normally
+//   - Outline (large file): exit 2 — block and return structural outline
+//   - Refused (banned file): exit 2 — block and return refusal
 //
 // Invoked as: node --import tsx src/hooks/pretooluse-read.ts
 // Receives JSON on stdin from Claude Code hooks system.
@@ -35,8 +36,6 @@ export interface HookOutput {
 
 export async function handleReadHook(input: HookInput): Promise<HookOutput> {
   const filePath = input.tool_input.file_path;
-  const offset = input.tool_input.offset;
-  const limit = input.tool_input.limit;
 
   // Read file
   let rawContent: string;
@@ -77,26 +76,16 @@ export async function handleReadHook(input: HookInput): Promise<HookOutput> {
         "",
         "Next steps:",
         nextSteps,
+        "",
+        "Graft tools: use file_outline to see the file's structure,",
+        "or safe_read for a policy-aware read with caching.",
       ].join("\n"),
     };
   }
 
-  // Content — small file, pass through
+  // Content — small file, let native Read proceed
   if (policy instanceof ContentResult) {
-    // Respect offset/limit if provided
-    let content: string;
-    if (offset !== undefined || limit !== undefined) {
-      const startLine = offset ?? 0;
-      const lineCount = limit ?? lines.length;
-      content = lines.slice(startLine, startLine + lineCount).join("\n");
-    } else {
-      content = rawContent;
-    }
-
-    return {
-      exitCode: 2,
-      stderr: `[graft] ${filePath} (${String(lines.length)} lines, ${String(bytes)} bytes)\n\n${content}`,
-    };
+    return { exitCode: 0, stderr: "" };
   }
 
   // Outline — large file, extract structure
@@ -105,19 +94,8 @@ export async function handleReadHook(input: HookInput): Promise<HookOutput> {
   const { detectLang } = await import("../parser/lang.js");
   const lang = detectLang(filePath);
   if (lang === null) {
-    // Unsupported language — return content (no outline available)
-    let content: string;
-    if (offset !== undefined || limit !== undefined) {
-      const startLine = offset ?? 0;
-      const lineCount = limit ?? lines.length;
-      content = lines.slice(startLine, startLine + lineCount).join("\n");
-    } else {
-      content = rawContent;
-    }
-    return {
-      exitCode: 2,
-      stderr: `[graft] ${filePath} (${String(lines.length)} lines, ${String(bytes)} bytes)\n\n${content}`,
-    };
+    // Unsupported language — no outline available, let native Read proceed
+    return { exitCode: 0, stderr: "" };
   }
 
   const { extractOutline } = await import("../parser/outline.js");
@@ -132,8 +110,12 @@ export async function handleReadHook(input: HookInput): Promise<HookOutput> {
   return {
     exitCode: 2,
     stderr: [
-      `[graft] File exceeds threshold (${String(lines.length)} lines, ${String(bytes)} bytes). Returning structural outline.`,
-      "Use read_range to read specific line ranges from the jump table.",
+      `[graft] File exceeds policy threshold (${String(lines.length)} lines, ${String(bytes)} bytes).`,
+      "Structural outline returned instead of full content.",
+      "",
+      "Use graft's read_range tool with the jump table line numbers",
+      "below to read specific symbols. Use file_outline for a fresh",
+      "outline, or safe_read for full policy-aware reads with caching.",
       "",
       outlineJson,
     ].join("\n"),
