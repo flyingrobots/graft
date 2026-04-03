@@ -17,6 +17,7 @@ import { extractOutline } from "../parser/outline.js";
 import { diffOutlines } from "../parser/diff.js";
 import { detectLang } from "../parser/lang.js";
 import { graftDiff } from "../operations/graft-diff.js";
+import { Metrics } from "./metrics.js";
 
 export type McpToolResult = CallToolResult;
 
@@ -62,13 +63,8 @@ export function createGraftServer(): GraftServer {
   const handlers = new Map<string, ToolHandler>();
   const observations = new Map<string, Observation>();
 
+  const metrics = new Metrics();
   let seq = 0;
-  let totalReads = 0;
-  let totalOutlines = 0;
-  let totalRefusals = 0;
-  let totalCacheHits = 0;
-  let totalBytesAvoidedByCache = 0;
-  let cumulativeBytesReturned = 0;
 
   function registerTool(
     name: string,
@@ -94,6 +90,7 @@ export function createGraftServer(): GraftServer {
 
   function textResultWithReceipt(tool: string, data: Record<string, unknown>): McpToolResult {
     seq++;
+    const snap = metrics.snapshot();
     const receipt: Record<string, unknown> = {
       sessionId,
       seq,
@@ -104,12 +101,12 @@ export function createGraftServer(): GraftServer {
       fileBytes: (data["actual"] as { bytes: number } | undefined)?.bytes ?? null,
       returnedBytes: 0,
       cumulative: {
-        reads: totalReads,
-        outlines: totalOutlines,
-        refusals: totalRefusals,
-        cacheHits: totalCacheHits,
+        reads: snap.reads,
+        outlines: snap.outlines,
+        refusals: snap.refusals,
+        cacheHits: snap.cacheHits,
         bytesReturned: 0,
-        bytesAvoided: totalBytesAvoidedByCache,
+        bytesAvoided: snap.bytesAvoided,
       },
     };
     const fullData: Record<string, unknown> = { ...data, _receipt: receipt };
@@ -126,9 +123,9 @@ export function createGraftServer(): GraftServer {
       prev = text.length;
       receipt["returnedBytes"] = text.length;
       (receipt["cumulative"] as Record<string, number>)["bytesReturned"] =
-        cumulativeBytesReturned + text.length;
+        snap.bytesReturned + text.length;
     }
-    cumulativeBytesReturned += text.length;
+    metrics.addBytesReturned(text.length);
     return { content: [{ type: "text", text }] };
   }
 
@@ -185,8 +182,7 @@ export function createGraftServer(): GraftServer {
           const now = new Date().toISOString();
           cacheResult.obs.readCount++;
           cacheResult.obs.lastReadAt = now;
-          totalCacheHits++;
-          totalBytesAvoidedByCache += cacheResult.obs.actual.bytes;
+          metrics.recordCacheHit(cacheResult.obs.actual.bytes);
           return textResultWithReceipt("safe_read", {
             path: filePath,
             projection: "cache_hit",
@@ -214,7 +210,7 @@ export function createGraftServer(): GraftServer {
             { sessionDepth: session.getSessionDepth() },
           );
           if (policy instanceof RefusedResult) {
-            totalRefusals++;
+            metrics.recordRefusal();
             return textResultWithReceipt("safe_read", {
               path: filePath,
               projection: "refused",
@@ -260,9 +256,9 @@ export function createGraftServer(): GraftServer {
         sessionDepth: session.getSessionDepth(),
       });
 
-      if (result.projection === "content") totalReads++;
-      if (result.projection === "outline") totalOutlines++;
-      if (result.projection === "refused") totalRefusals++;
+      if (result.projection === "content") metrics.recordRead();
+      if (result.projection === "outline") metrics.recordOutline();
+      if (result.projection === "refused") metrics.recordRefusal();
 
       // Record observation for content and outline projections (not refusals/errors)
       if (rawContent !== null && (result.projection === "content" || result.projection === "outline")) {
@@ -311,7 +307,7 @@ export function createGraftServer(): GraftServer {
     }
 
     const result = await fileOutline(filePath);
-    totalOutlines++;
+    metrics.recordOutline();
 
     // Record observation
     if (rawContent !== null) {
@@ -337,7 +333,7 @@ export function createGraftServer(): GraftServer {
     async (args) => {
       const filePath = path.resolve(projectRoot, args["path"] as string);
       const result = await readRange(filePath, args["start"] as number, args["end"] as number);
-      totalReads++;
+      metrics.recordRead();
       return textResultWithReceipt("read_range", result as unknown as Record<string, unknown>);
     },
   );
@@ -505,11 +501,11 @@ export function createGraftServer(): GraftServer {
     description: "Decision metrics for the current session. Total reads, outlines, refusals, cache hits, and bytes avoided.",
   }, () => {
     return Promise.resolve(textResultWithReceipt("stats", {
-      totalReads,
-      totalOutlines,
-      totalRefusals,
-      totalCacheHits,
-      totalBytesAvoidedByCache,
+      totalReads: metrics.snapshot().reads,
+      totalOutlines: metrics.snapshot().outlines,
+      totalRefusals: metrics.snapshot().refusals,
+      totalCacheHits: metrics.snapshot().cacheHits,
+      totalBytesAvoidedByCache: metrics.snapshot().bytesAvoided,
     }));
   });
 
