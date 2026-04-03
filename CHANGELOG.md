@@ -23,6 +23,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   no longer imports `node:fs` directly. New `FileSystem` interface in
   `src/ports/filesystem.ts` with Node adapter in `src/adapters/node-fs.ts`.
   All operations and metrics use the port; testable with mock filesystems.
+- **Outline quality audit** (cycle 0012): 7 real-world fixture files,
+  40 test assertions proving outline extraction works on React
+  components, Express routers, barrel files, god classes, dense
+  generics, and decorated classes.
+
+### Added
+
+- **Arrow function export extraction**: `export const fn = () => {}`
+  now gets `kind: "function"` with parameter/return type signature
+  instead of generic `kind: "export"`.
+- **Enum extraction**: `enum` declarations appear in outlines with
+  `kind: "enum"`.
+- **Re-export extraction**: named, type, and wildcard re-exports
+  now appear in outlines. Barrel files are no longer invisible.
 
 ### Fixed
 
