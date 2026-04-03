@@ -100,9 +100,10 @@ export function createSafeReadHandler(ctx: ToolContext): ToolHandler {
       }
     }
 
-    // First read — no previous observation
+    // First read — pass rawContent to avoid double-read (TOCTOU)
     const result = await safeRead(filePath, {
       fs: ctx.fs,
+      content: rawContent ?? undefined,
       intent: args["intent"] as string | undefined,
       sessionDepth: ctx.session.getSessionDepth(),
     });

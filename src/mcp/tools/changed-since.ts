@@ -38,24 +38,22 @@ export function createChangedSinceHandler(ctx: ToolContext): ToolHandler {
       return ctx.respond("changed_since", { status: "refused", reason: policy.reason });
     }
 
-    const obs = ctx.cache.get(filePath);
-    if (obs === undefined) {
-      return ctx.respond("changed_since", { status: "no_previous_observation" });
-    }
-
-    const currentHash = hashContent(rawContent);
-    if (obs.contentHash === currentHash) {
+    const cacheResult = ctx.cache.check(filePath, rawContent);
+    if (cacheResult.hit) {
       return ctx.respond("changed_since", { status: "unchanged" });
+    }
+    if (cacheResult.stale === null) {
+      return ctx.respond("changed_since", { status: "no_previous_observation" });
     }
 
     // Use extractOutline with rawContent directly to avoid snapshot race.
     const newOutlineResult = extractOutline(rawContent, detectLang(filePath) ?? "ts");
-    const diff = diffOutlines(obs.outline, newOutlineResult.entries);
+    const diff = diffOutlines(cacheResult.stale.outline, newOutlineResult.entries);
 
     if (consume) {
       ctx.cache.record(
         filePath,
-        currentHash,
+        hashContent(rawContent),
         newOutlineResult.entries,
         newOutlineResult.jumpTable ?? [],
         actual,
