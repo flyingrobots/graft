@@ -65,6 +65,36 @@ Machine-stable enums, not prose. 14 codes defined in the design doc.
 | `RUNAWAY_TOOLS` | > 80 tool calls since last user message |
 | `LATE_LARGE_READ` | Output > 20 KB after 300 messages |
 
+## Repo rules
+
+### Systems-Style JavaScript Scorecard
+
+At the end of every turn where JavaScript/TypeScript source files
+were modified, provide a scorecard for each modified file:
+
+```
+### file: src/example/foo.ts
+| Dimension | Score | Notes |
+|-----------|-------|-------|
+| Runtime truth (P1) | 🟡 | PolicyResult is still a plain object |
+| Boundary validation (P2) | 🟢 | zod schema at MCP edge |
+| Behavior on type (P3) | 🔴 | switch on projection string |
+| SOLID | 🟡 | SRP ok, OCP needs work |
+| DRY | 🟢 | detectLang shared |
+Remarks: ...
+Suggestions: ...
+```
+
+Scores: 🟢 good, 🟡 needs work, 🔴 violation.
+
+Automatically adjust the backlog with any actionable findings.
+
+### Coding standard
+
+See [STYLE.md](STYLE.md) for Systems-Style JavaScript application
+to this project. New code follows the standard. Existing code
+migrates incrementally under the CLEAN_CODE legend.
+
 ## Development
 
 ```bash
