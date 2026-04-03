@@ -41,9 +41,13 @@ export function createRunCaptureHandler(ctx: ToolContext): ToolHandler {
       const tailed = typeof stdout === "string"
         ? stdout.split("\n").slice(-tail).join("\n")
         : "";
+      const totalLines = typeof stdout === "string" ? stdout.split("\n").length : 0;
       return ctx.respond("run_capture", {
         error: msg,
         output: tailed,
+        totalLines,
+        tailedLines: Math.min(tail, totalLines),
+        truncated: totalLines > tail,
         stderr: typeof stderr === "string" ? stderr.slice(0, 2000) : "",
       });
     }
