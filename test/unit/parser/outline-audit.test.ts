@@ -122,14 +122,12 @@ describe("audit: re-exports", () => {
     expect(byName(result, "createApp")!.kind).toBe("function");
   });
 
-  // Requires Fix 3: re-export extraction
-  it.skip("extracts named re-exports", () => {
+  it("extracts named re-exports", () => {
     expect(byName(result, "UserCard")).toBeDefined();
     expect(byName(result, "authenticate")).toBeDefined();
   });
 
-  // Requires Fix 3: re-export extraction
-  it.skip("extracts type re-exports", () => {
+  it("extracts type re-exports", () => {
     expect(byName(result, "UserProps")).toBeDefined();
     expect(byName(result, "RouteParams")).toBeDefined();
   });

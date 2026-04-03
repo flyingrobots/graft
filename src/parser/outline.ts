@@ -282,6 +282,33 @@ export function extractOutline(
         continue;
       }
 
+      // Re-exports: export { A, B } from './x'
+      const exportClause = child.namedChildren.find(
+        (c) => c.type === "export_clause",
+      );
+      if (exportClause) {
+        for (const spec of exportClause.namedChildren) {
+          if (spec.type === "export_specifier") {
+            const nameNode = spec.childForFieldName("alias") ?? spec.childForFieldName("name");
+            if (nameNode) {
+              entries.push({ kind: "export", name: nameNode.text, exported: true });
+              jumpTable.push(buildJumpEntry(nameNode.text, "export", child));
+            }
+          }
+        }
+        continue;
+      }
+
+      // Wildcard re-export: export * from './x'
+      const source = child.namedChildren.find((c) => c.type === "string");
+      const hasWildcard = child.children.some((c) => c.type === "*" || c.type === "namespace_export");
+      if (hasWildcard && source) {
+        const name = `* from ${source.text}`;
+        entries.push({ kind: "export", name, exported: true });
+        jumpTable.push(buildJumpEntry(name, "export", child));
+        continue;
+      }
+
       // Other export forms — skip
     } else {
       // Non-exported top-level declaration
