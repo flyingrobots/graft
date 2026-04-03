@@ -35,8 +35,7 @@ describe("audit: react-component", () => {
     expect(byName(result, "UserState")!.kind).toBe("type");
   });
 
-  // Requires Fix 1: arrow function exports
-  it.skip("extracts arrow function hooks as kind=function with signatures", () => {
+  it("extracts arrow function hooks as kind=function with signatures", () => {
     const hooks = ["useCounter", "useFetch", "useDebounce"];
     for (const name of hooks) {
       const entry = byName(result, name);
@@ -46,8 +45,7 @@ describe("audit: react-component", () => {
     }
   });
 
-  // Requires Fix 1: arrow function exports
-  it.skip("extracts formatDisplayName as kind=function", () => {
+  it("extracts formatDisplayName as kind=function", () => {
     const entry = byName(result, "formatDisplayName");
     expect(entry).toBeDefined();
     expect(entry!.kind).toBe("function");
@@ -105,8 +103,7 @@ describe("audit: express-router", () => {
     expect(jumpSymbols.length).toBeGreaterThanOrEqual(19); // 15 handlers + 2 functions + 2 types
   });
 
-  // Requires Fix 1: arrow function exports
-  it.skip("handler exports have kind=function with signatures", () => {
+  it("handler exports have kind=function with signatures", () => {
     const entry = byName(result, "listUsers");
     expect(entry!.kind).toBe("function");
     expect(entry!.signature).toBeDefined();

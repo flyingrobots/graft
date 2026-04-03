@@ -165,17 +165,38 @@ function processDeclaration(
   return entry;
 }
 
+function extractArrowSignature(name: string, arrowNode: TSNode): string | undefined {
+  const params = arrowNode.childForFieldName("parameters");
+  const returnType = arrowNode.childForFieldName("return_type");
+
+  let sig = name;
+  if (params) {
+    sig += params.text;
+  }
+  if (returnType) {
+    const rt = returnType.text.replace(/^:\s*/, "");
+    sig += ": " + rt;
+  }
+
+  return boundSignature(sig);
+}
+
 function processLexicalExport(node: TSNode): OutlineEntry[] {
   const entries: OutlineEntry[] = [];
   for (const child of node.namedChildren) {
     if (child.type === "variable_declarator") {
       const name = extractName(child);
-      if (name) {
-        entries.push({
-          kind: "export",
-          name,
-          exported: true,
-        });
+      if (!name) continue;
+
+      // Check if the value is an arrow function or function expression
+      const value = child.childForFieldName("value");
+      if (value && (value.type === "arrow_function" || value.type === "function")) {
+        const sig = extractArrowSignature(name, value);
+        const entry: OutlineEntry = { kind: "function", name, exported: true };
+        if (sig !== undefined) entry.signature = sig;
+        entries.push(entry);
+      } else {
+        entries.push({ kind: "export", name, exported: true });
       }
     }
   }
