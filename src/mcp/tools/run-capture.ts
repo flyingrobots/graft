@@ -26,13 +26,13 @@ export function createRunCaptureHandler(ctx: ToolContext): ToolHandler {
       const logPath = path.join(ctx.graftDir, "logs", "capture.log");
       fs.mkdirSync(path.dirname(logPath), { recursive: true });
       fs.writeFileSync(logPath, output);
-      return Promise.resolve(ctx.respond("run_capture", {
+      return ctx.respond("run_capture", {
         output: tailed,
         totalLines: lines.length,
         tailedLines: Math.min(tail, lines.length),
         logPath,
         truncated: lines.length > tail,
-      }));
+      });
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : String(err);
       const stdout = (err as { stdout?: string }).stdout ?? "";
@@ -41,11 +41,11 @@ export function createRunCaptureHandler(ctx: ToolContext): ToolHandler {
       const tailed = typeof stdout === "string"
         ? stdout.split("\n").slice(-tail).join("\n")
         : "";
-      return Promise.resolve(ctx.respond("run_capture", {
+      return ctx.respond("run_capture", {
         error: msg,
         output: tailed,
         stderr: typeof stderr === "string" ? stderr.slice(0, 2000) : "",
-      }));
+      });
     }
   };
 }

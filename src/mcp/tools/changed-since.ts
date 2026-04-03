@@ -24,7 +24,7 @@ export function createChangedSinceHandler(ctx: ToolContext): ToolHandler {
     try {
       rawContent = fs.readFileSync(filePath, "utf-8");
     } catch {
-      return Promise.resolve(ctx.respond("changed_since", { status: "file_not_found" }));
+      return ctx.respond("changed_since", { status: "file_not_found" });
     }
 
     const actual = {
@@ -36,17 +36,17 @@ export function createChangedSinceHandler(ctx: ToolContext): ToolHandler {
       { sessionDepth: ctx.session.getSessionDepth() },
     );
     if (policy instanceof RefusedResult) {
-      return Promise.resolve(ctx.respond("changed_since", { status: "refused", reason: policy.reason }));
+      return ctx.respond("changed_since", { status: "refused", reason: policy.reason });
     }
 
     const obs = ctx.cache.get(filePath);
     if (obs === undefined) {
-      return Promise.resolve(ctx.respond("changed_since", { status: "no_previous_observation" }));
+      return ctx.respond("changed_since", { status: "no_previous_observation" });
     }
 
     const currentHash = hashContent(rawContent);
     if (obs.contentHash === currentHash) {
-      return Promise.resolve(ctx.respond("changed_since", { status: "unchanged" }));
+      return ctx.respond("changed_since", { status: "unchanged" });
     }
 
     // Use extractOutline with rawContent directly to avoid snapshot race.
@@ -63,6 +63,6 @@ export function createChangedSinceHandler(ctx: ToolContext): ToolHandler {
       );
     }
 
-    return Promise.resolve(ctx.respond("changed_since", { diff, consumed: consume }));
+    return ctx.respond("changed_since", { diff, consumed: consume });
   };
 }

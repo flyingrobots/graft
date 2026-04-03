@@ -7,7 +7,7 @@ import type { Metrics } from "./metrics.js";
 import type { SessionTracker } from "../session/tracker.js";
 import type { McpToolResult } from "./receipt.js";
 
-export type ToolHandler = (args: Record<string, unknown>) => Promise<McpToolResult>;
+export type ToolHandler = (args: Record<string, unknown>) => McpToolResult | Promise<McpToolResult>;
 
 export interface ToolContext {
   readonly projectRoot: string;

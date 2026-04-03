@@ -20,7 +20,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   - `tools/*.ts` — 9 files, one per tool handler (state.ts has both
     save + load)
 
-## [0.1.0] — 2026-04-03
+## [0.1.0] - 2026-04-03
 
 ### Added
 
