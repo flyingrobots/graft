@@ -5,8 +5,6 @@ export interface DiffEntry {
   kind: string;
   signature?: string;
   oldSignature?: string;
-  start?: number;
-  end?: number;
   childDiff?: OutlineDiff;
 }
 

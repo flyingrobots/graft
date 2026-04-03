@@ -64,7 +64,6 @@ When a file has changed since last observation:
    - **Added**: symbols in new but not in old
    - **Removed**: symbols in old but not in new
    - **Changed**: symbols in both but with different signatures
-     or different line ranges (structural change)
    - **Unchanged**: symbols in both with same signature
 
 ```typescript
@@ -80,8 +79,7 @@ interface DiffEntry {
   kind: string;
   signature?: string;       // new signature (or old for removed)
   oldSignature?: string;    // only for changed
-  start?: number;           // line number in new file
-  end?: number;
+  childDiff?: OutlineDiff;  // nested changes (e.g., methods in a class)
 }
 ```
 

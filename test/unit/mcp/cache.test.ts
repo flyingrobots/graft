@@ -70,6 +70,10 @@ describe("mcp: re-read suppression", () => {
     const result = parse(await server.callTool("safe_read", { path: testFile }));
     expect(result.projection).toBe("diff");
     expect(result.reason).toBe("CHANGED_SINCE_LAST_READ");
+    // Verify diff structure has the expected added entry
+    const diff = result.diff as { added: { name: string }[]; removed: { name: string }[] };
+    expect(diff.added.some((d) => d.name === "goodbye")).toBe(true);
+    expect(diff.removed.some((d) => d.name === "hello")).toBe(true);
   });
 
   it("different files have independent cache entries", async () => {

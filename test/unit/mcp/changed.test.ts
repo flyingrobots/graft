@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach } from "vitest";
+import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import { createGraftServer } from "../../../src/mcp/server.js";
 import type { GraftServer } from "../../../src/mcp/server.js";
 import fs from "node:fs";
@@ -28,6 +28,10 @@ describe("mcp: changed-since-last-read", () => {
     fs.writeFileSync(testFile, 'export function hello(): string {\n  return "hi";\n}\n');
   });
 
+  afterEach(() => {
+    fs.rmSync(tmpDir, { recursive: true, force: true });
+  });
+
   it("returns diff projection when file changed between reads", async () => {
     await server.callTool("safe_read", { path: testFile });
     fs.writeFileSync(testFile, 'export function hello(): string {\n  return "hi";\n}\nexport function world(): void {}\n');
@@ -53,12 +57,15 @@ describe("mcp: changed-since-last-read", () => {
     expect(diff.removed.some((d) => d.name === "second")).toBe(true);
   });
 
-  it("diff includes changed signatures", async () => {
+  it("diff includes changed signatures with old and new values", async () => {
     await server.callTool("safe_read", { path: testFile });
     fs.writeFileSync(testFile, 'export function hello(name: string): string {\n  return name;\n}\n');
     const result = parse(await server.callTool("safe_read", { path: testFile }));
     const diff = result.diff as { changed: { name: string; oldSignature: string; signature: string }[] };
-    expect(diff.changed.some((d) => d.name === "hello")).toBe(true);
+    const entry = diff.changed.find((d) => d.name === "hello");
+    expect(entry).toBeDefined();
+    expect(entry!.oldSignature).toBe("hello(): string");
+    expect(entry!.signature).toBe("hello(name: string): string");
   });
 
   it("includes full new outline alongside diff", async () => {
