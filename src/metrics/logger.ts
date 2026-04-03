@@ -1,8 +1,9 @@
-import * as fs from "node:fs";
 import * as path from "node:path";
+import type { FileSystem } from "../ports/filesystem.js";
 import type { DecisionEntry } from "./types.js";
 
 export interface MetricsLoggerOptions {
+  readonly fs: FileSystem;
   readonly maxBytes?: number;
 }
 
@@ -10,11 +11,13 @@ const DEFAULT_MAX_BYTES = 1_048_576; // 1 MB
 
 export class MetricsLogger {
   private readonly logPath: string;
+  private readonly fs: FileSystem;
   private readonly maxBytes: number;
 
-  constructor(logPath: string, options?: MetricsLoggerOptions) {
+  constructor(logPath: string, options: MetricsLoggerOptions) {
     this.logPath = logPath;
-    this.maxBytes = options?.maxBytes ?? DEFAULT_MAX_BYTES;
+    this.fs = options.fs;
+    this.maxBytes = options.maxBytes ?? DEFAULT_MAX_BYTES;
   }
 
   async log(entry: Omit<DecisionEntry, "ts">): Promise<void> {
@@ -26,16 +29,16 @@ export class MetricsLogger {
     const line = JSON.stringify(full) + "\n";
 
     const dir = path.dirname(this.logPath);
-    await fs.promises.mkdir(dir, { recursive: true });
-    await fs.promises.appendFile(this.logPath, line, "utf-8");
+    await this.fs.mkdir(dir, { recursive: true });
+    await this.fs.appendFile(this.logPath, line, "utf-8");
 
     await this.rotateIfNeeded();
   }
 
   private async rotateIfNeeded(): Promise<void> {
-    let stat: fs.Stats;
+    let stat: { size: number };
     try {
-      stat = await fs.promises.stat(this.logPath);
+      stat = await this.fs.stat(this.logPath);
     } catch {
       return;
     }
@@ -44,7 +47,7 @@ export class MetricsLogger {
       return;
     }
 
-    const content = await fs.promises.readFile(this.logPath, "utf-8");
+    const content = await this.fs.readFile(this.logPath, "utf-8");
     const lines = content.trimEnd().split("\n");
 
     // Keep the most recent half of lines to get well under the limit
@@ -57,6 +60,6 @@ export class MetricsLogger {
       result = kept.join("\n") + "\n";
     }
 
-    await fs.promises.writeFile(this.logPath, result, "utf-8");
+    await this.fs.writeFile(this.logPath, result, "utf-8");
   }
 }
