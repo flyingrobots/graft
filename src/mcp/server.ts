@@ -13,6 +13,7 @@ import { stateSave, stateLoad } from "../operations/state.js";
 import type { OutlineEntry, JumpEntry } from "../parser/types.js";
 import { extractOutline } from "../parser/outline.js";
 import { diffOutlines } from "../parser/diff.js";
+import { detectLang } from "../parser/lang.js";
 import { graftDiff } from "../operations/graft-diff.js";
 
 export type McpToolResult = CallToolResult;
@@ -220,7 +221,7 @@ export function createGraftServer(): GraftServer {
 
           // Use extractOutline with rawContent directly to avoid snapshot race —
           // fileOutline re-reads the file, which could differ from rawContent.
-          const newOutlineResult = extractOutline(rawContent);
+          const newOutlineResult = extractOutline(rawContent, detectLang(filePath) ?? "ts");
           const diff = diffOutlines(cacheResult.stale.outline, newOutlineResult.entries);
           const newReadCount = cacheResult.stale.readCount + 1;
           // Update observation cache with new state
@@ -368,7 +369,7 @@ export function createGraftServer(): GraftServer {
     }
 
     // Use extractOutline with rawContent directly to avoid snapshot race.
-    const newOutlineResult = extractOutline(rawContent);
+    const newOutlineResult = extractOutline(rawContent, detectLang(filePath) ?? "ts");
     const diff = diffOutlines(obs.outline, newOutlineResult.entries);
 
     if (consume) {
