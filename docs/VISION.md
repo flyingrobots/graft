@@ -1,11 +1,12 @@
 ---
 title: "Graft — Executive Summary"
-generated: 2026-04-02
+generated: 2026-04-03
 generator: claude (manual, following Method executive-summary process)
-cycles_completed: 2
-tests: 157
-legends: [CORE, WARP]
-backlog_items: 23
+cycles_completed: 7
+tests: 227
+legends: [CORE, WARP, CLEAN_CODE]
+backlog_items: 26
+version: 0.1.0
 commit: HEAD
 ---
 
@@ -41,10 +42,10 @@ and writes.
 
 ## Current state
 
-**Cycles completed:** 2
-**Tests:** 157 passing across 14 files
+**Cycles completed:** 7
+**Tests:** 227 passing across 20 files
 **Lint:** clean (ESLint strict-type-checked)
-**Published:** not yet (npm: `@flyingrobots/graft`)
+**Version:** 0.1.0 (npm: `@flyingrobots/graft`)
 
 ### Cycle 0001 — The Governor (complete)
 
@@ -61,14 +62,45 @@ All 8 Phase 1 commands exposed as MCP tools over stdio. Session
 tracking built into the server — tripwires and dynamic caps happen
 automatically. Dogfooded on graft's own repo during playback.
 
-**Commands available:**
+### Cycle 0003 — Re-read Suppression (complete)
 
-| Command | What it does |
-|---------|-------------|
-| `safe_read` | Policy-enforced file read → content, outline, or refusal |
+Session-level observation cache. Second read of an unchanged file
+returns cached outline instead of re-reading. Tracks readCount and
+estimatedBytesAvoided.
+
+### Cycle 0004 — Receipt Mode (complete)
+
+Every MCP response includes a `_receipt` block with sessionId,
+monotonic seq, projection, reason, fileBytes, returnedBytes, and
+cumulative counters. Blacklight can extract these from API transcripts.
+
+### Cycle 0005 — Changed Since Last Read (complete)
+
+When a file changes between reads, returns a structural diff
+(added/removed/changed symbols) alongside the new outline. New
+`changed_since` MCP tool for explicit delta queries.
+
+### Cycle 0006 — Graft Diff (complete)
+
+Structural diff between any two git refs. Shows symbol-level
+changes per file, not line hunks. Uses `git rev-parse --verify`
+and `git cat-file -e` for stable ref/object detection.
+
+### Cycle 0007 — Release Prep (complete)
+
+bin/graft.js entry point, MCP tool descriptions, run_capture
+implementation, lang detection fix, npm 0.1.0 config.
+
+**10 MCP tools available:**
+
+| Tool | Purpose |
+|------|---------|
+| `safe_read` | Policy-enforced read (content, outline, refusal, or diff) |
 | `file_outline` | Structural skeleton with jump table |
 | `read_range` | Bounded range read (max 250 lines) |
-| `run_capture` | Shell output capture (stub) |
+| `graft_diff` | Structural diff between git refs |
+| `changed_since` | Check for changes since last read (peek or consume) |
+| `run_capture` | Shell output capture — tee to log, tail to agent |
 | `state_save` | Save session state (max 8 KB) |
 | `state_load` | Restore session state |
 | `doctor` | Runtime health check |
@@ -91,7 +123,7 @@ enforcement (MCP server, Claude Code hooks, profiles), UX
 receipts, self-tuning, token measurement), distribution (npm,
 Docker).
 
-**15 backlog items.** 2 cycles completed.
+**12 backlog items.** 7 cycles completed.
 
 ### WARP — Structural memory over Git
 
@@ -127,6 +159,15 @@ structural operations that caused it. Like jj: no unstaged state.
 - Receipt mode (compact decision blobs for Blacklight analysis)
 
 **8 backlog items.** 0 cycles completed.
+
+### CLEAN_CODE (CC) — Systems-Style JavaScript migration
+
+Structural quality work. Migrating from initial "make it work"
+state to the Systems-Style JavaScript standard: runtime-backed
+domain types, hexagonal architecture, boundary validation,
+runtime dispatch.
+
+**7 backlog items** (6 bad-code + 1 up-next). 0 cycles completed.
 
 ---
 
