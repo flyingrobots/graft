@@ -1,6 +1,6 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
-import { getChangedFiles, getFileAtRef } from "../git/diff.js";
+import { getChangedFiles, getFileAtRef, GitError } from "../git/diff.js";
 import { extractOutline } from "../parser/outline.js";
 import { diffOutlines } from "../parser/diff.js";
 import type { OutlineDiff } from "../parser/diff.js";
@@ -59,15 +59,25 @@ export function graftDiff(opts: GraftDiffOptions): GraftDiffResult {
   for (const filePath of changedFiles) {
     const lang = detectLang(filePath);
 
-    // Get content at base
-    const baseContent = getFileAtRef(base, filePath, cwd);
+    // Get content at base (null = file absent at ref)
+    let baseContent: string | null;
+    try {
+      baseContent = getFileAtRef(base, filePath, cwd);
+    } catch (err: unknown) {
+      if (err instanceof GitError) { baseContent = null; }
+      else { throw err; }
+    }
 
-    // Get content at head
+    // Get content at head (null = file absent at ref/worktree)
     let headContent: string | null;
     if (opts.head !== undefined) {
-      headContent = getFileAtRef(opts.head, filePath, cwd);
+      try {
+        headContent = getFileAtRef(opts.head, filePath, cwd);
+      } catch (err: unknown) {
+        if (err instanceof GitError) { headContent = null; }
+        else { throw err; }
+      }
     } else {
-      // Working tree
       const fullPath = path.join(cwd, filePath);
       try {
         headContent = fs.readFileSync(fullPath, "utf-8");
@@ -78,9 +88,12 @@ export function graftDiff(opts: GraftDiffOptions): GraftDiffResult {
 
     // Determine status
     let status: "modified" | "added" | "deleted";
-    if (baseContent === null && headContent !== null) {
+    if (baseContent === null && headContent === null) {
+      // Both absent — file listed in diff but unreadable at both refs. Skip.
+      continue;
+    } else if (baseContent === null) {
       status = "added";
-    } else if (baseContent !== null && headContent === null) {
+    } else if (headContent === null) {
       status = "deleted";
     } else {
       status = "modified";

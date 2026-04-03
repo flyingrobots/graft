@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
-import { getChangedFiles, getFileAtRef } from "../../../src/git/diff.js";
+import { getChangedFiles, getFileAtRef, GitError } from "../../../src/git/diff.js";
 import * as fs from "node:fs";
 import * as path from "node:path";
 import * as os from "node:os";
@@ -69,5 +69,15 @@ describe("git: diff helpers", () => {
   it("returns null for file that doesn't exist at ref", () => {
     const content = getFileAtRef("HEAD", "nonexistent.ts", tmpDir);
     expect(content).toBeNull();
+  });
+
+  it("throws GitError for invalid ref in getChangedFiles", () => {
+    expect(() => getChangedFiles({ cwd: tmpDir, base: "nonexistent-ref", head: "HEAD" }))
+      .toThrow(GitError);
+  });
+
+  it("throws GitError for invalid ref in getFileAtRef", () => {
+    expect(() => getFileAtRef("nonexistent-ref", "a.ts", tmpDir))
+      .toThrow(GitError);
   });
 });

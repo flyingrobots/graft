@@ -38,7 +38,7 @@ No WARP needed — tree-sitter parses both revisions on the fly.
 
 ### MCP tool: `graft_diff`
 
-```
+```text
 graft_diff(base?, head?, path?)
 ```
 
@@ -90,7 +90,7 @@ Other files are listed with `status` but no structural diff
 
 ### Git interaction
 
-Use `child_process.execSync` for git commands:
+Use `child_process.execFileSync` for git commands (no shell):
 - `git diff --name-only [--diff-filter=...] <base> [<head>]`
 - `git show <ref>:<path>`
 
@@ -98,7 +98,7 @@ Keep it simple. No libgit2, no isomorphic-git.
 
 ## Architecture
 
-```
+```text
 src/
   git/
     diff.ts        git diff --name-only, git show <ref>:<path>
