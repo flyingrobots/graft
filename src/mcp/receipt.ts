@@ -49,16 +49,17 @@ export function buildReceiptResult(
     fullData["tripwire"] = deps.tripwires;
   }
 
-  // Stabilize self-referential size fields
+  // Stabilize self-referential size fields (use UTF-8 byte length, not char count)
   let prev = 0;
   let text = "";
   for (let i = 0; i < 5; i++) {
     text = JSON.stringify(fullData);
-    if (text.length === prev) break;
-    prev = text.length;
-    receipt["returnedBytes"] = text.length;
+    const byteLen = Buffer.byteLength(text, "utf8");
+    if (byteLen === prev) break;
+    prev = byteLen;
+    receipt["returnedBytes"] = byteLen;
     (receipt["cumulative"] as Record<string, number>)["bytesReturned"] =
-      deps.metrics.bytesReturned + text.length;
+      deps.metrics.bytesReturned + byteLen;
   }
 
   Object.freeze(receipt["cumulative"]);
@@ -66,6 +67,6 @@ export function buildReceiptResult(
 
   return {
     result: { content: [{ type: "text", text }] },
-    textBytes: text.length,
+    textBytes: Buffer.byteLength(text, "utf8"),
   };
 }

@@ -3,7 +3,7 @@ import type { PolicyInput, PolicyOptions, ReasonCode, SessionDepth } from "./typ
 import { ContentResult, OutlineResult, RefusedResult } from "./types.js";
 import type { PolicyResult } from "./types.js";
 
-const STATIC_THRESHOLDS = { lines: 150, bytes: 12288 } as const;
+export const STATIC_THRESHOLDS = { lines: 150, bytes: 12288 } as const;
 
 const SESSION_BYTE_CAPS: Record<string, number> = {
   early: 20480,

@@ -1,5 +1,4 @@
 import * as fs from "node:fs";
-import * as path from "node:path";
 import { fileOutline } from "../../operations/file-outline.js";
 import { hashContent } from "../cache.js";
 import type { ToolHandler, ToolContext } from "../context.js";
@@ -11,7 +10,7 @@ export const FILE_OUTLINE_DESCRIPTION =
 
 export function createFileOutlineHandler(ctx: ToolContext): ToolHandler {
   return async (args) => {
-    const filePath = path.resolve(ctx.projectRoot, args["path"] as string);
+    const filePath = ctx.resolvePath(args["path"] as string);
 
     // Check cache
     let rawContent: string | null = null;

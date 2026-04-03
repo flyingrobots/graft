@@ -7,6 +7,7 @@ import { Metrics } from "./metrics.js";
 import { ObservationCache } from "./cache.js";
 import { buildReceiptResult } from "./receipt.js";
 import type { ToolHandler, ToolContext } from "./context.js";
+import { createPathResolver } from "./context.js";
 import type { McpToolResult } from "./receipt.js";
 import { createSafeReadHandler, SAFE_READ_DESCRIPTION } from "./tools/safe-read.js";
 import { createFileOutlineHandler, FILE_OUTLINE_DESCRIPTION } from "./tools/file-outline.js";
@@ -52,7 +53,7 @@ export function createGraftServer(): GraftServer {
     return result;
   }
 
-  const ctx: ToolContext = { projectRoot, graftDir, session, cache, metrics, respond };
+  const ctx: ToolContext = { projectRoot, graftDir, session, cache, metrics, respond, resolvePath: createPathResolver(projectRoot) };
 
   const toolDefs: { name: string; schema?: Record<string, z.ZodType>; desc: string; handler: ToolHandler }[] = [
     { name: "safe_read", schema: { path: z.string(), intent: z.string().optional() }, desc: SAFE_READ_DESCRIPTION, handler: createSafeReadHandler(ctx) },

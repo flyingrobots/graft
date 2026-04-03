@@ -1,3 +1,4 @@
+import { STATIC_THRESHOLDS } from "../../policy/evaluate.js";
 import type { ToolHandler, ToolContext } from "../context.js";
 
 export const DOCTOR_DESCRIPTION =
@@ -9,7 +10,7 @@ export function createDoctorHandler(ctx: ToolContext): ToolHandler {
     return ctx.respond("doctor", {
       projectRoot: ctx.projectRoot,
       parserHealthy: true,
-      thresholds: { lines: 150, bytes: 12288 },
+      thresholds: { lines: STATIC_THRESHOLDS.lines, bytes: STATIC_THRESHOLDS.bytes },
       sessionDepth: ctx.session.getSessionDepth(),
       totalMessages: ctx.session.getMessageCount(),
     });

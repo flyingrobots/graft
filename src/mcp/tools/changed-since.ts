@@ -1,5 +1,4 @@
 import * as fs from "node:fs";
-import * as path from "node:path";
 import { evaluatePolicy } from "../../policy/evaluate.js";
 import { RefusedResult } from "../../policy/types.js";
 import { extractOutline } from "../../parser/outline.js";
@@ -15,7 +14,7 @@ export const CHANGED_SINCE_DESCRIPTION =
 
 export function createChangedSinceHandler(ctx: ToolContext): ToolHandler {
   return (args) => {
-    const filePath = path.resolve(ctx.projectRoot, args["path"] as string);
+    const filePath = ctx.resolvePath(args["path"] as string);
     const consume = (args["consume"] as boolean | undefined) === true;
 
     // Policy check: refuse banned files even via changed_since.

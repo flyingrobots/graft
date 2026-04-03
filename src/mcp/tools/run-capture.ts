@@ -11,7 +11,7 @@ export const RUN_CAPTURE_DESCRIPTION =
 export function createRunCaptureHandler(ctx: ToolContext): ToolHandler {
   return (args) => {
     const command = args["command"] as string;
-    const tail = (args["tail"] as number | undefined) ?? 60;
+    const tail = Math.max(1, Math.floor((args["tail"] as number | undefined) ?? 60));
     try {
       const output = execFileSync("sh", ["-c", command], {
         cwd: ctx.projectRoot,

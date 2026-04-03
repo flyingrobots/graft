@@ -1,5 +1,4 @@
 import * as fs from "node:fs";
-import * as path from "node:path";
 import { safeRead } from "../../operations/safe-read.js";
 import { fileOutline } from "../../operations/file-outline.js";
 import { evaluatePolicy } from "../../policy/evaluate.js";
@@ -18,7 +17,7 @@ export const SAFE_READ_DESCRIPTION =
 
 export function createSafeReadHandler(ctx: ToolContext): ToolHandler {
   return async (args) => {
-    const filePath = path.resolve(ctx.projectRoot, args["path"] as string);
+    const filePath = ctx.resolvePath(args["path"] as string);
 
     // Try to read the file for cache check
     let rawContent: string | null = null;
@@ -112,14 +111,14 @@ export function createSafeReadHandler(ctx: ToolContext): ToolHandler {
     if (result.projection === "refused") ctx.metrics.recordRefusal();
 
     // Record observation for content and outline projections (not refusals/errors)
-    if (rawContent !== null && (result.projection === "content" || result.projection === "outline")) {
+    if (rawContent !== null && result.actual !== undefined && (result.projection === "content" || result.projection === "outline")) {
       const outlineResult = await fileOutline(filePath);
       ctx.cache.record(
         filePath,
         hashContent(rawContent),
         outlineResult.outline,
         outlineResult.jumpTable,
-        result.actual as { lines: number; bytes: number },
+        result.actual,
       );
     }
 
