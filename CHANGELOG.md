@@ -37,6 +37,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   `kind: "enum"`.
 - **Re-export extraction**: named, type, and wildcard re-exports
   now appear in outlines. Barrel files are no longer invisible.
+- **Claude Code hooks enforcement** (cycle 0015): PreToolUse hook
+  intercepts `Read` calls and routes them through graft's policy
+  engine. Agents get content, outlines, or refusals automatically
+  without needing to use MCP tools explicitly.
 
 ### Fixed
 
