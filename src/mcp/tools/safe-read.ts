@@ -102,6 +102,7 @@ export function createSafeReadHandler(ctx: ToolContext): ToolHandler {
 
     // First read — no previous observation
     const result = await safeRead(filePath, {
+      fs: ctx.fs,
       intent: args["intent"] as string | undefined,
       sessionDepth: ctx.session.getSessionDepth(),
     });
@@ -112,7 +113,7 @@ export function createSafeReadHandler(ctx: ToolContext): ToolHandler {
 
     // Record observation for content and outline projections (not refusals/errors)
     if (rawContent !== null && result.actual !== undefined && (result.projection === "content" || result.projection === "outline")) {
-      const outlineResult = await fileOutline(filePath);
+      const outlineResult = await fileOutline(filePath, { fs: ctx.fs });
       ctx.cache.record(
         filePath,
         hashContent(rawContent),

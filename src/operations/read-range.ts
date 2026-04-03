@@ -1,4 +1,4 @@
-import { readFile } from "node:fs/promises";
+import type { FileSystem } from "../ports/filesystem.js";
 
 const MAX_RANGE_LINES = 250;
 
@@ -16,10 +16,11 @@ export async function readRange(
   filePath: string,
   start: number,
   end: number,
+  opts: { fs: FileSystem },
 ): Promise<ReadRangeResult> {
   let raw: string;
   try {
-    raw = await readFile(filePath, "utf-8");
+    raw = await opts.fs.readFile(filePath, "utf-8");
   } catch {
     return { path: filePath, reason: "NOT_FOUND" };
   }

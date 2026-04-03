@@ -1,5 +1,5 @@
-import * as fs from "node:fs";
 import * as path from "node:path";
+import type { FileSystem } from "../ports/filesystem.js";
 import { getChangedFiles, getFileAtRef } from "../git/diff.js";
 import { detectLang } from "../parser/lang.js";
 import { extractOutline } from "../parser/outline.js";
@@ -20,6 +20,7 @@ export interface GraftDiffResult {
 
 export interface GraftDiffOptions {
   cwd: string;
+  fs: FileSystem;
   base?: string | undefined;
   head?: string | undefined;
   path?: string | undefined;
@@ -64,7 +65,7 @@ export function graftDiff(opts: GraftDiffOptions): GraftDiffResult {
     } else {
       const fullPath = path.join(cwd, filePath);
       try {
-        headContent = fs.readFileSync(fullPath, "utf-8");
+        headContent = opts.fs.readFileSync(fullPath, "utf-8");
       } catch {
         headContent = null;
       }

@@ -11,14 +11,14 @@ export const STATE_LOAD_DESCRIPTION =
 
 export function createStateSaveHandler(ctx: ToolContext): ToolHandler {
   return async (args) => {
-    const result = await stateSave(args["content"] as string, { graftDir: ctx.graftDir });
+    const result = await stateSave(args["content"] as string, { graftDir: ctx.graftDir, fs: ctx.fs });
     return ctx.respond("state_save", result as Record<string, unknown>);
   };
 }
 
 export function createStateLoadHandler(ctx: ToolContext): ToolHandler {
   return async () => {
-    const result = await stateLoad({ graftDir: ctx.graftDir });
+    const result = await stateLoad({ graftDir: ctx.graftDir, fs: ctx.fs });
     return ctx.respond("state_load", result as Record<string, unknown>);
   };
 }

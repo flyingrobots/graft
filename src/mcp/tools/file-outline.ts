@@ -35,7 +35,7 @@ export function createFileOutlineHandler(ctx: ToolContext): ToolHandler {
       // If stale, fall through to fresh parse (no diff for file_outline)
     }
 
-    const result = await fileOutline(filePath);
+    const result = await fileOutline(filePath, { fs: ctx.fs });
     ctx.metrics.recordOutline();
 
     // Record observation

@@ -21,6 +21,7 @@ import {
 } from "./tools/state.js";
 import { createDoctorHandler, DOCTOR_DESCRIPTION } from "./tools/doctor.js";
 import { createStatsHandler, STATS_DESCRIPTION } from "./tools/stats.js";
+import { nodeFs } from "../adapters/node-fs.js";
 
 export type { McpToolResult, ToolHandler, ToolContext };
 
@@ -53,7 +54,7 @@ export function createGraftServer(): GraftServer {
     return result;
   }
 
-  const ctx: ToolContext = { projectRoot, graftDir, session, cache, metrics, respond, resolvePath: createPathResolver(projectRoot) };
+  const ctx: ToolContext = { projectRoot, graftDir, session, cache, metrics, respond, resolvePath: createPathResolver(projectRoot), fs: nodeFs };
 
   const toolDefs: { name: string; schema?: Record<string, z.ZodType>; desc: string; handler: ToolHandler }[] = [
     { name: "safe_read", schema: { path: z.string(), intent: z.string().optional() }, desc: SAFE_READ_DESCRIPTION, handler: createSafeReadHandler(ctx) },

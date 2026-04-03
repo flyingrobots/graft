@@ -1,6 +1,6 @@
-import { readFile } from "node:fs/promises";
 import { extractOutline } from "../parser/outline.js";
 import type { OutlineEntry, JumpEntry } from "../parser/types.js";
+import type { FileSystem } from "../ports/filesystem.js";
 
 export interface FileOutlineResult {
   path: string;
@@ -10,10 +10,13 @@ export interface FileOutlineResult {
   error?: string | undefined;
 }
 
-export async function fileOutline(filePath: string): Promise<FileOutlineResult> {
+export async function fileOutline(
+  filePath: string,
+  opts: { fs: FileSystem },
+): Promise<FileOutlineResult> {
   let content: string;
   try {
-    content = await readFile(filePath, "utf-8");
+    content = await opts.fs.readFile(filePath, "utf-8");
   } catch {
     return {
       path: filePath,

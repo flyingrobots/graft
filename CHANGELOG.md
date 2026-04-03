@@ -19,6 +19,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   - `context.ts` — `ToolContext` interface + `ToolHandler` type
   - `tools/*.ts` — 9 files, one per tool handler (state.ts has both
     save + load)
+- **FileSystem port** (cycle 0011): hexagonal compliance — core logic
+  no longer imports `node:fs` directly. New `FileSystem` interface in
+  `src/ports/filesystem.ts` with Node adapter in `src/adapters/node-fs.ts`.
+  All operations and metrics use the port; testable with mock filesystems.
 
 ### Fixed
 

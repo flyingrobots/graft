@@ -7,6 +7,7 @@ import type { ObservationCache } from "./cache.js";
 import type { Metrics } from "./metrics.js";
 import type { SessionTracker } from "../session/tracker.js";
 import type { McpToolResult } from "./receipt.js";
+import type { FileSystem } from "../ports/filesystem.js";
 
 export type ToolHandler = (args: Record<string, unknown>) => McpToolResult | Promise<McpToolResult>;
 
@@ -16,6 +17,7 @@ export interface ToolContext {
   readonly session: SessionTracker;
   readonly cache: ObservationCache;
   readonly metrics: Metrics;
+  readonly fs: FileSystem;
   respond(tool: string, data: Record<string, unknown>): McpToolResult;
   resolvePath(relative: string): string;
 }
