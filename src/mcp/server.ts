@@ -18,6 +18,7 @@ import { detectLang } from "../parser/lang.js";
 import { graftDiff } from "../operations/graft-diff.js";
 import { Metrics } from "./metrics.js";
 import { ObservationCache, hashContent } from "./cache.js";
+import { buildReceiptResult } from "./receipt.js";
 
 export type McpToolResult = CallToolResult;
 
@@ -70,45 +71,16 @@ export function createGraftServer(): GraftServer {
     }
   }
 
-  function textResultWithReceipt(tool: string, data: Record<string, unknown>): McpToolResult {
+  function respond(tool: string, data: Record<string, unknown>): McpToolResult {
     seq++;
-    const snap = metrics.snapshot();
-    const receipt: Record<string, unknown> = {
+    const { result, textBytes } = buildReceiptResult(tool, data, {
       sessionId,
       seq,
-      ts: new Date().toISOString(),
-      tool,
-      projection: (data["projection"] as string | undefined) ?? "none",
-      reason: (data["reason"] as string | undefined) ?? "none",
-      fileBytes: (data["actual"] as { bytes: number } | undefined)?.bytes ?? null,
-      returnedBytes: 0,
-      cumulative: {
-        reads: snap.reads,
-        outlines: snap.outlines,
-        refusals: snap.refusals,
-        cacheHits: snap.cacheHits,
-        bytesReturned: 0,
-        bytesAvoided: snap.bytesAvoided,
-      },
-    };
-    const fullData: Record<string, unknown> = { ...data, _receipt: receipt };
-    const wires = session.checkTripwires();
-    if (wires.length > 0) {
-      fullData["tripwire"] = wires;
-    }
-    // Stabilize self-referential size fields
-    let prev = 0;
-    let text = "";
-    for (let i = 0; i < 5; i++) {
-      text = JSON.stringify(fullData);
-      if (text.length === prev) break;
-      prev = text.length;
-      receipt["returnedBytes"] = text.length;
-      (receipt["cumulative"] as Record<string, number>)["bytesReturned"] =
-        snap.bytesReturned + text.length;
-    }
-    metrics.addBytesReturned(text.length);
-    return { content: [{ type: "text", text }] };
+      metrics: metrics.snapshot(),
+      tripwires: session.checkTripwires(),
+    });
+    metrics.addBytesReturned(textBytes);
+    return result;
   }
 
   // --- safe_read ---
@@ -137,7 +109,7 @@ export function createGraftServer(): GraftServer {
           cacheResult.obs.readCount++;
           cacheResult.obs.lastReadAt = now;
           metrics.recordCacheHit(cacheResult.obs.actual.bytes);
-          return textResultWithReceipt("safe_read", {
+          return respond("safe_read", {
             path: filePath,
             projection: "cache_hit",
             reason: "REREAD_UNCHANGED",
@@ -165,7 +137,7 @@ export function createGraftServer(): GraftServer {
           );
           if (policy instanceof RefusedResult) {
             metrics.recordRefusal();
-            return textResultWithReceipt("safe_read", {
+            return respond("safe_read", {
               path: filePath,
               projection: "refused",
               reason: policy.reason,
@@ -190,7 +162,7 @@ export function createGraftServer(): GraftServer {
           );
           // Use the updated observation's lastReadAt (set by recordObservation)
           const updatedObs = cache.get(filePath);
-          return textResultWithReceipt("safe_read", {
+          return respond("safe_read", {
             path: filePath,
             projection: "diff",
             reason: "CHANGED_SINCE_LAST_READ",
@@ -226,7 +198,7 @@ export function createGraftServer(): GraftServer {
         );
       }
 
-      return textResultWithReceipt("safe_read", result as unknown as Record<string, unknown>);
+      return respond("safe_read", result as unknown as Record<string, unknown>);
     },
   );
 
@@ -250,7 +222,7 @@ export function createGraftServer(): GraftServer {
       if (cacheResult.hit) {
         cacheResult.obs.readCount++;
         cacheResult.obs.lastReadAt = new Date().toISOString();
-        return textResultWithReceipt("file_outline", {
+        return respond("file_outline", {
           path: filePath,
           outline: cacheResult.obs.outline,
           jumpTable: cacheResult.obs.jumpTable,
@@ -274,7 +246,7 @@ export function createGraftServer(): GraftServer {
       );
     }
 
-    return textResultWithReceipt("file_outline", result as unknown as Record<string, unknown>);
+    return respond("file_outline", result as unknown as Record<string, unknown>);
   });
 
   // --- read_range ---
@@ -288,7 +260,7 @@ export function createGraftServer(): GraftServer {
       const filePath = path.resolve(projectRoot, args["path"] as string);
       const result = await readRange(filePath, args["start"] as number, args["end"] as number);
       metrics.recordRead();
-      return textResultWithReceipt("read_range", result as unknown as Record<string, unknown>);
+      return respond("read_range", result as unknown as Record<string, unknown>);
     },
   );
 
@@ -309,7 +281,7 @@ export function createGraftServer(): GraftServer {
     try {
       rawContent = fs.readFileSync(filePath, "utf-8");
     } catch {
-      return Promise.resolve(textResultWithReceipt("changed_since", { status: "file_not_found" }));
+      return Promise.resolve(respond("changed_since", { status: "file_not_found" }));
     }
 
     const actual = {
@@ -321,16 +293,16 @@ export function createGraftServer(): GraftServer {
       { sessionDepth: session.getSessionDepth() },
     );
     if (policy instanceof RefusedResult) {
-      return Promise.resolve(textResultWithReceipt("changed_since", { status: "refused", reason: policy.reason }));
+      return Promise.resolve(respond("changed_since", { status: "refused", reason: policy.reason }));
     }
 
     const obs = cache.get(filePath);
     if (obs === undefined) {
-      return Promise.resolve(textResultWithReceipt("changed_since", { status: "no_previous_observation" }));
+      return Promise.resolve(respond("changed_since", { status: "no_previous_observation" }));
     }
 
     if (obs.contentHash === hashContent(rawContent)) {
-      return Promise.resolve(textResultWithReceipt("changed_since", { status: "unchanged" }));
+      return Promise.resolve(respond("changed_since", { status: "unchanged" }));
     }
 
     // Use extractOutline with rawContent directly to avoid snapshot race.
@@ -351,7 +323,7 @@ export function createGraftServer(): GraftServer {
       );
     }
 
-    return Promise.resolve(textResultWithReceipt("changed_since", { diff, consumed: consume }));
+    return Promise.resolve(respond("changed_since", { diff, consumed: consume }));
   });
 
   // --- graft_diff ---
@@ -368,7 +340,7 @@ export function createGraftServer(): GraftServer {
         head: args["head"] as string | undefined,
         path: args["path"] as string | undefined,
       });
-      return Promise.resolve(textResultWithReceipt("graft_diff", result as unknown as Record<string, unknown>));
+      return Promise.resolve(respond("graft_diff", result as unknown as Record<string, unknown>));
     },
   );
 
@@ -396,7 +368,7 @@ export function createGraftServer(): GraftServer {
         const logPath = path.join(graftDir, "logs", "capture.log");
         fs.mkdirSync(path.dirname(logPath), { recursive: true });
         fs.writeFileSync(logPath, output);
-        return Promise.resolve(textResultWithReceipt("run_capture", {
+        return Promise.resolve(respond("run_capture", {
           output: tailed,
           totalLines: lines.length,
           tailedLines: Math.min(tail, lines.length),
@@ -411,7 +383,7 @@ export function createGraftServer(): GraftServer {
         const tailed = typeof stdout === "string"
           ? stdout.split("\n").slice(-tail).join("\n")
           : "";
-        return Promise.resolve(textResultWithReceipt("run_capture", {
+        return Promise.resolve(respond("run_capture", {
           error: msg,
           output: tailed,
           stderr: typeof stderr === "string" ? stderr.slice(0, 2000) : "",
@@ -426,7 +398,7 @@ export function createGraftServer(): GraftServer {
     description: "Save session working state (max 8 KB). Use for session bookmarks: current task, files modified, next planned actions.",
   }, async (args) => {
     const result = await stateSave(args["content"] as string, { graftDir });
-    return textResultWithReceipt("state_save", result as Record<string, unknown>);
+    return respond("state_save", result as Record<string, unknown>);
   });
 
   // --- state_load ---
@@ -434,14 +406,14 @@ export function createGraftServer(): GraftServer {
     description: "Load previously saved session state. Returns null if no state has been saved.",
   }, async () => {
     const result = await stateLoad({ graftDir });
-    return textResultWithReceipt("state_load", result as Record<string, unknown>);
+    return respond("state_load", result as Record<string, unknown>);
   });
 
   // --- doctor ---
   registerTool("doctor", {
     description: "Runtime health check. Shows project root, parser status, active thresholds, session depth, and message count.",
   }, () => {
-    return Promise.resolve(textResultWithReceipt("doctor", {
+    return Promise.resolve(respond("doctor", {
       projectRoot,
       parserHealthy: true,
       thresholds: { lines: 150, bytes: 12288 },
@@ -454,7 +426,7 @@ export function createGraftServer(): GraftServer {
   registerTool("stats", {
     description: "Decision metrics for the current session. Total reads, outlines, refusals, cache hits, and bytes avoided.",
   }, () => {
-    return Promise.resolve(textResultWithReceipt("stats", {
+    return Promise.resolve(respond("stats", {
       totalReads: metrics.snapshot().reads,
       totalOutlines: metrics.snapshot().outlines,
       totalRefusals: metrics.snapshot().refusals,
