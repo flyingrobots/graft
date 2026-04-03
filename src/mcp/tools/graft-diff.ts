@@ -15,6 +15,6 @@ export function createGraftDiffHandler(ctx: ToolContext): ToolHandler {
       head: args["head"] as string | undefined,
       path: args["path"] as string | undefined,
     });
-    return ctx.respond("graft_diff", result as unknown as Record<string, unknown>);
+    return ctx.respond("graft_diff", result);
   };
 }

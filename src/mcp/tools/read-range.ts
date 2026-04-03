@@ -11,6 +11,6 @@ export function createReadRangeHandler(ctx: ToolContext): ToolHandler {
     const filePath = ctx.resolvePath(args["path"] as string);
     const result = await readRange(filePath, args["start"] as number, args["end"] as number, { fs: ctx.fs });
     ctx.metrics.recordRead();
-    return ctx.respond("read_range", result as unknown as Record<string, unknown>);
+    return ctx.respond("read_range", result);
   };
 }

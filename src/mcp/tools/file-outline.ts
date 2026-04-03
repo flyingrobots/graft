@@ -49,6 +49,6 @@ export function createFileOutlineHandler(ctx: ToolContext): ToolHandler {
       );
     }
 
-    return ctx.respond("file_outline", result as unknown as Record<string, unknown>);
+    return ctx.respond("file_outline", result);
   };
 }
