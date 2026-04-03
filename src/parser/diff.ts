@@ -57,7 +57,7 @@ export function diffOutlines(
           name,
           kind: newEntry.kind,
           signature: newEntry.signature,
-          oldSignature: oldEntry.signature,
+          oldSignature: entrySignature(oldEntry),
         });
       } else {
         // Same name and signature — check children recursively

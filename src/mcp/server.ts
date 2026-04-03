@@ -221,6 +221,7 @@ export function createGraftServer(): GraftServer {
           // fileOutline re-reads the file, which could differ from rawContent.
           const newOutlineResult = extractOutline(rawContent);
           const diff = diffOutlines(cacheResult.stale.outline, newOutlineResult.entries);
+          const newReadCount = cacheResult.stale.readCount + 1;
           // Update observation cache with new state
           recordObservation(
             filePath,
@@ -229,6 +230,8 @@ export function createGraftServer(): GraftServer {
             newOutlineResult.jumpTable ?? [],
             actual,
           );
+          // Use the updated observation's lastReadAt (set by recordObservation)
+          const updatedObs = observations.get(filePath);
           return textResultWithReceipt("safe_read", {
             path: filePath,
             projection: "diff",
@@ -237,8 +240,8 @@ export function createGraftServer(): GraftServer {
             outline: newOutlineResult.entries,
             jumpTable: newOutlineResult.jumpTable ?? [],
             actual,
-            readCount: (cacheResult.stale.readCount) + 1,
-            lastReadAt: cacheResult.stale.lastReadAt,
+            readCount: newReadCount,
+            lastReadAt: updatedObs?.lastReadAt ?? new Date().toISOString(),
           });
         }
       }
