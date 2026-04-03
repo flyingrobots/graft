@@ -64,12 +64,12 @@ describe("mcp: re-read suppression", () => {
     expect(result.estimatedBytesAvoided as number).toBeGreaterThan(0);
   });
 
-  it("returns fresh content when file changes between reads", async () => {
+  it("returns diff when file changes between reads", async () => {
     await server.callTool("safe_read", { path: testFile });
     fs.writeFileSync(testFile, 'export function goodbye(): string {\n  return "bye";\n}\n');
     const result = parse(await server.callTool("safe_read", { path: testFile }));
-    expect(result.projection).toBe("content");
-    expect(result.reason).toBe("CONTENT");
+    expect(result.projection).toBe("diff");
+    expect(result.reason).toBe("CHANGED_SINCE_LAST_READ");
   });
 
   it("different files have independent cache entries", async () => {

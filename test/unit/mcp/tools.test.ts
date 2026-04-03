@@ -13,7 +13,7 @@ describe("mcp: tool registration", () => {
     expect(toolNames).toContain("state_load");
     expect(toolNames).toContain("doctor");
     expect(toolNames).toContain("stats");
-    expect(toolNames).toHaveLength(8);
+    expect(toolNames).toHaveLength(9);
   });
 });
 

@@ -31,8 +31,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   returnedBytes, and cumulative counters (reads, outlines, refusals,
   cacheHits, bytesReturned, bytesAvoided). Blacklight can grep API
   transcripts to prove graft works.
-- 15 machine-stable reason codes (added REREAD_UNCHANGED).
-- 184 tests across 16 test files.
+- **Changed-since-last-read**: when a file changes between reads,
+  graft returns a structural diff (added/removed/changed symbols)
+  alongside the new outline. New `changed_since` MCP tool for
+  explicit delta queries without triggering a full safe_read.
+- 16 machine-stable reason codes (added REREAD_UNCHANGED,
+  CHANGED_SINCE_LAST_READ).
+- 202 tests across 18 test files.
 - Repository scaffolding, METHOD structure, community files.
 - Cycle 0001 design doc and retrospective.
 - Cycle 0002 design doc: MCP transport.

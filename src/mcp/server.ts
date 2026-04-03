@@ -10,6 +10,7 @@ import { fileOutline } from "../operations/file-outline.js";
 import { readRange } from "../operations/read-range.js";
 import { stateSave, stateLoad } from "../operations/state.js";
 import type { OutlineEntry, JumpEntry } from "../parser/types.js";
+import { diffOutlines } from "../parser/diff.js";
 
 export type McpToolResult = CallToolResult;
 
@@ -144,13 +145,12 @@ export function createGraftServer(): GraftServer {
     });
   }
 
-  function checkCache(filePath: string, currentContent: string): Observation | null {
+  function checkCache(filePath: string, currentContent: string): { hit: true; obs: Observation } | { hit: false; stale: Observation | null } {
     const obs = observations.get(filePath);
-    if (obs === undefined) return null;
-    if (obs.contentHash === hashContent(currentContent)) return obs;
-    // Hash mismatch — invalidate
-    observations.delete(filePath);
-    return null;
+    if (obs === undefined) return { hit: false, stale: null };
+    if (obs.contentHash === hashContent(currentContent)) return { hit: true, obs };
+    // Hash mismatch — return stale observation for diffing
+    return { hit: false, stale: obs };
   }
 
   // --- safe_read ---
@@ -170,28 +170,57 @@ export function createGraftServer(): GraftServer {
 
       // Check cache if we could read the file
       if (rawContent !== null) {
-        const cached = checkCache(filePath, rawContent);
-        if (cached !== null) {
+        const cacheResult = checkCache(filePath, rawContent);
+        if (cacheResult.hit) {
           const now = new Date().toISOString();
-          cached.readCount++;
-          cached.lastReadAt = now;
+          cacheResult.obs.readCount++;
+          cacheResult.obs.lastReadAt = now;
           totalCacheHits++;
-          totalBytesAvoidedByCache += cached.actual.bytes;
+          totalBytesAvoidedByCache += cacheResult.obs.actual.bytes;
           return textResultWithReceipt("safe_read", {
             path: filePath,
             projection: "cache_hit",
             reason: "REREAD_UNCHANGED",
-            outline: cached.outline,
-            jumpTable: cached.jumpTable,
-            actual: cached.actual,
-            readCount: cached.readCount,
-            estimatedBytesAvoided: cached.actual.bytes,
+            outline: cacheResult.obs.outline,
+            jumpTable: cacheResult.obs.jumpTable,
+            actual: cacheResult.obs.actual,
+            readCount: cacheResult.obs.readCount,
+            estimatedBytesAvoided: cacheResult.obs.actual.bytes,
             lastReadAt: now,
+          });
+        }
+
+        // File changed since last observation — compute structural diff
+        if (cacheResult.stale !== null) {
+          const newOutlineResult = await fileOutline(filePath);
+          const diff = diffOutlines(cacheResult.stale.outline, newOutlineResult.outline);
+          const actual = {
+            lines: rawContent.split("\n").length,
+            bytes: Buffer.byteLength(rawContent),
+          };
+          // Update observation cache with new state
+          recordObservation(
+            filePath,
+            hashContent(rawContent),
+            newOutlineResult.outline,
+            newOutlineResult.jumpTable,
+            actual,
+          );
+          return textResultWithReceipt("safe_read", {
+            path: filePath,
+            projection: "diff",
+            reason: "CHANGED_SINCE_LAST_READ",
+            diff,
+            outline: newOutlineResult.outline,
+            jumpTable: newOutlineResult.jumpTable,
+            actual,
+            readCount: (cacheResult.stale.readCount) + 1,
+            lastReadAt: cacheResult.stale.lastReadAt,
           });
         }
       }
 
-      // Fresh read
+      // First read — no previous observation
       const result = await safeRead(filePath, {
         intent: args["intent"] as string | undefined,
         sessionDepth: session.getSessionDepth(),
@@ -230,17 +259,18 @@ export function createGraftServer(): GraftServer {
     }
 
     if (rawContent !== null) {
-      const cached = checkCache(filePath, rawContent);
-      if (cached !== null) {
-        cached.readCount++;
-        cached.lastReadAt = new Date().toISOString();
+      const cacheResult = checkCache(filePath, rawContent);
+      if (cacheResult.hit) {
+        cacheResult.obs.readCount++;
+        cacheResult.obs.lastReadAt = new Date().toISOString();
         return textResultWithReceipt("file_outline", {
           path: filePath,
-          outline: cached.outline,
-          jumpTable: cached.jumpTable,
+          outline: cacheResult.obs.outline,
+          jumpTable: cacheResult.obs.jumpTable,
           cacheHit: true,
         });
       }
+      // If stale, fall through to fresh parse (no diff for file_outline)
     }
 
     const result = await fileOutline(filePath);
@@ -271,6 +301,30 @@ export function createGraftServer(): GraftServer {
       return textResultWithReceipt("read_range", result as unknown as Record<string, unknown>);
     },
   );
+
+  // --- changed_since ---
+  registerTool("changed_since", { path: z.string() }, async (args) => {
+    const filePath = path.resolve(projectRoot, args["path"] as string);
+    const obs = observations.get(filePath);
+    if (obs === undefined) {
+      return textResultWithReceipt("changed_since", { status: "no_previous_observation" });
+    }
+
+    let rawContent: string;
+    try {
+      rawContent = fs.readFileSync(filePath, "utf-8");
+    } catch {
+      return textResultWithReceipt("changed_since", { status: "file_not_found" });
+    }
+
+    if (obs.contentHash === hashContent(rawContent)) {
+      return textResultWithReceipt("changed_since", { status: "unchanged" });
+    }
+
+    const newOutlineResult = await fileOutline(filePath);
+    const diff = diffOutlines(obs.outline, newOutlineResult.outline);
+    return textResultWithReceipt("changed_since", { diff });
+  });
 
   // --- run_capture ---
   registerTool(
