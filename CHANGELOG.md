@@ -44,6 +44,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ### Fixed
 
+- **Diff path policy check**: the safe_read diff path now runs
+  evaluatePolicy before returning structural data, preventing
+  potential data leaks if policy rules evolve.
+- **Nested symbol diff**: classes/interfaces now recursively diff
+  children. A method added inside a class shows as a changed class
+  with a childDiff detailing the nested change.
+- **Snapshot race**: diff and changed_since paths now use
+  extractOutline with the already-read content instead of
+  re-reading the file via fileOutline.
+- **Pre-push hook**: parses stdin for the remote ref being pushed to
+  instead of checking the local branch name.
+- **oldSignature consistency**: DiffEntry.oldSignature now uses the
+  same entrySignature fallback (name when no signature) as the
+  comparison logic.
+- **Stale lastReadAt**: diff responses now return the updated
+  timestamp from the observation cache instead of the old one.
+- **Dead DiffEntry fields**: removed unused start/end from DiffEntry.
 - Add `@types/node` and `@types/picomatch` (required by TypeScript 6).
 - Fix session-depth table in design doc ("Messages Remaining" →
   "Messages Elapsed").

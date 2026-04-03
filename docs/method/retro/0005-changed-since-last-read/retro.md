@@ -6,7 +6,7 @@ symbols, changed signatures, unchanged count.
 
 ## Playback
 
-```
+```text
 First read: projection: content
 Second read (file changed):
   projection: diff | reason: CHANGED_SINCE_LAST_READ

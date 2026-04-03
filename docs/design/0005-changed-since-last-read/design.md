@@ -119,7 +119,7 @@ through to a normal safe_read (content or outline based on size).
 
 Optional standalone tool for explicit delta queries:
 
-```
+```text
 changed_since(path) → OutlineDiff | "no previous observation"
 ```
 

@@ -15,6 +15,11 @@ export interface OutlineDiff {
   unchangedCount: number;
 }
 
+/**
+ * Returns the effective signature for comparison and reporting.
+ * Falls back to the entry's name when no explicit signature exists
+ * (e.g., for classes, interfaces, and plain exports).
+ */
 function entrySignature(entry: OutlineEntry): string {
   return entry.signature ?? entry.name;
 }
@@ -23,6 +28,10 @@ export function diffOutlines(
   oldEntries: OutlineEntry[],
   newEntries: OutlineEntry[],
 ): OutlineDiff {
+  // Note: duplicate names are clobbered by Map.set — only the last
+  // entry with a given name survives. This is acceptable because
+  // tree-sitter outlines rarely produce duplicate top-level names,
+  // and symbol identity tracking (WARP Level 2+) will handle that case.
   const oldByName = new Map<string, OutlineEntry>();
   for (const entry of oldEntries) {
     oldByName.set(entry.name, entry);
