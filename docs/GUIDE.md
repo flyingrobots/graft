@@ -108,6 +108,83 @@ If your client doesn't support `npx`, install globally and use:
 - **Command**: `graft`
 - **Args**: (none)
 
+## Enforcement via Claude Code Hooks
+
+Graft's MCP tools are opt-in by default — the agent chooses to
+call `safe_read` instead of the native `Read` tool. Hooks make it
+enforced: every `Read` call is intercepted and routed through
+graft's policy engine.
+
+### Setup
+
+Add to `.claude/settings.json` in your project root:
+
+```json
+{
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Read",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node --import tsx node_modules/@flyingrobots/graft/src/hooks/pretooluse-read.ts"
+          }
+        ]
+      }
+    ]
+  }
+}
+```
+
+If developing graft itself, use the local path:
+
+```json
+"command": "node --import tsx src/hooks/pretooluse-read.ts"
+```
+
+### What happens
+
+When the agent calls `Read(file_path)`, the hook:
+
+1. Reads the file and evaluates graft's policy
+2. **Small JS/TS files**: returns the file content
+3. **Large JS/TS files**: returns a structural outline + jump table
+4. **Banned files** (binaries, lockfiles, secrets): returns a
+   refusal with reason code and suggested next steps
+5. **Non-JS/TS files** (Markdown, JSON, etc.): returns content
+   regardless of size (no outline available)
+6. **`.graftignore` matches**: returns a refusal
+
+The hook always blocks the native Read (exit code 2) and provides
+graft's response in the block message. The agent receives the
+content, outline, or refusal without needing to learn new tools.
+
+### Limitations
+
+The hook runs as a standalone process — it does not share state
+with the MCP server. This means:
+
+- No session-depth dynamic caps (early/mid/late)
+- No re-read suppression or cache hits
+- No structural diffs on changed files
+- No metrics tracking or receipts
+
+For the full experience, agents should use graft's MCP tools
+(`safe_read`, `file_outline`, `read_range`) directly. The hook
+is the first line of defense; the MCP server is the full governor.
+
+### Disabling
+
+To disable hooks locally without removing the project config,
+add to `.claude/settings.local.json`:
+
+```json
+{
+  "hooks": {}
+}
+```
+
 ## Tool Reference
 
 | Tool | Description |
