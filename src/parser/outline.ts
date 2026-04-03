@@ -71,6 +71,8 @@ function nodeKind(nodeType: string): EntryKind | undefined {
       return "interface";
     case "type_alias_declaration":
       return "type";
+    case "enum_declaration":
+      return "enum";
     default:
       return undefined;
   }
@@ -254,7 +256,8 @@ export function extractOutline(
           c.type === "generator_function_declaration" ||
           c.type === "class_declaration" ||
           c.type === "interface_declaration" ||
-          c.type === "type_alias_declaration",
+          c.type === "type_alias_declaration" ||
+          c.type === "enum_declaration",
       );
 
       if (inner) {

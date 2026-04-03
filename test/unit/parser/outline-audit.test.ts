@@ -215,8 +215,7 @@ describe("audit: mixed-declarations", () => {
     expect(byName(result, "InternalCache")!.exported).toBe(false);
   });
 
-  // Requires Fix 2: enum extraction
-  it.skip("extracts enums", () => {
+  it("extracts enums", () => {
     const logLevel = byName(result, "LogLevel");
     expect(logLevel).toBeDefined();
     expect(logLevel!.kind).toBe("enum");
