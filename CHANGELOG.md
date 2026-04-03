@@ -21,8 +21,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 - **MCP server**: all 8 Phase 1 commands as MCP tools over stdio,
   session tracking (tripwires + dynamic caps automatic), doctor and
   stats tools. Entry point at `src/mcp/stdio.ts`.
-- 14 machine-stable reason codes.
-- 157 tests across 14 test files.
+- **Re-read suppression**: session-level observation cache — second
+  read of an unchanged file returns cached outline instead of
+  re-reading. Tracks readCount, estimatedBytesAvoided, lastReadAt.
+  Works for both safe_read and file_outline. Stats includes
+  totalCacheHits and totalBytesAvoidedByCache.
+- 15 machine-stable reason codes (added REREAD_UNCHANGED).
+- 169 tests across 15 test files.
 - Repository scaffolding, METHOD structure, community files.
 - Cycle 0001 design doc and retrospective.
 - Cycle 0002 design doc: MCP transport.
