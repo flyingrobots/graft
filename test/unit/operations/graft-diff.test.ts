@@ -1,5 +1,6 @@
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import { graftDiff } from "../../../src/operations/graft-diff.js";
+import { nodeFs } from "../../../src/adapters/node-fs.js";
 import * as fs from "node:fs";
 import * as path from "node:path";
 import * as os from "node:os";
@@ -32,7 +33,7 @@ describe("operations: graft diff", () => {
     git(tmpDir, "add -A");
     git(tmpDir, "commit -m v2");
 
-    const result = graftDiff({ cwd: tmpDir, base: "HEAD~1", head: "HEAD" });
+    const result = graftDiff({ cwd: tmpDir, fs: nodeFs, base: "HEAD~1", head: "HEAD" });
     expect(result.files).toHaveLength(1);
     expect(result.files[0]!.path).toBe("a.ts");
     expect(result.files[0]!.status).toBe("modified");
@@ -49,7 +50,7 @@ describe("operations: graft diff", () => {
     git(tmpDir, "add -A");
     git(tmpDir, "commit -m v2");
 
-    const result = graftDiff({ cwd: tmpDir, base: "HEAD~1", head: "HEAD" });
+    const result = graftDiff({ cwd: tmpDir, fs: nodeFs, base: "HEAD~1", head: "HEAD" });
     const bFile = result.files.find((f) => f.path === "b.ts");
     expect(bFile).toBeDefined();
     expect(bFile!.status).toBe("added");
@@ -65,7 +66,7 @@ describe("operations: graft diff", () => {
     git(tmpDir, "add -A");
     git(tmpDir, "commit -m v2");
 
-    const result = graftDiff({ cwd: tmpDir, base: "HEAD~1", head: "HEAD" });
+    const result = graftDiff({ cwd: tmpDir, fs: nodeFs, base: "HEAD~1", head: "HEAD" });
     expect(result.files).toHaveLength(1);
     expect(result.files[0]!.status).toBe("deleted");
     expect(result.files[0]!.diff.removed.length).toBeGreaterThan(0);
@@ -82,7 +83,7 @@ describe("operations: graft diff", () => {
     git(tmpDir, "add -A");
     git(tmpDir, "commit -m v2");
 
-    const result = graftDiff({ cwd: tmpDir, base: "HEAD~1", head: "HEAD" });
+    const result = graftDiff({ cwd: tmpDir, fs: nodeFs, base: "HEAD~1", head: "HEAD" });
     expect(result.files).toHaveLength(2);
   });
 
@@ -94,7 +95,7 @@ describe("operations: graft diff", () => {
     // Modify without committing
     fs.writeFileSync(path.join(tmpDir, "a.ts"), 'export function original(): void {}\nexport function uncommitted(): void {}\n');
 
-    const result = graftDiff({ cwd: tmpDir });
+    const result = graftDiff({ cwd: tmpDir, fs: nodeFs });
     expect(result.files).toHaveLength(1);
     expect(result.files[0]!.diff.added).toHaveLength(1);
     expect(result.files[0]!.diff.added[0]!.name).toBe("uncommitted");
@@ -109,7 +110,7 @@ describe("operations: graft diff", () => {
     git(tmpDir, "add -A");
     git(tmpDir, "commit -m v2");
 
-    const result = graftDiff({ cwd: tmpDir, base: "HEAD~1", head: "HEAD" });
+    const result = graftDiff({ cwd: tmpDir, fs: nodeFs, base: "HEAD~1", head: "HEAD" });
     expect(result.files[0]!.diff.changed).toHaveLength(1);
     expect(result.files[0]!.diff.changed[0]!.name).toBe("greet");
   });
@@ -124,7 +125,7 @@ describe("operations: graft diff", () => {
     git(tmpDir, "add -A");
     git(tmpDir, "commit -m v2");
 
-    const result = graftDiff({ cwd: tmpDir, base: "HEAD~1", head: "HEAD" });
+    const result = graftDiff({ cwd: tmpDir, fs: nodeFs, base: "HEAD~1", head: "HEAD" });
     const md = result.files.find((f) => f.path === "readme.md");
     expect(md).toBeDefined();
     expect(md!.diff.added).toHaveLength(0);
@@ -143,7 +144,7 @@ describe("operations: graft diff", () => {
     git(tmpDir, "add -A");
     git(tmpDir, "commit -m v2");
 
-    const result = graftDiff({ cwd: tmpDir, base: "HEAD~1", head: "HEAD", path: "a.ts" });
+    const result = graftDiff({ cwd: tmpDir, fs: nodeFs, base: "HEAD~1", head: "HEAD", path: "a.ts" });
     expect(result.files).toHaveLength(1);
     expect(result.files[0]!.path).toBe("a.ts");
   });
@@ -153,7 +154,7 @@ describe("operations: graft diff", () => {
     git(tmpDir, "add -A");
     git(tmpDir, "commit -m v1");
 
-    const result = graftDiff({ cwd: tmpDir, base: "HEAD", head: "HEAD" });
+    const result = graftDiff({ cwd: tmpDir, fs: nodeFs, base: "HEAD", head: "HEAD" });
     expect(result.base).toBe("HEAD");
     expect(result.head).toBe("HEAD");
   });

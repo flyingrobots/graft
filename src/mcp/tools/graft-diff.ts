@@ -10,6 +10,7 @@ export function createGraftDiffHandler(ctx: ToolContext): ToolHandler {
   return (args) => {
     const result = graftDiff({
       cwd: ctx.projectRoot,
+      fs: ctx.fs,
       base: args["base"] as string | undefined,
       head: args["head"] as string | undefined,
       path: args["path"] as string | undefined,
