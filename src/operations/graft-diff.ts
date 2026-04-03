@@ -5,8 +5,6 @@ import { extractOutline } from "../parser/outline.js";
 import { diffOutlines } from "../parser/diff.js";
 import type { OutlineDiff } from "../parser/diff.js";
 
-const SUPPORTED_EXTENSIONS = new Set([".ts", ".js", ".tsx", ".jsx"]);
-
 export interface FileDiff {
   path: string;
   status: "modified" | "added" | "deleted";
@@ -60,8 +58,6 @@ export function graftDiff(opts: GraftDiffOptions): GraftDiffResult {
 
   for (const filePath of changedFiles) {
     const lang = detectLang(filePath);
-    const ext = path.extname(filePath).toLowerCase();
-    const supported = SUPPORTED_EXTENSIONS.has(ext);
 
     // Get content at base
     const baseContent = getFileAtRef(base, filePath, cwd);
@@ -91,7 +87,7 @@ export function graftDiff(opts: GraftDiffOptions): GraftDiffResult {
     }
 
     // Compute structural diff (only for supported languages)
-    if (!supported || lang === null) {
+    if (lang === null) {
       files.push({ path: filePath, status, diff: emptyDiff() });
       continue;
     }

@@ -1,4 +1,4 @@
-import { execSync } from "node:child_process";
+import { execFileSync } from "node:child_process";
 
 export interface ChangedFilesOptions {
   cwd: string;
@@ -14,11 +14,11 @@ export interface ChangedFilesOptions {
 export function getChangedFiles(opts: ChangedFilesOptions): string[] {
   const base = opts.base ?? "HEAD";
   const args = opts.head !== undefined
-    ? `diff --name-only ${base} ${opts.head}`
-    : `diff --name-only ${base}`;
+    ? ["diff", "--name-only", base, opts.head]
+    : ["diff", "--name-only", base];
 
   try {
-    const output = execSync(`git ${args}`, {
+    const output = execFileSync("git", args, {
       cwd: opts.cwd,
       encoding: "utf-8",
     }).trim();
@@ -39,7 +39,7 @@ export function getFileAtRef(
   cwd: string,
 ): string | null {
   try {
-    return execSync(`git show ${ref}:${filePath}`, {
+    return execFileSync("git", ["show", `${ref}:${filePath}`], {
       cwd,
       encoding: "utf-8",
       stdio: ["pipe", "pipe", "pipe"],
