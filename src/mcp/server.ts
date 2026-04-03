@@ -11,6 +11,7 @@ import { evaluatePolicy } from "../policy/evaluate.js";
 import { readRange } from "../operations/read-range.js";
 import { stateSave, stateLoad } from "../operations/state.js";
 import type { OutlineEntry, JumpEntry } from "../parser/types.js";
+import { extractOutline } from "../parser/outline.js";
 import { diffOutlines } from "../parser/diff.js";
 
 export type McpToolResult = CallToolResult;
@@ -216,14 +217,16 @@ export function createGraftServer(): GraftServer {
             });
           }
 
-          const newOutlineResult = await fileOutline(filePath);
-          const diff = diffOutlines(cacheResult.stale.outline, newOutlineResult.outline);
+          // Use extractOutline with rawContent directly to avoid snapshot race —
+          // fileOutline re-reads the file, which could differ from rawContent.
+          const newOutlineResult = extractOutline(rawContent);
+          const diff = diffOutlines(cacheResult.stale.outline, newOutlineResult.entries);
           // Update observation cache with new state
           recordObservation(
             filePath,
             hashContent(rawContent),
-            newOutlineResult.outline,
-            newOutlineResult.jumpTable,
+            newOutlineResult.entries,
+            newOutlineResult.jumpTable ?? [],
             actual,
           );
           return textResultWithReceipt("safe_read", {
@@ -231,8 +234,8 @@ export function createGraftServer(): GraftServer {
             projection: "diff",
             reason: "CHANGED_SINCE_LAST_READ",
             diff,
-            outline: newOutlineResult.outline,
-            jumpTable: newOutlineResult.jumpTable,
+            outline: newOutlineResult.entries,
+            jumpTable: newOutlineResult.jumpTable ?? [],
             actual,
             readCount: (cacheResult.stale.readCount) + 1,
             lastReadAt: cacheResult.stale.lastReadAt,
@@ -323,27 +326,29 @@ export function createGraftServer(): GraftServer {
   );
 
   // --- changed_since ---
-  registerTool("changed_since", { path: z.string() }, async (args) => {
+  registerTool("changed_since", { path: z.string() }, (args) => {
     const filePath = path.resolve(projectRoot, args["path"] as string);
     const obs = observations.get(filePath);
     if (obs === undefined) {
-      return textResultWithReceipt("changed_since", { status: "no_previous_observation" });
+      return Promise.resolve(textResultWithReceipt("changed_since", { status: "no_previous_observation" }));
     }
 
     let rawContent: string;
     try {
       rawContent = fs.readFileSync(filePath, "utf-8");
     } catch {
-      return textResultWithReceipt("changed_since", { status: "file_not_found" });
+      return Promise.resolve(textResultWithReceipt("changed_since", { status: "file_not_found" }));
     }
 
     if (obs.contentHash === hashContent(rawContent)) {
-      return textResultWithReceipt("changed_since", { status: "unchanged" });
+      return Promise.resolve(textResultWithReceipt("changed_since", { status: "unchanged" }));
     }
 
-    const newOutlineResult = await fileOutline(filePath);
-    const diff = diffOutlines(obs.outline, newOutlineResult.outline);
-    return textResultWithReceipt("changed_since", { diff });
+    // Use extractOutline with rawContent directly to avoid snapshot race —
+    // fileOutline re-reads the file, which could differ from rawContent.
+    const newOutlineResult = extractOutline(rawContent);
+    const diff = diffOutlines(obs.outline, newOutlineResult.entries);
+    return Promise.resolve(textResultWithReceipt("changed_since", { diff }));
   });
 
   // --- run_capture ---
