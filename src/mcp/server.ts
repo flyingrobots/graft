@@ -7,9 +7,12 @@ import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
 import { SessionTracker } from "../session/tracker.js";
 import { safeRead } from "../operations/safe-read.js";
 import { fileOutline } from "../operations/file-outline.js";
+import { evaluatePolicy } from "../policy/evaluate.js";
 import { readRange } from "../operations/read-range.js";
 import { stateSave, stateLoad } from "../operations/state.js";
 import type { OutlineEntry, JumpEntry } from "../parser/types.js";
+import { extractOutline } from "../parser/outline.js";
+import { diffOutlines } from "../parser/diff.js";
 
 export type McpToolResult = CallToolResult;
 
@@ -107,7 +110,7 @@ export function createGraftServer(): GraftServer {
     const fullData: Record<string, unknown> = { ...data, _receipt: receipt };
     const wires = session.checkTripwires();
     if (wires.length > 0) {
-      fullData.tripwire = wires;
+      fullData["tripwire"] = wires;
     }
     // Stabilize self-referential size fields
     let prev = 0;
@@ -116,8 +119,8 @@ export function createGraftServer(): GraftServer {
       text = JSON.stringify(fullData);
       if (text.length === prev) break;
       prev = text.length;
-      receipt.returnedBytes = text.length;
-      (receipt.cumulative as Record<string, number>).bytesReturned =
+      receipt["returnedBytes"] = text.length;
+      (receipt["cumulative"] as Record<string, number>)["bytesReturned"] =
         cumulativeBytesReturned + text.length;
     }
     cumulativeBytesReturned += text.length;
@@ -144,13 +147,12 @@ export function createGraftServer(): GraftServer {
     });
   }
 
-  function checkCache(filePath: string, currentContent: string): Observation | null {
+  function checkCache(filePath: string, currentContent: string): { hit: true; obs: Observation } | { hit: false; stale: Observation | null } {
     const obs = observations.get(filePath);
-    if (obs === undefined) return null;
-    if (obs.contentHash === hashContent(currentContent)) return obs;
-    // Hash mismatch — invalidate
-    observations.delete(filePath);
-    return null;
+    if (obs === undefined) return { hit: false, stale: null };
+    if (obs.contentHash === hashContent(currentContent)) return { hit: true, obs };
+    // Hash mismatch — return stale observation for diffing
+    return { hit: false, stale: obs };
   }
 
   // --- safe_read ---
@@ -170,28 +172,81 @@ export function createGraftServer(): GraftServer {
 
       // Check cache if we could read the file
       if (rawContent !== null) {
-        const cached = checkCache(filePath, rawContent);
-        if (cached !== null) {
+        const cacheResult = checkCache(filePath, rawContent);
+        if (cacheResult.hit) {
           const now = new Date().toISOString();
-          cached.readCount++;
-          cached.lastReadAt = now;
+          cacheResult.obs.readCount++;
+          cacheResult.obs.lastReadAt = now;
           totalCacheHits++;
-          totalBytesAvoidedByCache += cached.actual.bytes;
+          totalBytesAvoidedByCache += cacheResult.obs.actual.bytes;
           return textResultWithReceipt("safe_read", {
             path: filePath,
             projection: "cache_hit",
             reason: "REREAD_UNCHANGED",
-            outline: cached.outline,
-            jumpTable: cached.jumpTable,
-            actual: cached.actual,
-            readCount: cached.readCount,
-            estimatedBytesAvoided: cached.actual.bytes,
+            outline: cacheResult.obs.outline,
+            jumpTable: cacheResult.obs.jumpTable,
+            actual: cacheResult.obs.actual,
+            readCount: cacheResult.obs.readCount,
+            estimatedBytesAvoided: cacheResult.obs.actual.bytes,
             lastReadAt: now,
+          });
+        }
+
+        // File changed since last observation — compute structural diff
+        if (cacheResult.stale !== null) {
+          // Defense: re-check policy before returning structural data.
+          // If the file should now be refused (e.g., path became banned),
+          // return the refusal instead of a diff.
+          const actual = {
+            lines: rawContent.split("\n").length,
+            bytes: Buffer.byteLength(rawContent),
+          };
+          const policy = evaluatePolicy(
+            { path: filePath, lines: actual.lines, bytes: actual.bytes },
+            { sessionDepth: session.getSessionDepth() },
+          );
+          if (policy.projection === "refused") {
+            totalRefusals++;
+            return textResultWithReceipt("safe_read", {
+              path: filePath,
+              projection: "refused",
+              reason: policy.reason,
+              reasonDetail: policy.reasonDetail,
+              next: policy.next,
+              actual,
+            });
+          }
+
+          // Use extractOutline with rawContent directly to avoid snapshot race —
+          // fileOutline re-reads the file, which could differ from rawContent.
+          const newOutlineResult = extractOutline(rawContent);
+          const diff = diffOutlines(cacheResult.stale.outline, newOutlineResult.entries);
+          const newReadCount = cacheResult.stale.readCount + 1;
+          // Update observation cache with new state
+          recordObservation(
+            filePath,
+            hashContent(rawContent),
+            newOutlineResult.entries,
+            newOutlineResult.jumpTable ?? [],
+            actual,
+          );
+          // Use the updated observation's lastReadAt (set by recordObservation)
+          const updatedObs = observations.get(filePath);
+          return textResultWithReceipt("safe_read", {
+            path: filePath,
+            projection: "diff",
+            reason: "CHANGED_SINCE_LAST_READ",
+            diff,
+            outline: newOutlineResult.entries,
+            jumpTable: newOutlineResult.jumpTable ?? [],
+            actual,
+            readCount: newReadCount,
+            lastReadAt: updatedObs?.lastReadAt ?? new Date().toISOString(),
           });
         }
       }
 
-      // Fresh read
+      // First read — no previous observation
       const result = await safeRead(filePath, {
         intent: args["intent"] as string | undefined,
         sessionDepth: session.getSessionDepth(),
@@ -230,17 +285,18 @@ export function createGraftServer(): GraftServer {
     }
 
     if (rawContent !== null) {
-      const cached = checkCache(filePath, rawContent);
-      if (cached !== null) {
-        cached.readCount++;
-        cached.lastReadAt = new Date().toISOString();
+      const cacheResult = checkCache(filePath, rawContent);
+      if (cacheResult.hit) {
+        cacheResult.obs.readCount++;
+        cacheResult.obs.lastReadAt = new Date().toISOString();
         return textResultWithReceipt("file_outline", {
           path: filePath,
-          outline: cached.outline,
-          jumpTable: cached.jumpTable,
+          outline: cacheResult.obs.outline,
+          jumpTable: cacheResult.obs.jumpTable,
           cacheHit: true,
         });
       }
+      // If stale, fall through to fresh parse (no diff for file_outline)
     }
 
     const result = await fileOutline(filePath);
@@ -271,6 +327,65 @@ export function createGraftServer(): GraftServer {
       return textResultWithReceipt("read_range", result as unknown as Record<string, unknown>);
     },
   );
+
+  // --- changed_since ---
+  // Peek by default: returns the diff without updating the observation cache.
+  // With consume: true, updates the cache so the next safe_read sees cache_hit.
+  // Semantics: safe_read = always consumes. changed_since = peek unless told otherwise.
+  registerTool("changed_since", { path: z.string(), consume: z.boolean().optional() }, (args) => {
+    const filePath = path.resolve(projectRoot, args["path"] as string);
+    const consume = (args["consume"] as boolean | undefined) === true;
+
+    // Policy check: refuse banned files even via changed_since.
+    // Read the file first to get dimensions for policy evaluation.
+    let rawContent: string;
+    try {
+      rawContent = fs.readFileSync(filePath, "utf-8");
+    } catch {
+      return Promise.resolve(textResultWithReceipt("changed_since", { status: "file_not_found" }));
+    }
+
+    const actual = {
+      lines: rawContent.split("\n").length,
+      bytes: Buffer.byteLength(rawContent),
+    };
+    const policy = evaluatePolicy(
+      { path: filePath, lines: actual.lines, bytes: actual.bytes },
+      { sessionDepth: session.getSessionDepth() },
+    );
+    if (policy.projection === "refused") {
+      return Promise.resolve(textResultWithReceipt("changed_since", { status: "refused", reason: policy.reason }));
+    }
+
+    const obs = observations.get(filePath);
+    if (obs === undefined) {
+      return Promise.resolve(textResultWithReceipt("changed_since", { status: "no_previous_observation" }));
+    }
+
+    if (obs.contentHash === hashContent(rawContent)) {
+      return Promise.resolve(textResultWithReceipt("changed_since", { status: "unchanged" }));
+    }
+
+    // Use extractOutline with rawContent directly to avoid snapshot race.
+    const newOutlineResult = extractOutline(rawContent);
+    const diff = diffOutlines(obs.outline, newOutlineResult.entries);
+
+    if (consume) {
+      const actual = {
+        lines: rawContent.split("\n").length,
+        bytes: Buffer.byteLength(rawContent),
+      };
+      recordObservation(
+        filePath,
+        hashContent(rawContent),
+        newOutlineResult.entries,
+        newOutlineResult.jumpTable ?? [],
+        actual,
+      );
+    }
+
+    return Promise.resolve(textResultWithReceipt("changed_since", { diff, consumed: consume }));
+  });
 
   // --- run_capture ---
   registerTool(

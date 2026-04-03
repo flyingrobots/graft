@@ -13,7 +13,7 @@ describe("mcp: tool registration", () => {
     expect(toolNames).toContain("state_load");
     expect(toolNames).toContain("doctor");
     expect(toolNames).toContain("stats");
-    expect(toolNames).toHaveLength(8);
+    expect(toolNames).toHaveLength(9);
   });
 });
 
@@ -25,9 +25,9 @@ describe("mcp: tool handlers", () => {
     });
     expect(result).toHaveProperty("content");
     const parsed = JSON.parse(extractText(result)) as Record<string, unknown>;
-    expect(parsed.projection).toBe("content");
-    expect(parsed.reason).toBe("CONTENT");
-    expect(parsed.path).toBeDefined();
+    expect(parsed["projection"]).toBe("content");
+    expect(parsed["reason"]).toBe("CONTENT");
+    expect(parsed["path"]).toBeDefined();
   });
 
   it("safe_read returns outline for large files", async () => {
@@ -36,8 +36,8 @@ describe("mcp: tool handlers", () => {
       path: "test/fixtures/large.ts",
     });
     const parsed = JSON.parse(extractText(result)) as Record<string, unknown>;
-    expect(parsed.projection).toBe("outline");
-    expect(parsed.jumpTable).toBeDefined();
+    expect(parsed["projection"]).toBe("outline");
+    expect(parsed["jumpTable"]).toBeDefined();
   });
 
   it("safe_read returns refusal for banned files", async () => {
@@ -46,8 +46,8 @@ describe("mcp: tool handlers", () => {
       path: "test/fixtures/ban-targets/image.png",
     });
     const parsed = JSON.parse(extractText(result)) as Record<string, unknown>;
-    expect(parsed.projection).toBe("refused");
-    expect(parsed.reason).toBe("BINARY");
+    expect(parsed["projection"]).toBe("refused");
+    expect(parsed["reason"]).toBe("BINARY");
   });
 
   it("file_outline returns outline with jump table", async () => {
@@ -56,8 +56,8 @@ describe("mcp: tool handlers", () => {
       path: "test/fixtures/medium.ts",
     });
     const parsed = JSON.parse(extractText(result)) as Record<string, unknown>;
-    expect(parsed.outline).toBeDefined();
-    expect(parsed.jumpTable).toBeDefined();
+    expect(parsed["outline"]).toBeDefined();
+    expect(parsed["jumpTable"]).toBeDefined();
   });
 
   it("read_range returns bounded content", async () => {
@@ -68,9 +68,9 @@ describe("mcp: tool handlers", () => {
       end: 10,
     });
     const parsed = JSON.parse(extractText(result)) as Record<string, unknown>;
-    expect(parsed.content).toBeDefined();
-    expect(parsed.startLine).toBe(1);
-    expect(parsed.endLine).toBe(10);
+    expect(parsed["content"]).toBeDefined();
+    expect(parsed["startLine"]).toBe(1);
+    expect(parsed["endLine"]).toBe(10);
   });
 
   it("state_save enforces 8 KB cap", async () => {
@@ -80,32 +80,32 @@ describe("mcp: tool handlers", () => {
       content: oversized,
     });
     const parsed = JSON.parse(extractText(result)) as Record<string, unknown>;
-    expect(parsed.ok).toBe(false);
+    expect(parsed["ok"]).toBe(false);
   });
 
   it("state_load returns null when no state saved", async () => {
     const server = createGraftServer();
     const result = await server.callTool("state_load", {});
     const parsed = JSON.parse(extractText(result)) as Record<string, unknown>;
-    expect(parsed.content).toBeNull();
+    expect(parsed["content"]).toBeNull();
   });
 
   it("doctor returns health check", async () => {
     const server = createGraftServer();
     const result = await server.callTool("doctor", {});
     const parsed = JSON.parse(extractText(result)) as Record<string, unknown>;
-    expect(parsed.projectRoot).toBeDefined();
-    expect(parsed.parserHealthy).toBeDefined();
-    expect(parsed.thresholds).toBeDefined();
+    expect(parsed["projectRoot"]).toBeDefined();
+    expect(parsed["parserHealthy"]).toBeDefined();
+    expect(parsed["thresholds"]).toBeDefined();
   });
 
   it("stats returns metrics summary", async () => {
     const server = createGraftServer();
     const result = await server.callTool("stats", {});
     const parsed = JSON.parse(extractText(result)) as Record<string, unknown>;
-    expect(parsed.totalReads).toBeDefined();
-    expect(parsed.totalOutlines).toBeDefined();
-    expect(parsed.totalRefusals).toBeDefined();
+    expect(parsed["totalReads"]).toBeDefined();
+    expect(parsed["totalOutlines"]).toBeDefined();
+    expect(parsed["totalRefusals"]).toBeDefined();
   });
 });
 
@@ -118,7 +118,7 @@ describe("mcp: session tracking", () => {
     }
     const result = await server.callTool("doctor", {});
     const parsed = JSON.parse(extractText(result)) as Record<string, unknown>;
-    expect(parsed.sessionDepth).toBeDefined();
+    expect(parsed["sessionDepth"]).toBeDefined();
   });
 
   it("includes tripwire in response when triggered", async () => {
@@ -129,7 +129,7 @@ describe("mcp: session tracking", () => {
       path: "test/fixtures/small.ts",
     });
     const parsed = JSON.parse(extractText(result)) as Record<string, unknown>;
-    expect(parsed.tripwire).toBeDefined();
+    expect(parsed["tripwire"]).toBeDefined();
   });
 });
 

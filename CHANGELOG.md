@@ -31,14 +31,38 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   returnedBytes, and cumulative counters (reads, outlines, refusals,
   cacheHits, bytesReturned, bytesAvoided). Blacklight can grep API
   transcripts to prove graft works.
-- 15 machine-stable reason codes (added REREAD_UNCHANGED).
-- 184 tests across 16 test files.
+- **Changed-since-last-read**: when a file changes between reads,
+  graft returns a structural diff (added/removed/changed symbols)
+  alongside the new outline. New `changed_since` MCP tool for
+  explicit delta queries without triggering a full safe_read.
+- Now 16 machine-stable reason codes — added `REREAD_UNCHANGED`
+  (cycle 0003) and `CHANGED_SINCE_LAST_READ` (cycle 0005).
+- 209 tests across 18 test files.
 - Repository scaffolding, METHOD structure, community files.
 - Cycle 0001 design doc and retrospective.
 - Cycle 0002 design doc: MCP transport.
 
 ### Fixed
 
+- **Diff path policy check**: both `safe_read` and `changed_since`
+  now run `evaluatePolicy` before returning structural data,
+  preventing leaks if policy rules change after initial observation.
+  Note: `safe_read` always evaluates policy; `changed_since` was
+  added in this release and now also evaluates policy.
+- **Nested symbol diff**: classes/interfaces now recursively diff
+  children. A method added inside a class shows as a changed class
+  with a childDiff detailing the nested change.
+- **Snapshot race**: diff and changed_since paths now use
+  extractOutline with the already-read content instead of
+  re-reading the file via fileOutline.
+- **Pre-push hook**: parses stdin for the remote ref being pushed to
+  instead of checking the local branch name.
+- **oldSignature consistency**: DiffEntry.oldSignature now uses the
+  same entrySignature fallback (name when no signature) as the
+  comparison logic.
+- **Stale lastReadAt**: diff responses now return the updated
+  timestamp from the observation cache instead of the old one.
+- **Dead DiffEntry fields**: removed unused start/end from DiffEntry.
 - Add `@types/node` and `@types/picomatch` (required by TypeScript 6).
 - Fix session-depth table in design doc ("Messages Remaining" →
   "Messages Elapsed").

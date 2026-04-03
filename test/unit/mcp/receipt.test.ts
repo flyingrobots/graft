@@ -37,7 +37,7 @@ describe("mcp: receipt mode", () => {
     const result = parse(await server.callTool("safe_read", {
       path: "test/fixtures/small.ts",
     }));
-    expect(result._receipt).toBeDefined();
+    expect(result["_receipt"]).toBeDefined();
   });
 
   it("every file_outline response includes a _receipt", async () => {
@@ -45,7 +45,7 @@ describe("mcp: receipt mode", () => {
     const result = parse(await server.callTool("file_outline", {
       path: "test/fixtures/small.ts",
     }));
-    expect(result._receipt).toBeDefined();
+    expect(result["_receipt"]).toBeDefined();
   });
 
   it("every read_range response includes a _receipt", async () => {
@@ -55,19 +55,19 @@ describe("mcp: receipt mode", () => {
       start: 1,
       end: 5,
     }));
-    expect(result._receipt).toBeDefined();
+    expect(result["_receipt"]).toBeDefined();
   });
 
   it("every stats response includes a _receipt", async () => {
     const server = createGraftServer();
     const result = parse(await server.callTool("stats", {}));
-    expect(result._receipt).toBeDefined();
+    expect(result["_receipt"]).toBeDefined();
   });
 
   it("every doctor response includes a _receipt", async () => {
     const server = createGraftServer();
     const result = parse(await server.callTool("doctor", {}));
-    expect(result._receipt).toBeDefined();
+    expect(result["_receipt"]).toBeDefined();
   });
 
   it("receipt has correct shape", async () => {
@@ -75,7 +75,7 @@ describe("mcp: receipt mode", () => {
     const result = parse(await server.callTool("safe_read", {
       path: "test/fixtures/small.ts",
     }));
-    const receipt = result._receipt as Receipt;
+    const receipt = result["_receipt"] as Receipt;
     expect(typeof receipt.sessionId).toBe("string");
     expect(receipt.sessionId.length).toBeGreaterThan(0);
     expect(typeof receipt.seq).toBe("number");
@@ -97,8 +97,8 @@ describe("mcp: receipt mode", () => {
     const r2 = parse(await server.callTool("safe_read", {
       path: "test/fixtures/small.ts",
     }));
-    const receipt1 = r1._receipt as Receipt;
-    const receipt2 = r2._receipt as Receipt;
+    const receipt1 = r1["_receipt"] as Receipt;
+    const receipt2 = r2["_receipt"] as Receipt;
     expect(receipt1.sessionId).toBe(receipt2.sessionId);
   });
 
@@ -119,9 +119,9 @@ describe("mcp: receipt mode", () => {
       path: "test/fixtures/small.ts",
     }));
     const r3 = parse(await server.callTool("doctor", {}));
-    expect((r1._receipt as Receipt).seq).toBe(1);
-    expect((r2._receipt as Receipt).seq).toBe(2);
-    expect((r3._receipt as Receipt).seq).toBe(3);
+    expect((r1["_receipt"] as Receipt).seq).toBe(1);
+    expect((r2["_receipt"] as Receipt).seq).toBe(2);
+    expect((r3["_receipt"] as Receipt).seq).toBe(3);
   });
 
   it("receipt includes fileBytes for file operations", async () => {
@@ -129,14 +129,14 @@ describe("mcp: receipt mode", () => {
     const result = parse(await server.callTool("safe_read", {
       path: "test/fixtures/small.ts",
     }));
-    const receipt = result._receipt as Receipt;
+    const receipt = result["_receipt"] as Receipt;
     expect(receipt.fileBytes).toBeGreaterThan(0);
   });
 
   it("receipt has null fileBytes for non-file operations", async () => {
     const server = createGraftServer();
     const result = parse(await server.callTool("doctor", {}));
-    const receipt = result._receipt as Receipt;
+    const receipt = result["_receipt"] as Receipt;
     expect(receipt.fileBytes).toBeNull();
   });
 
@@ -150,7 +150,7 @@ describe("mcp: receipt mode", () => {
     const r2 = parse(await server.callTool("safe_read", {
       path: "test/fixtures/small.ts",
     }));
-    const receipt = r2._receipt as Receipt;
+    const receipt = r2["_receipt"] as Receipt;
     expect(receipt.cumulative.reads).toBe(1);
     expect(receipt.cumulative.cacheHits).toBe(1);
     expect(receipt.cumulative.bytesAvoided).toBeGreaterThan(0);
@@ -161,7 +161,7 @@ describe("mcp: receipt mode", () => {
     const result = parse(await server.callTool("safe_read", {
       path: "test/fixtures/ban-targets/image.png",
     }));
-    const receipt = result._receipt as Receipt;
+    const receipt = result["_receipt"] as Receipt;
     expect(receipt.projection).toBe("refused");
     expect(receipt.reason).toBe("BINARY");
   });
@@ -172,7 +172,7 @@ describe("mcp: receipt mode", () => {
     const r2 = parse(await server.callTool("safe_read", {
       path: "test/fixtures/small.ts",
     }));
-    const receipt = r2._receipt as Receipt;
+    const receipt = r2["_receipt"] as Receipt;
     expect(receipt.projection).toBe("cache_hit");
     expect(receipt.reason).toBe("REREAD_UNCHANGED");
   });
@@ -183,7 +183,7 @@ describe("mcp: receipt mode", () => {
       path: "test/fixtures/small.ts",
     });
     const text = extractText(raw);
-    const receipt = (parse(raw))._receipt as Receipt;
+    const receipt = (parse(raw))["_receipt"] as Receipt;
     // returnedBytes should be close to the text length
     expect(receipt.returnedBytes).toBe(text.length);
   });
