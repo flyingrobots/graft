@@ -20,6 +20,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   - `tools/*.ts` — 9 files, one per tool handler (state.ts has both
     save + load)
 
+### Fixed
+
+- **Byte metrics**: receipt builder now uses `Buffer.byteLength()`
+  instead of `text.length` for returnedBytes and cumulative byte
+  accounting. Was counting UTF-16 code units as bytes.
+- **Path traversal guard**: all path-accepting tools now use
+  `ctx.resolvePath()` which rejects relative paths that escape the
+  project root via `..` segments.
+- **Doctor thresholds drift**: doctor tool now imports
+  `STATIC_THRESHOLDS` from policy instead of hardcoding values.
+- **run_capture tail validation**: clamp tail to minimum 1 to prevent
+  zero/negative values from producing undefined behavior.
+- **safe_read result.actual guard**: check `result.actual !== undefined`
+  before using it for cache recording (actual is optional on error
+  projections).
+
 ## [0.1.0] - 2026-04-03
 
 ### Added
