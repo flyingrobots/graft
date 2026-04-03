@@ -7,6 +7,7 @@ export interface DiffEntry {
   oldSignature?: string;
   start?: number;
   end?: number;
+  childDiff?: OutlineDiff;
 }
 
 export interface OutlineDiff {
@@ -59,7 +60,24 @@ export function diffOutlines(
           oldSignature: oldEntry.signature,
         });
       } else {
-        unchangedCount++;
+        // Same name and signature — check children recursively
+        const oldChildren = oldEntry.children ?? [];
+        const newChildren = newEntry.children ?? [];
+        if (oldChildren.length > 0 || newChildren.length > 0) {
+          const childDiff = diffOutlines(oldChildren, newChildren);
+          if (childDiff.added.length > 0 || childDiff.removed.length > 0 || childDiff.changed.length > 0) {
+            changed.push({
+              name,
+              kind: newEntry.kind,
+              signature: newEntry.signature,
+              childDiff,
+            });
+          } else {
+            unchangedCount++;
+          }
+        } else {
+          unchangedCount++;
+        }
       }
     }
   }
