@@ -26,8 +26,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   re-reading. Tracks readCount, estimatedBytesAvoided, lastReadAt.
   Works for both safe_read and file_outline. Stats includes
   totalCacheHits and totalBytesAvoidedByCache.
+- **Receipt mode**: every MCP response includes a `_receipt` block
+  with sessionId, monotonic seq, projection, reason, fileBytes,
+  returnedBytes, and cumulative counters (reads, outlines, refusals,
+  cacheHits, bytesReturned, bytesAvoided). Blacklight can grep API
+  transcripts to prove graft works.
 - 15 machine-stable reason codes (added REREAD_UNCHANGED).
-- 169 tests across 15 test files.
+- 184 tests across 16 test files.
 - Repository scaffolding, METHOD structure, community files.
 - Cycle 0001 design doc and retrospective.
 - Cycle 0002 design doc: MCP transport.

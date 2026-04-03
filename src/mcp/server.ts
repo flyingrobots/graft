@@ -15,9 +15,6 @@ export type McpToolResult = CallToolResult;
 
 type ToolHandler = (args: Record<string, unknown>) => Promise<McpToolResult>;
 
-function textResult(data: unknown): McpToolResult {
-  return { content: [{ type: "text", text: JSON.stringify(data) }] };
-}
 
 // ---------------------------------------------------------------------------
 // Observation cache
@@ -51,17 +48,20 @@ export interface GraftServer {
 export function createGraftServer(): GraftServer {
   const mcpServer = new McpServer({ name: "graft", version: "0.0.0" });
   const session = new SessionTracker();
+  const sessionId = crypto.randomUUID();
   const projectRoot = process.cwd();
   const graftDir = path.join(projectRoot, ".graft");
 
   const handlers = new Map<string, ToolHandler>();
   const observations = new Map<string, Observation>();
 
+  let seq = 0;
   let totalReads = 0;
   let totalOutlines = 0;
   let totalRefusals = 0;
   let totalCacheHits = 0;
   let totalBytesAvoidedByCache = 0;
+  let cumulativeBytesReturned = 0;
 
   function registerTool(
     name: string,
@@ -84,12 +84,44 @@ export function createGraftServer(): GraftServer {
     }
   }
 
-  function withTripwires(data: Record<string, unknown>): Record<string, unknown> {
+  function textResultWithReceipt(tool: string, data: Record<string, unknown>): McpToolResult {
+    seq++;
+    const receipt: Record<string, unknown> = {
+      sessionId,
+      seq,
+      ts: new Date().toISOString(),
+      tool,
+      projection: (data["projection"] as string | undefined) ?? "none",
+      reason: (data["reason"] as string | undefined) ?? "none",
+      fileBytes: (data["actual"] as { bytes: number } | undefined)?.bytes ?? null,
+      returnedBytes: 0,
+      cumulative: {
+        reads: totalReads,
+        outlines: totalOutlines,
+        refusals: totalRefusals,
+        cacheHits: totalCacheHits,
+        bytesReturned: 0,
+        bytesAvoided: totalBytesAvoidedByCache,
+      },
+    };
+    const fullData: Record<string, unknown> = { ...data, _receipt: receipt };
     const wires = session.checkTripwires();
     if (wires.length > 0) {
-      return { ...data, tripwire: wires };
+      fullData.tripwire = wires;
     }
-    return data;
+    // Stabilize self-referential size fields
+    let prev = 0;
+    let text = "";
+    for (let i = 0; i < 5; i++) {
+      text = JSON.stringify(fullData);
+      if (text.length === prev) break;
+      prev = text.length;
+      receipt.returnedBytes = text.length;
+      (receipt.cumulative as Record<string, number>).bytesReturned =
+        cumulativeBytesReturned + text.length;
+    }
+    cumulativeBytesReturned += text.length;
+    return { content: [{ type: "text", text }] };
   }
 
   function recordObservation(
@@ -145,7 +177,7 @@ export function createGraftServer(): GraftServer {
           cached.lastReadAt = now;
           totalCacheHits++;
           totalBytesAvoidedByCache += cached.actual.bytes;
-          return textResult(withTripwires({
+          return textResultWithReceipt("safe_read", {
             path: filePath,
             projection: "cache_hit",
             reason: "REREAD_UNCHANGED",
@@ -155,7 +187,7 @@ export function createGraftServer(): GraftServer {
             readCount: cached.readCount,
             estimatedBytesAvoided: cached.actual.bytes,
             lastReadAt: now,
-          }));
+          });
         }
       }
 
@@ -181,7 +213,7 @@ export function createGraftServer(): GraftServer {
         );
       }
 
-      return textResult(withTripwires(result as unknown as Record<string, unknown>));
+      return textResultWithReceipt("safe_read", result as unknown as Record<string, unknown>);
     },
   );
 
@@ -202,12 +234,12 @@ export function createGraftServer(): GraftServer {
       if (cached !== null) {
         cached.readCount++;
         cached.lastReadAt = new Date().toISOString();
-        return textResult(withTripwires({
+        return textResultWithReceipt("file_outline", {
           path: filePath,
           outline: cached.outline,
           jumpTable: cached.jumpTable,
           cacheHit: true,
-        }));
+        });
       }
     }
 
@@ -225,7 +257,7 @@ export function createGraftServer(): GraftServer {
       );
     }
 
-    return textResult(withTripwires(result as unknown as Record<string, unknown>));
+    return textResultWithReceipt("file_outline", result as unknown as Record<string, unknown>);
   });
 
   // --- read_range ---
@@ -236,7 +268,7 @@ export function createGraftServer(): GraftServer {
       const filePath = path.resolve(projectRoot, args["path"] as string);
       const result = await readRange(filePath, args["start"] as number, args["end"] as number);
       totalReads++;
-      return textResult(withTripwires(result as unknown as Record<string, unknown>));
+      return textResultWithReceipt("read_range", result as unknown as Record<string, unknown>);
     },
   );
 
@@ -244,24 +276,24 @@ export function createGraftServer(): GraftServer {
   registerTool(
     "run_capture",
     { command: z.string(), tail: z.number().optional() },
-    () => Promise.resolve(textResult({ message: "not yet implemented" })),
+    () => Promise.resolve(textResultWithReceipt("run_capture", { message: "not yet implemented" })),
   );
 
   // --- state_save ---
   registerTool("state_save", { content: z.string() }, async (args) => {
     const result = await stateSave(args["content"] as string, { graftDir });
-    return textResult(result);
+    return textResultWithReceipt("state_save", result as Record<string, unknown>);
   });
 
   // --- state_load ---
   registerTool("state_load", undefined, async () => {
     const result = await stateLoad({ graftDir });
-    return textResult(result);
+    return textResultWithReceipt("state_load", result as Record<string, unknown>);
   });
 
   // --- doctor ---
   registerTool("doctor", undefined, () => {
-    return Promise.resolve(textResult({
+    return Promise.resolve(textResultWithReceipt("doctor", {
       projectRoot,
       parserHealthy: true,
       thresholds: { lines: 150, bytes: 12288 },
@@ -272,7 +304,7 @@ export function createGraftServer(): GraftServer {
 
   // --- stats ---
   registerTool("stats", undefined, () => {
-    return Promise.resolve(textResult({
+    return Promise.resolve(textResultWithReceipt("stats", {
       totalReads,
       totalOutlines,
       totalRefusals,
