@@ -7,6 +7,7 @@ import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
 import { SessionTracker } from "../session/tracker.js";
 import { safeRead } from "../operations/safe-read.js";
 import { fileOutline } from "../operations/file-outline.js";
+import { evaluatePolicy } from "../policy/evaluate.js";
 import { readRange } from "../operations/read-range.js";
 import { stateSave, stateLoad } from "../operations/state.js";
 import type { OutlineEntry, JumpEntry } from "../parser/types.js";
@@ -192,12 +193,31 @@ export function createGraftServer(): GraftServer {
 
         // File changed since last observation — compute structural diff
         if (cacheResult.stale !== null) {
-          const newOutlineResult = await fileOutline(filePath);
-          const diff = diffOutlines(cacheResult.stale.outline, newOutlineResult.outline);
+          // Defense: re-check policy before returning structural data.
+          // If the file should now be refused (e.g., path became banned),
+          // return the refusal instead of a diff.
           const actual = {
             lines: rawContent.split("\n").length,
             bytes: Buffer.byteLength(rawContent),
           };
+          const policy = evaluatePolicy(
+            { path: filePath, lines: actual.lines, bytes: actual.bytes },
+            { sessionDepth: session.getSessionDepth() },
+          );
+          if (policy.projection === "refused") {
+            totalRefusals++;
+            return textResultWithReceipt("safe_read", {
+              path: filePath,
+              projection: "refused",
+              reason: policy.reason,
+              reasonDetail: policy.reasonDetail,
+              next: policy.next,
+              actual,
+            });
+          }
+
+          const newOutlineResult = await fileOutline(filePath);
+          const diff = diffOutlines(cacheResult.stale.outline, newOutlineResult.outline);
           // Update observation cache with new state
           recordObservation(
             filePath,
