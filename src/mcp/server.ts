@@ -454,9 +454,15 @@ export function createGraftServer(): GraftServer {
         }));
       } catch (err: unknown) {
         const msg = err instanceof Error ? err.message : String(err);
+        const stdout = (err as { stdout?: string }).stdout ?? "";
         const stderr = (err as { stderr?: string }).stderr ?? "";
+        // Return whatever stdout was captured before failure
+        const tailed = typeof stdout === "string"
+          ? stdout.split("\n").slice(-tail).join("\n")
+          : "";
         return Promise.resolve(textResultWithReceipt("run_capture", {
           error: msg,
+          output: tailed,
           stderr: typeof stderr === "string" ? stderr.slice(0, 2000) : "",
         }));
       }

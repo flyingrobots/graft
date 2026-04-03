@@ -1,4 +1,4 @@
-#!/usr/bin/env node --import tsx
+#!/usr/bin/env -S node --import tsx
 
 // Graft MCP server — stdio transport
 // Usage: npx @flyingrobots/graft
