@@ -19,8 +19,7 @@ export function createFileOutlineHandler(ctx: ToolContext): ToolHandler {
     if (rawContent !== null) {
       const cacheResult = ctx.cache.check(filePath, rawContent);
       if (cacheResult.hit) {
-        cacheResult.obs.readCount++;
-        cacheResult.obs.lastReadAt = new Date().toISOString();
+        cacheResult.obs.touch();
         return ctx.respond("file_outline", {
           path: filePath,
           outline: cacheResult.obs.outline,

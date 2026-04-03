@@ -26,9 +26,7 @@ export function createSafeReadHandler(ctx: ToolContext): ToolHandler {
     if (rawContent !== null) {
       const cacheResult = ctx.cache.check(filePath, rawContent);
       if (cacheResult.hit) {
-        const now = new Date().toISOString();
-        cacheResult.obs.readCount++;
-        cacheResult.obs.lastReadAt = now;
+        cacheResult.obs.touch();
         ctx.metrics.recordCacheHit(cacheResult.obs.actual.bytes);
         return ctx.respond("safe_read", {
           path: filePath,
@@ -39,7 +37,7 @@ export function createSafeReadHandler(ctx: ToolContext): ToolHandler {
           actual: cacheResult.obs.actual,
           readCount: cacheResult.obs.readCount,
           estimatedBytesAvoided: cacheResult.obs.actual.bytes,
-          lastReadAt: now,
+          lastReadAt: cacheResult.obs.lastReadAt,
         });
       }
 

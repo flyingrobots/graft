@@ -13,16 +13,16 @@ export class Observation {
   readonly contentHash: string;
   readonly outline: OutlineEntry[];
   readonly jumpTable: JumpEntry[];
-  readonly actual: { lines: number; bytes: number };
-  readCount: number;
-  firstReadAt: string;
-  lastReadAt: string;
+  readonly actual: Readonly<{ lines: number; bytes: number }>;
+  readonly firstReadAt: string;
+  private _readCount: number;
+  private _lastReadAt: string;
 
   constructor(opts: {
     contentHash: string;
     outline: OutlineEntry[];
     jumpTable: JumpEntry[];
-    actual: { lines: number; bytes: number };
+    actual: Readonly<{ lines: number; bytes: number }>;
     readCount: number;
     firstReadAt: string;
     lastReadAt: string;
@@ -31,9 +31,17 @@ export class Observation {
     this.outline = opts.outline;
     this.jumpTable = opts.jumpTable;
     this.actual = opts.actual;
-    this.readCount = opts.readCount;
+    this._readCount = opts.readCount;
     this.firstReadAt = opts.firstReadAt;
-    this.lastReadAt = opts.lastReadAt;
+    this._lastReadAt = opts.lastReadAt;
+  }
+
+  get readCount(): number {
+    return this._readCount;
+  }
+
+  get lastReadAt(): string {
+    return this._lastReadAt;
   }
 
   isStale(currentContentHash: string): boolean {
@@ -41,8 +49,8 @@ export class Observation {
   }
 
   touch(): void {
-    this.readCount++;
-    this.lastReadAt = new Date().toISOString();
+    this._readCount++;
+    this._lastReadAt = new Date().toISOString();
   }
 }
 
@@ -58,7 +66,7 @@ export class ObservationCache {
     contentHash: string,
     outline: OutlineEntry[],
     jumpTable: JumpEntry[],
-    actual: { lines: number; bytes: number },
+    actual: Readonly<{ lines: number; bytes: number }>,
   ): void {
     const existing = this.entries.get(filePath);
     const now = new Date().toISOString();
