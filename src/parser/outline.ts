@@ -300,10 +300,10 @@ export function extractOutline(
       }
 
       // Wildcard re-export: export * from './x'
-      const source = child.namedChildren.find((c) => c.type === "string");
+      const moduleSpecifier = child.namedChildren.find((c) => c.type === "string");
       const hasWildcard = child.children.some((c) => c.type === "*" || c.type === "namespace_export");
-      if (hasWildcard && source) {
-        const name = `* from ${source.text}`;
+      if (hasWildcard && moduleSpecifier) {
+        const name = `* from ${moduleSpecifier.text}`;
         entries.push({ kind: "export", name, exported: true });
         jumpTable.push(buildJumpEntry(name, "export", child));
         continue;

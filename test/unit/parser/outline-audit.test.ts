@@ -131,6 +131,18 @@ describe("audit: re-exports", () => {
     expect(byName(result, "UserProps")).toBeDefined();
     expect(byName(result, "RouteParams")).toBeDefined();
   });
+
+  it("extracts wildcard re-export", () => {
+    const wildcard = result.entries.find((e) => e.name.startsWith("* from"));
+    expect(wildcard).toBeDefined();
+    expect(wildcard!.kind).toBe("export");
+  });
+
+  it("extracts non-function const export as kind=export", () => {
+    const version = byName(result, "VERSION");
+    expect(version).toBeDefined();
+    expect(version!.kind).toBe("export");
+  });
 });
 
 // ---------------------------------------------------------------------------
