@@ -2,7 +2,7 @@ import type { OutlineEntry } from "./types.js";
 
 export interface DiffEntry {
   name: string;
-  kind: string;
+  kind: OutlineEntry["kind"];
   signature?: string;
   oldSignature?: string;
   childDiff?: OutlineDiff;

@@ -112,6 +112,22 @@ describe("parser: outline diff", () => {
     expect(diff.unchangedCount).toBe(1);
   });
 
+  it("detects changed method signature within a class", () => {
+    const oldSource = `export class Foo {\n  bar(x: number): void {}\n}`;
+    const newSource = `export class Foo {\n  bar(x: number, y: string): void {}\n}`;
+    const oldOutline = extractOutline(oldSource, "ts");
+    const newOutline = extractOutline(newSource, "ts");
+    const diff = diffOutlines(oldOutline.entries, newOutline.entries);
+    expect(diff.changed).toHaveLength(1);
+    expect(diff.changed[0]!.name).toBe("Foo");
+    const childDiff = diff.changed[0]!.childDiff;
+    expect(childDiff).toBeDefined();
+    expect(childDiff!.changed).toHaveLength(1);
+    expect(childDiff!.changed[0]!.name).toBe("bar");
+    expect(childDiff!.changed[0]!.oldSignature).toContain("x: number");
+    expect(childDiff!.changed[0]!.signature).toContain("y: string");
+  });
+
   it("includes kind in diff entries", () => {
     const newSource = `export class Foo { bar(): void {} }`;
     const newOutline = extractOutline(newSource, "ts");
