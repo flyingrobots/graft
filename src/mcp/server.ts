@@ -1,4 +1,5 @@
 import * as fs from "node:fs";
+import { execFileSync } from "node:child_process";
 import * as crypto from "node:crypto";
 import * as path from "node:path";
 import { z } from "zod";
@@ -408,7 +409,39 @@ export function createGraftServer(): GraftServer {
   registerTool(
     "run_capture",
     { command: z.string(), tail: z.number().optional() },
-    () => Promise.resolve(textResultWithReceipt("run_capture", { message: "not yet implemented" })),
+    (args) => {
+      const command = args["command"] as string;
+      const tail = (args["tail"] as number | undefined) ?? 60;
+      try {
+        const output = execFileSync("sh", ["-c", command], {
+          cwd: projectRoot,
+          encoding: "utf-8",
+          timeout: 30000,
+          stdio: ["pipe", "pipe", "pipe"],
+          maxBuffer: 10 * 1024 * 1024,
+        });
+        const lines = output.split("\n");
+        const tailed = lines.slice(-tail).join("\n");
+        // Write full output to log for follow-up read_range
+        const logPath = path.join(graftDir, "logs", "capture.log");
+        fs.mkdirSync(path.dirname(logPath), { recursive: true });
+        fs.writeFileSync(logPath, output);
+        return Promise.resolve(textResultWithReceipt("run_capture", {
+          output: tailed,
+          totalLines: lines.length,
+          tailedLines: Math.min(tail, lines.length),
+          logPath,
+          truncated: lines.length > tail,
+        }));
+      } catch (err: unknown) {
+        const msg = err instanceof Error ? err.message : String(err);
+        const stderr = (err as { stderr?: string }).stderr ?? "";
+        return Promise.resolve(textResultWithReceipt("run_capture", {
+          error: msg,
+          stderr: typeof stderr === "string" ? stderr.slice(0, 2000) : "",
+        }));
+      }
+    },
   );
 
   // --- state_save ---
