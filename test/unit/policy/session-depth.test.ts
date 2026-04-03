@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { evaluatePolicy } from "../../../src/policy/evaluate.js";
+import { ContentResult, OutlineResult, RefusedResult } from "../../../src/policy/types.js";
 
 describe("policy: session-depth dynamic caps", () => {
   it("applies 20 KB cap in early session", () => {
@@ -8,7 +9,7 @@ describe("policy: session-depth dynamic caps", () => {
       { sessionDepth: "early" },
     );
     // 18 KB < 20 KB cap, and under static thresholds → content
-    expect(result.projection).toBe("content");
+    expect(result).toBeInstanceOf(ContentResult);
     expect(result.sessionDepth).toBe("early");
   });
 
@@ -18,7 +19,7 @@ describe("policy: session-depth dynamic caps", () => {
       { sessionDepth: "mid" },
     );
     // 11 KB > 10 KB mid cap → outline via SESSION_CAP
-    expect(result.projection).toBe("outline");
+    expect(result).toBeInstanceOf(OutlineResult);
     expect(result.reason).toBe("SESSION_CAP");
   });
 
@@ -28,7 +29,7 @@ describe("policy: session-depth dynamic caps", () => {
       { sessionDepth: "late" },
     );
     // 5 KB > 4 KB late cap → outline via SESSION_CAP
-    expect(result.projection).toBe("outline");
+    expect(result).toBeInstanceOf(OutlineResult);
     expect(result.reason).toBe("SESSION_CAP");
   });
 
@@ -38,7 +39,7 @@ describe("policy: session-depth dynamic caps", () => {
       { sessionDepth: "unknown" },
     );
     // 11 KB < 12 KB static, 100 < 150 static → content
-    expect(result.projection).toBe("content");
+    expect(result).toBeInstanceOf(ContentResult);
   });
 
   it("static thresholds still apply even in early session", () => {
@@ -47,7 +48,7 @@ describe("policy: session-depth dynamic caps", () => {
       { sessionDepth: "early" },
     );
     // 200 lines > 150 static → outline even though bytes < 20 KB early cap
-    expect(result.projection).toBe("outline");
+    expect(result).toBeInstanceOf(OutlineResult);
     expect(result.reason).toBe("OUTLINE");
   });
 
@@ -58,7 +59,7 @@ describe("policy: session-depth dynamic caps", () => {
     );
     // Both static (200 > 150 lines, 15KB > 12KB) and dynamic (15KB > 10KB mid)
     // The tighter constraint wins: SESSION_CAP at 10 KB
-    expect(result.projection).toBe("outline");
+    expect(result).toBeInstanceOf(OutlineResult);
   });
 
   it("bans still override session depth caps", () => {
@@ -66,7 +67,7 @@ describe("policy: session-depth dynamic caps", () => {
       { path: "image.png", lines: 1, bytes: 100 },
       { sessionDepth: "early" },
     );
-    expect(result.projection).toBe("refused");
+    expect(result).toBeInstanceOf(RefusedResult);
     expect(result.reason).toBe("BINARY");
   });
 });
