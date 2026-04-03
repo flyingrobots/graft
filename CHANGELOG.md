@@ -10,7 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 ### Changed
 
 - **Server decomposition** (cycle 0010): split 541-line MCP server
-  god file into focused modules. `server.ts` is now 121 lines of pure
+  god file into focused modules. `server.ts` is now 110 lines of pure
   registration and plumbing. New modules:
   - `metrics.ts` — `Metrics` class replaces 6 loose counters
   - `cache.ts` — `Observation` class + `ObservationCache` with
