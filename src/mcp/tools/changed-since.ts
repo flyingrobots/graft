@@ -44,7 +44,8 @@ export function createChangedSinceHandler(ctx: ToolContext): ToolHandler {
       return Promise.resolve(ctx.respond("changed_since", { status: "no_previous_observation" }));
     }
 
-    if (obs.contentHash === hashContent(rawContent)) {
+    const currentHash = hashContent(rawContent);
+    if (obs.contentHash === currentHash) {
       return Promise.resolve(ctx.respond("changed_since", { status: "unchanged" }));
     }
 
@@ -53,16 +54,12 @@ export function createChangedSinceHandler(ctx: ToolContext): ToolHandler {
     const diff = diffOutlines(obs.outline, newOutlineResult.entries);
 
     if (consume) {
-      const consumeActual = {
-        lines: rawContent.split("\n").length,
-        bytes: Buffer.byteLength(rawContent),
-      };
       ctx.cache.record(
         filePath,
-        hashContent(rawContent),
+        currentHash,
         newOutlineResult.entries,
         newOutlineResult.jumpTable ?? [],
-        consumeActual,
+        actual,
       );
     }
 
