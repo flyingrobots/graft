@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { safeRead } from "../../src/operations/safe-read.js";
+import { nodeFs } from "../../src/adapters/node-fs.js";
 import path from "node:path";
 
 const FIXTURES = path.resolve(import.meta.dirname, "../fixtures");
@@ -10,7 +11,7 @@ const FIXTURES = path.resolve(import.meta.dirname, "../fixtures");
  */
 describe("integration: safe_read end-to-end", () => {
   it("small file → content with full source", async () => {
-    const result = await safeRead(path.join(FIXTURES, "small.ts"));
+    const result = await safeRead(path.join(FIXTURES, "small.ts"), { fs: nodeFs });
     expect(result.projection).toBe("content");
     expect(result.content).toContain("export function greet");
     expect(result.content).toContain('return `Hello,');
@@ -18,7 +19,7 @@ describe("integration: safe_read end-to-end", () => {
   });
 
   it("large file → outline with jump table and bytes avoided", async () => {
-    const result = await safeRead(path.join(FIXTURES, "large.ts"));
+    const result = await safeRead(path.join(FIXTURES, "large.ts"), { fs: nodeFs });
     expect(result.projection).toBe("outline");
     expect(result.content).toBeUndefined();
     expect(result.outline!.length).toBeGreaterThan(0);
@@ -35,6 +36,7 @@ describe("integration: safe_read end-to-end", () => {
   it("binary → refused with BINARY reason and next steps", async () => {
     const result = await safeRead(
       path.join(FIXTURES, "ban-targets/image.png"),
+      { fs: nodeFs },
     );
     expect(result.projection).toBe("refused");
     expect(result.reason).toBe("BINARY");
@@ -46,6 +48,7 @@ describe("integration: safe_read end-to-end", () => {
   it("secret → refused with SECRET reason", async () => {
     const result = await safeRead(
       path.join(FIXTURES, "ban-targets/.env"),
+      { fs: nodeFs },
     );
     expect(result.projection).toBe("refused");
     expect(result.reason).toBe("SECRET");
@@ -54,6 +57,7 @@ describe("integration: safe_read end-to-end", () => {
   it("build output → refused with source redirect", async () => {
     const result = await safeRead(
       path.join(FIXTURES, "ban-targets/dist/compiled.js"),
+      { fs: nodeFs },
     );
     expect(result.projection).toBe("refused");
     expect(result.reason).toBe("BUILD_OUTPUT");
@@ -64,6 +68,7 @@ describe("integration: safe_read end-to-end", () => {
   it("nonexistent → error with NOT_FOUND", async () => {
     const result = await safeRead(
       path.join(FIXTURES, "this-file-does-not-exist.ts"),
+      { fs: nodeFs },
     );
     expect(result.projection).toBe("error");
     expect(result.reason).toBe("NOT_FOUND");
@@ -78,7 +83,7 @@ describe("integration: safe_read end-to-end", () => {
     ];
 
     for (const file of files) {
-      const result = await safeRead(file);
+      const result = await safeRead(file, { fs: nodeFs });
       const json = JSON.stringify(result);
       const parsed: unknown = JSON.parse(json);
       expect(parsed).toEqual(result);
@@ -86,10 +91,10 @@ describe("integration: safe_read end-to-end", () => {
   });
 
   it("session depth 'late' tightens caps on medium files", async () => {
-    const normal = await safeRead(path.join(FIXTURES, "medium.ts"));
+    const normal = await safeRead(path.join(FIXTURES, "medium.ts"), { fs: nodeFs });
     const late = await safeRead(
       path.join(FIXTURES, "medium.ts"),
-      { sessionDepth: "late" },
+      { fs: nodeFs, sessionDepth: "late" },
     );
     // Medium file should pass under normal policy but may be capped late
     expect(normal.projection).toBe("content");

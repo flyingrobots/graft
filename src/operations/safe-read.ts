@@ -1,4 +1,3 @@
-import { readFile } from "node:fs/promises";
 import { evaluatePolicy } from "../policy/evaluate.js";
 import { ContentResult, RefusedResult } from "../policy/types.js";
 import type { SessionDepth } from "../policy/types.js";
@@ -19,18 +18,21 @@ export interface SafeReadResult {
   sessionDepth?: SessionDepth | undefined;
 }
 
+import type { FileSystem } from "../ports/filesystem.js";
+
 export interface SafeReadOptions {
+  fs: FileSystem;
   intent?: string | undefined;
   sessionDepth?: SessionDepth | undefined;
 }
 
 export async function safeRead(
   filePath: string,
-  options?: SafeReadOptions,
+  options: SafeReadOptions,
 ): Promise<SafeReadResult> {
   let raw: Buffer;
   try {
-    raw = await readFile(filePath);
+    raw = await options.fs.readFile(filePath);
   } catch {
     return {
       path: filePath,
@@ -45,7 +47,7 @@ export async function safeRead(
 
   const policy = evaluatePolicy(
     { path: filePath, lines, bytes },
-    { sessionDepth: options?.sessionDepth },
+    { sessionDepth: options.sessionDepth },
   );
 
   const base: SafeReadResult = {
