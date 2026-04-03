@@ -27,9 +27,7 @@ Or use directly:
 npx @flyingrobots/graft
 ```
 
-## Setup (MCP)
-
-Add to your MCP config (Claude Code, Cursor, etc.):
+## Quick start
 
 ```json
 {
@@ -42,8 +40,12 @@ Add to your MCP config (Claude Code, Cursor, etc.):
 }
 ```
 
-For Claude Code, add this to `.mcp.json` in your project root
-or `~/.claude.json` globally.
+Add this to your MCP config — works with Claude Code, Cursor,
+Windsurf, Continue, Cline, and any MCP-compatible client.
+
+See **[Setup Guide](docs/GUIDE.md)** for per-editor instructions,
+`.graftignore` configuration, troubleshooting, and details on what
+the agent experiences.
 
 ## What it does
 
