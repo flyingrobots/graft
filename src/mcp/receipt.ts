@@ -2,10 +2,11 @@
 // Receipt builder — attaches decision metadata to every tool response
 // ---------------------------------------------------------------------------
 
+import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
 import type { MetricsSnapshot } from "./metrics.js";
 import type { Tripwire } from "../session/types.js";
 
-export interface McpToolResult { content: { type: string; text: string }[] }
+export type McpToolResult = CallToolResult;
 
 export interface ReceiptDeps {
   readonly sessionId: string;
