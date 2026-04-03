@@ -329,8 +329,12 @@ export function createGraftServer(): GraftServer {
   );
 
   // --- changed_since ---
-  registerTool("changed_since", { path: z.string() }, (args) => {
+  // Peek by default: returns the diff without updating the observation cache.
+  // With consume: true, updates the cache so the next safe_read sees cache_hit.
+  // Semantics: safe_read = always consumes. changed_since = peek unless told otherwise.
+  registerTool("changed_since", { path: z.string(), consume: z.boolean().optional() }, (args) => {
     const filePath = path.resolve(projectRoot, args["path"] as string);
+    const consume = (args["consume"] as boolean | undefined) === true;
     const obs = observations.get(filePath);
     if (obs === undefined) {
       return Promise.resolve(textResultWithReceipt("changed_since", { status: "no_previous_observation" }));
@@ -347,11 +351,25 @@ export function createGraftServer(): GraftServer {
       return Promise.resolve(textResultWithReceipt("changed_since", { status: "unchanged" }));
     }
 
-    // Use extractOutline with rawContent directly to avoid snapshot race —
-    // fileOutline re-reads the file, which could differ from rawContent.
+    // Use extractOutline with rawContent directly to avoid snapshot race.
     const newOutlineResult = extractOutline(rawContent);
     const diff = diffOutlines(obs.outline, newOutlineResult.entries);
-    return Promise.resolve(textResultWithReceipt("changed_since", { diff }));
+
+    if (consume) {
+      const actual = {
+        lines: rawContent.split("\n").length,
+        bytes: Buffer.byteLength(rawContent),
+      };
+      recordObservation(
+        filePath,
+        hashContent(rawContent),
+        newOutlineResult.entries,
+        newOutlineResult.jumpTable ?? [],
+        actual,
+      );
+    }
+
+    return Promise.resolve(textResultWithReceipt("changed_since", { diff, consumed: consume }));
   });
 
   // --- run_capture ---

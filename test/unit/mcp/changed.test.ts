@@ -105,6 +105,27 @@ describe("mcp: changed-since-last-read", () => {
     expect(result["status"]).toBe("unchanged");
   });
 
+  it("changed_since without consume does not update cache (peek)", async () => {
+    await server.callTool("safe_read", { path: testFile });
+    fs.writeFileSync(testFile, 'export function hello(): string {\n  return "hi";\n}\nexport function peeked(): void {}\n');
+    // Peek — does not consume
+    await server.callTool("changed_since", { path: testFile });
+    // safe_read should still see the change (not cache_hit)
+    const result = parse(await server.callTool("safe_read", { path: testFile }));
+    expect(result["projection"]).toBe("diff");
+  });
+
+  it("changed_since with consume: true updates cache", async () => {
+    await server.callTool("safe_read", { path: testFile });
+    fs.writeFileSync(testFile, 'export function hello(): string {\n  return "hi";\n}\nexport function consumed(): void {}\n');
+    // Consume — updates observation
+    const cs = parse(await server.callTool("changed_since", { path: testFile, consume: true }));
+    expect(cs["consumed"]).toBe(true);
+    // safe_read should now see cache_hit (observation was consumed)
+    const result = parse(await server.callTool("safe_read", { path: testFile }));
+    expect(result["projection"]).toBe("cache_hit");
+  });
+
   it("receipt includes diff projection on changed reads", async () => {
     await server.callTool("safe_read", { path: testFile });
     fs.writeFileSync(testFile, 'export function hello(): string {\n  return "hi";\n}\nexport function extra(): void {}\n');
