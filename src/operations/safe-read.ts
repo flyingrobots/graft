@@ -3,6 +3,7 @@ import { ContentResult, RefusedResult } from "../policy/types.js";
 import type { SessionDepth } from "../policy/types.js";
 import { extractOutline } from "../parser/outline.js";
 import type { OutlineEntry, JumpEntry } from "../parser/types.js";
+import type { FileSystem } from "../ports/filesystem.js";
 
 export interface SafeReadResult {
   path: string;
@@ -17,8 +18,6 @@ export interface SafeReadResult {
   thresholds?: { lines: number; bytes: number } | undefined;
   sessionDepth?: SessionDepth | undefined;
 }
-
-import type { FileSystem } from "../ports/filesystem.js";
 
 export interface SafeReadOptions {
   fs: FileSystem;

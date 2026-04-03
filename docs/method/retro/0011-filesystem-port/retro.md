@@ -49,5 +49,5 @@ metrics/) no longer imports node:fs directly. Hexagonal compliance.
 - 6 commits, tests green after each
 - 2 new files (port + adapter)
 - 5 core files + 1 metrics file migrated
-- 6 tool handlers updated to pass ctx.fs
+- 5 tool handler files updated to pass ctx.fs (6 handler functions)
 - 6 test files updated to pass nodeFs
