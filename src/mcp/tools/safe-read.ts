@@ -123,6 +123,6 @@ export function createSafeReadHandler(ctx: ToolContext): ToolHandler {
       );
     }
 
-    return ctx.respond("safe_read", result as unknown as Record<string, unknown>);
+    return ctx.respond("safe_read", result);
   };
 }

@@ -3,6 +3,7 @@ import type { OutlineEntry, JumpEntry } from "../parser/types.js";
 import type { FileSystem } from "../ports/filesystem.js";
 
 export interface FileOutlineResult {
+  [key: string]: unknown;
   path: string;
   outline: OutlineEntry[];
   jumpTable: JumpEntry[];

@@ -13,6 +13,7 @@ export interface FileDiff {
 }
 
 export interface GraftDiffResult {
+  [key: string]: unknown;
   base: string;
   head: string;
   files: FileDiff[];
