@@ -1,0 +1,15 @@
+{
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Read",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node --import tsx src/hooks/pretooluse-read.ts"
+          }
+        ]
+      }
+    ]
+  }
+}
