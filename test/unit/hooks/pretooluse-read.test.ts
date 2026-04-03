@@ -107,6 +107,31 @@ describe("hooks: pretooluse-read", () => {
   });
 
   // -----------------------------------------------------------------------
+  // Non-JS/TS files (no outline available)
+  // -----------------------------------------------------------------------
+  describe("non-parseable files", () => {
+    let tmpDir: string;
+
+    beforeEach(() => {
+      tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "graft-hook-lang-"));
+    });
+
+    afterEach(() => {
+      fs.rmSync(tmpDir, { recursive: true, force: true });
+    });
+
+    it("returns content for large non-JS/TS files instead of empty outline", async () => {
+      const largeMd = "# Heading\n\n" + "Lorem ipsum dolor sit amet.\n".repeat(200);
+      fs.writeFileSync(path.join(tmpDir, "README.md"), largeMd);
+      const input = makeInput(path.join(tmpDir, "README.md"), tmpDir);
+      const output = await handleReadHook(input);
+      expect(output.exitCode).toBe(2);
+      expect(output.stderr).toContain("Lorem ipsum");
+      expect(output.stderr).not.toContain("jumpTable");
+    });
+  });
+
+  // -----------------------------------------------------------------------
   // .graftignore support
   // -----------------------------------------------------------------------
   describe("graftignore", () => {

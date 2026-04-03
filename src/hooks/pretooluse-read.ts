@@ -100,9 +100,27 @@ export async function handleReadHook(input: HookInput): Promise<HookOutput> {
   }
 
   // Outline — large file, extract structure
-  const { extractOutline } = await import("../parser/outline.js");
+  // Only extract outlines for supported languages (JS/TS). Other files
+  // get content pass-through regardless of size.
   const { detectLang } = await import("../parser/lang.js");
-  const lang = detectLang(filePath) ?? "ts";
+  const lang = detectLang(filePath);
+  if (lang === null) {
+    // Unsupported language — return content (no outline available)
+    let content: string;
+    if (offset !== undefined || limit !== undefined) {
+      const startLine = offset ?? 0;
+      const lineCount = limit ?? lines.length;
+      content = lines.slice(startLine, startLine + lineCount).join("\n");
+    } else {
+      content = rawContent;
+    }
+    return {
+      exitCode: 2,
+      stderr: `[graft] ${filePath} (${String(lines.length)} lines, ${String(bytes)} bytes)\n\n${content}`,
+    };
+  }
+
+  const { extractOutline } = await import("../parser/outline.js");
   const result = extractOutline(rawContent, lang);
 
   const outlineJson = JSON.stringify({
