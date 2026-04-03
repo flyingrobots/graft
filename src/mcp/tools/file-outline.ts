@@ -4,6 +4,11 @@ import { fileOutline } from "../../operations/file-outline.js";
 import { hashContent } from "../cache.js";
 import type { ToolHandler, ToolContext } from "../context.js";
 
+export const FILE_OUTLINE_DESCRIPTION =
+  "Structural skeleton of a file \u2014 function signatures, class shapes, " +
+  "exports. Includes a jump table mapping each symbol to its line range " +
+  "for targeted read_range follow-ups.";
+
 export function createFileOutlineHandler(ctx: ToolContext): ToolHandler {
   return async (args) => {
     const filePath = path.resolve(ctx.projectRoot, args["path"] as string);

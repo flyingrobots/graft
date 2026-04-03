@@ -1,5 +1,9 @@
 import type { ToolHandler, ToolContext } from "../context.js";
 
+export const DOCTOR_DESCRIPTION =
+  "Runtime health check. Shows project root, parser status, active " +
+  "thresholds, session depth, and message count.";
+
 export function createDoctorHandler(ctx: ToolContext): ToolHandler {
   return () => {
     return Promise.resolve(ctx.respond("doctor", {

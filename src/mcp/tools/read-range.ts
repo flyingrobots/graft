@@ -2,6 +2,11 @@ import * as path from "node:path";
 import { readRange } from "../../operations/read-range.js";
 import type { ToolHandler, ToolContext } from "../context.js";
 
+export const READ_RANGE_DESCRIPTION =
+  "Read a bounded range of lines from a file. Maximum 250 lines. " +
+  "Use jump table entries from file_outline or safe_read to target " +
+  "specific symbols.";
+
 export function createReadRangeHandler(ctx: ToolContext): ToolHandler {
   return async (args) => {
     const filePath = path.resolve(ctx.projectRoot, args["path"] as string);

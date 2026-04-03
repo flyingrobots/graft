@@ -3,6 +3,11 @@ import * as path from "node:path";
 import { execFileSync } from "node:child_process";
 import type { ToolHandler, ToolContext } from "../context.js";
 
+export const RUN_CAPTURE_DESCRIPTION =
+  "Execute a shell command and return the last N lines of output " +
+  "(default 60). Full output saved to .graft/logs/capture.log for " +
+  "follow-up read_range calls.";
+
 export function createRunCaptureHandler(ctx: ToolContext): ToolHandler {
   return (args) => {
     const command = args["command"] as string;

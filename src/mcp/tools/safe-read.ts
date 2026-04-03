@@ -10,6 +10,12 @@ import { detectLang } from "../../parser/lang.js";
 import { hashContent } from "../cache.js";
 import type { ToolHandler, ToolContext } from "../context.js";
 
+export const SAFE_READ_DESCRIPTION =
+  "Policy-enforced file read. Returns full content for small files, " +
+  "structural outline with jump table for large files, or refusal with " +
+  "reason code for banned files. Detects re-reads and returns cached " +
+  "outlines or structural diffs.";
+
 export function createSafeReadHandler(ctx: ToolContext): ToolHandler {
   return async (args) => {
     const filePath = path.resolve(ctx.projectRoot, args["path"] as string);

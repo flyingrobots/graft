@@ -1,6 +1,11 @@
 import { graftDiff } from "../../operations/graft-diff.js";
 import type { ToolHandler, ToolContext } from "../context.js";
 
+export const GRAFT_DIFF_DESCRIPTION =
+  "Structural diff between two git refs. Shows added, removed, and " +
+  "changed symbols per file \u2014 not line hunks. Defaults to working " +
+  "tree vs HEAD.";
+
 export function createGraftDiffHandler(ctx: ToolContext): ToolHandler {
   return (args) => {
     const result = graftDiff({

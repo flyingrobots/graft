@@ -8,6 +8,11 @@ import { detectLang } from "../../parser/lang.js";
 import { hashContent } from "../cache.js";
 import type { ToolHandler, ToolContext } from "../context.js";
 
+export const CHANGED_SINCE_DESCRIPTION =
+  "Check if a file changed since it was last read. Returns structural " +
+  "diff (added/removed/changed symbols) or 'unchanged'. Peek mode by " +
+  "default; pass consume: true to update the observation cache.";
+
 export function createChangedSinceHandler(ctx: ToolContext): ToolHandler {
   return (args) => {
     const filePath = path.resolve(ctx.projectRoot, args["path"] as string);
