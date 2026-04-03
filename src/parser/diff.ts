@@ -51,21 +51,20 @@ export function diffOutlines(
   for (const [name, newEntry] of newByName) {
     const oldEntry = oldByName.get(name);
     if (oldEntry === undefined) {
-      added.push({
-        name,
-        kind: newEntry.kind,
-        signature: newEntry.signature,
-      });
+      const entry: DiffEntry = { name, kind: newEntry.kind };
+      if (newEntry.signature !== undefined) entry.signature = newEntry.signature;
+      added.push(entry);
     } else {
       const oldSig = entrySignature(oldEntry);
       const newSig = entrySignature(newEntry);
       if (oldSig !== newSig) {
-        changed.push({
+        const entry: DiffEntry = {
           name,
           kind: newEntry.kind,
-          signature: newEntry.signature,
           oldSignature: entrySignature(oldEntry),
-        });
+        };
+        if (newEntry.signature !== undefined) entry.signature = newEntry.signature;
+        changed.push(entry);
       } else {
         // Same name and signature — check children recursively
         const oldChildren = oldEntry.children ?? [];
@@ -73,12 +72,9 @@ export function diffOutlines(
         if (oldChildren.length > 0 || newChildren.length > 0) {
           const childDiff = diffOutlines(oldChildren, newChildren);
           if (childDiff.added.length > 0 || childDiff.removed.length > 0 || childDiff.changed.length > 0) {
-            changed.push({
-              name,
-              kind: newEntry.kind,
-              signature: newEntry.signature,
-              childDiff,
-            });
+            const entry: DiffEntry = { name, kind: newEntry.kind, childDiff };
+            if (newEntry.signature !== undefined) entry.signature = newEntry.signature;
+            changed.push(entry);
           } else {
             unchangedCount++;
           }
@@ -92,11 +88,9 @@ export function diffOutlines(
   // Check for removed (in old but not in new)
   for (const [name, oldEntry] of oldByName) {
     if (!newByName.has(name)) {
-      removed.push({
-        name,
-        kind: oldEntry.kind,
-        signature: oldEntry.signature,
-      });
+      const entry: DiffEntry = { name, kind: oldEntry.kind };
+      if (oldEntry.signature !== undefined) entry.signature = oldEntry.signature;
+      removed.push(entry);
     }
   }
 

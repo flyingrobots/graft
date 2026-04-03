@@ -30,48 +30,48 @@ describe("mcp: re-read suppression", () => {
 
   it("returns content on first read", async () => {
     const result = parse(await server.callTool("safe_read", { path: testFile }));
-    expect(result.projection).toBe("content");
-    expect(result.reason).toBe("CONTENT");
+    expect(result["projection"]).toBe("content");
+    expect(result["reason"]).toBe("CONTENT");
   });
 
   it("returns cache_hit on second read of unchanged file", async () => {
     await server.callTool("safe_read", { path: testFile });
     const result = parse(await server.callTool("safe_read", { path: testFile }));
-    expect(result.projection).toBe("cache_hit");
-    expect(result.reason).toBe("REREAD_UNCHANGED");
+    expect(result["projection"]).toBe("cache_hit");
+    expect(result["reason"]).toBe("REREAD_UNCHANGED");
   });
 
   it("cache_hit includes outline and jump table", async () => {
     await server.callTool("safe_read", { path: testFile });
     const result = parse(await server.callTool("safe_read", { path: testFile }));
-    expect(result.outline).toBeDefined();
-    expect(result.jumpTable).toBeDefined();
+    expect(result["outline"]).toBeDefined();
+    expect(result["jumpTable"]).toBeDefined();
   });
 
   it("cache_hit includes readCount", async () => {
     await server.callTool("safe_read", { path: testFile });
     const r2 = parse(await server.callTool("safe_read", { path: testFile }));
-    expect(r2.readCount).toBe(2);
+    expect(r2["readCount"]).toBe(2);
     const r3 = parse(await server.callTool("safe_read", { path: testFile }));
-    expect(r3.readCount).toBe(3);
+    expect(r3["readCount"]).toBe(3);
   });
 
   it("cache_hit includes estimatedBytesAvoided", async () => {
     await server.callTool("safe_read", { path: testFile });
     const result = parse(await server.callTool("safe_read", { path: testFile }));
-    expect(result.estimatedBytesAvoided).toBeDefined();
-    expect(typeof result.estimatedBytesAvoided).toBe("number");
-    expect(result.estimatedBytesAvoided as number).toBeGreaterThan(0);
+    expect(result["estimatedBytesAvoided"]).toBeDefined();
+    expect(typeof result["estimatedBytesAvoided"]).toBe("number");
+    expect(result["estimatedBytesAvoided"] as number).toBeGreaterThan(0);
   });
 
   it("returns diff when file changes between reads", async () => {
     await server.callTool("safe_read", { path: testFile });
     fs.writeFileSync(testFile, 'export function goodbye(): string {\n  return "bye";\n}\n');
     const result = parse(await server.callTool("safe_read", { path: testFile }));
-    expect(result.projection).toBe("diff");
-    expect(result.reason).toBe("CHANGED_SINCE_LAST_READ");
+    expect(result["projection"]).toBe("diff");
+    expect(result["reason"]).toBe("CHANGED_SINCE_LAST_READ");
     // Verify diff structure has the expected added entry
-    const diff = result.diff as { added: { name: string }[]; removed: { name: string }[] };
+    const diff = result["diff"] as { added: { name: string }[]; removed: { name: string }[] };
     expect(diff.added.some((d) => d.name === "goodbye")).toBe(true);
     expect(diff.removed.some((d) => d.name === "hello")).toBe(true);
   });
@@ -83,23 +83,23 @@ describe("mcp: re-read suppression", () => {
     await server.callTool("safe_read", { path: testFile });
     const result = parse(await server.callTool("safe_read", { path: otherFile }));
     // First read of otherFile — should be content, not cache_hit
-    expect(result.projection).toBe("content");
+    expect(result["projection"]).toBe("content");
   });
 
   it("file_outline also uses cache on re-read", async () => {
     await server.callTool("file_outline", { path: testFile });
     const result = parse(await server.callTool("file_outline", { path: testFile }));
-    expect(result.cacheHit).toBe(true);
-    expect(result.outline).toBeDefined();
-    expect(result.jumpTable).toBeDefined();
+    expect(result["cacheHit"]).toBe(true);
+    expect(result["outline"]).toBeDefined();
+    expect(result["jumpTable"]).toBeDefined();
   });
 
   it("file_outline cache invalidates when file changes", async () => {
     await server.callTool("file_outline", { path: testFile });
     fs.writeFileSync(testFile, "export const changed = true;\n");
     const result = parse(await server.callTool("file_outline", { path: testFile }));
-    expect(result.cacheHit).toBeUndefined();
-    expect(result.outline).toBeDefined();
+    expect(result["cacheHit"]).toBeUndefined();
+    expect(result["outline"]).toBeDefined();
   });
 
   it("stats includes cache metrics", async () => {
@@ -107,27 +107,27 @@ describe("mcp: re-read suppression", () => {
     await server.callTool("safe_read", { path: testFile });
     await server.callTool("safe_read", { path: testFile });
     const stats = parse(await server.callTool("stats", {}));
-    expect(stats.totalCacheHits).toBe(2);
-    expect(typeof stats.totalBytesAvoidedByCache).toBe("number");
-    expect(stats.totalBytesAvoidedByCache as number).toBeGreaterThan(0);
+    expect(stats["totalCacheHits"]).toBe(2);
+    expect(typeof stats["totalBytesAvoidedByCache"]).toBe("number");
+    expect(stats["totalBytesAvoidedByCache"] as number).toBeGreaterThan(0);
   });
 
   it("cache_hit includes lastReadAt timestamp", async () => {
     await server.callTool("safe_read", { path: testFile });
     const result = parse(await server.callTool("safe_read", { path: testFile }));
-    expect(result.lastReadAt).toBeDefined();
-    expect(typeof result.lastReadAt).toBe("string");
-    expect(result.lastReadAt as string).toMatch(/^\d{4}-\d{2}-\d{2}T/);
+    expect(result["lastReadAt"]).toBeDefined();
+    expect(typeof result["lastReadAt"]).toBe("string");
+    expect(result["lastReadAt"] as string).toMatch(/^\d{4}-\d{2}-\d{2}T/);
   });
 
   it("banned files are not cached (still refused on re-read)", async () => {
     const envFile = path.join(tmpDir, ".env");
     fs.writeFileSync(envFile, "SECRET=hunter2\n");
     const r1 = parse(await server.callTool("safe_read", { path: envFile }));
-    expect(r1.projection).toBe("refused");
+    expect(r1["projection"]).toBe("refused");
     const r2 = parse(await server.callTool("safe_read", { path: envFile }));
-    expect(r2.projection).toBe("refused");
+    expect(r2["projection"]).toBe("refused");
     // Should NOT be cache_hit — refusals are not cached
-    expect(r2.reason).toBe("SECRET");
+    expect(r2["reason"]).toBe("SECRET");
   });
 });

@@ -110,7 +110,7 @@ export function createGraftServer(): GraftServer {
     const fullData: Record<string, unknown> = { ...data, _receipt: receipt };
     const wires = session.checkTripwires();
     if (wires.length > 0) {
-      fullData.tripwire = wires;
+      fullData["tripwire"] = wires;
     }
     // Stabilize self-referential size fields
     let prev = 0;
@@ -119,8 +119,8 @@ export function createGraftServer(): GraftServer {
       text = JSON.stringify(fullData);
       if (text.length === prev) break;
       prev = text.length;
-      receipt.returnedBytes = text.length;
-      (receipt.cumulative as Record<string, number>).bytesReturned =
+      receipt["returnedBytes"] = text.length;
+      (receipt["cumulative"] as Record<string, number>)["bytesReturned"] =
         cumulativeBytesReturned + text.length;
     }
     cumulativeBytesReturned += text.length;

@@ -84,7 +84,7 @@ describe("parser: outline diff", () => {
     expect(diff.changed).toHaveLength(1);
     expect(diff.changed[0]!.name).toBe("Foo");
     // The changed entry should have childDiff with the added method
-    const childDiff = (diff.changed[0] as Record<string, unknown>).childDiff as { added: { name: string }[] };
+    const childDiff = diff.changed[0]!.childDiff as { added: { name: string }[] };
     expect(childDiff).toBeDefined();
     expect(childDiff.added).toHaveLength(1);
     expect(childDiff.added[0]!.name).toBe("baz");
@@ -98,7 +98,7 @@ describe("parser: outline diff", () => {
     const diff = diffOutlines(oldOutline.entries, newOutline.entries);
     expect(diff.changed).toHaveLength(1);
     expect(diff.changed[0]!.name).toBe("Foo");
-    const childDiff = (diff.changed[0] as Record<string, unknown>).childDiff as { removed: { name: string }[] };
+    const childDiff = diff.changed[0]!.childDiff as { removed: { name: string }[] };
     expect(childDiff).toBeDefined();
     expect(childDiff.removed).toHaveLength(1);
     expect(childDiff.removed[0]!.name).toBe("baz");

@@ -52,8 +52,8 @@ describe("integration: MCP server over stdio", () => {
     });
     const text = extractText(result);
     const parsed = JSON.parse(text) as Record<string, unknown>;
-    expect(parsed.projection).toBe("content");
-    expect(parsed.content).toContain("greet");
+    expect(parsed["projection"]).toBe("content");
+    expect(parsed["content"]).toContain("greet");
   });
 
   it("safe_read returns outline for large files", async () => {
@@ -63,8 +63,8 @@ describe("integration: MCP server over stdio", () => {
     });
     const text = extractText(result);
     const parsed = JSON.parse(text) as Record<string, unknown>;
-    expect(parsed.projection).toBe("outline");
-    expect(parsed.jumpTable).toBeDefined();
+    expect(parsed["projection"]).toBe("outline");
+    expect(parsed["jumpTable"]).toBeDefined();
   });
 
   it("safe_read refuses binary files", async () => {
@@ -74,8 +74,8 @@ describe("integration: MCP server over stdio", () => {
     });
     const text = extractText(result);
     const parsed = JSON.parse(text) as Record<string, unknown>;
-    expect(parsed.projection).toBe("refused");
-    expect(parsed.reason).toBe("BINARY");
+    expect(parsed["projection"]).toBe("refused");
+    expect(parsed["reason"]).toBe("BINARY");
   });
 
   it("file_outline includes jump table", async () => {
@@ -85,8 +85,8 @@ describe("integration: MCP server over stdio", () => {
     });
     const text = extractText(result);
     const parsed = JSON.parse(text) as Record<string, unknown>;
-    expect(parsed.outline).toBeDefined();
-    expect(parsed.jumpTable).toBeDefined();
+    expect(parsed["outline"]).toBeDefined();
+    expect(parsed["jumpTable"]).toBeDefined();
   });
 
   it("read_range returns bounded lines", async () => {
@@ -96,9 +96,9 @@ describe("integration: MCP server over stdio", () => {
     });
     const text = extractText(result);
     const parsed = JSON.parse(text) as Record<string, unknown>;
-    expect(parsed.content).toBeDefined();
-    expect(parsed.startLine).toBe(1);
-    expect(parsed.endLine).toBe(5);
+    expect(parsed["content"]).toBeDefined();
+    expect(parsed["startLine"]).toBe(1);
+    expect(parsed["endLine"]).toBe(5);
   });
 
   it("doctor returns health check", async () => {
@@ -108,8 +108,8 @@ describe("integration: MCP server over stdio", () => {
     });
     const text = extractText(result);
     const parsed = JSON.parse(text) as Record<string, unknown>;
-    expect(parsed.projectRoot).toBeDefined();
-    expect(parsed.parserHealthy).toBe(true);
+    expect(parsed["projectRoot"]).toBeDefined();
+    expect(parsed["parserHealthy"]).toBe(true);
   });
 
   it("stats returns metrics summary", async () => {
@@ -119,7 +119,7 @@ describe("integration: MCP server over stdio", () => {
     });
     const text = extractText(result);
     const parsed = JSON.parse(text) as Record<string, unknown>;
-    expect(parsed.totalReads).toBeDefined();
+    expect(parsed["totalReads"]).toBeDefined();
   });
 });
 
