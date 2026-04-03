@@ -1,6 +1,6 @@
 /** A single entry in a file outline. */
 export interface OutlineEntry {
-  kind: "function" | "class" | "method" | "interface" | "type" | "export";
+  kind: "function" | "class" | "method" | "interface" | "type" | "enum" | "export";
   name: string;
   signature?: string;
   exported: boolean;

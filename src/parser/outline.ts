@@ -71,6 +71,8 @@ function nodeKind(nodeType: string): EntryKind | undefined {
       return "interface";
     case "type_alias_declaration":
       return "type";
+    case "enum_declaration":
+      return "enum";
     default:
       return undefined;
   }
@@ -165,17 +167,38 @@ function processDeclaration(
   return entry;
 }
 
+function extractArrowSignature(name: string, arrowNode: TSNode): string | undefined {
+  const params = arrowNode.childForFieldName("parameters");
+  const returnType = arrowNode.childForFieldName("return_type");
+
+  let sig = name;
+  if (params) {
+    sig += params.text;
+  }
+  if (returnType) {
+    const rt = returnType.text.replace(/^:\s*/, "");
+    sig += ": " + rt;
+  }
+
+  return boundSignature(sig);
+}
+
 function processLexicalExport(node: TSNode): OutlineEntry[] {
   const entries: OutlineEntry[] = [];
   for (const child of node.namedChildren) {
     if (child.type === "variable_declarator") {
       const name = extractName(child);
-      if (name) {
-        entries.push({
-          kind: "export",
-          name,
-          exported: true,
-        });
+      if (!name) continue;
+
+      // Check if the value is an arrow function or function expression
+      const value = child.childForFieldName("value");
+      if (value && (value.type === "arrow_function" || value.type === "function")) {
+        const sig = extractArrowSignature(name, value);
+        const entry: OutlineEntry = { kind: "function", name, exported: true };
+        if (sig !== undefined) entry.signature = sig;
+        entries.push(entry);
+      } else {
+        entries.push({ kind: "export", name, exported: true });
       }
     }
   }
@@ -233,7 +256,8 @@ export function extractOutline(
           c.type === "generator_function_declaration" ||
           c.type === "class_declaration" ||
           c.type === "interface_declaration" ||
-          c.type === "type_alias_declaration",
+          c.type === "type_alias_declaration" ||
+          c.type === "enum_declaration",
       );
 
       if (inner) {
@@ -255,6 +279,33 @@ export function extractOutline(
           entries.push(entry);
           jumpTable.push(buildJumpEntry(entry.name, entry.kind, child));
         }
+        continue;
+      }
+
+      // Re-exports: export { A, B } from './x'
+      const exportClause = child.namedChildren.find(
+        (c) => c.type === "export_clause",
+      );
+      if (exportClause) {
+        for (const spec of exportClause.namedChildren) {
+          if (spec.type === "export_specifier") {
+            const nameNode = spec.childForFieldName("alias") ?? spec.childForFieldName("name");
+            if (nameNode) {
+              entries.push({ kind: "export", name: nameNode.text, exported: true });
+              jumpTable.push(buildJumpEntry(nameNode.text, "export", child));
+            }
+          }
+        }
+        continue;
+      }
+
+      // Wildcard re-export: export * from './x'
+      const moduleSpecifier = child.namedChildren.find((c) => c.type === "string");
+      const hasWildcard = child.children.some((c) => c.type === "*" || c.type === "namespace_export");
+      if (hasWildcard && moduleSpecifier) {
+        const name = `* from ${moduleSpecifier.text}`;
+        entries.push({ kind: "export", name, exported: true });
+        jumpTable.push(buildJumpEntry(name, "export", child));
         continue;
       }
 
