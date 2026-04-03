@@ -1,0 +1,117 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v[0-9]+.[0-9]+.[0-9]+"
+      - "v[0-9]+.[0-9]+.[0-9]+-*"
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  # Phase 1: Pre-release sanity checks
+  sanity:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      # Version consistency: tag must match package.json
+      - name: Verify tag matches package.json version
+        run: |
+          TAG_VERSION="${GITHUB_REF_NAME#v}"
+          PKG_VERSION=$(node -e "console.log(require('./package.json').version)")
+          if [ "$TAG_VERSION" != "$PKG_VERSION" ]; then
+            echo "::error::Tag version ($TAG_VERSION) does not match package.json ($PKG_VERSION)"
+            exit 1
+          fi
+          echo "Version: $TAG_VERSION ✓"
+
+      # Lockfile consistency
+      - name: Verify lockfile is in sync
+        run: pnpm install --frozen-lockfile
+
+      # package.json hygiene
+      - name: Verify package.json has required fields
+        run: |
+          node -e "
+            const pkg = require('./package.json');
+            const required = ['name', 'version', 'description', 'license', 'repository', 'bin', 'files', 'engines'];
+            const missing = required.filter(f => !pkg[f]);
+            if (missing.length) {
+              console.error('Missing package.json fields:', missing.join(', '));
+              process.exit(1);
+            }
+            if (!pkg.files || pkg.files.length === 0) {
+              console.error('package.json files array is empty');
+              process.exit(1);
+            }
+            console.log('package.json hygiene ✓');
+          "
+
+      # Lint
+      - name: Lint
+        run: pnpm lint
+
+      # Type check
+      - name: Type check
+        run: pnpm typecheck
+
+      # Tests
+      - name: Tests
+        run: pnpm test
+
+      # Dry-run pack to verify publishable contents
+      - name: Verify pack contents
+        run: |
+          pnpm pack --dry-run 2>&1 | tee pack-output.txt
+          echo "Pack contents ✓"
+
+  # Phase 2: Cut GitHub release
+  release:
+    needs: sanity
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Extract version from tag
+        id: version
+        run: echo "version=${GITHUB_REF_NAME#v}" >> "$GITHUB_OUTPUT"
+
+      - name: Extract changelog for this version
+        id: changelog
+        run: |
+          # Extract the section for this version from CHANGELOG.md
+          VERSION="${{ steps.version.outputs.version }}"
+          NOTES=$(awk "/^## \[${VERSION}\]/{found=1; next} /^## \[/{if(found) exit} found{print}" CHANGELOG.md)
+          if [ -z "$NOTES" ]; then
+            NOTES="Release v${VERSION}"
+          fi
+          # Write to file for gh release
+          echo "$NOTES" > release-notes.txt
+
+      - name: Create GitHub release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release create "$GITHUB_REF_NAME" \
+            --title "v${{ steps.version.outputs.version }}" \
+            --notes-file release-notes.txt \
+            --verify-tag
