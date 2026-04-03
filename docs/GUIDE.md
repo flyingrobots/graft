@@ -108,6 +108,21 @@ If your client doesn't support `npx`, install globally and use:
 - **Command**: `graft`
 - **Args**: (none)
 
+## Tool Reference
+
+| Tool | Description |
+|------|-------------|
+| `safe_read` | Policy-enforced file read. Returns full content for small files, structural outline with jump table for large files, or refusal with reason code for banned files. Detects re-reads and returns cached outlines or structural diffs. |
+| `file_outline` | Structural skeleton of a file — function signatures, class shapes, exports. Includes a jump table mapping each symbol to its line range for targeted `read_range` follow-ups. |
+| `read_range` | Read a bounded range of lines from a file. Maximum 250 lines. Use jump table entries from `file_outline` or `safe_read` to target specific symbols. |
+| `changed_since` | Check if a file changed since it was last read. Returns structural diff (added/removed/changed symbols) or "unchanged". Peek mode by default; pass `consume: true` to update the observation cache. |
+| `graft_diff` | Structural diff between two git refs. Shows added, removed, and changed symbols per file — not line hunks. Defaults to working tree vs HEAD. |
+| `run_capture` | Execute a shell command and return the last N lines of output (default 60). Full output saved to `.graft/logs/capture.log` for follow-up `read_range` calls. |
+| `state_save` | Save session working state (max 8 KB). Use for session bookmarks: current task, files modified, next planned actions. |
+| `state_load` | Load previously saved session state. Returns null if no state has been saved. |
+| `doctor` | Runtime health check. Shows project root, parser status, active thresholds, session depth, and message count. |
+| `stats` | Decision metrics for the current session. Total reads, outlines, refusals, cache hits, and bytes avoided. |
+
 ## What the agent sees
 
 Once configured, the agent gains 10 new tools. Here's what
