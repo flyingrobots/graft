@@ -37,7 +37,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   explicit delta queries without triggering a full safe_read.
 - 16 machine-stable reason codes (added REREAD_UNCHANGED,
   CHANGED_SINCE_LAST_READ).
-- 205 tests across 18 test files.
+- 206 tests across 18 test files.
 - Repository scaffolding, METHOD structure, community files.
 - Cycle 0001 design doc and retrospective.
 - Cycle 0002 design doc: MCP transport.
