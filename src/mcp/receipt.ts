@@ -61,6 +61,9 @@ export function buildReceiptResult(
       deps.metrics.bytesReturned + text.length;
   }
 
+  Object.freeze(receipt["cumulative"]);
+  Object.freeze(receipt);
+
   return {
     result: { content: [{ type: "text", text }] },
     textBytes: text.length,
