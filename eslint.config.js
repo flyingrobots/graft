@@ -51,6 +51,7 @@ export default tseslint.config(
   },
   {
     ignores: [
+      "bin/",
       "dist/",
       "coverage/",
       "node_modules/",

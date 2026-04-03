@@ -5,7 +5,7 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
-## [Unreleased]
+## [0.1.0] — 2026-04-03
 
 ### Added
 
@@ -37,10 +37,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   explicit delta queries without triggering a full safe_read.
 - Now 16 machine-stable reason codes — added `REREAD_UNCHANGED`
   (cycle 0003) and `CHANGED_SINCE_LAST_READ` (cycle 0005).
-- 225 tests across 20 test files.
-- Repository scaffolding, METHOD structure, community files.
-- Cycle 0001 design doc and retrospective.
-- Cycle 0002 design doc: MCP transport.
+- **Structural git diff** (`graft_diff`): symbol-level diff between
+  any two git refs. Uses `git rev-parse --verify` + `git cat-file -e`
+  for stable ref/object detection.
+- **run_capture implemented**: tee shell output to log file, return
+  last N lines. Full output at `.graft/logs/capture.log`.
+- **MCP tool descriptions**: all 10 tools have agent-facing
+  descriptions in their schema for discovery via `listTools`.
+- **bin/graft.js**: CLI entry point for `npx @flyingrobots/graft`.
+- 16 machine-stable reason codes.
+- 227 tests across 20 test files.
+- 7 cycles completed, 3 legends (CORE, WARP, CLEAN_CODE).
 
 ### Fixed
 

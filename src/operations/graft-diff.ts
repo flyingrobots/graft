@@ -1,6 +1,7 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
 import { getChangedFiles, getFileAtRef } from "../git/diff.js";
+import { detectLang } from "../parser/lang.js";
 import { extractOutline } from "../parser/outline.js";
 import { diffOutlines } from "../parser/diff.js";
 import type { OutlineDiff } from "../parser/diff.js";
@@ -28,12 +29,6 @@ function emptyDiff(): OutlineDiff {
   return { added: [], removed: [], changed: [], unchangedCount: 0 };
 }
 
-function detectLang(filePath: string): "ts" | "js" | null {
-  const ext = path.extname(filePath).toLowerCase();
-  if (ext === ".ts" || ext === ".tsx") return "ts";
-  if (ext === ".js" || ext === ".jsx") return "js";
-  return null;
-}
 
 /**
  * Compute structural diffs between two git refs (or working tree).
