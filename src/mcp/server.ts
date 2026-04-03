@@ -12,35 +12,17 @@ import { evaluatePolicy } from "../policy/evaluate.js";
 import { RefusedResult } from "../policy/types.js";
 import { readRange } from "../operations/read-range.js";
 import { stateSave, stateLoad } from "../operations/state.js";
-import type { OutlineEntry, JumpEntry } from "../parser/types.js";
 import { extractOutline } from "../parser/outline.js";
 import { diffOutlines } from "../parser/diff.js";
 import { detectLang } from "../parser/lang.js";
 import { graftDiff } from "../operations/graft-diff.js";
 import { Metrics } from "./metrics.js";
+import { ObservationCache, hashContent } from "./cache.js";
 
 export type McpToolResult = CallToolResult;
 
 type ToolHandler = (args: Record<string, unknown>) => Promise<McpToolResult>;
 
-
-// ---------------------------------------------------------------------------
-// Observation cache
-// ---------------------------------------------------------------------------
-
-interface Observation {
-  contentHash: string;
-  outline: OutlineEntry[];
-  jumpTable: JumpEntry[];
-  actual: { lines: number; bytes: number };
-  readCount: number;
-  firstReadAt: string;
-  lastReadAt: string;
-}
-
-function hashContent(content: string): string {
-  return crypto.createHash("sha256").update(content).digest("hex");
-}
 
 // ---------------------------------------------------------------------------
 // Server
@@ -61,7 +43,7 @@ export function createGraftServer(): GraftServer {
   const graftDir = path.join(projectRoot, ".graft");
 
   const handlers = new Map<string, ToolHandler>();
-  const observations = new Map<string, Observation>();
+  const cache = new ObservationCache();
 
   const metrics = new Metrics();
   let seq = 0;
@@ -129,34 +111,6 @@ export function createGraftServer(): GraftServer {
     return { content: [{ type: "text", text }] };
   }
 
-  function recordObservation(
-    filePath: string,
-    contentHash: string,
-    outline: OutlineEntry[],
-    jumpTable: JumpEntry[],
-    actual: { lines: number; bytes: number },
-  ): void {
-    const existing = observations.get(filePath);
-    const now = new Date().toISOString();
-    observations.set(filePath, {
-      contentHash,
-      outline,
-      jumpTable,
-      actual,
-      readCount: (existing?.readCount ?? 0) + 1,
-      firstReadAt: existing?.firstReadAt ?? now,
-      lastReadAt: now,
-    });
-  }
-
-  function checkCache(filePath: string, currentContent: string): { hit: true; obs: Observation } | { hit: false; stale: Observation | null } {
-    const obs = observations.get(filePath);
-    if (obs === undefined) return { hit: false, stale: null };
-    if (obs.contentHash === hashContent(currentContent)) return { hit: true, obs };
-    // Hash mismatch — return stale observation for diffing
-    return { hit: false, stale: obs };
-  }
-
   // --- safe_read ---
   registerTool(
     "safe_read",
@@ -177,7 +131,7 @@ export function createGraftServer(): GraftServer {
 
       // Check cache if we could read the file
       if (rawContent !== null) {
-        const cacheResult = checkCache(filePath, rawContent);
+        const cacheResult = cache.check(filePath, rawContent);
         if (cacheResult.hit) {
           const now = new Date().toISOString();
           cacheResult.obs.readCount++;
@@ -227,7 +181,7 @@ export function createGraftServer(): GraftServer {
           const diff = diffOutlines(cacheResult.stale.outline, newOutlineResult.entries);
           const newReadCount = cacheResult.stale.readCount + 1;
           // Update observation cache with new state
-          recordObservation(
+          cache.record(
             filePath,
             hashContent(rawContent),
             newOutlineResult.entries,
@@ -235,7 +189,7 @@ export function createGraftServer(): GraftServer {
             actual,
           );
           // Use the updated observation's lastReadAt (set by recordObservation)
-          const updatedObs = observations.get(filePath);
+          const updatedObs = cache.get(filePath);
           return textResultWithReceipt("safe_read", {
             path: filePath,
             projection: "diff",
@@ -263,7 +217,7 @@ export function createGraftServer(): GraftServer {
       // Record observation for content and outline projections (not refusals/errors)
       if (rawContent !== null && (result.projection === "content" || result.projection === "outline")) {
         const outlineResult = await fileOutline(filePath);
-        recordObservation(
+        cache.record(
           filePath,
           hashContent(rawContent),
           outlineResult.outline,
@@ -292,7 +246,7 @@ export function createGraftServer(): GraftServer {
     }
 
     if (rawContent !== null) {
-      const cacheResult = checkCache(filePath, rawContent);
+      const cacheResult = cache.check(filePath, rawContent);
       if (cacheResult.hit) {
         cacheResult.obs.readCount++;
         cacheResult.obs.lastReadAt = new Date().toISOString();
@@ -311,7 +265,7 @@ export function createGraftServer(): GraftServer {
 
     // Record observation
     if (rawContent !== null) {
-      recordObservation(
+      cache.record(
         filePath,
         hashContent(rawContent),
         result.outline,
@@ -370,7 +324,7 @@ export function createGraftServer(): GraftServer {
       return Promise.resolve(textResultWithReceipt("changed_since", { status: "refused", reason: policy.reason }));
     }
 
-    const obs = observations.get(filePath);
+    const obs = cache.get(filePath);
     if (obs === undefined) {
       return Promise.resolve(textResultWithReceipt("changed_since", { status: "no_previous_observation" }));
     }
@@ -388,7 +342,7 @@ export function createGraftServer(): GraftServer {
         lines: rawContent.split("\n").length,
         bytes: Buffer.byteLength(rawContent),
       };
-      recordObservation(
+      cache.record(
         filePath,
         hashContent(rawContent),
         newOutlineResult.entries,
