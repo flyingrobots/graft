@@ -115,6 +115,30 @@ describe("mcp: changed-since-last-read", () => {
     expect(result["projection"]).toBe("diff");
   });
 
+  it("changed_since checks policy and refuses banned files", async () => {
+    // Manually inject a stale observation for a path that is now banned.
+    // This simulates: file was read when allowed, then path became banned.
+    // Since we can't easily inject observations, we test the simpler case:
+    // changed_since on a .min.js file that somehow has an observation.
+    // The defense should catch it via evaluatePolicy.
+    const minFile = path.join(tmpDir, "bundle.min.js");
+    fs.writeFileSync(minFile, "var a=1;");
+    // safe_read would refuse this (MINIFIED), so no observation.
+    // Instead, read a normal file, rename it to banned, and call changed_since.
+    fs.writeFileSync(testFile, 'export const v1 = 1;\n');
+    await server.callTool("safe_read", { path: testFile });
+    // Rename file to a banned path and write new content there
+    const bannedPath = path.join(tmpDir, "secrets.pem");
+    fs.writeFileSync(bannedPath, 'export const v2 = 2;\n');
+    // Copy the observation: read testFile, then call changed_since on bannedPath.
+    // This won't work because the observation is keyed by resolved path.
+    // The REAL fix: changed_since should run evaluatePolicy on the path
+    // before returning any structural data, even if no observation exists.
+    // Test: changed_since on a banned path returns refused, not no_previous_observation.
+    const result = parse(await server.callTool("changed_since", { path: bannedPath }));
+    expect(result["status"]).toBe("refused");
+  });
+
   it("changed_since with consume: true updates cache", async () => {
     await server.callTool("safe_read", { path: testFile });
     fs.writeFileSync(testFile, 'export function hello(): string {\n  return "hi";\n}\nexport function consumed(): void {}\n');

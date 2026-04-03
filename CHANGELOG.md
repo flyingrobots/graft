@@ -35,18 +35,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   graft returns a structural diff (added/removed/changed symbols)
   alongside the new outline. New `changed_since` MCP tool for
   explicit delta queries without triggering a full safe_read.
-- 16 machine-stable reason codes (added REREAD_UNCHANGED,
-  CHANGED_SINCE_LAST_READ).
-- 206 tests across 18 test files.
+- Now 16 machine-stable reason codes — added `REREAD_UNCHANGED`
+  (cycle 0003) and `CHANGED_SINCE_LAST_READ` (cycle 0005).
+- 209 tests across 18 test files.
 - Repository scaffolding, METHOD structure, community files.
 - Cycle 0001 design doc and retrospective.
 - Cycle 0002 design doc: MCP transport.
 
 ### Fixed
 
-- **Diff path policy check**: the safe_read diff path now runs
-  evaluatePolicy before returning structural data, preventing
-  potential data leaks if policy rules evolve.
+- **Diff path policy check**: both `safe_read` and `changed_since`
+  now run `evaluatePolicy` before returning structural data,
+  preventing leaks if policy rules change after initial observation.
+  Note: `safe_read` always evaluates policy; `changed_since` was
+  added in this release and now also evaluates policy.
 - **Nested symbol diff**: classes/interfaces now recursively diff
   children. A method added inside a class shows as a changed class
   with a childDiff detailing the nested change.
