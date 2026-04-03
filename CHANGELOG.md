@@ -5,6 +5,21 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [Unreleased]
+
+### Changed
+
+- **Server decomposition** (cycle 0010): split 541-line MCP server
+  god file into focused modules. `server.ts` is now 121 lines of pure
+  registration and plumbing. New modules:
+  - `metrics.ts` — `Metrics` class replaces 6 loose counters
+  - `cache.ts` — `Observation` class + `ObservationCache` with
+    `isStale()`, `touch()`, `record()`, `check()`, `get()`
+  - `receipt.ts` — `buildReceiptResult()` with stabilization loop
+  - `context.ts` — `ToolContext` interface + `ToolHandler` type
+  - `tools/*.ts` — 9 files, one per tool handler (state.ts has both
+    save + load)
+
 ## [0.1.0] — 2026-04-03
 
 ### Added
