@@ -1,12 +1,22 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-branch=$(git rev-parse --abbrev-ref HEAD)
+# The pre-push hook receives lines on stdin:
+#   <local ref> <local sha> <remote ref> <remote sha>
+# We check if ANY remote ref targets main.
+pushing_to_main=false
+while read -r _ _ remote_ref _; do
+  if [[ "$remote_ref" == "refs/heads/main" ]]; then
+    pushing_to_main=true
+    break
+  fi
+done
 
-if [[ "$branch" == "main" ]]; then
+if [[ "$pushing_to_main" == "true" ]]; then
   echo "pre-push: pushing to main — running tests..."
   pnpm test
   echo "pre-push: tests passed."
 else
-  echo "pre-push: cycle branch ($branch) — skipping test gate."
+  local_branch=$(git rev-parse --abbrev-ref HEAD)
+  echo "pre-push: not pushing to main ($local_branch) — skipping test gate."
 fi
