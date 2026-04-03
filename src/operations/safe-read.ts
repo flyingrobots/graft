@@ -1,6 +1,7 @@
 import { readFile } from "node:fs/promises";
 import { evaluatePolicy } from "../policy/evaluate.js";
-import type { PolicyResult, SessionDepth } from "../policy/types.js";
+import { ContentResult, RefusedResult } from "../policy/types.js";
+import type { SessionDepth } from "../policy/types.js";
 import { extractOutline } from "../parser/outline.js";
 import type { OutlineEntry, JumpEntry } from "../parser/types.js";
 
@@ -42,7 +43,7 @@ export async function safeRead(
   const lines = content.split("\n").length;
   const bytes = raw.byteLength;
 
-  const policy: PolicyResult = evaluatePolicy(
+  const policy = evaluatePolicy(
     { path: filePath, lines, bytes },
     { sessionDepth: options?.sessionDepth },
   );
@@ -56,14 +57,14 @@ export async function safeRead(
     ...(policy.sessionDepth !== undefined ? { sessionDepth: policy.sessionDepth } : {}),
   };
 
-  if (policy.projection === "content") {
+  if (policy instanceof ContentResult) {
     return { ...base, content };
   }
 
-  if (policy.projection === "refused") {
+  if (policy instanceof RefusedResult) {
     return {
       ...base,
-      ...(policy.next !== undefined ? { next: policy.next } : {}),
+      next: [...policy.next],
     };
   }
 

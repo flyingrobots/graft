@@ -9,6 +9,7 @@ import { SessionTracker } from "../session/tracker.js";
 import { safeRead } from "../operations/safe-read.js";
 import { fileOutline } from "../operations/file-outline.js";
 import { evaluatePolicy } from "../policy/evaluate.js";
+import { RefusedResult } from "../policy/types.js";
 import { readRange } from "../operations/read-range.js";
 import { stateSave, stateLoad } from "../operations/state.js";
 import type { OutlineEntry, JumpEntry } from "../parser/types.js";
@@ -212,14 +213,14 @@ export function createGraftServer(): GraftServer {
             { path: filePath, lines: actual.lines, bytes: actual.bytes },
             { sessionDepth: session.getSessionDepth() },
           );
-          if (policy.projection === "refused") {
+          if (policy instanceof RefusedResult) {
             totalRefusals++;
             return textResultWithReceipt("safe_read", {
               path: filePath,
               projection: "refused",
               reason: policy.reason,
               reasonDetail: policy.reasonDetail,
-              next: policy.next,
+              next: [...policy.next],
               actual,
             });
           }
@@ -369,7 +370,7 @@ export function createGraftServer(): GraftServer {
       { path: filePath, lines: actual.lines, bytes: actual.bytes },
       { sessionDepth: session.getSessionDepth() },
     );
-    if (policy.projection === "refused") {
+    if (policy instanceof RefusedResult) {
       return Promise.resolve(textResultWithReceipt("changed_since", { status: "refused", reason: policy.reason }));
     }
 

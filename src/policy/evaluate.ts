@@ -1,5 +1,7 @@
 import picomatch from "picomatch";
-import type { PolicyInput, PolicyOptions, PolicyResult, ReasonCode, SessionDepth } from "./types.js";
+import type { PolicyInput, PolicyOptions, ReasonCode, SessionDepth } from "./types.js";
+import { ContentResult, OutlineResult, RefusedResult } from "./types.js";
+import type { PolicyResult } from "./types.js";
 
 const STATIC_THRESHOLDS = { lines: 150, bytes: 12288 } as const;
 
@@ -100,15 +102,14 @@ export function evaluatePolicy(input: PolicyInput, options?: PolicyOptions): Pol
   // 1. Bans first
   const ban = checkBan(path);
   if (ban !== undefined) {
-    return {
-      projection: "refused",
+    return new RefusedResult({
       reason: ban.reason,
       reasonDetail: ban.reasonDetail,
       next: ban.next,
       thresholds,
       actual,
       ...(sessionDepth !== undefined ? { sessionDepth } : {}),
-    };
+    });
   }
 
   // 2. Graftignore
@@ -116,15 +117,14 @@ export function evaluatePolicy(input: PolicyInput, options?: PolicyOptions): Pol
   if (patterns !== undefined && patterns.length > 0) {
     const isMatch = picomatch(patterns);
     if (isMatch(path)) {
-      return {
-        projection: "refused",
+      return new RefusedResult({
         reason: "GRAFTIGNORE",
         reasonDetail: "File matches .graftignore pattern",
         next: ["Check .graftignore if this file should be readable"],
         thresholds,
         actual,
         ...(sessionDepth !== undefined ? { sessionDepth } : {}),
-      };
+      });
     }
   }
 
@@ -140,27 +140,24 @@ export function evaluatePolicy(input: PolicyInput, options?: PolicyOptions): Pol
   const exceedsBytes = bytes > effectiveByteCap;
 
   if (!exceedsLines && !exceedsBytes) {
-    return {
-      projection: "content",
-      reason: "CONTENT",
+    return new ContentResult({
       thresholds,
       actual,
       ...(sessionDepth !== undefined ? { sessionDepth } : {}),
-    };
+    });
   }
 
   // Determine reason: SESSION_CAP when the session byte cap triggered (and it's the dynamic one)
-  const finalReason: ReasonCode = exceedsLines && !exceedsBytes
+  const finalReason: "OUTLINE" | "SESSION_CAP" = exceedsLines && !exceedsBytes
     ? "OUTLINE"
     : exceedsBytes && hasSessionCap
       ? "SESSION_CAP"
       : "OUTLINE";
 
-  return {
-    projection: "outline",
+  return new OutlineResult({
     reason: finalReason,
     thresholds,
     actual,
     ...(sessionDepth !== undefined ? { sessionDepth } : {}),
-  };
+  });
 }

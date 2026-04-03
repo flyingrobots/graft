@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest";
 import { evaluatePolicy } from "../../../src/policy/evaluate.js";
 import { loadGraftignore } from "../../../src/policy/graftignore.js";
+import { ContentResult, RefusedResult } from "../../../src/policy/types.js";
 
 describe("policy: .graftignore", () => {
   it("refuses files matching .graftignore patterns", () => {
@@ -9,7 +10,7 @@ describe("policy: .graftignore", () => {
       { path: "auto.generated.ts", lines: 10, bytes: 500 },
       { graftignorePatterns: patterns },
     );
-    expect(result.projection).toBe("refused");
+    expect(result).toBeInstanceOf(RefusedResult);
     expect(result.reason).toBe("GRAFTIGNORE");
   });
 
@@ -19,7 +20,7 @@ describe("policy: .graftignore", () => {
       { path: "src/index.ts", lines: 10, bytes: 500 },
       { graftignorePatterns: patterns },
     );
-    expect(result.projection).toBe("content");
+    expect(result).toBeInstanceOf(ContentResult);
   });
 
   it("supports directory patterns in .graftignore", () => {
@@ -28,7 +29,7 @@ describe("policy: .graftignore", () => {
       { path: "vendor/lib/util.js", lines: 10, bytes: 500 },
       { graftignorePatterns: patterns },
     );
-    expect(result.projection).toBe("refused");
+    expect(result).toBeInstanceOf(RefusedResult);
     expect(result.reason).toBe("GRAFTIGNORE");
   });
 
