@@ -13,6 +13,7 @@ import { stateSave, stateLoad } from "../operations/state.js";
 import type { OutlineEntry, JumpEntry } from "../parser/types.js";
 import { extractOutline } from "../parser/outline.js";
 import { diffOutlines } from "../parser/diff.js";
+import { graftDiff } from "../operations/graft-diff.js";
 
 export type McpToolResult = CallToolResult;
 
@@ -386,6 +387,21 @@ export function createGraftServer(): GraftServer {
 
     return Promise.resolve(textResultWithReceipt("changed_since", { diff, consumed: consume }));
   });
+
+  // --- graft_diff ---
+  registerTool(
+    "graft_diff",
+    { base: z.string().optional(), head: z.string().optional(), path: z.string().optional() },
+    (args) => {
+      const result = graftDiff({
+        cwd: projectRoot,
+        base: args["base"] as string | undefined,
+        head: args["head"] as string | undefined,
+        path: args["path"] as string | undefined,
+      });
+      return Promise.resolve(textResultWithReceipt("graft_diff", result as unknown as Record<string, unknown>));
+    },
+  );
 
   // --- run_capture ---
   registerTool(
