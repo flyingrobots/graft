@@ -25,6 +25,7 @@ export function createFileOutlineHandler(ctx: ToolContext): ToolHandler {
       const cacheResult = ctx.cache.check(filePath, rawContent);
       if (cacheResult.hit) {
         cacheResult.obs.touch();
+        ctx.metrics.recordCacheHit(cacheResult.obs.actual.bytes);
         return ctx.respond("file_outline", {
           path: filePath,
           outline: cacheResult.obs.outline,
