@@ -1,6 +1,6 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
-import { getChangedFiles, getFileAtRef, GitError } from "../git/diff.js";
+import { getChangedFiles, getFileAtRef } from "../git/diff.js";
 import { extractOutline } from "../parser/outline.js";
 import { diffOutlines } from "../parser/diff.js";
 import type { OutlineDiff } from "../parser/diff.js";
@@ -60,23 +60,12 @@ export function graftDiff(opts: GraftDiffOptions): GraftDiffResult {
     const lang = detectLang(filePath);
 
     // Get content at base (null = file absent at ref)
-    let baseContent: string | null;
-    try {
-      baseContent = getFileAtRef(base, filePath, cwd);
-    } catch (err: unknown) {
-      if (err instanceof GitError) { baseContent = null; }
-      else { throw err; }
-    }
+    const baseContent = getFileAtRef(base, filePath, cwd);
 
     // Get content at head (null = file absent at ref/worktree)
     let headContent: string | null;
     if (opts.head !== undefined) {
-      try {
-        headContent = getFileAtRef(opts.head, filePath, cwd);
-      } catch (err: unknown) {
-        if (err instanceof GitError) { headContent = null; }
-        else { throw err; }
-      }
+      headContent = getFileAtRef(opts.head, filePath, cwd);
     } else {
       const fullPath = path.join(cwd, filePath);
       try {

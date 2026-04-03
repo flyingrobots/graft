@@ -25,8 +25,8 @@ instead of external hash comparison.
 **Receipts** — built as `Record<string, unknown>` and mutated in
 place. Should be a frozen value object.
 
-**MCP tool args** — cast from `Record<string, unknown>` with `as`.
-Should be parsed through zod into domain types.
+**MCP tool args** — arguments are cast from `Record<string, unknown>`
+with `as`. They should be parsed through zod into domain types.
 
 ## Migration path
 

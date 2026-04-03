@@ -55,7 +55,7 @@ graft_diff(base?, head?, path?)
    a. Get the file content at base: `git show <base>:<path>`
    b. Get the file content at head: read from worktree or
       `git show <head>:<path>`
-   c. Detect language from extension (`.ts` → `"ts"`, `.js` → `"js"`)
+   c. Detect language from extension (`.ts`/`.tsx` → `"ts"`, `.js`/`.jsx` → `"js"`)
    d. Parse both with `extractOutline`
    e. Diff with `diffOutlines`
 3. Return per-file structural diffs.
@@ -84,7 +84,7 @@ interface FileDiff {
 
 ### Language support
 
-Only diffs files with supported extensions (`.ts`, `.js`).
+Only diffs files with supported extensions (`.ts`, `.tsx`, `.js`, `.jsx`).
 Other files are listed with `status` but no structural diff
 (empty OutlineDiff).
 

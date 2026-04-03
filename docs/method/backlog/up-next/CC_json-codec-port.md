@@ -5,24 +5,33 @@ All serialization should go through a codec port, not raw
 
 ## Two codecs, one port
 
-```javascript
+```typescript
 // Port interface
-class Codec {
-  encode(value) { /* → string or Uint8Array */ }
-  decode(data) { /* → parsed value */ }
+interface Codec {
+  encode(value: unknown): string | Uint8Array;
+  decode(data: string | Uint8Array): unknown;
 }
 ```
 
 **CanonicalJsonCodec** — for MCP responses, NDJSON logs, receipts.
-Keys sorted deterministically (RFC 8785 or sorted-keys + no
-whitespace). Human-readable.
+Canonical algorithm: sorted keys recursively + no whitespace
+(subset of RFC 8785 JCS). One algorithm, no ambiguity.
 
 **CborCodec** — for WARP worldline patches, AST snapshot storage,
-cache persistence. RFC 8949 deterministic encoding. Compact binary,
-schema-native types survive the round-trip.
+cache persistence. RFC 8949 deterministic encoding.
 
-The consumer calls `codec.encode(value)` and doesn't know which
-format. JSON surfaces get JSON. Storage surfaces get CBOR.
+### Codec selection rule
+
+The codec is chosen by the **surface**, not the consumer:
+- MCP tool responses → `CanonicalJsonCodec` (protocol requires JSON)
+- NDJSON metrics log → `CanonicalJsonCodec` (human-readable)
+- Receipts → `CanonicalJsonCodec` (embedded in API transcripts)
+- WARP worldline patches → `CborCodec` (compact binary)
+- AST snapshot storage → `CborCodec` (compact binary)
+
+The surface owner (server.ts for MCP, logger.ts for metrics)
+injects the correct codec. The domain logic never calls
+`JSON.stringify` directly.
 
 ## Canonical output (both codecs)
 
@@ -32,9 +41,19 @@ Deterministic serialization ensures:
 - Reproducible receipts and metrics logs
 - Consistent snapshots for WARP worldline patches
 
+## Migration scope
+
+Current `JSON.stringify` call sites (3 in source):
+- `src/mcp/server.ts` — `textResultWithReceipt` (~3 calls via
+  the stabilization loop)
+- `src/metrics/logger.ts` — NDJSON entry serialization (1 call)
+
+Test files also use `JSON.parse`/`JSON.stringify` but those don't
+need the codec (test-only).
+
 ## Sequence
 
-1. CanonicalJsonCodec now (replace ~20 raw JSON.stringify calls)
+1. CanonicalJsonCodec now (replace source `JSON.stringify` calls)
 2. CborCodec when WARP integration lands (worldline patch storage)
 
 ## Why now
