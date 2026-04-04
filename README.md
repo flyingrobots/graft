@@ -27,6 +27,12 @@ Or use directly:
 npx @flyingrobots/graft
 ```
 
+Or run in Docker (no Node required):
+
+```bash
+docker run -i --rm -v "$PWD:/workspace" flyingrobots/graft
+```
+
 ## Quick start
 
 ```json
