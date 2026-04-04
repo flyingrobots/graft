@@ -72,6 +72,21 @@ describe("value objects: OutlineEntry", () => {
     ).toThrow("non-empty");
   });
 
+  it("throws on whitespace-only name", () => {
+    expect(
+      () => new OutlineEntry({ kind: "function", name: "   ", exported: true }),
+    ).toThrow("non-empty");
+  });
+
+  it("trims name", () => {
+    const entry = new OutlineEntry({
+      kind: "function",
+      name: "  greet  ",
+      exported: true,
+    });
+    expect(entry.name).toBe("greet");
+  });
+
   it("is an instanceof OutlineEntry", () => {
     const entry = new OutlineEntry({
       kind: "function",
@@ -130,6 +145,18 @@ describe("value objects: JumpEntry", () => {
     ).toThrow("start");
   });
 
+  it("throws on NaN end", () => {
+    expect(
+      () => new JumpEntry({ symbol: "greet", kind: "function", start: 1, end: NaN }),
+    ).toThrow("end");
+  });
+
+  it("throws on fractional end", () => {
+    expect(
+      () => new JumpEntry({ symbol: "greet", kind: "function", start: 1, end: 5.5 }),
+    ).toThrow("end");
+  });
+
   it("allows single-line range (start === end)", () => {
     const entry = new JumpEntry({
       symbol: "x",
@@ -182,6 +209,17 @@ describe("value objects: DiffEntry", () => {
     expect(
       () => new DiffEntry({ name: "", kind: "function" }),
     ).toThrow("non-empty");
+  });
+
+  it("throws on whitespace-only name", () => {
+    expect(
+      () => new DiffEntry({ name: "   ", kind: "function" }),
+    ).toThrow("non-empty");
+  });
+
+  it("trims name", () => {
+    const entry = new DiffEntry({ name: "  greet  ", kind: "function" });
+    expect(entry.name).toBe("greet");
   });
 
   it("is an instanceof DiffEntry", () => {

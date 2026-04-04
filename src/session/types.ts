@@ -11,8 +11,8 @@ export class Tripwire {
     if (opts.recommendation.trim().length === 0) {
       throw new Error("Tripwire: recommendation must be non-empty");
     }
-    this.signal = opts.signal;
-    this.recommendation = opts.recommendation;
+    this.signal = opts.signal.trim();
+    this.recommendation = opts.recommendation.trim();
     Object.freeze(this);
   }
 }

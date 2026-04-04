@@ -18,11 +18,11 @@ export class OutlineEntry {
     signature?: string;
     children?: readonly OutlineEntry[];
   }) {
-    if (opts.name.length === 0) {
+    if (opts.name.trim().length === 0) {
       throw new Error("OutlineEntry: name must be non-empty");
     }
     this.kind = opts.kind;
-    this.name = opts.name;
+    this.name = opts.name.trim();
     this.exported = opts.exported;
     if (opts.signature !== undefined) this.signature = opts.signature;
     if (opts.children !== undefined) this.children = Object.freeze([...opts.children]);
