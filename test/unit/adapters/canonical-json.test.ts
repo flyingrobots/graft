@@ -90,6 +90,12 @@ describe("CanonicalJsonCodec", () => {
       a["self"] = a;
       expect(() => codec.encode(a)).toThrow("circular");
     });
+
+    it("handles shared references without false circular detection", () => {
+      const shared = { x: 1 };
+      const result = codec.encode({ a: shared, b: shared });
+      expect(result).toBe('{"a":{"x":1},"b":{"x":1}}');
+    });
   });
 
   describe("round-trip", () => {

@@ -24,21 +24,25 @@ function sortDeep(value: unknown, seen = new WeakSet()): unknown {
   if (value === null || typeof value !== "object") {
     return value;
   }
+  if (!isPlainObject(value) && !Array.isArray(value)) {
+    return value;
+  }
   if (seen.has(value)) {
     throw new TypeError("Converting circular structure to JSON");
   }
   seen.add(value);
-  if (Array.isArray(value)) {
-    return value.map((v) => sortDeep(v, seen));
+  try {
+    if (Array.isArray(value)) {
+      return value.map((v) => sortDeep(v, seen));
+    }
+    const sorted: Record<string, unknown> = {};
+    for (const key of Object.keys(value).sort()) {
+      sorted[key] = sortDeep(value[key], seen);
+    }
+    return sorted;
+  } finally {
+    seen.delete(value);
   }
-  if (!isPlainObject(value)) {
-    return value;
-  }
-  const sorted: Record<string, unknown> = {};
-  for (const key of Object.keys(value).sort()) {
-    sorted[key] = sortDeep(value[key], seen);
-  }
-  return sorted;
 }
 
 export class CanonicalJsonCodec implements JsonCodec {
