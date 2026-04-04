@@ -1,6 +1,6 @@
 # Graft Effectiveness Study Protocol
 
-**Version:** 3.0
+**Version:** 4.0
 **Status:** Draft
 **Date:** 2026-04-04
 **Protocol hash:** (computed at freeze)
@@ -125,6 +125,25 @@ repo scope, and read profile. Within each pair:
 This means each participant does both conditions, but never the
 same task twice. The pairing controls for task-level variance.
 
+### Randomization procedure
+
+Blocked randomization, stratified by task category (feature,
+bugfix, refactor, investigation).
+
+For each participant:
+1. Within each task pair, flip a fair coin (or use a PRNG with
+   a recorded seed) to assign which task gets governed vs
+   ungoverned.
+2. Block by category: within each category stratum, balance the
+   number of governed-first vs ungoverned-first assignments
+   (differs by ±1 at most).
+3. Randomize the presentation order of task pairs to control for
+   fatigue and learning across the session sequence.
+
+The full randomization schedule is generated before any data
+collection, committed to `docs/study/infra/randomization.json`,
+and hashed. The PRNG seed is recorded in the schedule file.
+
 ### Isolation
 
 Each task attempt starts from:
@@ -160,13 +179,15 @@ Both conditions use identical:
 
 | Parameter | Value |
 |-----------|-------|
-| Model | (pinned at protocol freeze, e.g. claude-sonnet-4-5-20250514) |
-| System prompt frame | Identical preamble, task delivery format |
+| Model | claude-sonnet-4-5-20250514 |
+| System prompt frame | `docs/study/infra/prompt-frame.md` (frozen at protocol freeze) |
 | Non-graft tool surface | Read, Write, Edit, Bash, Grep, Glob |
-| Time budget | (defined per task difficulty band) |
-| Acceptance harness | Same test suite / criteria |
-| Repo revision | Pinned commit SHA per task |
-| Edit/test permissions | Identical |
+| Time budget | S: 15 min, M: 45 min, L: 90 min |
+| Acceptance harness | Same test suite / criteria per task card |
+| Repo revision | Pinned commit SHA per task card |
+| Edit/test permissions | Identical (full read/write/execute) |
+| Graft version | v0.2.2 (commit `6be695f`) |
+| Claude Code version | Pinned at protocol freeze |
 
 Any deviation from baseline lock requires a protocol amendment with
 justification, documented before the affected session runs.
@@ -247,7 +268,7 @@ grouped by normalized file path.
 
 **Unit:** Re-reads per file per session (report median and max).
 
-### 4.5 M4: Refusal recovery rate (secondary, governed-only)
+### 4.5 M4: Refusal recovery rate (operational, governed-only)
 
 **Definition:** When graft returns `projection: "outline"` or
 `projection: "refused"`, is the agent's next relevant action
@@ -268,6 +289,12 @@ rater agreement reported. Disagreements resolved by discussion.
 
 **Unit:** Percentage productive. No paired comparison (governed-
 only metric).
+
+**Human judgment disclosure:** M4 is NOT fully computable from
+logs alone. Ambiguous cases require human annotation. This is
+acceptable for a descriptive operational metric but means M4
+cannot be reproduced without access to the raters or a frozen
+annotation codebook. The codebook is frozen with the protocol.
 
 ### 4.6 M5: Governor evasion (secondary)
 
@@ -415,8 +442,8 @@ Pre-specified. No post-hoc test shopping.
 ### 8.1 Primary analysis (M1: retrieval burden)
 
 **Test:** Wilcoxon signed-rank test on participant-level paired
-differences (governed minus ungoverned mean burden per successful
-task).
+differences (governed minus ungoverned mean burden per randomized
+attempt, unconditional on task outcome).
 
 **Effect size:** Rank-biserial correlation with 95% confidence
 interval.
@@ -431,14 +458,36 @@ participant or one task pair).
 
 ### 8.2 Guardrail analysis (M2: task success)
 
-**Test:** Non-inferiority test. One-sided McNemar's test with
-margin Δ = −15 percentage points.
+**Test:** Non-inferiority analysis on the participant-level paired
+completion rate difference.
+
+For each participant, compute:
+- governed completion rate = (successes in governed) / (attempts in governed)
+- ungoverned completion rate = (successes in ungoverned) / (attempts in ungoverned)
+- paired difference = governed rate − ungoverned rate
+
+**Primary:** Compute the 90% confidence interval (one-sided α=0.05)
+for the mean paired difference using a bootstrap percentile method
+(10,000 resamples). Non-inferiority is established if the lower
+bound of the CI exceeds −0.15.
+
+**Sensitivity:** Mixed-effects logistic regression with condition
+as fixed effect, participant and task pair as random effects. Report
+the odds ratio and its CI. Non-inferiority margin on the odds ratio
+scale: OR > 0.5 (governed odds of success at least half of
+ungoverned).
 
 **Interpretation:**
-- If lower bound of 95% CI for (governed − ungoverned) completion
-  rate > −15pp → non-inferiority established
-- If graft's completion rate is materially worse → study fails the
-  guardrail, burden reduction is moot
+- Lower bound of paired difference CI > −0.15 → non-inferiority
+  established, primary endpoint result stands
+- Lower bound ≤ −0.15 → guardrail fails, burden reduction is moot
+  regardless of M1 result
+
+**Why not McNemar:** McNemar's test assumes a single 2×2 table of
+discordant pairs. This design has multiple attempts per participant
+across matched task pairs — the unit structure does not reduce to a
+clean discordance table. The paired rate-difference approach respects
+the multi-level design.
 
 ### 8.3 Secondary analysis (M3: churn)
 
@@ -646,7 +695,20 @@ but persuasive if the governed condition sits up and to the left.
 5. **Power analysis** — determine confirmatory N
 6. **Confirmatory study** — run, analyze, report
 
-## 15. Amendments
+## 15. Freeze gate
+
+This protocol is NOT frozen until all four boxes are checked:
+
+- [x] §8.1 primary test wording matches unconditional estimand
+- [x] §8.2 guardrail test matches multi-level design
+- [x] §3.2 baseline lock has pinned concrete values
+- [ ] Handoff artifacts generated (task cards, prompt frame,
+  randomization schedule, acceptance harnesses, analysis stub)
+
+Once checked, compute the protocol hash, fill in the header, and
+commit. No further changes without a numbered amendment (§16).
+
+## 16. Amendments
 
 Any change to this protocol after freeze requires:
 
