@@ -19,7 +19,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   arbitrary paths).
 - **Stack traces**: hook error handler logs `err.stack` instead of
   `err.message` for debuggability.
-- **Node engine**: bump minimum to `>=21.2.0` for `import.meta.dirname`
+- **Node engine**: bump minimum to `>=20.11.0` for `import.meta.dirname`
   support (used across test suite and eslint config).
 
 ## [0.2.0] - 2026-04-03
