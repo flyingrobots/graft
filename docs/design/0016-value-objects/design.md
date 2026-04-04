@@ -16,7 +16,7 @@ should match. Invariant: `domain-frozen`.
 
 | Type | File | Construction sites |
 |------|------|--------------------|
-| `OutlineEntry` | `src/parser/types.ts` | `outline.ts` (~8 inline literals) |
+| `OutlineEntry` | `src/parser/types.ts` | `outline.ts` (6 construction sites) |
 | `JumpEntry` | `src/parser/types.ts` | `outline.ts` via `buildJumpEntry()` |
 | `OutlineDiff` | `src/parser/diff.ts` | `diff.ts` (2 sites: `emptyDiff`, return) |
 | `DiffEntry` | `src/parser/diff.ts` | `diff.ts` (4 inline literals) |
