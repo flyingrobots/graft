@@ -71,8 +71,8 @@ Education + better tools = behavioral change.
 
 ## Metrics
 
-- 11 commits
-- 3 source files, 3 test files
-- 33 new tests
+- 15 commits
+- 3 source files, 3 test files, 1 test helper
+- 38 new tests
 - 3 rounds of CodeRabbit review, 28 issues resolved
 - Bug found and fixed during dogfooding (non-JS/TS empty outline)
