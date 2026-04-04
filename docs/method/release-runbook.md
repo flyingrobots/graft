@@ -76,7 +76,7 @@ Before tagging, sanity-check graft against itself:
 
 1. Start a fresh graft MCP session against the repo.
 2. Run `doctor` — verify parser healthy, thresholds correct.
-3. Run `safe_read` on a small file (e.g. `src/ports/codec.ts`) —
+3. Run `safe_read` on a small file (e.g. `src/parser/lang.ts`) —
    expect `projection: "content"`.
 4. Run `safe_read` on a large file (e.g. `src/mcp/server.ts`) —
    expect `projection: "outline"` with jump table.
