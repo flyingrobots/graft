@@ -4,8 +4,18 @@
 #
 # Reads the task card YAML, extracts automated acceptance criteria,
 # and runs each one. Outputs JSON result.
+#
+# SECURITY: This harness uses bash -c to execute criteria from frozen
+# task cards. It MUST only be run against trusted, versioned task cards
+# committed to this repository. Never point it at untrusted input.
 
 set -euo pipefail
+
+# Dependency check
+if ! command -v python3 &>/dev/null; then
+  echo "{\"task\": \"unknown\", \"pass\": false, \"error\": \"python3 required but not found\"}"
+  exit 1
+fi
 
 TASK_ID="${1:?Usage: acceptance-harness.sh <task-id>}"
 TASK_DIR="$(cd "$(dirname "$0")/../tasks" && pwd)"
@@ -39,9 +49,10 @@ while IFS= read -r criterion; do
     EXPECTED_EXIT=0
   fi
 
-  # Run the criterion
+  # Run the criterion in a subshell to isolate side effects.
+  # Uses bash -c instead of eval for slightly better containment.
   set +e
-  OUTPUT=$(eval "$CMD" 2>&1)
+  OUTPUT=$(bash -c "$CMD" 2>&1)
   ACTUAL_EXIT=$?
   set -e
 
@@ -52,8 +63,9 @@ while IFS= read -r criterion; do
     ALL_PASS=false
   fi
 
-  # Append to results (poor man's JSON array building)
-  ENTRY="{\"criterion\": $(printf '%s' "$criterion" | python3 -c 'import json,sys; print(json.dumps(sys.stdin.read()))'), \"pass\": $PASS, \"exit_code\": $ACTUAL_EXIT, \"expected\": $EXPECTED_EXIT}"
+  # JSON-escape the criterion string via python3
+  ESCAPED=$(printf '%s' "$criterion" | python3 -c 'import json,sys; print(json.dumps(sys.stdin.read()))')
+  ENTRY="{\"criterion\": $ESCAPED, \"pass\": $PASS, \"exit_code\": $ACTUAL_EXIT, \"expected\": $EXPECTED_EXIT}"
   if [ "$RESULTS" = "[]" ]; then
     RESULTS="[$ENTRY"
   else

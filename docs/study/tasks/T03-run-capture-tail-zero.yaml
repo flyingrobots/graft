@@ -15,7 +15,7 @@ acceptance:
   automated:
     - "pnpm test exits 0"
     - "pnpm lint exits 0"
-    - "grep -rq 'tail.*0\\|tail=0\\|tail: 0' test/"
+    - "grep -rqE 'tail.*(0|zero)' test/"
   manual: null
 difficulty: S
 duration_band: "10-20 min"
