@@ -10,6 +10,17 @@
           }
         ]
       }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Read",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node --import tsx src/hooks/posttooluse-read.ts"
+          }
+        ]
+      }
     ]
   }
 }

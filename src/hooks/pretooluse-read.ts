@@ -1,11 +1,14 @@
 // ---------------------------------------------------------------------------
-// PreToolUse hook for Read — enforces graft policy on Claude Code reads
+// PreToolUse hook for Read — blocks banned files only
 // ---------------------------------------------------------------------------
 //
 // Intercepts Claude Code's Read tool and evaluates graft policy:
-//   - Content (small file): exit 0 — let native Read proceed normally
-//   - Outline (large file): exit 2 — block and return structural outline
-//   - Refused (banned file): exit 2 — block and return refusal
+//   - Refused (banned file): exit 2 — hard block with refusal reason
+//   - Everything else: exit 0 — let native Read proceed
+//
+// Banned files (.env, binaries, lockfiles, minified, build output,
+// .graftignore matches) are the only hard enforcement. Large file
+// governance is handled by the PostToolUse hook via education.
 //
 // Invoked as: node --import tsx src/hooks/pretooluse-read.ts
 // Receives JSON on stdin from Claude Code hooks system.
@@ -14,7 +17,7 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
 import { evaluatePolicy } from "../policy/evaluate.js";
-import { ContentResult, RefusedResult } from "../policy/types.js";
+import { RefusedResult } from "../policy/types.js";
 import { loadGraftignore } from "../policy/graftignore.js";
 
 export interface HookInput {
@@ -34,15 +37,16 @@ export interface HookOutput {
   stderr: string;
 }
 
-export async function handleReadHook(input: HookInput): Promise<HookOutput> {
+export function handleReadHook(input: HookInput): HookOutput {
   const filePath = input.tool_input.file_path;
 
-  // Read file
+  // Read file to get dimensions for policy
   let rawContent: string;
   try {
     rawContent = fs.readFileSync(filePath, "utf-8");
   } catch {
-    return { exitCode: 2, stderr: `[graft] File not found: ${filePath}` };
+    // File not found — let Read handle the error natively
+    return { exitCode: 0, stderr: "" };
   }
 
   const lines = rawContent.split("\n");
@@ -57,15 +61,14 @@ export async function handleReadHook(input: HookInput): Promise<HookOutput> {
     // No .graftignore — that's fine
   }
 
-  // Evaluate policy (stateless — no session depth)
-  // Use relative path for graftignore pattern matching
+  // Evaluate policy
   const relPath = path.relative(input.cwd, filePath);
   const policy = evaluatePolicy(
     { path: relPath, lines: lines.length, bytes },
     { graftignorePatterns },
   );
 
-  // Refused — banned file
+  // Only block refused files — everything else passes through
   if (policy instanceof RefusedResult) {
     const nextSteps = policy.next.map((n) => `  - ${n}`).join("\n");
     return {
@@ -83,47 +86,12 @@ export async function handleReadHook(input: HookInput): Promise<HookOutput> {
     };
   }
 
-  // Content — small file, let native Read proceed
-  if (policy instanceof ContentResult) {
-    return { exitCode: 0, stderr: "" };
-  }
-
-  // Outline — large file, extract structure
-  // Only extract outlines for supported languages (JS/TS). Other files
-  // get content pass-through regardless of size.
-  const { detectLang } = await import("../parser/lang.js");
-  const lang = detectLang(filePath);
-  if (lang === null) {
-    // Unsupported language — no outline available, let native Read proceed
-    return { exitCode: 0, stderr: "" };
-  }
-
-  const { extractOutline } = await import("../parser/outline.js");
-  const result = extractOutline(rawContent, lang);
-
-  const outlineJson = JSON.stringify({
-    outline: result.entries,
-    jumpTable: result.jumpTable,
-    ...(result.partial === true ? { partial: true } : {}),
-  }, null, 2);
-
-  return {
-    exitCode: 2,
-    stderr: [
-      `[graft] File exceeds policy threshold (${String(lines.length)} lines, ${String(bytes)} bytes).`,
-      "Structural outline returned instead of full content.",
-      "",
-      "Use graft's read_range tool with the jump table line numbers",
-      "below to read specific symbols. Use file_outline for a fresh",
-      "outline, or safe_read for full policy-aware reads with caching.",
-      "",
-      outlineJson,
-    ].join("\n"),
-  };
+  // Content or outline — let Read proceed. PostToolUse will educate.
+  return { exitCode: 0, stderr: "" };
 }
 
 // ---------------------------------------------------------------------------
-// Script entry point — reads stdin, calls handler, writes stderr
+// Script entry point
 // ---------------------------------------------------------------------------
 
 async function main(): Promise<void> {
@@ -133,8 +101,8 @@ async function main(): Promise<void> {
   }
 
   const input = JSON.parse(raw) as HookInput;
-  const output = await handleReadHook(input);
-  process.stderr.write(output.stderr);
+  const output = handleReadHook(input);
+  if (output.stderr.length > 0) process.stderr.write(output.stderr);
   process.exit(output.exitCode);
 }
 
