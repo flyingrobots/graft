@@ -2,9 +2,12 @@ import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import { MetricsLogger } from "../../../src/metrics/logger.js";
 import type { DecisionEntry } from "../../../src/metrics/types.js";
 import { nodeFs } from "../../../src/adapters/node-fs.js";
+import { CanonicalJsonCodec } from "../../../src/adapters/canonical-json.js";
 import fs from "node:fs";
 import path from "node:path";
 import os from "node:os";
+
+const codec = new CanonicalJsonCodec();
 
 describe("metrics: NDJSON decision logging", () => {
   let tmpDir: string;
@@ -20,7 +23,7 @@ describe("metrics: NDJSON decision logging", () => {
   });
 
   it("writes a decision entry as NDJSON", async () => {
-    const logger = new MetricsLogger(logPath, { fs: nodeFs });
+    const logger = new MetricsLogger(logPath, { fs: nodeFs, codec });
     await logger.log({
       command: "safe_read",
       path: "src/file.ts",
@@ -38,7 +41,7 @@ describe("metrics: NDJSON decision logging", () => {
   });
 
   it("appends multiple entries (one per line)", async () => {
-    const logger = new MetricsLogger(logPath, { fs: nodeFs });
+    const logger = new MetricsLogger(logPath, { fs: nodeFs, codec });
     await logger.log({
       command: "safe_read",
       path: "a.ts",
@@ -63,7 +66,7 @@ describe("metrics: NDJSON decision logging", () => {
   });
 
   it("includes timestamp in every entry", async () => {
-    const logger = new MetricsLogger(logPath, { fs: nodeFs });
+    const logger = new MetricsLogger(logPath, { fs: nodeFs, codec });
     await logger.log({
       command: "file_outline",
       path: "x.ts",
@@ -79,7 +82,7 @@ describe("metrics: NDJSON decision logging", () => {
   });
 
   it("includes estimatedBytesAvoided when provided", async () => {
-    const logger = new MetricsLogger(logPath, { fs: nodeFs });
+    const logger = new MetricsLogger(logPath, { fs: nodeFs, codec });
     await logger.log({
       command: "safe_read",
       path: "big.ts",
@@ -96,7 +99,7 @@ describe("metrics: NDJSON decision logging", () => {
   });
 
   it("includes tripwire field when provided", async () => {
-    const logger = new MetricsLogger(logPath, { fs: nodeFs });
+    const logger = new MetricsLogger(logPath, { fs: nodeFs, codec });
     await logger.log({
       command: "safe_read",
       path: "late.ts",
@@ -116,7 +119,7 @@ describe("metrics: NDJSON decision logging", () => {
 
   it("creates log directory if it doesn't exist", async () => {
     const deepPath = path.join(tmpDir, "nested", "deep", "decisions.ndjson");
-    const logger = new MetricsLogger(deepPath, { fs: nodeFs });
+    const logger = new MetricsLogger(deepPath, { fs: nodeFs, codec });
     await logger.log({
       command: "safe_read",
       path: "a.ts",
@@ -130,7 +133,7 @@ describe("metrics: NDJSON decision logging", () => {
 
   describe("retention", () => {
     it("rotates log when exceeding 1 MB", async () => {
-      const logger = new MetricsLogger(logPath, { fs: nodeFs, maxBytes: 1024 });
+      const logger = new MetricsLogger(logPath, { fs: nodeFs, codec, maxBytes: 1024 });
       // Write enough to exceed 1 KB (scaled down for test)
       for (let i = 0; i < 20; i++) {
         await logger.log({

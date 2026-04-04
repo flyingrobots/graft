@@ -81,9 +81,11 @@ export async function handlePostReadHook(input: HookInput): Promise<HookOutput> 
     return new HookOutput(0, "");
   }
 
+  const { CanonicalJsonCodec } = await import("../adapters/canonical-json.js");
   const { extractOutline } = await import("../parser/outline.js");
+  const codec = new CanonicalJsonCodec();
   const outline = extractOutline(rawContent, lang);
-  const outlineBytes = Buffer.byteLength(JSON.stringify(outline), "utf-8");
+  const outlineBytes = Buffer.byteLength(codec.encode(outline), "utf-8");
   const saved = bytes - outlineBytes;
   const savedKb = (saved / 1024).toFixed(1);
   const bytesKb = (bytes / 1024).toFixed(1);
