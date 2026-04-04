@@ -6,8 +6,8 @@ cycles_completed: 16
 tests: 347
 legends: [CORE, WARP, CLEAN_CODE]
 backlog_items: 28
-version: 0.2.0
-commit: 4a31109f13a786eca034d043c4045730fedd0919
+version: 0.2.1
+commit: 174996666ff5ce7017f819e1a464d5611c179ac3
 ---
 
 # Graft — Executive Summary
@@ -45,7 +45,7 @@ and writes.
 **Cycles completed:** 16 (0001-0016, skipping 0007 which was folded into release prep)
 **Tests:** 347 passing across 26 files
 **Lint:** clean (ESLint strict-type-checked)
-**Version:** 0.2.0 (npm: `@flyingrobots/graft`)
+**Version:** 0.2.1 (npm: `@flyingrobots/graft`)
 
 ### Phase 1 — The Governor (cycles 0001-0007)
 
@@ -211,5 +211,5 @@ Source: `~/git/blacklight/LLM_TOKEN_USE.md`
    hooks. How do we capture human edits?
 3. **Language support.** JS/TS only. Rust is "later." When?
 4. **Threshold tuning.** Self-tuning governor — should it be earlier?
-5. **npm publish.** v0.2.0 is published. When is it ready for
+5. **npm publish.** v0.2.1 is published. When is it ready for
    broader promotion beyond early adopters?
