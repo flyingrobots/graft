@@ -217,6 +217,11 @@ describe("value objects: DiffEntry", () => {
     ).toThrow("non-empty");
   });
 
+  it("trims name", () => {
+    const entry = new DiffEntry({ name: "  greet  ", kind: "function" });
+    expect(entry.name).toBe("greet");
+  });
+
   it("is an instanceof DiffEntry", () => {
     const entry = new DiffEntry({ name: "greet", kind: "function" });
     expect(entry).toBeInstanceOf(DiffEntry);
