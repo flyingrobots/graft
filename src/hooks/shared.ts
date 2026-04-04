@@ -27,21 +27,23 @@ export interface HookOutput {
 
 /**
  * Reads stdin with a size guard. Throws if input exceeds MAX_STDIN_BYTES.
+ * Accumulates raw buffers to avoid corrupting multi-byte UTF-8 characters
+ * that may be split across chunk boundaries.
  */
 export async function readStdin(): Promise<string> {
-  let raw = "";
+  const chunks: Buffer[] = [];
   let totalBytes = 0;
   for await (const chunk of process.stdin) {
-    const str = String(chunk);
-    totalBytes += Buffer.byteLength(str, "utf-8");
+    const buf = Buffer.isBuffer(chunk) ? chunk : Buffer.from(String(chunk), "utf-8");
+    totalBytes += buf.length;
     if (totalBytes > MAX_STDIN_BYTES) {
       throw new Error(
         `stdin exceeded ${String(MAX_STDIN_BYTES)} bytes — aborting`,
       );
     }
-    raw += str;
+    chunks.push(buf);
   }
-  return raw;
+  return Buffer.concat(chunks).toString("utf-8");
 }
 
 /**
