@@ -35,4 +35,9 @@
 
 ## Warnings
 
-- None
+- **Dogfood was stale.** The MCP session used for dogfood was started
+  before the codec port merged — it was running v0.2.1 server code,
+  not v0.2.2. The runbook says "start a fresh graft MCP session" but
+  a fresh session was not started. Future releases must restart the
+  MCP server (or use a separate process) to dogfood the actual
+  release code.
