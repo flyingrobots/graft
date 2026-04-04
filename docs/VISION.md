@@ -1,13 +1,13 @@
 ---
 title: "Graft — Executive Summary"
-generated: 2026-04-03
+generated: 2026-04-04
 generator: claude (manual, following Method executive-summary process)
-cycles_completed: 15
-tests: 307
+cycles_completed: 16
+tests: 347
 legends: [CORE, WARP, CLEAN_CODE]
-backlog_items: 29
+backlog_items: 28
 version: 0.2.0
-commit: cd48c69d8c5004ecb9b74f57893b339415c5e650
+commit: 4a31109f13a786eca034d043c4045730fedd0919
 ---
 
 # Graft — Executive Summary
@@ -42,10 +42,10 @@ and writes.
 
 ## Current state
 
-**Cycles completed:** 15 (0001-0015, skipping 0007 which was folded into release prep)
-**Tests:** 307 passing across 24 files
+**Cycles completed:** 16 (0001-0016, skipping 0007 which was folded into release prep)
+**Tests:** 347 passing across 26 files
 **Lint:** clean (ESLint strict-type-checked)
-**Version:** 0.2.0 (npm: `@flyingrobots/graft`)
+**Version:** 0.2.1 (npm: `@flyingrobots/graft`)
 
 ### Phase 1 — The Governor (cycles 0001-0007)
 
@@ -68,7 +68,7 @@ function exports, enum extraction, re-export extraction. Type-safe
 respond (eliminated all double-casts). Cache abstraction cleanup.
 Consistent error shapes. TOCTOU race elimination.
 
-### Phase 3 — Hooks (cycle 0015)
+### Phase 3 — Hooks + Value Objects (cycles 0015-0016)
 
 Claude Code hook integration. PreToolUse blocks banned files
 (secrets, binaries, lockfiles, .graftignore). PostToolUse educates
@@ -76,6 +76,13 @@ agents on context cost after large file reads, showing what
 safe_read would have saved. Shared module with validated input
 parsing, path traversal guard, stdin size guard. HookInput and
 HookOutput as frozen SSJS classes.
+
+Value object hardening: OutlineEntry, JumpEntry, DiffEntry,
+OutlineDiff, and Tripwire converted from plain interfaces to frozen
+SSJS classes with constructor validation and private `_brand` fields.
+Completes the SSJS P1 migration for all domain types — the
+`domain-frozen` invariant now covers policy, parser, and session
+layers.
 
 ### 10 MCP tools
 
@@ -131,8 +138,8 @@ src/
 Policy, enforcement, extraction, UX, observability — everything
 that makes graft useful as a context governor.
 
-**12 cycles completed.** ASAP: live study design. Up-next: context
-budget, Docker, token comparison, precision tools, non-read burden.
+**12 cycles completed.** ASAP: live study design. Up-next: Docker,
+context budget, token comparison, precision tools, non-read burden.
 
 ### WARP — Structural memory over Git
 
@@ -149,7 +156,7 @@ architecture, boundary validation. PolicyResult classes (done).
 Server decomposition (done). FileSystem port (done). Type-safe
 respond (done).
 
-**5 cycles completed.** Remaining: value objects, JSON codec port,
+**6 cycles completed.** Remaining: JSON codec port,
 bad-code backlog (1 item).
 
 ---
@@ -161,19 +168,18 @@ bad-code backlog (1 item).
 | Item | Legend | Summary | Effort |
 |------|--------|---------|--------|
 | Live study design | CORE | 5-metric before/after study methodology | M |
-| AST-per-commit | WARP | Level 1 worldline with structural delta patches | L |
 
 ### Up-next
 
 | Item | Legend | Summary | Effort |
 |------|--------|---------|--------|
-| Value objects | CC | Remaining plain objects to frozen classes | S |
 | JSON codec port | CC | Hexagonal JSON serialization | S |
-| Context budget | CORE | Agent declares budget, governor adjusts | M |
 | Dockerfile | CORE | Docker-based MCP server startup | S |
+| Context budget | CORE | Agent declares budget, governor adjusts | M |
 | Token usage comparison | CORE | Measure graft vs no-graft burden | M |
 | Phase 2 precision tools | CORE | code_show, code_find — symbol-level | XL |
 | Non-read burden | CORE | Measure Bash/Edit context waste | M |
+| AST-per-commit | WARP | Level 1 worldline with structural delta patches | L |
 
 ### Bad-code backlog (1 remaining)
 
@@ -205,5 +211,5 @@ Source: `~/git/blacklight/LLM_TOKEN_USE.md`
    hooks. How do we capture human edits?
 3. **Language support.** JS/TS only. Rust is "later." When?
 4. **Threshold tuning.** Self-tuning governor — should it be earlier?
-5. **npm publish.** v0.2.0 is published. When is it ready for
+5. **npm publish.** v0.2.1 is published. When is it ready for
    broader promotion beyond early adopters?

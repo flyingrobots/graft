@@ -7,17 +7,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## Unreleased
 
+## [0.2.1] - 2026-04-04
+
 ### Added
 
+- **Value objects** (cycle 0016): OutlineEntry, JumpEntry, DiffEntry,
+  OutlineDiff, and Tripwire converted from plain interfaces to frozen
+  SSJS classes with constructor validation and private `_brand` fields.
+  Completes SSJS P1 migration for all domain types.
 - **PostToolUse hook for Read**: educates agents on context cost after
   large file reads, showing what safe_read would have returned and the
   savings in KB.
 - **Shared hook utilities** (`src/hooks/shared.ts`): validated input
   parsing, stdin reader with 1 MB size guard, safe relative path
   resolution, and `runHook` harness with full stack trace logging.
+- **18 project invariants** documented in `docs/invariants/`.
 
 ### Fixed
 
+- **Trim-and-validate**: value object constructors trim names before
+  validation, preventing whitespace-only strings from passing as valid.
 - **Input validation**: hooks now validate JSON structure at runtime
   instead of using unsafe `as` type assertions.
 - **Path traversal guard**: hooks reject file paths outside the project
