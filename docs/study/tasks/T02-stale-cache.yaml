@@ -1,0 +1,27 @@
+id: T02
+pair: P01
+title: "Add STALE_CACHE reason code"
+repo: flyingrobots/graft
+commit: 6be695f
+prompt: |
+  Add a new reason code STALE_CACHE to graft's policy engine.
+  This code should be returned when a file is re-read but the
+  observation cache entry has expired (e.g., older than a
+  configurable TTL). Currently stale cache entries are silently
+  treated as fresh — add the reason code and a TTL check.
+
+  Update the policy evaluation, type definitions, cache module,
+  and tests. Make sure all existing tests still pass.
+acceptance:
+  automated:
+    - "pnpm test exits 0"
+    - "pnpm lint exits 0"
+    - "grep -q 'STALE_CACHE' src/policy/types.ts"
+    - "grep -rq 'STALE_CACHE' src/mcp/"
+    - "grep -rq 'STALE_CACHE' test/"
+  manual: null
+difficulty: M
+duration_band: "15-45 min"
+read_profile: "6-10 files, 2 medium (cache.ts, evaluate.ts)"
+category: feature
+negative_control: false

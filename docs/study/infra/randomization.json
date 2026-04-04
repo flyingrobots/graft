@@ -1,0 +1,41 @@
+{
+  "seed": 20260404,
+  "generated": "2026-04-04T19:32:46.620Z",
+  "participants": [
+    {
+      "id": "participant_01",
+      "assignments": [
+        {
+          "pair": "P03",
+          "category": "feature",
+          "governed": "T06",
+          "ungoverned": "T05"
+        },
+        {
+          "pair": "P04",
+          "category": "investigation",
+          "governed": "T08",
+          "ungoverned": "T07"
+        },
+        {
+          "pair": "P02",
+          "category": "bugfix",
+          "governed": "T04",
+          "ungoverned": "T03"
+        },
+        {
+          "pair": "P01",
+          "category": "feature",
+          "governed": "T02",
+          "ungoverned": "T01"
+        },
+        {
+          "pair": "P05",
+          "category": "refactor",
+          "governed": "T09",
+          "ungoverned": "T10"
+        }
+      ]
+    }
+  ]
+}

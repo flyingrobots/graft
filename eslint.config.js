@@ -58,6 +58,7 @@ export default tseslint.config(
       ".graft/",
       ".claude/",
       "test/fixtures/",
+      "docs/study/infra/",
     ],
   },
 );

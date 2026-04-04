@@ -1,0 +1,22 @@
+id: T04
+pair: P02
+title: "Fix read_range when start equals end"
+repo: flyingrobots/graft
+commit: 6be695f
+prompt: |
+  The read_range tool accepts start and end line numbers.
+  Investigate what happens when start equals end (e.g.,
+  read_range(path, 50, 50)). This should return exactly one
+  line. Verify this is the actual behavior, fix if not, and
+  add or update tests to cover the start=end edge case.
+acceptance:
+  automated:
+    - "pnpm test exits 0"
+    - "pnpm lint exits 0"
+    - "grep -rq 'start.*end\\|start === end\\|start == end' test/"
+  manual: null
+difficulty: S
+duration_band: "10-20 min"
+read_profile: "3-5 files, 1 small (read-range.ts)"
+category: bugfix
+negative_control: false

@@ -1,0 +1,36 @@
+id: T08
+pair: P04
+title: "Document receipt stabilization loop"
+repo: flyingrobots/graft
+commit: 6be695f
+prompt: |
+  Read the graft source code and write a clear, accurate technical
+  document explaining how the receipt stabilization loop works.
+  Cover:
+
+  - Why receipts need a stabilization loop (self-referential size)
+  - The iteration mechanism and convergence condition
+  - What fields are updated during stabilization
+  - The maximum iteration count and what happens if it doesn't
+    converge
+  - How the receipt is frozen after stabilization
+
+  Write the document as docs/internals/receipt-stabilization.md.
+  Include the actual field names and iteration limit from the
+  source code.
+acceptance:
+  automated:
+    - "pnpm test exits 0"
+    - "pnpm lint exits 0"
+    - "test -f docs/internals/receipt-stabilization.md"
+  manual:
+    description: |
+      Evaluator checks that the document accurately describes the
+      receipt stabilization loop by comparing against source code.
+      Must include correct field names and iteration limit.
+    blinded: true
+difficulty: S
+duration_band: "10-25 min"
+read_profile: "2-3 files, mostly reading (receipt.ts)"
+category: investigation
+negative_control: true
