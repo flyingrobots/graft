@@ -1,6 +1,6 @@
 # Graft Effectiveness Study Protocol
 
-**Version:** 2.0
+**Version:** 3.0
 **Status:** Draft
 **Date:** 2026-04-04
 **Protocol hash:** (computed at freeze)
@@ -16,12 +16,17 @@ degrading task completion?
 
 ### Primary endpoint
 
-**Retrieval burden per successfully completed task.**
+**Retrieval burden per randomized attempt.**
 
 Measured in bytes returned to the agent across all retrieval-class
-tool calls (see §4.1 for tool classification). Only successfully
-completed tasks contribute to the primary analysis. Failed tasks
-are analyzed separately under the guardrail endpoint.
+and discovery-class tool calls (see §4.1 for tool classification).
+Every randomized attempt contributes, regardless of task outcome.
+This is an unconditional estimand — no conditioning on success,
+no survivor bias.
+
+If an attempt fails, its retrieval burden still counts. A
+governance system that reduces reads by causing failures is not
+an improvement — the guardrail endpoint (§2.2) catches that.
 
 Retrieval burden is defined broadly: it includes bytes from reads,
 outlines, search results, file listings, git output, and any other
@@ -41,22 +46,65 @@ non-inferiority margin is Δ = −15 percentage points. If graft's
 completion rate is worse than the control by more than 15 points,
 the study fails the guardrail regardless of burden reduction.
 
+**Justification for Δ = −15pp:** Agent task completion rates on
+real-world coding tasks are typically 60–85% (Blacklight baseline).
+A 15pp drop (e.g., 75% → 60%) represents a meaningful degradation
+that users would notice and object to. Tighter margins (5pp, 10pp)
+require sample sizes impractical for a pilot-first design. The
+margin may be tightened for the confirmatory study if pilot data
+supports it.
+
 Rationale: a dumb muzzle also reduces reads. The study must show
 that graft reduces retrieval burden without becoming useless.
 
-### Secondary endpoints
+### Secondary endpoint (inferential)
 
-Analyzed with Holm correction. Explicitly labeled as exploratory.
+- **M3: Re-read churn** — re-reads per file per session. Paired
+  inferential test (Wilcoxon). Labeled secondary; no multiple-
+  comparison correction needed (single secondary test).
 
-- **M3: Re-read churn** — re-reads per file per session
-- **M4: Refusal recovery rate** — governed-only, descriptive
-- **M5: Governor evasion** — count of circumvention patterns
+### Operational metrics (descriptive only)
+
+Not hypothesis-tested. Reported as descriptive summaries to
+characterize graft's behavior, not to make inferential claims.
+
+- **M4: Refusal recovery rate** — governed-only. What fraction
+  of outline/refusal responses lead to productive agent behavior?
+- **M5: Governor evasion** — both conditions. Count of
+  circumvention patterns. Baseline rate from ungoverned sessions
+  establishes false-positive floor.
 
 ## 3. Design
 
 ### Type
 
 Matched-pair crossover with counterbalancing.
+
+### Participants
+
+A **participant** is an operator who directs the agent across
+multiple task attempts. In practice:
+
+- **Pilot:** a single experienced operator (the graft developer)
+  running all attempts. This controls for operator variance but
+  limits generalizability.
+- **Confirmatory:** multiple operators with varying expertise.
+  Minimum 3 participants recommended for the mixed-effects
+  sensitivity analysis to be meaningful.
+
+**Eligibility:** familiar with the agent's interface (Claude Code
+or equivalent), able to follow the per-attempt protocol (§7.1)
+without improvisation. No training on graft's tools is provided
+beyond what the agent discovers through tool descriptions — the
+governed condition must work through the agent's own tool
+selection, not operator coaching.
+
+**What a participant is NOT:** the agent itself. The agent is the
+instrument. Participants are the humans (or autonomous scaffolds)
+who deliver prompts and observe outcomes. If the study uses fully
+autonomous runs (no human in the loop), the "participant" is the
+run configuration (scaffold + model + system prompt), and the
+protocol must document that no human intervened.
 
 ### Why not same-task-twice
 
@@ -95,6 +143,7 @@ No state carries between attempts. No repo familiarity shortcuts.
 - Agent has access to all 10 graft tools
 - Claude Code hooks active (PreToolUse + PostToolUse)
 - Native Read/Write/Edit/Bash/Grep/Glob also available
+- See §A.1 for the enforcement matrix
 
 **Ungoverned:**
 - No graft. No MCP server. No hooks.
@@ -292,12 +341,16 @@ negative_control: false
 
 ### 6.3 Inclusion / exclusion criteria
 
-**Include:** tasks that require reading multiple files, making code
-changes, and have automatable acceptance criteria.
+**Include:** tasks that require reading multiple source files and
+have verifiable acceptance criteria (automated or blinded manual).
+Tasks may produce code changes, documentation, or written analysis
+as output — what matters is that the task requires substantive
+code reading, not that the deliverable is code.
 
-**Exclude:** tasks that are primarily documentation, require
-external API access, depend on secrets/credentials, or require
-interactive human input during execution.
+**Exclude:** tasks that require no code reading (e.g., editing a
+single config value from memory), require external API access,
+depend on secrets/credentials, or require interactive human input
+during execution.
 
 ### 6.4 Starter bank (graft codebase, matched pairs)
 
@@ -387,19 +440,23 @@ margin Δ = −15 percentage points.
 - If graft's completion rate is materially worse → study fails the
   guardrail, burden reduction is moot
 
-### 8.3 Secondary analyses (M3, M4, M5)
+### 8.3 Secondary analysis (M3: churn)
 
-**Correction:** Holm-Bonferroni on the 3 secondary tests.
+**Test:** Wilcoxon signed-rank on participant-level paired
+differences in re-read churn rate.
 
-| Metric | Test | Notes |
-|--------|------|-------|
-| M3 (churn) | Wilcoxon signed-rank | Paired, report median difference |
-| M4 (recovery) | Descriptive (%) | Governed-only, no paired test |
-| M5 (evasion) | Descriptive (count) | Compare governed vs ungoverned false-positive rate |
+Single secondary inferential test — no multiple-comparison
+correction needed. Labeled secondary; does not gate the primary
+conclusion.
 
-All secondary analyses are labeled exploratory.
+### 8.4 Operational metrics (M4, M5)
 
-### 8.4 Exploratory analyses (not corrected)
+M4 (refusal recovery) and M5 (evasion) are descriptive. They
+characterize graft's behavior but are not hypothesis-tested. No
+p-values, no corrections, no inferential claims. Reported as
+percentages and counts with confidence intervals.
+
+### 8.5 Exploratory analyses (not corrected)
 
 - Retrieval efficiency frontier: successful completions per KB
   of retrieval burden (visualization, not inferential)
@@ -408,14 +465,20 @@ All secondary analyses are labeled exploratory.
 - Tool usage breakdown: which graft tools are actually used, and
   how does tool mix differ between conditions?
 - Stratification by task category, difficulty, repo
+- Burden conditioned on success (exploratory complement to the
+  unconditional primary)
 
-### 8.5 Intention-to-treat vs per-protocol
+### 8.6 Intention-to-treat vs per-protocol
 
 **Primary:** intention-to-treat. All randomized attempts are
-analyzed in their assigned condition, including failures.
+analyzed in their assigned condition. M1 is unconditional — every
+attempt's retrieval burden counts, regardless of task outcome.
+This eliminates survivor bias and is consistent with the estimand
+defined in §2.
 
 **Sensitivity:** per-protocol analysis excluding attempts with
-protocol deviations (§9).
+protocol deviations (§9). Also: burden conditioned on success
+as an exploratory complement (§8.5).
 
 ## 9. Pre-registered exclusions and deviations
 
@@ -483,8 +546,15 @@ The pilot promotes to confirmatory if ALL of the following:
 ### 10.3 Pilot analysis
 
 Descriptive only. Point estimates and confidence intervals for all
-metrics. Power analysis using pilot effect sizes to determine
-confirmatory sample size (target power = 0.80).
+metrics.
+
+**Power analysis:** do NOT rely solely on the pilot effect size
+estimate — small-N effect estimates are notoriously unstable.
+Instead, compute a sensitivity grid: required N for the primary
+test at power = 0.80 across a range of plausible effect sizes
+(e.g., 20%, 30%, 40%, 50% burden reduction). The pilot estimate
+informs which row of the grid is most plausible, but the grid
+itself is pre-computed.
 
 ### 10.4 Shadow dry run
 
@@ -529,7 +599,8 @@ Published in `docs/study/results/` with:
 - Analysis scripts (reproducible, versioned with protocol)
 - Primary endpoint: effect size with confidence interval
 - Guardrail: non-inferiority result
-- Secondary endpoints with Holm-corrected p-values
+- Secondary endpoint (M3) with p-value
+- Operational metrics (M4, M5) as descriptive summaries
 - Exploratory visualizations
 - Honest assessment of what worked and what didn't
 
@@ -560,7 +631,7 @@ but persuasive if the governed condition sits up and to the left.
 | "The agent learned the repo in run 1 and benefited in run 2" | Matched-pair design — no task is attempted twice. Counterbalanced condition assignment. Fresh branches. |
 | "You just muzzled reads and called it a win" | Guardrail endpoint: task success non-inferiority. Plus evasion detection. Plus retrieval burden includes all tool classes, not just reads. |
 | "Your baseline was deliberately weak" | Baseline lock: same model, prompt, tools, permissions, time budget. Best sane non-graft workflow. |
-| "Five metrics, so you picked the one that looked good" | One pre-registered primary endpoint. Secondaries corrected with Holm. Exploratory labeled as such. |
+| "Five metrics, so you picked the one that looked good" | One pre-registered primary endpoint. One secondary inferential test (M3). M4/M5 are descriptive only. Exploratory labeled as such. |
 | "You threw out inconvenient data" | Pre-registered exclusion criteria. ITT primary analysis. Per-protocol sensitivity. All exclusions listed with reasons. |
 | "Your manual grading is biased" | Condition-blind artifact review. Inter-rater agreement reported for M4. Automated criteria preferred. |
 | "Small sample proves nothing" | Pilot for effect size estimation. Power analysis before confirmatory. Minimum practical effect size predefined. |
@@ -586,3 +657,102 @@ Any change to this protocol after freeze requires:
 
 Amendments are committed to `docs/study/amendments/` and referenced
 in the results.
+
+---
+
+## Appendix A: Tool enforcement matrix
+
+### A.1 Governed condition: what happens to each tool
+
+| Agent action | Governed behavior | Logged | Byte-count rule | Evasion? |
+|-------------|-------------------|--------|-----------------|----------|
+| `Read(path)` on banned file | PreToolUse hook exits 2, blocks Read. Agent sees refusal reason + next steps. | Decision log: projection=refused, reason=BINARY/LOCKFILE/etc. | 0 bytes (blocked) | N/A |
+| `Read(path)` on large JS/TS file | Read proceeds (exit 0). PostToolUse hook fires after, tells agent the context cost and suggests safe_read. | Decision log: hook feedback in stderr. | Full file bytes counted (native Read returned it). | No |
+| `Read(path)` on small file | Read proceeds (exit 0). PostToolUse silent (small file, no feedback). | No hook log entry. | Full file bytes counted. | No |
+| `safe_read(path)` on large file | Returns outline + jump table. | Decision log: projection=outline. Receipt: bytesReturned, bytesAvoided. | Outline bytes counted. | No |
+| `safe_read(path)` re-read, unchanged | Returns cached outline or diff. | Decision log: reason=REREAD_UNCHANGED or CHANGED_SINCE_LAST_READ. | Cache/diff bytes counted. | No |
+| `file_outline(path)` | Returns structural skeleton. | Receipt logged. | Outline bytes counted. | No |
+| `read_range(path, start, end)` | Max 250 lines. | Receipt logged. | Range bytes counted. | No |
+| `Bash("cat large_file.ts")` | Not intercepted by hooks (hooks only apply to Read tool). | Not in graft decision log. Captured in API transcript. | Full file bytes counted in M1 via transcript parser. | Yes (M5 pattern) |
+| `Grep(pattern, context=999)` | Not intercepted. | Captured in API transcript. | Response bytes counted. | Yes if context >50 lines on governed file (M5 pattern) |
+
+**Key principle:** graft hooks intercept the Read tool only.
+PreToolUse blocks bans. PostToolUse educates on large files. All
+other tools (Bash, Grep, Glob, Write, Edit) pass through
+unmodified. The agent can always route around governance — M5
+measures whether it does.
+
+### A.2 Ungoverned condition
+
+All tools behave natively. No hooks. No MCP server. No interception.
+Byte counts come entirely from API transcript parsing.
+
+## Appendix B: What exactly is being estimated?
+
+### B.1 Primary estimand (M1)
+
+| Component | Definition |
+|-----------|-----------|
+| **Population** | Coding agent task attempts on real codebases |
+| **Variable** | Total retrieval + discovery bytes returned to the agent |
+| **Condition contrast** | Governed (graft active) vs ungoverned (no graft) |
+| **Handling of failures** | Included unconditionally. Failed attempts contribute their full retrieval burden. No conditioning on success. |
+| **Handling of missingness** | Attempts with corrupted/missing logs are excluded per §9.1. Exclusion rate >20% triggers protocol review. |
+| **Summary measure** | Participant-level paired mean difference (governed − ungoverned) |
+
+### B.2 Guardrail estimand (M2)
+
+| Component | Definition |
+|-----------|-----------|
+| **Population** | Same as M1 |
+| **Variable** | Binary task completion (meets all acceptance criteria) |
+| **Condition contrast** | Governed completion rate − ungoverned completion rate |
+| **Non-inferiority margin** | Δ = −15pp (governed may be up to 15pp worse) |
+| **Handling of failures** | Failures count as non-completion in both conditions |
+| **Handling of missingness** | Same as M1 |
+
+### B.3 Why unconditional?
+
+Conditioning M1 on success creates survivor bias: if graft causes
+some tasks to fail (by refusing useful files, confusing the agent
+with outlines), those high-burden failed attempts vanish from the
+governed group, making governed burden look artificially low. The
+unconditional estimand avoids this. The guardrail ensures graft
+does not "win" on burden by failing more tasks.
+
+## Appendix C: Task pair calibration notes
+
+Each matched pair should be accompanied by a brief justification
+of why tasks A and B are considered comparable. Template:
+
+```
+Pair P01: T01 (GRAFTIGNORE_MATCH) ↔ T02 (STALE_CACHE)
+  Comparable because: both add a new reason code to the policy
+  enum, require reading policy/types.ts, evaluate.ts, and test
+  files. Similar file count (~5), similar file sizes, same repo.
+  Neither requires understanding WARP or hooks.
+```
+
+Calibration notes are frozen with the task cards. If a pair is
+found to be poorly matched during the pilot, it is flagged in the
+pilot report and may be replaced via amendment (§15).
+
+## Appendix D: Lab handoff checklist
+
+Can another operator run this study without Slack DMing the author?
+
+- [ ] Protocol document (this file) — frozen, hashed
+- [ ] Task cards (YAML, per §6.2) — frozen, hashed
+- [ ] Randomization schedule — pre-generated, sealed
+- [ ] Acceptance harness — runnable, documented
+- [ ] Transcript parser + metric scripts — versioned, tested
+- [ ] Evasion detector — pattern set frozen, false-positive rate
+  estimated from ungoverned pilot sessions
+- [ ] Session runner — automated condition setup, artifact collection
+- [ ] Graft version pinned (exact commit or npm version)
+- [ ] Model version pinned
+- [ ] System prompt frame — identical for both conditions, committed
+- [ ] Example output — one complete governed attempt and one
+  ungoverned attempt with all artifacts, as a reference
+- [ ] Analysis notebook stub — loads data, runs primary + guardrail
+  + secondary, produces tables and plots
