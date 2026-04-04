@@ -1,6 +1,7 @@
 import Parser from "web-tree-sitter";
 import { createRequire } from "node:module";
-import type { OutlineEntry, JumpEntry, OutlineResult } from "./types.js";
+import { OutlineEntry, JumpEntry } from "./types.js";
+import type { OutlineResult } from "./types.js";
 
 const MAX_SIGNATURE_LENGTH = 199;
 
@@ -117,18 +118,13 @@ function extractClassChildren(node: TSNode): OutlineEntry[] {
       const name = extractName(child);
       if (!name) continue;
 
-      const entry: OutlineEntry = {
+      const sig = extractFunctionSignature(child);
+      children.push(new OutlineEntry({
         kind: "method",
         name,
         exported: false,
-      };
-
-      const sig = extractFunctionSignature(child);
-      if (sig !== undefined) {
-        entry.signature = sig;
-      }
-
-      children.push(entry);
+        ...(sig !== undefined ? { signature: sig } : {}),
+      }));
     }
   }
   return children;
@@ -144,27 +140,16 @@ function processDeclaration(
   const name = extractName(node);
   if (!name) return undefined;
 
-  const entry: OutlineEntry = {
+  const sig = kind === "function" ? extractFunctionSignature(node) : undefined;
+  const children = kind === "class" ? extractClassChildren(node) : undefined;
+
+  return new OutlineEntry({
     kind,
     name,
     exported,
-  };
-
-  if (kind === "function") {
-    const sig = extractFunctionSignature(node);
-    if (sig !== undefined) {
-      entry.signature = sig;
-    }
-  }
-
-  if (kind === "class") {
-    const children = extractClassChildren(node);
-    if (children.length > 0) {
-      entry.children = children;
-    }
-  }
-
-  return entry;
+    ...(sig !== undefined ? { signature: sig } : {}),
+    ...(children !== undefined && children.length > 0 ? { children } : {}),
+  });
 }
 
 function extractArrowSignature(name: string, arrowNode: TSNode): string | undefined {
@@ -194,11 +179,14 @@ function processLexicalExport(node: TSNode): OutlineEntry[] {
       const value = child.childForFieldName("value");
       if (value && (value.type === "arrow_function" || value.type === "function")) {
         const sig = extractArrowSignature(name, value);
-        const entry: OutlineEntry = { kind: "function", name, exported: true };
-        if (sig !== undefined) entry.signature = sig;
-        entries.push(entry);
+        entries.push(new OutlineEntry({
+          kind: "function",
+          name,
+          exported: true,
+          ...(sig !== undefined ? { signature: sig } : {}),
+        }));
       } else {
-        entries.push({ kind: "export", name, exported: true });
+        entries.push(new OutlineEntry({ kind: "export", name, exported: true }));
       }
     }
   }
@@ -214,12 +202,12 @@ function buildJumpEntry(
   kind: string,
   node: TSNode,
 ): JumpEntry {
-  return {
+  return new JumpEntry({
     symbol: name,
     kind,
     start: node.startPosition.row + 1,
     end: node.endPosition.row + 1,
-  };
+  });
 }
 
 // ---------------------------------------------------------------------------
@@ -291,7 +279,7 @@ export function extractOutline(
           if (spec.type === "export_specifier") {
             const nameNode = spec.childForFieldName("alias") ?? spec.childForFieldName("name");
             if (nameNode) {
-              entries.push({ kind: "export", name: nameNode.text, exported: true });
+              entries.push(new OutlineEntry({ kind: "export", name: nameNode.text, exported: true }));
               jumpTable.push(buildJumpEntry(nameNode.text, "export", child));
             }
           }
@@ -304,7 +292,7 @@ export function extractOutline(
       const hasWildcard = child.children.some((c) => c.type === "*" || c.type === "namespace_export");
       if (hasWildcard && moduleSpecifier) {
         const name = `* from ${moduleSpecifier.text}`;
-        entries.push({ kind: "export", name, exported: true });
+        entries.push(new OutlineEntry({ kind: "export", name, exported: true }));
         jumpTable.push(buildJumpEntry(name, "export", child));
         continue;
       }

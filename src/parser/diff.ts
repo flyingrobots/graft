@@ -1,18 +1,56 @@
-import type { OutlineEntry } from "./types.js";
+import { OutlineEntry } from "./types.js";
 
-export interface DiffEntry {
-  name: string;
-  kind: OutlineEntry["kind"];
-  signature?: string;
-  oldSignature?: string;
-  childDiff?: OutlineDiff;
+export class DiffEntry {
+  /** @internal */
+  private readonly _brand = "DiffEntry" as const;
+  readonly name: string;
+  readonly kind: OutlineEntry["kind"];
+  readonly signature?: string;
+  readonly oldSignature?: string;
+  readonly childDiff?: OutlineDiff;
+
+  constructor(opts: {
+    name: string;
+    kind: OutlineEntry["kind"];
+    signature?: string;
+    oldSignature?: string;
+    childDiff?: OutlineDiff;
+  }) {
+    if (opts.name.length === 0) {
+      throw new Error("DiffEntry: name must be non-empty");
+    }
+    this.name = opts.name;
+    this.kind = opts.kind;
+    if (opts.signature !== undefined) this.signature = opts.signature;
+    if (opts.oldSignature !== undefined) this.oldSignature = opts.oldSignature;
+    if (opts.childDiff !== undefined) this.childDiff = opts.childDiff;
+    Object.freeze(this);
+  }
 }
 
-export interface OutlineDiff {
-  added: DiffEntry[];
-  removed: DiffEntry[];
-  changed: DiffEntry[];
-  unchangedCount: number;
+export class OutlineDiff {
+  /** @internal */
+  private readonly _brand = "OutlineDiff" as const;
+  readonly added: readonly DiffEntry[];
+  readonly removed: readonly DiffEntry[];
+  readonly changed: readonly DiffEntry[];
+  readonly unchangedCount: number;
+
+  constructor(opts: {
+    added: DiffEntry[];
+    removed: DiffEntry[];
+    changed: DiffEntry[];
+    unchangedCount: number;
+  }) {
+    if (!Number.isInteger(opts.unchangedCount) || opts.unchangedCount < 0) {
+      throw new Error("OutlineDiff: unchangedCount must be a non-negative integer");
+    }
+    this.added = Object.freeze([...opts.added]);
+    this.removed = Object.freeze([...opts.removed]);
+    this.changed = Object.freeze([...opts.changed]);
+    this.unchangedCount = opts.unchangedCount;
+    Object.freeze(this);
+  }
 }
 
 /**
@@ -25,8 +63,8 @@ function entrySignature(entry: OutlineEntry): string {
 }
 
 export function diffOutlines(
-  oldEntries: OutlineEntry[],
-  newEntries: OutlineEntry[],
+  oldEntries: readonly OutlineEntry[],
+  newEntries: readonly OutlineEntry[],
 ): OutlineDiff {
   // Note: duplicate names are clobbered by Map.set — only the last
   // entry with a given name survives. This is acceptable because
@@ -51,20 +89,21 @@ export function diffOutlines(
   for (const [name, newEntry] of newByName) {
     const oldEntry = oldByName.get(name);
     if (oldEntry === undefined) {
-      const entry: DiffEntry = { name, kind: newEntry.kind };
-      if (newEntry.signature !== undefined) entry.signature = newEntry.signature;
-      added.push(entry);
+      added.push(new DiffEntry({
+        name,
+        kind: newEntry.kind,
+        ...(newEntry.signature !== undefined ? { signature: newEntry.signature } : {}),
+      }));
     } else {
       const oldSig = entrySignature(oldEntry);
       const newSig = entrySignature(newEntry);
       if (oldSig !== newSig) {
-        const entry: DiffEntry = {
+        changed.push(new DiffEntry({
           name,
           kind: newEntry.kind,
           oldSignature: entrySignature(oldEntry),
-        };
-        if (newEntry.signature !== undefined) entry.signature = newEntry.signature;
-        changed.push(entry);
+          ...(newEntry.signature !== undefined ? { signature: newEntry.signature } : {}),
+        }));
       } else {
         // Same name and signature — check children recursively
         const oldChildren = oldEntry.children ?? [];
@@ -72,9 +111,12 @@ export function diffOutlines(
         if (oldChildren.length > 0 || newChildren.length > 0) {
           const childDiff = diffOutlines(oldChildren, newChildren);
           if (childDiff.added.length > 0 || childDiff.removed.length > 0 || childDiff.changed.length > 0) {
-            const entry: DiffEntry = { name, kind: newEntry.kind, childDiff };
-            if (newEntry.signature !== undefined) entry.signature = newEntry.signature;
-            changed.push(entry);
+            changed.push(new DiffEntry({
+              name,
+              kind: newEntry.kind,
+              childDiff,
+              ...(newEntry.signature !== undefined ? { signature: newEntry.signature } : {}),
+            }));
           } else {
             unchangedCount++;
           }
@@ -88,11 +130,13 @@ export function diffOutlines(
   // Check for removed (in old but not in new)
   for (const [name, oldEntry] of oldByName) {
     if (!newByName.has(name)) {
-      const entry: DiffEntry = { name, kind: oldEntry.kind };
-      if (oldEntry.signature !== undefined) entry.signature = oldEntry.signature;
-      removed.push(entry);
+      removed.push(new DiffEntry({
+        name,
+        kind: oldEntry.kind,
+        ...(oldEntry.signature !== undefined ? { signature: oldEntry.signature } : {}),
+      }));
     }
   }
 
-  return { added, removed, changed, unchangedCount };
+  return new OutlineDiff({ added, removed, changed, unchangedCount });
 }

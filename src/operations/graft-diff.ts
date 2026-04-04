@@ -3,8 +3,7 @@ import type { FileSystem } from "../ports/filesystem.js";
 import { getChangedFiles, getFileAtRef } from "../git/diff.js";
 import { detectLang } from "../parser/lang.js";
 import { extractOutline } from "../parser/outline.js";
-import { diffOutlines } from "../parser/diff.js";
-import type { OutlineDiff } from "../parser/diff.js";
+import { diffOutlines, OutlineDiff } from "../parser/diff.js";
 
 export interface FileDiff {
   path: string;
@@ -28,7 +27,7 @@ export interface GraftDiffOptions {
 }
 
 function emptyDiff(): OutlineDiff {
-  return { added: [], removed: [], changed: [], unchangedCount: 0 };
+  return new OutlineDiff({ added: [], removed: [], changed: [], unchangedCount: 0 });
 }
 
 

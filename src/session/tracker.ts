@@ -1,4 +1,5 @@
-import type { SessionDepth, Tripwire } from "./types.js";
+import { Tripwire } from "./types.js";
+import type { SessionDepth } from "./types.js";
 
 const EDIT_BASH_TOOLS = new Set(["Edit", "Bash"]);
 const LATE_READ_BYTE_THRESHOLD = 20480;
@@ -39,27 +40,27 @@ export class SessionTracker {
     const wires: Tripwire[] = [];
 
     if (this.totalMessages > 500) {
-      wires.push({
+      wires.push(new Tripwire({
         signal: "SESSION_LONG",
         recommendation:
           "Session exceeds 500 messages. Use state_save to persist context and start a new session.",
-      });
+      }));
     }
 
     if (this.editBashTransitions > 30) {
-      wires.push({
+      wires.push(new Tripwire({
         signal: "EDIT_BASH_LOOP",
         recommendation:
           "Detected repeated edit/bash cycling. Step back and rethink the approach.",
-      });
+      }));
     }
 
     if (this.toolCallsSinceUser > 80) {
-      wires.push({
+      wires.push(new Tripwire({
         signal: "RUNAWAY_TOOLS",
         recommendation:
           "Over 80 tool calls without user input. Pause and check in with the user.",
-      });
+      }));
     }
 
     return wires;
@@ -70,11 +71,11 @@ export class SessionTracker {
       outputBytes > LATE_READ_BYTE_THRESHOLD &&
       this.totalMessages > LATE_READ_MESSAGE_THRESHOLD
     ) {
-      return {
+      return new Tripwire({
         signal: "LATE_LARGE_READ",
         recommendation:
           "Large read late in session. Use file_outline or read_range instead.",
-      };
+      });
     }
     return null;
   }
