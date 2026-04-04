@@ -78,6 +78,20 @@ describe("CanonicalJsonCodec", () => {
     });
   });
 
+  describe("non-plain objects", () => {
+    it("preserves Date via toJSON", () => {
+      const date = new Date("2026-01-01T00:00:00.000Z");
+      const result = codec.encode({ ts: date });
+      expect(result).toContain("2026-01-01T00:00:00.000Z");
+    });
+
+    it("throws on circular references", () => {
+      const a: Record<string, unknown> = {};
+      a["self"] = a;
+      expect(() => codec.encode(a)).toThrow("circular");
+    });
+  });
+
   describe("round-trip", () => {
     it("decode(encode(value)) preserves data", () => {
       const original = { z: [1, 2], a: { nested: true } };
