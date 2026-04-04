@@ -1,6 +1,8 @@
 node_modules/
 .graft/
-.claude/
+.claude/settings.local.json
+.claude/projects/
+.claude/plans/
 .mcp.json
 .DS_Store
 ._*

@@ -44,6 +44,20 @@ Configure them locally:
 git config --local core.hooksPath scripts/hooks
 ```
 
+## Release flow
+
+Before tagging a release:
+
+1. **Update VISION.md metrics**: `./scripts/update-vision-metrics.sh`
+   (updates frontmatter: cycle count, test count, backlog count,
+   version, commit hash).
+2. **Review prose sections**: VISION.md roadmap, legends, and phase
+   summaries may need manual updates if new features shipped.
+3. **Review README.md and GUIDE.md**: ensure they reflect any new
+   tools, hooks, or setup changes.
+4. **Verify invariants**: check `docs/invariants/` — all listed
+   invariants must hold at release time.
+
 ## Code style
 
 - ESLint with maximum strictness. Zero warnings, zero errors.

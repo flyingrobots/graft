@@ -44,8 +44,8 @@ Add this to your MCP config — works with Claude Code, Cursor,
 Windsurf, Continue, Cline, and any MCP-compatible client.
 
 See **[Setup Guide](docs/GUIDE.md)** for per-editor instructions,
-`.graftignore` configuration, troubleshooting, and details on what
-the agent experiences.
+Claude Code hooks, `.graftignore` configuration, troubleshooting,
+and details on what the agent experiences.
 
 ## What it does
 
