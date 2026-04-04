@@ -1,6 +1,8 @@
 import { OutlineEntry } from "./types.js";
 
 export class DiffEntry {
+  /** @internal */
+  private readonly _brand = "DiffEntry" as const;
   readonly name: string;
   readonly kind: OutlineEntry["kind"];
   readonly signature?: string;
@@ -27,6 +29,8 @@ export class DiffEntry {
 }
 
 export class OutlineDiff {
+  /** @internal */
+  private readonly _brand = "OutlineDiff" as const;
   readonly added: readonly DiffEntry[];
   readonly removed: readonly DiffEntry[];
   readonly changed: readonly DiffEntry[];
@@ -38,6 +42,9 @@ export class OutlineDiff {
     changed: DiffEntry[];
     unchangedCount: number;
   }) {
+    if (!Number.isInteger(opts.unchangedCount) || opts.unchangedCount < 0) {
+      throw new Error("OutlineDiff: unchangedCount must be a non-negative integer");
+    }
     this.added = Object.freeze([...opts.added]);
     this.removed = Object.freeze([...opts.removed]);
     this.changed = Object.freeze([...opts.changed]);

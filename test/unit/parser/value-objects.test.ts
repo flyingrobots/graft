@@ -118,6 +118,18 @@ describe("value objects: JumpEntry", () => {
     ).toThrow("end");
   });
 
+  it("throws on NaN start", () => {
+    expect(
+      () => new JumpEntry({ symbol: "greet", kind: "function", start: NaN, end: 10 }),
+    ).toThrow("start");
+  });
+
+  it("throws on fractional start", () => {
+    expect(
+      () => new JumpEntry({ symbol: "greet", kind: "function", start: 1.5, end: 10 }),
+    ).toThrow("start");
+  });
+
   it("allows single-line range (start === end)", () => {
     const entry = new JumpEntry({
       symbol: "x",
@@ -212,6 +224,24 @@ describe("value objects: OutlineDiff", () => {
     expect(Object.isFrozen(diff.added)).toBe(true);
     expect(Object.isFrozen(diff.removed)).toBe(true);
     expect(Object.isFrozen(diff.changed)).toBe(true);
+  });
+
+  it("throws on negative unchangedCount", () => {
+    expect(
+      () => new OutlineDiff({ added: [], removed: [], changed: [], unchangedCount: -1 }),
+    ).toThrow("unchangedCount");
+  });
+
+  it("throws on fractional unchangedCount", () => {
+    expect(
+      () => new OutlineDiff({ added: [], removed: [], changed: [], unchangedCount: 2.5 }),
+    ).toThrow("unchangedCount");
+  });
+
+  it("throws on NaN unchangedCount", () => {
+    expect(
+      () => new OutlineDiff({ added: [], removed: [], changed: [], unchangedCount: NaN }),
+    ).toThrow("unchangedCount");
   });
 
   it("is an instanceof OutlineDiff", () => {

@@ -31,6 +31,18 @@ describe("value objects: Tripwire", () => {
     ).toThrow("recommendation");
   });
 
+  it("throws on whitespace-only signal", () => {
+    expect(
+      () => new Tripwire({ signal: "   ", recommendation: "Do something." }),
+    ).toThrow("signal");
+  });
+
+  it("throws on whitespace-only recommendation", () => {
+    expect(
+      () => new Tripwire({ signal: "SESSION_LONG", recommendation: "   " }),
+    ).toThrow("recommendation");
+  });
+
   it("is an instanceof Tripwire", () => {
     const tw = new Tripwire({
       signal: "SESSION_LONG",

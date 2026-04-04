@@ -3,6 +3,8 @@ export type EntryKind = "function" | "class" | "method" | "interface" | "type" |
 
 /** A single entry in a file outline. */
 export class OutlineEntry {
+  /** @internal Brand prevents structural forgery from plain objects. */
+  private readonly _brand = "OutlineEntry" as const;
   readonly kind: EntryKind;
   readonly name: string;
   readonly signature?: string;
@@ -14,7 +16,7 @@ export class OutlineEntry {
     name: string;
     exported: boolean;
     signature?: string;
-    children?: OutlineEntry[];
+    children?: readonly OutlineEntry[];
   }) {
     if (opts.name.length === 0) {
       throw new Error("OutlineEntry: name must be non-empty");
@@ -30,6 +32,8 @@ export class OutlineEntry {
 
 /** A jump-table entry mapping a symbol to its 1-based line range. */
 export class JumpEntry {
+  /** @internal Brand prevents structural forgery from plain objects. */
+  private readonly _brand = "JumpEntry" as const;
   readonly symbol: string;
   readonly kind: string;
   readonly start: number; // 1-based line
@@ -41,11 +45,11 @@ export class JumpEntry {
     start: number;
     end: number;
   }) {
-    if (opts.start < 1) {
-      throw new Error("JumpEntry: start must be >= 1");
+    if (!Number.isInteger(opts.start) || opts.start < 1) {
+      throw new Error("JumpEntry: start must be an integer >= 1");
     }
-    if (opts.end < opts.start) {
-      throw new Error("JumpEntry: end must be >= start");
+    if (!Number.isInteger(opts.end) || opts.end < opts.start) {
+      throw new Error("JumpEntry: end must be an integer >= start");
     }
     this.symbol = opts.symbol;
     this.kind = opts.kind;
