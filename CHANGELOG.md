@@ -7,6 +7,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## Unreleased
 
+## [0.2.2] - 2026-04-04
+
+### Added
+
+- **Docker support**: run graft as an MCP server without installing
+  Node. `docker run -i --rm -v "$PWD:/workspace" flyingrobots/graft`.
+  Node 22 Alpine, non-root user.
+- **Canonical JSON codec**: all JSON serialization uses deterministic
+  sorted keys and compact output via `CanonicalJsonCodec`. Enables
+  stable hashes and diffable logs. `JsonCodec` port for hexagonal
+  compliance.
+
+### Fixed
+
+- **JSON serialization safety**: codec preserves `Date` and custom
+  `toJSON` semantics, detects circular references, handles shared
+  object references without false cycle detection.
+
 ## [0.2.1] - 2026-04-04
 
 ### Added
