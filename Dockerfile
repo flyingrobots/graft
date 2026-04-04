@@ -16,6 +16,10 @@ COPY src/ src/
 # The project being analyzed is mounted at /workspace
 VOLUME /workspace
 
+# Run as non-root to avoid root-owned files on Linux bind mounts.
+# node:22-alpine provides the 'node' user (uid 1000).
+USER node
+
 # Set working directory to the mounted project
 WORKDIR /workspace
 
