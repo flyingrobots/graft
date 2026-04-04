@@ -57,40 +57,46 @@ export function parseHookInput(raw: string): HookInput {
   }
 
   const obj = parsed as Record<string, unknown>;
-  if (typeof obj["session_id"] !== "string") {
+
+  const sessionId = obj["session_id"];
+  if (typeof sessionId !== "string") {
     throw new Error("Hook input missing session_id");
   }
-  if (typeof obj["cwd"] !== "string") {
+
+  const cwd = obj["cwd"];
+  if (typeof cwd !== "string") {
     throw new Error("Hook input missing cwd");
   }
-  if (typeof obj["tool_input"] !== "object" || obj["tool_input"] === null) {
+
+  const rawToolInput = obj["tool_input"];
+  if (typeof rawToolInput !== "object" || rawToolInput === null) {
     throw new Error("Hook input missing tool_input");
   }
+  const toolInput = rawToolInput as Record<string, unknown>;
 
-  const toolInput = obj["tool_input"] as Record<string, unknown>;
-  if (typeof toolInput["file_path"] !== "string") {
+  const filePath = toolInput["file_path"];
+  if (typeof filePath !== "string") {
     throw new Error("Hook input missing tool_input.file_path");
   }
 
-  // After type guards above, TS narrows these to string.
-  // hook_event_name and tool_name may be absent — default to empty.
-  const hookEventName = typeof obj["hook_event_name"] === "string"
-    ? obj["hook_event_name"] : "";
-  const toolName = typeof obj["tool_name"] === "string"
-    ? obj["tool_name"] : "";
+  const hookEventName = obj["hook_event_name"];
+  const toolName = obj["tool_name"];
+  const toolResult = obj["tool_result"];
+  const offset = toolInput["offset"];
+  const limit = toolInput["limit"];
 
   return {
-    session_id: obj["session_id"],
-    cwd: obj["cwd"],
-    hook_event_name: hookEventName,
-    tool_name: toolName,
+    session_id: sessionId,
+    cwd,
+    hook_event_name: typeof hookEventName === "string" ? hookEventName : "",
+    tool_name: typeof toolName === "string" ? toolName : "",
     tool_input: {
-      file_path: toolInput["file_path"],
-      offset: typeof toolInput["offset"] === "number" ? toolInput["offset"] : undefined,
-      limit: typeof toolInput["limit"] === "number" ? toolInput["limit"] : undefined,
+      file_path: filePath,
+      ...(typeof offset === "number" ? { offset } : {}),
+      ...(typeof limit === "number" ? { limit } : {}),
     },
-    tool_result: typeof obj["tool_result"] === "string" ? obj["tool_result"] : undefined,
-  } as HookInput;
+    ...(typeof toolResult === "string" ? { tool_result: toolResult } : {}),
+  };
 }
 
 /**
