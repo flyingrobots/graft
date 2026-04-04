@@ -70,6 +70,23 @@ Run validation strictly in order:
 Abort on the first hard failure. Do not claim success from queued or
 in-progress CI state.
 
+## Phase 3.5: Dogfood
+
+Before tagging, sanity-check graft against itself:
+
+1. Start a fresh graft MCP session against the repo.
+2. Run `doctor` — verify parser healthy, thresholds correct.
+3. Run `safe_read` on a small file (e.g. `src/parser/lang.ts`) —
+   expect `projection: "content"`.
+4. Run `safe_read` on a large file (e.g. `src/mcp/server.ts`) —
+   expect `projection: "outline"` with jump table.
+5. Run `file_outline` on a source file — verify entries and jump
+   table look sane.
+6. Run `stats` — verify receipt counters are tracking.
+
+If any tool returns unexpected results, abort and investigate.
+Record the dogfood results in the verification witness.
+
 ## Phase 4: Commit, tag, and publish
 
 1. Review the final diff.
