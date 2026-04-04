@@ -2,28 +2,20 @@ import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import { getChangedFiles, getFileAtRef, GitError } from "../../../src/git/diff.js";
 import * as fs from "node:fs";
 import * as path from "node:path";
-import * as os from "node:os";
-import { execSync } from "node:child_process";
-
-function git(cwd: string, cmd: string): string {
-  return execSync(`git ${cmd}`, { cwd, encoding: "utf-8" }).trim();
-}
+import { git, createTestRepo, cleanupTestRepo } from "../../helpers/git.js";
 
 describe("git: diff helpers", () => {
   let tmpDir: string;
 
   beforeEach(() => {
-    tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "graft-git-"));
-    git(tmpDir, "init");
-    git(tmpDir, "config user.email test@test.com");
-    git(tmpDir, "config user.name test");
+    tmpDir = createTestRepo("graft-git-");
     fs.writeFileSync(path.join(tmpDir, "a.ts"), 'export function foo(): void {}\n');
     git(tmpDir, "add -A");
     git(tmpDir, "commit -m initial");
   });
 
   afterEach(() => {
-    fs.rmSync(tmpDir, { recursive: true, force: true });
+    cleanupTestRepo(tmpDir);
   });
 
   it("lists changed files between HEAD and working tree", () => {

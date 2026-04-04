@@ -3,25 +3,17 @@ import { graftDiff } from "../../../src/operations/graft-diff.js";
 import { nodeFs } from "../../../src/adapters/node-fs.js";
 import * as fs from "node:fs";
 import * as path from "node:path";
-import * as os from "node:os";
-import { execSync } from "node:child_process";
-
-function git(cwd: string, cmd: string): string {
-  return execSync(`git ${cmd}`, { cwd, encoding: "utf-8" }).trim();
-}
+import { git, createTestRepo, cleanupTestRepo } from "../../helpers/git.js";
 
 describe("operations: graft diff", () => {
   let tmpDir: string;
 
   beforeEach(() => {
-    tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "graft-diff-op-"));
-    git(tmpDir, "init");
-    git(tmpDir, "config user.email test@test.com");
-    git(tmpDir, "config user.name test");
+    tmpDir = createTestRepo("graft-diff-op-");
   });
 
   afterEach(() => {
-    fs.rmSync(tmpDir, { recursive: true, force: true });
+    cleanupTestRepo(tmpDir);
   });
 
   it("diffs modified file between two refs", () => {
