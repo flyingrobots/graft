@@ -23,7 +23,7 @@ import { loadGraftignore } from "../policy/graftignore.js";
 import { safeRelativePath, runHook } from "./shared.js";
 import type { HookInput, HookOutput } from "./shared.js";
 
-export type { HookInput as PostHookInput, HookOutput };
+export type { HookInput, HookOutput };
 
 export async function handlePostReadHook(input: HookInput): Promise<HookOutput> {
   const filePath = input.tool_input.file_path;

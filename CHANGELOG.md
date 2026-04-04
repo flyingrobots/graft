@@ -7,16 +7,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## Unreleased
 
+### Added
+
+- **PostToolUse hook for Read**: educates agents on context cost after
+  large file reads, showing what safe_read would have returned and the
+  savings in KB.
+- **Shared hook utilities** (`src/hooks/shared.ts`): validated input
+  parsing, stdin reader with 1 MB size guard, safe relative path
+  resolution, and `runHook` harness with full stack trace logging.
+
 ### Fixed
 
-- **Hook shared utilities**: extract shared module (`src/hooks/shared.ts`)
-  with validated input parsing, stdin size guard (1 MB), safe relative
-  path resolution, and full stack trace logging on errors.
 - **Input validation**: hooks now validate JSON structure at runtime
   instead of using unsafe `as` type assertions.
 - **Path traversal guard**: hooks reject file paths outside the project
   `cwd` (passes through to native Read instead of evaluating policy on
   arbitrary paths).
+- **UTF-8 safety**: stdin reader accumulates raw buffers before decoding
+  to prevent multi-byte character corruption at chunk boundaries.
 - **Stack traces**: hook error handler logs `err.stack` instead of
   `err.message` for debuggability.
 - **Node engine**: bump minimum to `>=20.11.0` for `import.meta.dirname`
@@ -54,10 +62,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   `kind: "enum"`.
 - **Re-export extraction**: named, type, and wildcard re-exports
   now appear in outlines. Barrel files are no longer invisible.
-- **Claude Code hooks enforcement** (cycle 0015): PreToolUse hook
-  intercepts `Read` calls and routes them through graft's policy
-  engine. Agents get content, outlines, or refusals automatically
-  without needing to use MCP tools explicitly.
+- **Claude Code hooks** (cycle 0015): PreToolUse hook blocks banned
+  files (secrets, binaries, lockfiles, `.graftignore` matches).
+  PostToolUse hook educates agents on context cost after large file
+  reads, suggesting `safe_read` as an alternative.
 
 ### Fixed
 

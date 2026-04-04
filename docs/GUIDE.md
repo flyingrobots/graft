@@ -108,12 +108,13 @@ If your client doesn't support `npx`, install globally and use:
 - **Command**: `graft`
 - **Args**: (none)
 
-## Enforcement via Claude Code Hooks
+## Claude Code Hooks
 
-Graft's MCP tools are opt-in by default — the agent chooses to
-call `safe_read` instead of the native `Read` tool. Hooks make it
-enforced: every `Read` call is intercepted and routed through
-graft's policy engine.
+Two hooks work together to govern agent reads:
+
+- **PreToolUse** — blocks banned files before the read happens
+- **PostToolUse** — educates the agent on context cost after large
+  file reads complete
 
 ### Setup
 
@@ -132,37 +133,59 @@ Add to `.claude/settings.json` in your project root:
           }
         ]
       }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Read",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node --import tsx node_modules/@flyingrobots/graft/src/hooks/posttooluse-read.ts"
+          }
+        ]
+      }
     ]
   }
 }
 ```
 
-If developing graft itself, use the local path:
+If developing graft itself, use local paths:
 
 ```json
 "command": "node --import tsx src/hooks/pretooluse-read.ts"
+"command": "node --import tsx src/hooks/posttooluse-read.ts"
 ```
 
-### What happens
+### PreToolUse — ban enforcement
 
-When the agent calls `Read(file_path)`, the hook:
+When the agent calls `Read(file_path)`, the PreToolUse hook:
 
-1. Reads the file and evaluates graft's policy
-2. **Small JS/TS files**: returns the file content
-3. **Large JS/TS files**: returns a structural outline + jump table
-4. **Banned files** (binaries, lockfiles, secrets): returns a
-   refusal with reason code and suggested next steps
-5. **Non-JS/TS files** (Markdown, JSON, etc.): returns content
-   regardless of size (no outline available)
-6. **`.graftignore` matches**: returns a refusal
+1. Evaluates the file against graft's policy
+2. **Banned files** (binaries, lockfiles, secrets, `.graftignore`
+   matches): exits 2 (block) with refusal reason and next steps
+3. **Everything else**: exits 0 — lets native Read proceed
 
-The hook always blocks the native Read (exit code 2) and provides
-graft's response in the block message. The agent receives the
-content, outline, or refusal without needing to learn new tools.
+The PreToolUse hook does NOT block large files. It only enforces
+hard bans. Large file governance is handled by the PostToolUse hook.
+
+### PostToolUse — context cost education
+
+After a Read completes, the PostToolUse hook evaluates what
+`safe_read` would have done and tells the agent the cost:
+
+```
+[graft] You just read 450 lines (18KB) into context.
+safe_read would have returned a structural outline (2048 bytes),
+saving 16.0KB of context. Threshold: 150 lines / 12KB.
+```
+
+This feedback appears for large JS/TS files where an outline was
+available. Small files, non-JS/TS files, and nonexistent files
+produce no feedback. The hook always exits 0 — it never blocks.
 
 ### Limitations
 
-The hook runs as a standalone process — it does not share state
+Both hooks run as standalone processes — they do not share state
 with the MCP server. This means:
 
 - No session-depth dynamic caps (early/mid/late)
@@ -171,8 +194,8 @@ with the MCP server. This means:
 - No metrics tracking or receipts
 
 For the full experience, agents should use graft's MCP tools
-(`safe_read`, `file_outline`, `read_range`) directly. The hook
-is the first line of defense; the MCP server is the full governor.
+(`safe_read`, `file_outline`, `read_range`) directly. The hooks
+are a safety net; the MCP server is the full governor.
 
 ### Disabling
 
