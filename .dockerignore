@@ -1,0 +1,7 @@
+node_modules
+.graft
+.git
+test
+docs
+*.md
+!README.md
