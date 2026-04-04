@@ -16,10 +16,10 @@ export class DiffEntry {
     oldSignature?: string;
     childDiff?: OutlineDiff;
   }) {
-    if (opts.name.length === 0) {
+    if (opts.name.trim().length === 0) {
       throw new Error("DiffEntry: name must be non-empty");
     }
-    this.name = opts.name;
+    this.name = opts.name.trim();
     this.kind = opts.kind;
     if (opts.signature !== undefined) this.signature = opts.signature;
     if (opts.oldSignature !== undefined) this.oldSignature = opts.oldSignature;
