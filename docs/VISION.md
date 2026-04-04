@@ -2,12 +2,12 @@
 title: "Graft — Executive Summary"
 generated: 2026-04-03
 generator: claude (manual, following Method executive-summary process)
-cycles_completed: 14
-tests: 269
+cycles_completed: 15
+tests: 307
 legends: [CORE, WARP, CLEAN_CODE]
-backlog_items: 39
+backlog_items: 28
 version: 0.2.0
-commit: 9e6a8995eff59750451397c83d7664fa5b0b8884
+commit: 00a105453ceb2cc2cc4e2b8bfeaaf3389068d2e4
 ---
 
 # Graft — Executive Summary
@@ -42,8 +42,8 @@ and writes.
 
 ## Current state
 
-**Cycles completed:** 14 (0001-0014, skipping 0007 which was folded into release prep)
-**Tests:** 269 passing across 21 files
+**Cycles completed:** 15 (0001-0015, skipping 0007 which was folded into release prep)
+**Tests:** 307 passing across 24 files
 **Lint:** clean (ESLint strict-type-checked)
 **Version:** 0.2.0 (npm: `@flyingrobots/graft`)
 
@@ -67,6 +67,15 @@ dense generics, and decorated classes. Three parser fixes: arrow
 function exports, enum extraction, re-export extraction. Type-safe
 respond (eliminated all double-casts). Cache abstraction cleanup.
 Consistent error shapes. TOCTOU race elimination.
+
+### Phase 3 — Hooks (cycle 0015)
+
+Claude Code hook integration. PreToolUse blocks banned files
+(secrets, binaries, lockfiles, .graftignore). PostToolUse educates
+agents on context cost after large file reads, showing what
+safe_read would have saved. Shared module with validated input
+parsing, path traversal guard, stdin size guard. HookInput and
+HookOutput as frozen SSJS classes.
 
 ### 10 MCP tools
 
@@ -103,7 +112,7 @@ src/
     receipt.ts  receipt builder with stabilization loop
     metrics.ts  Metrics class
     tools/      9 handler files, one per tool
-  hooks/        Claude Code hook integration (future)
+  hooks/        Claude Code hook scripts (PreToolUse + PostToolUse)
 ```
 
 **Dependencies:**
@@ -122,9 +131,8 @@ src/
 Policy, enforcement, extraction, UX, observability — everything
 that makes graft useful as a context governor.
 
-**11 cycles completed.** ASAP: live study design, outline quality
-audit (done). Up-next: hooks, context budget, Docker, token
-comparison, precision tools.
+**12 cycles completed.** ASAP: live study design. Up-next: context
+budget, Docker, token comparison, precision tools, non-read burden.
 
 ### WARP — Structural memory over Git
 
@@ -141,7 +149,8 @@ architecture, boundary validation. PolicyResult classes (done).
 Server decomposition (done). FileSystem port (done). Type-safe
 respond (done).
 
-**5 cycles completed.** Remaining: bad-code backlog items.
+**5 cycles completed.** Remaining: value objects, JSON codec port,
+bad-code backlog (1 item).
 
 ---
 
@@ -158,20 +167,17 @@ respond (done).
 
 | Item | Legend | Summary | Effort |
 |------|--------|---------|--------|
-| Claude Code hooks | CORE | PreToolUse hooks enforcing graft policy | L |
+| Value objects | CC | Remaining plain objects to frozen classes | S |
+| JSON codec port | CC | Hexagonal JSON serialization | S |
 | Context budget | CORE | Agent declares budget, governor adjusts | M |
 | Dockerfile | CORE | Docker-based MCP server startup | S |
 | Token usage comparison | CORE | Measure graft vs no-graft burden | M |
 | Phase 2 precision tools | CORE | code_show, code_find — symbol-level | XL |
-| JSON codec port | CC | Hexagonal JSON serialization | S |
-| Value objects | CC | Remaining plain objects to classes | M |
 | Non-read burden | CORE | Measure Bash/Edit context waste | M |
 
-### Bad-code backlog (3 remaining)
+### Bad-code backlog (1 remaining)
 
-- Duplicate test fixtures
-- Path normalization
-- Name-based symbol matching (WARP concern)
+- Name-based symbol matching (WARP concern — needs Level 2 identity)
 
 ---
 
@@ -199,5 +205,5 @@ Source: `~/git/blacklight/LLM_TOKEN_USE.md`
    hooks. How do we capture human edits?
 3. **Language support.** JS/TS only. Rust is "later." When?
 4. **Threshold tuning.** Self-tuning governor — should it be earlier?
-5. **npm publish.** v0.2.0 is tagged. When do we publish to the
-   registry for other people's agents?
+5. **npm publish.** v0.2.0 is published. When is it ready for
+   broader promotion beyond early adopters?

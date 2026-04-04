@@ -149,11 +149,12 @@ Add to `.claude/settings.json` in your project root:
 }
 ```
 
-If developing graft itself, use local paths:
+If developing graft itself, replace the `node_modules/...` paths
+with local paths:
 
-```json
-"command": "node --import tsx src/hooks/pretooluse-read.ts"
-"command": "node --import tsx src/hooks/posttooluse-read.ts"
+```
+src/hooks/pretooluse-read.ts    (PreToolUse)
+src/hooks/posttooluse-read.ts   (PostToolUse)
 ```
 
 ### PreToolUse — ban enforcement
