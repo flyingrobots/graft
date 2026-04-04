@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { parseHookInput, safeRelativePath } from "../../../src/hooks/shared.js";
+import { HookInput, HookOutput, parseHookInput, safeRelativePath } from "../../../src/hooks/shared.js";
 
 describe("hooks: shared utilities", () => {
   // -----------------------------------------------------------------------
@@ -76,6 +76,49 @@ describe("hooks: shared utilities", () => {
 
     it("throws on invalid JSON", () => {
       expect(() => parseHookInput("not json")).toThrow();
+    });
+
+    it("returns a HookInput instance", () => {
+      const raw = JSON.stringify({
+        session_id: "s1",
+        cwd: "/tmp",
+        hook_event_name: "PreToolUse",
+        tool_name: "Read",
+        tool_input: { file_path: "/tmp/f.ts" },
+      });
+      expect(parseHookInput(raw)).toBeInstanceOf(HookInput);
+    });
+
+    it("returns a frozen instance", () => {
+      const raw = JSON.stringify({
+        session_id: "s1",
+        cwd: "/tmp",
+        hook_event_name: "PreToolUse",
+        tool_name: "Read",
+        tool_input: { file_path: "/tmp/f.ts" },
+      });
+      const input = parseHookInput(raw);
+      expect(Object.isFrozen(input)).toBe(true);
+      expect(Object.isFrozen(input.tool_input)).toBe(true);
+    });
+  });
+
+  // -----------------------------------------------------------------------
+  // HookOutput
+  // -----------------------------------------------------------------------
+  describe("HookOutput", () => {
+    it("constructs with exitCode and stderr", () => {
+      const output = new HookOutput(0, "hello");
+      expect(output.exitCode).toBe(0);
+      expect(output.stderr).toBe("hello");
+    });
+
+    it("is frozen after construction", () => {
+      expect(Object.isFrozen(new HookOutput(0, ""))).toBe(true);
+    });
+
+    it("is an instanceof HookOutput", () => {
+      expect(new HookOutput(2, "err")).toBeInstanceOf(HookOutput);
     });
   });
 

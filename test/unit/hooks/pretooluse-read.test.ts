@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import { handleReadHook } from "../../../src/hooks/pretooluse-read.js";
-import type { HookInput } from "../../../src/hooks/shared.js";
+import { HookInput } from "../../../src/hooks/shared.js";
 import fs from "node:fs";
 import path from "node:path";
 import os from "node:os";
@@ -8,13 +8,13 @@ import os from "node:os";
 const FIXTURES = path.resolve(import.meta.dirname, "../../fixtures");
 
 function makeInput(filePath: string, cwd?: string): HookInput {
-  return {
+  return new HookInput({
     session_id: "test-session",
     cwd: cwd ?? process.cwd(),
     hook_event_name: "PreToolUse",
     tool_name: "Read",
     tool_input: { file_path: filePath },
-  };
+  });
 }
 
 describe("hooks: pretooluse-read", () => {

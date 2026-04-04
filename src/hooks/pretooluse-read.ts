@@ -19,10 +19,9 @@ import * as path from "node:path";
 import { evaluatePolicy } from "../policy/evaluate.js";
 import { RefusedResult } from "../policy/types.js";
 import { loadGraftignore } from "../policy/graftignore.js";
-import { safeRelativePath, runHook } from "./shared.js";
-import type { HookInput, HookOutput } from "./shared.js";
+import { HookInput, HookOutput, safeRelativePath, runHook } from "./shared.js";
 
-export type { HookInput, HookOutput };
+export { HookInput, HookOutput };
 
 export function handleReadHook(input: HookInput): HookOutput {
   const filePath = input.tool_input.file_path;
@@ -30,7 +29,7 @@ export function handleReadHook(input: HookInput): HookOutput {
   // Path outside project — let Read handle it, not our concern
   const relPath = safeRelativePath(input.cwd, filePath);
   if (relPath === null) {
-    return { exitCode: 0, stderr: "" };
+    return new HookOutput(0, "");
   }
 
   // Read file to get dimensions for policy
@@ -39,7 +38,7 @@ export function handleReadHook(input: HookInput): HookOutput {
     rawContent = fs.readFileSync(filePath, "utf-8");
   } catch {
     // File errors (ENOENT, EACCES, EISDIR) — let Read handle natively
-    return { exitCode: 0, stderr: "" };
+    return new HookOutput(0, "");
   }
 
   const lines = rawContent.split("\n");
@@ -66,23 +65,20 @@ export function handleReadHook(input: HookInput): HookOutput {
   // Only block refused files — everything else passes through
   if (policy instanceof RefusedResult) {
     const nextSteps = policy.next.map((n) => `  - ${n}`).join("\n");
-    return {
-      exitCode: 2,
-      stderr: [
-        `[graft] Refused: ${policy.reason}`,
-        policy.reasonDetail,
-        "",
-        "Next steps:",
-        nextSteps,
-        "",
-        "Graft tools: use file_outline to see the file's structure,",
-        "or safe_read for a policy-aware read with caching.",
-      ].join("\n"),
-    };
+    return new HookOutput(2, [
+      `[graft] Refused: ${policy.reason}`,
+      policy.reasonDetail,
+      "",
+      "Next steps:",
+      nextSteps,
+      "",
+      "Graft tools: use file_outline to see the file's structure,",
+      "or safe_read for a policy-aware read with caching.",
+    ].join("\n"));
   }
 
   // Content or outline — let Read proceed. PostToolUse will educate.
-  return { exitCode: 0, stderr: "" };
+  return new HookOutput(0, "");
 }
 
 // ---------------------------------------------------------------------------

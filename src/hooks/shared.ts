@@ -7,22 +7,54 @@ import * as path from "node:path";
 /** Maximum stdin bytes before rejecting (1 MB — generous for JSON). */
 const MAX_STDIN_BYTES = 1_048_576;
 
-export interface HookInput {
-  session_id: string;
-  cwd: string;
-  hook_event_name: string;
-  tool_name: string;
-  tool_input: {
-    file_path: string;
-    offset?: number;
-    limit?: number;
+export class HookInput {
+  readonly session_id: string;
+  readonly cwd: string;
+  readonly hook_event_name: string;
+  readonly tool_name: string;
+  readonly tool_input: {
+    readonly file_path: string;
+    readonly offset?: number;
+    readonly limit?: number;
   };
-  tool_result?: string;
+  readonly tool_result?: string;
+
+  constructor(opts: {
+    session_id: string;
+    cwd: string;
+    hook_event_name: string;
+    tool_name: string;
+    tool_input: { file_path: string; offset?: number; limit?: number };
+    tool_result?: string;
+  }) {
+    if (opts.session_id.length === 0) {
+      throw new Error("HookInput: session_id must be non-empty");
+    }
+    if (opts.cwd.length === 0) {
+      throw new Error("HookInput: cwd must be non-empty");
+    }
+    if (opts.tool_input.file_path.length === 0) {
+      throw new Error("HookInput: tool_input.file_path must be non-empty");
+    }
+    this.session_id = opts.session_id;
+    this.cwd = opts.cwd;
+    this.hook_event_name = opts.hook_event_name;
+    this.tool_name = opts.tool_name;
+    this.tool_input = Object.freeze({ ...opts.tool_input });
+    if (opts.tool_result !== undefined) this.tool_result = opts.tool_result;
+    Object.freeze(this);
+  }
 }
 
-export interface HookOutput {
-  exitCode: number;
-  stderr: string;
+export class HookOutput {
+  readonly exitCode: number;
+  readonly stderr: string;
+
+  constructor(exitCode: number, stderr: string) {
+    this.exitCode = exitCode;
+    this.stderr = stderr;
+    Object.freeze(this);
+  }
 }
 
 /**
@@ -48,7 +80,7 @@ export async function readStdin(): Promise<string> {
 
 /**
  * Parses and validates hook input from a raw JSON string.
- * Throws with a descriptive message if required fields are missing.
+ * Returns a frozen HookInput instance.
  */
 export function parseHookInput(raw: string): HookInput {
   const parsed: unknown = JSON.parse(raw);
@@ -85,7 +117,7 @@ export function parseHookInput(raw: string): HookInput {
   const offset = toolInput["offset"];
   const limit = toolInput["limit"];
 
-  return {
+  return new HookInput({
     session_id: sessionId,
     cwd,
     hook_event_name: typeof hookEventName === "string" ? hookEventName : "",
@@ -96,7 +128,7 @@ export function parseHookInput(raw: string): HookInput {
       ...(typeof limit === "number" ? { limit } : {}),
     },
     ...(typeof toolResult === "string" ? { tool_result: toolResult } : {}),
-  };
+  });
 }
 
 /**

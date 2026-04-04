@@ -20,10 +20,9 @@ import * as path from "node:path";
 import { evaluatePolicy, STATIC_THRESHOLDS } from "../policy/evaluate.js";
 import { ContentResult, RefusedResult } from "../policy/types.js";
 import { loadGraftignore } from "../policy/graftignore.js";
-import { safeRelativePath, runHook } from "./shared.js";
-import type { HookInput, HookOutput } from "./shared.js";
+import { HookInput, HookOutput, safeRelativePath, runHook } from "./shared.js";
 
-export type { HookInput, HookOutput };
+export { HookInput, HookOutput };
 
 export async function handlePostReadHook(input: HookInput): Promise<HookOutput> {
   const filePath = input.tool_input.file_path;
@@ -31,7 +30,7 @@ export async function handlePostReadHook(input: HookInput): Promise<HookOutput> 
   // Path outside project — no feedback
   const relPath = safeRelativePath(input.cwd, filePath);
   if (relPath === null) {
-    return { exitCode: 0, stderr: "" };
+    return new HookOutput(0, "");
   }
 
   // Read file to get dimensions
@@ -39,7 +38,7 @@ export async function handlePostReadHook(input: HookInput): Promise<HookOutput> 
   try {
     rawContent = fs.readFileSync(filePath, "utf-8");
   } catch {
-    return { exitCode: 0, stderr: "" };
+    return new HookOutput(0, "");
   }
 
   const lines = rawContent.split("\n");
@@ -65,12 +64,12 @@ export async function handlePostReadHook(input: HookInput): Promise<HookOutput> 
 
   // Small file — no feedback needed, Read was the right call
   if (policy instanceof ContentResult) {
-    return { exitCode: 0, stderr: "" };
+    return new HookOutput(0, "");
   }
 
   // Refused — PreToolUse should have caught this, but just in case
   if (policy instanceof RefusedResult) {
-    return { exitCode: 0, stderr: "" };
+    return new HookOutput(0, "");
   }
 
   // Outline projection — the agent just dumped a large file into context
@@ -79,7 +78,7 @@ export async function handlePostReadHook(input: HookInput): Promise<HookOutput> 
   const lang = detectLang(filePath);
   if (lang === null) {
     // Non-JS/TS — no outline available, Read was reasonable
-    return { exitCode: 0, stderr: "" };
+    return new HookOutput(0, "");
   }
 
   const { extractOutline } = await import("../parser/outline.js");
@@ -89,17 +88,14 @@ export async function handlePostReadHook(input: HookInput): Promise<HookOutput> 
   const savedKb = (saved / 1024).toFixed(1);
   const bytesKb = (bytes / 1024).toFixed(1);
 
-  return {
-    exitCode: 0,
-    stderr: [
-      `[graft] You just read ${String(lines.length)} lines (${bytesKb}KB) into context.`,
-      `safe_read would have returned a structural outline (${String(outlineBytes)} bytes),`,
-      `saving ${savedKb}KB of context. Threshold: ${String(STATIC_THRESHOLDS.lines)} lines / ${String(STATIC_THRESHOLDS.bytes / 1024)}KB.`,
-      "",
-      "Consider using graft's safe_read tool for large files —",
-      "it returns outlines with jump tables for targeted read_range.",
-    ].join("\n"),
-  };
+  return new HookOutput(0, [
+    `[graft] You just read ${String(lines.length)} lines (${bytesKb}KB) into context.`,
+    `safe_read would have returned a structural outline (${String(outlineBytes)} bytes),`,
+    `saving ${savedKb}KB of context. Threshold: ${String(STATIC_THRESHOLDS.lines)} lines / ${String(STATIC_THRESHOLDS.bytes / 1024)}KB.`,
+    "",
+    "Consider using graft's safe_read tool for large files —",
+    "it returns outlines with jump tables for targeted read_range.",
+  ].join("\n"));
 }
 
 // ---------------------------------------------------------------------------
