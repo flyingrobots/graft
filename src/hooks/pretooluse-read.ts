@@ -19,33 +19,26 @@ import * as path from "node:path";
 import { evaluatePolicy } from "../policy/evaluate.js";
 import { RefusedResult } from "../policy/types.js";
 import { loadGraftignore } from "../policy/graftignore.js";
+import { safeRelativePath, runHook } from "./shared.js";
+import type { HookInput, HookOutput } from "./shared.js";
 
-export interface HookInput {
-  session_id: string;
-  cwd: string;
-  hook_event_name: string;
-  tool_name: string;
-  tool_input: {
-    file_path: string;
-    offset?: number;
-    limit?: number;
-  };
-}
-
-export interface HookOutput {
-  exitCode: number;
-  stderr: string;
-}
+export type { HookInput, HookOutput };
 
 export function handleReadHook(input: HookInput): HookOutput {
   const filePath = input.tool_input.file_path;
+
+  // Path outside project — let Read handle it, not our concern
+  const relPath = safeRelativePath(input.cwd, filePath);
+  if (relPath === null) {
+    return { exitCode: 0, stderr: "" };
+  }
 
   // Read file to get dimensions for policy
   let rawContent: string;
   try {
     rawContent = fs.readFileSync(filePath, "utf-8");
   } catch {
-    // File not found — let Read handle the error natively
+    // File errors (ENOENT, EACCES, EISDIR) — let Read handle natively
     return { exitCode: 0, stderr: "" };
   }
 
@@ -55,14 +48,16 @@ export function handleReadHook(input: HookInput): HookOutput {
   // Load .graftignore patterns
   let graftignorePatterns: string[] | undefined;
   try {
-    const ignoreFile = fs.readFileSync(path.join(input.cwd, ".graftignore"), "utf-8");
+    const ignoreFile = fs.readFileSync(
+      path.join(input.cwd, ".graftignore"),
+      "utf-8",
+    );
     graftignorePatterns = loadGraftignore(ignoreFile);
   } catch {
     // No .graftignore — that's fine
   }
 
   // Evaluate policy
-  const relPath = path.relative(input.cwd, filePath);
   const policy = evaluatePolicy(
     { path: relPath, lines: lines.length, bytes },
     { graftignorePatterns },
@@ -91,23 +86,7 @@ export function handleReadHook(input: HookInput): HookOutput {
 }
 
 // ---------------------------------------------------------------------------
-// Script entry point
+// Script entry point — exit 2 on failure to block unsafe reads
 // ---------------------------------------------------------------------------
 
-async function main(): Promise<void> {
-  let raw = "";
-  for await (const chunk of process.stdin) {
-    raw += String(chunk);
-  }
-
-  const input = JSON.parse(raw) as HookInput;
-  const output = handleReadHook(input);
-  if (output.stderr.length > 0) process.stderr.write(output.stderr);
-  process.exit(output.exitCode);
-}
-
-main().catch((err: unknown) => {
-  const msg = err instanceof Error ? err.message : String(err);
-  process.stderr.write(`[graft] Hook error: ${msg}`);
-  process.exit(2);
-});
+runHook(handleReadHook, 2);

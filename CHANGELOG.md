@@ -5,6 +5,23 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## Unreleased
+
+### Fixed
+
+- **Hook shared utilities**: extract shared module (`src/hooks/shared.ts`)
+  with validated input parsing, stdin size guard (1 MB), safe relative
+  path resolution, and full stack trace logging on errors.
+- **Input validation**: hooks now validate JSON structure at runtime
+  instead of using unsafe `as` type assertions.
+- **Path traversal guard**: hooks reject file paths outside the project
+  `cwd` (passes through to native Read instead of evaluating policy on
+  arbitrary paths).
+- **Stack traces**: hook error handler logs `err.stack` instead of
+  `err.message` for debuggability.
+- **Node engine**: bump minimum to `>=21.2.0` for `import.meta.dirname`
+  support (used across test suite and eslint config).
+
 ## [0.2.0] - 2026-04-03
 
 ### Changed

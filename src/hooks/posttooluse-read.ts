@@ -17,31 +17,22 @@
 
 import * as fs from "node:fs";
 import * as path from "node:path";
-import { evaluatePolicy } from "../policy/evaluate.js";
+import { evaluatePolicy, STATIC_THRESHOLDS } from "../policy/evaluate.js";
 import { ContentResult, RefusedResult } from "../policy/types.js";
 import { loadGraftignore } from "../policy/graftignore.js";
-import { STATIC_THRESHOLDS } from "../policy/evaluate.js";
+import { safeRelativePath, runHook } from "./shared.js";
+import type { HookInput, HookOutput } from "./shared.js";
 
-export interface PostHookInput {
-  session_id: string;
-  cwd: string;
-  hook_event_name: string;
-  tool_name: string;
-  tool_input: {
-    file_path: string;
-    offset?: number;
-    limit?: number;
-  };
-  tool_result?: string;
-}
+export type { HookInput as PostHookInput, HookOutput };
 
-export interface HookOutput {
-  exitCode: number;
-  stderr: string;
-}
-
-export async function handlePostReadHook(input: PostHookInput): Promise<HookOutput> {
+export async function handlePostReadHook(input: HookInput): Promise<HookOutput> {
   const filePath = input.tool_input.file_path;
+
+  // Path outside project — no feedback
+  const relPath = safeRelativePath(input.cwd, filePath);
+  if (relPath === null) {
+    return { exitCode: 0, stderr: "" };
+  }
 
   // Read file to get dimensions
   let rawContent: string;
@@ -57,14 +48,16 @@ export async function handlePostReadHook(input: PostHookInput): Promise<HookOutp
   // Load .graftignore patterns
   let graftignorePatterns: string[] | undefined;
   try {
-    const ignoreFile = fs.readFileSync(path.join(input.cwd, ".graftignore"), "utf-8");
+    const ignoreFile = fs.readFileSync(
+      path.join(input.cwd, ".graftignore"),
+      "utf-8",
+    );
     graftignorePatterns = loadGraftignore(ignoreFile);
   } catch {
     // No .graftignore
   }
 
   // Evaluate what safe_read would have done
-  const relPath = path.relative(input.cwd, filePath);
   const policy = evaluatePolicy(
     { path: relPath, lines: lines.length, bytes },
     { graftignorePatterns },
@@ -110,23 +103,7 @@ export async function handlePostReadHook(input: PostHookInput): Promise<HookOutp
 }
 
 // ---------------------------------------------------------------------------
-// Script entry point
+// Script entry point — exit 0 on failure, never block on post-hook errors
 // ---------------------------------------------------------------------------
 
-async function main(): Promise<void> {
-  let raw = "";
-  for await (const chunk of process.stdin) {
-    raw += String(chunk);
-  }
-
-  const input = JSON.parse(raw) as PostHookInput;
-  const output = await handlePostReadHook(input);
-  if (output.stderr.length > 0) process.stderr.write(output.stderr);
-  process.exit(output.exitCode);
-}
-
-main().catch((err: unknown) => {
-  const msg = err instanceof Error ? err.message : String(err);
-  process.stderr.write(`[graft] PostToolUse hook error: ${msg}`);
-  process.exit(0); // Don't block on post-hook errors
-});
+runHook(handlePostReadHook, 0);
