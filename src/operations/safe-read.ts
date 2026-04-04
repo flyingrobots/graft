@@ -4,6 +4,7 @@ import type { SessionDepth } from "../policy/types.js";
 import { extractOutline } from "../parser/outline.js";
 import type { OutlineEntry, JumpEntry } from "../parser/types.js";
 import type { FileSystem } from "../ports/filesystem.js";
+import type { JsonCodec } from "../ports/codec.js";
 
 export interface SafeReadResult {
   [key: string]: unknown;
@@ -22,6 +23,7 @@ export interface SafeReadResult {
 
 export interface SafeReadOptions {
   fs: FileSystem;
+  codec: JsonCodec;
   content?: string | undefined;
   intent?: string | undefined;
   sessionDepth?: SessionDepth | undefined;
@@ -81,7 +83,7 @@ export async function safeRead(
 
   // projection === "outline"
   const outlineResult = extractOutline(content);
-  const outlineJson = JSON.stringify(outlineResult);
+  const outlineJson = options.codec.encode(outlineResult);
   const estimatedBytesAvoided = bytes - Buffer.byteLength(outlineJson, "utf-8");
 
   return {

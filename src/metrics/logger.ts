@@ -1,9 +1,11 @@
 import * as path from "node:path";
 import type { FileSystem } from "../ports/filesystem.js";
+import type { JsonCodec } from "../ports/codec.js";
 import type { DecisionEntry } from "./types.js";
 
 export interface MetricsLoggerOptions {
   readonly fs: FileSystem;
+  readonly codec: JsonCodec;
   readonly maxBytes?: number;
 }
 
@@ -12,11 +14,13 @@ const DEFAULT_MAX_BYTES = 1_048_576; // 1 MB
 export class MetricsLogger {
   private readonly logPath: string;
   private readonly fs: FileSystem;
+  private readonly codec: JsonCodec;
   private readonly maxBytes: number;
 
   constructor(logPath: string, options: MetricsLoggerOptions) {
     this.logPath = logPath;
     this.fs = options.fs;
+    this.codec = options.codec;
     this.maxBytes = options.maxBytes ?? DEFAULT_MAX_BYTES;
   }
 
@@ -26,7 +30,7 @@ export class MetricsLogger {
       ...entry,
     };
 
-    const line = JSON.stringify(full) + "\n";
+    const line = this.codec.encode(full) + "\n";
 
     const dir = path.dirname(this.logPath);
     await this.fs.mkdir(dir, { recursive: true });

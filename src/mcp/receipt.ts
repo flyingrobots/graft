@@ -5,6 +5,7 @@
 import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
 import type { MetricsSnapshot } from "./metrics.js";
 import type { Tripwire } from "../session/types.js";
+import type { JsonCodec } from "../ports/codec.js";
 
 export type McpToolResult = CallToolResult;
 
@@ -13,6 +14,7 @@ export interface ReceiptDeps {
   readonly seq: number;
   readonly metrics: MetricsSnapshot;
   readonly tripwires: Tripwire[];
+  readonly codec: JsonCodec;
 }
 
 /**
@@ -53,7 +55,7 @@ export function buildReceiptResult(
   let prev = 0;
   let text = "";
   for (let i = 0; i < 5; i++) {
-    text = JSON.stringify(fullData);
+    text = deps.codec.encode(fullData);
     const byteLen = Buffer.byteLength(text, "utf8");
     if (byteLen === prev) break;
     prev = byteLen;

@@ -8,6 +8,7 @@ import type { Metrics } from "./metrics.js";
 import type { SessionTracker } from "../session/tracker.js";
 import type { McpToolResult } from "./receipt.js";
 import type { FileSystem } from "../ports/filesystem.js";
+import type { JsonCodec } from "../ports/codec.js";
 
 export type ToolHandler = (args: Record<string, unknown>) => McpToolResult | Promise<McpToolResult>;
 
@@ -18,6 +19,7 @@ export interface ToolContext {
   readonly cache: ObservationCache;
   readonly metrics: Metrics;
   readonly fs: FileSystem;
+  readonly codec: JsonCodec;
   respond(tool: string, data: Record<string, unknown>): McpToolResult;
   resolvePath(relative: string): string;
 }
