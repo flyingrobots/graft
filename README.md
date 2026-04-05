@@ -36,6 +36,16 @@ docker run -i --rm -v "$PWD:/workspace" flyingrobots/graft
 
 ## Quick start
 
+```bash
+npx @flyingrobots/graft init
+```
+
+Scaffolds `.graftignore`, adds `.graft/` to `.gitignore`, generates
+a `CLAUDE.md` snippet telling agents to prefer graft tools, and
+prints Claude Code hook config.
+
+Then add graft to your MCP config:
+
 ```json
 {
   "mcpServers": {
