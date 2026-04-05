@@ -1,13 +1,10 @@
 import { z } from "zod";
 import { safeRead } from "../../operations/safe-read.js";
 import type { SafeReadResult } from "../../operations/safe-read.js";
-import { fileOutline } from "../../operations/file-outline.js";
 import { evaluatePolicy } from "../../policy/evaluate.js";
 import { RefusedResult } from "../../policy/types.js";
-import { extractOutline } from "../../parser/outline.js";
 import { diffOutlines } from "../../parser/diff.js";
-import { detectLang } from "../../parser/lang.js";
-import { hashContent } from "../cache.js";
+import { CachedFile } from "../cached-file.js";
 import type { Metrics } from "../metrics.js";
 import type { ToolDefinition, ToolContext, ToolHandler } from "../context.js";
 
@@ -31,25 +28,23 @@ export const safeReadTool: ToolDefinition = {
     return async (args) => {
       const filePath = ctx.resolvePath(args["path"] as string);
 
-      // readFileSync is intentional for TOCTOU prevention: the same content
-      // must be used for cache check, policy evaluation, and outline extraction.
-      // An async read could yield different content if the file changes between await points.
-      let rawContent: string | null = null;
+      // Build CachedFile once — all consumers share the same snapshot,
+      // eliminating TOCTOU races where the file changes between reads.
+      let cf: CachedFile | null = null;
       try {
-        rawContent = ctx.fs.readFileSync(filePath, "utf-8");
+        const rawContent = ctx.fs.readFileSync(filePath, "utf-8");
+        cf = new CachedFile(filePath, rawContent);
       } catch {
         // File doesn't exist or can't be read — proceed to safeRead for error handling
       }
 
       // Check cache if we could read the file
-      if (rawContent !== null) {
-        const cacheResult = ctx.cache.check(filePath, rawContent);
+      if (cf !== null) {
+        const cacheResult = ctx.cache.check(filePath, cf.rawContent);
         if (cacheResult.hit) {
           // Defense: re-check policy before returning cached data.
-          // A previously-allowed file may now be refused (e.g., path banned).
-          const actual = cacheResult.obs.actual;
           const policy = evaluatePolicy(
-            { path: filePath, lines: actual.lines, bytes: actual.bytes },
+            { path: filePath, lines: cf.actual.lines, bytes: cf.actual.bytes },
             { sessionDepth: ctx.session.getSessionDepth() },
           );
           if (policy instanceof RefusedResult) {
@@ -60,21 +55,21 @@ export const safeReadTool: ToolDefinition = {
               reason: policy.reason,
               reasonDetail: policy.reasonDetail,
               next: [...policy.next],
-              actual,
+              actual: cf.actual,
             });
           }
 
           cacheResult.obs.touch();
-          ctx.metrics.recordCacheHit(actual.bytes);
+          ctx.metrics.recordCacheHit(cf.actual.bytes);
           return ctx.respond("safe_read", {
             path: filePath,
             projection: "cache_hit",
             reason: "REREAD_UNCHANGED",
             outline: cacheResult.obs.outline,
             jumpTable: cacheResult.obs.jumpTable,
-            actual,
+            actual: cf.actual,
             readCount: cacheResult.obs.readCount,
-            estimatedBytesAvoided: actual.bytes,
+            estimatedBytesAvoided: cf.actual.bytes,
             lastReadAt: cacheResult.obs.lastReadAt,
           });
         }
@@ -82,14 +77,8 @@ export const safeReadTool: ToolDefinition = {
         // File changed since last observation — compute structural diff
         if (cacheResult.stale !== null) {
           // Defense: re-check policy before returning structural data.
-          // If the file should now be refused (e.g., path became banned),
-          // return the refusal instead of a diff.
-          const actual = {
-            lines: rawContent.split("\n").length,
-            bytes: Buffer.byteLength(rawContent),
-          };
           const policy = evaluatePolicy(
-            { path: filePath, lines: actual.lines, bytes: actual.bytes },
+            { path: filePath, lines: cf.actual.lines, bytes: cf.actual.bytes },
             { sessionDepth: ctx.session.getSessionDepth() },
           );
           if (policy instanceof RefusedResult) {
@@ -100,33 +89,22 @@ export const safeReadTool: ToolDefinition = {
               reason: policy.reason,
               reasonDetail: policy.reasonDetail,
               next: [...policy.next],
-              actual,
+              actual: cf.actual,
             });
           }
 
-          // Use extractOutline with rawContent directly to avoid snapshot race —
-          // fileOutline re-reads the file, which could differ from rawContent.
-          const newOutlineResult = extractOutline(rawContent, detectLang(filePath) ?? "ts");
-          const diff = diffOutlines(cacheResult.stale.outline, newOutlineResult.entries);
+          const diff = diffOutlines(cacheResult.stale.outline, cf.outline);
           const newReadCount = cacheResult.stale.readCount + 1;
-          // Update observation cache with new state
-          ctx.cache.record(
-            filePath,
-            hashContent(rawContent),
-            newOutlineResult.entries,
-            newOutlineResult.jumpTable ?? [],
-            actual,
-          );
-          // Use the updated observation's lastReadAt (set by cache.record)
+          ctx.cache.record(filePath, cf.hash, cf.outline, cf.jumpTable, cf.actual);
           const updatedObs = ctx.cache.get(filePath);
           return ctx.respond("safe_read", {
             path: filePath,
             projection: "diff",
             reason: "CHANGED_SINCE_LAST_READ",
             diff,
-            outline: newOutlineResult.entries,
-            jumpTable: newOutlineResult.jumpTable ?? [],
-            actual,
+            outline: cf.outline,
+            jumpTable: cf.jumpTable,
+            actual: cf.actual,
             readCount: newReadCount,
             lastReadAt: updatedObs?.lastReadAt ?? new Date().toISOString(),
           });
@@ -137,23 +115,17 @@ export const safeReadTool: ToolDefinition = {
       const result = await safeRead(filePath, {
         fs: ctx.fs,
         codec: ctx.codec,
-        content: rawContent ?? undefined,
+        content: cf?.rawContent,
         intent: args["intent"] as string | undefined,
         sessionDepth: ctx.session.getSessionDepth(),
       });
 
       PROJECTION_METRICS[result.projection]?.(ctx.metrics);
 
-      // Record observation for cacheable projections (not refusals/errors)
-      if (rawContent !== null && result.actual !== undefined && CACHEABLE_PROJECTIONS.has(result.projection)) {
-        const outlineResult = await fileOutline(filePath, { fs: ctx.fs });
-        ctx.cache.record(
-          filePath,
-          hashContent(rawContent),
-          outlineResult.outline,
-          outlineResult.jumpTable,
-          result.actual,
-        );
+      // Record observation for cacheable projections — uses CachedFile
+      // outline (no re-read) to eliminate the snapshot race.
+      if (cf !== null && result.actual !== undefined && CACHEABLE_PROJECTIONS.has(result.projection)) {
+        ctx.cache.record(filePath, cf.hash, cf.outline, cf.jumpTable, result.actual);
       }
 
       return ctx.respond("safe_read", result);
