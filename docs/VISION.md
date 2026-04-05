@@ -3,11 +3,11 @@ title: "Graft — Executive Summary"
 generated: 2026-04-05
 generator: claude (manual, following Method executive-summary process)
 cycles_completed: 22
-tests: 411
+tests: 417
 legends: [CORE, WARP, CLEAN_CODE]
 backlog_items: 18
-version: 0.3.0
-commit: 0dd35afb
+version: 0.3.2
+commit: 7051ac1
 ---
 
 # Graft — Executive Summary
@@ -43,9 +43,9 @@ and writes.
 ## Current state
 
 **Cycles completed:** 22 (0001-0022)
-**Tests:** 411 passing across 29 files
+**Tests:** 417 passing across 30 files
 **Lint:** clean (ESLint strict-type-checked)
-**Version:** 0.3.0 (npm: `@flyingrobots/graft`)
+**Version:** 0.3.2 (npm: `@flyingrobots/graft`)
 
 ### Phase 1 — The Governor (cycles 0001-0007)
 
@@ -121,6 +121,7 @@ src/
     receipt.ts  receipt builder with compressionRatio
     metrics.ts  Metrics class
     tools/      12 handler files, one per tool
+  cli/          CLI commands (init)
   hooks/        Claude Code hook scripts (PreToolUse + PostToolUse)
 ```
 

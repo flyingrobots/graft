@@ -5,6 +5,31 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [0.3.2] - 2026-04-05
+
+### Added
+
+- **`graft init`**: zero-friction project onboarding. Scaffolds
+  `.graftignore`, adds `.graft/` to `.gitignore`, generates
+  `CLAUDE.md` snippet instructing agents to prefer graft tools,
+  and prints Claude Code hook config. Idempotent.
+- **CI**: release workflow attaches npm tarball + SHA256SUMS to
+  GitHub releases as downloadable assets.
+- **CI**: npm publish via OIDC provenance (no secret needed).
+
+### Changed
+
+- **CLI bootstrap**: `bin/graft.js` resolves tsx from the package's
+  own `node_modules`, so `graft init` works from any directory.
+- **Docs**: regenerated README, GUIDE, BEARING, and VISION signposts.
+- **package.json**: added `publishConfig`, `homepage`, `bugs`,
+  `packageManager`, upgraded keywords for MCP/agent discovery.
+
+### Fixed
+
+- **CI**: removed pnpm version override that conflicted with
+  `packageManager` field.
+
 ## [0.3.1] - 2026-04-05
 
 ### Changed

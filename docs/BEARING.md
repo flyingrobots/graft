@@ -30,13 +30,14 @@ commits, not just across a single session's cache.
 
 ## What just shipped
 
-Cycle 0022 — pre-WARP release (v0.3.0): budget governor, explain
-tool, policy middleware, CachedFile, guardedPort, compression ratio,
-diff summary lines. 411 tests, 12 tools.
+Cycle 0022 — pre-WARP release (v0.3.0–v0.3.2): budget governor,
+explain tool, policy middleware, CachedFile, guardedPort, compression
+ratio, diff summary lines, `graft init` onboarding command. npm
+OIDC publish + tarball release assets. 417 tests, 12 tools.
 
 ## What feels wrong
 
 - CodeRabbit rate limiting creates a painful review loop. The stale
   check workaround (empty commit) works but adds noise.
-- npm publish was missing from the release pipeline (fixed, untested
-  with OIDC — v0.3.1 will be the proof).
+- npm OIDC publish: v0.3.1 was the first manual publish. v0.3.2
+  will be the first fully automated release (CI tag → npm).

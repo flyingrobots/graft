@@ -12,6 +12,20 @@ Or run without installing:
 npx @flyingrobots/graft
 ```
 
+## Quick setup
+
+```bash
+npx @flyingrobots/graft init
+```
+
+Scaffolds your project for graft in one command:
+- Creates `.graftignore` (template with examples)
+- Adds `.graft/` to `.gitignore`
+- Generates a `CLAUDE.md` snippet instructing agents to prefer graft tools
+- Prints Claude Code hook config for manual setup
+
+Idempotent — safe to run again without duplicating entries.
+
 ## MCP Configuration
 
 Graft runs as an MCP server over stdio. Add it to your editor or
