@@ -156,11 +156,11 @@ jobs:
         with:
           node-version: 22
           cache: pnpm
-          registry-url: https://registry.npmjs.org
 
       - run: pnpm install --frozen-lockfile
 
+      - name: Upgrade npm CLI (>=11.5.1 required for trusted publishing)
+        run: npm i -g npm@latest
+
       - name: Publish to npm with OIDC provenance
         run: npm publish --access public --provenance
-        env:
-          NPM_CONFIG_PROVENANCE: true

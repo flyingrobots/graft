@@ -5,12 +5,20 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [0.3.4] - 2026-04-05
+
+### Fixed
+
+- **CI**: upgrade npm CLI to >=11.5.1 for OIDC trusted publishing.
+  Remove `registry-url` and token env vars — modern npm handles
+  OIDC natively.
+
 ## [0.3.3] - 2026-04-05
 
 ### Fixed
 
 - **CI**: use `npm publish` instead of `pnpm publish` for OIDC
-  provenance — pnpm doesn't support npm's OIDC token exchange.
+  provenance.
 
 ## [0.3.2] - 2026-04-05
 
