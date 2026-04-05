@@ -25,5 +25,6 @@ export async function openWarp(options: OpenWarpOptions): Promise<WarpApp> {
     persistence,
     graphName: GRAPH_NAME,
     writerId: WRITER_ID,
+    onDeleteWithData: "cascade",
   });
 }

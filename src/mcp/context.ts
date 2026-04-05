@@ -9,6 +9,7 @@ import type { SessionTracker } from "../session/tracker.js";
 import type { McpToolResult } from "./receipt.js";
 import type { FileSystem } from "../ports/filesystem.js";
 import type { JsonCodec } from "../ports/codec.js";
+import type WarpApp from "@git-stunts/git-warp";
 
 import type { z } from "zod";
 
@@ -32,6 +33,7 @@ export interface ToolContext {
   readonly codec: JsonCodec;
   respond(tool: string, data: Record<string, unknown>): McpToolResult;
   resolvePath(relative: string): string;
+  getWarp(): Promise<WarpApp>;
 }
 
 /**

@@ -13,6 +13,8 @@ import { nodeFs } from "../adapters/node-fs.js";
 import { CanonicalJsonCodec } from "../adapters/canonical-json.js";
 import { evaluatePolicy } from "../policy/evaluate.js";
 import { RefusedResult } from "../policy/types.js";
+import type WarpApp from "@git-stunts/git-warp";
+import { openWarp } from "../warp/open.js";
 
 // Tool definitions — each file exports a ToolDefinition object
 import { safeReadTool } from "./tools/safe-read.js";
@@ -26,6 +28,7 @@ import { doctorTool } from "./tools/doctor.js";
 import { statsTool } from "./tools/stats.js";
 import { explainTool } from "./tools/explain.js";
 import { setBudgetTool } from "./tools/budget.js";
+import { sinceTool } from "./tools/since.js";
 
 export type { McpToolResult, ToolHandler, ToolContext };
 
@@ -43,6 +46,7 @@ const TOOL_REGISTRY: readonly ToolDefinition[] = [
   statsTool,
   explainTool,
   setBudgetTool,
+  sinceTool,
 ];
 
 export interface GraftServer {
@@ -78,7 +82,14 @@ export function createGraftServer(): GraftServer {
     return result;
   }
 
-  const ctx: ToolContext = { projectRoot, graftDir, session, cache, metrics, respond, resolvePath: createPathResolver(projectRoot), fs: nodeFs, codec };
+  // Lazy WARP initialization — only loaded when a WARP-backed tool needs it
+  let warpInstance: WarpApp | null = null;
+  async function getWarp(): Promise<WarpApp> {
+    warpInstance ??= await openWarp({ cwd: projectRoot });
+    return warpInstance;
+  }
+
+  const ctx: ToolContext = { projectRoot, graftDir, session, cache, metrics, respond, resolvePath: createPathResolver(projectRoot), fs: nodeFs, codec, getWarp };
 
   function wrapWithPolicyCheck(toolName: string, inner: ToolHandler): ToolHandler {
     return (args: Record<string, unknown>) => {

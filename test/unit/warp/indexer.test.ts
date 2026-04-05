@@ -87,8 +87,7 @@ describe("warp: indexer", () => {
     expect(symNodes.length).toBe(2);
   });
 
-  // TODO: investigate CRDT OR-Set removal semantics — removeNode
-  // may need different handling for single-writer tombstones
+  // Blocked: git-warp removeNode bug — silent no-op when _cachedState is null
   it.todo("indexes symbol removals via tombstone", async () => {
     // Commit 1: two functions
     fs.writeFileSync(
@@ -110,6 +109,7 @@ describe("warp: indexer", () => {
     await indexCommits(warp, { cwd: tmpDir });
 
     const worldline = warp.worldline();
+    await worldline.materialize();
     const symObs = await worldline.observer(fileSymbolsLens("utils.ts"));
     const symNodes = await symObs.getNodes();
 
@@ -189,7 +189,7 @@ describe("warp: indexer", () => {
     expect(allSymNodes.length).toBe(1); // just 'x' from app.ts
   });
 
-  // TODO: investigate CRDT OR-Set removal semantics
+  // Blocked: git-warp removeNode bug — silent no-op when _cachedState is null
   it.todo("handles file deletion", async () => {
     fs.writeFileSync(
       path.join(tmpDir, "gone.ts"),
