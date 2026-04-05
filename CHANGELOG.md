@@ -7,6 +7,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## Unreleased
 
+### Added
+
+- **Budget-aware governor**: `set_budget(bytes)` declares a session
+  byte budget. Thresholds tighten as budget drains — no single read
+  may consume more than 5% of remaining budget. New `BUDGET_CAP`
+  reason code. Budget info in receipts.
+- **Explain tool**: `explain(code)` returns human-readable meaning and
+  recommended action for any reason code.
+- **Policy check middleware**: tools with `policyCheck: true` get
+  automatic `evaluatePolicy` before the handler runs. Applied to
+  `read_range`.
+- **CachedFile value object**: immutable file snapshot bundles content,
+  hash, outline, jump table, and actual metrics from a single read.
+  Eliminates TOCTOU snapshot races by construction.
+- **guardedPort() factory**: Proxy-based stream boundary guard wraps
+  all methods on a port interface. One line to guard a whole port.
+- **Receipt compression ratio**: `compressionRatio` field in receipts
+  (returnedBytes / fileBytes). Instant context efficiency signal.
+- **Diff summary lines**: each file in `graft_diff` output includes a
+  one-line structural stat for quick triage.
+
 ### Fixed
 
 - **Strict MCP argument validation**: Zod schemas now reject unknown
