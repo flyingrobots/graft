@@ -46,16 +46,16 @@ Enables:
 - `graft history <symbol>` — how a function/class evolved
 - Time-travel queries without checking out old commits
 
-### Level 2: Observation cache
+### Level 2: Observation cache (DONE)
 
-Record every `safe_read` as an observation on the worldline. Track
-what the agent saw and when.
+Every `safe_read` is recorded as an observation. The governor tracks
+what the agent saw and when. Shipped as ObservationCache + CachedFile.
 
-Enables:
-- `changed-since-last-read` — what changed since the agent's last
-  observation of a file
-- Re-read detection — "you already read this, nothing changed"
-- Session-aware context: the governor knows what the agent has seen
+Shipped capabilities:
+- `changed_since` — structural diff since last observation
+- Re-read suppression — cache hit returns outline, not content
+- Session-aware context — governor knows what the agent has seen
+- Policy re-check on cache hits — defense-in-depth
 
 ### Level 3: Sub-commit causal tracking
 
@@ -93,14 +93,11 @@ worldline position, touched files, recent decisions, and suggested
 next reads into a single artifact for passing context between agents
 or sessions.
 
-**graft changed-since-last-read** — the Level 2 observation cache
-made into a first-class command. The doorway from governor into
-structural memory.
-
 **Receipt mode** — compact decision blobs for Blacklight. Instead
 of full NDJSON logs, emit minimal receipts that Blacklight can
 aggregate to compare pre-graft vs post-graft context burden. Each
-receipt references a worldline position.
+receipt references a worldline position. (Note: receipts already
+ship on every response — this is about worldline-aware receipts.)
 
 ## Who cares
 
@@ -124,7 +121,7 @@ further, edit quality improves (fewer fix-the-fix cycles).
 
 ## Dependencies
 
-- `@AverageHelper/git-warp` (published, stable v16)
+- `@git-stunts/git-warp` v16 (local, not yet on npm)
 - Tree-sitter parser (already in graft)
 - Git hooks (post-commit for Level 1)
 - Edit tool hooks (Level 3)

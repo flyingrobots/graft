@@ -26,7 +26,7 @@ commits, not just across a single session's cache.
 
 - Live study execution (infrastructure is built, study runs when ready)
 - Non-read burden measurement (needs study data first)
-- Human-facing UX (git-graft-enhance, graft-init — cool ideas for later)
+- Human-facing UX (git-graft-enhance — cool idea for later)
 
 ## What just shipped
 
@@ -39,5 +39,7 @@ OIDC publish + tarball release assets. 417 tests, 12 tools.
 
 - CodeRabbit rate limiting creates a painful review loop. The stale
   check workaround (empty commit) works but adds noise.
-- npm OIDC publish: v0.3.1 was the first manual publish. v0.3.2
-  will be the first fully automated release (CI tag → npm).
+- git-warp dependency: `@git-stunts/git-warp` v16 exists locally
+  but isn't on npm. Need to resolve before WARP Level 1.
+- Agent opt-in friction: agents default to native Read unless
+  explicitly instructed to use graft tools.
