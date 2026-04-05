@@ -2,7 +2,7 @@ id: T09
 pair: P05
 title: "Extract metrics logger interface"
 repo: flyingrobots/graft
-commit: 6be695f
+commit: 6be695fac39be3638aea3ec54f1e46b75f18d67a
 prompt: |
   The MetricsLogger class in src/metrics/logger.ts is a concrete
   implementation. Extract a MetricsPort interface in
@@ -22,6 +22,8 @@ acceptance:
     - "pnpm lint exits 0"
     - "test -f src/ports/metrics.ts"
     - "grep -q 'MetricsPort\\|MetricsLogger.*implements' src/metrics/logger.ts"
+    - "grep -rqE 'MetricsPort' src/mcp/context.ts"
+    - "grep -rqE 'MetricsPort' test/"
   manual: null
 difficulty: M
 duration_band: "15-45 min"

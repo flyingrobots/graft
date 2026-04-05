@@ -1,39 +1,39 @@
 {
   "seed": 20260404,
-  "generated": "2026-04-04T19:32:46.620Z",
+  "generated": "2026-04-04T00:00:00.000Z",
   "participants": [
     {
       "id": "participant_01",
       "assignments": [
         {
-          "pair": "P03",
+          "pair": "P01",
           "category": "feature",
-          "governed": "T06",
-          "ungoverned": "T05"
-        },
-        {
-          "pair": "P04",
-          "category": "investigation",
-          "governed": "T08",
-          "ungoverned": "T07"
+          "governed": "T01",
+          "ungoverned": "T02"
         },
         {
           "pair": "P02",
           "category": "bugfix",
-          "governed": "T04",
-          "ungoverned": "T03"
+          "governed": "T03",
+          "ungoverned": "T04"
         },
         {
-          "pair": "P01",
-          "category": "feature",
-          "governed": "T02",
-          "ungoverned": "T01"
+          "pair": "P04",
+          "category": "investigation",
+          "governed": "T07",
+          "ungoverned": "T08"
         },
         {
           "pair": "P05",
           "category": "refactor",
           "governed": "T09",
           "ungoverned": "T10"
+        },
+        {
+          "pair": "P03",
+          "category": "feature",
+          "governed": "T06",
+          "ungoverned": "T05"
         }
       ]
     }

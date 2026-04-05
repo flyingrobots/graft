@@ -2,7 +2,7 @@ id: T03
 pair: P02
 title: "Fix run_capture with tail=0"
 repo: flyingrobots/graft
-commit: 6be695f
+commit: 6be695fac39be3638aea3ec54f1e46b75f18d67a
 prompt: |
   The run_capture tool accepts a tail parameter that controls how
   many lines of output to return. Investigate what happens when
@@ -16,6 +16,7 @@ acceptance:
     - "pnpm test exits 0"
     - "pnpm lint exits 0"
     - "grep -rqE 'tail.*(0|zero)' test/"
+    - "grep -rqE 'capture.*log|logPath' test/"
   manual: null
 difficulty: S
 duration_band: "10-20 min"

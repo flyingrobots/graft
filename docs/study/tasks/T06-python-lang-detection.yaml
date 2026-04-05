@@ -2,7 +2,7 @@ id: T06
 pair: P03
 title: "Add Python language detection"
 repo: flyingrobots/graft
-commit: 6be695f
+commit: 6be695fac39be3638aea3ec54f1e46b75f18d67a
 prompt: |
   Add Python language detection to graft's parser. The detectLang
   function in src/parser/lang.ts should recognize .py files and

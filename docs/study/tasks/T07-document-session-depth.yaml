@@ -2,7 +2,7 @@ id: T07
 pair: P04
 title: "Document session depth algorithm"
 repo: flyingrobots/graft
-commit: 6be695f
+commit: 6be695fac39be3638aea3ec54f1e46b75f18d67a
 prompt: |
   Read the graft source code and write a clear, accurate technical
   document explaining how the session depth algorithm works. Cover:

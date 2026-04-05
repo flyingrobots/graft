@@ -12,13 +12,15 @@
 set -euo pipefail
 
 # Dependency check
-if ! command -v python3 &>/dev/null; then
-  echo "{\"task\": \"unknown\", \"pass\": false, \"error\": \"python3 required but not found\"}"
+if ! command -v node &>/dev/null; then
+  echo "{\"task\": \"unknown\", \"pass\": false, \"error\": \"node required but not found\"}"
   exit 1
 fi
 
 TASK_ID="${1:?Usage: acceptance-harness.sh <task-id>}"
-TASK_DIR="$(cd "$(dirname "$0")/../tasks" && pwd)"
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+TASK_DIR="$(cd "$SCRIPT_DIR/../tasks" && pwd)"
+REPO_ROOT="$(cd "$SCRIPT_DIR/../../.." && pwd)"
 TASK_FILE="$(find "$TASK_DIR" -name "${TASK_ID}-*.yaml" -o -name "${TASK_ID}-*.yml" | head -1)"
 
 if [ -z "$TASK_FILE" ]; then
@@ -26,8 +28,10 @@ if [ -z "$TASK_FILE" ]; then
   exit 1
 fi
 
-# Extract automated acceptance criteria (lines between 'automated:' and next key)
-CRITERIA=$(awk '/^  automated:$/,/^  [a-z]/' "$TASK_FILE" \
+# Extract automated acceptance criteria (lines between 'automated:' and next key).
+# The AWK range skips the opening 'automated:' line itself, then collects until
+# the next sibling key (indented exactly 2 spaces + alpha) or end of file.
+CRITERIA=$(awk '/^  automated:$/ { found=1; next } found && /^  [a-z]/ { exit } found' "$TASK_FILE" \
   | grep '^ *- "' \
   | sed 's/^ *- "//; s/"$//')
 
@@ -49,10 +53,10 @@ while IFS= read -r criterion; do
     EXPECTED_EXIT=0
   fi
 
-  # Run the criterion in a subshell to isolate side effects.
+  # Run the criterion from the repo root so repo-relative paths resolve.
   # Uses bash -c instead of eval for slightly better containment.
   set +e
-  OUTPUT=$(bash -c "$CMD" 2>&1)
+  OUTPUT=$(cd "$REPO_ROOT" && bash -c "$CMD" 2>&1)
   ACTUAL_EXIT=$?
   set -e
 
@@ -63,8 +67,8 @@ while IFS= read -r criterion; do
     ALL_PASS=false
   fi
 
-  # JSON-escape the criterion string via python3
-  ESCAPED=$(printf '%s' "$criterion" | python3 -c 'import json,sys; print(json.dumps(sys.stdin.read()))')
+  # JSON-escape the criterion string via node (no python3 dependency)
+  ESCAPED=$(printf '%s' "$criterion" | node -e "const fs=require('fs'); const s=fs.readFileSync(0,'utf8'); console.log(JSON.stringify(s));")
   ENTRY="{\"criterion\": $ESCAPED, \"pass\": $PASS, \"exit_code\": $ACTUAL_EXIT, \"expected\": $EXPECTED_EXIT}"
   if [ "$RESULTS" = "[]" ]; then
     RESULTS="[$ENTRY"

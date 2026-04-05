@@ -2,7 +2,7 @@ id: T01
 pair: P01
 title: "Add GRAFTIGNORE_MATCH reason code"
 repo: flyingrobots/graft
-commit: 6be695f
+commit: 6be695fac39be3638aea3ec54f1e46b75f18d67a
 prompt: |
   Add a new reason code GRAFTIGNORE_MATCH to graft's policy engine.
   This code should be returned when a file is refused because it

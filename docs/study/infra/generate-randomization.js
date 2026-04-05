@@ -5,7 +5,12 @@
 // PRNG seed is recorded for reproducibility.
 
 const SEED = 20260404;
-const PARTICIPANTS = 1; // pilot: single operator
+const GENERATED_AT = process.env.GRAFT_RANDOMIZATION_GENERATED_AT ?? "2026-04-04T00:00:00.000Z";
+const rawParticipants = process.env.GRAFT_PARTICIPANTS ?? process.argv[2] ?? "1";
+const PARTICIPANTS = Number.parseInt(rawParticipants, 10);
+if (!Number.isInteger(PARTICIPANTS) || PARTICIPANTS <= 0) {
+  throw new Error(`PARTICIPANTS must be a positive integer, got: ${rawParticipants}`);
+}
 
 const pairs = [
   { id: "P01", tasks: ["T01", "T02"], category: "feature" },
@@ -39,33 +44,43 @@ function shuffle(arr) {
 
 const schedule = {
   seed: SEED,
-  generated: new Date().toISOString(),
+  generated: GENERATED_AT,
   participants: [],
 };
+
+// Group pairs by category for blocked randomization.
+// Within each category, half the pairs assign governed to task[0], half to task[1].
+// This ensures balanced condition assignment per stratum.
+const pairsByCategory = pairs.reduce((acc, pair) => {
+  (acc[pair.category] ??= []).push(pair);
+  return acc;
+}, {});
 
 for (let p = 0; p < PARTICIPANTS; p++) {
   const participantId = `participant_${String(p + 1).padStart(2, "0")}`;
 
-  // Shuffle pair presentation order
-  const orderedPairs = shuffle(pairs);
+  // Build category-balanced assignments
+  const allAssignments = [];
+  for (const [, categoryPairs] of Object.entries(pairsByCategory)) {
+    const shuffled = shuffle(categoryPairs);
+    shuffled.forEach((pair, i) => {
+      // Alternate governed assignment within each category block
+      const governFirst = i % 2 === 0;
+      allAssignments.push({
+        pair: pair.id,
+        category: pair.category,
+        governed: governFirst ? pair.tasks[0] : pair.tasks[1],
+        ungoverned: governFirst ? pair.tasks[1] : pair.tasks[0],
+      });
+    });
+  }
 
-  const assignments = orderedPairs.map((pair) => {
-    // Coin flip: which task gets governed?
-    const flip = rng() < 0.5;
-    const governedTask = flip ? pair.tasks[0] : pair.tasks[1];
-    const ungovernedTask = flip ? pair.tasks[1] : pair.tasks[0];
-
-    return {
-      pair: pair.id,
-      category: pair.category,
-      governed: governedTask,
-      ungoverned: ungovernedTask,
-    };
-  });
+  // Shuffle final presentation order across all categories
+  const orderedAssignments = shuffle(allAssignments);
 
   schedule.participants.push({
     id: participantId,
-    assignments,
+    assignments: orderedAssignments,
   });
 }
 

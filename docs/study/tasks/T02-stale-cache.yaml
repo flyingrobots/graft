@@ -2,7 +2,7 @@ id: T02
 pair: P01
 title: "Add STALE_CACHE reason code"
 repo: flyingrobots/graft
-commit: 6be695f
+commit: 6be695fac39be3638aea3ec54f1e46b75f18d67a
 prompt: |
   Add a new reason code STALE_CACHE to graft's policy engine.
   This code should be returned when a file is re-read but the
