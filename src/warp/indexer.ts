@@ -278,8 +278,13 @@ export async function indexCommits(
   for (const sha of commits) {
     const changes = getCommitChanges(sha, cwd);
 
-    // Materialize before each patch so removeNode can observe OR-Set dots.
-    await warp.core().materialize();
+    // Only materialize when removals are possible (D or M status).
+    // Materialization is expensive — O(n) replay of all prior patches.
+    // Add-only commits (A status) and no-change commits don't need it.
+    const hasRemovals = changes.some((c) => c.status === "D" || c.status === "M");
+    if (hasRemovals) {
+      await warp.core().materialize();
+    }
 
     const meta = getCommitMeta(sha, cwd);
     const parentExists = hasParent(sha, cwd);
