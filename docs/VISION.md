@@ -1,13 +1,13 @@
 ---
 title: "Graft — Executive Summary"
-generated: 2026-04-04
+generated: 2026-04-05
 generator: claude (manual, following Method executive-summary process)
-cycles_completed: 18
-tests: 364
+cycles_completed: 22
+tests: 411
 legends: [CORE, WARP, CLEAN_CODE]
-backlog_items: 26
-version: 0.2.2
-commit: 1753ff4e30152b6c41ebc6531b4296628f5d5dcc
+backlog_items: 18
+version: 0.3.0
+commit: 0dd35afb
 ---
 
 # Graft — Executive Summary
@@ -42,16 +42,16 @@ and writes.
 
 ## Current state
 
-**Cycles completed:** 18 (0001-0018, skipping 0007 which was folded into release prep)
-**Tests:** 364 passing across 27 files
+**Cycles completed:** 22 (0001-0022)
+**Tests:** 411 passing across 29 files
 **Lint:** clean (ESLint strict-type-checked)
-**Version:** 0.2.2 (npm: `@flyingrobots/graft`)
+**Version:** 0.3.0 (npm: `@flyingrobots/graft`)
 
 ### Phase 1 — The Governor (cycles 0001-0007)
 
 Policy engine with dual thresholds (150 lines + 12 KB), 5 ban
 categories, `.graftignore`, session-depth dynamic caps. Tree-sitter
-WASM outline extraction. 10 MCP tools over stdio. Re-read suppression
+WASM outline extraction. MCP tools over stdio. Re-read suppression
 via observation cache. Receipt mode on every response. Changed-since
 structural diffs. Git-level structural diffs. CLI entry point.
 
@@ -61,47 +61,44 @@ Systems-Style JavaScript audit. PolicyResult class hierarchy
 (frozen classes replacing plain objects). Server decomposition
 (541-line god file to 110 lines + 14 modules). FileSystem port
 (hexagonal compliance — zero node:fs in core logic). Outline
-quality audit with 7 real-world fixtures proving extraction works
-on React components, Express routers, barrel files, god classes,
-dense generics, and decorated classes. Three parser fixes: arrow
-function exports, enum extraction, re-export extraction. Type-safe
-respond (eliminated all double-casts). Cache abstraction cleanup.
-Consistent error shapes. TOCTOU race elimination.
+quality audit with 7 real-world fixtures. Three parser fixes.
+Type-safe respond. Cache abstraction cleanup. Consistent error
+shapes. TOCTOU race elimination.
 
-### Phase 3 — Hooks + Value Objects (cycles 0015-0016)
+### Phase 3 — Hooks + Value Objects (cycles 0015-0018)
 
-Claude Code hook integration. PreToolUse blocks banned files
-(secrets, binaries, lockfiles, .graftignore). PostToolUse educates
-agents on context cost after large file reads, showing what
-safe_read would have saved. Shared module with validated input
-parsing, path traversal guard, stdin size guard. HookInput and
-HookOutput as frozen SSJS classes.
+Claude Code hook integration (PreToolUse + PostToolUse). Value
+object hardening: all domain types as frozen SSJS classes.
+Canonical JSON codec port. Dockerfile for MCP server without Node.
 
-Value object hardening: OutlineEntry, JumpEntry, DiffEntry,
-OutlineDiff, and Tripwire converted from plain interfaces to frozen
-SSJS classes with constructor validation and private `_brand` fields.
-Completes the SSJS P1 migration for all domain types — the
-`domain-frozen` invariant now covers policy, parser, and session
-layers.
+### Phase 4 — Stream Invariant + Pre-WARP (cycles 0019-0022)
 
-Canonical JSON codec port: all serialization through `JsonCodec`
-port with `CanonicalJsonCodec` adapter (sorted keys, deterministic).
-Dockerfile for Docker-based MCP server startup without Node.
+Live study protocol design (5-metric matched-pair crossover).
+Study infrastructure (task cards, acceptance harness, randomization).
+Stream/port boundary invariant with runtime guards. ToolDefinition
+registry (OCP compliance).
 
-### 10 MCP tools
+Pre-WARP release (v0.3.0): budget-aware governor, policy check
+middleware, CachedFile value object, guardedPort factory, explain
+tool, receipt compression ratio, diff summary lines. Three bug
+classes eliminated by construction.
+
+### 12 MCP tools
 
 | Tool | Purpose |
 |------|---------|
 | `safe_read` | Policy-enforced read (content, outline, refusal, or diff) |
 | `file_outline` | Structural skeleton with jump table |
-| `read_range` | Bounded range read (max 250 lines) |
-| `graft_diff` | Structural diff between git refs |
+| `read_range` | Bounded range read (max 250 lines), policy-gated |
+| `graft_diff` | Structural diff between git refs with summary lines |
 | `changed_since` | Check for changes since last read (peek or consume) |
 | `run_capture` | Shell output capture — tee to log, tail to agent |
 | `state_save` | Save session state (max 8 KB) |
 | `state_load` | Restore session state |
 | `doctor` | Runtime health check |
 | `stats` | Decision metrics summary |
+| `explain` | Human-readable reason code help |
+| `set_budget` | Declare session byte budget — governor tightens as it drains |
 
 ---
 
@@ -109,20 +106,21 @@ Dockerfile for Docker-based MCP server startup without Node.
 
 ```
 src/
-  ports/        hexagonal port interfaces (FileSystem)
-  adapters/     Node.js implementations (node-fs)
-  policy/       read policy engine (thresholds, bans, session depth)
+  ports/        hexagonal port interfaces (FileSystem, JsonCodec)
+  adapters/     Node.js implementations (node-fs, canonical-json)
+  guards/       stream boundary guards (assertNotStream, guardedPort)
+  policy/       read policy engine (thresholds, bans, session depth, budget)
   parser/       tree-sitter WASM outline extraction
   operations/   command implementations (use ports, not node:fs)
-  metrics/      NDJSON decision logging (uses FileSystem port)
-  session/      session tracking, tripwires
+  session/      session tracking, tripwires, budget
   mcp/
-    server.ts   registration + plumbing (110 lines)
-    context.ts  ToolContext interface + ToolHandler type
+    server.ts   registration + policy middleware (~140 lines)
+    context.ts  ToolContext + ToolDefinition (with policyCheck flag)
     cache.ts    ObservationCache + Observation class
-    receipt.ts  receipt builder with stabilization loop
+    cached-file.ts  CachedFile immutable snapshot
+    receipt.ts  receipt builder with compressionRatio
     metrics.ts  Metrics class
-    tools/      9 handler files, one per tool
+    tools/      12 handler files, one per tool
   hooks/        Claude Code hook scripts (PreToolUse + PostToolUse)
 ```
 
@@ -131,7 +129,7 @@ src/
 - `tree-sitter-wasms` — pre-built WASM grammars for JS/TS
 - `picomatch` — glob matching for .graftignore
 - `@modelcontextprotocol/sdk` — MCP server
-- `zod` — schema validation for MCP tools
+- `zod` — schema validation (strict at MCP edge)
 
 ---
 
@@ -142,8 +140,8 @@ src/
 Policy, enforcement, extraction, UX, observability — everything
 that makes graft useful as a context governor.
 
-**13 cycles completed.** ASAP: live study design. Up-next: context
-budget, token comparison, precision tools, non-read burden.
+**17 cycles completed.** Non-WARP backlog: zero. Up-next: phase 2
+precision tools (WARP-gated), non-read burden (study-gated).
 
 ### WARP — Structural memory over Git
 
@@ -151,36 +149,27 @@ Git tracks bytes; WARP tracks what those bytes mean structurally.
 Level 1: commit-level worldline. Level 2: observation cache (done).
 Level 3: sub-commit causal tracking.
 
-**0 cycles completed.** ASAP: ast-per-commit (Level 1 worldline).
+**0 cycles completed.** Up-next: ast-per-commit (Level 1 worldline).
 
 ### CLEAN_CODE — Systems-Style JavaScript
 
 Structural quality. Runtime-backed domain types, hexagonal
-architecture, boundary validation. PolicyResult classes (done).
-Server decomposition (done). FileSystem port (done). Type-safe
-respond (done).
+architecture, boundary validation. All SSJS dimensions green as
+of cycle 0021.
 
-**7 cycles completed.** Remaining: bad-code backlog (1 item).
+**7 cycles completed.** Remaining: 1 bad-code item (WARP-blocked).
 
 ---
 
 ## Roadmap
 
-### ASAP
-
-| Item | Legend | Summary | Effort |
-|------|--------|---------|--------|
-| Live study design | CORE | 5-metric before/after study methodology | M |
-
 ### Up-next
 
 | Item | Legend | Summary | Effort |
 |------|--------|---------|--------|
-| Context budget | CORE | Agent declares budget, governor adjusts | M |
-| Token usage comparison | CORE | Measure graft vs no-graft burden | M |
+| AST-per-commit | WARP | Level 1 worldline with structural delta patches | L |
 | Phase 2 precision tools | CORE | code_show, code_find — symbol-level | XL |
 | Non-read burden | CORE | Measure Bash/Edit context waste | M |
-| AST-per-commit | WARP | Level 1 worldline with structural delta patches | L |
 
 ### Bad-code backlog (1 remaining)
 
@@ -207,10 +196,9 @@ Source: `~/git/blacklight/LLM_TOKEN_USE.md`
 ## Open questions
 
 1. **WARP integration scope.** Level 1 (commit worldline) is shaped.
-   How much of git-warp@16's API do we need?
+   How much of git-warp's API do we need?
 2. **Human writes.** Level 3 causal tracking captures agent edits via
    hooks. How do we capture human edits?
 3. **Language support.** JS/TS only. Rust is "later." When?
-4. **Threshold tuning.** Self-tuning governor — should it be earlier?
-5. **npm publish.** v0.2.2 is published. When is it ready for
-   broader promotion beyond early adopters?
+4. **npm OIDC publish.** v0.3.1 will be the first npm publish via
+   OIDC provenance. Will the trust chain work?

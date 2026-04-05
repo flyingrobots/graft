@@ -222,11 +222,13 @@ add to `.claude/settings.local.json`:
 | `state_save` | Save session working state (max 8 KB). Use for session bookmarks: current task, files modified, next planned actions. |
 | `state_load` | Load previously saved session state. Returns null if no state has been saved. |
 | `doctor` | Runtime health check. Shows project root, parser status, active thresholds, session depth, and message count. |
+| `set_budget` | Declare a session byte budget. Graft tightens read thresholds as the budget drains — no single read may consume more than 5% of remaining budget. Call once at session start. |
+| `explain` | Explain a graft reason code. Returns human-readable meaning and recommended next action for any code (e.g., `BINARY`, `BUDGET_CAP`). Case-insensitive. |
 | `stats` | Decision metrics for the current session. Total reads, outlines, refusals, cache hits, and bytes avoided. |
 
 ## What the agent sees
 
-Once configured, the agent gains 10 new tools. Here's what
+Once configured, the agent gains 12 new tools. Here's what
 happens when it uses them:
 
 ### Reading files
@@ -258,6 +260,18 @@ Each symbol has a line range so the agent can follow up with
 
 `graft_diff` shows what changed between git refs at the symbol
 level: "function `foo` gained a parameter" instead of line hunks.
+
+### Budget governor
+
+If the agent calls `set_budget(bytes)` at session start, graft
+tracks cumulative bytes consumed and tightens thresholds as the
+budget drains. No single read may consume more than 5% of remaining
+budget. When the budget is exhausted, all reads return outlines.
+
+Budget status appears in every receipt:
+```json
+"budget": { "total": 500000, "consumed": 14345, "remaining": 485655, "fraction": 0.029 }
+```
 
 ### Session awareness
 
