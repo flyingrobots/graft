@@ -11,8 +11,8 @@ export function hashContent(content: string): string {
 
 export class Observation {
   readonly contentHash: string;
-  readonly outline: OutlineEntry[];
-  readonly jumpTable: JumpEntry[];
+  readonly outline: readonly OutlineEntry[];
+  readonly jumpTable: readonly JumpEntry[];
   readonly actual: Readonly<{ lines: number; bytes: number }>;
   readonly firstReadAt: string;
   private _readCount: number;
@@ -20,8 +20,8 @@ export class Observation {
 
   constructor(opts: {
     contentHash: string;
-    outline: OutlineEntry[];
-    jumpTable: JumpEntry[];
+    outline: readonly OutlineEntry[];
+    jumpTable: readonly JumpEntry[];
     actual: Readonly<{ lines: number; bytes: number }>;
     readCount: number;
     firstReadAt: string;
@@ -64,8 +64,8 @@ export class ObservationCache {
   record(
     filePath: string,
     contentHash: string,
-    outline: OutlineEntry[],
-    jumpTable: JumpEntry[],
+    outline: readonly OutlineEntry[],
+    jumpTable: readonly JumpEntry[],
     actual: Readonly<{ lines: number; bytes: number }>,
   ): void {
     const existing = this.entries.get(filePath);
