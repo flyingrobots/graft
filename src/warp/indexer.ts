@@ -12,7 +12,7 @@ import { extractOutline } from "../parser/outline.js";
 import { diffOutlines } from "../parser/diff.js";
 import { detectLang } from "../parser/lang.js";
 import { getFileAtRef } from "../git/diff.js";
-import type { OutlineEntry } from "../parser/types.js";
+import type { OutlineEntry, JumpEntry } from "../parser/types.js";
 
 export interface IndexOptions {
   readonly cwd: string;
@@ -60,10 +60,10 @@ function getCommitChanges(sha: string, cwd: string): { status: string; path: str
   }
 }
 
-function getCommitMeta(sha: string, cwd: string): { message: string; timestamp: string } {
-  const output = execFileSync("git", ["log", "-1", "--format=%s%n%aI", sha], { cwd, encoding: "utf-8" });
+function getCommitMeta(sha: string, cwd: string): { message: string; author: string; email: string; timestamp: string } {
+  const output = execFileSync("git", ["log", "-1", "--format=%s%n%aN%n%aE%n%aI", sha], { cwd, encoding: "utf-8" });
   const lines = output.trim().split("\n");
-  return { message: lines[0] ?? "", timestamp: lines[1] ?? "" };
+  return { message: lines[0] ?? "", author: lines[1] ?? "", email: lines[2] ?? "", timestamp: lines[3] ?? "" };
 }
 
 function dirNodeId(dirPath: string): string {
@@ -105,12 +105,24 @@ function emitDirectoryChain(patch: PatchOps, filePath: string): void {
 }
 
 /**
+ * Build a lookup from symbol name → line range from the jump table.
+ */
+function buildJumpLookup(jumpTable: readonly JumpEntry[]): Map<string, { start: number; end: number }> {
+  const lookup = new Map<string, { start: number; end: number }>();
+  for (const entry of jumpTable) {
+    lookup.set(entry.symbol, { start: entry.start, end: entry.end });
+  }
+  return lookup;
+}
+
+/**
  * Emit symbol nodes + edges for all entries in a file outline.
  */
 function emitSymbols(
   patch: PatchOps,
   filePath: string,
   entries: readonly OutlineEntry[],
+  jumpLookup: Map<string, { start: number; end: number }>,
   parentSymId?: string,
 ): void {
   for (const entry of entries) {
@@ -122,12 +134,17 @@ function emitSymbols(
     if (entry.signature !== undefined) {
       patch.setProperty(symId, "signature", entry.signature);
     }
+    const jump = jumpLookup.get(entry.name);
+    if (jump !== undefined) {
+      patch.setProperty(symId, "startLine", jump.start);
+      patch.setProperty(symId, "endLine", jump.end);
+    }
     patch.addEdge(fileNodeId(filePath), symId, "contains");
     if (parentSymId !== undefined) {
       patch.addEdge(parentSymId, symId, "child_of");
     }
     if (entry.children !== undefined && entry.children.length > 0) {
-      emitSymbols(patch, filePath, entry.children, symId);
+      emitSymbols(patch, filePath, entry.children, jumpLookup, symId);
     }
   }
 }
@@ -189,6 +206,8 @@ export async function indexCommits(
       patch.addNode(commitId);
       patch.setProperty(commitId, "sha", sha);
       patch.setProperty(commitId, "message", meta.message);
+      patch.setProperty(commitId, "author", meta.author);
+      patch.setProperty(commitId, "email", meta.email);
       patch.setProperty(commitId, "timestamp", meta.timestamp);
 
       for (const change of changes) {
@@ -212,7 +231,7 @@ export async function indexCommits(
         patch.addNode(fileId);
         patch.setProperty(fileId, "path", filePath);
         patch.setProperty(fileId, "lang", lang ?? "unknown");
-        patch.addEdge(fileId, commitId, "at_commit");
+        patch.addEdge(commitId, fileId, "touches");
         emitDirectoryChain(patch, filePath);
 
         // Unsupported language — file node only, no symbols
@@ -220,14 +239,16 @@ export async function indexCommits(
 
         const newContent = getFileAtRef(sha, filePath, cwd);
         if (newContent === null) continue;
-        const newOutline = extractOutline(newContent, lang).entries;
+        const newResult = extractOutline(newContent, lang);
+        const newOutline = newResult.entries;
+        const jumpLookup = buildJumpLookup(newResult.jumpTable ?? []);
 
         if (change.status === "A") {
-          emitSymbols(patch, filePath, newOutline);
+          emitSymbols(patch, filePath, newOutline, jumpLookup);
         } else {
           const oldContent = getFileAtRef(parentRef, filePath, cwd);
           if (oldContent === null) {
-            emitSymbols(patch, filePath, newOutline);
+            emitSymbols(patch, filePath, newOutline, jumpLookup);
             continue;
           }
 
@@ -236,6 +257,7 @@ export async function indexCommits(
 
           for (const removed of diff.removed) {
             const symId = symNodeId(filePath, removed.name);
+            patch.addEdge(commitId, symId, "removes");
             patch.removeEdge(fileId, symId, "contains");
             patch.removeNode(symId);
           }
@@ -250,6 +272,7 @@ export async function indexCommits(
               patch.setProperty(symId, "signature", added.signature);
             }
             patch.addEdge(fileId, symId, "contains");
+            patch.addEdge(commitId, symId, "adds");
           }
 
           for (const changed of diff.changed) {
@@ -258,6 +281,7 @@ export async function indexCommits(
             if (changed.signature !== undefined) {
               patch.setProperty(symId, "signature", changed.signature);
             }
+            patch.addEdge(commitId, symId, "changes");
           }
         }
       }

@@ -6,7 +6,7 @@ import type { ToolDefinition, ToolContext, ToolHandler } from "../context.js";
 interface FileEntry {
   path: string;
   lang: string;
-  symbols: { name: string; kind: string; signature?: string; exported: boolean }[];
+  symbols: { name: string; kind: string; signature?: string | undefined; exported: boolean; startLine?: number | undefined; endLine?: number | undefined }[];
 }
 
 export const mapTool: ToolDefinition = {

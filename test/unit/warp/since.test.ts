@@ -42,8 +42,8 @@ describe("warp: graft_since (observer comparison)", () => {
     await warp.core().materialize();
 
     const lens = allSymbolsLens();
-    const obs1 = await warp.observer(lens, { source: { kind: "live", ceiling: tick1 } });
-    const obs2 = await warp.observer(lens, { source: { kind: "live", ceiling: tick2 } });
+    const obs1 = await warp.observer(lens, { source: { kind: "live", ceiling: tick1 ?? null } });
+    const obs2 = await warp.observer(lens, { source: { kind: "live", ceiling: tick2 ?? null } });
 
     const nodes1 = await obs1.getNodes();
     const nodes2 = await obs2.getNodes();
@@ -71,8 +71,8 @@ describe("warp: graft_since (observer comparison)", () => {
     await warp.core().materialize();
 
     const lens = allSymbolsLens();
-    const obs1 = await warp.observer(lens, { source: { kind: "live", ceiling: result.commitTicks.get(c1) } });
-    const obs2 = await warp.observer(lens, { source: { kind: "live", ceiling: result.commitTicks.get(c2) } });
+    const obs1 = await warp.observer(lens, { source: { kind: "live", ceiling: result.commitTicks.get(c1) ?? null } });
+    const obs2 = await warp.observer(lens, { source: { kind: "live", ceiling: result.commitTicks.get(c2) ?? null } });
 
     const nodes1 = await obs1.getNodes();
     const nodes2 = await obs2.getNodes();
@@ -100,8 +100,8 @@ describe("warp: graft_since (observer comparison)", () => {
     await warp.core().materialize();
 
     const lens = allSymbolsLens();
-    const obs1 = await warp.observer(lens, { source: { kind: "live", ceiling: result.commitTicks.get(c1) } });
-    const obs2 = await warp.observer(lens, { source: { kind: "live", ceiling: result.commitTicks.get(c2) } });
+    const obs1 = await warp.observer(lens, { source: { kind: "live", ceiling: result.commitTicks.get(c1) ?? null } });
+    const obs2 = await warp.observer(lens, { source: { kind: "live", ceiling: result.commitTicks.get(c2) ?? null } });
 
     // Same symbol at both ticks
     const nodes1 = await obs1.getNodes();
