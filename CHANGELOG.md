@@ -5,6 +5,28 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [0.4.0] - 2026-04-05
+
+### Added
+
+- **WARP Level 1 — structural memory substrate**: git-warp-backed
+  graph stores structural facts per commit. Directory tree, file,
+  symbol, and commit nodes with containment edges and provenance
+  links (touches, adds, changes, removes).
+- **`graft_since`**: structural changes since a git ref — symbols
+  added, removed, and changed per file with summary lines. Instant.
+- **`graft_map`**: structural map of a directory — all files and
+  their symbols in one call via tree-sitter.
+- **`graft index` CLI**: manual WARP indexing trigger.
+- **WARP indexer**: walks git history, parses files with tree-sitter,
+  emits WARP patches. Handles nested symbols, file deletion,
+  signature changes, unsupported language degradation.
+- **Observer factory**: 8 canonical lens patterns for focused graph
+  projections (file symbols, all symbols, directory files, etc.).
+- **11 WARP invariants**: observer-only-access, materialization-
+  deterministic, delta-only-storage, address-not-identity, and more.
+- **`@git-stunts/git-warp` v16** + `@git-stunts/plumbing` deps.
+
 ## [0.3.5] - 2026-04-05
 
 ### Fixed
