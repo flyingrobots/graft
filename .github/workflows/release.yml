@@ -159,8 +159,5 @@ jobs:
 
       - run: pnpm install --frozen-lockfile
 
-      - name: Upgrade npm CLI (>=11.5.1 required for trusted publishing)
-        run: npm i -g npm@latest
-
-      - name: Publish to npm with OIDC provenance
-        run: npm publish --access public --provenance
+      - name: Publish to npm with OIDC provenance (npm >= 11.5.1 for trusted publishing)
+        run: npx -y npm@latest publish --access public --provenance

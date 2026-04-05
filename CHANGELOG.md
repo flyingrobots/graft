@@ -5,13 +5,18 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [0.3.5] - 2026-04-05
+
+### Fixed
+
+- **CI**: use `npx npm@latest` for OIDC trusted publishing — avoids
+  self-upgrade breakage on Node 22's bundled npm.
+
 ## [0.3.4] - 2026-04-05
 
 ### Fixed
 
 - **CI**: upgrade npm CLI to >=11.5.1 for OIDC trusted publishing.
-  Remove `registry-url` and token env vars — modern npm handles
-  OIDC natively.
 
 ## [0.3.3] - 2026-04-05
 
