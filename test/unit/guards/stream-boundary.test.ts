@@ -4,6 +4,7 @@ import {
   assertNotStream,
   assertStream,
   guardPortReturn,
+  guardedPort,
 } from "../../../src/guards/stream-boundary.js";
 
 // Helper: create a real async iterable
@@ -151,6 +152,49 @@ describe("stream-boundary guards", () => {
       const fn = (): Promise<never> => Promise.reject(new Error("disk failed"));
       const guarded = guardPortReturn("TestPort", "read", fn);
       await expect(guarded()).rejects.toThrow("disk failed");
+    });
+  });
+
+  describe("guardedPort", () => {
+    it("passes through sync returns that are not streams", () => {
+      const port = { readSync: (): string => "hello" };
+      const guarded = guardedPort("TestPort", port);
+      expect(guarded.readSync()).toBe("hello");
+    });
+
+    it("passes through async returns that are not streams", async () => {
+      const port = { read: (): Promise<string> => Promise.resolve("hello") };
+      const guarded = guardedPort("TestPort", port);
+      await expect(guarded.read()).resolves.toBe("hello");
+    });
+
+    it("throws if any method returns a stream (async)", async () => {
+      const port = { read: (): Promise<unknown> => Promise.resolve(fakeStream()) };
+      const guarded = guardedPort("TestPort", port);
+      await expect(guarded.read()).rejects.toThrow(/TestPort\.read\(\) produced a stream/);
+    });
+
+    it("throws if any method returns a stream (sync)", () => {
+      const port = { readSync: (): unknown => fakeStream() };
+      const guarded = guardedPort("TestPort", port);
+      expect(() => guarded.readSync()).toThrow(/TestPort\.readSync\(\) produced a stream/);
+    });
+
+    it("passes through non-function properties unchanged", () => {
+      const port = { name: "test", version: 42 };
+      const guarded = guardedPort("TestPort", port);
+      expect(guarded.name).toBe("test");
+      expect(guarded.version).toBe(42);
+    });
+
+    it("guards all methods on the port", async () => {
+      const port = {
+        read: (): Promise<string> => Promise.resolve("ok"),
+        write: (): Promise<unknown> => Promise.resolve(fakeStream()),
+      };
+      const guarded = guardedPort("FilePort", port);
+      await expect(guarded.read()).resolves.toBe("ok");
+      await expect(guarded.write()).rejects.toThrow(/FilePort\.write\(\)/);
     });
   });
 });

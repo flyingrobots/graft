@@ -77,3 +77,34 @@ export function guardPortReturn<TArgs extends unknown[], TReturn>(
     return result;
   };
 }
+
+/**
+ * Wraps an entire port interface via Proxy. Every method call is
+ * intercepted: if the return is a Promise, it's awaited and checked
+ * with assertNotStream. Synchronous returns are checked directly.
+ *
+ * One line to guard a whole port instead of per-method wiring.
+ *
+ * @param portName - Name of the port (for error messages)
+ * @param port - The port instance to guard
+ */
+export function guardedPort<T extends object>(portName: string, port: T): T {
+  return new Proxy(port, {
+    get(target: T, prop: string | symbol, receiver: unknown): unknown {
+      const value = Reflect.get(target, prop, receiver) as unknown;
+      if (typeof value !== "function") return value;
+      const methodName = typeof prop === "symbol" ? prop.toString() : prop;
+      return function (this: unknown, ...args: unknown[]): unknown {
+        const result = (value as (...a: unknown[]) => unknown).apply(target, args);
+        if (result instanceof Promise) {
+          return result.then((resolved: unknown) => {
+            assertNotStream(resolved, `${portName}.${methodName}()`);
+            return resolved;
+          });
+        }
+        assertNotStream(result, `${portName}.${methodName}()`);
+        return result;
+      };
+    },
+  });
+}
