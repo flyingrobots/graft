@@ -72,7 +72,7 @@ lines: 1 - 10
 
 === doctor ===
 {
-  "projectRoot": "/Users/james/git/graft",
+  "projectRoot": "/path/to/graft",
   "parserHealthy": true,
   "thresholds": { "lines": 150, "bytes": 12288 },
   "sessionDepth": "early",

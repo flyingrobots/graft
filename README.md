@@ -1,6 +1,7 @@
-# Graft
-
-Context governor for coding agents.
+<div align="center">
+    <img src="./docs/assets/graft.svg" />
+    <h3>Context governor for coding agents</h3>
+</div>
 
 Graft enforces read policy so coding agents consume the smallest
 structurally correct view of a codebase instead of dumping entire
