@@ -17,7 +17,8 @@ export interface OpenWarpOptions {
 }
 
 export async function openWarp(options: OpenWarpOptions): Promise<WarpApp> {
-  const plumbing = new GitPlumbing({ cwd: options.cwd });
+  // createDefault() wires the ShellRunnerFactory (required port)
+  const plumbing = GitPlumbing.createDefault({ cwd: options.cwd });
   const persistence = new GitGraphAdapter({ plumbing });
 
   return WarpApp.open({

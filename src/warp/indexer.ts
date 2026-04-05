@@ -25,15 +25,13 @@ export interface IndexResult {
   readonly patchesWritten: number;
 }
 
-// Patch builder shape — the subset of PatchBuilderV2 we use.
-// Avoids importing the concrete class for testability.
+// Patch builder shape — matches PatchBuilderV2's fluent API.
 interface PatchOps {
   addNode(id: string): PatchOps;
   removeNode(id: string): PatchOps;
   setProperty(id: string, key: string, value: unknown): PatchOps;
   addEdge(from: string, to: string, label: string): PatchOps;
   removeEdge(from: string, to: string, label: string): PatchOps;
-  commit(): Promise<string>;
 }
 
 function listCommits(cwd: string, from?: string, to?: string): string[] {
@@ -48,7 +46,8 @@ function listCommits(cwd: string, from?: string, to?: string): string[] {
 }
 
 function getCommitChanges(sha: string, cwd: string): { status: string; path: string }[] {
-  const args = ["diff-tree", "--no-commit-id", "-r", "--name-status", sha];
+  // --root handles the initial commit (no parent to diff against)
+  const args = ["diff-tree", "--root", "--no-commit-id", "-r", "--name-status", sha];
   try {
     return execFileSync("git", args, { cwd, encoding: "utf-8" })
       .trim().split("\n").filter((l) => l.length > 0).map((line) => {
@@ -144,93 +143,88 @@ export async function indexCommits(
 
     const meta = getCommitMeta(sha, cwd);
     const parentRef = `${sha}~1`;
-    const patch = await warp.createPatch() as unknown as PatchOps;
 
-    // Record commit node
-    const commitId = `commit:${sha}`;
-    patch.addNode(commitId);
-    patch.setProperty(commitId, "sha", sha);
-    patch.setProperty(commitId, "message", meta.message);
-    patch.setProperty(commitId, "timestamp", meta.timestamp);
+    // warp.patch() creates, builds, and commits atomically
+    await warp.patch((p) => {
+      const patch = p as unknown as PatchOps;
 
-    for (const change of changes) {
-      const filePath = change.path;
-      const fileId = fileNodeId(filePath);
-      const lang = detectLang(filePath);
+      // Record commit node
+      const commitId = `commit:${sha}`;
+      patch.addNode(commitId);
+      patch.setProperty(commitId, "sha", sha);
+      patch.setProperty(commitId, "message", meta.message);
+      patch.setProperty(commitId, "timestamp", meta.timestamp);
 
-      if (change.status === "D") {
-        // Deleted file — remove all symbols then the file node
-        if (lang !== null) {
-          const oldContent = getFileAtRef(parentRef, filePath, cwd);
-          if (oldContent !== null) {
-            const oldOutline = extractOutline(oldContent, lang).entries;
-            removeSymbols(patch, filePath, oldOutline);
+      for (const change of changes) {
+        const filePath = change.path;
+        const fileId = fileNodeId(filePath);
+        const lang = detectLang(filePath);
+
+        if (change.status === "D") {
+          if (lang !== null) {
+            const oldContent = getFileAtRef(parentRef, filePath, cwd);
+            if (oldContent !== null) {
+              const oldOutline = extractOutline(oldContent, lang).entries;
+              removeSymbols(patch, filePath, oldOutline);
+            }
           }
-        }
-        patch.removeNode(fileId);
-        continue;
-      }
-
-      // Added or modified — ensure file node exists
-      patch.addNode(fileId);
-      patch.setProperty(fileId, "path", filePath);
-      patch.setProperty(fileId, "lang", lang ?? "unknown");
-      patch.addEdge(fileId, commitId, "at_commit");
-
-      // Unsupported language — file node only, no symbols
-      // (unsupported-lawful-degrade invariant)
-      if (lang === null) continue;
-
-      const newContent = getFileAtRef(sha, filePath, cwd);
-      if (newContent === null) continue;
-      const newOutline = extractOutline(newContent, lang).entries;
-
-      if (change.status === "A") {
-        // New file — emit all symbols
-        emitSymbols(patch, filePath, newOutline);
-      } else {
-        // Modified file — structural diff
-        const oldContent = getFileAtRef(parentRef, filePath, cwd);
-        if (oldContent === null) {
-          emitSymbols(patch, filePath, newOutline);
+          patch.removeNode(fileId);
           continue;
         }
 
-        const oldOutline = extractOutline(oldContent, lang).entries;
-        const diff = diffOutlines(oldOutline, newOutline);
+        // Added or modified — ensure file node exists
+        patch.addNode(fileId);
+        patch.setProperty(fileId, "path", filePath);
+        patch.setProperty(fileId, "lang", lang ?? "unknown");
+        patch.addEdge(fileId, commitId, "at_commit");
 
-        // Remove deleted symbols
-        for (const removed of diff.removed) {
-          const symId = symNodeId(filePath, removed.name);
-          patch.removeEdge(fileId, symId, "contains");
-          patch.removeNode(symId);
-        }
+        // Unsupported language — file node only, no symbols
+        if (lang === null) continue;
 
-        // Add new symbols
-        for (const added of diff.added) {
-          const symId = symNodeId(filePath, added.name);
-          patch.addNode(symId);
-          patch.setProperty(symId, "name", added.name);
-          patch.setProperty(symId, "kind", added.kind);
-          patch.setProperty(symId, "exported", true);
-          if (added.signature !== undefined) {
-            patch.setProperty(symId, "signature", added.signature);
+        const newContent = getFileAtRef(sha, filePath, cwd);
+        if (newContent === null) continue;
+        const newOutline = extractOutline(newContent, lang).entries;
+
+        if (change.status === "A") {
+          emitSymbols(patch, filePath, newOutline);
+        } else {
+          const oldContent = getFileAtRef(parentRef, filePath, cwd);
+          if (oldContent === null) {
+            emitSymbols(patch, filePath, newOutline);
+            continue;
           }
-          patch.addEdge(fileId, symId, "contains");
-        }
 
-        // Update changed symbols
-        for (const changed of diff.changed) {
-          const symId = symNodeId(filePath, changed.name);
-          patch.setProperty(symId, "kind", changed.kind);
-          if (changed.signature !== undefined) {
-            patch.setProperty(symId, "signature", changed.signature);
+          const oldOutline = extractOutline(oldContent, lang).entries;
+          const diff = diffOutlines(oldOutline, newOutline);
+
+          for (const removed of diff.removed) {
+            const symId = symNodeId(filePath, removed.name);
+            patch.removeEdge(fileId, symId, "contains");
+            patch.removeNode(symId);
+          }
+
+          for (const added of diff.added) {
+            const symId = symNodeId(filePath, added.name);
+            patch.addNode(symId);
+            patch.setProperty(symId, "name", added.name);
+            patch.setProperty(symId, "kind", added.kind);
+            patch.setProperty(symId, "exported", true);
+            if (added.signature !== undefined) {
+              patch.setProperty(symId, "signature", added.signature);
+            }
+            patch.addEdge(fileId, symId, "contains");
+          }
+
+          for (const changed of diff.changed) {
+            const symId = symNodeId(filePath, changed.name);
+            patch.setProperty(symId, "kind", changed.kind);
+            if (changed.signature !== undefined) {
+              patch.setProperty(symId, "signature", changed.signature);
+            }
           }
         }
       }
-    }
-
-    await patch.commit();
+    });
     patchesWritten++;
   }
 
