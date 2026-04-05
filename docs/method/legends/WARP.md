@@ -121,7 +121,7 @@ further, edit quality improves (fewer fix-the-fix cycles).
 
 ## Dependencies
 
-- `@git-stunts/git-warp` v16 (local, not yet on npm)
+- `@git-stunts/git-warp` v16 (published on npm)
 - Tree-sitter parser (already in graft)
 - Git hooks (post-commit for Level 1)
 - Edit tool hooks (Level 3)

@@ -39,7 +39,7 @@ OIDC publish + tarball release assets. 417 tests, 12 tools.
 
 - CodeRabbit rate limiting creates a painful review loop. The stale
   check workaround (empty commit) works but adds noise.
-- git-warp dependency: `@git-stunts/git-warp` v16 exists locally
-  but isn't on npm. Need to resolve before WARP Level 1.
+- git-warp API surface: need to study `@git-stunts/git-warp` v16
+  API before designing Level 1 integration.
 - Agent opt-in friction: agents default to native Read unless
   explicitly instructed to use graft tools.
