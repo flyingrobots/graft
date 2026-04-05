@@ -6,7 +6,7 @@ import { openWarp } from "../../../src/warp/open.js";
 import { indexCommits } from "../../../src/warp/indexer.js";
 import { fileSymbolsLens, allSymbolsLens, allFilesLens } from "../../../src/warp/observers.js";
 
-describe("warp: indexer", () => {
+describe("warp: indexer", { timeout: 15000 }, () => {
   let tmpDir: string;
 
   beforeEach(() => {

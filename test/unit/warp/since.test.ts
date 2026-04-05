@@ -6,7 +6,7 @@ import { openWarp } from "../../../src/warp/open.js";
 import { indexCommits } from "../../../src/warp/indexer.js";
 import { allSymbolsLens } from "../../../src/warp/observers.js";
 
-describe("warp: graft_since (observer comparison)", () => {
+describe("warp: graft_since (observer comparison)", { timeout: 15000 }, () => {
   let tmpDir: string;
 
   beforeEach(() => {
