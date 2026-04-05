@@ -34,6 +34,10 @@ const EXPLANATIONS: Readonly<Record<string, { meaning: string; action: string }>
     meaning: "File may contain secrets (keys, credentials, environment variables).",
     action: "Check for a .example or template version of this file.",
   },
+  BUDGET_CAP: {
+    meaning: "File exceeds the budget-proportional byte cap. No single read may consume more than 5% of remaining budget.",
+    action: "Use file_outline or read_range for targeted reads. Consider whether this file is worth the budget cost.",
+  },
   GRAFTIGNORE: {
     meaning: "File matches a pattern in .graftignore.",
     action: "Check .graftignore if you believe this file should be readable.",

@@ -132,9 +132,22 @@ export function evaluatePolicy(input: PolicyInput, options?: PolicyOptions): Pol
   // When session depth is known (not "unknown"), the session cap replaces the static byte threshold.
   // Static line threshold always applies.
   const hasSessionCap = sessionDepth !== undefined && sessionDepth !== "unknown";
-  const effectiveByteCap = hasSessionCap
+  let effectiveByteCap = hasSessionCap
     ? SESSION_BYTE_CAPS[sessionDepth] ?? STATIC_THRESHOLDS.bytes
     : STATIC_THRESHOLDS.bytes;
+
+  // 4. Budget cap — no single read should exceed 5% of remaining budget
+  const MAX_READ_FRACTION = 0.05;
+  const budgetRemaining = options?.budgetRemaining;
+  const hasBudgetCap = budgetRemaining !== undefined && budgetRemaining > 0;
+  let budgetTriggered = false;
+  if (hasBudgetCap) {
+    const budgetCap = Math.floor(budgetRemaining * MAX_READ_FRACTION);
+    if (budgetCap < effectiveByteCap) {
+      effectiveByteCap = budgetCap;
+      budgetTriggered = true;
+    }
+  }
 
   const exceedsLines = lines > STATIC_THRESHOLDS.lines;
   const exceedsBytes = bytes > effectiveByteCap;
@@ -147,12 +160,14 @@ export function evaluatePolicy(input: PolicyInput, options?: PolicyOptions): Pol
     });
   }
 
-  // Determine reason: SESSION_CAP when the session byte cap triggered (and it's the dynamic one)
-  const finalReason: "OUTLINE" | "SESSION_CAP" = exceedsLines && !exceedsBytes
+  // Determine reason: BUDGET_CAP > SESSION_CAP > OUTLINE
+  const finalReason: "OUTLINE" | "SESSION_CAP" | "BUDGET_CAP" = exceedsLines && !exceedsBytes
     ? "OUTLINE"
-    : exceedsBytes && hasSessionCap
-      ? "SESSION_CAP"
-      : "OUTLINE";
+    : exceedsBytes && budgetTriggered
+      ? "BUDGET_CAP"
+      : exceedsBytes && hasSessionCap
+        ? "SESSION_CAP"
+        : "OUTLINE";
 
   return new OutlineResult({
     reason: finalReason,

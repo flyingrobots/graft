@@ -25,6 +25,7 @@ import { stateSaveTool, stateLoadTool } from "./tools/state.js";
 import { doctorTool } from "./tools/doctor.js";
 import { statsTool } from "./tools/stats.js";
 import { explainTool } from "./tools/explain.js";
+import { setBudgetTool } from "./tools/budget.js";
 
 export type { McpToolResult, ToolHandler, ToolContext };
 
@@ -41,6 +42,7 @@ const TOOL_REGISTRY: readonly ToolDefinition[] = [
   doctorTool,
   statsTool,
   explainTool,
+  setBudgetTool,
 ];
 
 export interface GraftServer {
@@ -69,8 +71,10 @@ export function createGraftServer(): GraftServer {
       sessionId, seq, codec,
       metrics: metrics.snapshot(),
       tripwires: session.checkTripwires(),
+      budget: session.getBudget(),
     });
     metrics.addBytesReturned(textBytes);
+    session.recordBytesConsumed(textBytes);
     return result;
   }
 
@@ -89,9 +93,13 @@ export function createGraftServer(): GraftServer {
         return inner(args);
       }
       const actual = { lines: content.split("\n").length, bytes: Buffer.byteLength(content) };
+      const budget = session.getBudget();
       const policy = evaluatePolicy(
         { path: filePath, lines: actual.lines, bytes: actual.bytes },
-        { sessionDepth: session.getSessionDepth() },
+        {
+          sessionDepth: session.getSessionDepth(),
+          budgetRemaining: budget?.remaining,
+        },
       );
       if (policy instanceof RefusedResult) {
         metrics.recordRefusal();

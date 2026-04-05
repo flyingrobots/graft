@@ -27,6 +27,7 @@ export interface SafeReadOptions {
   content?: string | undefined;
   intent?: string | undefined;
   sessionDepth?: SessionDepth | undefined;
+  budgetRemaining?: number | undefined;
 }
 
 export async function safeRead(
@@ -58,7 +59,7 @@ export async function safeRead(
 
   const policy = evaluatePolicy(
     { path: filePath, lines, bytes },
-    { sessionDepth: options.sessionDepth },
+    { sessionDepth: options.sessionDepth, budgetRemaining: options.budgetRemaining },
   );
 
   const base: SafeReadResult = {

@@ -45,7 +45,7 @@ export const safeReadTool: ToolDefinition = {
           // Defense: re-check policy before returning cached data.
           const policy = evaluatePolicy(
             { path: filePath, lines: cf.actual.lines, bytes: cf.actual.bytes },
-            { sessionDepth: ctx.session.getSessionDepth() },
+            { sessionDepth: ctx.session.getSessionDepth(), budgetRemaining: ctx.session.getBudget()?.remaining },
           );
           if (policy instanceof RefusedResult) {
             ctx.metrics.recordRefusal();
@@ -79,7 +79,7 @@ export const safeReadTool: ToolDefinition = {
           // Defense: re-check policy before returning structural data.
           const policy = evaluatePolicy(
             { path: filePath, lines: cf.actual.lines, bytes: cf.actual.bytes },
-            { sessionDepth: ctx.session.getSessionDepth() },
+            { sessionDepth: ctx.session.getSessionDepth(), budgetRemaining: ctx.session.getBudget()?.remaining },
           );
           if (policy instanceof RefusedResult) {
             ctx.metrics.recordRefusal();
@@ -118,6 +118,7 @@ export const safeReadTool: ToolDefinition = {
         content: cf?.rawContent,
         intent: args["intent"] as string | undefined,
         sessionDepth: ctx.session.getSessionDepth(),
+        budgetRemaining: ctx.session.getBudget()?.remaining,
       });
 
       PROJECTION_METRICS[result.projection]?.(ctx.metrics);

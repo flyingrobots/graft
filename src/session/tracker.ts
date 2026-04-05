@@ -10,6 +10,8 @@ export class SessionTracker {
   private toolCallsSinceUser = 0;
   private editBashTransitions = 0;
   private lastEditBashTool: string | null = null;
+  private budgetBytes: number | null = null;
+  private consumedBytes = 0;
 
   getMessageCount(): number {
     return this.totalMessages;
@@ -78,6 +80,26 @@ export class SessionTracker {
       });
     }
     return null;
+  }
+
+  setBudget(bytes: number): void {
+    if (bytes <= 0) throw new Error("Budget must be positive");
+    this.budgetBytes = bytes;
+  }
+
+  recordBytesConsumed(bytes: number): void {
+    this.consumedBytes += bytes;
+  }
+
+  getBudget(): { total: number; consumed: number; remaining: number; fraction: number } | null {
+    if (this.budgetBytes === null) return null;
+    const remaining = Math.max(0, this.budgetBytes - this.consumedBytes);
+    return {
+      total: this.budgetBytes,
+      consumed: this.consumedBytes,
+      remaining,
+      fraction: Math.round((this.consumedBytes / this.budgetBytes) * 1000) / 1000,
+    };
   }
 
   getSessionDepth(): SessionDepth {

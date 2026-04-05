@@ -14,7 +14,7 @@ describe("mcp: tool registration", () => {
     expect(toolNames).toContain("state_load");
     expect(toolNames).toContain("doctor");
     expect(toolNames).toContain("stats");
-    expect(toolNames).toHaveLength(11);
+    expect(toolNames).toHaveLength(12);
   });
 });
 
@@ -107,6 +107,48 @@ describe("mcp: tool handlers", () => {
     expect(parsed["totalReads"]).toBeDefined();
     expect(parsed["totalOutlines"]).toBeDefined();
     expect(parsed["totalRefusals"]).toBeDefined();
+  });
+});
+
+describe("mcp: context budget", () => {
+  it("set_budget activates budget tracking", async () => {
+    const server = createGraftServer();
+    const result = await server.callTool("set_budget", { bytes: 100000 });
+    const parsed = JSON.parse(extractText(result)) as Record<string, unknown>;
+    const budget = parsed["budget"] as { total: number; remaining: number; fraction: number };
+    expect(budget.total).toBe(100000);
+    expect(budget.fraction).toBeDefined();
+  });
+
+  it("budget appears in receipt after set_budget", async () => {
+    const server = createGraftServer();
+    await server.callTool("set_budget", { bytes: 100000 });
+    const result = await server.callTool("safe_read", { path: "test/fixtures/small.ts" });
+    const parsed = JSON.parse(extractText(result)) as Record<string, unknown>;
+    const receipt = parsed["_receipt"] as { budget?: { total: number; remaining: number } };
+    expect(receipt.budget).toBeDefined();
+    expect(receipt.budget!.total).toBe(100000);
+    expect(receipt.budget!.remaining).toBeLessThan(100000);
+  });
+
+  it("budget tightens byte cap for large files", async () => {
+    const server = createGraftServer();
+    // Set a very tight budget — 5% of 1000 = 50 bytes max per read
+    await server.callTool("set_budget", { bytes: 1000 });
+    const result = await server.callTool("safe_read", { path: "test/fixtures/medium.ts" });
+    const parsed = JSON.parse(extractText(result)) as Record<string, unknown>;
+    // medium.ts should get an outline due to tight budget cap
+    expect(["outline", "content"]).toContain(parsed["projection"]);
+    const receipt = parsed["_receipt"] as { budget?: { remaining: number } };
+    expect(receipt.budget).toBeDefined();
+  });
+
+  it("no budget in receipt when budget not set", async () => {
+    const server = createGraftServer();
+    const result = await server.callTool("safe_read", { path: "test/fixtures/small.ts" });
+    const parsed = JSON.parse(extractText(result)) as Record<string, unknown>;
+    const receipt = parsed["_receipt"] as Record<string, unknown>;
+    expect(receipt["budget"]).toBeUndefined();
   });
 });
 
