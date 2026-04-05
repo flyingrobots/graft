@@ -10,7 +10,16 @@ import type { McpToolResult } from "./receipt.js";
 import type { FileSystem } from "../ports/filesystem.js";
 import type { JsonCodec } from "../ports/codec.js";
 
+import type { z } from "zod";
+
 export type ToolHandler = (args: Record<string, unknown>) => McpToolResult | Promise<McpToolResult>;
+
+export interface ToolDefinition {
+  readonly name: string;
+  readonly description: string;
+  readonly schema?: Record<string, z.ZodType>;
+  readonly createHandler: (ctx: ToolContext) => ToolHandler;
+}
 
 export interface ToolContext {
   readonly projectRoot: string;

@@ -1,30 +1,42 @@
 import * as crypto from "node:crypto";
 import * as path from "node:path";
-import { z } from "zod";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { SessionTracker } from "../session/tracker.js";
 import { Metrics } from "./metrics.js";
 import { ObservationCache } from "./cache.js";
 import { buildReceiptResult } from "./receipt.js";
-import type { ToolHandler, ToolContext } from "./context.js";
+import type { ToolHandler, ToolContext, ToolDefinition } from "./context.js";
 import { createPathResolver } from "./context.js";
 import type { McpToolResult } from "./receipt.js";
-import { createSafeReadHandler, SAFE_READ_DESCRIPTION } from "./tools/safe-read.js";
-import { createFileOutlineHandler, FILE_OUTLINE_DESCRIPTION } from "./tools/file-outline.js";
-import { createReadRangeHandler, READ_RANGE_DESCRIPTION } from "./tools/read-range.js";
-import { createChangedSinceHandler, CHANGED_SINCE_DESCRIPTION } from "./tools/changed-since.js";
-import { createGraftDiffHandler, GRAFT_DIFF_DESCRIPTION } from "./tools/graft-diff.js";
-import { createRunCaptureHandler, RUN_CAPTURE_DESCRIPTION } from "./tools/run-capture.js";
-import {
-  createStateSaveHandler, createStateLoadHandler,
-  STATE_SAVE_DESCRIPTION, STATE_LOAD_DESCRIPTION,
-} from "./tools/state.js";
-import { createDoctorHandler, DOCTOR_DESCRIPTION } from "./tools/doctor.js";
-import { createStatsHandler, STATS_DESCRIPTION } from "./tools/stats.js";
 import { nodeFs } from "../adapters/node-fs.js";
 import { CanonicalJsonCodec } from "../adapters/canonical-json.js";
 
+// Tool definitions — each file exports a ToolDefinition object
+import { safeReadTool } from "./tools/safe-read.js";
+import { fileOutlineTool } from "./tools/file-outline.js";
+import { readRangeTool } from "./tools/read-range.js";
+import { changedSinceTool } from "./tools/changed-since.js";
+import { graftDiffTool } from "./tools/graft-diff.js";
+import { runCaptureTool } from "./tools/run-capture.js";
+import { stateSaveTool, stateLoadTool } from "./tools/state.js";
+import { doctorTool } from "./tools/doctor.js";
+import { statsTool } from "./tools/stats.js";
+
 export type { McpToolResult, ToolHandler, ToolContext };
+
+/** All registered tool definitions. Add new tools here. */
+const TOOL_REGISTRY: readonly ToolDefinition[] = [
+  safeReadTool,
+  fileOutlineTool,
+  readRangeTool,
+  changedSinceTool,
+  graftDiffTool,
+  runCaptureTool,
+  stateSaveTool,
+  stateLoadTool,
+  doctorTool,
+  statsTool,
+];
 
 export interface GraftServer {
   getRegisteredTools(): string[];
@@ -58,32 +70,21 @@ export function createGraftServer(): GraftServer {
 
   const ctx: ToolContext = { projectRoot, graftDir, session, cache, metrics, respond, resolvePath: createPathResolver(projectRoot), fs: nodeFs, codec };
 
-  const toolDefs: { name: string; schema?: Record<string, z.ZodType>; desc: string; handler: ToolHandler }[] = [
-    { name: "safe_read", schema: { path: z.string(), intent: z.string().optional() }, desc: SAFE_READ_DESCRIPTION, handler: createSafeReadHandler(ctx) },
-    { name: "file_outline", schema: { path: z.string() }, desc: FILE_OUTLINE_DESCRIPTION, handler: createFileOutlineHandler(ctx) },
-    { name: "read_range", schema: { path: z.string(), start: z.number(), end: z.number() }, desc: READ_RANGE_DESCRIPTION, handler: createReadRangeHandler(ctx) },
-    { name: "changed_since", schema: { path: z.string(), consume: z.boolean().optional() }, desc: CHANGED_SINCE_DESCRIPTION, handler: createChangedSinceHandler(ctx) },
-    { name: "graft_diff", schema: { base: z.string().optional(), head: z.string().optional(), path: z.string().optional() }, desc: GRAFT_DIFF_DESCRIPTION, handler: createGraftDiffHandler(ctx) },
-    { name: "run_capture", schema: { command: z.string(), tail: z.number().optional() }, desc: RUN_CAPTURE_DESCRIPTION, handler: createRunCaptureHandler(ctx) },
-    { name: "state_save", schema: { content: z.string() }, desc: STATE_SAVE_DESCRIPTION, handler: createStateSaveHandler(ctx) },
-    { name: "state_load", desc: STATE_LOAD_DESCRIPTION, handler: createStateLoadHandler(ctx) },
-    { name: "doctor", desc: DOCTOR_DESCRIPTION, handler: createDoctorHandler(ctx) },
-    { name: "stats", desc: STATS_DESCRIPTION, handler: createStatsHandler(ctx) },
-  ];
+  for (const def of TOOL_REGISTRY) {
+    const handler = def.createHandler(ctx);
+    handlers.set(def.name, handler);
 
-  for (const def of toolDefs) {
-    handlers.set(def.name, def.handler);
     if (def.schema !== undefined) {
-      mcpServer.registerTool(def.name, { description: def.desc, inputSchema: def.schema }, async (args) => {
+      mcpServer.registerTool(def.name, { description: def.description, inputSchema: def.schema }, async (args) => {
         session.recordMessage();
         session.recordToolCall(def.name);
-        return def.handler(args as Record<string, unknown>);
+        return handler(args as Record<string, unknown>);
       });
     } else {
-      mcpServer.registerTool(def.name, { description: def.desc }, async () => {
+      mcpServer.registerTool(def.name, { description: def.description }, async () => {
         session.recordMessage();
         session.recordToolCall(def.name);
-        return def.handler({});
+        return handler({});
       });
     }
   }
