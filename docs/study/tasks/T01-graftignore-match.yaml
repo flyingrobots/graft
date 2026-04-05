@@ -7,7 +7,9 @@ prompt: |
   Add a new reason code GRAFTIGNORE_MATCH to graft's policy engine.
   This code should be returned when a file is refused because it
   matches a pattern in .graftignore. Currently .graftignore matches
-  return the generic BANNED reason — give them their own code.
+  return the generic GRAFTIGNORE reason — give them their own code
+  (GRAFTIGNORE_MATCH) to distinguish pattern matches from other
+  .graftignore refusals.
 
   Update the policy evaluation, type definitions, and tests. Make
   sure all existing tests still pass.

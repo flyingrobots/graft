@@ -22,7 +22,8 @@ acceptance:
     - "pnpm lint exits 0"
     - "test -f src/ports/metrics.ts"
     - "grep -q 'MetricsPort\\|MetricsLogger.*implements' src/metrics/logger.ts"
-    - "grep -rqE 'MetricsPort' src/mcp/context.ts"
+    - "grep -qE 'MetricsPort' src/mcp/context.ts"
+    - "grep -qE 'MetricsPort' src/mcp/server.ts"
     - "grep -rqE 'MetricsPort' test/"
   manual: null
 difficulty: M

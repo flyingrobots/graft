@@ -17,6 +17,7 @@ acceptance:
     - "pnpm test exits 0"
     - "pnpm lint exits 0"
     - "grep -q 'STALE_CACHE' src/policy/types.ts"
+    - "grep -rq 'STALE_CACHE' src/policy/"
     - "grep -rq 'STALE_CACHE' src/mcp/"
     - "grep -rq 'STALE_CACHE' test/"
   manual: null

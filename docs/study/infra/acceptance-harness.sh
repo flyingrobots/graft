@@ -56,7 +56,7 @@ while IFS= read -r criterion; do
   # Run the criterion from the repo root so repo-relative paths resolve.
   # Uses bash -c instead of eval for slightly better containment.
   set +e
-  OUTPUT=$(cd "$REPO_ROOT" && bash -c "$CMD" 2>&1)
+  (cd "$REPO_ROOT" && bash -c "$CMD") >/dev/null 2>&1
   ACTUAL_EXIT=$?
   set -e
 
