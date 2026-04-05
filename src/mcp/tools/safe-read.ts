@@ -31,7 +31,9 @@ export const safeReadTool: ToolDefinition = {
     return async (args) => {
       const filePath = ctx.resolvePath(args["path"] as string);
 
-      // Try to read the file for cache check
+      // readFileSync is intentional for TOCTOU prevention: the same content
+      // must be used for cache check, policy evaluation, and outline extraction.
+      // An async read could yield different content if the file changes between await points.
       let rawContent: string | null = null;
       try {
         rawContent = ctx.fs.readFileSync(filePath, "utf-8");

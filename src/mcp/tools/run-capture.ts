@@ -14,6 +14,8 @@ export const runCaptureTool: ToolDefinition = {
     return async (args) => {
       const command = args["command"] as string;
       const tail = Math.max(1, Math.floor((args["tail"] as number | undefined) ?? 60));
+      // execFileSync is intentional: MCP tool calls are sequential per-session,
+      // and synchronous execution simplifies stdout/stderr capture with timeout.
       let output: string;
       try {
         output = execFileSync("sh", ["-c", command], {
@@ -45,17 +47,19 @@ export const runCaptureTool: ToolDefinition = {
       const lines = output.split("\n");
       const tailed = lines.slice(-tail).join("\n");
       const logPath = path.join(ctx.graftDir, "logs", "capture.log");
+      let logWriteSucceeded = true;
       try {
         await ctx.fs.mkdir(path.dirname(logPath), { recursive: true });
         await ctx.fs.writeFile(logPath, output, "utf-8");
       } catch {
         // Log persistence failure must not mask a successful command
+        logWriteSucceeded = false;
       }
       return ctx.respond("run_capture", {
         output: tailed,
         totalLines: lines.length,
         tailedLines: Math.min(tail, lines.length),
-        logPath,
+        logPath: logWriteSucceeded ? logPath : null,
         truncated: lines.length > tail,
       });
     };
