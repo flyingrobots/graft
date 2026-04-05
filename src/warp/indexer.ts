@@ -40,7 +40,7 @@ function listCommits(cwd: string, from?: string, to?: string): string[] {
   const range = from !== undefined ? `${from}..${to ?? "HEAD"}` : to ?? "HEAD";
   const args = ["log", "--reverse", "--format=%H", range];
   try {
-    return execFileSync("git", args, { cwd, encoding: "utf-8" })
+    return execFileSync("git", args, { cwd, encoding: "utf-8", stdio: ["pipe", "pipe", "pipe"] })
       .trim().split("\n").filter((l) => l.length > 0);
   } catch {
     return [];
@@ -51,7 +51,7 @@ function getCommitChanges(sha: string, cwd: string): { status: string; path: str
   // --root handles the initial commit (no parent to diff against)
   const args = ["diff-tree", "--root", "--no-commit-id", "-r", "--name-status", sha];
   try {
-    return execFileSync("git", args, { cwd, encoding: "utf-8" })
+    return execFileSync("git", args, { cwd, encoding: "utf-8", stdio: ["pipe", "pipe", "pipe"] })
       .trim().split("\n").filter((l) => l.length > 0).map((line) => {
         const parts = line.split("\t");
         return { status: parts[0] ?? "", path: parts[1] ?? "" };
@@ -63,7 +63,7 @@ function getCommitChanges(sha: string, cwd: string): { status: string; path: str
 
 function getCommitMeta(sha: string, cwd: string): { message: string; author: string; email: string; timestamp: string } {
   try {
-    const output = execFileSync("git", ["log", "-1", "--format=%s%n%aN%n%aE%n%aI", sha], { cwd, encoding: "utf-8" });
+    const output = execFileSync("git", ["log", "-1", "--format=%s%n%aN%n%aE%n%aI", sha], { cwd, encoding: "utf-8", stdio: ["pipe", "pipe", "pipe"] });
     const lines = output.trim().split("\n");
     return { message: lines[0] ?? "", author: lines[1] ?? "", email: lines[2] ?? "", timestamp: lines[3] ?? "" };
   } catch {
@@ -76,7 +76,7 @@ function getCommitMeta(sha: string, cwd: string): { message: string; author: str
  */
 function hasParent(sha: string, cwd: string): boolean {
   try {
-    execFileSync("git", ["rev-parse", "--verify", `${sha}~1`], { cwd, encoding: "utf-8" });
+    execFileSync("git", ["rev-parse", "--verify", `${sha}~1`], { cwd, encoding: "utf-8", stdio: ["pipe", "pipe", "pipe"] });
     return true;
   } catch {
     return false;
