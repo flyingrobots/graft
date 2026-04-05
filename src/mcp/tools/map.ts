@@ -1,7 +1,9 @@
+import * as path from "node:path";
 import { z } from "zod";
-import { indexCommits } from "../../warp/indexer.js";
-import { directoryFilesLens, fileSymbolsLens } from "../../warp/observers.js";
+import { extractOutline } from "../../parser/outline.js";
+import { detectLang } from "../../parser/lang.js";
 import type { ToolDefinition, ToolContext, ToolHandler } from "../context.js";
+import { execFileSync } from "node:child_process";
 
 interface FileEntry {
   path: string;
@@ -9,58 +11,65 @@ interface FileEntry {
   symbols: { name: string; kind: string; signature?: string | undefined; exported: boolean; startLine?: number | undefined; endLine?: number | undefined }[];
 }
 
+/**
+ * List files in a directory (git ls-files for tracked files).
+ */
+function listFiles(dirPath: string, cwd: string): string[] {
+  try {
+    const args = dirPath.length > 0
+      ? ["ls-files", "--", dirPath]
+      : ["ls-files"];
+    return execFileSync("git", args, { cwd, encoding: "utf-8" })
+      .trim().split("\n").filter((l) => l.length > 0);
+  } catch {
+    return [];
+  }
+}
+
 export const mapTool: ToolDefinition = {
   name: "graft_map",
   description:
     "Structural map of a directory — all files and their symbols " +
     "(function signatures, class shapes, exports) in one call. " +
-    "Powered by WARP. No file reads needed for indexed commits.",
+    "Uses tree-sitter to parse the working tree directly.",
   schema: {
     path: z.string().optional(),
   },
   createHandler(ctx: ToolContext): ToolHandler {
-    return async (args) => {
+    return (args) => {
       const dirPath = (args["path"] as string | undefined) ?? "";
 
-      const warp = await ctx.getWarp();
-      await indexCommits(warp, { cwd: ctx.projectRoot });
-      await warp.core().materialize();
-
-      // Observe files in the directory
-      const fileObs = await warp.observer(directoryFilesLens(dirPath));
-      const fileNodes = await fileObs.getNodes();
-
+      const filePaths = listFiles(dirPath, ctx.projectRoot);
       const files: FileEntry[] = [];
 
-      for (const fileNodeId of fileNodes) {
-        const fileProps = await fileObs.getNodeProps(fileNodeId);
-        if (fileProps === null) continue;
+      for (const filePath of filePaths) {
+        const lang = detectLang(filePath);
+        if (lang === null) continue;
 
-        const filePath = fileProps["path"] as string;
-        const lang = fileProps["lang"] as string;
-
-        // Observe symbols in this file
-        const symObs = await warp.observer(fileSymbolsLens(filePath));
-        const symNodes = await symObs.getNodes();
-
-        const symbols: FileEntry["symbols"] = [];
-        for (const symNodeId of symNodes) {
-          const symProps = await symObs.getNodeProps(symNodeId);
-          if (symProps === null) continue;
-          symbols.push({
-            name: symProps["name"] as string,
-            kind: symProps["kind"] as string,
-            signature: symProps["signature"] as string | undefined,
-            exported: symProps["exported"] as boolean,
-          });
+        let content: string;
+        try {
+          content = ctx.fs.readFileSync(path.join(ctx.projectRoot, filePath), "utf-8");
+        } catch {
+          continue;
         }
+
+        const result = extractOutline(content, lang);
+        const symbols: FileEntry["symbols"] = result.entries.map((entry) => {
+          const jump = result.jumpTable?.find((j) => j.symbol === entry.name);
+          return {
+            name: entry.name,
+            kind: entry.kind,
+            signature: entry.signature,
+            exported: entry.exported,
+            startLine: jump?.start,
+            endLine: jump?.end,
+          };
+        });
 
         files.push({ path: filePath, lang, symbols });
       }
 
-      // Sort by path for stable output
       files.sort((a, b) => a.path.localeCompare(b.path));
-
       const totalSymbols = files.reduce((n, f) => n + f.symbols.length, 0);
 
       return ctx.respond("graft_map", {
