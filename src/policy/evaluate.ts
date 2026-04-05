@@ -139,7 +139,7 @@ export function evaluatePolicy(input: PolicyInput, options?: PolicyOptions): Pol
   // 4. Budget cap — no single read should exceed 5% of remaining budget
   const MAX_READ_FRACTION = 0.05;
   const budgetRemaining = options?.budgetRemaining;
-  const hasBudgetCap = budgetRemaining !== undefined && budgetRemaining > 0;
+  const hasBudgetCap = budgetRemaining !== undefined && budgetRemaining >= 0;
   let budgetTriggered = false;
   if (hasBudgetCap) {
     const budgetCap = Math.floor(budgetRemaining * MAX_READ_FRACTION);

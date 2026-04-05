@@ -42,6 +42,16 @@ describe("policy: budget cap", () => {
     expect(result.reason).toBe("SESSION_CAP");
   });
 
+  it("forces outline when budget is exhausted (remaining = 0)", () => {
+    const result = evaluatePolicy(
+      { path: "src/file.ts", lines: 10, bytes: 100 },
+      { budgetRemaining: 0 },
+    );
+    // 5% of 0 = 0 bytes cap → any file exceeds it
+    expect(result).toBeInstanceOf(OutlineResult);
+    expect(result.reason).toBe("BUDGET_CAP");
+  });
+
   it("no budget cap when budgetRemaining is undefined", () => {
     const result = evaluatePolicy(
       { path: "src/file.ts", lines: 50, bytes: 2000 },

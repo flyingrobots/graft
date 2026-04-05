@@ -26,15 +26,12 @@ export class CachedFile {
       lines: rawContent.split("\n").length,
       bytes: Buffer.byteLength(rawContent),
     };
-    const lang = detectLang(filePath);
-    if (lang !== null) {
-      const result = extractOutline(rawContent, lang);
-      this.outline = result.entries;
-      this.jumpTable = result.jumpTable ?? [];
-    } else {
-      this.outline = [];
-      this.jumpTable = [];
-    }
+    // Fallback to "ts" parser for unknown extensions — TS/JS parser handles
+    // .mjs, .cjs, and other JS-family files that detectLang doesn't cover.
+    const lang = detectLang(filePath) ?? "ts";
+    const result = extractOutline(rawContent, lang);
+    this.outline = result.entries;
+    this.jumpTable = result.jumpTable ?? [];
     Object.freeze(this.actual);
     Object.freeze(this);
   }
