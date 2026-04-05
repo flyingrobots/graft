@@ -66,12 +66,42 @@ function getCommitMeta(sha: string, cwd: string): { message: string; timestamp: 
   return { message: lines[0] ?? "", timestamp: lines[1] ?? "" };
 }
 
-function fileNodeId(path: string): string {
-  return `file:${path}`;
+function dirNodeId(dirPath: string): string {
+  return `dir:${dirPath}`;
+}
+
+function fileNodeId(filePath: string): string {
+  return `file:${filePath}`;
 }
 
 function symNodeId(filePath: string, name: string): string {
   return `sym:${filePath}:${name}`;
+}
+
+/**
+ * Emit directory nodes + edges for all path components of a file.
+ * e.g. "src/mcp/server.ts" → dir:src, dir:src/mcp, with contains edges.
+ */
+function emitDirectoryChain(patch: PatchOps, filePath: string): void {
+  const parts = filePath.split("/");
+  if (parts.length <= 1) return; // file at root, no dirs to emit
+
+  let current = "";
+  for (let i = 0; i < parts.length - 1; i++) {
+    const parent = current;
+    const part = parts[i] ?? "";
+    current = current.length > 0 ? `${current}/${part}` : part;
+    const dirId = dirNodeId(current);
+    patch.addNode(dirId);
+    patch.setProperty(dirId, "path", current);
+
+    if (parent.length > 0) {
+      patch.addEdge(dirNodeId(parent), dirId, "contains");
+    }
+  }
+
+  // Link innermost dir to the file
+  patch.addEdge(dirNodeId(current), fileNodeId(filePath), "contains");
 }
 
 /**
@@ -178,11 +208,12 @@ export async function indexCommits(
           continue;
         }
 
-        // Added or modified — ensure file node exists
+        // Added or modified — ensure file + directory nodes exist
         patch.addNode(fileId);
         patch.setProperty(fileId, "path", filePath);
         patch.setProperty(fileId, "lang", lang ?? "unknown");
         patch.addEdge(fileId, commitId, "at_commit");
+        emitDirectoryChain(patch, filePath);
 
         // Unsupported language — file node only, no symbols
         if (lang === null) continue;

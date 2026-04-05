@@ -63,6 +63,29 @@ export function symbolByNameLens(symbolName: string): Lens {
 }
 
 /**
+ * Observe a directory subtree (dirs + files + symbols).
+ * Aperture: dir:<path>*, file:<path>/*, sym:<path>/*
+ * Returns a combined lens — use multiple observers for separation.
+ */
+export function directoryLens(dirPath: string): Lens {
+  return {
+    match: `dir:${dirPath}*`,
+    expose: ["path"],
+  };
+}
+
+/**
+ * Observe all files under a directory.
+ * Aperture: file:<path>/*
+ */
+export function directoryFilesLens(dirPath: string): Lens {
+  return {
+    match: `file:${dirPath}/*`,
+    expose: ["path", "lang"],
+  };
+}
+
+/**
  * Observe commit metadata.
  * Aperture: commit:*
  */

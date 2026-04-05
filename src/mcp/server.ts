@@ -29,6 +29,7 @@ import { statsTool } from "./tools/stats.js";
 import { explainTool } from "./tools/explain.js";
 import { setBudgetTool } from "./tools/budget.js";
 import { sinceTool } from "./tools/since.js";
+import { mapTool } from "./tools/map.js";
 
 export type { McpToolResult, ToolHandler, ToolContext };
 
@@ -47,6 +48,7 @@ const TOOL_REGISTRY: readonly ToolDefinition[] = [
   explainTool,
   setBudgetTool,
   sinceTool,
+  mapTool,
 ];
 
 export interface GraftServer {
