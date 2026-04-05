@@ -31,9 +31,16 @@ describe("stream-boundary guards", () => {
       expect(isAsyncIterable(fakeStream())).toBe(true);
     });
 
-    it("returns true for objects with Symbol.asyncIterator", () => {
+    it("returns true for objects with Symbol.asyncIterator function", () => {
+      // Intentionally minimal: tests protocol detection, not iterator validity.
+      // The guard checks the symbol is a function, not that next() exists.
       const obj = { [Symbol.asyncIterator]() { return this; } };
       expect(isAsyncIterable(obj)).toBe(true);
+    });
+
+    it("returns false for objects with non-function Symbol.asyncIterator", () => {
+      const obj = { [Symbol.asyncIterator]: true };
+      expect(isAsyncIterable(obj)).toBe(false);
     });
 
     it("returns false for plain objects", () => {
@@ -107,12 +114,12 @@ describe("stream-boundary guards", () => {
       );
     });
 
-    it("throws for null", () => {
-      expect(() => { assertStream(null, "test"); }).toThrow();
+    it("throws for null with descriptive type", () => {
+      expect(() => { assertStream(null, "test"); }).toThrow(/received null/);
     });
 
-    it("throws for arrays (sync iterable, not async)", () => {
-      expect(() => { assertStream([1, 2, 3], "test"); }).toThrow();
+    it("throws for arrays with 'Array' type label", () => {
+      expect(() => { assertStream([1, 2, 3], "test"); }).toThrow(/received Array/);
     });
   });
 

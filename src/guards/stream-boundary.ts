@@ -48,8 +48,11 @@ export function assertNotStream(value: unknown, context: string): void {
  */
 export function assertStream(value: unknown, context: string): asserts value is AsyncIterable<unknown> {
   if (!isAsyncIterable(value)) {
+    const actual = value === null ? "null"
+      : Array.isArray(value) ? "Array"
+      : typeof value;
     throw new TypeError(
-      `${context} expected AsyncIterable but received ${typeof value}. ` +
+      `${context} expected AsyncIterable but received ${actual}. ` +
       `Streams traverse, they do not materialize.`,
     );
   }
