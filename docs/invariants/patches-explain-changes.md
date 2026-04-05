@@ -19,7 +19,7 @@ can read, understand, and act on.
 
 - No opaque or summary-only patch records
 - Changed symbol properties identify which fields changed
-  (signature, exported, line range)
+  (kind, signature)
 - Commit metadata (sha, message, timestamp) remains attached
 - Test: index a commit with known changes, verify patch ops match
   the expected structural delta

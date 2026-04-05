@@ -84,11 +84,12 @@ export function createGraftServer(): GraftServer {
     return result;
   }
 
-  // Lazy WARP initialization — only loaded when a WARP-backed tool needs it
-  let warpInstance: WarpApp | null = null;
-  async function getWarp(): Promise<WarpApp> {
-    warpInstance ??= await openWarp({ cwd: projectRoot });
-    return warpInstance;
+  // Lazy WARP initialization — only loaded when a WARP-backed tool needs it.
+  // Single pending promise prevents duplicate instances from concurrent calls.
+  let warpPromise: Promise<WarpApp> | null = null;
+  function getWarp(): Promise<WarpApp> {
+    warpPromise ??= openWarp({ cwd: projectRoot });
+    return warpPromise;
   }
 
   const ctx: ToolContext = { projectRoot, graftDir, session, cache, metrics, respond, resolvePath: createPathResolver(projectRoot), fs: nodeFs, codec, getWarp };

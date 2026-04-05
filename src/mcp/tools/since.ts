@@ -43,12 +43,20 @@ export const sinceTool: ToolDefinition = {
 
       // Create observers at different worldline positions using ceiling
       const lens = allSymbolsLens();
-      const baseObs = baseTick !== undefined
-        ? await warp.observer(lens, { source: { kind: "live", ceiling: baseTick } })
-        : await warp.observer(lens);
-      const headObs = headTick !== undefined
-        ? await warp.observer(lens, { source: { kind: "live", ceiling: headTick } })
-        : await warp.observer(lens);
+
+      if (baseTick === undefined) {
+        return ctx.respond("graft_since", {
+          error: `Commit ${base} (${baseSha}) was not indexed — it may have no structural changes or fall outside the indexed range.`,
+        });
+      }
+      if (headTick === undefined) {
+        return ctx.respond("graft_since", {
+          error: `Commit ${head} (${headSha}) was not indexed — it may have no structural changes or fall outside the indexed range.`,
+        });
+      }
+
+      const baseObs = await warp.observer(lens, { source: { kind: "live", ceiling: baseTick } });
+      const headObs = await warp.observer(lens, { source: { kind: "live", ceiling: headTick } });
 
       // Read symbol maps from each observer
       const baseSyms = new Map<string, Record<string, unknown>>();
