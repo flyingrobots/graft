@@ -2,6 +2,14 @@ import { z } from "zod";
 import { indexCommits } from "../../warp/indexer.js";
 import { allSymbolsLens } from "../../warp/observers.js";
 import type { ToolDefinition, ToolContext, ToolHandler } from "../context.js";
+import { execFileSync } from "node:child_process";
+
+/**
+ * Resolve a git ref to a full SHA.
+ */
+function resolveRef(ref: string, cwd: string): string {
+  return execFileSync("git", ["rev-parse", ref], { cwd, encoding: "utf-8" }).trim();
+}
 
 export const sinceTool: ToolDefinition = {
   name: "graft_since",
@@ -18,37 +26,41 @@ export const sinceTool: ToolDefinition = {
       const base = args["base"] as string;
       const head = (args["head"] as string | undefined) ?? "HEAD";
 
+      const baseSha = resolveRef(base, ctx.projectRoot);
+      const headSha = resolveRef(head, ctx.projectRoot);
+
       const warp = await ctx.getWarp();
 
-      // Lazy index: ensure the range is indexed
-      await indexCommits(warp, { cwd: ctx.projectRoot, from: base, to: head });
+      // Lazy index: ensure the full range is indexed (from root to head)
+      const result = await indexCommits(warp, { cwd: ctx.projectRoot, to: headSha });
 
-      // Materialize and observe symbols at current frontier
-      // TODO: pin base and head to different worldline positions
-      // For now, both observe the same frontier (post-indexing state)
+      // Find tick numbers for base and head commits
+      const baseTick = result.commitTicks.get(baseSha);
+      const headTick = result.commitTicks.get(headSha);
+
+      // Materialize to populate state
       await warp.core().materialize();
+
+      // Create observers at different worldline positions using ceiling
       const lens = allSymbolsLens();
-      const baseObs = await warp.observer(lens);
-      const headObs = await warp.observer(lens);
+      const baseObs = baseTick !== undefined
+        ? await warp.observer(lens, { source: { kind: "live", ceiling: baseTick } })
+        : await warp.observer(lens);
+      const headObs = headTick !== undefined
+        ? await warp.observer(lens, { source: { kind: "live", ceiling: headTick } })
+        : await warp.observer(lens);
 
-      const baseNodes = await baseObs.getNodes();
-      const headNodes = await headObs.getNodes();
-
-      // Build symbol maps for comparison
+      // Read symbol maps from each observer
       const baseSyms = new Map<string, Record<string, unknown>>();
-      for (const nodeId of baseNodes) {
+      for (const nodeId of await baseObs.getNodes()) {
         const props = await baseObs.getNodeProps(nodeId);
-        if (props !== null) {
-          baseSyms.set(nodeId, props);
-        }
+        if (props !== null) baseSyms.set(nodeId, props);
       }
 
       const headSyms = new Map<string, Record<string, unknown>>();
-      for (const nodeId of headNodes) {
+      for (const nodeId of await headObs.getNodes()) {
         const props = await headObs.getNodeProps(nodeId);
-        if (props !== null) {
-          headSyms.set(nodeId, props);
-        }
+        if (props !== null) headSyms.set(nodeId, props);
       }
 
       // Compute structural delta
@@ -61,11 +73,7 @@ export const sinceTool: ToolDefinition = {
         if (baseProps === undefined) {
           added.push({ id, ...props });
         } else if (JSON.stringify(props) !== JSON.stringify(baseProps)) {
-          changed.push({
-            id,
-            before: baseProps,
-            after: props,
-          });
+          changed.push({ id, before: baseProps, after: props });
         }
       }
 

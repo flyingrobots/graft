@@ -23,6 +23,7 @@ export interface IndexOptions {
 export interface IndexResult {
   readonly commitsIndexed: number;
   readonly patchesWritten: number;
+  readonly commitTicks: ReadonlyMap<string, number>;
 }
 
 // Patch builder shape — matches PatchBuilderV2's fluent API.
@@ -136,6 +137,7 @@ export async function indexCommits(
   const commits = listCommits(cwd, options.from, options.to);
 
   let patchesWritten = 0;
+  const commitTicks = new Map<string, number>();
 
   for (const sha of commits) {
     const changes = getCommitChanges(sha, cwd);
@@ -230,7 +232,8 @@ export async function indexCommits(
       }
     });
     patchesWritten++;
+    commitTicks.set(sha, patchesWritten);
   }
 
-  return { commitsIndexed: commits.length, patchesWritten };
+  return { commitsIndexed: commits.length, patchesWritten, commitTicks };
 }
