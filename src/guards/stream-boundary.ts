@@ -19,7 +19,7 @@ export function isAsyncIterable(value: unknown): value is AsyncIterable<unknown>
   return (
     value !== null &&
     typeof value === "object" &&
-    Symbol.asyncIterator in (value as Record<symbol, unknown>)
+    typeof (value as Record<symbol, unknown>)[Symbol.asyncIterator] === "function"
   );
 }
 
@@ -63,12 +63,12 @@ export function assertStream(value: unknown, context: string): asserts value is 
  * @param methodName - Name of the method being guarded
  * @param fn - The original method
  */
-export function guardPortReturn<T>(
+export function guardPortReturn<TArgs extends unknown[], TReturn>(
   portName: string,
   methodName: string,
-  fn: (...args: never[]) => Promise<T>,
-): (...args: never[]) => Promise<T> {
-  return async (...args: never[]): Promise<T> => {
+  fn: (...args: TArgs) => Promise<TReturn>,
+): (...args: TArgs) => Promise<TReturn> {
+  return async (...args: TArgs): Promise<TReturn> => {
     const result = await fn(...args);
     assertNotStream(result, `${portName}.${methodName}()`);
     return result;

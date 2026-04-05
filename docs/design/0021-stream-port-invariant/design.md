@@ -36,8 +36,10 @@ There are only two valid shapes of data access:
 
 1. Runtime guard functions (`src/guards/`)
 2. Invariant doc (`docs/invariants/`)
-3. Existing ports retrofitted with guards
-4. Tests proving guards catch violations
+3. Tests proving guards catch violations
+4. Existing ports are naturally compliant (return bounded values).
+   Guards are not wired in yet — they'll be applied when WARP ports
+   arrive, or via the guardedPort() factory (cool-ideas backlog).
 
 ## Non-goals
 
