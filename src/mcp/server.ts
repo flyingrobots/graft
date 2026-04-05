@@ -11,6 +11,8 @@ import { createPathResolver } from "./context.js";
 import type { McpToolResult } from "./receipt.js";
 import { nodeFs } from "../adapters/node-fs.js";
 import { CanonicalJsonCodec } from "../adapters/canonical-json.js";
+import { evaluatePolicy } from "../policy/evaluate.js";
+import { RefusedResult } from "../policy/types.js";
 
 // Tool definitions — each file exports a ToolDefinition object
 import { safeReadTool } from "./tools/safe-read.js";
@@ -74,8 +76,41 @@ export function createGraftServer(): GraftServer {
 
   const ctx: ToolContext = { projectRoot, graftDir, session, cache, metrics, respond, resolvePath: createPathResolver(projectRoot), fs: nodeFs, codec };
 
+  function wrapWithPolicyCheck(toolName: string, inner: ToolHandler): ToolHandler {
+    return (args: Record<string, unknown>) => {
+      const rawPath = args["path"] as string | undefined;
+      if (rawPath === undefined) return inner(args);
+      const filePath = ctx.resolvePath(rawPath);
+      let content: string;
+      try {
+        content = ctx.fs.readFileSync(filePath, "utf-8");
+      } catch {
+        // File unreadable — let the inner handler deal with the error
+        return inner(args);
+      }
+      const actual = { lines: content.split("\n").length, bytes: Buffer.byteLength(content) };
+      const policy = evaluatePolicy(
+        { path: filePath, lines: actual.lines, bytes: actual.bytes },
+        { sessionDepth: session.getSessionDepth() },
+      );
+      if (policy instanceof RefusedResult) {
+        metrics.recordRefusal();
+        return respond(toolName, {
+          path: filePath,
+          projection: "refused",
+          reason: policy.reason,
+          reasonDetail: policy.reasonDetail,
+          next: [...policy.next],
+          actual,
+        });
+      }
+      return inner(args);
+    };
+  }
+
   for (const def of TOOL_REGISTRY) {
-    const handler = def.createHandler(ctx);
+    const rawHandler = def.createHandler(ctx);
+    const handler = def.policyCheck === true ? wrapWithPolicyCheck(def.name, rawHandler) : rawHandler;
     handlers.set(def.name, handler);
 
     if (def.schema !== undefined) {

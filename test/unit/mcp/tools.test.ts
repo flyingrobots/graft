@@ -110,6 +110,20 @@ describe("mcp: tool handlers", () => {
   });
 });
 
+describe("mcp: policy check middleware", () => {
+  it("read_range refuses banned files via middleware", async () => {
+    const server = createGraftServer();
+    const result = await server.callTool("read_range", {
+      path: "test/fixtures/ban-targets/image.png",
+      start: 1,
+      end: 5,
+    });
+    const parsed = JSON.parse(extractText(result)) as Record<string, unknown>;
+    expect(parsed["projection"]).toBe("refused");
+    expect(parsed["reason"]).toBe("BINARY");
+  });
+});
+
 describe("mcp: explain tool", () => {
   it("returns meaning and action for known reason code", async () => {
     const server = createGraftServer();
