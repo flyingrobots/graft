@@ -14,6 +14,8 @@ describe("mcp: tool registration", () => {
     expect(toolNames).toContain("state_load");
     expect(toolNames).toContain("doctor");
     expect(toolNames).toContain("stats");
+    expect(toolNames).toContain("graft_since");
+    expect(toolNames).toContain("graft_map");
     expect(toolNames).toHaveLength(14);
   });
 });

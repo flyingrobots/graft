@@ -7,10 +7,16 @@ export async function runIndex(): Promise<void> {
 
   console.log(`\nIndexing structural history in ${cwd}\n`);
 
-  const warp = await openWarp({ cwd });
-  const result = await indexCommits(warp, { cwd, ...(from !== undefined ? { from } : {}) });
+  try {
+    const warp = await openWarp({ cwd });
+    const result = await indexCommits(warp, { cwd, ...(from !== undefined ? { from } : {}) });
 
-  console.log(`  commits indexed: ${String(result.commitsIndexed)}`);
-  console.log(`  patches written: ${String(result.patchesWritten)}`);
-  console.log("\nDone.\n");
+    console.log(`  commits indexed: ${String(result.commitsIndexed)}`);
+    console.log(`  patches written: ${String(result.patchesWritten)}`);
+    console.log("\nDone.\n");
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : String(err);
+    console.error(`Error: ${msg}`);
+    process.exitCode = 1;
+  }
 }

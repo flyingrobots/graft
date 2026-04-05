@@ -8,7 +8,11 @@ import { execFileSync } from "node:child_process";
  * Resolve a git ref to a full SHA.
  */
 function resolveRef(ref: string, cwd: string): string {
-  return execFileSync("git", ["rev-parse", ref], { cwd, encoding: "utf-8" }).trim();
+  try {
+    return execFileSync("git", ["rev-parse", ref], { cwd, encoding: "utf-8" }).trim();
+  } catch {
+    throw new Error(`Git ref not found: '${ref}'`);
+  }
 }
 
 export const sinceTool: ToolDefinition = {

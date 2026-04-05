@@ -70,9 +70,14 @@ describe("warp: graft_since (observer comparison)", () => {
     const result = await indexCommits(warp, { cwd: tmpDir });
     await warp.core().materialize();
 
+    const tick1 = result.commitTicks.get(c1);
+    const tick2 = result.commitTicks.get(c2);
+    expect(tick1).toBeDefined();
+    expect(tick2).toBeDefined();
+
     const lens = allSymbolsLens();
-    const obs1 = await warp.observer(lens, { source: { kind: "live", ceiling: result.commitTicks.get(c1) ?? null } });
-    const obs2 = await warp.observer(lens, { source: { kind: "live", ceiling: result.commitTicks.get(c2) ?? null } });
+    const obs1 = await warp.observer(lens, { source: { kind: "live", ceiling: tick1 ?? null } });
+    const obs2 = await warp.observer(lens, { source: { kind: "live", ceiling: tick2 ?? null } });
 
     const nodes1 = await obs1.getNodes();
     const nodes2 = await obs2.getNodes();
@@ -99,9 +104,14 @@ describe("warp: graft_since (observer comparison)", () => {
     const result = await indexCommits(warp, { cwd: tmpDir });
     await warp.core().materialize();
 
+    const tick1 = result.commitTicks.get(c1);
+    const tick2 = result.commitTicks.get(c2);
+    expect(tick1).toBeDefined();
+    expect(tick2).toBeDefined();
+
     const lens = allSymbolsLens();
-    const obs1 = await warp.observer(lens, { source: { kind: "live", ceiling: result.commitTicks.get(c1) ?? null } });
-    const obs2 = await warp.observer(lens, { source: { kind: "live", ceiling: result.commitTicks.get(c2) ?? null } });
+    const obs1 = await warp.observer(lens, { source: { kind: "live", ceiling: tick1 ?? null } });
+    const obs2 = await warp.observer(lens, { source: { kind: "live", ceiling: tick2 ?? null } });
 
     // Same symbol at both ticks
     const nodes1 = await obs1.getNodes();

@@ -1,6 +1,6 @@
 # Invariant: Observer Lens Totality
 
-**Status:** Planned (enforced when WARP tools ship)
+**Status:** Enforced (observer factory ships with WARP Level 1)
 **Legend:** WARP
 
 ## What must remain true

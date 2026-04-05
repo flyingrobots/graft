@@ -10,9 +10,10 @@
  */
 
 import type WarpApp from "@git-stunts/git-warp";
+import type { Observer } from "@git-stunts/git-warp";
 
-// Lens config shape matching git-warp's observer API
-interface Lens {
+/** Lens config for creating focused observers. */
+export interface Lens {
   match: string;
   expose?: string[];
   redact?: string[];
@@ -63,9 +64,8 @@ export function symbolByNameLens(symbolName: string): Lens {
 }
 
 /**
- * Observe a directory subtree (dirs + files + symbols).
- * Aperture: dir:<path>*, file:<path>/*, sym:<path>/*
- * Returns a combined lens — use multiple observers for separation.
+ * Observe a directory subtree.
+ * Aperture: dir:<path>*
  */
 export function directoryLens(dirPath: string): Lens {
   return {
@@ -92,7 +92,7 @@ export function directoryFilesLens(dirPath: string): Lens {
 export function commitsLens(): Lens {
   return {
     match: "commit:*",
-    expose: ["sha", "message", "timestamp"],
+    expose: ["sha", "message", "timestamp", "author", "email"],
   };
 }
 
@@ -100,6 +100,6 @@ export function commitsLens(): Lens {
  * Create an observer on the current frontier with a given lens.
  * Observers are static snapshots — create a new one after writes.
  */
-export function observe(warp: WarpApp, lens: Lens): unknown {
+export function observe(warp: WarpApp, lens: Lens): Promise<Observer> {
   return warp.observer(lens);
 }
