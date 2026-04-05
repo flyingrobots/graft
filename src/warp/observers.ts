@@ -74,9 +74,9 @@ export function commitsLens(): Lens {
 }
 
 /**
- * Create an observer on a worldline with a given lens.
+ * Create an observer on the current frontier with a given lens.
+ * Observers are static snapshots — create a new one after writes.
  */
-export async function observe(warp: WarpApp, lens: Lens): Promise<unknown> {
-  const worldline = warp.worldline();
-  return worldline.observer(lens);
+export function observe(warp: WarpApp, lens: Lens): unknown {
+  return warp.observer(lens);
 }

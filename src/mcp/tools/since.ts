@@ -23,15 +23,13 @@ export const sinceTool: ToolDefinition = {
       // Lazy index: ensure the range is indexed
       await indexCommits(warp, { cwd: ctx.projectRoot, from: base, to: head });
 
-      // Observe symbols at base and head through focused lenses
-      const baseWorldline = warp.worldline();
-      const headWorldline = warp.worldline();
-
-      const baseLens = allSymbolsLens();
-      const headLens = allSymbolsLens();
-
-      const baseObs = await baseWorldline.observer(baseLens);
-      const headObs = await headWorldline.observer(headLens);
+      // Materialize and observe symbols at current frontier
+      // TODO: pin base and head to different worldline positions
+      // For now, both observe the same frontier (post-indexing state)
+      await warp.core().materialize();
+      const lens = allSymbolsLens();
+      const baseObs = await warp.observer(lens);
+      const headObs = await warp.observer(lens);
 
       const baseNodes = await baseObs.getNodes();
       const headNodes = await headObs.getNodes();

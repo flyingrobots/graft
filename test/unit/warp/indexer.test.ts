@@ -32,8 +32,8 @@ describe("warp: indexer", () => {
     expect(result.patchesWritten).toBe(1);
 
     // Read back through observer — file should exist
-    const worldline = warp.worldline();
-    const fileObs = await worldline.observer(allFilesLens());
+    
+    const fileObs = await warp.observer(allFilesLens());
     const fileNodes = await fileObs.getNodes();
     expect(fileNodes.length).toBeGreaterThanOrEqual(1);
   });
@@ -49,8 +49,8 @@ describe("warp: indexer", () => {
     const warp = await openWarp({ cwd: tmpDir });
     await indexCommits(warp, { cwd: tmpDir });
 
-    const worldline = warp.worldline();
-    const symObs = await worldline.observer(fileSymbolsLens("math.ts"));
+    
+    const symObs = await warp.observer(fileSymbolsLens("math.ts"));
     const symNodes = await symObs.getNodes();
 
     // Should have both add and sub symbols
@@ -81,14 +81,13 @@ describe("warp: indexer", () => {
     expect(result.patchesWritten).toBe(2);
 
     // After both commits, should see both symbols
-    const worldline = warp.worldline();
-    const symObs = await worldline.observer(fileSymbolsLens("app.ts"));
+    
+    const symObs = await warp.observer(fileSymbolsLens("app.ts"));
     const symNodes = await symObs.getNodes();
     expect(symNodes.length).toBe(2);
   });
 
-  // Blocked: git-warp removeNode bug — silent no-op when _cachedState is null
-  it.todo("indexes symbol removals via tombstone", async () => {
+  it("indexes symbol removals via tombstone", async () => {
     // Commit 1: two functions
     fs.writeFileSync(
       path.join(tmpDir, "utils.ts"),
@@ -108,9 +107,9 @@ describe("warp: indexer", () => {
     const warp = await openWarp({ cwd: tmpDir });
     await indexCommits(warp, { cwd: tmpDir });
 
-    const worldline = warp.worldline();
-    await worldline.materialize();
-    const symObs = await worldline.observer(fileSymbolsLens("utils.ts"));
+    
+    
+    const symObs = await warp.observer(fileSymbolsLens("utils.ts"));
     const symNodes = await symObs.getNodes();
 
     // bar should be tombstoned — only foo remains
@@ -135,8 +134,8 @@ describe("warp: indexer", () => {
     const warp = await openWarp({ cwd: tmpDir });
     await indexCommits(warp, { cwd: tmpDir });
 
-    const worldline = warp.worldline();
-    const symObs = await worldline.observer(fileSymbolsLens("api.ts"));
+    
+    const symObs = await warp.observer(fileSymbolsLens("api.ts"));
     const symNodes = await symObs.getNodes();
     expect(symNodes.length).toBe(1);
 
@@ -153,8 +152,8 @@ describe("warp: indexer", () => {
     const warp = await openWarp({ cwd: tmpDir });
     await indexCommits(warp, { cwd: tmpDir });
 
-    const worldline = warp.worldline();
-    const commitObs = await worldline.observer({
+    
+    const commitObs = await warp.observer({
       match: "commit:*",
       expose: ["sha", "message", "timestamp"],
     });
@@ -176,21 +175,20 @@ describe("warp: indexer", () => {
     const warp = await openWarp({ cwd: tmpDir });
     await indexCommits(warp, { cwd: tmpDir });
 
-    const worldline = warp.worldline();
+    
 
     // Both files should have file nodes
-    const fileObs = await worldline.observer(allFilesLens());
+    const fileObs = await warp.observer(allFilesLens());
     const fileNodes = await fileObs.getNodes();
     expect(fileNodes.length).toBe(2);
 
     // Only app.ts should have symbol nodes
-    const allSymObs = await worldline.observer(allSymbolsLens());
+    const allSymObs = await warp.observer(allSymbolsLens());
     const allSymNodes = await allSymObs.getNodes();
     expect(allSymNodes.length).toBe(1); // just 'x' from app.ts
   });
 
-  // Blocked: git-warp removeNode bug — silent no-op when _cachedState is null
-  it.todo("handles file deletion", async () => {
+  it("handles file deletion", async () => {
     fs.writeFileSync(
       path.join(tmpDir, "gone.ts"),
       'export function doomed(): void {}\n',
@@ -205,15 +203,15 @@ describe("warp: indexer", () => {
     const warp = await openWarp({ cwd: tmpDir });
     await indexCommits(warp, { cwd: tmpDir });
 
-    const worldline = warp.worldline();
+    
 
     // File node should be tombstoned
-    const fileObs = await worldline.observer(allFilesLens());
+    const fileObs = await warp.observer(allFilesLens());
     const fileNodes = await fileObs.getNodes();
     expect(fileNodes.length).toBe(0);
 
     // Symbol should be tombstoned
-    const symObs = await worldline.observer(allSymbolsLens());
+    const symObs = await warp.observer(allSymbolsLens());
     const symNodes = await symObs.getNodes();
     expect(symNodes.length).toBe(0);
   });
@@ -234,8 +232,8 @@ describe("warp: indexer", () => {
     const warp = await openWarp({ cwd: tmpDir });
     await indexCommits(warp, { cwd: tmpDir });
 
-    const worldline = warp.worldline();
-    const symObs = await worldline.observer(fileSymbolsLens("service.ts"));
+    
+    const symObs = await warp.observer(fileSymbolsLens("service.ts"));
     const symNodes = await symObs.getNodes();
 
     // UserService + constructor + getUser + deleteUser = 4

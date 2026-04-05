@@ -141,9 +141,9 @@ export async function indexCommits(
     const changes = getCommitChanges(sha, cwd);
     if (changes.length === 0) continue;
 
-    // Materialize before each patch so removeNode can observe dots.
-    // Without this, removes are silent no-ops (git-warp bug: _cachedState is null).
-    await warp.worldline().materialize();
+    // Materialize before each patch so removeNode can observe OR-Set dots.
+    // core().materialize() populates _cachedState on the runtime.
+    await warp.core().materialize();
 
     const meta = getCommitMeta(sha, cwd);
     const parentRef = `${sha}~1`;
