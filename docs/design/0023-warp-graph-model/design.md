@@ -117,47 +117,82 @@ When a commit is indexed:
 4. **Record commit node** — `addNode(commit:<sha>)` with metadata
 5. **Link files to commit** — `addEdge(at_commit)` for changed files
 
-### Materialization = Structural State at Any Commit
+### The Cardinal Rule: Observers, Not Manual Traversal
+
+**DO NOT** manage the graph. **DO NOT** implement traversal
+algorithms. **DO NOT** maintain redundant state about what the
+graph contains.
+
+Graft does exactly two things with WARP:
+1. **Write patches** — structural deltas per commit (the indexer)
+2. **Read through Observers** — focused projections for each query
+
+The graph manages itself. Graft writes facts and asks questions
+through the right lens.
+
+An Observer is NOT a filter. It is a **projection functor** with
+three layers (from AION Observer Geometry):
+1. **Projection** — what the observer sees at all
+2. **Basis** — what's natively expressible in the observer's
+   coordinate system
+3. **Accumulation** — how the observer builds understanding over
+   time from successive observations
+
+### Observer Patterns for Graft Tools
+
+Each graft tool creates an Observer with a Lens tuned to its
+query:
 
 ```typescript
-// "What does the codebase look like structurally at commit X?"
-const worldline = await warp.worldline();
-const state = await worldline.materialize();
-// → all file nodes, all symbol nodes, all edges
-// → the full structural map of the project
-```
+// "What symbols exist in src/foo.ts?"
+const obs = await worldline.observer({
+  match: 'sym:src/foo.ts:*',
+  expose: ['name', 'kind', 'signature', 'exported']
+});
+const symbols = await obs.getNodes();
 
-### Structural Queries (what this enables)
+// "What files exist in the project?"
+const obs = await worldline.observer({
+  match: 'file:*',
+  expose: ['path', 'lang']
+});
 
-```
 // "What changed between commit A and commit B?"
-compareVisibleStateV5(stateAtA, stateAtB)
-→ nodes added/removed, properties changed
-→ "function farewell was added, function greet's signature changed"
+// Two observers at different worldline positions, compared
+const wlA = await warp.worldline({ source: { kind: 'coordinate', ... }});
+const wlB = await warp.worldline({ source: { kind: 'coordinate', ... }});
+const obsA = await wlA.observer({ match: 'sym:*' });
+const obsB = await wlB.observer({ match: 'sym:*' });
+// Compare the two projected views
 
-// "Show me the history of function greet"
-// Walk ticks, filter for patches touching sym:src/foo.ts:greet
-
-// "What files have structural changes in this PR?"
-// Materialize at PR base and PR head, compare
+// "Show me symbols in this one file only"
+const obs = await worldline.observer({
+  match: 'sym:src/server.ts:*',
+  expose: ['name', 'kind', 'signature', 'startLine', 'endLine']
+});
 ```
+
+The node ID naming scheme determines the **aperture boundary** —
+it controls what each observer can focus on. This is why the
+`sym:<path>:<name>` pattern matters: it enables file-scoped,
+symbol-scoped, and project-wide observers through glob matching.
 
 ### Integration with Existing Graft
 
-| Existing tool | WARP enhancement |
-|--------------|-----------------|
-| `graft_diff` | Currently parses files live. With WARP, reads from pre-indexed graph for committed refs. |
-| `changed_since` | Currently file-level. With WARP, symbol-level change detection. |
-| `safe_read` | Cache warmth from WARP — if the graph knows a file hasn't changed structurally, skip re-parse. |
-| `file_outline` | For committed files, read outline from graph instead of parsing. |
+| Existing tool | WARP enhancement | Observer lens |
+|--------------|-----------------|---------------|
+| `graft_diff` | Reads from pre-indexed graph for committed refs | `match: 'sym:*'` at two worldline positions |
+| `changed_since` | Symbol-level change detection | `match: 'sym:<path>:*'` comparison |
+| `safe_read` | Cache warmth — skip re-parse if graph knows no structural change | `match: 'file:<path>'` property check |
+| `file_outline` | Read outline from graph instead of parsing | `match: 'sym:<path>:*'`, expose signatures |
 
 ### New tools (future cycles)
 
-| Tool | Purpose |
-|------|---------|
-| `graft_since` | Structural delta between two refs from WARP graph |
-| `symbol_history` | How a symbol evolved across commits |
-| `code_show` | Focus on a symbol by name (from graph, not parsing) |
+| Tool | Observer pattern |
+|------|-----------------|
+| `graft_since` | Compare observers at two worldline positions (two refs) |
+| `symbol_history` | Provenance-retaining observer with accumulation over ticks |
+| `code_show` | Single-symbol observer: `match: 'sym:*:<name>'` |
 
 ### git-warp Integration
 
@@ -176,6 +211,17 @@ directory. No extra files in the working tree.
 For Level 1, **lazy indexing** is the pragmatic choice — no hooks
 to install, works with existing repos, backfills on first structural
 query.
+
+### Connection to graft's existing observation model
+
+Graft's observation cache (Level 2, shipped) is already an
+**accumulator** in the Observer Geometry sense. Each `safe_read`
+records an observation. The cache hit emission returns a structural
+description based on accumulated observations. WARP Level 1 extends
+this from single-session memory to cross-commit structural memory.
+
+The agent's view through graft tools IS an observer projection.
+WARP makes the underlying graph explicit and queryable.
 
 ### Graceful degradation
 
@@ -202,14 +248,15 @@ produce ~100 KB of WARP data.
 ## Deliverables
 
 1. **Graph schema doc** — node types, edge types, property
-   conventions (this document)
-2. **Indexer** — walks git history, parses files, emits WARP
-   patches (`src/warp/indexer.ts`)
-3. **Query layer** — materializes state at any commit, compares
-   two commits structurally (`src/warp/query.ts`)
-4. **`graft_since` tool** — MCP tool that returns structural
-   delta between two refs
-5. **Tests** — indexer tests, query tests, integration tests
+   conventions, observer patterns (this document)
+2. **Indexer** — walks git history, parses files at each commit,
+   emits WARP patches via PatchBuilder (`src/warp/indexer.ts`)
+3. **Observer factory** — creates properly-lensed observers for
+   each graft query pattern (`src/warp/observers.ts`)
+4. **`graft_since` tool** — MCP tool using observer comparison
+   to return structural delta between two refs
+5. **Tests** — indexer patch tests, observer projection tests,
+   integration tests against real git history
 
 ## Effort
 
