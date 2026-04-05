@@ -1,4 +1,3 @@
-import * as fs from "node:fs";
 import * as path from "node:path";
 import { execFileSync } from "node:child_process";
 import { z } from "zod";
@@ -12,29 +11,19 @@ export const runCaptureTool: ToolDefinition = {
     "follow-up read_range calls.",
   schema: { command: z.string(), tail: z.number().optional() },
   createHandler(ctx: ToolContext): ToolHandler {
-    return (args) => {
+    return async (args) => {
       const command = args["command"] as string;
       const tail = Math.max(1, Math.floor((args["tail"] as number | undefined) ?? 60));
+      // execFileSync is intentional: MCP tool calls are sequential per-session,
+      // and synchronous execution simplifies stdout/stderr capture with timeout.
+      let output: string;
       try {
-        const output = execFileSync("sh", ["-c", command], {
+        output = execFileSync("sh", ["-c", command], {
           cwd: ctx.projectRoot,
           encoding: "utf-8",
           timeout: 30000,
           stdio: ["pipe", "pipe", "pipe"],
           maxBuffer: 10 * 1024 * 1024,
-        });
-        const lines = output.split("\n");
-        const tailed = lines.slice(-tail).join("\n");
-        // Write full output to log for follow-up read_range
-        const logPath = path.join(ctx.graftDir, "logs", "capture.log");
-        fs.mkdirSync(path.dirname(logPath), { recursive: true });
-        fs.writeFileSync(logPath, output);
-        return ctx.respond("run_capture", {
-          output: tailed,
-          totalLines: lines.length,
-          tailedLines: Math.min(tail, lines.length),
-          logPath,
-          truncated: lines.length > tail,
         });
       } catch (err: unknown) {
         const msg = err instanceof Error ? err.message : String(err);
@@ -54,6 +43,25 @@ export const runCaptureTool: ToolDefinition = {
           stderr: typeof stderr === "string" ? stderr.slice(0, 2000) : "",
         });
       }
+
+      const lines = output.split("\n");
+      const tailed = lines.slice(-tail).join("\n");
+      const logPath = path.join(ctx.graftDir, "logs", "capture.log");
+      let logWriteSucceeded = true;
+      try {
+        await ctx.fs.mkdir(path.dirname(logPath), { recursive: true });
+        await ctx.fs.writeFile(logPath, output, "utf-8");
+      } catch {
+        // Log persistence failure must not mask a successful command
+        logWriteSucceeded = false;
+      }
+      return ctx.respond("run_capture", {
+        output: tailed,
+        totalLines: lines.length,
+        tailedLines: Math.min(tail, lines.length),
+        logPath: logWriteSucceeded ? logPath : null,
+        truncated: lines.length > tail,
+      });
     };
   },
 };

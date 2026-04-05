@@ -1,5 +1,6 @@
 import * as crypto from "node:crypto";
 import * as path from "node:path";
+import { z } from "zod";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { SessionTracker } from "../session/tracker.js";
 import { Metrics } from "./metrics.js";
@@ -55,6 +56,7 @@ export function createGraftServer(): GraftServer {
   const cache = new ObservationCache();
   const codec = new CanonicalJsonCodec();
   const handlers = new Map<string, ToolHandler>();
+  const schemas = new Map<string, z.ZodObject>();
   let seq = 0;
 
   function respond(tool: string, data: Record<string, unknown>): McpToolResult {
@@ -75,10 +77,13 @@ export function createGraftServer(): GraftServer {
     handlers.set(def.name, handler);
 
     if (def.schema !== undefined) {
+      const zodSchema = z.object(def.schema).strict();
+      schemas.set(def.name, zodSchema);
       mcpServer.registerTool(def.name, { description: def.description, inputSchema: def.schema }, async (args) => {
         session.recordMessage();
         session.recordToolCall(def.name);
-        return handler(args as Record<string, unknown>);
+        const parsed: Record<string, unknown> = zodSchema.parse(args);
+        return handler(parsed);
       });
     } else {
       mcpServer.registerTool(def.name, { description: def.description }, async () => {
@@ -100,7 +105,9 @@ export function createGraftServer(): GraftServer {
       }
       session.recordMessage();
       session.recordToolCall(name);
-      return handler(args);
+      const schema = schemas.get(name);
+      const parsed: Record<string, unknown> = schema !== undefined ? schema.parse(args) : args;
+      return handler(parsed);
     },
     injectSessionMessages(count: number): void {
       for (let i = 0; i < count; i++) {

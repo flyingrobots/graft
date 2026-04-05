@@ -1,4 +1,5 @@
 import { describe, it, expect } from "vitest";
+import { ZodError } from "zod";
 import { createGraftServer } from "../../../src/mcp/server.js";
 
 describe("mcp: tool registration", () => {
@@ -106,6 +107,18 @@ describe("mcp: tool handlers", () => {
     expect(parsed["totalReads"]).toBeDefined();
     expect(parsed["totalOutlines"]).toBeDefined();
     expect(parsed["totalRefusals"]).toBeDefined();
+  });
+});
+
+describe("mcp: strict schema validation", () => {
+  it("rejects unknown keys in tool arguments", async () => {
+    const server = createGraftServer();
+    await expect(
+      server.callTool("safe_read", {
+        path: "test/fixtures/small.ts",
+        bogus_key: "should be rejected",
+      }),
+    ).rejects.toThrow(ZodError);
   });
 });
 

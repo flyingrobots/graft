@@ -1,4 +1,3 @@
-import * as fs from "node:fs";
 import { z } from "zod";
 import { safeRead } from "../../operations/safe-read.js";
 import type { SafeReadResult } from "../../operations/safe-read.js";
@@ -32,10 +31,12 @@ export const safeReadTool: ToolDefinition = {
     return async (args) => {
       const filePath = ctx.resolvePath(args["path"] as string);
 
-      // Try to read the file for cache check
+      // readFileSync is intentional for TOCTOU prevention: the same content
+      // must be used for cache check, policy evaluation, and outline extraction.
+      // An async read could yield different content if the file changes between await points.
       let rawContent: string | null = null;
       try {
-        rawContent = fs.readFileSync(filePath, "utf-8");
+        rawContent = ctx.fs.readFileSync(filePath, "utf-8");
       } catch {
         // File doesn't exist or can't be read — proceed to safeRead for error handling
       }
@@ -44,17 +45,36 @@ export const safeReadTool: ToolDefinition = {
       if (rawContent !== null) {
         const cacheResult = ctx.cache.check(filePath, rawContent);
         if (cacheResult.hit) {
+          // Defense: re-check policy before returning cached data.
+          // A previously-allowed file may now be refused (e.g., path banned).
+          const actual = cacheResult.obs.actual;
+          const policy = evaluatePolicy(
+            { path: filePath, lines: actual.lines, bytes: actual.bytes },
+            { sessionDepth: ctx.session.getSessionDepth() },
+          );
+          if (policy instanceof RefusedResult) {
+            ctx.metrics.recordRefusal();
+            return ctx.respond("safe_read", {
+              path: filePath,
+              projection: "refused",
+              reason: policy.reason,
+              reasonDetail: policy.reasonDetail,
+              next: [...policy.next],
+              actual,
+            });
+          }
+
           cacheResult.obs.touch();
-          ctx.metrics.recordCacheHit(cacheResult.obs.actual.bytes);
+          ctx.metrics.recordCacheHit(actual.bytes);
           return ctx.respond("safe_read", {
             path: filePath,
             projection: "cache_hit",
             reason: "REREAD_UNCHANGED",
             outline: cacheResult.obs.outline,
             jumpTable: cacheResult.obs.jumpTable,
-            actual: cacheResult.obs.actual,
+            actual,
             readCount: cacheResult.obs.readCount,
-            estimatedBytesAvoided: cacheResult.obs.actual.bytes,
+            estimatedBytesAvoided: actual.bytes,
             lastReadAt: cacheResult.obs.lastReadAt,
           });
         }
