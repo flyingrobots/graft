@@ -77,7 +77,7 @@ export function createGraftServer(): GraftServer {
     handlers.set(def.name, handler);
 
     if (def.schema !== undefined) {
-      const zodSchema = z.object(def.schema);
+      const zodSchema = z.object(def.schema).strict();
       schemas.set(def.name, zodSchema);
       mcpServer.registerTool(def.name, { description: def.description, inputSchema: def.schema }, async (args) => {
         session.recordMessage();

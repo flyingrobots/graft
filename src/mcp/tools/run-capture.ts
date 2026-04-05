@@ -14,26 +14,14 @@ export const runCaptureTool: ToolDefinition = {
     return async (args) => {
       const command = args["command"] as string;
       const tail = Math.max(1, Math.floor((args["tail"] as number | undefined) ?? 60));
+      let output: string;
       try {
-        const output = execFileSync("sh", ["-c", command], {
+        output = execFileSync("sh", ["-c", command], {
           cwd: ctx.projectRoot,
           encoding: "utf-8",
           timeout: 30000,
           stdio: ["pipe", "pipe", "pipe"],
           maxBuffer: 10 * 1024 * 1024,
-        });
-        const lines = output.split("\n");
-        const tailed = lines.slice(-tail).join("\n");
-        // Write full output to log for follow-up read_range
-        const logPath = path.join(ctx.graftDir, "logs", "capture.log");
-        await ctx.fs.mkdir(path.dirname(logPath), { recursive: true });
-        await ctx.fs.writeFile(logPath, output, "utf-8");
-        return ctx.respond("run_capture", {
-          output: tailed,
-          totalLines: lines.length,
-          tailedLines: Math.min(tail, lines.length),
-          logPath,
-          truncated: lines.length > tail,
         });
       } catch (err: unknown) {
         const msg = err instanceof Error ? err.message : String(err);
@@ -53,6 +41,23 @@ export const runCaptureTool: ToolDefinition = {
           stderr: typeof stderr === "string" ? stderr.slice(0, 2000) : "",
         });
       }
+
+      const lines = output.split("\n");
+      const tailed = lines.slice(-tail).join("\n");
+      const logPath = path.join(ctx.graftDir, "logs", "capture.log");
+      try {
+        await ctx.fs.mkdir(path.dirname(logPath), { recursive: true });
+        await ctx.fs.writeFile(logPath, output, "utf-8");
+      } catch {
+        // Log persistence failure must not mask a successful command
+      }
+      return ctx.respond("run_capture", {
+        output: tailed,
+        totalLines: lines.length,
+        tailedLines: Math.min(tail, lines.length),
+        logPath,
+        truncated: lines.length > tail,
+      });
     };
   },
 };

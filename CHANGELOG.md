@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## Unreleased
 
+### Fixed
+
+- **Strict MCP argument validation**: Zod schemas now reject unknown
+  keys at the MCP edge instead of silently stripping them.
+- **run_capture log-write isolation**: filesystem failures when
+  persisting capture logs no longer mask successful command output.
+- **Cache-hit policy re-check**: `safe_read` now re-evaluates policy
+  on cache hits, preventing stale cached data from bypassing refusals.
+
 ## [0.2.2] - 2026-04-04
 
 ### Added
