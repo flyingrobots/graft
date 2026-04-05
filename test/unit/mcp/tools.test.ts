@@ -14,7 +14,7 @@ describe("mcp: tool registration", () => {
     expect(toolNames).toContain("state_load");
     expect(toolNames).toContain("doctor");
     expect(toolNames).toContain("stats");
-    expect(toolNames).toHaveLength(10);
+    expect(toolNames).toHaveLength(11);
   });
 });
 
@@ -107,6 +107,33 @@ describe("mcp: tool handlers", () => {
     expect(parsed["totalReads"]).toBeDefined();
     expect(parsed["totalOutlines"]).toBeDefined();
     expect(parsed["totalRefusals"]).toBeDefined();
+  });
+});
+
+describe("mcp: explain tool", () => {
+  it("returns meaning and action for known reason code", async () => {
+    const server = createGraftServer();
+    const result = await server.callTool("explain", { code: "BINARY" });
+    const parsed = JSON.parse(extractText(result)) as Record<string, unknown>;
+    expect(parsed["code"]).toBe("BINARY");
+    expect(parsed["meaning"]).toBeDefined();
+    expect(parsed["action"]).toBeDefined();
+  });
+
+  it("is case-insensitive", async () => {
+    const server = createGraftServer();
+    const result = await server.callTool("explain", { code: "binary" });
+    const parsed = JSON.parse(extractText(result)) as Record<string, unknown>;
+    expect(parsed["code"]).toBe("BINARY");
+    expect(parsed["meaning"]).toBeDefined();
+  });
+
+  it("returns error for unknown code", async () => {
+    const server = createGraftServer();
+    const result = await server.callTool("explain", { code: "NONSENSE" });
+    const parsed = JSON.parse(extractText(result)) as Record<string, unknown>;
+    expect(parsed["error"]).toBe("Unknown reason code");
+    expect(parsed["knownCodes"]).toBeDefined();
   });
 });
 

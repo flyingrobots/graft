@@ -22,6 +22,7 @@ import { runCaptureTool } from "./tools/run-capture.js";
 import { stateSaveTool, stateLoadTool } from "./tools/state.js";
 import { doctorTool } from "./tools/doctor.js";
 import { statsTool } from "./tools/stats.js";
+import { explainTool } from "./tools/explain.js";
 
 export type { McpToolResult, ToolHandler, ToolContext };
 
@@ -37,6 +38,7 @@ const TOOL_REGISTRY: readonly ToolDefinition[] = [
   stateLoadTool,
   doctorTool,
   statsTool,
+  explainTool,
 ];
 
 export interface GraftServer {
