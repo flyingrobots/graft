@@ -60,6 +60,10 @@ export function buildReceiptResult(
     if (byteLen === prev) break;
     prev = byteLen;
     receipt["returnedBytes"] = byteLen;
+    const fb = receipt["fileBytes"] as number | null;
+    receipt["compressionRatio"] = fb !== null && fb > 0
+      ? Math.round((byteLen / fb) * 1000) / 1000
+      : null;
     (receipt["cumulative"] as Record<string, number>)["bytesReturned"] =
       deps.metrics.bytesReturned + byteLen;
   }

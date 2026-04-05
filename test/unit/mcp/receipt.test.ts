@@ -177,6 +177,27 @@ describe("mcp: receipt mode", () => {
     expect(receipt.reason).toBe("REREAD_UNCHANGED");
   });
 
+  it("compressionRatio is returnedBytes / fileBytes for file operations", async () => {
+    const server = createGraftServer();
+    const result = parse(await server.callTool("safe_read", {
+      path: "test/fixtures/small.ts",
+    }));
+    const receipt = result["_receipt"] as Receipt & { compressionRatio: number | null };
+    expect(receipt.compressionRatio).not.toBeNull();
+    expect(typeof receipt.compressionRatio).toBe("number");
+    expect(receipt.compressionRatio).toBeGreaterThan(0);
+    // compressionRatio = returnedBytes / fileBytes
+    const expected = Math.round((receipt.returnedBytes / receipt.fileBytes!) * 1000) / 1000;
+    expect(receipt.compressionRatio).toBe(expected);
+  });
+
+  it("compressionRatio is null for non-file operations", async () => {
+    const server = createGraftServer();
+    const result = parse(await server.callTool("doctor", {}));
+    const receipt = result["_receipt"] as Receipt & { compressionRatio: number | null };
+    expect(receipt.compressionRatio).toBeNull();
+  });
+
   it("returnedBytes reflects actual response size", async () => {
     const server = createGraftServer();
     const raw = await server.callTool("safe_read", {
