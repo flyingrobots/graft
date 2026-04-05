@@ -19,8 +19,11 @@ Each handler then receives validated, typed args.
 
 ## Files
 
-- `src/mcp/server.ts` — add `.parse()` call before handler dispatch
-- All tool handler files — remove `as` casts, accept typed args
+- `src/mcp/server.ts` — add `z.object(def.schema).parse(args)` in
+  dispatch loop before calling handler
+- Schema-backed tool handlers (8 of 10) — remove `as` casts,
+  accept typed args from the parsed result
+- `doctor` and `stats` have no schema — no args to validate
 
 Effort: S
 

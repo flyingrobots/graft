@@ -13,9 +13,19 @@ and makes those handlers untestable with mock filesystems.
 
 ## Fix
 
-Use `ctx.fs.readFileSync()` for the sync reads. For run-capture's
-`mkdirSync`/`writeFileSync`, add sync write methods to the
-FileSystem port or use async equivalents.
+### Simple (safe-read, file-outline, changed-since)
+
+Replace `fs.readFileSync(path, "utf-8")` with
+`ctx.fs.readFileSync(path, "utf-8")`. The port already exposes
+this method.
+
+### Complex (run-capture)
+
+The handler uses `fs.mkdirSync` and `fs.writeFileSync`, which are
+not in the FileSystem port. Prefer refactoring to async equivalents
+(`ctx.fs.mkdir`, `ctx.fs.writeFile`), which already exist in the
+port. Only extend the port with sync methods if async refactoring
+is architecturally infeasible.
 
 ## Why it exists
 
@@ -24,6 +34,6 @@ happen before the async operation. The FileSystem port has
 `readFileSync` but the handlers import `node:fs` directly instead
 of using the port.
 
-Effort: S
+Effort: S (simple handlers), S-M (run-capture async refactor)
 
 Flagged by CodeRabbit on PR #19. Pre-existing since cycle 0010.
