@@ -1,7 +1,7 @@
 # Cycle 0022 — Pre-WARP Release
 
-**Sponsor human:** James
-**Sponsor agent:** Claude
+**Sponsor human:** Repository Operator
+**Sponsor agent:** Implementation Agent
 
 **Hill:** Clear the non-WARP backlog and cut a release that makes
 graft production-ready before WARP begins.
