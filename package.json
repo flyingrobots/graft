@@ -3,6 +3,7 @@
   "version": "0.3.1",
   "description": "Context governor for coding agents — MCP server with policy-enforced reads, structural outlines, and session tracking",
   "type": "module",
+  "packageManager": "pnpm@10.30.0",
   "bin": {
     "graft": "./bin/graft.js",
     "git-graft": "./bin/graft.js"
@@ -10,33 +11,58 @@
   "files": [
     "bin/",
     "src/",
+    "docs/GUIDE.md",
     "LICENSE",
-    "README.md"
+    "NOTICE",
+    "README.md",
+    "CHANGELOG.md"
   ],
   "scripts": {
     "build": "tsc -p tsconfig.build.json",
     "test": "vitest run",
     "test:watch": "vitest",
     "lint": "eslint .",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "pack:check": "pnpm pack --dry-run"
   },
   "engines": {
     "node": ">=20.11.0"
   },
+  "publishConfig": {
+    "access": "public",
+    "registry": "https://registry.npmjs.org/"
+  },
+  "homepage": "https://github.com/flyingrobots/graft#readme",
+  "bugs": {
+    "url": "https://github.com/flyingrobots/graft/issues"
+  },
   "keywords": [
-    "llm",
-    "agent",
-    "context",
     "mcp",
-    "tree-sitter",
+    "mcp-server",
+    "model-context-protocol",
+    "claude-code",
+    "cursor",
+    "coding-agent",
+    "ai-agent",
+    "context-window",
     "code-navigation",
-    "structural-reads"
+    "structural-diff",
+    "tree-sitter",
+    "developer-tools"
   ],
   "author": "James Ross <james@flyingrobots.dev>",
   "license": "Apache-2.0",
   "repository": {
     "type": "git",
-    "url": "https://github.com/flyingrobots/graft.git"
+    "url": "git+https://github.com/flyingrobots/graft.git"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.29.0",
+    "picomatch": "^4.0.4",
+    "tree-sitter-wasms": "0.1.13",
+    "tsx": "^4.21.0",
+    "web-tree-sitter": "^0.20.8",
+    "zod": "4.3.6"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
@@ -47,14 +73,6 @@
     "typescript": "^6.0.2",
     "typescript-eslint": "^8.58.0",
     "vitest": "^4.1.2"
-  },
-  "dependencies": {
-    "@modelcontextprotocol/sdk": "^1.29.0",
-    "picomatch": "^4.0.4",
-    "tree-sitter-wasms": "0.1.13",
-    "tsx": "^4.21.0",
-    "web-tree-sitter": "^0.20.8",
-    "zod": "4.3.6"
   },
   "pnpm": {
     "onlyBuiltDependencies": []
