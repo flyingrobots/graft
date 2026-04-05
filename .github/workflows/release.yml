@@ -161,6 +161,6 @@ jobs:
       - run: pnpm install --frozen-lockfile
 
       - name: Publish to npm with OIDC provenance
-        run: pnpm publish --access public --no-git-checks --provenance
+        run: npm publish --access public --provenance
         env:
           NPM_CONFIG_PROVENANCE: true
