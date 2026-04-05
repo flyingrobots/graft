@@ -8,6 +8,7 @@ on:
 
 permissions:
   contents: write
+  id-token: write
 
 concurrency:
   group: release-${{ github.ref }}
@@ -115,3 +116,31 @@ jobs:
             --title "v${{ steps.version.outputs.version }}" \
             --notes-file release-notes.txt \
             --verify-tag
+
+  # Phase 3: Publish to npm via OIDC provenance
+  publish:
+    needs: release
+    runs-on: ubuntu-latest
+    environment: npm
+    permissions:
+      id-token: write
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+          registry-url: https://registry.npmjs.org
+
+      - run: pnpm install --frozen-lockfile
+
+      - name: Publish to npm with OIDC provenance
+        run: pnpm publish --access public --no-git-checks --provenance
+        env:
+          NPM_CONFIG_PROVENANCE: true
