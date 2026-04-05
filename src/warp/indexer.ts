@@ -277,7 +277,6 @@ export async function indexCommits(
 
   for (const sha of commits) {
     const changes = getCommitChanges(sha, cwd);
-    if (changes.length === 0) continue;
 
     // Materialize before each patch so removeNode can observe OR-Set dots.
     await warp.core().materialize();
