@@ -1,0 +1,28 @@
+id: T01
+pair: P01
+title: "Add GRAFTIGNORE_MATCH reason code"
+repo: flyingrobots/graft
+commit: 6be695fac39be3638aea3ec54f1e46b75f18d67a
+prompt: |
+  Add a new reason code GRAFTIGNORE_MATCH to graft's policy engine.
+  This code should be returned when a file is refused because it
+  matches a pattern in .graftignore. Currently .graftignore matches
+  return the generic GRAFTIGNORE reason — give them their own code
+  (GRAFTIGNORE_MATCH) to distinguish pattern matches from other
+  .graftignore refusals.
+
+  Update the policy evaluation, type definitions, and tests. Make
+  sure all existing tests still pass.
+acceptance:
+  automated:
+    - "pnpm test exits 0"
+    - "pnpm lint exits 0"
+    - "grep -q 'GRAFTIGNORE_MATCH' src/policy/types.ts"
+    - "grep -q 'GRAFTIGNORE_MATCH' src/policy/evaluate.ts"
+    - "grep -rq 'GRAFTIGNORE_MATCH' test/"
+  manual: null
+difficulty: M
+duration_band: "15-45 min"
+read_profile: "5-8 files, 1 large (evaluate.ts)"
+category: feature
+negative_control: false

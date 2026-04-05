@@ -1,0 +1,34 @@
+id: T10
+pair: P05
+title: "Extract observation cache interface"
+repo: flyingrobots/graft
+commit: 6be695fac39be3638aea3ec54f1e46b75f18d67a
+prompt: |
+  The ObservationCache class in src/mcp/cache.ts is a concrete
+  implementation. Extract a CachePort interface in
+  src/ports/cache.ts that defines the caching contract, then
+  make ObservationCache implement it.
+
+  The interface should cover the key cache methods: record(), get(),
+  check(). Note: isStale() belongs on the Observation entity, not
+  the cache port. Update any code that references
+  ObservationCache directly to use the port interface where
+  appropriate (dependency injection sites). Keep the concrete
+  class for the in-memory adapter.
+
+  All existing tests must pass. Add a test that verifies the
+  interface contract.
+acceptance:
+  automated:
+    - "pnpm test exits 0"
+    - "pnpm lint exits 0"
+    - "test -f src/ports/cache.ts"
+    - "grep -q 'CachePort\\|ObservationCache.*implements' src/mcp/cache.ts"
+    - "grep -rqE 'CachePort' src/mcp/context.ts"
+    - "grep -rqE 'CachePort' test/"
+  manual: null
+difficulty: M
+duration_band: "15-45 min"
+read_profile: "5-8 files, 2 medium (cache.ts, server.ts)"
+category: refactor
+negative_control: false

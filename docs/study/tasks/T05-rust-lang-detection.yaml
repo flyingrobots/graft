@@ -1,0 +1,28 @@
+id: T05
+pair: P03
+title: "Add Rust language detection"
+repo: flyingrobots/graft
+commit: 6be695fac39be3638aea3ec54f1e46b75f18d67a
+prompt: |
+  Add Rust language detection to graft's parser. The detectLang
+  function in src/parser/lang.ts should recognize .rs files and
+  return "rust" as the language identifier.
+
+  Note: tree-sitter Rust grammar is not yet available, so
+  outline extraction will not work for Rust files. The detection
+  should return the language but extractOutline should gracefully
+  handle unsupported languages. Add tests for detection and for
+  the graceful fallback when outline extraction is attempted on
+  a .rs file.
+acceptance:
+  automated:
+    - "pnpm test exits 0"
+    - "pnpm lint exits 0"
+    - "grep -q 'rust' src/parser/lang.ts"
+    - "grep -rq '\\.rs' test/"
+  manual: null
+difficulty: S
+duration_band: "10-25 min"
+read_profile: "3-6 files, 1 medium (outline.ts)"
+category: feature
+negative_control: false

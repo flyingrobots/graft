@@ -1,0 +1,25 @@
+id: T03
+pair: P02
+title: "Fix run_capture with tail=0"
+repo: flyingrobots/graft
+commit: 6be695fac39be3638aea3ec54f1e46b75f18d67a
+prompt: |
+  The run_capture tool accepts a tail parameter that controls how
+  many lines of output to return. Investigate what happens when
+  tail=0 is passed. If the behavior is incorrect or undefined,
+  fix it so that tail=0 returns no output lines (empty result)
+  while still logging the full output to the capture log.
+
+  Add or update tests to cover the tail=0 edge case.
+acceptance:
+  automated:
+    - "pnpm test exits 0"
+    - "pnpm lint exits 0"
+    - "grep -rqE 'tail.*(0|zero)' test/"
+    - "grep -rqE 'capture.*log|logPath' test/"
+  manual: null
+difficulty: S
+duration_band: "10-20 min"
+read_profile: "3-5 files, 1 medium (run-capture.ts)"
+category: bugfix
+negative_control: false

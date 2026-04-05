@@ -1,0 +1,33 @@
+id: T07
+pair: P04
+title: "Document session depth algorithm"
+repo: flyingrobots/graft
+commit: 6be695fac39be3638aea3ec54f1e46b75f18d67a
+prompt: |
+  Read the graft source code and write a clear, accurate technical
+  document explaining how the session depth algorithm works. Cover:
+
+  - What triggers depth transitions (early → mid → late)
+  - The exact thresholds for each transition
+  - How depth affects policy (dynamic byte caps)
+  - How tripwires relate to session depth
+  - The message counting mechanism
+
+  Write the document as docs/internals/session-depth.md. Include
+  the actual threshold values from the source code.
+acceptance:
+  automated:
+    - "pnpm test exits 0"
+    - "pnpm lint exits 0"
+    - "test -f docs/internals/session-depth.md"
+  manual:
+    description: |
+      Evaluator checks that the document accurately describes the
+      session depth algorithm by comparing against source code.
+      Must include correct threshold values and transition triggers.
+    blinded: true
+difficulty: S
+duration_band: "10-25 min"
+read_profile: "3-5 files, mostly reading (tracker.ts, types.ts)"
+category: investigation
+negative_control: true

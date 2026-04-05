@@ -1,0 +1,33 @@
+id: T09
+pair: P05
+title: "Extract metrics logger interface"
+repo: flyingrobots/graft
+commit: 6be695fac39be3638aea3ec54f1e46b75f18d67a
+prompt: |
+  The MetricsLogger class in src/metrics/logger.ts is a concrete
+  implementation. Extract a MetricsPort interface in
+  src/ports/metrics.ts that defines the logging contract, then
+  make MetricsLogger implement it.
+
+  The interface should have a log() method matching the current
+  signature. Update any code that references MetricsLogger directly
+  to use the port interface where appropriate (dependency injection
+  sites). Keep the concrete class for the Node adapter.
+
+  All existing tests must pass. Add a test that verifies the
+  interface contract.
+acceptance:
+  automated:
+    - "pnpm test exits 0"
+    - "pnpm lint exits 0"
+    - "test -f src/ports/metrics.ts"
+    - "grep -q 'MetricsPort\\|MetricsLogger.*implements' src/metrics/logger.ts"
+    - "grep -qE 'MetricsPort' src/mcp/context.ts"
+    - "grep -qE 'MetricsPort' src/mcp/server.ts"
+    - "grep -rqE 'MetricsPort' test/"
+  manual: null
+difficulty: M
+duration_band: "15-45 min"
+read_profile: "5-8 files, 2 medium (logger.ts, server.ts)"
+category: refactor
+negative_control: false
