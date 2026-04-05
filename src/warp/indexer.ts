@@ -194,6 +194,12 @@ function removeDiffSymbols(
   entries: readonly DiffEntry[],
 ): void {
   for (const entry of entries) {
+    // Recurse into childDiff if present (remove grandchildren first)
+    if (entry.childDiff !== undefined) {
+      removeDiffSymbols(patch, filePath, fileId, [...entry.childDiff.removed]);
+      removeDiffSymbols(patch, filePath, fileId, [...entry.childDiff.added]);
+      removeDiffSymbols(patch, filePath, fileId, [...entry.childDiff.changed]);
+    }
     const symId = symNodeId(filePath, entry.name);
     patch.removeEdge(fileId, symId, "contains");
     patch.removeNode(symId);
@@ -241,6 +247,9 @@ function applyChildDiffs(
       patch.removeEdge(fileId, symId, "contains");
       patch.removeNode(symId);
     }
+
+    // Recurse into changed children that have their own childDiffs
+    applyChildDiffs(patch, filePath, fileId, commitId, [...entry.childDiff.changed], jumpLookup);
 
     for (const child of entry.childDiff.changed) {
       const symId = symNodeId(filePath, child.name);

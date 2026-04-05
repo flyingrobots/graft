@@ -86,9 +86,13 @@ export function createGraftServer(): GraftServer {
 
   // Lazy WARP initialization — only loaded when a WARP-backed tool needs it.
   // Single pending promise prevents duplicate instances from concurrent calls.
+  // On rejection, clear cache so subsequent calls can retry.
   let warpPromise: Promise<WarpApp> | null = null;
   function getWarp(): Promise<WarpApp> {
-    warpPromise ??= openWarp({ cwd: projectRoot });
+    warpPromise ??= openWarp({ cwd: projectRoot }).catch((err: unknown) => {
+      warpPromise = null;
+      throw err;
+    });
     return warpPromise;
   }
 
