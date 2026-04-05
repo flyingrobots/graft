@@ -1,4 +1,3 @@
-import * as fs from "node:fs";
 import * as path from "node:path";
 import { execFileSync } from "node:child_process";
 import { z } from "zod";
@@ -12,7 +11,7 @@ export const runCaptureTool: ToolDefinition = {
     "follow-up read_range calls.",
   schema: { command: z.string(), tail: z.number().optional() },
   createHandler(ctx: ToolContext): ToolHandler {
-    return (args) => {
+    return async (args) => {
       const command = args["command"] as string;
       const tail = Math.max(1, Math.floor((args["tail"] as number | undefined) ?? 60));
       try {
@@ -27,8 +26,8 @@ export const runCaptureTool: ToolDefinition = {
         const tailed = lines.slice(-tail).join("\n");
         // Write full output to log for follow-up read_range
         const logPath = path.join(ctx.graftDir, "logs", "capture.log");
-        fs.mkdirSync(path.dirname(logPath), { recursive: true });
-        fs.writeFileSync(logPath, output);
+        await ctx.fs.mkdir(path.dirname(logPath), { recursive: true });
+        await ctx.fs.writeFile(logPath, output, "utf-8");
         return ctx.respond("run_capture", {
           output: tailed,
           totalLines: lines.length,

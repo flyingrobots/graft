@@ -1,4 +1,3 @@
-import * as fs from "node:fs";
 import { z } from "zod";
 import { safeRead } from "../../operations/safe-read.js";
 import type { SafeReadResult } from "../../operations/safe-read.js";
@@ -35,7 +34,7 @@ export const safeReadTool: ToolDefinition = {
       // Try to read the file for cache check
       let rawContent: string | null = null;
       try {
-        rawContent = fs.readFileSync(filePath, "utf-8");
+        rawContent = ctx.fs.readFileSync(filePath, "utf-8");
       } catch {
         // File doesn't exist or can't be read — proceed to safeRead for error handling
       }

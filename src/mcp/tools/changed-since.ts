@@ -1,4 +1,3 @@
-import * as fs from "node:fs";
 import { z } from "zod";
 import { evaluatePolicy } from "../../policy/evaluate.js";
 import { RefusedResult } from "../../policy/types.js";
@@ -24,7 +23,7 @@ export const changedSinceTool: ToolDefinition = {
       // Read the file first to get dimensions for policy evaluation.
       let rawContent: string;
       try {
-        rawContent = fs.readFileSync(filePath, "utf-8");
+        rawContent = ctx.fs.readFileSync(filePath, "utf-8");
       } catch {
         return ctx.respond("changed_since", { status: "file_not_found" });
       }

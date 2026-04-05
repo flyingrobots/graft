@@ -1,4 +1,3 @@
-import * as fs from "node:fs";
 import { z } from "zod";
 import { fileOutline } from "../../operations/file-outline.js";
 import { hashContent } from "../cache.js";
@@ -18,7 +17,7 @@ export const fileOutlineTool: ToolDefinition = {
       // Check cache
       let rawContent: string | null = null;
       try {
-        rawContent = fs.readFileSync(filePath, "utf-8");
+        rawContent = ctx.fs.readFileSync(filePath, "utf-8");
       } catch {
         // proceed to fileOutline for error handling
       }
