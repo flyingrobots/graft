@@ -7,7 +7,8 @@ export type ReasonCode =
   | "MINIFIED"
   | "BUILD_OUTPUT"
   | "SECRET"
-  | "GRAFTIGNORE";
+  | "GRAFTIGNORE"
+  | "BUDGET_CAP";
 
 export type SessionDepth = "early" | "mid" | "late" | "unknown";
 
@@ -20,6 +21,7 @@ export interface PolicyInput {
 export interface PolicyOptions {
   graftignorePatterns?: string[] | undefined;
   sessionDepth?: SessionDepth | undefined;
+  budgetRemaining?: number | undefined;
 }
 
 // Shared fields for all results
@@ -46,12 +48,12 @@ export class ContentResult implements PolicyResultBase {
 
 export class OutlineResult implements PolicyResultBase {
   readonly projection = "outline" as const;
-  readonly reason: "OUTLINE" | "SESSION_CAP";
+  readonly reason: "OUTLINE" | "SESSION_CAP" | "BUDGET_CAP";
   readonly thresholds: { readonly lines: number; readonly bytes: number };
   readonly actual: { readonly lines: number; readonly bytes: number };
   readonly sessionDepth?: SessionDepth | undefined;
 
-  constructor(opts: { reason: "OUTLINE" | "SESSION_CAP"; thresholds: { lines: number; bytes: number }; actual: { lines: number; bytes: number }; sessionDepth?: SessionDepth | undefined }) {
+  constructor(opts: { reason: "OUTLINE" | "SESSION_CAP" | "BUDGET_CAP"; thresholds: { lines: number; bytes: number }; actual: { lines: number; bytes: number }; sessionDepth?: SessionDepth | undefined }) {
     this.reason = opts.reason;
     this.thresholds = Object.freeze({ ...opts.thresholds });
     this.actual = Object.freeze({ ...opts.actual });

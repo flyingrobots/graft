@@ -15,6 +15,7 @@ export interface ReceiptDeps {
   readonly metrics: MetricsSnapshot;
   readonly tripwires: Tripwire[];
   readonly codec: JsonCodec;
+  readonly budget?: { total: number; consumed: number; remaining: number; fraction: number } | null;
 }
 
 /**
@@ -46,6 +47,10 @@ export function buildReceiptResult(
     },
   };
 
+  if (deps.budget != null) {
+    receipt["budget"] = deps.budget;
+  }
+
   const fullData: Record<string, unknown> = { ...data, _receipt: receipt };
   if (deps.tripwires.length > 0) {
     fullData["tripwire"] = deps.tripwires;
@@ -60,6 +65,10 @@ export function buildReceiptResult(
     if (byteLen === prev) break;
     prev = byteLen;
     receipt["returnedBytes"] = byteLen;
+    const fb = receipt["fileBytes"] as number | null;
+    receipt["compressionRatio"] = fb !== null && fb > 0
+      ? Math.round((byteLen / fb) * 1000) / 1000
+      : null;
     (receipt["cumulative"] as Record<string, number>)["bytesReturned"] =
       deps.metrics.bytesReturned + byteLen;
   }

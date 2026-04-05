@@ -18,6 +18,7 @@ export interface ToolDefinition {
   readonly name: string;
   readonly description: string;
   readonly schema?: Record<string, z.ZodType>;
+  readonly policyCheck?: boolean;
   readonly createHandler: (ctx: ToolContext) => ToolHandler;
 }
 

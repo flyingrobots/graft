@@ -34,7 +34,7 @@ describe("integration: MCP server over stdio", () => {
     expect(names).toContain("state_load");
     expect(names).toContain("doctor");
     expect(names).toContain("stats");
-    expect(names).toHaveLength(10);
+    expect(names).toHaveLength(12);
   });
 
   it("tools have JSON Schema input definitions", async () => {

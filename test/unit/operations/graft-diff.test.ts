@@ -141,6 +141,19 @@ describe("operations: graft diff", () => {
     expect(result.files[0]!.path).toBe("a.ts");
   });
 
+  it("includes summary line per file", () => {
+    fs.writeFileSync(path.join(tmpDir, "a.ts"), 'export function foo(): void {}\n');
+    git(tmpDir, "add -A");
+    git(tmpDir, "commit -m v1");
+
+    fs.writeFileSync(path.join(tmpDir, "a.ts"), 'export function foo(): void {}\nexport function bar(): string { return ""; }\n');
+    git(tmpDir, "add -A");
+    git(tmpDir, "commit -m v2");
+
+    const result = graftDiff({ cwd: tmpDir, fs: nodeFs, base: "HEAD~1", head: "HEAD" });
+    expect(result.files[0]!.summary).toBe("a.ts | modified | +1 added, =1 unchanged");
+  });
+
   it("includes base and head labels in result", () => {
     fs.writeFileSync(path.join(tmpDir, "a.ts"), 'export const a = 1;\n');
     git(tmpDir, "add -A");

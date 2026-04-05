@@ -8,7 +8,18 @@ import { diffOutlines, OutlineDiff } from "../parser/diff.js";
 export interface FileDiff {
   path: string;
   status: "modified" | "added" | "deleted";
+  summary: string;
   diff: OutlineDiff;
+}
+
+function buildSummary(filePath: string, status: string, diff: OutlineDiff): string {
+  const parts: string[] = [];
+  if (diff.added.length > 0) parts.push(`+${String(diff.added.length)} added`);
+  if (diff.removed.length > 0) parts.push(`-${String(diff.removed.length)} removed`);
+  if (diff.changed.length > 0) parts.push(`~${String(diff.changed.length)} changed`);
+  if (diff.unchangedCount > 0) parts.push(`=${String(diff.unchangedCount)} unchanged`);
+  const stats = parts.length > 0 ? parts.join(", ") : "no structural changes";
+  return `${filePath} | ${status} | ${stats}`;
 }
 
 export interface GraftDiffResult {
@@ -86,7 +97,8 @@ export function graftDiff(opts: GraftDiffOptions): GraftDiffResult {
 
     // Compute structural diff (only for supported languages)
     if (lang === null) {
-      files.push({ path: filePath, status, diff: emptyDiff() });
+      const empty = emptyDiff();
+      files.push({ path: filePath, status, summary: buildSummary(filePath, status, empty), diff: empty });
       continue;
     }
 
@@ -98,7 +110,7 @@ export function graftDiff(opts: GraftDiffOptions): GraftDiffResult {
       : [];
 
     const diff = diffOutlines(baseOutline, headOutline);
-    files.push({ path: filePath, status, diff });
+    files.push({ path: filePath, status, summary: buildSummary(filePath, status, diff), diff });
   }
 
   return { base, head: headLabel, files };

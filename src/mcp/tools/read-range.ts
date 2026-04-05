@@ -9,6 +9,7 @@ export const readRangeTool: ToolDefinition = {
     "Use jump table entries from file_outline or safe_read to target " +
     "specific symbols.",
   schema: { path: z.string(), start: z.number(), end: z.number() },
+  policyCheck: true,
   createHandler(ctx: ToolContext): ToolHandler {
     return async (args) => {
       const filePath = ctx.resolvePath(args["path"] as string);
