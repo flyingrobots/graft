@@ -26,5 +26,6 @@ export async function openWarp(options: OpenWarpOptions): Promise<WarpApp> {
     graphName: GRAPH_NAME,
     writerId: WRITER_ID,
     onDeleteWithData: "cascade",
+    timeoutMs: 30_000,
   });
 }
