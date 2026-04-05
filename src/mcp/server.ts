@@ -13,6 +13,8 @@ import { nodeFs } from "../adapters/node-fs.js";
 import { CanonicalJsonCodec } from "../adapters/canonical-json.js";
 import { evaluatePolicy } from "../policy/evaluate.js";
 import { RefusedResult } from "../policy/types.js";
+import type WarpApp from "@git-stunts/git-warp";
+import { openWarp } from "../warp/open.js";
 
 // Tool definitions — each file exports a ToolDefinition object
 import { safeReadTool } from "./tools/safe-read.js";
@@ -26,6 +28,8 @@ import { doctorTool } from "./tools/doctor.js";
 import { statsTool } from "./tools/stats.js";
 import { explainTool } from "./tools/explain.js";
 import { setBudgetTool } from "./tools/budget.js";
+import { sinceTool } from "./tools/since.js";
+import { mapTool } from "./tools/map.js";
 
 export type { McpToolResult, ToolHandler, ToolContext };
 
@@ -43,6 +47,8 @@ const TOOL_REGISTRY: readonly ToolDefinition[] = [
   statsTool,
   explainTool,
   setBudgetTool,
+  sinceTool,
+  mapTool,
 ];
 
 export interface GraftServer {
@@ -78,7 +84,19 @@ export function createGraftServer(): GraftServer {
     return result;
   }
 
-  const ctx: ToolContext = { projectRoot, graftDir, session, cache, metrics, respond, resolvePath: createPathResolver(projectRoot), fs: nodeFs, codec };
+  // Lazy WARP initialization — only loaded when a WARP-backed tool needs it.
+  // Single pending promise prevents duplicate instances from concurrent calls.
+  // On rejection, clear cache so subsequent calls can retry.
+  let warpPromise: Promise<WarpApp> | null = null;
+  function getWarp(): Promise<WarpApp> {
+    warpPromise ??= openWarp({ cwd: projectRoot }).catch((err: unknown) => {
+      warpPromise = null;
+      throw err;
+    });
+    return warpPromise;
+  }
+
+  const ctx: ToolContext = { projectRoot, graftDir, session, cache, metrics, respond, resolvePath: createPathResolver(projectRoot), fs: nodeFs, codec, getWarp };
 
   function wrapWithPolicyCheck(toolName: string, inner: ToolHandler): ToolHandler {
     return (args: Record<string, unknown>) => {

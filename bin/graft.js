@@ -17,6 +17,9 @@ if (process.env.__GRAFT_TSX_LOADED === "1") {
   if (command === "init") {
     const { runInit } = await import("../src/cli/init.js");
     runInit();
+  } else if (command === "index") {
+    const { runIndex } = await import("../src/cli/index-cmd.js");
+    await runIndex();
   } else {
     const { createGraftServer } = await import("../src/mcp/server.js");
     const { StdioServerTransport } = await import("@modelcontextprotocol/sdk/server/stdio.js");

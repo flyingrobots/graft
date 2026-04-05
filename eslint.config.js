@@ -57,6 +57,7 @@ export default tseslint.config(
       "node_modules/",
       ".graft/",
       ".claude/",
+      ".obsidian/",
       "test/fixtures/",
       "docs/study/infra/",
     ],
