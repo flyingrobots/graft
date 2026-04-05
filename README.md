@@ -10,7 +10,7 @@ tools (outlines, diffs, symbol history) are useful to anyone.
 
 ## Why
 
-Empirical analysis of 1,091 real coding sessions (Blacklight) found
+Empirical analysis of 1,091 real coding sessions ([Blacklight](https://github.com/flyingrobots/blacklight)) found
 that **Read accounts for 96.2 GB of context burden** — 6.6x all
 other tools combined. 58% of reads are full-file. The fattest 2.4%
 of reads produce 24% of raw bytes. Dynamic read caps + session
@@ -95,6 +95,47 @@ is structured JSON.
 | `explain` | Human-readable help for any reason code |
 | `doctor` | Runtime health check |
 | `stats` | Decision metrics summary |
+
+## Claude Code hooks
+
+Two hooks work alongside the MCP server to govern native `Read`
+calls — a safety net for when agents bypass graft's tools:
+
+```json
+{
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Read",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node --import tsx node_modules/@flyingrobots/graft/src/hooks/pretooluse-read.ts"
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Read",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node --import tsx node_modules/@flyingrobots/graft/src/hooks/posttooluse-read.ts"
+          }
+        ]
+      }
+    ]
+  }
+}
+```
+
+Add to `.claude/settings.json` in your project root.
+**PreToolUse** blocks banned files before the read.
+**PostToolUse** shows the agent what `safe_read` would have saved.
+
+See the **[Setup Guide](docs/GUIDE.md)** for full details on hooks,
+per-editor MCP config, `.graftignore`, and troubleshooting.
 
 ## Reason codes
 
