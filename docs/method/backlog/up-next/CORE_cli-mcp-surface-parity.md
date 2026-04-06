@@ -2,6 +2,9 @@
 
 Bring the CLI and MCP surfaces to deliberate feature parity.
 
+Depends on:
+- `docs/method/backlog/up-next/CORE_mcp-cli-parity-audit.md`
+
 Scope:
 - inventory all product-facing capabilities on both surfaces
 - identify intentional one-surface-only exceptions
