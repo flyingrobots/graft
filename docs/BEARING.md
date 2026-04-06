@@ -1,45 +1,48 @@
-# Bearing: WARP
+# Bearing: WARP Level 2+
 
 **Set:** 2026-04-05
-**Direction:** Structural memory over Git. AST-per-commit worldlines.
+**Direction:** Deeper structural memory. Symbol identity, agent
+provenance, precision tools.
 
 ## Why now
 
-v0.3.0 closed the pre-WARP slate. Budget-aware governor, three
-bug classes eliminated (policy middleware, CachedFile, guardedPort),
-measurement infrastructure in place (compression ratio, receipts).
-Non-WARP backlog: zero.
+v0.4.0 shipped WARP Level 1. Structural memory exists as a
+first-class substrate. The indexer writes structural delta patches
+per commit. `graft_since` and `graft_map` give agents instant
+structural queries. The Observer Law holds.
 
-Graft governs reads. WARP gives it memory — structural diffs across
-commits, not just across a single session's cache.
+Level 1 answers "what changed structurally?" Level 2+ answers
+"who changed it, why, and what did they see before they changed it?"
 
 ## What ships under this bearing
 
-1. **AST-per-commit** (Level 1 worldline) — structural delta patches
-   at each commit. The bridge from "what does the code look like now"
-   to "how did the code change over time."
-2. **graft since <ref>** — symbols changed since a commit.
-3. **Phase 2 precision tools** — code_show, code_find. Depends on
-   WARP's symbol-level infrastructure.
+1. **Phase 2 precision tools** — `code_show`, `code_find`. Focus
+   on a symbol by name, search for symbols across the project.
+2. **Symbol identity across renames** (Level 2) — name-based
+   identity works but breaks on renames. Structural identity
+   derived from continuity and provenance.
+3. **Agent action provenance** (Level 3) — record reads and writes
+   as WARP observations. The causal chain of what the agent saw
+   before it wrote becomes the reasoning trace.
 
 ## What does NOT ship under this bearing
 
-- Live study execution (infrastructure is built, study runs when ready)
+- Live study execution (infrastructure built, study runs when ready)
 - Non-read burden measurement (needs study data first)
 - Human-facing UX (git-graft-enhance — cool idea for later)
 
 ## What just shipped
 
-Cycle 0022 — pre-WARP release (v0.3.0–v0.3.2): budget governor,
-explain tool, policy middleware, CachedFile, guardedPort, compression
-ratio, diff summary lines, `graft init` onboarding command. npm
-OIDC publish + tarball release assets. 417 tests, 12 tools.
+Cycle 0023 — WARP Level 1 (v0.4.0): WARP indexer, `graft_since`,
+`graft_map`, `graft index` CLI, observer factory with 8 canonical
+lenses, directory tree modeling, 11 WARP invariants. 434 tests,
+14 tools.
 
 ## What feels wrong
 
-- CodeRabbit rate limiting creates a painful review loop. The stale
-  check workaround (empty commit) works but adds noise.
-- git-warp API surface: need to study `@git-stunts/git-warp` v16
-  API before designing Level 1 integration.
-- Agent opt-in friction: agents default to native Read unless
-  explicitly instructed to use graft tools.
+- WARP indexing is slow on large repos — `core().materialize()`
+  per commit with removals is expensive. Background indexing and
+  incremental updates needed.
+- Agent opt-in friction persists. `graft init` generates the
+  CLAUDE.md snippet but agents still default to native Read.
+- CodeRabbit rate limiting still painful on multi-commit PRs.

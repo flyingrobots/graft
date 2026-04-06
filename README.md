@@ -8,6 +8,8 @@ structurally correct view of a codebase instead of dumping entire
 files into their context window. Agent-first, but the structural
 tools (outlines, diffs, symbol history) are useful to anyone.
 
+**v0.4.0** — now with WARP: structural memory over git history.
+
 ## Why
 
 Empirical analysis of 1,091 real coding sessions ([Blacklight](https://github.com/flyingrobots/blacklight)) found
@@ -57,8 +59,8 @@ Then add graft to your MCP config:
 }
 ```
 
-Add this to your MCP config — works with Claude Code, Cursor,
-Windsurf, Continue, Cline, and any MCP-compatible client.
+Works with Claude Code, Cursor, Windsurf, Continue, Cline, and
+any MCP-compatible client.
 
 See **[Setup Guide](docs/GUIDE.md)** for per-editor instructions,
 Claude Code hooks, `.graftignore` configuration, troubleshooting,
@@ -82,6 +84,8 @@ When an agent asks to read a file, Graft applies policy:
 - **Budget governor** — agent declares a byte budget, thresholds
   tighten as it drains. No single read may consume more than 5% of
   remaining budget.
+- **Structural memory** — WARP-backed structural history across git
+  commits. Query what changed structurally without reading files.
 - **Tripwires** signal when the session is going off the rails.
 - **Receipts** on every response with compression ratio for usage
   analysis.
@@ -97,6 +101,8 @@ is structured JSON.
 | `file_outline` | Structural skeleton with jump table |
 | `read_range` | Bounded range read (max 250 lines), policy-gated |
 | `graft_diff` | Structural diff between git refs with per-file summary lines |
+| `graft_since` | Structural changes since a git ref — symbols added/removed/changed |
+| `graft_map` | Structural map of a directory — all files and symbols in one call |
 | `changed_since` | Check if a file changed since last read (peek or consume) |
 | `run_capture` | Shell output capture — tee to log, tail to agent |
 | `state_save` | Save session working state (max 8 KB) |
@@ -146,6 +152,13 @@ Add to `.claude/settings.json` in your project root.
 
 See the **[Setup Guide](docs/GUIDE.md)** for full details on hooks,
 per-editor MCP config, `.graftignore`, and troubleshooting.
+
+## CLI
+
+```bash
+npx @flyingrobots/graft init      # scaffold project for graft
+npx @flyingrobots/graft index     # index git history into WARP
+```
 
 ## Reason codes
 

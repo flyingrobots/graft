@@ -239,10 +239,12 @@ add to `.claude/settings.local.json`:
 | `set_budget` | Declare a session byte budget. Graft tightens read thresholds as the budget drains — no single read may consume more than 5% of remaining budget. Call once at session start. |
 | `explain` | Explain a graft reason code. Returns human-readable meaning and recommended next action for any code (e.g., `BINARY`, `BUDGET_CAP`). Case-insensitive. |
 | `stats` | Decision metrics for the current session. Total reads, outlines, refusals, cache hits, and bytes avoided. |
+| `graft_since` | Structural changes since a git ref. Shows symbols added, removed, and changed per file — not line hunks. Includes per-file summary lines. |
+| `graft_map` | Structural map of a directory — all files and their symbols (function signatures, class shapes, exports) in one call. Uses tree-sitter to parse the working tree directly. |
 
 ## What the agent sees
 
-Once configured, the agent gains 12 new tools. Here's what
+Once configured, the agent gains 14 new tools. Here's what
 happens when it uses them:
 
 ### Reading files
@@ -262,6 +264,20 @@ Graft decides what to return:
   graft returns the cached outline instead of the full content.
   If the file changed, it returns a structural diff (added/removed/
   changed symbols).
+
+### Structural memory (WARP)
+
+`graft_since` shows what changed structurally between any two git
+refs — symbols added, removed, and changed per file. No file reads,
+no diff parsing. Instant.
+
+`graft_map` gives a structural map of any directory — every file
+and its symbols (function signatures, class shapes, exports) in
+one call. Instant onboarding for new codebases.
+
+Both tools work on the current working tree. For persistent
+structural indexing across git history, use `graft index` from the
+CLI.
 
 ### Structural navigation
 

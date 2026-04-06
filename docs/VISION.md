@@ -2,12 +2,12 @@
 title: "Graft — Executive Summary"
 generated: 2026-04-05
 generator: claude (manual, following Method executive-summary process)
-cycles_completed: 22
-tests: 417
+cycles_completed: 23
+tests: 434
 legends: [CORE, WARP, CLEAN_CODE]
-backlog_items: 18
-version: 0.3.2
-commit: 7051ac1
+backlog_items: 25
+version: 0.4.0
+commit: 8b03a2c
 ---
 
 # Graft — Executive Summary
@@ -42,10 +42,10 @@ and writes.
 
 ## Current state
 
-**Cycles completed:** 22 (0001-0022)
-**Tests:** 417 passing across 30 files
+**Cycles completed:** 23 (0001-0023)
+**Tests:** 434 passing across 33 files
 **Lint:** clean (ESLint strict-type-checked)
-**Version:** 0.3.2 (npm: `@flyingrobots/graft`)
+**Version:** 0.4.0 (npm: `@flyingrobots/graft`)
 
 ### Phase 1 — The Governor (cycles 0001-0007)
 
@@ -76,14 +76,27 @@ Canonical JSON codec port. Dockerfile for MCP server without Node.
 Live study protocol design (5-metric matched-pair crossover).
 Study infrastructure (task cards, acceptance harness, randomization).
 Stream/port boundary invariant with runtime guards. ToolDefinition
-registry (OCP compliance).
+registry (OCP compliance). Pre-WARP release (v0.3.0): budget-aware
+governor, policy check middleware, CachedFile value object,
+guardedPort factory, explain tool, `graft init` onboarding command.
+Three bug classes eliminated by construction.
 
-Pre-WARP release (v0.3.0): budget-aware governor, policy check
-middleware, CachedFile value object, guardedPort factory, explain
-tool, receipt compression ratio, diff summary lines. Three bug
-classes eliminated by construction.
+### Phase 5 — WARP Level 1 (cycle 0023)
 
-### 12 MCP tools
+**Structural memory substrate.** Git remembers bytes. Graft now
+remembers structure.
+
+WARP indexer writes structural delta patches per commit into a
+git-warp graph. `graft_since` gives instant structural diff between
+any two refs. `graft_map` gives instant structural map of any
+directory. Directory tree modeled as graph nodes with containment
+edges. Commits linked to files and symbols via provenance edges
+(touches, adds, changes, removes).
+
+Observer Law enforced: write facts, read projections, never
+traverse by hand. 11 WARP invariants protect the substrate.
+
+### 14 MCP tools
 
 | Tool | Purpose |
 |------|---------|
@@ -91,20 +104,22 @@ classes eliminated by construction.
 | `file_outline` | Structural skeleton with jump table |
 | `read_range` | Bounded range read (max 250 lines), policy-gated |
 | `graft_diff` | Structural diff between git refs with summary lines |
+| `graft_since` | Structural changes since a ref (symbols added/removed/changed) |
+| `graft_map` | Structural map of a directory (all files + symbols) |
 | `changed_since` | Check for changes since last read (peek or consume) |
 | `run_capture` | Shell output capture — tee to log, tail to agent |
 | `state_save` | Save session state (max 8 KB) |
 | `state_load` | Restore session state |
+| `set_budget` | Declare session byte budget — governor tightens as it drains |
+| `explain` | Human-readable reason code help |
 | `doctor` | Runtime health check |
 | `stats` | Decision metrics summary |
-| `explain` | Human-readable reason code help |
-| `set_budget` | Declare session byte budget — governor tightens as it drains |
 
 ---
 
 ## Architecture
 
-```
+```text
 src/
   ports/        hexagonal port interfaces (FileSystem, JsonCodec)
   adapters/     Node.js implementations (node-fs, canonical-json)
@@ -113,15 +128,19 @@ src/
   parser/       tree-sitter WASM outline extraction
   operations/   command implementations (use ports, not node:fs)
   session/      session tracking, tripwires, budget
+  warp/
+    indexer.ts  commit indexer (writes structural patches to WARP)
+    observers.ts  observer factory (8 canonical lenses)
+    open.ts     WarpApp initialization
   mcp/
-    server.ts   registration + policy middleware (~140 lines)
-    context.ts  ToolContext + ToolDefinition (with policyCheck flag)
+    server.ts   registration + policy middleware
+    context.ts  ToolContext + ToolDefinition
     cache.ts    ObservationCache + Observation class
     cached-file.ts  CachedFile immutable snapshot
     receipt.ts  receipt builder with compressionRatio
     metrics.ts  Metrics class
-    tools/      12 handler files, one per tool
-  cli/          CLI commands (init)
+    tools/      14 handler files, one per tool
+  cli/          CLI commands (init, index)
   hooks/        Claude Code hook scripts (PreToolUse + PostToolUse)
 ```
 
@@ -131,6 +150,8 @@ src/
 - `picomatch` — glob matching for .graftignore
 - `@modelcontextprotocol/sdk` — MCP server
 - `zod` — schema validation (strict at MCP edge)
+- `@git-stunts/git-warp` — WARP graph substrate
+- `@git-stunts/plumbing` — git plumbing adapter
 
 ---
 
@@ -141,16 +162,18 @@ src/
 Policy, enforcement, extraction, UX, observability — everything
 that makes graft useful as a context governor.
 
-**17 cycles completed.** Non-WARP backlog: zero. Up-next: phase 2
-precision tools (WARP-gated), non-read burden (study-gated).
+**18 cycles completed.** Up-next: phase 2 precision tools
+(WARP-gated), non-read burden (study-gated).
 
 ### WARP — Structural memory over Git
 
 Git tracks bytes; WARP tracks what those bytes mean structurally.
-Level 1: commit-level worldline. Level 2: observation cache (done).
-Level 3: sub-commit causal tracking.
+Level 1: commit-level worldline (DONE — v0.4.0).
+Level 2: observation cache (DONE — shipped in Phase 1-2).
+Level 3: sub-commit causal tracking (future).
 
-**0 cycles completed.** Up-next: ast-per-commit (Level 1 worldline).
+**1 cycle completed.** Up-next: symbol identity, precision tools,
+agent action provenance.
 
 ### CLEAN_CODE — Systems-Style JavaScript
 
@@ -168,9 +191,9 @@ of cycle 0021.
 
 | Item | Legend | Summary | Effort |
 |------|--------|---------|--------|
-| AST-per-commit | WARP | Level 1 worldline with structural delta patches | L |
 | Phase 2 precision tools | CORE | code_show, code_find — symbol-level | XL |
 | Non-read burden | CORE | Measure Bash/Edit context waste | M |
+| Symbol identity | WARP | Rename-robust identity via structural continuity | L |
 
 ### Bad-code backlog (1 remaining)
 
@@ -196,10 +219,11 @@ Source: `~/git/blacklight/LLM_TOKEN_USE.md`
 
 ## Open questions
 
-1. **WARP integration scope.** Level 1 (commit worldline) is shaped.
-   How much of git-warp's API do we need?
-2. **Human writes.** Level 3 causal tracking captures agent edits via
-   hooks. How do we capture human edits?
+1. **WARP indexing performance.** Level 1 indexing is slow on large
+   repos. Background/incremental indexing needed.
+2. **Human writes.** Level 3 causal tracking captures agent edits
+   via hooks. How do we capture human edits?
 3. **Language support.** JS/TS only. Rust is "later." When?
-4. **npm OIDC publish.** v0.3.1 will be the first npm publish via
-   OIDC provenance. Will the trust chain work?
+4. **Agent adoption.** `graft init` generates CLAUDE.md snippets
+   but agents still default to native Read. How do we make graft
+   the default path?
