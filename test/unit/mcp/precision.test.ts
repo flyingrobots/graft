@@ -1,5 +1,10 @@
 import { describe, it, expect } from "vitest";
+import * as fs from "node:fs";
+import * as path from "node:path";
 import { createGraftServer } from "../../../src/mcp/server.js";
+import { git, createTestRepo, cleanupTestRepo } from "../../helpers/git.js";
+import { openWarp } from "../../../src/warp/open.js";
+import { indexCommits } from "../../../src/warp/indexer.js";
 
 function extractText(result: unknown): string {
   const r = result as { content?: { type: string; text: string }[] };
@@ -12,89 +17,313 @@ function parse(result: unknown): Record<string, unknown> {
   return JSON.parse(extractText(result)) as Record<string, unknown>;
 }
 
+function createServerInRepo(repoDir: string) {
+  const prev = process.cwd();
+  process.chdir(repoDir);
+  try {
+    return createGraftServer();
+  } finally {
+    process.chdir(prev);
+  }
+}
+
 describe("mcp: code_show", () => {
-  it("returns source code for a known symbol", async () => {
-    const server = createGraftServer();
-    const result = parse(await server.callTool("code_show", {
-      symbol: "createGraftServer",
-      path: "src/mcp/server.ts",
-    }));
-    expect(result["symbol"]).toBe("createGraftServer");
-    expect(result["kind"]).toBe("function");
-    expect(result["content"]).toBeDefined();
-    expect(typeof result["content"]).toBe("string");
-    expect(result["startLine"]).toBeDefined();
-    expect(result["endLine"]).toBeDefined();
-    expect(result["source"]).toBe("live");
+  it("returns working-tree source code for a known symbol", async () => {
+    const tmpDir = createTestRepo("graft-precision-show-live-");
+    try {
+      fs.writeFileSync(
+        path.join(tmpDir, "app.ts"),
+        'export function greet(name: string): string {\n  return `hello ${name}`;\n}\n',
+      );
+      git(tmpDir, "add -A");
+      git(tmpDir, "commit -m init");
+
+      const server = createServerInRepo(tmpDir);
+      const result = parse(await server.callTool("code_show", {
+        symbol: "greet",
+        path: "app.ts",
+      }));
+
+      expect(result["symbol"]).toBe("greet");
+      expect(result["kind"]).toBe("function");
+      expect(result["content"]).toContain("greet(name: string)");
+      expect(result["source"]).toBe("live");
+    } finally {
+      cleanupTestRepo(tmpDir);
+    }
   });
 
-  it("returns not found for unknown symbol", async () => {
-    const server = createGraftServer();
-    const result = parse(await server.callTool("code_show", {
-      symbol: "doesNotExist",
-      path: "src/mcp/server.ts",
-    }));
-    expect(result["error"]).toContain("not found");
+  it("returns not found for an unknown symbol", async () => {
+    const tmpDir = createTestRepo("graft-precision-show-miss-");
+    try {
+      fs.writeFileSync(path.join(tmpDir, "app.ts"), "export const answer = 42;\n");
+      git(tmpDir, "add -A");
+      git(tmpDir, "commit -m init");
+
+      const server = createServerInRepo(tmpDir);
+      const result = parse(await server.callTool("code_show", {
+        symbol: "doesNotExist",
+        path: "app.ts",
+      }));
+
+      expect(result["error"]).toContain("not found");
+      expect(result["source"]).toBe("live");
+    } finally {
+      cleanupTestRepo(tmpDir);
+    }
   });
 
-  it("returns ambiguous when symbol exists in multiple files", async () => {
-    const server = createGraftServer();
-    // 'extractText' is defined in multiple test files
-    const result = parse(await server.callTool("code_show", {
-      symbol: "extractText",
-    }));
-    // Should be ambiguous or return first match
-    expect(result["symbol"]).toBe("extractText");
-    expect(
-      result["ambiguous"] === true || result["content"] !== undefined
-    ).toBe(true);
+  it("returns an explicit ambiguity response when multiple symbols match", async () => {
+    const tmpDir = createTestRepo("graft-precision-show-ambiguous-");
+    try {
+      fs.mkdirSync(path.join(tmpDir, "src"), { recursive: true });
+      fs.writeFileSync(path.join(tmpDir, "src", "a.ts"), "export function handle(): void {}\n");
+      fs.writeFileSync(path.join(tmpDir, "src", "b.ts"), "export function handle(): void {}\n");
+      git(tmpDir, "add -A");
+      git(tmpDir, "commit -m init");
+
+      const server = createServerInRepo(tmpDir);
+      const result = parse(await server.callTool("code_show", {
+        symbol: "handle",
+      }));
+
+      expect(result["symbol"]).toBe("handle");
+      expect(result["ambiguous"]).toBe(true);
+      expect(result["content"]).toBeUndefined();
+      expect((result["matches"] as unknown[]).length).toBe(2);
+    } finally {
+      cleanupTestRepo(tmpDir);
+    }
+  });
+
+  it("uses WARP for indexed historical reads", async () => {
+    const tmpDir = createTestRepo("graft-precision-show-warp-");
+    try {
+      fs.writeFileSync(
+        path.join(tmpDir, "app.ts"),
+        'export function greet(): string {\n  return "v1";\n}\n',
+      );
+      git(tmpDir, "add -A");
+      git(tmpDir, "commit -m v1");
+      const c1 = git(tmpDir, "rev-parse HEAD");
+
+      fs.writeFileSync(
+        path.join(tmpDir, "app.ts"),
+        'export function greet(): string {\n  return "v2";\n}\n',
+      );
+      git(tmpDir, "add -A");
+      git(tmpDir, "commit -m v2");
+
+      const warp = await openWarp({ cwd: tmpDir });
+      await indexCommits(warp, { cwd: tmpDir });
+
+      const server = createServerInRepo(tmpDir);
+      const result = parse(await server.callTool("code_show", {
+        symbol: "greet",
+        ref: c1,
+      }));
+
+      expect(result["source"]).toBe("warp");
+      expect(result["content"]).toContain('return "v1";');
+      expect(result["content"]).not.toContain('return "v2";');
+    } finally {
+      cleanupTestRepo(tmpDir);
+    }
+  });
+
+  it("falls back to live parsing for historical reads when WARP is not indexed", async () => {
+    const tmpDir = createTestRepo("graft-precision-show-ref-live-");
+    try {
+      fs.writeFileSync(
+        path.join(tmpDir, "app.ts"),
+        'export function greet(): string {\n  return "v1";\n}\n',
+      );
+      git(tmpDir, "add -A");
+      git(tmpDir, "commit -m v1");
+      const c1 = git(tmpDir, "rev-parse HEAD");
+
+      fs.writeFileSync(
+        path.join(tmpDir, "app.ts"),
+        'export function greet(): string {\n  return "v2";\n}\n',
+      );
+      git(tmpDir, "add -A");
+      git(tmpDir, "commit -m v2");
+
+      const server = createServerInRepo(tmpDir);
+      const result = parse(await server.callTool("code_show", {
+        symbol: "greet",
+        ref: c1,
+      }));
+
+      expect(result["source"]).toBe("live");
+      expect(result["content"]).toContain('return "v1";');
+      expect(result["content"]).not.toContain('return "v2";');
+    } finally {
+      cleanupTestRepo(tmpDir);
+    }
+  });
+
+  it("finds symbols in untracked working-tree files during project-wide search", async () => {
+    const tmpDir = createTestRepo("graft-precision-show-untracked-");
+    try {
+      fs.writeFileSync(path.join(tmpDir, "app.ts"), "export const stable = true;\n");
+      git(tmpDir, "add -A");
+      git(tmpDir, "commit -m init");
+
+      fs.writeFileSync(
+        path.join(tmpDir, "draft.ts"),
+        'export function draftHandle(): string {\n  return "draft";\n}\n',
+      );
+
+      const server = createServerInRepo(tmpDir);
+      const result = parse(await server.callTool("code_show", {
+        symbol: "draftHandle",
+      }));
+
+      expect(result["source"]).toBe("live");
+      expect(result["path"]).toBe("draft.ts");
+      expect(result["content"]).toContain('return "draft";');
+    } finally {
+      cleanupTestRepo(tmpDir);
+    }
   });
 });
 
 describe("mcp: code_find", () => {
-  it("finds symbols matching a glob pattern", async () => {
-    const server = createGraftServer();
-    const result = parse(await server.callTool("code_find", {
-      query: "evaluate*",
-    }));
-    const matches = result["matches"] as { name: string }[];
-    expect(matches.length).toBeGreaterThan(0);
-    expect(matches.some((m) => m.name === "evaluatePolicy")).toBe(true);
-    expect(result["source"]).toBe("live");
-  });
+  it("finds symbols via live parsing when the repo is not indexed", async () => {
+    const tmpDir = createTestRepo("graft-precision-find-live-");
+    try {
+      fs.mkdirSync(path.join(tmpDir, "src", "policy"), { recursive: true });
+      fs.writeFileSync(
+        path.join(tmpDir, "src", "policy", "evaluate.ts"),
+        'export function evaluatePolicy(): boolean {\n  return true;\n}\n',
+      );
+      git(tmpDir, "add -A");
+      git(tmpDir, "commit -m init");
 
-  it("filters by kind", async () => {
-    const server = createGraftServer();
-    const result = parse(await server.callTool("code_find", {
-      query: "*",
-      kind: "class",
-    }));
-    const matches = result["matches"] as { name: string; kind: string }[];
-    expect(matches.length).toBeGreaterThan(0);
-    for (const m of matches) {
-      expect(m.kind).toBe("class");
+      const server = createServerInRepo(tmpDir);
+      const result = parse(await server.callTool("code_find", {
+        query: "evaluate*",
+      }));
+
+      const matches = result["matches"] as { name: string; path: string }[];
+      expect(result["source"]).toBe("live");
+      expect(matches.some((match) => match.name === "evaluatePolicy")).toBe(true);
+      expect(matches.every((match) => typeof match.path === "string")).toBe(true);
+    } finally {
+      cleanupTestRepo(tmpDir);
     }
   });
 
-  it("scopes to a directory path", async () => {
-    const server = createGraftServer();
-    const result = parse(await server.callTool("code_find", {
-      query: "*",
-      path: "src/policy",
-    }));
-    const matches = result["matches"] as { path: string }[];
-    for (const m of matches) {
-      expect(m.path.startsWith("src/policy")).toBe(true);
+  it("supports kind filters and directory scoping", async () => {
+    const tmpDir = createTestRepo("graft-precision-find-scope-");
+    try {
+      fs.mkdirSync(path.join(tmpDir, "src", "policy"), { recursive: true });
+      fs.mkdirSync(path.join(tmpDir, "src", "ui"), { recursive: true });
+      fs.writeFileSync(
+        path.join(tmpDir, "src", "policy", "evaluate.ts"),
+        "export class PolicyEngine {}\nexport function evaluatePolicy(): boolean { return true; }\n",
+      );
+      fs.writeFileSync(
+        path.join(tmpDir, "src", "ui", "view.ts"),
+        "export class ViewModel {}\n",
+      );
+      git(tmpDir, "add -A");
+      git(tmpDir, "commit -m init");
+
+      const server = createServerInRepo(tmpDir);
+      const result = parse(await server.callTool("code_find", {
+        query: "*",
+        kind: "class",
+        path: "src/policy",
+      }));
+
+      const matches = result["matches"] as { kind: string; path: string }[];
+      expect(matches).toHaveLength(1);
+      expect(matches[0]?.kind).toBe("class");
+      expect(matches[0]?.path).toBe("src/policy/evaluate.ts");
+    } finally {
+      cleanupTestRepo(tmpDir);
     }
   });
 
-  it("returns empty for no matches", async () => {
-    const server = createGraftServer();
-    const result = parse(await server.callTool("code_find", {
-      query: "xyzzyNonexistent123",
-    }));
-    const matches = result["matches"] as unknown[];
-    expect(matches).toHaveLength(0);
-    expect(result["total"]).toBe(0);
+  it("returns empty results for a miss", async () => {
+    const tmpDir = createTestRepo("graft-precision-find-miss-");
+    try {
+      fs.writeFileSync(path.join(tmpDir, "app.ts"), "export const answer = 42;\n");
+      git(tmpDir, "add -A");
+      git(tmpDir, "commit -m init");
+
+      const server = createServerInRepo(tmpDir);
+      const result = parse(await server.callTool("code_find", {
+        query: "xyzzyNonexistent123",
+      }));
+
+      expect(result["total"]).toBe(0);
+      expect(result["matches"]).toEqual([]);
+    } finally {
+      cleanupTestRepo(tmpDir);
+    }
+  });
+
+  it("uses WARP for indexed clean-head symbol search", async () => {
+    const tmpDir = createTestRepo("graft-precision-find-warp-");
+    try {
+      fs.mkdirSync(path.join(tmpDir, "src"), { recursive: true });
+      fs.writeFileSync(
+        path.join(tmpDir, "src", "api.ts"),
+        'export function handleRequest(): string {\n  return "ok";\n}\n',
+      );
+      git(tmpDir, "add -A");
+      git(tmpDir, "commit -m init");
+
+      const warp = await openWarp({ cwd: tmpDir });
+      await indexCommits(warp, { cwd: tmpDir });
+
+      const server = createServerInRepo(tmpDir);
+      const result = parse(await server.callTool("code_find", {
+        query: "handle*",
+      }));
+
+      const matches = result["matches"] as { name: string; startLine?: number; endLine?: number }[];
+      expect(result["source"]).toBe("warp");
+      expect(matches).toHaveLength(1);
+      expect(matches[0]?.name).toBe("handleRequest");
+      expect(matches[0]?.startLine).toBeDefined();
+      expect(matches[0]?.endLine).toBeDefined();
+    } finally {
+      cleanupTestRepo(tmpDir);
+    }
+  });
+
+  it("falls back to live search when indexed repos have dirty working-tree edits", async () => {
+    const tmpDir = createTestRepo("graft-precision-find-dirty-");
+    try {
+      fs.mkdirSync(path.join(tmpDir, "src"), { recursive: true });
+      fs.writeFileSync(path.join(tmpDir, "src", "stable.ts"), "export const stable = true;\n");
+      git(tmpDir, "add -A");
+      git(tmpDir, "commit -m init");
+
+      const warp = await openWarp({ cwd: tmpDir });
+      await indexCommits(warp, { cwd: tmpDir });
+
+      fs.writeFileSync(
+        path.join(tmpDir, "src", "draft.ts"),
+        'export function draftHelper(): string {\n  return "draft";\n}\n',
+      );
+
+      const server = createServerInRepo(tmpDir);
+      const result = parse(await server.callTool("code_find", {
+        query: "draft*",
+      }));
+
+      const matches = result["matches"] as { name: string; path: string }[];
+      expect(result["source"]).toBe("live");
+      expect(matches).toHaveLength(1);
+      expect(matches[0]?.name).toBe("draftHelper");
+      expect(matches[0]?.path).toBe("src/draft.ts");
+    } finally {
+      cleanupTestRepo(tmpDir);
+    }
   });
 });

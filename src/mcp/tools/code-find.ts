@@ -1,46 +1,17 @@
 import { z } from "zod";
-import picomatch from "picomatch";
-import { extractOutline } from "../../parser/outline.js";
-import { detectLang } from "../../parser/lang.js";
-import { evaluatePolicy } from "../../policy/evaluate.js";
-import { RefusedResult } from "../../policy/types.js";
-import type { OutlineEntry } from "../../parser/types.js";
 import type { ToolDefinition, ToolContext, ToolHandler } from "../context.js";
-import { listTrackedFiles } from "./git-files.js";
-
-interface SymbolMatch {
-  name: string;
-  kind: string;
-  path: string;
-  signature?: string | undefined;
-  exported: boolean;
-  startLine?: number | undefined;
-  endLine?: number | undefined;
-}
-
-function collectSymbols(
-  entries: readonly OutlineEntry[],
-  filePath: string,
-  jumpTable: readonly { symbol: string; start: number; end: number }[],
-): SymbolMatch[] {
-  const results: SymbolMatch[] = [];
-  for (const entry of entries) {
-    const jump = jumpTable.find((j) => j.symbol === entry.name);
-    results.push({
-      name: entry.name,
-      kind: entry.kind,
-      path: filePath,
-      signature: entry.signature,
-      exported: entry.exported,
-      startLine: jump?.start,
-      endLine: jump?.end,
-    });
-    if (entry.children !== undefined && entry.children.length > 0) {
-      results.push(...collectSymbols(entry.children, filePath, jumpTable));
-    }
-  }
-  return results;
-}
+import { listProjectFiles } from "./git-files.js";
+import {
+  evaluatePrecisionPolicy,
+  getIndexedCommitCeilings,
+  isWorkingTreeDirty,
+  loadFileContent,
+  normalizeRepoPath,
+  type PrecisionSymbolMatch,
+  resolveGitRef,
+  searchLiveSymbols,
+  searchWarpSymbols,
+} from "./precision.js";
 
 export const codeFindTool: ToolDefinition = {
   name: "code_find",
@@ -54,54 +25,64 @@ export const codeFindTool: ToolDefinition = {
     path: z.string().optional(),
   },
   createHandler(ctx: ToolContext): ToolHandler {
-    return (args) => {
+    return async (args) => {
       const query = args["query"] as string;
       const kindFilter = args["kind"] as string | undefined;
-      const dirPath = (args["path"] as string | undefined) ?? "";
+      const rawPath = (args["path"] as string | undefined) ?? "";
+      const dirPath = rawPath.length > 0 ? normalizeRepoPath(ctx.projectRoot, rawPath) : "";
 
-      const isMatch = picomatch(query, { nocase: true });
+      let allMatches: PrecisionSymbolMatch[] = [];
+      let source: "warp" | "live" = "live";
 
-      const filePaths = listTrackedFiles(dirPath, ctx.projectRoot);
-      const allMatches: SymbolMatch[] = [];
-
-      for (const filePath of filePaths) {
-        const lang = detectLang(filePath);
-        if (lang === null) continue;
-
-        const resolvedPath = ctx.resolvePath(filePath);
-        let content: string;
+      if (!isWorkingTreeDirty(ctx.projectRoot)) {
         try {
-          content = ctx.fs.readFileSync(resolvedPath, "utf-8");
+          const warp = await ctx.getWarp();
+          const ceilings = await getIndexedCommitCeilings(warp);
+          const headSha = resolveGitRef("HEAD", ctx.projectRoot);
+          if (ceilings.has(headSha)) {
+            allMatches = await searchWarpSymbols(warp, {
+              query,
+              ...(kindFilter !== undefined ? { kind: kindFilter } : {}),
+              ...(dirPath.length > 0 ? { pathPrefix: dirPath } : {}),
+            });
+            source = "warp";
+          }
         } catch {
-          continue;
-        }
-
-        // Skip banned files — their symbols should not appear in search results
-        const actual = { lines: content.split("\n").length, bytes: Buffer.byteLength(content) };
-        const policy = evaluatePolicy(
-          { path: resolvedPath, lines: actual.lines, bytes: actual.bytes },
-          { sessionDepth: ctx.session.getSessionDepth() },
-        );
-        if (policy instanceof RefusedResult) continue;
-
-        const result = extractOutline(content, lang);
-        const symbols = collectSymbols(result.entries, filePath, result.jumpTable ?? []);
-
-        for (const sym of symbols) {
-          if (!isMatch(sym.name)) continue;
-          if (kindFilter !== undefined && sym.kind.toLowerCase() !== kindFilter.toLowerCase()) continue;
-          allMatches.push(sym);
+          source = "live";
         }
       }
 
-      allMatches.sort((a, b) => a.path.localeCompare(b.path) || a.name.localeCompare(b.name));
+      if (source === "live") {
+        allMatches = searchLiveSymbols(ctx, {
+          filePaths: listProjectFiles(dirPath, ctx.projectRoot),
+          query,
+          ...(kindFilter !== undefined ? { kind: kindFilter } : {}),
+        });
+      }
+
+      const visibleMatches: PrecisionSymbolMatch[] = [];
+      const fileCache = new Map<string, string>();
+
+      for (const match of allMatches) {
+        let content = fileCache.get(match.path);
+        if (content === undefined) {
+          const loaded = loadFileContent(ctx, match.path);
+          if (loaded === null) continue;
+          fileCache.set(match.path, loaded);
+          content = loaded;
+        }
+
+        const refusal = evaluatePrecisionPolicy(ctx, match.path, content);
+        if (refusal !== null) continue;
+        visibleMatches.push(match);
+      }
 
       return ctx.respond("code_find", {
         query,
         kind: kindFilter ?? null,
-        matches: allMatches,
-        total: allMatches.length,
-        source: "live",
+        matches: visibleMatches,
+        total: visibleMatches.length,
+        source,
       });
     };
   },
