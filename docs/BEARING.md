@@ -53,7 +53,7 @@ Do not declare Graft ready for default use across arbitrary projects
 on this machine until all of these are true:
 
 1. **Unsupported-file degradation is honest** — no more fake empty code
-   outlines for markdown or other unsupported text.
+   outlines for unsupported text like YAML or generic prose.
 2. **Policy fidelity is unified** — MCP, CLI, hooks, historical reads,
    working-tree reads, budget/session handling, and `.graftignore`
    all enforce the same contract.
@@ -63,5 +63,6 @@ on this machine until all of these are true:
    commit worldline, ref views, and workspace overlay are enforced by
    implementation and tests.
 5. **Language coverage is broadened or the boundary is explicit** —
-   either support expands beyond JS/TS, or non-JS/TS repos degrade so
-   clearly and lawfully that "general use" is still honest.
+   bounded reads now support markdown in addition to JS/TS, but broader
+   repo coverage still needs either more language support or a clearer
+   lawful boundary for non-code projects.

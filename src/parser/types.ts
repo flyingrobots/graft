@@ -1,5 +1,13 @@
 /** The kind of a top-level or member declaration. */
-export type EntryKind = "function" | "class" | "method" | "interface" | "type" | "enum" | "export";
+export type EntryKind =
+  | "function"
+  | "class"
+  | "method"
+  | "interface"
+  | "type"
+  | "enum"
+  | "export"
+  | "heading";
 
 /** A single entry in a file outline. */
 export class OutlineEntry {

@@ -16,7 +16,8 @@ in code, tests, and the signpost docs.
 - npm package: `@flyingrobots/graft`
 - Primary surface: MCP server + hooks
 - Secondary surface: CLI for debugging and local testing
-- Parser posture: web-tree-sitter WASM, JS/TS first
+- Parser posture: web-tree-sitter WASM for JS/TS, plus markdown heading
+  extraction on bounded read surfaces
 - Output posture: structured JSON, not pretty terminal formatting
 
 ## Working posture
@@ -99,7 +100,6 @@ git config --local core.hooksPath scripts/hooks
 
 ## Current hot items
 
-- `docs/method/backlog/asap/CORE_markdown-summary-support.md`
 - `docs/method/backlog/asap/CORE_policy-fidelity-audit-all-tools-and-cli.md`
 - `docs/method/backlog/asap/CORE_versioned-json-output-schemas.md`
 
@@ -109,12 +109,10 @@ git config --local core.hooksPath scripts/hooks
   `safe_read` returns `UNSUPPORTED_LANGUAGE` with no fabricated symbols,
   `file_outline` returns an explicit unsupported result, and unsupported
   files are not cached as if they had real outlines.
-- Markdown is a strong candidate for first-class structured document
-  support because README/docs reads are common and headings are honest
-  structure.
-- If markdown support lands, prefer reusing the existing
-  outline/jump-table surface with a `heading` kind instead of inventing
-  a second document-outline API.
+- Markdown summaries now reuse the existing outline/jump-table surface
+  with a `heading` kind rather than a second document-outline API.
+- Markdown support is intentionally scoped to bounded read surfaces. It
+  does not automatically widen WARP, precision tools, or hook behavior.
 - `code_find -> code_show` is a good agent workflow and worth
   dogfooding heavily.
 - MCP tests should construct servers with explicit `projectRoot` and
