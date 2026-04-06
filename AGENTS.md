@@ -101,6 +101,7 @@ git config --local core.hooksPath scripts/hooks
 
 - `docs/method/backlog/asap/CORE_markdown-summary-support.md`
 - `docs/method/backlog/asap/CORE_policy-fidelity-audit-all-tools-and-cli.md`
+- `docs/method/backlog/asap/CORE_versioned-json-output-schemas.md`
 
 ## Current learnings
 
@@ -113,6 +114,12 @@ git config --local core.hooksPath scripts/hooks
   structure.
 - `code_find -> code_show` is a good agent workflow and worth
   dogfooding heavily.
+- MCP tests should construct servers with explicit `projectRoot` and
+  `graftDir` inputs instead of inheriting the repo cwd and live
+  `.graft` state.
+- MCP stdio integration tests need explicit `env` wiring for sandbox
+  values because the MCP SDK only inherits a safe environment allowlist
+  by default.
 
 ## Commit convention
 

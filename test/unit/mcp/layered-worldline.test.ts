@@ -3,28 +3,15 @@ import * as fs from "node:fs";
 import * as path from "node:path";
 import { createGraftServer } from "../../../src/mcp/server.js";
 import { git, createTestRepo, cleanupTestRepo } from "../../helpers/git.js";
+import { parse } from "../../helpers/mcp.js";
 import { openWarp } from "../../../src/warp/open.js";
 import { indexCommits } from "../../../src/warp/indexer.js";
 
-function extractText(result: unknown): string {
-  const r = result as { content?: { type: string; text: string }[] };
-  const textBlock = r.content?.find((c) => c.type === "text");
-  if (!textBlock) throw new Error("No text content in MCP result");
-  return textBlock.text;
-}
-
-function parse(result: unknown): Record<string, unknown> {
-  return JSON.parse(extractText(result)) as Record<string, unknown>;
-}
-
 function createServerInRepo(repoDir: string) {
-  const prev = process.cwd();
-  process.chdir(repoDir);
-  try {
-    return createGraftServer();
-  } finally {
-    process.chdir(prev);
-  }
+  return createGraftServer({
+    projectRoot: repoDir,
+    graftDir: path.join(repoDir, ".graft"),
+  });
 }
 
 // These RED tests intentionally mirror the 0025 playback questions while

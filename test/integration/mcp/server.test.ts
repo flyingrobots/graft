@@ -2,6 +2,10 @@ import { describe, it, expect, beforeAll, afterAll } from "vitest";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { StdioClientTransport } from "@modelcontextprotocol/sdk/client/stdio.js";
 import { TOOL_REGISTRY } from "../../../src/mcp/server.js";
+import * as fs from "node:fs";
+import * as os from "node:os";
+import * as path from "node:path";
+import { extractText, fixturePath, getTestRepoRoot } from "../../helpers/mcp.js";
 /**
  * Integration tests: spawn the actual MCP server as a subprocess,
  * connect via stdio, and call tools through the MCP protocol.
@@ -9,12 +13,19 @@ import { TOOL_REGISTRY } from "../../../src/mcp/server.js";
 describe("integration: MCP server over stdio", () => {
   let client: Client;
   let transport: StdioClientTransport;
+  let projectRoot: string;
 
   beforeAll(async () => {
+    projectRoot = fs.mkdtempSync(path.join(os.tmpdir(), "graft-mcp-stdio-"));
+
     transport = new StdioClientTransport({
       command: "node",
-      args: ["--import", "tsx", "src/mcp/stdio.ts"],
-      cwd: process.cwd(),
+      args: ["--import", "tsx", "test/helpers/mcp-stdio.ts"],
+      cwd: getTestRepoRoot(),
+      env: {
+        GRAFT_TEST_PROJECT_ROOT: projectRoot,
+        GRAFT_TEST_GRAFT_DIR: path.join(projectRoot, ".graft"),
+      },
     });
     client = new Client({ name: "graft-test", version: "0.0.0" });
     await client.connect(transport);
@@ -22,6 +33,7 @@ describe("integration: MCP server over stdio", () => {
 
   afterAll(async () => {
     await client.close();
+    fs.rmSync(projectRoot, { recursive: true, force: true });
   });
 
   it("lists all registered tools", async () => {
@@ -44,10 +56,9 @@ describe("integration: MCP server over stdio", () => {
   it("safe_read returns content for small files", async () => {
     const result = await client.callTool({
       name: "safe_read",
-      arguments: { path: "test/fixtures/small.ts" },
+      arguments: { path: fixturePath("small.ts") },
     });
-    const text = extractText(result);
-    const parsed = JSON.parse(text) as Record<string, unknown>;
+    const parsed = JSON.parse(extractText(result)) as Record<string, unknown>;
     expect(parsed["projection"]).toBe("content");
     expect(parsed["content"]).toContain("greet");
   });
@@ -55,10 +66,9 @@ describe("integration: MCP server over stdio", () => {
   it("safe_read returns outline for large files", async () => {
     const result = await client.callTool({
       name: "safe_read",
-      arguments: { path: "test/fixtures/large.ts" },
+      arguments: { path: fixturePath("large.ts") },
     });
-    const text = extractText(result);
-    const parsed = JSON.parse(text) as Record<string, unknown>;
+    const parsed = JSON.parse(extractText(result)) as Record<string, unknown>;
     expect(parsed["projection"]).toBe("outline");
     expect(parsed["jumpTable"]).toBeDefined();
   });
@@ -66,10 +76,9 @@ describe("integration: MCP server over stdio", () => {
   it("safe_read refuses binary files", async () => {
     const result = await client.callTool({
       name: "safe_read",
-      arguments: { path: "test/fixtures/ban-targets/image.png" },
+      arguments: { path: fixturePath("ban-targets/image.png") },
     });
-    const text = extractText(result);
-    const parsed = JSON.parse(text) as Record<string, unknown>;
+    const parsed = JSON.parse(extractText(result)) as Record<string, unknown>;
     expect(parsed["projection"]).toBe("refused");
     expect(parsed["reason"]).toBe("BINARY");
   });
@@ -77,10 +86,9 @@ describe("integration: MCP server over stdio", () => {
   it("file_outline includes jump table", async () => {
     const result = await client.callTool({
       name: "file_outline",
-      arguments: { path: "test/fixtures/medium.ts" },
+      arguments: { path: fixturePath("medium.ts") },
     });
-    const text = extractText(result);
-    const parsed = JSON.parse(text) as Record<string, unknown>;
+    const parsed = JSON.parse(extractText(result)) as Record<string, unknown>;
     expect(parsed["outline"]).toBeDefined();
     expect(parsed["jumpTable"]).toBeDefined();
   });
@@ -88,10 +96,9 @@ describe("integration: MCP server over stdio", () => {
   it("read_range returns bounded lines", async () => {
     const result = await client.callTool({
       name: "read_range",
-      arguments: { path: "test/fixtures/medium.ts", start: 1, end: 5 },
+      arguments: { path: fixturePath("medium.ts"), start: 1, end: 5 },
     });
-    const text = extractText(result);
-    const parsed = JSON.parse(text) as Record<string, unknown>;
+    const parsed = JSON.parse(extractText(result)) as Record<string, unknown>;
     expect(parsed["content"]).toBeDefined();
     expect(parsed["startLine"]).toBe(1);
     expect(parsed["endLine"]).toBe(5);
@@ -102,9 +109,8 @@ describe("integration: MCP server over stdio", () => {
       name: "doctor",
       arguments: {},
     });
-    const text = extractText(result);
-    const parsed = JSON.parse(text) as Record<string, unknown>;
-    expect(parsed["projectRoot"]).toBeDefined();
+    const parsed = JSON.parse(extractText(result)) as Record<string, unknown>;
+    expect(parsed["projectRoot"]).toBe(projectRoot);
     expect(parsed["parserHealthy"]).toBe(true);
   });
 
@@ -113,15 +119,7 @@ describe("integration: MCP server over stdio", () => {
       name: "stats",
       arguments: {},
     });
-    const text = extractText(result);
-    const parsed = JSON.parse(text) as Record<string, unknown>;
+    const parsed = JSON.parse(extractText(result)) as Record<string, unknown>;
     expect(parsed["totalReads"]).toBeDefined();
   });
 });
-
-function extractText(result: unknown): string {
-  const r = result as { content?: { type: string; text: string }[] };
-  const textBlock = r.content?.find((c) => c.type === "text");
-  if (!textBlock) throw new Error("No text content in MCP result");
-  return textBlock.text;
-}

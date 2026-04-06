@@ -63,12 +63,17 @@ export interface GraftServer {
   getMcpServer(): McpServer;
 }
 
-export function createGraftServer(): GraftServer {
+export interface CreateGraftServerOptions {
+  projectRoot?: string;
+  graftDir?: string;
+}
+
+export function createGraftServer(options: CreateGraftServerOptions = {}): GraftServer {
   const mcpServer = new McpServer({ name: "graft", version: "0.0.0" });
   const session = new SessionTracker();
   const sessionId = crypto.randomUUID();
-  const projectRoot = process.cwd();
-  const graftDir = path.join(projectRoot, ".graft");
+  const projectRoot = options.projectRoot ?? process.cwd();
+  const graftDir = options.graftDir ?? path.join(projectRoot, ".graft");
   const metrics = new Metrics();
   const cache = new ObservationCache();
   const codec = new CanonicalJsonCodec();

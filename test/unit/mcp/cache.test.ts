@@ -1,31 +1,30 @@
-import { describe, it, expect, beforeEach } from "vitest";
-import { createGraftServer } from "../../../src/mcp/server.js";
+import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import type { GraftServer } from "../../../src/mcp/server.js";
 import fs from "node:fs";
 import path from "node:path";
 import os from "node:os";
-
-function extractText(result: unknown): string {
-  const r = result as { content?: { type: string; text: string }[] };
-  const textBlock = r.content?.find((c) => c.type === "text");
-  if (!textBlock) throw new Error("No text content in MCP result");
-  return textBlock.text;
-}
-
-function parse(result: unknown): Record<string, unknown> {
-  return JSON.parse(extractText(result)) as Record<string, unknown>;
-}
+import { createIsolatedServer, parse } from "../../helpers/mcp.js";
 
 describe("mcp: re-read suppression", () => {
   let server: GraftServer;
+  let cleanupServer: () => void;
   let tmpDir: string;
   let testFile: string;
 
   beforeEach(() => {
-    server = createGraftServer();
+    const isolated = createIsolatedServer();
+    server = isolated.server;
+    cleanupServer = () => {
+      isolated.cleanup();
+    };
     tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "graft-cache-"));
     testFile = path.join(tmpDir, "example.ts");
     fs.writeFileSync(testFile, 'export function hello(): string {\n  return "hi";\n}\n');
+  });
+
+  afterEach(() => {
+    cleanupServer();
+    fs.rmSync(tmpDir, { recursive: true, force: true });
   });
 
   it("returns content on first read", async () => {
