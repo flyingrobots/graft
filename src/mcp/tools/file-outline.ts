@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { fileOutline } from "../../operations/file-outline.js";
+import { detectLang } from "../../parser/lang.js";
 import { hashContent } from "../cache.js";
 import type { ToolDefinition, ToolContext, ToolHandler } from "../context.js";
 
@@ -22,7 +23,9 @@ export const fileOutlineTool: ToolDefinition = {
         // proceed to fileOutline for error handling
       }
 
-      if (rawContent !== null) {
+      const outlineSupported = detectLang(filePath) !== null;
+
+      if (rawContent !== null && outlineSupported) {
         const cacheResult = ctx.cache.check(filePath, rawContent);
         if (cacheResult.hit) {
           cacheResult.obs.touch();
@@ -41,7 +44,7 @@ export const fileOutlineTool: ToolDefinition = {
       ctx.metrics.recordOutline();
 
       // Record observation
-      if (rawContent !== null) {
+      if (rawContent !== null && outlineSupported && result.reason !== "UNSUPPORTED_LANGUAGE") {
         ctx.cache.record(
           filePath,
           hashContent(rawContent),

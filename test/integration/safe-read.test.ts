@@ -2,6 +2,8 @@ import { describe, it, expect } from "vitest";
 import { safeRead } from "../../src/operations/safe-read.js";
 import { nodeFs } from "../../src/adapters/node-fs.js";
 import { CanonicalJsonCodec } from "../../src/adapters/canonical-json.js";
+import fs from "node:fs";
+import os from "node:os";
 import path from "node:path";
 
 const codec = new CanonicalJsonCodec();
@@ -33,6 +35,22 @@ describe("integration: safe_read end-to-end", () => {
     expect(jump.symbol).toBeDefined();
     expect(jump.start).toBeGreaterThan(0);
     expect(jump.end).toBeGreaterThanOrEqual(jump.start);
+  });
+
+  it("large unsupported file → explicit unsupported outline result", async () => {
+    const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "graft-integration-md-"));
+    const filePath = path.join(tmpDir, "README.md");
+    fs.writeFileSync(
+      filePath,
+      Array.from({ length: 220 }, (_, i) => `# Heading ${String(i)}\n\nLine ${String(i)}\n`).join("\n"),
+    );
+
+    const result = await safeRead(filePath, { fs: nodeFs, codec });
+    expect(result.projection).toBe("outline");
+    expect(result.reason).toBe("UNSUPPORTED_LANGUAGE");
+    expect(result.outline).toEqual([]);
+    expect(result.jumpTable).toEqual([]);
+    expect(result.next).toBeDefined();
   });
 
   it("binary → refused with BINARY reason and next steps", async () => {

@@ -99,15 +99,15 @@ git config --local core.hooksPath scripts/hooks
 
 ## Current hot items
 
-- `docs/method/backlog/asap/CORE_unsupported-file-outline-correctness.md`
 - `docs/method/backlog/asap/CORE_markdown-summary-support.md`
+- `docs/method/backlog/asap/CORE_policy-fidelity-audit-all-tools-and-cli.md`
 
 ## Current learnings
 
-- Unsupported files currently can hit the outline path and return empty
-  code outlines because outline extraction defaults to TS when no
-  language is supplied. Treat that as a correctness issue, not a UX
-  quirk.
+- Unsupported files now degrade lawfully on the bounded-read path:
+  `safe_read` returns `UNSUPPORTED_LANGUAGE` with no fabricated symbols,
+  `file_outline` returns an explicit unsupported result, and unsupported
+  files are not cached as if they had real outlines.
 - Markdown is a strong candidate for first-class structured document
   support because README/docs reads are common and headings are honest
   structure.

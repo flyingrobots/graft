@@ -1,9 +1,8 @@
 import { z } from "zod";
 import { evaluatePolicy } from "../../policy/evaluate.js";
 import { RefusedResult } from "../../policy/types.js";
-import { extractOutline } from "../../parser/outline.js";
+import { extractOutlineForFile } from "../../parser/outline.js";
 import { diffOutlines } from "../../parser/diff.js";
-import { detectLang } from "../../parser/lang.js";
 import { hashContent } from "../cache.js";
 import type { ToolDefinition, ToolContext, ToolHandler } from "../context.js";
 
@@ -49,7 +48,13 @@ export const changedSinceTool: ToolDefinition = {
       }
 
       // Use extractOutline with rawContent directly to avoid snapshot race.
-      const newOutlineResult = extractOutline(rawContent, detectLang(filePath) ?? "ts");
+      const newOutlineResult = extractOutlineForFile(filePath, rawContent);
+      if (newOutlineResult === null) {
+        return ctx.respond("changed_since", {
+          status: "unsupported",
+          reason: "UNSUPPORTED_LANGUAGE",
+        });
+      }
       const diff = diffOutlines(cacheResult.stale.outline, newOutlineResult.entries);
 
       if (consume) {

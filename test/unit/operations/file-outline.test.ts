@@ -1,6 +1,8 @@
 import { describe, it, expect } from "vitest";
 import { fileOutline } from "../../../src/operations/file-outline.js";
 import { nodeFs } from "../../../src/adapters/node-fs.js";
+import fs from "node:fs";
+import os from "node:os";
 import path from "node:path";
 
 const FIXTURES = path.resolve(import.meta.dirname, "../../fixtures");
@@ -46,5 +48,16 @@ describe("operations: file_outline", () => {
     const filePath = path.join(FIXTURES, "small.ts");
     const result = await fileOutline(filePath, { fs: nodeFs });
     expect(result.path).toBe(filePath);
+  });
+
+  it("returns an explicit unsupported result for markdown files", async () => {
+    const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "graft-file-outline-md-"));
+    const filePath = path.join(tmpDir, "README.md");
+    fs.writeFileSync(filePath, "# Hello\n\n".repeat(200));
+
+    const result = await fileOutline(filePath, { fs: nodeFs });
+    expect(result.outline).toEqual([]);
+    expect(result.jumpTable).toEqual([]);
+    expect(result.error).toContain("Unsupported");
   });
 });

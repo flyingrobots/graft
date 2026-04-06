@@ -39,7 +39,7 @@ export const safeReadTool: ToolDefinition = {
       }
 
       // Check cache if we could read the file
-      if (cf !== null) {
+      if (cf?.supportsOutline === true) {
         const cacheResult = ctx.cache.check(filePath, cf.rawContent);
         if (cacheResult.hit) {
           // Defense: re-check policy before returning cached data.
@@ -125,7 +125,13 @@ export const safeReadTool: ToolDefinition = {
 
       // Record observation for cacheable projections — uses CachedFile
       // outline (no re-read) to eliminate the snapshot race.
-      if (cf !== null && result.actual !== undefined && CACHEABLE_PROJECTIONS.has(result.projection)) {
+      if (
+        cf !== null &&
+        cf.supportsOutline &&
+        result.actual !== undefined &&
+        CACHEABLE_PROJECTIONS.has(result.projection) &&
+        result.reason !== "UNSUPPORTED_LANGUAGE"
+      ) {
         ctx.cache.record(filePath, cf.hash, cf.outline, cf.jumpTable, result.actual);
       }
 

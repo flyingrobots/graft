@@ -8,7 +8,8 @@ export type ReasonCode =
   | "BUILD_OUTPUT"
   | "SECRET"
   | "GRAFTIGNORE"
-  | "BUDGET_CAP";
+  | "BUDGET_CAP"
+  | "UNSUPPORTED_LANGUAGE";
 
 export type SessionDepth = "early" | "mid" | "late" | "unknown";
 
@@ -48,12 +49,12 @@ export class ContentResult implements PolicyResultBase {
 
 export class OutlineResult implements PolicyResultBase {
   readonly projection = "outline" as const;
-  readonly reason: "OUTLINE" | "SESSION_CAP" | "BUDGET_CAP";
+  readonly reason: "OUTLINE" | "SESSION_CAP" | "BUDGET_CAP" | "UNSUPPORTED_LANGUAGE";
   readonly thresholds: { readonly lines: number; readonly bytes: number };
   readonly actual: { readonly lines: number; readonly bytes: number };
   readonly sessionDepth?: SessionDepth | undefined;
 
-  constructor(opts: { reason: "OUTLINE" | "SESSION_CAP" | "BUDGET_CAP"; thresholds: { lines: number; bytes: number }; actual: { lines: number; bytes: number }; sessionDepth?: SessionDepth | undefined }) {
+  constructor(opts: { reason: "OUTLINE" | "SESSION_CAP" | "BUDGET_CAP" | "UNSUPPORTED_LANGUAGE"; thresholds: { lines: number; bytes: number }; actual: { lines: number; bytes: number }; sessionDepth?: SessionDepth | undefined }) {
     this.reason = opts.reason;
     this.thresholds = Object.freeze({ ...opts.thresholds });
     this.actual = Object.freeze({ ...opts.actual });

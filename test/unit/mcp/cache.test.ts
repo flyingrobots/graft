@@ -130,4 +130,29 @@ describe("mcp: re-read suppression", () => {
     // Should NOT be cache_hit — refusals are not cached
     expect(r2["reason"]).toBe("SECRET");
   });
+
+  it("unsupported files are not cached by safe_read", async () => {
+    const mdFile = path.join(tmpDir, "README.md");
+    fs.writeFileSync(mdFile, "# Heading\n\n".repeat(220));
+
+    const r1 = parse(await server.callTool("safe_read", { path: mdFile }));
+    expect(r1["reason"]).toBe("UNSUPPORTED_LANGUAGE");
+
+    const r2 = parse(await server.callTool("safe_read", { path: mdFile }));
+    expect(r2["projection"]).toBe("outline");
+    expect(r2["reason"]).toBe("UNSUPPORTED_LANGUAGE");
+    expect(r2["projection"]).not.toBe("cache_hit");
+  });
+
+  it("unsupported files are not cached by file_outline", async () => {
+    const mdFile = path.join(tmpDir, "README.md");
+    fs.writeFileSync(mdFile, "# Heading\n\n".repeat(220));
+
+    const r1 = parse(await server.callTool("file_outline", { path: mdFile }));
+    expect(typeof r1["error"]).toBe("string");
+
+    const r2 = parse(await server.callTool("file_outline", { path: mdFile }));
+    expect(r2["cacheHit"]).toBeUndefined();
+    expect(typeof r2["error"]).toBe("string");
+  });
 });

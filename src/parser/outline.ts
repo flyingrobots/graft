@@ -1,5 +1,6 @@
 import Parser from "web-tree-sitter";
 import { createRequire } from "node:module";
+import { detectLang } from "./lang.js";
 import { OutlineEntry, JumpEntry } from "./types.js";
 import type { OutlineResult } from "./types.js";
 
@@ -324,4 +325,16 @@ export function extractOutline(
   }
 
   return result;
+}
+
+export function extractOutlineForFile(
+  filePath: string,
+  source: string,
+): OutlineResult | null {
+  const lang = detectLang(filePath);
+  if (lang === null) {
+    return null;
+  }
+
+  return extractOutline(source, lang);
 }

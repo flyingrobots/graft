@@ -1,6 +1,9 @@
 import { describe, it, expect } from "vitest";
 import { ZodError } from "zod";
 import { createGraftServer, TOOL_REGISTRY } from "../../../src/mcp/server.js";
+import fs from "node:fs";
+import os from "node:os";
+import path from "node:path";
 
 const EXPECTED_TOOL_NAMES = TOOL_REGISTRY.map((t) => t.name);
 
@@ -38,6 +41,19 @@ describe("mcp: tool handlers", () => {
     expect(parsed["jumpTable"]).toBeDefined();
   });
 
+  it("safe_read returns an explicit unsupported result for large markdown files", async () => {
+    const server = createGraftServer();
+    const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "graft-mcp-tools-md-"));
+    const filePath = path.join(tmpDir, "README.md");
+    fs.writeFileSync(filePath, "# Heading\n\n".repeat(220));
+    const result = await server.callTool("safe_read", { path: filePath });
+    const parsed = JSON.parse(extractText(result)) as Record<string, unknown>;
+    expect(parsed["projection"]).toBe("outline");
+    expect(parsed["reason"]).toBe("UNSUPPORTED_LANGUAGE");
+    expect(parsed["outline"]).toEqual([]);
+    expect(parsed["jumpTable"]).toEqual([]);
+  });
+
   it("safe_read returns refusal for banned files", async () => {
     const server = createGraftServer();
     const result = await server.callTool("safe_read", {
@@ -56,6 +72,18 @@ describe("mcp: tool handlers", () => {
     const parsed = JSON.parse(extractText(result)) as Record<string, unknown>;
     expect(parsed["outline"]).toBeDefined();
     expect(parsed["jumpTable"]).toBeDefined();
+  });
+
+  it("file_outline returns an explicit unsupported result for markdown files", async () => {
+    const server = createGraftServer();
+    const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "graft-file-outline-tool-md-"));
+    const filePath = path.join(tmpDir, "README.md");
+    fs.writeFileSync(filePath, "# Heading\n\n".repeat(220));
+    const result = await server.callTool("file_outline", { path: filePath });
+    const parsed = JSON.parse(extractText(result)) as Record<string, unknown>;
+    expect(parsed["outline"]).toEqual([]);
+    expect(parsed["jumpTable"]).toEqual([]);
+    expect(typeof parsed["error"]).toBe("string");
   });
 
   it("read_range returns bounded content", async () => {
@@ -82,10 +110,18 @@ describe("mcp: tool handlers", () => {
   });
 
   it("state_load returns null when no state saved", async () => {
-    const server = createGraftServer();
-    const result = await server.callTool("state_load", {});
-    const parsed = JSON.parse(extractText(result)) as Record<string, unknown>;
-    expect(parsed["content"]).toBeNull();
+    const prevCwd = process.cwd();
+    const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "graft-state-load-"));
+
+    try {
+      process.chdir(tmpDir);
+      const server = createGraftServer();
+      const result = await server.callTool("state_load", {});
+      const parsed = JSON.parse(extractText(result)) as Record<string, unknown>;
+      expect(parsed["content"]).toBeNull();
+    } finally {
+      process.chdir(prevCwd);
+    }
   });
 
   it("doctor returns health check", async () => {

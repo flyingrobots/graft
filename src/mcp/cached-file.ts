@@ -1,5 +1,6 @@
-import { extractOutline } from "../parser/outline.js";
+import { extractOutlineForFile } from "../parser/outline.js";
 import { detectLang } from "../parser/lang.js";
+import type { SupportedLang } from "../parser/lang.js";
 import type { OutlineEntry, JumpEntry } from "../parser/types.js";
 import { hashContent } from "./cache.js";
 
@@ -14,6 +15,8 @@ export class CachedFile {
   readonly path: string;
   readonly rawContent: string;
   readonly hash: string;
+  readonly lang: SupportedLang | null;
+  readonly supportsOutline: boolean;
   readonly outline: readonly OutlineEntry[];
   readonly jumpTable: readonly JumpEntry[];
   readonly actual: { readonly lines: number; readonly bytes: number };
@@ -26,12 +29,11 @@ export class CachedFile {
       lines: rawContent.split("\n").length,
       bytes: Buffer.byteLength(rawContent),
     };
-    // Fallback to "ts" parser for unknown extensions — TS/JS parser handles
-    // .mjs, .cjs, and other JS-family files that detectLang doesn't cover.
-    const lang = detectLang(filePath) ?? "ts";
-    const result = extractOutline(rawContent, lang);
-    this.outline = result.entries;
-    this.jumpTable = result.jumpTable ?? [];
+    this.lang = detectLang(filePath);
+    this.supportsOutline = this.lang !== null;
+    const result = extractOutlineForFile(filePath, rawContent);
+    this.outline = result?.entries ?? [];
+    this.jumpTable = result?.jumpTable ?? [];
     Object.freeze(this.actual);
     Object.freeze(this);
   }
