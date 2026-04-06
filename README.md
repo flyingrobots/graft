@@ -59,8 +59,8 @@ Then add graft to your MCP config:
 }
 ```
 
-Works with Claude Code, Cursor, Windsurf, Continue, Cline, and
-any MCP-compatible client.
+Works with Codex, Claude Code, Cursor, Windsurf, Continue, Cline,
+and any MCP-compatible client.
 
 See **[Setup Guide](docs/GUIDE.md)** for per-editor instructions,
 Claude Code hooks, `.graftignore` configuration, troubleshooting,
