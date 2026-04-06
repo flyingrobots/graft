@@ -24,6 +24,7 @@ export const codeFindTool: ToolDefinition = {
     kind: z.string().optional(),
     path: z.string().optional(),
   },
+  policyCheck: true,
   createHandler(ctx: ToolContext): ToolHandler {
     return async (args) => {
       const query = args["query"] as string;
