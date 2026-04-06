@@ -5,7 +5,7 @@ import { extractOutline } from "../../parser/outline.js";
 import { detectLang } from "../../parser/lang.js";
 import type { OutlineEntry } from "../../parser/types.js";
 import type { ToolDefinition, ToolContext, ToolHandler } from "../context.js";
-import { execFileSync } from "node:child_process";
+import { listTrackedFiles } from "./git-files.js";
 
 interface SymbolMatch {
   name: string;
@@ -17,21 +17,10 @@ interface SymbolMatch {
   endLine?: number | undefined;
 }
 
-function listTrackedFiles(dirPath: string, cwd: string): string[] {
-  try {
-    const args = dirPath.length > 0 ? ["ls-files", "--", dirPath] : ["ls-files"];
-    return execFileSync("git", args, { cwd, encoding: "utf-8", stdio: ["pipe", "pipe", "pipe"] })
-      .trim().split("\n").filter((l) => l.length > 0);
-  } catch {
-    return [];
-  }
-}
-
 function collectSymbols(
   entries: readonly OutlineEntry[],
   filePath: string,
   jumpTable: readonly { symbol: string; start: number; end: number }[],
-  _parentPath?: string,
 ): SymbolMatch[] {
   const results: SymbolMatch[] = [];
   for (const entry of entries) {
@@ -46,7 +35,7 @@ function collectSymbols(
       endLine: jump?.end,
     });
     if (entry.children !== undefined && entry.children.length > 0) {
-      results.push(...collectSymbols(entry.children, filePath, jumpTable, entry.name));
+      results.push(...collectSymbols(entry.children, filePath, jumpTable));
     }
   }
   return results;
@@ -90,7 +79,7 @@ export const codeFindTool: ToolDefinition = {
 
         for (const sym of symbols) {
           if (!isMatch(sym.name)) continue;
-          if (kindFilter !== undefined && sym.kind !== kindFilter) continue;
+          if (kindFilter !== undefined && sym.kind.toLowerCase() !== kindFilter.toLowerCase()) continue;
           allMatches.push(sym);
         }
       }

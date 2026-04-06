@@ -3,27 +3,12 @@ import { z } from "zod";
 import { extractOutline } from "../../parser/outline.js";
 import { detectLang } from "../../parser/lang.js";
 import type { ToolDefinition, ToolContext, ToolHandler } from "../context.js";
-import { execFileSync } from "node:child_process";
+import { listTrackedFiles } from "./git-files.js";
 
 interface FileEntry {
   path: string;
   lang: string;
   symbols: { name: string; kind: string; signature?: string | undefined; exported: boolean; startLine?: number | undefined; endLine?: number | undefined }[];
-}
-
-/**
- * List files in a directory (git ls-files for tracked files).
- */
-function listFiles(dirPath: string, cwd: string): string[] {
-  try {
-    const args = dirPath.length > 0
-      ? ["ls-files", "--", dirPath]
-      : ["ls-files"];
-    return execFileSync("git", args, { cwd, encoding: "utf-8" })
-      .trim().split("\n").filter((l) => l.length > 0);
-  } catch {
-    return [];
-  }
 }
 
 export const mapTool: ToolDefinition = {
@@ -39,7 +24,7 @@ export const mapTool: ToolDefinition = {
     return (args) => {
       const dirPath = (args["path"] as string | undefined) ?? "";
 
-      const filePaths = listFiles(dirPath, ctx.projectRoot);
+      const filePaths = listTrackedFiles(dirPath, ctx.projectRoot);
       const files: FileEntry[] = [];
 
       for (const filePath of filePaths) {

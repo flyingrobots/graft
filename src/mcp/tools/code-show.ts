@@ -1,11 +1,10 @@
-import * as path from "node:path";
 import { z } from "zod";
 import { extractOutline } from "../../parser/outline.js";
 import { detectLang } from "../../parser/lang.js";
 import { readRange } from "../../operations/read-range.js";
 import type { OutlineEntry } from "../../parser/types.js";
 import type { ToolDefinition, ToolContext, ToolHandler } from "../context.js";
-import { execFileSync } from "node:child_process";
+import { listTrackedFiles } from "./git-files.js";
 
 interface SymbolLocation {
   name: string;
@@ -13,31 +12,19 @@ interface SymbolLocation {
   path: string;
   signature?: string | undefined;
   exported: boolean;
-  startLine: number;
-  endLine: number;
-}
-
-function listTrackedFiles(dirPath: string, cwd: string): string[] {
-  try {
-    const args = dirPath.length > 0 ? ["ls-files", "--", dirPath] : ["ls-files"];
-    return execFileSync("git", args, { cwd, encoding: "utf-8", stdio: ["pipe", "pipe", "pipe"] })
-      .trim().split("\n").filter((l) => l.length > 0);
-  } catch {
-    return [];
-  }
+  startLine?: number | undefined;
+  endLine?: number | undefined;
 }
 
 function findSymbol(
   entries: readonly OutlineEntry[],
   symbolName: string,
   jumpTable: readonly { symbol: string; start: number; end: number }[],
-): { entry: OutlineEntry; start: number; end: number } | null {
+): { entry: OutlineEntry; start?: number | undefined; end?: number | undefined } | null {
   for (const entry of entries) {
     if (entry.name === symbolName) {
       const jump = jumpTable.find((j) => j.symbol === entry.name);
-      if (jump !== undefined) {
-        return { entry, start: jump.start, end: jump.end };
-      }
+      return { entry, start: jump?.start, end: jump?.end };
     }
     if (entry.children !== undefined && entry.children.length > 0) {
       const found = findSymbol(entry.children, symbolName, jumpTable);
@@ -57,12 +44,12 @@ export const codeShowTool: ToolDefinition = {
     symbol: z.string(),
     path: z.string().optional(),
   },
+  policyCheck: true,
   createHandler(ctx: ToolContext): ToolHandler {
     return async (args) => {
       const symbolName = args["symbol"] as string;
       const targetPath = args["path"] as string | undefined;
 
-      // Collect all locations where this symbol exists
       const locations: SymbolLocation[] = [];
       const filePaths = targetPath !== undefined
         ? [targetPath]
@@ -72,10 +59,10 @@ export const codeShowTool: ToolDefinition = {
         const lang = detectLang(filePath);
         if (lang === null) continue;
 
-        const fullPath = path.isAbsolute(filePath) ? filePath : path.join(ctx.projectRoot, filePath);
+        const resolvedPath = ctx.resolvePath(filePath);
         let content: string;
         try {
-          content = ctx.fs.readFileSync(fullPath, "utf-8");
+          content = ctx.fs.readFileSync(resolvedPath, "utf-8");
         } catch {
           continue;
         }
@@ -112,13 +99,21 @@ export const codeShowTool: ToolDefinition = {
         });
       }
 
-      // Single match — read the source
-      const [loc] = locations;
-      if (loc === undefined) {
-        return ctx.respond("code_show", { symbol: symbolName, error: "No match", source: "live" });
+      const loc = locations[0];
+      if (loc?.startLine === undefined || loc.endLine === undefined) {
+        return ctx.respond("code_show", {
+          symbol: symbolName,
+          kind: loc?.kind,
+          signature: loc?.signature,
+          path: loc?.path,
+          exported: loc?.exported,
+          error: "Symbol found but line range unavailable — use read_range with file_outline",
+          source: "live",
+        });
       }
-      const fullPath = path.isAbsolute(loc.path) ? loc.path : path.join(ctx.projectRoot, loc.path);
-      const rangeResult = await readRange(fullPath, loc.startLine, loc.endLine, { fs: ctx.fs });
+
+      const resolvedPath = ctx.resolvePath(loc.path);
+      const rangeResult = await readRange(resolvedPath, loc.startLine, loc.endLine, { fs: ctx.fs });
 
       return ctx.respond("code_show", {
         symbol: loc.name,
@@ -129,6 +124,7 @@ export const codeShowTool: ToolDefinition = {
         startLine: loc.startLine,
         endLine: loc.endLine,
         content: rangeResult.content,
+        truncated: rangeResult.truncated ?? false,
         source: "live",
       });
     };
