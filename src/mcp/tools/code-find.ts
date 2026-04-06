@@ -2,6 +2,8 @@ import { z } from "zod";
 import picomatch from "picomatch";
 import { extractOutline } from "../../parser/outline.js";
 import { detectLang } from "../../parser/lang.js";
+import { evaluatePolicy } from "../../policy/evaluate.js";
+import { RefusedResult } from "../../policy/types.js";
 import type { OutlineEntry } from "../../parser/types.js";
 import type { ToolDefinition, ToolContext, ToolHandler } from "../context.js";
 import { listTrackedFiles } from "./git-files.js";
@@ -66,12 +68,21 @@ export const codeFindTool: ToolDefinition = {
         const lang = detectLang(filePath);
         if (lang === null) continue;
 
+        const resolvedPath = ctx.resolvePath(filePath);
         let content: string;
         try {
-          content = ctx.fs.readFileSync(ctx.resolvePath(filePath), "utf-8");
+          content = ctx.fs.readFileSync(resolvedPath, "utf-8");
         } catch {
           continue;
         }
+
+        // Skip banned files — their symbols should not appear in search results
+        const actual = { lines: content.split("\n").length, bytes: Buffer.byteLength(content) };
+        const policy = evaluatePolicy(
+          { path: resolvedPath, lines: actual.lines, bytes: actual.bytes },
+          { sessionDepth: ctx.session.getSessionDepth() },
+        );
+        if (policy instanceof RefusedResult) continue;
 
         const result = extractOutline(content, lang);
         const symbols = collectSymbols(result.entries, filePath, result.jumpTable ?? []);
