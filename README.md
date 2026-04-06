@@ -103,6 +103,8 @@ is structured JSON.
 | `graft_diff` | Structural diff between git refs with per-file summary lines |
 | `graft_since` | Structural changes since a git ref — symbols added/removed/changed |
 | `graft_map` | Structural map of a directory — all files and symbols in one call |
+| `code_show` | Focus on a symbol by name — get its source code in one call |
+| `code_find` | Search symbols across the project by name/kind pattern |
 | `changed_since` | Check if a file changed since last read (peek or consume) |
 | `run_capture` | Shell output capture — tee to log, tail to agent |
 | `state_save` | Save session working state (max 8 KB) |
