@@ -17,7 +17,7 @@ describe("parser: detectLang", () => {
   });
 
   it("returns null for unsupported file types", () => {
-    expect(detectLang("README.md")).toBeNull();
+    expect(detectLang("README.md")).toBe("md");
     expect(detectLang("config.yaml")).toBeNull();
   });
 });

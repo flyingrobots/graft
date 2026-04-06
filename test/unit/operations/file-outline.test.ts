@@ -50,14 +50,25 @@ describe("operations: file_outline", () => {
     expect(result.path).toBe(filePath);
   });
 
-  it("returns an explicit unsupported result for markdown files", async () => {
+  it("returns a heading outline for markdown files", async () => {
     const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "graft-file-outline-md-"));
     const filePath = path.join(tmpDir, "README.md");
-    fs.writeFileSync(filePath, "# Hello\n\n".repeat(200));
+    fs.writeFileSync(filePath, ["# Hello", "", "## Install", "", "Use it."].join("\n"));
 
     const result = await fileOutline(filePath, { fs: nodeFs });
-    expect(result.outline).toEqual([]);
-    expect(result.jumpTable).toEqual([]);
-    expect(result.error).toContain("Unsupported");
+    expect(result.outline).toContainEqual(
+      expect.objectContaining({
+        kind: "heading",
+        name: "Hello",
+        children: expect.arrayContaining([
+          expect.objectContaining({ kind: "heading", name: "Install" }),
+        ]) as unknown[],
+      }),
+    );
+    expect(result.jumpTable).toContainEqual(
+      expect.objectContaining({ kind: "heading", symbol: "Install" }),
+    );
+    expect(result.error).toBeUndefined();
+    expect(result.reason).toBeUndefined();
   });
 });

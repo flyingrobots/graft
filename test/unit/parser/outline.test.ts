@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { extractOutline } from "../../../src/parser/outline.js";
+import { extractOutline, extractOutlineForFile } from "../../../src/parser/outline.js";
 import type { JumpEntry } from "../../../src/parser/types.js";
 
 describe("parser: outline extraction", () => {
@@ -94,6 +94,115 @@ describe("parser: outline extraction", () => {
           exported: true,
         }),
       );
+    });
+  });
+
+  describe("Markdown", () => {
+    it("extracts heading hierarchy with section ranges", () => {
+      const source = [
+        "# Overview",
+        "",
+        "Intro",
+        "",
+        "## Install",
+        "",
+        "Steps",
+        "",
+        "### Linux",
+        "",
+        "Use apt.",
+        "",
+        "## Usage",
+        "",
+        "Run it.",
+      ].join("\n");
+
+      const outline = extractOutlineForFile("README.md", source);
+      expect(outline).not.toBeNull();
+
+      expect(outline!.entries).toContainEqual(
+        expect.objectContaining({
+          kind: "heading",
+          name: "Overview",
+          children: expect.arrayContaining([
+            expect.objectContaining({ kind: "heading", name: "Install" }),
+            expect.objectContaining({ kind: "heading", name: "Usage" }),
+          ]) as unknown[],
+        }),
+      );
+
+      const install = (outline!.entries[0]!.children ?? []).find((entry) => entry.name === "Install");
+      expect(install?.children).toContainEqual(
+        expect.objectContaining({ kind: "heading", name: "Linux" }),
+      );
+
+      const overviewJump = outline!.jumpTable!.find((j: JumpEntry) => j.symbol === "Overview");
+      expect(overviewJump).toEqual(expect.objectContaining({ kind: "heading", start: 1, end: 15 }));
+
+      const installJump = outline!.jumpTable!.find((j: JumpEntry) => j.symbol === "Install");
+      expect(installJump).toEqual(expect.objectContaining({ kind: "heading", start: 5, end: 12 }));
+
+      const linuxJump = outline!.jumpTable!.find((j: JumpEntry) => j.symbol === "Linux");
+      expect(linuxJump).toEqual(expect.objectContaining({ kind: "heading", start: 9, end: 12 }));
+
+      const usageJump = outline!.jumpTable!.find((j: JumpEntry) => j.symbol === "Usage");
+      expect(usageJump).toEqual(expect.objectContaining({ kind: "heading", start: 13, end: 15 }));
+    });
+
+    it("supports setext headings", () => {
+      const source = [
+        "Overview",
+        "========",
+        "",
+        "Intro",
+        "",
+        "Install",
+        "-------",
+        "",
+        "Steps",
+        "",
+        "Next",
+        "====",
+      ].join("\n");
+
+      const outline = extractOutlineForFile("README.md", source);
+      expect(outline).not.toBeNull();
+
+      const names = outline!.jumpTable!.map((entry) => entry.symbol);
+      expect(names).toContain("Overview");
+      expect(names).toContain("Install");
+      expect(names).toContain("Next");
+    });
+
+    it("ignores heading-like lines inside fenced code blocks", () => {
+      const source = [
+        "# Title",
+        "",
+        "```md",
+        "## Not A Heading",
+        "```",
+        "",
+        "## Real Heading",
+      ].join("\n");
+
+      const outline = extractOutlineForFile("README.md", source);
+      expect(outline).not.toBeNull();
+
+      const names = outline!.jumpTable!.map((entry) => entry.symbol);
+      expect(names).toContain("Title");
+      expect(names).toContain("Real Heading");
+      expect(names).not.toContain("Not A Heading");
+    });
+
+    it("returns an empty outline for markdown files with no headings", () => {
+      const outline = extractOutlineForFile(
+        "README.md",
+        Array.from({ length: 220 }, (_, i) => `Paragraph ${String(i)}.`).join("\n\n"),
+      );
+
+      expect(outline).not.toBeNull();
+      expect(outline!.entries).toEqual([]);
+      expect(outline!.jumpTable).toEqual([]);
     });
   });
 
