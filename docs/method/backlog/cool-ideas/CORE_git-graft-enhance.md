@@ -1,45 +1,105 @@
 # git graft enhance — structural annotations for git commands
 
 Wrap any git command with structural annotations from graft's
-parser (and eventually WARP worldlines).
-
-```
-git graft enhance log HEAD~3..HEAD
-git graft enhance diff HEAD~1
-git graft enhance show abc123
-git graft enhance blame src/foo.ts
-```
-
-The regular git output is preserved — graft injects structural
-annotations alongside it. "function evaluatePolicy: +1 param"
-next to the diff hunk. "added class SessionTracker" next to the
-commit in the log.
+parser and WARP worldlines. Git sees bytes. Graft sees meaning.
+The enhance command bridges them.
 
 This is the human-facing surface that justifies graft beyond the
 agent use case. Humans already know git commands. Graft makes
 them smarter.
 
+## Every git command, enhanced
+
+### `git graft enhance log HEAD~5..HEAD`
+Structural summary per commit instead of just messages:
+```
+abc123 — added class Router, changed evaluatePolicy signature
+def456 — docs only (no structural changes)
+```
+
+### `git graft enhance diff HEAD~1`
+Structural annotations alongside line hunks:
+```
+src/server.ts: +2 functions, ~1 signature, =5 unchanged
+```
+(graft_diff summary lines already do this)
+
+### `git graft enhance show abc123`
+Structural annotation for a single commit:
+```
+Touches: src/policy/evaluate.ts
+  changed evaluatePolicy (added budgetRemaining param)
+  added BUDGET_CAP reason code
+```
+
+### `git graft enhance blame src/foo.ts`
+Structural blame — which commit last changed each SYMBOL:
+```
+evaluatePolicy — last changed in abc123 (added param)
+STATIC_THRESHOLDS — unchanged since def456
+```
+
+### `git graft enhance shortlog`
+Structural churn per author:
+```
+James: 45 symbols added, 12 changed, 3 removed (10 commits)
+```
+
+### `git graft enhance stash`
+Structural diff of stashed changes:
+```
+Stash@{0}: +1 function (handleTimeout), ~1 signature (processRequest)
+```
+
+### `git graft enhance cherry-pick abc123`
+Preview structural impact before picking:
+```
+This commit adds class ErrorHandler and changes 2 signatures
+```
+
+### `git graft enhance merge feature-branch`
+Structural merge preview:
+```
+Feature branch: +5 symbols, ~3 signatures
+Potential conflicts: both branches modified evaluatePolicy
+```
+
+### `git graft enhance branch -v`
+Structural divergence per branch:
+```
+feature-auth: +12 symbols, ~3 signatures ahead of main
+fix-typo: no structural changes (docs only)
+```
+
+### `git graft enhance tag -l`
+Structural diff between tags:
+```
+v0.3.0 → v0.4.0: +35 symbols, -0 removed, ~0 changed
+```
+
+### `git graft enhance bisect`
+Structural-aware bisect — narrow to commits that touched a
+specific symbol. Skip commits with no structural changes to
+the target:
+```
+Narrowing to commits that touched evaluatePolicy...
+Skipping abc123 (no structural changes to target)
+```
+
 ## Implementation layers
 
-**Without WARP (tree-sitter only):** For each commit in the
-range, parse changed files at both revisions via
-`git show <ref>:<path>`, run extractOutline + diffOutlines.
-Slow for large ranges, but works today.
+**Live (tree-sitter):** parse changed files at both revisions,
+run extractOutline + diffOutlines. Works today. Slow for large
+ranges.
 
-**With WARP worldlines:** Structural diffs are pre-indexed at
-each tick. Lookup is instant. The `enhance` command becomes a
-thin formatter over worldline queries.
+**WARP-backed:** structural diffs are pre-indexed. The enhance
+command becomes a thin formatter over worldline observer queries.
+Instant for indexed ranges.
 
-## Subcommands to support
+## Output format
 
-- `log` — structural summary per commit
-- `diff` — structural annotations per file alongside hunks
-- `show` — structural summary for a single commit
-- `blame` — annotate methods/classes with structural history
-- `shortlog` — structural churn summary per author
+`--format=human` (default): interleaved with git output.
+`--format=json`: structured JSON for agent consumption.
 
-## Open question
-
-Output format: interleaved with git output (human-readable) or
-as a separate structured block (agent-consumable)? Probably both,
-controlled by `--format=human|json`.
+Depends on: graft_diff (shipped), WARP Level 1 (shipped),
+structural blame (backlog), code_find (cycle 0024).
