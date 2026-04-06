@@ -112,6 +112,9 @@ git config --local core.hooksPath scripts/hooks
 - Markdown is a strong candidate for first-class structured document
   support because README/docs reads are common and headings are honest
   structure.
+- If markdown support lands, prefer reusing the existing
+  outline/jump-table surface with a `heading` kind instead of inventing
+  a second document-outline API.
 - `code_find -> code_show` is a good agent workflow and worth
   dogfooding heavily.
 - MCP tests should construct servers with explicit `projectRoot` and
