@@ -8,12 +8,16 @@ export const doctorTool: ToolDefinition = {
     "thresholds, session depth, and message count.",
   createHandler(ctx: ToolContext): ToolHandler {
     return () => {
+      const repoState = ctx.getRepoState();
       return ctx.respond("doctor", {
         projectRoot: ctx.projectRoot,
         parserHealthy: true,
         thresholds: { lines: STATIC_THRESHOLDS.lines, bytes: STATIC_THRESHOLDS.bytes },
         sessionDepth: ctx.session.getSessionDepth(),
         totalMessages: ctx.session.getMessageCount(),
+        checkoutEpoch: repoState.checkoutEpoch,
+        lastTransition: repoState.lastTransition,
+        workspaceOverlay: repoState.workspaceOverlay,
       });
     };
   },

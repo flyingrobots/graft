@@ -14,6 +14,8 @@ export function createTestRepo(prefix = "graft-test-"): string {
   git(tmpDir, "init");
   git(tmpDir, "config user.email test@test.com");
   git(tmpDir, "config user.name test");
+  git(tmpDir, "config commit.gpgsign false");
+  git(tmpDir, "config tag.gpgSign false");
   return tmpDir;
 }
 

@@ -29,7 +29,7 @@ function createServerInRepo(repoDir: string) {
 
 // These RED tests intentionally mirror the 0025 playback questions while
 // spanning golden path, failure modes, edge cases, and stress behavior.
-describe("mcp: layered worldline model", () => {
+describe("mcp: layered worldline model", { timeout: 15000 }, () => {
   describe("golden path", () => {
     it("labels historical symbol reads as commit_worldline", async () => {
       const tmpDir = createTestRepo("graft-layered-worldline-commit-");

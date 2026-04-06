@@ -38,6 +38,7 @@ export const sinceTool: ToolDefinition = {
       return ctx.respond("graft_since", {
         ...result,
         summary: `+${String(totalAdded)} added, -${String(totalRemoved)} removed, ~${String(totalChanged)} changed across ${String(result.files.length)} files`,
+        layer: "ref_view",
       });
     };
   },

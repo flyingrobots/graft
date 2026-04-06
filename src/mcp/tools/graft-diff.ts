@@ -11,14 +11,18 @@ export const graftDiffTool: ToolDefinition = {
   schema: { base: z.string().optional(), head: z.string().optional(), path: z.string().optional() },
   createHandler(ctx: ToolContext): ToolHandler {
     return (args) => {
+      const head = args["head"] as string | undefined;
       const result = graftDiff({
         cwd: ctx.projectRoot,
         fs: ctx.fs,
         base: args["base"] as string | undefined,
-        head: args["head"] as string | undefined,
+        head,
         path: args["path"] as string | undefined,
       });
-      return ctx.respond("graft_diff", result);
+      return ctx.respond("graft_diff", {
+        ...result,
+        layer: head === undefined ? "workspace_overlay" : "ref_view",
+      });
     };
   },
 };
