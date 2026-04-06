@@ -1,4 +1,3 @@
-import * as path from "node:path";
 import { z } from "zod";
 import picomatch from "picomatch";
 import { extractOutline } from "../../parser/outline.js";
@@ -69,7 +68,7 @@ export const codeFindTool: ToolDefinition = {
 
         let content: string;
         try {
-          content = ctx.fs.readFileSync(path.join(ctx.projectRoot, filePath), "utf-8");
+          content = ctx.fs.readFileSync(ctx.resolvePath(filePath), "utf-8");
         } catch {
           continue;
         }
