@@ -30,11 +30,13 @@ import { explainTool } from "./tools/explain.js";
 import { setBudgetTool } from "./tools/budget.js";
 import { sinceTool } from "./tools/since.js";
 import { mapTool } from "./tools/map.js";
+import { codeShowTool } from "./tools/code-show.js";
+import { codeFindTool } from "./tools/code-find.js";
 
 export type { McpToolResult, ToolHandler, ToolContext };
 
 /** All registered tool definitions. Add new tools here. */
-const TOOL_REGISTRY: readonly ToolDefinition[] = [
+export const TOOL_REGISTRY: readonly ToolDefinition[] = [
   safeReadTool,
   fileOutlineTool,
   readRangeTool,
@@ -49,6 +51,8 @@ const TOOL_REGISTRY: readonly ToolDefinition[] = [
   setBudgetTool,
   sinceTool,
   mapTool,
+  codeShowTool,
+  codeFindTool,
 ];
 
 export interface GraftServer {

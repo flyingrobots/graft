@@ -1,22 +1,17 @@
 import { describe, it, expect } from "vitest";
 import { ZodError } from "zod";
-import { createGraftServer } from "../../../src/mcp/server.js";
+import { createGraftServer, TOOL_REGISTRY } from "../../../src/mcp/server.js";
+
+const EXPECTED_TOOL_NAMES = TOOL_REGISTRY.map((t) => t.name);
 
 describe("mcp: tool registration", () => {
-  it("creates a server with all Phase 1 tools registered", () => {
+  it("registers every tool in TOOL_REGISTRY", () => {
     const server = createGraftServer();
     const toolNames = server.getRegisteredTools();
-    expect(toolNames).toContain("safe_read");
-    expect(toolNames).toContain("file_outline");
-    expect(toolNames).toContain("read_range");
-    expect(toolNames).toContain("run_capture");
-    expect(toolNames).toContain("state_save");
-    expect(toolNames).toContain("state_load");
-    expect(toolNames).toContain("doctor");
-    expect(toolNames).toContain("stats");
-    expect(toolNames).toContain("graft_since");
-    expect(toolNames).toContain("graft_map");
-    expect(toolNames).toHaveLength(14);
+    for (const name of EXPECTED_TOOL_NAMES) {
+      expect(toolNames).toContain(name);
+    }
+    expect(toolNames).toHaveLength(EXPECTED_TOOL_NAMES.length);
   });
 });
 

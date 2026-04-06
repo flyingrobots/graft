@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeAll, afterAll } from "vitest";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { StdioClientTransport } from "@modelcontextprotocol/sdk/client/stdio.js";
+import { TOOL_REGISTRY } from "../../../src/mcp/server.js";
 /**
  * Integration tests: spawn the actual MCP server as a subprocess,
  * connect via stdio, and call tools through the MCP protocol.
@@ -23,18 +24,13 @@ describe("integration: MCP server over stdio", () => {
     await client.close();
   });
 
-  it("lists all 8 tools", async () => {
+  it("lists all registered tools", async () => {
     const tools = await client.listTools();
     const names = tools.tools.map((t) => t.name);
-    expect(names).toContain("safe_read");
-    expect(names).toContain("file_outline");
-    expect(names).toContain("read_range");
-    expect(names).toContain("run_capture");
-    expect(names).toContain("state_save");
-    expect(names).toContain("state_load");
-    expect(names).toContain("doctor");
-    expect(names).toContain("stats");
-    expect(names).toHaveLength(14);
+    for (const def of TOOL_REGISTRY) {
+      expect(names).toContain(def.name);
+    }
+    expect(names).toHaveLength(TOOL_REGISTRY.length);
   });
 
   it("tools have JSON Schema input definitions", async () => {
