@@ -10,7 +10,14 @@ in code, tests, and the signpost docs.
 - `METHOD.md` — local process
 - `docs/BEARING.md` — current direction and tensions
 - `docs/VISION.md` — bounded repo synthesis
-- `CLAUDE.md` — project instructions and scorecard rules
+
+## Project shape
+
+- npm package: `@flyingrobots/graft`
+- Primary surface: MCP server + hooks
+- Secondary surface: CLI for debugging and local testing
+- Parser posture: web-tree-sitter WASM, JS/TS first
+- Output posture: structured JSON, not pretty terminal formatting
 
 ## Working posture
 
@@ -41,6 +48,54 @@ in code, tests, and the signpost docs.
   pulled soon.
 - Use legend prefixes when they clarify the domain (`CORE`, `WARP`,
   `CLEAN_CODE`).
+
+## Repo rules
+
+### Systems-Style JavaScript scorecard
+
+If a turn modifies JavaScript or TypeScript source files, include a
+Systems-Style JavaScript scorecard for each modified file and convert
+real findings into backlog items when warranted.
+
+Dimensions:
+- Runtime truth (P1)
+- Boundary validation (P2)
+- Behavior on type (P3)
+- SOLID
+- DRY
+
+Scores:
+- 🟢 good
+- 🟡 needs work
+- 🔴 violation
+
+### Coding standard
+
+- `STYLE.md` is the local coding standard for Systems-Style
+  JavaScript.
+- New code should follow it. Existing code migrates incrementally under
+  the `CLEAN_CODE` legend.
+
+## Development
+
+```bash
+pnpm install
+pnpm test
+pnpm lint
+```
+
+Git hooks:
+
+```bash
+git config --local core.hooksPath scripts/hooks
+```
+
+## Session start
+
+1. Rehydrate context.
+2. Check `docs/method/backlog/asap/`.
+3. Check `docs/method/backlog/bad-code/` for touched areas.
+4. Check `docs/method/backlog/cool-ideas/` for nearby opportunities.
 
 ## Current hot items
 
