@@ -134,6 +134,27 @@ describe("mcp: changed-since-last-read", () => {
     expect(result["status"]).toBe("refused");
   });
 
+  it("changed_since refuses files matched by .graftignore", async () => {
+    cleanupServer();
+    fs.rmSync(tmpDir, { recursive: true, force: true });
+
+    tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "graft-diff-ignore-"));
+    fs.writeFileSync(path.join(tmpDir, ".graftignore"), "generated/**\n");
+    const isolated = createIsolatedServer({ projectRoot: tmpDir });
+    server = isolated.server;
+    cleanupServer = () => {
+      isolated.cleanup();
+    };
+
+    const ignoredFile = path.join(tmpDir, "generated", "secret.ts");
+    fs.mkdirSync(path.dirname(ignoredFile), { recursive: true });
+    fs.writeFileSync(ignoredFile, 'export const hidden = "yes";\n');
+
+    const result = parse(await server.callTool("changed_since", { path: "generated/secret.ts" }));
+    expect(result["status"]).toBe("refused");
+    expect(result["reason"]).toBe("GRAFTIGNORE");
+  });
+
   it("changed_since with consume: true updates cache", async () => {
     await server.callTool("safe_read", { path: testFile });
     fs.writeFileSync(testFile, 'export function hello(): string {\n  return "hi";\n}\nexport function consumed(): void {}\n');

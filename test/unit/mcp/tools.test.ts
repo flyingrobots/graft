@@ -29,6 +29,14 @@ function createServer(): GraftServer {
   return isolated.server;
 }
 
+function createServerForProjectRoot(projectRoot: string): GraftServer {
+  const isolated = createIsolatedServer({ projectRoot });
+  cleanups.push(() => {
+    isolated.cleanup();
+  });
+  return isolated.server;
+}
+
 describe("mcp: tool registration", () => {
   it("registers every tool in TOOL_REGISTRY", () => {
     const server = createServer();
@@ -87,6 +95,22 @@ describe("mcp: tool handlers", () => {
     expect(parsed["reason"]).toBe("BINARY");
   });
 
+  it("safe_read returns refusal for files matched by .graftignore", async () => {
+    const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "graft-mcp-tools-ignore-safe-read-"));
+    cleanups.push(() => {
+      fs.rmSync(tmpDir, { recursive: true, force: true });
+    });
+    fs.writeFileSync(path.join(tmpDir, ".graftignore"), "generated/**\n");
+    fs.mkdirSync(path.join(tmpDir, "generated"), { recursive: true });
+    fs.writeFileSync(path.join(tmpDir, "generated", "secret.ts"), "export const hidden = true;\n");
+
+    const server = createServerForProjectRoot(tmpDir);
+    const parsed = parse(await server.callTool("safe_read", { path: "generated/secret.ts" }));
+
+    expect(parsed["projection"]).toBe("refused");
+    expect(parsed["reason"]).toBe("GRAFTIGNORE");
+  });
+
   it("file_outline returns outline with jump table", async () => {
     const server = createServer();
     const result = await server.callTool("file_outline", {
@@ -108,6 +132,22 @@ describe("mcp: tool handlers", () => {
     expect(parsed["jumpTable"]).toEqual([]);
     expect(typeof parsed["error"]).toBe("string");
     fs.rmSync(tmpDir, { recursive: true, force: true });
+  });
+
+  it("file_outline refuses files matched by .graftignore", async () => {
+    const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "graft-mcp-tools-ignore-outline-"));
+    cleanups.push(() => {
+      fs.rmSync(tmpDir, { recursive: true, force: true });
+    });
+    fs.writeFileSync(path.join(tmpDir, ".graftignore"), "generated/**\n");
+    fs.mkdirSync(path.join(tmpDir, "generated"), { recursive: true });
+    fs.writeFileSync(path.join(tmpDir, "generated", "secret.ts"), "export const hidden = true;\n");
+
+    const server = createServerForProjectRoot(tmpDir);
+    const parsed = parse(await server.callTool("file_outline", { path: "generated/secret.ts" }));
+
+    expect(parsed["projection"]).toBe("refused");
+    expect(parsed["reason"]).toBe("GRAFTIGNORE");
   });
 
   it("read_range returns bounded content", async () => {
@@ -212,6 +252,29 @@ describe("mcp: policy check middleware", () => {
     const parsed = parse(result);
     expect(parsed["projection"]).toBe("refused");
     expect(parsed["reason"]).toBe("BINARY");
+  });
+
+  it("read_range refuses files matched by .graftignore via middleware", async () => {
+    const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "graft-mcp-tools-ignore-range-"));
+    cleanups.push(() => {
+      fs.rmSync(tmpDir, { recursive: true, force: true });
+    });
+    fs.writeFileSync(path.join(tmpDir, ".graftignore"), "generated/**\n");
+    fs.mkdirSync(path.join(tmpDir, "generated"), { recursive: true });
+    fs.writeFileSync(
+      path.join(tmpDir, "generated", "secret.ts"),
+      "export function hidden(): boolean {\n  return true;\n}\n",
+    );
+
+    const server = createServerForProjectRoot(tmpDir);
+    const parsed = parse(await server.callTool("read_range", {
+      path: "generated/secret.ts",
+      start: 1,
+      end: 2,
+    }));
+
+    expect(parsed["projection"]).toBe("refused");
+    expect(parsed["reason"]).toBe("GRAFTIGNORE");
   });
 
   it("code_find refuses banned file paths via middleware", async () => {

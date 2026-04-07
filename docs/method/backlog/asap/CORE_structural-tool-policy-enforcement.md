@@ -1,8 +1,8 @@
 # Structural-tool policy enforcement
 
-`file_outline`, `graft_map`, `graft_diff`, and `graft_since` currently
-read project or git-backed content without policy evaluation. Bring
-those structural surfaces under an explicit policy contract.
+`graft_map`, `graft_diff`, and `graft_since` still read project or
+git-backed content without full policy evaluation. Bring those
+structural surfaces under an explicit policy contract.
 
 Direction:
 

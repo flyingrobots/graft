@@ -27,6 +27,7 @@ export interface ToolDefinition {
 export interface ToolContext {
   readonly projectRoot: string;
   readonly graftDir: string;
+  readonly graftignorePatterns: readonly string[];
   readonly session: SessionTracker;
   readonly cache: ObservationCache;
   readonly metrics: Metrics;

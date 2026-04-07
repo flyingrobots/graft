@@ -6,10 +6,10 @@ import { getFileAtRef, GitError } from "../../git/diff.js";
 import { detectLang } from "../../parser/lang.js";
 import { extractOutline } from "../../parser/outline.js";
 import type { JumpEntry, OutlineEntry } from "../../parser/types.js";
-import { evaluatePolicy } from "../../policy/evaluate.js";
 import { RefusedResult } from "../../policy/types.js";
 import { allSymbolsLens, fileSymbolsLens, symbolByNameLens } from "../../warp/observers.js";
 import type { ToolContext } from "../context.js";
+import { evaluateMcpPolicy } from "../policy.js";
 
 const MAX_RANGE_LINES = 250;
 
@@ -204,13 +204,7 @@ export function evaluatePrecisionPolicy(
     lines: content.split("\n").length,
     bytes: Buffer.byteLength(content),
   };
-  const policy = evaluatePolicy(
-    { path: ctx.resolvePath(filePath), lines: actual.lines, bytes: actual.bytes },
-    {
-      sessionDepth: ctx.session.getSessionDepth(),
-      budgetRemaining: ctx.session.getBudget()?.remaining,
-    },
-  );
+  const policy = evaluateMcpPolicy(ctx, filePath, actual);
 
   if (!(policy instanceof RefusedResult)) {
     return null;

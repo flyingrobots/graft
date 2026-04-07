@@ -1,10 +1,10 @@
 import { z } from "zod";
-import { evaluatePolicy } from "../../policy/evaluate.js";
 import { RefusedResult } from "../../policy/types.js";
 import { extractOutlineForFile } from "../../parser/outline.js";
 import { diffOutlines } from "../../parser/diff.js";
 import { hashContent } from "../cache.js";
 import type { ToolDefinition, ToolContext, ToolHandler } from "../context.js";
+import { evaluateMcpPolicy } from "../policy.js";
 
 export const changedSinceTool: ToolDefinition = {
   name: "changed_since",
@@ -31,10 +31,7 @@ export const changedSinceTool: ToolDefinition = {
         lines: rawContent.split("\n").length,
         bytes: Buffer.byteLength(rawContent),
       };
-      const policy = evaluatePolicy(
-        { path: filePath, lines: actual.lines, bytes: actual.bytes },
-        { sessionDepth: ctx.session.getSessionDepth() },
-      );
+      const policy = evaluateMcpPolicy(ctx, filePath, actual);
       if (policy instanceof RefusedResult) {
         return ctx.respond("changed_since", { status: "refused", reason: policy.reason });
       }

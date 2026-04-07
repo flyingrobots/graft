@@ -1,11 +1,11 @@
 import { z } from "zod";
 import { safeRead } from "../../operations/safe-read.js";
 import type { SafeReadResult } from "../../operations/safe-read.js";
-import { evaluatePolicy } from "../../policy/evaluate.js";
 import { RefusedResult } from "../../policy/types.js";
 import { diffOutlines } from "../../parser/diff.js";
 import { CachedFile } from "../cached-file.js";
 import type { Metrics } from "../metrics.js";
+import { evaluateMcpPolicy, toPolicyPath } from "../policy.js";
 import type { ToolDefinition, ToolContext, ToolHandler } from "../context.js";
 
 const PROJECTION_METRICS: Readonly<Record<string, ((m: Metrics) => void) | undefined>> = {
@@ -43,10 +43,7 @@ export const safeReadTool: ToolDefinition = {
         const cacheResult = ctx.cache.check(filePath, cf.rawContent);
         if (cacheResult.hit) {
           // Defense: re-check policy before returning cached data.
-          const policy = evaluatePolicy(
-            { path: filePath, lines: cf.actual.lines, bytes: cf.actual.bytes },
-            { sessionDepth: ctx.session.getSessionDepth(), budgetRemaining: ctx.session.getBudget()?.remaining },
-          );
+          const policy = evaluateMcpPolicy(ctx, filePath, cf.actual);
           if (policy instanceof RefusedResult) {
             ctx.metrics.recordRefusal();
             return ctx.respond("safe_read", {
@@ -77,10 +74,7 @@ export const safeReadTool: ToolDefinition = {
         // File changed since last observation — compute structural diff
         if (cacheResult.stale !== null) {
           // Defense: re-check policy before returning structural data.
-          const policy = evaluatePolicy(
-            { path: filePath, lines: cf.actual.lines, bytes: cf.actual.bytes },
-            { sessionDepth: ctx.session.getSessionDepth(), budgetRemaining: ctx.session.getBudget()?.remaining },
-          );
+          const policy = evaluateMcpPolicy(ctx, filePath, cf.actual);
           if (policy instanceof RefusedResult) {
             ctx.metrics.recordRefusal();
             return ctx.respond("safe_read", {
@@ -117,6 +111,8 @@ export const safeReadTool: ToolDefinition = {
         codec: ctx.codec,
         content: cf?.rawContent,
         intent: args["intent"] as string | undefined,
+        policyPath: toPolicyPath(ctx.projectRoot, filePath),
+        graftignorePatterns: [...ctx.graftignorePatterns],
         sessionDepth: ctx.session.getSessionDepth(),
         budgetRemaining: ctx.session.getBudget()?.remaining,
       });

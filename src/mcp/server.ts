@@ -9,9 +9,9 @@ import { buildReceiptResult } from "./receipt.js";
 import type { ToolHandler, ToolContext, ToolDefinition } from "./context.js";
 import { createPathResolver } from "./context.js";
 import type { McpToolResult } from "./receipt.js";
+import { evaluateMcpPolicy, loadProjectGraftignore } from "./policy.js";
 import { nodeFs } from "../adapters/node-fs.js";
 import { CanonicalJsonCodec } from "../adapters/canonical-json.js";
-import { evaluatePolicy } from "../policy/evaluate.js";
 import { RefusedResult } from "../policy/types.js";
 import type WarpApp from "@git-stunts/git-warp";
 import { openWarp } from "../warp/open.js";
@@ -74,6 +74,7 @@ export function createGraftServer(options: CreateGraftServerOptions = {}): Graft
   const sessionId = crypto.randomUUID();
   const projectRoot = options.projectRoot ?? process.cwd();
   const graftDir = options.graftDir ?? path.join(projectRoot, ".graft");
+  const graftignorePatterns = loadProjectGraftignore(nodeFs, projectRoot);
   const metrics = new Metrics();
   const cache = new ObservationCache();
   const codec = new CanonicalJsonCodec();
@@ -110,6 +111,7 @@ export function createGraftServer(options: CreateGraftServerOptions = {}): Graft
   const ctx: ToolContext = {
     projectRoot,
     graftDir,
+    graftignorePatterns,
     session,
     cache,
     metrics,
@@ -147,14 +149,7 @@ export function createGraftServer(options: CreateGraftServerOptions = {}): Graft
         return inner(args);
       }
       const actual = { lines: content.split("\n").length, bytes: Buffer.byteLength(content) };
-      const budget = session.getBudget();
-      const policy = evaluatePolicy(
-        { path: filePath, lines: actual.lines, bytes: actual.bytes },
-        {
-          sessionDepth: session.getSessionDepth(),
-          budgetRemaining: budget?.remaining,
-        },
-      );
+      const policy = evaluateMcpPolicy(ctx, filePath, actual);
       if (policy instanceof RefusedResult) {
         metrics.recordRefusal();
         return respond(toolName, {
