@@ -177,6 +177,31 @@ describe("mcp: code_show", () => {
       cleanupTestRepo(tmpDir);
     }
   });
+
+  it("returns refusal when the target file is matched by .graftignore", async () => {
+    const tmpDir = createTestRepo("graft-precision-show-ignore-");
+    try {
+      fs.writeFileSync(path.join(tmpDir, ".graftignore"), "generated/**\n");
+      fs.mkdirSync(path.join(tmpDir, "generated"), { recursive: true });
+      fs.writeFileSync(
+        path.join(tmpDir, "generated", "secret.ts"),
+        "export function hiddenThing(): boolean {\n  return true;\n}\n",
+      );
+      git(tmpDir, "add -A");
+      git(tmpDir, "commit -m init");
+
+      const server = createServerInRepo(tmpDir);
+      const result = parse(await server.callTool("code_show", {
+        symbol: "hiddenThing",
+        path: "generated/secret.ts",
+      }));
+
+      expect(result["projection"]).toBe("refused");
+      expect(result["reason"]).toBe("GRAFTIGNORE");
+    } finally {
+      cleanupTestRepo(tmpDir);
+    }
+  });
 });
 
 describe("mcp: code_find", () => {
@@ -367,5 +392,29 @@ describe("mcp: code_find", () => {
     expect(matches[1]?.startLine).toBe(7);
     expect(matches[0]?.endLine).toBe(3);
     expect(matches[1]?.endLine).toBe(8);
+  });
+
+  it("returns an explicit refusal when every matching symbol is hidden by .graftignore", async () => {
+    const tmpDir = createTestRepo("graft-precision-find-ignore-");
+    try {
+      fs.writeFileSync(path.join(tmpDir, ".graftignore"), "generated/**\n");
+      fs.mkdirSync(path.join(tmpDir, "generated"), { recursive: true });
+      fs.writeFileSync(
+        path.join(tmpDir, "generated", "secret.ts"),
+        "export function hiddenThing(): boolean {\n  return true;\n}\n",
+      );
+      git(tmpDir, "add -A");
+      git(tmpDir, "commit -m init");
+
+      const server = createServerInRepo(tmpDir);
+      const result = parse(await server.callTool("code_find", {
+        query: "hidden*",
+      }));
+
+      expect(result["projection"]).toBe("refused");
+      expect(result["reason"]).toBe("GRAFTIGNORE");
+    } finally {
+      cleanupTestRepo(tmpDir);
+    }
   });
 });

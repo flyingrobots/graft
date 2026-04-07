@@ -15,6 +15,9 @@ Fix path: WARP Level 2+ symbol identity tracking. Symbols get
 stable IDs that survive renames. The diff engine would match by
 ID first, name second.
 
+Follow-on design work:
+- `docs/method/backlog/up-next/WARP_symbol-identity-and-rename-continuity.md`
+
 Interim mitigation: none practical. Agents will see remove + add
 for renames. The structural information is still more useful than
 a line diff — they just lose the "this was a rename" signal.

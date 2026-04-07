@@ -69,7 +69,7 @@ design was met end-to-end.
 
 ## Follow-on work
 
-- `docs/method/backlog/asap/CORE_policy-fidelity-audit-all-tools-and-cli.md`
+- Cycle 0030: `docs/method/retro/0030-policy-fidelity-audit/retro.md`
 - `docs/method/backlog/asap/CORE_versioned-json-output-schemas.md`
-- `docs/method/backlog/asap/CORE_test-isolation-and-sandbox-audit.md`
+- Cycle 0028: `docs/method/retro/0028-test-isolation-and-sandbox-audit/retro.md`
 - Cycle 0025: layered worldline model

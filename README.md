@@ -44,7 +44,21 @@ npx @flyingrobots/graft init
 
 Scaffolds `.graftignore`, adds `.graft/` to `.gitignore`, generates
 a `CLAUDE.md` snippet telling agents to prefer graft tools, and
-prints Claude Code hook config.
+prints Claude Code hook / MCP config for manual setup.
+
+For a project-local one-step bootstrap, use explicit write flags:
+
+```bash
+npx @flyingrobots/graft init --write-claude-mcp --write-claude-hooks
+npx @flyingrobots/graft init --write-cursor-mcp
+npx @flyingrobots/graft init --write-windsurf-mcp
+npx @flyingrobots/graft init --write-continue-mcp
+npx @flyingrobots/graft init --write-cline-mcp
+npx @flyingrobots/graft init --write-codex-mcp
+```
+
+These writes are idempotent. Existing JSON / TOML config is merged
+without duplicating graft entries.
 
 Then add graft to your MCP config:
 
@@ -53,7 +67,7 @@ Then add graft to your MCP config:
   "mcpServers": {
     "graft": {
       "command": "npx",
-      "args": ["-y", "@flyingrobots/graft"]
+      "args": ["-y", "@flyingrobots/graft", "serve"]
     }
   }
 }
@@ -62,9 +76,14 @@ Then add graft to your MCP config:
 Works with Codex, Claude Code, Cursor, Windsurf, Continue, Cline,
 and any MCP-compatible client.
 
-See **[Setup Guide](docs/GUIDE.md)** for per-editor instructions,
-Claude Code hooks, `.graftignore` configuration, troubleshooting,
-and details on what the agent experiences.
+See the **[Setup decision table](docs/GUIDE.md#choose-your-setup-path)**
+for the fastest path by client and mode, and the full
+**[Setup Guide](docs/GUIDE.md)** for per-editor instructions, Claude
+Code hooks, `.graftignore` configuration, troubleshooting, and
+details on what the agent experiences. Contributors should also read
+**[Architecture](ARCHITECTURE.md)** for the runtime systems map and
+**[Code of Conduct](CODE_OF_CONDUCT.md)** for project participation
+expectations.
 
 ## What it does
 
@@ -89,9 +108,10 @@ When an agent asks to read a file, Graft applies policy:
 - **Tripwires** signal when the session is going off the rails.
 - **Receipts** on every response with compression ratio for usage
   analysis.
+- **Versioned schemas** on every machine-readable MCP / CLI payload.
 
 Every decision is logged. Every refusal is explainable. All output
-is structured JSON.
+is structured JSON with versioned `_schema` metadata.
 
 ## Tools
 
@@ -100,13 +120,13 @@ is structured JSON.
 | `safe_read` | Policy-enforced file read (content, outline, refusal, or diff) |
 | `file_outline` | Structural skeleton with jump table |
 | `read_range` | Bounded range read (max 250 lines), policy-gated |
-| `graft_diff` | Structural diff between git refs with per-file summary lines |
-| `graft_since` | Structural changes since a git ref — symbols added/removed/changed |
-| `graft_map` | Structural map of a directory — all files and symbols in one call |
+| `graft_diff` | Structural diff between git refs with per-file summary lines and explicit denied-file reporting |
+| `graft_since` | Structural changes since a git ref — symbols added/removed/changed with explicit denied-file reporting |
+| `graft_map` | Structural map of a directory — all files and symbols in one call, with explicit denied-file reporting |
 | `code_show` | Focus on a symbol by name — get its source code in one call |
 | `code_find` | Search symbols across the project by name/kind pattern |
 | `changed_since` | Check if a file changed since last read (peek or consume) |
-| `run_capture` | Shell output capture — tee to log, tail to agent |
+| `run_capture` | Diagnostic shell-output escape hatch — tail to agent, optional redacted log persistence, explicit enable/disable posture, outside bounded-read policy, with explicit `policyBoundary` marker |
 | `state_save` | Save session working state (max 8 KB) |
 | `state_load` | Restore session working state |
 | `set_budget` | Declare session byte budget — governor tightens as it drains |
@@ -158,9 +178,46 @@ per-editor MCP config, `.graftignore`, and troubleshooting.
 ## CLI
 
 ```bash
-npx @flyingrobots/graft init      # scaffold project for graft
-npx @flyingrobots/graft index     # index git history into WARP
+npx @flyingrobots/graft init
+npx @flyingrobots/graft init --write-claude-mcp --write-claude-hooks
+npx @flyingrobots/graft init --write-cursor-mcp
+npx @flyingrobots/graft init --write-windsurf-mcp
+npx @flyingrobots/graft init --write-continue-mcp
+npx @flyingrobots/graft init --write-cline-mcp
+npx @flyingrobots/graft init --write-codex-mcp
+npx @flyingrobots/graft serve
+npx @flyingrobots/graft index
+npx @flyingrobots/graft read safe src/app.ts --json
+npx @flyingrobots/graft read outline README.md --json
+npx @flyingrobots/graft read range src/app.ts --start 10 --end 40 --json
+npx @flyingrobots/graft read changed src/app.ts --json
+npx @flyingrobots/graft struct diff --json
+npx @flyingrobots/graft struct since HEAD~3 --json
+npx @flyingrobots/graft struct map src --json
+npx @flyingrobots/graft symbol show createServer --path src/mcp/server.ts --json
+npx @flyingrobots/graft symbol find 'create*' --json
+npx @flyingrobots/graft diag doctor --json
+npx @flyingrobots/graft diag explain CONTENT --json
+npx @flyingrobots/graft diag stats --json
+npx @flyingrobots/graft diag capture --tail 20 -- pnpm test --json
 ```
+
+The CLI now mirrors the core MCP product surface through grouped
+namespaces:
+- `read` for bounded reads
+- `struct` for structural navigation
+- `symbol` for precision lookup
+- `diag` for diagnostics
+
+`init` and `index` remain explicit CLI-only commands. MCP responses and
+CLI peer commands both carry versioned `_schema` metadata, and declared
+output contracts live in `src/contracts/output-schemas.ts`.
+
+`run_capture` remains an explicit shell escape hatch. For shared or
+release-sensitive environments, you can disable it with
+`GRAFT_ENABLE_RUN_CAPTURE=0`. Persisted capture logs can be disabled
+with `GRAFT_RUN_CAPTURE_PERSIST=0`, and persisted output is redacted for
+obvious secret-shaped values by default.
 
 ## Reason codes
 

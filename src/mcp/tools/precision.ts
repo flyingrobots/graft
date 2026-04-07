@@ -6,10 +6,9 @@ import { getFileAtRef, GitError } from "../../git/diff.js";
 import { detectLang } from "../../parser/lang.js";
 import { extractOutline } from "../../parser/outline.js";
 import type { JumpEntry, OutlineEntry } from "../../parser/types.js";
-import { evaluatePolicy } from "../../policy/evaluate.js";
-import { RefusedResult } from "../../policy/types.js";
 import { allSymbolsLens, fileSymbolsLens, symbolByNameLens } from "../../warp/observers.js";
 import type { ToolContext } from "../context.js";
+import { evaluateMcpRefusal, type McpPolicyRefusal } from "../policy.js";
 
 const MAX_RANGE_LINES = 250;
 
@@ -23,13 +22,7 @@ export interface PrecisionSymbolMatch {
   endLine?: number | undefined;
 }
 
-export interface PrecisionPolicyRefusal {
-  path: string;
-  reason: string;
-  reasonDetail: string;
-  next: readonly string[];
-  actual: { lines: number; bytes: number };
-}
+export type PrecisionPolicyRefusal = McpPolicyRefusal;
 
 function git(args: readonly string[], cwd: string): string {
   return execFileSync("git", [...args], {
@@ -204,25 +197,7 @@ export function evaluatePrecisionPolicy(
     lines: content.split("\n").length,
     bytes: Buffer.byteLength(content),
   };
-  const policy = evaluatePolicy(
-    { path: ctx.resolvePath(filePath), lines: actual.lines, bytes: actual.bytes },
-    {
-      sessionDepth: ctx.session.getSessionDepth(),
-      budgetRemaining: ctx.session.getBudget()?.remaining,
-    },
-  );
-
-  if (!(policy instanceof RefusedResult)) {
-    return null;
-  }
-
-  return {
-    path: filePath,
-    reason: policy.reason,
-    reasonDetail: policy.reasonDetail,
-    next: [...policy.next],
-    actual,
-  };
+  return evaluateMcpRefusal(ctx, filePath, actual);
 }
 
 export async function searchWarpSymbols(

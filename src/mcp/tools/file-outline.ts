@@ -11,6 +11,7 @@ export const fileOutlineTool: ToolDefinition = {
     "exports. Includes a jump table mapping each symbol to its line range " +
     "for targeted read_range follow-ups.",
   schema: { path: z.string() },
+  policyCheck: true,
   createHandler(ctx: ToolContext): ToolHandler {
     return async (args) => {
       const filePath = ctx.resolvePath(args["path"] as string);

@@ -4,6 +4,7 @@ import * as path from "node:path";
 import { fileURLToPath } from "node:url";
 import { createGraftServer } from "../../src/mcp/server.js";
 import type { GraftServer } from "../../src/mcp/server.js";
+import type { RunCaptureConfig } from "../../src/mcp/run-capture-config.js";
 
 const REPO_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../..");
 
@@ -36,6 +37,7 @@ export interface IsolatedServer {
 export interface CreateIsolatedServerOptions {
   projectRoot?: string;
   graftDir?: string;
+  runCapture?: Partial<RunCaptureConfig>;
 }
 
 export function createIsolatedServer(options: CreateIsolatedServerOptions = {}): IsolatedServer {
@@ -46,7 +48,11 @@ export function createIsolatedServer(options: CreateIsolatedServerOptions = {}):
     ?? (ownsProjectRoot ? path.join(projectRoot, ".graft") : fs.mkdtempSync(path.join(os.tmpdir(), "graft-mcp-state-")));
 
   return {
-    server: createGraftServer({ projectRoot, graftDir }),
+    server: createGraftServer({
+      projectRoot,
+      graftDir,
+      ...(options.runCapture !== undefined ? { runCapture: options.runCapture } : {}),
+    }),
     projectRoot,
     graftDir,
     cleanup(): void {

@@ -64,11 +64,19 @@ Run validation strictly in order:
 1. `pnpm install` — ensure lockfile is current
 2. `pnpm lint` — zero errors, zero warnings
 3. `pnpm test` — all tests pass
-4. `pnpm publish --dry-run` — packaging sanity check
-5. `npm info @flyingrobots/graft` — verify registry reachable
+4. `pnpm security:check` — fail on any high / critical audit finding
+5. `pnpm pack:check` — packaging sanity check
+6. `npm info @flyingrobots/graft` — verify registry reachable
 
 Abort on the first hard failure. Do not claim success from queued or
 in-progress CI state.
+
+`pnpm security:check` is the release-time dependency/security gate.
+Current policy:
+
+- `critical` or `high` findings block release
+- `moderate` and below require triage but do not automatically block
+  release
 
 ## Phase 3.5: Dogfood
 

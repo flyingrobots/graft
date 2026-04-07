@@ -107,7 +107,7 @@ traverse by hand. 11 WARP invariants protect the substrate.
 | `graft_since` | Structural changes since a ref (symbols added/removed/changed) |
 | `graft_map` | Structural map of a directory (all files + symbols) |
 | `changed_since` | Check for changes since last read (peek or consume) |
-| `run_capture` | Shell output capture — tee to log, tail to agent |
+| `run_capture` | Diagnostic shell-output escape hatch — tee to log, tail to agent |
 | `state_save` | Save session state (max 8 KB) |
 | `state_load` | Restore session state |
 | `set_budget` | Declare session byte budget — governor tightens as it drains |

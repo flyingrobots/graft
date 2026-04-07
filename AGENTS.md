@@ -99,9 +99,7 @@ git config --local core.hooksPath scripts/hooks
 
 ## Current hot items
 
-- `docs/method/backlog/asap/CORE_markdown-summary-support.md`
-- `docs/method/backlog/asap/CORE_policy-fidelity-audit-all-tools-and-cli.md`
-- `docs/method/backlog/asap/CORE_versioned-json-output-schemas.md`
+- `docs/method/backlog/asap/` is currently empty.
 
 ## Current learnings
 
@@ -109,9 +107,8 @@ git config --local core.hooksPath scripts/hooks
   `safe_read` returns `UNSUPPORTED_LANGUAGE` with no fabricated symbols,
   `file_outline` returns an explicit unsupported result, and unsupported
   files are not cached as if they had real outlines.
-- Markdown is a strong candidate for first-class structured document
-  support because README/docs reads are common and headings are honest
-  structure.
+- Markdown now has first-class heading-based summary support on bounded
+  read surfaces, including section jump tables for targeted doc reads.
 - `code_find -> code_show` is a good agent workflow and worth
   dogfooding heavily.
 - MCP tests should construct servers with explicit `projectRoot` and
@@ -120,6 +117,25 @@ git config --local core.hooksPath scripts/hooks
 - MCP stdio integration tests need explicit `env` wiring for sandbox
   values because the MCP SDK only inherits a safe environment allowlist
   by default.
+- MCP bounded reads, precision tools, and structural tools now all run
+  through the shared MCP policy seam with `.graftignore`, session, and
+  budget context.
+- Structural aggregation surfaces (`graft_map`, `graft_diff`,
+  `graft_since`) now exclude denied files from visible results and
+  surface them explicitly in `refused`.
+- `run_capture` is an explicit shell-output escape hatch, not a
+  bounded-read surface. Treat its output and persisted capture log as
+  diagnostic artifacts outside the policy-governed read contract.
+- Policy parity is now witnessed as equivalent outcome per surface
+  contract, not identical response shape. Hooks align on hard denials
+  and differ intentionally on soft pressure.
+- Machine-readable outputs now carry versioned `_schema` metadata, and
+  the declared contract registry lives in `src/contracts/output-schemas.ts`.
+- The shared CLI / MCP capability registry lives in
+  `src/contracts/capabilities.ts`.
+- The grouped CLI namespaces (`read`, `struct`, `symbol`, `diag`) now
+  cover the core operator-facing product surface; `init` and `index`
+  remain intentional CLI-only exceptions.
 
 ## Commit convention
 

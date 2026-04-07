@@ -53,6 +53,6 @@ pretending a real code outline happened.
 
 ## Follow-on work
 
-- `docs/method/backlog/asap/CORE_markdown-summary-support.md`
-- `docs/method/backlog/asap/CORE_policy-fidelity-audit-all-tools-and-cli.md`
-- `docs/method/backlog/asap/CORE_test-isolation-and-sandbox-audit.md`
+- Cycle 0029: `docs/method/retro/0029-markdown-summary-support/retro.md`
+- Cycle 0030: `docs/method/retro/0030-policy-fidelity-audit/retro.md`
+- Cycle 0028: `docs/method/retro/0028-test-isolation-and-sandbox-audit/retro.md`

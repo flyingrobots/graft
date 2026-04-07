@@ -2,10 +2,16 @@
 
 Thank you for your interest in contributing.
 
+Please read [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md) before
+participating in issues, reviews, or pull requests.
+
 ## Development process
 
 Graft uses **The Method** — a cycle-based development process. See
 [METHOD.md](METHOD.md) for the full description.
+
+For the runtime systems map, read [ARCHITECTURE.md](ARCHITECTURE.md)
+before diving into implementation files.
 
 The short version:
 

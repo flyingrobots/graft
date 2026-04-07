@@ -26,6 +26,8 @@ export interface SafeReadOptions {
   codec: JsonCodec;
   content?: string | undefined;
   intent?: string | undefined;
+  policyPath?: string | undefined;
+  graftignorePatterns?: string[] | undefined;
   sessionDepth?: SessionDepth | undefined;
   budgetRemaining?: number | undefined;
 }
@@ -58,8 +60,12 @@ export async function safeRead(
   const lines = content.split("\n").length;
 
   const policy = evaluatePolicy(
-    { path: filePath, lines, bytes },
-    { sessionDepth: options.sessionDepth, budgetRemaining: options.budgetRemaining },
+    { path: options.policyPath ?? filePath, lines, bytes },
+    {
+      graftignorePatterns: options.graftignorePatterns,
+      sessionDepth: options.sessionDepth,
+      budgetRemaining: options.budgetRemaining,
+    },
   );
 
   const base: SafeReadResult = {

@@ -64,6 +64,15 @@ export const codeFindTool: ToolDefinition = {
 
       const visibleMatches: PrecisionSymbolMatch[] = [];
       const fileCache = new Map<string, string>();
+      let firstRefusal:
+        | {
+          path: string;
+          reason: string;
+          reasonDetail: string;
+          next: readonly string[];
+          actual: { lines: number; bytes: number };
+        }
+        | undefined;
 
       for (const match of allMatches) {
         let content = fileCache.get(match.path);
@@ -75,8 +84,26 @@ export const codeFindTool: ToolDefinition = {
         }
 
         const refusal = evaluatePrecisionPolicy(ctx, match.path, content);
-        if (refusal !== null) continue;
+        if (refusal !== null) {
+          firstRefusal ??= refusal;
+          continue;
+        }
         visibleMatches.push(match);
+      }
+
+      if (visibleMatches.length === 0 && firstRefusal !== undefined) {
+        return ctx.respond("code_find", {
+          query,
+          kind: kindFilter ?? null,
+          path: firstRefusal.path,
+          projection: "refused",
+          reason: firstRefusal.reason,
+          reasonDetail: firstRefusal.reasonDetail,
+          next: [...firstRefusal.next],
+          actual: firstRefusal.actual,
+          source,
+          layer,
+        });
       }
 
       return ctx.respond("code_find", {

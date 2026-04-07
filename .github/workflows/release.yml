@@ -75,11 +75,13 @@ jobs:
       - name: Tests
         run: pnpm test
 
+      # Release security gate
+      - name: Security gate
+        run: pnpm security:check
+
       # Dry-run pack to verify publishable contents
       - name: Verify pack contents
-        run: |
-          pnpm pack --dry-run 2>&1 | tee pack-output.txt
-          echo "Pack contents ✓"
+        run: pnpm pack:check
 
   # Phase 2: Cut GitHub release with tarball asset
   release:

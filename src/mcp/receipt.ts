@@ -6,6 +6,7 @@ import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
 import type { MetricsSnapshot } from "./metrics.js";
 import type { Tripwire } from "../session/types.js";
 import type { JsonCodec } from "../ports/codec.js";
+import { attachMcpSchemaMeta, type McpToolName } from "../contracts/output-schemas.js";
 
 export type McpToolResult = CallToolResult;
 
@@ -51,9 +52,12 @@ export function buildReceiptResult(
     receipt["budget"] = deps.budget;
   }
 
-  const fullData: Record<string, unknown> = { ...data, _receipt: receipt };
+  const fullData: Record<string, unknown> & { tripwire?: Tripwire[] } = attachMcpSchemaMeta(tool as McpToolName, {
+    ...data,
+    _receipt: receipt,
+  });
   if (deps.tripwires.length > 0) {
-    fullData["tripwire"] = deps.tripwires;
+    fullData.tripwire = deps.tripwires;
   }
 
   // Stabilize self-referential size fields (use UTF-8 byte length, not char count)
