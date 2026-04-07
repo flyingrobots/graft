@@ -81,7 +81,9 @@ for the fastest path by client and mode, and the full
 **[Setup Guide](docs/GUIDE.md)** for per-editor instructions, Claude
 Code hooks, `.graftignore` configuration, troubleshooting, and
 details on what the agent experiences. Contributors should also read
-**[Architecture](ARCHITECTURE.md)** for the runtime systems map.
+**[Architecture](ARCHITECTURE.md)** for the runtime systems map and
+**[Code of Conduct](CODE_OF_CONDUCT.md)** for project participation
+expectations.
 
 ## What it does
 

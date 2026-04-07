@@ -2,6 +2,9 @@
 
 Thank you for your interest in contributing.
 
+Please read [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md) before
+participating in issues, reviews, or pull requests.
+
 ## Development process
 
 Graft uses **The Method** — a cycle-based development process. See
