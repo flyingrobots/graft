@@ -155,4 +155,16 @@ describe("mcp: re-read suppression", () => {
     expect(r2["cacheHit"]).toBeUndefined();
     expect(typeof r2["error"]).toBe("string");
   });
+
+  it("changed_since reports unsupported files honestly even without cache state", async () => {
+    const mdFile = path.join(tmpDir, "README.md");
+    fs.writeFileSync(mdFile, "# Heading\n\n".repeat(220));
+
+    const readResult = parse(await server.callTool("safe_read", { path: mdFile }));
+    expect(readResult["reason"]).toBe("UNSUPPORTED_LANGUAGE");
+
+    const changedResult = parse(await server.callTool("changed_since", { path: mdFile }));
+    expect(changedResult["status"]).toBe("unsupported");
+    expect(changedResult["reason"]).toBe("UNSUPPORTED_LANGUAGE");
+  });
 });

@@ -4,9 +4,6 @@ import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
 import { createGraftServer, TOOL_REGISTRY } from "../../../src/mcp/server.js";
-import fs from "node:fs";
-import os from "node:os";
-import path from "node:path";
 
 const EXPECTED_TOOL_NAMES = TOOL_REGISTRY.map((t) => t.name);
 
