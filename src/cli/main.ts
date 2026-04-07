@@ -13,6 +13,7 @@ import {
   validateCliOutput,
 } from "../contracts/output-schemas.js";
 import { createGraftServer, type McpToolResult } from "../mcp/server.js";
+import { startStdioServer } from "../mcp/stdio-server.js";
 import { runIndex } from "./index-cmd.js";
 import { runInit } from "./init.js";
 
@@ -27,6 +28,7 @@ export interface RunCliOptions {
   args?: readonly string[] | undefined;
   stdout?: Writer | undefined;
   stderr?: Writer | undefined;
+  startServer?: ((cwd: string) => Promise<void>) | undefined;
 }
 
 interface GlobalCliOptions {
@@ -38,6 +40,17 @@ interface ParsedCommand {
   command: CliCommandName;
   json: boolean;
   args: Record<string, unknown>;
+}
+
+export function resolveEntrypointArgs(
+  args: readonly string[],
+  stdinIsTTY: boolean | undefined,
+  stdoutIsTTY: boolean | undefined,
+): string[] {
+  if (args.length === 0 && stdinIsTTY !== true && stdoutIsTTY !== true) {
+    return ["serve"];
+  }
+  return [...args];
 }
 
 function writeLine(writer: Writer, line = ""): void {
@@ -305,11 +318,12 @@ function parseCommand(argv: string[]): ParsedCommand {
 function renderHelp(writer: Writer): void {
   writeLine(writer, "graft CLI");
   writeLine(writer);
-  writeLine(writer, "No args starts the MCP stdio server.");
+  writeLine(writer, "No args prints help.");
   writeLine(writer);
   writeLine(writer, "Global options:");
   writeLine(writer, "  --cwd <path>    Run a command against another repo root");
   writeLine(writer, "  help            Show this help");
+  writeLine(writer, "  serve           Start the MCP stdio server");
   writeLine(writer);
 
   const grouped = new Map<string, { path: readonly string[]; description: string }[]>();
@@ -363,6 +377,16 @@ export async function runCli(options: RunCliOptions = {}): Promise<void> {
 
   if (argv[0] === "index") {
     await runIndex({ cwd, args: argv.slice(1), stdout, stderr });
+    return;
+  }
+
+  if (argv[0] === "serve") {
+    if (argv.length > 1) {
+      process.exitCode = 1;
+      writeLine(stderr, `Error: Unexpected arguments: ${argv.slice(1).join(" ")}`);
+      return;
+    }
+    await (options.startServer ?? startStdioServer)(cwd);
     return;
   }
 

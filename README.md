@@ -63,7 +63,7 @@ Then add graft to your MCP config:
   "mcpServers": {
     "graft": {
       "command": "npx",
-      "args": ["-y", "@flyingrobots/graft"]
+      "args": ["-y", "@flyingrobots/graft", "serve"]
     }
   }
 }
@@ -172,6 +172,7 @@ per-editor MCP config, `.graftignore`, and troubleshooting.
 npx @flyingrobots/graft init
 npx @flyingrobots/graft init --write-claude-mcp --write-claude-hooks
 npx @flyingrobots/graft init --write-codex-mcp
+npx @flyingrobots/graft serve
 npx @flyingrobots/graft index
 npx @flyingrobots/graft read safe src/app.ts --json
 npx @flyingrobots/graft read outline README.md --json

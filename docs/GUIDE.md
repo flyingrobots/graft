@@ -78,7 +78,7 @@ Add to `.mcp.json` in your project root (per-project) or
   "mcpServers": {
     "graft": {
       "command": "npx",
-      "args": ["-y", "@flyingrobots/graft"]
+      "args": ["-y", "@flyingrobots/graft", "serve"]
     }
   }
 }
@@ -99,7 +99,7 @@ Add to Cursor's MCP settings (Settings → MCP Servers → Add):
   "mcpServers": {
     "graft": {
       "command": "npx",
-      "args": ["-y", "@flyingrobots/graft"]
+      "args": ["-y", "@flyingrobots/graft", "serve"]
     }
   }
 }
@@ -114,7 +114,7 @@ Add to `~/.codeium/windsurf/mcp_config.json`:
   "mcpServers": {
     "graft": {
       "command": "npx",
-      "args": ["-y", "@flyingrobots/graft"]
+      "args": ["-y", "@flyingrobots/graft", "serve"]
     }
   }
 }
@@ -130,7 +130,7 @@ Add to `.continue/config.json`:
     {
       "name": "graft",
       "command": "npx",
-      "args": ["-y", "@flyingrobots/graft"]
+      "args": ["-y", "@flyingrobots/graft", "serve"]
     }
   ]
 }
@@ -146,7 +146,7 @@ Add via Cline's MCP settings UI, or in
   "mcpServers": {
     "graft": {
       "command": "npx",
-      "args": ["-y", "@flyingrobots/graft"]
+      "args": ["-y", "@flyingrobots/graft", "serve"]
     }
   }
 }
@@ -160,7 +160,7 @@ Add to `.codex/config.toml` in your project root (per-project) or
 ```toml
 [mcp_servers.graft]
 command = "npx"
-args = ["-y", "@flyingrobots/graft"]
+args = ["-y", "@flyingrobots/graft", "serve"]
 ```
 
 Project-local shortcut:
@@ -179,13 +179,13 @@ every call.
 The pattern is the same everywhere:
 
 - **Command**: `npx`
-- **Args**: `["-y", "@flyingrobots/graft"]`
+- **Args**: `["-y", "@flyingrobots/graft", "serve"]`
 - **Transport**: stdio (the default for most clients)
 
 If your client doesn't support `npx`, install globally and use:
 
 - **Command**: `graft`
-- **Args**: (none)
+- **Args**: `["serve"]`
 
 ## Claude Code Hooks
 
@@ -454,7 +454,8 @@ release).
 
 ### "Tool not found" or no graft tools visible
 
-- Verify graft is installed: `npx @flyingrobots/graft --help`
+- Verify the CLI is installed: `npx @flyingrobots/graft --help`
+- Verify the MCP transport starts: `npx @flyingrobots/graft serve`
   (should start the server; Ctrl+C to stop)
 - Check your MCP config syntax — JSON must be valid
 - Restart your editor/agent after adding MCP config

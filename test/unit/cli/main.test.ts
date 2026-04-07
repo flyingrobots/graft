@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import * as fs from "node:fs";
 import * as path from "node:path";
-import { runCli } from "../../../src/cli/main.js";
+import { resolveEntrypointArgs, runCli } from "../../../src/cli/main.js";
 import { cleanupTestRepo, createTestRepo, git } from "../../helpers/git.js";
 
 interface Writer {
@@ -48,6 +48,48 @@ describe("cli: graft grouped surface", () => {
     expect(stdout.text()).toContain("read safe");
     expect(stdout.text()).toContain("struct diff");
     expect(stdout.text()).toContain("diag doctor");
+  });
+
+  it("renders help on no-arg interactive CLI runs", async () => {
+    const stdout = createBufferWriter();
+    const stderr = createBufferWriter();
+
+    await runCli({
+      args: [],
+      stdout,
+      stderr,
+    });
+
+    expect(stderr.text()).toBe("");
+    expect(stdout.text()).toContain("No args prints help.");
+    expect(stdout.text()).toContain("serve           Start the MCP stdio server");
+  });
+
+  it("routes explicit serve through the server starter", async () => {
+    const stdout = createBufferWriter();
+    const stderr = createBufferWriter();
+    const calls: string[] = [];
+
+    await runCli({
+      cwd: "/tmp/example",
+      args: ["serve"],
+      stdout,
+      stderr,
+      startServer: (cwd) => {
+        calls.push(cwd);
+        return Promise.resolve();
+      },
+    });
+
+    expect(stderr.text()).toBe("");
+    expect(stdout.text()).toBe("");
+    expect(calls).toEqual(["/tmp/example"]);
+  });
+
+  it("keeps no-arg non-interactive entrypoints compatible with MCP clients", () => {
+    expect(resolveEntrypointArgs([], false, false)).toEqual(["serve"]);
+    expect(resolveEntrypointArgs([], true, true)).toEqual([]);
+    expect(resolveEntrypointArgs(["diag", "doctor"], false, false)).toEqual(["diag", "doctor"]);
   });
 
   it("runs peer commands through the grouped CLI surface", async () => {

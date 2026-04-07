@@ -13,16 +13,10 @@ const require = createRequire(import.meta.url);
 
 // If already running under tsx, proceed directly
 if (process.env.__GRAFT_TSX_LOADED === "1") {
-  if (process.argv.length <= 2) {
-    const { createGraftServer } = await import("../src/mcp/server.js");
-    const { StdioServerTransport } = await import("@modelcontextprotocol/sdk/server/stdio.js");
-    const graft = createGraftServer();
-    const transport = new StdioServerTransport();
-    await graft.getMcpServer().connect(transport);
-  } else {
-    const { runCli } = await import("../src/cli/main.js");
-    await runCli();
-  }
+  const { resolveEntrypointArgs, runCli } = await import("../src/cli/main.js");
+  await runCli({
+    args: resolveEntrypointArgs(process.argv.slice(2), process.stdin.isTTY, process.stdout.isTTY),
+  });
 } else {
   // Re-exec with tsx loader from our own node_modules
   const tsxPath = require.resolve("tsx/esm");

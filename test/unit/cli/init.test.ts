@@ -117,7 +117,7 @@ describe("cli: graft init", () => {
       mcpServers: { graft: { command: string; args: string[] } };
     };
     expect(mcpConfig.mcpServers.graft.command).toBe("npx");
-    expect(mcpConfig.mcpServers.graft.args).toEqual(["-y", "@flyingrobots/graft"]);
+    expect(mcpConfig.mcpServers.graft.args).toEqual(["-y", "@flyingrobots/graft", "serve"]);
 
     const settings = JSON.parse(fs.readFileSync(path.join(tmpDir, ".claude", "settings.json"), "utf-8")) as {
       hooks: {
@@ -155,7 +155,7 @@ describe("cli: graft init", () => {
     });
     expect(config.mcpServers["graft"]).toEqual({
       command: "npx",
-      args: ["-y", "@flyingrobots/graft"],
+      args: ["-y", "@flyingrobots/graft", "serve"],
     });
     expect(Object.keys(config.mcpServers).filter((name) => name === "graft")).toHaveLength(1);
   });

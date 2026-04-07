@@ -63,7 +63,7 @@ const SUGGESTED_MCP_SERVER = {
   mcpServers: {
     graft: {
       command: "npx",
-      args: ["-y", "@flyingrobots/graft"],
+      args: ["-y", "@flyingrobots/graft", "serve"],
     },
   },
 } as const;
@@ -71,7 +71,7 @@ const SUGGESTED_MCP_SERVER = {
 const CODEX_MCP_CONFIG = [
   "[mcp_servers.graft]",
   "command = \"npx\"",
-  "args = [\"-y\", \"@flyingrobots/graft\"]",
+  "args = [\"-y\", \"@flyingrobots/graft\", \"serve\"]",
   "",
 ].join("\n");
 
