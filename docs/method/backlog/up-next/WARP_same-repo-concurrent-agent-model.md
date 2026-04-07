@@ -16,6 +16,10 @@ Questions:
   multi-writer semantics already exist?
 - what shared state, if any, should exist across MCP sessions in the
   same repo?
+- what should be keyed by:
+  - git common dir
+  - worktree root
+  - client/session id
 - when should Graft surface:
   - concurrent read/write drift
   - potential edit collisions
@@ -27,8 +31,19 @@ Questions:
 Deliverables:
 - explicit same-repo concurrency model
 - clear statement of supported versus unsupported concurrent scenarios
+- explicit split between canonical repo history, worktree-local live
+  state, and session-local agent state
 - follow-on backlog split for conflict detection, shared observation
   state, or multi-writer evolution if needed
+
+Current design leaning:
+- same repo in different worktrees should share canonical history but
+  not be collapsed into one live workspace
+- same worktree with multiple agents should be supported
+  observationally, but with provenance uncertainty rather than fake
+  single-actor confidence
+- multi-writer merge semantics remain out of scope until a later WARP
+  level
 
 Related:
 - `docs/invariants/single-writer-honest.md`
