@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
 import * as fs from "node:fs";
+import * as os from "node:os";
 import * as path from "node:path";
 import { createGraftServer } from "../../../src/mcp/server.js";
 import { collectSymbols } from "../../../src/mcp/tools/precision.js";
@@ -263,6 +264,23 @@ describe("mcp: code_find", () => {
 
       expect(result["total"]).toBe(0);
       expect(result["matches"]).toEqual([]);
+    } finally {
+      cleanupTestRepo(tmpDir);
+    }
+  });
+
+  it("fails honestly when git file enumeration cannot run", async () => {
+    const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "graft-precision-find-nonrepo-"));
+    try {
+      fs.writeFileSync(
+        path.join(tmpDir, "app.ts"),
+        "export function outsideRepo(): boolean { return true; }\n",
+      );
+
+      const server = createServerInRepo(tmpDir);
+      await expect(server.callTool("code_find", {
+        query: "outside*",
+      })).rejects.toThrow(/git file listing failed/);
     } finally {
       cleanupTestRepo(tmpDir);
     }
