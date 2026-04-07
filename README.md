@@ -44,7 +44,17 @@ npx @flyingrobots/graft init
 
 Scaffolds `.graftignore`, adds `.graft/` to `.gitignore`, generates
 a `CLAUDE.md` snippet telling agents to prefer graft tools, and
-prints Claude Code hook config.
+prints Claude Code hook / MCP config for manual setup.
+
+For a project-local one-step bootstrap, use explicit write flags:
+
+```bash
+npx @flyingrobots/graft init --write-claude-mcp --write-claude-hooks
+npx @flyingrobots/graft init --write-codex-mcp
+```
+
+These writes are idempotent. Existing JSON / TOML config is merged
+without duplicating graft entries.
 
 Then add graft to your MCP config:
 
@@ -160,6 +170,8 @@ per-editor MCP config, `.graftignore`, and troubleshooting.
 
 ```bash
 npx @flyingrobots/graft init
+npx @flyingrobots/graft init --write-claude-mcp --write-claude-hooks
+npx @flyingrobots/graft init --write-codex-mcp
 npx @flyingrobots/graft index
 npx @flyingrobots/graft read safe src/app.ts --json
 npx @flyingrobots/graft read outline README.md --json

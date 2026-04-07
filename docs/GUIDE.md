@@ -22,9 +22,28 @@ Scaffolds your project for graft in one command:
 - Creates `.graftignore` (template with examples)
 - Adds `.graft/` to `.gitignore`
 - Generates a `CLAUDE.md` snippet instructing agents to prefer graft tools
-- Prints Claude Code hook config for manual setup
+- Prints Claude Code hook and MCP config for manual setup
 
 Idempotent — safe to run again without duplicating entries.
+
+### One-step bootstrap
+
+Write project-local client config directly when you want `init` to do
+the wiring for you:
+
+```bash
+npx @flyingrobots/graft init --write-claude-mcp --write-claude-hooks
+npx @flyingrobots/graft init --write-codex-mcp
+```
+
+Supported write flags:
+
+- `--write-claude-mcp` -> writes or merges `.mcp.json`
+- `--write-claude-hooks` -> writes or merges `.claude/settings.json`
+- `--write-codex-mcp` -> writes or merges `.codex/config.toml`
+
+These writes are project-local and idempotent. Existing config is
+preserved, and graft entries are only added when missing.
 
 For automation, CLI commands support `--json`:
 
@@ -63,6 +82,12 @@ Add to `.mcp.json` in your project root (per-project) or
     }
   }
 }
+```
+
+Project-local shortcut:
+
+```bash
+npx @flyingrobots/graft init --write-claude-mcp
 ```
 
 ### Cursor
@@ -138,6 +163,12 @@ command = "npx"
 args = ["-y", "@flyingrobots/graft"]
 ```
 
+Project-local shortcut:
+
+```bash
+npx @flyingrobots/graft init --write-codex-mcp
+```
+
 **Note:** Codex may ask you to approve external MCP tool calls the
 first time it uses graft. If you trust the local server, choose
 "Always allow" so normal graft tool use does not require a prompt on
@@ -195,6 +226,12 @@ Add to `.claude/settings.json` in your project root:
     ]
   }
 }
+```
+
+Project-local shortcut:
+
+```bash
+npx @flyingrobots/graft init --write-claude-hooks
 ```
 
 If developing graft itself, replace the `node_modules/...` paths

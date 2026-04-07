@@ -4,6 +4,32 @@ import * as path from "node:path";
 import * as os from "node:os";
 import { runInit } from "../../../src/cli/init.js";
 
+interface Writer {
+  text(): string;
+  write(chunk: string): true;
+}
+
+function createBufferWriter(): Writer {
+  let buffer = "";
+  return {
+    write(chunk: string): true {
+      buffer += chunk;
+      return true;
+    },
+    text(): string {
+      return buffer;
+    },
+  };
+}
+
+function runInitQuietly(args?: readonly string[]): void {
+  runInit({
+    args,
+    stdout: createBufferWriter(),
+    stderr: createBufferWriter(),
+  });
+}
+
 describe("cli: graft init", () => {
   let tmpDir: string;
   let origCwd: string;
@@ -20,33 +46,33 @@ describe("cli: graft init", () => {
   });
 
   it("creates .graftignore", () => {
-    runInit();
+    runInitQuietly();
     expect(fs.existsSync(path.join(tmpDir, ".graftignore"))).toBe(true);
     const content = fs.readFileSync(path.join(tmpDir, ".graftignore"), "utf-8");
     expect(content).toContain("Graft ignore patterns");
   });
 
   it("creates .gitignore with .graft/ entry", () => {
-    runInit();
+    runInitQuietly();
     const content = fs.readFileSync(path.join(tmpDir, ".gitignore"), "utf-8");
     expect(content).toContain(".graft/");
   });
 
   it("appends to existing .gitignore without duplicating", () => {
     fs.writeFileSync(path.join(tmpDir, ".gitignore"), "node_modules/\n");
-    runInit();
+    runInitQuietly();
     const content = fs.readFileSync(path.join(tmpDir, ".gitignore"), "utf-8");
     expect(content).toContain("node_modules/");
     expect(content).toContain(".graft/");
     // Run again — should not duplicate
-    runInit();
+    runInitQuietly();
     const after = fs.readFileSync(path.join(tmpDir, ".gitignore"), "utf-8");
     const count = (after.match(/\.graft\//g) ?? []).length;
     expect(count).toBe(1);
   });
 
   it("creates CLAUDE.md with agent instructions", () => {
-    runInit();
+    runInitQuietly();
     const content = fs.readFileSync(path.join(tmpDir, "CLAUDE.md"), "utf-8");
     expect(content).toContain("safe_read");
     expect(content).toContain("file_outline");
@@ -55,12 +81,12 @@ describe("cli: graft init", () => {
 
   it("appends to existing CLAUDE.md without duplicating", () => {
     fs.writeFileSync(path.join(tmpDir, "CLAUDE.md"), "# My Project\n\nExisting content.\n");
-    runInit();
+    runInitQuietly();
     const content = fs.readFileSync(path.join(tmpDir, "CLAUDE.md"), "utf-8");
     expect(content).toContain("My Project");
     expect(content).toContain("safe_read");
     // Run again — should not duplicate
-    runInit();
+    runInitQuietly();
     const after = fs.readFileSync(path.join(tmpDir, "CLAUDE.md"), "utf-8");
     const count = (after.match(/safe_read/g) ?? []).length;
     expect(count).toBeGreaterThanOrEqual(1);
@@ -71,8 +97,135 @@ describe("cli: graft init", () => {
 
   it("does not overwrite existing .graftignore", () => {
     fs.writeFileSync(path.join(tmpDir, ".graftignore"), "custom-pattern\n");
-    runInit();
+    runInitQuietly();
     const content = fs.readFileSync(path.join(tmpDir, ".graftignore"), "utf-8");
     expect(content).toBe("custom-pattern\n");
+  });
+
+  it("does not write client config files without explicit flags", () => {
+    runInitQuietly();
+
+    expect(fs.existsSync(path.join(tmpDir, ".mcp.json"))).toBe(false);
+    expect(fs.existsSync(path.join(tmpDir, ".claude", "settings.json"))).toBe(false);
+    expect(fs.existsSync(path.join(tmpDir, ".codex", "config.toml"))).toBe(false);
+  });
+
+  it("writes project-local Claude config with explicit flags", () => {
+    runInitQuietly(["--write-claude-mcp", "--write-claude-hooks"]);
+
+    const mcpConfig = JSON.parse(fs.readFileSync(path.join(tmpDir, ".mcp.json"), "utf-8")) as {
+      mcpServers: { graft: { command: string; args: string[] } };
+    };
+    expect(mcpConfig.mcpServers.graft.command).toBe("npx");
+    expect(mcpConfig.mcpServers.graft.args).toEqual(["-y", "@flyingrobots/graft"]);
+
+    const settings = JSON.parse(fs.readFileSync(path.join(tmpDir, ".claude", "settings.json"), "utf-8")) as {
+      hooks: {
+        PreToolUse: { matcher: string; hooks: { command: string }[] }[];
+        PostToolUse: { matcher: string; hooks: { command: string }[] }[];
+      };
+    };
+    expect(settings.hooks.PreToolUse[0]).toBeDefined();
+    expect(settings.hooks.PostToolUse[0]).toBeDefined();
+    expect(settings.hooks.PreToolUse[0]!.hooks[0]).toBeDefined();
+    expect(settings.hooks.PostToolUse[0]!.hooks[0]).toBeDefined();
+    expect(settings.hooks.PreToolUse[0]!.hooks[0]!.command).toContain("pretooluse-read.ts");
+    expect(settings.hooks.PostToolUse[0]!.hooks[0]!.command).toContain("posttooluse-read.ts");
+  });
+
+  it("merges Claude MCP config without clobbering existing servers or duplicating graft", () => {
+    fs.writeFileSync(path.join(tmpDir, ".mcp.json"), JSON.stringify({
+      mcpServers: {
+        think: {
+          command: "node",
+          args: ["./bin/think-mcp.js"],
+        },
+      },
+    }, null, 2));
+
+    runInitQuietly(["--write-claude-mcp"]);
+    runInitQuietly(["--write-claude-mcp"]);
+
+    const config = JSON.parse(fs.readFileSync(path.join(tmpDir, ".mcp.json"), "utf-8")) as {
+      mcpServers: Record<string, { command: string; args: string[] }>;
+    };
+    expect(config.mcpServers["think"]).toEqual({
+      command: "node",
+      args: ["./bin/think-mcp.js"],
+    });
+    expect(config.mcpServers["graft"]).toEqual({
+      command: "npx",
+      args: ["-y", "@flyingrobots/graft"],
+    });
+    expect(Object.keys(config.mcpServers).filter((name) => name === "graft")).toHaveLength(1);
+  });
+
+  it("merges Claude hook config into an existing settings file without duplicating graft hooks", () => {
+    fs.mkdirSync(path.join(tmpDir, ".claude"), { recursive: true });
+    fs.writeFileSync(path.join(tmpDir, ".claude", "settings.json"), JSON.stringify({
+      theme: "dark",
+      hooks: {
+        PreToolUse: [
+          {
+            matcher: "Write",
+            hooks: [
+              { type: "command", command: "echo before-write" },
+            ],
+          },
+        ],
+        PostToolUse: [
+          {
+            matcher: "Read",
+            hooks: [
+              { type: "command", command: "echo already-here" },
+            ],
+          },
+        ],
+      },
+    }, null, 2));
+
+    runInitQuietly(["--write-claude-hooks"]);
+    runInitQuietly(["--write-claude-hooks"]);
+
+    const settings = JSON.parse(fs.readFileSync(path.join(tmpDir, ".claude", "settings.json"), "utf-8")) as {
+      theme: string;
+      hooks: {
+        PreToolUse: { matcher: string; hooks: { command: string }[] }[];
+        PostToolUse: { matcher: string; hooks: { command: string }[] }[];
+      };
+    };
+
+    expect(settings.theme).toBe("dark");
+    expect(settings.hooks.PreToolUse[0]).toBeDefined();
+    expect(settings.hooks.PreToolUse[0]!.matcher).toBe("Write");
+    const readPreTool = settings.hooks.PreToolUse.find((entry) => entry.matcher === "Read");
+    expect(readPreTool).toBeDefined();
+    expect(readPreTool!.hooks[0]).toBeDefined();
+    expect(readPreTool!.hooks[0]!.command).toContain("pretooluse-read.ts");
+
+    const readPostTool = settings.hooks.PostToolUse.find((entry) => entry.matcher === "Read");
+    expect(readPostTool).toBeDefined();
+    expect(readPostTool?.hooks.some((hook) => hook.command.includes("already-here"))).toBe(true);
+    const graftPostHooks = readPostTool?.hooks.filter((hook) => hook.command.includes("posttooluse-read.ts")) ?? [];
+    expect(graftPostHooks).toHaveLength(1);
+  });
+
+  it("appends Codex MCP config without duplicating the graft block", () => {
+    fs.mkdirSync(path.join(tmpDir, ".codex"), { recursive: true });
+    fs.writeFileSync(path.join(tmpDir, ".codex", "config.toml"), [
+      "[mcp_servers.think]",
+      "command = \"node\"",
+      "args = [\"./bin/think-mcp.js\"]",
+      "",
+    ].join("\n"));
+
+    runInitQuietly(["--write-codex-mcp"]);
+    runInitQuietly(["--write-codex-mcp"]);
+
+    const config = fs.readFileSync(path.join(tmpDir, ".codex", "config.toml"), "utf-8");
+    expect(config).toContain("[mcp_servers.think]");
+    expect(config).toContain("[mcp_servers.graft]");
+    const graftBlockCount = (config.match(/\[mcp_servers\.graft\]/g) ?? []).length;
+    expect(graftBlockCount).toBe(1);
   });
 });
