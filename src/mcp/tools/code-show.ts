@@ -64,13 +64,13 @@ export const codeShowTool: ToolDefinition = {
             requireRepoPath(ctx.projectRoot, targetPath);
           } catch (err: unknown) {
             const message = err instanceof Error ? err.message : String(err);
-          return ctx.respond("code_show", {
-            symbol: symbolName,
-            error: message,
-            source: "live",
-            layer,
-          });
-        }
+            return ctx.respond("code_show", {
+              symbol: symbolName,
+              error: message,
+              source: "live",
+              layer,
+            });
+          }
         }
 
         try {

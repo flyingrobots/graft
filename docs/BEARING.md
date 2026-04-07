@@ -53,7 +53,7 @@ Do not declare Graft ready for default use across arbitrary projects
 on this machine until all of these are true:
 
 1. **Unsupported-file degradation is honest** — no more fake empty code
-   outlines for markdown or other unsupported text.
+   outlines for Markdown or other unsupported text.
 2. **Policy fidelity is unified** — MCP, CLI, hooks, historical reads,
    working-tree reads, budget/session handling, and `.graftignore`
    all enforce the same contract.
