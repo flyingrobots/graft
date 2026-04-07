@@ -51,3 +51,11 @@ Legend:
    omission.
 4. `run_capture` requires a policy-boundary decision, not just more
    implementation.
+
+## Locked decisions
+
+- Missing `.graftignore` enforcement on any bounded-read entry point is
+  a bug, not an acceptable difference between surfaces.
+- The intended contract is cross-entry-point policy parity for bounded
+  reads. Divergence must be treated as drift unless the surface is
+  explicitly carved out as an exception.

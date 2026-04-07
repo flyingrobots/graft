@@ -4,12 +4,17 @@
 read project or git-backed content without policy evaluation. Bring
 those structural surfaces under an explicit policy contract.
 
-Questions to settle:
+Direction:
 
-- Should denied files be refused explicitly, omitted, or summarized?
-- How should git-backed historical reads honor `.graftignore` and bans?
-- What refusal shape should structural tools emit for parity with other
-  MCP surfaces?
+- denied files should not leak through structural tools
+- structural tools should activate the same policy inputs as other
+  bounded-read surfaces
+- refusal behavior should be explicit rather than silent omission
+
+Open implementation question:
+
+- what is the cleanest refusal/result shape for structural surfaces
+  while preserving usable summaries?
 
 Done when:
 

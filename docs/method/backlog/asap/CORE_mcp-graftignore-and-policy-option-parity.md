@@ -4,6 +4,9 @@ Hooks currently load `.graftignore`, but MCP surfaces do not. Unify the
 policy option flow so MCP tools can pass the same `graftignorePatterns`
 that hooks already use, alongside session depth and budget.
 
+This is a bug fix, not a design exploration. Missing `.graftignore`
+parity means the same file can be denied by hooks and allowed by MCP.
+
 Target areas:
 
 - `src/mcp/server.ts` middleware

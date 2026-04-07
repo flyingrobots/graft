@@ -25,6 +25,13 @@ real enforcement gaps into specific follow-on work.
 - `run_capture` is effectively an escape hatch until we define a more
   explicit contract.
 
+## Decisions locked in
+
+- Missing `.graftignore` enforcement on a bounded-read entry point is a
+  bug.
+- The target contract is that bounded-read entry points activate the
+  same policies, not that each surface gets to choose its own subset.
+
 ## Follow-on work
 
 - `CORE_mcp-graftignore-and-policy-option-parity.md`

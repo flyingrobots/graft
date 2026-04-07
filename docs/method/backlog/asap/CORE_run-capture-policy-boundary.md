@@ -1,7 +1,11 @@
 # `run_capture` policy boundary
 
 `run_capture` currently shells out and can surface arbitrary file
-content. Decide whether it is:
+content. The default project direction is that product entry points
+should activate the same policies. If `run_capture` is going to remain
+inside the product contract, it must be governed accordingly.
+
+Decide whether it is:
 
 - an intentional escape hatch that is explicitly documented as outside
   bounded-read policy, or

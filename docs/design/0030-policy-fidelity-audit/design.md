@@ -106,3 +106,10 @@ Out of scope:
 Close this cycle as an audit packet once the matrix, doctrine fix, and
 follow-on backlog slices are written. Do not pretend that parity was
 landed here.
+
+Direction locked in during cycle close:
+
+- missing `.graftignore` enforcement on any bounded-read entry point is
+  a bug
+- bounded-read entry points should converge on the same policy contract
+  rather than each choosing their own subset of policy inputs

@@ -11,6 +11,7 @@ it. Cycles under that legend must verify the invariant holds.
 
 ### Policy (CORE)
 - [policy-total](policy-total.md) — every safe_read evaluates policy
+- [policy-surface-parity](policy-surface-parity.md) — bounded-read entry points activate the same policy contract
 - [banned-never-leak](banned-never-leak.md) — banned files always refused
 - [read-range-bounded](read-range-bounded.md) — max 250 lines enforced
 - [state-cap](state-cap.md) — state_save rejects > 8KB
