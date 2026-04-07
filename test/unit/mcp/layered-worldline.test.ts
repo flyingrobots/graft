@@ -109,6 +109,22 @@ describe("mcp: layered worldline model", { timeout: 15000 }, () => {
       }
     });
 
+    it("labels default structural diffs against the working tree as workspace_overlay", async () => {
+      const tmpDir = createTestRepo("graft-layered-worldline-diff-overlay-");
+      try {
+        fs.writeFileSync(path.join(tmpDir, "app.ts"), "export const stable = true;\n");
+        git(tmpDir, "add -A");
+        git(tmpDir, "commit -m init");
+
+        const server = createServerInRepo(tmpDir);
+        const result = parse(await server.callTool("graft_diff", {}));
+
+        expect(result["layer"]).toBe("workspace_overlay");
+      } finally {
+        cleanupTestRepo(tmpDir);
+      }
+    });
+
     it("doctor reports checkout epochs and semantic checkout transitions", async () => {
       const tmpDir = createTestRepo("graft-layered-worldline-transition-");
       try {
@@ -201,6 +217,34 @@ describe("mcp: layered worldline model", { timeout: 15000 }, () => {
   });
 
   describe("edge cases", () => {
+    it("counts unstaged changes in the workspace overlay without misclassifying them as staged", async () => {
+      const tmpDir = createTestRepo("graft-layered-worldline-status-counts-");
+      try {
+        fs.writeFileSync(path.join(tmpDir, "app.ts"), "export const stable = true;\n");
+        git(tmpDir, "add -A");
+        git(tmpDir, "commit -m init");
+
+        fs.writeFileSync(
+          path.join(tmpDir, "app.ts"),
+          "export const stable = true;\nexport const drift = 1;\n",
+        );
+
+        const server = createServerInRepo(tmpDir);
+        const result = parse(await server.callTool("doctor", {}));
+        const overlay = result["workspaceOverlay"] as {
+          totalPaths?: number;
+          stagedPaths?: number;
+          changedPaths?: number;
+        };
+
+        expect(overlay.totalPaths).toBe(1);
+        expect(overlay.stagedPaths).toBe(0);
+        expect(overlay.changedPaths).toBe(1);
+      } finally {
+        cleanupTestRepo(tmpDir);
+      }
+    });
+
     it("tracks detached-head checkouts as checkout epochs with commit targets", async () => {
       const tmpDir = createTestRepo("graft-layered-worldline-detached-");
       try {
@@ -231,6 +275,27 @@ describe("mcp: layered worldline model", { timeout: 15000 }, () => {
         expect(transition.kind).toBe("checkout");
         expect(transition.toRef ?? null).toBeNull();
         expect(transition.toCommit).toBe(c1);
+      } finally {
+        cleanupTestRepo(tmpDir);
+      }
+    });
+
+    it("does not misclassify checkout subjects that contain branch names with rebase in them", async () => {
+      const tmpDir = createTestRepo("graft-layered-worldline-rebase-branch-");
+      try {
+        fs.writeFileSync(path.join(tmpDir, "app.ts"), "export const base = 1;\n");
+        git(tmpDir, "add -A");
+        git(tmpDir, "commit -m base");
+
+        const server = createServerInRepo(tmpDir);
+        git(tmpDir, "checkout -q -b feature/rebase-ui");
+
+        const doctor = parse(await server.callTool("doctor", {}));
+        const transition = doctor["lastTransition"] as { kind?: string; toRef?: string | null } | undefined;
+
+        expect(transition).toBeDefined();
+        expect(transition?.kind).toBe("checkout");
+        expect(transition?.toRef).toBe("feature/rebase-ui");
       } finally {
         cleanupTestRepo(tmpDir);
       }

@@ -39,6 +39,14 @@ export const changedSinceTool: ToolDefinition = {
         return ctx.respond("changed_since", { status: "refused", reason: policy.reason });
       }
 
+      const newOutlineResult = extractOutlineForFile(filePath, rawContent);
+      if (newOutlineResult === null) {
+        return ctx.respond("changed_since", {
+          status: "unsupported",
+          reason: "UNSUPPORTED_LANGUAGE",
+        });
+      }
+
       const cacheResult = ctx.cache.check(filePath, rawContent);
       if (cacheResult.hit) {
         return ctx.respond("changed_since", { status: "unchanged" });
@@ -47,14 +55,6 @@ export const changedSinceTool: ToolDefinition = {
         return ctx.respond("changed_since", { status: "no_previous_observation" });
       }
 
-      // Use extractOutline with rawContent directly to avoid snapshot race.
-      const newOutlineResult = extractOutlineForFile(filePath, rawContent);
-      if (newOutlineResult === null) {
-        return ctx.respond("changed_since", {
-          status: "unsupported",
-          reason: "UNSUPPORTED_LANGUAGE",
-        });
-      }
       const diff = diffOutlines(cacheResult.stale.outline, newOutlineResult.entries);
 
       if (consume) {

@@ -39,10 +39,14 @@ function git(args: readonly string[], cwd: string): string {
   });
 }
 
-function buildJumpLookup(jumpTable: readonly JumpEntry[]): Map<string, { start: number; end: number }> {
-  const lookup = new Map<string, { start: number; end: number }>();
+function buildJumpLookup(
+  jumpTable: readonly JumpEntry[],
+): Map<string, { start: number; end: number }[]> {
+  const lookup = new Map<string, { start: number; end: number }[]>();
   for (const entry of jumpTable) {
-    lookup.set(entry.symbol, { start: entry.start, end: entry.end });
+    const existing = lookup.get(entry.symbol) ?? [];
+    existing.push({ start: entry.start, end: entry.end });
+    lookup.set(entry.symbol, existing);
   }
   return lookup;
 }
@@ -145,12 +149,18 @@ export function collectSymbols(
   entries: readonly OutlineEntry[],
   filePath: string,
   jumpTable: readonly JumpEntry[],
+  jumpCursor: Map<string, number> = new Map<string, number>(),
 ): PrecisionSymbolMatch[] {
   const jumpLookup = buildJumpLookup(jumpTable);
   const results: PrecisionSymbolMatch[] = [];
 
   for (const entry of entries) {
-    const jump = jumpLookup.get(entry.name);
+    const candidates = jumpLookup.get(entry.name) ?? [];
+    const jumpIndex = jumpCursor.get(entry.name) ?? 0;
+    const jump = candidates[jumpIndex];
+    if (jump !== undefined) {
+      jumpCursor.set(entry.name, jumpIndex + 1);
+    }
     results.push({
       name: entry.name,
       kind: entry.kind,
@@ -162,7 +172,7 @@ export function collectSymbols(
     });
 
     if (entry.children !== undefined && entry.children.length > 0) {
-      results.push(...collectSymbols(entry.children, filePath, jumpTable));
+      results.push(...collectSymbols(entry.children, filePath, jumpTable, jumpCursor));
     }
   }
 
