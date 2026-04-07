@@ -99,9 +99,9 @@ git config --local core.hooksPath scripts/hooks
 
 ## Current hot items
 
-- `docs/method/backlog/asap/CORE_markdown-summary-support.md`
-- `docs/method/backlog/asap/CORE_mcp-graftignore-and-policy-option-parity.md`
+- `docs/method/backlog/asap/CORE_run-capture-policy-boundary.md`
 - `docs/method/backlog/asap/CORE_structural-tool-policy-enforcement.md`
+- `docs/method/backlog/asap/CORE_cross-surface-policy-parity-tests.md`
 - `docs/method/backlog/asap/CORE_versioned-json-output-schemas.md`
 
 ## Current learnings
@@ -110,9 +110,8 @@ git config --local core.hooksPath scripts/hooks
   `safe_read` returns `UNSUPPORTED_LANGUAGE` with no fabricated symbols,
   `file_outline` returns an explicit unsupported result, and unsupported
   files are not cached as if they had real outlines.
-- Markdown is a strong candidate for first-class structured document
-  support because README/docs reads are common and headings are honest
-  structure.
+- Markdown now has first-class heading-based summary support on bounded
+  read surfaces, including section jump tables for targeted doc reads.
 - `code_find -> code_show` is a good agent workflow and worth
   dogfooding heavily.
 - MCP tests should construct servers with explicit `projectRoot` and
