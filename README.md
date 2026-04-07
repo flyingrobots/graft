@@ -76,10 +76,12 @@ Then add graft to your MCP config:
 Works with Codex, Claude Code, Cursor, Windsurf, Continue, Cline,
 and any MCP-compatible client.
 
-See **[Setup Guide](docs/GUIDE.md)** for per-editor instructions,
-Claude Code hooks, `.graftignore` configuration, troubleshooting,
-and details on what the agent experiences. Contributors should also
-read **[Architecture](ARCHITECTURE.md)** for the runtime systems map.
+See the **[Setup decision table](docs/GUIDE.md#choose-your-setup-path)**
+for the fastest path by client and mode, and the full
+**[Setup Guide](docs/GUIDE.md)** for per-editor instructions, Claude
+Code hooks, `.graftignore` configuration, troubleshooting, and
+details on what the agent experiences. Contributors should also read
+**[Architecture](ARCHITECTURE.md)** for the runtime systems map.
 
 ## What it does
 

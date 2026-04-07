@@ -26,6 +26,24 @@ Scaffolds your project for graft in one command:
 
 Idempotent — safe to run again without duplicating entries.
 
+## Choose Your Setup Path
+
+Use this table when you want the shortest path instead of reading the
+whole setup guide front-to-back.
+
+| If you want... | Use this path | What happens |
+|---|---|---|
+| Claude Code MCP only in this repo | `npx @flyingrobots/graft init --write-claude-mcp` | Writes or merges `.mcp.json` |
+| Claude Code MCP plus hook enforcement in this repo | `npx @flyingrobots/graft init --write-claude-mcp --write-claude-hooks` | Writes or merges `.mcp.json` and `.claude/settings.json` |
+| Cursor MCP in this repo | `npx @flyingrobots/graft init --write-cursor-mcp` | Writes or merges `.cursor/mcp.json` |
+| Windsurf MCP in this repo | `npx @flyingrobots/graft init --write-windsurf-mcp` | Writes or merges `.codeium/windsurf/mcp_config.json` |
+| Continue MCP in this repo | `npx @flyingrobots/graft init --write-continue-mcp` | Writes or merges `.continue/config.json` |
+| Cline MCP in this repo | `npx @flyingrobots/graft init --write-cline-mcp` | Writes or merges `.vscode/cline_mcp_settings.json` |
+| Codex MCP in this repo | `npx @flyingrobots/graft init --write-codex-mcp` | Writes or merges `.codex/config.toml` |
+| Manual review before any config file write | `npx @flyingrobots/graft init` | Scaffolds repo files and prints the manual MCP / hook snippets |
+| Global config instead of project-local config | Edit your client's global MCP settings manually | Use the `npx @flyingrobots/graft serve` command + args shown below |
+| Another MCP-compatible client | Add graft manually to that client's MCP config | Use `command = npx`, `args = ["-y", "@flyingrobots/graft", "serve"]` |
+
 ### One-step bootstrap
 
 Write project-local client config directly when you want `init` to do
