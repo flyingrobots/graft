@@ -1,18 +1,22 @@
 # CLI and MCP surface parity
 
-Bring the CLI and MCP surfaces to deliberate feature parity.
+Close the remaining CLI and MCP parity gaps after the 0026 audit.
 
 Depends on:
-- `docs/method/backlog/up-next/CORE_mcp-cli-parity-audit.md`
+- `docs/design/0026-mcp-cli-parity-audit/parity-matrix.md`
+- `docs/method/backlog/up-next/CORE_cli-bounded-read-surface.md`
+- `docs/method/backlog/up-next/CORE_cli-structural-navigation-surface.md`
+- `docs/method/backlog/up-next/CORE_cli-diagnostics-and-capture-surface.md`
+- `docs/method/backlog/up-next/CORE_index-surface-parity-decision.md`
+- `docs/method/backlog/up-next/CLEAN_CODE_shared-capability-registry-for-cli-and-mcp.md`
 
 Scope:
-- inventory all product-facing capabilities on both surfaces
-- identify intentional one-surface-only exceptions
-- add missing peer surfaces where parity is expected
-- align refusal behavior, policy handling, and JSON output meaning
-- document the parity rule in release review / feature delivery
+- close the concrete parity gaps identified by 0026
+- keep exceptions explicit and narrow
+- verify the invariant against real surfaces, not intent
 
 Why separate cycle:
-- this is product-surface coherence work, not a single tool patch
+- this is the eventual closure cycle after the audit and concrete
+  follow-on slices land
 
-Effort: L
+Effort: XL
