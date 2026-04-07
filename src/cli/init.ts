@@ -32,86 +32,8 @@ session metrics. Native reads bypass all of that.
 
 const GITIGNORE_ENTRY = "\n# Graft runtime data\n.graft/\n";
 
-const HOOKS_CONFIG = {
-  hooks: {
-    PreToolUse: [
-      {
-        matcher: "Read",
-        hooks: [
-          {
-            type: "command",
-            command: "node --import tsx node_modules/@flyingrobots/graft/src/hooks/pretooluse-read.ts",
-          },
-        ],
-      },
-    ],
-    PostToolUse: [
-      {
-        matcher: "Read",
-        hooks: [
-          {
-            type: "command",
-            command: "node --import tsx node_modules/@flyingrobots/graft/src/hooks/posttooluse-read.ts",
-          },
-        ],
-      },
-    ],
-  },
-} as const;
-
-const SUGGESTED_MCP_SERVER = {
-  mcpServers: {
-    graft: {
-      command: "npx",
-      args: ["-y", "@flyingrobots/graft", "serve"],
-    },
-  },
-} as const;
-
-const CONTINUE_MCP_SERVER = {
-  name: "graft",
-  command: "npx",
-  args: ["-y", "@flyingrobots/graft", "serve"],
-} as const;
-
-const CONTINUE_MCP_CONFIG = {
-  mcpServers: [CONTINUE_MCP_SERVER],
-} as const;
-
-const CODEX_MCP_CONFIG = [
-  "[mcp_servers.graft]",
-  "command = \"npx\"",
-  "args = [\"-y\", \"@flyingrobots/graft\", \"serve\"]",
-  "",
-].join("\n");
-
 interface Writer {
   write(chunk: string): unknown;
-}
-
-interface InitAction {
-  action: "exists" | "create" | "append";
-  label: string;
-  detail?: string | undefined;
-}
-
-interface InitResult {
-  ok: true;
-  cwd: string;
-  actions: InitAction[];
-  hooksConfig: typeof HOOKS_CONFIG;
-  suggestedMcpServer: typeof SUGGESTED_MCP_SERVER;
-}
-
-interface ParsedInitArgs {
-  json: boolean;
-  writeClaudeMcp: boolean;
-  writeClaudeHooks: boolean;
-  writeCodexMcp: boolean;
-  writeCursorMcp: boolean;
-  writeWindsurfMcp: boolean;
-  writeContinueMcp: boolean;
-  writeClineMcp: boolean;
 }
 
 export interface RunInitOptions {
@@ -121,7 +43,54 @@ export interface RunInitOptions {
   stderr?: Writer | undefined;
 }
 
-function hasFlag(args: string[], flag: string): boolean {
+type JsonPrimitive = string | number | boolean | null;
+type JsonArrayValue = JsonValue[];
+type JsonValue = JsonPrimitive | JsonArrayValue | JsonObjectValue;
+
+interface JsonObjectValue {
+  [key: string]: JsonValue | undefined;
+}
+
+type InitActionKind = "exists" | "create" | "append";
+
+class InitAction {
+  constructor(
+    readonly action: InitActionKind,
+    readonly label: string,
+    readonly detail?: string,
+  ) {}
+
+  static create(label: string, detail?: string): InitAction {
+    return new InitAction("create", label, detail);
+  }
+
+  static append(label: string, detail?: string): InitAction {
+    return new InitAction("append", label, detail);
+  }
+
+  static exists(label: string, detail?: string): InitAction {
+    return new InitAction("exists", label, detail);
+  }
+}
+
+class InitFailure {
+  readonly ok = false;
+
+  constructor(
+    readonly cwd: string,
+    readonly error: string,
+  ) {}
+
+  toJSON(): JsonObjectValue {
+    return {
+      ok: this.ok,
+      cwd: this.cwd,
+      error: this.error,
+    };
+  }
+}
+
+function consumeFlag(args: string[], flag: string): boolean {
   const index = args.indexOf(flag);
   if (index === -1) {
     return false;
@@ -130,212 +99,513 @@ function hasFlag(args: string[], flag: string): boolean {
   return true;
 }
 
+class ParsedInitArgs {
+  constructor(
+    readonly json: boolean,
+    readonly writeClaudeMcp: boolean,
+    readonly writeClaudeHooks: boolean,
+    readonly writeCodexMcp: boolean,
+    readonly writeCursorMcp: boolean,
+    readonly writeWindsurfMcp: boolean,
+    readonly writeContinueMcp: boolean,
+    readonly writeClineMcp: boolean,
+  ) {}
+
+  static parse(rawArgs: readonly string[]): ParsedInitArgs {
+    const args = [...rawArgs];
+    const parsed = new ParsedInitArgs(
+      consumeFlag(args, "--json"),
+      consumeFlag(args, "--write-claude-mcp"),
+      consumeFlag(args, "--write-claude-hooks"),
+      consumeFlag(args, "--write-codex-mcp"),
+      consumeFlag(args, "--write-cursor-mcp"),
+      consumeFlag(args, "--write-windsurf-mcp"),
+      consumeFlag(args, "--write-continue-mcp"),
+      consumeFlag(args, "--write-cline-mcp"),
+    );
+
+    if (args.length > 0) {
+      throw new Error(`Unknown init arguments: ${args.join(" ")}`);
+    }
+
+    return parsed;
+  }
+
+  get writesAnyMcpConfig(): boolean {
+    return this.writeClaudeMcp
+      || this.writeCodexMcp
+      || this.writeCursorMcp
+      || this.writeWindsurfMcp
+      || this.writeContinueMcp
+      || this.writeClineMcp;
+  }
+}
+
+class GraftMcpServer {
+  readonly name = "graft";
+  readonly command = "npx";
+  readonly args = ["-y", "@flyingrobots/graft", "serve"] as const;
+
+  toJsonServerEntry(): JsonObjectValue {
+    return {
+      command: this.command,
+      args: [...this.args],
+    };
+  }
+
+  toJsonMcpConfig(): JsonObjectValue {
+    return {
+      mcpServers: {
+        [this.name]: this.toJsonServerEntry(),
+      },
+    };
+  }
+
+  toContinueServerEntry(): JsonObjectValue {
+    return {
+      name: this.name,
+      command: this.command,
+      args: [...this.args],
+    };
+  }
+
+  toContinueConfig(): JsonObjectValue {
+    return {
+      mcpServers: [this.toContinueServerEntry()],
+    };
+  }
+
+  toCodexTomlBlock(): string {
+    return [
+      "[mcp_servers.graft]",
+      "command = \"npx\"",
+      "args = [\"-y\", \"@flyingrobots/graft\", \"serve\"]",
+      "",
+    ].join("\n");
+  }
+}
+
+class GraftHookCommand {
+  constructor(readonly command: string) {}
+
+  toJsonValue(): JsonObjectValue {
+    return {
+      type: "command",
+      command: this.command,
+    };
+  }
+}
+
+class GraftHookMatcher {
+  constructor(
+    readonly matcher: "Read",
+    readonly hooks: readonly GraftHookCommand[],
+  ) {}
+
+  toJsonValue(): JsonObjectValue {
+    return {
+      matcher: this.matcher,
+      hooks: this.hooks.map((hook) => hook.toJsonValue()),
+    };
+  }
+}
+
+class GraftHooksConfig {
+  constructor(
+    readonly preToolUse: GraftHookMatcher,
+    readonly postToolUse: GraftHookMatcher,
+  ) {}
+
+  toJsonValue(): JsonObjectValue {
+    return {
+      hooks: {
+        PreToolUse: [this.preToolUse.toJsonValue()],
+        PostToolUse: [this.postToolUse.toJsonValue()],
+      },
+    };
+  }
+}
+
+const GRAFT_MCP_SERVER = new GraftMcpServer();
+const GRAFT_HOOKS_CONFIG = new GraftHooksConfig(
+  new GraftHookMatcher("Read", [
+    new GraftHookCommand("node --import tsx node_modules/@flyingrobots/graft/src/hooks/pretooluse-read.ts"),
+  ]),
+  new GraftHookMatcher("Read", [
+    new GraftHookCommand("node --import tsx node_modules/@flyingrobots/graft/src/hooks/posttooluse-read.ts"),
+  ]),
+);
+
+class InitResult {
+  readonly ok = true;
+
+  constructor(
+    readonly cwd: string,
+    readonly actions: readonly InitAction[],
+    readonly hooksConfig: GraftHooksConfig,
+    readonly suggestedMcpServer: GraftMcpServer,
+  ) {}
+
+  toJSON(): JsonObjectValue {
+    return {
+      ok: this.ok,
+      cwd: this.cwd,
+      actions: this.actions.map((action) => ({
+        action: action.action,
+        label: action.label,
+        ...(action.detail !== undefined ? { detail: action.detail } : {}),
+      })),
+      hooksConfig: this.hooksConfig.toJsonValue(),
+      suggestedMcpServer: this.suggestedMcpServer.toJsonMcpConfig(),
+    };
+  }
+}
+
+function isJsonObjectValue(value: unknown): value is JsonObjectValue {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function cloneJsonValue<T>(value: T): T {
+  return JSON.parse(JSON.stringify(value)) as T;
+}
+
+function writeLine(writer: Writer, line = ""): void {
+  writer.write(`${line}\n`);
+}
+
+function formatJsonField(pointer: readonly string[]): string {
+  return pointer.length === 0 ? "" : ` field ${pointer.join(".")}`;
+}
+
+class JsonArrayNode {
+  constructor(
+    private readonly value: JsonArrayValue,
+    private readonly label: string,
+    private readonly pointer: readonly string[] = [],
+  ) {}
+
+  static fromUnknown(value: unknown, label: string, pointer: readonly string[] = []): JsonArrayNode {
+    if (!Array.isArray(value)) {
+      throw new Error(`${label}${formatJsonField(pointer)} must be an array`);
+    }
+    return new JsonArrayNode(value as JsonArrayValue, label, pointer);
+  }
+
+  objectItems(): JsonObjectNode[] {
+    return this.value.map((candidate, index) => {
+      if (!isJsonObjectValue(candidate)) {
+        throw new Error(`${this.label}${formatJsonField(this.pointer)} must contain only object entries`);
+      }
+      return new JsonObjectNode(candidate, this.label, [...this.pointer, String(index)]);
+    });
+  }
+
+  push(value: JsonValue): void {
+    this.value.push(value);
+  }
+}
+
+class JsonObjectNode {
+  constructor(
+    private readonly value: JsonObjectValue,
+    private readonly label: string,
+    private readonly pointer: readonly string[] = [],
+  ) {}
+
+  static fromUnknown(value: unknown, label: string, pointer: readonly string[] = []): JsonObjectNode {
+    if (!isJsonObjectValue(value)) {
+      throw new Error(`${label}${formatJsonField(pointer)} must be a JSON object`);
+    }
+    return new JsonObjectNode(value, label, pointer);
+  }
+
+  has(key: string): boolean {
+    return Object.prototype.hasOwnProperty.call(this.value, key);
+  }
+
+  set(key: string, value: JsonValue): void {
+    this.value[key] = value;
+  }
+
+  ensureObject(key: string): JsonObjectNode {
+    const current = this.value[key];
+    if (current === undefined) {
+      const created: JsonObjectValue = {};
+      this.value[key] = created;
+      return new JsonObjectNode(created, this.label, [...this.pointer, key]);
+    }
+    return JsonObjectNode.fromUnknown(current, this.label, [...this.pointer, key]);
+  }
+
+  ensureArray(key: string): JsonArrayNode {
+    const current = this.value[key];
+    if (current === undefined) {
+      const created: JsonArrayValue = [];
+      this.value[key] = created;
+      return new JsonArrayNode(created, this.label, [...this.pointer, key]);
+    }
+    return JsonArrayNode.fromUnknown(current, this.label, [...this.pointer, key]);
+  }
+
+  requireArray(key: string): JsonArrayNode {
+    const current = this.value[key];
+    if (current === undefined) {
+      throw new Error(`${this.label}${formatJsonField([...this.pointer, key])} must be an array`);
+    }
+    return JsonArrayNode.fromUnknown(current, this.label, [...this.pointer, key]);
+  }
+
+  stringValue(key: string): string | undefined {
+    const current = this.value[key];
+    if (current === undefined) {
+      return undefined;
+    }
+    if (typeof current !== "string") {
+      throw new Error(`${this.label}${formatJsonField([...this.pointer, key])} must be a string`);
+    }
+    return current;
+  }
+
+  toJsonValue(): JsonObjectValue {
+    return this.value;
+  }
+}
+
+class JsonObjectDocument {
+  constructor(
+    readonly label: string,
+    readonly filePath: string,
+    private readonly rootNode: JsonObjectNode,
+  ) {}
+
+  static create(filePath: string, label: string, root: JsonObjectValue): JsonObjectDocument {
+    return new JsonObjectDocument(
+      label,
+      filePath,
+      new JsonObjectNode(cloneJsonValue(root), label),
+    );
+  }
+
+  static open(filePath: string, label: string): JsonObjectDocument {
+    try {
+      const parsed = JSON.parse(fs.readFileSync(filePath, "utf-8")) as unknown;
+      return new JsonObjectDocument(label, filePath, JsonObjectNode.fromUnknown(parsed, label));
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : String(err);
+      throw new Error(`Unable to parse ${label}: ${message}`, { cause: err });
+    }
+  }
+
+  root(): JsonObjectNode {
+    return this.rootNode;
+  }
+
+  write(): void {
+    fs.mkdirSync(path.dirname(this.filePath), { recursive: true });
+    fs.writeFileSync(this.filePath, `${JSON.stringify(this.rootNode.toJsonValue(), null, 2)}\n`);
+  }
+}
+
+class JsonMcpConfigDocument {
+  constructor(
+    private readonly document: JsonObjectDocument,
+    private readonly server: GraftMcpServer,
+  ) {}
+
+  static create(filePath: string, label: string, server: GraftMcpServer): JsonMcpConfigDocument {
+    return new JsonMcpConfigDocument(
+      JsonObjectDocument.create(filePath, label, server.toJsonMcpConfig()),
+      server,
+    );
+  }
+
+  static open(filePath: string, label: string, server: GraftMcpServer): JsonMcpConfigDocument {
+    return new JsonMcpConfigDocument(JsonObjectDocument.open(filePath, label), server);
+  }
+
+  write(): void {
+    this.document.write();
+  }
+
+  ensureGraftServer(): InitAction {
+    const mcpServers = this.document.root().ensureObject("mcpServers");
+    if (mcpServers.has(this.server.name)) {
+      return InitAction.exists(this.document.label, "already has graft mcp server");
+    }
+    mcpServers.set(this.server.name, this.server.toJsonServerEntry());
+    this.document.write();
+    return InitAction.append(this.document.label, "merged graft mcp server");
+  }
+}
+
+class ContinueMcpConfigDocument {
+  constructor(
+    private readonly document: JsonObjectDocument,
+    private readonly server: GraftMcpServer,
+  ) {}
+
+  static create(filePath: string, label: string, server: GraftMcpServer): ContinueMcpConfigDocument {
+    return new ContinueMcpConfigDocument(
+      JsonObjectDocument.create(filePath, label, server.toContinueConfig()),
+      server,
+    );
+  }
+
+  static open(filePath: string, label: string, server: GraftMcpServer): ContinueMcpConfigDocument {
+    return new ContinueMcpConfigDocument(JsonObjectDocument.open(filePath, label), server);
+  }
+
+  write(): void {
+    this.document.write();
+  }
+
+  ensureGraftServer(): InitAction {
+    const servers = this.document.root().ensureArray("mcpServers");
+    const hasGraft = servers.objectItems().some((candidate) => candidate.stringValue("name") === this.server.name);
+    if (hasGraft) {
+      return InitAction.exists(this.document.label, "already has graft mcp server");
+    }
+    servers.push(this.server.toContinueServerEntry());
+    this.document.write();
+    return InitAction.append(this.document.label, "merged graft mcp server");
+  }
+}
+
+class ClaudeHooksDocument {
+  constructor(
+    private readonly document: JsonObjectDocument,
+    private readonly hooksConfig: GraftHooksConfig,
+  ) {}
+
+  static create(filePath: string, label: string, hooksConfig: GraftHooksConfig): ClaudeHooksDocument {
+    return new ClaudeHooksDocument(
+      JsonObjectDocument.create(filePath, label, hooksConfig.toJsonValue()),
+      hooksConfig,
+    );
+  }
+
+  static open(filePath: string, label: string, hooksConfig: GraftHooksConfig): ClaudeHooksDocument {
+    return new ClaudeHooksDocument(JsonObjectDocument.open(filePath, label), hooksConfig);
+  }
+
+  write(): void {
+    this.document.write();
+  }
+
+  ensureGraftHooks(): InitAction {
+    const hooksRoot = this.document.root().ensureObject("hooks");
+    const changed = [
+      this.mergeHookPhase(hooksRoot.ensureArray("PreToolUse"), this.hooksConfig.preToolUse),
+      this.mergeHookPhase(hooksRoot.ensureArray("PostToolUse"), this.hooksConfig.postToolUse),
+    ].some(Boolean);
+
+    if (!changed) {
+      return InitAction.exists(this.document.label, "already has graft hooks");
+    }
+    this.document.write();
+    return InitAction.append(this.document.label, "merged graft hooks");
+  }
+
+  private mergeHookPhase(phases: JsonArrayNode, entry: GraftHookMatcher): boolean {
+    const existing = phases.objectItems().find((candidate) => candidate.stringValue("matcher") === entry.matcher);
+    if (existing === undefined) {
+      phases.push(entry.toJsonValue());
+      return true;
+    }
+
+    const hooks = existing.requireArray("hooks");
+    let changed = false;
+    for (const graftHook of entry.hooks) {
+      const alreadyPresent = hooks.objectItems().some((candidate) =>
+        candidate.stringValue("type") === "command"
+        && candidate.stringValue("command") === graftHook.command,
+      );
+      if (alreadyPresent) {
+        continue;
+      }
+      hooks.push(graftHook.toJsonValue());
+      changed = true;
+    }
+    return changed;
+  }
+}
+
 function writeIfMissing(filePath: string, content: string, label: string): InitAction {
   if (fs.existsSync(filePath)) {
-    return { action: "exists", label };
+    return InitAction.exists(label);
   }
   fs.mkdirSync(path.dirname(filePath), { recursive: true });
   fs.writeFileSync(filePath, content);
-  return { action: "create", label };
+  return InitAction.create(label);
 }
 
 function appendIfMissing(filePath: string, marker: string, content: string, label: string): InitAction {
   if (fs.existsSync(filePath)) {
     const existing = fs.readFileSync(filePath, "utf-8");
     if (existing.includes(marker)) {
-      return { action: "exists", label, detail: "already has graft entry" };
+      return InitAction.exists(label, "already has graft entry");
     }
     fs.appendFileSync(filePath, content);
-    return { action: "append", label };
+    return InitAction.append(label);
   }
   fs.mkdirSync(path.dirname(filePath), { recursive: true });
   fs.writeFileSync(filePath, content.trimStart());
-  return { action: "create", label };
+  return InitAction.create(label);
 }
 
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null && !Array.isArray(value);
-}
-
-function cloneJson<T>(value: T): T {
-  return JSON.parse(JSON.stringify(value)) as T;
-}
-
-function readJsonObject(filePath: string, label: string): Record<string, unknown> {
-  try {
-    const parsed = JSON.parse(fs.readFileSync(filePath, "utf-8")) as unknown;
-    if (!isRecord(parsed)) {
-      throw new Error(`${label} must contain a JSON object`);
-    }
-    return parsed;
-  } catch (err: unknown) {
-    const message = err instanceof Error ? err.message : String(err);
-    throw new Error(`Unable to parse ${label}: ${message}`, { cause: err });
-  }
-}
-
-function writeJsonObject(filePath: string, value: Record<string, unknown>): void {
-  fs.mkdirSync(path.dirname(filePath), { recursive: true });
-  fs.writeFileSync(filePath, `${JSON.stringify(value, null, 2)}\n`);
-}
-
-function ensureObjectProperty(
-  parent: Record<string, unknown>,
-  key: string,
-  label: string,
-): Record<string, unknown> {
-  const current = parent[key];
-  if (current === undefined) {
-    const created: Record<string, unknown> = {};
-    parent[key] = created;
-    return created;
-  }
-  if (!isRecord(current)) {
-    throw new Error(`${label} field ${key} must be a JSON object`);
-  }
-  return current;
-}
-
-function mergeJsonMcpConfig(
-  cwd: string,
-  label: string,
-  relativePath: readonly string[],
-): InitAction {
-  const filePath = path.join(cwd, ...relativePath);
-  const graftServer = cloneJson(SUGGESTED_MCP_SERVER.mcpServers.graft);
+function ensureJsonMcpConfig(filePath: string, label: string): InitAction {
   if (!fs.existsSync(filePath)) {
-    writeJsonObject(filePath, cloneJson(SUGGESTED_MCP_SERVER) as Record<string, unknown>);
-    return { action: "create", label, detail: "wrote graft mcp server" };
+    const created = JsonMcpConfigDocument.create(filePath, label, GRAFT_MCP_SERVER);
+    created.write();
+    return InitAction.create(label, "wrote graft mcp server");
   }
-
-  const root = readJsonObject(filePath, label);
-  const mcpServers = ensureObjectProperty(root, "mcpServers", label);
-  if (mcpServers["graft"] !== undefined) {
-    return { action: "exists", label, detail: "already has graft mcp server" };
-  }
-  mcpServers["graft"] = graftServer;
-  writeJsonObject(filePath, root);
-  return { action: "append", label, detail: "merged graft mcp server" };
+  return JsonMcpConfigDocument.open(filePath, label, GRAFT_MCP_SERVER).ensureGraftServer();
 }
 
 function mergeClaudeMcpConfig(cwd: string): InitAction {
-  return mergeJsonMcpConfig(cwd, ".mcp.json", [".mcp.json"]);
+  const label = ".mcp.json";
+  const filePath = path.join(cwd, label);
+  return ensureJsonMcpConfig(filePath, label);
 }
 
 function mergeCursorMcpConfig(cwd: string): InitAction {
-  return mergeJsonMcpConfig(cwd, ".cursor/mcp.json", [".cursor", "mcp.json"]);
+  const label = ".cursor/mcp.json";
+  const filePath = path.join(cwd, ".cursor", "mcp.json");
+  return ensureJsonMcpConfig(filePath, label);
 }
 
 function mergeWindsurfMcpConfig(cwd: string): InitAction {
-  return mergeJsonMcpConfig(cwd, ".codeium/windsurf/mcp_config.json", [".codeium", "windsurf", "mcp_config.json"]);
+  const label = ".codeium/windsurf/mcp_config.json";
+  const filePath = path.join(cwd, ".codeium", "windsurf", "mcp_config.json");
+  return ensureJsonMcpConfig(filePath, label);
 }
 
 function mergeClineMcpConfig(cwd: string): InitAction {
-  return mergeJsonMcpConfig(cwd, ".vscode/cline_mcp_settings.json", [".vscode", "cline_mcp_settings.json"]);
-}
-
-function ensureHookPhase(
-  hooksRoot: Record<string, unknown>,
-  phase: "PreToolUse" | "PostToolUse",
-): Record<string, unknown>[] {
-  const current = hooksRoot[phase];
-  if (current === undefined) {
-    const created: Record<string, unknown>[] = [];
-    hooksRoot[phase] = created;
-    return created;
-  }
-  if (!Array.isArray(current)) {
-    throw new Error(`.claude/settings.json hooks.${phase} must be an array`);
-  }
-  if (!current.every(isRecord)) {
-    throw new Error(`.claude/settings.json hooks.${phase} must contain only object entries`);
-  }
-  return current;
-}
-
-function mergeHookPhase(
-  phases: Record<string, unknown>[],
-  entry: { readonly matcher: string; readonly hooks: readonly { readonly type: string; readonly command: string }[] },
-): boolean {
-  const existing = phases.find((candidate) => candidate["matcher"] === entry.matcher);
-  if (existing === undefined) {
-    phases.push(cloneJson(entry) as Record<string, unknown>);
-    return true;
-  }
-
-  const hooks = existing["hooks"];
-  if (!Array.isArray(hooks)) {
-    throw new Error(`.claude/settings.json hook entry for ${entry.matcher} must have a hooks array`);
-  }
-
-  let changed = false;
-  for (const graftHook of entry.hooks) {
-    const alreadyPresent = hooks.some((candidate) =>
-      isRecord(candidate)
-      && candidate["type"] === graftHook.type
-      && candidate["command"] === graftHook.command,
-    );
-    if (alreadyPresent) {
-      continue;
-    }
-    hooks.push(cloneJson(graftHook) as Record<string, unknown>);
-    changed = true;
-  }
-  return changed;
+  const label = ".vscode/cline_mcp_settings.json";
+  const filePath = path.join(cwd, ".vscode", "cline_mcp_settings.json");
+  return ensureJsonMcpConfig(filePath, label);
 }
 
 function mergeClaudeHooksConfig(cwd: string): InitAction {
   const label = ".claude/settings.json";
   const filePath = path.join(cwd, ".claude", "settings.json");
   if (!fs.existsSync(filePath)) {
-    writeJsonObject(filePath, cloneJson(HOOKS_CONFIG) as Record<string, unknown>);
-    return { action: "create", label, detail: "wrote graft hooks" };
+    const created = ClaudeHooksDocument.create(filePath, label, GRAFT_HOOKS_CONFIG);
+    created.write();
+    return InitAction.create(label, "wrote graft hooks");
   }
-
-  const root = readJsonObject(filePath, label);
-  const hooksRoot = ensureObjectProperty(root, "hooks", label);
-  const preToolUse = ensureHookPhase(hooksRoot, "PreToolUse");
-  const postToolUse = ensureHookPhase(hooksRoot, "PostToolUse");
-
-  const changed = [
-    mergeHookPhase(preToolUse, HOOKS_CONFIG.hooks.PreToolUse[0]),
-    mergeHookPhase(postToolUse, HOOKS_CONFIG.hooks.PostToolUse[0]),
-  ].some(Boolean);
-
-  if (!changed) {
-    return { action: "exists", label, detail: "already has graft hooks" };
-  }
-  writeJsonObject(filePath, root);
-  return { action: "append", label, detail: "merged graft hooks" };
+  return ClaudeHooksDocument.open(filePath, label, GRAFT_HOOKS_CONFIG).ensureGraftHooks();
 }
 
 function mergeContinueMcpConfig(cwd: string): InitAction {
   const label = ".continue/config.json";
   const filePath = path.join(cwd, ".continue", "config.json");
   if (!fs.existsSync(filePath)) {
-    writeJsonObject(filePath, cloneJson(CONTINUE_MCP_CONFIG) as Record<string, unknown>);
-    return { action: "create", label, detail: "wrote graft mcp server" };
+    const created = ContinueMcpConfigDocument.create(filePath, label, GRAFT_MCP_SERVER);
+    created.write();
+    return InitAction.create(label, "wrote graft mcp server");
   }
-
-  const root = readJsonObject(filePath, label);
-  const servers = root["mcpServers"];
-  if (servers === undefined) {
-    root["mcpServers"] = [cloneJson(CONTINUE_MCP_SERVER)];
-    writeJsonObject(filePath, root);
-    return { action: "append", label, detail: "merged graft mcp server" };
-  }
-  if (!Array.isArray(servers)) {
-    throw new Error(`${label} field mcpServers must be an array`);
-  }
-
-  const hasGraft = servers.some((candidate) => isRecord(candidate) && candidate["name"] === CONTINUE_MCP_SERVER.name);
-  if (hasGraft) {
-    return { action: "exists", label, detail: "already has graft mcp server" };
-  }
-
-  servers.push(cloneJson(CONTINUE_MCP_SERVER) as unknown);
-  writeJsonObject(filePath, root);
-  return { action: "append", label, detail: "merged graft mcp server" };
+  return ContinueMcpConfigDocument.open(filePath, label, GRAFT_MCP_SERVER).ensureGraftServer();
 }
 
 function mergeCodexMcpConfig(cwd: string): InitAction {
@@ -344,45 +614,25 @@ function mergeCodexMcpConfig(cwd: string): InitAction {
   const marker = "[mcp_servers.graft]";
   if (!fs.existsSync(filePath)) {
     fs.mkdirSync(path.dirname(filePath), { recursive: true });
-    fs.writeFileSync(filePath, CODEX_MCP_CONFIG);
-    return { action: "create", label, detail: "wrote graft mcp server" };
+    fs.writeFileSync(filePath, GRAFT_MCP_SERVER.toCodexTomlBlock());
+    return InitAction.create(label, "wrote graft mcp server");
   }
 
   const existing = fs.readFileSync(filePath, "utf-8");
   if (existing.includes(marker)) {
-    return { action: "exists", label, detail: "already has graft mcp server" };
+    return InitAction.exists(label, "already has graft mcp server");
   }
 
   const separator = existing.endsWith("\n") ? "\n" : "\n\n";
-  fs.writeFileSync(filePath, `${existing}${separator}${CODEX_MCP_CONFIG}`);
-  return { action: "append", label, detail: "appended graft mcp server" };
-}
-
-function parseInitArgs(rawArgs: readonly string[]): ParsedInitArgs {
-  const args = [...rawArgs];
-  const parsed = {
-    json: hasFlag(args, "--json"),
-    writeClaudeMcp: hasFlag(args, "--write-claude-mcp"),
-    writeClaudeHooks: hasFlag(args, "--write-claude-hooks"),
-    writeCodexMcp: hasFlag(args, "--write-codex-mcp"),
-    writeCursorMcp: hasFlag(args, "--write-cursor-mcp"),
-    writeWindsurfMcp: hasFlag(args, "--write-windsurf-mcp"),
-    writeContinueMcp: hasFlag(args, "--write-continue-mcp"),
-    writeClineMcp: hasFlag(args, "--write-cline-mcp"),
-  } satisfies ParsedInitArgs;
-
-  if (args.length > 0) {
-    throw new Error(`Unknown init arguments: ${args.join(" ")}`);
-  }
-
-  return parsed;
+  fs.writeFileSync(filePath, `${existing}${separator}${GRAFT_MCP_SERVER.toCodexTomlBlock()}`);
+  return InitAction.append(label, "appended graft mcp server");
 }
 
 function initProject(cwd: string, args: ParsedInitArgs): InitResult {
-  const actions = [
+  const actions: InitAction[] = [
     writeIfMissing(path.join(cwd, ".graftignore"), GRAFTIGNORE_TEMPLATE, ".graftignore"),
     appendIfMissing(path.join(cwd, ".gitignore"), ".graft/", GITIGNORE_ENTRY, ".gitignore"),
-    appendIfMissing(path.join(cwd, "CLAUDE.md"), "safe_read", "\n" + AGENT_SNIPPET, "CLAUDE.md"),
+    appendIfMissing(path.join(cwd, "CLAUDE.md"), "safe_read", `\n${AGENT_SNIPPET}`, "CLAUDE.md"),
   ];
 
   if (args.writeClaudeMcp) {
@@ -407,17 +657,7 @@ function initProject(cwd: string, args: ParsedInitArgs): InitResult {
     actions.push(mergeClineMcpConfig(cwd));
   }
 
-  return {
-    ok: true,
-    cwd,
-    actions,
-    hooksConfig: HOOKS_CONFIG,
-    suggestedMcpServer: SUGGESTED_MCP_SERVER,
-  };
-}
-
-function writeLine(writer: Writer, line = ""): void {
-  writer.write(`${line}\n`);
+  return new InitResult(cwd, actions, GRAFT_HOOKS_CONFIG, GRAFT_MCP_SERVER);
 }
 
 function indentJson(value: unknown, spaces = 2): string {
@@ -426,13 +666,6 @@ function indentJson(value: unknown, spaces = 2): string {
 }
 
 function renderInitText(result: InitResult, args: ParsedInitArgs, writer: Writer): void {
-  const writesAnyMcpConfig = args.writeClaudeMcp
-    || args.writeCodexMcp
-    || args.writeCursorMcp
-    || args.writeWindsurfMcp
-    || args.writeContinueMcp
-    || args.writeClineMcp;
-
   writeLine(writer);
   writeLine(writer, `Initializing graft in ${result.cwd}`);
   writeLine(writer);
@@ -445,14 +678,14 @@ function renderInitText(result: InitResult, args: ParsedInitArgs, writer: Writer
   if (!args.writeClaudeHooks) {
     writeLine(writer, "Add to .claude/settings.json for Claude Code hook integration:");
     writeLine(writer);
-    writeLine(writer, JSON.stringify(result.hooksConfig, null, 2));
+    writeLine(writer, JSON.stringify(GRAFT_HOOKS_CONFIG.toJsonValue(), null, 2));
     writeLine(writer);
   }
 
-  if (!writesAnyMcpConfig) {
+  if (!args.writesAnyMcpConfig) {
     writeLine(writer, "Done. Add graft to your MCP config:");
     writeLine(writer);
-    writeLine(writer, indentJson(result.suggestedMcpServer));
+    writeLine(writer, indentJson(GRAFT_MCP_SERVER.toJsonMcpConfig()));
     writeLine(writer);
     writeLine(writer, "Use explicit --write-*-mcp flags or --write-claude-hooks");
     writeLine(writer, "for one-step bootstrap into project-local config files.");
@@ -461,8 +694,11 @@ function renderInitText(result: InitResult, args: ParsedInitArgs, writer: Writer
   writeLine(writer);
 }
 
-function emitInitJson(result: object, writer: Writer): void {
-  writer.write(`${codec.encode(validateCliOutput("init", attachCliSchemaMeta("init", result)))}\n`);
+function emitInitJson(result: JsonObjectValue | InitFailure, writer: Writer): void {
+  const payload = result instanceof InitFailure
+    ? result.toJSON()
+    : result;
+  writer.write(`${codec.encode(validateCliOutput("init", attachCliSchemaMeta("init", payload)))}\n`);
 }
 
 export function runInit(options: RunInitOptions = {}): void {
@@ -472,10 +708,10 @@ export function runInit(options: RunInitOptions = {}): void {
   const stderr = options.stderr ?? process.stderr;
 
   try {
-    const parsed = parseInitArgs(args);
+    const parsed = ParsedInitArgs.parse(args);
     const result = initProject(cwd, parsed);
     if (parsed.json) {
-      emitInitJson(result, stdout);
+      emitInitJson(result.toJSON(), stdout);
       return;
     }
     renderInitText(result, parsed, stdout);
@@ -483,7 +719,7 @@ export function runInit(options: RunInitOptions = {}): void {
     const message = err instanceof Error ? err.message : String(err);
     process.exitCode = 1;
     if ((options.args ?? process.argv.slice(3)).includes("--json")) {
-      emitInitJson({ ok: false, cwd, error: message }, stdout);
+      emitInitJson(new InitFailure(cwd, message), stdout);
       return;
     }
     writeLine(stderr, `Error: ${message}`);
