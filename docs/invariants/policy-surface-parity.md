@@ -28,3 +28,4 @@ claims about policy fidelity stop being meaningful.
   read surface
 - structural and precision tools do not silently omit denied results
   instead of surfacing an explicit policy outcome
+- tests: `test/unit/policy/cross-surface-parity.test.ts`

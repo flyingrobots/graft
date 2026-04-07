@@ -99,7 +99,6 @@ git config --local core.hooksPath scripts/hooks
 
 ## Current hot items
 
-- `docs/method/backlog/asap/CORE_cross-surface-policy-parity-tests.md`
 - `docs/method/backlog/asap/CORE_versioned-json-output-schemas.md`
 
 ## Current learnings
@@ -127,6 +126,9 @@ git config --local core.hooksPath scripts/hooks
 - `run_capture` is an explicit shell-output escape hatch, not a
   bounded-read surface. Treat its output and persisted capture log as
   diagnostic artifacts outside the policy-governed read contract.
+- Policy parity is now witnessed as equivalent outcome per surface
+  contract, not identical response shape. Hooks align on hard denials
+  and differ intentionally on soft pressure.
 
 ## Commit convention
 
