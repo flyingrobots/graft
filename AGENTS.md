@@ -100,7 +100,6 @@ git config --local core.hooksPath scripts/hooks
 ## Current hot items
 
 - `docs/method/backlog/asap/CORE_run-capture-policy-boundary.md`
-- `docs/method/backlog/asap/CORE_structural-tool-policy-enforcement.md`
 - `docs/method/backlog/asap/CORE_cross-surface-policy-parity-tests.md`
 - `docs/method/backlog/asap/CORE_versioned-json-output-schemas.md`
 
@@ -120,11 +119,12 @@ git config --local core.hooksPath scripts/hooks
 - MCP stdio integration tests need explicit `env` wiring for sandbox
   values because the MCP SDK only inherits a safe environment allowlist
   by default.
-- `safe_read` policy totality is real, but broader policy fidelity is
-  not: hooks currently enforce `.graftignore`, while MCP paths on
-  `main` still do not.
-- `code_find` currently has a policy UX gap: refused matches can be
-  silently dropped instead of returning an explicit refusal result.
+- MCP bounded reads, precision tools, and structural tools now all run
+  through the shared MCP policy seam with `.graftignore`, session, and
+  budget context.
+- Structural aggregation surfaces (`graft_map`, `graft_diff`,
+  `graft_since`) now exclude denied files from visible results and
+  surface them explicitly in `refused`.
 
 ## Commit convention
 

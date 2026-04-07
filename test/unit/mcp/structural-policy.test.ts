@@ -1,0 +1,142 @@
+import { describe, it, expect } from "vitest";
+import * as fs from "node:fs";
+import * as path from "node:path";
+import { createGraftServer } from "../../../src/mcp/server.js";
+import { createTestRepo, cleanupTestRepo, git } from "../../helpers/git.js";
+import { parse } from "../../helpers/mcp.js";
+
+function createServerInRepo(repoDir: string) {
+  return createGraftServer({
+    projectRoot: repoDir,
+    graftDir: path.join(repoDir, ".graft"),
+  });
+}
+
+describe("mcp: structural tool policy enforcement", () => {
+  it("graft_map omits .graftignore-matched files and reports them explicitly", async () => {
+    const tmpDir = createTestRepo("graft-structural-policy-map-");
+    try {
+      fs.writeFileSync(path.join(tmpDir, ".graftignore"), "generated/**\n");
+      fs.mkdirSync(path.join(tmpDir, "src"), { recursive: true });
+      fs.mkdirSync(path.join(tmpDir, "generated"), { recursive: true });
+      fs.writeFileSync(path.join(tmpDir, "src", "visible.ts"), "export const visible = true;\n");
+      fs.writeFileSync(path.join(tmpDir, "generated", "hidden.ts"), "export const hidden = true;\n");
+      git(tmpDir, "add -A");
+      git(tmpDir, "commit -m init");
+
+      const server = createServerInRepo(tmpDir);
+      const result = parse(await server.callTool("graft_map", {}));
+
+      const files = result["files"] as { path: string }[];
+      const refused = result["refused"] as { path: string; reason: string }[];
+
+      expect(files.map((file) => file.path)).toContain("src/visible.ts");
+      expect(files.map((file) => file.path)).not.toContain("generated/hidden.ts");
+      expect(refused).toEqual([
+        expect.objectContaining({ path: "generated/hidden.ts", reason: "GRAFTIGNORE" }),
+      ]);
+    } finally {
+      cleanupTestRepo(tmpDir);
+    }
+  });
+
+  it("graft_diff excludes denied working-tree files and reports them explicitly", async () => {
+    const tmpDir = createTestRepo("graft-structural-policy-diff-");
+    try {
+      fs.writeFileSync(path.join(tmpDir, ".graftignore"), "generated/**\n");
+      fs.mkdirSync(path.join(tmpDir, "src"), { recursive: true });
+      fs.mkdirSync(path.join(tmpDir, "generated"), { recursive: true });
+      fs.writeFileSync(path.join(tmpDir, "src", "visible.ts"), "export const visible = true;\n");
+      fs.writeFileSync(path.join(tmpDir, "generated", "hidden.ts"), "export const hidden = true;\n");
+      git(tmpDir, "add -A");
+      git(tmpDir, "commit -m init");
+
+      fs.writeFileSync(
+        path.join(tmpDir, "src", "visible.ts"),
+        "export const visible = true;\nexport function keepMe(): boolean { return true; }\n",
+      );
+      fs.writeFileSync(
+        path.join(tmpDir, "generated", "hidden.ts"),
+        "export const hidden = true;\nexport function denyMe(): boolean { return true; }\n",
+      );
+
+      const server = createServerInRepo(tmpDir);
+      const result = parse(await server.callTool("graft_diff", {}));
+
+      const files = result["files"] as { path: string }[];
+      const refused = result["refused"] as { path: string; reason: string }[];
+
+      expect(files.map((file) => file.path)).toEqual(["src/visible.ts"]);
+      expect(refused).toEqual([
+        expect.objectContaining({ path: "generated/hidden.ts", reason: "GRAFTIGNORE" }),
+      ]);
+    } finally {
+      cleanupTestRepo(tmpDir);
+    }
+  });
+
+  it("graft_since excludes denied historical files and reports them explicitly", async () => {
+    const tmpDir = createTestRepo("graft-structural-policy-since-");
+    try {
+      fs.writeFileSync(path.join(tmpDir, ".graftignore"), "generated/**\n");
+      fs.mkdirSync(path.join(tmpDir, "src"), { recursive: true });
+      fs.mkdirSync(path.join(tmpDir, "generated"), { recursive: true });
+      fs.writeFileSync(path.join(tmpDir, "src", "visible.ts"), "export const visible = true;\n");
+      fs.writeFileSync(path.join(tmpDir, "generated", "hidden.ts"), "export const hidden = true;\n");
+      git(tmpDir, "add -A");
+      git(tmpDir, "commit -m init");
+      const base = git(tmpDir, "rev-parse HEAD");
+
+      fs.writeFileSync(
+        path.join(tmpDir, "src", "visible.ts"),
+        "export const visible = true;\nexport function keepMe(): boolean { return true; }\n",
+      );
+      fs.writeFileSync(
+        path.join(tmpDir, "generated", "hidden.ts"),
+        "export const hidden = true;\nexport function denyMe(): boolean { return true; }\n",
+      );
+      git(tmpDir, "add -A");
+      git(tmpDir, "commit -m change");
+      const head = git(tmpDir, "rev-parse HEAD");
+
+      const server = createServerInRepo(tmpDir);
+      const result = parse(await server.callTool("graft_since", { base, head }));
+
+      const files = result["files"] as { path: string }[];
+      const refused = result["refused"] as { path: string; reason: string }[];
+
+      expect(files.map((file) => file.path)).toEqual(["src/visible.ts"]);
+      expect(refused).toEqual([
+        expect.objectContaining({ path: "generated/hidden.ts", reason: "GRAFTIGNORE" }),
+      ]);
+    } finally {
+      cleanupTestRepo(tmpDir);
+    }
+  });
+
+  it("keeps allowed structural results usable when a scoped diff is fully denied", async () => {
+    const tmpDir = createTestRepo("graft-structural-policy-scoped-");
+    try {
+      fs.writeFileSync(path.join(tmpDir, ".graftignore"), "generated/**\n");
+      fs.mkdirSync(path.join(tmpDir, "generated"), { recursive: true });
+      fs.writeFileSync(path.join(tmpDir, "generated", "hidden.ts"), "export const hidden = true;\n");
+      git(tmpDir, "add -A");
+      git(tmpDir, "commit -m init");
+
+      fs.writeFileSync(
+        path.join(tmpDir, "generated", "hidden.ts"),
+        "export const hidden = true;\nexport function denyMe(): boolean { return true; }\n",
+      );
+
+      const server = createServerInRepo(tmpDir);
+      const result = parse(await server.callTool("graft_diff", { path: "generated/hidden.ts" }));
+
+      expect(result["files"]).toEqual([]);
+      expect(result["refused"]).toEqual([
+        expect.objectContaining({ path: "generated/hidden.ts", reason: "GRAFTIGNORE" }),
+      ]);
+    } finally {
+      cleanupTestRepo(tmpDir);
+    }
+  });
+});

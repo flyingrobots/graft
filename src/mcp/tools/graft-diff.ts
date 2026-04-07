@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { graftDiff } from "../../operations/graft-diff.js";
 import type { ToolDefinition, ToolContext, ToolHandler } from "../context.js";
+import { evaluateMcpRefusal } from "../policy.js";
 
 export const graftDiffTool: ToolDefinition = {
   name: "graft_diff",
@@ -18,6 +19,7 @@ export const graftDiffTool: ToolDefinition = {
         base: args["base"] as string | undefined,
         head,
         path: args["path"] as string | undefined,
+        refusalCheck: (filePath, actual) => evaluateMcpRefusal(ctx, filePath, actual),
       });
       return ctx.respond("graft_diff", {
         ...result,

@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { graftDiff } from "../../operations/graft-diff.js";
 import type { ToolDefinition, ToolContext, ToolHandler } from "../context.js";
+import { evaluateMcpRefusal } from "../policy.js";
 
 export const sinceTool: ToolDefinition = {
   name: "graft_since",
@@ -22,6 +23,7 @@ export const sinceTool: ToolDefinition = {
         fs: ctx.fs,
         base,
         head,
+        refusalCheck: (filePath, actual) => evaluateMcpRefusal(ctx, filePath, actual),
       });
 
       // Aggregate symbol-level changes across all files

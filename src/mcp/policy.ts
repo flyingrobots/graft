@@ -1,7 +1,7 @@
 import path from "node:path";
 import { evaluatePolicy } from "../policy/evaluate.js";
 import { loadGraftignore } from "../policy/graftignore.js";
-import type { PolicyOptions, PolicyResult } from "../policy/types.js";
+import { RefusedResult, type PolicyOptions, type PolicyResult } from "../policy/types.js";
 import type { FileSystem } from "../ports/filesystem.js";
 import type { SessionTracker } from "../session/tracker.js";
 
@@ -9,6 +9,14 @@ export interface McpPolicyContext {
   readonly projectRoot: string;
   readonly graftignorePatterns: readonly string[];
   readonly session: SessionTracker;
+}
+
+export interface McpPolicyRefusal {
+  path: string;
+  reason: string;
+  reasonDetail: string;
+  next: readonly string[];
+  actual: { lines: number; bytes: number };
 }
 
 export function loadProjectGraftignore(
@@ -54,4 +62,23 @@ export function evaluateMcpPolicy(
     },
     buildMcpPolicyOptions(ctx),
   );
+}
+
+export function evaluateMcpRefusal(
+  ctx: McpPolicyContext,
+  filePath: string,
+  actual: { lines: number; bytes: number },
+): McpPolicyRefusal | null {
+  const policy = evaluateMcpPolicy(ctx, filePath, actual);
+  if (!(policy instanceof RefusedResult)) {
+    return null;
+  }
+
+  return {
+    path: filePath,
+    reason: policy.reason,
+    reasonDetail: policy.reasonDetail,
+    next: [...policy.next],
+    actual,
+  };
 }

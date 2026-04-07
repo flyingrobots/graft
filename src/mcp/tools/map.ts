@@ -4,6 +4,7 @@ import { extractOutline } from "../../parser/outline.js";
 import { detectLang } from "../../parser/lang.js";
 import type { ToolDefinition, ToolContext, ToolHandler } from "../context.js";
 import { listTrackedFiles } from "./git-files.js";
+import { evaluateMcpRefusal, type McpPolicyRefusal } from "../policy.js";
 
 interface FileEntry {
   path: string;
@@ -26,17 +27,28 @@ export const mapTool: ToolDefinition = {
 
       const filePaths = listTrackedFiles(dirPath, ctx.projectRoot);
       const files: FileEntry[] = [];
+      const refused: McpPolicyRefusal[] = [];
 
       for (const filePath of filePaths) {
-        const lang = detectLang(filePath);
-        if (lang === null) continue;
-
         let content: string;
         try {
           content = ctx.fs.readFileSync(path.join(ctx.projectRoot, filePath), "utf-8");
         } catch {
           continue;
         }
+
+        const actual = {
+          lines: content.split("\n").length,
+          bytes: Buffer.byteLength(content),
+        };
+        const refusal = evaluateMcpRefusal(ctx, filePath, actual);
+        if (refusal !== null) {
+          refused.push(refusal);
+          continue;
+        }
+
+        const lang = detectLang(filePath);
+        if (lang === null) continue;
 
         const result = extractOutline(content, lang);
         const symbols: FileEntry["symbols"] = result.entries.map((entry) => {
@@ -60,6 +72,7 @@ export const mapTool: ToolDefinition = {
       return ctx.respond("graft_map", {
         directory: dirPath.length > 0 ? dirPath : ".",
         files,
+        ...(refused.length > 0 ? { refused } : {}),
         summary: `${String(files.length)} files, ${String(totalSymbols)} symbols`,
       });
     };

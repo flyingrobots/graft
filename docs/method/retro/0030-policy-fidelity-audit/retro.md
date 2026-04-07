@@ -35,7 +35,7 @@ real enforcement gaps into specific follow-on work.
 ## Follow-on work
 
 - `CORE_mcp-graftignore-and-policy-option-parity.md`
-- `CORE_structural-tool-policy-enforcement.md`
+- Cycle 0032: `docs/method/retro/0032-structural-tool-policy-enforcement/retro.md`
 - `CORE_run-capture-policy-boundary.md`
 - `CORE_cross-surface-policy-parity-tests.md`
 

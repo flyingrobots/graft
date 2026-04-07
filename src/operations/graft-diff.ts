@@ -12,6 +12,14 @@ export interface FileDiff {
   diff: OutlineDiff;
 }
 
+export interface GraftDiffRefusal {
+  path: string;
+  reason: string;
+  reasonDetail: string;
+  next: readonly string[];
+  actual: { lines: number; bytes: number };
+}
+
 function buildSummary(filePath: string, status: string, diff: OutlineDiff): string {
   const parts: string[] = [];
   if (diff.added.length > 0) parts.push(`+${String(diff.added.length)} added`);
@@ -27,6 +35,7 @@ export interface GraftDiffResult {
   base: string;
   head: string;
   files: FileDiff[];
+  refused?: GraftDiffRefusal[] | undefined;
 }
 
 export interface GraftDiffOptions {
@@ -35,10 +44,32 @@ export interface GraftDiffOptions {
   base?: string | undefined;
   head?: string | undefined;
   path?: string | undefined;
+  refusalCheck?: ((filePath: string, actual: { lines: number; bytes: number }) => GraftDiffRefusal | null) | undefined;
 }
 
 function emptyDiff(): OutlineDiff {
   return new OutlineDiff({ added: [], removed: [], changed: [], unchangedCount: 0 });
+}
+
+function countLines(content: string): number {
+  return content.split("\n").length;
+}
+
+function measureActual(
+  baseContent: string | null,
+  headContent: string | null,
+): { lines: number; bytes: number } {
+  const byteLengths = [baseContent, headContent]
+    .filter((content): content is string => content !== null)
+    .map((content) => Buffer.byteLength(content));
+  const lineCounts = [baseContent, headContent]
+    .filter((content): content is string => content !== null)
+    .map((content) => countLines(content));
+
+  return {
+    bytes: byteLengths.length > 0 ? Math.max(...byteLengths) : 0,
+    lines: lineCounts.length > 0 ? Math.max(...lineCounts) : 0,
+  };
 }
 
 
@@ -62,10 +93,9 @@ export function graftDiff(opts: GraftDiffOptions): GraftDiffResult {
   }
 
   const files: FileDiff[] = [];
+  const refused: GraftDiffRefusal[] = [];
 
   for (const filePath of changedFiles) {
-    const lang = detectLang(filePath);
-
     // Get content at base (null = file absent at ref)
     const baseContent = getFileAtRef(base, filePath, cwd);
 
@@ -95,6 +125,15 @@ export function graftDiff(opts: GraftDiffOptions): GraftDiffResult {
       status = "modified";
     }
 
+    const actual = measureActual(baseContent, headContent);
+    const refusal = opts.refusalCheck?.(filePath, actual) ?? null;
+    if (refusal !== null) {
+      refused.push(refusal);
+      continue;
+    }
+
+    const lang = detectLang(filePath);
+
     // Compute structural diff (only for supported languages)
     if (lang === null) {
       const empty = emptyDiff();
@@ -113,5 +152,10 @@ export function graftDiff(opts: GraftDiffOptions): GraftDiffResult {
     files.push({ path: filePath, status, summary: buildSummary(filePath, status, diff), diff });
   }
 
-  return { base, head: headLabel, files };
+  return {
+    base,
+    head: headLabel,
+    files,
+    ...(refused.length > 0 ? { refused } : {}),
+  };
 }

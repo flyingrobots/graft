@@ -100,9 +100,9 @@ is structured JSON.
 | `safe_read` | Policy-enforced file read (content, outline, refusal, or diff) |
 | `file_outline` | Structural skeleton with jump table |
 | `read_range` | Bounded range read (max 250 lines), policy-gated |
-| `graft_diff` | Structural diff between git refs with per-file summary lines |
-| `graft_since` | Structural changes since a git ref — symbols added/removed/changed |
-| `graft_map` | Structural map of a directory — all files and symbols in one call |
+| `graft_diff` | Structural diff between git refs with per-file summary lines and explicit denied-file reporting |
+| `graft_since` | Structural changes since a git ref — symbols added/removed/changed with explicit denied-file reporting |
+| `graft_map` | Structural map of a directory — all files and symbols in one call, with explicit denied-file reporting |
 | `code_show` | Focus on a symbol by name — get its source code in one call |
 | `code_find` | Search symbols across the project by name/kind pattern |
 | `changed_since` | Check if a file changed since last read (peek or consume) |

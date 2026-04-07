@@ -247,7 +247,7 @@ add to `.claude/settings.local.json`:
 | `file_outline` | Structural skeleton of a file — function signatures, class shapes, exports. Includes a jump table mapping each symbol to its line range for targeted `read_range` follow-ups. |
 | `read_range` | Read a bounded range of lines from a file. Maximum 250 lines. Use jump table entries from `file_outline` or `safe_read` to target specific symbols. |
 | `changed_since` | Check if a file changed since it was last read. Returns structural diff (added/removed/changed symbols) or "unchanged". Peek mode by default; pass `consume: true` to update the observation cache. |
-| `graft_diff` | Structural diff between two git refs. Shows added, removed, and changed symbols per file — not line hunks. Defaults to working tree vs HEAD. |
+| `graft_diff` | Structural diff between two git refs. Shows added, removed, and changed symbols per file — not line hunks. Defaults to working tree vs HEAD. Policy-denied files are omitted from `files` and surfaced in `refused`. |
 | `run_capture` | Execute a shell command and return the last N lines of output (default 60). Full output saved to `.graft/logs/capture.log` for follow-up `read_range` calls. |
 | `state_save` | Save session working state (max 8 KB). Use for session bookmarks: current task, files modified, next planned actions. |
 | `state_load` | Load previously saved session state. Returns null if no state has been saved. |
@@ -255,8 +255,8 @@ add to `.claude/settings.local.json`:
 | `set_budget` | Declare a session byte budget. Graft tightens read thresholds as the budget drains — no single read may consume more than 5% of remaining budget. Call once at session start. |
 | `explain` | Explain a graft reason code. Returns human-readable meaning and recommended next action for any code (e.g., `BINARY`, `BUDGET_CAP`). Case-insensitive. |
 | `stats` | Decision metrics for the current session. Total reads, outlines, refusals, cache hits, and bytes avoided. |
-| `graft_since` | Structural changes since a git ref. Shows symbols added, removed, and changed per file — not line hunks. Includes per-file summary lines. |
-| `graft_map` | Structural map of a directory — all files and their symbols (function signatures, class shapes, exports) in one call. Uses tree-sitter to parse the working tree directly. |
+| `graft_since` | Structural changes since a git ref. Shows symbols added, removed, and changed per file — not line hunks. Includes per-file summary lines. Policy-denied files are omitted from `files` and surfaced in `refused`. |
+| `graft_map` | Structural map of a directory — all files and their symbols (function signatures, class shapes, exports) in one call. Uses tree-sitter to parse the working tree directly. Policy-denied files are omitted from `files` and surfaced in `refused`. |
 
 ## What the agent sees
 
@@ -284,12 +284,14 @@ Graft decides what to return:
 ### Structural memory (WARP)
 
 `graft_since` shows what changed structurally between any two git
-refs — symbols added, removed, and changed per file. No file reads,
-no diff parsing. Instant.
+refs — symbols added, removed, and changed per file. Policy-denied
+files are excluded from the visible file list and reported explicitly
+in `refused`.
 
 `graft_map` gives a structural map of any directory — every file
 and its symbols (function signatures, class shapes, exports) in
-one call. Instant onboarding for new codebases.
+one call. Denied files are surfaced explicitly instead of silently
+disappearing.
 
 Both tools work on the current working tree. For persistent
 structural indexing across git history, use `graft index` from the
@@ -306,6 +308,8 @@ Each symbol has a line range so the agent can follow up with
 
 `graft_diff` shows what changed between git refs at the symbol
 level: "function `foo` gained a parameter" instead of line hunks.
+Denied files are excluded from the visible diff and reported in
+`refused`.
 
 ### Budget governor
 
