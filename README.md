@@ -117,7 +117,7 @@ is structured JSON with versioned `_schema` metadata.
 | `code_show` | Focus on a symbol by name — get its source code in one call |
 | `code_find` | Search symbols across the project by name/kind pattern |
 | `changed_since` | Check if a file changed since last read (peek or consume) |
-| `run_capture` | Diagnostic shell-output escape hatch — tee to log, tail to agent, outside bounded-read policy, with explicit `policyBoundary` marker |
+| `run_capture` | Diagnostic shell-output escape hatch — tail to agent, optional redacted log persistence, explicit enable/disable posture, outside bounded-read policy, with explicit `policyBoundary` marker |
 | `state_save` | Save session working state (max 8 KB) |
 | `state_load` | Restore session working state |
 | `set_budget` | Declare session byte budget — governor tightens as it drains |
@@ -199,6 +199,12 @@ namespaces:
 `init` and `index` remain explicit CLI-only commands. MCP responses and
 CLI peer commands both carry versioned `_schema` metadata, and declared
 output contracts live in `src/contracts/output-schemas.ts`.
+
+`run_capture` remains an explicit shell escape hatch. For shared or
+release-sensitive environments, you can disable it with
+`GRAFT_ENABLE_RUN_CAPTURE=0`. Persisted capture logs can be disabled
+with `GRAFT_RUN_CAPTURE_PERSIST=0`, and persisted output is redacted for
+obvious secret-shaped values by default.
 
 ## Reason codes
 

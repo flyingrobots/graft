@@ -11,6 +11,7 @@ import type { FileSystem } from "../ports/filesystem.js";
 import type { JsonCodec } from "../ports/codec.js";
 import type WarpApp from "@git-stunts/git-warp";
 import type { RepoObservation } from "./repo-state.js";
+import type { RunCaptureConfig } from "./run-capture-config.js";
 
 import type { z } from "zod";
 
@@ -33,6 +34,7 @@ export interface ToolContext {
   readonly metrics: Metrics;
   readonly fs: FileSystem;
   readonly codec: JsonCodec;
+  readonly runCapture: RunCaptureConfig;
   respond(tool: string, data: Record<string, unknown>): McpToolResult;
   resolvePath(relative: string): string;
   getWarp(): Promise<WarpApp>;

@@ -16,6 +16,8 @@ import { RefusedResult } from "../policy/types.js";
 import type WarpApp from "@git-stunts/git-warp";
 import { openWarp } from "../warp/open.js";
 import { RepoStateTracker } from "./repo-state.js";
+import type { RunCaptureConfig } from "./run-capture-config.js";
+import { resolveRunCaptureConfig } from "./run-capture-config.js";
 
 // Tool definitions — each file exports a ToolDefinition object
 import { safeReadTool } from "./tools/safe-read.js";
@@ -66,6 +68,8 @@ export interface GraftServer {
 export interface CreateGraftServerOptions {
   projectRoot?: string;
   graftDir?: string;
+  env?: Readonly<Record<string, string | undefined>>;
+  runCapture?: Partial<RunCaptureConfig>;
 }
 
 export function createGraftServer(options: CreateGraftServerOptions = {}): GraftServer {
@@ -78,6 +82,10 @@ export function createGraftServer(options: CreateGraftServerOptions = {}): Graft
   const metrics = new Metrics();
   const cache = new ObservationCache();
   const codec = new CanonicalJsonCodec();
+  const runCapture = resolveRunCaptureConfig({
+    ...(options.env !== undefined ? { env: options.env } : {}),
+    ...(options.runCapture !== undefined ? { overrides: options.runCapture } : {}),
+  });
   const handlers = new Map<string, ToolHandler>();
   const schemas = new Map<string, z.ZodObject>();
   const repoState = new RepoStateTracker(projectRoot);
@@ -119,6 +127,7 @@ export function createGraftServer(options: CreateGraftServerOptions = {}): Graft
     resolvePath: createPathResolver(projectRoot),
     fs: nodeFs,
     codec,
+    runCapture,
     getWarp,
     getRepoState: () => repoState.getState(),
   };

@@ -310,7 +310,7 @@ add to `.claude/settings.local.json`:
 | `doctor` | Runtime health check including layered-worldline repo state. |
 | `stats` | Decision metrics for the current server session. |
 | `explain` | Human-readable meaning and recommended action for a reason code. |
-| `run_capture` | Execute a shell command and return the last N lines of output (default 60). Full output saved to `.graft/logs/capture.log` as a diagnostic artifact. This tool is outside graft's bounded-read policy contract and responses include an explicit `policyBoundary` marker. |
+| `run_capture` | Execute a shell command and return the last N lines of output (default 60). This tool is outside graft's bounded-read policy contract, responses include an explicit `policyBoundary` marker, log persistence can be disabled, and persisted output is redacted for obvious secrets by default. |
 | `state_save` | Save session working state (max 8 KB). Use for session bookmarks: current task, files modified, next planned actions. |
 | `state_load` | Load previously saved session state. Returns null if no state has been saved. |
 
@@ -450,6 +450,16 @@ via picomatch).
 These are not yet configurable at runtime (planned for a future
 release).
 
+### run_capture posture
+
+`run_capture` is a diagnostic shell escape hatch, not a bounded-read
+tool. For broader or more sensitive deployments:
+
+- set `GRAFT_ENABLE_RUN_CAPTURE=0` to disable execution entirely
+- set `GRAFT_RUN_CAPTURE_PERSIST=0` to avoid writing `.graft/logs/capture.log`
+- persisted capture output is redacted for obvious secret-shaped values
+  by default
+
 ## Troubleshooting
 
 ### "Tool not found" or no graft tools visible
@@ -489,6 +499,15 @@ Check the reason code in the response:
 - `BUILD_OUTPUT` — read the source file, not `dist/`
 - `UNSUPPORTED_LANGUAGE` — no parser-backed outline exists for this file type yet; use `read_range` or a full read when appropriate
 - `GRAFTIGNORE` — file matches a `.graftignore` pattern
+
+### run_capture is disabled
+
+If `run_capture` returns `run_capture is disabled by configuration`,
+the server was started with shell capture turned off.
+
+- local repo-scoped sessions can re-enable it by unsetting
+  `GRAFT_ENABLE_RUN_CAPTURE=0`
+- shared or harder security postures should generally leave it disabled
 
 ### graft is slow on first call
 
