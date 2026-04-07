@@ -410,6 +410,7 @@ Check the reason code in the response:
 - `LOCKFILE` — read `package.json` instead
 - `SECRET` — `.env` files are banned for safety
 - `BUILD_OUTPUT` — read the source file, not `dist/`
+- `UNSUPPORTED_LANGUAGE` — no parser-backed outline exists for this file type yet; use `read_range` or a full read when appropriate
 - `GRAFTIGNORE` — file matches a `.graftignore` pattern
 
 ### graft is slow on first call

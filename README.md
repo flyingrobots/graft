@@ -173,6 +173,7 @@ code. Use `explain(code)` to get meaning and recommended action.
 | `OUTLINE` | File exceeds thresholds — structural outline returned |
 | `SESSION_CAP` | Session-depth byte cap triggered |
 | `BUDGET_CAP` | Budget-proportional cap triggered |
+| `UNSUPPORTED_LANGUAGE` | No parser-backed outline for this file type |
 | `BINARY` | Binary file refused |
 | `LOCKFILE` | Machine-generated lockfile refused |
 | `MINIFIED` | Minified file refused |

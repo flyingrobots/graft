@@ -38,6 +38,10 @@ const EXPLANATIONS: Readonly<Record<string, { meaning: string; action: string }>
     meaning: "File exceeds the budget-proportional byte cap. No single read may consume more than 5% of remaining budget.",
     action: "Use file_outline or read_range for targeted reads. Consider whether this file is worth the budget cost.",
   },
+  UNSUPPORTED_LANGUAGE: {
+    meaning: "The file type has no parser-backed structural outline in the current build of Graft.",
+    action: "Use read_range or a full read when appropriate. Do not treat the empty outline as parser-derived symbol structure.",
+  },
   GRAFTIGNORE: {
     meaning: "File matches a pattern in .graftignore.",
     action: "Check .graftignore if you believe this file should be readable.",

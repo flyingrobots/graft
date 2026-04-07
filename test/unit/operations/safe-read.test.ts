@@ -2,6 +2,8 @@ import { describe, it, expect } from "vitest";
 import { safeRead } from "../../../src/operations/safe-read.js";
 import { nodeFs } from "../../../src/adapters/node-fs.js";
 import { CanonicalJsonCodec } from "../../../src/adapters/canonical-json.js";
+import fs from "node:fs";
+import os from "node:os";
 import path from "node:path";
 
 const codec = new CanonicalJsonCodec();
@@ -97,6 +99,23 @@ describe("operations: safe_read", () => {
     expect(result.projection).toBe("outline");
     expect(result.estimatedBytesAvoided).toBeDefined();
     expect(result.estimatedBytesAvoided!).toBeGreaterThan(0);
+  });
+
+  it("returns an explicit unsupported outline result for large markdown files", async () => {
+    const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "graft-safe-read-md-"));
+    const filePath = path.join(tmpDir, "README.md");
+    fs.writeFileSync(
+      filePath,
+      Array.from({ length: 220 }, (_, i) => `## Section ${String(i)}\n\nParagraph ${String(i)}.\n`).join("\n"),
+    );
+
+    const result = await safeRead(filePath, { fs: nodeFs, codec });
+    expect(result.projection).toBe("outline");
+    expect(result.reason).toBe("UNSUPPORTED_LANGUAGE");
+    expect(result.outline).toEqual([]);
+    expect(result.jumpTable).toEqual([]);
+    expect(result.next).toBeDefined();
+    expect(result.next!.length).toBeGreaterThan(0);
   });
 
   it("accepts optional intent parameter without changing policy", async () => {

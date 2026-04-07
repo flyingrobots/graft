@@ -1,7 +1,7 @@
 import { evaluatePolicy } from "../policy/evaluate.js";
 import { ContentResult, RefusedResult } from "../policy/types.js";
 import type { SessionDepth } from "../policy/types.js";
-import { extractOutline } from "../parser/outline.js";
+import { extractOutlineForFile } from "../parser/outline.js";
 import type { OutlineEntry, JumpEntry } from "../parser/types.js";
 import type { FileSystem } from "../ports/filesystem.js";
 import type { JsonCodec } from "../ports/codec.js";
@@ -83,7 +83,24 @@ export async function safeRead(
   }
 
   // projection === "outline"
-  const outlineResult = extractOutline(content);
+  const outlineResult = extractOutlineForFile(filePath, content);
+  if (outlineResult === null) {
+    const emptyOutlineJson = options.codec.encode({ entries: [], jumpTable: [] });
+    const estimatedBytesAvoided = bytes - Buffer.byteLength(emptyOutlineJson, "utf-8");
+
+    return {
+      ...base,
+      reason: "UNSUPPORTED_LANGUAGE",
+      outline: [],
+      jumpTable: [],
+      estimatedBytesAvoided: estimatedBytesAvoided > 0 ? estimatedBytesAvoided : 0,
+      next: [
+        "No parser-backed outline is available for this file type.",
+        "Use read_range for targeted reads if you know the section you need.",
+      ],
+    };
+  }
+
   const outlineJson = options.codec.encode(outlineResult);
   const estimatedBytesAvoided = bytes - Buffer.byteLength(outlineJson, "utf-8");
 
