@@ -37,7 +37,7 @@ export function fileSymbolsLens(filePath: string): Lens {
 export function allSymbolsLens(): Lens {
   return {
     match: "sym:*",
-    expose: ["name", "kind", "signature", "exported"],
+    expose: ["name", "kind", "signature", "exported", "startLine", "endLine"],
   };
 }
 

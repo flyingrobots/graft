@@ -1,0 +1,14 @@
+# Reasoning trace replay
+
+Record agent reads and writes as WARP observations. Replay the
+agent's reasoning by walking its observation DAG backwards.
+
+"The agent read server.ts at tick 5, saw the old signature.
+Wrote a call using it at tick 7. Someone changed the signature
+at tick 6. The agent's code is stale because it never re-read."
+
+Debugging agent work by replaying structural observations.
+The worldline IS the debug trace.
+
+Depends on: WARP Level 1 (shipped), agent action provenance
+(backlog), provenance DAG (backlog).

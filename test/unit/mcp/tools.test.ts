@@ -1,22 +1,20 @@
 import { describe, it, expect } from "vitest";
 import { ZodError } from "zod";
-import { createGraftServer } from "../../../src/mcp/server.js";
+import * as fs from "node:fs";
+import * as os from "node:os";
+import * as path from "node:path";
+import { createGraftServer, TOOL_REGISTRY } from "../../../src/mcp/server.js";
+
+const EXPECTED_TOOL_NAMES = TOOL_REGISTRY.map((t) => t.name);
 
 describe("mcp: tool registration", () => {
-  it("creates a server with all Phase 1 tools registered", () => {
+  it("registers every tool in TOOL_REGISTRY", () => {
     const server = createGraftServer();
     const toolNames = server.getRegisteredTools();
-    expect(toolNames).toContain("safe_read");
-    expect(toolNames).toContain("file_outline");
-    expect(toolNames).toContain("read_range");
-    expect(toolNames).toContain("run_capture");
-    expect(toolNames).toContain("state_save");
-    expect(toolNames).toContain("state_load");
-    expect(toolNames).toContain("doctor");
-    expect(toolNames).toContain("stats");
-    expect(toolNames).toContain("graft_since");
-    expect(toolNames).toContain("graft_map");
-    expect(toolNames).toHaveLength(14);
+    for (const name of EXPECTED_TOOL_NAMES) {
+      expect(toolNames).toContain(name);
+    }
+    expect(toolNames).toHaveLength(EXPECTED_TOOL_NAMES.length);
   });
 });
 
@@ -87,10 +85,18 @@ describe("mcp: tool handlers", () => {
   });
 
   it("state_load returns null when no state saved", async () => {
-    const server = createGraftServer();
-    const result = await server.callTool("state_load", {});
-    const parsed = JSON.parse(extractText(result)) as Record<string, unknown>;
-    expect(parsed["content"]).toBeNull();
+    const prevCwd = process.cwd();
+    const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "graft-state-load-"));
+
+    try {
+      process.chdir(tmpDir);
+      const server = createGraftServer();
+      const result = await server.callTool("state_load", {});
+      const parsed = JSON.parse(extractText(result)) as Record<string, unknown>;
+      expect(parsed["content"]).toBeNull();
+    } finally {
+      process.chdir(prevCwd);
+    }
   });
 
   it("doctor returns health check", async () => {
@@ -161,6 +167,17 @@ describe("mcp: policy check middleware", () => {
       path: "test/fixtures/ban-targets/image.png",
       start: 1,
       end: 5,
+    });
+    const parsed = JSON.parse(extractText(result)) as Record<string, unknown>;
+    expect(parsed["projection"]).toBe("refused");
+    expect(parsed["reason"]).toBe("BINARY");
+  });
+
+  it("code_find refuses banned file paths via middleware", async () => {
+    const server = createGraftServer();
+    const result = await server.callTool("code_find", {
+      query: "*",
+      path: "test/fixtures/ban-targets/image.png",
     });
     const parsed = JSON.parse(extractText(result)) as Record<string, unknown>;
     expect(parsed["projection"]).toBe("refused");

@@ -109,6 +109,22 @@ Add via Cline's MCP settings UI, or in
 }
 ```
 
+### Codex
+
+Add to `.codex/config.toml` in your project root (per-project) or
+`~/.codex/config.toml` (global):
+
+```toml
+[mcp_servers.graft]
+command = "npx"
+args = ["-y", "@flyingrobots/graft"]
+```
+
+**Note:** Codex may ask you to approve external MCP tool calls the
+first time it uses graft. If you trust the local server, choose
+"Always allow" so normal graft tool use does not require a prompt on
+every call.
+
 ### Any MCP-compatible client
 
 The pattern is the same everywhere:
@@ -367,6 +383,19 @@ release).
 - Check your MCP config syntax — JSON must be valid
 - Restart your editor/agent after adding MCP config
 - Some clients cache tool lists — try reopening the project
+
+### Codex says `user cancelled MCP tool call`
+
+This can be a Codex approval issue rather than a graft failure.
+Codex may require permission for external MCP tool calls. If those
+prompts are denied, or cannot be shown in a non-interactive run, the
+tool call may appear as cancelled.
+
+- Run Codex interactively and approve graft tool calls
+- If you trust the server, choose "Always allow" for graft
+- Retry the call after granting permission
+- If graft still fails, run `doctor` first to separate Codex setup
+  problems from graft runtime problems
 
 ### Agent keeps getting outlines instead of content
 
