@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { detectLang } from "../../../src/parser/lang.js";
+import { detectLang, detectStructuredFormat } from "../../../src/parser/lang.js";
 
 describe("parser: detectLang", () => {
   it("recognizes TypeScript-family extensions", () => {
@@ -19,5 +19,15 @@ describe("parser: detectLang", () => {
   it("returns null for unsupported file types", () => {
     expect(detectLang("README.md")).toBeNull();
     expect(detectLang("config.yaml")).toBeNull();
+  });
+});
+
+describe("parser: detectStructuredFormat", () => {
+  it("recognizes markdown as a structured document format", () => {
+    expect(detectStructuredFormat("README.md")).toBe("md");
+  });
+
+  it("returns null for unsupported structured formats", () => {
+    expect(detectStructuredFormat("config.yaml")).toBeNull();
   });
 });

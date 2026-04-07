@@ -1,6 +1,6 @@
 import { extractOutlineForFile } from "../parser/outline.js";
-import { detectLang } from "../parser/lang.js";
-import type { SupportedLang } from "../parser/lang.js";
+import { detectStructuredFormat } from "../parser/lang.js";
+import type { SupportedStructuredFormat } from "../parser/lang.js";
 import type { OutlineEntry, JumpEntry } from "../parser/types.js";
 import { hashContent } from "./cache.js";
 
@@ -15,7 +15,7 @@ export class CachedFile {
   readonly path: string;
   readonly rawContent: string;
   readonly hash: string;
-  readonly lang: SupportedLang | null;
+  readonly lang: SupportedStructuredFormat | null;
   readonly supportsOutline: boolean;
   readonly outline: readonly OutlineEntry[];
   readonly jumpTable: readonly JumpEntry[];
@@ -29,7 +29,7 @@ export class CachedFile {
       lines: rawContent.split("\n").length,
       bytes: Buffer.byteLength(rawContent),
     };
-    this.lang = detectLang(filePath);
+    this.lang = detectStructuredFormat(filePath);
     this.supportsOutline = this.lang !== null;
     const result = extractOutlineForFile(filePath, rawContent);
     this.outline = result?.entries ?? [];

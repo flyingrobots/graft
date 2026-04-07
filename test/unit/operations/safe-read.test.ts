@@ -101,7 +101,7 @@ describe("operations: safe_read", () => {
     expect(result.estimatedBytesAvoided!).toBeGreaterThan(0);
   });
 
-  it("returns an explicit unsupported outline result for large markdown files", async () => {
+  it("returns a heading outline for large markdown files", async () => {
     const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "graft-safe-read-md-"));
     const filePath = path.join(tmpDir, "README.md");
     fs.writeFileSync(
@@ -111,11 +111,30 @@ describe("operations: safe_read", () => {
 
     const result = await safeRead(filePath, { fs: nodeFs, codec });
     expect(result.projection).toBe("outline");
-    expect(result.reason).toBe("UNSUPPORTED_LANGUAGE");
+    expect(result.reason).toBe("OUTLINE");
+    expect(result.outline).toContainEqual(
+      expect.objectContaining({ kind: "heading", name: "Section 0" }),
+    );
+    expect(result.jumpTable).toContainEqual(
+      expect.objectContaining({ kind: "heading", symbol: "Section 0" }),
+    );
+    expect(result.next).toBeUndefined();
+  });
+
+  it("returns an empty outline for large markdown files with no headings", async () => {
+    const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "graft-safe-read-md-empty-"));
+    const filePath = path.join(tmpDir, "README.md");
+    fs.writeFileSync(
+      filePath,
+      Array.from({ length: 220 }, (_, i) => `Paragraph ${String(i)}.`).join("\n\n"),
+    );
+
+    const result = await safeRead(filePath, { fs: nodeFs, codec });
+    expect(result.projection).toBe("outline");
+    expect(result.reason).toBe("OUTLINE");
     expect(result.outline).toEqual([]);
     expect(result.jumpTable).toEqual([]);
-    expect(result.next).toBeDefined();
-    expect(result.next!.length).toBeGreaterThan(0);
+    expect(result.next).toBeUndefined();
   });
 
   it("accepts optional intent parameter without changing policy", async () => {

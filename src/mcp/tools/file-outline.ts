@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { fileOutline } from "../../operations/file-outline.js";
-import { detectLang } from "../../parser/lang.js";
+import { detectStructuredFormat } from "../../parser/lang.js";
 import { hashContent } from "../cache.js";
 import type { ToolDefinition, ToolContext, ToolHandler } from "../context.js";
 
@@ -24,7 +24,7 @@ export const fileOutlineTool: ToolDefinition = {
         // proceed to fileOutline for error handling
       }
 
-      const outlineSupported = detectLang(filePath) !== null;
+      const outlineSupported = detectStructuredFormat(filePath) !== null;
 
       if (rawContent !== null && outlineSupported) {
         const cacheResult = ctx.cache.check(filePath, rawContent);

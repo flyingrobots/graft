@@ -71,7 +71,7 @@ describe("mcp: tool handlers", () => {
     expect(parsed["jumpTable"]).toBeDefined();
   });
 
-  it("safe_read returns an explicit unsupported result for large markdown files", async () => {
+  it("safe_read returns a markdown heading outline for large markdown files", async () => {
     const server = createServer();
     const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "graft-mcp-tools-md-"));
     const filePath = path.join(tmpDir, "README.md");
@@ -79,9 +79,13 @@ describe("mcp: tool handlers", () => {
     const result = await server.callTool("safe_read", { path: filePath });
     const parsed = parse(result);
     expect(parsed["projection"]).toBe("outline");
-    expect(parsed["reason"]).toBe("UNSUPPORTED_LANGUAGE");
-    expect(parsed["outline"]).toEqual([]);
-    expect(parsed["jumpTable"]).toEqual([]);
+    expect(parsed["reason"]).toBe("OUTLINE");
+    expect(parsed["outline"]).toContainEqual(
+      expect.objectContaining({ kind: "heading", name: "Heading" }),
+    );
+    expect(parsed["jumpTable"]).toContainEqual(
+      expect.objectContaining({ kind: "heading", symbol: "Heading" }),
+    );
     fs.rmSync(tmpDir, { recursive: true, force: true });
   });
 
@@ -121,16 +125,20 @@ describe("mcp: tool handlers", () => {
     expect(parsed["jumpTable"]).toBeDefined();
   });
 
-  it("file_outline returns an explicit unsupported result for markdown files", async () => {
+  it("file_outline returns a markdown heading outline", async () => {
     const server = createServer();
     const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "graft-file-outline-tool-md-"));
     const filePath = path.join(tmpDir, "README.md");
-    fs.writeFileSync(filePath, "# Heading\n\n".repeat(220));
+    fs.writeFileSync(filePath, ["# Heading", "", "## Install", "", "Use it."].join("\n"));
     const result = await server.callTool("file_outline", { path: filePath });
     const parsed = parse(result);
-    expect(parsed["outline"]).toEqual([]);
-    expect(parsed["jumpTable"]).toEqual([]);
-    expect(typeof parsed["error"]).toBe("string");
+    expect(parsed["outline"]).toContainEqual(
+      expect.objectContaining({ kind: "heading", name: "Heading" }),
+    );
+    expect(parsed["jumpTable"]).toContainEqual(
+      expect.objectContaining({ kind: "heading", symbol: "Install" }),
+    );
+    expect(parsed["error"]).toBeUndefined();
     fs.rmSync(tmpDir, { recursive: true, force: true });
   });
 

@@ -37,7 +37,7 @@ describe("integration: safe_read end-to-end", () => {
     expect(jump.end).toBeGreaterThanOrEqual(jump.start);
   });
 
-  it("large unsupported file → explicit unsupported outline result", async () => {
+  it("large markdown file → heading outline result", async () => {
     const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "graft-integration-md-"));
     const filePath = path.join(tmpDir, "README.md");
     fs.writeFileSync(
@@ -47,10 +47,14 @@ describe("integration: safe_read end-to-end", () => {
 
     const result = await safeRead(filePath, { fs: nodeFs, codec });
     expect(result.projection).toBe("outline");
-    expect(result.reason).toBe("UNSUPPORTED_LANGUAGE");
-    expect(result.outline).toEqual([]);
-    expect(result.jumpTable).toEqual([]);
-    expect(result.next).toBeDefined();
+    expect(result.reason).toBe("OUTLINE");
+    expect(result.outline).toContainEqual(
+      expect.objectContaining({ kind: "heading", name: "Heading 0" }),
+    );
+    expect(result.jumpTable).toContainEqual(
+      expect.objectContaining({ kind: "heading", symbol: "Heading 0" }),
+    );
+    expect(result.next).toBeUndefined();
   });
 
   it("binary → refused with BINARY reason and next steps", async () => {
