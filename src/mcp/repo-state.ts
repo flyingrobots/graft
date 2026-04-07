@@ -66,6 +66,15 @@ function readGit(args: readonly string[], cwd: string): string | null {
   }
 }
 
+function readGitPorcelain(args: readonly string[], cwd: string): string | null {
+  try {
+    const value = git(args, cwd).replace(/\r?\n$/, "");
+    return value.length > 0 ? value : null;
+  } catch {
+    return null;
+  }
+}
+
 function countStatusLines(statusLines: readonly string[]): {
   stagedPaths: number;
   changedPaths: number;
@@ -90,7 +99,7 @@ function countStatusLines(statusLines: readonly string[]): {
 }
 
 function captureSnapshot(cwd: string): RepoSnapshot {
-  const statusOutput = readGit(["status", "--porcelain"], cwd) ?? "";
+  const statusOutput = readGitPorcelain(["status", "--porcelain"], cwd) ?? "";
   const statusLines = statusOutput.length === 0 ? [] : statusOutput.split("\n");
   const counts = countStatusLines(statusLines);
 
@@ -156,7 +165,7 @@ function detectTransition(previous: RepoSnapshot, current: RepoSnapshot): RepoTr
     };
   }
 
-  if (subject?.includes("rebase") === true) {
+  if (/^rebase(?:\b|\s|:|\()/.test(subject ?? "")) {
     return {
       kind: "rebase",
       fromRef: previous.headRef,

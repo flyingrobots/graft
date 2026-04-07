@@ -1,10 +1,13 @@
 import { describe, it, expect } from "vitest";
 import * as fs from "node:fs";
+import * as os from "node:os";
 import * as path from "node:path";
 import { createGraftServer } from "../../../src/mcp/server.js";
+import { collectSymbols } from "../../../src/mcp/tools/precision.js";
 import { git, createTestRepo, cleanupTestRepo } from "../../helpers/git.js";
 import { openWarp } from "../../../src/warp/open.js";
 import { indexCommits } from "../../../src/warp/indexer.js";
+import { JumpEntry, OutlineEntry } from "../../../src/parser/types.js";
 
 function extractText(result: unknown): string {
   const r = result as { content?: { type: string; text: string }[] };
@@ -266,6 +269,23 @@ describe("mcp: code_find", () => {
     }
   });
 
+  it("fails honestly when git file enumeration cannot run", async () => {
+    const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "graft-precision-find-nonrepo-"));
+    try {
+      fs.writeFileSync(
+        path.join(tmpDir, "app.ts"),
+        "export function outsideRepo(): boolean { return true; }\n",
+      );
+
+      const server = createServerInRepo(tmpDir);
+      await expect(server.callTool("code_find", {
+        query: "outside*",
+      })).rejects.toThrow(/git file listing failed/);
+    } finally {
+      cleanupTestRepo(tmpDir);
+    }
+  });
+
   it("uses WARP for indexed clean-head symbol search", async () => {
     const tmpDir = createTestRepo("graft-precision-find-warp-");
     try {
@@ -325,5 +345,40 @@ describe("mcp: code_find", () => {
     } finally {
       cleanupTestRepo(tmpDir);
     }
+  });
+
+  it("assigns distinct jump-table ranges to duplicate symbol names", () => {
+    const entries = [
+      new OutlineEntry({
+        kind: "class",
+        name: "First",
+        exported: true,
+        children: [
+          new OutlineEntry({ kind: "method", name: "handle", exported: false }),
+        ],
+      }),
+      new OutlineEntry({
+        kind: "class",
+        name: "Second",
+        exported: true,
+        children: [
+          new OutlineEntry({ kind: "method", name: "handle", exported: false }),
+        ],
+      }),
+    ];
+    const jumpTable = [
+      new JumpEntry({ symbol: "First", kind: "class", start: 1, end: 4 }),
+      new JumpEntry({ symbol: "handle", kind: "method", start: 2, end: 3 }),
+      new JumpEntry({ symbol: "Second", kind: "class", start: 6, end: 9 }),
+      new JumpEntry({ symbol: "handle", kind: "method", start: 7, end: 8 }),
+    ];
+
+    const matches = collectSymbols(entries, "app.ts", jumpTable).filter((match) => match.name === "handle");
+
+    expect(matches).toHaveLength(2);
+    expect(matches[0]?.startLine).toBe(2);
+    expect(matches[1]?.startLine).toBe(7);
+    expect(matches[0]?.endLine).toBe(3);
+    expect(matches[1]?.endLine).toBe(8);
   });
 });
