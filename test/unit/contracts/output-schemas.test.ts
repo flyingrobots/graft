@@ -10,6 +10,7 @@ import {
   getCliOutputJsonSchema,
   getMcpOutputJsonSchema,
 } from "../../../src/contracts/output-schemas.js";
+import { runCli } from "../../../src/cli/main.js";
 import { runInit } from "../../../src/cli/init.js";
 import { runIndex } from "../../../src/cli/index-cmd.js";
 import { cleanupTestRepo, createTestRepo, git } from "../../helpers/git.js";
@@ -40,6 +41,14 @@ function createServerInRepo(repoDir: string) {
   });
 }
 
+async function runCliJson(cwd: string, args: readonly string[]): Promise<Record<string, unknown>> {
+  const stdout = createBufferWriter();
+  const stderr = createBufferWriter();
+  await runCli({ cwd, args, stdout, stderr });
+  expect(stderr.text()).toBe("");
+  return JSON.parse(stdout.text()) as Record<string, unknown>;
+}
+
 describe("contracts: output schemas", () => {
   const cleanups: string[] = [];
 
@@ -64,7 +73,7 @@ describe("contracts: output schemas", () => {
     }
   });
 
-  it("validates representative MCP tool outputs against the declared schemas", async () => {
+  it("validates representative MCP tool outputs against the declared schemas", { timeout: 15_000 }, async () => {
     const repoDir = createTestRepo("graft-output-schema-mcp-");
     cleanups.push(repoDir);
 
@@ -169,5 +178,65 @@ describe("contracts: output schemas", () => {
     expect(stderr.text()).toBe("");
     const parsed = JSON.parse(stdout.text()) as Record<string, unknown>;
     expect(() => CLI_OUTPUT_SCHEMAS.index.parse(parsed)).not.toThrow();
+  });
+
+  it("validates representative CLI peer outputs against the declared schemas", { timeout: 15_000 }, async () => {
+    const repoDir = createTestRepo("graft-output-schema-cli-peer-");
+    cleanups.push(repoDir);
+
+    fs.writeFileSync(path.join(repoDir, "app.ts"), [
+      "export function greet(name: string): string {",
+      "  return `hello ${name}`;",
+      "}",
+      "",
+    ].join("\n"));
+    git(repoDir, "add -A");
+    git(repoDir, "commit -m init");
+    const base = git(repoDir, "rev-parse HEAD");
+
+    fs.writeFileSync(path.join(repoDir, "app.ts"), [
+      "export function greet(name: string): string {",
+      "  return `hello ${name}`;",
+      "}",
+      "",
+      "export function wave(): string {",
+      "  return \"wave\";",
+      "}",
+      "",
+    ].join("\n"));
+    git(repoDir, "add -A");
+    git(repoDir, "commit -m add-wave");
+    const head = git(repoDir, "rev-parse HEAD");
+
+    fs.writeFileSync(path.join(repoDir, "app.ts"), [
+      "export function greet(name: string): string {",
+      "  return `hello ${name}`;",
+      "}",
+      "",
+      "export function wave(): string {",
+      "  return \"workspace\";",
+      "}",
+      "",
+    ].join("\n"));
+
+    const outputs = {
+      read_safe: await runCliJson(repoDir, ["read", "safe", "app.ts", "--json"]),
+      read_outline: await runCliJson(repoDir, ["read", "outline", "app.ts", "--json"]),
+      read_range: await runCliJson(repoDir, ["read", "range", "app.ts", "--start", "1", "--end", "3", "--json"]),
+      read_changed: await runCliJson(repoDir, ["read", "changed", "app.ts", "--json"]),
+      struct_diff: await runCliJson(repoDir, ["struct", "diff", "--json"]),
+      struct_since: await runCliJson(repoDir, ["struct", "since", base, "--head", head, "--json"]),
+      struct_map: await runCliJson(repoDir, ["struct", "map", "--json"]),
+      symbol_show: await runCliJson(repoDir, ["symbol", "show", "greet", "--path", "app.ts", "--json"]),
+      symbol_find: await runCliJson(repoDir, ["symbol", "find", "greet*", "--json"]),
+      diag_doctor: await runCliJson(repoDir, ["diag", "doctor", "--json"]),
+      diag_explain: await runCliJson(repoDir, ["diag", "explain", "CONTENT", "--json"]),
+      diag_stats: await runCliJson(repoDir, ["diag", "stats", "--json"]),
+      diag_capture: await runCliJson(repoDir, ["diag", "capture", "--json", "--", "printf", "ok"]),
+    } as const;
+
+    for (const command of CLI_COMMAND_NAMES.filter((name) => !["init", "index"].includes(name))) {
+      expect(() => CLI_OUTPUT_SCHEMAS[command].parse(outputs[command as keyof typeof outputs])).not.toThrow();
+    }
   });
 });

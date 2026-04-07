@@ -26,12 +26,23 @@ Scaffolds your project for graft in one command:
 
 Idempotent — safe to run again without duplicating entries.
 
-For automation, both CLI commands support `--json`:
+For automation, CLI commands support `--json`:
 
 ```bash
 npx @flyingrobots/graft init --json
 npx @flyingrobots/graft index --json
+npx @flyingrobots/graft read safe src/app.ts --json
+npx @flyingrobots/graft struct diff --json
+npx @flyingrobots/graft symbol find 'create*' --json
+npx @flyingrobots/graft diag doctor --json
 ```
+
+Grouped CLI namespaces:
+
+- `read` — `safe`, `outline`, `range`, `changed`
+- `struct` — `diff`, `since`, `map`
+- `symbol` — `show`, `find`
+- `diag` — `doctor`, `explain`, `stats`, `capture`
 
 ## MCP Configuration
 
@@ -255,9 +266,20 @@ add to `.claude/settings.local.json`:
 | `read_range` | Read a bounded range of lines from a file. Maximum 250 lines. Use jump table entries from `file_outline` or `safe_read` to target specific symbols. |
 | `changed_since` | Check if a file changed since it was last read. Returns structural diff (added/removed/changed symbols) or "unchanged". Peek mode by default; pass `consume: true` to update the observation cache. |
 | `graft_diff` | Structural diff between two git refs. Shows added, removed, and changed symbols per file — not line hunks. Defaults to working tree vs HEAD. Policy-denied files are omitted from `files` and surfaced in `refused`. |
+| `graft_since` | Structural changes since a git ref. Shows added/removed/changed symbols per file and a summary line. Policy-denied files are omitted from `files` and surfaced in `refused`. |
+| `graft_map` | Structural directory map of files and symbols under a path, with explicit denied-file reporting. |
+| `code_show` | Focus on a symbol by name and return its source with line metadata. |
+| `code_find` | Search symbols across the project by name pattern and optional kind/path filter. |
+| `doctor` | Runtime health check including layered-worldline repo state. |
+| `stats` | Decision metrics for the current server session. |
+| `explain` | Human-readable meaning and recommended action for a reason code. |
 | `run_capture` | Execute a shell command and return the last N lines of output (default 60). Full output saved to `.graft/logs/capture.log` as a diagnostic artifact. This tool is outside graft's bounded-read policy contract and responses include an explicit `policyBoundary` marker. |
 | `state_save` | Save session working state (max 8 KB). Use for session bookmarks: current task, files modified, next planned actions. |
 | `state_load` | Load previously saved session state. Returns null if no state has been saved. |
+
+MCP responses include versioned `_schema` metadata and `_receipt`
+fields. CLI peer commands also return versioned `_schema` metadata;
+the declared contracts live in `src/contracts/output-schemas.ts`.
 | `doctor` | Runtime health check. Shows project root, parser status, active thresholds, session depth, and message count. |
 | `set_budget` | Declare a session byte budget. Graft tightens read thresholds as the budget drains — no single read may consume more than 5% of remaining budget. Call once at session start. |
 | `explain` | Explain a graft reason code. Returns human-readable meaning and recommended next action for any code (e.g., `BINARY`, `BUDGET_CAP`). Case-insensitive. |

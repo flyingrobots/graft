@@ -1,31 +1,16 @@
 import { z } from "zod";
+import {
+  CLI_COMMAND_NAMES,
+  type CliCommandName,
+  CLI_COMMAND_TO_MCP_TOOL,
+  MCP_TOOL_NAMES,
+  type McpToolName,
+} from "./capabilities.js";
+
+export { CLI_COMMAND_NAMES, MCP_TOOL_NAMES };
+export type { CliCommandName, McpToolName } from "./capabilities.js";
 
 export const OUTPUT_SCHEMA_VERSION = "1.0.0" as const;
-
-export const MCP_TOOL_NAMES = [
-  "safe_read",
-  "file_outline",
-  "read_range",
-  "changed_since",
-  "graft_diff",
-  "graft_since",
-  "graft_map",
-  "code_show",
-  "code_find",
-  "run_capture",
-  "state_save",
-  "state_load",
-  "set_budget",
-  "explain",
-  "doctor",
-  "stats",
-] as const;
-
-export type McpToolName = typeof MCP_TOOL_NAMES[number];
-
-export const CLI_COMMAND_NAMES = ["init", "index"] as const;
-
-export type CliCommandName = typeof CLI_COMMAND_NAMES[number];
 
 export interface OutputSchemaMeta {
   readonly id: string;
@@ -205,28 +190,57 @@ const policyBoundarySchema = z.object({
   policyEnforced: z.literal(false),
 }).strict();
 
+function extendWithCommonFields(
+  schema: z.ZodType,
+  common: z.ZodRawShape,
+): z.ZodType {
+  if (schema instanceof z.ZodObject) {
+    return schema.extend(common).strict();
+  }
+  if (schema instanceof z.ZodUnion) {
+    return z.union(schema.options.map((option) => {
+      if (!(option instanceof z.ZodObject)) {
+        throw new Error("Output schema unions must be composed of objects");
+      }
+      return option.extend(common).strict();
+    }) as [z.ZodObject, z.ZodObject, ...z.ZodObject[]]);
+  }
+  throw new Error("Output schemas must be objects or unions of objects");
+}
+
 function withMcpCommon(
   tool: McpToolName,
-  schema: z.ZodObject,
-): z.ZodObject {
-  return schema.extend({
+  schema: z.ZodType,
+): z.ZodType {
+  return extendWithCommonFields(schema, {
     _schema: schemaMetaLiteral(mcpOutputSchemaMeta[tool]),
     _receipt: receiptSchema,
     tripwire: z.array(tripwireSchema).optional(),
-  }).strict();
+  });
 }
 
 function withCliCommon(
   command: CliCommandName,
-  schema: z.ZodObject,
-): z.ZodObject {
-  return schema.extend({
+  schema: z.ZodType,
+): z.ZodType {
+  return extendWithCommonFields(schema, {
     _schema: schemaMetaLiteral(cliOutputSchemaMeta[command]),
-  }).strict();
+  });
 }
 
-export const MCP_OUTPUT_SCHEMAS: Record<McpToolName, z.ZodType> = {
-  safe_read: withMcpCommon("safe_read", z.object({
+function withCliPeerCommon(
+  command: CliCommandName,
+  schema: z.ZodType,
+): z.ZodType {
+  return extendWithCommonFields(schema, {
+    _schema: schemaMetaLiteral(cliOutputSchemaMeta[command]),
+    _receipt: receiptSchema,
+    tripwire: z.array(tripwireSchema).optional(),
+  });
+}
+
+const mcpOutputBodySchemas: Record<McpToolName, z.ZodType> = {
+  safe_read: z.object({
     path: z.string(),
     projection: z.enum(["content", "outline", "refused", "error", "cache_hit", "diff"]),
     reason: z.string(),
@@ -242,24 +256,27 @@ export const MCP_OUTPUT_SCHEMAS: Record<McpToolName, z.ZodType> = {
     readCount: z.number().int().nonnegative().optional(),
     lastReadAt: z.string().optional(),
     diff: outlineDiffSchema.optional(),
-  }).strict()),
-  file_outline: withMcpCommon("file_outline", z.object({
-    path: z.string(),
-    outline: z.array(outlineEntrySchema),
-    jumpTable: z.array(jumpEntrySchema),
-    partial: z.boolean().optional(),
-    reason: z.string().optional(),
-    error: z.string().optional(),
-    cacheHit: z.boolean().optional(),
-  }).strict()).or(withMcpCommon("file_outline", z.object({
-    path: z.string(),
-    projection: z.literal("refused"),
-    reason: z.string(),
-    reasonDetail: z.string().optional(),
-    next: z.array(z.string()).optional(),
-    actual: actualSchema.optional(),
-  }).strict())),
-  read_range: withMcpCommon("read_range", z.object({
+  }).strict(),
+  file_outline: z.union([
+    z.object({
+      path: z.string(),
+      outline: z.array(outlineEntrySchema),
+      jumpTable: z.array(jumpEntrySchema),
+      partial: z.boolean().optional(),
+      reason: z.string().optional(),
+      error: z.string().optional(),
+      cacheHit: z.boolean().optional(),
+    }).strict(),
+    z.object({
+      path: z.string(),
+      projection: z.literal("refused"),
+      reason: z.string(),
+      reasonDetail: z.string().optional(),
+      next: z.array(z.string()).optional(),
+      actual: actualSchema.optional(),
+    }).strict(),
+  ]),
+  read_range: z.object({
     path: z.string(),
     content: z.string().optional(),
     startLine: z.number().int().positive().optional(),
@@ -271,35 +288,35 @@ export const MCP_OUTPUT_SCHEMAS: Record<McpToolName, z.ZodType> = {
     reasonDetail: z.string().optional(),
     next: z.array(z.string()).optional(),
     actual: actualSchema.optional(),
-  }).strict()),
-  changed_since: withMcpCommon("changed_since", z.object({
+  }).strict(),
+  changed_since: z.object({
     status: z.enum(["file_not_found", "refused", "unsupported", "unchanged", "no_previous_observation"]).optional(),
     reason: z.string().optional(),
     diff: outlineDiffSchema.optional(),
     consumed: z.boolean().optional(),
-  }).strict()),
-  graft_diff: withMcpCommon("graft_diff", z.object({
+  }).strict(),
+  graft_diff: z.object({
     base: z.string(),
     head: z.string(),
     files: z.array(fileDiffSchema),
     refused: z.array(structuralRefusalSchema).optional(),
     layer: worldlineLayerSchema,
-  }).strict()),
-  graft_since: withMcpCommon("graft_since", z.object({
+  }).strict(),
+  graft_since: z.object({
     base: z.string(),
     head: z.string(),
     files: z.array(fileDiffSchema),
     refused: z.array(structuralRefusalSchema).optional(),
     summary: z.string(),
     layer: z.literal("ref_view"),
-  }).strict()),
-  graft_map: withMcpCommon("graft_map", z.object({
+  }).strict(),
+  graft_map: z.object({
     directory: z.string(),
     files: z.array(mapFileSchema),
     refused: z.array(structuralRefusalSchema).optional(),
     summary: z.string(),
-  }).strict()),
-  code_show: withMcpCommon("code_show", z.object({
+  }).strict(),
+  code_show: z.object({
     symbol: z.string().optional(),
     kind: z.string().optional(),
     signature: z.string().optional(),
@@ -320,8 +337,8 @@ export const MCP_OUTPUT_SCHEMAS: Record<McpToolName, z.ZodType> = {
     reasonDetail: z.string().optional(),
     next: z.array(z.string()).optional(),
     actual: actualSchema.optional(),
-  }).strict()),
-  code_find: withMcpCommon("code_find", z.object({
+  }).strict(),
+  code_find: z.object({
     query: z.string(),
     kind: z.string().nullable(),
     matches: z.array(precisionSymbolMatchSchema).optional(),
@@ -334,8 +351,8 @@ export const MCP_OUTPUT_SCHEMAS: Record<McpToolName, z.ZodType> = {
     actual: actualSchema.optional(),
     source: z.enum(["warp", "live"]),
     layer: worldlineLayerSchema,
-  }).strict()),
-  run_capture: withMcpCommon("run_capture", z.object({
+  }).strict(),
+  run_capture: z.object({
     output: z.string(),
     totalLines: z.number().int().nonnegative(),
     tailedLines: z.number().int().nonnegative(),
@@ -344,25 +361,25 @@ export const MCP_OUTPUT_SCHEMAS: Record<McpToolName, z.ZodType> = {
     error: z.string().optional(),
     stderr: z.string().optional(),
     policyBoundary: policyBoundarySchema,
-  }).strict()),
-  state_save: withMcpCommon("state_save", z.object({
+  }).strict(),
+  state_save: z.object({
     ok: z.boolean(),
     reason: z.string().optional(),
-  }).strict()),
-  state_load: withMcpCommon("state_load", z.object({
+  }).strict(),
+  state_load: z.object({
     content: z.string().nullable(),
-  }).strict()),
-  set_budget: withMcpCommon("set_budget", z.object({
+  }).strict(),
+  set_budget: z.object({
     budget: budgetSchema.nullable(),
-  }).strict()),
-  explain: withMcpCommon("explain", z.object({
+  }).strict(),
+  explain: z.object({
     code: z.string(),
     meaning: z.string().optional(),
     action: z.string().optional(),
     error: z.string().optional(),
     knownCodes: z.string().optional(),
-  }).strict()),
-  doctor: withMcpCommon("doctor", z.object({
+  }).strict(),
+  doctor: z.object({
     projectRoot: z.string(),
     parserHealthy: z.boolean(),
     thresholds: thresholdsSchema,
@@ -371,14 +388,33 @@ export const MCP_OUTPUT_SCHEMAS: Record<McpToolName, z.ZodType> = {
     checkoutEpoch: z.number().int().nonnegative(),
     lastTransition: repoTransitionSchema.nullable(),
     workspaceOverlay: workspaceOverlaySummarySchema.nullable(),
-  }).strict()),
-  stats: withMcpCommon("stats", z.object({
+  }).strict(),
+  stats: z.object({
     totalReads: z.number().int().nonnegative(),
     totalOutlines: z.number().int().nonnegative(),
     totalRefusals: z.number().int().nonnegative(),
     totalCacheHits: z.number().int().nonnegative(),
     totalBytesAvoidedByCache: z.number().int().nonnegative(),
-  }).strict()),
+  }).strict(),
+};
+
+export const MCP_OUTPUT_SCHEMAS: Record<McpToolName, z.ZodType> = {
+  safe_read: withMcpCommon("safe_read", mcpOutputBodySchemas.safe_read),
+  file_outline: withMcpCommon("file_outline", mcpOutputBodySchemas.file_outline),
+  read_range: withMcpCommon("read_range", mcpOutputBodySchemas.read_range),
+  changed_since: withMcpCommon("changed_since", mcpOutputBodySchemas.changed_since),
+  graft_diff: withMcpCommon("graft_diff", mcpOutputBodySchemas.graft_diff),
+  graft_since: withMcpCommon("graft_since", mcpOutputBodySchemas.graft_since),
+  graft_map: withMcpCommon("graft_map", mcpOutputBodySchemas.graft_map),
+  code_show: withMcpCommon("code_show", mcpOutputBodySchemas.code_show),
+  code_find: withMcpCommon("code_find", mcpOutputBodySchemas.code_find),
+  run_capture: withMcpCommon("run_capture", mcpOutputBodySchemas.run_capture),
+  state_save: withMcpCommon("state_save", mcpOutputBodySchemas.state_save),
+  state_load: withMcpCommon("state_load", mcpOutputBodySchemas.state_load),
+  set_budget: withMcpCommon("set_budget", mcpOutputBodySchemas.set_budget),
+  explain: withMcpCommon("explain", mcpOutputBodySchemas.explain),
+  doctor: withMcpCommon("doctor", mcpOutputBodySchemas.doctor),
+  stats: withMcpCommon("stats", mcpOutputBodySchemas.stats),
 };
 
 const initActionSchema = z.object({
@@ -432,6 +468,19 @@ export const CLI_OUTPUT_SCHEMAS: Record<CliCommandName, z.ZodType> = {
     patchesWritten: z.number().int().nonnegative().optional(),
     error: z.string().optional(),
   }).strict()),
+  read_safe: withCliPeerCommon("read_safe", mcpOutputBodySchemas.safe_read),
+  read_outline: withCliPeerCommon("read_outline", mcpOutputBodySchemas.file_outline),
+  read_range: withCliPeerCommon("read_range", mcpOutputBodySchemas.read_range),
+  read_changed: withCliPeerCommon("read_changed", mcpOutputBodySchemas.changed_since),
+  struct_diff: withCliPeerCommon("struct_diff", mcpOutputBodySchemas.graft_diff),
+  struct_since: withCliPeerCommon("struct_since", mcpOutputBodySchemas.graft_since),
+  struct_map: withCliPeerCommon("struct_map", mcpOutputBodySchemas.graft_map),
+  symbol_show: withCliPeerCommon("symbol_show", mcpOutputBodySchemas.code_show),
+  symbol_find: withCliPeerCommon("symbol_find", mcpOutputBodySchemas.code_find),
+  diag_doctor: withCliPeerCommon("diag_doctor", mcpOutputBodySchemas.doctor),
+  diag_explain: withCliPeerCommon("diag_explain", mcpOutputBodySchemas.explain),
+  diag_stats: withCliPeerCommon("diag_stats", mcpOutputBodySchemas.stats),
+  diag_capture: withCliPeerCommon("diag_capture", mcpOutputBodySchemas.run_capture),
 };
 
 export function getMcpOutputSchemaMeta(tool: McpToolName): OutputSchemaMeta {
@@ -469,6 +518,10 @@ export function validateCliOutput(
   data: unknown,
 ): Record<string, unknown> {
   return CLI_OUTPUT_SCHEMAS[command].parse(data) as Record<string, unknown>;
+}
+
+export function cliCommandMcpTool(command: CliCommandName): McpToolName | null {
+  return CLI_COMMAND_TO_MCP_TOOL[command] ?? null;
 }
 
 export function getMcpOutputJsonSchema(tool: McpToolName): unknown {

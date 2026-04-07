@@ -131,6 +131,11 @@ git config --local core.hooksPath scripts/hooks
   and differ intentionally on soft pressure.
 - Machine-readable outputs now carry versioned `_schema` metadata, and
   the declared contract registry lives in `src/contracts/output-schemas.ts`.
+- The shared CLI / MCP capability registry lives in
+  `src/contracts/capabilities.ts`.
+- The grouped CLI namespaces (`read`, `struct`, `symbol`, `diag`) now
+  cover the core operator-facing product surface; `init` and `index`
+  remain intentional CLI-only exceptions.
 
 ## Commit convention
 

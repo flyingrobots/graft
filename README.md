@@ -159,15 +159,33 @@ per-editor MCP config, `.graftignore`, and troubleshooting.
 ## CLI
 
 ```bash
-npx @flyingrobots/graft init      # scaffold project for graft
-npx @flyingrobots/graft index     # index git history into WARP
-npx @flyingrobots/graft init --json
-npx @flyingrobots/graft index --json
+npx @flyingrobots/graft init
+npx @flyingrobots/graft index
+npx @flyingrobots/graft read safe src/app.ts --json
+npx @flyingrobots/graft read outline README.md --json
+npx @flyingrobots/graft read range src/app.ts --start 10 --end 40 --json
+npx @flyingrobots/graft read changed src/app.ts --json
+npx @flyingrobots/graft struct diff --json
+npx @flyingrobots/graft struct since HEAD~3 --json
+npx @flyingrobots/graft struct map src --json
+npx @flyingrobots/graft symbol show createServer --path src/mcp/server.ts --json
+npx @flyingrobots/graft symbol find 'create*' --json
+npx @flyingrobots/graft diag doctor --json
+npx @flyingrobots/graft diag explain CONTENT --json
+npx @flyingrobots/graft diag stats --json
+npx @flyingrobots/graft diag capture --tail 20 -- pnpm test --json
 ```
 
-MCP responses include versioned `_schema` metadata. CLI commands expose
-machine-readable output with `--json`. Declared output contracts live
-in `src/contracts/output-schemas.ts`.
+The CLI now mirrors the core MCP product surface through grouped
+namespaces:
+- `read` for bounded reads
+- `struct` for structural navigation
+- `symbol` for precision lookup
+- `diag` for diagnostics
+
+`init` and `index` remain explicit CLI-only commands. MCP responses and
+CLI peer commands both carry versioned `_schema` metadata, and declared
+output contracts live in `src/contracts/output-schemas.ts`.
 
 ## Reason codes
 

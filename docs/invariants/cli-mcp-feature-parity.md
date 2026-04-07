@@ -1,6 +1,6 @@
 # Invariant: CLI and MCP Surfaces Stay at Feature Parity
 
-**Status:** Planned
+**Status:** Enforced
 **Legend:** CORE
 
 ## What must remain true
@@ -16,8 +16,13 @@ Parity means:
 
 Allowed exceptions must be explicit and narrow:
 - bootstrap / setup commands
+- admin / maintenance commands
 - transport-only wiring details
 - human-only control-plane affordances
+
+Current explicit exceptions:
+- CLI-only: `init`, `index`, default stdio launcher mode
+- MCP-only: `set_budget`, `state_save`, `state_load`
 
 If a capability exists on only one surface, the repo should either:
 - document it as an intentional exception, or
