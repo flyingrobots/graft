@@ -50,6 +50,10 @@ For a project-local one-step bootstrap, use explicit write flags:
 
 ```bash
 npx @flyingrobots/graft init --write-claude-mcp --write-claude-hooks
+npx @flyingrobots/graft init --write-cursor-mcp
+npx @flyingrobots/graft init --write-windsurf-mcp
+npx @flyingrobots/graft init --write-continue-mcp
+npx @flyingrobots/graft init --write-cline-mcp
 npx @flyingrobots/graft init --write-codex-mcp
 ```
 
@@ -172,6 +176,10 @@ per-editor MCP config, `.graftignore`, and troubleshooting.
 ```bash
 npx @flyingrobots/graft init
 npx @flyingrobots/graft init --write-claude-mcp --write-claude-hooks
+npx @flyingrobots/graft init --write-cursor-mcp
+npx @flyingrobots/graft init --write-windsurf-mcp
+npx @flyingrobots/graft init --write-continue-mcp
+npx @flyingrobots/graft init --write-cline-mcp
 npx @flyingrobots/graft init --write-codex-mcp
 npx @flyingrobots/graft serve
 npx @flyingrobots/graft index

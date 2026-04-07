@@ -68,6 +68,16 @@ const SUGGESTED_MCP_SERVER = {
   },
 } as const;
 
+const CONTINUE_MCP_SERVER = {
+  name: "graft",
+  command: "npx",
+  args: ["-y", "@flyingrobots/graft", "serve"],
+} as const;
+
+const CONTINUE_MCP_CONFIG = {
+  mcpServers: [CONTINUE_MCP_SERVER],
+} as const;
+
 const CODEX_MCP_CONFIG = [
   "[mcp_servers.graft]",
   "command = \"npx\"",
@@ -98,6 +108,10 @@ interface ParsedInitArgs {
   writeClaudeMcp: boolean;
   writeClaudeHooks: boolean;
   writeCodexMcp: boolean;
+  writeCursorMcp: boolean;
+  writeWindsurfMcp: boolean;
+  writeContinueMcp: boolean;
+  writeClineMcp: boolean;
 }
 
 export interface RunInitOptions {
@@ -182,9 +196,12 @@ function ensureObjectProperty(
   return current;
 }
 
-function mergeClaudeMcpConfig(cwd: string): InitAction {
-  const label = ".mcp.json";
-  const filePath = path.join(cwd, label);
+function mergeJsonMcpConfig(
+  cwd: string,
+  label: string,
+  relativePath: readonly string[],
+): InitAction {
+  const filePath = path.join(cwd, ...relativePath);
   const graftServer = cloneJson(SUGGESTED_MCP_SERVER.mcpServers.graft);
   if (!fs.existsSync(filePath)) {
     writeJsonObject(filePath, cloneJson(SUGGESTED_MCP_SERVER) as Record<string, unknown>);
@@ -199,6 +216,22 @@ function mergeClaudeMcpConfig(cwd: string): InitAction {
   mcpServers["graft"] = graftServer;
   writeJsonObject(filePath, root);
   return { action: "append", label, detail: "merged graft mcp server" };
+}
+
+function mergeClaudeMcpConfig(cwd: string): InitAction {
+  return mergeJsonMcpConfig(cwd, ".mcp.json", [".mcp.json"]);
+}
+
+function mergeCursorMcpConfig(cwd: string): InitAction {
+  return mergeJsonMcpConfig(cwd, ".cursor/mcp.json", [".cursor", "mcp.json"]);
+}
+
+function mergeWindsurfMcpConfig(cwd: string): InitAction {
+  return mergeJsonMcpConfig(cwd, ".codeium/windsurf/mcp_config.json", [".codeium", "windsurf", "mcp_config.json"]);
+}
+
+function mergeClineMcpConfig(cwd: string): InitAction {
+  return mergeJsonMcpConfig(cwd, ".vscode/cline_mcp_settings.json", [".vscode", "cline_mcp_settings.json"]);
 }
 
 function ensureHookPhase(
@@ -276,6 +309,35 @@ function mergeClaudeHooksConfig(cwd: string): InitAction {
   return { action: "append", label, detail: "merged graft hooks" };
 }
 
+function mergeContinueMcpConfig(cwd: string): InitAction {
+  const label = ".continue/config.json";
+  const filePath = path.join(cwd, ".continue", "config.json");
+  if (!fs.existsSync(filePath)) {
+    writeJsonObject(filePath, cloneJson(CONTINUE_MCP_CONFIG) as Record<string, unknown>);
+    return { action: "create", label, detail: "wrote graft mcp server" };
+  }
+
+  const root = readJsonObject(filePath, label);
+  const servers = root["mcpServers"];
+  if (servers === undefined) {
+    root["mcpServers"] = [cloneJson(CONTINUE_MCP_SERVER)];
+    writeJsonObject(filePath, root);
+    return { action: "append", label, detail: "merged graft mcp server" };
+  }
+  if (!Array.isArray(servers)) {
+    throw new Error(`${label} field mcpServers must be an array`);
+  }
+
+  const hasGraft = servers.some((candidate) => isRecord(candidate) && candidate["name"] === CONTINUE_MCP_SERVER.name);
+  if (hasGraft) {
+    return { action: "exists", label, detail: "already has graft mcp server" };
+  }
+
+  servers.push(cloneJson(CONTINUE_MCP_SERVER) as unknown);
+  writeJsonObject(filePath, root);
+  return { action: "append", label, detail: "merged graft mcp server" };
+}
+
 function mergeCodexMcpConfig(cwd: string): InitAction {
   const label = ".codex/config.toml";
   const filePath = path.join(cwd, ".codex", "config.toml");
@@ -303,6 +365,10 @@ function parseInitArgs(rawArgs: readonly string[]): ParsedInitArgs {
     writeClaudeMcp: hasFlag(args, "--write-claude-mcp"),
     writeClaudeHooks: hasFlag(args, "--write-claude-hooks"),
     writeCodexMcp: hasFlag(args, "--write-codex-mcp"),
+    writeCursorMcp: hasFlag(args, "--write-cursor-mcp"),
+    writeWindsurfMcp: hasFlag(args, "--write-windsurf-mcp"),
+    writeContinueMcp: hasFlag(args, "--write-continue-mcp"),
+    writeClineMcp: hasFlag(args, "--write-cline-mcp"),
   } satisfies ParsedInitArgs;
 
   if (args.length > 0) {
@@ -328,6 +394,18 @@ function initProject(cwd: string, args: ParsedInitArgs): InitResult {
   if (args.writeCodexMcp) {
     actions.push(mergeCodexMcpConfig(cwd));
   }
+  if (args.writeCursorMcp) {
+    actions.push(mergeCursorMcpConfig(cwd));
+  }
+  if (args.writeWindsurfMcp) {
+    actions.push(mergeWindsurfMcpConfig(cwd));
+  }
+  if (args.writeContinueMcp) {
+    actions.push(mergeContinueMcpConfig(cwd));
+  }
+  if (args.writeClineMcp) {
+    actions.push(mergeClineMcpConfig(cwd));
+  }
 
   return {
     ok: true,
@@ -348,6 +426,13 @@ function indentJson(value: unknown, spaces = 2): string {
 }
 
 function renderInitText(result: InitResult, args: ParsedInitArgs, writer: Writer): void {
+  const writesAnyMcpConfig = args.writeClaudeMcp
+    || args.writeCodexMcp
+    || args.writeCursorMcp
+    || args.writeWindsurfMcp
+    || args.writeContinueMcp
+    || args.writeClineMcp;
+
   writeLine(writer);
   writeLine(writer, `Initializing graft in ${result.cwd}`);
   writeLine(writer);
@@ -364,12 +449,12 @@ function renderInitText(result: InitResult, args: ParsedInitArgs, writer: Writer
     writeLine(writer);
   }
 
-  if (!args.writeClaudeMcp && !args.writeCodexMcp) {
+  if (!writesAnyMcpConfig) {
     writeLine(writer, "Done. Add graft to your MCP config:");
     writeLine(writer);
     writeLine(writer, indentJson(result.suggestedMcpServer));
     writeLine(writer);
-    writeLine(writer, "Use --write-claude-mcp, --write-claude-hooks, or --write-codex-mcp");
+    writeLine(writer, "Use explicit --write-*-mcp flags or --write-claude-hooks");
     writeLine(writer, "for one-step bootstrap into project-local config files.");
   }
 

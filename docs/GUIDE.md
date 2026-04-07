@@ -33,6 +33,10 @@ the wiring for you:
 
 ```bash
 npx @flyingrobots/graft init --write-claude-mcp --write-claude-hooks
+npx @flyingrobots/graft init --write-cursor-mcp
+npx @flyingrobots/graft init --write-windsurf-mcp
+npx @flyingrobots/graft init --write-continue-mcp
+npx @flyingrobots/graft init --write-cline-mcp
 npx @flyingrobots/graft init --write-codex-mcp
 ```
 
@@ -40,6 +44,10 @@ Supported write flags:
 
 - `--write-claude-mcp` -> writes or merges `.mcp.json`
 - `--write-claude-hooks` -> writes or merges `.claude/settings.json`
+- `--write-cursor-mcp` -> writes or merges `.cursor/mcp.json`
+- `--write-windsurf-mcp` -> writes or merges `.codeium/windsurf/mcp_config.json`
+- `--write-continue-mcp` -> writes or merges `.continue/config.json`
+- `--write-cline-mcp` -> writes or merges `.vscode/cline_mcp_settings.json`
 - `--write-codex-mcp` -> writes or merges `.codex/config.toml`
 
 These writes are project-local and idempotent. Existing config is
@@ -92,7 +100,7 @@ npx @flyingrobots/graft init --write-claude-mcp
 
 ### Cursor
 
-Add to Cursor's MCP settings (Settings → MCP Servers → Add):
+Add to `.cursor/mcp.json` in your project root:
 
 ```json
 {
@@ -105,9 +113,15 @@ Add to Cursor's MCP settings (Settings → MCP Servers → Add):
 }
 ```
 
+Project-local shortcut:
+
+```bash
+npx @flyingrobots/graft init --write-cursor-mcp
+```
+
 ### Windsurf
 
-Add to `~/.codeium/windsurf/mcp_config.json`:
+Add to `.codeium/windsurf/mcp_config.json` in your project root:
 
 ```json
 {
@@ -118,6 +132,12 @@ Add to `~/.codeium/windsurf/mcp_config.json`:
     }
   }
 }
+```
+
+Project-local shortcut:
+
+```bash
+npx @flyingrobots/graft init --write-windsurf-mcp
 ```
 
 ### VS Code + Continue
@@ -136,6 +156,12 @@ Add to `.continue/config.json`:
 }
 ```
 
+Project-local shortcut:
+
+```bash
+npx @flyingrobots/graft init --write-continue-mcp
+```
+
 ### Cline
 
 Add via Cline's MCP settings UI, or in
@@ -150,6 +176,12 @@ Add via Cline's MCP settings UI, or in
     }
   }
 }
+```
+
+Project-local shortcut:
+
+```bash
+npx @flyingrobots/graft init --write-cline-mcp
 ```
 
 ### Codex
