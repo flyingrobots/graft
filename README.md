@@ -89,9 +89,10 @@ When an agent asks to read a file, Graft applies policy:
 - **Tripwires** signal when the session is going off the rails.
 - **Receipts** on every response with compression ratio for usage
   analysis.
+- **Versioned schemas** on every machine-readable MCP / CLI payload.
 
 Every decision is logged. Every refusal is explainable. All output
-is structured JSON.
+is structured JSON with versioned `_schema` metadata.
 
 ## Tools
 
@@ -160,7 +161,13 @@ per-editor MCP config, `.graftignore`, and troubleshooting.
 ```bash
 npx @flyingrobots/graft init      # scaffold project for graft
 npx @flyingrobots/graft index     # index git history into WARP
+npx @flyingrobots/graft init --json
+npx @flyingrobots/graft index --json
 ```
+
+MCP responses include versioned `_schema` metadata. CLI commands expose
+machine-readable output with `--json`. Declared output contracts live
+in `src/contracts/output-schemas.ts`.
 
 ## Reason codes
 

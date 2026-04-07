@@ -29,6 +29,7 @@ it. Cycles under that legend must verify the invariant holds.
 
 ### Observability (CORE)
 - [receipt-always](receipt-always.md) — every MCP response has _receipt
+- [versioned-output-schemas](versioned-output-schemas.md) — machine-readable outputs carry versioned schemas
 - [decision-logged](decision-logged.md) — every policy decision hits NDJSON log
 
 ### Surfaces (CORE)

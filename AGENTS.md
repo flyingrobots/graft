@@ -99,7 +99,7 @@ git config --local core.hooksPath scripts/hooks
 
 ## Current hot items
 
-- `docs/method/backlog/asap/CORE_versioned-json-output-schemas.md`
+- `docs/method/backlog/asap/` is currently empty.
 
 ## Current learnings
 
@@ -129,6 +129,8 @@ git config --local core.hooksPath scripts/hooks
 - Policy parity is now witnessed as equivalent outcome per surface
   contract, not identical response shape. Hooks align on hard denials
   and differ intentionally on soft pressure.
+- Machine-readable outputs now carry versioned `_schema` metadata, and
+  the declared contract registry lives in `src/contracts/output-schemas.ts`.
 
 ## Commit convention
 

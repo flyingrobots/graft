@@ -1,5 +1,9 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
+import { CanonicalJsonCodec } from "../adapters/canonical-json.js";
+import { attachCliSchemaMeta, validateCliOutput } from "../contracts/output-schemas.js";
+
+const codec = new CanonicalJsonCodec();
 
 const GRAFTIGNORE_TEMPLATE = `# Graft ignore patterns — files matching these are refused by safe_read.
 # Syntax: same as .gitignore (glob matching via picomatch).
@@ -28,85 +32,159 @@ session metrics. Native reads bypass all of that.
 
 const GITIGNORE_ENTRY = "\n# Graft runtime data\n.graft/\n";
 
-const HOOKS_CONFIG = `
-Add to .claude/settings.json for Claude Code hook integration:
-
-{
-  "hooks": {
-    "PreToolUse": [
+const HOOKS_CONFIG = {
+  hooks: {
+    PreToolUse: [
       {
-        "matcher": "Read",
-        "hooks": [
+        matcher: "Read",
+        hooks: [
           {
-            "type": "command",
-            "command": "node --import tsx node_modules/@flyingrobots/graft/src/hooks/pretooluse-read.ts"
-          }
-        ]
-      }
+            type: "command",
+            command: "node --import tsx node_modules/@flyingrobots/graft/src/hooks/pretooluse-read.ts",
+          },
+        ],
+      },
     ],
-    "PostToolUse": [
+    PostToolUse: [
       {
-        "matcher": "Read",
-        "hooks": [
+        matcher: "Read",
+        hooks: [
           {
-            "type": "command",
-            "command": "node --import tsx node_modules/@flyingrobots/graft/src/hooks/posttooluse-read.ts"
-          }
-        ]
-      }
-    ]
-  }
-}
-`;
+            type: "command",
+            command: "node --import tsx node_modules/@flyingrobots/graft/src/hooks/posttooluse-read.ts",
+          },
+        ],
+      },
+    ],
+  },
+} as const;
 
-function writeIfMissing(filePath: string, content: string, label: string): void {
+const SUGGESTED_MCP_SERVER = {
+  mcpServers: {
+    graft: {
+      command: "npx",
+      args: ["-y", "@flyingrobots/graft"],
+    },
+  },
+} as const;
+
+interface Writer {
+  write(chunk: string): unknown;
+}
+
+interface InitAction {
+  action: "exists" | "create" | "append";
+  label: string;
+  detail?: string | undefined;
+}
+
+interface InitResult {
+  ok: true;
+  cwd: string;
+  actions: InitAction[];
+  hooksConfig: typeof HOOKS_CONFIG;
+  suggestedMcpServer: typeof SUGGESTED_MCP_SERVER;
+}
+
+export interface RunInitOptions {
+  cwd?: string | undefined;
+  args?: readonly string[] | undefined;
+  stdout?: Writer | undefined;
+  stderr?: Writer | undefined;
+}
+
+function hasJsonFlag(args: readonly string[]): boolean {
+  return args.includes("--json");
+}
+
+function writeIfMissing(filePath: string, content: string, label: string): InitAction {
   if (fs.existsSync(filePath)) {
-    console.log(`  exists  ${label}`);
-  } else {
-    fs.writeFileSync(filePath, content);
-    console.log(`  create  ${label}`);
+    return { action: "exists", label };
   }
+  fs.writeFileSync(filePath, content);
+  return { action: "create", label };
 }
 
-function appendIfMissing(filePath: string, marker: string, content: string, label: string): void {
+function appendIfMissing(filePath: string, marker: string, content: string, label: string): InitAction {
   if (fs.existsSync(filePath)) {
     const existing = fs.readFileSync(filePath, "utf-8");
     if (existing.includes(marker)) {
-      console.log(`  exists  ${label} (already has graft entry)`);
-      return;
+      return { action: "exists", label, detail: "already has graft entry" };
     }
     fs.appendFileSync(filePath, content);
-    console.log(`  append  ${label}`);
-  } else {
-    fs.writeFileSync(filePath, content.trimStart());
-    console.log(`  create  ${label}`);
+    return { action: "append", label };
   }
+  fs.writeFileSync(filePath, content.trimStart());
+  return { action: "create", label };
 }
 
-export function runInit(): void {
-  const cwd = process.cwd();
-  console.log(`\nInitializing graft in ${cwd}\n`);
+function initProject(cwd: string): InitResult {
+  return {
+    ok: true,
+    cwd,
+    actions: [
+      writeIfMissing(path.join(cwd, ".graftignore"), GRAFTIGNORE_TEMPLATE, ".graftignore"),
+      appendIfMissing(path.join(cwd, ".gitignore"), ".graft/", GITIGNORE_ENTRY, ".gitignore"),
+      appendIfMissing(path.join(cwd, "CLAUDE.md"), "safe_read", "\n" + AGENT_SNIPPET, "CLAUDE.md"),
+    ],
+    hooksConfig: HOOKS_CONFIG,
+    suggestedMcpServer: SUGGESTED_MCP_SERVER,
+  };
+}
 
-  // 1. .graftignore
-  writeIfMissing(path.join(cwd, ".graftignore"), GRAFTIGNORE_TEMPLATE, ".graftignore");
+function writeLine(writer: Writer, line = ""): void {
+  writer.write(`${line}\n`);
+}
 
-  // 2. .gitignore — append .graft/
-  appendIfMissing(path.join(cwd, ".gitignore"), ".graft/", GITIGNORE_ENTRY, ".gitignore");
+function indentJson(value: unknown, spaces = 2): string {
+  const json = JSON.stringify(value, null, spaces);
+  return json.split("\n").map((line) => `  ${line}`).join("\n");
+}
 
-  // 3. CLAUDE.md — append agent instructions snippet
-  appendIfMissing(path.join(cwd, "CLAUDE.md"), "safe_read", "\n" + AGENT_SNIPPET, "CLAUDE.md");
-
-  // 4. Print hooks config for manual setup
-  console.log(HOOKS_CONFIG);
-
-  console.log("Done. Add graft to your MCP config:\n");
-  console.log(`  {
-    "mcpServers": {
-      "graft": {
-        "command": "npx",
-        "args": ["-y", "@flyingrobots/graft"]
-      }
-    }
+function renderInitText(result: InitResult, writer: Writer): void {
+  writeLine(writer);
+  writeLine(writer, `Initializing graft in ${result.cwd}`);
+  writeLine(writer);
+  for (const action of result.actions) {
+    const detail = action.detail !== undefined ? ` (${action.detail})` : "";
+    writeLine(writer, `  ${action.action.padEnd(6)} ${action.label}${detail}`);
   }
-`);
+  writeLine(writer);
+  writeLine(writer, "Add to .claude/settings.json for Claude Code hook integration:");
+  writeLine(writer);
+  writeLine(writer, JSON.stringify(result.hooksConfig, null, 2));
+  writeLine(writer);
+  writeLine(writer, "Done. Add graft to your MCP config:");
+  writeLine(writer);
+  writeLine(writer, indentJson(result.suggestedMcpServer));
+  writeLine(writer);
+}
+
+function emitInitJson(result: object, writer: Writer): void {
+  writer.write(`${codec.encode(validateCliOutput("init", attachCliSchemaMeta("init", result)))}\n`);
+}
+
+export function runInit(options: RunInitOptions = {}): void {
+  const cwd = options.cwd ?? process.cwd();
+  const args = options.args ?? process.argv.slice(3);
+  const stdout = options.stdout ?? process.stdout;
+  const stderr = options.stderr ?? process.stderr;
+  const json = hasJsonFlag(args);
+
+  try {
+    const result = initProject(cwd);
+    if (json) {
+      emitInitJson(result, stdout);
+      return;
+    }
+    renderInitText(result, stdout);
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : String(err);
+    process.exitCode = 1;
+    if (json) {
+      emitInitJson({ ok: false, cwd, error: message }, stdout);
+      return;
+    }
+    writeLine(stderr, `Error: ${message}`);
+  }
 }

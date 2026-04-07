@@ -26,6 +26,13 @@ Scaffolds your project for graft in one command:
 
 Idempotent — safe to run again without duplicating entries.
 
+For automation, both CLI commands support `--json`:
+
+```bash
+npx @flyingrobots/graft init --json
+npx @flyingrobots/graft index --json
+```
+
 ## MCP Configuration
 
 Graft runs as an MCP server over stdio. Add it to your editor or
@@ -255,6 +262,12 @@ add to `.claude/settings.local.json`:
 | `set_budget` | Declare a session byte budget. Graft tightens read thresholds as the budget drains — no single read may consume more than 5% of remaining budget. Call once at session start. |
 | `explain` | Explain a graft reason code. Returns human-readable meaning and recommended next action for any code (e.g., `BINARY`, `BUDGET_CAP`). Case-insensitive. |
 | `stats` | Decision metrics for the current session. Total reads, outlines, refusals, cache hits, and bytes avoided. |
+
+Every MCP tool response includes:
+- `_receipt` — runtime decision metadata
+- `_schema` — versioned output contract metadata
+
+Declared output contracts live in `src/contracts/output-schemas.ts`.
 | `graft_since` | Structural changes since a git ref. Shows symbols added, removed, and changed per file — not line hunks. Includes per-file summary lines. Policy-denied files are omitted from `files` and surfaced in `refused`. |
 | `graft_map` | Structural map of a directory — all files and their symbols (function signatures, class shapes, exports) in one call. Uses tree-sitter to parse the working tree directly. Policy-denied files are omitted from `files` and surfaced in `refused`. |
 
