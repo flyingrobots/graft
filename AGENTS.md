@@ -99,7 +99,6 @@ git config --local core.hooksPath scripts/hooks
 
 ## Current hot items
 
-- `docs/method/backlog/asap/CORE_run-capture-policy-boundary.md`
 - `docs/method/backlog/asap/CORE_cross-surface-policy-parity-tests.md`
 - `docs/method/backlog/asap/CORE_versioned-json-output-schemas.md`
 
@@ -125,6 +124,9 @@ git config --local core.hooksPath scripts/hooks
 - Structural aggregation surfaces (`graft_map`, `graft_diff`,
   `graft_since`) now exclude denied files from visible results and
   surface them explicitly in `refused`.
+- `run_capture` is an explicit shell-output escape hatch, not a
+  bounded-read surface. Treat its output and persisted capture log as
+  diagnostic artifacts outside the policy-governed read contract.
 
 ## Commit convention
 

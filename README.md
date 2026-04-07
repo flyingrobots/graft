@@ -106,7 +106,7 @@ is structured JSON.
 | `code_show` | Focus on a symbol by name — get its source code in one call |
 | `code_find` | Search symbols across the project by name/kind pattern |
 | `changed_since` | Check if a file changed since last read (peek or consume) |
-| `run_capture` | Shell output capture — tee to log, tail to agent |
+| `run_capture` | Diagnostic shell-output escape hatch — tee to log, tail to agent, outside bounded-read policy, with explicit `policyBoundary` marker |
 | `state_save` | Save session working state (max 8 KB) |
 | `state_load` | Restore session working state |
 | `set_budget` | Declare session byte budget — governor tightens as it drains |

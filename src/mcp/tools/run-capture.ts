@@ -3,12 +3,19 @@ import { execFileSync } from "node:child_process";
 import { z } from "zod";
 import type { ToolDefinition, ToolContext, ToolHandler } from "../context.js";
 
+const RUN_CAPTURE_POLICY_BOUNDARY = {
+  kind: "shell_escape_hatch",
+  boundedReadContract: false,
+  policyEnforced: false,
+} as const;
+
 export const runCaptureTool: ToolDefinition = {
   name: "run_capture",
   description:
     "Execute a shell command and return the last N lines of output " +
-    "(default 60). Full output saved to .graft/logs/capture.log for " +
-    "follow-up read_range calls.",
+    "(default 60). Full output saved to .graft/logs/capture.log as " +
+    "a diagnostic artifact. This tool is outside graft's bounded-read " +
+    "policy contract.",
   schema: { command: z.string(), tail: z.number().optional() },
   createHandler(ctx: ToolContext): ToolHandler {
     return async (args) => {
@@ -41,6 +48,7 @@ export const runCaptureTool: ToolDefinition = {
           tailedLines: Math.min(tail, totalLines),
           truncated: totalLines > tail,
           stderr: typeof stderr === "string" ? stderr.slice(0, 2000) : "",
+          policyBoundary: RUN_CAPTURE_POLICY_BOUNDARY,
         });
       }
 
@@ -61,6 +69,7 @@ export const runCaptureTool: ToolDefinition = {
         tailedLines: Math.min(tail, lines.length),
         logPath: logWriteSucceeded ? logPath : null,
         truncated: lines.length > tail,
+        policyBoundary: RUN_CAPTURE_POLICY_BOUNDARY,
       });
     };
   },

@@ -11,6 +11,9 @@ another product surface.
 Today this is a planned invariant, not an enforced one. Hooks, MCP
 tools, and other retrieval-adjacent surfaces still drift on policy
 inputs and refusal behavior. Cycle 0030 documents the current gap.
+Explicit exceptions must be documented and machine-readable.
+`run_capture` is the current shell-output escape hatch outside the
+bounded-read contract.
 
 ## If violated
 
