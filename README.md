@@ -74,7 +74,8 @@ and any MCP-compatible client.
 
 See **[Setup Guide](docs/GUIDE.md)** for per-editor instructions,
 Claude Code hooks, `.graftignore` configuration, troubleshooting,
-and details on what the agent experiences.
+and details on what the agent experiences. Contributors should also
+read **[Architecture](ARCHITECTURE.md)** for the runtime systems map.
 
 ## What it does
 

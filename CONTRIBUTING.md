@@ -7,6 +7,9 @@ Thank you for your interest in contributing.
 Graft uses **The Method** — a cycle-based development process. See
 [METHOD.md](METHOD.md) for the full description.
 
+For the runtime systems map, read [ARCHITECTURE.md](ARCHITECTURE.md)
+before diving into implementation files.
+
 The short version:
 
 1. Work is tracked in `docs/method/backlog/` as markdown files.
