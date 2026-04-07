@@ -100,7 +100,8 @@ git config --local core.hooksPath scripts/hooks
 ## Current hot items
 
 - `docs/method/backlog/asap/CORE_markdown-summary-support.md`
-- `docs/method/backlog/asap/CORE_policy-fidelity-audit-all-tools-and-cli.md`
+- `docs/method/backlog/asap/CORE_mcp-graftignore-and-policy-option-parity.md`
+- `docs/method/backlog/asap/CORE_structural-tool-policy-enforcement.md`
 - `docs/method/backlog/asap/CORE_versioned-json-output-schemas.md`
 
 ## Current learnings
@@ -120,6 +121,11 @@ git config --local core.hooksPath scripts/hooks
 - MCP stdio integration tests need explicit `env` wiring for sandbox
   values because the MCP SDK only inherits a safe environment allowlist
   by default.
+- `safe_read` policy totality is real, but broader policy fidelity is
+  not: hooks currently enforce `.graftignore`, while MCP paths on
+  `main` still do not.
+- `code_find` currently has a policy UX gap: refused matches can be
+  silently dropped instead of returning an explicit refusal result.
 
 ## Commit convention
 
