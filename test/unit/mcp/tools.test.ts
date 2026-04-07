@@ -1,5 +1,8 @@
 import { describe, it, expect } from "vitest";
 import { ZodError } from "zod";
+import * as fs from "node:fs";
+import * as os from "node:os";
+import * as path from "node:path";
 import { createGraftServer, TOOL_REGISTRY } from "../../../src/mcp/server.js";
 import fs from "node:fs";
 import os from "node:os";
@@ -192,6 +195,17 @@ describe("mcp: policy check middleware", () => {
       path: "test/fixtures/ban-targets/image.png",
       start: 1,
       end: 5,
+    });
+    const parsed = JSON.parse(extractText(result)) as Record<string, unknown>;
+    expect(parsed["projection"]).toBe("refused");
+    expect(parsed["reason"]).toBe("BINARY");
+  });
+
+  it("code_find refuses banned file paths via middleware", async () => {
+    const server = createGraftServer();
+    const result = await server.callTool("code_find", {
+      query: "*",
+      path: "test/fixtures/ban-targets/image.png",
     });
     const parsed = JSON.parse(extractText(result)) as Record<string, unknown>;
     expect(parsed["projection"]).toBe("refused");
