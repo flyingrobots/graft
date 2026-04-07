@@ -15,6 +15,7 @@ import { evaluatePolicy } from "../policy/evaluate.js";
 import { RefusedResult } from "../policy/types.js";
 import type WarpApp from "@git-stunts/git-warp";
 import { openWarp } from "../warp/open.js";
+import { RepoStateTracker } from "./repo-state.js";
 
 // Tool definitions — each file exports a ToolDefinition object
 import { safeReadTool } from "./tools/safe-read.js";
@@ -73,6 +74,7 @@ export function createGraftServer(): GraftServer {
   const codec = new CanonicalJsonCodec();
   const handlers = new Map<string, ToolHandler>();
   const schemas = new Map<string, z.ZodObject>();
+  const repoState = new RepoStateTracker(projectRoot);
   let seq = 0;
 
   function respond(tool: string, data: Record<string, unknown>): McpToolResult {
@@ -100,7 +102,32 @@ export function createGraftServer(): GraftServer {
     return warpPromise;
   }
 
-  const ctx: ToolContext = { projectRoot, graftDir, session, cache, metrics, respond, resolvePath: createPathResolver(projectRoot), fs: nodeFs, codec, getWarp };
+  const ctx: ToolContext = {
+    projectRoot,
+    graftDir,
+    session,
+    cache,
+    metrics,
+    respond,
+    resolvePath: createPathResolver(projectRoot),
+    fs: nodeFs,
+    codec,
+    getWarp,
+    getRepoState: () => repoState.getState(),
+  };
+
+  async function invokeTool(
+    name: string,
+    handler: ToolHandler,
+    args: Record<string, unknown>,
+    schema?: z.ZodObject,
+  ): Promise<McpToolResult> {
+    session.recordMessage();
+    session.recordToolCall(name);
+    const parsed: Record<string, unknown> = schema !== undefined ? schema.parse(args) : args;
+    repoState.observe();
+    return handler(parsed);
+  }
 
   function wrapWithPolicyCheck(toolName: string, inner: ToolHandler): ToolHandler {
     return (args: Record<string, unknown>) => {
@@ -147,16 +174,11 @@ export function createGraftServer(): GraftServer {
       const zodSchema = z.object(def.schema).strict();
       schemas.set(def.name, zodSchema);
       mcpServer.registerTool(def.name, { description: def.description, inputSchema: def.schema }, async (args) => {
-        session.recordMessage();
-        session.recordToolCall(def.name);
-        const parsed: Record<string, unknown> = zodSchema.parse(args);
-        return handler(parsed);
+        return invokeTool(def.name, handler, args, zodSchema);
       });
     } else {
       mcpServer.registerTool(def.name, { description: def.description }, async () => {
-        session.recordMessage();
-        session.recordToolCall(def.name);
-        return handler({});
+        return invokeTool(def.name, handler, {});
       });
     }
   }
@@ -170,11 +192,8 @@ export function createGraftServer(): GraftServer {
       if (handler === undefined) {
         throw new Error(`Unknown tool: ${name}`);
       }
-      session.recordMessage();
-      session.recordToolCall(name);
       const schema = schemas.get(name);
-      const parsed: Record<string, unknown> = schema !== undefined ? schema.parse(args) : args;
-      return handler(parsed);
+      return invokeTool(name, handler, args, schema);
     },
     injectSessionMessages(count: number): void {
       for (let i = 0; i < count; i++) {

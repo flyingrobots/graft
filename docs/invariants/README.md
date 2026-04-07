@@ -30,6 +30,9 @@ it. Cycles under that legend must verify the invariant holds.
 - [receipt-always](receipt-always.md) — every MCP response has _receipt
 - [decision-logged](decision-logged.md) — every policy decision hits NDJSON log
 
+### Surfaces (CORE)
+- [cli-mcp-feature-parity](cli-mcp-feature-parity.md) — product-facing CLI and MCP capabilities stay aligned
+
 ### Session (CORE)
 - [depth-monotonic](depth-monotonic.md) — session depth never decreases
 - [tripwire-thresholds](tripwire-thresholds.md) — tripwires fire at documented values

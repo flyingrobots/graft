@@ -4,7 +4,6 @@ import { listProjectFiles } from "./git-files.js";
 import {
   evaluatePrecisionPolicy,
   getIndexedCommitCeilings,
-  isWorkingTreeDirty,
   loadFileContent,
   normalizeRepoPath,
   type PrecisionSymbolMatch,
@@ -31,11 +30,13 @@ export const codeFindTool: ToolDefinition = {
       const kindFilter = args["kind"] as string | undefined;
       const rawPath = (args["path"] as string | undefined) ?? "";
       const dirPath = rawPath.length > 0 ? normalizeRepoPath(ctx.projectRoot, rawPath) : "";
+      const repoState = ctx.getRepoState();
+      const layer = repoState.dirty ? "workspace_overlay" : "ref_view";
 
       let allMatches: PrecisionSymbolMatch[] = [];
       let source: "warp" | "live" = "live";
 
-      if (!isWorkingTreeDirty(ctx.projectRoot)) {
+      if (!repoState.dirty) {
         try {
           const warp = await ctx.getWarp();
           const ceilings = await getIndexedCommitCeilings(warp);
@@ -84,6 +85,7 @@ export const codeFindTool: ToolDefinition = {
         matches: visibleMatches,
         total: visibleMatches.length,
         source,
+        layer,
       });
     };
   },

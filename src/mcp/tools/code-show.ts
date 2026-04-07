@@ -33,6 +33,12 @@ export const codeShowTool: ToolDefinition = {
       const rawPath = args["path"] as string | undefined;
       const ref = args["ref"] as string | undefined;
       const targetPath = rawPath !== undefined ? normalizeRepoPath(ctx.projectRoot, rawPath) : undefined;
+      const repoState = ctx.getRepoState();
+      const layer = ref !== undefined
+        ? "commit_worldline"
+        : repoState.dirty
+          ? "workspace_overlay"
+          : "ref_view";
 
       let resolvedRef: string | undefined;
       if (ref !== undefined) {
@@ -44,6 +50,7 @@ export const codeShowTool: ToolDefinition = {
             symbol: symbolName,
             error: message,
             source: "live",
+            layer,
           });
         }
       }
@@ -61,6 +68,7 @@ export const codeShowTool: ToolDefinition = {
               symbol: symbolName,
               error: message,
               source: "live",
+              layer,
             });
           }
         }
@@ -149,6 +157,7 @@ export const codeShowTool: ToolDefinition = {
             next: [...firstRefusal.next],
             actual: firstRefusal.actual,
             source,
+            layer,
           });
         }
 
@@ -156,6 +165,7 @@ export const codeShowTool: ToolDefinition = {
           symbol: symbolName,
           error: `Symbol '${symbolName}' not found`,
           source,
+          layer,
         });
       }
 
@@ -165,6 +175,7 @@ export const codeShowTool: ToolDefinition = {
           ambiguous: true,
           matches: visibleLocations,
           source,
+          layer,
         });
       }
 
@@ -178,6 +189,7 @@ export const codeShowTool: ToolDefinition = {
           exported: loc?.exported,
           error: "Symbol found but line range unavailable — use read_range with file_outline",
           source,
+          layer,
         });
       }
 
@@ -187,6 +199,7 @@ export const codeShowTool: ToolDefinition = {
           symbol: symbolName,
           error: `File '${loc.path}' is no longer readable`,
           source,
+          layer,
         });
       }
 
@@ -206,6 +219,7 @@ export const codeShowTool: ToolDefinition = {
         truncated: rangeResult.truncated ?? false,
         ...(rangeResult.clipped === true ? { clipped: true } : {}),
         source,
+        layer,
       });
     };
   },
