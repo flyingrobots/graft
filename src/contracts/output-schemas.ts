@@ -242,6 +242,34 @@ const burdenSummarySchema = z.object({
   topCalls: z.number().int().nonnegative(),
 }).strict();
 
+const workspaceCapabilityProfileSchema = z.object({
+  boundedReads: z.boolean(),
+  structuralTools: z.boolean(),
+  precisionTools: z.boolean(),
+  stateBookmarks: z.boolean(),
+  runtimeLogs: z.literal("session_local_only"),
+  runCapture: z.boolean(),
+}).strict();
+
+const workspaceStatusSchema = z.object({
+  sessionMode: z.enum(["repo_local", "daemon"]),
+  bindState: z.enum(["bound", "unbound"]),
+  repoId: z.string().nullable(),
+  worktreeId: z.string().nullable(),
+  worktreeRoot: z.string().nullable(),
+  gitCommonDir: z.string().nullable(),
+  graftDir: z.string().nullable(),
+  capabilityProfile: workspaceCapabilityProfileSchema.nullable(),
+}).strict();
+
+const workspaceActionSchema = workspaceStatusSchema.extend({
+  ok: z.boolean(),
+  action: z.enum(["bind", "rebind"]),
+  freshSessionSlice: z.boolean(),
+  errorCode: z.string().optional(),
+  error: z.string().optional(),
+}).strict();
+
 function extendWithCommonFields(
   schema: z.ZodType,
   common: z.ZodRawShape,
@@ -420,6 +448,13 @@ const mcpOutputBodySchemas: Record<McpToolName, z.ZodType> = {
     provenance: codeRefsProvenanceSchema,
     layer: worldlineLayerSchema,
   }).strict(),
+  workspace_bind: workspaceActionSchema.extend({
+    action: z.literal("bind"),
+  }).strict(),
+  workspace_status: workspaceStatusSchema,
+  workspace_rebind: workspaceActionSchema.extend({
+    action: z.literal("rebind"),
+  }).strict(),
   run_capture: z.object({
     output: z.string(),
     totalLines: z.number().int().nonnegative(),
@@ -485,6 +520,9 @@ export const MCP_OUTPUT_SCHEMAS: Record<McpToolName, z.ZodType> = {
   code_show: withMcpCommon("code_show", mcpOutputBodySchemas.code_show),
   code_find: withMcpCommon("code_find", mcpOutputBodySchemas.code_find),
   code_refs: withMcpCommon("code_refs", mcpOutputBodySchemas.code_refs),
+  workspace_bind: withMcpCommon("workspace_bind", mcpOutputBodySchemas.workspace_bind),
+  workspace_status: withMcpCommon("workspace_status", mcpOutputBodySchemas.workspace_status),
+  workspace_rebind: withMcpCommon("workspace_rebind", mcpOutputBodySchemas.workspace_rebind),
   run_capture: withMcpCommon("run_capture", mcpOutputBodySchemas.run_capture),
   state_save: withMcpCommon("state_save", mcpOutputBodySchemas.state_save),
   state_load: withMcpCommon("state_load", mcpOutputBodySchemas.state_load),

@@ -16,6 +16,11 @@ import type { RepoObservation } from "./repo-state.js";
 import type { RunCaptureConfig } from "./run-capture-config.js";
 import type { RuntimeObservabilityState } from "./runtime-observability.js";
 import type { McpToolName } from "../contracts/output-schemas.js";
+import type {
+  WorkspaceActionResult,
+  WorkspaceBindRequest,
+  WorkspaceStatus,
+} from "./workspace-router.js";
 
 import type { z } from "zod";
 
@@ -46,6 +51,9 @@ export interface ToolContext {
   resolvePath(relative: string): string;
   getWarp(): Promise<WarpApp>;
   getRepoState(): RepoObservation;
+  getWorkspaceStatus(): WorkspaceStatus;
+  bindWorkspace(request: WorkspaceBindRequest, actionName: string): Promise<WorkspaceActionResult>;
+  rebindWorkspace(request: WorkspaceBindRequest, actionName: string): Promise<WorkspaceActionResult>;
 }
 
 /**

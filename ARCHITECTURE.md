@@ -303,6 +303,8 @@ Future local shared-daemon path:
 - daemon sessions start unbound
 - a daemon-only workspace bind step resolves repo/worktree identity
   server-side before repo-scoped tools run
+- the server now has an internal daemon session mode that makes this
+  bind/status/rebind contract real before a transport is added
 - state splits cleanly across:
   - canonical repo identity and default WARP ownership (`git common
     dir`)

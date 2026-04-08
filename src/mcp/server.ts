@@ -3,14 +3,10 @@ import * as crypto from "node:crypto";
 import * as path from "node:path";
 import { z } from "zod";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
-import { SessionTracker } from "../session/tracker.js";
-import { Metrics } from "./metrics.js";
-import { ObservationCache } from "./cache.js";
 import { buildReceiptResult } from "./receipt.js";
 import type { ToolHandler, ToolContext, ToolDefinition } from "./context.js";
-import { createPathResolver } from "./context.js";
 import type { McpToolResult } from "./receipt.js";
-import { evaluateMcpPolicy, loadProjectGraftignore } from "./policy.js";
+import { evaluateMcpPolicy } from "./policy.js";
 import { nodeFs } from "../adapters/node-fs.js";
 import { CanonicalJsonCodec } from "../adapters/canonical-json.js";
 import { nodeProcessRunner } from "../adapters/node-process-runner.js";
@@ -18,9 +14,14 @@ import { nodeGit } from "../adapters/node-git.js";
 import { RefusedResult } from "../policy/types.js";
 import type WarpApp from "@git-stunts/git-warp";
 import { openWarp } from "../warp/open.js";
-import { RepoStateTracker } from "./repo-state.js";
 import type { RunCaptureConfig } from "./run-capture-config.js";
 import { resolveRunCaptureConfig } from "./run-capture-config.js";
+import {
+  WorkspaceBindingRequiredError,
+  WorkspaceCapabilityDeniedError,
+  WorkspaceRouter,
+  type WorkspaceSessionMode,
+} from "./workspace-router.js";
 import {
   RuntimeEventLogger,
   classifyRuntimeFailure,
@@ -47,6 +48,9 @@ import { mapTool } from "./tools/map.js";
 import { codeShowTool } from "./tools/code-show.js";
 import { codeFindTool } from "./tools/code-find.js";
 import { codeRefsTool } from "./tools/code-refs.js";
+import { workspaceBindTool } from "./tools/workspace-bind.js";
+import { workspaceStatusTool } from "./tools/workspace-status.js";
+import { workspaceRebindTool } from "./tools/workspace-rebind.js";
 
 export type { McpToolResult, ToolHandler, ToolContext };
 
@@ -71,6 +75,17 @@ export const TOOL_REGISTRY: readonly ToolDefinition[] = [
   codeRefsTool,
 ];
 
+export const DAEMON_TOOL_REGISTRY: readonly ToolDefinition[] = [
+  workspaceBindTool,
+  workspaceStatusTool,
+  workspaceRebindTool,
+];
+
+export const ALL_TOOL_REGISTRY: readonly ToolDefinition[] = [
+  ...TOOL_REGISTRY,
+  ...DAEMON_TOOL_REGISTRY,
+];
+
 export interface GraftServer {
   getRegisteredTools(): string[];
   callTool(name: string, args: Record<string, unknown>): Promise<McpToolResult>;
@@ -79,6 +94,7 @@ export interface GraftServer {
 }
 
 export interface CreateGraftServerOptions {
+  mode?: WorkspaceSessionMode;
   projectRoot?: string;
   graftDir?: string;
   env?: Readonly<Record<string, string | undefined>>;
@@ -88,13 +104,14 @@ export interface CreateGraftServerOptions {
 
 export function createGraftServer(options: CreateGraftServerOptions = {}): GraftServer {
   const mcpServer = new McpServer({ name: "graft", version: "0.0.0" });
-  const session = new SessionTracker();
   const sessionId = crypto.randomUUID();
-  const projectRoot = options.projectRoot ?? process.cwd();
-  const graftDir = options.graftDir ?? path.join(projectRoot, ".graft");
-  const graftignorePatterns = loadProjectGraftignore(nodeFs, projectRoot);
-  const metrics = new Metrics();
-  const cache = new ObservationCache();
+  const mode = options.mode ?? "repo_local";
+  const projectRoot = mode === "repo_local" ? (options.projectRoot ?? process.cwd()) : options.projectRoot;
+  const graftDir = options.graftDir
+    ?? (mode === "repo_local" && projectRoot !== undefined ? path.join(projectRoot, ".graft") : undefined);
+  if (graftDir === undefined) {
+    throw new Error("daemon mode requires an explicit graftDir");
+  }
   const codec = new CanonicalJsonCodec();
   const runCapture = resolveRunCaptureConfig({
     ...(options.env !== undefined ? { env: options.env } : {}),
@@ -111,20 +128,27 @@ export function createGraftServer(options: CreateGraftServerOptions = {}): Graft
     logPath: observability.logPath,
     maxBytes: observability.maxBytes,
   });
-  const runtimeReady = ensureGraftDirExcluded(projectRoot, graftDir, nodeFs);
+  const runtimeReady = mode === "repo_local" && projectRoot !== undefined
+    ? ensureGraftDirExcluded(projectRoot, graftDir, nodeFs)
+    : Promise.resolve();
   const handlers = new Map<string, ToolHandler>();
   const schemas = new Map<string, z.ZodObject>();
-  const repoState = new RepoStateTracker(projectRoot, nodeGit);
   const invocationStorage = new AsyncLocalStorage<{
     readonly traceId: string;
     readonly startedAtMs: number;
     response?: { readonly receipt: import("./receipt.js").McpToolReceipt; readonly tripwireSignals: readonly string[] };
   }>();
   let seq = 0;
+  const workspaceRouter = new WorkspaceRouter({
+    mode,
+    fs: nodeFs,
+    git: nodeGit,
+    graftDir,
+    ...(projectRoot !== undefined ? { projectRoot } : {}),
+    createWarp: (cwd: string) => openWarp({ cwd }),
+  });
 
-  async function emitRuntimeEvent(
-    event: Parameters<RuntimeEventLogger["log"]>[0],
-  ): Promise<void> {
+  async function emitRuntimeEvent(event: Parameters<RuntimeEventLogger["log"]>[0]): Promise<void> {
     try {
       await runtimeReady;
       await runtimeLogger.log(event);
@@ -139,6 +163,8 @@ export function createGraftServer(options: CreateGraftServerOptions = {}): Graft
       throw new Error("MCP respond() called outside an active invocation");
     }
     seq++;
+    const session = workspaceRouter.session;
+    const metrics = workspaceRouter.metrics;
     const tripwires = session.checkTripwires();
     const { result, textBytes, receipt } = buildReceiptResult(tool, data, {
       sessionId,
@@ -159,36 +185,64 @@ export function createGraftServer(options: CreateGraftServerOptions = {}): Graft
     return result;
   }
 
-  // Lazy WARP initialization — only loaded when a WARP-backed tool needs it.
-  // Single pending promise prevents duplicate instances from concurrent calls.
-  // On rejection, clear cache so subsequent calls can retry.
-  let warpPromise: Promise<WarpApp> | null = null;
-  function getWarp(): Promise<WarpApp> {
-    warpPromise ??= openWarp({ cwd: projectRoot }).catch((err: unknown) => {
-      warpPromise = null;
-      throw err;
-    });
-    return warpPromise;
-  }
-
   const ctx: ToolContext = {
-    projectRoot,
-    graftDir,
-    graftignorePatterns,
-    session,
-    cache,
-    metrics,
+    get projectRoot(): string {
+      return workspaceRouter.getProjectRoot();
+    },
+    get graftDir(): string {
+      return workspaceRouter.graftDir;
+    },
+    get graftignorePatterns(): readonly string[] {
+      return workspaceRouter.getGraftignorePatterns();
+    },
+    get session() {
+      return workspaceRouter.session;
+    },
+    get cache() {
+      return workspaceRouter.cache;
+    },
+    get metrics() {
+      return workspaceRouter.metrics;
+    },
     respond,
-    resolvePath: createPathResolver(projectRoot),
+    resolvePath(relative: string): string {
+      return workspaceRouter.getPathResolver()(relative);
+    },
     fs: nodeFs,
     codec,
     process: nodeProcessRunner,
     git: nodeGit,
     runCapture,
     observability,
-    getWarp,
-    getRepoState: () => repoState.getState(),
+    getWarp(): Promise<WarpApp> {
+      return workspaceRouter.getWarp();
+    },
+    getRepoState() {
+      return workspaceRouter.getRepoState();
+    },
+    getWorkspaceStatus() {
+      return workspaceRouter.getStatus();
+    },
+    bindWorkspace(request, actionName) {
+      return workspaceRouter.bind(request, actionName);
+    },
+    rebindWorkspace(request, actionName) {
+      return workspaceRouter.rebind(request, actionName);
+    },
   };
+
+  function enforceDaemonToolAccess(name: string): void {
+    if (mode !== "daemon") return;
+    if (name === "workspace_bind" || name === "workspace_status" || name === "workspace_rebind" || name === "explain") {
+      return;
+    }
+    if (!workspaceRouter.isBound()) {
+      throw new WorkspaceBindingRequiredError(name);
+    }
+    if (name === "run_capture") {
+      throw new WorkspaceCapabilityDeniedError(name);
+    }
+  }
 
   async function invokeTool(
     name: string,
@@ -197,8 +251,8 @@ export function createGraftServer(options: CreateGraftServerOptions = {}): Graft
     schema?: z.ZodObject,
   ): Promise<McpToolResult> {
     await runtimeReady;
-    session.recordMessage();
-    session.recordToolCall(name);
+    workspaceRouter.session.recordMessage();
+    workspaceRouter.session.recordToolCall(name);
     const traceId = crypto.randomUUID();
     const startedAtMs = Date.now();
     const argKeys = sanitizeArgKeys(args);
@@ -210,7 +264,7 @@ export function createGraftServer(options: CreateGraftServerOptions = {}): Graft
         traceId,
         tool: name,
         argKeys,
-        sessionDepth: session.getSessionDepth(),
+        sessionDepth: workspaceRouter.session.getSessionDepth(),
       });
     }
 
@@ -223,7 +277,10 @@ export function createGraftServer(options: CreateGraftServerOptions = {}): Graft
     try {
       const result = await invocationStorage.run(invocation, async () => {
         const parsed: Record<string, unknown> = schema !== undefined ? schema.parse(args) : args;
-        repoState.observe();
+        enforceDaemonToolAccess(name);
+        if (workspaceRouter.isBound() && name !== "explain" && name !== "workspace_status") {
+          workspaceRouter.observeRepoState();
+        }
         return handler(parsed);
       });
 
@@ -241,7 +298,7 @@ export function createGraftServer(options: CreateGraftServerOptions = {}): Graft
           nonReadBurden: invocation.response.receipt.burden.nonRead,
           returnedBytes: invocation.response.receipt.returnedBytes,
           fileBytes: invocation.response.receipt.fileBytes,
-          sessionDepth: session.getSessionDepth(),
+          sessionDepth: workspaceRouter.session.getSessionDepth(),
           tripwireSignals: invocation.response.tripwireSignals,
           metrics: invocation.response.receipt.cumulative,
         });
@@ -257,7 +314,7 @@ export function createGraftServer(options: CreateGraftServerOptions = {}): Graft
           traceId,
           tool: name,
           latencyMs: Date.now() - startedAtMs,
-          sessionDepth: session.getSessionDepth(),
+          sessionDepth: workspaceRouter.session.getSessionDepth(),
           argKeys,
           errorKind: failure.kind,
           errorName: failure.name,
@@ -282,7 +339,7 @@ export function createGraftServer(options: CreateGraftServerOptions = {}): Graft
       const actual = { lines: content.split("\n").length, bytes: Buffer.byteLength(content) };
       const policy = evaluateMcpPolicy(ctx, filePath, actual);
       if (policy instanceof RefusedResult) {
-        metrics.recordRefusal();
+        ctx.metrics.recordRefusal();
         return respond(toolName, {
           path: filePath,
           projection: "refused",
@@ -296,7 +353,9 @@ export function createGraftServer(options: CreateGraftServerOptions = {}): Graft
     };
   }
 
-  for (const def of TOOL_REGISTRY) {
+  const activeToolRegistry = mode === "daemon" ? ALL_TOOL_REGISTRY : TOOL_REGISTRY;
+
+  for (const def of activeToolRegistry) {
     const rawHandler = def.createHandler(ctx);
     const handler = def.policyCheck === true ? wrapWithPolicyCheck(def.name, rawHandler) : rawHandler;
     handlers.set(def.name, handler);
@@ -337,7 +396,7 @@ export function createGraftServer(options: CreateGraftServerOptions = {}): Graft
     },
     injectSessionMessages(count: number): void {
       for (let i = 0; i < count; i++) {
-        session.recordMessage();
+        workspaceRouter.session.recordMessage();
       }
     },
     getMcpServer(): McpServer {

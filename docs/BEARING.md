@@ -54,6 +54,12 @@ explicit bind/rebind contract, separate transport posture, and a clean
 identity split across canonical repo, live worktree, and session-local
 state.
 
+Cycle 0052 — daemon binding surface: the MCP server now has an internal
+daemon session mode with real `workspace_bind`, `workspace_status`, and
+`workspace_rebind` tools, unbound gating for repo-scoped tools, default
+run-capture denial in daemon mode, fresh session-local slice reset on
+rebind, and same-repo WARP reuse keyed by canonical repo identity.
+
 ## What feels wrong
 
 - WARP indexing is slow on large repos — `core().materialize()`

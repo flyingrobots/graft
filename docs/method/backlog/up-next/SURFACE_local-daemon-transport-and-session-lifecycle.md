@@ -25,7 +25,7 @@ Desired end state:
 
 Related:
 - `docs/design/0051-system-wide-mcp-daemon-and-workspace-binding/system-wide-mcp-daemon-and-workspace-binding.md`
-- `docs/method/backlog/up-next/SURFACE_workspace-bind-and-routing-surface.md`
+- `docs/design/0052-workspace-bind-and-routing-surface/workspace-bind-and-routing-surface.md`
 - `docs/method/backlog/up-next/SURFACE_system-wide-control-plane-for-persistent-monitors.md`
 - `docs/method/backlog/up-next/WARP_same-repo-concurrent-agent-model.md`
 

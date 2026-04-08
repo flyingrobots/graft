@@ -126,6 +126,21 @@ trust model into an actual routing contract:
 This keeps the daemon roadmap concrete without pretending the daemon
 transport already ships.
 
+Cycle `0052-workspace-bind-and-routing-surface` made the routing
+contract real inside the MCP server:
+
+- daemon mode now exposes `workspace_bind`, `workspace_status`, and
+  `workspace_rebind`
+- daemon sessions now start unbound and deny repo-scoped tools until a
+  bind succeeds
+- successful rebind starts a fresh session-local slice, so cache,
+  budget, and saved state do not silently carry across worktrees
+- same-repo bindings now keep canonical repo identity stable and reuse
+  one repo-scoped WARP handle by default inside the daemon server
+
+This keeps the daemon work honest in code before any transport or
+control-plane story is added.
+
 ## Ranked queue
 
 No remaining above-the-line work is required before the next release.
@@ -133,10 +148,10 @@ No remaining above-the-line work is required before the next release.
 If we choose to keep pushing before cutting the packet, the next
 candidate is:
 
-1. [SURFACE_workspace-bind-and-routing-surface.md](backlog/up-next/SURFACE_workspace-bind-and-routing-surface.md)
-   The routing contract is designed now, so the next highest-leverage
-   move is to implement the daemon-only bind/status/rebind surface and
-   make unbound versus bound session behavior real.
+1. [SURFACE_local-daemon-transport-and-session-lifecycle.md](backlog/up-next/SURFACE_local-daemon-transport-and-session-lifecycle.md)
+   The binding surface is now real inside the server, so the next
+   highest-leverage move is to add the explicit local-only daemon
+   runtime path and session lifecycle around it.
 
 ## Below the cut line
 
@@ -147,7 +162,6 @@ the next packet:
 - [SURFACE_local-daemon-transport-and-session-lifecycle.md](backlog/up-next/SURFACE_local-daemon-transport-and-session-lifecycle.md)
 - [SURFACE_system-wide-control-plane-for-persistent-monitors.md](backlog/up-next/SURFACE_system-wide-control-plane-for-persistent-monitors.md)
 - [SURFACE_system-wide-multi-repo-agent-coordination.md](backlog/up-next/SURFACE_system-wide-multi-repo-agent-coordination.md)
-- [SURFACE_workspace-bind-and-routing-surface.md](backlog/up-next/SURFACE_workspace-bind-and-routing-surface.md)
 - [CLEAN_CODE_mcp-server.md](backlog/bad-code/CLEAN_CODE_mcp-server.md)
 - [CLEAN_CODE_mcp-repo-state.md](backlog/bad-code/CLEAN_CODE_mcp-repo-state.md)
 - [WARP_name-based-symbol-matching.md](backlog/bad-code/WARP_name-based-symbol-matching.md)

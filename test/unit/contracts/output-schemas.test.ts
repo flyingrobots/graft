@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it } from "vitest";
 import * as fs from "node:fs";
 import * as path from "node:path";
-import { TOOL_REGISTRY, createGraftServer } from "../../../src/mcp/server.js";
+import { ALL_TOOL_REGISTRY, createGraftServer } from "../../../src/mcp/server.js";
 import {
   CLI_COMMAND_NAMES,
   CLI_OUTPUT_SCHEMAS,
@@ -41,6 +41,13 @@ function createServerInRepo(repoDir: string) {
   });
 }
 
+function createDaemonServer(graftDir: string) {
+  return createGraftServer({
+    mode: "daemon",
+    graftDir,
+  });
+}
+
 async function runCliJson(cwd: string, args: readonly string[]): Promise<Record<string, unknown>> {
   const stdout = createBufferWriter();
   const stderr = createBufferWriter();
@@ -59,7 +66,7 @@ describe("contracts: output schemas", () => {
   });
 
   it("declares an MCP output schema for every registered tool", () => {
-    expect(new Set(MCP_TOOL_NAMES)).toEqual(new Set(TOOL_REGISTRY.map((tool) => tool.name)));
+    expect(new Set(MCP_TOOL_NAMES)).toEqual(new Set(ALL_TOOL_REGISTRY.map((tool) => tool.name)));
   });
 
   it("exports JSON Schema objects for every MCP tool and CLI command", () => {
@@ -113,6 +120,10 @@ describe("contracts: output schemas", () => {
     ].join("\n"));
 
     const server = createServerInRepo(repoDir);
+    const daemonServer = createDaemonServer(path.join(repoDir, ".graft-daemon"));
+    const daemonStatus = parse(await daemonServer.callTool("workspace_status", {}));
+    const daemonBind = parse(await daemonServer.callTool("workspace_bind", { cwd: repoDir }));
+    const daemonRebind = parse(await daemonServer.callTool("workspace_rebind", { cwd: repoDir }));
 
     const outputs = {
       safe_read: parse(await server.callTool("safe_read", { path: "app.ts" })),
@@ -125,6 +136,9 @@ describe("contracts: output schemas", () => {
       code_show: parse(await server.callTool("code_show", { symbol: "greet", path: "app.ts" })),
       code_find: parse(await server.callTool("code_find", { query: "greet*" })),
       code_refs: parse(await server.callTool("code_refs", { query: "greet", mode: "call" })),
+      workspace_bind: daemonBind,
+      workspace_status: daemonStatus,
+      workspace_rebind: daemonRebind,
       run_capture: parse(await server.callTool("run_capture", { command: "printf 'ok'", tail: 1 })),
       state_save: parse(await server.callTool("state_save", { content: "current task" })),
       state_load: parse(await server.callTool("state_load", {})),
