@@ -1,4 +1,5 @@
 import { CanonicalJsonCodec } from "../adapters/canonical-json.js";
+import { nodeGit } from "../adapters/node-git.js";
 import { attachCliSchemaMeta, validateCliOutput } from "../contracts/output-schemas.js";
 import { indexCommits } from "../warp/indexer.js";
 import { openWarp } from "../warp/open.js";
@@ -48,7 +49,11 @@ export async function runIndex(options: RunIndexOptions = {}): Promise<void> {
 
   try {
     const warp = await openWarp({ cwd });
-    const result = await indexCommits(warp, { cwd, ...(from !== null ? { from } : {}) });
+    const result = await indexCommits(warp, {
+      cwd,
+      git: nodeGit,
+      ...(from !== null ? { from } : {}),
+    });
 
     if (json) {
       emitIndexJson({

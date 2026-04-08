@@ -7,7 +7,7 @@
  */
 
 import type WarpApp from "@git-stunts/git-warp";
-import { execFileSync } from "node:child_process";
+import type { GitClient } from "../ports/git.js";
 import { extractOutline } from "../parser/outline.js";
 import { diffOutlines } from "../parser/diff.js";
 import { detectLang } from "../parser/lang.js";
@@ -17,6 +17,7 @@ import type { DiffEntry } from "../parser/diff.js";
 
 export interface IndexOptions {
   readonly cwd: string;
+  readonly git: GitClient;
   readonly from?: string;
   readonly to?: string;
 }
@@ -36,22 +37,30 @@ interface PatchOps {
   removeEdge(from: string, to: string, label: string): PatchOps;
 }
 
-function listCommits(cwd: string, from?: string, to?: string): string[] {
+function git(gitClient: GitClient, cwd: string, args: readonly string[]): string {
+  const result = gitClient.run({ cwd, args });
+  if (result.error !== undefined || result.status !== 0) {
+    throw result.error ?? new Error(result.stderr.trim() || `git exited with status ${String(result.status)}`);
+  }
+  return result.stdout;
+}
+
+function listCommits(gitClient: GitClient, cwd: string, from?: string, to?: string): string[] {
   const range = from !== undefined ? `${from}..${to ?? "HEAD"}` : to ?? "HEAD";
   const args = ["log", "--reverse", "--format=%H", range];
   try {
-    return execFileSync("git", args, { cwd, encoding: "utf-8", stdio: ["pipe", "pipe", "pipe"] })
+    return git(gitClient, cwd, args)
       .trim().split("\n").filter((l) => l.length > 0);
   } catch {
     return [];
   }
 }
 
-function getCommitChanges(sha: string, cwd: string): { status: string; path: string }[] {
+function getCommitChanges(gitClient: GitClient, sha: string, cwd: string): { status: string; path: string }[] {
   // --root handles the initial commit (no parent to diff against)
   const args = ["diff-tree", "--root", "--no-commit-id", "-r", "--name-status", sha];
   try {
-    return execFileSync("git", args, { cwd, encoding: "utf-8", stdio: ["pipe", "pipe", "pipe"] })
+    return git(gitClient, cwd, args)
       .trim().split("\n").filter((l) => l.length > 0).map((line) => {
         const parts = line.split("\t");
         return { status: parts[0] ?? "", path: parts[1] ?? "" };
@@ -61,9 +70,13 @@ function getCommitChanges(sha: string, cwd: string): { status: string; path: str
   }
 }
 
-function getCommitMeta(sha: string, cwd: string): { message: string; author: string; email: string; timestamp: string } {
+function getCommitMeta(
+  gitClient: GitClient,
+  sha: string,
+  cwd: string,
+): { message: string; author: string; email: string; timestamp: string } {
   try {
-    const output = execFileSync("git", ["log", "-1", "--format=%s%n%aN%n%aE%n%aI", sha], { cwd, encoding: "utf-8", stdio: ["pipe", "pipe", "pipe"] });
+    const output = git(gitClient, cwd, ["log", "-1", "--format=%s%n%aN%n%aE%n%aI", sha]);
     const lines = output.trim().split("\n");
     return { message: lines[0] ?? "", author: lines[1] ?? "", email: lines[2] ?? "", timestamp: lines[3] ?? "" };
   } catch {
@@ -74,9 +87,9 @@ function getCommitMeta(sha: string, cwd: string): { message: string; author: str
 /**
  * Check if a commit has a parent (is not the root commit).
  */
-function hasParent(sha: string, cwd: string): boolean {
+function hasParent(gitClient: GitClient, sha: string, cwd: string): boolean {
   try {
-    execFileSync("git", ["rev-parse", "--verify", `${sha}~1`], { cwd, encoding: "utf-8", stdio: ["pipe", "pipe", "pipe"] });
+    git(gitClient, cwd, ["rev-parse", "--verify", `${sha}~1`]);
     return true;
   } catch {
     return false;
@@ -269,14 +282,14 @@ export async function indexCommits(
   warp: WarpApp,
   options: IndexOptions,
 ): Promise<IndexResult> {
-  const { cwd } = options;
-  const commits = listCommits(cwd, options.from, options.to);
+  const { cwd, git: gitClient } = options;
+  const commits = listCommits(gitClient, cwd, options.from, options.to);
 
   let patchesWritten = 0;
   const commitTicks = new Map<string, number>();
 
   for (const sha of commits) {
-    const changes = getCommitChanges(sha, cwd);
+    const changes = getCommitChanges(gitClient, sha, cwd);
 
     // Only materialize when removals are possible (D or M status).
     // Materialization is expensive — O(n) replay of all prior patches.
@@ -286,8 +299,8 @@ export async function indexCommits(
       await warp.core().materialize();
     }
 
-    const meta = getCommitMeta(sha, cwd);
-    const parentExists = hasParent(sha, cwd);
+    const meta = getCommitMeta(gitClient, sha, cwd);
+    const parentExists = hasParent(gitClient, sha, cwd);
     const parentRef = `${sha}~1`;
 
     await warp.patch((p) => {
@@ -308,7 +321,7 @@ export async function indexCommits(
 
         if (change.status === "D") {
           if (lang !== null && parentExists) {
-            const oldContent = getFileAtRef(parentRef, filePath, cwd);
+            const oldContent = getFileAtRef(parentRef, filePath, { cwd, git: gitClient });
             if (oldContent !== null) {
               const oldOutline = extractOutline(oldContent, lang).entries;
               removeSymbols(patch, filePath, oldOutline);
@@ -327,7 +340,7 @@ export async function indexCommits(
 
         if (lang === null) continue;
 
-        const newContent = getFileAtRef(sha, filePath, cwd);
+        const newContent = getFileAtRef(sha, filePath, { cwd, git: gitClient });
         if (newContent === null) continue;
         const newResult = extractOutline(newContent, lang);
         const newOutline = newResult.entries;
@@ -338,7 +351,7 @@ export async function indexCommits(
           emitSymbols(patch, filePath, newOutline, jumpLookup);
         } else {
           // Modified file — structural diff
-          const oldContent = getFileAtRef(parentRef, filePath, cwd);
+          const oldContent = getFileAtRef(parentRef, filePath, { cwd, git: gitClient });
           if (oldContent === null) {
             emitSymbols(patch, filePath, newOutline, jumpLookup);
             continue;

@@ -44,7 +44,7 @@ export const codeShowTool: ToolDefinition = {
       let resolvedRef: string | undefined;
       if (ref !== undefined) {
         try {
-          resolvedRef = resolveGitRef(ref, ctx.projectRoot);
+          resolvedRef = resolveGitRef(ref, ctx.git, ctx.projectRoot);
         } catch (err: unknown) {
           const message = err instanceof Error ? err.message : String(err);
           return ctx.respond("code_show", {
@@ -89,7 +89,7 @@ export const codeShowTool: ToolDefinition = {
           } else {
             const filePaths = repoPath !== undefined
               ? [repoPath]
-              : listTrackedFilesAtRef("", ctx.projectRoot, resolvedRef);
+              : listTrackedFilesAtRef("", ctx.git, ctx.projectRoot, resolvedRef);
             locations = searchLiveSymbols(
               ctx,
               filePaths,
@@ -103,7 +103,7 @@ export const codeShowTool: ToolDefinition = {
           const repoPath = targetPath !== undefined ? requireRepoPath(ctx.projectRoot, targetPath) : undefined;
           const filePaths = repoPath !== undefined
             ? [repoPath]
-            : listTrackedFilesAtRef("", ctx.projectRoot, resolvedRef);
+            : listTrackedFilesAtRef("", ctx.git, ctx.projectRoot, resolvedRef);
           locations = searchLiveSymbols(
             ctx,
             filePaths,
@@ -117,7 +117,7 @@ export const codeShowTool: ToolDefinition = {
       } else {
         const filePaths = targetPath !== undefined
           ? [targetPath]
-          : listProjectFiles("", ctx.projectRoot);
+          : listProjectFiles("", ctx.projectRoot, ctx.git);
         locations = searchLiveSymbols(
           ctx,
           filePaths,

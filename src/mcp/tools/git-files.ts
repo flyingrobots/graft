@@ -1,4 +1,4 @@
-import { execFileSync } from "node:child_process";
+import type { GitClient } from "../../ports/git.js";
 
 type GitFileListMode = "tracked" | "project";
 
@@ -49,13 +49,13 @@ export class GitFileList {
   }
 }
 
-export function listGitFiles(query: GitFileQuery): GitFileList {
+export function listGitFiles(query: GitFileQuery, git: GitClient): GitFileList {
   try {
-    const output = execFileSync("git", query.toArgs(), {
-      cwd: query.cwd,
-      encoding: "utf-8",
-      stdio: ["pipe", "pipe", "pipe"],
-    }).trim();
+    const result = git.run({ args: query.toArgs(), cwd: query.cwd });
+    if (result.error !== undefined || result.status !== 0) {
+      throw result.error ?? new Error(result.stderr.trim() || `git exited with status ${String(result.status)}`);
+    }
+    const output = result.stdout.trim();
     const paths = output.length === 0 ? [] : output.split("\n");
     return new GitFileList(paths);
   } catch (err: unknown) {
@@ -67,8 +67,8 @@ export function listGitFiles(query: GitFileQuery): GitFileList {
 /**
  * List git-tracked files, optionally scoped to a directory.
  */
-export function listTrackedFiles(dirPath: string, cwd: string): string[] {
-  return [...listGitFiles(GitFileQuery.tracked(cwd, dirPath)).paths];
+export function listTrackedFiles(dirPath: string, cwd: string, git: GitClient): string[] {
+  return [...listGitFiles(GitFileQuery.tracked(cwd, dirPath), git).paths];
 }
 
 /**
@@ -76,6 +76,6 @@ export function listTrackedFiles(dirPath: string, cwd: string): string[] {
  * Untracked files are included so live queries can see draft work before it
  * is staged or committed.
  */
-export function listProjectFiles(dirPath: string, cwd: string): string[] {
-  return [...listGitFiles(GitFileQuery.project(cwd, dirPath)).paths];
+export function listProjectFiles(dirPath: string, cwd: string, git: GitClient): string[] {
+  return [...listGitFiles(GitFileQuery.project(cwd, dirPath), git).paths];
 }

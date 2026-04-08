@@ -73,6 +73,19 @@ pre-release product/debt slice:
 This pays down the receipt seam enough to keep observability shippable
 without promoting the broader MCP context cleanup into a release bar.
 
+Cycle `0049-CODE_sync-child-process-request-path` finished the shell/git
+hexagonal cutover:
+
+- added explicit `ProcessRunner` and `GitClient` ports plus node
+  adapters
+- moved MCP request-path git and shell execution behind those ports
+- moved WARP indexing onto the same git seam
+- removed the remaining `node:path` imports from `src/operations`
+
+This retires:
+
+- `CLEAN_CODE_sync-child-process-request-path`
+
 ## Ranked queue
 
 No remaining above-the-line work is required before the next release.

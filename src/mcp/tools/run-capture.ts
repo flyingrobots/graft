@@ -1,5 +1,4 @@
 import * as path from "node:path";
-import { execFileSync } from "node:child_process";
 import { z } from "zod";
 import type { ToolDefinition, ToolContext, ToolHandler } from "../context.js";
 
@@ -22,6 +21,21 @@ function tailOutput(output: string, tail: number): {
     tailed: lines.slice(-tail).join("\n"),
     totalLines: lines.length,
   };
+}
+
+function renderCaptureError(result: {
+  readonly status: number | null;
+  readonly stderr: string;
+  readonly error?: Error;
+}): string {
+  if (result.error !== undefined) {
+    return result.error.message;
+  }
+  const stderr = result.stderr.trim();
+  if (stderr.length > 0) {
+    return stderr;
+  }
+  return `Command exited with status ${String(result.status)}`;
 }
 
 function redactForLog(output: string): {
@@ -93,24 +107,18 @@ export const runCaptureTool: ToolDefinition = {
           policyBoundary: RUN_CAPTURE_POLICY_BOUNDARY,
         });
       }
-      // execFileSync is intentional: MCP tool calls are sequential per-session,
-      // and synchronous execution simplifies stdout/stderr capture with timeout.
-      let output: string;
-      try {
-        output = execFileSync("sh", ["-c", command], {
-          cwd: ctx.projectRoot,
-          encoding: "utf-8",
-          timeout: 30000,
-          stdio: ["pipe", "pipe", "pipe"],
-          maxBuffer: 10 * 1024 * 1024,
-        });
-      } catch (err: unknown) {
-        const msg = err instanceof Error ? err.message : String(err);
-        const stdout = (err as { stdout?: string }).stdout ?? "";
-        const stderr = (err as { stderr?: string }).stderr ?? "";
-        const tailedOutput = typeof stdout === "string" ? tailOutput(stdout, tail) : { tailed: "", totalLines: 0 };
+      const result = ctx.process.run({
+        command: "sh",
+        args: ["-c", command],
+        cwd: ctx.projectRoot,
+        timeoutMs: 30000,
+        maxBufferBytes: 10 * 1024 * 1024,
+      });
+
+      if (result.error !== undefined || result.status !== 0) {
+        const tailedOutput = tailOutput(result.stdout, tail);
         return ctx.respond("run_capture", {
-          error: msg,
+          error: renderCaptureError(result),
           output: tailedOutput.tailed,
           totalLines: tailedOutput.totalLines,
           tailedLines: Math.min(tail, tailedOutput.totalLines),
@@ -118,11 +126,12 @@ export const runCaptureTool: ToolDefinition = {
           logRedactions: 0,
           logPersistenceEnabled: ctx.runCapture.persistLogs,
           truncated: tailedOutput.totalLines > tail,
-          stderr: typeof stderr === "string" ? stderr.slice(0, 2000) : "",
+          stderr: result.stderr.slice(0, 2000),
           policyBoundary: RUN_CAPTURE_POLICY_BOUNDARY,
         });
       }
 
+      const output = result.stdout;
       const tailedOutput = tailOutput(output, tail);
       const persisted = await persistCaptureLog(ctx, output);
       return ctx.respond("run_capture", {

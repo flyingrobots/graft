@@ -2,6 +2,7 @@ import { describe, it, expect } from "vitest";
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
+import { nodeGit } from "../../../src/adapters/node-git.js";
 import { createGraftServer } from "../../../src/mcp/server.js";
 import { collectSymbols } from "../../../src/mcp/tools/precision.js";
 import { git, createTestRepo, cleanupTestRepo } from "../../helpers/git.js";
@@ -105,7 +106,7 @@ describe("mcp: code_show", () => {
       git(tmpDir, "commit -m v2");
 
       const warp = await openWarp({ cwd: tmpDir });
-      await indexCommits(warp, { cwd: tmpDir });
+      await indexCommits(warp, { cwd: tmpDir, git: nodeGit });
 
       const server = createServerInRepo(tmpDir);
       const result = parse(await server.callTool("code_show", {
@@ -361,7 +362,7 @@ describe("mcp: code_find", () => {
       git(tmpDir, "commit -m init");
 
       const warp = await openWarp({ cwd: tmpDir });
-      await indexCommits(warp, { cwd: tmpDir });
+      await indexCommits(warp, { cwd: tmpDir, git: nodeGit });
 
       const server = createServerInRepo(tmpDir);
       const result = parse(await server.callTool("code_find", {
@@ -391,7 +392,7 @@ describe("mcp: code_find", () => {
       git(tmpDir, "commit -m init");
 
       const warp = await openWarp({ cwd: tmpDir });
-      await indexCommits(warp, { cwd: tmpDir });
+      await indexCommits(warp, { cwd: tmpDir, git: nodeGit });
 
       const server = createServerInRepo(tmpDir);
       const result = parse(await server.callTool("code_find", {
@@ -415,7 +416,7 @@ describe("mcp: code_find", () => {
       git(tmpDir, "commit -m init");
 
       const warp = await openWarp({ cwd: tmpDir });
-      await indexCommits(warp, { cwd: tmpDir });
+      await indexCommits(warp, { cwd: tmpDir, git: nodeGit });
 
       fs.writeFileSync(
         path.join(tmpDir, "src", "draft.ts"),

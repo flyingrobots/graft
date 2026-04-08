@@ -9,6 +9,8 @@ import type { SessionTracker } from "../session/tracker.js";
 import type { McpToolResult } from "./receipt.js";
 import type { FileSystem } from "../ports/filesystem.js";
 import type { JsonCodec } from "../ports/codec.js";
+import type { ProcessRunner } from "../ports/process-runner.js";
+import type { GitClient } from "../ports/git.js";
 import type WarpApp from "@git-stunts/git-warp";
 import type { RepoObservation } from "./repo-state.js";
 import type { RunCaptureConfig } from "./run-capture-config.js";
@@ -36,6 +38,8 @@ export interface ToolContext {
   readonly metrics: Metrics;
   readonly fs: FileSystem;
   readonly codec: JsonCodec;
+  readonly process: ProcessRunner;
+  readonly git: GitClient;
   readonly runCapture: RunCaptureConfig;
   readonly observability: RuntimeObservabilityState;
   respond(tool: McpToolName, data: Record<string, unknown>): McpToolResult;

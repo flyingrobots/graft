@@ -1,5 +1,5 @@
-import * as path from "node:path";
 import type { FileSystem } from "../ports/filesystem.js";
+import type { GitClient } from "../ports/git.js";
 import { getChangedFiles, getFileAtRef } from "../git/diff.js";
 import { detectLang } from "../parser/lang.js";
 import { extractOutline } from "../parser/outline.js";
@@ -41,6 +41,8 @@ export interface GraftDiffResult {
 export interface GraftDiffOptions {
   cwd: string;
   fs: FileSystem;
+  git: GitClient;
+  resolveWorkingTreePath: (filePath: string) => string;
   base?: string | undefined;
   head?: string | undefined;
   path?: string | undefined;
@@ -83,6 +85,7 @@ export function graftDiff(opts: GraftDiffOptions): GraftDiffResult {
 
   let changedFiles = getChangedFiles({
     cwd,
+    git: opts.git,
     base,
     head: opts.head,
   });
@@ -97,16 +100,15 @@ export function graftDiff(opts: GraftDiffOptions): GraftDiffResult {
 
   for (const filePath of changedFiles) {
     // Get content at base (null = file absent at ref)
-    const baseContent = getFileAtRef(base, filePath, cwd);
+    const baseContent = getFileAtRef(base, filePath, { cwd, git: opts.git });
 
     // Get content at head (null = file absent at ref/worktree)
     let headContent: string | null;
     if (opts.head !== undefined) {
-      headContent = getFileAtRef(opts.head, filePath, cwd);
+      headContent = getFileAtRef(opts.head, filePath, { cwd, git: opts.git });
     } else {
-      const fullPath = path.join(cwd, filePath);
       try {
-        headContent = opts.fs.readFileSync(fullPath, "utf-8");
+        headContent = opts.fs.readFileSync(opts.resolveWorkingTreePath(filePath), "utf-8");
       } catch {
         headContent = null;
       }

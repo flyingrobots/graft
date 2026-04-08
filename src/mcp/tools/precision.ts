@@ -1,11 +1,11 @@
 import * as path from "node:path";
-import { execFileSync } from "node:child_process";
 import type WarpApp from "@git-stunts/git-warp";
 import { getFileAtRef, GitError } from "../../git/diff.js";
 import { detectLang } from "../../parser/lang.js";
 import { extractOutline } from "../../parser/outline.js";
 import type { JumpEntry, OutlineEntry } from "../../parser/types.js";
 import { allSymbolsLens, fileSymbolsLens, symbolByNameLens } from "../../warp/observers.js";
+import type { GitClient } from "../../ports/git.js";
 import type { ToolContext } from "../context.js";
 import { evaluateMcpRefusal, type McpPolicyRefusal } from "../policy.js";
 import { PrecisionSearchRequest, type RankedPrecisionSymbolMatch } from "./precision-query.js";
@@ -17,12 +17,12 @@ export { PrecisionSearchRequest } from "./precision-query.js";
 export { PrecisionSymbolMatch } from "./precision-match.js";
 export type PrecisionPolicyRefusal = McpPolicyRefusal;
 
-function git(args: readonly string[], cwd: string): string {
-  return execFileSync("git", [...args], {
-    cwd,
-    encoding: "utf-8",
-    stdio: ["pipe", "pipe", "pipe"],
-  });
+function git(gitClient: GitClient, args: readonly string[], cwd: string): string {
+  const result = gitClient.run({ args, cwd });
+  if (result.error !== undefined || result.status !== 0) {
+    throw result.error ?? new Error(result.stderr.trim() || `git exited with status ${String(result.status)}`);
+  }
+  return result.stdout;
 }
 
 function buildJumpLookup(
@@ -82,29 +82,34 @@ export function requireRepoPath(projectRoot: string, input: string): string {
   return normalized;
 }
 
-export function resolveGitRef(ref: string, cwd: string): string {
+export function resolveGitRef(ref: string, gitClient: GitClient, cwd: string): string {
   try {
-    return git(["rev-parse", "--verify", ref], cwd).trim();
+    return git(gitClient, ["rev-parse", "--verify", ref], cwd).trim();
   } catch {
     throw new GitError(`ref does not exist: ${ref}`);
   }
 }
 
-export function listTrackedFilesAtRef(dirPath: string, cwd: string, ref: string): string[] {
+export function listTrackedFilesAtRef(
+  dirPath: string,
+  gitClient: GitClient,
+  cwd: string,
+  ref: string,
+): string[] {
   try {
     const args = dirPath.length > 0
       ? ["ls-tree", "-r", "--name-only", ref, "--", dirPath]
       : ["ls-tree", "-r", "--name-only", ref];
-    const output = git(args, cwd).trim();
+    const output = git(gitClient, args, cwd).trim();
     return output.length === 0 ? [] : output.split("\n");
   } catch {
     return [];
   }
 }
 
-export function isWorkingTreeDirty(cwd: string): boolean {
+export function isWorkingTreeDirty(gitClient: GitClient, cwd: string): boolean {
   try {
-    return git(["status", "--porcelain"], cwd).trim().length > 0;
+    return git(gitClient, ["status", "--porcelain"], cwd).trim().length > 0;
   } catch {
     return true;
   }
@@ -168,7 +173,7 @@ export function loadFileContent(
   ref?: string,
 ): string | null {
   if (ref !== undefined) {
-    return getFileAtRef(ref, filePath, ctx.projectRoot);
+    return getFileAtRef(ref, filePath, { cwd: ctx.projectRoot, git: ctx.git });
   }
 
   try {

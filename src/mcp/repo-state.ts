@@ -1,4 +1,4 @@
-import { execFileSync } from "node:child_process";
+import type { GitClient } from "../ports/git.js";
 
 export type WorldlineLayer = "commit_worldline" | "ref_view" | "workspace_overlay";
 export type RepoTransitionKind = "checkout" | "reset" | "merge" | "rebase";
@@ -49,26 +49,26 @@ interface RepoSnapshot {
   readonly untrackedPaths: number;
 }
 
-function git(args: readonly string[], cwd: string): string {
-  return execFileSync("git", [...args], {
-    cwd,
-    encoding: "utf-8",
-    stdio: ["pipe", "pipe", "pipe"],
-  });
+function git(gitClient: GitClient, args: readonly string[], cwd: string): string {
+  const result = gitClient.run({ args, cwd });
+  if (result.error !== undefined || result.status !== 0) {
+    throw result.error ?? new Error(result.stderr.trim() || `git exited with status ${String(result.status)}`);
+  }
+  return result.stdout;
 }
 
-function readGit(args: readonly string[], cwd: string): string | null {
+function readGit(gitClient: GitClient, args: readonly string[], cwd: string): string | null {
   try {
-    const value = git(args, cwd).trim();
+    const value = git(gitClient, args, cwd).trim();
     return value.length > 0 ? value : null;
   } catch {
     return null;
   }
 }
 
-function readGitPorcelain(args: readonly string[], cwd: string): string | null {
+function readGitPorcelain(gitClient: GitClient, args: readonly string[], cwd: string): string | null {
   try {
-    const value = git(args, cwd).replace(/\r?\n$/, "");
+    const value = git(gitClient, args, cwd).replace(/\r?\n$/, "");
     return value.length > 0 ? value : null;
   } catch {
     return null;
@@ -98,15 +98,15 @@ function countStatusLines(statusLines: readonly string[]): {
   return { stagedPaths, changedPaths, untrackedPaths };
 }
 
-function captureSnapshot(cwd: string): RepoSnapshot {
-  const statusOutput = readGitPorcelain(["status", "--porcelain"], cwd) ?? "";
+function captureSnapshot(cwd: string, gitClient: GitClient): RepoSnapshot {
+  const statusOutput = readGitPorcelain(gitClient, ["status", "--porcelain"], cwd) ?? "";
   const statusLines = statusOutput.length === 0 ? [] : statusOutput.split("\n");
   const counts = countStatusLines(statusLines);
 
   return {
-    headRef: readGit(["symbolic-ref", "--quiet", "--short", "HEAD"], cwd),
-    headSha: readGit(["rev-parse", "HEAD"], cwd),
-    reflogSubject: readGit(["reflog", "-1", "--format=%gs"], cwd),
+    headRef: readGit(gitClient, ["symbolic-ref", "--quiet", "--short", "HEAD"], cwd),
+    headSha: readGit(gitClient, ["rev-parse", "HEAD"], cwd),
+    reflogSubject: readGit(gitClient, ["reflog", "-1", "--format=%gs"], cwd),
     statusLines,
     dirty: statusLines.length > 0,
     ...counts,
@@ -207,13 +207,16 @@ export class RepoStateTracker {
   private snapshot: RepoSnapshot;
   private observation: RepoObservation;
 
-  constructor(private readonly cwd: string) {
-    this.snapshot = captureSnapshot(cwd);
+  constructor(
+    private readonly cwd: string,
+    private readonly gitClient: GitClient,
+  ) {
+    this.snapshot = captureSnapshot(cwd, gitClient);
     this.observation = buildObservation(this.snapshot, this.checkoutEpoch, null);
   }
 
   observe(): RepoObservation {
-    const nextSnapshot = captureSnapshot(this.cwd);
+    const nextSnapshot = captureSnapshot(this.cwd, this.gitClient);
     const transition = detectTransition(this.snapshot, nextSnapshot);
     if (transition !== null) {
       this.checkoutEpoch++;

@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest";
 import * as fs from "node:fs";
 import * as path from "node:path";
+import { nodeGit } from "../../../src/adapters/node-git.js";
 import { createGraftServer } from "../../../src/mcp/server.js";
 import { git, createTestRepo, cleanupTestRepo } from "../../helpers/git.js";
 import { parse } from "../../helpers/mcp.js";
@@ -37,7 +38,7 @@ describe("mcp: layered worldline model", { timeout: 15000 }, () => {
         git(tmpDir, "commit -m v2");
 
         const warp = await openWarp({ cwd: tmpDir });
-        await indexCommits(warp, { cwd: tmpDir });
+        await indexCommits(warp, { cwd: tmpDir, git: nodeGit });
 
         const server = createServerInRepo(tmpDir);
         const result = parse(await server.callTool("code_show", {
@@ -90,7 +91,7 @@ describe("mcp: layered worldline model", { timeout: 15000 }, () => {
         git(tmpDir, "commit -m init");
 
         const warp = await openWarp({ cwd: tmpDir });
-        await indexCommits(warp, { cwd: tmpDir });
+        await indexCommits(warp, { cwd: tmpDir, git: nodeGit });
 
         fs.writeFileSync(
           path.join(tmpDir, "src", "draft.ts"),

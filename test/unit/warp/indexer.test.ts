@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import * as fs from "node:fs";
 import * as path from "node:path";
+import { nodeGit } from "../../../src/adapters/node-git.js";
 import { git, createTestRepo, cleanupTestRepo } from "../../helpers/git.js";
 import { openWarp } from "../../../src/warp/open.js";
 import { indexCommits } from "../../../src/warp/indexer.js";
@@ -26,7 +27,7 @@ describe("warp: indexer", { timeout: 15000 }, () => {
     git(tmpDir, "commit -m 'add greet'");
 
     const warp = await openWarp({ cwd: tmpDir });
-    const result = await indexCommits(warp, { cwd: tmpDir });
+    const result = await indexCommits(warp, { cwd: tmpDir, git: nodeGit });
 
     expect(result.commitsIndexed).toBe(1);
     expect(result.patchesWritten).toBe(1);
@@ -47,7 +48,7 @@ describe("warp: indexer", { timeout: 15000 }, () => {
     git(tmpDir, "commit -m 'add math functions'");
 
     const warp = await openWarp({ cwd: tmpDir });
-    await indexCommits(warp, { cwd: tmpDir });
+    await indexCommits(warp, { cwd: tmpDir, git: nodeGit });
 
     
     const symObs = await warp.observer(fileSymbolsLens("math.ts"));
@@ -75,7 +76,7 @@ describe("warp: indexer", { timeout: 15000 }, () => {
     git(tmpDir, "commit -m 'v2'");
 
     const warp = await openWarp({ cwd: tmpDir });
-    const result = await indexCommits(warp, { cwd: tmpDir });
+    const result = await indexCommits(warp, { cwd: tmpDir, git: nodeGit });
 
     expect(result.commitsIndexed).toBe(2);
     expect(result.patchesWritten).toBe(2);
@@ -105,7 +106,7 @@ describe("warp: indexer", { timeout: 15000 }, () => {
     git(tmpDir, "commit -m 'v2'");
 
     const warp = await openWarp({ cwd: tmpDir });
-    await indexCommits(warp, { cwd: tmpDir });
+    await indexCommits(warp, { cwd: tmpDir, git: nodeGit });
 
     
     
@@ -132,7 +133,7 @@ describe("warp: indexer", { timeout: 15000 }, () => {
     git(tmpDir, "commit -m 'v2'");
 
     const warp = await openWarp({ cwd: tmpDir });
-    await indexCommits(warp, { cwd: tmpDir });
+    await indexCommits(warp, { cwd: tmpDir, git: nodeGit });
 
     
     const symObs = await warp.observer(fileSymbolsLens("api.ts"));
@@ -150,7 +151,7 @@ describe("warp: indexer", { timeout: 15000 }, () => {
     git(tmpDir, "commit -m 'initial commit'");
 
     const warp = await openWarp({ cwd: tmpDir });
-    await indexCommits(warp, { cwd: tmpDir });
+    await indexCommits(warp, { cwd: tmpDir, git: nodeGit });
 
     
     const commitObs = await warp.observer({
@@ -173,7 +174,7 @@ describe("warp: indexer", { timeout: 15000 }, () => {
     git(tmpDir, "commit -m 'mixed files'");
 
     const warp = await openWarp({ cwd: tmpDir });
-    await indexCommits(warp, { cwd: tmpDir });
+    await indexCommits(warp, { cwd: tmpDir, git: nodeGit });
 
     
 
@@ -201,7 +202,7 @@ describe("warp: indexer", { timeout: 15000 }, () => {
     git(tmpDir, "commit -m 'delete doomed'");
 
     const warp = await openWarp({ cwd: tmpDir });
-    await indexCommits(warp, { cwd: tmpDir });
+    await indexCommits(warp, { cwd: tmpDir, git: nodeGit });
 
     
 
@@ -230,7 +231,7 @@ describe("warp: indexer", { timeout: 15000 }, () => {
     git(tmpDir, "commit -m 'add UserService'");
 
     const warp = await openWarp({ cwd: tmpDir });
-    await indexCommits(warp, { cwd: tmpDir });
+    await indexCommits(warp, { cwd: tmpDir, git: nodeGit });
 
     
     const symObs = await warp.observer(fileSymbolsLens("service.ts"));
@@ -242,7 +243,7 @@ describe("warp: indexer", { timeout: 15000 }, () => {
 
   it("returns zero for empty commit range", async () => {
     const warp = await openWarp({ cwd: tmpDir });
-    const result = await indexCommits(warp, { cwd: tmpDir });
+    const result = await indexCommits(warp, { cwd: tmpDir, git: nodeGit });
     expect(result.commitsIndexed).toBe(0);
     expect(result.patchesWritten).toBe(0);
   });
@@ -263,7 +264,7 @@ describe("warp: indexer", { timeout: 15000 }, () => {
 
     const warp = await openWarp({ cwd: tmpDir });
     // Only index c2 and c3 (from c1 to HEAD)
-    const result = await indexCommits(warp, { cwd: tmpDir, from: c1 });
+    const result = await indexCommits(warp, { cwd: tmpDir, git: nodeGit, from: c1 });
 
     expect(result.commitsIndexed).toBe(2);
     expect(result.patchesWritten).toBe(2);

@@ -13,6 +13,8 @@ import type { McpToolResult } from "./receipt.js";
 import { evaluateMcpPolicy, loadProjectGraftignore } from "./policy.js";
 import { nodeFs } from "../adapters/node-fs.js";
 import { CanonicalJsonCodec } from "../adapters/canonical-json.js";
+import { nodeProcessRunner } from "../adapters/node-process-runner.js";
+import { nodeGit } from "../adapters/node-git.js";
 import { RefusedResult } from "../policy/types.js";
 import type WarpApp from "@git-stunts/git-warp";
 import { openWarp } from "../warp/open.js";
@@ -112,7 +114,7 @@ export function createGraftServer(options: CreateGraftServerOptions = {}): Graft
   const runtimeReady = ensureGraftDirExcluded(projectRoot, graftDir, nodeFs);
   const handlers = new Map<string, ToolHandler>();
   const schemas = new Map<string, z.ZodObject>();
-  const repoState = new RepoStateTracker(projectRoot);
+  const repoState = new RepoStateTracker(projectRoot, nodeGit);
   const invocationStorage = new AsyncLocalStorage<{
     readonly traceId: string;
     readonly startedAtMs: number;
@@ -180,6 +182,8 @@ export function createGraftServer(options: CreateGraftServerOptions = {}): Graft
     resolvePath: createPathResolver(projectRoot),
     fs: nodeFs,
     codec,
+    process: nodeProcessRunner,
+    git: nodeGit,
     runCapture,
     observability,
     getWarp,

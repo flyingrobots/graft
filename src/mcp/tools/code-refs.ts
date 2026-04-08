@@ -1,7 +1,7 @@
 import * as path from "node:path";
-import { spawnSync } from "node:child_process";
 import { z } from "zod";
 import type { ToolDefinition, ToolContext, ToolHandler } from "../context.js";
+import type { ProcessRunner } from "../../ports/process-runner.js";
 import { GitFileQuery, listGitFiles } from "./git-files.js";
 import {
   evaluatePrecisionPolicy,
@@ -298,29 +298,21 @@ function runSearchCommand(
   command: string,
   args: readonly string[],
   cwd: string,
+  process: ProcessRunner,
 ): {
   status: number | null;
   stdout: string;
   stderr: string;
   error?: Error;
 } {
-  const result = spawnSync(command, [...args], {
-    cwd,
-    encoding: "utf-8",
-    stdio: ["pipe", "pipe", "pipe"],
-  });
-  return {
-    status: result.status,
-    stdout: result.stdout,
-    stderr: result.stderr,
-    ...(result.error !== undefined ? { error: result.error } : {}),
-  };
+  return process.run({ command, args, cwd });
 }
 
 function runTextFallbackSearch(
   projectRoot: string,
   pattern: CodeRefsPattern,
   filePaths: readonly string[],
+  process: ProcessRunner,
 ): {
   engine: SearchEngine;
   matches: readonly CodeRefsMatch[];
@@ -329,7 +321,7 @@ function runTextFallbackSearch(
     return { engine: "ripgrep", matches: [] };
   }
 
-  const rg = runSearchCommand("rg", buildRipgrepArgs(pattern, filePaths), projectRoot);
+  const rg = runSearchCommand("rg", buildRipgrepArgs(pattern, filePaths), projectRoot, process);
   if (rg.error === undefined) {
     if (rg.status === 0) {
       return {
@@ -343,7 +335,7 @@ function runTextFallbackSearch(
     throw new Error(`ripgrep search failed: ${rg.stderr.trim()}`);
   }
 
-  const grep = runSearchCommand("grep", buildGrepArgs(pattern, filePaths), projectRoot);
+  const grep = runSearchCommand("grep", buildGrepArgs(pattern, filePaths), projectRoot, process);
   if (grep.error === undefined) {
     if (grep.status === 0) {
       return {
@@ -382,8 +374,8 @@ export const codeRefsTool: ToolDefinition = {
       const pattern = buildCodeRefsPattern(request);
       const repoState = ctx.getRepoState();
       const layer = repoState.dirty ? "workspace_overlay" : "ref_view";
-      const filePaths = listGitFiles(request.toProjectFileQuery(ctx.projectRoot)).paths;
-      const fallback = runTextFallbackSearch(ctx.projectRoot, pattern, filePaths);
+      const filePaths = listGitFiles(request.toProjectFileQuery(ctx.projectRoot), ctx.git).paths;
+      const fallback = runTextFallbackSearch(ctx.projectRoot, pattern, filePaths, ctx.process);
 
       const visibleMatches: CodeRefsMatch[] = [];
       const fileCache = new Map<string, string>();

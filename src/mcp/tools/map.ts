@@ -82,7 +82,7 @@ export const mapTool: ToolDefinition = {
     return (args) => {
       const request = new StructuralMapRequest(args, ctx.projectRoot);
 
-      const filePaths = listGitFiles(request.toGitFileQuery(ctx.projectRoot)).paths;
+      const filePaths = listGitFiles(request.toGitFileQuery(ctx.projectRoot), ctx.git).paths;
       const files: StructuralMapFile[] = [];
       const refused: McpPolicyRefusal[] = [];
 

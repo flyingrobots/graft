@@ -16,6 +16,8 @@ export const graftDiffTool: ToolDefinition = {
       const result = graftDiff({
         cwd: ctx.projectRoot,
         fs: ctx.fs,
+        git: ctx.git,
+        resolveWorkingTreePath: (filePath) => ctx.resolvePath(filePath),
         base: args["base"] as string | undefined,
         head,
         path: args["path"] as string | undefined,

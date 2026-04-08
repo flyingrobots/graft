@@ -21,6 +21,8 @@ export const sinceTool: ToolDefinition = {
       const result = graftDiff({
         cwd: ctx.projectRoot,
         fs: ctx.fs,
+        git: ctx.git,
+        resolveWorkingTreePath: (filePath) => ctx.resolvePath(filePath),
         base,
         head,
         refusalCheck: (filePath, actual) => evaluateMcpRefusal(ctx, filePath, actual),

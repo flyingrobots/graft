@@ -1,7 +1,8 @@
-import { execFileSync } from "node:child_process";
+import type { GitClient } from "../ports/git.js";
 
 export interface ChangedFilesOptions {
   cwd: string;
+  git: GitClient;
   base?: string | undefined;
   head?: string | undefined;
 }
@@ -13,26 +14,26 @@ export class GitError extends Error {
   }
 }
 
-function git(args: string[], cwd: string): string {
-  return execFileSync("git", args, {
-    cwd,
-    encoding: "utf-8",
-    stdio: ["pipe", "pipe", "pipe"],
-  });
+function git(gitClient: GitClient, args: readonly string[], cwd: string): string {
+  const result = gitClient.run({ args, cwd });
+  if (result.error !== undefined || result.status !== 0) {
+    throw result.error ?? new Error(result.stderr.trim() || `git exited with status ${String(result.status)}`);
+  }
+  return result.stdout;
 }
 
-function refExists(ref: string, cwd: string): boolean {
+function refExists(ref: string, cwd: string, gitClient: GitClient): boolean {
   try {
-    git(["rev-parse", "--verify", ref], cwd);
+    git(gitClient, ["rev-parse", "--verify", ref], cwd);
     return true;
   } catch {
     return false;
   }
 }
 
-function objectExists(ref: string, filePath: string, cwd: string): boolean {
+function objectExists(ref: string, filePath: string, cwd: string, gitClient: GitClient): boolean {
   try {
-    git(["cat-file", "-e", `${ref}:${filePath}`], cwd);
+    git(gitClient, ["cat-file", "-e", `${ref}:${filePath}`], cwd);
     return true;
   } catch {
     return false;
@@ -54,7 +55,7 @@ export function getChangedFiles(opts: ChangedFilesOptions): string[] {
     : ["diff", "--name-only", base];
 
   try {
-    const output = git(args, opts.cwd).trim();
+    const output = git(opts.git, args, opts.cwd).trim();
     if (output === "") return [];
     return output.split("\n");
   } catch (err: unknown) {
@@ -74,21 +75,24 @@ export function getChangedFiles(opts: ChangedFilesOptions): string[] {
 export function getFileAtRef(
   ref: string,
   filePath: string,
-  cwd: string,
+  opts: {
+    cwd: string;
+    git: GitClient;
+  },
 ): string | null {
   // Validate the ref exists (stable probe, no message parsing)
-  if (!refExists(ref, cwd)) {
+  if (!refExists(ref, opts.cwd, opts.git)) {
     throw new GitError(`ref does not exist: ${ref}`);
   }
 
   // Check if the object exists at this ref (stable probe)
-  if (!objectExists(ref, filePath, cwd)) {
+  if (!objectExists(ref, filePath, opts.cwd, opts.git)) {
     return null; // Clean absence — file not in this ref
   }
 
   // Object exists — read it
   try {
-    return git(["show", `${ref}:${filePath}`], cwd);
+    return git(opts.git, ["show", `${ref}:${filePath}`], opts.cwd);
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : String(err);
     throw new GitError(`git show ${ref}:${filePath} failed: ${msg}`);
