@@ -1,6 +1,6 @@
 # Next Release Ranked Queue
 
-Status: active
+Status: release bar cleared
 
 ## Release thesis
 
@@ -61,16 +61,28 @@ next-highest-leverage non-Claude path:
 - the remaining non-Codex instruction parity question is explicit in
   backlog instead of implied
 
+Cycle `0048-mcp-runtime-observability` cleared the last conditional
+pre-release product/debt slice:
+
+- MCP sessions now emit metadata-only runtime events for session start,
+  tool call start, tool call completion, and tool failure
+- receipts now carry `traceId` and `latencyMs`, so logs and responses
+  correlate directly
+- `doctor` now reports the active runtime observability posture
+
+This pays down the receipt seam enough to keep observability shippable
+without promoting the broader MCP context cleanup into a release bar.
+
 ## Ranked queue
 
-1. MCP context and receipt seam tightening, conditional
-   Includes [CLEAN_CODE_mcp-context.md](backlog/bad-code/CLEAN_CODE_mcp-context.md) and [CLEAN_CODE_mcp-receipt.md](backlog/bad-code/CLEAN_CODE_mcp-receipt.md).
-   Pull this forward if and only if the release includes
-   [SURFACE_mcp-runtime-observability.md](backlog/up-next/SURFACE_mcp-runtime-observability.md), because those seams will otherwise become the next weak point in the surface.
+No remaining above-the-line work is required before the next release.
 
-2. [SURFACE_mcp-runtime-observability.md](backlog/up-next/SURFACE_mcp-runtime-observability.md)
-   Valuable, but it should not get ahead of the search/refactor product
-   gap or the debt directly attached to that gap.
+If we choose to keep pushing before cutting the packet, the next
+candidate is:
+
+1. [CORE_non-read-burden.md](backlog/up-next/CORE_non-read-burden.md)
+   This is the next operator-facing surface with real value, but it is
+   no longer part of the current release bar.
 
 ## Below the cut line
 

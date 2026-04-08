@@ -4,11 +4,13 @@ import { createIsolatedServer, extractText, fixturePath, parse } from "../../hel
 
 interface Receipt {
   sessionId: string;
+  traceId: string;
   seq: number;
   ts: string;
   tool: string;
   projection: string;
   reason: string;
+  latencyMs: number;
   fileBytes: number | null;
   returnedBytes: number;
   cumulative: {
@@ -87,11 +89,15 @@ describe("mcp: receipt mode", () => {
     const receipt = result["_receipt"] as Receipt;
     expect(typeof receipt.sessionId).toBe("string");
     expect(receipt.sessionId.length).toBeGreaterThan(0);
+    expect(typeof receipt.traceId).toBe("string");
+    expect(receipt.traceId.length).toBeGreaterThan(0);
     expect(typeof receipt.seq).toBe("number");
     expect(receipt.ts).toMatch(/^\d{4}-\d{2}-\d{2}T/);
     expect(receipt.tool).toBe("safe_read");
     expect(typeof receipt.projection).toBe("string");
     expect(typeof receipt.reason).toBe("string");
+    expect(typeof receipt.latencyMs).toBe("number");
+    expect(receipt.latencyMs).toBeGreaterThanOrEqual(0);
     expect(typeof receipt.returnedBytes).toBe("number");
     expect(receipt.cumulative).toBeDefined();
     expect(typeof receipt.cumulative.reads).toBe("number");
@@ -109,6 +115,19 @@ describe("mcp: receipt mode", () => {
     const receipt1 = r1["_receipt"] as Receipt;
     const receipt2 = r2["_receipt"] as Receipt;
     expect(receipt1.sessionId).toBe(receipt2.sessionId);
+  });
+
+  it("traceId differs per call", async () => {
+    const server = createServer();
+    const r1 = parse(await server.callTool("safe_read", {
+      path: SMALL_TS,
+    }));
+    const r2 = parse(await server.callTool("safe_read", {
+      path: SMALL_TS,
+    }));
+    const receipt1 = r1["_receipt"] as Receipt;
+    const receipt2 = r2["_receipt"] as Receipt;
+    expect(receipt1.traceId).not.toBe(receipt2.traceId);
   });
 
   it("sessionId differs between servers", () => {

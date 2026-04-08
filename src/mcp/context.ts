@@ -12,13 +12,15 @@ import type { JsonCodec } from "../ports/codec.js";
 import type WarpApp from "@git-stunts/git-warp";
 import type { RepoObservation } from "./repo-state.js";
 import type { RunCaptureConfig } from "./run-capture-config.js";
+import type { RuntimeObservabilityState } from "./runtime-observability.js";
+import type { McpToolName } from "../contracts/output-schemas.js";
 
 import type { z } from "zod";
 
 export type ToolHandler = (args: Record<string, unknown>) => McpToolResult | Promise<McpToolResult>;
 
 export interface ToolDefinition {
-  readonly name: string;
+  readonly name: McpToolName;
   readonly description: string;
   readonly schema?: Record<string, z.ZodType>;
   readonly policyCheck?: boolean;
@@ -35,7 +37,8 @@ export interface ToolContext {
   readonly fs: FileSystem;
   readonly codec: JsonCodec;
   readonly runCapture: RunCaptureConfig;
-  respond(tool: string, data: Record<string, unknown>): McpToolResult;
+  readonly observability: RuntimeObservabilityState;
+  respond(tool: McpToolName, data: Record<string, unknown>): McpToolResult;
   resolvePath(relative: string): string;
   getWarp(): Promise<WarpApp>;
   getRepoState(): RepoObservation;

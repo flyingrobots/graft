@@ -1,3 +1,4 @@
+import { AsyncLocalStorage } from "node:async_hooks";
 import * as crypto from "node:crypto";
 import * as path from "node:path";
 import { z } from "zod";
@@ -18,6 +19,14 @@ import { openWarp } from "../warp/open.js";
 import { RepoStateTracker } from "./repo-state.js";
 import type { RunCaptureConfig } from "./run-capture-config.js";
 import { resolveRunCaptureConfig } from "./run-capture-config.js";
+import {
+  RuntimeEventLogger,
+  classifyRuntimeFailure,
+  ensureGraftDirExcluded,
+  resolveRuntimeObservabilityState,
+  sanitizeArgKeys,
+  type RuntimeObservabilityState,
+} from "./runtime-observability.js";
 
 // Tool definitions — each file exports a ToolDefinition object
 import { safeReadTool } from "./tools/safe-read.js";
@@ -72,6 +81,7 @@ export interface CreateGraftServerOptions {
   graftDir?: string;
   env?: Readonly<Record<string, string | undefined>>;
   runCapture?: Partial<RunCaptureConfig>;
+  runtimeObservability?: Partial<RuntimeObservabilityState>;
 }
 
 export function createGraftServer(options: CreateGraftServerOptions = {}): GraftServer {
@@ -88,19 +98,60 @@ export function createGraftServer(options: CreateGraftServerOptions = {}): Graft
     ...(options.env !== undefined ? { env: options.env } : {}),
     ...(options.runCapture !== undefined ? { overrides: options.runCapture } : {}),
   });
+  const observability = resolveRuntimeObservabilityState({
+    graftDir,
+    ...(options.env !== undefined ? { env: options.env } : {}),
+    ...(options.runtimeObservability !== undefined ? { overrides: options.runtimeObservability } : {}),
+  });
+  const runtimeLogger = new RuntimeEventLogger({
+    fs: nodeFs,
+    codec,
+    logPath: observability.logPath,
+    maxBytes: observability.maxBytes,
+  });
+  const runtimeReady = ensureGraftDirExcluded(projectRoot, graftDir, nodeFs);
   const handlers = new Map<string, ToolHandler>();
   const schemas = new Map<string, z.ZodObject>();
   const repoState = new RepoStateTracker(projectRoot);
+  const invocationStorage = new AsyncLocalStorage<{
+    readonly traceId: string;
+    readonly startedAtMs: number;
+    response?: { readonly receipt: import("./receipt.js").McpToolReceipt; readonly tripwireSignals: readonly string[] };
+  }>();
   let seq = 0;
 
-  function respond(tool: string, data: Record<string, unknown>): McpToolResult {
+  async function emitRuntimeEvent(
+    event: Parameters<RuntimeEventLogger["log"]>[0],
+  ): Promise<void> {
+    try {
+      await runtimeReady;
+      await runtimeLogger.log(event);
+    } catch {
+      // Observability must never become the reason a tool call fails.
+    }
+  }
+
+  function respond(tool: ToolDefinition["name"], data: Record<string, unknown>): McpToolResult {
+    const invocation = invocationStorage.getStore();
+    if (invocation === undefined) {
+      throw new Error("MCP respond() called outside an active invocation");
+    }
     seq++;
-    const { result, textBytes } = buildReceiptResult(tool, data, {
-      sessionId, seq, codec,
+    const tripwires = session.checkTripwires();
+    const { result, textBytes, receipt } = buildReceiptResult(tool, data, {
+      sessionId,
+      traceId: invocation.traceId,
+      seq,
+      latencyMs: Date.now() - invocation.startedAtMs,
+      codec,
       metrics: metrics.snapshot(),
-      tripwires: session.checkTripwires(),
+      tripwires,
       budget: session.getBudget(),
     });
+    invocation.response = {
+      receipt,
+      tripwireSignals: tripwires.map((wire) => wire.signal),
+    };
     metrics.addBytesReturned(textBytes);
     session.recordBytesConsumed(textBytes);
     return result;
@@ -130,6 +181,7 @@ export function createGraftServer(options: CreateGraftServerOptions = {}): Graft
     fs: nodeFs,
     codec,
     runCapture,
+    observability,
     getWarp,
     getRepoState: () => repoState.getState(),
   };
@@ -140,11 +192,73 @@ export function createGraftServer(options: CreateGraftServerOptions = {}): Graft
     args: Record<string, unknown>,
     schema?: z.ZodObject,
   ): Promise<McpToolResult> {
+    await runtimeReady;
     session.recordMessage();
     session.recordToolCall(name);
-    const parsed: Record<string, unknown> = schema !== undefined ? schema.parse(args) : args;
-    repoState.observe();
-    return handler(parsed);
+    const traceId = crypto.randomUUID();
+    const startedAtMs = Date.now();
+    const argKeys = sanitizeArgKeys(args);
+
+    if (observability.enabled) {
+      await emitRuntimeEvent({
+        event: "tool_call_started",
+        sessionId,
+        traceId,
+        tool: name,
+        argKeys,
+        sessionDepth: session.getSessionDepth(),
+      });
+    }
+
+    const invocation = { traceId, startedAtMs } as {
+      readonly traceId: string;
+      readonly startedAtMs: number;
+      response?: { readonly receipt: import("./receipt.js").McpToolReceipt; readonly tripwireSignals: readonly string[] };
+    };
+
+    try {
+      const result = await invocationStorage.run(invocation, async () => {
+        const parsed: Record<string, unknown> = schema !== undefined ? schema.parse(args) : args;
+        repoState.observe();
+        return handler(parsed);
+      });
+
+      if (observability.enabled && invocation.response !== undefined) {
+        await emitRuntimeEvent({
+          event: "tool_call_completed",
+          sessionId,
+          traceId,
+          seq: invocation.response.receipt.seq,
+          tool: name,
+          latencyMs: invocation.response.receipt.latencyMs,
+          projection: invocation.response.receipt.projection,
+          reason: invocation.response.receipt.reason,
+          returnedBytes: invocation.response.receipt.returnedBytes,
+          fileBytes: invocation.response.receipt.fileBytes,
+          sessionDepth: session.getSessionDepth(),
+          tripwireSignals: invocation.response.tripwireSignals,
+          metrics: invocation.response.receipt.cumulative,
+        });
+      }
+
+      return result;
+    } catch (error) {
+      if (observability.enabled) {
+        const failure = classifyRuntimeFailure(error);
+        await emitRuntimeEvent({
+          event: "tool_call_failed",
+          sessionId,
+          traceId,
+          tool: name,
+          latencyMs: Date.now() - startedAtMs,
+          sessionDepth: session.getSessionDepth(),
+          argKeys,
+          errorKind: failure.kind,
+          errorName: failure.name,
+        });
+      }
+      throw error;
+    }
   }
 
   function wrapWithPolicyCheck(toolName: string, inner: ToolHandler): ToolHandler {
@@ -192,6 +306,15 @@ export function createGraftServer(options: CreateGraftServerOptions = {}): Graft
         return invokeTool(def.name, handler, {});
       });
     }
+  }
+
+  if (observability.enabled) {
+    void emitRuntimeEvent({
+      event: "session_started",
+      sessionId,
+      logPath: observability.logPath,
+      logPolicy: observability.logPolicy,
+    });
   }
 
   return {

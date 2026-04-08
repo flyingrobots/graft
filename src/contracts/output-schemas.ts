@@ -101,11 +101,13 @@ const diffEntrySchema: z.ZodType = z.lazy(() => z.object({
 
 const receiptSchema = z.object({
   sessionId: z.string(),
+  traceId: z.string(),
   seq: z.number().int().positive(),
   ts: z.string(),
   tool: z.string(),
   projection: z.string(),
   reason: z.string(),
+  latencyMs: z.number().int().nonnegative(),
   fileBytes: z.number().int().nonnegative().nullable(),
   returnedBytes: z.number().int().nonnegative(),
   cumulative: z.object({
@@ -118,6 +120,13 @@ const receiptSchema = z.object({
   }).strict(),
   budget: budgetSchema.optional(),
   compressionRatio: z.number().nullable().optional(),
+}).strict();
+
+const runtimeObservabilitySchema = z.object({
+  enabled: z.boolean(),
+  logPath: z.string(),
+  maxBytes: z.number().int().positive(),
+  logPolicy: z.literal("metadata_only"),
 }).strict();
 
 const precisionSymbolMatchSchema = z.object({
@@ -418,6 +427,7 @@ const mcpOutputBodySchemas: Record<McpToolName, z.ZodType> = {
     thresholds: thresholdsSchema,
     sessionDepth: z.enum(["early", "mid", "late"]),
     totalMessages: z.number().int().nonnegative(),
+    runtimeObservability: runtimeObservabilitySchema,
     checkoutEpoch: z.number().int().nonnegative(),
     lastTransition: repoTransitionSchema.nullable(),
     workspaceOverlay: workspaceOverlaySummarySchema.nullable(),

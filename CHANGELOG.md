@@ -21,6 +21,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   `AGENTS.md` alongside `.codex/config.toml`, and the setup docs now
   distinguish MCP availability from actual governed-read posture by
   client.
+- **MCP runtime observability**: MCP sessions now emit metadata-only
+  session/tool-call/failure events to `.graft/logs/mcp-runtime.ndjson`,
+  receipts carry `traceId` and `latencyMs`, and `doctor` reports the
+  active runtime log posture.
 
 ## [0.4.0] - 2026-04-05
 

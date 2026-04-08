@@ -492,8 +492,13 @@ messages, edit-bash loops, runaway tool calls).
 ### Receipts
 
 Every response includes a `_receipt` block with session ID,
-sequence number, projection type, bytes returned, and cumulative
-counters. This is for usage analysis — you can ignore it.
+trace ID, sequence number, latency, projection type, bytes
+returned, and cumulative counters. This is for usage analysis and
+correlation — you can usually ignore it.
+
+If MCP runtime observability is enabled, `traceId` and `seq` line up
+with `.graft/logs/mcp-runtime.ndjson`. `doctor` also reports the
+current runtime log path and policy.
 
 ## Configuration
 
@@ -539,6 +544,18 @@ tool. For broader or more sensitive deployments:
 - set `GRAFT_RUN_CAPTURE_PERSIST=0` to avoid writing `.graft/logs/capture.log`
 - persisted capture output is redacted for obvious secret-shaped values
   by default
+
+### MCP runtime observability
+
+MCP runtime observability writes metadata-only session and tool-call
+events to `.graft/logs/mcp-runtime.ndjson`. The log intentionally does
+not include raw file content, query text, or other request payload
+values.
+
+- set `GRAFT_ENABLE_MCP_RUNTIME_LOG=0` to disable MCP runtime logging
+- set `GRAFT_MCP_RUNTIME_LOG_PATH=/abs/path/mcp-runtime.ndjson` to move
+  the log
+- set `GRAFT_MCP_RUNTIME_LOG_MAX_BYTES=2097152` to change retention size
 
 ## Troubleshooting
 

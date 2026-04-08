@@ -113,8 +113,10 @@ When an agent asks to read a file, Graft applies policy:
 - **Structural memory** — WARP-backed structural history across git
   commits. Query what changed structurally without reading files.
 - **Tripwires** signal when the session is going off the rails.
-- **Receipts** on every response with compression ratio for usage
-  analysis.
+- **Receipts** on every response with session/trace correlation,
+  latency, and compression ratio for usage analysis.
+- **MCP runtime observability** — metadata-only session and tool-call
+  logs under `.graft/logs/mcp-runtime.ndjson`.
 - **Versioned schemas** on every machine-readable MCP / CLI payload.
 
 Every decision is logged. Every refusal is explainable. All output

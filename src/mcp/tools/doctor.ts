@@ -15,6 +15,7 @@ export const doctorTool: ToolDefinition = {
         thresholds: { lines: STATIC_THRESHOLDS.lines, bytes: STATIC_THRESHOLDS.bytes },
         sessionDepth: ctx.session.getSessionDepth(),
         totalMessages: ctx.session.getMessageCount(),
+        runtimeObservability: ctx.observability,
         checkoutEpoch: repoState.checkoutEpoch,
         lastTransition: repoState.lastTransition,
         workspaceOverlay: repoState.workspaceOverlay,
