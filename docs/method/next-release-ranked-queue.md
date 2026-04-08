@@ -89,6 +89,6 @@ Why they stay below the line:
   surfaces, not as a parallel cleanup program.
 - The exact version number should be decided later in the shaped release
   packet under `docs/method/releases/vX.Y.Z/`.
-- If the release narrows to only reference-search work, items 3, 4, 5,
-  and 6 should all drop out of the packet rather than dragging extra
+- If the release narrows to only reference-search work, items 2, 3, 4,
+  and 5 should all drop out of the packet rather than dragging extra
   debt and scope into the ship.
