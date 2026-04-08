@@ -110,6 +110,22 @@ surface before transport work starts:
 This keeps the daemon direction honest without pretending the transport
 or control plane already exist.
 
+Cycle `0051-system-wide-mcp-daemon-and-workspace-binding` turned that
+trust model into an actual routing contract:
+
+- repo-local `graft serve` remains the current stdio contract
+- a future daemon starts sessions unbound and authorizes repo-scoped
+  access at explicit workspace bind time
+- canonical repo identity, live worktree identity, and session-local
+  state now have an explicit split in the design and architecture docs
+- one repo-scoped WARP per canonical repo is now explicit, so shared
+  daemon sessions do not silently mint separate default WARP instances
+- the implementation path is now split into transport/lifecycle and
+  bind/routing backlog items
+
+This keeps the daemon roadmap concrete without pretending the daemon
+transport already ships.
+
 ## Ranked queue
 
 No remaining above-the-line work is required before the next release.
@@ -117,11 +133,10 @@ No remaining above-the-line work is required before the next release.
 If we choose to keep pushing before cutting the packet, the next
 candidate is:
 
-1. [SURFACE_system-wide-mcp-daemon-and-workspace-binding.md](backlog/up-next/SURFACE_system-wide-mcp-daemon-and-workspace-binding.md)
-   The trust model is now explicit, so the next highest-leverage move is
-   binding and routing: how a local shared daemon resolves workspaces,
-   attaches capability posture, and keeps repo/worktree/session identity
-   separate on the transport path.
+1. [SURFACE_workspace-bind-and-routing-surface.md](backlog/up-next/SURFACE_workspace-bind-and-routing-surface.md)
+   The routing contract is designed now, so the next highest-leverage
+   move is to implement the daemon-only bind/status/rebind surface and
+   make unbound versus bound session behavior real.
 
 ## Below the cut line
 
@@ -129,9 +144,10 @@ These items are real but should not be treated as release blockers for
 the next packet:
 
 - [SURFACE_non-codex-instruction-bootstrap-parity.md](backlog/cool-ideas/SURFACE_non-codex-instruction-bootstrap-parity.md)
+- [SURFACE_local-daemon-transport-and-session-lifecycle.md](backlog/up-next/SURFACE_local-daemon-transport-and-session-lifecycle.md)
 - [SURFACE_system-wide-control-plane-for-persistent-monitors.md](backlog/up-next/SURFACE_system-wide-control-plane-for-persistent-monitors.md)
-- [SURFACE_system-wide-mcp-daemon-and-workspace-binding.md](backlog/up-next/SURFACE_system-wide-mcp-daemon-and-workspace-binding.md)
 - [SURFACE_system-wide-multi-repo-agent-coordination.md](backlog/up-next/SURFACE_system-wide-multi-repo-agent-coordination.md)
+- [SURFACE_workspace-bind-and-routing-surface.md](backlog/up-next/SURFACE_workspace-bind-and-routing-surface.md)
 - [CLEAN_CODE_mcp-server.md](backlog/bad-code/CLEAN_CODE_mcp-server.md)
 - [CLEAN_CODE_mcp-repo-state.md](backlog/bad-code/CLEAN_CODE_mcp-repo-state.md)
 - [WARP_name-based-symbol-matching.md](backlog/bad-code/WARP_name-based-symbol-matching.md)

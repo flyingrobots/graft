@@ -287,6 +287,34 @@ The repo has a clear shape, but a few real tensions remain:
 3. **Docs and direction are strong, contributor map was missing**
    - this file exists to close exactly that gap
 
+## Daemon evolution path
+
+Current repo-local path:
+
+- `graft serve` starts one repo-rooted stdio server
+- `startStdioServer(cwd)` passes that cwd into `createGraftServer()`
+- one process holds one rooted `SessionTracker`, `ObservationCache`,
+  `Metrics`, and `RepoStateTracker`
+
+Future local shared-daemon path:
+
+- a separate daemon command owns local-only transport and session
+  lifecycle
+- daemon sessions start unbound
+- a daemon-only workspace bind step resolves repo/worktree identity
+  server-side before repo-scoped tools run
+- state splits cleanly across:
+  - canonical repo identity and default WARP ownership (`git common
+    dir`)
+  - live worktree identity (resolved worktree root)
+  - session-local cache, budget, receipts, and saved state
+- one repo-scoped WARP instance per canonical repo remains the default
+  assumption even if several sessions or worktrees bind into that repo
+
+That split is the bridge from today's repo-local stdio design to a
+future same-user local daemon without pretending the two contracts are
+already the same.
+
 ## Where to read next
 
 If you are onboarding as a contributor:

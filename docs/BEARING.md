@@ -49,6 +49,11 @@ now defined as same-user and local-machine only by default, with
 server-resolved workspace identity, operator-mediated authorization,
 isolated session/log state, and default-denied escape hatches.
 
+Cycle 0051 — workspace-binding model: the future daemon now has an
+explicit bind/rebind contract, separate transport posture, and a clean
+identity split across canonical repo, live worktree, and session-local
+state.
+
 ## What feels wrong
 
 - WARP indexing is slow on large repos — `core().materialize()`
