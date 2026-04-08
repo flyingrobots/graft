@@ -241,9 +241,10 @@ If your client doesn't support `npx`, install globally and use:
 
 Two hooks work together to govern agent reads:
 
-- **PreToolUse** — blocks banned files before the read happens
-- **PostToolUse** — educates the agent on context cost after large
-  file reads complete
+- **PreToolUse** — blocks banned files and redirects large JS/TS reads
+  before the native read happens
+- **PostToolUse** — backstop education if an oversized code read still
+  completes
 
 ### Setup
 
@@ -299,25 +300,31 @@ When the agent calls `Read(file_path)`, the PreToolUse hook:
 1. Evaluates the file against graft's policy
 2. **Banned files** (binaries, lockfiles, secrets, `.graftignore`
    matches): exits 2 (block) with refusal reason and next steps
-3. **Everything else**: exits 0 — lets native Read proceed
+3. **Large JS/TS files**: exits 2 with a redirect to `safe_read`,
+   `file_outline`, and `read_range`
+4. **Everything else**: exits 0 — lets native Read proceed
 
-The PreToolUse hook does NOT block large files. It only enforces
-hard bans. Large file governance is handled by the PostToolUse hook.
+This is the current "default governed" path for Claude Code: large
+code reads are redirected before the full file lands in context.
+Other file types and other clients still rely on MCP usage or future
+integration work.
 
-### PostToolUse — context cost education
+### PostToolUse — backstop education
 
 After a Read completes, the PostToolUse hook evaluates what
-`safe_read` would have done and tells the agent the cost:
+`safe_read` would have done for large JS/TS files and tells the agent
+the cost:
 
 ```
-[graft] You just read 450 lines (18KB) into context.
-safe_read would have returned a structural outline (2048 bytes),
+[graft] This large code read bypassed graft's governed path for src/mcp/server.ts.
+safe_read would have returned a structural outline (2048 bytes) instead of 450 lines (18.0KB),
 saving 16.0KB of context. Threshold: 150 lines / 12KB.
 ```
 
-This feedback appears for large JS/TS files where an outline was
-available. Small files, non-JS/TS files, and nonexistent files
-produce no feedback. The hook always exits 0 — it never blocks.
+This feedback appears only if an oversized JS/TS read still completes.
+With a working PreToolUse hook, that should be a backstop signal rather
+than the normal path. Small files, non-JS/TS files, and nonexistent
+files produce no feedback. The hook always exits 0 — it never blocks.
 
 ### Limitations
 
@@ -331,7 +338,9 @@ with the MCP server. This means:
 
 For the full experience, agents should use graft's MCP tools
 (`safe_read`, `file_outline`, `read_range`) directly. The hooks
-are a safety net; the MCP server is the full governor.
+make Claude closer to a default-governed path for large code reads, but
+the MCP server remains the full governor and non-Claude clients still
+need explicit integration.
 
 ### Disabling
 

@@ -28,16 +28,19 @@ describe("hooks: pretooluse-read", () => {
   });
 
   // -----------------------------------------------------------------------
-  // Allowed (exit 0) — everything except banned files passes through
+  // Allowed (exit 0) — small files and unsupported large files pass through
   // -----------------------------------------------------------------------
   it("allows small files through (exit 0)", () => {
     const output = handleReadHook(makeInput(path.join(FIXTURES, "small.ts")));
     expect(output.exitCode).toBe(0);
   });
 
-  it("allows large files through (exit 0) — PostToolUse educates", () => {
+  it("redirects large JS/TS files to graft's bounded-read path", () => {
     const output = handleReadHook(makeInput(path.join(FIXTURES, "large.ts")));
-    expect(output.exitCode).toBe(0);
+    expect(output.exitCode).toBe(2);
+    expect(output.stderr).toContain("Governed read");
+    expect(output.stderr).toContain("safe_read");
+    expect(output.stderr).toContain("read_range");
   });
 
   it("allows nonexistent files through (exit 0) — let Read handle error", () => {
@@ -50,6 +53,19 @@ describe("hooks: pretooluse-read", () => {
     const outsidePath = path.resolve(process.cwd(), "..", "outside-file.ts");
     const output = handleReadHook(makeInput(outsidePath));
     expect(output.exitCode).toBe(0);
+  });
+
+  it("allows large markdown files through (exit 0) — default governance is code-only for now", () => {
+    const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "graft-hook-md-"));
+    try {
+      const markdownPath = path.join(tmpDir, "README.md");
+      fs.writeFileSync(markdownPath, "# Heading\n\n" + "Body line.\n".repeat(250));
+      const output = handleReadHook(makeInput(markdownPath, tmpDir));
+      expect(output.exitCode).toBe(0);
+      expect(output.stderr).toBe("");
+    } finally {
+      fs.rmSync(tmpDir, { recursive: true, force: true });
+    }
   });
 
   // -----------------------------------------------------------------------

@@ -170,8 +170,10 @@ calls — a safety net for when agents bypass graft's tools:
 ```
 
 Add to `.claude/settings.json` in your project root.
-**PreToolUse** blocks banned files before the read.
-**PostToolUse** shows the agent what `safe_read` would have saved.
+**PreToolUse** blocks banned files and redirects large JS/TS reads to
+`safe_read` before native `Read` can dump them into context.
+**PostToolUse** is the backstop: it reports what `safe_read` would have
+saved when an oversized code read still slips through.
 
 See the **[Setup Guide](docs/GUIDE.md)** for full details on hooks,
 per-editor MCP config, `.graftignore`, and troubleshooting.

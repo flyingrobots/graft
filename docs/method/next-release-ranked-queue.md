@@ -37,29 +37,33 @@ This retires the old `bad-code` items for:
 - `CLEAN_CODE_mcp-tool-git-files`
 - `CLEAN_CODE_mcp-tool-map`
 
+Cycle `0046-default-governed-read-path` cleared the conditional hook
+debt tranche and shipped the first honest default-read guardrail:
+
+- Claude `PreToolUse` now redirects large JS/TS native reads to
+  graft's bounded-read path before the full file lands in context
+- `PostToolUse` now acts as a backstop for oversized code reads that
+  still slip through
+- hook inspection and policy evaluation now share a smaller seam
+
+This retires the old `bad-code` items for:
+
+- `CLEAN_CODE_hook-pretooluse-read`
+- `CLEAN_CODE_hook-posttooluse-read`
+
 ## Ranked queue
 
-1. [CORE_live-reference-search-fallback.md](backlog/up-next/CORE_live-reference-search-fallback.md)
-   This is the strongest next product move after cycle 0044. It closes
-   the biggest real-world refactor gap and should land on cleaner
-   precision seams, not on the old accumulated helper blob.
+1. [SURFACE_non-claude-default-governed-read-integration.md](backlog/up-next/SURFACE_non-claude-default-governed-read-integration.md)
+   Cycle 0046 solved the Claude hook guardrail, not the full cross-client
+   adoption problem. The next honest move is the remaining non-Claude
+   integration contract.
 
-2. Hook boundary debt tranche, conditional
-   Includes [CLEAN_CODE_hook-pretooluse-read.md](backlog/bad-code/CLEAN_CODE_hook-pretooluse-read.md) and [CLEAN_CODE_hook-posttooluse-read.md](backlog/bad-code/CLEAN_CODE_hook-posttooluse-read.md).
-   Pull this into the release only if the release truly includes
-   [SURFACE_default-governed-read-path.md](backlog/up-next/SURFACE_default-governed-read-path.md). Do not pay it down early if the adoption/default-read work slips.
-
-3. [SURFACE_default-governed-read-path.md](backlog/up-next/SURFACE_default-governed-read-path.md)
-   This is the main adoption problem, but it is broader and riskier than
-   the reference-search gap. It belongs after the search/refactor slice
-   unless release scope changes materially.
-
-4. MCP context and receipt seam tightening, conditional
+2. MCP context and receipt seam tightening, conditional
    Includes [CLEAN_CODE_mcp-context.md](backlog/bad-code/CLEAN_CODE_mcp-context.md) and [CLEAN_CODE_mcp-receipt.md](backlog/bad-code/CLEAN_CODE_mcp-receipt.md).
    Pull this forward if and only if the release includes
    [SURFACE_mcp-runtime-observability.md](backlog/up-next/SURFACE_mcp-runtime-observability.md), because those seams will otherwise become the next weak point in the surface.
 
-5. [SURFACE_mcp-runtime-observability.md](backlog/up-next/SURFACE_mcp-runtime-observability.md)
+3. [SURFACE_mcp-runtime-observability.md](backlog/up-next/SURFACE_mcp-runtime-observability.md)
    Valuable, but it should not get ahead of the search/refactor product
    gap or the debt directly attached to that gap.
 
@@ -89,6 +93,6 @@ Why they stay below the line:
   surfaces, not as a parallel cleanup program.
 - The exact version number should be decided later in the shaped release
   packet under `docs/method/releases/vX.Y.Z/`.
-- If the release narrows to only reference-search work, items 2, 3, 4,
-  and 5 should all drop out of the packet rather than dragging extra
+- If the release narrows to only reference-search work, items 1, 2,
+  and 3 should all drop out of the packet rather than dragging extra
   debt and scope into the ship.

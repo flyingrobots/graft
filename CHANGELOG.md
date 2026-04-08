@@ -13,6 +13,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   case-insensitive exact/prefix/substring matching with deterministic
   ranking. Explicit glob queries such as `handle*` keep the existing
   glob behavior.
+- **Claude hook governed reads**: `PreToolUse` now redirects large
+  JS/TS native `Read` calls to graft's bounded-read path before the
+  full file lands in context. `PostToolUse` remains a backstop message
+  for oversized code reads that still slip through.
 
 ## [0.4.0] - 2026-04-05
 
