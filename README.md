@@ -46,6 +46,10 @@ Scaffolds `.graftignore`, adds `.graft/` to `.gitignore`, generates
 a `CLAUDE.md` snippet telling agents to prefer graft tools, and
 prints Claude Code hook / MCP config for manual setup.
 
+If you use Codex, the explicit `--write-codex-mcp` path also seeds
+`AGENTS.md` so the repo has both the MCP wiring and the instruction
+layer that tells Codex to prefer graft reads.
+
 For a project-local one-step bootstrap, use explicit write flags:
 
 ```bash
@@ -73,8 +77,11 @@ Then add graft to your MCP config:
 }
 ```
 
-Works with Codex, Claude Code, Cursor, Windsurf, Continue, Cline,
-and any MCP-compatible client.
+The MCP server works with Codex, Claude Code, Cursor, Windsurf,
+Continue, Cline, and any MCP-compatible client. Governed native-read
+behavior differs by client: Claude has hook guardrails, Codex now has
+repo-local `AGENTS.md` bootstrap guidance, and the other clients remain
+MCP-plus-instructions rather than true default-governed reads.
 
 See the **[Setup decision table](docs/GUIDE.md#choose-your-setup-path)**
 for the fastest path by client and mode, and the full

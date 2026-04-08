@@ -17,6 +17,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   JS/TS native `Read` calls to graft's bounded-read path before the
   full file lands in context. `PostToolUse` remains a backstop message
   for oversized code reads that still slip through.
+- **Codex bootstrap posture**: `graft init --write-codex-mcp` now seeds
+  `AGENTS.md` alongside `.codex/config.toml`, and the setup docs now
+  distinguish MCP availability from actual governed-read posture by
+  client.
 
 ## [0.4.0] - 2026-04-05
 

@@ -51,19 +51,24 @@ This retires the old `bad-code` items for:
 - `CLEAN_CODE_hook-pretooluse-read`
 - `CLEAN_CODE_hook-posttooluse-read`
 
+Cycle `0047-non-claude-default-governed-read-integration` tightened the
+next-highest-leverage non-Claude path:
+
+- `graft init --write-codex-mcp` now seeds `AGENTS.md` alongside
+  `.codex/config.toml`
+- setup docs now distinguish MCP availability from actual governed-read
+  posture by client
+- the remaining non-Codex instruction parity question is explicit in
+  backlog instead of implied
+
 ## Ranked queue
 
-1. [SURFACE_non-claude-default-governed-read-integration.md](backlog/up-next/SURFACE_non-claude-default-governed-read-integration.md)
-   Cycle 0046 solved the Claude hook guardrail, not the full cross-client
-   adoption problem. The next honest move is the remaining non-Claude
-   integration contract.
-
-2. MCP context and receipt seam tightening, conditional
+1. MCP context and receipt seam tightening, conditional
    Includes [CLEAN_CODE_mcp-context.md](backlog/bad-code/CLEAN_CODE_mcp-context.md) and [CLEAN_CODE_mcp-receipt.md](backlog/bad-code/CLEAN_CODE_mcp-receipt.md).
    Pull this forward if and only if the release includes
    [SURFACE_mcp-runtime-observability.md](backlog/up-next/SURFACE_mcp-runtime-observability.md), because those seams will otherwise become the next weak point in the surface.
 
-3. [SURFACE_mcp-runtime-observability.md](backlog/up-next/SURFACE_mcp-runtime-observability.md)
+2. [SURFACE_mcp-runtime-observability.md](backlog/up-next/SURFACE_mcp-runtime-observability.md)
    Valuable, but it should not get ahead of the search/refactor product
    gap or the debt directly attached to that gap.
 
@@ -73,6 +78,7 @@ These items are real but should not be treated as release blockers for
 the next packet:
 
 - [CORE_non-read-burden.md](backlog/up-next/CORE_non-read-burden.md)
+- [SURFACE_non-codex-instruction-bootstrap-parity.md](backlog/cool-ideas/SURFACE_non-codex-instruction-bootstrap-parity.md)
 - [CLEAN_CODE_mcp-server.md](backlog/bad-code/CLEAN_CODE_mcp-server.md)
 - [CLEAN_CODE_mcp-repo-state.md](backlog/bad-code/CLEAN_CODE_mcp-repo-state.md)
 - [WARP_name-based-symbol-matching.md](backlog/bad-code/WARP_name-based-symbol-matching.md)
@@ -93,6 +99,6 @@ Why they stay below the line:
   surfaces, not as a parallel cleanup program.
 - The exact version number should be decided later in the shaped release
   packet under `docs/method/releases/vX.Y.Z/`.
-- If the release narrows to only reference-search work, items 1, 2,
-  and 3 should all drop out of the packet rather than dragging extra
+- If the release narrows to only reference-search work, items 1 and 2
+  should both drop out of the packet rather than dragging extra
   debt and scope into the ship.

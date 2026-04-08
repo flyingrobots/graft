@@ -24,6 +24,9 @@ Scaffolds your project for graft in one command:
 - Generates a `CLAUDE.md` snippet instructing agents to prefer graft tools
 - Prints Claude Code hook and MCP config for manual setup
 
+If you use `--write-codex-mcp`, `init` also seeds `AGENTS.md` so Codex
+has a repo-local instruction layer alongside the MCP config.
+
 Idempotent — safe to run again without duplicating entries.
 
 ## Choose Your Setup Path
@@ -39,10 +42,22 @@ whole setup guide front-to-back.
 | Windsurf MCP in this repo | `npx @flyingrobots/graft init --write-windsurf-mcp` | Writes or merges `.codeium/windsurf/mcp_config.json` |
 | Continue MCP in this repo | `npx @flyingrobots/graft init --write-continue-mcp` | Writes or merges `.continue/config.json` |
 | Cline MCP in this repo | `npx @flyingrobots/graft init --write-cline-mcp` | Writes or merges `.vscode/cline_mcp_settings.json` |
-| Codex MCP in this repo | `npx @flyingrobots/graft init --write-codex-mcp` | Writes or merges `.codex/config.toml` |
+| Codex MCP in this repo | `npx @flyingrobots/graft init --write-codex-mcp` | Writes or merges `.codex/config.toml` and seeds `AGENTS.md` |
 | Manual review before any config file write | `npx @flyingrobots/graft init` | Scaffolds repo files and prints the manual MCP / hook snippets |
 | Global config instead of project-local config | Edit your client's global MCP settings manually | Use the `npx @flyingrobots/graft serve` command + args shown below |
 | Another MCP-compatible client | Add graft manually to that client's MCP config | Use `command = npx`, `args = ["-y", "@flyingrobots/graft", "serve"]` |
+
+## Governed Read Posture By Client
+
+MCP availability is not the same thing as a governed default read path.
+Use this table to see what each client actually gets today.
+
+| Client path | MCP bootstrap | Repo-local instruction layer | Native read guardrail | Current posture |
+|---|---|---|---|---|
+| Claude Code with hooks | `--write-claude-mcp --write-claude-hooks` | `CLAUDE.md` | Yes, via `PreToolUse` / `PostToolUse` | Closest current default-governed path |
+| Codex | `--write-codex-mcp` | `AGENTS.md` | No | Strong bootstrap guidance plus MCP, but no native-read interception |
+| Cursor / Windsurf / Continue / Cline | `--write-*-mcp` | None written automatically today | No | MCP available, but governed reads still depend on agent choice |
+| Other MCP-compatible clients | Manual MCP config | None written automatically today | No | MCP only |
 
 ### One-step bootstrap
 
@@ -66,7 +81,8 @@ Supported write flags:
 - `--write-windsurf-mcp` -> writes or merges `.codeium/windsurf/mcp_config.json`
 - `--write-continue-mcp` -> writes or merges `.continue/config.json`
 - `--write-cline-mcp` -> writes or merges `.vscode/cline_mcp_settings.json`
-- `--write-codex-mcp` -> writes or merges `.codex/config.toml`
+- `--write-codex-mcp` -> writes or merges `.codex/config.toml` and
+  seeds `AGENTS.md`
 
 These writes are project-local and idempotent. Existing config is
 preserved, and graft entries are only added when missing.
@@ -218,6 +234,10 @@ Project-local shortcut:
 ```bash
 npx @flyingrobots/graft init --write-codex-mcp
 ```
+
+That explicit write path also creates or merges `AGENTS.md` with graft
+read guidance so Codex sees repo-local instructions as well as the MCP
+server config.
 
 **Note:** Codex may ask you to approve external MCP tool calls the
 first time it uses graft. If you trust the local server, choose

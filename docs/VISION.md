@@ -227,6 +227,7 @@ Source: `~/git/blacklight/LLM_TOKEN_USE.md`
 2. **Human writes.** Level 3 causal tracking captures agent edits
    via hooks. How do we capture human edits?
 3. **Language support.** JS/TS only. Rust is "later." When?
-4. **Agent adoption.** `graft init` generates CLAUDE.md snippets
-   but agents still default to native Read. How do we make graft
-   the default path?
+4. **Agent adoption.** `graft init` now seeds `CLAUDE.md` and, on the
+   Codex bootstrap path, `AGENTS.md`, but most clients still default to
+   native reads unless they have a stronger guardrail. How do we make
+   graft the default path?

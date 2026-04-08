@@ -233,6 +233,28 @@ describe("cli: graft init", () => {
     expect(graftBlockCount).toBe(1);
   });
 
+  it("writes AGENTS.md guidance when bootstrapping Codex", () => {
+    runInitQuietly(["--write-codex-mcp"]);
+
+    const content = fs.readFileSync(path.join(tmpDir, "AGENTS.md"), "utf-8");
+    expect(content).toContain("safe_read");
+    expect(content).toContain("file_outline");
+    expect(content).toContain("set_budget");
+  });
+
+  it("appends to existing AGENTS.md without duplicating the graft guidance", () => {
+    fs.writeFileSync(path.join(tmpDir, "AGENTS.md"), "# Team Rules\n\nExisting content.\n");
+
+    runInitQuietly(["--write-codex-mcp"]);
+    runInitQuietly(["--write-codex-mcp"]);
+
+    const content = fs.readFileSync(path.join(tmpDir, "AGENTS.md"), "utf-8");
+    expect(content).toContain("Team Rules");
+    expect(content).toContain("safe_read");
+    const snippetCount = (content.match(/## File reads/g) ?? []).length;
+    expect(snippetCount).toBe(1);
+  });
+
   it("writes project-local config for the other supported clients with explicit flags", () => {
     runInitQuietly([
       "--write-cursor-mcp",

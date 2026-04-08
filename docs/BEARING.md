@@ -43,8 +43,9 @@ lenses, directory tree modeling, 11 WARP invariants. 434 tests,
 - WARP indexing is slow on large repos — `core().materialize()`
   per commit with removals is expensive. Background indexing and
   incremental updates needed.
-- Agent opt-in friction persists. `graft init` generates the
-  CLAUDE.md snippet but agents still default to native Read.
+- Agent opt-in friction persists. `graft init` can seed `CLAUDE.md`
+  and `AGENTS.md`, but most clients still default to native Read unless
+  they have a stronger guardrail.
 - CodeRabbit rate limiting still painful on multi-commit PRs.
 
 ## Bar For General System-Wide Use

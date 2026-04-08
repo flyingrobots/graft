@@ -14,6 +14,8 @@ const GRAFTIGNORE_TEMPLATE = `# Graft ignore patterns — files matching these a
 # data/**/*.json
 `;
 
+const READ_GUIDANCE_MARKER = "## File reads";
+
 const AGENT_SNIPPET = `## File reads
 
 This project uses [graft](https://github.com/flyingrobots/graft) as
@@ -632,7 +634,7 @@ function initProject(cwd: string, args: ParsedInitArgs): InitResult {
   const actions: InitAction[] = [
     writeIfMissing(path.join(cwd, ".graftignore"), GRAFTIGNORE_TEMPLATE, ".graftignore"),
     appendIfMissing(path.join(cwd, ".gitignore"), ".graft/", GITIGNORE_ENTRY, ".gitignore"),
-    appendIfMissing(path.join(cwd, "CLAUDE.md"), "safe_read", `\n${AGENT_SNIPPET}`, "CLAUDE.md"),
+    appendIfMissing(path.join(cwd, "CLAUDE.md"), READ_GUIDANCE_MARKER, `\n${AGENT_SNIPPET}`, "CLAUDE.md"),
   ];
 
   if (args.writeClaudeMcp) {
@@ -643,6 +645,14 @@ function initProject(cwd: string, args: ParsedInitArgs): InitResult {
   }
   if (args.writeCodexMcp) {
     actions.push(mergeCodexMcpConfig(cwd));
+    actions.push(
+      appendIfMissing(
+        path.join(cwd, "AGENTS.md"),
+        READ_GUIDANCE_MARKER,
+        `\n${AGENT_SNIPPET}`,
+        "AGENTS.md",
+      ),
+    );
   }
   if (args.writeCursorMcp) {
     actions.push(mergeCursorMcpConfig(cwd));
