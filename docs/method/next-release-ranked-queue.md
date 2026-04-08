@@ -141,6 +141,21 @@ contract real inside the MCP server:
 This keeps the daemon work honest in code before any transport or
 control-plane story is added.
 
+Cycle `0053-local-daemon-transport-and-session-lifecycle` made the
+daemon runtime path real:
+
+- `graft daemon` now starts a same-user local daemon on a Unix socket or
+  Windows named pipe
+- `/mcp` now hosts Streamable HTTP MCP traffic, and `/healthz` exposes
+  daemon liveness and active-session counts
+- daemon sessions now open on initialize and close on DELETE instead of
+  being implied by one process-global stdio lifetime
+- same-repo daemon sessions now share one repo-scoped WARP pool by
+  default while keeping repo-local `graft serve` unchanged
+
+This keeps the daemon direction honest in runtime behavior, not just in
+design and internal server mode.
+
 ## Ranked queue
 
 No remaining above-the-line work is required before the next release.
@@ -148,10 +163,10 @@ No remaining above-the-line work is required before the next release.
 If we choose to keep pushing before cutting the packet, the next
 candidate is:
 
-1. [SURFACE_local-daemon-transport-and-session-lifecycle.md](backlog/up-next/SURFACE_local-daemon-transport-and-session-lifecycle.md)
-   The binding surface is now real inside the server, so the next
-   highest-leverage move is to add the explicit local-only daemon
-   runtime path and session lifecycle around it.
+1. [SURFACE_system-wide-control-plane-for-persistent-monitors.md](backlog/up-next/SURFACE_system-wide-control-plane-for-persistent-monitors.md)
+   Now that the local daemon can host sessions lawfully, the next
+   highest-leverage move is an operator-visible control plane for
+   authorized workspaces, monitor status, and daemon-scoped inspection.
 
 ## Below the cut line
 
@@ -159,7 +174,6 @@ These items are real but should not be treated as release blockers for
 the next packet:
 
 - [SURFACE_non-codex-instruction-bootstrap-parity.md](backlog/cool-ideas/SURFACE_non-codex-instruction-bootstrap-parity.md)
-- [SURFACE_local-daemon-transport-and-session-lifecycle.md](backlog/up-next/SURFACE_local-daemon-transport-and-session-lifecycle.md)
 - [SURFACE_system-wide-control-plane-for-persistent-monitors.md](backlog/up-next/SURFACE_system-wide-control-plane-for-persistent-monitors.md)
 - [SURFACE_system-wide-multi-repo-agent-coordination.md](backlog/up-next/SURFACE_system-wide-multi-repo-agent-coordination.md)
 - [CLEAN_CODE_mcp-server.md](backlog/bad-code/CLEAN_CODE_mcp-server.md)

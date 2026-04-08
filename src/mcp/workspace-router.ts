@@ -9,6 +9,7 @@ import { RepoStateTracker } from "./repo-state.js";
 import { SessionTracker } from "../session/tracker.js";
 import type { FileSystem } from "../ports/filesystem.js";
 import type { GitClient } from "../ports/git.js";
+import type { WarpPool } from "./warp-pool.js";
 
 export type WorkspaceSessionMode = "repo_local" | "daemon";
 export type WorkspaceBindState = "bound" | "unbound";
@@ -105,7 +106,7 @@ interface WorkspaceRouterOptions {
   readonly git: GitClient;
   readonly graftDir: string;
   readonly projectRoot?: string | undefined;
-  readonly createWarp: (projectRoot: string) => Promise<WarpApp>;
+  readonly warpPool: WarpPool;
 }
 
 const DAEMON_CAPABILITY_PROFILE: WorkspaceCapabilityProfile = Object.freeze({
@@ -171,8 +172,6 @@ function resolveWorkspace(git: GitClient, request: WorkspaceBindRequest): Resolv
 }
 
 export class WorkspaceRouter {
-  private readonly warpByRepoId = new Map<string, Promise<WarpApp>>();
-
   private sliceCounter = 0;
   private currentSlice: WorkspaceSlice;
   private currentBinding: BoundWorkspace | null = null;
@@ -359,16 +358,7 @@ export class WorkspaceRouter {
       resolvePath: createPathResolver(resolved.worktreeRoot),
       capabilityProfile,
       slice,
-      getWarp: () => {
-        const cached = this.warpByRepoId.get(resolved.repoId);
-        if (cached !== undefined) return cached;
-        const opened = this.options.createWarp(resolved.worktreeRoot).catch((error: unknown) => {
-          this.warpByRepoId.delete(resolved.repoId);
-          throw error;
-        });
-        this.warpByRepoId.set(resolved.repoId, opened);
-        return opened;
-      },
+      getWarp: () => this.options.warpPool.getOrOpen(resolved.repoId, resolved.worktreeRoot),
     };
   }
 

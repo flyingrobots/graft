@@ -54,13 +54,16 @@ Purpose:
 - policy-aware bounded read access
 
 Current shape:
-- one repo-rooted server instance per process
-- one `SessionTracker`, `ObservationCache`, `Metrics`, and
-  `RepoStateTracker` per server instance
-- lazy WARP initialization only when a WARP-backed tool needs it
+- `graft serve` runs one repo-rooted stdio server per process
+- `graft daemon` runs one local daemon host per process and many daemon
+  sessions beneath it
+- each server or daemon session owns one `SessionTracker`,
+  `ObservationCache`, `Metrics`, and `RepoStateTracker` slice
+- lazy WARP initialization still happens only when a WARP-backed tool
+  needs it
 
-This is good for repo-local dogfooding. It is not yet the final system
-contract for a future shared daemon.
+This is now enough to make the local daemon contract real without
+pretending the control plane or broader system-wide story is finished.
 
 ### Hooks
 
@@ -296,26 +299,26 @@ Current repo-local path:
 - one process holds one rooted `SessionTracker`, `ObservationCache`,
   `Metrics`, and `RepoStateTracker`
 
-Future local shared-daemon path:
+Current local shared-daemon path:
 
-- a separate daemon command owns local-only transport and session
-  lifecycle
+- `graft daemon` owns local-only transport and session lifecycle
 - daemon sessions start unbound
 - a daemon-only workspace bind step resolves repo/worktree identity
   server-side before repo-scoped tools run
-- the server now has an internal daemon session mode that makes this
-  bind/status/rebind contract real before a transport is added
+- MCP traffic lives at `/mcp`, and liveness lives at `/healthz`
+- each daemon transport session owns its own daemon-mode MCP server
 - state splits cleanly across:
   - canonical repo identity and default WARP ownership (`git common
     dir`)
   - live worktree identity (resolved worktree root)
   - session-local cache, budget, receipts, and saved state
 - one repo-scoped WARP instance per canonical repo remains the default
-  assumption even if several sessions or worktrees bind into that repo
+  assumption even if several daemon sessions or worktrees bind into that
+  repo
 
-That split is the bridge from today's repo-local stdio design to a
-future same-user local daemon without pretending the two contracts are
-already the same.
+This split is the bridge from repo-local stdio to a same-user local
+daemon without pretending control-plane and multi-repo concerns are
+already solved.
 
 ## Where to read next
 

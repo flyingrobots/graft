@@ -86,6 +86,44 @@ describe("cli: graft grouped surface", () => {
     expect(calls).toEqual(["/tmp/example"]);
   });
 
+  it("routes explicit daemon through the daemon starter", async () => {
+    const stdout = createBufferWriter();
+    const stderr = createBufferWriter();
+    const calls: { socketPath?: string | undefined }[] = [];
+
+    await runCli({
+      cwd: "/tmp/example",
+      args: ["daemon", "--socket", "runtime/graft.sock"],
+      stdout,
+      stderr,
+      startDaemon: (options) => {
+        calls.push(options);
+        return Promise.resolve({
+          socketPath: options.socketPath ?? "default",
+          healthPath: "/healthz",
+          mcpPath: "/mcp",
+          close: () => Promise.resolve(),
+          getHealthStatus: () => ({
+            ok: true,
+            sessionMode: "daemon",
+            transport: "unix_socket",
+            sameUserOnly: true,
+            socketPath: options.socketPath ?? "default",
+            healthPath: "/healthz",
+            mcpPath: "/mcp",
+            activeSessions: 0,
+            activeWarpRepos: 0,
+            startedAt: "2026-04-08T00:00:00.000Z",
+          }),
+        });
+      },
+    });
+
+    expect(stderr.text()).toBe("");
+    expect(stdout.text()).toContain("/tmp/example/runtime/graft.sock");
+    expect(calls).toEqual([{ socketPath: "/tmp/example/runtime/graft.sock" }]);
+  });
+
   it("keeps no-arg non-interactive entrypoints compatible with MCP clients", () => {
     expect(resolveEntrypointArgs([], false, false)).toEqual(["serve"]);
     expect(resolveEntrypointArgs([], true, true)).toEqual([]);

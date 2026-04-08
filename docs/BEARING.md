@@ -60,6 +60,12 @@ daemon session mode with real `workspace_bind`, `workspace_status`, and
 run-capture denial in daemon mode, fresh session-local slice reset on
 rebind, and same-repo WARP reuse keyed by canonical repo identity.
 
+Cycle 0053 — daemon transport and lifecycle: `graft daemon` now runs a
+same-user local MCP daemon on a Unix socket or named pipe, exposes
+`/healthz` and `/mcp`, opens and closes daemon sessions by transport
+lifecycle, and shares one repo-scoped WARP pool across same-repo daemon
+sessions while leaving repo-local `graft serve` unchanged.
+
 ## What feels wrong
 
 - WARP indexing is slow on large repos — `core().materialize()`

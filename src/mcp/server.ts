@@ -30,6 +30,7 @@ import {
   sanitizeArgKeys,
   type RuntimeObservabilityState,
 } from "./runtime-observability.js";
+import { InMemoryWarpPool, type WarpPool } from "./warp-pool.js";
 
 // Tool definitions — each file exports a ToolDefinition object
 import { safeReadTool } from "./tools/safe-read.js";
@@ -100,6 +101,7 @@ export interface CreateGraftServerOptions {
   env?: Readonly<Record<string, string | undefined>>;
   runCapture?: Partial<RunCaptureConfig>;
   runtimeObservability?: Partial<RuntimeObservabilityState>;
+  warpPool?: WarpPool;
 }
 
 export function createGraftServer(options: CreateGraftServerOptions = {}): GraftServer {
@@ -128,6 +130,7 @@ export function createGraftServer(options: CreateGraftServerOptions = {}): Graft
     logPath: observability.logPath,
     maxBytes: observability.maxBytes,
   });
+  const warpPool = options.warpPool ?? new InMemoryWarpPool((cwd) => openWarp({ cwd }));
   const runtimeReady = mode === "repo_local" && projectRoot !== undefined
     ? ensureGraftDirExcluded(projectRoot, graftDir, nodeFs)
     : Promise.resolve();
@@ -145,7 +148,7 @@ export function createGraftServer(options: CreateGraftServerOptions = {}): Graft
     git: nodeGit,
     graftDir,
     ...(projectRoot !== undefined ? { projectRoot } : {}),
-    createWarp: (cwd: string) => openWarp({ cwd }),
+    warpPool,
   });
 
   async function emitRuntimeEvent(event: Parameters<RuntimeEventLogger["log"]>[0]): Promise<void> {
@@ -324,7 +327,7 @@ export function createGraftServer(options: CreateGraftServerOptions = {}): Graft
     }
   }
 
-  function wrapWithPolicyCheck(toolName: string, inner: ToolHandler): ToolHandler {
+  function wrapWithPolicyCheck(toolName: ToolDefinition["name"], inner: ToolHandler): ToolHandler {
     return (args: Record<string, unknown>) => {
       const rawPath = args["path"] as string | undefined;
       if (rawPath === undefined) return inner(args);

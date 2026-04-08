@@ -61,19 +61,23 @@ Use this table to see what each client actually gets today.
 
 ## Deployment Posture
 
-Graft's supported deployment posture today is still repo-local and
-local-user: one stdio MCP server per repo checkout, plus repo-local
-bootstrap files such as `CLAUDE.md` or `AGENTS.md`.
+Graft's supported deployment posture today is local-user with two
+distinct runtime paths:
 
-A future shared daemon is not yet a supported deployment surface. That
-future model needs:
+- repo-local `serve`: one stdio MCP server per repo checkout plus
+  repo-local bootstrap files such as `CLAUDE.md` or `AGENTS.md`
+- `graft daemon`: a separate same-user local runtime on a Unix socket or
+  Windows named pipe, with `/mcp` for MCP traffic and `/healthz` for
+  liveness
 
-- explicit local-client authentication
-- operator-mediated workspace authorization
-- isolation between canonical repo identity, live worktree identity,
-  and client session state
-- session- and operator-scoped visibility for receipts and runtime logs
-- default-denied escape hatches such as `run_capture`
+The daemon is intentionally not the default editor bootstrap story yet.
+It uses a stricter contract:
+
+- daemon sessions start unbound
+- workspace binding is the authorization event
+- canonical repo identity, live worktree identity, and session-local
+  state remain separate
+- `run_capture` stays default-denied
 
 ### One-step bootstrap
 
@@ -561,9 +565,9 @@ tool. For broader or more sensitive deployments:
 - persisted capture output is redacted for obvious secret-shaped values
   by default
 
-If Graft ever grows a shared daemon, `run_capture` should stay disabled
-by default there and require an explicit operator-authorized capability
-profile rather than inheriting local repo-scoped trust.
+In the local daemon runtime, `run_capture` stays disabled by default and
+requires an explicit operator-authorized capability profile rather than
+inheriting local repo-scoped trust.
 
 ### MCP runtime observability
 

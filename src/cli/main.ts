@@ -13,6 +13,7 @@ import {
   validateCliOutput,
 } from "../contracts/output-schemas.js";
 import { createGraftServer, type McpToolResult } from "../mcp/server.js";
+import { startDaemonServer, type GraftDaemonServer } from "../mcp/daemon-server.js";
 import { startStdioServer } from "../mcp/stdio-server.js";
 import { runIndex } from "./index-cmd.js";
 import { runInit } from "./init.js";
@@ -29,6 +30,7 @@ export interface RunCliOptions {
   stdout?: Writer | undefined;
   stderr?: Writer | undefined;
   startServer?: ((cwd: string) => Promise<void>) | undefined;
+  startDaemon?: ((options: { socketPath?: string | undefined }) => Promise<GraftDaemonServer>) | undefined;
 }
 
 interface GlobalCliOptions {
@@ -124,6 +126,12 @@ function parsePositiveInt(raw: string | undefined, flag: string): number {
     throw new Error(`${flag} must be a positive integer`);
   }
   return value;
+}
+
+function parseDaemonCommand(cwd: string, argv: string[]): { socketPath?: string } {
+  const socketPath = consumeOption(argv, "--socket");
+  expectNoArgs(argv);
+  return socketPath !== undefined ? { socketPath: path.resolve(cwd, socketPath) } : {};
 }
 
 function parseGlobalOptions(
@@ -324,6 +332,7 @@ function renderHelp(writer: Writer): void {
   writeLine(writer, "  --cwd <path>    Run a command against another repo root");
   writeLine(writer, "  help            Show this help");
   writeLine(writer, "  serve           Start the MCP stdio server");
+  writeLine(writer, "  daemon          Start the local MCP daemon");
   writeLine(writer);
 
   const grouped = new Map<string, { path: readonly string[]; description: string }[]>();
@@ -387,6 +396,17 @@ export async function runCli(options: RunCliOptions = {}): Promise<void> {
       return;
     }
     await (options.startServer ?? startStdioServer)(cwd);
+    return;
+  }
+
+  if (argv[0] === "daemon") {
+    try {
+      const daemon = await (options.startDaemon ?? startDaemonServer)(parseDaemonCommand(cwd, argv.slice(1)));
+      writeLine(stdout, `Daemon listening on ${daemon.socketPath}`);
+    } catch (err: unknown) {
+      process.exitCode = 1;
+      writeLine(stderr, `Error: ${err instanceof Error ? err.message : String(err)}`);
+    }
     return;
   }
 
