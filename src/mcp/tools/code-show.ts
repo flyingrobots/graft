@@ -8,6 +8,7 @@ import {
   listTrackedFilesAtRef,
   loadFileContent,
   normalizeRepoPath,
+  PrecisionSearchRequest,
   type PrecisionSymbolMatch,
   readRangeFromContent,
   requireRepoPath,
@@ -79,42 +80,51 @@ export const codeShowTool: ToolDefinition = {
           const ceilings = await getIndexedCommitCeilings(warp);
           const ceiling = ceilings.get(resolvedRef);
           if (ceiling !== undefined) {
-            locations = await searchWarpSymbols(warp, {
+            locations = await searchWarpSymbols(warp, new PrecisionSearchRequest({
               exactName: symbolName,
               ...(repoPath !== undefined ? { filePath: repoPath } : {}),
               ceiling,
-            });
+            }));
             source = "warp";
           } else {
             const filePaths = repoPath !== undefined
               ? [repoPath]
               : listTrackedFilesAtRef("", ctx.projectRoot, resolvedRef);
-            locations = searchLiveSymbols(ctx, {
+            locations = searchLiveSymbols(
+              ctx,
               filePaths,
+              new PrecisionSearchRequest({
               exactName: symbolName,
-              ref: resolvedRef,
-            });
+              }),
+              resolvedRef,
+            );
           }
         } catch {
           const repoPath = targetPath !== undefined ? requireRepoPath(ctx.projectRoot, targetPath) : undefined;
           const filePaths = repoPath !== undefined
             ? [repoPath]
             : listTrackedFilesAtRef("", ctx.projectRoot, resolvedRef);
-          locations = searchLiveSymbols(ctx, {
+          locations = searchLiveSymbols(
+            ctx,
             filePaths,
+            new PrecisionSearchRequest({
             exactName: symbolName,
-            ref: resolvedRef,
-          });
+            }),
+            resolvedRef,
+          );
           source = "live";
         }
       } else {
         const filePaths = targetPath !== undefined
           ? [targetPath]
           : listProjectFiles("", ctx.projectRoot);
-        locations = searchLiveSymbols(ctx, {
+        locations = searchLiveSymbols(
+          ctx,
           filePaths,
+          new PrecisionSearchRequest({
           exactName: symbolName,
-        });
+          }),
+        );
       }
 
       const visibleLocations: PrecisionSymbolMatch[] = [];

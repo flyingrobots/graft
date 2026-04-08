@@ -288,6 +288,31 @@ describe("mcp: code_find", () => {
     }
   });
 
+  it("normalizes in-repo absolute paths for directory scoping", async () => {
+    const tmpDir = createTestRepo("graft-precision-find-abs-scope-");
+    try {
+      fs.mkdirSync(path.join(tmpDir, "src", "policy"), { recursive: true });
+      fs.writeFileSync(
+        path.join(tmpDir, "src", "policy", "evaluate.ts"),
+        "export class PolicyEngine {}\n",
+      );
+      git(tmpDir, "add -A");
+      git(tmpDir, "commit -m init");
+
+      const server = createServerInRepo(tmpDir);
+      const result = parse(await server.callTool("code_find", {
+        query: "policy",
+        path: path.join(tmpDir, "src"),
+      }));
+
+      expect(result["matches"]).toEqual([
+        expect.objectContaining({ name: "PolicyEngine", path: "src/policy/evaluate.ts" }),
+      ]);
+    } finally {
+      cleanupTestRepo(tmpDir);
+    }
+  });
+
   it("returns empty results for a miss", async () => {
     const tmpDir = createTestRepo("graft-precision-find-miss-");
     try {

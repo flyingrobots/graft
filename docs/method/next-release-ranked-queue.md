@@ -1,6 +1,6 @@
 # Next Release Ranked Queue
 
-Status: draft
+Status: active
 
 ## Release thesis
 
@@ -19,59 +19,47 @@ That means:
 This is a release-shaping queue, not a commitment to burn down the full
 `bad-code/` lane.
 
-## Hard release bar
+## Completed tranche
 
-The next release should not ship until the precision boundary tranche is
-done:
+Cycle `0045-CODE_mcp-tool-precision` cleared the first pre-release debt
+bar:
 
-1. [CLEAN_CODE_mcp-tool-code-find.md](backlog/bad-code/CLEAN_CODE_mcp-tool-code-find.md)
-2. [CLEAN_CODE_mcp-tool-precision.md](backlog/bad-code/CLEAN_CODE_mcp-tool-precision.md)
-3. [CLEAN_CODE_mcp-tool-git-files.md](backlog/bad-code/CLEAN_CODE_mcp-tool-git-files.md)
-4. [CLEAN_CODE_mcp-tool-map.md](backlog/bad-code/CLEAN_CODE_mcp-tool-map.md)
+- `code_find` now uses a runtime-backed request model
+- precision query matching and match shaping moved out of the shared
+  helper blob
+- git file enumeration now runs through typed query/result seams
+- `graft_map` now uses runtime-backed request/result objects
 
-Why this is the bar:
+This retires the old `bad-code` items for:
 
-- these are the exact files and seams under `src/mcp/tools/precision.ts`,
-  `src/mcp/tools/code-find.ts`, `src/mcp/tools/git-files.ts`, and
-  `src/mcp/tools/map.ts`
-- the next likely feature, [CORE_live-reference-search-fallback.md](backlog/up-next/CORE_live-reference-search-fallback.md), will otherwise layer new behavior onto the current loose request/result seam
-- recent cycles have already been forcing changes through this area, which is a sign to pay down the seam before adding more product weight
-
-Exit condition for the bar:
-
-- `code_find` and adjacent structural search handlers stop collapsing so
-  quickly into loose records and structural response assembly
-- precision retrieval is split into smaller strategy-focused units
-- git file enumeration is no longer an environment-heavy utility blob
-- structural map queries have a runtime-backed request/result seam
+- `CLEAN_CODE_mcp-tool-code-find`
+- `CLEAN_CODE_mcp-tool-precision`
+- `CLEAN_CODE_mcp-tool-git-files`
+- `CLEAN_CODE_mcp-tool-map`
 
 ## Ranked queue
 
-1. Precision debt tranche
-   Includes [CLEAN_CODE_mcp-tool-code-find.md](backlog/bad-code/CLEAN_CODE_mcp-tool-code-find.md), [CLEAN_CODE_mcp-tool-precision.md](backlog/bad-code/CLEAN_CODE_mcp-tool-precision.md), [CLEAN_CODE_mcp-tool-git-files.md](backlog/bad-code/CLEAN_CODE_mcp-tool-git-files.md), and [CLEAN_CODE_mcp-tool-map.md](backlog/bad-code/CLEAN_CODE_mcp-tool-map.md).
-   This is the must-clear pre-release bar.
-
-2. [CORE_live-reference-search-fallback.md](backlog/up-next/CORE_live-reference-search-fallback.md)
+1. [CORE_live-reference-search-fallback.md](backlog/up-next/CORE_live-reference-search-fallback.md)
    This is the strongest next product move after cycle 0044. It closes
    the biggest real-world refactor gap and should land on cleaner
-   precision seams, not on the current accumulated helper blob.
+   precision seams, not on the old accumulated helper blob.
 
-3. Hook boundary debt tranche, conditional
+2. Hook boundary debt tranche, conditional
    Includes [CLEAN_CODE_hook-pretooluse-read.md](backlog/bad-code/CLEAN_CODE_hook-pretooluse-read.md) and [CLEAN_CODE_hook-posttooluse-read.md](backlog/bad-code/CLEAN_CODE_hook-posttooluse-read.md).
    Pull this into the release only if the release truly includes
    [SURFACE_default-governed-read-path.md](backlog/up-next/SURFACE_default-governed-read-path.md). Do not pay it down early if the adoption/default-read work slips.
 
-4. [SURFACE_default-governed-read-path.md](backlog/up-next/SURFACE_default-governed-read-path.md)
+3. [SURFACE_default-governed-read-path.md](backlog/up-next/SURFACE_default-governed-read-path.md)
    This is the main adoption problem, but it is broader and riskier than
    the reference-search gap. It belongs after the search/refactor slice
    unless release scope changes materially.
 
-5. MCP context and receipt seam tightening, conditional
+4. MCP context and receipt seam tightening, conditional
    Includes [CLEAN_CODE_mcp-context.md](backlog/bad-code/CLEAN_CODE_mcp-context.md) and [CLEAN_CODE_mcp-receipt.md](backlog/bad-code/CLEAN_CODE_mcp-receipt.md).
    Pull this forward if and only if the release includes
    [SURFACE_mcp-runtime-observability.md](backlog/up-next/SURFACE_mcp-runtime-observability.md), because those seams will otherwise become the next weak point in the surface.
 
-6. [SURFACE_mcp-runtime-observability.md](backlog/up-next/SURFACE_mcp-runtime-observability.md)
+5. [SURFACE_mcp-runtime-observability.md](backlog/up-next/SURFACE_mcp-runtime-observability.md)
    Valuable, but it should not get ahead of the search/refactor product
    gap or the debt directly attached to that gap.
 
@@ -93,7 +81,7 @@ Why they stay below the line:
 - they are broader substrate or semantics work
 - they will absorb schedule quickly
 - they do not buy as much immediate operator-facing sharpness as the
-  precision/search tranche
+  current release frontier
 
 ## Notes
 

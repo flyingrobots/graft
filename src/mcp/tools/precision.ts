@@ -1,6 +1,5 @@
 import * as path from "node:path";
 import { execFileSync } from "node:child_process";
-import picomatch from "picomatch";
 import type WarpApp from "@git-stunts/git-warp";
 import { getFileAtRef, GitError } from "../../git/diff.js";
 import { detectLang } from "../../parser/lang.js";
@@ -9,32 +8,14 @@ import type { JumpEntry, OutlineEntry } from "../../parser/types.js";
 import { allSymbolsLens, fileSymbolsLens, symbolByNameLens } from "../../warp/observers.js";
 import type { ToolContext } from "../context.js";
 import { evaluateMcpRefusal, type McpPolicyRefusal } from "../policy.js";
+import { PrecisionSearchRequest, type RankedPrecisionSymbolMatch } from "./precision-query.js";
+import { PrecisionSymbolMatch } from "./precision-match.js";
 
 const MAX_RANGE_LINES = 250;
 
-export interface PrecisionSymbolMatch {
-  name: string;
-  kind: string;
-  path: string;
-  signature?: string | undefined;
-  exported: boolean;
-  startLine?: number | undefined;
-  endLine?: number | undefined;
-}
-
+export { PrecisionSearchRequest } from "./precision-query.js";
+export { PrecisionSymbolMatch } from "./precision-match.js";
 export type PrecisionPolicyRefusal = McpPolicyRefusal;
-
-interface RankedPrecisionSymbolMatch {
-  match: PrecisionSymbolMatch;
-  score: number;
-}
-
-type SymbolQueryMode = "glob" | "plain";
-
-interface SymbolQueryMatcher {
-  mode: SymbolQueryMode;
-  score(name: string): number | null;
-}
 
 function git(args: readonly string[], cwd: string): string {
   return execFileSync("git", [...args], {
@@ -74,7 +55,7 @@ function toMatch(
     return null;
   }
 
-  return {
+  return new PrecisionSymbolMatch({
     name,
     kind,
     path,
@@ -82,63 +63,9 @@ function toMatch(
     exported: props["exported"] === true,
     ...(typeof props["startLine"] === "number" ? { startLine: props["startLine"] } : {}),
     ...(typeof props["endLine"] === "number" ? { endLine: props["endLine"] } : {}),
-  };
+  });
 }
 
-function sortMatches(matches: PrecisionSymbolMatch[]): PrecisionSymbolMatch[] {
-  return matches.sort((a, b) => a.path.localeCompare(b.path) || a.name.localeCompare(b.name));
-}
-
-function sortRankedMatches(
-  matches: RankedPrecisionSymbolMatch[],
-  mode: SymbolQueryMode,
-): PrecisionSymbolMatch[] {
-  return matches
-    .sort((a, b) =>
-      a.score - b.score ||
-      (mode === "plain" ? a.match.name.length - b.match.name.length : 0) ||
-      a.match.path.localeCompare(b.match.path) ||
-      a.match.name.localeCompare(b.match.name)
-    )
-    .map((entry) => entry.match);
-}
-
-function hasGlobPattern(query: string): boolean {
-  return picomatch.scan(query).isGlob;
-}
-
-function scorePlainSymbolQuery(name: string, query: string): number | null {
-  const normalizedQuery = query.trim();
-  if (normalizedQuery.length === 0) return null;
-
-  const loweredName = name.toLowerCase();
-  const loweredQuery = normalizedQuery.toLowerCase();
-  if (name === normalizedQuery) return 0;
-  if (loweredName === loweredQuery) return 1;
-  if (name.startsWith(normalizedQuery)) return 2;
-  if (loweredName.startsWith(loweredQuery)) return 3;
-  return loweredName.includes(loweredQuery) ? 4 : null;
-}
-
-function buildSymbolQueryMatcher(query: string | undefined): SymbolQueryMatcher | null {
-  if (query === undefined) return null;
-  if (hasGlobPattern(query)) {
-    const matcher = picomatch(query, { nocase: true });
-    return {
-      mode: "glob",
-      score(name: string) {
-        return matcher(name) ? 0 : null;
-      },
-    };
-  }
-
-  return {
-    mode: "plain",
-    score(name: string) {
-      return scorePlainSymbolQuery(name, query);
-    },
-  };
-}
 
 export function normalizeRepoPath(projectRoot: string, input: string): string {
   if (!path.isAbsolute(input)) return input;
@@ -217,7 +144,7 @@ export function collectSymbols(
     if (jump !== undefined) {
       jumpCursor.set(entry.name, jumpIndex + 1);
     }
-    results.push({
+    results.push(new PrecisionSymbolMatch({
       name: entry.name,
       kind: entry.kind,
       path: filePath,
@@ -225,7 +152,7 @@ export function collectSymbols(
       exported: entry.exported,
       startLine: jump?.start,
       endLine: jump?.end,
-    });
+    }));
 
     if (entry.children !== undefined && entry.children.length > 0) {
       results.push(...collectSymbols(entry.children, filePath, jumpTable, jumpCursor));
@@ -265,88 +192,63 @@ export function evaluatePrecisionPolicy(
 
 export async function searchWarpSymbols(
   warp: WarpApp,
-  options: {
-    exactName?: string | undefined;
-    query?: string | undefined;
-    kind?: string | undefined;
-    filePath?: string | undefined;
-    pathPrefix?: string | undefined;
-    ceiling?: number | undefined;
-  },
+  request: PrecisionSearchRequest,
 ): Promise<PrecisionSymbolMatch[]> {
-  const lens = options.filePath !== undefined
-    ? fileSymbolsLens(options.filePath)
-    : options.exactName !== undefined
-      ? symbolByNameLens(options.exactName)
+  const lensMode = request.selectLens();
+  if (lensMode === "file" && request.filePath === undefined) {
+    throw new Error("PrecisionSearchRequest selected file lens without filePath");
+  }
+  if (lensMode === "exact" && request.exactName === undefined) {
+    throw new Error("PrecisionSearchRequest selected exact lens without exactName");
+  }
+  const lens = lensMode === "file"
+    ? fileSymbolsLens(request.filePath)
+    : lensMode === "exact"
+      ? symbolByNameLens(request.exactName)
       : allSymbolsLens();
   const observer = await warp.observer(
     lens,
-    options.ceiling !== undefined ? { source: { kind: "live", ceiling: options.ceiling } } : undefined,
+    request.ceiling !== undefined ? { source: { kind: "live", ceiling: request.ceiling } } : undefined,
   );
   const nodeIds = await observer.getNodes();
-  const queryMatcher = buildSymbolQueryMatcher(options.query);
 
   const matches = await Promise.all(nodeIds.map(async (nodeId) => {
     const props = await observer.getNodeProps(nodeId);
     if (props === null) return null;
     const match = toMatch(nodeId, props);
     if (match === null) return null;
-    if (options.exactName !== undefined && match.name !== options.exactName) return null;
-    if (options.kind !== undefined && match.kind.toLowerCase() !== options.kind.toLowerCase()) return null;
-    if (options.filePath !== undefined && match.path !== options.filePath) return null;
-    if (options.pathPrefix !== undefined && !match.path.startsWith(options.pathPrefix)) return null;
-    if (queryMatcher === null) return { match, score: 0 };
-    const score = queryMatcher.score(match.name);
-    return score === null ? null : { match, score };
+    return request.rank(match);
   }));
 
   const visibleMatches = matches.filter((match): match is RankedPrecisionSymbolMatch => match !== null);
-  if (queryMatcher === null) {
-    return sortMatches(visibleMatches.map((entry) => entry.match));
-  }
-  return sortRankedMatches(visibleMatches, queryMatcher.mode);
+  return request.sort(visibleMatches);
 }
 
 export function searchLiveSymbols(
   ctx: ToolContext,
-  options: {
-    filePaths: readonly string[];
-    exactName?: string | undefined;
-    query?: string | undefined;
-    kind?: string | undefined;
-    ref?: string | undefined;
-  },
+  filePaths: readonly string[],
+  request: PrecisionSearchRequest,
+  ref?: string,
 ): PrecisionSymbolMatch[] {
-  const queryMatcher = buildSymbolQueryMatcher(options.query);
   const matches: RankedPrecisionSymbolMatch[] = [];
 
-  for (const filePath of options.filePaths) {
+  for (const filePath of filePaths) {
     const lang = detectLang(filePath);
     if (lang === null) continue;
 
-    const content = loadFileContent(ctx, filePath, options.ref);
+    const content = loadFileContent(ctx, filePath, ref);
     if (content === null) continue;
 
     const result = extractOutline(content, lang);
     const symbols = collectSymbols(result.entries, filePath, result.jumpTable ?? []);
 
     for (const symbol of symbols) {
-      if (options.exactName !== undefined && symbol.name !== options.exactName) continue;
-      if (options.kind !== undefined && symbol.kind.toLowerCase() !== options.kind.toLowerCase()) continue;
-      if (queryMatcher === null) {
-        matches.push({ match: symbol, score: 0 });
-        continue;
-      }
-      const score = queryMatcher.score(symbol.name);
-      if (score === null) continue;
-      matches.push({ match: symbol, score });
+      const ranked = request.rank(symbol);
+      if (ranked !== null) matches.push(ranked);
     }
   }
 
-  if (queryMatcher === null) {
-    return sortMatches(matches.map((entry) => entry.match));
-  }
-  return sortRankedMatches(matches, queryMatcher.mode);
+  return request.sort(matches);
 }
 
 export function readRangeFromContent(

@@ -41,6 +41,28 @@ describe("mcp: structural tool policy enforcement", () => {
     }
   });
 
+  it("graft_map normalizes in-repo absolute path scopes", async () => {
+    const tmpDir = createTestRepo("graft-structural-policy-map-abs-");
+    try {
+      fs.mkdirSync(path.join(tmpDir, "src"), { recursive: true });
+      fs.writeFileSync(path.join(tmpDir, "src", "tracked.ts"), "export const tracked = true;\n");
+      git(tmpDir, "add -A");
+      git(tmpDir, "commit -m init");
+
+      const server = createServerInRepo(tmpDir);
+      const result = parse(await server.callTool("graft_map", {
+        path: path.join(tmpDir, "src"),
+      }));
+
+      expect(result["directory"]).toBe("src");
+      expect(result["files"]).toEqual([
+        expect.objectContaining({ path: "src/tracked.ts" }),
+      ]);
+    } finally {
+      cleanupTestRepo(tmpDir);
+    }
+  });
+
   it("graft_map omits .graftignore-matched files and reports them explicitly", async () => {
     const tmpDir = createTestRepo("graft-structural-policy-map-");
     try {

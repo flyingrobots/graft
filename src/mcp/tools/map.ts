@@ -3,13 +3,70 @@ import { z } from "zod";
 import { extractOutline } from "../../parser/outline.js";
 import { detectLang } from "../../parser/lang.js";
 import type { ToolDefinition, ToolContext, ToolHandler } from "../context.js";
-import { listProjectFiles } from "./git-files.js";
+import { GitFileQuery, listGitFiles } from "./git-files.js";
 import { evaluateMcpRefusal, type McpPolicyRefusal } from "../policy.js";
+import { collectSymbols, normalizeRepoPath } from "./precision.js";
 
-interface FileEntry {
+class StructuralMapRequest {
+  readonly directory: string;
+
+  constructor(args: Record<string, unknown>, projectRoot: string) {
+    const rawPath = args["path"];
+    if (rawPath !== undefined && typeof rawPath !== "string") {
+      throw new Error("StructuralMapRequest: path must be a string when provided");
+    }
+    this.directory = rawPath !== undefined && rawPath.trim().length > 0
+      ? normalizeRepoPath(projectRoot, rawPath)
+      : ".";
+    Object.freeze(this);
+  }
+
+  toGitFileQuery(projectRoot: string): GitFileQuery {
+    return GitFileQuery.project(projectRoot, this.directory === "." ? "" : this.directory);
+  }
+}
+
+class StructuralMapSymbol {
+  readonly name: string;
+  readonly kind: string;
+  readonly signature?: string;
+  readonly exported: boolean;
+  readonly startLine?: number;
+  readonly endLine?: number;
+
+  constructor(opts: {
+    name: string;
+    kind: string;
+    signature?: string;
+    exported: boolean;
+    startLine?: number;
+    endLine?: number;
+  }) {
+    this.name = opts.name;
+    this.kind = opts.kind;
+    this.exported = opts.exported;
+    if (opts.signature !== undefined) this.signature = opts.signature;
+    if (opts.startLine !== undefined) this.startLine = opts.startLine;
+    if (opts.endLine !== undefined) this.endLine = opts.endLine;
+    Object.freeze(this);
+  }
+}
+
+class StructuralMapFile {
   path: string;
   lang: string;
-  symbols: { name: string; kind: string; signature?: string | undefined; exported: boolean; startLine?: number | undefined; endLine?: number | undefined }[];
+  symbols: readonly StructuralMapSymbol[];
+
+  constructor(opts: {
+    path: string;
+    lang: string;
+    symbols: readonly StructuralMapSymbol[];
+  }) {
+    this.path = opts.path;
+    this.lang = opts.lang;
+    this.symbols = Object.freeze([...opts.symbols]);
+    Object.freeze(this);
+  }
 }
 
 export const mapTool: ToolDefinition = {
@@ -23,10 +80,10 @@ export const mapTool: ToolDefinition = {
   },
   createHandler(ctx: ToolContext): ToolHandler {
     return (args) => {
-      const dirPath = (args["path"] as string | undefined) ?? "";
+      const request = new StructuralMapRequest(args, ctx.projectRoot);
 
-      const filePaths = listProjectFiles(dirPath, ctx.projectRoot);
-      const files: FileEntry[] = [];
+      const filePaths = listGitFiles(request.toGitFileQuery(ctx.projectRoot)).paths;
+      const files: StructuralMapFile[] = [];
       const refused: McpPolicyRefusal[] = [];
 
       for (const filePath of filePaths) {
@@ -51,26 +108,25 @@ export const mapTool: ToolDefinition = {
         if (lang === null) continue;
 
         const result = extractOutline(content, lang);
-        const symbols: FileEntry["symbols"] = result.entries.map((entry) => {
-          const jump = result.jumpTable?.find((j) => j.symbol === entry.name);
-          return {
-            name: entry.name,
-            kind: entry.kind,
-            signature: entry.signature,
-            exported: entry.exported,
-            startLine: jump?.start,
-            endLine: jump?.end,
-          };
-        });
+        const symbols = collectSymbols(result.entries, filePath, result.jumpTable ?? []).map((symbol) =>
+          new StructuralMapSymbol({
+            name: symbol.name,
+            kind: symbol.kind,
+            signature: symbol.signature,
+            exported: symbol.exported,
+            startLine: symbol.startLine,
+            endLine: symbol.endLine,
+          })
+        );
 
-        files.push({ path: filePath, lang, symbols });
+        files.push(new StructuralMapFile({ path: filePath, lang, symbols }));
       }
 
       files.sort((a, b) => a.path.localeCompare(b.path));
       const totalSymbols = files.reduce((n, f) => n + f.symbols.length, 0);
 
       return ctx.respond("graft_map", {
-        directory: dirPath.length > 0 ? dirPath : ".",
+        directory: request.directory,
         files,
         ...(refused.length > 0 ? { refused } : {}),
         summary: `${String(files.length)} files, ${String(totalSymbols)} symbols`,

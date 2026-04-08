@@ -1,16 +1,57 @@
 import { z } from "zod";
 import type { ToolDefinition, ToolContext, ToolHandler } from "../context.js";
-import { listProjectFiles } from "./git-files.js";
+import { GitFileQuery, listGitFiles } from "./git-files.js";
 import {
   evaluatePrecisionPolicy,
   getIndexedCommitCeilings,
   loadFileContent,
   normalizeRepoPath,
+  PrecisionSearchRequest,
   type PrecisionSymbolMatch,
   resolveGitRef,
   searchLiveSymbols,
   searchWarpSymbols,
 } from "./precision.js";
+
+class CodeFindRequest {
+  readonly query: string;
+  readonly kind?: string;
+  readonly dirPath: string;
+
+  constructor(args: Record<string, unknown>, projectRoot: string) {
+    const query = args["query"];
+    const kind = args["kind"];
+    const rawPath = args["path"];
+    if (typeof query !== "string" || query.trim().length === 0) {
+      throw new Error("CodeFindRequest: query must be a non-empty string");
+    }
+    if (kind !== undefined && typeof kind !== "string") {
+      throw new Error("CodeFindRequest: kind must be a string when provided");
+    }
+    if (rawPath !== undefined && typeof rawPath !== "string") {
+      throw new Error("CodeFindRequest: path must be a string when provided");
+    }
+
+    this.query = query.trim();
+    if (kind !== undefined && kind.trim().length > 0) this.kind = kind.trim();
+    this.dirPath = rawPath !== undefined && rawPath.trim().length > 0
+      ? normalizeRepoPath(projectRoot, rawPath)
+      : "";
+    Object.freeze(this);
+  }
+
+  toPrecisionSearchRequest(): PrecisionSearchRequest {
+    return new PrecisionSearchRequest({
+      query: this.query,
+      ...(this.kind !== undefined ? { kind: this.kind } : {}),
+      ...(this.dirPath.length > 0 ? { pathPrefix: this.dirPath } : {}),
+    });
+  }
+
+  toProjectFileQuery(projectRoot: string): GitFileQuery {
+    return GitFileQuery.project(projectRoot, this.dirPath);
+  }
+}
 
 export const codeFindTool: ToolDefinition = {
   name: "code_find",
@@ -26,10 +67,8 @@ export const codeFindTool: ToolDefinition = {
   policyCheck: true,
   createHandler(ctx: ToolContext): ToolHandler {
     return async (args) => {
-      const query = args["query"] as string;
-      const kindFilter = args["kind"] as string | undefined;
-      const rawPath = (args["path"] as string | undefined) ?? "";
-      const dirPath = rawPath.length > 0 ? normalizeRepoPath(ctx.projectRoot, rawPath) : "";
+      const request = new CodeFindRequest(args, ctx.projectRoot);
+      const precisionRequest = request.toPrecisionSearchRequest();
       const repoState = ctx.getRepoState();
       const layer = repoState.dirty ? "workspace_overlay" : "ref_view";
 
@@ -42,11 +81,7 @@ export const codeFindTool: ToolDefinition = {
           const ceilings = await getIndexedCommitCeilings(warp);
           const headSha = resolveGitRef("HEAD", ctx.projectRoot);
           if (ceilings.has(headSha)) {
-            allMatches = await searchWarpSymbols(warp, {
-              query,
-              ...(kindFilter !== undefined ? { kind: kindFilter } : {}),
-              ...(dirPath.length > 0 ? { pathPrefix: dirPath } : {}),
-            });
+            allMatches = await searchWarpSymbols(warp, precisionRequest);
             source = "warp";
           }
         } catch {
@@ -55,11 +90,11 @@ export const codeFindTool: ToolDefinition = {
       }
 
       if (source === "live") {
-        allMatches = searchLiveSymbols(ctx, {
-          filePaths: listProjectFiles(dirPath, ctx.projectRoot),
-          query,
-          ...(kindFilter !== undefined ? { kind: kindFilter } : {}),
-        });
+        allMatches = searchLiveSymbols(
+          ctx,
+          listGitFiles(request.toProjectFileQuery(ctx.projectRoot)).paths,
+          precisionRequest,
+        );
       }
 
       const visibleMatches: PrecisionSymbolMatch[] = [];
@@ -93,8 +128,8 @@ export const codeFindTool: ToolDefinition = {
 
       if (visibleMatches.length === 0 && firstRefusal !== undefined) {
         return ctx.respond("code_find", {
-          query,
-          kind: kindFilter ?? null,
+          query: request.query,
+          kind: request.kind ?? null,
           path: firstRefusal.path,
           projection: "refused",
           reason: firstRefusal.reason,
@@ -107,8 +142,8 @@ export const codeFindTool: ToolDefinition = {
       }
 
       return ctx.respond("code_find", {
-        query,
-        kind: kindFilter ?? null,
+        query: request.query,
+        kind: request.kind ?? null,
         matches: visibleMatches,
         total: visibleMatches.length,
         source,
