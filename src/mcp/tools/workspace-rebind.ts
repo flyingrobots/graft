@@ -19,7 +19,7 @@ export const workspaceRebindTool: ToolDefinition = {
         gitCommonDir: args["gitCommonDir"] as string | undefined,
         repoId: args["repoId"] as string | undefined,
       }, "workspace_rebind");
-      return ctx.respond("workspace_rebind", result);
+      return ctx.respond("workspace_rebind", { ...result });
     };
   },
 };

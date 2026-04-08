@@ -50,9 +50,21 @@ describe("mcp: daemon workspace binding", () => {
       .toThrow(/workspace_bind/);
   });
 
+  it("requires explicit workspace authorization before daemon bind", async () => {
+    const repoDir = createCommittedRepo();
+    const server = createDaemonServer();
+
+    const bind = parse(await server.callTool("workspace_bind", { cwd: repoDir }));
+    expect(bind["ok"]).toBe(false);
+    expect(bind["errorCode"]).toBe("WORKSPACE_NOT_AUTHORIZED");
+  });
+
   it("binds a daemon session to a repo and enables repo-scoped tools", async () => {
     const repoDir = createCommittedRepo();
     const server = createDaemonServer();
+
+    const authorization = parse(await server.callTool("workspace_authorize", { cwd: repoDir }));
+    expect(authorization["ok"]).toBe(true);
 
     const bind = parse(await server.callTool("workspace_bind", { cwd: repoDir }));
     expect(bind["ok"]).toBe(true);
@@ -91,6 +103,8 @@ describe("mcp: daemon workspace binding", () => {
     });
 
     const server = createDaemonServer();
+    await server.callTool("workspace_authorize", { cwd: repoDir });
+    await server.callTool("workspace_authorize", { cwd: worktreeDir });
     const bind = parse(await server.callTool("workspace_bind", { cwd: repoDir }));
     await server.callTool("state_save", { content: "alpha" });
     const saved = parse(await server.callTool("state_load", {}));
@@ -108,10 +122,43 @@ describe("mcp: daemon workspace binding", () => {
   it("denies run_capture in daemon mode after bind", async () => {
     const repoDir = createCommittedRepo();
     const server = createDaemonServer();
+    await server.callTool("workspace_authorize", { cwd: repoDir });
     await server.callTool("workspace_bind", { cwd: repoDir });
 
     await expect(server.callTool("run_capture", { command: "printf 'ok'", tail: 1 }))
       .rejects
       .toThrow(/not enabled/);
+  });
+
+  it("allows run_capture when authorization explicitly enables it", async () => {
+    const repoDir = createCommittedRepo();
+    const server = createDaemonServer();
+    await server.callTool("workspace_authorize", { cwd: repoDir, runCapture: true });
+    await server.callTool("workspace_bind", { cwd: repoDir });
+
+    const capture = parse(await server.callTool("run_capture", { command: "printf 'ok'", tail: 1 }));
+    expect(capture["output"]).toContain("ok");
+  });
+
+  it("lists and revokes authorized workspaces through the daemon control plane", async () => {
+    const repoDir = createCommittedRepo();
+    const server = createDaemonServer();
+    const authorized = parse(await server.callTool("workspace_authorize", { cwd: repoDir }));
+    expect(authorized["ok"]).toBe(true);
+
+    const listed = parse(await server.callTool("workspace_authorizations", {}));
+    expect(listed["workspaces"]).toEqual([
+      expect.objectContaining({
+        worktreeRoot: fs.realpathSync(repoDir),
+        activeSessions: 0,
+      }),
+    ]);
+
+    const revoked = parse(await server.callTool("workspace_revoke", { cwd: repoDir }));
+    expect(revoked["ok"]).toBe(true);
+    expect(revoked["revoked"]).toBe(true);
+
+    const empty = parse(await server.callTool("workspace_authorizations", {}));
+    expect(empty["workspaces"]).toEqual([]);
   });
 });

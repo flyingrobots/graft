@@ -7,7 +7,11 @@ import * as path from "node:path";
 import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
 import type { Transport } from "@modelcontextprotocol/sdk/shared/transport.js";
 import { isInitializeRequest } from "@modelcontextprotocol/sdk/types.js";
+import { CanonicalJsonCodec } from "../adapters/canonical-json.js";
+import { nodeFs } from "../adapters/node-fs.js";
+import { nodeGit } from "../adapters/node-git.js";
 import { createGraftServer, type GraftServer } from "./server.js";
+import { DaemonControlPlane, type DaemonStatusView } from "./daemon-control-plane.js";
 import { InMemoryWarpPool } from "./warp-pool.js";
 import { openWarp } from "../warp/open.js";
 import type { RunCaptureConfig } from "./run-capture-config.js";
@@ -26,18 +30,7 @@ interface DaemonSession {
   readonly server: GraftServer;
 }
 
-export interface DaemonHealthStatus {
-  readonly ok: true;
-  readonly sessionMode: "daemon";
-  readonly transport: "unix_socket" | "named_pipe";
-  readonly sameUserOnly: true;
-  readonly socketPath: string;
-  readonly mcpPath: typeof MCP_PATH;
-  readonly healthPath: typeof HEALTH_PATH;
-  readonly activeSessions: number;
-  readonly activeWarpRepos: number;
-  readonly startedAt: string;
-}
+export type DaemonHealthStatus = DaemonStatusView;
 
 export interface StartDaemonServerOptions {
   readonly socketPath?: string | undefined;
@@ -184,25 +177,31 @@ export async function startDaemonServer(options: StartDaemonServerOptions = {}):
   const graftDir = path.resolve(options.graftDir ?? defaultDaemonRoot());
   const socketPath = resolveSocketPath(options.socketPath, graftDir);
   const warpPool = new InMemoryWarpPool((cwd) => openWarp({ cwd }));
+  const controlPlane = new DaemonControlPlane({
+    fs: nodeFs,
+    codec: new CanonicalJsonCodec(),
+    git: nodeGit,
+    graftDir,
+  });
   const sessions = new Map<string, DaemonSession>();
   const startedAt = new Date().toISOString();
   const transportKind = isNamedPipePath(socketPath) ? "named_pipe" : "unix_socket";
 
-  const getHealthStatus = (): DaemonHealthStatus => ({
-    ok: true,
-    sessionMode: "daemon",
-    transport: transportKind,
-    sameUserOnly: true,
-    socketPath,
-    mcpPath: MCP_PATH,
-    healthPath: HEALTH_PATH,
-    activeSessions: sessions.size,
-    activeWarpRepos: warpPool.size(),
-    startedAt,
-  });
+  const getHealthStatus = (): DaemonHealthStatus => {
+    return controlPlane.getStatus({
+      transport: transportKind,
+      sameUserOnly: true,
+      socketPath,
+      mcpPath: MCP_PATH,
+      healthPath: HEALTH_PATH,
+      activeWarpRepos: warpPool.size(),
+      startedAt,
+    });
+  };
 
   await ensurePrivateDirectory(graftDir);
   await ensurePrivateDirectory(path.join(graftDir, "sessions"));
+  await controlPlane.initialize();
   await prepareSocketPath(socketPath);
 
   const handleRequest = async (req: http.IncomingMessage, res: http.ServerResponse): Promise<void> => {
@@ -242,6 +241,16 @@ export async function startDaemonServer(options: StartDaemonServerOptions = {}):
             mode: "daemon",
             graftDir: sessionGraftDir,
             warpPool,
+            daemonControlPlane: controlPlane,
+            daemonRuntime: () => ({
+              transport: transportKind,
+              sameUserOnly: true,
+              socketPath,
+              mcpPath: MCP_PATH,
+              healthPath: HEALTH_PATH,
+              activeWarpRepos: warpPool.size(),
+              startedAt,
+            }),
             ...(options.env !== undefined ? { env: options.env } : {}),
             ...(options.runCapture !== undefined ? { runCapture: options.runCapture } : {}),
             ...(options.runtimeObservability !== undefined
@@ -257,14 +266,18 @@ export async function startDaemonServer(options: StartDaemonServerOptions = {}):
           session = createdSession;
           transport.onclose = () => {
             sessions.delete(newSessionId);
+            controlPlane.unregisterSession(newSessionId);
           };
           transport.onerror = () => {
             sessions.delete(newSessionId);
+            controlPlane.unregisterSession(newSessionId);
           };
           sessions.set(newSessionId, createdSession);
+          controlPlane.registerSession(newSessionId, () => server.getWorkspaceStatus());
           await server.getMcpServer().connect(transport as Transport);
         }
 
+        controlPlane.touchSession(session.id);
         await session.transport.handleRequest(req, res, parsedBody);
         return;
       }
@@ -279,6 +292,7 @@ export async function startDaemonServer(options: StartDaemonServerOptions = {}):
           sendJson(res, 404, { error: `Unknown MCP session: ${sessionId}` });
           return;
         }
+        controlPlane.touchSession(session.id);
         await session.transport.handleRequest(req, res);
         return;
       }
@@ -336,6 +350,7 @@ export async function startDaemonServer(options: StartDaemonServerOptions = {}):
         process.off("SIGINT", shutdown);
         process.off("SIGTERM", shutdown);
         for (const session of sessions.values()) {
+          controlPlane.unregisterSession(session.id);
           await session.transport.close().catch(() => {
             return undefined;
           });

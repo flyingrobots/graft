@@ -17,6 +17,14 @@ import type { RunCaptureConfig } from "./run-capture-config.js";
 import type { RuntimeObservabilityState } from "./runtime-observability.js";
 import type { McpToolName } from "../contracts/output-schemas.js";
 import type {
+  DaemonSessionView,
+  DaemonStatusView,
+  AuthorizedWorkspaceView,
+  WorkspaceAuthorizeRequest,
+  WorkspaceAuthorizeResult,
+  WorkspaceRevokeResult,
+} from "./daemon-control-plane.js";
+import type {
   WorkspaceActionResult,
   WorkspaceBindRequest,
   WorkspaceStatus,
@@ -54,6 +62,11 @@ export interface ToolContext {
   getWorkspaceStatus(): WorkspaceStatus;
   bindWorkspace(request: WorkspaceBindRequest, actionName: string): Promise<WorkspaceActionResult>;
   rebindWorkspace(request: WorkspaceBindRequest, actionName: string): Promise<WorkspaceActionResult>;
+  getDaemonStatus(): Promise<DaemonStatusView>;
+  listDaemonSessions(): Promise<readonly DaemonSessionView[]>;
+  listWorkspaceAuthorizations(): Promise<readonly AuthorizedWorkspaceView[]>;
+  authorizeWorkspace(request: WorkspaceAuthorizeRequest): Promise<WorkspaceAuthorizeResult>;
+  revokeWorkspace(request: WorkspaceBindRequest): Promise<WorkspaceRevokeResult>;
 }
 
 /**

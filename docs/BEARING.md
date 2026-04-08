@@ -66,11 +66,19 @@ same-user local MCP daemon on a Unix socket or named pipe, exposes
 lifecycle, and shares one repo-scoped WARP pool across same-repo daemon
 sessions while leaving repo-local `graft serve` unchanged.
 
+Cycle 0054 — daemon control plane: daemon workspace authorization is
+now explicit and central, daemon-wide session and workspace inspection
+is available through MCP, `/healthz` reflects control-plane counts, and
+per-workspace daemon capability posture can now be changed without
+exposing another session's receipts or shell output.
+
 ## What feels wrong
 
 - WARP indexing is slow on large repos — `core().materialize()`
   per commit with removals is expensive. Background indexing and
   incremental updates needed.
+- The daemon control plane is real, but actual persistent monitor
+  workers and their start/stop/pause lifecycle still do not exist.
 - Agent opt-in friction persists. `graft init` can seed `CLAUDE.md`
   and `AGENTS.md`, but most clients still default to native Read unless
   they have a stronger guardrail.

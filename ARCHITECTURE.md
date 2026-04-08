@@ -57,13 +57,16 @@ Current shape:
 - `graft serve` runs one repo-rooted stdio server per process
 - `graft daemon` runs one local daemon host per process and many daemon
   sessions beneath it
+- daemon mode now includes a central authorization and inspection
+  control plane for workspaces and sessions
 - each server or daemon session owns one `SessionTracker`,
   `ObservationCache`, `Metrics`, and `RepoStateTracker` slice
 - lazy WARP initialization still happens only when a WARP-backed tool
   needs it
 
 This is now enough to make the local daemon contract real without
-pretending the control plane or broader system-wide story is finished.
+pretending monitor workers or the broader system-wide story are
+finished.
 
 ### Hooks
 

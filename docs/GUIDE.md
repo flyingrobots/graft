@@ -74,10 +74,20 @@ The daemon is intentionally not the default editor bootstrap story yet.
 It uses a stricter contract:
 
 - daemon sessions start unbound
-- workspace binding is the authorization event
+- workspace binding requires prior authorization through the daemon
+  control plane
 - canonical repo identity, live worktree identity, and session-local
   state remain separate
-- `run_capture` stays default-denied
+- `run_capture` stays default-denied unless an authorized workspace
+  explicitly enables it
+
+Daemon control-plane inspection now exists through MCP tools:
+
+- `daemon_status`
+- `daemon_sessions`
+- `workspace_authorizations`
+- `workspace_authorize`
+- `workspace_revoke`
 
 ### One-step bootstrap
 

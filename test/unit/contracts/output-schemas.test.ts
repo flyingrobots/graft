@@ -121,9 +121,14 @@ describe("contracts: output schemas", () => {
 
     const server = createServerInRepo(repoDir);
     const daemonServer = createDaemonServer(path.join(repoDir, ".graft-daemon"));
+    const daemonAuthorize = parse(await daemonServer.callTool("workspace_authorize", { cwd: repoDir }));
+    const daemonStatusSnapshot = parse(await daemonServer.callTool("daemon_status", {}));
+    const daemonSessionsSnapshot = parse(await daemonServer.callTool("daemon_sessions", {}));
+    const daemonAuthorizations = parse(await daemonServer.callTool("workspace_authorizations", {}));
     const daemonStatus = parse(await daemonServer.callTool("workspace_status", {}));
     const daemonBind = parse(await daemonServer.callTool("workspace_bind", { cwd: repoDir }));
     const daemonRebind = parse(await daemonServer.callTool("workspace_rebind", { cwd: repoDir }));
+    const daemonRevoke = parse(await daemonServer.callTool("workspace_revoke", { cwd: repoDir }));
 
     const outputs = {
       safe_read: parse(await server.callTool("safe_read", { path: "app.ts" })),
@@ -136,6 +141,11 @@ describe("contracts: output schemas", () => {
       code_show: parse(await server.callTool("code_show", { symbol: "greet", path: "app.ts" })),
       code_find: parse(await server.callTool("code_find", { query: "greet*" })),
       code_refs: parse(await server.callTool("code_refs", { query: "greet", mode: "call" })),
+      daemon_status: daemonStatusSnapshot,
+      daemon_sessions: daemonSessionsSnapshot,
+      workspace_authorize: daemonAuthorize,
+      workspace_authorizations: daemonAuthorizations,
+      workspace_revoke: daemonRevoke,
       workspace_bind: daemonBind,
       workspace_status: daemonStatus,
       workspace_rebind: daemonRebind,

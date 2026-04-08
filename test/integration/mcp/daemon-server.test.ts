@@ -163,12 +163,18 @@ describe("mcp: daemon transport and lifecycle", () => {
     expect(initialHealth.statusCode).toBe(200);
     const initialStatus = parseJson(initialHealth) as {
       activeSessions: number;
+      boundSessions: number;
+      unboundSessions: number;
       activeWarpRepos: number;
+      authorizedWorkspaces: number;
       transport: string;
       socketPath: string;
     };
     expect(initialStatus.activeSessions).toBe(0);
+    expect(initialStatus.boundSessions).toBe(0);
+    expect(initialStatus.unboundSessions).toBe(0);
     expect(initialStatus.activeWarpRepos).toBe(0);
+    expect(initialStatus.authorizedWorkspaces).toBe(0);
     expect(initialStatus.transport).toBe("unix_socket");
     expect(initialStatus.socketPath).toBe(socketPath);
 
@@ -179,6 +185,16 @@ describe("mcp: daemon transport and lifecycle", () => {
     const sessionId = await initializeSession(socketPath);
     const workspaceStatus = await callTool<{ bindState: string }>(socketPath, sessionId, "workspace_status", {});
     expect(workspaceStatus.bindState).toBe("unbound");
+
+    const daemonStatus = await callTool<{ activeSessions: number; unboundSessions: number }>(
+      socketPath,
+      sessionId,
+      "daemon_status",
+      {},
+      3,
+    );
+    expect(daemonStatus.activeSessions).toBe(1);
+    expect(daemonStatus.unboundSessions).toBe(1);
 
     const openHealth = await requestUnixJson(socketPath, "GET", "/healthz");
     expect((parseJson(openHealth) as { activeSessions: number }).activeSessions).toBe(1);
@@ -213,6 +229,15 @@ describe("mcp: daemon transport and lifecycle", () => {
     const sessionA = await initializeSession(socketPath);
     const sessionB = await initializeSession(socketPath);
 
+    const authorization = await callTool<{ ok: boolean; authorization: { runCapture?: boolean } }>(
+      socketPath,
+      sessionA,
+      "workspace_authorize",
+      { cwd: repoDir, runCapture: true },
+      10,
+    );
+    expect(authorization.ok).toBe(true);
+
     const bindA = await callTool<{ ok: boolean; repoId: string }>(
       socketPath,
       sessionA,
@@ -231,8 +256,32 @@ describe("mcp: daemon transport and lifecycle", () => {
     expect(bindB.ok).toBe(true);
     expect(bindA.repoId).toBe(bindB.repoId);
 
+    const authorizations = await callTool<{ workspaces: { activeSessions: number }[] }>(
+      socketPath,
+      sessionA,
+      "workspace_authorizations",
+      {},
+      15,
+    );
+    expect(authorizations.workspaces).toEqual([
+      expect.objectContaining({ activeSessions: 2 }),
+    ]);
+
+    const daemonSessions = await callTool<{ sessions: { bindState: string }[] }>(
+      socketPath,
+      sessionA,
+      "daemon_sessions",
+      {},
+      16,
+    );
+    expect(daemonSessions.sessions).toHaveLength(2);
+    expect(daemonSessions.sessions.every((session) => session.bindState === "bound")).toBe(true);
+
     const boundHealth = await requestUnixJson(socketPath, "GET", "/healthz");
-    expect((parseJson(boundHealth) as { activeWarpRepos: number }).activeWarpRepos).toBe(0);
+    expect(parseJson(boundHealth) as { activeWarpRepos: number; authorizedWorkspaces: number }).toMatchObject({
+      activeWarpRepos: 0,
+      authorizedWorkspaces: 1,
+    });
 
     const findA = await callTool<{ total: number }>(socketPath, sessionA, "code_find", { query: "greet" }, 13);
     expect(findA.total).toBe(1);

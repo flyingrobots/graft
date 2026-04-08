@@ -22,6 +22,7 @@ import {
   WorkspaceRouter,
   type WorkspaceSessionMode,
 } from "./workspace-router.js";
+import { DaemonControlPlane, type DaemonRuntimeDescriptor } from "./daemon-control-plane.js";
 import {
   RuntimeEventLogger,
   classifyRuntimeFailure,
@@ -49,7 +50,12 @@ import { mapTool } from "./tools/map.js";
 import { codeShowTool } from "./tools/code-show.js";
 import { codeFindTool } from "./tools/code-find.js";
 import { codeRefsTool } from "./tools/code-refs.js";
+import { daemonSessionsTool } from "./tools/daemon-sessions.js";
+import { daemonStatusTool } from "./tools/daemon-status.js";
+import { workspaceAuthorizeTool } from "./tools/workspace-authorize.js";
+import { workspaceAuthorizationsTool } from "./tools/workspace-authorizations.js";
 import { workspaceBindTool } from "./tools/workspace-bind.js";
+import { workspaceRevokeTool } from "./tools/workspace-revoke.js";
 import { workspaceStatusTool } from "./tools/workspace-status.js";
 import { workspaceRebindTool } from "./tools/workspace-rebind.js";
 
@@ -77,6 +83,11 @@ export const TOOL_REGISTRY: readonly ToolDefinition[] = [
 ];
 
 export const DAEMON_TOOL_REGISTRY: readonly ToolDefinition[] = [
+  daemonStatusTool,
+  daemonSessionsTool,
+  workspaceAuthorizeTool,
+  workspaceAuthorizationsTool,
+  workspaceRevokeTool,
   workspaceBindTool,
   workspaceStatusTool,
   workspaceRebindTool,
@@ -91,6 +102,7 @@ export interface GraftServer {
   getRegisteredTools(): string[];
   callTool(name: string, args: Record<string, unknown>): Promise<McpToolResult>;
   injectSessionMessages(count: number): void;
+  getWorkspaceStatus(): import("./workspace-router.js").WorkspaceStatus;
   getMcpServer(): McpServer;
 }
 
@@ -102,6 +114,8 @@ export interface CreateGraftServerOptions {
   runCapture?: Partial<RunCaptureConfig>;
   runtimeObservability?: Partial<RuntimeObservabilityState>;
   warpPool?: WarpPool;
+  daemonControlPlane?: DaemonControlPlane;
+  daemonRuntime?: (() => DaemonRuntimeDescriptor) | undefined;
 }
 
 export function createGraftServer(options: CreateGraftServerOptions = {}): GraftServer {
@@ -131,9 +145,32 @@ export function createGraftServer(options: CreateGraftServerOptions = {}): Graft
     maxBytes: observability.maxBytes,
   });
   const warpPool = options.warpPool ?? new InMemoryWarpPool((cwd) => openWarp({ cwd }));
-  const runtimeReady = mode === "repo_local" && projectRoot !== undefined
-    ? ensureGraftDirExcluded(projectRoot, graftDir, nodeFs)
-    : Promise.resolve();
+  const daemonControlPlane = mode === "daemon"
+    ? (options.daemonControlPlane ?? new DaemonControlPlane({
+      fs: nodeFs,
+      codec,
+      git: nodeGit,
+      graftDir,
+    }))
+    : null;
+  const daemonStartedAt = new Date().toISOString();
+  const daemonRuntime = options.daemonRuntime ?? (() => {
+    return {
+      transport: "unix_socket",
+      sameUserOnly: true,
+      socketPath: graftDir,
+      mcpPath: "/mcp",
+      healthPath: "/healthz",
+      activeWarpRepos: warpPool.size(),
+      startedAt: daemonStartedAt,
+    };
+  });
+  const runtimeReady = Promise.all([
+    mode === "repo_local" && projectRoot !== undefined
+      ? ensureGraftDirExcluded(projectRoot, graftDir, nodeFs)
+      : Promise.resolve(),
+    daemonControlPlane?.initialize() ?? Promise.resolve(),
+  ]).then(() => undefined);
   const handlers = new Map<string, ToolHandler>();
   const schemas = new Map<string, z.ZodObject>();
   const invocationStorage = new AsyncLocalStorage<{
@@ -149,6 +186,7 @@ export function createGraftServer(options: CreateGraftServerOptions = {}): Graft
     graftDir,
     ...(projectRoot !== undefined ? { projectRoot } : {}),
     warpPool,
+    ...(daemonControlPlane !== null ? { authorizationPolicy: daemonControlPlane } : {}),
   });
 
   async function emitRuntimeEvent(event: Parameters<RuntimeEventLogger["log"]>[0]): Promise<void> {
@@ -232,17 +270,71 @@ export function createGraftServer(options: CreateGraftServerOptions = {}): Graft
     rebindWorkspace(request, actionName) {
       return workspaceRouter.rebind(request, actionName);
     },
+    getDaemonStatus() {
+      if (daemonControlPlane === null) {
+        throw new Error("daemon_status is only available in daemon mode");
+      }
+      return Promise.resolve(daemonControlPlane.getStatus(daemonRuntime()));
+    },
+    listDaemonSessions() {
+      if (daemonControlPlane === null) {
+        throw new Error("daemon_sessions is only available in daemon mode");
+      }
+      return Promise.resolve(daemonControlPlane.listSessions());
+    },
+    listWorkspaceAuthorizations() {
+      if (daemonControlPlane === null) {
+        throw new Error("workspace_authorizations is only available in daemon mode");
+      }
+      return daemonControlPlane.listAuthorizedWorkspaces();
+    },
+    authorizeWorkspace(request) {
+      if (daemonControlPlane === null) {
+        throw new Error("workspace_authorize is only available in daemon mode");
+      }
+      return daemonControlPlane.authorizeWorkspace(request);
+    },
+    revokeWorkspace(request) {
+      if (daemonControlPlane === null) {
+        throw new Error("workspace_revoke is only available in daemon mode");
+      }
+      return daemonControlPlane.revokeWorkspace(request);
+    },
   };
+
+  const daemonAlwaysAvailableTools = new Set<string>([
+    "daemon_status",
+    "daemon_sessions",
+    "workspace_authorize",
+    "workspace_authorizations",
+    "workspace_revoke",
+    "workspace_bind",
+    "workspace_status",
+    "workspace_rebind",
+    "explain",
+  ]);
+
+  const repoStateOptionalTools = new Set<string>([
+    "daemon_status",
+    "daemon_sessions",
+    "workspace_authorize",
+    "workspace_authorizations",
+    "workspace_revoke",
+    "workspace_bind",
+    "workspace_status",
+    "workspace_rebind",
+    "explain",
+  ]);
 
   function enforceDaemonToolAccess(name: string): void {
     if (mode !== "daemon") return;
-    if (name === "workspace_bind" || name === "workspace_status" || name === "workspace_rebind" || name === "explain") {
+    if (daemonAlwaysAvailableTools.has(name)) {
       return;
     }
     if (!workspaceRouter.isBound()) {
       throw new WorkspaceBindingRequiredError(name);
     }
-    if (name === "run_capture") {
+    if (name === "run_capture" && workspaceRouter.getStatus().capabilityProfile?.runCapture !== true) {
       throw new WorkspaceCapabilityDeniedError(name);
     }
   }
@@ -281,7 +373,7 @@ export function createGraftServer(options: CreateGraftServerOptions = {}): Graft
       const result = await invocationStorage.run(invocation, async () => {
         const parsed: Record<string, unknown> = schema !== undefined ? schema.parse(args) : args;
         enforceDaemonToolAccess(name);
-        if (workspaceRouter.isBound() && name !== "explain" && name !== "workspace_status") {
+        if (workspaceRouter.isBound() && !repoStateOptionalTools.has(name)) {
           workspaceRouter.observeRepoState();
         }
         return handler(parsed);
@@ -401,6 +493,9 @@ export function createGraftServer(options: CreateGraftServerOptions = {}): Graft
       for (let i = 0; i < count; i++) {
         workspaceRouter.session.recordMessage();
       }
+    },
+    getWorkspaceStatus() {
+      return workspaceRouter.getStatus();
     },
     getMcpServer(): McpServer {
       return mcpServer;

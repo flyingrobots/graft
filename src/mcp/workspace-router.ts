@@ -93,11 +93,16 @@ interface BoundWorkspace {
   readonly getWarp: () => Promise<WarpApp>;
 }
 
-interface ResolvedWorkspace {
+export interface ResolvedWorkspace {
   readonly repoId: string;
   readonly worktreeId: string;
   readonly worktreeRoot: string;
   readonly gitCommonDir: string;
+}
+
+export interface WorkspaceAuthorizationPolicy {
+  getCapabilityProfile(resolved: ResolvedWorkspace): Promise<WorkspaceCapabilityProfile | null>;
+  noteBound(resolved: ResolvedWorkspace): Promise<void>;
 }
 
 interface WorkspaceRouterOptions {
@@ -107,9 +112,10 @@ interface WorkspaceRouterOptions {
   readonly graftDir: string;
   readonly projectRoot?: string | undefined;
   readonly warpPool: WarpPool;
+  readonly authorizationPolicy?: WorkspaceAuthorizationPolicy | undefined;
 }
 
-const DAEMON_CAPABILITY_PROFILE: WorkspaceCapabilityProfile = Object.freeze({
+export const DEFAULT_DAEMON_CAPABILITY_PROFILE: WorkspaceCapabilityProfile = Object.freeze({
   boundedReads: true,
   structuralTools: true,
   precisionTools: true,
@@ -118,7 +124,7 @@ const DAEMON_CAPABILITY_PROFILE: WorkspaceCapabilityProfile = Object.freeze({
   runCapture: false,
 });
 
-const REPO_LOCAL_CAPABILITY_PROFILE: WorkspaceCapabilityProfile = Object.freeze({
+export const DEFAULT_REPO_LOCAL_CAPABILITY_PROFILE: WorkspaceCapabilityProfile = Object.freeze({
   boundedReads: true,
   structuralTools: true,
   precisionTools: true,
@@ -144,7 +150,10 @@ function toAbsolutePath(base: string, value: string): string {
   return path.isAbsolute(value) ? value : path.resolve(base, value);
 }
 
-function resolveWorkspace(git: GitClient, request: WorkspaceBindRequest): ResolvedWorkspace | WorkspaceBindError {
+export function resolveWorkspaceRequest(
+  git: GitClient,
+  request: WorkspaceBindRequest,
+): ResolvedWorkspace | WorkspaceBindError {
   const cwd = path.resolve(request.cwd);
   const worktreeRoot = readGitValue(git, cwd, ["rev-parse", "--path-format=absolute", "--show-toplevel"]);
   if (worktreeRoot === null) {
@@ -182,7 +191,7 @@ export class WorkspaceRouter {
       if (projectRoot === undefined) {
         throw new Error("repo_local workspace router requires projectRoot");
       }
-      const resolved = resolveWorkspace(options.git, { cwd: projectRoot });
+      const resolved = resolveWorkspaceRequest(options.git, { cwd: projectRoot });
       const initialWorkspace = "code" in resolved
         ? {
             repoId: stableId("repo", projectRoot),
@@ -199,7 +208,7 @@ export class WorkspaceRouter {
       this.currentBinding = this.createBoundWorkspace(
         initialWorkspace,
         options.graftDir,
-        REPO_LOCAL_CAPABILITY_PROFILE,
+        DEFAULT_REPO_LOCAL_CAPABILITY_PROFILE,
         undefined,
       );
       this.currentSlice = this.currentBinding.slice;
@@ -306,7 +315,7 @@ export class WorkspaceRouter {
     request: WorkspaceBindRequest,
     actionName: string,
   ): Promise<WorkspaceActionResult> {
-    const resolved = resolveWorkspace(this.options.git, request);
+    const resolved = resolveWorkspaceRequest(this.options.git, request);
     if ("code" in resolved) {
       return {
         ok: false,
@@ -326,9 +335,23 @@ export class WorkspaceRouter {
     await this.options.fs.mkdir(sliceDir, { recursive: true });
 
     const capabilityProfile = this.options.mode === "repo_local"
-      ? REPO_LOCAL_CAPABILITY_PROFILE
-      : DAEMON_CAPABILITY_PROFILE;
+      ? DEFAULT_REPO_LOCAL_CAPABILITY_PROFILE
+      : (await this.options.authorizationPolicy?.getCapabilityProfile(resolved)) ?? null;
+    if (capabilityProfile === null) {
+      return {
+        ok: false,
+        action,
+        freshSessionSlice: false,
+        ...this.getStatus(),
+        errorCode: "WORKSPACE_NOT_AUTHORIZED",
+        error: `Workspace ${resolved.worktreeRoot} is not authorized for daemon binding. Call workspace_authorize first.`,
+      };
+    }
+
     const nextBinding = this.createBoundWorkspace(resolved, sliceDir, capabilityProfile, actionName);
+    if (this.options.mode === "daemon") {
+      await this.options.authorizationPolicy?.noteBound(resolved);
+    }
     this.currentBinding = nextBinding;
     this.currentSlice = nextBinding.slice;
 

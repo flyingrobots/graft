@@ -92,7 +92,10 @@ Supported deployment posture today is local-user:
 The daemon still follows a stricter contract than repo-local stdio:
 daemon sessions start unbound, workspace binding is the authorization
 event, `/healthz` is the liveness surface, and escape hatches like
-`run_capture` stay default-denied there.
+`run_capture` stay default-denied there unless a workspace is
+explicitly authorized for that posture through the daemon control
+plane. Daemon-wide inspection now exists through MCP tools such as
+`daemon_status`, `daemon_sessions`, and `workspace_authorizations`.
 
 See the **[Setup decision table](docs/GUIDE.md#choose-your-setup-path)**
 for the fastest path by client and mode, and the full

@@ -37,7 +37,8 @@ repo-scoped stdio for normal editor bootstrap, and a separate
 same-user local daemon runtime on a Unix socket or named pipe. The
 daemon remains a separate product contract, not an implicit extension of
 today's repo-local setup: workspace authorization, isolated session and
-log state, and default-denied escape hatches still matter there.
+log state, default-denied escape hatches, and a bounded daemon control
+plane still matter there.
 
 The long-term vision: Graft grows from a governor into a
 **provenance-aware substrate**. Git tracks bytes. Graft, powered

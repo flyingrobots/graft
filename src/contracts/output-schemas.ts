@@ -270,6 +270,67 @@ const workspaceActionSchema = workspaceStatusSchema.extend({
   error: z.string().optional(),
 }).strict();
 
+const authorizedWorkspaceSchema = z.object({
+  repoId: z.string(),
+  worktreeId: z.string(),
+  worktreeRoot: z.string(),
+  gitCommonDir: z.string(),
+  capabilityProfile: workspaceCapabilityProfileSchema,
+  authorizedAt: z.string(),
+  lastBoundAt: z.string().nullable(),
+  activeSessions: z.number().int().nonnegative(),
+}).strict();
+
+const workspaceAuthorizeSchema = z.object({
+  ok: z.boolean(),
+  changed: z.boolean(),
+  authorization: authorizedWorkspaceSchema.optional(),
+  errorCode: z.string().optional(),
+  error: z.string().optional(),
+}).strict();
+
+const workspaceRevokeSchema = z.object({
+  ok: z.boolean(),
+  revoked: z.boolean(),
+  repoId: z.string().nullable().optional(),
+  worktreeId: z.string().nullable().optional(),
+  worktreeRoot: z.string().nullable().optional(),
+  activeSessions: z.number().int().nonnegative().optional(),
+  errorCode: z.string().optional(),
+  error: z.string().optional(),
+}).strict();
+
+const daemonSessionSchema = z.object({
+  sessionId: z.string(),
+  sessionMode: z.literal("daemon"),
+  bindState: z.enum(["bound", "unbound"]),
+  repoId: z.string().nullable(),
+  worktreeId: z.string().nullable(),
+  worktreeRoot: z.string().nullable(),
+  capabilityProfile: workspaceCapabilityProfileSchema.nullable(),
+  startedAt: z.string(),
+  lastActivityAt: z.string(),
+}).strict();
+
+const daemonStatusSchema = z.object({
+  ok: z.literal(true),
+  sessionMode: z.literal("daemon"),
+  transport: z.enum(["unix_socket", "named_pipe"]),
+  sameUserOnly: z.literal(true),
+  socketPath: z.string(),
+  mcpPath: z.string(),
+  healthPath: z.string(),
+  activeSessions: z.number().int().nonnegative(),
+  boundSessions: z.number().int().nonnegative(),
+  unboundSessions: z.number().int().nonnegative(),
+  activeWarpRepos: z.number().int().nonnegative(),
+  authorizedWorkspaces: z.number().int().nonnegative(),
+  authorizedRepos: z.number().int().nonnegative(),
+  workspaceBindRequiresAuthorization: z.literal(true),
+  defaultCapabilityProfile: workspaceCapabilityProfileSchema,
+  startedAt: z.string(),
+}).strict();
+
 function extendWithCommonFields(
   schema: z.ZodType,
   common: z.ZodRawShape,
@@ -448,6 +509,15 @@ const mcpOutputBodySchemas: Record<McpToolName, z.ZodType> = {
     provenance: codeRefsProvenanceSchema,
     layer: worldlineLayerSchema,
   }).strict(),
+  daemon_status: daemonStatusSchema,
+  daemon_sessions: z.object({
+    sessions: z.array(daemonSessionSchema),
+  }).strict(),
+  workspace_authorize: workspaceAuthorizeSchema,
+  workspace_authorizations: z.object({
+    workspaces: z.array(authorizedWorkspaceSchema),
+  }).strict(),
+  workspace_revoke: workspaceRevokeSchema,
   workspace_bind: workspaceActionSchema.extend({
     action: z.literal("bind"),
   }).strict(),
@@ -520,6 +590,14 @@ export const MCP_OUTPUT_SCHEMAS: Record<McpToolName, z.ZodType> = {
   code_show: withMcpCommon("code_show", mcpOutputBodySchemas.code_show),
   code_find: withMcpCommon("code_find", mcpOutputBodySchemas.code_find),
   code_refs: withMcpCommon("code_refs", mcpOutputBodySchemas.code_refs),
+  daemon_status: withMcpCommon("daemon_status", mcpOutputBodySchemas.daemon_status),
+  daemon_sessions: withMcpCommon("daemon_sessions", mcpOutputBodySchemas.daemon_sessions),
+  workspace_authorize: withMcpCommon("workspace_authorize", mcpOutputBodySchemas.workspace_authorize),
+  workspace_authorizations: withMcpCommon(
+    "workspace_authorizations",
+    mcpOutputBodySchemas.workspace_authorizations,
+  ),
+  workspace_revoke: withMcpCommon("workspace_revoke", mcpOutputBodySchemas.workspace_revoke),
   workspace_bind: withMcpCommon("workspace_bind", mcpOutputBodySchemas.workspace_bind),
   workspace_status: withMcpCommon("workspace_status", mcpOutputBodySchemas.workspace_status),
   workspace_rebind: withMcpCommon("workspace_rebind", mcpOutputBodySchemas.workspace_rebind),
