@@ -356,7 +356,7 @@ add to `.claude/settings.local.json`:
 | `graft_since` | Structural changes since a git ref. Shows added/removed/changed symbols per file and a summary line. Policy-denied files are omitted from `files` and surfaced in `refused`. |
 | `graft_map` | Structural directory map of files and symbols under a path, with explicit denied-file reporting. |
 | `code_show` | Focus on a symbol by name and return its source with line metadata. |
-| `code_find` | Search symbols across the project by name pattern and optional kind/path filter. |
+| `code_find` | Search symbols across the project by approximate name or glob pattern, with optional kind/path filter. |
 | `doctor` | Runtime health check including layered-worldline repo state. |
 | `stats` | Decision metrics for the current server session. |
 | `explain` | Human-readable meaning and recommended action for a reason code. |

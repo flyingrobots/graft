@@ -230,6 +230,32 @@ describe("mcp: code_find", () => {
     }
   });
 
+  it("supports case-insensitive substring discovery for plain queries", async () => {
+    const tmpDir = createTestRepo("graft-precision-find-substring-live-");
+    try {
+      fs.mkdirSync(path.join(tmpDir, "src"), { recursive: true });
+      fs.writeFileSync(
+        path.join(tmpDir, "src", "adapters.ts"),
+        "export class Adapter {}\n" +
+          "export function adapterFactory(): Adapter { return new Adapter(); }\n" +
+          "export class GitWarpAdapter {}\n",
+      );
+      git(tmpDir, "add -A");
+      git(tmpDir, "commit -m init");
+
+      const server = createServerInRepo(tmpDir);
+      const result = parse(await server.callTool("code_find", {
+        query: "adapter",
+      }));
+
+      const names = (result["matches"] as { name: string }[]).map((match) => match.name);
+      expect(result["source"]).toBe("live");
+      expect(names).toEqual(["Adapter", "adapterFactory", "GitWarpAdapter"]);
+    } finally {
+      cleanupTestRepo(tmpDir);
+    }
+  });
+
   it("supports kind filters and directory scoping", async () => {
     const tmpDir = createTestRepo("graft-precision-find-scope-");
     try {
@@ -323,6 +349,33 @@ describe("mcp: code_find", () => {
       expect(matches[0]?.name).toBe("handleRequest");
       expect(matches[0]?.startLine).toBeDefined();
       expect(matches[0]?.endLine).toBeDefined();
+    } finally {
+      cleanupTestRepo(tmpDir);
+    }
+  });
+
+  it("supports case-insensitive substring discovery on indexed clean-head repos", async () => {
+    const tmpDir = createTestRepo("graft-precision-find-warp-substring-");
+    try {
+      fs.mkdirSync(path.join(tmpDir, "src"), { recursive: true });
+      fs.writeFileSync(
+        path.join(tmpDir, "src", "adapters.ts"),
+        "export class GitWarpAdapter {}\nexport class ScenarioFixtureAdapter {}\n",
+      );
+      git(tmpDir, "add -A");
+      git(tmpDir, "commit -m init");
+
+      const warp = await openWarp({ cwd: tmpDir });
+      await indexCommits(warp, { cwd: tmpDir });
+
+      const server = createServerInRepo(tmpDir);
+      const result = parse(await server.callTool("code_find", {
+        query: "adapter",
+      }));
+
+      const names = (result["matches"] as { name: string }[]).map((match) => match.name);
+      expect(result["source"]).toBe("warp");
+      expect(names).toEqual(["GitWarpAdapter", "ScenarioFixtureAdapter"]);
     } finally {
       cleanupTestRepo(tmpDir);
     }

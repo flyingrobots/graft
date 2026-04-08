@@ -1,79 +1,52 @@
-# code_find substring search
+# Cycle 0044 — code_find substring search
 
-Source backlog item: `docs/method/backlog/up-next/CORE_code-find-substring-search.md`
+Type: Feature
 Legend: CORE
 
 ## Sponsors
 
-- Human: TBD
-- Agent: TBD
+- Human: repo operator
+- Agent: Codex
 
 ## Hill
 
-TBD
+When someone knows an approximate symbol name but not the exact casing
+or full identifier, `code_find` should return useful matches without
+requiring manual `*` glob syntax.
 
-## Playback Questions
+## Playback questions
 
 ### Human
 
-- [ ] TBD
+1. Does `code_find({ query: "adapter" })` find symbols such as
+   `GitWarpAdapter` without forcing the operator to guess `*adapter*`?
+2. Do tighter matches still come first so the results stay usable
+   instead of turning into an opaque fuzzy list?
 
 ### Agent
 
-- [ ] TBD
+1. Is the default matching rule deterministic and explainable from the
+   implementation and tests?
+2. Does the behavior stay aligned across live parsing and WARP-backed
+   clean-head search?
 
-## Accessibility and Assistive Reading
+## Scope
 
-- Linear truth / reduced-complexity posture: TBD
-- Non-visual or alternate-reading expectations: TBD
-
-## Localization and Directionality
-
-- Locale / wording / formatting assumptions: TBD
-- Logical direction / layout assumptions: TBD
-
-## Agent Inspectability and Explainability
-
-- What must be explicit and deterministic for agents: TBD
-- What must be attributable, evidenced, or governed: TBD
+- plain-text `code_find` queries become case-insensitive approximate
+  discovery
+- explicit glob queries keep the existing glob semantics
+- ordering favors exact matches, then prefixes, then substrings
+- add witnesses for both live parsing and WARP-backed clean-head search
 
 ## Non-goals
 
-- [ ] TBD
+- edit-distance or opaque fuzzy ranking
+- new mode flags or response fields for `code_find`
+- changing `code_show`
 
-## Backlog Context
+## Success Criteria
 
-Dogfood feedback from 2026-04-05 and 2026-04-07 says the structural
-tools are good but `code_find` is still too exact-name-centric to act
-as a real discovery tool.
-
-Concrete failure:
-- searching for `adapter` did not return classes with `Adapter` in the
-  symbol name
-- the user expectation was substring or light fuzzy matching
-- the fallback became manual scanning via `graft_map`
-
-Hill:
-- `code_find` should be useful when the operator knows an approximate
-  symbol name but not the exact casing or full identifier
-- searching for `adapter` should find `GitWarpAdapter`,
-  `ScenarioFixtureAdapter`, and similar symbols without requiring the
-  exact token
-
-Scope:
-- define a default matching strategy for `code_find`
-- decide whether matching should be substring, case-insensitive,
-  prefix-biased, or explicitly mode-switched
-- keep exact-match behavior inspectable and predictable
-- add witnesses for expected discovery queries
-
-Non-goals:
-- opaque fuzzy ranking that makes results hard to explain
-- silently broadening search in a way that makes precision unusable
-
-Why now:
-- this was the clearest direct product miss in external dogfooding
-- fixing it improves the usefulness of the existing precision surface
-  without requiring a new subsystem
-
-Effort: M
+- `query: "adapter"` returns useful matches such as `Adapter`,
+  `adapterFactory`, and `GitWarpAdapter`
+- glob queries like `handle*` continue to work
+- live and WARP search paths agree on the discovery behavior

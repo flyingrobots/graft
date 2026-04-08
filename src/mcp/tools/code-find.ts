@@ -15,9 +15,9 @@ import {
 export const codeFindTool: ToolDefinition = {
   name: "code_find",
   description:
-    "Search for symbols across the project by name pattern. Returns " +
-    "matches with file path, kind, signature, and line range. Use " +
-    "code_show to read the source of a specific match.",
+    "Search for symbols across the project by approximate name or glob " +
+    "pattern. Returns matches with file path, kind, signature, and " +
+    "line range. Use code_show to read the source of a specific match.",
   schema: {
     query: z.string(),
     kind: z.string().optional(),

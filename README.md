@@ -124,7 +124,7 @@ is structured JSON with versioned `_schema` metadata.
 | `graft_since` | Structural changes since a git ref — symbols added/removed/changed with explicit denied-file reporting |
 | `graft_map` | Structural map of a directory — all files and symbols in one call, with explicit denied-file reporting |
 | `code_show` | Focus on a symbol by name — get its source code in one call |
-| `code_find` | Search symbols across the project by name/kind pattern |
+| `code_find` | Search symbols across the project by approximate name or glob, with optional kind/path filters |
 | `changed_since` | Check if a file changed since last read (peek or consume) |
 | `run_capture` | Diagnostic shell-output escape hatch — tail to agent, optional redacted log persistence, explicit enable/disable posture, outside bounded-read policy, with explicit `policyBoundary` marker |
 | `state_save` | Save session working state (max 8 KB) |
