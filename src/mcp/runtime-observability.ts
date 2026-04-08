@@ -3,6 +3,7 @@ import { ZodError } from "zod";
 import type { JsonCodec } from "../ports/codec.js";
 import type { FileSystem } from "../ports/filesystem.js";
 import type { MetricsSnapshot } from "./metrics.js";
+import type { BurdenKind } from "./burden.js";
 import type { SessionDepth } from "../session/types.js";
 
 export type RuntimeLogPolicy = "metadata_only";
@@ -78,6 +79,8 @@ export interface RuntimeToolCallCompletedEvent {
   readonly latencyMs: number;
   readonly projection: string;
   readonly reason: string;
+  readonly burdenKind: BurdenKind;
+  readonly nonReadBurden: boolean;
   readonly returnedBytes: number;
   readonly fileBytes: number | null;
   readonly sessionDepth: SessionDepth;

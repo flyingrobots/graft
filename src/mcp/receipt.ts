@@ -7,6 +7,14 @@ import type { MetricsSnapshot } from "./metrics.js";
 import type { Tripwire } from "../session/types.js";
 import type { JsonCodec } from "../ports/codec.js";
 import { attachMcpSchemaMeta, type McpToolName } from "../contracts/output-schemas.js";
+import {
+  burdenKindForTool,
+  isNonReadBurdenKind,
+  projectBurdenByKind,
+  totalNonReadBytesReturned,
+  type BurdenByKind,
+  type BurdenKind,
+} from "./burden.js";
 
 export type McpToolResult = CallToolResult;
 
@@ -24,6 +32,13 @@ export interface ReceiptCumulative {
   readonly cacheHits: number;
   readonly bytesReturned: number;
   readonly bytesAvoided: number;
+  readonly nonReadBytesReturned: number;
+  readonly burdenByKind: Readonly<BurdenByKind>;
+}
+
+export interface ReceiptBurden {
+  readonly kind: BurdenKind;
+  readonly nonRead: boolean;
 }
 
 export interface McpToolReceipt {
@@ -37,6 +52,7 @@ export interface McpToolReceipt {
   readonly latencyMs: number;
   readonly fileBytes: number | null;
   readonly returnedBytes: number;
+  readonly burden: ReceiptBurden;
   readonly cumulative: ReceiptCumulative;
   readonly budget?: ReceiptBudget;
   readonly compressionRatio?: number | null;
@@ -63,6 +79,7 @@ export function buildReceiptResult(
   data: Record<string, unknown>,
   deps: ReceiptDeps,
 ): { result: McpToolResult; textBytes: number; receipt: McpToolReceipt } {
+  const burdenKind = burdenKindForTool(tool);
   const receipt: McpToolReceipt = {
     sessionId: deps.sessionId,
     traceId: deps.traceId,
@@ -74,6 +91,10 @@ export function buildReceiptResult(
     latencyMs: deps.latencyMs,
     fileBytes: (data["actual"] as { bytes: number } | undefined)?.bytes ?? null,
     returnedBytes: 0,
+    burden: {
+      kind: burdenKind,
+      nonRead: isNonReadBurdenKind(burdenKind),
+    },
     cumulative: {
       reads: deps.metrics.reads,
       outlines: deps.metrics.outlines,
@@ -81,6 +102,8 @@ export function buildReceiptResult(
       cacheHits: deps.metrics.cacheHits,
       bytesReturned: 0,
       bytesAvoided: deps.metrics.bytesAvoided,
+      nonReadBytesReturned: totalNonReadBytesReturned(deps.metrics.burdenByKind),
+      burdenByKind: deps.metrics.burdenByKind,
     },
   };
 
@@ -106,13 +129,19 @@ export function buildReceiptResult(
     prev = byteLen;
     (receipt as McpToolReceipt & { returnedBytes: number }).returnedBytes = byteLen;
     const fb = receipt.fileBytes;
+    const burdenByKind = projectBurdenByKind(deps.metrics.burdenByKind, tool, byteLen);
     (receipt as McpToolReceipt & { compressionRatio?: number | null }).compressionRatio = fb !== null && fb > 0
       ? Math.round((byteLen / fb) * 1000) / 1000
       : null;
     (receipt.cumulative as ReceiptCumulative & { bytesReturned: number }).bytesReturned =
       deps.metrics.bytesReturned + byteLen;
+    (receipt.cumulative as ReceiptCumulative & { nonReadBytesReturned: number }).nonReadBytesReturned =
+      totalNonReadBytesReturned(burdenByKind);
+    (receipt.cumulative as ReceiptCumulative & { burdenByKind: Readonly<BurdenByKind> }).burdenByKind =
+      burdenByKind;
   }
 
+  Object.freeze(receipt.burden);
   Object.freeze(receipt.cumulative);
   Object.freeze(receipt);
 

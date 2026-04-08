@@ -99,6 +99,21 @@ const diffEntrySchema: z.ZodType = z.lazy(() => z.object({
   childDiff: outlineDiffSchema.optional(),
 }).strict());
 
+const burdenKindSchema = z.enum(["read", "search", "shell", "state", "diagnostic"]);
+
+const burdenBucketSchema = z.object({
+  calls: z.number().int().nonnegative(),
+  bytesReturned: z.number().int().nonnegative(),
+}).strict();
+
+const burdenByKindSchema = z.object({
+  read: burdenBucketSchema,
+  search: burdenBucketSchema,
+  shell: burdenBucketSchema,
+  state: burdenBucketSchema,
+  diagnostic: burdenBucketSchema,
+}).strict();
+
 const receiptSchema = z.object({
   sessionId: z.string(),
   traceId: z.string(),
@@ -110,6 +125,10 @@ const receiptSchema = z.object({
   latencyMs: z.number().int().nonnegative(),
   fileBytes: z.number().int().nonnegative().nullable(),
   returnedBytes: z.number().int().nonnegative(),
+  burden: z.object({
+    kind: burdenKindSchema,
+    nonRead: z.boolean(),
+  }).strict(),
   cumulative: z.object({
     reads: z.number().int().nonnegative(),
     outlines: z.number().int().nonnegative(),
@@ -117,6 +136,8 @@ const receiptSchema = z.object({
     cacheHits: z.number().int().nonnegative(),
     bytesReturned: z.number().int().nonnegative(),
     bytesAvoided: z.number().int().nonnegative(),
+    nonReadBytesReturned: z.number().int().nonnegative(),
+    burdenByKind: burdenByKindSchema,
   }).strict(),
   budget: budgetSchema.optional(),
   compressionRatio: z.number().nullable().optional(),
@@ -211,6 +232,14 @@ const policyBoundarySchema = z.object({
   kind: z.literal("shell_escape_hatch"),
   boundedReadContract: z.literal(false),
   policyEnforced: z.literal(false),
+}).strict();
+
+const burdenSummarySchema = z.object({
+  totalBytesReturned: z.number().int().nonnegative(),
+  totalNonReadBytesReturned: z.number().int().nonnegative(),
+  topKind: burdenKindSchema.nullable(),
+  topBytesReturned: z.number().int().nonnegative(),
+  topCalls: z.number().int().nonnegative(),
 }).strict();
 
 function extendWithCommonFields(
@@ -427,6 +456,7 @@ const mcpOutputBodySchemas: Record<McpToolName, z.ZodType> = {
     thresholds: thresholdsSchema,
     sessionDepth: z.enum(["early", "mid", "late"]),
     totalMessages: z.number().int().nonnegative(),
+    burdenSummary: burdenSummarySchema,
     runtimeObservability: runtimeObservabilitySchema,
     checkoutEpoch: z.number().int().nonnegative(),
     lastTransition: repoTransitionSchema.nullable(),
@@ -437,7 +467,10 @@ const mcpOutputBodySchemas: Record<McpToolName, z.ZodType> = {
     totalOutlines: z.number().int().nonnegative(),
     totalRefusals: z.number().int().nonnegative(),
     totalCacheHits: z.number().int().nonnegative(),
+    totalBytesReturned: z.number().int().nonnegative(),
     totalBytesAvoidedByCache: z.number().int().nonnegative(),
+    totalNonReadBytesReturned: z.number().int().nonnegative(),
+    burdenByKind: burdenByKindSchema,
   }).strict(),
 };
 

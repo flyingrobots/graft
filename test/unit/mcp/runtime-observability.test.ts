@@ -12,6 +12,8 @@ interface RuntimeEvent {
   readonly tool?: string;
   readonly projection?: string;
   readonly reason?: string;
+  readonly burdenKind?: string;
+  readonly nonReadBurden?: boolean;
   readonly latencyMs?: number;
   readonly argKeys?: readonly string[];
   readonly errorKind?: string;
@@ -60,6 +62,8 @@ describe("mcp: runtime observability", () => {
       expect(completed?.seq).toBe(receipt.seq);
       expect(completed?.projection).toBe(receipt.projection);
       expect(completed?.reason).toBe(receipt.reason);
+      expect(completed?.burdenKind).toBe("read");
+      expect(completed?.nonReadBurden).toBe(false);
       expect(completed?.latencyMs).toBeGreaterThanOrEqual(0);
     } finally {
       isolated.cleanup();

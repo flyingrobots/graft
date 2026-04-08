@@ -115,8 +115,8 @@ traverse by hand. 11 WARP invariants protect the substrate.
 | `state_load` | Restore session state |
 | `set_budget` | Declare session byte budget — governor tightens as it drains |
 | `explain` | Human-readable reason code help |
-| `doctor` | Runtime health check |
-| `stats` | Decision metrics summary |
+| `doctor` | Runtime health check with burden summary |
+| `stats` | Decision metrics summary with burden-by-kind totals |
 
 ---
 

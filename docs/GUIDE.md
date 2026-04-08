@@ -387,8 +387,8 @@ add to `.claude/settings.local.json`:
 | `code_show` | Focus on a symbol by name and return its source with line metadata. |
 | `code_find` | Search symbols across the project by approximate name or glob pattern, with optional kind/path filter. |
 | `code_refs` | Search import sites, callsites, property access, or literal text references with explicit text-fallback provenance, pattern, and scope. |
-| `doctor` | Runtime health check including layered-worldline repo state. |
-| `stats` | Decision metrics for the current server session. |
+| `doctor` | Runtime health check including layered-worldline repo state and burden summary. |
+| `stats` | Decision metrics for the current server session, including burden by tool kind. |
 | `explain` | Human-readable meaning and recommended action for a reason code. |
 | `run_capture` | Execute a shell command and return the last N lines of output (default 60). This tool is outside graft's bounded-read policy contract, responses include an explicit `policyBoundary` marker, log persistence can be disabled, and persisted output is redacted for obvious secrets by default. |
 | `state_save` | Save session working state (max 8 KB). Use for session bookmarks: current task, files modified, next planned actions. |
@@ -397,10 +397,10 @@ add to `.claude/settings.local.json`:
 MCP responses include versioned `_schema` metadata and `_receipt`
 fields. CLI peer commands also return versioned `_schema` metadata;
 the declared contracts live in `src/contracts/output-schemas.ts`.
-| `doctor` | Runtime health check. Shows project root, parser status, active thresholds, session depth, and message count. |
+| `doctor` | Runtime health check. Shows project root, parser status, active thresholds, session depth, message count, and a compact burden summary. |
 | `set_budget` | Declare a session byte budget. Graft tightens read thresholds as the budget drains — no single read may consume more than 5% of remaining budget. Call once at session start. |
 | `explain` | Explain a graft reason code. Returns human-readable meaning and recommended next action for any code (e.g., `BINARY`, `BUDGET_CAP`). Case-insensitive. |
-| `stats` | Decision metrics for the current session. Total reads, outlines, refusals, cache hits, and bytes avoided. |
+| `stats` | Decision metrics for the current session. Total reads, outlines, refusals, cache hits, bytes avoided, and returned-byte burden by tool kind. |
 
 Every MCP tool response includes:
 - `_receipt` — runtime decision metadata

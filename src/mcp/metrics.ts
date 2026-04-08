@@ -2,6 +2,15 @@
 // Session metrics — replaces loose counters in server.ts
 // ---------------------------------------------------------------------------
 
+import type { McpToolName } from "../contracts/output-schemas.js";
+import {
+  emptyBurdenByKind,
+  freezeBurdenByKind,
+  burdenKindForTool,
+  cloneBurdenByKind,
+  type BurdenByKind,
+} from "./burden.js";
+
 export interface MetricsSnapshot {
   readonly reads: number;
   readonly outlines: number;
@@ -9,6 +18,7 @@ export interface MetricsSnapshot {
   readonly cacheHits: number;
   readonly bytesReturned: number;
   readonly bytesAvoided: number;
+  readonly burdenByKind: Readonly<BurdenByKind>;
 }
 
 export class Metrics {
@@ -18,6 +28,7 @@ export class Metrics {
   private totalCacheHits = 0;
   private totalBytesAvoidedByCache = 0;
   private cumulativeBytesReturned = 0;
+  private burdenByKind: BurdenByKind = emptyBurdenByKind();
 
   recordRead(): void {
     this.totalReads++;
@@ -36,8 +47,17 @@ export class Metrics {
     this.totalBytesAvoidedByCache += bytesAvoided;
   }
 
-  addBytesReturned(n: number): void {
+  recordToolResult(tool: McpToolName, n: number): void {
     this.cumulativeBytesReturned += n;
+    const kind = burdenKindForTool(tool);
+    const current = this.burdenByKind[kind];
+    this.burdenByKind = {
+      ...this.burdenByKind,
+      [kind]: {
+        calls: current.calls + 1,
+        bytesReturned: current.bytesReturned + n,
+      },
+    };
   }
 
   snapshot(): MetricsSnapshot {
@@ -48,6 +68,7 @@ export class Metrics {
       cacheHits: this.totalCacheHits,
       bytesReturned: this.cumulativeBytesReturned,
       bytesAvoided: this.totalBytesAvoidedByCache,
+      burdenByKind: freezeBurdenByKind(cloneBurdenByKind(this.burdenByKind)),
     };
   }
 }

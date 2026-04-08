@@ -141,8 +141,8 @@ is structured JSON with versioned `_schema` metadata.
 | `state_load` | Restore session working state |
 | `set_budget` | Declare session byte budget — governor tightens as it drains |
 | `explain` | Human-readable help for any reason code |
-| `doctor` | Runtime health check |
-| `stats` | Decision metrics summary |
+| `doctor` | Runtime health check with burden summary and layered-worldline state |
+| `stats` | Decision metrics summary with cumulative burden-by-kind totals |
 
 ## Claude Code hooks
 

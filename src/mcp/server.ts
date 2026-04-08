@@ -154,7 +154,7 @@ export function createGraftServer(options: CreateGraftServerOptions = {}): Graft
       receipt,
       tripwireSignals: tripwires.map((wire) => wire.signal),
     };
-    metrics.addBytesReturned(textBytes);
+    metrics.recordToolResult(tool, textBytes);
     session.recordBytesConsumed(textBytes);
     return result;
   }
@@ -237,6 +237,8 @@ export function createGraftServer(options: CreateGraftServerOptions = {}): Graft
           latencyMs: invocation.response.receipt.latencyMs,
           projection: invocation.response.receipt.projection,
           reason: invocation.response.receipt.reason,
+          burdenKind: invocation.response.receipt.burden.kind,
+          nonReadBurden: invocation.response.receipt.burden.nonRead,
           returnedBytes: invocation.response.receipt.returnedBytes,
           fileBytes: invocation.response.receipt.fileBytes,
           sessionDepth: session.getSessionDepth(),

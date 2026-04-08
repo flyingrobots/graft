@@ -28,7 +28,8 @@ Level 1 answers "what changed structurally?" Level 2+ answers
 ## What does NOT ship under this bearing
 
 - Live study execution (infrastructure built, study runs when ready)
-- Non-read burden measurement (needs study data first)
+- Non-read burden policy beyond file reads (measurement exists; policy
+  remains later)
 - Human-facing UX (git-graft-enhance — cool idea for later)
 
 ## What just shipped
@@ -37,6 +38,11 @@ Cycle 0023 — WARP Level 1 (v0.4.0): WARP indexer, `graft_since`,
 `graft_map`, `graft index` CLI, observer factory with 8 canonical
 lenses, directory tree modeling, 11 WARP invariants. 434 tests,
 14 tools.
+
+Cycle 0049 — non-read burden instrumentation: receipts now classify
+tool burden kind, `stats` reports cumulative burden by kind, and
+`doctor` exposes a compact non-read burden summary without introducing
+new policy.
 
 ## What feels wrong
 

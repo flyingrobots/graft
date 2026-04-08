@@ -86,6 +86,17 @@ This retires:
 
 - `CLEAN_CODE_sync-child-process-request-path`
 
+Cycle `0049-non-read-burden` shipped the measurement-first follow-on:
+
+- receipts now classify each tool call by burden kind and mark whether
+  the result is non-read
+- `stats` now exposes cumulative burden-by-kind totals and a non-read
+  aggregate
+- `doctor` now exposes a compact burden summary for the active session
+
+This keeps the non-read question evidence-backed without dragging new
+governor policy into the release bar.
+
 ## Ranked queue
 
 No remaining above-the-line work is required before the next release.
@@ -93,17 +104,21 @@ No remaining above-the-line work is required before the next release.
 If we choose to keep pushing before cutting the packet, the next
 candidate is:
 
-1. [CORE_non-read-burden.md](backlog/up-next/CORE_non-read-burden.md)
-   This is the next operator-facing surface with real value, but it is
-   no longer part of the current release bar.
+1. [SURFACE_shared-daemon-authz-and-isolation.md](backlog/up-next/SURFACE_shared-daemon-authz-and-isolation.md)
+   This is the next real product frontier, but it starts a new shaping
+   problem around trust boundaries and system-wide deployment posture,
+   not a tail extension of the current release bar.
 
 ## Below the cut line
 
 These items are real but should not be treated as release blockers for
 the next packet:
 
-- [CORE_non-read-burden.md](backlog/up-next/CORE_non-read-burden.md)
 - [SURFACE_non-codex-instruction-bootstrap-parity.md](backlog/cool-ideas/SURFACE_non-codex-instruction-bootstrap-parity.md)
+- [SURFACE_shared-daemon-authz-and-isolation.md](backlog/up-next/SURFACE_shared-daemon-authz-and-isolation.md)
+- [SURFACE_system-wide-control-plane-for-persistent-monitors.md](backlog/up-next/SURFACE_system-wide-control-plane-for-persistent-monitors.md)
+- [SURFACE_system-wide-mcp-daemon-and-workspace-binding.md](backlog/up-next/SURFACE_system-wide-mcp-daemon-and-workspace-binding.md)
+- [SURFACE_system-wide-multi-repo-agent-coordination.md](backlog/up-next/SURFACE_system-wide-multi-repo-agent-coordination.md)
 - [CLEAN_CODE_mcp-server.md](backlog/bad-code/CLEAN_CODE_mcp-server.md)
 - [CLEAN_CODE_mcp-repo-state.md](backlog/bad-code/CLEAN_CODE_mcp-repo-state.md)
 - [WARP_name-based-symbol-matching.md](backlog/bad-code/WARP_name-based-symbol-matching.md)

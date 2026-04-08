@@ -195,6 +195,7 @@ describe("mcp: tool handlers", () => {
     expect(parsed["projectRoot"]).toBeDefined();
     expect(parsed["parserHealthy"]).toBeDefined();
     expect(parsed["thresholds"]).toBeDefined();
+    expect(parsed["burdenSummary"]).toBeDefined();
   });
 
   it("stats returns metrics summary", async () => {
@@ -204,6 +205,28 @@ describe("mcp: tool handlers", () => {
     expect(parsed["totalReads"]).toBeDefined();
     expect(parsed["totalOutlines"]).toBeDefined();
     expect(parsed["totalRefusals"]).toBeDefined();
+    expect(parsed["totalBytesReturned"]).toBeDefined();
+    expect(parsed["burdenByKind"]).toBeDefined();
+  });
+
+  it("stats and doctor expose non-read burden breakdowns", async () => {
+    const server = createServer();
+    await server.callTool("run_capture", { command: "printf 'alpha'", tail: 1 });
+
+    const doctor = parse(await server.callTool("doctor", {}));
+    const burdenSummary = doctor["burdenSummary"] as {
+      topKind: string | null;
+      totalBytesReturned: number;
+      totalNonReadBytesReturned: number;
+    };
+    expect(burdenSummary.topKind).toBe("shell");
+    expect(burdenSummary.totalBytesReturned).toBeGreaterThan(0);
+    expect(burdenSummary.totalNonReadBytesReturned).toBeGreaterThan(0);
+
+    const stats = parse(await server.callTool("stats", {}));
+    const burdenByKind = stats["burdenByKind"] as Record<string, { calls: number; bytesReturned: number }>;
+    expect(stats["totalNonReadBytesReturned"] as number).toBeGreaterThan(0);
+    expect(burdenByKind["shell"]?.calls).toBe(1);
   });
 });
 
