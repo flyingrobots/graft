@@ -3,7 +3,7 @@ import { z } from "zod";
 import { extractOutline } from "../../parser/outline.js";
 import { detectLang } from "../../parser/lang.js";
 import type { ToolDefinition, ToolContext, ToolHandler } from "../context.js";
-import { listTrackedFiles } from "./git-files.js";
+import { listProjectFiles } from "./git-files.js";
 import { evaluateMcpRefusal, type McpPolicyRefusal } from "../policy.js";
 
 interface FileEntry {
@@ -25,7 +25,7 @@ export const mapTool: ToolDefinition = {
     return (args) => {
       const dirPath = (args["path"] as string | undefined) ?? "";
 
-      const filePaths = listTrackedFiles(dirPath, ctx.projectRoot);
+      const filePaths = listProjectFiles(dirPath, ctx.projectRoot);
       const files: FileEntry[] = [];
       const refused: McpPolicyRefusal[] = [];
 
