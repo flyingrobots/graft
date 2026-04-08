@@ -21,6 +21,8 @@ Questions:
   system-wide view?
 - how should system-wide coordination relate to per-client MCP session
   state like budget, cache, and saved state?
+- how do system-wide views avoid becoming an authorization side channel
+  for repos or sessions that a client has not bound?
 
 Deliverables:
 - explicit system model for multi-repo simultaneous agent activity
@@ -36,6 +38,8 @@ Current design leaning:
   `git rev-parse --show-toplevel`
 - agent-local state should remain per MCP session rather than becoming
   accidental global daemon state
+- coordination should stay observational; it must not widen workspace
+  access or expose another session's receipts by default
 
 Why separate cycle:
 - this is a product / control-plane design problem, not just a watcher

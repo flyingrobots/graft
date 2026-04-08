@@ -59,6 +59,22 @@ Use this table to see what each client actually gets today.
 | Cursor / Windsurf / Continue / Cline | `--write-*-mcp` | None written automatically today | No | MCP available, but governed reads still depend on agent choice |
 | Other MCP-compatible clients | Manual MCP config | None written automatically today | No | MCP only |
 
+## Deployment Posture
+
+Graft's supported deployment posture today is still repo-local and
+local-user: one stdio MCP server per repo checkout, plus repo-local
+bootstrap files such as `CLAUDE.md` or `AGENTS.md`.
+
+A future shared daemon is not yet a supported deployment surface. That
+future model needs:
+
+- explicit local-client authentication
+- operator-mediated workspace authorization
+- isolation between canonical repo identity, live worktree identity,
+  and client session state
+- session- and operator-scoped visibility for receipts and runtime logs
+- default-denied escape hatches such as `run_capture`
+
 ### One-step bootstrap
 
 Write project-local client config directly when you want `init` to do
@@ -544,6 +560,10 @@ tool. For broader or more sensitive deployments:
 - set `GRAFT_RUN_CAPTURE_PERSIST=0` to avoid writing `.graft/logs/capture.log`
 - persisted capture output is redacted for obvious secret-shaped values
   by default
+
+If Graft ever grows a shared daemon, `run_capture` should stay disabled
+by default there and require an explicit operator-authorized capability
+profile rather than inheriting local repo-scoped trust.
 
 ### MCP runtime observability
 

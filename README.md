@@ -83,6 +83,13 @@ behavior differs by client: Claude has hook guardrails, Codex now has
 repo-local `AGENTS.md` bootstrap guidance, and the other clients remain
 MCP-plus-instructions rather than true default-governed reads.
 
+Supported deployment posture today is repo-local and local-user: a
+per-repo stdio server plus repo-local bootstrap files. A future shared
+daemon is not yet a supported product surface; before that exists,
+Graft needs explicit client authentication, workspace authorization,
+session/log isolation, and default-denied escape hatches like
+`run_capture`.
+
 See the **[Setup decision table](docs/GUIDE.md#choose-your-setup-path)**
 for the fastest path by client and mode, and the full
 **[Setup Guide](docs/GUIDE.md)** for per-editor instructions, Claude
@@ -229,7 +236,9 @@ output contracts live in `src/contracts/output-schemas.ts`.
 release-sensitive environments, you can disable it with
 `GRAFT_ENABLE_RUN_CAPTURE=0`. Persisted capture logs can be disabled
 with `GRAFT_RUN_CAPTURE_PERSIST=0`, and persisted output is redacted for
-obvious secret-shaped values by default.
+obvious secret-shaped values by default. In any future shared-daemon
+deployment model, `run_capture` should remain opt-in rather than
+ambiently available.
 
 ## Reason codes
 

@@ -32,6 +32,13 @@ decision. But the structural tools (outlines, diffs, symbol history)
 are useful to anyone. Don't market it as a human tool. Do leave the
 door unlocked.
 
+Current deployment truth is still repo-local and local-user: one
+repo-scoped stdio server plus repo-local bootstrap files. A future
+shared daemon is a separate product contract, not an implicit extension
+of today's setup. It needs explicit local-client authentication,
+workspace authorization, isolated session and log state, and
+default-denied escape hatches.
+
 The long-term vision: Graft grows from a governor into a
 **provenance-aware substrate**. Git tracks bytes. Graft, powered
 by WARP, tracks what those bytes mean structurally — across commits,

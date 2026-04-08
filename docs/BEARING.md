@@ -44,6 +44,11 @@ tool burden kind, `stats` reports cumulative burden by kind, and
 `doctor` exposes a compact non-read burden summary without introducing
 new policy.
 
+Cycle 0050 — shared-daemon trust model: the future shared service is
+now defined as same-user and local-machine only by default, with
+server-resolved workspace identity, operator-mediated authorization,
+isolated session/log state, and default-denied escape hatches.
+
 ## What feels wrong
 
 - WARP indexing is slow on large repos — `core().materialize()`
@@ -72,3 +77,7 @@ on this machine until all of these are true:
 5. **Language coverage is broadened or the boundary is explicit** —
    either support expands beyond JS/TS, or non-JS/TS repos degrade so
    clearly and lawfully that "general use" is still honest.
+6. **Shared-daemon trust boundaries are explicit** — before any
+   system-wide daemon claim, client authentication, workspace
+   authorization, session/log isolation, and escape-hatch gating must
+   be defined and then implemented.

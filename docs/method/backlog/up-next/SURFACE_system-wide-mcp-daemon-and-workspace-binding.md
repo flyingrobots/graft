@@ -24,6 +24,8 @@ Questions:
   - git common dir for canonical repo/WARP identity
   - worktree root for live overlay, policy, and checkout state
   - client session for budget, cache, receipts, and saved state
+- how does a bind request become an authorization decision instead of
+  just a routing hint?
 - how should the service behave when a client cwd is outside a git repo?
 - how should worktrees of the same repo share WARP state without
   collapsing their live state?
@@ -32,6 +34,7 @@ Questions:
 
 Deliverables:
 - explicit daemon/session/workspace routing model
+- explicit bind/rebind and capability-attachment model
 - proposed MCP/CLI context-binding surface
 - statement of which current assumptions are repo-scoped debug behavior
   versus future product contract
@@ -46,5 +49,12 @@ Related:
 Why separate cycle:
 - this is the architectural bridge between today's single-root stdio
   MCP server and the desired system-wide multi-agent service
+
+Trust-model constraint from cycle 0050:
+- shared daemon is same-user and local-machine only by default
+- client-supplied repo/worktree ids are hints, not authority
+- authorization happens when the daemon resolves and binds a workspace
+- escape-hatch capabilities like `run_capture` should remain default-off
+  until explicitly attached by policy
 
 Effort: L

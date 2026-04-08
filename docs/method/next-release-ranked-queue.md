@@ -97,6 +97,19 @@ Cycle `0049-non-read-burden` shipped the measurement-first follow-on:
 This keeps the non-read question evidence-backed without dragging new
 governor policy into the release bar.
 
+Cycle `0050-shared-daemon-authz-and-isolation` shaped the next system
+surface before transport work starts:
+
+- the future shared daemon is now explicitly same-user and local-machine
+  only by default, not an implicit remote or multi-user service
+- workspace bind is the authorization event, with server-resolved repo
+  and worktree identity
+- session state, receipts, runtime logs, and escape hatches now have an
+  explicit isolation model in repo docs and backlog follow-ons
+
+This keeps the daemon direction honest without pretending the transport
+or control plane already exist.
+
 ## Ranked queue
 
 No remaining above-the-line work is required before the next release.
@@ -104,10 +117,11 @@ No remaining above-the-line work is required before the next release.
 If we choose to keep pushing before cutting the packet, the next
 candidate is:
 
-1. [SURFACE_shared-daemon-authz-and-isolation.md](backlog/up-next/SURFACE_shared-daemon-authz-and-isolation.md)
-   This is the next real product frontier, but it starts a new shaping
-   problem around trust boundaries and system-wide deployment posture,
-   not a tail extension of the current release bar.
+1. [SURFACE_system-wide-mcp-daemon-and-workspace-binding.md](backlog/up-next/SURFACE_system-wide-mcp-daemon-and-workspace-binding.md)
+   The trust model is now explicit, so the next highest-leverage move is
+   binding and routing: how a local shared daemon resolves workspaces,
+   attaches capability posture, and keeps repo/worktree/session identity
+   separate on the transport path.
 
 ## Below the cut line
 
@@ -115,7 +129,6 @@ These items are real but should not be treated as release blockers for
 the next packet:
 
 - [SURFACE_non-codex-instruction-bootstrap-parity.md](backlog/cool-ideas/SURFACE_non-codex-instruction-bootstrap-parity.md)
-- [SURFACE_shared-daemon-authz-and-isolation.md](backlog/up-next/SURFACE_shared-daemon-authz-and-isolation.md)
 - [SURFACE_system-wide-control-plane-for-persistent-monitors.md](backlog/up-next/SURFACE_system-wide-control-plane-for-persistent-monitors.md)
 - [SURFACE_system-wide-mcp-daemon-and-workspace-binding.md](backlog/up-next/SURFACE_system-wide-mcp-daemon-and-workspace-binding.md)
 - [SURFACE_system-wide-multi-repo-agent-coordination.md](backlog/up-next/SURFACE_system-wide-multi-repo-agent-coordination.md)
