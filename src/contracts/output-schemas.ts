@@ -130,6 +130,20 @@ const precisionSymbolMatchSchema = z.object({
   endLine: z.number().int().positive().optional(),
 }).strict();
 
+const codeRefsMatchSchema = z.object({
+  path: z.string(),
+  line: z.number().int().positive(),
+  column: z.number().int().positive().optional(),
+  preview: z.string(),
+}).strict();
+
+const codeRefsProvenanceSchema = z.object({
+  engine: z.enum(["ripgrep", "grep"]),
+  pattern: z.string(),
+  approximate: z.literal(true),
+  filesSearched: z.number().int().nonnegative(),
+}).strict();
+
 const structuralRefusalSchema = z.object({
   path: z.string(),
   reason: z.string(),
@@ -352,6 +366,22 @@ const mcpOutputBodySchemas: Record<McpToolName, z.ZodType> = {
     source: z.enum(["warp", "live"]),
     layer: worldlineLayerSchema,
   }).strict(),
+  code_refs: z.object({
+    query: z.string(),
+    mode: z.enum(["text", "import", "call", "property"]),
+    scope: z.string(),
+    matches: z.array(codeRefsMatchSchema).optional(),
+    total: z.number().int().nonnegative().optional(),
+    path: z.string().optional(),
+    projection: z.literal("refused").optional(),
+    reason: z.string().optional(),
+    reasonDetail: z.string().optional(),
+    next: z.array(z.string()).optional(),
+    actual: actualSchema.optional(),
+    source: z.literal("text_fallback"),
+    provenance: codeRefsProvenanceSchema,
+    layer: worldlineLayerSchema,
+  }).strict(),
   run_capture: z.object({
     output: z.string(),
     totalLines: z.number().int().nonnegative(),
@@ -411,6 +441,7 @@ export const MCP_OUTPUT_SCHEMAS: Record<McpToolName, z.ZodType> = {
   graft_map: withMcpCommon("graft_map", mcpOutputBodySchemas.graft_map),
   code_show: withMcpCommon("code_show", mcpOutputBodySchemas.code_show),
   code_find: withMcpCommon("code_find", mcpOutputBodySchemas.code_find),
+  code_refs: withMcpCommon("code_refs", mcpOutputBodySchemas.code_refs),
   run_capture: withMcpCommon("run_capture", mcpOutputBodySchemas.run_capture),
   state_save: withMcpCommon("state_save", mcpOutputBodySchemas.state_save),
   state_load: withMcpCommon("state_load", mcpOutputBodySchemas.state_load),

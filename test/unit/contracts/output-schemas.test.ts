@@ -124,6 +124,7 @@ describe("contracts: output schemas", () => {
       graft_map: parse(await server.callTool("graft_map", {})),
       code_show: parse(await server.callTool("code_show", { symbol: "greet", path: "app.ts" })),
       code_find: parse(await server.callTool("code_find", { query: "greet*" })),
+      code_refs: parse(await server.callTool("code_refs", { query: "greet", mode: "call" })),
       run_capture: parse(await server.callTool("run_capture", { command: "printf 'ok'", tail: 1 })),
       state_save: parse(await server.callTool("state_save", { content: "current task" })),
       state_load: parse(await server.callTool("state_load", {})),

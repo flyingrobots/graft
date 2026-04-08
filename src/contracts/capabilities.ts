@@ -8,6 +8,7 @@ export const MCP_TOOL_NAMES = [
   "graft_map",
   "code_show",
   "code_find",
+  "code_refs",
   "run_capture",
   "state_save",
   "state_load",
@@ -134,6 +135,12 @@ export const CAPABILITY_REGISTRY: readonly CapabilityDefinition[] = [
     cliCommand: "symbol_find",
     cliPath: ["symbol", "find"],
     parity: "peer",
+  },
+  {
+    id: "code_refs",
+    description: "Search import sites, callsites, property access, or text references",
+    mcpTool: "code_refs",
+    parity: "mcp_only",
   },
   {
     id: "run_capture",

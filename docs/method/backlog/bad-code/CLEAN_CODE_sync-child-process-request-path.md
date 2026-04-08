@@ -3,6 +3,7 @@
 Files:
 - `src/mcp/repo-state.ts`
 - `src/mcp/tools/run-capture.ts`
+- `src/mcp/tools/code-refs.ts`
 - `src/mcp/tools/git-files.ts`
 - `src/mcp/tools/precision.ts`
 - `src/git/diff.ts`

@@ -35,6 +35,7 @@ import { sinceTool } from "./tools/since.js";
 import { mapTool } from "./tools/map.js";
 import { codeShowTool } from "./tools/code-show.js";
 import { codeFindTool } from "./tools/code-find.js";
+import { codeRefsTool } from "./tools/code-refs.js";
 
 export type { McpToolResult, ToolHandler, ToolContext };
 
@@ -56,6 +57,7 @@ export const TOOL_REGISTRY: readonly ToolDefinition[] = [
   mapTool,
   codeShowTool,
   codeFindTool,
+  codeRefsTool,
 ];
 
 export interface GraftServer {

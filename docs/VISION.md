@@ -96,7 +96,7 @@ edges. Commits linked to files and symbols via provenance edges
 Observer Law enforced: write facts, read projections, never
 traverse by hand. 11 WARP invariants protect the substrate.
 
-### 14 MCP tools
+### 17 MCP tools
 
 | Tool | Purpose |
 |------|---------|
@@ -106,6 +106,9 @@ traverse by hand. 11 WARP invariants protect the substrate.
 | `graft_diff` | Structural diff between git refs with summary lines |
 | `graft_since` | Structural changes since a ref (symbols added/removed/changed) |
 | `graft_map` | Structural map of a directory (all files + symbols) |
+| `code_show` | Focus on a symbol by name and return its source |
+| `code_find` | Search symbols by approximate name or glob |
+| `code_refs` | Search import sites, callsites, property access, or literal text references with explicit fallback provenance |
 | `changed_since` | Check for changes since last read (peek or consume) |
 | `run_capture` | Diagnostic shell-output escape hatch — tee to log, tail to agent |
 | `state_save` | Save session state (max 8 KB) |

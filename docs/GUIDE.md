@@ -357,6 +357,7 @@ add to `.claude/settings.local.json`:
 | `graft_map` | Structural directory map of files and symbols under a path, with explicit denied-file reporting. |
 | `code_show` | Focus on a symbol by name and return its source with line metadata. |
 | `code_find` | Search symbols across the project by approximate name or glob pattern, with optional kind/path filter. |
+| `code_refs` | Search import sites, callsites, property access, or literal text references with explicit text-fallback provenance, pattern, and scope. |
 | `doctor` | Runtime health check including layered-worldline repo state. |
 | `stats` | Decision metrics for the current server session. |
 | `explain` | Human-readable meaning and recommended action for a reason code. |
@@ -382,7 +383,7 @@ Declared output contracts live in `src/contracts/output-schemas.ts`.
 
 ## What the agent sees
 
-Once configured, the agent gains 14 new tools. Here's what
+Once configured, the agent gains 17 MCP tools. Here's what
 happens when it uses them:
 
 ### Reading files
