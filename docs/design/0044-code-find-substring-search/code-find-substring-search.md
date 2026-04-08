@@ -1,5 +1,48 @@
 # code_find substring search
 
+Source backlog item: `docs/method/backlog/up-next/CORE_code-find-substring-search.md`
+Legend: CORE
+
+## Sponsors
+
+- Human: TBD
+- Agent: TBD
+
+## Hill
+
+TBD
+
+## Playback Questions
+
+### Human
+
+- [ ] TBD
+
+### Agent
+
+- [ ] TBD
+
+## Accessibility and Assistive Reading
+
+- Linear truth / reduced-complexity posture: TBD
+- Non-visual or alternate-reading expectations: TBD
+
+## Localization and Directionality
+
+- Locale / wording / formatting assumptions: TBD
+- Logical direction / layout assumptions: TBD
+
+## Agent Inspectability and Explainability
+
+- What must be explicit and deterministic for agents: TBD
+- What must be attributable, evidenced, or governed: TBD
+
+## Non-goals
+
+- [ ] TBD
+
+## Backlog Context
+
 Dogfood feedback from 2026-04-05 and 2026-04-07 says the structural
 tools are good but `code_find` is still too exact-name-centric to act
 as a real discovery tool.
