@@ -96,6 +96,13 @@ The important scope correction is: `0058` should finish as an execution
 substrate cycle. The new strand/collapse ontology should be a follow-on
 WARP cycle, not a reason to quietly widen `0058` into a different hill.
 
+There is also a current upstream dependency boundary: full realization
+of strand-aware causal collapse appears blocked on `git-warp`
+`v17.1.0+`. That does not block design. It means the next Graft WARP
+packet should settle ontology, collapse semantics, identities, and
+witness shape now, while treating implementation of the deepest collapse
+machinery as gated on the upstream release.
+
 ## What does NOT ship under this bearing
 
 - pretending transport sessions are the final provenance model

@@ -10,6 +10,14 @@ Problem:
 - without that ontology, persisted sub-commit history, provenance,
   strand lifecycle, and collapse semantics will churn each other
 
+Current dependency posture:
+- design should proceed now
+- full implementation of strand-aware causal collapse is currently
+  blocked on `git-warp` support expected in `v17.1.0+`
+- until that lands, this packet should aim to settle ontology,
+  identities, witnesses, and slice semantics so Graft is ready to wire
+  the substrate in immediately after the upstream release
+
 The mental model we need to design explicitly is:
 - Graft models AST / structural truth as it evolves over time
 - Graft also models the activity that explains why those structural
@@ -57,6 +65,8 @@ Deliverables:
 - explicit split between structural truth and causal provenance
 - explicit definition of session, strand, checkout epoch, and collapse
 - explicit first slice boundaries for implementation
+- explicit dependency boundary between what Graft can design locally now
+  and what must wait for upstream `git-warp` support
 
 Related:
 - `docs/method/backlog/up-next/WARP_persisted-sub-commit-local-history.md`
