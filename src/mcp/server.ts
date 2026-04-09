@@ -26,6 +26,7 @@ import {
 import { DaemonControlPlane, type DaemonRuntimeDescriptor } from "./daemon-control-plane.js";
 import { DaemonRepoOverview } from "./daemon-repos.js";
 import { DaemonJobScheduler } from "./daemon-job-scheduler.js";
+import { InlineDaemonWorkerPool, type DaemonWorkerPool } from "./daemon-worker-pool.js";
 import { PersistentMonitorRuntime } from "./persistent-monitor-runtime.js";
 import {
   RuntimeEventLogger,
@@ -133,6 +134,7 @@ export interface CreateGraftServerOptions {
   daemonControlPlane?: DaemonControlPlane;
   monitorRuntime?: PersistentMonitorRuntime;
   daemonScheduler?: DaemonJobScheduler;
+  daemonWorkerPool?: DaemonWorkerPool;
   daemonRuntime?: (() => DaemonRuntimeDescriptor) | undefined;
 }
 
@@ -164,6 +166,7 @@ export function createGraftServer(options: CreateGraftServerOptions = {}): Graft
   });
   const warpPool = options.warpPool ?? new InMemoryWarpPool((cwd, writerId) => openWarp({ cwd, writerId }));
   const daemonScheduler = mode === "daemon" ? (options.daemonScheduler ?? new DaemonJobScheduler()) : null;
+  const daemonWorkerPool = mode === "daemon" ? (options.daemonWorkerPool ?? new InlineDaemonWorkerPool()) : null;
   const daemonControlPlane = mode === "daemon"
     ? (options.daemonControlPlane ?? new DaemonControlPlane({
       fs: nodeFs,
@@ -172,7 +175,7 @@ export function createGraftServer(options: CreateGraftServerOptions = {}): Graft
       graftDir,
     }))
     : null;
-  const monitorRuntime = mode !== "daemon" || daemonControlPlane === null || daemonScheduler === null
+  const monitorRuntime = mode !== "daemon" || daemonControlPlane === null || daemonScheduler === null || daemonWorkerPool === null
     ? null
     : (options.monitorRuntime ?? new PersistentMonitorRuntime({
       fs: nodeFs,
@@ -180,8 +183,8 @@ export function createGraftServer(options: CreateGraftServerOptions = {}): Graft
       git: nodeGit,
       graftDir,
       controlPlane: daemonControlPlane,
-      warpPool,
       scheduler: daemonScheduler,
+      workerPool: daemonWorkerPool,
     }));
   const daemonStartedAt = new Date().toISOString();
   const daemonRuntime = options.daemonRuntime ?? (() => {
@@ -321,10 +324,14 @@ export function createGraftServer(options: CreateGraftServerOptions = {}): Graft
       if (daemonScheduler === null) {
         throw new Error("daemon_status is only available in daemon mode");
       }
+      if (daemonWorkerPool === null) {
+        throw new Error("daemon_status is only available in daemon mode");
+      }
       return Promise.resolve(daemonControlPlane.getStatus(
         daemonRuntime(),
         monitorRuntime?.getCounts(),
         daemonScheduler.getCounts(),
+        daemonWorkerPool.getCounts(),
       ));
     },
     listDaemonRepos(filter) {

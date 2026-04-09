@@ -5,6 +5,7 @@ import type { FileSystem } from "../ports/filesystem.js";
 import type { GitClient } from "../ports/git.js";
 import type { DaemonSchedulerCounts } from "./daemon-job-scheduler.js";
 import { ZERO_SCHEDULER_COUNTS } from "./daemon-job-scheduler.js";
+import type { DaemonWorkerCounts } from "./daemon-worker-pool.js";
 import {
   DEFAULT_DAEMON_CAPABILITY_PROFILE,
   resolveWorkspaceRequest,
@@ -135,6 +136,7 @@ export interface DaemonStatusView extends DaemonRuntimeDescriptor {
   readonly failingMonitors: number;
   readonly backlogMonitors: number;
   readonly scheduler: DaemonSchedulerCounts;
+  readonly workers: DaemonWorkerCounts;
 }
 
 export interface DaemonControlPlaneOptions {
@@ -368,6 +370,7 @@ export class DaemonControlPlane {
     runtime: DaemonRuntimeDescriptor,
     monitorCounts: DaemonMonitorCounts = ZERO_MONITOR_COUNTS,
     schedulerCounts: DaemonSchedulerCounts = ZERO_SCHEDULER_COUNTS,
+    workerCounts: DaemonWorkerCounts,
   ): DaemonStatusView {
     const sessions = this.listSessions();
     const boundSessions = sessions.filter((session) => session.bindState === "bound").length;
@@ -388,6 +391,7 @@ export class DaemonControlPlane {
       failingMonitors: monitorCounts.failingMonitors,
       backlogMonitors: monitorCounts.backlogMonitors,
       scheduler: schedulerCounts,
+      workers: workerCounts,
       ...runtime,
     };
   }

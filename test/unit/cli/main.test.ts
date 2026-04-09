@@ -136,6 +136,15 @@ describe("cli: graft grouped surface", () => {
               failedJobs: 0,
               longestQueuedWaitMs: 0,
             },
+            workers: {
+              mode: "child_processes",
+              totalWorkers: 2,
+              busyWorkers: 0,
+              idleWorkers: 2,
+              queuedTasks: 0,
+              completedTasks: 0,
+              failedTasks: 0,
+            },
             defaultCapabilityProfile: {
               boundedReads: true,
               structuralTools: true,

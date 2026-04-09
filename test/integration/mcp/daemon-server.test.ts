@@ -184,6 +184,11 @@ describe("mcp: daemon transport and lifecycle", () => {
       authorizedWorkspaces: number;
       transport: string;
       socketPath: string;
+      workers: {
+        mode: string;
+        totalWorkers: number;
+        busyWorkers: number;
+      };
     };
     expect(initialStatus.activeSessions).toBe(0);
     expect(initialStatus.boundSessions).toBe(0);
@@ -192,6 +197,9 @@ describe("mcp: daemon transport and lifecycle", () => {
     expect(initialStatus.authorizedWorkspaces).toBe(0);
     expect(initialStatus.transport).toBe("unix_socket");
     expect(initialStatus.socketPath).toBe(socketPath);
+    expect(initialStatus.workers.mode).toBe("child_processes");
+    expect(initialStatus.workers.totalWorkers).toBeGreaterThan(0);
+    expect(initialStatus.workers.busyWorkers).toBe(0);
 
     if (process.platform !== "win32") {
       expect(fs.statSync(socketPath).mode & 0o777).toBe(0o600);
@@ -201,7 +209,7 @@ describe("mcp: daemon transport and lifecycle", () => {
     const workspaceStatus = await callTool<{ bindState: string }>(socketPath, sessionId, "workspace_status", {});
     expect(workspaceStatus.bindState).toBe("unbound");
 
-    const daemonStatus = await callTool<{ activeSessions: number; unboundSessions: number }>(
+    const daemonStatus = await callTool<{ activeSessions: number; unboundSessions: number; workers: { mode: string } }>(
       socketPath,
       sessionId,
       "daemon_status",
@@ -210,6 +218,7 @@ describe("mcp: daemon transport and lifecycle", () => {
     );
     expect(daemonStatus.activeSessions).toBe(1);
     expect(daemonStatus.unboundSessions).toBe(1);
+    expect(daemonStatus.workers.mode).toBe("child_processes");
 
     const openHealth = await requestUnixJson(socketPath, "GET", "/healthz");
     expect((parseJson(openHealth) as { activeSessions: number }).activeSessions).toBe(1);
@@ -367,6 +376,7 @@ describe("mcp: daemon transport and lifecycle", () => {
       async () => parseJson(await requestUnixJson(socketPath, "GET", "/healthz")) as {
         totalMonitors: number;
         runningMonitors: number;
+        workers: { mode: string };
       },
       (status) => status.totalMonitors === 1 && status.runningMonitors === 1,
     );
@@ -374,6 +384,7 @@ describe("mcp: daemon transport and lifecycle", () => {
       totalMonitors: 1,
       runningMonitors: 1,
     });
+    expect(runningHealth.workers.mode).toBe("child_processes");
 
     await daemonA.close();
     daemons.pop();
@@ -413,6 +424,12 @@ describe("mcp: daemon transport and lifecycle", () => {
       totalMonitors: 1,
       runningMonitors: 1,
     });
+
+    const restartedHealth = parseJson(await requestUnixJson(socketPath, "GET", "/healthz")) as {
+      workers: { mode: string; completedTasks: number };
+    };
+    expect(restartedHealth.workers.mode).toBe("child_processes");
+    expect(restartedHealth.workers.completedTasks).toBe(0);
 
     const stopped = await callTool<{ ok: boolean; status: { lifecycleState: string } }>(
       socketPath,

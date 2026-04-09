@@ -384,6 +384,16 @@ const daemonSchedulerSchema = z.object({
   longestQueuedWaitMs: z.number().int().nonnegative(),
 }).strict();
 
+const daemonWorkersSchema = z.object({
+  mode: z.enum(["inline", "child_processes"]),
+  totalWorkers: z.number().int().nonnegative(),
+  busyWorkers: z.number().int().nonnegative(),
+  idleWorkers: z.number().int().nonnegative(),
+  queuedTasks: z.number().int().nonnegative(),
+  completedTasks: z.number().int().nonnegative(),
+  failedTasks: z.number().int().nonnegative(),
+}).strict();
+
 const daemonStatusSchema = z.object({
   ok: z.literal(true),
   sessionMode: z.literal("daemon"),
@@ -407,6 +417,7 @@ const daemonStatusSchema = z.object({
   failingMonitors: z.number().int().nonnegative(),
   backlogMonitors: z.number().int().nonnegative(),
   scheduler: daemonSchedulerSchema,
+  workers: daemonWorkersSchema,
   startedAt: z.string(),
 }).strict();
 

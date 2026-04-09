@@ -13,6 +13,7 @@ import { nodeGit } from "../adapters/node-git.js";
 import { createGraftServer, type GraftServer } from "./server.js";
 import { DaemonControlPlane, type DaemonStatusView } from "./daemon-control-plane.js";
 import { DaemonJobScheduler } from "./daemon-job-scheduler.js";
+import { ChildProcessDaemonWorkerPool } from "./daemon-worker-pool.js";
 import { PersistentMonitorRuntime } from "./persistent-monitor-runtime.js";
 import { InMemoryWarpPool } from "./warp-pool.js";
 import { openWarp } from "../warp/open.js";
@@ -186,14 +187,15 @@ export async function startDaemonServer(options: StartDaemonServerOptions = {}):
     graftDir,
   });
   const daemonScheduler = new DaemonJobScheduler();
+  const daemonWorkerPool = new ChildProcessDaemonWorkerPool();
   const monitorRuntime = new PersistentMonitorRuntime({
     fs: nodeFs,
     codec: new CanonicalJsonCodec(),
     git: nodeGit,
     graftDir,
     controlPlane,
-    warpPool,
     scheduler: daemonScheduler,
+    workerPool: daemonWorkerPool,
   });
   const sessions = new Map<string, DaemonSession>();
   const startedAt = new Date().toISOString();
@@ -208,7 +210,7 @@ export async function startDaemonServer(options: StartDaemonServerOptions = {}):
       healthPath: HEALTH_PATH,
       activeWarpRepos: warpPool.size(),
       startedAt,
-    }, monitorRuntime.getCounts(), daemonScheduler.getCounts());
+    }, monitorRuntime.getCounts(), daemonScheduler.getCounts(), daemonWorkerPool.getCounts());
   };
 
   await ensurePrivateDirectory(graftDir);
@@ -256,6 +258,7 @@ export async function startDaemonServer(options: StartDaemonServerOptions = {}):
             warpPool,
             daemonControlPlane: controlPlane,
             daemonScheduler,
+            daemonWorkerPool,
             daemonRuntime: () => ({
               transport: transportKind,
               sameUserOnly: true,
@@ -372,6 +375,7 @@ export async function startDaemonServer(options: StartDaemonServerOptions = {}):
         }
         sessions.clear();
         await monitorRuntime.close();
+        await daemonWorkerPool.close();
         await closeHttpServer(httpServer);
         if (!isNamedPipePath(socketPath)) {
           await fs.unlink(socketPath).catch(() => {

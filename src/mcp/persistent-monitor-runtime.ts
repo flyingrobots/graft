@@ -1,16 +1,15 @@
 import * as path from "node:path";
 import { z } from "zod";
-import { indexCommits } from "../warp/indexer.js";
 import type { JsonCodec } from "../ports/codec.js";
 import type { FileSystem } from "../ports/filesystem.js";
 import type { GitClient } from "../ports/git.js";
 import type { DaemonJobScheduler } from "./daemon-job-scheduler.js";
+import type { DaemonWorkerPool } from "./daemon-worker-pool.js";
 import type { DaemonControlPlane, DaemonMonitorCounts } from "./daemon-control-plane.js";
 import {
   resolveWorkspaceRequest,
   type WorkspaceBindRequest,
 } from "./workspace-router.js";
-import type { WarpPool } from "./warp-pool.js";
 import { buildWarpWriterId } from "../warp/writer-id.js";
 
 const CONTROL_PLANE_DIR = "control-plane";
@@ -93,8 +92,8 @@ export interface PersistentMonitorRuntimeOptions {
   readonly git: GitClient;
   readonly graftDir: string;
   readonly controlPlane: DaemonControlPlane;
-  readonly warpPool: WarpPool;
   readonly scheduler: DaemonJobScheduler;
+  readonly workerPool: DaemonWorkerPool;
   readonly defaultPollIntervalMs?: number | undefined;
 }
 
@@ -105,33 +104,6 @@ function normalizePollIntervalMs(value: number | undefined, fallback: number): n
     throw new Error("pollIntervalMs must be a positive integer");
   }
   return normalized;
-}
-
-async function readGit(git: GitClient, cwd: string, args: readonly string[]): Promise<string | null> {
-  const result = await git.run({ cwd, args });
-  if (result.error !== undefined || result.status !== 0) {
-    return null;
-  }
-  const trimmed = result.stdout.trim();
-  return trimmed.length === 0 ? null : trimmed;
-}
-
-async function readHeadCommit(git: GitClient, cwd: string): Promise<string | null> {
-  return readGit(git, cwd, ["rev-parse", "--verify", "HEAD"]);
-}
-
-async function countPendingCommits(
-  git: GitClient,
-  cwd: string,
-  from: string | null,
-  to: string | null,
-): Promise<number> {
-  if (to === null) return 0;
-  const range = from === null ? to : `${from}..${to}`;
-  const output = await readGit(git, cwd, ["rev-list", "--count", range]);
-  if (output === null) return 0;
-  const parsed = Number.parseInt(output, 10);
-  return Number.isInteger(parsed) && parsed >= 0 ? parsed : 0;
 }
 
 function sortStatuses(statuses: readonly MonitorStatusView[]): readonly MonitorStatusView[] {
@@ -411,72 +383,64 @@ export class PersistentMonitorRuntime {
       }
 
       try {
-        const headAtStart = await readHeadCommit(this.options.git, anchor.worktreeRoot);
-        const warp = await this.options.warpPool.getOrOpen(
+        const result = await this.options.workerPool.runMonitorTick({
           repoId,
-          anchor.worktreeRoot,
-          buildWarpWriterId("monitor", repoId),
-        );
-        const result = await indexCommits(warp, {
-          cwd: anchor.worktreeRoot,
-          git: this.options.git,
-          ...(record.lastIndexedCommit !== null ? { from: record.lastIndexedCommit } : {}),
-          ...(headAtStart !== null ? { to: headAtStart } : {}),
+          worktreeRoot: anchor.worktreeRoot,
+          writerId: buildWarpWriterId("monitor", repoId),
+          lastIndexedCommit: record.lastIndexedCommit,
         });
-        const currentHead = await readHeadCommit(this.options.git, anchor.worktreeRoot);
-        const lastIndexedCommit = headAtStart ?? record.lastIndexedCommit;
-        const backlogCommits = await countPendingCommits(
-          this.options.git,
-          anchor.worktreeRoot,
-          lastIndexedCommit,
-          currentHead,
-        );
         const latest = this.records.get(repoId) ?? record;
         const nextHealth = latest.lifecycleState === "paused"
           ? "paused"
           : latest.lifecycleState === "stopped"
             ? "stopped"
-            : backlogCommits > 0
+            : result.backlogCommits > 0
               ? "lagging"
               : "ok";
-        this.records.set(repoId, {
-          ...latest,
-          anchorWorktreeRoot: anchor.worktreeRoot,
-          gitCommonDir: anchor.gitCommonDir,
-          lastTickAt: tickStartedAt,
-          lastSuccessAt: new Date().toISOString(),
-          lastError: null,
-          lastIndexedCommit,
-          lastHeadCommit: currentHead,
-          backlogCommits,
-          health: nextHealth,
-          lastRunCommitsIndexed: result.commitsIndexed,
-          lastRunPatchesWritten: result.patchesWritten,
-        });
+        if (result.ok) {
+          this.records.set(repoId, {
+            ...latest,
+            anchorWorktreeRoot: anchor.worktreeRoot,
+            gitCommonDir: anchor.gitCommonDir,
+            lastTickAt: tickStartedAt,
+            lastSuccessAt: new Date().toISOString(),
+            lastError: null,
+            lastIndexedCommit: result.lastIndexedCommit,
+            lastHeadCommit: result.currentHead,
+            backlogCommits: result.backlogCommits,
+            health: nextHealth,
+            lastRunCommitsIndexed: result.commitsIndexed,
+            lastRunPatchesWritten: result.patchesWritten,
+          });
+        } else {
+          this.records.set(repoId, {
+            ...latest,
+            anchorWorktreeRoot: anchor.worktreeRoot,
+            gitCommonDir: anchor.gitCommonDir,
+            lastTickAt: tickStartedAt,
+            lastError: result.error,
+            lastHeadCommit: result.currentHead,
+            backlogCommits: result.backlogCommits,
+            health: latest.lifecycleState === "paused"
+              ? "paused"
+              : latest.lifecycleState === "stopped"
+                ? "stopped"
+                : "error",
+          });
+        }
       } catch (error) {
-        const message = error instanceof Error ? error.message : String(error);
-        const currentHead = await readHeadCommit(this.options.git, anchor.worktreeRoot);
-        const backlogCommits = await countPendingCommits(
-          this.options.git,
-          anchor.worktreeRoot,
-          record.lastIndexedCommit,
-          currentHead,
-        );
         const latest = this.records.get(repoId) ?? record;
-        const nextHealth = latest.lifecycleState === "paused"
-          ? "paused"
-          : latest.lifecycleState === "stopped"
-            ? "stopped"
-            : "error";
         this.records.set(repoId, {
           ...latest,
           anchorWorktreeRoot: anchor.worktreeRoot,
           gitCommonDir: anchor.gitCommonDir,
           lastTickAt: tickStartedAt,
-          lastError: message,
-          lastHeadCommit: currentHead,
-          backlogCommits,
-          health: nextHealth,
+          lastError: error instanceof Error ? error.message : String(error),
+          health: latest.lifecycleState === "paused"
+            ? "paused"
+            : latest.lifecycleState === "stopped"
+              ? "stopped"
+              : "error",
         });
       } finally {
         await this.persist();
