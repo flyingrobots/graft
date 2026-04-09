@@ -6,6 +6,7 @@ import { createPathResolver } from "./context.js";
 import { Metrics } from "./metrics.js";
 import { loadProjectGraftignore } from "./policy.js";
 import { RepoStateTracker } from "./repo-state.js";
+import { buildRuntimeCausalContext, type RuntimeCausalContext } from "./runtime-causal-context.js";
 import { SessionTracker } from "../session/tracker.js";
 import type { FileSystem } from "../ports/filesystem.js";
 import type { GitClient } from "../ports/git.js";
@@ -92,6 +93,7 @@ interface BoundWorkspace {
   readonly resolvePath: (input: string) => string;
   readonly capabilityProfile: WorkspaceCapabilityProfile;
   readonly warpWriterId: string;
+  readonly transportSessionId: string;
   readonly slice: WorkspaceSlice;
   readonly getWarp: () => Promise<WarpApp>;
 }
@@ -107,6 +109,7 @@ export interface WorkspaceExecutionContext {
   readonly resolvePath: (input: string) => string;
   readonly capabilityProfile: WorkspaceCapabilityProfile;
   readonly warpWriterId: string;
+  getCausalContext(): RuntimeCausalContext;
   readonly status: WorkspaceStatus;
   readonly session: SessionTracker;
   readonly cache: ObservationCache;
@@ -135,6 +138,7 @@ interface WorkspaceRouterOptions {
   readonly graftDir: string;
   readonly projectRoot?: string | undefined;
   readonly warpPool: WarpPool;
+  readonly transportSessionId: string;
   readonly warpWriterId?: string | undefined;
   readonly authorizationPolicy?: WorkspaceAuthorizationPolicy | undefined;
 }
@@ -356,6 +360,14 @@ export class WorkspaceRouter {
       resolvePath: binding.resolvePath,
       capabilityProfile: binding.capabilityProfile,
       warpWriterId: binding.warpWriterId,
+      getCausalContext: () => buildRuntimeCausalContext({
+        transportSessionId: binding.transportSessionId,
+        workspaceSliceId: binding.slice.sliceId,
+        repoId: binding.repoId,
+        worktreeId: binding.worktreeId,
+        checkoutEpoch: repoState.getState().checkoutEpoch,
+        warpWriterId: binding.warpWriterId,
+      }),
       status: {
         sessionMode: this.options.mode,
         bindState: "bound",
@@ -465,6 +477,7 @@ export class WorkspaceRouter {
       graftignorePatterns: loadProjectGraftignore(this.options.fs, resolved.worktreeRoot),
       resolvePath: createPathResolver(resolved.worktreeRoot),
       capabilityProfile,
+      transportSessionId: this.options.transportSessionId,
       warpWriterId: this.options.warpWriterId ?? DEFAULT_WARP_WRITER_ID,
       slice,
       getWarp: () => this.options.warpPool.getOrOpen(

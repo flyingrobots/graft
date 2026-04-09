@@ -103,10 +103,30 @@ describe("mcp: runtime observability", () => {
         maxBytes: number;
         logPolicy: string;
       };
+      const causal = doctor["causalContext"] as {
+        transportSessionId: string;
+        workspaceSliceId: string;
+        causalSessionId: string;
+        strandId: string;
+        checkoutEpochId: string;
+        warpWriterId: string;
+        stability: string;
+        provenanceLevel: string;
+      };
       expect(runtime.enabled).toBe(true);
       expect(runtime.logPath).toBe(path.join(isolated.graftDir, "logs", "mcp-runtime.ndjson"));
       expect(runtime.maxBytes).toBeGreaterThan(0);
       expect(runtime.logPolicy).toBe("metadata_only");
+      expect(causal.transportSessionId).toMatch(
+        /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i,
+      );
+      expect(causal.workspaceSliceId).toMatch(/^slice-\d{4}$/);
+      expect(causal.causalSessionId).toMatch(/^causal:[a-f0-9]{16}$/);
+      expect(causal.strandId).toMatch(/^strand:[a-f0-9]{16}$/);
+      expect(causal.checkoutEpochId).toMatch(/^epoch:[a-f0-9]{16}$/);
+      expect(causal.warpWriterId).toBe("graft");
+      expect(causal.stability).toBe("runtime_local");
+      expect(causal.provenanceLevel).toBe("artifact_history");
     } finally {
       isolated.cleanup();
     }

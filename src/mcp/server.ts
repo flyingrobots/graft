@@ -217,6 +217,7 @@ export function createGraftServer(options: CreateGraftServerOptions = {}): Graft
     graftDir,
     ...(projectRoot !== undefined ? { projectRoot } : {}),
     warpPool,
+    transportSessionId: sessionId,
     ...(sessionWarpWriterId !== undefined ? { warpWriterId: sessionWarpWriterId } : {}),
     ...(daemonControlPlane !== null ? { authorizationPolicy: daemonControlPlane } : {}),
   });
@@ -311,6 +312,9 @@ export function createGraftServer(options: CreateGraftServerOptions = {}): Graft
     },
     getRepoState() {
       return getActiveExecutionContext()?.repoState.getState() ?? workspaceRouter.getRepoState();
+    },
+    getCausalContext() {
+      return getActiveExecutionContext()?.getCausalContext() ?? workspaceRouter.captureExecutionContext().getCausalContext();
     },
     getWorkspaceStatus() {
       return getActiveExecutionContext()?.status ?? workspaceRouter.getStatus();
@@ -570,6 +574,7 @@ export function createGraftServer(options: CreateGraftServerOptions = {}): Graft
               : undefined;
             const workerResult = await daemonWorkerPool.runRepoTool({
               sessionId,
+              workspaceSliceId: activeExecution.sliceId,
               traceId,
               seq: ++seq,
               startedAtMs,

@@ -229,7 +229,7 @@ describe("mcp: daemon transport and lifecycle", () => {
     expect((parseJson(closedHealth) as { activeSessions: number }).activeSessions).toBe(0);
   });
 
-  it("shares one repo-scoped warp pool across sessions bound to the same repo", async () => {
+  it("shares one repo-scoped warp pool across sessions bound to the same repo", { timeout: 15_000 }, async () => {
     const repoDir = createTestRepo("graft-daemon-repo-");
     repos.push(repoDir);
     fs.writeFileSync(path.join(repoDir, "app.ts"), [

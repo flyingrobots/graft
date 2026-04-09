@@ -26,6 +26,7 @@ export const doctorTool: ToolDefinition = {
           topCalls: topBurden?.calls ?? 0,
         },
         runtimeObservability: ctx.observability,
+        causalContext: ctx.getCausalContext(),
         checkoutEpoch: repoState.checkoutEpoch,
         lastTransition: repoState.lastTransition,
         workspaceOverlay: repoState.workspaceOverlay,

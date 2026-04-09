@@ -15,6 +15,7 @@ import type WarpApp from "@git-stunts/git-warp";
 import type { RepoObservation } from "./repo-state.js";
 import type { RunCaptureConfig } from "./run-capture-config.js";
 import type { RuntimeObservabilityState } from "./runtime-observability.js";
+import type { RuntimeCausalContext } from "./runtime-causal-context.js";
 import type { McpToolName } from "../contracts/output-schemas.js";
 import type {
   DaemonSessionView,
@@ -68,6 +69,7 @@ export interface ToolContext {
   resolvePath(relative: string): string;
   getWarp(): Promise<WarpApp>;
   getRepoState(): RepoObservation;
+  getCausalContext(): RuntimeCausalContext;
   getWorkspaceStatus(): WorkspaceStatus;
   bindWorkspace(request: WorkspaceBindRequest, actionName: string): Promise<WorkspaceActionResult>;
   rebindWorkspace(request: WorkspaceBindRequest, actionName: string): Promise<WorkspaceActionResult>;

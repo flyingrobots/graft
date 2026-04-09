@@ -244,6 +244,7 @@ describe("0058 playback: system-wide resource pressure and fairness", () => {
 
     const result = await pool.runRepoTool({
       sessionId: "session:test",
+      workspaceSliceId: "slice:test",
       traceId: "trace:test",
       seq: 1,
       startedAtMs: Date.now(),

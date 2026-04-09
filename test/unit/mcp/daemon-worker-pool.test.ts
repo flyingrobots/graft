@@ -76,6 +76,7 @@ describe("mcp: daemon worker pool", () => {
 
     const result = await pool.runRepoTool({
       sessionId: "session:test",
+      workspaceSliceId: "slice:test",
       traceId: "trace:test",
       seq: 1,
       startedAtMs: Date.now(),
@@ -148,6 +149,7 @@ describe("mcp: daemon worker pool", () => {
 
     const jobBase = {
       sessionId: "session:test",
+      workspaceSliceId: "slice:test",
       traceId: "trace:test",
       tool: "safe_read" as const,
       args: { path: "app.ts" },
@@ -235,6 +237,7 @@ describe("mcp: daemon worker pool", () => {
 
     const result = await pool.runRepoTool({
       sessionId: "session:test",
+      workspaceSliceId: "slice:test",
       traceId: "trace:test",
       seq: 1,
       startedAtMs: Date.now(),

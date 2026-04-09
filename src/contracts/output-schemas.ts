@@ -150,6 +150,17 @@ const runtimeObservabilitySchema = z.object({
   logPolicy: z.literal("metadata_only"),
 }).strict();
 
+const runtimeCausalContextSchema = z.object({
+  transportSessionId: z.string(),
+  workspaceSliceId: z.string(),
+  causalSessionId: z.string(),
+  strandId: z.string(),
+  checkoutEpochId: z.string(),
+  warpWriterId: z.string(),
+  stability: z.literal("runtime_local"),
+  provenanceLevel: z.literal("artifact_history"),
+}).strict();
+
 const precisionSymbolMatchSchema = z.object({
   name: z.string(),
   kind: z.string(),
@@ -667,6 +678,7 @@ const mcpOutputBodySchemas: Record<McpToolName, z.ZodType> = {
     totalMessages: z.number().int().nonnegative(),
     burdenSummary: burdenSummarySchema,
     runtimeObservability: runtimeObservabilitySchema,
+    causalContext: runtimeCausalContextSchema,
     checkoutEpoch: z.number().int().nonnegative(),
     lastTransition: repoTransitionSchema.nullable(),
     workspaceOverlay: workspaceOverlaySummarySchema.nullable(),

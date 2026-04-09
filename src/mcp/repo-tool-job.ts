@@ -24,6 +24,7 @@ import { codeShowTool, runCodeShow } from "./tools/code-show.js";
 import { safeReadTool } from "./tools/safe-read.js";
 import { fileOutlineTool } from "./tools/file-outline.js";
 import { changedSinceTool } from "./tools/changed-since.js";
+import { buildRuntimeCausalContext } from "./runtime-causal-context.js";
 
 const codeFindLiveWorkerTool: ToolDefinition = {
   ...codeFindTool,
@@ -59,6 +60,7 @@ export const OFFLOADED_DAEMON_REPO_TOOL_NAMES = Object.freeze(
 
 export interface RepoToolWorkerJob {
   readonly sessionId: string;
+  readonly workspaceSliceId: string;
   readonly traceId: string;
   readonly seq: number;
   readonly startedAtMs: number;
@@ -189,6 +191,16 @@ function buildWorkerContext(
     },
     getRepoState() {
       return job.repoState;
+    },
+    getCausalContext() {
+      return buildRuntimeCausalContext({
+        transportSessionId: job.sessionId,
+        workspaceSliceId: job.workspaceSliceId,
+        repoId: job.repoId,
+        worktreeId: job.worktreeId,
+        checkoutEpoch: job.repoState.checkoutEpoch,
+        warpWriterId: job.writerId,
+      });
     },
     getWorkspaceStatus() {
       return workerStatus(job);
