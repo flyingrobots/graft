@@ -395,6 +395,317 @@ one of these shapes:
 This is what makes causal slicing possible for partial stage and later
 symbol-targeted collapse.
 
+## Actor, evidence, and confidence model
+
+### Actor schema
+
+Every provenance-capable event may reference one actor record.
+
+Minimum actor fields:
+- `actorId`
+- `actorKind`
+- `displayName?`
+- `source`
+- `authorityScope`
+
+Initial actor kinds:
+- `human`
+- `agent`
+- `git`
+- `daemon`
+- `unknown`
+
+Initial authority scopes:
+- `authoritative`
+- `declared`
+- `inferred`
+- `mixed`
+
+This is intentionally narrower than a future identity platform. It is
+only enough to keep provenance honest.
+
+### Evidence schema
+
+Actor claims must be backed by explicit evidence records.
+
+Minimum evidence fields:
+- `evidenceId`
+- `evidenceKind`
+- `source`
+- `capturedAt`
+- `strength`
+- `details`
+
+Initial evidence kinds:
+- `mcp_transport_binding`
+- `workspace_authorization`
+- `explicit_handoff`
+- `git_hook_transition`
+- `git_index_observation`
+- `worktree_fs_observation`
+- `writer_lane_identity`
+- `explicit_user_declaration`
+- `explicit_agent_declaration`
+- `conflicting_actor_signal`
+
+Initial strength values:
+- `direct`
+- `strong`
+- `weak`
+- `conflicted`
+
+### Confidence rules
+
+Confidence belongs on the attribution result for an event, not on the
+actor alone.
+
+Initial confidence values:
+- `high`
+- `medium`
+- `low`
+- `unknown`
+
+Initial downgrade rules:
+- `high`
+  - direct, non-conflicting evidence ties the event to one actor
+  - example: explicit agent-owned daemon session plus matching writer
+    lane plus no competing actor evidence
+- `medium`
+  - strong but incomplete evidence points to one actor
+  - example: isolated worktree plus matching session/writer identity but
+    no explicit handoff or declaration
+- `low`
+  - only weak or circumstantial evidence exists
+  - example: same worktree timing and event order suggest one actor, but
+    another actor may also have been present
+- `unknown`
+  - no credible attribution evidence exists, or the evidence conflicts
+    materially
+
+Hard rule:
+- no user-facing provenance surface may imply confidence higher than the
+  supporting evidence allows
+
+This is the trust contract behind
+`WARP_provenance-attribution-instrumentation`.
+
+## Concrete event schema
+
+### Base event envelope
+
+Every provenance-capable event should be representable as a base
+envelope with one variant payload.
+
+```json
+{
+  "eventId": "evt_...",
+  "eventKind": "read|write|decision|stage|commit|transition|handoff",
+  "repoId": "repo_...",
+  "worktreeId": "worktree_...|null",
+  "checkoutEpochId": "epoch_...|null",
+  "workspaceOverlayId": "overlay_...|null",
+  "transportSessionId": "transport_...|null",
+  "workspaceSliceId": "slice_...|null",
+  "causalSessionId": "causal_...|null",
+  "strandId": "strand_...|null",
+  "actorId": "actor_...|null",
+  "confidence": "high|medium|low|unknown",
+  "evidenceIds": ["evidence_..."],
+  "footprint": {
+    "paths": ["src/server.ts"],
+    "symbols": [],
+    "regions": []
+  },
+  "occurredAt": "2026-04-09T00:00:00.000Z",
+  "payload": {}
+}
+```
+
+Not every field is required for every event, but the schema has to make
+room for them explicitly.
+
+### Event variants
+
+#### `read_event`
+
+Required payload:
+- `surface`
+- `projection`
+- `sourceLayer`
+- `reason`
+
+Example:
+
+```json
+{
+  "eventKind": "read",
+  "payload": {
+    "surface": "safe_read",
+    "projection": "outline",
+    "sourceLayer": "workspace_overlay",
+    "reason": "OUTLINE"
+  }
+}
+```
+
+#### `write_event`
+
+Required payload:
+- `surface`
+- `writeKind`
+- `beforeRef?`
+- `afterRef?`
+
+Initial `writeKind` values:
+- `human_edit`
+- `agent_edit`
+- `git_generated`
+- `stage_projection`
+
+#### `decision_event`
+
+Required payload:
+- `decisionKind`
+- `summary`
+
+Initial `decisionKind` values:
+- `task_intent`
+- `hypothesis_shift`
+- `accepted_alternative`
+- `rejected_alternative`
+- `checkpoint`
+
+This is the schema hook for
+`WARP_intent-and-decision-events`.
+
+#### `stage_event`
+
+Required payload:
+- `targetId`
+- `footprint`
+- `selectionKind`
+
+Initial `selectionKind` values:
+- `full_file`
+- `partial_file`
+- `symbol_subset`
+
+#### `commit_event`
+
+Required payload:
+- `commitSha`
+- `parentShas`
+- `message`
+
+#### `transition_event`
+
+Required payload:
+- `transitionKind`
+- `fromRef`
+- `toRef`
+- `createdCheckoutEpochId`
+
+Initial `transitionKind` values:
+- `checkout`
+- `merge`
+- `rewrite`
+- `detached_head`
+
+#### `handoff_event`
+
+Required payload:
+- `handoffKind`
+- `fromActorId?`
+- `toActorId?`
+- `notes?`
+
+Initial `handoffKind` values:
+- `attach`
+- `resume`
+- `fork`
+- `park`
+
+## Collapse witness schema
+
+### Minimum witness envelope
+
+```json
+{
+  "collapseRecordId": "collapse_...",
+  "targetKind": "staged_target|commit",
+  "targetId": "target_...",
+  "targetFootprint": {
+    "paths": ["src/server.ts"],
+    "symbols": [],
+    "regions": []
+  },
+  "base": {
+    "repoId": "repo_...",
+    "checkoutEpochId": "epoch_...",
+    "commitSha": "abc123"
+  },
+  "causalSessionId": "causal_...",
+  "strandIds": ["strand_..."],
+  "includedEventIds": ["evt_1", "evt_2"],
+  "sharedEventIds": ["evt_shared"],
+  "excludedBoundaries": [
+    {
+      "afterEventId": "evt_9",
+      "reason": "outside_target_footprint"
+    }
+  ],
+  "evidenceIds": ["evidence_1"],
+  "confidence": "medium",
+  "createdAt": "2026-04-09T00:00:00.000Z"
+}
+```
+
+### Witness obligations
+
+Every collapse witness must make these things recoverable:
+- what target was admitted
+- what structural footing it was admitted against
+- which events were included
+- which nearby boundaries were intentionally excluded
+- what evidence justified the attribution and confidence level
+
+This witness is the minimum durable explanation for
+`WARP_causal-blame-for-staged-artifacts`.
+
+## Admissibility rules
+
+The ontology should distinguish four persistence classes:
+
+- `canonical_structural_truth`
+  - structural snapshots and deltas, commits, durable symbol/file state
+- `canonical_provenance`
+  - admitted collapse records, collapse witnesses, included events
+- `strand_local`
+  - speculative events and decisions not yet admitted
+- `discardable`
+  - raw execution noise that does not earn provenance value
+
+Initial leaning:
+- reads and writes that participate in an admitted slice may become
+  canonical provenance
+- decision and handoff events may become canonical provenance if they
+  explain the admitted target
+- execution-only metrics, worker occupancy, and similar runtime details
+  remain projections or discardable artifacts, not graph truth
+
+## Open questions deliberately deferred
+
+This cycle should leave these open rather than pretending they are
+solved:
+
+- how far symbol identity can be trusted across rename/move/refactor
+- whether one causal session may own several concurrent strands in the
+  first implementation tranche
+- how braid-level or optic-level upstream `git-warp` semantics will
+  encode collapse and reintegration internally
+- whether region-level footprints are needed before file- and symbol-
+  level collapse is real
+
 ## Collapse model
 
 ### Default collapse target

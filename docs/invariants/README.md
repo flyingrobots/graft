@@ -28,6 +28,7 @@ it. Cycles under that legend must verify the invariant holds.
 - [cache-normalized](cache-normalized.md) — same file = same cache key
 
 ### WARP Ontology (WARP)
+- [attribution-confidence-evidence-bounded](attribution-confidence-evidence-bounded.md) — actor confidence cannot exceed the strength of supporting evidence
 - [canonical-provenance-separate](canonical-provenance-separate.md) — canonical structural truth is not the same layer as canonical provenance
 - [causal-events-carry-footprints](causal-events-carry-footprints.md) — provenance-capable events must have explicit footprints
 - [causal-collapse-slice-based](causal-collapse-slice-based.md) — collapse admits the relevant causal slice, not the whole strand
