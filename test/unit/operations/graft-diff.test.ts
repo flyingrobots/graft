@@ -27,7 +27,7 @@ describe("operations: graft diff", () => {
     cleanupTestRepo(tmpDir);
   });
 
-  it("diffs modified file between two refs", () => {
+  it("diffs modified file between two refs", async () => {
     fs.writeFileSync(path.join(tmpDir, "a.ts"), 'export function foo(): void {}\n');
     git(tmpDir, "add -A");
     git(tmpDir, "commit -m v1");
@@ -36,7 +36,7 @@ describe("operations: graft diff", () => {
     git(tmpDir, "add -A");
     git(tmpDir, "commit -m v2");
 
-    const result = graftDiff(diffOptions({ base: "HEAD~1", head: "HEAD" }));
+    const result = await graftDiff(diffOptions({ base: "HEAD~1", head: "HEAD" }));
     expect(result.files).toHaveLength(1);
     expect(result.files[0]!.path).toBe("a.ts");
     expect(result.files[0]!.status).toBe("modified");
@@ -44,7 +44,7 @@ describe("operations: graft diff", () => {
     expect(result.files[0]!.diff.added[0]!.name).toBe("bar");
   });
 
-  it("detects added files", () => {
+  it("detects added files", async () => {
     fs.writeFileSync(path.join(tmpDir, "a.ts"), 'export const x = 1;\n');
     git(tmpDir, "add -A");
     git(tmpDir, "commit -m v1");
@@ -53,14 +53,14 @@ describe("operations: graft diff", () => {
     git(tmpDir, "add -A");
     git(tmpDir, "commit -m v2");
 
-    const result = graftDiff(diffOptions({ base: "HEAD~1", head: "HEAD" }));
+    const result = await graftDiff(diffOptions({ base: "HEAD~1", head: "HEAD" }));
     const bFile = result.files.find((f) => f.path === "b.ts");
     expect(bFile).toBeDefined();
     expect(bFile!.status).toBe("added");
     expect(bFile!.diff.added.length).toBeGreaterThan(0);
   });
 
-  it("detects deleted files", () => {
+  it("detects deleted files", async () => {
     fs.writeFileSync(path.join(tmpDir, "a.ts"), 'export function gone(): void {}\n');
     git(tmpDir, "add -A");
     git(tmpDir, "commit -m v1");
@@ -69,13 +69,13 @@ describe("operations: graft diff", () => {
     git(tmpDir, "add -A");
     git(tmpDir, "commit -m v2");
 
-    const result = graftDiff(diffOptions({ base: "HEAD~1", head: "HEAD" }));
+    const result = await graftDiff(diffOptions({ base: "HEAD~1", head: "HEAD" }));
     expect(result.files).toHaveLength(1);
     expect(result.files[0]!.status).toBe("deleted");
     expect(result.files[0]!.diff.removed.length).toBeGreaterThan(0);
   });
 
-  it("diffs multiple files at once", () => {
+  it("diffs multiple files at once", async () => {
     fs.writeFileSync(path.join(tmpDir, "a.ts"), 'export const a = 1;\n');
     fs.writeFileSync(path.join(tmpDir, "b.ts"), 'export const b = 2;\n');
     git(tmpDir, "add -A");
@@ -86,11 +86,11 @@ describe("operations: graft diff", () => {
     git(tmpDir, "add -A");
     git(tmpDir, "commit -m v2");
 
-    const result = graftDiff(diffOptions({ base: "HEAD~1", head: "HEAD" }));
+    const result = await graftDiff(diffOptions({ base: "HEAD~1", head: "HEAD" }));
     expect(result.files).toHaveLength(2);
   });
 
-  it("diffs working tree vs HEAD (default)", () => {
+  it("diffs working tree vs HEAD (default)", async () => {
     fs.writeFileSync(path.join(tmpDir, "a.ts"), 'export function original(): void {}\n');
     git(tmpDir, "add -A");
     git(tmpDir, "commit -m v1");
@@ -98,13 +98,13 @@ describe("operations: graft diff", () => {
     // Modify without committing
     fs.writeFileSync(path.join(tmpDir, "a.ts"), 'export function original(): void {}\nexport function uncommitted(): void {}\n');
 
-    const result = graftDiff(diffOptions());
+    const result = await graftDiff(diffOptions());
     expect(result.files).toHaveLength(1);
     expect(result.files[0]!.diff.added).toHaveLength(1);
     expect(result.files[0]!.diff.added[0]!.name).toBe("uncommitted");
   });
 
-  it("detects changed signatures", () => {
+  it("detects changed signatures", async () => {
     fs.writeFileSync(path.join(tmpDir, "a.ts"), 'export function greet(name: string): string { return name; }\n');
     git(tmpDir, "add -A");
     git(tmpDir, "commit -m v1");
@@ -113,12 +113,12 @@ describe("operations: graft diff", () => {
     git(tmpDir, "add -A");
     git(tmpDir, "commit -m v2");
 
-    const result = graftDiff(diffOptions({ base: "HEAD~1", head: "HEAD" }));
+    const result = await graftDiff(diffOptions({ base: "HEAD~1", head: "HEAD" }));
     expect(result.files[0]!.diff.changed).toHaveLength(1);
     expect(result.files[0]!.diff.changed[0]!.name).toBe("greet");
   });
 
-  it("skips non-supported file extensions", () => {
+  it("skips non-supported file extensions", async () => {
     fs.writeFileSync(path.join(tmpDir, "a.ts"), 'export const a = 1;\n');
     fs.writeFileSync(path.join(tmpDir, "readme.md"), '# Hello\n');
     git(tmpDir, "add -A");
@@ -128,7 +128,7 @@ describe("operations: graft diff", () => {
     git(tmpDir, "add -A");
     git(tmpDir, "commit -m v2");
 
-    const result = graftDiff(diffOptions({ base: "HEAD~1", head: "HEAD" }));
+    const result = await graftDiff(diffOptions({ base: "HEAD~1", head: "HEAD" }));
     const md = result.files.find((f) => f.path === "readme.md");
     expect(md).toBeDefined();
     expect(md!.diff.added).toHaveLength(0);
@@ -136,7 +136,7 @@ describe("operations: graft diff", () => {
     expect(md!.diff.changed).toHaveLength(0);
   });
 
-  it("filters by path when provided", () => {
+  it("filters by path when provided", async () => {
     fs.writeFileSync(path.join(tmpDir, "a.ts"), 'export const a = 1;\n');
     fs.writeFileSync(path.join(tmpDir, "b.ts"), 'export const b = 2;\n');
     git(tmpDir, "add -A");
@@ -147,12 +147,12 @@ describe("operations: graft diff", () => {
     git(tmpDir, "add -A");
     git(tmpDir, "commit -m v2");
 
-    const result = graftDiff(diffOptions({ base: "HEAD~1", head: "HEAD", path: "a.ts" }));
+    const result = await graftDiff(diffOptions({ base: "HEAD~1", head: "HEAD", path: "a.ts" }));
     expect(result.files).toHaveLength(1);
     expect(result.files[0]!.path).toBe("a.ts");
   });
 
-  it("includes summary line per file", () => {
+  it("includes summary line per file", async () => {
     fs.writeFileSync(path.join(tmpDir, "a.ts"), 'export function foo(): void {}\n');
     git(tmpDir, "add -A");
     git(tmpDir, "commit -m v1");
@@ -161,16 +161,16 @@ describe("operations: graft diff", () => {
     git(tmpDir, "add -A");
     git(tmpDir, "commit -m v2");
 
-    const result = graftDiff(diffOptions({ base: "HEAD~1", head: "HEAD" }));
+    const result = await graftDiff(diffOptions({ base: "HEAD~1", head: "HEAD" }));
     expect(result.files[0]!.summary).toBe("a.ts | modified | +1 added, =1 unchanged");
   });
 
-  it("includes base and head labels in result", () => {
+  it("includes base and head labels in result", async () => {
     fs.writeFileSync(path.join(tmpDir, "a.ts"), 'export const a = 1;\n');
     git(tmpDir, "add -A");
     git(tmpDir, "commit -m v1");
 
-    const result = graftDiff(diffOptions({ base: "HEAD", head: "HEAD" }));
+    const result = await graftDiff(diffOptions({ base: "HEAD", head: "HEAD" }));
     expect(result.base).toBe("HEAD");
     expect(result.head).toBe("HEAD");
   });

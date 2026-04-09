@@ -190,13 +190,6 @@ export function createGraftServer(options: CreateGraftServerOptions = {}): Graft
       startedAt: daemonStartedAt,
     };
   });
-  const runtimeReady = Promise.all([
-    mode === "repo_local" && projectRoot !== undefined
-      ? ensureGraftDirExcluded(projectRoot, graftDir, nodeFs)
-      : Promise.resolve(),
-    daemonControlPlane?.initialize() ?? Promise.resolve(),
-    monitorRuntime?.initialize() ?? Promise.resolve(),
-  ]).then(() => undefined);
   const handlers = new Map<string, ToolHandler>();
   const schemas = new Map<string, z.ZodObject>();
   const invocationStorage = new AsyncLocalStorage<{
@@ -220,6 +213,14 @@ export function createGraftServer(options: CreateGraftServerOptions = {}): Graft
       monitorRuntime,
     })
     : null;
+  const runtimeReady = Promise.all([
+    mode === "repo_local" && projectRoot !== undefined
+      ? ensureGraftDirExcluded(projectRoot, graftDir, nodeFs)
+      : Promise.resolve(),
+    workspaceRouter.initialize(),
+    daemonControlPlane?.initialize() ?? Promise.resolve(),
+    monitorRuntime?.initialize() ?? Promise.resolve(),
+  ]).then(() => undefined);
 
   async function emitRuntimeEvent(event: Parameters<RuntimeEventLogger["log"]>[0]): Promise<void> {
     try {
@@ -454,7 +455,7 @@ export function createGraftServer(options: CreateGraftServerOptions = {}): Graft
         const parsed: Record<string, unknown> = schema !== undefined ? schema.parse(args) : args;
         enforceDaemonToolAccess(name);
         if (workspaceRouter.isBound() && !repoStateOptionalTools.has(name)) {
-          workspaceRouter.observeRepoState();
+          await workspaceRouter.observeRepoState();
         }
         return handler(parsed);
       });

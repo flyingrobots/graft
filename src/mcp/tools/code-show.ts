@@ -44,7 +44,7 @@ export const codeShowTool: ToolDefinition = {
       let resolvedRef: string | undefined;
       if (ref !== undefined) {
         try {
-          resolvedRef = resolveGitRef(ref, ctx.git, ctx.projectRoot);
+          resolvedRef = await resolveGitRef(ref, ctx.git, ctx.projectRoot);
         } catch (err: unknown) {
           const message = err instanceof Error ? err.message : String(err);
           return ctx.respond("code_show", {
@@ -89,8 +89,8 @@ export const codeShowTool: ToolDefinition = {
           } else {
             const filePaths = repoPath !== undefined
               ? [repoPath]
-              : listTrackedFilesAtRef("", ctx.git, ctx.projectRoot, resolvedRef);
-            locations = searchLiveSymbols(
+              : await listTrackedFilesAtRef("", ctx.git, ctx.projectRoot, resolvedRef);
+            locations = await searchLiveSymbols(
               ctx,
               filePaths,
               new PrecisionSearchRequest({
@@ -103,8 +103,8 @@ export const codeShowTool: ToolDefinition = {
           const repoPath = targetPath !== undefined ? requireRepoPath(ctx.projectRoot, targetPath) : undefined;
           const filePaths = repoPath !== undefined
             ? [repoPath]
-            : listTrackedFilesAtRef("", ctx.git, ctx.projectRoot, resolvedRef);
-          locations = searchLiveSymbols(
+            : await listTrackedFilesAtRef("", ctx.git, ctx.projectRoot, resolvedRef);
+          locations = await searchLiveSymbols(
             ctx,
             filePaths,
             new PrecisionSearchRequest({
@@ -117,8 +117,8 @@ export const codeShowTool: ToolDefinition = {
       } else {
         const filePaths = targetPath !== undefined
           ? [targetPath]
-          : listProjectFiles("", ctx.projectRoot, ctx.git);
-        locations = searchLiveSymbols(
+          : await listProjectFiles("", ctx.projectRoot, ctx.git);
+        locations = await searchLiveSymbols(
           ctx,
           filePaths,
           new PrecisionSearchRequest({
@@ -142,7 +142,7 @@ export const codeShowTool: ToolDefinition = {
       for (const location of locations) {
         let content = fileCache.get(location.path);
         if (content === undefined) {
-          const loaded = loadFileContent(ctx, location.path, resolvedRef);
+          const loaded = await loadFileContent(ctx, location.path, resolvedRef);
           if (loaded === null) continue;
           fileCache.set(location.path, loaded);
           content = loaded;
@@ -203,7 +203,7 @@ export const codeShowTool: ToolDefinition = {
         });
       }
 
-      const content = fileCache.get(loc.path) ?? loadFileContent(ctx, loc.path, resolvedRef);
+      const content = fileCache.get(loc.path) ?? await loadFileContent(ctx, loc.path, resolvedRef);
       if (content === null) {
         return ctx.respond("code_show", {
           symbol: symbolName,

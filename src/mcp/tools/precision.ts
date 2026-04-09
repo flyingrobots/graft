@@ -17,8 +17,8 @@ export { PrecisionSearchRequest } from "./precision-query.js";
 export { PrecisionSymbolMatch } from "./precision-match.js";
 export type PrecisionPolicyRefusal = McpPolicyRefusal;
 
-function git(gitClient: GitClient, args: readonly string[], cwd: string): string {
-  const result = gitClient.run({ args, cwd });
+async function git(gitClient: GitClient, args: readonly string[], cwd: string): Promise<string> {
+  const result = await gitClient.run({ args, cwd });
   if (result.error !== undefined || result.status !== 0) {
     throw result.error ?? new Error(result.stderr.trim() || `git exited with status ${String(result.status)}`);
   }
@@ -82,34 +82,34 @@ export function requireRepoPath(projectRoot: string, input: string): string {
   return normalized;
 }
 
-export function resolveGitRef(ref: string, gitClient: GitClient, cwd: string): string {
+export async function resolveGitRef(ref: string, gitClient: GitClient, cwd: string): Promise<string> {
   try {
-    return git(gitClient, ["rev-parse", "--verify", ref], cwd).trim();
+    return (await git(gitClient, ["rev-parse", "--verify", ref], cwd)).trim();
   } catch {
     throw new GitError(`ref does not exist: ${ref}`);
   }
 }
 
-export function listTrackedFilesAtRef(
+export async function listTrackedFilesAtRef(
   dirPath: string,
   gitClient: GitClient,
   cwd: string,
   ref: string,
-): string[] {
+): Promise<string[]> {
   try {
     const args = dirPath.length > 0
       ? ["ls-tree", "-r", "--name-only", ref, "--", dirPath]
       : ["ls-tree", "-r", "--name-only", ref];
-    const output = git(gitClient, args, cwd).trim();
+    const output = (await git(gitClient, args, cwd)).trim();
     return output.length === 0 ? [] : output.split("\n");
   } catch {
     return [];
   }
 }
 
-export function isWorkingTreeDirty(gitClient: GitClient, cwd: string): boolean {
+export async function isWorkingTreeDirty(gitClient: GitClient, cwd: string): Promise<boolean> {
   try {
-    return git(gitClient, ["status", "--porcelain"], cwd).trim().length > 0;
+    return (await git(gitClient, ["status", "--porcelain"], cwd)).trim().length > 0;
   } catch {
     return true;
   }
@@ -153,10 +153,10 @@ export function collectSymbols(
       name: entry.name,
       kind: entry.kind,
       path: filePath,
-      signature: entry.signature,
       exported: entry.exported,
-      startLine: jump?.start,
-      endLine: jump?.end,
+      ...(entry.signature !== undefined ? { signature: entry.signature } : {}),
+      ...(jump?.start !== undefined ? { startLine: jump.start } : {}),
+      ...(jump?.end !== undefined ? { endLine: jump.end } : {}),
     }));
 
     if (entry.children !== undefined && entry.children.length > 0) {
@@ -167,11 +167,11 @@ export function collectSymbols(
   return results;
 }
 
-export function loadFileContent(
+export async function loadFileContent(
   ctx: ToolContext,
   filePath: string,
   ref?: string,
-): string | null {
+): Promise<string | null> {
   if (ref !== undefined) {
     return getFileAtRef(ref, filePath, { cwd: ctx.projectRoot, git: ctx.git });
   }
@@ -206,11 +206,22 @@ export async function searchWarpSymbols(
   if (lensMode === "exact" && request.exactName === undefined) {
     throw new Error("PrecisionSearchRequest selected exact lens without exactName");
   }
-  const lens = lensMode === "file"
-    ? fileSymbolsLens(request.filePath)
-    : lensMode === "exact"
-      ? symbolByNameLens(request.exactName)
-      : allSymbolsLens();
+  let lens;
+  if (lensMode === "file") {
+    const filePath = request.filePath;
+    if (filePath === undefined) {
+      throw new Error("PrecisionSearchRequest selected file lens without filePath");
+    }
+    lens = fileSymbolsLens(filePath);
+  } else if (lensMode === "exact") {
+    const exactName = request.exactName;
+    if (exactName === undefined) {
+      throw new Error("PrecisionSearchRequest selected exact lens without exactName");
+    }
+    lens = symbolByNameLens(exactName);
+  } else {
+    lens = allSymbolsLens();
+  }
   const observer = await warp.observer(
     lens,
     request.ceiling !== undefined ? { source: { kind: "live", ceiling: request.ceiling } } : undefined,
@@ -229,19 +240,19 @@ export async function searchWarpSymbols(
   return request.sort(visibleMatches);
 }
 
-export function searchLiveSymbols(
+export async function searchLiveSymbols(
   ctx: ToolContext,
   filePaths: readonly string[],
   request: PrecisionSearchRequest,
   ref?: string,
-): PrecisionSymbolMatch[] {
+): Promise<PrecisionSymbolMatch[]> {
   const matches: RankedPrecisionSymbolMatch[] = [];
 
   for (const filePath of filePaths) {
     const lang = detectLang(filePath);
     if (lang === null) continue;
 
-    const content = loadFileContent(ctx, filePath, ref);
+    const content = await loadFileContent(ctx, filePath, ref);
     if (content === null) continue;
 
     const result = extractOutline(content, lang);

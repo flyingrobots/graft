@@ -79,10 +79,10 @@ export const mapTool: ToolDefinition = {
     path: z.string().optional(),
   },
   createHandler(ctx: ToolContext): ToolHandler {
-    return (args) => {
+    return async (args) => {
       const request = new StructuralMapRequest(args, ctx.projectRoot);
 
-      const filePaths = listGitFiles(request.toGitFileQuery(ctx.projectRoot), ctx.git).paths;
+      const filePaths = (await listGitFiles(request.toGitFileQuery(ctx.projectRoot), ctx.git)).paths;
       const files: StructuralMapFile[] = [];
       const refused: McpPolicyRefusal[] = [];
 
@@ -112,10 +112,10 @@ export const mapTool: ToolDefinition = {
           new StructuralMapSymbol({
             name: symbol.name,
             kind: symbol.kind,
-            signature: symbol.signature,
             exported: symbol.exported,
-            startLine: symbol.startLine,
-            endLine: symbol.endLine,
+            ...(symbol.signature !== undefined ? { signature: symbol.signature } : {}),
+            ...(symbol.startLine !== undefined ? { startLine: symbol.startLine } : {}),
+            ...(symbol.endLine !== undefined ? { endLine: symbol.endLine } : {}),
           })
         );
 

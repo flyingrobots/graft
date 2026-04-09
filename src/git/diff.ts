@@ -14,26 +14,26 @@ export class GitError extends Error {
   }
 }
 
-function git(gitClient: GitClient, args: readonly string[], cwd: string): string {
-  const result = gitClient.run({ args, cwd });
+async function git(gitClient: GitClient, args: readonly string[], cwd: string): Promise<string> {
+  const result = await gitClient.run({ args, cwd });
   if (result.error !== undefined || result.status !== 0) {
     throw result.error ?? new Error(result.stderr.trim() || `git exited with status ${String(result.status)}`);
   }
   return result.stdout;
 }
 
-function refExists(ref: string, cwd: string, gitClient: GitClient): boolean {
+async function refExists(ref: string, cwd: string, gitClient: GitClient): Promise<boolean> {
   try {
-    git(gitClient, ["rev-parse", "--verify", ref], cwd);
+    await git(gitClient, ["rev-parse", "--verify", ref], cwd);
     return true;
   } catch {
     return false;
   }
 }
 
-function objectExists(ref: string, filePath: string, cwd: string, gitClient: GitClient): boolean {
+async function objectExists(ref: string, filePath: string, cwd: string, gitClient: GitClient): Promise<boolean> {
   try {
-    git(gitClient, ["cat-file", "-e", `${ref}:${filePath}`], cwd);
+    await git(gitClient, ["cat-file", "-e", `${ref}:${filePath}`], cwd);
     return true;
   } catch {
     return false;
@@ -48,14 +48,14 @@ function objectExists(ref: string, filePath: string, cwd: string, gitClient: Git
  * Throws GitError for invalid refs or non-git directories.
  * Returns empty array only when there are genuinely no changes.
  */
-export function getChangedFiles(opts: ChangedFilesOptions): string[] {
+export async function getChangedFiles(opts: ChangedFilesOptions): Promise<string[]> {
   const base = opts.base ?? "HEAD";
   const args = opts.head !== undefined
-    ? ["diff", "--name-only", base, opts.head]
-    : ["diff", "--name-only", base];
+    ? ["diff-tree", "--no-commit-id", "--name-only", "-r", base, opts.head]
+    : ["diff-index", "--name-only", base, "--"];
 
   try {
-    const output = git(opts.git, args, opts.cwd).trim();
+    const output = (await git(opts.git, args, opts.cwd)).trim();
     if (output === "") return [];
     return output.split("\n");
   } catch (err: unknown) {
@@ -72,27 +72,27 @@ export function getChangedFiles(opts: ChangedFilesOptions): string[] {
  * Uses `git rev-parse --verify` and `git cat-file -e` for stable
  * detection — no error message parsing.
  */
-export function getFileAtRef(
+export async function getFileAtRef(
   ref: string,
   filePath: string,
   opts: {
     cwd: string;
     git: GitClient;
   },
-): string | null {
+): Promise<string | null> {
   // Validate the ref exists (stable probe, no message parsing)
-  if (!refExists(ref, opts.cwd, opts.git)) {
+  if (!(await refExists(ref, opts.cwd, opts.git))) {
     throw new GitError(`ref does not exist: ${ref}`);
   }
 
   // Check if the object exists at this ref (stable probe)
-  if (!objectExists(ref, filePath, opts.cwd, opts.git)) {
+  if (!(await objectExists(ref, filePath, opts.cwd, opts.git))) {
     return null; // Clean absence — file not in this ref
   }
 
   // Object exists — read it
   try {
-    return git(opts.git, ["show", `${ref}:${filePath}`], opts.cwd);
+    return await git(opts.git, ["show", `${ref}:${filePath}`], opts.cwd);
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : String(err);
     throw new GitError(`git show ${ref}:${filePath} failed: ${msg}`);

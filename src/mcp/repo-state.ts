@@ -1,4 +1,5 @@
 import type { GitClient } from "../ports/git.js";
+import type { FileSystem } from "../ports/filesystem.js";
 
 export type WorldlineLayer = "commit_worldline" | "ref_view" | "workspace_overlay";
 export type RepoTransitionKind = "checkout" | "reset" | "merge" | "rebase";
@@ -41,38 +42,52 @@ export interface RepoObservation {
 interface RepoSnapshot {
   readonly headRef: string | null;
   readonly headSha: string | null;
-  readonly reflogSubject: string | null;
+  readonly parentShas: readonly string[];
   readonly statusLines: readonly string[];
   readonly dirty: boolean;
   readonly stagedPaths: number;
   readonly changedPaths: number;
   readonly untrackedPaths: number;
+  readonly headReflog: HeadReflogEntry | null;
 }
 
-function git(gitClient: GitClient, args: readonly string[], cwd: string): string {
-  const result = gitClient.run({ args, cwd });
+interface HeadReflogEntry {
+  readonly raw: string;
+  readonly previousSha: string | null;
+  readonly nextSha: string | null;
+  readonly timestampSec: number | null;
+  readonly subject: string;
+}
+
+async function git(gitClient: GitClient, args: readonly string[], cwd: string): Promise<string> {
+  const result = await gitClient.run({ args, cwd });
   if (result.error !== undefined || result.status !== 0) {
     throw result.error ?? new Error(result.stderr.trim() || `git exited with status ${String(result.status)}`);
   }
   return result.stdout;
 }
 
-function readGit(gitClient: GitClient, args: readonly string[], cwd: string): string | null {
+async function readGit(gitClient: GitClient, args: readonly string[], cwd: string): Promise<string | null> {
   try {
-    const value = git(gitClient, args, cwd).trim();
+    const value = (await git(gitClient, args, cwd)).trim();
     return value.length > 0 ? value : null;
   } catch {
     return null;
   }
 }
 
-function readGitPorcelain(gitClient: GitClient, args: readonly string[], cwd: string): string | null {
+async function readGitPorcelain(gitClient: GitClient, args: readonly string[], cwd: string): Promise<string | null> {
   try {
-    const value = git(gitClient, args, cwd).replace(/\r?\n$/, "");
+    const value = (await git(gitClient, args, cwd)).replace(/\r?\n$/, "");
     return value.length > 0 ? value : null;
   } catch {
     return null;
   }
+}
+
+async function readGitLines(gitClient: GitClient, args: readonly string[], cwd: string): Promise<string[]> {
+  const value = await readGitPorcelain(gitClient, args, cwd);
+  return value === null ? [] : value.split("\n");
 }
 
 function countStatusLines(statusLines: readonly string[]): {
@@ -98,18 +113,114 @@ function countStatusLines(statusLines: readonly string[]): {
   return { stagedPaths, changedPaths, untrackedPaths };
 }
 
-function captureSnapshot(cwd: string, gitClient: GitClient): RepoSnapshot {
-  const statusOutput = readGitPorcelain(gitClient, ["status", "--porcelain"], cwd) ?? "";
-  const statusLines = statusOutput.length === 0 ? [] : statusOutput.split("\n");
+function mergeStatusLines(
+  stagedLines: readonly string[],
+  changedLines: readonly string[],
+  untrackedLines: readonly string[],
+): readonly string[] {
+  const merged = new Map<string, { x: string; y: string }>();
+
+  for (const line of stagedLines) {
+    const [rawStatus = "", filePath = ""] = line.split("\t");
+    if (filePath.length === 0) continue;
+    const existing = merged.get(filePath) ?? { x: " ", y: " " };
+    existing.x = rawStatus[0] ?? "M";
+    merged.set(filePath, existing);
+  }
+
+  for (const line of changedLines) {
+    const [rawStatus = "", filePath = ""] = line.split("\t");
+    if (filePath.length === 0) continue;
+    const existing = merged.get(filePath) ?? { x: " ", y: " " };
+    existing.y = rawStatus[0] ?? "M";
+    merged.set(filePath, existing);
+  }
+
+  for (const filePath of untrackedLines) {
+    if (filePath.length === 0) continue;
+    merged.set(filePath, { x: "?", y: "?" });
+  }
+
+  return [...merged.entries()]
+    .sort(([left], [right]) => left.localeCompare(right))
+    .map(([filePath, status]) => `${status.x}${status.y} ${filePath}`);
+}
+
+async function readParentShas(gitClient: GitClient, cwd: string, headSha: string | null): Promise<readonly string[]> {
+  if (headSha === null) return [];
+  const raw = await readGit(gitClient, ["show", "-s", "--format=%P", headSha], cwd);
+  if (raw === null || raw.trim().length === 0) return [];
+  return raw.trim().split(/\s+/).filter((sha) => sha.length > 0);
+}
+
+async function readHeadReflog(fs: FileSystem, gitClient: GitClient, cwd: string): Promise<HeadReflogEntry | null> {
+  const reflogPath = await readGit(gitClient, ["rev-parse", "--path-format=absolute", "--git-path", "logs/HEAD"], cwd);
+  if (reflogPath === null) return null;
+
+  try {
+    const content = await fs.readFile(reflogPath, "utf-8");
+    const lines = content.split(/\r?\n/).map((line) => line.trimEnd());
+    let raw: string | null = null;
+    for (let index = lines.length - 1; index >= 0; index--) {
+      const line = lines[index];
+      if (line !== undefined && line.length > 0) {
+        raw = line;
+        break;
+      }
+    }
+    if (raw === null) return null;
+    const [meta = "", subject = ""] = raw.split("\t");
+    const tokens = meta.split(" ");
+    const previousSha = tokens[0] ?? null;
+    const nextSha = tokens[1] ?? null;
+    const timestampToken = tokens.length >= 2 ? tokens[tokens.length - 2] : undefined;
+    const timestampSec = timestampToken !== undefined ? Number.parseInt(timestampToken, 10) : Number.NaN;
+
+    return {
+      raw,
+      previousSha: previousSha !== null && /^[0-9a-f]{40}$/i.test(previousSha) ? previousSha : null,
+      nextSha: nextSha !== null && /^[0-9a-f]{40}$/i.test(nextSha) ? nextSha : null,
+      timestampSec: Number.isFinite(timestampSec) ? timestampSec : null,
+      subject,
+    };
+  } catch {
+    return null;
+  }
+}
+
+async function isAncestor(
+  gitClient: GitClient,
+  cwd: string,
+  possibleAncestor: string | null,
+  possibleDescendant: string | null,
+): Promise<boolean> {
+  if (possibleAncestor === null || possibleDescendant === null) {
+    return false;
+  }
+  const result = await gitClient.run({
+    args: ["merge-base", "--is-ancestor", possibleAncestor, possibleDescendant],
+    cwd,
+  });
+  return result.status === 0;
+}
+
+async function captureSnapshot(cwd: string, fs: FileSystem, gitClient: GitClient): Promise<RepoSnapshot> {
+  const headSha = await readGit(gitClient, ["rev-parse", "HEAD"], cwd);
+  const statusLines = mergeStatusLines(
+    headSha === null ? [] : await readGitLines(gitClient, ["diff-index", "--cached", "--name-status", headSha, "--"], cwd),
+    await readGitLines(gitClient, ["diff-files", "--name-status", "--"], cwd),
+    await readGitLines(gitClient, ["ls-files", "--others", "--exclude-standard"], cwd),
+  );
   const counts = countStatusLines(statusLines);
 
   return {
-    headRef: readGit(gitClient, ["symbolic-ref", "--quiet", "--short", "HEAD"], cwd),
-    headSha: readGit(gitClient, ["rev-parse", "HEAD"], cwd),
-    reflogSubject: readGit(gitClient, ["reflog", "-1", "--format=%gs"], cwd),
+    headRef: await readGit(gitClient, ["symbolic-ref", "--quiet", "--short", "HEAD"], cwd),
+    headSha,
+    parentShas: await readParentShas(gitClient, cwd, headSha),
     statusLines,
     dirty: statusLines.length > 0,
     ...counts,
+    headReflog: await readHeadReflog(fs, gitClient, cwd),
   };
 }
 
@@ -125,7 +236,7 @@ function buildWorkspaceOverlay(snapshot: RepoSnapshot): WorkspaceOverlaySummary 
     confidence: "low",
     evidence: {
       source: "git status --porcelain",
-      reflogSubject: snapshot.reflogSubject,
+      reflogSubject: null,
       sample: snapshot.statusLines.slice(0, 10),
     },
   };
@@ -150,52 +261,144 @@ function samePosition(a: RepoSnapshot, b: RepoSnapshot): boolean {
   return a.headRef === b.headRef && a.headSha === b.headSha;
 }
 
-function detectTransition(previous: RepoSnapshot, current: RepoSnapshot): RepoTransition | null {
+async function detectTransition(
+  gitClient: GitClient,
+  cwd: string,
+  previous: RepoSnapshot,
+  current: RepoSnapshot,
+  bootstrapTimestampSec: number,
+  allowBootstrap: boolean,
+): Promise<RepoTransition | null> {
+  const reflogTransition = parseTransitionFromReflog(previous, current, bootstrapTimestampSec, allowBootstrap);
+  if (reflogTransition !== null) {
+    return reflogTransition;
+  }
+
   if (samePosition(previous, current)) return null;
 
-  const subject = current.reflogSubject;
-  if (subject?.startsWith("reset:") === true) {
-    return {
-      kind: "reset",
-      fromRef: previous.headRef,
-      toRef: current.headRef,
-      fromCommit: previous.headSha,
-      toCommit: current.headSha,
-      evidence: { reflogSubject: subject },
-    };
-  }
-
-  if (/^rebase(?:\b|\s|:|\()/.test(subject ?? "")) {
-    return {
-      kind: "rebase",
-      fromRef: previous.headRef,
-      toRef: current.headRef,
-      fromCommit: previous.headSha,
-      toCommit: current.headSha,
-      evidence: { reflogSubject: subject },
-    };
-  }
-
-  const mergeMatch = subject?.match(/^merge\s+(.+?)(?::|$)/);
-  if (mergeMatch !== null && mergeMatch !== undefined) {
-    return {
-      kind: "merge",
-      fromRef: mergeMatch[1] ?? previous.headRef,
-      toRef: current.headRef,
-      fromCommit: previous.headSha,
-      toCommit: current.headSha,
-      evidence: { reflogSubject: subject },
-    };
-  }
-
-  if (subject?.startsWith("checkout:") === true || previous.headRef !== current.headRef) {
+  if (previous.headRef !== current.headRef) {
     return {
       kind: "checkout",
       fromRef: previous.headRef,
       toRef: current.headRef,
       fromCommit: previous.headSha,
       toCommit: current.headSha,
-      evidence: { reflogSubject: subject },
+      evidence: { reflogSubject: null },
+    };
+  }
+
+  if (current.parentShas.length > 1 && previous.headSha !== null && current.parentShas.includes(previous.headSha)) {
+    return {
+      kind: "merge",
+      fromRef: previous.headRef,
+      toRef: current.headRef,
+      fromCommit: previous.headSha,
+      toCommit: current.headSha,
+      evidence: { reflogSubject: null },
+    };
+  }
+
+  if (await isAncestor(gitClient, cwd, current.headSha, previous.headSha)) {
+    return {
+      kind: "reset",
+      fromRef: previous.headRef,
+      toRef: current.headRef,
+      fromCommit: previous.headSha,
+      toCommit: current.headSha,
+      evidence: { reflogSubject: null },
+    };
+  }
+
+  if (!(await isAncestor(gitClient, cwd, previous.headSha, current.headSha))) {
+    return {
+      kind: "rebase",
+      fromRef: previous.headRef,
+      toRef: current.headRef,
+      fromCommit: previous.headSha,
+      toCommit: current.headSha,
+      evidence: { reflogSubject: null },
+    };
+  }
+
+  return null;
+}
+
+function parseCheckoutTarget(value: string): string | null {
+  if (/^[0-9a-f]{7,40}$/i.test(value)) {
+    return null;
+  }
+  return value;
+}
+
+function parseTransitionFromReflog(
+  previous: RepoSnapshot,
+  current: RepoSnapshot,
+  bootstrapTimestampSec: number,
+  allowBootstrap: boolean,
+): RepoTransition | null {
+  const entry = current.headReflog;
+  if (entry === null) {
+    return null;
+  }
+  const hasFreshReflog = previous.headReflog?.raw !== entry.raw;
+  const bootstrapEligible = allowBootstrap && entry.timestampSec !== null && entry.timestampSec >= bootstrapTimestampSec;
+  if (!hasFreshReflog && !bootstrapEligible) {
+    return null;
+  }
+
+  const checkout = /^checkout: moving from (.+) to (.+)$/.exec(entry.subject);
+  if (checkout !== null) {
+    const fromRef = checkout[1];
+    const toTarget = checkout[2];
+    if (fromRef === undefined || toTarget === undefined) {
+      return null;
+    }
+    const toRef = parseCheckoutTarget(toTarget);
+    return {
+      kind: "checkout",
+      fromRef,
+      toRef,
+      fromCommit: entry.previousSha,
+      toCommit: entry.nextSha ?? current.headSha,
+      evidence: { reflogSubject: entry.subject },
+    };
+  }
+
+  const merge = /^merge ([^:]+):/.exec(entry.subject);
+  if (merge !== null) {
+    const fromRef = merge[1];
+    if (fromRef === undefined) {
+      return null;
+    }
+    return {
+      kind: "merge",
+      fromRef,
+      toRef: current.headRef,
+      fromCommit: entry.previousSha,
+      toCommit: entry.nextSha ?? current.headSha,
+      evidence: { reflogSubject: entry.subject },
+    };
+  }
+
+  if (entry.subject.startsWith("reset: ")) {
+    return {
+      kind: "reset",
+      fromRef: previous.headRef,
+      toRef: current.headRef,
+      fromCommit: entry.previousSha,
+      toCommit: entry.nextSha ?? current.headSha,
+      evidence: { reflogSubject: entry.subject },
+    };
+  }
+
+  if (entry.subject.startsWith("rebase (")) {
+    return {
+      kind: "rebase",
+      fromRef: previous.headRef,
+      toRef: current.headRef,
+      fromCommit: entry.previousSha,
+      toCommit: entry.nextSha ?? current.headSha,
+      evidence: { reflogSubject: entry.subject },
     };
   }
 
@@ -204,22 +407,43 @@ function detectTransition(previous: RepoSnapshot, current: RepoSnapshot): RepoTr
 
 export class RepoStateTracker {
   private checkoutEpoch = 0;
-  private snapshot: RepoSnapshot;
-  private observation: RepoObservation;
+  private snapshot: RepoSnapshot | null = null;
+  private observation: RepoObservation = {
+    checkoutEpoch: 0,
+    headRef: null,
+    headSha: null,
+    dirty: false,
+    lastTransition: null,
+    workspaceOverlay: null,
+  };
+  private initialization: Promise<void> | null = null;
+  private readonly startedAtSec = Math.floor(Date.now() / 1000);
+  private hasObservedTransition = false;
 
   constructor(
     private readonly cwd: string,
+    private readonly fs: FileSystem,
     private readonly gitClient: GitClient,
-  ) {
-    this.snapshot = captureSnapshot(cwd, gitClient);
-    this.observation = buildObservation(this.snapshot, this.checkoutEpoch, null);
-  }
+  ) {}
 
-  observe(): RepoObservation {
-    const nextSnapshot = captureSnapshot(this.cwd, this.gitClient);
-    const transition = detectTransition(this.snapshot, nextSnapshot);
+  async observe(): Promise<RepoObservation> {
+    await this.initialize();
+    const previousSnapshot = this.snapshot;
+    if (previousSnapshot === null) {
+      return this.observation;
+    }
+    const nextSnapshot = await captureSnapshot(this.cwd, this.fs, this.gitClient);
+    const transition = await detectTransition(
+      this.gitClient,
+      this.cwd,
+      previousSnapshot,
+      nextSnapshot,
+      this.startedAtSec,
+      !this.hasObservedTransition,
+    );
     if (transition !== null) {
       this.checkoutEpoch++;
+      this.hasObservedTransition = true;
     }
 
     this.snapshot = nextSnapshot;
@@ -229,6 +453,21 @@ export class RepoStateTracker {
       transition ?? this.observation.lastTransition,
     );
     return this.observation;
+  }
+
+  async initialize(): Promise<void> {
+    if (this.initialization !== null) {
+      await this.initialization;
+      return;
+    }
+
+    this.initialization = (async () => {
+      const snapshot = await captureSnapshot(this.cwd, this.fs, this.gitClient);
+      this.snapshot = snapshot;
+      this.observation = buildObservation(snapshot, this.checkoutEpoch, null);
+    })();
+
+    await this.initialization;
   }
 
   getState(): RepoObservation {

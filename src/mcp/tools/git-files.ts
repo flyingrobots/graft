@@ -49,9 +49,9 @@ export class GitFileList {
   }
 }
 
-export function listGitFiles(query: GitFileQuery, git: GitClient): GitFileList {
+export async function listGitFiles(query: GitFileQuery, git: GitClient): Promise<GitFileList> {
   try {
-    const result = git.run({ args: query.toArgs(), cwd: query.cwd });
+    const result = await git.run({ args: query.toArgs(), cwd: query.cwd });
     if (result.error !== undefined || result.status !== 0) {
       throw result.error ?? new Error(result.stderr.trim() || `git exited with status ${String(result.status)}`);
     }
@@ -64,18 +64,10 @@ export function listGitFiles(query: GitFileQuery, git: GitClient): GitFileList {
   }
 }
 
-/**
- * List git-tracked files, optionally scoped to a directory.
- */
-export function listTrackedFiles(dirPath: string, cwd: string, git: GitClient): string[] {
-  return [...listGitFiles(GitFileQuery.tracked(cwd, dirPath), git).paths];
+export async function listTrackedFiles(dirPath: string, cwd: string, git: GitClient): Promise<string[]> {
+  return [...(await listGitFiles(GitFileQuery.tracked(cwd, dirPath), git)).paths];
 }
 
-/**
- * List tracked and untracked project files, optionally scoped to a directory.
- * Untracked files are included so live queries can see draft work before it
- * is staged or committed.
- */
-export function listProjectFiles(dirPath: string, cwd: string, git: GitClient): string[] {
-  return [...listGitFiles(GitFileQuery.project(cwd, dirPath), git).paths];
+export async function listProjectFiles(dirPath: string, cwd: string, git: GitClient): Promise<string[]> {
+  return [...(await listGitFiles(GitFileQuery.project(cwd, dirPath), git)).paths];
 }

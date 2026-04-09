@@ -78,12 +78,12 @@ function measureActual(
 /**
  * Compute structural diffs between two git refs (or working tree).
  */
-export function graftDiff(opts: GraftDiffOptions): GraftDiffResult {
+export async function graftDiff(opts: GraftDiffOptions): Promise<GraftDiffResult> {
   const base = opts.base ?? "HEAD";
   const headLabel = opts.head ?? "working tree";
   const cwd = opts.cwd;
 
-  let changedFiles = getChangedFiles({
+  let changedFiles = await getChangedFiles({
     cwd,
     git: opts.git,
     base,
@@ -100,12 +100,12 @@ export function graftDiff(opts: GraftDiffOptions): GraftDiffResult {
 
   for (const filePath of changedFiles) {
     // Get content at base (null = file absent at ref)
-    const baseContent = getFileAtRef(base, filePath, { cwd, git: opts.git });
+    const baseContent = await getFileAtRef(base, filePath, { cwd, git: opts.git });
 
     // Get content at head (null = file absent at ref/worktree)
     let headContent: string | null;
     if (opts.head !== undefined) {
-      headContent = getFileAtRef(opts.head, filePath, { cwd, git: opts.git });
+      headContent = await getFileAtRef(opts.head, filePath, { cwd, git: opts.git });
     } else {
       try {
         headContent = opts.fs.readFileSync(opts.resolveWorkingTreePath(filePath), "utf-8");

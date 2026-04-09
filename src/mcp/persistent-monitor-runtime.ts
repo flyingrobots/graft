@@ -105,8 +105,8 @@ function normalizePollIntervalMs(value: number | undefined, fallback: number): n
   return normalized;
 }
 
-function readGit(git: GitClient, cwd: string, args: readonly string[]): string | null {
-  const result = git.run({ cwd, args });
+async function readGit(git: GitClient, cwd: string, args: readonly string[]): Promise<string | null> {
+  const result = await git.run({ cwd, args });
   if (result.error !== undefined || result.status !== 0) {
     return null;
   }
@@ -114,14 +114,19 @@ function readGit(git: GitClient, cwd: string, args: readonly string[]): string |
   return trimmed.length === 0 ? null : trimmed;
 }
 
-function readHeadCommit(git: GitClient, cwd: string): string | null {
+async function readHeadCommit(git: GitClient, cwd: string): Promise<string | null> {
   return readGit(git, cwd, ["rev-parse", "--verify", "HEAD"]);
 }
 
-function countPendingCommits(git: GitClient, cwd: string, from: string | null, to: string | null): number {
+async function countPendingCommits(
+  git: GitClient,
+  cwd: string,
+  from: string | null,
+  to: string | null,
+): Promise<number> {
   if (to === null) return 0;
   const range = from === null ? to : `${from}..${to}`;
-  const output = readGit(git, cwd, ["rev-list", "--count", range]);
+  const output = await readGit(git, cwd, ["rev-list", "--count", range]);
   if (output === null) return 0;
   const parsed = Number.parseInt(output, 10);
   return Number.isInteger(parsed) && parsed >= 0 ? parsed : 0;
@@ -395,7 +400,7 @@ export class PersistentMonitorRuntime {
       }
 
       try {
-        const headAtStart = readHeadCommit(this.options.git, anchor.worktreeRoot);
+        const headAtStart = await readHeadCommit(this.options.git, anchor.worktreeRoot);
         const warp = await this.options.warpPool.getOrOpen(
           repoId,
           anchor.worktreeRoot,
@@ -407,9 +412,14 @@ export class PersistentMonitorRuntime {
           ...(record.lastIndexedCommit !== null ? { from: record.lastIndexedCommit } : {}),
           ...(headAtStart !== null ? { to: headAtStart } : {}),
         });
-        const currentHead = readHeadCommit(this.options.git, anchor.worktreeRoot);
+        const currentHead = await readHeadCommit(this.options.git, anchor.worktreeRoot);
         const lastIndexedCommit = headAtStart ?? record.lastIndexedCommit;
-        const backlogCommits = countPendingCommits(this.options.git, anchor.worktreeRoot, lastIndexedCommit, currentHead);
+        const backlogCommits = await countPendingCommits(
+          this.options.git,
+          anchor.worktreeRoot,
+          lastIndexedCommit,
+          currentHead,
+        );
         const latest = this.records.get(repoId) ?? record;
         const nextHealth = latest.lifecycleState === "paused"
           ? "paused"
@@ -434,8 +444,8 @@ export class PersistentMonitorRuntime {
         });
       } catch (error) {
         const message = error instanceof Error ? error.message : String(error);
-        const currentHead = readHeadCommit(this.options.git, anchor.worktreeRoot);
-        const backlogCommits = countPendingCommits(
+        const currentHead = await readHeadCommit(this.options.git, anchor.worktreeRoot);
+        const backlogCommits = await countPendingCommits(
           this.options.git,
           anchor.worktreeRoot,
           record.lastIndexedCommit,
@@ -503,18 +513,19 @@ export class PersistentMonitorRuntime {
 
   private resolveRepo(
     request: WorkspaceBindRequest,
-  ): { repoId: string } | { errorCode: string; error: string } {
-    const resolved = resolveWorkspaceRequest(this.options.git, request);
-    if ("code" in resolved) {
+  ): Promise<{ repoId: string } | { errorCode: string; error: string }> {
+    return resolveWorkspaceRequest(this.options.git, request).then((resolved) => {
+      if ("code" in resolved) {
+        return {
+          errorCode: resolved.code,
+          error: resolved.message,
+        };
+      }
       return {
-        errorCode: resolved.code,
-        error: resolved.message,
+        errorCode: "WORKSPACE_NOT_AUTHORIZED",
+        error: `Workspace ${resolved.worktreeRoot} is not authorized for monitoring. Call workspace_authorize first.`,
       };
-    }
-    return {
-      errorCode: "WORKSPACE_NOT_AUTHORIZED",
-      error: `Workspace ${resolved.worktreeRoot} is not authorized for monitoring. Call workspace_authorize first.`,
-    };
+    });
   }
 
   private async resolveAuthorizedRepo(

@@ -138,8 +138,8 @@ function stableId(prefix: string, input: string): string {
   return `${prefix}:${crypto.createHash("sha256").update(input).digest("hex").slice(0, 16)}`;
 }
 
-function readGitValue(git: GitClient, cwd: string, args: readonly string[]): string | null {
-  const result = git.run({ args, cwd });
+async function readGitValue(git: GitClient, cwd: string, args: readonly string[]): Promise<string | null> {
+  const result = await git.run({ args, cwd });
   if (result.error !== undefined || result.status !== 0) {
     return null;
   }
@@ -151,12 +151,12 @@ function toAbsolutePath(base: string, value: string): string {
   return path.isAbsolute(value) ? value : path.resolve(base, value);
 }
 
-export function resolveWorkspaceRequest(
+export async function resolveWorkspaceRequest(
   git: GitClient,
   request: WorkspaceBindRequest,
-): ResolvedWorkspace | WorkspaceBindError {
+): Promise<ResolvedWorkspace | WorkspaceBindError> {
   const cwd = path.resolve(request.cwd);
-  const worktreeRoot = readGitValue(git, cwd, ["rev-parse", "--path-format=absolute", "--show-toplevel"]);
+  const worktreeRoot = await readGitValue(git, cwd, ["rev-parse", "--path-format=absolute", "--show-toplevel"]);
   if (worktreeRoot === null) {
     return {
       code: "NOT_A_GIT_REPO",
@@ -164,7 +164,7 @@ export function resolveWorkspaceRequest(
     };
   }
 
-  const rawGitCommonDir = readGitValue(git, cwd, ["rev-parse", "--path-format=absolute", "--git-common-dir"]);
+  const rawGitCommonDir = await readGitValue(git, cwd, ["rev-parse", "--path-format=absolute", "--git-common-dir"]);
   if (rawGitCommonDir === null) {
     return {
       code: "WORKSPACE_RESOLUTION_FAILED",
@@ -185,14 +185,35 @@ export class WorkspaceRouter {
   private sliceCounter = 0;
   private currentSlice: WorkspaceSlice;
   private currentBinding: BoundWorkspace | null = null;
+  private initialization: Promise<void> | null = null;
 
   constructor(private readonly options: WorkspaceRouterOptions) {
-    if (options.mode === "repo_local") {
-      const projectRoot = options.projectRoot;
-      if (projectRoot === undefined) {
-        throw new Error("repo_local workspace router requires projectRoot");
-      }
-      const resolved = resolveWorkspaceRequest(options.git, { cwd: projectRoot });
+    const initialProjectRoot = options.mode === "repo_local" ? options.projectRoot : undefined;
+    this.currentSlice = this.createSlice(
+      options.mode === "repo_local" ? options.graftDir : path.join(options.graftDir, "unbound"),
+      initialProjectRoot,
+    );
+  }
+
+  async initialize(): Promise<void> {
+    if (this.options.mode !== "repo_local") {
+      return;
+    }
+    if (this.currentBinding !== null) {
+      return;
+    }
+    if (this.initialization !== null) {
+      await this.initialization;
+      return;
+    }
+
+    const projectRoot = this.options.projectRoot;
+    if (projectRoot === undefined) {
+      throw new Error("repo_local workspace router requires projectRoot");
+    }
+
+    this.initialization = (async () => {
+      const resolved = await resolveWorkspaceRequest(this.options.git, { cwd: projectRoot });
       const initialWorkspace = "code" in resolved
         ? {
             repoId: stableId("repo", projectRoot),
@@ -206,17 +227,18 @@ export class WorkspaceRouter {
             worktreeRoot: projectRoot,
             gitCommonDir: resolved.gitCommonDir,
           };
-      this.currentBinding = this.createBoundWorkspace(
+      const currentBinding = this.createBoundWorkspace(
         initialWorkspace,
-        options.graftDir,
+        this.options.graftDir,
         DEFAULT_REPO_LOCAL_CAPABILITY_PROFILE,
         undefined,
+        this.currentSlice,
       );
-      this.currentSlice = this.currentBinding.slice;
-      return;
-    }
+      await currentBinding.slice.repoState?.initialize();
+      this.currentBinding = currentBinding;
+    })();
 
-    this.currentSlice = this.createSlice(path.join(options.graftDir, "unbound"));
+    await this.initialization;
   }
 
   get mode(): WorkspaceSessionMode {
@@ -259,8 +281,8 @@ export class WorkspaceRouter {
     return this.requireBinding().getWarp();
   }
 
-  observeRepoState(): void {
-    this.requireRepoState().observe();
+  async observeRepoState(): Promise<void> {
+    await this.requireRepoState().observe();
   }
 
   getRepoState() {
@@ -316,7 +338,7 @@ export class WorkspaceRouter {
     request: WorkspaceBindRequest,
     actionName: string,
   ): Promise<WorkspaceActionResult> {
-    const resolved = resolveWorkspaceRequest(this.options.git, request);
+    const resolved = await resolveWorkspaceRequest(this.options.git, request);
     if ("code" in resolved) {
       return {
         ok: false,
@@ -350,6 +372,7 @@ export class WorkspaceRouter {
     }
 
     const nextBinding = this.createBoundWorkspace(resolved, sliceDir, capabilityProfile, actionName);
+    await nextBinding.slice.repoState?.initialize();
     if (this.options.mode === "daemon") {
       await this.options.authorizationPolicy?.noteBound(resolved);
     }
@@ -369,8 +392,9 @@ export class WorkspaceRouter {
     graftDir: string,
     capabilityProfile: WorkspaceCapabilityProfile,
     actionName: string | undefined,
+    sliceOverride?: WorkspaceSlice,
   ): BoundWorkspace {
-    const slice = this.createSlice(graftDir, resolved.worktreeRoot);
+    const slice = sliceOverride ?? this.createSlice(graftDir, resolved.worktreeRoot);
     if (actionName !== undefined) {
       slice.session.recordMessage();
       slice.session.recordToolCall(actionName);
@@ -396,7 +420,7 @@ export class WorkspaceRouter {
       cache: new ObservationCache(),
       metrics: new Metrics(),
       graftDir,
-      repoState: projectRoot !== undefined ? new RepoStateTracker(projectRoot, this.options.git) : null,
+      repoState: projectRoot !== undefined ? new RepoStateTracker(projectRoot, this.options.fs, this.options.git) : null,
     };
   }
 

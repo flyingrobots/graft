@@ -79,7 +79,7 @@ export const codeFindTool: ToolDefinition = {
         try {
           const warp = await ctx.getWarp();
           const ceilings = await getIndexedCommitCeilings(warp);
-          const headSha = resolveGitRef("HEAD", ctx.git, ctx.projectRoot);
+          const headSha = await resolveGitRef("HEAD", ctx.git, ctx.projectRoot);
           if (ceilings.has(headSha)) {
             allMatches = await searchWarpSymbols(warp, precisionRequest);
             source = "warp";
@@ -90,9 +90,9 @@ export const codeFindTool: ToolDefinition = {
       }
 
       if (source === "live") {
-        allMatches = searchLiveSymbols(
+        allMatches = await searchLiveSymbols(
           ctx,
-          listGitFiles(request.toProjectFileQuery(ctx.projectRoot), ctx.git).paths,
+          (await listGitFiles(request.toProjectFileQuery(ctx.projectRoot), ctx.git)).paths,
           precisionRequest,
         );
       }
@@ -112,7 +112,7 @@ export const codeFindTool: ToolDefinition = {
       for (const match of allMatches) {
         let content = fileCache.get(match.path);
         if (content === undefined) {
-          const loaded = loadFileContent(ctx, match.path);
+          const loaded = await loadFileContent(ctx, match.path);
           if (loaded === null) continue;
           fileCache.set(match.path, loaded);
           content = loaded;

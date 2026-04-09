@@ -227,7 +227,7 @@ export class DaemonControlPlane {
   }
 
   async authorizeWorkspace(request: WorkspaceAuthorizeRequest): Promise<WorkspaceAuthorizeResult> {
-    const resolved = resolveWorkspaceRequest(this.options.git, request);
+    const resolved = await resolveWorkspaceRequest(this.options.git, request);
     if ("code" in resolved) {
       return {
         ok: false,
@@ -263,7 +263,7 @@ export class DaemonControlPlane {
   }
 
   async revokeWorkspace(request: WorkspaceBindRequest): Promise<WorkspaceRevokeResult> {
-    const resolved = resolveWorkspaceRequest(this.options.git, request);
+    const resolved = await resolveWorkspaceRequest(this.options.git, request);
     if ("code" in resolved) {
       return {
         ok: false,
@@ -330,7 +330,7 @@ export class DaemonControlPlane {
   }
 
   async getAuthorizedWorkspace(request: WorkspaceBindRequest): Promise<AuthorizedWorkspaceRecord | null> {
-    const resolved = resolveWorkspaceRequest(this.options.git, request);
+    const resolved = await resolveWorkspaceRequest(this.options.git, request);
     if ("code" in resolved) return null;
     await this.ensureLoaded();
     const record = this.authorizedWorkspaces.get(resolved.worktreeId);

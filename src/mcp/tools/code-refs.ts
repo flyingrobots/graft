@@ -220,7 +220,13 @@ function computeColumn(preview: string, highlight: string): number | undefined {
 function parseRipgrepLine(line: string): CodeRefsMatch | null {
   const match = /^(.*?):(\d+):(\d+):(.*)$/.exec(line);
   if (match === null) return null;
-  const [, filePath, rawLine, rawColumn, preview] = match;
+  const filePath = match[1];
+  const rawLine = match[2];
+  const rawColumn = match[3];
+  const preview = match[4];
+  if (filePath === undefined || rawLine === undefined || rawColumn === undefined || preview === undefined) {
+    return null;
+  }
   return new CodeRefsMatch({
     path: filePath,
     line: Number(rawLine),
@@ -232,13 +238,17 @@ function parseRipgrepLine(line: string): CodeRefsMatch | null {
 function parseGrepLine(line: string, highlight: string): CodeRefsMatch | null {
   const match = /^(.*?):(\d+):(.*)$/.exec(line);
   if (match === null) return null;
-  const [, filePath, rawLine, preview] = match;
+  const filePath = match[1];
+  const rawLine = match[2];
+  const preview = match[3];
+  if (filePath === undefined || rawLine === undefined || preview === undefined) {
+    return null;
+  }
+  const column = computeColumn(preview, highlight);
   return new CodeRefsMatch({
     path: filePath,
     line: Number(rawLine),
-    ...(computeColumn(preview, highlight) !== undefined
-      ? { column: computeColumn(preview, highlight) }
-      : {}),
+    ...(column !== undefined ? { column } : {}),
     preview,
   });
 }
@@ -369,12 +379,12 @@ export const codeRefsTool: ToolDefinition = {
     path: z.string().optional(),
   },
   createHandler(ctx: ToolContext): ToolHandler {
-    return (args) => {
+    return async (args) => {
       const request = new CodeRefsRequest(args, ctx.projectRoot);
       const pattern = buildCodeRefsPattern(request);
       const repoState = ctx.getRepoState();
       const layer = repoState.dirty ? "workspace_overlay" : "ref_view";
-      const filePaths = listGitFiles(request.toProjectFileQuery(ctx.projectRoot), ctx.git).paths;
+      const filePaths = (await listGitFiles(request.toProjectFileQuery(ctx.projectRoot), ctx.git)).paths;
       const fallback = runTextFallbackSearch(ctx.projectRoot, pattern, filePaths, ctx.process);
 
       const visibleMatches: CodeRefsMatch[] = [];
@@ -392,7 +402,7 @@ export const codeRefsTool: ToolDefinition = {
       for (const match of fallback.matches) {
         let content = fileCache.get(match.path);
         if (content === undefined) {
-          const loaded = loadFileContent(ctx, match.path);
+          const loaded = await loadFileContent(ctx, match.path);
           if (loaded === null) continue;
           fileCache.set(match.path, loaded);
           content = loaded;

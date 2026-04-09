@@ -12,5 +12,5 @@ export interface GitRunRequest {
 }
 
 export interface GitClient {
-  run(request: GitRunRequest): ProcessRunResult;
+  run(request: GitRunRequest): Promise<ProcessRunResult>;
 }
