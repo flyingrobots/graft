@@ -1,5 +1,6 @@
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import * as fs from "node:fs";
+import * as os from "node:os";
 import * as path from "node:path";
 import { nodeGit } from "../../../src/adapters/node-git.js";
 import { git, createTestRepo, cleanupTestRepo } from "../../helpers/git.js";
@@ -9,12 +10,17 @@ import { fileSymbolsLens, allSymbolsLens, allFilesLens } from "../../../src/warp
 
 describe("warp: indexer", { timeout: 15000 }, () => {
   let tmpDir: string;
+  const worktreeDirs: string[] = [];
 
   beforeEach(() => {
     tmpDir = createTestRepo("graft-warp-");
   });
 
   afterEach(() => {
+    while (worktreeDirs.length > 0) {
+      const worktreeDir = worktreeDirs.pop()!;
+      git(tmpDir, `worktree remove --force ${worktreeDir}`);
+    }
     cleanupTestRepo(tmpDir);
   });
 
@@ -268,5 +274,48 @@ describe("warp: indexer", { timeout: 15000 }, () => {
 
     expect(result.commitsIndexed).toBe(2);
     expect(result.patchesWritten).toBe(2);
+  });
+
+  it("shares the same warp graph across worktrees of the same repo", async () => {
+    fs.writeFileSync(
+      path.join(tmpDir, "shared.ts"),
+      "export function fromPrimary(): string { return \"primary\"; }\n",
+    );
+    git(tmpDir, "add -A");
+    git(tmpDir, "commit -m 'primary commit'");
+    const primaryHead = git(tmpDir, "rev-parse HEAD");
+
+    const primaryWarp = await openWarp({ cwd: tmpDir });
+    const primaryResult = await indexCommits(primaryWarp, { cwd: tmpDir, git: nodeGit });
+    expect(primaryResult.commitsIndexed).toBe(1);
+
+    git(tmpDir, "branch secondary");
+    const worktreeDir = path.join(os.tmpdir(), `graft-warp-worktree-${String(Date.now())}`);
+    git(tmpDir, `worktree add ${worktreeDir} secondary`);
+    worktreeDirs.push(worktreeDir);
+
+    const worktreeWarp = await openWarp({ cwd: worktreeDir });
+    const inheritedObs = await worktreeWarp.observer(fileSymbolsLens("shared.ts"));
+    const inheritedNodes = await inheritedObs.getNodes();
+    expect(inheritedNodes.length).toBe(1);
+
+    fs.writeFileSync(
+      path.join(worktreeDir, "worktree.ts"),
+      "export function fromWorktree(): string { return \"worktree\"; }\n",
+    );
+    git(worktreeDir, "add -A");
+    git(worktreeDir, "commit -m 'worktree commit'");
+
+    const worktreeResult = await indexCommits(worktreeWarp, {
+      cwd: worktreeDir,
+      git: nodeGit,
+      from: primaryHead,
+    });
+    expect(worktreeResult.commitsIndexed).toBe(1);
+
+    const reopenedPrimaryWarp = await openWarp({ cwd: tmpDir });
+    const mirroredObs = await reopenedPrimaryWarp.observer(fileSymbolsLens("worktree.ts"));
+    const mirroredNodes = await mirroredObs.getNodes();
+    expect(mirroredNodes.length).toBe(1);
   });
 });
