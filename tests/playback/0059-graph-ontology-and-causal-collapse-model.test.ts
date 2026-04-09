@@ -45,6 +45,15 @@ describe("0059 playback: graph ontology and causal collapse model", () => {
     ]);
   });
 
+  it("Can the core collapse and provenance meaning be recovered from bounded machine-readable artifacts without relying on diagrams or rich UI decoration?", () => {
+    expectMentions(designDoc, [
+      "## Accessibility and Assistive Reading",
+      "the core meaning must survive as bounded JSON-friendly artifacts",
+      "collapse and provenance concepts must be explainable from bounded",
+      "machine-readable artifacts, not only diagrams or long prose",
+    ]);
+  });
+
   it("Is transport session no longer overloaded as the product session model?", () => {
     expectMentions(designDoc, [
       "We need four distinct identities:",
@@ -101,5 +110,20 @@ describe("0059 playback: graph ontology and causal collapse model", () => {
       "supporting evidence allows",
     ]);
     expect(invariantsReadme).toContain("attribution-confidence-evidence-bounded.md");
+  });
+
+  it("Are agent-mediated provenance surfaces explicit about what is agent-generated, what evidence supports it, and whether they are reporting artifact history, canonical provenance, or inference?", () => {
+    expectMentions(designDoc, [
+      "## Agent Inspectability and Explainability",
+      "artifact history, admitted",
+      "canonical provenance, or a weaker inferred explanation",
+      "must say what evidence backs it and what action the consumer should",
+      "## Provenance honesty boundary",
+      "`artifact_history`",
+      "`canonical_provenance`",
+      "`inference`",
+      "no agent- or human-facing surface may present `inference` as if it",
+      "were `canonical_provenance`",
+    ]);
   });
 });

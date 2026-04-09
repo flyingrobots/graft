@@ -33,6 +33,9 @@ implementation around unstable language.
       rather than whole-session or whole-strand admission?
 - [ ] Are branch switches, detached-head moves, merges, and rewrites
       explicit checkout-epoch boundaries instead of hidden state drift?
+- [ ] Can the core collapse and provenance meaning be recovered from
+      bounded machine-readable artifacts without relying on diagrams or
+      rich UI decoration?
 
 ### Agent
 
@@ -47,6 +50,9 @@ implementation around unstable language.
 - [ ] Is the dependency boundary explicit between local Graft design
       work and the upstream `git-warp v17.1.0+` substrate needed for
       full strand-aware collapse?
+- [ ] Are agent-mediated provenance surfaces explicit about what is
+      agent-generated, what evidence supports it, and whether they are
+      reporting artifact history, canonical provenance, or inference?
 
 ## Accessibility and Assistive Reading
 
@@ -56,6 +62,8 @@ implementation around unstable language.
     history, workspace overlay / checkout epochs
   - define terms once and use them consistently instead of letting
     "session" or "worldline" float between meanings
+  - the core meaning must survive as bounded JSON-friendly artifacts
+    and short textual explanations, not as diagram-dependent intuition
 - Non-visual or alternate-reading expectations:
   - collapse and provenance concepts must be explainable from bounded
     machine-readable artifacts, not only diagrams or long prose
@@ -80,12 +88,17 @@ implementation around unstable language.
     strand-local speculation, or discardable noise
   - what collapse target and witness shape a later implementation must
     honor
+  - whether a given surface is reporting artifact history, admitted
+    canonical provenance, or a weaker inferred explanation
 - What must be attributable, evidenced, or governed:
   - actor identity for human / agent / Git-driven transitions
   - checkout-epoch boundaries
   - event footprints and causal edges
   - dependency boundary between local design and upstream `git-warp`
     support
+  - any agent-mediated claim about authorship, causality, or confidence
+    must say what evidence backs it and what action the consumer should
+    take next
 
 ## Non-goals
 
@@ -175,6 +188,30 @@ Related:
 - `docs/method/backlog/up-next/WARP_same-repo-concurrent-agent-model.md`
 - `docs/method/backlog/up-next/WARP_symbol-identity-and-rename-continuity.md`
 - `docs/method/backlog/up-next/SURFACE_target-repo-git-hook-bootstrap.md`
+
+## Provenance honesty boundary
+
+This packet needs to stay explicit about what kind of truth a future
+surface is claiming.
+
+Surface labels:
+- `artifact_history`
+  - reports file/commit/test/doc movement or generated summaries over
+    repo-visible artifacts
+- `canonical_provenance`
+  - reports witness-backed admitted causal explanation tied to a
+    collapse target
+- `inference`
+  - reports a weaker explanation derived from evidence but not yet
+    admitted as canonical provenance
+
+Hard rule:
+- no agent- or human-facing surface may present `inference` as if it
+  were `canonical_provenance`
+
+This keeps the ontology aligned with METHOD's provenance honesty
+constraint rather than letting "why" claims outrun witness-backed
+evidence.
 
 ## Proposed ontology
 
