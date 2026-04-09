@@ -10,6 +10,7 @@ import { SessionTracker } from "../session/tracker.js";
 import type { FileSystem } from "../ports/filesystem.js";
 import type { GitClient } from "../ports/git.js";
 import type { WarpPool } from "./warp-pool.js";
+import { DEFAULT_WARP_WRITER_ID } from "../warp/writer-id.js";
 
 export type WorkspaceSessionMode = "repo_local" | "daemon";
 export type WorkspaceBindState = "bound" | "unbound";
@@ -381,7 +382,11 @@ export class WorkspaceRouter {
       resolvePath: createPathResolver(resolved.worktreeRoot),
       capabilityProfile,
       slice,
-      getWarp: () => this.options.warpPool.getOrOpen(resolved.repoId, resolved.worktreeRoot),
+      getWarp: () => this.options.warpPool.getOrOpen(
+        resolved.repoId,
+        resolved.worktreeRoot,
+        DEFAULT_WARP_WRITER_ID,
+      ),
     };
   }
 

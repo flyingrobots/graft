@@ -10,6 +10,7 @@ import {
   type WorkspaceBindRequest,
 } from "./workspace-router.js";
 import type { WarpPool } from "./warp-pool.js";
+import { buildWarpWriterId } from "../warp/writer-id.js";
 
 const CONTROL_PLANE_DIR = "control-plane";
 const MONITORS_FILE = "monitors.json";
@@ -395,7 +396,11 @@ export class PersistentMonitorRuntime {
 
       try {
         const headAtStart = readHeadCommit(this.options.git, anchor.worktreeRoot);
-        const warp = await this.options.warpPool.getOrOpen(repoId, anchor.worktreeRoot);
+        const warp = await this.options.warpPool.getOrOpen(
+          repoId,
+          anchor.worktreeRoot,
+          buildWarpWriterId("monitor", repoId),
+        );
         const result = await indexCommits(warp, {
           cwd: anchor.worktreeRoot,
           git: this.options.git,

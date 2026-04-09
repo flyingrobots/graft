@@ -159,7 +159,7 @@ export function createGraftServer(options: CreateGraftServerOptions = {}): Graft
     logPath: observability.logPath,
     maxBytes: observability.maxBytes,
   });
-  const warpPool = options.warpPool ?? new InMemoryWarpPool((cwd) => openWarp({ cwd }));
+  const warpPool = options.warpPool ?? new InMemoryWarpPool((cwd, writerId) => openWarp({ cwd, writerId }));
   const daemonControlPlane = mode === "daemon"
     ? (options.daemonControlPlane ?? new DaemonControlPlane({
       fs: nodeFs,

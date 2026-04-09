@@ -8,12 +8,13 @@
 
 import WarpApp, { GitGraphAdapter } from "@git-stunts/git-warp";
 import GitPlumbing from "@git-stunts/plumbing";
+import { DEFAULT_WARP_WRITER_ID } from "./writer-id.js";
 
-const GRAPH_NAME = "graft-ast";
-const WRITER_ID = "graft";
+export const GRAPH_NAME = "graft-ast";
 
 export interface OpenWarpOptions {
   readonly cwd: string;
+  readonly writerId?: string;
 }
 
 export async function openWarp(options: OpenWarpOptions): Promise<WarpApp> {
@@ -24,7 +25,7 @@ export async function openWarp(options: OpenWarpOptions): Promise<WarpApp> {
   return WarpApp.open({
     persistence,
     graphName: GRAPH_NAME,
-    writerId: WRITER_ID,
+    writerId: options.writerId ?? DEFAULT_WARP_WRITER_ID,
     onDeleteWithData: "cascade",
   });
 }
