@@ -48,7 +48,9 @@ prints Claude Code hook / MCP config for manual setup.
 
 If you use Codex, the explicit `--write-codex-mcp` path also seeds
 `AGENTS.md` so the repo has both the MCP wiring and the instruction
-layer that tells Codex to prefer graft reads.
+layer that tells Codex to prefer graft reads. It also writes a larger
+Codex `startup_timeout_sec` because cold `npx` startup can exceed the
+default 30 second MCP budget.
 
 For a project-local one-step bootstrap, use explicit write flags:
 

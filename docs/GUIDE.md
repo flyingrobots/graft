@@ -263,6 +263,7 @@ Add to `.codex/config.toml` in your project root (per-project) or
 [mcp_servers.graft]
 command = "npx"
 args = ["-y", "@flyingrobots/graft", "serve"]
+startup_timeout_sec = 120
 ```
 
 Project-local shortcut:
@@ -274,6 +275,13 @@ npx @flyingrobots/graft init --write-codex-mcp
 That explicit write path also creates or merges `AGENTS.md` with graft
 read guidance so Codex sees repo-local instructions as well as the MCP
 server config.
+If you already have an older graft block in `.codex/config.toml`,
+rerunning that command will add the safer startup timeout without
+duplicating the server entry.
+
+The larger startup timeout is intentional. Cold `npx` startup can spend
+enough time in package acquisition and bootstrap to exceed Codex's
+default 30 second budget even when the graft server itself is healthy.
 
 **Note:** Codex may ask you to approve external MCP tool calls the
 first time it uses graft. If you trust the local server, choose

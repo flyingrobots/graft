@@ -147,6 +147,7 @@ class GraftMcpServer {
   readonly name = "graft";
   readonly command = "npx";
   readonly args = ["-y", "@flyingrobots/graft", "serve"] as const;
+  readonly codexStartupTimeoutSec = 120;
 
   toJsonServerEntry(): JsonObjectValue {
     return {
@@ -182,9 +183,42 @@ class GraftMcpServer {
       "[mcp_servers.graft]",
       "command = \"npx\"",
       "args = [\"-y\", \"@flyingrobots/graft\", \"serve\"]",
+      `startup_timeout_sec = ${String(this.codexStartupTimeoutSec)}`,
       "",
     ].join("\n");
   }
+}
+
+function ensureCodexStartupTimeout(existing: string): { content: string; changed: boolean } {
+  const marker = "[mcp_servers.graft]";
+  const timeoutLine = `startup_timeout_sec = ${String(GRAFT_MCP_SERVER.codexStartupTimeoutSec)}`;
+  const lines = existing.split("\n");
+  const blockStart = lines.findIndex((line) => line.trim() === marker);
+  if (blockStart === -1) {
+    return { content: existing, changed: false };
+  }
+
+  let blockEnd = lines.length;
+  for (let index = blockStart + 1; index < lines.length; index++) {
+    const line = lines[index];
+    if (line !== undefined && line.trim().startsWith("[") && line.trim().endsWith("]")) {
+      blockEnd = index;
+      break;
+    }
+  }
+
+  const hasTimeout = lines
+    .slice(blockStart + 1, blockEnd)
+    .some((line) => line.trim().startsWith("startup_timeout_sec"));
+  if (hasTimeout) {
+    return { content: existing, changed: false };
+  }
+
+  lines.splice(blockEnd, 0, timeoutLine);
+  return {
+    content: lines.join("\n"),
+    changed: true,
+  };
 }
 
 class GraftHookCommand {
@@ -622,6 +656,11 @@ function mergeCodexMcpConfig(cwd: string): InitAction {
 
   const existing = fs.readFileSync(filePath, "utf-8");
   if (existing.includes(marker)) {
+    const ensured = ensureCodexStartupTimeout(existing);
+    if (ensured.changed) {
+      fs.writeFileSync(filePath, ensured.content);
+      return InitAction.append(label, "added graft startup timeout");
+    }
     return InitAction.exists(label, "already has graft mcp server");
   }
 

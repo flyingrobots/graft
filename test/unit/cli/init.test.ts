@@ -229,8 +229,26 @@ describe("cli: graft init", () => {
     const config = fs.readFileSync(path.join(tmpDir, ".codex", "config.toml"), "utf-8");
     expect(config).toContain("[mcp_servers.think]");
     expect(config).toContain("[mcp_servers.graft]");
+    expect(config).toContain("startup_timeout_sec = 120");
     const graftBlockCount = (config.match(/\[mcp_servers\.graft\]/g) ?? []).length;
     expect(graftBlockCount).toBe(1);
+  });
+
+  it("upgrades an existing Codex graft block with the safer startup timeout", () => {
+    fs.mkdirSync(path.join(tmpDir, ".codex"), { recursive: true });
+    fs.writeFileSync(path.join(tmpDir, ".codex", "config.toml"), [
+      "[mcp_servers.graft]",
+      "command = \"npx\"",
+      "args = [\"-y\", \"@flyingrobots/graft\", \"serve\"]",
+      "",
+    ].join("\n"));
+
+    runInitQuietly(["--write-codex-mcp"]);
+
+    const config = fs.readFileSync(path.join(tmpDir, ".codex", "config.toml"), "utf-8");
+    expect(config).toContain("startup_timeout_sec = 120");
+    const timeoutCount = (config.match(/startup_timeout_sec = 120/g) ?? []).length;
+    expect(timeoutCount).toBe(1);
   });
 
   it("writes AGENTS.md guidance when bootstrapping Codex", () => {
