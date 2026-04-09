@@ -1,131 +1,155 @@
-# Bearing: WARP Level 2+
+# Bearing: Between-Commit Structural + Causal Memory
 
-**Set:** 2026-04-05
-**Direction:** Deeper structural memory. Symbol identity, agent
-provenance, precision tools.
+**Set:** 2026-04-09
+**Direction:** Graft is evolving from a read governor with structural
+memory into a provenance-aware WARP substrate for coding work between
+"hard" Git commits.
 
 ## Why now
 
-v0.4.0 shipped WARP Level 1. Structural memory exists as a
-first-class substrate. The indexer writes structural delta patches
-per commit. `graft_since` and `graft_map` give agents instant
-structural queries. The Observer Law holds.
+The repo now has two major foundations:
 
-Level 1 answers "what changed structurally?" Level 2+ answers
-"who changed it, why, and what did they see before they changed it?"
+1. **WARP Level 1 structural memory** — commit-level AST evolution is
+   real enough to support structural map/diff/since surfaces.
+2. **Daemon execution substrate** — async Git, async daemon-heavy file
+   paths, scheduler, child-process workers, monitor routing, and
+   logical writer lanes now exist as real runtime machinery.
+
+What is still missing is the meaning layer that ties those two halves
+together.
+
+The next honest problem is not "more worker pool" or "more daemon
+fairness in the abstract." The next honest problem is:
+
+- what the Graft WARP graph is supposed to store
+- what a product "session" really is
+- how speculative between-commit activity becomes durable provenance
+- how and when any of that collapses into canonical structural truth
+
+## Working mental model
+
+Graft models two coupled things:
+
+1. **AST / structural truth as it evolves over time**
+2. **The activity that explains why those structural changes happened**
+
+That implies:
+
+- a transport session is not the same thing as a product session
+- a product session is closer to a strand-scoped causal workspace
+- commits and staged snapshots are collapse checkpoints
+- collapse should usually admit a causal slice, not the whole strand
+- canonical structural truth and canonical provenance are related, but
+  not identical
 
 ## What ships under this bearing
 
-1. **Phase 2 precision tools** — `code_show`, `code_find`. Focus
-   on a symbol by name, search for symbols across the project.
-2. **Symbol identity across renames** (Level 2) — name-based
-   identity works but breaks on renames. Structural identity
-   derived from continuity and provenance.
-3. **Agent action provenance** (Level 3) — record reads and writes
-   as WARP observations. The causal chain of what the agent saw
-   before it wrote becomes the reasoning trace.
+1. **WARP graph ontology and collapse model**
+   - explicit node/edge vocabulary
+   - explicit split between structural truth and causal provenance
+   - explicit definition of session, strand, checkout epoch, and
+     collapse
+
+2. **Persisted sub-commit local history**
+   - meaningful between-commit activity survives across sessions
+   - inspectable local history without pretending every event is durable
+     Git truth
+
+3. **Provenance and attribution instrumentation**
+   - direct evidence for agent/human/git attribution
+   - inspectable evidence trails
+   - honest confidence boundaries
+
+4. **Reactive workspace overlay and checkout epochs**
+   - live overlay updates
+   - explicit branch / checkout / merge / rewrite transitions
+   - no smearing one causal workspace across incompatible bases
+
+5. **Same-repo concurrent agent model**
+   - clear separation between canonical repo history, worktree-local
+     live state, and session-local causal state
+   - strands or strand families instead of fake single-actor sessions
+
+6. **Symbol continuity for precise slices**
+   - rename continuity and stronger identity become more important once
+     collapse is causal-slice-based instead of whole-session-based
+
+## What is active now
+
+Cycle `0058-system-wide-resource-pressure-and-fairness` is still active
+in METHOD.
+
+Its execution-substrate tranche is effectively the work we have already
+been doing:
+
+- async `GitClient` via `@git-stunts/plumbing`
+- async daemon-heavy request-path filesystem reads
+- daemon scheduler and child-process worker pool
+- monitor ticks routed through the scheduler
+- logical WARP writer lanes keyed by stable writer identity rather than
+  worker identity
+
+That work is still valuable. It is the execution substrate the next
+WARP packet needs.
+
+The important scope correction is: `0058` should finish as an execution
+substrate cycle. The new strand/collapse ontology should be a follow-on
+WARP cycle, not a reason to quietly widen `0058` into a different hill.
 
 ## What does NOT ship under this bearing
 
-- Live study execution (infrastructure built, study runs when ready)
-- Non-read burden policy beyond file reads (measurement exists; policy
-  remains later)
-- Human-facing UX (git-graft-enhance — cool idea for later)
+- pretending transport sessions are the final provenance model
+- treating every transient read/search as canonical structural truth
+- remote or multi-user daemon claims
+- worker identity as graph provenance
+- "whole strand collapse" as the default admission model
+- a human-first GUI product story
 
 ## What just shipped
 
-Cycle 0023 — WARP Level 1 (v0.4.0): WARP indexer, `graft_since`,
-`graft_map`, `graft index` CLI, observer factory with 8 canonical
-lenses, directory tree modeling, 11 WARP invariants. 434 tests,
-14 tools.
+The daemon/system substrate is now real enough to support the next WARP
+turn:
 
-Cycle 0049 — non-read burden instrumentation: receipts now classify
-tool burden kind, `stats` reports cumulative burden by kind, and
-`doctor` exposes a compact non-read burden summary without introducing
-new policy.
-
-Cycle 0050 — shared-daemon trust model: the future shared service is
-now defined as same-user and local-machine only by default, with
-server-resolved workspace identity, operator-mediated authorization,
-isolated session/log state, and default-denied escape hatches.
-
-Cycle 0051 — workspace-binding model: the future daemon now has an
-explicit bind/rebind contract, separate transport posture, and a clean
-identity split across canonical repo, live worktree, and session-local
-state.
-
-Cycle 0052 — daemon binding surface: the MCP server now has an internal
-daemon session mode with real `workspace_bind`, `workspace_status`, and
-`workspace_rebind` tools, unbound gating for repo-scoped tools, default
-run-capture denial in daemon mode, fresh session-local slice reset on
-rebind, and same-repo WARP reuse keyed by canonical repo identity.
-
-Cycle 0053 — daemon transport and lifecycle: `graft daemon` now runs a
-same-user local MCP daemon on a Unix socket or named pipe, exposes
-`/healthz` and `/mcp`, opens and closes daemon sessions by transport
-lifecycle, and shares one repo-scoped WARP pool across same-repo daemon
-sessions while leaving repo-local `graft serve` unchanged.
-
-Cycle 0054 — daemon control plane: daemon workspace authorization is
-now explicit and central, daemon-wide session and workspace inspection
-is available through MCP, `/healthz` reflects control-plane counts, and
-per-workspace daemon capability posture can now be changed without
-exposing another session's receipts or shell output.
-
-Cycle 0055 — persistent monitor runtime: daemon mode now exposes
-repo-scoped monitor lifecycle tools, the first worker kind is a
-background incremental WARP indexer, monitor state survives daemon
-restart, and daemon health now includes bounded monitor and backlog
-counts.
-
-Cycle 0056 — multi-repo coordination model: canonical repo identity,
-live worktree identity, and daemon session identity are now explicit
-separate layers; the system-wide daemon view is defined as
-observational and authorization-filtered; and the next work is split
-into filtered repo overview first and fairness second.
-
-Cycle 0057 — repo overview surface: daemon mode now exposes
-`daemon_repos`, a bounded one-row-per-authorized-repo join over the
-authorization registry, daemon session registry, and persistent monitor
-runtime. Repo rows now show compact worktree, backlog, monitor, and
-last-activity signal without exposing session-local receipts, cache
-content, saved state, runtime-log payloads, or shell output.
+- cycles `0050`–`0057` established the trust model, daemon transport,
+  workspace binding, control plane, persistent monitors, multi-repo
+  overview, and explicit same-repo identity splits
+- cycle `0058` has so far built the async Git/FS, scheduler, worker,
+  and writer-lane substrate needed for fair execution
+- backlog now explicitly captures branch-switch hook/bootstrap concerns
+  and the need for a first-class graph ontology / collapse model
 
 ## What feels wrong
 
-- WARP indexing is slow on large repos — `core().materialize()`
-  per commit with removals is expensive. Background indexing and
-  incremental updates needed.
-- The first persistent repo-scoped monitor is real, but only for
-  background WARP indexing. Multi-repo coordination and same-repo
-  concurrent write safety remain open.
-- The multi-repo system model now has a real repo overview surface, but
-  fairness and daemon-wide resource pressure across many repos remain
-  open.
-- Agent opt-in friction persists. `graft init` can seed `CLAUDE.md`
-  and `AGENTS.md`, but most clients still default to native Read unless
-  they have a stronger guardrail.
-- CodeRabbit rate limiting still painful on multi-commit PRs.
+- `session` is still too transport-scoped in the code and docs
+- branch / checkout transitions are not yet first-class strand or
+  checkout-epoch boundaries
+- target repos do not yet have an honest product hook/bootstrap story
+  for branch-switch-aware strand management
+- canonical structural truth versus canonical provenance is not yet an
+  explicit ontology in code
+- collapse semantics are still discussed more in design chat than in
+  repo truth
+- symbol identity is still name-addressable, which will make precise
+  causal slicing noisy
 
 ## Bar For General System-Wide Use
 
-Do not declare Graft ready for default use across arbitrary projects
-on this machine until all of these are true:
+Do not declare Graft ready for default use across arbitrary projects on
+this machine until all of these are true:
 
-1. **Unsupported-file degradation is honest** — no more fake empty code
-   outlines for Markdown or other unsupported text.
+1. **Unsupported-file degradation is honest** — no fake empty code
+   outlines for unsupported text.
 2. **Policy fidelity is unified** — MCP, CLI, hooks, historical reads,
    working-tree reads, budget/session handling, and `.graftignore`
-   all enforce the same contract.
+   enforce the same contract.
 3. **Structured outputs are versioned** — every machine-readable MCP /
    CLI surface has an explicit JSON schema with versioning.
-4. **Layered worldline semantics exist in code, not just design** —
-   commit worldline, ref views, and workspace overlay are enforced by
-   implementation and tests.
-5. **Language coverage is broadened or the boundary is explicit** —
-   either support expands beyond JS/TS, or non-JS/TS repos degrade so
-   clearly and lawfully that "general use" is still honest.
-6. **Shared-daemon trust boundaries are explicit** — before any
-   system-wide daemon claim, client authentication, workspace
-   authorization, session/log isolation, and escape-hatch gating must
-   be defined and then implemented.
+4. **Layered worldline semantics exist in code** — commit worldline,
+   ref views, workspace overlay, checkout epochs, and their boundaries
+   are enforced by implementation and tests.
+5. **Between-commit provenance semantics exist in code** — session
+   strands, causal events, and collapse checkpoints are real product
+   concepts, not only design language.
+6. **Shared-daemon trust boundaries remain explicit** — client
+   authentication posture, workspace authorization, session/log
+   isolation, and escape-hatch gating stay inspectable and honest.
