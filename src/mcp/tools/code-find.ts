@@ -53,6 +53,99 @@ class CodeFindRequest {
   }
 }
 
+interface CodeFindOptions {
+  readonly allowWarp: boolean;
+}
+
+export async function runCodeFind(
+  ctx: ToolContext,
+  args: Record<string, unknown>,
+  options: CodeFindOptions,
+) {
+  const request = new CodeFindRequest(args, ctx.projectRoot);
+  const precisionRequest = request.toPrecisionSearchRequest();
+  const repoState = ctx.getRepoState();
+  const layer = repoState.dirty ? "workspace_overlay" : "ref_view";
+
+  let allMatches: PrecisionSymbolMatch[] = [];
+  let source: "warp" | "live" = "live";
+
+  if (options.allowWarp && !repoState.dirty) {
+    try {
+      const warp = await ctx.getWarp();
+      const ceilings = await getIndexedCommitCeilings(warp);
+      const headSha = await resolveGitRef("HEAD", ctx.git, ctx.projectRoot);
+      if (ceilings.has(headSha)) {
+        allMatches = await searchWarpSymbols(warp, precisionRequest);
+        source = "warp";
+      }
+    } catch {
+      source = "live";
+    }
+  }
+
+  if (source === "live") {
+    allMatches = await searchLiveSymbols(
+      ctx,
+      (await listGitFiles(request.toProjectFileQuery(ctx.projectRoot), ctx.git)).paths,
+      precisionRequest,
+    );
+  }
+
+  const visibleMatches: PrecisionSymbolMatch[] = [];
+  const fileCache = new Map<string, string>();
+  let firstRefusal:
+    | {
+      path: string;
+      reason: string;
+      reasonDetail: string;
+      next: readonly string[];
+      actual: { lines: number; bytes: number };
+    }
+    | undefined;
+
+  for (const match of allMatches) {
+    let content = fileCache.get(match.path);
+    if (content === undefined) {
+      const loaded = await loadFileContent(ctx, match.path);
+      if (loaded === null) continue;
+      fileCache.set(match.path, loaded);
+      content = loaded;
+    }
+
+    const refusal = evaluatePrecisionPolicy(ctx, match.path, content);
+    if (refusal !== null) {
+      firstRefusal ??= refusal;
+      continue;
+    }
+    visibleMatches.push(match);
+  }
+
+  if (visibleMatches.length === 0 && firstRefusal !== undefined) {
+    return ctx.respond("code_find", {
+      query: request.query,
+      kind: request.kind ?? null,
+      path: firstRefusal.path,
+      projection: "refused",
+      reason: firstRefusal.reason,
+      reasonDetail: firstRefusal.reasonDetail,
+      next: [...firstRefusal.next],
+      actual: firstRefusal.actual,
+      source,
+      layer,
+    });
+  }
+
+  return ctx.respond("code_find", {
+    query: request.query,
+    kind: request.kind ?? null,
+    matches: visibleMatches,
+    total: visibleMatches.length,
+    source,
+    layer,
+  });
+}
+
 export const codeFindTool: ToolDefinition = {
   name: "code_find",
   description:
@@ -66,89 +159,6 @@ export const codeFindTool: ToolDefinition = {
   },
   policyCheck: true,
   createHandler(ctx: ToolContext): ToolHandler {
-    return async (args) => {
-      const request = new CodeFindRequest(args, ctx.projectRoot);
-      const precisionRequest = request.toPrecisionSearchRequest();
-      const repoState = ctx.getRepoState();
-      const layer = repoState.dirty ? "workspace_overlay" : "ref_view";
-
-      let allMatches: PrecisionSymbolMatch[] = [];
-      let source: "warp" | "live" = "live";
-
-      if (!repoState.dirty) {
-        try {
-          const warp = await ctx.getWarp();
-          const ceilings = await getIndexedCommitCeilings(warp);
-          const headSha = await resolveGitRef("HEAD", ctx.git, ctx.projectRoot);
-          if (ceilings.has(headSha)) {
-            allMatches = await searchWarpSymbols(warp, precisionRequest);
-            source = "warp";
-          }
-        } catch {
-          source = "live";
-        }
-      }
-
-      if (source === "live") {
-        allMatches = await searchLiveSymbols(
-          ctx,
-          (await listGitFiles(request.toProjectFileQuery(ctx.projectRoot), ctx.git)).paths,
-          precisionRequest,
-        );
-      }
-
-      const visibleMatches: PrecisionSymbolMatch[] = [];
-      const fileCache = new Map<string, string>();
-      let firstRefusal:
-        | {
-          path: string;
-          reason: string;
-          reasonDetail: string;
-          next: readonly string[];
-          actual: { lines: number; bytes: number };
-        }
-        | undefined;
-
-      for (const match of allMatches) {
-        let content = fileCache.get(match.path);
-        if (content === undefined) {
-          const loaded = await loadFileContent(ctx, match.path);
-          if (loaded === null) continue;
-          fileCache.set(match.path, loaded);
-          content = loaded;
-        }
-
-        const refusal = evaluatePrecisionPolicy(ctx, match.path, content);
-        if (refusal !== null) {
-          firstRefusal ??= refusal;
-          continue;
-        }
-        visibleMatches.push(match);
-      }
-
-      if (visibleMatches.length === 0 && firstRefusal !== undefined) {
-        return ctx.respond("code_find", {
-          query: request.query,
-          kind: request.kind ?? null,
-          path: firstRefusal.path,
-          projection: "refused",
-          reason: firstRefusal.reason,
-          reasonDetail: firstRefusal.reasonDetail,
-          next: [...firstRefusal.next],
-          actual: firstRefusal.actual,
-          source,
-          layer,
-        });
-      }
-
-      return ctx.respond("code_find", {
-        query: request.query,
-        kind: request.kind ?? null,
-        matches: visibleMatches,
-        total: visibleMatches.length,
-        source,
-        layer,
-      });
-    };
+    return (args) => runCodeFind(ctx, args, { allowWarp: true });
   },
 };

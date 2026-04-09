@@ -20,9 +20,25 @@ import { graftDiffTool } from "./tools/graft-diff.js";
 import { sinceTool } from "./tools/since.js";
 import { mapTool } from "./tools/map.js";
 import { codeRefsTool } from "./tools/code-refs.js";
+import { codeFindTool, runCodeFind } from "./tools/code-find.js";
+import { codeShowTool, runCodeShow } from "./tools/code-show.js";
 import { safeReadTool } from "./tools/safe-read.js";
 import { fileOutlineTool } from "./tools/file-outline.js";
 import { changedSinceTool } from "./tools/changed-since.js";
+
+const codeFindLiveWorkerTool: ToolDefinition = {
+  ...codeFindTool,
+  createHandler(ctx: ToolContext): ToolHandler {
+    return (args) => runCodeFind(ctx, args, { allowWarp: false });
+  },
+};
+
+const codeShowLiveWorkerTool: ToolDefinition = {
+  ...codeShowTool,
+  createHandler(ctx: ToolContext): ToolHandler {
+    return (args) => runCodeShow(ctx, args, { allowWarp: false });
+  },
+};
 
 const OFFLOADED_REPO_TOOL_DEFINITIONS = Object.freeze({
   safe_read: safeReadTool,
@@ -32,6 +48,8 @@ const OFFLOADED_REPO_TOOL_DEFINITIONS = Object.freeze({
   graft_since: sinceTool,
   graft_map: mapTool,
   code_refs: codeRefsTool,
+  code_find_live: codeFindLiveWorkerTool,
+  code_show_live: codeShowLiveWorkerTool,
 });
 
 export type OffloadedRepoToolName = keyof typeof OFFLOADED_REPO_TOOL_DEFINITIONS;

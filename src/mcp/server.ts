@@ -463,6 +463,20 @@ export function createGraftServer(options: CreateGraftServerOptions = {}): Graft
     return daemonOffloadedRepoTools.has(name);
   }
 
+  function resolveDaemonOffloadedRepoTool(
+    name: string,
+    parsed: Record<string, unknown>,
+    dirty: boolean,
+  ): OffloadedRepoToolName | null {
+    if (name === "code_find") {
+      return dirty ? "code_find_live" : null;
+    }
+    if (name === "code_show") {
+      return parsed["ref"] === undefined ? "code_show_live" : null;
+    }
+    return isOffloadedRepoTool(name) ? name : null;
+  }
+
   async function invokeTool(
     name: string,
     handler: ToolHandler,
@@ -534,8 +548,16 @@ export function createGraftServer(options: CreateGraftServerOptions = {}): Graft
           laneKey: `repo_interactive:${execution.repoId}`,
         }, async () => {
           const activeExecution = execution;
-          if (activeExecution !== null && daemonWorkerPool !== null && isOffloadedRepoTool(name)) {
+          if (activeExecution !== null && daemonWorkerPool !== null) {
             await activeExecution.repoState.observe();
+            const offloadedTool = resolveDaemonOffloadedRepoTool(
+              name,
+              parsed,
+              activeExecution.repoState.getState().dirty,
+            );
+            if (offloadedTool === null) {
+              return executeHandler();
+            }
             const cacheSnapshots = typeof parsed["path"] === "string"
               ? (() => {
                 const filePath = activeExecution.resolvePath(parsed["path"]);
@@ -548,7 +570,7 @@ export function createGraftServer(options: CreateGraftServerOptions = {}): Graft
               traceId,
               seq: ++seq,
               startedAtMs,
-              tool: name,
+              tool: offloadedTool,
               args: parsed,
               projectRoot: activeExecution.projectRoot,
               graftDir: activeExecution.graftDir,
@@ -566,7 +588,7 @@ export function createGraftServer(options: CreateGraftServerOptions = {}): Graft
               activeExecution.cache.applySnapshot(update.path, update.observation);
             }
             activeExecution.metrics.applyDelta(workerResult.metricsDelta);
-            activeExecution.metrics.recordToolResult(name, workerResult.textBytes);
+            activeExecution.metrics.recordToolResult(name as ToolDefinition["name"], workerResult.textBytes);
             activeExecution.session.recordBytesConsumed(workerResult.textBytes);
             invocation.response = {
               receipt: workerResult.receipt,

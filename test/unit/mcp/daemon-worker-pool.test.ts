@@ -196,4 +196,74 @@ describe("mcp: daemon worker pool", () => {
     expect(secondPayload.projection).toBe("cache_hit");
     expect(secondPayload.reason).toBe("REREAD_UNCHANGED");
   });
+
+  it("runs dirty code_find through the live worker path", async () => {
+    const repoDir = createTestRepo("graft-daemon-code-find-worker-");
+    cleanups.push(() => {
+      cleanupTestRepo(repoDir);
+    });
+
+    fs.writeFileSync(path.join(repoDir, "app.ts"), [
+      "export function greet(name: string): string {",
+      "  return `hello ${name}`;",
+      "}",
+      "",
+    ].join("\n"));
+    git(repoDir, "add -A");
+    git(repoDir, "commit -m init");
+
+    fs.writeFileSync(path.join(repoDir, "app.ts"), [
+      "export function greet(name: string): string {",
+      "  return `hey ${name}`;",
+      "}",
+      "",
+    ].join("\n"));
+
+    const pool = new ChildProcessDaemonWorkerPool({ size: 1 });
+    cleanups.push(async () => {
+      await pool.close();
+    });
+
+    const result = await pool.runRepoTool({
+      sessionId: "session:test",
+      traceId: "trace:test",
+      seq: 1,
+      startedAtMs: Date.now(),
+      tool: "code_find_live",
+      args: { query: "greet" },
+      projectRoot: repoDir,
+      graftDir: path.join(repoDir, ".graft"),
+      graftignorePatterns: [],
+      repoId: "repo:test",
+      worktreeId: "worktree:test",
+      gitCommonDir: path.join(repoDir, ".git"),
+      capabilityProfile: DEFAULT_DAEMON_CAPABILITY_PROFILE,
+      repoState: {
+        checkoutEpoch: 1,
+        headRef: "main",
+        headSha: git(repoDir, "rev-parse HEAD").trim(),
+        dirty: true,
+        lastTransition: null,
+        workspaceOverlay: null,
+      },
+      sessionSnapshot: new SessionTracker().snapshot(),
+      metricsSnapshot: new Metrics().snapshot(),
+    });
+
+    const content = result.result.content[0];
+    expect(content?.type).toBe("text");
+    if (content?.type !== "text") {
+      throw new Error("expected text content");
+    }
+    const payload = JSON.parse(content.text) as {
+      total: number;
+      source: string;
+      layer: string;
+      matches: { name: string }[];
+    };
+    expect(payload.total).toBe(1);
+    expect(payload.source).toBe("live");
+    expect(payload.layer).toBe("workspace_overlay");
+    expect(payload.matches[0]?.name).toBe("greet");
+  });
 });

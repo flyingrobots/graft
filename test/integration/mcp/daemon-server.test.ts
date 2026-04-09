@@ -432,6 +432,85 @@ describe("mcp: daemon transport and lifecycle", () => {
     expect(daemonStatus.workers.completedTasks).toBeGreaterThanOrEqual(2);
   });
 
+  it("offloads dirty precision lookups through child-process workers", async () => {
+    const repoDir = createTestRepo("graft-daemon-precision-live-");
+    repos.push(repoDir);
+    fs.writeFileSync(path.join(repoDir, "app.ts"), [
+      "export function greet(name: string): string {",
+      "  return `hello ${name}`;",
+      "}",
+      "",
+    ].join("\n"));
+    git(repoDir, "add -A");
+    git(repoDir, "commit -m init");
+    fs.writeFileSync(path.join(repoDir, "app.ts"), [
+      "export function greet(name: string): string {",
+      "  return `hey ${name}`;",
+      "}",
+      "",
+    ].join("\n"));
+
+    const rootDir = fs.mkdtempSync(path.join(os.tmpdir(), "graft-daemon-root-"));
+    roots.push(rootDir);
+    const socketPath = path.join(rootDir, "daemon.sock");
+    const daemon = await startDaemonServer({
+      graftDir: rootDir,
+      socketPath,
+    });
+    daemons.push(daemon);
+
+    const sessionId = await initializeSession(socketPath);
+    await callTool<{ ok: boolean }>(
+      socketPath,
+      sessionId,
+      "workspace_authorize",
+      { cwd: repoDir },
+      40,
+    );
+    await callTool<{ ok: boolean }>(
+      socketPath,
+      sessionId,
+      "workspace_bind",
+      { cwd: repoDir },
+      41,
+    );
+
+    const find = await callTool<{ total: number; source: string; layer: string }>(
+      socketPath,
+      sessionId,
+      "code_find",
+      { query: "greet" },
+      42,
+    );
+    expect(find).toMatchObject({
+      total: 1,
+      source: "live",
+      layer: "workspace_overlay",
+    });
+
+    const show = await callTool<{ symbol: string; source: string; layer: string; content: string }>(
+      socketPath,
+      sessionId,
+      "code_show",
+      { symbol: "greet" },
+      43,
+    );
+    expect(show.symbol).toBe("greet");
+    expect(show.source).toBe("live");
+    expect(show.layer).toBe("workspace_overlay");
+    expect(show.content).toContain("return `hey ${name}`;");
+
+    const daemonStatus = await callTool<{ workers: { completedTasks: number; mode: string } }>(
+      socketPath,
+      sessionId,
+      "daemon_status",
+      {},
+      44,
+    );
+    expect(daemonStatus.workers.mode).toBe("child_processes");
+    expect(daemonStatus.workers.completedTasks).toBeGreaterThanOrEqual(2);
+  });
+
   it("persists repo-scoped monitor lifecycle across daemon restart", async () => {
     const repoDir = createTestRepo("graft-daemon-monitor-");
     repos.push(repoDir);
