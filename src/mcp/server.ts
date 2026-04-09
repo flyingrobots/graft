@@ -501,13 +501,13 @@ export function createGraftServer(options: CreateGraftServerOptions = {}): Graft
   }
 
   function wrapWithPolicyCheck(toolName: ToolDefinition["name"], inner: ToolHandler): ToolHandler {
-    return (args: Record<string, unknown>) => {
+    return async (args: Record<string, unknown>) => {
       const rawPath = args["path"] as string | undefined;
       if (rawPath === undefined) return inner(args);
       const filePath = ctx.resolvePath(rawPath);
       let content: string;
       try {
-        content = ctx.fs.readFileSync(filePath, "utf-8");
+        content = await ctx.fs.readFile(filePath, "utf-8");
       } catch {
         // File unreadable — let the inner handler deal with the error
         return inner(args);

@@ -14,7 +14,7 @@ export const changedSinceTool: ToolDefinition = {
     "default; pass consume: true to update the observation cache.",
   schema: { path: z.string(), consume: z.boolean().optional() },
   createHandler(ctx: ToolContext): ToolHandler {
-    return (args) => {
+    return async (args) => {
       const filePath = ctx.resolvePath(args["path"] as string);
       const consume = (args["consume"] as boolean | undefined) === true;
 
@@ -22,7 +22,7 @@ export const changedSinceTool: ToolDefinition = {
       // Read the file first to get dimensions for policy evaluation.
       let rawContent: string;
       try {
-        rawContent = ctx.fs.readFileSync(filePath, "utf-8");
+        rawContent = await ctx.fs.readFile(filePath, "utf-8");
       } catch {
         return ctx.respond("changed_since", { status: "file_not_found" });
       }

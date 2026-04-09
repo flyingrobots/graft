@@ -108,7 +108,7 @@ export async function graftDiff(opts: GraftDiffOptions): Promise<GraftDiffResult
       headContent = await getFileAtRef(opts.head, filePath, { cwd, git: opts.git });
     } else {
       try {
-        headContent = opts.fs.readFileSync(opts.resolveWorkingTreePath(filePath), "utf-8");
+        headContent = await opts.fs.readFile(opts.resolveWorkingTreePath(filePath), "utf-8");
       } catch {
         headContent = null;
       }

@@ -89,7 +89,7 @@ export const mapTool: ToolDefinition = {
       for (const filePath of filePaths) {
         let content: string;
         try {
-          content = ctx.fs.readFileSync(path.join(ctx.projectRoot, filePath), "utf-8");
+          content = await ctx.fs.readFile(path.join(ctx.projectRoot, filePath), "utf-8");
         } catch {
           continue;
         }

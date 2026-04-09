@@ -177,7 +177,7 @@ export async function loadFileContent(
   }
 
   try {
-    return ctx.fs.readFileSync(ctx.resolvePath(filePath), "utf-8");
+    return await ctx.fs.readFile(ctx.resolvePath(filePath), "utf-8");
   } catch {
     return null;
   }

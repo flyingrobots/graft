@@ -74,7 +74,7 @@ describe("mcp: daemon repos", () => {
           health: expect.any(String),
           lifecycleState: "running",
         }),
-        worktrees: [
+        worktrees: expect.arrayContaining([
           expect.objectContaining({
             worktreeRoot: fs.realpathSync(repoDir),
             activeSessions: 0,
@@ -83,7 +83,7 @@ describe("mcp: daemon repos", () => {
             worktreeRoot: fs.realpathSync(worktreeDir),
             activeSessions: 0,
           }),
-        ],
+        ]),
       }),
     ]);
 

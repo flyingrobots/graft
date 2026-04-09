@@ -32,7 +32,7 @@ export const safeReadTool: ToolDefinition = {
       // eliminating TOCTOU races where the file changes between reads.
       let cf: CachedFile | null = null;
       try {
-        const rawContent = ctx.fs.readFileSync(filePath, "utf-8");
+        const rawContent = await ctx.fs.readFile(filePath, "utf-8");
         cf = new CachedFile(filePath, rawContent);
       } catch {
         // File doesn't exist or can't be read — proceed to safeRead for error handling
