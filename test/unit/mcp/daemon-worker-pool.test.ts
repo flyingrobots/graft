@@ -87,6 +87,7 @@ describe("mcp: daemon worker pool", () => {
       repoId: "repo:test",
       worktreeId: "worktree:test",
       gitCommonDir: path.join(repoDir, ".git"),
+      writerId: "graft_session_test",
       capabilityProfile: DEFAULT_DAEMON_CAPABILITY_PROFILE,
       repoState: {
         checkoutEpoch: 1,
@@ -151,6 +152,7 @@ describe("mcp: daemon worker pool", () => {
       repoId: "repo:test",
       worktreeId: "worktree:test",
       gitCommonDir: path.join(repoDir, ".git"),
+      writerId: "graft_session_test",
       capabilityProfile: DEFAULT_DAEMON_CAPABILITY_PROFILE,
       repoState: {
         checkoutEpoch: 1,
@@ -237,6 +239,7 @@ describe("mcp: daemon worker pool", () => {
       repoId: "repo:test",
       worktreeId: "worktree:test",
       gitCommonDir: path.join(repoDir, ".git"),
+      writerId: "graft_session_test",
       capabilityProfile: DEFAULT_DAEMON_CAPABILITY_PROFILE,
       repoState: {
         checkoutEpoch: 1,

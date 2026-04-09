@@ -38,6 +38,7 @@ import {
   type RuntimeObservabilityState,
 } from "./runtime-observability.js";
 import { InMemoryWarpPool, type WarpPool } from "./warp-pool.js";
+import { buildSessionWarpWriterId } from "../warp/writer-id.js";
 
 // Tool definitions — each file exports a ToolDefinition object
 import { safeReadTool } from "./tools/safe-read.js";
@@ -143,6 +144,7 @@ export function createGraftServer(options: CreateGraftServerOptions = {}): Graft
   const mcpServer = new McpServer({ name: "graft", version: "0.0.0" });
   const sessionId = crypto.randomUUID();
   const mode = options.mode ?? "repo_local";
+  const sessionWarpWriterId = mode === "daemon" ? buildSessionWarpWriterId(sessionId) : undefined;
   const projectRoot = mode === "repo_local" ? (options.projectRoot ?? process.cwd()) : options.projectRoot;
   const graftDir = options.graftDir
     ?? (mode === "repo_local" && projectRoot !== undefined ? path.join(projectRoot, ".graft") : undefined);
@@ -215,6 +217,7 @@ export function createGraftServer(options: CreateGraftServerOptions = {}): Graft
     graftDir,
     ...(projectRoot !== undefined ? { projectRoot } : {}),
     warpPool,
+    ...(sessionWarpWriterId !== undefined ? { warpWriterId: sessionWarpWriterId } : {}),
     ...(daemonControlPlane !== null ? { authorizationPolicy: daemonControlPlane } : {}),
   });
   const daemonRepoOverview = daemonControlPlane !== null && monitorRuntime !== null
@@ -545,7 +548,7 @@ export function createGraftServer(options: CreateGraftServerOptions = {}): Graft
           tool: name,
           kind: "repo_tool",
           priority: "interactive",
-          laneKey: `repo_interactive:${execution.repoId}`,
+          writerId: execution.warpWriterId,
         }, async () => {
           const activeExecution = execution;
           if (activeExecution !== null && daemonWorkerPool !== null) {
@@ -578,6 +581,7 @@ export function createGraftServer(options: CreateGraftServerOptions = {}): Graft
               repoId: activeExecution.repoId,
               worktreeId: activeExecution.worktreeId,
               gitCommonDir: activeExecution.gitCommonDir,
+              writerId: activeExecution.warpWriterId,
               capabilityProfile: activeExecution.capabilityProfile,
               repoState: activeExecution.repoState.getState(),
               sessionSnapshot: activeExecution.session.snapshot(),

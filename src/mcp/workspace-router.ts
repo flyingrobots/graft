@@ -91,6 +91,7 @@ interface BoundWorkspace {
   readonly graftignorePatterns: readonly string[];
   readonly resolvePath: (input: string) => string;
   readonly capabilityProfile: WorkspaceCapabilityProfile;
+  readonly warpWriterId: string;
   readonly slice: WorkspaceSlice;
   readonly getWarp: () => Promise<WarpApp>;
 }
@@ -105,6 +106,7 @@ export interface WorkspaceExecutionContext {
   readonly graftignorePatterns: readonly string[];
   readonly resolvePath: (input: string) => string;
   readonly capabilityProfile: WorkspaceCapabilityProfile;
+  readonly warpWriterId: string;
   readonly status: WorkspaceStatus;
   readonly session: SessionTracker;
   readonly cache: ObservationCache;
@@ -133,6 +135,7 @@ interface WorkspaceRouterOptions {
   readonly graftDir: string;
   readonly projectRoot?: string | undefined;
   readonly warpPool: WarpPool;
+  readonly warpWriterId?: string | undefined;
   readonly authorizationPolicy?: WorkspaceAuthorizationPolicy | undefined;
 }
 
@@ -352,6 +355,7 @@ export class WorkspaceRouter {
       graftignorePatterns: binding.graftignorePatterns,
       resolvePath: binding.resolvePath,
       capabilityProfile: binding.capabilityProfile,
+      warpWriterId: binding.warpWriterId,
       status: {
         sessionMode: this.options.mode,
         bindState: "bound",
@@ -461,11 +465,12 @@ export class WorkspaceRouter {
       graftignorePatterns: loadProjectGraftignore(this.options.fs, resolved.worktreeRoot),
       resolvePath: createPathResolver(resolved.worktreeRoot),
       capabilityProfile,
+      warpWriterId: this.options.warpWriterId ?? DEFAULT_WARP_WRITER_ID,
       slice,
       getWarp: () => this.options.warpPool.getOrOpen(
         resolved.repoId,
         resolved.worktreeRoot,
-        DEFAULT_WARP_WRITER_ID,
+        this.options.warpWriterId ?? DEFAULT_WARP_WRITER_ID,
       ),
     };
   }

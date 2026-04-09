@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { DEFAULT_WARP_WRITER_ID, buildWarpWriterId } from "../../../src/warp/writer-id.js";
+import {
+  DEFAULT_WARP_WRITER_ID,
+  buildMonitorWarpWriterId,
+  buildSessionWarpWriterId,
+  buildWarpWriterId,
+} from "../../../src/warp/writer-id.js";
 
 describe("warp: writer id", () => {
   it("keeps the default writer id stable", () => {
@@ -28,5 +33,10 @@ describe("warp: writer id", () => {
     const right = buildWarpWriterId("monitor", "repo:right");
 
     expect(left).not.toBe(right);
+  });
+
+  it("derives stable session and monitor writer helpers", () => {
+    expect(buildSessionWarpWriterId("session-123")).toMatch(/^graft_session_[a-f0-9]{12}$/);
+    expect(buildMonitorWarpWriterId("repo:abc123")).toMatch(/^graft_monitor_[a-f0-9]{12}$/);
   });
 });

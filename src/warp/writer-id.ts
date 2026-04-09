@@ -20,3 +20,11 @@ export function buildWarpWriterId(kind: string, scope?: string): string {
   const digest = crypto.createHash("sha256").update(scope).digest("hex").slice(0, 12);
   return `graft_${lane}_${digest}`;
 }
+
+export function buildSessionWarpWriterId(sessionId: string): string {
+  return buildWarpWriterId("session", sessionId);
+}
+
+export function buildMonitorWarpWriterId(repoId: string): string {
+  return buildWarpWriterId("monitor", repoId);
+}

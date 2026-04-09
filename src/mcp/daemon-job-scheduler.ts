@@ -12,7 +12,7 @@ export interface DaemonJobRequest {
   readonly tool: string;
   readonly kind: DaemonJobKind;
   readonly priority: DaemonJobPriority;
-  readonly laneKey: string;
+  readonly writerId: string;
 }
 
 export interface DaemonJobView extends DaemonJobRequest {
@@ -29,8 +29,8 @@ export interface DaemonSchedulerCounts {
   readonly queuedJobs: number;
   readonly interactiveQueuedJobs: number;
   readonly backgroundQueuedJobs: number;
-  readonly activeRepoLanes: number;
-  readonly queuedRepoLanes: number;
+  readonly activeWriterLanes: number;
+  readonly queuedWriterLanes: number;
   readonly completedJobs: number;
   readonly failedJobs: number;
   readonly longestQueuedWaitMs: number;
@@ -59,8 +59,8 @@ export const ZERO_SCHEDULER_COUNTS: DaemonSchedulerCounts = Object.freeze({
   queuedJobs: 0,
   interactiveQueuedJobs: 0,
   backgroundQueuedJobs: 0,
-  activeRepoLanes: 0,
-  queuedRepoLanes: 0,
+  activeWriterLanes: 0,
+  queuedWriterLanes: 0,
   completedJobs: 0,
   failedJobs: 0,
   longestQueuedWaitMs: 0,
@@ -79,8 +79,12 @@ function toIso(ms: number): string {
   return new Date(ms).toISOString();
 }
 
-function compareRepoIds(left: string, right: string): number {
+function compareLaneKeys(left: string, right: string): number {
   return left.localeCompare(right);
+}
+
+function buildWriterLaneKey(job: Pick<DaemonJobRequest, "repoId" | "writerId">): string {
+  return `${job.repoId}:${job.writerId}`;
 }
 
 function toJobView(job: ScheduledJob, nowMs: number, state: DaemonJobState): DaemonJobView {
@@ -93,7 +97,7 @@ function toJobView(job: ScheduledJob, nowMs: number, state: DaemonJobState): Dae
     tool: job.tool,
     kind: job.kind,
     priority: job.priority,
-    laneKey: job.laneKey,
+    writerId: job.writerId,
     state,
     enqueuedAt: job.enqueuedAt,
     startedAt: job.startedAt,
@@ -108,8 +112,8 @@ export class DaemonJobScheduler {
   private readonly running = new Map<string, ScheduledJob>();
   private completedJobs = 0;
   private failedJobs = 0;
-  private lastInteractiveRepoId: string | null = null;
-  private lastBackgroundRepoId: string | null = null;
+  private lastInteractiveLaneKey: string | null = null;
+  private lastBackgroundLaneKey: string | null = null;
 
   constructor(options: DaemonJobSchedulerOptions = {}) {
     this.maxConcurrentJobs = normalizeMaxConcurrentJobs(options.maxConcurrentJobs);
@@ -150,8 +154,8 @@ export class DaemonJobScheduler {
       queuedJobs: queuedJobs.length,
       interactiveQueuedJobs,
       backgroundQueuedJobs,
-      activeRepoLanes: new Set([...this.running.values()].map((job) => job.repoId)).size,
-      queuedRepoLanes: new Set(queuedJobs.map((job) => job.repoId)).size,
+      activeWriterLanes: new Set([...this.running.values()].map((job) => buildWriterLaneKey(job))).size,
+      queuedWriterLanes: new Set(queuedJobs.map((job) => buildWriterLaneKey(job))).size,
       completedJobs: this.completedJobs,
       failedJobs: this.failedJobs,
       longestQueuedWaitMs,
@@ -172,9 +176,10 @@ export class DaemonJobScheduler {
 
   private enqueueJob(job: ScheduledJob): void {
     const queues = this.getQueues(job.priority);
-    const queue = queues.get(job.repoId) ?? [];
+    const laneKey = buildWriterLaneKey(job);
+    const queue = queues.get(laneKey) ?? [];
     queue.push(job);
-    queues.set(job.repoId, queue);
+    queues.set(laneKey, queue);
   }
 
   private dispatch(): void {
@@ -215,43 +220,41 @@ export class DaemonJobScheduler {
 
   private takeNextJobForPriority(priority: DaemonJobPriority): ScheduledJob | null {
     const queues = this.getQueues(priority);
-    return this.takeNextJobFromQueues(queues, priority, true)
-      ?? this.takeNextJobFromQueues(queues, priority, false);
+    return this.takeNextJobFromQueues(queues, priority);
   }
 
   private takeNextJobFromQueues(
     queues: Map<string, ScheduledJob[]>,
     priority: DaemonJobPriority,
-    avoidBusyRepos: boolean,
   ): ScheduledJob | null {
-    const repoIds = [...queues.entries()]
-      .filter(([repoId, queue]) => {
-        return queue.length > 0 && (!avoidBusyRepos || !this.hasRunningRepo(repoId));
+    const laneKeys = [...queues.entries()]
+      .filter(([laneKey, queue]) => {
+        return queue.length > 0 && !this.hasRunningLane(laneKey);
       })
-      .map(([repoId]) => repoId)
-      .sort(compareRepoIds);
+      .map(([laneKey]) => laneKey)
+      .sort(compareLaneKeys);
 
-    if (repoIds.length === 0) {
+    if (laneKeys.length === 0) {
       return null;
     }
 
-    const lastRepoId = priority === "interactive" ? this.lastInteractiveRepoId : this.lastBackgroundRepoId;
-    const lastIndex = lastRepoId === null ? -1 : repoIds.indexOf(lastRepoId);
-    const startIndex = lastIndex >= 0 ? (lastIndex + 1) % repoIds.length : 0;
+    const lastLaneKey = priority === "interactive" ? this.lastInteractiveLaneKey : this.lastBackgroundLaneKey;
+    const lastIndex = lastLaneKey === null ? -1 : laneKeys.indexOf(lastLaneKey);
+    const startIndex = lastIndex >= 0 ? (lastIndex + 1) % laneKeys.length : 0;
 
-    for (let offset = 0; offset < repoIds.length; offset++) {
-      const repoId = repoIds[(startIndex + offset) % repoIds.length];
-      if (repoId === undefined) continue;
-      const queue = queues.get(repoId);
+    for (let offset = 0; offset < laneKeys.length; offset++) {
+      const laneKey = laneKeys[(startIndex + offset) % laneKeys.length];
+      if (laneKey === undefined) continue;
+      const queue = queues.get(laneKey);
       const job = queue?.shift();
       if (job === undefined) continue;
       if (queue?.length === 0) {
-        queues.delete(repoId);
+        queues.delete(laneKey);
       }
       if (priority === "interactive") {
-        this.lastInteractiveRepoId = repoId;
+        this.lastInteractiveLaneKey = laneKey;
       } else {
-        this.lastBackgroundRepoId = repoId;
+        this.lastBackgroundLaneKey = laneKey;
       }
       return job;
     }
@@ -266,8 +269,8 @@ export class DaemonJobScheduler {
     ].flatMap((queue) => [...queue]);
   }
 
-  private hasRunningRepo(repoId: string): boolean {
-    return [...this.running.values()].some((job) => job.repoId === repoId);
+  private hasRunningLane(laneKey: string): boolean {
+    return [...this.running.values()].some((job) => buildWriterLaneKey(job) === laneKey);
   }
 
   private getQueues(priority: DaemonJobPriority): Map<string, ScheduledJob[]> {

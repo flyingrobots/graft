@@ -10,7 +10,7 @@ import {
   resolveWorkspaceRequest,
   type WorkspaceBindRequest,
 } from "./workspace-router.js";
-import { buildWarpWriterId } from "../warp/writer-id.js";
+import { buildMonitorWarpWriterId } from "../warp/writer-id.js";
 
 const CONTROL_PLANE_DIR = "control-plane";
 const MONITORS_FILE = "monitors.json";
@@ -355,7 +355,7 @@ export class PersistentMonitorRuntime {
       tool: "monitor_tick",
       kind: "persistent_monitor",
       priority: "background",
-      laneKey: `monitor:${repoId}`,
+      writerId: buildMonitorWarpWriterId(repoId),
     }, async () => {
       const record = this.records.get(repoId);
       if (record?.lifecycleState !== "running" || this.closing) {
@@ -386,7 +386,7 @@ export class PersistentMonitorRuntime {
         const result = await this.options.workerPool.runMonitorTick({
           repoId,
           worktreeRoot: anchor.worktreeRoot,
-          writerId: buildWarpWriterId("monitor", repoId),
+          writerId: buildMonitorWarpWriterId(repoId),
           lastIndexedCommit: record.lastIndexedCommit,
         });
         const latest = this.records.get(repoId) ?? record;

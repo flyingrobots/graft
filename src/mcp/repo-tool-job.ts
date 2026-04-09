@@ -4,7 +4,6 @@ import { nodeFs } from "../adapters/node-fs.js";
 import { nodeGit } from "../adapters/node-git.js";
 import { nodeProcessRunner } from "../adapters/node-process-runner.js";
 import { openWarp } from "../warp/open.js";
-import { DEFAULT_WARP_WRITER_ID } from "../warp/writer-id.js";
 import { SessionTracker, type SessionTrackerSnapshot } from "../session/tracker.js";
 import { buildReceiptResult, type McpToolReceipt, type McpToolResult } from "./receipt.js";
 import { createPathResolver, type ToolContext, type ToolDefinition, type ToolHandler } from "./context.js";
@@ -71,6 +70,7 @@ export interface RepoToolWorkerJob {
   readonly repoId: string;
   readonly worktreeId: string;
   readonly gitCommonDir: string;
+  readonly writerId: string;
   readonly capabilityProfile: WorkspaceCapabilityProfile;
   readonly repoState: RepoObservation;
   readonly sessionSnapshot: SessionTrackerSnapshot;
@@ -185,7 +185,7 @@ function buildWorkerContext(
     },
     resolvePath: createPathResolver(job.projectRoot),
     getWarp() {
-      return openWarp({ cwd: job.projectRoot, writerId: DEFAULT_WARP_WRITER_ID });
+      return openWarp({ cwd: job.projectRoot, writerId: job.writerId });
     },
     getRepoState() {
       return job.repoState;
