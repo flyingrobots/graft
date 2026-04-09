@@ -119,4 +119,81 @@ describe("mcp: daemon worker pool", () => {
       failedTasks: 0,
     }));
   });
+
+  it("round-trips cache updates for safe_read across child-process work", async () => {
+    const repoDir = createTestRepo("graft-daemon-safe-read-worker-");
+    cleanups.push(() => {
+      cleanupTestRepo(repoDir);
+    });
+
+    fs.writeFileSync(path.join(repoDir, "app.ts"), [
+      "export function greet(name: string): string {",
+      "  return `hello ${name}`;",
+      "}",
+      "",
+    ].join("\n"));
+    git(repoDir, "add -A");
+    git(repoDir, "commit -m init");
+
+    const pool = new ChildProcessDaemonWorkerPool({ size: 1 });
+    cleanups.push(async () => {
+      await pool.close();
+    });
+
+    const jobBase = {
+      sessionId: "session:test",
+      traceId: "trace:test",
+      tool: "safe_read" as const,
+      args: { path: "app.ts" },
+      projectRoot: repoDir,
+      graftDir: path.join(repoDir, ".graft"),
+      graftignorePatterns: [],
+      repoId: "repo:test",
+      worktreeId: "worktree:test",
+      gitCommonDir: path.join(repoDir, ".git"),
+      capabilityProfile: DEFAULT_DAEMON_CAPABILITY_PROFILE,
+      repoState: {
+        checkoutEpoch: 1,
+        headRef: "main",
+        headSha: git(repoDir, "rev-parse HEAD").trim(),
+        dirty: false,
+        lastTransition: null,
+        workspaceOverlay: null,
+      },
+      sessionSnapshot: new SessionTracker().snapshot(),
+      metricsSnapshot: new Metrics().snapshot(),
+    };
+
+    const first = await pool.runRepoTool({
+      ...jobBase,
+      seq: 1,
+      startedAtMs: Date.now(),
+    });
+    const firstContent = first.result.content[0];
+    expect(firstContent?.type).toBe("text");
+    if (firstContent?.type !== "text") {
+      throw new Error("expected text content");
+    }
+    const firstPayload = JSON.parse(firstContent.text) as { projection: string };
+    expect(firstPayload.projection).toBe("content");
+    expect(first.cacheUpdates).toHaveLength(1);
+    expect(first.cacheUpdates[0]?.observation).not.toBeNull();
+
+    const second = await pool.runRepoTool({
+      ...jobBase,
+      seq: 2,
+      startedAtMs: Date.now(),
+      cacheSnapshots: {
+        [first.cacheUpdates[0]!.path]: first.cacheUpdates[0]!.observation!,
+      },
+    });
+    const secondContent = second.result.content[0];
+    expect(secondContent?.type).toBe("text");
+    if (secondContent?.type !== "text") {
+      throw new Error("expected text content");
+    }
+    const secondPayload = JSON.parse(secondContent.text) as { projection: string; reason: string };
+    expect(secondPayload.projection).toBe("cache_hit");
+    expect(secondPayload.reason).toBe("REREAD_UNCHANGED");
+  });
 });

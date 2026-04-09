@@ -536,6 +536,13 @@ export function createGraftServer(options: CreateGraftServerOptions = {}): Graft
           const activeExecution = execution;
           if (activeExecution !== null && daemonWorkerPool !== null && isOffloadedRepoTool(name)) {
             await activeExecution.repoState.observe();
+            const cacheSnapshots = typeof parsed["path"] === "string"
+              ? (() => {
+                const filePath = activeExecution.resolvePath(parsed["path"]);
+                const snapshot = activeExecution.cache.snapshotEntry(filePath);
+                return snapshot === null ? {} : { [filePath]: snapshot };
+              })()
+              : undefined;
             const workerResult = await daemonWorkerPool.runRepoTool({
               sessionId,
               traceId,
@@ -553,7 +560,11 @@ export function createGraftServer(options: CreateGraftServerOptions = {}): Graft
               repoState: activeExecution.repoState.getState(),
               sessionSnapshot: activeExecution.session.snapshot(),
               metricsSnapshot: activeExecution.metrics.snapshot(),
+              ...(cacheSnapshots !== undefined ? { cacheSnapshots } : {}),
             });
+            for (const update of workerResult.cacheUpdates) {
+              activeExecution.cache.applySnapshot(update.path, update.observation);
+            }
             activeExecution.metrics.applyDelta(workerResult.metricsDelta);
             activeExecution.metrics.recordToolResult(name, workerResult.textBytes);
             activeExecution.session.recordBytesConsumed(workerResult.textBytes);

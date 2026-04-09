@@ -363,6 +363,75 @@ describe("mcp: daemon transport and lifecycle", () => {
     });
   });
 
+  it("preserves safe_read cache behavior across off-process daemon execution", async () => {
+    const repoDir = createTestRepo("graft-daemon-safe-read-");
+    repos.push(repoDir);
+    fs.writeFileSync(path.join(repoDir, "app.ts"), [
+      "export function greet(name: string): string {",
+      "  return `hello ${name}`;",
+      "}",
+      "",
+    ].join("\n"));
+    git(repoDir, "add -A");
+    git(repoDir, "commit -m init");
+
+    const rootDir = fs.mkdtempSync(path.join(os.tmpdir(), "graft-daemon-root-"));
+    roots.push(rootDir);
+    const socketPath = path.join(rootDir, "daemon.sock");
+    const daemon = await startDaemonServer({
+      graftDir: rootDir,
+      socketPath,
+    });
+    daemons.push(daemon);
+
+    const sessionId = await initializeSession(socketPath);
+    const authorization = await callTool<{ ok: boolean }>(
+      socketPath,
+      sessionId,
+      "workspace_authorize",
+      { cwd: repoDir },
+      30,
+    );
+    expect(authorization.ok).toBe(true);
+    const bind = await callTool<{ ok: boolean }>(
+      socketPath,
+      sessionId,
+      "workspace_bind",
+      { cwd: repoDir },
+      31,
+    );
+    expect(bind.ok).toBe(true);
+
+    const firstRead = await callTool<{ projection: string }>(
+      socketPath,
+      sessionId,
+      "safe_read",
+      { path: "app.ts" },
+      32,
+    );
+    expect(firstRead.projection).toBe("content");
+
+    const secondRead = await callTool<{ projection: string; reason: string }>(
+      socketPath,
+      sessionId,
+      "safe_read",
+      { path: "app.ts" },
+      33,
+    );
+    expect(secondRead.projection).toBe("cache_hit");
+    expect(secondRead.reason).toBe("REREAD_UNCHANGED");
+
+    const daemonStatus = await callTool<{ workers: { completedTasks: number; mode: string } }>(
+      socketPath,
+      sessionId,
+      "daemon_status",
+      {},
+      34,
+    );
+    expect(daemonStatus.workers.mode).toBe("child_processes");
+    expect(daemonStatus.workers.completedTasks).toBeGreaterThanOrEqual(2);
+  });
+
   it("persists repo-scoped monitor lifecycle across daemon restart", async () => {
     const repoDir = createTestRepo("graft-daemon-monitor-");
     repos.push(repoDir);

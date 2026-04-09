@@ -11,7 +11,7 @@ import { createPathResolver, type ToolContext, type ToolDefinition, type ToolHan
 import { resolveRunCaptureConfig } from "./run-capture-config.js";
 import { resolveRuntimeObservabilityState } from "./runtime-observability.js";
 import { Metrics, diffMetrics, type MetricsDelta, type MetricsSnapshot } from "./metrics.js";
-import { ObservationCache } from "./cache.js";
+import { ObservationCache, type ObservationSnapshot } from "./cache.js";
 import type { RepoObservation } from "./repo-state.js";
 import type { WorkspaceCapabilityProfile, WorkspaceStatus } from "./workspace-router.js";
 import { evaluateMcpPolicy } from "./policy.js";
@@ -20,8 +20,14 @@ import { graftDiffTool } from "./tools/graft-diff.js";
 import { sinceTool } from "./tools/since.js";
 import { mapTool } from "./tools/map.js";
 import { codeRefsTool } from "./tools/code-refs.js";
+import { safeReadTool } from "./tools/safe-read.js";
+import { fileOutlineTool } from "./tools/file-outline.js";
+import { changedSinceTool } from "./tools/changed-since.js";
 
 const OFFLOADED_REPO_TOOL_DEFINITIONS = Object.freeze({
+  safe_read: safeReadTool,
+  file_outline: fileOutlineTool,
+  changed_since: changedSinceTool,
   graft_diff: graftDiffTool,
   graft_since: sinceTool,
   graft_map: mapTool,
@@ -51,6 +57,7 @@ export interface RepoToolWorkerJob {
   readonly repoState: RepoObservation;
   readonly sessionSnapshot: SessionTrackerSnapshot;
   readonly metricsSnapshot: MetricsSnapshot;
+  readonly cacheSnapshots?: Readonly<Record<string, ObservationSnapshot>>;
 }
 
 export interface RepoToolWorkerResult {
@@ -59,6 +66,10 @@ export interface RepoToolWorkerResult {
   readonly receipt: McpToolReceipt;
   readonly tripwireSignals: readonly string[];
   readonly metricsDelta: MetricsDelta;
+  readonly cacheUpdates: readonly {
+    path: string;
+    observation: ObservationSnapshot | null;
+  }[];
 }
 
 function unsupported(name: string): never {
@@ -114,14 +125,19 @@ function buildWorkerContext(
   const codec = new CanonicalJsonCodec();
   const session = SessionTracker.fromSnapshot(job.sessionSnapshot);
   const metrics = Metrics.fromSnapshot(job.metricsSnapshot);
-  let response: Omit<RepoToolWorkerResult, "metricsDelta"> | null = null;
+  const cache = ObservationCache.fromSnapshots(job.cacheSnapshots);
+  const trackedCachePaths = new Set<string>(Object.keys(job.cacheSnapshots ?? {}));
+  if (typeof job.args["path"] === "string") {
+    trackedCachePaths.add(createPathResolver(job.projectRoot)(job.args["path"]));
+  }
+  let response: Omit<RepoToolWorkerResult, "metricsDelta" | "cacheUpdates"> | null = null;
 
   const ctx: ToolContext = {
     projectRoot: job.projectRoot,
     graftDir: job.graftDir,
     graftignorePatterns: job.graftignorePatterns,
     session,
-    cache: new ObservationCache(),
+    cache,
     metrics,
     fs: nodeFs,
     codec,
@@ -211,6 +227,12 @@ function buildWorkerContext(
       return {
         ...response,
         metricsDelta: diffMetrics(job.metricsSnapshot, metrics.snapshot()),
+        cacheUpdates: [...trackedCachePaths].map((filePath) => {
+          return {
+            path: filePath,
+            observation: cache.snapshotEntry(filePath),
+          };
+        }),
       };
     },
   };
