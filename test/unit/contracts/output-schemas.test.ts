@@ -124,6 +124,14 @@ describe("contracts: output schemas", () => {
     const daemonAuthorize = parse(await daemonServer.callTool("workspace_authorize", { cwd: repoDir }));
     const daemonStatusSnapshot = parse(await daemonServer.callTool("daemon_status", {}));
     const daemonSessionsSnapshot = parse(await daemonServer.callTool("daemon_sessions", {}));
+    const daemonMonitorStart = parse(await daemonServer.callTool("monitor_start", {
+      cwd: repoDir,
+      pollIntervalMs: 60_000,
+    }));
+    const daemonMonitors = parse(await daemonServer.callTool("daemon_monitors", {}));
+    const daemonMonitorPause = parse(await daemonServer.callTool("monitor_pause", { cwd: repoDir }));
+    const daemonMonitorResume = parse(await daemonServer.callTool("monitor_resume", { cwd: repoDir }));
+    const daemonMonitorStop = parse(await daemonServer.callTool("monitor_stop", { cwd: repoDir }));
     const daemonAuthorizations = parse(await daemonServer.callTool("workspace_authorizations", {}));
     const daemonStatus = parse(await daemonServer.callTool("workspace_status", {}));
     const daemonBind = parse(await daemonServer.callTool("workspace_bind", { cwd: repoDir }));
@@ -143,6 +151,11 @@ describe("contracts: output schemas", () => {
       code_refs: parse(await server.callTool("code_refs", { query: "greet", mode: "call" })),
       daemon_status: daemonStatusSnapshot,
       daemon_sessions: daemonSessionsSnapshot,
+      daemon_monitors: daemonMonitors,
+      monitor_start: daemonMonitorStart,
+      monitor_pause: daemonMonitorPause,
+      monitor_resume: daemonMonitorResume,
+      monitor_stop: daemonMonitorStop,
       workspace_authorize: daemonAuthorize,
       workspace_authorizations: daemonAuthorizations,
       workspace_revoke: daemonRevoke,

@@ -95,7 +95,10 @@ event, `/healthz` is the liveness surface, and escape hatches like
 `run_capture` stay default-denied there unless a workspace is
 explicitly authorized for that posture through the daemon control
 plane. Daemon-wide inspection now exists through MCP tools such as
-`daemon_status`, `daemon_sessions`, and `workspace_authorizations`.
+`daemon_status`, `daemon_sessions`, `workspace_authorizations`, and
+`daemon_monitors`. Repo-scoped background WARP indexing can now be
+controlled there too through `monitor_start`, `monitor_pause`,
+`monitor_resume`, and `monitor_stop`.
 
 See the **[Setup decision table](docs/GUIDE.md#choose-your-setup-path)**
 for the fastest path by client and mode, and the full

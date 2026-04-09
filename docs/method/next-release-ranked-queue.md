@@ -171,6 +171,21 @@ the first real daemon control plane:
 This makes the operator control plane real without pretending that
 actual persistent monitor workers or tray UI now exist.
 
+Cycle `0055-persistent-monitor-runtime-state-and-lifecycle` shipped the
+first real persistent daemon worker:
+
+- daemon mode now exposes `daemon_monitors`, `monitor_start`,
+  `monitor_pause`, `monitor_resume`, and `monitor_stop`
+- monitor identity is now one repo-scoped worker per canonical repo,
+  not one worker per worktree or session
+- the first worker kind is `git_poll_indexer`, a background incremental
+  WARP indexer that reuses the shared daemon WARP pool
+- monitor state now persists across daemon restart and surfaces bounded
+  lifecycle, health, and backlog counts through MCP and `/healthz`
+
+This makes the monitor claim real without pretending multi-repo control
+or same-repo concurrent agent safety are solved.
+
 ## Ranked queue
 
 No remaining above-the-line work is required before the next release.
@@ -178,10 +193,11 @@ No remaining above-the-line work is required before the next release.
 If we choose to keep pushing before cutting the packet, the next
 candidate is:
 
-1. [SURFACE_persistent-monitor-runtime-state-and-lifecycle.md](backlog/up-next/SURFACE_persistent-monitor-runtime-state-and-lifecycle.md)
-   The daemon control plane is now real, but actual persistent monitor
-   workers, lifecycle state changes, failure reporting, and backlog
-   pressure remain separate work.
+1. [SURFACE_system-wide-multi-repo-agent-coordination.md](backlog/up-next/SURFACE_system-wide-multi-repo-agent-coordination.md)
+   The daemon now has authorization, routing, transport, and one
+   persistent repo-scoped monitor. The next product/system frontier is
+   honest multi-repo coordination rather than deeper single-repo daemon
+   polish.
 
 ## Below the cut line
 
@@ -189,7 +205,6 @@ These items are real but should not be treated as release blockers for
 the next packet:
 
 - [SURFACE_non-codex-instruction-bootstrap-parity.md](backlog/cool-ideas/SURFACE_non-codex-instruction-bootstrap-parity.md)
-- [SURFACE_persistent-monitor-runtime-state-and-lifecycle.md](backlog/up-next/SURFACE_persistent-monitor-runtime-state-and-lifecycle.md)
 - [SURFACE_system-wide-multi-repo-agent-coordination.md](backlog/up-next/SURFACE_system-wide-multi-repo-agent-coordination.md)
 - [CLEAN_CODE_mcp-server.md](backlog/bad-code/CLEAN_CODE_mcp-server.md)
 - [CLEAN_CODE_mcp-repo-state.md](backlog/bad-code/CLEAN_CODE_mcp-repo-state.md)

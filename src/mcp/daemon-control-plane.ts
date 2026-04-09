@@ -107,6 +107,15 @@ export interface DaemonRuntimeDescriptor {
   readonly startedAt: string;
 }
 
+export interface DaemonMonitorCounts {
+  readonly totalMonitors: number;
+  readonly runningMonitors: number;
+  readonly pausedMonitors: number;
+  readonly stoppedMonitors: number;
+  readonly failingMonitors: number;
+  readonly backlogMonitors: number;
+}
+
 export interface DaemonStatusView extends DaemonRuntimeDescriptor {
   readonly ok: true;
   readonly sessionMode: "daemon";
@@ -117,6 +126,12 @@ export interface DaemonStatusView extends DaemonRuntimeDescriptor {
   readonly authorizedRepos: number;
   readonly workspaceBindRequiresAuthorization: true;
   readonly defaultCapabilityProfile: WorkspaceCapabilityProfile;
+  readonly totalMonitors: number;
+  readonly runningMonitors: number;
+  readonly pausedMonitors: number;
+  readonly stoppedMonitors: number;
+  readonly failingMonitors: number;
+  readonly backlogMonitors: number;
 }
 
 export interface DaemonControlPlaneOptions {
@@ -156,6 +171,22 @@ function resolveCapabilityProfile(
 function sortByWorktreeRoot(records: readonly AuthorizedWorkspaceRecord[]): AuthorizedWorkspaceRecord[] {
   return [...records].sort((left, right) => left.worktreeRoot.localeCompare(right.worktreeRoot));
 }
+
+function cloneAuthorizedWorkspaceRecord(record: AuthorizedWorkspaceRecord): AuthorizedWorkspaceRecord {
+  return {
+    ...record,
+    capabilityProfile: cloneCapabilityProfile(record.capabilityProfile),
+  };
+}
+
+const ZERO_MONITOR_COUNTS: DaemonMonitorCounts = Object.freeze({
+  totalMonitors: 0,
+  runningMonitors: 0,
+  pausedMonitors: 0,
+  stoppedMonitors: 0,
+  failingMonitors: 0,
+  backlogMonitors: 0,
+});
 
 export class DaemonControlPlane {
   private readonly statePath: string;
@@ -293,13 +324,44 @@ export class DaemonControlPlane {
     });
   }
 
+  async listAuthorizedWorkspaceRecords(): Promise<readonly AuthorizedWorkspaceRecord[]> {
+    await this.ensureLoaded();
+    return sortByWorktreeRoot([...this.authorizedWorkspaces.values()]).map(cloneAuthorizedWorkspaceRecord);
+  }
+
+  async getAuthorizedWorkspace(request: WorkspaceBindRequest): Promise<AuthorizedWorkspaceRecord | null> {
+    const resolved = resolveWorkspaceRequest(this.options.git, request);
+    if ("code" in resolved) return null;
+    await this.ensureLoaded();
+    const record = this.authorizedWorkspaces.get(resolved.worktreeId);
+    return record === undefined ? null : cloneAuthorizedWorkspaceRecord(record);
+  }
+
+  async getAuthorizedWorkspaceForRepo(
+    repoId: string,
+    preferredWorktreeRoot?: string,
+  ): Promise<AuthorizedWorkspaceRecord | null> {
+    await this.ensureLoaded();
+    const matches = [...this.authorizedWorkspaces.values()].filter((record) => record.repoId === repoId);
+    if (matches.length === 0) return null;
+    if (preferredWorktreeRoot !== undefined) {
+      const preferred = matches.find((record) => record.worktreeRoot === preferredWorktreeRoot);
+      if (preferred !== undefined) {
+        return cloneAuthorizedWorkspaceRecord(preferred);
+      }
+    }
+    const [first] = sortByWorktreeRoot(matches);
+    if (first === undefined) return null;
+    return cloneAuthorizedWorkspaceRecord(first);
+  }
+
   listSessions(): readonly DaemonSessionView[] {
     return [...this.sessions.values()]
       .map((session) => this.toDaemonSessionView(session))
       .sort((left, right) => left.startedAt.localeCompare(right.startedAt));
   }
 
-  getStatus(runtime: DaemonRuntimeDescriptor): DaemonStatusView {
+  getStatus(runtime: DaemonRuntimeDescriptor, monitorCounts: DaemonMonitorCounts = ZERO_MONITOR_COUNTS): DaemonStatusView {
     const sessions = this.listSessions();
     const boundSessions = sessions.filter((session) => session.bindState === "bound").length;
     return {
@@ -312,6 +374,12 @@ export class DaemonControlPlane {
       authorizedRepos: new Set([...this.authorizedWorkspaces.values()].map((record) => record.repoId)).size,
       workspaceBindRequiresAuthorization: true,
       defaultCapabilityProfile: cloneCapabilityProfile(DEFAULT_DAEMON_CAPABILITY_PROFILE),
+      totalMonitors: monitorCounts.totalMonitors,
+      runningMonitors: monitorCounts.runningMonitors,
+      pausedMonitors: monitorCounts.pausedMonitors,
+      stoppedMonitors: monitorCounts.stoppedMonitors,
+      failingMonitors: monitorCounts.failingMonitors,
+      backlogMonitors: monitorCounts.backlogMonitors,
       ...runtime,
     };
   }

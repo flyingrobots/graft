@@ -132,6 +132,21 @@ async function deleteSession(socketPath: string, sessionId: string): Promise<voi
   expect([200, 202]).toContain(response.statusCode);
 }
 
+async function waitFor<T>(
+  read: () => Promise<T>,
+  predicate: (value: T) => boolean,
+  timeoutMs = 3_000,
+  intervalMs = 50,
+): Promise<T> {
+  const deadline = Date.now() + timeoutMs;
+  while (Date.now() <= deadline) {
+    const value = await read();
+    if (predicate(value)) return value;
+    await new Promise((resolve) => setTimeout(resolve, intervalMs));
+  }
+  throw new Error("Timed out waiting for expected daemon state");
+}
+
 describe("mcp: daemon transport and lifecycle", () => {
   const repos: string[] = [];
   const roots: string[] = [];
@@ -297,5 +312,95 @@ describe("mcp: daemon transport and lifecycle", () => {
       activeSessions: 2,
       activeWarpRepos: 1,
     });
+  });
+
+  it("persists repo-scoped monitor lifecycle across daemon restart", async () => {
+    const repoDir = createTestRepo("graft-daemon-monitor-");
+    repos.push(repoDir);
+    fs.writeFileSync(path.join(repoDir, "app.ts"), "export const ready = true;\n");
+    git(repoDir, "add -A");
+    git(repoDir, "commit -m init");
+
+    const rootDir = fs.mkdtempSync(path.join(os.tmpdir(), "graft-daemon-root-"));
+    roots.push(rootDir);
+    const socketPath = path.join(rootDir, "daemon.sock");
+
+    const daemonA = await startDaemonServer({
+      graftDir: rootDir,
+      socketPath,
+    });
+    daemons.push(daemonA);
+
+    const sessionA = await initializeSession(socketPath);
+    await callTool(socketPath, sessionA, "workspace_authorize", { cwd: repoDir }, 20);
+    const started = await callTool<{ ok: boolean; status: { repoId: string } }>(
+      socketPath,
+      sessionA,
+      "monitor_start",
+      { cwd: repoDir, pollIntervalMs: 60_000 },
+      21,
+    );
+    expect(started.ok).toBe(true);
+
+    const runningHealth = await waitFor(
+      async () => parseJson(await requestUnixJson(socketPath, "GET", "/healthz")) as {
+        totalMonitors: number;
+        runningMonitors: number;
+      },
+      (status) => status.totalMonitors === 1 && status.runningMonitors === 1,
+    );
+    expect(runningHealth).toMatchObject({
+      totalMonitors: 1,
+      runningMonitors: 1,
+    });
+
+    await daemonA.close();
+    daemons.pop();
+
+    const daemonB = await startDaemonServer({
+      graftDir: rootDir,
+      socketPath,
+    });
+    daemons.push(daemonB);
+
+    const sessionB = await initializeSession(socketPath);
+    const restartedMonitors = await waitFor(
+      async () => callTool<{ monitors: { repoId: string; lifecycleState: string }[] }>(
+        socketPath,
+        sessionB,
+        "daemon_monitors",
+        {},
+        22,
+      ),
+      (status) => status.monitors.length === 1,
+    );
+    expect(restartedMonitors.monitors).toEqual([
+      expect.objectContaining({
+        repoId: started.status.repoId,
+        lifecycleState: "running",
+      }),
+    ]);
+
+    const restartedStatus = await callTool<{ totalMonitors: number; runningMonitors: number }>(
+      socketPath,
+      sessionB,
+      "daemon_status",
+      {},
+      23,
+    );
+    expect(restartedStatus).toMatchObject({
+      totalMonitors: 1,
+      runningMonitors: 1,
+    });
+
+    const stopped = await callTool<{ ok: boolean; status: { lifecycleState: string } }>(
+      socketPath,
+      sessionB,
+      "monitor_stop",
+      { cwd: repoDir },
+      24,
+    );
+    expect(stopped.ok).toBe(true);
+    expect(stopped.status.lifecycleState).toBe("stopped");
   });
 });

@@ -72,13 +72,20 @@ is available through MCP, `/healthz` reflects control-plane counts, and
 per-workspace daemon capability posture can now be changed without
 exposing another session's receipts or shell output.
 
+Cycle 0055 — persistent monitor runtime: daemon mode now exposes
+repo-scoped monitor lifecycle tools, the first worker kind is a
+background incremental WARP indexer, monitor state survives daemon
+restart, and daemon health now includes bounded monitor and backlog
+counts.
+
 ## What feels wrong
 
 - WARP indexing is slow on large repos — `core().materialize()`
   per commit with removals is expensive. Background indexing and
   incremental updates needed.
-- The daemon control plane is real, but actual persistent monitor
-  workers and their start/stop/pause lifecycle still do not exist.
+- The first persistent repo-scoped monitor is real, but only for
+  background WARP indexing. Multi-repo coordination and same-repo
+  concurrent write safety remain open.
 - Agent opt-in friction persists. `graft init` can seed `CLAUDE.md`
   and `AGENTS.md`, but most clients still default to native Read unless
   they have a stronger guardrail.

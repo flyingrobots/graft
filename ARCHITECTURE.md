@@ -59,14 +59,16 @@ Current shape:
   sessions beneath it
 - daemon mode now includes a central authorization and inspection
   control plane for workspaces and sessions
+- daemon mode now also includes one repo-scoped persistent monitor
+  runtime per canonical repo, currently used for background incremental
+  WARP indexing
 - each server or daemon session owns one `SessionTracker`,
   `ObservationCache`, `Metrics`, and `RepoStateTracker` slice
 - lazy WARP initialization still happens only when a WARP-backed tool
   needs it
 
-This is now enough to make the local daemon contract real without
-pretending monitor workers or the broader system-wide story are
-finished.
+This is now enough to make the local daemon and first monitor contract
+real without pretending the broader system-wide story is finished.
 
 ### Hooks
 

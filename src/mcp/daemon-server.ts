@@ -12,6 +12,7 @@ import { nodeFs } from "../adapters/node-fs.js";
 import { nodeGit } from "../adapters/node-git.js";
 import { createGraftServer, type GraftServer } from "./server.js";
 import { DaemonControlPlane, type DaemonStatusView } from "./daemon-control-plane.js";
+import { PersistentMonitorRuntime } from "./persistent-monitor-runtime.js";
 import { InMemoryWarpPool } from "./warp-pool.js";
 import { openWarp } from "../warp/open.js";
 import type { RunCaptureConfig } from "./run-capture-config.js";
@@ -183,6 +184,14 @@ export async function startDaemonServer(options: StartDaemonServerOptions = {}):
     git: nodeGit,
     graftDir,
   });
+  const monitorRuntime = new PersistentMonitorRuntime({
+    fs: nodeFs,
+    codec: new CanonicalJsonCodec(),
+    git: nodeGit,
+    graftDir,
+    controlPlane,
+    warpPool,
+  });
   const sessions = new Map<string, DaemonSession>();
   const startedAt = new Date().toISOString();
   const transportKind = isNamedPipePath(socketPath) ? "named_pipe" : "unix_socket";
@@ -196,12 +205,13 @@ export async function startDaemonServer(options: StartDaemonServerOptions = {}):
       healthPath: HEALTH_PATH,
       activeWarpRepos: warpPool.size(),
       startedAt,
-    });
+    }, monitorRuntime.getCounts());
   };
 
   await ensurePrivateDirectory(graftDir);
   await ensurePrivateDirectory(path.join(graftDir, "sessions"));
   await controlPlane.initialize();
+  await monitorRuntime.initialize();
   await prepareSocketPath(socketPath);
 
   const handleRequest = async (req: http.IncomingMessage, res: http.ServerResponse): Promise<void> => {
@@ -251,6 +261,7 @@ export async function startDaemonServer(options: StartDaemonServerOptions = {}):
               activeWarpRepos: warpPool.size(),
               startedAt,
             }),
+            monitorRuntime,
             ...(options.env !== undefined ? { env: options.env } : {}),
             ...(options.runCapture !== undefined ? { runCapture: options.runCapture } : {}),
             ...(options.runtimeObservability !== undefined
@@ -356,6 +367,7 @@ export async function startDaemonServer(options: StartDaemonServerOptions = {}):
           });
         }
         sessions.clear();
+        await monitorRuntime.close();
         await closeHttpServer(httpServer);
         if (!isNamedPipePath(socketPath)) {
           await fs.unlink(socketPath).catch(() => {

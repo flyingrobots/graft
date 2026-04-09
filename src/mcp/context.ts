@@ -25,6 +25,11 @@ import type {
   WorkspaceRevokeResult,
 } from "./daemon-control-plane.js";
 import type {
+  MonitorActionResult,
+  MonitorStartRequest,
+  MonitorStatusView,
+} from "./persistent-monitor-runtime.js";
+import type {
   WorkspaceActionResult,
   WorkspaceBindRequest,
   WorkspaceStatus,
@@ -64,6 +69,11 @@ export interface ToolContext {
   rebindWorkspace(request: WorkspaceBindRequest, actionName: string): Promise<WorkspaceActionResult>;
   getDaemonStatus(): Promise<DaemonStatusView>;
   listDaemonSessions(): Promise<readonly DaemonSessionView[]>;
+  listDaemonMonitors(): Promise<readonly MonitorStatusView[]>;
+  startMonitor(request: MonitorStartRequest): Promise<MonitorActionResult>;
+  pauseMonitor(request: WorkspaceBindRequest): Promise<MonitorActionResult>;
+  resumeMonitor(request: WorkspaceBindRequest): Promise<MonitorActionResult>;
+  stopMonitor(request: WorkspaceBindRequest): Promise<MonitorActionResult>;
   listWorkspaceAuthorizations(): Promise<readonly AuthorizedWorkspaceView[]>;
   authorizeWorkspace(request: WorkspaceAuthorizeRequest): Promise<WorkspaceAuthorizeResult>;
   revokeWorkspace(request: WorkspaceBindRequest): Promise<WorkspaceRevokeResult>;

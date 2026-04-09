@@ -118,6 +118,12 @@ describe("cli: graft grouped surface", () => {
             authorizedWorkspaces: 0,
             authorizedRepos: 0,
             workspaceBindRequiresAuthorization: true,
+            totalMonitors: 0,
+            runningMonitors: 0,
+            pausedMonitors: 0,
+            stoppedMonitors: 0,
+            failingMonitors: 0,
+            backlogMonitors: 0,
             defaultCapabilityProfile: {
               boundedReads: true,
               structuralTools: true,

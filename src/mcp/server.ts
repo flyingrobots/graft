@@ -23,6 +23,7 @@ import {
   type WorkspaceSessionMode,
 } from "./workspace-router.js";
 import { DaemonControlPlane, type DaemonRuntimeDescriptor } from "./daemon-control-plane.js";
+import { PersistentMonitorRuntime } from "./persistent-monitor-runtime.js";
 import {
   RuntimeEventLogger,
   classifyRuntimeFailure,
@@ -50,8 +51,13 @@ import { mapTool } from "./tools/map.js";
 import { codeShowTool } from "./tools/code-show.js";
 import { codeFindTool } from "./tools/code-find.js";
 import { codeRefsTool } from "./tools/code-refs.js";
+import { daemonMonitorsTool } from "./tools/daemon-monitors.js";
 import { daemonSessionsTool } from "./tools/daemon-sessions.js";
 import { daemonStatusTool } from "./tools/daemon-status.js";
+import { monitorPauseTool } from "./tools/monitor-pause.js";
+import { monitorResumeTool } from "./tools/monitor-resume.js";
+import { monitorStartTool } from "./tools/monitor-start.js";
+import { monitorStopTool } from "./tools/monitor-stop.js";
 import { workspaceAuthorizeTool } from "./tools/workspace-authorize.js";
 import { workspaceAuthorizationsTool } from "./tools/workspace-authorizations.js";
 import { workspaceBindTool } from "./tools/workspace-bind.js";
@@ -85,6 +91,11 @@ export const TOOL_REGISTRY: readonly ToolDefinition[] = [
 export const DAEMON_TOOL_REGISTRY: readonly ToolDefinition[] = [
   daemonStatusTool,
   daemonSessionsTool,
+  daemonMonitorsTool,
+  monitorStartTool,
+  monitorPauseTool,
+  monitorResumeTool,
+  monitorStopTool,
   workspaceAuthorizeTool,
   workspaceAuthorizationsTool,
   workspaceRevokeTool,
@@ -115,6 +126,7 @@ export interface CreateGraftServerOptions {
   runtimeObservability?: Partial<RuntimeObservabilityState>;
   warpPool?: WarpPool;
   daemonControlPlane?: DaemonControlPlane;
+  monitorRuntime?: PersistentMonitorRuntime;
   daemonRuntime?: (() => DaemonRuntimeDescriptor) | undefined;
 }
 
@@ -153,6 +165,16 @@ export function createGraftServer(options: CreateGraftServerOptions = {}): Graft
       graftDir,
     }))
     : null;
+  const monitorRuntime = mode === "daemon" && daemonControlPlane !== null
+    ? (options.monitorRuntime ?? new PersistentMonitorRuntime({
+      fs: nodeFs,
+      codec,
+      git: nodeGit,
+      graftDir,
+      controlPlane: daemonControlPlane,
+      warpPool,
+    }))
+    : null;
   const daemonStartedAt = new Date().toISOString();
   const daemonRuntime = options.daemonRuntime ?? (() => {
     return {
@@ -170,6 +192,7 @@ export function createGraftServer(options: CreateGraftServerOptions = {}): Graft
       ? ensureGraftDirExcluded(projectRoot, graftDir, nodeFs)
       : Promise.resolve(),
     daemonControlPlane?.initialize() ?? Promise.resolve(),
+    monitorRuntime?.initialize() ?? Promise.resolve(),
   ]).then(() => undefined);
   const handlers = new Map<string, ToolHandler>();
   const schemas = new Map<string, z.ZodObject>();
@@ -274,13 +297,43 @@ export function createGraftServer(options: CreateGraftServerOptions = {}): Graft
       if (daemonControlPlane === null) {
         throw new Error("daemon_status is only available in daemon mode");
       }
-      return Promise.resolve(daemonControlPlane.getStatus(daemonRuntime()));
+      return Promise.resolve(daemonControlPlane.getStatus(daemonRuntime(), monitorRuntime?.getCounts()));
     },
     listDaemonSessions() {
       if (daemonControlPlane === null) {
         throw new Error("daemon_sessions is only available in daemon mode");
       }
       return Promise.resolve(daemonControlPlane.listSessions());
+    },
+    listDaemonMonitors() {
+      if (monitorRuntime === null) {
+        throw new Error("daemon_monitors is only available in daemon mode");
+      }
+      return monitorRuntime.listStatuses();
+    },
+    startMonitor(request) {
+      if (monitorRuntime === null) {
+        throw new Error("monitor_start is only available in daemon mode");
+      }
+      return monitorRuntime.startMonitor(request);
+    },
+    pauseMonitor(request) {
+      if (monitorRuntime === null) {
+        throw new Error("monitor_pause is only available in daemon mode");
+      }
+      return monitorRuntime.pauseMonitor(request);
+    },
+    resumeMonitor(request) {
+      if (monitorRuntime === null) {
+        throw new Error("monitor_resume is only available in daemon mode");
+      }
+      return monitorRuntime.resumeMonitor(request);
+    },
+    stopMonitor(request) {
+      if (monitorRuntime === null) {
+        throw new Error("monitor_stop is only available in daemon mode");
+      }
+      return monitorRuntime.stopMonitor(request);
     },
     listWorkspaceAuthorizations() {
       if (daemonControlPlane === null) {
@@ -305,6 +358,11 @@ export function createGraftServer(options: CreateGraftServerOptions = {}): Graft
   const daemonAlwaysAvailableTools = new Set<string>([
     "daemon_status",
     "daemon_sessions",
+    "daemon_monitors",
+    "monitor_start",
+    "monitor_pause",
+    "monitor_resume",
+    "monitor_stop",
     "workspace_authorize",
     "workspace_authorizations",
     "workspace_revoke",
@@ -317,6 +375,11 @@ export function createGraftServer(options: CreateGraftServerOptions = {}): Graft
   const repoStateOptionalTools = new Set<string>([
     "daemon_status",
     "daemon_sessions",
+    "daemon_monitors",
+    "monitor_start",
+    "monitor_pause",
+    "monitor_resume",
+    "monitor_stop",
     "workspace_authorize",
     "workspace_authorizations",
     "workspace_revoke",

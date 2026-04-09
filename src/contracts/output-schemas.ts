@@ -312,6 +312,36 @@ const daemonSessionSchema = z.object({
   lastActivityAt: z.string(),
 }).strict();
 
+const monitorStatusSchema = z.object({
+  repoId: z.string(),
+  gitCommonDir: z.string(),
+  anchorWorktreeRoot: z.string(),
+  authorizedWorkspaces: z.number().int().nonnegative(),
+  workerKind: z.literal("git_poll_indexer"),
+  lifecycleState: z.enum(["running", "paused", "stopped"]),
+  health: z.enum(["ok", "lagging", "error", "unauthorized", "paused", "stopped"]),
+  pollIntervalMs: z.number().int().positive(),
+  lastStartedAt: z.string().nullable(),
+  lastTickAt: z.string().nullable(),
+  lastSuccessAt: z.string().nullable(),
+  lastError: z.string().nullable(),
+  lastIndexedCommit: z.string().nullable(),
+  lastHeadCommit: z.string().nullable(),
+  backlogCommits: z.number().int().nonnegative(),
+  lastRunCommitsIndexed: z.number().int().nonnegative(),
+  lastRunPatchesWritten: z.number().int().nonnegative(),
+}).strict();
+
+const monitorActionSchema = z.object({
+  ok: z.boolean(),
+  action: z.enum(["start", "pause", "resume", "stop"]),
+  created: z.boolean(),
+  changed: z.boolean(),
+  status: monitorStatusSchema.optional(),
+  errorCode: z.string().optional(),
+  error: z.string().optional(),
+}).strict();
+
 const daemonStatusSchema = z.object({
   ok: z.literal(true),
   sessionMode: z.literal("daemon"),
@@ -328,6 +358,12 @@ const daemonStatusSchema = z.object({
   authorizedRepos: z.number().int().nonnegative(),
   workspaceBindRequiresAuthorization: z.literal(true),
   defaultCapabilityProfile: workspaceCapabilityProfileSchema,
+  totalMonitors: z.number().int().nonnegative(),
+  runningMonitors: z.number().int().nonnegative(),
+  pausedMonitors: z.number().int().nonnegative(),
+  stoppedMonitors: z.number().int().nonnegative(),
+  failingMonitors: z.number().int().nonnegative(),
+  backlogMonitors: z.number().int().nonnegative(),
   startedAt: z.string(),
 }).strict();
 
@@ -513,6 +549,13 @@ const mcpOutputBodySchemas: Record<McpToolName, z.ZodType> = {
   daemon_sessions: z.object({
     sessions: z.array(daemonSessionSchema),
   }).strict(),
+  daemon_monitors: z.object({
+    monitors: z.array(monitorStatusSchema),
+  }).strict(),
+  monitor_start: monitorActionSchema,
+  monitor_pause: monitorActionSchema,
+  monitor_resume: monitorActionSchema,
+  monitor_stop: monitorActionSchema,
   workspace_authorize: workspaceAuthorizeSchema,
   workspace_authorizations: z.object({
     workspaces: z.array(authorizedWorkspaceSchema),
@@ -592,6 +635,11 @@ export const MCP_OUTPUT_SCHEMAS: Record<McpToolName, z.ZodType> = {
   code_refs: withMcpCommon("code_refs", mcpOutputBodySchemas.code_refs),
   daemon_status: withMcpCommon("daemon_status", mcpOutputBodySchemas.daemon_status),
   daemon_sessions: withMcpCommon("daemon_sessions", mcpOutputBodySchemas.daemon_sessions),
+  daemon_monitors: withMcpCommon("daemon_monitors", mcpOutputBodySchemas.daemon_monitors),
+  monitor_start: withMcpCommon("monitor_start", mcpOutputBodySchemas.monitor_start),
+  monitor_pause: withMcpCommon("monitor_pause", mcpOutputBodySchemas.monitor_pause),
+  monitor_resume: withMcpCommon("monitor_resume", mcpOutputBodySchemas.monitor_resume),
+  monitor_stop: withMcpCommon("monitor_stop", mcpOutputBodySchemas.monitor_stop),
   workspace_authorize: withMcpCommon("workspace_authorize", mcpOutputBodySchemas.workspace_authorize),
   workspace_authorizations: withMcpCommon(
     "workspace_authorizations",

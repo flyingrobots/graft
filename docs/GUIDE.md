@@ -85,6 +85,11 @@ Daemon control-plane inspection now exists through MCP tools:
 
 - `daemon_status`
 - `daemon_sessions`
+- `daemon_monitors`
+- `monitor_start`
+- `monitor_pause`
+- `monitor_resume`
+- `monitor_stop`
 - `workspace_authorizations`
 - `workspace_authorize`
 - `workspace_revoke`
