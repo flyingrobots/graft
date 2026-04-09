@@ -200,6 +200,22 @@ system-wide contract:
 This keeps the daemon roadmap honest instead of pretending "multi-repo
 coordination" is already one implementable feature.
 
+Cycle `0057-system-wide-repo-overview-and-filtered-inspection` shipped
+the first real daemon-wide repo join:
+
+- daemon mode now exposes `daemon_repos`, a bounded one-row-per-
+  authorized-repo inspection surface
+- repo rows are keyed by canonical repo identity and include compact
+  worktree, session-count, backlog, monitor, and last-activity signal
+- filtered inspection can now narrow by authorized `repoId` or
+  authorized worktree `cwd`
+- the surface is still observational and authorization-filtered, with
+  no raw receipts, cache content, saved state, runtime-log payloads, or
+  shell output
+
+This makes the multi-repo overview claim real before fairness or
+resource arbitration work begins.
+
 ## Ranked queue
 
 No remaining above-the-line work is required before the next release.
@@ -207,12 +223,12 @@ No remaining above-the-line work is required before the next release.
 If we choose to keep pushing before cutting the packet, the next
 candidates are:
 
-1. [SURFACE_system-wide-repo-overview-and-filtered-inspection.md](backlog/up-next/SURFACE_system-wide-repo-overview-and-filtered-inspection.md)
-   The multi-repo system model is now explicit. The next honest move is
-   the first bounded one-row-per-repo overview surface.
-2. [SURFACE_system-wide-resource-pressure-and-fairness.md](backlog/up-next/SURFACE_system-wide-resource-pressure-and-fairness.md)
+1. [SURFACE_system-wide-resource-pressure-and-fairness.md](backlog/up-next/SURFACE_system-wide-resource-pressure-and-fairness.md)
    After the overview exists, daemon-wide backlog pressure and fairness
    should become explicit instead of implicit.
+2. [WARP_persisted-sub-commit-local-history.md](backlog/up-next/WARP_persisted-sub-commit-local-history.md)
+   If we stay on substrate work instead, durable local history is the
+   next operator-facing WARP move with the best leverage.
 
 ## Below the cut line
 
@@ -220,7 +236,6 @@ These items are real but should not be treated as release blockers for
 the next packet:
 
 - [SURFACE_non-codex-instruction-bootstrap-parity.md](backlog/cool-ideas/SURFACE_non-codex-instruction-bootstrap-parity.md)
-- [SURFACE_system-wide-repo-overview-and-filtered-inspection.md](backlog/up-next/SURFACE_system-wide-repo-overview-and-filtered-inspection.md)
 - [SURFACE_system-wide-resource-pressure-and-fairness.md](backlog/up-next/SURFACE_system-wide-resource-pressure-and-fairness.md)
 - [CLEAN_CODE_mcp-server.md](backlog/bad-code/CLEAN_CODE_mcp-server.md)
 - [CLEAN_CODE_mcp-repo-state.md](backlog/bad-code/CLEAN_CODE_mcp-repo-state.md)

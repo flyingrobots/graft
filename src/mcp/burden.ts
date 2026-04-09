@@ -24,6 +24,7 @@ const TOOL_BURDEN_KIND: Record<McpToolName, BurdenKind> = {
   code_show: "search",
   code_find: "search",
   code_refs: "search",
+  daemon_repos: "diagnostic",
   daemon_status: "diagnostic",
   daemon_sessions: "diagnostic",
   daemon_monitors: "diagnostic",

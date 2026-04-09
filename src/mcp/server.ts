@@ -23,6 +23,7 @@ import {
   type WorkspaceSessionMode,
 } from "./workspace-router.js";
 import { DaemonControlPlane, type DaemonRuntimeDescriptor } from "./daemon-control-plane.js";
+import { DaemonRepoOverview } from "./daemon-repos.js";
 import { PersistentMonitorRuntime } from "./persistent-monitor-runtime.js";
 import {
   RuntimeEventLogger,
@@ -52,6 +53,7 @@ import { codeShowTool } from "./tools/code-show.js";
 import { codeFindTool } from "./tools/code-find.js";
 import { codeRefsTool } from "./tools/code-refs.js";
 import { daemonMonitorsTool } from "./tools/daemon-monitors.js";
+import { daemonReposTool } from "./tools/daemon-repos.js";
 import { daemonSessionsTool } from "./tools/daemon-sessions.js";
 import { daemonStatusTool } from "./tools/daemon-status.js";
 import { monitorPauseTool } from "./tools/monitor-pause.js";
@@ -89,6 +91,7 @@ export const TOOL_REGISTRY: readonly ToolDefinition[] = [
 ];
 
 export const DAEMON_TOOL_REGISTRY: readonly ToolDefinition[] = [
+  daemonReposTool,
   daemonStatusTool,
   daemonSessionsTool,
   daemonMonitorsTool,
@@ -211,6 +214,12 @@ export function createGraftServer(options: CreateGraftServerOptions = {}): Graft
     warpPool,
     ...(daemonControlPlane !== null ? { authorizationPolicy: daemonControlPlane } : {}),
   });
+  const daemonRepoOverview = daemonControlPlane !== null && monitorRuntime !== null
+    ? new DaemonRepoOverview({
+      controlPlane: daemonControlPlane,
+      monitorRuntime,
+    })
+    : null;
 
   async function emitRuntimeEvent(event: Parameters<RuntimeEventLogger["log"]>[0]): Promise<void> {
     try {
@@ -299,6 +308,12 @@ export function createGraftServer(options: CreateGraftServerOptions = {}): Graft
       }
       return Promise.resolve(daemonControlPlane.getStatus(daemonRuntime(), monitorRuntime?.getCounts()));
     },
+    listDaemonRepos(filter) {
+      if (daemonRepoOverview === null) {
+        throw new Error("daemon_repos is only available in daemon mode");
+      }
+      return daemonRepoOverview.list(filter);
+    },
     listDaemonSessions() {
       if (daemonControlPlane === null) {
         throw new Error("daemon_sessions is only available in daemon mode");
@@ -356,6 +371,7 @@ export function createGraftServer(options: CreateGraftServerOptions = {}): Graft
   };
 
   const daemonAlwaysAvailableTools = new Set<string>([
+    "daemon_repos",
     "daemon_status",
     "daemon_sessions",
     "daemon_monitors",
@@ -373,6 +389,7 @@ export function createGraftServer(options: CreateGraftServerOptions = {}): Graft
   ]);
 
   const repoStateOptionalTools = new Set<string>([
+    "daemon_repos",
     "daemon_status",
     "daemon_sessions",
     "daemon_monitors",

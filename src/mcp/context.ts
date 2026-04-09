@@ -25,6 +25,10 @@ import type {
   WorkspaceRevokeResult,
 } from "./daemon-control-plane.js";
 import type {
+  DaemonRepoFilter,
+  DaemonRepoListView,
+} from "./daemon-repos.js";
+import type {
   MonitorActionResult,
   MonitorStartRequest,
   MonitorStatusView,
@@ -68,6 +72,7 @@ export interface ToolContext {
   bindWorkspace(request: WorkspaceBindRequest, actionName: string): Promise<WorkspaceActionResult>;
   rebindWorkspace(request: WorkspaceBindRequest, actionName: string): Promise<WorkspaceActionResult>;
   getDaemonStatus(): Promise<DaemonStatusView>;
+  listDaemonRepos(filter: DaemonRepoFilter): Promise<DaemonRepoListView>;
   listDaemonSessions(): Promise<readonly DaemonSessionView[]>;
   listDaemonMonitors(): Promise<readonly MonitorStatusView[]>;
   startMonitor(request: MonitorStartRequest): Promise<MonitorActionResult>;

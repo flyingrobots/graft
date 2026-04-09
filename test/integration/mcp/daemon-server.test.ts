@@ -292,6 +292,27 @@ describe("mcp: daemon transport and lifecycle", () => {
     expect(daemonSessions.sessions).toHaveLength(2);
     expect(daemonSessions.sessions.every((session) => session.bindState === "bound")).toBe(true);
 
+    const daemonRepos = await callTool<{ repos: {
+      repoId: string;
+      authorizedWorkspaces: number;
+      boundSessions: number;
+      activeWorktrees: number;
+    }[] }>(
+      socketPath,
+      sessionA,
+      "daemon_repos",
+      {},
+      17,
+    );
+    expect(daemonRepos.repos).toEqual([
+      expect.objectContaining({
+        repoId: bindA.repoId,
+        authorizedWorkspaces: 1,
+        boundSessions: 2,
+        activeWorktrees: 1,
+      }),
+    ]);
+
     const boundHealth = await requestUnixJson(socketPath, "GET", "/healthz");
     expect(parseJson(boundHealth) as { activeWarpRepos: number; authorizedWorkspaces: number }).toMatchObject({
       activeWarpRepos: 0,

@@ -84,6 +84,13 @@ separate layers; the system-wide daemon view is defined as
 observational and authorization-filtered; and the next work is split
 into filtered repo overview first and fairness second.
 
+Cycle 0057 — repo overview surface: daemon mode now exposes
+`daemon_repos`, a bounded one-row-per-authorized-repo join over the
+authorization registry, daemon session registry, and persistent monitor
+runtime. Repo rows now show compact worktree, backlog, monitor, and
+last-activity signal without exposing session-local receipts, cache
+content, saved state, runtime-log payloads, or shell output.
+
 ## What feels wrong
 
 - WARP indexing is slow on large repos — `core().materialize()`
@@ -92,8 +99,9 @@ into filtered repo overview first and fairness second.
 - The first persistent repo-scoped monitor is real, but only for
   background WARP indexing. Multi-repo coordination and same-repo
   concurrent write safety remain open.
-- The multi-repo system model is now clear, but there is still no real
-  one-row-per-repo overview surface or fairness model across many repos.
+- The multi-repo system model now has a real repo overview surface, but
+  fairness and daemon-wide resource pressure across many repos remain
+  open.
 - Agent opt-in friction persists. `graft init` can seed `CLAUDE.md`
   and `AGENTS.md`, but most clients still default to native Read unless
   they have a stronger guardrail.

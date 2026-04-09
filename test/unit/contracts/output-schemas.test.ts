@@ -128,6 +128,7 @@ describe("contracts: output schemas", () => {
       cwd: repoDir,
       pollIntervalMs: 60_000,
     }));
+    const daemonRepos = parse(await daemonServer.callTool("daemon_repos", {}));
     const daemonMonitors = parse(await daemonServer.callTool("daemon_monitors", {}));
     const daemonMonitorPause = parse(await daemonServer.callTool("monitor_pause", { cwd: repoDir }));
     const daemonMonitorResume = parse(await daemonServer.callTool("monitor_resume", { cwd: repoDir }));
@@ -149,6 +150,7 @@ describe("contracts: output schemas", () => {
       code_show: parse(await server.callTool("code_show", { symbol: "greet", path: "app.ts" })),
       code_find: parse(await server.callTool("code_find", { query: "greet*" })),
       code_refs: parse(await server.callTool("code_refs", { query: "greet", mode: "call" })),
+      daemon_repos: daemonRepos,
       daemon_status: daemonStatusSnapshot,
       daemon_sessions: daemonSessionsSnapshot,
       daemon_monitors: daemonMonitors,

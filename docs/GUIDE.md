@@ -84,6 +84,7 @@ It uses a stricter contract:
 Daemon control-plane inspection now exists through MCP tools:
 
 - `daemon_status`
+- `daemon_repos`
 - `daemon_sessions`
 - `daemon_monitors`
 - `monitor_start`

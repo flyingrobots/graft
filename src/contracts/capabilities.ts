@@ -9,6 +9,7 @@ export const MCP_TOOL_NAMES = [
   "code_show",
   "code_find",
   "code_refs",
+  "daemon_repos",
   "daemon_status",
   "daemon_sessions",
   "daemon_monitors",
@@ -153,6 +154,12 @@ export const CAPABILITY_REGISTRY: readonly CapabilityDefinition[] = [
     id: "code_refs",
     description: "Search import sites, callsites, property access, or text references",
     mcpTool: "code_refs",
+    parity: "mcp_only",
+  },
+  {
+    id: "daemon_repos",
+    description: "List authorized canonical repos with bounded daemon-wide summary",
+    mcpTool: "daemon_repos",
     parity: "mcp_only",
   },
   {

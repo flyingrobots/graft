@@ -312,6 +312,35 @@ const daemonSessionSchema = z.object({
   lastActivityAt: z.string(),
 }).strict();
 
+const daemonRepoWorktreeSchema = z.object({
+  worktreeId: z.string(),
+  worktreeRoot: z.string(),
+  activeSessions: z.number().int().nonnegative(),
+  lastBoundAt: z.string().nullable(),
+}).strict();
+
+const daemonRepoMonitorSchema = z.object({
+  workerKind: z.literal("git_poll_indexer"),
+  lifecycleState: z.enum(["running", "paused", "stopped"]),
+  health: z.enum(["ok", "lagging", "error", "unauthorized", "paused", "stopped"]),
+  lastTickAt: z.string().nullable(),
+  lastSuccessAt: z.string().nullable(),
+  lastError: z.string().nullable(),
+}).strict();
+
+const daemonRepoSchema = z.object({
+  repoId: z.string(),
+  gitCommonDir: z.string(),
+  authorizedWorkspaces: z.number().int().nonnegative(),
+  boundSessions: z.number().int().nonnegative(),
+  activeWorktrees: z.number().int().nonnegative(),
+  backlogCommits: z.number().int().nonnegative(),
+  lastBoundAt: z.string().nullable(),
+  lastActivityAt: z.string().nullable(),
+  monitor: daemonRepoMonitorSchema.nullable(),
+  worktrees: z.array(daemonRepoWorktreeSchema),
+}).strict();
+
 const monitorStatusSchema = z.object({
   repoId: z.string(),
   gitCommonDir: z.string(),
@@ -545,6 +574,13 @@ const mcpOutputBodySchemas: Record<McpToolName, z.ZodType> = {
     provenance: codeRefsProvenanceSchema,
     layer: worldlineLayerSchema,
   }).strict(),
+  daemon_repos: z.object({
+    repos: z.array(daemonRepoSchema),
+    filter: z.object({
+      repoId: z.string().optional(),
+      cwd: z.string().optional(),
+    }).strict().optional(),
+  }).strict(),
   daemon_status: daemonStatusSchema,
   daemon_sessions: z.object({
     sessions: z.array(daemonSessionSchema),
@@ -633,6 +669,7 @@ export const MCP_OUTPUT_SCHEMAS: Record<McpToolName, z.ZodType> = {
   code_show: withMcpCommon("code_show", mcpOutputBodySchemas.code_show),
   code_find: withMcpCommon("code_find", mcpOutputBodySchemas.code_find),
   code_refs: withMcpCommon("code_refs", mcpOutputBodySchemas.code_refs),
+  daemon_repos: withMcpCommon("daemon_repos", mcpOutputBodySchemas.daemon_repos),
   daemon_status: withMcpCommon("daemon_status", mcpOutputBodySchemas.daemon_status),
   daemon_sessions: withMcpCommon("daemon_sessions", mcpOutputBodySchemas.daemon_sessions),
   daemon_monitors: withMcpCommon("daemon_monitors", mcpOutputBodySchemas.daemon_monitors),

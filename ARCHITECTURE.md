@@ -339,12 +339,18 @@ The architectural rule is:
 - worktree-scoped truth may be projected beneath a repo
 - session-scoped truth must not silently become daemon-global state
 
-What a future multi-repo surface may show:
+The current multi-repo overview surface now shows:
 
-- aggregate counts across repos, worktrees, sessions, and monitors
-- bounded one-row-per-repo health or backlog summaries
+- one bounded row per authorized canonical repo through `daemon_repos`
+- compact worktree, session-count, monitor, backlog, and last-activity
+  summaries
 - filtered drill-down derived from the authorization registry and
   daemon-owned runtime state
+
+Follow-on system-wide work may still add:
+
+- daemon-wide fairness and resource-pressure summaries
+- broader aggregate counts across many repos and worker kinds
 
 What it must not show by default:
 
