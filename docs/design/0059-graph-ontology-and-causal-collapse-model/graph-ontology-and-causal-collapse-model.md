@@ -590,6 +590,84 @@ Initial `selectionKind` values:
 - `partial_file`
 - `symbol_subset`
 
+## Concrete staged-target schema
+
+### Why staged targets need their own schema
+
+A staged target is not just "the files currently in the index". It is a
+selection boundary that later collapse and provenance views must be able
+to point at deterministically.
+
+That means a staged target needs to preserve:
+- what was selected
+- where it was selected from
+- what checkout footing it was selected against
+- what selection mode was used
+
+Without that, later stage-explain or commit-explain surfaces cannot
+distinguish:
+- one staged file versus many staged files
+- full-file admission versus partial-file admission
+- a staged target chosen under one checkout epoch versus a later one
+
+### Minimum staged-target envelope
+
+```json
+{
+  "targetId": "target_...",
+  "targetKind": "staged_target",
+  "repoId": "repo_...",
+  "worktreeId": "worktree_...",
+  "checkoutEpochId": "epoch_...",
+  "workspaceOverlayId": "overlay_...",
+  "selectedAt": "2026-04-09T00:00:00.000Z",
+  "selectionKind": "full_file|partial_file|symbol_subset",
+  "selectionEntries": [
+    {
+      "path": "src/server.ts",
+      "symbols": [],
+      "regions": []
+    }
+  ],
+  "base": {
+    "headCommitSha": "abc123",
+    "indexTreeSha": null
+  }
+}
+```
+
+### Selection-entry rules
+
+Each `selectionEntries` item represents one admitted footprint unit.
+
+Minimum rules:
+- `path` is always required
+- `symbols` is optional and may be empty in the first implementation
+- `regions` is optional and may be empty until region-granular collapse
+  is supported
+- `selectionKind = full_file`
+  - `regions` should be empty
+- `selectionKind = partial_file`
+  - at least one region should be present once region slicing is
+    implemented
+- `selectionKind = symbol_subset`
+  - at least one symbol identifier should be present
+
+### Target identity rules
+
+A `targetId` must be stable for the specific selection snapshot it
+represents, not just for a path name.
+
+The first honest identity boundary is:
+- repo
+- worktree
+- checkout epoch
+- overlay
+- normalized selection footprint
+
+If any of those change materially, the target is a new target rather
+than a mutated view of the old one.
+
 #### `commit_event`
 
 Required payload:
@@ -668,6 +746,32 @@ Every collapse witness must make these things recoverable:
 - which events were included
 - which nearby boundaries were intentionally excluded
 - what evidence justified the attribution and confidence level
+
+### Boundary rules
+
+The witness must also make the slice boundary testable.
+
+Minimum rules:
+- every included event must satisfy at least one of:
+  - direct footprint overlap with the target
+  - decision or handoff evidence explicitly referenced by another
+    included event
+  - structural-footing transition required to interpret the included
+    events
+- every shared event must be legal to appear in more than one collapse
+  witness without changing its identity
+- every excluded boundary must name a reason that is narrower than "not
+  selected"
+
+Initial exclusion reasons:
+- `outside_target_footprint`
+- `different_checkout_epoch`
+- `different_causal_session`
+- `insufficient_evidence`
+- `precedes_selection_boundary`
+
+These rules are what make stage-explain or commit-explain surfaces
+reviewable instead of rhetorical.
 
 This witness is the minimum durable explanation for
 `WARP_causal-blame-for-staged-artifacts`.
