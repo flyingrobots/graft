@@ -1,13 +1,54 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi } from "vitest";
 import { safeRead } from "../../../src/operations/safe-read.js";
 import { nodeFs } from "../../../src/adapters/node-fs.js";
 import { CanonicalJsonCodec } from "../../../src/adapters/canonical-json.js";
+import { fileOutline } from "../../../src/operations/file-outline.js";
+import type { FileSystem } from "../../../src/ports/filesystem.js";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 
 const codec = new CanonicalJsonCodec();
 const FIXTURES = path.resolve(import.meta.dirname, "../../fixtures");
+
+class AsyncOnlyFileSystem implements FileSystem {
+  constructor(private readonly files: Readonly<Record<string, string>>) {}
+
+  readFile(path: string, encoding: "utf-8"): Promise<string>;
+  readFile(path: string): Promise<Buffer>;
+  async readFile(path: string, encoding?: "utf-8"): Promise<string | Buffer> {
+    const content = this.files[path];
+    if (content === undefined) throw new Error("not found");
+    await Promise.resolve();
+    return encoding === "utf-8" ? content : Buffer.from(content, "utf-8");
+  }
+
+  async writeFile(): Promise<void> {
+    await Promise.resolve();
+    throw new Error("unused");
+  }
+
+  async appendFile(): Promise<void> {
+    await Promise.resolve();
+    throw new Error("unused");
+  }
+
+  async mkdir(): Promise<void> {
+    await Promise.resolve();
+    throw new Error("unused");
+  }
+
+  async stat(path: string): Promise<{ size: number }> {
+    const content = this.files[path];
+    if (content === undefined) throw new Error("not found");
+    await Promise.resolve();
+    return { size: Buffer.byteLength(content, "utf-8") };
+  }
+
+  readFileSync(): string {
+    throw new Error("readFileSync should not be used on async request paths");
+  }
+}
 
 describe("operations: safe_read", () => {
   it("returns content for small files", async () => {
@@ -158,5 +199,29 @@ describe("operations: safe_read", () => {
     if (result.projection === "outline") {
       expect(result.reason).toBe("SESSION_CAP");
     }
+  });
+
+  it("Is the filesystem posture async on daemon-heavy request paths, with remaining sync reads treated as deliberate debt rather than default behavior?", async () => {
+    const filePath = "/virtual/app.ts";
+    const content = [
+      "export function greet(name: string): string {",
+      "  return `hello ${name}`;",
+      "}",
+      "",
+    ].join("\n");
+    const asyncFs = new AsyncOnlyFileSystem({ [filePath]: content });
+    const syncRead = vi.fn(() => {
+      throw new Error("readFileSync should not be used on async request paths");
+    });
+    asyncFs.readFileSync = syncRead;
+
+    const safeReadResult = await safeRead(filePath, { fs: asyncFs, codec });
+    const fileOutlineResult = await fileOutline(filePath, { fs: asyncFs });
+
+    expect(safeReadResult.projection).toBe("content");
+    expect(fileOutlineResult.outline).toEqual(expect.arrayContaining([
+      expect.objectContaining({ kind: "function", name: "greet" }),
+    ]));
+    expect(syncRead).not.toHaveBeenCalled();
   });
 });

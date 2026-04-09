@@ -12,9 +12,51 @@ function deferredPromise<T>() {
 }
 
 describe("mcp: daemon job scheduler", () => {
-  it("tracks queued and completed interactive jobs", async () => {
+  it("Can one hot repo or one slow request no longer starve unrelated daemon sessions by default?", () => {
+    const scheduler = new DaemonJobScheduler();
+    const slowA = deferredPromise<string>();
+    const slowB = deferredPromise<string>();
+
+    void scheduler.enqueue({
+      sessionId: "session-a",
+      sliceId: "slice-a",
+      repoId: "repo-a",
+      worktreeId: "worktree-a",
+      tool: "safe_read",
+      kind: "repo_tool",
+      priority: "interactive",
+      writerId: "graft_session_a",
+    }, () => slowA.promise);
+
+    void scheduler.enqueue({
+      sessionId: "session-b",
+      sliceId: "slice-b",
+      repoId: "repo-b",
+      worktreeId: "worktree-b",
+      tool: "code_find",
+      kind: "repo_tool",
+      priority: "interactive",
+      writerId: "graft_session_b",
+    }, () => slowB.promise);
+
+    const jobs = scheduler.listJobs();
+    expect(scheduler.getCounts()).toEqual(expect.objectContaining({
+      maxConcurrentJobs: 2,
+      activeJobs: 2,
+      queuedJobs: 0,
+    }));
+    expect(jobs.filter((job) => job.state === "running")).toEqual(expect.arrayContaining([
+      expect.objectContaining({ sessionId: "session-a", repoId: "repo-a" }),
+      expect.objectContaining({ sessionId: "session-b", repoId: "repo-b" }),
+    ]));
+
+    slowA.resolve("done-a");
+    slowB.resolve("done-b");
+  });
+
+  it("Is the scheduling model explicit about what is fair per repo, per session, and per worker kind?", async () => {
     const scheduler = new DaemonJobScheduler({ maxConcurrentJobs: 1 });
-    const repoA = deferredPromise<string>();
+    const interactive = deferredPromise<string>();
 
     const running = scheduler.enqueue({
       sessionId: "session-a",
@@ -25,34 +67,56 @@ describe("mcp: daemon job scheduler", () => {
       kind: "repo_tool",
       priority: "interactive",
       writerId: "graft_session_a",
-    }, () => repoA.promise);
+    }, () => interactive.promise);
 
     const queued = scheduler.enqueue({
-      sessionId: "session-b",
-      sliceId: "slice-b",
+      sessionId: null,
+      sliceId: null,
       repoId: "repo-b",
       worktreeId: "worktree-b",
-      tool: "code_find",
-      kind: "repo_tool",
-      priority: "interactive",
-      writerId: "graft_session_b",
+      tool: "monitor_start",
+      kind: "persistent_monitor",
+      priority: "background",
+      writerId: "graft_monitor_b",
     }, () => Promise.resolve("done"));
 
-    const queuedSnapshot = scheduler.getCounts();
-    expect(queuedSnapshot.activeJobs).toBe(1);
-    expect(queuedSnapshot.queuedJobs).toBe(1);
-    expect(queuedSnapshot.interactiveQueuedJobs).toBe(1);
-    expect(queuedSnapshot.completedJobs).toBe(0);
+    expect(scheduler.listJobs()).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        sessionId: "session-a",
+        repoId: "repo-a",
+        kind: "repo_tool",
+        priority: "interactive",
+        writerId: "graft_session_a",
+        state: "running",
+      }),
+      expect.objectContaining({
+        sessionId: null,
+        repoId: "repo-b",
+        kind: "persistent_monitor",
+        priority: "background",
+        writerId: "graft_monitor_b",
+        state: "queued",
+      }),
+    ]));
+    expect(scheduler.getCounts()).toEqual(expect.objectContaining({
+      activeJobs: 1,
+      queuedJobs: 1,
+      interactiveQueuedJobs: 0,
+      backgroundQueuedJobs: 1,
+      activeWriterLanes: 1,
+      queuedWriterLanes: 1,
+    }));
 
-    repoA.resolve("alpha");
+    interactive.resolve("alpha");
     await expect(running).resolves.toBe("alpha");
     await expect(queued).resolves.toBe("done");
 
-    const finalSnapshot = scheduler.getCounts();
-    expect(finalSnapshot.activeJobs).toBe(0);
-    expect(finalSnapshot.queuedJobs).toBe(0);
-    expect(finalSnapshot.completedJobs).toBe(2);
-    expect(finalSnapshot.failedJobs).toBe(0);
+    expect(scheduler.getCounts()).toEqual(expect.objectContaining({
+      activeJobs: 0,
+      queuedJobs: 0,
+      completedJobs: 2,
+      failedJobs: 0,
+    }));
   });
 
   it("serializes work on the same writer lane", () => {
@@ -92,7 +156,7 @@ describe("mcp: daemon job scheduler", () => {
     repoAFirst.resolve("done-a");
   });
 
-  it("allows different writer lanes for the same repo to run concurrently", () => {
+  it("Are WARP writes modeled as logical writer lanes instead of a single hard-coded writer or executor-derived writer IDs?", () => {
     const scheduler = new DaemonJobScheduler({ maxConcurrentJobs: 2 });
     const writerA = deferredPromise<string>();
     const writerB = deferredPromise<string>();

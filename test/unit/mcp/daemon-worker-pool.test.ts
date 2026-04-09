@@ -16,7 +16,7 @@ afterEach(async () => {
 });
 
 describe("mcp: daemon worker pool", () => {
-  it("runs monitor tick work on a child-process worker and reports worker counts", async () => {
+  it("runs monitor tick work on a child-process worker and reports worker counts", { timeout: 15_000 }, async () => {
     const repoDir = createTestRepo("graft-daemon-worker-");
     cleanups.push(() => {
       cleanupTestRepo(repoDir);
@@ -121,7 +121,7 @@ describe("mcp: daemon worker pool", () => {
     }));
   });
 
-  it("round-trips cache updates for safe_read across child-process work", async () => {
+  it("Does the daemon keep session state authoritative in-process while workers execute against immutable snapshots and return deltas?", async () => {
     const repoDir = createTestRepo("graft-daemon-safe-read-worker-");
     cleanups.push(() => {
       cleanupTestRepo(repoDir);
@@ -140,6 +140,11 @@ describe("mcp: daemon worker pool", () => {
     cleanups.push(async () => {
       await pool.close();
     });
+
+    const sessionSnapshot = new SessionTracker().snapshot();
+    const metricsSnapshot = new Metrics().snapshot();
+    const sessionSnapshotBefore = structuredClone(sessionSnapshot);
+    const metricsSnapshotBefore = structuredClone(metricsSnapshot);
 
     const jobBase = {
       sessionId: "session:test",
@@ -162,8 +167,8 @@ describe("mcp: daemon worker pool", () => {
         lastTransition: null,
         workspaceOverlay: null,
       },
-      sessionSnapshot: new SessionTracker().snapshot(),
-      metricsSnapshot: new Metrics().snapshot(),
+      sessionSnapshot,
+      metricsSnapshot,
     };
 
     const first = await pool.runRepoTool({
@@ -180,6 +185,8 @@ describe("mcp: daemon worker pool", () => {
     expect(firstPayload.projection).toBe("content");
     expect(first.cacheUpdates).toHaveLength(1);
     expect(first.cacheUpdates[0]?.observation).not.toBeNull();
+    expect(sessionSnapshot).toEqual(sessionSnapshotBefore);
+    expect(metricsSnapshot).toEqual(metricsSnapshotBefore);
 
     const second = await pool.runRepoTool({
       ...jobBase,

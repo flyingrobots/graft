@@ -35,7 +35,7 @@ describe("warp: writer id", () => {
     expect(left).not.toBe(right);
   });
 
-  it("derives stable session and monitor writer helpers", () => {
+  it("Are WARP writer identities stable and meaningful, rather than tied to incidental worker-process IDs?", () => {
     expect(buildSessionWarpWriterId("session-123")).toMatch(/^graft_session_[a-f0-9]{12}$/);
     expect(buildMonitorWarpWriterId("repo:abc123")).toMatch(/^graft_monitor_[a-f0-9]{12}$/);
   });

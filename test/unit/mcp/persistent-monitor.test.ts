@@ -33,16 +33,26 @@ function createCommittedRepo(): string {
 }
 
 describe("mcp: persistent monitors", () => {
-  it("starts, lists, pauses, resumes, and stops a repo-scoped monitor", async () => {
+  it("Do background monitors run through the same pressure and fairness scheduler as foreground repo work?", async () => {
     const repoDir = createCommittedRepo();
     const server = createDaemonServer();
 
     await server.callTool("workspace_authorize", { cwd: repoDir });
+    await server.callTool("workspace_bind", { cwd: repoDir });
 
     const initialStatus = parse(await server.callTool("daemon_status", {}));
     expect(initialStatus["scheduler"]).toEqual(expect.objectContaining({
       completedJobs: 0,
       backgroundQueuedJobs: 0,
+    }));
+
+    await server.callTool("safe_read", { path: "app.ts" });
+
+    const afterForeground = parse(await server.callTool("daemon_status", {}));
+    expect(afterForeground["scheduler"]).toEqual(expect.objectContaining({
+      completedJobs: 1,
+      backgroundQueuedJobs: 0,
+      activeJobs: 0,
     }));
 
     const start = parse(await server.callTool("monitor_start", {
@@ -74,7 +84,7 @@ describe("mcp: persistent monitors", () => {
       stoppedMonitors: 0,
     }));
     expect(runningStatus["scheduler"]).toEqual(expect.objectContaining({
-      completedJobs: 1,
+      completedJobs: 2,
       backgroundQueuedJobs: 0,
       activeJobs: 0,
     }));
@@ -94,7 +104,7 @@ describe("mcp: persistent monitors", () => {
 
     const resumedStatus = parse(await server.callTool("daemon_status", {}));
     expect(resumedStatus["scheduler"]).toEqual(expect.objectContaining({
-      completedJobs: 2,
+      completedJobs: 3,
       backgroundQueuedJobs: 0,
       activeJobs: 0,
     }));

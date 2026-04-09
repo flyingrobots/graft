@@ -2,12 +2,12 @@
 title: "Graft — Executive Summary"
 generated: 2026-04-09
 generator: codex (manual, following Method executive-summary process)
-tests: 590
-test_files: 53
+tests: 601
+test_files: 55
 legends: [CORE, WARP, CLEAN_CODE, SURFACE]
-backlog_items: 136
+backlog_items: 142
 version: 0.4.0
-status: "0058 active"
+status: "0059 active"
 ---
 
 # Graft — Executive Summary
@@ -93,13 +93,16 @@ The current working model is:
 
 METHOD currently shows one active cycle:
 
-- `0058-system-wide-resource-pressure-and-fairness`
+- `0059-graph-ontology-and-causal-collapse-model`
 
-That cycle has effectively become the daemon execution-substrate packet:
-async Git, async file paths, scheduler, workers, monitor routing, and
-writer lanes. It should finish as that substrate packet. The next WARP
-packet should define ontology and collapse semantics explicitly instead
-of quietly widening `0058`.
+`0058-system-wide-resource-pressure-and-fairness` is now closed as the
+daemon execution-substrate packet: async Git, async file paths,
+scheduler, workers, monitor routing, and writer lanes.
+
+The active `0059` WARP packet is the ontology / collapse design cycle.
+Its job is to define graph layers, identities, event granularity,
+checkout epochs, and collapse semantics explicitly, while treating full
+strand-aware collapse as blocked on upstream `git-warp v17.1.0+`.
 
 ## Architecture
 

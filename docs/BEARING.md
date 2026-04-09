@@ -76,11 +76,11 @@ That implies:
 
 ## What is active now
 
-Cycle `0058-system-wide-resource-pressure-and-fairness` is still active
-in METHOD.
+Cycle `0059-graph-ontology-and-causal-collapse-model` is now active in
+METHOD.
 
-Its execution-substrate tranche is effectively the work we have already
-been doing:
+The previous `0058-system-wide-resource-pressure-and-fairness` cycle is
+now closed as the execution-substrate packet. Its shipped tranche was:
 
 - async `GitClient` via `@git-stunts/plumbing`
 - async daemon-heavy request-path filesystem reads
@@ -89,12 +89,8 @@ been doing:
 - logical WARP writer lanes keyed by stable writer identity rather than
   worker identity
 
-That work is still valuable. It is the execution substrate the next
-WARP packet needs.
-
-The important scope correction is: `0058` should finish as an execution
-substrate cycle. The new strand/collapse ontology should be a follow-on
-WARP cycle, not a reason to quietly widen `0058` into a different hill.
+That work is still valuable. It is the execution substrate the current
+WARP ontology packet needs.
 
 There is also a current upstream dependency boundary: full realization
 of strand-aware causal collapse appears blocked on `git-warp`
@@ -120,8 +116,10 @@ turn:
 - cycles `0050`–`0057` established the trust model, daemon transport,
   workspace binding, control plane, persistent monitors, multi-repo
   overview, and explicit same-repo identity splits
-- cycle `0058` has so far built the async Git/FS, scheduler, worker,
-  and writer-lane substrate needed for fair execution
+- cycle `0058` built the async Git/FS, scheduler, worker, and
+  writer-lane substrate needed for fair execution
+- cycle `0059` is now the ontology / collapse packet that defines what
+  those execution primitives are actually in service of
 - backlog now explicitly captures branch-switch hook/bootstrap concerns
   and the need for a first-class graph ontology / collapse model
 
