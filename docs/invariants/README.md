@@ -27,6 +27,12 @@ it. Cycles under that legend must verify the invariant holds.
 ### Cache (CORE)
 - [cache-normalized](cache-normalized.md) — same file = same cache key
 
+### WARP Ontology (WARP)
+- [canonical-provenance-separate](canonical-provenance-separate.md) — canonical structural truth is not the same layer as canonical provenance
+- [causal-collapse-slice-based](causal-collapse-slice-based.md) — collapse admits the relevant causal slice, not the whole strand
+- [checkout-epochs-explicit](checkout-epochs-explicit.md) — branch and history transitions must create explicit checkout-epoch boundaries
+- [transport-session-not-causal-session](transport-session-not-causal-session.md) — transport sessions are not the final product session model
+
 ### Observability (CORE)
 - [receipt-always](receipt-always.md) — every MCP response has _receipt
 - [versioned-output-schemas](versioned-output-schemas.md) — machine-readable outputs carry versioned schemas
