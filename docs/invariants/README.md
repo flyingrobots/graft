@@ -29,6 +29,7 @@ it. Cycles under that legend must verify the invariant holds.
 
 ### WARP Ontology (WARP)
 - [canonical-provenance-separate](canonical-provenance-separate.md) — canonical structural truth is not the same layer as canonical provenance
+- [causal-events-carry-footprints](causal-events-carry-footprints.md) — provenance-capable events must have explicit footprints
 - [causal-collapse-slice-based](causal-collapse-slice-based.md) — collapse admits the relevant causal slice, not the whole strand
 - [checkout-epochs-explicit](checkout-epochs-explicit.md) — branch and history transitions must create explicit checkout-epoch boundaries
 - [transport-session-not-causal-session](transport-session-not-causal-session.md) — transport sessions are not the final product session model
