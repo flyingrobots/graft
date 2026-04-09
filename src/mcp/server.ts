@@ -163,6 +163,7 @@ export function createGraftServer(options: CreateGraftServerOptions = {}): Graft
     maxBytes: observability.maxBytes,
   });
   const warpPool = options.warpPool ?? new InMemoryWarpPool((cwd, writerId) => openWarp({ cwd, writerId }));
+  const daemonScheduler = mode === "daemon" ? (options.daemonScheduler ?? new DaemonJobScheduler()) : null;
   const daemonControlPlane = mode === "daemon"
     ? (options.daemonControlPlane ?? new DaemonControlPlane({
       fs: nodeFs,
@@ -171,16 +172,17 @@ export function createGraftServer(options: CreateGraftServerOptions = {}): Graft
       graftDir,
     }))
     : null;
-  const monitorRuntime = mode === "daemon" && daemonControlPlane !== null
-    ? (options.monitorRuntime ?? new PersistentMonitorRuntime({
+  const monitorRuntime = mode !== "daemon" || daemonControlPlane === null || daemonScheduler === null
+    ? null
+    : (options.monitorRuntime ?? new PersistentMonitorRuntime({
       fs: nodeFs,
       codec,
       git: nodeGit,
       graftDir,
       controlPlane: daemonControlPlane,
       warpPool,
-    }))
-    : null;
+      scheduler: daemonScheduler,
+    }));
   const daemonStartedAt = new Date().toISOString();
   const daemonRuntime = options.daemonRuntime ?? (() => {
     return {
@@ -217,7 +219,6 @@ export function createGraftServer(options: CreateGraftServerOptions = {}): Graft
       monitorRuntime,
     })
     : null;
-  const daemonScheduler = mode === "daemon" ? (options.daemonScheduler ?? new DaemonJobScheduler()) : null;
   const runtimeReady = Promise.all([
     mode === "repo_local" && projectRoot !== undefined
       ? ensureGraftDirExcluded(projectRoot, graftDir, nodeFs)

@@ -39,6 +39,12 @@ describe("mcp: persistent monitors", () => {
 
     await server.callTool("workspace_authorize", { cwd: repoDir });
 
+    const initialStatus = parse(await server.callTool("daemon_status", {}));
+    expect(initialStatus["scheduler"]).toEqual(expect.objectContaining({
+      completedJobs: 0,
+      backgroundQueuedJobs: 0,
+    }));
+
     const start = parse(await server.callTool("monitor_start", {
       cwd: repoDir,
       pollIntervalMs: 60_000,
@@ -67,6 +73,11 @@ describe("mcp: persistent monitors", () => {
       pausedMonitors: 0,
       stoppedMonitors: 0,
     }));
+    expect(runningStatus["scheduler"]).toEqual(expect.objectContaining({
+      completedJobs: 1,
+      backgroundQueuedJobs: 0,
+      activeJobs: 0,
+    }));
 
     const pause = parse(await server.callTool("monitor_pause", { cwd: repoDir }));
     expect(pause["ok"]).toBe(true);
@@ -79,6 +90,13 @@ describe("mcp: persistent monitors", () => {
     expect(resume["ok"]).toBe(true);
     expect(resume["status"]).toEqual(expect.objectContaining({
       lifecycleState: "running",
+    }));
+
+    const resumedStatus = parse(await server.callTool("daemon_status", {}));
+    expect(resumedStatus["scheduler"]).toEqual(expect.objectContaining({
+      completedJobs: 2,
+      backgroundQueuedJobs: 0,
+      activeJobs: 0,
     }));
 
     const stop = parse(await server.callTool("monitor_stop", { cwd: repoDir }));

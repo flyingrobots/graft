@@ -4,6 +4,7 @@ import { indexCommits } from "../warp/indexer.js";
 import type { JsonCodec } from "../ports/codec.js";
 import type { FileSystem } from "../ports/filesystem.js";
 import type { GitClient } from "../ports/git.js";
+import type { DaemonJobScheduler } from "./daemon-job-scheduler.js";
 import type { DaemonControlPlane, DaemonMonitorCounts } from "./daemon-control-plane.js";
 import {
   resolveWorkspaceRequest,
@@ -93,6 +94,7 @@ export interface PersistentMonitorRuntimeOptions {
   readonly graftDir: string;
   readonly controlPlane: DaemonControlPlane;
   readonly warpPool: WarpPool;
+  readonly scheduler: DaemonJobScheduler;
   readonly defaultPollIntervalMs?: number | undefined;
 }
 
@@ -373,7 +375,16 @@ export class PersistentMonitorRuntime {
       return;
     }
 
-    const tick = (async () => {
+    const tick = this.options.scheduler.enqueue({
+      sessionId: null,
+      sliceId: null,
+      repoId,
+      worktreeId: null,
+      tool: "monitor_tick",
+      kind: "persistent_monitor",
+      priority: "background",
+      laneKey: `monitor:${repoId}`,
+    }, async () => {
       const record = this.records.get(repoId);
       if (record?.lifecycleState !== "running" || this.closing) {
         return;
@@ -470,7 +481,7 @@ export class PersistentMonitorRuntime {
       } finally {
         await this.persist();
       }
-    })().finally(() => {
+    }).finally(() => {
       this.runningTicks.delete(repoId);
       const current = this.records.get(repoId);
       if (current?.lifecycleState === "running" && !this.closing) {

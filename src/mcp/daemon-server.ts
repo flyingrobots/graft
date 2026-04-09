@@ -185,6 +185,7 @@ export async function startDaemonServer(options: StartDaemonServerOptions = {}):
     git: nodeGit,
     graftDir,
   });
+  const daemonScheduler = new DaemonJobScheduler();
   const monitorRuntime = new PersistentMonitorRuntime({
     fs: nodeFs,
     codec: new CanonicalJsonCodec(),
@@ -192,8 +193,8 @@ export async function startDaemonServer(options: StartDaemonServerOptions = {}):
     graftDir,
     controlPlane,
     warpPool,
+    scheduler: daemonScheduler,
   });
-  const daemonScheduler = new DaemonJobScheduler();
   const sessions = new Map<string, DaemonSession>();
   const startedAt = new Date().toISOString();
   const transportKind = isNamedPipePath(socketPath) ? "named_pipe" : "unix_socket";
