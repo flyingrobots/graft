@@ -3,6 +3,7 @@ import { fork, type ChildProcess } from "node:child_process";
 import * as os from "node:os";
 import { fileURLToPath } from "node:url";
 import { runMonitorTickJob, type MonitorTickWorkerJob, type MonitorTickWorkerResult } from "./monitor-tick-job.js";
+import { runRepoToolJob, type RepoToolWorkerJob, type RepoToolWorkerResult } from "./repo-tool-job.js";
 
 export interface DaemonWorkerCounts {
   readonly mode: "inline" | "child_processes";
@@ -17,6 +18,7 @@ export interface DaemonWorkerCounts {
 export interface DaemonWorkerPool {
   getCounts(): DaemonWorkerCounts;
   runMonitorTick(job: MonitorTickWorkerJob): Promise<MonitorTickWorkerResult>;
+  runRepoTool(job: RepoToolWorkerJob): Promise<RepoToolWorkerResult>;
   close(): Promise<void>;
 }
 
@@ -26,19 +28,30 @@ export interface ChildProcessDaemonWorkerPoolOptions {
 
 interface QueuedMonitorTask {
   readonly requestId: string;
+  readonly kind: "monitor_tick";
   readonly job: MonitorTickWorkerJob;
   readonly resolve: (result: MonitorTickWorkerResult) => void;
   readonly reject: (reason?: unknown) => void;
 }
 
-interface ActiveMonitorTask extends QueuedMonitorTask {
-  readonly workerId: string;
+interface QueuedRepoToolTask {
+  readonly requestId: string;
+  readonly kind: "repo_tool";
+  readonly job: RepoToolWorkerJob;
+  readonly resolve: (result: RepoToolWorkerResult) => void;
+  readonly reject: (reason?: unknown) => void;
 }
+
+type QueuedWorkerTask = QueuedMonitorTask | QueuedRepoToolTask;
+
+type ActiveWorkerTask = QueuedWorkerTask & {
+  readonly workerId: string;
+};
 
 interface WorkerSuccessMessage {
   readonly requestId: string;
   readonly ok: true;
-  readonly result: MonitorTickWorkerResult;
+  readonly result: MonitorTickWorkerResult | RepoToolWorkerResult;
 }
 
 interface WorkerFailureMessage {
@@ -52,7 +65,7 @@ type WorkerMessage = WorkerSuccessMessage | WorkerFailureMessage;
 interface WorkerState {
   readonly workerId: string;
   readonly child: ChildProcess;
-  task: ActiveMonitorTask | null;
+  task: ActiveWorkerTask | null;
 }
 
 function defaultProcessPoolSize(): number {
@@ -100,6 +113,17 @@ export class InlineDaemonWorkerPool implements DaemonWorkerPool {
     }
   }
 
+  async runRepoTool(job: RepoToolWorkerJob): Promise<RepoToolWorkerResult> {
+    try {
+      const result = await runRepoToolJob(job);
+      this.completedTasks++;
+      return result;
+    } catch (error) {
+      this.failedTasks++;
+      throw error;
+    }
+  }
+
   close(): Promise<void> {
     return Promise.resolve();
   }
@@ -108,7 +132,7 @@ export class InlineDaemonWorkerPool implements DaemonWorkerPool {
 export class ChildProcessDaemonWorkerPool implements DaemonWorkerPool {
   private readonly size: number;
   private readonly workers = new Map<string, WorkerState>();
-  private readonly queue: QueuedMonitorTask[] = [];
+  private readonly queue: QueuedWorkerTask[] = [];
   private completedTasks = 0;
   private failedTasks = 0;
   private closing = false;
@@ -140,6 +164,23 @@ export class ChildProcessDaemonWorkerPool implements DaemonWorkerPool {
     return new Promise<MonitorTickWorkerResult>((resolve, reject) => {
       this.queue.push({
         requestId: crypto.randomUUID(),
+        kind: "monitor_tick",
+        job,
+        resolve,
+        reject,
+      });
+      this.dispatch();
+    });
+  }
+
+  runRepoTool(job: RepoToolWorkerJob): Promise<RepoToolWorkerResult> {
+    if (this.closing) {
+      return Promise.reject(new Error("daemon worker pool is closing"));
+    }
+    return new Promise<RepoToolWorkerResult>((resolve, reject) => {
+      this.queue.push({
+        requestId: crypto.randomUUID(),
+        kind: "repo_tool",
         job,
         resolve,
         reject,
@@ -200,14 +241,14 @@ export class ChildProcessDaemonWorkerPool implements DaemonWorkerPool {
       if (next === undefined) {
         return;
       }
-      const activeTask: ActiveMonitorTask = {
+      const activeTask: ActiveWorkerTask = {
         ...next,
         workerId: workerState.workerId,
       };
       workerState.task = activeTask;
       workerState.child.send({
         requestId: activeTask.requestId,
-        kind: "monitor_tick",
+        kind: activeTask.kind,
         job: activeTask.job,
       });
     }
@@ -221,7 +262,11 @@ export class ChildProcessDaemonWorkerPool implements DaemonWorkerPool {
     workerState.task = null;
     if (message.ok) {
       this.completedTasks++;
-      task.resolve(message.result);
+      if (task.kind === "monitor_tick") {
+        task.resolve(message.result as MonitorTickWorkerResult);
+      } else {
+        task.resolve(message.result as RepoToolWorkerResult);
+      }
     } else {
       this.failedTasks++;
       task.reject(new Error(message.error));

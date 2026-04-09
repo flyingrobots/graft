@@ -5,6 +5,15 @@ const EDIT_BASH_TOOLS = new Set(["Edit", "Bash"]);
 const LATE_READ_BYTE_THRESHOLD = 20480;
 const LATE_READ_MESSAGE_THRESHOLD = 300;
 
+export interface SessionTrackerSnapshot {
+  readonly totalMessages: number;
+  readonly toolCallsSinceUser: number;
+  readonly editBashTransitions: number;
+  readonly lastEditBashTool: string | null;
+  readonly budgetBytes: number | null;
+  readonly consumedBytes: number;
+}
+
 export class SessionTracker {
   private totalMessages = 0;
   private toolCallsSinceUser = 0;
@@ -12,6 +21,17 @@ export class SessionTracker {
   private lastEditBashTool: string | null = null;
   private budgetBytes: number | null = null;
   private consumedBytes = 0;
+
+  static fromSnapshot(snapshot: SessionTrackerSnapshot): SessionTracker {
+    const tracker = new SessionTracker();
+    tracker.totalMessages = snapshot.totalMessages;
+    tracker.toolCallsSinceUser = snapshot.toolCallsSinceUser;
+    tracker.editBashTransitions = snapshot.editBashTransitions;
+    tracker.lastEditBashTool = snapshot.lastEditBashTool;
+    tracker.budgetBytes = snapshot.budgetBytes;
+    tracker.consumedBytes = snapshot.consumedBytes;
+    return tracker;
+  }
 
   getMessageCount(): number {
     return this.totalMessages;
@@ -99,6 +119,17 @@ export class SessionTracker {
       consumed: this.consumedBytes,
       remaining,
       fraction: Math.round((this.consumedBytes / this.budgetBytes) * 1000) / 1000,
+    };
+  }
+
+  snapshot(): SessionTrackerSnapshot {
+    return {
+      totalMessages: this.totalMessages,
+      toolCallsSinceUser: this.toolCallsSinceUser,
+      editBashTransitions: this.editBashTransitions,
+      lastEditBashTool: this.lastEditBashTool,
+      budgetBytes: this.budgetBytes,
+      consumedBytes: this.consumedBytes,
     };
   }
 

@@ -337,6 +337,25 @@ describe("mcp: daemon transport and lifecycle", () => {
     const findB = await callTool<{ total: number }>(socketPath, sessionB, "code_find", { query: "greet" }, 14);
     expect(findB.total).toBe(1);
 
+    const structuralMap = await callTool<{ files: { path: string }[] }>(
+      socketPath,
+      sessionA,
+      "graft_map",
+      {},
+      18,
+    );
+    expect(structuralMap.files.some((file) => file.path === "app.ts")).toBe(true);
+
+    const daemonStatus = await callTool<{ workers: { completedTasks: number; mode: string } }>(
+      socketPath,
+      sessionA,
+      "daemon_status",
+      {},
+      19,
+    );
+    expect(daemonStatus.workers.mode).toBe("child_processes");
+    expect(daemonStatus.workers.completedTasks).toBeGreaterThanOrEqual(1);
+
     const sharedHealth = await requestUnixJson(socketPath, "GET", "/healthz");
     expect(parseJson(sharedHealth) as { activeSessions: number; activeWarpRepos: number }).toMatchObject({
       activeSessions: 2,

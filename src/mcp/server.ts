@@ -28,6 +28,7 @@ import { DaemonRepoOverview } from "./daemon-repos.js";
 import { DaemonJobScheduler } from "./daemon-job-scheduler.js";
 import { InlineDaemonWorkerPool, type DaemonWorkerPool } from "./daemon-worker-pool.js";
 import { PersistentMonitorRuntime } from "./persistent-monitor-runtime.js";
+import { OFFLOADED_DAEMON_REPO_TOOL_NAMES, type OffloadedRepoToolName } from "./repo-tool-job.js";
 import {
   RuntimeEventLogger,
   classifyRuntimeFailure,
@@ -456,6 +457,11 @@ export function createGraftServer(options: CreateGraftServerOptions = {}): Graft
     "code_find",
     "code_refs",
   ]);
+  const daemonOffloadedRepoTools = new Set<string>(OFFLOADED_DAEMON_REPO_TOOL_NAMES);
+
+  function isOffloadedRepoTool(name: string): name is OffloadedRepoToolName {
+    return daemonOffloadedRepoTools.has(name);
+  }
 
   async function invokeTool(
     name: string,
@@ -526,7 +532,39 @@ export function createGraftServer(options: CreateGraftServerOptions = {}): Graft
           kind: "repo_tool",
           priority: "interactive",
           laneKey: `repo_interactive:${execution.repoId}`,
-        }, executeHandler)
+        }, async () => {
+          const activeExecution = execution;
+          if (activeExecution !== null && daemonWorkerPool !== null && isOffloadedRepoTool(name)) {
+            await activeExecution.repoState.observe();
+            const workerResult = await daemonWorkerPool.runRepoTool({
+              sessionId,
+              traceId,
+              seq: ++seq,
+              startedAtMs,
+              tool: name,
+              args: parsed,
+              projectRoot: activeExecution.projectRoot,
+              graftDir: activeExecution.graftDir,
+              graftignorePatterns: activeExecution.graftignorePatterns,
+              repoId: activeExecution.repoId,
+              worktreeId: activeExecution.worktreeId,
+              gitCommonDir: activeExecution.gitCommonDir,
+              capabilityProfile: activeExecution.capabilityProfile,
+              repoState: activeExecution.repoState.getState(),
+              sessionSnapshot: activeExecution.session.snapshot(),
+              metricsSnapshot: activeExecution.metrics.snapshot(),
+            });
+            activeExecution.metrics.applyDelta(workerResult.metricsDelta);
+            activeExecution.metrics.recordToolResult(name, workerResult.textBytes);
+            activeExecution.session.recordBytesConsumed(workerResult.textBytes);
+            invocation.response = {
+              receipt: workerResult.receipt,
+              tripwireSignals: workerResult.tripwireSignals,
+            };
+            return workerResult.result;
+          }
+          return executeHandler();
+        })
         : await executeHandler();
 
       if (observability.enabled && invocation.response !== undefined) {
