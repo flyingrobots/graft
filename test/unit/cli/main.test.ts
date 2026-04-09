@@ -124,6 +124,18 @@ describe("cli: graft grouped surface", () => {
             stoppedMonitors: 0,
             failingMonitors: 0,
             backlogMonitors: 0,
+            scheduler: {
+              maxConcurrentJobs: 2,
+              activeJobs: 0,
+              queuedJobs: 0,
+              interactiveQueuedJobs: 0,
+              backgroundQueuedJobs: 0,
+              activeRepoLanes: 0,
+              queuedRepoLanes: 0,
+              completedJobs: 0,
+              failedJobs: 0,
+              longestQueuedWaitMs: 0,
+            },
             defaultCapabilityProfile: {
               boundedReads: true,
               structuralTools: true,

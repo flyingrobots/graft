@@ -371,6 +371,19 @@ const monitorActionSchema = z.object({
   error: z.string().optional(),
 }).strict();
 
+const daemonSchedulerSchema = z.object({
+  maxConcurrentJobs: z.number().int().positive(),
+  activeJobs: z.number().int().nonnegative(),
+  queuedJobs: z.number().int().nonnegative(),
+  interactiveQueuedJobs: z.number().int().nonnegative(),
+  backgroundQueuedJobs: z.number().int().nonnegative(),
+  activeRepoLanes: z.number().int().nonnegative(),
+  queuedRepoLanes: z.number().int().nonnegative(),
+  completedJobs: z.number().int().nonnegative(),
+  failedJobs: z.number().int().nonnegative(),
+  longestQueuedWaitMs: z.number().int().nonnegative(),
+}).strict();
+
 const daemonStatusSchema = z.object({
   ok: z.literal(true),
   sessionMode: z.literal("daemon"),
@@ -393,6 +406,7 @@ const daemonStatusSchema = z.object({
   stoppedMonitors: z.number().int().nonnegative(),
   failingMonitors: z.number().int().nonnegative(),
   backlogMonitors: z.number().int().nonnegative(),
+  scheduler: daemonSchedulerSchema,
   startedAt: z.string(),
 }).strict();
 

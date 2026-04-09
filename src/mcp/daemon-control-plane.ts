@@ -3,6 +3,8 @@ import { z } from "zod";
 import type { JsonCodec } from "../ports/codec.js";
 import type { FileSystem } from "../ports/filesystem.js";
 import type { GitClient } from "../ports/git.js";
+import type { DaemonSchedulerCounts } from "./daemon-job-scheduler.js";
+import { ZERO_SCHEDULER_COUNTS } from "./daemon-job-scheduler.js";
 import {
   DEFAULT_DAEMON_CAPABILITY_PROFILE,
   resolveWorkspaceRequest,
@@ -132,6 +134,7 @@ export interface DaemonStatusView extends DaemonRuntimeDescriptor {
   readonly stoppedMonitors: number;
   readonly failingMonitors: number;
   readonly backlogMonitors: number;
+  readonly scheduler: DaemonSchedulerCounts;
 }
 
 export interface DaemonControlPlaneOptions {
@@ -361,7 +364,11 @@ export class DaemonControlPlane {
       .sort((left, right) => left.startedAt.localeCompare(right.startedAt));
   }
 
-  getStatus(runtime: DaemonRuntimeDescriptor, monitorCounts: DaemonMonitorCounts = ZERO_MONITOR_COUNTS): DaemonStatusView {
+  getStatus(
+    runtime: DaemonRuntimeDescriptor,
+    monitorCounts: DaemonMonitorCounts = ZERO_MONITOR_COUNTS,
+    schedulerCounts: DaemonSchedulerCounts = ZERO_SCHEDULER_COUNTS,
+  ): DaemonStatusView {
     const sessions = this.listSessions();
     const boundSessions = sessions.filter((session) => session.bindState === "bound").length;
     return {
@@ -380,6 +387,7 @@ export class DaemonControlPlane {
       stoppedMonitors: monitorCounts.stoppedMonitors,
       failingMonitors: monitorCounts.failingMonitors,
       backlogMonitors: monitorCounts.backlogMonitors,
+      scheduler: schedulerCounts,
       ...runtime,
     };
   }

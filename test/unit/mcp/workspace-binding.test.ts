@@ -80,6 +80,28 @@ describe("mcp: daemon workspace binding", () => {
     expect(safeRead["projection"]).toBe("content");
   });
 
+  it("routes heavy daemon repo tools through the scheduler", async () => {
+    const repoDir = createCommittedRepo();
+    const server = createDaemonServer();
+    await server.callTool("workspace_authorize", { cwd: repoDir });
+    await server.callTool("workspace_bind", { cwd: repoDir });
+
+    const before = parse(await server.callTool("daemon_status", {}));
+    expect(before["scheduler"]).toEqual(expect.objectContaining({
+      completedJobs: 0,
+      queuedJobs: 0,
+    }));
+
+    await server.callTool("safe_read", { path: "app.ts" });
+
+    const after = parse(await server.callTool("daemon_status", {}));
+    expect(after["scheduler"]).toEqual(expect.objectContaining({
+      completedJobs: 1,
+      queuedJobs: 0,
+      activeJobs: 0,
+    }));
+  });
+
   it("fails clearly when bind cwd is outside a git repo", async () => {
     const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "graft-bind-miss-"));
     cleanups.push(() => {

@@ -20,10 +20,12 @@ import {
   WorkspaceBindingRequiredError,
   WorkspaceCapabilityDeniedError,
   WorkspaceRouter,
+  type WorkspaceExecutionContext,
   type WorkspaceSessionMode,
 } from "./workspace-router.js";
 import { DaemonControlPlane, type DaemonRuntimeDescriptor } from "./daemon-control-plane.js";
 import { DaemonRepoOverview } from "./daemon-repos.js";
+import { DaemonJobScheduler } from "./daemon-job-scheduler.js";
 import { PersistentMonitorRuntime } from "./persistent-monitor-runtime.js";
 import {
   RuntimeEventLogger,
@@ -130,6 +132,7 @@ export interface CreateGraftServerOptions {
   warpPool?: WarpPool;
   daemonControlPlane?: DaemonControlPlane;
   monitorRuntime?: PersistentMonitorRuntime;
+  daemonScheduler?: DaemonJobScheduler;
   daemonRuntime?: (() => DaemonRuntimeDescriptor) | undefined;
 }
 
@@ -192,6 +195,7 @@ export function createGraftServer(options: CreateGraftServerOptions = {}): Graft
   });
   const handlers = new Map<string, ToolHandler>();
   const schemas = new Map<string, z.ZodObject>();
+  const executionContextStorage = new AsyncLocalStorage<WorkspaceExecutionContext>();
   const invocationStorage = new AsyncLocalStorage<{
     readonly traceId: string;
     readonly startedAtMs: number;
@@ -213,6 +217,7 @@ export function createGraftServer(options: CreateGraftServerOptions = {}): Graft
       monitorRuntime,
     })
     : null;
+  const daemonScheduler = mode === "daemon" ? (options.daemonScheduler ?? new DaemonJobScheduler()) : null;
   const runtimeReady = Promise.all([
     mode === "repo_local" && projectRoot !== undefined
       ? ensureGraftDirExcluded(projectRoot, graftDir, nodeFs)
@@ -231,14 +236,19 @@ export function createGraftServer(options: CreateGraftServerOptions = {}): Graft
     }
   }
 
+  function getActiveExecutionContext(): WorkspaceExecutionContext | null {
+    return executionContextStorage.getStore() ?? null;
+  }
+
   function respond(tool: ToolDefinition["name"], data: Record<string, unknown>): McpToolResult {
     const invocation = invocationStorage.getStore();
     if (invocation === undefined) {
       throw new Error("MCP respond() called outside an active invocation");
     }
     seq++;
-    const session = workspaceRouter.session;
-    const metrics = workspaceRouter.metrics;
+    const execution = getActiveExecutionContext();
+    const session = execution?.session ?? workspaceRouter.session;
+    const metrics = execution?.metrics ?? workspaceRouter.metrics;
     const tripwires = session.checkTripwires();
     const { result, textBytes, receipt } = buildReceiptResult(tool, data, {
       sessionId,
@@ -261,26 +271,26 @@ export function createGraftServer(options: CreateGraftServerOptions = {}): Graft
 
   const ctx: ToolContext = {
     get projectRoot(): string {
-      return workspaceRouter.getProjectRoot();
+      return getActiveExecutionContext()?.projectRoot ?? workspaceRouter.getProjectRoot();
     },
     get graftDir(): string {
-      return workspaceRouter.graftDir;
+      return getActiveExecutionContext()?.graftDir ?? workspaceRouter.graftDir;
     },
     get graftignorePatterns(): readonly string[] {
-      return workspaceRouter.getGraftignorePatterns();
+      return getActiveExecutionContext()?.graftignorePatterns ?? workspaceRouter.getGraftignorePatterns();
     },
     get session() {
-      return workspaceRouter.session;
+      return getActiveExecutionContext()?.session ?? workspaceRouter.session;
     },
     get cache() {
-      return workspaceRouter.cache;
+      return getActiveExecutionContext()?.cache ?? workspaceRouter.cache;
     },
     get metrics() {
-      return workspaceRouter.metrics;
+      return getActiveExecutionContext()?.metrics ?? workspaceRouter.metrics;
     },
     respond,
     resolvePath(relative: string): string {
-      return workspaceRouter.getPathResolver()(relative);
+      return getActiveExecutionContext()?.resolvePath(relative) ?? workspaceRouter.getPathResolver()(relative);
     },
     fs: nodeFs,
     codec,
@@ -289,13 +299,13 @@ export function createGraftServer(options: CreateGraftServerOptions = {}): Graft
     runCapture,
     observability,
     getWarp(): Promise<WarpApp> {
-      return workspaceRouter.getWarp();
+      return getActiveExecutionContext()?.getWarp() ?? workspaceRouter.getWarp();
     },
     getRepoState() {
-      return workspaceRouter.getRepoState();
+      return getActiveExecutionContext()?.repoState.getState() ?? workspaceRouter.getRepoState();
     },
     getWorkspaceStatus() {
-      return workspaceRouter.getStatus();
+      return getActiveExecutionContext()?.status ?? workspaceRouter.getStatus();
     },
     bindWorkspace(request, actionName) {
       return workspaceRouter.bind(request, actionName);
@@ -307,7 +317,14 @@ export function createGraftServer(options: CreateGraftServerOptions = {}): Graft
       if (daemonControlPlane === null) {
         throw new Error("daemon_status is only available in daemon mode");
       }
-      return Promise.resolve(daemonControlPlane.getStatus(daemonRuntime(), monitorRuntime?.getCounts()));
+      if (daemonScheduler === null) {
+        throw new Error("daemon_status is only available in daemon mode");
+      }
+      return Promise.resolve(daemonControlPlane.getStatus(
+        daemonRuntime(),
+        monitorRuntime?.getCounts(),
+        daemonScheduler.getCounts(),
+      ));
     },
     listDaemonRepos(filter) {
       if (daemonRepoOverview === null) {
@@ -420,6 +437,18 @@ export function createGraftServer(options: CreateGraftServerOptions = {}): Graft
     }
   }
 
+  const daemonScheduledRepoTools = new Set<string>([
+    "safe_read",
+    "file_outline",
+    "changed_since",
+    "graft_diff",
+    "graft_since",
+    "graft_map",
+    "code_show",
+    "code_find",
+    "code_refs",
+  ]);
+
   async function invokeTool(
     name: string,
     handler: ToolHandler,
@@ -449,16 +478,48 @@ export function createGraftServer(options: CreateGraftServerOptions = {}): Graft
       readonly startedAtMs: number;
       response?: { readonly receipt: import("./receipt.js").McpToolReceipt; readonly tripwireSignals: readonly string[] };
     };
+    let execution: WorkspaceExecutionContext | null = null;
 
     try {
-      const result = await invocationStorage.run(invocation, async () => {
-        const parsed: Record<string, unknown> = schema !== undefined ? schema.parse(args) : args;
-        enforceDaemonToolAccess(name);
-        if (workspaceRouter.isBound() && !repoStateOptionalTools.has(name)) {
-          await workspaceRouter.observeRepoState();
-        }
-        return handler(parsed);
-      });
+      const parsed: Record<string, unknown> = schema !== undefined ? schema.parse(args) : args;
+      enforceDaemonToolAccess(name);
+
+      execution = daemonScheduler !== null
+        && workspaceRouter.isBound()
+        && daemonScheduledRepoTools.has(name)
+        ? workspaceRouter.captureExecutionContext()
+        : null;
+
+      const executeHandler = async (): Promise<McpToolResult> => {
+        return invocationStorage.run(invocation, async () => {
+          if (execution !== null) {
+            const activeExecution = execution;
+            return executionContextStorage.run(activeExecution, async () => {
+              if (!repoStateOptionalTools.has(name)) {
+                await activeExecution.repoState.observe();
+              }
+              return handler(parsed);
+            });
+          }
+          if (workspaceRouter.isBound() && !repoStateOptionalTools.has(name)) {
+            await workspaceRouter.observeRepoState();
+          }
+          return handler(parsed);
+        });
+      };
+
+      const result = execution !== null && daemonScheduler !== null
+        ? await daemonScheduler.enqueue({
+          sessionId,
+          sliceId: execution.sliceId,
+          repoId: execution.repoId,
+          worktreeId: execution.worktreeId,
+          tool: name,
+          kind: "repo_tool",
+          priority: "interactive",
+          laneKey: `repo_interactive:${execution.repoId}`,
+        }, executeHandler)
+        : await executeHandler();
 
       if (observability.enabled && invocation.response !== undefined) {
         await emitRuntimeEvent({
@@ -474,7 +535,7 @@ export function createGraftServer(options: CreateGraftServerOptions = {}): Graft
           nonReadBurden: invocation.response.receipt.burden.nonRead,
           returnedBytes: invocation.response.receipt.returnedBytes,
           fileBytes: invocation.response.receipt.fileBytes,
-          sessionDepth: workspaceRouter.session.getSessionDepth(),
+          sessionDepth: execution?.session.getSessionDepth() ?? workspaceRouter.session.getSessionDepth(),
           tripwireSignals: invocation.response.tripwireSignals,
           metrics: invocation.response.receipt.cumulative,
         });
@@ -490,7 +551,7 @@ export function createGraftServer(options: CreateGraftServerOptions = {}): Graft
           traceId,
           tool: name,
           latencyMs: Date.now() - startedAtMs,
-          sessionDepth: workspaceRouter.session.getSessionDepth(),
+          sessionDepth: execution?.session.getSessionDepth() ?? workspaceRouter.session.getSessionDepth(),
           argKeys,
           errorKind: failure.kind,
           errorName: failure.name,

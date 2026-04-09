@@ -12,6 +12,7 @@ import { nodeFs } from "../adapters/node-fs.js";
 import { nodeGit } from "../adapters/node-git.js";
 import { createGraftServer, type GraftServer } from "./server.js";
 import { DaemonControlPlane, type DaemonStatusView } from "./daemon-control-plane.js";
+import { DaemonJobScheduler } from "./daemon-job-scheduler.js";
 import { PersistentMonitorRuntime } from "./persistent-monitor-runtime.js";
 import { InMemoryWarpPool } from "./warp-pool.js";
 import { openWarp } from "../warp/open.js";
@@ -192,6 +193,7 @@ export async function startDaemonServer(options: StartDaemonServerOptions = {}):
     controlPlane,
     warpPool,
   });
+  const daemonScheduler = new DaemonJobScheduler();
   const sessions = new Map<string, DaemonSession>();
   const startedAt = new Date().toISOString();
   const transportKind = isNamedPipePath(socketPath) ? "named_pipe" : "unix_socket";
@@ -205,7 +207,7 @@ export async function startDaemonServer(options: StartDaemonServerOptions = {}):
       healthPath: HEALTH_PATH,
       activeWarpRepos: warpPool.size(),
       startedAt,
-    }, monitorRuntime.getCounts());
+    }, monitorRuntime.getCounts(), daemonScheduler.getCounts());
   };
 
   await ensurePrivateDirectory(graftDir);
@@ -252,6 +254,7 @@ export async function startDaemonServer(options: StartDaemonServerOptions = {}):
             graftDir: sessionGraftDir,
             warpPool,
             daemonControlPlane: controlPlane,
+            daemonScheduler,
             daemonRuntime: () => ({
               transport: transportKind,
               sameUserOnly: true,

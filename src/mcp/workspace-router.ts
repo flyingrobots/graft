@@ -75,6 +75,7 @@ interface WorkspaceBindError {
 }
 
 interface WorkspaceSlice {
+  readonly sliceId: string;
   readonly session: SessionTracker;
   readonly cache: ObservationCache;
   readonly metrics: Metrics;
@@ -91,6 +92,25 @@ interface BoundWorkspace {
   readonly resolvePath: (input: string) => string;
   readonly capabilityProfile: WorkspaceCapabilityProfile;
   readonly slice: WorkspaceSlice;
+  readonly getWarp: () => Promise<WarpApp>;
+}
+
+export interface WorkspaceExecutionContext {
+  readonly sliceId: string;
+  readonly repoId: string;
+  readonly worktreeId: string;
+  readonly projectRoot: string;
+  readonly worktreeRoot: string;
+  readonly gitCommonDir: string;
+  readonly graftignorePatterns: readonly string[];
+  readonly resolvePath: (input: string) => string;
+  readonly capabilityProfile: WorkspaceCapabilityProfile;
+  readonly status: WorkspaceStatus;
+  readonly session: SessionTracker;
+  readonly cache: ObservationCache;
+  readonly metrics: Metrics;
+  readonly graftDir: string;
+  readonly repoState: RepoStateTracker;
   readonly getWarp: () => Promise<WarpApp>;
 }
 
@@ -182,7 +202,8 @@ export async function resolveWorkspaceRequest(
 }
 
 export class WorkspaceRouter {
-  private sliceCounter = 0;
+  private bindingCounter = 0;
+  private sliceIdCounter = 0;
   private currentSlice: WorkspaceSlice;
   private currentBinding: BoundWorkspace | null = null;
   private initialization: Promise<void> | null = null;
@@ -315,6 +336,41 @@ export class WorkspaceRouter {
     };
   }
 
+  captureExecutionContext(): WorkspaceExecutionContext {
+    const binding = this.requireBinding();
+    const repoState = binding.slice.repoState;
+    if (repoState === null) {
+      throw new WorkspaceBindingRequiredError("workspace");
+    }
+    return {
+      sliceId: binding.slice.sliceId,
+      repoId: binding.repoId,
+      worktreeId: binding.worktreeId,
+      projectRoot: binding.worktreeRoot,
+      worktreeRoot: binding.worktreeRoot,
+      gitCommonDir: binding.gitCommonDir,
+      graftignorePatterns: binding.graftignorePatterns,
+      resolvePath: binding.resolvePath,
+      capabilityProfile: binding.capabilityProfile,
+      status: {
+        sessionMode: this.options.mode,
+        bindState: "bound",
+        repoId: binding.repoId,
+        worktreeId: binding.worktreeId,
+        worktreeRoot: binding.worktreeRoot,
+        gitCommonDir: binding.gitCommonDir,
+        graftDir: binding.slice.graftDir,
+        capabilityProfile: binding.capabilityProfile,
+      },
+      session: binding.slice.session,
+      cache: binding.slice.cache,
+      metrics: binding.slice.metrics,
+      graftDir: binding.slice.graftDir,
+      repoState,
+      getWarp: binding.getWarp,
+    };
+  }
+
   async bind(request: WorkspaceBindRequest, actionName: string): Promise<WorkspaceActionResult> {
     return this.bindInternal("bind", request, actionName);
   }
@@ -353,7 +409,7 @@ export class WorkspaceRouter {
     const sliceDir = path.join(
       this.options.graftDir,
       "bindings",
-      `slice-${String(++this.sliceCounter).padStart(4, "0")}`,
+      `slice-${String(++this.bindingCounter).padStart(4, "0")}`,
     );
     await this.options.fs.mkdir(sliceDir, { recursive: true });
 
@@ -416,6 +472,7 @@ export class WorkspaceRouter {
 
   private createSlice(graftDir: string, projectRoot?: string): WorkspaceSlice {
     return {
+      sliceId: `slice-${String(++this.sliceIdCounter).padStart(4, "0")}`,
       session: new SessionTracker(),
       cache: new ObservationCache(),
       metrics: new Metrics(),
