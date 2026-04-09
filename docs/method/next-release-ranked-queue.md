@@ -186,18 +186,33 @@ first real persistent daemon worker:
 This makes the monitor claim real without pretending multi-repo control
 or same-repo concurrent agent safety are solved.
 
+Cycle `0056-system-wide-multi-repo-agent-coordination` shaped the next
+system-wide contract:
+
+- canonical repo identity, live worktree identity, and daemon session
+  identity are now explicit separate layers
+- system-wide coordination is now defined as observational and
+  authorization-filtered rather than permission-granting
+- same-repo concurrency stays separate from cross-repo coordination
+- the vague multi-repo item is now split into two concrete follow-ons:
+  filtered repo overview first, fairness second
+
+This keeps the daemon roadmap honest instead of pretending "multi-repo
+coordination" is already one implementable feature.
+
 ## Ranked queue
 
 No remaining above-the-line work is required before the next release.
 
 If we choose to keep pushing before cutting the packet, the next
-candidate is:
+candidates are:
 
-1. [SURFACE_system-wide-multi-repo-agent-coordination.md](backlog/up-next/SURFACE_system-wide-multi-repo-agent-coordination.md)
-   The daemon now has authorization, routing, transport, and one
-   persistent repo-scoped monitor. The next product/system frontier is
-   honest multi-repo coordination rather than deeper single-repo daemon
-   polish.
+1. [SURFACE_system-wide-repo-overview-and-filtered-inspection.md](backlog/up-next/SURFACE_system-wide-repo-overview-and-filtered-inspection.md)
+   The multi-repo system model is now explicit. The next honest move is
+   the first bounded one-row-per-repo overview surface.
+2. [SURFACE_system-wide-resource-pressure-and-fairness.md](backlog/up-next/SURFACE_system-wide-resource-pressure-and-fairness.md)
+   After the overview exists, daemon-wide backlog pressure and fairness
+   should become explicit instead of implicit.
 
 ## Below the cut line
 
@@ -205,7 +220,8 @@ These items are real but should not be treated as release blockers for
 the next packet:
 
 - [SURFACE_non-codex-instruction-bootstrap-parity.md](backlog/cool-ideas/SURFACE_non-codex-instruction-bootstrap-parity.md)
-- [SURFACE_system-wide-multi-repo-agent-coordination.md](backlog/up-next/SURFACE_system-wide-multi-repo-agent-coordination.md)
+- [SURFACE_system-wide-repo-overview-and-filtered-inspection.md](backlog/up-next/SURFACE_system-wide-repo-overview-and-filtered-inspection.md)
+- [SURFACE_system-wide-resource-pressure-and-fairness.md](backlog/up-next/SURFACE_system-wide-resource-pressure-and-fairness.md)
 - [CLEAN_CODE_mcp-server.md](backlog/bad-code/CLEAN_CODE_mcp-server.md)
 - [CLEAN_CODE_mcp-repo-state.md](backlog/bad-code/CLEAN_CODE_mcp-repo-state.md)
 - [WARP_name-based-symbol-matching.md](backlog/bad-code/WARP_name-based-symbol-matching.md)

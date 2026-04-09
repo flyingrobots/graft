@@ -287,10 +287,10 @@ The repo has a clear shape, but a few real tensions remain:
    - current MCP shape assumes one rooted context per process
    - future system-wide use needs explicit repo/worktree/session binding
 
-2. **Good ports for fs/JSON, weak port for git/shell**
-   - filesystem and codec seams exist
-   - git and shell execution are still more environment-coupled than
-     they should be
+2. **Daemon/system-wide seams are still broader than they should be**
+   - filesystem, codec, git, and process ports now exist
+   - daemon hosting, control-plane projection, and monitor orchestration
+     still want narrower seams before more system-wide behavior lands
 
 3. **Docs and direction are strong, contributor map was missing**
    - this file exists to close exactly that gap
@@ -324,6 +324,39 @@ Current local shared-daemon path:
 This split is the bridge from repo-local stdio to a same-user local
 daemon without pretending control-plane and multi-repo concerns are
 already solved.
+
+## Multi-repo coordination contract
+
+The current daemon can now be described lawfully in system-wide terms:
+
+- canonical repo identity is keyed by `git common dir`
+- live worktree identity is keyed by resolved worktree root
+- daemon session identity remains transport-scoped and session-local
+
+The architectural rule is:
+
+- repo-scoped truth may be coordinated system-wide
+- worktree-scoped truth may be projected beneath a repo
+- session-scoped truth must not silently become daemon-global state
+
+What a future multi-repo surface may show:
+
+- aggregate counts across repos, worktrees, sessions, and monitors
+- bounded one-row-per-repo health or backlog summaries
+- filtered drill-down derived from the authorization registry and
+  daemon-owned runtime state
+
+What it must not show by default:
+
+- raw receipt bodies
+- cache content
+- saved state content
+- runtime-log payloads
+- shell-output artifacts
+
+This keeps multi-repo coordination observational and authorization-
+filtered instead of turning it into an accidental side channel or a
+permission grant.
 
 ## Where to read next
 

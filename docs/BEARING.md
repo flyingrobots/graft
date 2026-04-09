@@ -78,6 +78,12 @@ background incremental WARP indexer, monitor state survives daemon
 restart, and daemon health now includes bounded monitor and backlog
 counts.
 
+Cycle 0056 — multi-repo coordination model: canonical repo identity,
+live worktree identity, and daemon session identity are now explicit
+separate layers; the system-wide daemon view is defined as
+observational and authorization-filtered; and the next work is split
+into filtered repo overview first and fairness second.
+
 ## What feels wrong
 
 - WARP indexing is slow on large repos — `core().materialize()`
@@ -86,6 +92,8 @@ counts.
 - The first persistent repo-scoped monitor is real, but only for
   background WARP indexing. Multi-repo coordination and same-repo
   concurrent write safety remain open.
+- The multi-repo system model is now clear, but there is still no real
+  one-row-per-repo overview surface or fairness model across many repos.
 - Agent opt-in friction persists. `graft init` can seed `CLAUDE.md`
   and `AGENTS.md`, but most clients still default to native Read unless
   they have a stronger guardrail.
