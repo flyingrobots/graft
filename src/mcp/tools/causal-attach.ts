@@ -33,6 +33,7 @@ export const causalAttachTool: ToolDefinition = {
             attribution: result.persistedLocalHistory.attribution,
             latestReadEvent: result.persistedLocalHistory.latestReadEvent,
             latestStageEvent: result.persistedLocalHistory.latestStageEvent,
+            latestTransitionEvent: result.persistedLocalHistory.latestTransitionEvent,
             checkoutEpoch: repoState.checkoutEpoch,
             lastTransition: repoState.lastTransition,
             semanticTransition: repoState.semanticTransition,

@@ -293,12 +293,45 @@ export type WriteKind = z.infer<typeof writeKindSchema>;
 export const TRANSITION_KINDS = [
   "checkout",
   "merge",
+  "rebase",
+  "reset",
   "rewrite",
   "detached_head",
 ] as const;
 
 export const transitionKindSchema = z.enum(TRANSITION_KINDS);
 export type TransitionKind = z.infer<typeof transitionKindSchema>;
+
+export const SEMANTIC_TRANSITION_KINDS = [
+  "index_update",
+  "conflict_resolution",
+  "merge_phase",
+  "rebase_phase",
+  "bulk_transition",
+  "unknown",
+] as const;
+
+export const semanticTransitionKindSchema = z.enum(SEMANTIC_TRANSITION_KINDS);
+export type SemanticTransitionKind = z.infer<typeof semanticTransitionKindSchema>;
+
+export const SEMANTIC_TRANSITION_AUTHORITIES = [
+  "authoritative_git_state",
+  "repo_snapshot",
+] as const;
+
+export const semanticTransitionAuthoritySchema = z.enum(SEMANTIC_TRANSITION_AUTHORITIES);
+export type SemanticTransitionAuthority = z.infer<typeof semanticTransitionAuthoritySchema>;
+
+export const SEMANTIC_TRANSITION_PHASES = [
+  "started",
+  "conflicted",
+  "resolved_waiting_commit",
+  "continued",
+  "completed_or_cleared",
+] as const;
+
+export const semanticTransitionPhaseSchema = z.enum(SEMANTIC_TRANSITION_PHASES);
+export type SemanticTransitionPhase = z.infer<typeof semanticTransitionPhaseSchema>;
 
 export const HANDOFF_KINDS = [
   "attach",
@@ -404,10 +437,14 @@ const commitEventPayloadSchema = z.object({
 }).strict();
 
 const transitionEventPayloadSchema = z.object({
-  transitionKind: transitionKindSchema,
-  fromRef: z.string().min(1),
-  toRef: z.string().min(1),
-  createdCheckoutEpochId: z.string().min(1),
+  semanticKind: semanticTransitionKindSchema,
+  authority: semanticTransitionAuthoritySchema,
+  phase: semanticTransitionPhaseSchema.nullable(),
+  summary: z.string().min(1),
+  transitionKind: transitionKindSchema.nullable(),
+  fromRef: z.string().min(1).nullable(),
+  toRef: z.string().min(1).nullable(),
+  createdCheckoutEpochId: z.string().min(1).nullable(),
 }).strict();
 
 const handoffEventPayloadSchema = z.object({

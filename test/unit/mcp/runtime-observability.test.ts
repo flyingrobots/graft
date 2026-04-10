@@ -183,6 +183,11 @@ describe("mcp: runtime observability", () => {
         payload: { surface: string; projection: string; sourceLayer: string };
         footprint: { paths: string[] };
       } | null;
+      const latestTransitionEvent = doctor["latestTransitionEvent"] as {
+        eventKind: string;
+        payload: { semanticKind: string; transitionKind: string | null; phase: string | null };
+        attribution: { actor: { actorKind: string }; confidence: string };
+      } | null;
       const persistedLocalHistory = doctor["persistedLocalHistory"] as {
         availability: string;
         persistence: string;
@@ -198,6 +203,7 @@ describe("mcp: runtime observability", () => {
           footprint: { paths: string[] };
         } | null;
         latestStageEvent: null;
+        latestTransitionEvent: null;
         nextAction: string;
       };
       const attribution = doctor["attribution"] as {
@@ -238,6 +244,7 @@ describe("mcp: runtime observability", () => {
       expect(workspaceOverlayFooting.hookBootstrap.supportsCheckoutBoundaries).toBe(false);
       expect(semanticTransition).toBeNull();
       expect(latestReadEvent).toBeNull();
+      expect(latestTransitionEvent).toBeNull();
       expect(doctor["workspaceOverlayId"]).toBeNull();
       expect(stagedTarget).toEqual({
         availability: "none",
@@ -310,12 +317,22 @@ describe("mcp: runtime observability", () => {
           summary: string;
           evidence: { stagedPaths: number; totalPaths: number };
         } | null;
+        const latestTransitionEvent = doctor["latestTransitionEvent"] as {
+          eventKind: string;
+          payload: { semanticKind: string; transitionKind: string | null; phase: string | null };
+          attribution: { actor: { actorKind: string }; confidence: string };
+        } | null;
         const persistedLocalHistory = doctor["persistedLocalHistory"] as {
           latestStageEvent: {
             eventKind: string;
             actorId: string | null;
             attribution: { actor: { actorKind: string }; confidence: string };
             payload: { targetId: string; selectionKind: string };
+          } | null;
+          latestTransitionEvent: {
+            eventKind: string;
+            payload: { semanticKind: string; transitionKind: string | null; phase: string | null };
+            attribution: { actor: { actorKind: string }; confidence: string };
           } | null;
         };
 
@@ -337,6 +354,10 @@ describe("mcp: runtime observability", () => {
         expect(semanticTransition?.phase ?? null).toBeNull();
         expect(semanticTransition?.evidence.stagedPaths).toBeGreaterThan(0);
         expect(semanticTransition?.evidence.totalPaths).toBeGreaterThan(0);
+        expect(latestTransitionEvent?.eventKind).toBe("transition");
+        expect(latestTransitionEvent?.payload.semanticKind).toBe("index_update");
+        expect(latestTransitionEvent?.payload.transitionKind).toBeNull();
+        expect(latestTransitionEvent?.attribution.actor.actorKind).toBe("unknown");
         expect(["full_file", "ambiguous"]).toContain(stagedTarget.availability);
         expect(stagedTarget.attribution?.actor.actorKind).toBe("unknown");
         expect(stagedTarget.attribution?.confidence).toBe("unknown");
@@ -358,8 +379,10 @@ describe("mcp: runtime observability", () => {
           expect(persistedLocalHistory.latestStageEvent?.payload.targetId).toBe(
             stagedTarget.target?.targetId,
           );
+          expect(persistedLocalHistory.latestTransitionEvent?.payload.semanticKind).toBe("index_update");
         } else {
           expect(persistedLocalHistory.latestStageEvent).toBeNull();
+          expect(persistedLocalHistory.latestTransitionEvent?.payload.semanticKind).toBe("index_update");
         }
       } finally {
         isolated.cleanup();

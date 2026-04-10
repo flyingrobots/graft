@@ -548,6 +548,129 @@ describe("mcp: persisted local history", () => {
     expect(savedState.stageEvents).toHaveLength(1);
   });
 
+  it("records a deduplicated semantic transition event as local artifact history", async () => {
+    const graftDir = fs.mkdtempSync(path.join(os.tmpdir(), "graft-history-"));
+    cleanups.push(graftDir);
+
+    const store = new PersistedLocalHistoryStore({
+      fs: nodeFs,
+      codec: new CanonicalJsonCodec(),
+      graftDir,
+    });
+
+    const current = context({
+      checkoutEpochId: "epoch:two",
+      observedAt: "2026-04-10T01:10:00.000Z",
+      transitionKind: "merge",
+      transitionReflogSubject: "merge feature: Merge made by the ort strategy.",
+    });
+    await store.noteBinding({ current });
+
+    const attribution = {
+      actor: {
+        actorId: "git:transition",
+        actorKind: "git" as const,
+        displayName: "Git transition",
+        source: "persisted_local_history.checkout_transition",
+        authorityScope: "inferred" as const,
+      },
+      confidence: "medium" as const,
+      basis: "git_transition" as const,
+      evidence: [{
+        evidenceId: "evidence_transition_1",
+        evidenceKind: "git_transition_observation" as const,
+        source: "persisted_local_history.checkout_transition",
+        capturedAt: current.observedAt,
+        strength: "strong" as const,
+        details: {
+          transitionKind: "merge",
+        },
+      }],
+    };
+
+    const semanticTransition = {
+      kind: "merge_phase" as const,
+      authority: "repo_snapshot" as const,
+      phase: "completed_or_cleared" as const,
+      summary: "Merge transition completed or merge state has cleared.",
+      evidence: {
+        totalPaths: 0,
+        stagedPaths: 0,
+        changedPaths: 0,
+        untrackedPaths: 0,
+        unmergedPaths: 0,
+        mergeInProgress: false,
+        rebaseInProgress: false,
+        rebaseStep: null,
+        rebaseTotalSteps: null,
+        lastTransitionKind: "merge" as const,
+        reflogSubject: current.transitionReflogSubject,
+      },
+    };
+
+    const transition = {
+      kind: "merge" as const,
+      fromRef: "feature",
+      toRef: "main",
+      fromCommit: "abc123",
+      toCommit: "def456",
+      evidence: {
+        reflogSubject: current.transitionReflogSubject,
+      },
+    };
+
+    await store.noteSemanticTransitionObservation({
+      current,
+      semanticTransition,
+      transition,
+      attribution,
+    });
+    await store.noteSemanticTransitionObservation({
+      current,
+      semanticTransition,
+      transition,
+      attribution,
+    });
+
+    const summary = await store.summarize(
+      {
+        sessionMode: "repo_local",
+        bindState: "bound",
+        repoId: current.repoId,
+        worktreeId: current.worktreeId,
+        worktreeRoot: "/repo",
+        gitCommonDir: "/repo/.git",
+        graftDir,
+        capabilityProfile: null,
+      },
+      {
+        transportSessionId: current.transportSessionId,
+        workspaceSliceId: current.workspaceSliceId,
+        causalSessionId: current.causalSessionId,
+        strandId: current.strandId,
+        checkoutEpochId: current.checkoutEpochId,
+        warpWriterId: current.warpWriterId,
+        stability: "runtime_local",
+        provenanceLevel: "artifact_history",
+      },
+    );
+
+    expect(summary.availability).toBe("present");
+    if (summary.availability !== "present") {
+      return;
+    }
+    expect(summary.latestTransitionEvent?.eventKind).toBe("transition");
+    expect(summary.latestTransitionEvent?.payload.semanticKind).toBe("merge_phase");
+    expect(summary.latestTransitionEvent?.payload.transitionKind).toBe("merge");
+    expect(summary.latestTransitionEvent?.payload.phase).toBe("completed_or_cleared");
+    expect(summary.latestTransitionEvent?.attribution.actor.actorKind).toBe("git");
+
+    const savedState = JSON.parse(
+      fs.readFileSync(path.join(graftDir, "local-history", `${buildContinuityKey("repo:one", "worktree:one")}.json`), "utf-8"),
+    ) as { transitionEvents: { eventId: string }[] };
+    expect(savedState.transitionEvents).toHaveLength(1);
+  });
+
   it("refuses explicit attach when no prior lineage exists", async () => {
     const graftDir = fs.mkdtempSync(path.join(os.tmpdir(), "graft-history-"));
     cleanups.push(graftDir);

@@ -6,6 +6,7 @@ import {
   attributionConfidenceSchema,
   readEventSchema,
   stageEventSchema,
+  transitionEventSchema,
   evidenceSchema,
   getMaximumConfidenceForEvidence,
   localHistoryContinuityOperationSchema,
@@ -29,6 +30,7 @@ const PERSISTED_LOCAL_HISTORY_PRESERVES = Object.freeze([
   "continuity_operations",
   "read_events",
   "stage_events",
+  "transition_events",
   "runtime_context_ids",
   "workspace_overlay_snapshots",
 ] as const);
@@ -71,6 +73,7 @@ const continuityStateSchema = z.object({
   records: z.array(continuityRecordSchema),
   readEvents: z.array(readEventSchema),
   stageEvents: z.array(stageEventSchema),
+  transitionEvents: z.array(transitionEventSchema),
 }).strict();
 
 type ContinuityState = z.infer<typeof continuityStateSchema>;
@@ -122,6 +125,7 @@ export interface PersistedLocalHistorySummaryNone {
   readonly attribution: AttributionSummary;
   readonly latestReadEvent: null;
   readonly latestStageEvent: null;
+  readonly latestTransitionEvent: null;
   readonly preserves: readonly string[];
   readonly excludes: readonly string[];
   readonly nextAction: "bind_workspace_to_begin_local_history";
@@ -145,6 +149,7 @@ export interface PersistedLocalHistorySummaryPresent {
   readonly attribution: AttributionSummary;
   readonly latestReadEvent: Extract<CausalEvent, { eventKind: "read" }> | null;
   readonly latestStageEvent: Extract<CausalEvent, { eventKind: "stage" }> | null;
+  readonly latestTransitionEvent: Extract<CausalEvent, { eventKind: "transition" }> | null;
   readonly preserves: readonly string[];
   readonly excludes: readonly string[];
   readonly nextAction:
@@ -225,6 +230,7 @@ function createEmptyState(continuityKey: string, repoId: string, worktreeId: str
     records: [],
     readEvents: [],
     stageEvents: [],
+    transitionEvents: [],
   };
 }
 
@@ -383,6 +389,7 @@ export class PersistedLocalHistoryStore {
       attribution: effectiveRecord.attribution,
       latestReadEvent: state.readEvents.at(-1) ?? null,
       latestStageEvent: state.stageEvents.at(-1) ?? null,
+      latestTransitionEvent: state.transitionEvents.at(-1) ?? null,
       preserves: PERSISTED_LOCAL_HISTORY_PRESERVES,
       excludes: PERSISTED_LOCAL_HISTORY_EXCLUDES,
       nextAction: activeRecord?.causalSessionId === causalContext.causalSessionId
@@ -446,6 +453,22 @@ export class PersistedLocalHistoryStore {
     const continuityKey = buildContinuityKey(input.current.repoId, input.current.worktreeId);
     const state = await this.loadState(continuityKey, input.current.repoId, input.current.worktreeId);
     state.readEvents = [...state.readEvents, this.createReadEvent(input)];
+    await this.saveState(state);
+  }
+
+  async noteSemanticTransitionObservation(input: {
+    readonly current: PersistedLocalHistoryContext;
+    readonly semanticTransition: NonNullable<RepoObservation["semanticTransition"]>;
+    readonly transition: RepoObservation["lastTransition"];
+    readonly attribution: AttributionSummary;
+  }): Promise<void> {
+    const continuityKey = buildContinuityKey(input.current.repoId, input.current.worktreeId);
+    const state = await this.loadState(continuityKey, input.current.repoId, input.current.worktreeId);
+    const event = this.createTransitionEvent(input);
+    if (state.transitionEvents.at(-1)?.eventId === event.eventId) {
+      return;
+    }
+    state.transitionEvents = [...state.transitionEvents, event];
     await this.saveState(state);
   }
 
@@ -758,6 +781,7 @@ export class PersistedLocalHistoryStore {
       attribution: buildUnknownAttribution(),
       latestReadEvent: null,
       latestStageEvent: null,
+      latestTransitionEvent: null,
       preserves: PERSISTED_LOCAL_HISTORY_PRESERVES,
       excludes: PERSISTED_LOCAL_HISTORY_EXCLUDES,
       nextAction: "bind_workspace_to_begin_local_history",
@@ -854,6 +878,67 @@ export class PersistedLocalHistoryStore {
         projection: input.projection,
         sourceLayer: input.sourceLayer,
         reason: input.reason,
+      },
+    };
+  }
+
+  private createTransitionEvent(input: {
+    readonly current: PersistedLocalHistoryContext;
+    readonly semanticTransition: NonNullable<RepoObservation["semanticTransition"]>;
+    readonly transition: RepoObservation["lastTransition"];
+    readonly attribution: AttributionSummary;
+  }): Extract<CausalEvent, { eventKind: "transition" }> {
+    const transition = input.transition;
+    const semanticTransition = input.semanticTransition;
+    const footprint = {
+      paths: [],
+      symbols: [],
+      regions: [],
+    };
+
+    return {
+      eventId: stableId(
+        "event",
+        JSON.stringify({
+          eventKind: "transition",
+          checkoutEpochId: input.current.checkoutEpochId,
+          workspaceOverlayId: input.current.workspaceOverlayId,
+          semanticKind: semanticTransition.kind,
+          authority: semanticTransition.authority,
+          phase: semanticTransition.phase,
+          summary: semanticTransition.summary,
+          transitionKind: transition?.kind ?? null,
+          fromRef: transition?.fromRef ?? null,
+          toRef: transition?.toRef ?? null,
+          actorId: input.attribution.actor.actorId,
+          confidence: input.attribution.confidence,
+          evidenceIds: input.attribution.evidence.map((evidence) => evidence.evidenceId),
+        }),
+      ),
+      eventKind: "transition",
+      repoId: input.current.repoId,
+      worktreeId: input.current.worktreeId,
+      checkoutEpochId: input.current.checkoutEpochId,
+      workspaceOverlayId: input.current.workspaceOverlayId,
+      transportSessionId: input.current.transportSessionId,
+      workspaceSliceId: input.current.workspaceSliceId,
+      causalSessionId: input.current.causalSessionId,
+      strandId: input.current.strandId,
+      actorId: input.attribution.actor.actorId,
+      confidence: input.attribution.confidence,
+      evidenceIds: input.attribution.evidence.map((evidence) => evidence.evidenceId),
+      attribution: input.attribution,
+      footprint,
+      occurredAt: input.current.observedAt,
+      payload: {
+        semanticKind: semanticTransition.kind,
+        authority: semanticTransition.authority,
+        phase: semanticTransition.phase,
+        summary: semanticTransition.summary,
+        transitionKind: transition?.kind ?? null,
+        fromRef: transition?.fromRef ?? null,
+        toRef: transition?.toRef ?? null,
+        createdCheckoutEpochId: transition !== null ? input.current.checkoutEpochId : null,
       },
     };
   }

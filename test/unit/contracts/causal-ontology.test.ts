@@ -201,8 +201,61 @@ describe("contracts: causal ontology", () => {
       },
     });
 
+    const transitionEvent = causalEventSchema.parse({
+      eventId: "evt_transition_1",
+      eventKind: "transition",
+      repoId: "repo_1",
+      worktreeId: "worktree_1",
+      checkoutEpochId: "epoch_1",
+      workspaceOverlayId: "overlay_1",
+      transportSessionId: "transport_1",
+      workspaceSliceId: "slice_1",
+      causalSessionId: "causal_1",
+      strandId: "strand_1",
+      actorId: "git:transition",
+      confidence: "medium",
+      evidenceIds: ["evidence_transition_1"],
+      attribution: {
+        actor: {
+          actorId: "git:transition",
+          actorKind: "git",
+          source: "test.transition",
+          authorityScope: "inferred",
+        },
+        confidence: "medium",
+        basis: "git_transition",
+        evidence: [{
+          evidenceId: "evidence_transition_1",
+          evidenceKind: "git_transition_observation",
+          source: "test.transition",
+          capturedAt: "2026-04-09T00:00:00.000Z",
+          strength: "strong",
+          details: {
+            transitionKind: "merge",
+          },
+        }],
+      },
+      footprint: {
+        paths: [],
+        symbols: [],
+        regions: [],
+      },
+      occurredAt: "2026-04-09T00:00:00.000Z",
+      payload: {
+        semanticKind: "merge_phase",
+        authority: "authoritative_git_state",
+        phase: "conflicted",
+        summary: "Merge is in conflict across 2 path(s).",
+        transitionKind: "merge",
+        fromRef: "feature",
+        toRef: "main",
+        createdCheckoutEpochId: "epoch_1",
+      },
+    });
+
     expect(readEvent.eventKind).toBe("read");
     expect(stageEvent.eventKind).toBe("stage");
+    expect(transitionEvent.eventKind).toBe("transition");
   });
 
   it("keeps attribution confidence bounded by evidence strength", () => {

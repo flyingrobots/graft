@@ -424,10 +424,12 @@ export class WorkspaceRouter {
         },
         latestReadEvent: null,
         latestStageEvent: null,
+        latestTransitionEvent: null,
         preserves: [
           "continuity_operations",
           "read_events",
           "stage_events",
+          "transition_events",
           "runtime_context_ids",
           "workspace_overlay_snapshots",
         ],
@@ -443,7 +445,18 @@ export class WorkspaceRouter {
     const status = this.getStatus();
     const repoState = binding.slice.repoState.getState();
     const causalContext = this.buildCausalContext(binding, repoState);
-    const summary = await this.options.persistedLocalHistory.summarize(status, causalContext);
+    let summary = await this.options.persistedLocalHistory.summarize(status, causalContext);
+
+    if (repoState.semanticTransition !== null) {
+      await this.options.persistedLocalHistory.noteSemanticTransitionObservation({
+        current: this.buildPersistedLocalHistoryContext(binding, repoState),
+        semanticTransition: repoState.semanticTransition,
+        transition: repoState.lastTransition,
+        attribution: summary.attribution,
+      });
+      summary = await this.options.persistedLocalHistory.summarize(status, causalContext);
+    }
+
     const stagedTarget = buildRuntimeStagedTarget(status, causalContext, repoState, summary.attribution);
 
     if (stagedTarget.availability === "full_file") {

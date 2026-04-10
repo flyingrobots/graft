@@ -28,6 +28,7 @@ export const causalStatusTool: ToolDefinition = {
           attribution: persistedLocalHistory.attribution,
           latestReadEvent: persistedLocalHistory.latestReadEvent,
           latestStageEvent: persistedLocalHistory.latestStageEvent,
+          latestTransitionEvent: persistedLocalHistory.latestTransitionEvent,
           checkoutEpoch: repoState.checkoutEpoch,
           lastTransition: repoState.lastTransition,
           semanticTransition: repoState.semanticTransition,

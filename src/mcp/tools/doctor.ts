@@ -33,6 +33,7 @@ export const doctorTool: ToolDefinition = {
         causalContext,
         latestReadEvent: persistedLocalHistory.latestReadEvent,
         latestStageEvent: persistedLocalHistory.latestStageEvent,
+        latestTransitionEvent: persistedLocalHistory.latestTransitionEvent,
         checkoutEpoch: repoState.checkoutEpoch,
         lastTransition: repoState.lastTransition,
         semanticTransition: repoState.semanticTransition,

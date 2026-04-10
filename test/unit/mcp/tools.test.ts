@@ -216,6 +216,7 @@ describe("mcp: tool handlers", () => {
       attribution: { actor: { actorKind: string }; confidence: string };
       latestReadEvent: null;
       latestStageEvent: null;
+      latestTransitionEvent: null;
       semanticTransition: { kind: string; authority: string; phase: string | null } | null;
       workspaceOverlayFooting: {
         observationMode: string;
@@ -293,6 +294,7 @@ describe("mcp: tool handlers", () => {
       attribution: { actor: { actorKind: string }; confidence: string };
       latestReadEvent: null;
       latestStageEvent: null;
+      latestTransitionEvent: null;
       semanticTransition: { kind: string; authority: string; phase: string | null } | null;
       workspaceOverlayFooting: {
         observationMode: string;
