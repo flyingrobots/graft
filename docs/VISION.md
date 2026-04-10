@@ -2,12 +2,12 @@
 title: "Graft — Executive Summary"
 generated: 2026-04-10
 generator: codex (manual, following Method executive-summary process)
-tests: 682
-test_files: 64
+tests: 691
+test_files: 65
 legends: [CORE, WARP, CLEAN_CODE, SURFACE]
-backlog_items: 141
+backlog_items: 139
 version: 0.4.0
-status: "between cycles"
+status: "active cycle: 0063-richer-semantic-transitions"
 ---
 
 # Graft — Executive Summary
@@ -88,12 +88,29 @@ The current working model is:
   collapse
 - how reactive workspace overlays are observed and bounded across live
   edits and checkout transitions
+- how richer semantic transition meaning sits on top of raw Git
+  lifecycle events and checkout-boundary footing
 - how same-repo concurrent agents relate to shared repo history and
   separate worktree / session-local state
 
 ### Current cycle posture
 
-METHOD currently shows no active cycle.
+METHOD currently shows one active cycle.
+
+The active cycle is:
+
+- `0063-richer-semantic-transitions`
+  - defines the first honest semantic-transition vocabulary on top of
+    the `0062` overlay/lifecycle footing
+  - aims to separate raw lifecycle events from richer transition
+    meaning such as `index_update`, `conflict_resolution`,
+    `merge_phase`, `rebase_phase`, `bulk_transition`, and lawful
+    `unknown`
+  - should make merge/rebase phase visibility and many-file transition
+    summaries bounded product truth instead of leaving agents to infer
+    repo meaning from coarse lifecycle buckets
+  - keeps semantic transition meaning separate from canonical
+    provenance and later causal collapse
 
 The most recently closed cycle is:
 
@@ -108,13 +125,6 @@ The most recently closed cycle is:
   - surfaced stable-vs-forked lineage posture and boundary authority
   - changed post-transition guidance from implicit continue to
     explicit boundary review
-
-The next honest pull is:
-
-- `WARP_richer-semantic-transitions`
-  - build on explicit overlay footing and checkout-boundary handling
-  - separate coarse Git lifecycle transitions from richer semantic
-    transition meanings the product should eventually reason about
 
 The three most recent closed packets are:
 
