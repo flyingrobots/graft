@@ -76,7 +76,8 @@ That implies:
 
 ## What is active now
 
-No cycle is currently active in METHOD.
+Cycle `0060-persisted-sub-commit-local-history` is now active in
+METHOD.
 
 The last two shipped packets were:
 
@@ -107,6 +108,11 @@ implementation packet should build on the now-settled ontology while
 treating the deepest collapse machinery as gated on the upstream
 release.
 
+`0060` is that next packet. Its job is to define how meaningful
+between-commit `artifact_history` survives across reconnects, handoff,
+and checkout-aware continuity boundaries without being mistaken for
+either Git history or admitted canonical provenance.
+
 ## What does NOT ship under this bearing
 
 - pretending transport sessions are the final provenance model
@@ -128,6 +134,9 @@ turn:
   writer-lane substrate needed for fair execution
 - cycle `0059` closed the ontology / collapse packet and defined what
   those execution primitives are actually in service of
+- cycle `0060` is now pulling persisted sub-commit local history behind
+  that ontology so Graft can preserve bounded between-commit memory
+  without overclaiming its truth class
 - backlog now explicitly captures branch-switch hook/bootstrap concerns
   and the need for a first-class graph ontology / collapse model
 

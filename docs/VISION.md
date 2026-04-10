@@ -1,13 +1,13 @@
 ---
 title: "Graft — Executive Summary"
-generated: 2026-04-09
+generated: 2026-04-10
 generator: codex (manual, following Method executive-summary process)
-tests: 624
-test_files: 59
+tests: 633
+test_files: 60
 legends: [CORE, WARP, CLEAN_CODE, SURFACE]
-backlog_items: 142
+backlog_items: 141
 version: 0.4.0
-status: "0059 closed"
+status: "0060 active"
 ---
 
 # Graft — Executive Summary
@@ -82,16 +82,20 @@ The current working model is:
 
 ### What is still being defined
 
-- the ontology of the future Graft WARP graph
-- the exact meaning of session / strand / checkout epoch
-- what becomes durable provenance and what remains transient noise
-- how collapse works from speculative activity into canonical truth
+- the persistence model for bounded sub-commit local history
+- how causal sessions and strands survive reconnects and handoff
+- what becomes durable `artifact_history` and what remains transient
+  runtime residue
+- how persisted local history relates to later canonical provenance
+  collapse
 - how same-repo concurrent agents relate to shared repo history and
   separate worktree / session-local state
 
 ### Current cycle posture
 
-METHOD currently shows no active cycle.
+METHOD currently shows one active cycle:
+
+- `0060-persisted-sub-commit-local-history`
 
 The two most recent closed packets are:
 
@@ -103,9 +107,11 @@ The two most recent closed packets are:
     posture, playback witnesses, typed ontology contracts, and
     runtime-local causal/staged-target seams
 
-The next implementation work now sits on top of that foundation, while
-treating full strand-aware collapse as blocked on upstream `git-warp
-v17.1.0+`.
+`0060` is the first implementation-facing WARP packet on top of that
+foundation. Its job is to define how meaningful between-commit
+`artifact_history` survives across reconnects, handoff, and
+checkout-aware continuity boundaries while treating full strand-aware
+collapse as still blocked on upstream `git-warp v17.1.0+`.
 
 ## Architecture
 
@@ -172,9 +178,10 @@ Structural and causal memory over Git.
 
 - **Level 1 shipped**: commit-level structural memory
 - **Current inflection point**: execution substrate exists, but the
-  graph ontology for between-commit causal history does not
-- **Next honest packet**: define the graph model for structural truth,
-  causal provenance, strands, checkout epochs, and collapse
+  graph ontology and runtime-local causal footing now exist
+- **Next honest packet**: persist bounded local between-commit history
+  on top of that ontology without confusing it with canonical
+  provenance
 
 ### CLEAN_CODE
 

@@ -33,6 +33,7 @@ it. Cycles under that legend must verify the invariant holds.
 - [causal-events-carry-footprints](causal-events-carry-footprints.md) — provenance-capable events must have explicit footprints
 - [causal-collapse-slice-based](causal-collapse-slice-based.md) — collapse admits the relevant causal slice, not the whole strand
 - [checkout-epochs-explicit](checkout-epochs-explicit.md) — branch and history transitions must create explicit checkout-epoch boundaries
+- [persisted-local-history-artifact-history](persisted-local-history-artifact-history.md) — persisted sub-commit history stays artifact_history until collapse admits it
 - [transport-session-not-causal-session](transport-session-not-causal-session.md) — transport sessions are not the final product session model
 
 ### Observability (CORE)
