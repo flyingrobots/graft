@@ -21,6 +21,7 @@ function context(overrides: Partial<PersistedLocalHistoryContext> = {}): Persist
     checkoutEpochId: "epoch:one",
     workspaceOverlayId: null,
     observedAt: "2026-04-10T01:00:00.000Z",
+    warpWriterId: "graft",
     ...overrides,
   };
 }
@@ -75,6 +76,12 @@ describe("mcp: persisted local history", () => {
     expect(summary.lastOperation).toBe("start");
     expect(summary.totalContinuityRecords).toBe(1);
     expect(summary.continuityKey).toBe(buildContinuityKey("repo:one", "worktree:one"));
+    expect(summary.continuityConfidence).toBe("high");
+    expect(summary.continuityEvidence.map((evidence) => evidence.evidenceKind)).toEqual([
+      "mcp_transport_binding",
+      "worktree_fs_observation",
+      "writer_lane_identity",
+    ]);
     expect(fs.existsSync(summary.historyPath)).toBe(true);
   });
 
@@ -130,6 +137,10 @@ describe("mcp: persisted local history", () => {
     expect(summary.totalContinuityRecords).toBe(3);
     expect(summary.causalSessionId).toBe("causal:two");
     expect(summary.continuedFromCausalSessionId).toBe("causal:one");
+    expect(summary.continuityConfidence).toBe("medium");
+    expect(summary.continuityEvidence.map((evidence) => evidence.evidenceKind)).toContain(
+      "writer_lane_identity",
+    );
   });
 
   it("parks the previous continuity key when binding onto a different worktree", async () => {

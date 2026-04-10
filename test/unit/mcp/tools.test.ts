@@ -204,7 +204,15 @@ describe("mcp: tool handlers", () => {
     const parsed = parse(result);
     expect(parsed["bindState"]).toBe("bound");
     expect(parsed["activeCausalWorkspace"]).toBeDefined();
-    expect(parsed["persistedLocalHistory"]).toBeDefined();
+    const persistedLocalHistory = parsed["persistedLocalHistory"] as {
+      continuityConfidence: string;
+      continuityEvidence: { evidenceKind: string }[];
+    };
+    expect(persistedLocalHistory).toBeDefined();
+    expect(persistedLocalHistory.continuityConfidence).toBe("high");
+    expect(persistedLocalHistory.continuityEvidence.map((evidence) => evidence.evidenceKind)).toContain(
+      "writer_lane_identity",
+    );
     expect(parsed["nextAction"]).toBe("continue_active_causal_workspace");
   });
 

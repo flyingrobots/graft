@@ -383,6 +383,8 @@ export class WorkspaceRouter {
         strandId: null,
         checkoutEpochId: null,
         continuedFromCausalSessionId: null,
+        continuityConfidence: "unknown",
+        continuityEvidence: [],
         preserves: [
           "continuity_operations",
           "runtime_context_ids",

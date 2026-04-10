@@ -7,6 +7,8 @@ import {
   type McpToolName,
 } from "./capabilities.js";
 import {
+  attributionConfidenceSchema,
+  evidenceSchema,
   localHistoryContinuityOperationSchema,
   stagedTargetSchema,
 } from "./causal-ontology.js";
@@ -206,6 +208,8 @@ const persistedLocalHistorySummarySchema = z.discriminatedUnion("availability", 
     strandId: z.null(),
     checkoutEpochId: z.null(),
     continuedFromCausalSessionId: z.null(),
+    continuityConfidence: attributionConfidenceSchema,
+    continuityEvidence: z.array(evidenceSchema),
     preserves: z.array(z.string()),
     excludes: z.array(z.string()),
     nextAction: z.literal("bind_workspace_to_begin_local_history"),
@@ -223,6 +227,8 @@ const persistedLocalHistorySummarySchema = z.discriminatedUnion("availability", 
     strandId: z.string(),
     checkoutEpochId: z.string(),
     continuedFromCausalSessionId: z.string().nullable(),
+    continuityConfidence: attributionConfidenceSchema,
+    continuityEvidence: z.array(evidenceSchema),
     preserves: z.array(z.string()),
     excludes: z.array(z.string()),
     nextAction: z.enum([

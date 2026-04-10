@@ -59,6 +59,7 @@ describe("0060 playback: persisted sub-commit local history", () => {
       "inspectable through bounded JSON and",
       "### Slice 2: inspectable status surfaces",
       "`causal_status` as the direct active-workspace inspection surface",
+      "bounded continuity evidence and confidence for the current footing",
       "persisted local-history summaries",
       "The design should make one thing especially clear:",
     ]);
@@ -101,6 +102,7 @@ describe("0060 playback: persisted sub-commit local history", () => {
       "Default non-persist-worthy residue:",
       "### Slice 2: inspectable status surfaces",
       "`causal_status` as the direct active-workspace inspection surface",
+      "bounded continuity confidence that does not outrun the actual",
       "\"what survived from the last session?\" answers",
     ]);
   });

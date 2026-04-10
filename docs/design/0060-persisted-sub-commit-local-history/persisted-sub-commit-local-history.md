@@ -247,6 +247,8 @@ Initial lawful attach conditions:
 - same checkout epoch, or explicit fork/park semantics if not
 - explicit actor evidence or handoff evidence when continuity would
   otherwise be ambiguous
+- bounded continuity confidence that does not outrun the actual
+  transport/worktree/writer evidence currently available
 
 ### Relationship to checkout epochs
 
@@ -293,6 +295,7 @@ Expose bounded surfaces for:
 - `causal_status` as the direct active-workspace inspection surface
 - active causal workspace status
 - persisted local-history summaries
+- bounded continuity evidence and confidence for the current footing
 - "what survived from the last session?" answers
 
 ### Slice 3: continuity boundaries

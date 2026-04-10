@@ -2,7 +2,12 @@ import * as crypto from "node:crypto";
 import * as path from "node:path";
 import { z } from "zod";
 import {
+  attributionConfidenceSchema,
+  evidenceSchema,
+  getMaximumConfidenceForEvidence,
   localHistoryContinuityOperationSchema,
+  type AttributionConfidence,
+  type Evidence,
   type LocalHistoryContinuityOperation,
 } from "../contracts/causal-ontology.js";
 import type { JsonCodec } from "../ports/codec.js";
@@ -40,6 +45,8 @@ const continuityRecordSchema = z.object({
   continuedFromRecordId: z.string().min(1).nullable(),
   continuedFromCausalSessionId: z.string().min(1).nullable(),
   continuedFromStrandId: z.string().min(1).nullable(),
+  continuityConfidence: attributionConfidenceSchema,
+  continuityEvidence: z.array(evidenceSchema),
 }).strict();
 
 type ContinuityRecord = z.infer<typeof continuityRecordSchema>;
@@ -64,6 +71,7 @@ export interface PersistedLocalHistoryContext {
   readonly checkoutEpochId: string;
   readonly workspaceOverlayId: string | null;
   readonly observedAt: string;
+  readonly warpWriterId: string;
 }
 
 export interface PersistedLocalHistorySummaryNone {
@@ -79,6 +87,8 @@ export interface PersistedLocalHistorySummaryNone {
   readonly strandId: null;
   readonly checkoutEpochId: null;
   readonly continuedFromCausalSessionId: null;
+  readonly continuityConfidence: AttributionConfidence;
+  readonly continuityEvidence: readonly Evidence[];
   readonly preserves: readonly string[];
   readonly excludes: readonly string[];
   readonly nextAction: "bind_workspace_to_begin_local_history";
@@ -97,6 +107,8 @@ export interface PersistedLocalHistorySummaryPresent {
   readonly strandId: string;
   readonly checkoutEpochId: string;
   readonly continuedFromCausalSessionId: string | null;
+  readonly continuityConfidence: AttributionConfidence;
+  readonly continuityEvidence: readonly Evidence[];
   readonly preserves: readonly string[];
   readonly excludes: readonly string[];
   readonly nextAction: "continue_active_causal_workspace" | "inspect_or_resume_local_history";
@@ -128,6 +140,26 @@ function buildRecordId(
       causalSessionId: context.causalSessionId,
       strandId: context.strandId,
       workspaceSliceId: context.workspaceSliceId,
+    }),
+  );
+}
+
+function buildEvidenceId(
+  operation: LocalHistoryContinuityOperation,
+  kind: Evidence["evidenceKind"],
+  context: PersistedLocalHistoryContext,
+  index: number,
+): string {
+  return stableId(
+    "evidence",
+    JSON.stringify({
+      operation,
+      kind,
+      index,
+      occurredAt: context.observedAt,
+      transportSessionId: context.transportSessionId,
+      causalSessionId: context.causalSessionId,
+      strandId: context.strandId,
     }),
   );
 }
@@ -264,6 +296,8 @@ export class PersistedLocalHistoryStore {
       strandId: effectiveRecord.strandId,
       checkoutEpochId: effectiveRecord.checkoutEpochId,
       continuedFromCausalSessionId: lastRecord.continuedFromCausalSessionId,
+      continuityConfidence: lastRecord.continuityConfidence,
+      continuityEvidence: lastRecord.continuityEvidence,
       preserves: PERSISTED_LOCAL_HISTORY_PRESERVES,
       excludes: PERSISTED_LOCAL_HISTORY_EXCLUDES,
       nextAction: activeRecord?.causalSessionId === causalContext.causalSessionId
@@ -290,6 +324,7 @@ export class PersistedLocalHistoryStore {
       checkoutEpochId: causalContext.checkoutEpochId,
       workspaceOverlayId: repoState.workspaceOverlayId,
       observedAt: repoState.observedAt,
+      warpWriterId: causalContext.warpWriterId,
     };
   }
 
@@ -315,6 +350,7 @@ export class PersistedLocalHistoryStore {
     context: PersistedLocalHistoryContext,
     previous: ContinuityRecord | null,
   ): ContinuityRecord {
+    const continuityEvidence = this.buildContinuityEvidence(operation, context, previous);
     return {
       recordId: buildRecordId(continuityKey, operation, context),
       continuityKey,
@@ -331,7 +367,63 @@ export class PersistedLocalHistoryStore {
       continuedFromRecordId: previous?.recordId ?? null,
       continuedFromCausalSessionId: previous?.causalSessionId ?? null,
       continuedFromStrandId: previous?.strandId ?? null,
+      continuityConfidence: getMaximumConfidenceForEvidence(
+        continuityEvidence.map((evidence) => evidence.strength),
+      ),
+      continuityEvidence,
     };
+  }
+
+  private buildContinuityEvidence(
+    operation: LocalHistoryContinuityOperation,
+    context: PersistedLocalHistoryContext,
+    previous: ContinuityRecord | null,
+  ): Evidence[] {
+    const evidence: Evidence[] = [];
+
+    evidence.push({
+      evidenceId: buildEvidenceId(operation, "mcp_transport_binding", context, evidence.length),
+      evidenceKind: "mcp_transport_binding",
+      source: "persisted_local_history.transport_binding",
+      capturedAt: context.observedAt,
+      strength: operation === "start" || operation === "resume" ? "direct" : "strong",
+      details: {
+        operation,
+        transportSessionId: context.transportSessionId,
+        workspaceSliceId: context.workspaceSliceId,
+      },
+    });
+
+    evidence.push({
+      evidenceId: buildEvidenceId(operation, "worktree_fs_observation", context, evidence.length),
+      evidenceKind: "worktree_fs_observation",
+      source: "persisted_local_history.workspace_footing",
+      capturedAt: context.observedAt,
+      strength: "strong",
+      details: {
+        repoId: context.repoId,
+        worktreeId: context.worktreeId,
+        checkoutEpochId: context.checkoutEpochId,
+        workspaceOverlayId: context.workspaceOverlayId,
+        previousCheckoutEpochId: previous?.checkoutEpochId ?? null,
+        previousCausalSessionId: previous?.causalSessionId ?? null,
+      },
+    });
+
+    evidence.push({
+      evidenceId: buildEvidenceId(operation, "writer_lane_identity", context, evidence.length),
+      evidenceKind: "writer_lane_identity",
+      source: "persisted_local_history.writer_lane",
+      capturedAt: context.observedAt,
+      strength: "strong",
+      details: {
+        warpWriterId: context.warpWriterId,
+        causalSessionId: context.causalSessionId,
+        strandId: context.strandId,
+      },
+    });
+
+    return evidence;
   }
 
   private emptySummary(): PersistedLocalHistorySummaryNone {
@@ -348,6 +440,8 @@ export class PersistedLocalHistoryStore {
       strandId: null,
       checkoutEpochId: null,
       continuedFromCausalSessionId: null,
+      continuityConfidence: "unknown",
+      continuityEvidence: [],
       preserves: PERSISTED_LOCAL_HISTORY_PRESERVES,
       excludes: PERSISTED_LOCAL_HISTORY_EXCLUDES,
       nextAction: "bind_workspace_to_begin_local_history",

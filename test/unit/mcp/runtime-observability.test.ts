@@ -123,6 +123,8 @@ describe("mcp: runtime observability", () => {
         persistence: string;
         totalContinuityRecords: number;
         lastOperation: string | null;
+        continuityConfidence: string;
+        continuityEvidence: { evidenceKind: string }[];
         nextAction: string;
       };
       expect(runtime.enabled).toBe(true);
@@ -149,6 +151,10 @@ describe("mcp: runtime observability", () => {
       expect(persistedLocalHistory.persistence).toBe("persisted_local_history");
       expect(persistedLocalHistory.totalContinuityRecords).toBe(1);
       expect(persistedLocalHistory.lastOperation).toBe("start");
+      expect(persistedLocalHistory.continuityConfidence).toBe("high");
+      expect(
+        persistedLocalHistory.continuityEvidence.map((evidence) => evidence.evidenceKind),
+      ).toContain("mcp_transport_binding");
       expect(persistedLocalHistory.nextAction).toBe("continue_active_causal_workspace");
     } finally {
       isolated.cleanup();
@@ -227,6 +233,8 @@ describe("mcp: runtime observability", () => {
           active: boolean;
           totalContinuityRecords: number;
           lastOperation: string | null;
+          continuityConfidence: string;
+          continuityEvidence: { evidenceKind: string; details: { previousCheckoutEpochId?: string | null } }[];
           nextAction: string;
         };
         const secondCausal = second["causalContext"] as {
@@ -242,6 +250,17 @@ describe("mcp: runtime observability", () => {
         expect(secondHistory.active).toBe(true);
         expect(secondHistory.totalContinuityRecords).toBe(3);
         expect(secondHistory.lastOperation).toBe("fork");
+        expect(secondHistory.continuityConfidence).toBe("medium");
+        expect(secondHistory.continuityEvidence).toEqual(
+          expect.arrayContaining([
+            expect.objectContaining({
+              evidenceKind: "worktree_fs_observation",
+              details: expect.objectContaining({
+                previousCheckoutEpochId: firstCausal.checkoutEpochId,
+              }),
+            }),
+          ]),
+        );
         expect(secondHistory.nextAction).toBe("continue_active_causal_workspace");
         expect(secondCausal.checkoutEpochId).not.toBe(firstCausal.checkoutEpochId);
         expect(secondCausal.strandId).not.toBe(firstCausal.strandId);
