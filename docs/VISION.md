@@ -2,12 +2,12 @@
 title: "Graft — Executive Summary"
 generated: 2026-04-10
 generator: codex (manual, following Method executive-summary process)
-tests: 691
-test_files: 65
+tests: 700
+test_files: 66
 legends: [CORE, WARP, CLEAN_CODE, SURFACE]
 backlog_items: 139
 version: 0.4.0
-status: "active cycle: 0063-richer-semantic-transitions"
+status: "no active cycle"
 ---
 
 # Graft — Executive Summary
@@ -95,24 +95,25 @@ The current working model is:
 
 ### Current cycle posture
 
-METHOD currently shows one active cycle.
-
-The active cycle is:
-
-- `0063-richer-semantic-transitions`
-  - defines the first honest semantic-transition vocabulary on top of
-    the `0062` overlay/lifecycle footing
-  - aims to separate raw lifecycle events from richer transition
-    meaning such as `index_update`, `conflict_resolution`,
-    `merge_phase`, `rebase_phase`, `bulk_transition`, and lawful
-    `unknown`
-  - should make merge/rebase phase visibility and many-file transition
-    summaries bounded product truth instead of leaving agents to infer
-    repo meaning from coarse lifecycle buckets
-  - keeps semantic transition meaning separate from canonical
-    provenance and later causal collapse
+METHOD currently shows no active cycle.
 
 The most recently closed cycle is:
+
+- `0063-richer-semantic-transitions`
+  - defined the first honest semantic-transition vocabulary on top of
+    the `0062` overlay/lifecycle footing
+  - separated raw lifecycle events from richer transition meaning such
+    as `index_update`, `conflict_resolution`, `merge_phase`,
+    `rebase_phase`, `bulk_transition`, and lawful `unknown`
+  - made merge/rebase phase visibility and many-file transition
+    summaries bounded product truth instead of leaving agents to infer
+    repo meaning from coarse lifecycle buckets
+  - added transition-aware bounded guidance and persisted semantic
+    transition artifact-history
+  - kept semantic transition meaning separate from canonical
+    provenance and later causal collapse
+
+The three most recent closed packets are:
 
 - `0062-reactive-workspace-overlay`
   - made workspace-overlay footing explicit product truth
@@ -125,9 +126,6 @@ The most recently closed cycle is:
   - surfaced stable-vs-forked lineage posture and boundary authority
   - changed post-transition guidance from implicit continue to
     explicit boundary review
-
-The three most recent closed packets are:
-
 - `0061-provenance-attribution-instrumentation`
   - explicit runtime attribution summaries for `agent`, `human`,
     `git`, and `unknown`
@@ -139,9 +137,6 @@ The three most recent closed packets are:
     layers
   - explicit `artifact_history` honesty rather than canonical
     provenance overclaim
-- `0058-system-wide-resource-pressure-and-fairness`
-  - async Git, async daemon-heavy file paths, scheduler, workers,
-    monitor routing, and writer lanes
 - `0059-graph-ontology-and-causal-collapse-model`
   - graph layers, identities, event granularity, explicit provenance
     posture, playback witnesses, typed ontology contracts, and
@@ -245,11 +240,10 @@ runtime-backed forms, and honest seams.
 
 ### Immediate next
 
-1. Add branch/checkout-aware strand lifecycle handling, likely with
-   target-repo Git hook bootstrap or an equivalent explicit Git
-   transition boundary.
-2. Continue same-repo concurrent-agent modeling against strands and
-   writer lanes.
+1. Pull `WARP_same-repo-concurrent-agent-model` now that lifecycle,
+   attribution, and semantic-transition footing are all real.
+2. Strengthen symbol/rename continuity so later causal slicing and
+   staged-artifact reasoning are less path-noisy.
 3. Push full strand-aware causal collapse once upstream `git-warp
    v17.1.0+` support exists.
 

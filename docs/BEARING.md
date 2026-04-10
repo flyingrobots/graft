@@ -95,23 +95,28 @@ Its paired companion seam,
 in code and no longer reads like optional bootstrap polish. It is part
 of the shipped checkout-boundary story.
 
-METHOD now shows `0063-richer-semantic-transitions` as the active
-cycle.
+Cycle `0063-richer-semantic-transitions` is now also closed.
+It shipped the first honest meaning layer on top of `0062`:
 
-That cycle is the current meaning packet on top of `0062`:
+- explicit semantic transition vocabulary beyond raw Git lifecycle
+  buckets
+- bounded runtime distinctions between `index_update`,
+  `conflict_resolution`, `merge_phase`, `rebase_phase`,
+  `bulk_transition`, and lawful `unknown`
+- merge/rebase phase visibility as bounded product truth instead of
+  agent-only inference
+- transition-aware bounded guidance for conflict cleanup, active merge,
+  active rebase, and many-file bulk movement
+- persisted local semantic transition `artifact_history`
+- sharper human-facing summaries for `bulk staging`, `bulk edit sweep`,
+  and directional conflict posture changes
 
-- define the first honest semantic-transition vocabulary beyond raw Git
-  lifecycle events
-- distinguish `index_update`, `conflict_resolution`, `merge_phase`,
-  `rebase_phase`, `bulk_transition`, and lawful `unknown`
-- make merge/rebase phase visibility and many-file transition summaries
-  first-class bounded product truth
-- keep semantic transition meaning separate from canonical provenance
-  and later collapse
+METHOD currently shows no active cycle.
 
-The active question is no longer only "did a transition happen?" It is
-"what kind of repo/workspace meaning is inspectable right now, and how
-confidently can Graft say so?"
+The next honest pull is likely
+`WARP_same-repo-concurrent-agent-model.md`, because the lifecycle,
+semantic-transition, and bounded local-history footing are now strong
+enough that same-repo multi-actor truth is the next major product gap.
 
 The last two shipped packets were:
 
@@ -209,6 +214,10 @@ turn:
 - cycle `0062` closed reactive workspace overlay semantics so live
   workspace footing and checkout boundaries are now first-class
   product truth instead of only inferred repo snapshots
+- cycle `0063` closed the first richer semantic-transition packet so
+  bounded surfaces can explain what kind of repo/workspace meaning is
+  active right now instead of only that a raw Git lifecycle event
+  happened
 - backlog now explicitly captures branch-switch hook/bootstrap concerns
   and the need for a first-class graph ontology / collapse model
 
@@ -222,9 +231,9 @@ turn:
   overlay transitions everywhere in the product
 - target repos do not yet have an honest product hook/bootstrap story
   for branch-switch-aware strand management
-- semantic transition meaning still sits too close to raw lifecycle
-  buckets in runtime behavior; `0063` is the packet meant to separate
-  those layers
+- same-repo multi-actor meaning is still explicitly out of scope; the
+  lifecycle and semantic footing are better now, but Graft still lacks
+  a settled product truth for overlapping humans/agents in one repo
 - canonical structural truth versus canonical provenance is now explicit
   in repo truth, but not yet realized end-to-end in runtime behavior
 - collapse semantics are now in repo truth, but still blocked from full
