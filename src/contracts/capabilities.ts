@@ -22,6 +22,7 @@ export const MCP_TOOL_NAMES = [
   "workspace_revoke",
   "workspace_bind",
   "workspace_status",
+  "causal_status",
   "workspace_rebind",
   "run_capture",
   "state_save",
@@ -232,6 +233,12 @@ export const CAPABILITY_REGISTRY: readonly CapabilityDefinition[] = [
     id: "workspace_status",
     description: "Inspect daemon workspace binding state",
     mcpTool: "workspace_status",
+    parity: "mcp_only",
+  },
+  {
+    id: "causal_status",
+    description: "Inspect the active causal workspace and persisted local-history posture",
+    mcpTool: "causal_status",
     parity: "mcp_only",
   },
   {

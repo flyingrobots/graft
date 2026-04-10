@@ -198,6 +198,27 @@ describe("mcp: tool handlers", () => {
     expect(parsed["burdenSummary"]).toBeDefined();
   });
 
+  it("causal_status returns the active causal workspace posture", async () => {
+    const server = createServer();
+    const result = await server.callTool("causal_status", {});
+    const parsed = parse(result);
+    expect(parsed["bindState"]).toBe("bound");
+    expect(parsed["activeCausalWorkspace"]).toBeDefined();
+    expect(parsed["persistedLocalHistory"]).toBeDefined();
+    expect(parsed["nextAction"]).toBe("continue_active_causal_workspace");
+  });
+
+  it("causal_status is available before daemon workspace bind", async () => {
+    const isolated = createIsolatedServer({ mode: "daemon" });
+    cleanups.push(() => {
+      isolated.cleanup();
+    });
+    const parsed = parse(await isolated.server.callTool("causal_status", {}));
+    expect(parsed["bindState"]).toBe("unbound");
+    expect(parsed["activeCausalWorkspace"]).toBeNull();
+    expect(parsed["nextAction"]).toBe("bind_workspace_to_begin_local_history");
+  });
+
   it("stats returns metrics summary", async () => {
     const server = createServer();
     const result = await server.callTool("stats", {});

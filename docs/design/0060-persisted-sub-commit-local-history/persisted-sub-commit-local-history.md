@@ -290,6 +290,7 @@ Add a bounded local persistence seam that stores:
 ### Slice 2: inspectable status surfaces
 
 Expose bounded surfaces for:
+- `causal_status` as the direct active-workspace inspection surface
 - active causal workspace status
 - persisted local-history summaries
 - "what survived from the last session?" answers

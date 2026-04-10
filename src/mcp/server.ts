@@ -66,6 +66,7 @@ import { monitorPauseTool } from "./tools/monitor-pause.js";
 import { monitorResumeTool } from "./tools/monitor-resume.js";
 import { monitorStartTool } from "./tools/monitor-start.js";
 import { monitorStopTool } from "./tools/monitor-stop.js";
+import { causalStatusTool } from "./tools/causal-status.js";
 import { workspaceAuthorizeTool } from "./tools/workspace-authorize.js";
 import { workspaceAuthorizationsTool } from "./tools/workspace-authorizations.js";
 import { workspaceBindTool } from "./tools/workspace-bind.js";
@@ -86,6 +87,7 @@ export const TOOL_REGISTRY: readonly ToolDefinition[] = [
   stateSaveTool,
   stateLoadTool,
   doctorTool,
+  causalStatusTool,
   statsTool,
   explainTool,
   setBudgetTool,
@@ -428,6 +430,7 @@ export function createGraftServer(options: CreateGraftServerOptions = {}): Graft
     "workspace_revoke",
     "workspace_bind",
     "workspace_status",
+    "causal_status",
     "workspace_rebind",
     "explain",
   ]);

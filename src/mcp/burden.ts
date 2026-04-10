@@ -37,6 +37,7 @@ const TOOL_BURDEN_KIND: Record<McpToolName, BurdenKind> = {
   workspace_revoke: "diagnostic",
   workspace_bind: "diagnostic",
   workspace_status: "diagnostic",
+  causal_status: "diagnostic",
   workspace_rebind: "diagnostic",
   run_capture: "shell",
   state_save: "state",

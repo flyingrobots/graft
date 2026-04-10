@@ -58,6 +58,7 @@ describe("0060 playback: persisted sub-commit local history", () => {
     expectMentions(designDoc, [
       "inspectable through bounded JSON and",
       "### Slice 2: inspectable status surfaces",
+      "`causal_status` as the direct active-workspace inspection surface",
       "persisted local-history summaries",
       "The design should make one thing especially clear:",
     ]);
@@ -99,6 +100,7 @@ describe("0060 playback: persisted sub-commit local history", () => {
       "Default persist-worthy records:",
       "Default non-persist-worthy residue:",
       "### Slice 2: inspectable status surfaces",
+      "`causal_status` as the direct active-workspace inspection surface",
       "\"what survived from the last session?\" answers",
     ]);
   });

@@ -163,6 +163,7 @@ describe("contracts: output schemas", () => {
       workspace_revoke: daemonRevoke,
       workspace_bind: daemonBind,
       workspace_status: daemonStatus,
+      causal_status: parse(await server.callTool("causal_status", {})),
       workspace_rebind: daemonRebind,
       run_capture: parse(await server.callTool("run_capture", { command: "printf 'ok'", tail: 1 })),
       state_save: parse(await server.callTool("state_save", { content: "current task" })),
