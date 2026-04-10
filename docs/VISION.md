@@ -1,13 +1,13 @@
 ---
 title: "Graft — Executive Summary"
-generated: 2026-04-10
+generated: 2026-04-09
 generator: codex (manual, following Method executive-summary process)
-tests: 633
-test_files: 60
+tests: 642
+test_files: 61
 legends: [CORE, WARP, CLEAN_CODE, SURFACE]
-backlog_items: 141
+backlog_items: 142
 version: 0.4.0
-status: "0060 active"
+status: "0060 closed; no active cycle"
 ---
 
 # Graft — Executive Summary
@@ -82,10 +82,10 @@ The current working model is:
 
 ### What is still being defined
 
-- the persistence model for bounded sub-commit local history
-- how causal sessions and strands survive reconnects and handoff
-- what becomes durable `artifact_history` and what remains transient
-  runtime residue
+- direct provenance and attribution evidence for `agent`, `human`, and
+  `git`
+- how persisted local `artifact_history` becomes admitted canonical
+  provenance
 - how persisted local history relates to later canonical provenance
   collapse
 - how same-repo concurrent agents relate to shared repo history and
@@ -93,11 +93,9 @@ The current working model is:
 
 ### Current cycle posture
 
-METHOD currently shows one active cycle:
+METHOD currently shows no active cycle.
 
-- `0060-persisted-sub-commit-local-history`
-
-The two most recent closed packets are:
+The three most recent closed packets are:
 
 - `0058-system-wide-resource-pressure-and-fairness`
   - async Git, async daemon-heavy file paths, scheduler, workers,
@@ -106,12 +104,19 @@ The two most recent closed packets are:
   - graph layers, identities, event granularity, explicit provenance
     posture, playback witnesses, typed ontology contracts, and
     runtime-local causal/staged-target seams
+- `0060-persisted-sub-commit-local-history`
+  - persisted local-history records under the stable Graft root
+  - checkout-aware continuity park/fork boundaries
+  - `causal_status` as the bounded active-workspace surface
+  - `causal_attach` as the explicit attach/handoff declaration seam
+  - evidence-bounded continuity summaries and inspectable local
+    artifact-history posture
 
-`0060` is the first implementation-facing WARP packet on top of that
-foundation. Its job is to define how meaningful between-commit
-`artifact_history` survives across reconnects, handoff, and
-checkout-aware continuity boundaries while treating full strand-aware
-collapse as still blocked on upstream `git-warp v17.1.0+`.
+The next honest packet is
+`WARP_provenance-attribution-instrumentation`. `0060` settled that
+bounded local history can survive reconnects and handoff. The next
+trust problem is who or what the product can honestly say advanced that
+history, with inspectable evidence and no false certainty.
 
 ## Architecture
 
@@ -178,9 +183,10 @@ Structural and causal memory over Git.
 
 - **Level 1 shipped**: commit-level structural memory
 - **Current inflection point**: execution substrate exists, but the
-  graph ontology and runtime-local causal footing now exist
-- **Next honest packet**: persist bounded local between-commit history
-  on top of that ontology without confusing it with canonical
+  graph ontology, runtime-local causal footing, and persisted local
+  artifact-history now exist
+- **Next honest packet**: add provenance/attribution evidence on top of
+  that local-history substrate without confusing it with canonical
   provenance
 
 ### CLEAN_CODE
@@ -192,15 +198,14 @@ runtime-backed forms, and honest seams.
 
 ### Immediate next
 
-1. Pull persisted sub-commit local history behind the now-settled
-   ontology.
-2. Add provenance and attribution instrumentation on top of it.
-3. Add branch/checkout-aware strand lifecycle handling, likely with
+1. Add provenance and attribution instrumentation on top of the now-
+   shipped local-history substrate.
+2. Add branch/checkout-aware strand lifecycle handling, likely with
    target-repo Git hook bootstrap or an equivalent explicit Git
    transition boundary.
-4. Continue same-repo concurrent-agent modeling against strands and
+3. Continue same-repo concurrent-agent modeling against strands and
    writer lanes.
-5. Push full strand-aware causal collapse once upstream `git-warp
+4. Push full strand-aware causal collapse once upstream `git-warp
    v17.1.0+` support exists.
 
 ### High-value WARP packets already in backlog

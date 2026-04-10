@@ -76,8 +76,7 @@ That implies:
 
 ## What is active now
 
-Cycle `0060-persisted-sub-commit-local-history` is now active in
-METHOD.
+METHOD currently shows no active cycle.
 
 The last two shipped packets were:
 
@@ -98,6 +97,16 @@ and:
 - runtime-local staged-target snapshots with bounded availability
   semantics
 
+Cycle `0060-persisted-sub-commit-local-history` is now also closed.
+It shipped the first honest persisted between-commit artifact-history
+substrate:
+
+- persisted local-history records under the stable Graft root
+- checkout-aware continuity park/fork boundaries
+- `causal_status` as a bounded active-workspace inspection surface
+- `causal_attach` as an explicit attach / handoff declaration seam
+- evidence-bounded continuity summaries rather than implied certainty
+
 That work is still valuable. It is the execution substrate the current
 WARP direction now stands on.
 
@@ -108,10 +117,11 @@ implementation packet should build on the now-settled ontology while
 treating the deepest collapse machinery as gated on the upstream
 release.
 
-`0060` is that next packet. Its job is to define how meaningful
-between-commit `artifact_history` survives across reconnects, handoff,
-and checkout-aware continuity boundaries without being mistaken for
-either Git history or admitted canonical provenance.
+The next honest pull is
+`WARP_provenance-attribution-instrumentation`: now that persisted local
+history exists, the product needs direct evidence for `agent`,
+`human`, and `git` attribution so those continuity records can explain
+not only that a line of work survived, but who or what advanced it.
 
 ## What does NOT ship under this bearing
 
@@ -134,23 +144,24 @@ turn:
   writer-lane substrate needed for fair execution
 - cycle `0059` closed the ontology / collapse packet and defined what
   those execution primitives are actually in service of
-- cycle `0060` is now pulling persisted sub-commit local history behind
-  that ontology so Graft can preserve bounded between-commit memory
-  without overclaiming its truth class
+- cycle `0060` closed the first persisted sub-commit local-history
+  packet so Graft can preserve bounded between-commit memory without
+  overclaiming its truth class
 - backlog now explicitly captures branch-switch hook/bootstrap concerns
   and the need for a first-class graph ontology / collapse model
 
 ## What feels wrong
 
 - `session` is still too transport-scoped in the code and docs
-- branch / checkout transitions are not yet first-class strand or
-  checkout-epoch boundaries
+- branch / checkout transitions are now first-class continuity
+  boundaries in local history, but not yet first-class strand or
+  overlay transitions everywhere in the product
 - target repos do not yet have an honest product hook/bootstrap story
   for branch-switch-aware strand management
-- canonical structural truth versus canonical provenance is not yet an
-  explicit ontology in code
-- collapse semantics are still discussed more in design chat than in
-  repo truth
+- canonical structural truth versus canonical provenance is now explicit
+  in repo truth, but not yet realized end-to-end in runtime behavior
+- collapse semantics are now in repo truth, but still blocked from full
+  realization by upstream `git-warp v17.1.0+`
 - symbol identity is still name-addressable, which will make precise
   causal slicing noisy
 
