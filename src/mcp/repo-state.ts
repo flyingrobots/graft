@@ -1,6 +1,7 @@
 import * as crypto from "node:crypto";
 import type { GitClient } from "../ports/git.js";
 import type { FileSystem } from "../ports/filesystem.js";
+import { buildSemanticTransitionSummary } from "./semantic-transition-summary.js";
 
 export type WorldlineLayer = "commit_worldline" | "ref_view" | "workspace_overlay";
 export type RepoTransitionKind = "checkout" | "reset" | "merge" | "rebase";
@@ -400,73 +401,6 @@ function buildSemanticTransitionEvidence(
   };
 }
 
-function buildSemanticTransitionSummary(
-  kind: RepoSemanticTransitionKind,
-  evidence: RepoSemanticTransition["evidence"],
-  phase: RepoSemanticTransitionPhase | null,
-): string {
-  switch (kind) {
-    case "merge_phase":
-      switch (phase) {
-        case "conflicted":
-          return `Merge is in conflict across ${String(evidence.unmergedPaths)} path(s).`;
-        case "resolved_waiting_commit":
-          return "Merge conflicts are cleared and the merge is waiting for commit/admission.";
-        case "completed_or_cleared":
-          return "Merge transition completed or merge state has cleared.";
-        case "started":
-          return "Merge started and is now inspectable as active repo state.";
-        case "continued":
-          return "Merge progressed and remains active.";
-        default:
-          return "Merge state is active.";
-      }
-    case "rebase_phase":
-      switch (phase) {
-        case "conflicted":
-          return `Rebase is in conflict across ${String(evidence.unmergedPaths)} path(s).`;
-        case "continued":
-          return evidence.rebaseStep !== null && evidence.rebaseTotalSteps !== null
-            ? `Rebase continued at step ${String(evidence.rebaseStep)} of ${String(evidence.rebaseTotalSteps)}.`
-            : "Rebase continued and remains active.";
-        case "completed_or_cleared":
-          return "Rebase transition completed or rebase state has cleared.";
-        case "started":
-          return "Rebase started and is now inspectable as active repo state.";
-        case "resolved_waiting_commit":
-          return "Rebase conflicts are cleared and the rebase is waiting for the next step.";
-        default:
-          return "Rebase state is active.";
-      }
-    case "conflict_resolution":
-      return evidence.unmergedPaths > 0
-        ? `Conflict posture is active across ${String(evidence.unmergedPaths)} path(s).`
-        : "Conflict posture cleared after an explicit conflict-resolution movement.";
-    case "index_update":
-      return evidence.totalPaths > 1
-        ? `Index/staging boundary changed across ${String(evidence.totalPaths)} path(s).`
-        : "Index/staging boundary changed.";
-    case "bulk_transition":
-      if (
-        evidence.stagedPaths === evidence.totalPaths
-        && evidence.changedPaths === 0
-        && evidence.untrackedPaths === 0
-      ) {
-        return `Bulk staging spans ${String(evidence.totalPaths)} path(s) at the index boundary.`;
-      }
-      if (
-        evidence.changedPaths === evidence.totalPaths
-        && evidence.stagedPaths === 0
-        && evidence.untrackedPaths === 0
-      ) {
-        return `Bulk edit sweep spans ${String(evidence.totalPaths)} unstaged path(s).`;
-      }
-      return `Bulk transition movement spans ${String(evidence.totalPaths)} path(s) with ${String(evidence.stagedPaths)} staged and ${String(evidence.changedPaths)} unstaged changes.`;
-    case "unknown":
-      return "Repo/workspace movement is inspectable, but the semantic transition meaning remains unknown.";
-  }
-}
-
 function buildSemanticTransition(
   previous: RepoSnapshot | null,
   current: RepoSnapshot,
@@ -479,11 +413,11 @@ function buildSemanticTransition(
       kind: "merge_phase",
       authority: "authoritative_git_state",
       phase: current.unmergedPaths > 0 ? "conflicted" : "resolved_waiting_commit",
-      summary: buildSemanticTransitionSummary(
-        "merge_phase",
+      summary: buildSemanticTransitionSummary({
+        kind: "merge_phase",
         evidence,
-        current.unmergedPaths > 0 ? "conflicted" : "resolved_waiting_commit",
-      ),
+        phase: current.unmergedPaths > 0 ? "conflicted" : "resolved_waiting_commit",
+      }),
       evidence,
     };
   }
@@ -496,7 +430,11 @@ function buildSemanticTransition(
       kind: "rebase_phase",
       authority: "authoritative_git_state",
       phase,
-      summary: buildSemanticTransitionSummary("rebase_phase", evidence, phase),
+      summary: buildSemanticTransitionSummary({
+        kind: "rebase_phase",
+        evidence,
+        phase,
+      }),
       evidence,
     };
   }
@@ -507,7 +445,12 @@ function buildSemanticTransition(
       kind: "conflict_resolution",
       authority: "authoritative_git_state",
       phase: null,
-      summary: buildSemanticTransitionSummary("conflict_resolution", evidence, null),
+      summary: buildSemanticTransitionSummary({
+        kind: "conflict_resolution",
+        evidence,
+        phase: null,
+        previousUnmergedPaths: previous?.unmergedPaths ?? null,
+      }),
       evidence,
     };
   }
@@ -517,7 +460,11 @@ function buildSemanticTransition(
       kind: "merge_phase",
       authority: "repo_snapshot",
       phase: "completed_or_cleared",
-      summary: buildSemanticTransitionSummary("merge_phase", evidence, "completed_or_cleared"),
+      summary: buildSemanticTransitionSummary({
+        kind: "merge_phase",
+        evidence,
+        phase: "completed_or_cleared",
+      }),
       evidence,
     };
   }
@@ -527,7 +474,11 @@ function buildSemanticTransition(
       kind: "rebase_phase",
       authority: "repo_snapshot",
       phase: "completed_or_cleared",
-      summary: buildSemanticTransitionSummary("rebase_phase", evidence, "completed_or_cleared"),
+      summary: buildSemanticTransitionSummary({
+        kind: "rebase_phase",
+        evidence,
+        phase: "completed_or_cleared",
+      }),
       evidence,
     };
   }
@@ -537,7 +488,11 @@ function buildSemanticTransition(
       kind: "bulk_transition",
       authority: "repo_snapshot",
       phase: null,
-      summary: buildSemanticTransitionSummary("bulk_transition", evidence, null),
+      summary: buildSemanticTransitionSummary({
+        kind: "bulk_transition",
+        evidence,
+        phase: null,
+      }),
       evidence,
     };
   }
@@ -547,7 +502,11 @@ function buildSemanticTransition(
       kind: "index_update",
       authority: "repo_snapshot",
       phase: null,
-      summary: buildSemanticTransitionSummary("index_update", evidence, null),
+      summary: buildSemanticTransitionSummary({
+        kind: "index_update",
+        evidence,
+        phase: null,
+      }),
       evidence,
     };
   }
@@ -557,7 +516,11 @@ function buildSemanticTransition(
       kind: "unknown",
       authority: "repo_snapshot",
       phase: null,
-      summary: buildSemanticTransitionSummary("unknown", evidence, null),
+      summary: buildSemanticTransitionSummary({
+        kind: "unknown",
+        evidence,
+        phase: null,
+      }),
       evidence,
     };
   }

@@ -206,6 +206,7 @@ Examples:
 - unmerged entries becoming resolved
 - conflicted files shrinking toward a clean index
 - conflict posture worsening after a merge/rebase step
+- conflict posture fully clearing after explicit resolution movement
 
 #### `merge_phase`
 

@@ -47,6 +47,8 @@ describe("0063 playback: richer semantic transitions", () => {
       "conflicted files shrinking toward a clean index",
       "conflict_resolution",
       "resolve_conflicts_before_continuing",
+      "conflict posture worsening",
+      "conflict posture fully clearing",
     ]);
   });
 
