@@ -111,12 +111,20 @@ It shipped the first honest meaning layer on top of `0062`:
 - sharper human-facing summaries for `bulk staging`, `bulk edit sweep`,
   and directional conflict posture changes
 
-METHOD currently shows no active cycle.
+METHOD now shows `0064-same-repo-concurrent-agent-model` as active.
 
-The next honest pull is likely
-`WARP_same-repo-concurrent-agent-model.md`, because the lifecycle,
-semantic-transition, and bounded local-history footing are now strong
-enough that same-repo multi-actor truth is the next major product gap.
+That is the next honest pull because the lifecycle, semantic-transition,
+and bounded local-history footing are now strong enough that same-repo
+multi-actor truth is the next major product gap.
+
+The job of `0064` is to settle:
+
+- what is shared at Git common-dir scope versus worktree scope versus
+  actor-local causal scope
+- how Graft talks about multiple actors in one live worktree without
+  faking single-actor ownership
+- what scenarios are supported observationally now versus explicitly
+  out of scope until future multi-writer WARP levels
 
 The last two shipped packets were:
 
@@ -233,7 +241,8 @@ turn:
   for branch-switch-aware strand management
 - same-repo multi-actor meaning is still explicitly out of scope; the
   lifecycle and semantic footing are better now, but Graft still lacks
-  a settled product truth for overlapping humans/agents in one repo
+  a settled runtime/product truth for overlapping humans/agents in one
+  repo; `0064` is the contract packet for that gap
 - canonical structural truth versus canonical provenance is now explicit
   in repo truth, but not yet realized end-to-end in runtime behavior
 - collapse semantics are now in repo truth, but still blocked from full

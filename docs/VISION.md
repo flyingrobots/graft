@@ -2,12 +2,12 @@
 title: "Graft — Executive Summary"
 generated: 2026-04-10
 generator: codex (manual, following Method executive-summary process)
-tests: 700
-test_files: 66
+tests: 710
+test_files: 67
 legends: [CORE, WARP, CLEAN_CODE, SURFACE]
-backlog_items: 139
+backlog_items: 138
 version: 0.4.0
-status: "no active cycle"
+status: "active cycle: 0064-same-repo-concurrent-agent-model"
 ---
 
 # Graft — Executive Summary
@@ -95,7 +95,17 @@ The current working model is:
 
 ### Current cycle posture
 
-METHOD currently shows no active cycle.
+METHOD currently shows one active cycle:
+
+- `0064-same-repo-concurrent-agent-model`
+  - defines the first honest contract for multiple actors working in
+    the same repo at once
+  - separates canonical repo scope, live worktree scope, and
+    actor-local causal scope
+  - treats same-worktree overlap as observationally supported but
+    provenance-uncertain unless explicit handoff evidence exists
+  - keeps multi-writer WARP merge semantics out of scope while
+    tightening same-repo multi-actor honesty
 
 The most recently closed cycle is:
 
