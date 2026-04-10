@@ -5,6 +5,11 @@ import { ObservationCache } from "./cache.js";
 import { createPathResolver } from "./context.js";
 import { Metrics } from "./metrics.js";
 import { loadProjectGraftignore } from "./policy.js";
+import {
+  PersistedLocalHistoryStore,
+  type PersistedLocalHistoryContext,
+  type PersistedLocalHistorySummary,
+} from "./persisted-local-history.js";
 import { RepoStateTracker } from "./repo-state.js";
 import { buildRuntimeCausalContext, type RuntimeCausalContext } from "./runtime-causal-context.js";
 import { SessionTracker } from "../session/tracker.js";
@@ -141,6 +146,7 @@ interface WorkspaceRouterOptions {
   readonly transportSessionId: string;
   readonly warpWriterId?: string | undefined;
   readonly authorizationPolicy?: WorkspaceAuthorizationPolicy | undefined;
+  readonly persistedLocalHistory: PersistedLocalHistoryStore;
 }
 
 export const DEFAULT_DAEMON_CAPABILITY_PROFILE: WorkspaceCapabilityProfile = Object.freeze({
@@ -263,6 +269,9 @@ export class WorkspaceRouter {
         this.currentSlice,
       );
       await currentBinding.slice.repoState?.initialize();
+      await this.options.persistedLocalHistory.noteBinding({
+        current: this.buildPersistedLocalHistoryContext(currentBinding),
+      });
       this.currentBinding = currentBinding;
     })();
 
@@ -343,6 +352,42 @@ export class WorkspaceRouter {
     };
   }
 
+  async getPersistedLocalHistorySummary(): Promise<PersistedLocalHistorySummary> {
+    const binding = this.currentBinding;
+    if (binding?.slice.repoState === null || binding === null) {
+      return {
+        availability: "none",
+        persistence: "persisted_local_history",
+        historyPath: null,
+        totalContinuityRecords: 0,
+        active: false,
+        lastOperation: null,
+        lastObservedAt: null,
+        continuityKey: null,
+        causalSessionId: null,
+        strandId: null,
+        checkoutEpochId: null,
+        continuedFromCausalSessionId: null,
+        preserves: [
+          "continuity_operations",
+          "runtime_context_ids",
+          "workspace_overlay_snapshots",
+        ],
+        excludes: [
+          "raw_chat_transcripts",
+          "queue_bookkeeping",
+          "canonical_provenance",
+          "canonical_structural_truth",
+        ],
+        nextAction: "bind_workspace_to_begin_local_history",
+      };
+    }
+    return this.options.persistedLocalHistory.summarize(
+      this.getStatus(),
+      this.buildCausalContext(binding),
+    );
+  }
+
   captureExecutionContext(): WorkspaceExecutionContext {
     const binding = this.requireBinding();
     const repoState = binding.slice.repoState;
@@ -360,14 +405,7 @@ export class WorkspaceRouter {
       resolvePath: binding.resolvePath,
       capabilityProfile: binding.capabilityProfile,
       warpWriterId: binding.warpWriterId,
-      getCausalContext: () => buildRuntimeCausalContext({
-        transportSessionId: binding.transportSessionId,
-        workspaceSliceId: binding.slice.sliceId,
-        repoId: binding.repoId,
-        worktreeId: binding.worktreeId,
-        checkoutEpoch: repoState.getState().checkoutEpoch,
-        warpWriterId: binding.warpWriterId,
-      }),
+      getCausalContext: () => this.buildCausalContext(binding),
       status: {
         sessionMode: this.options.mode,
         bindState: "bound",
@@ -445,6 +483,11 @@ export class WorkspaceRouter {
 
     const nextBinding = this.createBoundWorkspace(resolved, sliceDir, capabilityProfile, actionName);
     await nextBinding.slice.repoState?.initialize();
+    const previousBinding = this.currentBinding;
+    await this.options.persistedLocalHistory.noteBinding({
+      current: this.buildPersistedLocalHistoryContext(nextBinding),
+      previous: previousBinding === null ? null : this.buildPersistedLocalHistoryContext(previousBinding),
+    });
     if (this.options.mode === "daemon") {
       await this.options.authorizationPolicy?.noteBound(resolved);
     }
@@ -512,5 +555,45 @@ export class WorkspaceRouter {
       throw new WorkspaceBindingRequiredError("workspace");
     }
     return repoState;
+  }
+
+  private buildCausalContext(binding: BoundWorkspace): RuntimeCausalContext {
+    const repoState = binding.slice.repoState;
+    if (repoState === null) {
+      throw new WorkspaceBindingRequiredError("workspace");
+    }
+    return buildRuntimeCausalContext({
+      transportSessionId: binding.transportSessionId,
+      workspaceSliceId: binding.slice.sliceId,
+      repoId: binding.repoId,
+      worktreeId: binding.worktreeId,
+      checkoutEpoch: repoState.getState().checkoutEpoch,
+      warpWriterId: binding.warpWriterId,
+    });
+  }
+
+  private buildPersistedLocalHistoryContext(binding: BoundWorkspace): PersistedLocalHistoryContext {
+    const repoState = binding.slice.repoState;
+    if (repoState === null) {
+      throw new WorkspaceBindingRequiredError("workspace");
+    }
+    const context = this.options.persistedLocalHistory.buildContext(
+      {
+        sessionMode: this.options.mode,
+        bindState: "bound",
+        repoId: binding.repoId,
+        worktreeId: binding.worktreeId,
+        worktreeRoot: binding.worktreeRoot,
+        gitCommonDir: binding.gitCommonDir,
+        graftDir: binding.slice.graftDir,
+        capabilityProfile: binding.capabilityProfile,
+      },
+      this.buildCausalContext(binding),
+      repoState.getState(),
+    );
+    if (context === null) {
+      throw new WorkspaceBindingRequiredError("workspace");
+    }
+    return context;
   }
 }

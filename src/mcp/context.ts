@@ -16,6 +16,7 @@ import type { RepoObservation } from "./repo-state.js";
 import type { RunCaptureConfig } from "./run-capture-config.js";
 import type { RuntimeObservabilityState } from "./runtime-observability.js";
 import type { RuntimeCausalContext } from "./runtime-causal-context.js";
+import type { PersistedLocalHistorySummary } from "./persisted-local-history.js";
 import type { McpToolName } from "../contracts/output-schemas.js";
 import type {
   DaemonSessionView,
@@ -70,6 +71,7 @@ export interface ToolContext {
   getWarp(): Promise<WarpApp>;
   getRepoState(): RepoObservation;
   getCausalContext(): RuntimeCausalContext;
+  getPersistedLocalHistorySummary(): Promise<PersistedLocalHistorySummary>;
   getWorkspaceStatus(): WorkspaceStatus;
   bindWorkspace(request: WorkspaceBindRequest, actionName: string): Promise<WorkspaceActionResult>;
   rebindWorkspace(request: WorkspaceBindRequest, actionName: string): Promise<WorkspaceActionResult>;

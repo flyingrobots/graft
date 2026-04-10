@@ -202,6 +202,9 @@ function buildWorkerContext(
         warpWriterId: job.writerId,
       });
     },
+    getPersistedLocalHistorySummary() {
+      return unsupported("getPersistedLocalHistorySummary");
+    },
     getWorkspaceStatus() {
       return workerStatus(job);
     },

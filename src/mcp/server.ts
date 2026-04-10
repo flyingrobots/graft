@@ -39,6 +39,7 @@ import {
 } from "./runtime-observability.js";
 import { InMemoryWarpPool, type WarpPool } from "./warp-pool.js";
 import { buildSessionWarpWriterId } from "../warp/writer-id.js";
+import { PersistedLocalHistoryStore } from "./persisted-local-history.js";
 
 // Tool definitions — each file exports a ToolDefinition object
 import { safeReadTool } from "./tools/safe-read.js";
@@ -168,6 +169,11 @@ export function createGraftServer(options: CreateGraftServerOptions = {}): Graft
     maxBytes: observability.maxBytes,
   });
   const warpPool = options.warpPool ?? new InMemoryWarpPool((cwd, writerId) => openWarp({ cwd, writerId }));
+  const persistedLocalHistory = new PersistedLocalHistoryStore({
+    fs: nodeFs,
+    codec,
+    graftDir,
+  });
   const daemonScheduler = mode === "daemon" ? (options.daemonScheduler ?? new DaemonJobScheduler()) : null;
   const daemonWorkerPool = mode === "daemon" ? (options.daemonWorkerPool ?? new InlineDaemonWorkerPool()) : null;
   const daemonControlPlane = mode === "daemon"
@@ -220,6 +226,7 @@ export function createGraftServer(options: CreateGraftServerOptions = {}): Graft
     transportSessionId: sessionId,
     ...(sessionWarpWriterId !== undefined ? { warpWriterId: sessionWarpWriterId } : {}),
     ...(daemonControlPlane !== null ? { authorizationPolicy: daemonControlPlane } : {}),
+    persistedLocalHistory,
   });
   const daemonRepoOverview = daemonControlPlane !== null && monitorRuntime !== null
     ? new DaemonRepoOverview({
@@ -315,6 +322,9 @@ export function createGraftServer(options: CreateGraftServerOptions = {}): Graft
     },
     getCausalContext() {
       return getActiveExecutionContext()?.getCausalContext() ?? workspaceRouter.captureExecutionContext().getCausalContext();
+    },
+    getPersistedLocalHistorySummary() {
+      return workspaceRouter.getPersistedLocalHistorySummary();
     },
     getWorkspaceStatus() {
       return getActiveExecutionContext()?.status ?? workspaceRouter.getStatus();

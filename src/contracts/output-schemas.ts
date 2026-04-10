@@ -6,7 +6,10 @@ import {
   MCP_TOOL_NAMES,
   type McpToolName,
 } from "./capabilities.js";
-import { stagedTargetSchema } from "./causal-ontology.js";
+import {
+  localHistoryContinuityOperationSchema,
+  stagedTargetSchema,
+} from "./causal-ontology.js";
 
 export { CLI_COMMAND_NAMES, MCP_TOOL_NAMES };
 export type { CliCommandName, McpToolName } from "./capabilities.js";
@@ -186,6 +189,46 @@ const runtimeStagedTargetSchema = z.discriminatedUnion("availability", [
     ]),
     observedStagedPaths: z.number().int().positive(),
     ambiguousPaths: z.array(z.string()).min(1),
+  }).strict(),
+]);
+
+const persistedLocalHistorySummarySchema = z.discriminatedUnion("availability", [
+  z.object({
+    availability: z.literal("none"),
+    persistence: z.literal("persisted_local_history"),
+    historyPath: z.string().nullable(),
+    totalContinuityRecords: z.literal(0),
+    active: z.literal(false),
+    lastOperation: z.null(),
+    lastObservedAt: z.null(),
+    continuityKey: z.null(),
+    causalSessionId: z.null(),
+    strandId: z.null(),
+    checkoutEpochId: z.null(),
+    continuedFromCausalSessionId: z.null(),
+    preserves: z.array(z.string()),
+    excludes: z.array(z.string()),
+    nextAction: z.literal("bind_workspace_to_begin_local_history"),
+  }).strict(),
+  z.object({
+    availability: z.literal("present"),
+    persistence: z.literal("persisted_local_history"),
+    historyPath: z.string(),
+    totalContinuityRecords: z.number().int().positive(),
+    active: z.boolean(),
+    lastOperation: localHistoryContinuityOperationSchema,
+    lastObservedAt: z.string(),
+    continuityKey: z.string(),
+    causalSessionId: z.string(),
+    strandId: z.string(),
+    checkoutEpochId: z.string(),
+    continuedFromCausalSessionId: z.string().nullable(),
+    preserves: z.array(z.string()),
+    excludes: z.array(z.string()),
+    nextAction: z.enum([
+      "continue_active_causal_workspace",
+      "inspect_or_resume_local_history",
+    ]),
   }).strict(),
 ]);
 
@@ -712,6 +755,7 @@ const mcpOutputBodySchemas: Record<McpToolName, z.ZodType> = {
     workspaceOverlayId: z.string().nullable(),
     workspaceOverlay: workspaceOverlaySummarySchema.nullable(),
     stagedTarget: runtimeStagedTargetSchema,
+    persistedLocalHistory: persistedLocalHistorySummarySchema,
   }).strict(),
   stats: z.object({
     totalReads: z.number().int().nonnegative(),

@@ -118,6 +118,13 @@ describe("mcp: runtime observability", () => {
         stability: string;
         provenanceLevel: string;
       };
+      const persistedLocalHistory = doctor["persistedLocalHistory"] as {
+        availability: string;
+        persistence: string;
+        totalContinuityRecords: number;
+        lastOperation: string | null;
+        nextAction: string;
+      };
       expect(runtime.enabled).toBe(true);
       expect(runtime.logPath).toBe(path.join(isolated.graftDir, "logs", "mcp-runtime.ndjson"));
       expect(runtime.maxBytes).toBeGreaterThan(0);
@@ -138,6 +145,11 @@ describe("mcp: runtime observability", () => {
         stability: "runtime_local",
         provenanceLevel: "artifact_history",
       });
+      expect(persistedLocalHistory.availability).toBe("present");
+      expect(persistedLocalHistory.persistence).toBe("persisted_local_history");
+      expect(persistedLocalHistory.totalContinuityRecords).toBe(1);
+      expect(persistedLocalHistory.lastOperation).toBe("start");
+      expect(persistedLocalHistory.nextAction).toBe("continue_active_causal_workspace");
     } finally {
       isolated.cleanup();
     }

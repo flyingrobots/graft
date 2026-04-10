@@ -9,11 +9,12 @@ export const doctorTool: ToolDefinition = {
     "Runtime health check. Shows project root, parser status, active " +
     "thresholds, session depth, message count, and burden summary.",
   createHandler(ctx: ToolContext): ToolHandler {
-    return () => {
+    return async () => {
       const repoState = ctx.getRepoState();
       const causalContext = ctx.getCausalContext();
       const metrics = ctx.metrics.snapshot();
       const topBurden = topBurdenKind(metrics.burdenByKind);
+      const persistedLocalHistory = await ctx.getPersistedLocalHistorySummary();
       return ctx.respond("doctor", {
         projectRoot: ctx.projectRoot,
         parserHealthy: true,
@@ -34,6 +35,7 @@ export const doctorTool: ToolDefinition = {
         workspaceOverlayId: repoState.workspaceOverlayId,
         workspaceOverlay: repoState.workspaceOverlay,
         stagedTarget: buildRuntimeStagedTarget(ctx.getWorkspaceStatus(), causalContext, repoState),
+        persistedLocalHistory,
       });
     };
   },

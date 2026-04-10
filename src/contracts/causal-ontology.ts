@@ -279,6 +279,17 @@ export const HANDOFF_KINDS = [
 export const handoffKindSchema = z.enum(HANDOFF_KINDS);
 export type HandoffKind = z.infer<typeof handoffKindSchema>;
 
+export const LOCAL_HISTORY_CONTINUITY_OPERATIONS = [
+  "start",
+  "attach",
+  "resume",
+  "fork",
+  "park",
+] as const;
+
+export const localHistoryContinuityOperationSchema = z.enum(LOCAL_HISTORY_CONTINUITY_OPERATIONS);
+export type LocalHistoryContinuityOperation = z.infer<typeof localHistoryContinuityOperationSchema>;
+
 const causalEventCommonSchema = z.object({
   eventId: z.string().min(1),
   repoId: z.string().min(1),
