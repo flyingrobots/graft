@@ -196,6 +196,63 @@ describe("mcp: runtime observability", () => {
     }
   });
 
+  it("forks persisted local history when checkout footing changes", async () => {
+    const repoDir = createTestRepo("graft-runtime-history-checkout-");
+    try {
+      fs.writeFileSync(path.join(repoDir, "app.ts"), "export const ready = true;\n");
+      git(repoDir, "add -A");
+      git(repoDir, "commit -m init");
+
+      const isolated = createIsolatedServer({
+        projectRoot: repoDir,
+        graftDir: path.join(repoDir, ".graft"),
+      });
+      try {
+        const first = parse(await isolated.server.callTool("doctor", {}));
+        const firstHistory = first["persistedLocalHistory"] as {
+          availability: string;
+          totalContinuityRecords: number;
+          lastOperation: string | null;
+        };
+        const firstCausal = first["causalContext"] as {
+          strandId: string;
+          checkoutEpochId: string;
+        };
+
+        git(repoDir, "checkout -b feature/history");
+
+        const second = parse(await isolated.server.callTool("doctor", {}));
+        const secondHistory = second["persistedLocalHistory"] as {
+          availability: string;
+          active: boolean;
+          totalContinuityRecords: number;
+          lastOperation: string | null;
+          nextAction: string;
+        };
+        const secondCausal = second["causalContext"] as {
+          strandId: string;
+          checkoutEpochId: string;
+        };
+
+        expect(firstHistory.availability).toBe("present");
+        expect(firstHistory.totalContinuityRecords).toBe(1);
+        expect(firstHistory.lastOperation).toBe("start");
+
+        expect(secondHistory.availability).toBe("present");
+        expect(secondHistory.active).toBe(true);
+        expect(secondHistory.totalContinuityRecords).toBe(3);
+        expect(secondHistory.lastOperation).toBe("fork");
+        expect(secondHistory.nextAction).toBe("continue_active_causal_workspace");
+        expect(secondCausal.checkoutEpochId).not.toBe(firstCausal.checkoutEpochId);
+        expect(secondCausal.strandId).not.toBe(firstCausal.strandId);
+      } finally {
+        isolated.cleanup();
+      }
+    } finally {
+      cleanupTestRepo(repoDir);
+    }
+  });
+
   it("keeps internal graft logs out of workspace overlay and clean-head checks", async () => {
     const repoDir = createTestRepo("graft-runtime-ignore-");
     try {

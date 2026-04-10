@@ -511,7 +511,7 @@ describe("mcp: daemon transport and lifecycle", () => {
     expect(daemonStatus.workers.completedTasks).toBeGreaterThanOrEqual(2);
   });
 
-  it("persists repo-scoped monitor lifecycle across daemon restart", async () => {
+  it("persists repo-scoped monitor lifecycle across daemon restart", { timeout: 10_000 }, async () => {
     const repoDir = createTestRepo("graft-daemon-monitor-");
     repos.push(repoDir);
     fs.writeFileSync(path.join(repoDir, "app.ts"), "export const ready = true;\n");

@@ -268,9 +268,13 @@ export class WorkspaceRouter {
         undefined,
         this.currentSlice,
       );
-      await currentBinding.slice.repoState?.initialize();
+      const currentRepoState = currentBinding.slice.repoState;
+      if (currentRepoState === null) {
+        throw new WorkspaceBindingRequiredError("workspace");
+      }
+      await currentRepoState.initialize();
       await this.options.persistedLocalHistory.noteBinding({
-        current: this.buildPersistedLocalHistoryContext(currentBinding),
+        current: this.buildPersistedLocalHistoryContext(currentBinding, currentRepoState.getState()),
       });
       this.currentBinding = currentBinding;
     })();
@@ -319,7 +323,18 @@ export class WorkspaceRouter {
   }
 
   async observeRepoState(): Promise<void> {
-    await this.requireRepoState().observe();
+    const binding = this.requireBinding();
+    const repoState = this.requireRepoState();
+    const previousObservation = repoState.getState();
+    const previousContext = this.buildPersistedLocalHistoryContext(binding, previousObservation);
+    const nextObservation = await repoState.observe();
+    const nextContext = this.buildPersistedLocalHistoryContext(binding, nextObservation);
+    if (previousContext.checkoutEpochId !== nextContext.checkoutEpochId) {
+      await this.options.persistedLocalHistory.noteCheckoutBoundary({
+        previous: previousContext,
+        current: nextContext,
+      });
+    }
   }
 
   getRepoState() {
@@ -384,7 +399,7 @@ export class WorkspaceRouter {
     }
     return this.options.persistedLocalHistory.summarize(
       this.getStatus(),
-      this.buildCausalContext(binding),
+      this.buildCausalContext(binding, binding.slice.repoState.getState()),
     );
   }
 
@@ -405,7 +420,7 @@ export class WorkspaceRouter {
       resolvePath: binding.resolvePath,
       capabilityProfile: binding.capabilityProfile,
       warpWriterId: binding.warpWriterId,
-      getCausalContext: () => this.buildCausalContext(binding),
+      getCausalContext: () => this.buildCausalContext(binding, repoState.getState()),
       status: {
         sessionMode: this.options.mode,
         bindState: "bound",
@@ -482,11 +497,18 @@ export class WorkspaceRouter {
     }
 
     const nextBinding = this.createBoundWorkspace(resolved, sliceDir, capabilityProfile, actionName);
-    await nextBinding.slice.repoState?.initialize();
+    const nextRepoState = nextBinding.slice.repoState;
+    if (nextRepoState === null) {
+      throw new WorkspaceBindingRequiredError("workspace");
+    }
+    await nextRepoState.initialize();
     const previousBinding = this.currentBinding;
+    const previousRepoState = previousBinding?.slice.repoState;
     await this.options.persistedLocalHistory.noteBinding({
-      current: this.buildPersistedLocalHistoryContext(nextBinding),
-      previous: previousBinding === null ? null : this.buildPersistedLocalHistoryContext(previousBinding),
+      current: this.buildPersistedLocalHistoryContext(nextBinding, nextRepoState.getState()),
+      previous: previousBinding === null || previousRepoState == null
+        ? null
+        : this.buildPersistedLocalHistoryContext(previousBinding, previousRepoState.getState()),
     });
     if (this.options.mode === "daemon") {
       await this.options.authorizationPolicy?.noteBound(resolved);
@@ -557,26 +579,24 @@ export class WorkspaceRouter {
     return repoState;
   }
 
-  private buildCausalContext(binding: BoundWorkspace): RuntimeCausalContext {
-    const repoState = binding.slice.repoState;
-    if (repoState === null) {
-      throw new WorkspaceBindingRequiredError("workspace");
-    }
+  private buildCausalContext(
+    binding: BoundWorkspace,
+    observation: { readonly checkoutEpoch: number },
+  ): RuntimeCausalContext {
     return buildRuntimeCausalContext({
       transportSessionId: binding.transportSessionId,
       workspaceSliceId: binding.slice.sliceId,
       repoId: binding.repoId,
       worktreeId: binding.worktreeId,
-      checkoutEpoch: repoState.getState().checkoutEpoch,
+      checkoutEpoch: observation.checkoutEpoch,
       warpWriterId: binding.warpWriterId,
     });
   }
 
-  private buildPersistedLocalHistoryContext(binding: BoundWorkspace): PersistedLocalHistoryContext {
-    const repoState = binding.slice.repoState;
-    if (repoState === null) {
-      throw new WorkspaceBindingRequiredError("workspace");
-    }
+  private buildPersistedLocalHistoryContext(
+    binding: BoundWorkspace,
+    observation: import("./repo-state.js").RepoObservation,
+  ): PersistedLocalHistoryContext {
     const context = this.options.persistedLocalHistory.buildContext(
       {
         sessionMode: this.options.mode,
@@ -588,8 +608,8 @@ export class WorkspaceRouter {
         graftDir: binding.slice.graftDir,
         capabilityProfile: binding.capabilityProfile,
       },
-      this.buildCausalContext(binding),
-      repoState.getState(),
+      this.buildCausalContext(binding, observation),
+      observation,
     );
     if (context === null) {
       throw new WorkspaceBindingRequiredError("workspace");

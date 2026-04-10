@@ -203,6 +203,40 @@ export class PersistedLocalHistoryStore {
     await this.saveState(currentState);
   }
 
+  async noteCheckoutBoundary(input: {
+    readonly previous: PersistedLocalHistoryContext;
+    readonly current: PersistedLocalHistoryContext;
+  }): Promise<void> {
+    const continuityKey = buildContinuityKey(input.current.repoId, input.current.worktreeId);
+    const state = await this.loadState(continuityKey, input.current.repoId, input.current.worktreeId);
+    const activeRecord = findRecord(state, state.activeRecordId);
+    const baseRecord = activeRecord ?? state.records.at(-1) ?? null;
+    if (baseRecord === null) {
+      appendRecord(
+        state,
+        this.createRecord("start", continuityKey, input.current, null),
+        true,
+      );
+      await this.saveState(state);
+      return;
+    }
+    if (baseRecord.checkoutEpochId === input.current.checkoutEpochId) {
+      return;
+    }
+
+    appendRecord(
+      state,
+      this.createRecord("park", continuityKey, input.previous, baseRecord),
+      false,
+    );
+    appendRecord(
+      state,
+      this.createRecord("fork", continuityKey, input.current, baseRecord),
+      true,
+    );
+    await this.saveState(state);
+  }
+
   async summarize(status: WorkspaceStatus, causalContext: RuntimeCausalContext): Promise<PersistedLocalHistorySummary> {
     if (status.repoId === null || status.worktreeId === null) {
       return this.emptySummary();
