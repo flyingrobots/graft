@@ -17,6 +17,7 @@ import { buildRuntimeCausalContext, type RuntimeCausalContext } from "./runtime-
 import { buildRuntimeStagedTarget } from "./runtime-staged-target.js";
 import {
   buildRuntimeWorkspaceOverlayFooting,
+  type GitTransitionHookEvent,
   type RuntimeWorkspaceOverlayFooting,
 } from "./runtime-workspace-overlay.js";
 import { SessionTracker } from "../session/tracker.js";
@@ -343,9 +344,16 @@ export class WorkspaceRouter {
     const binding = this.requireBinding();
     const repoState = this.requireRepoState();
     const previousObservation = repoState.getState();
-    const previousContext = this.buildPersistedLocalHistoryContext(binding, previousObservation);
     const nextObservation = await repoState.observe();
-    const nextContext = this.buildPersistedLocalHistoryContext(binding, nextObservation);
+    const checkoutBoundaryHookEvent = previousObservation.checkoutEpoch !== nextObservation.checkoutEpoch
+      ? await this.resolveCheckoutBoundaryHookEvent(binding, previousObservation.observedAt, nextObservation)
+      : null;
+    const previousContext = this.buildPersistedLocalHistoryContext(binding, previousObservation);
+    const nextContext = this.buildPersistedLocalHistoryContext(
+      binding,
+      nextObservation,
+      checkoutBoundaryHookEvent,
+    );
     if (previousContext.checkoutEpochId !== nextContext.checkoutEpochId) {
       await this.options.persistedLocalHistory.noteCheckoutBoundary({
         previous: previousContext,
@@ -727,6 +735,7 @@ export class WorkspaceRouter {
   private buildPersistedLocalHistoryContext(
     binding: BoundWorkspace,
     observation: import("./repo-state.js").RepoObservation,
+    hookEvent: GitTransitionHookEvent | null = null,
   ): PersistedLocalHistoryContext {
     const context = this.options.persistedLocalHistory.buildContext(
       {
@@ -741,6 +750,7 @@ export class WorkspaceRouter {
       },
       this.buildCausalContext(binding, observation),
       observation,
+      hookEvent,
     );
     if (context === null) {
       throw new WorkspaceBindingRequiredError("workspace");
@@ -761,6 +771,35 @@ export class WorkspaceRouter {
       throw new WorkspaceBindingRequiredError("workspace");
     }
     return context;
+  }
+
+  private async resolveCheckoutBoundaryHookEvent(
+    binding: BoundWorkspace,
+    previousObservedAt: string,
+    observation: import("./repo-state.js").RepoObservation,
+  ): Promise<GitTransitionHookEvent | null> {
+    const footing = await buildRuntimeWorkspaceOverlayFooting(
+      this.options.fs,
+      this.options.git,
+      binding.worktreeRoot,
+      binding.gitCommonDir,
+      observation,
+    );
+    const latestHookEvent = footing.latestHookEvent;
+    if (latestHookEvent === null) {
+      return null;
+    }
+
+    const previousObservedAtMs = Date.parse(previousObservedAt);
+    const hookObservedAtMs = Date.parse(latestHookEvent.observedAt);
+    if (
+      Number.isFinite(previousObservedAtMs) &&
+      Number.isFinite(hookObservedAtMs) &&
+      hookObservedAtMs < previousObservedAtMs
+    ) {
+      return null;
+    }
+    return latestHookEvent;
   }
 
   private captureCurrentExecutionContext(): WorkspaceExecutionContext | null {

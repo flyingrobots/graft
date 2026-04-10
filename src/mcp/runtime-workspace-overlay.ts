@@ -75,6 +75,18 @@ async function fileExists(fs: FileSystem, targetPath: string): Promise<boolean> 
   }
 }
 
+function equivalentWorktreeRoots(left: string, right: string): boolean {
+  const leftResolved = path.resolve(left);
+  const rightResolved = path.resolve(right);
+  if (leftResolved === rightResolved) {
+    return true;
+  }
+  return (
+    leftResolved === `/private${rightResolved}`
+    || rightResolved === `/private${leftResolved}`
+  );
+}
+
 function parseHookEventLine(
   line: string,
   worktreeRoot: string,
@@ -92,7 +104,7 @@ function parseHookEventLine(
       || !hookArgs.every((value) => typeof value === "string")
       || typeof observedAt !== "string"
       || typeof observedWorktreeRoot !== "string"
-      || observedWorktreeRoot !== worktreeRoot
+      || !equivalentWorktreeRoots(observedWorktreeRoot, worktreeRoot)
     ) {
       return null;
     }

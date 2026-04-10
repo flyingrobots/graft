@@ -25,6 +25,9 @@ function context(overrides: Partial<PersistedLocalHistoryContext> = {}): Persist
     warpWriterId: "graft",
     transitionKind: null,
     transitionReflogSubject: null,
+    hookTransitionName: null,
+    hookTransitionArgs: null,
+    hookTransitionObservedAt: null,
     ...overrides,
   };
 }
@@ -280,6 +283,88 @@ describe("mcp: persisted local history", () => {
     expect(summary.attribution.confidence).toBe("high");
     expect(summary.latestReadEvent).toBeNull();
     expect(summary.latestStageEvent).toBeNull();
+  });
+
+  it("records direct hook transition evidence for checkout-boundary continuity", async () => {
+    const graftDir = fs.mkdtempSync(path.join(os.tmpdir(), "graft-history-"));
+    cleanups.push(graftDir);
+
+    const store = new PersistedLocalHistoryStore({
+      fs: nodeFs,
+      codec: new CanonicalJsonCodec(),
+      graftDir,
+    });
+
+    const first = context();
+    await store.noteBinding({ current: first });
+    await store.noteCheckoutBoundary({
+      previous: first,
+      current: context({
+        transportSessionId: "transport:two",
+        workspaceSliceId: "slice-0002",
+        causalSessionId: "causal:two",
+        strandId: "strand:two",
+        checkoutEpochId: "epoch:two",
+        observedAt: "2026-04-10T01:10:00.000Z",
+        transitionKind: "checkout",
+        transitionReflogSubject: "checkout: moving from main to feature/test",
+        hookTransitionName: "post-checkout",
+        hookTransitionArgs: ["oldsha", "newsha", "1"],
+        hookTransitionObservedAt: "2026-04-10T01:09:59.000Z",
+      }),
+    });
+
+    const summary = await store.summarize(
+      {
+        sessionMode: "repo_local",
+        bindState: "bound",
+        repoId: "repo:one",
+        worktreeId: "worktree:one",
+        worktreeRoot: "/repo",
+        gitCommonDir: "/repo/.git",
+        graftDir,
+        capabilityProfile: null,
+      },
+      {
+        transportSessionId: "transport:two",
+        workspaceSliceId: "slice-0002",
+        causalSessionId: "causal:two",
+        strandId: "strand:two",
+        checkoutEpochId: "epoch:two",
+        warpWriterId: "graft_session_two",
+        stability: "runtime_local",
+        provenanceLevel: "artifact_history",
+      },
+    );
+
+    expect(summary.availability).toBe("present");
+    if (summary.availability !== "present") {
+      return;
+    }
+    expect(summary.lastOperation).toBe("fork");
+    expect(summary.continuityConfidence).toBe("high");
+    expect(summary.continuityEvidence).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          evidenceKind: "git_transition_observation",
+        }),
+        expect.objectContaining({
+          evidenceKind: "git_hook_transition",
+          details: expect.objectContaining({
+            hookName: "post-checkout",
+            hookArgs: ["oldsha", "newsha", "1"],
+          }),
+        }),
+      ]),
+    );
+    expect(summary.attribution.actor.actorKind).toBe("git");
+    expect(summary.attribution.confidence).toBe("high");
+    expect(summary.attribution.evidence).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ evidenceKind: "git_transition_observation" }),
+        expect.objectContaining({ evidenceKind: "git_hook_transition" }),
+      ]),
+    );
   });
 
   it("records a bounded attributed read event with explicit footprint", async () => {

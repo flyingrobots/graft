@@ -20,6 +20,7 @@ import {
 import type { JsonCodec } from "../ports/codec.js";
 import type { FileSystem } from "../ports/filesystem.js";
 import type { RepoObservation } from "./repo-state.js";
+import type { GitTransitionHookEvent } from "./runtime-workspace-overlay.js";
 import type { RuntimeCausalContext } from "./runtime-causal-context.js";
 import type { RuntimeStagedTargetFullFile } from "./runtime-staged-target.js";
 import type { WorkspaceStatus } from "./workspace-router.js";
@@ -91,6 +92,9 @@ export interface PersistedLocalHistoryContext {
       : null
     : null;
   readonly transitionReflogSubject: string | null;
+  readonly hookTransitionName: GitTransitionHookEvent["hookName"] | null;
+  readonly hookTransitionArgs: readonly string[] | null;
+  readonly hookTransitionObservedAt: string | null;
 }
 
 export interface PersistedLocalHistoryAttachDeclaration {
@@ -444,6 +448,7 @@ export class PersistedLocalHistoryStore {
     status: WorkspaceStatus,
     causalContext: RuntimeCausalContext,
     repoState: RepoObservation,
+    hookEvent: GitTransitionHookEvent | null = null,
   ): PersistedLocalHistoryContext | null {
     if (status.repoId === null || status.worktreeId === null) {
       return null;
@@ -461,6 +466,9 @@ export class PersistedLocalHistoryStore {
       warpWriterId: causalContext.warpWriterId,
       transitionKind: repoState.lastTransition?.kind ?? null,
       transitionReflogSubject: repoState.lastTransition?.evidence.reflogSubject ?? null,
+      hookTransitionName: hookEvent?.hookName ?? null,
+      hookTransitionArgs: hookEvent?.hookArgs ?? null,
+      hookTransitionObservedAt: hookEvent?.observedAt ?? null,
     };
   }
 
@@ -577,22 +585,39 @@ export class PersistedLocalHistoryStore {
     operation: LocalHistoryContinuityOperation,
     context: PersistedLocalHistoryContext,
   ): Evidence[] {
-    if (context.transitionKind === null) {
-      return [];
+    const evidence: Evidence[] = [];
+
+    if (context.transitionKind !== null) {
+      evidence.push({
+        evidenceId: buildEvidenceId(operation, "git_transition_observation", context, 500),
+        evidenceKind: "git_transition_observation",
+        source: "persisted_local_history.checkout_transition",
+        capturedAt: context.observedAt,
+        strength: "strong",
+        details: {
+          operation,
+          transitionKind: context.transitionKind,
+          reflogSubject: context.transitionReflogSubject,
+        },
+      });
     }
 
-    return [{
-      evidenceId: buildEvidenceId(operation, "git_transition_observation", context, 500),
-      evidenceKind: "git_transition_observation",
-      source: "persisted_local_history.checkout_transition",
-      capturedAt: context.observedAt,
-      strength: "strong",
-      details: {
-        operation,
-        transitionKind: context.transitionKind,
-        reflogSubject: context.transitionReflogSubject,
-      },
-    }];
+    if (context.hookTransitionName !== null) {
+      evidence.push({
+        evidenceId: buildEvidenceId(operation, "git_hook_transition", context, 501),
+        evidenceKind: "git_hook_transition",
+        source: "persisted_local_history.checkout_transition_hook",
+        capturedAt: context.hookTransitionObservedAt ?? context.observedAt,
+        strength: "direct",
+        details: {
+          operation,
+          hookName: context.hookTransitionName,
+          hookArgs: context.hookTransitionArgs,
+        },
+      });
+    }
+
+    return evidence;
   }
 
   private buildAttachDeclarationEvidence(
@@ -685,7 +710,10 @@ export class PersistedLocalHistoryStore {
       };
     }
 
-    const gitEvidence = continuityEvidence.filter((evidence) => evidence.evidenceKind === "git_transition_observation");
+    const gitEvidence = continuityEvidence.filter((evidence) =>
+      evidence.evidenceKind === "git_transition_observation" ||
+      evidence.evidenceKind === "git_hook_transition"
+    );
     if (gitEvidence.length > 0 && (operation === "fork" || operation === "park")) {
       return {
         actor: {

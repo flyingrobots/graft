@@ -429,6 +429,74 @@ describe("mcp: runtime observability", () => {
     }
   });
 
+  it("upgrades checkout-boundary continuity evidence when installed hooks observe the transition", async () => {
+    const repoDir = createTestRepo("graft-runtime-history-hooked-checkout-");
+    try {
+      fs.writeFileSync(path.join(repoDir, "app.ts"), "export const ready = true;\n");
+      git(repoDir, "add -A");
+      git(repoDir, "commit -m init");
+      runInit({
+        cwd: repoDir,
+        args: ["--write-target-git-hooks"],
+        stdout: silentWriter(),
+        stderr: silentWriter(),
+      });
+
+      const isolated = createIsolatedServer({
+        projectRoot: repoDir,
+        graftDir: path.join(repoDir, ".graft"),
+      });
+      try {
+        const first = parse(await isolated.server.callTool("doctor", {}));
+        const firstCausal = first["causalContext"] as {
+          checkoutEpochId: string;
+        };
+
+        git(repoDir, "checkout -b feature/hooked-history");
+
+        const second = parse(await isolated.server.callTool("doctor", {}));
+        const secondHistory = second["persistedLocalHistory"] as {
+          availability: string;
+          continuityConfidence: string;
+          continuityEvidence: { evidenceKind: string }[];
+          attribution: {
+            actor: { actorKind: string };
+            confidence: string;
+            evidence: { evidenceKind: string }[];
+          };
+        };
+        const secondCausal = second["causalContext"] as {
+          checkoutEpochId: string;
+        };
+
+        expect(secondHistory.availability).toBe("present");
+        if (secondHistory.availability !== "present") {
+          return;
+        }
+        expect(secondCausal.checkoutEpochId).not.toBe(firstCausal.checkoutEpochId);
+        expect(secondHistory.continuityConfidence).toBe("high");
+        expect(secondHistory.continuityEvidence).toEqual(
+          expect.arrayContaining([
+            expect.objectContaining({ evidenceKind: "git_transition_observation" }),
+            expect.objectContaining({ evidenceKind: "git_hook_transition" }),
+          ]),
+        );
+        expect(secondHistory.attribution.actor.actorKind).toBe("git");
+        expect(secondHistory.attribution.confidence).toBe("high");
+        expect(secondHistory.attribution.evidence).toEqual(
+          expect.arrayContaining([
+            expect.objectContaining({ evidenceKind: "git_transition_observation" }),
+            expect.objectContaining({ evidenceKind: "git_hook_transition" }),
+          ]),
+        );
+      } finally {
+        isolated.cleanup();
+      }
+    } finally {
+      cleanupTestRepo(repoDir);
+    }
+  });
+
   it("keeps internal graft logs out of workspace overlay and clean-head checks", async () => {
     const repoDir = createTestRepo("graft-runtime-ignore-");
     try {

@@ -162,6 +162,9 @@ The cycle should make one precedence rule explicit:
 1. **Git transitions are canonical lifecycle boundaries**
    - checkout, merge, rewrite, and related transitions define footing
      changes when available
+   - when installed target-repo hooks observe those transitions, the
+     resulting fork/park lifecycle records should carry hook-derived
+     evidence instead of relying only on inferred repo snapshots
 2. **Reactive local edit signals update the current overlay**
    - local edits can refresh the active overlay without claiming new
      semantic checkout boundaries
