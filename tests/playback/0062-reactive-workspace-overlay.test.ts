@@ -22,6 +22,8 @@ describe("0062 playback: reactive workspace overlay", () => {
       "Make the workspace overlay a first-class reactive product concept",
       "### Reactive overlay footing",
       "`workspaceOverlayId`",
+      "stable initial footing or a",
+      "post-transition fork",
       "explicit reactive overlay",
       "silent best-effort guess",
     ]);

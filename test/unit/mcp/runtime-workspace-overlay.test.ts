@@ -116,6 +116,8 @@ describe("mcp: runtime workspace overlay footing", () => {
       );
 
       expect(footing.observationMode).toBe("inferred_between_tool_calls");
+      expect(footing.lineagePosture).toBe("forked_after_transition");
+      expect(footing.boundaryAuthority).toBe("repo_snapshot");
       expect(footing.degraded).toBe(true);
       expect(footing.degradedReason).toBe("target_repo_hooks_absent");
       expect(footing.checkoutEpoch).toBe(3);
@@ -151,6 +153,8 @@ describe("mcp: runtime workspace overlay footing", () => {
       );
 
       expect(footing.observationMode).toBe("inferred_between_tool_calls");
+      expect(footing.lineagePosture).toBe("forked_after_transition");
+      expect(footing.boundaryAuthority).toBe("repo_snapshot");
       expect(footing.degraded).toBe(true);
       expect(footing.degradedReason).toBe("local_edit_watchers_absent");
       expect(footing.hookBootstrap.posture).toBe("installed");
@@ -198,6 +202,8 @@ describe("mcp: runtime workspace overlay footing", () => {
       );
 
       expect(footing.observationMode).toBe("hook_observed_checkout_boundaries");
+      expect(footing.lineagePosture).toBe("forked_after_transition");
+      expect(footing.boundaryAuthority).toBe("hook_observed");
       expect(footing.degraded).toBe(true);
       expect(footing.degradedReason).toBe("local_edit_watchers_absent");
       expect(footing.latestHookEvent).toEqual(

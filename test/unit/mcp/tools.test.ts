@@ -217,6 +217,8 @@ describe("mcp: tool handlers", () => {
       latestStageEvent: null;
       workspaceOverlayFooting: {
         observationMode: string;
+        lineagePosture: string;
+        boundaryAuthority: string;
         degraded: boolean;
         degradedReason: string;
         hookBootstrap: { posture: string; supportsCheckoutBoundaries: boolean };
@@ -231,6 +233,8 @@ describe("mcp: tool handlers", () => {
     expect(activeCausalWorkspace.attribution.confidence).toBe("unknown");
     expect(activeCausalWorkspace.latestStageEvent).toBeNull();
     expect(activeCausalWorkspace.workspaceOverlayFooting.observationMode).toBe("inferred_between_tool_calls");
+    expect(activeCausalWorkspace.workspaceOverlayFooting.lineagePosture).toBe("stable");
+    expect(activeCausalWorkspace.workspaceOverlayFooting.boundaryAuthority).toBe("none");
     expect(activeCausalWorkspace.workspaceOverlayFooting.degraded).toBe(true);
     expect(activeCausalWorkspace.workspaceOverlayFooting.degradedReason).toBe("target_repo_hooks_absent");
     expect(activeCausalWorkspace.workspaceOverlayFooting.hookBootstrap.posture).toBe("absent");
@@ -288,6 +292,8 @@ describe("mcp: tool handlers", () => {
       latestStageEvent: null;
       workspaceOverlayFooting: {
         observationMode: string;
+        lineagePosture: string;
+        boundaryAuthority: string;
         degraded: boolean;
         degradedReason: string;
         hookBootstrap: { posture: string; supportsCheckoutBoundaries: boolean };
@@ -317,6 +323,8 @@ describe("mcp: tool handlers", () => {
     expect(activeCausalWorkspace.latestReadEvent).toBeNull();
     expect(activeCausalWorkspace.latestStageEvent).toBeNull();
     expect(activeCausalWorkspace.workspaceOverlayFooting.observationMode).toBe("inferred_between_tool_calls");
+    expect(activeCausalWorkspace.workspaceOverlayFooting.lineagePosture).toBe("forked_after_transition");
+    expect(activeCausalWorkspace.workspaceOverlayFooting.boundaryAuthority).toBe("repo_snapshot");
     expect(activeCausalWorkspace.workspaceOverlayFooting.degraded).toBe(true);
     expect(activeCausalWorkspace.workspaceOverlayFooting.degradedReason).toBe("target_repo_hooks_absent");
     expect(activeCausalWorkspace.workspaceOverlayFooting.hookBootstrap.posture).toBe("absent");

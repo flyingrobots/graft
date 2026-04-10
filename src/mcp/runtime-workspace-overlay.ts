@@ -16,6 +16,13 @@ export type GitHookBootstrapPosture = "absent" | "external_unknown" | "installed
 export type WorkspaceOverlayObservationMode =
   | "inferred_between_tool_calls"
   | "hook_observed_checkout_boundaries";
+export type WorkspaceOverlayLineagePosture =
+  | "stable"
+  | "forked_after_transition";
+export type WorkspaceOverlayBoundaryAuthority =
+  | "none"
+  | "repo_snapshot"
+  | "hook_observed";
 export type WorkspaceOverlayDegradedReason =
   | "target_repo_hooks_absent"
   | "target_repo_hooks_unrecognized"
@@ -40,6 +47,8 @@ export interface GitHookBootstrapStatus {
 
 export interface RuntimeWorkspaceOverlayFooting {
   readonly observationMode: WorkspaceOverlayObservationMode;
+  readonly lineagePosture: WorkspaceOverlayLineagePosture;
+  readonly boundaryAuthority: WorkspaceOverlayBoundaryAuthority;
   readonly degraded: true;
   readonly degradedReason: WorkspaceOverlayDegradedReason;
   readonly checkoutEpoch: number;
@@ -216,10 +225,20 @@ export async function buildRuntimeWorkspaceOverlayFooting(
   const latestHookEvent = hookBootstrap.supportsCheckoutBoundaries
     ? await readLatestHookEvent(fs, worktreeRoot)
     : null;
+  const lineagePosture = repoState.checkoutEpoch > 0 || latestHookEvent !== null || repoState.lastTransition !== null
+    ? "forked_after_transition"
+    : "stable";
+  const boundaryAuthority = latestHookEvent !== null
+    ? "hook_observed"
+    : (repoState.lastTransition !== null || repoState.checkoutEpoch > 0
+        ? "repo_snapshot"
+        : "none");
   return {
     observationMode: latestHookEvent === null
       ? "inferred_between_tool_calls"
       : "hook_observed_checkout_boundaries",
+    lineagePosture,
+    boundaryAuthority,
     degraded: true,
     degradedReason: hookBootstrap.supportsCheckoutBoundaries
       ? "local_edit_watchers_absent"

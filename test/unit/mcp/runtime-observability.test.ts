@@ -155,6 +155,8 @@ describe("mcp: runtime observability", () => {
       };
       const workspaceOverlayFooting = doctor["workspaceOverlayFooting"] as {
         observationMode: string;
+        lineagePosture: string;
+        boundaryAuthority: string;
         degraded: boolean;
         degradedReason: string;
         checkoutEpoch: number;
@@ -211,6 +213,8 @@ describe("mcp: runtime observability", () => {
       expect(causal.stability).toBe("runtime_local");
       expect(causal.provenanceLevel).toBe("artifact_history");
       expect(workspaceOverlayFooting.observationMode).toBe("inferred_between_tool_calls");
+      expect(workspaceOverlayFooting.lineagePosture).toBe("stable");
+      expect(workspaceOverlayFooting.boundaryAuthority).toBe("none");
       expect(workspaceOverlayFooting.degraded).toBe(true);
       expect(workspaceOverlayFooting.degradedReason).toBe("target_repo_hooks_absent");
       expect(workspaceOverlayFooting.workspaceOverlayId).toBeNull();
@@ -284,6 +288,8 @@ describe("mcp: runtime observability", () => {
         };
         const workspaceOverlayFooting = doctor["workspaceOverlayFooting"] as {
           observationMode: string;
+          lineagePosture: string;
+          boundaryAuthority: string;
           degraded: boolean;
           degradedReason: string;
           workspaceOverlayId: string | null;
@@ -301,6 +307,8 @@ describe("mcp: runtime observability", () => {
 
         expect(doctor["workspaceOverlayId"]).toMatch(/^overlay:[a-f0-9]{16}$/);
         expect(workspaceOverlayFooting.observationMode).toBe("inferred_between_tool_calls");
+        expect(workspaceOverlayFooting.lineagePosture).toBe("stable");
+        expect(workspaceOverlayFooting.boundaryAuthority).toBe("none");
         expect(workspaceOverlayFooting.degraded).toBe(true);
         expect(workspaceOverlayFooting.degradedReason).toBe("target_repo_hooks_absent");
         expect(workspaceOverlayFooting.workspaceOverlayId).toBe(doctor["workspaceOverlayId"]);
@@ -545,24 +553,28 @@ describe("mcp: runtime observability", () => {
       });
       try {
         const doctor = parse(await isolated.server.callTool("doctor", {}));
-      const workspaceOverlayFooting = doctor["workspaceOverlayFooting"] as {
-        observationMode: string;
-        degraded: boolean;
-        degradedReason: string;
-        hookBootstrap: {
-          posture: string;
-          presentHooks: string[];
-          missingHooks: string[];
-          supportsCheckoutBoundaries: boolean;
+        const workspaceOverlayFooting = doctor["workspaceOverlayFooting"] as {
+          observationMode: string;
+          lineagePosture: string;
+          boundaryAuthority: string;
+          degraded: boolean;
+          degradedReason: string;
+          hookBootstrap: {
+            posture: string;
+            presentHooks: string[];
+            missingHooks: string[];
+            supportsCheckoutBoundaries: boolean;
+          };
+          latestHookEvent: {
+            hookName: string;
+            hookArgs: string[];
+            worktreeRoot: string;
+          } | null;
         };
-        latestHookEvent: {
-          hookName: string;
-          hookArgs: string[];
-          worktreeRoot: string;
-        } | null;
-      };
 
-      expect(workspaceOverlayFooting.observationMode).toBe("inferred_between_tool_calls");
+        expect(workspaceOverlayFooting.observationMode).toBe("inferred_between_tool_calls");
+        expect(workspaceOverlayFooting.lineagePosture).toBe("stable");
+        expect(workspaceOverlayFooting.boundaryAuthority).toBe("none");
         expect(workspaceOverlayFooting.degraded).toBe(true);
         expect(workspaceOverlayFooting.degradedReason).toBe("local_edit_watchers_absent");
         expect(workspaceOverlayFooting.hookBootstrap.posture).toBe("installed");
@@ -609,6 +621,8 @@ describe("mcp: runtime observability", () => {
         const doctor = parse(await isolated.server.callTool("doctor", {}));
         const workspaceOverlayFooting = doctor["workspaceOverlayFooting"] as {
           observationMode: string;
+          lineagePosture: string;
+          boundaryAuthority: string;
           degraded: boolean;
           degradedReason: string;
           hookBootstrap: {
@@ -623,6 +637,8 @@ describe("mcp: runtime observability", () => {
         };
 
         expect(workspaceOverlayFooting.observationMode).toBe("hook_observed_checkout_boundaries");
+        expect(workspaceOverlayFooting.lineagePosture).toBe("forked_after_transition");
+        expect(workspaceOverlayFooting.boundaryAuthority).toBe("hook_observed");
         expect(workspaceOverlayFooting.degraded).toBe(true);
         expect(workspaceOverlayFooting.degradedReason).toBe("local_edit_watchers_absent");
         expect(workspaceOverlayFooting.hookBootstrap.posture).toBe("installed");

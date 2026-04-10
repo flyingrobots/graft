@@ -154,6 +154,9 @@ with:
 - `workspaceOverlayId`
 - current degraded/installed bootstrap posture
 - last semantic transition that affected the footing
+- whether the current footing is still the stable initial footing or a
+  post-transition fork, and whether that boundary is justified by
+  hook-observed evidence or only inferred repo snapshots
 
 ### Signal hierarchy
 

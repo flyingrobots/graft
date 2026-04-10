@@ -349,6 +349,15 @@ const workspaceOverlayFootingSchema = z.object({
     "inferred_between_tool_calls",
     "hook_observed_checkout_boundaries",
   ]),
+  lineagePosture: z.enum([
+    "stable",
+    "forked_after_transition",
+  ]),
+  boundaryAuthority: z.enum([
+    "none",
+    "repo_snapshot",
+    "hook_observed",
+  ]),
   degraded: z.literal(true),
   degradedReason: z.enum([
     "target_repo_hooks_absent",
