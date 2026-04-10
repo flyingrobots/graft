@@ -147,7 +147,10 @@ export interface PersistedLocalHistorySummaryPresent {
   readonly latestStageEvent: Extract<CausalEvent, { eventKind: "stage" }> | null;
   readonly preserves: readonly string[];
   readonly excludes: readonly string[];
-  readonly nextAction: "continue_active_causal_workspace" | "inspect_or_resume_local_history";
+  readonly nextAction:
+    | "continue_active_causal_workspace"
+    | "review_transition_boundary_before_continuing"
+    | "inspect_or_resume_local_history";
 }
 
 export type PersistedLocalHistorySummary =
@@ -383,7 +386,9 @@ export class PersistedLocalHistoryStore {
       preserves: PERSISTED_LOCAL_HISTORY_PRESERVES,
       excludes: PERSISTED_LOCAL_HISTORY_EXCLUDES,
       nextAction: activeRecord?.causalSessionId === causalContext.causalSessionId
-        ? "continue_active_causal_workspace"
+        ? (lastRecord.operation === "fork"
+            ? "review_transition_boundary_before_continuing"
+            : "continue_active_causal_workspace")
         : "inspect_or_resume_local_history",
     };
   }

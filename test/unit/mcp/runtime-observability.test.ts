@@ -426,7 +426,7 @@ describe("mcp: runtime observability", () => {
           ]),
         );
         expect(secondAttribution.actor.actorKind).toBe("git");
-        expect(secondHistory.nextAction).toBe("continue_active_causal_workspace");
+        expect(secondHistory.nextAction).toBe("review_transition_boundary_before_continuing");
         expect(secondCausal.checkoutEpochId).not.toBe(firstCausal.checkoutEpochId);
         expect(secondCausal.strandId).not.toBe(firstCausal.strandId);
       } finally {
@@ -472,6 +472,7 @@ describe("mcp: runtime observability", () => {
             confidence: string;
             evidence: { evidenceKind: string }[];
           };
+          nextAction: string;
         };
         const secondCausal = second["causalContext"] as {
           checkoutEpochId: string;
@@ -497,6 +498,7 @@ describe("mcp: runtime observability", () => {
             expect.objectContaining({ evidenceKind: "git_hook_transition" }),
           ]),
         );
+        expect(secondHistory.nextAction).toBe("review_transition_boundary_before_continuing");
       } finally {
         isolated.cleanup();
       }

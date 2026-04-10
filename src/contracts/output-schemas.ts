@@ -244,6 +244,7 @@ const persistedLocalHistorySummarySchema = z.discriminatedUnion("availability", 
     excludes: z.array(z.string()),
     nextAction: z.enum([
       "continue_active_causal_workspace",
+      "review_transition_boundary_before_continuing",
       "inspect_or_resume_local_history",
     ]),
   }).strict(),
@@ -433,6 +434,7 @@ const causalStatusSchema = workspaceStatusSchema.extend({
   nextAction: z.enum([
     "bind_workspace_to_begin_local_history",
     "continue_active_causal_workspace",
+    "review_transition_boundary_before_continuing",
     "inspect_or_resume_local_history",
   ]),
 }).strict();
@@ -445,6 +447,7 @@ const causalAttachSchema = workspaceStatusSchema.extend({
   nextAction: z.enum([
     "bind_workspace_to_begin_local_history",
     "continue_active_causal_workspace",
+    "review_transition_boundary_before_continuing",
     "inspect_or_resume_local_history",
   ]),
   errorCode: z.string().optional(),

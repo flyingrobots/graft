@@ -35,6 +35,7 @@ describe("0062 playback: reactive workspace overlay", () => {
       "Git transitions are canonical lifecycle boundaries",
       "branch/checkout transition caused a fork/park/invalidate",
       "fork/park lifecycle records should carry hook-derived",
+      "explicit boundary review before defaulting to “continue”",
       "show a lawful overlay/session boundary instead of smearing one",
       "line of work across incompatible bases",
     ]);

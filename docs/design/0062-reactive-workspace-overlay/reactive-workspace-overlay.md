@@ -208,6 +208,9 @@ Initial product seam for this cycle:
 3. **Bootstrap posture**
    - define how target-repo hook installation or absence affects
      product certainty
+4. **Boundary review guidance**
+   - after a transition-caused fork, bounded surfaces should ask for
+     explicit boundary review before defaulting to “continue”
 
 ## Provenance honesty boundary
 
