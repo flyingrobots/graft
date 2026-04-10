@@ -447,6 +447,20 @@ function buildSemanticTransitionSummary(
         ? `Index/staging boundary changed across ${String(evidence.totalPaths)} path(s).`
         : "Index/staging boundary changed.";
     case "bulk_transition":
+      if (
+        evidence.stagedPaths === evidence.totalPaths
+        && evidence.changedPaths === 0
+        && evidence.untrackedPaths === 0
+      ) {
+        return `Bulk staging spans ${String(evidence.totalPaths)} path(s) at the index boundary.`;
+      }
+      if (
+        evidence.changedPaths === evidence.totalPaths
+        && evidence.stagedPaths === 0
+        && evidence.untrackedPaths === 0
+      ) {
+        return `Bulk edit sweep spans ${String(evidence.totalPaths)} unstaged path(s).`;
+      }
       return `Bulk transition movement spans ${String(evidence.totalPaths)} path(s) with ${String(evidence.stagedPaths)} staged and ${String(evidence.changedPaths)} unstaged changes.`;
     case "unknown":
       return "Repo/workspace movement is inspectable, but the semantic transition meaning remains unknown.";

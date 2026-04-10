@@ -34,6 +34,7 @@ describe("0063 playback: richer semantic transitions", () => {
       "staged/unstaged distribution",
       "many files at once",
       "bulk staging",
+      "bulk edit sweep",
       "merge fallout",
       "inspect_bulk_transition_scope_before_continuing",
     ]);

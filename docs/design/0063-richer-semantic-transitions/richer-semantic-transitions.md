@@ -283,6 +283,14 @@ The summary should answer:
 - whether the semantic meaning is still only `bulk_transition` or can
   be sharpened to conflict or phase language
 
+For this cycle, bulk summaries may also sharpen the human-facing
+language to:
+- `bulk staging` when the movement is primarily staged/index-side
+- `bulk edit sweep` when the movement is primarily unstaged workspace
+  editing
+- generic mixed bulk transition language when the evidence is more
+  blended
+
 ### Transition-aware guidance
 
 Bounded surfaces should translate current semantic transition meaning
