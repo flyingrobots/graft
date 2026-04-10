@@ -12,6 +12,7 @@ export const doctorTool: ToolDefinition = {
     return async () => {
       const repoState = ctx.getRepoState();
       const causalContext = ctx.getCausalContext();
+      const workspaceOverlayFooting = await ctx.getWorkspaceOverlayFooting();
       const metrics = ctx.metrics.snapshot();
       const topBurden = topBurdenKind(metrics.burdenByKind);
       const persistedLocalHistory = await ctx.getPersistedLocalHistorySummary();
@@ -36,6 +37,7 @@ export const doctorTool: ToolDefinition = {
         lastTransition: repoState.lastTransition,
         workspaceOverlayId: repoState.workspaceOverlayId,
         workspaceOverlay: repoState.workspaceOverlay,
+        workspaceOverlayFooting,
         stagedTarget: buildRuntimeStagedTarget(
           ctx.getWorkspaceStatus(),
           causalContext,

@@ -197,6 +197,12 @@ describe("mcp: tool handlers", () => {
     expect(parsed["parserHealthy"]).toBeDefined();
     expect(parsed["thresholds"]).toBeDefined();
     expect(parsed["burdenSummary"]).toBeDefined();
+    expect(parsed["workspaceOverlayFooting"]).toEqual(
+      expect.objectContaining({
+        observationMode: "inferred_between_tool_calls",
+        degraded: true,
+      }),
+    );
   });
 
   it("causal_status returns the active causal workspace posture", async () => {
@@ -209,6 +215,12 @@ describe("mcp: tool handlers", () => {
       attribution: { actor: { actorKind: string }; confidence: string };
       latestReadEvent: null;
       latestStageEvent: null;
+      workspaceOverlayFooting: {
+        observationMode: string;
+        degraded: boolean;
+        degradedReason: string;
+        hookBootstrap: { posture: string; supportsCheckoutBoundaries: boolean };
+      };
       stagedTarget: { availability: string; attribution?: { actor: { actorKind: string }; confidence: string } };
     };
     const persistedLocalHistory = parsed["persistedLocalHistory"] as {
@@ -218,6 +230,11 @@ describe("mcp: tool handlers", () => {
     expect(activeCausalWorkspace.attribution.actor.actorKind).toBe("unknown");
     expect(activeCausalWorkspace.attribution.confidence).toBe("unknown");
     expect(activeCausalWorkspace.latestStageEvent).toBeNull();
+    expect(activeCausalWorkspace.workspaceOverlayFooting.observationMode).toBe("inferred_between_tool_calls");
+    expect(activeCausalWorkspace.workspaceOverlayFooting.degraded).toBe(true);
+    expect(activeCausalWorkspace.workspaceOverlayFooting.degradedReason).toBe("target_repo_hooks_absent");
+    expect(activeCausalWorkspace.workspaceOverlayFooting.hookBootstrap.posture).toBe("absent");
+    expect(activeCausalWorkspace.workspaceOverlayFooting.hookBootstrap.supportsCheckoutBoundaries).toBe(false);
     expect(activeCausalWorkspace.stagedTarget.availability).toBe("none");
     expect(persistedLocalHistory).toBeDefined();
     expect(persistedLocalHistory.continuityConfidence).toBe("high");
@@ -269,6 +286,12 @@ describe("mcp: tool handlers", () => {
       attribution: { actor: { actorKind: string }; confidence: string };
       latestReadEvent: null;
       latestStageEvent: null;
+      workspaceOverlayFooting: {
+        observationMode: string;
+        degraded: boolean;
+        degradedReason: string;
+        hookBootstrap: { posture: string; supportsCheckoutBoundaries: boolean };
+      };
       stagedTarget: { availability: string; attribution?: { actor: { actorKind: string }; confidence: string } };
     };
     const persistedLocalHistory = parsed["persistedLocalHistory"] as {
@@ -293,6 +316,11 @@ describe("mcp: tool handlers", () => {
     expect(activeCausalWorkspace.attribution.actor.actorKind).toBe("agent");
     expect(activeCausalWorkspace.latestReadEvent).toBeNull();
     expect(activeCausalWorkspace.latestStageEvent).toBeNull();
+    expect(activeCausalWorkspace.workspaceOverlayFooting.observationMode).toBe("inferred_between_tool_calls");
+    expect(activeCausalWorkspace.workspaceOverlayFooting.degraded).toBe(true);
+    expect(activeCausalWorkspace.workspaceOverlayFooting.degradedReason).toBe("target_repo_hooks_absent");
+    expect(activeCausalWorkspace.workspaceOverlayFooting.hookBootstrap.posture).toBe("absent");
+    expect(activeCausalWorkspace.workspaceOverlayFooting.hookBootstrap.supportsCheckoutBoundaries).toBe(false);
     expect(activeCausalWorkspace.stagedTarget.availability).toBe("none");
   });
 

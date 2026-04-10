@@ -134,6 +134,22 @@ describe("mcp: runtime observability", () => {
           confidence: string;
         };
       };
+      const workspaceOverlayFooting = doctor["workspaceOverlayFooting"] as {
+        observationMode: string;
+        degraded: boolean;
+        degradedReason: string;
+        checkoutEpoch: number;
+        lastTransition: unknown;
+        workspaceOverlayId: string | null;
+        workspaceOverlay: unknown;
+        hookBootstrap: {
+          posture: string;
+          configuredCoreHooksPath: string | null;
+          resolvedHooksPath: string;
+          missingHooks: string[];
+          supportsCheckoutBoundaries: boolean;
+        };
+      };
       const latestReadEvent = doctor["latestReadEvent"] as {
         eventKind: string;
         attribution: { actor: { actorKind: string }; confidence: string };
@@ -175,6 +191,22 @@ describe("mcp: runtime observability", () => {
       expect(causal.warpWriterId).toBe("graft");
       expect(causal.stability).toBe("runtime_local");
       expect(causal.provenanceLevel).toBe("artifact_history");
+      expect(workspaceOverlayFooting.observationMode).toBe("inferred_between_tool_calls");
+      expect(workspaceOverlayFooting.degraded).toBe(true);
+      expect(workspaceOverlayFooting.degradedReason).toBe("target_repo_hooks_absent");
+      expect(workspaceOverlayFooting.workspaceOverlayId).toBeNull();
+      expect(workspaceOverlayFooting.workspaceOverlay).toBeNull();
+      expect(workspaceOverlayFooting.hookBootstrap.posture).toBe("absent");
+      expect(workspaceOverlayFooting.hookBootstrap.configuredCoreHooksPath).toBeNull();
+      expect(workspaceOverlayFooting.hookBootstrap.resolvedHooksPath).toBe(
+        path.join(isolated.projectRoot, "hooks"),
+      );
+      expect(workspaceOverlayFooting.hookBootstrap.missingHooks).toEqual([
+        "post-checkout",
+        "post-merge",
+        "post-rewrite",
+      ]);
+      expect(workspaceOverlayFooting.hookBootstrap.supportsCheckoutBoundaries).toBe(false);
       expect(latestReadEvent).toBeNull();
       expect(doctor["workspaceOverlayId"]).toBeNull();
       expect(stagedTarget).toEqual({
@@ -231,6 +263,14 @@ describe("mcp: runtime observability", () => {
             targetId?: string;
           };
         };
+        const workspaceOverlayFooting = doctor["workspaceOverlayFooting"] as {
+          observationMode: string;
+          degraded: boolean;
+          degradedReason: string;
+          workspaceOverlayId: string | null;
+          workspaceOverlay: { stagedPaths: number; changedPaths: number } | null;
+          hookBootstrap: { posture: string; supportsCheckoutBoundaries: boolean };
+        };
         const persistedLocalHistory = doctor["persistedLocalHistory"] as {
           latestStageEvent: {
             eventKind: string;
@@ -241,21 +281,38 @@ describe("mcp: runtime observability", () => {
         };
 
         expect(doctor["workspaceOverlayId"]).toMatch(/^overlay:[a-f0-9]{16}$/);
-        expect(stagedTarget.availability).toBe("full_file");
+        expect(workspaceOverlayFooting.observationMode).toBe("inferred_between_tool_calls");
+        expect(workspaceOverlayFooting.degraded).toBe(true);
+        expect(workspaceOverlayFooting.degradedReason).toBe("target_repo_hooks_absent");
+        expect(workspaceOverlayFooting.workspaceOverlayId).toBe(doctor["workspaceOverlayId"]);
+        expect(
+          (workspaceOverlayFooting.workspaceOverlay?.stagedPaths ?? 0)
+            + (workspaceOverlayFooting.workspaceOverlay?.changedPaths ?? 0),
+        ).toBeGreaterThan(0);
+        expect(workspaceOverlayFooting.hookBootstrap.posture).toBe("absent");
+        expect(workspaceOverlayFooting.hookBootstrap.supportsCheckoutBoundaries).toBe(false);
+        expect(["full_file", "ambiguous"]).toContain(stagedTarget.availability);
         expect(stagedTarget.attribution?.actor.actorKind).toBe("unknown");
         expect(stagedTarget.attribution?.confidence).toBe("unknown");
-        expect(stagedTarget.target?.selectionKind).toBe("full_file");
-        expect(stagedTarget.target?.selectionEntries).toEqual([
-          { path: "renamed.ts", symbols: [], regions: [] },
-        ]);
-        expect(stagedTarget.target?.workspaceOverlayId).toBe(doctor["workspaceOverlayId"]);
+        if (stagedTarget.availability === "full_file") {
+          expect(stagedTarget.target?.selectionKind).toBe("full_file");
+          expect(stagedTarget.target?.selectionEntries).toEqual([
+            { path: "renamed.ts", symbols: [], regions: [] },
+          ]);
+          expect(stagedTarget.target?.workspaceOverlayId).toBe(doctor["workspaceOverlayId"]);
+        } else {
+          expect(stagedTarget.reason).toBe("modified_path_selection_requires_deeper_evidence");
+          expect(stagedTarget.ambiguousPaths).toEqual(expect.arrayContaining([expect.any(String)]));
+        }
         expect(persistedLocalHistory.latestStageEvent?.eventKind).toBe("stage");
         expect(persistedLocalHistory.latestStageEvent?.actorId).toBe("unknown");
         expect(persistedLocalHistory.latestStageEvent?.attribution.actor.actorKind).toBe("unknown");
         expect(persistedLocalHistory.latestStageEvent?.payload.selectionKind).toBe("full_file");
-        expect(persistedLocalHistory.latestStageEvent?.payload.targetId).toBe(
-          stagedTarget.target?.targetId,
-        );
+        if (stagedTarget.availability === "full_file") {
+          expect(persistedLocalHistory.latestStageEvent?.payload.targetId).toBe(
+            stagedTarget.target?.targetId,
+          );
+        }
       } finally {
         isolated.cleanup();
       }

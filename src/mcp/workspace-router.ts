@@ -15,6 +15,10 @@ import {
 import { RepoStateTracker } from "./repo-state.js";
 import { buildRuntimeCausalContext, type RuntimeCausalContext } from "./runtime-causal-context.js";
 import { buildRuntimeStagedTarget } from "./runtime-staged-target.js";
+import {
+  buildRuntimeWorkspaceOverlayFooting,
+  type RuntimeWorkspaceOverlayFooting,
+} from "./runtime-workspace-overlay.js";
 import { SessionTracker } from "../session/tracker.js";
 import type { FileSystem } from "../ports/filesystem.js";
 import type { GitClient } from "../ports/git.js";
@@ -444,6 +448,20 @@ export class WorkspaceRouter {
     }
 
     return summary;
+  }
+
+  async getWorkspaceOverlayFooting(): Promise<RuntimeWorkspaceOverlayFooting | null> {
+    const binding = this.currentBinding;
+    if (binding?.slice.repoState === null || binding === null) {
+      return null;
+    }
+    return buildRuntimeWorkspaceOverlayFooting(
+      this.options.fs,
+      this.options.git,
+      binding.worktreeRoot,
+      binding.gitCommonDir,
+      binding.slice.repoState.getState(),
+    );
   }
 
   async noteReadObservation(

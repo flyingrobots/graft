@@ -205,6 +205,9 @@ function buildWorkerContext(
     getPersistedLocalHistorySummary() {
       return unsupported("getPersistedLocalHistorySummary");
     },
+    getWorkspaceOverlayFooting() {
+      return unsupported("getWorkspaceOverlayFooting");
+    },
     declareCausalAttach() {
       return unsupported("declareCausalAttach");
     },

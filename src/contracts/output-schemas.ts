@@ -327,6 +327,30 @@ const workspaceOverlaySummarySchema = z.object({
   }).strict(),
 }).strict();
 
+const gitHookBootstrapStatusSchema = z.object({
+  posture: z.enum(["absent", "external_unknown"]),
+  configuredCoreHooksPath: z.string().nullable(),
+  resolvedHooksPath: z.string(),
+  requiredHooks: z.array(z.string()),
+  presentHooks: z.array(z.string()),
+  missingHooks: z.array(z.string()),
+  supportsCheckoutBoundaries: z.literal(false),
+}).strict();
+
+const workspaceOverlayFootingSchema = z.object({
+  observationMode: z.literal("inferred_between_tool_calls"),
+  degraded: z.literal(true),
+  degradedReason: z.enum([
+    "target_repo_hooks_absent",
+    "target_repo_hooks_unrecognized",
+  ]),
+  checkoutEpoch: z.number().int().nonnegative(),
+  lastTransition: repoTransitionSchema.nullable(),
+  workspaceOverlayId: z.string().nullable(),
+  workspaceOverlay: workspaceOverlaySummarySchema.nullable(),
+  hookBootstrap: gitHookBootstrapStatusSchema,
+}).strict();
+
 const policyBoundarySchema = z.object({
   kind: z.literal("shell_escape_hatch"),
   boundedReadContract: z.literal(false),
@@ -378,6 +402,7 @@ const activeCausalWorkspaceSchema = z.object({
   lastTransition: repoTransitionSchema.nullable(),
   workspaceOverlayId: z.string().nullable(),
   workspaceOverlay: workspaceOverlaySummarySchema.nullable(),
+  workspaceOverlayFooting: workspaceOverlayFootingSchema,
   stagedTarget: runtimeStagedTargetSchema,
 }).strict();
 
@@ -811,6 +836,7 @@ const mcpOutputBodySchemas: Record<McpToolName, z.ZodType> = {
     lastTransition: repoTransitionSchema.nullable(),
     workspaceOverlayId: z.string().nullable(),
     workspaceOverlay: workspaceOverlaySummarySchema.nullable(),
+    workspaceOverlayFooting: workspaceOverlayFootingSchema,
     stagedTarget: runtimeStagedTargetSchema,
     attribution: attributionSummarySchema,
     persistedLocalHistory: persistedLocalHistorySummarySchema,

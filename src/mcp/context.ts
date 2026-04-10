@@ -16,6 +16,7 @@ import type { RepoObservation } from "./repo-state.js";
 import type { RunCaptureConfig } from "./run-capture-config.js";
 import type { RuntimeObservabilityState } from "./runtime-observability.js";
 import type { RuntimeCausalContext } from "./runtime-causal-context.js";
+import type { RuntimeWorkspaceOverlayFooting } from "./runtime-workspace-overlay.js";
 import type {
   PersistedLocalHistoryAttachDeclaration,
   PersistedLocalHistorySummary,
@@ -75,6 +76,7 @@ export interface ToolContext {
   getWarp(): Promise<WarpApp>;
   getRepoState(): RepoObservation;
   getCausalContext(): RuntimeCausalContext;
+  getWorkspaceOverlayFooting(): Promise<RuntimeWorkspaceOverlayFooting | null>;
   getPersistedLocalHistorySummary(): Promise<PersistedLocalHistorySummary>;
   declareCausalAttach(request: PersistedLocalHistoryAttachDeclaration): Promise<CausalAttachResult>;
   getWorkspaceStatus(): WorkspaceStatus;

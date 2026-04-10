@@ -24,20 +24,24 @@ export const causalAttachTool: ToolDefinition = {
       });
 
       const workspaceStatus = ctx.getWorkspaceStatus();
+      const repoState = ctx.getRepoState();
+      const causalContext = ctx.getCausalContext();
+      const workspaceOverlayFooting = await ctx.getWorkspaceOverlayFooting();
       const activeCausalWorkspace = workspaceStatus.bindState === "bound"
         ? {
-            causalContext: ctx.getCausalContext(),
+            causalContext,
             attribution: result.persistedLocalHistory.attribution,
             latestReadEvent: result.persistedLocalHistory.latestReadEvent,
             latestStageEvent: result.persistedLocalHistory.latestStageEvent,
-            checkoutEpoch: ctx.getRepoState().checkoutEpoch,
-            lastTransition: ctx.getRepoState().lastTransition,
-            workspaceOverlayId: ctx.getRepoState().workspaceOverlayId,
-            workspaceOverlay: ctx.getRepoState().workspaceOverlay,
+            checkoutEpoch: repoState.checkoutEpoch,
+            lastTransition: repoState.lastTransition,
+            workspaceOverlayId: repoState.workspaceOverlayId,
+            workspaceOverlay: repoState.workspaceOverlay,
+            workspaceOverlayFooting,
             stagedTarget: buildRuntimeStagedTarget(
               workspaceStatus,
-              ctx.getCausalContext(),
-              ctx.getRepoState(),
+              causalContext,
+              repoState,
               result.persistedLocalHistory.attribution,
             ),
           }

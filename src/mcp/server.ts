@@ -329,6 +329,9 @@ export function createGraftServer(options: CreateGraftServerOptions = {}): Graft
     getCausalContext() {
       return getActiveExecutionContext()?.getCausalContext() ?? workspaceRouter.captureExecutionContext().getCausalContext();
     },
+    getWorkspaceOverlayFooting() {
+      return workspaceRouter.getWorkspaceOverlayFooting();
+    },
     getPersistedLocalHistorySummary() {
       return workspaceRouter.getPersistedLocalHistorySummary();
     },

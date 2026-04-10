@@ -20,6 +20,7 @@ export const causalStatusTool: ToolDefinition = {
 
       const repoState = ctx.getRepoState();
       const causalContext = ctx.getCausalContext();
+      const workspaceOverlayFooting = await ctx.getWorkspaceOverlayFooting();
       return ctx.respond("causal_status", {
         ...workspaceStatus,
         activeCausalWorkspace: {
@@ -31,6 +32,7 @@ export const causalStatusTool: ToolDefinition = {
           lastTransition: repoState.lastTransition,
           workspaceOverlayId: repoState.workspaceOverlayId,
           workspaceOverlay: repoState.workspaceOverlay,
+          workspaceOverlayFooting,
           stagedTarget: buildRuntimeStagedTarget(
             workspaceStatus,
             causalContext,
