@@ -303,6 +303,10 @@ Expose bounded surfaces for:
 Wire checkout transitions and explicit handoff points into the local
 history lifecycle without yet claiming full collapse.
 
+Bounded declaration surface:
+- `causal_attach` as the explicit continuity / handoff declaration seam
+  when transport and workspace evidence alone are not enough
+
 ## Upstream dependency boundary
 
 ### What Graft can settle locally now

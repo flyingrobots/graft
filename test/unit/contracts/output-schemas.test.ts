@@ -138,6 +138,7 @@ describe("contracts: output schemas", () => {
     const daemonBind = parse(await daemonServer.callTool("workspace_bind", { cwd: repoDir }));
     const daemonRebind = parse(await daemonServer.callTool("workspace_rebind", { cwd: repoDir }));
     const daemonRevoke = parse(await daemonServer.callTool("workspace_revoke", { cwd: repoDir }));
+    git(repoDir, "checkout -b feature/output-schema-attach");
 
     const outputs = {
       safe_read: parse(await server.callTool("safe_read", { path: "app.ts" })),
@@ -164,6 +165,7 @@ describe("contracts: output schemas", () => {
       workspace_bind: daemonBind,
       workspace_status: daemonStatus,
       causal_status: parse(await server.callTool("causal_status", {})),
+      causal_attach: parse(await server.callTool("causal_attach", { actor_kind: "agent" })),
       workspace_rebind: daemonRebind,
       run_capture: parse(await server.callTool("run_capture", { command: "printf 'ok'", tail: 1 })),
       state_save: parse(await server.callTool("state_save", { content: "current task" })),

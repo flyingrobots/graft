@@ -6,7 +6,9 @@ import { createPathResolver } from "./context.js";
 import { Metrics } from "./metrics.js";
 import { loadProjectGraftignore } from "./policy.js";
 import {
+  PersistedLocalHistoryAttachUnavailableError,
   PersistedLocalHistoryStore,
+  type PersistedLocalHistoryAttachDeclaration,
   type PersistedLocalHistoryContext,
   type PersistedLocalHistorySummary,
 } from "./persisted-local-history.js";
@@ -46,6 +48,14 @@ export interface WorkspaceActionResult extends WorkspaceStatus {
   readonly ok: boolean;
   readonly action: WorkspaceBindAction;
   readonly freshSessionSlice: boolean;
+  readonly errorCode?: string;
+  readonly error?: string;
+}
+
+export interface CausalAttachResult extends WorkspaceStatus {
+  readonly ok: boolean;
+  readonly action: "attach";
+  readonly persistedLocalHistory: PersistedLocalHistorySummary;
   readonly errorCode?: string;
   readonly error?: string;
 }
@@ -458,6 +468,48 @@ export class WorkspaceRouter {
       };
     }
     return this.bindInternal("rebind", request, actionName);
+  }
+
+  async declareAttach(
+    declaration: PersistedLocalHistoryAttachDeclaration,
+  ): Promise<CausalAttachResult> {
+    const binding = this.currentBinding;
+    if (binding?.slice.repoState === null || binding === null) {
+      return {
+        ok: false,
+        action: "attach",
+        ...this.getStatus(),
+        persistedLocalHistory: await this.getPersistedLocalHistorySummary(),
+        errorCode: "UNBOUND_SESSION",
+        error: "causal_attach requires an active workspace binding.",
+      };
+    }
+
+    try {
+      await this.options.persistedLocalHistory.declareAttach({
+        current: this.buildPersistedLocalHistoryContext(binding, binding.slice.repoState.getState()),
+        declaration,
+      });
+    } catch (error) {
+      if (error instanceof PersistedLocalHistoryAttachUnavailableError) {
+        return {
+          ok: false,
+          action: "attach",
+          ...this.getStatus(),
+          persistedLocalHistory: await this.getPersistedLocalHistorySummary(),
+          errorCode: error.code,
+          error: error.message,
+        };
+      }
+      throw error;
+    }
+
+    return {
+      ok: true,
+      action: "attach",
+      ...this.getStatus(),
+      persistedLocalHistory: await this.getPersistedLocalHistorySummary(),
+    };
   }
 
   private async bindInternal(

@@ -74,6 +74,13 @@ export interface PersistedLocalHistoryContext {
   readonly warpWriterId: string;
 }
 
+export interface PersistedLocalHistoryAttachDeclaration {
+  readonly actorKind: "human" | "agent";
+  readonly actorId?: string | undefined;
+  readonly fromActorId?: string | undefined;
+  readonly note?: string | undefined;
+}
+
 export interface PersistedLocalHistorySummaryNone {
   readonly availability: "none";
   readonly persistence: "persisted_local_history";
@@ -117,6 +124,15 @@ export interface PersistedLocalHistorySummaryPresent {
 export type PersistedLocalHistorySummary =
   | PersistedLocalHistorySummaryNone
   | PersistedLocalHistorySummaryPresent;
+
+export class PersistedLocalHistoryAttachUnavailableError extends Error {
+  readonly code = "NO_ATTACHABLE_HISTORY";
+
+  constructor(message = "No attachable persisted local-history lineage is available for the current footing.") {
+    super(message);
+    this.name = "PersistedLocalHistoryAttachUnavailableError";
+  }
+}
 
 function stableId(prefix: string, input: string): string {
   return `${prefix}:${crypto.createHash("sha256").update(input).digest("hex").slice(0, 16)}`;
@@ -306,6 +322,32 @@ export class PersistedLocalHistoryStore {
     };
   }
 
+  async declareAttach(input: {
+    readonly current: PersistedLocalHistoryContext;
+    readonly declaration: PersistedLocalHistoryAttachDeclaration;
+  }): Promise<void> {
+    const continuityKey = buildContinuityKey(input.current.repoId, input.current.worktreeId);
+    const state = await this.loadState(continuityKey, input.current.repoId, input.current.worktreeId);
+    const activeRecord = findRecord(state, state.activeRecordId);
+    const baseRecord = activeRecord ?? state.records.at(-1) ?? null;
+    if (baseRecord?.continuedFromRecordId === null || baseRecord === null) {
+      throw new PersistedLocalHistoryAttachUnavailableError();
+    }
+
+    appendRecord(
+      state,
+      this.createRecord(
+        "attach",
+        continuityKey,
+        input.current,
+        baseRecord,
+        this.buildAttachDeclarationEvidence(input.current, input.declaration),
+      ),
+      true,
+    );
+    await this.saveState(state);
+  }
+
   buildContext(
     status: WorkspaceStatus,
     causalContext: RuntimeCausalContext,
@@ -349,8 +391,12 @@ export class PersistedLocalHistoryStore {
     continuityKey: string,
     context: PersistedLocalHistoryContext,
     previous: ContinuityRecord | null,
+    additionalEvidence: readonly Evidence[] = [],
   ): ContinuityRecord {
-    const continuityEvidence = this.buildContinuityEvidence(operation, context, previous);
+    const continuityEvidence = [
+      ...this.buildContinuityEvidence(operation, context, previous),
+      ...additionalEvidence,
+    ];
     return {
       recordId: buildRecordId(continuityKey, operation, context),
       continuityKey,
@@ -422,6 +468,47 @@ export class PersistedLocalHistoryStore {
         strandId: context.strandId,
       },
     });
+
+    return evidence;
+  }
+
+  private buildAttachDeclarationEvidence(
+    context: PersistedLocalHistoryContext,
+    declaration: PersistedLocalHistoryAttachDeclaration,
+  ): Evidence[] {
+    const evidence: Evidence[] = [];
+    const declarationKind = declaration.actorKind === "human"
+      ? "explicit_user_declaration"
+      : "explicit_agent_declaration";
+
+    evidence.push({
+      evidenceId: buildEvidenceId("attach", declarationKind, context, evidence.length + 100),
+      evidenceKind: declarationKind,
+      source: "causal_attach.declaration",
+      capturedAt: context.observedAt,
+      strength: "direct",
+      details: {
+        actorKind: declaration.actorKind,
+        actorId: declaration.actorId ?? null,
+        note: declaration.note ?? null,
+      },
+    });
+
+    if (declaration.fromActorId !== undefined) {
+      evidence.push({
+        evidenceId: buildEvidenceId("attach", "explicit_handoff", context, evidence.length + 100),
+        evidenceKind: "explicit_handoff",
+        source: "causal_attach.handoff",
+        capturedAt: context.observedAt,
+        strength: "direct",
+        details: {
+          actorKind: declaration.actorKind,
+          actorId: declaration.actorId ?? null,
+          fromActorId: declaration.fromActorId,
+          note: declaration.note ?? null,
+        },
+      });
+    }
 
     return evidence;
   }

@@ -377,6 +377,20 @@ const causalStatusSchema = workspaceStatusSchema.extend({
   ]),
 }).strict();
 
+const causalAttachSchema = workspaceStatusSchema.extend({
+  ok: z.boolean(),
+  action: z.literal("attach"),
+  activeCausalWorkspace: activeCausalWorkspaceSchema.nullable(),
+  persistedLocalHistory: persistedLocalHistorySummarySchema,
+  nextAction: z.enum([
+    "bind_workspace_to_begin_local_history",
+    "continue_active_causal_workspace",
+    "inspect_or_resume_local_history",
+  ]),
+  errorCode: z.string().optional(),
+  error: z.string().optional(),
+}).strict();
+
 const authorizedWorkspaceSchema = z.object({
   repoId: z.string(),
   worktreeId: z.string(),
@@ -734,6 +748,7 @@ const mcpOutputBodySchemas: Record<McpToolName, z.ZodType> = {
   }).strict(),
   workspace_status: workspaceStatusSchema,
   causal_status: causalStatusSchema,
+  causal_attach: causalAttachSchema,
   workspace_rebind: workspaceActionSchema.extend({
     action: z.literal("rebind"),
   }).strict(),
@@ -823,6 +838,7 @@ export const MCP_OUTPUT_SCHEMAS: Record<McpToolName, z.ZodType> = {
   workspace_bind: withMcpCommon("workspace_bind", mcpOutputBodySchemas.workspace_bind),
   workspace_status: withMcpCommon("workspace_status", mcpOutputBodySchemas.workspace_status),
   causal_status: withMcpCommon("causal_status", mcpOutputBodySchemas.causal_status),
+  causal_attach: withMcpCommon("causal_attach", mcpOutputBodySchemas.causal_attach),
   workspace_rebind: withMcpCommon("workspace_rebind", mcpOutputBodySchemas.workspace_rebind),
   run_capture: withMcpCommon("run_capture", mcpOutputBodySchemas.run_capture),
   state_save: withMcpCommon("state_save", mcpOutputBodySchemas.state_save),

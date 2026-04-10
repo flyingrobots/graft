@@ -205,6 +205,9 @@ function buildWorkerContext(
     getPersistedLocalHistorySummary() {
       return unsupported("getPersistedLocalHistorySummary");
     },
+    declareCausalAttach() {
+      return unsupported("declareCausalAttach");
+    },
     getWorkspaceStatus() {
       return workerStatus(job);
     },

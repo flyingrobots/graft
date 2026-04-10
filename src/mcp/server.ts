@@ -67,6 +67,7 @@ import { monitorResumeTool } from "./tools/monitor-resume.js";
 import { monitorStartTool } from "./tools/monitor-start.js";
 import { monitorStopTool } from "./tools/monitor-stop.js";
 import { causalStatusTool } from "./tools/causal-status.js";
+import { causalAttachTool } from "./tools/causal-attach.js";
 import { workspaceAuthorizeTool } from "./tools/workspace-authorize.js";
 import { workspaceAuthorizationsTool } from "./tools/workspace-authorizations.js";
 import { workspaceBindTool } from "./tools/workspace-bind.js";
@@ -88,6 +89,7 @@ export const TOOL_REGISTRY: readonly ToolDefinition[] = [
   stateLoadTool,
   doctorTool,
   causalStatusTool,
+  causalAttachTool,
   statsTool,
   explainTool,
   setBudgetTool,
@@ -327,6 +329,9 @@ export function createGraftServer(options: CreateGraftServerOptions = {}): Graft
     },
     getPersistedLocalHistorySummary() {
       return workspaceRouter.getPersistedLocalHistorySummary();
+    },
+    declareCausalAttach(request) {
+      return workspaceRouter.declareAttach(request);
     },
     getWorkspaceStatus() {
       return getActiveExecutionContext()?.status ?? workspaceRouter.getStatus();

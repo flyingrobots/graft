@@ -6,6 +6,7 @@ import os from "node:os";
 import path from "node:path";
 import type { GraftServer } from "../../../src/mcp/server.js";
 import { createIsolatedServer, fixturePath, getTestRepoRoot, parse } from "../../helpers/mcp.js";
+import { cleanupTestRepo, createTestRepo, git } from "../../helpers/git.js";
 
 const EXPECTED_TOOL_NAMES = TOOL_REGISTRY.map((t) => t.name);
 const SMALL_TS = fixturePath("small.ts");
@@ -225,6 +226,51 @@ describe("mcp: tool handlers", () => {
     expect(parsed["bindState"]).toBe("unbound");
     expect(parsed["activeCausalWorkspace"]).toBeNull();
     expect(parsed["nextAction"]).toBe("bind_workspace_to_begin_local_history");
+  });
+
+  it("causal_attach records explicit attach evidence after a continuity fork", async () => {
+    const repoDir = createTestRepo("graft-causal-attach-");
+    cleanups.push(() => {
+      cleanupTestRepo(repoDir);
+    });
+    fs.writeFileSync(path.join(repoDir, "app.ts"), "export const ready = true;\n");
+    git(repoDir, "add -A");
+    git(repoDir, "commit -m init");
+
+    const isolated = createIsolatedServer({
+      projectRoot: repoDir,
+      graftDir: path.join(repoDir, ".graft"),
+    });
+    cleanups.push(() => {
+      isolated.cleanup();
+    });
+
+    await isolated.server.callTool("doctor", {});
+    git(repoDir, "checkout -b feature/attach");
+
+    const result = await isolated.server.callTool("causal_attach", {
+      actor_kind: "agent",
+      actor_id: "agent:test",
+      from_actor_id: "human:james",
+      note: "continuing feature work",
+    });
+    const parsed = parse(result);
+    const persistedLocalHistory = parsed["persistedLocalHistory"] as {
+      lastOperation: string;
+      continuityConfidence: string;
+      continuityEvidence: { evidenceKind: string }[];
+    };
+
+    expect(parsed["ok"]).toBe(true);
+    expect(parsed["action"]).toBe("attach");
+    expect(persistedLocalHistory.lastOperation).toBe("attach");
+    expect(persistedLocalHistory.continuityConfidence).toBe("high");
+    expect(persistedLocalHistory.continuityEvidence.map((evidence) => evidence.evidenceKind)).toEqual(
+      expect.arrayContaining([
+        "explicit_agent_declaration",
+        "explicit_handoff",
+      ]),
+    );
   });
 
   it("stats returns metrics summary", async () => {

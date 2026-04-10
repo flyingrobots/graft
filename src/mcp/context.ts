@@ -16,7 +16,10 @@ import type { RepoObservation } from "./repo-state.js";
 import type { RunCaptureConfig } from "./run-capture-config.js";
 import type { RuntimeObservabilityState } from "./runtime-observability.js";
 import type { RuntimeCausalContext } from "./runtime-causal-context.js";
-import type { PersistedLocalHistorySummary } from "./persisted-local-history.js";
+import type {
+  PersistedLocalHistoryAttachDeclaration,
+  PersistedLocalHistorySummary,
+} from "./persisted-local-history.js";
 import type { McpToolName } from "../contracts/output-schemas.js";
 import type {
   DaemonSessionView,
@@ -37,6 +40,7 @@ import type {
 } from "./persistent-monitor-runtime.js";
 import type {
   WorkspaceActionResult,
+  CausalAttachResult,
   WorkspaceBindRequest,
   WorkspaceStatus,
 } from "./workspace-router.js";
@@ -72,6 +76,7 @@ export interface ToolContext {
   getRepoState(): RepoObservation;
   getCausalContext(): RuntimeCausalContext;
   getPersistedLocalHistorySummary(): Promise<PersistedLocalHistorySummary>;
+  declareCausalAttach(request: PersistedLocalHistoryAttachDeclaration): Promise<CausalAttachResult>;
   getWorkspaceStatus(): WorkspaceStatus;
   bindWorkspace(request: WorkspaceBindRequest, actionName: string): Promise<WorkspaceActionResult>;
   rebindWorkspace(request: WorkspaceBindRequest, actionName: string): Promise<WorkspaceActionResult>;

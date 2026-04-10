@@ -23,6 +23,7 @@ export const MCP_TOOL_NAMES = [
   "workspace_bind",
   "workspace_status",
   "causal_status",
+  "causal_attach",
   "workspace_rebind",
   "run_capture",
   "state_save",
@@ -239,6 +240,12 @@ export const CAPABILITY_REGISTRY: readonly CapabilityDefinition[] = [
     id: "causal_status",
     description: "Inspect the active causal workspace and persisted local-history posture",
     mcpTool: "causal_status",
+    parity: "mcp_only",
+  },
+  {
+    id: "causal_attach",
+    description: "Explicitly declare lawful continuation or handoff for the current causal workspace",
+    mcpTool: "causal_attach",
     parity: "mcp_only",
   },
   {

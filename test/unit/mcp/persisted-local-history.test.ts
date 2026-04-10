@@ -5,6 +5,7 @@ import { afterEach, describe, expect, it } from "vitest";
 import { CanonicalJsonCodec } from "../../../src/adapters/canonical-json.js";
 import { nodeFs } from "../../../src/adapters/node-fs.js";
 import {
+  PersistedLocalHistoryAttachUnavailableError,
   PersistedLocalHistoryStore,
   buildContinuityKey,
   type PersistedLocalHistoryContext,
@@ -198,5 +199,92 @@ describe("mcp: persisted local history", () => {
     expect(firstSummary.active).toBe(false);
     expect(firstSummary.lastOperation).toBe("park");
     expect(firstSummary.nextAction).toBe("inspect_or_resume_local_history");
+  });
+
+  it("records direct declaration and handoff evidence for explicit attach", async () => {
+    const graftDir = fs.mkdtempSync(path.join(os.tmpdir(), "graft-history-"));
+    cleanups.push(graftDir);
+
+    const store = new PersistedLocalHistoryStore({
+      fs: nodeFs,
+      codec: new CanonicalJsonCodec(),
+      graftDir,
+    });
+
+    await store.noteBinding({ current: context() });
+    const current = context({
+      transportSessionId: "transport:two",
+      workspaceSliceId: "slice-0002",
+      causalSessionId: "causal:two",
+      strandId: "strand:two",
+      observedAt: "2026-04-10T01:05:00.000Z",
+      warpWriterId: "graft_session_two",
+    });
+    await store.noteBinding({ current });
+    await store.declareAttach({
+      current,
+      declaration: {
+        actorKind: "agent",
+        actorId: "agent:two",
+        fromActorId: "human:james",
+        note: "continuing the same line of work",
+      },
+    });
+
+    const summary = await store.summarize(
+      {
+        sessionMode: "daemon",
+        bindState: "bound",
+        repoId: "repo:one",
+        worktreeId: "worktree:one",
+        worktreeRoot: "/repo",
+        gitCommonDir: "/repo/.git",
+        graftDir,
+        capabilityProfile: null,
+      },
+      {
+        transportSessionId: "transport:two",
+        workspaceSliceId: "slice-0002",
+        causalSessionId: "causal:two",
+        strandId: "strand:two",
+        checkoutEpochId: "epoch:one",
+        warpWriterId: "graft_session_two",
+        stability: "runtime_local",
+        provenanceLevel: "artifact_history",
+      },
+    );
+
+    expect(summary.availability).toBe("present");
+    if (summary.availability !== "present") {
+      return;
+    }
+    expect(summary.lastOperation).toBe("attach");
+    expect(summary.continuityConfidence).toBe("high");
+    expect(summary.continuityEvidence).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ evidenceKind: "explicit_agent_declaration" }),
+        expect.objectContaining({ evidenceKind: "explicit_handoff" }),
+      ]),
+    );
+  });
+
+  it("refuses explicit attach when no prior lineage exists", async () => {
+    const graftDir = fs.mkdtempSync(path.join(os.tmpdir(), "graft-history-"));
+    cleanups.push(graftDir);
+
+    const store = new PersistedLocalHistoryStore({
+      fs: nodeFs,
+      codec: new CanonicalJsonCodec(),
+      graftDir,
+    });
+
+    await store.noteBinding({ current: context() });
+
+    await expect(store.declareAttach({
+      current: context(),
+      declaration: {
+        actorKind: "agent",
+      },
+    })).rejects.toBeInstanceOf(PersistedLocalHistoryAttachUnavailableError);
   });
 });

@@ -93,6 +93,7 @@ describe("0060 playback: persisted sub-commit local history", () => {
       "`fork`",
       "`park`",
       "Initial lawful attach conditions:",
+      "`causal_attach` as the explicit continuity / handoff declaration seam",
     ]);
   });
 
