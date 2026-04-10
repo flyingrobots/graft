@@ -7,7 +7,7 @@ test_files: 62
 legends: [CORE, WARP, CLEAN_CODE, SURFACE]
 backlog_items: 141
 version: 0.4.0
-status: "no active cycle"
+status: "0062 active"
 ---
 
 # Graft — Executive Summary
@@ -82,18 +82,27 @@ The current working model is:
 
 ### What is still being defined
 
-- direct provenance and attribution evidence for `agent`, `human`, and
-  `git`
 - how persisted local `artifact_history` becomes admitted canonical
   provenance
 - how persisted local history relates to later canonical provenance
   collapse
+- how reactive workspace overlays are observed and bounded across live
+  edits and checkout transitions
 - how same-repo concurrent agents relate to shared repo history and
   separate worktree / session-local state
 
 ### Current cycle posture
 
-METHOD currently shows no active cycle.
+METHOD currently shows one active cycle:
+
+- `0062-reactive-workspace-overlay`
+  - make workspace overlay footing explicit product truth
+  - distinguish reactive local edit signals from canonical Git
+    transition boundaries
+  - anchor live overlay state to checkout epochs instead of only
+    between-tool-call inference
+  - define honest degraded posture when target-repo hooks/bootstrap are
+    absent
 
 The three most recent closed packets are:
 
@@ -128,6 +137,11 @@ local-history substrate. `0060` settled that bounded local history can
 survive reconnects and handoff. `0061` settled who or what the product
 can honestly say advanced that history, with inspectable evidence and
 no false certainty.
+
+`0062` is the next lifecycle packet on top of that trust substrate.
+Its job is to make the live workspace overlay and checkout-boundary
+posture explicit enough that persisted local history and attribution do
+not ride on silent best-effort snapshots.
 
 ## Architecture
 
@@ -196,9 +210,9 @@ Structural and causal memory over Git.
 - **Current inflection point**: execution substrate exists, but the
   graph ontology, runtime-local causal footing, and persisted local
   artifact-history now exist
-- **Current active packet**: add provenance/attribution evidence on top
-  of that local-history substrate without confusing it with canonical
-  provenance
+- **Current active packet**: make the live workspace overlay and
+  checkout-boundary footing explicit enough to support honest
+  between-commit lifecycle semantics
 
 ### CLEAN_CODE
 

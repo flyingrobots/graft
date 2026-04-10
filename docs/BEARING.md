@@ -76,12 +76,12 @@ That implies:
 
 ## What is active now
 
-METHOD currently has no active cycle.
+Cycle `0062-reactive-workspace-overlay` is now active in METHOD.
 
-The next honest pull is
-`WARP_reactive-workspace-overlay.md`, with
-`SURFACE_target-repo-git-hook-bootstrap.md` now feeling much closer to
-required product work than optional bootstrap polish.
+Its paired companion seam is
+`SURFACE_target-repo-git-hook-bootstrap.md`, which now reads less like
+optional bootstrap polish and more like required product work for
+lawful checkout-boundary handling.
 
 The last two shipped packets were:
 
@@ -136,6 +136,19 @@ persisted local history:
   layers
 - no false certainty beyond what the captured evidence supports
 
+`0062` is the next active lifecycle packet on top of that substrate.
+
+Its job is to make the workspace overlay a first-class reactive product
+concept:
+
+- explicit overlay footing instead of best-effort between-tool-call
+  inference
+- explicit precedence between Git transition signals and local edit
+  signals
+- honest degraded posture when target-repo hooks/bootstrap are absent
+- no smearing one active causal workspace across incompatible checkout
+  bases
+
 ## What does NOT ship under this bearing
 
 - pretending transport sessions are the final provenance model
@@ -163,6 +176,9 @@ turn:
 - cycle `0061` closed the first provenance/attribution packet so
   persisted local history can explain who or what advanced a line of
   work instead of only that the line of work survived
+- cycle `0062` is now pulling reactive workspace overlay semantics so
+  live workspace footing and checkout boundaries become first-class
+  product truth instead of only inferred repo snapshots
 - backlog now explicitly captures branch-switch hook/bootstrap concerns
   and the need for a first-class graph ontology / collapse model
 
