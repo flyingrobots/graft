@@ -1,13 +1,13 @@
 ---
 title: "Graft — Executive Summary"
-generated: 2026-04-09
+generated: 2026-04-10
 generator: codex (manual, following Method executive-summary process)
-tests: 652
+tests: 660
 test_files: 62
 legends: [CORE, WARP, CLEAN_CODE, SURFACE]
 backlog_items: 141
 version: 0.4.0
-status: "0061 active"
+status: "no active cycle"
 ---
 
 # Graft — Executive Summary
@@ -93,18 +93,21 @@ The current working model is:
 
 ### Current cycle posture
 
-METHOD currently shows one active cycle:
-
-- `0061-provenance-attribution-instrumentation`
-  - explicit actor attribution for bounded runtime surfaces
-  - direct declaration evidence for `human` and `agent`
-  - `git` attribution when continuity movement follows observable Git
-    transition evidence
-  - explicit `unknown` fallback when actor evidence is absent or mixed
-  - no false certainty beyond captured evidence
+METHOD currently shows no active cycle.
 
 The three most recent closed packets are:
 
+- `0061-provenance-attribution-instrumentation`
+  - explicit runtime attribution summaries for `agent`, `human`,
+    `git`, and `unknown`
+  - bounded attribution inspection through `doctor`,
+    `causal_status`, and `causal_attach`
+  - artifact-local staged-target attribution
+  - attributed local `stage` events
+  - attributed local `read` events with explicit footprints and source
+    layers
+  - explicit `artifact_history` honesty rather than canonical
+    provenance overclaim
 - `0058-system-wide-resource-pressure-and-fairness`
   - async Git, async daemon-heavy file paths, scheduler, workers,
     monitor routing, and writer lanes
@@ -120,11 +123,11 @@ The three most recent closed packets are:
   - evidence-bounded continuity summaries and inspectable local
     artifact-history posture
 
-`0061` is the first trust packet on top of the persisted local-history
-substrate. `0060` settled that bounded local history can survive
-reconnects and handoff. `0061` settles who or what the product can
-honestly say advanced that history, with inspectable evidence and no
-false certainty.
+`0061` closed the first trust packet on top of the persisted
+local-history substrate. `0060` settled that bounded local history can
+survive reconnects and handoff. `0061` settled who or what the product
+can honestly say advanced that history, with inspectable evidence and
+no false certainty.
 
 ## Architecture
 
@@ -206,14 +209,12 @@ runtime-backed forms, and honest seams.
 
 ### Immediate next
 
-1. Add provenance and attribution instrumentation on top of the now-
-   shipped local-history substrate.
-2. Add branch/checkout-aware strand lifecycle handling, likely with
+1. Add branch/checkout-aware strand lifecycle handling, likely with
    target-repo Git hook bootstrap or an equivalent explicit Git
    transition boundary.
-3. Continue same-repo concurrent-agent modeling against strands and
+2. Continue same-repo concurrent-agent modeling against strands and
    writer lanes.
-4. Push full strand-aware causal collapse once upstream `git-warp
+3. Push full strand-aware causal collapse once upstream `git-warp
    v17.1.0+` support exists.
 
 ### High-value WARP packets already in backlog

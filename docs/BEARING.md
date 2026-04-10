@@ -76,8 +76,12 @@ That implies:
 
 ## What is active now
 
-Cycle `0061-provenance-attribution-instrumentation` is now active in
-METHOD.
+METHOD currently has no active cycle.
+
+The next honest pull is
+`WARP_reactive-workspace-overlay.md`, with
+`SURFACE_target-repo-git-hook-bootstrap.md` now feeling much closer to
+required product work than optional bootstrap polish.
 
 The last two shipped packets were:
 
@@ -118,16 +122,18 @@ implementation packet should build on the now-settled ontology while
 treating the deepest collapse machinery as gated on the upstream
 release.
 
-`0061` is the next trust packet on top of `0060`.
+`0061-provenance-attribution-instrumentation` is now also closed.
+It shipped the first honest runtime attribution packet on top of
+persisted local history:
 
-Its job is to make actor attribution inspectable and honest on bounded
-runtime surfaces:
-
-- explicit `agent` / `human` attribution when declared directly
-- `git` attribution when continuity movement is best explained by an
-  observable Git transition
-- explicit `unknown` when continuity evidence exists but actor evidence
-  does not
+- explicit runtime attribution summaries for `agent`, `human`, `git`,
+  and `unknown`
+- bounded inspection of attribution through `doctor`,
+  `causal_status`, and `causal_attach`
+- artifact-local staged-target attribution
+- attributed local `stage` events
+- attributed local `read` events with explicit footprints and source
+  layers
 - no false certainty beyond what the captured evidence supports
 
 ## What does NOT ship under this bearing
@@ -154,7 +160,7 @@ turn:
 - cycle `0060` closed the first persisted sub-commit local-history
   packet so Graft can preserve bounded between-commit memory without
   overclaiming its truth class
-- cycle `0061` is now pulling provenance/attribution instrumentation so
+- cycle `0061` closed the first provenance/attribution packet so
   persisted local history can explain who or what advanced a line of
   work instead of only that the line of work survived
 - backlog now explicitly captures branch-switch hook/bootstrap concerns
