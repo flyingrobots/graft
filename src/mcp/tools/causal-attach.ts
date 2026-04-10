@@ -36,6 +36,7 @@ export const causalAttachTool: ToolDefinition = {
               workspaceStatus,
               ctx.getCausalContext(),
               ctx.getRepoState(),
+              result.persistedLocalHistory.attribution,
             ),
           }
         : null;

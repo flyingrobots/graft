@@ -29,7 +29,12 @@ export const causalStatusTool: ToolDefinition = {
           lastTransition: repoState.lastTransition,
           workspaceOverlayId: repoState.workspaceOverlayId,
           workspaceOverlay: repoState.workspaceOverlay,
-          stagedTarget: buildRuntimeStagedTarget(workspaceStatus, causalContext, repoState),
+          stagedTarget: buildRuntimeStagedTarget(
+            workspaceStatus,
+            causalContext,
+            repoState,
+            persistedLocalHistory.attribution,
+          ),
         },
         persistedLocalHistory,
         nextAction: persistedLocalHistory.nextAction,

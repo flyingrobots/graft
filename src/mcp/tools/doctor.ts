@@ -34,7 +34,12 @@ export const doctorTool: ToolDefinition = {
         lastTransition: repoState.lastTransition,
         workspaceOverlayId: repoState.workspaceOverlayId,
         workspaceOverlay: repoState.workspaceOverlay,
-        stagedTarget: buildRuntimeStagedTarget(ctx.getWorkspaceStatus(), causalContext, repoState),
+        stagedTarget: buildRuntimeStagedTarget(
+          ctx.getWorkspaceStatus(),
+          causalContext,
+          repoState,
+          persistedLocalHistory.attribution,
+        ),
         attribution: persistedLocalHistory.attribution,
         persistedLocalHistory,
       });

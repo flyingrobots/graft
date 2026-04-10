@@ -67,6 +67,16 @@ describe("0061 playback: provenance attribution instrumentation", () => {
     ]);
   });
 
+  it("When a staged artifact is present, can a human inspect its runtime-local attribution directly instead of only the broader causal workspace attribution?", () => {
+    expectMentions(designDoc, [
+      "#### Slice 3: artifact-local staged-target attribution",
+      "When a runtime-local staged target exists, project the current",
+      "attribution summary onto that staged artifact surface too.",
+      "who or what produced this current staged",
+      "artifact-history step?",
+    ]);
+  });
+
   it("Are actor classes and authority scopes explicit enough to implement without churn: `human`, `agent`, `git`, `daemon`, `unknown` and `authoritative`, `declared`, `inferred`, `mixed`?", () => {
     expectMentions(designDoc, [
       "`human`, `agent`, `git`, `daemon`, `unknown`",
@@ -102,5 +112,15 @@ describe("0061 playback: provenance attribution instrumentation", () => {
       "explicit `unknown` fallback",
       "### What remains blocked on `git-warp v17.1.0+`",
     ]);
+  });
+
+  it("Does artifact-local attribution stay honest by projecting current local evidence onto staged targets without pretending to be collapse-admitted blame?", () => {
+    expectMentions(designDoc, [
+      "#### Slice 3: artifact-local staged-target attribution",
+      "runtime-local staged target",
+      "without pretending Graft has",
+      "already performed causal collapse or canonical blame.",
+    ]);
+    expect(invariantsReadme).toContain("canonical-provenance-separate.md");
   });
 });

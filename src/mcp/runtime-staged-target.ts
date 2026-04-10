@@ -1,5 +1,5 @@
 import * as crypto from "node:crypto";
-import type { StagedTarget } from "../contracts/causal-ontology.js";
+import type { AttributionSummary, StagedTarget } from "../contracts/causal-ontology.js";
 import type { RepoObservation } from "./repo-state.js";
 import type { RuntimeCausalContext } from "./runtime-causal-context.js";
 import type { WorkspaceStatus } from "./workspace-router.js";
@@ -16,6 +16,7 @@ export interface RuntimeStagedTargetFullFile {
   readonly availability: "full_file";
   readonly stability: "runtime_local";
   readonly provenanceLevel: "artifact_history";
+  readonly attribution: AttributionSummary;
   readonly target: StagedTarget;
 }
 
@@ -23,6 +24,7 @@ export interface RuntimeStagedTargetAmbiguous {
   readonly availability: "ambiguous";
   readonly stability: "runtime_local";
   readonly provenanceLevel: "artifact_history";
+  readonly attribution: AttributionSummary;
   readonly reason:
     | "missing_head_commit"
     | "missing_workspace_overlay"
@@ -69,6 +71,7 @@ export function buildRuntimeStagedTarget(
   status: WorkspaceStatus,
   causalContext: RuntimeCausalContext,
   repoState: RepoObservation,
+  attribution: AttributionSummary,
 ): RuntimeStagedTarget {
   const observedEntries = stagedEntries(repoState.statusLines);
   if (observedEntries.length === 0) {
@@ -84,6 +87,7 @@ export function buildRuntimeStagedTarget(
       availability: "ambiguous",
       stability: "runtime_local",
       provenanceLevel: "artifact_history",
+      attribution,
       reason: "missing_head_commit",
       observedStagedPaths: observedEntries.length,
       ambiguousPaths: observedEntries.map((entry) => entry.path),
@@ -95,6 +99,7 @@ export function buildRuntimeStagedTarget(
       availability: "ambiguous",
       stability: "runtime_local",
       provenanceLevel: "artifact_history",
+      attribution,
       reason: "missing_workspace_overlay",
       observedStagedPaths: observedEntries.length,
       ambiguousPaths: observedEntries.map((entry) => entry.path),
@@ -107,6 +112,7 @@ export function buildRuntimeStagedTarget(
       availability: "ambiguous",
       stability: "runtime_local",
       provenanceLevel: "artifact_history",
+      attribution,
       reason: "modified_path_selection_requires_deeper_evidence",
       observedStagedPaths: observedEntries.length,
       ambiguousPaths: ambiguousEntries.map((entry) => entry.path),
@@ -149,6 +155,7 @@ export function buildRuntimeStagedTarget(
     availability: "full_file",
     stability: "runtime_local",
     provenanceLevel: "artifact_history",
+    attribution,
     target,
   };
 }

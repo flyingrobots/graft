@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import type { AttributionSummary } from "../../../src/contracts/causal-ontology.js";
 import type { RepoObservation } from "../../../src/mcp/repo-state.js";
 import type { WorkspaceStatus } from "../../../src/mcp/workspace-router.js";
 import { buildRuntimeCausalContext } from "../../../src/mcp/runtime-causal-context.js";
@@ -39,6 +40,21 @@ function repoState(overrides: Partial<RepoObservation> = {}): RepoObservation {
   };
 }
 
+function unknownAttribution(): AttributionSummary {
+  return {
+    actor: {
+      actorId: "unknown",
+      actorKind: "unknown",
+      displayName: "Unknown",
+      source: "test.fallback",
+      authorityScope: "inferred",
+    },
+    confidence: "unknown",
+    basis: "unknown_fallback",
+    evidence: [],
+  };
+}
+
 describe("mcp: runtime staged target", () => {
   it("reports none when there are no staged paths", () => {
     const causalContext = buildRuntimeCausalContext({
@@ -50,7 +66,7 @@ describe("mcp: runtime staged target", () => {
       warpWriterId: "graft",
     });
 
-    expect(buildRuntimeStagedTarget(boundStatus(), causalContext, repoState())).toEqual({
+    expect(buildRuntimeStagedTarget(boundStatus(), causalContext, repoState(), unknownAttribution())).toEqual({
       availability: "none",
       stability: "runtime_local",
       provenanceLevel: "artifact_history",
@@ -85,13 +101,14 @@ describe("mcp: runtime staged target", () => {
         },
       },
       statusLines: ["A  new.ts"],
-    }));
+    }), unknownAttribution());
 
     expect(stagedTarget.availability).toBe("full_file");
     if (stagedTarget.availability !== "full_file") {
       throw new Error("expected a full-file staged target");
     }
     expect(stagedTarget.target.selectionKind).toBe("full_file");
+    expect(stagedTarget.attribution).toEqual(unknownAttribution());
     expect(stagedTarget.target.selectionEntries).toEqual([
       { path: "new.ts", symbols: [], regions: [] },
     ]);
@@ -127,10 +144,11 @@ describe("mcp: runtime staged target", () => {
         },
       },
       statusLines: ["M  app.ts"],
-    }))).toEqual({
+    }), unknownAttribution())).toEqual({
       availability: "ambiguous",
       stability: "runtime_local",
       provenanceLevel: "artifact_history",
+      attribution: unknownAttribution(),
       reason: "modified_path_selection_requires_deeper_evidence",
       observedStagedPaths: 1,
       ambiguousPaths: ["app.ts"],

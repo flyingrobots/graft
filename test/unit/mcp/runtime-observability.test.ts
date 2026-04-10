@@ -117,6 +117,10 @@ describe("mcp: runtime observability", () => {
         availability: string;
         stability: string;
         provenanceLevel: string;
+        attribution?: {
+          actor: { actorKind: string };
+          confidence: string;
+        };
       };
       const persistedLocalHistory = doctor["persistedLocalHistory"] as {
         availability: string;
@@ -188,6 +192,10 @@ describe("mcp: runtime observability", () => {
           availability: string;
           reason?: string;
           ambiguousPaths?: string[];
+          attribution?: {
+            actor: { actorKind: string };
+            confidence: string;
+          };
           target?: {
             selectionKind?: string;
             selectionEntries?: { path: string }[];
@@ -197,6 +205,8 @@ describe("mcp: runtime observability", () => {
 
         expect(doctor["workspaceOverlayId"]).toMatch(/^overlay:[a-f0-9]{16}$/);
         expect(stagedTarget.availability).toBe("full_file");
+        expect(stagedTarget.attribution?.actor.actorKind).toBe("unknown");
+        expect(stagedTarget.attribution?.confidence).toBe("unknown");
         expect(stagedTarget.target?.selectionKind).toBe("full_file");
         expect(stagedTarget.target?.selectionEntries).toEqual([
           { path: "renamed.ts", symbols: [], regions: [] },

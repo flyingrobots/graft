@@ -39,6 +39,9 @@ confidence that do not outrun what the product actually knows.
       movement to `git` when that is the strongest inspectable evidence?
 - [ ] Can a human inspect attribution through bounded machine-readable
       surfaces rather than raw logs or transcripts?
+- [ ] When a staged artifact is present, can a human inspect its
+      runtime-local attribution directly instead of only the broader
+      causal workspace attribution?
 
 ### Agent
 
@@ -54,6 +57,9 @@ confidence that do not outrun what the product actually knows.
       collapse-admitted truth?
 - [ ] Is the runtime seam explicit about what evidence can currently
       prove `agent`/`human`/`git`, and what still remains `unknown`?
+- [ ] Does artifact-local attribution stay honest by projecting current
+      local evidence onto staged targets without pretending to be
+      collapse-admitted blame?
 
 ## Accessibility and Assistive Reading
 
@@ -195,6 +201,15 @@ Surface the same attribution summary through:
 - `doctor`
 
 so users and agents can inspect active-workspace attribution directly.
+
+#### Slice 3: artifact-local staged-target attribution
+
+When a runtime-local staged target exists, project the current
+attribution summary onto that staged artifact surface too.
+
+This keeps the answer to "who or what produced this current staged
+artifact-history step?" inspectable without pretending Graft has
+already performed causal collapse or canonical blame.
 
 #### Slice 3: explicit runtime honesty
 

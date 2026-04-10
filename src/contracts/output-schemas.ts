@@ -179,12 +179,14 @@ const runtimeStagedTargetSchema = z.discriminatedUnion("availability", [
   }).strict(),
   runtimeLocalProvenanceSchema.extend({
     availability: z.literal("full_file"),
+    attribution: attributionSummarySchema,
     target: stagedTargetSchema.safeExtend({
       selectionKind: z.literal("full_file"),
     }),
   }).strict(),
   runtimeLocalProvenanceSchema.extend({
     availability: z.literal("ambiguous"),
+    attribution: attributionSummarySchema,
     reason: z.enum([
       "missing_head_commit",
       "missing_workspace_overlay",
