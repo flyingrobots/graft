@@ -77,6 +77,16 @@ describe("0061 playback: provenance attribution instrumentation", () => {
     ]);
   });
 
+  it("When an unambiguous staged artifact is present, can a human inspect the latest attributed `stage` event as bounded local `artifact_history`?", () => {
+    expectMentions(designDoc, [
+      "#### Slice 4: persisted local stage events",
+      "persist a bounded",
+      "local `stage` event",
+      "the same evidence-bounded attribution summary",
+      "still runtime-local `artifact_history`, not canonical provenance.",
+    ]);
+  });
+
   it("Are actor classes and authority scopes explicit enough to implement without churn: `human`, `agent`, `git`, `daemon`, `unknown` and `authoritative`, `declared`, `inferred`, `mixed`?", () => {
     expectMentions(designDoc, [
       "`human`, `agent`, `git`, `daemon`, `unknown`",
@@ -122,5 +132,15 @@ describe("0061 playback: provenance attribution instrumentation", () => {
       "already performed causal collapse or canonical blame.",
     ]);
     expect(invariantsReadme).toContain("canonical-provenance-separate.md");
+  });
+
+  it("Does the cycle start using the causal-event contract for local attributed `stage` events without overclaiming canonical provenance?", () => {
+    expectMentions(designDoc, [
+      "#### Slice 4: persisted local stage events",
+      "the staged target id",
+      "the staged footprint",
+      "the same evidence-bounded attribution summary",
+      "not canonical provenance",
+    ]);
   });
 });

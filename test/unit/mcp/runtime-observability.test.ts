@@ -130,6 +130,7 @@ describe("mcp: runtime observability", () => {
         continuityConfidence: string;
         continuityEvidence: { evidenceKind: string }[];
         attribution: { actor: { actorKind: string }; confidence: string };
+        latestStageEvent: null;
         nextAction: string;
       };
       const attribution = doctor["attribution"] as {
@@ -166,6 +167,7 @@ describe("mcp: runtime observability", () => {
       ).toContain("mcp_transport_binding");
       expect(persistedLocalHistory.attribution.actor.actorKind).toBe("unknown");
       expect(persistedLocalHistory.attribution.confidence).toBe("unknown");
+      expect(persistedLocalHistory.latestStageEvent).toBeNull();
       expect(attribution.actor.actorKind).toBe("unknown");
       expect(persistedLocalHistory.nextAction).toBe("continue_active_causal_workspace");
     } finally {
@@ -200,7 +202,16 @@ describe("mcp: runtime observability", () => {
             selectionKind?: string;
             selectionEntries?: { path: string }[];
             workspaceOverlayId?: string;
+            targetId?: string;
           };
+        };
+        const persistedLocalHistory = doctor["persistedLocalHistory"] as {
+          latestStageEvent: {
+            eventKind: string;
+            actorId: string | null;
+            attribution: { actor: { actorKind: string }; confidence: string };
+            payload: { targetId: string; selectionKind: string };
+          } | null;
         };
 
         expect(doctor["workspaceOverlayId"]).toMatch(/^overlay:[a-f0-9]{16}$/);
@@ -212,6 +223,13 @@ describe("mcp: runtime observability", () => {
           { path: "renamed.ts", symbols: [], regions: [] },
         ]);
         expect(stagedTarget.target?.workspaceOverlayId).toBe(doctor["workspaceOverlayId"]);
+        expect(persistedLocalHistory.latestStageEvent?.eventKind).toBe("stage");
+        expect(persistedLocalHistory.latestStageEvent?.actorId).toBe("unknown");
+        expect(persistedLocalHistory.latestStageEvent?.attribution.actor.actorKind).toBe("unknown");
+        expect(persistedLocalHistory.latestStageEvent?.payload.selectionKind).toBe("full_file");
+        expect(persistedLocalHistory.latestStageEvent?.payload.targetId).toBe(
+          stagedTarget.target?.targetId,
+        );
       } finally {
         isolated.cleanup();
       }

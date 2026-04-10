@@ -28,6 +28,7 @@ export const causalAttachTool: ToolDefinition = {
         ? {
             causalContext: ctx.getCausalContext(),
             attribution: result.persistedLocalHistory.attribution,
+            latestStageEvent: result.persistedLocalHistory.latestStageEvent,
             checkoutEpoch: ctx.getRepoState().checkoutEpoch,
             lastTransition: ctx.getRepoState().lastTransition,
             workspaceOverlayId: ctx.getRepoState().workspaceOverlayId,

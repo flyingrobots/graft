@@ -334,6 +334,7 @@ const causalEventCommonSchema = z.object({
   actorId: z.string().min(1).nullable(),
   confidence: attributionConfidenceSchema,
   evidenceIds: z.array(z.string().min(1)),
+  attribution: attributionSummarySchema,
   footprint: causalFootprintSchema,
   occurredAt: z.string().min(1),
 }).strict().superRefine((event, ctx) => {
@@ -341,6 +342,31 @@ const causalEventCommonSchema = z.object({
     ctx.addIssue({
       code: "custom",
       message: "Evidence ids must be unique",
+      path: ["evidenceIds"],
+    });
+  }
+  const attributionEvidenceIds = event.attribution.evidence.map((evidence) => evidence.evidenceId);
+  if (event.actorId !== event.attribution.actor.actorId) {
+    ctx.addIssue({
+      code: "custom",
+      message: "Causal event actorId must match attribution.actor.actorId",
+      path: ["actorId"],
+    });
+  }
+  if (event.confidence !== event.attribution.confidence) {
+    ctx.addIssue({
+      code: "custom",
+      message: "Causal event confidence must match attribution.confidence",
+      path: ["confidence"],
+    });
+  }
+  if (
+    attributionEvidenceIds.length !== event.evidenceIds.length ||
+    attributionEvidenceIds.some((evidenceId, index) => evidenceId !== event.evidenceIds[index])
+  ) {
+    ctx.addIssue({
+      code: "custom",
+      message: "Causal event evidenceIds must match attribution evidence ids in order",
       path: ["evidenceIds"],
     });
   }

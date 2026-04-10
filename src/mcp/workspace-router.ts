@@ -14,6 +14,7 @@ import {
 } from "./persisted-local-history.js";
 import { RepoStateTracker } from "./repo-state.js";
 import { buildRuntimeCausalContext, type RuntimeCausalContext } from "./runtime-causal-context.js";
+import { buildRuntimeStagedTarget } from "./runtime-staged-target.js";
 import { SessionTracker } from "../session/tracker.js";
 import type { FileSystem } from "../ports/filesystem.js";
 import type { GitClient } from "../ports/git.js";
@@ -407,8 +408,10 @@ export class WorkspaceRouter {
           basis: "unknown_fallback",
           evidence: [],
         },
+        latestStageEvent: null,
         preserves: [
           "continuity_operations",
+          "stage_events",
           "runtime_context_ids",
           "workspace_overlay_snapshots",
         ],
@@ -421,10 +424,22 @@ export class WorkspaceRouter {
         nextAction: "bind_workspace_to_begin_local_history",
       };
     }
-    return this.options.persistedLocalHistory.summarize(
-      this.getStatus(),
-      this.buildCausalContext(binding, binding.slice.repoState.getState()),
-    );
+    const status = this.getStatus();
+    const repoState = binding.slice.repoState.getState();
+    const causalContext = this.buildCausalContext(binding, repoState);
+    const summary = await this.options.persistedLocalHistory.summarize(status, causalContext);
+    const stagedTarget = buildRuntimeStagedTarget(status, causalContext, repoState, summary.attribution);
+
+    if (stagedTarget.availability === "full_file") {
+      await this.options.persistedLocalHistory.noteStageObservation({
+        current: this.buildPersistedLocalHistoryContext(binding, repoState),
+        stagedTarget,
+        attribution: summary.attribution,
+      });
+      return this.options.persistedLocalHistory.summarize(status, causalContext);
+    }
+
+    return summary;
   }
 
   captureExecutionContext(): WorkspaceExecutionContext {

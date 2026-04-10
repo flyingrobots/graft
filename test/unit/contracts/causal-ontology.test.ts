@@ -120,6 +120,24 @@ describe("contracts: causal ontology", () => {
       actorId: "actor_1",
       confidence: "medium",
       evidenceIds: ["evidence_1"],
+      attribution: {
+        actor: {
+          actorId: "actor_1",
+          actorKind: "agent",
+          source: "test.read",
+          authorityScope: "declared",
+        },
+        confidence: "medium",
+        basis: "explicit_declaration",
+        evidence: [{
+          evidenceId: "evidence_1",
+          evidenceKind: "explicit_agent_declaration",
+          source: "test.read",
+          capturedAt: "2026-04-09T00:00:00.000Z",
+          strength: "strong",
+          details: {},
+        }],
+      },
       footprint: {
         paths: ["src/server.ts"],
         symbols: [],
@@ -148,6 +166,24 @@ describe("contracts: causal ontology", () => {
       actorId: "actor_1",
       confidence: "high",
       evidenceIds: ["evidence_1"],
+      attribution: {
+        actor: {
+          actorId: "actor_1",
+          actorKind: "agent",
+          source: "test.stage",
+          authorityScope: "declared",
+        },
+        confidence: "high",
+        basis: "explicit_declaration",
+        evidence: [{
+          evidenceId: "evidence_1",
+          evidenceKind: "explicit_agent_declaration",
+          source: "test.stage",
+          capturedAt: "2026-04-09T00:00:00.000Z",
+          strength: "direct",
+          details: {},
+        }],
+      },
       footprint: {
         paths: ["src/server.ts"],
         symbols: [],

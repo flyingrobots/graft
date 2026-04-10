@@ -4,11 +4,13 @@ import { z } from "zod";
 import {
   attributionSummarySchema,
   attributionConfidenceSchema,
+  stageEventSchema,
   evidenceSchema,
   getMaximumConfidenceForEvidence,
   localHistoryContinuityOperationSchema,
   type AttributionSummary,
   type AttributionConfidence,
+  type CausalEvent,
   type Evidence,
   type LocalHistoryContinuityOperation,
 } from "../contracts/causal-ontology.js";
@@ -16,10 +18,12 @@ import type { JsonCodec } from "../ports/codec.js";
 import type { FileSystem } from "../ports/filesystem.js";
 import type { RepoObservation } from "./repo-state.js";
 import type { RuntimeCausalContext } from "./runtime-causal-context.js";
+import type { RuntimeStagedTargetFullFile } from "./runtime-staged-target.js";
 import type { WorkspaceStatus } from "./workspace-router.js";
 
 const PERSISTED_LOCAL_HISTORY_PRESERVES = Object.freeze([
   "continuity_operations",
+  "stage_events",
   "runtime_context_ids",
   "workspace_overlay_snapshots",
 ] as const);
@@ -60,6 +64,7 @@ const continuityStateSchema = z.object({
   worktreeId: z.string().min(1),
   activeRecordId: z.string().min(1).nullable(),
   records: z.array(continuityRecordSchema),
+  stageEvents: z.array(stageEventSchema),
 }).strict();
 
 type ContinuityState = z.infer<typeof continuityStateSchema>;
@@ -106,6 +111,7 @@ export interface PersistedLocalHistorySummaryNone {
   readonly continuityConfidence: AttributionConfidence;
   readonly continuityEvidence: readonly Evidence[];
   readonly attribution: AttributionSummary;
+  readonly latestStageEvent: null;
   readonly preserves: readonly string[];
   readonly excludes: readonly string[];
   readonly nextAction: "bind_workspace_to_begin_local_history";
@@ -127,6 +133,7 @@ export interface PersistedLocalHistorySummaryPresent {
   readonly continuityConfidence: AttributionConfidence;
   readonly continuityEvidence: readonly Evidence[];
   readonly attribution: AttributionSummary;
+  readonly latestStageEvent: Extract<CausalEvent, { eventKind: "stage" }> | null;
   readonly preserves: readonly string[];
   readonly excludes: readonly string[];
   readonly nextAction: "continue_active_causal_workspace" | "inspect_or_resume_local_history";
@@ -202,6 +209,7 @@ function createEmptyState(continuityKey: string, repoId: string, worktreeId: str
     worktreeId,
     activeRecordId: null,
     records: [],
+    stageEvents: [],
   };
 }
 
@@ -358,6 +366,7 @@ export class PersistedLocalHistoryStore {
       continuityConfidence: lastRecord.continuityConfidence,
       continuityEvidence: lastRecord.continuityEvidence,
       attribution: effectiveRecord.attribution,
+      latestStageEvent: state.stageEvents.at(-1) ?? null,
       preserves: PERSISTED_LOCAL_HISTORY_PRESERVES,
       excludes: PERSISTED_LOCAL_HISTORY_EXCLUDES,
       nextAction: activeRecord?.causalSessionId === causalContext.causalSessionId
@@ -389,6 +398,21 @@ export class PersistedLocalHistoryStore {
       ),
       true,
     );
+    await this.saveState(state);
+  }
+
+  async noteStageObservation(input: {
+    readonly current: PersistedLocalHistoryContext;
+    readonly stagedTarget: RuntimeStagedTargetFullFile;
+    readonly attribution: AttributionSummary;
+  }): Promise<void> {
+    const continuityKey = buildContinuityKey(input.current.repoId, input.current.worktreeId);
+    const state = await this.loadState(continuityKey, input.current.repoId, input.current.worktreeId);
+    const event = this.createStageEvent(input.current, input.stagedTarget, input.attribution);
+    if (state.stageEvents.at(-1)?.eventId === event.eventId) {
+      return;
+    }
+    state.stageEvents = [...state.stageEvents, event];
     await this.saveState(state);
   }
 
@@ -675,9 +699,55 @@ export class PersistedLocalHistoryStore {
       continuityConfidence: "unknown",
       continuityEvidence: [],
       attribution: buildUnknownAttribution(),
+      latestStageEvent: null,
       preserves: PERSISTED_LOCAL_HISTORY_PRESERVES,
       excludes: PERSISTED_LOCAL_HISTORY_EXCLUDES,
       nextAction: "bind_workspace_to_begin_local_history",
+    };
+  }
+
+  private createStageEvent(
+    context: PersistedLocalHistoryContext,
+    stagedTarget: RuntimeStagedTargetFullFile,
+    attribution: AttributionSummary,
+  ): Extract<CausalEvent, { eventKind: "stage" }> {
+    const footprint = {
+      paths: stagedTarget.target.selectionEntries.map((entry) => entry.path),
+      symbols: stagedTarget.target.selectionEntries.flatMap((entry) => entry.symbols),
+      regions: stagedTarget.target.selectionEntries.flatMap((entry) => entry.regions),
+    };
+
+    return {
+      eventId: stableId(
+        "event",
+        JSON.stringify({
+          eventKind: "stage",
+          targetId: stagedTarget.target.targetId,
+          actorId: attribution.actor.actorId,
+          confidence: attribution.confidence,
+          evidenceIds: attribution.evidence.map((evidence) => evidence.evidenceId),
+        }),
+      ),
+      eventKind: "stage",
+      repoId: context.repoId,
+      worktreeId: context.worktreeId,
+      checkoutEpochId: context.checkoutEpochId,
+      workspaceOverlayId: context.workspaceOverlayId,
+      transportSessionId: context.transportSessionId,
+      workspaceSliceId: context.workspaceSliceId,
+      causalSessionId: context.causalSessionId,
+      strandId: context.strandId,
+      actorId: attribution.actor.actorId,
+      confidence: attribution.confidence,
+      evidenceIds: attribution.evidence.map((evidence) => evidence.evidenceId),
+      attribution,
+      footprint,
+      occurredAt: context.observedAt,
+      payload: {
+        targetId: stagedTarget.target.targetId,
+        footprint,
+        selectionKind: stagedTarget.target.selectionKind,
+      },
     };
   }
 

@@ -42,6 +42,9 @@ confidence that do not outrun what the product actually knows.
 - [ ] When a staged artifact is present, can a human inspect its
       runtime-local attribution directly instead of only the broader
       causal workspace attribution?
+- [ ] When an unambiguous staged artifact is present, can a human
+      inspect the latest attributed `stage` event as bounded local
+      `artifact_history`?
 
 ### Agent
 
@@ -60,6 +63,9 @@ confidence that do not outrun what the product actually knows.
 - [ ] Does artifact-local attribution stay honest by projecting current
       local evidence onto staged targets without pretending to be
       collapse-admitted blame?
+- [ ] Does the cycle start using the causal-event contract for local
+      attributed `stage` events without overclaiming canonical
+      provenance?
 
 ## Accessibility and Assistive Reading
 
@@ -211,7 +217,19 @@ This keeps the answer to "who or what produced this current staged
 artifact-history step?" inspectable without pretending Graft has
 already performed causal collapse or canonical blame.
 
-#### Slice 3: explicit runtime honesty
+#### Slice 4: persisted local stage events
+
+When the staged target is unambiguous and full-file, persist a bounded
+local `stage` event that carries:
+
+- the staged target id
+- the staged footprint
+- the same evidence-bounded attribution summary
+
+This is the first honest attributed local artifact-history event. It is
+still runtime-local `artifact_history`, not canonical provenance.
+
+#### Slice 5: explicit runtime honesty
 
 Keep attribution explicitly runtime-local:
 
