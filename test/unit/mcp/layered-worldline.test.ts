@@ -365,10 +365,18 @@ describe("mcp: layered worldline model", { timeout: 15000 }, () => {
           fromRef?: string;
           toRef?: string;
         } | undefined;
+        const semanticTransition = doctor["semanticTransition"] as {
+          kind?: string;
+          phase?: string | null;
+          authority?: string;
+        } | null;
         expect(transition).toBeDefined();
         expect(transition?.kind).toBe("merge");
         expect(transition?.fromRef).toBe("feature");
         expect(transition?.toRef).toBe(baseBranch);
+        expect(semanticTransition?.kind).toBe("merge_phase");
+        expect(semanticTransition?.phase).toBe("completed_or_cleared");
+        expect(semanticTransition?.authority).toBe("repo_snapshot");
       } finally {
         cleanupTestRepo(tmpDir);
       }
@@ -398,8 +406,16 @@ describe("mcp: layered worldline model", { timeout: 15000 }, () => {
 
         const doctor = parse(await server.callTool("doctor", {}));
         const transition = doctor["lastTransition"] as { kind?: string } | undefined;
+        const semanticTransition = doctor["semanticTransition"] as {
+          kind?: string;
+          phase?: string | null;
+          authority?: string;
+        } | null;
         expect(transition).toBeDefined();
         expect(transition?.kind).toBe("rebase");
+        expect(semanticTransition?.kind).toBe("rebase_phase");
+        expect(semanticTransition?.phase).toBe("completed_or_cleared");
+        expect(semanticTransition?.authority).toBe("repo_snapshot");
 
         const refView = parse(await server.callTool("graft_since", {
           base: baseBranch,

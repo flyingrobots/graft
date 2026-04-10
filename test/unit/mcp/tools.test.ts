@@ -203,6 +203,7 @@ describe("mcp: tool handlers", () => {
         degraded: true,
       }),
     );
+    expect(parsed["semanticTransition"]).toBeNull();
   });
 
   it("causal_status returns the active causal workspace posture", async () => {
@@ -215,6 +216,7 @@ describe("mcp: tool handlers", () => {
       attribution: { actor: { actorKind: string }; confidence: string };
       latestReadEvent: null;
       latestStageEvent: null;
+      semanticTransition: { kind: string; authority: string; phase: string | null } | null;
       workspaceOverlayFooting: {
         observationMode: string;
         lineagePosture: string;
@@ -232,6 +234,7 @@ describe("mcp: tool handlers", () => {
     expect(activeCausalWorkspace.attribution.actor.actorKind).toBe("unknown");
     expect(activeCausalWorkspace.attribution.confidence).toBe("unknown");
     expect(activeCausalWorkspace.latestStageEvent).toBeNull();
+    expect(activeCausalWorkspace.semanticTransition).toBeNull();
     expect(activeCausalWorkspace.workspaceOverlayFooting.observationMode).toBe("inferred_between_tool_calls");
     expect(activeCausalWorkspace.workspaceOverlayFooting.lineagePosture).toBe("stable");
     expect(activeCausalWorkspace.workspaceOverlayFooting.boundaryAuthority).toBe("none");
@@ -290,6 +293,7 @@ describe("mcp: tool handlers", () => {
       attribution: { actor: { actorKind: string }; confidence: string };
       latestReadEvent: null;
       latestStageEvent: null;
+      semanticTransition: { kind: string; authority: string; phase: string | null } | null;
       workspaceOverlayFooting: {
         observationMode: string;
         lineagePosture: string;
@@ -322,6 +326,7 @@ describe("mcp: tool handlers", () => {
     expect(activeCausalWorkspace.attribution.actor.actorKind).toBe("agent");
     expect(activeCausalWorkspace.latestReadEvent).toBeNull();
     expect(activeCausalWorkspace.latestStageEvent).toBeNull();
+    expect(activeCausalWorkspace.semanticTransition).toBeNull();
     expect(activeCausalWorkspace.workspaceOverlayFooting.observationMode).toBe("inferred_between_tool_calls");
     expect(activeCausalWorkspace.workspaceOverlayFooting.lineagePosture).toBe("forked_after_transition");
     expect(activeCausalWorkspace.workspaceOverlayFooting.boundaryAuthority).toBe("repo_snapshot");

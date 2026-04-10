@@ -313,6 +313,42 @@ const repoTransitionSchema = z.object({
   }).strict(),
 }).strict();
 
+const repoSemanticTransitionSchema = z.object({
+  kind: z.enum([
+    "index_update",
+    "conflict_resolution",
+    "merge_phase",
+    "rebase_phase",
+    "bulk_transition",
+    "unknown",
+  ]),
+  authority: z.enum([
+    "authoritative_git_state",
+    "repo_snapshot",
+  ]),
+  phase: z.enum([
+    "started",
+    "conflicted",
+    "resolved_waiting_commit",
+    "continued",
+    "completed_or_cleared",
+  ]).nullable(),
+  summary: z.string(),
+  evidence: z.object({
+    totalPaths: z.number().int().nonnegative(),
+    stagedPaths: z.number().int().nonnegative(),
+    changedPaths: z.number().int().nonnegative(),
+    untrackedPaths: z.number().int().nonnegative(),
+    unmergedPaths: z.number().int().nonnegative(),
+    mergeInProgress: z.boolean(),
+    rebaseInProgress: z.boolean(),
+    rebaseStep: z.number().int().positive().nullable(),
+    rebaseTotalSteps: z.number().int().positive().nullable(),
+    lastTransitionKind: repoTransitionKindSchema.nullable(),
+    reflogSubject: z.string().nullable(),
+  }).strict(),
+}).strict();
+
 const workspaceOverlaySummarySchema = z.object({
   dirty: z.literal(true),
   totalPaths: z.number().int().nonnegative(),
@@ -422,6 +458,7 @@ const activeCausalWorkspaceSchema = z.object({
   latestStageEvent: stageEventSchema.nullable(),
   checkoutEpoch: z.number().int().nonnegative(),
   lastTransition: repoTransitionSchema.nullable(),
+  semanticTransition: repoSemanticTransitionSchema.nullable(),
   workspaceOverlayId: z.string().nullable(),
   workspaceOverlay: workspaceOverlaySummarySchema.nullable(),
   workspaceOverlayFooting: workspaceOverlayFootingSchema,
@@ -858,6 +895,7 @@ const mcpOutputBodySchemas: Record<McpToolName, z.ZodType> = {
     latestStageEvent: stageEventSchema.nullable(),
     checkoutEpoch: z.number().int().nonnegative(),
     lastTransition: repoTransitionSchema.nullable(),
+    semanticTransition: repoSemanticTransitionSchema.nullable(),
     workspaceOverlayId: z.string().nullable(),
     workspaceOverlay: workspaceOverlaySummarySchema.nullable(),
     workspaceOverlayFooting: workspaceOverlayFootingSchema,

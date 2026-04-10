@@ -35,6 +35,7 @@ export const causalAttachTool: ToolDefinition = {
             latestStageEvent: result.persistedLocalHistory.latestStageEvent,
             checkoutEpoch: repoState.checkoutEpoch,
             lastTransition: repoState.lastTransition,
+            semanticTransition: repoState.semanticTransition,
             workspaceOverlayId: repoState.workspaceOverlayId,
             workspaceOverlay: repoState.workspaceOverlay,
             workspaceOverlayFooting,

@@ -30,6 +30,7 @@ export const causalStatusTool: ToolDefinition = {
           latestStageEvent: persistedLocalHistory.latestStageEvent,
           checkoutEpoch: repoState.checkoutEpoch,
           lastTransition: repoState.lastTransition,
+          semanticTransition: repoState.semanticTransition,
           workspaceOverlayId: repoState.workspaceOverlayId,
           workspaceOverlay: repoState.workspaceOverlay,
           workspaceOverlayFooting,

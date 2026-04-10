@@ -171,6 +171,12 @@ describe("mcp: runtime observability", () => {
           supportsCheckoutBoundaries: boolean;
         };
       };
+      const semanticTransition = doctor["semanticTransition"] as {
+        kind: string;
+        authority: string;
+        phase: string | null;
+        summary: string;
+      } | null;
       const latestReadEvent = doctor["latestReadEvent"] as {
         eventKind: string;
         attribution: { actor: { actorKind: string }; confidence: string };
@@ -230,6 +236,7 @@ describe("mcp: runtime observability", () => {
         "post-rewrite",
       ]);
       expect(workspaceOverlayFooting.hookBootstrap.supportsCheckoutBoundaries).toBe(false);
+      expect(semanticTransition).toBeNull();
       expect(latestReadEvent).toBeNull();
       expect(doctor["workspaceOverlayId"]).toBeNull();
       expect(stagedTarget).toEqual({
@@ -296,6 +303,13 @@ describe("mcp: runtime observability", () => {
           workspaceOverlay: { stagedPaths: number; changedPaths: number } | null;
           hookBootstrap: { posture: string; supportsCheckoutBoundaries: boolean };
         };
+        const semanticTransition = doctor["semanticTransition"] as {
+          kind: string;
+          authority: string;
+          phase: string | null;
+          summary: string;
+          evidence: { stagedPaths: number; totalPaths: number };
+        } | null;
         const persistedLocalHistory = doctor["persistedLocalHistory"] as {
           latestStageEvent: {
             eventKind: string;
@@ -318,6 +332,11 @@ describe("mcp: runtime observability", () => {
         ).toBeGreaterThan(0);
         expect(workspaceOverlayFooting.hookBootstrap.posture).toBe("absent");
         expect(workspaceOverlayFooting.hookBootstrap.supportsCheckoutBoundaries).toBe(false);
+        expect(semanticTransition?.kind).toBe("index_update");
+        expect(semanticTransition?.authority).toBe("repo_snapshot");
+        expect(semanticTransition?.phase ?? null).toBeNull();
+        expect(semanticTransition?.evidence.stagedPaths).toBeGreaterThan(0);
+        expect(semanticTransition?.evidence.totalPaths).toBeGreaterThan(0);
         expect(["full_file", "ambiguous"]).toContain(stagedTarget.availability);
         expect(stagedTarget.attribution?.actor.actorKind).toBe("unknown");
         expect(stagedTarget.attribution?.confidence).toBe("unknown");

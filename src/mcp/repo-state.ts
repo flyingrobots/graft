@@ -4,6 +4,22 @@ import type { FileSystem } from "../ports/filesystem.js";
 
 export type WorldlineLayer = "commit_worldline" | "ref_view" | "workspace_overlay";
 export type RepoTransitionKind = "checkout" | "reset" | "merge" | "rebase";
+export type RepoSemanticTransitionKind =
+  | "index_update"
+  | "conflict_resolution"
+  | "merge_phase"
+  | "rebase_phase"
+  | "bulk_transition"
+  | "unknown";
+export type RepoSemanticTransitionAuthority =
+  | "authoritative_git_state"
+  | "repo_snapshot";
+export type RepoSemanticTransitionPhase =
+  | "started"
+  | "conflicted"
+  | "resolved_waiting_commit"
+  | "continued"
+  | "completed_or_cleared";
 
 export interface RepoTransition {
   readonly kind: RepoTransitionKind;
@@ -12,6 +28,26 @@ export interface RepoTransition {
   readonly fromCommit: string | null;
   readonly toCommit: string | null;
   readonly evidence: {
+    readonly reflogSubject: string | null;
+  };
+}
+
+export interface RepoSemanticTransition {
+  readonly kind: RepoSemanticTransitionKind;
+  readonly authority: RepoSemanticTransitionAuthority;
+  readonly phase: RepoSemanticTransitionPhase | null;
+  readonly summary: string;
+  readonly evidence: {
+    readonly totalPaths: number;
+    readonly stagedPaths: number;
+    readonly changedPaths: number;
+    readonly untrackedPaths: number;
+    readonly unmergedPaths: number;
+    readonly mergeInProgress: boolean;
+    readonly rebaseInProgress: boolean;
+    readonly rebaseStep: number | null;
+    readonly rebaseTotalSteps: number | null;
+    readonly lastTransitionKind: RepoTransitionKind | null;
     readonly reflogSubject: string | null;
   };
 }
@@ -38,9 +74,16 @@ export interface RepoObservation {
   readonly dirty: boolean;
   readonly observedAt: string;
   readonly lastTransition: RepoTransition | null;
+  readonly semanticTransition: RepoSemanticTransition | null;
   readonly workspaceOverlayId: string | null;
   readonly workspaceOverlay: WorkspaceOverlaySummary | null;
   readonly statusLines: readonly string[];
+}
+
+interface RebaseProgressState {
+  readonly inProgress: boolean;
+  readonly step: number | null;
+  readonly total: number | null;
 }
 
 interface RepoSnapshot {
@@ -53,6 +96,9 @@ interface RepoSnapshot {
   readonly stagedPaths: number;
   readonly changedPaths: number;
   readonly untrackedPaths: number;
+  readonly unmergedPaths: number;
+  readonly mergeInProgress: boolean;
+  readonly rebase: RebaseProgressState;
   readonly headReflog: HeadReflogEntry | null;
 }
 
@@ -99,6 +145,30 @@ async function readGitLines(gitClient: GitClient, args: readonly string[], cwd: 
   return value === null ? [] : value.split("\n");
 }
 
+async function readGitPathText(
+  fs: FileSystem,
+  gitClient: GitClient,
+  cwd: string,
+  gitPath: string,
+): Promise<string | null> {
+  const resolvedPath = await readGit(gitClient, ["rev-parse", "--path-format=absolute", "--git-path", gitPath], cwd);
+  if (resolvedPath === null) return null;
+
+  try {
+    const content = await fs.readFile(resolvedPath, "utf-8");
+    const value = content.trim();
+    return value.length > 0 ? value : null;
+  } catch {
+    return null;
+  }
+}
+
+function parseOptionalInt(value: string | null): number | null {
+  if (value === null) return null;
+  const parsed = Number.parseInt(value, 10);
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
 function countStatusLines(statusLines: readonly string[]): {
   stagedPaths: number;
   changedPaths: number;
@@ -120,6 +190,11 @@ function countStatusLines(statusLines: readonly string[]): {
   }
 
   return { stagedPaths, changedPaths, untrackedPaths };
+}
+
+async function countUnmergedPaths(gitClient: GitClient, cwd: string): Promise<number> {
+  const paths = await readGitLines(gitClient, ["diff", "--name-only", "--diff-filter=U", "--"], cwd);
+  return new Set(paths.filter((value) => value.length > 0)).size;
 }
 
 function mergeStatusLines(
@@ -164,6 +239,45 @@ async function readParentShas(gitClient: GitClient, cwd: string, headSha: string
   const raw = await readGit(gitClient, ["show", "-s", "--format=%P", headSha], cwd);
   if (raw === null || raw.trim().length === 0) return [];
   return raw.trim().split(/\s+/).filter((sha) => sha.length > 0);
+}
+
+async function readMergeInProgress(
+  fs: FileSystem,
+  gitClient: GitClient,
+  cwd: string,
+): Promise<boolean> {
+  return (await readGitPathText(fs, gitClient, cwd, "MERGE_HEAD")) !== null;
+}
+
+async function readRebaseProgressState(
+  fs: FileSystem,
+  gitClient: GitClient,
+  cwd: string,
+): Promise<RebaseProgressState> {
+  const mergeHead = await readGitPathText(fs, gitClient, cwd, "rebase-merge/head-name");
+  if (mergeHead !== null) {
+    return {
+      inProgress: true,
+      step: parseOptionalInt(await readGitPathText(fs, gitClient, cwd, "rebase-merge/msgnum")),
+      total: parseOptionalInt(await readGitPathText(fs, gitClient, cwd, "rebase-merge/end")),
+    };
+  }
+
+  const applyHead = await readGitPathText(fs, gitClient, cwd, "rebase-apply/head-name");
+  if (applyHead !== null) {
+    return {
+      inProgress: true,
+      step: parseOptionalInt(await readGitPathText(fs, gitClient, cwd, "rebase-apply/next")),
+      total: parseOptionalInt(await readGitPathText(fs, gitClient, cwd, "rebase-apply/last")),
+    };
+  }
+
+  const rebaseHead = await readGitPathText(fs, gitClient, cwd, "REBASE_HEAD");
+  return {
+    inProgress: rebaseHead !== null,
+    step: null,
+    total: null,
+  };
 }
 
 async function readHeadReflog(fs: FileSystem, gitClient: GitClient, cwd: string): Promise<HeadReflogEntry | null> {
@@ -225,6 +339,9 @@ async function captureSnapshot(cwd: string, fs: FileSystem, gitClient: GitClient
     await readGitLines(gitClient, ["ls-files", "--others", "--exclude-standard"], cwd),
   );
   const counts = countStatusLines(statusLines);
+  const unmergedPaths = await countUnmergedPaths(gitClient, cwd);
+  const mergeInProgress = await readMergeInProgress(fs, gitClient, cwd);
+  const rebase = await readRebaseProgressState(fs, gitClient, cwd);
 
   return {
     headRef: await readGit(gitClient, ["symbolic-ref", "--quiet", "--short", "HEAD"], cwd),
@@ -234,6 +351,9 @@ async function captureSnapshot(cwd: string, fs: FileSystem, gitClient: GitClient
     statusLines,
     dirty: statusLines.length > 0,
     ...counts,
+    unmergedPaths,
+    mergeInProgress,
+    rebase,
     headReflog: await readHeadReflog(fs, gitClient, cwd),
   };
 }
@@ -261,10 +381,181 @@ function buildWorkspaceOverlay(snapshot: RepoSnapshot): WorkspaceOverlaySummary 
   };
 }
 
+function buildSemanticTransitionEvidence(
+  snapshot: RepoSnapshot,
+  lastTransition: RepoTransition | null,
+): RepoSemanticTransition["evidence"] {
+  return {
+    totalPaths: snapshot.statusLines.length,
+    stagedPaths: snapshot.stagedPaths,
+    changedPaths: snapshot.changedPaths,
+    untrackedPaths: snapshot.untrackedPaths,
+    unmergedPaths: snapshot.unmergedPaths,
+    mergeInProgress: snapshot.mergeInProgress,
+    rebaseInProgress: snapshot.rebase.inProgress,
+    rebaseStep: snapshot.rebase.step,
+    rebaseTotalSteps: snapshot.rebase.total,
+    lastTransitionKind: lastTransition?.kind ?? null,
+    reflogSubject: lastTransition?.evidence.reflogSubject ?? snapshot.headReflog?.subject ?? null,
+  };
+}
+
+function buildSemanticTransitionSummary(
+  kind: RepoSemanticTransitionKind,
+  evidence: RepoSemanticTransition["evidence"],
+  phase: RepoSemanticTransitionPhase | null,
+): string {
+  switch (kind) {
+    case "merge_phase":
+      switch (phase) {
+        case "conflicted":
+          return `Merge is in conflict across ${String(evidence.unmergedPaths)} path(s).`;
+        case "resolved_waiting_commit":
+          return "Merge conflicts are cleared and the merge is waiting for commit/admission.";
+        case "completed_or_cleared":
+          return "Merge transition completed or merge state has cleared.";
+        case "started":
+          return "Merge started and is now inspectable as active repo state.";
+        case "continued":
+          return "Merge progressed and remains active.";
+        default:
+          return "Merge state is active.";
+      }
+    case "rebase_phase":
+      switch (phase) {
+        case "conflicted":
+          return `Rebase is in conflict across ${String(evidence.unmergedPaths)} path(s).`;
+        case "continued":
+          return evidence.rebaseStep !== null && evidence.rebaseTotalSteps !== null
+            ? `Rebase continued at step ${String(evidence.rebaseStep)} of ${String(evidence.rebaseTotalSteps)}.`
+            : "Rebase continued and remains active.";
+        case "completed_or_cleared":
+          return "Rebase transition completed or rebase state has cleared.";
+        case "started":
+          return "Rebase started and is now inspectable as active repo state.";
+        case "resolved_waiting_commit":
+          return "Rebase conflicts are cleared and the rebase is waiting for the next step.";
+        default:
+          return "Rebase state is active.";
+      }
+    case "conflict_resolution":
+      return evidence.unmergedPaths > 0
+        ? `Conflict posture is active across ${String(evidence.unmergedPaths)} path(s).`
+        : "Conflict posture cleared after an explicit conflict-resolution movement.";
+    case "index_update":
+      return evidence.totalPaths > 1
+        ? `Index/staging boundary changed across ${String(evidence.totalPaths)} path(s).`
+        : "Index/staging boundary changed.";
+    case "bulk_transition":
+      return `Bulk transition movement spans ${String(evidence.totalPaths)} path(s) with ${String(evidence.stagedPaths)} staged and ${String(evidence.changedPaths)} unstaged changes.`;
+    case "unknown":
+      return "Repo/workspace movement is inspectable, but the semantic transition meaning remains unknown.";
+  }
+}
+
+function buildSemanticTransition(
+  previous: RepoSnapshot | null,
+  current: RepoSnapshot,
+  lastTransition: RepoTransition | null,
+): RepoSemanticTransition | null {
+  const evidence = buildSemanticTransitionEvidence(current, lastTransition);
+
+  if (current.mergeInProgress) {
+    return {
+      kind: "merge_phase",
+      authority: "authoritative_git_state",
+      phase: current.unmergedPaths > 0 ? "conflicted" : "resolved_waiting_commit",
+      summary: buildSemanticTransitionSummary(
+        "merge_phase",
+        evidence,
+        current.unmergedPaths > 0 ? "conflicted" : "resolved_waiting_commit",
+      ),
+      evidence,
+    };
+  }
+
+  if (current.rebase.inProgress) {
+    const phase: RepoSemanticTransitionPhase = current.unmergedPaths > 0
+      ? "conflicted"
+      : ((current.rebase.step ?? 1) > 1 ? "continued" : "started");
+    return {
+      kind: "rebase_phase",
+      authority: "authoritative_git_state",
+      phase,
+      summary: buildSemanticTransitionSummary("rebase_phase", evidence, phase),
+      evidence,
+    };
+  }
+
+  const unmergedChanged = previous !== null && previous.unmergedPaths !== current.unmergedPaths;
+  if (current.unmergedPaths > 0 || unmergedChanged) {
+    return {
+      kind: "conflict_resolution",
+      authority: "authoritative_git_state",
+      phase: null,
+      summary: buildSemanticTransitionSummary("conflict_resolution", evidence, null),
+      evidence,
+    };
+  }
+
+  if (lastTransition?.kind === "merge") {
+    return {
+      kind: "merge_phase",
+      authority: "repo_snapshot",
+      phase: "completed_or_cleared",
+      summary: buildSemanticTransitionSummary("merge_phase", evidence, "completed_or_cleared"),
+      evidence,
+    };
+  }
+
+  if (lastTransition?.kind === "rebase") {
+    return {
+      kind: "rebase_phase",
+      authority: "repo_snapshot",
+      phase: "completed_or_cleared",
+      summary: buildSemanticTransitionSummary("rebase_phase", evidence, "completed_or_cleared"),
+      evidence,
+    };
+  }
+
+  if (current.statusLines.length >= 8) {
+    return {
+      kind: "bulk_transition",
+      authority: "repo_snapshot",
+      phase: null,
+      summary: buildSemanticTransitionSummary("bulk_transition", evidence, null),
+      evidence,
+    };
+  }
+
+  if (current.stagedPaths > 0) {
+    return {
+      kind: "index_update",
+      authority: "repo_snapshot",
+      phase: null,
+      summary: buildSemanticTransitionSummary("index_update", evidence, null),
+      evidence,
+    };
+  }
+
+  if (current.statusLines.length > 0) {
+    return {
+      kind: "unknown",
+      authority: "repo_snapshot",
+      phase: null,
+      summary: buildSemanticTransitionSummary("unknown", evidence, null),
+      evidence,
+    };
+  }
+
+  return null;
+}
+
 function buildObservation(
   snapshot: RepoSnapshot,
   checkoutEpoch: number,
   lastTransition: RepoTransition | null,
+  semanticTransition: RepoSemanticTransition | null,
 ): RepoObservation {
   return {
     checkoutEpoch,
@@ -273,6 +564,7 @@ function buildObservation(
     dirty: snapshot.dirty,
     observedAt: snapshot.observedAt,
     lastTransition,
+    semanticTransition,
     workspaceOverlayId: buildWorkspaceOverlayId(snapshot, checkoutEpoch),
     workspaceOverlay: buildWorkspaceOverlay(snapshot),
     statusLines: snapshot.statusLines,
@@ -437,6 +729,7 @@ export class RepoStateTracker {
     dirty: false,
     observedAt: new Date(0).toISOString(),
     lastTransition: null,
+    semanticTransition: null,
     workspaceOverlayId: null,
     workspaceOverlay: null,
     statusLines: [],
@@ -476,6 +769,7 @@ export class RepoStateTracker {
       nextSnapshot,
       this.checkoutEpoch,
       transition ?? this.observation.lastTransition,
+      buildSemanticTransition(previousSnapshot, nextSnapshot, transition),
     );
     return this.observation;
   }
@@ -489,7 +783,12 @@ export class RepoStateTracker {
     this.initialization = (async () => {
       const snapshot = await captureSnapshot(this.cwd, this.fs, this.gitClient);
       this.snapshot = snapshot;
-      this.observation = buildObservation(snapshot, this.checkoutEpoch, null);
+      this.observation = buildObservation(
+        snapshot,
+        this.checkoutEpoch,
+        null,
+        buildSemanticTransition(null, snapshot, null),
+      );
     })();
 
     await this.initialization;

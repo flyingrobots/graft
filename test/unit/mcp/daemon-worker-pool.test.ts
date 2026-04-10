@@ -25,6 +25,7 @@ function repoObservation(repoDir: string, options?: { dirty?: boolean }): RepoOb
     dirty,
     observedAt: "2026-04-09T00:00:00.000Z",
     lastTransition: null,
+    semanticTransition: null,
     workspaceOverlayId: dirty ? "overlay:test" : null,
     workspaceOverlay: dirty ? {
       dirty: true,

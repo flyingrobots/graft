@@ -265,6 +265,7 @@ describe("0058 playback: system-wide resource pressure and fairness", () => {
         dirty: false,
         observedAt: "2026-04-09T00:00:00.000Z",
         lastTransition: null,
+        semanticTransition: null,
         workspaceOverlayId: null,
         workspaceOverlay: null,
         statusLines: [],
