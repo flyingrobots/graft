@@ -3,11 +3,16 @@ import * as path from "node:path";
 import { describe, expect, it } from "vitest";
 import { nodeFs } from "../../../src/adapters/node-fs.js";
 import { nodeGit } from "../../../src/adapters/node-git.js";
+import { runInit } from "../../../src/cli/init.js";
 import {
   buildRuntimeWorkspaceOverlayFooting,
   inspectGitHookBootstrap,
 } from "../../../src/mcp/runtime-workspace-overlay.js";
 import { cleanupTestRepo, createTestRepo, git } from "../../helpers/git.js";
+
+function silentWriter() {
+  return { write(): true { return true; } };
+}
 
 describe("mcp: runtime workspace overlay footing", () => {
   it("reports absent target-repo git transition hooks by default", async () => {
@@ -102,6 +107,46 @@ describe("mcp: runtime workspace overlay footing", () => {
       expect(footing.checkoutEpoch).toBe(3);
       expect(footing.workspaceOverlayId).toBe("overlay:test");
       expect(footing.hookBootstrap.posture).toBe("absent");
+    } finally {
+      cleanupTestRepo(repoDir);
+    }
+  });
+
+  it("recognizes installed graft target-repo hooks and narrows degradation honestly", async () => {
+    const repoDir = createTestRepo("graft-runtime-overlay-hooks-installed-");
+    try {
+      runInit({
+        cwd: repoDir,
+        args: ["--write-target-git-hooks"],
+        stdout: silentWriter(),
+        stderr: silentWriter(),
+      });
+      const gitCommonDir = git(repoDir, "rev-parse --git-common-dir");
+
+      const footing = await buildRuntimeWorkspaceOverlayFooting(
+        nodeFs,
+        nodeGit,
+        repoDir,
+        path.resolve(repoDir, gitCommonDir),
+        {
+          checkoutEpoch: 2,
+          lastTransition: null,
+          workspaceOverlayId: "overlay:hooked",
+          workspaceOverlay: null,
+        },
+      );
+
+      expect(footing.observationMode).toBe("inferred_between_tool_calls");
+      expect(footing.degraded).toBe(true);
+      expect(footing.degradedReason).toBe("local_edit_watchers_absent");
+      expect(footing.hookBootstrap.posture).toBe("installed");
+      expect(footing.hookBootstrap.presentHooks).toEqual([
+        "post-checkout",
+        "post-merge",
+        "post-rewrite",
+      ]);
+      expect(footing.hookBootstrap.missingHooks).toEqual([]);
+      expect(footing.hookBootstrap.supportsCheckoutBoundaries).toBe(true);
     } finally {
       cleanupTestRepo(repoDir);
     }

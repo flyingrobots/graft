@@ -181,6 +181,16 @@ The core questions are:
   `core.hooksPath` and existing repo hooks
 - what Graft can still claim honestly when hooks are absent
 
+Initial product seam for this cycle:
+
+- `graft init --write-target-git-hooks` may install the minimum
+  transition shims for `post-checkout`, `post-merge`, and
+  `post-rewrite`
+- bootstrap must preserve external hook scripts instead of overwriting
+  them
+- installed checkout-boundary hooks improve lifecycle certainty without
+  pretending local edit reactivity is solved
+
 ### Surfaces for this cycle
 
 1. **Design and contract**

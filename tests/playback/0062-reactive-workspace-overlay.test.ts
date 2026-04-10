@@ -93,6 +93,7 @@ describe("0062 playback: reactive workspace overlay", () => {
       "required",
       "companion seam, not a distant optional extra.",
       "what minimum product hook shim is required",
+      "`graft init --write-target-git-hooks`",
       "what Graft can still claim honestly when hooks are absent",
     ]);
   });

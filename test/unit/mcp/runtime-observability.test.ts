@@ -1,6 +1,7 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
 import { describe, expect, it } from "vitest";
+import { runInit } from "../../../src/cli/init.js";
 import { createIsolatedServer, fixturePath, parse } from "../../helpers/mcp.js";
 import { cleanupTestRepo, createTestRepo, git } from "../../helpers/git.js";
 
@@ -28,6 +29,10 @@ function readRuntimeLog(logPath: string): RuntimeEvent[] {
     .split("\n")
     .filter((line) => line.length > 0)
     .map((line) => JSON.parse(line) as RuntimeEvent);
+}
+
+function silentWriter() {
+  return { write(): true { return true; } };
 }
 
 describe("mcp: runtime observability", () => {
@@ -429,6 +434,56 @@ describe("mcp: runtime observability", () => {
         const excludePath = path.join(repoDir, ".git", "info", "exclude");
         const exclude = fs.readFileSync(excludePath, "utf-8");
         expect(exclude).toContain(".graft/");
+      } finally {
+        isolated.cleanup();
+      }
+    } finally {
+      cleanupTestRepo(repoDir);
+    }
+  });
+
+  it("surfaces installed target-repo git hooks without pretending local edit reactivity", async () => {
+    const repoDir = createTestRepo("graft-runtime-overlay-installed-");
+    try {
+      fs.writeFileSync(path.join(repoDir, "app.ts"), "export const ready = true;\n");
+      git(repoDir, "add -A");
+      git(repoDir, "commit -m init");
+      runInit({
+        cwd: repoDir,
+        args: ["--write-target-git-hooks"],
+        stdout: silentWriter(),
+        stderr: silentWriter(),
+      });
+
+      const isolated = createIsolatedServer({
+        projectRoot: repoDir,
+        graftDir: path.join(repoDir, ".graft"),
+      });
+      try {
+        const doctor = parse(await isolated.server.callTool("doctor", {}));
+        const workspaceOverlayFooting = doctor["workspaceOverlayFooting"] as {
+          observationMode: string;
+          degraded: boolean;
+          degradedReason: string;
+          hookBootstrap: {
+            posture: string;
+            presentHooks: string[];
+            missingHooks: string[];
+            supportsCheckoutBoundaries: boolean;
+          };
+        };
+
+        expect(workspaceOverlayFooting.observationMode).toBe("inferred_between_tool_calls");
+        expect(workspaceOverlayFooting.degraded).toBe(true);
+        expect(workspaceOverlayFooting.degradedReason).toBe("local_edit_watchers_absent");
+        expect(workspaceOverlayFooting.hookBootstrap.posture).toBe("installed");
+        expect(workspaceOverlayFooting.hookBootstrap.presentHooks).toEqual([
+          "post-checkout",
+          "post-merge",
+          "post-rewrite",
+        ]);
+        expect(workspaceOverlayFooting.hookBootstrap.missingHooks).toEqual([]);
+        expect(workspaceOverlayFooting.hookBootstrap.supportsCheckoutBoundaries).toBe(true);
       } finally {
         isolated.cleanup();
       }

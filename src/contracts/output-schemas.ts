@@ -328,13 +328,13 @@ const workspaceOverlaySummarySchema = z.object({
 }).strict();
 
 const gitHookBootstrapStatusSchema = z.object({
-  posture: z.enum(["absent", "external_unknown"]),
+  posture: z.enum(["absent", "external_unknown", "installed"]),
   configuredCoreHooksPath: z.string().nullable(),
   resolvedHooksPath: z.string(),
   requiredHooks: z.array(z.string()),
   presentHooks: z.array(z.string()),
   missingHooks: z.array(z.string()),
-  supportsCheckoutBoundaries: z.literal(false),
+  supportsCheckoutBoundaries: z.boolean(),
 }).strict();
 
 const workspaceOverlayFootingSchema = z.object({
@@ -343,6 +343,7 @@ const workspaceOverlayFootingSchema = z.object({
   degradedReason: z.enum([
     "target_repo_hooks_absent",
     "target_repo_hooks_unrecognized",
+    "local_edit_watchers_absent",
   ]),
   checkoutEpoch: z.number().int().nonnegative(),
   lastTransition: repoTransitionSchema.nullable(),

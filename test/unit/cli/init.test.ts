@@ -2,6 +2,7 @@ import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import * as fs from "node:fs";
 import * as path from "node:path";
 import * as os from "node:os";
+import { execSync } from "node:child_process";
 import { runInit } from "../../../src/cli/init.js";
 
 interface Writer {
@@ -28,6 +29,12 @@ function runInitQuietly(args?: readonly string[]): void {
     stdout: createBufferWriter(),
     stderr: createBufferWriter(),
   });
+}
+
+function initGitRepo(cwd: string): void {
+  execSync("git init", { cwd, stdio: "ignore" });
+  execSync("git config user.email test@test.com", { cwd, stdio: "ignore" });
+  execSync("git config user.name test", { cwd, stdio: "ignore" });
 }
 
 describe("cli: graft init", () => {
@@ -135,6 +142,58 @@ describe("cli: graft init", () => {
     expect(settings.hooks.PostToolUse[0]!.hooks[0]).toBeDefined();
     expect(settings.hooks.PreToolUse[0]!.hooks[0]!.command).toContain("pretooluse-read.ts");
     expect(settings.hooks.PostToolUse[0]!.hooks[0]!.command).toContain("posttooluse-read.ts");
+  });
+
+  it("writes target-repo git transition hooks with an explicit flag", () => {
+    initGitRepo(tmpDir);
+
+    runInitQuietly(["--write-target-git-hooks"]);
+
+    const hooksDir = path.join(tmpDir, ".git", "hooks");
+    const postCheckout = fs.readFileSync(path.join(hooksDir, "post-checkout"), "utf-8");
+    const postMerge = fs.readFileSync(path.join(hooksDir, "post-merge"), "utf-8");
+    const postRewrite = fs.readFileSync(path.join(hooksDir, "post-rewrite"), "utf-8");
+
+    expect(postCheckout).toContain("graft-target-repo-git-hook:post-checkout");
+    expect(postMerge).toContain("graft-target-repo-git-hook:post-merge");
+    expect(postRewrite).toContain("graft-target-repo-git-hook:post-rewrite");
+  });
+
+  it("respects configured core.hooksPath and preserves external target-repo hooks", () => {
+    initGitRepo(tmpDir);
+    fs.mkdirSync(path.join(tmpDir, ".githooks"), { recursive: true });
+    execSync("git config core.hooksPath .githooks", { cwd: tmpDir, stdio: "ignore" });
+    fs.writeFileSync(path.join(tmpDir, ".githooks", "post-checkout"), "#!/bin/sh\necho external\n");
+
+    runInitQuietly(["--write-target-git-hooks"]);
+
+    const postCheckout = fs.readFileSync(path.join(tmpDir, ".githooks", "post-checkout"), "utf-8");
+    const postMerge = fs.readFileSync(path.join(tmpDir, ".githooks", "post-merge"), "utf-8");
+    const postRewrite = fs.readFileSync(path.join(tmpDir, ".githooks", "post-rewrite"), "utf-8");
+
+    expect(postCheckout).toContain("echo external");
+    expect(postCheckout).not.toContain("graft-target-repo-git-hook");
+    expect(postMerge).toContain("graft-target-repo-git-hook:post-merge");
+    expect(postRewrite).toContain("graft-target-repo-git-hook:post-rewrite");
+  });
+
+  it("returns a JSON error when target-repo hook bootstrap is requested outside a git worktree", () => {
+    const stdout = createBufferWriter();
+    const stderr = createBufferWriter();
+
+    runInit({
+      args: ["--json", "--write-target-git-hooks"],
+      stdout,
+      stderr,
+    });
+
+    const parsed = JSON.parse(stdout.text()) as {
+      ok: boolean;
+      error: string;
+    };
+    process.exitCode = 0;
+    expect(parsed.ok).toBe(false);
+    expect(parsed.error).toBe("--write-target-git-hooks requires a git worktree");
   });
 
   it("merges Claude MCP config without clobbering existing servers or duplicating graft", () => {

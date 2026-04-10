@@ -1,16 +1,22 @@
 import * as path from "node:path";
 import type { FileSystem } from "../ports/filesystem.js";
 import type { GitClient } from "../ports/git.js";
+import {
+  isRecognizedTargetGitHook,
+  resolveGitHooksPath,
+  TARGET_GIT_TRANSITION_HOOKS,
+} from "../git/target-git-hook-bootstrap.js";
 import type {
   RepoTransition,
   WorkspaceOverlaySummary,
 } from "./repo-state.js";
 
-export type GitHookBootstrapPosture = "absent" | "external_unknown";
+export type GitHookBootstrapPosture = "absent" | "external_unknown" | "installed";
 export type WorkspaceOverlayObservationMode = "inferred_between_tool_calls";
 export type WorkspaceOverlayDegradedReason =
   | "target_repo_hooks_absent"
-  | "target_repo_hooks_unrecognized";
+  | "target_repo_hooks_unrecognized"
+  | "local_edit_watchers_absent";
 
 export interface GitHookBootstrapStatus {
   readonly posture: GitHookBootstrapPosture;
@@ -19,7 +25,7 @@ export interface GitHookBootstrapStatus {
   readonly requiredHooks: readonly string[];
   readonly presentHooks: readonly string[];
   readonly missingHooks: readonly string[];
-  readonly supportsCheckoutBoundaries: false;
+  readonly supportsCheckoutBoundaries: boolean;
 }
 
 export interface RuntimeWorkspaceOverlayFooting {
@@ -32,12 +38,6 @@ export interface RuntimeWorkspaceOverlayFooting {
   readonly workspaceOverlay: WorkspaceOverlaySummary | null;
   readonly hookBootstrap: GitHookBootstrapStatus;
 }
-
-const REQUIRED_GIT_TRANSITION_HOOKS = [
-  "post-checkout",
-  "post-merge",
-  "post-rewrite",
-] as const;
 
 async function readGitConfig(
   gitClient: GitClient,
@@ -53,19 +53,6 @@ async function readGitConfig(
   }
   const value = result.stdout.trim();
   return value.length > 0 ? value : null;
-}
-
-function resolveHooksPath(
-  worktreeRoot: string,
-  gitCommonDir: string,
-  configuredCoreHooksPath: string | null,
-): string {
-  if (configuredCoreHooksPath === null) {
-    return path.join(gitCommonDir, "hooks");
-  }
-  return path.isAbsolute(configuredCoreHooksPath)
-    ? configuredCoreHooksPath
-    : path.resolve(worktreeRoot, configuredCoreHooksPath);
 }
 
 async function fileExists(fs: FileSystem, targetPath: string): Promise<boolean> {
@@ -88,7 +75,7 @@ export async function inspectGitHookBootstrap(
     worktreeRoot,
     "core.hooksPath",
   );
-  const resolvedHooksPath = resolveHooksPath(
+  const resolvedHooksPath = resolveGitHooksPath(
     worktreeRoot,
     gitCommonDir,
     configuredCoreHooksPath,
@@ -96,22 +83,38 @@ export async function inspectGitHookBootstrap(
 
   const presentHooks: string[] = [];
   const missingHooks: string[] = [];
-  for (const hookName of REQUIRED_GIT_TRANSITION_HOOKS) {
-    if (await fileExists(fs, path.join(resolvedHooksPath, hookName))) {
+  let recognizedHooks = 0;
+  let externalHooks = 0;
+  for (const hookName of TARGET_GIT_TRANSITION_HOOKS) {
+    const hookPath = path.join(resolvedHooksPath, hookName);
+    if (await fileExists(fs, hookPath)) {
       presentHooks.push(hookName);
+      try {
+        const content = await fs.readFile(hookPath, "utf-8");
+        if (isRecognizedTargetGitHook(content, hookName)) {
+          recognizedHooks += 1;
+        } else {
+          externalHooks += 1;
+        }
+      } catch {
+        externalHooks += 1;
+      }
     } else {
       missingHooks.push(hookName);
     }
   }
 
+  const allHooksInstalled = recognizedHooks === TARGET_GIT_TRANSITION_HOOKS.length;
   return {
-    posture: presentHooks.length === 0 ? "absent" : "external_unknown",
+    posture: allHooksInstalled
+      ? "installed"
+      : (presentHooks.length === 0 ? "absent" : "external_unknown"),
     configuredCoreHooksPath,
     resolvedHooksPath,
-    requiredHooks: [...REQUIRED_GIT_TRANSITION_HOOKS],
+    requiredHooks: [...TARGET_GIT_TRANSITION_HOOKS],
     presentHooks,
     missingHooks,
-    supportsCheckoutBoundaries: false,
+    supportsCheckoutBoundaries: allHooksInstalled && externalHooks === 0,
   };
 }
 
@@ -136,9 +139,11 @@ export async function buildRuntimeWorkspaceOverlayFooting(
   return {
     observationMode: "inferred_between_tool_calls",
     degraded: true,
-    degradedReason: hookBootstrap.posture === "absent"
-      ? "target_repo_hooks_absent"
-      : "target_repo_hooks_unrecognized",
+    degradedReason: hookBootstrap.supportsCheckoutBoundaries
+      ? "local_edit_watchers_absent"
+      : (hookBootstrap.posture === "absent"
+          ? "target_repo_hooks_absent"
+          : "target_repo_hooks_unrecognized"),
     checkoutEpoch: repoState.checkoutEpoch,
     lastTransition: repoState.lastTransition,
     workspaceOverlayId: repoState.workspaceOverlayId,
