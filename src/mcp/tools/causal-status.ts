@@ -1,4 +1,5 @@
 import { buildRuntimeStagedTarget } from "../runtime-staged-target.js";
+import { deriveCausalSurfaceNextAction } from "../semantic-transition-guidance.js";
 import type { ToolDefinition, ToolContext, ToolHandler } from "../context.js";
 
 export const causalStatusTool: ToolDefinition = {
@@ -21,6 +22,10 @@ export const causalStatusTool: ToolDefinition = {
       const repoState = ctx.getRepoState();
       const causalContext = ctx.getCausalContext();
       const workspaceOverlayFooting = await ctx.getWorkspaceOverlayFooting();
+      const nextAction = deriveCausalSurfaceNextAction(
+        persistedLocalHistory.nextAction,
+        repoState.semanticTransition,
+      );
       return ctx.respond("causal_status", {
         ...workspaceStatus,
         activeCausalWorkspace: {
@@ -43,7 +48,7 @@ export const causalStatusTool: ToolDefinition = {
           ),
         },
         persistedLocalHistory,
-        nextAction: persistedLocalHistory.nextAction,
+        nextAction,
       });
     };
   },

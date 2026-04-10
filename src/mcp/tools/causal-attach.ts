@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { buildRuntimeStagedTarget } from "../runtime-staged-target.js";
+import { deriveCausalSurfaceNextAction } from "../semantic-transition-guidance.js";
 import type { ToolDefinition, ToolContext, ToolHandler } from "../context.js";
 
 const actorKindSchema = z.enum(["human", "agent"]);
@@ -27,6 +28,10 @@ export const causalAttachTool: ToolDefinition = {
       const repoState = ctx.getRepoState();
       const causalContext = ctx.getCausalContext();
       const workspaceOverlayFooting = await ctx.getWorkspaceOverlayFooting();
+      const nextAction = deriveCausalSurfaceNextAction(
+        result.persistedLocalHistory.nextAction,
+        repoState.semanticTransition,
+      );
       const activeCausalWorkspace = workspaceStatus.bindState === "bound"
         ? {
             causalContext,
@@ -52,7 +57,7 @@ export const causalAttachTool: ToolDefinition = {
       return ctx.respond("causal_attach", {
         ...result,
         activeCausalWorkspace,
-        nextAction: result.persistedLocalHistory.nextAction,
+        nextAction,
       });
     };
   },

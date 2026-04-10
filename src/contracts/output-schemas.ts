@@ -16,6 +16,7 @@ import {
   transitionEventSchema,
   stagedTargetSchema,
 } from "./causal-ontology.js";
+import { causalSurfaceNextActionSchema } from "./causal-surface-next-action.js";
 
 export { CLI_COMMAND_NAMES, MCP_TOOL_NAMES };
 export type { CliCommandName, McpToolName } from "./capabilities.js";
@@ -472,12 +473,7 @@ const activeCausalWorkspaceSchema = z.object({
 const causalStatusSchema = workspaceStatusSchema.extend({
   activeCausalWorkspace: activeCausalWorkspaceSchema.nullable(),
   persistedLocalHistory: persistedLocalHistorySummarySchema,
-  nextAction: z.enum([
-    "bind_workspace_to_begin_local_history",
-    "continue_active_causal_workspace",
-    "review_transition_boundary_before_continuing",
-    "inspect_or_resume_local_history",
-  ]),
+  nextAction: causalSurfaceNextActionSchema,
 }).strict();
 
 const causalAttachSchema = workspaceStatusSchema.extend({
@@ -485,12 +481,7 @@ const causalAttachSchema = workspaceStatusSchema.extend({
   action: z.literal("attach"),
   activeCausalWorkspace: activeCausalWorkspaceSchema.nullable(),
   persistedLocalHistory: persistedLocalHistorySummarySchema,
-  nextAction: z.enum([
-    "bind_workspace_to_begin_local_history",
-    "continue_active_causal_workspace",
-    "review_transition_boundary_before_continuing",
-    "inspect_or_resume_local_history",
-  ]),
+  nextAction: causalSurfaceNextActionSchema,
   errorCode: z.string().optional(),
   error: z.string().optional(),
 }).strict();
@@ -907,6 +898,7 @@ const mcpOutputBodySchemas: Record<McpToolName, z.ZodType> = {
     stagedTarget: runtimeStagedTargetSchema,
     attribution: attributionSummarySchema,
     persistedLocalHistory: persistedLocalHistorySummarySchema,
+    recommendedNextAction: causalSurfaceNextActionSchema,
   }).strict(),
   stats: z.object({
     totalReads: z.number().int().nonnegative(),

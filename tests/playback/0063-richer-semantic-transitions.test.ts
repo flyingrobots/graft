@@ -35,6 +35,7 @@ describe("0063 playback: richer semantic transitions", () => {
       "many files at once",
       "bulk staging",
       "merge fallout",
+      "inspect_bulk_transition_scope_before_continuing",
     ]);
   });
 
@@ -44,16 +45,20 @@ describe("0063 playback: richer semantic transitions", () => {
       "unmerged entries becoming resolved",
       "conflicted files shrinking toward a clean index",
       "conflict_resolution",
+      "resolve_conflicts_before_continuing",
     ]);
   });
 
   it('During merge or rebase work, can a human see which phase they are in instead of only that "some transition happened"?', () => {
     expectMentions(designDoc, [
       "### Merge/rebase phase visibility",
+      "### Transition-aware guidance",
       "#### `merge_phase`",
       "`resolved_waiting_commit`",
+      "complete_merge_phase_before_continuing",
       "#### `rebase_phase`",
       "`continued`",
+      "continue_rebase_phase_before_continuing",
       "merge/rebase progress inspectable as phase",
     ]);
   });

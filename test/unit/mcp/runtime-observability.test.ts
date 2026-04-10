@@ -317,6 +317,7 @@ describe("mcp: runtime observability", () => {
           summary: string;
           evidence: { stagedPaths: number; totalPaths: number };
         } | null;
+        const recommendedNextAction = doctor["recommendedNextAction"] as string;
         const latestTransitionEvent = doctor["latestTransitionEvent"] as {
           eventKind: string;
           payload: { semanticKind: string; transitionKind: string | null; phase: string | null };
@@ -354,6 +355,7 @@ describe("mcp: runtime observability", () => {
         expect(semanticTransition?.phase ?? null).toBeNull();
         expect(semanticTransition?.evidence.stagedPaths).toBeGreaterThan(0);
         expect(semanticTransition?.evidence.totalPaths).toBeGreaterThan(0);
+        expect(recommendedNextAction).toBe("continue_active_causal_workspace");
         expect(latestTransitionEvent?.eventKind).toBe("transition");
         expect(latestTransitionEvent?.payload.semanticKind).toBe("index_update");
         expect(latestTransitionEvent?.payload.transitionKind).toBeNull();
@@ -384,6 +386,92 @@ describe("mcp: runtime observability", () => {
           expect(persistedLocalHistory.latestStageEvent).toBeNull();
           expect(persistedLocalHistory.latestTransitionEvent?.payload.semanticKind).toBe("index_update");
         }
+      } finally {
+        isolated.cleanup();
+      }
+    } finally {
+      cleanupTestRepo(repoDir);
+    }
+  });
+
+  it("surfaces bulk-transition guidance when many paths move together", async () => {
+    const repoDir = createTestRepo("graft-runtime-bulk-transition-");
+    try {
+      for (let index = 0; index < 8; index += 1) {
+        fs.writeFileSync(
+          path.join(repoDir, `file-${String(index)}.ts`),
+          `export const value${String(index)} = ${String(index)};\n`,
+        );
+      }
+      git(repoDir, "add -A");
+      git(repoDir, "commit -m init");
+
+      for (let index = 0; index < 8; index += 1) {
+        fs.writeFileSync(
+          path.join(repoDir, `file-${String(index)}.ts`),
+          `export const value${String(index)} = ${String(index + 1)};\n`,
+        );
+      }
+
+      const isolated = createIsolatedServer({
+        projectRoot: repoDir,
+        graftDir: path.join(repoDir, ".graft"),
+      });
+      try {
+        const status = parse(await isolated.server.callTool("causal_status", {}));
+        const activeCausalWorkspace = status["activeCausalWorkspace"] as {
+          semanticTransition: { kind: string; authority: string; phase: string | null; summary: string } | null;
+        } | null;
+
+        expect(activeCausalWorkspace?.semanticTransition?.kind).toBe("bulk_transition");
+        expect(activeCausalWorkspace?.semanticTransition?.authority).toBe("repo_snapshot");
+        expect(status["nextAction"]).toBe("inspect_bulk_transition_scope_before_continuing");
+      } finally {
+        isolated.cleanup();
+      }
+    } finally {
+      cleanupTestRepo(repoDir);
+    }
+  });
+
+  it("surfaces merge-phase guidance during active conflicted merges", async () => {
+    const repoDir = createTestRepo("graft-runtime-merge-guidance-");
+    try {
+      fs.writeFileSync(path.join(repoDir, "app.ts"), "export const value = 1;\n");
+      git(repoDir, "add -A");
+      git(repoDir, "commit -m init");
+      const baseBranch = git(repoDir, "rev-parse --abbrev-ref HEAD");
+
+      git(repoDir, "checkout -q -b feature");
+      fs.writeFileSync(path.join(repoDir, "app.ts"), "export const value = 2;\n");
+      git(repoDir, "add app.ts");
+      git(repoDir, "commit -m feature-change");
+
+      git(repoDir, `checkout -q ${baseBranch}`);
+      fs.writeFileSync(path.join(repoDir, "app.ts"), "export const value = 3;\n");
+      git(repoDir, "add app.ts");
+      git(repoDir, "commit -m base-change");
+
+      const isolated = createIsolatedServer({
+        projectRoot: repoDir,
+        graftDir: path.join(repoDir, ".graft"),
+      });
+      try {
+        expect(() => git(repoDir, "merge feature")).toThrow();
+
+        const status = parse(await isolated.server.callTool("causal_status", {}));
+        const activeCausalWorkspace = status["activeCausalWorkspace"] as {
+          semanticTransition: { kind: string; authority: string; phase: string | null } | null;
+        } | null;
+        const doctor = parse(await isolated.server.callTool("doctor", {}));
+
+        expect(activeCausalWorkspace?.semanticTransition?.kind).toBe("merge_phase");
+        expect(activeCausalWorkspace?.semanticTransition?.authority).toBe("authoritative_git_state");
+        expect(["conflicted", "resolved_waiting_commit"]).toContain(
+          activeCausalWorkspace?.semanticTransition?.phase ?? null,
+        );
+        expect(status["nextAction"]).toBe("complete_merge_phase_before_continuing");
+        expect(doctor["recommendedNextAction"]).toBe("complete_merge_phase_before_continuing");
       } finally {
         isolated.cleanup();
       }

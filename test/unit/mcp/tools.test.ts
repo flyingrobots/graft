@@ -204,6 +204,7 @@ describe("mcp: tool handlers", () => {
       }),
     );
     expect(parsed["semanticTransition"]).toBeNull();
+    expect(parsed["recommendedNextAction"]).toBe("continue_active_causal_workspace");
   });
 
   it("causal_status returns the active causal workspace posture", async () => {

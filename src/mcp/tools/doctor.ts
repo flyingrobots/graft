@@ -1,6 +1,7 @@
 import { STATIC_THRESHOLDS } from "../../policy/evaluate.js";
 import { topBurdenKind, totalNonReadBytesReturned } from "../burden.js";
 import { buildRuntimeStagedTarget } from "../runtime-staged-target.js";
+import { deriveCausalSurfaceNextAction } from "../semantic-transition-guidance.js";
 import type { ToolDefinition, ToolContext, ToolHandler } from "../context.js";
 
 export const doctorTool: ToolDefinition = {
@@ -16,6 +17,10 @@ export const doctorTool: ToolDefinition = {
       const metrics = ctx.metrics.snapshot();
       const topBurden = topBurdenKind(metrics.burdenByKind);
       const persistedLocalHistory = await ctx.getPersistedLocalHistorySummary();
+      const recommendedNextAction = deriveCausalSurfaceNextAction(
+        persistedLocalHistory.nextAction,
+        repoState.semanticTransition,
+      );
       return ctx.respond("doctor", {
         projectRoot: ctx.projectRoot,
         parserHealthy: true,
@@ -48,6 +53,7 @@ export const doctorTool: ToolDefinition = {
         ),
         attribution: persistedLocalHistory.attribution,
         persistedLocalHistory,
+        recommendedNextAction,
       });
     };
   },

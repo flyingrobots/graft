@@ -283,6 +283,26 @@ The summary should answer:
 - whether the semantic meaning is still only `bulk_transition` or can
   be sharpened to conflict or phase language
 
+### Transition-aware guidance
+
+Bounded surfaces should translate current semantic transition meaning
+into a narrow recommended next action when they can do so honestly.
+
+For this cycle:
+- `conflict_resolution` should guide to
+  `resolve_conflicts_before_continuing`
+- active `merge_phase` should guide to
+  `complete_merge_phase_before_continuing`
+- active `rebase_phase` should guide to
+  `continue_rebase_phase_before_continuing`
+- `bulk_transition` should guide to
+  `inspect_bulk_transition_scope_before_continuing`
+- `index_update` and `unknown` should fall back to the existing
+  continuity posture instead of inventing stronger action guidance
+- completed/cleared merge and rebase phases should fall back to the
+  existing continuity posture rather than pretending the phase is still
+  active
+
 ### Honesty boundary
 
 Semantic transition meaning is not canonical provenance.
