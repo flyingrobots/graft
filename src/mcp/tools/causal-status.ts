@@ -24,6 +24,7 @@ export const causalStatusTool: ToolDefinition = {
         ...workspaceStatus,
         activeCausalWorkspace: {
           causalContext,
+          attribution: persistedLocalHistory.attribution,
           checkoutEpoch: repoState.checkoutEpoch,
           lastTransition: repoState.lastTransition,
           workspaceOverlayId: repoState.workspaceOverlayId,

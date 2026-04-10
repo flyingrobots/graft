@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   actorSchema,
+  attributionSummarySchema,
   causalEventSchema,
   collapseWitnessSchema,
   evidenceSchema,
@@ -177,6 +178,54 @@ describe("contracts: causal ontology", () => {
     expect(isConfidenceBoundedByEvidence("low", ["strong"])).toBe(true);
     expect(isConfidenceBoundedByEvidence("high", ["strong"])).toBe(false);
     expect(isConfidenceBoundedByEvidence("unknown", ["conflicted"])).toBe(true);
+  });
+
+  it("requires attribution summaries to stay bounded by supporting evidence", () => {
+    const summary = attributionSummarySchema.parse({
+      actor: {
+        actorId: "agent:test",
+        actorKind: "agent",
+        displayName: "Codex",
+        source: "causal_attach.declaration",
+        authorityScope: "declared",
+      },
+      confidence: "high",
+      basis: "explicit_declaration",
+      evidence: [{
+        evidenceId: "evidence_attach_1",
+        evidenceKind: "explicit_agent_declaration",
+        source: "causal_attach.declaration",
+        capturedAt: "2026-04-10T00:00:00.000Z",
+        strength: "direct",
+        details: {
+          actorId: "agent:test",
+        },
+      }],
+    });
+
+    expect(summary.actor.actorKind).toBe("agent");
+
+    expect(() => attributionSummarySchema.parse({
+      actor: {
+        actorId: "git:transition",
+        actorKind: "git",
+        displayName: "Git transition",
+        source: "persisted_local_history.checkout_transition",
+        authorityScope: "inferred",
+      },
+      confidence: "high",
+      basis: "git_transition",
+      evidence: [{
+        evidenceId: "evidence_git_1",
+        evidenceKind: "git_transition_observation",
+        source: "persisted_local_history.checkout_transition",
+        capturedAt: "2026-04-10T00:00:00.000Z",
+        strength: "strong",
+        details: {
+          transitionKind: "checkout",
+        },
+      }],
+    })).toThrow(/Attribution confidence must be bounded by supporting evidence strength/);
   });
 
   it("requires shared collapse-witness events to also be included events", () => {

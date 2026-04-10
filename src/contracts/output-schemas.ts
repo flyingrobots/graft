@@ -7,6 +7,7 @@ import {
   type McpToolName,
 } from "./capabilities.js";
 import {
+  attributionSummarySchema,
   attributionConfidenceSchema,
   evidenceSchema,
   localHistoryContinuityOperationSchema,
@@ -210,6 +211,7 @@ const persistedLocalHistorySummarySchema = z.discriminatedUnion("availability", 
     continuedFromCausalSessionId: z.null(),
     continuityConfidence: attributionConfidenceSchema,
     continuityEvidence: z.array(evidenceSchema),
+    attribution: attributionSummarySchema,
     preserves: z.array(z.string()),
     excludes: z.array(z.string()),
     nextAction: z.literal("bind_workspace_to_begin_local_history"),
@@ -229,6 +231,7 @@ const persistedLocalHistorySummarySchema = z.discriminatedUnion("availability", 
     continuedFromCausalSessionId: z.string().nullable(),
     continuityConfidence: attributionConfidenceSchema,
     continuityEvidence: z.array(evidenceSchema),
+    attribution: attributionSummarySchema,
     preserves: z.array(z.string()),
     excludes: z.array(z.string()),
     nextAction: z.enum([
@@ -360,6 +363,7 @@ const workspaceActionSchema = workspaceStatusSchema.extend({
 
 const activeCausalWorkspaceSchema = z.object({
   causalContext: runtimeCausalContextSchema,
+  attribution: attributionSummarySchema,
   checkoutEpoch: z.number().int().nonnegative(),
   lastTransition: repoTransitionSchema.nullable(),
   workspaceOverlayId: z.string().nullable(),
@@ -796,6 +800,7 @@ const mcpOutputBodySchemas: Record<McpToolName, z.ZodType> = {
     workspaceOverlayId: z.string().nullable(),
     workspaceOverlay: workspaceOverlaySummarySchema.nullable(),
     stagedTarget: runtimeStagedTargetSchema,
+    attribution: attributionSummarySchema,
     persistedLocalHistory: persistedLocalHistorySummarySchema,
   }).strict(),
   stats: z.object({

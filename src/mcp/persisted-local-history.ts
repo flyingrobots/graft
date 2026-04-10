@@ -2,10 +2,12 @@ import * as crypto from "node:crypto";
 import * as path from "node:path";
 import { z } from "zod";
 import {
+  attributionSummarySchema,
   attributionConfidenceSchema,
   evidenceSchema,
   getMaximumConfidenceForEvidence,
   localHistoryContinuityOperationSchema,
+  type AttributionSummary,
   type AttributionConfidence,
   type Evidence,
   type LocalHistoryContinuityOperation,
@@ -47,6 +49,7 @@ const continuityRecordSchema = z.object({
   continuedFromStrandId: z.string().min(1).nullable(),
   continuityConfidence: attributionConfidenceSchema,
   continuityEvidence: z.array(evidenceSchema),
+  attribution: attributionSummarySchema,
 }).strict();
 
 type ContinuityRecord = z.infer<typeof continuityRecordSchema>;
@@ -72,6 +75,12 @@ export interface PersistedLocalHistoryContext {
   readonly workspaceOverlayId: string | null;
   readonly observedAt: string;
   readonly warpWriterId: string;
+  readonly transitionKind: RepoObservation["lastTransition"] extends infer T
+    ? T extends { kind: infer K } | null
+      ? K | null
+      : null
+    : null;
+  readonly transitionReflogSubject: string | null;
 }
 
 export interface PersistedLocalHistoryAttachDeclaration {
@@ -96,6 +105,7 @@ export interface PersistedLocalHistorySummaryNone {
   readonly continuedFromCausalSessionId: null;
   readonly continuityConfidence: AttributionConfidence;
   readonly continuityEvidence: readonly Evidence[];
+  readonly attribution: AttributionSummary;
   readonly preserves: readonly string[];
   readonly excludes: readonly string[];
   readonly nextAction: "bind_workspace_to_begin_local_history";
@@ -116,6 +126,7 @@ export interface PersistedLocalHistorySummaryPresent {
   readonly continuedFromCausalSessionId: string | null;
   readonly continuityConfidence: AttributionConfidence;
   readonly continuityEvidence: readonly Evidence[];
+  readonly attribution: AttributionSummary;
   readonly preserves: readonly string[];
   readonly excludes: readonly string[];
   readonly nextAction: "continue_active_causal_workspace" | "inspect_or_resume_local_history";
@@ -146,6 +157,8 @@ function buildRecordId(
   continuityKey: string,
   operation: LocalHistoryContinuityOperation,
   context: PersistedLocalHistoryContext,
+  previousRecordId: string | null,
+  additionalEvidenceIds: readonly string[],
 ): string {
   return stableId(
     "history",
@@ -156,6 +169,8 @@ function buildRecordId(
       causalSessionId: context.causalSessionId,
       strandId: context.strandId,
       workspaceSliceId: context.workspaceSliceId,
+      previousRecordId,
+      additionalEvidenceIds,
     }),
   );
 }
@@ -192,12 +207,33 @@ function createEmptyState(continuityKey: string, repoId: string, worktreeId: str
 
 function findRecord(state: ContinuityState, recordId: string | null): ContinuityRecord | null {
   if (recordId === null) return null;
-  return state.records.find((record) => record.recordId === recordId) ?? null;
+  for (let index = state.records.length - 1; index >= 0; index--) {
+    const record = state.records[index];
+    if (record?.recordId === recordId) {
+      return record;
+    }
+  }
+  return null;
 }
 
 function appendRecord(state: ContinuityState, record: ContinuityRecord, activeAfter: boolean): void {
   state.records = [...state.records, record];
   state.activeRecordId = activeAfter ? record.recordId : null;
+}
+
+function buildUnknownAttribution(): AttributionSummary {
+  return {
+    actor: {
+      actorId: "unknown",
+      actorKind: "unknown",
+      displayName: "Unknown",
+      source: "persisted_local_history.fallback",
+      authorityScope: "inferred",
+    },
+    confidence: "unknown",
+    basis: "unknown_fallback",
+    evidence: [],
+  };
 }
 
 export class PersistedLocalHistoryStore {
@@ -272,14 +308,21 @@ export class PersistedLocalHistoryStore {
       return;
     }
 
+    const transitionEvidence = this.buildGitTransitionEvidence("fork", input.current);
     appendRecord(
       state,
-      this.createRecord("park", continuityKey, input.previous, baseRecord),
+      this.createRecord(
+        "park",
+        continuityKey,
+        { ...input.previous, observedAt: input.current.observedAt },
+        baseRecord,
+        transitionEvidence,
+      ),
       false,
     );
     appendRecord(
       state,
-      this.createRecord("fork", continuityKey, input.current, baseRecord),
+      this.createRecord("fork", continuityKey, input.current, baseRecord, transitionEvidence),
       true,
     );
     await this.saveState(state);
@@ -314,6 +357,7 @@ export class PersistedLocalHistoryStore {
       continuedFromCausalSessionId: lastRecord.continuedFromCausalSessionId,
       continuityConfidence: lastRecord.continuityConfidence,
       continuityEvidence: lastRecord.continuityEvidence,
+      attribution: effectiveRecord.attribution,
       preserves: PERSISTED_LOCAL_HISTORY_PRESERVES,
       excludes: PERSISTED_LOCAL_HISTORY_EXCLUDES,
       nextAction: activeRecord?.causalSessionId === causalContext.causalSessionId
@@ -367,6 +411,8 @@ export class PersistedLocalHistoryStore {
       workspaceOverlayId: repoState.workspaceOverlayId,
       observedAt: repoState.observedAt,
       warpWriterId: causalContext.warpWriterId,
+      transitionKind: repoState.lastTransition?.kind ?? null,
+      transitionReflogSubject: repoState.lastTransition?.evidence.reflogSubject ?? null,
     };
   }
 
@@ -398,7 +444,13 @@ export class PersistedLocalHistoryStore {
       ...additionalEvidence,
     ];
     return {
-      recordId: buildRecordId(continuityKey, operation, context),
+      recordId: buildRecordId(
+        continuityKey,
+        operation,
+        context,
+        previous?.recordId ?? null,
+        additionalEvidence.map((evidence) => evidence.evidenceId),
+      ),
       continuityKey,
       operation,
       repoId: context.repoId,
@@ -417,6 +469,7 @@ export class PersistedLocalHistoryStore {
         continuityEvidence.map((evidence) => evidence.strength),
       ),
       continuityEvidence,
+      attribution: this.deriveAttribution(operation, continuityEvidence),
     };
   }
 
@@ -472,6 +525,28 @@ export class PersistedLocalHistoryStore {
     return evidence;
   }
 
+  private buildGitTransitionEvidence(
+    operation: LocalHistoryContinuityOperation,
+    context: PersistedLocalHistoryContext,
+  ): Evidence[] {
+    if (context.transitionKind === null) {
+      return [];
+    }
+
+    return [{
+      evidenceId: buildEvidenceId(operation, "git_transition_observation", context, 500),
+      evidenceKind: "git_transition_observation",
+      source: "persisted_local_history.checkout_transition",
+      capturedAt: context.observedAt,
+      strength: "strong",
+      details: {
+        operation,
+        transitionKind: context.transitionKind,
+        reflogSubject: context.transitionReflogSubject,
+      },
+    }];
+  }
+
   private buildAttachDeclarationEvidence(
     context: PersistedLocalHistoryContext,
     declaration: PersistedLocalHistoryAttachDeclaration,
@@ -513,6 +588,76 @@ export class PersistedLocalHistoryStore {
     return evidence;
   }
 
+  private deriveAttribution(
+    operation: LocalHistoryContinuityOperation,
+    continuityEvidence: readonly Evidence[],
+  ): AttributionSummary {
+    const explicitUserEvidence = continuityEvidence.filter((evidence) => evidence.evidenceKind === "explicit_user_declaration");
+    const explicitAgentEvidence = continuityEvidence.filter((evidence) => evidence.evidenceKind === "explicit_agent_declaration");
+
+    if (explicitUserEvidence.length > 0 && explicitAgentEvidence.length > 0) {
+      return {
+        actor: {
+          actorId: "unknown",
+          actorKind: "unknown",
+          displayName: "Conflicting actor signals",
+          source: "persisted_local_history.conflict",
+          authorityScope: "mixed",
+        },
+        confidence: "unknown",
+        basis: "conflicting_signals",
+        evidence: [...continuityEvidence],
+      };
+    }
+
+    if (explicitUserEvidence.length > 0 || explicitAgentEvidence.length > 0) {
+      const declarationEvidence = explicitUserEvidence.length > 0 ? explicitUserEvidence : explicitAgentEvidence;
+      const primary = declarationEvidence[0];
+      const actorKind = explicitUserEvidence.length > 0 ? "human" : "agent";
+      const actorId = typeof primary?.details["actorId"] === "string" && primary.details["actorId"].length > 0
+        ? primary.details["actorId"]
+        : `${actorKind}:declared`;
+      return {
+        actor: {
+          actorId,
+          actorKind,
+          displayName: actorKind === "human" ? "Declared human actor" : "Declared agent actor",
+          source: "causal_attach.declaration",
+          authorityScope: "declared",
+        },
+        confidence: getMaximumConfidenceForEvidence(
+          declarationEvidence.map((evidence) => evidence.strength),
+        ),
+        basis: "explicit_declaration",
+        evidence: continuityEvidence.filter((evidence) =>
+          evidence.evidenceKind === "explicit_user_declaration" ||
+          evidence.evidenceKind === "explicit_agent_declaration" ||
+          evidence.evidenceKind === "explicit_handoff"
+        ),
+      };
+    }
+
+    const gitEvidence = continuityEvidence.filter((evidence) => evidence.evidenceKind === "git_transition_observation");
+    if (gitEvidence.length > 0 && (operation === "fork" || operation === "park")) {
+      return {
+        actor: {
+          actorId: "git:transition",
+          actorKind: "git",
+          displayName: "Git transition",
+          source: "persisted_local_history.checkout_transition",
+          authorityScope: "inferred",
+        },
+        confidence: getMaximumConfidenceForEvidence(
+          gitEvidence.map((evidence) => evidence.strength),
+        ),
+        basis: "git_transition",
+        evidence: gitEvidence,
+      };
+    }
+
+    return buildUnknownAttribution();
+  }
+
   private emptySummary(): PersistedLocalHistorySummaryNone {
     return {
       availability: "none",
@@ -529,6 +674,7 @@ export class PersistedLocalHistoryStore {
       continuedFromCausalSessionId: null,
       continuityConfidence: "unknown",
       continuityEvidence: [],
+      attribution: buildUnknownAttribution(),
       preserves: PERSISTED_LOCAL_HISTORY_PRESERVES,
       excludes: PERSISTED_LOCAL_HISTORY_EXCLUDES,
       nextAction: "bind_workspace_to_begin_local_history",

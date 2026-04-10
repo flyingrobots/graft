@@ -76,7 +76,8 @@ That implies:
 
 ## What is active now
 
-METHOD currently shows no active cycle.
+Cycle `0061-provenance-attribution-instrumentation` is now active in
+METHOD.
 
 The last two shipped packets were:
 
@@ -117,11 +118,17 @@ implementation packet should build on the now-settled ontology while
 treating the deepest collapse machinery as gated on the upstream
 release.
 
-The next honest pull is
-`WARP_provenance-attribution-instrumentation`: now that persisted local
-history exists, the product needs direct evidence for `agent`,
-`human`, and `git` attribution so those continuity records can explain
-not only that a line of work survived, but who or what advanced it.
+`0061` is the next trust packet on top of `0060`.
+
+Its job is to make actor attribution inspectable and honest on bounded
+runtime surfaces:
+
+- explicit `agent` / `human` attribution when declared directly
+- `git` attribution when continuity movement is best explained by an
+  observable Git transition
+- explicit `unknown` when continuity evidence exists but actor evidence
+  does not
+- no false certainty beyond what the captured evidence supports
 
 ## What does NOT ship under this bearing
 
@@ -147,12 +154,17 @@ turn:
 - cycle `0060` closed the first persisted sub-commit local-history
   packet so Graft can preserve bounded between-commit memory without
   overclaiming its truth class
+- cycle `0061` is now pulling provenance/attribution instrumentation so
+  persisted local history can explain who or what advanced a line of
+  work instead of only that the line of work survived
 - backlog now explicitly captures branch-switch hook/bootstrap concerns
   and the need for a first-class graph ontology / collapse model
 
 ## What feels wrong
 
 - `session` is still too transport-scoped in the code and docs
+- runtime surfaces still under-express actor attribution unless direct
+  evidence is made explicit and inspectable
 - branch / checkout transitions are now first-class continuity
   boundaries in local history, but not yet first-class strand or
   overlay transitions everywhere in the product

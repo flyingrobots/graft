@@ -23,6 +23,8 @@ function context(overrides: Partial<PersistedLocalHistoryContext> = {}): Persist
     workspaceOverlayId: null,
     observedAt: "2026-04-10T01:00:00.000Z",
     warpWriterId: "graft",
+    transitionKind: null,
+    transitionReflogSubject: null,
     ...overrides,
   };
 }
@@ -83,6 +85,8 @@ describe("mcp: persisted local history", () => {
       "worktree_fs_observation",
       "writer_lane_identity",
     ]);
+    expect(summary.attribution.actor.actorKind).toBe("unknown");
+    expect(summary.attribution.confidence).toBe("unknown");
     expect(fs.existsSync(summary.historyPath)).toBe(true);
   });
 
@@ -142,6 +146,7 @@ describe("mcp: persisted local history", () => {
     expect(summary.continuityEvidence.map((evidence) => evidence.evidenceKind)).toContain(
       "writer_lane_identity",
     );
+    expect(summary.attribution.actor.actorKind).toBe("unknown");
   });
 
   it("parks the previous continuity key when binding onto a different worktree", async () => {
@@ -266,6 +271,9 @@ describe("mcp: persisted local history", () => {
         expect.objectContaining({ evidenceKind: "explicit_handoff" }),
       ]),
     );
+    expect(summary.attribution.actor.actorKind).toBe("agent");
+    expect(summary.attribution.actor.actorId).toBe("agent:two");
+    expect(summary.attribution.confidence).toBe("high");
   });
 
   it("refuses explicit attach when no prior lineage exists", async () => {

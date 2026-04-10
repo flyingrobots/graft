@@ -125,7 +125,12 @@ describe("mcp: runtime observability", () => {
         lastOperation: string | null;
         continuityConfidence: string;
         continuityEvidence: { evidenceKind: string }[];
+        attribution: { actor: { actorKind: string }; confidence: string };
         nextAction: string;
+      };
+      const attribution = doctor["attribution"] as {
+        actor: { actorKind: string };
+        confidence: string;
       };
       expect(runtime.enabled).toBe(true);
       expect(runtime.logPath).toBe(path.join(isolated.graftDir, "logs", "mcp-runtime.ndjson"));
@@ -155,6 +160,9 @@ describe("mcp: runtime observability", () => {
       expect(
         persistedLocalHistory.continuityEvidence.map((evidence) => evidence.evidenceKind),
       ).toContain("mcp_transport_binding");
+      expect(persistedLocalHistory.attribution.actor.actorKind).toBe("unknown");
+      expect(persistedLocalHistory.attribution.confidence).toBe("unknown");
+      expect(attribution.actor.actorKind).toBe("unknown");
       expect(persistedLocalHistory.nextAction).toBe("continue_active_causal_workspace");
     } finally {
       isolated.cleanup();
@@ -235,7 +243,16 @@ describe("mcp: runtime observability", () => {
           lastOperation: string | null;
           continuityConfidence: string;
           continuityEvidence: { evidenceKind: string; details: { previousCheckoutEpochId?: string | null } }[];
+          attribution: {
+            actor: { actorKind: string };
+            confidence: string;
+            evidence: { evidenceKind: string }[];
+          };
           nextAction: string;
+        };
+        const secondAttribution = second["attribution"] as {
+          actor: { actorKind: string };
+          confidence: string;
         };
         const secondCausal = second["causalContext"] as {
           strandId: string;
@@ -261,6 +278,14 @@ describe("mcp: runtime observability", () => {
             }),
           ]),
         );
+        expect(secondHistory.attribution.actor.actorKind).toBe("git");
+        expect(secondHistory.attribution.confidence).toBe("medium");
+        expect(secondHistory.attribution.evidence).toEqual(
+          expect.arrayContaining([
+            expect.objectContaining({ evidenceKind: "git_transition_observation" }),
+          ]),
+        );
+        expect(secondAttribution.actor.actorKind).toBe("git");
         expect(secondHistory.nextAction).toBe("continue_active_causal_workspace");
         expect(secondCausal.checkoutEpochId).not.toBe(firstCausal.checkoutEpochId);
         expect(secondCausal.strandId).not.toBe(firstCausal.strandId);

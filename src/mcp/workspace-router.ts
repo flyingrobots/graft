@@ -395,6 +395,18 @@ export class WorkspaceRouter {
         continuedFromCausalSessionId: null,
         continuityConfidence: "unknown",
         continuityEvidence: [],
+        attribution: {
+          actor: {
+            actorId: "unknown",
+            actorKind: "unknown",
+            displayName: "Unknown",
+            source: "persisted_local_history.fallback",
+            authorityScope: "inferred",
+          },
+          confidence: "unknown",
+          basis: "unknown_fallback",
+          evidence: [],
+        },
         preserves: [
           "continuity_operations",
           "runtime_context_ids",

@@ -27,6 +27,7 @@ export const causalAttachTool: ToolDefinition = {
       const activeCausalWorkspace = workspaceStatus.bindState === "bound"
         ? {
             causalContext: ctx.getCausalContext(),
+            attribution: result.persistedLocalHistory.attribution,
             checkoutEpoch: ctx.getRepoState().checkoutEpoch,
             lastTransition: ctx.getRepoState().lastTransition,
             workspaceOverlayId: ctx.getRepoState().workspaceOverlayId,

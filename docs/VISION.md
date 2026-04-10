@@ -2,12 +2,12 @@
 title: "Graft — Executive Summary"
 generated: 2026-04-09
 generator: codex (manual, following Method executive-summary process)
-tests: 642
-test_files: 61
+tests: 652
+test_files: 62
 legends: [CORE, WARP, CLEAN_CODE, SURFACE]
-backlog_items: 142
+backlog_items: 141
 version: 0.4.0
-status: "0060 closed; no active cycle"
+status: "0061 active"
 ---
 
 # Graft — Executive Summary
@@ -93,7 +93,15 @@ The current working model is:
 
 ### Current cycle posture
 
-METHOD currently shows no active cycle.
+METHOD currently shows one active cycle:
+
+- `0061-provenance-attribution-instrumentation`
+  - explicit actor attribution for bounded runtime surfaces
+  - direct declaration evidence for `human` and `agent`
+  - `git` attribution when continuity movement follows observable Git
+    transition evidence
+  - explicit `unknown` fallback when actor evidence is absent or mixed
+  - no false certainty beyond captured evidence
 
 The three most recent closed packets are:
 
@@ -112,11 +120,11 @@ The three most recent closed packets are:
   - evidence-bounded continuity summaries and inspectable local
     artifact-history posture
 
-The next honest packet is
-`WARP_provenance-attribution-instrumentation`. `0060` settled that
-bounded local history can survive reconnects and handoff. The next
-trust problem is who or what the product can honestly say advanced that
-history, with inspectable evidence and no false certainty.
+`0061` is the first trust packet on top of the persisted local-history
+substrate. `0060` settled that bounded local history can survive
+reconnects and handoff. `0061` settles who or what the product can
+honestly say advanced that history, with inspectable evidence and no
+false certainty.
 
 ## Architecture
 
@@ -185,8 +193,8 @@ Structural and causal memory over Git.
 - **Current inflection point**: execution substrate exists, but the
   graph ontology, runtime-local causal footing, and persisted local
   artifact-history now exist
-- **Next honest packet**: add provenance/attribution evidence on top of
-  that local-history substrate without confusing it with canonical
+- **Current active packet**: add provenance/attribution evidence on top
+  of that local-history substrate without confusing it with canonical
   provenance
 
 ### CLEAN_CODE

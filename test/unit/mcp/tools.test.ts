@@ -205,10 +205,15 @@ describe("mcp: tool handlers", () => {
     const parsed = parse(result);
     expect(parsed["bindState"]).toBe("bound");
     expect(parsed["activeCausalWorkspace"]).toBeDefined();
+    const activeCausalWorkspace = parsed["activeCausalWorkspace"] as {
+      attribution: { actor: { actorKind: string }; confidence: string };
+    };
     const persistedLocalHistory = parsed["persistedLocalHistory"] as {
       continuityConfidence: string;
       continuityEvidence: { evidenceKind: string }[];
     };
+    expect(activeCausalWorkspace.attribution.actor.actorKind).toBe("unknown");
+    expect(activeCausalWorkspace.attribution.confidence).toBe("unknown");
     expect(persistedLocalHistory).toBeDefined();
     expect(persistedLocalHistory.continuityConfidence).toBe("high");
     expect(persistedLocalHistory.continuityEvidence.map((evidence) => evidence.evidenceKind)).toContain(
@@ -255,10 +260,14 @@ describe("mcp: tool handlers", () => {
       note: "continuing feature work",
     });
     const parsed = parse(result);
+    const activeCausalWorkspace = parsed["activeCausalWorkspace"] as {
+      attribution: { actor: { actorKind: string }; confidence: string };
+    };
     const persistedLocalHistory = parsed["persistedLocalHistory"] as {
       lastOperation: string;
       continuityConfidence: string;
       continuityEvidence: { evidenceKind: string }[];
+      attribution: { actor: { actorKind: string }; confidence: string };
     };
 
     expect(parsed["ok"]).toBe(true);
@@ -271,6 +280,9 @@ describe("mcp: tool handlers", () => {
         "explicit_handoff",
       ]),
     );
+    expect(persistedLocalHistory.attribution.actor.actorKind).toBe("agent");
+    expect(persistedLocalHistory.attribution.confidence).toBe("high");
+    expect(activeCausalWorkspace.attribution.actor.actorKind).toBe("agent");
   });
 
   it("stats returns metrics summary", async () => {

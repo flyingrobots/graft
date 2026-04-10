@@ -35,6 +35,7 @@ export const EVIDENCE_KINDS = [
   "mcp_transport_binding",
   "workspace_authorization",
   "explicit_handoff",
+  "git_transition_observation",
   "git_hook_transition",
   "git_index_observation",
   "worktree_fs_observation",
@@ -78,6 +79,16 @@ export const ATTRIBUTION_CONFIDENCES = [
 export const attributionConfidenceSchema = z.enum(ATTRIBUTION_CONFIDENCES);
 export type AttributionConfidence = z.infer<typeof attributionConfidenceSchema>;
 
+export const ATTRIBUTION_BASES = [
+  "explicit_declaration",
+  "git_transition",
+  "unknown_fallback",
+  "conflicting_signals",
+] as const;
+
+export const attributionBasisSchema = z.enum(ATTRIBUTION_BASES);
+export type AttributionBasis = z.infer<typeof attributionBasisSchema>;
+
 const confidenceRank = Object.freeze({
   unknown: 0,
   low: 1,
@@ -112,6 +123,26 @@ export function isConfidenceBoundedByEvidence(
 ): boolean {
   return confidenceRank[confidence] <= confidenceRank[getMaximumConfidenceForEvidence(strengths)];
 }
+
+export const attributionSummarySchema = z.object({
+  actor: actorSchema,
+  confidence: attributionConfidenceSchema,
+  basis: attributionBasisSchema,
+  evidence: z.array(evidenceSchema),
+}).strict().superRefine((summary, ctx) => {
+  if (!isConfidenceBoundedByEvidence(
+    summary.confidence,
+    summary.evidence.map((evidence) => evidence.strength),
+  )) {
+    ctx.addIssue({
+      code: "custom",
+      message: "Attribution confidence must be bounded by supporting evidence strength",
+      path: ["confidence"],
+    });
+  }
+});
+
+export type AttributionSummary = z.infer<typeof attributionSummarySchema>;
 
 export const causalRegionSchema = z.object({
   path: z.string().min(1),
