@@ -14,6 +14,20 @@ function silentWriter() {
   return { write(): true { return true; } };
 }
 
+function writeHookEvent(repoDir: string, event: {
+  hookName: string;
+  hookArgs: string[];
+  worktreeRoot: string;
+  observedAt: string;
+}): void {
+  const runtimeDir = path.join(repoDir, ".graft", "runtime");
+  fs.mkdirSync(runtimeDir, { recursive: true });
+  fs.appendFileSync(
+    path.join(runtimeDir, "git-transitions.ndjson"),
+    `${JSON.stringify(event)}\n`,
+  );
+}
+
 describe("mcp: runtime workspace overlay footing", () => {
   it("reports absent target-repo git transition hooks by default", async () => {
     const repoDir = createTestRepo("graft-runtime-overlay-hooks-absent-");
@@ -147,6 +161,52 @@ describe("mcp: runtime workspace overlay footing", () => {
       ]);
       expect(footing.hookBootstrap.missingHooks).toEqual([]);
       expect(footing.hookBootstrap.supportsCheckoutBoundaries).toBe(true);
+      expect(footing.latestHookEvent).toBeNull();
+    } finally {
+      cleanupTestRepo(repoDir);
+    }
+  });
+
+  it("promotes footing to hook-observed when an installed transition hook fires", async () => {
+    const repoDir = createTestRepo("graft-runtime-overlay-hook-observed-");
+    try {
+      runInit({
+        cwd: repoDir,
+        args: ["--write-target-git-hooks"],
+        stdout: silentWriter(),
+        stderr: silentWriter(),
+      });
+      writeHookEvent(repoDir, {
+        hookName: "post-checkout",
+        hookArgs: ["oldsha", "newsha", "1"],
+        worktreeRoot: repoDir,
+        observedAt: new Date().toISOString(),
+      });
+      const gitCommonDir = git(repoDir, "rev-parse --git-common-dir");
+
+      const footing = await buildRuntimeWorkspaceOverlayFooting(
+        nodeFs,
+        nodeGit,
+        repoDir,
+        path.resolve(repoDir, gitCommonDir),
+        {
+          checkoutEpoch: 2,
+          lastTransition: null,
+          workspaceOverlayId: null,
+          workspaceOverlay: null,
+        },
+      );
+
+      expect(footing.observationMode).toBe("hook_observed_checkout_boundaries");
+      expect(footing.degraded).toBe(true);
+      expect(footing.degradedReason).toBe("local_edit_watchers_absent");
+      expect(footing.latestHookEvent).toEqual(
+        expect.objectContaining({
+          hookName: "post-checkout",
+          hookArgs: ["oldsha", "newsha", "1"],
+          worktreeRoot: repoDir,
+        }),
+      );
     } finally {
       cleanupTestRepo(repoDir);
     }

@@ -177,6 +177,29 @@ describe("cli: graft init", () => {
     expect(postRewrite).toContain("graft-target-repo-git-hook:post-rewrite");
   });
 
+  it("installed target-repo git hooks append transition events when executed", () => {
+    initGitRepo(tmpDir);
+    const realWorktreeRoot = fs.realpathSync(tmpDir);
+
+    runInitQuietly(["--write-target-git-hooks"]);
+    execSync("sh .git/hooks/post-checkout oldsha newsha 1", { cwd: tmpDir, stdio: "ignore" });
+
+    const logPath = path.join(tmpDir, ".graft", "runtime", "git-transitions.ndjson");
+    const events = fs.readFileSync(logPath, "utf-8").trim().split("\n").map((line) => JSON.parse(line) as {
+      hookName: string;
+      hookArgs: string[];
+      worktreeRoot: string;
+    });
+
+    expect(events.at(-1)).toEqual(
+      expect.objectContaining({
+        hookName: "post-checkout",
+        hookArgs: ["oldsha", "newsha", "1"],
+        worktreeRoot: realWorktreeRoot,
+      }),
+    );
+  });
+
   it("returns a JSON error when target-repo hook bootstrap is requested outside a git worktree", () => {
     const stdout = createBufferWriter();
     const stderr = createBufferWriter();

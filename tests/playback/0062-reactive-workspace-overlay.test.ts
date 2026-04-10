@@ -42,7 +42,7 @@ describe("0062 playback: reactive workspace overlay", () => {
       "Reactive overlay truth is still not canonical provenance.",
       "Bounded inspection",
       "can say whether overlay footing is",
-      "reactive, inferred, or degraded",
+      "reactive, inferred, hook-observed, or degraded",
     ]);
   });
 

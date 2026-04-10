@@ -28,6 +28,12 @@ export function isRecognizedTargetGitHook(
   return content.includes(`# ${TARGET_GIT_HOOK_MARKER}:${hookName}`);
 }
 
+export function isTargetGitTransitionHookName(
+  value: string,
+): value is (typeof TARGET_GIT_TRANSITION_HOOKS)[number] {
+  return TARGET_GIT_TRANSITION_HOOKS.includes(value as (typeof TARGET_GIT_TRANSITION_HOOKS)[number]);
+}
+
 export function buildTargetGitHookScript(
   hookName: (typeof TARGET_GIT_TRANSITION_HOOKS)[number],
 ): string {
@@ -43,7 +49,7 @@ export function buildTargetGitHookScript(
     "const runtimeDir = path.join(worktreeRoot, \".graft\", \"runtime\");",
     "fs.mkdirSync(runtimeDir, { recursive: true });",
     "const event = { hookName, hookArgs, worktreeRoot, observedAt: new Date().toISOString() };",
-    "fs.appendFileSync(path.join(runtimeDir, \"git-transitions.ndjson\"), JSON.stringify(event) + \"\\\\n\");",
+    "fs.appendFileSync(path.join(runtimeDir, \"git-transitions.ndjson\"), JSON.stringify(event) + \"\\n\");",
     `' "${hookName}" "$GRAFT_WORKTREE_ROOT" "$@"`,
     "",
   ].join("\n");

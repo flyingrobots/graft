@@ -337,8 +337,18 @@ const gitHookBootstrapStatusSchema = z.object({
   supportsCheckoutBoundaries: z.boolean(),
 }).strict();
 
+const gitTransitionHookEventSchema = z.object({
+  hookName: z.enum(["post-checkout", "post-merge", "post-rewrite"]),
+  hookArgs: z.array(z.string()),
+  worktreeRoot: z.string(),
+  observedAt: z.string(),
+}).strict();
+
 const workspaceOverlayFootingSchema = z.object({
-  observationMode: z.literal("inferred_between_tool_calls"),
+  observationMode: z.enum([
+    "inferred_between_tool_calls",
+    "hook_observed_checkout_boundaries",
+  ]),
   degraded: z.literal(true),
   degradedReason: z.enum([
     "target_repo_hooks_absent",
@@ -350,6 +360,7 @@ const workspaceOverlayFootingSchema = z.object({
   workspaceOverlayId: z.string().nullable(),
   workspaceOverlay: workspaceOverlaySummarySchema.nullable(),
   hookBootstrap: gitHookBootstrapStatusSchema,
+  latestHookEvent: gitTransitionHookEventSchema.nullable(),
 }).strict();
 
 const policyBoundarySchema = z.object({

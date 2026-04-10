@@ -84,7 +84,8 @@ transition boundaries.
 
 - What must be explicit and deterministic for agents:
   - the current workspace overlay footing
-  - whether the current footing is reactive or only inferred
+  - whether the current footing is reactive, only inferred, or
+    hook-observed for checkout boundaries
   - the active checkout epoch and the last transition that changed it
   - whether Git hooks/bootstrap are installed, absent, or degraded
 - What must be attributable, evidenced, or governed:
@@ -197,7 +198,7 @@ Initial product seam for this cycle:
    - define reactive overlay footing and transition rules in repo truth
 2. **Bounded inspection**
    - extend bounded surfaces so they can say whether overlay footing is
-     reactive, inferred, or degraded
+     reactive, inferred, hook-observed, or degraded
 3. **Bootstrap posture**
    - define how target-repo hook installation or absence affects
      product certainty

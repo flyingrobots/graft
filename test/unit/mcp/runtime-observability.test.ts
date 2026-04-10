@@ -35,6 +35,20 @@ function silentWriter() {
   return { write(): true { return true; } };
 }
 
+function writeHookEvent(repoDir: string, event: {
+  hookName: string;
+  hookArgs: string[];
+  worktreeRoot: string;
+  observedAt: string;
+}): void {
+  const runtimeDir = path.join(repoDir, ".graft", "runtime");
+  fs.mkdirSync(runtimeDir, { recursive: true });
+  fs.appendFileSync(
+    path.join(runtimeDir, "git-transitions.ndjson"),
+    `${JSON.stringify(event)}\n`,
+  );
+}
+
 describe("mcp: runtime observability", () => {
   it("writes correlated start and completion events for tool calls", async () => {
     const isolated = createIsolatedServer();
@@ -309,14 +323,16 @@ describe("mcp: runtime observability", () => {
           expect(stagedTarget.reason).toBe("modified_path_selection_requires_deeper_evidence");
           expect(stagedTarget.ambiguousPaths).toEqual(expect.arrayContaining([expect.any(String)]));
         }
-        expect(persistedLocalHistory.latestStageEvent?.eventKind).toBe("stage");
-        expect(persistedLocalHistory.latestStageEvent?.actorId).toBe("unknown");
-        expect(persistedLocalHistory.latestStageEvent?.attribution.actor.actorKind).toBe("unknown");
-        expect(persistedLocalHistory.latestStageEvent?.payload.selectionKind).toBe("full_file");
         if (stagedTarget.availability === "full_file") {
+          expect(persistedLocalHistory.latestStageEvent?.eventKind).toBe("stage");
+          expect(persistedLocalHistory.latestStageEvent?.actorId).toBe("unknown");
+          expect(persistedLocalHistory.latestStageEvent?.attribution.actor.actorKind).toBe("unknown");
+          expect(persistedLocalHistory.latestStageEvent?.payload.selectionKind).toBe("full_file");
           expect(persistedLocalHistory.latestStageEvent?.payload.targetId).toBe(
             stagedTarget.target?.targetId,
           );
+        } else {
+          expect(persistedLocalHistory.latestStageEvent).toBeNull();
         }
       } finally {
         isolated.cleanup();
@@ -461,19 +477,24 @@ describe("mcp: runtime observability", () => {
       });
       try {
         const doctor = parse(await isolated.server.callTool("doctor", {}));
-        const workspaceOverlayFooting = doctor["workspaceOverlayFooting"] as {
-          observationMode: string;
-          degraded: boolean;
-          degradedReason: string;
-          hookBootstrap: {
-            posture: string;
-            presentHooks: string[];
-            missingHooks: string[];
-            supportsCheckoutBoundaries: boolean;
-          };
+      const workspaceOverlayFooting = doctor["workspaceOverlayFooting"] as {
+        observationMode: string;
+        degraded: boolean;
+        degradedReason: string;
+        hookBootstrap: {
+          posture: string;
+          presentHooks: string[];
+          missingHooks: string[];
+          supportsCheckoutBoundaries: boolean;
         };
+        latestHookEvent: {
+          hookName: string;
+          hookArgs: string[];
+          worktreeRoot: string;
+        } | null;
+      };
 
-        expect(workspaceOverlayFooting.observationMode).toBe("inferred_between_tool_calls");
+      expect(workspaceOverlayFooting.observationMode).toBe("inferred_between_tool_calls");
         expect(workspaceOverlayFooting.degraded).toBe(true);
         expect(workspaceOverlayFooting.degradedReason).toBe("local_edit_watchers_absent");
         expect(workspaceOverlayFooting.hookBootstrap.posture).toBe("installed");
@@ -484,6 +505,67 @@ describe("mcp: runtime observability", () => {
         ]);
         expect(workspaceOverlayFooting.hookBootstrap.missingHooks).toEqual([]);
         expect(workspaceOverlayFooting.hookBootstrap.supportsCheckoutBoundaries).toBe(true);
+        expect(workspaceOverlayFooting.latestHookEvent).toBeNull();
+      } finally {
+        isolated.cleanup();
+      }
+    } finally {
+      cleanupTestRepo(repoDir);
+    }
+  });
+
+  it("surfaces hook-observed checkout boundaries after an installed transition hook fires", async () => {
+    const repoDir = createTestRepo("graft-runtime-overlay-hook-surface-");
+    try {
+      fs.writeFileSync(path.join(repoDir, "app.ts"), "export const ready = true;\n");
+      git(repoDir, "add -A");
+      git(repoDir, "commit -m init");
+      runInit({
+        cwd: repoDir,
+        args: ["--write-target-git-hooks"],
+        stdout: silentWriter(),
+        stderr: silentWriter(),
+      });
+      writeHookEvent(repoDir, {
+        hookName: "post-checkout",
+        hookArgs: ["oldsha", "newsha", "1"],
+        worktreeRoot: repoDir,
+        observedAt: new Date().toISOString(),
+      });
+
+      const isolated = createIsolatedServer({
+        projectRoot: repoDir,
+        graftDir: path.join(repoDir, ".graft"),
+      });
+      try {
+        const doctor = parse(await isolated.server.callTool("doctor", {}));
+        const workspaceOverlayFooting = doctor["workspaceOverlayFooting"] as {
+          observationMode: string;
+          degraded: boolean;
+          degradedReason: string;
+          hookBootstrap: {
+            posture: string;
+            supportsCheckoutBoundaries: boolean;
+          };
+          latestHookEvent: {
+            hookName: string;
+            hookArgs: string[];
+            worktreeRoot: string;
+          } | null;
+        };
+
+        expect(workspaceOverlayFooting.observationMode).toBe("hook_observed_checkout_boundaries");
+        expect(workspaceOverlayFooting.degraded).toBe(true);
+        expect(workspaceOverlayFooting.degradedReason).toBe("local_edit_watchers_absent");
+        expect(workspaceOverlayFooting.hookBootstrap.posture).toBe("installed");
+        expect(workspaceOverlayFooting.hookBootstrap.supportsCheckoutBoundaries).toBe(true);
+        expect(workspaceOverlayFooting.latestHookEvent).toEqual(
+          expect.objectContaining({
+            hookName: "post-checkout",
+            hookArgs: ["oldsha", "newsha", "1"],
+            worktreeRoot: repoDir,
+          }),
+        );
       } finally {
         isolated.cleanup();
       }
