@@ -207,6 +207,7 @@ describe("mcp: tool handlers", () => {
     expect(parsed["activeCausalWorkspace"]).toBeDefined();
     const activeCausalWorkspace = parsed["activeCausalWorkspace"] as {
       attribution: { actor: { actorKind: string }; confidence: string };
+      latestReadEvent: null;
       latestStageEvent: null;
       stagedTarget: { availability: string; attribution?: { actor: { actorKind: string }; confidence: string } };
     };
@@ -266,6 +267,7 @@ describe("mcp: tool handlers", () => {
     const parsed = parse(result);
     const activeCausalWorkspace = parsed["activeCausalWorkspace"] as {
       attribution: { actor: { actorKind: string }; confidence: string };
+      latestReadEvent: null;
       latestStageEvent: null;
       stagedTarget: { availability: string; attribution?: { actor: { actorKind: string }; confidence: string } };
     };
@@ -289,6 +291,7 @@ describe("mcp: tool handlers", () => {
     expect(persistedLocalHistory.attribution.actor.actorKind).toBe("agent");
     expect(persistedLocalHistory.attribution.confidence).toBe("high");
     expect(activeCausalWorkspace.attribution.actor.actorKind).toBe("agent");
+    expect(activeCausalWorkspace.latestReadEvent).toBeNull();
     expect(activeCausalWorkspace.latestStageEvent).toBeNull();
     expect(activeCausalWorkspace.stagedTarget.availability).toBe("none");
   });

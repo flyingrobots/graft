@@ -238,14 +238,16 @@ export function createGraftServer(options: CreateGraftServerOptions = {}): Graft
       monitorRuntime,
     })
     : null;
-  const runtimeReady = Promise.all([
-    mode === "repo_local" && projectRoot !== undefined
-      ? ensureGraftDirExcluded(projectRoot, graftDir, nodeFs)
-      : Promise.resolve(),
-    workspaceRouter.initialize(),
-    daemonControlPlane?.initialize() ?? Promise.resolve(),
-    monitorRuntime?.initialize() ?? Promise.resolve(),
-  ]).then(() => undefined);
+  const runtimeReady = (async () => {
+    if (mode === "repo_local" && projectRoot !== undefined) {
+      await ensureGraftDirExcluded(projectRoot, graftDir, nodeFs);
+    }
+    await workspaceRouter.initialize();
+    await Promise.all([
+      daemonControlPlane?.initialize() ?? Promise.resolve(),
+      monitorRuntime?.initialize() ?? Promise.resolve(),
+    ]);
+  })().then(() => undefined);
 
   async function emitRuntimeEvent(event: Parameters<RuntimeEventLogger["log"]>[0]): Promise<void> {
     try {
@@ -483,6 +485,11 @@ export function createGraftServer(options: CreateGraftServerOptions = {}): Graft
     "code_refs",
   ]);
   const daemonOffloadedRepoTools = new Set<string>(OFFLOADED_DAEMON_REPO_TOOL_NAMES);
+  const attributedReadTools = new Set<string>([
+    "safe_read",
+    "file_outline",
+    "read_range",
+  ]);
 
   function isOffloadedRepoTool(name: string): name is OffloadedRepoToolName {
     return daemonOffloadedRepoTools.has(name);
@@ -500,6 +507,18 @@ export function createGraftServer(options: CreateGraftServerOptions = {}): Graft
       return parsed["ref"] === undefined ? "code_show_live" : null;
     }
     return isOffloadedRepoTool(name) ? name : null;
+  }
+
+  function parseToolPayload(result: McpToolResult): Record<string, unknown> | null {
+    const textBlock = result.content.find((entry) => entry.type === "text");
+    if (textBlock === undefined) {
+      return null;
+    }
+    try {
+      return JSON.parse(textBlock.text) as Record<string, unknown>;
+    } catch {
+      return null;
+    }
   }
 
   async function invokeTool(
@@ -645,6 +664,18 @@ export function createGraftServer(options: CreateGraftServerOptions = {}): Graft
           tripwireSignals: invocation.response.tripwireSignals,
           metrics: invocation.response.receipt.cumulative,
         });
+      }
+
+      if (workspaceRouter.isBound() && attributedReadTools.has(name)) {
+        const payload = parseToolPayload(result);
+        if (payload !== null) {
+          await workspaceRouter.noteReadObservation(
+            name as "safe_read" | "file_outline" | "read_range",
+            parsed,
+            payload,
+            execution,
+          );
+        }
       }
 
       return result;

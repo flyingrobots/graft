@@ -46,6 +46,12 @@ describe("mcp: runtime observability", () => {
       };
       const doctor = parse(await isolated.server.callTool("doctor", {}));
       const runtime = doctor["runtimeObservability"] as { logPath: string };
+      const latestReadEvent = doctor["latestReadEvent"] as {
+        eventKind: string;
+        attribution: { actor: { actorKind: string } };
+        payload: { surface: string; projection: string; sourceLayer: string };
+        footprint: { paths: string[] };
+      } | null;
       const events = readRuntimeLog(runtime.logPath);
 
       expect(events[0]?.event).toBe("session_started");
@@ -65,6 +71,12 @@ describe("mcp: runtime observability", () => {
       expect(completed?.burdenKind).toBe("read");
       expect(completed?.nonReadBurden).toBe(false);
       expect(completed?.latencyMs).toBeGreaterThanOrEqual(0);
+      expect(latestReadEvent?.eventKind).toBe("read");
+      expect(latestReadEvent?.attribution.actor.actorKind).toBe("unknown");
+      expect(latestReadEvent?.payload.surface).toBe("safe_read");
+      expect(latestReadEvent?.payload.projection).toBe("content");
+      expect(latestReadEvent?.payload.sourceLayer).toBe("canonical_structural_truth");
+      expect(latestReadEvent?.footprint.paths).toEqual([fixturePath("small.ts")]);
     } finally {
       isolated.cleanup();
     }
@@ -122,6 +134,12 @@ describe("mcp: runtime observability", () => {
           confidence: string;
         };
       };
+      const latestReadEvent = doctor["latestReadEvent"] as {
+        eventKind: string;
+        attribution: { actor: { actorKind: string }; confidence: string };
+        payload: { surface: string; projection: string; sourceLayer: string };
+        footprint: { paths: string[] };
+      } | null;
       const persistedLocalHistory = doctor["persistedLocalHistory"] as {
         availability: string;
         persistence: string;
@@ -130,6 +148,12 @@ describe("mcp: runtime observability", () => {
         continuityConfidence: string;
         continuityEvidence: { evidenceKind: string }[];
         attribution: { actor: { actorKind: string }; confidence: string };
+        latestReadEvent: {
+          eventKind: string;
+          attribution: { actor: { actorKind: string }; confidence: string };
+          payload: { surface: string; projection: string; sourceLayer: string };
+          footprint: { paths: string[] };
+        } | null;
         latestStageEvent: null;
         nextAction: string;
       };
@@ -151,6 +175,7 @@ describe("mcp: runtime observability", () => {
       expect(causal.warpWriterId).toBe("graft");
       expect(causal.stability).toBe("runtime_local");
       expect(causal.provenanceLevel).toBe("artifact_history");
+      expect(latestReadEvent).toBeNull();
       expect(doctor["workspaceOverlayId"]).toBeNull();
       expect(stagedTarget).toEqual({
         availability: "none",
@@ -167,6 +192,7 @@ describe("mcp: runtime observability", () => {
       ).toContain("mcp_transport_binding");
       expect(persistedLocalHistory.attribution.actor.actorKind).toBe("unknown");
       expect(persistedLocalHistory.attribution.confidence).toBe("unknown");
+      expect(persistedLocalHistory.latestReadEvent).toBeNull();
       expect(persistedLocalHistory.latestStageEvent).toBeNull();
       expect(attribution.actor.actorKind).toBe("unknown");
       expect(persistedLocalHistory.nextAction).toBe("continue_active_causal_workspace");

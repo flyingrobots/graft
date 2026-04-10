@@ -87,6 +87,17 @@ describe("0061 playback: provenance attribution instrumentation", () => {
     ]);
   });
 
+  it("After a bounded read, can a human inspect the latest attributed `read` event with an explicit footprint and honest source layer?", () => {
+    expectMentions(designDoc, [
+      "#### Slice 5: persisted local read events",
+      "persist a bounded local `read` event",
+      "the read surface name",
+      "the projection actually returned",
+      "the best current source layer",
+      "an explicit footprint over the file or targeted region",
+    ]);
+  });
+
   it("Are actor classes and authority scopes explicit enough to implement without churn: `human`, `agent`, `git`, `daemon`, `unknown` and `authoritative`, `declared`, `inferred`, `mixed`?", () => {
     expectMentions(designDoc, [
       "`human`, `agent`, `git`, `daemon`, `unknown`",
@@ -140,6 +151,14 @@ describe("0061 playback: provenance attribution instrumentation", () => {
       "the staged target id",
       "the staged footprint",
       "the same evidence-bounded attribution summary",
+      "not canonical provenance",
+    ]);
+  });
+
+  it("Does the cycle start using the causal-event contract for bounded local attributed `read` events without treating them as canonical provenance?", () => {
+    expectMentions(designDoc, [
+      "#### Slice 5: persisted local read events",
+      "This gives Graft its first attributed local observation events",
       "not canonical provenance",
     ]);
   });

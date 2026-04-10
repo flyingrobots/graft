@@ -135,6 +135,8 @@ export interface WorkspaceExecutionContext {
   readonly getWarp: () => Promise<WarpApp>;
 }
 
+type AttributedReadToolName = "safe_read" | "file_outline" | "read_range";
+
 export interface ResolvedWorkspace {
   readonly repoId: string;
   readonly worktreeId: string;
@@ -408,9 +410,11 @@ export class WorkspaceRouter {
           basis: "unknown_fallback",
           evidence: [],
         },
+        latestReadEvent: null,
         latestStageEvent: null,
         preserves: [
           "continuity_operations",
+          "read_events",
           "stage_events",
           "runtime_context_ids",
           "workspace_overlay_snapshots",
@@ -440,6 +444,34 @@ export class WorkspaceRouter {
     }
 
     return summary;
+  }
+
+  async noteReadObservation(
+    toolName: AttributedReadToolName,
+    args: Record<string, unknown>,
+    result: Record<string, unknown>,
+    execution?: WorkspaceExecutionContext | null,
+  ): Promise<void> {
+    const active = execution ?? this.captureCurrentExecutionContext();
+    if (active === null) {
+      return;
+    }
+
+    const readObservation = this.buildReadObservation(active, toolName, args, result);
+    if (readObservation === null) {
+      return;
+    }
+
+    const summary = await this.options.persistedLocalHistory.summarize(
+      active.status,
+      active.getCausalContext(),
+    );
+
+    await this.options.persistedLocalHistory.noteReadObservation({
+      current: this.buildPersistedLocalHistoryContextFromExecution(active, active.repoState.getState()),
+      attribution: summary.attribution,
+      ...readObservation,
+    });
   }
 
   captureExecutionContext(): WorkspaceExecutionContext {
@@ -696,5 +728,125 @@ export class WorkspaceRouter {
       throw new WorkspaceBindingRequiredError("workspace");
     }
     return context;
+  }
+
+  private buildPersistedLocalHistoryContextFromExecution(
+    execution: WorkspaceExecutionContext,
+    observation: import("./repo-state.js").RepoObservation,
+  ): PersistedLocalHistoryContext {
+    const context = this.options.persistedLocalHistory.buildContext(
+      execution.status,
+      execution.getCausalContext(),
+      observation,
+    );
+    if (context === null) {
+      throw new WorkspaceBindingRequiredError("workspace");
+    }
+    return context;
+  }
+
+  private captureCurrentExecutionContext(): WorkspaceExecutionContext | null {
+    if (this.currentBinding === null) {
+      return null;
+    }
+    return this.captureExecutionContext();
+  }
+
+  private buildReadObservation(
+    execution: WorkspaceExecutionContext,
+    toolName: AttributedReadToolName,
+    args: Record<string, unknown>,
+    result: Record<string, unknown>,
+  ): {
+    readonly surface: string;
+    readonly projection: string;
+    readonly sourceLayer: "canonical_structural_truth" | "workspace_overlay";
+    readonly reason: string;
+    readonly footprint: {
+      readonly paths: string[];
+      readonly symbols: string[];
+      readonly regions: {
+        readonly path: string;
+        readonly startLine: number;
+        readonly endLine: number;
+      }[];
+    };
+  } | null {
+    const rawPath = args["path"];
+    if (typeof rawPath !== "string") {
+      return null;
+    }
+
+    const absolutePath = execution.resolvePath(rawPath);
+    const relativePath = path.relative(execution.worktreeRoot, absolutePath);
+    const footprintPath = relativePath.startsWith("..") ? absolutePath : relativePath;
+    const sourceLayer = execution.repoState.getState().workspaceOverlayId === null
+      ? "canonical_structural_truth"
+      : "workspace_overlay";
+
+    if (toolName === "safe_read") {
+      const projection = result["projection"];
+      if (
+        projection !== "content" &&
+        projection !== "outline" &&
+        projection !== "cache_hit" &&
+        projection !== "diff"
+      ) {
+        return null;
+      }
+      return {
+        surface: "safe_read",
+        projection,
+        sourceLayer,
+        reason: typeof result["reason"] === "string" ? result["reason"] : "SAFE_READ",
+        footprint: {
+          paths: [footprintPath],
+          symbols: [],
+          regions: [],
+        },
+      };
+    }
+
+    if (toolName === "file_outline") {
+      if (typeof result["error"] === "string" || result["reason"] === "UNSUPPORTED_LANGUAGE") {
+        return null;
+      }
+      return {
+        surface: "file_outline",
+        projection: "outline",
+        sourceLayer,
+        reason: typeof result["reason"] === "string" ? result["reason"] : "FILE_OUTLINE",
+        footprint: {
+          paths: [footprintPath],
+          symbols: [],
+          regions: [],
+        },
+      };
+    }
+
+    const startLine = result["startLine"];
+    const endLine = result["endLine"];
+    if (
+      typeof result["content"] !== "string" ||
+      typeof startLine !== "number" ||
+      typeof endLine !== "number"
+    ) {
+      return null;
+    }
+    return {
+      surface: "read_range",
+      projection: "content",
+      sourceLayer,
+      reason: typeof result["reason"] === "string" ? result["reason"] : "READ_RANGE",
+      footprint: {
+        paths: [footprintPath],
+        symbols: [],
+        regions: [{
+          path: footprintPath,
+          startLine,
+          endLine,
+        }],
+      },
+    };
   }
 }

@@ -45,6 +45,8 @@ confidence that do not outrun what the product actually knows.
 - [ ] When an unambiguous staged artifact is present, can a human
       inspect the latest attributed `stage` event as bounded local
       `artifact_history`?
+- [ ] After a bounded read, can a human inspect the latest attributed
+      `read` event with an explicit footprint and honest source layer?
 
 ### Agent
 
@@ -65,6 +67,9 @@ confidence that do not outrun what the product actually knows.
       collapse-admitted blame?
 - [ ] Does the cycle start using the causal-event contract for local
       attributed `stage` events without overclaiming canonical
+      provenance?
+- [ ] Does the cycle start using the causal-event contract for bounded
+      local attributed `read` events without treating them as canonical
       provenance?
 
 ## Accessibility and Assistive Reading
@@ -229,7 +234,21 @@ local `stage` event that carries:
 This is the first honest attributed local artifact-history event. It is
 still runtime-local `artifact_history`, not canonical provenance.
 
-#### Slice 5: explicit runtime honesty
+#### Slice 5: persisted local read events
+
+When a bounded read surface returns meaningful local content or outline
+state, persist a bounded local `read` event that carries:
+
+- the read surface name
+- the projection actually returned
+- the best current source layer
+- an explicit footprint over the file or targeted region
+- the same evidence-bounded attribution summary
+
+This gives Graft its first attributed local observation events instead
+of only continuity posture and stage projections.
+
+#### Slice 6: explicit runtime honesty
 
 Keep attribution explicitly runtime-local:
 

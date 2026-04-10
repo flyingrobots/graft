@@ -30,6 +30,7 @@ export const doctorTool: ToolDefinition = {
         },
         runtimeObservability: ctx.observability,
         causalContext,
+        latestReadEvent: persistedLocalHistory.latestReadEvent,
         latestStageEvent: persistedLocalHistory.latestStageEvent,
         checkoutEpoch: repoState.checkoutEpoch,
         lastTransition: repoState.lastTransition,

@@ -4,15 +4,18 @@ import { z } from "zod";
 import {
   attributionSummarySchema,
   attributionConfidenceSchema,
+  readEventSchema,
   stageEventSchema,
   evidenceSchema,
   getMaximumConfidenceForEvidence,
   localHistoryContinuityOperationSchema,
   type AttributionSummary,
   type AttributionConfidence,
+  type CausalFootprint,
   type CausalEvent,
   type Evidence,
   type LocalHistoryContinuityOperation,
+  type SourceLayer,
 } from "../contracts/causal-ontology.js";
 import type { JsonCodec } from "../ports/codec.js";
 import type { FileSystem } from "../ports/filesystem.js";
@@ -23,6 +26,7 @@ import type { WorkspaceStatus } from "./workspace-router.js";
 
 const PERSISTED_LOCAL_HISTORY_PRESERVES = Object.freeze([
   "continuity_operations",
+  "read_events",
   "stage_events",
   "runtime_context_ids",
   "workspace_overlay_snapshots",
@@ -64,6 +68,7 @@ const continuityStateSchema = z.object({
   worktreeId: z.string().min(1),
   activeRecordId: z.string().min(1).nullable(),
   records: z.array(continuityRecordSchema),
+  readEvents: z.array(readEventSchema),
   stageEvents: z.array(stageEventSchema),
 }).strict();
 
@@ -111,6 +116,7 @@ export interface PersistedLocalHistorySummaryNone {
   readonly continuityConfidence: AttributionConfidence;
   readonly continuityEvidence: readonly Evidence[];
   readonly attribution: AttributionSummary;
+  readonly latestReadEvent: null;
   readonly latestStageEvent: null;
   readonly preserves: readonly string[];
   readonly excludes: readonly string[];
@@ -133,6 +139,7 @@ export interface PersistedLocalHistorySummaryPresent {
   readonly continuityConfidence: AttributionConfidence;
   readonly continuityEvidence: readonly Evidence[];
   readonly attribution: AttributionSummary;
+  readonly latestReadEvent: Extract<CausalEvent, { eventKind: "read" }> | null;
   readonly latestStageEvent: Extract<CausalEvent, { eventKind: "stage" }> | null;
   readonly preserves: readonly string[];
   readonly excludes: readonly string[];
@@ -209,6 +216,7 @@ function createEmptyState(continuityKey: string, repoId: string, worktreeId: str
     worktreeId,
     activeRecordId: null,
     records: [],
+    readEvents: [],
     stageEvents: [],
   };
 }
@@ -366,6 +374,7 @@ export class PersistedLocalHistoryStore {
       continuityConfidence: lastRecord.continuityConfidence,
       continuityEvidence: lastRecord.continuityEvidence,
       attribution: effectiveRecord.attribution,
+      latestReadEvent: state.readEvents.at(-1) ?? null,
       latestStageEvent: state.stageEvents.at(-1) ?? null,
       preserves: PERSISTED_LOCAL_HISTORY_PRESERVES,
       excludes: PERSISTED_LOCAL_HISTORY_EXCLUDES,
@@ -413,6 +422,21 @@ export class PersistedLocalHistoryStore {
       return;
     }
     state.stageEvents = [...state.stageEvents, event];
+    await this.saveState(state);
+  }
+
+  async noteReadObservation(input: {
+    readonly current: PersistedLocalHistoryContext;
+    readonly attribution: AttributionSummary;
+    readonly surface: string;
+    readonly projection: string;
+    readonly sourceLayer: SourceLayer;
+    readonly reason: string;
+    readonly footprint: CausalFootprint;
+  }): Promise<void> {
+    const continuityKey = buildContinuityKey(input.current.repoId, input.current.worktreeId);
+    const state = await this.loadState(continuityKey, input.current.repoId, input.current.worktreeId);
+    state.readEvents = [...state.readEvents, this.createReadEvent(input)];
     await this.saveState(state);
   }
 
@@ -699,6 +723,7 @@ export class PersistedLocalHistoryStore {
       continuityConfidence: "unknown",
       continuityEvidence: [],
       attribution: buildUnknownAttribution(),
+      latestReadEvent: null,
       latestStageEvent: null,
       preserves: PERSISTED_LOCAL_HISTORY_PRESERVES,
       excludes: PERSISTED_LOCAL_HISTORY_EXCLUDES,
@@ -747,6 +772,55 @@ export class PersistedLocalHistoryStore {
         targetId: stagedTarget.target.targetId,
         footprint,
         selectionKind: stagedTarget.target.selectionKind,
+      },
+    };
+  }
+
+  private createReadEvent(input: {
+    readonly current: PersistedLocalHistoryContext;
+    readonly attribution: AttributionSummary;
+    readonly surface: string;
+    readonly projection: string;
+    readonly sourceLayer: SourceLayer;
+    readonly reason: string;
+    readonly footprint: CausalFootprint;
+  }): Extract<CausalEvent, { eventKind: "read" }> {
+    return {
+      eventId: stableId(
+        "event",
+        JSON.stringify({
+          eventKind: "read",
+          occurredAt: input.current.observedAt,
+          surface: input.surface,
+          projection: input.projection,
+          sourceLayer: input.sourceLayer,
+          reason: input.reason,
+          footprint: input.footprint,
+          actorId: input.attribution.actor.actorId,
+          confidence: input.attribution.confidence,
+          evidenceIds: input.attribution.evidence.map((evidence) => evidence.evidenceId),
+        }),
+      ),
+      eventKind: "read",
+      repoId: input.current.repoId,
+      worktreeId: input.current.worktreeId,
+      checkoutEpochId: input.current.checkoutEpochId,
+      workspaceOverlayId: input.current.workspaceOverlayId,
+      transportSessionId: input.current.transportSessionId,
+      workspaceSliceId: input.current.workspaceSliceId,
+      causalSessionId: input.current.causalSessionId,
+      strandId: input.current.strandId,
+      actorId: input.attribution.actor.actorId,
+      confidence: input.attribution.confidence,
+      evidenceIds: input.attribution.evidence.map((evidence) => evidence.evidenceId),
+      attribution: input.attribution,
+      footprint: input.footprint,
+      occurredAt: input.current.observedAt,
+      payload: {
+        surface: input.surface,
+        projection: input.projection,
+        sourceLayer: input.sourceLayer,
+        reason: input.reason,
       },
     };
   }

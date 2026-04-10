@@ -87,6 +87,7 @@ describe("mcp: persisted local history", () => {
     ]);
     expect(summary.attribution.actor.actorKind).toBe("unknown");
     expect(summary.attribution.confidence).toBe("unknown");
+    expect(summary.latestReadEvent).toBeNull();
     expect(summary.latestStageEvent).toBeNull();
     expect(fs.existsSync(summary.historyPath)).toBe(true);
   });
@@ -148,6 +149,7 @@ describe("mcp: persisted local history", () => {
       "writer_lane_identity",
     );
     expect(summary.attribution.actor.actorKind).toBe("unknown");
+    expect(summary.latestReadEvent).toBeNull();
   });
 
   it("parks the previous continuity key when binding onto a different worktree", async () => {
@@ -205,6 +207,7 @@ describe("mcp: persisted local history", () => {
     expect(firstSummary.active).toBe(false);
     expect(firstSummary.lastOperation).toBe("park");
     expect(firstSummary.nextAction).toBe("inspect_or_resume_local_history");
+    expect(firstSummary.latestReadEvent).toBeNull();
   });
 
   it("records direct declaration and handoff evidence for explicit attach", async () => {
@@ -275,6 +278,90 @@ describe("mcp: persisted local history", () => {
     expect(summary.attribution.actor.actorKind).toBe("agent");
     expect(summary.attribution.actor.actorId).toBe("agent:two");
     expect(summary.attribution.confidence).toBe("high");
+    expect(summary.latestReadEvent).toBeNull();
+    expect(summary.latestStageEvent).toBeNull();
+  });
+
+  it("records a bounded attributed read event with explicit footprint", async () => {
+    const graftDir = fs.mkdtempSync(path.join(os.tmpdir(), "graft-history-"));
+    cleanups.push(graftDir);
+
+    const store = new PersistedLocalHistoryStore({
+      fs: nodeFs,
+      codec: new CanonicalJsonCodec(),
+      graftDir,
+    });
+
+    const current = context({
+      workspaceOverlayId: "overlay:one",
+    });
+    await store.noteBinding({ current });
+
+    await store.noteReadObservation({
+      current,
+      attribution: {
+        actor: {
+          actorId: "agent:test",
+          actorKind: "agent",
+          displayName: "Codex",
+          source: "causal_attach.declaration",
+          authorityScope: "declared",
+        },
+        confidence: "high",
+        basis: "explicit_declaration",
+        evidence: [{
+          evidenceId: "evidence_read_1",
+          evidenceKind: "explicit_agent_declaration",
+          source: "causal_attach.declaration",
+          capturedAt: current.observedAt,
+          strength: "direct",
+          details: { actorId: "agent:test" },
+        }],
+      },
+      surface: "safe_read",
+      projection: "outline",
+      sourceLayer: "workspace_overlay",
+      reason: "TOO_LARGE",
+      footprint: {
+        paths: ["app.ts"],
+        symbols: [],
+        regions: [],
+      },
+    });
+
+    const summary = await store.summarize(
+      {
+        sessionMode: "repo_local",
+        bindState: "bound",
+        repoId: current.repoId,
+        worktreeId: current.worktreeId,
+        worktreeRoot: "/repo",
+        gitCommonDir: "/repo/.git",
+        graftDir,
+        capabilityProfile: null,
+      },
+      {
+        transportSessionId: current.transportSessionId,
+        workspaceSliceId: current.workspaceSliceId,
+        causalSessionId: current.causalSessionId,
+        strandId: current.strandId,
+        checkoutEpochId: current.checkoutEpochId,
+        warpWriterId: current.warpWriterId,
+        stability: "runtime_local",
+        provenanceLevel: "artifact_history",
+      },
+    );
+
+    expect(summary.availability).toBe("present");
+    if (summary.availability !== "present") {
+      return;
+    }
+    expect(summary.latestReadEvent?.eventKind).toBe("read");
+    expect(summary.latestReadEvent?.payload.surface).toBe("safe_read");
+    expect(summary.latestReadEvent?.payload.projection).toBe("outline");
+    expect(summary.latestReadEvent?.payload.sourceLayer).toBe("workspace_overlay");
+    expect(summary.latestReadEvent?.footprint.paths).toEqual(["app.ts"]);
+    expect(summary.latestReadEvent?.attribution.actor.actorKind).toBe("agent");
     expect(summary.latestStageEvent).toBeNull();
   });
 
