@@ -2,12 +2,12 @@
 title: "Graft — Executive Summary"
 generated: 2026-04-09
 generator: codex (manual, following Method executive-summary process)
-tests: 601
-test_files: 55
+tests: 624
+test_files: 59
 legends: [CORE, WARP, CLEAN_CODE, SURFACE]
 backlog_items: 142
 version: 0.4.0
-status: "0059 active"
+status: "0059 closed"
 ---
 
 # Graft — Executive Summary
@@ -89,20 +89,23 @@ The current working model is:
 - how same-repo concurrent agents relate to shared repo history and
   separate worktree / session-local state
 
-### Active cycle
+### Current cycle posture
 
-METHOD currently shows one active cycle:
+METHOD currently shows no active cycle.
 
+The two most recent closed packets are:
+
+- `0058-system-wide-resource-pressure-and-fairness`
+  - async Git, async daemon-heavy file paths, scheduler, workers,
+    monitor routing, and writer lanes
 - `0059-graph-ontology-and-causal-collapse-model`
+  - graph layers, identities, event granularity, explicit provenance
+    posture, playback witnesses, typed ontology contracts, and
+    runtime-local causal/staged-target seams
 
-`0058-system-wide-resource-pressure-and-fairness` is now closed as the
-daemon execution-substrate packet: async Git, async file paths,
-scheduler, workers, monitor routing, and writer lanes.
-
-The active `0059` WARP packet is the ontology / collapse design cycle.
-Its job is to define graph layers, identities, event granularity,
-checkout epochs, and collapse semantics explicitly, while treating full
-strand-aware collapse as blocked on upstream `git-warp v17.1.0+`.
+The next implementation work now sits on top of that foundation, while
+treating full strand-aware collapse as blocked on upstream `git-warp
+v17.1.0+`.
 
 ## Architecture
 
@@ -182,13 +185,16 @@ runtime-backed forms, and honest seams.
 
 ### Immediate next
 
-1. Finish and close `0058` as the daemon execution-substrate packet.
-2. Design the Graft WARP graph ontology and causal collapse model.
-3. Pull persisted sub-commit local history behind that ontology.
-4. Add provenance and attribution instrumentation on top of it.
-5. Add branch/checkout-aware strand lifecycle handling, likely with
+1. Pull persisted sub-commit local history behind the now-settled
+   ontology.
+2. Add provenance and attribution instrumentation on top of it.
+3. Add branch/checkout-aware strand lifecycle handling, likely with
    target-repo Git hook bootstrap or an equivalent explicit Git
    transition boundary.
+4. Continue same-repo concurrent-agent modeling against strands and
+   writer lanes.
+5. Push full strand-aware causal collapse once upstream `git-warp
+   v17.1.0+` support exists.
 
 ### High-value WARP packets already in backlog
 

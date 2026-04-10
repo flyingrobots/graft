@@ -76,11 +76,9 @@ That implies:
 
 ## What is active now
 
-Cycle `0059-graph-ontology-and-causal-collapse-model` is now active in
-METHOD.
+No cycle is currently active in METHOD.
 
-The previous `0058-system-wide-resource-pressure-and-fairness` cycle is
-now closed as the execution-substrate packet. Its shipped tranche was:
+The last two shipped packets were:
 
 - async `GitClient` via `@git-stunts/plumbing`
 - async daemon-heavy request-path filesystem reads
@@ -89,15 +87,25 @@ now closed as the execution-substrate packet. Its shipped tranche was:
 - logical WARP writer lanes keyed by stable writer identity rather than
   worker identity
 
+and:
+
+- the first honest WARP ontology for Graft
+- typed contracts for causal events, staged targets, and collapse
+  witnesses
+- explicit artifact-history / canonical-provenance / inference posture
+- runtime-local causal footing IDs
+- runtime-local staged-target snapshots with bounded availability
+  semantics
+
 That work is still valuable. It is the execution substrate the current
-WARP ontology packet needs.
+WARP direction now stands on.
 
 There is also a current upstream dependency boundary: full realization
 of strand-aware causal collapse appears blocked on `git-warp`
 `v17.1.0+`. That does not block design. It means the next Graft WARP
-packet should settle ontology, collapse semantics, identities, and
-witness shape now, while treating implementation of the deepest collapse
-machinery as gated on the upstream release.
+implementation packet should build on the now-settled ontology while
+treating the deepest collapse machinery as gated on the upstream
+release.
 
 ## What does NOT ship under this bearing
 
@@ -118,7 +126,7 @@ turn:
   overview, and explicit same-repo identity splits
 - cycle `0058` built the async Git/FS, scheduler, worker, and
   writer-lane substrate needed for fair execution
-- cycle `0059` is now the ontology / collapse packet that defines what
+- cycle `0059` closed the ontology / collapse packet and defined what
   those execution primitives are actually in service of
 - backlog now explicitly captures branch-switch hook/bootstrap concerns
   and the need for a first-class graph ontology / collapse model
