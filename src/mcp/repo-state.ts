@@ -1,3 +1,4 @@
+import * as crypto from "node:crypto";
 import type { GitClient } from "../ports/git.js";
 import type { FileSystem } from "../ports/filesystem.js";
 
@@ -35,14 +36,18 @@ export interface RepoObservation {
   readonly headRef: string | null;
   readonly headSha: string | null;
   readonly dirty: boolean;
+  readonly observedAt: string;
   readonly lastTransition: RepoTransition | null;
+  readonly workspaceOverlayId: string | null;
   readonly workspaceOverlay: WorkspaceOverlaySummary | null;
+  readonly statusLines: readonly string[];
 }
 
 interface RepoSnapshot {
   readonly headRef: string | null;
   readonly headSha: string | null;
   readonly parentShas: readonly string[];
+  readonly observedAt: string;
   readonly statusLines: readonly string[];
   readonly dirty: boolean;
   readonly stagedPaths: number;
@@ -57,6 +62,10 @@ interface HeadReflogEntry {
   readonly nextSha: string | null;
   readonly timestampSec: number | null;
   readonly subject: string;
+}
+
+function stableId(prefix: string, input: string): string {
+  return `${prefix}:${crypto.createHash("sha256").update(input).digest("hex").slice(0, 16)}`;
 }
 
 async function git(gitClient: GitClient, args: readonly string[], cwd: string): Promise<string> {
@@ -121,7 +130,9 @@ function mergeStatusLines(
   const merged = new Map<string, { x: string; y: string }>();
 
   for (const line of stagedLines) {
-    const [rawStatus = "", filePath = ""] = line.split("\t");
+    const parts = line.split("\t");
+    const rawStatus = parts[0] ?? "";
+    const filePath = parts.at(-1) ?? "";
     if (filePath.length === 0) continue;
     const existing = merged.get(filePath) ?? { x: " ", y: " " };
     existing.x = rawStatus[0] ?? "M";
@@ -129,7 +140,9 @@ function mergeStatusLines(
   }
 
   for (const line of changedLines) {
-    const [rawStatus = "", filePath = ""] = line.split("\t");
+    const parts = line.split("\t");
+    const rawStatus = parts[0] ?? "";
+    const filePath = parts.at(-1) ?? "";
     if (filePath.length === 0) continue;
     const existing = merged.get(filePath) ?? { x: " ", y: " " };
     existing.y = rawStatus[0] ?? "M";
@@ -207,8 +220,8 @@ async function isAncestor(
 async function captureSnapshot(cwd: string, fs: FileSystem, gitClient: GitClient): Promise<RepoSnapshot> {
   const headSha = await readGit(gitClient, ["rev-parse", "HEAD"], cwd);
   const statusLines = mergeStatusLines(
-    headSha === null ? [] : await readGitLines(gitClient, ["diff-index", "--cached", "--name-status", headSha, "--"], cwd),
-    await readGitLines(gitClient, ["diff-files", "--name-status", "--"], cwd),
+    headSha === null ? [] : await readGitLines(gitClient, ["diff-index", "--cached", "--find-renames", "--name-status", headSha, "--"], cwd),
+    await readGitLines(gitClient, ["diff-files", "--find-renames", "--name-status", "--"], cwd),
     await readGitLines(gitClient, ["ls-files", "--others", "--exclude-standard"], cwd),
   );
   const counts = countStatusLines(statusLines);
@@ -217,11 +230,17 @@ async function captureSnapshot(cwd: string, fs: FileSystem, gitClient: GitClient
     headRef: await readGit(gitClient, ["symbolic-ref", "--quiet", "--short", "HEAD"], cwd),
     headSha,
     parentShas: await readParentShas(gitClient, cwd, headSha),
+    observedAt: new Date().toISOString(),
     statusLines,
     dirty: statusLines.length > 0,
     ...counts,
     headReflog: await readHeadReflog(fs, gitClient, cwd),
   };
+}
+
+function buildWorkspaceOverlayId(snapshot: RepoSnapshot, checkoutEpoch: number): string | null {
+  if (!snapshot.dirty) return null;
+  return stableId("overlay", `${String(checkoutEpoch)}\n${snapshot.statusLines.join("\n")}`);
 }
 
 function buildWorkspaceOverlay(snapshot: RepoSnapshot): WorkspaceOverlaySummary | null {
@@ -252,8 +271,11 @@ function buildObservation(
     headRef: snapshot.headRef,
     headSha: snapshot.headSha,
     dirty: snapshot.dirty,
+    observedAt: snapshot.observedAt,
     lastTransition,
+    workspaceOverlayId: buildWorkspaceOverlayId(snapshot, checkoutEpoch),
     workspaceOverlay: buildWorkspaceOverlay(snapshot),
+    statusLines: snapshot.statusLines,
   };
 }
 
@@ -413,8 +435,11 @@ export class RepoStateTracker {
     headRef: null,
     headSha: null,
     dirty: false,
+    observedAt: new Date(0).toISOString(),
     lastTransition: null,
+    workspaceOverlayId: null,
     workspaceOverlay: null,
+    statusLines: [],
   };
   private initialization: Promise<void> | null = null;
   private readonly startedAtSec = Math.floor(Date.now() / 1000);

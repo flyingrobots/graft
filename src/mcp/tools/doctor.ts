@@ -1,5 +1,6 @@
 import { STATIC_THRESHOLDS } from "../../policy/evaluate.js";
 import { topBurdenKind, totalNonReadBytesReturned } from "../burden.js";
+import { buildRuntimeStagedTarget } from "../runtime-staged-target.js";
 import type { ToolDefinition, ToolContext, ToolHandler } from "../context.js";
 
 export const doctorTool: ToolDefinition = {
@@ -10,6 +11,7 @@ export const doctorTool: ToolDefinition = {
   createHandler(ctx: ToolContext): ToolHandler {
     return () => {
       const repoState = ctx.getRepoState();
+      const causalContext = ctx.getCausalContext();
       const metrics = ctx.metrics.snapshot();
       const topBurden = topBurdenKind(metrics.burdenByKind);
       return ctx.respond("doctor", {
@@ -26,10 +28,12 @@ export const doctorTool: ToolDefinition = {
           topCalls: topBurden?.calls ?? 0,
         },
         runtimeObservability: ctx.observability,
-        causalContext: ctx.getCausalContext(),
+        causalContext,
         checkoutEpoch: repoState.checkoutEpoch,
         lastTransition: repoState.lastTransition,
+        workspaceOverlayId: repoState.workspaceOverlayId,
         workspaceOverlay: repoState.workspaceOverlay,
+        stagedTarget: buildRuntimeStagedTarget(ctx.getWorkspaceStatus(), causalContext, repoState),
       });
     };
   },

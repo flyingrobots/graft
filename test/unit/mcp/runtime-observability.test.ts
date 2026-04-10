@@ -113,6 +113,11 @@ describe("mcp: runtime observability", () => {
         stability: string;
         provenanceLevel: string;
       };
+      const stagedTarget = doctor["stagedTarget"] as {
+        availability: string;
+        stability: string;
+        provenanceLevel: string;
+      };
       expect(runtime.enabled).toBe(true);
       expect(runtime.logPath).toBe(path.join(isolated.graftDir, "logs", "mcp-runtime.ndjson"));
       expect(runtime.maxBytes).toBeGreaterThan(0);
@@ -127,8 +132,55 @@ describe("mcp: runtime observability", () => {
       expect(causal.warpWriterId).toBe("graft");
       expect(causal.stability).toBe("runtime_local");
       expect(causal.provenanceLevel).toBe("artifact_history");
+      expect(doctor["workspaceOverlayId"]).toBeNull();
+      expect(stagedTarget).toEqual({
+        availability: "none",
+        stability: "runtime_local",
+        provenanceLevel: "artifact_history",
+      });
     } finally {
       isolated.cleanup();
+    }
+  });
+
+  it("surfaces a full-file runtime staged target for staged rename selections", async () => {
+    const repoDir = createTestRepo("graft-runtime-staged-target-rename-");
+    try {
+      fs.writeFileSync(path.join(repoDir, "app.ts"), "export const ready = true;\n");
+      git(repoDir, "add -A");
+      git(repoDir, "commit -m init");
+
+      git(repoDir, "mv app.ts renamed.ts");
+
+      const isolated = createIsolatedServer({
+        projectRoot: repoDir,
+        graftDir: path.join(repoDir, ".graft"),
+      });
+      try {
+        const doctor = parse(await isolated.server.callTool("doctor", {}));
+        const stagedTarget = doctor["stagedTarget"] as {
+          availability: string;
+          reason?: string;
+          ambiguousPaths?: string[];
+          target?: {
+            selectionKind?: string;
+            selectionEntries?: { path: string }[];
+            workspaceOverlayId?: string;
+          };
+        };
+
+        expect(doctor["workspaceOverlayId"]).toMatch(/^overlay:[a-f0-9]{16}$/);
+        expect(stagedTarget.availability).toBe("full_file");
+        expect(stagedTarget.target?.selectionKind).toBe("full_file");
+        expect(stagedTarget.target?.selectionEntries).toEqual([
+          { path: "renamed.ts", symbols: [], regions: [] },
+        ]);
+        expect(stagedTarget.target?.workspaceOverlayId).toBe(doctor["workspaceOverlayId"]);
+      } finally {
+        isolated.cleanup();
+      }
+    } finally {
+      cleanupTestRepo(repoDir);
     }
   });
 

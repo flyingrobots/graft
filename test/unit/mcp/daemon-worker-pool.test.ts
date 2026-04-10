@@ -3,6 +3,7 @@ import * as fs from "node:fs";
 import * as path from "node:path";
 import { ChildProcessDaemonWorkerPool } from "../../../src/mcp/daemon-worker-pool.js";
 import { Metrics } from "../../../src/mcp/metrics.js";
+import type { RepoObservation } from "../../../src/mcp/repo-state.js";
 import { DEFAULT_DAEMON_CAPABILITY_PROFILE } from "../../../src/mcp/workspace-router.js";
 import { SessionTracker } from "../../../src/session/tracker.js";
 import { cleanupTestRepo, createTestRepo, git } from "../../helpers/git.js";
@@ -14,6 +15,34 @@ afterEach(async () => {
     await cleanups.pop()!();
   }
 });
+
+function repoObservation(repoDir: string, options?: { dirty?: boolean }): RepoObservation {
+  const dirty = options?.dirty ?? false;
+  return {
+    checkoutEpoch: 1,
+    headRef: "main",
+    headSha: git(repoDir, "rev-parse HEAD").trim(),
+    dirty,
+    observedAt: "2026-04-09T00:00:00.000Z",
+    lastTransition: null,
+    workspaceOverlayId: dirty ? "overlay:test" : null,
+    workspaceOverlay: dirty ? {
+      dirty: true,
+      totalPaths: 1,
+      stagedPaths: 0,
+      changedPaths: 1,
+      untrackedPaths: 0,
+      actorGuess: "unknown",
+      confidence: "low",
+      evidence: {
+        source: "git status --porcelain",
+        reflogSubject: null,
+        sample: [" M app.ts"],
+      },
+    } : null,
+    statusLines: dirty ? [" M app.ts"] : [],
+  };
+}
 
 describe("mcp: daemon worker pool", () => {
   it("runs monitor tick work on a child-process worker and reports worker counts", { timeout: 15_000 }, async () => {
@@ -90,14 +119,7 @@ describe("mcp: daemon worker pool", () => {
       gitCommonDir: path.join(repoDir, ".git"),
       writerId: "graft_session_test",
       capabilityProfile: DEFAULT_DAEMON_CAPABILITY_PROFILE,
-      repoState: {
-        checkoutEpoch: 1,
-        headRef: "main",
-        headSha: git(repoDir, "rev-parse HEAD").trim(),
-        dirty: false,
-        lastTransition: null,
-        workspaceOverlay: null,
-      },
+      repoState: repoObservation(repoDir),
       sessionSnapshot: new SessionTracker().snapshot(),
       metricsSnapshot: new Metrics().snapshot(),
     });
@@ -161,14 +183,7 @@ describe("mcp: daemon worker pool", () => {
       gitCommonDir: path.join(repoDir, ".git"),
       writerId: "graft_session_test",
       capabilityProfile: DEFAULT_DAEMON_CAPABILITY_PROFILE,
-      repoState: {
-        checkoutEpoch: 1,
-        headRef: "main",
-        headSha: git(repoDir, "rev-parse HEAD").trim(),
-        dirty: false,
-        lastTransition: null,
-        workspaceOverlay: null,
-      },
+      repoState: repoObservation(repoDir),
       sessionSnapshot,
       metricsSnapshot,
     };
@@ -251,14 +266,7 @@ describe("mcp: daemon worker pool", () => {
       gitCommonDir: path.join(repoDir, ".git"),
       writerId: "graft_session_test",
       capabilityProfile: DEFAULT_DAEMON_CAPABILITY_PROFILE,
-      repoState: {
-        checkoutEpoch: 1,
-        headRef: "main",
-        headSha: git(repoDir, "rev-parse HEAD").trim(),
-        dirty: true,
-        lastTransition: null,
-        workspaceOverlay: null,
-      },
+      repoState: repoObservation(repoDir, { dirty: true }),
       sessionSnapshot: new SessionTracker().snapshot(),
       metricsSnapshot: new Metrics().snapshot(),
     });

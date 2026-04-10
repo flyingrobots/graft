@@ -6,6 +6,7 @@ import {
   MCP_TOOL_NAMES,
   type McpToolName,
 } from "./capabilities.js";
+import { stagedTargetSchema } from "./causal-ontology.js";
 
 export { CLI_COMMAND_NAMES, MCP_TOOL_NAMES };
 export type { CliCommandName, McpToolName } from "./capabilities.js";
@@ -160,6 +161,33 @@ const runtimeCausalContextSchema = z.object({
   stability: z.literal("runtime_local"),
   provenanceLevel: z.literal("artifact_history"),
 }).strict();
+
+const runtimeLocalProvenanceSchema = z.object({
+  stability: z.literal("runtime_local"),
+  provenanceLevel: z.literal("artifact_history"),
+}).strict();
+
+const runtimeStagedTargetSchema = z.discriminatedUnion("availability", [
+  runtimeLocalProvenanceSchema.extend({
+    availability: z.literal("none"),
+  }).strict(),
+  runtimeLocalProvenanceSchema.extend({
+    availability: z.literal("full_file"),
+    target: stagedTargetSchema.safeExtend({
+      selectionKind: z.literal("full_file"),
+    }),
+  }).strict(),
+  runtimeLocalProvenanceSchema.extend({
+    availability: z.literal("ambiguous"),
+    reason: z.enum([
+      "missing_head_commit",
+      "missing_workspace_overlay",
+      "modified_path_selection_requires_deeper_evidence",
+    ]),
+    observedStagedPaths: z.number().int().positive(),
+    ambiguousPaths: z.array(z.string()).min(1),
+  }).strict(),
+]);
 
 const precisionSymbolMatchSchema = z.object({
   name: z.string(),
@@ -681,7 +709,9 @@ const mcpOutputBodySchemas: Record<McpToolName, z.ZodType> = {
     causalContext: runtimeCausalContextSchema,
     checkoutEpoch: z.number().int().nonnegative(),
     lastTransition: repoTransitionSchema.nullable(),
+    workspaceOverlayId: z.string().nullable(),
     workspaceOverlay: workspaceOverlaySummarySchema.nullable(),
+    stagedTarget: runtimeStagedTargetSchema,
   }).strict(),
   stats: z.object({
     totalReads: z.number().int().nonnegative(),
