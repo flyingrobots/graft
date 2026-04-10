@@ -2,12 +2,12 @@
 title: "Graft — Executive Summary"
 generated: 2026-04-10
 generator: codex (manual, following Method executive-summary process)
-tests: 660
-test_files: 62
+tests: 682
+test_files: 64
 legends: [CORE, WARP, CLEAN_CODE, SURFACE]
 backlog_items: 141
 version: 0.4.0
-status: "0062 active"
+status: "between cycles"
 ---
 
 # Graft — Executive Summary
@@ -93,16 +93,28 @@ The current working model is:
 
 ### Current cycle posture
 
-METHOD currently shows one active cycle:
+METHOD currently shows no active cycle.
+
+The most recently closed cycle is:
 
 - `0062-reactive-workspace-overlay`
-  - make workspace overlay footing explicit product truth
-  - distinguish reactive local edit signals from canonical Git
+  - made workspace-overlay footing explicit product truth
+  - distinguished reactive local edit signals from canonical Git
     transition boundaries
-  - anchor live overlay state to checkout epochs instead of only
+  - anchored live overlay state to checkout epochs instead of only
     between-tool-call inference
-  - define honest degraded posture when target-repo hooks/bootstrap are
+  - added honest degraded posture when target-repo hooks/bootstrap are
     absent
+  - surfaced stable-vs-forked lineage posture and boundary authority
+  - changed post-transition guidance from implicit continue to
+    explicit boundary review
+
+The next honest pull is:
+
+- `WARP_richer-semantic-transitions`
+  - build on explicit overlay footing and checkout-boundary handling
+  - separate coarse Git lifecycle transitions from richer semantic
+    transition meanings the product should eventually reason about
 
 The three most recent closed packets are:
 
@@ -138,10 +150,10 @@ survive reconnects and handoff. `0061` settled who or what the product
 can honestly say advanced that history, with inspectable evidence and
 no false certainty.
 
-`0062` is the next lifecycle packet on top of that trust substrate.
-Its job is to make the live workspace overlay and checkout-boundary
-posture explicit enough that persisted local history and attribution do
-not ride on silent best-effort snapshots.
+`0062` closed the lifecycle packet on top of that trust substrate.
+It made the live workspace overlay and checkout-boundary posture
+explicit enough that persisted local history and attribution no longer
+ride only on silent best-effort snapshots.
 
 ## Architecture
 
@@ -210,7 +222,7 @@ Structural and causal memory over Git.
 - **Current inflection point**: execution substrate exists, but the
   graph ontology, runtime-local causal footing, and persisted local
   artifact-history now exist
-- **Current active packet**: make the live workspace overlay and
+- **Most recently closed packet**: make the live workspace overlay and
   checkout-boundary footing explicit enough to support honest
   between-commit lifecycle semantics
 

@@ -76,12 +76,32 @@ That implies:
 
 ## What is active now
 
-Cycle `0062-reactive-workspace-overlay` is now active in METHOD.
+METHOD currently shows no active cycle.
 
-Its paired companion seam is
-`SURFACE_target-repo-git-hook-bootstrap.md`, which now reads less like
-optional bootstrap polish and more like required product work for
-lawful checkout-boundary handling.
+Cycle `0062-reactive-workspace-overlay` is now closed. It shipped the
+live-footing packet that the prior persisted-history and attribution
+work needed:
+
+- explicit workspace-overlay footing instead of only
+  between-tool-call inference
+- target-repo hook/bootstrap posture as bounded product truth
+- installed target-repo transition hooks and hook-observed
+  checkout-boundary evidence
+- stable-vs-forked overlay lineage posture with explicit authority
+  (`none`, `repo_snapshot`, or `hook_observed`)
+- boundary-review guidance after transition-caused forks instead of
+  silently defaulting to “continue”
+
+Its paired companion seam,
+`SURFACE_target-repo-git-hook-bootstrap.md`, is now partially realized
+in code and no longer reads like optional bootstrap polish. It is part
+of the shipped checkout-boundary story.
+
+The next honest pull is
+`WARP_richer-semantic-transitions.md`: now that checkout boundaries and
+reactive overlay footing are explicit, the product can start getting
+more precise about which transition meanings deserve first-class
+semantic treatment beyond raw Git lifecycle events.
 
 The last two shipped packets were:
 
@@ -136,10 +156,10 @@ persisted local history:
   layers
 - no false certainty beyond what the captured evidence supports
 
-`0062` is the next active lifecycle packet on top of that substrate.
+`0062` was the lifecycle packet on top of that substrate.
 
-Its job is to make the workspace overlay a first-class reactive product
-concept:
+Its delivered job was to make the workspace overlay a first-class
+reactive product concept:
 
 - explicit overlay footing instead of best-effort between-tool-call
   inference
@@ -176,8 +196,8 @@ turn:
 - cycle `0061` closed the first provenance/attribution packet so
   persisted local history can explain who or what advanced a line of
   work instead of only that the line of work survived
-- cycle `0062` is now pulling reactive workspace overlay semantics so
-  live workspace footing and checkout boundaries become first-class
+- cycle `0062` closed reactive workspace overlay semantics so live
+  workspace footing and checkout boundaries are now first-class
   product truth instead of only inferred repo snapshots
 - backlog now explicitly captures branch-switch hook/bootstrap concerns
   and the need for a first-class graph ontology / collapse model
