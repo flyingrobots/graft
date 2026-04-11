@@ -88,9 +88,9 @@ first honest human-facing surface for bounded between-commit work:
 - human-readable summary text on the bounded activity surface
 - thin CLI peer wrapper at `graft diag activity`
 
-METHOD currently shows no active cycle. The repo is paused before
-release preparation so the current hill can be evaluated as one
-coherent cut instead of being widened indefinitely.
+METHOD currently shows no active cycle. The repo is paused on
+`release/v0.5.0` before release execution so the current hill can be
+evaluated as one coherent cut instead of being widened indefinitely.
 
 The most recent foundational packets remain:
 

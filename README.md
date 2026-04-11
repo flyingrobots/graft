@@ -8,7 +8,7 @@ structurally correct view of a codebase instead of dumping entire
 files into their context window. Agent-first, but the structural
 tools (outlines, diffs, symbol history) are useful to anyone.
 
-**v0.4.0** — now with WARP: structural memory over git history.
+**v0.5.0** — bounded between-commit activity for humans and agents.
 
 ## Why
 
@@ -106,10 +106,12 @@ See the **[Setup decision table](docs/GUIDE.md#choose-your-setup-path)**
 for the fastest path by client and mode, and the full
 **[Setup Guide](docs/GUIDE.md)** for per-editor instructions, Claude
 Code hooks, `.graftignore` configuration, troubleshooting, and
-details on what the agent experiences. Contributors should also read
-**[Architecture](ARCHITECTURE.md)** for the runtime systems map and
-**[Code of Conduct](CODE_OF_CONDUCT.md)** for project participation
-expectations.
+details on what the agent experiences. For release-facing operator
+surfaces, see **[CLI Guide](docs/CLI.md)**,
+**[MCP Guide](docs/MCP.md)**, and **[Advanced Guide](docs/ADVANCED_GUIDE.md)**.
+Contributors should also read **[Architecture](ARCHITECTURE.md)** for
+the runtime systems map and **[Code of Conduct](CODE_OF_CONDUCT.md)**
+for project participation expectations.
 
 ## What it does
 
@@ -137,6 +139,9 @@ When an agent asks to read a file, Graft applies policy:
 - **MCP runtime observability** — metadata-only session and tool-call
   logs under `.graft/logs/mcp-runtime.ndjson`.
 - **Versioned schemas** on every machine-readable MCP / CLI payload.
+- **Between-commit activity view** — bounded local `artifact_history`
+  over recent continuity, transitions, staging, and reads, anchored
+  to the current commit when possible.
 
 Every decision is logged. Every refusal is explainable. All output
 is structured JSON with versioned `_schema` metadata.
@@ -159,6 +164,7 @@ is structured JSON with versioned `_schema` metadata.
 | `state_save` | Save session working state (max 8 KB) |
 | `state_load` | Restore session working state |
 | `set_budget` | Declare session byte budget — governor tightens as it drains |
+| `activity_view` | Bounded between-commit activity for the active workspace, with commit anchor, grouped recent activity, and degraded posture |
 | `explain` | Human-readable help for any reason code |
 | `doctor` | Runtime health check with burden summary and layered-worldline state |
 | `stats` | Decision metrics summary with cumulative burden-by-kind totals |
@@ -227,6 +233,7 @@ npx @flyingrobots/graft struct since HEAD~3 --json
 npx @flyingrobots/graft struct map src --json
 npx @flyingrobots/graft symbol show createServer --path src/mcp/server.ts --json
 npx @flyingrobots/graft symbol find 'create*' --json
+npx @flyingrobots/graft diag activity --json
 npx @flyingrobots/graft diag doctor --json
 npx @flyingrobots/graft diag explain CONTENT --json
 npx @flyingrobots/graft diag stats --json

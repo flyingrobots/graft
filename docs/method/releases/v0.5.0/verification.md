@@ -8,7 +8,7 @@ tagging, and publish verification are executed.
 - Repository type: JS/TS (pnpm)
 - Previous tag: `v0.4.0`
 - Planned version: `v0.5.0`
-- Branch: _pending release execution_
+- Branch: `release/v0.5.0`
 - HEAD synced with `origin/main`: _pending_
 
 ## Validation

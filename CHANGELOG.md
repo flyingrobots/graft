@@ -26,6 +26,32 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   receipts carry `traceId` and `latencyMs`, and `doctor` reports the
   active runtime log posture.
 
+## [0.5.0] - 2026-04-11
+
+### Added
+
+- **Between-commit activity view**: new bounded `activity_view` MCP
+  tool and `graft diag activity` CLI peer surface for inspecting
+  recent local `artifact_history` around the active causal workspace.
+- **Persisted local history substrate**: continuity, attribution,
+  staged-target, transition, and recent read/stage activity now
+  survive across local sessions as bounded artifact history.
+- **Same-repo concurrency posture**: bounded `repoConcurrency`
+  summaries and lawful same-worktree cross-session handoff semantics.
+
+### Changed
+
+- **Reactive workspace footing**: checkout-boundary footing, hook
+  posture, and forked-vs-stable lineage are now explicit product truth
+  instead of implied inference.
+- **Semantic transitions**: bounded surfaces now summarize
+  `index_update`, `conflict_resolution`, `merge_phase`,
+  `rebase_phase`, `bulk_transition`, and lawful `unknown` with
+  transition-aware guidance.
+- **Signpost docs**: README, GUIDE, BEARING, VISION, release notes,
+  and the new CLI/MCP/advanced signposts now reflect the 0.5.0
+  release cut.
+
 ## [0.4.0] - 2026-04-05
 
 ### Added

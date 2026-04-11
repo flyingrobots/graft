@@ -6,8 +6,8 @@ tests: 742
 test_files: 71
 legends: [CORE, WARP, CLEAN_CODE, SURFACE]
 backlog_items: 139
-version: 0.4.0
-status: "no active cycle; paused before release prep"
+version: 0.5.0
+status: "release/v0.5.0 branch cut; paused before release execution"
 ---
 
 # Graft — Executive Summary
@@ -95,8 +95,8 @@ The current working model is:
 
 ### Current cycle posture
 
-METHOD currently shows no active cycle. The repo is paused before
-release preparation.
+METHOD currently shows no active cycle. The repo is paused on
+`release/v0.5.0` before release execution.
 
 The most recently closed cycle is:
 
