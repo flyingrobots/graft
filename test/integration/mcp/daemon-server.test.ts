@@ -291,7 +291,11 @@ describe("mcp: daemon transport and lifecycle", () => {
       expect.objectContaining({ activeSessions: 2 }),
     ]);
 
-    const daemonSessions = await callTool<{ sessions: { bindState: string }[] }>(
+    const daemonSessions = await callTool<{ sessions: {
+      bindState: string;
+      causalSessionId: string | null;
+      checkoutEpochId: string | null;
+    }[] }>(
       socketPath,
       sessionA,
       "daemon_sessions",
@@ -300,6 +304,9 @@ describe("mcp: daemon transport and lifecycle", () => {
     );
     expect(daemonSessions.sessions).toHaveLength(2);
     expect(daemonSessions.sessions.every((session) => session.bindState === "bound")).toBe(true);
+    expect(daemonSessions.sessions.every((session) =>
+      typeof session.causalSessionId === "string" && typeof session.checkoutEpochId === "string"
+    )).toBe(true);
 
     const daemonRepos = await callTool<{ repos: {
       repoId: string;
@@ -361,6 +368,181 @@ describe("mcp: daemon transport and lifecycle", () => {
       activeSessions: 2,
       activeWarpRepos: 1,
     });
+  });
+
+  it("surfaces shared-worktree posture and explicit handoff for two daemon sessions on one worktree", async () => {
+    const repoDir = createTestRepo("graft-daemon-shared-worktree-");
+    repos.push(repoDir);
+    fs.writeFileSync(path.join(repoDir, "app.ts"), "export const ready = true;\n");
+    git(repoDir, "add -A");
+    git(repoDir, "commit -m init");
+
+    const rootDir = fs.mkdtempSync(path.join(os.tmpdir(), "graft-daemon-root-"));
+    roots.push(rootDir);
+    const socketPath = path.join(rootDir, "daemon.sock");
+    const daemon = await startDaemonServer({
+      graftDir: rootDir,
+      socketPath,
+    });
+    daemons.push(daemon);
+
+    const sessionA = await initializeSession(socketPath);
+    const sessionB = await initializeSession(socketPath);
+
+    const authorization = await callTool<{ ok: boolean }>(
+      socketPath,
+      sessionA,
+      "workspace_authorize",
+      { cwd: repoDir },
+      50,
+    );
+    expect(authorization.ok).toBe(true);
+
+    await callTool<{ ok: boolean }>(
+      socketPath,
+      sessionA,
+      "workspace_bind",
+      { cwd: repoDir },
+      51,
+    );
+    await callTool<{ ok: boolean }>(
+      socketPath,
+      sessionB,
+      "workspace_bind",
+      { cwd: repoDir },
+      52,
+    );
+
+    const sharedStatus = await callTool<{
+      activeCausalWorkspace: {
+        repoConcurrency: {
+          posture: string;
+          authority: string;
+          observedWorktreeCount: number;
+        };
+      } | null;
+    }>(
+      socketPath,
+      sessionB,
+      "causal_status",
+      {},
+      53,
+    );
+    expect(sharedStatus.activeCausalWorkspace?.repoConcurrency).toEqual(expect.objectContaining({
+      posture: "shared_worktree",
+      authority: "daemon_live_sessions",
+      observedWorktreeCount: 1,
+    }));
+
+    const attached = await callTool<{
+      ok: boolean;
+      errorCode?: string;
+      activeCausalWorkspace: {
+        repoConcurrency: {
+          posture: string;
+          authority: string;
+          overlappingPathCount: number;
+        };
+      } | null;
+    }>(
+      socketPath,
+      sessionB,
+      "causal_attach",
+      {
+        actor_kind: "agent",
+        actor_id: "agent:two",
+        from_actor_id: "agent:one",
+      },
+      54,
+    );
+    expect(attached.ok).toBe(false);
+    expect(attached.errorCode).toBe("NO_ATTACHABLE_HISTORY");
+    expect(attached.activeCausalWorkspace?.repoConcurrency).toEqual(expect.objectContaining({
+      posture: "shared_worktree",
+      authority: "daemon_live_sessions",
+      overlappingPathCount: 0,
+    }));
+  });
+
+  it("surfaces divergent checkout posture for same-repo daemon sessions on different worktrees", async () => {
+    const repoDir = createTestRepo("graft-daemon-divergent-checkout-");
+    repos.push(repoDir);
+    fs.writeFileSync(path.join(repoDir, "app.ts"), "export const ready = true;\n");
+    git(repoDir, "add -A");
+    git(repoDir, "commit -m init");
+
+    const featureWorktreeDir = fs.mkdtempSync(path.join(os.tmpdir(), "graft-daemon-worktree-"));
+    git(repoDir, `worktree add -b feature/concurrency ${featureWorktreeDir}`);
+
+    const rootDir = fs.mkdtempSync(path.join(os.tmpdir(), "graft-daemon-root-"));
+    roots.push(rootDir);
+    const socketPath = path.join(rootDir, "daemon.sock");
+    const daemon = await startDaemonServer({
+      graftDir: rootDir,
+      socketPath,
+    });
+    daemons.push(daemon);
+
+    try {
+      const sessionA = await initializeSession(socketPath);
+      const sessionB = await initializeSession(socketPath);
+
+      await callTool<{ ok: boolean }>(
+        socketPath,
+        sessionA,
+        "workspace_authorize",
+        { cwd: repoDir },
+        60,
+      );
+      await callTool<{ ok: boolean }>(
+        socketPath,
+        sessionA,
+        "workspace_authorize",
+        { cwd: featureWorktreeDir },
+        61,
+      );
+      await callTool<{ ok: boolean }>(
+        socketPath,
+        sessionA,
+        "workspace_bind",
+        { cwd: repoDir },
+        62,
+      );
+      await callTool<{ ok: boolean }>(
+        socketPath,
+        sessionB,
+        "workspace_bind",
+        { cwd: featureWorktreeDir },
+        63,
+      );
+
+      const featureStatus = await callTool<{
+        activeCausalWorkspace: {
+          repoConcurrency: {
+            posture: string;
+            authority: string;
+            observedWorktreeCount: number;
+          };
+        } | null;
+      }>(
+        socketPath,
+        sessionB,
+        "causal_status",
+        {},
+        64,
+      );
+      expect(featureStatus.activeCausalWorkspace?.repoConcurrency).toEqual(expect.objectContaining({
+        posture: "divergent_checkout",
+        authority: "daemon_live_sessions",
+        observedWorktreeCount: 2,
+      }));
+    } finally {
+      try {
+        git(repoDir, `worktree remove --force ${featureWorktreeDir}`);
+      } catch {
+        fs.rmSync(featureWorktreeDir, { recursive: true, force: true });
+      }
+    }
   });
 
   it("preserves safe_read cache behavior across off-process daemon execution", async () => {

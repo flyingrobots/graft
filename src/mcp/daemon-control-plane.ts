@@ -6,6 +6,7 @@ import type { GitClient } from "../ports/git.js";
 import type { DaemonSchedulerCounts } from "./daemon-job-scheduler.js";
 import { ZERO_SCHEDULER_COUNTS } from "./daemon-job-scheduler.js";
 import type { DaemonWorkerCounts } from "./daemon-worker-pool.js";
+import type { RuntimeCausalContext } from "./runtime-causal-context.js";
 import {
   DEFAULT_DAEMON_CAPABILITY_PROFILE,
   resolveWorkspaceRequest,
@@ -48,6 +49,7 @@ interface RegisteredSession {
   readonly sessionId: string;
   readonly startedAt: string;
   readonly getWorkspaceStatus: () => WorkspaceStatus;
+  readonly getRuntimeCausalContext: () => RuntimeCausalContext | null;
   lastActivityAt: string;
 }
 
@@ -95,6 +97,8 @@ export interface DaemonSessionView {
   readonly repoId: string | null;
   readonly worktreeId: string | null;
   readonly worktreeRoot: string | null;
+  readonly causalSessionId: string | null;
+  readonly checkoutEpochId: string | null;
   readonly capabilityProfile: WorkspaceCapabilityProfile | null;
   readonly startedAt: string;
   readonly lastActivityAt: string;
@@ -211,13 +215,18 @@ export class DaemonControlPlane {
     return this.ensureLoaded();
   }
 
-  registerSession(sessionId: string, getWorkspaceStatus: () => WorkspaceStatus): void {
+  registerSession(
+    sessionId: string,
+    getWorkspaceStatus: () => WorkspaceStatus,
+    getRuntimeCausalContext: () => RuntimeCausalContext | null,
+  ): void {
     const now = new Date().toISOString();
     this.sessions.set(sessionId, {
       sessionId,
       startedAt: now,
       lastActivityAt: now,
       getWorkspaceStatus,
+      getRuntimeCausalContext,
     });
   }
 
@@ -451,6 +460,7 @@ export class DaemonControlPlane {
 
   private toDaemonSessionView(session: RegisteredSession): DaemonSessionView {
     const status = this.readWorkspaceStatus(session);
+    const causalContext = this.readRuntimeCausalContext(session);
     return {
       sessionId: session.sessionId,
       sessionMode: "daemon",
@@ -458,6 +468,8 @@ export class DaemonControlPlane {
       repoId: status.repoId,
       worktreeId: status.worktreeId,
       worktreeRoot: status.worktreeRoot,
+      causalSessionId: causalContext?.causalSessionId ?? null,
+      checkoutEpochId: causalContext?.checkoutEpochId ?? null,
       capabilityProfile: status.capabilityProfile === null ? null : cloneCapabilityProfile(status.capabilityProfile),
       startedAt: session.startedAt,
       lastActivityAt: session.lastActivityAt,
@@ -478,6 +490,14 @@ export class DaemonControlPlane {
         graftDir: null,
         capabilityProfile: null,
       };
+    }
+  }
+
+  private readRuntimeCausalContext(session: RegisteredSession): RuntimeCausalContext | null {
+    try {
+      return session.getRuntimeCausalContext();
+    } catch {
+      return null;
     }
   }
 }

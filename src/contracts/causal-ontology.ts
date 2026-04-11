@@ -337,6 +337,7 @@ export type RepoConcurrencyPosture = z.infer<typeof repoConcurrencyPostureSchema
 export const REPO_CONCURRENCY_AUTHORITIES = [
   "repo_identity_only",
   "active_history_scan",
+  "daemon_live_sessions",
   "footprint_overlap",
   "explicit_handoff",
   "unknown",

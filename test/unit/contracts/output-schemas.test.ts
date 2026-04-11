@@ -124,6 +124,13 @@ describe("contracts: output schemas", () => {
     const daemonAuthorize = parse(await daemonServer.callTool("workspace_authorize", { cwd: repoDir }));
     const daemonStatusSnapshot = parse(await daemonServer.callTool("daemon_status", {}));
     const daemonSessionsSnapshot = parse(await daemonServer.callTool("daemon_sessions", {}));
+    const daemonSessions = daemonSessionsSnapshot["sessions"] as {
+      causalSessionId: string | null;
+      checkoutEpochId: string | null;
+    }[];
+    expect(daemonSessions.every((session) =>
+      "causalSessionId" in session && "checkoutEpochId" in session
+    )).toBe(true);
     const daemonMonitorStart = parse(await daemonServer.callTool("monitor_start", {
       cwd: repoDir,
       pollIntervalMs: 60_000,

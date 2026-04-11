@@ -26,9 +26,10 @@ export function buildCheckoutEpochId(
 export function buildCausalSessionId(
   repoId: string,
   worktreeId: string,
+  transportSessionId: string,
   workspaceSliceId: string,
 ): string {
-  return stableId("causal", `${repoId}:${worktreeId}:${workspaceSliceId}`);
+  return stableId("causal", `${repoId}:${worktreeId}:${transportSessionId}:${workspaceSliceId}`);
 }
 
 export function buildStrandId(
@@ -55,6 +56,7 @@ export function buildRuntimeCausalContext(input: {
   const causalSessionId = buildCausalSessionId(
     input.repoId,
     input.worktreeId,
+    input.transportSessionId,
     input.workspaceSliceId,
   );
   return {

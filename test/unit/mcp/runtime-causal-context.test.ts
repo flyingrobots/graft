@@ -55,15 +55,22 @@ describe("mcp: runtime causal context", () => {
   });
 
   it("changes causalSessionId when the workspace slice changes", () => {
-    const left = buildCausalSessionId("repo_1", "worktree_1", "slice_1");
-    const right = buildCausalSessionId("repo_1", "worktree_1", "slice_2");
+    const left = buildCausalSessionId("repo_1", "worktree_1", "transport_1", "slice_1");
+    const right = buildCausalSessionId("repo_1", "worktree_1", "transport_1", "slice_2");
+
+    expect(left).not.toBe(right);
+  });
+
+  it("changes causalSessionId when the transport session changes", () => {
+    const left = buildCausalSessionId("repo_1", "worktree_1", "transport_1", "slice_1");
+    const right = buildCausalSessionId("repo_1", "worktree_1", "transport_2", "slice_1");
 
     expect(left).not.toBe(right);
   });
 
   it("exposes checkout-epoch and strand builders as deterministic helpers", () => {
     const checkoutEpochId = buildCheckoutEpochId("repo_1", "worktree_1", 7);
-    const causalSessionId = buildCausalSessionId("repo_1", "worktree_1", "slice_1");
+    const causalSessionId = buildCausalSessionId("repo_1", "worktree_1", "transport_1", "slice_1");
     const strandId = buildStrandId(causalSessionId, checkoutEpochId, "graft_session_abc123");
 
     expect(checkoutEpochId).toMatch(/^epoch:[a-f0-9]{16}$/);

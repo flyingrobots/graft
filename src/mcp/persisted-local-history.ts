@@ -1021,6 +1021,9 @@ export class PersistedLocalHistoryStore {
 
     for (const record of recordsForEpoch) {
       causalSessionIds.add(record.causalSessionId);
+      if (record.continuedFromCausalSessionId !== null) {
+        causalSessionIds.add(record.continuedFromCausalSessionId);
+      }
       const contributorKey = buildRepoConcurrencyContributorKey({
         actorId: record.attribution.actor.actorId,
         attribution: record.attribution,
@@ -1029,6 +1032,9 @@ export class PersistedLocalHistoryStore {
       });
       if (contributorKey !== null) {
         contributorKeys.add(contributorKey);
+      }
+      if (record.continuedFromCausalSessionId !== null) {
+        contributorKeys.add(`causal:${record.continuedFromCausalSessionId}`);
       }
       if (record.attribution.actor.actorKind === "human" || record.attribution.actor.actorKind === "agent") {
         actorIds.add(record.attribution.actor.actorId);

@@ -36,6 +36,14 @@ interface RepoConcurrencyInput {
   readonly histories: readonly RepoConcurrencyWorktreeHistory[];
 }
 
+export interface RepoConcurrencyLiveSession {
+  readonly bindState: "bound" | "unbound";
+  readonly repoId: string | null;
+  readonly worktreeId: string | null;
+  readonly causalSessionId: string | null;
+  readonly checkoutEpochId: string | null;
+}
+
 function countOverlapPaths(touches: readonly RepoConcurrencyTouch[]): number {
   const contributorsByPath = new Map<string, Set<string>>();
   for (const touch of touches) {
@@ -70,6 +78,22 @@ function buildSummary(
     observedActorCount,
     overlappingPathCount,
     summary,
+  };
+}
+
+function withObservedCounts(
+  summary: RepoConcurrencySummary,
+  input: {
+    readonly observedWorktreeCount: number;
+    readonly observedCausalSessionCount: number;
+    readonly observedActorCount: number;
+  },
+): RepoConcurrencySummary {
+  return {
+    ...summary,
+    observedWorktreeCount: Math.max(summary.observedWorktreeCount, input.observedWorktreeCount),
+    observedCausalSessionCount: Math.max(summary.observedCausalSessionCount, input.observedCausalSessionCount),
+    observedActorCount: Math.max(summary.observedActorCount, input.observedActorCount),
   };
 }
 
@@ -174,6 +198,86 @@ export function deriveRepoConcurrencySummary(input: RepoConcurrencyInput): RepoC
     overlappingPathCount,
     "No other active same-repo worktree or overlapping actor evidence is currently visible.",
   );
+}
+
+export function mergeRepoConcurrencySummaryWithLiveSessions(input: {
+  readonly currentSummary: RepoConcurrencySummary;
+  readonly currentRepoId: string;
+  readonly currentWorktreeId: string;
+  readonly currentCheckoutEpochId: string | null;
+  readonly sessions: readonly RepoConcurrencyLiveSession[];
+}): RepoConcurrencySummary {
+  const liveRepoSessions = input.sessions.filter((session) =>
+    session.bindState === "bound" &&
+    session.repoId === input.currentRepoId &&
+    session.worktreeId !== null
+  );
+
+  if (liveRepoSessions.length === 0) {
+    return input.currentSummary;
+  }
+
+  const observedWorktreeCount = new Set(liveRepoSessions.map((session) => session.worktreeId)).size;
+  const observedCausalSessionCount = new Set(
+    liveRepoSessions
+      .map((session) => session.causalSessionId)
+      .filter((sessionId): sessionId is string => sessionId !== null),
+  ).size;
+  const summaryWithCounts = withObservedCounts(input.currentSummary, {
+    observedWorktreeCount: Math.max(1, observedWorktreeCount),
+    observedCausalSessionCount,
+    observedActorCount: input.currentSummary.observedActorCount,
+  });
+
+  const currentWorktreeSessions = liveRepoSessions.filter((session) => session.worktreeId === input.currentWorktreeId);
+  const otherWorktreeSessions = liveRepoSessions.filter((session) => session.worktreeId !== input.currentWorktreeId);
+
+  if (
+    otherWorktreeSessions.some((session) =>
+      session.checkoutEpochId !== null &&
+      input.currentCheckoutEpochId !== null &&
+      session.checkoutEpochId !== input.currentCheckoutEpochId
+    )
+  ) {
+    return {
+      ...summaryWithCounts,
+      posture: "divergent_checkout",
+      authority: "daemon_live_sessions",
+      summary: "Active same-repo daemon sessions are split across different checkout epochs or branches.",
+    };
+  }
+
+  if (summaryWithCounts.posture === "overlapping_actors") {
+    return summaryWithCounts;
+  }
+
+  if (currentWorktreeSessions.length > 1) {
+    if (
+      summaryWithCounts.posture === "exclusive" &&
+      summaryWithCounts.authority === "explicit_handoff" &&
+      otherWorktreeSessions.length === 0
+    ) {
+      return summaryWithCounts;
+    }
+    return {
+      ...summaryWithCounts,
+      posture: "shared_worktree",
+      authority: "daemon_live_sessions",
+      summary:
+        "Multiple active daemon sessions share the current live worktree, so ownership stays shared rather than exclusive.",
+    };
+  }
+
+  if (otherWorktreeSessions.length > 0) {
+    return {
+      ...summaryWithCounts,
+      posture: "shared_repo_only",
+      authority: "daemon_live_sessions",
+      summary: "Other active daemon sessions share the same canonical repo identity, but not this live worktree footing.",
+    };
+  }
+
+  return summaryWithCounts;
 }
 
 export function buildRepoConcurrencyContributorKey(input: {

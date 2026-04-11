@@ -291,7 +291,11 @@ export async function startDaemonServer(options: StartDaemonServerOptions = {}):
             controlPlane.unregisterSession(newSessionId);
           };
           sessions.set(newSessionId, createdSession);
-          controlPlane.registerSession(newSessionId, () => server.getWorkspaceStatus());
+          controlPlane.registerSession(
+            newSessionId,
+            () => server.getWorkspaceStatus(),
+            () => server.getRuntimeCausalContext(),
+          );
           await server.getMcpServer().connect(transport as Transport);
         }
 

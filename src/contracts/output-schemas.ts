@@ -536,6 +536,8 @@ const daemonSessionSchema = z.object({
   repoId: z.string().nullable(),
   worktreeId: z.string().nullable(),
   worktreeRoot: z.string().nullable(),
+  causalSessionId: z.string().nullable(),
+  checkoutEpochId: z.string().nullable(),
   capabilityProfile: workspaceCapabilityProfileSchema.nullable(),
   startedAt: z.string(),
   lastActivityAt: z.string(),

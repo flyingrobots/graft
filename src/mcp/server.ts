@@ -28,6 +28,7 @@ import { DaemonRepoOverview } from "./daemon-repos.js";
 import { DaemonJobScheduler } from "./daemon-job-scheduler.js";
 import { InlineDaemonWorkerPool, type DaemonWorkerPool } from "./daemon-worker-pool.js";
 import { PersistentMonitorRuntime } from "./persistent-monitor-runtime.js";
+import { mergeRepoConcurrencySummaryWithLiveSessions } from "./repo-concurrency.js";
 import { OFFLOADED_DAEMON_REPO_TOOL_NAMES, type OffloadedRepoToolName } from "./repo-tool-job.js";
 import {
   RuntimeEventLogger,
@@ -127,6 +128,7 @@ export interface GraftServer {
   callTool(name: string, args: Record<string, unknown>): Promise<McpToolResult>;
   injectSessionMessages(count: number): void;
   getWorkspaceStatus(): import("./workspace-router.js").WorkspaceStatus;
+  getRuntimeCausalContext(): import("./runtime-causal-context.js").RuntimeCausalContext | null;
   getMcpServer(): McpServer;
 }
 
@@ -336,7 +338,24 @@ export function createGraftServer(options: CreateGraftServerOptions = {}): Graft
       return workspaceRouter.getPersistedLocalHistorySummary();
     },
     getRepoConcurrencySummary() {
-      return workspaceRouter.getRepoConcurrencySummary();
+      return (async () => {
+        const summary = await workspaceRouter.getRepoConcurrencySummary();
+        if (summary === null || daemonControlPlane === null) {
+          return summary;
+        }
+        const status = workspaceRouter.getStatus();
+        if (status.bindState !== "bound" || status.repoId === null || status.worktreeId === null) {
+          return summary;
+        }
+        const causalContext = workspaceRouter.captureExecutionContext().getCausalContext();
+        return mergeRepoConcurrencySummaryWithLiveSessions({
+          currentSummary: summary,
+          currentRepoId: status.repoId,
+          currentWorktreeId: status.worktreeId,
+          currentCheckoutEpochId: causalContext.checkoutEpochId,
+          sessions: daemonControlPlane.listSessions(),
+        });
+      })();
     },
     declareCausalAttach(request) {
       return workspaceRouter.declareAttach(request);
@@ -781,6 +800,12 @@ export function createGraftServer(options: CreateGraftServerOptions = {}): Graft
     },
     getWorkspaceStatus() {
       return workspaceRouter.getStatus();
+    },
+    getRuntimeCausalContext() {
+      if (workspaceRouter.getStatus().bindState !== "bound") {
+        return null;
+      }
+      return workspaceRouter.captureExecutionContext().getCausalContext();
     },
     getMcpServer(): McpServer {
       return mcpServer;
