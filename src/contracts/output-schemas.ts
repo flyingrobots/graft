@@ -239,8 +239,16 @@ const activityViewItemSchema = z.union([
 const activityViewGroupSchema = z.object({
   groupKind: z.enum(["transition", "stage", "continuity", "read"]),
   label: z.string(),
+  summary: z.string(),
   count: z.number().int().positive(),
   items: z.array(activityViewItemSchema),
+}).strict();
+
+const activityViewSummarySchema = z.object({
+  headline: z.string(),
+  anchor: z.string(),
+  workspace: z.string(),
+  groups: z.array(z.string()),
 }).strict();
 
 const persistedLocalHistorySummarySchema = z.discriminatedUnion("availability", [
@@ -542,6 +550,7 @@ const causalAttachSchema = workspaceStatusSchema.extend({
 const activityViewSchema = workspaceStatusSchema.extend({
   truthClass: z.literal("artifact_history"),
   anchor: activityViewAnchorSchema,
+  summary: activityViewSummarySchema,
   activeCausalWorkspace: z.object({
     causalContext: runtimeCausalContextSchema,
     attribution: attributionSummarySchema,

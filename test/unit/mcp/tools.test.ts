@@ -301,10 +301,20 @@ describe("mcp: tool handlers", () => {
       headRef: string | null;
       headSha: string | null;
     };
+    const summary = parsed["summary"] as {
+      headline: string;
+      anchor: string;
+      workspace: string;
+      groups: string[];
+    };
     expect(anchor.posture).toBe("head_commit");
     expect(anchor.headSha).toMatch(/^[a-f0-9]{40}$/);
     expect(anchor.headRef).toEqual(expect.any(String));
     expect(anchor.headRef).not.toHaveLength(0);
+    expect(summary.headline).toContain("bounded local artifact history");
+    expect(summary.anchor).toContain("Anchored to");
+    expect(summary.workspace).toContain("No active semantic transition");
+    expect(summary.groups).not.toHaveLength(0);
 
     const activityWindow = parsed["activityWindow"] as {
       returned: number;
@@ -313,6 +323,7 @@ describe("mcp: tool handlers", () => {
       missingSignalKinds: string[];
       groups: {
         groupKind: string;
+        summary: string;
         count: number;
         items: Record<string, unknown>[];
       }[];
@@ -325,6 +336,7 @@ describe("mcp: tool handlers", () => {
       expect.arrayContaining([
         expect.objectContaining({
           groupKind: "read",
+          summary: expect.stringContaining("reads across"),
           count: expect.any(Number),
         }),
       ]),

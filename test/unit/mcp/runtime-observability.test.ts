@@ -468,10 +468,16 @@ describe("mcp: runtime observability", () => {
           posture: string;
           headSha: string | null;
         };
+        const summary = activityView["summary"] as {
+          headline: string;
+          anchor: string;
+          workspace: string;
+          groups: string[];
+        };
         const activityWindow = activityView["activityWindow"] as {
           returned: number;
           missingSignalKinds: string[];
-          groups: { groupKind: string; items: Record<string, unknown>[] }[];
+          groups: { groupKind: string; summary: string; items: Record<string, unknown>[] }[];
         };
         const activeCausalWorkspace = activityView["activeCausalWorkspace"] as {
           semanticTransition: { kind: string } | null;
@@ -481,12 +487,17 @@ describe("mcp: runtime observability", () => {
         expect(activityView["truthClass"]).toBe("artifact_history");
         expect(anchor.posture).toBe("head_commit");
         expect(anchor.headSha).toMatch(/^[a-f0-9]{40}$/);
+        expect(summary.headline).toContain("bounded local artifact history");
+        expect(summary.anchor).toContain("Anchored to");
+        expect(summary.workspace).toContain("exclusive");
+        expect(summary.groups).toEqual(expect.arrayContaining([expect.stringContaining("reads across")]));
         expect(activityWindow.returned).toBeGreaterThan(0);
         expect(activityWindow.missingSignalKinds).toContain("write_events_not_captured");
         expect(activityWindow.groups).toEqual(
           expect.arrayContaining([
             expect.objectContaining({
               groupKind: "read",
+              summary: expect.stringContaining("reads across"),
             }),
           ]),
         );

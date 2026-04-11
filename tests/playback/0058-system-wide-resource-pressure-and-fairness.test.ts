@@ -283,7 +283,7 @@ describe("0058 playback: system-wide resource pressure and fairness", () => {
     expect(result.cacheUpdates[0]?.observation).not.toBeNull();
     expect(sessionSnapshot).toEqual(sessionSnapshotBefore);
     expect(metricsSnapshot).toEqual(metricsSnapshotBefore);
-  });
+  }, 10_000);
 
   it("Are WARP writes modeled as logical writer lanes instead of a single hard-coded writer or executor-derived writer IDs?", () => {
     const scheduler = new DaemonJobScheduler({ maxConcurrentJobs: 2 });

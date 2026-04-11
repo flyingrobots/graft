@@ -69,6 +69,136 @@ function unique(values: readonly string[]): string[] {
   return [...new Set(values)];
 }
 
+function pluralize(count: number, singular: string, plural = `${singular}s`): string {
+  return count === 1 ? singular : plural;
+}
+
+function countText(count: number): string {
+  return String(count);
+}
+
+function shortSha(sha: string | null): string {
+  return sha === null ? "unknown" : sha.slice(0, 7);
+}
+
+function describeAnchor(anchor: ReturnType<typeof buildAnchor>): string {
+  if (anchor.posture === "unknown") {
+    return anchor.reason === "workspace_unbound"
+      ? "Anchor to the current Git commit is unavailable because no workspace is bound."
+      : "Anchor to the current Git commit is unavailable because HEAD could not be resolved.";
+  }
+
+  const refLabel = anchor.headRef ?? "HEAD";
+  return `Anchored to ${refLabel} @ ${shortSha(anchor.headSha)}.`;
+}
+
+function describeStagedTarget(
+  stagedTarget: ReturnType<typeof buildRuntimeStagedTarget>,
+): string {
+  switch (stagedTarget.availability) {
+    case "none":
+      return "No staged target is active.";
+    case "full_file":
+      return `Staged target is a full-file selection across ${countText(stagedTarget.target.selectionEntries.length)} ${pluralize(
+        stagedTarget.target.selectionEntries.length,
+        "path",
+      )}.`;
+    case "ambiguous":
+      return `Staged target is ambiguous across ${countText(stagedTarget.observedStagedPaths)} staged ${pluralize(
+        stagedTarget.observedStagedPaths,
+        "path",
+      )}.`;
+  }
+}
+
+function describeWorkspace(
+  repoConcurrency: { posture: string; summary: string } | null,
+  semanticTransitionSummary: string | null,
+  stagedTarget: ReturnType<typeof buildRuntimeStagedTarget>,
+): string {
+  return [
+    repoConcurrency === null
+      ? "Repo concurrency posture is unknown."
+      : `Repo concurrency posture is ${repoConcurrency.posture}. ${repoConcurrency.summary}`,
+    semanticTransitionSummary ?? "No active semantic transition is recorded.",
+    describeStagedTarget(stagedTarget),
+  ].join(" ");
+}
+
+function summarizeTransitionGroup(items: PersistedLocalActivityItem[]): string {
+  const transitionItems = items.filter((item) => "eventKind" in item && item.eventKind === "transition");
+  const latest = transitionItems[0];
+  if (latest === undefined) {
+    return "No semantic transitions are recorded.";
+  }
+  if (transitionItems.length === 1) {
+    return `1 semantic transition recorded: ${latest.payload.summary}.`;
+  }
+  return `${countText(transitionItems.length)} semantic transitions recorded, latest: ${latest.payload.summary}.`;
+}
+
+function summarizeStageGroup(items: PersistedLocalActivityItem[]): string {
+  const stageItems = items.filter((item) => "eventKind" in item && item.eventKind === "stage");
+  const uniquePaths = new Set<string>();
+  for (const item of stageItems) {
+    for (const path of item.footprint.paths) {
+      uniquePaths.add(path);
+    }
+  }
+  return `${countText(stageItems.length)} staging ${pluralize(stageItems.length, "event")} across ${countText(uniquePaths.size)} ${pluralize(
+    uniquePaths.size,
+    "path",
+  )}.`;
+}
+
+function summarizeContinuityGroup(items: PersistedLocalActivityItem[]): string {
+  const continuityItems = items.filter((item) => "itemKind" in item);
+  const operations = unique(continuityItems.map((item) => item.operation));
+  return `${countText(continuityItems.length)} continuity ${pluralize(continuityItems.length, "change")} (${operations.join(", ")}).`;
+}
+
+function summarizeReadGroup(items: PersistedLocalActivityItem[]): string {
+  const readItems = items.filter((item) => "eventKind" in item && item.eventKind === "read");
+  const uniquePaths = new Set<string>();
+  for (const item of readItems) {
+    for (const path of item.footprint.paths) {
+      uniquePaths.add(path);
+    }
+  }
+  const latest = readItems[0];
+  if (latest === undefined) {
+    return "No read activity is recorded.";
+  }
+  return `${countText(readItems.length)} reads across ${countText(uniquePaths.size)} ${pluralize(
+    uniquePaths.size,
+    "path",
+  )}, latest via ${latest.payload.surface}.`;
+}
+
+function summarizeGroup(
+  kind: ActivityGroupKind,
+  items: PersistedLocalActivityItem[],
+): string {
+  switch (kind) {
+    case "transition":
+      return summarizeTransitionGroup(items);
+    case "stage":
+      return summarizeStageGroup(items);
+    case "continuity":
+      return summarizeContinuityGroup(items);
+    case "read":
+      return summarizeReadGroup(items);
+  }
+}
+
+function buildHeadline(
+  returned: number,
+  truncated: boolean,
+): string {
+  const headline = `Showing ${countText(returned)} recent ${pluralize(returned, "activity item")} from bounded local artifact history.`;
+  return truncated ? `${headline} Results are truncated to the requested window.` : headline;
+}
+
 export const activityViewTool: ToolDefinition = {
   name: "activity_view",
   description:
@@ -86,6 +216,12 @@ export const activityViewTool: ToolDefinition = {
           ...workspaceStatus,
           truthClass: "artifact_history",
           anchor: buildAnchor(false, null, null),
+          summary: {
+            headline: buildHeadline(0, false),
+            anchor: "Anchor to the current Git commit is unavailable because no workspace is bound.",
+            workspace: "No active causal workspace is available until a workspace is bound.",
+            groups: [],
+          },
           activeCausalWorkspace: null,
           activityWindow: {
             historyPath: null,
@@ -129,6 +265,7 @@ export const activityViewTool: ToolDefinition = {
         return {
           groupKind,
           label: groupLabel(groupKind),
+          summary: summarizeGroup(groupKind, items),
           count: items.length,
           items,
         };
@@ -147,6 +284,18 @@ export const activityViewTool: ToolDefinition = {
         ...workspaceStatus,
         truthClass: "artifact_history",
         anchor,
+        summary: {
+          headline: buildHeadline(activityWindow.items.length, activityWindow.truncated),
+          anchor: describeAnchor(anchor),
+          workspace: describeWorkspace(
+            repoConcurrency === null
+              ? null
+              : { posture: repoConcurrency.posture, summary: repoConcurrency.summary },
+            repoState.semanticTransition?.summary ?? null,
+            stagedTarget,
+          ),
+          groups: groups.map((group) => group.summary),
+        },
         activeCausalWorkspace: {
           causalContext,
           attribution: persistedLocalHistory.attribution,
