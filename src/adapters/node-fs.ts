@@ -14,6 +14,10 @@ class NodeFileSystem implements FileSystem {
     return fsp.readFile(path);
   }
 
+  readdir(path: string): Promise<string[]> {
+    return fsp.readdir(path);
+  }
+
   writeFile(path: string, data: string, encoding: "utf-8"): Promise<void> {
     return fsp.writeFile(path, data, encoding);
   }

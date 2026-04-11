@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it } from "vitest";
 import * as fs from "node:fs";
 import * as path from "node:path";
-import { TOOL_REGISTRY, createGraftServer } from "../../../src/mcp/server.js";
+import { ALL_TOOL_REGISTRY, createGraftServer } from "../../../src/mcp/server.js";
 import {
   CLI_COMMAND_NAMES,
   CLI_OUTPUT_SCHEMAS,
@@ -41,6 +41,13 @@ function createServerInRepo(repoDir: string) {
   });
 }
 
+function createDaemonServer(graftDir: string) {
+  return createGraftServer({
+    mode: "daemon",
+    graftDir,
+  });
+}
+
 async function runCliJson(cwd: string, args: readonly string[]): Promise<Record<string, unknown>> {
   const stdout = createBufferWriter();
   const stderr = createBufferWriter();
@@ -59,7 +66,7 @@ describe("contracts: output schemas", () => {
   });
 
   it("declares an MCP output schema for every registered tool", () => {
-    expect(new Set(MCP_TOOL_NAMES)).toEqual(new Set(TOOL_REGISTRY.map((tool) => tool.name)));
+    expect(new Set(MCP_TOOL_NAMES)).toEqual(new Set(ALL_TOOL_REGISTRY.map((tool) => tool.name)));
   });
 
   it("exports JSON Schema objects for every MCP tool and CLI command", () => {
@@ -113,6 +120,32 @@ describe("contracts: output schemas", () => {
     ].join("\n"));
 
     const server = createServerInRepo(repoDir);
+    const daemonServer = createDaemonServer(path.join(repoDir, ".graft-daemon"));
+    const daemonAuthorize = parse(await daemonServer.callTool("workspace_authorize", { cwd: repoDir }));
+    const daemonStatusSnapshot = parse(await daemonServer.callTool("daemon_status", {}));
+    const daemonSessionsSnapshot = parse(await daemonServer.callTool("daemon_sessions", {}));
+    const daemonSessions = daemonSessionsSnapshot["sessions"] as {
+      causalSessionId: string | null;
+      checkoutEpochId: string | null;
+    }[];
+    expect(daemonSessions.every((session) =>
+      "causalSessionId" in session && "checkoutEpochId" in session
+    )).toBe(true);
+    const daemonMonitorStart = parse(await daemonServer.callTool("monitor_start", {
+      cwd: repoDir,
+      pollIntervalMs: 60_000,
+    }));
+    const daemonRepos = parse(await daemonServer.callTool("daemon_repos", {}));
+    const daemonMonitors = parse(await daemonServer.callTool("daemon_monitors", {}));
+    const daemonMonitorPause = parse(await daemonServer.callTool("monitor_pause", { cwd: repoDir }));
+    const daemonMonitorResume = parse(await daemonServer.callTool("monitor_resume", { cwd: repoDir }));
+    const daemonMonitorStop = parse(await daemonServer.callTool("monitor_stop", { cwd: repoDir }));
+    const daemonAuthorizations = parse(await daemonServer.callTool("workspace_authorizations", {}));
+    const daemonStatus = parse(await daemonServer.callTool("workspace_status", {}));
+    const daemonBind = parse(await daemonServer.callTool("workspace_bind", { cwd: repoDir }));
+    const daemonRebind = parse(await daemonServer.callTool("workspace_rebind", { cwd: repoDir }));
+    const daemonRevoke = parse(await daemonServer.callTool("workspace_revoke", { cwd: repoDir }));
+    git(repoDir, "checkout -b feature/output-schema-attach");
 
     const outputs = {
       safe_read: parse(await server.callTool("safe_read", { path: "app.ts" })),
@@ -124,6 +157,24 @@ describe("contracts: output schemas", () => {
       graft_map: parse(await server.callTool("graft_map", {})),
       code_show: parse(await server.callTool("code_show", { symbol: "greet", path: "app.ts" })),
       code_find: parse(await server.callTool("code_find", { query: "greet*" })),
+      code_refs: parse(await server.callTool("code_refs", { query: "greet", mode: "call" })),
+      daemon_repos: daemonRepos,
+      daemon_status: daemonStatusSnapshot,
+      daemon_sessions: daemonSessionsSnapshot,
+      daemon_monitors: daemonMonitors,
+      monitor_start: daemonMonitorStart,
+      monitor_pause: daemonMonitorPause,
+      monitor_resume: daemonMonitorResume,
+      monitor_stop: daemonMonitorStop,
+      workspace_authorize: daemonAuthorize,
+      workspace_authorizations: daemonAuthorizations,
+      workspace_revoke: daemonRevoke,
+      workspace_bind: daemonBind,
+      workspace_status: daemonStatus,
+      activity_view: parse(await server.callTool("activity_view", {})),
+      causal_status: parse(await server.callTool("causal_status", {})),
+      causal_attach: parse(await server.callTool("causal_attach", { actor_kind: "agent" })),
+      workspace_rebind: daemonRebind,
       run_capture: parse(await server.callTool("run_capture", { command: "printf 'ok'", tail: 1 })),
       state_save: parse(await server.callTool("state_save", { content: "current task" })),
       state_load: parse(await server.callTool("state_load", {})),
@@ -230,6 +281,7 @@ describe("contracts: output schemas", () => {
       symbol_show: await runCliJson(repoDir, ["symbol", "show", "greet", "--path", "app.ts", "--json"]),
       symbol_find: await runCliJson(repoDir, ["symbol", "find", "greet*", "--json"]),
       diag_doctor: await runCliJson(repoDir, ["diag", "doctor", "--json"]),
+      diag_activity: await runCliJson(repoDir, ["diag", "activity", "--limit", "5", "--json"]),
       diag_explain: await runCliJson(repoDir, ["diag", "explain", "CONTENT", "--json"]),
       diag_stats: await runCliJson(repoDir, ["diag", "stats", "--json"]),
       diag_capture: await runCliJson(repoDir, ["diag", "capture", "--json", "--", "printf", "ok"]),

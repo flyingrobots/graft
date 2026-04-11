@@ -14,13 +14,15 @@ export const sinceTool: ToolDefinition = {
     head: z.string().optional(),
   },
   createHandler(ctx: ToolContext): ToolHandler {
-    return (args) => {
+    return async (args) => {
       const base = args["base"] as string;
       const head = (args["head"] as string | undefined) ?? "HEAD";
 
-      const result = graftDiff({
+      const result = await graftDiff({
         cwd: ctx.projectRoot,
         fs: ctx.fs,
+        git: ctx.git,
+        resolveWorkingTreePath: (filePath) => ctx.resolvePath(filePath),
         base,
         head,
         refusalCheck: (filePath, actual) => evaluateMcpRefusal(ctx, filePath, actual),

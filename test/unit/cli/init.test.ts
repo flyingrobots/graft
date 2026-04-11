@@ -2,7 +2,9 @@ import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import * as fs from "node:fs";
 import * as path from "node:path";
 import * as os from "node:os";
+import { execSync } from "node:child_process";
 import { runInit } from "../../../src/cli/init.js";
+import { assertIsolatedGitTestDir, git } from "../../helpers/git.js";
 
 interface Writer {
   text(): string;
@@ -28,6 +30,12 @@ function runInitQuietly(args?: readonly string[]): void {
     stdout: createBufferWriter(),
     stderr: createBufferWriter(),
   });
+}
+
+function initGitRepo(cwd: string): void {
+  git(cwd, "init");
+  git(cwd, "config user.email test@test.com");
+  git(cwd, "config user.name test");
 }
 
 describe("cli: graft init", () => {
@@ -137,6 +145,82 @@ describe("cli: graft init", () => {
     expect(settings.hooks.PostToolUse[0]!.hooks[0]!.command).toContain("posttooluse-read.ts");
   });
 
+  it("writes target-repo git transition hooks with an explicit flag", () => {
+    initGitRepo(tmpDir);
+
+    runInitQuietly(["--write-target-git-hooks"]);
+
+    const hooksDir = path.join(tmpDir, ".git", "hooks");
+    const postCheckout = fs.readFileSync(path.join(hooksDir, "post-checkout"), "utf-8");
+    const postMerge = fs.readFileSync(path.join(hooksDir, "post-merge"), "utf-8");
+    const postRewrite = fs.readFileSync(path.join(hooksDir, "post-rewrite"), "utf-8");
+
+    expect(postCheckout).toContain("graft-target-repo-git-hook:post-checkout");
+    expect(postMerge).toContain("graft-target-repo-git-hook:post-merge");
+    expect(postRewrite).toContain("graft-target-repo-git-hook:post-rewrite");
+  });
+
+  it("respects configured core.hooksPath and preserves external target-repo hooks", () => {
+    initGitRepo(tmpDir);
+    fs.mkdirSync(path.join(tmpDir, ".githooks"), { recursive: true });
+    git(tmpDir, "config core.hooksPath .githooks");
+    fs.writeFileSync(path.join(tmpDir, ".githooks", "post-checkout"), "#!/bin/sh\necho external\n");
+
+    runInitQuietly(["--write-target-git-hooks"]);
+
+    const postCheckout = fs.readFileSync(path.join(tmpDir, ".githooks", "post-checkout"), "utf-8");
+    const postMerge = fs.readFileSync(path.join(tmpDir, ".githooks", "post-merge"), "utf-8");
+    const postRewrite = fs.readFileSync(path.join(tmpDir, ".githooks", "post-rewrite"), "utf-8");
+
+    expect(postCheckout).toContain("echo external");
+    expect(postCheckout).not.toContain("graft-target-repo-git-hook");
+    expect(postMerge).toContain("graft-target-repo-git-hook:post-merge");
+    expect(postRewrite).toContain("graft-target-repo-git-hook:post-rewrite");
+  });
+
+  it("installed target-repo git hooks append transition events when executed", () => {
+    initGitRepo(tmpDir);
+    const realWorktreeRoot = fs.realpathSync(tmpDir);
+
+    runInitQuietly(["--write-target-git-hooks"]);
+    assertIsolatedGitTestDir(tmpDir);
+    execSync("sh .git/hooks/post-checkout oldsha newsha 1", { cwd: tmpDir, stdio: "ignore" });
+
+    const logPath = path.join(tmpDir, ".graft", "runtime", "git-transitions.ndjson");
+    const events = fs.readFileSync(logPath, "utf-8").trim().split("\n").map((line) => JSON.parse(line) as {
+      hookName: string;
+      hookArgs: string[];
+      worktreeRoot: string;
+    });
+
+    expect(events.at(-1)).toEqual(
+      expect.objectContaining({
+        hookName: "post-checkout",
+        hookArgs: ["oldsha", "newsha", "1"],
+        worktreeRoot: realWorktreeRoot,
+      }),
+    );
+  });
+
+  it("returns a JSON error when target-repo hook bootstrap is requested outside a git worktree", () => {
+    const stdout = createBufferWriter();
+    const stderr = createBufferWriter();
+
+    runInit({
+      args: ["--json", "--write-target-git-hooks"],
+      stdout,
+      stderr,
+    });
+
+    const parsed = JSON.parse(stdout.text()) as {
+      ok: boolean;
+      error: string;
+    };
+    process.exitCode = 0;
+    expect(parsed.ok).toBe(false);
+    expect(parsed.error).toBe("--write-target-git-hooks requires a git worktree");
+  });
+
   it("merges Claude MCP config without clobbering existing servers or duplicating graft", () => {
     fs.writeFileSync(path.join(tmpDir, ".mcp.json"), JSON.stringify({
       mcpServers: {
@@ -229,8 +313,48 @@ describe("cli: graft init", () => {
     const config = fs.readFileSync(path.join(tmpDir, ".codex", "config.toml"), "utf-8");
     expect(config).toContain("[mcp_servers.think]");
     expect(config).toContain("[mcp_servers.graft]");
+    expect(config).toContain("startup_timeout_sec = 120");
     const graftBlockCount = (config.match(/\[mcp_servers\.graft\]/g) ?? []).length;
     expect(graftBlockCount).toBe(1);
+  });
+
+  it("upgrades an existing Codex graft block with the safer startup timeout", () => {
+    fs.mkdirSync(path.join(tmpDir, ".codex"), { recursive: true });
+    fs.writeFileSync(path.join(tmpDir, ".codex", "config.toml"), [
+      "[mcp_servers.graft]",
+      "command = \"npx\"",
+      "args = [\"-y\", \"@flyingrobots/graft\", \"serve\"]",
+      "",
+    ].join("\n"));
+
+    runInitQuietly(["--write-codex-mcp"]);
+
+    const config = fs.readFileSync(path.join(tmpDir, ".codex", "config.toml"), "utf-8");
+    expect(config).toContain("startup_timeout_sec = 120");
+    const timeoutCount = (config.match(/startup_timeout_sec = 120/g) ?? []).length;
+    expect(timeoutCount).toBe(1);
+  });
+
+  it("writes AGENTS.md guidance when bootstrapping Codex", () => {
+    runInitQuietly(["--write-codex-mcp"]);
+
+    const content = fs.readFileSync(path.join(tmpDir, "AGENTS.md"), "utf-8");
+    expect(content).toContain("safe_read");
+    expect(content).toContain("file_outline");
+    expect(content).toContain("set_budget");
+  });
+
+  it("appends to existing AGENTS.md without duplicating the graft guidance", () => {
+    fs.writeFileSync(path.join(tmpDir, "AGENTS.md"), "# Team Rules\n\nExisting content.\n");
+
+    runInitQuietly(["--write-codex-mcp"]);
+    runInitQuietly(["--write-codex-mcp"]);
+
+    const content = fs.readFileSync(path.join(tmpDir, "AGENTS.md"), "utf-8");
+    expect(content).toContain("Team Rules");
+    expect(content).toContain("safe_read");
+    const snippetCount = (content.match(/## File reads/g) ?? []).length;
+    expect(snippetCount).toBe(1);
   });
 
   it("writes project-local config for the other supported clients with explicit flags", () => {

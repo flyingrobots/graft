@@ -2,6 +2,7 @@ import { describe, it, expect } from "vitest";
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
+import { nodeGit } from "../../../src/adapters/node-git.js";
 import { createGraftServer } from "../../../src/mcp/server.js";
 import { collectSymbols } from "../../../src/mcp/tools/precision.js";
 import { git, createTestRepo, cleanupTestRepo } from "../../helpers/git.js";
@@ -105,7 +106,7 @@ describe("mcp: code_show", () => {
       git(tmpDir, "commit -m v2");
 
       const warp = await openWarp({ cwd: tmpDir });
-      await indexCommits(warp, { cwd: tmpDir });
+      await indexCommits(warp, { cwd: tmpDir, git: nodeGit });
 
       const server = createServerInRepo(tmpDir);
       const result = parse(await server.callTool("code_show", {
@@ -230,6 +231,32 @@ describe("mcp: code_find", () => {
     }
   });
 
+  it("supports case-insensitive substring discovery for plain queries", async () => {
+    const tmpDir = createTestRepo("graft-precision-find-substring-live-");
+    try {
+      fs.mkdirSync(path.join(tmpDir, "src"), { recursive: true });
+      fs.writeFileSync(
+        path.join(tmpDir, "src", "adapters.ts"),
+        "export class Adapter {}\n" +
+          "export function adapterFactory(): Adapter { return new Adapter(); }\n" +
+          "export class GitWarpAdapter {}\n",
+      );
+      git(tmpDir, "add -A");
+      git(tmpDir, "commit -m init");
+
+      const server = createServerInRepo(tmpDir);
+      const result = parse(await server.callTool("code_find", {
+        query: "adapter",
+      }));
+
+      const names = (result["matches"] as { name: string }[]).map((match) => match.name);
+      expect(result["source"]).toBe("live");
+      expect(names).toEqual(["Adapter", "adapterFactory", "GitWarpAdapter"]);
+    } finally {
+      cleanupTestRepo(tmpDir);
+    }
+  });
+
   it("supports kind filters and directory scoping", async () => {
     const tmpDir = createTestRepo("graft-precision-find-scope-");
     try {
@@ -257,6 +284,31 @@ describe("mcp: code_find", () => {
       expect(matches).toHaveLength(1);
       expect(matches[0]?.kind).toBe("class");
       expect(matches[0]?.path).toBe("src/policy/evaluate.ts");
+    } finally {
+      cleanupTestRepo(tmpDir);
+    }
+  });
+
+  it("normalizes in-repo absolute paths for directory scoping", async () => {
+    const tmpDir = createTestRepo("graft-precision-find-abs-scope-");
+    try {
+      fs.mkdirSync(path.join(tmpDir, "src", "policy"), { recursive: true });
+      fs.writeFileSync(
+        path.join(tmpDir, "src", "policy", "evaluate.ts"),
+        "export class PolicyEngine {}\n",
+      );
+      git(tmpDir, "add -A");
+      git(tmpDir, "commit -m init");
+
+      const server = createServerInRepo(tmpDir);
+      const result = parse(await server.callTool("code_find", {
+        query: "policy",
+        path: path.join(tmpDir, "src"),
+      }));
+
+      expect(result["matches"]).toEqual([
+        expect.objectContaining({ name: "PolicyEngine", path: "src/policy/evaluate.ts" }),
+      ]);
     } finally {
       cleanupTestRepo(tmpDir);
     }
@@ -310,7 +362,7 @@ describe("mcp: code_find", () => {
       git(tmpDir, "commit -m init");
 
       const warp = await openWarp({ cwd: tmpDir });
-      await indexCommits(warp, { cwd: tmpDir });
+      await indexCommits(warp, { cwd: tmpDir, git: nodeGit });
 
       const server = createServerInRepo(tmpDir);
       const result = parse(await server.callTool("code_find", {
@@ -328,6 +380,33 @@ describe("mcp: code_find", () => {
     }
   });
 
+  it("supports case-insensitive substring discovery on indexed clean-head repos", async () => {
+    const tmpDir = createTestRepo("graft-precision-find-warp-substring-");
+    try {
+      fs.mkdirSync(path.join(tmpDir, "src"), { recursive: true });
+      fs.writeFileSync(
+        path.join(tmpDir, "src", "adapters.ts"),
+        "export class GitWarpAdapter {}\nexport class ScenarioFixtureAdapter {}\n",
+      );
+      git(tmpDir, "add -A");
+      git(tmpDir, "commit -m init");
+
+      const warp = await openWarp({ cwd: tmpDir });
+      await indexCommits(warp, { cwd: tmpDir, git: nodeGit });
+
+      const server = createServerInRepo(tmpDir);
+      const result = parse(await server.callTool("code_find", {
+        query: "adapter",
+      }));
+
+      const names = (result["matches"] as { name: string }[]).map((match) => match.name);
+      expect(result["source"]).toBe("warp");
+      expect(names).toEqual(["GitWarpAdapter", "ScenarioFixtureAdapter"]);
+    } finally {
+      cleanupTestRepo(tmpDir);
+    }
+  });
+
   it("falls back to live search when indexed repos have dirty working-tree edits", async () => {
     const tmpDir = createTestRepo("graft-precision-find-dirty-");
     try {
@@ -337,7 +416,7 @@ describe("mcp: code_find", () => {
       git(tmpDir, "commit -m init");
 
       const warp = await openWarp({ cwd: tmpDir });
-      await indexCommits(warp, { cwd: tmpDir });
+      await indexCommits(warp, { cwd: tmpDir, git: nodeGit });
 
       fs.writeFileSync(
         path.join(tmpDir, "src", "draft.ts"),

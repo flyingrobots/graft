@@ -47,6 +47,7 @@ describe("cli: graft grouped surface", () => {
     expect(stderr.text()).toBe("");
     expect(stdout.text()).toContain("read safe");
     expect(stdout.text()).toContain("struct diff");
+    expect(stdout.text()).toContain("diag activity");
     expect(stdout.text()).toContain("diag doctor");
   });
 
@@ -86,6 +87,84 @@ describe("cli: graft grouped surface", () => {
     expect(calls).toEqual(["/tmp/example"]);
   });
 
+  it("routes explicit daemon through the daemon starter", async () => {
+    const stdout = createBufferWriter();
+    const stderr = createBufferWriter();
+    const calls: { socketPath?: string | undefined }[] = [];
+
+    await runCli({
+      cwd: "/tmp/example",
+      args: ["daemon", "--socket", "runtime/graft.sock"],
+      stdout,
+      stderr,
+      startDaemon: (options) => {
+        calls.push(options);
+        return Promise.resolve({
+          socketPath: options.socketPath ?? "default",
+          healthPath: "/healthz",
+          mcpPath: "/mcp",
+          close: () => Promise.resolve(),
+          getHealthStatus: () => ({
+            ok: true,
+            sessionMode: "daemon",
+            transport: "unix_socket",
+            sameUserOnly: true,
+            socketPath: options.socketPath ?? "default",
+            healthPath: "/healthz",
+            mcpPath: "/mcp",
+            activeSessions: 0,
+            boundSessions: 0,
+            unboundSessions: 0,
+            activeWarpRepos: 0,
+            authorizedWorkspaces: 0,
+            authorizedRepos: 0,
+            workspaceBindRequiresAuthorization: true,
+            totalMonitors: 0,
+            runningMonitors: 0,
+            pausedMonitors: 0,
+            stoppedMonitors: 0,
+            failingMonitors: 0,
+            backlogMonitors: 0,
+            scheduler: {
+              maxConcurrentJobs: 2,
+              activeJobs: 0,
+              queuedJobs: 0,
+              interactiveQueuedJobs: 0,
+              backgroundQueuedJobs: 0,
+              activeWriterLanes: 0,
+              queuedWriterLanes: 0,
+              completedJobs: 0,
+              failedJobs: 0,
+              longestQueuedWaitMs: 0,
+            },
+            workers: {
+              mode: "child_processes",
+              totalWorkers: 2,
+              busyWorkers: 0,
+              idleWorkers: 2,
+              queuedTasks: 0,
+              completedTasks: 0,
+              failedTasks: 0,
+            },
+            defaultCapabilityProfile: {
+              boundedReads: true,
+              structuralTools: true,
+              precisionTools: true,
+              stateBookmarks: true,
+              runtimeLogs: "session_local_only",
+              runCapture: false,
+            },
+            startedAt: "2026-04-08T00:00:00.000Z",
+          }),
+        });
+      },
+    });
+
+    expect(stderr.text()).toBe("");
+    expect(stdout.text()).toContain("/tmp/example/runtime/graft.sock");
+    expect(calls).toEqual([{ socketPath: "/tmp/example/runtime/graft.sock" }]);
+  });
+
   it("keeps no-arg non-interactive entrypoints compatible with MCP clients", () => {
     expect(resolveEntrypointArgs([], false, false)).toEqual(["serve"]);
     expect(resolveEntrypointArgs([], true, true)).toEqual([]);
@@ -118,6 +197,42 @@ describe("cli: graft grouped surface", () => {
       const parsed = JSON.parse(stdout.text()) as { _schema: { id: string }; matches?: unknown[] };
       expect(parsed._schema.id).toBe("graft.cli.symbol_find");
       expect(parsed.matches?.length).toBe(1);
+    } finally {
+      cleanupTestRepo(repoDir);
+    }
+  });
+
+  it("runs diag activity through the grouped CLI surface", async () => {
+    const repoDir = createTestRepo("graft-cli-activity-");
+    try {
+      fs.writeFileSync(path.join(repoDir, "app.ts"), [
+        "export function greet(name: string): string {",
+        "  return `hello ${name}`;",
+        "}",
+        "",
+      ].join("\n"));
+      git(repoDir, "add -A");
+      git(repoDir, "commit -m init");
+
+      const stdout = createBufferWriter();
+      const stderr = createBufferWriter();
+
+      await runCli({
+        cwd: repoDir,
+        args: ["diag", "activity", "--limit", "5", "--json"],
+        stdout,
+        stderr,
+      });
+
+      expect(stderr.text()).toBe("");
+      const parsed = JSON.parse(stdout.text()) as {
+        _schema: { id: string };
+        truthClass: string;
+        activityWindow: { returned: number };
+      };
+      expect(parsed._schema.id).toBe("graft.cli.diag_activity");
+      expect(parsed.truthClass).toBe("artifact_history");
+      expect(parsed.activityWindow.returned).toBeGreaterThanOrEqual(0);
     } finally {
       cleanupTestRepo(repoDir);
     }

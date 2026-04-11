@@ -19,7 +19,7 @@ export const fileOutlineTool: ToolDefinition = {
       // Check cache
       let rawContent: string | null = null;
       try {
-        rawContent = ctx.fs.readFileSync(filePath, "utf-8");
+        rawContent = await ctx.fs.readFile(filePath, "utf-8");
       } catch {
         // proceed to fileOutline for error handling
       }

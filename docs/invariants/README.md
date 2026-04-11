@@ -27,6 +27,21 @@ it. Cycles under that legend must verify the invariant holds.
 ### Cache (CORE)
 - [cache-normalized](cache-normalized.md) — same file = same cache key
 
+### WARP Ontology (WARP)
+- [attribution-explicit-or-unknown](attribution-explicit-or-unknown.md) — actor attribution must name a supported actor class or explicitly stay unknown
+- [attribution-confidence-evidence-bounded](attribution-confidence-evidence-bounded.md) — actor confidence cannot exceed the strength of supporting evidence
+- [canonical-provenance-separate](canonical-provenance-separate.md) — canonical structural truth is not the same layer as canonical provenance
+- [causal-events-carry-footprints](causal-events-carry-footprints.md) — provenance-capable events must have explicit footprints
+- [causal-collapse-slice-based](causal-collapse-slice-based.md) — collapse admits the relevant causal slice, not the whole strand
+- [checkout-epochs-explicit](checkout-epochs-explicit.md) — branch and history transitions must create explicit checkout-epoch boundaries
+- [overlapping-actors-stay-uncertain](overlapping-actors-stay-uncertain.md) — same-worktree actor overlap must downgrade to shared or unknown instead of faking single-actor certainty
+- [persisted-local-history-artifact-history](persisted-local-history-artifact-history.md) — persisted sub-commit history stays artifact_history until collapse admits it
+- [semantic-transitions-explicit-or-unknown](semantic-transitions-explicit-or-unknown.md) — semantic transition surfaces must name a supported meaning or explicitly stay unknown
+- [transport-session-not-causal-session](transport-session-not-causal-session.md) — transport sessions are not the final product session model
+
+### Human Surfaces (SURFACE)
+- [activity-view-artifact-history-honest](activity-view-artifact-history-honest.md) — between-commit activity views stay bounded artifact_history or explicitly degraded
+
 ### Observability (CORE)
 - [receipt-always](receipt-always.md) — every MCP response has _receipt
 - [versioned-output-schemas](versioned-output-schemas.md) — machine-readable outputs carry versioned schemas

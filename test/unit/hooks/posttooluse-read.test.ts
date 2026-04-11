@@ -38,6 +38,7 @@ describe("hooks: posttooluse-read", () => {
     );
     expect(output.exitCode).toBe(0);
     expect(output.stderr).toContain("[graft]");
+    expect(output.stderr).toContain("bypassed graft's governed path");
     expect(output.stderr).toContain("safe_read");
     expect(output.stderr).toContain("saving");
   });

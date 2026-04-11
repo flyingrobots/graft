@@ -1,229 +1,321 @@
 ---
 title: "Graft — Executive Summary"
-generated: 2026-04-05
-generator: claude (manual, following Method executive-summary process)
-cycles_completed: 23
-tests: 434
-legends: [CORE, WARP, CLEAN_CODE]
-backlog_items: 25
-version: 0.4.0
-commit: 8b03a2c
+generated: 2026-04-11
+generator: codex (manual, following Method executive-summary process)
+tests: 742
+test_files: 71
+legends: [CORE, WARP, CLEAN_CODE, SURFACE]
+backlog_items: 139
+version: 0.5.0
+status: "release/v0.5.0 branch cut; paused before release execution"
 ---
 
 # Graft — Executive Summary
 
 ## Vision
 
-Graft is a context governor for coding agents. It exists because
-agents waste enormous context reading files they shouldn't read
-whole, re-reading files that haven't changed, and flooding their
-context windows with noise.
+Graft started as a context governor for coding agents because agents
+were burning enormous context on full-file reads, repeated reads, and
+raw-file spelunking.
 
-The empirical basis is Blacklight's analysis of 1,091 real coding
-sessions (291K messages, 4.5 months): **96.2 GB of context burden
-from Read alone** — 6.6x all other tools combined. 58% of reads
-were full-file. One file was read 1,053 times for 1.74 GB of
-burden. Dynamic read caps + session management reduce this by
-**75.1%**.
+That is still true, but it is no longer the whole story.
 
-Graft is agent-first — an MCP server that enforces read policy,
-returns the smallest structurally correct view, and logs every
-decision. But the structural tools (outlines, diffs, symbol history)
-are useful to anyone. Don't market it as a human tool. Do leave the
-door unlocked.
+The product direction now looks like this:
 
-The long-term vision: Graft grows from a governor into a
-**provenance-aware substrate**. Git tracks bytes. Graft, powered
-by WARP, tracks what those bytes mean structurally — across commits,
-across sessions, across the full causal chain of an agent's reads
-and writes.
+- **Git tracks hard byte checkpoints**
+- **Graft tracks how code structure evolves between those checkpoints**
+- **Graft also tracks the activity that explains why those structural
+  changes happened**
 
----
+So the long-term product is not only "smaller reads." It is a
+provenance-aware substrate for coding work.
+
+WARP is the key shift. WARP is not just historical storage for AST
+deltas. It is the place where Graft can eventually model:
+
+- structural worldlines across commits
+- workspace overlays between commits
+- strand-scoped causal workspaces for sessions
+- the observation / edit / stage / transition activity that explains
+  later structural changes
+- collapse checkpoints that admit only the relevant causal slice into
+  canonical provenance and, when appropriate, canonical structural truth
+
+In other words: Graft should remember not only what changed, but why it
+changed.
+
+## Product truth
+
+Current deployment truth is still local-user and explicit:
+
+- repo-scoped stdio MCP (`graft serve`) for editor bootstrap
+- same-user local daemon (`graft daemon`) on a Unix socket or Windows
+  named pipe for shared-machine multi-session work
+
+The daemon is now real runtime infrastructure, but it is not the final
+product meaning. It is the execution substrate for the provenance model
+above.
+
+The current working model is:
+
+- **Structural truth**: AST / symbol / file evolution over time
+- **Causal provenance**: reads, writes, edits, stages, and transitions
+  that explain structural changes
+- **Session**: not merely a transport socket, but eventually a
+  strand-scoped causal workspace
+- **Collapse**: not "admit the whole session," but admit the causal
+  slice relevant to the staged artifact or commit checkpoint
 
 ## Current state
 
-**Cycles completed:** 23 (0001-0023)
-**Tests:** 434 passing across 33 files
-**Lint:** clean (ESLint strict-type-checked)
-**Version:** 0.4.0 (npm: `@flyingrobots/graft`)
+### What is already real
 
-### Phase 1 — The Governor (cycles 0001-0007)
+- bounded-read governance and policy enforcement
+- structural map / diff / since surfaces
+- daemon transport, workspace binding, authorization, and repo overview
+- persistent background WARP indexing monitors
+- async Git on the daemon path via `@git-stunts/plumbing`
+- async daemon-heavy request-path filesystem reads
+- daemon scheduler and child-process worker pool
+- logical WARP writer lanes keyed by stable writer identity rather than
+  worker identity
 
-Policy engine with dual thresholds (150 lines + 12 KB), 5 ban
-categories, `.graftignore`, session-depth dynamic caps. Tree-sitter
-WASM outline extraction. MCP tools over stdio. Re-read suppression
-via observation cache. Receipt mode on every response. Changed-since
-structural diffs. Git-level structural diffs. CLI entry point.
+### What is still being defined
 
-### Phase 2 — Quality (cycles 0008-0014)
+- how persisted local `artifact_history` becomes admitted canonical
+  provenance
+- how persisted local history relates to later canonical provenance
+  collapse
+- how reactive workspace overlays are observed and bounded across live
+  edits and checkout transitions
+- how richer semantic transition meaning sits on top of raw Git
+  lifecycle events and checkout-boundary footing
+- how same-repo concurrent agents relate to shared repo history and
+  separate worktree / session-local state
 
-Systems-Style JavaScript audit. PolicyResult class hierarchy
-(frozen classes replacing plain objects). Server decomposition
-(541-line god file to 110 lines + 14 modules). FileSystem port
-(hexagonal compliance — zero node:fs in core logic). Outline
-quality audit with 7 real-world fixtures. Three parser fixes.
-Type-safe respond. Cache abstraction cleanup. Consistent error
-shapes. TOCTOU race elimination.
+### Current cycle posture
 
-### Phase 3 — Hooks + Value Objects (cycles 0015-0018)
+METHOD currently shows no active cycle. The repo is paused on
+`release/v0.5.0` before release execution.
 
-Claude Code hook integration (PreToolUse + PostToolUse). Value
-object hardening: all domain types as frozen SSJS classes.
-Canonical JSON codec port. Dockerfile for MCP server without Node.
+The most recently closed cycle is:
 
-### Phase 4 — Stream Invariant + Pre-WARP (cycles 0019-0022)
+- `0065-between-commit-activity-view`
+  - shipped the first honest human-facing surface for bounded
+    between-commit activity
+  - answers "what recent local activity is visible from this line of
+    work?" without requiring chat-log or raw-receipt reconstruction
+  - keeps the truth class explicit as bounded local
+    `artifact_history`, not canonical provenance
+  - groups activity around the active causal workspace, staged target,
+    semantic transitions, degraded posture, and current commit anchor
+    where possible
+  - adds a thin CLI peer wrapper at `graft diag activity`
 
-Live study protocol design (5-metric matched-pair crossover).
-Study infrastructure (task cards, acceptance harness, randomization).
-Stream/port boundary invariant with runtime guards. ToolDefinition
-registry (OCP compliance). Pre-WARP release (v0.3.0): budget-aware
-governor, policy check middleware, CachedFile value object,
-guardedPort factory, explain tool, `graft init` onboarding command.
-Three bug classes eliminated by construction.
+- `0064-same-repo-concurrent-agent-model`
+  - defined the first honest same-repo concurrency contract on top of
+    the prior lifecycle, attribution, and semantic-transition packets
+  - separated canonical repo scope, live worktree scope, and
+    actor-local causal scope
+  - surfaced bounded `repoConcurrency` posture and concurrency-aware
+    guidance
+  - merged daemon live-session topology into the same-repo model so
+    daemon mode no longer collapses into false exclusivity
+  - added lawful cross-session same-worktree handoff semantics through
+    `causal_attach` without pretending multi-writer provenance already
+    exists
+- `0063-richer-semantic-transitions`
+  - defined the first honest semantic-transition vocabulary on top of
+    the `0062` overlay/lifecycle footing
+  - separated raw lifecycle events from richer transition meaning such
+    as `index_update`, `conflict_resolution`, `merge_phase`,
+    `rebase_phase`, `bulk_transition`, and lawful `unknown`
+  - made merge/rebase phase visibility and many-file transition
+    summaries bounded product truth instead of leaving agents to infer
+    repo meaning from coarse lifecycle buckets
+  - added transition-aware bounded guidance and persisted semantic
+    transition artifact-history
+  - kept semantic transition meaning separate from canonical
+    provenance and later causal collapse
 
-### Phase 5 — WARP Level 1 (cycle 0023)
+The three most recent closed packets are:
 
-**Structural memory substrate.** Git remembers bytes. Graft now
-remembers structure.
+- `0062-reactive-workspace-overlay`
+  - made workspace-overlay footing explicit product truth
+  - distinguished reactive local edit signals from canonical Git
+    transition boundaries
+  - anchored live overlay state to checkout epochs instead of only
+    between-tool-call inference
+  - added honest degraded posture when target-repo hooks/bootstrap are
+    absent
+  - surfaced stable-vs-forked lineage posture and boundary authority
+  - changed post-transition guidance from implicit continue to
+    explicit boundary review
+- `0061-provenance-attribution-instrumentation`
+  - explicit runtime attribution summaries for `agent`, `human`,
+    `git`, and `unknown`
+  - bounded attribution inspection through `doctor`,
+    `causal_status`, and `causal_attach`
+  - artifact-local staged-target attribution
+  - attributed local `stage` events
+  - attributed local `read` events with explicit footprints and source
+    layers
+  - explicit `artifact_history` honesty rather than canonical
+    provenance overclaim
+- `0059-graph-ontology-and-causal-collapse-model`
+  - graph layers, identities, event granularity, explicit provenance
+    posture, playback witnesses, typed ontology contracts, and
+    runtime-local causal/staged-target seams
+- `0060-persisted-sub-commit-local-history`
+  - persisted local-history records under the stable Graft root
+  - checkout-aware continuity park/fork boundaries
+  - `causal_status` as the bounded active-workspace surface
+  - `causal_attach` as the explicit attach/handoff declaration seam
+  - evidence-bounded continuity summaries and inspectable local
+    artifact-history posture
 
-WARP indexer writes structural delta patches per commit into a
-git-warp graph. `graft_since` gives instant structural diff between
-any two refs. `graft_map` gives instant structural map of any
-directory. Directory tree modeled as graph nodes with containment
-edges. Commits linked to files and symbols via provenance edges
-(touches, adds, changes, removes).
+`0061` closed the first trust packet on top of the persisted
+local-history substrate. `0060` settled that bounded local history can
+survive reconnects and handoff. `0061` settled who or what the product
+can honestly say advanced that history, with inspectable evidence and
+no false certainty.
 
-Observer Law enforced: write facts, read projections, never
-traverse by hand. 11 WARP invariants protect the substrate.
-
-### 14 MCP tools
-
-| Tool | Purpose |
-|------|---------|
-| `safe_read` | Policy-enforced read (content, outline, refusal, or diff) |
-| `file_outline` | Structural skeleton with jump table |
-| `read_range` | Bounded range read (max 250 lines), policy-gated |
-| `graft_diff` | Structural diff between git refs with summary lines |
-| `graft_since` | Structural changes since a ref (symbols added/removed/changed) |
-| `graft_map` | Structural map of a directory (all files + symbols) |
-| `changed_since` | Check for changes since last read (peek or consume) |
-| `run_capture` | Diagnostic shell-output escape hatch — tee to log, tail to agent |
-| `state_save` | Save session state (max 8 KB) |
-| `state_load` | Restore session state |
-| `set_budget` | Declare session byte budget — governor tightens as it drains |
-| `explain` | Human-readable reason code help |
-| `doctor` | Runtime health check |
-| `stats` | Decision metrics summary |
-
----
+`0062` closed the lifecycle packet on top of that trust substrate.
+It made the live workspace overlay and checkout-boundary posture
+explicit enough that persisted local history and attribution no longer
+ride only on silent best-effort snapshots.
 
 ## Architecture
 
 ```text
 src/
-  ports/        hexagonal port interfaces (FileSystem, JsonCodec)
-  adapters/     Node.js implementations (node-fs, canonical-json)
-  guards/       stream boundary guards (assertNotStream, guardedPort)
-  policy/       read policy engine (thresholds, bans, session depth, budget)
-  parser/       tree-sitter WASM outline extraction
-  operations/   command implementations (use ports, not node:fs)
-  session/      session tracking, tripwires, budget
+  ports/        hexagonal ports (FileSystem, JsonCodec, ProcessRunner, GitClient)
+  adapters/     Node implementations and plumbing-backed Git adapter
+  policy/       read governance and refusal logic
+  parser/       tree-sitter WASM parsing and structural extraction
+  operations/   bounded operations over files, refs, and state
+  session/      session tracker and session-local budgeting state
   warp/
-    indexer.ts  commit indexer (writes structural patches to WARP)
-    observers.ts  observer factory (8 canonical lenses)
-    open.ts     WarpApp initialization
+    indexer.ts     commit indexer
+    observers.ts   observer factory
+    open.ts        WARP graph open/configure
+    writer-id.ts   logical writer identities
   mcp/
-    server.ts   registration + policy middleware
-    context.ts  ToolContext + ToolDefinition
-    cache.ts    ObservationCache + Observation class
-    cached-file.ts  CachedFile immutable snapshot
-    receipt.ts  receipt builder with compressionRatio
-    metrics.ts  Metrics class
-    tools/      14 handler files, one per tool
-  cli/          CLI commands (init, index)
-  hooks/        Claude Code hook scripts (PreToolUse + PostToolUse)
+    server.ts                  tool registration + execution routing
+    daemon-server.ts           same-user local daemon host
+    daemon-control-plane.ts    authorization / session / workspace control
+    daemon-job-scheduler.ts    queueing and fairness substrate
+    daemon-worker-pool.ts      child-process worker pool
+    workspace-router.ts        bind/rebind and workspace slices
+    persistent-monitor-runtime.ts  repo-scoped monitor runtime
+    repo-state.ts              repo transition interpretation
+    tools/                     MCP tool handlers
+  cli/
+    init.ts       repo bootstrap and local config seeding
+    main.ts       CLI entry
+  hooks/        Claude Code hook integration and future hook-adjacent seams
 ```
 
-**Dependencies:**
-- `web-tree-sitter` — WASM parser (no native addons)
-- `tree-sitter-wasms` — pre-built WASM grammars for JS/TS
-- `picomatch` — glob matching for .graftignore
-- `@modelcontextprotocol/sdk` — MCP server
-- `zod` — schema validation (strict at MCP edge)
-- `@git-stunts/git-warp` — WARP graph substrate
-- `@git-stunts/plumbing` — git plumbing adapter
+The important architectural split is:
 
----
+- **daemon = authority**
+  - authz
+  - session/workspace bookkeeping
+  - scheduling
+  - receipts and observability
+- **workers = execution resources**
+  - heavy reads
+  - scans
+  - monitor jobs
+  - live precision paths
+- **WARP = memory substrate**
+  - structural truth over time
+  - later, causal provenance and strand-scoped between-commit history
 
 ## Legends
 
-### CORE — The governor itself
+### CORE
 
-Policy, enforcement, extraction, UX, observability — everything
-that makes graft useful as a context governor.
+The governor itself: bounded reads, policy, receipts, diagnostics,
+bootstrap, and operator-facing surfaces.
 
-**18 cycles completed.** Up-next: phase 2 precision tools
-(WARP-gated), non-read burden (study-gated).
+### SURFACE
 
-### WARP — Structural memory over Git
+Runtime and daemon-facing product surfaces: daemon transport, bind/
+rebind, control plane, repo overview, fairness, worker execution.
 
-Git tracks bytes; WARP tracks what those bytes mean structurally.
-Level 1: commit-level worldline (DONE — v0.4.0).
-Level 2: observation cache (DONE — shipped in Phase 1-2).
-Level 3: sub-commit causal tracking (future).
+### WARP
 
-**1 cycle completed.** Up-next: symbol identity, precision tools,
-agent action provenance.
+Structural and causal memory over Git.
 
-### CLEAN_CODE — Systems-Style JavaScript
+- **Level 1 shipped**: commit-level structural memory
+- **Current inflection point**: execution substrate exists, but the
+  graph ontology, runtime-local causal footing, and persisted local
+  artifact-history now exist
+- **Most recently closed packet**: make the live workspace overlay and
+  checkout-boundary footing explicit enough to support honest
+  between-commit lifecycle semantics
 
-Structural quality. Runtime-backed domain types, hexagonal
-architecture, boundary validation. All SSJS dimensions green as
-of cycle 0021.
+### CLEAN_CODE
 
-**7 cycles completed.** Remaining: 1 bad-code item (WARP-blocked).
+Systems-Style JavaScript and substrate cleanup. Ports, boundaries,
+runtime-backed forms, and honest seams.
 
----
+## Near-term roadmap
 
-## Roadmap
+### Immediate next
 
-### Up-next
+1. Pull `WARP_same-repo-concurrent-agent-model` now that lifecycle,
+   attribution, and semantic-transition footing are all real.
+2. Strengthen symbol/rename continuity so later causal slicing and
+   staged-artifact reasoning are less path-noisy.
+3. Push full strand-aware causal collapse once upstream `git-warp
+   v17.1.0+` support exists.
 
-| Item | Legend | Summary | Effort |
-|------|--------|---------|--------|
-| Phase 2 precision tools | CORE | code_show, code_find — symbol-level | XL |
-| Non-read burden | CORE | Measure Bash/Edit context waste | M |
-| Symbol identity | WARP | Rename-robust identity via structural continuity | L |
+### High-value WARP packets already in backlog
 
-### Bad-code backlog (1 remaining)
+- `WARP_graph-ontology-and-causal-collapse-model`
+- `WARP_persisted-sub-commit-local-history`
+- `WARP_provenance-attribution-instrumentation`
+- `WARP_reactive-workspace-overlay`
+- `WARP_same-repo-concurrent-agent-model`
+- `WARP_symbol-identity-and-rename-continuity`
 
-- Name-based symbol matching (WARP concern — needs Level 2 identity)
+## Value proposition
 
----
+The governor story is still valuable on its own:
 
-## Empirical basis
+- lower context burden
+- fewer wasteful full-file reads
+- bounded, machine-readable structural tools
+- better default behavior for agents
 
-| Metric | Value |
-|--------|-------|
-| Sessions analyzed | 1,091 |
-| Total messages | 291,265 |
-| Read context burden | 96.2 GB (6.6x all other tools) |
-| Full-file reads | 58% of all reads |
-| Top 2.4% of reads (40KB+) | 24% of raw bytes |
-| Worst single file | 1,053 reads, 1.74 GB burden |
-| Dynamic cap + session mgmt | 75.1% reduction |
+But the more interesting long-term value is stronger now, not weaker.
 
-Source: `~/git/blacklight/LLM_TOKEN_USE.md`
+If Graft really captures AST evolution plus the activity that explains
+those AST changes between hard Git commits, then it becomes something
+Git does not provide and line-oriented tools cannot fake:
 
----
+- replayable causal provenance for code changes
+- partial-stage-aware collapse of only the relevant activity
+- explainable structural history instead of only byte history
+- session-local speculative workspaces that later admit into canonical
+  truth lawfully
+
+That is a much more defensible product than "AST diffs plus hooks."
 
 ## Open questions
 
-1. **WARP indexing performance.** Level 1 indexing is slow on large
-   repos. Background/incremental indexing needed.
-2. **Human writes.** Level 3 causal tracking captures agent edits
-   via hooks. How do we capture human edits?
-3. **Language support.** JS/TS only. Rust is "later." When?
-4. **Agent adoption.** `graft init` generates CLAUDE.md snippets
-   but agents still default to native Read. How do we make graft
-   the default path?
+1. **Ontology first.** What exactly are the first-class nodes and edges
+   of the Graft WARP graph?
+2. **Session semantics.** Is a product session a strand, a strand
+   family, or a larger causal envelope spanning multiple checkout
+   epochs?
+3. **Collapse.** What becomes canonical structural truth, what becomes
+   canonical provenance, and what remains strand-local only?
+4. **Checkout epochs.** How do branch switches, merges, rewrites, and
+   rebases delimit or transform strands?
+5. **Identity.** How soon do we need stronger symbol identity to make
+   causal slices and rename continuity trustworthy?
+6. **Human edits.** What is the honest capture path for human work that
+   happens outside agent-mediated tool calls?

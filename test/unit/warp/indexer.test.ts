@@ -1,6 +1,8 @@
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import * as fs from "node:fs";
+import * as os from "node:os";
 import * as path from "node:path";
+import { nodeGit } from "../../../src/adapters/node-git.js";
 import { git, createTestRepo, cleanupTestRepo } from "../../helpers/git.js";
 import { openWarp } from "../../../src/warp/open.js";
 import { indexCommits } from "../../../src/warp/indexer.js";
@@ -8,12 +10,17 @@ import { fileSymbolsLens, allSymbolsLens, allFilesLens } from "../../../src/warp
 
 describe("warp: indexer", { timeout: 15000 }, () => {
   let tmpDir: string;
+  const worktreeDirs: string[] = [];
 
   beforeEach(() => {
     tmpDir = createTestRepo("graft-warp-");
   });
 
   afterEach(() => {
+    while (worktreeDirs.length > 0) {
+      const worktreeDir = worktreeDirs.pop()!;
+      git(tmpDir, `worktree remove --force ${worktreeDir}`);
+    }
     cleanupTestRepo(tmpDir);
   });
 
@@ -26,7 +33,7 @@ describe("warp: indexer", { timeout: 15000 }, () => {
     git(tmpDir, "commit -m 'add greet'");
 
     const warp = await openWarp({ cwd: tmpDir });
-    const result = await indexCommits(warp, { cwd: tmpDir });
+    const result = await indexCommits(warp, { cwd: tmpDir, git: nodeGit });
 
     expect(result.commitsIndexed).toBe(1);
     expect(result.patchesWritten).toBe(1);
@@ -47,7 +54,7 @@ describe("warp: indexer", { timeout: 15000 }, () => {
     git(tmpDir, "commit -m 'add math functions'");
 
     const warp = await openWarp({ cwd: tmpDir });
-    await indexCommits(warp, { cwd: tmpDir });
+    await indexCommits(warp, { cwd: tmpDir, git: nodeGit });
 
     
     const symObs = await warp.observer(fileSymbolsLens("math.ts"));
@@ -75,7 +82,7 @@ describe("warp: indexer", { timeout: 15000 }, () => {
     git(tmpDir, "commit -m 'v2'");
 
     const warp = await openWarp({ cwd: tmpDir });
-    const result = await indexCommits(warp, { cwd: tmpDir });
+    const result = await indexCommits(warp, { cwd: tmpDir, git: nodeGit });
 
     expect(result.commitsIndexed).toBe(2);
     expect(result.patchesWritten).toBe(2);
@@ -105,7 +112,7 @@ describe("warp: indexer", { timeout: 15000 }, () => {
     git(tmpDir, "commit -m 'v2'");
 
     const warp = await openWarp({ cwd: tmpDir });
-    await indexCommits(warp, { cwd: tmpDir });
+    await indexCommits(warp, { cwd: tmpDir, git: nodeGit });
 
     
     
@@ -132,7 +139,7 @@ describe("warp: indexer", { timeout: 15000 }, () => {
     git(tmpDir, "commit -m 'v2'");
 
     const warp = await openWarp({ cwd: tmpDir });
-    await indexCommits(warp, { cwd: tmpDir });
+    await indexCommits(warp, { cwd: tmpDir, git: nodeGit });
 
     
     const symObs = await warp.observer(fileSymbolsLens("api.ts"));
@@ -150,7 +157,7 @@ describe("warp: indexer", { timeout: 15000 }, () => {
     git(tmpDir, "commit -m 'initial commit'");
 
     const warp = await openWarp({ cwd: tmpDir });
-    await indexCommits(warp, { cwd: tmpDir });
+    await indexCommits(warp, { cwd: tmpDir, git: nodeGit });
 
     
     const commitObs = await warp.observer({
@@ -173,7 +180,7 @@ describe("warp: indexer", { timeout: 15000 }, () => {
     git(tmpDir, "commit -m 'mixed files'");
 
     const warp = await openWarp({ cwd: tmpDir });
-    await indexCommits(warp, { cwd: tmpDir });
+    await indexCommits(warp, { cwd: tmpDir, git: nodeGit });
 
     
 
@@ -201,7 +208,7 @@ describe("warp: indexer", { timeout: 15000 }, () => {
     git(tmpDir, "commit -m 'delete doomed'");
 
     const warp = await openWarp({ cwd: tmpDir });
-    await indexCommits(warp, { cwd: tmpDir });
+    await indexCommits(warp, { cwd: tmpDir, git: nodeGit });
 
     
 
@@ -230,7 +237,7 @@ describe("warp: indexer", { timeout: 15000 }, () => {
     git(tmpDir, "commit -m 'add UserService'");
 
     const warp = await openWarp({ cwd: tmpDir });
-    await indexCommits(warp, { cwd: tmpDir });
+    await indexCommits(warp, { cwd: tmpDir, git: nodeGit });
 
     
     const symObs = await warp.observer(fileSymbolsLens("service.ts"));
@@ -242,7 +249,7 @@ describe("warp: indexer", { timeout: 15000 }, () => {
 
   it("returns zero for empty commit range", async () => {
     const warp = await openWarp({ cwd: tmpDir });
-    const result = await indexCommits(warp, { cwd: tmpDir });
+    const result = await indexCommits(warp, { cwd: tmpDir, git: nodeGit });
     expect(result.commitsIndexed).toBe(0);
     expect(result.patchesWritten).toBe(0);
   });
@@ -263,9 +270,52 @@ describe("warp: indexer", { timeout: 15000 }, () => {
 
     const warp = await openWarp({ cwd: tmpDir });
     // Only index c2 and c3 (from c1 to HEAD)
-    const result = await indexCommits(warp, { cwd: tmpDir, from: c1 });
+    const result = await indexCommits(warp, { cwd: tmpDir, git: nodeGit, from: c1 });
 
     expect(result.commitsIndexed).toBe(2);
     expect(result.patchesWritten).toBe(2);
+  });
+
+  it("shares the same warp graph across worktrees of the same repo", async () => {
+    fs.writeFileSync(
+      path.join(tmpDir, "shared.ts"),
+      "export function fromPrimary(): string { return \"primary\"; }\n",
+    );
+    git(tmpDir, "add -A");
+    git(tmpDir, "commit -m 'primary commit'");
+    const primaryHead = git(tmpDir, "rev-parse HEAD");
+
+    const primaryWarp = await openWarp({ cwd: tmpDir });
+    const primaryResult = await indexCommits(primaryWarp, { cwd: tmpDir, git: nodeGit });
+    expect(primaryResult.commitsIndexed).toBe(1);
+
+    git(tmpDir, "branch secondary");
+    const worktreeDir = path.join(os.tmpdir(), `graft-warp-worktree-${String(Date.now())}`);
+    git(tmpDir, `worktree add ${worktreeDir} secondary`);
+    worktreeDirs.push(worktreeDir);
+
+    const worktreeWarp = await openWarp({ cwd: worktreeDir });
+    const inheritedObs = await worktreeWarp.observer(fileSymbolsLens("shared.ts"));
+    const inheritedNodes = await inheritedObs.getNodes();
+    expect(inheritedNodes.length).toBe(1);
+
+    fs.writeFileSync(
+      path.join(worktreeDir, "worktree.ts"),
+      "export function fromWorktree(): string { return \"worktree\"; }\n",
+    );
+    git(worktreeDir, "add -A");
+    git(worktreeDir, "commit -m 'worktree commit'");
+
+    const worktreeResult = await indexCommits(worktreeWarp, {
+      cwd: worktreeDir,
+      git: nodeGit,
+      from: primaryHead,
+    });
+    expect(worktreeResult.commitsIndexed).toBe(1);
+
+    const reopenedPrimaryWarp = await openWarp({ cwd: tmpDir });
+    const mirroredObs = await reopenedPrimaryWarp.observer(fileSymbolsLens("worktree.ts"));
+    const mirroredNodes = await mirroredObs.getNodes();
+    expect(mirroredNodes.length).toBe(1);
   });
 });

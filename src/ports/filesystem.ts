@@ -9,6 +9,7 @@
 export interface FileSystem {
   readFile(path: string, encoding: "utf-8"): Promise<string>;
   readFile(path: string): Promise<Buffer>;
+  readdir(path: string): Promise<string[]>;
   writeFile(path: string, data: string, encoding: "utf-8"): Promise<void>;
   appendFile(path: string, data: string, encoding: "utf-8"): Promise<void>;
   mkdir(path: string, options: { recursive: true }): Promise<void>;

@@ -1,5 +1,6 @@
+import * as path from "node:path";
 import { z } from "zod";
-import { stateSave, stateLoad } from "../../operations/state.js";
+import { STATE_FILENAME, stateSave, stateLoad } from "../../operations/state.js";
 import type { ToolDefinition, ToolContext, ToolHandler } from "../context.js";
 
 export const stateSaveTool: ToolDefinition = {
@@ -10,7 +11,11 @@ export const stateSaveTool: ToolDefinition = {
   schema: { content: z.string() },
   createHandler(ctx: ToolContext): ToolHandler {
     return async (args) => {
-      const result = await stateSave(args["content"] as string, { graftDir: ctx.graftDir, fs: ctx.fs });
+      const result = await stateSave(args["content"] as string, {
+        stateDir: ctx.graftDir,
+        statePath: path.join(ctx.graftDir, STATE_FILENAME),
+        fs: ctx.fs,
+      });
       return ctx.respond("state_save", result as Record<string, unknown>);
     };
   },
@@ -23,7 +28,10 @@ export const stateLoadTool: ToolDefinition = {
     "been saved.",
   createHandler(ctx: ToolContext): ToolHandler {
     return async () => {
-      const result = await stateLoad({ graftDir: ctx.graftDir, fs: ctx.fs });
+      const result = await stateLoad({
+        statePath: path.join(ctx.graftDir, STATE_FILENAME),
+        fs: ctx.fs,
+      });
       return ctx.respond("state_load", result as Record<string, unknown>);
     };
   },

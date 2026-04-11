@@ -11,11 +11,13 @@ export const graftDiffTool: ToolDefinition = {
     "tree vs HEAD.",
   schema: { base: z.string().optional(), head: z.string().optional(), path: z.string().optional() },
   createHandler(ctx: ToolContext): ToolHandler {
-    return (args) => {
+    return async (args) => {
       const head = args["head"] as string | undefined;
-      const result = graftDiff({
+      const result = await graftDiff({
         cwd: ctx.projectRoot,
         fs: ctx.fs,
+        git: ctx.git,
+        resolveWorkingTreePath: (filePath) => ctx.resolvePath(filePath),
         base: args["base"] as string | undefined,
         head,
         path: args["path"] as string | undefined,

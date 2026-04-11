@@ -4,13 +4,19 @@ import { createIsolatedServer, extractText, fixturePath, parse } from "../../hel
 
 interface Receipt {
   sessionId: string;
+  traceId: string;
   seq: number;
   ts: string;
   tool: string;
   projection: string;
   reason: string;
+  latencyMs: number;
   fileBytes: number | null;
   returnedBytes: number;
+  burden: {
+    kind: "read" | "search" | "shell" | "state" | "diagnostic";
+    nonRead: boolean;
+  };
   cumulative: {
     reads: number;
     outlines: number;
@@ -18,6 +24,11 @@ interface Receipt {
     cacheHits: number;
     bytesReturned: number;
     bytesAvoided: number;
+    nonReadBytesReturned: number;
+    burdenByKind: Record<
+      "read" | "search" | "shell" | "state" | "diagnostic",
+      { calls: number; bytesReturned: number }
+    >;
   };
 }
 
@@ -87,15 +98,23 @@ describe("mcp: receipt mode", () => {
     const receipt = result["_receipt"] as Receipt;
     expect(typeof receipt.sessionId).toBe("string");
     expect(receipt.sessionId.length).toBeGreaterThan(0);
+    expect(typeof receipt.traceId).toBe("string");
+    expect(receipt.traceId.length).toBeGreaterThan(0);
     expect(typeof receipt.seq).toBe("number");
     expect(receipt.ts).toMatch(/^\d{4}-\d{2}-\d{2}T/);
     expect(receipt.tool).toBe("safe_read");
     expect(typeof receipt.projection).toBe("string");
     expect(typeof receipt.reason).toBe("string");
+    expect(typeof receipt.latencyMs).toBe("number");
+    expect(receipt.latencyMs).toBeGreaterThanOrEqual(0);
     expect(typeof receipt.returnedBytes).toBe("number");
+    expect(typeof receipt.burden.kind).toBe("string");
+    expect(typeof receipt.burden.nonRead).toBe("boolean");
     expect(receipt.cumulative).toBeDefined();
     expect(typeof receipt.cumulative.reads).toBe("number");
     expect(typeof receipt.cumulative.bytesAvoided).toBe("number");
+    expect(typeof receipt.cumulative.nonReadBytesReturned).toBe("number");
+    expect(typeof receipt.cumulative.burdenByKind.read.bytesReturned).toBe("number");
   });
 
   it("sessionId is stable across calls", async () => {
@@ -109,6 +128,19 @@ describe("mcp: receipt mode", () => {
     const receipt1 = r1["_receipt"] as Receipt;
     const receipt2 = r2["_receipt"] as Receipt;
     expect(receipt1.sessionId).toBe(receipt2.sessionId);
+  });
+
+  it("traceId differs per call", async () => {
+    const server = createServer();
+    const r1 = parse(await server.callTool("safe_read", {
+      path: SMALL_TS,
+    }));
+    const r2 = parse(await server.callTool("safe_read", {
+      path: SMALL_TS,
+    }));
+    const receipt1 = r1["_receipt"] as Receipt;
+    const receipt2 = r2["_receipt"] as Receipt;
+    expect(receipt1.traceId).not.toBe(receipt2.traceId);
   });
 
   it("sessionId differs between servers", () => {
@@ -147,6 +179,8 @@ describe("mcp: receipt mode", () => {
     const result = parse(await server.callTool("doctor", {}));
     const receipt = result["_receipt"] as Receipt;
     expect(receipt.fileBytes).toBeNull();
+    expect(receipt.burden.kind).toBe("diagnostic");
+    expect(receipt.burden.nonRead).toBe(true);
   });
 
   it("cumulative counters accumulate across calls", async () => {
@@ -163,6 +197,8 @@ describe("mcp: receipt mode", () => {
     expect(receipt.cumulative.reads).toBe(1);
     expect(receipt.cumulative.cacheHits).toBe(1);
     expect(receipt.cumulative.bytesAvoided).toBeGreaterThan(0);
+    expect(receipt.cumulative.burdenByKind.read.calls).toBe(2);
+    expect(receipt.cumulative.nonReadBytesReturned).toBe(0);
   });
 
   it("receipt projection matches response projection", async () => {
@@ -216,5 +252,21 @@ describe("mcp: receipt mode", () => {
     const receipt = (parse(raw))["_receipt"] as Receipt;
     // returnedBytes should be close to the text length
     expect(receipt.returnedBytes).toBe(text.length);
+  });
+
+  it("tracks non-read burden by tool kind in receipts", async () => {
+    const server = createServer();
+    await server.callTool("doctor", {});
+    const result = parse(await server.callTool("run_capture", {
+      command: "printf 'alpha'",
+      tail: 1,
+    }));
+
+    const receipt = result["_receipt"] as Receipt;
+    expect(receipt.burden.kind).toBe("shell");
+    expect(receipt.burden.nonRead).toBe(true);
+    expect(receipt.cumulative.burdenByKind.diagnostic.calls).toBe(1);
+    expect(receipt.cumulative.burdenByKind.shell.calls).toBe(1);
+    expect(receipt.cumulative.nonReadBytesReturned).toBeGreaterThan(0);
   });
 });

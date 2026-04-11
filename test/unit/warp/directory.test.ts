@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import * as fs from "node:fs";
 import * as path from "node:path";
+import { nodeGit } from "../../../src/adapters/node-git.js";
 import { git, createTestRepo, cleanupTestRepo } from "../../helpers/git.js";
 import { openWarp } from "../../../src/warp/open.js";
 import { indexCommits } from "../../../src/warp/indexer.js";
@@ -25,7 +26,7 @@ describe("warp: directory tree modeling", { timeout: 15000 }, () => {
     git(tmpDir, "commit -m 'nested file'");
 
     const warp = await openWarp({ cwd: tmpDir });
-    await indexCommits(warp, { cwd: tmpDir });
+    await indexCommits(warp, { cwd: tmpDir, git: nodeGit });
     await warp.core().materialize();
 
     // Should have dir:src and dir:src/mcp
@@ -45,7 +46,7 @@ describe("warp: directory tree modeling", { timeout: 15000 }, () => {
     git(tmpDir, "commit -m 'src and test'");
 
     const warp = await openWarp({ cwd: tmpDir });
-    await indexCommits(warp, { cwd: tmpDir });
+    await indexCommits(warp, { cwd: tmpDir, git: nodeGit });
     await warp.core().materialize();
 
     // Scoped to src/ — should only see src/app.ts
@@ -69,7 +70,7 @@ describe("warp: directory tree modeling", { timeout: 15000 }, () => {
     git(tmpDir, "commit -m 'src files'");
 
     const warp = await openWarp({ cwd: tmpDir });
-    await indexCommits(warp, { cwd: tmpDir });
+    await indexCommits(warp, { cwd: tmpDir, git: nodeGit });
     await warp.core().materialize();
 
     // Get all files in src/

@@ -1,35 +1,28 @@
 import * as path from "node:path";
-import { execFileSync } from "node:child_process";
-import picomatch from "picomatch";
 import type WarpApp from "@git-stunts/git-warp";
 import { getFileAtRef, GitError } from "../../git/diff.js";
 import { detectLang } from "../../parser/lang.js";
 import { extractOutline } from "../../parser/outline.js";
 import type { JumpEntry, OutlineEntry } from "../../parser/types.js";
 import { allSymbolsLens, fileSymbolsLens, symbolByNameLens } from "../../warp/observers.js";
+import type { GitClient } from "../../ports/git.js";
 import type { ToolContext } from "../context.js";
 import { evaluateMcpRefusal, type McpPolicyRefusal } from "../policy.js";
+import { PrecisionSearchRequest, type RankedPrecisionSymbolMatch } from "./precision-query.js";
+import { PrecisionSymbolMatch } from "./precision-match.js";
 
 const MAX_RANGE_LINES = 250;
 
-export interface PrecisionSymbolMatch {
-  name: string;
-  kind: string;
-  path: string;
-  signature?: string | undefined;
-  exported: boolean;
-  startLine?: number | undefined;
-  endLine?: number | undefined;
-}
-
+export { PrecisionSearchRequest } from "./precision-query.js";
+export { PrecisionSymbolMatch } from "./precision-match.js";
 export type PrecisionPolicyRefusal = McpPolicyRefusal;
 
-function git(args: readonly string[], cwd: string): string {
-  return execFileSync("git", [...args], {
-    cwd,
-    encoding: "utf-8",
-    stdio: ["pipe", "pipe", "pipe"],
-  });
+async function git(gitClient: GitClient, args: readonly string[], cwd: string): Promise<string> {
+  const result = await gitClient.run({ args, cwd });
+  if (result.error !== undefined || result.status !== 0) {
+    throw result.error ?? new Error(result.stderr.trim() || `git exited with status ${String(result.status)}`);
+  }
+  return result.stdout;
 }
 
 function buildJumpLookup(
@@ -62,7 +55,7 @@ function toMatch(
     return null;
   }
 
-  return {
+  return new PrecisionSymbolMatch({
     name,
     kind,
     path,
@@ -70,12 +63,9 @@ function toMatch(
     exported: props["exported"] === true,
     ...(typeof props["startLine"] === "number" ? { startLine: props["startLine"] } : {}),
     ...(typeof props["endLine"] === "number" ? { endLine: props["endLine"] } : {}),
-  };
+  });
 }
 
-function sortMatches(matches: PrecisionSymbolMatch[]): PrecisionSymbolMatch[] {
-  return matches.sort((a, b) => a.path.localeCompare(b.path) || a.name.localeCompare(b.name));
-}
 
 export function normalizeRepoPath(projectRoot: string, input: string): string {
   if (!path.isAbsolute(input)) return input;
@@ -92,29 +82,34 @@ export function requireRepoPath(projectRoot: string, input: string): string {
   return normalized;
 }
 
-export function resolveGitRef(ref: string, cwd: string): string {
+export async function resolveGitRef(ref: string, gitClient: GitClient, cwd: string): Promise<string> {
   try {
-    return git(["rev-parse", "--verify", ref], cwd).trim();
+    return (await git(gitClient, ["rev-parse", "--verify", ref], cwd)).trim();
   } catch {
     throw new GitError(`ref does not exist: ${ref}`);
   }
 }
 
-export function listTrackedFilesAtRef(dirPath: string, cwd: string, ref: string): string[] {
+export async function listTrackedFilesAtRef(
+  dirPath: string,
+  gitClient: GitClient,
+  cwd: string,
+  ref: string,
+): Promise<string[]> {
   try {
     const args = dirPath.length > 0
       ? ["ls-tree", "-r", "--name-only", ref, "--", dirPath]
       : ["ls-tree", "-r", "--name-only", ref];
-    const output = git(args, cwd).trim();
+    const output = (await git(gitClient, args, cwd)).trim();
     return output.length === 0 ? [] : output.split("\n");
   } catch {
     return [];
   }
 }
 
-export function isWorkingTreeDirty(cwd: string): boolean {
+export async function isWorkingTreeDirty(gitClient: GitClient, cwd: string): Promise<boolean> {
   try {
-    return git(["status", "--porcelain"], cwd).trim().length > 0;
+    return (await git(gitClient, ["status", "--porcelain"], cwd)).trim().length > 0;
   } catch {
     return true;
   }
@@ -154,15 +149,15 @@ export function collectSymbols(
     if (jump !== undefined) {
       jumpCursor.set(entry.name, jumpIndex + 1);
     }
-    results.push({
+    results.push(new PrecisionSymbolMatch({
       name: entry.name,
       kind: entry.kind,
       path: filePath,
-      signature: entry.signature,
       exported: entry.exported,
-      startLine: jump?.start,
-      endLine: jump?.end,
-    });
+      ...(entry.signature !== undefined ? { signature: entry.signature } : {}),
+      ...(jump?.start !== undefined ? { startLine: jump.start } : {}),
+      ...(jump?.end !== undefined ? { endLine: jump.end } : {}),
+    }));
 
     if (entry.children !== undefined && entry.children.length > 0) {
       results.push(...collectSymbols(entry.children, filePath, jumpTable, jumpCursor));
@@ -172,17 +167,17 @@ export function collectSymbols(
   return results;
 }
 
-export function loadFileContent(
+export async function loadFileContent(
   ctx: ToolContext,
   filePath: string,
   ref?: string,
-): string | null {
+): Promise<string | null> {
   if (ref !== undefined) {
-    return getFileAtRef(ref, filePath, ctx.projectRoot);
+    return getFileAtRef(ref, filePath, { cwd: ctx.projectRoot, git: ctx.git });
   }
 
   try {
-    return ctx.fs.readFileSync(ctx.resolvePath(filePath), "utf-8");
+    return await ctx.fs.readFile(ctx.resolvePath(filePath), "utf-8");
   } catch {
     return null;
   }
@@ -202,75 +197,74 @@ export function evaluatePrecisionPolicy(
 
 export async function searchWarpSymbols(
   warp: WarpApp,
-  options: {
-    exactName?: string | undefined;
-    query?: string | undefined;
-    kind?: string | undefined;
-    filePath?: string | undefined;
-    pathPrefix?: string | undefined;
-    ceiling?: number | undefined;
-  },
+  request: PrecisionSearchRequest,
 ): Promise<PrecisionSymbolMatch[]> {
-  const lens = options.filePath !== undefined
-    ? fileSymbolsLens(options.filePath)
-    : options.exactName !== undefined
-      ? symbolByNameLens(options.exactName)
-      : allSymbolsLens();
+  const lensMode = request.selectLens();
+  if (lensMode === "file" && request.filePath === undefined) {
+    throw new Error("PrecisionSearchRequest selected file lens without filePath");
+  }
+  if (lensMode === "exact" && request.exactName === undefined) {
+    throw new Error("PrecisionSearchRequest selected exact lens without exactName");
+  }
+  let lens;
+  if (lensMode === "file") {
+    const filePath = request.filePath;
+    if (filePath === undefined) {
+      throw new Error("PrecisionSearchRequest selected file lens without filePath");
+    }
+    lens = fileSymbolsLens(filePath);
+  } else if (lensMode === "exact") {
+    const exactName = request.exactName;
+    if (exactName === undefined) {
+      throw new Error("PrecisionSearchRequest selected exact lens without exactName");
+    }
+    lens = symbolByNameLens(exactName);
+  } else {
+    lens = allSymbolsLens();
+  }
   const observer = await warp.observer(
     lens,
-    options.ceiling !== undefined ? { source: { kind: "live", ceiling: options.ceiling } } : undefined,
+    request.ceiling !== undefined ? { source: { kind: "live", ceiling: request.ceiling } } : undefined,
   );
   const nodeIds = await observer.getNodes();
-  const queryMatcher = options.query !== undefined ? picomatch(options.query, { nocase: true }) : null;
 
   const matches = await Promise.all(nodeIds.map(async (nodeId) => {
     const props = await observer.getNodeProps(nodeId);
     if (props === null) return null;
     const match = toMatch(nodeId, props);
     if (match === null) return null;
-    if (options.exactName !== undefined && match.name !== options.exactName) return null;
-    if (queryMatcher !== null && !queryMatcher(match.name)) return null;
-    if (options.kind !== undefined && match.kind.toLowerCase() !== options.kind.toLowerCase()) return null;
-    if (options.filePath !== undefined && match.path !== options.filePath) return null;
-    if (options.pathPrefix !== undefined && !match.path.startsWith(options.pathPrefix)) return null;
-    return match;
+    return request.rank(match);
   }));
 
-  return sortMatches(matches.filter((match): match is PrecisionSymbolMatch => match !== null));
+  const visibleMatches = matches.filter((match): match is RankedPrecisionSymbolMatch => match !== null);
+  return request.sort(visibleMatches);
 }
 
-export function searchLiveSymbols(
+export async function searchLiveSymbols(
   ctx: ToolContext,
-  options: {
-    filePaths: readonly string[];
-    exactName?: string | undefined;
-    query?: string | undefined;
-    kind?: string | undefined;
-    ref?: string | undefined;
-  },
-): PrecisionSymbolMatch[] {
-  const queryMatcher = options.query !== undefined ? picomatch(options.query, { nocase: true }) : null;
-  const matches: PrecisionSymbolMatch[] = [];
+  filePaths: readonly string[],
+  request: PrecisionSearchRequest,
+  ref?: string,
+): Promise<PrecisionSymbolMatch[]> {
+  const matches: RankedPrecisionSymbolMatch[] = [];
 
-  for (const filePath of options.filePaths) {
+  for (const filePath of filePaths) {
     const lang = detectLang(filePath);
     if (lang === null) continue;
 
-    const content = loadFileContent(ctx, filePath, options.ref);
+    const content = await loadFileContent(ctx, filePath, ref);
     if (content === null) continue;
 
     const result = extractOutline(content, lang);
     const symbols = collectSymbols(result.entries, filePath, result.jumpTable ?? []);
 
     for (const symbol of symbols) {
-      if (options.exactName !== undefined && symbol.name !== options.exactName) continue;
-      if (queryMatcher !== null && !queryMatcher(symbol.name)) continue;
-      if (options.kind !== undefined && symbol.kind.toLowerCase() !== options.kind.toLowerCase()) continue;
-      matches.push(symbol);
+      const ranked = request.rank(symbol);
+      if (ranked !== null) matches.push(ranked);
     }
   }
 
-  return sortMatches(matches);
+  return request.sort(matches);
 }
 
 export function readRangeFromContent(

@@ -6,6 +6,7 @@ import os from "node:os";
 import path from "node:path";
 import type { GraftServer } from "../../../src/mcp/server.js";
 import { createIsolatedServer, fixturePath, getTestRepoRoot, parse } from "../../helpers/mcp.js";
+import { cleanupTestRepo, createTestRepo, git } from "../../helpers/git.js";
 
 const EXPECTED_TOOL_NAMES = TOOL_REGISTRY.map((t) => t.name);
 const SMALL_TS = fixturePath("small.ts");
@@ -195,6 +196,233 @@ describe("mcp: tool handlers", () => {
     expect(parsed["projectRoot"]).toBeDefined();
     expect(parsed["parserHealthy"]).toBeDefined();
     expect(parsed["thresholds"]).toBeDefined();
+    expect(parsed["burdenSummary"]).toBeDefined();
+    expect(parsed["workspaceOverlayFooting"]).toEqual(
+      expect.objectContaining({
+        observationMode: "inferred_between_tool_calls",
+        degraded: true,
+      }),
+    );
+    expect(parsed["repoConcurrency"]).toEqual(expect.objectContaining({
+      posture: "exclusive",
+      authority: "active_history_scan",
+    }));
+    expect(parsed["semanticTransition"]).toBeNull();
+    expect(parsed["recommendedNextAction"]).toBe("continue_active_causal_workspace");
+  });
+
+  it("causal_status returns the active causal workspace posture", async () => {
+    const server = createServer();
+    const result = await server.callTool("causal_status", {});
+    const parsed = parse(result);
+    expect(parsed["bindState"]).toBe("bound");
+    expect(parsed["activeCausalWorkspace"]).toBeDefined();
+    const activeCausalWorkspace = parsed["activeCausalWorkspace"] as {
+      attribution: { actor: { actorKind: string }; confidence: string };
+      latestReadEvent: null;
+      latestStageEvent: null;
+      latestTransitionEvent: null;
+      semanticTransition: { kind: string; authority: string; phase: string | null } | null;
+      repoConcurrency: {
+        posture: string;
+        authority: string;
+        observedWorktreeCount: number;
+        observedCausalSessionCount: number;
+        observedActorCount: number;
+        overlappingPathCount: number;
+        summary: string;
+      };
+      workspaceOverlayFooting: {
+        observationMode: string;
+        lineagePosture: string;
+        boundaryAuthority: string;
+        degraded: boolean;
+        degradedReason: string;
+        hookBootstrap: { posture: string; supportsCheckoutBoundaries: boolean };
+      };
+      stagedTarget: { availability: string; attribution?: { actor: { actorKind: string }; confidence: string } };
+    };
+    const persistedLocalHistory = parsed["persistedLocalHistory"] as {
+      continuityConfidence: string;
+      continuityEvidence: { evidenceKind: string }[];
+    };
+    expect(activeCausalWorkspace.attribution.actor.actorKind).toBe("unknown");
+    expect(activeCausalWorkspace.attribution.confidence).toBe("unknown");
+    expect(activeCausalWorkspace.latestStageEvent).toBeNull();
+    expect(activeCausalWorkspace.semanticTransition).toBeNull();
+    expect(activeCausalWorkspace.repoConcurrency.posture).toBe("exclusive");
+    expect(activeCausalWorkspace.repoConcurrency.authority).toBe("active_history_scan");
+    expect(activeCausalWorkspace.workspaceOverlayFooting.observationMode).toBe("inferred_between_tool_calls");
+    expect(activeCausalWorkspace.workspaceOverlayFooting.lineagePosture).toBe("stable");
+    expect(activeCausalWorkspace.workspaceOverlayFooting.boundaryAuthority).toBe("none");
+    expect(activeCausalWorkspace.workspaceOverlayFooting.degraded).toBe(true);
+    expect(activeCausalWorkspace.workspaceOverlayFooting.degradedReason).toBe("target_repo_hooks_absent");
+    expect(activeCausalWorkspace.workspaceOverlayFooting.hookBootstrap.posture).toBe("absent");
+    expect(activeCausalWorkspace.workspaceOverlayFooting.hookBootstrap.supportsCheckoutBoundaries).toBe(false);
+    expect(activeCausalWorkspace.stagedTarget.availability).toBe("none");
+    expect(persistedLocalHistory).toBeDefined();
+    expect(persistedLocalHistory.continuityConfidence).toBe("high");
+    expect(persistedLocalHistory.continuityEvidence.map((evidence) => evidence.evidenceKind)).toContain(
+      "writer_lane_identity",
+    );
+    expect(parsed["nextAction"]).toBe("continue_active_causal_workspace");
+  });
+
+  it("causal_status is available before daemon workspace bind", async () => {
+    const isolated = createIsolatedServer({ mode: "daemon" });
+    cleanups.push(() => {
+      isolated.cleanup();
+    });
+    const parsed = parse(await isolated.server.callTool("causal_status", {}));
+    expect(parsed["bindState"]).toBe("unbound");
+    expect(parsed["activeCausalWorkspace"]).toBeNull();
+    expect(parsed["nextAction"]).toBe("bind_workspace_to_begin_local_history");
+  });
+
+  it("activity_view returns recent bounded local artifact history anchored to the current commit", async () => {
+    const repoDir = createTestRepo("graft-mcp-activity-view-");
+    cleanups.push(() => {
+      cleanupTestRepo(repoDir);
+    });
+    fs.writeFileSync(path.join(repoDir, "app.ts"), "export const ready = true;\n");
+    git(repoDir, "add -A");
+    git(repoDir, "commit -m init");
+
+    const server = createServerForProjectRoot(repoDir);
+    await server.callTool("safe_read", { path: "app.ts" });
+
+    const parsed = parse(await server.callTool("activity_view", { limit: 5 }));
+    expect(parsed["bindState"]).toBe("bound");
+    expect(parsed["truthClass"]).toBe("artifact_history");
+    expect(parsed["nextAction"]).toBe("continue_active_causal_workspace");
+
+    const anchor = parsed["anchor"] as {
+      posture: string;
+      headRef: string | null;
+      headSha: string | null;
+    };
+    const summary = parsed["summary"] as {
+      headline: string;
+      anchor: string;
+      workspace: string;
+      groups: string[];
+    };
+    expect(anchor.posture).toBe("head_commit");
+    expect(anchor.headSha).toMatch(/^[a-f0-9]{40}$/);
+    expect(anchor.headRef).toEqual(expect.any(String));
+    expect(anchor.headRef).not.toHaveLength(0);
+    expect(summary.headline).toContain("bounded local artifact history");
+    expect(summary.anchor).toContain("Current commit anchor is");
+    expect(summary.workspace).toContain("No active semantic transition");
+    expect(summary.groups).not.toHaveLength(0);
+
+    const activityWindow = parsed["activityWindow"] as {
+      returned: number;
+      totalMatchingItems: number;
+      truncated: boolean;
+      missingSignalKinds: string[];
+      groups: {
+        groupKind: string;
+        summary: string;
+        count: number;
+        items: Record<string, unknown>[];
+      }[];
+    };
+    expect(activityWindow.returned).toBeGreaterThan(0);
+    expect(activityWindow.totalMatchingItems).toBeGreaterThan(0);
+    expect(activityWindow.truncated).toBe(false);
+    expect(activityWindow.missingSignalKinds).toContain("write_events_not_captured");
+    expect(activityWindow.groups).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          groupKind: "read",
+          summary: expect.stringContaining("reads across"),
+          count: expect.any(Number),
+        }),
+      ]),
+    );
+
+    const readGroup = activityWindow.groups.find((group) => group.groupKind === "read");
+    expect(readGroup?.items[0]?.["eventKind"]).toBe("read");
+
+    const degradedReasons = parsed["degradedReasons"] as string[];
+    expect(degradedReasons).toContain("target_repo_hooks_absent");
+  });
+
+  it("causal_attach records explicit attach evidence after a continuity fork", async () => {
+    const repoDir = createTestRepo("graft-causal-attach-");
+    cleanups.push(() => {
+      cleanupTestRepo(repoDir);
+    });
+    fs.writeFileSync(path.join(repoDir, "app.ts"), "export const ready = true;\n");
+    git(repoDir, "add -A");
+    git(repoDir, "commit -m init");
+
+    const isolated = createIsolatedServer({
+      projectRoot: repoDir,
+      graftDir: path.join(repoDir, ".graft"),
+    });
+    cleanups.push(() => {
+      isolated.cleanup();
+    });
+
+    await isolated.server.callTool("doctor", {});
+    git(repoDir, "checkout -b feature/attach");
+
+    const result = await isolated.server.callTool("causal_attach", {
+      actor_kind: "agent",
+      actor_id: "agent:test",
+      from_actor_id: "human:james",
+      note: "continuing feature work",
+    });
+    const parsed = parse(result);
+    const activeCausalWorkspace = parsed["activeCausalWorkspace"] as {
+      attribution: { actor: { actorKind: string }; confidence: string };
+      latestReadEvent: null;
+      latestStageEvent: null;
+      latestTransitionEvent: null;
+      semanticTransition: { kind: string; authority: string; phase: string | null } | null;
+      workspaceOverlayFooting: {
+        observationMode: string;
+        lineagePosture: string;
+        boundaryAuthority: string;
+        degraded: boolean;
+        degradedReason: string;
+        hookBootstrap: { posture: string; supportsCheckoutBoundaries: boolean };
+      };
+      stagedTarget: { availability: string; attribution?: { actor: { actorKind: string }; confidence: string } };
+    };
+    const persistedLocalHistory = parsed["persistedLocalHistory"] as {
+      lastOperation: string;
+      continuityConfidence: string;
+      continuityEvidence: { evidenceKind: string }[];
+      attribution: { actor: { actorKind: string }; confidence: string };
+    };
+
+    expect(parsed["ok"]).toBe(true);
+    expect(parsed["action"]).toBe("attach");
+    expect(persistedLocalHistory.lastOperation).toBe("attach");
+    expect(persistedLocalHistory.continuityConfidence).toBe("high");
+    expect(persistedLocalHistory.continuityEvidence.map((evidence) => evidence.evidenceKind)).toEqual(
+      expect.arrayContaining([
+        "explicit_agent_declaration",
+        "explicit_handoff",
+      ]),
+    );
+    expect(persistedLocalHistory.attribution.actor.actorKind).toBe("agent");
+    expect(persistedLocalHistory.attribution.confidence).toBe("high");
+    expect(activeCausalWorkspace.attribution.actor.actorKind).toBe("agent");
+    expect(activeCausalWorkspace.latestReadEvent).toBeNull();
+    expect(activeCausalWorkspace.latestStageEvent).toBeNull();
+    expect(activeCausalWorkspace.semanticTransition).toBeNull();
+    expect(activeCausalWorkspace.workspaceOverlayFooting.observationMode).toBe("inferred_between_tool_calls");
+    expect(activeCausalWorkspace.workspaceOverlayFooting.lineagePosture).toBe("forked_after_transition");
+    expect(activeCausalWorkspace.workspaceOverlayFooting.boundaryAuthority).toBe("repo_snapshot");
+    expect(activeCausalWorkspace.workspaceOverlayFooting.degraded).toBe(true);
+    expect(activeCausalWorkspace.workspaceOverlayFooting.degradedReason).toBe("target_repo_hooks_absent");
+    expect(activeCausalWorkspace.workspaceOverlayFooting.hookBootstrap.posture).toBe("absent");
+    expect(activeCausalWorkspace.workspaceOverlayFooting.hookBootstrap.supportsCheckoutBoundaries).toBe(false);
+    expect(activeCausalWorkspace.stagedTarget.availability).toBe("none");
   });
 
   it("stats returns metrics summary", async () => {
@@ -204,6 +432,28 @@ describe("mcp: tool handlers", () => {
     expect(parsed["totalReads"]).toBeDefined();
     expect(parsed["totalOutlines"]).toBeDefined();
     expect(parsed["totalRefusals"]).toBeDefined();
+    expect(parsed["totalBytesReturned"]).toBeDefined();
+    expect(parsed["burdenByKind"]).toBeDefined();
+  });
+
+  it("stats and doctor expose non-read burden breakdowns", async () => {
+    const server = createServer();
+    await server.callTool("run_capture", { command: "printf 'alpha'", tail: 1 });
+
+    const doctor = parse(await server.callTool("doctor", {}));
+    const burdenSummary = doctor["burdenSummary"] as {
+      topKind: string | null;
+      totalBytesReturned: number;
+      totalNonReadBytesReturned: number;
+    };
+    expect(burdenSummary.topKind).toBe("shell");
+    expect(burdenSummary.totalBytesReturned).toBeGreaterThan(0);
+    expect(burdenSummary.totalNonReadBytesReturned).toBeGreaterThan(0);
+
+    const stats = parse(await server.callTool("stats", {}));
+    const burdenByKind = stats["burdenByKind"] as Record<string, { calls: number; bytesReturned: number }>;
+    expect(stats["totalNonReadBytesReturned"] as number).toBeGreaterThan(0);
+    expect(burdenByKind["shell"]?.calls).toBe(1);
   });
 });
 

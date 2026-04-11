@@ -24,6 +24,9 @@ Scaffolds your project for graft in one command:
 - Generates a `CLAUDE.md` snippet instructing agents to prefer graft tools
 - Prints Claude Code hook and MCP config for manual setup
 
+If you use `--write-codex-mcp`, `init` also seeds `AGENTS.md` so Codex
+has a repo-local instruction layer alongside the MCP config.
+
 Idempotent — safe to run again without duplicating entries.
 
 ## Choose Your Setup Path
@@ -39,10 +42,58 @@ whole setup guide front-to-back.
 | Windsurf MCP in this repo | `npx @flyingrobots/graft init --write-windsurf-mcp` | Writes or merges `.codeium/windsurf/mcp_config.json` |
 | Continue MCP in this repo | `npx @flyingrobots/graft init --write-continue-mcp` | Writes or merges `.continue/config.json` |
 | Cline MCP in this repo | `npx @flyingrobots/graft init --write-cline-mcp` | Writes or merges `.vscode/cline_mcp_settings.json` |
-| Codex MCP in this repo | `npx @flyingrobots/graft init --write-codex-mcp` | Writes or merges `.codex/config.toml` |
+| Codex MCP in this repo | `npx @flyingrobots/graft init --write-codex-mcp` | Writes or merges `.codex/config.toml` and seeds `AGENTS.md` |
 | Manual review before any config file write | `npx @flyingrobots/graft init` | Scaffolds repo files and prints the manual MCP / hook snippets |
 | Global config instead of project-local config | Edit your client's global MCP settings manually | Use the `npx @flyingrobots/graft serve` command + args shown below |
 | Another MCP-compatible client | Add graft manually to that client's MCP config | Use `command = npx`, `args = ["-y", "@flyingrobots/graft", "serve"]` |
+
+## Governed Read Posture By Client
+
+MCP availability is not the same thing as a governed default read path.
+Use this table to see what each client actually gets today.
+
+| Client path | MCP bootstrap | Repo-local instruction layer | Native read guardrail | Current posture |
+|---|---|---|---|---|
+| Claude Code with hooks | `--write-claude-mcp --write-claude-hooks` | `CLAUDE.md` | Yes, via `PreToolUse` / `PostToolUse` | Closest current default-governed path |
+| Codex | `--write-codex-mcp` | `AGENTS.md` | No | Strong bootstrap guidance plus MCP, but no native-read interception |
+| Cursor / Windsurf / Continue / Cline | `--write-*-mcp` | None written automatically today | No | MCP available, but governed reads still depend on agent choice |
+| Other MCP-compatible clients | Manual MCP config | None written automatically today | No | MCP only |
+
+## Deployment Posture
+
+Graft's supported deployment posture today is local-user with two
+distinct runtime paths:
+
+- repo-local `serve`: one stdio MCP server per repo checkout plus
+  repo-local bootstrap files such as `CLAUDE.md` or `AGENTS.md`
+- `graft daemon`: a separate same-user local runtime on a Unix socket or
+  Windows named pipe, with `/mcp` for MCP traffic and `/healthz` for
+  liveness
+
+The daemon is intentionally not the default editor bootstrap story yet.
+It uses a stricter contract:
+
+- daemon sessions start unbound
+- workspace binding requires prior authorization through the daemon
+  control plane
+- canonical repo identity, live worktree identity, and session-local
+  state remain separate
+- `run_capture` stays default-denied unless an authorized workspace
+  explicitly enables it
+
+Daemon control-plane inspection now exists through MCP tools:
+
+- `daemon_status`
+- `daemon_repos`
+- `daemon_sessions`
+- `daemon_monitors`
+- `monitor_start`
+- `monitor_pause`
+- `monitor_resume`
+- `monitor_stop`
+- `workspace_authorizations`
+- `workspace_authorize`
+- `workspace_revoke`
 
 ### One-step bootstrap
 
@@ -66,7 +117,8 @@ Supported write flags:
 - `--write-windsurf-mcp` -> writes or merges `.codeium/windsurf/mcp_config.json`
 - `--write-continue-mcp` -> writes or merges `.continue/config.json`
 - `--write-cline-mcp` -> writes or merges `.vscode/cline_mcp_settings.json`
-- `--write-codex-mcp` -> writes or merges `.codex/config.toml`
+- `--write-codex-mcp` -> writes or merges `.codex/config.toml` and
+  seeds `AGENTS.md`
 
 These writes are project-local and idempotent. Existing config is
 preserved, and graft entries are only added when missing.
@@ -79,6 +131,7 @@ npx @flyingrobots/graft index --json
 npx @flyingrobots/graft read safe src/app.ts --json
 npx @flyingrobots/graft struct diff --json
 npx @flyingrobots/graft symbol find 'create*' --json
+npx @flyingrobots/graft diag activity --json
 npx @flyingrobots/graft diag doctor --json
 ```
 
@@ -87,7 +140,7 @@ Grouped CLI namespaces:
 - `read` — `safe`, `outline`, `range`, `changed`
 - `struct` — `diff`, `since`, `map`
 - `symbol` — `show`, `find`
-- `diag` — `doctor`, `explain`, `stats`, `capture`
+- `diag` — `activity`, `doctor`, `explain`, `stats`, `capture`
 
 ## MCP Configuration
 
@@ -211,6 +264,7 @@ Add to `.codex/config.toml` in your project root (per-project) or
 [mcp_servers.graft]
 command = "npx"
 args = ["-y", "@flyingrobots/graft", "serve"]
+startup_timeout_sec = 120
 ```
 
 Project-local shortcut:
@@ -218,6 +272,17 @@ Project-local shortcut:
 ```bash
 npx @flyingrobots/graft init --write-codex-mcp
 ```
+
+That explicit write path also creates or merges `AGENTS.md` with graft
+read guidance so Codex sees repo-local instructions as well as the MCP
+server config.
+If you already have an older graft block in `.codex/config.toml`,
+rerunning that command will add the safer startup timeout without
+duplicating the server entry.
+
+The larger startup timeout is intentional. Cold `npx` startup can spend
+enough time in package acquisition and bootstrap to exceed Codex's
+default 30 second budget even when the graft server itself is healthy.
 
 **Note:** Codex may ask you to approve external MCP tool calls the
 first time it uses graft. If you trust the local server, choose
@@ -241,9 +306,10 @@ If your client doesn't support `npx`, install globally and use:
 
 Two hooks work together to govern agent reads:
 
-- **PreToolUse** — blocks banned files before the read happens
-- **PostToolUse** — educates the agent on context cost after large
-  file reads complete
+- **PreToolUse** — blocks banned files and redirects large JS/TS reads
+  before the native read happens
+- **PostToolUse** — backstop education if an oversized code read still
+  completes
 
 ### Setup
 
@@ -299,25 +365,31 @@ When the agent calls `Read(file_path)`, the PreToolUse hook:
 1. Evaluates the file against graft's policy
 2. **Banned files** (binaries, lockfiles, secrets, `.graftignore`
    matches): exits 2 (block) with refusal reason and next steps
-3. **Everything else**: exits 0 — lets native Read proceed
+3. **Large JS/TS files**: exits 2 with a redirect to `safe_read`,
+   `file_outline`, and `read_range`
+4. **Everything else**: exits 0 — lets native Read proceed
 
-The PreToolUse hook does NOT block large files. It only enforces
-hard bans. Large file governance is handled by the PostToolUse hook.
+This is the current "default governed" path for Claude Code: large
+code reads are redirected before the full file lands in context.
+Other file types and other clients still rely on MCP usage or future
+integration work.
 
-### PostToolUse — context cost education
+### PostToolUse — backstop education
 
 After a Read completes, the PostToolUse hook evaluates what
-`safe_read` would have done and tells the agent the cost:
+`safe_read` would have done for large JS/TS files and tells the agent
+the cost:
 
 ```
-[graft] You just read 450 lines (18KB) into context.
-safe_read would have returned a structural outline (2048 bytes),
+[graft] This large code read bypassed graft's governed path for src/mcp/server.ts.
+safe_read would have returned a structural outline (2048 bytes) instead of 450 lines (18.0KB),
 saving 16.0KB of context. Threshold: 150 lines / 12KB.
 ```
 
-This feedback appears for large JS/TS files where an outline was
-available. Small files, non-JS/TS files, and nonexistent files
-produce no feedback. The hook always exits 0 — it never blocks.
+This feedback appears only if an oversized JS/TS read still completes.
+With a working PreToolUse hook, that should be a backstop signal rather
+than the normal path. Small files, non-JS/TS files, and nonexistent
+files produce no feedback. The hook always exits 0 — it never blocks.
 
 ### Limitations
 
@@ -331,7 +403,9 @@ with the MCP server. This means:
 
 For the full experience, agents should use graft's MCP tools
 (`safe_read`, `file_outline`, `read_range`) directly. The hooks
-are a safety net; the MCP server is the full governor.
+make Claude closer to a default-governed path for large code reads, but
+the MCP server remains the full governor and non-Claude clients still
+need explicit integration.
 
 ### Disabling
 
@@ -356,9 +430,11 @@ add to `.claude/settings.local.json`:
 | `graft_since` | Structural changes since a git ref. Shows added/removed/changed symbols per file and a summary line. Policy-denied files are omitted from `files` and surfaced in `refused`. |
 | `graft_map` | Structural directory map of files and symbols under a path, with explicit denied-file reporting. |
 | `code_show` | Focus on a symbol by name and return its source with line metadata. |
-| `code_find` | Search symbols across the project by name pattern and optional kind/path filter. |
-| `doctor` | Runtime health check including layered-worldline repo state. |
-| `stats` | Decision metrics for the current server session. |
+| `code_find` | Search symbols across the project by approximate name or glob pattern, with optional kind/path filter. |
+| `code_refs` | Search import sites, callsites, property access, or literal text references with explicit text-fallback provenance, pattern, and scope. |
+| `activity_view` | Bounded between-commit activity for the active workspace, including commit anchor, grouped recent activity, and degraded posture. |
+| `doctor` | Runtime health check including layered-worldline repo state and burden summary. |
+| `stats` | Decision metrics for the current server session, including burden by tool kind. |
 | `explain` | Human-readable meaning and recommended action for a reason code. |
 | `run_capture` | Execute a shell command and return the last N lines of output (default 60). This tool is outside graft's bounded-read policy contract, responses include an explicit `policyBoundary` marker, log persistence can be disabled, and persisted output is redacted for obvious secrets by default. |
 | `state_save` | Save session working state (max 8 KB). Use for session bookmarks: current task, files modified, next planned actions. |
@@ -367,10 +443,10 @@ add to `.claude/settings.local.json`:
 MCP responses include versioned `_schema` metadata and `_receipt`
 fields. CLI peer commands also return versioned `_schema` metadata;
 the declared contracts live in `src/contracts/output-schemas.ts`.
-| `doctor` | Runtime health check. Shows project root, parser status, active thresholds, session depth, and message count. |
+| `doctor` | Runtime health check. Shows project root, parser status, active thresholds, session depth, message count, and a compact burden summary. |
 | `set_budget` | Declare a session byte budget. Graft tightens read thresholds as the budget drains — no single read may consume more than 5% of remaining budget. Call once at session start. |
 | `explain` | Explain a graft reason code. Returns human-readable meaning and recommended next action for any code (e.g., `BINARY`, `BUDGET_CAP`). Case-insensitive. |
-| `stats` | Decision metrics for the current session. Total reads, outlines, refusals, cache hits, and bytes avoided. |
+| `stats` | Decision metrics for the current session. Total reads, outlines, refusals, cache hits, bytes avoided, and returned-byte burden by tool kind. |
 
 Every MCP tool response includes:
 - `_receipt` — runtime decision metadata
@@ -382,7 +458,7 @@ Declared output contracts live in `src/contracts/output-schemas.ts`.
 
 ## What the agent sees
 
-Once configured, the agent gains 14 new tools. Here's what
+Once configured, the agent gains 17 MCP tools. Here's what
 happens when it uses them:
 
 ### Reading files
@@ -462,8 +538,13 @@ messages, edit-bash loops, runaway tool calls).
 ### Receipts
 
 Every response includes a `_receipt` block with session ID,
-sequence number, projection type, bytes returned, and cumulative
-counters. This is for usage analysis — you can ignore it.
+trace ID, sequence number, latency, projection type, bytes
+returned, and cumulative counters. This is for usage analysis and
+correlation — you can usually ignore it.
+
+If MCP runtime observability is enabled, `traceId` and `seq` line up
+with `.graft/logs/mcp-runtime.ndjson`. `doctor` also reports the
+current runtime log path and policy.
 
 ## Configuration
 
@@ -509,6 +590,22 @@ tool. For broader or more sensitive deployments:
 - set `GRAFT_RUN_CAPTURE_PERSIST=0` to avoid writing `.graft/logs/capture.log`
 - persisted capture output is redacted for obvious secret-shaped values
   by default
+
+In the local daemon runtime, `run_capture` stays disabled by default and
+requires an explicit operator-authorized capability profile rather than
+inheriting local repo-scoped trust.
+
+### MCP runtime observability
+
+MCP runtime observability writes metadata-only session and tool-call
+events to `.graft/logs/mcp-runtime.ndjson`. The log intentionally does
+not include raw file content, query text, or other request payload
+values.
+
+- set `GRAFT_ENABLE_MCP_RUNTIME_LOG=0` to disable MCP runtime logging
+- set `GRAFT_MCP_RUNTIME_LOG_PATH=/abs/path/mcp-runtime.ndjson` to move
+  the log
+- set `GRAFT_MCP_RUNTIME_LOG_MAX_BYTES=2097152` to change retention size
 
 ## Troubleshooting
 

@@ -54,13 +54,21 @@ Purpose:
 - policy-aware bounded read access
 
 Current shape:
-- one repo-rooted server instance per process
-- one `SessionTracker`, `ObservationCache`, `Metrics`, and
-  `RepoStateTracker` per server instance
-- lazy WARP initialization only when a WARP-backed tool needs it
+- `graft serve` runs one repo-rooted stdio server per process
+- `graft daemon` runs one local daemon host per process and many daemon
+  sessions beneath it
+- daemon mode now includes a central authorization and inspection
+  control plane for workspaces and sessions
+- daemon mode now also includes one repo-scoped persistent monitor
+  runtime per canonical repo, currently used for background incremental
+  WARP indexing
+- each server or daemon session owns one `SessionTracker`,
+  `ObservationCache`, `Metrics`, and `RepoStateTracker` slice
+- lazy WARP initialization still happens only when a WARP-backed tool
+  needs it
 
-This is good for repo-local dogfooding. It is not yet the final system
-contract for a future shared daemon.
+This is now enough to make the local daemon and first monitor contract
+real without pretending the broader system-wide story is finished.
 
 ### Hooks
 
@@ -279,13 +287,82 @@ The repo has a clear shape, but a few real tensions remain:
    - current MCP shape assumes one rooted context per process
    - future system-wide use needs explicit repo/worktree/session binding
 
-2. **Good ports for fs/JSON, weak port for git/shell**
-   - filesystem and codec seams exist
-   - git and shell execution are still more environment-coupled than
-     they should be
+2. **Daemon/system-wide seams are still broader than they should be**
+   - filesystem, codec, git, and process ports now exist
+   - daemon hosting, control-plane projection, and monitor orchestration
+     still want narrower seams before more system-wide behavior lands
 
 3. **Docs and direction are strong, contributor map was missing**
    - this file exists to close exactly that gap
+
+## Daemon evolution path
+
+Current repo-local path:
+
+- `graft serve` starts one repo-rooted stdio server
+- `startStdioServer(cwd)` passes that cwd into `createGraftServer()`
+- one process holds one rooted `SessionTracker`, `ObservationCache`,
+  `Metrics`, and `RepoStateTracker`
+
+Current local shared-daemon path:
+
+- `graft daemon` owns local-only transport and session lifecycle
+- daemon sessions start unbound
+- a daemon-only workspace bind step resolves repo/worktree identity
+  server-side before repo-scoped tools run
+- MCP traffic lives at `/mcp`, and liveness lives at `/healthz`
+- each daemon transport session owns its own daemon-mode MCP server
+- state splits cleanly across:
+  - canonical repo identity and default WARP ownership (`git common
+    dir`)
+  - live worktree identity (resolved worktree root)
+  - session-local cache, budget, receipts, and saved state
+- one repo-scoped WARP instance per canonical repo remains the default
+  assumption even if several daemon sessions or worktrees bind into that
+  repo
+
+This split is the bridge from repo-local stdio to a same-user local
+daemon without pretending control-plane and multi-repo concerns are
+already solved.
+
+## Multi-repo coordination contract
+
+The current daemon can now be described lawfully in system-wide terms:
+
+- canonical repo identity is keyed by `git common dir`
+- live worktree identity is keyed by resolved worktree root
+- daemon session identity remains transport-scoped and session-local
+
+The architectural rule is:
+
+- repo-scoped truth may be coordinated system-wide
+- worktree-scoped truth may be projected beneath a repo
+- session-scoped truth must not silently become daemon-global state
+
+The current multi-repo overview surface now shows:
+
+- one bounded row per authorized canonical repo through `daemon_repos`
+- compact worktree, session-count, monitor, backlog, and last-activity
+  summaries
+- filtered drill-down derived from the authorization registry and
+  daemon-owned runtime state
+
+Follow-on system-wide work may still add:
+
+- daemon-wide fairness and resource-pressure summaries
+- broader aggregate counts across many repos and worker kinds
+
+What it must not show by default:
+
+- raw receipt bodies
+- cache content
+- saved state content
+- runtime-log payloads
+- shell-output artifacts
+
+This keeps multi-repo coordination observational and authorization-
+filtered instead of turning it into an accidental side channel or a
+permission grant.
 
 ## Where to read next
 

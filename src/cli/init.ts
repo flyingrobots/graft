@@ -1,7 +1,14 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
+import { execFileSync } from "node:child_process";
 import { CanonicalJsonCodec } from "../adapters/canonical-json.js";
 import { attachCliSchemaMeta, validateCliOutput } from "../contracts/output-schemas.js";
+import {
+  buildTargetGitHookScript,
+  isRecognizedTargetGitHook,
+  resolveGitHooksPath,
+  TARGET_GIT_TRANSITION_HOOKS,
+} from "../git/target-git-hook-bootstrap.js";
 
 const codec = new CanonicalJsonCodec();
 
@@ -13,6 +20,8 @@ const GRAFTIGNORE_TEMPLATE = `# Graft ignore patterns — files matching these a
 # vendor/**
 # data/**/*.json
 `;
+
+const READ_GUIDANCE_MARKER = "## File reads";
 
 const AGENT_SNIPPET = `## File reads
 
@@ -104,6 +113,7 @@ class ParsedInitArgs {
     readonly json: boolean,
     readonly writeClaudeMcp: boolean,
     readonly writeClaudeHooks: boolean,
+    readonly writeTargetGitHooks: boolean,
     readonly writeCodexMcp: boolean,
     readonly writeCursorMcp: boolean,
     readonly writeWindsurfMcp: boolean,
@@ -117,6 +127,7 @@ class ParsedInitArgs {
       consumeFlag(args, "--json"),
       consumeFlag(args, "--write-claude-mcp"),
       consumeFlag(args, "--write-claude-hooks"),
+      consumeFlag(args, "--write-target-git-hooks"),
       consumeFlag(args, "--write-codex-mcp"),
       consumeFlag(args, "--write-cursor-mcp"),
       consumeFlag(args, "--write-windsurf-mcp"),
@@ -145,6 +156,7 @@ class GraftMcpServer {
   readonly name = "graft";
   readonly command = "npx";
   readonly args = ["-y", "@flyingrobots/graft", "serve"] as const;
+  readonly codexStartupTimeoutSec = 120;
 
   toJsonServerEntry(): JsonObjectValue {
     return {
@@ -180,9 +192,42 @@ class GraftMcpServer {
       "[mcp_servers.graft]",
       "command = \"npx\"",
       "args = [\"-y\", \"@flyingrobots/graft\", \"serve\"]",
+      `startup_timeout_sec = ${String(this.codexStartupTimeoutSec)}`,
       "",
     ].join("\n");
   }
+}
+
+function ensureCodexStartupTimeout(existing: string): { content: string; changed: boolean } {
+  const marker = "[mcp_servers.graft]";
+  const timeoutLine = `startup_timeout_sec = ${String(GRAFT_MCP_SERVER.codexStartupTimeoutSec)}`;
+  const lines = existing.split("\n");
+  const blockStart = lines.findIndex((line) => line.trim() === marker);
+  if (blockStart === -1) {
+    return { content: existing, changed: false };
+  }
+
+  let blockEnd = lines.length;
+  for (let index = blockStart + 1; index < lines.length; index++) {
+    const line = lines[index];
+    if (line !== undefined && line.trim().startsWith("[") && line.trim().endsWith("]")) {
+      blockEnd = index;
+      break;
+    }
+  }
+
+  const hasTimeout = lines
+    .slice(blockStart + 1, blockEnd)
+    .some((line) => line.trim().startsWith("startup_timeout_sec"));
+  if (hasTimeout) {
+    return { content: existing, changed: false };
+  }
+
+  lines.splice(blockEnd, 0, timeoutLine);
+  return {
+    content: lines.join("\n"),
+    changed: true,
+  };
 }
 
 class GraftHookCommand {
@@ -553,6 +598,81 @@ function appendIfMissing(filePath: string, marker: string, content: string, labe
   return InitAction.create(label);
 }
 
+function readGitValue(cwd: string, args: readonly string[]): string | null {
+  try {
+    const value = execFileSync("git", [...args], {
+      cwd,
+      encoding: "utf-8",
+      stdio: ["ignore", "pipe", "ignore"],
+    }).trim();
+    return value.length > 0 ? value : null;
+  } catch {
+    return null;
+  }
+}
+
+function relativeLabel(cwd: string, filePath: string): string {
+  const relative = path.relative(cwd, filePath);
+  if (relative.length === 0 || relative.startsWith("..")) {
+    return filePath;
+  }
+  return relative;
+}
+
+function resolveTargetGitHooksDirectory(cwd: string): {
+  configuredCoreHooksPath: string | null;
+  resolvedHooksPath: string;
+} {
+  const worktreeRoot = readGitValue(cwd, ["rev-parse", "--path-format=absolute", "--show-toplevel"]);
+  const gitCommonDir = readGitValue(cwd, ["rev-parse", "--path-format=absolute", "--git-common-dir"]);
+  if (worktreeRoot === null || gitCommonDir === null) {
+    throw new Error("--write-target-git-hooks requires a git worktree");
+  }
+
+  const configuredCoreHooksPath = readGitValue(cwd, ["config", "--get", "core.hooksPath"]);
+  return {
+    configuredCoreHooksPath,
+    resolvedHooksPath: resolveGitHooksPath(
+      worktreeRoot,
+      gitCommonDir,
+      configuredCoreHooksPath,
+    ),
+  };
+}
+
+function ensureTargetGitHooks(cwd: string): InitAction[] {
+  const { resolvedHooksPath } = resolveTargetGitHooksDirectory(cwd);
+  const actions: InitAction[] = [];
+  fs.mkdirSync(resolvedHooksPath, { recursive: true });
+
+  for (const hookName of TARGET_GIT_TRANSITION_HOOKS) {
+    const hookPath = path.join(resolvedHooksPath, hookName);
+    const label = relativeLabel(cwd, hookPath);
+    const nextContent = buildTargetGitHookScript(hookName);
+    if (!fs.existsSync(hookPath)) {
+      fs.writeFileSync(hookPath, nextContent);
+      fs.chmodSync(hookPath, 0o755);
+      actions.push(InitAction.create(label, "wrote graft target git hook"));
+      continue;
+    }
+
+    const existing = fs.readFileSync(hookPath, "utf-8");
+    if (existing === nextContent) {
+      actions.push(InitAction.exists(label, "already has graft target git hook"));
+      continue;
+    }
+    if (isRecognizedTargetGitHook(existing, hookName)) {
+      fs.writeFileSync(hookPath, nextContent);
+      fs.chmodSync(hookPath, 0o755);
+      actions.push(InitAction.append(label, "updated graft target git hook"));
+      continue;
+    }
+    actions.push(InitAction.exists(label, "external hook preserved"));
+  }
+
+  return actions;
+}
+
 function ensureJsonMcpConfig(filePath: string, label: string): InitAction {
   if (!fs.existsSync(filePath)) {
     const created = JsonMcpConfigDocument.create(filePath, label, GRAFT_MCP_SERVER);
@@ -620,6 +740,11 @@ function mergeCodexMcpConfig(cwd: string): InitAction {
 
   const existing = fs.readFileSync(filePath, "utf-8");
   if (existing.includes(marker)) {
+    const ensured = ensureCodexStartupTimeout(existing);
+    if (ensured.changed) {
+      fs.writeFileSync(filePath, ensured.content);
+      return InitAction.append(label, "added graft startup timeout");
+    }
     return InitAction.exists(label, "already has graft mcp server");
   }
 
@@ -632,7 +757,7 @@ function initProject(cwd: string, args: ParsedInitArgs): InitResult {
   const actions: InitAction[] = [
     writeIfMissing(path.join(cwd, ".graftignore"), GRAFTIGNORE_TEMPLATE, ".graftignore"),
     appendIfMissing(path.join(cwd, ".gitignore"), ".graft/", GITIGNORE_ENTRY, ".gitignore"),
-    appendIfMissing(path.join(cwd, "CLAUDE.md"), "safe_read", `\n${AGENT_SNIPPET}`, "CLAUDE.md"),
+    appendIfMissing(path.join(cwd, "CLAUDE.md"), READ_GUIDANCE_MARKER, `\n${AGENT_SNIPPET}`, "CLAUDE.md"),
   ];
 
   if (args.writeClaudeMcp) {
@@ -641,8 +766,19 @@ function initProject(cwd: string, args: ParsedInitArgs): InitResult {
   if (args.writeClaudeHooks) {
     actions.push(mergeClaudeHooksConfig(cwd));
   }
+  if (args.writeTargetGitHooks) {
+    actions.push(...ensureTargetGitHooks(cwd));
+  }
   if (args.writeCodexMcp) {
     actions.push(mergeCodexMcpConfig(cwd));
+    actions.push(
+      appendIfMissing(
+        path.join(cwd, "AGENTS.md"),
+        READ_GUIDANCE_MARKER,
+        `\n${AGENT_SNIPPET}`,
+        "AGENTS.md",
+      ),
+    );
   }
   if (args.writeCursorMcp) {
     actions.push(mergeCursorMcpConfig(cwd));
@@ -688,7 +824,7 @@ function renderInitText(result: InitResult, args: ParsedInitArgs, writer: Writer
     writeLine(writer, indentJson(GRAFT_MCP_SERVER.toJsonMcpConfig()));
     writeLine(writer);
     writeLine(writer, "Use explicit --write-*-mcp flags or --write-claude-hooks");
-    writeLine(writer, "for one-step bootstrap into project-local config files.");
+    writeLine(writer, "or --write-target-git-hooks for one-step bootstrap into project-local config files.");
   }
 
   writeLine(writer);

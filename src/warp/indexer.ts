@@ -7,7 +7,7 @@
  */
 
 import type WarpApp from "@git-stunts/git-warp";
-import { execFileSync } from "node:child_process";
+import type { GitClient } from "../ports/git.js";
 import { extractOutline } from "../parser/outline.js";
 import { diffOutlines } from "../parser/diff.js";
 import { detectLang } from "../parser/lang.js";
@@ -17,6 +17,7 @@ import type { DiffEntry } from "../parser/diff.js";
 
 export interface IndexOptions {
   readonly cwd: string;
+  readonly git: GitClient;
   readonly from?: string;
   readonly to?: string;
 }
@@ -36,22 +37,46 @@ interface PatchOps {
   removeEdge(from: string, to: string, label: string): PatchOps;
 }
 
-function listCommits(cwd: string, from?: string, to?: string): string[] {
+interface PreparedChange {
+  readonly status: string;
+  readonly filePath: string;
+  readonly fileId: string;
+  readonly lang: string | null;
+  readonly parentExists: boolean;
+  readonly oldOutline: readonly OutlineEntry[];
+  readonly newOutline?: readonly OutlineEntry[] | undefined;
+  readonly jumpLookup?: Map<string, { start: number; end: number }> | undefined;
+  readonly diff?: ReturnType<typeof diffOutlines> | undefined;
+}
+
+async function git(gitClient: GitClient, cwd: string, args: readonly string[]): Promise<string> {
+  const result = await gitClient.run({ cwd, args });
+  if (result.error !== undefined || result.status !== 0) {
+    throw result.error ?? new Error(result.stderr.trim() || `git exited with status ${String(result.status)}`);
+  }
+  return result.stdout;
+}
+
+async function listCommits(gitClient: GitClient, cwd: string, from?: string, to?: string): Promise<string[]> {
   const range = from !== undefined ? `${from}..${to ?? "HEAD"}` : to ?? "HEAD";
   const args = ["log", "--reverse", "--format=%H", range];
   try {
-    return execFileSync("git", args, { cwd, encoding: "utf-8", stdio: ["pipe", "pipe", "pipe"] })
+    return (await git(gitClient, cwd, args))
       .trim().split("\n").filter((l) => l.length > 0);
   } catch {
     return [];
   }
 }
 
-function getCommitChanges(sha: string, cwd: string): { status: string; path: string }[] {
+async function getCommitChanges(
+  gitClient: GitClient,
+  sha: string,
+  cwd: string,
+): Promise<{ status: string; path: string }[]> {
   // --root handles the initial commit (no parent to diff against)
   const args = ["diff-tree", "--root", "--no-commit-id", "-r", "--name-status", sha];
   try {
-    return execFileSync("git", args, { cwd, encoding: "utf-8", stdio: ["pipe", "pipe", "pipe"] })
+    return (await git(gitClient, cwd, args))
       .trim().split("\n").filter((l) => l.length > 0).map((line) => {
         const parts = line.split("\t");
         return { status: parts[0] ?? "", path: parts[1] ?? "" };
@@ -61,9 +86,13 @@ function getCommitChanges(sha: string, cwd: string): { status: string; path: str
   }
 }
 
-function getCommitMeta(sha: string, cwd: string): { message: string; author: string; email: string; timestamp: string } {
+async function getCommitMeta(
+  gitClient: GitClient,
+  sha: string,
+  cwd: string,
+): Promise<{ message: string; author: string; email: string; timestamp: string }> {
   try {
-    const output = execFileSync("git", ["log", "-1", "--format=%s%n%aN%n%aE%n%aI", sha], { cwd, encoding: "utf-8", stdio: ["pipe", "pipe", "pipe"] });
+    const output = await git(gitClient, cwd, ["log", "-1", "--format=%s%n%aN%n%aE%n%aI", sha]);
     const lines = output.trim().split("\n");
     return { message: lines[0] ?? "", author: lines[1] ?? "", email: lines[2] ?? "", timestamp: lines[3] ?? "" };
   } catch {
@@ -74,9 +103,9 @@ function getCommitMeta(sha: string, cwd: string): { message: string; author: str
 /**
  * Check if a commit has a parent (is not the root commit).
  */
-function hasParent(sha: string, cwd: string): boolean {
+async function hasParent(gitClient: GitClient, sha: string, cwd: string): Promise<boolean> {
   try {
-    execFileSync("git", ["rev-parse", "--verify", `${sha}~1`], { cwd, encoding: "utf-8", stdio: ["pipe", "pipe", "pipe"] });
+    await git(gitClient, cwd, ["rev-parse", "--verify", `${sha}~1`]);
     return true;
   } catch {
     return false;
@@ -262,6 +291,104 @@ function applyChildDiffs(
   }
 }
 
+async function prepareChange(
+  gitClient: GitClient,
+  cwd: string,
+  sha: string,
+  parentRef: string,
+  parentExists: boolean,
+  change: { status: string; path: string },
+): Promise<PreparedChange> {
+  const filePath = change.path;
+  const fileId = fileNodeId(filePath);
+  const lang = detectLang(filePath);
+
+  if (change.status === "D") {
+    let oldOutline: readonly OutlineEntry[] = [];
+    if (lang !== null && parentExists) {
+      const oldContent = await getFileAtRef(parentRef, filePath, { cwd, git: gitClient });
+      if (oldContent !== null) {
+        oldOutline = extractOutline(oldContent, lang).entries;
+      }
+    }
+    return {
+      status: change.status,
+      filePath,
+      fileId,
+      lang,
+      parentExists,
+      oldOutline,
+    };
+  }
+
+  if (lang === null) {
+    return {
+      status: change.status,
+      filePath,
+      fileId,
+      lang,
+      parentExists,
+      oldOutline: [],
+    };
+  }
+
+  const newContent = await getFileAtRef(sha, filePath, { cwd, git: gitClient });
+  if (newContent === null) {
+    return {
+      status: change.status,
+      filePath,
+      fileId,
+      lang,
+      parentExists,
+      oldOutline: [],
+    };
+  }
+
+  const newResult = extractOutline(newContent, lang);
+  const newOutline = newResult.entries;
+  const jumpLookup = buildJumpLookup(newResult.jumpTable ?? []);
+
+  if (change.status === "A" || !parentExists) {
+    return {
+      status: change.status,
+      filePath,
+      fileId,
+      lang,
+      parentExists,
+      oldOutline: [],
+      newOutline,
+      jumpLookup,
+    };
+  }
+
+  const oldContent = await getFileAtRef(parentRef, filePath, { cwd, git: gitClient });
+  if (oldContent === null) {
+    return {
+      status: change.status,
+      filePath,
+      fileId,
+      lang,
+      parentExists,
+      oldOutline: [],
+      newOutline,
+      jumpLookup,
+    };
+  }
+
+  const oldOutline = extractOutline(oldContent, lang).entries;
+  return {
+    status: change.status,
+    filePath,
+    fileId,
+    lang,
+    parentExists,
+    oldOutline,
+    newOutline,
+    jumpLookup,
+    diff: diffOutlines(oldOutline, newOutline),
+  };
+}
+
 /**
  * Index a range of commits into the WARP graph.
  */
@@ -269,14 +396,14 @@ export async function indexCommits(
   warp: WarpApp,
   options: IndexOptions,
 ): Promise<IndexResult> {
-  const { cwd } = options;
-  const commits = listCommits(cwd, options.from, options.to);
+  const { cwd, git: gitClient } = options;
+  const commits = await listCommits(gitClient, cwd, options.from, options.to);
 
   let patchesWritten = 0;
   const commitTicks = new Map<string, number>();
 
   for (const sha of commits) {
-    const changes = getCommitChanges(sha, cwd);
+    const changes = await getCommitChanges(gitClient, sha, cwd);
 
     // Only materialize when removals are possible (D or M status).
     // Materialization is expensive — O(n) replay of all prior patches.
@@ -286,9 +413,12 @@ export async function indexCommits(
       await warp.core().materialize();
     }
 
-    const meta = getCommitMeta(sha, cwd);
-    const parentExists = hasParent(sha, cwd);
+    const meta = await getCommitMeta(gitClient, sha, cwd);
+    const parentExists = await hasParent(gitClient, sha, cwd);
     const parentRef = `${sha}~1`;
+    const preparedChanges = await Promise.all(changes.map((change) =>
+      prepareChange(gitClient, cwd, sha, parentRef, parentExists, change)
+    ));
 
     await warp.patch((p) => {
       const patch = p as unknown as PatchOps;
@@ -301,62 +431,40 @@ export async function indexCommits(
       patch.setProperty(commitId, "email", meta.email);
       patch.setProperty(commitId, "timestamp", meta.timestamp);
 
-      for (const change of changes) {
-        const filePath = change.path;
-        const fileId = fileNodeId(filePath);
-        const lang = detectLang(filePath);
-
+      for (const change of preparedChanges) {
         if (change.status === "D") {
-          if (lang !== null && parentExists) {
-            const oldContent = getFileAtRef(parentRef, filePath, cwd);
-            if (oldContent !== null) {
-              const oldOutline = extractOutline(oldContent, lang).entries;
-              removeSymbols(patch, filePath, oldOutline);
-            }
+          if (change.lang !== null) {
+            removeSymbols(patch, change.filePath, change.oldOutline);
           }
-          patch.removeNode(fileId);
+          patch.removeNode(change.fileId);
           continue;
         }
 
         // Added or modified — ensure file + directory nodes exist
-        patch.addNode(fileId);
-        patch.setProperty(fileId, "path", filePath);
-        patch.setProperty(fileId, "lang", lang ?? "unknown");
-        patch.addEdge(commitId, fileId, "touches");
-        emitDirectoryChain(patch, filePath);
+        patch.addNode(change.fileId);
+        patch.setProperty(change.fileId, "path", change.filePath);
+        patch.setProperty(change.fileId, "lang", change.lang ?? "unknown");
+        patch.addEdge(commitId, change.fileId, "touches");
+        emitDirectoryChain(patch, change.filePath);
 
-        if (lang === null) continue;
+        if (change.lang === null || change.newOutline === undefined || change.jumpLookup === undefined) continue;
 
-        const newContent = getFileAtRef(sha, filePath, cwd);
-        if (newContent === null) continue;
-        const newResult = extractOutline(newContent, lang);
-        const newOutline = newResult.entries;
-        const jumpLookup = buildJumpLookup(newResult.jumpTable ?? []);
-
-        if (change.status === "A" || !parentExists) {
+        if (change.status === "A" || !change.parentExists || change.diff === undefined) {
           // New file or root commit — emit all symbols
-          emitSymbols(patch, filePath, newOutline, jumpLookup);
+          emitSymbols(patch, change.filePath, change.newOutline, change.jumpLookup);
         } else {
-          // Modified file — structural diff
-          const oldContent = getFileAtRef(parentRef, filePath, cwd);
-          if (oldContent === null) {
-            emitSymbols(patch, filePath, newOutline, jumpLookup);
-            continue;
-          }
-
-          const oldOutline = extractOutline(oldContent, lang).entries;
-          const diff = diffOutlines(oldOutline, newOutline);
+          const diff = change.diff;
 
           // Remove deleted symbols
           for (const removed of diff.removed) {
-            const symId = symNodeId(filePath, removed.name);
+            const symId = symNodeId(change.filePath, removed.name);
             patch.addEdge(commitId, symId, "removes");
-            removeDiffSymbols(patch, filePath, fileId, [removed]);
+            removeDiffSymbols(patch, change.filePath, change.fileId, [removed]);
           }
 
           // Add new symbols (preserve actual exported status)
           for (const added of diff.added) {
-            const symId = symNodeId(filePath, added.name);
+            const symId = symNodeId(change.filePath, added.name);
             patch.addNode(symId);
             patch.setProperty(symId, "name", added.name);
             patch.setProperty(symId, "kind", added.kind);
@@ -366,18 +474,18 @@ export async function indexCommits(
             if (added.signature !== undefined) {
               patch.setProperty(symId, "signature", added.signature);
             }
-            const jump = jumpLookup.get(added.name);
+            const jump = change.jumpLookup.get(added.name);
             if (jump !== undefined) {
               patch.setProperty(symId, "startLine", jump.start);
               patch.setProperty(symId, "endLine", jump.end);
             }
-            patch.addEdge(fileId, symId, "contains");
+            patch.addEdge(change.fileId, symId, "contains");
             patch.addEdge(commitId, symId, "adds");
           }
 
           // Update changed symbols
           for (const changed of diff.changed) {
-            const symId = symNodeId(filePath, changed.name);
+            const symId = symNodeId(change.filePath, changed.name);
             patch.setProperty(symId, "kind", changed.kind);
             if (changed.signature !== undefined) {
               patch.setProperty(symId, "signature", changed.signature);
@@ -386,7 +494,14 @@ export async function indexCommits(
           }
 
           // Apply nested child diffs (methods in classes)
-          applyChildDiffs(patch, filePath, fileId, commitId, [...diff.changed], jumpLookup);
+          applyChildDiffs(
+            patch,
+            change.filePath,
+            change.fileId,
+            commitId,
+            [...diff.changed],
+            change.jumpLookup,
+          );
         }
       }
     });

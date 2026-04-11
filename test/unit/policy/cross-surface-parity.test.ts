@@ -161,7 +161,7 @@ describe("policy: cross-surface parity", () => {
     ]);
   });
 
-  it("keeps soft-pressure behavior honest across hooks and safe_read", async () => {
+  it("keeps governed-read behavior honest across hooks and safe_read", async () => {
     const repoDir = createTestRepo("graft-policy-parity-soft-");
     cleanups.push(repoDir);
 
@@ -172,11 +172,14 @@ describe("policy: cross-surface parity", () => {
     );
 
     const pre = handleReadHook(makeHookInput(oversizedPath, repoDir, "PreToolUse"));
-    expect(pre.exitCode).toBe(0);
-    expect(pre.stderr).toBe("");
+    expect(pre.exitCode).toBe(2);
+    expect(pre.stderr).toContain("Governed read");
+    expect(pre.stderr).toContain("safe_read");
+    expect(pre.stderr).toContain("read_range");
 
     const post = await handlePostReadHook(makeHookInput(oversizedPath, repoDir, "PostToolUse"));
     expect(post.exitCode).toBe(0);
+    expect(post.stderr).toContain("bypassed graft's governed path");
     expect(post.stderr).toContain("safe_read");
     expect(post.stderr).toContain("saving");
 

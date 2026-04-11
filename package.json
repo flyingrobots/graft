@@ -1,7 +1,7 @@
 {
   "name": "@flyingrobots/graft",
-  "version": "0.4.0",
-  "description": "Context governor for coding agents — MCP server with policy-enforced reads, structural outlines, and session tracking",
+  "version": "0.5.0",
+  "description": "Context governor and between-commit activity surface for coding agents",
   "type": "module",
   "packageManager": "pnpm@10.30.0",
   "bin": {
@@ -11,7 +11,12 @@
   "files": [
     "bin/",
     "src/",
+    "ARCHITECTURE.md",
+    "CODE_OF_CONDUCT.md",
+    "docs/ADVANCED_GUIDE.md",
+    "docs/CLI.md",
     "docs/GUIDE.md",
+    "docs/MCP.md",
     "LICENSE",
     "NOTICE",
     "README.md",

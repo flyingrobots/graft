@@ -5,6 +5,8 @@ import { fileURLToPath } from "node:url";
 import { createGraftServer } from "../../src/mcp/server.js";
 import type { GraftServer } from "../../src/mcp/server.js";
 import type { RunCaptureConfig } from "../../src/mcp/run-capture-config.js";
+import type { RuntimeObservabilityState } from "../../src/mcp/runtime-observability.js";
+import type { WorkspaceSessionMode } from "../../src/mcp/workspace-router.js";
 
 const REPO_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../..");
 
@@ -35,23 +37,32 @@ export interface IsolatedServer {
 }
 
 export interface CreateIsolatedServerOptions {
+  mode?: WorkspaceSessionMode;
   projectRoot?: string;
   graftDir?: string;
   runCapture?: Partial<RunCaptureConfig>;
+  runtimeObservability?: Partial<RuntimeObservabilityState>;
 }
 
 export function createIsolatedServer(options: CreateIsolatedServerOptions = {}): IsolatedServer {
+  const mode = options.mode ?? "repo_local";
   const ownsProjectRoot = options.projectRoot === undefined;
   const projectRoot = options.projectRoot ?? fs.mkdtempSync(path.join(os.tmpdir(), "graft-mcp-project-"));
   const ownsGraftDir = options.graftDir === undefined;
   const graftDir = options.graftDir
-    ?? (ownsProjectRoot ? path.join(projectRoot, ".graft") : fs.mkdtempSync(path.join(os.tmpdir(), "graft-mcp-state-")));
+    ?? (
+      mode === "repo_local" && ownsProjectRoot
+        ? path.join(projectRoot, ".graft")
+        : fs.mkdtempSync(path.join(os.tmpdir(), "graft-mcp-state-"))
+    );
 
   return {
     server: createGraftServer({
-      projectRoot,
+      mode,
+      ...(mode === "repo_local" ? { projectRoot } : {}),
       graftDir,
       ...(options.runCapture !== undefined ? { runCapture: options.runCapture } : {}),
+      ...(options.runtimeObservability !== undefined ? { runtimeObservability: options.runtimeObservability } : {}),
     }),
     projectRoot,
     graftDir,
