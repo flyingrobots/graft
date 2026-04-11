@@ -10,6 +10,7 @@ import { evaluateMcpPolicy } from "./policy.js";
 import { nodeFs } from "../adapters/node-fs.js";
 import { CanonicalJsonCodec } from "../adapters/canonical-json.js";
 import { nodeProcessRunner } from "../adapters/node-process-runner.js";
+import type { ProcessRunner } from "../ports/process-runner.js";
 import { nodeGit } from "../adapters/node-git.js";
 import { RefusedResult } from "../policy/types.js";
 import type WarpApp from "@git-stunts/git-warp";
@@ -149,6 +150,7 @@ export interface CreateGraftServerOptions {
   daemonScheduler?: DaemonJobScheduler;
   daemonWorkerPool?: DaemonWorkerPool;
   daemonRuntime?: (() => DaemonRuntimeDescriptor) | undefined;
+  processRunner?: ProcessRunner;
 }
 
 export function createGraftServer(options: CreateGraftServerOptions = {}): GraftServer {
@@ -179,6 +181,7 @@ export function createGraftServer(options: CreateGraftServerOptions = {}): Graft
     maxBytes: observability.maxBytes,
   });
   const warpPool = options.warpPool ?? new InMemoryWarpPool((cwd, writerId) => openWarp({ cwd, writerId }));
+  const processRunner = options.processRunner ?? nodeProcessRunner;
   const persistedLocalHistory = new PersistedLocalHistoryStore({
     fs: nodeFs,
     codec,
@@ -323,7 +326,7 @@ export function createGraftServer(options: CreateGraftServerOptions = {}): Graft
     },
     fs: nodeFs,
     codec,
-    process: nodeProcessRunner,
+    process: processRunner,
     git: nodeGit,
     runCapture,
     observability,

@@ -282,6 +282,13 @@ function isRelevantReferencePreview(pattern: CodeRefsPattern, preview: string): 
   }
 
   if (pattern.mode === "call") {
+    if (/^\s*import\b/.test(trimmed)) {
+      return false;
+    }
+    if (/^\s*export\b/.test(trimmed) && /\bfrom\b/.test(trimmed)) {
+      return false;
+    }
+
     const escaped = escapeRegex(pattern.query);
     const functionDeclaration = new RegExp(`\\bfunction\\s+${escaped}\\s*\\(`);
     if (functionDeclaration.test(trimmed)) {

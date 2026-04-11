@@ -1,14 +1,32 @@
 import { describe, it, expect } from "vitest";
 import * as fs from "node:fs";
 import * as path from "node:path";
+import { nodeProcessRunner } from "../../../src/adapters/node-process-runner.js";
 import { createGraftServer } from "../../../src/mcp/server.js";
+import type { ProcessRunRequest, ProcessRunResult, ProcessRunner } from "../../../src/ports/process-runner.js";
 import { cleanupTestRepo, createTestRepo, git } from "../../helpers/git.js";
 import { parse } from "../../helpers/mcp.js";
 
-function createServerInRepo(repoDir: string) {
+class FallbackOnlyProcessRunner implements ProcessRunner {
+  run(request: ProcessRunRequest): ProcessRunResult {
+    if (request.command === "rg") {
+      return {
+        status: null,
+        stdout: "",
+        stderr: "",
+        error: new Error("forced ripgrep fallback for test"),
+      };
+    }
+
+    return nodeProcessRunner.run(request);
+  }
+}
+
+function createServerInRepo(repoDir: string, processRunner?: ProcessRunner) {
   return createGraftServer({
     projectRoot: repoDir,
     graftDir: path.join(repoDir, ".graft"),
+    ...(processRunner !== undefined ? { processRunner } : {}),
   });
 }
 
@@ -74,6 +92,40 @@ describe("mcp: code_refs", () => {
         mode: "call",
       }));
 
+      expect(result["matches"]).toEqual([
+        expect.objectContaining({
+          path: "src/consumer.ts",
+          line: 2,
+          preview: "applyMaskInPlace();",
+        }),
+      ]);
+    } finally {
+      cleanupTestRepo(tmpDir);
+    }
+  });
+
+  it("excludes import lines from callsite results during grep fallback", async () => {
+    const tmpDir = createTestRepo("graft-code-refs-call-fallback-");
+    try {
+      fs.mkdirSync(path.join(tmpDir, "src"), { recursive: true });
+      fs.writeFileSync(
+        path.join(tmpDir, "src", "mask.ts"),
+        "export function applyMaskInPlace(): void {}\n",
+      );
+      fs.writeFileSync(
+        path.join(tmpDir, "src", "consumer.ts"),
+        "import { applyMaskInPlace } from \"./mask\";\napplyMaskInPlace();\n",
+      );
+      git(tmpDir, "add -A");
+      git(tmpDir, "commit -m init");
+
+      const server = createServerInRepo(tmpDir, new FallbackOnlyProcessRunner());
+      const result = parse(await server.callTool("code_refs", {
+        query: "applyMaskInPlace",
+        mode: "call",
+      }));
+
+      expect(result["provenance"]).toEqual(expect.objectContaining({ engine: "grep" }));
       expect(result["matches"]).toEqual([
         expect.objectContaining({
           path: "src/consumer.ts",
