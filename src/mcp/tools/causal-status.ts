@@ -26,6 +26,7 @@ export const causalStatusTool: ToolDefinition = {
       const nextAction = deriveCausalSurfaceNextAction(
         persistedLocalHistory.nextAction,
         repoState.semanticTransition,
+        repoConcurrency,
       );
       return ctx.respond("causal_status", {
         ...workspaceStatus,

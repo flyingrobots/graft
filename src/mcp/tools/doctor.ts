@@ -21,6 +21,7 @@ export const doctorTool: ToolDefinition = {
       const recommendedNextAction = deriveCausalSurfaceNextAction(
         persistedLocalHistory.nextAction,
         repoState.semanticTransition,
+        repoConcurrency,
       );
       return ctx.respond("doctor", {
         projectRoot: ctx.projectRoot,

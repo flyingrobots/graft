@@ -32,6 +32,7 @@ export const causalAttachTool: ToolDefinition = {
       const nextAction = deriveCausalSurfaceNextAction(
         result.persistedLocalHistory.nextAction,
         repoState.semanticTransition,
+        repoConcurrency,
       );
       const activeCausalWorkspace = workspaceStatus.bindState === "bound"
         ? {

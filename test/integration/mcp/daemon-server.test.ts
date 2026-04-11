@@ -414,6 +414,7 @@ describe("mcp: daemon transport and lifecycle", () => {
     );
 
     const sharedStatus = await callTool<{
+      nextAction: string;
       activeCausalWorkspace: {
         repoConcurrency: {
           posture: string;
@@ -433,6 +434,7 @@ describe("mcp: daemon transport and lifecycle", () => {
       authority: "daemon_live_sessions",
       observedWorktreeCount: 1,
     }));
+    expect(sharedStatus.nextAction).toBe("coordinate_shared_worktree_before_continuing");
 
     const attached = await callTool<{
       ok: boolean;
@@ -517,6 +519,7 @@ describe("mcp: daemon transport and lifecycle", () => {
       );
 
       const featureStatus = await callTool<{
+        nextAction: string;
         activeCausalWorkspace: {
           repoConcurrency: {
             posture: string;
@@ -536,6 +539,7 @@ describe("mcp: daemon transport and lifecycle", () => {
         authority: "daemon_live_sessions",
         observedWorktreeCount: 2,
       }));
+      expect(featureStatus.nextAction).toBe("review_divergent_checkout_before_continuing");
     } finally {
       try {
         git(repoDir, `worktree remove --force ${featureWorktreeDir}`);
