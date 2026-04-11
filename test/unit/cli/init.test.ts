@@ -4,6 +4,7 @@ import * as path from "node:path";
 import * as os from "node:os";
 import { execSync } from "node:child_process";
 import { runInit } from "../../../src/cli/init.js";
+import { assertIsolatedGitTestDir, git } from "../../helpers/git.js";
 
 interface Writer {
   text(): string;
@@ -32,9 +33,9 @@ function runInitQuietly(args?: readonly string[]): void {
 }
 
 function initGitRepo(cwd: string): void {
-  execSync("git init", { cwd, stdio: "ignore" });
-  execSync("git config user.email test@test.com", { cwd, stdio: "ignore" });
-  execSync("git config user.name test", { cwd, stdio: "ignore" });
+  git(cwd, "init");
+  git(cwd, "config user.email test@test.com");
+  git(cwd, "config user.name test");
 }
 
 describe("cli: graft init", () => {
@@ -162,7 +163,7 @@ describe("cli: graft init", () => {
   it("respects configured core.hooksPath and preserves external target-repo hooks", () => {
     initGitRepo(tmpDir);
     fs.mkdirSync(path.join(tmpDir, ".githooks"), { recursive: true });
-    execSync("git config core.hooksPath .githooks", { cwd: tmpDir, stdio: "ignore" });
+    git(tmpDir, "config core.hooksPath .githooks");
     fs.writeFileSync(path.join(tmpDir, ".githooks", "post-checkout"), "#!/bin/sh\necho external\n");
 
     runInitQuietly(["--write-target-git-hooks"]);
@@ -182,6 +183,7 @@ describe("cli: graft init", () => {
     const realWorktreeRoot = fs.realpathSync(tmpDir);
 
     runInitQuietly(["--write-target-git-hooks"]);
+    assertIsolatedGitTestDir(tmpDir);
     execSync("sh .git/hooks/post-checkout oldsha newsha 1", { cwd: tmpDir, stdio: "ignore" });
 
     const logPath = path.join(tmpDir, ".graft", "runtime", "git-transitions.ndjson");
