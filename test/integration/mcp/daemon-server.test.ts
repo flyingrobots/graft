@@ -439,6 +439,7 @@ describe("mcp: daemon transport and lifecycle", () => {
     const attached = await callTool<{
       ok: boolean;
       errorCode?: string;
+      nextAction: string;
       activeCausalWorkspace: {
         repoConcurrency: {
           posture: string;
@@ -457,13 +458,13 @@ describe("mcp: daemon transport and lifecycle", () => {
       },
       54,
     );
-    expect(attached.ok).toBe(false);
-    expect(attached.errorCode).toBe("NO_ATTACHABLE_HISTORY");
+    expect(attached.ok).toBe(true);
     expect(attached.activeCausalWorkspace?.repoConcurrency).toEqual(expect.objectContaining({
-      posture: "shared_worktree",
-      authority: "daemon_live_sessions",
+      posture: "exclusive",
+      authority: "explicit_handoff",
       overlappingPathCount: 0,
     }));
+    expect(attached.nextAction).toBe("continue_active_causal_workspace");
   });
 
   it("surfaces divergent checkout posture for same-repo daemon sessions on different worktrees", async () => {

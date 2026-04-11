@@ -10,6 +10,7 @@ import {
   PersistedLocalHistoryStore,
   type PersistedLocalHistoryAttachDeclaration,
   type PersistedLocalHistoryContext,
+  type PersistedLocalHistorySharedAttachSource,
   type RepoConcurrencySummary,
   type PersistedLocalHistorySummary,
 } from "./persisted-local-history.js";
@@ -155,6 +156,14 @@ export interface WorkspaceAuthorizationPolicy {
   noteBound(resolved: ResolvedWorkspace): Promise<void>;
 }
 
+export interface WorkspaceSharedAttachPolicy {
+  resolveSharedAttachSource(input: {
+    readonly sessionId: string;
+    readonly repoId: string;
+    readonly worktreeId: string;
+  }): PersistedLocalHistorySharedAttachSource | null;
+}
+
 interface WorkspaceRouterOptions {
   readonly mode: WorkspaceSessionMode;
   readonly fs: FileSystem;
@@ -165,6 +174,7 @@ interface WorkspaceRouterOptions {
   readonly transportSessionId: string;
   readonly warpWriterId?: string | undefined;
   readonly authorizationPolicy?: WorkspaceAuthorizationPolicy | undefined;
+  readonly sharedAttachPolicy?: WorkspaceSharedAttachPolicy | undefined;
   readonly persistedLocalHistory: PersistedLocalHistoryStore;
 }
 
@@ -599,6 +609,24 @@ export class WorkspaceRouter {
       });
     } catch (error) {
       if (error instanceof PersistedLocalHistoryAttachUnavailableError) {
+        const sharedAttachSource = this.options.sharedAttachPolicy?.resolveSharedAttachSource({
+          sessionId: this.options.transportSessionId,
+          repoId: binding.repoId,
+          worktreeId: binding.worktreeId,
+        }) ?? null;
+        if (sharedAttachSource !== null) {
+          await this.options.persistedLocalHistory.declareSharedAttach({
+            current: this.buildPersistedLocalHistoryContext(binding, binding.slice.repoState.getState()),
+            declaration,
+            source: sharedAttachSource,
+          });
+          return {
+            ok: true,
+            action: "attach",
+            ...this.getStatus(),
+            persistedLocalHistory: await this.getPersistedLocalHistorySummary(),
+          };
+        }
         return {
           ok: false,
           action: "attach",

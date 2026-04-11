@@ -34,6 +34,7 @@ export type Actor = z.infer<typeof actorSchema>;
 export const EVIDENCE_KINDS = [
   "mcp_transport_binding",
   "workspace_authorization",
+  "daemon_session_observation",
   "explicit_handoff",
   "git_transition_observation",
   "git_hook_transition",

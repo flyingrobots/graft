@@ -285,6 +285,79 @@ describe("mcp: persisted local history", () => {
     expect(summary.latestStageEvent).toBeNull();
   });
 
+  it("records cross-session attach evidence when a lawful same-worktree source session is provided", async () => {
+    const graftDir = fs.mkdtempSync(path.join(os.tmpdir(), "graft-history-"));
+    cleanups.push(graftDir);
+
+    const store = new PersistedLocalHistoryStore({
+      fs: nodeFs,
+      codec: new CanonicalJsonCodec(),
+      graftDir,
+    });
+
+    await store.noteBinding({ current: context() });
+    const current = context({
+      transportSessionId: "transport:two",
+      workspaceSliceId: "slice-0002",
+      causalSessionId: "causal:two",
+      strandId: "strand:two",
+      observedAt: "2026-04-10T01:05:00.000Z",
+      warpWriterId: "graft_session_two",
+    });
+    await store.noteBinding({ current });
+    await store.declareSharedAttach({
+      current,
+      declaration: {
+        actorKind: "agent",
+        actorId: "agent:two",
+        fromActorId: "agent:one",
+        note: "continuing after cross-session handoff",
+      },
+      source: {
+        sourceSessionId: "transport:one",
+        causalSessionId: "causal:one",
+        strandId: "strand:one",
+      },
+    });
+
+    const summary = await store.summarize(
+      {
+        sessionMode: "daemon",
+        bindState: "bound",
+        repoId: "repo:one",
+        worktreeId: "worktree:one",
+        worktreeRoot: "/repo",
+        gitCommonDir: "/repo/.git",
+        graftDir,
+        capabilityProfile: null,
+      },
+      {
+        transportSessionId: "transport:two",
+        workspaceSliceId: "slice-0002",
+        causalSessionId: "causal:two",
+        strandId: "strand:two",
+        checkoutEpochId: "epoch:one",
+        warpWriterId: "graft_session_two",
+        stability: "runtime_local",
+        provenanceLevel: "artifact_history",
+      },
+    );
+
+    expect(summary.availability).toBe("present");
+    if (summary.availability !== "present") {
+      return;
+    }
+    expect(summary.lastOperation).toBe("attach");
+    expect(summary.continuedFromCausalSessionId).toBe("causal:one");
+    expect(summary.continuityEvidence).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ evidenceKind: "explicit_handoff" }),
+        expect.objectContaining({ evidenceKind: "daemon_session_observation" }),
+      ]),
+    );
+    expect(summary.nextAction).toBe("continue_active_causal_workspace");
+  });
+
   it("records direct hook transition evidence for checkout-boundary continuity", async () => {
     const graftDir = fs.mkdtempSync(path.join(os.tmpdir(), "graft-history-"));
     cleanups.push(graftDir);

@@ -114,6 +114,12 @@ export interface PersistedLocalHistoryAttachDeclaration {
   readonly note?: string | undefined;
 }
 
+export interface PersistedLocalHistorySharedAttachSource {
+  readonly sourceSessionId: string;
+  readonly causalSessionId: string;
+  readonly strandId: string;
+}
+
 export interface PersistedLocalHistorySummaryNone {
   readonly availability: "none";
   readonly persistence: "persisted_local_history";
@@ -455,6 +461,51 @@ export class PersistedLocalHistoryStore {
     await this.saveState(state);
   }
 
+  async declareSharedAttach(input: {
+    readonly current: PersistedLocalHistoryContext;
+    readonly declaration: PersistedLocalHistoryAttachDeclaration;
+    readonly source: PersistedLocalHistorySharedAttachSource;
+  }): Promise<void> {
+    const continuityKey = buildContinuityKey(input.current.repoId, input.current.worktreeId);
+    const state = await this.loadState(continuityKey, input.current.repoId, input.current.worktreeId);
+    const baseRecord = findRecord(state, state.activeRecordId) ?? state.records.at(-1) ?? null;
+    if (baseRecord === null) {
+      throw new PersistedLocalHistoryAttachUnavailableError();
+    }
+
+    appendRecord(
+      state,
+      this.createRecord(
+        "attach",
+        continuityKey,
+        input.current,
+        baseRecord,
+        [
+          ...this.buildAttachDeclarationEvidence(input.current, input.declaration),
+          {
+            evidenceId: buildEvidenceId("attach", "daemon_session_observation", input.current, 400),
+            evidenceKind: "daemon_session_observation",
+            source: "daemon_control_plane.shared_attach",
+            capturedAt: input.current.observedAt,
+            strength: "strong",
+            details: {
+              sourceSessionId: input.source.sourceSessionId,
+              sourceCausalSessionId: input.source.causalSessionId,
+              sourceStrandId: input.source.strandId,
+              handoffKind: "cross_session_same_worktree",
+            },
+          },
+        ],
+        {
+          continuedFromCausalSessionId: input.source.causalSessionId,
+          continuedFromStrandId: input.source.strandId,
+        },
+      ),
+      true,
+    );
+    await this.saveState(state);
+  }
+
   async noteStageObservation(input: {
     readonly current: PersistedLocalHistoryContext;
     readonly stagedTarget: RuntimeStagedTargetFullFile;
@@ -551,6 +602,10 @@ export class PersistedLocalHistoryStore {
     context: PersistedLocalHistoryContext,
     previous: ContinuityRecord | null,
     additionalEvidence: readonly Evidence[] = [],
+    overrides: {
+      readonly continuedFromCausalSessionId?: string | null;
+      readonly continuedFromStrandId?: string | null;
+    } = {},
   ): ContinuityRecord {
     const continuityEvidence = [
       ...this.buildContinuityEvidence(operation, context, previous),
@@ -576,8 +631,8 @@ export class PersistedLocalHistoryStore {
       workspaceOverlayId: context.workspaceOverlayId,
       occurredAt: context.observedAt,
       continuedFromRecordId: previous?.recordId ?? null,
-      continuedFromCausalSessionId: previous?.causalSessionId ?? null,
-      continuedFromStrandId: previous?.strandId ?? null,
+      continuedFromCausalSessionId: overrides.continuedFromCausalSessionId ?? previous?.causalSessionId ?? null,
+      continuedFromStrandId: overrides.continuedFromStrandId ?? previous?.strandId ?? null,
       continuityConfidence: getMaximumConfidenceForEvidence(
         continuityEvidence.map((evidence) => evidence.strength),
       ),

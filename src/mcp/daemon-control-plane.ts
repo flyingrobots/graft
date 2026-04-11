@@ -114,6 +114,12 @@ export interface DaemonRuntimeDescriptor {
   readonly startedAt: string;
 }
 
+export interface SharedAttachSource {
+  readonly sourceSessionId: string;
+  readonly causalSessionId: string;
+  readonly strandId: string;
+}
+
 export interface DaemonMonitorCounts {
   readonly totalMonitors: number;
   readonly runningMonitors: number;
@@ -238,6 +244,51 @@ export class DaemonControlPlane {
 
   unregisterSession(sessionId: string): void {
     this.sessions.delete(sessionId);
+  }
+
+  resolveSharedAttachSource(input: {
+    readonly sessionId: string;
+    readonly repoId: string;
+    readonly worktreeId: string;
+  }): SharedAttachSource | null {
+    const candidates = [...this.sessions.values()]
+      .filter((session) => session.sessionId !== input.sessionId)
+      .flatMap((session) => {
+        const status = this.readWorkspaceStatus(session);
+        if (
+          status.bindState !== "bound" ||
+          status.repoId !== input.repoId ||
+          status.worktreeId !== input.worktreeId
+        ) {
+          return [];
+        }
+        const causalContext = this.readRuntimeCausalContext(session);
+        if (causalContext === null) {
+          return [];
+        }
+        return [{
+          sourceSessionId: session.sessionId,
+          causalSessionId: causalContext.causalSessionId,
+          strandId: causalContext.strandId,
+          lastActivityAt: session.lastActivityAt,
+        }];
+      })
+      .sort((left, right) => right.lastActivityAt.localeCompare(left.lastActivityAt));
+
+    if (candidates.length !== 1) {
+      return null;
+    }
+
+    const [source] = candidates;
+    if (source === undefined) {
+      return null;
+    }
+
+    return {
+      sourceSessionId: source.sourceSessionId,
+      causalSessionId: source.causalSessionId,
+      strandId: source.strandId,
+    };
   }
 
   async authorizeWorkspace(request: WorkspaceAuthorizeRequest): Promise<WorkspaceAuthorizeResult> {

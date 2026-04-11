@@ -2,7 +2,7 @@
 title: "Graft — Executive Summary"
 generated: 2026-04-10
 generator: codex (manual, following Method executive-summary process)
-tests: 728
+tests: 729
 test_files: 70
 legends: [CORE, WARP, CLEAN_CODE, SURFACE]
 backlog_items: 138

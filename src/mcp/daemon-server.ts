@@ -254,6 +254,7 @@ export async function startDaemonServer(options: StartDaemonServerOptions = {}):
           });
           const server = createGraftServer({
             mode: "daemon",
+            sessionId: newSessionId,
             graftDir: sessionGraftDir,
             warpPool,
             daemonControlPlane: controlPlane,

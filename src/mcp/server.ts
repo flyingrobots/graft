@@ -134,6 +134,7 @@ export interface GraftServer {
 
 export interface CreateGraftServerOptions {
   mode?: WorkspaceSessionMode;
+  sessionId?: string;
   projectRoot?: string;
   graftDir?: string;
   env?: Readonly<Record<string, string | undefined>>;
@@ -149,7 +150,7 @@ export interface CreateGraftServerOptions {
 
 export function createGraftServer(options: CreateGraftServerOptions = {}): GraftServer {
   const mcpServer = new McpServer({ name: "graft", version: "0.0.0" });
-  const sessionId = crypto.randomUUID();
+  const sessionId = options.sessionId ?? crypto.randomUUID();
   const mode = options.mode ?? "repo_local";
   const sessionWarpWriterId = mode === "daemon" ? buildSessionWarpWriterId(sessionId) : undefined;
   const projectRoot = mode === "repo_local" ? (options.projectRoot ?? process.cwd()) : options.projectRoot;
@@ -232,6 +233,7 @@ export function createGraftServer(options: CreateGraftServerOptions = {}): Graft
     transportSessionId: sessionId,
     ...(sessionWarpWriterId !== undefined ? { warpWriterId: sessionWarpWriterId } : {}),
     ...(daemonControlPlane !== null ? { authorizationPolicy: daemonControlPlane } : {}),
+    ...(daemonControlPlane !== null ? { sharedAttachPolicy: daemonControlPlane } : {}),
     persistedLocalHistory,
   });
   const daemonRepoOverview = daemonControlPlane !== null && monitorRuntime !== null
