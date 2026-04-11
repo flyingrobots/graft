@@ -175,6 +175,30 @@ export type PersistedLocalHistorySummary =
   | PersistedLocalHistorySummaryNone
   | PersistedLocalHistorySummaryPresent;
 
+export interface PersistedLocalActivityContinuityItem {
+  readonly itemKind: "continuity";
+  readonly recordId: string;
+  readonly operation: LocalHistoryContinuityOperation;
+  readonly occurredAt: string;
+  readonly causalSessionId: string;
+  readonly strandId: string;
+  readonly attribution: AttributionSummary;
+  readonly continuedFromCausalSessionId: string | null;
+  readonly continuedFromStrandId: string | null;
+}
+
+export type PersistedLocalActivityItem =
+  | PersistedLocalActivityContinuityItem
+  | Extract<CausalEvent, { eventKind: "read" | "stage" | "transition" }>;
+
+export interface PersistedLocalActivityWindow {
+  readonly historyPath: string | null;
+  readonly limit: number;
+  readonly totalMatchingItems: number;
+  readonly truncated: boolean;
+  readonly items: readonly PersistedLocalActivityItem[];
+}
+
 export type { RepoConcurrencySummary } from "./repo-concurrency.js";
 
 export class PersistedLocalHistoryAttachUnavailableError extends Error {
@@ -433,6 +457,68 @@ export class PersistedLocalHistoryStore {
           .map((state) => this.toWorktreeHistory(state)),
       ],
     });
+  }
+
+  async listRecentActivity(
+    status: WorkspaceStatus,
+    causalContext: RuntimeCausalContext,
+    limit: number,
+  ): Promise<PersistedLocalActivityWindow> {
+    if (status.repoId === null || status.worktreeId === null || status.graftDir === null) {
+      return {
+        historyPath: null,
+        limit,
+        totalMatchingItems: 0,
+        truncated: false,
+        items: [],
+      };
+    }
+
+    const continuityKey = buildContinuityKey(status.repoId, status.worktreeId);
+    const state = await this.loadState(continuityKey, status.repoId, status.worktreeId);
+    const activeRecord = findRecord(state, state.activeRecordId);
+    const effectiveCheckoutEpochId =
+      activeRecord?.checkoutEpochId
+      ?? state.records.at(-1)?.checkoutEpochId
+      ?? causalContext.checkoutEpochId;
+
+    const continuityItems: PersistedLocalActivityContinuityItem[] = state.records
+      .filter((record) => record.checkoutEpochId === effectiveCheckoutEpochId)
+      .map((record) => ({
+        itemKind: "continuity",
+        recordId: record.recordId,
+        operation: record.operation,
+        occurredAt: record.occurredAt,
+        causalSessionId: record.causalSessionId,
+        strandId: record.strandId,
+        attribution: record.attribution,
+        continuedFromCausalSessionId: record.continuedFromCausalSessionId,
+        continuedFromStrandId: record.continuedFromStrandId,
+      }));
+
+    const eventItems: PersistedLocalActivityItem[] = [
+      ...state.readEvents,
+      ...state.stageEvents,
+      ...state.transitionEvents,
+    ].filter((event) => event.checkoutEpochId === effectiveCheckoutEpochId);
+
+    const allItems = [...continuityItems, ...eventItems].sort((left, right) => {
+      const byTime = right.occurredAt.localeCompare(left.occurredAt);
+      if (byTime !== 0) {
+        return byTime;
+      }
+      const leftId = "recordId" in left ? left.recordId : left.eventId;
+      const rightId = "recordId" in right ? right.recordId : right.eventId;
+      return rightId.localeCompare(leftId);
+    });
+
+    return {
+      historyPath: this.historyPathFor(continuityKey),
+      limit,
+      totalMatchingItems: allItems.length,
+      truncated: allItems.length > limit,
+      items: allItems.slice(0, limit),
+    };
   }
 
   async declareAttach(input: {

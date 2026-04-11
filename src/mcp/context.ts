@@ -18,6 +18,7 @@ import type { RuntimeObservabilityState } from "./runtime-observability.js";
 import type { RuntimeCausalContext } from "./runtime-causal-context.js";
 import type { RuntimeWorkspaceOverlayFooting } from "./runtime-workspace-overlay.js";
 import type {
+  PersistedLocalActivityWindow,
   PersistedLocalHistoryAttachDeclaration,
   RepoConcurrencySummary,
   PersistedLocalHistorySummary,
@@ -79,6 +80,7 @@ export interface ToolContext {
   getCausalContext(): RuntimeCausalContext;
   getWorkspaceOverlayFooting(): Promise<RuntimeWorkspaceOverlayFooting | null>;
   getPersistedLocalHistorySummary(): Promise<PersistedLocalHistorySummary>;
+  getPersistedLocalActivityWindow(limit: number): Promise<PersistedLocalActivityWindow>;
   getRepoConcurrencySummary(): Promise<RepoConcurrencySummary | null>;
   declareCausalAttach(request: PersistedLocalHistoryAttachDeclaration): Promise<CausalAttachResult>;
   getWorkspaceStatus(): WorkspaceStatus;

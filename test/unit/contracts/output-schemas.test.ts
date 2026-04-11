@@ -171,6 +171,7 @@ describe("contracts: output schemas", () => {
       workspace_revoke: daemonRevoke,
       workspace_bind: daemonBind,
       workspace_status: daemonStatus,
+      activity_view: parse(await server.callTool("activity_view", {})),
       causal_status: parse(await server.callTool("causal_status", {})),
       causal_attach: parse(await server.callTool("causal_attach", { actor_kind: "agent" })),
       workspace_rebind: daemonRebind,

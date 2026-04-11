@@ -6,6 +6,7 @@ import { createPathResolver } from "./context.js";
 import { Metrics } from "./metrics.js";
 import { loadProjectGraftignore } from "./policy.js";
 import {
+  type PersistedLocalActivityWindow,
   PersistedLocalHistoryAttachUnavailableError,
   PersistedLocalHistoryStore,
   type PersistedLocalHistoryAttachDeclaration,
@@ -488,6 +489,30 @@ export class WorkspaceRouter {
       return null;
     }
     return this.options.persistedLocalHistory.summarizeRepoConcurrency(this.getStatus());
+  }
+
+  async getPersistedLocalActivityWindow(limit: number): Promise<PersistedLocalActivityWindow> {
+    const binding = this.currentBinding;
+    if (binding?.slice.repoState === null || binding === null) {
+      return {
+        historyPath: null,
+        limit,
+        totalMatchingItems: 0,
+        truncated: false,
+        items: [],
+      };
+    }
+
+    await this.getPersistedLocalHistorySummary();
+
+    const status = this.getStatus();
+    const repoState = binding.slice.repoState.getState();
+    const causalContext = this.buildCausalContext(binding, repoState);
+    return this.options.persistedLocalHistory.listRecentActivity(
+      status,
+      causalContext,
+      limit,
+    );
   }
 
   async getWorkspaceOverlayFooting(): Promise<RuntimeWorkspaceOverlayFooting | null> {

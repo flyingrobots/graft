@@ -22,6 +22,7 @@ export const MCP_TOOL_NAMES = [
   "workspace_revoke",
   "workspace_bind",
   "workspace_status",
+  "activity_view",
   "causal_status",
   "causal_attach",
   "workspace_rebind",
@@ -234,6 +235,12 @@ export const CAPABILITY_REGISTRY: readonly CapabilityDefinition[] = [
     id: "workspace_status",
     description: "Inspect daemon workspace binding state",
     mcpTool: "workspace_status",
+    parity: "mcp_only",
+  },
+  {
+    id: "activity_view",
+    description: "Inspect bounded between-commit artifact history for the active workspace",
+    mcpTool: "activity_view",
     parity: "mcp_only",
   },
   {

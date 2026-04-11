@@ -449,6 +449,60 @@ describe("mcp: runtime observability", () => {
     }
   });
 
+  it("activity_view surfaces a bounded recent event window with anchor and degradation context", async () => {
+    const repoDir = createTestRepo("graft-runtime-activity-view-");
+    try {
+      fs.writeFileSync(path.join(repoDir, "app.ts"), "export const ready = true;\n");
+      git(repoDir, "add -A");
+      git(repoDir, "commit -m init");
+
+      const isolated = createIsolatedServer({
+        projectRoot: repoDir,
+        graftDir: path.join(repoDir, ".graft"),
+      });
+      try {
+        await isolated.server.callTool("safe_read", { path: "app.ts" });
+        const activityView = parse(await isolated.server.callTool("activity_view", { limit: 5 }));
+
+        const anchor = activityView["anchor"] as {
+          posture: string;
+          headSha: string | null;
+        };
+        const activityWindow = activityView["activityWindow"] as {
+          returned: number;
+          missingSignalKinds: string[];
+          groups: { groupKind: string; items: Record<string, unknown>[] }[];
+        };
+        const activeCausalWorkspace = activityView["activeCausalWorkspace"] as {
+          semanticTransition: { kind: string } | null;
+          repoConcurrency: { posture: string; authority: string } | null;
+        } | null;
+
+        expect(activityView["truthClass"]).toBe("artifact_history");
+        expect(anchor.posture).toBe("head_commit");
+        expect(anchor.headSha).toMatch(/^[a-f0-9]{40}$/);
+        expect(activityWindow.returned).toBeGreaterThan(0);
+        expect(activityWindow.missingSignalKinds).toContain("write_events_not_captured");
+        expect(activityWindow.groups).toEqual(
+          expect.arrayContaining([
+            expect.objectContaining({
+              groupKind: "read",
+            }),
+          ]),
+        );
+        expect(activeCausalWorkspace?.semanticTransition).toBeNull();
+        expect(activeCausalWorkspace?.repoConcurrency?.posture).toBe("exclusive");
+        expect(activityView["degradedReasons"]).toEqual(
+          expect.arrayContaining(["target_repo_hooks_absent"]),
+        );
+      } finally {
+        isolated.cleanup();
+      }
+    } finally {
+      cleanupTestRepo(repoDir);
+    }
+  });
+
   it("summarizes many staged paths as bulk staging", async () => {
     const repoDir = createTestRepo("graft-runtime-bulk-staging-");
     try {

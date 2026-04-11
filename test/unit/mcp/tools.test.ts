@@ -279,6 +279,64 @@ describe("mcp: tool handlers", () => {
     expect(parsed["nextAction"]).toBe("bind_workspace_to_begin_local_history");
   });
 
+  it("activity_view returns bounded between-commit activity anchored to HEAD", async () => {
+    const repoDir = createTestRepo("graft-mcp-activity-view-");
+    cleanups.push(() => {
+      cleanupTestRepo(repoDir);
+    });
+    fs.writeFileSync(path.join(repoDir, "app.ts"), "export const ready = true;\n");
+    git(repoDir, "add -A");
+    git(repoDir, "commit -m init");
+
+    const server = createServerForProjectRoot(repoDir);
+    await server.callTool("safe_read", { path: "app.ts" });
+
+    const parsed = parse(await server.callTool("activity_view", { limit: 5 }));
+    expect(parsed["bindState"]).toBe("bound");
+    expect(parsed["truthClass"]).toBe("artifact_history");
+    expect(parsed["nextAction"]).toBe("continue_active_causal_workspace");
+
+    const anchor = parsed["anchor"] as {
+      posture: string;
+      headRef: string | null;
+      headSha: string | null;
+    };
+    expect(anchor.posture).toBe("head_commit");
+    expect(anchor.headSha).toMatch(/^[a-f0-9]{40}$/);
+    expect(anchor.headRef).toEqual(expect.any(String));
+    expect(anchor.headRef).not.toHaveLength(0);
+
+    const activityWindow = parsed["activityWindow"] as {
+      returned: number;
+      totalMatchingItems: number;
+      truncated: boolean;
+      missingSignalKinds: string[];
+      groups: {
+        groupKind: string;
+        count: number;
+        items: Record<string, unknown>[];
+      }[];
+    };
+    expect(activityWindow.returned).toBeGreaterThan(0);
+    expect(activityWindow.totalMatchingItems).toBeGreaterThan(0);
+    expect(activityWindow.truncated).toBe(false);
+    expect(activityWindow.missingSignalKinds).toContain("write_events_not_captured");
+    expect(activityWindow.groups).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          groupKind: "read",
+          count: expect.any(Number),
+        }),
+      ]),
+    );
+
+    const readGroup = activityWindow.groups.find((group) => group.groupKind === "read");
+    expect(readGroup?.items[0]?.["eventKind"]).toBe("read");
+
+    const degradedReasons = parsed["degradedReasons"] as string[];
+    expect(degradedReasons).toContain("target_repo_hooks_absent");
+  });
+
   it("causal_attach records explicit attach evidence after a continuity fork", async () => {
     const repoDir = createTestRepo("graft-causal-attach-");
     cleanups.push(() => {

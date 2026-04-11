@@ -205,6 +205,9 @@ function buildWorkerContext(
     getPersistedLocalHistorySummary() {
       return unsupported("getPersistedLocalHistorySummary");
     },
+    getPersistedLocalActivityWindow() {
+      return unsupported("getPersistedLocalActivityWindow");
+    },
     getRepoConcurrencySummary() {
       return Promise.resolve(null);
     },

@@ -203,6 +203,46 @@ const runtimeStagedTargetSchema = z.discriminatedUnion("availability", [
   }).strict(),
 ]);
 
+const activityViewAnchorSchema = z.discriminatedUnion("posture", [
+  z.object({
+    posture: z.literal("head_commit"),
+    headRef: z.string().nullable(),
+    headSha: z.string(),
+  }).strict(),
+  z.object({
+    posture: z.literal("unknown"),
+    headRef: z.string().nullable(),
+    headSha: z.string().nullable(),
+    reason: z.enum(["workspace_unbound", "missing_head_commit"]),
+  }).strict(),
+]);
+
+const activityViewContinuityItemSchema = z.object({
+  itemKind: z.literal("continuity"),
+  recordId: z.string(),
+  operation: localHistoryContinuityOperationSchema,
+  occurredAt: z.string(),
+  causalSessionId: z.string(),
+  strandId: z.string(),
+  attribution: attributionSummarySchema,
+  continuedFromCausalSessionId: z.string().nullable(),
+  continuedFromStrandId: z.string().nullable(),
+}).strict();
+
+const activityViewItemSchema = z.union([
+  activityViewContinuityItemSchema,
+  readEventSchema,
+  stageEventSchema,
+  transitionEventSchema,
+]);
+
+const activityViewGroupSchema = z.object({
+  groupKind: z.enum(["transition", "stage", "continuity", "read"]),
+  label: z.string(),
+  count: z.number().int().positive(),
+  items: z.array(activityViewItemSchema),
+}).strict();
+
 const persistedLocalHistorySummarySchema = z.discriminatedUnion("availability", [
   z.object({
     availability: z.literal("none"),
@@ -497,6 +537,37 @@ const causalAttachSchema = workspaceStatusSchema.extend({
   nextAction: causalSurfaceNextActionSchema,
   errorCode: z.string().optional(),
   error: z.string().optional(),
+}).strict();
+
+const activityViewSchema = workspaceStatusSchema.extend({
+  truthClass: z.literal("artifact_history"),
+  anchor: activityViewAnchorSchema,
+  activeCausalWorkspace: z.object({
+    causalContext: runtimeCausalContextSchema,
+    attribution: attributionSummarySchema,
+    repoConcurrency: repoConcurrencySummarySchema.nullable(),
+    checkoutEpoch: z.number().int().nonnegative(),
+    lastTransition: repoTransitionSchema.nullable(),
+    semanticTransition: repoSemanticTransitionSchema.nullable(),
+    workspaceOverlayId: z.string().nullable(),
+    workspaceOverlay: workspaceOverlaySummarySchema.nullable(),
+    workspaceOverlayFooting: workspaceOverlayFootingSchema.nullable(),
+    stagedTarget: runtimeStagedTargetSchema,
+  }).nullable(),
+  activityWindow: z.object({
+    historyPath: z.string().nullable(),
+    limit: z.number().int().positive(),
+    returned: z.number().int().nonnegative(),
+    totalMatchingItems: z.number().int().nonnegative(),
+    truncated: z.boolean(),
+    missingSignalKinds: z.array(z.string()),
+    groups: z.array(activityViewGroupSchema),
+  }).strict(),
+  degradedReasons: z.array(z.string()),
+  nextAction: z.union([
+    causalSurfaceNextActionSchema,
+    z.literal("bind_workspace_to_begin_local_history"),
+  ]),
 }).strict();
 
 const authorizedWorkspaceSchema = z.object({
@@ -857,6 +928,7 @@ const mcpOutputBodySchemas: Record<McpToolName, z.ZodType> = {
     action: z.literal("bind"),
   }).strict(),
   workspace_status: workspaceStatusSchema,
+  activity_view: activityViewSchema,
   causal_status: causalStatusSchema,
   causal_attach: causalAttachSchema,
   workspace_rebind: workspaceActionSchema.extend({
@@ -955,6 +1027,7 @@ export const MCP_OUTPUT_SCHEMAS: Record<McpToolName, z.ZodType> = {
   workspace_revoke: withMcpCommon("workspace_revoke", mcpOutputBodySchemas.workspace_revoke),
   workspace_bind: withMcpCommon("workspace_bind", mcpOutputBodySchemas.workspace_bind),
   workspace_status: withMcpCommon("workspace_status", mcpOutputBodySchemas.workspace_status),
+  activity_view: withMcpCommon("activity_view", mcpOutputBodySchemas.activity_view),
   causal_status: withMcpCommon("causal_status", mcpOutputBodySchemas.causal_status),
   causal_attach: withMcpCommon("causal_attach", mcpOutputBodySchemas.causal_attach),
   workspace_rebind: withMcpCommon("workspace_rebind", mcpOutputBodySchemas.workspace_rebind),
