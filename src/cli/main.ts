@@ -275,6 +275,18 @@ function parseDiagCommand(argv: string[]): ParsedCommand {
     return { command: "diag_doctor", json, args: {} };
   }
 
+  if (subcommand === "activity") {
+    const limit = consumeOption(argv, "--limit");
+    expectNoArgs(argv);
+    return {
+      command: "diag_activity",
+      json,
+      args: {
+        ...(limit !== undefined ? { limit: parsePositiveInt(limit, "--limit") } : {}),
+      },
+    };
+  }
+
   if (subcommand === "explain") {
     const code = consumePositional(argv, "reason code");
     expectNoArgs(argv);

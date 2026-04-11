@@ -1110,6 +1110,7 @@ export const CLI_OUTPUT_SCHEMAS: Record<CliCommandName, z.ZodType> = {
   symbol_show: withCliPeerCommon("symbol_show", mcpOutputBodySchemas.code_show),
   symbol_find: withCliPeerCommon("symbol_find", mcpOutputBodySchemas.code_find),
   diag_doctor: withCliPeerCommon("diag_doctor", mcpOutputBodySchemas.doctor),
+  diag_activity: withCliPeerCommon("diag_activity", mcpOutputBodySchemas.activity_view),
   diag_explain: withCliPeerCommon("diag_explain", mcpOutputBodySchemas.explain),
   diag_stats: withCliPeerCommon("diag_stats", mcpOutputBodySchemas.stats),
   diag_capture: withCliPeerCommon("diag_capture", mcpOutputBodySchemas.run_capture),

@@ -208,12 +208,17 @@ The first useful view should include:
 ### Release leaning
 
 The first implementation may ship as one bounded machine-readable
-surface before CLI / IDE wrappers are expanded. The important thing is
-the truth model, not the wrapper.
+surface before CLI / IDE wrappers are expanded. In practice, the
+release-facing polish slice can add a thin CLI peer wrapper without
+changing the truth model.
+
+The important thing is the truth model, not the wrapper.
 
 That means the first release can be valuable if it gives humans an
 inspectable bounded answer, even if the earliest transport is still a
-machine-readable tool result.
+machine-readable tool result. A thin wrapper like `graft diag activity`
+is consistent with this cycle; richer CLI shaping or IDE timeline work
+still stays out of scope.
 
 This cycle stays compatible with later causal-slice / collapse views by
 keeping the current surface firmly in local `artifact_history`. It does

@@ -47,6 +47,7 @@ describe("cli: graft grouped surface", () => {
     expect(stderr.text()).toBe("");
     expect(stdout.text()).toContain("read safe");
     expect(stdout.text()).toContain("struct diff");
+    expect(stdout.text()).toContain("diag activity");
     expect(stdout.text()).toContain("diag doctor");
   });
 
@@ -196,6 +197,42 @@ describe("cli: graft grouped surface", () => {
       const parsed = JSON.parse(stdout.text()) as { _schema: { id: string }; matches?: unknown[] };
       expect(parsed._schema.id).toBe("graft.cli.symbol_find");
       expect(parsed.matches?.length).toBe(1);
+    } finally {
+      cleanupTestRepo(repoDir);
+    }
+  });
+
+  it("runs diag activity through the grouped CLI surface", async () => {
+    const repoDir = createTestRepo("graft-cli-activity-");
+    try {
+      fs.writeFileSync(path.join(repoDir, "app.ts"), [
+        "export function greet(name: string): string {",
+        "  return `hello ${name}`;",
+        "}",
+        "",
+      ].join("\n"));
+      git(repoDir, "add -A");
+      git(repoDir, "commit -m init");
+
+      const stdout = createBufferWriter();
+      const stderr = createBufferWriter();
+
+      await runCli({
+        cwd: repoDir,
+        args: ["diag", "activity", "--limit", "5", "--json"],
+        stdout,
+        stderr,
+      });
+
+      expect(stderr.text()).toBe("");
+      const parsed = JSON.parse(stdout.text()) as {
+        _schema: { id: string };
+        truthClass: string;
+        activityWindow: { returned: number };
+      };
+      expect(parsed._schema.id).toBe("graft.cli.diag_activity");
+      expect(parsed.truthClass).toBe("artifact_history");
+      expect(parsed.activityWindow.returned).toBeGreaterThanOrEqual(0);
     } finally {
       cleanupTestRepo(repoDir);
     }

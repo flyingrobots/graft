@@ -50,6 +50,7 @@ export const CLI_COMMAND_NAMES = [
   "symbol_show",
   "symbol_find",
   "diag_doctor",
+  "diag_activity",
   "diag_explain",
   "diag_stats",
   "diag_capture",
@@ -241,7 +242,9 @@ export const CAPABILITY_REGISTRY: readonly CapabilityDefinition[] = [
     id: "activity_view",
     description: "Inspect bounded between-commit artifact history for the active workspace",
     mcpTool: "activity_view",
-    parity: "mcp_only",
+    cliCommand: "diag_activity",
+    cliPath: ["diag", "activity"],
+    parity: "peer",
   },
   {
     id: "causal_status",
