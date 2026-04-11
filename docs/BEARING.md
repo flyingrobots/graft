@@ -111,20 +111,36 @@ It shipped the first honest meaning layer on top of `0062`:
 - sharper human-facing summaries for `bulk staging`, `bulk edit sweep`,
   and directional conflict posture changes
 
-METHOD now shows `0064-same-repo-concurrent-agent-model` as active.
+Cycle `0064-same-repo-concurrent-agent-model` is now closed.
+It shipped the first honest same-repo multi-actor packet:
 
-That is the next honest pull because the lifecycle, semantic-transition,
-and bounded local-history footing are now strong enough that same-repo
-multi-actor truth is the next major product gap.
+- bounded `repoConcurrency` posture across shared repo, shared
+  worktree, overlapping actor, divergent checkout, and explicit handoff
+- daemon live-session awareness so daemon mode no longer collapses
+  same-repo concurrency into false exclusivity
+- concurrency-aware bounded guidance on top of existing transition and
+  lifecycle guidance
+- lawful cross-session same-worktree handoff through `causal_attach`
+  when exactly one live source session is identifiable
+- continued refusal to overclaim multi-writer provenance or merge
+  semantics
 
-The job of `0064` is to settle:
+METHOD now shows `0065-between-commit-activity-view` as active.
 
-- what is shared at Git common-dir scope versus worktree scope versus
-  actor-local causal scope
-- how Graft talks about multiple actors in one live worktree without
-  faking single-actor ownership
-- what scenarios are supported observationally now versus explicitly
-  out of scope until future multi-writer WARP levels
+That is the next honest release-facing pull because the current system
+can track bounded between-commit activity, but humans still do not have
+one direct surface that answers:
+
+"What happened between the last Git commit and now?"
+
+The job of `0065` is to ship that first honest human-facing view while
+keeping the truth class explicit:
+
+- bounded local `artifact_history`, not canonical provenance
+- grouped activity around the active causal workspace and staged target
+- explicit degraded / unknown posture when capture or commit anchoring
+  is incomplete
+- a first bounded surface before later CLI / IDE wrappers expand it
 
 The last two shipped packets were:
 
@@ -239,10 +255,12 @@ turn:
   overlay transitions everywhere in the product
 - target repos do not yet have an honest product hook/bootstrap story
   for branch-switch-aware strand management
-- same-repo multi-actor meaning is still explicitly out of scope; the
-  lifecycle and semantic footing are better now, but Graft still lacks
-  a settled runtime/product truth for overlapping humans/agents in one
-  repo; `0064` is the contract packet for that gap
+- same-repo multi-actor meaning now has a first honest bounded
+  contract, but it is still not multi-writer provenance and not a
+  remote/multi-user model
+- humans still lack one direct between-commit activity surface; the
+  substrate exists, but the release-facing summary experience is still
+  missing, and `0065` is the packet for that gap
 - canonical structural truth versus canonical provenance is now explicit
   in repo truth, but not yet realized end-to-end in runtime behavior
 - collapse semantics are now in repo truth, but still blocked from full

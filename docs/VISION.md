@@ -2,12 +2,12 @@
 title: "Graft — Executive Summary"
 generated: 2026-04-10
 generator: codex (manual, following Method executive-summary process)
-tests: 729
-test_files: 70
+tests: 739
+test_files: 71
 legends: [CORE, WARP, CLEAN_CODE, SURFACE]
-backlog_items: 138
+backlog_items: 139
 version: 0.4.0
-status: "active cycle: 0064-same-repo-concurrent-agent-model"
+status: "active cycle: 0065-between-commit-activity-view"
 ---
 
 # Graft — Executive Summary
@@ -97,18 +97,30 @@ The current working model is:
 
 METHOD currently shows one active cycle:
 
-- `0064-same-repo-concurrent-agent-model`
-  - defines the first honest contract for multiple actors working in
-    the same repo at once
-  - separates canonical repo scope, live worktree scope, and
-    actor-local causal scope
-  - treats same-worktree overlap as observationally supported but
-    provenance-uncertain unless explicit handoff evidence exists
-  - keeps multi-writer WARP merge semantics out of scope while
-    tightening same-repo multi-actor honesty
+- `0065-between-commit-activity-view`
+  - defines the first honest human-facing surface for bounded
+    between-commit activity
+  - answers "what happened between the last Git commit and now?"
+    without requiring chat-log or raw-receipt reconstruction
+  - keeps the truth class explicit as bounded local
+    `artifact_history`, not canonical provenance
+  - groups activity around the active causal workspace, staged target,
+    semantic transitions, and degraded posture where possible
 
 The most recently closed cycle is:
 
+- `0064-same-repo-concurrent-agent-model`
+  - defined the first honest same-repo concurrency contract on top of
+    the prior lifecycle, attribution, and semantic-transition packets
+  - separated canonical repo scope, live worktree scope, and
+    actor-local causal scope
+  - surfaced bounded `repoConcurrency` posture and concurrency-aware
+    guidance
+  - merged daemon live-session topology into the same-repo model so
+    daemon mode no longer collapses into false exclusivity
+  - added lawful cross-session same-worktree handoff semantics through
+    `causal_attach` without pretending multi-writer provenance already
+    exists
 - `0063-richer-semantic-transitions`
   - defined the first honest semantic-transition vocabulary on top of
     the `0062` overlay/lifecycle footing

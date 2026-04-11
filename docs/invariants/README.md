@@ -39,6 +39,9 @@ it. Cycles under that legend must verify the invariant holds.
 - [semantic-transitions-explicit-or-unknown](semantic-transitions-explicit-or-unknown.md) — semantic transition surfaces must name a supported meaning or explicitly stay unknown
 - [transport-session-not-causal-session](transport-session-not-causal-session.md) — transport sessions are not the final product session model
 
+### Human Surfaces (SURFACE)
+- [activity-view-artifact-history-honest](activity-view-artifact-history-honest.md) — between-commit activity views stay bounded artifact_history or explicitly degraded
+
 ### Observability (CORE)
 - [receipt-always](receipt-always.md) — every MCP response has _receipt
 - [versioned-output-schemas](versioned-output-schemas.md) — machine-readable outputs carry versioned schemas
