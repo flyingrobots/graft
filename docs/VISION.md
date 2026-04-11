@@ -1,13 +1,13 @@
 ---
 title: "Graft — Executive Summary"
-generated: 2026-04-10
+generated: 2026-04-11
 generator: codex (manual, following Method executive-summary process)
 tests: 742
 test_files: 71
 legends: [CORE, WARP, CLEAN_CODE, SURFACE]
 backlog_items: 139
 version: 0.4.0
-status: "active cycle: 0065-between-commit-activity-view"
+status: "no active cycle; paused before release prep"
 ---
 
 # Graft — Executive Summary
@@ -95,19 +95,22 @@ The current working model is:
 
 ### Current cycle posture
 
-METHOD currently shows one active cycle:
+METHOD currently shows no active cycle. The repo is paused before
+release preparation.
+
+The most recently closed cycle is:
 
 - `0065-between-commit-activity-view`
-  - defines the first honest human-facing surface for bounded
+  - shipped the first honest human-facing surface for bounded
     between-commit activity
   - answers "what happened between the last Git commit and now?"
     without requiring chat-log or raw-receipt reconstruction
   - keeps the truth class explicit as bounded local
     `artifact_history`, not canonical provenance
   - groups activity around the active causal workspace, staged target,
-    semantic transitions, and degraded posture where possible
-
-The most recently closed cycle is:
+    semantic transitions, degraded posture, and current commit anchor
+    where possible
+  - adds a thin CLI peer wrapper at `graft diag activity`
 
 - `0064-same-repo-concurrent-agent-model`
   - defined the first honest same-repo concurrency contract on top of

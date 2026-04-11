@@ -76,9 +76,26 @@ That implies:
 
 ## What is active now
 
-Cycle `0062-reactive-workspace-overlay` is now closed. It shipped the
-live-footing packet that the prior persisted-history and attribution
-work needed:
+Cycle `0065-between-commit-activity-view` is now closed. It shipped the
+first honest human-facing surface for bounded between-commit work:
+
+- bounded `activity_view` over local `artifact_history`
+- explicit `HEAD` anchoring when available, with explicit unknown
+  posture when not
+- grouped recent continuity, transition, staging, and read activity
+- active causal workspace, staged-target, semantic-transition, and
+  degraded context carried through instead of flattened away
+- human-readable summary text on the bounded activity surface
+- thin CLI peer wrapper at `graft diag activity`
+
+METHOD currently shows no active cycle. The repo is paused before
+release preparation so the current hill can be evaluated as one
+coherent cut instead of being widened indefinitely.
+
+The most recent foundational packets remain:
+
+Cycle `0062-reactive-workspace-overlay` shipped the live-footing packet
+that the prior persisted-history and attribution work needed:
 
 - explicit workspace-overlay footing instead of only
   between-tool-call inference
@@ -111,8 +128,8 @@ It shipped the first honest meaning layer on top of `0062`:
 - sharper human-facing summaries for `bulk staging`, `bulk edit sweep`,
   and directional conflict posture changes
 
-Cycle `0064-same-repo-concurrent-agent-model` is now closed.
-It shipped the first honest same-repo multi-actor packet:
+Cycle `0064-same-repo-concurrent-agent-model` also closed and shipped
+the first honest same-repo multi-actor packet:
 
 - bounded `repoConcurrency` posture across shared repo, shared
   worktree, overlapping actor, divergent checkout, and explicit handoff
@@ -124,23 +141,6 @@ It shipped the first honest same-repo multi-actor packet:
   when exactly one live source session is identifiable
 - continued refusal to overclaim multi-writer provenance or merge
   semantics
-
-METHOD now shows `0065-between-commit-activity-view` as active.
-
-That is the next honest release-facing pull because the current system
-can track bounded between-commit activity, but humans still do not have
-one direct surface that answers:
-
-"What happened between the last Git commit and now?"
-
-The job of `0065` is to ship that first honest human-facing view while
-keeping the truth class explicit:
-
-- bounded local `artifact_history`, not canonical provenance
-- grouped activity around the active causal workspace and staged target
-- explicit degraded / unknown posture when capture or commit anchoring
-  is incomplete
-- a first bounded surface before later CLI / IDE wrappers expand it
 
 The last two shipped packets were:
 
