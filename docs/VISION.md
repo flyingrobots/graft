@@ -103,8 +103,8 @@ The most recently closed cycle is:
 - `0065-between-commit-activity-view`
   - shipped the first honest human-facing surface for bounded
     between-commit activity
-  - answers "what happened between the last Git commit and now?"
-    without requiring chat-log or raw-receipt reconstruction
+  - answers "what recent local activity is visible from this line of
+    work?" without requiring chat-log or raw-receipt reconstruction
   - keeps the truth class explicit as bounded local
     `artifact_history`, not canonical provenance
   - groups activity around the active causal workspace, staged target,

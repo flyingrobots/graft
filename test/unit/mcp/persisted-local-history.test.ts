@@ -358,6 +358,92 @@ describe("mcp: persisted local history", () => {
     expect(summary.nextAction).toBe("continue_active_causal_workspace");
   });
 
+  it("bounds retained read events on disk", async () => {
+    const graftDir = fs.mkdtempSync(path.join(os.tmpdir(), "graft-history-"));
+    cleanups.push(graftDir);
+
+    const store = new PersistedLocalHistoryStore({
+      fs: nodeFs,
+      codec: new CanonicalJsonCodec(),
+      graftDir,
+    });
+
+    const current = context();
+    await store.noteBinding({ current });
+    for (let index = 0; index < 300; index += 1) {
+      await store.noteReadObservation({
+        current: {
+          ...current,
+          observedAt: `2026-04-10T01:00:00.${String(index).padStart(3, "0")}Z`,
+        },
+        attribution: {
+          actor: {
+            actorId: "agent:one",
+            actorKind: "agent",
+            displayName: "Agent One",
+            source: "test",
+            authorityScope: "declared",
+          },
+          confidence: "high",
+          basis: "explicit_declaration",
+          evidence: [
+            {
+              evidenceId: `evidence:${String(index)}`,
+              evidenceKind: "explicit_agent_declaration",
+              source: "test",
+              capturedAt: `2026-04-10T01:00:00.${String(index).padStart(3, "0")}Z`,
+              strength: "direct",
+              details: {},
+            },
+          ],
+        },
+        surface: "safe_read",
+        projection: "content",
+        sourceLayer: "workspace_overlay",
+        reason: "CONTENT",
+        footprint: {
+          paths: [`src/file-${String(index)}.ts`],
+          symbols: [],
+          regions: [],
+        },
+      });
+    }
+
+    const summary = await store.summarize(
+      {
+        sessionMode: "repo_local",
+        bindState: "bound",
+        repoId: "repo:one",
+        worktreeId: "worktree:one",
+        worktreeRoot: "/repo",
+        gitCommonDir: "/repo/.git",
+        graftDir,
+        capabilityProfile: null,
+      },
+      {
+        transportSessionId: "transport:one",
+        workspaceSliceId: "slice-0001",
+        causalSessionId: "causal:one",
+        strandId: "strand:one",
+        checkoutEpochId: "epoch:one",
+        warpWriterId: "graft_session_one",
+        stability: "runtime_local",
+        provenanceLevel: "artifact_history",
+      },
+    );
+
+    expect(summary.availability).toBe("present");
+    if (summary.availability !== "present") {
+      return;
+    }
+    expect(summary.latestReadEvent?.footprint.paths).toEqual(["src/file-299.ts"]);
+
+    const raw = JSON.parse(fs.readFileSync(summary.historyPath, "utf-8")) as {
+      readEvents: unknown[];
+    };
+    expect(raw.readEvents).toHaveLength(256);
+  });
+
   it("records direct hook transition evidence for checkout-boundary continuity", async () => {
     const graftDir = fs.mkdtempSync(path.join(os.tmpdir(), "graft-history-"));
     cleanups.push(graftDir);

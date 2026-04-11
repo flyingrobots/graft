@@ -164,7 +164,7 @@ is structured JSON with versioned `_schema` metadata.
 | `state_save` | Save session working state (max 8 KB) |
 | `state_load` | Restore session working state |
 | `set_budget` | Declare session byte budget — governor tightens as it drains |
-| `activity_view` | Bounded between-commit activity for the active workspace, with commit anchor, grouped recent activity, and degraded posture |
+| `activity_view` | Recent bounded local `artifact_history` for the active workspace, with current commit anchor, grouped activity, and degraded posture |
 | `explain` | Human-readable help for any reason code |
 | `doctor` | Runtime health check with burden summary and layered-worldline state |
 | `stats` | Decision metrics summary with cumulative burden-by-kind totals |

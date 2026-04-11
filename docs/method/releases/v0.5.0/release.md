@@ -13,9 +13,9 @@
 
 ## Hills advanced
 
-- **SURFACE**: Graft now has a human-facing answer to "what happened
-  between the last Git commit and now?" through bounded local
-  `artifact_history` on MCP and CLI.
+- **SURFACE**: Graft now has a human-facing answer to "what recent
+  local activity is visible from this line of work?" through bounded
+  local `artifact_history` on MCP and CLI.
 - **WARP**: the repo now carries the settled ontology and local-history
   substrate needed for later causal-slice / collapse work, while
   keeping the current release honest about what is still only local
@@ -57,7 +57,9 @@ Migration is light, but there are a few things to call out:
 
 - Existing bootstrap and serve posture remain valid.
 - The new recommended human-facing inspection path is
-  `graft diag activity` or MCP `activity_view`.
+  `graft diag activity` or MCP `activity_view` when you want a bounded
+  view of recent local activity anchored to the current commit when
+  possible.
 - Full causal collapse and canonical provenance admission are still
   out of scope for this release.
 

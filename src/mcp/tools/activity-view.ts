@@ -89,7 +89,7 @@ function describeAnchor(anchor: ReturnType<typeof buildAnchor>): string {
   }
 
   const refLabel = anchor.headRef ?? "HEAD";
-  return `Anchored to ${refLabel} @ ${shortSha(anchor.headSha)}.`;
+  return `Current commit anchor is ${refLabel} @ ${shortSha(anchor.headSha)}. This view summarizes recent bounded local artifact history for the active checkout epoch, not a complete since-commit ledger.`;
 }
 
 function describeStagedTarget(
@@ -195,14 +195,14 @@ function buildHeadline(
   returned: number,
   truncated: boolean,
 ): string {
-  const headline = `Showing ${countText(returned)} recent ${pluralize(returned, "activity item")} from bounded local artifact history.`;
+  const headline = `Showing ${countText(returned)} recent ${pluralize(returned, "activity item")} from bounded local artifact history for the active line of work.`;
   return truncated ? `${headline} Results are truncated to the requested window.` : headline;
 }
 
 export const activityViewTool: ToolDefinition = {
   name: "activity_view",
   description:
-    "Inspect bounded between-commit artifact history for the active workspace.",
+    "Inspect recent bounded local artifact history for the active workspace, anchored to the current commit when possible.",
   schema: {
     limit: limitSchema,
   },

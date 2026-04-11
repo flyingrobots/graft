@@ -41,6 +41,7 @@ import {
 import { InMemoryWarpPool, type WarpPool } from "./warp-pool.js";
 import { buildSessionWarpWriterId } from "../warp/writer-id.js";
 import { PersistedLocalHistoryStore } from "./persisted-local-history.js";
+import { GRAFT_VERSION } from "../version.js";
 
 // Tool definitions — each file exports a ToolDefinition object
 import { safeReadTool } from "./tools/safe-read.js";
@@ -151,7 +152,7 @@ export interface CreateGraftServerOptions {
 }
 
 export function createGraftServer(options: CreateGraftServerOptions = {}): GraftServer {
-  const mcpServer = new McpServer({ name: "graft", version: "0.0.0" });
+  const mcpServer = new McpServer({ name: "graft", version: GRAFT_VERSION });
   const sessionId = options.sessionId ?? crypto.randomUUID();
   const mode = options.mode ?? "repo_local";
   const sessionWarpWriterId = mode === "daemon" ? buildSessionWarpWriterId(sessionId) : undefined;

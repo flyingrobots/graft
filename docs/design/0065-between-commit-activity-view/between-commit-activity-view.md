@@ -18,22 +18,23 @@ Legend: SURFACE
 ## Hill
 
 Ship the first honest human-facing surface for bounded between-commit
-activity so a human can ask "what happened between the last Git commit
-and now?" and get an inspectable answer without reading chat logs,
-raw receipts, or internal daemon state.
+activity so a human can ask "what recent local activity is visible from
+this line of work?" and get an inspectable answer without reading chat
+logs, raw receipts, or internal daemon state.
 
 ## Playback Questions
 
 ### Human
 
-- [ ] If a human asks what happened between the last Git commit and
-      now, does Graft provide a bounded activity view instead of
+- [ ] If a human asks what recent local activity is visible from this
+      line of work, does Graft provide a bounded activity view instead of
       requiring raw chat-log reconstruction?
 - [ ] Does the first version stay explicit that it is bounded local
       `artifact_history`, not canonical provenance?
-- [ ] Does the view group recent reads, writes, stages, attaches, and
-      semantic transitions around the current causal workspace and
-      staged target when possible?
+- [ ] Does the view group recent reads, stages, attaches, and semantic
+      transitions around the current causal workspace and staged target
+      when possible, while explicitly reporting missing write-event
+      coverage?
 - [ ] If the anchor to the last Git commit is weak or unavailable,
       does the view say so explicitly instead of faking a complete
       since-commit story?
@@ -59,11 +60,11 @@ raw receipts, or internal daemon state.
 ## Accessibility and Assistive Reading
 
 - Linear truth / reduced-complexity posture:
-  - answer the human question first: "what happened since this line of
-    work started from the current commit anchor?"
+  - answer the human question first: "what recent local activity is
+    visible from this line of work?"
   - present grouped summaries before individual events
-  - prefer short event labels like `read`, `write`, `stage`, `attach`,
-    and `transition` over internal store terminology
+  - prefer short event labels like `read`, `stage`, `attach`, and
+    `transition` over internal store terminology
 - Non-visual or alternate-reading expectations:
   - the first version must be legible in bounded JSON and linear text
   - grouping must survive screen-reader order without timeline charts
@@ -113,7 +114,7 @@ raw receipts, or internal daemon state.
 
 Humans should be able to ask:
 
-"What happened between the last Git commit and now?"
+"What recent local activity is visible from this line of work?"
 
 Graft is increasingly good at tracking bounded local `artifact_history`,
 causal workspace footing, attribution, and semantic transitions, but
@@ -124,7 +125,9 @@ without requiring raw chat logs or deep tool spelunking.
 
 The first version should stay honest:
 - bounded local `artifact_history`, not canonical provenance
-- recent reads, writes, stages, attaches, and semantic transitions
+- recent reads, stages, attaches, and semantic transitions
+- explicit missing-signal reporting where write events are not yet
+  captured
 - grouped by active causal workspace and staged target where possible
 - explicit `unknown` / degraded posture when evidence is incomplete
 
@@ -167,7 +170,7 @@ Effort: M
 But the product is still skewed toward agent/debug surfaces. Humans can
 inspect pieces of the truth through `doctor`, `causal_status`, and
 `causal_attach`, yet there is no single bounded answer to the human
-question "what happened between the last Git commit and now?"
+question "what recent local activity is visible from this line of work?"
 
 That is now the most valuable release-facing gap.
 
@@ -190,11 +193,11 @@ The first useful view should include:
 2. current staged-target summary when present
 3. recent grouped events:
    - `read`
-   - `write`
    - `stage`
    - `attach`
    - `transition`
-4. current degraded reasons and concurrency posture
+4. explicit missing-signal reporting for uncaptured write events
+5. current degraded reasons and concurrency posture
 
 ### Ordering and grouping rules
 

@@ -1,6 +1,9 @@
 import { describe, expect, it } from "vitest";
 import type { RepoConcurrencySummary } from "../../../src/mcp/repo-concurrency.js";
-import { mergeRepoConcurrencySummaryWithLiveSessions } from "../../../src/mcp/repo-concurrency.js";
+import {
+  deriveRepoConcurrencySummary,
+  mergeRepoConcurrencySummaryWithLiveSessions,
+} from "../../../src/mcp/repo-concurrency.js";
 
 function buildSummary(overrides: Partial<RepoConcurrencySummary> = {}): RepoConcurrencySummary {
   return {
@@ -16,6 +19,33 @@ function buildSummary(overrides: Partial<RepoConcurrencySummary> = {}): RepoConc
 }
 
 describe("mergeRepoConcurrencySummaryWithLiveSessions", () => {
+  it("does not treat plain actor declarations as explicit handoff", () => {
+    const summary = deriveRepoConcurrencySummary({
+      currentWorktreeId: "worktree:one",
+      histories: [
+        {
+          worktreeId: "worktree:one",
+          active: true,
+          checkoutEpochId: "epoch:one",
+          causalSessionIds: ["causal:one", "causal:two"],
+          actorIds: ["agent:one", "agent:two"],
+          contributorKeys: ["actor:agent:one", "actor:agent:two"],
+          explicitHandoff: false,
+          touches: [
+            { contributorKey: "actor:agent:one", path: "src/app.ts" },
+            { contributorKey: "actor:agent:two", path: "src/app.ts" },
+          ],
+        },
+      ],
+    });
+
+    expect(summary).toEqual(expect.objectContaining({
+      posture: "overlapping_actors",
+      authority: "footprint_overlap",
+      overlappingPathCount: 1,
+    }));
+  });
+
   it("upgrades exclusive posture to shared_worktree when another bound daemon session shares the worktree", () => {
     const merged = mergeRepoConcurrencySummaryWithLiveSessions({
       currentSummary: buildSummary(),

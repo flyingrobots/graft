@@ -11,7 +11,12 @@
   "files": [
     "bin/",
     "src/",
+    "ARCHITECTURE.md",
+    "CODE_OF_CONDUCT.md",
+    "docs/ADVANCED_GUIDE.md",
+    "docs/CLI.md",
     "docs/GUIDE.md",
+    "docs/MCP.md",
     "LICENSE",
     "NOTICE",
     "README.md",

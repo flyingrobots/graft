@@ -279,7 +279,7 @@ describe("mcp: tool handlers", () => {
     expect(parsed["nextAction"]).toBe("bind_workspace_to_begin_local_history");
   });
 
-  it("activity_view returns bounded between-commit activity anchored to HEAD", async () => {
+  it("activity_view returns recent bounded local artifact history anchored to the current commit", async () => {
     const repoDir = createTestRepo("graft-mcp-activity-view-");
     cleanups.push(() => {
       cleanupTestRepo(repoDir);
@@ -312,7 +312,7 @@ describe("mcp: tool handlers", () => {
     expect(anchor.headRef).toEqual(expect.any(String));
     expect(anchor.headRef).not.toHaveLength(0);
     expect(summary.headline).toContain("bounded local artifact history");
-    expect(summary.anchor).toContain("Anchored to");
+    expect(summary.anchor).toContain("Current commit anchor is");
     expect(summary.workspace).toContain("No active semantic transition");
     expect(summary.groups).not.toHaveLength(0);
 

@@ -488,7 +488,7 @@ describe("mcp: runtime observability", () => {
         expect(anchor.posture).toBe("head_commit");
         expect(anchor.headSha).toMatch(/^[a-f0-9]{40}$/);
         expect(summary.headline).toContain("bounded local artifact history");
-        expect(summary.anchor).toContain("Anchored to");
+        expect(summary.anchor).toContain("Current commit anchor is");
         expect(summary.workspace).toContain("exclusive");
         expect(summary.groups).toEqual(expect.arrayContaining([expect.stringContaining("reads across")]));
         expect(activityWindow.returned).toBeGreaterThan(0);

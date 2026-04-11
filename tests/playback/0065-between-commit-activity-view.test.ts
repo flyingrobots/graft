@@ -16,12 +16,12 @@ function expectMentions(text: string, terms: string[]) {
 }
 
 describe("0065 playback: between-commit activity view", () => {
-  it("If a human asks what happened between the last Git commit and now, does Graft provide a bounded activity view instead of requiring raw chat-log reconstruction?", () => {
+  it("If a human asks what recent local activity is visible from this line of work, does Graft provide a bounded activity view instead of requiring raw chat-log reconstruction?", () => {
     expectMentions(designDoc, [
       "Ship the first honest human-facing surface for bounded between-commit",
-      "\"what happened between the last Git commit and now?\"",
+      "\"what recent local activity is visible from this line of work?\"",
       "bounded activity view",
-      "without reading chat logs",
+      "get an inspectable answer without reading chat",
     ]);
   });
 
@@ -33,15 +33,15 @@ describe("0065 playback: between-commit activity view", () => {
     ]);
   });
 
-  it("Does the view group recent reads, writes, stages, attaches, and semantic transitions around the current causal workspace and staged target when possible?", () => {
+  it("Does the view group recent reads, stages, attaches, and semantic transitions around the current causal workspace and staged target when possible, while explicitly reporting missing write-event coverage?", () => {
     expectMentions(designDoc, [
       "current workspace / causal workspace summary",
       "current staged-target summary",
       "`read`",
-      "`write`",
       "`stage`",
       "`attach`",
       "`transition`",
+      "missing-signal reporting",
     ]);
   });
 

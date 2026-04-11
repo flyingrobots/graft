@@ -49,6 +49,11 @@ const PERSISTED_LOCAL_HISTORY_EXCLUDES = Object.freeze([
   "canonical_structural_truth",
 ] as const);
 
+const MAX_CONTINUITY_RECORDS = 128;
+const MAX_READ_EVENTS = 256;
+const MAX_STAGE_EVENTS = 128;
+const MAX_TRANSITION_EVENTS = 128;
+
 const continuityRecordSchema = z.object({
   recordId: z.string().min(1),
   continuityKey: z.string().min(1),
@@ -285,8 +290,12 @@ function findRecord(state: ContinuityState, recordId: string | null): Continuity
 }
 
 function appendRecord(state: ContinuityState, record: ContinuityRecord, activeAfter: boolean): void {
-  state.records = [...state.records, record];
+  state.records = [...state.records, record].slice(-MAX_CONTINUITY_RECORDS);
   state.activeRecordId = activeAfter ? record.recordId : null;
+}
+
+function keepRecent<T>(items: readonly T[], limit: number): T[] {
+  return items.slice(-limit);
 }
 
 function buildUnknownAttribution(): AttributionSummary {
@@ -603,7 +612,7 @@ export class PersistedLocalHistoryStore {
     if (state.stageEvents.at(-1)?.eventId === event.eventId) {
       return;
     }
-    state.stageEvents = [...state.stageEvents, event];
+    state.stageEvents = keepRecent([...state.stageEvents, event], MAX_STAGE_EVENTS);
     await this.saveState(state);
   }
 
@@ -618,7 +627,7 @@ export class PersistedLocalHistoryStore {
   }): Promise<void> {
     const continuityKey = buildContinuityKey(input.current.repoId, input.current.worktreeId);
     const state = await this.loadState(continuityKey, input.current.repoId, input.current.worktreeId);
-    state.readEvents = [...state.readEvents, this.createReadEvent(input)];
+    state.readEvents = keepRecent([...state.readEvents, this.createReadEvent(input)], MAX_READ_EVENTS);
     await this.saveState(state);
   }
 
@@ -634,7 +643,7 @@ export class PersistedLocalHistoryStore {
     if (state.transitionEvents.at(-1)?.eventId === event.eventId) {
       return;
     }
-    state.transitionEvents = [...state.transitionEvents, event];
+    state.transitionEvents = keepRecent([...state.transitionEvents, event], MAX_TRANSITION_EVENTS);
     await this.saveState(state);
   }
 
@@ -1209,9 +1218,7 @@ export class PersistedLocalHistoryStore {
       contributorKeys: [...contributorKeys],
       explicitHandoff: recordsForEpoch.some((record) =>
         record.continuityEvidence.some((evidence) =>
-          evidence.evidenceKind === "explicit_handoff" ||
-          evidence.evidenceKind === "explicit_user_declaration" ||
-          evidence.evidenceKind === "explicit_agent_declaration"
+          evidence.evidenceKind === "explicit_handoff"
         )
       ),
       touches: buildRepoConcurrencyTouches(eventsForEpoch),

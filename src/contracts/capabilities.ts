@@ -240,7 +240,7 @@ export const CAPABILITY_REGISTRY: readonly CapabilityDefinition[] = [
   },
   {
     id: "activity_view",
-    description: "Inspect bounded between-commit artifact history for the active workspace",
+    description: "Inspect recent bounded local artifact history for the active workspace, anchored to the current commit when possible",
     mcpTool: "activity_view",
     cliCommand: "diag_activity",
     cliPath: ["diag", "activity"],
