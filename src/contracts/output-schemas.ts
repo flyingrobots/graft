@@ -12,6 +12,8 @@ import {
   evidenceSchema,
   readEventSchema,
   localHistoryContinuityOperationSchema,
+  repoConcurrencyAuthoritySchema,
+  repoConcurrencyPostureSchema,
   stageEventSchema,
   transitionEventSchema,
   stagedTargetSchema,
@@ -254,6 +256,16 @@ const persistedLocalHistorySummarySchema = z.discriminatedUnion("availability", 
   }).strict(),
 ]);
 
+const repoConcurrencySummarySchema = z.object({
+  posture: repoConcurrencyPostureSchema,
+  authority: repoConcurrencyAuthoritySchema,
+  observedWorktreeCount: z.number().int().positive(),
+  observedCausalSessionCount: z.number().int().nonnegative(),
+  observedActorCount: z.number().int().nonnegative(),
+  overlappingPathCount: z.number().int().nonnegative(),
+  summary: z.string().min(1),
+}).strict();
+
 const precisionSymbolMatchSchema = z.object({
   name: z.string(),
   kind: z.string(),
@@ -461,6 +473,7 @@ const activeCausalWorkspaceSchema = z.object({
   latestReadEvent: readEventSchema.nullable(),
   latestStageEvent: stageEventSchema.nullable(),
   latestTransitionEvent: transitionEventSchema.nullable(),
+  repoConcurrency: repoConcurrencySummarySchema,
   checkoutEpoch: z.number().int().nonnegative(),
   lastTransition: repoTransitionSchema.nullable(),
   semanticTransition: repoSemanticTransitionSchema.nullable(),
@@ -889,6 +902,7 @@ const mcpOutputBodySchemas: Record<McpToolName, z.ZodType> = {
     latestReadEvent: readEventSchema.nullable(),
     latestStageEvent: stageEventSchema.nullable(),
     latestTransitionEvent: transitionEventSchema.nullable(),
+    repoConcurrency: repoConcurrencySummarySchema.nullable(),
     checkoutEpoch: z.number().int().nonnegative(),
     lastTransition: repoTransitionSchema.nullable(),
     semanticTransition: repoSemanticTransitionSchema.nullable(),

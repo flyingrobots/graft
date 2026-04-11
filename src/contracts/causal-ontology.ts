@@ -322,6 +322,29 @@ export const SEMANTIC_TRANSITION_AUTHORITIES = [
 export const semanticTransitionAuthoritySchema = z.enum(SEMANTIC_TRANSITION_AUTHORITIES);
 export type SemanticTransitionAuthority = z.infer<typeof semanticTransitionAuthoritySchema>;
 
+export const REPO_CONCURRENCY_POSTURES = [
+  "exclusive",
+  "shared_repo_only",
+  "shared_worktree",
+  "overlapping_actors",
+  "divergent_checkout",
+  "unknown",
+] as const;
+
+export const repoConcurrencyPostureSchema = z.enum(REPO_CONCURRENCY_POSTURES);
+export type RepoConcurrencyPosture = z.infer<typeof repoConcurrencyPostureSchema>;
+
+export const REPO_CONCURRENCY_AUTHORITIES = [
+  "repo_identity_only",
+  "active_history_scan",
+  "footprint_overlap",
+  "explicit_handoff",
+  "unknown",
+] as const;
+
+export const repoConcurrencyAuthoritySchema = z.enum(REPO_CONCURRENCY_AUTHORITIES);
+export type RepoConcurrencyAuthority = z.infer<typeof repoConcurrencyAuthoritySchema>;
+
 export const SEMANTIC_TRANSITION_PHASES = [
   "started",
   "conflicted",

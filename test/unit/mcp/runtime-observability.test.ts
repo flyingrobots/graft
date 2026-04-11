@@ -177,6 +177,15 @@ describe("mcp: runtime observability", () => {
         phase: string | null;
         summary: string;
       } | null;
+      const repoConcurrency = doctor["repoConcurrency"] as {
+        posture: string;
+        authority: string;
+        observedWorktreeCount: number;
+        observedCausalSessionCount: number;
+        observedActorCount: number;
+        overlappingPathCount: number;
+        summary: string;
+      } | null;
       const latestReadEvent = doctor["latestReadEvent"] as {
         eventKind: string;
         attribution: { actor: { actorKind: string }; confidence: string };
@@ -243,6 +252,11 @@ describe("mcp: runtime observability", () => {
       ]);
       expect(workspaceOverlayFooting.hookBootstrap.supportsCheckoutBoundaries).toBe(false);
       expect(semanticTransition).toBeNull();
+      expect(repoConcurrency).toEqual(expect.objectContaining({
+        posture: "exclusive",
+        authority: "active_history_scan",
+        observedWorktreeCount: 1,
+      }));
       expect(latestReadEvent).toBeNull();
       expect(latestTransitionEvent).toBeNull();
       expect(doctor["workspaceOverlayId"]).toBeNull();

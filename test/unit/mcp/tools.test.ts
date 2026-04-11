@@ -203,6 +203,10 @@ describe("mcp: tool handlers", () => {
         degraded: true,
       }),
     );
+    expect(parsed["repoConcurrency"]).toEqual(expect.objectContaining({
+      posture: "exclusive",
+      authority: "active_history_scan",
+    }));
     expect(parsed["semanticTransition"]).toBeNull();
     expect(parsed["recommendedNextAction"]).toBe("continue_active_causal_workspace");
   });
@@ -219,6 +223,15 @@ describe("mcp: tool handlers", () => {
       latestStageEvent: null;
       latestTransitionEvent: null;
       semanticTransition: { kind: string; authority: string; phase: string | null } | null;
+      repoConcurrency: {
+        posture: string;
+        authority: string;
+        observedWorktreeCount: number;
+        observedCausalSessionCount: number;
+        observedActorCount: number;
+        overlappingPathCount: number;
+        summary: string;
+      };
       workspaceOverlayFooting: {
         observationMode: string;
         lineagePosture: string;
@@ -237,6 +250,8 @@ describe("mcp: tool handlers", () => {
     expect(activeCausalWorkspace.attribution.confidence).toBe("unknown");
     expect(activeCausalWorkspace.latestStageEvent).toBeNull();
     expect(activeCausalWorkspace.semanticTransition).toBeNull();
+    expect(activeCausalWorkspace.repoConcurrency.posture).toBe("exclusive");
+    expect(activeCausalWorkspace.repoConcurrency.authority).toBe("active_history_scan");
     expect(activeCausalWorkspace.workspaceOverlayFooting.observationMode).toBe("inferred_between_tool_calls");
     expect(activeCausalWorkspace.workspaceOverlayFooting.lineagePosture).toBe("stable");
     expect(activeCausalWorkspace.workspaceOverlayFooting.boundaryAuthority).toBe("none");

@@ -37,6 +37,11 @@ class AsyncOnlyFileSystem implements FileSystem {
     return encoding === "utf-8" ? content : Buffer.from(content, "utf-8");
   }
 
+  async readdir(): Promise<string[]> {
+    await Promise.resolve();
+    throw new Error("unused");
+  }
+
   async writeFile(): Promise<void> {
     await Promise.resolve();
     throw new Error("unused");

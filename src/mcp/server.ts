@@ -335,6 +335,9 @@ export function createGraftServer(options: CreateGraftServerOptions = {}): Graft
     getPersistedLocalHistorySummary() {
       return workspaceRouter.getPersistedLocalHistorySummary();
     },
+    getRepoConcurrencySummary() {
+      return workspaceRouter.getRepoConcurrencySummary();
+    },
     declareCausalAttach(request) {
       return workspaceRouter.declareAttach(request);
     },

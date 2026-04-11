@@ -19,6 +19,7 @@ import type { RuntimeCausalContext } from "./runtime-causal-context.js";
 import type { RuntimeWorkspaceOverlayFooting } from "./runtime-workspace-overlay.js";
 import type {
   PersistedLocalHistoryAttachDeclaration,
+  RepoConcurrencySummary,
   PersistedLocalHistorySummary,
 } from "./persisted-local-history.js";
 import type { McpToolName } from "../contracts/output-schemas.js";
@@ -78,6 +79,7 @@ export interface ToolContext {
   getCausalContext(): RuntimeCausalContext;
   getWorkspaceOverlayFooting(): Promise<RuntimeWorkspaceOverlayFooting | null>;
   getPersistedLocalHistorySummary(): Promise<PersistedLocalHistorySummary>;
+  getRepoConcurrencySummary(): Promise<RepoConcurrencySummary | null>;
   declareCausalAttach(request: PersistedLocalHistoryAttachDeclaration): Promise<CausalAttachResult>;
   getWorkspaceStatus(): WorkspaceStatus;
   bindWorkspace(request: WorkspaceBindRequest, actionName: string): Promise<WorkspaceActionResult>;

@@ -21,6 +21,13 @@ import {
 import type { JsonCodec } from "../ports/codec.js";
 import type { FileSystem } from "../ports/filesystem.js";
 import type { RepoObservation } from "./repo-state.js";
+import {
+  buildRepoConcurrencyContributorKey,
+  buildRepoConcurrencyTouches,
+  deriveRepoConcurrencySummary,
+  type RepoConcurrencySummary,
+  type RepoConcurrencyWorktreeHistory,
+} from "./repo-concurrency.js";
 import type { GitTransitionHookEvent } from "./runtime-workspace-overlay.js";
 import type { RuntimeCausalContext } from "./runtime-causal-context.js";
 import type { RuntimeStagedTargetFullFile } from "./runtime-staged-target.js";
@@ -161,6 +168,8 @@ export interface PersistedLocalHistorySummaryPresent {
 export type PersistedLocalHistorySummary =
   | PersistedLocalHistorySummaryNone
   | PersistedLocalHistorySummaryPresent;
+
+export type { RepoConcurrencySummary } from "./repo-concurrency.js";
 
 export class PersistedLocalHistoryAttachUnavailableError extends Error {
   readonly code = "NO_ATTACHABLE_HISTORY";
@@ -398,6 +407,26 @@ export class PersistedLocalHistoryStore {
             : "continue_active_causal_workspace")
         : "inspect_or_resume_local_history",
     };
+  }
+
+  async summarizeRepoConcurrency(status: WorkspaceStatus): Promise<RepoConcurrencySummary | null> {
+    if (status.repoId === null || status.worktreeId === null) {
+      return null;
+    }
+
+    const continuityKey = buildContinuityKey(status.repoId, status.worktreeId);
+    const currentState = await this.loadState(continuityKey, status.repoId, status.worktreeId);
+    const repoStates = await this.loadStatesForRepo(status.repoId);
+
+    return deriveRepoConcurrencySummary({
+      currentWorktreeId: status.worktreeId,
+      histories: [
+        this.toWorktreeHistory(currentState),
+        ...repoStates
+          .filter((state) => state.continuityKey !== currentState.continuityKey)
+          .map((state) => this.toWorktreeHistory(state)),
+      ],
+    });
   }
 
   async declareAttach(input: {
@@ -945,6 +974,101 @@ export class PersistedLocalHistoryStore {
 
   private historyPathFor(continuityKey: string): string {
     return path.join(this.deps.graftDir, "local-history", `${continuityKey}.json`);
+  }
+
+  private async loadStatesForRepo(repoId: string): Promise<ContinuityState[]> {
+    const historyDir = path.join(this.deps.graftDir, "local-history");
+    let filenames: string[];
+    try {
+      filenames = await this.deps.fs.readdir(historyDir);
+    } catch {
+      return [];
+    }
+
+    const states: ContinuityState[] = [];
+    for (const filename of filenames) {
+      if (!filename.endsWith(".json")) {
+        continue;
+      }
+      try {
+        const raw = await this.deps.fs.readFile(path.join(historyDir, filename), "utf-8");
+        const state = continuityStateSchema.parse(this.deps.codec.decode(raw));
+        if (state.repoId === repoId) {
+          states.push(state);
+        }
+      } catch {
+        // Ignore malformed local-history artifacts.
+      }
+    }
+
+    return states;
+  }
+
+  private toWorktreeHistory(state: ContinuityState): RepoConcurrencyWorktreeHistory {
+    const effectiveRecord = findRecord(state, state.activeRecordId) ?? state.records.at(-1) ?? null;
+    const checkoutEpochId = effectiveRecord?.checkoutEpochId ?? null;
+    const recordsForEpoch = checkoutEpochId === null
+      ? []
+      : state.records.filter((record) => record.checkoutEpochId === checkoutEpochId);
+    const eventsForEpoch = checkoutEpochId === null
+      ? []
+      : [...state.readEvents, ...state.stageEvents, ...state.transitionEvents]
+        .filter((event) => event.checkoutEpochId === checkoutEpochId);
+
+    const contributorKeys = new Set<string>();
+    const actorIds = new Set<string>();
+    const causalSessionIds = new Set<string>();
+
+    for (const record of recordsForEpoch) {
+      causalSessionIds.add(record.causalSessionId);
+      const contributorKey = buildRepoConcurrencyContributorKey({
+        actorId: record.attribution.actor.actorId,
+        attribution: record.attribution,
+        causalSessionId: record.causalSessionId,
+        transportSessionId: record.transportSessionId,
+      });
+      if (contributorKey !== null) {
+        contributorKeys.add(contributorKey);
+      }
+      if (record.attribution.actor.actorKind === "human" || record.attribution.actor.actorKind === "agent") {
+        actorIds.add(record.attribution.actor.actorId);
+      }
+    }
+
+    for (const event of eventsForEpoch) {
+      if (event.causalSessionId !== null) {
+        causalSessionIds.add(event.causalSessionId);
+      }
+      const contributorKey = buildRepoConcurrencyContributorKey({
+        actorId: event.actorId,
+        attribution: event.attribution,
+        causalSessionId: event.causalSessionId,
+        transportSessionId: event.transportSessionId,
+      });
+      if (contributorKey !== null) {
+        contributorKeys.add(contributorKey);
+      }
+      if (event.attribution.actor.actorKind === "human" || event.attribution.actor.actorKind === "agent") {
+        actorIds.add(event.attribution.actor.actorId);
+      }
+    }
+
+    return {
+      worktreeId: state.worktreeId,
+      active: state.activeRecordId !== null,
+      checkoutEpochId,
+      causalSessionIds: [...causalSessionIds],
+      actorIds: [...actorIds],
+      contributorKeys: [...contributorKeys],
+      explicitHandoff: recordsForEpoch.some((record) =>
+        record.continuityEvidence.some((evidence) =>
+          evidence.evidenceKind === "explicit_handoff" ||
+          evidence.evidenceKind === "explicit_user_declaration" ||
+          evidence.evidenceKind === "explicit_agent_declaration"
+        )
+      ),
+      touches: buildRepoConcurrencyTouches(eventsForEpoch),
+    };
   }
 
   private async loadState(

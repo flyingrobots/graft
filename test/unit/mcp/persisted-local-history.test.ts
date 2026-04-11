@@ -671,6 +671,170 @@ describe("mcp: persisted local history", () => {
     expect(savedState.transitionEvents).toHaveLength(1);
   });
 
+  it("summarizes shared repo posture when another worktree is active on the same checkout", async () => {
+    const graftDir = fs.mkdtempSync(path.join(os.tmpdir(), "graft-history-"));
+    cleanups.push(graftDir);
+
+    const store = new PersistedLocalHistoryStore({
+      fs: nodeFs,
+      codec: new CanonicalJsonCodec(),
+      graftDir,
+    });
+
+    const first = context();
+    const second = context({
+      worktreeId: "worktree:two",
+      transportSessionId: "transport:two",
+      workspaceSliceId: "slice-0002",
+      causalSessionId: "causal:two",
+      strandId: "strand:two",
+      observedAt: "2026-04-10T01:15:00.000Z",
+    });
+
+    await store.noteBinding({ current: first });
+    await store.noteBinding({ current: second });
+
+    const summary = await store.summarizeRepoConcurrency({
+      sessionMode: "repo_local",
+      bindState: "bound",
+      repoId: first.repoId,
+      worktreeId: first.worktreeId,
+      worktreeRoot: "/repo-one",
+      gitCommonDir: "/repo/.git",
+      graftDir,
+      capabilityProfile: null,
+    });
+
+    expect(summary).toEqual(expect.objectContaining({
+      posture: "shared_repo_only",
+      authority: "repo_identity_only",
+      observedWorktreeCount: 2,
+      observedCausalSessionCount: 2,
+    }));
+  });
+
+  it("summarizes overlapping actors when the same worktree records overlapping path activity without handoff", async () => {
+    const graftDir = fs.mkdtempSync(path.join(os.tmpdir(), "graft-history-"));
+    cleanups.push(graftDir);
+
+    const store = new PersistedLocalHistoryStore({
+      fs: nodeFs,
+      codec: new CanonicalJsonCodec(),
+      graftDir,
+    });
+
+    const first = context({
+      workspaceOverlayId: "overlay:one",
+    });
+    await store.noteBinding({ current: first });
+    const firstSummary = await store.summarize(
+      {
+        sessionMode: "repo_local",
+        bindState: "bound",
+        repoId: first.repoId,
+        worktreeId: first.worktreeId,
+        worktreeRoot: "/repo",
+        gitCommonDir: "/repo/.git",
+        graftDir,
+        capabilityProfile: null,
+      },
+      {
+        transportSessionId: first.transportSessionId,
+        workspaceSliceId: first.workspaceSliceId,
+        causalSessionId: first.causalSessionId,
+        strandId: first.strandId,
+        checkoutEpochId: first.checkoutEpochId,
+        warpWriterId: first.warpWriterId,
+        stability: "runtime_local",
+        provenanceLevel: "artifact_history",
+      },
+    );
+    if (firstSummary.availability !== "present") {
+      return;
+    }
+    await store.noteReadObservation({
+      current: first,
+      attribution: firstSummary.attribution,
+      surface: "safe_read",
+      projection: "content",
+      sourceLayer: "canonical_structural_truth",
+      reason: "CONTENT",
+      footprint: {
+        paths: ["app.ts"],
+        symbols: [],
+        regions: [],
+      },
+    });
+
+    const second = context({
+      transportSessionId: "transport:two",
+      workspaceSliceId: "slice-0002",
+      causalSessionId: "causal:two",
+      strandId: "strand:two",
+      observedAt: "2026-04-10T01:20:00.000Z",
+      workspaceOverlayId: "overlay:one",
+      warpWriterId: "graft_session_two",
+    });
+    await store.noteBinding({ current: second });
+    const secondSummary = await store.summarize(
+      {
+        sessionMode: "repo_local",
+        bindState: "bound",
+        repoId: second.repoId,
+        worktreeId: second.worktreeId,
+        worktreeRoot: "/repo",
+        gitCommonDir: "/repo/.git",
+        graftDir,
+        capabilityProfile: null,
+      },
+      {
+        transportSessionId: second.transportSessionId,
+        workspaceSliceId: second.workspaceSliceId,
+        causalSessionId: second.causalSessionId,
+        strandId: second.strandId,
+        checkoutEpochId: second.checkoutEpochId,
+        warpWriterId: second.warpWriterId,
+        stability: "runtime_local",
+        provenanceLevel: "artifact_history",
+      },
+    );
+    if (secondSummary.availability !== "present") {
+      return;
+    }
+    await store.noteReadObservation({
+      current: second,
+      attribution: secondSummary.attribution,
+      surface: "safe_read",
+      projection: "content",
+      sourceLayer: "canonical_structural_truth",
+      reason: "CONTENT",
+      footprint: {
+        paths: ["app.ts"],
+        symbols: [],
+        regions: [],
+      },
+    });
+
+    const concurrency = await store.summarizeRepoConcurrency({
+      sessionMode: "repo_local",
+      bindState: "bound",
+      repoId: second.repoId,
+      worktreeId: second.worktreeId,
+      worktreeRoot: "/repo",
+      gitCommonDir: "/repo/.git",
+      graftDir,
+      capabilityProfile: null,
+    });
+
+    expect(concurrency).toEqual(expect.objectContaining({
+      posture: "overlapping_actors",
+      authority: "footprint_overlap",
+      observedWorktreeCount: 1,
+      observedCausalSessionCount: 2,
+      overlappingPathCount: 1,
+    }));
+  });
+
   it("refuses explicit attach when no prior lineage exists", async () => {
     const graftDir = fs.mkdtempSync(path.join(os.tmpdir(), "graft-history-"));
     cleanups.push(graftDir);

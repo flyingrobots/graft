@@ -10,6 +10,7 @@ import {
   PersistedLocalHistoryStore,
   type PersistedLocalHistoryAttachDeclaration,
   type PersistedLocalHistoryContext,
+  type RepoConcurrencySummary,
   type PersistedLocalHistorySummary,
 } from "./persisted-local-history.js";
 import { RepoStateTracker } from "./repo-state.js";
@@ -469,6 +470,14 @@ export class WorkspaceRouter {
     }
 
     return summary;
+  }
+
+  async getRepoConcurrencySummary(): Promise<RepoConcurrencySummary | null> {
+    const binding = this.currentBinding;
+    if (binding?.slice.repoState === null || binding === null) {
+      return null;
+    }
+    return this.options.persistedLocalHistory.summarizeRepoConcurrency(this.getStatus());
   }
 
   async getWorkspaceOverlayFooting(): Promise<RuntimeWorkspaceOverlayFooting | null> {

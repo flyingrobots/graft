@@ -28,6 +28,7 @@ export const causalAttachTool: ToolDefinition = {
       const repoState = ctx.getRepoState();
       const causalContext = ctx.getCausalContext();
       const workspaceOverlayFooting = await ctx.getWorkspaceOverlayFooting();
+      const repoConcurrency = await ctx.getRepoConcurrencySummary();
       const nextAction = deriveCausalSurfaceNextAction(
         result.persistedLocalHistory.nextAction,
         repoState.semanticTransition,
@@ -39,6 +40,7 @@ export const causalAttachTool: ToolDefinition = {
             latestReadEvent: result.persistedLocalHistory.latestReadEvent,
             latestStageEvent: result.persistedLocalHistory.latestStageEvent,
             latestTransitionEvent: result.persistedLocalHistory.latestTransitionEvent,
+            repoConcurrency,
             checkoutEpoch: repoState.checkoutEpoch,
             lastTransition: repoState.lastTransition,
             semanticTransition: repoState.semanticTransition,

@@ -17,6 +17,7 @@ export const doctorTool: ToolDefinition = {
       const metrics = ctx.metrics.snapshot();
       const topBurden = topBurdenKind(metrics.burdenByKind);
       const persistedLocalHistory = await ctx.getPersistedLocalHistorySummary();
+      const repoConcurrency = await ctx.getRepoConcurrencySummary();
       const recommendedNextAction = deriveCausalSurfaceNextAction(
         persistedLocalHistory.nextAction,
         repoState.semanticTransition,
@@ -39,6 +40,7 @@ export const doctorTool: ToolDefinition = {
         latestReadEvent: persistedLocalHistory.latestReadEvent,
         latestStageEvent: persistedLocalHistory.latestStageEvent,
         latestTransitionEvent: persistedLocalHistory.latestTransitionEvent,
+        repoConcurrency,
         checkoutEpoch: repoState.checkoutEpoch,
         lastTransition: repoState.lastTransition,
         semanticTransition: repoState.semanticTransition,
