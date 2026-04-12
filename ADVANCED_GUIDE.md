@@ -40,10 +40,13 @@ and not causal collapse.
 
 ## Related docs
 
-- [README](../README.md)
-- [Setup Guide](GUIDE.md)
-- [CLI Guide](CLI.md)
-- [MCP Guide](MCP.md)
-- [Architecture](../ARCHITECTURE.md)
-- [Bearing](BEARING.md)
-- [Vision](VISION.md)
+- [README](./README.md)
+- [Guide](./GUIDE.md)
+- [Setup Guide](./docs/SETUP.md)
+- [CLI Guide](./docs/CLI.md)
+- [MCP Guide](./docs/MCP.md)
+- [Architecture](./ARCHITECTURE.md)
+- [Security Model](./docs/strategy/security-model.md)
+- [Causal Provenance](./docs/strategy/causal-provenance.md)
+- [Bearing](./docs/BEARING.md)
+- [Vision](./docs/VISION.md)

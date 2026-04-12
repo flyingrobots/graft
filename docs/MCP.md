@@ -18,22 +18,35 @@ sequenceDiagram
 
 ## Startup
 
-### Stdio MCP
+### Repo-local stdio MCP
 ```bash
 npx @flyingrobots/graft serve
 ```
+
+This is the default repo-local MCP posture. The current checkout is the
+active workspace, so there is no separate daemon authorization or
+binding step.
 
 ### Local Daemon
 ```bash
 npx @flyingrobots/graft daemon
 ```
 
+Daemon sessions start `unbound`. Once a client is connected to the
+daemon MCP surface, repository-scoped work follows this control-plane
+flow:
+
+1. `workspace_authorize` with the target `cwd`
+2. `workspace_bind` with the target `cwd`
+3. then call repository-scoped tools such as `safe_read`, `graft_since`,
+   or `code_show`
+
 ## Key Tool Groups
 - **Bounded Reads**: `safe_read`, `file_outline`, `read_range`, `changed_since`
 - **Structural History**: `graft_diff`, `graft_since`, `graft_map`
 - **Precision**: `code_show`, `code_find`, `code_refs`
 - **Activity & Footing**: `activity_view`, `causal_status`, `causal_attach`, `doctor`
-- **Daemon Control Plane**: `daemon_status`, `daemon_repos`, `daemon_sessions`, `monitor_*`
+- **Daemon Control Plane**: `workspace_authorizations`, `workspace_authorize`, `workspace_bind`, `workspace_status`, `workspace_rebind`, `workspace_revoke`, `daemon_status`, `daemon_repos`, `daemon_sessions`, `daemon_monitors`, `monitor_*`
 
 ## Current Truth
 - MCP is the primary agent surface.
@@ -46,3 +59,5 @@ npx @flyingrobots/graft daemon
 - [CLI Guide](./CLI.md)
 - [Advanced Guide](./ADVANCED_GUIDE.md)
 - [Architecture](../ARCHITECTURE.md)
+- [Security Model](./strategy/security-model.md)
+- [Causal Provenance](./strategy/causal-provenance.md)

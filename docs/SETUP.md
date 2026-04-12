@@ -29,6 +29,11 @@ has a repo-local instruction layer alongside the MCP config.
 
 Idempotent — safe to run again without duplicating entries.
 
+`init` bootstraps repo-local files and client config. It does not make a
+daemon session implicitly bound later; daemon mode still requires
+explicit authorization and workspace binding through MCP control-plane
+tools.
+
 ## Choose Your Setup Path
 
 Use this table when you want the shortest path instead of reading the
@@ -93,7 +98,18 @@ Daemon control-plane inspection now exists through MCP tools:
 - `monitor_stop`
 - `workspace_authorizations`
 - `workspace_authorize`
+- `workspace_bind`
+- `workspace_status`
+- `workspace_rebind`
 - `workspace_revoke`
+
+Practical daemon first-use sequence:
+
+1. start `npx @flyingrobots/graft daemon`
+2. connect your MCP client to the daemon surface
+3. call `workspace_authorize` with the target `cwd`
+4. call `workspace_bind` with the target `cwd`
+5. then use repository-scoped tools such as `safe_read` or `graft_map`
 
 ### One-step bootstrap
 
@@ -301,6 +317,11 @@ If your client doesn't support `npx`, install globally and use:
 
 - **Command**: `graft`
 - **Args**: `["serve"]`
+
+This section shows the repo-local stdio path. If you connect through
+`graft daemon` instead, the MCP session starts `unbound` and needs
+`workspace_authorize` plus `workspace_bind` before repository-scoped
+tool calls.
 
 ## Claude Code Hooks
 
