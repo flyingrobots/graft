@@ -1,12 +1,22 @@
-# CLI Guide
+# CLI
 
-This is the shortest operator-facing guide to Graft's CLI surface.
+The Graft command surface is a composite of published binaries and repo-local operator scripts.
 
-Use the CLI when you want the same bounded product surfaces without
-attaching a separate MCP client.
+```mermaid
+flowchart LR
+    A[Graft CLI Surface] --> B[Lifecycle]
+    A --> C[Namespaces]
+    B --> B1[init]
+    B --> B2[serve]
+    B --> B3[daemon]
+    B --> B4[index]
+    C --> C1[read]
+    C --> C2[struct]
+    C --> C3[symbol]
+    C --> C4[diag]
+```
 
 ## What it is for
-
 - bootstrap and setup via `graft init`
 - local debugging and dogfooding of MCP peer commands
 - human-facing inspection of bounded state such as:
@@ -15,14 +25,12 @@ attaching a separate MCP client.
   - `graft diag stats`
 
 ## Core namespaces
-
 - `read` — bounded reads and change checks
 - `struct` — structural diff / since / map
 - `symbol` — precision show / find
 - `diag` — activity, doctor, explain, stats, capture
 
 ## Release-facing commands
-
 ```bash
 graft diag activity --json
 graft diag doctor --json
@@ -30,14 +38,11 @@ graft symbol find 'create*' --json
 graft struct diff --json
 ```
 
-`graft diag activity` is the current human-facing between-commit
-surface. It reports bounded local `artifact_history`, not canonical
-provenance.
+`graft diag activity` is the current human-facing between-commit surface. It reports bounded local `artifact_history`, not canonical provenance.
 
 ## Related docs
-
 - [README](../README.md)
-- [Setup Guide](GUIDE.md)
-- [MCP Guide](MCP.md)
-- [Advanced Guide](ADVANCED_GUIDE.md)
+- [Setup Guide](./SETUP.md)
+- [MCP Guide](./MCP.md)
+- [Advanced Guide](./ADVANCED_GUIDE.md)
 - [Architecture](../ARCHITECTURE.md)

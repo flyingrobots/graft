@@ -1,306 +1,51 @@
-<div align="center">
-    <img src="./docs/assets/graft.svg" />
-    <h3>Context governor for coding agents</h3>
-</div>
+# Graft
 
-Graft enforces read policy so coding agents consume the smallest
-structurally correct view of a codebase instead of dumping entire
-files into their context window. Agent-first, but the structural
-tools (outlines, diffs, symbol history) are useful to anyone.
+An industrial-grade context governor for coding agents. Graft enforces read policy so agents consume the smallest structurally correct view of a codebase instead of dumping raw files into their context window.
 
-**v0.5.0** — bounded between-commit activity for humans and agents.
+Graft is designed for the operator who demands precision and the architect who needs a stable foundation for agentic work. It scales from simple policy-aware reads to high-fidelity causal provenance tracking across multi-session worktrees.
 
-## Why
+[![npm version](https://img.shields.io/npm/v/@flyingrobots/graft)](https://www.npmjs.com/package/@flyingrobots/graft)
+[![License](https://img.shields.io/github/license/graft)](./LICENSE)
 
-Empirical analysis of 1,091 real coding sessions ([Blacklight](https://github.com/flyingrobots/blacklight)) found
-that **Read accounts for 96.2 GB of context burden** — 6.6x all
-other tools combined. 58% of reads are full-file. The fattest 2.4%
-of reads produce 24% of raw bytes. Dynamic read caps + session
-management reduce this by **75.1%**.
+![Graft demo](./docs/assets/graft.svg)
 
-## Install
+## Why Graft?
 
+Unlike simple file-scraping tools, Graft treats the repository as a layered worldline of code structure and causal activity.
+
+- **Policy-Enforced Reads**: Automatically degrades large files to structural outlines and jump tables. Refuses binaries, secrets, and lockfiles with machine-readable reasons.
+- **Structural Memory**: Uses WARP to track AST evolution across Git commits. Query what changed structurally without reading a single byte of source code.
+- **Causal Provenance**: Tracks the *why* behind structural changes by logging read, stage, and transition activity into strand-scoped causal workspaces.
+- **Industrial-Grade Daemon**: A same-user local runtime that manages multi-repo authorization, background indexing, and shared-machine worker pools.
+
+## Quick Start
+
+### 1. Initialize a Repo
+Scaffold `.graftignore`, setup git hooks, and seed agent instructions.
 ```bash
-npm install -g @flyingrobots/graft
+npx @flyingrobots/graft init --write-claude-hooks --write-codex-mcp
 ```
 
-Or use directly:
-
+### 2. Standalone CLI
+Enforce policy on a single read or inspect structural history.
 ```bash
-npx @flyingrobots/graft
+npx @flyingrobots/graft read safe src/app.ts
+npx @flyingrobots/graft struct since HEAD~3
 ```
 
-Or run in Docker (no Node required):
-
+### 3. Run the Daemon
+Start the system-wide execution authority for multi-session work.
 ```bash
-docker run -i --rm -v "$PWD:/workspace" flyingrobots/graft
+npx @flyingrobots/graft daemon
 ```
 
-## Quick start
+## Documentation
 
-```bash
-npx @flyingrobots/graft init
-```
-
-Scaffolds `.graftignore`, adds `.graft/` to `.gitignore`, generates
-a `CLAUDE.md` snippet telling agents to prefer graft tools, and
-prints Claude Code hook / MCP config for manual setup.
-
-If you use Codex, the explicit `--write-codex-mcp` path also seeds
-`AGENTS.md` so the repo has both the MCP wiring and the instruction
-layer that tells Codex to prefer graft reads. It also writes a larger
-Codex `startup_timeout_sec` because cold `npx` startup can exceed the
-default 30 second MCP budget.
-
-For a project-local one-step bootstrap, use explicit write flags:
-
-```bash
-npx @flyingrobots/graft init --write-claude-mcp --write-claude-hooks
-npx @flyingrobots/graft init --write-cursor-mcp
-npx @flyingrobots/graft init --write-windsurf-mcp
-npx @flyingrobots/graft init --write-continue-mcp
-npx @flyingrobots/graft init --write-cline-mcp
-npx @flyingrobots/graft init --write-codex-mcp
-```
-
-These writes are idempotent. Existing JSON / TOML config is merged
-without duplicating graft entries.
-
-Then add graft to your MCP config:
-
-```json
-{
-  "mcpServers": {
-    "graft": {
-      "command": "npx",
-      "args": ["-y", "@flyingrobots/graft", "serve"]
-    }
-  }
-}
-```
-
-The MCP server works with Codex, Claude Code, Cursor, Windsurf,
-Continue, Cline, and any MCP-compatible client. Governed native-read
-behavior differs by client: Claude has hook guardrails, Codex now has
-repo-local `AGENTS.md` bootstrap guidance, and the other clients remain
-MCP-plus-instructions rather than true default-governed reads.
-
-Supported deployment posture today is local-user:
-
-- repo-local `serve` remains the standard editor bootstrap path
-- `graft daemon` now exists as a separate same-user local runtime on a
-  Unix socket or Windows named pipe
-
-The daemon still follows a stricter contract than repo-local stdio:
-daemon sessions start unbound, workspace binding is the authorization
-event, `/healthz` is the liveness surface, and escape hatches like
-`run_capture` stay default-denied there unless a workspace is
-explicitly authorized for that posture through the daemon control
-plane. Daemon-wide inspection now exists through MCP tools such as
-`daemon_status`, `daemon_repos`, `daemon_sessions`,
-`workspace_authorizations`, and `daemon_monitors`. Repo-scoped
-background WARP indexing can now be controlled there too through
-`monitor_start`, `monitor_pause`, `monitor_resume`, and `monitor_stop`.
-
-See the **[Setup decision table](docs/GUIDE.md#choose-your-setup-path)**
-for the fastest path by client and mode, and the full
-**[Setup Guide](docs/GUIDE.md)** for per-editor instructions, Claude
-Code hooks, `.graftignore` configuration, troubleshooting, and
-details on what the agent experiences. For release-facing operator
-surfaces, see **[CLI Guide](docs/CLI.md)**,
-**[MCP Guide](docs/MCP.md)**, and **[Advanced Guide](docs/ADVANCED_GUIDE.md)**.
-Contributors should also read **[Architecture](ARCHITECTURE.md)** for
-the runtime systems map and **[Code of Conduct](CODE_OF_CONDUCT.md)**
-for project participation expectations.
-
-## What it does
-
-When an agent asks to read a file, Graft applies policy:
-
-- **Small files** are returned as-is.
-- **Large files** are returned as a structural outline with a jump
-  table so the agent can request specific ranges.
-- **Banned files** (binaries, lockfiles, minified bundles, secrets)
-  are refused with a machine-readable reason code and suggested next
-  steps.
-- **Re-reads** of unchanged files return a cached outline (no wasted
-  context). Changed files return a structural diff (added/removed/
-  changed symbols).
-- **Ranges** are bounded — no stealth `cat` of a 10,000-line file.
-- **Session depth** tightens caps as the context window fills.
-- **Budget governor** — agent declares a byte budget, thresholds
-  tighten as it drains. No single read may consume more than 5% of
-  remaining budget.
-- **Structural memory** — WARP-backed structural history across git
-  commits. Query what changed structurally without reading files.
-- **Tripwires** signal when the session is going off the rails.
-- **Receipts** on every response with session/trace correlation,
-  latency, and compression ratio for usage analysis.
-- **MCP runtime observability** — metadata-only session and tool-call
-  logs under `.graft/logs/mcp-runtime.ndjson`.
-- **Versioned schemas** on every machine-readable MCP / CLI payload.
-- **Between-commit activity view** — bounded local `artifact_history`
-  over recent continuity, transitions, staging, and reads, anchored
-  to the current commit when possible.
-
-Every decision is logged. Every refusal is explainable. All output
-is structured JSON with versioned `_schema` metadata.
-
-## Tools
-
-| Tool | Purpose |
-|---|---|
-| `safe_read` | Policy-enforced file read (content, outline, refusal, or diff) |
-| `file_outline` | Structural skeleton with jump table |
-| `read_range` | Bounded range read (max 250 lines), policy-gated |
-| `graft_diff` | Structural diff between git refs with per-file summary lines and explicit denied-file reporting |
-| `graft_since` | Structural changes since a git ref — symbols added/removed/changed with explicit denied-file reporting |
-| `graft_map` | Structural map of a directory — all files and symbols in one call, with explicit denied-file reporting |
-| `code_show` | Focus on a symbol by name — get its source code in one call |
-| `code_find` | Search symbols across the project by approximate name or glob, with optional kind/path filters |
-| `code_refs` | Search import sites, callsites, property access, or literal text references with explicit text-fallback provenance |
-| `changed_since` | Check if a file changed since last read (peek or consume) |
-| `run_capture` | Diagnostic shell-output escape hatch — tail to agent, optional redacted log persistence, explicit enable/disable posture, outside bounded-read policy, with explicit `policyBoundary` marker |
-| `state_save` | Save session working state (max 8 KB) |
-| `state_load` | Restore session working state |
-| `set_budget` | Declare session byte budget — governor tightens as it drains |
-| `activity_view` | Recent bounded local `artifact_history` for the active workspace, with current commit anchor, grouped activity, and degraded posture |
-| `explain` | Human-readable help for any reason code |
-| `doctor` | Runtime health check with burden summary and layered-worldline state |
-| `stats` | Decision metrics summary with cumulative burden-by-kind totals |
-
-## Claude Code hooks
-
-Two hooks work alongside the MCP server to govern native `Read`
-calls — a safety net for when agents bypass graft's tools:
-
-```json
-{
-  "hooks": {
-    "PreToolUse": [
-      {
-        "matcher": "Read",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "node --import tsx node_modules/@flyingrobots/graft/src/hooks/pretooluse-read.ts"
-          }
-        ]
-      }
-    ],
-    "PostToolUse": [
-      {
-        "matcher": "Read",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "node --import tsx node_modules/@flyingrobots/graft/src/hooks/posttooluse-read.ts"
-          }
-        ]
-      }
-    ]
-  }
-}
-```
-
-Add to `.claude/settings.json` in your project root.
-**PreToolUse** blocks banned files and redirects large JS/TS reads to
-`safe_read` before native `Read` can dump them into context.
-**PostToolUse** is the backstop: it reports what `safe_read` would have
-saved when an oversized code read still slips through.
-
-See the **[Setup Guide](docs/GUIDE.md)** for full details on hooks,
-per-editor MCP config, `.graftignore`, and troubleshooting.
-
-## CLI
-
-```bash
-npx @flyingrobots/graft init
-npx @flyingrobots/graft init --write-claude-mcp --write-claude-hooks
-npx @flyingrobots/graft init --write-cursor-mcp
-npx @flyingrobots/graft init --write-windsurf-mcp
-npx @flyingrobots/graft init --write-continue-mcp
-npx @flyingrobots/graft init --write-cline-mcp
-npx @flyingrobots/graft init --write-codex-mcp
-npx @flyingrobots/graft serve
-npx @flyingrobots/graft index
-npx @flyingrobots/graft read safe src/app.ts --json
-npx @flyingrobots/graft read outline README.md --json
-npx @flyingrobots/graft read range src/app.ts --start 10 --end 40 --json
-npx @flyingrobots/graft read changed src/app.ts --json
-npx @flyingrobots/graft struct diff --json
-npx @flyingrobots/graft struct since HEAD~3 --json
-npx @flyingrobots/graft struct map src --json
-npx @flyingrobots/graft symbol show createServer --path src/mcp/server.ts --json
-npx @flyingrobots/graft symbol find 'create*' --json
-npx @flyingrobots/graft diag activity --json
-npx @flyingrobots/graft diag doctor --json
-npx @flyingrobots/graft diag explain CONTENT --json
-npx @flyingrobots/graft diag stats --json
-npx @flyingrobots/graft diag capture --tail 20 -- pnpm test --json
-```
-
-The CLI now mirrors the core MCP product surface through grouped
-namespaces:
-- `read` for bounded reads
-- `struct` for structural navigation
-- `symbol` for precision lookup
-- `diag` for diagnostics
-
-`init` and `index` remain explicit CLI-only commands. MCP responses and
-CLI peer commands both carry versioned `_schema` metadata, and declared
-output contracts live in `src/contracts/output-schemas.ts`.
-
-`run_capture` remains an explicit shell escape hatch. For shared or
-release-sensitive environments, you can disable it with
-`GRAFT_ENABLE_RUN_CAPTURE=0`. Persisted capture logs can be disabled
-with `GRAFT_RUN_CAPTURE_PERSIST=0`, and persisted output is redacted for
-obvious secret-shaped values by default. In the local daemon runtime,
-`run_capture` remains opt-in rather than ambiently available.
-
-## Reason codes
-
-Every refusal or policy decision includes a machine-readable reason
-code. Use `explain(code)` to get meaning and recommended action.
-
-| Code | Meaning |
-|------|---------|
-| `CONTENT` | File within thresholds — full content returned |
-| `OUTLINE` | File exceeds thresholds — structural outline returned |
-| `SESSION_CAP` | Session-depth byte cap triggered |
-| `BUDGET_CAP` | Budget-proportional cap triggered |
-| `UNSUPPORTED_LANGUAGE` | No parser-backed outline for this file type |
-| `BINARY` | Binary file refused |
-| `LOCKFILE` | Machine-generated lockfile refused |
-| `MINIFIED` | Minified file refused |
-| `BUILD_OUTPUT` | Build output directory refused |
-| `SECRET` | Potential secrets file refused |
-| `GRAFTIGNORE` | Matches .graftignore pattern |
-
-## License
-
-Apache 2.0 — see [LICENSE](LICENSE).
+- **[Guide](./GUIDE.md)**: Orientation, the fast path, and agent bootstrap.
+- **[Advanced Guide](./ADVANCED_GUIDE.md)**: Deep dives into the pipeline, worldlines, and daemon mechanics.
+- **[Architecture](./ARCHITECTURE.md)**: The authoritative structural reference (Ports, Adapters, WARP).
+- **[Vision](./docs/VISION.md)**: Core tenets and the provenance-aware mission.
+- **[Method](./METHOD.md)**: Repo work doctrine and the cycle loop.
 
 ---
-
-```ts
-⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀
-⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀
-⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⢀⣴⣾⣿⣿⣿⣿⣷⣄⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀
-⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⣀⣀⡀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⢀⣿⣿⣿⣿⣿⣿⣿⣿⠿⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀
-⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⢸⣿⣿⣿⣶⡄⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⢸⣿⣿⠁⠀⠀⠀⠀⠀⠀⠀⠀⢀⣴⣆⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀
-⠀⠀⠀⠀⠀⠀⢀⣤⣴⣶⣶⣶⣶⣦⣤⣼⣿⣿⣿⣿⣿⠀⢠⣶⣶⣦⡀⠀⢀⣴⣶⣶⣤⠀⠀⠀⠀⣀⣤⣴⣶⣶⣶⣶⣦⣄⠀⠀⠀⠀⠀⠀⠀⠈⣿⣿⡄⠀⣀⣀⣠⣤⠀⠀⢀⣾⣿⣿⣀⣀⣀⣤⣤⣄⠀⠀⠀⠀⠀⠀
-⠀⠀⠀⠀⠀⣴⣿⣿⠛⠉⠉⠉⠛⠿⣿⣿⣿⡿⠉⠉⠀⠀⢻⣿⣿⣿⣇⠀⣾⣿⣿⣿⣿⡇⠀⢠⣾⣿⣿⣿⡿⠟⠛⢻⣿⣿⣷⠀⠀⠀⠀⠀⣠⣾⣿⣿⣿⣿⣿⣿⣿⣿⠀⢠⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⠀⠀⠀⠀⠀⠀
-⠀⠀⠀⠀⢸⣿⣿⣇⠀⠀⠀⠀⠀⠀⠘⣿⣿⡇⠀⠀⠀⠀⠈⢿⣿⣿⣿⢠⡿⠛⠛⠿⠟⠁⠀⢺⣿⣿⡿⠋⠀⠀⠀⣸⣿⣿⣿⡀⠀⠀⠀⠀⠛⠿⢿⣿⣿⠟⠛⠛⠛⠛⠀⠘⠻⠿⢿⣿⣿⠛⠛⠛⠛⠋⠀⠀⠀⠀⠀⠀
-⠀⠀⠀⠀⠸⣿⣿⣿⣆⠀⠀⠀⠀⠀⠀⣿⣿⡇⠀⠀⠀⠀⠀⠀⢻⣿⣿⣿⠁⠀⠀⠀⠀⠀⠀⠀⠉⠉⠀⠀⠀⣠⣾⠟⢻⣿⣿⡇⠀⠀⠀⠀⠀⠀⠈⣿⣿⡆⠀⠀⠀⠀⠀⠀⠀⠀⢸⣿⣿⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀
-⠀⠀⠀⠀⠀⠙⢿⣿⣿⣿⣶⣤⣤⣤⣾⣿⠟⠀⠀⠀⠀⠀⠀⠀⠀⢻⣿⣿⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⣠⣾⡿⠋⠀⢸⣿⣿⡇⠀⢀⣤⡀⠀⠀⠀⣿⣿⣿⠀⠀⠀⠀⠀⠀⠀⠀⢸⣿⣿⡆⠀⠀⠀⢀⣀⡀⠀⠀⠀⠀
-⠀⠀⠀⠀⠀⠀⠀⣨⣿⡿⠟⠛⠛⠛⠋⠁⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⣿⣿⡆⠀⠀⠀⠀⠀⠀⠀⠀⢠⣾⣿⡏⠀⠀⠀⢸⣿⣿⡇⠀⢸⣿⡇⠀⠀⠀⢻⣿⣿⣇⠀⠀⠀⠀⠀⠀⠀⢸⣿⣿⣇⠀⠀⠀⢸⣿⣿⠀⠀⠀⠀
-⠀⠀⠀⠀⠀⠀⣼⣿⣿⡀⠀⢀⣀⣀⣤⣤⣤⣴⣦⣤⣄⠀⠀⠀⠀⢰⣿⣿⣷⠀⠀⠀⠀⠀⠀⠀⠀⢾⣿⣿⣇⠀⠀⣠⣿⢻⣿⣿⡀⣸⣿⡇⠀⠀⠀⠸⣿⣿⣿⡄⠀⠀⠀⠀⠀⠀⠀⣿⣿⣿⣦⣀⣠⣾⣿⡟⠀⠀⠀⠀
-⠀⠀⠀⠀⠀⠀⠹⢿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣇⠀⠀⠀⢸⣿⣿⣿⡆⠀⠀⠀⠀⠀⠀⠀⠘⣿⣿⣿⣿⣿⣿⠏⠀⢿⣿⣿⣿⣿⠇⠀⠀⠀⠀⣿⣿⣿⣧⠀⠀⠀⠀⠀⠀⠀⠘⢿⣿⣿⣿⣿⣿⣿⠃⠀⠀⠀⠀
-⠀⠀⠀⠀⠀⠀⠀⢀⣼⣿⠟⠉⠁⠀⠀⠀⠀⠀⢻⣿⣿⡟⠀⠀⠀⠈⠉⠉⠉⠁⠀⠀⠀⠀⠀⠀⠀⠀⠈⠙⠛⠛⠛⠁⠀⠀⠀⠙⠛⠛⠁⠀⠀⠀⠀⠀⣿⣿⣿⣿⡆⠀⠀⠀⠀⠀⠀⠀⠀⠙⠛⠛⠛⠋⠁⠀⠀⠀⠀⠀
-⠀⠀⠀⠀⠀⠀⢠⣿⣿⣿⠀⠀⠀⠀⠀⠀⠀⢀⣾⣿⡿⠁⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⢸⣿⣿⣿⣷⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀
-⠀⠀⠀⠀⠀⠀⠈⢿⣿⣿⣷⣤⣤⣤⣤⣤⣾⣿⡿⠋⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠘⣿⣿⣿⣿⠆⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀
-⠀⠀⠀⠀⠀⠀⠀⠀⠙⠛⠻⠿⠿⠿⠛⠛⠋⠁⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠙⠿⠿⠋⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀
-⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀
-⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀
-```
+Built with precision by [FLYING ROBOTS](https://github.com/flyingrobots)

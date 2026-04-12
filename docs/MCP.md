@@ -1,44 +1,48 @@
-# MCP Guide
+# MCP
 
-This is the shortest signpost for Graft's MCP surface.
+Graft is a high-fidelity tool provider for the Model Context Protocol (MCP).
 
-Use MCP when an agent or editor should call Graft directly as a tool
-provider.
+```mermaid
+sequenceDiagram
+    participant Client
+    participant Server as Graft Server
+    participant Policy as Policy Engine
+    participant Parser as Tree-Sitter
+    Client->>Server: call tool(safe_read, path)
+    Server->>Policy: evaluate(path, session)
+    Policy-->>Server: ALLOW (outline)
+    Server->>Parser: extract outline
+    Parser-->>Server: Outline + JumpTable
+    Server-->>Client: respond(JSON + Receipt)
+```
 
 ## Startup
 
-Stdio MCP:
-
+### Stdio MCP
 ```bash
 npx @flyingrobots/graft serve
 ```
 
-Local daemon:
-
+### Local Daemon
 ```bash
 npx @flyingrobots/graft daemon
 ```
 
-## Key tool groups
+## Key Tool Groups
+- **Bounded Reads**: `safe_read`, `file_outline`, `read_range`, `changed_since`
+- **Structural History**: `graft_diff`, `graft_since`, `graft_map`
+- **Precision**: `code_show`, `code_find`, `code_refs`
+- **Activity & Footing**: `activity_view`, `causal_status`, `causal_attach`, `doctor`
+- **Daemon Control Plane**: `daemon_status`, `daemon_repos`, `daemon_sessions`, `monitor_*`
 
-- bounded reads: `safe_read`, `file_outline`, `read_range`, `changed_since`
-- structural history: `graft_diff`, `graft_since`, `graft_map`
-- precision: `code_show`, `code_find`, `code_refs`
-- activity and footing: `activity_view`, `causal_status`, `causal_attach`, `doctor`
-- daemon control plane: `daemon_status`, `daemon_repos`, `daemon_sessions`, monitor tools
-
-## Current release-facing truth
-
-- MCP is still the primary agent surface
-- responses carry versioned `_schema` metadata
-- `activity_view` is the first honest human-facing between-commit
-  surface, but its truth class is still bounded local
-  `artifact_history`
+## Current Truth
+- MCP is the primary agent surface.
+- Responses carry versioned `_schema` metadata and `_receipt` decision data.
+- `activity_view` provides bounded local `artifact_history` anchored to Git `HEAD`.
 
 ## Related docs
-
 - [README](../README.md)
-- [Setup Guide](GUIDE.md)
-- [CLI Guide](CLI.md)
-- [Advanced Guide](ADVANCED_GUIDE.md)
+- [Setup Guide](./SETUP.md)
+- [CLI Guide](./CLI.md)
+- [Advanced Guide](./ADVANCED_GUIDE.md)
 - [Architecture](../ARCHITECTURE.md)
