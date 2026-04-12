@@ -1,10 +1,16 @@
 ---
-title: "Daemon session liveness for repo concurrency"
+title: Daemon session liveness for repo concurrency
 legend: CORE
-lane: asap
+lane: graveyard
 ---
 
 # Daemon session liveness for repo concurrency
+
+## Disposition
+
+Implemented on branch `next` in commit `9b76d80` (`fix(mcp): ignore stale daemon sessions in repo concurrency`). The backlog note should not keep surfacing as open ASAP work now that repo concurrency filters stale daemon sessions and reports daemon session liveness diagnostics.
+
+## Original Proposal
 
 Evidence on 2026-04-11:
 
