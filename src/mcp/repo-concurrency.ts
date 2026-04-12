@@ -29,6 +29,13 @@ export interface RepoConcurrencySummary {
   readonly observedActorCount: number;
   readonly overlappingPathCount: number;
   readonly summary: string;
+  readonly daemonSessionLiveness?: RepoConcurrencyDaemonSessionLiveness;
+}
+
+export interface RepoConcurrencyDaemonSessionLiveness {
+  readonly idleTimeoutMs: number;
+  readonly liveSessionCount: number;
+  readonly staleSessionCount: number;
 }
 
 interface RepoConcurrencyInput {
@@ -42,7 +49,10 @@ export interface RepoConcurrencyLiveSession {
   readonly worktreeId: string | null;
   readonly causalSessionId: string | null;
   readonly checkoutEpochId: string | null;
+  readonly lastActivityAt: string;
 }
+
+export const DEFAULT_DAEMON_SESSION_IDLE_TIMEOUT_MS = 5 * 60 * 1000;
 
 function countOverlapPaths(touches: readonly RepoConcurrencyTouch[]): number {
   const contributorsByPath = new Map<string, Set<string>>();
@@ -95,6 +105,52 @@ function withObservedCounts(
     observedCausalSessionCount: Math.max(summary.observedCausalSessionCount, input.observedCausalSessionCount),
     observedActorCount: Math.max(summary.observedActorCount, input.observedActorCount),
   };
+}
+
+function formatDurationMs(durationMs: number): string {
+  if (durationMs % 60000 === 0) {
+    const minutes = durationMs / 60000;
+    return `${String(minutes)} minute${minutes === 1 ? "" : "s"}`;
+  }
+  if (durationMs % 1000 === 0) {
+    const seconds = durationMs / 1000;
+    return `${String(seconds)} second${seconds === 1 ? "" : "s"}`;
+  }
+  return `${String(durationMs)} ms`;
+}
+
+function appendStaleDaemonSessionSummary(
+  summary: string,
+  liveness: RepoConcurrencyDaemonSessionLiveness,
+): string {
+  if (liveness.staleSessionCount === 0) {
+    return summary;
+  }
+  const noun = liveness.staleSessionCount === 1 ? "session" : "sessions";
+  return `${summary} Excluded ${String(liveness.staleSessionCount)} stale daemon ${noun} idle for longer than ${formatDurationMs(liveness.idleTimeoutMs)}.`;
+}
+
+function withDaemonSessionLiveness(
+  summary: RepoConcurrencySummary,
+  liveness: RepoConcurrencyDaemonSessionLiveness,
+): RepoConcurrencySummary {
+  return {
+    ...summary,
+    summary: appendStaleDaemonSessionSummary(summary.summary, liveness),
+    daemonSessionLiveness: liveness,
+  };
+}
+
+function isStaleDaemonSession(
+  session: RepoConcurrencyLiveSession,
+  nowMs: number,
+  idleTimeoutMs: number,
+): boolean {
+  const lastActivityMs = Date.parse(session.lastActivityAt);
+  if (!Number.isFinite(lastActivityMs)) {
+    return true;
+  }
+  return nowMs - lastActivityMs > idleTimeoutMs;
 }
 
 export function deriveRepoConcurrencySummary(input: RepoConcurrencyInput): RepoConcurrencySummary {
@@ -206,15 +262,30 @@ export function mergeRepoConcurrencySummaryWithLiveSessions(input: {
   readonly currentWorktreeId: string;
   readonly currentCheckoutEpochId: string | null;
   readonly sessions: readonly RepoConcurrencyLiveSession[];
+  readonly nowMs?: number;
+  readonly sessionIdleTimeoutMs?: number;
 }): RepoConcurrencySummary {
-  const liveRepoSessions = input.sessions.filter((session) =>
+  const repoSessions = input.sessions.filter((session) =>
     session.bindState === "bound" &&
     session.repoId === input.currentRepoId &&
     session.worktreeId !== null
   );
 
-  if (liveRepoSessions.length === 0) {
+  if (repoSessions.length === 0) {
     return input.currentSummary;
+  }
+
+  const nowMs = input.nowMs ?? Date.now();
+  const idleTimeoutMs = input.sessionIdleTimeoutMs ?? DEFAULT_DAEMON_SESSION_IDLE_TIMEOUT_MS;
+  const liveRepoSessions = repoSessions.filter((session) => !isStaleDaemonSession(session, nowMs, idleTimeoutMs));
+  const liveness: RepoConcurrencyDaemonSessionLiveness = {
+    idleTimeoutMs,
+    liveSessionCount: liveRepoSessions.length,
+    staleSessionCount: repoSessions.length - liveRepoSessions.length,
+  };
+
+  if (liveRepoSessions.length === 0) {
+    return withDaemonSessionLiveness(input.currentSummary, liveness);
   }
 
   const observedWorktreeCount = new Set(liveRepoSessions.map((session) => session.worktreeId)).size;
@@ -223,11 +294,14 @@ export function mergeRepoConcurrencySummaryWithLiveSessions(input: {
       .map((session) => session.causalSessionId)
       .filter((sessionId): sessionId is string => sessionId !== null),
   ).size;
-  const summaryWithCounts = withObservedCounts(input.currentSummary, {
-    observedWorktreeCount: Math.max(1, observedWorktreeCount),
-    observedCausalSessionCount,
-    observedActorCount: input.currentSummary.observedActorCount,
-  });
+  const summaryWithCounts = withDaemonSessionLiveness(
+    withObservedCounts(input.currentSummary, {
+      observedWorktreeCount: Math.max(1, observedWorktreeCount),
+      observedCausalSessionCount,
+      observedActorCount: input.currentSummary.observedActorCount,
+    }),
+    liveness,
+  );
 
   const currentWorktreeSessions = liveRepoSessions.filter((session) => session.worktreeId === input.currentWorktreeId);
   const otherWorktreeSessions = liveRepoSessions.filter((session) => session.worktreeId !== input.currentWorktreeId);

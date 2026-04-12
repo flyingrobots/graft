@@ -312,6 +312,11 @@ const repoConcurrencySummarySchema = z.object({
   observedActorCount: z.number().int().nonnegative(),
   overlappingPathCount: z.number().int().nonnegative(),
   summary: z.string().min(1),
+  daemonSessionLiveness: z.object({
+    idleTimeoutMs: z.number().int().positive(),
+    liveSessionCount: z.number().int().nonnegative(),
+    staleSessionCount: z.number().int().nonnegative(),
+  }).strict().optional(),
 }).strict();
 
 const precisionSymbolMatchSchema = z.object({

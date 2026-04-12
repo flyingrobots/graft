@@ -1,9 +1,16 @@
 import { describe, expect, it } from "vitest";
-import type { RepoConcurrencySummary } from "../../../src/mcp/repo-concurrency.js";
+import type {
+  RepoConcurrencyLiveSession,
+  RepoConcurrencySummary,
+} from "../../../src/mcp/repo-concurrency.js";
 import {
+  DEFAULT_DAEMON_SESSION_IDLE_TIMEOUT_MS,
   deriveRepoConcurrencySummary,
   mergeRepoConcurrencySummaryWithLiveSessions,
 } from "../../../src/mcp/repo-concurrency.js";
+
+const NOW_MS = Date.parse("2026-04-12T01:00:00.000Z");
+const FRESH_ACTIVITY_AT = "2026-04-12T00:59:00.000Z";
 
 function buildSummary(overrides: Partial<RepoConcurrencySummary> = {}): RepoConcurrencySummary {
   return {
@@ -14,6 +21,18 @@ function buildSummary(overrides: Partial<RepoConcurrencySummary> = {}): RepoConc
     observedActorCount: 1,
     overlappingPathCount: 0,
     summary: "No other active same-repo worktree or overlapping actor evidence is currently visible.",
+    ...overrides,
+  };
+}
+
+function buildSession(overrides: Partial<RepoConcurrencyLiveSession> = {}): RepoConcurrencyLiveSession {
+  return {
+    bindState: "bound",
+    repoId: "repo:one",
+    worktreeId: "worktree:one",
+    causalSessionId: "causal:one",
+    checkoutEpochId: "epoch:one",
+    lastActivityAt: FRESH_ACTIVITY_AT,
     ...overrides,
   };
 }
@@ -53,21 +72,10 @@ describe("mergeRepoConcurrencySummaryWithLiveSessions", () => {
       currentWorktreeId: "worktree:one",
       currentCheckoutEpochId: "epoch:one",
       sessions: [
-        {
-          bindState: "bound",
-          repoId: "repo:one",
-          worktreeId: "worktree:one",
-          causalSessionId: "causal:one",
-          checkoutEpochId: "epoch:one",
-        },
-        {
-          bindState: "bound",
-          repoId: "repo:one",
-          worktreeId: "worktree:one",
-          causalSessionId: "causal:two",
-          checkoutEpochId: "epoch:one",
-        },
+        buildSession(),
+        buildSession({ causalSessionId: "causal:two" }),
       ],
+      nowMs: NOW_MS,
     });
 
     expect(merged).toEqual(expect.objectContaining({
@@ -75,6 +83,11 @@ describe("mergeRepoConcurrencySummaryWithLiveSessions", () => {
       authority: "daemon_live_sessions",
       observedWorktreeCount: 1,
       observedCausalSessionCount: 2,
+      daemonSessionLiveness: {
+        idleTimeoutMs: DEFAULT_DAEMON_SESSION_IDLE_TIMEOUT_MS,
+        liveSessionCount: 2,
+        staleSessionCount: 0,
+      },
     }));
   });
 
@@ -88,21 +101,10 @@ describe("mergeRepoConcurrencySummaryWithLiveSessions", () => {
       currentWorktreeId: "worktree:one",
       currentCheckoutEpochId: "epoch:one",
       sessions: [
-        {
-          bindState: "bound",
-          repoId: "repo:one",
-          worktreeId: "worktree:one",
-          causalSessionId: "causal:one",
-          checkoutEpochId: "epoch:one",
-        },
-        {
-          bindState: "bound",
-          repoId: "repo:one",
-          worktreeId: "worktree:one",
-          causalSessionId: "causal:two",
-          checkoutEpochId: "epoch:one",
-        },
+        buildSession(),
+        buildSession({ causalSessionId: "causal:two" }),
       ],
+      nowMs: NOW_MS,
     });
 
     expect(merged).toEqual(expect.objectContaining({
@@ -119,21 +121,13 @@ describe("mergeRepoConcurrencySummaryWithLiveSessions", () => {
       currentWorktreeId: "worktree:one",
       currentCheckoutEpochId: "epoch:one",
       sessions: [
-        {
-          bindState: "bound",
-          repoId: "repo:one",
-          worktreeId: "worktree:one",
-          causalSessionId: "causal:one",
-          checkoutEpochId: "epoch:one",
-        },
-        {
-          bindState: "bound",
-          repoId: "repo:one",
+        buildSession(),
+        buildSession({
           worktreeId: "worktree:two",
           causalSessionId: "causal:two",
-          checkoutEpochId: "epoch:one",
-        },
+        }),
       ],
+      nowMs: NOW_MS,
     });
 
     expect(merged).toEqual(expect.objectContaining({
@@ -151,21 +145,16 @@ describe("mergeRepoConcurrencySummaryWithLiveSessions", () => {
       currentWorktreeId: "worktree:one",
       currentCheckoutEpochId: "epoch:main",
       sessions: [
-        {
-          bindState: "bound",
-          repoId: "repo:one",
-          worktreeId: "worktree:one",
-          causalSessionId: "causal:one",
+        buildSession({
           checkoutEpochId: "epoch:main",
-        },
-        {
-          bindState: "bound",
-          repoId: "repo:one",
+        }),
+        buildSession({
           worktreeId: "worktree:two",
           causalSessionId: "causal:two",
           checkoutEpochId: "epoch:feature",
-        },
+        }),
       ],
+      nowMs: NOW_MS,
     });
 
     expect(merged).toEqual(expect.objectContaining({
@@ -174,5 +163,35 @@ describe("mergeRepoConcurrencySummaryWithLiveSessions", () => {
       observedWorktreeCount: 2,
       observedCausalSessionCount: 2,
     }));
+  });
+
+  it("ignores stale daemon sessions and reports the exclusion", () => {
+    const merged = mergeRepoConcurrencySummaryWithLiveSessions({
+      currentSummary: buildSummary(),
+      currentRepoId: "repo:one",
+      currentWorktreeId: "worktree:one",
+      currentCheckoutEpochId: "epoch:one",
+      sessions: [
+        buildSession(),
+        buildSession({
+          causalSessionId: "causal:stale",
+          lastActivityAt: "2026-04-12T00:54:59.000Z",
+        }),
+      ],
+      nowMs: NOW_MS,
+    });
+
+    expect(merged).toEqual(expect.objectContaining({
+      posture: "exclusive",
+      authority: "active_history_scan",
+      observedWorktreeCount: 1,
+      observedCausalSessionCount: 1,
+      daemonSessionLiveness: {
+        idleTimeoutMs: DEFAULT_DAEMON_SESSION_IDLE_TIMEOUT_MS,
+        liveSessionCount: 1,
+        staleSessionCount: 1,
+      },
+    }));
+    expect(merged.summary).toContain("Excluded 1 stale daemon session");
   });
 });
