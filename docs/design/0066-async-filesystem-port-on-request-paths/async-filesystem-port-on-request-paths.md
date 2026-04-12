@@ -21,17 +21,31 @@ specific agent instance.
 
 ## Hill
 
-TBD
+- A daemon or repo-local MCP workspace can bind and load `.graftignore`
+  without relying on `readFileSync` on the shared request path.
+- Policy-governed read and precision entry points consume file content
+  through the async filesystem port by default, with remaining sync-only
+  CLI and hook reads called out as explicit debt rather than ambient
+  behavior.
 
 ## Playback Questions
 
 ### Human
 
-- [ ] TBD
+- [ ] Does workspace binding still behave the same for repos with and
+  without `.graftignore`, while avoiding daemon event-loop stalls from
+  sync file reads?
+- [ ] Are remaining sync filesystem reads clearly outside the shared MCP
+  request path, so operators know what is and is not fixed by this
+  cycle?
 
 ### Agent
 
-- [ ] TBD
+- [ ] Can I exercise daemon workspace binding and governed reads with a
+  filesystem port that throws on `readFileSync` and still get lawful
+  results?
+- [ ] Is the async posture proven at the seam where policy context is
+  built, rather than only in lower-level operations tests?
 
 ## Accessibility and Assistive Reading
 
@@ -50,7 +64,10 @@ TBD
 
 ## Non-goals
 
-- [ ] TBD
+- [ ] Remove all synchronous filesystem reads from CLI bootstrap or hook
+  code in this cycle.
+- [ ] Redesign the filesystem port contract beyond what is needed to
+  keep shared MCP request paths async by default.
 
 ## Backlog Context
 

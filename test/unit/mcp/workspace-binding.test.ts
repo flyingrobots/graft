@@ -2,6 +2,12 @@ import { afterEach, describe, expect, it } from "vitest";
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
+import { CanonicalJsonCodec } from "../../../src/adapters/canonical-json.js";
+import { nodeFs } from "../../../src/adapters/node-fs.js";
+import { nodeGit } from "../../../src/adapters/node-git.js";
+import { PersistedLocalHistoryStore } from "../../../src/mcp/persisted-local-history.js";
+import { DEFAULT_DAEMON_CAPABILITY_PROFILE, WorkspaceRouter } from "../../../src/mcp/workspace-router.js";
+import type { FileSystem } from "../../../src/ports/filesystem.js";
 import { createIsolatedServer, parse } from "../../helpers/mcp.js";
 import { cleanupTestRepo, createTestRepo, git } from "../../helpers/git.js";
 
@@ -30,6 +36,41 @@ function createCommittedRepo(): string {
   git(repoDir, "add -A");
   git(repoDir, "commit -m init");
   return repoDir;
+}
+
+class AsyncNoSyncFileSystem implements FileSystem {
+  readFile(path: string, encoding: "utf-8"): Promise<string>;
+  readFile(path: string): Promise<Buffer>;
+  readFile(path: string, encoding?: "utf-8"): Promise<string | Buffer> {
+    if (encoding !== undefined) {
+      return nodeFs.readFile(path, encoding);
+    }
+    return nodeFs.readFile(path);
+  }
+
+  readdir(path: string): Promise<string[]> {
+    return nodeFs.readdir(path);
+  }
+
+  writeFile(path: string, data: string, encoding: "utf-8"): Promise<void> {
+    return nodeFs.writeFile(path, data, encoding);
+  }
+
+  appendFile(path: string, data: string, encoding: "utf-8"): Promise<void> {
+    return nodeFs.appendFile(path, data, encoding);
+  }
+
+  mkdir(path: string, options: { recursive: true }): Promise<void> {
+    return nodeFs.mkdir(path, options);
+  }
+
+  stat(path: string): Promise<{ size: number }> {
+    return nodeFs.stat(path);
+  }
+
+  readFileSync(): string {
+    throw new Error("readFileSync should not be used on async request paths");
+  }
 }
 
 describe("mcp: daemon workspace binding", () => {
@@ -78,6 +119,49 @@ describe("mcp: daemon workspace binding", () => {
 
     const safeRead = parse(await server.callTool("safe_read", { path: "app.ts" }));
     expect(safeRead["projection"]).toBe("content");
+  });
+
+  it("loads .graftignore during daemon bind without sync filesystem reads", async () => {
+    const repoDir = createCommittedRepo();
+    fs.writeFileSync(path.join(repoDir, ".graftignore"), "ignored.ts\n");
+    const graftDir = fs.mkdtempSync(path.join(os.tmpdir(), "graft-bind-state-"));
+    cleanups.push(() => {
+      fs.rmSync(graftDir, { recursive: true, force: true });
+    });
+    const asyncFs = new AsyncNoSyncFileSystem();
+    const router = new WorkspaceRouter({
+      mode: "daemon",
+      fs: asyncFs,
+      git: nodeGit,
+      graftDir,
+      warpPool: {
+        getOrOpen(): Promise<never> {
+          return Promise.reject(new Error("unused in workspace binding test"));
+        },
+        size(): number {
+          return 0;
+        },
+      },
+      transportSessionId: "transport:test",
+      authorizationPolicy: {
+        getCapabilityProfile() {
+          return Promise.resolve(DEFAULT_DAEMON_CAPABILITY_PROFILE);
+        },
+        noteBound(): Promise<void> {
+          return Promise.resolve();
+        },
+      },
+      persistedLocalHistory: new PersistedLocalHistoryStore({
+        fs: asyncFs,
+        codec: new CanonicalJsonCodec(),
+        graftDir,
+      }),
+    });
+
+    const bind = await router.bind({ cwd: repoDir }, "workspace_bind");
+
+    expect(bind.ok).toBe(true);
+    expect(router.getGraftignorePatterns()).toEqual(["ignored.ts"]);
   });
 
   it("routes heavy daemon repo tools through the scheduler", async () => {

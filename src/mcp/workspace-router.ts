@@ -291,7 +291,7 @@ export class WorkspaceRouter {
             worktreeRoot: projectRoot,
             gitCommonDir: resolved.gitCommonDir,
           };
-      const currentBinding = this.createBoundWorkspace(
+      const currentBinding = await this.createBoundWorkspace(
         initialWorkspace,
         this.options.graftDir,
         DEFAULT_REPO_LOCAL_CAPABILITY_PROFILE,
@@ -710,7 +710,7 @@ export class WorkspaceRouter {
       };
     }
 
-    const nextBinding = this.createBoundWorkspace(resolved, sliceDir, capabilityProfile, actionName);
+    const nextBinding = await this.createBoundWorkspace(resolved, sliceDir, capabilityProfile, actionName);
     const nextRepoState = nextBinding.slice.repoState;
     if (nextRepoState === null) {
       throw new WorkspaceBindingRequiredError("workspace");
@@ -738,13 +738,13 @@ export class WorkspaceRouter {
     };
   }
 
-  private createBoundWorkspace(
+  private async createBoundWorkspace(
     resolved: ResolvedWorkspace,
     graftDir: string,
     capabilityProfile: WorkspaceCapabilityProfile,
     actionName: string | undefined,
     sliceOverride?: WorkspaceSlice,
-  ): BoundWorkspace {
+  ): Promise<BoundWorkspace> {
     const slice = sliceOverride ?? this.createSlice(graftDir, resolved.worktreeRoot);
     if (actionName !== undefined) {
       slice.session.recordMessage();
@@ -753,7 +753,7 @@ export class WorkspaceRouter {
 
     return {
       ...resolved,
-      graftignorePatterns: loadProjectGraftignore(this.options.fs, resolved.worktreeRoot),
+      graftignorePatterns: await loadProjectGraftignore(this.options.fs, resolved.worktreeRoot),
       resolvePath: createPathResolver(resolved.worktreeRoot),
       capabilityProfile,
       transportSessionId: this.options.transportSessionId,

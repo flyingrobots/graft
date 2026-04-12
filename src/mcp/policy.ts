@@ -19,12 +19,12 @@ export interface McpPolicyRefusal {
   actual: { lines: number; bytes: number };
 }
 
-export function loadProjectGraftignore(
-  fs: Pick<FileSystem, "readFileSync">,
+export async function loadProjectGraftignore(
+  fs: Pick<FileSystem, "readFile">,
   projectRoot: string,
-): string[] {
+): Promise<string[]> {
   try {
-    return loadGraftignore(fs.readFileSync(path.join(projectRoot, ".graftignore"), "utf-8"));
+    return loadGraftignore(await fs.readFile(path.join(projectRoot, ".graftignore"), "utf-8"));
   } catch {
     return [];
   }
