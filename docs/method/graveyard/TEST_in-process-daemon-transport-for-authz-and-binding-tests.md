@@ -1,10 +1,16 @@
 ---
-title: "In-process daemon transport for authz and binding tests"
+title: In-process daemon transport for authz and binding tests
 legend: TEST
-lane: bad-code
+lane: graveyard
 ---
 
 # In-process daemon transport for authz and binding tests
+
+## Disposition
+
+Completed by the in-process daemon harness work landed on next in commit cb47eb4, which added shared multi-session daemon helpers and moved authz, binding, and concurrency semantics out of the socket transport integration suite.
+
+## Original Proposal
 
 Audit source: `docs/audit/2026-04-11_code-quality.md`.
 

@@ -1,4 +1,16 @@
+---
+title: Test harness complete repo isolation
+lane: graveyard
+legend: CORE
+---
+
 # Test harness complete repo isolation
+
+## Disposition
+
+Completed by the fixture-mirroring and isolated-workspace harness work landed on next in commit 13f5627, which removed the live-checkout fixture dependency and established temp-workspace test posture.
+
+## Original Proposal
 
 Tests should not touch the live Graft repo at all.
 
