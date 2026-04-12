@@ -5,7 +5,7 @@ import { TOOL_REGISTRY } from "../../../src/mcp/server.js";
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
-import { extractText, fixturePath, getTestRepoRoot } from "../../helpers/mcp.js";
+import { extractText, fixturePath, harnessPath } from "../../helpers/mcp.js";
 /**
  * Integration tests: spawn the actual MCP server as a subprocess,
  * connect via stdio, and call tools through the MCP protocol.
@@ -19,9 +19,9 @@ describe("integration: MCP server over stdio", () => {
     projectRoot = fs.mkdtempSync(path.join(os.tmpdir(), "graft-mcp-stdio-"));
 
     transport = new StdioClientTransport({
-      command: "node",
-      args: ["--import", "tsx", "test/helpers/mcp-stdio.ts"],
-      cwd: getTestRepoRoot(),
+      command: harnessPath("node_modules", ".bin", "tsx"),
+      args: [harnessPath("test/helpers/mcp-stdio.ts")],
+      cwd: projectRoot,
       env: {
         GRAFT_TEST_PROJECT_ROOT: projectRoot,
         GRAFT_TEST_GRAFT_DIR: path.join(projectRoot, ".graft"),

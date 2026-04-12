@@ -4,13 +4,12 @@ import { HookInput } from "../../../src/hooks/shared.js";
 import fs from "node:fs";
 import path from "node:path";
 import os from "node:os";
-
-const FIXTURES = path.resolve(import.meta.dirname, "../../fixtures");
+import { fixturePath, fixtureRoot } from "../../helpers/fixtures.js";
 
 function makeInput(filePath: string, cwd?: string): HookInput {
   return new HookInput({
     session_id: "test-session",
-    cwd: cwd ?? process.cwd(),
+    cwd: cwd ?? fixtureRoot(),
     hook_event_name: "PreToolUse",
     tool_name: "Read",
     tool_input: { file_path: filePath },
@@ -20,23 +19,23 @@ function makeInput(filePath: string, cwd?: string): HookInput {
 describe("hooks: pretooluse-read", () => {
   // Verify fixture files exist before running tests
   it("fixture small.ts exists", () => {
-    expect(fs.existsSync(path.join(FIXTURES, "small.ts"))).toBe(true);
+    expect(fs.existsSync(fixturePath("small.ts"))).toBe(true);
   });
 
   it("fixture large.ts exists", () => {
-    expect(fs.existsSync(path.join(FIXTURES, "large.ts"))).toBe(true);
+    expect(fs.existsSync(fixturePath("large.ts"))).toBe(true);
   });
 
   // -----------------------------------------------------------------------
   // Allowed (exit 0) — small files and unsupported large files pass through
   // -----------------------------------------------------------------------
   it("allows small files through (exit 0)", () => {
-    const output = handleReadHook(makeInput(path.join(FIXTURES, "small.ts")));
+    const output = handleReadHook(makeInput(fixturePath("small.ts")));
     expect(output.exitCode).toBe(0);
   });
 
   it("redirects large JS/TS files to graft's bounded-read path", () => {
-    const output = handleReadHook(makeInput(path.join(FIXTURES, "large.ts")));
+    const output = handleReadHook(makeInput(fixturePath("large.ts")));
     expect(output.exitCode).toBe(2);
     expect(output.stderr).toContain("Governed read");
     expect(output.stderr).toContain("safe_read");
@@ -73,7 +72,7 @@ describe("hooks: pretooluse-read", () => {
   // -----------------------------------------------------------------------
   it("blocks binary files", () => {
     const output = handleReadHook(
-      makeInput(path.join(FIXTURES, "ban-targets/image.png")),
+      makeInput(fixturePath("ban-targets/image.png")),
     );
     expect(output.exitCode).toBe(2);
     expect(output.stderr).toContain("Refused: BINARY");
@@ -81,7 +80,7 @@ describe("hooks: pretooluse-read", () => {
 
   it("blocks lockfiles", () => {
     const output = handleReadHook(
-      makeInput(path.join(FIXTURES, "ban-targets/package-lock.json")),
+      makeInput(fixturePath("ban-targets/package-lock.json")),
     );
     expect(output.exitCode).toBe(2);
     expect(output.stderr).toContain("Refused: LOCKFILE");
@@ -89,7 +88,7 @@ describe("hooks: pretooluse-read", () => {
 
   it("blocks secret files", () => {
     const output = handleReadHook(
-      makeInput(path.join(FIXTURES, "ban-targets/.env")),
+      makeInput(fixturePath("ban-targets/.env")),
     );
     expect(output.exitCode).toBe(2);
     expect(output.stderr).toContain("Refused: SECRET");
@@ -97,7 +96,7 @@ describe("hooks: pretooluse-read", () => {
 
   it("refusal references graft tools", () => {
     const output = handleReadHook(
-      makeInput(path.join(FIXTURES, "ban-targets/image.png")),
+      makeInput(fixturePath("ban-targets/image.png")),
     );
     expect(output.stderr).toContain("file_outline");
     expect(output.stderr).toContain("safe_read");

@@ -5,7 +5,8 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import type { GraftServer } from "../../../src/mcp/server.js";
-import { createIsolatedServer, fixturePath, getTestRepoRoot, parse } from "../../helpers/mcp.js";
+import { createFixtureWorkspace } from "../../helpers/fixtures.js";
+import { createIsolatedServer, fixturePath, parse } from "../../helpers/mcp.js";
 import { cleanupTestRepo, createTestRepo, git } from "../../helpers/git.js";
 
 const EXPECTED_TOOL_NAMES = TOOL_REGISTRY.map((t) => t.name);
@@ -536,14 +537,16 @@ describe("mcp: policy check middleware", () => {
   });
 
   it("code_find refuses banned file paths via middleware", async () => {
-    const isolated = createIsolatedServer({ projectRoot: getTestRepoRoot() });
+    const workspace = createFixtureWorkspace();
+    const isolated = createIsolatedServer({ projectRoot: workspace.projectRoot });
     cleanups.push(() => {
       isolated.cleanup();
+      workspace.cleanup();
     });
     const server = isolated.server;
     const result = await server.callTool("code_find", {
       query: "*",
-      path: "test/fixtures/ban-targets/image.png",
+      path: "fixtures/ban-targets/image.png",
     });
     const parsed = parse(result);
     expect(parsed["projection"]).toBe("refused");

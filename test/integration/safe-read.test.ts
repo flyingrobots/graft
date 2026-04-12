@@ -5,9 +5,9 @@ import { CanonicalJsonCodec } from "../../src/adapters/canonical-json.js";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
+import { fixturePath } from "../helpers/fixtures.js";
 
 const codec = new CanonicalJsonCodec();
-const FIXTURES = path.resolve(import.meta.dirname, "../fixtures");
 
 /**
  * Integration tests: exercise safe_read end-to-end with real files
@@ -15,7 +15,7 @@ const FIXTURES = path.resolve(import.meta.dirname, "../fixtures");
  */
 describe("integration: safe_read end-to-end", () => {
   it("small file → content with full source", async () => {
-    const result = await safeRead(path.join(FIXTURES, "small.ts"), { fs: nodeFs, codec });
+    const result = await safeRead(fixturePath("small.ts"), { fs: nodeFs, codec });
     expect(result.projection).toBe("content");
     expect(result.content).toContain("export function greet");
     expect(result.content).toContain('return `Hello,');
@@ -23,7 +23,7 @@ describe("integration: safe_read end-to-end", () => {
   });
 
   it("large file → outline with jump table and bytes avoided", async () => {
-    const result = await safeRead(path.join(FIXTURES, "large.ts"), { fs: nodeFs, codec });
+    const result = await safeRead(fixturePath("large.ts"), { fs: nodeFs, codec });
     expect(result.projection).toBe("outline");
     expect(result.content).toBeUndefined();
     expect(result.outline!.length).toBeGreaterThan(0);
@@ -59,7 +59,7 @@ describe("integration: safe_read end-to-end", () => {
 
   it("binary → refused with BINARY reason and next steps", async () => {
     const result = await safeRead(
-      path.join(FIXTURES, "ban-targets/image.png"),
+      fixturePath("ban-targets/image.png"),
       { fs: nodeFs, codec },
     );
     expect(result.projection).toBe("refused");
@@ -71,7 +71,7 @@ describe("integration: safe_read end-to-end", () => {
 
   it("secret → refused with SECRET reason", async () => {
     const result = await safeRead(
-      path.join(FIXTURES, "ban-targets/.env"),
+      fixturePath("ban-targets/.env"),
       { fs: nodeFs, codec },
     );
     expect(result.projection).toBe("refused");
@@ -80,7 +80,7 @@ describe("integration: safe_read end-to-end", () => {
 
   it("build output → refused with source redirect", async () => {
     const result = await safeRead(
-      path.join(FIXTURES, "ban-targets/dist/compiled.js"),
+      fixturePath("ban-targets/dist/compiled.js"),
       { fs: nodeFs, codec },
     );
     expect(result.projection).toBe("refused");
@@ -91,7 +91,7 @@ describe("integration: safe_read end-to-end", () => {
 
   it("nonexistent → error with NOT_FOUND", async () => {
     const result = await safeRead(
-      path.join(FIXTURES, "this-file-does-not-exist.ts"),
+      fixturePath("this-file-does-not-exist.ts"),
       { fs: nodeFs, codec },
     );
     expect(result.projection).toBe("error");
@@ -100,10 +100,10 @@ describe("integration: safe_read end-to-end", () => {
 
   it("all results are valid JSON-serializable objects", async () => {
     const files = [
-      path.join(FIXTURES, "small.ts"),
-      path.join(FIXTURES, "large.ts"),
-      path.join(FIXTURES, "ban-targets/image.png"),
-      path.join(FIXTURES, "ban-targets/.env"),
+      fixturePath("small.ts"),
+      fixturePath("large.ts"),
+      fixturePath("ban-targets/image.png"),
+      fixturePath("ban-targets/.env"),
     ];
 
     for (const file of files) {
@@ -115,9 +115,9 @@ describe("integration: safe_read end-to-end", () => {
   });
 
   it("session depth 'late' tightens caps on medium files", async () => {
-    const normal = await safeRead(path.join(FIXTURES, "medium.ts"), { fs: nodeFs, codec });
+    const normal = await safeRead(fixturePath("medium.ts"), { fs: nodeFs, codec });
     const late = await safeRead(
-      path.join(FIXTURES, "medium.ts"),
+      fixturePath("medium.ts"),
       { fs: nodeFs, codec, sessionDepth: "late" },
     );
     // Medium file should pass under normal policy but may be capped late

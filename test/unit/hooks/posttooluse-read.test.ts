@@ -4,13 +4,12 @@ import { HookInput } from "../../../src/hooks/shared.js";
 import fs from "node:fs";
 import path from "node:path";
 import os from "node:os";
-
-const FIXTURES = path.resolve(import.meta.dirname, "../../fixtures");
+import { fixturePath, fixtureRoot } from "../../helpers/fixtures.js";
 
 function makeInput(filePath: string, cwd?: string): HookInput {
   return new HookInput({
     session_id: "test-session",
-    cwd: cwd ?? process.cwd(),
+    cwd: cwd ?? fixtureRoot(),
     hook_event_name: "PostToolUse",
     tool_name: "Read",
     tool_input: { file_path: filePath },
@@ -23,7 +22,7 @@ describe("hooks: posttooluse-read", () => {
   // -----------------------------------------------------------------------
   it("no feedback for small files — Read was the right call", async () => {
     const output = await handlePostReadHook(
-      makeInput(path.join(FIXTURES, "small.ts")),
+      makeInput(fixturePath("small.ts")),
     );
     expect(output.exitCode).toBe(0);
     expect(output.stderr).toBe("");
@@ -34,7 +33,7 @@ describe("hooks: posttooluse-read", () => {
   // -----------------------------------------------------------------------
   it("educates on large file reads with context cost", async () => {
     const output = await handlePostReadHook(
-      makeInput(path.join(FIXTURES, "large.ts")),
+      makeInput(fixturePath("large.ts")),
     );
     expect(output.exitCode).toBe(0);
     expect(output.stderr).toContain("[graft]");
@@ -45,7 +44,7 @@ describe("hooks: posttooluse-read", () => {
 
   it("shows line count and KB in feedback", async () => {
     const output = await handlePostReadHook(
-      makeInput(path.join(FIXTURES, "large.ts")),
+      makeInput(fixturePath("large.ts")),
     );
     expect(output.stderr).toMatch(/\d+ lines/);
     expect(output.stderr).toMatch(/\d+(\.\d+)?KB/);
@@ -53,14 +52,14 @@ describe("hooks: posttooluse-read", () => {
 
   it("mentions read_range and jump tables", async () => {
     const output = await handlePostReadHook(
-      makeInput(path.join(FIXTURES, "large.ts")),
+      makeInput(fixturePath("large.ts")),
     );
     expect(output.stderr).toContain("read_range");
   });
 
   it("shows threshold in feedback", async () => {
     const output = await handlePostReadHook(
-      makeInput(path.join(FIXTURES, "large.ts")),
+      makeInput(fixturePath("large.ts")),
     );
     expect(output.stderr).toContain("Threshold:");
   });
@@ -112,10 +111,10 @@ describe("hooks: posttooluse-read", () => {
   // -----------------------------------------------------------------------
   it("always exits 0", async () => {
     const small = await handlePostReadHook(
-      makeInput(path.join(FIXTURES, "small.ts")),
+      makeInput(fixturePath("small.ts")),
     );
     const large = await handlePostReadHook(
-      makeInput(path.join(FIXTURES, "large.ts")),
+      makeInput(fixturePath("large.ts")),
     );
     const missing = await handlePostReadHook(
       makeInput(path.join(os.tmpdir(), "graft-nope.ts")),
