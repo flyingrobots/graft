@@ -130,7 +130,7 @@ export async function ensureGraftDirExcluded(
 
   let existing: string;
   try {
-    existing = fs.readFileSync(excludePath, "utf-8");
+    existing = await fs.readFile(excludePath, "utf-8");
   } catch {
     return;
   }
