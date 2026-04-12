@@ -26,7 +26,7 @@ Graft is a tiered governor. It manages the context burden across three layers:
 
 1. **Graft Core (Policy)**: Pure TypeScript logic that evaluates file size, language support, and session budgets to decide *what* an agent should see.
 2. **Parser (Meaning)**: Uses Tree-Sitter WASM to extract structural outlines and compute diffs, turning raw files into actionable meaning.
-3. **WARP (Memory)**: The structural graph that tracks AST evolution across commits, providing a provenance-aware history of the repository.
+3. **WARP (Memory)**: The Structural Worldline Memory that tracks AST evolution across commits, providing a provenance-aware history of the repository.
 
 ## Orientation Checklist
 

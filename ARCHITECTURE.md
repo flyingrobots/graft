@@ -44,10 +44,10 @@ Graft models repository state through three distinct layers:
 2. **`ref_view`**: Branch and reference comparisons over durable history.
 3. **`workspace_overlay`**: The current dirty working tree and reactive edit signals.
 
-## WARP: Structural Memory
+## WARP: Structural Worldline Memory
 
 ### Write Path (Indexer)
-The write path turns Git history into structural graph facts by extracting AST outlines and writing them into the WARP graph.
+The write path turns Git history into structural worldline facts by extracting AST outlines and writing them into the WARP graph.
 
 ### Read Path (Observers)
 The read path uses the **Observer Law**: projections are read through lenses (e.g., `graft_diff`, `code_show`) rather than traversing graph internals directly.

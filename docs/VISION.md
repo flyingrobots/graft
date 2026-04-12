@@ -29,7 +29,7 @@ mindmap
 A strict read-governance layer that ensures agents consume only what they need. Large files are degraded to structural maps; banned files are refused with explicit, actionable reasons.
 
 ### 2. Structural Memory
-A rendering foundation built on WARP (AST-indexed graph facts). Graft tracks the evolution of symbols, files, and relationships across the repository's entire history.
+A rendering foundation built on WARP (Structural Worldline Memory). Graft tracks the evolution of symbols, files, and relationships across the repository's entire history.
 
 ### 3. Causal Provenance
 The "why" behind structural changes. Graft tracks observations, stages, and transitions to explain the evolution of the codebase between hard Git checkpoints.

@@ -14,7 +14,7 @@ Graft is designed for the operator who demands precision and the architect who n
 Unlike simple file-scraping tools, Graft treats the repository as a layered worldline of code structure and causal activity.
 
 - **Policy-Enforced Reads**: Automatically degrades large files to structural outlines and jump tables. Refuses binaries, secrets, and lockfiles with machine-readable reasons.
-- **Structural Memory**: Uses WARP to track AST evolution across Git commits. Query what changed structurally without reading a single byte of source code.
+- **Structural Memory**: Uses WARP (Structural Worldline Memory) to track AST evolution across Git commits. Query what changed structurally without reading a single byte of source code.
 - **Causal Provenance**: Tracks the *why* behind structural changes by logging read, stage, and transition activity into strand-scoped causal workspaces.
 - **Industrial-Grade Daemon**: A same-user local runtime that manages multi-repo authorization, background indexing, and shared-machine worker pools.
 
