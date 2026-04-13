@@ -1,16 +1,8 @@
 import { describe, expect, it } from "vitest";
 import * as fs from "node:fs";
 import * as path from "node:path";
-import { createGraftServer } from "../../src/mcp/server.js";
 import { createTestRepo, cleanupTestRepo, git } from "../../test/helpers/git.js";
-import { parse } from "../../test/helpers/mcp.js";
-
-function createServerInRepo(repoDir: string) {
-  return createGraftServer({
-    projectRoot: repoDir,
-    graftDir: path.join(repoDir, ".graft"),
-  });
-}
+import { createServerInRepo, parse } from "../../test/helpers/mcp.js";
 
 describe("0069 graft_map bounded overview playback", () => {
   it("graft_map depth 0 returns direct files and summarized child directories for one-call orientation", async () => {

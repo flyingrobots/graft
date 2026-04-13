@@ -2,18 +2,10 @@ import { describe, it, expect } from "vitest";
 import * as fs from "node:fs";
 import * as path from "node:path";
 import { nodeGit } from "../../../src/adapters/node-git.js";
-import { createGraftServer } from "../../../src/mcp/server.js";
 import { git, createTestRepo, cleanupTestRepo } from "../../helpers/git.js";
-import { parse } from "../../helpers/mcp.js";
+import { createServerInRepo, parse } from "../../helpers/mcp.js";
 import { openWarp } from "../../../src/warp/open.js";
 import { indexCommits } from "../../../src/warp/indexer.js";
-
-function createServerInRepo(repoDir: string) {
-  return createGraftServer({
-    projectRoot: repoDir,
-    graftDir: path.join(repoDir, ".graft"),
-  });
-}
 
 // These RED tests intentionally mirror the 0025 playback questions while
 // spanning golden path, failure modes, edge cases, and stress behavior.

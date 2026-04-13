@@ -1,16 +1,8 @@
 import { describe, it, expect } from "vitest";
 import * as fs from "node:fs";
 import * as path from "node:path";
-import { createGraftServer } from "../../../src/mcp/server.js";
 import { createTestRepo, cleanupTestRepo, git } from "../../helpers/git.js";
-import { parse } from "../../helpers/mcp.js";
-
-function createServerInRepo(repoDir: string) {
-  return createGraftServer({
-    projectRoot: repoDir,
-    graftDir: path.join(repoDir, ".graft"),
-  });
-}
+import { createServerInRepo, parse } from "../../helpers/mcp.js";
 
 describe("mcp: structural tool policy enforcement", () => {
   it("graft_map includes untracked working-tree files", async () => {

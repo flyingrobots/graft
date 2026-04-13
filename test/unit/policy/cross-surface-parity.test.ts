@@ -1,20 +1,11 @@
 import { afterEach, describe, expect, it } from "vitest";
 import * as fs from "node:fs";
 import * as path from "node:path";
-import { createGraftServer } from "../../../src/mcp/server.js";
-import type { GraftServer } from "../../../src/mcp/server.js";
 import { handlePostReadHook } from "../../../src/hooks/posttooluse-read.js";
 import { handleReadHook } from "../../../src/hooks/pretooluse-read.js";
 import { HookInput } from "../../../src/hooks/shared.js";
 import { cleanupTestRepo, createTestRepo, git } from "../../helpers/git.js";
-import { parse } from "../../helpers/mcp.js";
-
-function createServerInRepo(repoDir: string): GraftServer {
-  return createGraftServer({
-    projectRoot: repoDir,
-    graftDir: path.join(repoDir, ".graft"),
-  });
-}
+import { createServerInRepo, parse } from "../../helpers/mcp.js";
 
 function makeHookInput(filePath: string, cwd: string, hookEventName: "PreToolUse" | "PostToolUse"): HookInput {
   return new HookInput({

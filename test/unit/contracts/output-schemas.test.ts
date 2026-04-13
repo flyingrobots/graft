@@ -14,7 +14,7 @@ import { runCli } from "../../../src/cli/main.js";
 import { runInit } from "../../../src/cli/init.js";
 import { runIndex } from "../../../src/cli/index-cmd.js";
 import { cleanupTestRepo, createTestRepo, git } from "../../helpers/git.js";
-import { parse } from "../../helpers/mcp.js";
+import { createServerInRepo, parse } from "../../helpers/mcp.js";
 
 interface Writer {
   text(): string;
@@ -32,13 +32,6 @@ function createBufferWriter(): Writer {
       return buffer;
     },
   };
-}
-
-function createServerInRepo(repoDir: string) {
-  return createGraftServer({
-    projectRoot: repoDir,
-    graftDir: path.join(repoDir, ".graft"),
-  });
 }
 
 function createDaemonServer(graftDir: string) {

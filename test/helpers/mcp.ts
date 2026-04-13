@@ -2,7 +2,7 @@ import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
 import { createGraftServer } from "../../src/mcp/server.js";
-import type { GraftServer } from "../../src/mcp/server.js";
+import type { CreateGraftServerOptions, GraftServer } from "../../src/mcp/server.js";
 import type { RunCaptureConfig } from "../../src/mcp/run-capture-config.js";
 import type { RuntimeObservabilityState } from "../../src/mcp/runtime-observability.js";
 import type { WorkspaceSessionMode } from "../../src/mcp/workspace-router.js";
@@ -32,6 +32,19 @@ export interface CreateIsolatedServerOptions {
   graftDir?: string;
   runCapture?: Partial<RunCaptureConfig>;
   runtimeObservability?: Partial<RuntimeObservabilityState>;
+}
+
+type CreateServerInRepoOptions = Omit<CreateGraftServerOptions, "projectRoot" | "graftDir">;
+
+export function createServerInRepo(
+  repoDir: string,
+  options: CreateServerInRepoOptions = {},
+): GraftServer {
+  return createGraftServer({
+    projectRoot: repoDir,
+    graftDir: path.join(repoDir, ".graft"),
+    ...options,
+  });
 }
 
 export function createIsolatedServer(options: CreateIsolatedServerOptions = {}): IsolatedServer {

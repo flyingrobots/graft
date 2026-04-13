@@ -3,20 +3,12 @@ import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
 import { nodeGit } from "../../../src/adapters/node-git.js";
-import { createGraftServer } from "../../../src/mcp/server.js";
 import { collectSymbols } from "../../../src/mcp/tools/precision.js";
 import { git, createTestRepo, cleanupTestRepo } from "../../helpers/git.js";
-import { parse } from "../../helpers/mcp.js";
+import { createServerInRepo, parse } from "../../helpers/mcp.js";
 import { openWarp } from "../../../src/warp/open.js";
 import { indexCommits } from "../../../src/warp/indexer.js";
 import { JumpEntry, OutlineEntry } from "../../../src/parser/types.js";
-
-function createServerInRepo(repoDir: string) {
-  return createGraftServer({
-    projectRoot: repoDir,
-    graftDir: path.join(repoDir, ".graft"),
-  });
-}
 
 describe("mcp: code_show", () => {
   it("returns working-tree source code for a known symbol", async () => {
