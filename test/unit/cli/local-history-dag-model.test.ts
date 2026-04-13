@@ -114,4 +114,58 @@ describe("local history dag model", () => {
     expect(model.nodes.some((node) => node.id === "lh:event:bad")).toBe(false);
     expect(model.nodes.some((node) => node.id === "lh:event:good")).toBe(true);
   });
+
+  it("renders fallback actor nodes as actor:unknown instead of unknown:unknown", () => {
+    const model = buildLocalHistoryDagModelFromObservedGraph({
+      cwd: "/tmp/example",
+      repoId: "repo:1",
+      resolvedWorktreeId: "worktree:1",
+      requestedEventLimit: 12,
+      observedNodes: [
+        {
+          id: "repo:1",
+          props: {
+            entityKind: "repo",
+            repoId: "repo:1",
+          },
+        },
+        {
+          id: "worktree:1",
+          props: {
+            entityKind: "worktree",
+            repoId: "repo:1",
+            worktreeId: "worktree:1",
+          },
+        },
+        {
+          id: "lh:actor:unknown",
+          props: {
+            entityKind: "actor",
+            actorId: "unknown",
+            actorKind: "unknown",
+          },
+        },
+        {
+          id: "lh:event:history:1",
+          props: {
+            entityKind: "local_history_event",
+            eventKind: "continuity",
+            continuityOperation: "start",
+            repoId: "repo:1",
+            worktreeId: "worktree:1",
+            occurredAt: "2026-04-13T20:00:00.000Z",
+          },
+        },
+      ],
+      observedEdges: [
+        {
+          from: "lh:event:history:1",
+          to: "lh:actor:unknown",
+          label: "attributed_to",
+        },
+      ],
+    });
+
+    expect(model.nodes.find((node) => node.id === "lh:actor:unknown")?.label).toBe("actor:unknown");
+  });
 });

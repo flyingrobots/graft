@@ -241,7 +241,9 @@ function buildNodeLabel(node: ObservedNode): string {
     return `epoch:${trimId(props.checkoutEpochId ?? id)}`;
   }
   if (entityKind === "actor") {
-    return `${props.actorKind ?? "actor"}:${trimId(props.actorId ?? id)}`;
+    const actorId = trimId(props.actorId ?? id);
+    const actorKind = props.actorKind ?? "actor";
+    return actorKind === "unknown" ? `actor:${actorId}` : `${actorKind}:${actorId}`;
   }
   if (entityKind === "workspace_overlay") {
     return `overlay:${trimId(props.workspaceOverlayId ?? id)}`;
