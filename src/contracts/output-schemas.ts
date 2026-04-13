@@ -1121,6 +1121,12 @@ const localHistoryDagEdgeSchema = z.object({
   label: z.string(),
 }).strict();
 
+export const DIAG_ACTIVITY_CLI_SCHEMA = activityViewSchema.extend({
+  _schema: schemaMetaLiteral(cliOutputSchemaMeta.diag_activity),
+  _receipt: receiptSchema,
+  tripwire: z.array(tripwireSchema).optional(),
+}).strict();
+
 export const CLI_OUTPUT_SCHEMAS: Record<CliCommandName, z.ZodType> = {
   init: withCliCommon("init", z.object({
     ok: z.boolean(),
@@ -1148,7 +1154,7 @@ export const CLI_OUTPUT_SCHEMAS: Record<CliCommandName, z.ZodType> = {
   symbol_show: withCliPeerCommon("symbol_show", mcpOutputBodySchemas.code_show),
   symbol_find: withCliPeerCommon("symbol_find", mcpOutputBodySchemas.code_find),
   diag_doctor: withCliPeerCommon("diag_doctor", mcpOutputBodySchemas.doctor),
-  diag_activity: withCliPeerCommon("diag_activity", mcpOutputBodySchemas.activity_view),
+  diag_activity: DIAG_ACTIVITY_CLI_SCHEMA,
   diag_local_history_dag: withCliCommon("diag_local_history_dag", z.object({
     cwd: z.string(),
     repoId: z.string(),

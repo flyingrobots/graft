@@ -86,7 +86,7 @@ function emitPeerCommand(
     return;
   }
   if (command === "diag_activity") {
-    writer.write(`${renderActivityView(validated as unknown as Parameters<typeof renderActivityView>[0])}\n`);
+    writer.write(`${renderActivityView(validated)}\n`);
     return;
   }
   writer.write(`${JSON.stringify(validated, null, 2)}\n`);

@@ -1,95 +1,14 @@
-interface AttributionActor {
-  readonly actorId: string;
-  readonly actorKind: string;
-}
+import { type z } from "zod";
+import { DIAG_ACTIVITY_CLI_SCHEMA } from "../contracts/output-schemas.js";
 
-interface AttributionSummary {
-  readonly actor: AttributionActor;
-  readonly confidence: string;
-}
-
-interface CausalFootprint {
-  readonly paths: readonly string[];
-  readonly symbols: readonly string[];
-}
-
-interface ContinuityActivityItem {
-  readonly itemKind: "continuity";
-  readonly operation: string;
-  readonly occurredAt: string;
-  readonly causalSessionId: string;
-  readonly strandId: string;
-  readonly attribution: AttributionSummary;
-  readonly continuedFromCausalSessionId: string | null;
-  readonly continuedFromStrandId: string | null;
-}
-
-interface ReadActivityItem {
-  readonly eventKind: "read";
-  readonly occurredAt: string;
-  readonly attribution: AttributionSummary;
-  readonly footprint: CausalFootprint;
-  readonly payload: {
-    readonly surface: string;
-    readonly projection: string;
-  };
-}
-
-interface StageActivityItem {
-  readonly eventKind: "stage";
-  readonly occurredAt: string;
-  readonly attribution: AttributionSummary;
-  readonly footprint: CausalFootprint;
-  readonly payload: {
-    readonly selectionKind: string;
-  };
-}
-
-interface TransitionActivityItem {
-  readonly eventKind: "transition";
-  readonly occurredAt: string;
-  readonly attribution: AttributionSummary;
-  readonly payload: {
-    readonly summary: string;
-  };
-}
-
-type ActivityItem =
-  | ContinuityActivityItem
-  | ReadActivityItem
-  | StageActivityItem
-  | TransitionActivityItem;
-
-interface ActivityGroup {
-  readonly label: string;
-  readonly summary: string;
-  readonly items: readonly ActivityItem[];
-}
-
-interface DiagActivityOutput {
-  readonly repoId: string | null;
-  readonly worktreeId: string | null;
-  readonly truthClass: string;
-  readonly anchor: {
-    readonly posture: string;
-    readonly headRef: string | null;
-    readonly headSha: string | null;
-  };
-  readonly summary: {
-    readonly headline: string;
-    readonly anchor: string;
-    readonly workspace: string;
-    readonly groups: readonly string[];
-  };
-  readonly activityWindow: {
-    readonly returned: number;
-    readonly totalMatchingItems: number;
-    readonly truncated: boolean;
-    readonly groups: readonly ActivityGroup[];
-  };
-  readonly degradedReasons: readonly string[];
-  readonly nextAction: string;
-}
+type DiagActivityOutput = z.infer<typeof DIAG_ACTIVITY_CLI_SCHEMA>;
+type ActivityGroup = DiagActivityOutput["activityWindow"]["groups"][number];
+type ActivityItem = ActivityGroup["items"][number];
+type AttributionSummary = ActivityItem["attribution"];
+type ContinuityActivityItem = Extract<ActivityItem, { itemKind: "continuity" }>;
+type ReadActivityItem = Extract<ActivityItem, { eventKind: "read" }>;
+type StageActivityItem = Extract<ActivityItem, { eventKind: "stage" }>;
+type TransitionActivityItem = Extract<ActivityItem, { eventKind: "transition" }>;
 
 function trimId(value: string | null | undefined): string {
   if (value === null || value === undefined || value.length === 0) {
@@ -154,32 +73,33 @@ function formatActivityItem(item: ActivityItem): string {
   return formatTransitionItem(item);
 }
 
-export function renderActivityView(output: DiagActivityOutput): string {
+export function renderActivityView(output: unknown): string {
+  const parsed = DIAG_ACTIVITY_CLI_SCHEMA.parse(output);
   const lines = [
     "Activity",
-    `repo: ${output.repoId ?? "unknown"}`,
-    `worktree: ${output.worktreeId ?? "unknown"}`,
-    `anchor: ${output.anchor.headRef ?? output.anchor.posture} @ ${shortSha(output.anchor.headSha)}`,
-    `truth: ${output.truthClass}`,
-    `next: ${output.nextAction}`,
-    `degraded: ${output.degradedReasons.length === 0 ? "none" : output.degradedReasons.join(", ")}`,
+    `repo: ${parsed.repoId ?? "unknown"}`,
+    `worktree: ${parsed.worktreeId ?? "unknown"}`,
+    `anchor: ${parsed.anchor.headRef ?? parsed.anchor.posture} @ ${shortSha(parsed.anchor.headSha)}`,
+    `truth: ${parsed.truthClass}`,
+    `next: ${parsed.nextAction}`,
+    `degraded: ${parsed.degradedReasons.length === 0 ? "none" : parsed.degradedReasons.join(", ")}`,
     "",
-    output.summary.headline,
-    output.summary.anchor,
-    output.summary.workspace,
+    parsed.summary.headline,
+    parsed.summary.anchor,
+    parsed.summary.workspace,
   ];
 
-  if (output.activityWindow.returned === 0) {
+  if (parsed.activityWindow.returned === 0) {
     lines.push("", "No activity items found in the requested window.");
     return lines.join("\n");
   }
 
   lines.push("");
-  lines.push(`window: ${String(output.activityWindow.returned)} shown / ${String(output.activityWindow.totalMatchingItems)} matching${output.activityWindow.truncated ? " (truncated)" : ""}`);
+  lines.push(`window: ${String(parsed.activityWindow.returned)} shown / ${String(parsed.activityWindow.totalMatchingItems)} matching${parsed.activityWindow.truncated ? " (truncated)" : ""}`);
   lines.push("");
   lines.push("Groups");
 
-  for (const group of output.activityWindow.groups) {
+  for (const group of parsed.activityWindow.groups) {
     lines.push("");
     lines.push(`${group.label} (${String(group.items.length)})`);
     lines.push(group.summary);
