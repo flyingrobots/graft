@@ -21,17 +21,20 @@ specific agent instance.
 
 ## Hill
 
-TBD
+This packet was pulled active too early and closed as `not-met` without
+execution. It is really the second half of the scheduler story and
+should stay behind `0068` so monitor execution moves onto a real
+scheduler instead of a hypothetical one.
+
+Live plan:
+- `docs/method/backlog/up-next/SURFACE_monitors-run-through-scheduler.md`
+- Keep behind `0068 daemon-job-scheduler-and-worker-pool`
 
 ## Playback Questions
 
 ### Human
 
-- [ ] TBD
-
 ### Agent
-
-- [ ] TBD
 
 ## Accessibility and Assistive Reading
 

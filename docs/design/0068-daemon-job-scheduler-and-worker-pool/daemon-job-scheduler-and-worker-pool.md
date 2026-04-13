@@ -21,17 +21,22 @@ specific agent instance.
 
 ## Hill
 
-TBD
+This packet was pulled active too early and closed as `not-met` without
+execution. The scheduler remains important, but it should follow the
+immediate execution work in `0069` and the async Git substrate in
+`0067` so scheduling is built on the right seams rather than on top of
+more placeholder state.
+
+Live plan:
+- `docs/method/backlog/up-next/SURFACE_daemon-job-scheduler-and-worker-pool.md`
+- Keep behind `0069 graft-map-bounded-overview`
+- Keep behind `0067 async-git-client-via-plumbing`
 
 ## Playback Questions
 
 ### Human
 
-- [ ] TBD
-
 ### Agent
-
-- [ ] TBD
 
 ## Accessibility and Assistive Reading
 

@@ -21,17 +21,22 @@ specific agent instance.
 
 ## Hill
 
-TBD
+This packet was pulled active too early and closed as `not-met` without
+execution. The hook bootstrap work remains a real truthfulness win, but
+it should follow the current execution set so the daemon request-path
+and scheduling model are steadier before hook bootstrap becomes the next
+surface push.
+
+Live plan:
+- `docs/method/backlog/up-next/SURFACE_target-repo-git-hook-bootstrap.md`
+- Keep behind `0068 daemon-job-scheduler-and-worker-pool`
+- Keep behind `0070 monitors-run-through-scheduler`
 
 ## Playback Questions
 
 ### Human
 
-- [ ] TBD
-
 ### Agent
-
-- [ ] TBD
 
 ## Accessibility and Assistive Reading
 
