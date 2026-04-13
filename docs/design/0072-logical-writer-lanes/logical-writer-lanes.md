@@ -21,17 +21,21 @@ specific agent instance.
 
 ## Hill
 
-TBD
+This packet was pulled active too early and closed as `not-met` without
+execution. The real work remains valid, but it depends on the scheduler
+and monitor execution model becoming concrete first so writer-lane
+identity maps to real logical job classes instead of hypothetical ones.
+
+Live plan:
+- `docs/method/backlog/up-next/WARP_logical-warp-writer-lanes.md`
+- Keep behind `0068 daemon-job-scheduler-and-worker-pool`
+- Keep behind `0070 monitors-run-through-scheduler`
 
 ## Playback Questions
 
 ### Human
 
-- [ ] TBD
-
 ### Agent
-
-- [ ] TBD
 
 ## Accessibility and Assistive Reading
 

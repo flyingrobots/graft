@@ -21,17 +21,23 @@ specific agent instance.
 
 ## Hill
 
-TBD
+This packet was pulled active too early and closed as `not-met` without
+execution. The direction remains real, but it is ontology and
+trust-posture work that should follow the scheduler, monitor,
+provenance, and same-repo activity foundations rather than run ahead of
+them.
+
+Live plan:
+- `docs/method/backlog/up-next/WARP_symbol-identity-and-rename-continuity.md`
+- Keep behind `0068 daemon-job-scheduler-and-worker-pool`
+- Keep behind `0070 monitors-run-through-scheduler`
+- Keep behind `0072 logical-writer-lanes`
 
 ## Playback Questions
 
 ### Human
 
-- [ ] TBD
-
 ### Agent
-
-- [ ] TBD
 
 ## Accessibility and Assistive Reading
 
