@@ -180,6 +180,53 @@ If local history stays in JSON sidecars:
 4. Direct cross-links from local-history footprints to structural file
    and symbol nodes where possible.
 5. Local causal history remains `artifact_history` until later collapse.
+6. The schema composes with `git-warp`'s actual substrate surfaces:
+   worldlines, strands, comparison/braid surfaces, provenance, and
+   bounded observer reads. It must not invent a parallel storage or read
+   model beside them.
+
+## WARP-native alignment
+
+This packet defines a graph schema stored inside the repo-local
+`git-warp` graph. It does not replace `git-warp`'s own control nouns.
+
+The important split is:
+
+- WARP substrate nouns:
+  - `worldline`
+  - `strand`
+  - `braid`
+  - `observer`
+  - commitment / folding / revelation / governance surfaces
+- Graft application-level graph entities stored inside that substrate:
+  - `checkout_epoch`
+  - `causal_session`
+  - `workspace_slice`
+  - `workspace_overlay`
+  - `local_history_event`
+  - `causal_footprint`
+  - `staged_target`
+
+Rules:
+
+- local-history facts are written through WARP commitment surfaces,
+  not through sidecar files or an out-of-band state store
+- bounded human/agent inspection should read through WARP-style
+  revelation surfaces, not through ungoverned raw graph dumps
+- any Graft-local identity that shares a name with a WARP substrate noun
+  must be explicitly treated as an application-level graph fact that
+  aligns with the substrate object, not a replacement for it
+
+Concretely:
+
+- the graph continues to have one repo-local substrate, currently the
+  same graph Graft already uses for structural truth
+- Graft may persist application metadata about a line of work as a
+  `strand`-family node in the graph, but that node is not a second
+  implementation of `git-warp`'s own strand descriptor machinery
+- later braid / comparison work should reconcile divergent local-history
+  lanes through WARP comparison and admission machinery rather than by
+  inventing a separate merge model inside Graft
 
 ## Proposed schema
 
@@ -223,6 +270,10 @@ This avoids colliding with existing structural symbol property names
 such as `kind`.
 
 ### Node families
+
+These are application-level node families stored in the shared WARP
+graph. They complement the substrate's own worldline / strand /
+observer machinery; they do not replace it.
 
 #### Shared anchor nodes
 
@@ -279,6 +330,10 @@ causal history.
   - `strandId`
   - `originCheckoutEpochId`
   - `createdAt`
+
+This node family records Graft's graph-visible identity for a local line
+of work. It must align with the underlying `git-warp` strand identifier
+and lifecycle, but it is not a second strand runtime.
 
 `workspace_slice`
 - Node id: `lh:slice:<workspaceSliceId>`
@@ -611,14 +666,18 @@ Graph-backed mapping:
 - add graph-writer helpers for the node and edge families above
 - introduce a formal `continuity` event shape in code so continuity
   records and causal events share one event model
-- dual-write local-history updates into git-warp while preserving the
-  current JSON path temporarily
+- dual-write local-history updates through WARP commitment surfaces
+  while preserving the current JSON path temporarily
+- keep graph writes on the existing repo-local substrate rather than
+  opening a second graph or second persistence channel
 
 ### Slice 2: graph-backed readers
 
-- teach `causal_status`, `activity_view`, and related surfaces to read
-  from the graph instead of JSON state files
+- teach `causal_status`, `activity_view`, and related surfaces to reveal
+  local-history truth from the graph instead of JSON state files
 - make active-strand / active-session projections traversal-based
+- keep those reads aligned with WARP revelation / provenance posture
+  instead of exposing an unbounded raw graph scan as the product surface
 
 ### Slice 3: JSON retirement
 
@@ -632,11 +691,14 @@ Graph-backed mapping:
 ### What Graft can settle locally now
 
 - the local-history node and edge schema
-- graph-backed storage of local causal history
+- graph-backed storage of local causal history on the existing WARP
+  substrate
 - append-only traversal semantics for active state
 - migration away from JSON sidecars
 - cross-links from local-history footprints to structural file/symbol
   nodes
+- application-level identities that align with WARP worldline / strand /
+  provenance surfaces without replacing them
 
 ### What may still depend on later upstream work
 

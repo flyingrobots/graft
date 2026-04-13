@@ -19,6 +19,10 @@ The packet now defines:
   event nodes, evidence, footprints, and staged targets
 - edge families for anchoring, continuity, ordering, and cross-links
   into structural truth
+- explicit alignment with WARP substrate nouns and surfaces so the
+  schema composes with worldlines, strands, comparison, provenance, and
+  bounded revelation instead of inventing a parallel local-history
+  engine
 - invariants that keep local history append-only and
   `artifact_history`-scoped until later collapse/admission work
 - an explicit mapping from the current JSON sidecar model to the

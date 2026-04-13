@@ -67,6 +67,21 @@ describe("0074 playback: local causal history graph schema", () => {
     ]);
   });
 
+  it("Does the packet stay WARP-native by composing with worldlines, strands, comparison, and bounded revelation instead of inventing a parallel local-history engine?", () => {
+    expectMentions(designDoc, [
+      "## WARP-native alignment",
+      "WARP substrate nouns:",
+      "`worldline`",
+      "`strand`",
+      "`braid`",
+      "`observer`",
+      "commitment / folding / revelation / governance surfaces",
+      "written through WARP commitment surfaces",
+      "bounded human/agent inspection should read through",
+      "not a second strand runtime",
+    ]);
+  });
+
   it("Are node IDs, node families, edge labels, and required properties explicit enough to implement without guessing?", () => {
     expectMentions(designDoc, [
       "### Placement and namespace",

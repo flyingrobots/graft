@@ -32,6 +32,10 @@ npm run lint
 
 - The graph-schema packet is explicit enough to implement without
   inventing local-history node families ad hoc.
+- The packet now states the WARP-native boundary explicitly: Graft's
+  application-level local-history nodes live inside the same substrate
+  and compose with worldlines, strands, comparison, and bounded
+  revelation rather than replacing them.
 - The packet keeps local history as `artifact_history` and makes active
   state traversal-derived rather than pointer-derived.
 - The packet explicitly maps the current `.graft/local-history/*.json`
