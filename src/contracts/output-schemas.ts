@@ -351,17 +351,34 @@ const structuralRefusalSchema = z.object({
   actual: actualSchema,
 }).strict();
 
+const mapSymbolSchema = z.object({
+  name: z.string(),
+  kind: z.string(),
+  signature: z.string().optional(),
+  exported: z.boolean(),
+  startLine: z.number().int().positive().optional(),
+  endLine: z.number().int().positive().optional(),
+}).strict();
+
 const mapFileSchema = z.object({
   path: z.string(),
   lang: z.string(),
-  symbols: z.array(z.object({
-    name: z.string(),
-    kind: z.string(),
-    signature: z.string().optional(),
-    exported: z.boolean(),
-    startLine: z.number().int().positive().optional(),
-    endLine: z.number().int().positive().optional(),
-  }).strict()),
+  symbolCount: z.number().int().nonnegative(),
+  summaryOnly: z.boolean(),
+  symbols: z.array(mapSymbolSchema).optional(),
+}).strict();
+
+const mapDirectorySchema = z.object({
+  path: z.string(),
+  fileCount: z.number().int().positive(),
+  symbolCount: z.number().int().nonnegative(),
+  childDirectoryCount: z.number().int().nonnegative(),
+  summaryOnly: z.literal(true),
+}).strict();
+
+const mapModeSchema = z.object({
+  depth: z.number().int().nonnegative().nullable(),
+  summary: z.boolean(),
 }).strict();
 
 const fileDiffSchema = z.object({
@@ -860,7 +877,9 @@ const mcpOutputBodySchemas: Record<McpToolName, z.ZodType> = {
   graft_map: z.object({
     directory: z.string(),
     files: z.array(mapFileSchema),
+    directories: z.array(mapDirectorySchema).optional(),
     refused: z.array(structuralRefusalSchema).optional(),
+    mode: mapModeSchema,
     summary: z.string(),
   }).strict(),
   code_show: z.object({

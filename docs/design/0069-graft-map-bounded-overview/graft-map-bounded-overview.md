@@ -21,36 +21,53 @@ specific agent instance.
 
 ## Hill
 
-TBD
+`graft_map` supports an explicit bounded-overview posture without
+falling back to an oversized blob file. Callers can ask for bounded
+orientation with `depth` and `summary`, and the response makes the
+degradation explicit through `mode`, per-file `symbolCount`, and
+summarized descendant directories.
 
 ## Playback Questions
 
 ### Human
 
-- [ ] TBD
+- [ ] graft_map depth 0 returns direct files and summarized child directories for one-call orientation
 
 ### Agent
 
-- [ ] TBD
+- [ ] graft_map summary mode reports symbol counts without emitting per-symbol payloads
 
 ## Accessibility and Assistive Reading
 
-- Linear truth / reduced-complexity posture: TBD
-- Non-visual or alternate-reading expectations: TBD
+- Linear truth / reduced-complexity posture: bounded overview is a
+  first-class response shape rather than an implicit overflow fallback.
+- Non-visual or alternate-reading expectations: directory summaries and
+  symbol counts preserve orientation without requiring chunked raw JSON
+  recovery.
 
 ## Localization and Directionality
 
-- Locale / wording / formatting assumptions: TBD
-- Logical direction / layout assumptions: TBD
+- Locale / wording / formatting assumptions: summary strings remain
+  English-only operator text; machine-readable fields carry the real
+  contract.
+- Logical direction / layout assumptions: repo paths remain normalized
+  logical paths relative to repo root.
 
 ## Agent Inspectability and Explainability
 
-- What must be explicit and deterministic for agents: TBD
-- What must be attributable, evidenced, or governed: TBD
+- What must be explicit and deterministic for agents: whether the result
+  is bounded by `depth`, whether file entries omit symbol payloads, and
+  which descendant directories were summarized instead of expanded.
+- What must be attributable, evidenced, or governed: `.graftignore`
+  denials still surface under `refused`; bounded overview is explicit in
+  `mode` and `summary`, not hidden behind transport overflow.
 
 ## Non-goals
 
-- [ ] TBD
+- [ ] Automatic hybrid truncation based on estimated transport size.
+- [ ] Cursor or paging support.
+- [ ] Parsing-cost optimization; this phase is about response shape, not
+  parser throughput.
 
 ## Backlog Context
 
