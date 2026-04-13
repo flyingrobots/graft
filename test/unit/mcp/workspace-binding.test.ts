@@ -121,7 +121,7 @@ describe("mcp: daemon workspace binding", () => {
     expect(safeRead["projection"]).toBe("content");
   });
 
-  it("loads .graftignore during daemon bind without sync filesystem reads", async () => {
+  it("Does workspace binding load graftignore without sync filesystem reads?", async () => {
     const repoDir = createCommittedRepo();
     fs.writeFileSync(path.join(repoDir, ".graftignore"), "ignored.ts\n");
     const graftDir = fs.mkdtempSync(path.join(os.tmpdir(), "graft-bind-state-"));

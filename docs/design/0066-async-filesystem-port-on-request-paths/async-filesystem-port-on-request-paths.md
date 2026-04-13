@@ -32,20 +32,12 @@ specific agent instance.
 
 ### Human
 
-- [ ] Does workspace binding still behave the same for repos with and
-  without `.graftignore`, while avoiding daemon event-loop stalls from
-  sync file reads?
-- [ ] Are remaining sync filesystem reads clearly outside the shared MCP
-  request path, so operators know what is and is not fixed by this
-  cycle?
+- [ ] Does workspace binding load graftignore without sync filesystem reads?
+- [ ] Does startup exclusion of graft still work without sync filesystem reads?
 
 ### Agent
 
-- [ ] Can I exercise daemon workspace binding and governed reads with a
-  filesystem port that throws on `readFileSync` and still get lawful
-  results?
-- [ ] Is the async posture proven at the seam where policy context is
-  built, rather than only in lower-level operations tests?
+- [ ] Is the filesystem posture async on daemon-heavy request paths, with remaining sync reads treated as deliberate debt rather than default behavior?
 
 ## Accessibility and Assistive Reading
 

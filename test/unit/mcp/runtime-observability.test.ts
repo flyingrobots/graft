@@ -874,7 +874,7 @@ describe("mcp: runtime observability", () => {
     }
   });
 
-  it("loads .git/info/exclude without sync filesystem reads", async () => {
+  it("Does startup exclusion of graft still work without sync filesystem reads?", async () => {
     const repoDir = createTestRepo("graft-runtime-async-exclude-");
     try {
       const asyncFs = new AsyncNoSyncFileSystem();
