@@ -3,7 +3,7 @@ import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
 import { createInProcessDaemonHarness } from "../../helpers/daemon.js";
-import { cleanupTestRepo, createTestRepo, git } from "../../helpers/git.js";
+import { cleanupTestRepo, createCommittedTestRepo, git } from "../../helpers/git.js";
 
 const cleanups: (() => Promise<void> | void)[] = [];
 
@@ -14,13 +14,10 @@ afterEach(async () => {
 });
 
 function createCommittedRepo(prefix: string): string {
-  const repoDir = createTestRepo(prefix);
+  const repoDir = createCommittedTestRepo(prefix);
   cleanups.push(() => {
     cleanupTestRepo(repoDir);
   });
-  fs.writeFileSync(path.join(repoDir, "app.ts"), "export const ready = true;\n");
-  git(repoDir, "add -A");
-  git(repoDir, "commit -m init");
   return repoDir;
 }
 

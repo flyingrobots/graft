@@ -3,7 +3,7 @@ import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
 import { createIsolatedServer, parse } from "../../helpers/mcp.js";
-import { cleanupTestRepo, createTestRepo, git } from "../../helpers/git.js";
+import { cleanupTestRepo, createCommittedTestRepo, git } from "../../helpers/git.js";
 
 const cleanups: (() => void)[] = [];
 
@@ -22,13 +22,10 @@ function createDaemonServer() {
 }
 
 function createCommittedRepo(): string {
-  const repoDir = createTestRepo("graft-monitor-");
+  const repoDir = createCommittedTestRepo("graft-monitor-");
   cleanups.push(() => {
     cleanupTestRepo(repoDir);
   });
-  fs.writeFileSync(path.join(repoDir, "app.ts"), "export const ready = true;\n");
-  git(repoDir, "add -A");
-  git(repoDir, "commit -m init");
   return repoDir;
 }
 

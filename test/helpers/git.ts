@@ -56,6 +56,21 @@ export function createTestRepo(prefix = "graft-test-"): string {
   return tmpDir;
 }
 
+export function createCommittedTestRepo(
+  prefix = "graft-test-",
+  files: Record<string, string> = { "app.ts": "export const ready = true;\n" },
+): string {
+  const tmpDir = createTestRepo(prefix);
+  for (const [relativePath, content] of Object.entries(files)) {
+    const absolutePath = path.join(tmpDir, relativePath);
+    fs.mkdirSync(path.dirname(absolutePath), { recursive: true });
+    fs.writeFileSync(absolutePath, content);
+  }
+  git(tmpDir, "add -A");
+  git(tmpDir, "commit -m init");
+  return tmpDir;
+}
+
 /** Remove a temp directory created by createTestRepo. */
 export function cleanupTestRepo(tmpDir: string): void {
   fs.rmSync(tmpDir, { recursive: true, force: true });

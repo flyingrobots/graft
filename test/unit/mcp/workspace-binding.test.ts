@@ -9,7 +9,7 @@ import { PersistedLocalHistoryStore } from "../../../src/mcp/persisted-local-his
 import { DEFAULT_DAEMON_CAPABILITY_PROFILE, WorkspaceRouter } from "../../../src/mcp/workspace-router.js";
 import type { FileSystem } from "../../../src/ports/filesystem.js";
 import { createIsolatedServer, parse } from "../../helpers/mcp.js";
-import { cleanupTestRepo, createTestRepo, git } from "../../helpers/git.js";
+import { cleanupTestRepo, createCommittedTestRepo, git } from "../../helpers/git.js";
 
 const cleanups: (() => void)[] = [];
 
@@ -28,13 +28,10 @@ function createDaemonServer() {
 }
 
 function createCommittedRepo(): string {
-  const repoDir = createTestRepo("graft-workspace-bind-");
+  const repoDir = createCommittedTestRepo("graft-workspace-bind-");
   cleanups.push(() => {
     cleanupTestRepo(repoDir);
   });
-  fs.writeFileSync(path.join(repoDir, "app.ts"), "export const ready = true;\n");
-  git(repoDir, "add -A");
-  git(repoDir, "commit -m init");
   return repoDir;
 }
 
