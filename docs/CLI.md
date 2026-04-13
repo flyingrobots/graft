@@ -42,7 +42,7 @@ graft struct diff --json
 
 `graft diag activity` is the current human-facing between-commit surface. It reports bounded local `artifact_history`, not canonical provenance.
 
-`graft diag local-history-dag` is a CLI-only debug surface over the repo-local WARP graph. It renders a bounded event-centric DAG for local history without exposing an MCP peer yet.
+`graft diag local-history-dag` is a CLI-only debug surface over the repo-local WARP graph. It renders a bounded event-centric DAG for local history through Bijou's `dag()` component. In interactive terminals that means the Bijou DAG layout; in pipes or non-TTY contexts it degrades to Bijou's truthful pipe-mode graph listing.
 
 ## Related docs
 - [README](../README.md)
