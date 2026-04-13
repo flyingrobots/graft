@@ -15,6 +15,7 @@ import {
 import { createGraftServer, type McpToolResult } from "../mcp/server.js";
 import { startDaemonServer, type GraftDaemonServer } from "../mcp/daemon-server.js";
 import { startStdioServer } from "../mcp/stdio-server.js";
+import { renderActivityView } from "./activity-render.js";
 import { runIndex } from "./index-cmd.js";
 import { runInit } from "./init.js";
 import { runLocalHistoryDag } from "./local-history-dag.js";
@@ -82,6 +83,10 @@ function emitPeerCommand(
   const validated = validateCliOutput(command, attachCliSchemaMeta(command, rest));
   if (json) {
     writer.write(`${codec.encode(validated)}\n`);
+    return;
+  }
+  if (command === "diag_activity") {
+    writer.write(`${renderActivityView(validated as unknown as Parameters<typeof renderActivityView>[0])}\n`);
     return;
   }
   writer.write(`${JSON.stringify(validated, null, 2)}\n`);

@@ -239,6 +239,46 @@ describe("cli: graft grouped surface", () => {
     }
   });
 
+  it("renders human-friendly diag activity output by default", async () => {
+    const repoDir = createTestRepo("graft-cli-activity-human-");
+    try {
+      fs.writeFileSync(path.join(repoDir, "app.ts"), [
+        "export function greet(name: string): string {",
+        "  return `hello ${name}`;",
+        "}",
+        "",
+      ].join("\n"));
+      git(repoDir, "add -A");
+      git(repoDir, "commit -m init");
+
+      await runCli({
+        cwd: repoDir,
+        args: ["read", "safe", "app.ts", "--json"],
+        stdout: createBufferWriter(),
+        stderr: createBufferWriter(),
+      });
+
+      const stdout = createBufferWriter();
+      const stderr = createBufferWriter();
+
+      await runCli({
+        cwd: repoDir,
+        args: ["diag", "activity", "--limit", "5"],
+        stdout,
+        stderr,
+      });
+
+      expect(stderr.text()).toBe("");
+      expect(stdout.text()).toContain("Activity");
+      expect(stdout.text()).toContain("truth: artifact_history");
+      expect(stdout.text()).toContain("Groups");
+      expect(stdout.text()).toContain("read activity");
+      expect(stdout.text().trimStart().startsWith("{")).toBe(false);
+    } finally {
+      cleanupTestRepo(repoDir);
+    }
+  });
+
   it("renders a bounded local-history DAG from WARP-backed history", async () => {
     const repoDir = createTestRepo("graft-cli-local-history-dag-");
     try {

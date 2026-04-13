@@ -81,6 +81,10 @@ function shortSha(sha: string | null): string {
   return sha === null ? "unknown" : sha.slice(0, 7);
 }
 
+function ensureSentence(text: string): string {
+  return /[.!?]$/.test(text) ? text : `${text}.`;
+}
+
 function describeAnchor(anchor: ReturnType<typeof buildAnchor>): string {
   if (anchor.posture === "unknown") {
     return anchor.reason === "workspace_unbound"
@@ -132,9 +136,9 @@ function summarizeTransitionGroup(items: PersistedLocalActivityItem[]): string {
     return "No semantic transitions are recorded.";
   }
   if (transitionItems.length === 1) {
-    return `1 semantic transition recorded: ${latest.payload.summary}.`;
+    return `1 semantic transition recorded: ${ensureSentence(latest.payload.summary)}`;
   }
-  return `${countText(transitionItems.length)} semantic transitions recorded, latest: ${latest.payload.summary}.`;
+  return `${countText(transitionItems.length)} semantic transitions recorded, latest: ${ensureSentence(latest.payload.summary)}`;
 }
 
 function summarizeStageGroup(items: PersistedLocalActivityItem[]): string {

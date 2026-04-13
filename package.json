@@ -23,6 +23,7 @@
     "CHANGELOG.md"
   ],
   "scripts": {
+    "graft": "node ./bin/graft.js",
     "build": "tsc -p tsconfig.build.json",
     "test": "vitest run",
     "test:watch": "vitest",
