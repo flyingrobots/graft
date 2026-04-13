@@ -30,11 +30,6 @@ specific agent instance.
 
 ## Playback Questions
 
-### Human
-
-- [ ] Does workspace binding load graftignore without sync filesystem reads?
-- [ ] Does startup exclusion of graft still work without sync filesystem reads?
-
 ### Agent
 
 - [ ] Is the filesystem posture async on daemon-heavy request paths, with remaining sync reads treated as deliberate debt rather than default behavior?
