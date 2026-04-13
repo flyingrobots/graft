@@ -21,36 +21,52 @@ specific agent instance.
 
 ## Hill
 
-TBD
+The core Git seam used by MCP and repo-state flows runs through the
+async `GitClient` port backed by `@git-stunts/plumbing`, not synchronous
+shell git execution. Workspace resolution and diff/history helpers use
+that seam directly, and this cycle closes by making that repo truth
+explicit and witnessed.
 
 ## Playback Questions
 
 ### Human
 
-- [ ] TBD
+- [ ] workspace resolution resolves repo and worktree identity through the async GitClient seam
 
 ### Agent
 
-- [ ] TBD
+- [ ] git diff helpers use the async GitClient seam for changed files and file-at-ref lookup
 
 ## Accessibility and Assistive Reading
 
-- Linear truth / reduced-complexity posture: TBD
-- Non-visual or alternate-reading expectations: TBD
+- Linear truth / reduced-complexity posture: the Git execution contract
+  is a single async port instead of scattered shell calls in MCP flows.
+- Non-visual or alternate-reading expectations: playback evidence uses
+  direct assertions against returned values rather than terminal output
+  inspection.
 
 ## Localization and Directionality
 
-- Locale / wording / formatting assumptions: TBD
-- Logical direction / layout assumptions: TBD
+- Locale / wording / formatting assumptions: command strings and git ref
+  names remain repo-local technical tokens.
+- Logical direction / layout assumptions: repo and worktree paths remain
+  normalized absolute filesystem paths.
 
 ## Agent Inspectability and Explainability
 
-- What must be explicit and deterministic for agents: TBD
-- What must be attributable, evidenced, or governed: TBD
+- What must be explicit and deterministic for agents: MCP-adjacent Git
+  flows should depend on `GitClient.run(...)`, not hidden synchronous
+  shell calls.
+- What must be attributable, evidenced, or governed: the cycle should be
+  witnessed through playback tests that exercise workspace resolution
+  and diff/history helpers against the async seam.
 
 ## Non-goals
 
-- [ ] TBD
+- [ ] Rewriting CLI bootstrap helpers in `src/cli/init.ts`.
+- [ ] Changing the general-purpose `ProcessRunner` port or `code_refs`
+  shell execution path.
+- [ ] Scheduler and worker-pool policy changes.
 
 ## Backlog Context
 
