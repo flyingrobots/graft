@@ -17,6 +17,7 @@ import { startDaemonServer, type GraftDaemonServer } from "../mcp/daemon-server.
 import { startStdioServer } from "../mcp/stdio-server.js";
 import { runIndex } from "./index-cmd.js";
 import { runInit } from "./init.js";
+import { runLocalHistoryDag } from "./local-history-dag.js";
 
 const codec = new CanonicalJsonCodec();
 
@@ -287,6 +288,18 @@ function parseDiagCommand(argv: string[]): ParsedCommand {
     };
   }
 
+  if (subcommand === "local-history-dag") {
+    const limit = consumeOption(argv, "--limit");
+    expectNoArgs(argv);
+    return {
+      command: "diag_local_history_dag",
+      json,
+      args: {
+        ...(limit !== undefined ? { limit: parsePositiveInt(limit, "--limit") } : {}),
+      },
+    };
+  }
+
   if (subcommand === "explain") {
     const code = consumePositional(argv, "reason code");
     expectNoArgs(argv);
@@ -424,6 +437,16 @@ export async function runCli(options: RunCliOptions = {}): Promise<void> {
 
   try {
     const parsed = parseCommand([...argv]);
+    if (parsed.command === "diag_local_history_dag") {
+      await runLocalHistoryDag({
+        cwd,
+        limit: typeof parsed.args["limit"] === "number" ? parsed.args["limit"] : 12,
+        json: parsed.json,
+        stdout,
+        stderr,
+      });
+      return;
+    }
     const tool = cliCommandMcpTool(parsed.command);
     if (tool === null) {
       throw new Error(`Command ${cliCommandKey(cliCommandPath(parsed.command))} has no MCP peer`);

@@ -21,6 +21,7 @@ flowchart LR
 - local debugging and dogfooding of MCP peer commands
 - human-facing inspection of bounded state such as:
   - `graft diag activity`
+  - `graft diag local-history-dag`
   - `graft diag doctor`
   - `graft diag stats`
 
@@ -28,17 +29,20 @@ flowchart LR
 - `read` — bounded reads and change checks
 - `struct` — structural diff / since / map
 - `symbol` — precision show / find
-- `diag` — activity, doctor, explain, stats, capture
+- `diag` — activity, local-history-dag, doctor, explain, stats, capture
 
 ## Release-facing commands
 ```bash
 graft diag activity --json
+graft diag local-history-dag --json
 graft diag doctor --json
 graft symbol find 'create*' --json
 graft struct diff --json
 ```
 
 `graft diag activity` is the current human-facing between-commit surface. It reports bounded local `artifact_history`, not canonical provenance.
+
+`graft diag local-history-dag` is a CLI-only debug surface over the repo-local WARP graph. It renders a bounded event-centric DAG for local history without exposing an MCP peer yet.
 
 ## Related docs
 - [README](../README.md)

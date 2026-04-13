@@ -48,6 +48,7 @@ describe("cli: graft grouped surface", () => {
     expect(stdout.text()).toContain("read safe");
     expect(stdout.text()).toContain("struct diff");
     expect(stdout.text()).toContain("diag activity");
+    expect(stdout.text()).toContain("diag local-history-dag");
     expect(stdout.text()).toContain("diag doctor");
   });
 
@@ -233,6 +234,58 @@ describe("cli: graft grouped surface", () => {
       expect(parsed._schema.id).toBe("graft.cli.diag_activity");
       expect(parsed.truthClass).toBe("artifact_history");
       expect(parsed.activityWindow.returned).toBeGreaterThanOrEqual(0);
+    } finally {
+      cleanupTestRepo(repoDir);
+    }
+  });
+
+  it("renders a bounded local-history DAG from WARP-backed history", async () => {
+    const repoDir = createTestRepo("graft-cli-local-history-dag-");
+    try {
+      fs.writeFileSync(path.join(repoDir, "app.ts"), [
+        "export function greet(name: string): string {",
+        "  return `hello ${name}`;",
+        "}",
+        "",
+      ].join("\n"));
+      git(repoDir, "add -A");
+      git(repoDir, "commit -m init");
+
+      await runCli({
+        cwd: repoDir,
+        args: ["read", "safe", "app.ts", "--json"],
+        stdout: createBufferWriter(),
+        stderr: createBufferWriter(),
+      });
+
+      const stdout = createBufferWriter();
+      const stderr = createBufferWriter();
+      await runCli({
+        cwd: repoDir,
+        args: ["diag", "local-history-dag", "--json"],
+        stdout,
+        stderr,
+      });
+
+      expect(stderr.text()).toBe("");
+      const parsed = JSON.parse(stdout.text()) as {
+        _schema: { id: string };
+        repoId: string;
+        worktreeId: string;
+        totalEventCount: number;
+        shownEventCount: number;
+        rendered: string;
+        nodes: { entityKind: string; label: string }[];
+        edges: { label: string }[];
+      };
+      expect(parsed._schema.id).toBe("graft.cli.diag_local_history_dag");
+      expect(parsed.repoId).toContain("repo:");
+      expect(parsed.worktreeId).toContain("worktree:");
+      expect(parsed.totalEventCount).toBeGreaterThanOrEqual(1);
+      expect(parsed.shownEventCount).toBeGreaterThanOrEqual(1);
+      expect(parsed.rendered).toContain("Local History DAG");
+      expect(parsed.nodes.some((node) => node.entityKind === "local_history_event")).toBe(true);
+      expect(parsed.edges.some((edge) => edge.label === "in_session")).toBe(true);
     } finally {
       cleanupTestRepo(repoDir);
     }

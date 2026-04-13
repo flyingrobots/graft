@@ -51,6 +51,7 @@ export const CLI_COMMAND_NAMES = [
   "symbol_find",
   "diag_doctor",
   "diag_activity",
+  "diag_local_history_dag",
   "diag_explain",
   "diag_stats",
   "diag_capture",
@@ -245,6 +246,13 @@ export const CAPABILITY_REGISTRY: readonly CapabilityDefinition[] = [
     cliCommand: "diag_activity",
     cliPath: ["diag", "activity"],
     parity: "peer",
+  },
+  {
+    id: "local_history_dag",
+    description: "Render a bounded debug DAG from WARP-backed local history",
+    cliCommand: "diag_local_history_dag",
+    cliPath: ["diag", "local-history-dag"],
+    parity: "cli_only",
   },
   {
     id: "causal_status",

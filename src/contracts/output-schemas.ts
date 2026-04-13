@@ -1107,6 +1107,20 @@ const suggestedMcpServerSchema = z.object({
   }).strict(),
 }).strict();
 
+const localHistoryDagNodeSchema = z.object({
+  id: z.string(),
+  label: z.string(),
+  entityKind: z.string(),
+  eventKind: z.string().optional(),
+  occurredAt: z.string().optional(),
+}).strict();
+
+const localHistoryDagEdgeSchema = z.object({
+  from: z.string(),
+  to: z.string(),
+  label: z.string(),
+}).strict();
+
 export const CLI_OUTPUT_SCHEMAS: Record<CliCommandName, z.ZodType> = {
   init: withCliCommon("init", z.object({
     ok: z.boolean(),
@@ -1135,6 +1149,21 @@ export const CLI_OUTPUT_SCHEMAS: Record<CliCommandName, z.ZodType> = {
   symbol_find: withCliPeerCommon("symbol_find", mcpOutputBodySchemas.code_find),
   diag_doctor: withCliPeerCommon("diag_doctor", mcpOutputBodySchemas.doctor),
   diag_activity: withCliPeerCommon("diag_activity", mcpOutputBodySchemas.activity_view),
+  diag_local_history_dag: withCliCommon("diag_local_history_dag", z.object({
+    cwd: z.string(),
+    repoId: z.string(),
+    worktreeId: z.string(),
+    requestedEventLimit: z.number().int().positive(),
+    totalEventCount: z.number().int().nonnegative(),
+    shownEventCount: z.number().int().nonnegative(),
+    nodeCount: z.number().int().nonnegative(),
+    edgeCount: z.number().int().nonnegative(),
+    truncated: z.boolean(),
+    rendered: z.string(),
+    nodes: z.array(localHistoryDagNodeSchema),
+    edges: z.array(localHistoryDagEdgeSchema),
+    error: z.string().optional(),
+  }).strict()),
   diag_explain: withCliPeerCommon("diag_explain", mcpOutputBodySchemas.explain),
   diag_stats: withCliPeerCommon("diag_stats", mcpOutputBodySchemas.stats),
   diag_capture: withCliPeerCommon("diag_capture", mcpOutputBodySchemas.run_capture),
