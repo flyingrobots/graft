@@ -8,7 +8,7 @@ import { nodeGit } from "../../../src/adapters/node-git.js";
 import { PersistedLocalHistoryStore } from "../../../src/mcp/persisted-local-history.js";
 import { DEFAULT_DAEMON_CAPABILITY_PROFILE, WorkspaceRouter } from "../../../src/mcp/workspace-router.js";
 import type { FileSystem } from "../../../src/ports/filesystem.js";
-import { createIsolatedServer, parse } from "../../helpers/mcp.js";
+import { createManagedDaemonServer, parse } from "../../helpers/mcp.js";
 import { cleanupTestRepo, createCommittedTestRepo, git } from "../../helpers/git.js";
 
 const cleanups: (() => void)[] = [];
@@ -18,14 +18,6 @@ afterEach(() => {
     cleanups.pop()!();
   }
 });
-
-function createDaemonServer() {
-  const isolated = createIsolatedServer({ mode: "daemon" });
-  cleanups.push(() => {
-    isolated.cleanup();
-  });
-  return isolated.server;
-}
 
 function createCommittedRepo(): string {
   const repoDir = createCommittedTestRepo("graft-workspace-bind-");
@@ -72,7 +64,7 @@ class AsyncNoSyncFileSystem implements FileSystem {
 
 describe("mcp: daemon workspace binding", () => {
   it("starts unbound and reports daemon workspace status", async () => {
-    const server = createDaemonServer();
+    const server = createManagedDaemonServer(cleanups);
     const status = parse(await server.callTool("workspace_status", {}));
 
     expect(status["sessionMode"]).toBe("daemon");
@@ -82,7 +74,7 @@ describe("mcp: daemon workspace binding", () => {
   });
 
   it("denies repo-scoped tools while unbound", async () => {
-    const server = createDaemonServer();
+    const server = createManagedDaemonServer(cleanups);
     await expect(server.callTool("safe_read", { path: "app.ts" }))
       .rejects
       .toThrow(/workspace_bind/);
@@ -90,7 +82,7 @@ describe("mcp: daemon workspace binding", () => {
 
   it("requires explicit workspace authorization before daemon bind", async () => {
     const repoDir = createCommittedRepo();
-    const server = createDaemonServer();
+    const server = createManagedDaemonServer(cleanups);
 
     const bind = parse(await server.callTool("workspace_bind", { cwd: repoDir }));
     expect(bind["ok"]).toBe(false);
@@ -99,7 +91,7 @@ describe("mcp: daemon workspace binding", () => {
 
   it("binds a daemon session to a repo and enables repo-scoped tools", async () => {
     const repoDir = createCommittedRepo();
-    const server = createDaemonServer();
+    const server = createManagedDaemonServer(cleanups);
 
     const authorization = parse(await server.callTool("workspace_authorize", { cwd: repoDir }));
     expect(authorization["ok"]).toBe(true);
@@ -163,7 +155,7 @@ describe("mcp: daemon workspace binding", () => {
 
   it("routes heavy daemon repo tools through the scheduler", async () => {
     const repoDir = createCommittedRepo();
-    const server = createDaemonServer();
+    const server = createManagedDaemonServer(cleanups);
     await server.callTool("workspace_authorize", { cwd: repoDir });
     await server.callTool("workspace_bind", { cwd: repoDir });
 
@@ -188,7 +180,7 @@ describe("mcp: daemon workspace binding", () => {
     cleanups.push(() => {
       fs.rmSync(tmpDir, { recursive: true, force: true });
     });
-    const server = createDaemonServer();
+    const server = createManagedDaemonServer(cleanups);
 
     const bind = parse(await server.callTool("workspace_bind", { cwd: tmpDir }));
     expect(bind["ok"]).toBe(false);
@@ -205,7 +197,7 @@ describe("mcp: daemon workspace binding", () => {
       fs.rmSync(worktreeDir, { recursive: true, force: true });
     });
 
-    const server = createDaemonServer();
+    const server = createManagedDaemonServer(cleanups);
     await server.callTool("workspace_authorize", { cwd: repoDir });
     await server.callTool("workspace_authorize", { cwd: worktreeDir });
     const bind = parse(await server.callTool("workspace_bind", { cwd: repoDir }));
@@ -224,7 +216,7 @@ describe("mcp: daemon workspace binding", () => {
 
   it("denies run_capture in daemon mode after bind", async () => {
     const repoDir = createCommittedRepo();
-    const server = createDaemonServer();
+    const server = createManagedDaemonServer(cleanups);
     await server.callTool("workspace_authorize", { cwd: repoDir });
     await server.callTool("workspace_bind", { cwd: repoDir });
 
@@ -235,7 +227,7 @@ describe("mcp: daemon workspace binding", () => {
 
   it("allows run_capture when authorization explicitly enables it", async () => {
     const repoDir = createCommittedRepo();
-    const server = createDaemonServer();
+    const server = createManagedDaemonServer(cleanups);
     await server.callTool("workspace_authorize", { cwd: repoDir, runCapture: true });
     await server.callTool("workspace_bind", { cwd: repoDir });
 
@@ -245,7 +237,7 @@ describe("mcp: daemon workspace binding", () => {
 
   it("lists and revokes authorized workspaces through the daemon control plane", async () => {
     const repoDir = createCommittedRepo();
-    const server = createDaemonServer();
+    const server = createManagedDaemonServer(cleanups);
     const authorized = parse(await server.callTool("workspace_authorize", { cwd: repoDir }));
     expect(authorized["ok"]).toBe(true);
 

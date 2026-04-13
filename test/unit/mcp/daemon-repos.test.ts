@@ -2,7 +2,7 @@ import { afterEach, describe, expect, it } from "vitest";
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
-import { createIsolatedServer, parse } from "../../helpers/mcp.js";
+import { createManagedDaemonServer, parse } from "../../helpers/mcp.js";
 import { cleanupTestRepo, createCommittedTestRepo, git } from "../../helpers/git.js";
 
 const cleanups: (() => void)[] = [];
@@ -12,14 +12,6 @@ afterEach(() => {
     cleanups.pop()!();
   }
 });
-
-function createDaemonServer() {
-  const isolated = createIsolatedServer({ mode: "daemon" });
-  cleanups.push(() => {
-    isolated.cleanup();
-  });
-  return isolated.server;
-}
 
 function createCommittedRepo(): string {
   const repoDir = createCommittedTestRepo("graft-daemon-repos-");
@@ -38,7 +30,7 @@ describe("mcp: daemon repos", () => {
     cleanups.push(() => {
       fs.rmSync(worktreeDir, { recursive: true, force: true });
     });
-    const server = createDaemonServer();
+    const server = createManagedDaemonServer(cleanups);
 
     await server.callTool("workspace_authorize", { cwd: repoDir });
     await server.callTool("workspace_authorize", { cwd: worktreeDir });
@@ -101,7 +93,7 @@ describe("mcp: daemon repos", () => {
   });
 
   it("returns an empty repo view when the filter is outside the authorized daemon surface", async () => {
-    const server = createDaemonServer();
+    const server = createManagedDaemonServer(cleanups);
     const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "graft-daemon-repos-miss-"));
     cleanups.push(() => {
       fs.rmSync(tmpDir, { recursive: true, force: true });

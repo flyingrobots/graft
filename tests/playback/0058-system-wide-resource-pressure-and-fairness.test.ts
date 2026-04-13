@@ -13,7 +13,7 @@ import type { FileSystem } from "../../src/ports/filesystem.js";
 import { SessionTracker } from "../../src/session/tracker.js";
 import { buildMonitorWarpWriterId, buildSessionWarpWriterId } from "../../src/warp/writer-id.js";
 import { cleanupTestRepo, createTestRepo, git } from "../../test/helpers/git.js";
-import { createIsolatedServer, parse } from "../../test/helpers/mcp.js";
+import { createManagedDaemonServer, parse } from "../../test/helpers/mcp.js";
 
 function deferredPromise<T>() {
   let resolve!: (value: T | PromiseLike<T>) => void;
@@ -330,11 +330,7 @@ describe("0058 playback: system-wide resource pressure and fairness", () => {
     git(repoDir, "add -A");
     git(repoDir, "commit -m init");
 
-    const isolated = createIsolatedServer({ mode: "daemon" });
-    cleanups.push(() => {
-      isolated.cleanup();
-    });
-    const server = isolated.server;
+    const server = createManagedDaemonServer(cleanups);
 
     await server.callTool("workspace_authorize", { cwd: repoDir });
     await server.callTool("workspace_bind", { cwd: repoDir });

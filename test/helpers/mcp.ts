@@ -26,6 +26,8 @@ export interface IsolatedServer {
   server: GraftServer;
 }
 
+export type TestCleanup = () => void | Promise<void>;
+
 export interface CreateIsolatedServerOptions {
   mode?: WorkspaceSessionMode;
   projectRoot?: string;
@@ -79,4 +81,12 @@ export function createIsolatedServer(options: CreateIsolatedServerOptions = {}):
       }
     },
   };
+}
+
+export function createManagedDaemonServer(cleanups: TestCleanup[]): GraftServer {
+  const isolated = createIsolatedServer({ mode: "daemon" });
+  cleanups.push(() => {
+    isolated.cleanup();
+  });
+  return isolated.server;
 }

@@ -2,7 +2,7 @@ import { afterEach, describe, expect, it } from "vitest";
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
-import { createIsolatedServer, parse } from "../../helpers/mcp.js";
+import { createManagedDaemonServer, parse } from "../../helpers/mcp.js";
 import { cleanupTestRepo, createCommittedTestRepo, git } from "../../helpers/git.js";
 
 const cleanups: (() => void)[] = [];
@@ -12,14 +12,6 @@ afterEach(() => {
     cleanups.pop()!();
   }
 });
-
-function createDaemonServer() {
-  const isolated = createIsolatedServer({ mode: "daemon" });
-  cleanups.push(() => {
-    isolated.cleanup();
-  });
-  return isolated.server;
-}
 
 function createCommittedRepo(): string {
   const repoDir = createCommittedTestRepo("graft-monitor-");
@@ -32,7 +24,7 @@ function createCommittedRepo(): string {
 describe("mcp: persistent monitors", () => {
   it("Do background monitors run through the same pressure and fairness scheduler as foreground repo work?", async () => {
     const repoDir = createCommittedRepo();
-    const server = createDaemonServer();
+    const server = createManagedDaemonServer(cleanups);
 
     await server.callTool("workspace_authorize", { cwd: repoDir });
     await server.callTool("workspace_bind", { cwd: repoDir });
@@ -131,7 +123,7 @@ describe("mcp: persistent monitors", () => {
       fs.rmSync(worktreeDir, { recursive: true, force: true });
     });
 
-    const server = createDaemonServer();
+    const server = createManagedDaemonServer(cleanups);
 
     const denied = parse(await server.callTool("monitor_start", { cwd: repoDir }));
     expect(denied["ok"]).toBe(false);

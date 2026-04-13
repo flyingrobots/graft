@@ -6,7 +6,7 @@ import os from "node:os";
 import path from "node:path";
 import type { GraftServer } from "../../../src/mcp/server.js";
 import { createFixtureWorkspace } from "../../helpers/fixtures.js";
-import { createIsolatedServer, fixturePath, parse } from "../../helpers/mcp.js";
+import { createIsolatedServer, createManagedDaemonServer, fixturePath, parse } from "../../helpers/mcp.js";
 import { cleanupTestRepo, createTestRepo, git } from "../../helpers/git.js";
 
 const EXPECTED_TOOL_NAMES = TOOL_REGISTRY.map((t) => t.name);
@@ -270,11 +270,8 @@ describe("mcp: tool handlers", () => {
   });
 
   it("causal_status is available before daemon workspace bind", async () => {
-    const isolated = createIsolatedServer({ mode: "daemon" });
-    cleanups.push(() => {
-      isolated.cleanup();
-    });
-    const parsed = parse(await isolated.server.callTool("causal_status", {}));
+    const server = createManagedDaemonServer(cleanups);
+    const parsed = parse(await server.callTool("causal_status", {}));
     expect(parsed["bindState"]).toBe("unbound");
     expect(parsed["activeCausalWorkspace"]).toBeNull();
     expect(parsed["nextAction"]).toBe("bind_workspace_to_begin_local_history");
