@@ -15,6 +15,8 @@ import {
   type RepoConcurrencySummary,
   type PersistedLocalHistorySummary,
 } from "./persisted-local-history.js";
+import { type PersistedLocalHistoryGraphContext } from "./persisted-local-history-graph.js";
+import { asPersistedLocalHistoryGraphWarp } from "./persisted-local-history-graph.js";
 import { RepoStateTracker } from "./repo-state.js";
 import { buildRuntimeCausalContext, type RuntimeCausalContext } from "./runtime-causal-context.js";
 import { buildRuntimeStagedTarget } from "./runtime-staged-target.js";
@@ -305,6 +307,7 @@ export class WorkspaceRouter {
       await currentRepoState.initialize();
       await this.options.persistedLocalHistory.noteBinding({
         current: this.buildPersistedLocalHistoryContext(currentBinding, currentRepoState.getState()),
+        currentGraph: await this.buildPersistedLocalHistoryGraphContext(currentBinding),
       });
       this.currentBinding = currentBinding;
     })();
@@ -370,6 +373,7 @@ export class WorkspaceRouter {
       await this.options.persistedLocalHistory.noteCheckoutBoundary({
         previous: previousContext,
         current: nextContext,
+        graph: await this.buildPersistedLocalHistoryGraphContext(binding),
       });
     }
   }
@@ -465,6 +469,7 @@ export class WorkspaceRouter {
         semanticTransition: repoState.semanticTransition,
         transition: repoState.lastTransition,
         attribution: summary.attribution,
+        graph: await this.buildPersistedLocalHistoryGraphContext(binding),
       });
       summary = await this.options.persistedLocalHistory.summarize(status, causalContext);
     }
@@ -476,6 +481,7 @@ export class WorkspaceRouter {
         current: this.buildPersistedLocalHistoryContext(binding, repoState),
         stagedTarget,
         attribution: summary.attribution,
+        graph: await this.buildPersistedLocalHistoryGraphContext(binding),
       });
       return this.options.persistedLocalHistory.summarize(status, causalContext);
     }
@@ -553,6 +559,7 @@ export class WorkspaceRouter {
     await this.options.persistedLocalHistory.noteReadObservation({
       current: this.buildPersistedLocalHistoryContextFromExecution(active, active.repoState.getState()),
       attribution: summary.attribution,
+      graph: await this.buildPersistedLocalHistoryGraphContextFromExecution(active),
       ...readObservation,
     });
   }
@@ -631,6 +638,7 @@ export class WorkspaceRouter {
       await this.options.persistedLocalHistory.declareAttach({
         current: this.buildPersistedLocalHistoryContext(binding, binding.slice.repoState.getState()),
         declaration,
+        graph: await this.buildPersistedLocalHistoryGraphContext(binding),
       });
     } catch (error) {
       if (error instanceof PersistedLocalHistoryAttachUnavailableError) {
@@ -644,6 +652,7 @@ export class WorkspaceRouter {
             current: this.buildPersistedLocalHistoryContext(binding, binding.slice.repoState.getState()),
             declaration,
             source: sharedAttachSource,
+            graph: await this.buildPersistedLocalHistoryGraphContext(binding),
           });
           return {
             ok: true,
@@ -723,6 +732,10 @@ export class WorkspaceRouter {
       previous: previousBinding === null || previousRepoState == null
         ? null
         : this.buildPersistedLocalHistoryContext(previousBinding, previousRepoState.getState()),
+      currentGraph: await this.buildPersistedLocalHistoryGraphContext(nextBinding),
+      previousGraph: previousBinding === null
+        ? null
+        : await this.buildPersistedLocalHistoryGraphContext(previousBinding),
     });
     if (this.options.mode === "daemon") {
       await this.options.authorizationPolicy?.noteBound(resolved);
@@ -980,5 +993,31 @@ export class WorkspaceRouter {
         }],
       },
     };
+  }
+
+  private async buildPersistedLocalHistoryGraphContext(
+    binding: BoundWorkspace,
+  ): Promise<PersistedLocalHistoryGraphContext | null> {
+    try {
+      return {
+        warp: asPersistedLocalHistoryGraphWarp(await binding.getWarp()),
+        worktreeRoot: binding.worktreeRoot,
+      };
+    } catch {
+      return null;
+    }
+  }
+
+  private async buildPersistedLocalHistoryGraphContextFromExecution(
+    execution: WorkspaceExecutionContext,
+  ): Promise<PersistedLocalHistoryGraphContext | null> {
+    try {
+      return {
+        warp: asPersistedLocalHistoryGraphWarp(await execution.getWarp()),
+        worktreeRoot: execution.worktreeRoot,
+      };
+    } catch {
+      return null;
+    }
   }
 }

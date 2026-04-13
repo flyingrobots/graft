@@ -22,6 +22,11 @@ import type { JsonCodec } from "../ports/codec.js";
 import type { FileSystem } from "../ports/filesystem.js";
 import type { RepoObservation } from "./repo-state.js";
 import {
+  type PersistedLocalHistoryGraphContext,
+  writeCausalEventToGraph,
+  writeContinuityRecordToGraph,
+} from "./persisted-local-history-graph.js";
+import {
   buildRepoConcurrencyContributorKey,
   buildRepoConcurrencyTouches,
   deriveRepoConcurrencySummary,
@@ -290,6 +295,10 @@ function findRecord(state: ContinuityState, recordId: string | null): Continuity
 }
 
 function appendRecord(state: ContinuityState, record: ContinuityRecord, activeAfter: boolean): void {
+  if (state.records.at(-1)?.recordId === record.recordId) {
+    state.activeRecordId = activeAfter ? record.recordId : null;
+    return;
+  }
   state.records = [...state.records, record].slice(-MAX_CONTINUITY_RECORDS);
   state.activeRecordId = activeAfter ? record.recordId : null;
 }
@@ -325,6 +334,8 @@ export class PersistedLocalHistoryStore {
   async noteBinding(input: {
     readonly current: PersistedLocalHistoryContext;
     readonly previous?: PersistedLocalHistoryContext | null;
+    readonly currentGraph?: PersistedLocalHistoryGraphContext | null;
+    readonly previousGraph?: PersistedLocalHistoryGraphContext | null;
   }): Promise<void> {
     const previous = input.previous ?? null;
     const currentKey = buildContinuityKey(input.current.repoId, input.current.worktreeId);
@@ -335,50 +346,91 @@ export class PersistedLocalHistoryStore {
         const previousState = await this.loadState(previousKey, previous.repoId, previous.worktreeId);
         const previousActive = findRecord(previousState, previousState.activeRecordId);
         if (previousActive !== null) {
+          const parkRecord = this.createRecord("park", previousKey, previous, previousActive);
+          const previousEventId = findLatestEventIdForStrand(previousState, previous.strandId);
           appendRecord(
             previousState,
-            this.createRecord("park", previousKey, previous, previousActive),
+            parkRecord,
             false,
           );
           await this.saveState(previousState);
+          if (input.previousGraph !== null && input.previousGraph !== undefined) {
+            await writeContinuityRecordToGraph(input.previousGraph, {
+              record: parkRecord,
+              previousEventId,
+            });
+          }
         }
       }
     }
 
     const currentState = await this.loadState(currentKey, input.current.repoId, input.current.worktreeId);
     const previousCurrentActive = findRecord(currentState, currentState.activeRecordId);
+    let latestCurrentEventId = findLatestEventIdForStrand(currentState, input.current.strandId);
     if (previousCurrentActive !== null) {
+      const parkRecord = this.createRecord("park", currentKey, input.current, previousCurrentActive);
       appendRecord(
         currentState,
-        this.createRecord("park", currentKey, input.current, previousCurrentActive),
+        parkRecord,
         false,
       );
+      if (parkRecord.strandId === input.current.strandId) {
+        latestCurrentEventId = parkRecord.recordId;
+      }
+      if (input.currentGraph !== null && input.currentGraph !== undefined) {
+        await this.saveState(currentState);
+        await writeContinuityRecordToGraph(input.currentGraph, {
+          record: parkRecord,
+          previousEventId: findLatestEventIdForStrand(
+            {
+              ...currentState,
+              records: currentState.records.slice(0, -1),
+            },
+            input.current.strandId,
+          ),
+        });
+      }
     }
 
     const operation = this.classifyOperation(previousCurrentActive, input.current);
+    const currentRecord = this.createRecord(operation, currentKey, input.current, previousCurrentActive);
     appendRecord(
       currentState,
-      this.createRecord(operation, currentKey, input.current, previousCurrentActive),
+      currentRecord,
       true,
     );
     await this.saveState(currentState);
+    if (input.currentGraph !== null && input.currentGraph !== undefined) {
+      await writeContinuityRecordToGraph(input.currentGraph, {
+        record: currentRecord,
+        previousEventId: latestCurrentEventId,
+      });
+    }
   }
 
   async noteCheckoutBoundary(input: {
     readonly previous: PersistedLocalHistoryContext;
     readonly current: PersistedLocalHistoryContext;
+    readonly graph?: PersistedLocalHistoryGraphContext | null;
   }): Promise<void> {
     const continuityKey = buildContinuityKey(input.current.repoId, input.current.worktreeId);
     const state = await this.loadState(continuityKey, input.current.repoId, input.current.worktreeId);
     const activeRecord = findRecord(state, state.activeRecordId);
     const baseRecord = activeRecord ?? state.records.at(-1) ?? null;
     if (baseRecord === null) {
+      const startRecord = this.createRecord("start", continuityKey, input.current, null);
       appendRecord(
         state,
-        this.createRecord("start", continuityKey, input.current, null),
+        startRecord,
         true,
       );
       await this.saveState(state);
+      if (input.graph !== null && input.graph !== undefined) {
+        await writeContinuityRecordToGraph(input.graph, {
+          record: startRecord,
+          previousEventId: null,
+        });
+      }
       return;
     }
     if (baseRecord.checkoutEpochId === input.current.checkoutEpochId) {
@@ -386,23 +438,36 @@ export class PersistedLocalHistoryStore {
     }
 
     const transitionEvidence = this.buildGitTransitionEvidence("fork", input.current);
-    appendRecord(
-      state,
-      this.createRecord(
-        "park",
-        continuityKey,
-        { ...input.previous, observedAt: input.current.observedAt },
-        baseRecord,
-        transitionEvidence,
-      ),
-      false,
+    const parkPreviousEventId = findLatestEventIdForStrand(state, input.previous.strandId);
+    const parkRecord = this.createRecord(
+      "park",
+      continuityKey,
+      { ...input.previous, observedAt: input.current.observedAt },
+      baseRecord,
+      transitionEvidence,
     );
     appendRecord(
       state,
-      this.createRecord("fork", continuityKey, input.current, baseRecord, transitionEvidence),
+      parkRecord,
+      false,
+    );
+    const forkRecord = this.createRecord("fork", continuityKey, input.current, baseRecord, transitionEvidence);
+    appendRecord(
+      state,
+      forkRecord,
       true,
     );
     await this.saveState(state);
+    if (input.graph !== null && input.graph !== undefined) {
+      await writeContinuityRecordToGraph(input.graph, {
+        record: parkRecord,
+        previousEventId: parkPreviousEventId,
+      });
+      await writeContinuityRecordToGraph(input.graph, {
+        record: forkRecord,
+        previousEventId: null,
+      });
+    }
   }
 
   async summarize(status: WorkspaceStatus, causalContext: RuntimeCausalContext): Promise<PersistedLocalHistorySummary> {
@@ -533,6 +598,7 @@ export class PersistedLocalHistoryStore {
   async declareAttach(input: {
     readonly current: PersistedLocalHistoryContext;
     readonly declaration: PersistedLocalHistoryAttachDeclaration;
+    readonly graph?: PersistedLocalHistoryGraphContext | null;
   }): Promise<void> {
     const continuityKey = buildContinuityKey(input.current.repoId, input.current.worktreeId);
     const state = await this.loadState(continuityKey, input.current.repoId, input.current.worktreeId);
@@ -542,24 +608,38 @@ export class PersistedLocalHistoryStore {
       throw new PersistedLocalHistoryAttachUnavailableError();
     }
 
+    const attachRecord = this.createRecord(
+      "attach",
+      continuityKey,
+      input.current,
+      baseRecord,
+      this.buildAttachDeclarationEvidence(input.current, input.declaration),
+    );
     appendRecord(
       state,
-      this.createRecord(
-        "attach",
-        continuityKey,
-        input.current,
-        baseRecord,
-        this.buildAttachDeclarationEvidence(input.current, input.declaration),
-      ),
+      attachRecord,
       true,
     );
     await this.saveState(state);
+    if (input.graph !== null && input.graph !== undefined) {
+      await writeContinuityRecordToGraph(input.graph, {
+        record: attachRecord,
+        previousEventId: findLatestEventIdForStrand(
+          {
+            ...state,
+            records: state.records.slice(0, -1),
+          },
+          input.current.strandId,
+        ),
+      });
+    }
   }
 
   async declareSharedAttach(input: {
     readonly current: PersistedLocalHistoryContext;
     readonly declaration: PersistedLocalHistoryAttachDeclaration;
     readonly source: PersistedLocalHistorySharedAttachSource;
+    readonly graph?: PersistedLocalHistoryGraphContext | null;
   }): Promise<void> {
     const continuityKey = buildContinuityKey(input.current.repoId, input.current.worktreeId);
     const state = await this.loadState(continuityKey, input.current.repoId, input.current.worktreeId);
@@ -568,43 +648,57 @@ export class PersistedLocalHistoryStore {
       throw new PersistedLocalHistoryAttachUnavailableError();
     }
 
+    const attachRecord = this.createRecord(
+      "attach",
+      continuityKey,
+      input.current,
+      baseRecord,
+      [
+        ...this.buildAttachDeclarationEvidence(input.current, input.declaration),
+        {
+          evidenceId: buildEvidenceId("attach", "daemon_session_observation", input.current, 400),
+          evidenceKind: "daemon_session_observation",
+          source: "daemon_control_plane.shared_attach",
+          capturedAt: input.current.observedAt,
+          strength: "strong",
+          details: {
+            sourceSessionId: input.source.sourceSessionId,
+            sourceCausalSessionId: input.source.causalSessionId,
+            sourceStrandId: input.source.strandId,
+            handoffKind: "cross_session_same_worktree",
+          },
+        },
+      ],
+      {
+        continuedFromCausalSessionId: input.source.causalSessionId,
+        continuedFromStrandId: input.source.strandId,
+      },
+    );
     appendRecord(
       state,
-      this.createRecord(
-        "attach",
-        continuityKey,
-        input.current,
-        baseRecord,
-        [
-          ...this.buildAttachDeclarationEvidence(input.current, input.declaration),
-          {
-            evidenceId: buildEvidenceId("attach", "daemon_session_observation", input.current, 400),
-            evidenceKind: "daemon_session_observation",
-            source: "daemon_control_plane.shared_attach",
-            capturedAt: input.current.observedAt,
-            strength: "strong",
-            details: {
-              sourceSessionId: input.source.sourceSessionId,
-              sourceCausalSessionId: input.source.causalSessionId,
-              sourceStrandId: input.source.strandId,
-              handoffKind: "cross_session_same_worktree",
-            },
-          },
-        ],
-        {
-          continuedFromCausalSessionId: input.source.causalSessionId,
-          continuedFromStrandId: input.source.strandId,
-        },
-      ),
+      attachRecord,
       true,
     );
     await this.saveState(state);
+    if (input.graph !== null && input.graph !== undefined) {
+      await writeContinuityRecordToGraph(input.graph, {
+        record: attachRecord,
+        previousEventId: findLatestEventIdForStrand(
+          {
+            ...state,
+            records: state.records.slice(0, -1),
+          },
+          input.current.strandId,
+        ),
+      });
+    }
   }
 
   async noteStageObservation(input: {
     readonly current: PersistedLocalHistoryContext;
     readonly stagedTarget: RuntimeStagedTargetFullFile;
     readonly attribution: AttributionSummary;
+    readonly graph?: PersistedLocalHistoryGraphContext | null;
   }): Promise<void> {
     const continuityKey = buildContinuityKey(input.current.repoId, input.current.worktreeId);
     const state = await this.loadState(continuityKey, input.current.repoId, input.current.worktreeId);
@@ -612,8 +706,16 @@ export class PersistedLocalHistoryStore {
     if (state.stageEvents.at(-1)?.eventId === event.eventId) {
       return;
     }
+    const previousEventId = findLatestEventIdForStrand(state, input.current.strandId);
     state.stageEvents = keepRecent([...state.stageEvents, event], MAX_STAGE_EVENTS);
     await this.saveState(state);
+    if (input.graph !== null && input.graph !== undefined) {
+      await writeCausalEventToGraph(input.graph, {
+        event,
+        previousEventId,
+        stagedTarget: input.stagedTarget,
+      });
+    }
   }
 
   async noteReadObservation(input: {
@@ -624,11 +726,23 @@ export class PersistedLocalHistoryStore {
     readonly sourceLayer: SourceLayer;
     readonly reason: string;
     readonly footprint: CausalFootprint;
+    readonly graph?: PersistedLocalHistoryGraphContext | null;
   }): Promise<void> {
     const continuityKey = buildContinuityKey(input.current.repoId, input.current.worktreeId);
     const state = await this.loadState(continuityKey, input.current.repoId, input.current.worktreeId);
-    state.readEvents = keepRecent([...state.readEvents, this.createReadEvent(input)], MAX_READ_EVENTS);
+    const event = this.createReadEvent(input);
+    if (state.readEvents.at(-1)?.eventId === event.eventId) {
+      return;
+    }
+    const previousEventId = findLatestEventIdForStrand(state, input.current.strandId);
+    state.readEvents = keepRecent([...state.readEvents, event], MAX_READ_EVENTS);
     await this.saveState(state);
+    if (input.graph !== null && input.graph !== undefined) {
+      await writeCausalEventToGraph(input.graph, {
+        event,
+        previousEventId,
+      });
+    }
   }
 
   async noteSemanticTransitionObservation(input: {
@@ -636,6 +750,7 @@ export class PersistedLocalHistoryStore {
     readonly semanticTransition: NonNullable<RepoObservation["semanticTransition"]>;
     readonly transition: RepoObservation["lastTransition"];
     readonly attribution: AttributionSummary;
+    readonly graph?: PersistedLocalHistoryGraphContext | null;
   }): Promise<void> {
     const continuityKey = buildContinuityKey(input.current.repoId, input.current.worktreeId);
     const state = await this.loadState(continuityKey, input.current.repoId, input.current.worktreeId);
@@ -643,8 +758,15 @@ export class PersistedLocalHistoryStore {
     if (state.transitionEvents.at(-1)?.eventId === event.eventId) {
       return;
     }
+    const previousEventId = findLatestEventIdForStrand(state, input.current.strandId);
     state.transitionEvents = keepRecent([...state.transitionEvents, event], MAX_TRANSITION_EVENTS);
     await this.saveState(state);
+    if (input.graph !== null && input.graph !== undefined) {
+      await writeCausalEventToGraph(input.graph, {
+        event,
+        previousEventId,
+      });
+    }
   }
 
   buildContext(
@@ -1243,4 +1365,72 @@ export class PersistedLocalHistoryStore {
     await this.deps.fs.mkdir(path.dirname(filePath), { recursive: true });
     await this.deps.fs.writeFile(filePath, this.deps.codec.encode(state), "utf-8");
   }
+}
+
+function findLatestEventIdForStrand(state: ContinuityState, strandId: string): string | null {
+  const items: {
+    readonly id: string;
+    readonly occurredAt: string;
+    readonly priority: number;
+    readonly sequence: number;
+  }[] = [];
+
+  for (const [index, record] of state.records.entries()) {
+    if (record.strandId === strandId) {
+      items.push({
+        id: record.recordId,
+        occurredAt: record.occurredAt,
+        priority: 0,
+        sequence: index,
+      });
+    }
+  }
+  for (const [index, event] of state.readEvents.entries()) {
+    if (event.strandId === strandId) {
+      items.push({
+        id: event.eventId,
+        occurredAt: event.occurredAt,
+        priority: 1,
+        sequence: index,
+      });
+    }
+  }
+  for (const [index, event] of state.stageEvents.entries()) {
+    if (event.strandId === strandId) {
+      items.push({
+        id: event.eventId,
+        occurredAt: event.occurredAt,
+        priority: 2,
+        sequence: index,
+      });
+    }
+  }
+  for (const [index, event] of state.transitionEvents.entries()) {
+    if (event.strandId === strandId) {
+      items.push({
+        id: event.eventId,
+        occurredAt: event.occurredAt,
+        priority: 3,
+        sequence: index,
+      });
+    }
+  }
+
+  items.sort((left, right) => {
+    const byTime = left.occurredAt.localeCompare(right.occurredAt);
+    if (byTime !== 0) {
+      return byTime;
+    }
+    const byPriority = left.priority - right.priority;
+    if (byPriority !== 0) {
+      return byPriority;
+    }
+    const bySequence = left.sequence - right.sequence;
+    if (bySequence !== 0) {
+      return bySequence;
+    }
+    return left.id.localeCompare(right.id);
+  });
+
+  return items.at(-1)?.id ?? null;
 }
