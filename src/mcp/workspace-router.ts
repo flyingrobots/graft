@@ -461,7 +461,8 @@ export class WorkspaceRouter {
     const status = this.getStatus();
     const repoState = binding.slice.repoState.getState();
     const causalContext = this.buildCausalContext(binding, repoState);
-    let summary = await this.options.persistedLocalHistory.summarize(status, causalContext);
+    const graph = await this.buildPersistedLocalHistoryGraphContext(binding);
+    let summary = await this.options.persistedLocalHistory.summarize(status, causalContext, graph);
 
     if (repoState.semanticTransition !== null) {
       await this.options.persistedLocalHistory.noteSemanticTransitionObservation({
@@ -469,9 +470,9 @@ export class WorkspaceRouter {
         semanticTransition: repoState.semanticTransition,
         transition: repoState.lastTransition,
         attribution: summary.attribution,
-        graph: await this.buildPersistedLocalHistoryGraphContext(binding),
+        graph,
       });
-      summary = await this.options.persistedLocalHistory.summarize(status, causalContext);
+      summary = await this.options.persistedLocalHistory.summarize(status, causalContext, graph);
     }
 
     const stagedTarget = buildRuntimeStagedTarget(status, causalContext, repoState, summary.attribution);
@@ -481,9 +482,9 @@ export class WorkspaceRouter {
         current: this.buildPersistedLocalHistoryContext(binding, repoState),
         stagedTarget,
         attribution: summary.attribution,
-        graph: await this.buildPersistedLocalHistoryGraphContext(binding),
+        graph,
       });
-      return this.options.persistedLocalHistory.summarize(status, causalContext);
+      return this.options.persistedLocalHistory.summarize(status, causalContext, graph);
     }
 
     return summary;
@@ -494,7 +495,10 @@ export class WorkspaceRouter {
     if (binding?.slice.repoState === null || binding === null) {
       return null;
     }
-    return this.options.persistedLocalHistory.summarizeRepoConcurrency(this.getStatus());
+    return this.options.persistedLocalHistory.summarizeRepoConcurrency(
+      this.getStatus(),
+      await this.buildPersistedLocalHistoryGraphContext(binding),
+    );
   }
 
   async getPersistedLocalActivityWindow(limit: number): Promise<PersistedLocalActivityWindow> {
@@ -514,10 +518,12 @@ export class WorkspaceRouter {
     const status = this.getStatus();
     const repoState = binding.slice.repoState.getState();
     const causalContext = this.buildCausalContext(binding, repoState);
+    const graph = await this.buildPersistedLocalHistoryGraphContext(binding);
     return this.options.persistedLocalHistory.listRecentActivity(
       status,
       causalContext,
       limit,
+      graph,
     );
   }
 
@@ -554,6 +560,7 @@ export class WorkspaceRouter {
     const summary = await this.options.persistedLocalHistory.summarize(
       active.status,
       active.getCausalContext(),
+      await this.buildPersistedLocalHistoryGraphContextFromExecution(active),
     );
 
     await this.options.persistedLocalHistory.noteReadObservation({

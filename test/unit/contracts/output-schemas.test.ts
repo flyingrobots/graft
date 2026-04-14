@@ -275,6 +275,7 @@ describe("contracts: output schemas", () => {
       symbol_find: await runCliJson(repoDir, ["symbol", "find", "greet*", "--json"]),
       diag_doctor: await runCliJson(repoDir, ["diag", "doctor", "--json"]),
       diag_activity: await runCliJson(repoDir, ["diag", "activity", "--limit", "5", "--json"]),
+      diag_local_history_dag: await runCliJson(repoDir, ["diag", "local-history-dag", "--limit", "5", "--json"]),
       diag_explain: await runCliJson(repoDir, ["diag", "explain", "CONTENT", "--json"]),
       diag_stats: await runCliJson(repoDir, ["diag", "stats", "--json"]),
       diag_capture: await runCliJson(repoDir, ["diag", "capture", "--json", "--", "printf", "ok"]),

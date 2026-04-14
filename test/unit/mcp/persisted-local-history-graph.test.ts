@@ -64,6 +64,33 @@ class FakeWarp {
     return Promise.resolve(this.nodes.has(nodeId));
   }
 
+  observer(lens: {
+    readonly match: string | readonly string[];
+    readonly expose?: readonly string[] | undefined;
+  }): Promise<{
+    getNodes(): Promise<string[]>;
+    getNodeProps(nodeId: string): Promise<Record<string, unknown> | null>;
+    getEdges(): Promise<{ from: string; to: string; label: string }[]>;
+  }> {
+    const patterns = Array.isArray(lens.match) ? [...lens.match] : [lens.match];
+    const matchingNodeIds = [...this.nodes.keys()].filter((nodeId) =>
+      patterns.some((pattern) => pattern.endsWith("*")
+        ? nodeId.startsWith(pattern.slice(0, -1))
+        : nodeId === pattern),
+    );
+    const matchingNodeIdSet = new Set(matchingNodeIds);
+
+    return Promise.resolve({
+      getNodes: () => Promise.resolve(matchingNodeIds),
+      getNodeProps: (nodeId: string) => Promise.resolve(this.nodes.get(nodeId) ?? null),
+      getEdges: () => Promise.resolve(
+        [...this.edges.values()].filter((edge) =>
+          matchingNodeIdSet.has(edge.from) && matchingNodeIdSet.has(edge.to),
+        ),
+      ),
+    });
+  }
+
   async patch(build: (patch: {
     addNode(id: string): unknown;
     setProperty(id: string, key: string, value: unknown): unknown;
@@ -118,14 +145,17 @@ describe("mcp: persisted local history graph dual write", () => {
     }
   });
 
-  function createStore() {
+  function createStore(): { store: PersistedLocalHistoryStore; graftDir: string } {
     const graftDir = fs.mkdtempSync(path.join(os.tmpdir(), "graft-history-graph-"));
     cleanups.push(graftDir);
-    return new PersistedLocalHistoryStore({
-      fs: nodeFs,
-      codec: new CanonicalJsonCodec(),
+    return {
       graftDir,
-    });
+      store: new PersistedLocalHistoryStore({
+        fs: nodeFs,
+        codec: new CanonicalJsonCodec(),
+        graftDir,
+      }),
+    };
   }
 
   function graphContext(fakeWarp: FakeWarp): PersistedLocalHistoryGraphContext {
@@ -135,8 +165,39 @@ describe("mcp: persisted local history graph dual write", () => {
     };
   }
 
+  function workspaceStatus(graftDir: string, overrides: Partial<{
+    repoId: string;
+    worktreeId: string;
+    worktreeRoot: string;
+    gitCommonDir: string;
+  }> = {}) {
+    return {
+      sessionMode: "repo_local" as const,
+      bindState: "bound" as const,
+      repoId: overrides.repoId ?? "repo:one",
+      worktreeId: overrides.worktreeId ?? "worktree:one",
+      worktreeRoot: overrides.worktreeRoot ?? "/repo",
+      gitCommonDir: overrides.gitCommonDir ?? "/repo/.git",
+      graftDir,
+      capabilityProfile: null,
+    };
+  }
+
+  function causalContextFor(current: PersistedLocalHistoryContext) {
+    return {
+      transportSessionId: current.transportSessionId,
+      workspaceSliceId: current.workspaceSliceId,
+      causalSessionId: current.causalSessionId,
+      strandId: current.strandId,
+      checkoutEpochId: current.checkoutEpochId,
+      warpWriterId: current.warpWriterId,
+      stability: "runtime_local" as const,
+      provenanceLevel: "artifact_history" as const,
+    };
+  }
+
   it("writes continuity anchors and start events into the WARP graph while preserving JSON", async () => {
-    const store = createStore();
+    const { store } = createStore();
     const fakeWarp = new FakeWarp();
 
     await store.noteBinding({
@@ -181,7 +242,7 @@ describe("mcp: persisted local history graph dual write", () => {
   });
 
   it("writes read events with footprints and follows the prior continuity event", async () => {
-    const store = createStore();
+    const { store } = createStore();
     const fakeWarp = new FakeWarp();
     const current = context({
       workspaceOverlayId: "overlay:one",
@@ -245,7 +306,7 @@ describe("mcp: persisted local history graph dual write", () => {
   });
 
   it("writes stage events with staged-target nodes and structural target edges", async () => {
-    const store = createStore();
+    const { store } = createStore();
     const fakeWarp = new FakeWarp();
     const current = context({
       workspaceOverlayId: "overlay:one",
@@ -302,5 +363,135 @@ describe("mcp: persisted local history graph dual write", () => {
     expect(fakeWarp.hasEdge("lh:target:target:one", "lh:overlay:overlay:one", "selected_from")).toBe(true);
     expect(fakeWarp.hasEdge("lh:target:target:one", "file:app.ts", "targets_file")).toBe(true);
     expect(fakeWarp.hasEdge("lh:target:target:one", "sym:app.ts:App.render", "targets_symbol")).toBe(true);
+  });
+
+  it("summarizes from the WARP graph even when the JSON sidecar is absent", async () => {
+    const { store: writingStore } = createStore();
+    const { store: readingStore, graftDir: readingGraftDir } = createStore();
+    const fakeWarp = new FakeWarp();
+    const current = context({
+      workspaceOverlayId: "overlay:one",
+    });
+
+    await writingStore.noteBinding({
+      current,
+      currentGraph: graphContext(fakeWarp),
+    });
+    await writingStore.noteReadObservation({
+      current,
+      attribution: attribution(),
+      surface: "safe_read",
+      projection: "content",
+      sourceLayer: "workspace_overlay",
+      reason: "CONTENT",
+      footprint: {
+        paths: ["app.ts"],
+        symbols: ["App.render"],
+        regions: [],
+      },
+      graph: graphContext(fakeWarp),
+    });
+
+    const summary = await readingStore.summarize(
+      workspaceStatus(readingGraftDir),
+      causalContextFor(current),
+      graphContext(fakeWarp),
+    );
+
+    expect(summary.availability).toBe("present");
+    if (summary.availability !== "present") {
+      return;
+    }
+    expect(summary.historyPath).toBeNull();
+    expect(summary.totalContinuityRecords).toBe(1);
+    expect(summary.lastOperation).toBe("start");
+    expect(summary.latestReadEvent).toEqual(expect.objectContaining({
+      eventKind: "read",
+      payload: expect.objectContaining({
+        surface: "safe_read",
+        sourceLayer: "workspace_overlay",
+      }),
+    }));
+  });
+
+  it("lists recent activity from the WARP graph even when the JSON sidecar is absent", async () => {
+    const { store: writingStore } = createStore();
+    const { store: readingStore, graftDir: readingGraftDir } = createStore();
+    const fakeWarp = new FakeWarp();
+    const current = context({
+      workspaceOverlayId: "overlay:one",
+    });
+
+    await writingStore.noteBinding({
+      current,
+      currentGraph: graphContext(fakeWarp),
+    });
+    await writingStore.noteReadObservation({
+      current,
+      attribution: attribution(),
+      surface: "safe_read",
+      projection: "content",
+      sourceLayer: "workspace_overlay",
+      reason: "CONTENT",
+      footprint: {
+        paths: ["app.ts"],
+        symbols: ["App.render"],
+        regions: [],
+      },
+      graph: graphContext(fakeWarp),
+    });
+
+    const window = await readingStore.listRecentActivity(
+      workspaceStatus(readingGraftDir),
+      causalContextFor(current),
+      12,
+      graphContext(fakeWarp),
+    );
+
+    expect(window.historyPath).toBeNull();
+    expect(window.totalMatchingItems).toBe(2);
+    expect(window.truncated).toBe(false);
+    expect(window.items).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        eventKind: "read",
+      }),
+      expect.objectContaining({
+        itemKind: "continuity",
+      }),
+    ]));
+  });
+
+  it("summarizes repo concurrency from the WARP graph even when JSON sidecars are absent", async () => {
+    const { store: writingStore } = createStore();
+    const { store: readingStore, graftDir: readingGraftDir } = createStore();
+    const fakeWarp = new FakeWarp();
+
+    await writingStore.noteBinding({
+      current: context(),
+      currentGraph: graphContext(fakeWarp),
+    });
+    await writingStore.noteBinding({
+      current: context({
+        worktreeId: "worktree:two",
+        transportSessionId: "transport:two",
+        workspaceSliceId: "slice-0002",
+        causalSessionId: "causal:two",
+        strandId: "strand:two",
+        observedAt: "2026-04-10T01:15:00.000Z",
+      }),
+      currentGraph: graphContext(fakeWarp),
+    });
+
+    const summary = await readingStore.summarizeRepoConcurrency(
+      workspaceStatus(readingGraftDir),
+      graphContext(fakeWarp),
+    );
+
+    expect(summary).toEqual(expect.objectContaining({
+      posture: "shared_repo_only",
+      authority: "repo_identity_only",
+      observedWorktreeCount: 2,
+      observedCausalSessionCount: 2,
+    }));
   });
 });

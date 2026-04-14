@@ -278,7 +278,7 @@ const persistedLocalHistorySummarySchema = z.discriminatedUnion("availability", 
   z.object({
     availability: z.literal("present"),
     persistence: z.literal("persisted_local_history"),
-    historyPath: z.string(),
+    historyPath: z.string().nullable(),
     totalContinuityRecords: z.number().int().positive(),
     active: z.boolean(),
     lastOperation: localHistoryContinuityOperationSchema,

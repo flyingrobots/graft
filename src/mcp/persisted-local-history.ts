@@ -2,8 +2,11 @@ import * as crypto from "node:crypto";
 import * as path from "node:path";
 import { z } from "zod";
 import {
+  actorSchema,
   attributionSummarySchema,
   attributionConfidenceSchema,
+  causalFootprintSchema,
+  causalRegionSchema,
   readEventSchema,
   stageEventSchema,
   transitionEventSchema,
@@ -12,6 +15,7 @@ import {
   localHistoryContinuityOperationSchema,
   type AttributionSummary,
   type AttributionConfidence,
+  type Actor,
   type CausalFootprint,
   type CausalEvent,
   type Evidence,
@@ -157,7 +161,7 @@ export interface PersistedLocalHistorySummaryNone {
 export interface PersistedLocalHistorySummaryPresent {
   readonly availability: "present";
   readonly persistence: "persisted_local_history";
-  readonly historyPath: string;
+  readonly historyPath: string | null;
   readonly totalContinuityRecords: number;
   readonly active: boolean;
   readonly lastOperation: LocalHistoryContinuityOperation;
@@ -322,6 +326,656 @@ function buildUnknownAttribution(): AttributionSummary {
   };
 }
 
+function compareByOccurredAtThenId(
+  left: { readonly occurredAt: string; readonly id: string },
+  right: { readonly occurredAt: string; readonly id: string },
+): number {
+  const byTime = left.occurredAt.localeCompare(right.occurredAt);
+  if (byTime !== 0) {
+    return byTime;
+  }
+  return left.id.localeCompare(right.id);
+}
+
+function asString(value: unknown): string | undefined {
+  return typeof value === "string" && value.length > 0 ? value : undefined;
+}
+
+function asNullableString(value: unknown): string | null | undefined {
+  if (value === null) {
+    return null;
+  }
+  return asString(value);
+}
+
+function asStringArray(value: unknown): string[] | undefined {
+  if (!Array.isArray(value)) {
+    return undefined;
+  }
+  const strings: string[] = [];
+  for (const entry of value) {
+    if (typeof entry !== "string" || entry.length === 0) {
+      return undefined;
+    }
+    strings.push(entry);
+  }
+  return strings;
+}
+
+function asUnknownRecord(value: unknown): Record<string, unknown> | undefined {
+  if (value === null || typeof value !== "object" || Array.isArray(value)) {
+    return undefined;
+  }
+  return value as Record<string, unknown>;
+}
+
+interface ObservedLocalHistoryNode {
+  readonly id: string;
+  readonly props: Record<string, unknown>;
+}
+
+interface ObservedLocalHistoryEdge {
+  readonly from: string;
+  readonly to: string;
+  readonly label: string;
+}
+
+interface ObservedLocalHistoryGraphSnapshot {
+  readonly nodesById: ReadonlyMap<string, ObservedLocalHistoryNode>;
+  readonly outgoingEdges: ReadonlyMap<string, readonly ObservedLocalHistoryEdge[]>;
+}
+
+const LOCAL_HISTORY_GRAPH_MATCH = ["lh:*"] as const;
+const LOCAL_HISTORY_GRAPH_EXPOSE = [
+  "actorId",
+  "actorKind",
+  "authority",
+  "authorityScope",
+  "attributionBasis",
+  "attributionConfidence",
+  "capturedAt",
+  "causalSessionId",
+  "checkoutEpochId",
+  "continuityKey",
+  "continuityOperation",
+  "continuedFromCausalSessionId",
+  "continuedFromEventId",
+  "continuedFromStrandId",
+  "details",
+  "displayName",
+  "entityKind",
+  "eventId",
+  "eventKind",
+  "evidenceId",
+  "evidenceKind",
+  "fromRef",
+  "occurredAt",
+  "path",
+  "paths",
+  "phase",
+  "projection",
+  "reason",
+  "repoId",
+  "selectionKind",
+  "semanticKind",
+  "source",
+  "sourceLayer",
+  "startLine",
+  "endLine",
+  "strandId",
+  "strength",
+  "summary",
+  "surface",
+  "symbols",
+  "targetId",
+  "toRef",
+  "transitionKind",
+  "transportSessionId",
+  "workspaceOverlayId",
+  "workspaceSliceId",
+  "worktreeId",
+  "createdCheckoutEpochId",
+] as const;
+
+function sortEvidence(evidence: readonly Evidence[]): Evidence[] {
+  return [...evidence].sort((left, right) => {
+    const byCapturedAt = left.capturedAt.localeCompare(right.capturedAt);
+    if (byCapturedAt !== 0) {
+      return byCapturedAt;
+    }
+    return left.evidenceId.localeCompare(right.evidenceId);
+  });
+}
+
+function sortEvents<T extends { readonly occurredAt: string; readonly eventId: string }>(events: readonly T[]): T[] {
+  return [...events].sort((left, right) => compareByOccurredAtThenId(
+    { occurredAt: left.occurredAt, id: left.eventId },
+    { occurredAt: right.occurredAt, id: right.eventId },
+  ));
+}
+
+function sortContinuityRecords(records: readonly ContinuityRecord[]): ContinuityRecord[] {
+  return [...records].sort((left, right) => {
+    const byTime = left.occurredAt.localeCompare(right.occurredAt);
+    if (byTime !== 0) {
+      return byTime;
+    }
+    if (left.continuedFromRecordId === right.recordId) {
+      return 1;
+    }
+    if (right.continuedFromRecordId === left.recordId) {
+      return -1;
+    }
+    if (left.operation !== right.operation) {
+      if (left.operation === "park") {
+        return -1;
+      }
+      if (right.operation === "park") {
+        return 1;
+      }
+    }
+    return left.recordId.localeCompare(right.recordId);
+  });
+}
+
+function outgoingTargets(
+  snapshot: ObservedLocalHistoryGraphSnapshot,
+  nodeId: string,
+  label: string,
+): string[] {
+  return (snapshot.outgoingEdges.get(nodeId) ?? [])
+    .filter((edge) => edge.label === label)
+    .map((edge) => edge.to);
+}
+
+function buildUnknownAttributionForActorId(actorId: string | null | undefined): AttributionSummary {
+  const unknown = buildUnknownAttribution();
+  if (actorId === null || actorId === undefined || actorId.length === 0) {
+    return unknown;
+  }
+  return {
+    ...unknown,
+    actor: {
+      ...unknown.actor,
+      actorId,
+    },
+  };
+}
+
+export function deriveContinuityAttribution(
+  operation: LocalHistoryContinuityOperation,
+  continuityEvidence: readonly Evidence[],
+): AttributionSummary {
+  const explicitUserEvidence = continuityEvidence.filter((evidence) => evidence.evidenceKind === "explicit_user_declaration");
+  const explicitAgentEvidence = continuityEvidence.filter((evidence) => evidence.evidenceKind === "explicit_agent_declaration");
+
+  if (explicitUserEvidence.length > 0 && explicitAgentEvidence.length > 0) {
+    return {
+      actor: {
+        actorId: "unknown",
+        actorKind: "unknown",
+        displayName: "Conflicting actor signals",
+        source: "persisted_local_history.conflict",
+        authorityScope: "mixed",
+      },
+      confidence: "unknown",
+      basis: "conflicting_signals",
+      evidence: [...continuityEvidence],
+    };
+  }
+
+  if (explicitUserEvidence.length > 0 || explicitAgentEvidence.length > 0) {
+    const declarationEvidence = explicitUserEvidence.length > 0 ? explicitUserEvidence : explicitAgentEvidence;
+    const primary = declarationEvidence[0];
+    const actorKind = explicitUserEvidence.length > 0 ? "human" : "agent";
+    const actorId = typeof primary?.details["actorId"] === "string" && primary.details["actorId"].length > 0
+      ? primary.details["actorId"]
+      : `${actorKind}:declared`;
+    return {
+      actor: {
+        actorId,
+        actorKind,
+        displayName: actorKind === "human" ? "Declared human actor" : "Declared agent actor",
+        source: "causal_attach.declaration",
+        authorityScope: "declared",
+      },
+      confidence: getMaximumConfidenceForEvidence(
+        declarationEvidence.map((evidence) => evidence.strength),
+      ),
+      basis: "explicit_declaration",
+      evidence: continuityEvidence.filter((evidence) =>
+        evidence.evidenceKind === "explicit_user_declaration" ||
+        evidence.evidenceKind === "explicit_agent_declaration" ||
+        evidence.evidenceKind === "explicit_handoff"
+      ),
+    };
+  }
+
+  const gitEvidence = continuityEvidence.filter((evidence) =>
+    evidence.evidenceKind === "git_transition_observation" ||
+    evidence.evidenceKind === "git_hook_transition"
+  );
+  if (gitEvidence.length > 0 && (operation === "fork" || operation === "park")) {
+    return {
+      actor: {
+        actorId: "git:transition",
+        actorKind: "git",
+        displayName: "Git transition",
+        source: "persisted_local_history.checkout_transition",
+        authorityScope: "inferred",
+      },
+      confidence: getMaximumConfidenceForEvidence(
+        gitEvidence.map((evidence) => evidence.strength),
+      ),
+      basis: "git_transition",
+      evidence: gitEvidence,
+    };
+  }
+
+  return buildUnknownAttribution();
+}
+
+async function loadObservedLocalHistoryGraph(
+  graph: PersistedLocalHistoryGraphContext | null | undefined,
+): Promise<ObservedLocalHistoryGraphSnapshot | null> {
+  if (graph === null || graph === undefined || typeof graph.warp.observer !== "function") {
+    return null;
+  }
+
+  const observer = await graph.warp.observer({
+    match: [...LOCAL_HISTORY_GRAPH_MATCH],
+    expose: [...LOCAL_HISTORY_GRAPH_EXPOSE],
+  });
+  const nodeIds = await observer.getNodes();
+  if (nodeIds.length === 0) {
+    return null;
+  }
+
+  const nodesById = new Map<string, ObservedLocalHistoryNode>();
+  for (const nodeId of nodeIds) {
+    const props = await observer.getNodeProps(nodeId);
+    const record = asUnknownRecord(props);
+    if (record !== undefined) {
+      nodesById.set(nodeId, { id: nodeId, props: record });
+    }
+  }
+
+  if (nodesById.size === 0) {
+    return null;
+  }
+
+  const outgoing = new Map<string, ObservedLocalHistoryEdge[]>();
+  for (const edge of await observer.getEdges()) {
+    if (!nodesById.has(edge.from) || !nodesById.has(edge.to)) {
+      continue;
+    }
+    const bucket = outgoing.get(edge.from) ?? [];
+    bucket.push(edge);
+    outgoing.set(edge.from, bucket);
+  }
+
+  return {
+    nodesById,
+    outgoingEdges: outgoing,
+  };
+}
+
+function readEvidenceNode(
+  snapshot: ObservedLocalHistoryGraphSnapshot,
+  nodeId: string,
+): Evidence | null {
+  const node = snapshot.nodesById.get(nodeId);
+  if (node === undefined || asString(node.props["entityKind"]) !== "evidence") {
+    return null;
+  }
+  const parsed = evidenceSchema.safeParse({
+    evidenceId: asString(node.props["evidenceId"]),
+    evidenceKind: asString(node.props["evidenceKind"]),
+    source: asString(node.props["source"]),
+    capturedAt: asString(node.props["capturedAt"]),
+    strength: asString(node.props["strength"]),
+    details: asUnknownRecord(node.props["details"]) ?? {},
+  });
+  return parsed.success ? parsed.data : null;
+}
+
+function readActorNode(
+  snapshot: ObservedLocalHistoryGraphSnapshot,
+  nodeId: string,
+): Actor | null {
+  const node = snapshot.nodesById.get(nodeId);
+  if (node === undefined || asString(node.props["entityKind"]) !== "actor") {
+    return null;
+  }
+  const parsed = actorSchema.safeParse({
+    actorId: asString(node.props["actorId"]),
+    actorKind: asString(node.props["actorKind"]),
+    displayName: asString(node.props["displayName"]),
+    source: asString(node.props["source"]),
+    authorityScope: asString(node.props["authorityScope"]),
+  });
+  return parsed.success ? parsed.data : null;
+}
+
+function readFootprint(
+  snapshot: ObservedLocalHistoryGraphSnapshot,
+  eventNodeId: string,
+): CausalFootprint {
+  const footprintNodeId = outgoingTargets(snapshot, eventNodeId, "has_footprint")[0];
+  const footprintNode = footprintNodeId === undefined ? undefined : snapshot.nodesById.get(footprintNodeId);
+  const regions = (footprintNodeId === undefined ? [] : outgoingTargets(snapshot, footprintNodeId, "has_region"))
+    .map((regionNodeId) => {
+      const regionNode = snapshot.nodesById.get(regionNodeId);
+      if (regionNode === undefined) {
+        return null;
+      }
+      const parsed = causalRegionSchema.safeParse({
+        path: asString(regionNode.props["path"]),
+        startLine: regionNode.props["startLine"],
+        endLine: regionNode.props["endLine"],
+      });
+      return parsed.success ? parsed.data : null;
+    })
+    .filter((region): region is z.infer<typeof causalRegionSchema> => region !== null);
+
+  const parsed = causalFootprintSchema.safeParse({
+    paths: footprintNode === undefined ? [] : asStringArray(footprintNode.props["paths"]) ?? [],
+    symbols: footprintNode === undefined ? [] : asStringArray(footprintNode.props["symbols"]) ?? [],
+    regions,
+  });
+  if (parsed.success) {
+    return parsed.data;
+  }
+  return {
+    paths: [],
+    symbols: [],
+    regions: [],
+  };
+}
+
+function readSupportedEvidence(
+  snapshot: ObservedLocalHistoryGraphSnapshot,
+  eventNodeId: string,
+): Evidence[] {
+  return sortEvidence(
+    outgoingTargets(snapshot, eventNodeId, "supported_by")
+      .map((nodeId) => readEvidenceNode(snapshot, nodeId))
+      .filter((evidence): evidence is Evidence => evidence !== null),
+  );
+}
+
+function readEventAttribution(
+  snapshot: ObservedLocalHistoryGraphSnapshot,
+  eventNode: ObservedLocalHistoryNode,
+  input: {
+    readonly continuityOperation?: LocalHistoryContinuityOperation | undefined;
+    readonly evidence: readonly Evidence[];
+  },
+): AttributionSummary {
+  if (input.continuityOperation !== undefined) {
+    return deriveContinuityAttribution(input.continuityOperation, input.evidence);
+  }
+
+  const actorNodeId = outgoingTargets(snapshot, eventNode.id, "attributed_to")[0];
+  const actor = actorNodeId === undefined ? null : readActorNode(snapshot, actorNodeId);
+  const parsed = attributionSummarySchema.safeParse({
+    actor: actor ?? buildUnknownAttributionForActorId(asString(eventNode.props["actorId"])).actor,
+    confidence: asString(eventNode.props["attributionConfidence"]) ?? "unknown",
+    basis: asString(eventNode.props["attributionBasis"]) ?? "unknown_fallback",
+    evidence: [...input.evidence],
+  });
+  return parsed.success ? parsed.data : buildUnknownAttributionForActorId(asString(eventNode.props["actorId"]));
+}
+
+function readContinuityRecordFromGraph(
+  snapshot: ObservedLocalHistoryGraphSnapshot,
+  node: ObservedLocalHistoryNode,
+): ContinuityRecord | null {
+  if (
+    asString(node.props["entityKind"]) !== "local_history_event" ||
+    asString(node.props["eventKind"]) !== "continuity"
+  ) {
+    return null;
+  }
+  const operation = localHistoryContinuityOperationSchema.safeParse(asString(node.props["continuityOperation"]));
+  const repoId = asString(node.props["repoId"]);
+  const worktreeId = asString(node.props["worktreeId"]);
+  const recordId = asString(node.props["eventId"]);
+  const occurredAt = asString(node.props["occurredAt"]);
+  const continuityEvidence = readSupportedEvidence(snapshot, node.id);
+  if (!operation.success || repoId === undefined || worktreeId === undefined || recordId === undefined || occurredAt === undefined) {
+    return null;
+  }
+  const parsed = continuityRecordSchema.safeParse({
+    recordId,
+    continuityKey: asString(node.props["continuityKey"]) ?? buildContinuityKey(repoId, worktreeId),
+    operation: operation.data,
+    repoId,
+    worktreeId,
+    transportSessionId: asString(node.props["transportSessionId"]),
+    workspaceSliceId: asString(node.props["workspaceSliceId"]),
+    causalSessionId: asString(node.props["causalSessionId"]),
+    strandId: asString(node.props["strandId"]),
+    checkoutEpochId: asString(node.props["checkoutEpochId"]),
+    workspaceOverlayId: asNullableString(node.props["workspaceOverlayId"]) ?? null,
+    occurredAt,
+    continuedFromRecordId: asNullableString(node.props["continuedFromEventId"]) ?? null,
+    continuedFromCausalSessionId: asNullableString(node.props["continuedFromCausalSessionId"]) ?? null,
+    continuedFromStrandId: asNullableString(node.props["continuedFromStrandId"]) ?? null,
+    continuityConfidence: asString(node.props["attributionConfidence"]) ?? "unknown",
+    continuityEvidence,
+    attribution: readEventAttribution(snapshot, node, {
+      continuityOperation: operation.data,
+      evidence: continuityEvidence,
+    }),
+  });
+  return parsed.success ? parsed.data : null;
+}
+
+function readReadEventFromGraph(
+  snapshot: ObservedLocalHistoryGraphSnapshot,
+  node: ObservedLocalHistoryNode,
+): Extract<CausalEvent, { eventKind: "read" }> | null {
+  if (asString(node.props["entityKind"]) !== "local_history_event" || asString(node.props["eventKind"]) !== "read") {
+    return null;
+  }
+  const evidence = readSupportedEvidence(snapshot, node.id);
+  const parsed = readEventSchema.safeParse({
+    eventId: asString(node.props["eventId"]),
+    eventKind: "read",
+    repoId: asString(node.props["repoId"]),
+    worktreeId: asString(node.props["worktreeId"]),
+    checkoutEpochId: asString(node.props["checkoutEpochId"]),
+    workspaceOverlayId: asNullableString(node.props["workspaceOverlayId"]) ?? null,
+    transportSessionId: asString(node.props["transportSessionId"]),
+    workspaceSliceId: asString(node.props["workspaceSliceId"]),
+    causalSessionId: asString(node.props["causalSessionId"]),
+    strandId: asString(node.props["strandId"]),
+    actorId: asString(node.props["actorId"]) ?? "unknown",
+    confidence: asString(node.props["attributionConfidence"]) ?? "unknown",
+    evidenceIds: evidence.map((item) => item.evidenceId),
+    attribution: readEventAttribution(snapshot, node, { evidence }),
+    footprint: readFootprint(snapshot, node.id),
+    occurredAt: asString(node.props["occurredAt"]),
+    payload: {
+      surface: asString(node.props["surface"]),
+      projection: asString(node.props["projection"]),
+      sourceLayer: asString(node.props["sourceLayer"]),
+      reason: asString(node.props["reason"]),
+    },
+  });
+  return parsed.success ? parsed.data : null;
+}
+
+function readStageEventFromGraph(
+  snapshot: ObservedLocalHistoryGraphSnapshot,
+  node: ObservedLocalHistoryNode,
+): Extract<CausalEvent, { eventKind: "stage" }> | null {
+  if (asString(node.props["entityKind"]) !== "local_history_event" || asString(node.props["eventKind"]) !== "stage") {
+    return null;
+  }
+  const evidence = readSupportedEvidence(snapshot, node.id);
+  const footprint = readFootprint(snapshot, node.id);
+  const parsed = stageEventSchema.safeParse({
+    eventId: asString(node.props["eventId"]),
+    eventKind: "stage",
+    repoId: asString(node.props["repoId"]),
+    worktreeId: asString(node.props["worktreeId"]),
+    checkoutEpochId: asString(node.props["checkoutEpochId"]),
+    workspaceOverlayId: asNullableString(node.props["workspaceOverlayId"]) ?? null,
+    transportSessionId: asString(node.props["transportSessionId"]),
+    workspaceSliceId: asString(node.props["workspaceSliceId"]),
+    causalSessionId: asString(node.props["causalSessionId"]),
+    strandId: asString(node.props["strandId"]),
+    actorId: asString(node.props["actorId"]) ?? "unknown",
+    confidence: asString(node.props["attributionConfidence"]) ?? "unknown",
+    evidenceIds: evidence.map((item) => item.evidenceId),
+    attribution: readEventAttribution(snapshot, node, { evidence }),
+    footprint,
+    occurredAt: asString(node.props["occurredAt"]),
+    payload: {
+      targetId: asString(node.props["targetId"]),
+      footprint,
+      selectionKind: asString(node.props["selectionKind"]),
+    },
+  });
+  return parsed.success ? parsed.data : null;
+}
+
+function readTransitionEventFromGraph(
+  snapshot: ObservedLocalHistoryGraphSnapshot,
+  node: ObservedLocalHistoryNode,
+): Extract<CausalEvent, { eventKind: "transition" }> | null {
+  if (
+    asString(node.props["entityKind"]) !== "local_history_event" ||
+    asString(node.props["eventKind"]) !== "transition"
+  ) {
+    return null;
+  }
+  const evidence = readSupportedEvidence(snapshot, node.id);
+  const parsed = transitionEventSchema.safeParse({
+    eventId: asString(node.props["eventId"]),
+    eventKind: "transition",
+    repoId: asString(node.props["repoId"]),
+    worktreeId: asString(node.props["worktreeId"]),
+    checkoutEpochId: asString(node.props["checkoutEpochId"]),
+    workspaceOverlayId: asNullableString(node.props["workspaceOverlayId"]) ?? null,
+    transportSessionId: asString(node.props["transportSessionId"]),
+    workspaceSliceId: asString(node.props["workspaceSliceId"]),
+    causalSessionId: asString(node.props["causalSessionId"]),
+    strandId: asString(node.props["strandId"]),
+    actorId: asString(node.props["actorId"]) ?? "unknown",
+    confidence: asString(node.props["attributionConfidence"]) ?? "unknown",
+    evidenceIds: evidence.map((item) => item.evidenceId),
+    attribution: readEventAttribution(snapshot, node, { evidence }),
+    footprint: readFootprint(snapshot, node.id),
+    occurredAt: asString(node.props["occurredAt"]),
+    payload: {
+      semanticKind: asString(node.props["semanticKind"]),
+      authority: asString(node.props["authority"]),
+      phase: asNullableString(node.props["phase"]) ?? null,
+      summary: asString(node.props["summary"]),
+      transitionKind: asNullableString(node.props["transitionKind"]) ?? null,
+      fromRef: asNullableString(node.props["fromRef"]) ?? null,
+      toRef: asNullableString(node.props["toRef"]) ?? null,
+      createdCheckoutEpochId: asNullableString(node.props["createdCheckoutEpochId"]) ?? null,
+    },
+  });
+  return parsed.success ? parsed.data : null;
+}
+
+function loadStateFromGraphSnapshot(
+  snapshot: ObservedLocalHistoryGraphSnapshot,
+  repoId: string,
+  worktreeId: string,
+): ContinuityState | null {
+  const continuityRecords = sortContinuityRecords(
+    [...snapshot.nodesById.values()]
+      .map((node) => readContinuityRecordFromGraph(snapshot, node))
+      .filter((record): record is ContinuityRecord =>
+        record !== null && record.repoId === repoId && record.worktreeId === worktreeId
+      ),
+  );
+
+  const readEvents = sortEvents(
+    [...snapshot.nodesById.values()]
+      .map((node) => readReadEventFromGraph(snapshot, node))
+      .filter((event): event is Extract<CausalEvent, { eventKind: "read" }> =>
+        event !== null && event.repoId === repoId && event.worktreeId === worktreeId
+      ),
+  );
+  const stageEvents = sortEvents(
+    [...snapshot.nodesById.values()]
+      .map((node) => readStageEventFromGraph(snapshot, node))
+      .filter((event): event is Extract<CausalEvent, { eventKind: "stage" }> =>
+        event !== null && event.repoId === repoId && event.worktreeId === worktreeId
+      ),
+  );
+  const transitionEvents = sortEvents(
+    [...snapshot.nodesById.values()]
+      .map((node) => readTransitionEventFromGraph(snapshot, node))
+      .filter((event): event is Extract<CausalEvent, { eventKind: "transition" }> =>
+        event !== null && event.repoId === repoId && event.worktreeId === worktreeId
+      ),
+  );
+
+  if (
+    continuityRecords.length === 0 &&
+    readEvents.length === 0 &&
+    stageEvents.length === 0 &&
+    transitionEvents.length === 0
+  ) {
+    return null;
+  }
+
+  const lastRecord = continuityRecords.at(-1) ?? null;
+  return {
+    continuityKey: lastRecord?.continuityKey ?? buildContinuityKey(repoId, worktreeId),
+    repoId,
+    worktreeId,
+    activeRecordId: lastRecord === null || lastRecord.operation === "park" ? null : lastRecord.recordId,
+    records: continuityRecords,
+    readEvents,
+    stageEvents,
+    transitionEvents,
+  };
+}
+
+async function loadStateFromGraph(
+  graph: PersistedLocalHistoryGraphContext | null | undefined,
+  repoId: string,
+  worktreeId: string,
+): Promise<ContinuityState | null> {
+  const snapshot = await loadObservedLocalHistoryGraph(graph);
+  if (snapshot === null) {
+    return null;
+  }
+  return loadStateFromGraphSnapshot(snapshot, repoId, worktreeId);
+}
+
+async function loadStatesForRepoFromGraph(
+  graph: PersistedLocalHistoryGraphContext | null | undefined,
+  repoId: string,
+): Promise<ContinuityState[] | null> {
+  const snapshot = await loadObservedLocalHistoryGraph(graph);
+  if (snapshot === null) {
+    return null;
+  }
+
+  const worktreeIds = new Set(
+    [...snapshot.nodesById.values()]
+      .filter((node) => asString(node.props["repoId"]) === repoId)
+      .map((node) => asString(node.props["worktreeId"]))
+      .filter((value): value is string => value !== undefined),
+  );
+
+  const states = [...worktreeIds]
+    .map((worktreeId) => loadStateFromGraphSnapshot(snapshot, repoId, worktreeId))
+    .filter((state): state is ContinuityState => state !== null);
+
+  return states.length > 0 ? states : null;
+}
+
 export class PersistedLocalHistoryStore {
   constructor(
     private readonly deps: {
@@ -470,57 +1124,34 @@ export class PersistedLocalHistoryStore {
     }
   }
 
-  async summarize(status: WorkspaceStatus, causalContext: RuntimeCausalContext): Promise<PersistedLocalHistorySummary> {
+  async summarize(
+    status: WorkspaceStatus,
+    causalContext: RuntimeCausalContext,
+    graph?: PersistedLocalHistoryGraphContext | null,
+  ): Promise<PersistedLocalHistorySummary> {
     if (status.repoId === null || status.worktreeId === null) {
       return this.emptySummary();
     }
 
     const continuityKey = buildContinuityKey(status.repoId, status.worktreeId);
-    const state = await this.loadState(continuityKey, status.repoId, status.worktreeId);
-    const activeRecord = findRecord(state, state.activeRecordId);
-    const lastRecord = state.records.at(-1) ?? null;
-    if (lastRecord === null || status.graftDir === null) {
-      return this.emptySummary();
-    }
-
-    const effectiveRecord = activeRecord ?? lastRecord;
-    return {
-      availability: "present",
-      persistence: "persisted_local_history",
-      historyPath: this.historyPathFor(continuityKey),
-      totalContinuityRecords: state.records.length,
-      active: activeRecord !== null,
-      lastOperation: lastRecord.operation,
-      lastObservedAt: lastRecord.occurredAt,
-      continuityKey,
-      causalSessionId: effectiveRecord.causalSessionId,
-      strandId: effectiveRecord.strandId,
-      checkoutEpochId: effectiveRecord.checkoutEpochId,
-      continuedFromCausalSessionId: lastRecord.continuedFromCausalSessionId,
-      continuityConfidence: lastRecord.continuityConfidence,
-      continuityEvidence: lastRecord.continuityEvidence,
-      attribution: effectiveRecord.attribution,
-      latestReadEvent: state.readEvents.at(-1) ?? null,
-      latestStageEvent: state.stageEvents.at(-1) ?? null,
-      latestTransitionEvent: state.transitionEvents.at(-1) ?? null,
-      preserves: PERSISTED_LOCAL_HISTORY_PRESERVES,
-      excludes: PERSISTED_LOCAL_HISTORY_EXCLUDES,
-      nextAction: activeRecord?.causalSessionId === causalContext.causalSessionId
-        ? (lastRecord.operation === "fork"
-            ? "review_transition_boundary_before_continuing"
-            : "continue_active_causal_workspace")
-        : "inspect_or_resume_local_history",
-    };
+    const graphState = await loadStateFromGraph(graph, status.repoId, status.worktreeId);
+    const state = graphState ?? await this.loadState(continuityKey, status.repoId, status.worktreeId);
+    return this.summarizeState(state, status, causalContext, graphState !== null ? null : this.historyPathFor(continuityKey));
   }
 
-  async summarizeRepoConcurrency(status: WorkspaceStatus): Promise<RepoConcurrencySummary | null> {
+  async summarizeRepoConcurrency(
+    status: WorkspaceStatus,
+    graph?: PersistedLocalHistoryGraphContext | null,
+  ): Promise<RepoConcurrencySummary | null> {
     if (status.repoId === null || status.worktreeId === null) {
       return null;
     }
 
     const continuityKey = buildContinuityKey(status.repoId, status.worktreeId);
-    const currentState = await this.loadState(continuityKey, status.repoId, status.worktreeId);
-    const repoStates = await this.loadStatesForRepo(status.repoId);
+    const graphStates = await loadStatesForRepoFromGraph(graph, status.repoId);
+    const currentState = graphStates?.find((state) => state.worktreeId === status.worktreeId)
+      ?? await this.loadState(continuityKey, status.repoId, status.worktreeId);
+    const repoStates = graphStates ?? await this.loadStatesForRepo(status.repoId);
 
     return deriveRepoConcurrencySummary({
       currentWorktreeId: status.worktreeId,
@@ -537,6 +1168,7 @@ export class PersistedLocalHistoryStore {
     status: WorkspaceStatus,
     causalContext: RuntimeCausalContext,
     limit: number,
+    graph?: PersistedLocalHistoryGraphContext | null,
   ): Promise<PersistedLocalActivityWindow> {
     if (status.repoId === null || status.worktreeId === null || status.graftDir === null) {
       return {
@@ -549,50 +1181,14 @@ export class PersistedLocalHistoryStore {
     }
 
     const continuityKey = buildContinuityKey(status.repoId, status.worktreeId);
-    const state = await this.loadState(continuityKey, status.repoId, status.worktreeId);
-    const activeRecord = findRecord(state, state.activeRecordId);
-    const effectiveCheckoutEpochId =
-      activeRecord?.checkoutEpochId
-      ?? state.records.at(-1)?.checkoutEpochId
-      ?? causalContext.checkoutEpochId;
-
-    const continuityItems: PersistedLocalActivityContinuityItem[] = state.records
-      .filter((record) => record.checkoutEpochId === effectiveCheckoutEpochId)
-      .map((record) => ({
-        itemKind: "continuity",
-        recordId: record.recordId,
-        operation: record.operation,
-        occurredAt: record.occurredAt,
-        causalSessionId: record.causalSessionId,
-        strandId: record.strandId,
-        attribution: record.attribution,
-        continuedFromCausalSessionId: record.continuedFromCausalSessionId,
-        continuedFromStrandId: record.continuedFromStrandId,
-      }));
-
-    const eventItems: PersistedLocalActivityItem[] = [
-      ...state.readEvents,
-      ...state.stageEvents,
-      ...state.transitionEvents,
-    ].filter((event) => event.checkoutEpochId === effectiveCheckoutEpochId);
-
-    const allItems = [...continuityItems, ...eventItems].sort((left, right) => {
-      const byTime = right.occurredAt.localeCompare(left.occurredAt);
-      if (byTime !== 0) {
-        return byTime;
-      }
-      const leftId = "recordId" in left ? left.recordId : left.eventId;
-      const rightId = "recordId" in right ? right.recordId : right.eventId;
-      return rightId.localeCompare(leftId);
-    });
-
-    return {
-      historyPath: this.historyPathFor(continuityKey),
+    const graphState = await loadStateFromGraph(graph, status.repoId, status.worktreeId);
+    const state = graphState ?? await this.loadState(continuityKey, status.repoId, status.worktreeId);
+    return this.buildActivityWindowFromState(
+      state,
+      causalContext,
       limit,
-      totalMatchingItems: allItems.length,
-      truncated: allItems.length > limit,
-      items: allItems.slice(0, limit),
-    };
+      graphState !== null ? null : this.historyPathFor(continuityKey),
+    );
   }
 
   async declareAttach(input: {
@@ -994,73 +1590,7 @@ export class PersistedLocalHistoryStore {
     operation: LocalHistoryContinuityOperation,
     continuityEvidence: readonly Evidence[],
   ): AttributionSummary {
-    const explicitUserEvidence = continuityEvidence.filter((evidence) => evidence.evidenceKind === "explicit_user_declaration");
-    const explicitAgentEvidence = continuityEvidence.filter((evidence) => evidence.evidenceKind === "explicit_agent_declaration");
-
-    if (explicitUserEvidence.length > 0 && explicitAgentEvidence.length > 0) {
-      return {
-        actor: {
-          actorId: "unknown",
-          actorKind: "unknown",
-          displayName: "Conflicting actor signals",
-          source: "persisted_local_history.conflict",
-          authorityScope: "mixed",
-        },
-        confidence: "unknown",
-        basis: "conflicting_signals",
-        evidence: [...continuityEvidence],
-      };
-    }
-
-    if (explicitUserEvidence.length > 0 || explicitAgentEvidence.length > 0) {
-      const declarationEvidence = explicitUserEvidence.length > 0 ? explicitUserEvidence : explicitAgentEvidence;
-      const primary = declarationEvidence[0];
-      const actorKind = explicitUserEvidence.length > 0 ? "human" : "agent";
-      const actorId = typeof primary?.details["actorId"] === "string" && primary.details["actorId"].length > 0
-        ? primary.details["actorId"]
-        : `${actorKind}:declared`;
-      return {
-        actor: {
-          actorId,
-          actorKind,
-          displayName: actorKind === "human" ? "Declared human actor" : "Declared agent actor",
-          source: "causal_attach.declaration",
-          authorityScope: "declared",
-        },
-        confidence: getMaximumConfidenceForEvidence(
-          declarationEvidence.map((evidence) => evidence.strength),
-        ),
-        basis: "explicit_declaration",
-        evidence: continuityEvidence.filter((evidence) =>
-          evidence.evidenceKind === "explicit_user_declaration" ||
-          evidence.evidenceKind === "explicit_agent_declaration" ||
-          evidence.evidenceKind === "explicit_handoff"
-        ),
-      };
-    }
-
-    const gitEvidence = continuityEvidence.filter((evidence) =>
-      evidence.evidenceKind === "git_transition_observation" ||
-      evidence.evidenceKind === "git_hook_transition"
-    );
-    if (gitEvidence.length > 0 && (operation === "fork" || operation === "park")) {
-      return {
-        actor: {
-          actorId: "git:transition",
-          actorKind: "git",
-          displayName: "Git transition",
-          source: "persisted_local_history.checkout_transition",
-          authorityScope: "inferred",
-        },
-        confidence: getMaximumConfidenceForEvidence(
-          gitEvidence.map((evidence) => evidence.strength),
-        ),
-        basis: "git_transition",
-        evidence: gitEvidence,
-      };
-    }
-
-    return buildUnknownAttribution();
+    return deriveContinuityAttribution(operation, continuityEvidence);
   }
 
   private emptySummary(): PersistedLocalHistorySummaryNone {
@@ -1086,6 +1616,99 @@ export class PersistedLocalHistoryStore {
       preserves: PERSISTED_LOCAL_HISTORY_PRESERVES,
       excludes: PERSISTED_LOCAL_HISTORY_EXCLUDES,
       nextAction: "bind_workspace_to_begin_local_history",
+    };
+  }
+
+  private summarizeState(
+    state: ContinuityState,
+    status: WorkspaceStatus,
+    causalContext: RuntimeCausalContext,
+    historyPath: string | null,
+  ): PersistedLocalHistorySummary {
+    const activeRecord = findRecord(state, state.activeRecordId);
+    const lastRecord = state.records.at(-1) ?? null;
+    if (lastRecord === null || status.graftDir === null) {
+      return this.emptySummary();
+    }
+
+    const effectiveRecord = activeRecord ?? lastRecord;
+    return {
+      availability: "present",
+      persistence: "persisted_local_history",
+      historyPath,
+      totalContinuityRecords: state.records.length,
+      active: activeRecord !== null,
+      lastOperation: lastRecord.operation,
+      lastObservedAt: lastRecord.occurredAt,
+      continuityKey: state.continuityKey,
+      causalSessionId: effectiveRecord.causalSessionId,
+      strandId: effectiveRecord.strandId,
+      checkoutEpochId: effectiveRecord.checkoutEpochId,
+      continuedFromCausalSessionId: lastRecord.continuedFromCausalSessionId,
+      continuityConfidence: lastRecord.continuityConfidence,
+      continuityEvidence: lastRecord.continuityEvidence,
+      attribution: effectiveRecord.attribution,
+      latestReadEvent: state.readEvents.at(-1) ?? null,
+      latestStageEvent: state.stageEvents.at(-1) ?? null,
+      latestTransitionEvent: state.transitionEvents.at(-1) ?? null,
+      preserves: PERSISTED_LOCAL_HISTORY_PRESERVES,
+      excludes: PERSISTED_LOCAL_HISTORY_EXCLUDES,
+      nextAction: activeRecord?.causalSessionId === causalContext.causalSessionId
+        ? (lastRecord.operation === "fork"
+            ? "review_transition_boundary_before_continuing"
+            : "continue_active_causal_workspace")
+        : "inspect_or_resume_local_history",
+    };
+  }
+
+  private buildActivityWindowFromState(
+    state: ContinuityState,
+    causalContext: RuntimeCausalContext,
+    limit: number,
+    historyPath: string | null,
+  ): PersistedLocalActivityWindow {
+    const activeRecord = findRecord(state, state.activeRecordId);
+    const effectiveCheckoutEpochId =
+      activeRecord?.checkoutEpochId
+      ?? state.records.at(-1)?.checkoutEpochId
+      ?? causalContext.checkoutEpochId;
+
+    const continuityItems: PersistedLocalActivityContinuityItem[] = state.records
+      .filter((record) => record.checkoutEpochId === effectiveCheckoutEpochId)
+      .map((record) => ({
+        itemKind: "continuity",
+        recordId: record.recordId,
+        operation: record.operation,
+        occurredAt: record.occurredAt,
+        causalSessionId: record.causalSessionId,
+        strandId: record.strandId,
+        attribution: record.attribution,
+        continuedFromCausalSessionId: record.continuedFromCausalSessionId,
+        continuedFromStrandId: record.continuedFromStrandId,
+      }));
+
+    const eventItems: PersistedLocalActivityItem[] = [
+      ...state.readEvents,
+      ...state.stageEvents,
+      ...state.transitionEvents,
+    ].filter((event) => event.checkoutEpochId === effectiveCheckoutEpochId);
+
+    const allItems = [...continuityItems, ...eventItems].sort((left, right) => {
+      const byTime = right.occurredAt.localeCompare(left.occurredAt);
+      if (byTime !== 0) {
+        return byTime;
+      }
+      const leftId = "recordId" in left ? left.recordId : left.eventId;
+      const rightId = "recordId" in right ? right.recordId : right.eventId;
+      return rightId.localeCompare(leftId);
+    });
+
+    return {
+      historyPath,
+      limit,
+      totalMatchingItems: allItems.length,
+      truncated: allItems.length > limit,
+      items: allItems.slice(0, limit),
     };
   }
 

@@ -92,6 +92,10 @@ describe("mcp: persisted local history", () => {
     expect(summary.attribution.confidence).toBe("unknown");
     expect(summary.latestReadEvent).toBeNull();
     expect(summary.latestStageEvent).toBeNull();
+    expect(summary.historyPath).not.toBeNull();
+    if (summary.historyPath === null) {
+      return;
+    }
     expect(fs.existsSync(summary.historyPath)).toBe(true);
   });
 
@@ -437,6 +441,10 @@ describe("mcp: persisted local history", () => {
       return;
     }
     expect(summary.latestReadEvent?.footprint.paths).toEqual(["src/file-299.ts"]);
+    expect(summary.historyPath).not.toBeNull();
+    if (summary.historyPath === null) {
+      return;
+    }
 
     const raw = JSON.parse(fs.readFileSync(summary.historyPath, "utf-8")) as {
       readEvents: unknown[];

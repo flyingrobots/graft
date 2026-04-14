@@ -10,6 +10,14 @@ import type { RuntimeStagedTargetFullFile } from "./runtime-staged-target.js";
 
 export interface PersistedLocalHistoryGraphWarp {
   hasNode?(nodeId: string): Promise<boolean>;
+  observer?(lens: {
+    readonly match: string | readonly string[];
+    readonly expose?: readonly string[] | undefined;
+  }): Promise<{
+    getNodes(): Promise<string[]>;
+    getNodeProps(nodeId: string): Promise<Record<string, unknown> | null>;
+    getEdges(): Promise<{ from: string; to: string; label: string }[]>;
+  }>;
   patch(build: (patch: {
     addNode(id: string): unknown;
     setProperty(id: string, key: string, value: unknown): unknown;
