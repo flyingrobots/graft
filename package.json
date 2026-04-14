@@ -4,12 +4,22 @@
   "description": "Context governor and between-commit activity surface for coding agents",
   "type": "module",
   "packageManager": "pnpm@10.30.0",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./package.json": "./package.json"
+  },
   "bin": {
     "graft": "./bin/graft.js",
     "git-graft": "./bin/graft.js"
   },
   "files": [
     "bin/",
+    "dist/",
     "src/",
     "ARCHITECTURE.md",
     "CODE_OF_CONDUCT.md",
@@ -25,6 +35,7 @@
   "scripts": {
     "graft": "node ./bin/graft.js",
     "build": "tsc -p tsconfig.build.json",
+    "prepack": "pnpm build",
     "test": "vitest run",
     "test:watch": "vitest",
     "lint": "eslint .",

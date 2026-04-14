@@ -42,7 +42,20 @@ npx @flyingrobots/graft read safe src/app.ts
 npx @flyingrobots/graft struct since HEAD~3
 ```
 
-### 4. Shared Daemon Runtime
+### 4. Direct Library API
+Embed Graft in-process when you want direct access without MCP transport
+or CLI process orchestration.
+```ts
+import { createRepoLocalGraft, callGraftTool } from "@flyingrobots/graft";
+
+const graft = createRepoLocalGraft({ cwd: process.cwd() });
+const outline = await callGraftTool(graft, "file_outline", { path: "src/app.ts" });
+```
+
+This uses the same repo-local core as the CLI and MCP server, but it
+lets host tools call Graft directly inside the same process.
+
+### 5. Shared Daemon Runtime
 Start the same-user execution authority for multi-session or multi-repo
 work.
 ```bash
