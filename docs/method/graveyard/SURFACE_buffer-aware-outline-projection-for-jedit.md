@@ -1,10 +1,16 @@
 ---
-title: "Buffer-aware outline projection for jedit"
+title: Buffer-aware outline projection for jedit
 legend: SURFACE
-lane: asap
+lane: graveyard
 ---
 
 # Buffer-aware outline projection for jedit
+
+## Disposition
+
+Implemented via the direct StructuredBuffer outline() surface exported from the package root for dirty-buffer editor integration.
+
+## Original Proposal
 
 Requested by `jedit`.
 

@@ -1,10 +1,16 @@
 ---
-title: "Structural selection expand for jedit"
+title: Structural selection expand for jedit
 legend: SURFACE
-lane: asap
+lane: graveyard
 ---
 
 # Structural selection expand for jedit
+
+## Disposition
+
+Implemented via the direct StructuredBuffer selectionExpand() surface for AST-aware selection growth from a point or range.
+
+## Original Proposal
 
 Requested by `jedit`.
 

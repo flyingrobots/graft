@@ -1,10 +1,16 @@
 ---
-title: "Cursor node lookup for jedit"
+title: Cursor node lookup for jedit
 legend: SURFACE
-lane: asap
+lane: graveyard
 ---
 
 # Cursor node lookup for jedit
+
+## Disposition
+
+Implemented via the direct StructuredBuffer nodeAt() surface with bounded parent-chain context for cursor-aware editor UI.
+
+## Original Proposal
 
 Requested by `jedit`.
 

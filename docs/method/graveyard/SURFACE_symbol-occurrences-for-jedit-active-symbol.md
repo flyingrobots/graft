@@ -1,10 +1,16 @@
 ---
-title: "Symbol occurrences for jedit active symbol"
+title: Symbol occurrences for jedit active symbol
 legend: SURFACE
-lane: asap
+lane: graveyard
 ---
 
 # Symbol occurrences for jedit active symbol
+
+## Disposition
+
+Implemented via the direct StructuredBuffer symbolOccurrences() surface for live-buffer active-symbol highlighting and navigation.
+
+## Original Proposal
 
 Requested by `jedit`.
 

@@ -1,10 +1,16 @@
 ---
-title: "Semantic summary for jedit code edits"
+title: Semantic summary for jedit code edits
 legend: CORE
-lane: asap
+lane: graveyard
 ---
 
 # Semantic summary for jedit code edits
+
+## Disposition
+
+Implemented via the direct StructuredBuffer snapshot semanticSummary() surface exported from the package root for close jedit/editor integration.
+
+## Original Proposal
 
 Requested by `jedit`.
 

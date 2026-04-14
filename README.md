@@ -55,6 +55,24 @@ const outline = await callGraftTool(graft, "file_outline", { path: "src/app.ts" 
 This uses the same repo-local core as the CLI and MCP server, but it
 lets host tools call Graft directly inside the same process.
 
+For close editor integration, use the buffer-native surface directly:
+```ts
+import { createStructuredBuffer } from "@flyingrobots/graft";
+
+const buffer = createStructuredBuffer("src/app.tsx", liveEditorText);
+const spans = buffer.syntaxSpans({
+  viewport: {
+    start: { row: 0, column: 0 },
+    end: { row: 80, column: 0 },
+  },
+});
+const context = buffer.nodeAt({ row: 24, column: 12 });
+const rename = buffer.renamePreview({
+  position: { row: 24, column: 12 },
+  nextName: "nextValue",
+});
+```
+
 ### 5. Shared Daemon Runtime
 Start the same-user execution authority for multi-session or multi-repo
 work.

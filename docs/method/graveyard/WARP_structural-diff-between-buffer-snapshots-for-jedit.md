@@ -1,10 +1,16 @@
 ---
-title: "Structural diff between buffer snapshots for jedit"
+title: Structural diff between buffer snapshots for jedit
 legend: WARP
-lane: asap
+lane: graveyard
 ---
 
 # Structural diff between buffer snapshots for jedit
+
+## Disposition
+
+Implemented via the direct StructuredBuffer diff() surface plus semanticSummary() for structural snapshot comparison over unsaved buffers.
+
+## Original Proposal
 
 Requested by `jedit`.
 

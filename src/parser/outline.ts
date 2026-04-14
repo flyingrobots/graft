@@ -1,26 +1,10 @@
-import Parser from "web-tree-sitter";
-import { createRequire } from "node:module";
 import { detectStructuredFormat } from "./lang.js";
 import type { SupportedStructuredFormat } from "./lang.js";
 import { OutlineEntry, JumpEntry } from "./types.js";
 import type { OutlineResult } from "./types.js";
+import { parseStructuredTree } from "./runtime.js";
 
 const MAX_SIGNATURE_LENGTH = 199;
-
-// ---------------------------------------------------------------------------
-// WASM initialisation (top-level await — ESM only)
-// ---------------------------------------------------------------------------
-
-const esmRequire = createRequire(import.meta.url);
-
-await Parser.init();
-
-const tsLang = await Parser.Language.load(
-  esmRequire.resolve("tree-sitter-wasms/out/tree-sitter-typescript.wasm"),
-);
-const jsLang = await Parser.Language.load(
-  esmRequire.resolve("tree-sitter-wasms/out/tree-sitter-javascript.wasm"),
-);
 
 // ---------------------------------------------------------------------------
 // Signature helpers
@@ -44,16 +28,7 @@ function boundSignature(raw: string): string {
 // Tree-sitter node interface (avoids importing the Node class directly)
 // ---------------------------------------------------------------------------
 
-interface TSNode {
-  readonly type: string;
-  readonly text: string;
-  readonly startPosition: { readonly row: number; readonly column: number };
-  readonly endPosition: { readonly row: number; readonly column: number };
-  readonly children: TSNode[];
-  readonly namedChildren: TSNode[];
-  readonly hasError: boolean;
-  childForFieldName(name: string): TSNode | null;
-}
+type TSNode = import("web-tree-sitter").SyntaxNode;
 
 interface MarkdownHeading {
   level: number;
@@ -401,16 +376,12 @@ export function extractOutline(
   if (lang === "md") {
     return extractMarkdownOutline(source);
   }
-
-  const parser = new Parser();
-  parser.setLanguage(lang === "ts" ? tsLang : jsLang);
-
-  const tree = parser.parse(source);
-  const root = tree.rootNode as unknown as TSNode;
+  const parsed = parseStructuredTree(lang, source);
+  const root = parsed.root;
 
   const entries: OutlineEntry[] = [];
   const jumpTable: JumpEntry[] = [];
-  const hasError = root.hasError;
+  const hasError = root.hasError();
 
   for (const child of root.children) {
     if (child.type === "export_statement") {
@@ -488,8 +459,7 @@ export function extractOutline(
     }
   }
 
-  parser.delete();
-  tree.delete();
+  parsed.delete();
 
   const result: OutlineResult = {
     entries,

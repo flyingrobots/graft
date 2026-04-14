@@ -1,10 +1,16 @@
 ---
-title: "Fold regions from AST structure for jedit"
+title: Fold regions from AST structure for jedit
 legend: SURFACE
-lane: asap
+lane: graveyard
 ---
 
 # Fold regions from AST structure for jedit
+
+## Disposition
+
+Implemented via the direct StructuredBuffer foldRegions() surface for parser-backed folding and markdown heading folds.
+
+## Original Proposal
 
 Requested by `jedit`.
 

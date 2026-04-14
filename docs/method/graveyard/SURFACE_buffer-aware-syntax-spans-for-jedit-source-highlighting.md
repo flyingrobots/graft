@@ -1,10 +1,16 @@
 ---
-title: "Buffer-aware syntax spans for jedit source highlighting"
+title: Buffer-aware syntax spans for jedit source highlighting
 legend: SURFACE
-lane: asap
+lane: graveyard
 ---
 
 # Buffer-aware syntax spans for jedit source highlighting
+
+## Disposition
+
+Implemented via the direct StructuredBuffer syntaxSpans() surface with viewport filtering and stable span classes for editor highlighting.
+
+## Original Proposal
 
 Requested by `jedit`, a terminal-first editor that already uses Graft MCP for contextual drawers and now wants truthful AST-backed source colorization in the editor pane.
 

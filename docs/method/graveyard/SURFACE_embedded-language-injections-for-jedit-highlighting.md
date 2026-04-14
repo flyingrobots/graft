@@ -1,10 +1,16 @@
 ---
-title: "Embedded language injections for jedit highlighting"
+title: Embedded language injections for jedit highlighting
 legend: SURFACE
-lane: asap
+lane: graveyard
 ---
 
 # Embedded language injections for jedit highlighting
+
+## Disposition
+
+Implemented via the direct StructuredBuffer injections() surface for JSX and tagged-template regions, plus fenced-code markdown injections.
+
+## Original Proposal
 
 Requested by `jedit`.
 

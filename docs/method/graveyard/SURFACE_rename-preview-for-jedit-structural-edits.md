@@ -1,10 +1,16 @@
 ---
-title: "Rename preview for jedit structural edits"
+title: Rename preview for jedit structural edits
 legend: SURFACE
-lane: asap
+lane: graveyard
 ---
 
 # Rename preview for jedit structural edits
+
+## Disposition
+
+Implemented via the direct StructuredBuffer renamePreview() surface for bounded file-local rename planning against the live buffer.
+
+## Original Proposal
 
 Requested by `jedit`.
 

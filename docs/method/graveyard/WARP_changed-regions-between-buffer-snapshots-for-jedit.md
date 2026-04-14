@@ -1,10 +1,16 @@
 ---
-title: "Changed regions between buffer snapshots for jedit"
+title: Changed regions between buffer snapshots for jedit
 legend: WARP
-lane: asap
+lane: graveyard
 ---
 
 # Changed regions between buffer snapshots for jedit
+
+## Disposition
+
+Implemented via the direct StructuredBuffer diff() surface, which reports bounded changed regions between buffer snapshots with textual evidence.
+
+## Original Proposal
 
 Requested by `jedit`.
 

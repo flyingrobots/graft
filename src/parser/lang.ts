@@ -1,6 +1,6 @@
 import * as path from "node:path";
 
-export type SupportedLang = "ts" | "js";
+export type SupportedLang = "ts" | "tsx" | "js";
 export type SupportedStructuredFormat = SupportedLang | "md";
 
 /**
@@ -9,8 +9,9 @@ export type SupportedStructuredFormat = SupportedLang | "md";
  */
 export function detectLang(filePath: string): SupportedLang | null {
   const ext = path.extname(filePath).toLowerCase();
-  if (ext === ".ts" || ext === ".tsx" || ext === ".mts" || ext === ".cts") return "ts";
-  if (ext === ".js" || ext === ".jsx" || ext === ".mjs" || ext === ".cjs") return "js";
+  if (ext === ".ts" || ext === ".mts" || ext === ".cts") return "ts";
+  if (ext === ".tsx" || ext === ".jsx") return "tsx";
+  if (ext === ".js" || ext === ".mjs" || ext === ".cjs") return "js";
   return null;
 }
 

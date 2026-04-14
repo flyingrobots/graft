@@ -4,9 +4,10 @@ import {
   type McpToolName,
 } from "./contracts/capabilities.js";
 import { getMcpOutputSchema } from "./contracts/output-schemas.js";
-import { startDaemonServer, type GraftDaemonServer, type StartDaemonServerOptions } from "./mcp/daemon-server.js";
+import { startDaemonServer } from "./mcp/daemon-server.js";
 import { createGraftServer, type CreateGraftServerOptions, type GraftServer, type McpToolResult } from "./mcp/server.js";
 import { startStdioServer } from "./mcp/stdio-server.js";
+import { StructuredBuffer } from "./operations/structured-buffer.js";
 import { GRAFT_VERSION } from "./version.js";
 
 export interface CreateRepoLocalGraftOptions extends Omit<CreateGraftServerOptions, "mode" | "projectRoot" | "graftDir"> {
@@ -22,6 +23,10 @@ export function createRepoLocalGraft(options: CreateRepoLocalGraftOptions = {}):
     projectRoot: cwd,
     graftDir: options.graftDir ?? path.join(cwd, ".graft"),
   });
+}
+
+export function createStructuredBuffer(path: string, content: string): StructuredBuffer {
+  return new StructuredBuffer({ path, content });
 }
 
 export function parseGraftToolPayload(result: McpToolResult): Record<string, unknown> {
@@ -48,16 +53,50 @@ export async function callGraftTool<T extends Record<string, unknown> = Record<s
 export {
   GRAFT_VERSION,
   MCP_TOOL_NAMES,
+  StructuredBuffer,
   createGraftServer,
   startDaemonServer,
   startStdioServer,
 };
 
 export type {
-  CreateGraftServerOptions,
-  GraftDaemonServer,
-  GraftServer,
-  McpToolName,
-  McpToolResult,
+  AnchorAffinityResult,
+  BufferDiagnostic,
+  BufferOutlineResult,
+  BufferPoint,
+  BufferRange,
+  BufferSelection,
+  ChangedRegion,
+  DiagnosticsResult,
+  FoldRegion,
+  FoldRegionsResult,
+  InjectionRegion,
+  InjectionResult,
+  NodeLookupResult,
+  NodeSummary,
+  RenameEditPreview,
+  RenamePreviewResult,
+  SelectionStepResult,
+  SemanticSummaryKind,
+  SemanticSummaryResult,
+  StructuredBufferDiffResult,
+  SymbolOccurrence,
+  SymbolOccurrencesResult,
+  SyntaxClass,
+  SyntaxSpan,
+  SyntaxSpanResult,
+} from "./operations/structured-buffer.js";
+
+export type {
   StartDaemonServerOptions,
-};
+} from "./mcp/daemon-server.js";
+
+export type {
+  CreateGraftServerOptions,
+  GraftServer,
+  McpToolResult,
+} from "./mcp/server.js";
+
+export type {
+  McpToolName,
+} from "./contracts/capabilities.js";

@@ -1,10 +1,16 @@
 ---
-title: "Anchor affinity for structural ranges in jedit"
+title: Anchor affinity for structural ranges in jedit
 legend: WARP
-lane: asap
+lane: graveyard
 ---
 
 # Anchor affinity for structural ranges in jedit
+
+## Disposition
+
+Implemented via the direct StructuredBuffer mapRangeTo() surface for structural range affinity across buffer snapshots with explicit confidence and strategy.
+
+## Original Proposal
 
 Requested by `jedit`.
 

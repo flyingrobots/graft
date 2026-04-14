@@ -1,10 +1,16 @@
 ---
-title: "Structural selection shrink for jedit"
+title: Structural selection shrink for jedit
 legend: SURFACE
-lane: asap
+lane: graveyard
 ---
 
 # Structural selection shrink for jedit
+
+## Disposition
+
+Implemented via the direct StructuredBuffer selectionShrink() surface for AST-aware selection contraction from a structured range.
+
+## Original Proposal
 
 Requested by `jedit`.
 

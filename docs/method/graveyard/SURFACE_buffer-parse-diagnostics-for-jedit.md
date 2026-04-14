@@ -1,10 +1,16 @@
 ---
-title: "Buffer parse diagnostics for jedit"
+title: Buffer parse diagnostics for jedit
 legend: SURFACE
-lane: asap
+lane: graveyard
 ---
 
 # Buffer parse diagnostics for jedit
+
+## Disposition
+
+Implemented via the direct StructuredBuffer diagnostics() surface for parser-backed dirty-buffer diagnostics without LSP orchestration.
+
+## Original Proposal
 
 Requested by `jedit`.
 
