@@ -3,8 +3,7 @@ title: composition roots for cli mcp daemon and hooks
 legend: CORE
 lane: up-next
 blocked_by:
-  - docs/method/backlog/asap/CORE_hex-layer-map-and-dependency-guardrails.md
-  - docs/method/backlog/up-next/CORE_primary-adapters-thin-use-case-extraction.md
+  - docs/design/0077-primary-adapters-thin-use-case-extraction/primary-adapters-thin-use-case-extraction.md
   - docs/method/backlog/up-next/CORE_warp-port-and-adapter-boundary.md
 ---
 

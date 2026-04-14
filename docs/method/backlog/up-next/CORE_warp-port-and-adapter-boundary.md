@@ -2,8 +2,6 @@
 title: warp port and adapter boundary
 legend: CORE
 lane: up-next
-blocked_by:
-  - docs/method/backlog/asap/CORE_hex-layer-map-and-dependency-guardrails.md
 blocks:
   - docs/method/backlog/up-next/CORE_composition-roots-for-cli-mcp-daemon-and-hooks.md
 ---
