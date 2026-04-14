@@ -6,6 +6,7 @@ import type { CreateGraftServerOptions, GraftServer } from "../../src/mcp/server
 import type { RunCaptureConfig } from "../../src/mcp/run-capture-config.js";
 import type { RuntimeObservabilityState } from "../../src/mcp/runtime-observability.js";
 import type { WorkspaceSessionMode } from "../../src/mcp/workspace-router.js";
+import { ensureGitRepo } from "./git.js";
 export { createFixtureWorkspace, fixturePath, harnessPath } from "./fixtures.js";
 
 export function extractText(result: unknown): string {
@@ -53,6 +54,9 @@ export function createIsolatedServer(options: CreateIsolatedServerOptions = {}):
   const mode = options.mode ?? "repo_local";
   const ownsProjectRoot = options.projectRoot === undefined;
   const projectRoot = options.projectRoot ?? fs.mkdtempSync(path.join(os.tmpdir(), "graft-mcp-project-"));
+  if (mode === "repo_local") {
+    ensureGitRepo(projectRoot);
+  }
   const ownsGraftDir = options.graftDir === undefined;
   const graftDir = options.graftDir
     ?? (

@@ -976,6 +976,220 @@ async function loadStatesForRepoFromGraph(
   return states.length > 0 ? states : null;
 }
 
+interface LegacyPersistedLocalHistoryArtifact {
+  readonly filePath: string;
+  readonly state: ContinuityState;
+}
+
+export interface PersistedLocalHistoryMigrationResult {
+  graftDir: string;
+  discoveredArtifacts: number;
+  migratedArtifacts: number;
+  malformedArtifacts: number;
+  importedContinuityRecords: number;
+  importedReadEvents: number;
+  importedStageEvents: number;
+  importedTransitionEvents: number;
+  skippedContinuityRecords: number;
+  skippedReadEvents: number;
+  skippedStageEvents: number;
+  skippedTransitionEvents: number;
+}
+
+async function loadLegacyPersistedLocalHistoryArtifacts(input: {
+  readonly fs: FileSystem;
+  readonly codec: JsonCodec;
+  readonly graftDir: string;
+}): Promise<{
+  readonly artifacts: readonly LegacyPersistedLocalHistoryArtifact[];
+  readonly malformedArtifacts: number;
+}> {
+  const historyDir = path.join(input.graftDir, "local-history");
+  let filenames: string[];
+  try {
+    filenames = await input.fs.readdir(historyDir);
+  } catch {
+    return {
+      artifacts: [],
+      malformedArtifacts: 0,
+    };
+  }
+
+  const artifacts: LegacyPersistedLocalHistoryArtifact[] = [];
+  let malformedArtifacts = 0;
+
+  for (const filename of filenames) {
+    if (!filename.endsWith(".json")) {
+      continue;
+    }
+    const filePath = path.join(historyDir, filename);
+    try {
+      const raw = await input.fs.readFile(filePath, "utf-8");
+      const state = continuityStateSchema.parse(input.codec.decode(raw));
+      artifacts.push({ filePath, state });
+    } catch {
+      malformedArtifacts += 1;
+    }
+  }
+
+  return {
+    artifacts,
+    malformedArtifacts,
+  };
+}
+
+function buildLegacyMigrationSequence(state: ContinuityState): {
+  readonly kind: "continuity" | "read" | "stage" | "transition";
+  readonly occurredAt: string;
+  readonly sequence: number;
+  readonly id: string;
+  readonly record?: ContinuityRecord;
+  readonly event?: Extract<CausalEvent, { eventKind: "read" | "stage" | "transition" }>;
+}[] {
+  const sequence = [
+    ...state.records.map((record, sequenceIndex) => ({
+      kind: "continuity" as const,
+      occurredAt: record.occurredAt,
+      sequence: sequenceIndex,
+      id: record.recordId,
+      record,
+    })),
+    ...state.readEvents.map((event, sequenceIndex) => ({
+      kind: "read" as const,
+      occurredAt: event.occurredAt,
+      sequence: sequenceIndex,
+      id: event.eventId,
+      event,
+    })),
+    ...state.stageEvents.map((event, sequenceIndex) => ({
+      kind: "stage" as const,
+      occurredAt: event.occurredAt,
+      sequence: sequenceIndex,
+      id: event.eventId,
+      event,
+    })),
+    ...state.transitionEvents.map((event, sequenceIndex) => ({
+      kind: "transition" as const,
+      occurredAt: event.occurredAt,
+      sequence: sequenceIndex,
+      id: event.eventId,
+      event,
+    })),
+  ];
+
+  const priority = { continuity: 0, read: 1, stage: 2, transition: 3 } as const;
+
+  return sequence.sort((left, right) => {
+    const byTime = left.occurredAt.localeCompare(right.occurredAt);
+    if (byTime !== 0) {
+      return byTime;
+    }
+    const byPriority = priority[left.kind] - priority[right.kind];
+    if (byPriority !== 0) {
+      return byPriority;
+    }
+    const bySequence = left.sequence - right.sequence;
+    if (bySequence !== 0) {
+      return bySequence;
+    }
+    return left.id.localeCompare(right.id);
+  });
+}
+
+async function hasLocalHistoryEventNode(
+  graph: PersistedLocalHistoryGraphContext,
+  eventId: string,
+): Promise<boolean> {
+  if (typeof graph.warp.hasNode !== "function") {
+    return false;
+  }
+  return graph.warp.hasNode(`lh:event:${eventId}`);
+}
+
+export async function migrateLegacyPersistedLocalHistoryToGraph(input: {
+  readonly fs: FileSystem;
+  readonly codec: JsonCodec;
+  readonly graftDir: string;
+  readonly graph: PersistedLocalHistoryGraphContext;
+}): Promise<PersistedLocalHistoryMigrationResult> {
+  const { artifacts, malformedArtifacts } = await loadLegacyPersistedLocalHistoryArtifacts(input);
+  const result: PersistedLocalHistoryMigrationResult = {
+    graftDir: input.graftDir,
+    discoveredArtifacts: artifacts.length,
+    migratedArtifacts: 0,
+    malformedArtifacts,
+    importedContinuityRecords: 0,
+    importedReadEvents: 0,
+    importedStageEvents: 0,
+    importedTransitionEvents: 0,
+    skippedContinuityRecords: 0,
+    skippedReadEvents: 0,
+    skippedStageEvents: 0,
+    skippedTransitionEvents: 0,
+  };
+
+  for (const artifact of artifacts) {
+    const importedState = createEmptyState(
+      artifact.state.continuityKey,
+      artifact.state.repoId,
+      artifact.state.worktreeId,
+    );
+
+    for (const item of buildLegacyMigrationSequence(artifact.state)) {
+      if (item.kind === "continuity" && item.record !== undefined) {
+        const previousEventId = findLatestEventIdForStrand(importedState, item.record.strandId);
+        if (await hasLocalHistoryEventNode(input.graph, item.record.recordId)) {
+          result.skippedContinuityRecords += 1;
+        } else {
+          await writeContinuityRecordToGraph(input.graph, {
+            record: item.record,
+            previousEventId,
+          });
+          result.importedContinuityRecords += 1;
+        }
+        importedState.records.push(item.record);
+        if (artifact.state.activeRecordId === item.record.recordId) {
+          importedState.activeRecordId = item.record.recordId;
+        }
+        continue;
+      }
+
+      if (item.event === undefined) {
+        continue;
+      }
+
+      const previousEventId = item.event.strandId === null
+        ? null
+        : findLatestEventIdForStrand(importedState, item.event.strandId);
+      if (await hasLocalHistoryEventNode(input.graph, item.event.eventId)) {
+        if (item.kind === "read") result.skippedReadEvents += 1;
+        if (item.kind === "stage") result.skippedStageEvents += 1;
+        if (item.kind === "transition") result.skippedTransitionEvents += 1;
+      } else {
+        await writeCausalEventToGraph(input.graph, {
+          event: item.event,
+          previousEventId,
+        });
+        if (item.kind === "read") result.importedReadEvents += 1;
+        if (item.kind === "stage") result.importedStageEvents += 1;
+        if (item.kind === "transition") result.importedTransitionEvents += 1;
+      }
+
+      if (item.kind === "read") {
+        importedState.readEvents.push(item.event as Extract<CausalEvent, { eventKind: "read" }>);
+      } else if (item.kind === "stage") {
+        importedState.stageEvents.push(item.event as Extract<CausalEvent, { eventKind: "stage" }>);
+      } else {
+        importedState.transitionEvents.push(item.event as Extract<CausalEvent, { eventKind: "transition" }>);
+      }
+    }
+
+    result.migratedArtifacts += 1;
+  }
+
+  return result;
+}
+
 export class PersistedLocalHistoryStore {
   constructor(
     private readonly deps: {
@@ -994,10 +1208,15 @@ export class PersistedLocalHistoryStore {
     const previous = input.previous ?? null;
     const currentKey = buildContinuityKey(input.current.repoId, input.current.worktreeId);
 
-    if (previous !== null) {
+    if (previous !== null && input.previousGraph !== null && input.previousGraph !== undefined) {
       const previousKey = buildContinuityKey(previous.repoId, previous.worktreeId);
       if (previousKey !== currentKey) {
-        const previousState = await this.loadState(previousKey, previous.repoId, previous.worktreeId);
+        const previousState = await this.loadWritableState(
+          input.previousGraph,
+          previousKey,
+          previous.repoId,
+          previous.worktreeId,
+        );
         const previousActive = findRecord(previousState, previousState.activeRecordId);
         if (previousActive !== null) {
           const parkRecord = this.createRecord("park", previousKey, previous, previousActive);
@@ -1007,22 +1226,25 @@ export class PersistedLocalHistoryStore {
             parkRecord,
             false,
           );
-          await this.saveState(previousState);
-          if (input.previousGraph !== null && input.previousGraph !== undefined) {
-            await writeContinuityRecordToGraph(input.previousGraph, {
-              record: parkRecord,
-              previousEventId,
-            });
-          }
+          await writeContinuityRecordToGraph(input.previousGraph, {
+            record: parkRecord,
+            previousEventId,
+          });
         }
       }
     }
 
-    const currentState = await this.loadState(currentKey, input.current.repoId, input.current.worktreeId);
+    const currentState = await this.loadWritableState(
+      input.currentGraph,
+      currentKey,
+      input.current.repoId,
+      input.current.worktreeId,
+    );
     const previousCurrentActive = findRecord(currentState, currentState.activeRecordId);
     let latestCurrentEventId = findLatestEventIdForStrand(currentState, input.current.strandId);
     if (previousCurrentActive !== null) {
       const parkRecord = this.createRecord("park", currentKey, input.current, previousCurrentActive);
+      const parkPreviousEventId = latestCurrentEventId;
       appendRecord(
         currentState,
         parkRecord,
@@ -1032,16 +1254,9 @@ export class PersistedLocalHistoryStore {
         latestCurrentEventId = parkRecord.recordId;
       }
       if (input.currentGraph !== null && input.currentGraph !== undefined) {
-        await this.saveState(currentState);
         await writeContinuityRecordToGraph(input.currentGraph, {
           record: parkRecord,
-          previousEventId: findLatestEventIdForStrand(
-            {
-              ...currentState,
-              records: currentState.records.slice(0, -1),
-            },
-            input.current.strandId,
-          ),
+          previousEventId: parkPreviousEventId,
         });
       }
     }
@@ -1053,7 +1268,6 @@ export class PersistedLocalHistoryStore {
       currentRecord,
       true,
     );
-    await this.saveState(currentState);
     if (input.currentGraph !== null && input.currentGraph !== undefined) {
       await writeContinuityRecordToGraph(input.currentGraph, {
         record: currentRecord,
@@ -1068,7 +1282,12 @@ export class PersistedLocalHistoryStore {
     readonly graph?: PersistedLocalHistoryGraphContext | null;
   }): Promise<void> {
     const continuityKey = buildContinuityKey(input.current.repoId, input.current.worktreeId);
-    const state = await this.loadState(continuityKey, input.current.repoId, input.current.worktreeId);
+    const state = await this.loadWritableState(
+      input.graph,
+      continuityKey,
+      input.current.repoId,
+      input.current.worktreeId,
+    );
     const activeRecord = findRecord(state, state.activeRecordId);
     const baseRecord = activeRecord ?? state.records.at(-1) ?? null;
     if (baseRecord === null) {
@@ -1078,7 +1297,6 @@ export class PersistedLocalHistoryStore {
         startRecord,
         true,
       );
-      await this.saveState(state);
       if (input.graph !== null && input.graph !== undefined) {
         await writeContinuityRecordToGraph(input.graph, {
           record: startRecord,
@@ -1111,7 +1329,6 @@ export class PersistedLocalHistoryStore {
       forkRecord,
       true,
     );
-    await this.saveState(state);
     if (input.graph !== null && input.graph !== undefined) {
       await writeContinuityRecordToGraph(input.graph, {
         record: parkRecord,
@@ -1133,10 +1350,11 @@ export class PersistedLocalHistoryStore {
       return this.emptySummary();
     }
 
-    const continuityKey = buildContinuityKey(status.repoId, status.worktreeId);
     const graphState = await loadStateFromGraph(graph, status.repoId, status.worktreeId);
-    const state = graphState ?? await this.loadState(continuityKey, status.repoId, status.worktreeId);
-    return this.summarizeState(state, status, causalContext, graphState !== null ? null : this.historyPathFor(continuityKey));
+    if (graphState === null) {
+      return this.emptySummary();
+    }
+    return this.summarizeState(graphState, causalContext);
   }
 
   async summarizeRepoConcurrency(
@@ -1147,11 +1365,12 @@ export class PersistedLocalHistoryStore {
       return null;
     }
 
-    const continuityKey = buildContinuityKey(status.repoId, status.worktreeId);
+    const currentState = await loadStateFromGraph(graph, status.repoId, status.worktreeId);
+    if (currentState === null) {
+      return null;
+    }
     const graphStates = await loadStatesForRepoFromGraph(graph, status.repoId);
-    const currentState = graphStates?.find((state) => state.worktreeId === status.worktreeId)
-      ?? await this.loadState(continuityKey, status.repoId, status.worktreeId);
-    const repoStates = graphStates ?? await this.loadStatesForRepo(status.repoId);
+    const repoStates = graphStates ?? [currentState];
 
     return deriveRepoConcurrencySummary({
       currentWorktreeId: status.worktreeId,
@@ -1170,25 +1389,15 @@ export class PersistedLocalHistoryStore {
     limit: number,
     graph?: PersistedLocalHistoryGraphContext | null,
   ): Promise<PersistedLocalActivityWindow> {
-    if (status.repoId === null || status.worktreeId === null || status.graftDir === null) {
-      return {
-        historyPath: null,
-        limit,
-        totalMatchingItems: 0,
-        truncated: false,
-        items: [],
-      };
+    if (status.repoId === null || status.worktreeId === null) {
+      return this.emptyActivityWindow(limit);
     }
 
-    const continuityKey = buildContinuityKey(status.repoId, status.worktreeId);
     const graphState = await loadStateFromGraph(graph, status.repoId, status.worktreeId);
-    const state = graphState ?? await this.loadState(continuityKey, status.repoId, status.worktreeId);
-    return this.buildActivityWindowFromState(
-      state,
-      causalContext,
-      limit,
-      graphState !== null ? null : this.historyPathFor(continuityKey),
-    );
+    if (graphState === null) {
+      return this.emptyActivityWindow(limit);
+    }
+    return this.buildActivityWindowFromState(graphState, causalContext, limit);
   }
 
   async declareAttach(input: {
@@ -1197,7 +1406,12 @@ export class PersistedLocalHistoryStore {
     readonly graph?: PersistedLocalHistoryGraphContext | null;
   }): Promise<void> {
     const continuityKey = buildContinuityKey(input.current.repoId, input.current.worktreeId);
-    const state = await this.loadState(continuityKey, input.current.repoId, input.current.worktreeId);
+    const state = await this.loadWritableState(
+      input.graph,
+      continuityKey,
+      input.current.repoId,
+      input.current.worktreeId,
+    );
     const activeRecord = findRecord(state, state.activeRecordId);
     const baseRecord = activeRecord ?? state.records.at(-1) ?? null;
     if (baseRecord?.continuedFromRecordId === null || baseRecord === null) {
@@ -1216,17 +1430,17 @@ export class PersistedLocalHistoryStore {
       attachRecord,
       true,
     );
-    await this.saveState(state);
     if (input.graph !== null && input.graph !== undefined) {
+      const previousEventId = findLatestEventIdForStrand(
+        {
+          ...state,
+          records: state.records.slice(0, -1),
+        },
+        input.current.strandId,
+      );
       await writeContinuityRecordToGraph(input.graph, {
         record: attachRecord,
-        previousEventId: findLatestEventIdForStrand(
-          {
-            ...state,
-            records: state.records.slice(0, -1),
-          },
-          input.current.strandId,
-        ),
+        previousEventId,
       });
     }
   }
@@ -1238,7 +1452,12 @@ export class PersistedLocalHistoryStore {
     readonly graph?: PersistedLocalHistoryGraphContext | null;
   }): Promise<void> {
     const continuityKey = buildContinuityKey(input.current.repoId, input.current.worktreeId);
-    const state = await this.loadState(continuityKey, input.current.repoId, input.current.worktreeId);
+    const state = await this.loadWritableState(
+      input.graph,
+      continuityKey,
+      input.current.repoId,
+      input.current.worktreeId,
+    );
     const baseRecord = findRecord(state, state.activeRecordId) ?? state.records.at(-1) ?? null;
     if (baseRecord === null) {
       throw new PersistedLocalHistoryAttachUnavailableError();
@@ -1275,17 +1494,17 @@ export class PersistedLocalHistoryStore {
       attachRecord,
       true,
     );
-    await this.saveState(state);
     if (input.graph !== null && input.graph !== undefined) {
+      const previousEventId = findLatestEventIdForStrand(
+        {
+          ...state,
+          records: state.records.slice(0, -1),
+        },
+        input.current.strandId,
+      );
       await writeContinuityRecordToGraph(input.graph, {
         record: attachRecord,
-        previousEventId: findLatestEventIdForStrand(
-          {
-            ...state,
-            records: state.records.slice(0, -1),
-          },
-          input.current.strandId,
-        ),
+        previousEventId,
       });
     }
   }
@@ -1297,14 +1516,18 @@ export class PersistedLocalHistoryStore {
     readonly graph?: PersistedLocalHistoryGraphContext | null;
   }): Promise<void> {
     const continuityKey = buildContinuityKey(input.current.repoId, input.current.worktreeId);
-    const state = await this.loadState(continuityKey, input.current.repoId, input.current.worktreeId);
+    const state = await this.loadWritableState(
+      input.graph,
+      continuityKey,
+      input.current.repoId,
+      input.current.worktreeId,
+    );
     const event = this.createStageEvent(input.current, input.stagedTarget, input.attribution);
     if (state.stageEvents.at(-1)?.eventId === event.eventId) {
       return;
     }
     const previousEventId = findLatestEventIdForStrand(state, input.current.strandId);
     state.stageEvents = keepRecent([...state.stageEvents, event], MAX_STAGE_EVENTS);
-    await this.saveState(state);
     if (input.graph !== null && input.graph !== undefined) {
       await writeCausalEventToGraph(input.graph, {
         event,
@@ -1325,14 +1548,18 @@ export class PersistedLocalHistoryStore {
     readonly graph?: PersistedLocalHistoryGraphContext | null;
   }): Promise<void> {
     const continuityKey = buildContinuityKey(input.current.repoId, input.current.worktreeId);
-    const state = await this.loadState(continuityKey, input.current.repoId, input.current.worktreeId);
+    const state = await this.loadWritableState(
+      input.graph,
+      continuityKey,
+      input.current.repoId,
+      input.current.worktreeId,
+    );
     const event = this.createReadEvent(input);
     if (state.readEvents.at(-1)?.eventId === event.eventId) {
       return;
     }
     const previousEventId = findLatestEventIdForStrand(state, input.current.strandId);
     state.readEvents = keepRecent([...state.readEvents, event], MAX_READ_EVENTS);
-    await this.saveState(state);
     if (input.graph !== null && input.graph !== undefined) {
       await writeCausalEventToGraph(input.graph, {
         event,
@@ -1349,14 +1576,18 @@ export class PersistedLocalHistoryStore {
     readonly graph?: PersistedLocalHistoryGraphContext | null;
   }): Promise<void> {
     const continuityKey = buildContinuityKey(input.current.repoId, input.current.worktreeId);
-    const state = await this.loadState(continuityKey, input.current.repoId, input.current.worktreeId);
+    const state = await this.loadWritableState(
+      input.graph,
+      continuityKey,
+      input.current.repoId,
+      input.current.worktreeId,
+    );
     const event = this.createTransitionEvent(input);
     if (state.transitionEvents.at(-1)?.eventId === event.eventId) {
       return;
     }
     const previousEventId = findLatestEventIdForStrand(state, input.current.strandId);
     state.transitionEvents = keepRecent([...state.transitionEvents, event], MAX_TRANSITION_EVENTS);
-    await this.saveState(state);
     if (input.graph !== null && input.graph !== undefined) {
       await writeCausalEventToGraph(input.graph, {
         event,
@@ -1619,15 +1850,23 @@ export class PersistedLocalHistoryStore {
     };
   }
 
+  private emptyActivityWindow(limit: number): PersistedLocalActivityWindow {
+    return {
+      historyPath: null,
+      limit,
+      totalMatchingItems: 0,
+      truncated: false,
+      items: [],
+    };
+  }
+
   private summarizeState(
     state: ContinuityState,
-    status: WorkspaceStatus,
     causalContext: RuntimeCausalContext,
-    historyPath: string | null,
   ): PersistedLocalHistorySummary {
     const activeRecord = findRecord(state, state.activeRecordId);
     const lastRecord = state.records.at(-1) ?? null;
-    if (lastRecord === null || status.graftDir === null) {
+    if (lastRecord === null) {
       return this.emptySummary();
     }
 
@@ -1635,7 +1874,7 @@ export class PersistedLocalHistoryStore {
     return {
       availability: "present",
       persistence: "persisted_local_history",
-      historyPath,
+      historyPath: null,
       totalContinuityRecords: state.records.length,
       active: activeRecord !== null,
       lastOperation: lastRecord.operation,
@@ -1665,7 +1904,6 @@ export class PersistedLocalHistoryStore {
     state: ContinuityState,
     causalContext: RuntimeCausalContext,
     limit: number,
-    historyPath: string | null,
   ): PersistedLocalActivityWindow {
     const activeRecord = findRecord(state, state.activeRecordId);
     const effectiveCheckoutEpochId =
@@ -1704,7 +1942,7 @@ export class PersistedLocalHistoryStore {
     });
 
     return {
-      historyPath,
+      historyPath: null,
       limit,
       totalMatchingItems: allItems.length,
       truncated: allItems.length > limit,
@@ -1867,38 +2105,6 @@ export class PersistedLocalHistoryStore {
     };
   }
 
-  private historyPathFor(continuityKey: string): string {
-    return path.join(this.deps.graftDir, "local-history", `${continuityKey}.json`);
-  }
-
-  private async loadStatesForRepo(repoId: string): Promise<ContinuityState[]> {
-    const historyDir = path.join(this.deps.graftDir, "local-history");
-    let filenames: string[];
-    try {
-      filenames = await this.deps.fs.readdir(historyDir);
-    } catch {
-      return [];
-    }
-
-    const states: ContinuityState[] = [];
-    for (const filename of filenames) {
-      if (!filename.endsWith(".json")) {
-        continue;
-      }
-      try {
-        const raw = await this.deps.fs.readFile(path.join(historyDir, filename), "utf-8");
-        const state = continuityStateSchema.parse(this.deps.codec.decode(raw));
-        if (state.repoId === repoId) {
-          states.push(state);
-        }
-      } catch {
-        // Ignore malformed local-history artifacts.
-      }
-    }
-
-    return states;
-  }
-
   private toWorktreeHistory(state: ContinuityState): RepoConcurrencyWorktreeHistory {
     const effectiveRecord = findRecord(state, state.activeRecordId) ?? state.records.at(-1) ?? null;
     const checkoutEpochId = effectiveRecord?.checkoutEpochId ?? null;
@@ -1970,23 +2176,13 @@ export class PersistedLocalHistoryStore {
     };
   }
 
-  private async loadState(
+  private async loadWritableState(
+    graph: PersistedLocalHistoryGraphContext | null | undefined,
     continuityKey: string,
     repoId: string,
     worktreeId: string,
   ): Promise<ContinuityState> {
-    try {
-      const raw = await this.deps.fs.readFile(this.historyPathFor(continuityKey), "utf-8");
-      return continuityStateSchema.parse(this.deps.codec.decode(raw));
-    } catch {
-      return createEmptyState(continuityKey, repoId, worktreeId);
-    }
-  }
-
-  private async saveState(state: ContinuityState): Promise<void> {
-    const filePath = this.historyPathFor(state.continuityKey);
-    await this.deps.fs.mkdir(path.dirname(filePath), { recursive: true });
-    await this.deps.fs.writeFile(filePath, this.deps.codec.encode(state), "utf-8");
+    return await loadStateFromGraph(graph, repoId, worktreeId) ?? createEmptyState(continuityKey, repoId, worktreeId);
   }
 }
 

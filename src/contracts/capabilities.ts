@@ -40,6 +40,7 @@ export type McpToolName = typeof MCP_TOOL_NAMES[number];
 export const CLI_COMMAND_NAMES = [
   "init",
   "index",
+  "migrate_local_history",
   "read_safe",
   "read_outline",
   "read_range",
@@ -81,6 +82,13 @@ export const CAPABILITY_REGISTRY: readonly CapabilityDefinition[] = [
     description: "Explicit WARP indexing",
     cliCommand: "index",
     cliPath: ["index"],
+    parity: "cli_only",
+  },
+  {
+    id: "migrate_local_history",
+    description: "Import legacy JSON local history into the WARP graph",
+    cliCommand: "migrate_local_history",
+    cliPath: ["migrate", "local-history"],
     parity: "cli_only",
   },
   {

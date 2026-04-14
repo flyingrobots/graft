@@ -19,6 +19,7 @@ import { renderActivityView } from "./activity-render.js";
 import { runIndex } from "./index-cmd.js";
 import { runInit } from "./init.js";
 import { runLocalHistoryDag } from "./local-history-dag.js";
+import { runMigrateLocalHistory } from "./migrate-local-history.js";
 
 const codec = new CanonicalJsonCodec();
 
@@ -272,6 +273,22 @@ function parseSymbolCommand(argv: string[]): ParsedCommand {
   throw new Error(`Unknown symbol subcommand: ${subcommand}`);
 }
 
+function parseMigrateCommand(argv: string[]): ParsedCommand {
+  const subcommand = consumePositional(argv, "migrate subcommand");
+  const json = consumeFlag(argv, "--json");
+
+  if (subcommand === "local-history") {
+    expectNoArgs(argv);
+    return {
+      command: "migrate_local_history",
+      json,
+      args: {},
+    };
+  }
+
+  throw new Error(`Unknown migrate subcommand: ${subcommand}`);
+}
+
 function parseDiagCommand(argv: string[]): ParsedCommand {
   const subcommand = consumePositional(argv, "diag subcommand");
   const json = consumeFlag(argv, "--json");
@@ -348,6 +365,7 @@ function parseCommand(argv: string[]): ParsedCommand {
   if (group === "read") return parseReadCommand(argv);
   if (group === "struct") return parseStructCommand(argv);
   if (group === "symbol") return parseSymbolCommand(argv);
+  if (group === "migrate") return parseMigrateCommand(argv);
   if (group === "diag") return parseDiagCommand(argv);
 
   throw new Error(`Unknown command: ${group}`);
@@ -374,7 +392,7 @@ function renderHelp(writer: Writer): void {
     grouped.set(section, bucket);
   }
 
-  for (const section of ["project", "read", "struct", "symbol", "diag"]) {
+  for (const section of ["project", "migrate", "read", "struct", "symbol", "diag"]) {
     const entries = grouped.get(section);
     if (entries === undefined) continue;
     writeLine(writer, `${section}:`);
@@ -414,10 +432,10 @@ export async function runCli(options: RunCliOptions = {}): Promise<void> {
     return;
   }
 
-  if (argv[0] === "index") {
-    await runIndex({ cwd, args: argv.slice(1), stdout, stderr });
-    return;
-  }
+    if (argv[0] === "index") {
+      await runIndex({ cwd, args: argv.slice(1), stdout, stderr });
+      return;
+    }
 
   if (argv[0] === "serve") {
     if (argv.length > 1) {
@@ -442,6 +460,15 @@ export async function runCli(options: RunCliOptions = {}): Promise<void> {
 
   try {
     const parsed = parseCommand([...argv]);
+    if (parsed.command === "migrate_local_history") {
+      await runMigrateLocalHistory({
+        cwd,
+        json: parsed.json,
+        stdout,
+        stderr,
+      });
+      return;
+    }
     if (parsed.command === "diag_local_history_dag") {
       await runLocalHistoryDag({
         cwd,

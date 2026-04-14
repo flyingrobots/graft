@@ -47,13 +47,20 @@ export function git(cwd: string, cmd: string): string {
 /** Create a temp directory with an initialized git repo. */
 export function createTestRepo(prefix = "graft-test-"): string {
   const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), prefix));
-  assertIsolatedGitTestDir(tmpDir);
-  git(tmpDir, "init");
-  git(tmpDir, "config user.email test@test.com");
-  git(tmpDir, "config user.name test");
-  git(tmpDir, "config commit.gpgsign false");
-  git(tmpDir, "config tag.gpgSign false");
+  ensureGitRepo(tmpDir);
   return tmpDir;
+}
+
+export function ensureGitRepo(cwd: string): void {
+  assertIsolatedGitTestDir(cwd);
+  if (fs.existsSync(path.join(cwd, ".git"))) {
+    return;
+  }
+  git(cwd, "init");
+  git(cwd, "config user.email test@test.com");
+  git(cwd, "config user.name test");
+  git(cwd, "config commit.gpgsign false");
+  git(cwd, "config tag.gpgSign false");
 }
 
 export function createCommittedTestRepo(

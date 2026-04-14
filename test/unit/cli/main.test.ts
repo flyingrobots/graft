@@ -3,6 +3,7 @@ import * as fs from "node:fs";
 import * as path from "node:path";
 import { resolveEntrypointArgs, runCli } from "../../../src/cli/main.js";
 import { cleanupTestRepo, createTestRepo, git } from "../../helpers/git.js";
+import { writeLegacyLocalHistoryArtifact } from "../../helpers/legacy-local-history.js";
 
 interface Writer {
   text(): string;
@@ -45,6 +46,7 @@ describe("cli: graft grouped surface", () => {
     });
 
     expect(stderr.text()).toBe("");
+    expect(stdout.text()).toContain("migrate local-history");
     expect(stdout.text()).toContain("read safe");
     expect(stdout.text()).toContain("struct diff");
     expect(stdout.text()).toContain("diag activity");
@@ -234,6 +236,44 @@ describe("cli: graft grouped surface", () => {
       expect(parsed._schema.id).toBe("graft.cli.diag_activity");
       expect(parsed.truthClass).toBe("artifact_history");
       expect(parsed.activityWindow.returned).toBeGreaterThanOrEqual(0);
+    } finally {
+      cleanupTestRepo(repoDir);
+    }
+  });
+
+  it("migrates legacy JSON local history into the WARP graph", async () => {
+    const repoDir = createTestRepo("graft-cli-migrate-local-history-");
+    try {
+      fs.writeFileSync(path.join(repoDir, "app.ts"), [
+        "export function greet(name: string): string {",
+        "  return `hello ${name}`;",
+        "}",
+        "",
+      ].join("\n"));
+      git(repoDir, "add -A");
+      git(repoDir, "commit -m init");
+      writeLegacyLocalHistoryArtifact(path.join(repoDir, ".graft"));
+
+      const stdout = createBufferWriter();
+      const stderr = createBufferWriter();
+      await runCli({
+        cwd: repoDir,
+        args: ["migrate", "local-history", "--json"],
+        stdout,
+        stderr,
+      });
+
+      expect(stderr.text()).toBe("");
+      const parsed = JSON.parse(stdout.text()) as {
+        _schema: { id: string };
+        discoveredArtifacts: number;
+        migratedArtifacts: number;
+        importedContinuityRecords: number;
+      };
+      expect(parsed._schema.id).toBe("graft.cli.migrate_local_history");
+      expect(parsed.discoveredArtifacts).toBeGreaterThanOrEqual(1);
+      expect(parsed.migratedArtifacts).toBeGreaterThanOrEqual(1);
+      expect(parsed.importedContinuityRecords).toBeGreaterThanOrEqual(0);
     } finally {
       cleanupTestRepo(repoDir);
     }

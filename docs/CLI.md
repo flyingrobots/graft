@@ -10,6 +10,7 @@ flowchart LR
     B --> B2[serve]
     B --> B3[daemon]
     B --> B4[index]
+    B --> B5[migrate local-history]
     C --> C1[read]
     C --> C2[struct]
     C --> C3[symbol]
@@ -18,6 +19,7 @@ flowchart LR
 
 ## What it is for
 - bootstrap and setup via `graft init`
+- one-time legacy import via `graft migrate local-history`
 - local debugging and dogfooding of MCP peer commands
 - human-facing inspection of bounded state such as:
   - `graft diag activity`
@@ -33,6 +35,7 @@ flowchart LR
 
 ## Release-facing commands
 ```bash
+graft migrate local-history --json
 graft diag activity --json
 graft diag local-history-dag --json
 graft diag doctor --json

@@ -281,7 +281,7 @@ describe("mcp: runtime observability", () => {
       expect(workspaceOverlayFooting.hookBootstrap.posture).toBe("absent");
       expect(workspaceOverlayFooting.hookBootstrap.configuredCoreHooksPath).toBeNull();
       expect(workspaceOverlayFooting.hookBootstrap.resolvedHooksPath).toBe(
-        path.join(isolated.projectRoot, "hooks"),
+        fs.realpathSync.native(path.join(isolated.projectRoot, ".git", "hooks")),
       );
       expect(workspaceOverlayFooting.hookBootstrap.missingHooks).toEqual([
         "post-checkout",

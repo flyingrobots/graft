@@ -14,6 +14,7 @@ import { runCli } from "../../../src/cli/main.js";
 import { runInit } from "../../../src/cli/init.js";
 import { runIndex } from "../../../src/cli/index-cmd.js";
 import { cleanupTestRepo, createTestRepo, git } from "../../helpers/git.js";
+import { writeLegacyLocalHistoryArtifact } from "../../helpers/legacy-local-history.js";
 import { createServerInRepo, parse } from "../../helpers/mcp.js";
 
 interface Writer {
@@ -281,8 +282,21 @@ describe("contracts: output schemas", () => {
       diag_capture: await runCliJson(repoDir, ["diag", "capture", "--json", "--", "printf", "ok"]),
     } as const;
 
-    for (const command of CLI_COMMAND_NAMES.filter((name) => !["init", "index"].includes(name))) {
+    for (const command of CLI_COMMAND_NAMES.filter((name) => !["init", "index", "migrate_local_history"].includes(name))) {
       expect(() => CLI_OUTPUT_SCHEMAS[command].parse(outputs[command as keyof typeof outputs])).not.toThrow();
     }
+  });
+
+  it("validates local-history migration JSON output against the declared CLI schema", { timeout: 15_000 }, async () => {
+    const repoDir = createTestRepo("graft-output-schema-migrate-history-");
+    cleanups.push(repoDir);
+
+    fs.writeFileSync(path.join(repoDir, "app.ts"), "export const ready = true;\n");
+    git(repoDir, "add -A");
+    git(repoDir, "commit -m init");
+    writeLegacyLocalHistoryArtifact(path.join(repoDir, ".graft"));
+
+    const parsed = await runCliJson(repoDir, ["migrate", "local-history", "--json"]);
+    expect(() => CLI_OUTPUT_SCHEMAS.migrate_local_history.parse(parsed)).not.toThrow();
   });
 });
