@@ -2,6 +2,61 @@ import eslint from "@eslint/js";
 import tseslint from "typescript-eslint";
 import globals from "globals";
 
+const PRIMARY_ADAPTER_IMPORT_PATTERNS = [
+  "**/cli",
+  "**/cli/**",
+  "**/hooks",
+  "**/hooks/**",
+  "**/mcp",
+  "**/mcp/**",
+];
+
+const SECONDARY_ADAPTER_IMPORT_PATTERNS = [
+  "**/adapters",
+  "**/adapters/**",
+  "**/warp",
+  "**/warp/**",
+];
+
+const APPLICATION_IMPORT_PATTERNS = [
+  "**/git",
+  "**/git/**",
+  "**/metrics",
+  "**/metrics/**",
+  "**/operations",
+  "**/operations/**",
+  "**/policy",
+  "**/policy/**",
+  "**/release",
+  "**/release/**",
+  "**/session",
+  "**/session/**",
+];
+
+const HOST_LIBRARY_IMPORT_PATTERNS = ["node:*", "@git-stunts/*"];
+
+/**
+ * @param {string[]} files
+ * @param {string} layer
+ * @param {{ message: string, patterns: string[] }[]} groups
+ */
+function withHexBoundaryRestrictions(files, layer, groups) {
+  return {
+    files,
+    rules: {
+      "no-restricted-imports": [
+        "error",
+        {
+          patterns: groups.map(({ message, patterns }) => ({
+            group: patterns,
+            message: `${layer} ${message}`,
+          })),
+        },
+      ],
+    },
+  };
+}
+
 export default tseslint.config(
   eslint.configs.recommended,
   tseslint.configs.strictTypeChecked,
@@ -30,6 +85,99 @@ export default tseslint.config(
       ],
     },
   },
+  withHexBoundaryRestrictions(
+    [
+      "src/contracts/**/*.ts",
+      "src/guards/**/*.ts",
+      "src/format/**/*.ts",
+      "src/metrics/types.ts",
+      "src/release/security-gate.ts",
+    ],
+    "Foundational contracts and pure helpers must not",
+    [
+      {
+        patterns: PRIMARY_ADAPTER_IMPORT_PATTERNS,
+        message: "depend on primary adapters (cli, mcp, or hooks).",
+      },
+      {
+        patterns: SECONDARY_ADAPTER_IMPORT_PATTERNS,
+        message: "depend on secondary adapters (adapters, parser, or warp).",
+      },
+      {
+        patterns: APPLICATION_IMPORT_PATTERNS,
+        message: "depend on application modules.",
+      },
+      {
+        patterns: HOST_LIBRARY_IMPORT_PATTERNS,
+        message: "import host libraries directly.",
+      },
+      {
+        patterns: ["**/ports", "**/ports/**"],
+        message: "depend on ports.",
+      },
+    ],
+  ),
+  withHexBoundaryRestrictions(
+    ["src/ports/**/*.ts"],
+    "Ports must not",
+    [
+      {
+        patterns: PRIMARY_ADAPTER_IMPORT_PATTERNS,
+        message: "depend on primary adapters (cli, mcp, or hooks).",
+      },
+      {
+        patterns: SECONDARY_ADAPTER_IMPORT_PATTERNS,
+        message: "depend on secondary adapters (adapters, parser, or warp).",
+      },
+      {
+        patterns: APPLICATION_IMPORT_PATTERNS,
+        message: "depend on application modules.",
+      },
+      {
+        patterns: HOST_LIBRARY_IMPORT_PATTERNS,
+        message: "import host libraries directly.",
+      },
+    ],
+  ),
+  withHexBoundaryRestrictions(
+    [
+      "src/operations/**/*.ts",
+      "src/policy/**/*.ts",
+      "src/session/**/*.ts",
+      "src/git/diff.ts",
+    ],
+    "Application modules must not",
+    [
+      {
+        patterns: PRIMARY_ADAPTER_IMPORT_PATTERNS,
+        message: "depend on primary adapters (cli, mcp, or hooks).",
+      },
+      {
+        patterns: SECONDARY_ADAPTER_IMPORT_PATTERNS,
+        message: "depend on secondary adapters (adapters, parser, or warp).",
+      },
+      {
+        patterns: HOST_LIBRARY_IMPORT_PATTERNS,
+        message: "import host libraries directly.",
+      },
+    ],
+  ),
+  withHexBoundaryRestrictions(
+    [
+      "src/adapters/**/*.ts",
+      "src/parser/**/*.ts",
+      "src/warp/**/*.ts",
+      "src/git/target-git-hook-bootstrap.ts",
+      "src/metrics/logger.ts",
+    ],
+    "Secondary adapters must not",
+    [
+      {
+        patterns: PRIMARY_ADAPTER_IMPORT_PATTERNS,
+        message: "depend on primary adapters (cli, mcp, or hooks).",
+      },
+    ],
+  ),
   {
     files: ["eslint.config.js"],
     rules: {

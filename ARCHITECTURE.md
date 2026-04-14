@@ -1,10 +1,17 @@
 # ARCHITECTURE
 
-Graft is an industrial-grade context governor organized around a strict Hexagonal (Ports and Adapters) architecture.
+Graft is an industrial-grade context governor converging on a strict Hexagonal (Ports and Adapters) architecture.
+
+Repo truth today is narrower than a finished strict-hex claim:
+
+- explicit ports and adapters exist
+- foundational dependency guardrails are mechanically enforced
+- primary adapters and composition roots are still mid-migration
+- WARP is still becoming a first-class port boundary rather than an ambient capability
 
 ## Core Boundary
 
-The Graft core is pure TypeScript. All platform-specific concerns are isolated behind primary ports:
+The Graft core is TypeScript. Platform-specific concerns are intended to enter through explicit secondary ports:
 
 | Port | Responsibility | Official Adapter |
 | :--- | :--- | :--- |
