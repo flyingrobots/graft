@@ -1,6 +1,7 @@
 import { z } from "zod";
-import { readRange } from "../../operations/read-range.js";
+import { RepoWorkspace } from "../../operations/repo-workspace.js";
 import type { ToolDefinition, ToolContext, ToolHandler } from "../context.js";
+import { toPolicyPath } from "../policy.js";
 
 export const readRangeTool: ToolDefinition = {
   name: "read_range",
@@ -9,12 +10,28 @@ export const readRangeTool: ToolDefinition = {
     "Use jump table entries from file_outline or safe_read to target " +
     "specific symbols.",
   schema: { path: z.string(), start: z.number(), end: z.number() },
-  policyCheck: true,
   createHandler(ctx: ToolContext): ToolHandler {
     return async (args) => {
-      const filePath = ctx.resolvePath(args["path"] as string);
-      const result = await readRange(filePath, args["start"] as number, args["end"] as number, { fs: ctx.fs });
-      ctx.metrics.recordRead();
+      const workspace = new RepoWorkspace({
+        projectRoot: ctx.projectRoot,
+        fs: ctx.fs,
+        codec: ctx.codec,
+        graftignorePatterns: ctx.graftignorePatterns,
+        resolvePath: (input) => ctx.resolvePath(input),
+        toPolicyPath: (resolvedPath) => toPolicyPath(ctx.projectRoot, resolvedPath),
+        session: ctx.session,
+        cache: ctx.cache,
+      });
+      const result = await workspace.readRange({
+        path: args["path"] as string,
+        start: args["start"] as number,
+        end: args["end"] as number,
+      });
+      if ("projection" in result && result.projection === "refused") {
+        ctx.metrics.recordRefusal();
+      } else {
+        ctx.metrics.recordRead();
+      }
       return ctx.respond("read_range", result);
     };
   },

@@ -99,12 +99,8 @@ export interface ToolContext {
   revokeWorkspace(request: WorkspaceBindRequest): Promise<WorkspaceRevokeResult>;
 }
 
-/**
- * Resolve a user-provided path against projectRoot with traversal guard.
- * Absolute paths pass through unchanged. Relative paths that escape the
- * project root via ".." are rejected.
- */
-export function createPathResolver(projectRoot: string): (input: string) => string {
+export { createPathResolver };
+function createPathResolver(projectRoot: string): (input: string) => string {
   return (input: string): string => {
     if (path.isAbsolute(input)) return input;
     const resolved = path.resolve(projectRoot, input);

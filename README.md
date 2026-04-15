@@ -55,6 +55,21 @@ const outline = await callGraftTool(graft, "file_outline", { path: "src/app.ts" 
 This uses the same repo-local core as the CLI and MCP server, but it
 lets host tools call Graft directly inside the same process.
 
+When you want a direct repo-local read surface instead of tool receipts,
+use the workspace API:
+```ts
+import { createRepoWorkspace } from "@flyingrobots/graft";
+
+const workspace = await createRepoWorkspace({ cwd: process.cwd() });
+const first = await workspace.safeRead({ path: "src/app.ts" });
+const second = await workspace.safeRead({ path: "src/app.ts" });
+const outline = await workspace.fileOutline({ path: "src/app.ts" });
+```
+
+This exposes the same governed repo-local read behavior that the MCP
+surface uses for `safe_read`, `file_outline`, `read_range`, and
+`changed_since`, but without going through MCP receipts at all.
+
 For close editor integration, use the buffer-native surface directly:
 ```ts
 import { createStructuredBuffer } from "@flyingrobots/graft";

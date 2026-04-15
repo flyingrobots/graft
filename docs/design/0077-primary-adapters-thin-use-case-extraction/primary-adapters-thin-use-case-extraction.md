@@ -21,17 +21,31 @@ specific agent instance.
 
 ## Hill
 
-TBD
+Extract the first real repo-local application service out of the MCP
+adapter so that:
+
+- governed read behavior for `safe_read`, `file_outline`, `read_range`,
+  and `changed_since` lives in a reusable repo-workspace service rather
+  than only inside MCP tool handlers
+- MCP becomes thinner by delegating those flows into the shared service
+- the root package can expose that shared service directly for close
+  editor and app integration without forcing callers through MCP
+  receipts or CLI subprocesses
 
 ## Playback Questions
 
 ### Human
 
-- [ ] TBD
+- [ ] Can an external app create a repo-local workspace and call direct
+      governed read methods without going through MCP receipts?
+- [ ] Do `safe_read`, `file_outline`, `read_range`, and `changed_since`
+      still behave the same through the MCP surface after extraction?
 
 ### Agent
 
-- [ ] TBD
+- [ ] Is the observation cache still outside the `mcp` adapter?
+- [ ] Is path resolution still outside the `mcp` adapter?
+- [ ] Are the read-family tool handlers thinner after the slice?
 
 ## Accessibility and Assistive Reading
 
@@ -50,7 +64,11 @@ TBD
 
 ## Non-goals
 
-- [ ] TBD
+- [ ] Extract every MCP tool into application services in one cycle
+- [ ] Finalize the stable long-term public library API for every Graft
+      capability
+- [ ] Remove the remaining MCP transport/result shape from the root
+      library surface in this slice
 
 ## Backlog Context
 
