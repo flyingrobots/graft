@@ -11,17 +11,24 @@ timeline
 
 ## Active Gravity
 
-### 1. WARP Ontology & Causal Collapse
+### 1. Entrypoint Convergence
+- Formalizing API, CLI, and MCP as equal first-class entry points.
+- Extracting application services so those three surfaces stop owning
+  business flow.
+- Establishing baseline capability posture and parity expectations
+  before more surface growth lands.
+
+### 2. WARP Ontology & Causal Collapse
 - Explicit definition of session, strand, and checkout epoch.
 - Implementation of strand-aware causal collapse (admission of speculative work into canonical history).
 - Strengthening of symbol identity and rename continuity for precise slicing.
 
-### 2. Multi-Repo Coordination
+### 3. Multi-Repo Coordination
 - Refinement of the Shared Daemon trust boundaries.
 - System-wide resource pressure and fairness summaries across multiple repos.
 - Authorization-filtered multi-repo overview surfaces.
 
-### 3. Agentic Observability
+### 4. Agentic Observability
 - Implementation of the Deterministic Scenario Replay pipeline.
 - Machine-readable between-commit activity views for agents and humans.
 
@@ -34,4 +41,8 @@ timeline
 
 ## Next Target
 
-The immediate focus is **Daemon Infrastructure Decomposition**. Moving management of workers, schedulers, and authz out of the main server module to improve security and maintainability.
+The immediate focus is **Entrypoint Convergence and Primary Adapter
+Extraction**. The next steps are to settle the three-surface capability
+model, keep pushing business flow out of the primary adapters, and
+reorganize the repo so API, CLI, and MCP are structurally obvious
+rather than merely implied.

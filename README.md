@@ -21,6 +21,12 @@ Unlike simple file-scraping tools, Graft treats the repository as a layered worl
 
 ## Quick Start
 
+Graft has three official entry points:
+
+- **API** for direct in-process integration
+- **CLI** for operator and debugging workflows
+- **MCP** for agent transport integration
+
 ### 1. Bootstrap a Repo
 Scaffold `.graftignore`, setup git hooks, and seed agent instructions.
 ```bash

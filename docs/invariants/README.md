@@ -48,6 +48,7 @@ it. Cycles under that legend must verify the invariant holds.
 - [decision-logged](decision-logged.md) — every policy decision hits NDJSON log
 
 ### Surfaces (CORE)
+- [three-entrypoint-surface-contract](three-entrypoint-surface-contract.md) — API, CLI, and MCP are the official explicit product entry points
 - [cli-mcp-feature-parity](cli-mcp-feature-parity.md) — product-facing CLI and MCP capabilities stay aligned
 
 ### Session (CORE)

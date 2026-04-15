@@ -73,3 +73,9 @@ adapter so that:
 ## Backlog Context
 
 Move product behavior out of MCP/CLI tool handlers and into reusable application services. The target is thin primary adapters that validate input, call one application use case, and shape edge-specific output without owning business flow.
+
+For this cycle, the named primary adapters are:
+
+- API
+- CLI
+- MCP

@@ -9,6 +9,32 @@ Repo truth today is narrower than a finished strict-hex claim:
 - primary adapters and composition roots are still mid-migration
 - WARP is still becoming a first-class port boundary rather than an ambient capability
 
+## Official Entry Points
+
+Graft now has three official product entry points:
+
+1. **API** — the direct package/library surface exported from the root
+   package entry point
+2. **CLI** — the operator and debugging surface
+3. **MCP** — the agent transport surface
+
+Repo truth today:
+
+- API is first-class, not a side door
+- CLI and MCP remain primary adapters
+- not every capability is symmetric across all three entry points yet
+- every capability should explicitly declare which entry points it is
+  available on and, for API, whether the exposure is a direct typed
+  surface or an MCP-style tool bridge
+
+The convergence target is:
+
+- one application core
+- three thin primary adapters
+- explicit surface metadata and invariants
+- capability parity where parity is intended, with narrow documented
+  exceptions where it is not
+
 ## Core Boundary
 
 The Graft core is TypeScript. Platform-specific concerns are intended to enter through explicit secondary ports:
@@ -19,6 +45,18 @@ The Graft core is TypeScript. Platform-specific concerns are intended to enter t
 | **`JsonCodec`** | Canonical JSON shaping and serialization | `CanonicalJsonCodec` |
 | **`GitClient`** | Git history enumeration and status observation | `nodeGit` |
 | **`ProcessRunner`** | Shell execution and diagnostic capture | `nodeProcessRunner` |
+
+Primary adapters should sit above that core boundary:
+
+| Primary Adapter | Responsibility |
+| :--- | :--- |
+| **API** | Direct typed package surface for in-process integrations |
+| **CLI** | Human/operator command surface and scripting |
+| **MCP** | Agent-facing transport surface with receipts and schemas |
+
+The architecture rule is that none of these primary adapters own
+business flow. They validate input, call application services, and
+shape edge-specific output.
 
 ## Pipeline: From File to Governance
 

@@ -60,277 +60,330 @@ export const CLI_COMMAND_NAMES = [
 
 export type CliCommandName = typeof CLI_COMMAND_NAMES[number];
 
+export const ENTRYPOINT_SURFACES = ["api", "cli", "mcp"] as const;
+
+export type EntrypointSurface = typeof ENTRYPOINT_SURFACES[number];
+
+export type ApiExposure = "tool_bridge" | "repo_workspace" | "structured_buffer";
+
+export type CliMcpParity = "peer" | "cli_only" | "mcp_only" | "not_applicable";
+
 export interface CapabilityDefinition {
   readonly id: string;
   readonly description: string;
   readonly mcpTool?: McpToolName | undefined;
   readonly cliCommand?: CliCommandName | undefined;
   readonly cliPath?: readonly [string, ...string[]] | undefined;
-  readonly parity: "peer" | "cli_only" | "mcp_only";
+  readonly apiExposure?: ApiExposure | undefined;
+  readonly surfaces: readonly EntrypointSurface[];
+  readonly cliMcpParity: CliMcpParity;
+}
+
+interface CapabilitySeed {
+  readonly id: string;
+  readonly description: string;
+  readonly mcpTool?: McpToolName | undefined;
+  readonly cliCommand?: CliCommandName | undefined;
+  readonly cliPath?: readonly [string, ...string[]] | undefined;
+  readonly apiExposure?: ApiExposure | undefined;
+  readonly cliMcpParity: CliMcpParity;
+}
+
+function defineCapability(seed: CapabilitySeed): CapabilityDefinition {
+  const apiExposure = seed.apiExposure ?? (seed.mcpTool !== undefined ? "tool_bridge" : undefined);
+  const surfaces: EntrypointSurface[] = [];
+  if (apiExposure !== undefined) {
+    surfaces.push("api");
+  }
+  if (seed.cliCommand !== undefined) {
+    surfaces.push("cli");
+  }
+  if (seed.mcpTool !== undefined) {
+    surfaces.push("mcp");
+  }
+  return {
+    ...seed,
+    ...(apiExposure !== undefined ? { apiExposure } : {}),
+    surfaces: Object.freeze(surfaces),
+  };
 }
 
 export const CAPABILITY_REGISTRY: readonly CapabilityDefinition[] = [
-  {
+  defineCapability({
     id: "init",
     description: "Initialize graft in a repo",
     cliCommand: "init",
     cliPath: ["init"],
-    parity: "cli_only",
-  },
-  {
+    cliMcpParity: "cli_only",
+  }),
+  defineCapability({
     id: "index",
     description: "Explicit WARP indexing",
     cliCommand: "index",
     cliPath: ["index"],
-    parity: "cli_only",
-  },
-  {
+    cliMcpParity: "cli_only",
+  }),
+  defineCapability({
     id: "migrate_local_history",
     description: "Import legacy JSON local history into the WARP graph",
     cliCommand: "migrate_local_history",
     cliPath: ["migrate", "local-history"],
-    parity: "cli_only",
-  },
-  {
+    cliMcpParity: "cli_only",
+  }),
+  defineCapability({
     id: "safe_read",
     description: "Policy-enforced file read",
     mcpTool: "safe_read",
     cliCommand: "read_safe",
     cliPath: ["read", "safe"],
-    parity: "peer",
-  },
-  {
+    apiExposure: "repo_workspace",
+    cliMcpParity: "peer",
+  }),
+  defineCapability({
     id: "file_outline",
     description: "Structural file outline",
     mcpTool: "file_outline",
     cliCommand: "read_outline",
     cliPath: ["read", "outline"],
-    parity: "peer",
-  },
-  {
+    apiExposure: "repo_workspace",
+    cliMcpParity: "peer",
+  }),
+  defineCapability({
     id: "read_range",
     description: "Bounded range read",
     mcpTool: "read_range",
     cliCommand: "read_range",
     cliPath: ["read", "range"],
-    parity: "peer",
-  },
-  {
+    apiExposure: "repo_workspace",
+    cliMcpParity: "peer",
+  }),
+  defineCapability({
     id: "changed_since",
     description: "Change since last observation",
     mcpTool: "changed_since",
     cliCommand: "read_changed",
     cliPath: ["read", "changed"],
-    parity: "peer",
-  },
-  {
+    apiExposure: "repo_workspace",
+    cliMcpParity: "peer",
+  }),
+  defineCapability({
     id: "graft_diff",
     description: "Structural diff between refs",
     mcpTool: "graft_diff",
     cliCommand: "struct_diff",
     cliPath: ["struct", "diff"],
-    parity: "peer",
-  },
-  {
+    cliMcpParity: "peer",
+  }),
+  defineCapability({
     id: "graft_since",
     description: "Structural changes since ref",
     mcpTool: "graft_since",
     cliCommand: "struct_since",
     cliPath: ["struct", "since"],
-    parity: "peer",
-  },
-  {
+    cliMcpParity: "peer",
+  }),
+  defineCapability({
     id: "graft_map",
     description: "Structural directory map",
     mcpTool: "graft_map",
     cliCommand: "struct_map",
     cliPath: ["struct", "map"],
-    parity: "peer",
-  },
-  {
+    cliMcpParity: "peer",
+  }),
+  defineCapability({
     id: "code_show",
     description: "Focus on a symbol by name",
     mcpTool: "code_show",
     cliCommand: "symbol_show",
     cliPath: ["symbol", "show"],
-    parity: "peer",
-  },
-  {
+    cliMcpParity: "peer",
+  }),
+  defineCapability({
     id: "code_find",
     description: "Search symbols by name or kind",
     mcpTool: "code_find",
     cliCommand: "symbol_find",
     cliPath: ["symbol", "find"],
-    parity: "peer",
-  },
-  {
+    cliMcpParity: "peer",
+  }),
+  defineCapability({
     id: "code_refs",
     description: "Search import sites, callsites, property access, or text references",
     mcpTool: "code_refs",
-    parity: "mcp_only",
-  },
-  {
+    cliMcpParity: "mcp_only",
+  }),
+  defineCapability({
     id: "daemon_repos",
     description: "List authorized canonical repos with bounded daemon-wide summary",
     mcpTool: "daemon_repos",
-    parity: "mcp_only",
-  },
-  {
+    cliMcpParity: "mcp_only",
+  }),
+  defineCapability({
     id: "daemon_status",
     description: "Inspect daemon-wide health and control-plane posture",
     mcpTool: "daemon_status",
-    parity: "mcp_only",
-  },
-  {
+    cliMcpParity: "mcp_only",
+  }),
+  defineCapability({
     id: "daemon_sessions",
     description: "List active daemon sessions",
     mcpTool: "daemon_sessions",
-    parity: "mcp_only",
-  },
-  {
+    cliMcpParity: "mcp_only",
+  }),
+  defineCapability({
     id: "daemon_monitors",
     description: "List daemon-managed persistent repo monitors",
     mcpTool: "daemon_monitors",
-    parity: "mcp_only",
-  },
-  {
+    cliMcpParity: "mcp_only",
+  }),
+  defineCapability({
     id: "monitor_start",
     description: "Start a repo-scoped persistent monitor",
     mcpTool: "monitor_start",
-    parity: "mcp_only",
-  },
-  {
+    cliMcpParity: "mcp_only",
+  }),
+  defineCapability({
     id: "monitor_pause",
     description: "Pause a repo-scoped persistent monitor",
     mcpTool: "monitor_pause",
-    parity: "mcp_only",
-  },
-  {
+    cliMcpParity: "mcp_only",
+  }),
+  defineCapability({
     id: "monitor_resume",
     description: "Resume a repo-scoped persistent monitor",
     mcpTool: "monitor_resume",
-    parity: "mcp_only",
-  },
-  {
+    cliMcpParity: "mcp_only",
+  }),
+  defineCapability({
     id: "monitor_stop",
     description: "Stop a repo-scoped persistent monitor",
     mcpTool: "monitor_stop",
-    parity: "mcp_only",
-  },
-  {
+    cliMcpParity: "mcp_only",
+  }),
+  defineCapability({
     id: "workspace_authorize",
     description: "Authorize a workspace for daemon binding",
     mcpTool: "workspace_authorize",
-    parity: "mcp_only",
-  },
-  {
+    cliMcpParity: "mcp_only",
+  }),
+  defineCapability({
     id: "workspace_authorizations",
     description: "List daemon-authorized workspaces",
     mcpTool: "workspace_authorizations",
-    parity: "mcp_only",
-  },
-  {
+    cliMcpParity: "mcp_only",
+  }),
+  defineCapability({
     id: "workspace_revoke",
     description: "Revoke daemon authorization for a workspace",
     mcpTool: "workspace_revoke",
-    parity: "mcp_only",
-  },
-  {
+    cliMcpParity: "mcp_only",
+  }),
+  defineCapability({
     id: "workspace_bind",
     description: "Bind a daemon session to a workspace",
     mcpTool: "workspace_bind",
-    parity: "mcp_only",
-  },
-  {
+    cliMcpParity: "mcp_only",
+  }),
+  defineCapability({
     id: "workspace_status",
     description: "Inspect daemon workspace binding state",
     mcpTool: "workspace_status",
-    parity: "mcp_only",
-  },
-  {
+    cliMcpParity: "mcp_only",
+  }),
+  defineCapability({
     id: "activity_view",
     description: "Inspect recent bounded local artifact history for the active workspace, anchored to the current commit when possible",
     mcpTool: "activity_view",
     cliCommand: "diag_activity",
     cliPath: ["diag", "activity"],
-    parity: "peer",
-  },
-  {
+    cliMcpParity: "peer",
+  }),
+  defineCapability({
     id: "local_history_dag",
     description: "Render a bounded debug DAG from WARP-backed local history",
     cliCommand: "diag_local_history_dag",
     cliPath: ["diag", "local-history-dag"],
-    parity: "cli_only",
-  },
-  {
+    cliMcpParity: "cli_only",
+  }),
+  defineCapability({
     id: "causal_status",
     description: "Inspect the active causal workspace and persisted local-history posture",
     mcpTool: "causal_status",
-    parity: "mcp_only",
-  },
-  {
+    cliMcpParity: "mcp_only",
+  }),
+  defineCapability({
     id: "causal_attach",
     description: "Explicitly declare lawful continuation or handoff for the current causal workspace",
     mcpTool: "causal_attach",
-    parity: "mcp_only",
-  },
-  {
+    cliMcpParity: "mcp_only",
+  }),
+  defineCapability({
     id: "workspace_rebind",
     description: "Rebind a daemon session to a different workspace",
     mcpTool: "workspace_rebind",
-    parity: "mcp_only",
-  },
-  {
+    cliMcpParity: "mcp_only",
+  }),
+  defineCapability({
     id: "run_capture",
     description: "Structured shell-output capture",
     mcpTool: "run_capture",
     cliCommand: "diag_capture",
     cliPath: ["diag", "capture"],
-    parity: "peer",
-  },
-  {
+    cliMcpParity: "peer",
+  }),
+  defineCapability({
     id: "explain",
     description: "Explain a reason code",
     mcpTool: "explain",
     cliCommand: "diag_explain",
     cliPath: ["diag", "explain"],
-    parity: "peer",
-  },
-  {
+    cliMcpParity: "peer",
+  }),
+  defineCapability({
     id: "doctor",
     description: "Runtime health and repo state",
     mcpTool: "doctor",
     cliCommand: "diag_doctor",
     cliPath: ["diag", "doctor"],
-    parity: "peer",
-  },
-  {
+    cliMcpParity: "peer",
+  }),
+  defineCapability({
     id: "stats",
     description: "Decision metrics summary",
     mcpTool: "stats",
     cliCommand: "diag_stats",
     cliPath: ["diag", "stats"],
-    parity: "peer",
-  },
-  {
+    cliMcpParity: "peer",
+  }),
+  defineCapability({
     id: "set_budget",
     description: "Session byte budget control",
     mcpTool: "set_budget",
-    parity: "mcp_only",
-  },
-  {
+    cliMcpParity: "mcp_only",
+  }),
+  defineCapability({
     id: "state_save",
     description: "Session bookmark save",
     mcpTool: "state_save",
-    parity: "mcp_only",
-  },
-  {
+    cliMcpParity: "mcp_only",
+  }),
+  defineCapability({
     id: "state_load",
     description: "Session bookmark load",
     mcpTool: "state_load",
-    parity: "mcp_only",
-  },
+    cliMcpParity: "mcp_only",
+  }),
+  defineCapability({
+    id: "structured_buffer",
+    description: "Dirty-buffer structural editor surface for in-process integrations",
+    apiExposure: "structured_buffer",
+    cliMcpParity: "not_applicable",
+  }),
 ] as const;
+
+export const API_EXPOSED_CAPABILITIES = Object.freeze(
+  CAPABILITY_REGISTRY.filter((capability) => capability.surfaces.includes("api")),
+);
 
 export const CLI_COMMAND_PATHS = Object.freeze(Object.fromEntries(
   CAPABILITY_REGISTRY
