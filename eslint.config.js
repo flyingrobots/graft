@@ -3,6 +3,17 @@ import tseslint from "typescript-eslint";
 import globals from "globals";
 
 const PRIMARY_ADAPTER_IMPORT_PATTERNS = [
+  "**/api",
+  "**/api/**",
+  "**/cli",
+  "**/cli/**",
+  "**/hooks",
+  "**/hooks/**",
+  "**/mcp",
+  "**/mcp/**",
+];
+
+const NON_API_PRIMARY_ADAPTER_IMPORT_PATTERNS = [
   "**/cli",
   "**/cli/**",
   "**/hooks",
@@ -97,7 +108,7 @@ export default tseslint.config(
     [
       {
         patterns: PRIMARY_ADAPTER_IMPORT_PATTERNS,
-        message: "depend on primary adapters (cli, mcp, or hooks).",
+        message: "depend on primary adapters (api, cli, mcp, or hooks).",
       },
       {
         patterns: SECONDARY_ADAPTER_IMPORT_PATTERNS,
@@ -123,7 +134,7 @@ export default tseslint.config(
     [
       {
         patterns: PRIMARY_ADAPTER_IMPORT_PATTERNS,
-        message: "depend on primary adapters (cli, mcp, or hooks).",
+        message: "depend on primary adapters (api, cli, mcp, or hooks).",
       },
       {
         patterns: SECONDARY_ADAPTER_IMPORT_PATTERNS,
@@ -150,7 +161,7 @@ export default tseslint.config(
     [
       {
         patterns: PRIMARY_ADAPTER_IMPORT_PATTERNS,
-        message: "depend on primary adapters (cli, mcp, or hooks).",
+        message: "depend on primary adapters (api, cli, mcp, or hooks).",
       },
       {
         patterns: SECONDARY_ADAPTER_IMPORT_PATTERNS,
@@ -174,7 +185,33 @@ export default tseslint.config(
     [
       {
         patterns: PRIMARY_ADAPTER_IMPORT_PATTERNS,
-        message: "depend on primary adapters (cli, mcp, or hooks).",
+        message: "depend on primary adapters (api, cli, mcp, or hooks).",
+      },
+    ],
+  ),
+  withHexBoundaryRestrictions(
+    ["src/index.ts"],
+    "Package export root must not",
+    [
+      {
+        patterns: NON_API_PRIMARY_ADAPTER_IMPORT_PATTERNS,
+        message: "depend on non-API primary adapters directly.",
+      },
+      {
+        patterns: APPLICATION_IMPORT_PATTERNS,
+        message: "own application logic directly.",
+      },
+      {
+        patterns: SECONDARY_ADAPTER_IMPORT_PATTERNS,
+        message: "depend on secondary adapters directly.",
+      },
+      {
+        patterns: ["**/ports", "**/ports/**"],
+        message: "depend on ports directly.",
+      },
+      {
+        patterns: HOST_LIBRARY_IMPORT_PATTERNS,
+        message: "import host libraries directly.",
       },
     ],
   ),

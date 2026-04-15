@@ -35,6 +35,37 @@ The convergence target is:
 - capability parity where parity is intended, with narrow documented
   exceptions where it is not
 
+## Repo Topology
+
+The source tree should make the three entry points visible:
+
+- `src/api/` is the API primary adapter home
+- `src/cli/` is the CLI primary adapter home
+- `src/mcp/` is the MCP primary adapter home
+
+The package export root is:
+
+- `src/index.ts`
+
+That root file is intentionally thinner than the adapter homes. It is
+the public package entrypoint, not the place where API behavior should
+accumulate.
+
+Supporting roles stay explicit too:
+
+- `src/hooks/` is an adjunct entrypoint for local automation and
+  governance, not one of the three official product surfaces
+- `src/operations/`, `src/policy/`, `src/session/`, `src/git/`,
+  `src/metrics/`, and `src/release/` are the current application/core
+  areas
+- `src/contracts/`, `src/ports/`, `src/guards/`, and `src/format/`
+  carry foundational contracts and helpers
+- `src/adapters/`, `src/parser/`, and `src/warp/` remain secondary
+  adapters or infrastructure bindings
+
+See [docs/repo-topology.md](./docs/repo-topology.md) for the repo-local
+topology contract.
+
 ## Core Boundary
 
 The Graft core is TypeScript. Platform-specific concerns are intended to enter through explicit secondary ports:
