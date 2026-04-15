@@ -117,6 +117,7 @@ daemon control-plane posture.
 - **[Setup Guide](./docs/SETUP.md)**: Client-specific MCP setup, daemon posture, and workspace binding.
 - **[Advanced Guide](./ADVANCED_GUIDE.md)**: Deep dives into the pipeline, worldlines, and daemon mechanics.
 - **[Architecture](./ARCHITECTURE.md)**: The authoritative structural reference (Ports, Adapters, WARP).
+- **[Three-Surface Capability Matrix](./docs/three-surface-capability-matrix.md)**: Current API / CLI / MCP baseline and peer posture.
 - **[Security Model](./docs/strategy/security-model.md)**: Same-user daemon trust boundaries, authz, and observability posture.
 - **[Causal Provenance](./docs/strategy/causal-provenance.md)**: Transport sessions, causal workspaces, strands, and handoff truth.
 - **[Vision](./docs/VISION.md)**: Core tenets and the provenance-aware mission.
