@@ -1,10 +1,18 @@
 ---
-title: "CLI output type map still erased by schema helper typing"
+title: CLI output type map still erased by schema helper typing
 legend: CLEANCODE
-lane: bad-code
+lane: graveyard
 ---
 
 # CLI output type map still erased by schema helper typing
+
+## Disposition
+
+CLI output typing now preserves concrete body schemas plus schema-only vs peer-command common fields, and validateCliOutput(...) returns CliOutputFor<K> rather than a generic record. The asymmetry with the MCP output map is no longer repo truth.
+
+Replacement: `src/contracts/output-schemas.ts`
+
+## Original Proposal
 
 ## Problem
 

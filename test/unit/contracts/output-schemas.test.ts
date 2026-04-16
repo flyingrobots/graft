@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, expectTypeOf, it } from "vitest";
 import * as fs from "node:fs";
 import * as path from "node:path";
 import { ALL_TOOL_REGISTRY, createGraftServer } from "../../../src/mcp/server.js";
@@ -7,8 +7,11 @@ import {
   CLI_OUTPUT_SCHEMAS,
   MCP_TOOL_NAMES,
   MCP_OUTPUT_SCHEMAS,
+  attachCliSchemaMeta,
   getCliOutputJsonSchema,
   getMcpOutputJsonSchema,
+  type CliOutputFor,
+  validateCliOutput,
 } from "../../../src/contracts/output-schemas.js";
 import { runCli } from "../../../src/cli/main.js";
 import { runInit } from "../../../src/cli/init.js";
@@ -72,6 +75,28 @@ describe("contracts: output schemas", () => {
       const jsonSchema = getCliOutputJsonSchema(command);
       expect(jsonSchema).toBeDefined();
     }
+  });
+
+  it("preserves concrete CLI output types through the helper stack", () => {
+    const payload = validateCliOutput("diag_local_history_dag", attachCliSchemaMeta("diag_local_history_dag", {
+      cwd: "/tmp/example",
+      repoId: "repo:1",
+      worktreeId: "worktree:1",
+      requestedEventLimit: 5,
+      totalEventCount: 2,
+      shownEventCount: 2,
+      nodeCount: 4,
+      edgeCount: 3,
+      truncated: false,
+      rendered: "graph",
+      nodes: [],
+      edges: [],
+    }));
+
+    expect(payload.requestedEventLimit).toBe(5);
+    expectTypeOf(payload).toExtend<CliOutputFor<"diag_local_history_dag">>();
+    expectTypeOf(payload.requestedEventLimit).toEqualTypeOf<number>();
+    expectTypeOf(payload._schema.id).toEqualTypeOf<string>();
   });
 
   it("validates representative MCP tool outputs against the declared schemas", { timeout: 15_000 }, async () => {

@@ -803,6 +803,22 @@ function withCliPeerCommon(
   });
 }
 
+type CliPeerCommandName =
+  | "read_safe"
+  | "read_outline"
+  | "read_range"
+  | "read_changed"
+  | "struct_diff"
+  | "struct_since"
+  | "struct_map"
+  | "symbol_show"
+  | "symbol_find"
+  | "diag_doctor"
+  | "diag_activity"
+  | "diag_explain"
+  | "diag_stats"
+  | "diag_capture";
+
 const mcpOutputBodySchemas = {
   safe_read: z.object({
     path: z.string(),
@@ -1127,24 +1143,24 @@ export const DIAG_ACTIVITY_CLI_SCHEMA = activityViewSchema.extend({
   tripwire: z.array(tripwireSchema).optional(),
 }).strict();
 
-export const CLI_OUTPUT_SCHEMAS = {
-  init: withCliCommon("init", z.object({
+const cliOutputBodySchemas = {
+  init: z.object({
     ok: z.boolean(),
     cwd: z.string(),
     actions: z.array(initActionSchema).optional(),
     hooksConfig: hooksConfigSchema.optional(),
     suggestedMcpServer: suggestedMcpServerSchema.optional(),
     error: z.string().optional(),
-  }).strict()),
-  index: withCliCommon("index", z.object({
+  }).strict(),
+  index: z.object({
     ok: z.boolean(),
     cwd: z.string(),
     from: z.string().nullable(),
     commitsIndexed: z.number().int().nonnegative().optional(),
     patchesWritten: z.number().int().nonnegative().optional(),
     error: z.string().optional(),
-  }).strict()),
-  migrate_local_history: withCliCommon("migrate_local_history", z.object({
+  }).strict(),
+  migrate_local_history: z.object({
     cwd: z.string(),
     graftDir: z.string(),
     discoveredArtifacts: z.number().int().nonnegative(),
@@ -1159,19 +1175,19 @@ export const CLI_OUTPUT_SCHEMAS = {
     skippedStageEvents: z.number().int().nonnegative(),
     skippedTransitionEvents: z.number().int().nonnegative(),
     error: z.string().optional(),
-  }).strict()),
-  read_safe: withCliPeerCommon("read_safe", mcpOutputBodySchemas.safe_read),
-  read_outline: withCliPeerCommon("read_outline", mcpOutputBodySchemas.file_outline),
-  read_range: withCliPeerCommon("read_range", mcpOutputBodySchemas.read_range),
-  read_changed: withCliPeerCommon("read_changed", mcpOutputBodySchemas.changed_since),
-  struct_diff: withCliPeerCommon("struct_diff", mcpOutputBodySchemas.graft_diff),
-  struct_since: withCliPeerCommon("struct_since", mcpOutputBodySchemas.graft_since),
-  struct_map: withCliPeerCommon("struct_map", mcpOutputBodySchemas.graft_map),
-  symbol_show: withCliPeerCommon("symbol_show", mcpOutputBodySchemas.code_show),
-  symbol_find: withCliPeerCommon("symbol_find", mcpOutputBodySchemas.code_find),
-  diag_doctor: withCliPeerCommon("diag_doctor", mcpOutputBodySchemas.doctor),
-  diag_activity: DIAG_ACTIVITY_CLI_SCHEMA,
-  diag_local_history_dag: withCliCommon("diag_local_history_dag", z.object({
+  }).strict(),
+  read_safe: mcpOutputBodySchemas.safe_read,
+  read_outline: mcpOutputBodySchemas.file_outline,
+  read_range: mcpOutputBodySchemas.read_range,
+  read_changed: mcpOutputBodySchemas.changed_since,
+  struct_diff: mcpOutputBodySchemas.graft_diff,
+  struct_since: mcpOutputBodySchemas.graft_since,
+  struct_map: mcpOutputBodySchemas.graft_map,
+  symbol_show: mcpOutputBodySchemas.code_show,
+  symbol_find: mcpOutputBodySchemas.code_find,
+  diag_doctor: mcpOutputBodySchemas.doctor,
+  diag_activity: activityViewSchema,
+  diag_local_history_dag: z.object({
     cwd: z.string(),
     repoId: z.string(),
     worktreeId: z.string(),
@@ -1185,10 +1201,31 @@ export const CLI_OUTPUT_SCHEMAS = {
     nodes: z.array(localHistoryDagNodeSchema),
     edges: z.array(localHistoryDagEdgeSchema),
     error: z.string().optional(),
-  }).strict()),
-  diag_explain: withCliPeerCommon("diag_explain", mcpOutputBodySchemas.explain),
-  diag_stats: withCliPeerCommon("diag_stats", mcpOutputBodySchemas.stats),
-  diag_capture: withCliPeerCommon("diag_capture", mcpOutputBodySchemas.run_capture),
+  }).strict(),
+  diag_explain: mcpOutputBodySchemas.explain,
+  diag_stats: mcpOutputBodySchemas.stats,
+  diag_capture: mcpOutputBodySchemas.run_capture,
+} satisfies Record<CliCommandName, z.ZodType>;
+
+export const CLI_OUTPUT_SCHEMAS = {
+  init: withCliCommon("init", cliOutputBodySchemas.init),
+  index: withCliCommon("index", cliOutputBodySchemas.index),
+  migrate_local_history: withCliCommon("migrate_local_history", cliOutputBodySchemas.migrate_local_history),
+  read_safe: withCliPeerCommon("read_safe", cliOutputBodySchemas.read_safe),
+  read_outline: withCliPeerCommon("read_outline", cliOutputBodySchemas.read_outline),
+  read_range: withCliPeerCommon("read_range", cliOutputBodySchemas.read_range),
+  read_changed: withCliPeerCommon("read_changed", cliOutputBodySchemas.read_changed),
+  struct_diff: withCliPeerCommon("struct_diff", cliOutputBodySchemas.struct_diff),
+  struct_since: withCliPeerCommon("struct_since", cliOutputBodySchemas.struct_since),
+  struct_map: withCliPeerCommon("struct_map", cliOutputBodySchemas.struct_map),
+  symbol_show: withCliPeerCommon("symbol_show", cliOutputBodySchemas.symbol_show),
+  symbol_find: withCliPeerCommon("symbol_find", cliOutputBodySchemas.symbol_find),
+  diag_doctor: withCliPeerCommon("diag_doctor", cliOutputBodySchemas.diag_doctor),
+  diag_activity: DIAG_ACTIVITY_CLI_SCHEMA,
+  diag_local_history_dag: withCliCommon("diag_local_history_dag", cliOutputBodySchemas.diag_local_history_dag),
+  diag_explain: withCliPeerCommon("diag_explain", cliOutputBodySchemas.diag_explain),
+  diag_stats: withCliPeerCommon("diag_stats", cliOutputBodySchemas.diag_stats),
+  diag_capture: withCliPeerCommon("diag_capture", cliOutputBodySchemas.diag_capture),
 } satisfies Record<CliCommandName, z.ZodType>;
 
 export function getMcpOutputSchemaMeta(tool: McpToolName): OutputSchemaMeta {
@@ -1213,6 +1250,15 @@ interface McpCommonFields {
   readonly tripwire?: readonly z.infer<typeof tripwireSchema>[] | undefined;
 }
 
+interface CliCommonFields {
+  readonly _schema: OutputSchemaMeta;
+}
+
+interface CliPeerCommonFields extends CliCommonFields {
+  readonly _receipt: z.infer<typeof receiptSchema>;
+  readonly tripwire?: readonly z.infer<typeof tripwireSchema>[] | undefined;
+}
+
 export type McpOutputMap = {
   [K in McpToolName]: z.infer<(typeof mcpOutputBodySchemas)[K]> & McpCommonFields;
 };
@@ -1220,7 +1266,9 @@ export type McpOutputMap = {
 export type McpOutputFor<K extends McpToolName> = McpOutputMap[K];
 
 export type CliOutputMap = {
-  [K in CliCommandName]: z.infer<(typeof CLI_OUTPUT_SCHEMAS)[K]>;
+  [K in CliCommandName]: z.infer<(typeof cliOutputBodySchemas)[K]> & (
+    K extends CliPeerCommandName ? CliPeerCommonFields : CliCommonFields
+  );
 };
 
 export type CliOutputFor<K extends CliCommandName> = CliOutputMap[K];
@@ -1239,11 +1287,11 @@ export function attachCliSchemaMeta<T extends object>(
   return { ...data, _schema: getCliOutputSchemaMeta(command) };
 }
 
-export function validateCliOutput(
-  command: CliCommandName,
+export function validateCliOutput<K extends CliCommandName>(
+  command: K,
   data: unknown,
-): Record<string, unknown> {
-  return CLI_OUTPUT_SCHEMAS[command].parse(data) as Record<string, unknown>;
+): CliOutputFor<K> {
+  return CLI_OUTPUT_SCHEMAS[command].parse(data) as CliOutputFor<K>;
 }
 
 export function cliCommandMcpTool(command: CliCommandName): McpToolName | null {
