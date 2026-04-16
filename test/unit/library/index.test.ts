@@ -4,7 +4,12 @@ import {
   GRAFT_VERSION,
   MCP_TOOL_NAMES,
   callGraftTool,
+  createGraftServer,
   createRepoLocalGraft,
+  createRepoWorkspace,
+  createStructuredBuffer,
+  startDaemonServer,
+  startStdioServer,
 } from "../../../src/index.js";
 import { cleanupTestRepo, createCommittedTestRepo } from "../../helpers/git.js";
 
@@ -37,5 +42,15 @@ describe("public library API", () => {
     expect(GRAFT_VERSION).toBe(packageJson.version);
     expect(MCP_TOOL_NAMES).toContain("safe_read");
     expect(MCP_TOOL_NAMES).toContain("doctor");
+  });
+
+  it("exports direct, bridge, and host surfaces from the root package", () => {
+    expect(typeof createRepoWorkspace).toBe("function");
+    expect(typeof createStructuredBuffer).toBe("function");
+    expect(typeof createRepoLocalGraft).toBe("function");
+    expect(typeof callGraftTool).toBe("function");
+    expect(typeof createGraftServer).toBe("function");
+    expect(typeof startStdioServer).toBe("function");
+    expect(typeof startDaemonServer).toBe("function");
   });
 });

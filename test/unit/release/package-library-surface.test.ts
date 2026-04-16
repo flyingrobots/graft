@@ -20,6 +20,13 @@ describe("release package library surface", () => {
     }));
   });
 
+  it("does not publish implementation subpath exports as semver-public modules", () => {
+    expect(Object.keys(packageJson.exports).sort()).toEqual([
+      ".",
+      "./package.json",
+    ]);
+  });
+
   it("builds dist automatically before packing", () => {
     expect(packageJson.scripts.prepack).toBe("pnpm build");
   });

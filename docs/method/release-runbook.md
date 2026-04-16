@@ -27,6 +27,7 @@ Before changing anything, determine and record:
 - package manager: pnpm, lockfile: pnpm-lock.yaml
 - version-bearing manifests: package.json
 - publishable units: `@flyingrobots/graft` (npm)
+- semver-public module path(s) and documented public API surface
 - latest reachable semver tag matching `v*`
 - current branch
 - exact sync state versus `origin/main`
@@ -49,13 +50,17 @@ Do not continue past the first failed guard.
 1. Confirm the target version declared in
    `docs/method/releases/vX.Y.Z/release.md`.
 2. Validate that the declared version matches the actual release scope,
-   SemVer impact, and repository policy.
+   SemVer impact, repository policy, and any documented public API
+   changes.
 3. Verify that the target tag does not already exist locally or on the
    remote.
 4. Update `package.json` version.
 5. Refresh `pnpm-lock.yaml`.
 6. Update `CHANGELOG.md` — move Unreleased to versioned section.
 7. Write or refresh `docs/releases/vX.Y.Z.md`.
+8. If documented public API changed, verify the release notes name the
+   changed exports, classify the change as additive or breaking, and
+   include migration guidance when needed.
 
 ## Phase 3: Validation
 
