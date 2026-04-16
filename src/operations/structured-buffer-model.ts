@@ -125,6 +125,26 @@ export interface FoldRegionsResult {
   readonly reason?: "UNSUPPORTED_LANGUAGE" | undefined;
 }
 
+export interface WarmProjectionParseStatus {
+  readonly basis: WarmProjectionBasis | null;
+  readonly format: SupportedStructuredFormat | null;
+  readonly partial: boolean;
+  readonly status: "full" | "partial" | "unsupported";
+  readonly reason?: "UNSUPPORTED_LANGUAGE" | undefined;
+}
+
+export interface WarmProjectionBundleResult {
+  readonly path: string;
+  readonly format: SupportedStructuredFormat | null;
+  readonly basis: WarmProjectionBasis | null;
+  readonly partial: boolean;
+  readonly parseStatus: WarmProjectionParseStatus;
+  readonly syntax: SyntaxSpanResult;
+  readonly diagnostics: DiagnosticsResult;
+  readonly folds: FoldRegionsResult;
+  readonly outline: BufferOutlineResult;
+}
+
 export interface SelectionStepResult {
   readonly path: string;
   readonly format: SupportedStructuredFormat | null;

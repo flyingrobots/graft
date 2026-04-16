@@ -4,6 +4,7 @@ import {
   GRAFT_VERSION,
   MCP_TOOL_NAMES,
   callGraftTool,
+  createProjectionBundle,
   createGraftServer,
   createRepoLocalGraft,
   createRepoWorkspace,
@@ -47,10 +48,33 @@ describe("public library API", () => {
   it("exports direct, bridge, and host surfaces from the root package", () => {
     expect(typeof createRepoWorkspace).toBe("function");
     expect(typeof createStructuredBuffer).toBe("function");
+    expect(typeof createProjectionBundle).toBe("function");
     expect(typeof createRepoLocalGraft).toBe("function");
     expect(typeof callGraftTool).toBe("function");
     expect(typeof createGraftServer).toBe("function");
     expect(typeof startStdioServer).toBe("function");
     expect(typeof startDaemonServer).toBe("function");
+  });
+
+  it("creates a coherent warm projection bundle from dirty editor content", () => {
+    const basis = { kind: "editor_head" as const, headId: "head-42", tick: 17 };
+    const bundle = createProjectionBundle(
+      "src/view.tsx",
+      "export const ready = <div>Hello</div>;\n",
+      {
+        basis,
+        viewport: {
+          start: { row: 0, column: 0 },
+          end: { row: 0, column: 80 },
+        },
+      },
+    );
+
+    expect(bundle.basis).toEqual(basis);
+    expect(bundle.parseStatus.status).toBe("full");
+    expect(bundle.syntax.basis).toEqual(basis);
+    expect(bundle.outline.basis).toEqual(basis);
+    expect(bundle.folds.basis).toEqual(basis);
+    expect(bundle.diagnostics.basis).toEqual(basis);
   });
 });

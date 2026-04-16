@@ -39,9 +39,12 @@ These are the preferred direct typed surfaces for dirty-buffer editor
 work:
 
 - `createStructuredBuffer(...)`
+- `createProjectionBundle(...)`
 - `CreateStructuredBufferOptions`
+- `CreateProjectionBundleOptions`
 - `StructuredBuffer`
 - `WarmProjectionBasis`
+- `WarmProjectionBundleResult`
 - exported `Buffer*`, `Syntax*`, `Fold*`, `Selection*`, `Rename*`,
   `SemanticSummary*`, and related structured-buffer result/value types
 
@@ -53,6 +56,12 @@ provides it. Single-buffer queries expose `basis`; comparison-style
 results expose `fromBasis` / `toBasis`. That lets hosts compare the
 projection basis they received against the editor's current head/tick
 truth.
+
+For hosts that want one coherent warm-layer payload instead of several
+feature-specific calls, `createProjectionBundle(...)` and
+`StructuredBuffer#projectionBundle(...)` return syntax spans,
+diagnostics, fold regions, outline, and explicit bundle-level parse
+status over one known editor head.
 
 ### 3. Tool Bridge Surface
 

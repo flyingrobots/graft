@@ -79,6 +79,26 @@ describe("library: structured buffer", () => {
       expect.objectContaining({ className: "string", text: "\"greeting\"" }),
       expect.objectContaining({ className: "type", text: "string" }),
     ]));
+
+    const bundle = buffer.projectionBundle({
+      viewport: {
+        start: { row: 0, column: 0 },
+        end: { row: 3, column: 80 },
+      },
+    });
+    expect(bundle.basis).toEqual(basis);
+    expect(bundle.partial).toBe(false);
+    expect(bundle.parseStatus).toEqual({
+      basis,
+      format: "tsx",
+      partial: false,
+      status: "full",
+      reason: undefined,
+    });
+    expect(bundle.syntax).toEqual(spans);
+    expect(bundle.diagnostics).toEqual(buffer.diagnostics());
+    expect(bundle.folds).toEqual(folds);
+    expect(bundle.outline).toEqual(outline);
   });
 
   it("reports parse diagnostics for broken buffers", () => {
@@ -94,6 +114,14 @@ describe("library: structured buffer", () => {
     expect(diagnostics.diagnostics).toEqual(expect.arrayContaining([
       expect.objectContaining({ code: "parse_error" }),
     ]));
+
+    expect(buffer.projectionBundle().parseStatus).toEqual({
+      basis,
+      format: "ts",
+      partial: true,
+      status: "partial",
+      reason: undefined,
+    });
   });
 
   it("supports cursor lookup plus structural expand and shrink", () => {
@@ -222,6 +250,18 @@ describe("library: structured buffer", () => {
     expect(buffer.syntaxSpans()).toEqual(expect.objectContaining({
       basis: unsupportedBasis,
       reason: "UNSUPPORTED_LANGUAGE",
+    }));
+    expect(buffer.projectionBundle()).toEqual(expect.objectContaining({
+      basis: unsupportedBasis,
+      parseStatus: expect.objectContaining({
+        basis: unsupportedBasis,
+        status: "unsupported",
+        reason: "UNSUPPORTED_LANGUAGE",
+      }),
+      outline: expect.objectContaining({ reason: "UNSUPPORTED_LANGUAGE" }),
+      syntax: expect.objectContaining({ reason: "UNSUPPORTED_LANGUAGE" }),
+      diagnostics: expect.objectContaining({ reason: "UNSUPPORTED_LANGUAGE" }),
+      folds: expect.objectContaining({ reason: "UNSUPPORTED_LANGUAGE" }),
     }));
   });
 });

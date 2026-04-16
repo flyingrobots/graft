@@ -15,6 +15,7 @@ import type {
   StructuredBufferDiffResult,
   SymbolOccurrencesResult,
   SyntaxSpanResult,
+  WarmProjectionBundleResult,
   WarmProjectionBasis,
 } from "./structured-buffer-model.js";
 import { createStructuredBufferSnapshot } from "./structured-buffer-model.js";
@@ -29,6 +30,7 @@ import {
   buildSelectionShrinkResult,
   buildSymbolOccurrencesResult,
   buildSyntaxSpansResult,
+  buildWarmProjectionBundleResult,
 } from "./structured-buffer-query.js";
 import {
   buildAnchorAffinityResult,
@@ -62,6 +64,8 @@ export type {
   SyntaxClass,
   SyntaxSpan,
   SyntaxSpanResult,
+  WarmProjectionBundleResult,
+  WarmProjectionParseStatus,
   WarmProjectionBasis,
 } from "./structured-buffer-model.js";
 
@@ -124,6 +128,11 @@ export class StructuredBuffer {
   foldRegions(): FoldRegionsResult {
     this.#assertLive();
     return buildFoldRegionsResult(this.#snapshot);
+  }
+
+  projectionBundle(opts: { viewport?: BufferRange | undefined } = {}): WarmProjectionBundleResult {
+    this.#assertLive();
+    return buildWarmProjectionBundleResult(this.#snapshot, opts);
   }
 
   selectionExpand(selection: BufferSelection): SelectionStepResult {

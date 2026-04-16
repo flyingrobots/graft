@@ -5,7 +5,7 @@ import { startStdioServer } from "../mcp/stdio-server.js";
 import { ObservationCache } from "../operations/observation-cache.js";
 import { RepoWorkspace } from "../operations/repo-workspace.js";
 import { StructuredBuffer } from "../operations/structured-buffer.js";
-import type { WarmProjectionBasis } from "../operations/structured-buffer.js";
+import type { BufferRange, WarmProjectionBasis, WarmProjectionBundleResult } from "../operations/structured-buffer.js";
 import { GRAFT_VERSION } from "../version.js";
 export { createRepoLocalGraft, type CreateRepoLocalGraftOptions } from "./repo-local-graft.js";
 export { createRepoWorkspace, type CreateRepoWorkspaceOptions } from "./repo-workspace.js";
@@ -15,12 +15,29 @@ export interface CreateStructuredBufferOptions {
   readonly basis?: WarmProjectionBasis | undefined;
 }
 
+export interface CreateProjectionBundleOptions extends CreateStructuredBufferOptions {
+  readonly viewport?: BufferRange | undefined;
+}
+
 export function createStructuredBuffer(
   path: string,
   content: string,
   options: CreateStructuredBufferOptions = {},
 ): StructuredBuffer {
   return new StructuredBuffer({ path, content, basis: options.basis });
+}
+
+export function createProjectionBundle(
+  path: string,
+  content: string,
+  options: CreateProjectionBundleOptions = {},
+): WarmProjectionBundleResult {
+  const buffer = new StructuredBuffer({ path, content, basis: options.basis });
+  try {
+    return buffer.projectionBundle({ viewport: options.viewport });
+  } finally {
+    buffer.dispose();
+  }
 }
 
 export {
@@ -60,6 +77,8 @@ export type {
   SyntaxClass,
   SyntaxSpan,
   SyntaxSpanResult,
+  WarmProjectionBundleResult,
+  WarmProjectionParseStatus,
   WarmProjectionBasis,
 } from "../operations/structured-buffer.js";
 

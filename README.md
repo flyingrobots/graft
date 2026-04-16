@@ -78,7 +78,7 @@ surface uses for `safe_read`, `file_outline`, `read_range`, and
 
 For close editor integration, use the buffer-native surface directly:
 ```ts
-import { createStructuredBuffer } from "@flyingrobots/graft";
+import { createProjectionBundle, createStructuredBuffer } from "@flyingrobots/graft";
 
 const buffer = createStructuredBuffer("src/app.tsx", liveEditorText, {
   basis: { kind: "editor_head", headId: "head-42", tick: 17 },
@@ -97,6 +97,16 @@ const rename = buffer.renamePreview({
 
 // Every warm result now carries the basis it was derived from.
 console.log(spans.basis);
+
+const bundle = createProjectionBundle("src/app.tsx", liveEditorText, {
+  basis: { kind: "editor_head", headId: "head-42", tick: 17 },
+  viewport: {
+    start: { row: 0, column: 0 },
+    end: { row: 80, column: 0 },
+  },
+});
+
+console.log(bundle.parseStatus.status);
 ```
 
 ### 5. Shared Daemon Runtime

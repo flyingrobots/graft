@@ -21,6 +21,7 @@ import {
   type SyntaxClass,
   type SyntaxSpan,
   type SyntaxSpanResult,
+  type WarmProjectionBundleResult,
   collectIdentifierNodes,
   comparePoints,
   findCoveringNamedNode,
@@ -762,5 +763,32 @@ export function buildRenamePreviewResult(
       after: opts.nextName,
     })),
     scopeApplied: "buffer",
+  };
+}
+
+export function buildWarmProjectionBundleResult(
+  snapshot: StructuredBufferSnapshot,
+  opts: { viewport?: BufferRange | undefined } = {},
+): WarmProjectionBundleResult {
+  const syntax = buildSyntaxSpansResult(snapshot, { viewport: opts.viewport });
+  const diagnostics = buildDiagnosticsResult(snapshot);
+  const folds = buildFoldRegionsResult(snapshot);
+  const outline = buildOutlineResult(snapshot);
+  return {
+    path: snapshot.path,
+    format: snapshot.format,
+    basis: snapshot.basis,
+    partial: snapshot.partial,
+    parseStatus: {
+      basis: snapshot.basis,
+      format: snapshot.format,
+      partial: snapshot.partial,
+      status: snapshot.format === null ? "unsupported" : snapshot.partial ? "partial" : "full",
+      reason: snapshot.format === null ? "UNSUPPORTED_LANGUAGE" : undefined,
+    },
+    syntax,
+    diagnostics,
+    folds,
+    outline,
   };
 }
