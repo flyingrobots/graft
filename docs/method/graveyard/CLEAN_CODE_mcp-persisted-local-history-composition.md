@@ -1,4 +1,16 @@
+---
+title: "CLEAN CODE: MCP persisted local-history composition"
+lane: graveyard
+legend: CLEAN
+---
+
 # CLEAN CODE: MCP persisted local-history composition
+
+## Disposition
+
+Retired because the exact claim is stale. File persistence is no longer the live storage model, and the summary/view projection plus continuity/evidence policy were split into dedicated seams during the local-history refactor.
+
+## Original Proposal
 
 `src/mcp/persisted-local-history.ts` is now carrying too many roles in
 one seam:

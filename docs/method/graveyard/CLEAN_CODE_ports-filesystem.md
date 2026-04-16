@@ -1,4 +1,18 @@
+---
+title: filesystem port is still interface-only
+lane: graveyard
+legend: CLEAN
+---
+
 # filesystem port is still interface-only
+
+## Disposition
+
+Retired by consolidation into the shared port runtime-contract seam. The remaining debt is about common runtime guarantees across environment-facing ports, not `filesystem` alone.
+
+Replacement: `docs/method/backlog/bad-code/CLEANCODE_port-runtime-contract-seams.md`
+
+## Original Proposal
 
 File: `src/ports/filesystem.ts`
 

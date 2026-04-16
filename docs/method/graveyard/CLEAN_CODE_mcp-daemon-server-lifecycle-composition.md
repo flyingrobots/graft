@@ -1,4 +1,16 @@
+---
+title: Daemon server owns too many transport and lifecycle concerns in one module
+lane: graveyard
+legend: CLEAN
+---
+
 # Daemon server owns too many transport and lifecycle concerns in one module
+
+## Disposition
+
+Retired because the exact claim is no longer true. `daemon-server.ts` now delegates bootstrap and session hosting to dedicated seams instead of owning socket setup, request routing, and lifecycle glue in one module.
+
+## Original Proposal
 
 `src/mcp/daemon-server.ts` currently owns:
 

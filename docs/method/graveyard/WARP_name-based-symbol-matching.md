@@ -1,4 +1,18 @@
+---
+title: Name-based symbol matching loses renames
+lane: graveyard
+legend: WARP
+---
+
 # Name-based symbol matching loses renames
+
+## Disposition
+
+Retired as a symptom note because the real work is already captured by the `up-next` WARP direction for symbol identity and rename continuity.
+
+Replacement: `docs/method/backlog/up-next/WARP_symbol-identity-and-rename-continuity.md`
+
+## Original Proposal
 
 diffOutlines matches symbols by name. If a function is renamed AND
 its signature changes, the diff reports a spurious remove + add

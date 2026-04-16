@@ -1,4 +1,16 @@
+---
+title: Repo-tool worker adapter mixes tool selection, context emulation, and receipt shaping
+lane: graveyard
+legend: CLEAN
+---
+
 # Repo-tool worker adapter mixes tool selection, context emulation, and receipt shaping
+
+## Disposition
+
+Retired because the exact claim is stale after the worker-context split. `repo-tool-job.ts` no longer owns the same worker-side context emulation and receipt-shaping bundle described by this note.
+
+## Original Proposal
 
 `src/mcp/repo-tool-job.ts` currently owns:
 

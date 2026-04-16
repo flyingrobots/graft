@@ -1,4 +1,18 @@
+---
+title: MCP code_show tool is still request-light
+lane: graveyard
+legend: CLEAN
+---
+
 # MCP code_show tool is still request-light
+
+## Disposition
+
+Retired by consolidation into the shared symbol-query and precision seam. The remaining debt is a common execution-strategy/orchestration problem across symbol query tools.
+
+Replacement: `docs/method/backlog/bad-code/CLEANCODE_symbol-query-and-precision-tool-seams.md`
+
+## Original Proposal
 
 File: `src/mcp/tools/code-show.ts`
 

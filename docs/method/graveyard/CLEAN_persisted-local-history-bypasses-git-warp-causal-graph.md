@@ -1,10 +1,16 @@
 ---
-title: "Persisted local history bypasses git-warp causal graph"
+title: Persisted local history bypasses git-warp causal graph
 legend: CLEAN
-lane: bad-code
+lane: graveyard
 ---
 
 # Persisted local history bypasses git-warp causal graph
+
+## Disposition
+
+Retired because repo truth changed: live local-history reads and writes are now graph-backed, and the old `.graft/local-history/*.json` model remains only as explicit migration input.
+
+## Original Proposal
 
 `src/mcp/persisted-local-history.ts` currently stores durable local-history records as JSON files under `.graft/local-history/` keyed by continuity id.
 

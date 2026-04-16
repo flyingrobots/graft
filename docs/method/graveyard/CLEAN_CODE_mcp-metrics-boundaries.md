@@ -1,4 +1,18 @@
+---
+title: MCP metrics accepts raw numeric deltas without runtime guards
+lane: graveyard
+legend: CLEAN
+---
+
 # MCP metrics accepts raw numeric deltas without runtime guards
+
+## Disposition
+
+Retired by consolidation into the shared metrics runtime-contract seam. The remaining debt is about unified runtime validation for metric events and deltas, not this one accumulation module in isolation.
+
+Replacement: `docs/method/backlog/bad-code/CLEANCODE_metrics-runtime-contract-seams.md`
+
+## Original Proposal
 
 File: `src/mcp/metrics.ts`
 

@@ -1,4 +1,18 @@
+---
+title: Precision helper still carries too many responsibilities
+lane: graveyard
+legend: CLEAN
+---
+
 # Precision helper still carries too many responsibilities
+
+## Disposition
+
+Retired by consolidation into the shared symbol-query and precision seam. The remaining debt is a common execution-strategy/orchestration problem across symbol query and precision helpers.
+
+Replacement: `docs/method/backlog/bad-code/CLEANCODE_symbol-query-and-precision-tool-seams.md`
+
+## Original Proposal
 
 File: `src/mcp/tools/precision.ts`
 

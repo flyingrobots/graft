@@ -1,4 +1,16 @@
+---
+title: CLI main is accumulating orchestration weight
+lane: graveyard
+legend: CLEAN
+---
+
 # CLI main is accumulating orchestration weight
+
+## Disposition
+
+Retired because the exact file-level claim is stale. CLI parsing and peer-command execution were split out, so `main.ts` is no longer the orchestration hotspot described by this note.
+
+## Original Proposal
 
 File: `src/cli/main.ts`
 
