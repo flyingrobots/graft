@@ -61,6 +61,12 @@ Do not continue past the first failed guard.
 8. If documented public API changed, verify the release notes name the
    changed exports, classify the change as additive or breaking, and
    include migration guidance when needed.
+9. If the capability registry, root package surface, or documented
+   three-surface posture changed, refresh:
+   - `docs/three-surface-capability-matrix.md`
+   - `docs/public-api.md`
+   and be prepared to pass the explicit three-surface posture gate in
+   Phase 3.
 
 ## Phase 3: Validation
 
@@ -68,10 +74,12 @@ Run validation strictly in order:
 
 1. `pnpm install` — ensure lockfile is current
 2. `pnpm lint` — zero errors, zero warnings
-3. `pnpm test` — all tests pass
-4. `pnpm security:check` — fail on any high / critical audit finding
-5. `pnpm pack:check` — packaging sanity check
-6. `npm info @flyingrobots/graft` — verify registry reachable
+3. `pnpm release:surface-gate` — capability registry, public API
+   contract, and three-surface matrix stay in sync
+4. `pnpm test` — all tests pass
+5. `pnpm security:check` — fail on any high / critical audit finding
+6. `pnpm pack:check` — packaging sanity check
+7. `npm info @flyingrobots/graft` — verify registry reachable
 
 Abort on the first hard failure. Do not claim success from queued or
 in-progress CI state.

@@ -10,6 +10,10 @@ entry points:
 The matrix is descriptive repo truth, not a promise that every
 capability should exist on every surface.
 
+This document is release-gated against the capability registry and the
+documented public API posture. If the registry or semver-public surface
+changes, this matrix must be refreshed before release.
+
 ## Current baseline
 
 - `4` CLI-only capabilities

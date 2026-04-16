@@ -68,6 +68,24 @@ export type ApiExposure = "tool_bridge" | "repo_workspace" | "structured_buffer"
 
 export type CliMcpParity = "peer" | "cli_only" | "mcp_only" | "not_applicable";
 
+export interface CapabilityMatrixRow {
+  readonly id: string;
+  readonly api: "Yes" | "No";
+  readonly cli: "Yes" | "No";
+  readonly mcp: "Yes" | "No";
+  readonly apiExposure: ApiExposure | "-";
+  readonly cliMcpParity: CliMcpParity;
+  readonly cliPath: string;
+  readonly mcpTool: McpToolName | "-";
+}
+
+export interface ThreeSurfaceCapabilityBaseline {
+  readonly cliOnly: number;
+  readonly apiCliMcp: number;
+  readonly apiMcp: number;
+  readonly apiOnly: number;
+}
+
 export interface CapabilityDefinition {
   readonly id: string;
   readonly description: string;
@@ -407,4 +425,26 @@ export function cliCommandPath(command: CliCommandName): readonly [string, ...st
 
 export function cliCommandKey(path: readonly string[]): string {
   return path.join(" ");
+}
+
+export function buildCapabilityMatrixRows(): readonly CapabilityMatrixRow[] {
+  return CAPABILITY_REGISTRY.map((capability) => ({
+    id: capability.id,
+    api: capability.surfaces.includes("api") ? "Yes" : "No",
+    cli: capability.surfaces.includes("cli") ? "Yes" : "No",
+    mcp: capability.surfaces.includes("mcp") ? "Yes" : "No",
+    apiExposure: capability.apiExposure ?? "-",
+    cliMcpParity: capability.cliMcpParity,
+    cliPath: capability.cliPath?.join(" ") ?? "-",
+    mcpTool: capability.mcpTool ?? "-",
+  }));
+}
+
+export function buildThreeSurfaceCapabilityBaseline(): ThreeSurfaceCapabilityBaseline {
+  return {
+    cliOnly: CAPABILITY_REGISTRY.filter((capability) => capability.surfaces.join(",") === "cli").length,
+    apiCliMcp: CAPABILITY_REGISTRY.filter((capability) => capability.surfaces.join(",") === "api,cli,mcp").length,
+    apiMcp: CAPABILITY_REGISTRY.filter((capability) => capability.surfaces.join(",") === "api,mcp").length,
+    apiOnly: CAPABILITY_REGISTRY.filter((capability) => capability.surfaces.join(",") === "api").length,
+  };
 }

@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 import {
   API_EXPOSED_CAPABILITIES,
+  buildCapabilityMatrixRows,
+  buildThreeSurfaceCapabilityBaseline,
   CAPABILITY_REGISTRY,
 } from "../../../src/contracts/capabilities.js";
 
@@ -48,5 +50,39 @@ describe("capability registry", () => {
   it("exposes the API surface as a first-class registry view", () => {
     expect(API_EXPOSED_CAPABILITIES.length).toBeGreaterThan(0);
     expect(API_EXPOSED_CAPABILITIES.every((capability) => capability.surfaces.includes("api"))).toBe(true);
+  });
+
+  it("derives the documented three-surface baseline and row model from the registry", () => {
+    const baseline = buildThreeSurfaceCapabilityBaseline();
+    const rows = buildCapabilityMatrixRows();
+
+    expect(baseline).toEqual({
+      cliOnly: 4,
+      apiCliMcp: 14,
+      apiMcp: 20,
+      apiOnly: 1,
+    });
+    expect(rows).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        id: "safe_read",
+        api: "Yes",
+        cli: "Yes",
+        mcp: "Yes",
+        apiExposure: "repo_workspace",
+        cliMcpParity: "peer",
+        cliPath: "read safe",
+        mcpTool: "safe_read",
+      }),
+      expect.objectContaining({
+        id: "structured_buffer",
+        api: "Yes",
+        cli: "No",
+        mcp: "No",
+        apiExposure: "structured_buffer",
+        cliMcpParity: "not_applicable",
+        cliPath: "-",
+        mcpTool: "-",
+      }),
+    ]));
   });
 });

@@ -70,12 +70,32 @@ version in lock step.
 - `README.md` should point at durable release surfaces, not accumulate
   per-version sediment.
 
+## Three-surface posture gate
+
+Every release must preserve truthful posture across Graft’s three
+official entry points:
+
+- API
+- CLI
+- MCP
+
+That means release review must treat these artifacts as a gate, not as
+optional supporting docs:
+
+- `docs/three-surface-capability-matrix.md`
+- `docs/public-api.md`
+- the capability registry in `src/contracts/capabilities.ts`
+
+If any of those disagree, release is not ready. API is not exempt from
+this review just because it is in-process.
+
 ## Sequence
 
 1. Shape the release in `docs/method/releases/vX.Y.Z/release.md`.
 2. Accept the release scope and version justification before tagging.
 3. Draft the user-facing release notes in `docs/releases/vX.Y.Z.md`.
-4. Run the sequential pre-flight in `docs/method/release-runbook.md`.
+4. Run the sequential pre-flight in `docs/method/release-runbook.md`,
+   including the three-surface posture gate.
 5. Dogfood: sanity-check graft against itself before tagging.
 6. Tag, publish, and verify delivery directly.
 7. Ship sync repo-level surfaces that the release changed.
