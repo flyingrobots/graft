@@ -63,6 +63,31 @@ describe("mcp: changed-since-last-read", () => {
     expect(entry!.signature).toBe("hello(name: string): string");
   });
 
+  it("diff includes likely rename continuity when a symbol keeps the same shape under a new name", async () => {
+    fs.writeFileSync(testFile, 'export function greet(name: string): string {\n  return name;\n}\n');
+    await server.callTool("safe_read", { path: testFile });
+    fs.writeFileSync(testFile, 'export function welcome(name: string): string {\n  return name;\n}\n');
+
+    const result = parse(await server.callTool("changed_since", { path: testFile }));
+    const diff = result["diff"] as {
+      continuity: {
+        kind: string;
+        confidence: string;
+        oldName: string;
+        newName: string;
+      }[];
+    };
+
+    expect(diff.continuity).toEqual([
+      expect.objectContaining({
+        kind: "rename",
+        confidence: "likely",
+        oldName: "greet",
+        newName: "welcome",
+      }),
+    ]);
+  });
+
   it("includes full new outline alongside diff", async () => {
     await server.callTool("safe_read", { path: testFile });
     fs.writeFileSync(testFile, 'export function hello(): string {\n  return "hi";\n}\nexport function extra(): void {}\n');

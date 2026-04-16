@@ -183,12 +183,12 @@ function stripCommentText(source: string, spans: readonly SyntaxSpan[]): string 
 }
 
 function simpleRenameFact(diff: StructuredBufferDiffResult["outlineDiff"]): string | null {
-  if (diff.added.length === 1 && diff.removed.length === 1 && diff.changed.length === 0) {
-    const added = diff.added[0];
-    const removed = diff.removed[0];
-    if (added?.kind === removed?.kind && added !== undefined && removed !== undefined) {
-      return `renamed ${removed.kind} ${removed.name} to ${added.name}`;
+  if (diff.changed.length === 0 && diff.continuity.length === 1) {
+    const [continuity] = diff.continuity;
+    if (continuity === undefined) {
+      return null;
     }
+    return `renamed ${continuity.symbolKind} ${continuity.oldName} to ${continuity.newName}`;
   }
   return null;
 }

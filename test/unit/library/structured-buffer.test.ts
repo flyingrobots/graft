@@ -202,6 +202,14 @@ describe("library: structured buffer", () => {
     expect(diff.outlineDiff.removed).toEqual(expect.arrayContaining([
       expect.objectContaining({ name: "greet", kind: "function" }),
     ]));
+    expect(diff.outlineDiff.continuity).toEqual([
+      expect.objectContaining({
+        kind: "rename",
+        confidence: "likely",
+        oldName: "greet",
+        newName: "welcome",
+      }),
+    ]);
     expect(diff.changedRegions.length).toBeGreaterThan(0);
 
     const summary = oldBuffer.semanticSummary(newBuffer);

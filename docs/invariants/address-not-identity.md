@@ -14,6 +14,11 @@ Level 1 uses name/path addressability because it is cheap, simple,
 and honest. A rename appears as one removal and one addition. That
 is correct behavior for Level 1.
 
+Level 2+ may add explicit continuity hints as separate relations
+between old and new addresses, with confidence and basis spelled out.
+That does not upgrade `sym:` addresses themselves into canonical
+identity.
+
 If code or documentation starts treating these addresses as
 ontological identity — relying on address stability across renames,
 building persistent references keyed by address, or assuming
@@ -28,6 +33,8 @@ structure and provenance.
 
 - Docs and code never describe Level 1 symbol keys as "identity"
 - Rename handling surfaces as remove+add (not "moved")
+- Any rename continuity appears as an additive continuity relation,
+  not as proof that `sym:` addresses are stable identity
 - No persistent external references keyed by `sym:` addresses
   that assume stability across refactors
 - Level 2+ is the only place identity continuity gets upgraded

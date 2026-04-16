@@ -1,5 +1,48 @@
 import { OutlineEntry } from "./types.js";
 
+export type DiffContinuityKind = "rename";
+export type DiffContinuityConfidence = "likely";
+export type DiffContinuityBasis =
+  | "matching_signature_shape"
+  | "matching_child_structure";
+
+export class DiffContinuity {
+  /** @internal */
+  private readonly _brand = "DiffContinuity" as const;
+  readonly kind: DiffContinuityKind;
+  readonly confidence: DiffContinuityConfidence;
+  readonly basis: DiffContinuityBasis;
+  readonly symbolKind: OutlineEntry["kind"];
+  readonly oldName: string;
+  readonly newName: string;
+  readonly oldSignature?: string;
+  readonly newSignature?: string;
+
+  constructor(opts: {
+    kind: DiffContinuityKind;
+    confidence: DiffContinuityConfidence;
+    basis: DiffContinuityBasis;
+    symbolKind: OutlineEntry["kind"];
+    oldName: string;
+    newName: string;
+    oldSignature?: string;
+    newSignature?: string;
+  }) {
+    if (opts.oldName.trim().length === 0 || opts.newName.trim().length === 0) {
+      throw new Error("DiffContinuity: names must be non-empty");
+    }
+    this.kind = opts.kind;
+    this.confidence = opts.confidence;
+    this.basis = opts.basis;
+    this.symbolKind = opts.symbolKind;
+    this.oldName = opts.oldName.trim();
+    this.newName = opts.newName.trim();
+    if (opts.oldSignature !== undefined) this.oldSignature = opts.oldSignature;
+    if (opts.newSignature !== undefined) this.newSignature = opts.newSignature;
+    Object.freeze(this);
+  }
+}
+
 export class DiffEntry {
   /** @internal */
   private readonly _brand = "DiffEntry" as const;
@@ -34,12 +77,14 @@ export class OutlineDiff {
   readonly added: readonly DiffEntry[];
   readonly removed: readonly DiffEntry[];
   readonly changed: readonly DiffEntry[];
+  readonly continuity: readonly DiffContinuity[];
   readonly unchangedCount: number;
 
   constructor(opts: {
     added: DiffEntry[];
     removed: DiffEntry[];
     changed: DiffEntry[];
+    continuity?: DiffContinuity[];
     unchangedCount: number;
   }) {
     if (!Number.isInteger(opts.unchangedCount) || opts.unchangedCount < 0) {
@@ -48,6 +93,7 @@ export class OutlineDiff {
     this.added = Object.freeze([...opts.added]);
     this.removed = Object.freeze([...opts.removed]);
     this.changed = Object.freeze([...opts.changed]);
+    this.continuity = Object.freeze([...(opts.continuity ?? [])]);
     this.unchangedCount = opts.unchangedCount;
     Object.freeze(this);
   }
@@ -60,6 +106,117 @@ export class OutlineDiff {
  */
 function entrySignature(entry: OutlineEntry): string {
   return entry.signature ?? entry.name;
+}
+
+function escapeRegExp(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+function normalizedSignatureShape(entry: OutlineEntry): string | null {
+  if (entry.signature === undefined) {
+    return null;
+  }
+  return entry.signature
+    .replace(new RegExp(`\\b${escapeRegExp(entry.name)}\\b`, "g"), "<name>")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function childStructureFingerprint(children: readonly OutlineEntry[] | undefined): string | null {
+  if (children === undefined || children.length === 0) {
+    return null;
+  }
+  return children.map((child) => {
+    const signatureShape = normalizedSignatureShape(child) ?? child.name;
+    const childFingerprint = childStructureFingerprint(child.children);
+    return `${child.kind}:${String(child.exported)}:${signatureShape}:${childFingerprint ?? ""}`;
+  }).join("|");
+}
+
+function continuityFingerprint(entry: OutlineEntry): {
+  basis: DiffContinuityBasis;
+  key: string;
+} | null {
+  const signatureShape = normalizedSignatureShape(entry);
+  if (signatureShape !== null) {
+    return {
+      basis: "matching_signature_shape",
+      key: `${entry.kind}:${String(entry.exported)}:${signatureShape}`,
+    };
+  }
+
+  const childFingerprint = childStructureFingerprint(entry.children);
+  if (childFingerprint !== null) {
+    return {
+      basis: "matching_child_structure",
+      key: `${entry.kind}:${String(entry.exported)}:${childFingerprint}`,
+    };
+  }
+
+  return null;
+}
+
+function detectContinuity(
+  removedEntries: readonly OutlineEntry[],
+  addedEntries: readonly OutlineEntry[],
+): DiffContinuity[] {
+  const groups = new Map<string, {
+    basis: DiffContinuityBasis;
+    removed: OutlineEntry[];
+    added: OutlineEntry[];
+  }>();
+
+  for (const entry of removedEntries) {
+    const fingerprint = continuityFingerprint(entry);
+    if (fingerprint === null) continue;
+    const group = groups.get(fingerprint.key) ?? {
+      basis: fingerprint.basis,
+      removed: [],
+      added: [],
+    };
+    group.removed.push(entry);
+    groups.set(fingerprint.key, group);
+  }
+
+  for (const entry of addedEntries) {
+    const fingerprint = continuityFingerprint(entry);
+    if (fingerprint === null) continue;
+    const group = groups.get(fingerprint.key) ?? {
+      basis: fingerprint.basis,
+      removed: [],
+      added: [],
+    };
+    group.added.push(entry);
+    groups.set(fingerprint.key, group);
+  }
+
+  const continuity: DiffContinuity[] = [];
+  for (const group of groups.values()) {
+    if (group.removed.length !== 1 || group.added.length !== 1) {
+      continue;
+    }
+
+    const removed = group.removed[0];
+    const added = group.added[0];
+    if (removed === undefined || added === undefined) {
+      continue;
+    }
+
+    continuity.push(new DiffContinuity({
+      kind: "rename",
+      confidence: "likely",
+      basis: group.basis,
+      symbolKind: added.kind,
+      oldName: removed.name,
+      newName: added.name,
+      ...(removed.signature !== undefined ? { oldSignature: removed.signature } : {}),
+      ...(added.signature !== undefined ? { newSignature: added.signature } : {}),
+    }));
+  }
+
+  return continuity.sort((left, right) => {
+    return `${left.oldName}:${left.newName}`.localeCompare(`${right.oldName}:${right.newName}`);
+  });
 }
 
 export function diffOutlines(
@@ -83,6 +240,8 @@ export function diffOutlines(
   const added: DiffEntry[] = [];
   const removed: DiffEntry[] = [];
   const changed: DiffEntry[] = [];
+  const addedEntries: OutlineEntry[] = [];
+  const removedEntries: OutlineEntry[] = [];
   let unchangedCount = 0;
 
   // Check new entries against old
@@ -94,6 +253,7 @@ export function diffOutlines(
         kind: newEntry.kind,
         ...(newEntry.signature !== undefined ? { signature: newEntry.signature } : {}),
       }));
+      addedEntries.push(newEntry);
     } else {
       const oldSig = entrySignature(oldEntry);
       const newSig = entrySignature(newEntry);
@@ -135,8 +295,15 @@ export function diffOutlines(
         kind: oldEntry.kind,
         ...(oldEntry.signature !== undefined ? { signature: oldEntry.signature } : {}),
       }));
+      removedEntries.push(oldEntry);
     }
   }
 
-  return new OutlineDiff({ added, removed, changed, unchangedCount });
+  return new OutlineDiff({
+    added,
+    removed,
+    changed,
+    continuity: detectContinuity(removedEntries, addedEntries),
+    unchangedCount,
+  });
 }

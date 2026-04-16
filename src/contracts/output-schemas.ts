@@ -95,11 +95,24 @@ const jumpEntrySchema = z.object({
   end: z.number().int().positive(),
 }).strict();
 
+const diffContinuitySchema = z.object({
+  _brand: z.literal("DiffContinuity").optional(),
+  kind: z.literal("rename"),
+  confidence: z.literal("likely"),
+  basis: z.enum(["matching_signature_shape", "matching_child_structure"]),
+  symbolKind: z.string(),
+  oldName: z.string(),
+  newName: z.string(),
+  oldSignature: z.string().optional(),
+  newSignature: z.string().optional(),
+}).strict();
+
 const outlineDiffSchema: z.ZodType = z.lazy(() => z.object({
   _brand: z.literal("OutlineDiff").optional(),
   added: z.array(diffEntrySchema),
   removed: z.array(diffEntrySchema),
   changed: z.array(diffEntrySchema),
+  continuity: z.array(diffContinuitySchema),
   unchangedCount: z.number().int().nonnegative(),
 }).strict());
 
