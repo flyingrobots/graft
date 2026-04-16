@@ -1,6 +1,7 @@
 // ---------------------------------------------------------------------------
 // ToolContext — shared dependencies injected into every tool handler
 // ---------------------------------------------------------------------------
+import type { JsonObject } from "../contracts/json-object.js";
 import type { ObservationCache } from "./cache.js";
 import type { Metrics } from "./metrics.js";
 import type { SessionTracker } from "../session/tracker.js";
@@ -48,7 +49,7 @@ import type {
 
 import type { z } from "zod";
 
-export type ToolHandler = (args: Record<string, unknown>) => McpToolResult | Promise<McpToolResult>;
+export type ToolHandler = (args: JsonObject) => McpToolResult | Promise<McpToolResult>;
 
 export interface ToolDefinition {
   readonly name: McpToolName;
@@ -71,7 +72,7 @@ export interface ToolContext {
   readonly git: GitClient;
   readonly runCapture: RunCaptureConfig;
   readonly observability: RuntimeObservabilityState;
-  respond(tool: McpToolName, data: Record<string, unknown>): McpToolResult;
+  respond(tool: McpToolName, data: JsonObject): McpToolResult;
   resolvePath(relative: string): string;
   getWarp(): Promise<WarpHandle>;
   getRepoState(): RepoObservation;

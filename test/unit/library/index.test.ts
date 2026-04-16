@@ -27,8 +27,8 @@ describe("public library API", () => {
     expect(graft.getRegisteredTools()).toContain("safe_read");
 
     const result = await callGraftTool(graft, "safe_read", { path: "app.ts" });
-    expect(result["projection"]).toBe("content");
-    expect(result["_schema"]).toEqual(
+    expect(result.projection).toBe("content");
+    expect(result._schema).toEqual(
       expect.objectContaining({ id: "graft.mcp.safe_read" }),
     );
   });

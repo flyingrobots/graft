@@ -803,7 +803,7 @@ function withCliPeerCommon(
   });
 }
 
-const mcpOutputBodySchemas: Record<McpToolName, z.ZodType> = {
+const mcpOutputBodySchemas = {
   safe_read: z.object({
     path: z.string(),
     projection: z.enum(["content", "outline", "refused", "error", "cache_hit", "diff"]),
@@ -1031,9 +1031,9 @@ const mcpOutputBodySchemas: Record<McpToolName, z.ZodType> = {
     totalNonReadBytesReturned: z.number().int().nonnegative(),
     burdenByKind: burdenByKindSchema,
   }).strict(),
-};
+} satisfies Record<McpToolName, z.ZodType>;
 
-export const MCP_OUTPUT_SCHEMAS: Record<McpToolName, z.ZodType> = {
+export const MCP_OUTPUT_SCHEMAS = {
   safe_read: withMcpCommon("safe_read", mcpOutputBodySchemas.safe_read),
   file_outline: withMcpCommon("file_outline", mcpOutputBodySchemas.file_outline),
   read_range: withMcpCommon("read_range", mcpOutputBodySchemas.read_range),
@@ -1071,7 +1071,7 @@ export const MCP_OUTPUT_SCHEMAS: Record<McpToolName, z.ZodType> = {
   explain: withMcpCommon("explain", mcpOutputBodySchemas.explain),
   doctor: withMcpCommon("doctor", mcpOutputBodySchemas.doctor),
   stats: withMcpCommon("stats", mcpOutputBodySchemas.stats),
-};
+} satisfies Record<McpToolName, z.ZodType>;
 
 const initActionSchema = z.object({
   action: z.enum(["exists", "create", "append"]),
@@ -1127,7 +1127,7 @@ export const DIAG_ACTIVITY_CLI_SCHEMA = activityViewSchema.extend({
   tripwire: z.array(tripwireSchema).optional(),
 }).strict();
 
-export const CLI_OUTPUT_SCHEMAS: Record<CliCommandName, z.ZodType> = {
+export const CLI_OUTPUT_SCHEMAS = {
   init: withCliCommon("init", z.object({
     ok: z.boolean(),
     cwd: z.string(),
@@ -1189,7 +1189,7 @@ export const CLI_OUTPUT_SCHEMAS: Record<CliCommandName, z.ZodType> = {
   diag_explain: withCliPeerCommon("diag_explain", mcpOutputBodySchemas.explain),
   diag_stats: withCliPeerCommon("diag_stats", mcpOutputBodySchemas.stats),
   diag_capture: withCliPeerCommon("diag_capture", mcpOutputBodySchemas.run_capture),
-};
+} satisfies Record<CliCommandName, z.ZodType>;
 
 export function getMcpOutputSchemaMeta(tool: McpToolName): OutputSchemaMeta {
   return mcpOutputSchemaMeta[tool];
@@ -1206,6 +1206,24 @@ export function getMcpOutputSchema(tool: McpToolName): z.ZodType {
 export function getCliOutputSchema(command: CliCommandName): z.ZodType {
   return CLI_OUTPUT_SCHEMAS[command];
 }
+
+interface McpCommonFields {
+  readonly _schema: OutputSchemaMeta;
+  readonly _receipt: z.infer<typeof receiptSchema>;
+  readonly tripwire?: readonly z.infer<typeof tripwireSchema>[] | undefined;
+}
+
+export type McpOutputMap = {
+  [K in McpToolName]: z.infer<(typeof mcpOutputBodySchemas)[K]> & McpCommonFields;
+};
+
+export type McpOutputFor<K extends McpToolName> = McpOutputMap[K];
+
+export type CliOutputMap = {
+  [K in CliCommandName]: z.infer<(typeof CLI_OUTPUT_SCHEMAS)[K]>;
+};
+
+export type CliOutputFor<K extends CliCommandName> = CliOutputMap[K];
 
 export function attachMcpSchemaMeta<T extends object>(
   tool: McpToolName,

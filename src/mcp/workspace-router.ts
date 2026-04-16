@@ -38,6 +38,7 @@ import { resolveWorkspaceRequest, stableWorkspaceId } from "./workspace-router-r
 import type { FileSystem } from "../ports/filesystem.js";
 import type { GitClient } from "../ports/git.js";
 import type { WarpHandle } from "../ports/warp.js";
+import type { JsonObject } from "../contracts/json-object.js";
 import type { WarpPool } from "./warp-pool.js";
 import { DEFAULT_WARP_WRITER_ID } from "../warp/writer-id.js";
 import { SessionTracker } from "../session/tracker.js";
@@ -369,8 +370,8 @@ export class WorkspaceRouter {
 
   async noteReadObservation(
     toolName: AttributedReadToolName,
-    args: Record<string, unknown>,
-    result: Record<string, unknown>,
+    args: JsonObject,
+    result: JsonObject,
     execution?: WorkspaceExecutionContext | null,
   ): Promise<void> {
     const active = execution ?? this.captureCurrentExecutionContext();

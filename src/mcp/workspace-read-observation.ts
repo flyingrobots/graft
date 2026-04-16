@@ -1,13 +1,20 @@
 import * as path from "node:path";
+import type { JsonObject } from "../contracts/json-object.js";
 import type { WorkspaceExecutionContext } from "./workspace-router-model.js";
+import {
+  parseAttributedReadArgs,
+  parseFileOutlineObservationResult,
+  parseReadRangeObservationResult,
+  parseSafeReadObservationResult,
+} from "./workspace-read-observation-model.js";
 
 export type AttributedReadToolName = "safe_read" | "file_outline" | "read_range";
 
 export function buildWorkspaceReadObservation(
   execution: WorkspaceExecutionContext,
   toolName: AttributedReadToolName,
-  args: Record<string, unknown>,
-  result: Record<string, unknown>,
+  args: JsonObject,
+  result: JsonObject,
 ): {
   readonly surface: string;
   readonly projection: string;
@@ -23,12 +30,12 @@ export function buildWorkspaceReadObservation(
     }[];
   };
 } | null {
-  const rawPath = args["path"];
-  if (typeof rawPath !== "string") {
+  const parsedArgs = parseAttributedReadArgs(args);
+  if (parsedArgs === null) {
     return null;
   }
 
-  const absolutePath = execution.resolvePath(rawPath);
+  const absolutePath = execution.resolvePath(parsedArgs.path);
   const relativePath = path.relative(execution.worktreeRoot, absolutePath);
   const footprintPath = relativePath.startsWith("..") ? absolutePath : relativePath;
   const sourceLayer = execution.repoState.getState().workspaceOverlayId === null
@@ -36,20 +43,15 @@ export function buildWorkspaceReadObservation(
     : "workspace_overlay";
 
   if (toolName === "safe_read") {
-    const projection = result["projection"];
-    if (
-      projection !== "content" &&
-      projection !== "outline" &&
-      projection !== "cache_hit" &&
-      projection !== "diff"
-    ) {
+    const parsedResult = parseSafeReadObservationResult(result);
+    if (parsedResult === null) {
       return null;
     }
     return {
       surface: "safe_read",
-      projection,
+      projection: parsedResult.projection,
       sourceLayer,
-      reason: typeof result["reason"] === "string" ? result["reason"] : "SAFE_READ",
+      reason: parsedResult.reason ?? "SAFE_READ",
       footprint: {
         paths: [footprintPath],
         symbols: [],
@@ -59,14 +61,18 @@ export function buildWorkspaceReadObservation(
   }
 
   if (toolName === "file_outline") {
-    if (typeof result["error"] === "string" || result["reason"] === "UNSUPPORTED_LANGUAGE") {
+    const parsedResult = parseFileOutlineObservationResult(result);
+    if (parsedResult === null) {
+      return null;
+    }
+    if (typeof parsedResult.error === "string" || parsedResult.reason === "UNSUPPORTED_LANGUAGE") {
       return null;
     }
     return {
       surface: "file_outline",
       projection: "outline",
       sourceLayer,
-      reason: typeof result["reason"] === "string" ? result["reason"] : "FILE_OUTLINE",
+      reason: parsedResult.reason ?? "FILE_OUTLINE",
       footprint: {
         paths: [footprintPath],
         symbols: [],
@@ -75,27 +81,22 @@ export function buildWorkspaceReadObservation(
     };
   }
 
-  const startLine = result["startLine"];
-  const endLine = result["endLine"];
-  if (
-    typeof result["content"] !== "string" ||
-    typeof startLine !== "number" ||
-    typeof endLine !== "number"
-  ) {
+  const parsedResult = parseReadRangeObservationResult(result);
+  if (parsedResult === null) {
     return null;
   }
   return {
     surface: "read_range",
     projection: "content",
     sourceLayer,
-    reason: typeof result["reason"] === "string" ? result["reason"] : "READ_RANGE",
+    reason: parsedResult.reason ?? "READ_RANGE",
     footprint: {
       paths: [footprintPath],
       symbols: [],
       regions: [{
         path: footprintPath,
-        startLine,
-        endLine,
+        startLine: parsedResult.startLine,
+        endLine: parsedResult.endLine,
       }],
     },
   };

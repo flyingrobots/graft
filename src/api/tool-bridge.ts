@@ -1,24 +1,21 @@
 import type { McpToolName } from "../contracts/capabilities.js";
-import { getMcpOutputSchema } from "../contracts/output-schemas.js";
+import { type JsonObject, parseJsonTextObject } from "../contracts/json-object.js";
+import { getMcpOutputSchema, type McpOutputFor } from "../contracts/output-schemas.js";
 import type { GraftServer, McpToolResult } from "../mcp/server.js";
 
-export function parseGraftToolPayload(result: McpToolResult): Record<string, unknown> {
+export function parseGraftToolPayload(result: McpToolResult): JsonObject {
   const payload = result.content.find((item) => item.type === "text");
   if (payload === undefined) {
     throw new Error("Graft tool result did not contain a text payload");
   }
-  const parsed = JSON.parse(payload.text) as unknown;
-  if (parsed === null || typeof parsed !== "object" || Array.isArray(parsed)) {
-    throw new Error("Graft tool result was not a JSON object");
-  }
-  return parsed as Record<string, unknown>;
+  return parseJsonTextObject(payload.text, "Graft tool result");
 }
 
-export async function callGraftTool<T extends Record<string, unknown> = Record<string, unknown>>(
+export async function callGraftTool<K extends McpToolName>(
   graft: GraftServer,
-  name: McpToolName,
-  args: Record<string, unknown>,
-): Promise<T> {
+  name: K,
+  args: JsonObject,
+): Promise<McpOutputFor<K>> {
   const parsed = parseGraftToolPayload(await graft.callTool(name, args));
-  return getMcpOutputSchema(name).parse(parsed) as T;
+  return getMcpOutputSchema(name).parse(parsed) as McpOutputFor<K>;
 }

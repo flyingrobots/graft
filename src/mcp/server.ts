@@ -3,6 +3,7 @@ import * as crypto from "node:crypto";
 import * as path from "node:path";
 import { z } from "zod";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
+import type { JsonObject } from "../contracts/json-object.js";
 import { buildReceiptResult } from "./receipt.js";
 import type { ToolHandler, ToolContext, ToolDefinition } from "./context.js";
 import type { McpToolResult } from "./receipt.js";
@@ -54,7 +55,7 @@ export { ALL_TOOL_REGISTRY, TOOL_REGISTRY } from "./tool-registry.js";
 
 export interface GraftServer {
   getRegisteredTools(): string[];
-  callTool(name: string, args: Record<string, unknown>): Promise<McpToolResult>;
+  callTool(name: string, args: JsonObject): Promise<McpToolResult>;
   injectSessionMessages(count: number): void;
   getWorkspaceStatus(): import("./workspace-router.js").WorkspaceStatus;
   getRuntimeCausalContext(): import("./runtime-causal-context.js").RuntimeCausalContext | null;
@@ -197,7 +198,7 @@ export function createGraftServer(options: CreateGraftServerOptions = {}): Graft
     return executionContextStorage.getStore() ?? null;
   }
 
-  function respond(tool: ToolDefinition["name"], data: Record<string, unknown>): McpToolResult {
+  function respond(tool: ToolDefinition["name"], data: JsonObject): McpToolResult {
     const invocation = invocationStorage.getStore();
     if (invocation === undefined) {
       throw new Error("MCP respond() called outside an active invocation");
@@ -387,7 +388,7 @@ export function createGraftServer(options: CreateGraftServerOptions = {}): Graft
   async function invokeTool(
     name: string,
     handler: ToolHandler,
-    args: Record<string, unknown>,
+    args: JsonObject,
     schema?: z.ZodObject,
   ): Promise<McpToolResult> {
     await runtimeReady;
@@ -416,7 +417,7 @@ export function createGraftServer(options: CreateGraftServerOptions = {}): Graft
     let execution: WorkspaceExecutionContext | null = null;
 
     try {
-      const parsed: Record<string, unknown> = schema !== undefined ? schema.parse(args) : args;
+      const parsed: JsonObject = schema !== undefined ? schema.parse(args) : args;
       enforceDaemonToolAccess({
         mode,
         name,
@@ -599,7 +600,7 @@ export function createGraftServer(options: CreateGraftServerOptions = {}): Graft
     getRegisteredTools(): string[] {
       return [...handlers.keys()];
     },
-    async callTool(name: string, args: Record<string, unknown>): Promise<McpToolResult> {
+    async callTool(name: string, args: JsonObject): Promise<McpToolResult> {
       const handler = handlers.get(name);
       if (handler === undefined) {
         throw new Error(`Unknown tool: ${name}`);

@@ -1,4 +1,5 @@
 import type { McpToolResult } from "./receipt.js";
+import { parseJsonTextObject, type JsonObject } from "../contracts/json-object.js";
 import { evaluateMcpPolicy } from "./policy.js";
 import { RefusedResult } from "../policy/types.js";
 import { OFFLOADED_DAEMON_REPO_TOOL_NAMES, type OffloadedRepoToolName } from "./repo-tool-job.js";
@@ -88,7 +89,7 @@ export function enforceDaemonToolAccess(input: {
 
 export function resolveDaemonOffloadedRepoTool(
   name: string,
-  parsed: Record<string, unknown>,
+  parsed: JsonObject,
   dirty: boolean,
 ): OffloadedRepoToolName | null {
   if (name === "code_find") {
@@ -100,13 +101,13 @@ export function resolveDaemonOffloadedRepoTool(
   return isOffloadedRepoTool(name) ? name : null;
 }
 
-export function parseToolPayload(result: McpToolResult): Record<string, unknown> | null {
+export function parseToolPayload(result: McpToolResult): JsonObject | null {
   const textBlock = result.content.find((entry) => entry.type === "text");
   if (textBlock === undefined) {
     return null;
   }
   try {
-    return JSON.parse(textBlock.text) as Record<string, unknown>;
+    return parseJsonTextObject(textBlock.text, "MCP tool result");
   } catch {
     return null;
   }
@@ -117,7 +118,7 @@ export function wrapWithPolicyCheck(
   inner: ToolHandler,
   ctx: ToolContext,
 ): ToolHandler {
-  return async (args: Record<string, unknown>) => {
+  return async (args: JsonObject) => {
     const rawPath = args["path"] as string | undefined;
     if (rawPath === undefined) return inner(args);
     const filePath = ctx.resolvePath(rawPath);

@@ -1,6 +1,7 @@
 import * as path from "node:path";
 import { CanonicalJsonCodec } from "../adapters/canonical-json.js";
 import type { CliCommandName, McpToolName } from "../contracts/capabilities.js";
+import { type JsonObject, parseJsonTextObject } from "../contracts/json-object.js";
 import {
   attachCliSchemaMeta,
   validateCliOutput,
@@ -14,16 +15,12 @@ export interface Writer {
   write(chunk: string): unknown;
 }
 
-function parseToolResult(result: McpToolResult): Record<string, unknown> {
+function parseToolResult(result: McpToolResult): JsonObject {
   const payload = result.content.find((item) => item.type === "text");
   if (payload === undefined) {
     throw new Error("Tool result did not contain a text payload");
   }
-  const parsed = JSON.parse(payload.text) as unknown;
-  if (parsed === null || typeof parsed !== "object" || Array.isArray(parsed)) {
-    throw new Error("Tool result was not a JSON object");
-  }
-  return parsed as Record<string, unknown>;
+  return parseJsonTextObject(payload.text, "Tool result");
 }
 
 export function writeLine(writer: Writer, line = ""): void {
@@ -32,7 +29,7 @@ export function writeLine(writer: Writer, line = ""): void {
 
 export function emitPeerCommand(
   command: CliCommandName,
-  data: Record<string, unknown>,
+  data: JsonObject,
   json: boolean,
   writer: Writer,
 ): void {
@@ -52,8 +49,8 @@ export function emitPeerCommand(
 export async function invokePeerCommand(
   cwd: string,
   tool: McpToolName,
-  args: Record<string, unknown>,
-): Promise<Record<string, unknown>> {
+  args: JsonObject,
+): Promise<JsonObject> {
   const server = createGraftServer({
     projectRoot: cwd,
     graftDir: path.join(cwd, ".graft"),
