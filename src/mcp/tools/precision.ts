@@ -4,7 +4,7 @@ import { detectLang } from "../../parser/lang.js";
 import { extractOutline } from "../../parser/outline.js";
 import type { JumpEntry, OutlineEntry } from "../../parser/types.js";
 import type { WarpHandle } from "../../ports/warp.js";
-import { allSymbolsLens, fileSymbolsLens, symbolByNameLens } from "../../warp/observers.js";
+import { allSymbolsLens, commitsLens, fileSymbolsLens, symbolByNameLens } from "../../warp/observers.js";
 import type { GitClient } from "../../ports/git.js";
 import type { ToolContext } from "../context.js";
 import { evaluateMcpRefusal, type McpPolicyRefusal } from "../policy.js";
@@ -59,6 +59,7 @@ function toMatch(
     name,
     kind,
     path,
+    ...(typeof props["identityId"] === "string" ? { identityId: props["identityId"] } : {}),
     ...(typeof props["signature"] === "string" ? { signature: props["signature"] } : {}),
     exported: props["exported"] === true,
     ...(typeof props["startLine"] === "number" ? { startLine: props["startLine"] } : {}),
@@ -116,17 +117,16 @@ export async function isWorkingTreeDirty(gitClient: GitClient, cwd: string): Pro
 }
 
 export async function getIndexedCommitCeilings(warp: WarpHandle): Promise<ReadonlyMap<string, number>> {
-  const receipts = await warp.materializeReceipts();
   const ceilings = new Map<string, number>();
+  const observer = await warp.observer(commitsLens());
+  const nodeIds = await observer.getNodes();
 
-  for (const receipt of receipts) {
-    const commitAdd = receipt.ops.find((op) =>
-      op.op === "NodeAdd" &&
-      op.result === "applied" &&
-      op.target.startsWith("commit:")
-    );
-    if (commitAdd !== undefined) {
-      ceilings.set(commitAdd.target.slice("commit:".length), receipt.lamport);
+  for (const nodeId of nodeIds) {
+    const props = await observer.getNodeProps(nodeId);
+    const sha = typeof props?.["sha"] === "string" ? props["sha"] : null;
+    const tick = typeof props?.["tick"] === "number" ? props["tick"] : null;
+    if (sha !== null && tick !== null) {
+      ceilings.set(sha, tick);
     }
   }
 

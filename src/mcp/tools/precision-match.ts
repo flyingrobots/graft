@@ -2,6 +2,7 @@ export class PrecisionSymbolMatch {
   readonly name: string;
   readonly kind: string;
   readonly path: string;
+  readonly identityId?: string;
   readonly signature?: string;
   readonly exported: boolean;
   readonly startLine?: number;
@@ -11,6 +12,7 @@ export class PrecisionSymbolMatch {
     name: string;
     kind: string;
     path: string;
+    identityId?: string;
     signature?: string;
     exported: boolean;
     startLine?: number;
@@ -43,6 +45,7 @@ export class PrecisionSymbolMatch {
     this.kind = opts.kind.trim();
     this.path = opts.path.trim();
     this.exported = opts.exported;
+    if (opts.identityId !== undefined) this.identityId = opts.identityId;
     if (opts.signature !== undefined) this.signature = opts.signature;
     if (opts.startLine !== undefined) this.startLine = opts.startLine;
     if (opts.endLine !== undefined) this.endLine = opts.endLine;

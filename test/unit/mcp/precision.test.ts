@@ -107,6 +107,7 @@ describe("mcp: code_show", () => {
       }));
 
       expect(result["source"]).toBe("warp");
+      expect(result["identityId"]).toMatch(/^sid:[a-f0-9]{16}$/);
       expect(result["content"]).toContain('return "v1";');
       expect(result["content"]).not.toContain('return "v2";');
     } finally {
@@ -361,10 +362,11 @@ describe("mcp: code_find", () => {
         query: "handle*",
       }));
 
-      const matches = result["matches"] as { name: string; startLine?: number; endLine?: number }[];
+      const matches = result["matches"] as { name: string; identityId?: string; startLine?: number; endLine?: number }[];
       expect(result["source"]).toBe("warp");
       expect(matches).toHaveLength(1);
       expect(matches[0]?.name).toBe("handleRequest");
+      expect(matches[0]?.identityId).toMatch(/^sid:[a-f0-9]{16}$/);
       expect(matches[0]?.startLine).toBeDefined();
       expect(matches[0]?.endLine).toBeDefined();
     } finally {

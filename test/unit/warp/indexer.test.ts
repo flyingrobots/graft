@@ -94,6 +94,42 @@ describe("warp: indexer", { timeout: 15000 }, () => {
     expect(symNodes.length).toBe(2);
   });
 
+  it("preserves canonical identity across a same-file rename when indexing incrementally", async () => {
+    fs.writeFileSync(
+      path.join(tmpDir, "app.ts"),
+      'export function greet(): string { return "v1"; }\n',
+    );
+    git(tmpDir, "add -A");
+    git(tmpDir, "commit -m 'v1'");
+    const c1 = git(tmpDir, "rev-parse HEAD");
+
+    const warp = await openWarp({ cwd: tmpDir });
+    await indexCommits(warp, { cwd: tmpDir, git: nodeGit });
+
+    let symObs = await warp.observer(fileSymbolsLens("app.ts"));
+    let symNodes = await symObs.getNodes();
+    expect(symNodes).toHaveLength(1);
+    const beforeProps = await symObs.getNodeProps(symNodes[0]!);
+    const beforeIdentityId = beforeProps?.["identityId"];
+    expect(typeof beforeIdentityId).toBe("string");
+
+    fs.writeFileSync(
+      path.join(tmpDir, "app.ts"),
+      'export function welcome(): string { return "v1"; }\n',
+    );
+    git(tmpDir, "add -A");
+    git(tmpDir, "commit -m 'v2'");
+
+    await indexCommits(warp, { cwd: tmpDir, git: nodeGit, from: c1 });
+
+    symObs = await warp.observer(fileSymbolsLens("app.ts"));
+    symNodes = await symObs.getNodes();
+    expect(symNodes).toHaveLength(1);
+    const afterProps = await symObs.getNodeProps(symNodes[0]!);
+    expect(afterProps?.["name"]).toBe("welcome");
+    expect(afterProps?.["identityId"]).toBe(beforeIdentityId);
+  });
+
   it("indexes symbol removals via tombstone", async () => {
     // Commit 1: two functions
     fs.writeFileSync(
@@ -149,6 +185,42 @@ describe("warp: indexer", { timeout: 15000 }, () => {
     // Check the signature was updated
     const props = await symObs.getNodeProps(symNodes[0]!);
     expect(props?.["signature"]).toContain("res: Response");
+  });
+
+  it("preserves canonical identity across a git-reported file rename", async () => {
+    fs.mkdirSync(path.join(tmpDir, "src"), { recursive: true });
+    fs.writeFileSync(
+      path.join(tmpDir, "src", "greet.ts"),
+      'export function greet(): string { return "v1"; }\n',
+    );
+    git(tmpDir, "add -A");
+    git(tmpDir, "commit -m 'v1'");
+    const c1 = git(tmpDir, "rev-parse HEAD");
+
+    const warp = await openWarp({ cwd: tmpDir });
+    await indexCommits(warp, { cwd: tmpDir, git: nodeGit });
+
+    const beforeObs = await warp.observer(fileSymbolsLens("src/greet.ts"));
+    const beforeNodes = await beforeObs.getNodes();
+    expect(beforeNodes).toHaveLength(1);
+    const beforeProps = await beforeObs.getNodeProps(beforeNodes[0]!);
+    const beforeIdentityId = beforeProps?.["identityId"];
+    expect(typeof beforeIdentityId).toBe("string");
+
+    git(tmpDir, "mv src/greet.ts src/welcome.ts");
+    git(tmpDir, "commit -m 'rename file'");
+
+    await indexCommits(warp, { cwd: tmpDir, git: nodeGit, from: c1 });
+
+    const oldObs = await warp.observer(fileSymbolsLens("src/greet.ts"));
+    expect(await oldObs.getNodes()).toHaveLength(0);
+
+    const newObs = await warp.observer(fileSymbolsLens("src/welcome.ts"));
+    const newNodes = await newObs.getNodes();
+    expect(newNodes).toHaveLength(1);
+    const afterProps = await newObs.getNodeProps(newNodes[0]!);
+    expect(afterProps?.["identityId"]).toBe(beforeIdentityId);
+    expect(afterProps?.["path"]).toBeUndefined();
   });
 
   it("records commit metadata", async () => {

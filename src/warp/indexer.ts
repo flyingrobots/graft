@@ -13,7 +13,12 @@ import { diffOutlines } from "../parser/diff.js";
 import { detectLang } from "../parser/lang.js";
 import { getFileAtRef } from "../git/diff.js";
 import type { OutlineEntry, JumpEntry } from "../parser/types.js";
-import type { DiffEntry } from "../parser/diff.js";
+import { fileSymbolsLens } from "./observers.js";
+import {
+  assignCanonicalSymbolIdentities,
+  buildSymbolPath,
+  type SymbolIdentityMap,
+} from "./symbol-identity.js";
 
 export interface IndexOptions {
   readonly cwd: string;
@@ -40,6 +45,7 @@ interface PatchOps {
 interface PreparedChange {
   readonly status: string;
   readonly filePath: string;
+  readonly previousPath?: string | undefined;
   readonly fileId: string;
   readonly lang: string | null;
   readonly parentExists: boolean;
@@ -72,14 +78,28 @@ async function getCommitChanges(
   gitClient: GitClient,
   sha: string,
   cwd: string,
-): Promise<{ status: string; path: string }[]> {
+): Promise<{ status: string; path: string; previousPath?: string }[]> {
   // --root handles the initial commit (no parent to diff against)
-  const args = ["diff-tree", "--root", "--no-commit-id", "-r", "--name-status", sha];
+  const args = ["diff-tree", "--root", "--no-commit-id", "-r", "-M", "--name-status", sha];
   try {
     return (await git(gitClient, cwd, args))
       .trim().split("\n").filter((l) => l.length > 0).map((line) => {
         const parts = line.split("\t");
-        return { status: parts[0] ?? "", path: parts[1] ?? "" };
+        const rawStatus = parts[0] ?? "";
+        if (rawStatus.startsWith("R")) {
+          return {
+            status: "R",
+            previousPath: parts[1] ?? "",
+            path: parts[2] ?? "",
+          };
+        }
+        if (rawStatus.startsWith("C")) {
+          return {
+            status: "A",
+            path: parts[2] ?? "",
+          };
+        }
+        return { status: rawStatus[0] ?? rawStatus, path: parts[1] ?? "" };
       });
   } catch {
     return [];
@@ -112,6 +132,14 @@ async function hasParent(gitClient: GitClient, sha: string, cwd: string): Promis
   }
 }
 
+async function getParentSha(gitClient: GitClient, sha: string, cwd: string): Promise<string | null> {
+  try {
+    return (await git(gitClient, cwd, ["rev-parse", "--verify", `${sha}~1`])).trim();
+  } catch {
+    return null;
+  }
+}
+
 function dirNodeId(dirPath: string): string {
   return `dir:${dirPath}`;
 }
@@ -124,6 +152,10 @@ function symNodeId(filePath: string, name: string): string {
   return `sym:${filePath}:${name}`;
 }
 
+function identityNodeId(identityId: string): string {
+  return identityId;
+}
+
 /**
  * Build a lookup from symbol name → line range from the jump table.
  */
@@ -133,6 +165,55 @@ function buildJumpLookup(jumpTable: readonly JumpEntry[]): Map<string, { start: 
     lookup.set(entry.symbol, { start: entry.start, end: entry.end });
   }
   return lookup;
+}
+
+function cloneIdentityMap(input: SymbolIdentityMap | undefined): Map<string, string> {
+  return new Map(input ?? []);
+}
+
+async function readCommitTick(warp: WarpHandle, sha: string): Promise<number | null> {
+  const observer = await warp.observer({ match: `commit:${sha}`, expose: ["tick"] });
+  const nodes = await observer.getNodes();
+  const nodeId = nodes[0];
+  if (nodeId === undefined) {
+    return null;
+  }
+  const props = await observer.getNodeProps(nodeId);
+  return typeof props?.["tick"] === "number" ? props["tick"] : null;
+}
+
+async function readIdentitySeedForFile(
+  warp: WarpHandle,
+  filePath: string,
+  ceiling: number | null,
+): Promise<Map<string, string>> {
+  if (ceiling === null) {
+    return new Map();
+  }
+
+  const observer = await warp.observer(
+    fileSymbolsLens(filePath),
+    { source: { kind: "live", ceiling } },
+  );
+  const nodes = await observer.getNodes();
+  const seeded = new Map<string, string>();
+
+  for (const nodeId of nodes) {
+    const props = await observer.getNodeProps(nodeId);
+    const symbolPath = typeof props?.["symbolPath"] === "string"
+      ? props["symbolPath"]
+      : typeof props?.["name"] === "string"
+        ? props["name"]
+        : null;
+    const identityId = typeof props?.["identityId"] === "string"
+      ? props["identityId"]
+      : null;
+    if (symbolPath !== null && identityId !== null) {
+      seeded.set(symbolPath, identityId);
+    }
+  }
+
+  return seeded;
 }
 
 /**
@@ -159,133 +240,174 @@ function emitDirectoryChain(patch: PatchOps, filePath: string): void {
   patch.addEdge(dirNodeId(current), fileNodeId(filePath), "contains");
 }
 
-/**
- * Emit symbol nodes + edges for all entries in a file outline.
- */
+function annotateSymbol(
+  patch: PatchOps,
+  input: {
+    filePath: string;
+    entry: OutlineEntry;
+    jumpLookup: Map<string, { start: number; end: number }>;
+    symbolPath: string;
+    identityByPath: SymbolIdentityMap;
+    parentSymId?: string | undefined;
+    commitId?: string | undefined;
+  },
+): void {
+  const symId = symNodeId(input.filePath, input.entry.name);
+  patch.addNode(symId);
+  patch.setProperty(symId, "name", input.entry.name);
+  patch.setProperty(symId, "kind", input.entry.kind);
+  patch.setProperty(symId, "exported", input.entry.exported);
+  patch.setProperty(symId, "symbolPath", input.symbolPath);
+  if (input.entry.signature !== undefined) {
+    patch.setProperty(symId, "signature", input.entry.signature);
+  }
+  const identityId = input.identityByPath.get(input.symbolPath);
+  if (identityId !== undefined) {
+    patch.setProperty(symId, "identityId", identityId);
+    patch.addNode(identityNodeId(identityId));
+    patch.setProperty(identityNodeId(identityId), "identityId", identityId);
+    patch.setProperty(identityNodeId(identityId), "entityKind", "symbol_identity");
+    patch.addEdge(symId, identityNodeId(identityId), "has_identity");
+  }
+  const jump = input.jumpLookup.get(input.entry.name);
+  if (jump !== undefined) {
+    patch.setProperty(symId, "startLine", jump.start);
+    patch.setProperty(symId, "endLine", jump.end);
+  }
+  patch.addEdge(fileNodeId(input.filePath), symId, "contains");
+  if (input.parentSymId !== undefined) {
+    patch.addEdge(input.parentSymId, symId, "child_of");
+  }
+  if (input.commitId !== undefined) {
+    patch.addEdge(input.commitId, symId, "adds");
+  }
+}
+
 function emitSymbols(
   patch: PatchOps,
   filePath: string,
   entries: readonly OutlineEntry[],
   jumpLookup: Map<string, { start: number; end: number }>,
+  identityByPath: SymbolIdentityMap,
   parentSymId?: string,
+  parentSymbolPath = "",
+  commitId?: string,
 ): void {
   for (const entry of entries) {
+    const symbolPath = buildSymbolPath(parentSymbolPath, entry.name);
     const symId = symNodeId(filePath, entry.name);
-    patch.addNode(symId);
-    patch.setProperty(symId, "name", entry.name);
-    patch.setProperty(symId, "kind", entry.kind);
-    patch.setProperty(symId, "exported", entry.exported);
-    if (entry.signature !== undefined) {
-      patch.setProperty(symId, "signature", entry.signature);
-    }
-    const jump = jumpLookup.get(entry.name);
-    if (jump !== undefined) {
-      patch.setProperty(symId, "startLine", jump.start);
-      patch.setProperty(symId, "endLine", jump.end);
-    }
-    patch.addEdge(fileNodeId(filePath), symId, "contains");
-    if (parentSymId !== undefined) {
-      patch.addEdge(parentSymId, symId, "child_of");
-    }
+    annotateSymbol(patch, {
+      filePath,
+      entry,
+      jumpLookup,
+      symbolPath,
+      identityByPath,
+      parentSymId,
+      commitId,
+    });
     if (entry.children !== undefined && entry.children.length > 0) {
-      emitSymbols(patch, filePath, entry.children, jumpLookup, symId);
+      emitSymbols(patch, filePath, entry.children, jumpLookup, identityByPath, symId, symbolPath, commitId);
     }
   }
 }
 
-/**
- * Tombstone (remove) symbol nodes recursively including children.
- */
 function removeSymbols(
   patch: PatchOps,
   filePath: string,
   entries: readonly OutlineEntry[],
+  parentSymbolPath = "",
+  commitId?: string,
 ): void {
   for (const entry of entries) {
-    // Recurse into children FIRST (bottom-up removal)
+    const symbolPath = buildSymbolPath(parentSymbolPath, entry.name);
     if (entry.children !== undefined && entry.children.length > 0) {
-      removeSymbols(patch, filePath, entry.children);
+      removeSymbols(patch, filePath, entry.children, symbolPath, commitId);
     }
     const symId = symNodeId(filePath, entry.name);
+    if (commitId !== undefined) {
+      patch.addEdge(commitId, symId, "removes");
+    }
     patch.removeEdge(fileNodeId(filePath), symId, "contains");
     patch.removeNode(symId);
   }
 }
 
-/**
- * Remove symbols from DiffEntry (removed symbols in a diff).
- * Also recursively handles childDiff if present.
- */
-function removeDiffSymbols(
-  patch: PatchOps,
-  filePath: string,
-  fileId: string,
-  entries: readonly DiffEntry[],
-): void {
-  for (const entry of entries) {
-    // Recurse into childDiff if present (remove grandchildren first)
-    if (entry.childDiff !== undefined) {
-      removeDiffSymbols(patch, filePath, fileId, [...entry.childDiff.removed]);
-      removeDiffSymbols(patch, filePath, fileId, [...entry.childDiff.added]);
-      removeDiffSymbols(patch, filePath, fileId, [...entry.childDiff.changed]);
-    }
-    const symId = symNodeId(filePath, entry.name);
-    patch.removeEdge(fileId, symId, "contains");
-    patch.removeNode(symId);
-  }
-}
-
-/**
- * Apply child diffs for changed symbols (methods added/removed/changed
- * inside a class that kept its name).
- */
-function applyChildDiffs(
+function applyModifiedSymbols(
   patch: PatchOps,
   filePath: string,
   fileId: string,
   commitId: string,
-  changed: readonly DiffEntry[],
+  oldEntries: readonly OutlineEntry[],
+  newEntries: readonly OutlineEntry[],
   jumpLookup: Map<string, { start: number; end: number }>,
+  identityByPath: SymbolIdentityMap,
+  oldParentPath = "",
+  newParentPath = "",
 ): void {
-  for (const entry of changed) {
-    if (entry.childDiff === undefined) continue;
-    const parentSymId = symNodeId(filePath, entry.name);
+  const oldByName = new Map<string, OutlineEntry>();
+  for (const entry of oldEntries) {
+    oldByName.set(entry.name, entry);
+  }
+  const newByName = new Map<string, OutlineEntry>();
+  for (const entry of newEntries) {
+    newByName.set(entry.name, entry);
+  }
+  const diff = diffOutlines(oldEntries, newEntries);
+  const changedNames = new Set(diff.changed.map((entry) => entry.name));
 
-    for (const added of entry.childDiff.added) {
-      const symId = symNodeId(filePath, added.name);
-      patch.addNode(symId);
-      patch.setProperty(symId, "name", added.name);
-      patch.setProperty(symId, "kind", added.kind);
-      patch.setProperty(symId, "exported", false);
-      if (added.signature !== undefined) {
-        patch.setProperty(symId, "signature", added.signature);
-      }
-      const jump = jumpLookup.get(added.name);
-      if (jump !== undefined) {
-        patch.setProperty(symId, "startLine", jump.start);
-        patch.setProperty(symId, "endLine", jump.end);
-      }
-      patch.addEdge(fileId, symId, "contains");
-      patch.addEdge(parentSymId, symId, "child_of");
-      patch.addEdge(commitId, symId, "adds");
+  for (const removed of diff.removed) {
+    const oldEntry = oldByName.get(removed.name);
+    if (oldEntry !== undefined) {
+      removeSymbols(patch, filePath, [oldEntry], oldParentPath, commitId);
     }
+  }
 
-    for (const removed of entry.childDiff.removed) {
-      const symId = symNodeId(filePath, removed.name);
-      patch.addEdge(commitId, symId, "removes");
-      patch.removeEdge(fileId, symId, "contains");
-      patch.removeNode(symId);
+  for (const added of diff.added) {
+    const newEntry = newByName.get(added.name);
+    if (newEntry !== undefined) {
+      emitSymbols(
+        patch,
+        filePath,
+        [newEntry],
+        jumpLookup,
+        identityByPath,
+        undefined,
+        newParentPath,
+        commitId,
+      );
     }
+  }
 
-    // Recurse into changed children that have their own childDiffs
-    applyChildDiffs(patch, filePath, fileId, commitId, [...entry.childDiff.changed], jumpLookup);
+  for (const [name, newEntry] of newByName) {
+    const oldEntry = oldByName.get(name);
+    if (oldEntry === undefined) {
+      continue;
+    }
+    const symbolPath = buildSymbolPath(newParentPath, newEntry.name);
+    const symId = symNodeId(filePath, newEntry.name);
 
-    for (const child of entry.childDiff.changed) {
-      const symId = symNodeId(filePath, child.name);
-      patch.setProperty(symId, "kind", child.kind);
-      if (child.signature !== undefined) {
-        patch.setProperty(symId, "signature", child.signature);
-      }
+    applyModifiedSymbols(
+      patch,
+      filePath,
+      fileId,
+      commitId,
+      oldEntry.children ?? [],
+      newEntry.children ?? [],
+      jumpLookup,
+      identityByPath,
+      buildSymbolPath(oldParentPath, oldEntry.name),
+      symbolPath,
+    );
+
+    annotateSymbol(patch, {
+      filePath,
+      entry: newEntry,
+      jumpLookup,
+      symbolPath,
+      identityByPath,
+    });
+    patch.addEdge(fileId, symId, "contains");
+    if (changedNames.has(name)) {
       patch.addEdge(commitId, symId, "changes");
     }
   }
@@ -297,11 +419,12 @@ async function prepareChange(
   sha: string,
   parentRef: string,
   parentExists: boolean,
-  change: { status: string; path: string },
+  change: { status: string; path: string; previousPath?: string },
 ): Promise<PreparedChange> {
   const filePath = change.path;
   const fileId = fileNodeId(filePath);
   const lang = detectLang(filePath);
+  const previousPath = change.previousPath;
 
   if (change.status === "D") {
     let oldOutline: readonly OutlineEntry[] = [];
@@ -314,6 +437,7 @@ async function prepareChange(
     return {
       status: change.status,
       filePath,
+      ...(previousPath !== undefined ? { previousPath } : {}),
       fileId,
       lang,
       parentExists,
@@ -325,6 +449,7 @@ async function prepareChange(
     return {
       status: change.status,
       filePath,
+      ...(previousPath !== undefined ? { previousPath } : {}),
       fileId,
       lang,
       parentExists,
@@ -337,6 +462,7 @@ async function prepareChange(
     return {
       status: change.status,
       filePath,
+      ...(previousPath !== undefined ? { previousPath } : {}),
       fileId,
       lang,
       parentExists,
@@ -352,6 +478,7 @@ async function prepareChange(
     return {
       status: change.status,
       filePath,
+      ...(previousPath !== undefined ? { previousPath } : {}),
       fileId,
       lang,
       parentExists,
@@ -361,11 +488,12 @@ async function prepareChange(
     };
   }
 
-  const oldContent = await getFileAtRef(parentRef, filePath, { cwd, git: gitClient });
+  const oldContent = await getFileAtRef(parentRef, previousPath ?? filePath, { cwd, git: gitClient });
   if (oldContent === null) {
     return {
       status: change.status,
       filePath,
+      ...(previousPath !== undefined ? { previousPath } : {}),
       fileId,
       lang,
       parentExists,
@@ -379,6 +507,7 @@ async function prepareChange(
   return {
     status: change.status,
     filePath,
+    ...(previousPath !== undefined ? { previousPath } : {}),
     fileId,
     lang,
     parentExists,
@@ -401,6 +530,7 @@ export async function indexCommits(
 
   let patchesWritten = 0;
   const commitTicks = new Map<string, number>();
+  const liveIdentityByFile = new Map<string, Map<string, string>>();
 
   for (const sha of commits) {
     const changes = await getCommitChanges(gitClient, sha, cwd);
@@ -408,7 +538,7 @@ export async function indexCommits(
     // Only materialize when removals are possible (D or M status).
     // Materialization is expensive — O(n) replay of all prior patches.
     // Add-only commits (A status) and no-change commits don't need it.
-    const hasRemovals = changes.some((c) => c.status === "D" || c.status === "M");
+    const hasRemovals = changes.some((c) => c.status === "D" || c.status === "M" || c.status === "R");
     if (hasRemovals) {
       await warp.materialize();
     }
@@ -416,9 +546,35 @@ export async function indexCommits(
     const meta = await getCommitMeta(gitClient, sha, cwd);
     const parentExists = await hasParent(gitClient, sha, cwd);
     const parentRef = `${sha}~1`;
+    const parentSha = parentExists ? await getParentSha(gitClient, sha, cwd) : null;
     const preparedChanges = await Promise.all(changes.map((change) =>
       prepareChange(gitClient, cwd, sha, parentRef, parentExists, change)
     ));
+    const parentTick = parentSha !== null
+      ? commitTicks.get(parentSha) ?? await readCommitTick(warp, parentSha)
+      : null;
+
+    const resolvedChanges = await Promise.all(preparedChanges.map(async (change) => {
+      const oldIdentitySourcePath = change.previousPath ?? change.filePath;
+      const oldIdentityByPath = liveIdentityByFile.has(oldIdentitySourcePath)
+        ? cloneIdentityMap(liveIdentityByFile.get(oldIdentitySourcePath))
+        : await readIdentitySeedForFile(warp, oldIdentitySourcePath, parentTick);
+      const newIdentityByPath = change.lang !== null && change.newOutline !== undefined
+        ? assignCanonicalSymbolIdentities({
+          oldEntries: change.oldOutline,
+          newEntries: change.newOutline,
+          oldIdentityByPath,
+          commitSha: sha,
+          filePath: change.filePath,
+        })
+        : new Map<string, string>();
+
+      return {
+        ...change,
+        oldIdentityByPath,
+        newIdentityByPath,
+      };
+    }));
 
     await warp.patch((p) => {
       const patch = p as unknown as PatchOps;
@@ -430,11 +586,12 @@ export async function indexCommits(
       patch.setProperty(commitId, "author", meta.author);
       patch.setProperty(commitId, "email", meta.email);
       patch.setProperty(commitId, "timestamp", meta.timestamp);
+      patch.setProperty(commitId, "tick", patchesWritten + 1);
 
-      for (const change of preparedChanges) {
+      for (const change of resolvedChanges) {
         if (change.status === "D") {
           if (change.lang !== null) {
-            removeSymbols(patch, change.filePath, change.oldOutline);
+            removeSymbols(patch, change.filePath, change.oldOutline, "", commitId);
           }
           patch.removeNode(change.fileId);
           continue;
@@ -449,64 +606,65 @@ export async function indexCommits(
 
         if (change.lang === null || change.newOutline === undefined || change.jumpLookup === undefined) continue;
 
+        if (change.status === "R" && change.previousPath !== undefined) {
+          removeSymbols(patch, change.previousPath, change.oldOutline, "", commitId);
+          patch.removeNode(fileNodeId(change.previousPath));
+          emitSymbols(
+            patch,
+            change.filePath,
+            change.newOutline,
+            change.jumpLookup,
+            change.newIdentityByPath,
+            undefined,
+            "",
+            commitId,
+          );
+          continue;
+        }
+
         if (change.status === "A" || !change.parentExists || change.diff === undefined) {
           // New file or root commit — emit all symbols
-          emitSymbols(patch, change.filePath, change.newOutline, change.jumpLookup);
+          emitSymbols(
+            patch,
+            change.filePath,
+            change.newOutline,
+            change.jumpLookup,
+            change.newIdentityByPath,
+            undefined,
+            "",
+            commitId,
+          );
         } else {
-          const diff = change.diff;
-
-          // Remove deleted symbols
-          for (const removed of diff.removed) {
-            const symId = symNodeId(change.filePath, removed.name);
-            patch.addEdge(commitId, symId, "removes");
-            removeDiffSymbols(patch, change.filePath, change.fileId, [removed]);
-          }
-
-          // Add new symbols (preserve actual exported status)
-          for (const added of diff.added) {
-            const symId = symNodeId(change.filePath, added.name);
-            patch.addNode(symId);
-            patch.setProperty(symId, "name", added.name);
-            patch.setProperty(symId, "kind", added.kind);
-            // DiffEntry doesn't carry exported — default false for safety.
-            // Full exported status comes from emitSymbols on initial add.
-            patch.setProperty(symId, "exported", false);
-            if (added.signature !== undefined) {
-              patch.setProperty(symId, "signature", added.signature);
-            }
-            const jump = change.jumpLookup.get(added.name);
-            if (jump !== undefined) {
-              patch.setProperty(symId, "startLine", jump.start);
-              patch.setProperty(symId, "endLine", jump.end);
-            }
-            patch.addEdge(change.fileId, symId, "contains");
-            patch.addEdge(commitId, symId, "adds");
-          }
-
-          // Update changed symbols
-          for (const changed of diff.changed) {
-            const symId = symNodeId(change.filePath, changed.name);
-            patch.setProperty(symId, "kind", changed.kind);
-            if (changed.signature !== undefined) {
-              patch.setProperty(symId, "signature", changed.signature);
-            }
-            patch.addEdge(commitId, symId, "changes");
-          }
-
-          // Apply nested child diffs (methods in classes)
-          applyChildDiffs(
+          applyModifiedSymbols(
             patch,
             change.filePath,
             change.fileId,
             commitId,
-            [...diff.changed],
+            change.oldOutline,
+            change.newOutline,
             change.jumpLookup,
+            change.newIdentityByPath,
           );
         }
       }
     });
     patchesWritten++;
     commitTicks.set(sha, patchesWritten);
+
+    for (const change of resolvedChanges) {
+      if (change.status === "D") {
+        liveIdentityByFile.delete(change.filePath);
+        continue;
+      }
+      if (change.previousPath !== undefined && change.previousPath !== change.filePath) {
+        liveIdentityByFile.delete(change.previousPath);
+      }
+      if (change.newOutline !== undefined && change.lang !== null) {
+        liveIdentityByFile.set(change.filePath, new Map(change.newIdentityByPath));
+      } else {
+        liveIdentityByFile.delete(change.filePath);
+      }
+    }
   }
 
   return { commitsIndexed: commits.length, patchesWritten, commitTicks };

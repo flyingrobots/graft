@@ -19,6 +19,10 @@ between old and new addresses, with confidence and basis spelled out.
 That does not upgrade `sym:` addresses themselves into canonical
 identity.
 
+When canonical identity is available, it must be represented as a
+separate identity anchor such as `sid:*`, not by pretending the
+address key itself became stable identity.
+
 If code or documentation starts treating these addresses as
 ontological identity — relying on address stability across renames,
 building persistent references keyed by address, or assuming
@@ -35,6 +39,9 @@ structure and provenance.
 - Rename handling surfaces as remove+add (not "moved")
 - Any rename continuity appears as an additive continuity relation,
   not as proof that `sym:` addresses are stable identity
+- Canonical identity, when present, is surfaced through a separate
+  `sid:*` anchor or `identityId`, not by reinterpreting the `sym:`
+  address as stable identity
 - No persistent external references keyed by `sym:` addresses
   that assume stability across refactors
 - Level 2+ is the only place identity continuity gets upgraded
