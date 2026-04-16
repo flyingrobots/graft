@@ -13,7 +13,7 @@ import { nodeProcessRunner } from "../adapters/node-process-runner.js";
 import type { ProcessRunner } from "../ports/process-runner.js";
 import { nodeGit } from "../adapters/node-git.js";
 import { RefusedResult } from "../policy/types.js";
-import type WarpApp from "@git-stunts/git-warp";
+import type { WarpHandle } from "../ports/warp.js";
 import { openWarp } from "../warp/open.js";
 import type { RunCaptureConfig } from "./run-capture-config.js";
 import { resolveRunCaptureConfig } from "./run-capture-config.js";
@@ -330,7 +330,7 @@ export function createGraftServer(options: CreateGraftServerOptions = {}): Graft
     git: nodeGit,
     runCapture,
     observability,
-    getWarp(): Promise<WarpApp> {
+    getWarp(): Promise<WarpHandle> {
       return getActiveExecutionContext()?.getWarp() ?? workspaceRouter.getWarp();
     },
     getRepoState() {

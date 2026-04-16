@@ -6,30 +6,10 @@ import type {
   CausalRegion,
   Evidence,
 } from "../contracts/causal-ontology.js";
+import type { WarpHandle } from "../ports/warp.js";
 import type { RuntimeStagedTargetFullFile } from "./runtime-staged-target.js";
 
-export interface PersistedLocalHistoryGraphWarp {
-  hasNode?(nodeId: string): Promise<boolean>;
-  observer?(lens: {
-    readonly match: string | readonly string[];
-    readonly expose?: readonly string[] | undefined;
-  }): Promise<{
-    getNodes(): Promise<string[]>;
-    getNodeProps(nodeId: string): Promise<Record<string, unknown> | null>;
-    getEdges(): Promise<{ from: string; to: string; label: string }[]>;
-  }>;
-  patch(build: (patch: {
-    addNode(id: string): unknown;
-    setProperty(id: string, key: string, value: unknown): unknown;
-    addEdge(from: string, to: string, label: string): unknown;
-  }) => void | Promise<void>): Promise<string>;
-}
-
-export function asPersistedLocalHistoryGraphWarp(
-  warp: unknown,
-): PersistedLocalHistoryGraphWarp {
-  return warp as PersistedLocalHistoryGraphWarp;
-}
+export type PersistedLocalHistoryGraphWarp = Pick<WarpHandle, "hasNode" | "observer" | "patch">;
 
 export interface PersistedLocalHistoryGraphContext {
   readonly warp: PersistedLocalHistoryGraphWarp;
@@ -180,14 +160,8 @@ async function commitAccumulator(
 ): Promise<void> {
   const ids = [...accumulator.nodes.keys()];
   const existence = new Map<string, boolean>();
-  if (typeof graph.warp.hasNode === "function") {
-    for (const id of ids) {
-      existence.set(id, await graph.warp.hasNode(id));
-    }
-  } else {
-    for (const id of ids) {
-      existence.set(id, false);
-    }
+  for (const id of ids) {
+    existence.set(id, await graph.warp.hasNode(id));
   }
 
   await graph.warp.patch((patch) => {

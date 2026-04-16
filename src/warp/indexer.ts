@@ -6,8 +6,8 @@
  * Reading is done exclusively through observers (see observers.ts).
  */
 
-import type WarpApp from "@git-stunts/git-warp";
 import type { GitClient } from "../ports/git.js";
+import type { WarpHandle } from "../ports/warp.js";
 import { extractOutline } from "../parser/outline.js";
 import { diffOutlines } from "../parser/diff.js";
 import { detectLang } from "../parser/lang.js";
@@ -393,7 +393,7 @@ async function prepareChange(
  * Index a range of commits into the WARP graph.
  */
 export async function indexCommits(
-  warp: WarpApp,
+  warp: WarpHandle,
   options: IndexOptions,
 ): Promise<IndexResult> {
   const { cwd, git: gitClient } = options;
@@ -410,7 +410,7 @@ export async function indexCommits(
     // Add-only commits (A status) and no-change commits don't need it.
     const hasRemovals = changes.some((c) => c.status === "D" || c.status === "M");
     if (hasRemovals) {
-      await warp.core().materialize();
+      await warp.materialize();
     }
 
     const meta = await getCommitMeta(gitClient, sha, cwd);

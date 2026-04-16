@@ -9,7 +9,7 @@ import type { FileSystem } from "../ports/filesystem.js";
 import type { JsonCodec } from "../ports/codec.js";
 import type { ProcessRunner } from "../ports/process-runner.js";
 import type { GitClient } from "../ports/git.js";
-import type WarpApp from "@git-stunts/git-warp";
+import type { WarpHandle } from "../ports/warp.js";
 import type { RepoObservation } from "./repo-state.js";
 import type { RunCaptureConfig } from "./run-capture-config.js";
 import type { RuntimeObservabilityState } from "./runtime-observability.js";
@@ -73,7 +73,7 @@ export interface ToolContext {
   readonly observability: RuntimeObservabilityState;
   respond(tool: McpToolName, data: Record<string, unknown>): McpToolResult;
   resolvePath(relative: string): string;
-  getWarp(): Promise<WarpApp>;
+  getWarp(): Promise<WarpHandle>;
   getRepoState(): RepoObservation;
   getCausalContext(): RuntimeCausalContext;
   getWorkspaceOverlayFooting(): Promise<RuntimeWorkspaceOverlayFooting | null>;

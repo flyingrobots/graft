@@ -1,10 +1,10 @@
-import type WarpApp from "@git-stunts/git-warp";
 import type { ObservationCache } from "./cache.js";
 import type { Metrics } from "./metrics.js";
 import type { RepoStateTracker } from "./repo-state.js";
 import type { RuntimeCausalContext } from "./runtime-causal-context.js";
 import type { PersistedLocalHistorySummary } from "./persisted-local-history.js";
 import type { SessionTracker } from "../session/tracker.js";
+import type { WarpHandle } from "../ports/warp.js";
 
 export type WorkspaceSessionMode = "repo_local" | "daemon";
 export type WorkspaceBindState = "bound" | "unbound";
@@ -89,7 +89,7 @@ export interface WorkspaceExecutionContext {
   readonly metrics: Metrics;
   readonly graftDir: string;
   readonly repoState: RepoStateTracker;
-  readonly getWarp: () => Promise<WarpApp>;
+  readonly getWarp: () => Promise<WarpHandle>;
 }
 
 export interface ResolvedWorkspace {

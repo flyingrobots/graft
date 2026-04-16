@@ -1,9 +1,9 @@
 import * as path from "node:path";
-import type WarpApp from "@git-stunts/git-warp";
 import { getFileAtRef, GitError } from "../../git/diff.js";
 import { detectLang } from "../../parser/lang.js";
 import { extractOutline } from "../../parser/outline.js";
 import type { JumpEntry, OutlineEntry } from "../../parser/types.js";
+import type { WarpHandle } from "../../ports/warp.js";
 import { allSymbolsLens, fileSymbolsLens, symbolByNameLens } from "../../warp/observers.js";
 import type { GitClient } from "../../ports/git.js";
 import type { ToolContext } from "../context.js";
@@ -115,8 +115,8 @@ export async function isWorkingTreeDirty(gitClient: GitClient, cwd: string): Pro
   }
 }
 
-export async function getIndexedCommitCeilings(warp: WarpApp): Promise<ReadonlyMap<string, number>> {
-  const { receipts } = await warp.core().materialize({ receipts: true });
+export async function getIndexedCommitCeilings(warp: WarpHandle): Promise<ReadonlyMap<string, number>> {
+  const receipts = await warp.materializeReceipts();
   const ceilings = new Map<string, number>();
 
   for (const receipt of receipts) {
@@ -196,7 +196,7 @@ export function evaluatePrecisionPolicy(
 }
 
 export async function searchWarpSymbols(
-  warp: WarpApp,
+  warp: WarpHandle,
   request: PrecisionSearchRequest,
 ): Promise<PrecisionSymbolMatch[]> {
   const lensMode = request.selectLens();

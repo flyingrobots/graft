@@ -578,7 +578,7 @@ export function deriveContinuityAttribution(
 async function loadObservedLocalHistoryGraph(
   graph: PersistedLocalHistoryGraphContext | null | undefined,
 ): Promise<ObservedLocalHistoryGraphSnapshot | null> {
-  if (graph === null || graph === undefined || typeof graph.warp.observer !== "function") {
+  if (graph === null || graph === undefined) {
     return null;
   }
 
@@ -1100,9 +1100,6 @@ async function hasLocalHistoryEventNode(
   graph: PersistedLocalHistoryGraphContext,
   eventId: string,
 ): Promise<boolean> {
-  if (typeof graph.warp.hasNode !== "function") {
-    return false;
-  }
   return graph.warp.hasNode(`lh:event:${eventId}`);
 }
 

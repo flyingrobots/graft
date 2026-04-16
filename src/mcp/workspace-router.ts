@@ -1,5 +1,4 @@
 import * as path from "node:path";
-import type WarpApp from "@git-stunts/git-warp";
 import { createRepoPathResolver } from "../adapters/repo-paths.js";
 import { ObservationCache } from "./cache.js";
 import { Metrics } from "./metrics.js";
@@ -14,7 +13,6 @@ import {
   type PersistedLocalHistorySummary,
 } from "./persisted-local-history.js";
 import { type PersistedLocalHistoryGraphContext } from "./persisted-local-history-graph.js";
-import { asPersistedLocalHistoryGraphWarp } from "./persisted-local-history-graph.js";
 import { RepoStateTracker } from "./repo-state.js";
 import { buildRuntimeCausalContext, type RuntimeCausalContext } from "./runtime-causal-context.js";
 import { buildRuntimeStagedTarget } from "./runtime-staged-target.js";
@@ -43,6 +41,7 @@ import { resolveWorkspaceRequest, stableWorkspaceId } from "./workspace-router-r
 import { SessionTracker } from "../session/tracker.js";
 import type { FileSystem } from "../ports/filesystem.js";
 import type { GitClient } from "../ports/git.js";
+import type { WarpHandle } from "../ports/warp.js";
 import type { WarpPool } from "./warp-pool.js";
 import { DEFAULT_WARP_WRITER_ID } from "../warp/writer-id.js";
 export {
@@ -84,7 +83,7 @@ interface BoundWorkspace {
   readonly warpWriterId: string;
   readonly transportSessionId: string;
   readonly slice: WorkspaceSlice;
-  readonly getWarp: () => Promise<WarpApp>;
+  readonly getWarp: () => Promise<WarpHandle>;
 }
 
 interface WorkspaceRouterOptions {
@@ -206,7 +205,7 @@ export class WorkspaceRouter {
     return this.requireBinding().resolvePath;
   }
 
-  getWarp(): Promise<WarpApp> {
+  getWarp(): Promise<WarpHandle> {
     return this.requireBinding().getWarp();
   }
 
@@ -764,7 +763,7 @@ export class WorkspaceRouter {
   ): Promise<PersistedLocalHistoryGraphContext | null> {
     try {
       return {
-        warp: asPersistedLocalHistoryGraphWarp(await binding.getWarp()),
+        warp: await binding.getWarp(),
         worktreeRoot: binding.worktreeRoot,
       };
     } catch {
@@ -777,7 +776,7 @@ export class WorkspaceRouter {
   ): Promise<PersistedLocalHistoryGraphContext | null> {
     try {
       return {
-        warp: asPersistedLocalHistoryGraphWarp(await execution.getWarp()),
+        warp: await execution.getWarp(),
         worktreeRoot: execution.worktreeRoot,
       };
     } catch {

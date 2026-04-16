@@ -40,7 +40,7 @@ describe("warp: graft_since (observer comparison)", { timeout: 15000 }, () => {
     expect(tick1).toBeDefined();
     expect(tick2).toBeDefined();
 
-    await warp.core().materialize();
+    await warp.materialize();
 
     const lens = allSymbolsLens();
     const obs1 = await warp.observer(lens, { source: { kind: "live", ceiling: tick1 ?? null } });
@@ -69,7 +69,7 @@ describe("warp: graft_since (observer comparison)", { timeout: 15000 }, () => {
 
     const warp = await openWarp({ cwd: tmpDir });
     const result = await indexCommits(warp, { cwd: tmpDir, git: nodeGit });
-    await warp.core().materialize();
+    await warp.materialize();
 
     const tick1 = result.commitTicks.get(c1);
     const tick2 = result.commitTicks.get(c2);
@@ -103,7 +103,7 @@ describe("warp: graft_since (observer comparison)", { timeout: 15000 }, () => {
 
     const warp = await openWarp({ cwd: tmpDir });
     const result = await indexCommits(warp, { cwd: tmpDir, git: nodeGit });
-    await warp.core().materialize();
+    await warp.materialize();
 
     const tick1 = result.commitTicks.get(c1);
     const tick2 = result.commitTicks.get(c2);

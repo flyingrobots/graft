@@ -2,9 +2,6 @@ import * as path from "node:path";
 import { CanonicalJsonCodec } from "../adapters/canonical-json.js";
 import { nodeFs } from "../adapters/node-fs.js";
 import { attachCliSchemaMeta, validateCliOutput } from "../contracts/output-schemas.js";
-import {
-  asPersistedLocalHistoryGraphWarp,
-} from "../mcp/persisted-local-history-graph.js";
 import { migrateLegacyPersistedLocalHistoryToGraph } from "../mcp/persisted-local-history.js";
 import { openWarp } from "../warp/open.js";
 
@@ -73,7 +70,7 @@ export async function runMigrateLocalHistory(options: RunMigrateLocalHistoryOpti
   const graftDir = path.join(options.cwd, ".graft");
 
   try {
-    const warp = asPersistedLocalHistoryGraphWarp(await openWarp({ cwd: options.cwd }));
+    const warp = await openWarp({ cwd: options.cwd });
     const payload: MigrateLocalHistoryPayload = {
       cwd: options.cwd,
       ...await migrateLegacyPersistedLocalHistoryToGraph({

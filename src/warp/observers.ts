@@ -9,15 +9,10 @@
  * determines the aperture — what the observer can see.
  */
 
-import type WarpApp from "@git-stunts/git-warp";
-import type { Observer } from "@git-stunts/git-warp";
+import type { WarpHandle, WarpObserver, WarpObserverLens } from "../ports/warp.js";
 
 /** Lens config for creating focused observers. */
-export interface Lens {
-  match: string;
-  expose?: string[];
-  redact?: string[];
-}
+export type Lens = WarpObserverLens;
 
 /**
  * Observe all symbols in a specific file.
@@ -100,6 +95,6 @@ export function commitsLens(): Lens {
  * Create an observer on the current frontier with a given lens.
  * Observers are static snapshots — create a new one after writes.
  */
-export function observe(warp: WarpApp, lens: Lens): Promise<Observer> {
+export function observe(warp: WarpHandle, lens: Lens): Promise<WarpObserver> {
   return warp.observer(lens);
 }

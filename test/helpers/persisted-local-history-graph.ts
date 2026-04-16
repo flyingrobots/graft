@@ -51,6 +51,8 @@ export class FakePersistedLocalHistoryWarp implements PersistedLocalHistoryGraph
     addNode(id: string): unknown;
     setProperty(id: string, key: string, value: unknown): unknown;
     addEdge(from: string, to: string, label: string): unknown;
+    removeNode(id: string): unknown;
+    removeEdge(from: string, to: string, label: string): unknown;
   }) => void | Promise<void>): Promise<string> {
     const patch = {
       addNode: (id: string) => {
@@ -66,6 +68,14 @@ export class FakePersistedLocalHistoryWarp implements PersistedLocalHistoryGraph
       },
       addEdge: (from: string, to: string, label: string) => {
         this.edges.set(`${from}\u0000${label}\u0000${to}`, { from, to, label });
+        return patch;
+      },
+      removeNode: (id: string) => {
+        this.nodes.delete(id);
+        return patch;
+      },
+      removeEdge: (from: string, to: string, label: string) => {
+        this.edges.delete(`${from}\u0000${label}\u0000${to}`);
         return patch;
       },
     };

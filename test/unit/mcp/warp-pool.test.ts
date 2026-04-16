@@ -1,9 +1,19 @@
 import { describe, expect, it, vi } from "vitest";
-import type WarpApp from "@git-stunts/git-warp";
+import type { WarpHandle } from "../../../src/ports/warp.js";
 import { InMemoryWarpPool } from "../../../src/mcp/warp-pool.js";
 
-function fakeWarpHandle(): WarpApp {
-  return {} as WarpApp;
+function fakeWarpHandle(): WarpHandle {
+  return {
+    hasNode: vi.fn(() => Promise.resolve(false)),
+    observer: vi.fn(() => Promise.resolve({
+      getNodes: () => Promise.resolve([]),
+      getNodeProps: () => Promise.resolve(null),
+      getEdges: () => Promise.resolve([]),
+    })),
+    patch: vi.fn(() => Promise.resolve("patch:test")),
+    materialize: vi.fn(() => Promise.resolve()),
+    materializeReceipts: vi.fn(() => Promise.resolve([])),
+  };
 }
 
 describe("mcp: warp pool", () => {
