@@ -6,20 +6,16 @@ import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { buildReceiptResult } from "./receipt.js";
 import type { ToolHandler, ToolContext, ToolDefinition } from "./context.js";
 import type { McpToolResult } from "./receipt.js";
-import { evaluateMcpPolicy } from "./policy.js";
 import { nodeFs } from "../adapters/node-fs.js";
 import { CanonicalJsonCodec } from "../adapters/canonical-json.js";
 import { nodeProcessRunner } from "../adapters/node-process-runner.js";
 import type { ProcessRunner } from "../ports/process-runner.js";
 import { nodeGit } from "../adapters/node-git.js";
-import { RefusedResult } from "../policy/types.js";
 import type { WarpHandle } from "../ports/warp.js";
 import { openWarp } from "../warp/open.js";
 import type { RunCaptureConfig } from "./run-capture-config.js";
 import { resolveRunCaptureConfig } from "./run-capture-config.js";
 import {
-  WorkspaceBindingRequiredError,
-  WorkspaceCapabilityDeniedError,
   WorkspaceRouter,
   type WorkspaceExecutionContext,
   type WorkspaceSessionMode,
@@ -30,7 +26,6 @@ import { DaemonJobScheduler } from "./daemon-job-scheduler.js";
 import { InlineDaemonWorkerPool, type DaemonWorkerPool } from "./daemon-worker-pool.js";
 import { PersistentMonitorRuntime } from "./persistent-monitor-runtime.js";
 import { mergeRepoConcurrencySummaryWithLiveSessions } from "./repo-concurrency.js";
-import { OFFLOADED_DAEMON_REPO_TOOL_NAMES, type OffloadedRepoToolName } from "./repo-tool-job.js";
 import {
   RuntimeEventLogger,
   classifyRuntimeFailure,
@@ -43,89 +38,19 @@ import { InMemoryWarpPool, type WarpPool } from "./warp-pool.js";
 import { buildSessionWarpWriterId } from "../warp/writer-id.js";
 import { PersistedLocalHistoryStore } from "./persisted-local-history.js";
 import { GRAFT_VERSION } from "../version.js";
-
-// Tool definitions — each file exports a ToolDefinition object
-import { safeReadTool } from "./tools/safe-read.js";
-import { fileOutlineTool } from "./tools/file-outline.js";
-import { readRangeTool } from "./tools/read-range.js";
-import { changedSinceTool } from "./tools/changed-since.js";
-import { graftDiffTool } from "./tools/graft-diff.js";
-import { runCaptureTool } from "./tools/run-capture.js";
-import { stateSaveTool, stateLoadTool } from "./tools/state.js";
-import { doctorTool } from "./tools/doctor.js";
-import { statsTool } from "./tools/stats.js";
-import { explainTool } from "./tools/explain.js";
-import { setBudgetTool } from "./tools/budget.js";
-import { sinceTool } from "./tools/since.js";
-import { mapTool } from "./tools/map.js";
-import { codeShowTool } from "./tools/code-show.js";
-import { codeFindTool } from "./tools/code-find.js";
-import { codeRefsTool } from "./tools/code-refs.js";
-import { daemonMonitorsTool } from "./tools/daemon-monitors.js";
-import { daemonReposTool } from "./tools/daemon-repos.js";
-import { daemonSessionsTool } from "./tools/daemon-sessions.js";
-import { daemonStatusTool } from "./tools/daemon-status.js";
-import { monitorPauseTool } from "./tools/monitor-pause.js";
-import { monitorResumeTool } from "./tools/monitor-resume.js";
-import { monitorStartTool } from "./tools/monitor-start.js";
-import { monitorStopTool } from "./tools/monitor-stop.js";
-import { activityViewTool } from "./tools/activity-view.js";
-import { causalStatusTool } from "./tools/causal-status.js";
-import { causalAttachTool } from "./tools/causal-attach.js";
-import { workspaceAuthorizeTool } from "./tools/workspace-authorize.js";
-import { workspaceAuthorizationsTool } from "./tools/workspace-authorizations.js";
-import { workspaceBindTool } from "./tools/workspace-bind.js";
-import { workspaceRevokeTool } from "./tools/workspace-revoke.js";
-import { workspaceStatusTool } from "./tools/workspace-status.js";
-import { workspaceRebindTool } from "./tools/workspace-rebind.js";
+import { ALL_TOOL_REGISTRY, TOOL_REGISTRY } from "./tool-registry.js";
+import {
+  attributedReadTools,
+  daemonScheduledRepoTools,
+  enforceDaemonToolAccess,
+  parseToolPayload,
+  repoStateOptionalTools,
+  resolveDaemonOffloadedRepoTool,
+  wrapWithPolicyCheck,
+} from "./server-tool-access.js";
 
 export type { McpToolResult, ToolHandler, ToolContext };
-
-/** All registered tool definitions. Add new tools here. */
-export const TOOL_REGISTRY: readonly ToolDefinition[] = [
-  safeReadTool,
-  fileOutlineTool,
-  readRangeTool,
-  changedSinceTool,
-  graftDiffTool,
-  runCaptureTool,
-  stateSaveTool,
-  stateLoadTool,
-  doctorTool,
-  activityViewTool,
-  causalStatusTool,
-  causalAttachTool,
-  statsTool,
-  explainTool,
-  setBudgetTool,
-  sinceTool,
-  mapTool,
-  codeShowTool,
-  codeFindTool,
-  codeRefsTool,
-];
-
-export const DAEMON_TOOL_REGISTRY: readonly ToolDefinition[] = [
-  daemonReposTool,
-  daemonStatusTool,
-  daemonSessionsTool,
-  daemonMonitorsTool,
-  monitorStartTool,
-  monitorPauseTool,
-  monitorResumeTool,
-  monitorStopTool,
-  workspaceAuthorizeTool,
-  workspaceAuthorizationsTool,
-  workspaceRevokeTool,
-  workspaceBindTool,
-  workspaceStatusTool,
-  workspaceRebindTool,
-];
-
-export const ALL_TOOL_REGISTRY: readonly ToolDefinition[] = [
-  ...TOOL_REGISTRY,
-  ...DAEMON_TOOL_REGISTRY,
-];
+export { ALL_TOOL_REGISTRY, TOOL_REGISTRY } from "./tool-registry.js";
 
 export interface GraftServer {
   getRegisteredTools(): string[];
@@ -459,104 +384,6 @@ export function createGraftServer(options: CreateGraftServerOptions = {}): Graft
     },
   };
 
-  const daemonAlwaysAvailableTools = new Set<string>([
-    "daemon_repos",
-    "daemon_status",
-    "daemon_sessions",
-    "daemon_monitors",
-    "monitor_start",
-    "monitor_pause",
-    "monitor_resume",
-    "monitor_stop",
-    "workspace_authorize",
-    "workspace_authorizations",
-    "workspace_revoke",
-    "workspace_bind",
-    "workspace_status",
-    "causal_status",
-    "workspace_rebind",
-    "explain",
-  ]);
-
-  const repoStateOptionalTools = new Set<string>([
-    "daemon_repos",
-    "daemon_status",
-    "daemon_sessions",
-    "daemon_monitors",
-    "monitor_start",
-    "monitor_pause",
-    "monitor_resume",
-    "monitor_stop",
-    "workspace_authorize",
-    "workspace_authorizations",
-    "workspace_revoke",
-    "workspace_bind",
-    "workspace_status",
-    "workspace_rebind",
-    "explain",
-  ]);
-
-  function enforceDaemonToolAccess(name: string): void {
-    if (mode !== "daemon") return;
-    if (daemonAlwaysAvailableTools.has(name)) {
-      return;
-    }
-    if (!workspaceRouter.isBound()) {
-      throw new WorkspaceBindingRequiredError(name);
-    }
-    if (name === "run_capture" && workspaceRouter.getStatus().capabilityProfile?.runCapture !== true) {
-      throw new WorkspaceCapabilityDeniedError(name);
-    }
-  }
-
-  const daemonScheduledRepoTools = new Set<string>([
-    "safe_read",
-    "file_outline",
-    "changed_since",
-    "graft_diff",
-    "graft_since",
-    "graft_map",
-    "code_show",
-    "code_find",
-    "code_refs",
-  ]);
-  const daemonOffloadedRepoTools = new Set<string>(OFFLOADED_DAEMON_REPO_TOOL_NAMES);
-  const attributedReadTools = new Set<string>([
-    "safe_read",
-    "file_outline",
-    "read_range",
-  ]);
-
-  function isOffloadedRepoTool(name: string): name is OffloadedRepoToolName {
-    return daemonOffloadedRepoTools.has(name);
-  }
-
-  function resolveDaemonOffloadedRepoTool(
-    name: string,
-    parsed: Record<string, unknown>,
-    dirty: boolean,
-  ): OffloadedRepoToolName | null {
-    if (name === "code_find") {
-      return dirty ? "code_find_live" : null;
-    }
-    if (name === "code_show") {
-      return parsed["ref"] === undefined ? "code_show_live" : null;
-    }
-    return isOffloadedRepoTool(name) ? name : null;
-  }
-
-  function parseToolPayload(result: McpToolResult): Record<string, unknown> | null {
-    const textBlock = result.content.find((entry) => entry.type === "text");
-    if (textBlock === undefined) {
-      return null;
-    }
-    try {
-      return JSON.parse(textBlock.text) as Record<string, unknown>;
-    } catch {
-      return null;
-    }
-  }
-
   async function invokeTool(
     name: string,
     handler: ToolHandler,
@@ -590,7 +417,12 @@ export function createGraftServer(options: CreateGraftServerOptions = {}): Graft
 
     try {
       const parsed: Record<string, unknown> = schema !== undefined ? schema.parse(args) : args;
-      enforceDaemonToolAccess(name);
+      enforceDaemonToolAccess({
+        mode,
+        name,
+        isBound: workspaceRouter.isBound(),
+        status: workspaceRouter.getStatus(),
+      });
 
       execution = daemonScheduler !== null
         && workspaceRouter.isBound()
@@ -734,40 +566,11 @@ export function createGraftServer(options: CreateGraftServerOptions = {}): Graft
     }
   }
 
-  function wrapWithPolicyCheck(toolName: ToolDefinition["name"], inner: ToolHandler): ToolHandler {
-    return async (args: Record<string, unknown>) => {
-      const rawPath = args["path"] as string | undefined;
-      if (rawPath === undefined) return inner(args);
-      const filePath = ctx.resolvePath(rawPath);
-      let content: string;
-      try {
-        content = await ctx.fs.readFile(filePath, "utf-8");
-      } catch {
-        // File unreadable — let the inner handler deal with the error
-        return inner(args);
-      }
-      const actual = { lines: content.split("\n").length, bytes: Buffer.byteLength(content) };
-      const policy = evaluateMcpPolicy(ctx, filePath, actual);
-      if (policy instanceof RefusedResult) {
-        ctx.metrics.recordRefusal();
-        return respond(toolName, {
-          path: filePath,
-          projection: "refused",
-          reason: policy.reason,
-          reasonDetail: policy.reasonDetail,
-          next: [...policy.next],
-          actual,
-        });
-      }
-      return inner(args);
-    };
-  }
-
   const activeToolRegistry = mode === "daemon" ? ALL_TOOL_REGISTRY : TOOL_REGISTRY;
 
   for (const def of activeToolRegistry) {
     const rawHandler = def.createHandler(ctx);
-    const handler = def.policyCheck === true ? wrapWithPolicyCheck(def.name, rawHandler) : rawHandler;
+    const handler = def.policyCheck === true ? wrapWithPolicyCheck(def.name, rawHandler, ctx) : rawHandler;
     handlers.set(def.name, handler);
 
     if (def.schema !== undefined) {
