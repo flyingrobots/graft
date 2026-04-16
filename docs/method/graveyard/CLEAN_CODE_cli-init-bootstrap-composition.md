@@ -1,4 +1,16 @@
+---
+title: CLI init bootstrap composition is concentrated in one file
+lane: graveyard
+legend: CLEAN
+---
+
 # CLI init bootstrap composition is concentrated in one file
+
+## Disposition
+
+Fixed in the current CLI cleanup slice: src/cli/init.ts is now a thin command root, with bootstrap/document mutation moved into src/cli/init-bootstrap.ts and rendering moved into src/cli/init-render.ts.
+
+## Original Proposal
 
 File: `src/cli/init.ts`
 

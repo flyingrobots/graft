@@ -1,4 +1,16 @@
+---
+title: Public CLI errors are too terse
+lane: graveyard
+legend: CLEAN
+---
+
 # Public CLI errors are too terse
+
+## Disposition
+
+Fixed in the current CLI cleanup slice: global parse errors plus serve, init, index, and generic command failures now emit actionable usage and docs guidance instead of terse failure text.
+
+## Original Proposal
 
 Files:
 - `src/cli/main.ts`

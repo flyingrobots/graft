@@ -1,20 +1,14 @@
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import { handlePostReadHook } from "../../../src/hooks/posttooluse-read.js";
-import { HookInput } from "../../../src/hooks/shared.js";
 import fs from "node:fs";
 import path from "node:path";
-import os from "node:os";
-import { fixturePath, fixtureRoot } from "../../helpers/fixtures.js";
-
-function makeInput(filePath: string, cwd?: string): HookInput {
-  return new HookInput({
-    session_id: "test-session",
-    cwd: cwd ?? fixtureRoot(),
-    hook_event_name: "PostToolUse",
-    tool_name: "Read",
-    tool_input: { file_path: filePath },
-  });
-}
+import { fixturePath } from "../../helpers/fixtures.js";
+import {
+  cleanupHookDir,
+  createTempHookDir,
+  expectPostReadEducation,
+  makeFixtureReadHookInput,
+} from "../../helpers/hooks.js";
 
 describe("hooks: posttooluse-read", () => {
   // -----------------------------------------------------------------------
@@ -22,7 +16,7 @@ describe("hooks: posttooluse-read", () => {
   // -----------------------------------------------------------------------
   it("no feedback for small files — Read was the right call", async () => {
     const output = await handlePostReadHook(
-      makeInput(fixturePath("small.ts")),
+      makeFixtureReadHookInput(fixturePath("small.ts"), "PostToolUse"),
     );
     expect(output.exitCode).toBe(0);
     expect(output.stderr).toBe("");
@@ -33,18 +27,15 @@ describe("hooks: posttooluse-read", () => {
   // -----------------------------------------------------------------------
   it("educates on large file reads with context cost", async () => {
     const output = await handlePostReadHook(
-      makeInput(fixturePath("large.ts")),
+      makeFixtureReadHookInput(fixturePath("large.ts"), "PostToolUse"),
     );
     expect(output.exitCode).toBe(0);
-    expect(output.stderr).toContain("[graft]");
-    expect(output.stderr).toContain("bypassed graft's governed path");
-    expect(output.stderr).toContain("safe_read");
-    expect(output.stderr).toContain("saving");
+    expectPostReadEducation(output.stderr);
   });
 
   it("shows line count and KB in feedback", async () => {
     const output = await handlePostReadHook(
-      makeInput(fixturePath("large.ts")),
+      makeFixtureReadHookInput(fixturePath("large.ts"), "PostToolUse"),
     );
     expect(output.stderr).toMatch(/\d+ lines/);
     expect(output.stderr).toMatch(/\d+(\.\d+)?KB/);
@@ -52,14 +43,14 @@ describe("hooks: posttooluse-read", () => {
 
   it("mentions read_range and jump tables", async () => {
     const output = await handlePostReadHook(
-      makeInput(fixturePath("large.ts")),
+      makeFixtureReadHookInput(fixturePath("large.ts"), "PostToolUse"),
     );
     expect(output.stderr).toContain("read_range");
   });
 
   it("shows threshold in feedback", async () => {
     const output = await handlePostReadHook(
-      makeInput(fixturePath("large.ts")),
+      makeFixtureReadHookInput(fixturePath("large.ts"), "PostToolUse"),
     );
     expect(output.stderr).toContain("Threshold:");
   });
@@ -71,18 +62,18 @@ describe("hooks: posttooluse-read", () => {
     let tmpDir: string;
 
     beforeEach(() => {
-      tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "graft-post-"));
+      tmpDir = createTempHookDir("graft-post-");
     });
 
     afterEach(() => {
-      fs.rmSync(tmpDir, { recursive: true, force: true });
+      cleanupHookDir(tmpDir);
     });
 
     it("no feedback for large non-JS/TS files", async () => {
       const largeMd = "# Heading\n\n" + "Lorem ipsum.\n".repeat(200);
       fs.writeFileSync(path.join(tmpDir, "big.md"), largeMd);
       const output = await handlePostReadHook(
-        makeInput(path.join(tmpDir, "big.md"), tmpDir),
+        makeFixtureReadHookInput(path.join(tmpDir, "big.md"), "PostToolUse", tmpDir),
       );
       expect(output.exitCode).toBe(0);
       expect(output.stderr).toBe("");
@@ -93,15 +84,24 @@ describe("hooks: posttooluse-read", () => {
   // No feedback for nonexistent / outside cwd
   // -----------------------------------------------------------------------
   it("no feedback for nonexistent files", async () => {
-    const nonexistent = path.join(os.tmpdir(), "graft-nonexistent-test-file.ts");
-    const output = await handlePostReadHook(makeInput(nonexistent));
-    expect(output.exitCode).toBe(0);
-    expect(output.stderr).toBe("");
+    const tmpDir = createTempHookDir("graft-post-missing-");
+    try {
+      const nonexistent = path.join(tmpDir, "graft-nonexistent-test-file.ts");
+      const output = await handlePostReadHook(
+        makeFixtureReadHookInput(nonexistent, "PostToolUse"),
+      );
+      expect(output.exitCode).toBe(0);
+      expect(output.stderr).toBe("");
+    } finally {
+      cleanupHookDir(tmpDir);
+    }
   });
 
   it("no feedback for paths outside cwd", async () => {
     const outsidePath = path.resolve(process.cwd(), "..", "outside-file.ts");
-    const output = await handlePostReadHook(makeInput(outsidePath));
+    const output = await handlePostReadHook(
+      makeFixtureReadHookInput(outsidePath, "PostToolUse"),
+    );
     expect(output.exitCode).toBe(0);
     expect(output.stderr).toBe("");
   });
@@ -111,16 +111,24 @@ describe("hooks: posttooluse-read", () => {
   // -----------------------------------------------------------------------
   it("always exits 0", async () => {
     const small = await handlePostReadHook(
-      makeInput(fixturePath("small.ts")),
+      makeFixtureReadHookInput(fixturePath("small.ts"), "PostToolUse"),
     );
     const large = await handlePostReadHook(
-      makeInput(fixturePath("large.ts")),
+      makeFixtureReadHookInput(fixturePath("large.ts"), "PostToolUse"),
     );
-    const missing = await handlePostReadHook(
-      makeInput(path.join(os.tmpdir(), "graft-nope.ts")),
-    );
-    expect(small.exitCode).toBe(0);
-    expect(large.exitCode).toBe(0);
-    expect(missing.exitCode).toBe(0);
+    const tmpDir = createTempHookDir("graft-post-exit-");
+    try {
+      const missing = await handlePostReadHook(
+        makeFixtureReadHookInput(
+          path.join(tmpDir, "graft-nope.ts"),
+          "PostToolUse",
+        ),
+      );
+      expect(small.exitCode).toBe(0);
+      expect(large.exitCode).toBe(0);
+      expect(missing.exitCode).toBe(0);
+    } finally {
+      cleanupHookDir(tmpDir);
+    }
   });
 });

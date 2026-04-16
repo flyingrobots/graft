@@ -383,6 +383,42 @@ describe("cli: graft grouped surface", () => {
 
     expect(stdout.text()).toBe("");
     expect(stderr.text()).toContain("Missing value for --end");
+    expect(stderr.text()).toContain("Usage: graft read range <path> --start <n> --end <n> [--json]");
+    expect(stderr.text()).toContain("docs/CLI.md");
+    expect(process.exitCode).toBe(1);
+  });
+
+  it("reports explicit serve argument errors with usage guidance", async () => {
+    const stdout = createBufferWriter();
+    const stderr = createBufferWriter();
+
+    await runCli({
+      args: ["serve", "extra"],
+      stdout,
+      stderr,
+    });
+
+    expect(stdout.text()).toBe("");
+    expect(stderr.text()).toContain("Unexpected arguments: extra");
+    expect(stderr.text()).toContain("Usage: graft serve");
+    expect(stderr.text()).toContain("docs/CLI.md");
+    expect(process.exitCode).toBe(1);
+  });
+
+  it("reports global option parse errors with usage guidance", async () => {
+    const stdout = createBufferWriter();
+    const stderr = createBufferWriter();
+
+    await runCli({
+      args: ["--cwd"],
+      stdout,
+      stderr,
+    });
+
+    expect(stdout.text()).toBe("");
+    expect(stderr.text()).toContain("Missing value for --cwd");
+    expect(stderr.text()).toContain("Usage: graft [--cwd <path>] <command> ...");
+    expect(stderr.text()).toContain("docs/CLI.md");
     expect(process.exitCode).toBe(1);
   });
 });

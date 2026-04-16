@@ -1,4 +1,16 @@
+---
+title: CLI init tests repeat client bootstrap fixtures and assertions
+lane: graveyard
+legend: CLEAN
+---
+
 # CLI init tests repeat client bootstrap fixtures and assertions
+
+## Disposition
+
+Fixed in the current CLI cleanup slice: repeated init test helpers and graft-server config assertions now live in test/helpers/init.ts instead of being duplicated inline across the init CLI suite.
+
+## Original Proposal
 
 File: `test/unit/cli/init.test.ts`
 

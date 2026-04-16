@@ -1,4 +1,16 @@
+---
+title: CLI index command is still boundary-thin
+lane: graveyard
+legend: CLEAN
+---
+
 # CLI index command is still boundary-thin
+
+## Disposition
+
+Fixed in the current CLI cleanup slice: index now has an explicit runtime command/result model and truthful JSON vs text error behavior instead of ad hoc argument parsing and output shaping.
+
+## Original Proposal
 
 File: `src/cli/index-cmd.ts`
 

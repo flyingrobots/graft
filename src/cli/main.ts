@@ -13,6 +13,7 @@ import {
   parseDaemonCommand,
   parseGlobalOptions,
 } from "./command-parser.js";
+import { describeCliFailure, writeCliError } from "./cli-error.js";
 import { runIndex } from "./index-cmd.js";
 import { runInit } from "./init.js";
 import { runLocalHistoryDag } from "./local-history-dag.js";
@@ -66,7 +67,18 @@ export async function runCli(options: RunCliOptions = {}): Promise<void> {
   const stdout = options.stdout ?? process.stdout;
   const stderr = options.stderr ?? process.stderr;
   const baseCwd = options.cwd ?? process.cwd();
-  const { cwd, argv } = parseGlobalOptions(baseCwd, options.args ?? process.argv.slice(2));
+  let cwd: string;
+  let argv: string[];
+  try {
+    ({ cwd, argv } = parseGlobalOptions(baseCwd, options.args ?? process.argv.slice(2)));
+  } catch (err: unknown) {
+    process.exitCode = 1;
+    writeCliError(stderr, err instanceof Error ? err.message : String(err), {
+      usage: "graft [--cwd <path>] <command> ...",
+      nextSteps: ["Run `graft help` to see the grouped command surface."],
+    });
+    return;
+  }
 
   if (argv.length === 0 || argv[0] === "help" || argv[0] === "--help") {
     renderHelp(stdout);
@@ -86,7 +98,7 @@ export async function runCli(options: RunCliOptions = {}): Promise<void> {
   if (argv[0] === "serve") {
     if (argv.length > 1) {
       process.exitCode = 1;
-      writeLine(stderr, `Error: Unexpected arguments: ${argv.slice(1).join(" ")}`);
+      writeCliError(stderr, `Unexpected arguments: ${argv.slice(1).join(" ")}`, describeCliFailure(argv));
       return;
     }
     await (options.startServer ?? startStdioServer)(cwd);
@@ -99,7 +111,7 @@ export async function runCli(options: RunCliOptions = {}): Promise<void> {
       writeLine(stdout, `Daemon listening on ${daemon.socketPath}`);
     } catch (err: unknown) {
       process.exitCode = 1;
-      writeLine(stderr, `Error: ${err instanceof Error ? err.message : String(err)}`);
+      writeCliError(stderr, err instanceof Error ? err.message : String(err), describeCliFailure(argv));
     }
     return;
   }
@@ -133,6 +145,6 @@ export async function runCli(options: RunCliOptions = {}): Promise<void> {
     emitPeerCommand(parsed.command, result, parsed.json, stdout);
   } catch (err: unknown) {
     process.exitCode = 1;
-    writeLine(stderr, `Error: ${err instanceof Error ? err.message : String(err)}`);
+    writeCliError(stderr, err instanceof Error ? err.message : String(err), describeCliFailure(argv));
   }
 }

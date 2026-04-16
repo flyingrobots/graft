@@ -1,4 +1,16 @@
+---
+title: bin/graft entrypoint has weak boundary typing
+lane: graveyard
+legend: CLEAN
+---
+
 # bin/graft entrypoint has weak boundary typing
+
+## Disposition
+
+Fixed in the current CLI cleanup slice: bin/graft.js is now a thin bootstrap shim that delegates to src/cli/entrypoint.ts rather than owning argument resolution and command dispatch.
+
+## Original Proposal
 
 File: `bin/graft.js`
 

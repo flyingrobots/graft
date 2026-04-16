@@ -1,4 +1,16 @@
+---
+title: Hook read tests repeat fixture setup and assertions
+lane: graveyard
+legend: CLEAN
+---
+
 # Hook read tests repeat fixture setup and assertions
+
+## Disposition
+
+Fixed in the current cleanup slice: shared hook input builders, refusal parsing, governed-read guidance assertions, and temporary hook fixture helpers now live in test/helpers/hooks.ts instead of being duplicated across pretooluse, posttooluse, and parity tests.
+
+## Original Proposal
 
 Files:
 - `test/unit/hooks/pretooluse-read.test.ts`

@@ -3,24 +3,14 @@ import * as fs from "node:fs";
 import * as path from "node:path";
 import { handlePostReadHook } from "../../../src/hooks/posttooluse-read.js";
 import { handleReadHook } from "../../../src/hooks/pretooluse-read.js";
-import { HookInput } from "../../../src/hooks/shared.js";
 import { cleanupTestRepo, createTestRepo, git } from "../../helpers/git.js";
+import {
+  expectGovernedReadGuidance,
+  expectPostReadEducation,
+  makeReadHookInput,
+  refusalReasonFromHook,
+} from "../../helpers/hooks.js";
 import { createServerInRepo, parse } from "../../helpers/mcp.js";
-
-function makeHookInput(filePath: string, cwd: string, hookEventName: "PreToolUse" | "PostToolUse"): HookInput {
-  return new HookInput({
-    session_id: "test-session",
-    cwd,
-    hook_event_name: hookEventName,
-    tool_name: "Read",
-    tool_input: { file_path: filePath },
-  });
-}
-
-function refusalReasonFromHook(output: { stderr: string }): string | null {
-  const match = /Refused: ([A-Z_]+)/.exec(output.stderr);
-  return match?.[1] ?? null;
-}
 
 function expectRefusedProjection(parsed: Record<string, unknown>, reason: string): void {
   expect(parsed["projection"]).toBe("refused");
@@ -91,11 +81,15 @@ describe("policy: cross-surface parity", () => {
       const absolutePath = path.join(repoDir, relativePath);
       const server = createServerInRepo(repoDir);
 
-      const pre = handleReadHook(makeHookInput(absolutePath, repoDir, "PreToolUse"));
+      const pre = handleReadHook(
+        makeReadHookInput(absolutePath, repoDir, "PreToolUse"),
+      );
       expect(pre.exitCode).toBe(2);
       expect(refusalReasonFromHook(pre)).toBe(reason);
 
-      const post = await handlePostReadHook(makeHookInput(absolutePath, repoDir, "PostToolUse"));
+      const post = await handlePostReadHook(
+        makeReadHookInput(absolutePath, repoDir, "PostToolUse"),
+      );
       expect(post.exitCode).toBe(0);
       expect(post.stderr).toBe("");
 
@@ -162,17 +156,17 @@ describe("policy: cross-surface parity", () => {
       Array.from({ length: 220 }, (_, i) => `export const value${String(i)} = ${String(i)};`).join("\n"),
     );
 
-    const pre = handleReadHook(makeHookInput(oversizedPath, repoDir, "PreToolUse"));
+    const pre = handleReadHook(
+      makeReadHookInput(oversizedPath, repoDir, "PreToolUse"),
+    );
     expect(pre.exitCode).toBe(2);
-    expect(pre.stderr).toContain("Governed read");
-    expect(pre.stderr).toContain("safe_read");
-    expect(pre.stderr).toContain("read_range");
+    expectGovernedReadGuidance(pre.stderr);
 
-    const post = await handlePostReadHook(makeHookInput(oversizedPath, repoDir, "PostToolUse"));
+    const post = await handlePostReadHook(
+      makeReadHookInput(oversizedPath, repoDir, "PostToolUse"),
+    );
     expect(post.exitCode).toBe(0);
-    expect(post.stderr).toContain("bypassed graft's governed path");
-    expect(post.stderr).toContain("safe_read");
-    expect(post.stderr).toContain("saving");
+    expectPostReadEducation(post.stderr);
 
     const earlyServer = createServerInRepo(repoDir);
     const staticResult = parse(await earlyServer.callTool("safe_read", { path: "oversized.ts" }));

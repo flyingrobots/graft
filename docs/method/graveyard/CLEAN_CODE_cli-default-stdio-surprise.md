@@ -1,4 +1,16 @@
+---
+title: CLI default mode violates least astonishment
+lane: graveyard
+legend: CLEAN
+---
+
 # CLI default mode violates least astonishment
+
+## Disposition
+
+Retired because repo truth no longer matches the note. Interactive CLI invocation with no args shows help; only the non-interactive compatibility path still resolves to serve for transport bootstrap.
+
+## Original Proposal
 
 Files:
 - `bin/graft.js`
