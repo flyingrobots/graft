@@ -6,11 +6,12 @@ import { nodeProcessRunner } from "../adapters/node-process-runner.js";
 import { openWarp } from "../warp/open.js";
 import { SessionTracker, type SessionTrackerSnapshot } from "../session/tracker.js";
 import { buildReceiptResult, type McpToolReceipt, type McpToolResult } from "./receipt.js";
-import { createPathResolver, type ToolContext, type ToolDefinition, type ToolHandler } from "./context.js";
+import type { ToolContext, ToolDefinition, ToolHandler } from "./context.js";
 import { resolveRunCaptureConfig } from "./run-capture-config.js";
 import { resolveRuntimeObservabilityState } from "./runtime-observability.js";
 import { Metrics, diffMetrics, type MetricsDelta, type MetricsSnapshot } from "./metrics.js";
 import { ObservationCache, type ObservationSnapshot } from "./cache.js";
+import { createRepoPathResolver } from "../adapters/repo-paths.js";
 import type { RepoObservation } from "./repo-state.js";
 import type { WorkspaceCapabilityProfile, WorkspaceStatus } from "./workspace-router.js";
 import { evaluateMcpPolicy } from "./policy.js";
@@ -148,7 +149,7 @@ function buildWorkerContext(
   const cache = ObservationCache.fromSnapshots(job.cacheSnapshots);
   const trackedCachePaths = new Set<string>(Object.keys(job.cacheSnapshots ?? {}));
   if (typeof job.args["path"] === "string") {
-    trackedCachePaths.add(createPathResolver(job.projectRoot)(job.args["path"]));
+    trackedCachePaths.add(createRepoPathResolver(job.projectRoot)(job.args["path"]));
   }
   let response: Omit<RepoToolWorkerResult, "metricsDelta" | "cacheUpdates"> | null = null;
 
@@ -185,7 +186,7 @@ function buildWorkerContext(
       };
       return built.result;
     },
-    resolvePath: createPathResolver(job.projectRoot),
+    resolvePath: createRepoPathResolver(job.projectRoot),
     getWarp() {
       return openWarp({ cwd: job.projectRoot, writerId: job.writerId });
     },

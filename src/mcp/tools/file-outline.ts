@@ -1,7 +1,6 @@
 import { z } from "zod";
-import { RepoWorkspace } from "../../operations/repo-workspace.js";
 import type { ToolDefinition, ToolContext, ToolHandler } from "../context.js";
-import { toPolicyPath } from "../policy.js";
+import { createRepoWorkspaceFromToolContext } from "../repo-workspace.js";
 
 export const fileOutlineTool: ToolDefinition = {
   name: "file_outline",
@@ -12,16 +11,7 @@ export const fileOutlineTool: ToolDefinition = {
   schema: { path: z.string() },
   createHandler(ctx: ToolContext): ToolHandler {
     return async (args) => {
-      const workspace = new RepoWorkspace({
-        projectRoot: ctx.projectRoot,
-        fs: ctx.fs,
-        codec: ctx.codec,
-        graftignorePatterns: ctx.graftignorePatterns,
-        resolvePath: (input) => ctx.resolvePath(input),
-        toPolicyPath: (resolvedPath) => toPolicyPath(ctx.projectRoot, resolvedPath),
-        session: ctx.session,
-        cache: ctx.cache,
-      });
+      const workspace = createRepoWorkspaceFromToolContext(ctx);
       const result = await workspace.fileOutline({ path: args["path"] as string });
       if ("projection" in result && result.projection === "refused") {
         ctx.metrics.recordRefusal();

@@ -1,8 +1,6 @@
 // ---------------------------------------------------------------------------
 // ToolContext — shared dependencies injected into every tool handler
 // ---------------------------------------------------------------------------
-
-import * as path from "node:path";
 import type { ObservationCache } from "./cache.js";
 import type { Metrics } from "./metrics.js";
 import type { SessionTracker } from "../session/tracker.js";
@@ -97,17 +95,4 @@ export interface ToolContext {
   listWorkspaceAuthorizations(): Promise<readonly AuthorizedWorkspaceView[]>;
   authorizeWorkspace(request: WorkspaceAuthorizeRequest): Promise<WorkspaceAuthorizeResult>;
   revokeWorkspace(request: WorkspaceBindRequest): Promise<WorkspaceRevokeResult>;
-}
-
-export { createPathResolver };
-function createPathResolver(projectRoot: string): (input: string) => string {
-  return (input: string): string => {
-    if (path.isAbsolute(input)) return input;
-    const resolved = path.resolve(projectRoot, input);
-    const rel = path.relative(projectRoot, resolved);
-    if (rel.startsWith("..")) {
-      throw new Error(`Path traversal blocked: ${input}`);
-    }
-    return resolved;
-  };
 }

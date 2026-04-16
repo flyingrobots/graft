@@ -49,18 +49,29 @@ adapter so that:
 
 ## Accessibility and Assistive Reading
 
-- Linear truth / reduced-complexity posture: TBD
-- Non-visual or alternate-reading expectations: TBD
+- Linear truth / reduced-complexity posture: The same governed read
+  behavior should be available through a direct repo-local workspace API
+  without requiring a caller to understand MCP receipts.
+- Non-visual or alternate-reading expectations: The extraction should be
+  provable through direct tests and plain source inspection rather than
+  depending on diagrams or transport-specific behavior.
 
 ## Localization and Directionality
 
-- Locale / wording / formatting assumptions: TBD
-- Logical direction / layout assumptions: TBD
+- Locale / wording / formatting assumptions: Use stable capability
+  names and source paths so the extraction story stays inspectable
+  across docs, tests, and code.
+- Logical direction / layout assumptions: The same application service
+  should work regardless of whether the caller is API, CLI, or MCP.
 
 ## Agent Inspectability and Explainability
 
-- What must be explicit and deterministic for agents: TBD
-- What must be attributable, evidenced, or governed: TBD
+- What must be explicit and deterministic for agents: The repo should
+  expose one shared repo-workspace service and visibly thinner read
+  handlers instead of copy-pasted adapter assembly.
+- What must be attributable, evidenced, or governed: Playback tests
+  should prove the library surface, MCP parity, and adapter-thinning
+  claims mechanically.
 
 ## Non-goals
 
@@ -79,3 +90,11 @@ For this cycle, the named primary adapters are:
 - API
 - CLI
 - MCP
+
+## Expected artifacts
+
+- a shared repo-local workspace service for governed reads
+- a direct package/library surface for that service
+- thinner MCP read-family handlers that delegate into the shared service
+- playback witness showing direct API use, MCP parity, and thinner
+  adapters

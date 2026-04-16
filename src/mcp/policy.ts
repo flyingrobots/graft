@@ -1,4 +1,4 @@
-import path from "node:path";
+import { toRepoPolicyPath } from "../adapters/repo-paths.js";
 import { evaluatePolicy } from "../policy/evaluate.js";
 import { loadGraftignore } from "../policy/graftignore.js";
 import { RefusedResult, type PolicyOptions, type PolicyResult } from "../policy/types.js";
@@ -24,19 +24,10 @@ export async function loadProjectGraftignore(
   projectRoot: string,
 ): Promise<string[]> {
   try {
-    return loadGraftignore(await fs.readFile(path.join(projectRoot, ".graftignore"), "utf-8"));
+    return loadGraftignore(await fs.readFile(`${projectRoot}/.graftignore`, "utf-8"));
   } catch {
     return [];
   }
-}
-
-export function toPolicyPath(projectRoot: string, filePath: string): string {
-  const absolutePath = path.isAbsolute(filePath) ? filePath : path.resolve(projectRoot, filePath);
-  const relativePath = path.relative(projectRoot, absolutePath);
-  if (relativePath.length === 0 || relativePath.startsWith("..") || path.isAbsolute(relativePath)) {
-    return absolutePath;
-  }
-  return relativePath.split(path.sep).join("/");
 }
 
 export function buildMcpPolicyOptions(
@@ -56,7 +47,7 @@ export function evaluateMcpPolicy(
 ): PolicyResult {
   return evaluatePolicy(
     {
-      path: toPolicyPath(ctx.projectRoot, filePath),
+      path: toRepoPolicyPath(ctx.projectRoot, filePath),
       lines: actual.lines,
       bytes: actual.bytes,
     },

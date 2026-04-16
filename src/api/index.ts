@@ -1,6 +1,7 @@
 import * as path from "node:path";
 import { nodeFs } from "../adapters/node-fs.js";
 import { CanonicalJsonCodec } from "../adapters/canonical-json.js";
+import { createRepoPathResolver, toRepoPolicyPath } from "../adapters/repo-paths.js";
 import {
   MCP_TOOL_NAMES,
   type McpToolName,
@@ -36,28 +37,6 @@ export interface CreateRepoWorkspaceOptions {
   readonly cache?: ObservationCache | undefined;
 }
 
-function createLibraryPathResolver(projectRoot: string): (input: string) => string {
-  return (input: string): string => {
-    if (path.isAbsolute(input)) return input;
-    const resolved = path.resolve(projectRoot, input);
-    const relative = path.relative(projectRoot, resolved);
-    if (relative.startsWith("..")) {
-      throw new Error(`Path traversal blocked: ${input}`);
-    }
-    return resolved;
-  };
-}
-
-function createLibraryPolicyPathResolver(projectRoot: string): (resolvedPath: string) => string {
-  return (resolvedPath: string): string => {
-    const relative = path.relative(projectRoot, resolvedPath);
-    if (relative.length === 0 || relative.startsWith("..") || path.isAbsolute(relative)) {
-      return resolvedPath;
-    }
-    return relative.split(path.sep).join("/");
-  };
-}
-
 export function createRepoLocalGraft(options: CreateRepoLocalGraftOptions = {}): GraftServer {
   const cwd = path.resolve(options.cwd ?? process.cwd());
   return createGraftServer({
@@ -81,8 +60,8 @@ export async function createRepoWorkspace(options: CreateRepoWorkspaceOptions = 
     fs,
     codec,
     graftignorePatterns: options.graftignorePatterns ?? await RepoWorkspace.loadGraftignorePatterns(fs, cwd),
-    resolvePath: createLibraryPathResolver(cwd),
-    toPolicyPath: createLibraryPolicyPathResolver(cwd),
+    resolvePath: createRepoPathResolver(cwd),
+    toPolicyPath: (resolvedPath) => toRepoPolicyPath(cwd, resolvedPath),
     ...(options.session !== undefined ? { session: options.session } : {}),
     ...(options.cache !== undefined ? { cache: options.cache } : {}),
   });

@@ -1,8 +1,8 @@
 import * as crypto from "node:crypto";
 import * as path from "node:path";
 import type WarpApp from "@git-stunts/git-warp";
+import { createRepoPathResolver } from "../adapters/repo-paths.js";
 import { ObservationCache } from "./cache.js";
-import { createPathResolver } from "./context.js";
 import { Metrics } from "./metrics.js";
 import { loadProjectGraftignore } from "./policy.js";
 import {
@@ -774,7 +774,7 @@ export class WorkspaceRouter {
     return {
       ...resolved,
       graftignorePatterns: await loadProjectGraftignore(this.options.fs, resolved.worktreeRoot),
-      resolvePath: createPathResolver(resolved.worktreeRoot),
+      resolvePath: createRepoPathResolver(resolved.worktreeRoot),
       capabilityProfile,
       transportSessionId: this.options.transportSessionId,
       warpWriterId: this.options.warpWriterId ?? DEFAULT_WARP_WRITER_ID,
