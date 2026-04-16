@@ -1,4 +1,16 @@
+---
+title: WARP indexer is a major architecture hotspot
+lane: graveyard
+legend: CLEAN
+---
+
 # WARP indexer is a major architecture hotspot
+
+## Disposition
+
+Retired after splitting WARP indexing into focused git, graph, and model modules with a thin orchestration root in src/warp/indexer.ts.
+
+## Original Proposal
 
 File: `src/warp/indexer.ts`
 

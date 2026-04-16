@@ -1,10 +1,9 @@
 import { z } from "zod";
 import type { ToolDefinition, ToolContext, ToolHandler } from "../context.js";
 import { GitFileQuery, listGitFiles } from "./git-files.js";
+import { filterVisiblePrecisionMatches } from "./precision-visibility.js";
 import {
-  evaluatePrecisionPolicy,
   getIndexedCommitCeilings,
-  loadFileContent,
   normalizeRepoPath,
   PrecisionSearchRequest,
   type PrecisionSymbolMatch,
@@ -92,34 +91,7 @@ export async function runCodeFind(
     );
   }
 
-  const visibleMatches: PrecisionSymbolMatch[] = [];
-  const fileCache = new Map<string, string>();
-  let firstRefusal:
-    | {
-      path: string;
-      reason: string;
-      reasonDetail: string;
-      next: readonly string[];
-      actual: { lines: number; bytes: number };
-    }
-    | undefined;
-
-  for (const match of allMatches) {
-    let content = fileCache.get(match.path);
-    if (content === undefined) {
-      const loaded = await loadFileContent(ctx, match.path);
-      if (loaded === null) continue;
-      fileCache.set(match.path, loaded);
-      content = loaded;
-    }
-
-    const refusal = evaluatePrecisionPolicy(ctx, match.path, content);
-    if (refusal !== null) {
-      firstRefusal ??= refusal;
-      continue;
-    }
-    visibleMatches.push(match);
-  }
+  const { visibleMatches, firstRefusal } = await filterVisiblePrecisionMatches(ctx, allMatches);
 
   if (visibleMatches.length === 0 && firstRefusal !== undefined) {
     return ctx.respond("code_find", {

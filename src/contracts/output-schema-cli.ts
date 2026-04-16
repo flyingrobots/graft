@@ -1,0 +1,70 @@
+import { z } from "zod";
+import type { CliCommandName } from "./capabilities.js";
+import { activityViewSchema, cliFragmentSchemas, localHistoryDagEdgeSchema, localHistoryDagNodeSchema } from "./output-schema-fragments.js";
+import { mcpOutputBodySchemas } from "./output-schema-mcp.js";
+
+const { initActionSchema, hooksConfigSchema, suggestedMcpServerSchema } = cliFragmentSchemas;
+
+export const cliOutputBodySchemas = {
+  init: z.object({
+    ok: z.boolean(),
+    cwd: z.string(),
+    actions: z.array(initActionSchema).optional(),
+    hooksConfig: hooksConfigSchema.optional(),
+    suggestedMcpServer: suggestedMcpServerSchema.optional(),
+    error: z.string().optional(),
+  }).strict(),
+  index: z.object({
+    ok: z.boolean(),
+    cwd: z.string(),
+    from: z.string().nullable(),
+    commitsIndexed: z.number().int().nonnegative().optional(),
+    patchesWritten: z.number().int().nonnegative().optional(),
+    error: z.string().optional(),
+  }).strict(),
+  migrate_local_history: z.object({
+    cwd: z.string(),
+    graftDir: z.string(),
+    discoveredArtifacts: z.number().int().nonnegative(),
+    migratedArtifacts: z.number().int().nonnegative(),
+    malformedArtifacts: z.number().int().nonnegative(),
+    importedContinuityRecords: z.number().int().nonnegative(),
+    importedReadEvents: z.number().int().nonnegative(),
+    importedStageEvents: z.number().int().nonnegative(),
+    importedTransitionEvents: z.number().int().nonnegative(),
+    skippedContinuityRecords: z.number().int().nonnegative(),
+    skippedReadEvents: z.number().int().nonnegative(),
+    skippedStageEvents: z.number().int().nonnegative(),
+    skippedTransitionEvents: z.number().int().nonnegative(),
+    error: z.string().optional(),
+  }).strict(),
+  read_safe: mcpOutputBodySchemas.safe_read,
+  read_outline: mcpOutputBodySchemas.file_outline,
+  read_range: mcpOutputBodySchemas.read_range,
+  read_changed: mcpOutputBodySchemas.changed_since,
+  struct_diff: mcpOutputBodySchemas.graft_diff,
+  struct_since: mcpOutputBodySchemas.graft_since,
+  struct_map: mcpOutputBodySchemas.graft_map,
+  symbol_show: mcpOutputBodySchemas.code_show,
+  symbol_find: mcpOutputBodySchemas.code_find,
+  diag_doctor: mcpOutputBodySchemas.doctor,
+  diag_activity: activityViewSchema,
+  diag_local_history_dag: z.object({
+    cwd: z.string(),
+    repoId: z.string(),
+    worktreeId: z.string(),
+    requestedEventLimit: z.number().int().positive(),
+    totalEventCount: z.number().int().nonnegative(),
+    shownEventCount: z.number().int().nonnegative(),
+    nodeCount: z.number().int().nonnegative(),
+    edgeCount: z.number().int().nonnegative(),
+    truncated: z.boolean(),
+    rendered: z.string(),
+    nodes: z.array(localHistoryDagNodeSchema),
+    edges: z.array(localHistoryDagEdgeSchema),
+    error: z.string().optional(),
+  }).strict(),
+  diag_explain: mcpOutputBodySchemas.explain,
+  diag_stats: mcpOutputBodySchemas.stats,
+  diag_capture: mcpOutputBodySchemas.run_capture,
+} satisfies Record<CliCommandName, z.ZodType>;
