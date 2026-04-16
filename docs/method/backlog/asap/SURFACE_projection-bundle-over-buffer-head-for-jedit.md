@@ -2,6 +2,8 @@
 title: Projection bundle over buffer head for jedit
 legend: SURFACE
 lane: asap
+blocked_by:
+  - docs/method/backlog/asap/WARP_projection-basis-and-head-identity-for-jedit-warm-truth.md
 ---
 
 # Projection bundle over buffer head for jedit
