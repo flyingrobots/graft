@@ -1,4 +1,3 @@
-import * as crypto from "node:crypto";
 import * as path from "node:path";
 import type WarpApp from "@git-stunts/git-warp";
 import { createRepoPathResolver } from "../adapters/repo-paths.js";
@@ -11,7 +10,6 @@ import {
   PersistedLocalHistoryStore,
   type PersistedLocalHistoryAttachDeclaration,
   type PersistedLocalHistoryContext,
-  type PersistedLocalHistorySharedAttachSource,
   type RepoConcurrencySummary,
   type PersistedLocalHistorySummary,
 } from "./persisted-local-history.js";
@@ -25,81 +23,46 @@ import {
   type GitTransitionHookEvent,
   type RuntimeWorkspaceOverlayFooting,
 } from "./runtime-workspace-overlay.js";
+import { buildWorkspaceReadObservation, type AttributedReadToolName } from "./workspace-read-observation.js";
+import {
+  DEFAULT_REPO_LOCAL_CAPABILITY_PROFILE,
+  WorkspaceBindingRequiredError,
+  type CausalAttachResult,
+  type ResolvedWorkspace,
+  type WorkspaceActionResult,
+  type WorkspaceAuthorizationPolicy,
+  type WorkspaceBindAction,
+  type WorkspaceBindRequest,
+  type WorkspaceCapabilityProfile,
+  type WorkspaceExecutionContext,
+  type WorkspaceSessionMode,
+  type WorkspaceSharedAttachPolicy,
+  type WorkspaceStatus,
+} from "./workspace-router-model.js";
+import { resolveWorkspaceRequest, stableWorkspaceId } from "./workspace-router-resolution.js";
 import { SessionTracker } from "../session/tracker.js";
 import type { FileSystem } from "../ports/filesystem.js";
 import type { GitClient } from "../ports/git.js";
 import type { WarpPool } from "./warp-pool.js";
 import { DEFAULT_WARP_WRITER_ID } from "../warp/writer-id.js";
-
-export type WorkspaceSessionMode = "repo_local" | "daemon";
-export type WorkspaceBindState = "bound" | "unbound";
-export type WorkspaceBindAction = "bind" | "rebind";
-
-export interface WorkspaceCapabilityProfile {
-  readonly boundedReads: boolean;
-  readonly structuralTools: boolean;
-  readonly precisionTools: boolean;
-  readonly stateBookmarks: boolean;
-  readonly runtimeLogs: "session_local_only";
-  readonly runCapture: boolean;
-}
-
-export interface WorkspaceStatus {
-  readonly sessionMode: WorkspaceSessionMode;
-  readonly bindState: WorkspaceBindState;
-  readonly repoId: string | null;
-  readonly worktreeId: string | null;
-  readonly worktreeRoot: string | null;
-  readonly gitCommonDir: string | null;
-  readonly graftDir: string | null;
-  readonly capabilityProfile: WorkspaceCapabilityProfile | null;
-}
-
-export interface WorkspaceActionResult extends WorkspaceStatus {
-  readonly ok: boolean;
-  readonly action: WorkspaceBindAction;
-  readonly freshSessionSlice: boolean;
-  readonly errorCode?: string;
-  readonly error?: string;
-}
-
-export interface CausalAttachResult extends WorkspaceStatus {
-  readonly ok: boolean;
-  readonly action: "attach";
-  readonly persistedLocalHistory: PersistedLocalHistorySummary;
-  readonly errorCode?: string;
-  readonly error?: string;
-}
-
-export interface WorkspaceBindRequest {
-  readonly cwd: string;
-  readonly worktreeRoot?: string | undefined;
-  readonly gitCommonDir?: string | undefined;
-  readonly repoId?: string | undefined;
-}
-
-export class WorkspaceBindingRequiredError extends Error {
-  readonly code = "UNBOUND_SESSION";
-
-  constructor(toolName: string) {
-    super(`Tool ${toolName} requires an active workspace binding. Call workspace_bind first.`);
-    this.name = "WorkspaceBindingRequiredError";
-  }
-}
-
-export class WorkspaceCapabilityDeniedError extends Error {
-  readonly code = "CAPABILITY_DENIED";
-
-  constructor(toolName: string) {
-    super(`Tool ${toolName} is not enabled in the daemon default capability profile.`);
-    this.name = "WorkspaceCapabilityDeniedError";
-  }
-}
-
-interface WorkspaceBindError {
-  readonly code: string;
-  readonly message: string;
-}
+export {
+  DEFAULT_DAEMON_CAPABILITY_PROFILE,
+  DEFAULT_REPO_LOCAL_CAPABILITY_PROFILE,
+  WorkspaceBindingRequiredError,
+  WorkspaceCapabilityDeniedError,
+  type CausalAttachResult,
+  type ResolvedWorkspace,
+  type WorkspaceActionResult,
+  type WorkspaceAuthorizationPolicy,
+  type WorkspaceBindAction,
+  type WorkspaceBindRequest,
+  type WorkspaceCapabilityProfile,
+  type WorkspaceExecutionContext,
+  type WorkspaceSessionMode,
+  type WorkspaceSharedAttachPolicy,
+  type WorkspaceStatus,
+} from "./workspace-router-model.js";
+export { resolveWorkspaceRequest } from "./workspace-router-resolution.js";
 
 interface WorkspaceSlice {
   readonly sliceId: string;
@@ -124,49 +87,6 @@ interface BoundWorkspace {
   readonly getWarp: () => Promise<WarpApp>;
 }
 
-export interface WorkspaceExecutionContext {
-  readonly sliceId: string;
-  readonly repoId: string;
-  readonly worktreeId: string;
-  readonly projectRoot: string;
-  readonly worktreeRoot: string;
-  readonly gitCommonDir: string;
-  readonly graftignorePatterns: readonly string[];
-  readonly resolvePath: (input: string) => string;
-  readonly capabilityProfile: WorkspaceCapabilityProfile;
-  readonly warpWriterId: string;
-  getCausalContext(): RuntimeCausalContext;
-  readonly status: WorkspaceStatus;
-  readonly session: SessionTracker;
-  readonly cache: ObservationCache;
-  readonly metrics: Metrics;
-  readonly graftDir: string;
-  readonly repoState: RepoStateTracker;
-  readonly getWarp: () => Promise<WarpApp>;
-}
-
-type AttributedReadToolName = "safe_read" | "file_outline" | "read_range";
-
-export interface ResolvedWorkspace {
-  readonly repoId: string;
-  readonly worktreeId: string;
-  readonly worktreeRoot: string;
-  readonly gitCommonDir: string;
-}
-
-export interface WorkspaceAuthorizationPolicy {
-  getCapabilityProfile(resolved: ResolvedWorkspace): Promise<WorkspaceCapabilityProfile | null>;
-  noteBound(resolved: ResolvedWorkspace): Promise<void>;
-}
-
-export interface WorkspaceSharedAttachPolicy {
-  resolveSharedAttachSource(input: {
-    readonly sessionId: string;
-    readonly repoId: string;
-    readonly worktreeId: string;
-  }): PersistedLocalHistorySharedAttachSource | null;
-}
-
 interface WorkspaceRouterOptions {
   readonly mode: WorkspaceSessionMode;
   readonly fs: FileSystem;
@@ -179,71 +99,6 @@ interface WorkspaceRouterOptions {
   readonly authorizationPolicy?: WorkspaceAuthorizationPolicy | undefined;
   readonly sharedAttachPolicy?: WorkspaceSharedAttachPolicy | undefined;
   readonly persistedLocalHistory: PersistedLocalHistoryStore;
-}
-
-export const DEFAULT_DAEMON_CAPABILITY_PROFILE: WorkspaceCapabilityProfile = Object.freeze({
-  boundedReads: true,
-  structuralTools: true,
-  precisionTools: true,
-  stateBookmarks: true,
-  runtimeLogs: "session_local_only",
-  runCapture: false,
-});
-
-export const DEFAULT_REPO_LOCAL_CAPABILITY_PROFILE: WorkspaceCapabilityProfile = Object.freeze({
-  boundedReads: true,
-  structuralTools: true,
-  precisionTools: true,
-  stateBookmarks: true,
-  runtimeLogs: "session_local_only",
-  runCapture: true,
-});
-
-function stableId(prefix: string, input: string): string {
-  return `${prefix}:${crypto.createHash("sha256").update(input).digest("hex").slice(0, 16)}`;
-}
-
-async function readGitValue(git: GitClient, cwd: string, args: readonly string[]): Promise<string | null> {
-  const result = await git.run({ args, cwd });
-  if (result.error !== undefined || result.status !== 0) {
-    return null;
-  }
-  const trimmed = result.stdout.trim();
-  return trimmed.length > 0 ? trimmed : null;
-}
-
-function toAbsolutePath(base: string, value: string): string {
-  return path.isAbsolute(value) ? value : path.resolve(base, value);
-}
-
-export async function resolveWorkspaceRequest(
-  git: GitClient,
-  request: WorkspaceBindRequest,
-): Promise<ResolvedWorkspace | WorkspaceBindError> {
-  const cwd = path.resolve(request.cwd);
-  const worktreeRoot = await readGitValue(git, cwd, ["rev-parse", "--path-format=absolute", "--show-toplevel"]);
-  if (worktreeRoot === null) {
-    return {
-      code: "NOT_A_GIT_REPO",
-      message: `cwd is not inside a git worktree: ${cwd}`,
-    };
-  }
-
-  const rawGitCommonDir = await readGitValue(git, cwd, ["rev-parse", "--path-format=absolute", "--git-common-dir"]);
-  if (rawGitCommonDir === null) {
-    return {
-      code: "WORKSPACE_RESOLUTION_FAILED",
-      message: `Unable to resolve git common dir from ${cwd}`,
-    };
-  }
-
-  const gitCommonDir = toAbsolutePath(worktreeRoot, rawGitCommonDir);
-  return {
-    repoId: stableId("repo", gitCommonDir),
-    worktreeId: stableId("worktree", worktreeRoot),
-    worktreeRoot,
-    gitCommonDir,
-  };
 }
 
 export class WorkspaceRouter {
@@ -282,14 +137,14 @@ export class WorkspaceRouter {
       const resolved = await resolveWorkspaceRequest(this.options.git, { cwd: projectRoot });
       const initialWorkspace = "code" in resolved
         ? {
-            repoId: stableId("repo", projectRoot),
-            worktreeId: stableId("worktree", projectRoot),
+            repoId: stableWorkspaceId("repo", projectRoot),
+            worktreeId: stableWorkspaceId("worktree", projectRoot),
             worktreeRoot: projectRoot,
             gitCommonDir: projectRoot,
           }
         : {
             repoId: resolved.repoId,
-            worktreeId: stableId("worktree", projectRoot),
+            worktreeId: stableWorkspaceId("worktree", projectRoot),
             worktreeRoot: projectRoot,
             gitCommonDir: resolved.gitCommonDir,
           };
@@ -552,7 +407,7 @@ export class WorkspaceRouter {
       return;
     }
 
-    const readObservation = this.buildReadObservation(active, toolName, args, result);
+    const readObservation = buildWorkspaceReadObservation(active, toolName, args, result);
     if (readObservation === null) {
       return;
     }
@@ -902,104 +757,6 @@ export class WorkspaceRouter {
       return null;
     }
     return this.captureExecutionContext();
-  }
-
-  private buildReadObservation(
-    execution: WorkspaceExecutionContext,
-    toolName: AttributedReadToolName,
-    args: Record<string, unknown>,
-    result: Record<string, unknown>,
-  ): {
-    readonly surface: string;
-    readonly projection: string;
-    readonly sourceLayer: "canonical_structural_truth" | "workspace_overlay";
-    readonly reason: string;
-    readonly footprint: {
-      readonly paths: string[];
-      readonly symbols: string[];
-      readonly regions: {
-        readonly path: string;
-        readonly startLine: number;
-        readonly endLine: number;
-      }[];
-    };
-  } | null {
-    const rawPath = args["path"];
-    if (typeof rawPath !== "string") {
-      return null;
-    }
-
-    const absolutePath = execution.resolvePath(rawPath);
-    const relativePath = path.relative(execution.worktreeRoot, absolutePath);
-    const footprintPath = relativePath.startsWith("..") ? absolutePath : relativePath;
-    const sourceLayer = execution.repoState.getState().workspaceOverlayId === null
-      ? "canonical_structural_truth"
-      : "workspace_overlay";
-
-    if (toolName === "safe_read") {
-      const projection = result["projection"];
-      if (
-        projection !== "content" &&
-        projection !== "outline" &&
-        projection !== "cache_hit" &&
-        projection !== "diff"
-      ) {
-        return null;
-      }
-      return {
-        surface: "safe_read",
-        projection,
-        sourceLayer,
-        reason: typeof result["reason"] === "string" ? result["reason"] : "SAFE_READ",
-        footprint: {
-          paths: [footprintPath],
-          symbols: [],
-          regions: [],
-        },
-      };
-    }
-
-    if (toolName === "file_outline") {
-      if (typeof result["error"] === "string" || result["reason"] === "UNSUPPORTED_LANGUAGE") {
-        return null;
-      }
-      return {
-        surface: "file_outline",
-        projection: "outline",
-        sourceLayer,
-        reason: typeof result["reason"] === "string" ? result["reason"] : "FILE_OUTLINE",
-        footprint: {
-          paths: [footprintPath],
-          symbols: [],
-          regions: [],
-        },
-      };
-    }
-
-    const startLine = result["startLine"];
-    const endLine = result["endLine"];
-    if (
-      typeof result["content"] !== "string" ||
-      typeof startLine !== "number" ||
-      typeof endLine !== "number"
-    ) {
-      return null;
-    }
-    return {
-      surface: "read_range",
-      projection: "content",
-      sourceLayer,
-      reason: typeof result["reason"] === "string" ? result["reason"] : "READ_RANGE",
-      footprint: {
-        paths: [footprintPath],
-        symbols: [],
-        regions: [{
-          path: footprintPath,
-          startLine,
-          endLine,
-        }],
-      },
-    };
   }
 
   private async buildPersistedLocalHistoryGraphContext(

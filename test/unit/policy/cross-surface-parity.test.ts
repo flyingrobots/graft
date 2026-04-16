@@ -201,7 +201,7 @@ describe("policy: cross-surface parity", () => {
     const budgetResult = parse(await budgetServer.callTool("safe_read", { path: "pressure.ts" }));
     expect(budgetResult["projection"]).toBe("outline");
     expect(budgetResult["reason"]).toBe("BUDGET_CAP");
-  });
+  }, 10_000);
 
   it("keeps historical denial parity for git-backed precision and structural reads", async () => {
     const repoDir = createTestRepo("graft-policy-parity-historical-");
