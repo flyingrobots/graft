@@ -39,12 +39,20 @@ These are the preferred direct typed surfaces for dirty-buffer editor
 work:
 
 - `createStructuredBuffer(...)`
+- `CreateStructuredBufferOptions`
 - `StructuredBuffer`
+- `WarmProjectionBasis`
 - exported `Buffer*`, `Syntax*`, `Fold*`, `Selection*`, `Rename*`,
   `SemanticSummary*`, and related structured-buffer result/value types
 
 Use this family when a host app wants editor-native parsing, spans,
 rename previews, and diff/mapping on unsaved text.
+
+Warm buffer results carry explicit basis identity when the caller
+provides it. Single-buffer queries expose `basis`; comparison-style
+results expose `fromBasis` / `toBasis`. That lets hosts compare the
+projection basis they received against the editor's current head/tick
+truth.
 
 ### 3. Tool Bridge Surface
 
@@ -126,4 +134,3 @@ questions explicitly:
 
 If a change does not affect the documented public API, it should be
 classified as internal refactor or internal hardening instead.
-

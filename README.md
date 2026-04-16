@@ -80,7 +80,9 @@ For close editor integration, use the buffer-native surface directly:
 ```ts
 import { createStructuredBuffer } from "@flyingrobots/graft";
 
-const buffer = createStructuredBuffer("src/app.tsx", liveEditorText);
+const buffer = createStructuredBuffer("src/app.tsx", liveEditorText, {
+  basis: { kind: "editor_head", headId: "head-42", tick: 17 },
+});
 const spans = buffer.syntaxSpans({
   viewport: {
     start: { row: 0, column: 0 },
@@ -92,6 +94,9 @@ const rename = buffer.renamePreview({
   position: { row: 24, column: 12 },
   nextName: "nextValue",
 });
+
+// Every warm result now carries the basis it was derived from.
+console.log(spans.basis);
 ```
 
 ### 5. Shared Daemon Runtime

@@ -19,9 +19,17 @@ export interface BufferRange {
 
 export type BufferSelection = BufferPoint | BufferRange;
 
+export interface WarmProjectionBasis {
+  readonly kind: "editor_head";
+  readonly headId: string;
+  readonly tick?: number | undefined;
+  readonly editGroupId?: string | undefined;
+}
+
 export interface BufferOutlineResult {
   readonly path: string;
   readonly format: SupportedStructuredFormat | null;
+  readonly basis: WarmProjectionBasis | null;
   readonly outline: readonly OutlineEntry[];
   readonly jumpTable: readonly JumpEntry[];
   readonly partial: boolean;
@@ -49,6 +57,7 @@ export interface SyntaxSpan {
 export interface SyntaxSpanResult {
   readonly path: string;
   readonly format: SupportedStructuredFormat | null;
+  readonly basis: WarmProjectionBasis | null;
   readonly partial: boolean;
   readonly spans: readonly SyntaxSpan[];
   readonly injections: readonly InjectionRegion[];
@@ -65,6 +74,7 @@ export interface BufferDiagnostic {
 export interface DiagnosticsResult {
   readonly path: string;
   readonly format: SupportedStructuredFormat | null;
+  readonly basis: WarmProjectionBasis | null;
   readonly partial: boolean;
   readonly diagnostics: readonly BufferDiagnostic[];
   readonly reason?: "UNSUPPORTED_LANGUAGE" | undefined;
@@ -81,6 +91,7 @@ export interface NodeSummary {
 export interface NodeLookupResult {
   readonly path: string;
   readonly format: SupportedStructuredFormat | null;
+  readonly basis: WarmProjectionBasis | null;
   readonly partial: boolean;
   readonly node: NodeSummary | null;
   readonly parents: readonly NodeSummary[];
@@ -97,6 +108,7 @@ export interface InjectionRegion {
 export interface InjectionResult {
   readonly path: string;
   readonly format: SupportedStructuredFormat | null;
+  readonly basis: WarmProjectionBasis | null;
   readonly injections: readonly InjectionRegion[];
   readonly reason?: "UNSUPPORTED_LANGUAGE" | undefined;
 }
@@ -109,6 +121,7 @@ export interface FoldRegion {
 export interface FoldRegionsResult {
   readonly path: string;
   readonly format: SupportedStructuredFormat | null;
+  readonly basis: WarmProjectionBasis | null;
   readonly partial: boolean;
   readonly regions: readonly FoldRegion[];
   readonly reason?: "UNSUPPORTED_LANGUAGE" | undefined;
@@ -117,6 +130,7 @@ export interface FoldRegionsResult {
 export interface SelectionStepResult {
   readonly path: string;
   readonly format: SupportedStructuredFormat | null;
+  readonly basis: WarmProjectionBasis | null;
   readonly partial: boolean;
   readonly range: BufferRange | null;
   readonly node: NodeSummary | null;
@@ -132,6 +146,7 @@ export interface SymbolOccurrence {
 export interface SymbolOccurrencesResult {
   readonly path: string;
   readonly format: SupportedStructuredFormat | null;
+  readonly basis: WarmProjectionBasis | null;
   readonly partial: boolean;
   readonly symbol: string | null;
   readonly occurrences: readonly SymbolOccurrence[];
@@ -149,6 +164,7 @@ export interface RenameEditPreview {
 export interface RenamePreviewResult {
   readonly path: string;
   readonly format: SupportedStructuredFormat | null;
+  readonly basis: WarmProjectionBasis | null;
   readonly partial: boolean;
   readonly symbol: string | null;
   readonly nextName: string;
@@ -168,6 +184,8 @@ export interface ChangedRegion {
 export interface StructuredBufferDiffResult {
   readonly path: string;
   readonly format: SupportedStructuredFormat | null;
+  readonly fromBasis: WarmProjectionBasis | null;
+  readonly toBasis: WarmProjectionBasis | null;
   readonly partial: boolean;
   readonly outlineDiff: OutlineDiff;
   readonly changedRegions: readonly ChangedRegion[];
@@ -188,6 +206,8 @@ export type SemanticSummaryKind =
 export interface SemanticSummaryResult {
   readonly path: string;
   readonly format: SupportedStructuredFormat | null;
+  readonly fromBasis: WarmProjectionBasis | null;
+  readonly toBasis: WarmProjectionBasis | null;
   readonly partial: boolean;
   readonly kind: SemanticSummaryKind;
   readonly summary: string;
@@ -197,6 +217,8 @@ export interface SemanticSummaryResult {
 export interface AnchorAffinityResult {
   readonly path: string;
   readonly format: SupportedStructuredFormat | null;
+  readonly fromBasis: WarmProjectionBasis | null;
+  readonly toBasis: WarmProjectionBasis | null;
   readonly partial: boolean;
   readonly oldRange: BufferRange;
   readonly newRange: BufferRange | null;
@@ -863,13 +885,15 @@ export class StructuredBuffer {
   readonly path: string;
   readonly content: string;
   readonly format: SupportedStructuredFormat | null;
+  readonly basis: WarmProjectionBasis | null;
   readonly partial: boolean;
   #disposed = false;
   #state: ParseState;
 
-  constructor(opts: { path: string; content: string }) {
+  constructor(opts: { path: string; content: string; basis?: WarmProjectionBasis | undefined }) {
     this.path = opts.path;
     this.content = opts.content;
+    this.basis = opts.basis ?? null;
     const format = detectStructuredFormat(opts.path);
     const parsed = format === null || format === "md"
       ? null
@@ -891,12 +915,18 @@ export class StructuredBuffer {
     this.#disposed = true;
   }
 
+  basisIdentity(): WarmProjectionBasis | null {
+    this.#assertLive();
+    return this.basis;
+  }
+
   outline(): BufferOutlineResult {
     this.#assertLive();
     if (this.format === null) {
       return {
         path: this.path,
         format: this.format,
+        basis: this.basis,
         outline: [],
         jumpTable: [],
         partial: false,
@@ -907,6 +937,7 @@ export class StructuredBuffer {
     return {
       path: this.path,
       format: this.format,
+      basis: this.basis,
       outline: result.entries,
       jumpTable: result.jumpTable ?? [],
       partial: result.partial === true,
@@ -919,6 +950,7 @@ export class StructuredBuffer {
       return {
         path: this.path,
         format: this.format,
+        basis: this.basis,
         partial: this.partial,
         spans: [],
         injections: this.injections().injections,
@@ -979,6 +1011,7 @@ export class StructuredBuffer {
     return {
       path: this.path,
       format: this.format,
+      basis: this.basis,
       partial: this.partial,
       spans,
       injections: this.injections().injections,
@@ -991,6 +1024,7 @@ export class StructuredBuffer {
       return {
         path: this.path,
         format: this.format,
+        basis: this.basis,
         partial: this.partial,
         diagnostics: [],
         reason: "UNSUPPORTED_LANGUAGE",
@@ -1026,6 +1060,7 @@ export class StructuredBuffer {
     return {
       path: this.path,
       format: this.format,
+      basis: this.basis,
       partial: this.partial,
       diagnostics,
     };
@@ -1037,6 +1072,7 @@ export class StructuredBuffer {
       return {
         path: this.path,
         format: this.format,
+        basis: this.basis,
         partial: this.partial,
         node: null,
         parents: [],
@@ -1055,6 +1091,7 @@ export class StructuredBuffer {
     return {
       path: this.path,
       format: this.format,
+      basis: this.basis,
       partial: this.partial,
       node: summarizeNode(node),
       parents,
@@ -1067,6 +1104,7 @@ export class StructuredBuffer {
       return {
         path: this.path,
         format: this.format,
+        basis: this.basis,
         injections: fencedCodeInjections(this.content),
       };
     }
@@ -1074,6 +1112,7 @@ export class StructuredBuffer {
       return {
         path: this.path,
         format: this.format,
+        basis: this.basis,
         injections: [],
         reason: "UNSUPPORTED_LANGUAGE",
       };
@@ -1081,6 +1120,7 @@ export class StructuredBuffer {
     return {
       path: this.path,
       format: this.format,
+      basis: this.basis,
       injections: [
         ...tsInjections(this.#state.parsed.root),
         ...taggedTemplateInjections(this.content),
@@ -1095,6 +1135,7 @@ export class StructuredBuffer {
       return {
         path: this.path,
         format: this.format,
+        basis: this.basis,
         partial: outline.partial,
         regions: outline.jumpTable
           .filter((entry) => entry.end > entry.start)
@@ -1111,6 +1152,7 @@ export class StructuredBuffer {
       return {
         path: this.path,
         format: this.format,
+        basis: this.basis,
         partial: this.partial,
         regions: [],
         reason: "UNSUPPORTED_LANGUAGE",
@@ -1139,6 +1181,7 @@ export class StructuredBuffer {
     return {
       path: this.path,
       format: this.format,
+      basis: this.basis,
       partial: this.partial,
       regions,
     };
@@ -1150,6 +1193,7 @@ export class StructuredBuffer {
       return {
         path: this.path,
         format: this.format,
+        basis: this.basis,
         partial: this.partial,
         range: null,
         node: null,
@@ -1164,6 +1208,7 @@ export class StructuredBuffer {
     return {
       path: this.path,
       format: this.format,
+      basis: this.basis,
       partial: this.partial,
       range: nodeRange(node),
       node: summarizeNode(node),
@@ -1176,6 +1221,7 @@ export class StructuredBuffer {
       return {
         path: this.path,
         format: this.format,
+        basis: this.basis,
         partial: this.partial,
         range: null,
         node: null,
@@ -1188,6 +1234,7 @@ export class StructuredBuffer {
       return {
         path: this.path,
         format: this.format,
+        basis: this.basis,
         partial: this.partial,
         range: nodeRange(node),
         node: summarizeNode(node),
@@ -1198,6 +1245,7 @@ export class StructuredBuffer {
       return {
         path: this.path,
         format: this.format,
+        basis: this.basis,
         partial: this.partial,
         range: null,
         node: null,
@@ -1207,6 +1255,7 @@ export class StructuredBuffer {
     return {
       path: this.path,
       format: this.format,
+      basis: this.basis,
       partial: this.partial,
       range: nodeRange(child),
       node: summarizeNode(child),
@@ -1219,6 +1268,7 @@ export class StructuredBuffer {
       return {
         path: this.path,
         format: this.format,
+        basis: this.basis,
         partial: this.partial,
         symbol: null,
         occurrences: [],
@@ -1231,6 +1281,7 @@ export class StructuredBuffer {
       return {
         path: this.path,
         format: this.format,
+        basis: this.basis,
         partial: this.partial,
         symbol: null,
         occurrences: [],
@@ -1253,6 +1304,7 @@ export class StructuredBuffer {
     return {
       path: this.path,
       format: this.format,
+      basis: this.basis,
       partial: this.partial,
       symbol: resolved.symbol,
       occurrences,
@@ -1266,6 +1318,7 @@ export class StructuredBuffer {
       return {
         path: this.path,
         format: this.format,
+        basis: this.basis,
         partial: this.partial,
         symbol: occurrences.symbol,
         nextName: opts.nextName,
@@ -1277,6 +1330,7 @@ export class StructuredBuffer {
     return {
       path: this.path,
       format: this.format,
+      basis: this.basis,
       partial: this.partial,
       symbol: occurrences.symbol,
       nextName: opts.nextName,
@@ -1298,6 +1352,8 @@ export class StructuredBuffer {
     return {
       path: next.path,
       format: next.format,
+      fromBasis: this.basis,
+      toBasis: next.basis,
       partial: this.partial || next.partial,
       outlineDiff: diffOutlines(currentOutline.outline, nextOutline.outline),
       changedRegions: diffChangedRegions(this.content, next.content),
@@ -1310,6 +1366,8 @@ export class StructuredBuffer {
       return {
         path: next.path,
         format: next.format,
+        fromBasis: this.basis,
+        toBasis: next.basis,
         partial: diff.partial,
         kind: "no_changes",
         summary: "No changes",
@@ -1320,6 +1378,8 @@ export class StructuredBuffer {
       return {
         path: next.path,
         format: next.format,
+        fromBasis: this.basis,
+        toBasis: next.basis,
         partial: diff.partial,
         kind: "whitespace_only",
         summary: "Edited whitespace only",
@@ -1332,6 +1392,8 @@ export class StructuredBuffer {
       return {
         path: next.path,
         format: next.format,
+        fromBasis: this.basis,
+        toBasis: next.basis,
         partial: diff.partial,
         kind: "comments_only",
         summary: "Edited comments only",
@@ -1343,6 +1405,8 @@ export class StructuredBuffer {
       return {
         path: next.path,
         format: next.format,
+        fromBasis: this.basis,
+        toBasis: next.basis,
         partial: diff.partial,
         kind: "renamed_symbol",
         summary: renameFact,
@@ -1355,6 +1419,8 @@ export class StructuredBuffer {
       return {
         path: next.path,
         format: next.format,
+        fromBasis: this.basis,
+        toBasis: next.basis,
         partial: diff.partial,
         kind: "added_symbol",
         summary,
@@ -1367,6 +1433,8 @@ export class StructuredBuffer {
       return {
         path: next.path,
         format: next.format,
+        fromBasis: this.basis,
+        toBasis: next.basis,
         partial: diff.partial,
         kind: "removed_symbol",
         summary,
@@ -1379,6 +1447,8 @@ export class StructuredBuffer {
       return {
         path: next.path,
         format: next.format,
+        fromBasis: this.basis,
+        toBasis: next.basis,
         partial: diff.partial,
         kind: "changed_signature",
         summary,
@@ -1389,6 +1459,8 @@ export class StructuredBuffer {
       return {
         path: next.path,
         format: next.format,
+        fromBasis: this.basis,
+        toBasis: next.basis,
         partial: diff.partial,
         kind: "changed_structure",
         summary: "Changed structure",
@@ -1403,6 +1475,8 @@ export class StructuredBuffer {
       return {
         path: next.path,
         format: next.format,
+        fromBasis: this.basis,
+        toBasis: next.basis,
         partial: diff.partial,
         kind: "changed_regions_only",
         summary: "Edited buffer regions without structural changes",
@@ -1412,6 +1486,8 @@ export class StructuredBuffer {
     return {
       path: next.path,
       format: next.format,
+      fromBasis: this.basis,
+      toBasis: next.basis,
       partial: diff.partial,
       kind: "mixed_edit",
       summary: "Edited code",
@@ -1426,6 +1502,8 @@ export class StructuredBuffer {
       return {
         path: next.path,
         format: next.format,
+        fromBasis: this.basis,
+        toBasis: next.basis,
         partial: this.partial || next.partial,
         oldRange: selection,
         newRange: null,
@@ -1441,6 +1519,8 @@ export class StructuredBuffer {
       return {
         path: next.path,
         format: next.format,
+        fromBasis: this.basis,
+        toBasis: next.basis,
         partial: this.partial || next.partial,
         oldRange: selection,
         newRange: nodeRange(pathMatch),
@@ -1457,6 +1537,8 @@ export class StructuredBuffer {
         return {
           path: next.path,
           format: next.format,
+          fromBasis: this.basis,
+          toBasis: next.basis,
           partial: this.partial || next.partial,
           oldRange: selection,
           newRange: nodeRange(onlyCandidate),
@@ -1472,6 +1554,8 @@ export class StructuredBuffer {
       return {
         path: next.path,
         format: next.format,
+        fromBasis: this.basis,
+        toBasis: next.basis,
         partial: this.partial || next.partial,
         oldRange: selection,
         newRange: nodeRange(onlyTextCandidate),
@@ -1483,6 +1567,8 @@ export class StructuredBuffer {
     return {
       path: next.path,
       format: next.format,
+      fromBasis: this.basis,
+      toBasis: next.basis,
       partial: this.partial || next.partial,
       oldRange: selection,
       newRange: null,

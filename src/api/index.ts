@@ -5,12 +5,22 @@ import { startStdioServer } from "../mcp/stdio-server.js";
 import { ObservationCache } from "../operations/observation-cache.js";
 import { RepoWorkspace } from "../operations/repo-workspace.js";
 import { StructuredBuffer } from "../operations/structured-buffer.js";
+import type { WarmProjectionBasis } from "../operations/structured-buffer.js";
 import { GRAFT_VERSION } from "../version.js";
 export { createRepoLocalGraft, type CreateRepoLocalGraftOptions } from "./repo-local-graft.js";
 export { createRepoWorkspace, type CreateRepoWorkspaceOptions } from "./repo-workspace.js";
 export { callGraftTool, parseGraftToolPayload } from "./tool-bridge.js";
-export function createStructuredBuffer(path: string, content: string): StructuredBuffer {
-  return new StructuredBuffer({ path, content });
+
+export interface CreateStructuredBufferOptions {
+  readonly basis?: WarmProjectionBasis | undefined;
+}
+
+export function createStructuredBuffer(
+  path: string,
+  content: string,
+  options: CreateStructuredBufferOptions = {},
+): StructuredBuffer {
+  return new StructuredBuffer({ path, content, basis: options.basis });
 }
 
 export {
@@ -50,6 +60,7 @@ export type {
   SyntaxClass,
   SyntaxSpan,
   SyntaxSpanResult,
+  WarmProjectionBasis,
 } from "../operations/structured-buffer.js";
 
 export type {
