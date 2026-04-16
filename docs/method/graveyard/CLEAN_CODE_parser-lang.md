@@ -1,4 +1,16 @@
+---
+title: language detection still mixes core logic with node path details
+lane: graveyard
+legend: CLEAN
+---
+
 # language detection still mixes core logic with node path details
+
+## Disposition
+
+Fixed in the current cleanup slice: src/parser/lang.ts now uses path-agnostic suffix normalization instead of node:path, and supported parser identities are explicit tuple-backed values with runtime guards instead of loose string-only typing.
+
+## Original Proposal
 
 File: `src/parser/lang.ts`
 

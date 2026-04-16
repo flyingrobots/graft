@@ -1,4 +1,16 @@
+---
+title: MCP runtime observability still couples config, event modeling, and log persistence
+lane: graveyard
+legend: CLEAN
+---
+
 # MCP runtime observability still couples config, event modeling, and log persistence
+
+## Disposition
+
+Fixed in the current cleanup slice: rotating NDJSON persistence now lives in a shared file-backed adapter (src/adapters/rotating-ndjson-log.ts), and both runtime observability and metrics logging delegate to it instead of duplicating log rotation mechanics.
+
+## Original Proposal
 
 File: `src/mcp/runtime-observability.ts`
 
