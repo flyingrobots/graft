@@ -3,7 +3,7 @@ import type { WorkspaceStatus } from "../workspace-router.js";
 import { cloneCapabilityProfile } from "./authz-storage.js";
 import type {
   DaemonSessionView,
-  RegisteredSession,
+  RegisteredTransport,
   SharedAttachSource,
 } from "./types.js";
 
@@ -12,9 +12,9 @@ import type {
 // ---------------------------------------------------------------------------
 
 export function toDaemonSessionView(
-  session: RegisteredSession,
-  readWorkspaceStatus: (s: RegisteredSession) => WorkspaceStatus,
-  readRuntimeCausalContext: (s: RegisteredSession) => RuntimeCausalContext | null,
+  session: RegisteredTransport,
+  readWorkspaceStatus: (s: RegisteredTransport) => WorkspaceStatus,
+  readRuntimeCausalContext: (s: RegisteredTransport) => RuntimeCausalContext | null,
 ): DaemonSessionView {
   const status = readWorkspaceStatus(session);
   const causalContext = readRuntimeCausalContext(session);
@@ -37,7 +37,7 @@ export function toDaemonSessionView(
 // Workspace status & causal context safe readers
 // ---------------------------------------------------------------------------
 
-export function readWorkspaceStatus(session: RegisteredSession): WorkspaceStatus {
+export function readWorkspaceStatus(session: RegisteredTransport): WorkspaceStatus {
   try {
     return session.getWorkspaceStatus();
   } catch {
@@ -54,7 +54,7 @@ export function readWorkspaceStatus(session: RegisteredSession): WorkspaceStatus
   }
 }
 
-export function readRuntimeCausalContext(session: RegisteredSession): RuntimeCausalContext | null {
+export function readRuntimeCausalContext(session: RegisteredTransport): RuntimeCausalContext | null {
   try {
     return session.getRuntimeCausalContext();
   } catch {
@@ -67,7 +67,7 @@ export function readRuntimeCausalContext(session: RegisteredSession): RuntimeCau
 // ---------------------------------------------------------------------------
 
 export function resolveSharedAttachSource(
-  sessions: ReadonlyMap<string, RegisteredSession>,
+  sessions: ReadonlyMap<string, RegisteredTransport>,
   input: {
     readonly sessionId: string;
     readonly repoId: string;

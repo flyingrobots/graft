@@ -5,7 +5,7 @@ import { createGraftServer } from "../../src/mcp/server.js";
 import type { CreateGraftServerOptions, GraftServer } from "../../src/mcp/server.js";
 import type { RunCaptureConfig } from "../../src/mcp/run-capture-config.js";
 import type { RuntimeObservabilityState } from "../../src/mcp/runtime-observability.js";
-import type { WorkspaceSessionMode } from "../../src/mcp/workspace-router.js";
+import type { WorkspaceMode } from "../../src/mcp/workspace-router.js";
 import { ensureGitRepo } from "./git.js";
 export { createFixtureWorkspace, fixturePath, harnessPath } from "./fixtures.js";
 
@@ -30,7 +30,7 @@ export interface IsolatedServer {
 export type TestCleanup = () => void | Promise<void>;
 
 export interface CreateIsolatedServerOptions {
-  mode?: WorkspaceSessionMode;
+  mode?: WorkspaceMode;
   projectRoot?: string;
   graftDir?: string;
   runCapture?: Partial<RunCaptureConfig>;

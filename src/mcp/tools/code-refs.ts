@@ -1,7 +1,6 @@
 import * as path from "node:path";
 import { z } from "zod";
-import { toJsonObject } from "../../operations/result-dto.js";
-import type { ToolDefinition, ToolContext, ToolHandler } from "../context.js";
+import type { ToolDefinition, ToolHandler } from "../context.js";
 import type { ProcessRunner } from "../../ports/process-runner.js";
 import { GitFileQuery, listGitFiles } from "./git-files.js";
 import {
@@ -386,8 +385,8 @@ export const codeRefsTool: ToolDefinition = {
     mode: z.enum(CODE_REFS_MODES).optional(),
     path: z.string().optional(),
   },
-  createHandler(ctx: ToolContext): ToolHandler {
-    return async (args) => {
+  createHandler(): ToolHandler {
+    return async (args, ctx) => {
       const request = new CodeRefsRequest(args, ctx.projectRoot);
       const pattern = buildCodeRefsPattern(request);
       const repoState = ctx.getRepoState();
@@ -426,7 +425,7 @@ export const codeRefsTool: ToolDefinition = {
       }
 
       if (visibleMatches.length === 0 && firstRefusal !== undefined) {
-        return ctx.respond("code_refs", toJsonObject({
+        return ctx.respond("code_refs", {
           query: request.query,
           mode: request.mode,
           scope: request.scope(),
@@ -444,10 +443,14 @@ export const codeRefsTool: ToolDefinition = {
             filesSearched: filePaths.length,
           },
           layer,
-        }));
+        });
       }
 
-      return ctx.respond("code_refs", toJsonObject({
+      ctx.recordFootprint({
+        paths: [...new Set(visibleMatches.map((m) => m.path))],
+      });
+
+      return ctx.respond("code_refs", {
         query: request.query,
         mode: request.mode,
         scope: request.scope(),
@@ -461,7 +464,7 @@ export const codeRefsTool: ToolDefinition = {
           filesSearched: filePaths.length,
         },
         layer,
-      }));
+      });
     };
   },
 };

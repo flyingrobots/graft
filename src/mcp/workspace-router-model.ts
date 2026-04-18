@@ -3,10 +3,10 @@ import type { Metrics } from "./metrics.js";
 import type { RepoStateTracker } from "./repo-state.js";
 import type { RuntimeCausalContext } from "./runtime-causal-context.js";
 import type { PersistedLocalHistorySummary } from "./persisted-local-history.js";
-import type { SessionTracker } from "../session/tracker.js";
+import type { GovernorTracker } from "../session/tracker.js";
 import type { WarpHandle } from "../ports/warp.js";
 
-export type WorkspaceSessionMode = "repo_local" | "daemon";
+export type WorkspaceMode = "repo_local" | "daemon";
 export type WorkspaceBindState = "bound" | "unbound";
 export type WorkspaceBindAction = "bind" | "rebind";
 
@@ -20,7 +20,7 @@ export interface WorkspaceCapabilityProfile {
 }
 
 export interface WorkspaceStatus {
-  readonly sessionMode: WorkspaceSessionMode;
+  readonly sessionMode: WorkspaceMode;
   readonly bindState: WorkspaceBindState;
   readonly repoId: string | null;
   readonly worktreeId: string | null;
@@ -54,7 +54,7 @@ export interface WorkspaceBindRequest {
 }
 
 export class WorkspaceBindingRequiredError extends Error {
-  readonly code = "UNBOUND_SESSION";
+  readonly code = "UNBOUND_WORKSPACE";
 
   constructor(toolName: string) {
     super(`Tool ${toolName} requires an active workspace binding. Call workspace_bind first.`);
@@ -84,7 +84,7 @@ export interface WorkspaceExecutionContext {
   readonly warpWriterId: string;
   getCausalContext(): RuntimeCausalContext;
   readonly status: WorkspaceStatus;
-  readonly session: SessionTracker;
+  readonly governor: GovernorTracker;
   readonly cache: ObservationCache;
   readonly metrics: Metrics;
   readonly graftDir: string;

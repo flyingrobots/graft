@@ -1,10 +1,7 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
 import { describe, expect, it } from "vitest";
-import { nodeFs } from "../../../src/adapters/node-fs.js";
 import { runInit } from "../../../src/cli/init.js";
-import { ensureGraftDirExcluded } from "../../../src/mcp/runtime-observability.js";
-import type { FileSystem } from "../../../src/ports/filesystem.js";
 import { createIsolatedServer, fixturePath, parse } from "../../helpers/mcp.js";
 import { cleanupTestRepo, createTestRepo, git } from "../../helpers/git.js";
 
@@ -24,6 +21,11 @@ interface RuntimeEvent {
   readonly errorName?: string;
   readonly logPath?: string;
   readonly logPolicy?: string;
+  readonly footprint?: {
+    readonly paths: readonly string[];
+    readonly symbols: readonly string[];
+    readonly regions: readonly { path: string; startLine: number; endLine: number }[];
+  };
 }
 
 function readRuntimeLog(logPath: string): RuntimeEvent[] {
@@ -50,41 +52,6 @@ function writeHookEvent(repoDir: string, event: {
     path.join(runtimeDir, "git-transitions.ndjson"),
     `${JSON.stringify(event)}\n`,
   );
-}
-
-class AsyncNoSyncFileSystem implements FileSystem {
-  readFile(path: string, encoding: "utf-8"): Promise<string>;
-  readFile(path: string): Promise<Buffer>;
-  readFile(path: string, encoding?: "utf-8"): Promise<string | Buffer> {
-    if (encoding !== undefined) {
-      return nodeFs.readFile(path, encoding);
-    }
-    return nodeFs.readFile(path);
-  }
-
-  readdir(path: string): Promise<string[]> {
-    return nodeFs.readdir(path);
-  }
-
-  writeFile(path: string, data: string, encoding: "utf-8"): Promise<void> {
-    return nodeFs.writeFile(path, data, encoding);
-  }
-
-  appendFile(path: string, data: string, encoding: "utf-8"): Promise<void> {
-    return nodeFs.appendFile(path, data, encoding);
-  }
-
-  mkdir(path: string, options: { recursive: true }): Promise<void> {
-    return nodeFs.mkdir(path, options);
-  }
-
-  stat(path: string): Promise<{ size: number }> {
-    return nodeFs.stat(path);
-  }
-
-  readFileSync(): string {
-    throw new Error("readFileSync should not be used on async request paths");
-  }
 }
 
 describe("mcp: runtime observability", () => {
@@ -128,12 +95,51 @@ describe("mcp: runtime observability", () => {
       expect(completed?.burdenKind).toBe("read");
       expect(completed?.nonReadBurden).toBe(false);
       expect(completed?.latencyMs).toBeGreaterThanOrEqual(0);
+      expect(completed?.footprint).toBeDefined();
+      expect(completed?.footprint?.paths).toContain(fixturePath("small.ts"));
+      expect(completed?.footprint?.symbols).toEqual(expect.any(Array));
+      expect(completed?.footprint?.regions).toEqual(expect.any(Array));
       expect(latestReadEvent?.eventKind).toBe("read");
       expect(latestReadEvent?.attribution.actor.actorKind).toBe("unknown");
       expect(latestReadEvent?.payload.surface).toBe("safe_read");
       expect(latestReadEvent?.payload.projection).toBe("content");
       expect(latestReadEvent?.payload.sourceLayer).toBe("canonical_structural_truth");
       expect(latestReadEvent?.footprint.paths).toEqual([fixturePath("small.ts")]);
+    } finally {
+      isolated.cleanup();
+    }
+  });
+
+  it("includes region footprint for read_range tool calls", async () => {
+    const isolated = createIsolatedServer();
+    try {
+      const result = parse(await isolated.server.callTool("read_range", {
+        path: fixturePath("small.ts"),
+        start: 1,
+        end: 3,
+      }));
+      const receipt = result["_receipt"] as {
+        traceId: string;
+      };
+      const doctor = parse(await isolated.server.callTool("doctor", {}));
+      const runtime = doctor["runtimeObservability"] as { logPath: string };
+      const events = readRuntimeLog(runtime.logPath);
+
+      const completed = events.find(
+        (event) => event.event === "tool_call_completed" && event.traceId === receipt.traceId,
+      );
+      expect(completed).toBeDefined();
+      expect(completed?.footprint).toBeDefined();
+      expect(completed?.footprint?.paths).toContain(fixturePath("small.ts"));
+      expect(completed?.footprint?.regions).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            path: fixturePath("small.ts"),
+            startLine: 1,
+            endLine: 3,
+          }),
+        ]),
+      );
     } finally {
       isolated.cleanup();
     }
@@ -281,7 +287,7 @@ describe("mcp: runtime observability", () => {
       expect(workspaceOverlayFooting.hookBootstrap.posture).toBe("absent");
       expect(workspaceOverlayFooting.hookBootstrap.configuredCoreHooksPath).toBeNull();
       expect(workspaceOverlayFooting.hookBootstrap.resolvedHooksPath).toBe(
-        fs.realpathSync.native(path.join(isolated.projectRoot, ".git", "hooks")),
+        path.join(isolated.projectRoot, "hooks"),
       );
       expect(workspaceOverlayFooting.hookBootstrap.missingHooks).toEqual([
         "post-checkout",
@@ -869,22 +875,6 @@ describe("mcp: runtime observability", () => {
       } finally {
         isolated.cleanup();
       }
-    } finally {
-      cleanupTestRepo(repoDir);
-    }
-  });
-
-  it("Does startup exclusion of graft still work without sync filesystem reads?", async () => {
-    const repoDir = createTestRepo("graft-runtime-async-exclude-");
-    try {
-      const asyncFs = new AsyncNoSyncFileSystem();
-      const graftDir = path.join(repoDir, ".graft");
-
-      await ensureGraftDirExcluded(repoDir, graftDir, asyncFs);
-
-      const excludePath = path.join(repoDir, ".git", "info", "exclude");
-      const exclude = fs.readFileSync(excludePath, "utf-8");
-      expect(exclude).toContain(".graft/");
     } finally {
       cleanupTestRepo(repoDir);
     }

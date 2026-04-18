@@ -4,7 +4,7 @@ import type { FileSystem } from "../ports/filesystem.js";
 import type { GitClient } from "../ports/git.js";
 import type { WarpHandle } from "../ports/warp.js";
 import { DEFAULT_WARP_WRITER_ID } from "../warp/writer-id.js";
-import { SessionTracker } from "../session/tracker.js";
+import { GovernorTracker } from "../session/tracker.js";
 import { ObservationCache } from "./cache.js";
 import { Metrics } from "./metrics.js";
 import { loadProjectGraftignore } from "./policy.js";
@@ -23,14 +23,14 @@ import type {
   ResolvedWorkspace,
   WorkspaceCapabilityProfile,
   WorkspaceExecutionContext,
-  WorkspaceSessionMode,
+  WorkspaceMode,
   WorkspaceStatus,
 } from "./workspace-router-model.js";
 import type { WarpPool } from "./warp-pool.js";
 
 export interface WorkspaceSlice {
   readonly sliceId: string;
-  readonly session: SessionTracker;
+  readonly governor: GovernorTracker;
   readonly cache: ObservationCache;
   readonly metrics: Metrics;
   readonly graftDir: string;
@@ -60,7 +60,7 @@ export function createWorkspaceSlice(input: {
 }): WorkspaceSlice {
   return {
     sliceId: input.nextSliceId,
-    session: new SessionTracker(),
+    governor: new GovernorTracker(),
     cache: new ObservationCache(),
     metrics: new Metrics(),
     graftDir: input.graftDir,
@@ -82,8 +82,8 @@ export async function createBoundWorkspace(input: {
   readonly warpPool: WarpPool;
 }): Promise<BoundWorkspace> {
   if (input.actionName !== undefined) {
-    input.slice.session.recordMessage();
-    input.slice.session.recordToolCall(input.actionName);
+    input.slice.governor.recordMessage();
+    input.slice.governor.recordToolCall(input.actionName);
   }
 
   return {
@@ -118,7 +118,7 @@ export function buildWorkspaceCausalContext(
 
 export function buildPersistedLocalHistoryContext(input: {
   readonly persistedLocalHistory: PersistedLocalHistoryStore;
-  readonly mode: WorkspaceSessionMode;
+  readonly mode: WorkspaceMode;
   readonly binding: BoundWorkspace;
   readonly observation: RepoObservation;
   readonly hookEvent?: GitTransitionHookEvent | null;
@@ -206,7 +206,7 @@ export async function buildPersistedLocalHistoryGraphContext(
 }
 
 export function boundWorkspaceStatus(
-  mode: WorkspaceSessionMode,
+  mode: WorkspaceMode,
   binding: BoundWorkspace,
 ): WorkspaceStatus {
   return {
@@ -221,7 +221,7 @@ export function boundWorkspaceStatus(
   };
 }
 
-export function unboundWorkspaceStatus(mode: WorkspaceSessionMode): WorkspaceStatus {
+export function unboundWorkspaceStatus(mode: WorkspaceMode): WorkspaceStatus {
   return {
     sessionMode: mode,
     bindState: "unbound",

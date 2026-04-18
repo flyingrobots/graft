@@ -122,14 +122,14 @@ async function createDaemonSession(
   };
   transport.onclose = () => {
     sessions.delete(newSessionId);
-    options.controlPlane.unregisterSession(newSessionId);
+    options.controlPlane.unregisterTransport(newSessionId);
   };
   transport.onerror = () => {
     sessions.delete(newSessionId);
-    options.controlPlane.unregisterSession(newSessionId);
+    options.controlPlane.unregisterTransport(newSessionId);
   };
   sessions.set(newSessionId, session);
-  options.controlPlane.registerSession(
+  options.controlPlane.registerTransport(
     newSessionId,
     () => server.getWorkspaceStatus(),
     () => server.getRuntimeCausalContext(),
@@ -172,7 +172,7 @@ export function createDaemonSessionHost(options: CreateDaemonSessionHostOptions)
             session = await createDaemonSession(crypto.randomUUID(), options, sessions);
           }
 
-          options.controlPlane.touchSession(session.id);
+          options.controlPlane.touchTransport(session.id);
           await session.transport.handleRequest(req, res, parsedBody);
           return;
         }
@@ -187,7 +187,7 @@ export function createDaemonSessionHost(options: CreateDaemonSessionHostOptions)
             sendJson(res, 404, { error: `Unknown MCP session: ${sessionId}` });
             return;
           }
-          options.controlPlane.touchSession(session.id);
+          options.controlPlane.touchTransport(session.id);
           await session.transport.handleRequest(req, res);
           return;
         }
@@ -204,7 +204,7 @@ export function createDaemonSessionHost(options: CreateDaemonSessionHostOptions)
 
     async close(): Promise<void> {
       for (const session of [...sessions.values()]) {
-        options.controlPlane.unregisterSession(session.id);
+        options.controlPlane.unregisterTransport(session.id);
         await session.transport.close().catch(() => {
           return undefined;
         });

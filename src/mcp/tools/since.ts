@@ -1,8 +1,7 @@
 import { z } from "zod";
 import { graftDiff } from "../../operations/graft-diff.js";
-import type { ToolDefinition, ToolContext, ToolHandler } from "../context.js";
+import type { ToolDefinition, ToolHandler } from "../context.js";
 import { evaluateMcpRefusal } from "../policy.js";
-import { toJsonObject } from "../../operations/result-dto.js";
 
 export const sinceTool: ToolDefinition = {
   name: "graft_since",
@@ -14,8 +13,8 @@ export const sinceTool: ToolDefinition = {
     base: z.string(),
     head: z.string().optional(),
   },
-  createHandler(ctx: ToolContext): ToolHandler {
-    return async (args) => {
+  createHandler(): ToolHandler {
+    return async (args, ctx) => {
       const base = args["base"] as string;
       const head = (args["head"] as string | undefined) ?? "HEAD";
 
@@ -29,6 +28,7 @@ export const sinceTool: ToolDefinition = {
         refusalCheck: (filePath, actual) => evaluateMcpRefusal(ctx, filePath, actual),
       });
 
+      // Aggregate symbol-level changes across all files
       let totalAdded = 0;
       let totalRemoved = 0;
       let totalChanged = 0;
@@ -39,11 +39,15 @@ export const sinceTool: ToolDefinition = {
         totalChanged += file.diff.changed.length;
       }
 
-      return ctx.respond("graft_since", toJsonObject({
+      ctx.recordFootprint({
+        paths: result.files.map((f) => f.path),
+      });
+
+      return ctx.respond("graft_since", {
         ...result,
         summary: `+${String(totalAdded)} added, -${String(totalRemoved)} removed, ~${String(totalChanged)} changed across ${String(result.files.length)} files`,
         layer: "ref_view",
-      }));
+      });
     };
   },
 };

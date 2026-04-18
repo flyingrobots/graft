@@ -1,0 +1,5 @@
+{
+  "paths": {
+    "tests": ["tests", "test"]
+  }
+}

@@ -5,7 +5,7 @@ import type { ToolContext } from "./context.js";
 export function createRepoWorkspaceFromToolContext(
   ctx: Pick<
     ToolContext,
-    "projectRoot" | "fs" | "codec" | "graftignorePatterns" | "resolvePath" | "session" | "cache"
+    "projectRoot" | "fs" | "codec" | "graftignorePatterns" | "resolvePath" | "governor" | "cache"
   >,
 ): RepoWorkspace {
   return new RepoWorkspace({
@@ -15,7 +15,7 @@ export function createRepoWorkspaceFromToolContext(
     graftignorePatterns: ctx.graftignorePatterns,
     resolvePath: ctx.resolvePath,
     toPolicyPath: (resolvedPath) => toRepoPolicyPath(ctx.projectRoot, resolvedPath),
-    session: ctx.session,
+    governor: ctx.governor,
     cache: ctx.cache,
   });
 }

@@ -1,5 +1,5 @@
 import picomatch from "picomatch";
-import type { PolicyInput, PolicyOptions, ReasonCode, SessionDepth } from "./types.js";
+import type { PolicyInput, PolicyOptions, ReasonCode, GovernorDepth } from "./types.js";
 import { ContentResult, OutlineResult, RefusedResult } from "./types.js";
 import type { PolicyResult } from "./types.js";
 
@@ -97,7 +97,7 @@ export function evaluatePolicy(input: PolicyInput, options?: PolicyOptions): Pol
   const { path, lines, bytes } = input;
   const actual = { lines, bytes };
   const thresholds = { ...STATIC_THRESHOLDS };
-  const sessionDepth: SessionDepth | undefined = options?.sessionDepth;
+  const sessionDepth: GovernorDepth | undefined = options?.sessionDepth;
 
   // 1. Bans first
   const ban = checkBan(path);

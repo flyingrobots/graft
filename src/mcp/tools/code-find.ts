@@ -1,10 +1,10 @@
 import { z } from "zod";
-import { toJsonObject } from "../../operations/result-dto.js";
 import type { ToolDefinition, ToolContext, ToolHandler } from "../context.js";
 import { GitFileQuery, listGitFiles } from "./git-files.js";
-import { filterVisiblePrecisionMatches } from "./precision-visibility.js";
 import {
+  evaluatePrecisionPolicy,
   getIndexedCommitCeilings,
+  loadFileContent,
   normalizeRepoPath,
   PrecisionSearchRequest,
   type PrecisionSymbolMatch,
@@ -92,10 +92,37 @@ export async function runCodeFind(
     );
   }
 
-  const { visibleMatches, firstRefusal } = await filterVisiblePrecisionMatches(ctx, allMatches);
+  const visibleMatches: PrecisionSymbolMatch[] = [];
+  const fileCache = new Map<string, string>();
+  let firstRefusal:
+    | {
+      path: string;
+      reason: string;
+      reasonDetail: string;
+      next: readonly string[];
+      actual: { lines: number; bytes: number };
+    }
+    | undefined;
+
+  for (const match of allMatches) {
+    let content = fileCache.get(match.path);
+    if (content === undefined) {
+      const loaded = await loadFileContent(ctx, match.path);
+      if (loaded === null) continue;
+      fileCache.set(match.path, loaded);
+      content = loaded;
+    }
+
+    const refusal = evaluatePrecisionPolicy(ctx, match.path, content);
+    if (refusal !== null) {
+      firstRefusal ??= refusal;
+      continue;
+    }
+    visibleMatches.push(match);
+  }
 
   if (visibleMatches.length === 0 && firstRefusal !== undefined) {
-    return ctx.respond("code_find", toJsonObject({
+    return ctx.respond("code_find", {
       query: request.query,
       kind: request.kind ?? null,
       path: firstRefusal.path,
@@ -106,17 +133,22 @@ export async function runCodeFind(
       actual: firstRefusal.actual,
       source,
       layer,
-    }));
+    });
   }
 
-  return ctx.respond("code_find", toJsonObject({
+  ctx.recordFootprint({
+    paths: [...new Set(visibleMatches.map((m) => m.path))],
+    symbols: visibleMatches.map((m) => m.name),
+  });
+
+  return ctx.respond("code_find", {
     query: request.query,
     kind: request.kind ?? null,
     matches: visibleMatches,
     total: visibleMatches.length,
     source,
     layer,
-  }));
+  });
 }
 
 export const codeFindTool: ToolDefinition = {
@@ -131,7 +163,7 @@ export const codeFindTool: ToolDefinition = {
     path: z.string().optional(),
   },
   policyCheck: true,
-  createHandler(ctx: ToolContext): ToolHandler {
-    return (args) => runCodeFind(ctx, args, { allowWarp: true });
+  createHandler(): ToolHandler {
+    return (args, ctx) => runCodeFind(ctx, args, { allowWarp: true });
   },
 };

@@ -5,7 +5,7 @@
 import type { BurdenByKind, BurdenKind } from "../burden.js";
 import type { RuntimeObservabilityState } from "../runtime-observability.js";
 import type { RuntimeCausalContext } from "../runtime-causal-context.js";
-import type { SessionDepth } from "../../session/types.js";
+import type { GovernorDepth } from "../../session/types.js";
 import type {
   PersistedLocalHistorySummary,
   RepoConcurrencySummary,
@@ -53,7 +53,7 @@ export interface DoctorResponse {
   readonly projectRoot: string;
   readonly parserHealthy: boolean;
   readonly thresholds: { readonly lines: number; readonly bytes: number };
-  readonly sessionDepth: SessionDepth;
+  readonly sessionDepth: GovernorDepth;
   readonly totalMessages: number;
   readonly burdenSummary: DoctorBurdenSummary;
   readonly runtimeObservability: RuntimeObservabilityState;

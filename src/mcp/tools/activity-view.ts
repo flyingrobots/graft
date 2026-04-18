@@ -2,7 +2,7 @@ import { z } from "zod";
 import { buildRuntimeStagedTarget } from "../runtime-staged-target.js";
 import { deriveCausalSurfaceNextAction } from "../semantic-transition-guidance.js";
 import type { PersistedLocalActivityItem } from "../persisted-local-history.js";
-import type { ToolDefinition, ToolContext, ToolHandler } from "../context.js";
+import type { ToolDefinition, ToolHandler } from "../context.js";
 
 const limitSchema = z.number().int().positive().max(50).optional();
 
@@ -81,10 +81,6 @@ function shortSha(sha: string | null): string {
   return sha === null ? "unknown" : sha.slice(0, 7);
 }
 
-function ensureSentence(text: string): string {
-  return /[.!?]$/.test(text) ? text : `${text}.`;
-}
-
 function describeAnchor(anchor: ReturnType<typeof buildAnchor>): string {
   if (anchor.posture === "unknown") {
     return anchor.reason === "workspace_unbound"
@@ -136,9 +132,9 @@ function summarizeTransitionGroup(items: PersistedLocalActivityItem[]): string {
     return "No semantic transitions are recorded.";
   }
   if (transitionItems.length === 1) {
-    return `1 semantic transition recorded: ${ensureSentence(latest.payload.summary)}`;
+    return `1 semantic transition recorded: ${latest.payload.summary}.`;
   }
-  return `${countText(transitionItems.length)} semantic transitions recorded, latest: ${ensureSentence(latest.payload.summary)}`;
+  return `${countText(transitionItems.length)} semantic transitions recorded, latest: ${latest.payload.summary}.`;
 }
 
 function summarizeStageGroup(items: PersistedLocalActivityItem[]): string {
@@ -210,8 +206,8 @@ export const activityViewTool: ToolDefinition = {
   schema: {
     limit: limitSchema,
   },
-  createHandler(ctx: ToolContext): ToolHandler {
-    return async (args) => {
+  createHandler(): ToolHandler {
+    return async (args, ctx) => {
       const limit = limitSchema.parse(args["limit"]) ?? 20;
       const workspaceStatus = ctx.getWorkspaceStatus();
 

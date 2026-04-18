@@ -1,7 +1,7 @@
 import { z } from "zod";
-import type { SessionTrackerSnapshot } from "../session/tracker.js";
+import type { GovernorTrackerSnapshot } from "../session/tracker.js";
 import type { McpToolReceipt, McpToolResult } from "./receipt.js";
-import type { ToolContext, ToolDefinition, ToolHandler } from "./context.js";
+import type { ToolDefinition, ToolHandler } from "./context.js";
 import type { MetricsDelta, MetricsSnapshot } from "./metrics.js";
 import type { ObservationSnapshot } from "./cache.js";
 import type { RepoObservation } from "./repo-state.js";
@@ -19,15 +19,15 @@ import { buildRepoToolWorkerContext, wrapWithPolicyCheck } from "./repo-tool-wor
 
 const codeFindLiveWorkerTool: ToolDefinition = {
   ...codeFindTool,
-  createHandler(ctx: ToolContext): ToolHandler {
-    return (args) => runCodeFind(ctx, args, { allowWarp: false });
+  createHandler(): ToolHandler {
+    return (args, ctx) => runCodeFind(ctx, args, { allowWarp: false });
   },
 };
 
 const codeShowLiveWorkerTool: ToolDefinition = {
   ...codeShowTool,
-  createHandler(ctx: ToolContext): ToolHandler {
-    return (args) => runCodeShow(ctx, args, { allowWarp: false });
+  createHandler(): ToolHandler {
+    return (args, ctx) => runCodeShow(ctx, args, { allowWarp: false });
   },
 };
 
@@ -66,7 +66,7 @@ export interface RepoToolWorkerJob {
   readonly writerId: string;
   readonly capabilityProfile: WorkspaceCapabilityProfile;
   readonly repoState: RepoObservation;
-  readonly sessionSnapshot: SessionTrackerSnapshot;
+  readonly governorSnapshot: GovernorTrackerSnapshot;
   readonly metricsSnapshot: MetricsSnapshot;
   readonly cacheSnapshots?: Readonly<Record<string, ObservationSnapshot>>;
 }
@@ -90,13 +90,13 @@ function resolveRepoToolDefinition(tool: OffloadedRepoToolName): ToolDefinition 
 export async function runRepoToolJob(job: RepoToolWorkerJob): Promise<RepoToolWorkerResult> {
   const definition = resolveRepoToolDefinition(job.tool);
   const { ctx, takeResponse } = buildRepoToolWorkerContext(job);
-  const rawHandler = definition.createHandler(ctx);
-  const handler = definition.policyCheck === true ? wrapWithPolicyCheck(definition.name, rawHandler, ctx) : rawHandler;
+  const rawHandler = definition.createHandler();
+  const handler = definition.policyCheck === true ? wrapWithPolicyCheck(definition.name, rawHandler) : rawHandler;
 
   if (definition.schema !== undefined) {
     z.object(definition.schema).strict().parse(job.args);
   }
 
-  await handler(job.args);
+  await handler(job.args, ctx);
   return takeResponse();
 }

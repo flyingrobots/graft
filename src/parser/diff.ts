@@ -51,6 +51,8 @@ export class DiffEntry {
   readonly signature?: string;
   readonly oldSignature?: string;
   readonly childDiff?: OutlineDiff;
+  /** Canonical WARP symbol identity — present only when indexed truth is available. */
+  readonly identityId?: string;
 
   constructor(opts: {
     name: string;
@@ -58,6 +60,7 @@ export class DiffEntry {
     signature?: string;
     oldSignature?: string;
     childDiff?: OutlineDiff;
+    identityId?: string;
   }) {
     if (opts.name.trim().length === 0) {
       throw new Error("DiffEntry: name must be non-empty");
@@ -67,6 +70,7 @@ export class DiffEntry {
     if (opts.signature !== undefined) this.signature = opts.signature;
     if (opts.oldSignature !== undefined) this.oldSignature = opts.oldSignature;
     if (opts.childDiff !== undefined) this.childDiff = opts.childDiff;
+    if (opts.identityId !== undefined) this.identityId = opts.identityId;
     Object.freeze(this);
   }
 }

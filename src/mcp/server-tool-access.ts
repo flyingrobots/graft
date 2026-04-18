@@ -116,17 +116,16 @@ export function parseToolPayload(result: McpToolResult): JsonObject | null {
 export function wrapWithPolicyCheck(
   toolName: ToolDefinition["name"],
   inner: ToolHandler,
-  ctx: ToolContext,
 ): ToolHandler {
-  return async (args: JsonObject) => {
+  return async (args: JsonObject, ctx: ToolContext) => {
     const rawPath = args["path"] as string | undefined;
-    if (rawPath === undefined) return inner(args);
+    if (rawPath === undefined) return inner(args, ctx);
     const filePath = ctx.resolvePath(rawPath);
     let content: string;
     try {
       content = await ctx.fs.readFile(filePath, "utf-8");
     } catch {
-      return inner(args);
+      return inner(args, ctx);
     }
     const actual = { lines: content.split("\n").length, bytes: Buffer.byteLength(content) };
     const policy = evaluateMcpPolicy(ctx, filePath, actual);
@@ -141,6 +140,6 @@ export function wrapWithPolicyCheck(
         actual,
       });
     }
-    return inner(args);
+    return inner(args, ctx);
   };
 }

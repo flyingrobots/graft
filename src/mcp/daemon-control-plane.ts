@@ -61,7 +61,7 @@ import type {
   DaemonRuntimeDescriptor,
   DaemonSessionView,
   DaemonStatusView,
-  RegisteredSession,
+  RegisteredTransport,
   SharedAttachSource,
   WorkspaceAuthorizeRequest,
   WorkspaceAuthorizeResult,
@@ -75,7 +75,7 @@ import type {
 export class DaemonControlPlane {
   private readonly statePath: string;
   private readonly authorizedWorkspaces = new Map<string, AuthorizedWorkspaceRecord>();
-  private readonly sessions = new Map<string, RegisteredSession>();
+  private readonly transports = new Map<string, RegisteredTransport>();
   private loadPromise: Promise<void> | null = null;
 
   constructor(private readonly options: DaemonControlPlaneOptions) {
@@ -86,13 +86,13 @@ export class DaemonControlPlane {
     return this.ensureLoaded();
   }
 
-  registerSession(
+  registerTransport(
     sessionId: string,
     getWorkspaceStatus: () => WorkspaceStatus,
     getRuntimeCausalContext: () => RuntimeCausalContext | null,
   ): void {
     const now = new Date().toISOString();
-    this.sessions.set(sessionId, {
+    this.transports.set(sessionId, {
       sessionId,
       startedAt: now,
       lastActivityAt: now,
@@ -101,14 +101,14 @@ export class DaemonControlPlane {
     });
   }
 
-  touchSession(sessionId: string): void {
-    const session = this.sessions.get(sessionId);
+  touchTransport(sessionId: string): void {
+    const session = this.transports.get(sessionId);
     if (session === undefined) return;
     session.lastActivityAt = new Date().toISOString();
   }
 
-  unregisterSession(sessionId: string): void {
-    this.sessions.delete(sessionId);
+  unregisterTransport(sessionId: string): void {
+    this.transports.delete(sessionId);
   }
 
   resolveSharedAttachSource(input: {
@@ -116,7 +116,7 @@ export class DaemonControlPlane {
     readonly repoId: string;
     readonly worktreeId: string;
   }): SharedAttachSource | null {
-    return resolveSharedAttachSource(this.sessions, input);
+    return resolveSharedAttachSource(this.transports, input);
   }
 
   async authorizeWorkspace(request: WorkspaceAuthorizeRequest): Promise<WorkspaceAuthorizeResult> {
@@ -155,7 +155,7 @@ export class DaemonControlPlane {
     return {
       ok: true,
       changed,
-      authorization: toAuthorizedWorkspaceView(next, this.activeSessionsFor(next.worktreeId)),
+      authorization: toAuthorizedWorkspaceView(next, this.activeTransportsFor(next.worktreeId)),
     };
   }
 
@@ -179,7 +179,7 @@ export class DaemonControlPlane {
         repoId: resolved.repoId,
         worktreeId: resolved.worktreeId,
         worktreeRoot: resolved.worktreeRoot,
-        activeSessions: this.activeSessionsFor(resolved.worktreeId),
+        activeSessions: this.activeTransportsFor(resolved.worktreeId),
         errorCode: "WORKSPACE_NOT_AUTHORIZED",
         error: `Workspace ${resolved.worktreeRoot} is not authorized.`,
       };
@@ -193,7 +193,7 @@ export class DaemonControlPlane {
       repoId: current.repoId,
       worktreeId: current.worktreeId,
       worktreeRoot: current.worktreeRoot,
-      activeSessions: this.activeSessionsFor(current.worktreeId),
+      activeSessions: this.activeTransportsFor(current.worktreeId),
     };
   }
 
@@ -217,7 +217,7 @@ export class DaemonControlPlane {
   async listAuthorizedWorkspaces(): Promise<readonly AuthorizedWorkspaceView[]> {
     await this.ensureLoaded();
     return sortByWorktreeRoot([...this.authorizedWorkspaces.values()]).map((record) => {
-      return toAuthorizedWorkspaceView(record, this.activeSessionsFor(record.worktreeId));
+      return toAuthorizedWorkspaceView(record, this.activeTransportsFor(record.worktreeId));
     });
   }
 
@@ -252,8 +252,8 @@ export class DaemonControlPlane {
     return cloneAuthorizedWorkspaceRecord(first);
   }
 
-  listSessions(): readonly DaemonSessionView[] {
-    return [...this.sessions.values()]
+  listTransports(): readonly DaemonSessionView[] {
+    return [...this.transports.values()]
       .map((session) => toDaemonSessionView(session, readWorkspaceStatus, readRuntimeCausalContext))
       .sort((left, right) => left.startedAt.localeCompare(right.startedAt));
   }
@@ -266,7 +266,7 @@ export class DaemonControlPlane {
   ): DaemonStatusView {
     return buildStatusView(
       runtime,
-      this.listSessions(),
+      this.listTransports(),
       this.authorizedWorkspaces,
       DEFAULT_DAEMON_CAPABILITY_PROFILE,
       monitorCounts,
@@ -304,7 +304,7 @@ export class DaemonControlPlane {
     await persistState(this.statePath, this.options.fs, this.options.codec, this.authorizedWorkspaces);
   }
 
-  private activeSessionsFor(worktreeId: string): number {
-    return this.listSessions().filter((session) => session.worktreeId === worktreeId).length;
+  private activeTransportsFor(worktreeId: string): number {
+    return this.listTransports().filter((session) => session.worktreeId === worktreeId).length;
   }
 }

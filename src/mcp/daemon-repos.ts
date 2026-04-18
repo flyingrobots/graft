@@ -45,7 +45,7 @@ export class DaemonRepoOverview {
       this.options.controlPlane.listAuthorizedWorkspaceRecords(),
       this.options.monitorRuntime.listStatuses(),
     ]);
-    const sessions = this.options.controlPlane.listSessions();
+    const sessions = this.options.controlPlane.listTransports();
     const visibleWorkspaces = authorizedWorkspaces.filter((workspace) => {
       return repoIdFilter === undefined || workspace.repoId === repoIdFilter;
     });

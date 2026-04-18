@@ -3,12 +3,12 @@ import { evaluatePolicy } from "../policy/evaluate.js";
 import { loadGraftignore } from "../policy/graftignore.js";
 import { RefusedResult, type PolicyOptions, type PolicyResult } from "../policy/types.js";
 import type { FileSystem } from "../ports/filesystem.js";
-import type { SessionTracker } from "../session/tracker.js";
+import type { GovernorTracker } from "../session/tracker.js";
 
 export interface McpPolicyContext {
   readonly projectRoot: string;
   readonly graftignorePatterns: readonly string[];
-  readonly session: SessionTracker;
+  readonly governor: GovernorTracker;
 }
 
 export interface McpPolicyRefusal {
@@ -31,12 +31,12 @@ export async function loadProjectGraftignore(
 }
 
 export function buildMcpPolicyOptions(
-  ctx: Pick<McpPolicyContext, "graftignorePatterns" | "session">,
+  ctx: Pick<McpPolicyContext, "graftignorePatterns" | "governor">,
 ): PolicyOptions {
   return {
     graftignorePatterns: ctx.graftignorePatterns.length > 0 ? [...ctx.graftignorePatterns] : undefined,
-    sessionDepth: ctx.session.getSessionDepth(),
-    budgetRemaining: ctx.session.getBudget()?.remaining,
+    sessionDepth: ctx.governor.getGovernorDepth(),
+    budgetRemaining: ctx.governor.getBudget()?.remaining,
   };
 }
 

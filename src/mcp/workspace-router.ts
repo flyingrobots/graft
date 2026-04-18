@@ -30,7 +30,7 @@ import {
   type WorkspaceBindRequest,
   type WorkspaceCapabilityProfile,
   type WorkspaceExecutionContext,
-  type WorkspaceSessionMode,
+  type WorkspaceMode,
   type WorkspaceSharedAttachPolicy,
   type WorkspaceStatus,
 } from "./workspace-router-model.js";
@@ -41,7 +41,7 @@ import type { WarpHandle } from "../ports/warp.js";
 import type { JsonObject } from "../contracts/json-object.js";
 import type { WarpPool } from "./warp-pool.js";
 import { DEFAULT_WARP_WRITER_ID } from "../warp/writer-id.js";
-import { SessionTracker } from "../session/tracker.js";
+import { GovernorTracker } from "../session/tracker.js";
 import {
   type BoundWorkspace,
   type WorkspaceSlice,
@@ -69,14 +69,14 @@ export {
   type WorkspaceBindRequest,
   type WorkspaceCapabilityProfile,
   type WorkspaceExecutionContext,
-  type WorkspaceSessionMode,
+  type WorkspaceMode,
   type WorkspaceSharedAttachPolicy,
   type WorkspaceStatus,
 } from "./workspace-router-model.js";
 export { resolveWorkspaceRequest } from "./workspace-router-resolution.js";
 
 interface WorkspaceRouterOptions {
-  readonly mode: WorkspaceSessionMode;
+  readonly mode: WorkspaceMode;
   readonly fs: FileSystem;
   readonly git: GitClient;
   readonly graftDir: string;
@@ -161,12 +161,12 @@ export class WorkspaceRouter {
     await this.initialization;
   }
 
-  get mode(): WorkspaceSessionMode {
+  get mode(): WorkspaceMode {
     return this.options.mode;
   }
 
-  get session(): SessionTracker {
-    return this.currentSlice.session;
+  get governor(): GovernorTracker {
+    return this.currentSlice.governor;
   }
 
   get cache(): ObservationCache {
@@ -417,7 +417,7 @@ export class WorkspaceRouter {
       warpWriterId: binding.warpWriterId,
       getCausalContext: () => this.buildCausalContext(binding, repoState.getState()),
       status: boundWorkspaceStatus(this.options.mode, binding),
-      session: binding.slice.session,
+      governor: binding.slice.governor,
       cache: binding.slice.cache,
       metrics: binding.slice.metrics,
       graftDir: binding.slice.graftDir,

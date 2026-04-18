@@ -5,7 +5,7 @@ import type { JsonCodec } from "../ports/codec.js";
 import type { FileSystem } from "../ports/filesystem.js";
 import type { MetricsSnapshot } from "./metrics.js";
 import type { BurdenKind } from "./burden.js";
-import type { SessionDepth } from "../session/types.js";
+import type { GovernorDepth } from "../session/types.js";
 
 export type RuntimeLogPolicy = "metadata_only";
 
@@ -68,7 +68,27 @@ export interface RuntimeToolCallStartedEvent {
   readonly traceId: string;
   readonly tool: string;
   readonly argKeys: readonly string[];
-  readonly sessionDepth: SessionDepth;
+  readonly sessionDepth: GovernorDepth;
+}
+
+/**
+ * Per-tool-call footprint capturing which files, symbols, and regions
+ * were observed. Enables provenance tracing at sub-file granularity.
+ */
+export interface ToolCallFootprint {
+  /** File paths read or scanned by this tool call. */
+  readonly paths: readonly string[];
+  /** Symbol names inspected (when available from outline/precision tools). */
+  readonly symbols: readonly string[];
+  /** Line regions accessed (when available from read_range). */
+  readonly regions: readonly ToolCallFootprintRegion[];
+}
+
+/** A line region within a specific file. */
+export interface ToolCallFootprintRegion {
+  readonly path: string;
+  readonly startLine: number;
+  readonly endLine: number;
 }
 
 export interface RuntimeToolCallCompletedEvent {
@@ -84,9 +104,11 @@ export interface RuntimeToolCallCompletedEvent {
   readonly nonReadBurden: boolean;
   readonly returnedBytes: number;
   readonly fileBytes: number | null;
-  readonly sessionDepth: SessionDepth;
+  readonly sessionDepth: GovernorDepth;
   readonly tripwireSignals: readonly string[];
   readonly metrics: MetricsSnapshot;
+  /** Optional sub-file footprint for provenance granularity. */
+  readonly footprint?: ToolCallFootprint;
 }
 
 export type RuntimeFailureKind = "validation_error" | "tool_error" | "unknown_error";
@@ -97,7 +119,7 @@ export interface RuntimeToolCallFailedEvent {
   readonly traceId: string;
   readonly tool: string;
   readonly latencyMs: number;
-  readonly sessionDepth: SessionDepth;
+  readonly sessionDepth: GovernorDepth;
   readonly argKeys: readonly string[];
   readonly errorKind: RuntimeFailureKind;
   readonly errorName: string;

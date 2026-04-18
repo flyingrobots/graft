@@ -11,7 +11,7 @@ import type {
 // Internal: session tracking
 // ---------------------------------------------------------------------------
 
-export interface RegisteredSession {
+export interface RegisteredTransport {
   readonly sessionId: string;
   readonly startedAt: string;
   readonly getWorkspaceStatus: () => WorkspaceStatus;

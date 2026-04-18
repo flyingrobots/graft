@@ -1,6 +1,6 @@
 import { z } from "zod";
-import type { ToolDefinition, ToolContext, ToolHandler } from "../context.js";
-import { createRepoWorkspaceFromToolContext } from "../repo-workspace.js";
+import { readRange } from "../../operations/read-range.js";
+import type { ToolDefinition, ToolHandler } from "../context.js";
 import { toJsonObject } from "../../operations/result-dto.js";
 
 export const readRangeTool: ToolDefinition = {
@@ -10,19 +10,18 @@ export const readRangeTool: ToolDefinition = {
     "Use jump table entries from file_outline or safe_read to target " +
     "specific symbols.",
   schema: { path: z.string(), start: z.number(), end: z.number() },
-  createHandler(ctx: ToolContext): ToolHandler {
-    return async (args) => {
-      const workspace = createRepoWorkspaceFromToolContext(ctx);
-      const result = await workspace.readRange({
-        path: args["path"] as string,
-        start: args["start"] as number,
-        end: args["end"] as number,
+  policyCheck: true,
+  createHandler(): ToolHandler {
+    return async (args, ctx) => {
+      const filePath = ctx.resolvePath(args["path"] as string);
+      const startLine = args["start"] as number;
+      const endLine = args["end"] as number;
+      const result = await readRange(filePath, startLine, endLine, { fs: ctx.fs });
+      ctx.metrics.recordRead();
+      ctx.recordFootprint({
+        paths: [filePath],
+        regions: [{ path: filePath, startLine, endLine }],
       });
-      if ("projection" in result) {
-        ctx.metrics.recordRefusal();
-      } else {
-        ctx.metrics.recordRead();
-      }
       return ctx.respond("read_range", toJsonObject(result));
     };
   },

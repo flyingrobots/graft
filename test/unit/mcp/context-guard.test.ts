@@ -6,7 +6,7 @@ function minimalContext(): Record<string, unknown> {
     projectRoot: "/tmp",
     graftDir: "/tmp/.graft",
     graftignorePatterns: [],
-    session: { recordToolCall: () => undefined },
+    governor: { recordToolCall: () => undefined },
     cache: {},
     metrics: {},
     fs: {
@@ -47,10 +47,10 @@ describe("assertToolContext", () => {
     expect(() => { assertToolContext(ctx); }).toThrow("missing port: fs");
   });
 
-  it("rejects missing session property", () => {
+  it("rejects missing governance property", () => {
     const ctx = minimalContext();
-    delete ctx["session"];
-    expect(() => { assertToolContext(ctx); }).toThrow("missing session property: session");
+    delete ctx["governor"];
+    expect(() => { assertToolContext(ctx); }).toThrow("missing governance property: governor");
   });
 
   it("rejects missing method", () => {

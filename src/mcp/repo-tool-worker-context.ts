@@ -4,7 +4,7 @@ import { nodeGit } from "../adapters/node-git.js";
 import { nodeProcessRunner } from "../adapters/node-process-runner.js";
 import { createRepoPathResolver } from "../adapters/repo-paths.js";
 import { openWarp } from "../warp/open.js";
-import { SessionTracker } from "../session/tracker.js";
+import { GovernorTracker } from "../session/tracker.js";
 import { RefusedResult } from "../policy/types.js";
 import type { WorkspaceStatus } from "./workspace-router.js";
 import { buildReceiptResult } from "./receipt.js";
@@ -37,18 +37,17 @@ function workerStatus(job: RepoToolWorkerJob): WorkspaceStatus {
 export function wrapWithPolicyCheck(
   toolName: ToolDefinition["name"],
   inner: ToolHandler,
-  ctx: ToolContext,
 ): ToolHandler {
-  return async (args: Record<string, unknown>) => {
+  return async (args: Record<string, unknown>, ctx: ToolContext) => {
     const rawPath = args["path"];
-    if (typeof rawPath !== "string") return inner(args);
+    if (typeof rawPath !== "string") return inner(args, ctx);
 
     const filePath = ctx.resolvePath(rawPath);
     let content: string;
     try {
       content = await ctx.fs.readFile(filePath, "utf-8");
     } catch {
-      return inner(args);
+      return inner(args, ctx);
     }
 
     const actual = { lines: content.split("\n").length, bytes: Buffer.byteLength(content) };
@@ -64,7 +63,7 @@ export function wrapWithPolicyCheck(
         actual,
       });
     }
-    return inner(args);
+    return inner(args, ctx);
   };
 }
 
@@ -72,7 +71,7 @@ export function buildRepoToolWorkerContext(
   job: RepoToolWorkerJob,
 ): { ctx: ToolContext; takeResponse: () => RepoToolWorkerResult } {
   const codec = new CanonicalJsonCodec();
-  const session = SessionTracker.fromSnapshot(job.sessionSnapshot);
+  const governor = GovernorTracker.fromSnapshot(job.governorSnapshot);
   const metrics = Metrics.fromSnapshot(job.metricsSnapshot);
   const cache = ObservationCache.fromSnapshots(job.cacheSnapshots);
   const trackedCachePaths = new Set<string>(Object.keys(job.cacheSnapshots ?? {}));
@@ -85,7 +84,7 @@ export function buildRepoToolWorkerContext(
     projectRoot: job.projectRoot,
     graftDir: job.graftDir,
     graftignorePatterns: job.graftignorePatterns,
-    session,
+    governor,
     cache,
     metrics,
     fs: nodeFs,
@@ -95,7 +94,7 @@ export function buildRepoToolWorkerContext(
     runCapture: resolveRunCaptureConfig({}),
     observability: resolveRuntimeObservabilityState({ graftDir: job.graftDir }),
     respond(tool, data) {
-      const tripwires = session.checkTripwires();
+      const tripwires = governor.checkTripwires();
       const built = buildReceiptResult(tool, data, {
         sessionId: job.sessionId,
         traceId: job.traceId,
@@ -104,7 +103,7 @@ export function buildRepoToolWorkerContext(
         codec,
         metrics: metrics.snapshot(),
         tripwires,
-        budget: session.getBudget(),
+        budget: governor.getBudget(),
       });
       response = {
         result: built.result,
@@ -113,6 +112,10 @@ export function buildRepoToolWorkerContext(
         tripwireSignals: tripwires.map((wire) => wire.signal),
       };
       return built.result;
+    },
+    recordFootprint() {
+      // Worker-thread footprints are not collected — the main thread
+      // captures footprint via AsyncLocalStorage in the invocation engine.
     },
     resolvePath: createRepoPathResolver(job.projectRoot),
     getWarp() {

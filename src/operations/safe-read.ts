@@ -1,6 +1,6 @@
 import { evaluatePolicy } from "../policy/evaluate.js";
 import { ContentResult, RefusedResult } from "../policy/types.js";
-import type { SessionDepth } from "../policy/types.js";
+import type { GovernorDepth } from "../policy/types.js";
 import { extractOutlineForFile } from "../parser/outline.js";
 import type { OutlineEntry, JumpEntry } from "../parser/types.js";
 import type { FileSystem } from "../ports/filesystem.js";
@@ -17,7 +17,7 @@ export interface SafeReadResult {
   next?: string[] | undefined;
   actual?: { lines: number; bytes: number } | undefined;
   thresholds?: { lines: number; bytes: number } | undefined;
-  sessionDepth?: SessionDepth | undefined;
+  sessionDepth?: GovernorDepth | undefined;
 }
 
 export interface SafeReadOptions {
@@ -27,7 +27,7 @@ export interface SafeReadOptions {
   intent?: string | undefined;
   policyPath?: string | undefined;
   graftignorePatterns?: string[] | undefined;
-  sessionDepth?: SessionDepth | undefined;
+  sessionDepth?: GovernorDepth | undefined;
   budgetRemaining?: number | undefined;
 }
 

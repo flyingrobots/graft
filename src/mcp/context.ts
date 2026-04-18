@@ -4,7 +4,7 @@
 import type { JsonObject } from "../contracts/json-object.js";
 import type { ObservationCache } from "./cache.js";
 import type { Metrics } from "./metrics.js";
-import type { SessionTracker } from "../session/tracker.js";
+import type { GovernorTracker } from "../session/tracker.js";
 import type { McpToolResult } from "./receipt.js";
 import type { FileSystem } from "../ports/filesystem.js";
 import type { JsonCodec } from "../ports/codec.js";
@@ -13,7 +13,7 @@ import type { GitClient } from "../ports/git.js";
 import type { WarpHandle } from "../ports/warp.js";
 import type { RepoObservation } from "./repo-state.js";
 import type { RunCaptureConfig } from "./run-capture-config.js";
-import type { RuntimeObservabilityState } from "./runtime-observability.js";
+import type { RuntimeObservabilityState, ToolCallFootprintRegion } from "./runtime-observability.js";
 import type { RuntimeCausalContext } from "./runtime-causal-context.js";
 import type { RuntimeWorkspaceOverlayFooting } from "./runtime-workspace-overlay.js";
 import type {
@@ -49,14 +49,14 @@ import type {
 
 import type { z } from "zod";
 
-export type ToolHandler = (args: JsonObject) => McpToolResult | Promise<McpToolResult>;
+export type ToolHandler = (args: JsonObject, ctx: ToolContext) => McpToolResult | Promise<McpToolResult>;
 
 export interface ToolDefinition {
   readonly name: McpToolName;
   readonly description: string;
   readonly schema?: Record<string, z.ZodType>;
   readonly policyCheck?: boolean;
-  readonly createHandler: (ctx: ToolContext) => ToolHandler;
+  readonly createHandler: () => ToolHandler;
 }
 
 // -- Port dependencies ---------------------------------------------------
@@ -69,14 +69,14 @@ export interface ToolContextPorts {
   readonly git: GitClient;
 }
 
-// -- Session and observability -------------------------------------------
+// -- Governance and observability -------------------------------------------
 
-/** Session-scoped state visible to every tool handler. */
-export interface ToolContextSession {
+/** Governance state — budget, depth, tripwires — visible to every tool handler. */
+export interface ToolContextGovernance {
   readonly projectRoot: string;
   readonly graftDir: string;
   readonly graftignorePatterns: readonly string[];
-  readonly session: SessionTracker;
+  readonly governor: GovernorTracker;
   readonly cache: ObservationCache;
   readonly metrics: Metrics;
   readonly runCapture: RunCaptureConfig;
@@ -90,13 +90,21 @@ export interface ToolContextSession {
  *
  * Composed of three concerns:
  *   1. Port dependencies — environment adapters (fs, codec, git, process)
- *   2. Session state — tracking, caching, observability
+ *   2. Governance state — budget tracking, depth, tripwires, caching, observability
  *   3. Operations — methods that execute workspace/daemon actions
  */
-export interface ToolContext extends ToolContextPorts, ToolContextSession {
+export interface ToolContext extends ToolContextPorts, ToolContextGovernance {
   // -- Response helpers --------------------------------------------------
   respond(tool: McpToolName, data: JsonObject): McpToolResult;
   resolvePath(relative: string): string;
+
+  // -- Footprint recording -----------------------------------------------
+  /** Record path/symbol/region observations for provenance tracking. */
+  recordFootprint(entry: {
+    readonly paths?: readonly string[];
+    readonly symbols?: readonly string[];
+    readonly regions?: readonly ToolCallFootprintRegion[];
+  }): void;
 
   // -- Repo-local workspace operations -----------------------------------
   getWarp(): Promise<WarpHandle>;
@@ -130,9 +138,9 @@ export interface ToolContext extends ToolContextPorts, ToolContextSession {
 // -- Runtime guard -------------------------------------------------------
 
 const REQUIRED_PORTS = ["fs", "codec", "process", "git"] as const;
-const REQUIRED_SESSION = [
+const REQUIRED_GOVERNANCE = [
   "projectRoot", "graftDir", "graftignorePatterns",
-  "session", "cache", "metrics", "runCapture", "observability",
+  "governor", "cache", "metrics", "runCapture", "observability",
 ] as const;
 const REQUIRED_METHODS = [
   "respond", "resolvePath", "getWarp", "getRepoState",
@@ -155,9 +163,9 @@ export function assertToolContext(impl: unknown): asserts impl is ToolContext {
       throw new TypeError(`ToolContext missing port: ${key}`);
     }
   }
-  for (const key of REQUIRED_SESSION) {
+  for (const key of REQUIRED_GOVERNANCE) {
     if (obj[key] === undefined) {
-      throw new TypeError(`ToolContext missing session property: ${key}`);
+      throw new TypeError(`ToolContext missing governance property: ${key}`);
     }
   }
   for (const key of REQUIRED_METHODS) {

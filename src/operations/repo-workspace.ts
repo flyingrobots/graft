@@ -3,7 +3,7 @@ import { fileOutline, type FileOutlineResult } from "./file-outline.js";
 import { readRange, type ReadRangeResult } from "./read-range.js";
 import { CachedFile } from "./cached-file.js";
 import { ObservationCache, hashContent } from "./observation-cache.js";
-import { SessionTracker } from "../session/tracker.js";
+import { GovernorTracker } from "../session/tracker.js";
 import { diffOutlines, type OutlineDiff } from "../parser/diff.js";
 import { extractOutlineForFile } from "../parser/outline.js";
 import type { JumpEntry, OutlineEntry } from "../parser/types.js";
@@ -70,7 +70,7 @@ export interface RepoWorkspaceOptions {
   readonly graftignorePatterns?: readonly string[] | undefined;
   readonly resolvePath?: ((input: string) => string) | undefined;
   readonly toPolicyPath?: ((resolvedPath: string) => string) | undefined;
-  readonly session?: SessionTracker | undefined;
+  readonly governor?: GovernorTracker | undefined;
   readonly cache?: ObservationCache | undefined;
 }
 
@@ -92,7 +92,7 @@ export class RepoWorkspace {
   readonly fs: FileSystem;
   readonly codec: JsonCodec;
   readonly graftignorePatterns: readonly string[];
-  readonly session: SessionTracker;
+  readonly governor: GovernorTracker;
   readonly cache: ObservationCache;
 
   constructor(options: RepoWorkspaceOptions) {
@@ -100,7 +100,7 @@ export class RepoWorkspace {
     this.fs = options.fs;
     this.codec = options.codec;
     this.graftignorePatterns = options.graftignorePatterns ?? [];
-    this.session = options.session ?? new SessionTracker();
+    this.governor = options.governor ?? new GovernorTracker();
     this.cache = options.cache ?? new ObservationCache();
     this.resolveWorkspacePath = options.resolvePath ?? ((input) => input);
     this.policyPathForWorkspaceFile = options.toPolicyPath ?? ((resolvedPath) => resolvedPath);
@@ -114,11 +114,11 @@ export class RepoWorkspace {
   }
 
   setBudget(bytes: number): void {
-    this.session.setBudget(bytes);
+    this.governor.setBudget(bytes);
   }
 
   getBudget(): { total: number; consumed: number; remaining: number; fraction: number } | null {
-    return this.session.getBudget();
+    return this.governor.getBudget();
   }
 
   private evaluateRefusal(
@@ -133,8 +133,8 @@ export class RepoWorkspace {
       },
       {
         graftignorePatterns: this.graftignorePatterns.length > 0 ? [...this.graftignorePatterns] : undefined,
-        sessionDepth: this.session.getSessionDepth(),
-        budgetRemaining: this.session.getBudget()?.remaining,
+        sessionDepth: this.governor.getGovernorDepth(),
+        budgetRemaining: this.governor.getBudget()?.remaining,
       },
     );
     if (!(policy instanceof RefusedResult)) {
@@ -205,8 +205,8 @@ export class RepoWorkspace {
       intent: args.intent,
       policyPath: this.policyPathForWorkspaceFile(filePath),
       graftignorePatterns: [...this.graftignorePatterns],
-      sessionDepth: this.session.getSessionDepth(),
-      budgetRemaining: this.session.getBudget()?.remaining,
+      sessionDepth: this.governor.getGovernorDepth(),
+      budgetRemaining: this.governor.getBudget()?.remaining,
     });
 
     if (

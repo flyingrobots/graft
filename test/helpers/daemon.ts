@@ -94,17 +94,17 @@ export async function createInProcessDaemonHarness(): Promise<InProcessDaemonHar
         name: string,
         args: Record<string, unknown>,
       ): Promise<T> {
-        controlPlane.touchSession(sessionId);
+        controlPlane.touchTransport(sessionId);
         return parse(await server.callTool(name, args)) as T;
       },
       close(): void {
-        controlPlane.unregisterSession(sessionId);
+        controlPlane.unregisterTransport(sessionId);
         sessions.delete(sessionId);
         fs.rmSync(graftDir, { recursive: true, force: true });
       },
     };
 
-    controlPlane.registerSession(
+    controlPlane.registerTransport(
       sessionId,
       () => server.getWorkspaceStatus(),
       () => server.getRuntimeCausalContext(),

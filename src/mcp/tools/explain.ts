@@ -1,7 +1,5 @@
 import { z } from "zod";
-import type { ToolDefinition, ToolContext, ToolHandler } from "../context.js";
-import { toJsonObject } from "../../operations/result-dto.js";
-import type { ExplainResponse } from "./diagnostic-models.js";
+import type { ToolDefinition, ToolHandler } from "../context.js";
 
 const EXPLANATIONS: Readonly<Record<string, { meaning: string; action: string }>> = {
   CONTENT: {
@@ -64,25 +62,23 @@ export const explainTool: ToolDefinition = {
     "Explain a graft reason code. Returns human-readable meaning and " +
     "recommended next action for any reason code returned by graft tools.",
   schema: { code: z.string() },
-  createHandler(ctx: ToolContext): ToolHandler {
-    return (args) => {
+  createHandler(): ToolHandler {
+    return (args, ctx) => {
       const code = (args["code"] as string).toUpperCase();
       const entry = EXPLANATIONS[code];
       if (entry === undefined) {
         const known = Object.keys(EXPLANATIONS).join(", ");
-        const response: ExplainResponse = {
+        return ctx.respond("explain", {
           code,
           error: "Unknown reason code",
           knownCodes: known,
-        };
-        return ctx.respond("explain", toJsonObject(response));
+        });
       }
-      const response: ExplainResponse = {
+      return ctx.respond("explain", {
         code,
         meaning: entry.meaning,
         action: entry.action,
-      };
-      return ctx.respond("explain", toJsonObject(response));
+      });
     };
   },
 };

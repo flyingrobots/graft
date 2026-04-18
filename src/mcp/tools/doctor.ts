@@ -2,7 +2,7 @@ import { STATIC_THRESHOLDS } from "../../policy/evaluate.js";
 import { topBurdenKind, totalNonReadBytesReturned } from "../burden.js";
 import { buildRuntimeStagedTarget } from "../runtime-staged-target.js";
 import { deriveCausalSurfaceNextAction } from "../semantic-transition-guidance.js";
-import type { ToolDefinition, ToolContext, ToolHandler } from "../context.js";
+import type { ToolDefinition, ToolHandler } from "../context.js";
 import { toJsonObject } from "../../operations/result-dto.js";
 import type { DoctorResponse } from "./diagnostic-models.js";
 
@@ -11,8 +11,8 @@ export const doctorTool: ToolDefinition = {
   description:
     "Runtime health check. Shows project root, parser status, active " +
     "thresholds, session depth, message count, and burden summary.",
-  createHandler(ctx: ToolContext): ToolHandler {
-    return async () => {
+  createHandler(): ToolHandler {
+    return async (_args, ctx) => {
       const repoState = ctx.getRepoState();
       const causalContext = ctx.getCausalContext();
       const workspaceOverlayFooting = await ctx.getWorkspaceOverlayFooting();
@@ -29,8 +29,8 @@ export const doctorTool: ToolDefinition = {
         projectRoot: ctx.projectRoot,
         parserHealthy: true,
         thresholds: { lines: STATIC_THRESHOLDS.lines, bytes: STATIC_THRESHOLDS.bytes },
-        sessionDepth: ctx.session.getSessionDepth(),
-        totalMessages: ctx.session.getMessageCount(),
+        sessionDepth: ctx.governor.getGovernorDepth(),
+        totalMessages: ctx.governor.getMessageCount(),
         burdenSummary: {
           totalBytesReturned: metrics.bytesReturned,
           totalNonReadBytesReturned: totalNonReadBytesReturned(metrics.burdenByKind),

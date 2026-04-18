@@ -1,5 +1,5 @@
 import { z } from "zod";
-import type { ToolDefinition, ToolContext, ToolHandler } from "../context.js";
+import type { ToolDefinition, ToolHandler } from "../context.js";
 
 export const monitorStartTool: ToolDefinition = {
   name: "monitor_start",
@@ -9,8 +9,8 @@ export const monitorStartTool: ToolDefinition = {
     cwd: z.string(),
     pollIntervalMs: z.number().int().positive().optional(),
   },
-  createHandler(ctx: ToolContext): ToolHandler {
-    return async (args) => {
+  createHandler(): ToolHandler {
+    return async (args, ctx) => {
       return ctx.respond("monitor_start", { ...await ctx.startMonitor({
         cwd: args["cwd"] as string,
         pollIntervalMs: args["pollIntervalMs"] as number | undefined,

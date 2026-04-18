@@ -11,7 +11,7 @@ export type ReasonCode =
   | "BUDGET_CAP"
   | "UNSUPPORTED_LANGUAGE";
 
-export type SessionDepth = "early" | "mid" | "late" | "unknown";
+export type GovernorDepth = "early" | "mid" | "late" | "unknown";
 
 export interface PolicyInput {
   path: string;
@@ -21,7 +21,7 @@ export interface PolicyInput {
 
 export interface PolicyOptions {
   graftignorePatterns?: string[] | undefined;
-  sessionDepth?: SessionDepth | undefined;
+  sessionDepth?: GovernorDepth | undefined;
   budgetRemaining?: number | undefined;
 }
 
@@ -29,7 +29,7 @@ export interface PolicyOptions {
 interface PolicyResultBase {
   readonly thresholds: { readonly lines: number; readonly bytes: number };
   readonly actual: { readonly lines: number; readonly bytes: number };
-  readonly sessionDepth?: SessionDepth | undefined;
+  readonly sessionDepth?: GovernorDepth | undefined;
 }
 
 export class ContentResult implements PolicyResultBase {
@@ -37,9 +37,9 @@ export class ContentResult implements PolicyResultBase {
   readonly reason = "CONTENT" as const;
   readonly thresholds: { readonly lines: number; readonly bytes: number };
   readonly actual: { readonly lines: number; readonly bytes: number };
-  readonly sessionDepth?: SessionDepth | undefined;
+  readonly sessionDepth?: GovernorDepth | undefined;
 
-  constructor(opts: { thresholds: { lines: number; bytes: number }; actual: { lines: number; bytes: number }; sessionDepth?: SessionDepth | undefined }) {
+  constructor(opts: { thresholds: { lines: number; bytes: number }; actual: { lines: number; bytes: number }; sessionDepth?: GovernorDepth | undefined }) {
     this.thresholds = Object.freeze({ ...opts.thresholds });
     this.actual = Object.freeze({ ...opts.actual });
     if (opts.sessionDepth !== undefined) this.sessionDepth = opts.sessionDepth;
@@ -52,9 +52,9 @@ export class OutlineResult implements PolicyResultBase {
   readonly reason: "OUTLINE" | "SESSION_CAP" | "BUDGET_CAP" | "UNSUPPORTED_LANGUAGE";
   readonly thresholds: { readonly lines: number; readonly bytes: number };
   readonly actual: { readonly lines: number; readonly bytes: number };
-  readonly sessionDepth?: SessionDepth | undefined;
+  readonly sessionDepth?: GovernorDepth | undefined;
 
-  constructor(opts: { reason: "OUTLINE" | "SESSION_CAP" | "BUDGET_CAP" | "UNSUPPORTED_LANGUAGE"; thresholds: { lines: number; bytes: number }; actual: { lines: number; bytes: number }; sessionDepth?: SessionDepth | undefined }) {
+  constructor(opts: { reason: "OUTLINE" | "SESSION_CAP" | "BUDGET_CAP" | "UNSUPPORTED_LANGUAGE"; thresholds: { lines: number; bytes: number }; actual: { lines: number; bytes: number }; sessionDepth?: GovernorDepth | undefined }) {
     this.reason = opts.reason;
     this.thresholds = Object.freeze({ ...opts.thresholds });
     this.actual = Object.freeze({ ...opts.actual });
@@ -70,9 +70,9 @@ export class RefusedResult implements PolicyResultBase {
   readonly next: readonly string[];
   readonly thresholds: { readonly lines: number; readonly bytes: number };
   readonly actual: { readonly lines: number; readonly bytes: number };
-  readonly sessionDepth?: SessionDepth | undefined;
+  readonly sessionDepth?: GovernorDepth | undefined;
 
-  constructor(opts: { reason: ReasonCode; reasonDetail: string; next: string[]; thresholds: { lines: number; bytes: number }; actual: { lines: number; bytes: number }; sessionDepth?: SessionDepth | undefined }) {
+  constructor(opts: { reason: ReasonCode; reasonDetail: string; next: string[]; thresholds: { lines: number; bytes: number }; actual: { lines: number; bytes: number }; sessionDepth?: GovernorDepth | undefined }) {
     this.reason = opts.reason;
     this.reasonDetail = opts.reasonDetail;
     this.next = Object.freeze([...opts.next]);
