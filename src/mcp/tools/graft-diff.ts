@@ -2,6 +2,7 @@ import { z } from "zod";
 import { graftDiff } from "../../operations/graft-diff.js";
 import type { ToolDefinition, ToolContext, ToolHandler } from "../context.js";
 import { evaluateMcpRefusal } from "../policy.js";
+import { toJsonObject } from "../../operations/result-dto.js";
 
 export const graftDiffTool: ToolDefinition = {
   name: "graft_diff",
@@ -23,10 +24,10 @@ export const graftDiffTool: ToolDefinition = {
         path: args["path"] as string | undefined,
         refusalCheck: (filePath, actual) => evaluateMcpRefusal(ctx, filePath, actual),
       });
-      return ctx.respond("graft_diff", {
+      return ctx.respond("graft_diff", toJsonObject({
         ...result,
         layer: head === undefined ? "workspace_overlay" : "ref_view",
-      });
+      }));
     };
   },
 };

@@ -31,7 +31,6 @@ function buildSummary(filePath: string, status: string, diff: OutlineDiff): stri
 }
 
 export interface GraftDiffResult {
-  [key: string]: unknown;
   base: string;
   head: string;
   files: FileDiff[];
