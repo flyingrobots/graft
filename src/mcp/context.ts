@@ -59,21 +59,46 @@ export interface ToolDefinition {
   readonly createHandler: (ctx: ToolContext) => ToolHandler;
 }
 
-export interface ToolContext {
+// -- Port dependencies ---------------------------------------------------
+
+/** Environment ports — the hex boundary contracts that tools depend on. */
+export interface ToolContextPorts {
+  readonly fs: FileSystem;
+  readonly codec: JsonCodec;
+  readonly process: ProcessRunner;
+  readonly git: GitClient;
+}
+
+// -- Session and observability -------------------------------------------
+
+/** Session-scoped state visible to every tool handler. */
+export interface ToolContextSession {
   readonly projectRoot: string;
   readonly graftDir: string;
   readonly graftignorePatterns: readonly string[];
   readonly session: SessionTracker;
   readonly cache: ObservationCache;
   readonly metrics: Metrics;
-  readonly fs: FileSystem;
-  readonly codec: JsonCodec;
-  readonly process: ProcessRunner;
-  readonly git: GitClient;
   readonly runCapture: RunCaptureConfig;
   readonly observability: RuntimeObservabilityState;
+}
+
+// -- Full context --------------------------------------------------------
+
+/**
+ * Aggregate dependency bag injected into every tool handler.
+ *
+ * Composed of three concerns:
+ *   1. Port dependencies — environment adapters (fs, codec, git, process)
+ *   2. Session state — tracking, caching, observability
+ *   3. Operations — methods that execute workspace/daemon actions
+ */
+export interface ToolContext extends ToolContextPorts, ToolContextSession {
+  // -- Response helpers --------------------------------------------------
   respond(tool: McpToolName, data: JsonObject): McpToolResult;
   resolvePath(relative: string): string;
+
+  // -- Repo-local workspace operations -----------------------------------
   getWarp(): Promise<WarpHandle>;
   getRepoState(): RepoObservation;
   getCausalContext(): RuntimeCausalContext;
@@ -82,9 +107,13 @@ export interface ToolContext {
   getPersistedLocalActivityWindow(limit: number): Promise<PersistedLocalActivityWindow>;
   getRepoConcurrencySummary(): Promise<RepoConcurrencySummary | null>;
   declareCausalAttach(request: PersistedLocalHistoryAttachDeclaration): Promise<CausalAttachResult>;
+
+  // -- Workspace lifecycle -----------------------------------------------
   getWorkspaceStatus(): WorkspaceStatus;
   bindWorkspace(request: WorkspaceBindRequest, actionName: string): Promise<WorkspaceActionResult>;
   rebindWorkspace(request: WorkspaceBindRequest, actionName: string): Promise<WorkspaceActionResult>;
+
+  // -- Daemon-scoped operations ------------------------------------------
   getDaemonStatus(): Promise<DaemonStatusView>;
   listDaemonRepos(filter: DaemonRepoFilter): Promise<DaemonRepoListView>;
   listDaemonSessions(): Promise<readonly DaemonSessionView[]>;
@@ -96,4 +125,46 @@ export interface ToolContext {
   listWorkspaceAuthorizations(): Promise<readonly AuthorizedWorkspaceView[]>;
   authorizeWorkspace(request: WorkspaceAuthorizeRequest): Promise<WorkspaceAuthorizeResult>;
   revokeWorkspace(request: WorkspaceBindRequest): Promise<WorkspaceRevokeResult>;
+}
+
+// -- Runtime guard -------------------------------------------------------
+
+const REQUIRED_PORTS = ["fs", "codec", "process", "git"] as const;
+const REQUIRED_SESSION = [
+  "projectRoot", "graftDir", "graftignorePatterns",
+  "session", "cache", "metrics", "runCapture", "observability",
+] as const;
+const REQUIRED_METHODS = [
+  "respond", "resolvePath", "getWarp", "getRepoState",
+  "getCausalContext", "getWorkspaceStatus",
+] as const;
+
+/**
+ * Validate that an object satisfies the ToolContext contract at runtime.
+ * Call at the wiring boundary (server.ts) to catch broken composition early.
+ */
+export function assertToolContext(impl: unknown): asserts impl is ToolContext {
+  if (impl === null || typeof impl !== "object") {
+    throw new TypeError(
+      `ToolContext must be an object (got ${impl === null ? "null" : typeof impl})`,
+    );
+  }
+  const obj = impl as Record<string, unknown>;
+  for (const key of REQUIRED_PORTS) {
+    if (obj[key] === undefined || obj[key] === null) {
+      throw new TypeError(`ToolContext missing port: ${key}`);
+    }
+  }
+  for (const key of REQUIRED_SESSION) {
+    if (obj[key] === undefined) {
+      throw new TypeError(`ToolContext missing session property: ${key}`);
+    }
+  }
+  for (const key of REQUIRED_METHODS) {
+    if (typeof obj[key] !== "function") {
+      throw new TypeError(
+        `ToolContext missing method: ${key} (got ${typeof obj[key]})`,
+      );
+    }
+  }
 }
