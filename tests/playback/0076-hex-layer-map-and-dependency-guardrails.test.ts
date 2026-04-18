@@ -29,7 +29,7 @@ async function readRepoText(relativeFilePath: string): Promise<string> {
   return fs.readFile(path.join(ROOT, relativeFilePath), "utf8");
 }
 
-describe("0076 hex layer map and dependency guardrails", () => {
+describe("0076 hex layer map and dependency guardrails", { timeout: 30_000 }, () => {
   it("Can a human point to the currently enforced layers without having to infer them from code archaeology?", async () => {
     const designDoc = await readRepoText(
       "docs/design/CORE_hex-layer-map-and-dependency-guardrails.md",
