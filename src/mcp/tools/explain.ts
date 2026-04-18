@@ -1,5 +1,7 @@
 import { z } from "zod";
 import type { ToolDefinition, ToolContext, ToolHandler } from "../context.js";
+import { toJsonObject } from "../../operations/result-dto.js";
+import type { ExplainResponse } from "./diagnostic-models.js";
 
 const EXPLANATIONS: Readonly<Record<string, { meaning: string; action: string }>> = {
   CONTENT: {
@@ -68,17 +70,19 @@ export const explainTool: ToolDefinition = {
       const entry = EXPLANATIONS[code];
       if (entry === undefined) {
         const known = Object.keys(EXPLANATIONS).join(", ");
-        return ctx.respond("explain", {
+        const response: ExplainResponse = {
           code,
           error: "Unknown reason code",
           knownCodes: known,
-        });
+        };
+        return ctx.respond("explain", toJsonObject(response));
       }
-      return ctx.respond("explain", {
+      const response: ExplainResponse = {
         code,
         meaning: entry.meaning,
         action: entry.action,
-      });
+      };
+      return ctx.respond("explain", toJsonObject(response));
     };
   },
 };

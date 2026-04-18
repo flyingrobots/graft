@@ -1,5 +1,7 @@
 import { z } from "zod";
 import type { ToolDefinition, ToolContext, ToolHandler } from "../context.js";
+import { toJsonObject } from "../../operations/result-dto.js";
+import type { SetBudgetResponse } from "./diagnostic-models.js";
 
 export const setBudgetTool: ToolDefinition = {
   name: "set_budget",
@@ -12,9 +14,10 @@ export const setBudgetTool: ToolDefinition = {
     return (args) => {
       const bytes = args["bytes"] as number;
       ctx.session.setBudget(bytes);
-      return ctx.respond("set_budget", {
+      const response: SetBudgetResponse = {
         budget: ctx.session.getBudget(),
-      });
+      };
+      return ctx.respond("set_budget", toJsonObject(response));
     };
   },
 };

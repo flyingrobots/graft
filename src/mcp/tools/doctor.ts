@@ -3,6 +3,8 @@ import { topBurdenKind, totalNonReadBytesReturned } from "../burden.js";
 import { buildRuntimeStagedTarget } from "../runtime-staged-target.js";
 import { deriveCausalSurfaceNextAction } from "../semantic-transition-guidance.js";
 import type { ToolDefinition, ToolContext, ToolHandler } from "../context.js";
+import { toJsonObject } from "../../operations/result-dto.js";
+import type { DoctorResponse } from "./diagnostic-models.js";
 
 export const doctorTool: ToolDefinition = {
   name: "doctor",
@@ -23,7 +25,7 @@ export const doctorTool: ToolDefinition = {
         repoState.semanticTransition,
         repoConcurrency,
       );
-      return ctx.respond("doctor", {
+      const response: DoctorResponse = {
         projectRoot: ctx.projectRoot,
         parserHealthy: true,
         thresholds: { lines: STATIC_THRESHOLDS.lines, bytes: STATIC_THRESHOLDS.bytes },
@@ -57,7 +59,8 @@ export const doctorTool: ToolDefinition = {
         attribution: persistedLocalHistory.attribution,
         persistedLocalHistory,
         recommendedNextAction,
-      });
+      };
+      return ctx.respond("doctor", toJsonObject(response));
     };
   },
 };
