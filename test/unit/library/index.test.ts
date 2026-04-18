@@ -32,9 +32,9 @@ describe("public library API", () => {
     const graft = createRepoLocalGraft({ cwd: repoDir });
     expect(graft.getRegisteredTools()).toContain("safe_read");
 
-    const result = await callGraftTool(graft, "safe_read", { path: "app.ts" });
-    expect(result.projection).toBe("content");
-    expect(result._schema).toEqual(
+    const result = await callGraftTool(graft, "safe_read", { path: "app.ts" }) as Record<string, unknown>;
+    expect(result["projection"]).toBe("content");
+    expect(result["_schema"]).toEqual(
       expect.objectContaining({ id: "graft.mcp.safe_read" }),
     );
   });

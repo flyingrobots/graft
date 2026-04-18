@@ -7,7 +7,14 @@ import type { RunCaptureConfig } from "../../src/mcp/run-capture-config.js";
 import type { RuntimeObservabilityState } from "../../src/mcp/runtime-observability.js";
 import type { WorkspaceMode } from "../../src/mcp/workspace-router.js";
 import { ensureGitRepo } from "./git.js";
+import { harnessPath } from "./fixtures.js";
 export { createFixtureWorkspace, fixturePath, harnessPath } from "./fixtures.js";
+
+/** Returns the repository root for use as a projectRoot in tests. */
+export function getTestRepoRoot(): string {
+  return harnessPath();
+}
+
 
 export function extractText(result: unknown): string {
   const r = result as { content?: { type: string; text: string }[] };

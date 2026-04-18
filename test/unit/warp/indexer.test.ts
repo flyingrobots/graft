@@ -5,8 +5,14 @@ import * as path from "node:path";
 import { nodeGit } from "../../../src/adapters/node-git.js";
 import { git, createTestRepo, cleanupTestRepo } from "../../helpers/git.js";
 import { openWarp } from "../../../src/warp/open.js";
-import { indexCommits } from "../../../src/warp/indexer.js";
+import { indexCommits, type IndexResult } from "../../../src/warp/indexer.js";
 import { fileSymbolsLens, allSymbolsLens, allFilesLens } from "../../../src/warp/observers.js";
+import type { GitClient } from "../../../src/ports/git.js";
+
+function assertOk(result: IndexResult): asserts result is IndexResult & { ok: true } {
+  expect(result.ok).toBe(true);
+  if (!result.ok) throw new Error("unreachable");
+}
 
 describe("warp: indexer", { timeout: 15000 }, () => {
   let tmpDir: string;
@@ -34,6 +40,7 @@ describe("warp: indexer", { timeout: 15000 }, () => {
 
     const warp = await openWarp({ cwd: tmpDir });
     const result = await indexCommits(warp, { cwd: tmpDir, git: nodeGit });
+    assertOk(result);
 
     expect(result.commitsIndexed).toBe(1);
     expect(result.patchesWritten).toBe(1);
@@ -83,6 +90,7 @@ describe("warp: indexer", { timeout: 15000 }, () => {
 
     const warp = await openWarp({ cwd: tmpDir });
     const result = await indexCommits(warp, { cwd: tmpDir, git: nodeGit });
+    assertOk(result);
 
     expect(result.commitsIndexed).toBe(2);
     expect(result.patchesWritten).toBe(2);
@@ -320,8 +328,15 @@ describe("warp: indexer", { timeout: 15000 }, () => {
   });
 
   it("returns zero for empty commit range", async () => {
+    // Create at least one commit so HEAD resolves, then query a range with no new commits
+    fs.writeFileSync(path.join(tmpDir, "init.ts"), 'export const init = true;\n');
+    git(tmpDir, "add -A");
+    git(tmpDir, "commit -m 'init'");
+    const head = git(tmpDir, "rev-parse HEAD");
+
     const warp = await openWarp({ cwd: tmpDir });
-    const result = await indexCommits(warp, { cwd: tmpDir, git: nodeGit });
+    const result = await indexCommits(warp, { cwd: tmpDir, git: nodeGit, from: head });
+    assertOk(result);
     expect(result.commitsIndexed).toBe(0);
     expect(result.patchesWritten).toBe(0);
   });
@@ -343,6 +358,7 @@ describe("warp: indexer", { timeout: 15000 }, () => {
     const warp = await openWarp({ cwd: tmpDir });
     // Only index c2 and c3 (from c1 to HEAD)
     const result = await indexCommits(warp, { cwd: tmpDir, git: nodeGit, from: c1 });
+    assertOk(result);
 
     expect(result.commitsIndexed).toBe(2);
     expect(result.patchesWritten).toBe(2);
@@ -359,6 +375,7 @@ describe("warp: indexer", { timeout: 15000 }, () => {
 
     const primaryWarp = await openWarp({ cwd: tmpDir });
     const primaryResult = await indexCommits(primaryWarp, { cwd: tmpDir, git: nodeGit });
+    assertOk(primaryResult);
     expect(primaryResult.commitsIndexed).toBe(1);
 
     git(tmpDir, "branch secondary");
@@ -383,11 +400,72 @@ describe("warp: indexer", { timeout: 15000 }, () => {
       git: nodeGit,
       from: primaryHead,
     });
+    assertOk(worktreeResult);
     expect(worktreeResult.commitsIndexed).toBe(1);
 
     const reopenedPrimaryWarp = await openWarp({ cwd: tmpDir });
     const mirroredObs = await reopenedPrimaryWarp.observer(fileSymbolsLens("worktree.ts"));
     const mirroredNodes = await mirroredObs.getNodes();
     expect(mirroredNodes.length).toBe(1);
+  });
+
+  it("disambiguates same-named methods across different classes", async () => {
+    fs.writeFileSync(
+      path.join(tmpDir, "components.ts"),
+      `export class Header {
+  render(): string { return "<header/>"; }
+}
+
+export class Footer {
+  render(): string { return "<footer/>"; }
+}
+`,
+    );
+    git(tmpDir, "add -A");
+    git(tmpDir, "commit -m 'add Header and Footer with render methods'");
+
+    const warp = await openWarp({ cwd: tmpDir });
+    await indexCommits(warp, { cwd: tmpDir, git: nodeGit });
+
+    const symObs = await warp.observer(fileSymbolsLens("components.ts"));
+    const symNodes = await symObs.getNodes();
+
+    // Should have 4 distinct symbols: Header, Footer, Header.render, Footer.render
+    expect(symNodes.length).toBe(4);
+
+    // Verify node IDs are distinct — both render methods must survive
+    const nodeIds = new Set(symNodes);
+    expect(nodeIds.size).toBe(4);
+
+    // Verify the qualified names appear in the node IDs
+    const renderNodes = symNodes.filter((id) => id.includes("render"));
+    expect(renderNodes.length).toBe(2);
+    expect(renderNodes.some((id) => id.includes("Header.render"))).toBe(true);
+    expect(renderNodes.some((id) => id.includes("Footer.render"))).toBe(true);
+  });
+
+  it("returns an explicit error result when git fails during indexing", async () => {
+    fs.writeFileSync(
+      path.join(tmpDir, "foo.ts"),
+      'export function greet(): void {}\n',
+    );
+    git(tmpDir, "add -A");
+    git(tmpDir, "commit -m 'setup'");
+
+    const failingGit: GitClient = {
+      run: () => Promise.resolve({
+        status: 128,
+        stdout: "",
+        stderr: "fatal: not a git repository",
+      }),
+    };
+
+    const warp = await openWarp({ cwd: tmpDir });
+    const result = await indexCommits(warp, { cwd: tmpDir, git: failingGit });
+
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.error).toContain("not a git repository");
+    }
   });
 });

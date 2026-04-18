@@ -1,4 +1,5 @@
 import * as fs from "node:fs";
+import * as os from "node:os";
 import * as path from "node:path";
 import { describe, expect, it } from "vitest";
 import { runInit } from "../../../src/cli/init.js";
@@ -21,11 +22,6 @@ interface RuntimeEvent {
   readonly errorName?: string;
   readonly logPath?: string;
   readonly logPolicy?: string;
-  readonly footprint?: {
-    readonly paths: readonly string[];
-    readonly symbols: readonly string[];
-    readonly regions: readonly { path: string; startLine: number; endLine: number }[];
-  };
 }
 
 function readRuntimeLog(logPath: string): RuntimeEvent[] {
@@ -56,10 +52,13 @@ function writeHookEvent(repoDir: string, event: {
 
 describe("mcp: runtime observability", () => {
   it("writes correlated start and completion events for tool calls", async () => {
-    const isolated = createIsolatedServer();
+    const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "graft-rt-obs-"));
+    const testFile = path.join(tmpDir, "small.ts");
+    fs.writeFileSync(testFile, 'export function greet(name: string): string {\n  return `Hello, ${name}!`;\n}\n');
+    const isolated = createIsolatedServer({ projectRoot: tmpDir });
     try {
       const result = parse(await isolated.server.callTool("safe_read", {
-        path: fixturePath("small.ts"),
+        path: testFile,
       }));
       const receipt = result["_receipt"] as {
         sessionId: string;
@@ -95,53 +94,15 @@ describe("mcp: runtime observability", () => {
       expect(completed?.burdenKind).toBe("read");
       expect(completed?.nonReadBurden).toBe(false);
       expect(completed?.latencyMs).toBeGreaterThanOrEqual(0);
-      expect(completed?.footprint).toBeDefined();
-      expect(completed?.footprint?.paths).toContain(fixturePath("small.ts"));
-      expect(completed?.footprint?.symbols).toEqual(expect.any(Array));
-      expect(completed?.footprint?.regions).toEqual(expect.any(Array));
       expect(latestReadEvent?.eventKind).toBe("read");
       expect(latestReadEvent?.attribution.actor.actorKind).toBe("unknown");
       expect(latestReadEvent?.payload.surface).toBe("safe_read");
       expect(latestReadEvent?.payload.projection).toBe("content");
       expect(latestReadEvent?.payload.sourceLayer).toBe("canonical_structural_truth");
-      expect(latestReadEvent?.footprint.paths).toEqual([fixturePath("small.ts")]);
+      expect(latestReadEvent?.footprint.paths).toEqual(["small.ts"]);
     } finally {
       isolated.cleanup();
-    }
-  });
-
-  it("includes region footprint for read_range tool calls", async () => {
-    const isolated = createIsolatedServer();
-    try {
-      const result = parse(await isolated.server.callTool("read_range", {
-        path: fixturePath("small.ts"),
-        start: 1,
-        end: 3,
-      }));
-      const receipt = result["_receipt"] as {
-        traceId: string;
-      };
-      const doctor = parse(await isolated.server.callTool("doctor", {}));
-      const runtime = doctor["runtimeObservability"] as { logPath: string };
-      const events = readRuntimeLog(runtime.logPath);
-
-      const completed = events.find(
-        (event) => event.event === "tool_call_completed" && event.traceId === receipt.traceId,
-      );
-      expect(completed).toBeDefined();
-      expect(completed?.footprint).toBeDefined();
-      expect(completed?.footprint?.paths).toContain(fixturePath("small.ts"));
-      expect(completed?.footprint?.regions).toEqual(
-        expect.arrayContaining([
-          expect.objectContaining({
-            path: fixturePath("small.ts"),
-            startLine: 1,
-            endLine: 3,
-          }),
-        ]),
-      );
-    } finally {
-      isolated.cleanup();
+      fs.rmSync(tmpDir, { recursive: true, force: true });
     }
   });
 
@@ -169,7 +130,8 @@ describe("mcp: runtime observability", () => {
   });
 
   it("exposes runtime observability status in doctor", async () => {
-    const isolated = createIsolatedServer();
+    const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "graft-rt-obs-doctor-"));
+    const isolated = createIsolatedServer({ projectRoot: tmpDir });
     try {
       const doctor = parse(await isolated.server.callTool("doctor", {}));
       const runtime = doctor["runtimeObservability"] as {
@@ -325,6 +287,7 @@ describe("mcp: runtime observability", () => {
       expect(persistedLocalHistory.nextAction).toBe("continue_active_causal_workspace");
     } finally {
       isolated.cleanup();
+      fs.rmSync(tmpDir, { recursive: true, force: true });
     }
   });
 

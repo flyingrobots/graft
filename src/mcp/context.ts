@@ -1,7 +1,9 @@
 // ---------------------------------------------------------------------------
 // ToolContext — shared dependencies injected into every tool handler
 // ---------------------------------------------------------------------------
-import type { JsonObject } from "../contracts/json-object.js";
+
+import * as fs from "node:fs";
+import * as path from "node:path";
 import type { ObservationCache } from "./cache.js";
 import type { Metrics } from "./metrics.js";
 import type { GovernorTracker } from "../session/tracker.js";
@@ -49,7 +51,7 @@ import type {
 
 import type { z } from "zod";
 
-export type ToolHandler = (args: JsonObject, ctx: ToolContext) => McpToolResult | Promise<McpToolResult>;
+export type ToolHandler = (args: Record<string, unknown>, ctx: ToolContext) => McpToolResult | Promise<McpToolResult>;
 
 export interface ToolDefinition {
   readonly name: McpToolName;
@@ -59,54 +61,26 @@ export interface ToolDefinition {
   readonly createHandler: () => ToolHandler;
 }
 
-// -- Port dependencies ---------------------------------------------------
-
-/** Environment ports — the hex boundary contracts that tools depend on. */
-export interface ToolContextPorts {
-  readonly fs: FileSystem;
-  readonly codec: JsonCodec;
-  readonly process: ProcessRunner;
-  readonly git: GitClient;
-}
-
-// -- Governance and observability -------------------------------------------
-
-/** Governance state — budget, depth, tripwires — visible to every tool handler. */
-export interface ToolContextGovernance {
+export interface ToolContext {
   readonly projectRoot: string;
   readonly graftDir: string;
   readonly graftignorePatterns: readonly string[];
   readonly governor: GovernorTracker;
   readonly cache: ObservationCache;
   readonly metrics: Metrics;
+  readonly fs: FileSystem;
+  readonly codec: JsonCodec;
+  readonly process: ProcessRunner;
+  readonly git: GitClient;
   readonly runCapture: RunCaptureConfig;
   readonly observability: RuntimeObservabilityState;
-}
-
-// -- Full context --------------------------------------------------------
-
-/**
- * Aggregate dependency bag injected into every tool handler.
- *
- * Composed of three concerns:
- *   1. Port dependencies — environment adapters (fs, codec, git, process)
- *   2. Governance state — budget tracking, depth, tripwires, caching, observability
- *   3. Operations — methods that execute workspace/daemon actions
- */
-export interface ToolContext extends ToolContextPorts, ToolContextGovernance {
-  // -- Response helpers --------------------------------------------------
-  respond(tool: McpToolName, data: JsonObject): McpToolResult;
-  resolvePath(relative: string): string;
-
-  // -- Footprint recording -----------------------------------------------
-  /** Record path/symbol/region observations for provenance tracking. */
+  respond(tool: McpToolName, data: Record<string, unknown>): McpToolResult;
   recordFootprint(entry: {
     readonly paths?: readonly string[];
     readonly symbols?: readonly string[];
     readonly regions?: readonly ToolCallFootprintRegion[];
   }): void;
-
-  // -- Repo-local workspace operations -----------------------------------
+  resolvePath(relative: string): string;
   getWarp(): Promise<WarpHandle>;
   getRepoState(): RepoObservation;
   getCausalContext(): RuntimeCausalContext;
@@ -115,13 +89,9 @@ export interface ToolContext extends ToolContextPorts, ToolContextGovernance {
   getPersistedLocalActivityWindow(limit: number): Promise<PersistedLocalActivityWindow>;
   getRepoConcurrencySummary(): Promise<RepoConcurrencySummary | null>;
   declareCausalAttach(request: PersistedLocalHistoryAttachDeclaration): Promise<CausalAttachResult>;
-
-  // -- Workspace lifecycle -----------------------------------------------
   getWorkspaceStatus(): WorkspaceStatus;
   bindWorkspace(request: WorkspaceBindRequest, actionName: string): Promise<WorkspaceActionResult>;
   rebindWorkspace(request: WorkspaceBindRequest, actionName: string): Promise<WorkspaceActionResult>;
-
-  // -- Daemon-scoped operations ------------------------------------------
   getDaemonStatus(): Promise<DaemonStatusView>;
   listDaemonRepos(filter: DaemonRepoFilter): Promise<DaemonRepoListView>;
   listDaemonSessions(): Promise<readonly DaemonSessionView[]>;
@@ -135,44 +105,83 @@ export interface ToolContext extends ToolContextPorts, ToolContextGovernance {
   revokeWorkspace(request: WorkspaceBindRequest): Promise<WorkspaceRevokeResult>;
 }
 
-// -- Runtime guard -------------------------------------------------------
+/**
+ * Resolve a user-provided path against projectRoot with traversal guard.
+ * Both absolute and relative paths are confined to the project root.
+ * Symlinks are resolved before the confinement check to prevent escapes.
+ */
+export function createPathResolver(projectRoot: string): (input: string) => string {
+  const normalizedRoot = path.resolve(projectRoot);
 
-const REQUIRED_PORTS = ["fs", "codec", "process", "git"] as const;
-const REQUIRED_GOVERNANCE = [
-  "projectRoot", "graftDir", "graftignorePatterns",
-  "governor", "cache", "metrics", "runCapture", "observability",
-] as const;
-const REQUIRED_METHODS = [
-  "respond", "resolvePath", "getWarp", "getRepoState",
-  "getCausalContext", "getWorkspaceStatus",
-] as const;
+  // Resolve the project root itself through symlinks for consistent comparison
+  let realProjectRoot: string;
+  try {
+    realProjectRoot = fs.realpathSync(normalizedRoot);
+  } catch {
+    realProjectRoot = normalizedRoot;
+  }
+
+  return (input: string): string => {
+    // Resolve: absolute paths are taken as-is, relative paths join to projectRoot
+    const resolved = path.isAbsolute(input)
+      ? path.resolve(input)
+      : path.resolve(normalizedRoot, input);
+
+    // Logical confinement check (catches ".." traversal without needing fs access)
+    const logicalRel = path.relative(normalizedRoot, resolved);
+    if (logicalRel.startsWith("..") || path.isAbsolute(logicalRel)) {
+      throw new Error(`Path traversal blocked: ${input}`);
+    }
+
+    // Resolve symlinks before a second confinement check to prevent symlink escapes
+    let real: string;
+    try {
+      real = fs.realpathSync(resolved);
+    } catch {
+      // Target doesn't exist yet — return the logical path (already passed confinement)
+      return resolved;
+    }
+
+    // Symlink confinement check: the real path must be within the real project root
+    const realRel = path.relative(realProjectRoot, real);
+    if (realRel.startsWith("..") || path.isAbsolute(realRel)) {
+      throw new Error(`Path traversal blocked: ${input}`);
+    }
+    return resolved;
+  };
+}
 
 /**
- * Validate that an object satisfies the ToolContext contract at runtime.
- * Call at the wiring boundary (server.ts) to catch broken composition early.
+ * Runtime guard: asserts that the supplied value satisfies the ToolContext
+ * shape.  Used at composition-root boundaries to catch wiring errors early.
  */
-export function assertToolContext(impl: unknown): asserts impl is ToolContext {
-  if (impl === null || typeof impl !== "object") {
-    throw new TypeError(
-      `ToolContext must be an object (got ${impl === null ? "null" : typeof impl})`,
-    );
+export function assertToolContext(value: unknown): asserts value is ToolContext {
+  if (value === null || typeof value !== "object") {
+    throw new Error("ToolContext must be an object");
   }
-  const obj = impl as Record<string, unknown>;
-  for (const key of REQUIRED_PORTS) {
-    if (obj[key] === undefined || obj[key] === null) {
-      throw new TypeError(`ToolContext missing port: ${key}`);
+  const obj = value as Record<string, unknown>;
+
+  const ports = ["fs", "codec", "process", "git"] as const;
+  for (const port of ports) {
+    if (obj[port] === undefined || obj[port] === null) {
+      throw new Error(`ToolContext missing port: ${port}`);
     }
   }
-  for (const key of REQUIRED_GOVERNANCE) {
-    if (obj[key] === undefined) {
-      throw new TypeError(`ToolContext missing governance property: ${key}`);
+
+  const governanceProps = ["governor", "cache", "metrics"] as const;
+  for (const prop of governanceProps) {
+    if (obj[prop] === undefined || obj[prop] === null) {
+      throw new Error(`ToolContext missing governance property: ${prop}`);
     }
   }
-  for (const key of REQUIRED_METHODS) {
-    if (typeof obj[key] !== "function") {
-      throw new TypeError(
-        `ToolContext missing method: ${key} (got ${typeof obj[key]})`,
-      );
+
+  const methods = ["respond", "resolvePath", "getWarp", "getRepoState", "getCausalContext", "getWorkspaceStatus"] as const;
+  for (const method of methods) {
+    if (obj[method] === undefined || obj[method] === null) {
+      throw new Error(`ToolContext missing method: ${method}`);
+    }
+    if (typeof obj[method] !== "function") {
+      throw new Error(`ToolContext missing method: ${method} (got ${typeof obj[method]})`);
     }
   }
 }

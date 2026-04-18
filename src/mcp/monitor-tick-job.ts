@@ -66,6 +66,9 @@ export async function runMonitorTickJob(job: MonitorTickWorkerJob): Promise<Moni
       ...(job.lastIndexedCommit !== null ? { from: job.lastIndexedCommit } : {}),
       ...(headAtStart !== null ? { to: headAtStart } : {}),
     });
+    if (!result.ok) {
+      throw new Error(result.error);
+    }
     const currentHead = await readHeadCommit(job.worktreeRoot);
     const lastIndexedCommit = headAtStart ?? job.lastIndexedCommit;
     const backlogCommits = await countPendingCommits(

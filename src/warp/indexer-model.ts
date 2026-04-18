@@ -9,11 +9,19 @@ export interface IndexOptions {
   readonly to?: string;
 }
 
-export interface IndexResult {
+export interface IndexResultOk {
+  readonly ok: true;
   readonly commitsIndexed: number;
   readonly patchesWritten: number;
   readonly commitTicks: ReadonlyMap<string, number>;
 }
+
+export interface IndexResultError {
+  readonly ok: false;
+  readonly error: string;
+}
+
+export type IndexResult = IndexResultOk | IndexResultError;
 
 export interface PatchOps {
   addNode(id: string): PatchOps;

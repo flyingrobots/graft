@@ -29,6 +29,18 @@ export async function indexCommits(
   warp: WarpHandle,
   options: IndexOptions,
 ): Promise<IndexResult> {
+  try {
+    return await indexCommitsCore(warp, options);
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : String(err);
+    return { ok: false, error: message };
+  }
+}
+
+async function indexCommitsCore(
+  warp: WarpHandle,
+  options: IndexOptions,
+): Promise<IndexResult> {
   const { cwd, git: gitClient } = options;
   const commits = await listCommits(gitClient, cwd, options.from, options.to);
 
@@ -170,5 +182,5 @@ export async function indexCommits(
     }
   }
 
-  return { commitsIndexed: commits.length, patchesWritten, commitTicks };
+  return { ok: true, commitsIndexed: commits.length, patchesWritten, commitTicks };
 }

@@ -47,6 +47,10 @@ export async function runIndex(options: RunIndexOptions = {}): Promise<void> {
       ...(from !== null ? { from } : {}),
     });
 
+    if (!result.ok) {
+      throw new Error(result.error);
+    }
+
     if (json) {
       emitIndexJson(buildIndexCliSuccess({
         cwd,

@@ -22,12 +22,8 @@ export async function listCommits(
 ): Promise<string[]> {
   const range = from !== undefined ? `${from}..${to ?? "HEAD"}` : to ?? "HEAD";
   const args = ["log", "--reverse", "--format=%H", range];
-  try {
-    return (await git(gitClient, cwd, args))
-      .trim().split("\n").filter((line) => line.length > 0);
-  } catch {
-    return [];
-  }
+  return (await git(gitClient, cwd, args))
+    .trim().split("\n").filter((line) => line.length > 0);
 }
 
 export async function getCommitChanges(
@@ -36,29 +32,25 @@ export async function getCommitChanges(
   cwd: string,
 ): Promise<{ status: string; path: string; previousPath?: string }[]> {
   const args = ["diff-tree", "--root", "--no-commit-id", "-r", "-M", "--name-status", sha];
-  try {
-    return (await git(gitClient, cwd, args))
-      .trim().split("\n").filter((line) => line.length > 0).map((line) => {
-        const parts = line.split("\t");
-        const rawStatus = parts[0] ?? "";
-        if (rawStatus.startsWith("R")) {
-          return {
-            status: "R",
-            previousPath: parts[1] ?? "",
-            path: parts[2] ?? "",
-          };
-        }
-        if (rawStatus.startsWith("C")) {
-          return {
-            status: "A",
-            path: parts[2] ?? "",
-          };
-        }
-        return { status: rawStatus[0] ?? rawStatus, path: parts[1] ?? "" };
-      });
-  } catch {
-    return [];
-  }
+  return (await git(gitClient, cwd, args))
+    .trim().split("\n").filter((line) => line.length > 0).map((line) => {
+      const parts = line.split("\t");
+      const rawStatus = parts[0] ?? "";
+      if (rawStatus.startsWith("R")) {
+        return {
+          status: "R",
+          previousPath: parts[1] ?? "",
+          path: parts[2] ?? "",
+        };
+      }
+      if (rawStatus.startsWith("C")) {
+        return {
+          status: "A",
+          path: parts[2] ?? "",
+        };
+      }
+      return { status: rawStatus[0] ?? rawStatus, path: parts[1] ?? "" };
+    });
 }
 
 export async function getCommitMeta(
@@ -66,13 +58,9 @@ export async function getCommitMeta(
   sha: string,
   cwd: string,
 ): Promise<{ message: string; author: string; email: string; timestamp: string }> {
-  try {
-    const output = await git(gitClient, cwd, ["log", "-1", "--format=%s%n%aN%n%aE%n%aI", sha]);
-    const lines = output.trim().split("\n");
-    return { message: lines[0] ?? "", author: lines[1] ?? "", email: lines[2] ?? "", timestamp: lines[3] ?? "" };
-  } catch {
-    return { message: "", author: "", email: "", timestamp: "" };
-  }
+  const output = await git(gitClient, cwd, ["log", "-1", "--format=%s%n%aN%n%aE%n%aI", sha]);
+  const lines = output.trim().split("\n");
+  return { message: lines[0] ?? "", author: lines[1] ?? "", email: lines[2] ?? "", timestamp: lines[3] ?? "" };
 }
 
 export async function hasParent(gitClient: GitClient, sha: string, cwd: string): Promise<boolean> {
@@ -84,12 +72,8 @@ export async function hasParent(gitClient: GitClient, sha: string, cwd: string):
   }
 }
 
-export async function getParentSha(gitClient: GitClient, sha: string, cwd: string): Promise<string | null> {
-  try {
-    return (await git(gitClient, cwd, ["rev-parse", "--verify", `${sha}~1`])).trim();
-  } catch {
-    return null;
-  }
+export async function getParentSha(gitClient: GitClient, sha: string, cwd: string): Promise<string> {
+  return (await git(gitClient, cwd, ["rev-parse", "--verify", `${sha}~1`])).trim();
 }
 
 export async function prepareChange(

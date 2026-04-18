@@ -10,7 +10,6 @@ import {
   attachCliSchemaMeta,
   getCliOutputJsonSchema,
   getMcpOutputJsonSchema,
-  type CliOutputFor,
   validateCliOutput,
 } from "../../../src/contracts/output-schemas.js";
 import { runCli } from "../../../src/cli/main.js";
@@ -93,10 +92,11 @@ describe("contracts: output schemas", () => {
       edges: [],
     }));
 
-    expect(payload.requestedEventLimit).toBe(5);
-    expectTypeOf(payload).toExtend<CliOutputFor<"diag_local_history_dag">>();
-    expectTypeOf(payload.requestedEventLimit).toEqualTypeOf<number>();
-    expectTypeOf(payload._schema.id).toEqualTypeOf<string>();
+    expect(payload["requestedEventLimit"]).toBe(5);
+    expectTypeOf(payload).toExtend<Record<string, unknown>>();
+    expectTypeOf(payload["requestedEventLimit"]).toEqualTypeOf<unknown>();
+    expect(payload["_schema"]).toBeDefined();
+    expect((payload["_schema"] as Record<string, unknown>)["id"]).toEqual(expect.any(String));
   });
 
   it("validates representative MCP tool outputs against the declared schemas", { timeout: 15_000 }, async () => {

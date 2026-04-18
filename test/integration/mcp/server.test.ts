@@ -5,7 +5,7 @@ import { TOOL_REGISTRY } from "../../../src/mcp/server.js";
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
-import { extractText, fixturePath, harnessPath } from "../../helpers/mcp.js";
+import { extractText, fixturePath, getTestRepoRoot } from "../../helpers/mcp.js";
 /**
  * Integration tests: spawn the actual MCP server as a subprocess,
  * connect via stdio, and call tools through the MCP protocol.
@@ -15,16 +15,19 @@ describe("integration: MCP server over stdio", () => {
   let transport: StdioClientTransport;
   let projectRoot: string;
 
+  let graftDir: string;
+
   beforeAll(async () => {
-    projectRoot = fs.mkdtempSync(path.join(os.tmpdir(), "graft-mcp-stdio-"));
+    projectRoot = getTestRepoRoot();
+    graftDir = fs.mkdtempSync(path.join(os.tmpdir(), "graft-mcp-stdio-state-"));
 
     transport = new StdioClientTransport({
-      command: harnessPath("node_modules", ".bin", "tsx"),
-      args: [harnessPath("test/helpers/mcp-stdio.ts")],
-      cwd: projectRoot,
+      command: "node",
+      args: ["--import", "tsx", "test/helpers/mcp-stdio.ts"],
+      cwd: getTestRepoRoot(),
       env: {
         GRAFT_TEST_PROJECT_ROOT: projectRoot,
-        GRAFT_TEST_GRAFT_DIR: path.join(projectRoot, ".graft"),
+        GRAFT_TEST_GRAFT_DIR: graftDir,
       },
     });
     client = new Client({ name: "graft-test", version: "0.0.0" });
@@ -33,7 +36,7 @@ describe("integration: MCP server over stdio", () => {
 
   afterAll(async () => {
     await client.close();
-    fs.rmSync(projectRoot, { recursive: true, force: true });
+    fs.rmSync(graftDir, { recursive: true, force: true });
   });
 
   it("lists all registered tools", async () => {

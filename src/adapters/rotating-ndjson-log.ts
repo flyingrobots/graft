@@ -47,6 +47,13 @@ export class RotatingNdjsonLog {
     const content = await this.fs.readFile(this.logPath, "utf-8");
     const lines = content.trimEnd().split("\n");
     let kept = lines.slice(Math.ceil(lines.length / 2));
+
+    // If slicing left nothing (e.g. a single oversized entry), skip rotation —
+    // the file is already at minimum size (one entry).
+    if (kept.length === 0) {
+      return;
+    }
+
     let result = kept.join("\n") + "\n";
 
     while (Buffer.byteLength(result, "utf-8") > this.maxBytes && kept.length > 1) {

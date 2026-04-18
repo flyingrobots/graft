@@ -114,7 +114,7 @@ function annotateSymbol(
     commitId?: string | undefined;
   },
 ): void {
-  const symId = symNodeId(input.filePath, input.entry.name);
+  const symId = symNodeId(input.filePath, input.symbolPath);
   patch.addNode(symId);
   patch.setProperty(symId, "name", input.entry.name);
   patch.setProperty(symId, "kind", input.entry.kind);
@@ -157,7 +157,7 @@ export function emitSymbols(
 ): void {
   for (const entry of entries) {
     const symbolPath = buildSymbolPath(parentSymbolPath, entry.name);
-    const symId = symNodeId(filePath, entry.name);
+    const symId = symNodeId(filePath, symbolPath);
     annotateSymbol(patch, {
       filePath,
       entry,
@@ -185,7 +185,7 @@ export function removeSymbols(
     if (entry.children !== undefined && entry.children.length > 0) {
       removeSymbols(patch, filePath, entry.children, symbolPath, commitId);
     }
-    const symId = symNodeId(filePath, entry.name);
+    const symId = symNodeId(filePath, symbolPath);
     if (commitId !== undefined) {
       patch.addEdge(commitId, symId, "removes");
     }
@@ -246,7 +246,7 @@ export function applyModifiedSymbols(
       continue;
     }
     const symbolPath = buildSymbolPath(newParentPath, newEntry.name);
-    const symId = symNodeId(filePath, newEntry.name);
+    const symId = symNodeId(filePath, symbolPath);
 
     applyModifiedSymbols(
       patch,

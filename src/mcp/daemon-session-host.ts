@@ -1,4 +1,5 @@
 import * as crypto from "node:crypto";
+import * as fs from "node:fs/promises";
 import * as http from "node:http";
 import * as path from "node:path";
 import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
@@ -80,6 +81,17 @@ function sendJsonRpcError(res: http.ServerResponse, code: number, message: strin
   });
 }
 
+async function removeSessionDirectory(sessionGraftDir: string): Promise<void> {
+  try {
+    await fs.rm(sessionGraftDir, { recursive: true, force: true });
+  } catch (error: unknown) {
+    const code = error instanceof Error && "code" in error ? (error as NodeJS.ErrnoException).code : undefined;
+    if (code !== "ENOENT") {
+      console.error(`[graft] failed to remove session directory ${sessionGraftDir}: ${String(error)}`);
+    }
+  }
+}
+
 async function createDaemonSession(
   newSessionId: string,
   options: CreateDaemonSessionHostOptions,
@@ -123,10 +135,12 @@ async function createDaemonSession(
   transport.onclose = () => {
     sessions.delete(newSessionId);
     options.controlPlane.unregisterTransport(newSessionId);
+    void removeSessionDirectory(sessionGraftDir);
   };
   transport.onerror = () => {
     sessions.delete(newSessionId);
     options.controlPlane.unregisterTransport(newSessionId);
+    void removeSessionDirectory(sessionGraftDir);
   };
   sessions.set(newSessionId, session);
   options.controlPlane.registerTransport(
@@ -208,6 +222,7 @@ export function createDaemonSessionHost(options: CreateDaemonSessionHostOptions)
         await session.transport.close().catch(() => {
           return undefined;
         });
+        await removeSessionDirectory(session.graftDir);
       }
       sessions.clear();
     },
