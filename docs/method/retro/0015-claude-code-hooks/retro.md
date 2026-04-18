@@ -1,3 +1,7 @@
+---
+title: "Cycle 0015 — Claude Code Hooks"
+---
+
 # Cycle 0015 — Claude Code Hooks
 
 **Legend**: CORE

@@ -1,3 +1,7 @@
+---
+title: "0026 Parity Matrix"
+---
+
 # 0026 Parity Matrix
 
 | Capability | CLI | MCP | Status | Notes |

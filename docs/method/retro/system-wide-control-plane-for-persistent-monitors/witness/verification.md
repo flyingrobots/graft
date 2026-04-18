@@ -1,0 +1,10 @@
+---
+title: "Verification"
+---
+
+# Verification
+
+- `pnpm exec vitest run test/unit/mcp/workspace-binding.test.ts test/integration/mcp/daemon-server.test.ts test/unit/contracts/output-schemas.test.ts test/unit/cli/main.test.ts`
+- `pnpm lint src/mcp/daemon-control-plane.ts src/mcp/daemon-server.ts src/mcp/server.ts src/mcp/workspace-router.ts src/contracts/capabilities.ts src/contracts/output-schemas.ts src/mcp/burden.ts src/mcp/tools/daemon-status.ts src/mcp/tools/daemon-sessions.ts src/mcp/tools/workspace-authorize.ts src/mcp/tools/workspace-authorizations.ts src/mcp/tools/workspace-revoke.ts src/mcp/tools/workspace-bind.ts src/mcp/tools/workspace-status.ts src/mcp/tools/workspace-rebind.ts test/unit/mcp/workspace-binding.test.ts test/integration/mcp/daemon-server.test.ts test/unit/contracts/output-schemas.test.ts test/unit/cli/main.test.ts`
+- `pnpm exec tsc --noEmit --pretty false 2>&1 | rg 'src/mcp/daemon-control-plane.ts|src/mcp/daemon-server.ts|src/mcp/server.ts|src/mcp/workspace-router.ts|src/contracts/capabilities.ts|src/contracts/output-schemas.ts|src/mcp/burden.ts|src/mcp/tools/daemon-status.ts|src/mcp/tools/daemon-sessions.ts|src/mcp/tools/workspace-authorize.ts|src/mcp/tools/workspace-authorizations.ts|src/mcp/tools/workspace-revoke.ts|src/mcp/tools/workspace-bind.ts|src/mcp/tools/workspace-status.ts|src/mcp/tools/workspace-rebind.ts|test/unit/mcp/workspace-binding.test.ts|test/integration/mcp/daemon-server.test.ts|test/unit/contracts/output-schemas.test.ts|test/unit/cli/main.test.ts'`
+  - no matches

@@ -1,3 +1,7 @@
+---
+title: "Counterfactual refactoring"
+---
+
 # Counterfactual refactoring
 
 Fork the worldline. Apply a hypothetical structural change. See

@@ -1,3 +1,7 @@
+---
+title: "Conversation primer"
+---
+
 # Conversation primer
 
 Use `graft_map` as a session-start primer instead of waiting for the

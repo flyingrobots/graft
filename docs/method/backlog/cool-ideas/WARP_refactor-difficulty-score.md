@@ -1,3 +1,7 @@
+---
+title: "Refactor difficulty score"
+---
+
 # Refactor difficulty score
 
 Curvature × friction, computed from the WARP worldline.

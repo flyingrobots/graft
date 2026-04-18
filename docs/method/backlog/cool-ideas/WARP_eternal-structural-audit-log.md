@@ -1,3 +1,7 @@
+---
+title: "Eternal structural audit log"
+---
+
 # Eternal structural audit log
 
 Every structural observation is recorded. Every projection choice.

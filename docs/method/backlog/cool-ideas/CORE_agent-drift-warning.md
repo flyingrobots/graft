@@ -1,3 +1,7 @@
+---
+title: "Agent drift warning"
+---
+
 # Agent drift warning
 
 Detect when an agent is generating the same kind of code it was

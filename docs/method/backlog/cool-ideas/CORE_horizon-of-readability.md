@@ -1,3 +1,7 @@
+---
+title: "Horizon of readability"
+---
+
 # Horizon of readability
 
 Detect when no projection can reduce complexity further. The file

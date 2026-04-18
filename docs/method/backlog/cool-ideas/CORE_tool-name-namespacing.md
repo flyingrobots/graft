@@ -1,3 +1,7 @@
+---
+title: "MCP tool name namespacing"
+---
+
 # MCP tool name namespacing
 
 Prefix MCP tool names with `graft_` (e.g., `graft_safe_read`

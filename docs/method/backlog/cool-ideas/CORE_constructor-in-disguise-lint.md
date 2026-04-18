@@ -1,3 +1,7 @@
+---
+title: "Constructor-in-disguise detection"
+---
+
 # Constructor-in-disguise detection
 
 A `function buildFoo(...)` that returns `{ field1, field2, ... }`

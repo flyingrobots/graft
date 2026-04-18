@@ -1,3 +1,7 @@
+---
+title: "Budget elasticity (progressive disclosure hints)"
+---
+
 # Budget elasticity (progressive disclosure hints)
 
 When graft returns an outline, annotate with elasticity: how

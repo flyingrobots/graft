@@ -1,3 +1,7 @@
+---
+title: "Lagrangian policy engine"
+---
+
 # Lagrangian policy engine
 
 Replace dual-threshold policy with a multi-axis cost functional.

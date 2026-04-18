@@ -1,3 +1,7 @@
+---
+title: "Attach to existing causal session"
+---
+
 # Attach to existing causal session
 
 Transport reconnect and agent handoff should not force Graft to pretend

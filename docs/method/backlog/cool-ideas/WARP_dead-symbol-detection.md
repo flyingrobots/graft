@@ -1,3 +1,7 @@
+---
+title: "Dead symbol detection"
+---
+
 # Dead symbol detection
 
 Symbols removed and never re-added are dead. The WARP graph knows

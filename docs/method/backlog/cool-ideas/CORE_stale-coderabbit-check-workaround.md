@@ -1,3 +1,7 @@
+---
+title: "Stale CodeRabbit check status workaround"
+---
+
 # Stale CodeRabbit check status workaround
 
 When CodeRabbit hits a rate limit, the check status stays "failed"

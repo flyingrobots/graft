@@ -1,3 +1,7 @@
+---
+title: "Structural drift detection"
+---
+
 # Structural drift detection
 
 "Does the code still match what the docs say?"

@@ -1,3 +1,7 @@
+---
+title: "0026 Explicit Exception List"
+---
+
 # 0026 Explicit Exception List
 
 ## Intentional CLI-only exceptions

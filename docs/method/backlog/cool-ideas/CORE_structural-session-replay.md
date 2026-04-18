@@ -1,3 +1,7 @@
+---
+title: "Structural session replay"
+---
+
 # Structural session replay
 
 Graft already tracks every read, outline, and refusal in NDJSON

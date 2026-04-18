@@ -1,3 +1,7 @@
+---
+title: "Multi-agent conflict detection"
+---
+
 # Multi-agent conflict detection
 
 If two agents work on the same codebase concurrently, graft's

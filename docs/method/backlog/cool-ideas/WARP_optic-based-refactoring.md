@@ -1,3 +1,7 @@
+---
+title: "Optic-based refactoring"
+---
+
 # Optic-based refactoring
 
 Declare structural rewrites as WARP optics. The system projects,

@@ -1,5 +1,6 @@
 {
   "paths": {
-    "tests": ["tests", "test"]
+    "tests": "tests",
+    "retro": "docs/method/retro"
   }
 }

@@ -1,3 +1,7 @@
+---
+title: "Projection safety classes"
+---
+
 # Projection safety classes
 
 Classify what kinds of questions each projection can safely answer.

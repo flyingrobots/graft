@@ -1,3 +1,7 @@
+---
+title: "Structural impact prediction"
+---
+
 # Structural impact prediction
 
 "If I change this function's signature, what else breaks?"

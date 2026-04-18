@@ -1,3 +1,7 @@
+---
+title: "Footprint-based parallelism"
+---
+
 # Footprint-based parallelism
 
 Two code_show calls on non-overlapping symbols have non-overlapping

@@ -1,3 +1,7 @@
+---
+title: "Offer rename as an explicit refactor surface"
+---
+
 # Offer rename as an explicit refactor surface
 
 Graft should eventually be able to do more than explain symbol identity

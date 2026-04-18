@@ -1,3 +1,7 @@
+---
+title: "Intentional degeneracy for agent safety"
+---
+
 # Intentional degeneracy for agent safety
 
 Privacy is intentional injection of structural degeneracy

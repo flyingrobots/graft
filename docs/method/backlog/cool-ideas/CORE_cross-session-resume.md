@@ -1,3 +1,7 @@
+---
+title: "Cross-session structural resume"
+---
+
 # Cross-session structural resume
 
 state_save + WARP could persist structural understanding across

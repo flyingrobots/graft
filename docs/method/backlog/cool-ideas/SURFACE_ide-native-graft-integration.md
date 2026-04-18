@@ -1,3 +1,7 @@
+---
+title: "IDE-native Graft integration"
+---
+
 # IDE-native Graft integration
 
 Graft should eventually meet humans and agents where coding work

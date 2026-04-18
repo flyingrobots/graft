@@ -1,3 +1,7 @@
+---
+title: "Degeneracy warning"
+---
+
 # Degeneracy warning
 
 When graft returns an outline, flag symbols where the projection

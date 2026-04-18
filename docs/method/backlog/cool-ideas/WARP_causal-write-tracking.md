@@ -1,3 +1,7 @@
+---
+title: "WARP: Causal write tracking"
+---
+
 # WARP: Causal write tracking
 
 Like jj eliminates staged/unstaged by treating every working-copy

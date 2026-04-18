@@ -1,3 +1,7 @@
+---
+title: "Active causal workspace status"
+---
+
 # Active causal workspace status
 
 Humans and agents should be able to ask:

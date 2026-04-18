@@ -1,3 +1,7 @@
+---
+title: "Auto-focus"
+---
+
 # Auto-focus
 
 `focus: 'auto'` — intent-driven auto-focus. The governor infers which

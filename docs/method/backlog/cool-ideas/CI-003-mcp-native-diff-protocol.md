@@ -1,3 +1,7 @@
+---
+title: "CI-003 — MCP-native \"Diff\" Protocol"
+---
+
 # CI-003 — MCP-native "Diff" Protocol
 
 Legend: [CORE — Core Governor](../../legends/CORE-core-governor.md)

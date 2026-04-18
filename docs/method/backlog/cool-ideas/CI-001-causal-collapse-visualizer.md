@@ -1,3 +1,7 @@
+---
+title: "CI-001 — Causal Collapse Visualizer"
+---
+
 # CI-001 — Causal Collapse Visualizer
 
 Legend: [WARP — Structural Memory](../../legends/WARP-structural-memory.md)

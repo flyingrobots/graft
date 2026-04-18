@@ -1,3 +1,7 @@
+---
+title: "WARP: Agent action provenance (Level 3)"
+---
+
 # WARP: Agent action provenance (Level 3)
 
 Record agent reads and writes as WARP observations linked to

@@ -1,3 +1,7 @@
+---
+title: "WARP: Speculative merge forks"
+---
+
 # WARP: Speculative merge forks
 
 Use Strands and Braids to model speculative branch merges. Fork the

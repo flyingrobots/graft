@@ -1,3 +1,7 @@
+---
+title: "Symbol history timeline"
+---
+
 # Symbol history timeline
 
 `code_show(symbol, history: true)` — every version of a function

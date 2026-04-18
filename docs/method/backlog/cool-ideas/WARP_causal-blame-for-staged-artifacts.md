@@ -1,3 +1,7 @@
+---
+title: "Causal blame for staged artifacts"
+---
+
 # Causal blame for staged artifacts
 
 Humans and agents both need a direct answer to:

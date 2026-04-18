@@ -1,3 +1,7 @@
+---
+title: "Zero-noise code review"
+---
+
 # Zero-noise code review
 
 "This PR changes 50 files and 2000 lines."

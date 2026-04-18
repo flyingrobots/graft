@@ -1,3 +1,7 @@
+---
+title: "Cycle 0010 — Server Decomposition"
+---
+
 # Cycle 0010 — Server Decomposition
 
 **Legend**: CLEAN_CODE

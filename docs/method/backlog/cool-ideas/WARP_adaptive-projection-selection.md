@@ -1,3 +1,7 @@
+---
+title: "Adaptive projection selection"
+---
+
 # Adaptive projection selection
 
 Graft's outline projection is not convenience — it is a

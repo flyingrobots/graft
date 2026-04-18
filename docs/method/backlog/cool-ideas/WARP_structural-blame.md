@@ -1,3 +1,7 @@
+---
+title: "Structural blame"
+---
+
 # Structural blame
 
 "Who last changed this function's signature?" Not line-level

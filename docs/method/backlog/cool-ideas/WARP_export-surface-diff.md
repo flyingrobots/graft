@@ -1,3 +1,7 @@
+---
+title: "Export surface diff"
+---
+
 # Export surface diff
 
 "What changed in the public API between two refs?"

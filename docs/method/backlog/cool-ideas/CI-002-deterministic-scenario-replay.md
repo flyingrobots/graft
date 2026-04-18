@@ -1,3 +1,7 @@
+---
+title: "CI-002 — Deterministic Scenario Replay"
+---
+
 # CI-002 — Deterministic Scenario Replay
 
 Legend: [DX — Developer Experience](../../legends/DX-developer-experience.md)

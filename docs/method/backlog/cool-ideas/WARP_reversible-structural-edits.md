@@ -1,3 +1,7 @@
+---
+title: "Reversible structural edits"
+---
+
 # Reversible structural edits
 
 Every structural edit through graft carries a witness — the
