@@ -7,24 +7,90 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.6.0] - 2026-04-18
+
+### Added
+
+- **Runtime port guards**: `assertFileSystem()`, `assertJsonCodec()`,
+  and `assertToolContext()` validate adapter contracts at construction
+  time. Plumbing conformance test catches drift against
+  `@git-stunts/plumbing`.
+- **Secret scrubbing**: shared `scrubSecrets()` and
+  `sanitizeArgValues()` redact sensitive keys, truncate oversized
+  values, and scrub secret patterns across both `run_capture` output
+  and observability arg logging.
+- **Path escape invariants**: dedicated test suite for traversal
+  attacks, symlink escapes, and root-confinement.
+- **Worktree identity canonicalization**: `fs.realpathSync` resolves
+  path aliases (`/tmp` vs `/private/tmp`) before deriving workspace
+  IDs.
+- **Tool-call provenance footprints**: `ToolCallFootprint` records
+  paths, symbols, and line regions per tool invocation. Read-family
+  and search tools instrumented.
+- **Canonical symbol identity projection**: `graft_diff` and
+  `graft_since` enrich diff entries with `identityId` from WARP
+  `sid:*` anchors when indexed. Graceful degradation when unavailable.
+- **Dynamic project root**: `GRAFT_PROJECT_ROOT` env var overrides
+  the default `process.cwd()` binding. Git root auto-detection
+  fallback.
+- **Implicit daemon binding**: daemon-mode sessions auto-bind when
+  a repo-scoped tool is called with path evidence, removing the
+  mandatory `workspace_bind` step.
+- **Attribution fallback hardening**: transport session, environment
+  inference (CI/CD, editor detection), and session continuity
+  strategies reduce `actor:unknown` to the exception path.
+- **Anti-sludge policy**: semgrep rules and shell checks for
+  boundary discipline, banned patterns, and core-layer hygiene.
+- **`toJsonObject()` DTO bridge**: universal serialization boundary
+  between typed operation results and `ctx.respond()`.
+
 ### Changed
 
+- **Explicit execution context**: `ToolHandler` now receives `ctx`
+  as an explicit parameter `(args, ctx)` instead of closing over it
+  via `createHandler(ctx)`. `AsyncLocalStorage` removed from
+  execution context threading.
+- **Session concept disambiguation**: `SessionTracker` renamed to
+  `GovernorTracker`, `RegisteredSession` to `RegisteredTransport`,
+  `WorkspaceSessionMode` to `WorkspaceMode`. Wire format preserved.
+- **MCP composition decomposition**: `server.ts` split into barrel +
+  `server-context.ts` + `server-invocation.ts`. `repo-state.ts` into
+  4 sub-modules. `daemon-control-plane.ts` into `control-plane/`.
+  `daemon-repos.ts` into `repo-overview/`. `daemon-worker-pool.ts`
+  into 3 sub-modules. `persistent-monitor-runtime.ts` into 3
+  sub-modules. `workspace-router.ts` gains capability and history
+  sub-modules.
+- **Parser decomposition**: markdown extraction split into
+  `src/parser/markdown.ts`. Parser reclassified as application module
+  (Layer 3) with enforced hex layer guardrails.
+- **Result type hardening**: `MetricsSnapshot`, `MetricsDelta`,
+  `DecisionEntry`, `StateSaveResult`, `StateLoadResult` promoted to
+  runtime classes. `[key: string]: unknown` index signatures removed
+  from all operation results. Receipt builder uses mutable draft
+  instead of `as` casts.
 - **`code_find` approximate discovery**: plain-text queries now use
   case-insensitive exact/prefix/substring matching with deterministic
-  ranking. Explicit glob queries such as `handle*` keep the existing
-  glob behavior.
+  ranking.
 - **Claude hook governed reads**: `PreToolUse` now redirects large
-  JS/TS native `Read` calls to graft's bounded-read path before the
-  full file lands in context. `PostToolUse` remains a backstop message
-  for oversized code reads that still slip through.
-- **Codex bootstrap posture**: `graft init --write-codex-mcp` now seeds
-  `AGENTS.md` alongside `.codex/config.toml`, and the setup docs now
-  distinguish MCP availability from actual governed-read posture by
-  client.
-- **MCP runtime observability**: MCP sessions now emit metadata-only
-  session/tool-call/failure events to `.graft/logs/mcp-runtime.ndjson`,
-  receipts carry `traceId` and `latencyMs`, and `doctor` reports the
-  active runtime log posture.
+  JS/TS native `Read` calls to graft's bounded-read path.
+- **Codex bootstrap posture**: `graft init --write-codex-mcp` now
+  seeds `AGENTS.md` alongside `.codex/config.toml`.
+- **MCP runtime observability**: sessions emit metadata-only events
+  to `.graft/logs/mcp-runtime.ndjson`, receipts carry `traceId` and
+  `latencyMs`.
+- **Map tool collector extraction**: `map.ts` reduced from 328 to
+  52 lines; collection logic in `map-collector.ts`.
+- **Typed diagnostic responses**: `DoctorResponse`, `StatsResponse`,
+  `ExplainResponse`, `SetBudgetResponse`, `RunCaptureResponse`.
+
+### Fixed
+
+- **Worktree identity drift on macOS**: `/tmp` and `/private/tmp`
+  aliases no longer produce different workspace IDs.
+- **`GRAFT_PROJECT_ROOT` env var**: MCP servers no longer hardcoded
+  to their own repo path.
+- **hono vulnerability**: override to >=4.12.14 patches HTML
+  injection in `hono/jsx` SSR (Dependabot alert #10).
 
 ## [0.5.0] - 2026-04-11
 
