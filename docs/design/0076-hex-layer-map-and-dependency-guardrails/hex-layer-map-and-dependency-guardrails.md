@@ -120,6 +120,7 @@ today:
    - `src/ports/**`
 3. Current application modules
    - `src/operations/**`
+   - `src/parser/**` (structural analysis — application-core domain service)
    - `src/policy/**`
    - `src/session/**`
    - `src/git/diff.ts`
@@ -146,10 +147,9 @@ The lint rules enforce these directions:
   primary adapters, or host libraries
 - current secondary adapters cannot depend on primary adapters
 
-Parser modules are intentionally left outside the enforced secondary
-adapter set in this slice, because repo truth today still uses parser
-services directly from current application modules like
-`src/operations/**`.
+Parser modules are now classified as application modules (Layer 3). The
+parser provides structural analysis services consumed by operations.
+parser/runtime.ts has a scoped host library exception for WASM loading.
 
 ## Follow-on pressure discovered while implementing
 

@@ -36,6 +36,8 @@ const APPLICATION_IMPORT_PATTERNS = [
   "**/metrics/**",
   "**/operations",
   "**/operations/**",
+  "**/parser",
+  "**/parser/**",
   "**/policy",
   "**/policy/**",
   "**/release",
@@ -112,7 +114,7 @@ export default tseslint.config(
       },
       {
         patterns: SECONDARY_ADAPTER_IMPORT_PATTERNS,
-        message: "depend on secondary adapters (adapters, parser, or warp).",
+        message: "depend on secondary adapters (adapters or warp).",
       },
       {
         patterns: APPLICATION_IMPORT_PATTERNS,
@@ -138,7 +140,7 @@ export default tseslint.config(
       },
       {
         patterns: SECONDARY_ADAPTER_IMPORT_PATTERNS,
-        message: "depend on secondary adapters (adapters, parser, or warp).",
+        message: "depend on secondary adapters (adapters or warp).",
       },
       {
         patterns: APPLICATION_IMPORT_PATTERNS,
@@ -153,6 +155,7 @@ export default tseslint.config(
   withHexBoundaryRestrictions(
     [
       "src/operations/**/*.ts",
+      "src/parser/**/*.ts",
       "src/policy/**/*.ts",
       "src/session/**/*.ts",
       "src/git/diff.ts",
@@ -165,7 +168,7 @@ export default tseslint.config(
       },
       {
         patterns: SECONDARY_ADAPTER_IMPORT_PATTERNS,
-        message: "depend on secondary adapters (adapters, parser, or warp).",
+        message: "depend on secondary adapters (adapters or warp).",
       },
       {
         patterns: HOST_LIBRARY_IMPORT_PATTERNS,
@@ -176,7 +179,6 @@ export default tseslint.config(
   withHexBoundaryRestrictions(
     [
       "src/adapters/**/*.ts",
-      "src/parser/**/*.ts",
       "src/warp/**/*.ts",
       "src/git/target-git-hook-bootstrap.ts",
       "src/metrics/logger.ts",
@@ -215,6 +217,15 @@ export default tseslint.config(
       },
     ],
   ),
+  {
+    // parser/runtime.ts is an application module that loads WASM
+    // binaries via node:module — this is the only permitted host
+    // library import in the parser layer.
+    files: ["src/parser/runtime.ts"],
+    rules: {
+      "no-restricted-imports": "off",
+    },
+  },
   {
     files: ["eslint.config.js"],
     rules: {
