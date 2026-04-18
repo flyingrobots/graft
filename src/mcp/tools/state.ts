@@ -16,7 +16,10 @@ export const stateSaveTool: ToolDefinition = {
         statePath: path.join(ctx.graftDir, STATE_FILENAME),
         fs: ctx.fs,
       });
-      return ctx.respond("state_save", result as Record<string, unknown>);
+      return ctx.respond("state_save", {
+        ok: result.ok,
+        ...(result.reason !== undefined ? { reason: result.reason } : {}),
+      });
     };
   },
 };
@@ -32,7 +35,7 @@ export const stateLoadTool: ToolDefinition = {
         statePath: path.join(ctx.graftDir, STATE_FILENAME),
         fs: ctx.fs,
       });
-      return ctx.respond("state_load", result as Record<string, unknown>);
+      return ctx.respond("state_load", { content: result.content });
     };
   },
 };
