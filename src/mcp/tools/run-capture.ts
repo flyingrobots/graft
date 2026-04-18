@@ -2,12 +2,14 @@ import * as path from "node:path";
 import { z } from "zod";
 import type { ToolDefinition, ToolContext, ToolHandler } from "../context.js";
 import { scrubSecrets } from "../secret-scrub.js";
+import { toJsonObject } from "../../operations/result-dto.js";
+import type { RunCaptureResponse, RunCapturePolicyBoundary } from "./diagnostic-models.js";
 
-const RUN_CAPTURE_POLICY_BOUNDARY = {
+const RUN_CAPTURE_POLICY_BOUNDARY: RunCapturePolicyBoundary = {
   kind: "shell_escape_hatch",
   boundedReadContract: false,
   policyEnforced: false,
-} as const;
+};
 
 function tailOutput(output: string, tail: number): {
   readonly tailed: string;
@@ -71,7 +73,7 @@ export const runCaptureTool: ToolDefinition = {
       const command = args["command"] as string;
       const tail = Math.max(1, Math.floor((args["tail"] as number | undefined) ?? 60));
       if (!ctx.runCapture.enabled) {
-        return ctx.respond("run_capture", {
+        const disabled: RunCaptureResponse = {
           output: "",
           totalLines: 0,
           tailedLines: 0,
@@ -82,7 +84,8 @@ export const runCaptureTool: ToolDefinition = {
           disabled: true,
           error: "run_capture is disabled by configuration",
           policyBoundary: RUN_CAPTURE_POLICY_BOUNDARY,
-        });
+        };
+        return ctx.respond("run_capture", toJsonObject(disabled));
       }
       const result = ctx.process.run({
         command: "sh",
@@ -94,7 +97,7 @@ export const runCaptureTool: ToolDefinition = {
 
       if (result.error !== undefined || result.status !== 0) {
         const tailedOutput = tailOutput(result.stdout, tail);
-        return ctx.respond("run_capture", {
+        const errorResponse: RunCaptureResponse = {
           error: renderCaptureError(result),
           output: tailedOutput.tailed,
           totalLines: tailedOutput.totalLines,
@@ -105,13 +108,14 @@ export const runCaptureTool: ToolDefinition = {
           truncated: tailedOutput.totalLines > tail,
           stderr: result.stderr.slice(0, 2000),
           policyBoundary: RUN_CAPTURE_POLICY_BOUNDARY,
-        });
+        };
+        return ctx.respond("run_capture", toJsonObject(errorResponse));
       }
 
       const output = result.stdout;
       const tailedOutput = tailOutput(output, tail);
       const persisted = await persistCaptureLog(ctx, output);
-      return ctx.respond("run_capture", {
+      const successResponse: RunCaptureResponse = {
         output: tailedOutput.tailed,
         totalLines: tailedOutput.totalLines,
         tailedLines: Math.min(tail, tailedOutput.totalLines),
@@ -120,7 +124,8 @@ export const runCaptureTool: ToolDefinition = {
         logPersistenceEnabled: ctx.runCapture.persistLogs,
         truncated: tailedOutput.totalLines > tail,
         policyBoundary: RUN_CAPTURE_POLICY_BOUNDARY,
-      });
+      };
+      return ctx.respond("run_capture", toJsonObject(successResponse));
     };
   },
 };

@@ -73,3 +73,23 @@ export interface DoctorResponse {
   readonly persistedLocalHistory: PersistedLocalHistorySummary;
   readonly recommendedNextAction: CausalSurfaceNextAction;
 }
+
+export interface RunCapturePolicyBoundary {
+  readonly kind: "shell_escape_hatch";
+  readonly boundedReadContract: false;
+  readonly policyEnforced: false;
+}
+
+export interface RunCaptureResponse {
+  readonly output: string;
+  readonly totalLines: number;
+  readonly tailedLines: number;
+  readonly logPath: string | null;
+  readonly logRedactions: number;
+  readonly logPersistenceEnabled: boolean;
+  readonly truncated: boolean;
+  readonly policyBoundary: RunCapturePolicyBoundary;
+  readonly disabled?: boolean | undefined;
+  readonly error?: string | undefined;
+  readonly stderr?: string | undefined;
+}
