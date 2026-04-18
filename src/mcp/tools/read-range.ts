@@ -1,6 +1,7 @@
 import { z } from "zod";
 import type { ToolDefinition, ToolContext, ToolHandler } from "../context.js";
 import { createRepoWorkspaceFromToolContext } from "../repo-workspace.js";
+import { toJsonObject } from "../../operations/result-dto.js";
 
 export const readRangeTool: ToolDefinition = {
   name: "read_range",
@@ -17,12 +18,12 @@ export const readRangeTool: ToolDefinition = {
         start: args["start"] as number,
         end: args["end"] as number,
       });
-      if ("projection" in result && result.projection === "refused") {
+      if ("projection" in result) {
         ctx.metrics.recordRefusal();
       } else {
         ctx.metrics.recordRead();
       }
-      return ctx.respond("read_range", result);
+      return ctx.respond("read_range", toJsonObject(result));
     };
   },
 };

@@ -2,6 +2,7 @@ import { z } from "zod";
 import type { Metrics } from "../metrics.js";
 import type { ToolDefinition, ToolContext, ToolHandler } from "../context.js";
 import { createRepoWorkspaceFromToolContext } from "../repo-workspace.js";
+import { toJsonObject } from "../../operations/result-dto.js";
 
 const PROJECTION_METRICS: Readonly<Record<string, ((m: Metrics) => void) | undefined>> = {
   content: (m) => { m.recordRead(); },
@@ -31,7 +32,7 @@ export const safeReadTool: ToolDefinition = {
         ctx.metrics.recordCacheHit(result.actual.bytes);
       }
 
-      return ctx.respond("safe_read", result);
+      return ctx.respond("safe_read", toJsonObject(result));
     };
   },
 };

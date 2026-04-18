@@ -1,6 +1,7 @@
 import { z } from "zod";
 import type { ToolDefinition, ToolContext, ToolHandler } from "../context.js";
 import { createRepoWorkspaceFromToolContext } from "../repo-workspace.js";
+import { toJsonObject } from "../../operations/result-dto.js";
 
 export const fileOutlineTool: ToolDefinition = {
   name: "file_outline",
@@ -13,14 +14,14 @@ export const fileOutlineTool: ToolDefinition = {
     return async (args) => {
       const workspace = createRepoWorkspaceFromToolContext(ctx);
       const result = await workspace.fileOutline({ path: args["path"] as string });
-      if ("projection" in result && result.projection === "refused") {
+      if ("projection" in result) {
         ctx.metrics.recordRefusal();
-      } else if ("cacheHit" in result && result["cacheHit"] === true) {
+      } else if (result.cacheHit === true) {
         ctx.metrics.recordCacheHit(0);
       } else {
         ctx.metrics.recordOutline();
       }
-      return ctx.respond("file_outline", result);
+      return ctx.respond("file_outline", toJsonObject(result));
     };
   },
 };

@@ -14,7 +14,6 @@ import type { FileSystem } from "../ports/filesystem.js";
 import type { JsonCodec } from "../ports/codec.js";
 
 export interface RepoWorkspaceRefusedResult {
-  [key: string]: unknown;
   readonly path: string;
   readonly projection: "refused";
   readonly reason: string;
@@ -24,7 +23,6 @@ export interface RepoWorkspaceRefusedResult {
 }
 
 export interface RepoWorkspaceSafeReadCacheHitResult {
-  [key: string]: unknown;
   readonly path: string;
   readonly projection: "cache_hit";
   readonly reason: "REREAD_UNCHANGED";
@@ -37,7 +35,6 @@ export interface RepoWorkspaceSafeReadCacheHitResult {
 }
 
 export interface RepoWorkspaceSafeReadDiffResult {
-  [key: string]: unknown;
   readonly path: string;
   readonly projection: "diff";
   readonly reason: "CHANGED_SINCE_LAST_READ";

@@ -7,7 +7,6 @@ import type { FileSystem } from "../ports/filesystem.js";
 import type { JsonCodec } from "../ports/codec.js";
 
 export interface SafeReadResult {
-  [key: string]: unknown;
   path: string;
   projection: "content" | "outline" | "refused" | "error";
   reason: string;

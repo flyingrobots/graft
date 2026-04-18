@@ -1,6 +1,7 @@
 import { z } from "zod";
 import type { ToolDefinition, ToolContext, ToolHandler } from "../context.js";
 import { createRepoWorkspaceFromToolContext } from "../repo-workspace.js";
+import { toJsonObject } from "../../operations/result-dto.js";
 
 export const changedSinceTool: ToolDefinition = {
   name: "changed_since",
@@ -12,10 +13,10 @@ export const changedSinceTool: ToolDefinition = {
   createHandler(ctx: ToolContext): ToolHandler {
     return async (args) => {
       const workspace = createRepoWorkspaceFromToolContext(ctx);
-      return ctx.respond("changed_since", await workspace.changedSince({
+      return ctx.respond("changed_since", toJsonObject(await workspace.changedSince({
         path: args["path"] as string,
         consume: args["consume"] as boolean | undefined,
-      }));
+      })));
     };
   },
 };
