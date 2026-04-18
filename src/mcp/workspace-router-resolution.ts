@@ -1,4 +1,5 @@
 import * as crypto from "node:crypto";
+import * as fs from "node:fs";
 import * as path from "node:path";
 import type { GitClient } from "../ports/git.js";
 import type { ResolvedWorkspace, WorkspaceBindRequest } from "./workspace-router-model.js";
@@ -25,6 +26,19 @@ function toAbsolutePath(base: string, value: string): string {
   return path.isAbsolute(value) ? value : path.resolve(base, value);
 }
 
+/**
+ * Resolve symlinks to get the canonical filesystem path.
+ * Prevents identity drift from path aliases (e.g. /tmp vs /private/tmp on macOS).
+ * Falls back to the input path if realpath fails (e.g. path does not exist yet).
+ */
+function canonicalize(inputPath: string): string {
+  try {
+    return fs.realpathSync(inputPath);
+  } catch {
+    return inputPath;
+  }
+}
+
 export async function resolveWorkspaceRequest(
   git: GitClient,
   request: WorkspaceBindRequest,
@@ -46,11 +60,12 @@ export async function resolveWorkspaceRequest(
     };
   }
 
-  const gitCommonDir = toAbsolutePath(worktreeRoot, rawGitCommonDir);
+  const gitCommonDir = canonicalize(toAbsolutePath(worktreeRoot, rawGitCommonDir));
+  const canonicalWorktreeRoot = canonicalize(worktreeRoot);
   return {
     repoId: stableWorkspaceId("repo", gitCommonDir),
-    worktreeId: stableWorkspaceId("worktree", worktreeRoot),
-    worktreeRoot,
+    worktreeId: stableWorkspaceId("worktree", canonicalWorktreeRoot),
+    worktreeRoot: canonicalWorktreeRoot,
     gitCommonDir,
   };
 }
