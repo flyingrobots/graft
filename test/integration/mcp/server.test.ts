@@ -3,28 +3,121 @@ import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { StdioClientTransport } from "@modelcontextprotocol/sdk/client/stdio.js";
 import { TOOL_REGISTRY } from "../../../src/mcp/server.js";
 import * as fs from "node:fs";
-import * as os from "node:os";
 import * as path from "node:path";
-import { extractText, getTestRepoRoot } from "../../helpers/mcp.js";
+import { extractText, harnessPath } from "../../helpers/mcp.js";
+import { createCommittedTestRepo, cleanupTestRepo } from "../../helpers/git.js";
+
+// ---------------------------------------------------------------------------
+// Fixture content: small .ts, large .ts (>150 lines), medium .ts, binary PNG
+// ---------------------------------------------------------------------------
+
+const SMALL_TS = [
+  'export function greet(name: string): string {',
+  '  return `Hello, ${name}!`;',
+  '}',
+  '',
+  'export const VERSION = "1.0.0";',
+  '',
+].join("\n");
+
+function generateLargeTs(): string {
+  const lines: string[] = [
+    '/** Large generated fixture for outline testing. */',
+    '',
+    'export interface Config {',
+    '  host: string;',
+    '  port: number;',
+    '}',
+    '',
+  ];
+  // Generate enough functions to exceed the 150-line threshold
+  for (let i = 0; i < 40; i++) {
+    lines.push(
+      `export function handler${String(i)}(input: string): string {`,
+      `  const tag = "handler${String(i)}";`,
+      '  if (!input) {',
+      '    throw new Error(`${tag}: empty input`);',
+      '  }',
+      '  return `${tag}: ${input}`;',
+      '}',
+      '',
+    );
+  }
+  return lines.join("\n");
+}
+
+const MEDIUM_TS = [
+  '/**',
+  ' * Medium fixture for outline / read_range testing.',
+  ' */',
+  '',
+  'export interface Config {',
+  '  host: string;',
+  '  port: number;',
+  '  debug: boolean;',
+  '}',
+  '',
+  'export class ConnectionManager {',
+  '  private config: Config;',
+  '',
+  '  constructor(config: Config) {',
+  '    this.config = config;',
+  '  }',
+  '',
+  '  getConfig(): Config {',
+  '    return { ...this.config };',
+  '  }',
+  '}',
+  '',
+  'export function createManager(config: Config): ConnectionManager {',
+  '  return new ConnectionManager(config);',
+  '}',
+  '',
+  'export const MAX_CONNECTIONS = 100;',
+  '',
+].join("\n");
+
+// Minimal valid 1x1 red PNG (68 bytes)
+const BINARY_PNG = Buffer.from(
+  "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8/5+hHgAHggJ/PchI7wAAAABJRU5ErkJggg==",
+  "base64",
+);
+
 /**
  * Integration tests: spawn the actual MCP server as a subprocess,
  * connect via stdio, and call tools through the MCP protocol.
+ *
+ * The test workspace is staged by copy-in with remotes stripped.
+ * Tests never execute against the host checkout.
  */
 describe("integration: MCP server over stdio", { timeout: 60_000 }, () => {
   let client: Client;
   let transport: StdioClientTransport;
   let projectRoot: string;
-
   let graftDir: string;
 
   beforeAll(async () => {
-    projectRoot = getTestRepoRoot();
-    graftDir = fs.mkdtempSync(path.join(os.tmpdir(), "graft-mcp-stdio-state-"));
+    // Build an isolated fixture repo with small, large, medium, and binary files.
+    projectRoot = createCommittedTestRepo("graft-mcp-stdio-", {
+      "test/fixtures/small.ts": SMALL_TS,
+      "test/fixtures/large.ts": generateLargeTs(),
+      "test/fixtures/medium.ts": MEDIUM_TS,
+      "test/fixtures/ban-targets/image.png": BINARY_PNG.toString("binary"),
+    });
+
+    // Write the binary file again with proper encoding (createCommittedTestRepo writes utf-8)
+    fs.writeFileSync(path.join(projectRoot, "test/fixtures/ban-targets/image.png"), BINARY_PNG);
+
+    graftDir = path.join(projectRoot, ".graft");
+    fs.mkdirSync(graftDir, { recursive: true });
 
     transport = new StdioClientTransport({
       command: "node",
-      args: ["--import", "tsx", "test/helpers/mcp-stdio.ts"],
-      cwd: getTestRepoRoot(),
+      args: ["--import", "tsx", harnessPath("test/helpers/mcp-stdio.ts")],
+      // cwd must be the harness (graft repo root) so the subprocess can
+      // resolve tsx from node_modules.  The isolated project root is passed
+      // through GRAFT_TEST_PROJECT_ROOT.
+      cwd: harnessPath(),
       env: {
         GRAFT_TEST_PROJECT_ROOT: projectRoot,
         GRAFT_TEST_GRAFT_DIR: graftDir,
@@ -36,7 +129,7 @@ describe("integration: MCP server over stdio", { timeout: 60_000 }, () => {
 
   afterAll(async () => {
     await client.close();
-    fs.rmSync(graftDir, { recursive: true, force: true });
+    cleanupTestRepo(projectRoot);
   });
 
   it("lists all registered tools", async () => {
