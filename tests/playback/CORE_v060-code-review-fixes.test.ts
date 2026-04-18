@@ -1,7 +1,6 @@
 import * as fs from "node:fs";
-import * as os from "node:os";
 import * as path from "node:path";
-import { describe, it, expect, afterEach } from "vitest";
+import { describe, it, expect } from "vitest";
 
 const ROOT = path.resolve(path.dirname(new URL(import.meta.url).pathname), "../..");
 
@@ -17,15 +16,6 @@ function listDir(relPath: string): string[] {
   const dir = path.join(ROOT, relPath);
   if (!fs.existsSync(dir)) return [];
   return fs.readdirSync(dir).filter((f) => f !== ".gitkeep");
-}
-
-const cleanups: (() => void)[] = [];
-afterEach(() => { while (cleanups.length > 0) cleanups.pop()!(); });
-
-function makeTmpDir(): string {
-  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "graft-review-fix-"));
-  cleanups.push(() => fs.rmSync(dir, { recursive: true, force: true }));
-  return dir;
 }
 
 describe("CORE_v060-code-review-fixes", () => {
