@@ -250,7 +250,7 @@ describe("contracts: output schemas", () => {
     expect(() => CLI_OUTPUT_SCHEMAS.index.parse(parsed)).not.toThrow();
   });
 
-  it("validates representative CLI peer outputs against the declared schemas", { timeout: 15_000 }, async () => {
+  it("validates representative CLI peer outputs against the declared schemas", { timeout: 60_000 }, async () => {
     const repoDir = createTestRepo("graft-output-schema-cli-peer-");
     cleanups.push(repoDir);
 

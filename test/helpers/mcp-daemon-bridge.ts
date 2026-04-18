@@ -1,3 +1,11 @@
-import { startStdioServer } from "../../src/mcp/stdio-server.js";
+import { startDaemonBackedStdioBridge } from "../../src/mcp/daemon-stdio-bridge.js";
 
-await startStdioServer(process.cwd());
+const socketPath = process.env["GRAFT_TEST_DAEMON_SOCKET"];
+if (socketPath === undefined) {
+  throw new Error("GRAFT_TEST_DAEMON_SOCKET is required");
+}
+
+await startDaemonBackedStdioBridge({
+  socketPath,
+  ensureReady: () => Promise.resolve(socketPath),
+});

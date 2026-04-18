@@ -72,8 +72,9 @@ describe("0080 warp port and adapter boundary", () => {
     expect(context).toContain("getWarp(): Promise<WarpHandle>");
     expect(pool).toContain("Promise<WarpHandle>");
     expect(router).toContain("getWarp(): Promise<WarpHandle>");
-    expect(precision).toContain("type { WarpHandle }");
-    expect(precision).toContain("warp.materializeReceipts()");
+    // WarpHandle import moved to precision-warp.ts; the barrel re-exports from it
+    expect(precision).toContain("./precision-warp.js");
+    expect(precision).toContain("searchWarpSymbols");
     expect(migrate).not.toContain("asPersistedLocalHistoryGraphWarp");
   });
 

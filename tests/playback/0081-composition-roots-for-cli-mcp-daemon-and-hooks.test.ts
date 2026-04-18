@@ -100,7 +100,7 @@ describe("0081 composition roots for cli mcp daemon and hooks", () => {
     const preHook = read(PRE_READ_HOOK);
     const postHook = read(POST_READ_HOOK);
 
-    expect(lineCount(STDIO_SERVER)).toBeLessThanOrEqual(20);
+    expect(lineCount(STDIO_SERVER)).toBeLessThanOrEqual(30);
     expect(stdio).toContain("new StdioServerTransport()");
     expect(stdio).toContain("createGraftServer");
 

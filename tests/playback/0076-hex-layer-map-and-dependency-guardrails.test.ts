@@ -32,7 +32,7 @@ async function readRepoText(relativeFilePath: string): Promise<string> {
 describe("0076 hex layer map and dependency guardrails", () => {
   it("Can a human point to the currently enforced layers without having to infer them from code archaeology?", async () => {
     const designDoc = await readRepoText(
-      "docs/design/0076-hex-layer-map-and-dependency-guardrails/hex-layer-map-and-dependency-guardrails.md",
+      "docs/design/CORE_hex-layer-map-and-dependency-guardrails.md",
     );
 
     expect(designDoc).toContain("## Current enforced layer map");
@@ -45,7 +45,7 @@ describe("0076 hex layer map and dependency guardrails", () => {
 
   it("Is it explicit that this cycle enforces a truthful first-cut map, not a final directory reorganization?", async () => {
     const designDoc = await readRepoText(
-      "docs/design/0076-hex-layer-map-and-dependency-guardrails/hex-layer-map-and-dependency-guardrails.md",
+      "docs/design/CORE_hex-layer-map-and-dependency-guardrails.md",
     );
 
     expect(designDoc).toContain("truthful first-cut");

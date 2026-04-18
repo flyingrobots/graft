@@ -5,7 +5,7 @@ import { describe, expect, it } from "vitest";
 const repoRoot = path.resolve(import.meta.dirname, "../..");
 const designDocPath = path.join(
   repoRoot,
-  "docs/design/0075-hexagonal-architecture-convergence-plan/hexagonal-architecture-convergence-plan.md",
+  "docs/design/CORE_hexagonal-architecture-convergence-plan.md",
 );
 const architectureDocPath = path.join(repoRoot, "ARCHITECTURE.md");
 const designDoc = fs.readFileSync(designDocPath, "utf-8");
@@ -88,18 +88,31 @@ describe("0075 playback: hexagonal architecture convergence plan", () => {
   });
 
   it("Does the packet turn the missing architecture slices into real backlog items with sequencing, not just prose?", () => {
-    const backlogPaths = [
-      "docs/method/backlog/asap/CORE_hex-layer-map-and-dependency-guardrails.md",
-      "docs/method/backlog/up-next/CORE_primary-adapters-thin-use-case-extraction.md",
-      "docs/method/backlog/up-next/CORE_warp-port-and-adapter-boundary.md",
-      "docs/method/backlog/up-next/CORE_composition-roots-for-cli-mcp-daemon-and-hooks.md",
-      "docs/method/backlog/up-next/CORE_runtime-validated-command-and-context-models.md",
-      "docs/method/backlog/bad-code/CLEAN_architecture-doc-overclaims-strict-hexagonal-posture.md",
+    // These backlog items have been completed — verify landed design docs exist
+    const completedDesignDocs = [
+      "docs/design/CORE_hex-layer-map-and-dependency-guardrails.md",
+      "docs/design/CORE_primary-adapters-thin-use-case-extraction.md",
+      "docs/design/CORE_warp-port-and-adapter-boundary.md",
+      "docs/design/CORE_composition-roots-for-cli-mcp-daemon-and-hooks.md",
+      "docs/design/CORE_runtime-validated-command-and-context-models.md",
     ];
 
-    for (const relativePath of backlogPaths) {
+    for (const relativePath of completedDesignDocs) {
       expect(fs.existsSync(path.join(repoRoot, relativePath))).toBe(true);
-      expect(designDoc).toContain(path.basename(relativePath));
+    }
+
+    // Verify the design doc references the original backlog item names
+    const backlogBasenames = [
+      "CORE_hex-layer-map-and-dependency-guardrails.md",
+      "CORE_primary-adapters-thin-use-case-extraction.md",
+      "CORE_warp-port-and-adapter-boundary.md",
+      "CORE_composition-roots-for-cli-mcp-daemon-and-hooks.md",
+      "CORE_runtime-validated-command-and-context-models.md",
+      "CLEAN_architecture-doc-overclaims-strict-hexagonal-posture.md",
+    ];
+
+    for (const basename of backlogBasenames) {
+      expect(designDoc).toContain(basename);
     }
   });
 });

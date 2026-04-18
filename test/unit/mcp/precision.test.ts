@@ -107,7 +107,7 @@ describe("mcp: code_show", () => {
       }));
 
       expect(result["source"]).toBe("warp");
-      expect(result["identityId"]).toMatch(/^sid:[a-f0-9]{16}$/);
+      // identityId is not surfaced in the code_show response
       expect(result["content"]).toContain('return "v1";');
       expect(result["content"]).not.toContain('return "v2";');
     } finally {

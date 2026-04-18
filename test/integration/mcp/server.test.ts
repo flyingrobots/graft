@@ -5,12 +5,12 @@ import { TOOL_REGISTRY } from "../../../src/mcp/server.js";
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
-import { extractText, fixturePath, getTestRepoRoot } from "../../helpers/mcp.js";
+import { extractText, getTestRepoRoot } from "../../helpers/mcp.js";
 /**
  * Integration tests: spawn the actual MCP server as a subprocess,
  * connect via stdio, and call tools through the MCP protocol.
  */
-describe("integration: MCP server over stdio", () => {
+describe("integration: MCP server over stdio", { timeout: 60_000 }, () => {
   let client: Client;
   let transport: StdioClientTransport;
   let projectRoot: string;
@@ -56,50 +56,50 @@ describe("integration: MCP server over stdio", () => {
     expect(safeRead!.inputSchema.properties).toHaveProperty("path");
   });
 
-  it("safe_read returns content for small files", async () => {
+  it("safe_read returns content for small files", { timeout: 60_000 }, async () => {
     const result = await client.callTool({
       name: "safe_read",
-      arguments: { path: fixturePath("small.ts") },
+      arguments: { path: "test/fixtures/small.ts" },
     });
     const parsed = JSON.parse(extractText(result)) as Record<string, unknown>;
     expect(parsed["projection"]).toBe("content");
     expect(parsed["content"]).toContain("greet");
   });
 
-  it("safe_read returns outline for large files", async () => {
+  it("safe_read returns outline for large files", { timeout: 60_000 }, async () => {
     const result = await client.callTool({
       name: "safe_read",
-      arguments: { path: fixturePath("large.ts") },
+      arguments: { path: "test/fixtures/large.ts" },
     });
     const parsed = JSON.parse(extractText(result)) as Record<string, unknown>;
     expect(parsed["projection"]).toBe("outline");
     expect(parsed["jumpTable"]).toBeDefined();
   });
 
-  it("safe_read refuses binary files", async () => {
+  it("safe_read refuses binary files", { timeout: 60_000 }, async () => {
     const result = await client.callTool({
       name: "safe_read",
-      arguments: { path: fixturePath("ban-targets/image.png") },
+      arguments: { path: "test/fixtures/ban-targets/image.png" },
     });
     const parsed = JSON.parse(extractText(result)) as Record<string, unknown>;
     expect(parsed["projection"]).toBe("refused");
     expect(parsed["reason"]).toBe("BINARY");
   });
 
-  it("file_outline includes jump table", async () => {
+  it("file_outline includes jump table", { timeout: 60_000 }, async () => {
     const result = await client.callTool({
       name: "file_outline",
-      arguments: { path: fixturePath("medium.ts") },
+      arguments: { path: "test/fixtures/medium.ts" },
     });
     const parsed = JSON.parse(extractText(result)) as Record<string, unknown>;
     expect(parsed["outline"]).toBeDefined();
     expect(parsed["jumpTable"]).toBeDefined();
   });
 
-  it("read_range returns bounded lines", async () => {
+  it("read_range returns bounded lines", { timeout: 60_000 }, async () => {
     const result = await client.callTool({
       name: "read_range",
-      arguments: { path: fixturePath("medium.ts"), start: 1, end: 5 },
+      arguments: { path: "test/fixtures/medium.ts", start: 1, end: 5 },
     });
     const parsed = JSON.parse(extractText(result)) as Record<string, unknown>;
     expect(parsed["content"]).toBeDefined();
@@ -107,7 +107,7 @@ describe("integration: MCP server over stdio", () => {
     expect(parsed["endLine"]).toBe(5);
   });
 
-  it("doctor returns health check", async () => {
+  it("doctor returns health check", { timeout: 60_000 }, async () => {
     const result = await client.callTool({
       name: "doctor",
       arguments: {},
@@ -117,7 +117,7 @@ describe("integration: MCP server over stdio", () => {
     expect(parsed["parserHealthy"]).toBe(true);
   });
 
-  it("stats returns metrics summary", async () => {
+  it("stats returns metrics summary", { timeout: 60_000 }, async () => {
     const result = await client.callTool({
       name: "stats",
       arguments: {},

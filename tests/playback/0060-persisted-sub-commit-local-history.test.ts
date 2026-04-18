@@ -5,7 +5,7 @@ import * as path from "node:path";
 const repoRoot = path.resolve(import.meta.dirname, "../..");
 const designDocPath = path.join(
   repoRoot,
-  "docs/design/0060-persisted-sub-commit-local-history/persisted-sub-commit-local-history.md",
+  "docs/design/WARP_persisted-sub-commit-local-history.md",
 );
 const invariantsReadmePath = path.join(repoRoot, "docs/invariants/README.md");
 const designDoc = fs.readFileSync(designDocPath, "utf-8");

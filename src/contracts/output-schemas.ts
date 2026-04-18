@@ -95,11 +95,24 @@ const jumpEntrySchema = z.object({
   end: z.number().int().positive(),
 }).strict();
 
+const diffContinuitySchema = z.object({
+  _brand: z.literal("DiffContinuity").optional(),
+  kind: z.enum(["rename"]),
+  confidence: z.enum(["likely"]),
+  basis: z.enum(["matching_signature_shape", "matching_child_structure"]),
+  symbolKind: z.string(),
+  oldName: z.string(),
+  newName: z.string(),
+  oldSignature: z.string().optional(),
+  newSignature: z.string().optional(),
+}).strict();
+
 const outlineDiffSchema: z.ZodType = z.lazy(() => z.object({
   _brand: z.literal("OutlineDiff").optional(),
   added: z.array(diffEntrySchema),
   removed: z.array(diffEntrySchema),
   changed: z.array(diffEntrySchema),
+  continuity: z.array(diffContinuitySchema),
   unchangedCount: z.number().int().nonnegative(),
 }).strict());
 
@@ -110,6 +123,7 @@ const diffEntrySchema: z.ZodType = z.lazy(() => z.object({
   signature: z.string().optional(),
   oldSignature: z.string().optional(),
   childDiff: outlineDiffSchema.optional(),
+  identityId: z.string().optional(),
 }).strict());
 
 const burdenKindSchema = z.enum(["read", "search", "shell", "state", "diagnostic"]);
@@ -278,7 +292,7 @@ const persistedLocalHistorySummarySchema = z.discriminatedUnion("availability", 
   z.object({
     availability: z.literal("present"),
     persistence: z.literal("persisted_local_history"),
-    historyPath: z.string(),
+    historyPath: z.string().nullable(),
     totalContinuityRecords: z.number().int().positive(),
     active: z.boolean(),
     lastOperation: localHistoryContinuityOperationSchema,
@@ -1210,7 +1224,7 @@ export type McpOutputFor<K extends McpToolName> = z.output<(typeof MCP_OUTPUT_SC
 /** Inferred output type for a given CLI command name. */
 export type CliOutputFor<K extends CliCommandName> = z.output<(typeof CLI_OUTPUT_SCHEMAS)[K]>;
 
-export const DIAG_ACTIVITY_CLI_SCHEMA = activityViewSchema;
+export const DIAG_ACTIVITY_CLI_SCHEMA = activityViewSchema.extend({ _schema: z.unknown().optional(), _receipt: z.unknown().optional(), tripwire: z.unknown().optional() }).strict();
 
 export const RECEIPT_SCHEMA = receiptSchema;
 export const RECEIPT_JSON_SCHEMA = z.toJSONSchema(receiptSchema);

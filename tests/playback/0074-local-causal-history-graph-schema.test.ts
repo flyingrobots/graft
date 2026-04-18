@@ -5,7 +5,7 @@ import { describe, expect, it } from "vitest";
 const repoRoot = path.resolve(import.meta.dirname, "../..");
 const designDocPath = path.join(
   repoRoot,
-  "docs/design/0074-local-causal-history-graph-schema/local-causal-history-graph-schema.md",
+  "docs/design/WARP_local-causal-history-graph-schema.md",
 );
 const causalOntologyPath = path.join(repoRoot, "src/contracts/causal-ontology.ts");
 const designDoc = fs.readFileSync(designDocPath, "utf-8");

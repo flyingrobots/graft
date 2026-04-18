@@ -5,7 +5,7 @@ import * as path from "node:path";
 const repoRoot = path.resolve(import.meta.dirname, "../..");
 const designDocPath = path.join(
   repoRoot,
-  "docs/design/0064-same-repo-concurrent-agent-model/same-repo-concurrent-agent-model.md",
+  "docs/design/WARP_same-repo-concurrent-agent-model.md",
 );
 const designDoc = fs.readFileSync(designDocPath, "utf-8");
 

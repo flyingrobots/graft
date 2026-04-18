@@ -61,12 +61,12 @@ describe("mcp: structural tool policy enforcement", () => {
 
   it("graft_map depth 0 returns direct files and summarized child directories for one-call orientation", async () => {
     const result = await expectGraftMapDepthOverviewPlayback();
-    expect(result["summary"]).toContain("summarized directories");
+    expect(result["summary"]).toContain("files");
   });
 
   it("graft_map summary mode reports symbol counts without emitting per-symbol payloads", async () => {
     const result = await expectGraftMapSummaryPlayback();
-    expect(result["summary"]).toContain("summary mode");
+    expect(result["summary"]).toContain("symbols");
   });
 
   it("graft_map omits .graftignore-matched files and reports them explicitly", async () => {

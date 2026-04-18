@@ -5,7 +5,7 @@ import * as path from "node:path";
 const repoRoot = path.resolve(import.meta.dirname, "../..");
 const designDocPath = path.join(
   repoRoot,
-  "docs/design/0063-richer-semantic-transitions/richer-semantic-transitions.md",
+  "docs/design/WARP_richer-semantic-transitions.md",
 );
 const designDoc = fs.readFileSync(designDocPath, "utf-8");
 

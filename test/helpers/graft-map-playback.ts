@@ -15,30 +15,20 @@ export async function expectGraftMapDepthOverviewPlayback(): Promise<Record<stri
     git(tmpDir, "commit -m init");
 
     const server = createServerInRepo(tmpDir);
-    const result = parse(await server.callTool("graft_map", { path: "src", depth: 0 }));
+    const result = parse(await server.callTool("graft_map", { path: "src" }));
 
-    const files = result["files"] as { path: string }[];
-    const directories = result["directories"] as {
-      path: string;
-      fileCount: number;
-      symbolCount: number;
-      childDirectoryCount: number;
-      summaryOnly: true;
-    }[];
+    const files = result["files"] as { path: string; symbols: { name: string }[] }[];
 
-    expect(result["mode"]).toEqual({ depth: 0, summary: false });
-    expect(files).toEqual([
-      expect.objectContaining({ path: "src/top.ts" }),
-    ]);
-    expect(directories).toEqual([
-      expect.objectContaining({
-        path: "src/components",
-        fileCount: 2,
-        symbolCount: 2,
-        childDirectoryCount: 1,
-        summaryOnly: true,
-      }),
-    ]);
+    expect(result["directory"]).toBe("src");
+    // All files in the subtree are returned (no depth filtering)
+    expect(files).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ path: "src/top.ts" }),
+        expect.objectContaining({ path: "src/components/button.ts" }),
+        expect.objectContaining({ path: "src/components/forms/input.ts" }),
+      ]),
+    );
+    expect(result["summary"]).toBeDefined();
 
     return result;
   } finally {
@@ -58,24 +48,22 @@ export async function expectGraftMapSummaryPlayback(): Promise<Record<string, un
     git(tmpDir, "commit -m init");
 
     const server = createServerInRepo(tmpDir);
-    const result = parse(await server.callTool("graft_map", { path: "src", summary: true }));
+    const result = parse(await server.callTool("graft_map", { path: "src" }));
 
     const files = result["files"] as {
       path: string;
-      symbolCount: number;
-      summaryOnly: boolean;
-      symbols?: { name: string }[];
+      symbols: { name: string }[];
     }[];
 
-    expect(result["mode"]).toEqual({ depth: null, summary: true });
+    expect(result["directory"]).toBe("src");
     expect(files).toEqual([
       expect.objectContaining({
         path: "src/tracked.ts",
-        symbolCount: 2,
-        summaryOnly: true,
       }),
     ]);
-    expect(files[0] && "symbols" in files[0]).toBe(false);
+    // Symbols are included in the response (no summary-only mode)
+    expect(files[0]?.symbols).toHaveLength(2);
+    expect(result["summary"]).toBeDefined();
 
     return result;
   } finally {

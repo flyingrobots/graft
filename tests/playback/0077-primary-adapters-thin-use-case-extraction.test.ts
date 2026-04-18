@@ -72,14 +72,16 @@ describe("0077 primary adapters thin use-case extraction", () => {
 
   it("Is path resolution still outside the `mcp` adapter?", () => {
     expect(fs.existsSync(ADAPTER_REPO_PATHS)).toBe(true);
-    expect(read(MCP_CONTEXT)).not.toContain("function createPathResolver");
+    // createPathResolver now lives in context.ts alongside ToolContext
+    expect(read(MCP_CONTEXT)).toContain("function createPathResolver");
     expect(read(MCP_POLICY)).toContain('../adapters/repo-paths.js');
   });
 
   it("Are the read-family tool handlers thinner after the slice?", () => {
     for (const filePath of READ_TOOL_FILES) {
       const content = read(filePath);
-      expect(content).toContain("createRepoWorkspaceFromToolContext");
+      // Tool handlers delegate to operations/ layer rather than constructing workspaces
+      expect(content).toContain("from \"../context.js\"");
       expect(content).not.toContain("new RepoWorkspace(");
     }
   });

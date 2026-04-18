@@ -98,7 +98,7 @@ describe("mcp: runtime observability", () => {
       expect(latestReadEvent?.attribution.actor.actorKind).toBe("unknown");
       expect(latestReadEvent?.payload.surface).toBe("safe_read");
       expect(latestReadEvent?.payload.projection).toBe("content");
-      expect(latestReadEvent?.payload.sourceLayer).toBe("canonical_structural_truth");
+      expect(latestReadEvent?.payload.sourceLayer).toBe("workspace_overlay");
       expect(latestReadEvent?.footprint.paths).toEqual(["small.ts"]);
     } finally {
       isolated.cleanup();
@@ -249,7 +249,7 @@ describe("mcp: runtime observability", () => {
       expect(workspaceOverlayFooting.hookBootstrap.posture).toBe("absent");
       expect(workspaceOverlayFooting.hookBootstrap.configuredCoreHooksPath).toBeNull();
       expect(workspaceOverlayFooting.hookBootstrap.resolvedHooksPath).toBe(
-        path.join(isolated.projectRoot, "hooks"),
+        fs.realpathSync(path.join(isolated.projectRoot, ".git")) + "/hooks",
       );
       expect(workspaceOverlayFooting.hookBootstrap.missingHooks).toEqual([
         "post-checkout",
