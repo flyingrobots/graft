@@ -1,118 +1,51 @@
 import * as path from "node:path";
-import { z } from "zod";
-import type { JsonCodec } from "../ports/codec.js";
-import type { FileSystem } from "../ports/filesystem.js";
-import type { GitClient } from "../ports/git.js";
-import type { DaemonJobScheduler } from "./daemon-job-scheduler.js";
-import type { DaemonWorkerPool } from "./daemon-worker-pool.js";
-import type { DaemonControlPlane, DaemonMonitorCounts } from "./daemon-control-plane.js";
+import type { DaemonMonitorCounts } from "./daemon-control-plane.js";
 import {
   resolveWorkspaceRequest,
   type WorkspaceBindRequest,
 } from "./workspace-router.js";
 import { buildMonitorWarpWriterId } from "../warp/writer-id.js";
 
-const CONTROL_PLANE_DIR = "control-plane";
-const MONITORS_FILE = "monitors.json";
-const DEFAULT_POLL_INTERVAL_MS = 5_000;
+import {
+  CONTROL_PLANE_DIR,
+  MONITORS_FILE,
+  type MonitorTimerEntry,
+  type PersistedMonitorRecord,
+  type MonitorStatusView,
+  type MonitorActionResult,
+  type MonitorStartRequest,
+  type MonitorAction,
+  type MonitorLifecycleState,
+  type PersistentMonitorRuntimeOptions,
+} from "./monitor-types.js";
 
-export type MonitorLifecycleState = "running" | "paused" | "stopped";
-export type MonitorHealth = "ok" | "lagging" | "error" | "unauthorized" | "paused" | "stopped";
-export type MonitorWorkerKind = "git_poll_indexer";
-export type MonitorAction = "start" | "pause" | "resume" | "stop";
+import {
+  loadMonitorRecords,
+  persistMonitorRecords,
+} from "./monitor-persistence.js";
 
-const persistedMonitorSchema = z.object({
-  repoId: z.string(),
-  gitCommonDir: z.string(),
-  anchorWorktreeRoot: z.string(),
-  workerKind: z.literal("git_poll_indexer"),
-  lifecycleState: z.enum(["running", "paused", "stopped"]),
-  health: z.enum(["ok", "lagging", "error", "unauthorized", "paused", "stopped"]),
-  pollIntervalMs: z.number().int().positive(),
-  lastStartedAt: z.string().nullable(),
-  lastTickAt: z.string().nullable(),
-  lastSuccessAt: z.string().nullable(),
-  lastError: z.string().nullable(),
-  lastIndexedCommit: z.string().nullable(),
-  lastHeadCommit: z.string().nullable(),
-  backlogCommits: z.number().int().nonnegative(),
-  lastRunCommitsIndexed: z.number().int().nonnegative(),
-  lastRunPatchesWritten: z.number().int().nonnegative(),
-}).strict();
+import {
+  deriveHealth,
+  deriveTransitionHealth,
+  normalizePollIntervalMs,
+  sortStatuses,
+  toStatusView,
+} from "./monitor-health.js";
 
-const persistedMonitorStateSchema = z.object({
-  version: z.literal(1),
-  monitors: z.array(persistedMonitorSchema),
-}).strict();
+// ── Barrel re-exports (preserve downstream import paths) ──────────
 
-type PersistedMonitorRecord = z.infer<typeof persistedMonitorSchema>;
-type PersistedMonitorState = z.infer<typeof persistedMonitorStateSchema>;
+export type {
+  MonitorLifecycleState,
+  MonitorHealth,
+  MonitorWorkerKind,
+  MonitorAction,
+  MonitorStatusView,
+  MonitorActionResult,
+  MonitorStartRequest,
+  PersistentMonitorRuntimeOptions,
+} from "./monitor-types.js";
 
-interface MonitorTimerEntry {
-  readonly timeout: ReturnType<typeof setTimeout>;
-}
-
-export interface MonitorStatusView {
-  readonly repoId: string;
-  readonly gitCommonDir: string;
-  readonly anchorWorktreeRoot: string;
-  readonly authorizedWorkspaces: number;
-  readonly workerKind: MonitorWorkerKind;
-  readonly lifecycleState: MonitorLifecycleState;
-  readonly health: MonitorHealth;
-  readonly pollIntervalMs: number;
-  readonly lastStartedAt: string | null;
-  readonly lastTickAt: string | null;
-  readonly lastSuccessAt: string | null;
-  readonly lastError: string | null;
-  readonly lastIndexedCommit: string | null;
-  readonly lastHeadCommit: string | null;
-  readonly backlogCommits: number;
-  readonly lastRunCommitsIndexed: number;
-  readonly lastRunPatchesWritten: number;
-}
-
-export interface MonitorActionResult {
-  readonly ok: boolean;
-  readonly action: MonitorAction;
-  readonly created: boolean;
-  readonly changed: boolean;
-  readonly status?: MonitorStatusView;
-  readonly errorCode?: string;
-  readonly error?: string;
-}
-
-export interface MonitorStartRequest extends WorkspaceBindRequest {
-  readonly pollIntervalMs?: number | undefined;
-}
-
-export interface PersistentMonitorRuntimeOptions {
-  readonly fs: FileSystem;
-  readonly codec: JsonCodec;
-  readonly git: GitClient;
-  readonly graftDir: string;
-  readonly controlPlane: DaemonControlPlane;
-  readonly scheduler: DaemonJobScheduler;
-  readonly workerPool: DaemonWorkerPool;
-  readonly defaultPollIntervalMs?: number | undefined;
-}
-
-function normalizePollIntervalMs(value: number | undefined, fallback: number): number {
-  if (value === undefined) return fallback;
-  const normalized = Math.trunc(value);
-  if (!Number.isFinite(normalized) || normalized <= 0) {
-    throw new Error("pollIntervalMs must be a positive integer");
-  }
-  return normalized;
-}
-
-function sortStatuses(statuses: readonly MonitorStatusView[]): readonly MonitorStatusView[] {
-  return [...statuses].sort((left, right) => left.gitCommonDir.localeCompare(right.gitCommonDir));
-}
-
-function cloneRecord(record: PersistedMonitorRecord): PersistedMonitorRecord {
-  return { ...record };
-}
+// ── Runtime class ──────────────────────────────────────────────────
 
 export class PersistentMonitorRuntime {
   private readonly statePath: string;
@@ -129,7 +62,7 @@ export class PersistentMonitorRuntime {
       CONTROL_PLANE_DIR,
       MONITORS_FILE,
     );
-    this.defaultPollIntervalMs = options.defaultPollIntervalMs ?? DEFAULT_POLL_INTERVAL_MS;
+    this.defaultPollIntervalMs = options.defaultPollIntervalMs ?? 5_000;
   }
 
   async initialize(): Promise<void> {
@@ -179,26 +112,8 @@ export class PersistentMonitorRuntime {
     await this.ensureLoaded();
     const authorized = await this.options.controlPlane.listAuthorizedWorkspaceRecords();
     return sortStatuses([...this.records.values()].map((record) => {
-      const authorizedWorkspaces = authorized.filter((workspace) => workspace.repoId === record.repoId).length;
-      return {
-        repoId: record.repoId,
-        gitCommonDir: record.gitCommonDir,
-        anchorWorktreeRoot: record.anchorWorktreeRoot,
-        authorizedWorkspaces,
-        workerKind: record.workerKind,
-        lifecycleState: record.lifecycleState,
-        health: record.health,
-        pollIntervalMs: record.pollIntervalMs,
-        lastStartedAt: record.lastStartedAt,
-        lastTickAt: record.lastTickAt,
-        lastSuccessAt: record.lastSuccessAt,
-        lastError: record.lastError,
-        lastIndexedCommit: record.lastIndexedCommit,
-        lastHeadCommit: record.lastHeadCommit,
-        backlogCommits: record.backlogCommits,
-        lastRunCommitsIndexed: record.lastRunCommitsIndexed,
-        lastRunPatchesWritten: record.lastRunPatchesWritten,
-      };
+      const count = authorized.filter((workspace) => workspace.repoId === record.repoId).length;
+      return toStatusView(record, count);
     }));
   }
 
@@ -285,6 +200,8 @@ export class PersistentMonitorRuntime {
     return this.transitionMonitor("stop", request, "stopped");
   }
 
+  // ── Private: lifecycle transitions ─────────────────────────────
+
   private async transitionMonitor(
     action: Exclude<MonitorAction, "start">,
     request: WorkspaceBindRequest,
@@ -318,15 +235,10 @@ export class PersistentMonitorRuntime {
     if (lifecycleState !== "running") {
       this.clearTimer(current.repoId);
     }
-    const nextHealth = lifecycleState === "paused"
-      ? "paused"
-      : lifecycleState === "stopped"
-        ? "stopped"
-        : "lagging";
     this.records.set(current.repoId, {
       ...current,
       lifecycleState,
-      health: nextHealth,
+      health: deriveTransitionHealth(lifecycleState),
       lastError: lifecycleState === "stopped" ? null : current.lastError,
     });
     await this.persist();
@@ -339,6 +251,8 @@ export class PersistentMonitorRuntime {
       status: await this.getStatusByRepoId(current.repoId),
     };
   }
+
+  // ── Private: tick scheduling ───────────────────────────────────
 
   private async runTick(repoId: string): Promise<void> {
     const existing = this.runningTicks.get(repoId);
@@ -366,15 +280,10 @@ export class PersistentMonitorRuntime {
       const anchor = await this.options.controlPlane.getAuthorizedWorkspaceForRepo(repoId, record.anchorWorktreeRoot);
       if (anchor === null) {
         const latest = this.records.get(repoId) ?? record;
-        const health = latest.lifecycleState === "paused"
-          ? "paused"
-          : latest.lifecycleState === "stopped"
-            ? "stopped"
-            : "unauthorized";
         this.records.set(repoId, {
           ...latest,
           lastTickAt: tickStartedAt,
-          health,
+          health: deriveHealth(latest.lifecycleState, "unauthorized"),
           lastError: "No authorized workspace is currently available for this repo monitor.",
           backlogCommits: 0,
         });
@@ -390,14 +299,8 @@ export class PersistentMonitorRuntime {
           lastIndexedCommit: record.lastIndexedCommit,
         });
         const latest = this.records.get(repoId) ?? record;
-        const nextHealth = latest.lifecycleState === "paused"
-          ? "paused"
-          : latest.lifecycleState === "stopped"
-            ? "stopped"
-            : result.backlogCommits > 0
-              ? "lagging"
-              : "ok";
         if (result.ok) {
+          const activeHealth = result.backlogCommits > 0 ? "lagging" : "ok";
           this.records.set(repoId, {
             ...latest,
             anchorWorktreeRoot: anchor.worktreeRoot,
@@ -408,7 +311,7 @@ export class PersistentMonitorRuntime {
             lastIndexedCommit: result.lastIndexedCommit,
             lastHeadCommit: result.currentHead,
             backlogCommits: result.backlogCommits,
-            health: nextHealth,
+            health: deriveHealth(latest.lifecycleState, activeHealth),
             lastRunCommitsIndexed: result.commitsIndexed,
             lastRunPatchesWritten: result.patchesWritten,
           });
@@ -421,11 +324,7 @@ export class PersistentMonitorRuntime {
             lastError: result.error,
             lastHeadCommit: result.currentHead,
             backlogCommits: result.backlogCommits,
-            health: latest.lifecycleState === "paused"
-              ? "paused"
-              : latest.lifecycleState === "stopped"
-                ? "stopped"
-                : "error",
+            health: deriveHealth(latest.lifecycleState, "error"),
           });
         }
       } catch (error) {
@@ -436,11 +335,7 @@ export class PersistentMonitorRuntime {
           gitCommonDir: anchor.gitCommonDir,
           lastTickAt: tickStartedAt,
           lastError: error instanceof Error ? error.message : String(error),
-          health: latest.lifecycleState === "paused"
-            ? "paused"
-            : latest.lifecycleState === "stopped"
-              ? "stopped"
-              : "error",
+          health: deriveHealth(latest.lifecycleState, "error"),
         });
       } finally {
         await this.persist();
@@ -477,6 +372,8 @@ export class PersistentMonitorRuntime {
     this.timers.delete(repoId);
   }
 
+  // ── Private: status lookup ─────────────────────────────────────
+
   private async getStatusByRepoId(repoId: string): Promise<MonitorStatusView> {
     const statuses = await this.listStatuses();
     const status = statuses.find((candidate) => candidate.repoId === repoId);
@@ -485,6 +382,8 @@ export class PersistentMonitorRuntime {
     }
     return status;
   }
+
+  // ── Private: workspace resolution ──────────────────────────────
 
   private resolveRepo(
     request: WorkspaceBindRequest,
@@ -513,6 +412,8 @@ export class PersistentMonitorRuntime {
     return this.resolveRepo(request);
   }
 
+  // ── Private: persistence ───────────────────────────────────────
+
   private async ensureLoaded(): Promise<void> {
     if (this.loadPromise !== null) {
       await this.loadPromise;
@@ -520,16 +421,13 @@ export class PersistentMonitorRuntime {
     }
 
     this.loadPromise = (async () => {
-      const raw = await this.options.fs.readFile(this.statePath, "utf-8").catch((error: unknown) => {
-        if (error instanceof Error && "code" in error && error.code === "ENOENT") {
-          return null;
-        }
-        throw error;
-      });
-      if (raw === null) return;
-      const decoded = persistedMonitorStateSchema.parse(this.options.codec.decode(raw));
-      for (const record of decoded.monitors) {
-        this.records.set(record.repoId, cloneRecord(record));
+      const loaded = await loadMonitorRecords(
+        this.options.fs,
+        this.options.codec,
+        this.statePath,
+      );
+      for (const record of loaded) {
+        this.records.set(record.repoId, record);
       }
     })();
 
@@ -537,13 +435,11 @@ export class PersistentMonitorRuntime {
   }
 
   private async persist(): Promise<void> {
-    const payload: PersistedMonitorState = {
-      version: 1,
-      monitors: [...this.records.values()]
-        .map(cloneRecord)
-        .sort((left, right) => left.gitCommonDir.localeCompare(right.gitCommonDir)),
-    };
-    await this.options.fs.mkdir(path.dirname(this.statePath), { recursive: true });
-    await this.options.fs.writeFile(this.statePath, this.options.codec.encode(payload), "utf-8");
+    await persistMonitorRecords(
+      this.options.fs,
+      this.options.codec,
+      this.statePath,
+      this.records,
+    );
   }
 }
