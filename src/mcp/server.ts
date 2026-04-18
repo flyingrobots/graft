@@ -71,7 +71,8 @@ export function createGraftServer(options: CreateGraftServerOptions = {}): Graft
   const sessionId = options.sessionId ?? crypto.randomUUID();
   const mode = options.mode ?? "repo_local";
   const sessionWarpWriterId = mode === "daemon" ? buildSessionWarpWriterId(sessionId) : undefined;
-  const projectRoot = mode === "repo_local" ? (options.projectRoot ?? process.cwd()) : options.projectRoot;
+  const env = options.env ?? process.env;
+  const projectRoot = mode === "repo_local" ? (options.projectRoot ?? env["GRAFT_PROJECT_ROOT"]?.trim() ?? process.cwd()) : options.projectRoot;
   const graftDir = options.graftDir
     ?? (mode === "repo_local" && projectRoot !== undefined ? path.join(projectRoot, ".graft") : undefined);
   if (graftDir === undefined) {
