@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { toJsonObject } from "../../operations/result-dto.js";
 import { readRange } from "../../operations/read-range.js";
 import type { ToolDefinition, ToolContext, ToolHandler } from "../context.js";
 import {
@@ -35,12 +36,12 @@ export async function runCodeShow(
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : String(err);
     const layer = ref !== undefined ? "commit_worldline" : "live";
-    return ctx.respond("code_show", {
+    return ctx.respond("code_show", toJsonObject({
       symbol: symbolName,
       error: message,
       source: "live",
       layer: layer === "live" ? "ref_view" : layer,
-    });
+    }));
   }
 
   const { visibleMatches: visibleLocations, fileCache, firstRefusal } = await filterVisiblePrecisionMatches(
@@ -51,7 +52,7 @@ export async function runCodeShow(
 
   if (visibleLocations.length === 0) {
     if (firstRefusal !== undefined) {
-      return ctx.respond("code_show", {
+      return ctx.respond("code_show", toJsonObject({
         path: firstRefusal.path,
         projection: "refused",
         reason: firstRefusal.reason,
@@ -60,30 +61,30 @@ export async function runCodeShow(
         actual: firstRefusal.actual,
         source: resolved.source,
         layer: resolved.layer,
-      });
+      }));
     }
 
-    return ctx.respond("code_show", {
+    return ctx.respond("code_show", toJsonObject({
       symbol: symbolName,
       error: `Symbol '${symbolName}' not found`,
       source: resolved.source,
       layer: resolved.layer,
-    });
+    }));
   }
 
   if (visibleLocations.length > 1) {
-    return ctx.respond("code_show", {
+    return ctx.respond("code_show", toJsonObject({
       symbol: symbolName,
       ambiguous: true,
       matches: visibleLocations,
       source: resolved.source,
       layer: resolved.layer,
-    });
+    }));
   }
 
   const loc = visibleLocations[0];
   if (loc?.startLine === undefined || loc.endLine === undefined) {
-    return ctx.respond("code_show", {
+    return ctx.respond("code_show", toJsonObject({
       symbol: symbolName,
       kind: loc?.kind,
       signature: loc?.signature,
@@ -93,24 +94,24 @@ export async function runCodeShow(
       error: "Symbol found but line range unavailable — use read_range with file_outline",
       source: resolved.source,
       layer: resolved.layer,
-    });
+    }));
   }
 
   const content = fileCache.get(loc.path) ?? await loadFileContent(ctx, loc.path, resolved.resolvedRef);
   if (content === null) {
-    return ctx.respond("code_show", {
+    return ctx.respond("code_show", toJsonObject({
       symbol: symbolName,
       error: `File '${loc.path}' is no longer readable`,
       source: resolved.source,
       layer: resolved.layer,
-    });
+    }));
   }
 
   const rangeResult = resolved.resolvedRef !== undefined
     ? readRangeFromContent(loc.path, content, loc.startLine, loc.endLine)
     : await readRange(ctx.resolvePath(loc.path), loc.startLine, loc.endLine, { fs: ctx.fs });
 
-  return ctx.respond("code_show", {
+  return ctx.respond("code_show", toJsonObject({
     symbol: loc.name,
     kind: loc.kind,
     signature: loc.signature,
@@ -124,7 +125,7 @@ export async function runCodeShow(
     ...(rangeResult.clipped === true ? { clipped: true } : {}),
     source: resolved.source,
     layer: resolved.layer,
-  });
+  }));
 }
 
 export const codeShowTool: ToolDefinition = {

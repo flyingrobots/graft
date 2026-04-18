@@ -1,5 +1,6 @@
 import * as path from "node:path";
 import { z } from "zod";
+import { toJsonObject } from "../../operations/result-dto.js";
 import type { ToolDefinition, ToolContext, ToolHandler } from "../context.js";
 import type { ProcessRunner } from "../../ports/process-runner.js";
 import { GitFileQuery, listGitFiles } from "./git-files.js";
@@ -425,7 +426,7 @@ export const codeRefsTool: ToolDefinition = {
       }
 
       if (visibleMatches.length === 0 && firstRefusal !== undefined) {
-        return ctx.respond("code_refs", {
+        return ctx.respond("code_refs", toJsonObject({
           query: request.query,
           mode: request.mode,
           scope: request.scope(),
@@ -443,10 +444,10 @@ export const codeRefsTool: ToolDefinition = {
             filesSearched: filePaths.length,
           },
           layer,
-        });
+        }));
       }
 
-      return ctx.respond("code_refs", {
+      return ctx.respond("code_refs", toJsonObject({
         query: request.query,
         mode: request.mode,
         scope: request.scope(),
@@ -460,7 +461,7 @@ export const codeRefsTool: ToolDefinition = {
           filesSearched: filePaths.length,
         },
         layer,
-      });
+      }));
     };
   },
 };

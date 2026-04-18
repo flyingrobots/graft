@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { toJsonObject } from "../../operations/result-dto.js";
 import type { ToolDefinition, ToolContext, ToolHandler } from "../context.js";
 import { GitFileQuery, listGitFiles } from "./git-files.js";
 import { filterVisiblePrecisionMatches } from "./precision-visibility.js";
@@ -94,7 +95,7 @@ export async function runCodeFind(
   const { visibleMatches, firstRefusal } = await filterVisiblePrecisionMatches(ctx, allMatches);
 
   if (visibleMatches.length === 0 && firstRefusal !== undefined) {
-    return ctx.respond("code_find", {
+    return ctx.respond("code_find", toJsonObject({
       query: request.query,
       kind: request.kind ?? null,
       path: firstRefusal.path,
@@ -105,17 +106,17 @@ export async function runCodeFind(
       actual: firstRefusal.actual,
       source,
       layer,
-    });
+    }));
   }
 
-  return ctx.respond("code_find", {
+  return ctx.respond("code_find", toJsonObject({
     query: request.query,
     kind: request.kind ?? null,
     matches: visibleMatches,
     total: visibleMatches.length,
     source,
     layer,
-  });
+  }));
 }
 
 export const codeFindTool: ToolDefinition = {
