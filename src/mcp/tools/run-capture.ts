@@ -1,16 +1,13 @@
 import * as path from "node:path";
 import { z } from "zod";
 import type { ToolDefinition, ToolContext, ToolHandler } from "../context.js";
+import { scrubSecrets } from "../secret-scrub.js";
 
 const RUN_CAPTURE_POLICY_BOUNDARY = {
   kind: "shell_escape_hatch",
   boundedReadContract: false,
   policyEnforced: false,
 } as const;
-
-const PRIVATE_KEY_BLOCK_RE = /-----BEGIN [A-Z ]*PRIVATE KEY-----[\s\S]*?-----END [A-Z ]*PRIVATE KEY-----/g;
-const SECRET_ASSIGNMENT_RE = /(\b(?:api[_-]?key|access[_-]?token|auth(?:orization)?|bearer|token|secret|password|passwd|private[_-]?key|client[_-]?secret|session[_-]?key)\b\s*[:=]\s*)([^\r\n]+)/gi;
-const BEARER_TOKEN_RE = /(\bbearer\s+)([A-Za-z0-9._~+/=-]{8,})/gi;
 
 function tailOutput(output: string, tail: number): {
   readonly tailed: string;
@@ -38,26 +35,6 @@ function renderCaptureError(result: {
   return `Command exited with status ${String(result.status)}`;
 }
 
-function redactForLog(output: string): {
-  readonly value: string;
-  readonly redactions: number;
-} {
-  let redactions = 0;
-  let value = output.replace(PRIVATE_KEY_BLOCK_RE, () => {
-    redactions++;
-    return "[REDACTED PRIVATE KEY BLOCK]";
-  });
-  value = value.replace(SECRET_ASSIGNMENT_RE, (_match, prefix: string) => {
-    redactions++;
-    return `${prefix}[REDACTED]`;
-  });
-  value = value.replace(BEARER_TOKEN_RE, (_match, prefix: string) => {
-    redactions++;
-    return `${prefix}[REDACTED]`;
-  });
-  return { value, redactions };
-}
-
 async function persistCaptureLog(ctx: ToolContext, output: string): Promise<{
   readonly logPath: string | null;
   readonly logRedactions: number;
@@ -67,7 +44,7 @@ async function persistCaptureLog(ctx: ToolContext, output: string): Promise<{
   }
 
   const logPath = path.join(ctx.graftDir, "logs", "capture.log");
-  const persisted = ctx.runCapture.redactLogs ? redactForLog(output) : { value: output, redactions: 0 };
+  const persisted = ctx.runCapture.redactLogs ? scrubSecrets(output) : { value: output, redactions: 0 };
 
   try {
     await ctx.fs.mkdir(path.dirname(logPath), { recursive: true });

@@ -162,6 +162,8 @@ export function classifyRuntimeFailure(error: unknown): {
   return { kind: "unknown_error", name: "UnknownError" };
 }
 
+export { sanitizeArgValues } from "./secret-scrub.js";
+
 export function sanitizeArgKeys(args: Record<string, unknown>): string[] {
   return Object.keys(args).sort();
 }
