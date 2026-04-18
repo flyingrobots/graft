@@ -1,9 +1,10 @@
 // ---------------------------------------------------------------------------
-// Session metrics — replaces loose counters in server.ts
+// Session metrics — runtime-backed metric snapshots and deltas
 // ---------------------------------------------------------------------------
 
 import type { McpToolName } from "../contracts/output-schemas.js";
 import {
+  BURDEN_KINDS,
   emptyBurdenByKind,
   freezeBurdenByKind,
   burdenKindForTool,
@@ -11,7 +12,7 @@ import {
   type BurdenByKind,
 } from "./burden.js";
 
-export interface MetricsSnapshot {
+export class MetricsSnapshot {
   readonly reads: number;
   readonly outlines: number;
   readonly refusals: number;
@@ -19,9 +20,27 @@ export interface MetricsSnapshot {
   readonly bytesReturned: number;
   readonly bytesAvoided: number;
   readonly burdenByKind: Readonly<BurdenByKind>;
+
+  constructor(fields: {
+    readonly reads: number;
+    readonly outlines: number;
+    readonly refusals: number;
+    readonly cacheHits: number;
+    readonly bytesReturned: number;
+    readonly bytesAvoided: number;
+    readonly burdenByKind: Readonly<BurdenByKind>;
+  }) {
+    this.reads = fields.reads;
+    this.outlines = fields.outlines;
+    this.refusals = fields.refusals;
+    this.cacheHits = fields.cacheHits;
+    this.bytesReturned = fields.bytesReturned;
+    this.bytesAvoided = fields.bytesAvoided;
+    this.burdenByKind = fields.burdenByKind;
+  }
 }
 
-export interface MetricsDelta {
+export class MetricsDelta {
   readonly reads: number;
   readonly outlines: number;
   readonly refusals: number;
@@ -29,6 +48,24 @@ export interface MetricsDelta {
   readonly bytesReturned: number;
   readonly bytesAvoided: number;
   readonly burdenByKind: Readonly<BurdenByKind>;
+
+  constructor(fields: {
+    readonly reads: number;
+    readonly outlines: number;
+    readonly refusals: number;
+    readonly cacheHits: number;
+    readonly bytesReturned: number;
+    readonly bytesAvoided: number;
+    readonly burdenByKind: Readonly<BurdenByKind>;
+  }) {
+    this.reads = fields.reads;
+    this.outlines = fields.outlines;
+    this.refusals = fields.refusals;
+    this.cacheHits = fields.cacheHits;
+    this.bytesReturned = fields.bytesReturned;
+    this.bytesAvoided = fields.bytesAvoided;
+    this.burdenByKind = fields.burdenByKind;
+  }
 }
 
 export class Metrics {
@@ -89,32 +126,20 @@ export class Metrics {
     this.totalCacheHits += delta.cacheHits;
     this.totalBytesAvoidedByCache += delta.bytesAvoided;
     this.cumulativeBytesReturned += delta.bytesReturned;
-    this.burdenByKind = {
-      read: {
-        calls: this.burdenByKind.read.calls + delta.burdenByKind.read.calls,
-        bytesReturned: this.burdenByKind.read.bytesReturned + delta.burdenByKind.read.bytesReturned,
-      },
-      search: {
-        calls: this.burdenByKind.search.calls + delta.burdenByKind.search.calls,
-        bytesReturned: this.burdenByKind.search.bytesReturned + delta.burdenByKind.search.bytesReturned,
-      },
-      shell: {
-        calls: this.burdenByKind.shell.calls + delta.burdenByKind.shell.calls,
-        bytesReturned: this.burdenByKind.shell.bytesReturned + delta.burdenByKind.shell.bytesReturned,
-      },
-      state: {
-        calls: this.burdenByKind.state.calls + delta.burdenByKind.state.calls,
-        bytesReturned: this.burdenByKind.state.bytesReturned + delta.burdenByKind.state.bytesReturned,
-      },
-      diagnostic: {
-        calls: this.burdenByKind.diagnostic.calls + delta.burdenByKind.diagnostic.calls,
-        bytesReturned: this.burdenByKind.diagnostic.bytesReturned + delta.burdenByKind.diagnostic.bytesReturned,
-      },
-    };
+    const merged = cloneBurdenByKind(this.burdenByKind);
+    for (const kind of BURDEN_KINDS) {
+      merged[kind] = {
+        calls: this.burdenByKind[kind].calls + delta.burdenByKind[kind].calls,
+        bytesReturned:
+          this.burdenByKind[kind].bytesReturned +
+          delta.burdenByKind[kind].bytesReturned,
+      };
+    }
+    this.burdenByKind = merged;
   }
 
   snapshot(): MetricsSnapshot {
-    return {
+    return new MetricsSnapshot({
       reads: this.totalReads,
       outlines: this.totalOutlines,
       refusals: this.totalRefusals,
@@ -122,39 +147,30 @@ export class Metrics {
       bytesReturned: this.cumulativeBytesReturned,
       bytesAvoided: this.totalBytesAvoidedByCache,
       burdenByKind: freezeBurdenByKind(cloneBurdenByKind(this.burdenByKind)),
-    };
+    });
   }
 }
 
-export function diffMetrics(before: MetricsSnapshot, after: MetricsSnapshot): MetricsDelta {
-  return {
+export function diffMetrics(
+  before: MetricsSnapshot,
+  after: MetricsSnapshot,
+): MetricsDelta {
+  const burdenDelta = emptyBurdenByKind();
+  for (const kind of BURDEN_KINDS) {
+    burdenDelta[kind] = {
+      calls: after.burdenByKind[kind].calls - before.burdenByKind[kind].calls,
+      bytesReturned:
+        after.burdenByKind[kind].bytesReturned -
+        before.burdenByKind[kind].bytesReturned,
+    };
+  }
+  return new MetricsDelta({
     reads: after.reads - before.reads,
     outlines: after.outlines - before.outlines,
     refusals: after.refusals - before.refusals,
     cacheHits: after.cacheHits - before.cacheHits,
     bytesReturned: after.bytesReturned - before.bytesReturned,
     bytesAvoided: after.bytesAvoided - before.bytesAvoided,
-    burdenByKind: freezeBurdenByKind({
-      read: {
-        calls: after.burdenByKind.read.calls - before.burdenByKind.read.calls,
-        bytesReturned: after.burdenByKind.read.bytesReturned - before.burdenByKind.read.bytesReturned,
-      },
-      search: {
-        calls: after.burdenByKind.search.calls - before.burdenByKind.search.calls,
-        bytesReturned: after.burdenByKind.search.bytesReturned - before.burdenByKind.search.bytesReturned,
-      },
-      shell: {
-        calls: after.burdenByKind.shell.calls - before.burdenByKind.shell.calls,
-        bytesReturned: after.burdenByKind.shell.bytesReturned - before.burdenByKind.shell.bytesReturned,
-      },
-      state: {
-        calls: after.burdenByKind.state.calls - before.burdenByKind.state.calls,
-        bytesReturned: after.burdenByKind.state.bytesReturned - before.burdenByKind.state.bytesReturned,
-      },
-      diagnostic: {
-        calls: after.burdenByKind.diagnostic.calls - before.burdenByKind.diagnostic.calls,
-        bytesReturned: after.burdenByKind.diagnostic.bytesReturned - before.burdenByKind.diagnostic.bytesReturned,
-      },
-    }),
-  };
+    burdenByKind: freezeBurdenByKind(burdenDelta),
+  });
 }

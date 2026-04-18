@@ -1,7 +1,7 @@
 import { RotatingNdjsonLog } from "../adapters/rotating-ndjson-log.js";
 import type { FileSystem } from "../ports/filesystem.js";
 import type { JsonCodec } from "../ports/codec.js";
-import type { DecisionEntry } from "./types.js";
+import { DecisionEntry } from "./types.js";
 
 export interface MetricsLoggerOptions {
   readonly fs: FileSystem;
@@ -23,10 +23,18 @@ export class MetricsLogger {
   }
 
   async log(entry: Omit<DecisionEntry, "ts">): Promise<void> {
-    const full: DecisionEntry = {
+    const full = new DecisionEntry({
       ts: new Date().toISOString(),
-      ...entry,
-    };
+      command: entry.command,
+      path: entry.path,
+      projection: entry.projection,
+      reason: entry.reason,
+      lines: entry.lines,
+      bytes: entry.bytes,
+      estimatedBytesAvoided: entry.estimatedBytesAvoided,
+      sessionDepth: entry.sessionDepth,
+      tripwire: entry.tripwire,
+    });
     await this.writer.append(full);
   }
 }
