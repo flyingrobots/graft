@@ -256,6 +256,7 @@ export default tseslint.config(
       ".obsidian/",
       "test/fixtures/",
       "docs/study/infra/",
+      "anti-sludge-policy-bundle/",
     ],
   },
 );
