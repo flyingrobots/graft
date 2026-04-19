@@ -21,7 +21,7 @@ import {
   listCommits,
   prepareChange,
 } from "./indexer-git.js";
-import { fileNodeId, type IndexOptions, type IndexResult, type PatchOps } from "./indexer-model.js";
+import { fileNodeId, type IndexOptions, type IndexResult } from "./indexer-model.js";
 
 export type { IndexOptions, IndexResult } from "./indexer-model.js";
 
@@ -91,7 +91,7 @@ async function indexCommitsCore(
     }));
 
     await warp.patch((builder) => {
-      const patch = builder as unknown as PatchOps;
+      const patch = builder;
       const commitId = `commit:${sha}`;
       patch.addNode(commitId);
       patch.setProperty(commitId, "sha", sha);

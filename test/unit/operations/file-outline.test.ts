@@ -1,20 +1,33 @@
 import { describe, it, expect } from "vitest";
 import { fileOutline } from "../../../src/operations/file-outline.js";
-import { nodeFs } from "../../../src/adapters/node-fs.js";
-import fs from "node:fs";
-import os from "node:os";
-import path from "node:path";
-import { fixturePath } from "../../helpers/fixtures.js";
+import { FakeFileSystem } from "../../helpers/fake-fs.js";
+import {
+  SMALL_TS,
+  MEDIUM_TS,
+  BROKEN_TS,
+  MARKDOWN_WITH_HEADINGS,
+  makeLargeTs,
+} from "../../helpers/fake-content.js";
+
+const LARGE_TS = makeLargeTs();
+
+const fs = new FakeFileSystem({
+  "/virtual/large.ts": LARGE_TS,
+  "/virtual/medium.ts": MEDIUM_TS,
+  "/virtual/small.ts": SMALL_TS,
+  "/virtual/broken.ts": BROKEN_TS,
+  "/virtual/README.md": MARKDOWN_WITH_HEADINGS,
+});
 
 describe("operations: file_outline", () => {
   it("returns outline for any file (never refused)", async () => {
-    const result = await fileOutline(fixturePath("large.ts"), { fs: nodeFs });
+    const result = await fileOutline("/virtual/large.ts", { fs });
     expect(result.outline).toBeDefined();
     expect(result.outline.length).toBeGreaterThan(0);
   });
 
   it("includes jump table", async () => {
-    const result = await fileOutline(fixturePath("medium.ts"), { fs: nodeFs });
+    const result = await fileOutline("/virtual/medium.ts", { fs });
     expect(result.jumpTable).toBeDefined();
     expect(result.jumpTable.length).toBeGreaterThan(0);
     expect(result.jumpTable[0]).toHaveProperty("symbol");
@@ -24,7 +37,7 @@ describe("operations: file_outline", () => {
   });
 
   it("extracts classes, functions, interfaces, types from medium.ts", async () => {
-    const result = await fileOutline(fixturePath("medium.ts"), { fs: nodeFs });
+    const result = await fileOutline("/virtual/medium.ts", { fs });
     const kinds = result.outline.map((e) => e.kind);
     expect(kinds).toContain("class");
     expect(kinds).toContain("function");
@@ -33,28 +46,24 @@ describe("operations: file_outline", () => {
   });
 
   it("returns error for nonexistent file", async () => {
-    const result = await fileOutline(fixturePath("nope.ts"), { fs: nodeFs });
+    const result = await fileOutline("/virtual/nope.ts", { fs });
     expect(result.error).toBeDefined();
   });
 
   it("handles broken files with partial: true", async () => {
-    const result = await fileOutline(fixturePath("broken.ts"), { fs: nodeFs });
+    const result = await fileOutline("/virtual/broken.ts", { fs });
     expect(result.partial).toBe(true);
     expect(result.outline.length).toBeGreaterThan(0);
   });
 
   it("includes path in result", async () => {
-    const filePath = fixturePath("small.ts");
-    const result = await fileOutline(filePath, { fs: nodeFs });
+    const filePath = "/virtual/small.ts";
+    const result = await fileOutline(filePath, { fs });
     expect(result.path).toBe(filePath);
   });
 
   it("returns a heading outline for markdown files", async () => {
-    const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "graft-file-outline-md-"));
-    const filePath = path.join(tmpDir, "README.md");
-    fs.writeFileSync(filePath, ["# Hello", "", "## Install", "", "Use it."].join("\n"));
-
-    const result = await fileOutline(filePath, { fs: nodeFs });
+    const result = await fileOutline("/virtual/README.md", { fs });
     expect(result.outline).toContainEqual(
       expect.objectContaining({
         kind: "heading",

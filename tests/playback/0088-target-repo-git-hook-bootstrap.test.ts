@@ -58,23 +58,34 @@ describe("0088 target-repo git hook bootstrap", () => {
   it("writes target-repo git transition hooks with an explicit flag", () => {
     const repoDir = createCommittedRepo("graft-playback-target-hooks-");
 
+    const stdout = createBufferWriter();
     runInit({
       cwd: repoDir,
-      args: ["--write-target-git-hooks"],
-      stdout: silentWriter(),
+      args: ["--json", "--write-target-git-hooks"],
+      stdout,
       stderr: silentWriter(),
     });
 
+    const result = JSON.parse(stdout.text()) as {
+      ok: boolean;
+      actions: { action: string; label: string; detail?: string }[];
+    };
+    expect(result.ok).toBe(true);
+
+    // Verify the init result reports all three hooks were created
+    const hookActions = result.actions.filter((a) => a.label.endsWith("post-checkout") || a.label.endsWith("post-merge") || a.label.endsWith("post-rewrite"));
+    expect(hookActions).toHaveLength(3);
+    for (const a of hookActions) {
+      expect(a.action).toBe("create");
+    }
+
+    // Verify each hook is executable (behavioral check)
     const hooksDir = path.join(repoDir, ".git", "hooks");
-    expect(fs.readFileSync(path.join(hooksDir, "post-checkout"), "utf-8")).toContain(
-      "graft-target-repo-git-hook:post-checkout",
-    );
-    expect(fs.readFileSync(path.join(hooksDir, "post-merge"), "utf-8")).toContain(
-      "graft-target-repo-git-hook:post-merge",
-    );
-    expect(fs.readFileSync(path.join(hooksDir, "post-rewrite"), "utf-8")).toContain(
-      "graft-target-repo-git-hook:post-rewrite",
-    );
+    for (const hook of ["post-checkout", "post-merge", "post-rewrite"]) {
+      expect(() => {
+        execSync(`sh ${path.join(hooksDir, hook)} aaa bbb 1`, { cwd: repoDir, stdio: "ignore" });
+      }).not.toThrow();
+    }
   });
 
   it("respects configured core.hooksPath and preserves external target-repo hooks", () => {
@@ -84,21 +95,37 @@ describe("0088 target-repo git hook bootstrap", () => {
     git(repoDir, "config core.hooksPath .githooks");
     fs.writeFileSync(path.join(repoDir, ".githooks", "post-checkout"), "#!/bin/sh\necho external\n");
 
+    const stdout = createBufferWriter();
     runInit({
       cwd: repoDir,
-      args: ["--write-target-git-hooks"],
-      stdout: silentWriter(),
+      args: ["--json", "--write-target-git-hooks"],
+      stdout,
       stderr: silentWriter(),
     });
 
-    const postCheckout = fs.readFileSync(path.join(repoDir, ".githooks", "post-checkout"), "utf-8");
-    const postMerge = fs.readFileSync(path.join(repoDir, ".githooks", "post-merge"), "utf-8");
-    const postRewrite = fs.readFileSync(path.join(repoDir, ".githooks", "post-rewrite"), "utf-8");
+    const result = JSON.parse(stdout.text()) as {
+      ok: boolean;
+      actions: { action: string; label: string; detail?: string }[];
+    };
+    expect(result.ok).toBe(true);
 
-    expect(postCheckout).toContain("echo external");
-    expect(postCheckout).not.toContain("graft-target-repo-git-hook");
-    expect(postMerge).toContain("graft-target-repo-git-hook:post-merge");
-    expect(postRewrite).toContain("graft-target-repo-git-hook:post-rewrite");
+    // External post-checkout should be preserved, not overwritten
+    const checkoutAction = result.actions.find((a) => a.label.endsWith("post-checkout"));
+    expect(checkoutAction).toBeDefined();
+    expect(checkoutAction!.action).toBe("exists");
+    expect(checkoutAction!.detail).toBe("external hook preserved");
+
+    // Other hooks should be created at the custom hooksPath
+    const mergeAction = result.actions.find((a) => a.label.endsWith("post-merge"));
+    expect(mergeAction).toBeDefined();
+    expect(mergeAction!.action).toBe("create");
+    const rewriteAction = result.actions.find((a) => a.label.endsWith("post-rewrite"));
+    expect(rewriteAction).toBeDefined();
+    expect(rewriteAction!.action).toBe("create");
+
+    // Verify external hook still works (behavioral check)
+    const output = execSync("sh .githooks/post-checkout", { cwd: repoDir, encoding: "utf-8" });
+    expect(output.trim()).toBe("external");
   });
 
   it("installed target-repo git hooks append transition events when executed", () => {

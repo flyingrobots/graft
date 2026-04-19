@@ -23,13 +23,11 @@ export interface IndexResultError {
 
 export type IndexResult = IndexResultOk | IndexResultError;
 
-export interface PatchOps {
-  addNode(id: string): PatchOps;
-  removeNode(id: string): PatchOps;
-  setProperty(id: string, key: string, value: unknown): PatchOps;
-  addEdge(from: string, to: string, label: string): PatchOps;
-  removeEdge(from: string, to: string, label: string): PatchOps;
-}
+/**
+ * Alias kept for internal indexer use. Structurally identical to
+ * the port's WarpPatchBuilder — no adapter-layer cast needed.
+ */
+export type { WarpPatchBuilder as PatchOps } from "../ports/warp.js";
 
 export interface PreparedChange {
   readonly status: string;

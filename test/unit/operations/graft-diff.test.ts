@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import { graftDiff } from "../../../src/operations/graft-diff.js";
 import { nodeGit } from "../../../src/adapters/node-git.js";
-import { nodeFs } from "../../../src/adapters/node-fs.js";
+import { realFs } from "../../helpers/real-fs.js";
 import * as fs from "node:fs";
 import * as path from "node:path";
 import { git, createTestRepo, cleanupTestRepo } from "../../helpers/git.js";
@@ -12,7 +12,7 @@ describe("operations: graft diff", () => {
   function diffOptions(overrides: Partial<Parameters<typeof graftDiff>[0]> = {}) {
     return {
       cwd: tmpDir,
-      fs: nodeFs,
+      fs: realFs,
       git: nodeGit,
       resolveWorkingTreePath: (filePath: string) => path.join(tmpDir, filePath),
       ...overrides,

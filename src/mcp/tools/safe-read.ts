@@ -58,7 +58,7 @@ export const safeReadTool: ToolDefinition = {
             });
           }
 
-          cacheResult.obs.touch();
+          cacheResult.obs.touch(ctx.cache.now());
           ctx.metrics.recordCacheHit(cf.actual.bytes);
           ctx.recordFootprint({
             symbols: cacheResult.obs.outline.map((e) => e.name),
@@ -108,7 +108,7 @@ export const safeReadTool: ToolDefinition = {
             jumpTable: cf.jumpTable,
             actual: cf.actual,
             readCount: newReadCount,
-            lastReadAt: updatedObs?.lastReadAt ?? new Date().toISOString(),
+            lastReadAt: updatedObs?.lastReadAt ?? ctx.cache.now(),
           });
         }
       }

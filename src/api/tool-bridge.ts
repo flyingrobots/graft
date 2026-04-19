@@ -1,5 +1,6 @@
 import type { McpToolName } from "../contracts/capabilities.js";
-import { type JsonObject, parseJsonTextObject } from "../contracts/json-object.js";
+import type { JsonObject } from "../contracts/json-object.js";
+import { parseJsonTextObject } from "../adapters/json-text-decoder.js";
 import { getMcpOutputSchema, type McpOutputFor } from "../contracts/output-schemas.js";
 import type { GraftServer, McpToolResult } from "../mcp/server.js";
 

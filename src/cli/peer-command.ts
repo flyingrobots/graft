@@ -1,7 +1,8 @@
 import * as path from "node:path";
 import { CanonicalJsonCodec } from "../adapters/canonical-json.js";
 import type { CliCommandName, McpToolName } from "../contracts/capabilities.js";
-import { type JsonObject, parseJsonTextObject } from "../contracts/json-object.js";
+import type { JsonObject } from "../contracts/json-object.js";
+import { parseJsonTextObject } from "../adapters/json-text-decoder.js";
 import {
   attachCliSchemaMeta,
   validateCliOutput,

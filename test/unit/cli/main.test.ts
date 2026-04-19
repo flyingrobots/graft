@@ -3,25 +3,8 @@ import * as fs from "node:fs";
 import * as path from "node:path";
 import { resolveEntrypointArgs, runCli } from "../../../src/cli/main.js";
 import { cleanupTestRepo, createTestRepo, git } from "../../helpers/git.js";
+import { createBufferWriter } from "../../helpers/init.js";
 import { writeLegacyLocalHistoryArtifact } from "../../helpers/legacy-local-history.js";
-
-interface Writer {
-  text(): string;
-  write(chunk: string): true;
-}
-
-function createBufferWriter(): Writer {
-  let buffer = "";
-  return {
-    write(chunk: string): true {
-      buffer += chunk;
-      return true;
-    },
-    text(): string {
-      return buffer;
-    },
-  };
-}
 
 describe("cli: graft grouped surface", () => {
   let previousExitCode: typeof process.exitCode;

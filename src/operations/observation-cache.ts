@@ -62,9 +62,9 @@ export class Observation {
     return this.contentHash !== currentContentHash;
   }
 
-  touch(): void {
+  touch(now: string): void {
     this._readCount++;
-    this._lastReadAt = new Date().toISOString();
+    this._lastReadAt = now;
   }
 
   snapshot(): ObservationSnapshot {
@@ -90,11 +90,17 @@ export type CacheResult =
 
 export class ObservationCache {
   private readonly entries = new Map<string, Observation>();
+  readonly now: () => string;
+
+  constructor(now?: () => string) {
+    this.now = now ?? (() => new Date().toISOString());
+  }
 
   static fromSnapshots(
     snapshots: Readonly<Record<string, ObservationSnapshot>> | undefined,
+    now?: () => string,
   ): ObservationCache {
-    const cache = new ObservationCache();
+    const cache = new ObservationCache(now);
     if (snapshots === undefined) {
       return cache;
     }
@@ -112,7 +118,7 @@ export class ObservationCache {
     actual: Readonly<{ lines: number; bytes: number }>,
   ): void {
     const existing = this.entries.get(filePath);
-    const now = new Date().toISOString();
+    const now = this.now();
     this.entries.set(filePath, new Observation({
       contentHash,
       outline,

@@ -163,7 +163,7 @@ export class RepoWorkspace {
     if (snapshot?.supportsOutline === true) {
       const cacheResult = this.cache.check(filePath, snapshot.rawContent);
       if (cacheResult.hit) {
-        cacheResult.obs.touch();
+        cacheResult.obs.touch(this.cache.now());
         return {
           path: filePath,
           projection: "cache_hit",
@@ -193,7 +193,7 @@ export class RepoWorkspace {
           jumpTable: snapshot.jumpTable,
           actual: snapshot.actual,
           readCount: cacheResult.stale.readCount + 1,
-          lastReadAt: updated?.lastReadAt ?? new Date().toISOString(),
+          lastReadAt: updated?.lastReadAt ?? this.cache.now(),
         };
       }
     }
@@ -243,7 +243,7 @@ export class RepoWorkspace {
       }
       const cacheResult = this.cache.check(filePath, rawContent);
       if (cacheResult.hit) {
-        cacheResult.obs.touch();
+        cacheResult.obs.touch(this.cache.now());
         return {
           path: filePath,
           outline: [...cacheResult.obs.outline],

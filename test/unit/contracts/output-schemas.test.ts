@@ -16,26 +16,9 @@ import { runCli } from "../../../src/cli/main.js";
 import { runInit } from "../../../src/cli/init.js";
 import { runIndex } from "../../../src/cli/index-cmd.js";
 import { cleanupTestRepo, createTestRepo, git } from "../../helpers/git.js";
+import { createBufferWriter } from "../../helpers/init.js";
 import { writeLegacyLocalHistoryArtifact } from "../../helpers/legacy-local-history.js";
 import { createServerInRepo, parse } from "../../helpers/mcp.js";
-
-interface Writer {
-  text(): string;
-  write(chunk: string): true;
-}
-
-function createBufferWriter(): Writer {
-  let buffer = "";
-  return {
-    write(chunk: string): true {
-      buffer += chunk;
-      return true;
-    },
-    text(): string {
-      return buffer;
-    },
-  };
-}
 
 function createDaemonServer(graftDir: string) {
   return createGraftServer({

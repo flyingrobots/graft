@@ -1,5 +1,6 @@
 import type { McpToolResult } from "./receipt.js";
-import { parseJsonTextObject, type JsonObject } from "../contracts/json-object.js";
+import type { JsonObject } from "../contracts/json-object.js";
+import { parseJsonTextObject } from "../adapters/json-text-decoder.js";
 import { evaluateMcpPolicy } from "./policy.js";
 import { RefusedResult } from "../policy/types.js";
 import { OFFLOADED_DAEMON_REPO_TOOL_NAMES, type OffloadedRepoToolName } from "./repo-tool-job.js";

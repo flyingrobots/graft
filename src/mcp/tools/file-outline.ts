@@ -31,7 +31,7 @@ export const fileOutlineTool: ToolDefinition = {
       if (rawContent !== null && outlineSupported) {
         const cacheResult = ctx.cache.check(filePath, rawContent);
         if (cacheResult.hit) {
-          cacheResult.obs.touch();
+          cacheResult.obs.touch(ctx.cache.now());
           ctx.metrics.recordCacheHit(cacheResult.obs.actual.bytes);
           ctx.recordFootprint({
             symbols: cacheResult.obs.outline.map((e) => e.name),

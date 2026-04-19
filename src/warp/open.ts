@@ -14,7 +14,6 @@ import type {
   WarpObserver,
   WarpObserverLens,
   WarpObserverOptions,
-  WarpPatchBuilder,
 } from "../ports/warp.js";
 import { DEFAULT_WARP_WRITER_ID } from "./writer-id.js";
 
@@ -65,7 +64,7 @@ function wrapWarpApp(app: RawWarpApp): WarpHandle {
       return app.observer(toRawLens(lens), toRawObserverOptions(options)) as Promise<WarpObserver>;
     },
     patch(build): Promise<string> {
-      return app.patch((patch) => build(patch as unknown as WarpPatchBuilder));
+      return app.patch((patch) => build(patch));
     },
     async materialize(): Promise<void> {
       await app.core().materialize();

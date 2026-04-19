@@ -16,13 +16,3 @@ export function tryParseJsonObject(value: unknown): JsonObject | null {
   const parsed = jsonObjectSchema.safeParse(value);
   return parsed.success ? parsed.data : null;
 }
-
-export function parseJsonTextObject(text: string, label: string): JsonObject {
-  let parsed: unknown;
-  try {
-    parsed = JSON.parse(text) as unknown;
-  } catch {
-    throw new Error(`${label} was not valid JSON`);
-  }
-  return parseJsonObject(parsed, label);
-}

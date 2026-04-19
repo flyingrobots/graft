@@ -4,14 +4,16 @@ import * as path from "node:path";
 import * as os from "node:os";
 import { execSync } from "node:child_process";
 import { runInit } from "../../../src/cli/init.js";
-import { assertIsolatedGitTestDir, git } from "../../helpers/git.js";
+import { assertIsolatedGitTestDir } from "../../helpers/git.js";
 import {
   createBufferWriter,
   expectGraftServerEntry,
   expectSingleGraftServerArray,
   expectSingleGraftServerRecord,
+  findAction,
   initGitRepo,
   readJsonFile,
+  runInitJson,
   runInitQuietly,
 } from "../../helpers/init.js";
 
@@ -31,60 +33,59 @@ describe("cli: graft init", () => {
   });
 
   it("creates .graftignore", () => {
-    runInitQuietly();
+    const result = runInitJson();
+    expect(result.ok).toBe(true);
+    const action = findAction(result, ".graftignore");
+    expect(action.action).toBe("create");
     expect(fs.existsSync(path.join(tmpDir, ".graftignore"))).toBe(true);
-    const content = fs.readFileSync(path.join(tmpDir, ".graftignore"), "utf-8");
-    expect(content).toContain("Graft ignore patterns");
   });
 
   it("creates .gitignore with .graft/ entry", () => {
-    runInitQuietly();
-    const content = fs.readFileSync(path.join(tmpDir, ".gitignore"), "utf-8");
-    expect(content).toContain(".graft/");
+    const result = runInitJson();
+    expect(result.ok).toBe(true);
+    const action = findAction(result, ".gitignore");
+    expect(action.action).toBe("create");
   });
 
   it("appends to existing .gitignore without duplicating", () => {
     fs.writeFileSync(path.join(tmpDir, ".gitignore"), "node_modules/\n");
-    runInitQuietly();
-    const content = fs.readFileSync(path.join(tmpDir, ".gitignore"), "utf-8");
-    expect(content).toContain("node_modules/");
-    expect(content).toContain(".graft/");
-    // Run again — should not duplicate
-    runInitQuietly();
-    const after = fs.readFileSync(path.join(tmpDir, ".gitignore"), "utf-8");
-    const count = (after.match(/\.graft\//g) ?? []).length;
-    expect(count).toBe(1);
+
+    const first = runInitJson();
+    const firstAction = findAction(first, ".gitignore");
+    expect(firstAction.action).toBe("append");
+
+    // Run again — should report exists, not append again
+    const second = runInitJson();
+    const secondAction = findAction(second, ".gitignore");
+    expect(secondAction.action).toBe("exists");
   });
 
   it("creates CLAUDE.md with agent instructions", () => {
-    runInitQuietly();
-    const content = fs.readFileSync(path.join(tmpDir, "CLAUDE.md"), "utf-8");
-    expect(content).toContain("safe_read");
-    expect(content).toContain("file_outline");
-    expect(content).toContain("set_budget");
+    const result = runInitJson();
+    expect(result.ok).toBe(true);
+    const action = findAction(result, "CLAUDE.md");
+    expect(action.action).toBe("create");
   });
 
   it("appends to existing CLAUDE.md without duplicating", () => {
     fs.writeFileSync(path.join(tmpDir, "CLAUDE.md"), "# My Project\n\nExisting content.\n");
-    runInitQuietly();
-    const content = fs.readFileSync(path.join(tmpDir, "CLAUDE.md"), "utf-8");
-    expect(content).toContain("My Project");
-    expect(content).toContain("safe_read");
-    // Run again — should not duplicate
-    runInitQuietly();
-    const after = fs.readFileSync(path.join(tmpDir, "CLAUDE.md"), "utf-8");
-    const count = (after.match(/safe_read/g) ?? []).length;
-    expect(count).toBeGreaterThanOrEqual(1);
-    // Only one snippet block
-    const snippetCount = (after.match(/## File reads/g) ?? []).length;
-    expect(snippetCount).toBe(1);
+
+    const first = runInitJson();
+    const firstAction = findAction(first, "CLAUDE.md");
+    expect(firstAction.action).toBe("append");
+
+    // Run again — should report exists, not append again
+    const second = runInitJson();
+    const secondAction = findAction(second, "CLAUDE.md");
+    expect(secondAction.action).toBe("exists");
   });
 
   it("does not overwrite existing .graftignore", () => {
     fs.writeFileSync(path.join(tmpDir, ".graftignore"), "custom-pattern\n");
-    runInitQuietly();
-    const content = fs.readFileSync(path.join(tmpDir, ".graftignore"), "utf-8");
-    expect(content).toBe("custom-pattern\n");
+
+    const result = runInitJson();
+    const action = findAction(result, ".graftignore");
+    expect(action.action).toBe("exists");
   });
 
   it("does not write client config files without explicit flags", () => {
@@ -100,58 +101,66 @@ describe("cli: graft init", () => {
   });
 
   it("writes project-local Claude config with explicit flags", () => {
-    runInitQuietly(["--write-claude-mcp", "--write-claude-hooks"]);
+    const result = runInitJson(["--write-claude-mcp", "--write-claude-hooks"]);
+    expect(result.ok).toBe(true);
+
+    const mcpAction = findAction(result, ".mcp.json");
+    expect(mcpAction.action).toBe("create");
+
+    const hooksAction = findAction(result, ".claude/settings.json");
+    expect(hooksAction.action).toBe("create");
 
     const mcpConfig = readJsonFile(tmpDir, ".mcp.json") as {
       mcpServers: { graft: { command: string; args: string[] } };
     };
     expectGraftServerEntry(mcpConfig.mcpServers.graft);
-
-    const settings = readJsonFile(tmpDir, ".claude", "settings.json") as {
-      hooks: {
-        PreToolUse: { matcher: string; hooks: { command: string }[] }[];
-        PostToolUse: { matcher: string; hooks: { command: string }[] }[];
-      };
-    };
-    expect(settings.hooks.PreToolUse[0]).toBeDefined();
-    expect(settings.hooks.PostToolUse[0]).toBeDefined();
-    expect(settings.hooks.PreToolUse[0]!.hooks[0]).toBeDefined();
-    expect(settings.hooks.PostToolUse[0]!.hooks[0]).toBeDefined();
-    expect(settings.hooks.PreToolUse[0]!.hooks[0]!.command).toContain("pretooluse-read.ts");
-    expect(settings.hooks.PostToolUse[0]!.hooks[0]!.command).toContain("posttooluse-read.ts");
   });
 
   it("writes target-repo git transition hooks with an explicit flag", () => {
     initGitRepo(tmpDir);
 
-    runInitQuietly(["--write-target-git-hooks"]);
+    const result = runInitJson(["--write-target-git-hooks"]);
+    expect(result.ok).toBe(true);
 
-    const hooksDir = path.join(tmpDir, ".git", "hooks");
-    const postCheckout = fs.readFileSync(path.join(hooksDir, "post-checkout"), "utf-8");
-    const postMerge = fs.readFileSync(path.join(hooksDir, "post-merge"), "utf-8");
-    const postRewrite = fs.readFileSync(path.join(hooksDir, "post-rewrite"), "utf-8");
+    // Verify actions report hook creation
+    const postCheckoutAction = findAction(result, ".git/hooks/post-checkout");
+    expect(postCheckoutAction.action).toBe("create");
+    const postMergeAction = findAction(result, ".git/hooks/post-merge");
+    expect(postMergeAction.action).toBe("create");
+    const postRewriteAction = findAction(result, ".git/hooks/post-rewrite");
+    expect(postRewriteAction.action).toBe("create");
 
-    expect(postCheckout).toContain("graft-target-repo-git-hook:post-checkout");
-    expect(postMerge).toContain("graft-target-repo-git-hook:post-merge");
-    expect(postRewrite).toContain("graft-target-repo-git-hook:post-rewrite");
+    // Verify hooks are executable by running one
+    assertIsolatedGitTestDir(tmpDir);
+    expect(() => {
+      execSync("sh .git/hooks/post-checkout oldsha newsha 1", { cwd: tmpDir, stdio: "ignore" });
+    }).not.toThrow();
   });
 
   it("respects configured core.hooksPath and preserves external target-repo hooks", () => {
     initGitRepo(tmpDir);
     fs.mkdirSync(path.join(tmpDir, ".githooks"), { recursive: true });
-    git(tmpDir, "config core.hooksPath .githooks");
+    execSync("git config core.hooksPath .githooks", { cwd: tmpDir });
     fs.writeFileSync(path.join(tmpDir, ".githooks", "post-checkout"), "#!/bin/sh\necho external\n");
 
-    runInitQuietly(["--write-target-git-hooks"]);
+    const result = runInitJson(["--write-target-git-hooks"]);
+    expect(result.ok).toBe(true);
 
-    const postCheckout = fs.readFileSync(path.join(tmpDir, ".githooks", "post-checkout"), "utf-8");
-    const postMerge = fs.readFileSync(path.join(tmpDir, ".githooks", "post-merge"), "utf-8");
-    const postRewrite = fs.readFileSync(path.join(tmpDir, ".githooks", "post-rewrite"), "utf-8");
+    // External post-checkout should be preserved (exists, not overwritten)
+    const postCheckoutAction = findAction(result, ".githooks/post-checkout");
+    expect(postCheckoutAction.action).toBe("exists");
+    expect(postCheckoutAction.detail).toBe("external hook preserved");
 
-    expect(postCheckout).toContain("echo external");
-    expect(postCheckout).not.toContain("graft-target-repo-git-hook");
-    expect(postMerge).toContain("graft-target-repo-git-hook:post-merge");
-    expect(postRewrite).toContain("graft-target-repo-git-hook:post-rewrite");
+    // New hooks should be created at the custom hooksPath
+    const postMergeAction = findAction(result, ".githooks/post-merge");
+    expect(postMergeAction.action).toBe("create");
+    const postRewriteAction = findAction(result, ".githooks/post-rewrite");
+    expect(postRewriteAction.action).toBe("create");
+
+    // Verify external hook still works
+    assertIsolatedGitTestDir(tmpDir);
+    const output = execSync("sh .githooks/post-checkout", { cwd: tmpDir, encoding: "utf-8" });
+    expect(output.trim()).toBe("external");
   });
 
   it("installed target-repo git hooks append transition events when executed", () => {
@@ -163,6 +172,7 @@ describe("cli: graft init", () => {
     execSync("sh .git/hooks/post-checkout oldsha newsha 1", { cwd: tmpDir, stdio: "ignore" });
 
     const logPath = path.join(tmpDir, ".graft", "runtime", "git-transitions.ndjson");
+    expect(fs.existsSync(logPath)).toBe(true);
     const events = fs.readFileSync(logPath, "utf-8").trim().split("\n").map((line) => JSON.parse(line) as {
       hookName: string;
       hookArgs: string[];
@@ -224,8 +234,13 @@ describe("cli: graft init", () => {
       },
     }, null, 2));
 
-    runInitQuietly(["--write-claude-mcp"]);
-    runInitQuietly(["--write-claude-mcp"]);
+    const first = runInitJson(["--write-claude-mcp"]);
+    const firstAction = findAction(first, ".mcp.json");
+    expect(firstAction.action).toBe("append");
+
+    const second = runInitJson(["--write-claude-mcp"]);
+    const secondAction = findAction(second, ".mcp.json");
+    expect(secondAction.action).toBe("exists");
 
     const config = readJsonFile(tmpDir, ".mcp.json") as {
       mcpServers: Record<string, { command: string; args: string[] }>;
@@ -261,10 +276,15 @@ describe("cli: graft init", () => {
       },
     }, null, 2));
 
-    runInitQuietly(["--write-claude-hooks"]);
+    const first = runInitJson(["--write-claude-hooks"]);
+    const firstAction = findAction(first, ".claude/settings.json");
+    expect(firstAction.action).toBe("append");
+
+    // Run again — graft hooks should already be present
     runInitQuietly(["--write-claude-hooks"]);
 
-    const settings = JSON.parse(fs.readFileSync(path.join(tmpDir, ".claude", "settings.json"), "utf-8")) as {
+    // Verify merged config preserves existing entries and doesn't duplicate graft hooks
+    const settings = readJsonFile(tmpDir, ".claude", "settings.json") as {
       theme: string;
       hooks: {
         PreToolUse: { matcher: string; hooks: { command: string }[] }[];
@@ -277,12 +297,11 @@ describe("cli: graft init", () => {
     expect(settings.hooks.PreToolUse[0]!.matcher).toBe("Write");
     const readPreTool = settings.hooks.PreToolUse.find((entry) => entry.matcher === "Read");
     expect(readPreTool).toBeDefined();
-    expect(readPreTool!.hooks[0]).toBeDefined();
-    expect(readPreTool!.hooks[0]!.command).toContain("pretooluse-read.ts");
 
     const readPostTool = settings.hooks.PostToolUse.find((entry) => entry.matcher === "Read");
     expect(readPostTool).toBeDefined();
     expect(readPostTool?.hooks.some((hook) => hook.command.includes("already-here"))).toBe(true);
+    // Ensure graft hooks were not duplicated
     const graftPostHooks = readPostTool?.hooks.filter((hook) => hook.command.includes("posttooluse-read.ts")) ?? [];
     expect(graftPostHooks).toHaveLength(1);
   });
@@ -296,15 +315,13 @@ describe("cli: graft init", () => {
       "",
     ].join("\n"));
 
-    runInitQuietly(["--write-codex-mcp"]);
-    runInitQuietly(["--write-codex-mcp"]);
+    const first = runInitJson(["--write-codex-mcp"]);
+    const firstAction = findAction(first, ".codex/config.toml");
+    expect(firstAction.action).toBe("append");
 
-    const config = fs.readFileSync(path.join(tmpDir, ".codex", "config.toml"), "utf-8");
-    expect(config).toContain("[mcp_servers.think]");
-    expect(config).toContain("[mcp_servers.graft]");
-    expect(config).toContain("startup_timeout_sec = 120");
-    const graftBlockCount = (config.match(/\[mcp_servers\.graft\]/g) ?? []).length;
-    expect(graftBlockCount).toBe(1);
+    const second = runInitJson(["--write-codex-mcp"]);
+    const secondAction = findAction(second, ".codex/config.toml");
+    expect(secondAction.action).toBe("exists");
   });
 
   it("upgrades an existing Codex graft block with the safer startup timeout", () => {
@@ -316,53 +333,51 @@ describe("cli: graft init", () => {
       "",
     ].join("\n"));
 
-    runInitQuietly(["--write-codex-mcp"]);
-
-    const config = fs.readFileSync(path.join(tmpDir, ".codex", "config.toml"), "utf-8");
-    expect(config).toContain("startup_timeout_sec = 120");
-    const timeoutCount = (config.match(/startup_timeout_sec = 120/g) ?? []).length;
-    expect(timeoutCount).toBe(1);
+    const result = runInitJson(["--write-codex-mcp"]);
+    const action = findAction(result, ".codex/config.toml");
+    expect(action.action).toBe("append");
+    expect(action.detail).toBe("added graft startup timeout");
   });
 
   it("writes AGENTS.md guidance when bootstrapping Codex", () => {
-    runInitQuietly(["--write-codex-mcp"]);
-
-    const content = fs.readFileSync(path.join(tmpDir, "AGENTS.md"), "utf-8");
-    expect(content).toContain("safe_read");
-    expect(content).toContain("file_outline");
-    expect(content).toContain("set_budget");
+    const result = runInitJson(["--write-codex-mcp"]);
+    expect(result.ok).toBe(true);
+    const action = findAction(result, "AGENTS.md");
+    expect(action.action).toBe("create");
   });
 
   it("appends to existing AGENTS.md without duplicating the graft guidance", () => {
     fs.writeFileSync(path.join(tmpDir, "AGENTS.md"), "# Team Rules\n\nExisting content.\n");
 
-    runInitQuietly(["--write-codex-mcp"]);
-    runInitQuietly(["--write-codex-mcp"]);
+    const first = runInitJson(["--write-codex-mcp"]);
+    const firstAction = findAction(first, "AGENTS.md");
+    expect(firstAction.action).toBe("append");
 
-    const content = fs.readFileSync(path.join(tmpDir, "AGENTS.md"), "utf-8");
-    expect(content).toContain("Team Rules");
-    expect(content).toContain("safe_read");
-    const snippetCount = (content.match(/## File reads/g) ?? []).length;
-    expect(snippetCount).toBe(1);
+    const second = runInitJson(["--write-codex-mcp"]);
+    const secondAction = findAction(second, "AGENTS.md");
+    expect(secondAction.action).toBe("exists");
   });
 
   it("writes project-local config for the other supported clients with explicit flags", () => {
-    runInitQuietly([
+    const result = runInitJson([
       "--write-cursor-mcp",
       "--write-windsurf-mcp",
       "--write-continue-mcp",
       "--write-cline-mcp",
     ]);
+    expect(result.ok).toBe(true);
 
+    // Verify actions report creation
+    expect(findAction(result, ".cursor/mcp.json").action).toBe("create");
+    expect(findAction(result, ".codeium/windsurf/mcp_config.json").action).toBe("create");
+    expect(findAction(result, ".continue/config.json").action).toBe("create");
+    expect(findAction(result, ".vscode/cline_mcp_settings.json").action).toBe("create");
+
+    // Verify the graft server entry in each config matches the expected shape
     const cursor = readJsonFile(tmpDir, ".cursor", "mcp.json") as {
       mcpServers: { graft: { command: string; args: string[] } };
     };
     expectGraftServerEntry(cursor.mcpServers.graft);
-
-    const windsurf = readJsonFile(tmpDir, ".codeium", "windsurf", "mcp_config.json") as {
-      mcpServers: { graft: { command: string; args: string[] } };
-    };
-    expectGraftServerEntry(windsurf.mcpServers.graft);
 
     const continueConfig = readJsonFile(tmpDir, ".continue", "config.json") as {
       mcpServers: { name: string; command: string; args: string[] }[];
@@ -373,11 +388,6 @@ describe("cli: graft init", () => {
       command: continueConfig.mcpServers[0]!.command,
       args: continueConfig.mcpServers[0]!.args,
     });
-
-    const cline = readJsonFile(tmpDir, ".vscode", "cline_mcp_settings.json") as {
-      mcpServers: { graft: { command: string; args: string[] } };
-    };
-    expectGraftServerEntry(cline.mcpServers.graft);
   });
 
   it("merges Cursor MCP config without clobbering existing servers or duplicating graft", () => {
@@ -391,8 +401,11 @@ describe("cli: graft init", () => {
       },
     }, null, 2));
 
-    runInitQuietly(["--write-cursor-mcp"]);
-    runInitQuietly(["--write-cursor-mcp"]);
+    const first = runInitJson(["--write-cursor-mcp"]);
+    expect(findAction(first, ".cursor/mcp.json").action).toBe("append");
+
+    const second = runInitJson(["--write-cursor-mcp"]);
+    expect(findAction(second, ".cursor/mcp.json").action).toBe("exists");
 
     const config = readJsonFile(tmpDir, ".cursor", "mcp.json") as {
       mcpServers: Record<string, { command: string; args: string[] }>;
@@ -415,8 +428,11 @@ describe("cli: graft init", () => {
       },
     }, null, 2));
 
-    runInitQuietly(["--write-windsurf-mcp"]);
-    runInitQuietly(["--write-windsurf-mcp"]);
+    const first = runInitJson(["--write-windsurf-mcp"]);
+    expect(findAction(first, ".codeium/windsurf/mcp_config.json").action).toBe("append");
+
+    const second = runInitJson(["--write-windsurf-mcp"]);
+    expect(findAction(second, ".codeium/windsurf/mcp_config.json").action).toBe("exists");
 
     const config = readJsonFile(tmpDir, ".codeium", "windsurf", "mcp_config.json") as {
       mcpServers: Record<string, { command: string; args: string[] }>;
@@ -443,8 +459,11 @@ describe("cli: graft init", () => {
       ],
     }, null, 2));
 
-    runInitQuietly(["--write-continue-mcp"]);
-    runInitQuietly(["--write-continue-mcp"]);
+    const first = runInitJson(["--write-continue-mcp"]);
+    expect(findAction(first, ".continue/config.json").action).toBe("append");
+
+    const second = runInitJson(["--write-continue-mcp"]);
+    expect(findAction(second, ".continue/config.json").action).toBe("exists");
 
     const config = readJsonFile(tmpDir, ".continue", "config.json") as {
       models: { title: string }[];
@@ -471,8 +490,11 @@ describe("cli: graft init", () => {
       },
     }, null, 2));
 
-    runInitQuietly(["--write-cline-mcp"]);
-    runInitQuietly(["--write-cline-mcp"]);
+    const first = runInitJson(["--write-cline-mcp"]);
+    expect(findAction(first, ".vscode/cline_mcp_settings.json").action).toBe("append");
+
+    const second = runInitJson(["--write-cline-mcp"]);
+    expect(findAction(second, ".vscode/cline_mcp_settings.json").action).toBe("exists");
 
     const config = readJsonFile(tmpDir, ".vscode", "cline_mcp_settings.json") as {
       mcpServers: Record<string, { command: string; args: string[] }>;

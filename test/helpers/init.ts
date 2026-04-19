@@ -30,6 +30,40 @@ export function runInitQuietly(args?: readonly string[]): void {
   });
 }
 
+export interface InitActionJson {
+  action: "create" | "append" | "exists";
+  label: string;
+  detail?: string;
+}
+
+export interface InitResultJson {
+  ok: boolean;
+  cwd: string;
+  actions: InitActionJson[];
+  [key: string]: unknown;
+}
+
+/** Runs init with --json and returns the parsed result. Extra args are prepended. */
+export function runInitJson(extraArgs?: readonly string[]): InitResultJson {
+  const stdout = createBufferWriter();
+  const stderr = createBufferWriter();
+  runInit({
+    args: ["--json", ...(extraArgs ?? [])],
+    stdout,
+    stderr,
+  });
+  return JSON.parse(stdout.text()) as InitResultJson;
+}
+
+/** Finds a specific action by label in the result, or fails the test. */
+export function findAction(result: InitResultJson, label: string): InitActionJson {
+  const action = result.actions.find((a) => a.label === label);
+  if (action === undefined) {
+    expect.fail(`expected action with label "${label}" in ${JSON.stringify(result.actions.map((a) => a.label))}`);
+  }
+  return action;
+}
+
 export function initGitRepo(cwd: string): void {
   git(cwd, "init");
   git(cwd, "config user.email test@test.com");

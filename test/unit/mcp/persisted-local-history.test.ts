@@ -1,6 +1,3 @@
-import * as fs from "node:fs";
-import * as os from "node:os";
-import * as path from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 import { CanonicalJsonCodec } from "../../../src/adapters/canonical-json.js";
 import { nodeFs } from "../../../src/adapters/node-fs.js";
@@ -8,35 +5,17 @@ import {
   PersistedLocalHistoryAttachUnavailableError,
   PersistedLocalHistoryStore,
   buildContinuityKey,
-  type PersistedLocalHistoryContext,
 } from "../../../src/mcp/persisted-local-history.js";
+import { createCausalContext } from "../../helpers/causal-context.js";
 import {
   FakePersistedLocalHistoryWarp,
   persistedLocalHistoryCausalContext,
   persistedLocalHistoryGraphContext,
   persistedLocalHistoryWorkspaceStatus,
 } from "../../helpers/persisted-local-history-graph.js";
+import { createTestDir, type TestDir } from "../../helpers/temp.js";
 
-function context(overrides: Partial<PersistedLocalHistoryContext> = {}): PersistedLocalHistoryContext {
-  return {
-    repoId: "repo:one",
-    worktreeId: "worktree:one",
-    transportSessionId: "transport:one",
-    workspaceSliceId: "slice-0001",
-    causalSessionId: "causal:one",
-    strandId: "strand:one",
-    checkoutEpochId: "epoch:one",
-    workspaceOverlayId: null,
-    observedAt: "2026-04-10T01:00:00.000Z",
-    warpWriterId: "graft",
-    transitionKind: null,
-    transitionReflogSubject: null,
-    hookTransitionName: null,
-    hookTransitionArgs: null,
-    hookTransitionObservedAt: null,
-    ...overrides,
-  };
-}
+const context = createCausalContext;
 
 function createGraphHarness(graftDir: string, worktreeRoot = "/repo") {
   const warp = new FakePersistedLocalHistoryWarp();
@@ -60,17 +39,18 @@ function createGraphHarness(graftDir: string, worktreeRoot = "/repo") {
 }
 
 describe("mcp: persisted local history", () => {
-  const cleanups: string[] = [];
+  const cleanups: TestDir[] = [];
 
   afterEach(() => {
     while (cleanups.length > 0) {
-      fs.rmSync(cleanups.pop()!, { recursive: true, force: true });
+      cleanups.pop()!.cleanup();
     }
   });
 
   it("records a start operation for the first bound continuity context", async () => {
-    const graftDir = fs.mkdtempSync(path.join(os.tmpdir(), "graft-history-"));
-    cleanups.push(graftDir);
+    const graftTmp = createTestDir("graft-history-");
+    cleanups.push(graftTmp);
+    const graftDir = graftTmp.path;
 
     const store = new PersistedLocalHistoryStore({
       fs: nodeFs,
@@ -109,8 +89,9 @@ describe("mcp: persisted local history", () => {
   });
 
   it("classifies a second transport on the same footing as attach and preserves lineage", async () => {
-    const graftDir = fs.mkdtempSync(path.join(os.tmpdir(), "graft-history-"));
-    cleanups.push(graftDir);
+    const graftTmp = createTestDir("graft-history-");
+    cleanups.push(graftTmp);
+    const graftDir = graftTmp.path;
 
     const store = new PersistedLocalHistoryStore({
       fs: nodeFs,
@@ -161,8 +142,9 @@ describe("mcp: persisted local history", () => {
   });
 
   it("parks the previous continuity key when binding onto a different worktree", async () => {
-    const graftDir = fs.mkdtempSync(path.join(os.tmpdir(), "graft-history-"));
-    cleanups.push(graftDir);
+    const graftTmp = createTestDir("graft-history-");
+    cleanups.push(graftTmp);
+    const graftDir = graftTmp.path;
 
     const store = new PersistedLocalHistoryStore({
       fs: nodeFs,
@@ -216,8 +198,9 @@ describe("mcp: persisted local history", () => {
   });
 
   it("records direct declaration and handoff evidence for explicit attach", async () => {
-    const graftDir = fs.mkdtempSync(path.join(os.tmpdir(), "graft-history-"));
-    cleanups.push(graftDir);
+    const graftTmp = createTestDir("graft-history-");
+    cleanups.push(graftTmp);
+    const graftDir = graftTmp.path;
 
     const store = new PersistedLocalHistoryStore({
       fs: nodeFs,
@@ -276,8 +259,9 @@ describe("mcp: persisted local history", () => {
   });
 
   it("records cross-session attach evidence when a lawful same-worktree source session is provided", async () => {
-    const graftDir = fs.mkdtempSync(path.join(os.tmpdir(), "graft-history-"));
-    cleanups.push(graftDir);
+    const graftTmp = createTestDir("graft-history-");
+    cleanups.push(graftTmp);
+    const graftDir = graftTmp.path;
 
     const store = new PersistedLocalHistoryStore({
       fs: nodeFs,
@@ -337,8 +321,9 @@ describe("mcp: persisted local history", () => {
   });
 
   it("retains full read-event history in the WARP graph", async () => {
-    const graftDir = fs.mkdtempSync(path.join(os.tmpdir(), "graft-history-"));
-    cleanups.push(graftDir);
+    const graftTmp = createTestDir("graft-history-");
+    cleanups.push(graftTmp);
+    const graftDir = graftTmp.path;
 
     const store = new PersistedLocalHistoryStore({
       fs: nodeFs,
@@ -411,8 +396,9 @@ describe("mcp: persisted local history", () => {
   });
 
   it("records direct hook transition evidence for checkout-boundary continuity", async () => {
-    const graftDir = fs.mkdtempSync(path.join(os.tmpdir(), "graft-history-"));
-    cleanups.push(graftDir);
+    const graftTmp = createTestDir("graft-history-");
+    cleanups.push(graftTmp);
+    const graftDir = graftTmp.path;
 
     const store = new PersistedLocalHistoryStore({
       fs: nodeFs,
@@ -485,8 +471,9 @@ describe("mcp: persisted local history", () => {
   });
 
   it("records a bounded attributed read event with explicit footprint", async () => {
-    const graftDir = fs.mkdtempSync(path.join(os.tmpdir(), "graft-history-"));
-    cleanups.push(graftDir);
+    const graftTmp = createTestDir("graft-history-");
+    cleanups.push(graftTmp);
+    const graftDir = graftTmp.path;
 
     const store = new PersistedLocalHistoryStore({
       fs: nodeFs,
@@ -553,8 +540,9 @@ describe("mcp: persisted local history", () => {
   });
 
   it("records a deduplicated stage event for a full-file staged target", async () => {
-    const graftDir = fs.mkdtempSync(path.join(os.tmpdir(), "graft-history-"));
-    cleanups.push(graftDir);
+    const graftTmp = createTestDir("graft-history-");
+    cleanups.push(graftTmp);
+    const graftDir = graftTmp.path;
 
     const store = new PersistedLocalHistoryStore({
       fs: nodeFs,
@@ -638,8 +626,9 @@ describe("mcp: persisted local history", () => {
   });
 
   it("records a deduplicated semantic transition event as local artifact history", async () => {
-    const graftDir = fs.mkdtempSync(path.join(os.tmpdir(), "graft-history-"));
-    cleanups.push(graftDir);
+    const graftTmp = createTestDir("graft-history-");
+    cleanups.push(graftTmp);
+    const graftDir = graftTmp.path;
 
     const store = new PersistedLocalHistoryStore({
       fs: nodeFs,
@@ -750,8 +739,9 @@ describe("mcp: persisted local history", () => {
   });
 
   it("summarizes shared repo posture when another worktree is active on the same checkout", async () => {
-    const graftDir = fs.mkdtempSync(path.join(os.tmpdir(), "graft-history-"));
-    cleanups.push(graftDir);
+    const graftTmp = createTestDir("graft-history-");
+    cleanups.push(graftTmp);
+    const graftDir = graftTmp.path;
 
     const store = new PersistedLocalHistoryStore({
       fs: nodeFs,
@@ -792,8 +782,9 @@ describe("mcp: persisted local history", () => {
   });
 
   it("summarizes overlapping actors when the same worktree records overlapping path activity without handoff", async () => {
-    const graftDir = fs.mkdtempSync(path.join(os.tmpdir(), "graft-history-"));
-    cleanups.push(graftDir);
+    const graftTmp = createTestDir("graft-history-");
+    cleanups.push(graftTmp);
+    const graftDir = graftTmp.path;
 
     const store = new PersistedLocalHistoryStore({
       fs: nodeFs,
@@ -886,8 +877,9 @@ describe("mcp: persisted local history", () => {
   });
 
   it("refuses explicit attach when no prior lineage exists", async () => {
-    const graftDir = fs.mkdtempSync(path.join(os.tmpdir(), "graft-history-"));
-    cleanups.push(graftDir);
+    const graftTmp = createTestDir("graft-history-");
+    cleanups.push(graftTmp);
+    const graftDir = graftTmp.path;
 
     const store = new PersistedLocalHistoryStore({
       fs: nodeFs,
