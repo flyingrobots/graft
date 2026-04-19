@@ -21,16 +21,17 @@
     "bin/",
     "dist/",
     "src/",
+    "ADVANCED_GUIDE.md",
     "ARCHITECTURE.md",
+    "CHANGELOG.md",
     "CODE_OF_CONDUCT.md",
-    "docs/ADVANCED_GUIDE.md",
+    "GUIDE.md",
     "docs/CLI.md",
-    "docs/GUIDE.md",
     "docs/MCP.md",
+    "docs/SETUP.md",
     "LICENSE",
     "NOTICE",
-    "README.md",
-    "CHANGELOG.md"
+    "README.md"
   ],
   "scripts": {
     "graft": "node ./bin/graft.js",
