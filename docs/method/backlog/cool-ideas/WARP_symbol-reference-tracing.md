@@ -1,3 +1,7 @@
+---
+title: "Symbol reference tracing"
+---
+
 # Symbol reference tracing
 
 Inverse of `code_show`: given a symbol, show the files or symbols that

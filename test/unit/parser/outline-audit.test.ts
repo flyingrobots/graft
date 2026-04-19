@@ -2,8 +2,9 @@ import { describe, it, expect } from "vitest";
 import { extractOutline } from "../../../src/parser/outline.js";
 import fs from "node:fs";
 import path from "node:path";
+import { fixturePath } from "../../helpers/fixtures.js";
 
-const AUDIT = path.resolve(import.meta.dirname, "../../fixtures/audit");
+const AUDIT = fixturePath("audit");
 
 function loadAndParse(filename: string, lang: "ts" | "js" = "ts") {
   const source = fs.readFileSync(path.join(AUDIT, filename), "utf-8");

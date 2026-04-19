@@ -1,3 +1,7 @@
+---
+title: "capture_range(handle, start, end)"
+---
+
 # capture_range(handle, start, end)
 
 Opaque log handles for run_capture output. Instead of raw read_range

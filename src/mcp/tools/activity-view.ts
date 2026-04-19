@@ -2,7 +2,7 @@ import { z } from "zod";
 import { buildRuntimeStagedTarget } from "../runtime-staged-target.js";
 import { deriveCausalSurfaceNextAction } from "../semantic-transition-guidance.js";
 import type { PersistedLocalActivityItem } from "../persisted-local-history.js";
-import type { ToolDefinition, ToolContext, ToolHandler } from "../context.js";
+import type { ToolDefinition, ToolHandler } from "../context.js";
 
 const limitSchema = z.number().int().positive().max(50).optional();
 
@@ -206,8 +206,8 @@ export const activityViewTool: ToolDefinition = {
   schema: {
     limit: limitSchema,
   },
-  createHandler(ctx: ToolContext): ToolHandler {
-    return async (args) => {
+  createHandler(): ToolHandler {
+    return async (args, ctx) => {
       const limit = limitSchema.parse(args["limit"]) ?? 20;
       const workspaceStatus = ctx.getWorkspaceStatus();
 

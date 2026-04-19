@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { graftDiff } from "../../operations/graft-diff.js";
-import type { ToolDefinition, ToolContext, ToolHandler } from "../context.js";
+import type { ToolDefinition, ToolHandler } from "../context.js";
 import { evaluateMcpRefusal } from "../policy.js";
 
 export const sinceTool: ToolDefinition = {
@@ -13,8 +13,8 @@ export const sinceTool: ToolDefinition = {
     base: z.string(),
     head: z.string().optional(),
   },
-  createHandler(ctx: ToolContext): ToolHandler {
-    return async (args) => {
+  createHandler(): ToolHandler {
+    return async (args, ctx) => {
       const base = args["base"] as string;
       const head = (args["head"] as string | undefined) ?? "HEAD";
 
@@ -38,6 +38,10 @@ export const sinceTool: ToolDefinition = {
         totalRemoved += file.diff.removed.length;
         totalChanged += file.diff.changed.length;
       }
+
+      ctx.recordFootprint({
+        paths: result.files.map((f) => f.path),
+      });
 
       return ctx.respond("graft_since", {
         ...result,

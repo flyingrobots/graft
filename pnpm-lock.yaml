@@ -12,6 +12,12 @@ importers:
 
   .:
     dependencies:
+      '@flyingrobots/bijou':
+        specifier: ^4.4.1
+        version: 4.4.1
+      '@flyingrobots/bijou-node':
+        specifier: ^4.4.1
+        version: 4.4.1(@flyingrobots/bijou@4.4.1)
       '@git-stunts/git-warp':
         specifier: ^16.0.0
         version: 16.0.0
@@ -305,16 +311,36 @@ packages:
     resolution: {integrity: sha512-iH1B076HoAshH1mLpHMgwdGeTs0CYwL0SPMkGuSebZrwBp16v415e9NZXg2jtrqPVQjf6IANe2Vtlr5KswtcZQ==}
     engines: {node: ^20.19.0 || ^22.13.0 || >=24}
 
+  '@flyingrobots/bijou-i18n@4.4.1':
+    resolution: {integrity: sha512-oiPgJOevYiWaB78nGB+OpCq65SMu3G0g8tTMKduvPfQPeUBeKaDITGocLRFCBsoJzpXOq5YeRTW9OBfH4eLZ8w==}
+    engines: {node: '>=18'}
+
   '@flyingrobots/bijou-node@0.2.0':
     resolution: {integrity: sha512-QaIaoBF0OMRHGtLsga1knplfFEmAeC6Lt4SxWkCKIJahMdNqXatCWM3RdzXcbjfcXqRIXyeEpm1agmmwi4gneQ==}
     engines: {node: '>=18'}
+
+  '@flyingrobots/bijou-node@4.4.1':
+    resolution: {integrity: sha512-0jcyo1ibSKQcpwK/erEeOByOYiXyTwFMq25770zF1adeXRLCbwsCjkjSBZx/iu/CmGWo3DZCoWUzexp51iOLKg==}
+    engines: {node: '>=18'}
+    peerDependencies:
+      '@flyingrobots/bijou': 4.4.1
 
   '@flyingrobots/bijou-tui@0.2.0':
     resolution: {integrity: sha512-pXEo/Am6svRIKvez7926avdGUbfVndlSOpidBPc42YjCQHU5ZQrEuJpjI7niJb63N0ruxu0VXHci8N0wzBYSow==}
     engines: {node: '>=18'}
 
+  '@flyingrobots/bijou-tui@4.4.1':
+    resolution: {integrity: sha512-hTSERl6pwUVlwaT5WPaQSfdZl+N0VAcIP47lUvZfKaFCMx1KMRUHapDlyco1CWzW+iRxV8RYTAk3z3cBLXe0nw==}
+    engines: {node: '>=18'}
+    peerDependencies:
+      '@flyingrobots/bijou': 4.4.1
+
   '@flyingrobots/bijou@0.2.0':
     resolution: {integrity: sha512-Oix2Kqq4w87KCkyK2W+8u4E4aGVQiraUy8BF3Bk/NRtT+UlUI0ETs+E7GwpwOyOvHvt0cIOjcMmVPxzKa52P4A==}
+    engines: {node: '>=18'}
+
+  '@flyingrobots/bijou@4.4.1':
+    resolution: {integrity: sha512-vYwFB5lNwp6Lql+WuxHkIzopN11xCLHND0/wPjIlML0J28DZHgvzcpHky9QwSE1NZpTFYAtyBZidwPLYzfVO+Q==}
     engines: {node: '>=18'}
 
   '@gar/promise-retry@1.0.3':
@@ -1012,6 +1038,9 @@ packages:
   get-tsconfig@4.13.7:
     resolution: {integrity: sha512-7tN6rFgBlMgpBML5j8typ92BKFi2sFQvIdpAqLA2beia5avZDrMs0FLZiM5etShWq5irVyGcGMEA1jcDaK7A/Q==}
 
+  gifenc@1.0.3:
+    resolution: {integrity: sha512-xdr6AdrfGBcfzncONUOlXMBuc5wJDtOueE3c5rdG0oNgtINLD+f2iFZltrBRZYzACRbKr+mSVU/x98zv2u3jmw==}
+
   glob-parent@6.0.2:
     resolution: {integrity: sha512-XxwI8EOhVQgWp6iDL+3b0r86f4d6AX6zSU55HfB4ydCEuXLXc5FcYeOu+nnGftS4TEju/11rt4KJPTMgbfmv4A==}
     engines: {node: '>=10.13.0'}
@@ -1334,6 +1363,9 @@ packages:
 
   obug@2.1.1:
     resolution: {integrity: sha512-uTqF9MuPraAQ+IsnPf366RG4cP9RtUi7MLO1N3KEc+wb0a6yKpeL0lmk2IB1jY5KHPAlTc6T/JRdC/YqxHNwkQ==}
+
+  oled-font-5x7@1.0.3:
+    resolution: {integrity: sha512-l25WvKft8CgXYxtaqKdYrAS1P91rnUUUIiOXojAOvjNCsfFzIl1aEsE2JuaRgMh1Euo7slm5lX0w+1qNkL8PpQ==}
 
   on-finished@2.4.1:
     resolution: {integrity: sha512-oVlzkg3ENAhCk2zdv7IJwd/QUD4z2RxRwpkcGY8psCVcCYZNq4wYnVWALHM+brtuJjePWiYF/ClmuDr8Ch5+kg==}
@@ -1918,16 +1950,33 @@ snapshots:
       '@eslint/core': 1.1.1
       levn: 0.4.1
 
+  '@flyingrobots/bijou-i18n@4.4.1': {}
+
   '@flyingrobots/bijou-node@0.2.0':
     dependencies:
       '@flyingrobots/bijou': 0.2.0
       chalk: 5.6.2
 
+  '@flyingrobots/bijou-node@4.4.1(@flyingrobots/bijou@4.4.1)':
+    dependencies:
+      '@flyingrobots/bijou': 4.4.1
+      '@flyingrobots/bijou-tui': 4.4.1(@flyingrobots/bijou@4.4.1)
+      chalk: 5.6.2
+      gifenc: 1.0.3
+      oled-font-5x7: 1.0.3
+
   '@flyingrobots/bijou-tui@0.2.0':
     dependencies:
       '@flyingrobots/bijou': 0.2.0
 
+  '@flyingrobots/bijou-tui@4.4.1(@flyingrobots/bijou@4.4.1)':
+    dependencies:
+      '@flyingrobots/bijou': 4.4.1
+      '@flyingrobots/bijou-i18n': 4.4.1
+
   '@flyingrobots/bijou@0.2.0': {}
+
+  '@flyingrobots/bijou@4.4.1': {}
 
   '@gar/promise-retry@1.0.3':
     optional: true
@@ -2708,6 +2757,8 @@ snapshots:
     dependencies:
       resolve-pkg-maps: 1.0.0
 
+  gifenc@1.0.3: {}
+
   glob-parent@6.0.2:
     dependencies:
       is-glob: 4.0.3
@@ -2995,6 +3046,8 @@ snapshots:
   object-inspect@1.13.4: {}
 
   obug@2.1.1: {}
+
+  oled-font-5x7@1.0.3: {}
 
   on-finished@2.4.1:
     dependencies:

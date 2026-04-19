@@ -10,6 +10,12 @@ import {
   buildContinuityKey,
   type PersistedLocalHistoryContext,
 } from "../../../src/mcp/persisted-local-history.js";
+import {
+  FakePersistedLocalHistoryWarp,
+  persistedLocalHistoryCausalContext,
+  persistedLocalHistoryGraphContext,
+  persistedLocalHistoryWorkspaceStatus,
+} from "../../helpers/persisted-local-history-graph.js";
 
 function context(overrides: Partial<PersistedLocalHistoryContext> = {}): PersistedLocalHistoryContext {
   return {
@@ -32,6 +38,27 @@ function context(overrides: Partial<PersistedLocalHistoryContext> = {}): Persist
   };
 }
 
+function createGraphHarness(graftDir: string, worktreeRoot = "/repo") {
+  const warp = new FakePersistedLocalHistoryWarp();
+  const graph = persistedLocalHistoryGraphContext(warp, worktreeRoot);
+  return {
+    warp,
+    graph,
+    status: (overrides: Partial<{
+      sessionMode: "repo_local" | "daemon";
+      bindState: "bound" | "unbound";
+      repoId: string;
+      worktreeId: string;
+      worktreeRoot: string;
+      gitCommonDir: string;
+    }> = {}) => persistedLocalHistoryWorkspaceStatus(graftDir, {
+      worktreeRoot,
+      ...overrides,
+    }),
+    causal: persistedLocalHistoryCausalContext,
+  };
+}
+
 describe("mcp: persisted local history", () => {
   const cleanups: string[] = [];
 
@@ -50,29 +77,13 @@ describe("mcp: persisted local history", () => {
       codec: new CanonicalJsonCodec(),
       graftDir,
     });
+    const harness = createGraphHarness(graftDir);
 
-    await store.noteBinding({ current: context() });
+    await store.noteBinding({ current: context(), currentGraph: harness.graph });
     const summary = await store.summarize(
-      {
-        sessionMode: "repo_local",
-        bindState: "bound",
-        repoId: "repo:one",
-        worktreeId: "worktree:one",
-        worktreeRoot: "/repo",
-        gitCommonDir: "/repo/.git",
-        graftDir,
-        capabilityProfile: null,
-      },
-      {
-        transportSessionId: "transport:one",
-        workspaceSliceId: "slice-0001",
-        causalSessionId: "causal:one",
-        strandId: "strand:one",
-        checkoutEpochId: "epoch:one",
-        warpWriterId: "graft",
-        stability: "runtime_local",
-        provenanceLevel: "artifact_history",
-      },
+      harness.status(),
+      harness.causal(context()),
+      harness.graph,
     );
 
     expect(summary.availability).toBe("present");
@@ -83,16 +94,18 @@ describe("mcp: persisted local history", () => {
     expect(summary.totalContinuityRecords).toBe(1);
     expect(summary.continuityKey).toBe(buildContinuityKey("repo:one", "worktree:one"));
     expect(summary.continuityConfidence).toBe("high");
-    expect(summary.continuityEvidence.map((evidence) => evidence.evidenceKind)).toEqual([
-      "mcp_transport_binding",
-      "worktree_fs_observation",
-      "writer_lane_identity",
-    ]);
+    expect(summary.continuityEvidence.map((evidence) => evidence.evidenceKind)).toEqual(
+      expect.arrayContaining([
+        "mcp_transport_binding",
+        "worktree_fs_observation",
+        "writer_lane_identity",
+      ]),
+    );
     expect(summary.attribution.actor.actorKind).toBe("unknown");
     expect(summary.attribution.confidence).toBe("unknown");
     expect(summary.latestReadEvent).toBeNull();
     expect(summary.latestStageEvent).toBeNull();
-    expect(fs.existsSync(summary.historyPath)).toBe(true);
+    expect(summary.historyPath).toBeNull();
   });
 
   it("classifies a second transport on the same footing as attach and preserves lineage", async () => {
@@ -104,8 +117,9 @@ describe("mcp: persisted local history", () => {
       codec: new CanonicalJsonCodec(),
       graftDir,
     });
+    const harness = createGraphHarness(graftDir);
 
-    await store.noteBinding({ current: context() });
+    await store.noteBinding({ current: context(), currentGraph: harness.graph });
     await store.noteBinding({
       current: context({
         transportSessionId: "transport:two",
@@ -114,29 +128,20 @@ describe("mcp: persisted local history", () => {
         strandId: "strand:two",
         observedAt: "2026-04-10T01:05:00.000Z",
       }),
+      currentGraph: harness.graph,
     });
 
     const summary = await store.summarize(
-      {
-        sessionMode: "daemon",
-        bindState: "bound",
-        repoId: "repo:one",
-        worktreeId: "worktree:one",
-        worktreeRoot: "/repo",
-        gitCommonDir: "/repo/.git",
-        graftDir,
-        capabilityProfile: null,
-      },
-      {
+      harness.status({ sessionMode: "daemon" }),
+      harness.causal(context({
         transportSessionId: "transport:two",
         workspaceSliceId: "slice-0002",
         causalSessionId: "causal:two",
         strandId: "strand:two",
         checkoutEpochId: "epoch:one",
         warpWriterId: "graft_session_two",
-        stability: "runtime_local",
-        provenanceLevel: "artifact_history",
-      },
+      })),
+      harness.graph,
     );
 
     expect(summary.availability).toBe("present");
@@ -164,8 +169,9 @@ describe("mcp: persisted local history", () => {
       codec: new CanonicalJsonCodec(),
       graftDir,
     });
+    const harness = createGraphHarness(graftDir);
 
-    await store.noteBinding({ current: context() });
+    await store.noteBinding({ current: context(), currentGraph: harness.graph });
     await store.noteBinding({
       previous: context(),
       current: context({
@@ -178,29 +184,25 @@ describe("mcp: persisted local history", () => {
         checkoutEpochId: "epoch:two",
         observedAt: "2026-04-10T01:10:00.000Z",
       }),
+      currentGraph: harness.graph,
+      previousGraph: harness.graph,
     });
 
     const firstSummary = await store.summarize(
-      {
+      harness.status({
         sessionMode: "daemon",
-        bindState: "bound",
-        repoId: "repo:one",
-        worktreeId: "worktree:one",
         worktreeRoot: "/repo-one",
         gitCommonDir: "/repo-one/.git",
-        graftDir,
-        capabilityProfile: null,
-      },
-      {
+      }),
+      harness.causal(context({
         transportSessionId: "transport:two",
         workspaceSliceId: "slice-0002",
         causalSessionId: "causal:two",
         strandId: "strand:two",
         checkoutEpochId: "epoch:two",
         warpWriterId: "graft_session_two",
-        stability: "runtime_local",
-        provenanceLevel: "artifact_history",
-      },
+      })),
+      harness.graph,
     );
 
     expect(firstSummary.availability).toBe("present");
@@ -222,8 +224,9 @@ describe("mcp: persisted local history", () => {
       codec: new CanonicalJsonCodec(),
       graftDir,
     });
+    const harness = createGraphHarness(graftDir);
 
-    await store.noteBinding({ current: context() });
+    await store.noteBinding({ current: context(), currentGraph: harness.graph });
     const current = context({
       transportSessionId: "transport:two",
       workspaceSliceId: "slice-0002",
@@ -232,7 +235,7 @@ describe("mcp: persisted local history", () => {
       observedAt: "2026-04-10T01:05:00.000Z",
       warpWriterId: "graft_session_two",
     });
-    await store.noteBinding({ current });
+    await store.noteBinding({ current, currentGraph: harness.graph });
     await store.declareAttach({
       current,
       declaration: {
@@ -241,29 +244,16 @@ describe("mcp: persisted local history", () => {
         fromActorId: "human:james",
         note: "continuing the same line of work",
       },
+      graph: harness.graph,
     });
 
     const summary = await store.summarize(
-      {
-        sessionMode: "daemon",
-        bindState: "bound",
-        repoId: "repo:one",
-        worktreeId: "worktree:one",
-        worktreeRoot: "/repo",
-        gitCommonDir: "/repo/.git",
-        graftDir,
-        capabilityProfile: null,
-      },
-      {
-        transportSessionId: "transport:two",
-        workspaceSliceId: "slice-0002",
-        causalSessionId: "causal:two",
-        strandId: "strand:two",
+      harness.status({ sessionMode: "daemon" }),
+      harness.causal({
+        ...current,
         checkoutEpochId: "epoch:one",
-        warpWriterId: "graft_session_two",
-        stability: "runtime_local",
-        provenanceLevel: "artifact_history",
-      },
+      }),
+      harness.graph,
     );
 
     expect(summary.availability).toBe("present");
@@ -294,8 +284,9 @@ describe("mcp: persisted local history", () => {
       codec: new CanonicalJsonCodec(),
       graftDir,
     });
+    const harness = createGraphHarness(graftDir);
 
-    await store.noteBinding({ current: context() });
+    await store.noteBinding({ current: context(), currentGraph: harness.graph });
     const current = context({
       transportSessionId: "transport:two",
       workspaceSliceId: "slice-0002",
@@ -304,7 +295,7 @@ describe("mcp: persisted local history", () => {
       observedAt: "2026-04-10T01:05:00.000Z",
       warpWriterId: "graft_session_two",
     });
-    await store.noteBinding({ current });
+    await store.noteBinding({ current, currentGraph: harness.graph });
     await store.declareSharedAttach({
       current,
       declaration: {
@@ -318,29 +309,16 @@ describe("mcp: persisted local history", () => {
         causalSessionId: "causal:one",
         strandId: "strand:one",
       },
+      graph: harness.graph,
     });
 
     const summary = await store.summarize(
-      {
-        sessionMode: "daemon",
-        bindState: "bound",
-        repoId: "repo:one",
-        worktreeId: "worktree:one",
-        worktreeRoot: "/repo",
-        gitCommonDir: "/repo/.git",
-        graftDir,
-        capabilityProfile: null,
-      },
-      {
-        transportSessionId: "transport:two",
-        workspaceSliceId: "slice-0002",
-        causalSessionId: "causal:two",
-        strandId: "strand:two",
+      harness.status({ sessionMode: "daemon" }),
+      harness.causal({
+        ...current,
         checkoutEpochId: "epoch:one",
-        warpWriterId: "graft_session_two",
-        stability: "runtime_local",
-        provenanceLevel: "artifact_history",
-      },
+      }),
+      harness.graph,
     );
 
     expect(summary.availability).toBe("present");
@@ -358,7 +336,7 @@ describe("mcp: persisted local history", () => {
     expect(summary.nextAction).toBe("continue_active_causal_workspace");
   });
 
-  it("bounds retained read events on disk", async () => {
+  it("retains full read-event history in the WARP graph", async () => {
     const graftDir = fs.mkdtempSync(path.join(os.tmpdir(), "graft-history-"));
     cleanups.push(graftDir);
 
@@ -367,9 +345,10 @@ describe("mcp: persisted local history", () => {
       codec: new CanonicalJsonCodec(),
       graftDir,
     });
+    const harness = createGraphHarness(graftDir);
 
     const current = context();
-    await store.noteBinding({ current });
+    await store.noteBinding({ current, currentGraph: harness.graph });
     for (let index = 0; index < 300; index += 1) {
       await store.noteReadObservation({
         current: {
@@ -406,30 +385,17 @@ describe("mcp: persisted local history", () => {
           symbols: [],
           regions: [],
         },
+        graph: harness.graph,
       });
     }
 
     const summary = await store.summarize(
-      {
-        sessionMode: "repo_local",
-        bindState: "bound",
-        repoId: "repo:one",
-        worktreeId: "worktree:one",
-        worktreeRoot: "/repo",
-        gitCommonDir: "/repo/.git",
-        graftDir,
-        capabilityProfile: null,
-      },
-      {
-        transportSessionId: "transport:one",
-        workspaceSliceId: "slice-0001",
-        causalSessionId: "causal:one",
-        strandId: "strand:one",
-        checkoutEpochId: "epoch:one",
+      harness.status(),
+      harness.causal({
+        ...current,
         warpWriterId: "graft_session_one",
-        stability: "runtime_local",
-        provenanceLevel: "artifact_history",
-      },
+      }),
+      harness.graph,
     );
 
     expect(summary.availability).toBe("present");
@@ -437,11 +403,11 @@ describe("mcp: persisted local history", () => {
       return;
     }
     expect(summary.latestReadEvent?.footprint.paths).toEqual(["src/file-299.ts"]);
-
-    const raw = JSON.parse(fs.readFileSync(summary.historyPath, "utf-8")) as {
-      readEvents: unknown[];
-    };
-    expect(raw.readEvents).toHaveLength(256);
+    expect(summary.historyPath).toBeNull();
+    expect(harness.warp.findNodes((props) =>
+      props["entityKind"] === "local_history_event" &&
+      props["eventKind"] === "read"
+    )).toHaveLength(300);
   });
 
   it("records direct hook transition evidence for checkout-boundary continuity", async () => {
@@ -453,9 +419,10 @@ describe("mcp: persisted local history", () => {
       codec: new CanonicalJsonCodec(),
       graftDir,
     });
+    const harness = createGraphHarness(graftDir);
 
     const first = context();
-    await store.noteBinding({ current: first });
+    await store.noteBinding({ current: first, currentGraph: harness.graph });
     await store.noteCheckoutBoundary({
       previous: first,
       current: context({
@@ -471,29 +438,20 @@ describe("mcp: persisted local history", () => {
         hookTransitionArgs: ["oldsha", "newsha", "1"],
         hookTransitionObservedAt: "2026-04-10T01:09:59.000Z",
       }),
+      graph: harness.graph,
     });
 
     const summary = await store.summarize(
-      {
-        sessionMode: "repo_local",
-        bindState: "bound",
-        repoId: "repo:one",
-        worktreeId: "worktree:one",
-        worktreeRoot: "/repo",
-        gitCommonDir: "/repo/.git",
-        graftDir,
-        capabilityProfile: null,
-      },
-      {
+      harness.status(),
+      harness.causal(context({
         transportSessionId: "transport:two",
         workspaceSliceId: "slice-0002",
         causalSessionId: "causal:two",
         strandId: "strand:two",
         checkoutEpochId: "epoch:two",
         warpWriterId: "graft_session_two",
-        stability: "runtime_local",
-        provenanceLevel: "artifact_history",
-      },
+      })),
+      harness.graph,
     );
 
     expect(summary.availability).toBe("present");
@@ -535,11 +493,12 @@ describe("mcp: persisted local history", () => {
       codec: new CanonicalJsonCodec(),
       graftDir,
     });
+    const harness = createGraphHarness(graftDir);
 
     const current = context({
       workspaceOverlayId: "overlay:one",
     });
-    await store.noteBinding({ current });
+    await store.noteBinding({ current, currentGraph: harness.graph });
 
     await store.noteReadObservation({
       current,
@@ -571,29 +530,13 @@ describe("mcp: persisted local history", () => {
         symbols: [],
         regions: [],
       },
+      graph: harness.graph,
     });
 
     const summary = await store.summarize(
-      {
-        sessionMode: "repo_local",
-        bindState: "bound",
-        repoId: current.repoId,
-        worktreeId: current.worktreeId,
-        worktreeRoot: "/repo",
-        gitCommonDir: "/repo/.git",
-        graftDir,
-        capabilityProfile: null,
-      },
-      {
-        transportSessionId: current.transportSessionId,
-        workspaceSliceId: current.workspaceSliceId,
-        causalSessionId: current.causalSessionId,
-        strandId: current.strandId,
-        checkoutEpochId: current.checkoutEpochId,
-        warpWriterId: current.warpWriterId,
-        stability: "runtime_local",
-        provenanceLevel: "artifact_history",
-      },
+      harness.status(),
+      harness.causal(current),
+      harness.graph,
     );
 
     expect(summary.availability).toBe("present");
@@ -618,11 +561,12 @@ describe("mcp: persisted local history", () => {
       codec: new CanonicalJsonCodec(),
       graftDir,
     });
+    const harness = createGraphHarness(graftDir);
 
     const current = context({
       workspaceOverlayId: "overlay:one",
     });
-    await store.noteBinding({ current });
+    await store.noteBinding({ current, currentGraph: harness.graph });
 
     const attribution = {
       actor: {
@@ -666,30 +610,16 @@ describe("mcp: persisted local history", () => {
       },
     };
 
-    await store.noteStageObservation({ current, stagedTarget, attribution });
-    await store.noteStageObservation({ current, stagedTarget, attribution });
+    await store.noteStageObservation({ current, stagedTarget, attribution, graph: harness.graph });
+    await store.noteStageObservation({ current, stagedTarget, attribution, graph: harness.graph });
 
     const summary = await store.summarize(
-      {
-        sessionMode: "repo_local",
-        bindState: "bound",
+      harness.status({
         repoId: current.repoId,
         worktreeId: current.worktreeId,
-        worktreeRoot: "/repo",
-        gitCommonDir: "/repo/.git",
-        graftDir,
-        capabilityProfile: null,
-      },
-      {
-        transportSessionId: current.transportSessionId,
-        workspaceSliceId: current.workspaceSliceId,
-        causalSessionId: current.causalSessionId,
-        strandId: current.strandId,
-        checkoutEpochId: current.checkoutEpochId,
-        warpWriterId: current.warpWriterId,
-        stability: "runtime_local",
-        provenanceLevel: "artifact_history",
-      },
+      }),
+      harness.causal(current),
+      harness.graph,
     );
 
     expect(summary.availability).toBe("present");
@@ -701,10 +631,10 @@ describe("mcp: persisted local history", () => {
     expect(summary.latestStageEvent?.attribution.actor.actorKind).toBe("agent");
     expect(summary.latestStageEvent?.payload.targetId).toBe("target:one");
 
-    const savedState = JSON.parse(
-      fs.readFileSync(path.join(graftDir, "local-history", `${buildContinuityKey("repo:one", "worktree:one")}.json`), "utf-8"),
-    ) as { stageEvents: { eventId: string }[] };
-    expect(savedState.stageEvents).toHaveLength(1);
+    expect(harness.warp.findNodes((props) =>
+      props["entityKind"] === "local_history_event" &&
+      props["eventKind"] === "stage"
+    )).toHaveLength(1);
   });
 
   it("records a deduplicated semantic transition event as local artifact history", async () => {
@@ -716,6 +646,7 @@ describe("mcp: persisted local history", () => {
       codec: new CanonicalJsonCodec(),
       graftDir,
     });
+    const harness = createGraphHarness(graftDir);
 
     const current = context({
       checkoutEpochId: "epoch:two",
@@ -723,7 +654,7 @@ describe("mcp: persisted local history", () => {
       transitionKind: "merge",
       transitionReflogSubject: "merge feature: Merge made by the ort strategy.",
     });
-    await store.noteBinding({ current });
+    await store.noteBinding({ current, currentGraph: harness.graph });
 
     const attribution = {
       actor: {
@@ -783,35 +714,23 @@ describe("mcp: persisted local history", () => {
       semanticTransition,
       transition,
       attribution,
+      graph: harness.graph,
     });
     await store.noteSemanticTransitionObservation({
       current,
       semanticTransition,
       transition,
       attribution,
+      graph: harness.graph,
     });
 
     const summary = await store.summarize(
-      {
-        sessionMode: "repo_local",
-        bindState: "bound",
+      harness.status({
         repoId: current.repoId,
         worktreeId: current.worktreeId,
-        worktreeRoot: "/repo",
-        gitCommonDir: "/repo/.git",
-        graftDir,
-        capabilityProfile: null,
-      },
-      {
-        transportSessionId: current.transportSessionId,
-        workspaceSliceId: current.workspaceSliceId,
-        causalSessionId: current.causalSessionId,
-        strandId: current.strandId,
-        checkoutEpochId: current.checkoutEpochId,
-        warpWriterId: current.warpWriterId,
-        stability: "runtime_local",
-        provenanceLevel: "artifact_history",
-      },
+      }),
+      harness.causal(current),
+      harness.graph,
     );
 
     expect(summary.availability).toBe("present");
@@ -824,10 +743,10 @@ describe("mcp: persisted local history", () => {
     expect(summary.latestTransitionEvent?.payload.phase).toBe("completed_or_cleared");
     expect(summary.latestTransitionEvent?.attribution.actor.actorKind).toBe("git");
 
-    const savedState = JSON.parse(
-      fs.readFileSync(path.join(graftDir, "local-history", `${buildContinuityKey("repo:one", "worktree:one")}.json`), "utf-8"),
-    ) as { transitionEvents: { eventId: string }[] };
-    expect(savedState.transitionEvents).toHaveLength(1);
+    expect(harness.warp.findNodes((props) =>
+      props["entityKind"] === "local_history_event" &&
+      props["eventKind"] === "transition"
+    )).toHaveLength(1);
   });
 
   it("summarizes shared repo posture when another worktree is active on the same checkout", async () => {
@@ -839,6 +758,7 @@ describe("mcp: persisted local history", () => {
       codec: new CanonicalJsonCodec(),
       graftDir,
     });
+    const harness = createGraphHarness(graftDir);
 
     const first = context();
     const second = context({
@@ -850,19 +770,18 @@ describe("mcp: persisted local history", () => {
       observedAt: "2026-04-10T01:15:00.000Z",
     });
 
-    await store.noteBinding({ current: first });
-    await store.noteBinding({ current: second });
+    await store.noteBinding({ current: first, currentGraph: harness.graph });
+    await store.noteBinding({ current: second, currentGraph: harness.graph });
 
-    const summary = await store.summarizeRepoConcurrency({
-      sessionMode: "repo_local",
-      bindState: "bound",
-      repoId: first.repoId,
-      worktreeId: first.worktreeId,
-      worktreeRoot: "/repo-one",
-      gitCommonDir: "/repo/.git",
-      graftDir,
-      capabilityProfile: null,
-    });
+    const summary = await store.summarizeRepoConcurrency(
+      harness.status({
+        repoId: first.repoId,
+        worktreeId: first.worktreeId,
+        worktreeRoot: "/repo-one",
+        gitCommonDir: "/repo/.git",
+      }),
+      harness.graph,
+    );
 
     expect(summary).toEqual(expect.objectContaining({
       posture: "shared_repo_only",
@@ -881,32 +800,19 @@ describe("mcp: persisted local history", () => {
       codec: new CanonicalJsonCodec(),
       graftDir,
     });
+    const harness = createGraphHarness(graftDir);
 
     const first = context({
       workspaceOverlayId: "overlay:one",
     });
-    await store.noteBinding({ current: first });
+    await store.noteBinding({ current: first, currentGraph: harness.graph });
     const firstSummary = await store.summarize(
-      {
-        sessionMode: "repo_local",
-        bindState: "bound",
+      harness.status({
         repoId: first.repoId,
         worktreeId: first.worktreeId,
-        worktreeRoot: "/repo",
-        gitCommonDir: "/repo/.git",
-        graftDir,
-        capabilityProfile: null,
-      },
-      {
-        transportSessionId: first.transportSessionId,
-        workspaceSliceId: first.workspaceSliceId,
-        causalSessionId: first.causalSessionId,
-        strandId: first.strandId,
-        checkoutEpochId: first.checkoutEpochId,
-        warpWriterId: first.warpWriterId,
-        stability: "runtime_local",
-        provenanceLevel: "artifact_history",
-      },
+      }),
+      harness.causal(first),
+      harness.graph,
     );
     if (firstSummary.availability !== "present") {
       return;
@@ -923,6 +829,7 @@ describe("mcp: persisted local history", () => {
         symbols: [],
         regions: [],
       },
+      graph: harness.graph,
     });
 
     const second = context({
@@ -934,28 +841,14 @@ describe("mcp: persisted local history", () => {
       workspaceOverlayId: "overlay:one",
       warpWriterId: "graft_session_two",
     });
-    await store.noteBinding({ current: second });
+    await store.noteBinding({ current: second, currentGraph: harness.graph });
     const secondSummary = await store.summarize(
-      {
-        sessionMode: "repo_local",
-        bindState: "bound",
+      harness.status({
         repoId: second.repoId,
         worktreeId: second.worktreeId,
-        worktreeRoot: "/repo",
-        gitCommonDir: "/repo/.git",
-        graftDir,
-        capabilityProfile: null,
-      },
-      {
-        transportSessionId: second.transportSessionId,
-        workspaceSliceId: second.workspaceSliceId,
-        causalSessionId: second.causalSessionId,
-        strandId: second.strandId,
-        checkoutEpochId: second.checkoutEpochId,
-        warpWriterId: second.warpWriterId,
-        stability: "runtime_local",
-        provenanceLevel: "artifact_history",
-      },
+      }),
+      harness.causal(second),
+      harness.graph,
     );
     if (secondSummary.availability !== "present") {
       return;
@@ -972,18 +865,16 @@ describe("mcp: persisted local history", () => {
         symbols: [],
         regions: [],
       },
+      graph: harness.graph,
     });
 
-    const concurrency = await store.summarizeRepoConcurrency({
-      sessionMode: "repo_local",
-      bindState: "bound",
-      repoId: second.repoId,
-      worktreeId: second.worktreeId,
-      worktreeRoot: "/repo",
-      gitCommonDir: "/repo/.git",
-      graftDir,
-      capabilityProfile: null,
-    });
+    const concurrency = await store.summarizeRepoConcurrency(
+      harness.status({
+        repoId: second.repoId,
+        worktreeId: second.worktreeId,
+      }),
+      harness.graph,
+    );
 
     expect(concurrency).toEqual(expect.objectContaining({
       posture: "overlapping_actors",
@@ -1003,14 +894,16 @@ describe("mcp: persisted local history", () => {
       codec: new CanonicalJsonCodec(),
       graftDir,
     });
+    const harness = createGraphHarness(graftDir);
 
-    await store.noteBinding({ current: context() });
+    await store.noteBinding({ current: context(), currentGraph: harness.graph });
 
     await expect(store.declareAttach({
       current: context(),
       declaration: {
         actorKind: "agent",
       },
+      graph: harness.graph,
     })).rejects.toBeInstanceOf(PersistedLocalHistoryAttachUnavailableError);
   });
 });

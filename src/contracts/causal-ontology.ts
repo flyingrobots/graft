@@ -44,6 +44,8 @@ export const EVIDENCE_KINDS = [
   "explicit_user_declaration",
   "explicit_agent_declaration",
   "conflicting_actor_signal",
+  "environment_observation",
+  "session_continuity_observation",
 ] as const;
 
 export const evidenceKindSchema = z.enum(EVIDENCE_KINDS);
@@ -83,6 +85,9 @@ export type AttributionConfidence = z.infer<typeof attributionConfidenceSchema>;
 export const ATTRIBUTION_BASES = [
   "explicit_declaration",
   "git_transition",
+  "transport_session",
+  "session_continuity",
+  "environment_inference",
   "unknown_fallback",
   "conflicting_signals",
 ] as const;

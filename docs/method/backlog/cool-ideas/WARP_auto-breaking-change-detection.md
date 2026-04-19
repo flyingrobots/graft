@@ -1,3 +1,7 @@
+---
+title: "Automatic breaking change detection"
+---
+
 # Automatic breaking change detection
 
 Compare export surfaces between two tags. Exported signature

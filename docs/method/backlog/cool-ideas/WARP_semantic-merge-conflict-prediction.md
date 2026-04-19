@@ -1,3 +1,7 @@
+---
+title: "Semantic merge conflict prediction"
+---
+
 # Semantic merge conflict prediction
 
 Before you merge, WARP detects: "Branch A changed evaluatePolicy's

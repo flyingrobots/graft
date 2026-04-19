@@ -1,3 +1,7 @@
+---
+title: "Non-Codex instruction bootstrap parity"
+---
+
 # Non-Codex instruction bootstrap parity
 
 Cycle 0047 gives Codex a stronger bootstrap path by seeding `AGENTS.md`

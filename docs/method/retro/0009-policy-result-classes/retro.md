@@ -1,3 +1,7 @@
+---
+title: "Retrospective — Cycle 0009: PolicyResult Class Hierarchy"
+---
+
 # Retrospective — Cycle 0009: PolicyResult Class Hierarchy
 
 **Type:** Debt (CLEAN_CODE)

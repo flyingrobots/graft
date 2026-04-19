@@ -1,3 +1,7 @@
+---
+title: "Policy profiles"
+---
+
 # Policy profiles
 
 Named policy presets: balanced / strict / feral. Different thresholds,

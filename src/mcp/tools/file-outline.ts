@@ -2,7 +2,8 @@ import { z } from "zod";
 import { fileOutline } from "../../operations/file-outline.js";
 import { detectStructuredFormat } from "../../parser/lang.js";
 import { hashContent } from "../cache.js";
-import type { ToolDefinition, ToolContext, ToolHandler } from "../context.js";
+import type { ToolDefinition, ToolHandler } from "../context.js";
+import { toJsonObject } from "../../operations/result-dto.js";
 
 export const fileOutlineTool: ToolDefinition = {
   name: "file_outline",
@@ -12,9 +13,10 @@ export const fileOutlineTool: ToolDefinition = {
     "for targeted read_range follow-ups.",
   schema: { path: z.string() },
   policyCheck: true,
-  createHandler(ctx: ToolContext): ToolHandler {
-    return async (args) => {
+  createHandler(): ToolHandler {
+    return async (args, ctx) => {
       const filePath = ctx.resolvePath(args["path"] as string);
+      ctx.recordFootprint({ paths: [filePath] });
 
       // Check cache
       let rawContent: string | null = null;
@@ -31,6 +33,9 @@ export const fileOutlineTool: ToolDefinition = {
         if (cacheResult.hit) {
           cacheResult.obs.touch();
           ctx.metrics.recordCacheHit(cacheResult.obs.actual.bytes);
+          ctx.recordFootprint({
+            symbols: cacheResult.obs.outline.map((e) => e.name),
+          });
           return ctx.respond("file_outline", {
             path: filePath,
             outline: cacheResult.obs.outline,
@@ -43,6 +48,7 @@ export const fileOutlineTool: ToolDefinition = {
 
       const result = await fileOutline(filePath, { fs: ctx.fs });
       ctx.metrics.recordOutline();
+      ctx.recordFootprint({ symbols: result.outline.map((e) => e.name) });
 
       // Record observation
       if (rawContent !== null && outlineSupported && result.reason !== "UNSUPPORTED_LANGUAGE") {
@@ -55,7 +61,7 @@ export const fileOutlineTool: ToolDefinition = {
         );
       }
 
-      return ctx.respond("file_outline", result);
+      return ctx.respond("file_outline", toJsonObject(result));
     };
   },
 };

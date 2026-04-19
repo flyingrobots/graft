@@ -1,11 +1,11 @@
 import { Tripwire } from "./types.js";
-import type { SessionDepth } from "./types.js";
+import type { GovernorDepth } from "./types.js";
 
 const EDIT_BASH_TOOLS = new Set(["Edit", "Bash"]);
 const LATE_READ_BYTE_THRESHOLD = 20480;
 const LATE_READ_MESSAGE_THRESHOLD = 300;
 
-export interface SessionTrackerSnapshot {
+export interface GovernorTrackerSnapshot {
   readonly totalMessages: number;
   readonly toolCallsSinceUser: number;
   readonly editBashTransitions: number;
@@ -14,7 +14,7 @@ export interface SessionTrackerSnapshot {
   readonly consumedBytes: number;
 }
 
-export class SessionTracker {
+export class GovernorTracker {
   private totalMessages = 0;
   private toolCallsSinceUser = 0;
   private editBashTransitions = 0;
@@ -22,8 +22,8 @@ export class SessionTracker {
   private budgetBytes: number | null = null;
   private consumedBytes = 0;
 
-  static fromSnapshot(snapshot: SessionTrackerSnapshot): SessionTracker {
-    const tracker = new SessionTracker();
+  static fromSnapshot(snapshot: GovernorTrackerSnapshot): GovernorTracker {
+    const tracker = new GovernorTracker();
     tracker.totalMessages = snapshot.totalMessages;
     tracker.toolCallsSinceUser = snapshot.toolCallsSinceUser;
     tracker.editBashTransitions = snapshot.editBashTransitions;
@@ -122,7 +122,7 @@ export class SessionTracker {
     };
   }
 
-  snapshot(): SessionTrackerSnapshot {
+  snapshot(): GovernorTrackerSnapshot {
     return {
       totalMessages: this.totalMessages,
       toolCallsSinceUser: this.toolCallsSinceUser,
@@ -133,7 +133,7 @@ export class SessionTracker {
     };
   }
 
-  getSessionDepth(): SessionDepth {
+  getGovernorDepth(): GovernorDepth {
     if (this.totalMessages < 100) {
       return "early";
     }

@@ -1,28 +1,26 @@
-import * as path from "node:path";
-import { CanonicalJsonCodec } from "../adapters/canonical-json.js";
 import {
   CAPABILITY_REGISTRY,
   cliCommandKey,
   cliCommandPath,
-  type CliCommandName,
-  type McpToolName,
 } from "../contracts/capabilities.js";
 import {
-  attachCliSchemaMeta,
   cliCommandMcpTool,
-  validateCliOutput,
 } from "../contracts/output-schemas.js";
-import { createGraftServer, type McpToolResult } from "../mcp/server.js";
 import { startDaemonServer, type GraftDaemonServer } from "../mcp/daemon-server.js";
 import { startStdioServer } from "../mcp/stdio-server.js";
+import {
+  parseCommand,
+  parseDaemonCommand,
+  parseGlobalOptions,
+} from "./command-parser.js";
+import { describeCliFailure, writeCliError } from "./cli-error.js";
 import { runIndex } from "./index-cmd.js";
 import { runInit } from "./init.js";
+import { runLocalHistoryDag } from "./local-history-dag.js";
+import { runMigrateLocalHistory } from "./migrate-local-history.js";
+import { emitPeerCommand, invokePeerCommand, writeLine, type Writer } from "./peer-command.js";
 
-const codec = new CanonicalJsonCodec();
-
-interface Writer {
-  write(chunk: string): unknown;
-}
+export { resolveEntrypointArgs } from "./command-parser.js";
 
 export interface RunCliOptions {
   cwd?: string | undefined;
@@ -31,308 +29,6 @@ export interface RunCliOptions {
   stderr?: Writer | undefined;
   startServer?: ((cwd: string) => Promise<void>) | undefined;
   startDaemon?: ((options: { socketPath?: string | undefined }) => Promise<GraftDaemonServer>) | undefined;
-}
-
-interface GlobalCliOptions {
-  cwd: string;
-  argv: string[];
-}
-
-interface ParsedCommand {
-  command: CliCommandName;
-  json: boolean;
-  args: Record<string, unknown>;
-}
-
-export function resolveEntrypointArgs(
-  args: readonly string[],
-  stdinIsTTY: boolean | undefined,
-  stdoutIsTTY: boolean | undefined,
-): string[] {
-  if (args.length === 0 && stdinIsTTY !== true && stdoutIsTTY !== true) {
-    return ["serve"];
-  }
-  return [...args];
-}
-
-function writeLine(writer: Writer, line = ""): void {
-  writer.write(`${line}\n`);
-}
-
-function parseToolResult(result: McpToolResult): Record<string, unknown> {
-  const payload = result.content.find((item) => item.type === "text");
-  if (payload === undefined) {
-    throw new Error("Tool result did not contain a text payload");
-  }
-  const parsed = JSON.parse(payload.text) as unknown;
-  if (parsed === null || typeof parsed !== "object" || Array.isArray(parsed)) {
-    throw new Error("Tool result was not a JSON object");
-  }
-  return parsed as Record<string, unknown>;
-}
-
-function emitPeerCommand(
-  command: CliCommandName,
-  data: Record<string, unknown>,
-  json: boolean,
-  writer: Writer,
-): void {
-  const { _schema: _mcpSchema, ...rest } = data;
-  const validated = validateCliOutput(command, attachCliSchemaMeta(command, rest));
-  if (json) {
-    writer.write(`${codec.encode(validated)}\n`);
-    return;
-  }
-  writer.write(`${JSON.stringify(validated, null, 2)}\n`);
-}
-
-function consumeFlag(args: string[], flag: string): boolean {
-  const index = args.indexOf(flag);
-  if (index === -1) return false;
-  args.splice(index, 1);
-  return true;
-}
-
-function consumeOption(args: string[], flag: string): string | undefined {
-  const index = args.indexOf(flag);
-  if (index === -1) return undefined;
-  if (index === args.length - 1) {
-    throw new Error(`Missing value for ${flag}`);
-  }
-  const [value] = args.splice(index, 2).slice(1);
-  return value;
-}
-
-function consumePositional(args: string[], label: string): string {
-  const value = args.shift();
-  if (value === undefined) {
-    throw new Error(`Missing ${label}`);
-  }
-  return value;
-}
-
-function expectNoArgs(args: string[]): void {
-  if (args.length > 0) {
-    throw new Error(`Unexpected arguments: ${args.join(" ")}`);
-  }
-}
-
-function parsePositiveInt(raw: string | undefined, flag: string): number {
-  if (raw === undefined) {
-    throw new Error(`Missing value for ${flag}`);
-  }
-  const value = Number.parseInt(raw, 10);
-  if (!Number.isInteger(value) || value <= 0) {
-    throw new Error(`${flag} must be a positive integer`);
-  }
-  return value;
-}
-
-function parseDaemonCommand(cwd: string, argv: string[]): { socketPath?: string } {
-  const socketPath = consumeOption(argv, "--socket");
-  expectNoArgs(argv);
-  return socketPath !== undefined ? { socketPath: path.resolve(cwd, socketPath) } : {};
-}
-
-function parseGlobalOptions(
-  cwd: string,
-  args: readonly string[],
-): GlobalCliOptions {
-  const rest = [...args];
-  const override = consumeOption(rest, "--cwd");
-  return {
-    cwd: override !== undefined ? path.resolve(cwd, override) : cwd,
-    argv: rest,
-  };
-}
-
-function parseReadCommand(argv: string[]): ParsedCommand {
-  const subcommand = consumePositional(argv, "read subcommand");
-  const json = consumeFlag(argv, "--json");
-
-  if (subcommand === "safe") {
-    const filePath = consumePositional(argv, "path");
-    expectNoArgs(argv);
-    return { command: "read_safe", json, args: { path: filePath } };
-  }
-
-  if (subcommand === "outline") {
-    const filePath = consumePositional(argv, "path");
-    expectNoArgs(argv);
-    return { command: "read_outline", json, args: { path: filePath } };
-  }
-
-  if (subcommand === "range") {
-    const filePath = consumePositional(argv, "path");
-    const start = parsePositiveInt(consumeOption(argv, "--start"), "--start");
-    const end = parsePositiveInt(consumeOption(argv, "--end"), "--end");
-    expectNoArgs(argv);
-    return { command: "read_range", json, args: { path: filePath, start, end } };
-  }
-
-  if (subcommand === "changed") {
-    const filePath = consumePositional(argv, "path");
-    const consume = consumeFlag(argv, "--consume");
-    expectNoArgs(argv);
-    return { command: "read_changed", json, args: { path: filePath, consume } };
-  }
-
-  throw new Error(`Unknown read subcommand: ${subcommand}`);
-}
-
-function parseStructCommand(argv: string[]): ParsedCommand {
-  const subcommand = consumePositional(argv, "struct subcommand");
-  const json = consumeFlag(argv, "--json");
-
-  if (subcommand === "diff") {
-    const base = consumeOption(argv, "--base");
-    const head = consumeOption(argv, "--head");
-    const filePath = consumeOption(argv, "--path");
-    expectNoArgs(argv);
-    return {
-      command: "struct_diff",
-      json,
-      args: {
-        ...(base !== undefined ? { base } : {}),
-        ...(head !== undefined ? { head } : {}),
-        ...(filePath !== undefined ? { path: filePath } : {}),
-      },
-    };
-  }
-
-  if (subcommand === "since") {
-    const base = consumePositional(argv, "base ref");
-    const head = consumeOption(argv, "--head");
-    expectNoArgs(argv);
-    return {
-      command: "struct_since",
-      json,
-      args: {
-        base,
-        ...(head !== undefined ? { head } : {}),
-      },
-    };
-  }
-
-  if (subcommand === "map") {
-    const directory = argv[0]?.startsWith("--") === false ? consumePositional(argv, "directory") : undefined;
-    expectNoArgs(argv);
-    return {
-      command: "struct_map",
-      json,
-      args: directory !== undefined ? { path: directory } : {},
-    };
-  }
-
-  throw new Error(`Unknown struct subcommand: ${subcommand}`);
-}
-
-function parseSymbolCommand(argv: string[]): ParsedCommand {
-  const subcommand = consumePositional(argv, "symbol subcommand");
-  const json = consumeFlag(argv, "--json");
-
-  if (subcommand === "show") {
-    const symbol = consumePositional(argv, "symbol");
-    const filePath = consumeOption(argv, "--path");
-    const ref = consumeOption(argv, "--ref");
-    expectNoArgs(argv);
-    return {
-      command: "symbol_show",
-      json,
-      args: {
-        symbol,
-        ...(filePath !== undefined ? { path: filePath } : {}),
-        ...(ref !== undefined ? { ref } : {}),
-      },
-    };
-  }
-
-  if (subcommand === "find") {
-    const query = consumePositional(argv, "query");
-    const kind = consumeOption(argv, "--kind");
-    const filePath = consumeOption(argv, "--path");
-    expectNoArgs(argv);
-    return {
-      command: "symbol_find",
-      json,
-      args: {
-        query,
-        ...(kind !== undefined ? { kind } : {}),
-        ...(filePath !== undefined ? { path: filePath } : {}),
-      },
-    };
-  }
-
-  throw new Error(`Unknown symbol subcommand: ${subcommand}`);
-}
-
-function parseDiagCommand(argv: string[]): ParsedCommand {
-  const subcommand = consumePositional(argv, "diag subcommand");
-  const json = consumeFlag(argv, "--json");
-
-  if (subcommand === "doctor") {
-    expectNoArgs(argv);
-    return { command: "diag_doctor", json, args: {} };
-  }
-
-  if (subcommand === "activity") {
-    const limit = consumeOption(argv, "--limit");
-    expectNoArgs(argv);
-    return {
-      command: "diag_activity",
-      json,
-      args: {
-        ...(limit !== undefined ? { limit: parsePositiveInt(limit, "--limit") } : {}),
-      },
-    };
-  }
-
-  if (subcommand === "explain") {
-    const code = consumePositional(argv, "reason code");
-    expectNoArgs(argv);
-    return { command: "diag_explain", json, args: { code } };
-  }
-
-  if (subcommand === "stats") {
-    expectNoArgs(argv);
-    return { command: "diag_stats", json, args: {} };
-  }
-
-  if (subcommand === "capture") {
-    const tail = consumeOption(argv, "--tail");
-    const separator = argv.indexOf("--");
-    const commandTokens = separator === -1 ? [...argv] : argv.slice(separator + 1);
-    if (separator !== -1) {
-      argv.splice(separator);
-    } else {
-      argv.length = 0;
-    }
-    expectNoArgs(argv);
-    if (commandTokens.length === 0) {
-      throw new Error("Missing shell command");
-    }
-    return {
-      command: "diag_capture",
-      json,
-      args: {
-        command: commandTokens.join(" "),
-        ...(tail !== undefined ? { tail: parsePositiveInt(tail, "--tail") } : {}),
-      },
-    };
-  }
-
-  throw new Error(`Unknown diag subcommand: ${subcommand}`);
-}
-
-function parseCommand(argv: string[]): ParsedCommand {
-  const group = consumePositional(argv, "command");
-
-  if (group === "read") return parseReadCommand(argv);
-  if (group === "struct") return parseStructCommand(argv);
-  if (group === "symbol") return parseSymbolCommand(argv);
-  if (group === "diag") return parseDiagCommand(argv);
-
-  throw new Error(`Unknown command: ${group}`);
 }
 
 function renderHelp(writer: Writer): void {
@@ -356,7 +52,7 @@ function renderHelp(writer: Writer): void {
     grouped.set(section, bucket);
   }
 
-  for (const section of ["project", "read", "struct", "symbol", "diag"]) {
+  for (const section of ["project", "migrate", "read", "struct", "symbol", "diag"]) {
     const entries = grouped.get(section);
     if (entries === undefined) continue;
     writeLine(writer, `${section}:`);
@@ -367,24 +63,22 @@ function renderHelp(writer: Writer): void {
   }
 }
 
-async function invokePeerCommand(
-  cwd: string,
-  command: CliCommandName,
-  tool: McpToolName,
-  args: Record<string, unknown>,
-): Promise<Record<string, unknown>> {
-  const server = createGraftServer({
-    projectRoot: cwd,
-    graftDir: path.join(cwd, ".graft"),
-  });
-  return parseToolResult(await server.callTool(tool, args));
-}
-
 export async function runCli(options: RunCliOptions = {}): Promise<void> {
   const stdout = options.stdout ?? process.stdout;
   const stderr = options.stderr ?? process.stderr;
   const baseCwd = options.cwd ?? process.cwd();
-  const { cwd, argv } = parseGlobalOptions(baseCwd, options.args ?? process.argv.slice(2));
+  let cwd: string;
+  let argv: string[];
+  try {
+    ({ cwd, argv } = parseGlobalOptions(baseCwd, options.args ?? process.argv.slice(2)));
+  } catch (err: unknown) {
+    process.exitCode = 1;
+    writeCliError(stderr, err instanceof Error ? err.message : String(err), {
+      usage: "graft [--cwd <path>] <command> ...",
+      nextSteps: ["Run `graft help` to see the grouped command surface."],
+    });
+    return;
+  }
 
   if (argv.length === 0 || argv[0] === "help" || argv[0] === "--help") {
     renderHelp(stdout);
@@ -404,7 +98,7 @@ export async function runCli(options: RunCliOptions = {}): Promise<void> {
   if (argv[0] === "serve") {
     if (argv.length > 1) {
       process.exitCode = 1;
-      writeLine(stderr, `Error: Unexpected arguments: ${argv.slice(1).join(" ")}`);
+      writeCliError(stderr, `Unexpected arguments: ${argv.slice(1).join(" ")}`, describeCliFailure(argv));
       return;
     }
     await (options.startServer ?? startStdioServer)(cwd);
@@ -417,21 +111,40 @@ export async function runCli(options: RunCliOptions = {}): Promise<void> {
       writeLine(stdout, `Daemon listening on ${daemon.socketPath}`);
     } catch (err: unknown) {
       process.exitCode = 1;
-      writeLine(stderr, `Error: ${err instanceof Error ? err.message : String(err)}`);
+      writeCliError(stderr, err instanceof Error ? err.message : String(err), describeCliFailure(argv));
     }
     return;
   }
 
   try {
     const parsed = parseCommand([...argv]);
+    if (parsed.command === "migrate_local_history") {
+      await runMigrateLocalHistory({
+        cwd,
+        json: parsed.json,
+        stdout,
+        stderr,
+      });
+      return;
+    }
+    if (parsed.command === "diag_local_history_dag") {
+      await runLocalHistoryDag({
+        cwd,
+        limit: typeof parsed.args["limit"] === "number" ? parsed.args["limit"] : 12,
+        json: parsed.json,
+        stdout,
+        stderr,
+      });
+      return;
+    }
     const tool = cliCommandMcpTool(parsed.command);
     if (tool === null) {
       throw new Error(`Command ${cliCommandKey(cliCommandPath(parsed.command))} has no MCP peer`);
     }
-    const result = await invokePeerCommand(cwd, parsed.command, tool, parsed.args);
+    const result = await invokePeerCommand(cwd, tool, parsed.args);
     emitPeerCommand(parsed.command, result, parsed.json, stdout);
   } catch (err: unknown) {
     process.exitCode = 1;
-    writeLine(stderr, `Error: ${err instanceof Error ? err.message : String(err)}`);
+    writeCliError(stderr, err instanceof Error ? err.message : String(err), describeCliFailure(argv));
   }
 }

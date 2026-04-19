@@ -182,6 +182,10 @@ export async function runCodeShow(
   }
 
   if (visibleLocations.length > 1) {
+    ctx.recordFootprint({
+      paths: [...new Set(visibleLocations.map((m) => m.path))],
+      symbols: visibleLocations.map((m) => m.name),
+    });
     return ctx.respond("code_show", {
       symbol: symbolName,
       ambiguous: true,
@@ -219,6 +223,12 @@ export async function runCodeShow(
     ? readRangeFromContent(loc.path, content, loc.startLine, loc.endLine)
     : await readRange(ctx.resolvePath(loc.path), loc.startLine, loc.endLine, { fs: ctx.fs });
 
+  ctx.recordFootprint({
+    paths: [loc.path],
+    symbols: [loc.name],
+    regions: [{ path: loc.path, startLine: loc.startLine, endLine: loc.endLine }],
+  });
+
   return ctx.respond("code_show", {
     symbol: loc.name,
     kind: loc.kind,
@@ -246,7 +256,7 @@ export const codeShowTool: ToolDefinition = {
     path: z.string().optional(),
     ref: z.string().optional(),
   },
-  createHandler(ctx: ToolContext): ToolHandler {
-    return (args) => runCodeShow(ctx, args, { allowWarp: true });
+  createHandler(): ToolHandler {
+    return (args, ctx) => runCodeShow(ctx, args, { allowWarp: true });
   },
 };

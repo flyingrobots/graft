@@ -1,399 +1,44 @@
 /**
  * WARP Indexer — walks git history and writes structural delta
  * patches into the WARP graph.
- *
- * Observer Law: this module WRITES facts. It never reads them back.
- * Reading is done exclusively through observers (see observers.ts).
  */
 
-import type WarpApp from "@git-stunts/git-warp";
-import type { GitClient } from "../ports/git.js";
-import { extractOutline } from "../parser/outline.js";
-import { diffOutlines } from "../parser/diff.js";
-import { detectLang } from "../parser/lang.js";
-import { getFileAtRef } from "../git/diff.js";
-import type { OutlineEntry, JumpEntry } from "../parser/types.js";
-import type { DiffEntry } from "../parser/diff.js";
+import type { WarpHandle } from "../ports/warp.js";
+import { assignCanonicalSymbolIdentities } from "./symbol-identity.js";
+import {
+  applyModifiedSymbols,
+  emitDirectoryChain,
+  emitSymbols,
+  loadPriorIdentityMap,
+  removeSymbols,
+  resolveParentTick,
+} from "./indexer-graph.js";
+import {
+  getCommitChanges,
+  getCommitMeta,
+  getParentSha,
+  hasParent,
+  listCommits,
+  prepareChange,
+} from "./indexer-git.js";
+import { fileNodeId, type IndexOptions, type IndexResult, type PatchOps } from "./indexer-model.js";
 
-export interface IndexOptions {
-  readonly cwd: string;
-  readonly git: GitClient;
-  readonly from?: string;
-  readonly to?: string;
-}
+export type { IndexOptions, IndexResult } from "./indexer-model.js";
 
-export interface IndexResult {
-  readonly commitsIndexed: number;
-  readonly patchesWritten: number;
-  readonly commitTicks: ReadonlyMap<string, number>;
-}
-
-// Patch builder shape — matches PatchBuilderV2's fluent API.
-interface PatchOps {
-  addNode(id: string): PatchOps;
-  removeNode(id: string): PatchOps;
-  setProperty(id: string, key: string, value: unknown): PatchOps;
-  addEdge(from: string, to: string, label: string): PatchOps;
-  removeEdge(from: string, to: string, label: string): PatchOps;
-}
-
-interface PreparedChange {
-  readonly status: string;
-  readonly filePath: string;
-  readonly fileId: string;
-  readonly lang: string | null;
-  readonly parentExists: boolean;
-  readonly oldOutline: readonly OutlineEntry[];
-  readonly newOutline?: readonly OutlineEntry[] | undefined;
-  readonly jumpLookup?: Map<string, { start: number; end: number }> | undefined;
-  readonly diff?: ReturnType<typeof diffOutlines> | undefined;
-}
-
-async function git(gitClient: GitClient, cwd: string, args: readonly string[]): Promise<string> {
-  const result = await gitClient.run({ cwd, args });
-  if (result.error !== undefined || result.status !== 0) {
-    throw result.error ?? new Error(result.stderr.trim() || `git exited with status ${String(result.status)}`);
-  }
-  return result.stdout;
-}
-
-async function listCommits(gitClient: GitClient, cwd: string, from?: string, to?: string): Promise<string[]> {
-  const range = from !== undefined ? `${from}..${to ?? "HEAD"}` : to ?? "HEAD";
-  const args = ["log", "--reverse", "--format=%H", range];
-  try {
-    return (await git(gitClient, cwd, args))
-      .trim().split("\n").filter((l) => l.length > 0);
-  } catch {
-    return [];
-  }
-}
-
-async function getCommitChanges(
-  gitClient: GitClient,
-  sha: string,
-  cwd: string,
-): Promise<{ status: string; path: string }[]> {
-  // --root handles the initial commit (no parent to diff against)
-  const args = ["diff-tree", "--root", "--no-commit-id", "-r", "--name-status", sha];
-  try {
-    return (await git(gitClient, cwd, args))
-      .trim().split("\n").filter((l) => l.length > 0).map((line) => {
-        const parts = line.split("\t");
-        return { status: parts[0] ?? "", path: parts[1] ?? "" };
-      });
-  } catch {
-    return [];
-  }
-}
-
-async function getCommitMeta(
-  gitClient: GitClient,
-  sha: string,
-  cwd: string,
-): Promise<{ message: string; author: string; email: string; timestamp: string }> {
-  try {
-    const output = await git(gitClient, cwd, ["log", "-1", "--format=%s%n%aN%n%aE%n%aI", sha]);
-    const lines = output.trim().split("\n");
-    return { message: lines[0] ?? "", author: lines[1] ?? "", email: lines[2] ?? "", timestamp: lines[3] ?? "" };
-  } catch {
-    return { message: "", author: "", email: "", timestamp: "" };
-  }
-}
-
-/**
- * Check if a commit has a parent (is not the root commit).
- */
-async function hasParent(gitClient: GitClient, sha: string, cwd: string): Promise<boolean> {
-  try {
-    await git(gitClient, cwd, ["rev-parse", "--verify", `${sha}~1`]);
-    return true;
-  } catch {
-    return false;
-  }
-}
-
-function dirNodeId(dirPath: string): string {
-  return `dir:${dirPath}`;
-}
-
-function fileNodeId(filePath: string): string {
-  return `file:${filePath}`;
-}
-
-function symNodeId(filePath: string, name: string): string {
-  return `sym:${filePath}:${name}`;
-}
-
-/**
- * Build a lookup from symbol name → line range from the jump table.
- */
-function buildJumpLookup(jumpTable: readonly JumpEntry[]): Map<string, { start: number; end: number }> {
-  const lookup = new Map<string, { start: number; end: number }>();
-  for (const entry of jumpTable) {
-    lookup.set(entry.symbol, { start: entry.start, end: entry.end });
-  }
-  return lookup;
-}
-
-/**
- * Emit directory nodes + edges for all path components of a file.
- */
-function emitDirectoryChain(patch: PatchOps, filePath: string): void {
-  const parts = filePath.split("/");
-  if (parts.length <= 1) return;
-
-  let current = "";
-  for (let i = 0; i < parts.length - 1; i++) {
-    const parent = current;
-    const part = parts[i] ?? "";
-    current = current.length > 0 ? `${current}/${part}` : part;
-    const dirId = dirNodeId(current);
-    patch.addNode(dirId);
-    patch.setProperty(dirId, "path", current);
-
-    if (parent.length > 0) {
-      patch.addEdge(dirNodeId(parent), dirId, "contains");
-    }
-  }
-
-  patch.addEdge(dirNodeId(current), fileNodeId(filePath), "contains");
-}
-
-/**
- * Emit symbol nodes + edges for all entries in a file outline.
- */
-function emitSymbols(
-  patch: PatchOps,
-  filePath: string,
-  entries: readonly OutlineEntry[],
-  jumpLookup: Map<string, { start: number; end: number }>,
-  parentSymId?: string,
-): void {
-  for (const entry of entries) {
-    const symId = symNodeId(filePath, entry.name);
-    patch.addNode(symId);
-    patch.setProperty(symId, "name", entry.name);
-    patch.setProperty(symId, "kind", entry.kind);
-    patch.setProperty(symId, "exported", entry.exported);
-    if (entry.signature !== undefined) {
-      patch.setProperty(symId, "signature", entry.signature);
-    }
-    const jump = jumpLookup.get(entry.name);
-    if (jump !== undefined) {
-      patch.setProperty(symId, "startLine", jump.start);
-      patch.setProperty(symId, "endLine", jump.end);
-    }
-    patch.addEdge(fileNodeId(filePath), symId, "contains");
-    if (parentSymId !== undefined) {
-      patch.addEdge(parentSymId, symId, "child_of");
-    }
-    if (entry.children !== undefined && entry.children.length > 0) {
-      emitSymbols(patch, filePath, entry.children, jumpLookup, symId);
-    }
-  }
-}
-
-/**
- * Tombstone (remove) symbol nodes recursively including children.
- */
-function removeSymbols(
-  patch: PatchOps,
-  filePath: string,
-  entries: readonly OutlineEntry[],
-): void {
-  for (const entry of entries) {
-    // Recurse into children FIRST (bottom-up removal)
-    if (entry.children !== undefined && entry.children.length > 0) {
-      removeSymbols(patch, filePath, entry.children);
-    }
-    const symId = symNodeId(filePath, entry.name);
-    patch.removeEdge(fileNodeId(filePath), symId, "contains");
-    patch.removeNode(symId);
-  }
-}
-
-/**
- * Remove symbols from DiffEntry (removed symbols in a diff).
- * Also recursively handles childDiff if present.
- */
-function removeDiffSymbols(
-  patch: PatchOps,
-  filePath: string,
-  fileId: string,
-  entries: readonly DiffEntry[],
-): void {
-  for (const entry of entries) {
-    // Recurse into childDiff if present (remove grandchildren first)
-    if (entry.childDiff !== undefined) {
-      removeDiffSymbols(patch, filePath, fileId, [...entry.childDiff.removed]);
-      removeDiffSymbols(patch, filePath, fileId, [...entry.childDiff.added]);
-      removeDiffSymbols(patch, filePath, fileId, [...entry.childDiff.changed]);
-    }
-    const symId = symNodeId(filePath, entry.name);
-    patch.removeEdge(fileId, symId, "contains");
-    patch.removeNode(symId);
-  }
-}
-
-/**
- * Apply child diffs for changed symbols (methods added/removed/changed
- * inside a class that kept its name).
- */
-function applyChildDiffs(
-  patch: PatchOps,
-  filePath: string,
-  fileId: string,
-  commitId: string,
-  changed: readonly DiffEntry[],
-  jumpLookup: Map<string, { start: number; end: number }>,
-): void {
-  for (const entry of changed) {
-    if (entry.childDiff === undefined) continue;
-    const parentSymId = symNodeId(filePath, entry.name);
-
-    for (const added of entry.childDiff.added) {
-      const symId = symNodeId(filePath, added.name);
-      patch.addNode(symId);
-      patch.setProperty(symId, "name", added.name);
-      patch.setProperty(symId, "kind", added.kind);
-      patch.setProperty(symId, "exported", false);
-      if (added.signature !== undefined) {
-        patch.setProperty(symId, "signature", added.signature);
-      }
-      const jump = jumpLookup.get(added.name);
-      if (jump !== undefined) {
-        patch.setProperty(symId, "startLine", jump.start);
-        patch.setProperty(symId, "endLine", jump.end);
-      }
-      patch.addEdge(fileId, symId, "contains");
-      patch.addEdge(parentSymId, symId, "child_of");
-      patch.addEdge(commitId, symId, "adds");
-    }
-
-    for (const removed of entry.childDiff.removed) {
-      const symId = symNodeId(filePath, removed.name);
-      patch.addEdge(commitId, symId, "removes");
-      patch.removeEdge(fileId, symId, "contains");
-      patch.removeNode(symId);
-    }
-
-    // Recurse into changed children that have their own childDiffs
-    applyChildDiffs(patch, filePath, fileId, commitId, [...entry.childDiff.changed], jumpLookup);
-
-    for (const child of entry.childDiff.changed) {
-      const symId = symNodeId(filePath, child.name);
-      patch.setProperty(symId, "kind", child.kind);
-      if (child.signature !== undefined) {
-        patch.setProperty(symId, "signature", child.signature);
-      }
-      patch.addEdge(commitId, symId, "changes");
-    }
-  }
-}
-
-async function prepareChange(
-  gitClient: GitClient,
-  cwd: string,
-  sha: string,
-  parentRef: string,
-  parentExists: boolean,
-  change: { status: string; path: string },
-): Promise<PreparedChange> {
-  const filePath = change.path;
-  const fileId = fileNodeId(filePath);
-  const lang = detectLang(filePath);
-
-  if (change.status === "D") {
-    let oldOutline: readonly OutlineEntry[] = [];
-    if (lang !== null && parentExists) {
-      const oldContent = await getFileAtRef(parentRef, filePath, { cwd, git: gitClient });
-      if (oldContent !== null) {
-        oldOutline = extractOutline(oldContent, lang).entries;
-      }
-    }
-    return {
-      status: change.status,
-      filePath,
-      fileId,
-      lang,
-      parentExists,
-      oldOutline,
-    };
-  }
-
-  if (lang === null) {
-    return {
-      status: change.status,
-      filePath,
-      fileId,
-      lang,
-      parentExists,
-      oldOutline: [],
-    };
-  }
-
-  const newContent = await getFileAtRef(sha, filePath, { cwd, git: gitClient });
-  if (newContent === null) {
-    return {
-      status: change.status,
-      filePath,
-      fileId,
-      lang,
-      parentExists,
-      oldOutline: [],
-    };
-  }
-
-  const newResult = extractOutline(newContent, lang);
-  const newOutline = newResult.entries;
-  const jumpLookup = buildJumpLookup(newResult.jumpTable ?? []);
-
-  if (change.status === "A" || !parentExists) {
-    return {
-      status: change.status,
-      filePath,
-      fileId,
-      lang,
-      parentExists,
-      oldOutline: [],
-      newOutline,
-      jumpLookup,
-    };
-  }
-
-  const oldContent = await getFileAtRef(parentRef, filePath, { cwd, git: gitClient });
-  if (oldContent === null) {
-    return {
-      status: change.status,
-      filePath,
-      fileId,
-      lang,
-      parentExists,
-      oldOutline: [],
-      newOutline,
-      jumpLookup,
-    };
-  }
-
-  const oldOutline = extractOutline(oldContent, lang).entries;
-  return {
-    status: change.status,
-    filePath,
-    fileId,
-    lang,
-    parentExists,
-    oldOutline,
-    newOutline,
-    jumpLookup,
-    diff: diffOutlines(oldOutline, newOutline),
-  };
-}
-
-/**
- * Index a range of commits into the WARP graph.
- */
 export async function indexCommits(
-  warp: WarpApp,
+  warp: WarpHandle,
+  options: IndexOptions,
+): Promise<IndexResult> {
+  try {
+    return await indexCommitsCore(warp, options);
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : String(err);
+    return { ok: false, error: message };
+  }
+}
+
+async function indexCommitsCore(
+  warp: WarpHandle,
   options: IndexOptions,
 ): Promise<IndexResult> {
   const { cwd, git: gitClient } = options;
@@ -401,28 +46,52 @@ export async function indexCommits(
 
   let patchesWritten = 0;
   const commitTicks = new Map<string, number>();
+  const liveIdentityByFile = new Map<string, Map<string, string>>();
 
   for (const sha of commits) {
     const changes = await getCommitChanges(gitClient, sha, cwd);
-
-    // Only materialize when removals are possible (D or M status).
-    // Materialization is expensive — O(n) replay of all prior patches.
-    // Add-only commits (A status) and no-change commits don't need it.
-    const hasRemovals = changes.some((c) => c.status === "D" || c.status === "M");
+    const hasRemovals = changes.some((change) =>
+      change.status === "D" || change.status === "M" || change.status === "R"
+    );
     if (hasRemovals) {
-      await warp.core().materialize();
+      await warp.materialize();
     }
 
     const meta = await getCommitMeta(gitClient, sha, cwd);
     const parentExists = await hasParent(gitClient, sha, cwd);
     const parentRef = `${sha}~1`;
+    const parentSha = parentExists ? await getParentSha(gitClient, sha, cwd) : null;
     const preparedChanges = await Promise.all(changes.map((change) =>
       prepareChange(gitClient, cwd, sha, parentRef, parentExists, change)
     ));
+    const parentTick = await resolveParentTick(warp, commitTicks, parentSha);
 
-    await warp.patch((p) => {
-      const patch = p as unknown as PatchOps;
+    const resolvedChanges = await Promise.all(preparedChanges.map(async (change) => {
+      const oldIdentitySourcePath = change.previousPath ?? change.filePath;
+      const oldIdentityByPath = await loadPriorIdentityMap(
+        warp,
+        liveIdentityByFile,
+        oldIdentitySourcePath,
+        parentTick,
+      );
+      const newIdentityByPath = change.lang !== null && change.newOutline !== undefined
+        ? assignCanonicalSymbolIdentities({
+          oldEntries: change.oldOutline,
+          newEntries: change.newOutline,
+          oldIdentityByPath,
+          commitSha: sha,
+          filePath: change.filePath,
+        })
+        : new Map<string, string>();
 
+      return {
+        ...change,
+        newIdentityByPath,
+      };
+    }));
+
+    await warp.patch((builder) => {
+      const patch = builder as unknown as PatchOps;
       const commitId = `commit:${sha}`;
       patch.addNode(commitId);
       patch.setProperty(commitId, "sha", sha);
@@ -430,84 +99,88 @@ export async function indexCommits(
       patch.setProperty(commitId, "author", meta.author);
       patch.setProperty(commitId, "email", meta.email);
       patch.setProperty(commitId, "timestamp", meta.timestamp);
+      patch.setProperty(commitId, "tick", patchesWritten + 1);
 
-      for (const change of preparedChanges) {
+      for (const change of resolvedChanges) {
         if (change.status === "D") {
           if (change.lang !== null) {
-            removeSymbols(patch, change.filePath, change.oldOutline);
+            removeSymbols(patch, change.filePath, change.oldOutline, "", commitId);
           }
           patch.removeNode(change.fileId);
           continue;
         }
 
-        // Added or modified — ensure file + directory nodes exist
         patch.addNode(change.fileId);
         patch.setProperty(change.fileId, "path", change.filePath);
         patch.setProperty(change.fileId, "lang", change.lang ?? "unknown");
         patch.addEdge(commitId, change.fileId, "touches");
         emitDirectoryChain(patch, change.filePath);
 
-        if (change.lang === null || change.newOutline === undefined || change.jumpLookup === undefined) continue;
+        if (change.lang === null || change.newOutline === undefined || change.jumpLookup === undefined) {
+          continue;
+        }
 
-        if (change.status === "A" || !change.parentExists || change.diff === undefined) {
-          // New file or root commit — emit all symbols
-          emitSymbols(patch, change.filePath, change.newOutline, change.jumpLookup);
-        } else {
-          const diff = change.diff;
-
-          // Remove deleted symbols
-          for (const removed of diff.removed) {
-            const symId = symNodeId(change.filePath, removed.name);
-            patch.addEdge(commitId, symId, "removes");
-            removeDiffSymbols(patch, change.filePath, change.fileId, [removed]);
-          }
-
-          // Add new symbols (preserve actual exported status)
-          for (const added of diff.added) {
-            const symId = symNodeId(change.filePath, added.name);
-            patch.addNode(symId);
-            patch.setProperty(symId, "name", added.name);
-            patch.setProperty(symId, "kind", added.kind);
-            // DiffEntry doesn't carry exported — default false for safety.
-            // Full exported status comes from emitSymbols on initial add.
-            patch.setProperty(symId, "exported", false);
-            if (added.signature !== undefined) {
-              patch.setProperty(symId, "signature", added.signature);
-            }
-            const jump = change.jumpLookup.get(added.name);
-            if (jump !== undefined) {
-              patch.setProperty(symId, "startLine", jump.start);
-              patch.setProperty(symId, "endLine", jump.end);
-            }
-            patch.addEdge(change.fileId, symId, "contains");
-            patch.addEdge(commitId, symId, "adds");
-          }
-
-          // Update changed symbols
-          for (const changed of diff.changed) {
-            const symId = symNodeId(change.filePath, changed.name);
-            patch.setProperty(symId, "kind", changed.kind);
-            if (changed.signature !== undefined) {
-              patch.setProperty(symId, "signature", changed.signature);
-            }
-            patch.addEdge(commitId, symId, "changes");
-          }
-
-          // Apply nested child diffs (methods in classes)
-          applyChildDiffs(
+        if (change.status === "R" && change.previousPath !== undefined) {
+          removeSymbols(patch, change.previousPath, change.oldOutline, "", commitId);
+          patch.removeNode(fileNodeId(change.previousPath));
+          emitSymbols(
             patch,
             change.filePath,
-            change.fileId,
-            commitId,
-            [...diff.changed],
+            change.newOutline,
             change.jumpLookup,
+            change.newIdentityByPath,
+            undefined,
+            "",
+            commitId,
           );
+          continue;
         }
+
+        if (change.status === "A" || !change.parentExists || change.diff === undefined) {
+          emitSymbols(
+            patch,
+            change.filePath,
+            change.newOutline,
+            change.jumpLookup,
+            change.newIdentityByPath,
+            undefined,
+            "",
+            commitId,
+          );
+          continue;
+        }
+
+        applyModifiedSymbols(
+          patch,
+          change.filePath,
+          change.fileId,
+          commitId,
+          change.oldOutline,
+          change.newOutline,
+          change.jumpLookup,
+          change.newIdentityByPath,
+        );
       }
     });
+
     patchesWritten++;
     commitTicks.set(sha, patchesWritten);
+
+    for (const change of resolvedChanges) {
+      if (change.status === "D") {
+        liveIdentityByFile.delete(change.filePath);
+        continue;
+      }
+      if (change.previousPath !== undefined && change.previousPath !== change.filePath) {
+        liveIdentityByFile.delete(change.previousPath);
+      }
+      if (change.newOutline !== undefined && change.lang !== null) {
+        liveIdentityByFile.set(change.filePath, new Map(change.newIdentityByPath));
+      } else {
+        liveIdentityByFile.delete(change.filePath);
+      }
+    }
   }
 
-  return { commitsIndexed: commits.length, patchesWritten, commitTicks };
+  return { ok: true, commitsIndexed: commits.length, patchesWritten, commitTicks };
 }

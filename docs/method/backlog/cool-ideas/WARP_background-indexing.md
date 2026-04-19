@@ -1,3 +1,7 @@
+---
+title: "Background WARP indexing"
+---
+
 # Background WARP indexing
 
 Index incrementally on MCP server startup or via post-commit hook.

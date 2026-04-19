@@ -1,0 +1,123 @@
+rules:
+  - id: ts-no-like-types
+    message: Placeholder `*Like` types are banned. Name the real concept.
+    severity: ERROR
+    languages: [typescript]
+    pattern-regex: '\b[A-Z][A-Za-z0-9]*Like\b'
+    paths:
+      include:
+        - src/**/*.ts
+
+  - id: ts-no-double-cast
+    message: '`as unknown as` is banned. Decode or model the type properly.'
+    severity: ERROR
+    languages: [typescript]
+    pattern-regex: 'as\s+unknown\s+as'
+    paths:
+      include:
+        - src/**/*.ts
+
+  - id: ts-no-json-parse-in-core
+    message: 'Decode raw input only in adapters or primary adapters.'
+    severity: ERROR
+    languages: [typescript]
+    pattern: JSON.parse(...)
+    paths:
+      include:
+        - src/operations/**/*.ts
+        - src/policy/**/*.ts
+        - src/parser/**/*.ts
+        - src/session/**/*.ts
+        - src/contracts/**/*.ts
+        - src/guards/**/*.ts
+        - src/ports/**/*.ts
+
+  - id: ts-no-json-stringify-in-core
+    message: 'Encode output only in adapters or primary adapters.'
+    severity: ERROR
+    languages: [typescript]
+    pattern: JSON.stringify(...)
+    paths:
+      include:
+        - src/operations/**/*.ts
+        - src/policy/**/*.ts
+        - src/parser/**/*.ts
+        - src/session/**/*.ts
+        - src/contracts/**/*.ts
+        - src/guards/**/*.ts
+        - src/ports/**/*.ts
+
+  - id: ts-no-fetch-in-core
+    message: 'HTTP calls belong in adapters.'
+    severity: ERROR
+    languages: [typescript]
+    pattern: fetch(...)
+    paths:
+      include:
+        - src/operations/**/*.ts
+        - src/policy/**/*.ts
+        - src/parser/**/*.ts
+        - src/session/**/*.ts
+        - src/contracts/**/*.ts
+        - src/guards/**/*.ts
+        - src/ports/**/*.ts
+
+  - id: ts-no-process-env-in-core
+    message: 'Environment reads belong in adapters.'
+    severity: ERROR
+    languages: [typescript]
+    pattern: process.env
+    paths:
+      include:
+        - src/operations/**/*.ts
+        - src/policy/**/*.ts
+        - src/parser/**/*.ts
+        - src/session/**/*.ts
+        - src/contracts/**/*.ts
+        - src/guards/**/*.ts
+        - src/ports/**/*.ts
+
+  - id: ts-no-date-now-in-core
+    message: 'Use a ClockPort in core code.'
+    severity: ERROR
+    languages: [typescript]
+    pattern: Date.now()
+    paths:
+      include:
+        - src/operations/**/*.ts
+        - src/policy/**/*.ts
+        - src/parser/**/*.ts
+        - src/session/**/*.ts
+        - src/contracts/**/*.ts
+        - src/guards/**/*.ts
+        - src/ports/**/*.ts
+
+  - id: ts-no-new-date-in-core
+    message: 'Use a ClockPort in core code.'
+    severity: ERROR
+    languages: [typescript]
+    pattern: new Date(...)
+    paths:
+      include:
+        - src/operations/**/*.ts
+        - src/policy/**/*.ts
+        - src/parser/**/*.ts
+        - src/session/**/*.ts
+        - src/contracts/**/*.ts
+        - src/guards/**/*.ts
+        - src/ports/**/*.ts
+
+  - id: ts-no-math-random-in-core
+    message: 'Use a RandomPort in core code.'
+    severity: ERROR
+    languages: [typescript]
+    pattern: Math.random()
+    paths:
+      include:
+        - src/operations/**/*.ts
+        - src/policy/**/*.ts
+        - src/parser/**/*.ts
+        - src/session/**/*.ts
+        - src/contracts/**/*.ts
+        - src/guards/**/*.ts
+        - src/ports/**/*.ts

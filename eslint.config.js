@@ -2,6 +2,74 @@ import eslint from "@eslint/js";
 import tseslint from "typescript-eslint";
 import globals from "globals";
 
+const PRIMARY_ADAPTER_IMPORT_PATTERNS = [
+  "**/api",
+  "**/api/**",
+  "**/cli",
+  "**/cli/**",
+  "**/hooks",
+  "**/hooks/**",
+  "**/mcp",
+  "**/mcp/**",
+];
+
+const NON_API_PRIMARY_ADAPTER_IMPORT_PATTERNS = [
+  "**/cli",
+  "**/cli/**",
+  "**/hooks",
+  "**/hooks/**",
+  "**/mcp",
+  "**/mcp/**",
+];
+
+const SECONDARY_ADAPTER_IMPORT_PATTERNS = [
+  "**/adapters",
+  "**/adapters/**",
+  "**/warp",
+  "**/warp/**",
+];
+
+const APPLICATION_IMPORT_PATTERNS = [
+  "**/git",
+  "**/git/**",
+  "**/metrics",
+  "**/metrics/**",
+  "**/operations",
+  "**/operations/**",
+  "**/parser",
+  "**/parser/**",
+  "**/policy",
+  "**/policy/**",
+  "**/release",
+  "**/release/**",
+  "**/session",
+  "**/session/**",
+];
+
+const HOST_LIBRARY_IMPORT_PATTERNS = ["node:*", "@git-stunts/*"];
+
+/**
+ * @param {string[]} files
+ * @param {string} layer
+ * @param {{ message: string, patterns: string[] }[]} groups
+ */
+function withHexBoundaryRestrictions(files, layer, groups) {
+  return {
+    files,
+    rules: {
+      "no-restricted-imports": [
+        "error",
+        {
+          patterns: groups.map(({ message, patterns }) => ({
+            group: patterns,
+            message: `${layer} ${message}`,
+          })),
+        },
+      ],
+    },
+  };
+}
+
 export default tseslint.config(
   eslint.configs.recommended,
   tseslint.configs.strictTypeChecked,
@@ -28,6 +96,134 @@ export default tseslint.config(
           varsIgnorePattern: "^_",
         },
       ],
+    },
+  },
+  withHexBoundaryRestrictions(
+    [
+      "src/contracts/**/*.ts",
+      "src/guards/**/*.ts",
+      "src/format/**/*.ts",
+      "src/metrics/types.ts",
+      "src/release/security-gate.ts",
+    ],
+    "Foundational contracts and pure helpers must not",
+    [
+      {
+        patterns: PRIMARY_ADAPTER_IMPORT_PATTERNS,
+        message: "depend on primary adapters (api, cli, mcp, or hooks).",
+      },
+      {
+        patterns: SECONDARY_ADAPTER_IMPORT_PATTERNS,
+        message: "depend on secondary adapters (adapters or warp).",
+      },
+      {
+        patterns: APPLICATION_IMPORT_PATTERNS,
+        message: "depend on application modules.",
+      },
+      {
+        patterns: HOST_LIBRARY_IMPORT_PATTERNS,
+        message: "import host libraries directly.",
+      },
+      {
+        patterns: ["**/ports", "**/ports/**"],
+        message: "depend on ports.",
+      },
+    ],
+  ),
+  withHexBoundaryRestrictions(
+    ["src/ports/**/*.ts"],
+    "Ports must not",
+    [
+      {
+        patterns: PRIMARY_ADAPTER_IMPORT_PATTERNS,
+        message: "depend on primary adapters (api, cli, mcp, or hooks).",
+      },
+      {
+        patterns: SECONDARY_ADAPTER_IMPORT_PATTERNS,
+        message: "depend on secondary adapters (adapters or warp).",
+      },
+      {
+        patterns: APPLICATION_IMPORT_PATTERNS,
+        message: "depend on application modules.",
+      },
+      {
+        patterns: HOST_LIBRARY_IMPORT_PATTERNS,
+        message: "import host libraries directly.",
+      },
+    ],
+  ),
+  withHexBoundaryRestrictions(
+    [
+      "src/operations/**/*.ts",
+      "src/parser/**/*.ts",
+      "src/policy/**/*.ts",
+      "src/session/**/*.ts",
+      "src/git/diff.ts",
+    ],
+    "Application modules must not",
+    [
+      {
+        patterns: PRIMARY_ADAPTER_IMPORT_PATTERNS,
+        message: "depend on primary adapters (api, cli, mcp, or hooks).",
+      },
+      {
+        patterns: SECONDARY_ADAPTER_IMPORT_PATTERNS,
+        message: "depend on secondary adapters (adapters or warp).",
+      },
+      {
+        patterns: HOST_LIBRARY_IMPORT_PATTERNS,
+        message: "import host libraries directly.",
+      },
+    ],
+  ),
+  withHexBoundaryRestrictions(
+    [
+      "src/adapters/**/*.ts",
+      "src/warp/**/*.ts",
+      "src/git/target-git-hook-bootstrap.ts",
+      "src/metrics/logger.ts",
+    ],
+    "Secondary adapters must not",
+    [
+      {
+        patterns: PRIMARY_ADAPTER_IMPORT_PATTERNS,
+        message: "depend on primary adapters (api, cli, mcp, or hooks).",
+      },
+    ],
+  ),
+  withHexBoundaryRestrictions(
+    ["src/index.ts"],
+    "Package export root must not",
+    [
+      {
+        patterns: NON_API_PRIMARY_ADAPTER_IMPORT_PATTERNS,
+        message: "depend on non-API primary adapters directly.",
+      },
+      {
+        patterns: APPLICATION_IMPORT_PATTERNS,
+        message: "own application logic directly.",
+      },
+      {
+        patterns: SECONDARY_ADAPTER_IMPORT_PATTERNS,
+        message: "depend on secondary adapters directly.",
+      },
+      {
+        patterns: ["**/ports", "**/ports/**"],
+        message: "depend on ports directly.",
+      },
+      {
+        patterns: HOST_LIBRARY_IMPORT_PATTERNS,
+        message: "import host libraries directly.",
+      },
+    ],
+  ),
+  {
+    // parser/runtime.ts is an application module that loads WASM
+    // binaries via node:module — this is the only permitted host
+    // library import in the parser layer.
+    files: ["src/parser/runtime.ts"],
+    rules: {
+      "no-restricted-imports": "off",
     },
   },
   {
@@ -60,6 +256,7 @@ export default tseslint.config(
       ".obsidian/",
       "test/fixtures/",
       "docs/study/infra/",
+      "anti-sludge-policy-bundle/",
     ],
   },
 );

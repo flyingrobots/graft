@@ -47,12 +47,34 @@ export function git(cwd: string, cmd: string): string {
 /** Create a temp directory with an initialized git repo. */
 export function createTestRepo(prefix = "graft-test-"): string {
   const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), prefix));
-  assertIsolatedGitTestDir(tmpDir);
-  git(tmpDir, "init");
-  git(tmpDir, "config user.email test@test.com");
-  git(tmpDir, "config user.name test");
-  git(tmpDir, "config commit.gpgsign false");
-  git(tmpDir, "config tag.gpgSign false");
+  ensureGitRepo(tmpDir);
+  return tmpDir;
+}
+
+export function ensureGitRepo(cwd: string): void {
+  assertIsolatedGitTestDir(cwd);
+  if (fs.existsSync(path.join(cwd, ".git"))) {
+    return;
+  }
+  git(cwd, "init");
+  git(cwd, "config user.email test@test.com");
+  git(cwd, "config user.name test");
+  git(cwd, "config commit.gpgsign false");
+  git(cwd, "config tag.gpgSign false");
+}
+
+export function createCommittedTestRepo(
+  prefix = "graft-test-",
+  files: Record<string, string> = { "app.ts": "export const ready = true;\n" },
+): string {
+  const tmpDir = createTestRepo(prefix);
+  for (const [relativePath, content] of Object.entries(files)) {
+    const absolutePath = path.join(tmpDir, relativePath);
+    fs.mkdirSync(path.dirname(absolutePath), { recursive: true });
+    fs.writeFileSync(absolutePath, content);
+  }
+  git(tmpDir, "add -A");
+  git(tmpDir, "commit -m init");
   return tmpDir;
 }
 

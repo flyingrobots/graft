@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { readRange } from "../../operations/read-range.js";
-import type { ToolDefinition, ToolContext, ToolHandler } from "../context.js";
+import type { ToolDefinition, ToolHandler } from "../context.js";
+import { toJsonObject } from "../../operations/result-dto.js";
 
 export const readRangeTool: ToolDefinition = {
   name: "read_range",
@@ -10,12 +11,18 @@ export const readRangeTool: ToolDefinition = {
     "specific symbols.",
   schema: { path: z.string(), start: z.number(), end: z.number() },
   policyCheck: true,
-  createHandler(ctx: ToolContext): ToolHandler {
-    return async (args) => {
+  createHandler(): ToolHandler {
+    return async (args, ctx) => {
       const filePath = ctx.resolvePath(args["path"] as string);
-      const result = await readRange(filePath, args["start"] as number, args["end"] as number, { fs: ctx.fs });
+      const startLine = args["start"] as number;
+      const endLine = args["end"] as number;
+      const result = await readRange(filePath, startLine, endLine, { fs: ctx.fs });
       ctx.metrics.recordRead();
-      return ctx.respond("read_range", result);
+      ctx.recordFootprint({
+        paths: [filePath],
+        regions: [{ path: filePath, startLine, endLine }],
+      });
+      return ctx.respond("read_range", toJsonObject(result));
     };
   },
 };

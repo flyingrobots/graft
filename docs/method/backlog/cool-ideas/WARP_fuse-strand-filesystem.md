@@ -1,3 +1,7 @@
+---
+title: "FUSE-mounted strand filesystem"
+---
+
 # FUSE-mounted strand filesystem
 
 Mount a WARP strand as a virtual filesystem via FUSE. The strand

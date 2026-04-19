@@ -1,5 +1,11 @@
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
-import { STATE_FILENAME, stateSave, stateLoad } from "../../../src/operations/state.js";
+import {
+  STATE_FILENAME,
+  stateSave,
+  stateLoad,
+  StateSaveResult,
+  StateLoadResult,
+} from "../../../src/operations/state.js";
 import { nodeFs } from "../../../src/adapters/node-fs.js";
 import fs from "node:fs";
 import path from "node:path";
@@ -23,9 +29,11 @@ describe("operations: state_save / state_load", () => {
       statePath: path.join(tmpDir, STATE_FILENAME),
       fs: nodeFs,
     });
+    expect(saveResult).toBeInstanceOf(StateSaveResult);
     expect(saveResult.ok).toBe(true);
 
     const loadResult = await stateLoad({ statePath: path.join(tmpDir, STATE_FILENAME), fs: nodeFs });
+    expect(loadResult).toBeInstanceOf(StateLoadResult);
     expect(loadResult.content).toBe(content);
   });
 

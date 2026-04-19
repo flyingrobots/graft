@@ -27,7 +27,7 @@ describe("warp: directory tree modeling", { timeout: 15000 }, () => {
 
     const warp = await openWarp({ cwd: tmpDir });
     await indexCommits(warp, { cwd: tmpDir, git: nodeGit });
-    await warp.core().materialize();
+    await warp.materialize();
 
     // Should have dir:src and dir:src/mcp
     const dirObs = await warp.observer({ match: "dir:*" });
@@ -47,7 +47,7 @@ describe("warp: directory tree modeling", { timeout: 15000 }, () => {
 
     const warp = await openWarp({ cwd: tmpDir });
     await indexCommits(warp, { cwd: tmpDir, git: nodeGit });
-    await warp.core().materialize();
+    await warp.materialize();
 
     // Scoped to src/ — should only see src/app.ts
     const srcFiles = await warp.observer(directoryFilesLens("src"));
@@ -71,7 +71,7 @@ describe("warp: directory tree modeling", { timeout: 15000 }, () => {
 
     const warp = await openWarp({ cwd: tmpDir });
     await indexCommits(warp, { cwd: tmpDir, git: nodeGit });
-    await warp.core().materialize();
+    await warp.materialize();
 
     // Get all files in src/
     const fileObs = await warp.observer(directoryFilesLens("src"));

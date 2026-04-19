@@ -5,7 +5,7 @@ import { ChildProcessDaemonWorkerPool } from "../../../src/mcp/daemon-worker-poo
 import { Metrics } from "../../../src/mcp/metrics.js";
 import type { RepoObservation } from "../../../src/mcp/repo-state.js";
 import { DEFAULT_DAEMON_CAPABILITY_PROFILE } from "../../../src/mcp/workspace-router.js";
-import { SessionTracker } from "../../../src/session/tracker.js";
+import { GovernorTracker } from "../../../src/session/tracker.js";
 import { cleanupTestRepo, createTestRepo, git } from "../../helpers/git.js";
 
 const cleanups: (() => Promise<void> | void)[] = [];
@@ -121,7 +121,7 @@ describe("mcp: daemon worker pool", () => {
       writerId: "graft_session_test",
       capabilityProfile: DEFAULT_DAEMON_CAPABILITY_PROFILE,
       repoState: repoObservation(repoDir),
-      sessionSnapshot: new SessionTracker().snapshot(),
+      governorSnapshot: new GovernorTracker().snapshot(),
       metricsSnapshot: new Metrics().snapshot(),
     });
 
@@ -165,9 +165,9 @@ describe("mcp: daemon worker pool", () => {
       await pool.close();
     });
 
-    const sessionSnapshot = new SessionTracker().snapshot();
+    const governorSnapshot = new GovernorTracker().snapshot();
     const metricsSnapshot = new Metrics().snapshot();
-    const sessionSnapshotBefore = structuredClone(sessionSnapshot);
+    const governorSnapshotBefore = structuredClone(governorSnapshot);
     const metricsSnapshotBefore = structuredClone(metricsSnapshot);
 
     const jobBase = {
@@ -185,7 +185,7 @@ describe("mcp: daemon worker pool", () => {
       writerId: "graft_session_test",
       capabilityProfile: DEFAULT_DAEMON_CAPABILITY_PROFILE,
       repoState: repoObservation(repoDir),
-      sessionSnapshot,
+      governorSnapshot,
       metricsSnapshot,
     };
 
@@ -203,7 +203,7 @@ describe("mcp: daemon worker pool", () => {
     expect(firstPayload.projection).toBe("content");
     expect(first.cacheUpdates).toHaveLength(1);
     expect(first.cacheUpdates[0]?.observation).not.toBeNull();
-    expect(sessionSnapshot).toEqual(sessionSnapshotBefore);
+    expect(governorSnapshot).toEqual(governorSnapshotBefore);
     expect(metricsSnapshot).toEqual(metricsSnapshotBefore);
 
     const second = await pool.runRepoTool({
@@ -268,7 +268,7 @@ describe("mcp: daemon worker pool", () => {
       writerId: "graft_session_test",
       capabilityProfile: DEFAULT_DAEMON_CAPABILITY_PROFILE,
       repoState: repoObservation(repoDir, { dirty: true }),
-      sessionSnapshot: new SessionTracker().snapshot(),
+      governorSnapshot: new GovernorTracker().snapshot(),
       metricsSnapshot: new Metrics().snapshot(),
     });
 

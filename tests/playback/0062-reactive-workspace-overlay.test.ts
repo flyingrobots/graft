@@ -5,7 +5,7 @@ import * as path from "node:path";
 const repoRoot = path.resolve(import.meta.dirname, "../..");
 const designDocPath = path.join(
   repoRoot,
-  "docs/design/0062-reactive-workspace-overlay/reactive-workspace-overlay.md",
+  "docs/design/WARP_reactive-workspace-overlay.md",
 );
 const designDoc = fs.readFileSync(designDocPath, "utf-8");
 

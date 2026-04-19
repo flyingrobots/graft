@@ -5,7 +5,7 @@ import * as path from "node:path";
 const repoRoot = path.resolve(import.meta.dirname, "../..");
 const designDocPath = path.join(
   repoRoot,
-  "docs/design/0059-graph-ontology-and-causal-collapse-model/graph-ontology-and-causal-collapse-model.md",
+  "docs/design/WARP_graph-ontology-and-causal-collapse-model.md",
 );
 const invariantsReadmePath = path.join(repoRoot, "docs/invariants/README.md");
 const designDoc = fs.readFileSync(designDocPath, "utf-8");

@@ -1,26 +1,11 @@
-import Parser from "web-tree-sitter";
-import { createRequire } from "node:module";
 import { detectStructuredFormat } from "./lang.js";
 import type { SupportedStructuredFormat } from "./lang.js";
 import { OutlineEntry, JumpEntry } from "./types.js";
 import type { OutlineResult } from "./types.js";
+import { parseStructuredTree } from "./runtime.js";
+import { extractMarkdownOutline } from "./markdown.js";
 
 const MAX_SIGNATURE_LENGTH = 199;
-
-// ---------------------------------------------------------------------------
-// WASM initialisation (top-level await — ESM only)
-// ---------------------------------------------------------------------------
-
-const esmRequire = createRequire(import.meta.url);
-
-await Parser.init();
-
-const tsLang = await Parser.Language.load(
-  esmRequire.resolve("tree-sitter-wasms/out/tree-sitter-typescript.wasm"),
-);
-const jsLang = await Parser.Language.load(
-  esmRequire.resolve("tree-sitter-wasms/out/tree-sitter-javascript.wasm"),
-);
 
 // ---------------------------------------------------------------------------
 // Signature helpers
@@ -44,27 +29,7 @@ function boundSignature(raw: string): string {
 // Tree-sitter node interface (avoids importing the Node class directly)
 // ---------------------------------------------------------------------------
 
-interface TSNode {
-  readonly type: string;
-  readonly text: string;
-  readonly startPosition: { readonly row: number; readonly column: number };
-  readonly endPosition: { readonly row: number; readonly column: number };
-  readonly children: TSNode[];
-  readonly namedChildren: TSNode[];
-  readonly hasError: boolean;
-  childForFieldName(name: string): TSNode | null;
-}
-
-interface MarkdownHeading {
-  level: number;
-  name: string;
-  start: number;
-  end: number;
-}
-
-interface MarkdownHeadingNode extends MarkdownHeading {
-  children: MarkdownHeadingNode[];
-}
+type TSNode = import("web-tree-sitter").SyntaxNode;
 
 // ---------------------------------------------------------------------------
 // Node kind mapping
@@ -93,7 +58,7 @@ function nodeKind(nodeType: string): EntryKind | undefined {
 }
 
 // ---------------------------------------------------------------------------
-// Extraction helpers
+// Tree-sitter extraction helpers
 // ---------------------------------------------------------------------------
 
 function extractFunctionSignature(node: TSNode): string | undefined {
@@ -223,166 +188,6 @@ function buildJumpEntry(
   });
 }
 
-function buildMarkdownJumpEntry(heading: MarkdownHeading): JumpEntry {
-  return new JumpEntry({
-    symbol: heading.name,
-    kind: "heading",
-    start: heading.start,
-    end: heading.end,
-  });
-}
-
-function isFenceLine(line: string): { marker: "`" | "~"; length: number } | null {
-  const match = /^\s*([`~])\1{2,}.*$/.exec(line);
-  if (match === null) return null;
-
-  const marker = match[1];
-  if (marker !== "`" && marker !== "~") return null;
-  const markerRun = /^([`~]+)/.exec(match[0].trimStart());
-  if (markerRun === null) return null;
-  const run = markerRun[1];
-  if (run === undefined) return null;
-  return { marker, length: run.length };
-}
-
-function isFenceClose(line: string, marker: "`" | "~", length: number): boolean {
-  const pattern = marker === "`"
-    ? new RegExp(`^\\s*\`{${String(length)},}\\s*$`)
-    : new RegExp(`^\\s*~{${String(length)},}\\s*$`);
-  return pattern.test(line);
-}
-
-function parseAtxHeading(line: string, lineNumber: number): MarkdownHeading | null {
-  const match = /^\s{0,3}(#{1,6})[ \t]+(.+?)\s*#*\s*$/.exec(line);
-  if (match === null) return null;
-
-  const hashes = match[1];
-  const rawName = match[2]?.trim() ?? "";
-  if (hashes === undefined || rawName.length === 0) return null;
-
-  return {
-    level: hashes.length,
-    name: rawName,
-    start: lineNumber,
-    end: lineNumber,
-  };
-}
-
-function parseSetextHeading(
-  currentLine: string,
-  nextLine: string | undefined,
-  lineNumber: number,
-): MarkdownHeading | null {
-  if (nextLine === undefined) return null;
-  if (currentLine.trim().length === 0) return null;
-  if (parseAtxHeading(currentLine, lineNumber) !== null) return null;
-
-  if (/^\s{0,3}=+\s*$/.test(nextLine)) {
-    return { level: 1, name: currentLine.trim(), start: lineNumber, end: lineNumber + 1 };
-  }
-  if (/^\s{0,3}-+\s*$/.test(nextLine)) {
-    return { level: 2, name: currentLine.trim(), start: lineNumber, end: lineNumber + 1 };
-  }
-
-  return null;
-}
-
-function finalizeMarkdownRanges(headings: MarkdownHeading[], totalLines: number): void {
-  for (let i = 0; i < headings.length; i++) {
-    const current = headings[i];
-    if (current === undefined) continue;
-    let end = totalLines;
-    for (let j = i + 1; j < headings.length; j++) {
-      const next = headings[j];
-      if (next === undefined) continue;
-      if (next.level <= current.level) {
-        end = next.start - 1;
-        break;
-      }
-    }
-    current.end = end;
-  }
-}
-
-function buildMarkdownHierarchy(headings: readonly MarkdownHeading[]): MarkdownHeadingNode[] {
-  const roots: MarkdownHeadingNode[] = [];
-  const stack: MarkdownHeadingNode[] = [];
-
-  for (const heading of headings) {
-    const node: MarkdownHeadingNode = { ...heading, children: [] };
-    while (stack.length > 0) {
-      const last = stack[stack.length - 1];
-      if (last === undefined || last.level < node.level) break;
-      stack.pop();
-    }
-    const parent = stack[stack.length - 1];
-    if (parent === undefined) roots.push(node);
-    else parent.children.push(node);
-    stack.push(node);
-  }
-
-  return roots;
-}
-
-function toOutlineEntry(node: MarkdownHeadingNode): OutlineEntry {
-  return new OutlineEntry({
-    kind: "heading",
-    name: node.name,
-    exported: false,
-    ...(node.children.length > 0
-      ? { children: node.children.map((child) => toOutlineEntry(child)) }
-      : {}),
-  });
-}
-
-function extractMarkdownOutline(source: string): OutlineResult {
-  const lines = source.split("\n");
-  const headings: MarkdownHeading[] = [];
-  let inFence = false;
-  let activeFence: { marker: "`" | "~"; length: number } | null = null;
-
-  for (let i = 0; i < lines.length; i++) {
-    const line = lines[i];
-    if (line === undefined) continue;
-    const lineNumber = i + 1;
-    const fence = isFenceLine(line);
-
-    if (inFence) {
-      if (activeFence !== null && isFenceClose(line, activeFence.marker, activeFence.length)) {
-        inFence = false;
-        activeFence = null;
-      }
-      continue;
-    }
-
-    if (fence !== null) {
-      inFence = true;
-      activeFence = fence;
-      continue;
-    }
-
-    const atx = parseAtxHeading(line, lineNumber);
-    if (atx !== null) {
-      headings.push(atx);
-      continue;
-    }
-
-    const setext = parseSetextHeading(line, lines[i + 1], lineNumber);
-    if (setext !== null) {
-      headings.push(setext);
-      i++;
-    }
-  }
-
-  finalizeMarkdownRanges(headings, lines.length);
-  const hierarchy = buildMarkdownHierarchy(headings);
-
-  return {
-    entries: hierarchy.map((node) => toOutlineEntry(node)),
-    jumpTable: headings.map((heading) => buildMarkdownJumpEntry(heading)),
-  };
-}
-
 // ---------------------------------------------------------------------------
 // Main extraction
 // ---------------------------------------------------------------------------
@@ -401,16 +206,12 @@ export function extractOutline(
   if (lang === "md") {
     return extractMarkdownOutline(source);
   }
-
-  const parser = new Parser();
-  parser.setLanguage(lang === "ts" ? tsLang : jsLang);
-
-  const tree = parser.parse(source);
-  const root = tree.rootNode as unknown as TSNode;
+  const parsed = parseStructuredTree(lang, source);
+  const root = parsed.root;
 
   const entries: OutlineEntry[] = [];
   const jumpTable: JumpEntry[] = [];
-  const hasError = root.hasError;
+  const hasError = root.hasError();
 
   for (const child of root.children) {
     if (child.type === "export_statement") {
@@ -488,8 +289,7 @@ export function extractOutline(
     }
   }
 
-  parser.delete();
-  tree.delete();
+  parsed.delete();
 
   const result: OutlineResult = {
     entries,

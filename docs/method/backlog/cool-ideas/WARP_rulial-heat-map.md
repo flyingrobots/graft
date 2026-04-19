@@ -1,3 +1,7 @@
+---
+title: "Rulial heat map"
+---
+
 # Rulial heat map
 
 Overlay two branches' structural worldlines and produce divergence

@@ -1,14 +1,14 @@
-import path from "node:path";
+import { toRepoPolicyPath } from "../adapters/repo-paths.js";
 import { evaluatePolicy } from "../policy/evaluate.js";
 import { loadGraftignore } from "../policy/graftignore.js";
 import { RefusedResult, type PolicyOptions, type PolicyResult } from "../policy/types.js";
 import type { FileSystem } from "../ports/filesystem.js";
-import type { SessionTracker } from "../session/tracker.js";
+import type { GovernorTracker } from "../session/tracker.js";
 
 export interface McpPolicyContext {
   readonly projectRoot: string;
   readonly graftignorePatterns: readonly string[];
-  readonly session: SessionTracker;
+  readonly governor: GovernorTracker;
 }
 
 export interface McpPolicyRefusal {
@@ -19,33 +19,24 @@ export interface McpPolicyRefusal {
   actual: { lines: number; bytes: number };
 }
 
-export function loadProjectGraftignore(
-  fs: Pick<FileSystem, "readFileSync">,
+export async function loadProjectGraftignore(
+  fs: Pick<FileSystem, "readFile">,
   projectRoot: string,
-): string[] {
+): Promise<string[]> {
   try {
-    return loadGraftignore(fs.readFileSync(path.join(projectRoot, ".graftignore"), "utf-8"));
+    return loadGraftignore(await fs.readFile(`${projectRoot}/.graftignore`, "utf-8"));
   } catch {
     return [];
   }
 }
 
-export function toPolicyPath(projectRoot: string, filePath: string): string {
-  const absolutePath = path.isAbsolute(filePath) ? filePath : path.resolve(projectRoot, filePath);
-  const relativePath = path.relative(projectRoot, absolutePath);
-  if (relativePath.length === 0 || relativePath.startsWith("..") || path.isAbsolute(relativePath)) {
-    return absolutePath;
-  }
-  return relativePath.split(path.sep).join("/");
-}
-
 export function buildMcpPolicyOptions(
-  ctx: Pick<McpPolicyContext, "graftignorePatterns" | "session">,
+  ctx: Pick<McpPolicyContext, "graftignorePatterns" | "governor">,
 ): PolicyOptions {
   return {
     graftignorePatterns: ctx.graftignorePatterns.length > 0 ? [...ctx.graftignorePatterns] : undefined,
-    sessionDepth: ctx.session.getSessionDepth(),
-    budgetRemaining: ctx.session.getBudget()?.remaining,
+    sessionDepth: ctx.governor.getGovernorDepth(),
+    budgetRemaining: ctx.governor.getBudget()?.remaining,
   };
 }
 
@@ -56,7 +47,7 @@ export function evaluateMcpPolicy(
 ): PolicyResult {
   return evaluatePolicy(
     {
-      path: toPolicyPath(ctx.projectRoot, filePath),
+      path: toRepoPolicyPath(ctx.projectRoot, filePath),
       lines: actual.lines,
       bytes: actual.bytes,
     },

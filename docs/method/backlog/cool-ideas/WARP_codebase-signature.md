@@ -1,3 +1,7 @@
+---
+title: "Codebase signature (multi-axis observer vector)"
+---
+
 # Codebase signature (multi-axis observer vector)
 
 Replace single-threshold policy with a multi-component vector per

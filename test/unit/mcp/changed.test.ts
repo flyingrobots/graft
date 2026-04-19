@@ -12,14 +12,14 @@ describe("mcp: changed-since-last-read", () => {
   let testFile: string;
 
   beforeEach(() => {
-    const isolated = createIsolatedServer();
+    tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "graft-diff-"));
+    testFile = path.join(tmpDir, "example.ts");
+    fs.writeFileSync(testFile, 'export function hello(): string {\n  return "hi";\n}\n');
+    const isolated = createIsolatedServer({ projectRoot: tmpDir });
     server = isolated.server;
     cleanupServer = () => {
       isolated.cleanup();
     };
-    tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "graft-diff-"));
-    testFile = path.join(tmpDir, "example.ts");
-    fs.writeFileSync(testFile, 'export function hello(): string {\n  return "hi";\n}\n');
   });
 
   afterEach(() => {

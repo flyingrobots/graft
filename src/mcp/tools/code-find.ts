@@ -136,6 +136,11 @@ export async function runCodeFind(
     });
   }
 
+  ctx.recordFootprint({
+    paths: [...new Set(visibleMatches.map((m) => m.path))],
+    symbols: visibleMatches.map((m) => m.name),
+  });
+
   return ctx.respond("code_find", {
     query: request.query,
     kind: request.kind ?? null,
@@ -158,7 +163,7 @@ export const codeFindTool: ToolDefinition = {
     path: z.string().optional(),
   },
   policyCheck: true,
-  createHandler(ctx: ToolContext): ToolHandler {
-    return (args) => runCodeFind(ctx, args, { allowWarp: true });
+  createHandler(): ToolHandler {
+    return (args, ctx) => runCodeFind(ctx, args, { allowWarp: true });
   },
 };

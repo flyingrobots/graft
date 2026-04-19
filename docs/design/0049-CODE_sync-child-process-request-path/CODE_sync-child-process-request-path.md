@@ -1,3 +1,7 @@
+---
+title: "Sync child_process calls on request paths block testability and scale"
+---
+
 # Sync child_process calls on request paths block testability and scale
 
 Source backlog item: `docs/method/backlog/bad-code/CLEAN_CODE_sync-child-process-request-path.md`

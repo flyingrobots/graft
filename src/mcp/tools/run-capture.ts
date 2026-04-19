@@ -89,8 +89,8 @@ export const runCaptureTool: ToolDefinition = {
     "Persisted logs can be disabled and obvious secrets are redacted " +
     "before writing to .graft/logs/capture.log.",
   schema: { command: z.string(), tail: z.number().optional() },
-  createHandler(ctx: ToolContext): ToolHandler {
-    return async (args) => {
+  createHandler(): ToolHandler {
+    return async (args, ctx) => {
       const command = args["command"] as string;
       const tail = Math.max(1, Math.floor((args["tail"] as number | undefined) ?? 60));
       if (!ctx.runCapture.enabled) {

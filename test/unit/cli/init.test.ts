@@ -5,38 +5,15 @@ import * as os from "node:os";
 import { execSync } from "node:child_process";
 import { runInit } from "../../../src/cli/init.js";
 import { assertIsolatedGitTestDir, git } from "../../helpers/git.js";
-
-interface Writer {
-  text(): string;
-  write(chunk: string): true;
-}
-
-function createBufferWriter(): Writer {
-  let buffer = "";
-  return {
-    write(chunk: string): true {
-      buffer += chunk;
-      return true;
-    },
-    text(): string {
-      return buffer;
-    },
-  };
-}
-
-function runInitQuietly(args?: readonly string[]): void {
-  runInit({
-    args,
-    stdout: createBufferWriter(),
-    stderr: createBufferWriter(),
-  });
-}
-
-function initGitRepo(cwd: string): void {
-  git(cwd, "init");
-  git(cwd, "config user.email test@test.com");
-  git(cwd, "config user.name test");
-}
+import {
+  createBufferWriter,
+  expectGraftServerEntry,
+  expectSingleGraftServerArray,
+  expectSingleGraftServerRecord,
+  initGitRepo,
+  readJsonFile,
+  runInitQuietly,
+} from "../../helpers/init.js";
 
 describe("cli: graft init", () => {
   let tmpDir: string;
@@ -125,13 +102,12 @@ describe("cli: graft init", () => {
   it("writes project-local Claude config with explicit flags", () => {
     runInitQuietly(["--write-claude-mcp", "--write-claude-hooks"]);
 
-    const mcpConfig = JSON.parse(fs.readFileSync(path.join(tmpDir, ".mcp.json"), "utf-8")) as {
+    const mcpConfig = readJsonFile(tmpDir, ".mcp.json") as {
       mcpServers: { graft: { command: string; args: string[] } };
     };
-    expect(mcpConfig.mcpServers.graft.command).toBe("npx");
-    expect(mcpConfig.mcpServers.graft.args).toEqual(["-y", "@flyingrobots/graft", "serve"]);
+    expectGraftServerEntry(mcpConfig.mcpServers.graft);
 
-    const settings = JSON.parse(fs.readFileSync(path.join(tmpDir, ".claude", "settings.json"), "utf-8")) as {
+    const settings = readJsonFile(tmpDir, ".claude", "settings.json") as {
       hooks: {
         PreToolUse: { matcher: string; hooks: { command: string }[] }[];
         PostToolUse: { matcher: string; hooks: { command: string }[] }[];
@@ -221,6 +197,23 @@ describe("cli: graft init", () => {
     expect(parsed.error).toBe("--write-target-git-hooks requires a git worktree");
   });
 
+  it("reports init argument errors with usage guidance", () => {
+    const stdout = createBufferWriter();
+    const stderr = createBufferWriter();
+
+    runInit({
+      args: ["--unknown-init-flag"],
+      stdout,
+      stderr,
+    });
+
+    expect(stdout.text()).toBe("");
+    expect(stderr.text()).toContain("Unknown init arguments: --unknown-init-flag");
+    expect(stderr.text()).toContain("Usage: graft init");
+    expect(stderr.text()).toContain("docs/CLI.md");
+    process.exitCode = 0;
+  });
+
   it("merges Claude MCP config without clobbering existing servers or duplicating graft", () => {
     fs.writeFileSync(path.join(tmpDir, ".mcp.json"), JSON.stringify({
       mcpServers: {
@@ -234,18 +227,14 @@ describe("cli: graft init", () => {
     runInitQuietly(["--write-claude-mcp"]);
     runInitQuietly(["--write-claude-mcp"]);
 
-    const config = JSON.parse(fs.readFileSync(path.join(tmpDir, ".mcp.json"), "utf-8")) as {
+    const config = readJsonFile(tmpDir, ".mcp.json") as {
       mcpServers: Record<string, { command: string; args: string[] }>;
     };
     expect(config.mcpServers["think"]).toEqual({
       command: "node",
       args: ["./bin/think-mcp.js"],
     });
-    expect(config.mcpServers["graft"]).toEqual({
-      command: "npx",
-      args: ["-y", "@flyingrobots/graft", "serve"],
-    });
-    expect(Object.keys(config.mcpServers).filter((name) => name === "graft")).toHaveLength(1);
+    expectSingleGraftServerRecord(config.mcpServers);
   });
 
   it("merges Claude hook config into an existing settings file without duplicating graft hooks", () => {
@@ -365,27 +354,30 @@ describe("cli: graft init", () => {
       "--write-cline-mcp",
     ]);
 
-    const cursor = JSON.parse(fs.readFileSync(path.join(tmpDir, ".cursor", "mcp.json"), "utf-8")) as {
+    const cursor = readJsonFile(tmpDir, ".cursor", "mcp.json") as {
       mcpServers: { graft: { command: string; args: string[] } };
     };
-    expect(cursor.mcpServers.graft.args).toEqual(["-y", "@flyingrobots/graft", "serve"]);
+    expectGraftServerEntry(cursor.mcpServers.graft);
 
-    const windsurf = JSON.parse(fs.readFileSync(path.join(tmpDir, ".codeium", "windsurf", "mcp_config.json"), "utf-8")) as {
+    const windsurf = readJsonFile(tmpDir, ".codeium", "windsurf", "mcp_config.json") as {
       mcpServers: { graft: { command: string; args: string[] } };
     };
-    expect(windsurf.mcpServers.graft.command).toBe("npx");
+    expectGraftServerEntry(windsurf.mcpServers.graft);
 
-    const continueConfig = JSON.parse(fs.readFileSync(path.join(tmpDir, ".continue", "config.json"), "utf-8")) as {
+    const continueConfig = readJsonFile(tmpDir, ".continue", "config.json") as {
       mcpServers: { name: string; command: string; args: string[] }[];
     };
     expect(continueConfig.mcpServers[0]).toBeDefined();
     expect(continueConfig.mcpServers[0]!.name).toBe("graft");
-    expect(continueConfig.mcpServers[0]!.args).toEqual(["-y", "@flyingrobots/graft", "serve"]);
+    expectGraftServerEntry({
+      command: continueConfig.mcpServers[0]!.command,
+      args: continueConfig.mcpServers[0]!.args,
+    });
 
-    const cline = JSON.parse(fs.readFileSync(path.join(tmpDir, ".vscode", "cline_mcp_settings.json"), "utf-8")) as {
+    const cline = readJsonFile(tmpDir, ".vscode", "cline_mcp_settings.json") as {
       mcpServers: { graft: { command: string; args: string[] } };
     };
-    expect(cline.mcpServers.graft.command).toBe("npx");
+    expectGraftServerEntry(cline.mcpServers.graft);
   });
 
   it("merges Cursor MCP config without clobbering existing servers or duplicating graft", () => {
@@ -402,18 +394,14 @@ describe("cli: graft init", () => {
     runInitQuietly(["--write-cursor-mcp"]);
     runInitQuietly(["--write-cursor-mcp"]);
 
-    const config = JSON.parse(fs.readFileSync(path.join(tmpDir, ".cursor", "mcp.json"), "utf-8")) as {
+    const config = readJsonFile(tmpDir, ".cursor", "mcp.json") as {
       mcpServers: Record<string, { command: string; args: string[] }>;
     };
     expect(config.mcpServers["think"]).toEqual({
       command: "node",
       args: ["./bin/think-mcp.js"],
     });
-    expect(config.mcpServers["graft"]).toEqual({
-      command: "npx",
-      args: ["-y", "@flyingrobots/graft", "serve"],
-    });
-    expect(Object.keys(config.mcpServers).filter((name) => name === "graft")).toHaveLength(1);
+    expectSingleGraftServerRecord(config.mcpServers);
   });
 
   it("merges Windsurf MCP config without clobbering existing servers or duplicating graft", () => {
@@ -430,18 +418,14 @@ describe("cli: graft init", () => {
     runInitQuietly(["--write-windsurf-mcp"]);
     runInitQuietly(["--write-windsurf-mcp"]);
 
-    const config = JSON.parse(fs.readFileSync(path.join(tmpDir, ".codeium", "windsurf", "mcp_config.json"), "utf-8")) as {
+    const config = readJsonFile(tmpDir, ".codeium", "windsurf", "mcp_config.json") as {
       mcpServers: Record<string, { command: string; args: string[] }>;
     };
     expect(config.mcpServers["think"]).toEqual({
       command: "node",
       args: ["./bin/think-mcp.js"],
     });
-    expect(config.mcpServers["graft"]).toEqual({
-      command: "npx",
-      args: ["-y", "@flyingrobots/graft", "serve"],
-    });
-    expect(Object.keys(config.mcpServers).filter((name) => name === "graft")).toHaveLength(1);
+    expectSingleGraftServerRecord(config.mcpServers);
   });
 
   it("merges Continue MCP config into an existing settings file without duplicating graft", () => {
@@ -462,7 +446,7 @@ describe("cli: graft init", () => {
     runInitQuietly(["--write-continue-mcp"]);
     runInitQuietly(["--write-continue-mcp"]);
 
-    const config = JSON.parse(fs.readFileSync(path.join(tmpDir, ".continue", "config.json"), "utf-8")) as {
+    const config = readJsonFile(tmpDir, ".continue", "config.json") as {
       models: { title: string }[];
       mcpServers: { name: string; command: string; args: string[] }[];
     };
@@ -473,9 +457,7 @@ describe("cli: graft init", () => {
       command: "node",
       args: ["./bin/think-mcp.js"],
     });
-    const graftEntries = config.mcpServers.filter((entry) => entry.name === "graft");
-    expect(graftEntries).toHaveLength(1);
-    expect(graftEntries[0]!.args).toEqual(["-y", "@flyingrobots/graft", "serve"]);
+    expectSingleGraftServerArray(config.mcpServers);
   });
 
   it("merges Cline MCP config without clobbering existing servers or duplicating graft", () => {
@@ -492,17 +474,13 @@ describe("cli: graft init", () => {
     runInitQuietly(["--write-cline-mcp"]);
     runInitQuietly(["--write-cline-mcp"]);
 
-    const config = JSON.parse(fs.readFileSync(path.join(tmpDir, ".vscode", "cline_mcp_settings.json"), "utf-8")) as {
+    const config = readJsonFile(tmpDir, ".vscode", "cline_mcp_settings.json") as {
       mcpServers: Record<string, { command: string; args: string[] }>;
     };
     expect(config.mcpServers["think"]).toEqual({
       command: "node",
       args: ["./bin/think-mcp.js"],
     });
-    expect(config.mcpServers["graft"]).toEqual({
-      command: "npx",
-      args: ["-y", "@flyingrobots/graft", "serve"],
-    });
-    expect(Object.keys(config.mcpServers).filter((name) => name === "graft")).toHaveLength(1);
+    expectSingleGraftServerRecord(config.mcpServers);
   });
 });

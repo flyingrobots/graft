@@ -3,7 +3,6 @@ import type { FileSystem } from "../ports/filesystem.js";
 const MAX_RANGE_LINES = 250;
 
 export interface ReadRangeResult {
-  [key: string]: unknown;
   path: string;
   content?: string | undefined;
   startLine?: number | undefined;

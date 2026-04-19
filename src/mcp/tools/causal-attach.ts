@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { buildRuntimeStagedTarget } from "../runtime-staged-target.js";
 import { deriveCausalSurfaceNextAction } from "../semantic-transition-guidance.js";
-import type { ToolDefinition, ToolContext, ToolHandler } from "../context.js";
+import type { ToolDefinition, ToolHandler } from "../context.js";
 
 const actorKindSchema = z.enum(["human", "agent"]);
 
@@ -15,8 +15,8 @@ export const causalAttachTool: ToolDefinition = {
     from_actor_id: z.string().min(1).optional(),
     note: z.string().min(1).optional(),
   },
-  createHandler(ctx: ToolContext): ToolHandler {
-    return async (args) => {
+  createHandler(): ToolHandler {
+    return async (args, ctx) => {
       const result = await ctx.declareCausalAttach({
         actorKind: actorKindSchema.parse(args["actor_kind"]),
         actorId: typeof args["actor_id"] === "string" ? args["actor_id"] : undefined,

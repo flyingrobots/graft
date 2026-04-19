@@ -1,3 +1,7 @@
+---
+title: "Cycle 0045 — Precision search typed seams Retro"
+---
+
 # Cycle 0045 — Precision search typed seams Retro
 
 Design: `docs/design/0045-CODE_mcp-tool-precision/CODE_mcp-tool-precision.md`

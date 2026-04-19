@@ -1,10 +1,11 @@
 import * as path from "node:path";
 import { ZodError } from "zod";
+import { RotatingNdjsonLog } from "../adapters/rotating-ndjson-log.js";
 import type { JsonCodec } from "../ports/codec.js";
 import type { FileSystem } from "../ports/filesystem.js";
 import type { MetricsSnapshot } from "./metrics.js";
 import type { BurdenKind } from "./burden.js";
-import type { SessionDepth } from "../session/types.js";
+import type { GovernorDepth } from "../session/types.js";
 
 export type RuntimeLogPolicy = "metadata_only";
 
@@ -67,7 +68,27 @@ export interface RuntimeToolCallStartedEvent {
   readonly traceId: string;
   readonly tool: string;
   readonly argKeys: readonly string[];
-  readonly sessionDepth: SessionDepth;
+  readonly sessionDepth: GovernorDepth;
+}
+
+/**
+ * Per-tool-call footprint capturing which files, symbols, and regions
+ * were observed. Enables provenance tracing at sub-file granularity.
+ */
+export interface ToolCallFootprint {
+  /** File paths read or scanned by this tool call. */
+  readonly paths: readonly string[];
+  /** Symbol names inspected (when available from outline/precision tools). */
+  readonly symbols: readonly string[];
+  /** Line regions accessed (when available from read_range). */
+  readonly regions: readonly ToolCallFootprintRegion[];
+}
+
+/** A line region within a specific file. */
+export interface ToolCallFootprintRegion {
+  readonly path: string;
+  readonly startLine: number;
+  readonly endLine: number;
 }
 
 export interface RuntimeToolCallCompletedEvent {
@@ -83,9 +104,11 @@ export interface RuntimeToolCallCompletedEvent {
   readonly nonReadBurden: boolean;
   readonly returnedBytes: number;
   readonly fileBytes: number | null;
-  readonly sessionDepth: SessionDepth;
+  readonly sessionDepth: GovernorDepth;
   readonly tripwireSignals: readonly string[];
   readonly metrics: MetricsSnapshot;
+  /** Optional sub-file footprint for provenance granularity. */
+  readonly footprint?: ToolCallFootprint;
 }
 
 export type RuntimeFailureKind = "validation_error" | "tool_error" | "unknown_error";
@@ -96,7 +119,7 @@ export interface RuntimeToolCallFailedEvent {
   readonly traceId: string;
   readonly tool: string;
   readonly latencyMs: number;
-  readonly sessionDepth: SessionDepth;
+  readonly sessionDepth: GovernorDepth;
   readonly argKeys: readonly string[];
   readonly errorKind: RuntimeFailureKind;
   readonly errorName: string;
@@ -130,7 +153,7 @@ export async function ensureGraftDirExcluded(
 
   let existing: string;
   try {
-    existing = fs.readFileSync(excludePath, "utf-8");
+    existing = await fs.readFile(excludePath, "utf-8");
   } catch {
     return;
   }
@@ -161,59 +184,34 @@ export function classifyRuntimeFailure(error: unknown): {
   return { kind: "unknown_error", name: "UnknownError" };
 }
 
+export { sanitizeArgValues } from "./secret-scrub.js";
+
 export function sanitizeArgKeys(args: Record<string, unknown>): string[] {
   return Object.keys(args).sort();
 }
 
 export class RuntimeEventLogger {
-  private readonly fs: FileSystem;
-  private readonly codec: JsonCodec;
-  private readonly logPath: string;
-  private readonly maxBytes: number;
+  private readonly logWriter: RotatingNdjsonLog;
   private queue: Promise<void> = Promise.resolve();
 
   constructor(options: RuntimeEventLoggerOptions) {
-    this.fs = options.fs;
-    this.codec = options.codec;
-    this.logPath = options.logPath;
-    this.maxBytes = options.maxBytes;
+    this.logWriter = new RotatingNdjsonLog({
+      fs: options.fs,
+      codec: options.codec,
+      logPath: options.logPath,
+      maxBytes: options.maxBytes,
+    });
   }
 
   log(event: RuntimeEvent): Promise<void> {
     const prior = this.queue.catch((_error: unknown) => undefined);
     this.queue = prior
       .then(async () => {
-        const line = this.codec.encode({ ts: new Date().toISOString(), ...event }) + "\n";
-        const dir = path.dirname(this.logPath);
-        await this.fs.mkdir(dir, { recursive: true });
-        await this.fs.appendFile(this.logPath, line, "utf-8");
-        await this.rotateIfNeeded();
+        await this.logWriter.append({
+          ts: new Date().toISOString(),
+          ...event,
+        });
       });
     return this.queue;
-  }
-
-  private async rotateIfNeeded(): Promise<void> {
-    let stat: { size: number };
-    try {
-      stat = await this.fs.stat(this.logPath);
-    } catch {
-      return;
-    }
-
-    if (stat.size <= this.maxBytes) {
-      return;
-    }
-
-    const content = await this.fs.readFile(this.logPath, "utf-8");
-    const lines = content.trimEnd().split("\n");
-    let kept = lines.slice(Math.ceil(lines.length / 2));
-    let result = kept.join("\n") + "\n";
-
-    while (Buffer.byteLength(result, "utf-8") > this.maxBytes && kept.length > 1) {
-      kept = kept.slice(Math.ceil(kept.length / 2));
-      result = kept.join("\n") + "\n";
-    }
-
-    await this.fs.writeFile(this.logPath, result, "utf-8");
   }
 }

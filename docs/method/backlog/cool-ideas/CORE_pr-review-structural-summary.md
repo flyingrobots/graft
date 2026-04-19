@@ -1,3 +1,7 @@
+---
+title: "PR review structural summary"
+---
+
 # PR review structural summary
 
 Run graft_diff on a PR and produce a human-readable structural

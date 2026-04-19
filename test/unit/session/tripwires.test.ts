@@ -1,11 +1,11 @@
 import { describe, it, expect } from "vitest";
-import { SessionTracker } from "../../../src/session/tracker.js";
+import { GovernorTracker } from "../../../src/session/tracker.js";
 import type { Tripwire } from "../../../src/session/types.js";
 
 describe("session: tripwire detection", () => {
   describe("SESSION_LONG", () => {
     it("does not fire below 500 messages", () => {
-      const tracker = new SessionTracker();
+      const tracker = new GovernorTracker();
       for (let i = 0; i < 499; i++) {
         tracker.recordMessage();
       }
@@ -13,7 +13,7 @@ describe("session: tripwire detection", () => {
     });
 
     it("fires at 501 messages", () => {
-      const tracker = new SessionTracker();
+      const tracker = new GovernorTracker();
       for (let i = 0; i < 501; i++) {
         tracker.recordMessage();
       }
@@ -24,7 +24,7 @@ describe("session: tripwire detection", () => {
     });
 
     it("recommends state_save + reset", () => {
-      const tracker = new SessionTracker();
+      const tracker = new GovernorTracker();
       for (let i = 0; i < 501; i++) {
         tracker.recordMessage();
       }
@@ -37,7 +37,7 @@ describe("session: tripwire detection", () => {
 
   describe("EDIT_BASH_LOOP", () => {
     it("does not fire below 30 edit-bash transitions", () => {
-      const tracker = new SessionTracker();
+      const tracker = new GovernorTracker();
       for (let i = 0; i < 29; i++) {
         tracker.recordToolCall("Edit");
         tracker.recordToolCall("Bash");
@@ -46,7 +46,7 @@ describe("session: tripwire detection", () => {
     });
 
     it("fires after 31 edit-bash transitions", () => {
-      const tracker = new SessionTracker();
+      const tracker = new GovernorTracker();
       for (let i = 0; i < 31; i++) {
         tracker.recordToolCall("Edit");
         tracker.recordToolCall("Bash");
@@ -58,7 +58,7 @@ describe("session: tripwire detection", () => {
     });
 
     it("only counts alternating edit-bash, not consecutive same-tool", () => {
-      const tracker = new SessionTracker();
+      const tracker = new GovernorTracker();
       // 60 Edit calls in a row — no transitions
       for (let i = 0; i < 60; i++) {
         tracker.recordToolCall("Edit");
@@ -69,7 +69,7 @@ describe("session: tripwire detection", () => {
 
   describe("RUNAWAY_TOOLS", () => {
     it("does not fire below 80 tool calls since last user message", () => {
-      const tracker = new SessionTracker();
+      const tracker = new GovernorTracker();
       for (let i = 0; i < 79; i++) {
         tracker.recordToolCall("Read");
       }
@@ -77,7 +77,7 @@ describe("session: tripwire detection", () => {
     });
 
     it("fires after 81 tool calls since last user message", () => {
-      const tracker = new SessionTracker();
+      const tracker = new GovernorTracker();
       for (let i = 0; i < 81; i++) {
         tracker.recordToolCall("Read");
       }
@@ -88,7 +88,7 @@ describe("session: tripwire detection", () => {
     });
 
     it("resets counter on user message", () => {
-      const tracker = new SessionTracker();
+      const tracker = new GovernorTracker();
       for (let i = 0; i < 50; i++) {
         tracker.recordToolCall("Read");
       }
@@ -103,7 +103,7 @@ describe("session: tripwire detection", () => {
 
   describe("LATE_LARGE_READ", () => {
     it("does not fire for large output before 300 messages", () => {
-      const tracker = new SessionTracker();
+      const tracker = new GovernorTracker();
       for (let i = 0; i < 200; i++) {
         tracker.recordMessage();
       }
@@ -112,7 +112,7 @@ describe("session: tripwire detection", () => {
     });
 
     it("fires for output > 20 KB after 300 messages", () => {
-      const tracker = new SessionTracker();
+      const tracker = new GovernorTracker();
       for (let i = 0; i < 301; i++) {
         tracker.recordMessage();
       }
@@ -122,7 +122,7 @@ describe("session: tripwire detection", () => {
     });
 
     it("does not fire for output <= 20 KB after 300 messages", () => {
-      const tracker = new SessionTracker();
+      const tracker = new GovernorTracker();
       for (let i = 0; i < 301; i++) {
         tracker.recordMessage();
       }
@@ -133,27 +133,27 @@ describe("session: tripwire detection", () => {
 
   describe("session depth", () => {
     it("reports 'early' for < 100 messages", () => {
-      const tracker = new SessionTracker();
+      const tracker = new GovernorTracker();
       for (let i = 0; i < 50; i++) {
         tracker.recordMessage();
       }
-      expect(tracker.getSessionDepth()).toBe("early");
+      expect(tracker.getGovernorDepth()).toBe("early");
     });
 
     it("reports 'mid' for 100-500 messages", () => {
-      const tracker = new SessionTracker();
+      const tracker = new GovernorTracker();
       for (let i = 0; i < 250; i++) {
         tracker.recordMessage();
       }
-      expect(tracker.getSessionDepth()).toBe("mid");
+      expect(tracker.getGovernorDepth()).toBe("mid");
     });
 
     it("reports 'late' for > 500 messages", () => {
-      const tracker = new SessionTracker();
+      const tracker = new GovernorTracker();
       for (let i = 0; i < 501; i++) {
         tracker.recordMessage();
       }
-      expect(tracker.getSessionDepth()).toBe("late");
+      expect(tracker.getGovernorDepth()).toBe("late");
     });
   });
 });

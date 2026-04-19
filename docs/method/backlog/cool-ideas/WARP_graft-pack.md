@@ -1,3 +1,7 @@
+---
+title: "graft pack"
+---
+
 # graft pack
 
 One-shot handoff bundle: state + touched files + decisions + next

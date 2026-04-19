@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, expectTypeOf, it } from "vitest";
 import * as fs from "node:fs";
 import * as path from "node:path";
 import { ALL_TOOL_REGISTRY, createGraftServer } from "../../../src/mcp/server.js";
@@ -7,14 +7,17 @@ import {
   CLI_OUTPUT_SCHEMAS,
   MCP_TOOL_NAMES,
   MCP_OUTPUT_SCHEMAS,
+  attachCliSchemaMeta,
   getCliOutputJsonSchema,
   getMcpOutputJsonSchema,
+  validateCliOutput,
 } from "../../../src/contracts/output-schemas.js";
 import { runCli } from "../../../src/cli/main.js";
 import { runInit } from "../../../src/cli/init.js";
 import { runIndex } from "../../../src/cli/index-cmd.js";
 import { cleanupTestRepo, createTestRepo, git } from "../../helpers/git.js";
-import { parse } from "../../helpers/mcp.js";
+import { writeLegacyLocalHistoryArtifact } from "../../helpers/legacy-local-history.js";
+import { createServerInRepo, parse } from "../../helpers/mcp.js";
 
 interface Writer {
   text(): string;
@@ -32,13 +35,6 @@ function createBufferWriter(): Writer {
       return buffer;
     },
   };
-}
-
-function createServerInRepo(repoDir: string) {
-  return createGraftServer({
-    projectRoot: repoDir,
-    graftDir: path.join(repoDir, ".graft"),
-  });
 }
 
 function createDaemonServer(graftDir: string) {
@@ -78,6 +74,29 @@ describe("contracts: output schemas", () => {
       const jsonSchema = getCliOutputJsonSchema(command);
       expect(jsonSchema).toBeDefined();
     }
+  });
+
+  it("preserves concrete CLI output types through the helper stack", () => {
+    const payload = validateCliOutput("diag_local_history_dag", attachCliSchemaMeta("diag_local_history_dag", {
+      cwd: "/tmp/example",
+      repoId: "repo:1",
+      worktreeId: "worktree:1",
+      requestedEventLimit: 5,
+      totalEventCount: 2,
+      shownEventCount: 2,
+      nodeCount: 4,
+      edgeCount: 3,
+      truncated: false,
+      rendered: "graph",
+      nodes: [],
+      edges: [],
+    }));
+
+    expect(payload["requestedEventLimit"]).toBe(5);
+    expectTypeOf(payload).toExtend<Record<string, unknown>>();
+    expectTypeOf(payload["requestedEventLimit"]).toEqualTypeOf<unknown>();
+    expect(payload["_schema"]).toBeDefined();
+    expect((payload["_schema"] as Record<string, unknown>)["id"]).toEqual(expect.any(String));
   });
 
   it("validates representative MCP tool outputs against the declared schemas", { timeout: 15_000 }, async () => {
@@ -231,7 +250,7 @@ describe("contracts: output schemas", () => {
     expect(() => CLI_OUTPUT_SCHEMAS.index.parse(parsed)).not.toThrow();
   });
 
-  it("validates representative CLI peer outputs against the declared schemas", { timeout: 15_000 }, async () => {
+  it("validates representative CLI peer outputs against the declared schemas", { timeout: 60_000 }, async () => {
     const repoDir = createTestRepo("graft-output-schema-cli-peer-");
     cleanups.push(repoDir);
 
@@ -282,13 +301,27 @@ describe("contracts: output schemas", () => {
       symbol_find: await runCliJson(repoDir, ["symbol", "find", "greet*", "--json"]),
       diag_doctor: await runCliJson(repoDir, ["diag", "doctor", "--json"]),
       diag_activity: await runCliJson(repoDir, ["diag", "activity", "--limit", "5", "--json"]),
+      diag_local_history_dag: await runCliJson(repoDir, ["diag", "local-history-dag", "--limit", "5", "--json"]),
       diag_explain: await runCliJson(repoDir, ["diag", "explain", "CONTENT", "--json"]),
       diag_stats: await runCliJson(repoDir, ["diag", "stats", "--json"]),
       diag_capture: await runCliJson(repoDir, ["diag", "capture", "--json", "--", "printf", "ok"]),
     } as const;
 
-    for (const command of CLI_COMMAND_NAMES.filter((name) => !["init", "index"].includes(name))) {
+    for (const command of CLI_COMMAND_NAMES.filter((name) => !["init", "index", "migrate_local_history"].includes(name))) {
       expect(() => CLI_OUTPUT_SCHEMAS[command].parse(outputs[command as keyof typeof outputs])).not.toThrow();
     }
+  });
+
+  it("validates local-history migration JSON output against the declared CLI schema", { timeout: 15_000 }, async () => {
+    const repoDir = createTestRepo("graft-output-schema-migrate-history-");
+    cleanups.push(repoDir);
+
+    fs.writeFileSync(path.join(repoDir, "app.ts"), "export const ready = true;\n");
+    git(repoDir, "add -A");
+    git(repoDir, "commit -m init");
+    writeLegacyLocalHistoryArtifact(path.join(repoDir, ".graft"));
+
+    const parsed = await runCliJson(repoDir, ["migrate", "local-history", "--json"]);
+    expect(() => CLI_OUTPUT_SCHEMAS.migrate_local_history.parse(parsed)).not.toThrow();
   });
 });

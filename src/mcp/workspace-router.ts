@@ -1,172 +1,82 @@
-import * as crypto from "node:crypto";
 import * as path from "node:path";
-import type WarpApp from "@git-stunts/git-warp";
 import { ObservationCache } from "./cache.js";
-import { createPathResolver } from "./context.js";
 import { Metrics } from "./metrics.js";
-import { loadProjectGraftignore } from "./policy.js";
 import {
   type PersistedLocalActivityWindow,
   PersistedLocalHistoryAttachUnavailableError,
   PersistedLocalHistoryStore,
   type PersistedLocalHistoryAttachDeclaration,
   type PersistedLocalHistoryContext,
-  type PersistedLocalHistorySharedAttachSource,
   type RepoConcurrencySummary,
   type PersistedLocalHistorySummary,
 } from "./persisted-local-history.js";
-import { RepoStateTracker } from "./repo-state.js";
-import { buildRuntimeCausalContext, type RuntimeCausalContext } from "./runtime-causal-context.js";
+import { type PersistedLocalHistoryGraphContext } from "./persisted-local-history-graph.js";
+import { RepoStateTracker, type RepoObservation } from "./repo-state.js";
+import type { RuntimeCausalContext } from "./runtime-causal-context.js";
 import { buildRuntimeStagedTarget } from "./runtime-staged-target.js";
 import {
   buildRuntimeWorkspaceOverlayFooting,
-  type GitTransitionHookEvent,
   type RuntimeWorkspaceOverlayFooting,
 } from "./runtime-workspace-overlay.js";
-import { SessionTracker } from "../session/tracker.js";
+import { buildWorkspaceReadObservation, type AttributedReadToolName } from "./workspace-read-observation.js";
+import {
+  DEFAULT_REPO_LOCAL_CAPABILITY_PROFILE,
+  WorkspaceBindingRequiredError,
+  type CausalAttachResult,
+  type ResolvedWorkspace,
+  type WorkspaceActionResult,
+  type WorkspaceAuthorizationPolicy,
+  type WorkspaceBindAction,
+  type WorkspaceBindRequest,
+  type WorkspaceCapabilityProfile,
+  type WorkspaceExecutionContext,
+  type WorkspaceMode,
+  type WorkspaceSharedAttachPolicy,
+  type WorkspaceStatus,
+} from "./workspace-router-model.js";
+import { resolveWorkspaceRequest, stableWorkspaceId } from "./workspace-router-resolution.js";
 import type { FileSystem } from "../ports/filesystem.js";
 import type { GitClient } from "../ports/git.js";
+import type { WarpHandle } from "../ports/warp.js";
+import type { JsonObject } from "../contracts/json-object.js";
 import type { WarpPool } from "./warp-pool.js";
 import { DEFAULT_WARP_WRITER_ID } from "../warp/writer-id.js";
-
-export type WorkspaceSessionMode = "repo_local" | "daemon";
-export type WorkspaceBindState = "bound" | "unbound";
-export type WorkspaceBindAction = "bind" | "rebind";
-
-export interface WorkspaceCapabilityProfile {
-  readonly boundedReads: boolean;
-  readonly structuralTools: boolean;
-  readonly precisionTools: boolean;
-  readonly stateBookmarks: boolean;
-  readonly runtimeLogs: "session_local_only";
-  readonly runCapture: boolean;
-}
-
-export interface WorkspaceStatus {
-  readonly sessionMode: WorkspaceSessionMode;
-  readonly bindState: WorkspaceBindState;
-  readonly repoId: string | null;
-  readonly worktreeId: string | null;
-  readonly worktreeRoot: string | null;
-  readonly gitCommonDir: string | null;
-  readonly graftDir: string | null;
-  readonly capabilityProfile: WorkspaceCapabilityProfile | null;
-}
-
-export interface WorkspaceActionResult extends WorkspaceStatus {
-  readonly ok: boolean;
-  readonly action: WorkspaceBindAction;
-  readonly freshSessionSlice: boolean;
-  readonly errorCode?: string;
-  readonly error?: string;
-}
-
-export interface CausalAttachResult extends WorkspaceStatus {
-  readonly ok: boolean;
-  readonly action: "attach";
-  readonly persistedLocalHistory: PersistedLocalHistorySummary;
-  readonly errorCode?: string;
-  readonly error?: string;
-}
-
-export interface WorkspaceBindRequest {
-  readonly cwd: string;
-  readonly worktreeRoot?: string | undefined;
-  readonly gitCommonDir?: string | undefined;
-  readonly repoId?: string | undefined;
-}
-
-export class WorkspaceBindingRequiredError extends Error {
-  readonly code = "UNBOUND_SESSION";
-
-  constructor(toolName: string) {
-    super(`Tool ${toolName} requires an active workspace binding. Call workspace_bind first.`);
-    this.name = "WorkspaceBindingRequiredError";
-  }
-}
-
-export class WorkspaceCapabilityDeniedError extends Error {
-  readonly code = "CAPABILITY_DENIED";
-
-  constructor(toolName: string) {
-    super(`Tool ${toolName} is not enabled in the daemon default capability profile.`);
-    this.name = "WorkspaceCapabilityDeniedError";
-  }
-}
-
-interface WorkspaceBindError {
-  readonly code: string;
-  readonly message: string;
-}
-
-interface WorkspaceSlice {
-  readonly sliceId: string;
-  readonly session: SessionTracker;
-  readonly cache: ObservationCache;
-  readonly metrics: Metrics;
-  readonly graftDir: string;
-  readonly repoState: RepoStateTracker | null;
-}
-
-interface BoundWorkspace {
-  readonly repoId: string;
-  readonly worktreeId: string;
-  readonly worktreeRoot: string;
-  readonly gitCommonDir: string;
-  readonly graftignorePatterns: readonly string[];
-  readonly resolvePath: (input: string) => string;
-  readonly capabilityProfile: WorkspaceCapabilityProfile;
-  readonly warpWriterId: string;
-  readonly transportSessionId: string;
-  readonly slice: WorkspaceSlice;
-  readonly getWarp: () => Promise<WarpApp>;
-}
-
-export interface WorkspaceExecutionContext {
-  readonly sliceId: string;
-  readonly repoId: string;
-  readonly worktreeId: string;
-  readonly projectRoot: string;
-  readonly worktreeRoot: string;
-  readonly gitCommonDir: string;
-  readonly graftignorePatterns: readonly string[];
-  readonly resolvePath: (input: string) => string;
-  readonly capabilityProfile: WorkspaceCapabilityProfile;
-  readonly warpWriterId: string;
-  getCausalContext(): RuntimeCausalContext;
-  readonly status: WorkspaceStatus;
-  readonly session: SessionTracker;
-  readonly cache: ObservationCache;
-  readonly metrics: Metrics;
-  readonly graftDir: string;
-  readonly repoState: RepoStateTracker;
-  readonly getWarp: () => Promise<WarpApp>;
-}
-
-type AttributedReadToolName = "safe_read" | "file_outline" | "read_range";
-
-export interface ResolvedWorkspace {
-  readonly repoId: string;
-  readonly worktreeId: string;
-  readonly worktreeRoot: string;
-  readonly gitCommonDir: string;
-}
-
-export interface WorkspaceAuthorizationPolicy {
-  getCapabilityProfile(resolved: ResolvedWorkspace): Promise<WorkspaceCapabilityProfile | null>;
-  noteBound(resolved: ResolvedWorkspace): Promise<void>;
-}
-
-export interface WorkspaceSharedAttachPolicy {
-  resolveSharedAttachSource(input: {
-    readonly sessionId: string;
-    readonly repoId: string;
-    readonly worktreeId: string;
-  }): PersistedLocalHistorySharedAttachSource | null;
-}
+import { GovernorTracker } from "../session/tracker.js";
+import {
+  type BoundWorkspace,
+  type WorkspaceSlice,
+  boundWorkspaceStatus,
+  buildPersistedLocalHistoryContext,
+  buildPersistedLocalHistoryContextFromExecution,
+  buildPersistedLocalHistoryGraphContext,
+  buildWorkspaceCausalContext,
+  createBoundWorkspace,
+  createWorkspaceSlice,
+  nextBindingSliceDir,
+  resolveCheckoutBoundaryHookEvent,
+  unboundWorkspaceStatus,
+} from "./workspace-router-runtime.js";
+export {
+  DEFAULT_DAEMON_CAPABILITY_PROFILE,
+  DEFAULT_REPO_LOCAL_CAPABILITY_PROFILE,
+  WorkspaceBindingRequiredError,
+  WorkspaceCapabilityDeniedError,
+  type CausalAttachResult,
+  type ResolvedWorkspace,
+  type WorkspaceActionResult,
+  type WorkspaceAuthorizationPolicy,
+  type WorkspaceBindAction,
+  type WorkspaceBindRequest,
+  type WorkspaceCapabilityProfile,
+  type WorkspaceExecutionContext,
+  type WorkspaceMode,
+  type WorkspaceSharedAttachPolicy,
+  type WorkspaceStatus,
+} from "./workspace-router-model.js";
+export { resolveWorkspaceRequest } from "./workspace-router-resolution.js";
 
 interface WorkspaceRouterOptions {
-  readonly mode: WorkspaceSessionMode;
+  readonly mode: WorkspaceMode;
   readonly fs: FileSystem;
   readonly git: GitClient;
   readonly graftDir: string;
@@ -179,71 +89,6 @@ interface WorkspaceRouterOptions {
   readonly persistedLocalHistory: PersistedLocalHistoryStore;
 }
 
-export const DEFAULT_DAEMON_CAPABILITY_PROFILE: WorkspaceCapabilityProfile = Object.freeze({
-  boundedReads: true,
-  structuralTools: true,
-  precisionTools: true,
-  stateBookmarks: true,
-  runtimeLogs: "session_local_only",
-  runCapture: false,
-});
-
-export const DEFAULT_REPO_LOCAL_CAPABILITY_PROFILE: WorkspaceCapabilityProfile = Object.freeze({
-  boundedReads: true,
-  structuralTools: true,
-  precisionTools: true,
-  stateBookmarks: true,
-  runtimeLogs: "session_local_only",
-  runCapture: true,
-});
-
-function stableId(prefix: string, input: string): string {
-  return `${prefix}:${crypto.createHash("sha256").update(input).digest("hex").slice(0, 16)}`;
-}
-
-async function readGitValue(git: GitClient, cwd: string, args: readonly string[]): Promise<string | null> {
-  const result = await git.run({ args, cwd });
-  if (result.error !== undefined || result.status !== 0) {
-    return null;
-  }
-  const trimmed = result.stdout.trim();
-  return trimmed.length > 0 ? trimmed : null;
-}
-
-function toAbsolutePath(base: string, value: string): string {
-  return path.isAbsolute(value) ? value : path.resolve(base, value);
-}
-
-export async function resolveWorkspaceRequest(
-  git: GitClient,
-  request: WorkspaceBindRequest,
-): Promise<ResolvedWorkspace | WorkspaceBindError> {
-  const cwd = path.resolve(request.cwd);
-  const worktreeRoot = await readGitValue(git, cwd, ["rev-parse", "--path-format=absolute", "--show-toplevel"]);
-  if (worktreeRoot === null) {
-    return {
-      code: "NOT_A_GIT_REPO",
-      message: `cwd is not inside a git worktree: ${cwd}`,
-    };
-  }
-
-  const rawGitCommonDir = await readGitValue(git, cwd, ["rev-parse", "--path-format=absolute", "--git-common-dir"]);
-  if (rawGitCommonDir === null) {
-    return {
-      code: "WORKSPACE_RESOLUTION_FAILED",
-      message: `Unable to resolve git common dir from ${cwd}`,
-    };
-  }
-
-  const gitCommonDir = toAbsolutePath(worktreeRoot, rawGitCommonDir);
-  return {
-    repoId: stableId("repo", gitCommonDir),
-    worktreeId: stableId("worktree", worktreeRoot),
-    worktreeRoot,
-    gitCommonDir,
-  };
-}
-
 export class WorkspaceRouter {
   private bindingCounter = 0;
   private sliceIdCounter = 0;
@@ -253,10 +98,13 @@ export class WorkspaceRouter {
 
   constructor(private readonly options: WorkspaceRouterOptions) {
     const initialProjectRoot = options.mode === "repo_local" ? options.projectRoot : undefined;
-    this.currentSlice = this.createSlice(
-      options.mode === "repo_local" ? options.graftDir : path.join(options.graftDir, "unbound"),
-      initialProjectRoot,
-    );
+    this.currentSlice = createWorkspaceSlice({
+      graftDir: options.mode === "repo_local" ? options.graftDir : path.join(options.graftDir, "unbound"),
+      fs: options.fs,
+      git: options.git,
+      nextSliceId: `slice-${String(++this.sliceIdCounter).padStart(4, "0")}`,
+      ...(initialProjectRoot !== undefined ? { projectRoot: initialProjectRoot } : {}),
+    });
   }
 
   async initialize(): Promise<void> {
@@ -280,18 +128,18 @@ export class WorkspaceRouter {
       const resolved = await resolveWorkspaceRequest(this.options.git, { cwd: projectRoot });
       const initialWorkspace = "code" in resolved
         ? {
-            repoId: stableId("repo", projectRoot),
-            worktreeId: stableId("worktree", projectRoot),
+            repoId: stableWorkspaceId("repo", projectRoot),
+            worktreeId: stableWorkspaceId("worktree", projectRoot),
             worktreeRoot: projectRoot,
             gitCommonDir: projectRoot,
           }
         : {
             repoId: resolved.repoId,
-            worktreeId: stableId("worktree", projectRoot),
+            worktreeId: stableWorkspaceId("worktree", projectRoot),
             worktreeRoot: projectRoot,
             gitCommonDir: resolved.gitCommonDir,
           };
-      const currentBinding = this.createBoundWorkspace(
+      const currentBinding = await this.createBoundWorkspace(
         initialWorkspace,
         this.options.graftDir,
         DEFAULT_REPO_LOCAL_CAPABILITY_PROFILE,
@@ -305,6 +153,7 @@ export class WorkspaceRouter {
       await currentRepoState.initialize();
       await this.options.persistedLocalHistory.noteBinding({
         current: this.buildPersistedLocalHistoryContext(currentBinding, currentRepoState.getState()),
+        currentGraph: await this.buildPersistedLocalHistoryGraphContext(currentBinding),
       });
       this.currentBinding = currentBinding;
     })();
@@ -312,12 +161,12 @@ export class WorkspaceRouter {
     await this.initialization;
   }
 
-  get mode(): WorkspaceSessionMode {
+  get mode(): WorkspaceMode {
     return this.options.mode;
   }
 
-  get session(): SessionTracker {
-    return this.currentSlice.session;
+  get governor(): GovernorTracker {
+    return this.currentSlice.governor;
   }
 
   get cache(): ObservationCache {
@@ -348,7 +197,7 @@ export class WorkspaceRouter {
     return this.requireBinding().resolvePath;
   }
 
-  getWarp(): Promise<WarpApp> {
+  getWarp(): Promise<WarpHandle> {
     return this.requireBinding().getWarp();
   }
 
@@ -370,6 +219,7 @@ export class WorkspaceRouter {
       await this.options.persistedLocalHistory.noteCheckoutBoundary({
         previous: previousContext,
         current: nextContext,
+        graph: await this.buildPersistedLocalHistoryGraphContext(binding),
       });
     }
   }
@@ -380,28 +230,9 @@ export class WorkspaceRouter {
 
   getStatus(): WorkspaceStatus {
     if (this.currentBinding === null) {
-      return {
-        sessionMode: this.options.mode,
-        bindState: "unbound",
-        repoId: null,
-        worktreeId: null,
-        worktreeRoot: null,
-        gitCommonDir: null,
-        graftDir: null,
-        capabilityProfile: null,
-      };
+      return unboundWorkspaceStatus(this.options.mode);
     }
-
-    return {
-      sessionMode: this.options.mode,
-      bindState: "bound",
-      repoId: this.currentBinding.repoId,
-      worktreeId: this.currentBinding.worktreeId,
-      worktreeRoot: this.currentBinding.worktreeRoot,
-      gitCommonDir: this.currentBinding.gitCommonDir,
-      graftDir: this.currentBinding.slice.graftDir,
-      capabilityProfile: this.currentBinding.capabilityProfile,
-    };
+    return boundWorkspaceStatus(this.options.mode, this.currentBinding);
   }
 
   async getPersistedLocalHistorySummary(): Promise<PersistedLocalHistorySummary> {
@@ -457,7 +288,8 @@ export class WorkspaceRouter {
     const status = this.getStatus();
     const repoState = binding.slice.repoState.getState();
     const causalContext = this.buildCausalContext(binding, repoState);
-    let summary = await this.options.persistedLocalHistory.summarize(status, causalContext);
+    const graph = await this.buildPersistedLocalHistoryGraphContext(binding);
+    let summary = await this.options.persistedLocalHistory.summarize(status, causalContext, graph);
 
     if (repoState.semanticTransition !== null) {
       await this.options.persistedLocalHistory.noteSemanticTransitionObservation({
@@ -465,8 +297,9 @@ export class WorkspaceRouter {
         semanticTransition: repoState.semanticTransition,
         transition: repoState.lastTransition,
         attribution: summary.attribution,
+        graph,
       });
-      summary = await this.options.persistedLocalHistory.summarize(status, causalContext);
+      summary = await this.options.persistedLocalHistory.summarize(status, causalContext, graph);
     }
 
     const stagedTarget = buildRuntimeStagedTarget(status, causalContext, repoState, summary.attribution);
@@ -476,8 +309,9 @@ export class WorkspaceRouter {
         current: this.buildPersistedLocalHistoryContext(binding, repoState),
         stagedTarget,
         attribution: summary.attribution,
+        graph,
       });
-      return this.options.persistedLocalHistory.summarize(status, causalContext);
+      return this.options.persistedLocalHistory.summarize(status, causalContext, graph);
     }
 
     return summary;
@@ -488,7 +322,10 @@ export class WorkspaceRouter {
     if (binding?.slice.repoState === null || binding === null) {
       return null;
     }
-    return this.options.persistedLocalHistory.summarizeRepoConcurrency(this.getStatus());
+    return this.options.persistedLocalHistory.summarizeRepoConcurrency(
+      this.getStatus(),
+      await this.buildPersistedLocalHistoryGraphContext(binding),
+    );
   }
 
   async getPersistedLocalActivityWindow(limit: number): Promise<PersistedLocalActivityWindow> {
@@ -508,17 +345,19 @@ export class WorkspaceRouter {
     const status = this.getStatus();
     const repoState = binding.slice.repoState.getState();
     const causalContext = this.buildCausalContext(binding, repoState);
+    const graph = await this.buildPersistedLocalHistoryGraphContext(binding);
     return this.options.persistedLocalHistory.listRecentActivity(
       status,
       causalContext,
       limit,
+      graph,
     );
   }
 
-  async getWorkspaceOverlayFooting(): Promise<RuntimeWorkspaceOverlayFooting | null> {
+  getWorkspaceOverlayFooting(): Promise<RuntimeWorkspaceOverlayFooting | null> {
     const binding = this.currentBinding;
     if (binding?.slice.repoState === null || binding === null) {
-      return null;
+      return Promise.resolve(null);
     }
     return buildRuntimeWorkspaceOverlayFooting(
       this.options.fs,
@@ -531,8 +370,8 @@ export class WorkspaceRouter {
 
   async noteReadObservation(
     toolName: AttributedReadToolName,
-    args: Record<string, unknown>,
-    result: Record<string, unknown>,
+    args: JsonObject,
+    result: JsonObject,
     execution?: WorkspaceExecutionContext | null,
   ): Promise<void> {
     const active = execution ?? this.captureCurrentExecutionContext();
@@ -540,7 +379,7 @@ export class WorkspaceRouter {
       return;
     }
 
-    const readObservation = this.buildReadObservation(active, toolName, args, result);
+    const readObservation = buildWorkspaceReadObservation(active, toolName, args, result);
     if (readObservation === null) {
       return;
     }
@@ -548,11 +387,13 @@ export class WorkspaceRouter {
     const summary = await this.options.persistedLocalHistory.summarize(
       active.status,
       active.getCausalContext(),
+      await this.buildPersistedLocalHistoryGraphContextFromExecution(active),
     );
 
     await this.options.persistedLocalHistory.noteReadObservation({
       current: this.buildPersistedLocalHistoryContextFromExecution(active, active.repoState.getState()),
       attribution: summary.attribution,
+      graph: await this.buildPersistedLocalHistoryGraphContextFromExecution(active),
       ...readObservation,
     });
   }
@@ -575,17 +416,8 @@ export class WorkspaceRouter {
       capabilityProfile: binding.capabilityProfile,
       warpWriterId: binding.warpWriterId,
       getCausalContext: () => this.buildCausalContext(binding, repoState.getState()),
-      status: {
-        sessionMode: this.options.mode,
-        bindState: "bound",
-        repoId: binding.repoId,
-        worktreeId: binding.worktreeId,
-        worktreeRoot: binding.worktreeRoot,
-        gitCommonDir: binding.gitCommonDir,
-        graftDir: binding.slice.graftDir,
-        capabilityProfile: binding.capabilityProfile,
-      },
-      session: binding.slice.session,
+      status: boundWorkspaceStatus(this.options.mode, binding),
+      governor: binding.slice.governor,
       cache: binding.slice.cache,
       metrics: binding.slice.metrics,
       graftDir: binding.slice.graftDir,
@@ -631,6 +463,7 @@ export class WorkspaceRouter {
       await this.options.persistedLocalHistory.declareAttach({
         current: this.buildPersistedLocalHistoryContext(binding, binding.slice.repoState.getState()),
         declaration,
+        graph: await this.buildPersistedLocalHistoryGraphContext(binding),
       });
     } catch (error) {
       if (error instanceof PersistedLocalHistoryAttachUnavailableError) {
@@ -644,6 +477,7 @@ export class WorkspaceRouter {
             current: this.buildPersistedLocalHistoryContext(binding, binding.slice.repoState.getState()),
             declaration,
             source: sharedAttachSource,
+            graph: await this.buildPersistedLocalHistoryGraphContext(binding),
           });
           return {
             ok: true,
@@ -689,11 +523,7 @@ export class WorkspaceRouter {
       };
     }
 
-    const sliceDir = path.join(
-      this.options.graftDir,
-      "bindings",
-      `slice-${String(++this.bindingCounter).padStart(4, "0")}`,
-    );
+    const sliceDir = nextBindingSliceDir(this.options.graftDir, ++this.bindingCounter);
     await this.options.fs.mkdir(sliceDir, { recursive: true });
 
     const capabilityProfile = this.options.mode === "repo_local"
@@ -710,7 +540,7 @@ export class WorkspaceRouter {
       };
     }
 
-    const nextBinding = this.createBoundWorkspace(resolved, sliceDir, capabilityProfile, actionName);
+    const nextBinding = await this.createBoundWorkspace(resolved, sliceDir, capabilityProfile, actionName);
     const nextRepoState = nextBinding.slice.repoState;
     if (nextRepoState === null) {
       throw new WorkspaceBindingRequiredError("workspace");
@@ -723,6 +553,10 @@ export class WorkspaceRouter {
       previous: previousBinding === null || previousRepoState == null
         ? null
         : this.buildPersistedLocalHistoryContext(previousBinding, previousRepoState.getState()),
+      currentGraph: await this.buildPersistedLocalHistoryGraphContext(nextBinding),
+      previousGraph: previousBinding === null
+        ? null
+        : await this.buildPersistedLocalHistoryGraphContext(previousBinding),
     });
     if (this.options.mode === "daemon") {
       await this.options.authorizationPolicy?.noteBound(resolved);
@@ -738,44 +572,31 @@ export class WorkspaceRouter {
     };
   }
 
-  private createBoundWorkspace(
+  private async createBoundWorkspace(
     resolved: ResolvedWorkspace,
     graftDir: string,
     capabilityProfile: WorkspaceCapabilityProfile,
     actionName: string | undefined,
     sliceOverride?: WorkspaceSlice,
-  ): BoundWorkspace {
-    const slice = sliceOverride ?? this.createSlice(graftDir, resolved.worktreeRoot);
-    if (actionName !== undefined) {
-      slice.session.recordMessage();
-      slice.session.recordToolCall(actionName);
-    }
-
-    return {
-      ...resolved,
-      graftignorePatterns: loadProjectGraftignore(this.options.fs, resolved.worktreeRoot),
-      resolvePath: createPathResolver(resolved.worktreeRoot),
+  ): Promise<BoundWorkspace> {
+    const slice = sliceOverride ?? createWorkspaceSlice({
+      graftDir,
+      projectRoot: resolved.worktreeRoot,
+      fs: this.options.fs,
+      git: this.options.git,
+      nextSliceId: `slice-${String(++this.sliceIdCounter).padStart(4, "0")}`,
+    });
+    return createBoundWorkspace({
+      resolved,
+      graftDir,
       capabilityProfile,
+      ...(actionName !== undefined ? { actionName } : {}),
+      slice,
+      fs: this.options.fs,
       transportSessionId: this.options.transportSessionId,
       warpWriterId: this.options.warpWriterId ?? DEFAULT_WARP_WRITER_ID,
-      slice,
-      getWarp: () => this.options.warpPool.getOrOpen(
-        resolved.repoId,
-        resolved.worktreeRoot,
-        this.options.warpWriterId ?? DEFAULT_WARP_WRITER_ID,
-      ),
-    };
-  }
-
-  private createSlice(graftDir: string, projectRoot?: string): WorkspaceSlice {
-    return {
-      sliceId: `slice-${String(++this.sliceIdCounter).padStart(4, "0")}`,
-      session: new SessionTracker(),
-      cache: new ObservationCache(),
-      metrics: new Metrics(),
-      graftDir,
-      repoState: projectRoot !== undefined ? new RepoStateTracker(projectRoot, this.options.fs, this.options.git) : null,
-    };
+      warpPool: this.options.warpPool,
+    });
   }
 
   private requireBinding(): BoundWorkspace {
@@ -797,84 +618,46 @@ export class WorkspaceRouter {
     binding: BoundWorkspace,
     observation: { readonly checkoutEpoch: number },
   ): RuntimeCausalContext {
-    return buildRuntimeCausalContext({
-      transportSessionId: binding.transportSessionId,
-      workspaceSliceId: binding.slice.sliceId,
-      repoId: binding.repoId,
-      worktreeId: binding.worktreeId,
-      checkoutEpoch: observation.checkoutEpoch,
-      warpWriterId: binding.warpWriterId,
-    });
+    return buildWorkspaceCausalContext(binding, observation);
   }
 
   private buildPersistedLocalHistoryContext(
     binding: BoundWorkspace,
-    observation: import("./repo-state.js").RepoObservation,
-    hookEvent: GitTransitionHookEvent | null = null,
+    observation: RepoObservation,
+    hookEvent: import("./runtime-workspace-overlay.js").GitTransitionHookEvent | null = null,
   ): PersistedLocalHistoryContext {
-    const context = this.options.persistedLocalHistory.buildContext(
-      {
-        sessionMode: this.options.mode,
-        bindState: "bound",
-        repoId: binding.repoId,
-        worktreeId: binding.worktreeId,
-        worktreeRoot: binding.worktreeRoot,
-        gitCommonDir: binding.gitCommonDir,
-        graftDir: binding.slice.graftDir,
-        capabilityProfile: binding.capabilityProfile,
-      },
-      this.buildCausalContext(binding, observation),
+    return buildPersistedLocalHistoryContext({
+      persistedLocalHistory: this.options.persistedLocalHistory,
+      mode: this.options.mode,
+      binding,
       observation,
       hookEvent,
-    );
-    if (context === null) {
-      throw new WorkspaceBindingRequiredError("workspace");
-    }
-    return context;
+    });
   }
 
   private buildPersistedLocalHistoryContextFromExecution(
     execution: WorkspaceExecutionContext,
-    observation: import("./repo-state.js").RepoObservation,
+    observation: RepoObservation,
   ): PersistedLocalHistoryContext {
-    const context = this.options.persistedLocalHistory.buildContext(
-      execution.status,
-      execution.getCausalContext(),
+    return buildPersistedLocalHistoryContextFromExecution({
+      persistedLocalHistory: this.options.persistedLocalHistory,
+      execution,
       observation,
-    );
-    if (context === null) {
-      throw new WorkspaceBindingRequiredError("workspace");
-    }
-    return context;
+    });
   }
 
   private async resolveCheckoutBoundaryHookEvent(
     binding: BoundWorkspace,
     previousObservedAt: string,
-    observation: import("./repo-state.js").RepoObservation,
-  ): Promise<GitTransitionHookEvent | null> {
-    const footing = await buildRuntimeWorkspaceOverlayFooting(
-      this.options.fs,
-      this.options.git,
-      binding.worktreeRoot,
-      binding.gitCommonDir,
+    observation: RepoObservation,
+  ): Promise<import("./runtime-workspace-overlay.js").GitTransitionHookEvent | null> {
+    return resolveCheckoutBoundaryHookEvent({
+      fs: this.options.fs,
+      git: this.options.git,
+      binding,
+      previousObservedAt,
       observation,
-    );
-    const latestHookEvent = footing.latestHookEvent;
-    if (latestHookEvent === null) {
-      return null;
-    }
-
-    const previousObservedAtMs = Date.parse(previousObservedAt);
-    const hookObservedAtMs = Date.parse(latestHookEvent.observedAt);
-    if (
-      Number.isFinite(previousObservedAtMs) &&
-      Number.isFinite(hookObservedAtMs) &&
-      hookObservedAtMs < previousObservedAtMs
-    ) {
-      return null;
-    }
-    return latestHookEvent;
+    });
   }
 
   private captureCurrentExecutionContext(): WorkspaceExecutionContext | null {
@@ -884,101 +667,15 @@ export class WorkspaceRouter {
     return this.captureExecutionContext();
   }
 
-  private buildReadObservation(
+  private async buildPersistedLocalHistoryGraphContext(
+    binding: BoundWorkspace,
+  ): Promise<PersistedLocalHistoryGraphContext | null> {
+    return buildPersistedLocalHistoryGraphContext(binding.worktreeRoot, binding.getWarp);
+  }
+
+  private async buildPersistedLocalHistoryGraphContextFromExecution(
     execution: WorkspaceExecutionContext,
-    toolName: AttributedReadToolName,
-    args: Record<string, unknown>,
-    result: Record<string, unknown>,
-  ): {
-    readonly surface: string;
-    readonly projection: string;
-    readonly sourceLayer: "canonical_structural_truth" | "workspace_overlay";
-    readonly reason: string;
-    readonly footprint: {
-      readonly paths: string[];
-      readonly symbols: string[];
-      readonly regions: {
-        readonly path: string;
-        readonly startLine: number;
-        readonly endLine: number;
-      }[];
-    };
-  } | null {
-    const rawPath = args["path"];
-    if (typeof rawPath !== "string") {
-      return null;
-    }
-
-    const absolutePath = execution.resolvePath(rawPath);
-    const relativePath = path.relative(execution.worktreeRoot, absolutePath);
-    const footprintPath = relativePath.startsWith("..") ? absolutePath : relativePath;
-    const sourceLayer = execution.repoState.getState().workspaceOverlayId === null
-      ? "canonical_structural_truth"
-      : "workspace_overlay";
-
-    if (toolName === "safe_read") {
-      const projection = result["projection"];
-      if (
-        projection !== "content" &&
-        projection !== "outline" &&
-        projection !== "cache_hit" &&
-        projection !== "diff"
-      ) {
-        return null;
-      }
-      return {
-        surface: "safe_read",
-        projection,
-        sourceLayer,
-        reason: typeof result["reason"] === "string" ? result["reason"] : "SAFE_READ",
-        footprint: {
-          paths: [footprintPath],
-          symbols: [],
-          regions: [],
-        },
-      };
-    }
-
-    if (toolName === "file_outline") {
-      if (typeof result["error"] === "string" || result["reason"] === "UNSUPPORTED_LANGUAGE") {
-        return null;
-      }
-      return {
-        surface: "file_outline",
-        projection: "outline",
-        sourceLayer,
-        reason: typeof result["reason"] === "string" ? result["reason"] : "FILE_OUTLINE",
-        footprint: {
-          paths: [footprintPath],
-          symbols: [],
-          regions: [],
-        },
-      };
-    }
-
-    const startLine = result["startLine"];
-    const endLine = result["endLine"];
-    if (
-      typeof result["content"] !== "string" ||
-      typeof startLine !== "number" ||
-      typeof endLine !== "number"
-    ) {
-      return null;
-    }
-    return {
-      surface: "read_range",
-      projection: "content",
-      sourceLayer,
-      reason: typeof result["reason"] === "string" ? result["reason"] : "READ_RANGE",
-      footprint: {
-        paths: [footprintPath],
-        symbols: [],
-        regions: [{
-          path: footprintPath,
-          startLine,
-          endLine,
-        }],
-      },
-    };
+  ): Promise<PersistedLocalHistoryGraphContext | null> {
+    return buildPersistedLocalHistoryGraphContext(execution.worktreeRoot, execution.getWarp);
   }
 }

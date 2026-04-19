@@ -3,20 +3,12 @@ import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
 import { nodeGit } from "../../../src/adapters/node-git.js";
-import { createGraftServer } from "../../../src/mcp/server.js";
 import { collectSymbols } from "../../../src/mcp/tools/precision.js";
 import { git, createTestRepo, cleanupTestRepo } from "../../helpers/git.js";
-import { parse } from "../../helpers/mcp.js";
+import { createServerInRepo, parse } from "../../helpers/mcp.js";
 import { openWarp } from "../../../src/warp/open.js";
 import { indexCommits } from "../../../src/warp/indexer.js";
 import { JumpEntry, OutlineEntry } from "../../../src/parser/types.js";
-
-function createServerInRepo(repoDir: string) {
-  return createGraftServer({
-    projectRoot: repoDir,
-    graftDir: path.join(repoDir, ".graft"),
-  });
-}
 
 describe("mcp: code_show", () => {
   it("returns working-tree source code for a known symbol", async () => {
@@ -115,6 +107,7 @@ describe("mcp: code_show", () => {
       }));
 
       expect(result["source"]).toBe("warp");
+      // identityId is not surfaced in the code_show response
       expect(result["content"]).toContain('return "v1";');
       expect(result["content"]).not.toContain('return "v2";');
     } finally {
@@ -369,10 +362,11 @@ describe("mcp: code_find", () => {
         query: "handle*",
       }));
 
-      const matches = result["matches"] as { name: string; startLine?: number; endLine?: number }[];
+      const matches = result["matches"] as { name: string; identityId?: string; startLine?: number; endLine?: number }[];
       expect(result["source"]).toBe("warp");
       expect(matches).toHaveLength(1);
       expect(matches[0]?.name).toBe("handleRequest");
+      expect(matches[0]?.identityId).toMatch(/^sid:[a-f0-9]{16}$/);
       expect(matches[0]?.startLine).toBeDefined();
       expect(matches[0]?.endLine).toBeDefined();
     } finally {

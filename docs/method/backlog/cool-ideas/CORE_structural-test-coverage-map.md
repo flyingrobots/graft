@@ -1,3 +1,7 @@
+---
+title: "Structural test coverage map"
+---
+
 # Structural test coverage map
 
 Cross-reference the structural map of `src/` and `test/` to answer:

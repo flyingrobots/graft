@@ -1,3 +1,7 @@
+---
+title: "Outline diff in commit trailers"
+---
+
 # Outline diff in commit trailers
 
 Post-commit hook appends a structural summary to the commit message

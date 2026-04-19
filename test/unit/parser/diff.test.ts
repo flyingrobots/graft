@@ -71,7 +71,52 @@ describe("parser: outline diff", () => {
     expect(diff.added).toHaveLength(0);
     expect(diff.removed).toHaveLength(0);
     expect(diff.changed).toHaveLength(0);
+    expect(diff.continuity).toHaveLength(0);
     expect(diff.unchangedCount).toBe(0);
+  });
+
+  it("reports likely rename continuity without collapsing added and removed entries", () => {
+    const oldSource = `export function greet(name: string): string { return name; }`;
+    const newSource = `export function welcome(name: string): string { return name; }`;
+    const oldOutline = extractOutline(oldSource, "ts");
+    const newOutline = extractOutline(newSource, "ts");
+    const diff = diffOutlines(oldOutline.entries, newOutline.entries);
+
+    expect(diff.added).toEqual(expect.arrayContaining([
+      expect.objectContaining({ name: "welcome", kind: "function" }),
+    ]));
+    expect(diff.removed).toEqual(expect.arrayContaining([
+      expect.objectContaining({ name: "greet", kind: "function" }),
+    ]));
+    expect(diff.continuity).toEqual([
+      expect.objectContaining({
+        kind: "rename",
+        confidence: "likely",
+        basis: "matching_signature_shape",
+        symbolKind: "function",
+        oldName: "greet",
+        newName: "welcome",
+      }),
+    ]);
+  });
+
+  it("reports likely class rename continuity from unchanged child structure", () => {
+    const oldSource = `export class Greeter {\n  greet(name: string): string { return name; }\n}`;
+    const newSource = `export class WelcomeService {\n  greet(name: string): string { return name; }\n}`;
+    const oldOutline = extractOutline(oldSource, "ts");
+    const newOutline = extractOutline(newSource, "ts");
+    const diff = diffOutlines(oldOutline.entries, newOutline.entries);
+
+    expect(diff.continuity).toEqual([
+      expect.objectContaining({
+        kind: "rename",
+        confidence: "likely",
+        basis: "matching_child_structure",
+        symbolKind: "class",
+        oldName: "Greeter",
+        newName: "WelcomeService",
+      }),
+    ]);
   });
 
   it("detects added method inside a class", () => {
@@ -133,5 +178,6 @@ describe("parser: outline diff", () => {
     const newOutline = extractOutline(newSource, "ts");
     const diff = diffOutlines([], newOutline.entries);
     expect(diff.added[0]!.kind).toBe("class");
+    expect(diff.continuity).toEqual([]);
   });
 });

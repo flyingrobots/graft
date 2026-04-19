@@ -1,3 +1,7 @@
+---
+title: "Shadow structural workspaces"
+---
+
 # Shadow structural workspaces
 
 Each agent gets an isolated structural view — a Shadow Working

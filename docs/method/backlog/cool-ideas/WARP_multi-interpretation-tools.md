@@ -1,3 +1,7 @@
+---
+title: "Multi-interpretation tools"
+---
+
 # Multi-interpretation tools
 
 code_show focuses on a symbol. That focus is an optic. The same

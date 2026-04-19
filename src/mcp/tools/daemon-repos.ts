@@ -1,5 +1,5 @@
 import { z } from "zod";
-import type { ToolDefinition, ToolContext, ToolHandler } from "../context.js";
+import type { ToolDefinition, ToolHandler } from "../context.js";
 
 export const daemonReposTool: ToolDefinition = {
   name: "daemon_repos",
@@ -9,8 +9,8 @@ export const daemonReposTool: ToolDefinition = {
     repoId: z.string().optional(),
     cwd: z.string().optional(),
   },
-  createHandler(ctx: ToolContext): ToolHandler {
-    return async (args) => {
+  createHandler(): ToolHandler {
+    return async (args, ctx) => {
       return ctx.respond("daemon_repos", {
         ...await ctx.listDaemonRepos({
           repoId: args["repoId"] as string | undefined,

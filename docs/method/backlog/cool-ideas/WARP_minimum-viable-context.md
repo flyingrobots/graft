@@ -1,3 +1,7 @@
+---
+title: "Minimum viable context"
+---
+
 # Minimum viable context
 
 Agent needs to fix function X. WARP knows the structural

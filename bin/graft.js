@@ -13,9 +13,11 @@ const require = createRequire(import.meta.url);
 
 // If already running under tsx, proceed directly
 if (process.env.__GRAFT_TSX_LOADED === "1") {
-  const { resolveEntrypointArgs, runCli } = await import("../src/cli/main.js");
-  await runCli({
-    args: resolveEntrypointArgs(process.argv.slice(2), process.stdin.isTTY, process.stdout.isTTY),
+  const { runCliEntrypoint } = await import("../src/cli/entrypoint.js");
+  await runCliEntrypoint({
+    argv: process.argv.slice(2),
+    stdinIsTTY: process.stdin.isTTY,
+    stdoutIsTTY: process.stdout.isTTY,
   });
 } else {
   // Re-exec with tsx loader from our own node_modules

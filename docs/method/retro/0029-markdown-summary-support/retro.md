@@ -1,3 +1,7 @@
+---
+title: "Retro 0029 — Markdown Summary Support"
+---
+
 # Retro 0029 — Markdown Summary Support
 
 **Status:** Met

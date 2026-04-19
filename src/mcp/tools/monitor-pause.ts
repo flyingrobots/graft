@@ -1,5 +1,5 @@
 import { z } from "zod";
-import type { ToolDefinition, ToolContext, ToolHandler } from "../context.js";
+import type { ToolDefinition, ToolHandler } from "../context.js";
 
 export const monitorPauseTool: ToolDefinition = {
   name: "monitor_pause",
@@ -8,8 +8,8 @@ export const monitorPauseTool: ToolDefinition = {
   schema: {
     cwd: z.string(),
   },
-  createHandler(ctx: ToolContext): ToolHandler {
-    return async (args) => {
+  createHandler(): ToolHandler {
+    return async (args, ctx) => {
       return ctx.respond("monitor_pause", { ...await ctx.pauseMonitor({
         cwd: args["cwd"] as string,
       }) });

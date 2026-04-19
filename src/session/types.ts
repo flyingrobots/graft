@@ -17,4 +17,7 @@ export class Tripwire {
   }
 }
 
-export type SessionDepth = "early" | "mid" | "late";
+export type GovernorDepth = "early" | "mid" | "late";
+
+/** @deprecated Use {@link GovernorDepth}. Kept as a wire-format alias. */
+export type SessionDepth = GovernorDepth;

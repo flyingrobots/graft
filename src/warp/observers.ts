@@ -9,15 +9,10 @@
  * determines the aperture — what the observer can see.
  */
 
-import type WarpApp from "@git-stunts/git-warp";
-import type { Observer } from "@git-stunts/git-warp";
+import type { WarpHandle, WarpObserver, WarpObserverLens } from "../ports/warp.js";
 
 /** Lens config for creating focused observers. */
-export interface Lens {
-  match: string;
-  expose?: string[];
-  redact?: string[];
-}
+export type Lens = WarpObserverLens;
 
 /**
  * Observe all symbols in a specific file.
@@ -26,7 +21,7 @@ export interface Lens {
 export function fileSymbolsLens(filePath: string): Lens {
   return {
     match: `sym:${filePath}:*`,
-    expose: ["name", "kind", "signature", "exported", "startLine", "endLine"],
+    expose: ["name", "kind", "signature", "exported", "startLine", "endLine", "symbolPath", "identityId"],
   };
 }
 
@@ -37,7 +32,7 @@ export function fileSymbolsLens(filePath: string): Lens {
 export function allSymbolsLens(): Lens {
   return {
     match: "sym:*",
-    expose: ["name", "kind", "signature", "exported", "startLine", "endLine"],
+    expose: ["name", "kind", "signature", "exported", "startLine", "endLine", "symbolPath", "identityId"],
   };
 }
 
@@ -59,7 +54,7 @@ export function allFilesLens(): Lens {
 export function symbolByNameLens(symbolName: string): Lens {
   return {
     match: `sym:*:${symbolName}`,
-    expose: ["name", "kind", "signature", "exported", "startLine", "endLine"],
+    expose: ["name", "kind", "signature", "exported", "startLine", "endLine", "symbolPath", "identityId"],
   };
 }
 
@@ -92,7 +87,7 @@ export function directoryFilesLens(dirPath: string): Lens {
 export function commitsLens(): Lens {
   return {
     match: "commit:*",
-    expose: ["sha", "message", "timestamp", "author", "email"],
+    expose: ["sha", "message", "timestamp", "author", "email", "tick"],
   };
 }
 
@@ -100,6 +95,6 @@ export function commitsLens(): Lens {
  * Create an observer on the current frontier with a given lens.
  * Observers are static snapshots — create a new one after writes.
  */
-export function observe(warp: WarpApp, lens: Lens): Promise<Observer> {
+export function observe(warp: WarpHandle, lens: Lens): Promise<WarpObserver> {
   return warp.observer(lens);
 }

@@ -1,3 +1,7 @@
+---
+title: "Semantic drift detection in agent sessions"
+---
+
 # Semantic drift detection in agent sessions
 
 If an agent reads file A, then reads file B (which

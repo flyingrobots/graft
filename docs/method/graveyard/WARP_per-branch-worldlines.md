@@ -1,3 +1,7 @@
+---
+title: "WARP: Per-branch worldlines"
+---
+
 # WARP: Per-branch worldlines
 
 Rejected as the primary storage model.

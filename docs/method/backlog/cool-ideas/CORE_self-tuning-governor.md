@@ -1,3 +1,7 @@
+---
+title: "Self-tuning governor"
+---
+
 # Self-tuning governor
 
 Analyze the NDJSON metrics log to suggest threshold adjustments.

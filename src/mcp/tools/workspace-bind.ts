@@ -1,5 +1,5 @@
 import { z } from "zod";
-import type { ToolDefinition, ToolContext, ToolHandler } from "../context.js";
+import type { ToolDefinition, ToolHandler } from "../context.js";
 
 export const workspaceBindTool: ToolDefinition = {
   name: "workspace_bind",
@@ -11,8 +11,8 @@ export const workspaceBindTool: ToolDefinition = {
     gitCommonDir: z.string().optional(),
     repoId: z.string().optional(),
   },
-  createHandler(ctx: ToolContext): ToolHandler {
-    return async (args) => {
+  createHandler(): ToolHandler {
+    return async (args, ctx) => {
       const result = await ctx.bindWorkspace({
         cwd: args["cwd"] as string,
         worktreeRoot: args["worktreeRoot"] as string | undefined,

@@ -1,3 +1,7 @@
+---
+title: "Graft as training signal"
+---
+
 # Graft as training signal
 
 Refusals and outlines currently block or downgrade. What if they

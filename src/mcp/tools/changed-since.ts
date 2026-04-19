@@ -3,7 +3,7 @@ import { RefusedResult } from "../../policy/types.js";
 import { extractOutlineForFile } from "../../parser/outline.js";
 import { diffOutlines } from "../../parser/diff.js";
 import { hashContent } from "../cache.js";
-import type { ToolDefinition, ToolContext, ToolHandler } from "../context.js";
+import type { ToolDefinition, ToolHandler } from "../context.js";
 import { evaluateMcpPolicy } from "../policy.js";
 
 export const changedSinceTool: ToolDefinition = {
@@ -13,9 +13,10 @@ export const changedSinceTool: ToolDefinition = {
     "diff (added/removed/changed symbols) or 'unchanged'. Peek mode by " +
     "default; pass consume: true to update the observation cache.",
   schema: { path: z.string(), consume: z.boolean().optional() },
-  createHandler(ctx: ToolContext): ToolHandler {
-    return async (args) => {
+  createHandler(): ToolHandler {
+    return async (args, ctx) => {
       const filePath = ctx.resolvePath(args["path"] as string);
+      ctx.recordFootprint({ paths: [filePath] });
       const consume = (args["consume"] as boolean | undefined) === true;
 
       // Policy check: refuse banned files even via changed_since.

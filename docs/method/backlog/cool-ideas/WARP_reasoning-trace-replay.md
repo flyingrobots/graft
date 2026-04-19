@@ -1,3 +1,7 @@
+---
+title: "Reasoning trace replay"
+---
+
 # Reasoning trace replay
 
 Record agent reads and writes as WARP observations. Replay the

@@ -1,13 +1,13 @@
 import { totalNonReadBytesReturned } from "../burden.js";
-import type { ToolDefinition, ToolContext, ToolHandler } from "../context.js";
+import type { ToolDefinition, ToolHandler } from "../context.js";
 
 export const statsTool: ToolDefinition = {
   name: "stats",
   description:
     "Decision metrics for the current session. Total reads, outlines, " +
     "refusals, cache hits, bytes avoided, and burden by tool kind.",
-  createHandler(ctx: ToolContext): ToolHandler {
-    return () => {
+  createHandler(): ToolHandler {
+    return (_args, ctx) => {
       const snap = ctx.metrics.snapshot();
       return ctx.respond("stats", {
         totalReads: snap.reads,

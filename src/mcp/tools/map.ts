@@ -2,10 +2,16 @@ import * as path from "node:path";
 import { z } from "zod";
 import { extractOutline } from "../../parser/outline.js";
 import { detectLang } from "../../parser/lang.js";
-import type { ToolDefinition, ToolContext, ToolHandler } from "../context.js";
+import type { ToolDefinition, ToolHandler } from "../context.js";
 import { GitFileQuery, listGitFiles } from "./git-files.js";
 import { evaluateMcpRefusal, type McpPolicyRefusal } from "../policy.js";
 import { collectSymbols, normalizeRepoPath } from "./precision.js";
+
+/** Maximum files before auto-truncation to summary-only mode. */
+export const MAX_MAP_FILES = 100;
+
+/** Maximum response bytes before auto-truncation to summary-only mode. */
+export const MAX_MAP_BYTES = 50_000;
 
 class StructuralMapRequest {
   readonly directory: string;
@@ -78,9 +84,22 @@ export const mapTool: ToolDefinition = {
   schema: {
     path: z.string().optional(),
   },
-  createHandler(ctx: ToolContext): ToolHandler {
-    return async (args) => {
+  createHandler(): ToolHandler {
+    return async (args, ctx) => {
       const request = new StructuralMapRequest(args, ctx.projectRoot);
+
+      // Budget gate: if the session budget is exhausted, return summary-only.
+      const budget = ctx.governor.getBudget();
+      if (budget !== null && budget.remaining <= 0) {
+        const filePaths = (await listGitFiles(request.toGitFileQuery(ctx.projectRoot), ctx.git)).paths;
+        return ctx.respond("graft_map", {
+          directory: request.directory,
+          files: [],
+          summary: `${String(filePaths.length)} files (budget exhausted — summary only)`,
+          truncated: true,
+          truncatedReason: "BUDGET_EXHAUSTED",
+        });
+      }
 
       const filePaths = (await listGitFiles(request.toGitFileQuery(ctx.projectRoot), ctx.git)).paths;
       const files: StructuralMapFile[] = [];
@@ -123,7 +142,37 @@ export const mapTool: ToolDefinition = {
       }
 
       files.sort((a, b) => a.path.localeCompare(b.path));
+      const totalFiles = files.length;
       const totalSymbols = files.reduce((n, f) => n + f.symbols.length, 0);
+
+      // Size gate: if the result exceeds limits, switch to summary-only.
+      const serialized = JSON.stringify(files);
+      const responseBytes = Buffer.byteLength(serialized);
+
+      if (totalFiles > MAX_MAP_FILES || responseBytes > MAX_MAP_BYTES) {
+        // Build per-language file counts for the summary.
+        const langCounts = new Map<string, number>();
+        for (const f of files) {
+          langCounts.set(f.lang, (langCounts.get(f.lang) ?? 0) + 1);
+        }
+        const langBreakdown = [...langCounts.entries()]
+          .sort((a, b) => b[1] - a[1])
+          .map(([lang, count]) => `${lang}: ${String(count)}`)
+          .join(", ");
+
+        return ctx.respond("graft_map", {
+          directory: request.directory,
+          files: [],
+          ...(refused.length > 0 ? { refused } : {}),
+          summary: `${String(totalFiles)} files, ${String(totalSymbols)} symbols (${langBreakdown})`,
+          truncated: true,
+          truncatedReason: "OUTPUT_LIMIT",
+          next: [
+            "Narrow the path argument to a specific subdirectory",
+            `Current: ${String(totalFiles)} files, ${String(Math.round(responseBytes / 1024))}KB — limit: ${String(MAX_MAP_FILES)} files / ${String(Math.round(MAX_MAP_BYTES / 1024))}KB`,
+          ],
+        });
+      }
 
       return ctx.respond("graft_map", {
         directory: request.directory,

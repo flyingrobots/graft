@@ -1,3 +1,7 @@
+---
+title: "Verification"
+---
+
 # Verification
 
 - `rg -n "execFileSync|spawnSync|node:child_process" src --glob '!src/adapters/**'`

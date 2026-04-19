@@ -1,3 +1,7 @@
+---
+title: "Temporal structural search"
+---
+
 # Temporal structural search
 
 "When did this function FIRST appear?"

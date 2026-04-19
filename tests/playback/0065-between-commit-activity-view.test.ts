@@ -5,7 +5,7 @@ import * as path from "node:path";
 const repoRoot = path.resolve(import.meta.dirname, "../..");
 const designDocPath = path.join(
   repoRoot,
-  "docs/design/0065-between-commit-activity-view/between-commit-activity-view.md",
+  "docs/design/SURFACE_between-commit-activity-view.md",
 );
 const designDoc = fs.readFileSync(designDocPath, "utf-8");
 

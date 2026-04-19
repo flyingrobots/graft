@@ -1,3 +1,7 @@
+---
+title: "Structural churn report"
+---
+
 # Structural churn report
 
 Which symbols change most frequently? High-churn symbols are

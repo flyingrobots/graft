@@ -1,3 +1,7 @@
+---
+title: "Cross-repo structural dependency tracking"
+---
+
 # Cross-repo structural dependency tracking
 
 Two repos both use WARP. "Did my dependency change its export

@@ -1,5 +1,5 @@
 import { z } from "zod";
-import type { ToolDefinition, ToolContext, ToolHandler } from "../context.js";
+import type { ToolDefinition, ToolHandler } from "../context.js";
 
 export const workspaceRevokeTool: ToolDefinition = {
   name: "workspace_revoke",
@@ -8,8 +8,8 @@ export const workspaceRevokeTool: ToolDefinition = {
   schema: {
     cwd: z.string(),
   },
-  createHandler(ctx: ToolContext): ToolHandler {
-    return async (args) => {
+  createHandler(): ToolHandler {
+    return async (args, ctx) => {
       return ctx.respond("workspace_revoke", { ...await ctx.revokeWorkspace({
         cwd: args["cwd"] as string,
       }) });

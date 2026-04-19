@@ -1,3 +1,7 @@
+---
+title: "Stale docs checker"
+---
+
 # Stale docs checker
 
 WARP knows when symbols change. Docs reference symbols by name.

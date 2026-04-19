@@ -1,3 +1,7 @@
+---
+title: "Session filtration (accumulation-aware projections)"
+---
+
 # Session filtration (accumulation-aware projections)
 
 An observer's information grows monotonically over a session.

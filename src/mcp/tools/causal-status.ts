@@ -1,13 +1,13 @@
 import { buildRuntimeStagedTarget } from "../runtime-staged-target.js";
 import { deriveCausalSurfaceNextAction } from "../semantic-transition-guidance.js";
-import type { ToolDefinition, ToolContext, ToolHandler } from "../context.js";
+import type { ToolDefinition, ToolHandler } from "../context.js";
 
 export const causalStatusTool: ToolDefinition = {
   name: "causal_status",
   description:
     "Inspect the active causal workspace and persisted local-history posture.",
-  createHandler(ctx: ToolContext): ToolHandler {
-    return async () => {
+  createHandler(): ToolHandler {
+    return async (_args, ctx) => {
       const workspaceStatus = ctx.getWorkspaceStatus();
       const persistedLocalHistory = await ctx.getPersistedLocalHistorySummary();
       if (workspaceStatus.bindState === "unbound") {

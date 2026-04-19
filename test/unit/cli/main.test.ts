@@ -3,6 +3,7 @@ import * as fs from "node:fs";
 import * as path from "node:path";
 import { resolveEntrypointArgs, runCli } from "../../../src/cli/main.js";
 import { cleanupTestRepo, createTestRepo, git } from "../../helpers/git.js";
+import { writeLegacyLocalHistoryArtifact } from "../../helpers/legacy-local-history.js";
 
 interface Writer {
   text(): string;
@@ -45,9 +46,11 @@ describe("cli: graft grouped surface", () => {
     });
 
     expect(stderr.text()).toBe("");
+    expect(stdout.text()).toContain("migrate local-history");
     expect(stdout.text()).toContain("read safe");
     expect(stdout.text()).toContain("struct diff");
     expect(stdout.text()).toContain("diag activity");
+    expect(stdout.text()).toContain("diag local-history-dag");
     expect(stdout.text()).toContain("diag doctor");
   });
 
@@ -238,6 +241,136 @@ describe("cli: graft grouped surface", () => {
     }
   });
 
+  it("migrates legacy JSON local history into the WARP graph", async () => {
+    const repoDir = createTestRepo("graft-cli-migrate-local-history-");
+    try {
+      fs.writeFileSync(path.join(repoDir, "app.ts"), [
+        "export function greet(name: string): string {",
+        "  return `hello ${name}`;",
+        "}",
+        "",
+      ].join("\n"));
+      git(repoDir, "add -A");
+      git(repoDir, "commit -m init");
+      writeLegacyLocalHistoryArtifact(path.join(repoDir, ".graft"));
+
+      const stdout = createBufferWriter();
+      const stderr = createBufferWriter();
+      await runCli({
+        cwd: repoDir,
+        args: ["migrate", "local-history", "--json"],
+        stdout,
+        stderr,
+      });
+
+      expect(stderr.text()).toBe("");
+      const parsed = JSON.parse(stdout.text()) as {
+        _schema: { id: string };
+        discoveredArtifacts: number;
+        migratedArtifacts: number;
+        importedContinuityRecords: number;
+      };
+      expect(parsed._schema.id).toBe("graft.cli.migrate_local_history");
+      expect(parsed.discoveredArtifacts).toBeGreaterThanOrEqual(1);
+      expect(parsed.migratedArtifacts).toBeGreaterThanOrEqual(1);
+      expect(parsed.importedContinuityRecords).toBeGreaterThanOrEqual(0);
+    } finally {
+      cleanupTestRepo(repoDir);
+    }
+  });
+
+  it("renders human-friendly diag activity output by default", async () => {
+    const repoDir = createTestRepo("graft-cli-activity-human-");
+    try {
+      fs.writeFileSync(path.join(repoDir, "app.ts"), [
+        "export function greet(name: string): string {",
+        "  return `hello ${name}`;",
+        "}",
+        "",
+      ].join("\n"));
+      git(repoDir, "add -A");
+      git(repoDir, "commit -m init");
+
+      await runCli({
+        cwd: repoDir,
+        args: ["read", "safe", "app.ts", "--json"],
+        stdout: createBufferWriter(),
+        stderr: createBufferWriter(),
+      });
+
+      const stdout = createBufferWriter();
+      const stderr = createBufferWriter();
+
+      await runCli({
+        cwd: repoDir,
+        args: ["diag", "activity", "--limit", "5"],
+        stdout,
+        stderr,
+      });
+
+      expect(stderr.text()).toBe("");
+      expect(stdout.text()).toContain("Activity");
+      expect(stdout.text()).toContain("truth: artifact_history");
+      expect(stdout.text()).toContain("Groups");
+      expect(stdout.text()).toContain("read activity");
+      expect(stdout.text().trimStart().startsWith("{")).toBe(false);
+    } finally {
+      cleanupTestRepo(repoDir);
+    }
+  });
+
+  it("renders a bounded local-history DAG from WARP-backed history", async () => {
+    const repoDir = createTestRepo("graft-cli-local-history-dag-");
+    try {
+      fs.writeFileSync(path.join(repoDir, "app.ts"), [
+        "export function greet(name: string): string {",
+        "  return `hello ${name}`;",
+        "}",
+        "",
+      ].join("\n"));
+      git(repoDir, "add -A");
+      git(repoDir, "commit -m init");
+
+      await runCli({
+        cwd: repoDir,
+        args: ["read", "safe", "app.ts", "--json"],
+        stdout: createBufferWriter(),
+        stderr: createBufferWriter(),
+      });
+
+      const stdout = createBufferWriter();
+      const stderr = createBufferWriter();
+      await runCli({
+        cwd: repoDir,
+        args: ["diag", "local-history-dag", "--json"],
+        stdout,
+        stderr,
+      });
+
+      expect(stderr.text()).toBe("");
+      const parsed = JSON.parse(stdout.text()) as {
+        _schema: { id: string };
+        repoId: string;
+        worktreeId: string;
+        totalEventCount: number;
+        shownEventCount: number;
+        rendered: string;
+        nodes: { entityKind: string; label: string }[];
+        edges: { label: string }[];
+      };
+      expect(parsed._schema.id).toBe("graft.cli.diag_local_history_dag");
+      expect(parsed.repoId).toContain("repo:");
+      expect(parsed.worktreeId).toContain("worktree:");
+      expect(parsed.totalEventCount).toBeGreaterThanOrEqual(1);
+      expect(parsed.shownEventCount).toBeGreaterThanOrEqual(1);
+      expect(parsed.rendered).toContain("Local History DAG");
+      expect(parsed.nodes.some((node) => node.entityKind === "local_history_event")).toBe(true);
+      expect(parsed.edges.some((edge) => edge.label === "in_session")).toBe(true);
+    } finally {
+      cleanupTestRepo(repoDir);
+    }
+  });
+
   it("reports CLI argument errors without starting MCP mode", async () => {
     const stdout = createBufferWriter();
     const stderr = createBufferWriter();
@@ -250,6 +383,42 @@ describe("cli: graft grouped surface", () => {
 
     expect(stdout.text()).toBe("");
     expect(stderr.text()).toContain("Missing value for --end");
+    expect(stderr.text()).toContain("Usage: graft read range <path> --start <n> --end <n> [--json]");
+    expect(stderr.text()).toContain("docs/CLI.md");
+    expect(process.exitCode).toBe(1);
+  });
+
+  it("reports explicit serve argument errors with usage guidance", async () => {
+    const stdout = createBufferWriter();
+    const stderr = createBufferWriter();
+
+    await runCli({
+      args: ["serve", "extra"],
+      stdout,
+      stderr,
+    });
+
+    expect(stdout.text()).toBe("");
+    expect(stderr.text()).toContain("Unexpected arguments: extra");
+    expect(stderr.text()).toContain("Usage: graft serve");
+    expect(stderr.text()).toContain("docs/CLI.md");
+    expect(process.exitCode).toBe(1);
+  });
+
+  it("reports global option parse errors with usage guidance", async () => {
+    const stdout = createBufferWriter();
+    const stderr = createBufferWriter();
+
+    await runCli({
+      args: ["--cwd"],
+      stdout,
+      stderr,
+    });
+
+    expect(stdout.text()).toBe("");
+    expect(stderr.text()).toContain("Missing value for --cwd");
+    expect(stderr.text()).toContain("Usage: graft [--cwd <path>] <command> ...");
+    expect(stderr.text()).toContain("docs/CLI.md");
     expect(process.exitCode).toBe(1);
   });
 });

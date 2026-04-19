@@ -1,12 +1,13 @@
 import { z } from "zod";
-import { safeRead } from "../../operations/safe-read.js";
-import type { SafeReadResult } from "../../operations/safe-read.js";
+import { safeRead, type SafeReadResult } from "../../operations/safe-read.js";
+import { toJsonObject } from "../../operations/result-dto.js";
 import { RefusedResult } from "../../policy/types.js";
 import { diffOutlines } from "../../parser/diff.js";
 import { CachedFile } from "../cached-file.js";
 import type { Metrics } from "../metrics.js";
-import { evaluateMcpPolicy, toPolicyPath } from "../policy.js";
-import type { ToolDefinition, ToolContext, ToolHandler } from "../context.js";
+import { evaluateMcpPolicy } from "../policy.js";
+import { toRepoPolicyPath } from "../../adapters/repo-paths.js";
+import type { ToolDefinition, ToolHandler } from "../context.js";
 
 const PROJECTION_METRICS: Readonly<Record<string, ((m: Metrics) => void) | undefined>> = {
   content: (m) => { m.recordRead(); },
@@ -24,9 +25,10 @@ export const safeReadTool: ToolDefinition = {
     "reason code for banned files. Detects re-reads and returns cached " +
     "outlines or structural diffs.",
   schema: { path: z.string(), intent: z.string().optional() },
-  createHandler(ctx: ToolContext): ToolHandler {
-    return async (args) => {
+  createHandler(): ToolHandler {
+    return async (args, ctx) => {
       const filePath = ctx.resolvePath(args["path"] as string);
+      ctx.recordFootprint({ paths: [filePath] });
 
       // Build CachedFile once — all consumers share the same snapshot,
       // eliminating TOCTOU races where the file changes between reads.
@@ -58,6 +60,9 @@ export const safeReadTool: ToolDefinition = {
 
           cacheResult.obs.touch();
           ctx.metrics.recordCacheHit(cf.actual.bytes);
+          ctx.recordFootprint({
+            symbols: cacheResult.obs.outline.map((e) => e.name),
+          });
           return ctx.respond("safe_read", {
             path: filePath,
             projection: "cache_hit",
@@ -90,6 +95,9 @@ export const safeReadTool: ToolDefinition = {
           const diff = diffOutlines(cacheResult.stale.outline, cf.outline);
           const newReadCount = cacheResult.stale.readCount + 1;
           ctx.cache.record(filePath, cf.hash, cf.outline, cf.jumpTable, cf.actual);
+          ctx.recordFootprint({
+            symbols: cf.outline.map((e) => e.name),
+          });
           const updatedObs = ctx.cache.get(filePath);
           return ctx.respond("safe_read", {
             path: filePath,
@@ -111,13 +119,16 @@ export const safeReadTool: ToolDefinition = {
         codec: ctx.codec,
         content: cf?.rawContent,
         intent: args["intent"] as string | undefined,
-        policyPath: toPolicyPath(ctx.projectRoot, filePath),
+        policyPath: toRepoPolicyPath(ctx.projectRoot, filePath),
         graftignorePatterns: [...ctx.graftignorePatterns],
-        sessionDepth: ctx.session.getSessionDepth(),
-        budgetRemaining: ctx.session.getBudget()?.remaining,
+        sessionDepth: ctx.governor.getGovernorDepth(),
+        budgetRemaining: ctx.governor.getBudget()?.remaining,
       });
 
       PROJECTION_METRICS[result.projection]?.(ctx.metrics);
+      if (result.outline !== undefined) {
+        ctx.recordFootprint({ symbols: result.outline.map((e) => e.name) });
+      }
 
       // Record observation for cacheable projections — uses CachedFile
       // outline (no re-read) to eliminate the snapshot race.
@@ -131,7 +142,7 @@ export const safeReadTool: ToolDefinition = {
         ctx.cache.record(filePath, cf.hash, cf.outline, cf.jumpTable, result.actual);
       }
 
-      return ctx.respond("safe_read", result);
+      return ctx.respond("safe_read", toJsonObject(result));
     };
   },
 };

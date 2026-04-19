@@ -4,8 +4,12 @@ import * as path from "node:path";
 import { nodeGit } from "../../../src/adapters/node-git.js";
 import { git, createTestRepo, cleanupTestRepo } from "../../helpers/git.js";
 import { openWarp } from "../../../src/warp/open.js";
-import { indexCommits } from "../../../src/warp/indexer.js";
+import { indexCommits, type IndexResult } from "../../../src/warp/indexer.js";
 import { allSymbolsLens } from "../../../src/warp/observers.js";
+
+function assertOk(result: IndexResult): asserts result is IndexResult & { ok: true } {
+  if (!result.ok) throw new Error(`expected ok result but got error: ${result.error}`);
+}
 
 describe("warp: graft_since (observer comparison)", { timeout: 15000 }, () => {
   let tmpDir: string;
@@ -34,13 +38,14 @@ describe("warp: graft_since (observer comparison)", { timeout: 15000 }, () => {
 
     const warp = await openWarp({ cwd: tmpDir });
     const result = await indexCommits(warp, { cwd: tmpDir, git: nodeGit });
+    assertOk(result);
 
     const tick1 = result.commitTicks.get(c1);
     const tick2 = result.commitTicks.get(c2);
     expect(tick1).toBeDefined();
     expect(tick2).toBeDefined();
 
-    await warp.core().materialize();
+    await warp.materialize();
 
     const lens = allSymbolsLens();
     const obs1 = await warp.observer(lens, { source: { kind: "live", ceiling: tick1 ?? null } });
@@ -69,7 +74,8 @@ describe("warp: graft_since (observer comparison)", { timeout: 15000 }, () => {
 
     const warp = await openWarp({ cwd: tmpDir });
     const result = await indexCommits(warp, { cwd: tmpDir, git: nodeGit });
-    await warp.core().materialize();
+    assertOk(result);
+    await warp.materialize();
 
     const tick1 = result.commitTicks.get(c1);
     const tick2 = result.commitTicks.get(c2);
@@ -103,7 +109,8 @@ describe("warp: graft_since (observer comparison)", { timeout: 15000 }, () => {
 
     const warp = await openWarp({ cwd: tmpDir });
     const result = await indexCommits(warp, { cwd: tmpDir, git: nodeGit });
-    await warp.core().materialize();
+    assertOk(result);
+    await warp.materialize();
 
     const tick1 = result.commitTicks.get(c1);
     const tick2 = result.commitTicks.get(c2);

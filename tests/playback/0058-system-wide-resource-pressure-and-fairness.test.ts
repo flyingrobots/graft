@@ -10,10 +10,10 @@ import { DEFAULT_DAEMON_CAPABILITY_PROFILE } from "../../src/mcp/workspace-route
 import { fileOutline } from "../../src/operations/file-outline.js";
 import { safeRead } from "../../src/operations/safe-read.js";
 import type { FileSystem } from "../../src/ports/filesystem.js";
-import { SessionTracker } from "../../src/session/tracker.js";
+import { GovernorTracker } from "../../src/session/tracker.js";
 import { buildMonitorWarpWriterId, buildSessionWarpWriterId } from "../../src/warp/writer-id.js";
 import { cleanupTestRepo, createTestRepo, git } from "../../test/helpers/git.js";
-import { createIsolatedServer, parse } from "../../test/helpers/mcp.js";
+import { createManagedDaemonServer, parse } from "../../test/helpers/mcp.js";
 
 function deferredPromise<T>() {
   let resolve!: (value: T | PromiseLike<T>) => void;
@@ -242,9 +242,9 @@ describe("0058 playback: system-wide resource pressure and fairness", () => {
       await pool.close();
     });
 
-    const sessionSnapshot = new SessionTracker().snapshot();
+    const governorSnapshot = new GovernorTracker().snapshot();
     const metricsSnapshot = new Metrics().snapshot();
-    const sessionSnapshotBefore = structuredClone(sessionSnapshot);
+    const governorSnapshotBefore = structuredClone(governorSnapshot);
     const metricsSnapshotBefore = structuredClone(metricsSnapshot);
 
     const result = await pool.runRepoTool({
@@ -275,13 +275,13 @@ describe("0058 playback: system-wide resource pressure and fairness", () => {
         workspaceOverlay: null,
         statusLines: [],
       },
-      sessionSnapshot,
+      governorSnapshot,
       metricsSnapshot,
     });
 
     expect(result.cacheUpdates).toHaveLength(1);
     expect(result.cacheUpdates[0]?.observation).not.toBeNull();
-    expect(sessionSnapshot).toEqual(sessionSnapshotBefore);
+    expect(governorSnapshot).toEqual(governorSnapshotBefore);
     expect(metricsSnapshot).toEqual(metricsSnapshotBefore);
   }, 10_000);
 
@@ -330,11 +330,7 @@ describe("0058 playback: system-wide resource pressure and fairness", () => {
     git(repoDir, "add -A");
     git(repoDir, "commit -m init");
 
-    const isolated = createIsolatedServer({ mode: "daemon" });
-    cleanups.push(() => {
-      isolated.cleanup();
-    });
-    const server = isolated.server;
+    const server = createManagedDaemonServer(cleanups);
 
     await server.callTool("workspace_authorize", { cwd: repoDir });
     await server.callTool("workspace_bind", { cwd: repoDir });

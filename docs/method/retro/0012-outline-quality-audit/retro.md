@@ -1,3 +1,7 @@
+---
+title: "Cycle 0012 — Outline Quality Audit"
+---
+
 # Cycle 0012 — Outline Quality Audit
 
 **Legend**: CORE

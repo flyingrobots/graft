@@ -1,3 +1,7 @@
+---
+title: "git graft enhance — structural annotations for git commands"
+---
+
 # git graft enhance — structural annotations for git commands
 
 Wrap any git command with structural annotations from graft's

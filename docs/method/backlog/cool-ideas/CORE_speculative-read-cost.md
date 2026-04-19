@@ -1,3 +1,7 @@
+---
+title: "Speculative read cost estimate"
+---
+
 # Speculative read cost estimate
 
 Before an agent commits to reading a file, graft returns a cost

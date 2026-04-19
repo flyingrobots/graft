@@ -27,6 +27,7 @@ Before changing anything, determine and record:
 - package manager: pnpm, lockfile: pnpm-lock.yaml
 - version-bearing manifests: package.json
 - publishable units: `@flyingrobots/graft` (npm)
+- semver-public module path(s) and documented public API surface
 - latest reachable semver tag matching `v*`
 - current branch
 - exact sync state versus `origin/main`
@@ -49,13 +50,23 @@ Do not continue past the first failed guard.
 1. Confirm the target version declared in
    `docs/method/releases/vX.Y.Z/release.md`.
 2. Validate that the declared version matches the actual release scope,
-   SemVer impact, and repository policy.
+   SemVer impact, repository policy, and any documented public API
+   changes.
 3. Verify that the target tag does not already exist locally or on the
    remote.
 4. Update `package.json` version.
 5. Refresh `pnpm-lock.yaml`.
 6. Update `CHANGELOG.md` — move Unreleased to versioned section.
 7. Write or refresh `docs/releases/vX.Y.Z.md`.
+8. If documented public API changed, verify the release notes name the
+   changed exports, classify the change as additive or breaking, and
+   include migration guidance when needed.
+9. If the capability registry, root package surface, or documented
+   three-surface posture changed, refresh:
+   - `docs/three-surface-capability-matrix.md`
+   - `docs/public-api.md`
+   and be prepared to pass the explicit three-surface posture gate in
+   Phase 3.
 
 ## Phase 3: Validation
 
@@ -63,10 +74,12 @@ Run validation strictly in order:
 
 1. `pnpm install` — ensure lockfile is current
 2. `pnpm lint` — zero errors, zero warnings
-3. `pnpm test` — all tests pass
-4. `pnpm security:check` — fail on any high / critical audit finding
-5. `pnpm pack:check` — packaging sanity check
-6. `npm info @flyingrobots/graft` — verify registry reachable
+3. `pnpm release:surface-gate` — capability registry, public API
+   contract, and three-surface matrix stay in sync
+4. `pnpm test` — all tests pass
+5. `pnpm security:check` — fail on any high / critical audit finding
+6. `pnpm pack:check` — packaging sanity check
+7. `npm info @flyingrobots/graft` — verify registry reachable
 
 Abort on the first hard failure. Do not claim success from queued or
 in-progress CI state.

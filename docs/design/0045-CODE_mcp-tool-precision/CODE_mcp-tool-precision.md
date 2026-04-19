@@ -1,3 +1,7 @@
+---
+title: "Cycle 0045 — Precision search typed seams"
+---
+
 # Cycle 0045 — Precision search typed seams
 
 Type: Debt

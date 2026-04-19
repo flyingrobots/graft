@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { graftDiff } from "../../operations/graft-diff.js";
-import type { ToolDefinition, ToolContext, ToolHandler } from "../context.js";
+import type { ToolDefinition, ToolHandler } from "../context.js";
 import { evaluateMcpRefusal } from "../policy.js";
 
 export const graftDiffTool: ToolDefinition = {
@@ -10,8 +10,8 @@ export const graftDiffTool: ToolDefinition = {
     "changed symbols per file \u2014 not line hunks. Defaults to working " +
     "tree vs HEAD.",
   schema: { base: z.string().optional(), head: z.string().optional(), path: z.string().optional() },
-  createHandler(ctx: ToolContext): ToolHandler {
-    return async (args) => {
+  createHandler(): ToolHandler {
+    return async (args, ctx) => {
       const head = args["head"] as string | undefined;
       const result = await graftDiff({
         cwd: ctx.projectRoot,
@@ -22,6 +22,9 @@ export const graftDiffTool: ToolDefinition = {
         head,
         path: args["path"] as string | undefined,
         refusalCheck: (filePath, actual) => evaluateMcpRefusal(ctx, filePath, actual),
+      });
+      ctx.recordFootprint({
+        paths: (result.files as readonly { path: string }[]).map((f) => f.path),
       });
       return ctx.respond("graft_diff", {
         ...result,

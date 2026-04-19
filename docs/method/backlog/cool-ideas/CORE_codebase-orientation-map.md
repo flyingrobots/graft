@@ -1,3 +1,7 @@
+---
+title: "Codebase orientation map"
+---
+
 # Codebase orientation map
 
 `graft map` or `graft outline src/` — recursive structural outline

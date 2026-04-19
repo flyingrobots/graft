@@ -48,6 +48,9 @@ it. Cycles under that legend must verify the invariant holds.
 - [decision-logged](decision-logged.md) — every policy decision hits NDJSON log
 
 ### Surfaces (CORE)
+- [three-entrypoint-surface-contract](three-entrypoint-surface-contract.md) — API, CLI, and MCP are the official explicit product entry points
+- [primary-adapter-repo-topology-explicit](primary-adapter-repo-topology-explicit.md) — API, CLI, and MCP have explicit repo homes and a thin package export root
+- [public-api-root-import-only](public-api-root-import-only.md) — only `@flyingrobots/graft` is semver-public; deep imports are not
 - [cli-mcp-feature-parity](cli-mcp-feature-parity.md) — product-facing CLI and MCP capabilities stay aligned
 
 ### Session (CORE)

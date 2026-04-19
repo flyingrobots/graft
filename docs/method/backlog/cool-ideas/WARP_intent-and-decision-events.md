@@ -1,3 +1,7 @@
+---
+title: "WARP intent and decision events"
+---
+
 # WARP intent and decision events
 
 Read/write footprints alone will not fully explain why a human or

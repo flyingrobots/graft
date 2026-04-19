@@ -1,3 +1,7 @@
+---
+title: "Provenance DAG"
+---
+
 # Provenance DAG
 
 Evolve receipts from flat NDJSON into a graph of structural

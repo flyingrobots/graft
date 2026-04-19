@@ -1,3 +1,7 @@
+---
+title: "Technical debt as measurable curvature"
+---
+
 # Technical debt as measurable curvature
 
 Debt is not a feeling. It is accumulated structural complexity

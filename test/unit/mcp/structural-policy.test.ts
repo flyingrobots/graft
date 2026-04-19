@@ -1,16 +1,12 @@
 import { describe, it, expect } from "vitest";
 import * as fs from "node:fs";
 import * as path from "node:path";
-import { createGraftServer } from "../../../src/mcp/server.js";
+import {
+  expectGraftMapDepthOverviewPlayback,
+  expectGraftMapSummaryPlayback,
+} from "../../helpers/graft-map-playback.js";
 import { createTestRepo, cleanupTestRepo, git } from "../../helpers/git.js";
-import { parse } from "../../helpers/mcp.js";
-
-function createServerInRepo(repoDir: string) {
-  return createGraftServer({
-    projectRoot: repoDir,
-    graftDir: path.join(repoDir, ".graft"),
-  });
-}
+import { createServerInRepo, parse } from "../../helpers/mcp.js";
 
 describe("mcp: structural tool policy enforcement", () => {
   it("graft_map includes untracked working-tree files", async () => {
@@ -61,6 +57,16 @@ describe("mcp: structural tool policy enforcement", () => {
     } finally {
       cleanupTestRepo(tmpDir);
     }
+  });
+
+  it("graft_map depth 0 returns direct files and summarized child directories for one-call orientation", async () => {
+    const result = await expectGraftMapDepthOverviewPlayback();
+    expect(result["summary"]).toContain("files");
+  });
+
+  it("graft_map summary mode reports symbol counts without emitting per-symbol payloads", async () => {
+    const result = await expectGraftMapSummaryPlayback();
+    expect(result["summary"]).toContain("symbols");
   });
 
   it("graft_map omits .graftignore-matched files and reports them explicitly", async () => {

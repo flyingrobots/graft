@@ -1,3 +1,7 @@
+---
+title: "Sludge detector"
+---
+
 # Sludge detector
 
 Scan a file's outline for structural signals that indicate sludge:

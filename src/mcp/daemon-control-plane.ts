@@ -1,8 +1,3 @@
-import * as path from "node:path";
-import { z } from "zod";
-import type { JsonCodec } from "../ports/codec.js";
-import type { FileSystem } from "../ports/filesystem.js";
-import type { GitClient } from "../ports/git.js";
 import type { DaemonSchedulerCounts } from "./daemon-job-scheduler.js";
 import { ZERO_SCHEDULER_COUNTS } from "./daemon-job-scheduler.js";
 import type { DaemonWorkerCounts } from "./daemon-worker-pool.js";
@@ -16,218 +11,88 @@ import {
   type WorkspaceStatus,
 } from "./workspace-router.js";
 
-const CONTROL_PLANE_DIR = "control-plane";
-const AUTHORIZED_WORKSPACES_FILE = "authorized-workspaces.json";
+import {
+  buildStatePath,
+  capabilityProfilesEqual,
+  cloneAuthorizedWorkspaceRecord,
+  cloneCapabilityProfile,
+  loadPersistedState,
+  persistState,
+  resolveCapabilityProfile,
+  sortByWorktreeRoot,
+} from "./control-plane/authz-storage.js";
 
-const workspaceCapabilityProfileSchema = z.object({
-  boundedReads: z.boolean(),
-  structuralTools: z.boolean(),
-  precisionTools: z.boolean(),
-  stateBookmarks: z.boolean(),
-  runtimeLogs: z.literal("session_local_only"),
-  runCapture: z.boolean(),
-}).strict();
+import {
+  readRuntimeCausalContext,
+  readWorkspaceStatus,
+  resolveSharedAttachSource,
+  toDaemonSessionView,
+} from "./control-plane/session-registry.js";
 
-const authorizedWorkspaceRecordSchema = z.object({
-  repoId: z.string(),
-  worktreeId: z.string(),
-  worktreeRoot: z.string(),
-  gitCommonDir: z.string(),
-  capabilityProfile: workspaceCapabilityProfileSchema,
-  authorizedAt: z.string(),
-  lastBoundAt: z.string().nullable(),
-}).strict();
+import {
+  buildStatusView,
+  toAuthorizedWorkspaceView,
+  ZERO_MONITOR_COUNTS,
+} from "./control-plane/status-projection.js";
 
-const persistedControlPlaneStateSchema = z.object({
-  version: z.literal(1),
-  workspaces: z.array(authorizedWorkspaceRecordSchema),
-}).strict();
+// ---------------------------------------------------------------------------
+// Barrel re-exports — keep every public type available from this path
+// ---------------------------------------------------------------------------
 
-type PersistedControlPlaneState = z.infer<typeof persistedControlPlaneStateSchema>;
+export type {
+  AuthorizedWorkspaceRecord,
+  AuthorizedWorkspaceView,
+  DaemonControlPlaneOptions,
+  DaemonMonitorCounts,
+  DaemonRuntimeDescriptor,
+  DaemonSessionView,
+  DaemonStatusView,
+  SharedAttachSource,
+  WorkspaceAuthorizeRequest,
+  WorkspaceAuthorizeResult,
+  WorkspaceRevokeResult,
+} from "./control-plane/types.js";
 
-interface RegisteredSession {
-  readonly sessionId: string;
-  readonly startedAt: string;
-  readonly getWorkspaceStatus: () => WorkspaceStatus;
-  readonly getRuntimeCausalContext: () => RuntimeCausalContext | null;
-  lastActivityAt: string;
-}
+import type {
+  AuthorizedWorkspaceRecord,
+  AuthorizedWorkspaceView,
+  DaemonControlPlaneOptions,
+  DaemonMonitorCounts,
+  DaemonRuntimeDescriptor,
+  DaemonSessionView,
+  DaemonStatusView,
+  RegisteredTransport,
+  SharedAttachSource,
+  WorkspaceAuthorizeRequest,
+  WorkspaceAuthorizeResult,
+  WorkspaceRevokeResult,
+} from "./control-plane/types.js";
 
-export interface AuthorizedWorkspaceRecord {
-  readonly repoId: string;
-  readonly worktreeId: string;
-  readonly worktreeRoot: string;
-  readonly gitCommonDir: string;
-  readonly capabilityProfile: WorkspaceCapabilityProfile;
-  readonly authorizedAt: string;
-  readonly lastBoundAt: string | null;
-}
-
-export interface AuthorizedWorkspaceView extends AuthorizedWorkspaceRecord {
-  readonly activeSessions: number;
-}
-
-export interface WorkspaceAuthorizeRequest extends WorkspaceBindRequest {
-  readonly runCapture?: boolean | undefined;
-}
-
-export interface WorkspaceAuthorizeResult {
-  readonly ok: boolean;
-  readonly changed: boolean;
-  readonly authorization?: AuthorizedWorkspaceView;
-  readonly errorCode?: string;
-  readonly error?: string;
-}
-
-export interface WorkspaceRevokeResult {
-  readonly ok: boolean;
-  readonly revoked: boolean;
-  readonly repoId?: string | null;
-  readonly worktreeId?: string | null;
-  readonly worktreeRoot?: string | null;
-  readonly activeSessions?: number;
-  readonly errorCode?: string;
-  readonly error?: string;
-}
-
-export interface DaemonSessionView {
-  readonly sessionId: string;
-  readonly sessionMode: "daemon";
-  readonly bindState: WorkspaceStatus["bindState"];
-  readonly repoId: string | null;
-  readonly worktreeId: string | null;
-  readonly worktreeRoot: string | null;
-  readonly causalSessionId: string | null;
-  readonly checkoutEpochId: string | null;
-  readonly capabilityProfile: WorkspaceCapabilityProfile | null;
-  readonly startedAt: string;
-  readonly lastActivityAt: string;
-}
-
-export interface DaemonRuntimeDescriptor {
-  readonly transport: "unix_socket" | "named_pipe";
-  readonly sameUserOnly: true;
-  readonly socketPath: string;
-  readonly mcpPath: string;
-  readonly healthPath: string;
-  readonly activeWarpRepos: number;
-  readonly startedAt: string;
-}
-
-export interface SharedAttachSource {
-  readonly sourceSessionId: string;
-  readonly causalSessionId: string;
-  readonly strandId: string;
-}
-
-export interface DaemonMonitorCounts {
-  readonly totalMonitors: number;
-  readonly runningMonitors: number;
-  readonly pausedMonitors: number;
-  readonly stoppedMonitors: number;
-  readonly failingMonitors: number;
-  readonly backlogMonitors: number;
-}
-
-export interface DaemonStatusView extends DaemonRuntimeDescriptor {
-  readonly ok: true;
-  readonly sessionMode: "daemon";
-  readonly activeSessions: number;
-  readonly boundSessions: number;
-  readonly unboundSessions: number;
-  readonly authorizedWorkspaces: number;
-  readonly authorizedRepos: number;
-  readonly workspaceBindRequiresAuthorization: true;
-  readonly defaultCapabilityProfile: WorkspaceCapabilityProfile;
-  readonly totalMonitors: number;
-  readonly runningMonitors: number;
-  readonly pausedMonitors: number;
-  readonly stoppedMonitors: number;
-  readonly failingMonitors: number;
-  readonly backlogMonitors: number;
-  readonly scheduler: DaemonSchedulerCounts;
-  readonly workers: DaemonWorkerCounts;
-}
-
-export interface DaemonControlPlaneOptions {
-  readonly fs: FileSystem;
-  readonly codec: JsonCodec;
-  readonly git: GitClient;
-  readonly graftDir: string;
-}
-
-function cloneCapabilityProfile(
-  profile: WorkspaceCapabilityProfile,
-): WorkspaceCapabilityProfile {
-  return { ...profile };
-}
-
-function capabilityProfilesEqual(
-  left: WorkspaceCapabilityProfile,
-  right: WorkspaceCapabilityProfile,
-): boolean {
-  return left.boundedReads === right.boundedReads
-    && left.structuralTools === right.structuralTools
-    && left.precisionTools === right.precisionTools
-    && left.stateBookmarks === right.stateBookmarks
-    && left.runCapture === right.runCapture;
-}
-
-function resolveCapabilityProfile(
-  current: WorkspaceCapabilityProfile | undefined,
-  runCapture: boolean | undefined,
-): WorkspaceCapabilityProfile {
-  return {
-    ...(current ?? DEFAULT_DAEMON_CAPABILITY_PROFILE),
-    ...(runCapture !== undefined ? { runCapture } : {}),
-  };
-}
-
-function sortByWorktreeRoot(records: readonly AuthorizedWorkspaceRecord[]): AuthorizedWorkspaceRecord[] {
-  return [...records].sort((left, right) => left.worktreeRoot.localeCompare(right.worktreeRoot));
-}
-
-function cloneAuthorizedWorkspaceRecord(record: AuthorizedWorkspaceRecord): AuthorizedWorkspaceRecord {
-  return {
-    ...record,
-    capabilityProfile: cloneCapabilityProfile(record.capabilityProfile),
-  };
-}
-
-const ZERO_MONITOR_COUNTS: DaemonMonitorCounts = Object.freeze({
-  totalMonitors: 0,
-  runningMonitors: 0,
-  pausedMonitors: 0,
-  stoppedMonitors: 0,
-  failingMonitors: 0,
-  backlogMonitors: 0,
-});
+// ---------------------------------------------------------------------------
+// DaemonControlPlane
+// ---------------------------------------------------------------------------
 
 export class DaemonControlPlane {
   private readonly statePath: string;
   private readonly authorizedWorkspaces = new Map<string, AuthorizedWorkspaceRecord>();
-  private readonly sessions = new Map<string, RegisteredSession>();
+  private readonly transports = new Map<string, RegisteredTransport>();
   private loadPromise: Promise<void> | null = null;
 
   constructor(private readonly options: DaemonControlPlaneOptions) {
-    this.statePath = path.join(
-      path.resolve(options.graftDir),
-      CONTROL_PLANE_DIR,
-      AUTHORIZED_WORKSPACES_FILE,
-    );
+    this.statePath = buildStatePath(options.graftDir);
   }
 
   initialize(): Promise<void> {
     return this.ensureLoaded();
   }
 
-  registerSession(
+  registerTransport(
     sessionId: string,
     getWorkspaceStatus: () => WorkspaceStatus,
     getRuntimeCausalContext: () => RuntimeCausalContext | null,
   ): void {
     const now = new Date().toISOString();
-    this.sessions.set(sessionId, {
+    this.transports.set(sessionId, {
       sessionId,
       startedAt: now,
       lastActivityAt: now,
@@ -236,14 +101,14 @@ export class DaemonControlPlane {
     });
   }
 
-  touchSession(sessionId: string): void {
-    const session = this.sessions.get(sessionId);
+  touchTransport(sessionId: string): void {
+    const session = this.transports.get(sessionId);
     if (session === undefined) return;
     session.lastActivityAt = new Date().toISOString();
   }
 
-  unregisterSession(sessionId: string): void {
-    this.sessions.delete(sessionId);
+  unregisterTransport(sessionId: string): void {
+    this.transports.delete(sessionId);
   }
 
   resolveSharedAttachSource(input: {
@@ -251,44 +116,7 @@ export class DaemonControlPlane {
     readonly repoId: string;
     readonly worktreeId: string;
   }): SharedAttachSource | null {
-    const candidates = [...this.sessions.values()]
-      .filter((session) => session.sessionId !== input.sessionId)
-      .flatMap((session) => {
-        const status = this.readWorkspaceStatus(session);
-        if (
-          status.bindState !== "bound" ||
-          status.repoId !== input.repoId ||
-          status.worktreeId !== input.worktreeId
-        ) {
-          return [];
-        }
-        const causalContext = this.readRuntimeCausalContext(session);
-        if (causalContext === null) {
-          return [];
-        }
-        return [{
-          sourceSessionId: session.sessionId,
-          causalSessionId: causalContext.causalSessionId,
-          strandId: causalContext.strandId,
-          lastActivityAt: session.lastActivityAt,
-        }];
-      })
-      .sort((left, right) => right.lastActivityAt.localeCompare(left.lastActivityAt));
-
-    if (candidates.length !== 1) {
-      return null;
-    }
-
-    const [source] = candidates;
-    if (source === undefined) {
-      return null;
-    }
-
-    return {
-      sourceSessionId: source.sourceSessionId,
-      causalSessionId: source.causalSessionId,
-      strandId: source.strandId,
-    };
+    return resolveSharedAttachSource(this.transports, input);
   }
 
   async authorizeWorkspace(request: WorkspaceAuthorizeRequest): Promise<WorkspaceAuthorizeResult> {
@@ -304,7 +132,11 @@ export class DaemonControlPlane {
 
     await this.ensureLoaded();
     const current = this.authorizedWorkspaces.get(resolved.worktreeId);
-    const nextCapabilityProfile = resolveCapabilityProfile(current?.capabilityProfile, request.runCapture);
+    const nextCapabilityProfile = resolveCapabilityProfile(
+      current?.capabilityProfile,
+      DEFAULT_DAEMON_CAPABILITY_PROFILE,
+      request.runCapture,
+    );
     const next: AuthorizedWorkspaceRecord = {
       ...resolved,
       capabilityProfile: nextCapabilityProfile,
@@ -323,7 +155,7 @@ export class DaemonControlPlane {
     return {
       ok: true,
       changed,
-      authorization: this.toAuthorizedWorkspaceView(next),
+      authorization: toAuthorizedWorkspaceView(next, this.activeTransportsFor(next.worktreeId)),
     };
   }
 
@@ -347,7 +179,7 @@ export class DaemonControlPlane {
         repoId: resolved.repoId,
         worktreeId: resolved.worktreeId,
         worktreeRoot: resolved.worktreeRoot,
-        activeSessions: this.activeSessionsFor(resolved.worktreeId),
+        activeSessions: this.activeTransportsFor(resolved.worktreeId),
         errorCode: "WORKSPACE_NOT_AUTHORIZED",
         error: `Workspace ${resolved.worktreeRoot} is not authorized.`,
       };
@@ -361,7 +193,7 @@ export class DaemonControlPlane {
       repoId: current.repoId,
       worktreeId: current.worktreeId,
       worktreeRoot: current.worktreeRoot,
-      activeSessions: this.activeSessionsFor(current.worktreeId),
+      activeSessions: this.activeTransportsFor(current.worktreeId),
     };
   }
 
@@ -385,7 +217,7 @@ export class DaemonControlPlane {
   async listAuthorizedWorkspaces(): Promise<readonly AuthorizedWorkspaceView[]> {
     await this.ensureLoaded();
     return sortByWorktreeRoot([...this.authorizedWorkspaces.values()]).map((record) => {
-      return this.toAuthorizedWorkspaceView(record);
+      return toAuthorizedWorkspaceView(record, this.activeTransportsFor(record.worktreeId));
     });
   }
 
@@ -420,9 +252,9 @@ export class DaemonControlPlane {
     return cloneAuthorizedWorkspaceRecord(first);
   }
 
-  listSessions(): readonly DaemonSessionView[] {
-    return [...this.sessions.values()]
-      .map((session) => this.toDaemonSessionView(session))
+  listTransports(): readonly DaemonSessionView[] {
+    return [...this.transports.values()]
+      .map((session) => toDaemonSessionView(session, readWorkspaceStatus, readRuntimeCausalContext))
       .sort((left, right) => left.startedAt.localeCompare(right.startedAt));
   }
 
@@ -432,28 +264,15 @@ export class DaemonControlPlane {
     schedulerCounts: DaemonSchedulerCounts = ZERO_SCHEDULER_COUNTS,
     workerCounts: DaemonWorkerCounts,
   ): DaemonStatusView {
-    const sessions = this.listSessions();
-    const boundSessions = sessions.filter((session) => session.bindState === "bound").length;
-    return {
-      ok: true,
-      sessionMode: "daemon",
-      activeSessions: sessions.length,
-      boundSessions,
-      unboundSessions: sessions.length - boundSessions,
-      authorizedWorkspaces: this.authorizedWorkspaces.size,
-      authorizedRepos: new Set([...this.authorizedWorkspaces.values()].map((record) => record.repoId)).size,
-      workspaceBindRequiresAuthorization: true,
-      defaultCapabilityProfile: cloneCapabilityProfile(DEFAULT_DAEMON_CAPABILITY_PROFILE),
-      totalMonitors: monitorCounts.totalMonitors,
-      runningMonitors: monitorCounts.runningMonitors,
-      pausedMonitors: monitorCounts.pausedMonitors,
-      stoppedMonitors: monitorCounts.stoppedMonitors,
-      failingMonitors: monitorCounts.failingMonitors,
-      backlogMonitors: monitorCounts.backlogMonitors,
-      scheduler: schedulerCounts,
-      workers: workerCounts,
-      ...runtime,
-    };
+    return buildStatusView(
+      runtime,
+      this.listTransports(),
+      this.authorizedWorkspaces,
+      DEFAULT_DAEMON_CAPABILITY_PROFILE,
+      monitorCounts,
+      schedulerCounts,
+      workerCounts,
+    );
   }
 
   private async ensureLoaded(): Promise<void> {
@@ -463,15 +282,8 @@ export class DaemonControlPlane {
     }
 
     this.loadPromise = (async () => {
-      const raw = await this.options.fs.readFile(this.statePath, "utf-8").catch((error: unknown) => {
-        if (error instanceof Error && "code" in error && error.code === "ENOENT") {
-          return null;
-        }
-        throw error;
-      });
-      if (raw === null) return;
-
-      const decoded = persistedControlPlaneStateSchema.parse(this.options.codec.decode(raw));
+      const decoded = await loadPersistedState(this.statePath, this.options.fs, this.options.codec);
+      if (decoded === null) return;
       for (const record of decoded.workspaces) {
         this.authorizedWorkspaces.set(record.worktreeId, {
           repoId: record.repoId,
@@ -489,66 +301,10 @@ export class DaemonControlPlane {
   }
 
   private async persist(): Promise<void> {
-    const payload: PersistedControlPlaneState = {
-      version: 1,
-      workspaces: sortByWorktreeRoot([...this.authorizedWorkspaces.values()]),
-    };
-    await this.options.fs.mkdir(path.dirname(this.statePath), { recursive: true });
-    await this.options.fs.writeFile(this.statePath, this.options.codec.encode(payload), "utf-8");
+    await persistState(this.statePath, this.options.fs, this.options.codec, this.authorizedWorkspaces);
   }
 
-  private activeSessionsFor(worktreeId: string): number {
-    return this.listSessions().filter((session) => session.worktreeId === worktreeId).length;
-  }
-
-  private toAuthorizedWorkspaceView(record: AuthorizedWorkspaceRecord): AuthorizedWorkspaceView {
-    return {
-      ...record,
-      capabilityProfile: cloneCapabilityProfile(record.capabilityProfile),
-      activeSessions: this.activeSessionsFor(record.worktreeId),
-    };
-  }
-
-  private toDaemonSessionView(session: RegisteredSession): DaemonSessionView {
-    const status = this.readWorkspaceStatus(session);
-    const causalContext = this.readRuntimeCausalContext(session);
-    return {
-      sessionId: session.sessionId,
-      sessionMode: "daemon",
-      bindState: status.bindState,
-      repoId: status.repoId,
-      worktreeId: status.worktreeId,
-      worktreeRoot: status.worktreeRoot,
-      causalSessionId: causalContext?.causalSessionId ?? null,
-      checkoutEpochId: causalContext?.checkoutEpochId ?? null,
-      capabilityProfile: status.capabilityProfile === null ? null : cloneCapabilityProfile(status.capabilityProfile),
-      startedAt: session.startedAt,
-      lastActivityAt: session.lastActivityAt,
-    };
-  }
-
-  private readWorkspaceStatus(session: RegisteredSession): WorkspaceStatus {
-    try {
-      return session.getWorkspaceStatus();
-    } catch {
-      return {
-        sessionMode: "daemon",
-        bindState: "unbound",
-        repoId: null,
-        worktreeId: null,
-        worktreeRoot: null,
-        gitCommonDir: null,
-        graftDir: null,
-        capabilityProfile: null,
-      };
-    }
-  }
-
-  private readRuntimeCausalContext(session: RegisteredSession): RuntimeCausalContext | null {
-    try {
-      return session.getRuntimeCausalContext();
-    } catch {
-      return null;
-    }
+  private activeTransportsFor(worktreeId: string): number {
+    return this.listTransports().filter((session) => session.worktreeId === worktreeId).length;
   }
 }

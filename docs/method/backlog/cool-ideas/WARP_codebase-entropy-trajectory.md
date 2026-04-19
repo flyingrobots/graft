@@ -1,3 +1,7 @@
+---
+title: "Codebase entropy trajectory"
+---
+
 # Codebase entropy trajectory
 
 The WARP worldline is a time series of structural state. Compute
