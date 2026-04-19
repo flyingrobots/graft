@@ -69,4 +69,7 @@ export const cliOutputBodySchemas = {
   diag_capture: mcpOutputBodySchemas.run_capture,
   struct_churn: mcpOutputBodySchemas.graft_churn,
   struct_exports: mcpOutputBodySchemas.graft_exports,
+  struct_log: mcpOutputBodySchemas.graft_log,
+  symbol_blame: mcpOutputBodySchemas.graft_blame,
+  struct_review: mcpOutputBodySchemas.graft_review,
 } satisfies Record<CliCommandName, z.ZodType>;

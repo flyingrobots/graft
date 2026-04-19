@@ -42,13 +42,13 @@ describe("0078 three-surface capability baseline and parity matrix", () => {
     const content = readMatrixDoc();
 
     expect(CAPABILITY_REGISTRY.filter((capability) => capability.surfaces.join("+") === "cli")).toHaveLength(4);
-    expect(CAPABILITY_REGISTRY.filter((capability) => capability.surfaces.join("+") === "api+cli+mcp")).toHaveLength(16);
+    expect(CAPABILITY_REGISTRY.filter((capability) => capability.surfaces.join("+") === "api+cli+mcp")).toHaveLength(19);
     expect(CAPABILITY_REGISTRY.filter((capability) => capability.surfaces.join("+") === "api+mcp")).toHaveLength(20);
     expect(CAPABILITY_REGISTRY.filter((capability) => capability.surfaces.join("+") === "api")).toHaveLength(1);
     expect(CAPABILITY_REGISTRY.filter((capability) => capability.surfaces.join("+") === "mcp")).toHaveLength(0);
 
     expect(content).toContain("- `4` CLI-only capabilities");
-    expect(content).toContain("- `16` API + CLI + MCP capabilities");
+    expect(content).toContain("- `19` API + CLI + MCP capabilities");
     expect(content).toContain("- `20` API + MCP capabilities");
     expect(content).toContain("- `1` API-only capability");
   });

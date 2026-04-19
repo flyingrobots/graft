@@ -189,6 +189,36 @@ function parseStructCommand(argv: string[]): ParsedCommand {
     };
   }
 
+  if (subcommand === "log") {
+    const since = consumeOption(argv, "--since");
+    const filePath = consumeOption(argv, "--path");
+    const limitRaw = consumeOption(argv, "--limit");
+    expectNoArgs(argv);
+    return {
+      command: "struct_log",
+      json,
+      args: {
+        ...(since !== undefined ? { since } : {}),
+        ...(filePath !== undefined ? { path: filePath } : {}),
+        ...(limitRaw !== undefined ? { limit: parsePositiveInt(limitRaw, "--limit") } : {}),
+      },
+    };
+  }
+
+  if (subcommand === "review") {
+    const base = consumeOption(argv, "--base");
+    const head = consumeOption(argv, "--head");
+    expectNoArgs(argv);
+    return {
+      command: "struct_review",
+      json,
+      args: {
+        ...(base !== undefined ? { base } : {}),
+        ...(head !== undefined ? { head } : {}),
+      },
+    };
+  }
+
   throw new Error(`Unknown struct subcommand: ${subcommand}`);
 }
 
@@ -223,6 +253,20 @@ function parseSymbolCommand(argv: string[]): ParsedCommand {
       args: {
         query,
         ...(kind !== undefined ? { kind } : {}),
+        ...(filePath !== undefined ? { path: filePath } : {}),
+      },
+    };
+  }
+
+  if (subcommand === "blame") {
+    const symbol = consumePositional(argv, "symbol");
+    const filePath = consumeOption(argv, "--path");
+    expectNoArgs(argv);
+    return {
+      command: "symbol_blame",
+      json,
+      args: {
+        symbol,
         ...(filePath !== undefined ? { path: filePath } : {}),
       },
     };

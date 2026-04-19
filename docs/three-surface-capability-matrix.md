@@ -17,7 +17,7 @@ changes, this matrix must be refreshed before release.
 ## Current baseline
 
 - `4` CLI-only capabilities
-- `16` API + CLI + MCP capabilities
+- `19` API + CLI + MCP capabilities
 - `20` API + MCP capabilities
 - `1` API-only capability
 
@@ -55,6 +55,9 @@ CLI/MCP posture values:
 | `code_refs` | Yes | No | Yes | `tool_bridge` | `mcp_only` | `-` | `code_refs` |
 | `graft_churn` | Yes | Yes | Yes | `tool_bridge` | `peer` | `struct churn` | `graft_churn` |
 | `graft_exports` | Yes | Yes | Yes | `tool_bridge` | `peer` | `struct exports` | `graft_exports` |
+| `graft_log` | Yes | Yes | Yes | `tool_bridge` | `peer` | `struct log` | `graft_log` |
+| `graft_blame` | Yes | Yes | Yes | `tool_bridge` | `peer` | `symbol blame` | `graft_blame` |
+| `graft_review` | Yes | Yes | Yes | `tool_bridge` | `peer` | `struct review` | `graft_review` |
 | `daemon_repos` | Yes | No | Yes | `tool_bridge` | `mcp_only` | `-` | `daemon_repos` |
 | `daemon_status` | Yes | No | Yes | `tool_bridge` | `mcp_only` | `-` | `daemon_status` |
 | `daemon_sessions` | Yes | No | Yes | `tool_bridge` | `mcp_only` | `-` | `daemon_sessions` |

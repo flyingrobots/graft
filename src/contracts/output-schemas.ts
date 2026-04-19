@@ -1070,6 +1070,102 @@ const mcpOutputBodySchemas: Record<McpToolName, z.ZodType> = {
     semverImpact: z.enum(["major", "minor", "patch", "none"]),
     summary: z.string(),
   }).strict(),
+  graft_log: z.object({
+    entries: z.array(z.object({
+      sha: z.string(),
+      message: z.string(),
+      author: z.string(),
+      date: z.string(),
+      symbols: z.object({
+        added: z.array(z.object({
+          name: z.string(),
+          kind: z.string(),
+          signature: z.string().optional(),
+          exported: z.boolean(),
+          filePath: z.string(),
+        }).strict()),
+        removed: z.array(z.object({
+          name: z.string(),
+          kind: z.string(),
+          signature: z.string().optional(),
+          exported: z.boolean(),
+          filePath: z.string(),
+        }).strict()),
+        changed: z.array(z.object({
+          name: z.string(),
+          kind: z.string(),
+          signature: z.string().optional(),
+          exported: z.boolean(),
+          filePath: z.string(),
+        }).strict()),
+      }).strict(),
+      summary: z.string(),
+    }).strict()),
+    count: z.number().int().nonnegative(),
+    layer: z.literal("commit_worldline"),
+  }).strict(),
+  graft_blame: z.object({
+    symbol: z.string(),
+    filePath: z.string().optional(),
+    currentSignature: z.string().optional(),
+    kind: z.string(),
+    exported: z.boolean(),
+    created: z.object({
+      sha: z.string(),
+      author: z.string(),
+      date: z.string(),
+      message: z.string(),
+    }).strict().optional(),
+    lastSignatureChange: z.object({
+      sha: z.string(),
+      author: z.string(),
+      date: z.string(),
+      message: z.string(),
+      previousSignature: z.string().optional(),
+    }).strict().optional(),
+    changeCount: z.number().int().nonnegative(),
+    referenceCount: z.number().int().nonnegative(),
+    referencingFiles: z.array(z.string()),
+    history: z.array(z.object({
+      sha: z.string(),
+      changeKind: z.string(),
+      date: z.string(),
+      author: z.string(),
+      signature: z.string().optional(),
+    }).strict()),
+  }).strict(),
+  graft_review: z.object({
+    base: z.string(),
+    head: z.string(),
+    totalFiles: z.number().int().nonnegative(),
+    categories: z.object({
+      structural: z.number().int().nonnegative(),
+      formatting: z.number().int().nonnegative(),
+      test: z.number().int().nonnegative(),
+      docs: z.number().int().nonnegative(),
+      config: z.number().int().nonnegative(),
+    }).strict(),
+    files: z.array(z.object({
+      path: z.string(),
+      category: z.enum(["structural", "formatting", "test", "docs", "config"]),
+      structuralChanges: z.object({
+        added: z.number().int().nonnegative(),
+        removed: z.number().int().nonnegative(),
+        changed: z.number().int().nonnegative(),
+      }).strict().optional(),
+    }).strict()),
+    breakingChanges: z.array(z.object({
+      symbol: z.string(),
+      kind: z.string(),
+      filePath: z.string(),
+      changeType: z.enum(["removed_export", "signature_changed", "type_changed"]),
+      previousSignature: z.string().optional(),
+      newSignature: z.string().optional(),
+      impactedFiles: z.number().int().nonnegative(),
+      impactedFilePaths: z.array(z.string()),
+    }).strict()),
+    summary: z.string(),
+  }).strict(),
 };
 
 export const MCP_OUTPUT_SCHEMAS: Record<McpToolName, z.ZodType> = {
@@ -1112,6 +1208,9 @@ export const MCP_OUTPUT_SCHEMAS: Record<McpToolName, z.ZodType> = {
   stats: withMcpCommon("stats", mcpOutputBodySchemas.stats),
   graft_churn: withMcpCommon("graft_churn", mcpOutputBodySchemas.graft_churn),
   graft_exports: withMcpCommon("graft_exports", mcpOutputBodySchemas.graft_exports),
+  graft_log: withMcpCommon("graft_log", mcpOutputBodySchemas.graft_log),
+  graft_blame: withMcpCommon("graft_blame", mcpOutputBodySchemas.graft_blame),
+  graft_review: withMcpCommon("graft_review", mcpOutputBodySchemas.graft_review),
 };
 
 const initActionSchema = z.object({
@@ -1176,6 +1275,9 @@ export const CLI_OUTPUT_SCHEMAS: Record<CliCommandName, z.ZodType> = {
   symbol_find: withCliPeerCommon("symbol_find", mcpOutputBodySchemas.code_find),
   struct_churn: withCliPeerCommon("struct_churn", mcpOutputBodySchemas.graft_churn),
   struct_exports: withCliPeerCommon("struct_exports", mcpOutputBodySchemas.graft_exports),
+  struct_log: withCliPeerCommon("struct_log", mcpOutputBodySchemas.graft_log),
+  symbol_blame: withCliPeerCommon("symbol_blame", mcpOutputBodySchemas.graft_blame),
+  struct_review: withCliPeerCommon("struct_review", mcpOutputBodySchemas.graft_review),
   diag_doctor: withCliPeerCommon("diag_doctor", mcpOutputBodySchemas.doctor),
   diag_activity: withCliPeerCommon("diag_activity", mcpOutputBodySchemas.activity_view),
   diag_explain: withCliPeerCommon("diag_explain", mcpOutputBodySchemas.explain),

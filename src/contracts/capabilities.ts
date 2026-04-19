@@ -35,6 +35,9 @@ export const MCP_TOOL_NAMES = [
   "stats",
   "graft_churn",
   "graft_exports",
+  "graft_log",
+  "graft_blame",
+  "graft_review",
 ] as const;
 
 export type McpToolName = typeof MCP_TOOL_NAMES[number];
@@ -60,6 +63,9 @@ export const CLI_COMMAND_NAMES = [
   "diag_capture",
   "struct_churn",
   "struct_exports",
+  "struct_log",
+  "symbol_blame",
+  "struct_review",
 ] as const;
 
 export type CliCommandName = typeof CLI_COMMAND_NAMES[number];
@@ -409,6 +415,30 @@ export const CAPABILITY_REGISTRY: readonly CapabilityDefinition[] = [
     mcpTool: "graft_exports",
     cliCommand: "struct_exports",
     cliPath: ["struct", "exports"],
+    cliMcpParity: "peer",
+  }),
+  defineCapability({
+    id: "graft_log",
+    description: "Structural git log — symbol-level changes per commit",
+    mcpTool: "graft_log",
+    cliCommand: "struct_log",
+    cliPath: ["struct", "log"],
+    cliMcpParity: "peer",
+  }),
+  defineCapability({
+    id: "graft_blame",
+    description: "Symbol-level blame — creation, signature history, and references",
+    mcpTool: "graft_blame",
+    cliCommand: "symbol_blame",
+    cliPath: ["symbol", "blame"],
+    cliMcpParity: "peer",
+  }),
+  defineCapability({
+    id: "graft_review",
+    description: "Zero-noise structural PR review with breaking change detection",
+    mcpTool: "graft_review",
+    cliCommand: "struct_review",
+    cliPath: ["struct", "review"],
     cliMcpParity: "peer",
   }),
   defineCapability({

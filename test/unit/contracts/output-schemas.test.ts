@@ -186,6 +186,9 @@ describe("contracts: output schemas", () => {
       stats: parse(await server.callTool("stats", {})),
       graft_churn: parse(await server.callTool("graft_churn", {})),
       graft_exports: parse(await server.callTool("graft_exports", { base, head })),
+      graft_log: parse(await server.callTool("graft_log", {})),
+      graft_blame: parse(await server.callTool("graft_blame", { symbol: "greet" })),
+      graft_review: parse(await server.callTool("graft_review", { base, head })),
     } as const;
 
     for (const tool of MCP_TOOL_NAMES) {

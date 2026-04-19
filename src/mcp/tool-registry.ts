@@ -18,6 +18,9 @@ import { codeFindTool } from "./tools/code-find.js";
 import { codeRefsTool } from "./tools/code-refs.js";
 import { structuralChurnTool } from "./tools/structural-churn.js";
 import { exportSurfaceDiffTool } from "./tools/export-surface-diff.js";
+import { structuralLogTool } from "./tools/structural-log.js";
+import { structuralBlameTool } from "./tools/structural-blame.js";
+import { structuralReviewTool } from "./tools/structural-review.js";
 import { daemonMonitorsTool } from "./tools/daemon-monitors.js";
 import { daemonReposTool } from "./tools/daemon-repos.js";
 import { daemonSessionsTool } from "./tools/daemon-sessions.js";
@@ -59,6 +62,9 @@ export const TOOL_REGISTRY: readonly ToolDefinition[] = [
   codeRefsTool,
   structuralChurnTool,
   exportSurfaceDiffTool,
+  structuralLogTool,
+  structuralBlameTool,
+  structuralReviewTool,
 ];
 
 export const DAEMON_TOOL_REGISTRY: readonly ToolDefinition[] = [
