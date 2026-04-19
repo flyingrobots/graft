@@ -33,6 +33,8 @@ export const MCP_TOOL_NAMES = [
   "explain",
   "doctor",
   "stats",
+  "graft_churn",
+  "graft_exports",
 ] as const;
 
 export type McpToolName = typeof MCP_TOOL_NAMES[number];
@@ -56,6 +58,8 @@ export const CLI_COMMAND_NAMES = [
   "diag_explain",
   "diag_stats",
   "diag_capture",
+  "struct_churn",
+  "struct_exports",
 ] as const;
 
 export type CliCommandName = typeof CLI_COMMAND_NAMES[number];
@@ -390,6 +394,22 @@ export const CAPABILITY_REGISTRY: readonly CapabilityDefinition[] = [
     description: "Session bookmark load",
     mcpTool: "state_load",
     cliMcpParity: "mcp_only",
+  }),
+  defineCapability({
+    id: "graft_churn",
+    description: "Structural churn report — symbol change frequency hotspots",
+    mcpTool: "graft_churn",
+    cliCommand: "struct_churn",
+    cliPath: ["struct", "churn"],
+    cliMcpParity: "peer",
+  }),
+  defineCapability({
+    id: "graft_exports",
+    description: "Export surface diff — public API changes between refs",
+    mcpTool: "graft_exports",
+    cliCommand: "struct_exports",
+    cliPath: ["struct", "exports"],
+    cliMcpParity: "peer",
   }),
   defineCapability({
     id: "structured_buffer",

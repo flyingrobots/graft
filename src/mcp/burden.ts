@@ -48,6 +48,8 @@ const TOOL_BURDEN_KIND: Record<McpToolName, BurdenKind> = {
   explain: "diagnostic",
   doctor: "diagnostic",
   stats: "diagnostic",
+  graft_churn: "search",
+  graft_exports: "search",
 };
 
 export function emptyBurdenByKind(): BurdenByKind {

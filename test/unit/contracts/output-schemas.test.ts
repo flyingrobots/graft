@@ -184,6 +184,8 @@ describe("contracts: output schemas", () => {
       explain: parse(await server.callTool("explain", { code: "CONTENT" })),
       doctor: parse(await server.callTool("doctor", {})),
       stats: parse(await server.callTool("stats", {})),
+      graft_churn: parse(await server.callTool("graft_churn", {})),
+      graft_exports: parse(await server.callTool("graft_exports", { base, head })),
     } as const;
 
     for (const tool of MCP_TOOL_NAMES) {
@@ -280,6 +282,8 @@ describe("contracts: output schemas", () => {
       struct_diff: await runCliJson(repoDir, ["struct", "diff", "--json"]),
       struct_since: await runCliJson(repoDir, ["struct", "since", base, "--head", head, "--json"]),
       struct_map: await runCliJson(repoDir, ["struct", "map", "--json"]),
+      struct_churn: await runCliJson(repoDir, ["struct", "churn", "--json"]),
+      struct_exports: await runCliJson(repoDir, ["struct", "exports", base, head, "--json"]),
       symbol_show: await runCliJson(repoDir, ["symbol", "show", "greet", "--path", "app.ts", "--json"]),
       symbol_find: await runCliJson(repoDir, ["symbol", "find", "greet*", "--json"]),
       diag_doctor: await runCliJson(repoDir, ["diag", "doctor", "--json"]),

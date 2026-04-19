@@ -161,6 +161,34 @@ function parseStructCommand(argv: string[]): ParsedCommand {
     };
   }
 
+  if (subcommand === "churn") {
+    const filePath = consumeOption(argv, "--path");
+    const limitRaw = consumeOption(argv, "--limit");
+    expectNoArgs(argv);
+    return {
+      command: "struct_churn",
+      json,
+      args: {
+        ...(filePath !== undefined ? { path: filePath } : {}),
+        ...(limitRaw !== undefined ? { limit: parsePositiveInt(limitRaw, "--limit") } : {}),
+      },
+    };
+  }
+
+  if (subcommand === "exports") {
+    const base = argv[0]?.startsWith("--") === false ? consumePositional(argv, "base ref") : undefined;
+    const head = argv[0]?.startsWith("--") === false ? consumePositional(argv, "head ref") : undefined;
+    expectNoArgs(argv);
+    return {
+      command: "struct_exports",
+      json,
+      args: {
+        ...(base !== undefined ? { base } : {}),
+        ...(head !== undefined ? { head } : {}),
+      },
+    };
+  }
+
   throw new Error(`Unknown struct subcommand: ${subcommand}`);
 }
 

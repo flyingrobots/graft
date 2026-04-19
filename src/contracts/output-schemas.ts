@@ -1029,6 +1029,47 @@ const mcpOutputBodySchemas: Record<McpToolName, z.ZodType> = {
     totalNonReadBytesReturned: z.number().int().nonnegative(),
     burdenByKind: burdenByKindSchema,
   }).strict(),
+  graft_churn: z.object({
+    entries: z.array(z.object({
+      symbol: z.string(),
+      filePath: z.string(),
+      kind: z.string(),
+      changeCount: z.number().int().positive(),
+      lastChangedSha: z.string(),
+      lastChangedDate: z.string(),
+    }).strict()),
+    totalSymbols: z.number().int().nonnegative(),
+    totalCommitsAnalyzed: z.number().int().nonnegative(),
+    summary: z.string(),
+  }).strict(),
+  graft_exports: z.object({
+    base: z.string(),
+    head: z.string(),
+    added: z.array(z.object({
+      symbol: z.string(),
+      filePath: z.string(),
+      kind: z.string(),
+      changeType: z.literal("added"),
+      signature: z.string().optional(),
+    }).strict()),
+    removed: z.array(z.object({
+      symbol: z.string(),
+      filePath: z.string(),
+      kind: z.string(),
+      changeType: z.literal("removed"),
+      signature: z.string().optional(),
+    }).strict()),
+    changed: z.array(z.object({
+      symbol: z.string(),
+      filePath: z.string(),
+      kind: z.string(),
+      changeType: z.literal("signature_changed"),
+      signature: z.string().optional(),
+      previousSignature: z.string().optional(),
+    }).strict()),
+    semverImpact: z.enum(["major", "minor", "patch", "none"]),
+    summary: z.string(),
+  }).strict(),
 };
 
 export const MCP_OUTPUT_SCHEMAS: Record<McpToolName, z.ZodType> = {
@@ -1069,6 +1110,8 @@ export const MCP_OUTPUT_SCHEMAS: Record<McpToolName, z.ZodType> = {
   explain: withMcpCommon("explain", mcpOutputBodySchemas.explain),
   doctor: withMcpCommon("doctor", mcpOutputBodySchemas.doctor),
   stats: withMcpCommon("stats", mcpOutputBodySchemas.stats),
+  graft_churn: withMcpCommon("graft_churn", mcpOutputBodySchemas.graft_churn),
+  graft_exports: withMcpCommon("graft_exports", mcpOutputBodySchemas.graft_exports),
 };
 
 const initActionSchema = z.object({
@@ -1131,6 +1174,8 @@ export const CLI_OUTPUT_SCHEMAS: Record<CliCommandName, z.ZodType> = {
   struct_map: withCliPeerCommon("struct_map", mcpOutputBodySchemas.graft_map),
   symbol_show: withCliPeerCommon("symbol_show", mcpOutputBodySchemas.code_show),
   symbol_find: withCliPeerCommon("symbol_find", mcpOutputBodySchemas.code_find),
+  struct_churn: withCliPeerCommon("struct_churn", mcpOutputBodySchemas.graft_churn),
+  struct_exports: withCliPeerCommon("struct_exports", mcpOutputBodySchemas.graft_exports),
   diag_doctor: withCliPeerCommon("diag_doctor", mcpOutputBodySchemas.doctor),
   diag_activity: withCliPeerCommon("diag_activity", mcpOutputBodySchemas.activity_view),
   diag_explain: withCliPeerCommon("diag_explain", mcpOutputBodySchemas.explain),
