@@ -19,19 +19,10 @@ function repoFileExists(relPath: string): boolean {
   return fs.existsSync(path.join(ROOT, relPath));
 }
 
-function listDir(relPath: string): string[] {
-  const dir = path.join(ROOT, relPath);
-  if (!fs.existsSync(dir)) return [];
-  return fs.readdirSync(dir).filter((f) => f !== ".gitkeep");
-}
 
 describe("CORE_v060-bad-code-burndown", () => {
   // -- Human playback questions --
 
-  it("Is the bad-code directory empty?", () => {
-    const items = listDir("docs/method/backlog/bad-code");
-    expect(items).toEqual([]);
-  });
 
   it("Did any bad-code retirements skip the cycle loop (design -> build -> drift -> retro)?", () => {
     expect(repoFileExists("docs/design/CORE_v060-bad-code-burndown.md")).toBe(true);

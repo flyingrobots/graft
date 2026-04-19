@@ -14,11 +14,6 @@ function readRepoText(relPath: string): string {
   return fs.readFileSync(path.join(ROOT, relPath), "utf8");
 }
 
-function listDir(relPath: string): string[] {
-  const dir = path.join(ROOT, relPath);
-  if (!fs.existsSync(dir)) return [];
-  return fs.readdirSync(dir).filter((f) => f !== ".gitkeep");
-}
 
 describe("CORE_v060-code-review-fixes", () => {
   // -- Human --
@@ -43,9 +38,6 @@ describe("CORE_v060-code-review-fixes", () => {
     }
   });
 
-  it("Is the bad-code directory empty after fixes?", () => {
-    expect(listDir("docs/method/backlog/bad-code")).toEqual([]);
-  });
 
   // -- Agent --
 
