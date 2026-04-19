@@ -12,8 +12,13 @@ describe("release: package.json files array", () => {
     const files = pkg.files ?? [];
     expect(files.length).toBeGreaterThan(0);
 
+    // dist/ is a build artifact created by `pnpm build` / `prepack`.
+    // It won't exist during CI test runs but is present at publish time.
+    const BUILD_ARTIFACTS = new Set(["dist/", "dist"]);
+
     const missing: string[] = [];
     for (const entry of files) {
+      if (BUILD_ARTIFACTS.has(entry)) continue;
       const resolved = path.join(ROOT, entry);
       if (!fs.existsSync(resolved)) {
         missing.push(entry);

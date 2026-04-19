@@ -4,14 +4,15 @@ import packageJson from "../../../package.json";
 describe("release package docs", () => {
   it("ships every release-facing doc linked from README", () => {
     expect(packageJson.files).toEqual(expect.arrayContaining([
+      "ADVANCED_GUIDE.md",
       "ARCHITECTURE.md",
-      "CODE_OF_CONDUCT.md",
-      "docs/ADVANCED_GUIDE.md",
-      "docs/CLI.md",
-      "docs/GUIDE.md",
-      "docs/MCP.md",
-      "README.md",
       "CHANGELOG.md",
+      "CODE_OF_CONDUCT.md",
+      "GUIDE.md",
+      "docs/CLI.md",
+      "docs/MCP.md",
+      "docs/SETUP.md",
+      "README.md",
     ]));
   });
 });
