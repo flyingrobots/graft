@@ -89,6 +89,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   aliases no longer produce different workspace IDs.
 - **`GRAFT_PROJECT_ROOT` env var**: MCP servers no longer hardcoded
   to their own repo path.
+- **Path resolver security**: absolute paths now confined to project
+  root. Symlink escapes detected via `fs.realpathSync` double-check.
+- **WARP symbol disambiguation**: `symNodeId` uses qualified names
+  (`Header.render` vs `Footer.render`) — same-named methods across
+  classes no longer collide.
+- **WARP indexer error propagation**: `IndexResult` is a discriminated
+  union. Git failures propagate instead of producing silently empty
+  graphs.
+- **Daemon session cleanup**: session directories removed on close
+  instead of leaking forever.
+- **Rotating log preservation**: oversized entries preserved instead
+  of erasing the entire log during rotation.
+- **`graft_map` output caps**: `MAX_MAP_FILES=100`, `MAX_MAP_BYTES=50000`
+  with automatic summary-only fallback. Budget-exhausted sessions get
+  compact `BUDGET_EXHAUSTED` response.
 - **hono vulnerability**: override to >=4.12.14 patches HTML
   injection in `hono/jsx` SSR (Dependabot alert #10).
 
