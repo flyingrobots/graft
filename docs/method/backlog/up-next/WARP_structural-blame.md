@@ -1,5 +1,10 @@
 ---
 title: "Structural blame"
+legend: WARP
+lane: up-next
+blocked_by:
+  - WARP_commit-symbol-query-helpers
+  - WARP_symbol-reference-counting
 ---
 
 # Structural blame
@@ -8,11 +13,20 @@ title: "Structural blame"
 blame — structural blame. Which commit changed the signature of
 evaluatePolicy? Which commit added this class?
 
-The WARP graph already stores commit→symbol edges with `changes`,
-`adds`, and `removes` labels. Structural blame is a reverse
-traversal of these edges.
+## Surfaces
 
-Output: per-symbol attribution with commit SHA, author, date, and
-what changed (added, signature changed, moved).
+- **CLI**: `graft blame <symbol> [--path PATH]` — formatted output
+- **MCP**: `graft_blame` tool — JSON structured output
 
-Depends on: WARP Level 1 (shipped).
+## Core operation
+
+`src/operations/structural-blame.ts`:
+- Input: symbol name, optional file path
+- Output: creation commit, last signature change, full change history, reference count
+- Uses WARP commit-symbol query helpers for reverse traversal
+- Uses symbol reference counting for impact
+
+## Depends on
+
+- WARP_commit-symbol-query-helpers
+- WARP_symbol-reference-counting
