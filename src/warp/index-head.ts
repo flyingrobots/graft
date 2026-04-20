@@ -5,10 +5,78 @@
 import type { GitClient } from "../ports/git.js";
 import type { PathOps } from "../ports/paths.js";
 import type { WarpHandle } from "../ports/warp.js";
+import type { WarpPatchBuilder } from "../ports/warp.js";
 import { detectLang } from "../parser/lang.js";
 import { parseStructuredTree } from "../parser/runtime.js";
 import { emitAstNodes } from "./ast-emitter.js";
 import { resolveImportEdges } from "./ast-import-resolver.js";
+
+type TSNode = import("web-tree-sitter").SyntaxNode;
+
+const DECLARATION_TYPES = new Set([
+  "function_declaration",
+  "class_declaration",
+  "interface_declaration",
+  "type_alias_declaration",
+  "enum_declaration",
+]);
+
+function emitSymNodes(patch: WarpPatchBuilder, filePath: string, root: TSNode): void {
+  const fileId = `file:${filePath}`;
+
+  for (const child of root.namedChildren) {
+    // Exported declaration: export function foo() {}
+    if (child.type === "export_statement") {
+      const decl = child.namedChildren.find((c) => DECLARATION_TYPES.has(c.type));
+      if (decl !== undefined) {
+        const nameNode = decl.childForFieldName("name");
+        if (nameNode !== null) {
+          const symId = `sym:${filePath}:${nameNode.text}`;
+          patch.addNode(symId);
+          patch.setProperty(symId, "name", nameNode.text);
+          patch.setProperty(symId, "kind", decl.type.replace("_declaration", ""));
+          patch.setProperty(symId, "exported", true);
+          patch.setProperty(symId, "filePath", filePath);
+          patch.addEdge(fileId, symId, "contains");
+        }
+      }
+
+      // Exported variable: export const foo = ...
+      const lexical = child.namedChildren.find((c) => c.type === "lexical_declaration");
+      if (lexical !== undefined) {
+        for (const declarator of lexical.namedChildren) {
+          if (declarator.type === "variable_declarator") {
+            const nameNode = declarator.childForFieldName("name");
+            if (nameNode !== null) {
+              const symId = `sym:${filePath}:${nameNode.text}`;
+              patch.addNode(symId);
+              patch.setProperty(symId, "name", nameNode.text);
+              patch.setProperty(symId, "kind", "variable");
+              patch.setProperty(symId, "exported", true);
+              patch.setProperty(symId, "filePath", filePath);
+              patch.addEdge(fileId, symId, "contains");
+            }
+          }
+        }
+      }
+      continue;
+    }
+
+    // Non-exported top-level declaration
+    if (DECLARATION_TYPES.has(child.type)) {
+      const nameNode = child.childForFieldName("name");
+      if (nameNode !== null) {
+        const symId = `sym:${filePath}:${nameNode.text}`;
+        patch.addNode(symId);
+        patch.setProperty(symId, "name", nameNode.text);
+        patch.setProperty(symId, "kind", child.type.replace("_declaration", ""));
+        patch.setProperty(symId, "exported", false);
+        patch.setProperty(symId, "filePath", filePath);
+        patch.addEdge(fileId, symId, "contains");
+      }
+    }
+  }
+}
 
 export interface IndexHeadOptions {
   readonly cwd: string;
@@ -71,6 +139,9 @@ export async function indexHead(opts: IndexHeadOptions): Promise<IndexHeadResult
       patch.addNode(fileId);
       patch.setProperty(fileId, "path", filePath);
       patch.setProperty(fileId, "lang", detectLang(filePath) ?? "unknown");
+
+      // Symbol nodes (for cross-file reference edges to target)
+      emitSymNodes(patch, filePath, root);
 
       // Full AST
       emitAstNodes(patch, filePath, root);
