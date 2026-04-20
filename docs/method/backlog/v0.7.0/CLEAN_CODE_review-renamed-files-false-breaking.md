@@ -1,7 +1,7 @@
 ---
 title: "structural-review produces false breaking changes on renamed files"
 legend: CLEAN_CODE
-lane: bad-code
+lane: v0.7.0
 ---
 
 # structural-review produces false breaking changes on renamed files

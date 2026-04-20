@@ -1,7 +1,7 @@
 ---
 title: "export-surface-diff may throw on new files (base ref getFileAtRef not wrapped)"
 legend: CLEAN_CODE
-lane: bad-code
+lane: v0.7.0
 ---
 
 # export-surface-diff may throw on new files (base ref getFileAtRef not wrapped)

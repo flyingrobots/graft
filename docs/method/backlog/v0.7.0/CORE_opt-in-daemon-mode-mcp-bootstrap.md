@@ -1,7 +1,7 @@
 ---
 title: "Opt-in daemon mode for generated MCP client config"
 legend: CORE
-lane: up-next
+lane: v0.7.0
 ---
 
 # Opt-in daemon mode for generated MCP client config

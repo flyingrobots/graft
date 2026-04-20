@@ -1,7 +1,7 @@
 ---
 title: "Governed write tools"
 legend: SURFACE
-lane: up-next
+lane: v0.7.0
 blocked_by:
   - SURFACE_agent-dx-governed-edit
 ---

@@ -1,7 +1,7 @@
 ---
 title: "reference-count passes all file paths as CLI arguments, risking ARG_MAX"
 legend: CLEAN_CODE
-lane: bad-code
+lane: v0.7.0
 ---
 
 # reference-count passes all file paths as CLI arguments, risking ARG_MAX

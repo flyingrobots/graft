@@ -1,7 +1,7 @@
 ---
 title: "Bijou TUI for Graft daemon control plane"
 legend: SURFACE
-lane: up-next
+lane: v0.7.0
 ---
 
 # Bijou TUI for Graft daemon control plane

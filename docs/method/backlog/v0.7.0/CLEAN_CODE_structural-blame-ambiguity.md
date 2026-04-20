@@ -1,7 +1,7 @@
 ---
 title: "graft_blame silently ignores ambiguous symbol names"
 legend: CLEAN_CODE
-lane: bad-code
+lane: v0.7.0
 blocked_by:
   - CLEAN_CODE_queries-no-indexed-signal
 ---

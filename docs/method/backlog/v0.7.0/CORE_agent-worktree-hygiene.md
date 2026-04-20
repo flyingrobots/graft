@@ -1,7 +1,7 @@
 ---
 title: "Automatic worktree cleanup after parallel agent execution"
 legend: CORE
-lane: cool-ideas
+lane: v0.7.0
 ---
 
 # Automatic worktree cleanup after parallel agent execution

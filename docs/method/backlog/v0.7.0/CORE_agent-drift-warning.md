@@ -1,7 +1,7 @@
 ---
 title: "Agent drift warning"
 legend: CORE
-lane: up-next
+lane: v0.7.0
 ---
 
 # Agent drift warning

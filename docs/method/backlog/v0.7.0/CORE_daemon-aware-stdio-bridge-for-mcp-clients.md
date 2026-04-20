@@ -1,7 +1,7 @@
 ---
 title: "Daemon-aware stdio bridge for MCP clients"
 legend: CORE
-lane: up-next
+lane: v0.7.0
 ---
 
 # Daemon-aware stdio bridge for MCP clients

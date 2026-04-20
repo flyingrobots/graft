@@ -1,7 +1,7 @@
 ---
 title: "Refactor difficulty score"
 legend: WARP
-lane: up-next
+lane: v0.7.0
 blocked_by:
   - WARP_symbol-reference-tracing
 ---

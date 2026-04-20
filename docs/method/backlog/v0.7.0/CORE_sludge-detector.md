@@ -1,7 +1,7 @@
 ---
 title: "Sludge detector"
 legend: CORE
-lane: up-next
+lane: v0.7.0
 ---
 
 # Sludge detector

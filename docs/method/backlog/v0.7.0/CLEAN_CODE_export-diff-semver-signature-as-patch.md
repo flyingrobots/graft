@@ -1,7 +1,7 @@
 ---
 title: "export-surface-diff classifies all signature changes as patch (may be breaking)"
 legend: CLEAN_CODE
-lane: bad-code
+lane: v0.7.0
 ---
 
 # export-surface-diff classifies all signature changes as patch (may be breaking)

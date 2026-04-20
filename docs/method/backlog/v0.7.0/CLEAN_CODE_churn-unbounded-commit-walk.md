@@ -1,7 +1,7 @@
 ---
 title: "structural-churn walks all commits with no limit or parallelism"
 legend: CLEAN_CODE
-lane: bad-code
+lane: v0.7.0
 ---
 
 # structural-churn walks all commits with no limit or parallelism

@@ -1,7 +1,7 @@
 ---
 title: "git graft enhance — structural annotations for git commands"
 legend: CORE
-lane: up-next
+lane: v0.7.0
 ---
 
 # git graft enhance — structural annotations for git commands

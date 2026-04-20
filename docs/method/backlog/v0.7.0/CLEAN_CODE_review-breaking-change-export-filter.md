@@ -1,7 +1,7 @@
 ---
 title: "structural-review flags non-exported symbols as breaking changes"
 legend: CLEAN_CODE
-lane: bad-code
+lane: v0.7.0
 ---
 
 # structural-review flags non-exported symbols as breaking changes

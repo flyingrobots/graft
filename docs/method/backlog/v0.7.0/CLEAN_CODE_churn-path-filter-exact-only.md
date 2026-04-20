@@ -1,7 +1,7 @@
 ---
 title: "structural-churn path filter matches exact files only, not directories"
 legend: CLEAN_CODE
-lane: bad-code
+lane: v0.7.0
 ---
 
 # structural-churn path filter matches exact files only, not directories

@@ -1,7 +1,7 @@
 ---
 title: "Symbol reference tracing"
 legend: WARP
-lane: up-next
+lane: v0.7.0
 blocks:
   - WARP_refactor-difficulty-score
 ---
