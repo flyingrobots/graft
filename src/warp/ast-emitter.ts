@@ -2,12 +2,18 @@
 // Full AST emitter — walks tree-sitter AST and emits every node into WARP
 // ---------------------------------------------------------------------------
 
+import { createHash } from "node:crypto";
 import type { WarpHandle, WarpPatchBuilder } from "../ports/warp.js";
 
 type TSNode = import("web-tree-sitter").SyntaxNode;
 
+function hashId(input: string): string {
+  return createHash("sha1").update(input).digest("hex").slice(0, 12);
+}
+
 function astNodeId(filePath: string, node: TSNode): string {
-  return `ast:${filePath}:${String(node.startIndex)}:${String(node.endIndex)}`;
+  const hash = hashId(`${filePath}:${node.type}:${String(node.startIndex)}:${String(node.endIndex)}`);
+  return `ast:${filePath}:${hash}`;
 }
 
 function emitNode(
@@ -19,28 +25,24 @@ function emitNode(
   const nodeId = astNodeId(filePath, node);
   patch.addNode(nodeId);
   patch.setProperty(nodeId, "type", node.type);
+  patch.setProperty(nodeId, "named", node.isNamed());
   patch.setProperty(nodeId, "startRow", node.startPosition.row);
   patch.setProperty(nodeId, "startCol", node.startPosition.column);
   patch.setProperty(nodeId, "endRow", node.endPosition.row);
   patch.setProperty(nodeId, "endCol", node.endPosition.column);
-  patch.setProperty(nodeId, "named", node.isNamed());
   patch.setProperty(nodeId, "filePath", filePath);
 
-  // Store text only for leaf nodes (terminals)
+  // Store text for leaf nodes (no children)
   if (node.childCount === 0) {
     patch.setProperty(nodeId, "text", node.text);
   }
-
-  // Field name (if this node is a named field of its parent)
-  // We handle this in the child loop below since tree-sitter
-  // exposes field names from the parent's perspective.
 
   // Connect to parent
   if (parentId !== undefined) {
     patch.addEdge(parentId, nodeId, "child");
   }
 
-  // Recurse into children
+  // Recurse into ALL children
   for (let i = 0; i < node.childCount; i++) {
     const child = node.child(i);
     if (child !== null) {
@@ -50,11 +52,11 @@ function emitNode(
 }
 
 /**
- * Emit the full tree-sitter AST for a file into the WARP graph.
+ * Emit the complete tree-sitter CST for a file into the WARP graph.
  *
- * Every tree-sitter node becomes a graph node with ID `ast:<filePath>:<row>:<col>`.
- * Parent-child relationships become `child` edges.
- * The file node gets `contains` edges to the root-level AST children.
+ * Every node (named and anonymous) becomes a graph node with ID
+ * `ast:<filePath>:<hash>`. Parent-child relationships become `child`
+ * edges. The file node gets a `contains` edge to the program root.
  */
 export async function emitFullAst(
   warp: WarpHandle,
