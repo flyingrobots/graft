@@ -119,6 +119,7 @@ async function detectBreakingChanges(
   for (const file of structuralFiles) {
     // Removed exports → breaking
     for (const removed of file.diff.removed) {
+      if (removed.exported !== true) continue;
       const refs = await countReferences(removed.name, file.path);
       breaking.push({
         symbol: removed.name,
@@ -133,6 +134,7 @@ async function detectBreakingChanges(
 
     // Changed exported symbol signatures → potentially breaking
     for (const changed of file.diff.changed) {
+      if (changed.exported !== true) continue;
       if (changed.oldSignature !== undefined && changed.signature !== undefined &&
           changed.oldSignature !== changed.signature) {
         const refs = await countReferences(changed.name, file.path);

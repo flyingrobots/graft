@@ -120,6 +120,7 @@ const diffEntrySchema: z.ZodType = z.lazy(() => z.object({
   _brand: z.literal("DiffEntry").optional(),
   name: z.string(),
   kind: z.string(),
+  exported: z.boolean().optional(),
   signature: z.string().optional(),
   oldSignature: z.string().optional(),
   childDiff: outlineDiffSchema.optional(),

@@ -201,3 +201,114 @@ describe("operations: structural review", () => {
     expect(result.summary).toContain("Docs:");
   });
 });
+
+// --- Tests added for review-breaking-change-export-filter cycle ---
+// These are appended outside the main describe block as a second suite
+// that reuses the same imports.
+
+describe("operations: structural review — export-aware breaking changes", () => {
+  let tmpDir: string;
+
+  function reviewOpts(
+    overrides: Partial<Parameters<typeof structuralReview>[0]> = {},
+  ) {
+    return {
+      cwd: tmpDir,
+      fs: realFs,
+      git: nodeGit,
+      resolveWorkingTreePath: (filePath: string) => path.join(tmpDir, filePath),
+      countReferences: async (symbolName: string, filePath: string) => {
+        const refs = await countSymbolReferences(symbolName, {
+          projectRoot: tmpDir,
+          git: nodeGit,
+          process: nodeProcessRunner,
+          filePath,
+        });
+        return { referenceCount: refs.referenceCount, referencingFiles: refs.referencingFiles };
+      },
+      ...overrides,
+    };
+  }
+
+  beforeEach(() => {
+    tmpDir = createTestRepo("review-export-");
+  });
+
+  afterEach(() => {
+    cleanupTestRepo(tmpDir);
+  });
+
+  it("does NOT flag removal of non-exported symbol as breaking", async () => {
+    fs.writeFileSync(
+      path.join(tmpDir, "lib.ts"),
+      "export function alpha(): void {}\nfunction _helper(): void {}\n",
+    );
+    git(tmpDir, "add -A");
+    git(tmpDir, "commit -m base");
+    const baseSha = git(tmpDir, "rev-parse HEAD");
+
+    fs.writeFileSync(
+      path.join(tmpDir, "lib.ts"),
+      "export function alpha(): void {}\n",
+    );
+    git(tmpDir, "add -A");
+    git(tmpDir, "commit -m head");
+    const headSha = git(tmpDir, "rev-parse HEAD");
+
+    const result = await structuralReview(
+      reviewOpts({ base: baseSha, head: headSha }),
+    );
+
+    expect(result.breakingChanges).toHaveLength(0);
+  });
+
+  it("does NOT flag signature change of non-exported symbol as breaking", async () => {
+    fs.writeFileSync(
+      path.join(tmpDir, "lib.ts"),
+      "export function alpha(): void {}\nfunction _helper(x: number): void {}\n",
+    );
+    git(tmpDir, "add -A");
+    git(tmpDir, "commit -m base");
+    const baseSha = git(tmpDir, "rev-parse HEAD");
+
+    fs.writeFileSync(
+      path.join(tmpDir, "lib.ts"),
+      "export function alpha(): void {}\nfunction _helper(x: number, y: string): void {}\n",
+    );
+    git(tmpDir, "add -A");
+    git(tmpDir, "commit -m head");
+    const headSha = git(tmpDir, "rev-parse HEAD");
+
+    const result = await structuralReview(
+      reviewOpts({ base: baseSha, head: headSha }),
+    );
+
+    expect(result.breakingChanges).toHaveLength(0);
+  });
+
+  it("flags only exported removals in mixed exported/non-exported changes", async () => {
+    fs.writeFileSync(
+      path.join(tmpDir, "lib.ts"),
+      "export function pubFunc(): void {}\nfunction privFunc(): void {}\nexport function another(): void {}\n",
+    );
+    git(tmpDir, "add -A");
+    git(tmpDir, "commit -m base");
+    const baseSha = git(tmpDir, "rev-parse HEAD");
+
+    fs.writeFileSync(
+      path.join(tmpDir, "lib.ts"),
+      "export function another(): void {}\n",
+    );
+    git(tmpDir, "add -A");
+    git(tmpDir, "commit -m head");
+    const headSha = git(tmpDir, "rev-parse HEAD");
+
+    const result = await structuralReview(
+      reviewOpts({ base: baseSha, head: headSha }),
+    );
+
+    expect(result.breakingChanges).toHaveLength(1);
+    expect(result.breakingChanges[0]!.symbol).toBe("pubFunc");
+    expect(result.breakingChanges[0]!.changeType).toBe("removed_export");
+  });
+});
