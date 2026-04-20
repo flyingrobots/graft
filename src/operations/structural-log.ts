@@ -3,6 +3,7 @@
 // ---------------------------------------------------------------------------
 
 import type { GitClient } from "../ports/git.js";
+import type { PathOps } from "../ports/paths.js";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -42,6 +43,7 @@ export interface StructuralLogOptions {
   /** Query function that returns symbol changes for a commit SHA. */
   readonly querySymbols: (sha: string) => Promise<StructuralLogCommitSymbols>;
   readonly git: GitClient;
+  readonly pathOps: PathOps;
   readonly cwd: string;
   readonly since?: string | undefined;
   readonly until?: string | undefined;
@@ -77,9 +79,10 @@ function buildSummary(symbols: StructuralLogCommitSymbols): string {
 function filterByPath(
   symbols: StructuralLogCommitSymbols,
   filterPath: string,
+  pathOps: PathOps,
 ): StructuralLogCommitSymbols {
   const matches = (s: StructuralLogSymbolChange): boolean =>
-    s.filePath === filterPath || s.filePath.startsWith(`${filterPath}/`);
+    pathOps.isWithin(s.filePath, filterPath);
   return {
     sha: symbols.sha,
     added: symbols.added.filter(matches),
@@ -176,7 +179,7 @@ export async function structuralLog(
 
     // Apply path filter if specified
     if (opts.path !== undefined) {
-      symbols = filterByPath(symbols, opts.path);
+      symbols = filterByPath(symbols, opts.path, opts.pathOps);
     }
 
     entries.push({

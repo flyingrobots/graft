@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { structuralLog } from "../../operations/structural-log.js";
+import { nodePathOps } from "../../adapters/node-paths.js";
 import { symbolsForCommit } from "../../warp/structural-queries.js";
 import { toJsonObject } from "../../operations/result-dto.js";
 import type { ToolDefinition, ToolHandler } from "../context.js";
@@ -24,6 +25,7 @@ export const structuralLogTool: ToolDefinition = {
       const entries = await structuralLog({
         querySymbols: (sha) => symbolsForCommit(warp, sha),
         git: ctx.git,
+        pathOps: nodePathOps,
         cwd: ctx.projectRoot,
         since,
         path: filePath,

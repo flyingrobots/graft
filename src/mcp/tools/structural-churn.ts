@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { structuralChurn, structuralChurnToJson } from "../../operations/structural-churn.js";
+import { nodePathOps } from "../../adapters/node-paths.js";
 import { symbolsForCommit } from "../../warp/structural-queries.js";
 import type { ToolDefinition, ToolHandler } from "../context.js";
 
@@ -19,6 +20,7 @@ export const structuralChurnTool: ToolDefinition = {
       const result = await structuralChurn({
         cwd: ctx.projectRoot,
         git: ctx.git,
+        pathOps: nodePathOps,
         querySymbolsForCommit: (sha) => symbolsForCommit(warp, sha),
         path: args["path"] as string | undefined,
         limit: args["limit"] as number | undefined,

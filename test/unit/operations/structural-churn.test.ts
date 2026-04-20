@@ -6,6 +6,7 @@ import { git, createTestRepo, cleanupTestRepo } from "../../helpers/git.js";
 import { openWarp } from "../../../src/warp/open.js";
 import { indexCommits, type IndexResult } from "../../../src/warp/indexer.js";
 import { structuralChurn } from "../../../src/operations/structural-churn.js";
+import { nodePathOps } from "../../../src/adapters/node-paths.js";
 import { symbolsForCommit } from "../../../src/warp/structural-queries.js";
 
 function assertOk(result: IndexResult): asserts result is IndexResult & { ok: true } {
@@ -56,6 +57,7 @@ describe("operations: structural-churn", { timeout: 15000 }, () => {
     const result = await structuralChurn({
       cwd: tmpDir,
       git: nodeGit,
+      pathOps: nodePathOps,
       querySymbolsForCommit: (sha) => symbolsForCommit(warp, sha),
     });
 
@@ -101,6 +103,7 @@ describe("operations: structural-churn", { timeout: 15000 }, () => {
     const result = await structuralChurn({
       cwd: tmpDir,
       git: nodeGit,
+      pathOps: nodePathOps,
       querySymbolsForCommit: (sha) => symbolsForCommit(warp, sha),
     });
 
@@ -132,11 +135,118 @@ describe("operations: structural-churn", { timeout: 15000 }, () => {
     const result = await structuralChurn({
       cwd: tmpDir,
       git: nodeGit,
+      pathOps: nodePathOps,
       querySymbolsForCommit: (sha) => symbolsForCommit(warp, sha),
       limit: 1,
     });
 
     expect(result.entries.length).toBeLessThanOrEqual(1);
     expect(result.totalSymbols).toBeGreaterThanOrEqual(3);
+  });
+});
+
+// --- Tests added for churn-path-filter-exact-only cycle ---
+
+describe("operations: structural-churn — directory path filter", { timeout: 15000 }, () => {
+  let tmpDir: string;
+
+  beforeEach(() => {
+    tmpDir = createTestRepo("graft-churn-pathfilter-");
+  });
+
+  afterEach(() => {
+    cleanupTestRepo(tmpDir);
+  });
+
+  it("directory path filter matches symbols within directory", async () => {
+    // Create files in different directories
+    fs.mkdirSync(path.join(tmpDir, "src"), { recursive: true });
+    fs.mkdirSync(path.join(tmpDir, "lib"), { recursive: true });
+    fs.writeFileSync(path.join(tmpDir, "src/a.ts"), "export function alpha(): void {}\n");
+    fs.writeFileSync(path.join(tmpDir, "lib/b.ts"), "export function beta(): void {}\n");
+    git(tmpDir, "add -A");
+    git(tmpDir, "commit -m init");
+
+    // Modify both
+    fs.writeFileSync(path.join(tmpDir, "src/a.ts"), "export function alpha(): string { return \"\"; }\n");
+    fs.writeFileSync(path.join(tmpDir, "lib/b.ts"), "export function beta(): string { return \"\"; }\n");
+    git(tmpDir, "add -A");
+    git(tmpDir, "commit -m modify");
+
+    const warp = await openWarp({ cwd: tmpDir });
+    const r1 = await indexCommits(warp, { cwd: tmpDir, git: nodeGit });
+    assertOk(r1);
+
+    const result = await structuralChurn({
+      cwd: tmpDir,
+      git: nodeGit,
+      pathOps: nodePathOps,
+      querySymbolsForCommit: (sha) => symbolsForCommit(warp, sha),
+      path: "src",
+    });
+
+    // Should find alpha (in src/) but NOT beta (in lib/)
+    const symbols = result.entries.map((e) => e.symbol);
+    expect(symbols).toContain("alpha");
+    expect(symbols).not.toContain("beta");
+  });
+
+  it("exact file path filter still works", async () => {
+    fs.mkdirSync(path.join(tmpDir, "src"), { recursive: true });
+    fs.writeFileSync(path.join(tmpDir, "src/a.ts"), "export function alpha(): void {}\n");
+    fs.writeFileSync(path.join(tmpDir, "src/b.ts"), "export function beta(): void {}\n");
+    git(tmpDir, "add -A");
+    git(tmpDir, "commit -m init");
+
+    fs.writeFileSync(path.join(tmpDir, "src/a.ts"), "export function alpha(): string { return \"\"; }\n");
+    fs.writeFileSync(path.join(tmpDir, "src/b.ts"), "export function beta(): string { return \"\"; }\n");
+    git(tmpDir, "add -A");
+    git(tmpDir, "commit -m modify");
+
+    const warp = await openWarp({ cwd: tmpDir });
+    const r1 = await indexCommits(warp, { cwd: tmpDir, git: nodeGit });
+    assertOk(r1);
+
+    const result = await structuralChurn({
+      cwd: tmpDir,
+      git: nodeGit,
+      pathOps: nodePathOps,
+      querySymbolsForCommit: (sha) => symbolsForCommit(warp, sha),
+      path: "src/a.ts",
+    });
+
+    const symbols = result.entries.map((e) => e.symbol);
+    expect(symbols).toContain("alpha");
+    expect(symbols).not.toContain("beta");
+  });
+
+  it("directory filter with trailing slash works", async () => {
+    fs.mkdirSync(path.join(tmpDir, "src"), { recursive: true });
+    fs.mkdirSync(path.join(tmpDir, "lib"), { recursive: true });
+    fs.writeFileSync(path.join(tmpDir, "src/a.ts"), "export function alpha(): void {}\n");
+    fs.writeFileSync(path.join(tmpDir, "lib/b.ts"), "export function beta(): void {}\n");
+    git(tmpDir, "add -A");
+    git(tmpDir, "commit -m init");
+
+    fs.writeFileSync(path.join(tmpDir, "src/a.ts"), "export function alpha(): string { return \"\"; }\n");
+    fs.writeFileSync(path.join(tmpDir, "lib/b.ts"), "export function beta(): string { return \"\"; }\n");
+    git(tmpDir, "add -A");
+    git(tmpDir, "commit -m modify");
+
+    const warp = await openWarp({ cwd: tmpDir });
+    const r1 = await indexCommits(warp, { cwd: tmpDir, git: nodeGit });
+    assertOk(r1);
+
+    const result = await structuralChurn({
+      cwd: tmpDir,
+      git: nodeGit,
+      pathOps: nodePathOps,
+      querySymbolsForCommit: (sha) => symbolsForCommit(warp, sha),
+      path: "src/",
+    });
+
+    const symbols = result.entries.map((e) => e.symbol);
+    expect(symbols).toContain("alpha");
+    expect(symbols).not.toContain("beta");
   });
 });

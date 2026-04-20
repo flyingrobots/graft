@@ -3,6 +3,7 @@
 // ---------------------------------------------------------------------------
 
 import type { GitClient } from "../ports/git.js";
+import type { PathOps } from "../ports/paths.js";
 import { toJsonObject } from "./result-dto.js";
 import type { JsonObject } from "../contracts/json-object.js";
 
@@ -42,6 +43,7 @@ export interface StructuralChurnResult {
 export interface StructuralChurnOptions {
   readonly cwd: string;
   readonly git: GitClient;
+  readonly pathOps: PathOps;
   /** Query function that returns symbol changes for a commit SHA. */
   readonly querySymbolsForCommit: (commitSha: string) => Promise<ChurnCommitSymbols>;
   readonly path?: string | undefined;
@@ -96,9 +98,10 @@ function accumulateSymbols(
   date: string,
   accumulator: Map<string, MutableChurnEntry>,
   pathFilter: string | undefined,
+  pathOps: PathOps,
 ): void {
   for (const sym of symbols) {
-    if (pathFilter !== undefined && sym.filePath !== pathFilter) continue;
+    if (pathFilter !== undefined && !pathOps.isWithin(sym.filePath, pathFilter)) continue;
     const key = churnKey(sym);
     const existing = accumulator.get(key);
     if (existing !== undefined) {
@@ -129,16 +132,16 @@ function accumulateSymbols(
 export async function structuralChurn(
   opts: StructuralChurnOptions,
 ): Promise<StructuralChurnResult> {
-  const { cwd, git, querySymbolsForCommit, path: pathFilter, limit = 20 } = opts;
+  const { cwd, git, pathOps, querySymbolsForCommit, path: pathFilter, limit = 20 } = opts;
 
   const commits = await listCommitShas(cwd, git, pathFilter);
   const accumulator = new Map<string, MutableChurnEntry>();
 
   for (const { sha, date } of commits) {
     const commitSymbols = await querySymbolsForCommit(sha);
-    accumulateSymbols(commitSymbols.added, sha, date, accumulator, pathFilter);
-    accumulateSymbols(commitSymbols.removed, sha, date, accumulator, pathFilter);
-    accumulateSymbols(commitSymbols.changed, sha, date, accumulator, pathFilter);
+    accumulateSymbols(commitSymbols.added, sha, date, accumulator, pathFilter, pathOps);
+    accumulateSymbols(commitSymbols.removed, sha, date, accumulator, pathFilter, pathOps);
+    accumulateSymbols(commitSymbols.changed, sha, date, accumulator, pathFilter, pathOps);
   }
 
   const sorted = [...accumulator.values()].sort(

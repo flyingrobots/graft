@@ -7,6 +7,7 @@ import { openWarp } from "../../../src/warp/open.js";
 import { indexCommits, type IndexResult } from "../../../src/warp/indexer.js";
 import { symbolsForCommit } from "../../../src/warp/structural-queries.js";
 import { structuralLog } from "../../../src/operations/structural-log.js";
+import { nodePathOps } from "../../../src/adapters/node-paths.js";
 import type { WarpHandle } from "../../../src/ports/warp.js";
 
 function assertOk(result: IndexResult): asserts result is IndexResult & { ok: true } {
@@ -50,6 +51,7 @@ describe("operations: structural-log", { timeout: 20000 }, () => {
     const entries = await structuralLog({
       querySymbols: (s) => symbolsForCommit(warp, s),
       git: nodeGit,
+      pathOps: nodePathOps,
       cwd: tmpDir,
     });
 
@@ -80,6 +82,7 @@ describe("operations: structural-log", { timeout: 20000 }, () => {
     const e1 = await structuralLog({
       querySymbols: (s) => symbolsForCommit(warp, s),
       git: nodeGit,
+      pathOps: nodePathOps,
       cwd: tmpDir,
     });
     expect(e1.length).toBe(1);
@@ -102,6 +105,7 @@ describe("operations: structural-log", { timeout: 20000 }, () => {
     const e2 = await structuralLog({
       querySymbols: (s) => symbolsForCommit(warp, s),
       git: nodeGit,
+      pathOps: nodePathOps,
       cwd: tmpDir,
     });
 
@@ -129,6 +133,7 @@ describe("operations: structural-log", { timeout: 20000 }, () => {
     const entries = await structuralLog({
       querySymbols: (s) => symbolsForCommit(warp, s),
       git: nodeGit,
+      pathOps: nodePathOps,
       cwd: tmpDir,
       limit: 2,
     });
@@ -156,6 +161,7 @@ describe("operations: structural-log", { timeout: 20000 }, () => {
     const entries = await structuralLog({
       querySymbols: (s) => symbolsForCommit(warp, s),
       git: nodeGit,
+      pathOps: nodePathOps,
       cwd: tmpDir,
       path: "src",
     });
@@ -188,6 +194,7 @@ describe("operations: structural-log", { timeout: 20000 }, () => {
     const entries = await structuralLog({
       querySymbols: (s) => symbolsForCommit(warp, s),
       git: nodeGit,
+      pathOps: nodePathOps,
       cwd: tmpDir,
       since: baseRef,
     });
@@ -210,6 +217,7 @@ describe("operations: structural-log", { timeout: 20000 }, () => {
     const entries = await structuralLog({
       querySymbols: (s) => symbolsForCommit(warp, s),
       git: nodeGit,
+      pathOps: nodePathOps,
       cwd: tmpDir,
       since: "HEAD",
     });
@@ -229,6 +237,7 @@ describe("operations: structural-log", { timeout: 20000 }, () => {
     const entries = await structuralLog({
       querySymbols: (s) => symbolsForCommit(warp, s),
       git: nodeGit,
+      pathOps: nodePathOps,
       cwd: tmpDir,
       limit: 1,
     });
