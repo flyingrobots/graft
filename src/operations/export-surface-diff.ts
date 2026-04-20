@@ -112,12 +112,7 @@ export async function exportSurfaceDiff(
   for (const filePath of changedFiles) {
     const baseContent = await getFileAtRef(base, filePath, { cwd, git });
 
-    let headContent: string | null;
-    try {
-      headContent = await getFileAtRef(head, filePath, { cwd, git });
-    } catch {
-      headContent = null;
-    }
+    const headContent = await getFileAtRef(head, filePath, { cwd, git });
 
     const baseExports = extractExportedEntries(baseContent, filePath);
     const headExports = extractExportedEntries(headContent, filePath);

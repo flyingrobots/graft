@@ -146,3 +146,89 @@ describe("operations: export-surface-diff", { timeout: 15000 }, () => {
     expect(result.summary).toBe("No exported API changes.");
   });
 });
+
+// --- Tests added for export-diff-base-ref-no-try-catch cycle ---
+
+describe("operations: export-surface-diff — new/deleted file handling", { timeout: 15000 }, () => {
+  let tmpDir: string;
+
+  beforeEach(() => {
+    tmpDir = createTestRepo("graft-export-newdel-");
+  });
+
+  afterEach(() => {
+    cleanupTestRepo(tmpDir);
+  });
+
+  it("new file (not at base) produces added exports without throwing", async () => {
+    // Base: no files
+    fs.writeFileSync(path.join(tmpDir, "placeholder.ts"), "// empty\n");
+    git(tmpDir, "add -A");
+    git(tmpDir, "commit -m base");
+    const baseSha = git(tmpDir, "rev-parse HEAD");
+
+    // Head: add a new file with exports
+    fs.writeFileSync(
+      path.join(tmpDir, "newmod.ts"),
+      "export function greet(): string { return \"hi\"; }\n",
+    );
+    git(tmpDir, "add -A");
+    git(tmpDir, "commit -m add-newmod");
+    const headSha = git(tmpDir, "rev-parse HEAD");
+
+    const result = await exportSurfaceDiff({
+      cwd: tmpDir,
+      git: nodeGit,
+      base: baseSha,
+      head: headSha,
+    });
+
+    expect(result.added).toHaveLength(1);
+    expect(result.added[0]!.symbol).toBe("greet");
+    expect(result.removed).toHaveLength(0);
+  });
+
+  it("deleted file (not at head) produces removed exports without throwing", async () => {
+    // Base: file with exports
+    fs.writeFileSync(
+      path.join(tmpDir, "oldmod.ts"),
+      "export function legacy(): void {}\n",
+    );
+    git(tmpDir, "add -A");
+    git(tmpDir, "commit -m base");
+    const baseSha = git(tmpDir, "rev-parse HEAD");
+
+    // Head: delete the file
+    fs.unlinkSync(path.join(tmpDir, "oldmod.ts"));
+    git(tmpDir, "add -A");
+    git(tmpDir, "commit -m delete-oldmod");
+    const headSha = git(tmpDir, "rev-parse HEAD");
+
+    const result = await exportSurfaceDiff({
+      cwd: tmpDir,
+      git: nodeGit,
+      base: baseSha,
+      head: headSha,
+    });
+
+    expect(result.removed).toHaveLength(1);
+    expect(result.removed[0]!.symbol).toBe("legacy");
+    expect(result.added).toHaveLength(0);
+  });
+
+  it("does not swallow GitError for invalid head ref", async () => {
+    fs.writeFileSync(path.join(tmpDir, "a.ts"), "export const x = 1;\n");
+    git(tmpDir, "add -A");
+    git(tmpDir, "commit -m base");
+    const baseSha = git(tmpDir, "rev-parse HEAD");
+
+    await expect(
+      exportSurfaceDiff({
+        cwd: tmpDir,
+        git: nodeGit,
+        base: baseSha,
+        head: "nonexistent-ref-abc123",
+      }),
+    ).rejects.toThrow();
+  });
+});
