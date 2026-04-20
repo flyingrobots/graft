@@ -1,5 +1,9 @@
 ---
 title: "Refactor difficulty score"
+legend: WARP
+lane: up-next
+blocked_by:
+  - WARP_symbol-reference-tracing
 ---
 
 # Refactor difficulty score

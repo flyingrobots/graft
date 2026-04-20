@@ -1,7 +1,7 @@
 ---
 title: "Parallel agent merge loses shared file edits on worktree cleanup"
 legend: CLEAN_CODE
-lane: bad-code
+lane: cool-ideas
 ---
 
 # Parallel agent merge loses shared file edits on worktree cleanup

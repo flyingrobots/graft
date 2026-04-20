@@ -1,5 +1,7 @@
 ---
 title: "Agent drift warning"
+legend: CORE
+lane: up-next
 ---
 
 # Agent drift warning

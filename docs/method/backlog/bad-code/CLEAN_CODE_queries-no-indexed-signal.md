@@ -2,6 +2,8 @@
 title: "structural-queries cannot distinguish 'no changes' from 'not indexed'"
 legend: CLEAN_CODE
 lane: bad-code
+blocks:
+  - CLEAN_CODE_structural-blame-ambiguity
 ---
 
 # structural-queries cannot distinguish "no changes" from "not indexed"

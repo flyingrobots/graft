@@ -1,7 +1,9 @@
 ---
 title: "Governed edit tool for agent DX"
 legend: SURFACE
-lane: cool-ideas
+lane: up-next
+blocks:
+  - SURFACE_governed-write-tools
 ---
 
 # Governed edit tool for agent DX

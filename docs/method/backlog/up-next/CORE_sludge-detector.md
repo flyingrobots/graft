@@ -1,5 +1,7 @@
 ---
 title: "Sludge detector"
+legend: CORE
+lane: up-next
 ---
 
 # Sludge detector

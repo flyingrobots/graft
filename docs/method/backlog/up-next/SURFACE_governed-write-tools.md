@@ -1,7 +1,9 @@
 ---
 title: "Governed write tools"
 legend: SURFACE
-lane: cool-ideas
+lane: up-next
+blocked_by:
+  - SURFACE_agent-dx-governed-edit
 ---
 
 # Governed write tools

@@ -1,5 +1,7 @@
 ---
 title: "Codebase orientation map"
+legend: CORE
+lane: up-next
 ---
 
 # Codebase orientation map
