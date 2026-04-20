@@ -1,7 +1,9 @@
 ---
 title: "graft_blame silently ignores ambiguous symbol names"
 legend: CLEAN_CODE
-lane: v0.7.0
+lane: graveyard
+superseded: true
+superseded_reason: "Superseded: structural-blame will be rewritten to use WARP provenance queries"
 blocked_by:
   - CLEAN_CODE_queries-no-indexed-signal
 ---

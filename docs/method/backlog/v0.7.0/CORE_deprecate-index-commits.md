@@ -1,37 +1,38 @@
 ---
-title: "Deprecate indexCommits in favor of indexHead"
+title: "Remove legacy commit-walking indexer"
 legend: CORE
 lane: v0.7.0
 ---
 
-# Deprecate indexCommits in favor of indexHead
+# Remove legacy commit-walking indexer
 
-Source: symbol-reference-tracing cycle (2026-04-20)
+Source: WARP model alignment audit (2026-04-20)
 
-The existing `indexCommits` infrastructure walks git history commit-by-commit,
-diffs outlines between parent and child, and emits per-commit patches with
-adds/removes/changes edges. This reimplements time-travel and provenance
-tracking that WARP provides natively at the substrate level.
+## What's being removed
 
-`indexHead` replaces this with a simpler model: parse all files at HEAD,
-emit the full AST + cross-file edges as one atomic patch. WARP handles
-history via ticks, worldline seeks, and provenance index slicing.
-
-## Work
-
-1. Migrate all consumers of `indexCommits` to use `indexHead`
-2. Update MCP tools that call `indexCommits` during startup
-3. Verify temporal queries still work via WARP worldlines
-4. Remove `indexCommits`, `prepareChange`, and related commit-walking machinery
-5. Remove `indexer-git.ts` commit enumeration helpers
-6. Update tests that rely on multi-commit indexing patterns
-
-## Affected files
-
-- `src/warp/indexer.ts` — the main commit walker
-- `src/warp/indexer-git.ts` — git commit helpers
-- `src/warp/indexer-graph.ts` — outline-based sym: emission (replaced by indexHead's emitSymNodes)
+- `src/warp/indexer.ts` — the commit walker
+- `src/warp/indexer-git.ts` — commit enumeration helpers
+- `src/warp/indexer-graph.ts` — per-commit sym: emission
 - `src/warp/indexer-model.ts` — PreparedChange type
-- All tests that call `indexCommits`
+- `src/warp/symbol-identity.ts` — cross-commit identity tracking
+- `src/warp/reference-count.ts` — ripgrep/grep reference counting
+
+## Why
+
+The old model reimplements history tracking that WARP provides natively.
+`indexHead` replaces it with a simpler model: parse HEAD, emit one atomic
+patch. WARP handles history via ticks, worldlines, and provenance.
+
+## Prerequisite
+
+- Widen WarpHandle port to expose query()/traverse/worldline()
+- Update CLI index-cmd to call indexHead
+- Update monitor-tick-job to call indexHead
+- Rewrite structural-queries.ts to use WARP native queries
+
+## Blocked by
+
+- Port widening (must happen first)
+- structural-queries rewrite (consumers depend on it)
 
 Effort: L

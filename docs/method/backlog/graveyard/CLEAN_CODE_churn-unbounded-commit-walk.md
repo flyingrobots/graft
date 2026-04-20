@@ -1,7 +1,9 @@
 ---
 title: "structural-churn walks all commits with no limit or parallelism"
 legend: CLEAN_CODE
-lane: v0.7.0
+lane: graveyard
+superseded: true
+superseded_reason: "Superseded: structural-churn will be rewritten to use WARP aggregate queries (no commit walking)"
 ---
 
 # structural-churn walks all commits with no limit or parallelism
