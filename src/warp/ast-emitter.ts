@@ -52,11 +52,45 @@ function emitNode(
 }
 
 /**
- * Emit the complete tree-sitter CST for a file into the WARP graph.
+ * Emit the complete tree-sitter CST for a file into an existing patch.
  *
  * Every node (named and anonymous) becomes a graph node with ID
  * `ast:<filePath>:<hash>`. Parent-child relationships become `child`
  * edges. The file node gets a `contains` edge to the program root.
+ *
+ * Call this inside a `warp.patch()` callback to co-locate AST emission
+ * with other graph operations in the same atomic commit.
+ */
+export function emitAstNodes(
+  patch: WarpPatchBuilder,
+  filePath: string,
+  root: TSNode,
+): void {
+  const fileId = `file:${filePath}`;
+
+  const rootId = astNodeId(filePath, root);
+  patch.addNode(rootId);
+  patch.setProperty(rootId, "type", root.type);
+  patch.setProperty(rootId, "named", root.isNamed());
+  patch.setProperty(rootId, "startRow", root.startPosition.row);
+  patch.setProperty(rootId, "startCol", root.startPosition.column);
+  patch.setProperty(rootId, "endRow", root.endPosition.row);
+  patch.setProperty(rootId, "endCol", root.endPosition.column);
+  patch.setProperty(rootId, "filePath", filePath);
+
+  patch.addEdge(fileId, rootId, "contains_ast");
+
+  for (let i = 0; i < root.childCount; i++) {
+    const child = root.child(i);
+    if (child !== null) {
+      emitNode(patch, filePath, child, rootId);
+    }
+  }
+}
+
+/**
+ * Standalone convenience: emit full AST as its own patch.
+ * Prefer `emitAstNodes` inside an existing patch callback.
  */
 export async function emitFullAst(
   warp: WarpHandle,
@@ -67,26 +101,6 @@ export async function emitFullAst(
     const fileId = `file:${filePath}`;
     patch.addNode(fileId);
     patch.setProperty(fileId, "path", filePath);
-
-    // Emit root's children as top-level AST nodes
-    // (the root "program" node itself is also emitted)
-    const rootId = astNodeId(filePath, root);
-    patch.addNode(rootId);
-    patch.setProperty(rootId, "type", root.type);
-    patch.setProperty(rootId, "startRow", root.startPosition.row);
-    patch.setProperty(rootId, "startCol", root.startPosition.column);
-    patch.setProperty(rootId, "endRow", root.endPosition.row);
-    patch.setProperty(rootId, "endCol", root.endPosition.column);
-    patch.setProperty(rootId, "named", root.isNamed());
-    patch.setProperty(rootId, "filePath", filePath);
-
-    patch.addEdge(fileId, rootId, "contains");
-
-    for (let i = 0; i < root.childCount; i++) {
-      const child = root.child(i);
-      if (child !== null) {
-        emitNode(patch, filePath, child, rootId);
-      }
-    }
+    emitAstNodes(patch, filePath, root);
   });
 }

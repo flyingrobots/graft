@@ -40,6 +40,7 @@ export interface PreparedChange {
   readonly newOutline?: readonly OutlineEntry[] | undefined;
   readonly jumpLookup?: Map<string, { start: number; end: number }> | undefined;
   readonly diff?: ReturnType<typeof diffOutlines> | undefined;
+  readonly parsedTree?: { root: import("web-tree-sitter").SyntaxNode; delete(): void } | undefined;
 }
 
 export function fileNodeId(filePath: string): string {

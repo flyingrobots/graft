@@ -13,6 +13,7 @@ import {
   removeSymbols,
   resolveParentTick,
 } from "./indexer-graph.js";
+import { emitAstNodes } from "./ast-emitter.js";
 import {
   getCommitChanges,
   getCommitMeta,
@@ -133,6 +134,9 @@ async function indexCommitsCore(
             "",
             commitId,
           );
+          if (change.parsedTree !== undefined) {
+            emitAstNodes(patch, change.filePath, change.parsedTree.root);
+          }
           continue;
         }
 
@@ -147,6 +151,9 @@ async function indexCommitsCore(
             "",
             commitId,
           );
+          if (change.parsedTree !== undefined) {
+            emitAstNodes(patch, change.filePath, change.parsedTree.root);
+          }
           continue;
         }
 
@@ -160,11 +167,21 @@ async function indexCommitsCore(
           change.jumpLookup,
           change.newIdentityByPath,
         );
+
+        // Emit full AST for modified files
+        if (change.parsedTree !== undefined) {
+          emitAstNodes(patch, change.filePath, change.parsedTree.root);
+        }
       }
     });
 
     patchesWritten++;
     commitTicks.set(sha, patchesWritten);
+
+    // Release parsed tree-sitter trees
+    for (const change of resolvedChanges) {
+      change.parsedTree?.delete();
+    }
 
     for (const change of resolvedChanges) {
       if (change.status === "D") {

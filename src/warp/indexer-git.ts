@@ -5,6 +5,7 @@ import { getFileAtRef } from "../git/diff.js";
 import type { OutlineEntry } from "../parser/types.js";
 import type { GitClient } from "../ports/git.js";
 import { buildJumpLookup, fileNodeId, type PreparedChange } from "./indexer-model.js";
+import { parseStructuredTree } from "../parser/runtime.js";
 
 async function git(gitClient: GitClient, cwd: string, args: readonly string[]): Promise<string> {
   const result = await gitClient.run({ cwd, args });
@@ -133,6 +134,7 @@ export async function prepareChange(
     };
   }
 
+  const parsed = parseStructuredTree(lang, newContent);
   const newResult = extractOutline(newContent, lang);
   const newOutline = newResult.entries;
   const jumpLookup = buildJumpLookup(newResult.jumpTable ?? []);
@@ -148,6 +150,7 @@ export async function prepareChange(
       oldOutline: [],
       newOutline,
       jumpLookup,
+      parsedTree: parsed,
     };
   }
 
@@ -163,6 +166,7 @@ export async function prepareChange(
       oldOutline: [],
       newOutline,
       jumpLookup,
+      parsedTree: parsed,
     };
   }
 
@@ -178,5 +182,6 @@ export async function prepareChange(
     newOutline,
     jumpLookup,
     diff: diffOutlines(oldOutline, newOutline),
+    parsedTree: parsed,
   };
 }

@@ -65,7 +65,7 @@ describe("warp: full AST emission", { timeout: 15000 }, () => {
 
       // Check file -> ast root edge
       const fileToAst = edges.filter(
-        (e) => e.from === `file:${filePath}` && e.label === "contains" && e.to.startsWith("ast:"),
+        (e) => e.from === `file:${filePath}` && e.label === "contains_ast" && e.to.startsWith("ast:"),
       );
       expect(fileToAst.length).toBeGreaterThan(0);
     } finally {
