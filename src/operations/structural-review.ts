@@ -5,6 +5,7 @@
 import type { FileSystem } from "../ports/filesystem.js";
 import type { GitClient } from "../ports/git.js";
 import { graftDiff, type FileDiff, type GraftDiffOptions } from "./graft-diff.js";
+import { getChangedFilesWithStatus } from "../git/diff.js";
 
 // ---- Public types ---------------------------------------------------------
 
@@ -236,20 +237,14 @@ export async function structuralReview(
   };
   const structDiff = await graftDiff(diffOpts);
 
-  // 2. Get ALL changed files via diff-tree (allowed by the git adapter)
-  const allFilesResult = await opts.git.run({
-    args: ["diff-tree", "--no-commit-id", "--name-only", "-r", base, head],
+  // 2. Get ALL changed files with rename detection
+  const allChangedEntries = await getChangedFilesWithStatus({
     cwd: opts.cwd,
+    git: opts.git,
+    base,
+    head,
   });
-  if (allFilesResult.error !== undefined || allFilesResult.status !== 0) {
-    const msg = allFilesResult.error !== undefined
-      ? allFilesResult.error.message
-      : (allFilesResult.stderr.trim() || `git exited ${String(allFilesResult.status)}`);
-    throw new Error(`git diff-tree failed: ${msg}`);
-  }
-  const allChangedPaths = allFilesResult.stdout.trim().length === 0
-    ? []
-    : allFilesResult.stdout.trim().split("\n");
+  const allChangedPaths = allChangedEntries.map((e) => e.path);
 
   // 3. Build set of structurally-changed file paths
   const structuralPaths = new Set(structDiff.files.map((f) => f.path));
