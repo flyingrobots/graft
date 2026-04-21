@@ -46,9 +46,27 @@ When starting a new session or recovering from context loss:
 After altering files:
 
 1. **Verify Truth**: Ensure documentation is updated if behavior or structure changed.
-2. **Log Debt**: Add follow-on backlog items to `bad-code/` or `cool-ideas/`.
-3. **Commit**: Use focused, conventional commit messages. Propose a draft before executing.
-4. **Validate**: Run `pnpm lint` and `pnpm test`.
+2. **Log Debt**: File bad-code items to `docs/method/backlog/bad-code/` (one file per concern).
+3. **Log Ideas**: File cool ideas to `docs/method/backlog/cool-ideas/` (one file per idea).
+4. **Commit**: Use focused, conventional commit messages. Propose a draft before executing.
+5. **Validate**: Run `pnpm lint` and `pnpm test`.
+6. **Push**: Push to origin after every commit.
+
+## End of Turn Etiquette
+
+At the end of every turn where you interacted with the user, present:
+
+1. **Cycle stepper**: Use the Bijou MCP `bijou_stepper` to show current
+   cycle progress (PULL → RED → GREEN → Playback → Drift → Retro).
+2. **Summary**: What you did this turn — cycles completed, files changed,
+   tests passing.
+3. **Backlog items filed**: List any `bad-code/` or `cool-ideas/` cards
+   you committed this turn. Don't just call them out verbally — they
+   must be files in the backlog, committed and pushed.
+4. **Questions for the user**: Surface any open questions, ambiguities,
+   design decisions, or things you noticed that need the user's input.
+   Important questions get buried in long turns — this section prevents
+   that. Keep it short and actionable.
 
 ---
-**The goal is inevitably. Every feature is defined by its tests.**
+**The goal is inevitability. Every feature is defined by its tests.**
