@@ -8,6 +8,7 @@ import { indexCommits, type IndexResult } from "../../../src/warp/indexer.js";
 import { structuralChurn } from "../../../src/operations/structural-churn.js";
 import { nodePathOps } from "../../../src/adapters/node-paths.js";
 import { symbolsForCommit } from "../../../src/warp/structural-queries.js";
+import type { WarpContext } from "../../../src/warp/context.js";
 
 function assertOk(result: IndexResult): asserts result is IndexResult & { ok: true } {
   expect(result.ok).toBe(true);
@@ -51,14 +52,15 @@ describe("operations: structural-churn", { timeout: 15000 }, () => {
     git(tmpDir, "commit -m 'variadic add'");
 
     const warp = await openWarp({ cwd: tmpDir });
-    const idxResult = await indexCommits(warp, { cwd: tmpDir, git: nodeGit });
+    const ctx: WarpContext = { app: warp, strandId: null };
+    const idxResult = await indexCommits(ctx, { cwd: tmpDir, git: nodeGit });
     assertOk(idxResult);
 
     const result = await structuralChurn({
       cwd: tmpDir,
       git: nodeGit,
       pathOps: nodePathOps,
-      querySymbolsForCommit: (sha) => symbolsForCommit(warp, sha),
+      querySymbolsForCommit: (sha) => symbolsForCommit(ctx, sha),
     });
 
     // The function "add" appears in all 3 commits (added + 2 changes)
@@ -97,14 +99,15 @@ describe("operations: structural-churn", { timeout: 15000 }, () => {
     git(tmpDir, "commit -m 'change volatile again'");
 
     const warp = await openWarp({ cwd: tmpDir });
-    const idxResult = await indexCommits(warp, { cwd: tmpDir, git: nodeGit });
+    const ctx: WarpContext = { app: warp, strandId: null };
+    const idxResult = await indexCommits(ctx, { cwd: tmpDir, git: nodeGit });
     assertOk(idxResult);
 
     const result = await structuralChurn({
       cwd: tmpDir,
       git: nodeGit,
       pathOps: nodePathOps,
-      querySymbolsForCommit: (sha) => symbolsForCommit(warp, sha),
+      querySymbolsForCommit: (sha) => symbolsForCommit(ctx, sha),
     });
 
     // volatile should rank higher than stable
@@ -129,14 +132,15 @@ describe("operations: structural-churn", { timeout: 15000 }, () => {
     git(tmpDir, "commit -m 'add many'");
 
     const warp = await openWarp({ cwd: tmpDir });
-    const idxResult = await indexCommits(warp, { cwd: tmpDir, git: nodeGit });
+    const ctx: WarpContext = { app: warp, strandId: null };
+    const idxResult = await indexCommits(ctx, { cwd: tmpDir, git: nodeGit });
     assertOk(idxResult);
 
     const result = await structuralChurn({
       cwd: tmpDir,
       git: nodeGit,
       pathOps: nodePathOps,
-      querySymbolsForCommit: (sha) => symbolsForCommit(warp, sha),
+      querySymbolsForCommit: (sha) => symbolsForCommit(ctx, sha),
       limit: 1,
     });
 
@@ -174,14 +178,15 @@ describe("operations: structural-churn — directory path filter", { timeout: 15
     git(tmpDir, "commit -m modify");
 
     const warp = await openWarp({ cwd: tmpDir });
-    const r1 = await indexCommits(warp, { cwd: tmpDir, git: nodeGit });
+    const ctx: WarpContext = { app: warp, strandId: null };
+    const r1 = await indexCommits(ctx, { cwd: tmpDir, git: nodeGit });
     assertOk(r1);
 
     const result = await structuralChurn({
       cwd: tmpDir,
       git: nodeGit,
       pathOps: nodePathOps,
-      querySymbolsForCommit: (sha) => symbolsForCommit(warp, sha),
+      querySymbolsForCommit: (sha) => symbolsForCommit(ctx, sha),
       path: "src",
     });
 
@@ -204,14 +209,15 @@ describe("operations: structural-churn — directory path filter", { timeout: 15
     git(tmpDir, "commit -m modify");
 
     const warp = await openWarp({ cwd: tmpDir });
-    const r1 = await indexCommits(warp, { cwd: tmpDir, git: nodeGit });
+    const ctx: WarpContext = { app: warp, strandId: null };
+    const r1 = await indexCommits(ctx, { cwd: tmpDir, git: nodeGit });
     assertOk(r1);
 
     const result = await structuralChurn({
       cwd: tmpDir,
       git: nodeGit,
       pathOps: nodePathOps,
-      querySymbolsForCommit: (sha) => symbolsForCommit(warp, sha),
+      querySymbolsForCommit: (sha) => symbolsForCommit(ctx, sha),
       path: "src/a.ts",
     });
 
@@ -234,14 +240,15 @@ describe("operations: structural-churn — directory path filter", { timeout: 15
     git(tmpDir, "commit -m modify");
 
     const warp = await openWarp({ cwd: tmpDir });
-    const r1 = await indexCommits(warp, { cwd: tmpDir, git: nodeGit });
+    const ctx: WarpContext = { app: warp, strandId: null };
+    const r1 = await indexCommits(ctx, { cwd: tmpDir, git: nodeGit });
     assertOk(r1);
 
     const result = await structuralChurn({
       cwd: tmpDir,
       git: nodeGit,
       pathOps: nodePathOps,
-      querySymbolsForCommit: (sha) => symbolsForCommit(warp, sha),
+      querySymbolsForCommit: (sha) => symbolsForCommit(ctx, sha),
       path: "src/",
     });
 

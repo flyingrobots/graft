@@ -3,7 +3,9 @@
 // ---------------------------------------------------------------------------
 
 import { createHash } from "node:crypto";
-import type { WarpHandle, WarpPatchBuilder } from "../ports/warp.js";
+import type { PatchBuilderV2 } from "@git-stunts/git-warp";
+import type { WarpContext } from "./context.js";
+import { patchGraph } from "./context.js";
 
 type TSNode = import("web-tree-sitter").SyntaxNode;
 
@@ -17,7 +19,7 @@ function astNodeId(filePath: string, node: TSNode): string {
 }
 
 function emitNode(
-  patch: WarpPatchBuilder,
+  patch: PatchBuilderV2,
   filePath: string,
   node: TSNode,
   parentId: string | undefined,
@@ -62,7 +64,7 @@ function emitNode(
  * with other graph operations in the same atomic commit.
  */
 export function emitAstNodes(
-  patch: WarpPatchBuilder,
+  patch: PatchBuilderV2,
   filePath: string,
   root: TSNode,
 ): void {
@@ -93,11 +95,11 @@ export function emitAstNodes(
  * Prefer `emitAstNodes` inside an existing patch callback.
  */
 export async function emitFullAst(
-  warp: WarpHandle,
+  ctx: WarpContext,
   filePath: string,
   root: TSNode,
 ): Promise<void> {
-  await warp.patch((patch) => {
+  await patchGraph(ctx, (patch) => {
     const fileId = `file:${filePath}`;
     patch.addNode(fileId);
     patch.setProperty(fileId, "path", filePath);

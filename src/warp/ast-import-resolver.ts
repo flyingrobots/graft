@@ -3,7 +3,7 @@
 // ---------------------------------------------------------------------------
 
 import { createHash } from "node:crypto";
-import type { WarpPatchBuilder } from "../ports/warp.js";
+import type { PatchBuilderV2 } from "@git-stunts/git-warp";
 import type { PathOps } from "../ports/paths.js";
 
 type TSNode = import("web-tree-sitter").SyntaxNode;
@@ -161,7 +161,7 @@ function getModuleSource(node: TSNode): string | null {
  * re-exports, and dynamic imports.
  */
 export function resolveImportEdges(
-  patch: WarpPatchBuilder,
+  patch: PatchBuilderV2,
   filePath: string,
   root: TSNode,
   pathOps: PathOps,
@@ -180,7 +180,7 @@ export function resolveImportEdges(
 }
 
 function handleImportStatement(
-  patch: WarpPatchBuilder,
+  patch: PatchBuilderV2,
   filePath: string,
   node: TSNode,
   pathOps: PathOps,
@@ -217,7 +217,7 @@ function handleImportStatement(
 }
 
 function handleExportStatement(
-  patch: WarpPatchBuilder,
+  patch: PatchBuilderV2,
   filePath: string,
   node: TSNode,
   pathOps: PathOps,
@@ -256,7 +256,7 @@ function handleExportStatement(
 }
 
 function walkForDynamicImports(
-  patch: WarpPatchBuilder,
+  patch: PatchBuilderV2,
   filePath: string,
   node: TSNode,
   pathOps: PathOps,

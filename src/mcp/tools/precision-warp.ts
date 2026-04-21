@@ -1,4 +1,5 @@
-import type { WarpHandle } from "../../ports/warp.js";
+import type { WarpContext } from "../../warp/context.js";
+import { observeGraph } from "../../warp/context.js";
 import { allSymbolsLens, commitsLens, fileSymbolsLens, symbolByNameLens } from "../../warp/observers.js";
 import type { RankedPrecisionSymbolMatch } from "./precision-query.js";
 import { PrecisionSearchRequest } from "./precision-query.js";
@@ -34,9 +35,9 @@ function toMatch(
   });
 }
 
-export async function getIndexedCommitCeilings(warp: WarpHandle): Promise<ReadonlyMap<string, number>> {
+export async function getIndexedCommitCeilings(ctx: WarpContext): Promise<ReadonlyMap<string, number>> {
   const ceilings = new Map<string, number>();
-  const observer = await warp.observer(commitsLens());
+  const observer = await observeGraph(ctx, commitsLens());
   const nodeIds = await observer.getNodes();
 
   for (const nodeId of nodeIds) {
@@ -52,7 +53,7 @@ export async function getIndexedCommitCeilings(warp: WarpHandle): Promise<Readon
 }
 
 export async function searchWarpSymbols(
-  warp: WarpHandle,
+  ctx: WarpContext,
   request: PrecisionSearchRequest,
 ): Promise<PrecisionSymbolMatch[]> {
   const lensMode = request.selectLens();
@@ -71,7 +72,7 @@ export async function searchWarpSymbols(
     lens = allSymbolsLens();
   }
 
-  const observer = await warp.observer(
+  const observer = await observeGraph(ctx, 
     lens,
     request.ceiling !== undefined ? { source: { kind: "live", ceiling: request.ceiling } } : undefined,
   );

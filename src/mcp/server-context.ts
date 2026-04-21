@@ -3,7 +3,7 @@ import type { CanonicalJsonCodec } from "../adapters/canonical-json.js";
 import type { FileSystem } from "../ports/filesystem.js";
 import type { ProcessRunner } from "../ports/process-runner.js";
 import type { GitClient } from "../ports/git.js";
-import type { WarpHandle } from "../ports/warp.js";
+import type { WarpContext } from "../warp/context.js";
 import type { ToolContext, ToolDefinition } from "./context.js";
 import type { McpToolResult } from "./receipt.js";
 import type { RunCaptureConfig } from "./run-capture-config.js";
@@ -92,7 +92,7 @@ export function buildToolContext(deps: ToolContextDeps): ToolContext {
     git: deps.git,
     runCapture: deps.runCapture,
     observability: deps.observability,
-    getWarp(): Promise<WarpHandle> {
+    getWarp(): Promise<WarpContext> {
       return getActiveExecutionContext()?.getWarp() ?? workspaceRouter.getWarp();
     },
     getRepoState() {

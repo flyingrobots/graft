@@ -3,7 +3,8 @@
  * patches into the WARP graph.
  */
 
-import type { WarpHandle } from "../ports/warp.js";
+import type { WarpContext } from "./context.js";
+import { materializeGraph, patchGraph } from "./context.js";
 import { assignCanonicalSymbolIdentities } from "./symbol-identity.js";
 import {
   applyModifiedSymbols,
@@ -27,11 +28,11 @@ import { fileNodeId, type IndexOptions, type IndexResult } from "./indexer-model
 export type { IndexOptions, IndexResult } from "./indexer-model.js";
 
 export async function indexCommits(
-  warp: WarpHandle,
+  ctx: WarpContext,
   options: IndexOptions,
 ): Promise<IndexResult> {
   try {
-    return await indexCommitsCore(warp, options);
+    return await indexCommitsCore(ctx, options);
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : String(err);
     return { ok: false, error: message };
@@ -39,7 +40,7 @@ export async function indexCommits(
 }
 
 async function indexCommitsCore(
-  warp: WarpHandle,
+  ctx: WarpContext,
   options: IndexOptions,
 ): Promise<IndexResult> {
   const { cwd, git: gitClient } = options;
@@ -55,7 +56,7 @@ async function indexCommitsCore(
       change.status === "D" || change.status === "M" || change.status === "R"
     );
     if (hasRemovals) {
-      await warp.materialize();
+      await materializeGraph(ctx);
     }
 
     const meta = await getCommitMeta(gitClient, sha, cwd);
@@ -65,12 +66,12 @@ async function indexCommitsCore(
     const preparedChanges = await Promise.all(changes.map((change) =>
       prepareChange(gitClient, cwd, sha, parentRef, parentExists, change)
     ));
-    const parentTick = await resolveParentTick(warp, commitTicks, parentSha);
+    const parentTick = await resolveParentTick(ctx, commitTicks, parentSha);
 
     const resolvedChanges = await Promise.all(preparedChanges.map(async (change) => {
       const oldIdentitySourcePath = change.previousPath ?? change.filePath;
       const oldIdentityByPath = await loadPriorIdentityMap(
-        warp,
+        ctx,
         liveIdentityByFile,
         oldIdentitySourcePath,
         parentTick,
@@ -91,7 +92,7 @@ async function indexCommitsCore(
       };
     }));
 
-    await warp.patch((builder) => {
+    await patchGraph(ctx, (builder) => {
       const patch = builder;
       const commitId = `commit:${sha}`;
       patch.addNode(commitId);

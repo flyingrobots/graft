@@ -118,8 +118,8 @@ export function buildRepoToolWorkerContext(
       // captures footprint via AsyncLocalStorage in the invocation engine.
     },
     resolvePath: createRepoPathResolver(job.projectRoot),
-    getWarp() {
-      return openWarp({ cwd: job.projectRoot, writerId: job.writerId });
+    async getWarp() {
+      return { app: await openWarp({ cwd: job.projectRoot, writerId: job.writerId }), strandId: null };
     },
     getRepoState() {
       return job.repoState;

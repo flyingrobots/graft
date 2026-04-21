@@ -3,6 +3,7 @@ import { openWarp } from "../../../src/warp/open.js";
 import { parseStructuredTree } from "../../../src/parser/runtime.js";
 import { emitFullAst } from "../../../src/warp/ast-emitter.js";
 import { createTestRepo, cleanupTestRepo } from "../../helpers/git.js";
+import type { WarpContext } from "../../../src/warp/context.js";
 
 describe("warp: full AST emission", { timeout: 15000 }, () => {
   it("emits every tree-sitter node for a TypeScript file into the graph", async () => {
@@ -20,12 +21,13 @@ describe("warp: full AST emission", { timeout: 15000 }, () => {
 
       const parsed = parseStructuredTree("ts", source);
       const warp = await openWarp({ cwd: tmpDir });
+      const ctx: WarpContext = { app: warp, strandId: null };
       const filePath = "src/greeter.ts";
 
-      await emitFullAst(warp, filePath, parsed.root);
+      await emitFullAst(ctx, filePath, parsed.root);
       parsed.delete();
 
-      await warp.materialize();
+      await warp.core().materialize();
 
       // Query: find all nodes for this file
       const obs = await warp.observer({ match: [`ast:${filePath}:*`, `file:${filePath}`] });

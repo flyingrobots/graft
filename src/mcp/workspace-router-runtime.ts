@@ -2,7 +2,7 @@ import * as path from "node:path";
 import { createRepoPathResolver } from "../adapters/repo-paths.js";
 import type { FileSystem } from "../ports/filesystem.js";
 import type { GitClient } from "../ports/git.js";
-import type { WarpHandle } from "../ports/warp.js";
+import type { WarpContext } from "../warp/context.js";
 import { DEFAULT_WARP_WRITER_ID } from "../warp/writer-id.js";
 import { GovernorTracker } from "../session/tracker.js";
 import { ObservationCache } from "./cache.js";
@@ -48,7 +48,7 @@ export interface BoundWorkspace {
   readonly warpWriterId: string;
   readonly transportSessionId: string;
   readonly slice: WorkspaceSlice;
-  readonly getWarp: () => Promise<WarpHandle>;
+  readonly getWarp: () => Promise<WarpContext>;
 }
 
 export function createWorkspaceSlice(input: {
@@ -94,11 +94,14 @@ export async function createBoundWorkspace(input: {
     transportSessionId: input.transportSessionId,
     warpWriterId: input.warpWriterId ?? DEFAULT_WARP_WRITER_ID,
     slice: input.slice,
-    getWarp: () => input.warpPool.getOrOpen(
-      input.resolved.repoId,
-      input.resolved.worktreeRoot,
-      input.warpWriterId ?? DEFAULT_WARP_WRITER_ID,
-    ),
+    getWarp: async () => ({
+      app: await input.warpPool.getOrOpen(
+        input.resolved.repoId,
+        input.resolved.worktreeRoot,
+        input.warpWriterId ?? DEFAULT_WARP_WRITER_ID,
+      ),
+      strandId: null,
+    }),
   };
 }
 
@@ -193,7 +196,7 @@ export async function resolveCheckoutBoundaryHookEvent(input: {
 
 export async function buildPersistedLocalHistoryGraphContext(
   worktreeRoot: string,
-  getWarp: () => Promise<WarpHandle>,
+  getWarp: () => Promise<WarpContext>,
 ): Promise<PersistedLocalHistoryGraphContext | null> {
   try {
     return {

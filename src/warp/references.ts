@@ -2,7 +2,8 @@
 // Symbol reference queries — find what depends on a symbol via the WARP graph
 // ---------------------------------------------------------------------------
 
-import type { WarpHandle } from "../ports/warp.js";
+import type { WarpContext } from "./context.js";
+import { observeGraph } from "./context.js";
 
 export interface SymbolReference {
   readonly filePath: string;
@@ -21,11 +22,11 @@ export interface SymbolReference {
  * `references` edge pointing at `file:<filePath>`.
  */
 export async function referencesForSymbol(
-  warp: WarpHandle,
+  ctx: WarpContext,
   symbolName: string,
   filePath: string,
 ): Promise<SymbolReference[]> {
-  const obs = await warp.observer({ match: ["ast:*", "file:*", "sym:*"] });
+  const obs = await observeGraph(ctx, { match: ["ast:*", "file:*", "sym:*"] });
   const edges = await obs.getEdges();
 
   // Determine the target node ID

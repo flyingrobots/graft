@@ -6,6 +6,7 @@ import { git, createTestRepo, cleanupTestRepo } from "../../helpers/git.js";
 import { openWarp } from "../../../src/warp/open.js";
 import { indexCommits, type IndexResult } from "../../../src/warp/indexer.js";
 import { allSymbolsLens } from "../../../src/warp/observers.js";
+import type { WarpContext } from "../../../src/warp/context.js";
 
 function assertOk(result: IndexResult): asserts result is IndexResult & { ok: true } {
   if (!result.ok) throw new Error(`expected ok result but got error: ${result.error}`);
@@ -37,7 +38,7 @@ describe("warp: graft_since (observer comparison)", { timeout: 15000 }, () => {
     const c2 = git(tmpDir, "rev-parse HEAD");
 
     const warp = await openWarp({ cwd: tmpDir });
-    const result = await indexCommits(warp, { cwd: tmpDir, git: nodeGit });
+    const result = await indexCommits({ app: warp, strandId: null }, { cwd: tmpDir, git: nodeGit });
     assertOk(result);
 
     const tick1 = result.commitTicks.get(c1);
@@ -45,7 +46,7 @@ describe("warp: graft_since (observer comparison)", { timeout: 15000 }, () => {
     expect(tick1).toBeDefined();
     expect(tick2).toBeDefined();
 
-    await warp.materialize();
+    await warp.core().materialize();
 
     const lens = allSymbolsLens();
     const obs1 = await warp.observer(lens, { source: { kind: "live", ceiling: tick1 ?? null } });
@@ -73,9 +74,9 @@ describe("warp: graft_since (observer comparison)", { timeout: 15000 }, () => {
     const c2 = git(tmpDir, "rev-parse HEAD");
 
     const warp = await openWarp({ cwd: tmpDir });
-    const result = await indexCommits(warp, { cwd: tmpDir, git: nodeGit });
+    const result = await indexCommits({ app: warp, strandId: null }, { cwd: tmpDir, git: nodeGit });
     assertOk(result);
-    await warp.materialize();
+    await warp.core().materialize();
 
     const tick1 = result.commitTicks.get(c1);
     const tick2 = result.commitTicks.get(c2);
@@ -108,9 +109,9 @@ describe("warp: graft_since (observer comparison)", { timeout: 15000 }, () => {
     const c2 = git(tmpDir, "rev-parse HEAD");
 
     const warp = await openWarp({ cwd: tmpDir });
-    const result = await indexCommits(warp, { cwd: tmpDir, git: nodeGit });
+    const result = await indexCommits({ app: warp, strandId: null }, { cwd: tmpDir, git: nodeGit });
     assertOk(result);
-    await warp.materialize();
+    await warp.core().materialize();
 
     const tick1 = result.commitTicks.get(c1);
     const tick2 = result.commitTicks.get(c2);

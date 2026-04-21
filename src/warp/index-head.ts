@@ -4,8 +4,9 @@
 
 import type { GitClient } from "../ports/git.js";
 import type { PathOps } from "../ports/paths.js";
-import type { WarpHandle } from "../ports/warp.js";
-import type { WarpPatchBuilder } from "../ports/warp.js";
+import type { WarpContext } from "./context.js";
+import type { PatchBuilderV2 } from "@git-stunts/git-warp";
+import { patchGraph } from "./context.js";
 import { detectLang } from "../parser/lang.js";
 import { parseStructuredTree } from "../parser/runtime.js";
 import { emitAstNodes } from "./ast-emitter.js";
@@ -21,7 +22,7 @@ const DECLARATION_TYPES = new Set([
   "enum_declaration",
 ]);
 
-function emitSymNodes(patch: WarpPatchBuilder, filePath: string, root: TSNode): void {
+function emitSymNodes(patch: PatchBuilderV2, filePath: string, root: TSNode): void {
   const fileId = `file:${filePath}`;
 
   for (const child of root.namedChildren) {
@@ -82,7 +83,7 @@ export interface IndexHeadOptions {
   readonly cwd: string;
   readonly git: GitClient;
   readonly pathOps: PathOps;
-  readonly warp: WarpHandle;
+  readonly ctx: WarpContext;
 }
 
 export interface IndexHeadResult {
@@ -98,7 +99,7 @@ export interface IndexHeadResult {
  * No commit walking. No history replay. WARP handles provenance.
  */
 export async function indexHead(opts: IndexHeadOptions): Promise<IndexHeadResult> {
-  const { cwd, git, pathOps, warp } = opts;
+  const { cwd, git, pathOps, ctx } = opts;
 
   // Get all tracked files
   const result = await git.run({ args: ["ls-files"], cwd });
@@ -132,7 +133,7 @@ export async function indexHead(opts: IndexHeadOptions): Promise<IndexHeadResult
   // Emit everything in one atomic WARP patch
   let nodesEmitted = 0;
 
-  await warp.patch((patch) => {
+  await patchGraph(ctx, (patch) => {
     for (const { filePath, root } of parsed) {
       // File node
       const fileId = `file:${filePath}`;

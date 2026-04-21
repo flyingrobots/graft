@@ -6,6 +6,7 @@ import { indexHead } from "../../../src/warp/index-head.js";
 import { nodeGit } from "../../../src/adapters/node-git.js";
 import { nodePathOps } from "../../../src/adapters/node-paths.js";
 import { git, createTestRepo, cleanupTestRepo } from "../../helpers/git.js";
+import type { WarpContext } from "../../../src/warp/context.js";
 
 describe("warp: index HEAD", { timeout: 15000 }, () => {
   let tmpDir: string;
@@ -33,12 +34,12 @@ describe("warp: index HEAD", { timeout: 15000 }, () => {
     git(tmpDir, "commit -m init");
 
     const warp = await openWarp({ cwd: tmpDir });
-    const result = await indexHead({ cwd: tmpDir, git: nodeGit, pathOps: nodePathOps, warp });
+    const result = await indexHead({ cwd: tmpDir, git: nodeGit, pathOps: nodePathOps, ctx: { app: warp, strandId: null } });
 
     expect(result.ok).toBe(true);
     expect(result.filesIndexed).toBe(2);
 
-    await warp.materialize();
+    await warp.core().materialize();
 
     // Query: find the resolves_to edge from import string to utils file
     const obs = await warp.observer({ match: ["ast:*", "file:*"] });
@@ -70,8 +71,8 @@ describe("warp: index HEAD", { timeout: 15000 }, () => {
     git(tmpDir, "commit -m init");
 
     const warp = await openWarp({ cwd: tmpDir });
-    await indexHead({ cwd: tmpDir, git: nodeGit, pathOps: nodePathOps, warp });
-    await warp.materialize();
+    await indexHead({ cwd: tmpDir, git: nodeGit, pathOps: nodePathOps, ctx: { app: warp, strandId: null } });
+    await warp.core().materialize();
 
     const obs = await warp.observer({ match: "ast:*" });
     const nodes = await obs.getNodes();
@@ -96,7 +97,7 @@ describe("warp: index HEAD", { timeout: 15000 }, () => {
     git(tmpDir, "commit -m init");
 
     const warp = await openWarp({ cwd: tmpDir });
-    const result = await indexHead({ cwd: tmpDir, git: nodeGit, pathOps: nodePathOps, warp });
+    const result = await indexHead({ cwd: tmpDir, git: nodeGit, pathOps: nodePathOps, ctx: { app: warp, strandId: null } });
 
     // Only app.ts should be indexed
     expect(result.filesIndexed).toBe(1);
@@ -110,8 +111,8 @@ describe("warp: index HEAD", { timeout: 15000 }, () => {
     git(tmpDir, "commit -m init");
 
     const warp = await openWarp({ cwd: tmpDir });
-    await indexHead({ cwd: tmpDir, git: nodeGit, pathOps: nodePathOps, warp });
-    await warp.materialize();
+    await indexHead({ cwd: tmpDir, git: nodeGit, pathOps: nodePathOps, ctx: { app: warp, strandId: null } });
+    await warp.core().materialize();
 
     const obs = await warp.observer({ match: "file:*" });
     const fileNodes = await obs.getNodes();

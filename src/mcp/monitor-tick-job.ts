@@ -56,11 +56,12 @@ export async function runMonitorTickJob(job: MonitorTickWorkerJob): Promise<Moni
   const headAtStart = await readHeadCommit(job.worktreeRoot);
 
   try {
-    const warp = await openWarp({
+    const app = await openWarp({
       cwd: job.worktreeRoot,
       writerId: job.writerId,
     });
-    const result = await indexCommits(warp, {
+    const ctx = { app, strandId: null };
+    const result = await indexCommits(ctx, {
       cwd: job.worktreeRoot,
       git: nodeGit,
       ...(job.lastIndexedCommit !== null ? { from: job.lastIndexedCommit } : {}),

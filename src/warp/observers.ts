@@ -5,14 +5,15 @@
  * walks the graph directly, maintains shadow state, or implements
  * traversal algorithms.
  *
- * Each function returns an observer with a focused lens. The lens
- * determines the aperture — what the observer can see.
+ * Each function returns a lens or an observer with a focused lens.
+ * The lens determines the aperture — what the observer can see.
  */
 
-import type { WarpHandle, WarpObserver, WarpObserverLens } from "../ports/warp.js";
+import type { Lens, Observer } from "@git-stunts/git-warp";
+import type { WarpContext } from "./context.js";
+import { observeGraph } from "./context.js";
 
-/** Lens config for creating focused observers. */
-export type Lens = WarpObserverLens;
+export type { Lens };
 
 /**
  * Observe all symbols in a specific file.
@@ -95,6 +96,6 @@ export function commitsLens(): Lens {
  * Create an observer on the current frontier with a given lens.
  * Observers are static snapshots — create a new one after writes.
  */
-export function observe(warp: WarpHandle, lens: Lens): Promise<WarpObserver> {
-  return warp.observer(lens);
+export function observe(ctx: WarpContext, lens: Lens): Promise<Observer> {
+  return observeGraph(ctx, lens);
 }

@@ -4,7 +4,8 @@
  * observer lens system.
  */
 
-import type { WarpHandle } from "../ports/warp.js";
+import type { WarpContext } from "./context.js";
+import { observeGraph } from "./context.js";
 import type { IdentityResolver } from "../operations/diff-identity.js";
 import { fileSymbolsLens, observe } from "./observers.js";
 
@@ -13,10 +14,10 @@ import { fileSymbolsLens, observe } from "./observers.js";
  * identities. Each call reads the current frontier snapshot — the
  * resolver is stateless between calls.
  */
-export function createWarpIdentityResolver(warp: WarpHandle): IdentityResolver {
+export function createWarpIdentityResolver(ctx: WarpContext): IdentityResolver {
   return async (filePath: string) => {
     const lens = fileSymbolsLens(filePath);
-    const obs = await observe(warp, lens);
+    const obs = await observe(ctx, lens);
     const nodes = await obs.getNodes();
     const identities = new Map<string, string>();
 

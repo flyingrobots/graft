@@ -6,7 +6,7 @@ import { git, createTestRepo, cleanupTestRepo } from "../../helpers/git.js";
 import { openWarp } from "../../../src/warp/open.js";
 import { indexCommits, type IndexResult } from "../../../src/warp/indexer.js";
 import { symbolsForCommit, commitsForSymbol } from "../../../src/warp/structural-queries.js";
-import type { WarpHandle } from "../../../src/ports/warp.js";
+import type { WarpContext } from "../../../src/warp/context.js";
 
 function assertOk(result: IndexResult): asserts result is IndexResult & { ok: true } {
   expect(result.ok).toBe(true);
@@ -28,11 +28,12 @@ describe("warp: structural-queries", { timeout: 15000 }, () => {
     cleanupTestRepo(tmpDir);
   });
 
-  async function indexRepo(): Promise<WarpHandle> {
+  async function indexRepo(): Promise<WarpContext> {
     const warp = await openWarp({ cwd: tmpDir });
-    const result = await indexCommits(warp, { cwd: tmpDir, git: nodeGit });
+    const ctx: WarpContext = { app: warp, strandId: null };
+    const result = await indexCommits(ctx, { cwd: tmpDir, git: nodeGit });
     assertOk(result);
-    return warp;
+    return ctx;
   }
 
   describe("symbolsForCommit", () => {

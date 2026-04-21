@@ -40,8 +40,9 @@ export async function runIndex(options: RunIndexOptions = {}): Promise<void> {
 
   try {
     const { json, from } = parseIndexCommandArgs(args);
-    const warp = await openWarp({ cwd });
-    const result = await indexCommits(warp, {
+    const app = await openWarp({ cwd });
+    const ctx = { app, strandId: null };
+    const result = await indexCommits(ctx, {
       cwd,
       git: nodeGit,
       ...(from !== null ? { from } : {}),

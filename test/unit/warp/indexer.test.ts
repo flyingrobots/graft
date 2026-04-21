@@ -7,6 +7,7 @@ import { git, createTestRepo, cleanupTestRepo } from "../../helpers/git.js";
 import { openWarp } from "../../../src/warp/open.js";
 import { indexCommits, type IndexResult } from "../../../src/warp/indexer.js";
 import { fileSymbolsLens, allSymbolsLens, allFilesLens } from "../../../src/warp/observers.js";
+import type { WarpContext } from "../../../src/warp/context.js";
 import type { GitClient } from "../../../src/ports/git.js";
 
 function assertOk(result: IndexResult): asserts result is IndexResult & { ok: true } {
@@ -39,7 +40,7 @@ describe("warp: indexer", { timeout: 15000 }, () => {
     git(tmpDir, "commit -m 'add greet'");
 
     const warp = await openWarp({ cwd: tmpDir });
-    const result = await indexCommits(warp, { cwd: tmpDir, git: nodeGit });
+    const result = await indexCommits({ app: warp, strandId: null }, { cwd: tmpDir, git: nodeGit });
     assertOk(result);
 
     expect(result.commitsIndexed).toBe(1);
@@ -61,7 +62,7 @@ describe("warp: indexer", { timeout: 15000 }, () => {
     git(tmpDir, "commit -m 'add math functions'");
 
     const warp = await openWarp({ cwd: tmpDir });
-    await indexCommits(warp, { cwd: tmpDir, git: nodeGit });
+    await indexCommits({ app: warp, strandId: null }, { cwd: tmpDir, git: nodeGit });
 
     
     const symObs = await warp.observer(fileSymbolsLens("math.ts"));
@@ -89,7 +90,7 @@ describe("warp: indexer", { timeout: 15000 }, () => {
     git(tmpDir, "commit -m 'v2'");
 
     const warp = await openWarp({ cwd: tmpDir });
-    const result = await indexCommits(warp, { cwd: tmpDir, git: nodeGit });
+    const result = await indexCommits({ app: warp, strandId: null }, { cwd: tmpDir, git: nodeGit });
     assertOk(result);
 
     expect(result.commitsIndexed).toBe(2);
@@ -112,7 +113,7 @@ describe("warp: indexer", { timeout: 15000 }, () => {
     const c1 = git(tmpDir, "rev-parse HEAD");
 
     const warp = await openWarp({ cwd: tmpDir });
-    await indexCommits(warp, { cwd: tmpDir, git: nodeGit });
+    await indexCommits({ app: warp, strandId: null }, { cwd: tmpDir, git: nodeGit });
 
     let symObs = await warp.observer(fileSymbolsLens("app.ts"));
     let symNodes = await symObs.getNodes();
@@ -128,7 +129,7 @@ describe("warp: indexer", { timeout: 15000 }, () => {
     git(tmpDir, "add -A");
     git(tmpDir, "commit -m 'v2'");
 
-    await indexCommits(warp, { cwd: tmpDir, git: nodeGit, from: c1 });
+    await indexCommits({ app: warp, strandId: null }, { cwd: tmpDir, git: nodeGit, from: c1 });
 
     symObs = await warp.observer(fileSymbolsLens("app.ts"));
     symNodes = await symObs.getNodes();
@@ -156,7 +157,7 @@ describe("warp: indexer", { timeout: 15000 }, () => {
     git(tmpDir, "commit -m 'v2'");
 
     const warp = await openWarp({ cwd: tmpDir });
-    await indexCommits(warp, { cwd: tmpDir, git: nodeGit });
+    await indexCommits({ app: warp, strandId: null }, { cwd: tmpDir, git: nodeGit });
 
     
     
@@ -183,7 +184,7 @@ describe("warp: indexer", { timeout: 15000 }, () => {
     git(tmpDir, "commit -m 'v2'");
 
     const warp = await openWarp({ cwd: tmpDir });
-    await indexCommits(warp, { cwd: tmpDir, git: nodeGit });
+    await indexCommits({ app: warp, strandId: null }, { cwd: tmpDir, git: nodeGit });
 
     
     const symObs = await warp.observer(fileSymbolsLens("api.ts"));
@@ -206,7 +207,7 @@ describe("warp: indexer", { timeout: 15000 }, () => {
     const c1 = git(tmpDir, "rev-parse HEAD");
 
     const warp = await openWarp({ cwd: tmpDir });
-    await indexCommits(warp, { cwd: tmpDir, git: nodeGit });
+    await indexCommits({ app: warp, strandId: null }, { cwd: tmpDir, git: nodeGit });
 
     const beforeObs = await warp.observer(fileSymbolsLens("src/greet.ts"));
     const beforeNodes = await beforeObs.getNodes();
@@ -218,7 +219,7 @@ describe("warp: indexer", { timeout: 15000 }, () => {
     git(tmpDir, "mv src/greet.ts src/welcome.ts");
     git(tmpDir, "commit -m 'rename file'");
 
-    await indexCommits(warp, { cwd: tmpDir, git: nodeGit, from: c1 });
+    await indexCommits({ app: warp, strandId: null }, { cwd: tmpDir, git: nodeGit, from: c1 });
 
     const oldObs = await warp.observer(fileSymbolsLens("src/greet.ts"));
     expect(await oldObs.getNodes()).toHaveLength(0);
@@ -237,7 +238,7 @@ describe("warp: indexer", { timeout: 15000 }, () => {
     git(tmpDir, "commit -m 'initial commit'");
 
     const warp = await openWarp({ cwd: tmpDir });
-    await indexCommits(warp, { cwd: tmpDir, git: nodeGit });
+    await indexCommits({ app: warp, strandId: null }, { cwd: tmpDir, git: nodeGit });
 
     
     const commitObs = await warp.observer({
@@ -260,7 +261,7 @@ describe("warp: indexer", { timeout: 15000 }, () => {
     git(tmpDir, "commit -m 'mixed files'");
 
     const warp = await openWarp({ cwd: tmpDir });
-    await indexCommits(warp, { cwd: tmpDir, git: nodeGit });
+    await indexCommits({ app: warp, strandId: null }, { cwd: tmpDir, git: nodeGit });
 
     
 
@@ -288,7 +289,7 @@ describe("warp: indexer", { timeout: 15000 }, () => {
     git(tmpDir, "commit -m 'delete doomed'");
 
     const warp = await openWarp({ cwd: tmpDir });
-    await indexCommits(warp, { cwd: tmpDir, git: nodeGit });
+    await indexCommits({ app: warp, strandId: null }, { cwd: tmpDir, git: nodeGit });
 
     
 
@@ -317,7 +318,7 @@ describe("warp: indexer", { timeout: 15000 }, () => {
     git(tmpDir, "commit -m 'add UserService'");
 
     const warp = await openWarp({ cwd: tmpDir });
-    await indexCommits(warp, { cwd: tmpDir, git: nodeGit });
+    await indexCommits({ app: warp, strandId: null }, { cwd: tmpDir, git: nodeGit });
 
     
     const symObs = await warp.observer(fileSymbolsLens("service.ts"));
@@ -335,7 +336,7 @@ describe("warp: indexer", { timeout: 15000 }, () => {
     const head = git(tmpDir, "rev-parse HEAD");
 
     const warp = await openWarp({ cwd: tmpDir });
-    const result = await indexCommits(warp, { cwd: tmpDir, git: nodeGit, from: head });
+    const result = await indexCommits({ app: warp, strandId: null }, { cwd: tmpDir, git: nodeGit, from: head });
     assertOk(result);
     expect(result.commitsIndexed).toBe(0);
     expect(result.patchesWritten).toBe(0);
@@ -357,7 +358,7 @@ describe("warp: indexer", { timeout: 15000 }, () => {
 
     const warp = await openWarp({ cwd: tmpDir });
     // Only index c2 and c3 (from c1 to HEAD)
-    const result = await indexCommits(warp, { cwd: tmpDir, git: nodeGit, from: c1 });
+    const result = await indexCommits({ app: warp, strandId: null }, { cwd: tmpDir, git: nodeGit, from: c1 });
     assertOk(result);
 
     expect(result.commitsIndexed).toBe(2);
@@ -374,7 +375,7 @@ describe("warp: indexer", { timeout: 15000 }, () => {
     const primaryHead = git(tmpDir, "rev-parse HEAD");
 
     const primaryWarp = await openWarp({ cwd: tmpDir });
-    const primaryResult = await indexCommits(primaryWarp, { cwd: tmpDir, git: nodeGit });
+    const primaryResult = await indexCommits({ app: primaryWarp, strandId: null }, { cwd: tmpDir, git: nodeGit });
     assertOk(primaryResult);
     expect(primaryResult.commitsIndexed).toBe(1);
 
@@ -395,7 +396,7 @@ describe("warp: indexer", { timeout: 15000 }, () => {
     git(worktreeDir, "add -A");
     git(worktreeDir, "commit -m 'worktree commit'");
 
-    const worktreeResult = await indexCommits(worktreeWarp, {
+    const worktreeResult = await indexCommits({ app: worktreeWarp, strandId: null }, {
       cwd: worktreeDir,
       git: nodeGit,
       from: primaryHead,
@@ -425,7 +426,7 @@ export class Footer {
     git(tmpDir, "commit -m 'add Header and Footer with render methods'");
 
     const warp = await openWarp({ cwd: tmpDir });
-    await indexCommits(warp, { cwd: tmpDir, git: nodeGit });
+    await indexCommits({ app: warp, strandId: null }, { cwd: tmpDir, git: nodeGit });
 
     const symObs = await warp.observer(fileSymbolsLens("components.ts"));
     const symNodes = await symObs.getNodes();
@@ -461,7 +462,7 @@ export class Footer {
     };
 
     const warp = await openWarp({ cwd: tmpDir });
-    const result = await indexCommits(warp, { cwd: tmpDir, git: failingGit });
+    const result = await indexCommits({ app: warp, strandId: null }, { cwd: tmpDir, git: failingGit });
 
     expect(result.ok).toBe(false);
     if (!result.ok) {

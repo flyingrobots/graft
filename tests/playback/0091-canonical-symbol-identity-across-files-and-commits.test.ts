@@ -5,6 +5,7 @@ import { nodeGit } from "../../src/adapters/node-git.js";
 import { openWarp } from "../../src/warp/open.js";
 import { indexCommits } from "../../src/warp/indexer.js";
 import { fileSymbolsLens } from "../../src/warp/observers.js";
+import type { WarpContext } from "../../src/warp/context.js";
 import { createServerInRepo, parse } from "../../test/helpers/mcp.js";
 import { cleanupTestRepo, createTestRepo, git } from "../../test/helpers/git.js";
 
@@ -21,7 +22,7 @@ describe("0091 canonical symbol identity across files and commits", () => {
       const c1 = git(tmpDir, "rev-parse HEAD");
 
       const warp = await openWarp({ cwd: tmpDir });
-      await indexCommits(warp, { cwd: tmpDir, git: nodeGit });
+      await indexCommits({ app: warp, strandId: null }, { cwd: tmpDir, git: nodeGit });
 
       let observer = await warp.observer(fileSymbolsLens("app.ts"));
       let nodes = await observer.getNodes();
@@ -35,7 +36,7 @@ describe("0091 canonical symbol identity across files and commits", () => {
       git(tmpDir, "add -A");
       git(tmpDir, "commit -m v2");
 
-      await indexCommits(warp, { cwd: tmpDir, git: nodeGit, from: c1 });
+      await indexCommits({ app: warp, strandId: null }, { cwd: tmpDir, git: nodeGit, from: c1 });
 
       observer = await warp.observer(fileSymbolsLens("app.ts"));
       nodes = await observer.getNodes();
@@ -62,7 +63,7 @@ describe("0091 canonical symbol identity across files and commits", () => {
       const c1 = git(tmpDir, "rev-parse HEAD");
 
       const warp = await openWarp({ cwd: tmpDir });
-      await indexCommits(warp, { cwd: tmpDir, git: nodeGit });
+      await indexCommits({ app: warp, strandId: null }, { cwd: tmpDir, git: nodeGit });
 
       const beforeObserver = await warp.observer(fileSymbolsLens("src/greet.ts"));
       const beforeNodes = await beforeObserver.getNodes();
@@ -72,7 +73,7 @@ describe("0091 canonical symbol identity across files and commits", () => {
       git(tmpDir, "mv src/greet.ts src/welcome.ts");
       git(tmpDir, "commit -m rename-file");
 
-      await indexCommits(warp, { cwd: tmpDir, git: nodeGit, from: c1 });
+      await indexCommits({ app: warp, strandId: null }, { cwd: tmpDir, git: nodeGit, from: c1 });
 
       const server = createServerInRepo(tmpDir);
       const result = parse(await server.callTool("code_find", {
@@ -106,9 +107,9 @@ describe("0091 canonical symbol identity across files and commits", () => {
       const c1 = git(tmpDir, "rev-parse HEAD");
 
       const warp = await openWarp({ cwd: tmpDir });
-      await indexCommits(warp, { cwd: tmpDir, git: nodeGit });
+      await indexCommits({ app: warp, strandId: null }, { cwd: tmpDir, git: nodeGit });
 
-      warp.materializeReceipts = () => Promise.reject(
+      (warp as unknown as Record<string, unknown>)["materializeReceipts"] = () => Promise.reject(
         new Error("materializeReceipts should not be used by the indexer"),
       );
 
@@ -119,7 +120,7 @@ describe("0091 canonical symbol identity across files and commits", () => {
       git(tmpDir, "add -A");
       git(tmpDir, "commit -m v2");
 
-      await indexCommits(warp, { cwd: tmpDir, git: nodeGit, from: c1 });
+      await indexCommits({ app: warp, strandId: null }, { cwd: tmpDir, git: nodeGit, from: c1 });
 
       const observer = await warp.observer(fileSymbolsLens("app.ts"));
       const nodes = await observer.getNodes();
@@ -151,7 +152,7 @@ describe("0091 canonical symbol identity across files and commits", () => {
       expect(liveResult["identityId"]).toBeUndefined();
 
       const warp = await openWarp({ cwd: tmpDir });
-      await indexCommits(warp, { cwd: tmpDir, git: nodeGit });
+      await indexCommits({ app: warp, strandId: null }, { cwd: tmpDir, git: nodeGit });
 
       const indexedServer = createServerInRepo(tmpDir);
       const indexedResult = parse(await indexedServer.callTool("code_find", {

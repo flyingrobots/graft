@@ -25,7 +25,7 @@ describe("warp: AST import resolver", { timeout: 15000 }, () => {
   }
 
   async function getEdgesLabeled(warp: Awaited<ReturnType<typeof openWarp>>, label: string) {
-    await warp.materialize();
+    await warp.core().materialize();
     const obs = await warp.observer({ match: ["ast:*", "file:*", "sym:*"] });
     const edges = await obs.getEdges();
     return edges.filter((e) => e.label === label);
@@ -74,7 +74,7 @@ describe("warp: AST import resolver", { timeout: 15000 }, () => {
       expect(fooRef).toBeDefined();
 
       // Verify the specifier node has both names
-      await warp.materialize();
+      await warp.core().materialize();
       const obs = await warp.observer({ match: "ast:*" });
       const specNode = await obs.getNodeProps(fooRef!.from);
       expect(specNode).not.toBeNull();
@@ -199,7 +199,7 @@ describe("warp: AST import resolver", { timeout: 15000 }, () => {
       expect(resolves).toHaveLength(0);
 
       // But the AST nodes are still there
-      await warp.materialize();
+      await warp.core().materialize();
       const obs = await warp.observer({ match: "ast:*" });
       const nodes = await obs.getNodes();
       expect(nodes.length).toBeGreaterThan(0);

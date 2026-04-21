@@ -7,6 +7,7 @@ import { referencesForSymbol } from "../../../src/warp/references.js";
 import { nodeGit } from "../../../src/adapters/node-git.js";
 import { nodePathOps } from "../../../src/adapters/node-paths.js";
 import { git, createTestRepo, cleanupTestRepo } from "../../helpers/git.js";
+import type { WarpContext } from "../../../src/warp/context.js";
 
 describe("warp: referencesForSymbol", { timeout: 15000 }, () => {
   let tmpDir: string;
@@ -30,9 +31,10 @@ describe("warp: referencesForSymbol", { timeout: 15000 }, () => {
     git(tmpDir, "commit -m init");
 
     const warp = await openWarp({ cwd: tmpDir });
-    await indexHead({ cwd: tmpDir, git: nodeGit, pathOps: nodePathOps, warp });
-    await warp.materialize();
-    return warp;
+    const ctx: WarpContext = { app: warp, strandId: null };
+    await indexHead({ cwd: tmpDir, git: nodeGit, pathOps: nodePathOps, ctx });
+    await warp.core().materialize();
+    return ctx;
   }
 
   it("finds files that import a named symbol", async () => {

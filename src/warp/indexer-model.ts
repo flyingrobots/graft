@@ -27,7 +27,7 @@ export type IndexResult = IndexResultOk | IndexResultError;
  * Alias kept for internal indexer use. Structurally identical to
  * the port's WarpPatchBuilder — no adapter-layer cast needed.
  */
-export type { WarpPatchBuilder as PatchOps } from "../ports/warp.js";
+export type { PatchBuilderV2 as PatchOps } from "@git-stunts/git-warp";
 
 export interface PreparedChange {
   readonly status: string;

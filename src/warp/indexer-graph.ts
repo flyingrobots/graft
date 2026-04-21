@@ -1,6 +1,7 @@
 import { diffOutlines } from "../parser/diff.js";
 import type { OutlineEntry } from "../parser/types.js";
-import type { WarpHandle } from "../ports/warp.js";
+import type { WarpContext } from "./context.js";
+import { observeGraph } from "./context.js";
 import { buildSymbolPath, type SymbolIdentityMap } from "./symbol-identity.js";
 import { fileSymbolsLens } from "./observers.js";
 import {
@@ -15,8 +16,8 @@ function cloneIdentityMap(input: SymbolIdentityMap | undefined): Map<string, str
   return new Map(input ?? []);
 }
 
-async function readCommitTick(warp: WarpHandle, sha: string): Promise<number | null> {
-  const observer = await warp.observer({ match: `commit:${sha}`, expose: ["tick"] });
+async function readCommitTick(ctx: WarpContext, sha: string): Promise<number | null> {
+  const observer = await observeGraph(ctx, { match: `commit:${sha}`, expose: ["tick"] });
   const nodes = await observer.getNodes();
   const nodeId = nodes[0];
   if (nodeId === undefined) {
@@ -27,7 +28,7 @@ async function readCommitTick(warp: WarpHandle, sha: string): Promise<number | n
 }
 
 async function readIdentitySeedForFile(
-  warp: WarpHandle,
+  ctx: WarpContext,
   filePath: string,
   ceiling: number | null,
 ): Promise<Map<string, string>> {
@@ -35,7 +36,7 @@ async function readIdentitySeedForFile(
     return new Map();
   }
 
-  const observer = await warp.observer(fileSymbolsLens(filePath), {
+  const observer = await observeGraph(ctx, fileSymbolsLens(filePath), {
     source: { kind: "live", ceiling },
   });
   const nodes = await observer.getNodes();
@@ -60,25 +61,25 @@ async function readIdentitySeedForFile(
 }
 
 export async function resolveParentTick(
-  warp: WarpHandle,
+  ctx: WarpContext,
   commitTicks: ReadonlyMap<string, number>,
   parentSha: string | null,
 ): Promise<number | null> {
   if (parentSha === null) {
     return null;
   }
-  return commitTicks.get(parentSha) ?? await readCommitTick(warp, parentSha);
+  return commitTicks.get(parentSha) ?? await readCommitTick(ctx, parentSha);
 }
 
 export async function loadPriorIdentityMap(
-  warp: WarpHandle,
+  ctx: WarpContext,
   liveIdentityByFile: ReadonlyMap<string, Map<string, string>>,
   filePath: string,
   parentTick: number | null,
 ): Promise<Map<string, string>> {
   return liveIdentityByFile.has(filePath)
     ? cloneIdentityMap(liveIdentityByFile.get(filePath))
-    : await readIdentitySeedForFile(warp, filePath, parentTick);
+    : await readIdentitySeedForFile(ctx, filePath, parentTick);
 }
 
 export function emitDirectoryChain(patch: PatchOps, filePath: string): void {

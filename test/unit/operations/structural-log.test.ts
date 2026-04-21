@@ -8,7 +8,7 @@ import { indexCommits, type IndexResult } from "../../../src/warp/indexer.js";
 import { symbolsForCommit } from "../../../src/warp/structural-queries.js";
 import { structuralLog } from "../../../src/operations/structural-log.js";
 import { nodePathOps } from "../../../src/adapters/node-paths.js";
-import type { WarpHandle } from "../../../src/ports/warp.js";
+import type { WarpContext } from "../../../src/warp/context.js";
 
 function assertOk(result: IndexResult): asserts result is IndexResult & { ok: true } {
   expect(result.ok).toBe(true);
@@ -30,11 +30,12 @@ describe("operations: structural-log", { timeout: 20000 }, () => {
     cleanupTestRepo(tmpDir);
   });
 
-  async function indexRepo(): Promise<WarpHandle> {
+  async function indexRepo(): Promise<WarpContext> {
     const warp = await openWarp({ cwd: tmpDir });
-    const result = await indexCommits(warp, { cwd: tmpDir, git: nodeGit });
+    const ctx: WarpContext = { app: warp, strandId: null };
+    const result = await indexCommits(ctx, { cwd: tmpDir, git: nodeGit });
     assertOk(result);
-    return warp;
+    return ctx;
   }
 
   it("returns entries with commit metadata and symbol changes", async () => {
@@ -98,7 +99,8 @@ describe("operations: structural-log", { timeout: 20000 }, () => {
     const sha2 = commitSha(tmpDir);
 
     // Re-index
-    warp = await openWarp({ cwd: tmpDir });
+    const reApp = await openWarp({ cwd: tmpDir });
+    warp = { app: reApp, strandId: null };
     const reindex = await indexCommits(warp, { cwd: tmpDir, git: nodeGit });
     assertOk(reindex);
 

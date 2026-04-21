@@ -14,7 +14,7 @@ import {
   type CommitMetaInput,
   type SymbolMetaInput,
 } from "../../../src/operations/structural-blame.js";
-import type { WarpHandle } from "../../../src/ports/warp.js";
+import type { WarpContext } from "../../../src/warp/context.js";
 
 function assertOk(result: IndexResult): asserts result is IndexResult & { ok: true } {
   expect(result.ok).toBe(true);
@@ -36,18 +36,19 @@ describe("operations: structural blame", { timeout: 15000 }, () => {
     cleanupTestRepo(tmpDir);
   });
 
-  async function indexRepo(): Promise<WarpHandle> {
+  async function indexRepo(): Promise<WarpContext> {
     const warp = await openWarp({ cwd: tmpDir });
-    const result = await indexCommits(warp, { cwd: tmpDir, git: nodeGit });
+    const ctx: WarpContext = { app: warp, strandId: null };
+    const result = await indexCommits(ctx, { cwd: tmpDir, git: nodeGit });
     assertOk(result);
-    return warp;
+    return ctx;
   }
 
   /**
    * Full blame pipeline: index repo, query WARP, gather git metadata,
    * then call the pure structuralBlame function.
    */
-  async function runBlame(symbolName: string, warp: WarpHandle, filePath?: string) {
+  async function runBlame(symbolName: string, warp: WarpContext, filePath?: string) {
     const history = await commitsForSymbol(warp, symbolName, filePath);
 
     // Get commit metadata

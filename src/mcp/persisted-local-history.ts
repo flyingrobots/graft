@@ -462,7 +462,7 @@ async function loadObservedLocalHistoryGraph(
     return null;
   }
 
-  const observer = await graph.warp.observer({
+  const observer = await graph.warp.app.observer({
     match: [...LOCAL_HISTORY_GRAPH_MATCH],
     expose: [...LOCAL_HISTORY_GRAPH_EXPOSE],
   });
@@ -980,7 +980,7 @@ async function hasLocalHistoryEventNode(
   graph: PersistedLocalHistoryGraphContext,
   eventId: string,
 ): Promise<boolean> {
-  return graph.warp.hasNode(`lh:event:${eventId}`);
+  return graph.warp.app.core().hasNode(`lh:event:${eventId}`);
 }
 
 export async function migrateLegacyPersistedLocalHistoryToGraph(input: {

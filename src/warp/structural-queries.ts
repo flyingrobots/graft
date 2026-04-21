@@ -6,7 +6,9 @@
  * never walking the graph directly.
  */
 
-import type { WarpEdge, WarpHandle, WarpObserverLens } from "../ports/warp.js";
+import type { Lens } from "@git-stunts/git-warp";
+import type { WarpContext } from "./context.js";
+import { observeGraph } from "./context.js";
 import { observe } from "./observers.js";
 
 // ---------------------------------------------------------------------------
@@ -57,7 +59,7 @@ const CHANGE_LABELS = new Set(["adds", "removes", "changes"]);
  * Lens that spans both commit and symbol nodes so the observer
  * can see the edges between them.
  */
-function commitSymbolLens(): WarpObserverLens {
+function commitSymbolLens(): Lens {
   return {
     match: ["commit:*", "sym:*"],
     expose: ["sha", "name", "kind", "signature", "exported"],
@@ -116,20 +118,20 @@ async function readSymbolChange(
  * edges invisible to observers).
  */
 export async function symbolsForCommit(
-  warp: WarpHandle,
+  ctx: WarpContext,
   commitSha: string,
 ): Promise<CommitSymbols> {
   const commitId = `commit:${commitSha}`;
 
   // Read the commit's tick from its node props.
-  const commitObs = await warp.observer(
+  const commitObs = await observeGraph(ctx, 
     { match: commitId, expose: ["tick"] },
   );
   const commitProps = await commitObs.getNodeProps(commitId);
   const tick = typeof commitProps?.["tick"] === "number" ? commitProps["tick"] : null;
 
   // Observe commit + symbol nodes so edges between them are visible.
-  const csObs = await observe(warp, commitSymbolLens());
+  const csObs = await observe(ctx, commitSymbolLens());
   const edges = await csObs.getEdges();
 
   // Collect sym node IDs for adds and changes (these edges survive).
@@ -151,7 +153,7 @@ export async function symbolsForCommit(
   // Detect removals by diffing symbol snapshots at tick-1 vs tick.
   let removed: SymbolChange[] = [];
   if (tick !== null && tick > 1) {
-    removed = await detectRemovals(warp, tick);
+    removed = await detectRemovals(ctx, tick);
   }
 
   return { sha: commitSha, added, removed, changed };
@@ -163,17 +165,17 @@ export async function symbolsForCommit(
  * Symbols present at tick-1 but absent at tick were removed.
  */
 async function detectRemovals(
-  warp: WarpHandle,
+  ctx: WarpContext,
   tick: number,
 ): Promise<SymbolChange[]> {
-  const symLens: WarpObserverLens = {
+  const symLens: Lens = {
     match: "sym:*",
     expose: ["name", "kind", "signature", "exported"],
   };
 
   const [beforeObs, afterObs] = await Promise.all([
-    warp.observer(symLens, { source: { kind: "live", ceiling: tick - 1 } }),
-    warp.observer(symLens, { source: { kind: "live", ceiling: tick } }),
+    observeGraph(ctx, symLens, { source: { kind: "live", ceiling: tick - 1 } }),
+    observeGraph(ctx, symLens, { source: { kind: "live", ceiling: tick } }),
   ]);
 
   const [beforeNodes, afterNodes] = await Promise.all([
@@ -195,13 +197,13 @@ async function detectRemovals(
  * to matching symbol nodes via `adds`, `removes`, or `changes` labels.
  */
 export async function commitsForSymbol(
-  warp: WarpHandle,
+  ctx: WarpContext,
   symbolName: string,
   filePath?: string,
 ): Promise<SymbolHistory> {
   // Observe commit + symbol nodes so edges between them are visible.
-  const commitObs = await observe(warp, commitSymbolLens());
-  const allEdges: readonly WarpEdge[] = await commitObs.getEdges();
+  const commitObs = await observe(ctx, commitSymbolLens());
+  const allEdges: readonly { from: string; to: string; label: string }[] = await commitObs.getEdges();
 
   // Find edges from commit nodes to sym nodes matching the symbol name.
   const matchingEdges: { commitId: string; changeKind: ChangeKind; symId: string }[] = [];

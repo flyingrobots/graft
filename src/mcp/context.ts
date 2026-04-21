@@ -12,7 +12,7 @@ import type { FileSystem } from "../ports/filesystem.js";
 import type { JsonCodec } from "../ports/codec.js";
 import type { ProcessRunner } from "../ports/process-runner.js";
 import type { GitClient } from "../ports/git.js";
-import type { WarpHandle } from "../ports/warp.js";
+import type { WarpContext } from "../warp/context.js";
 import type { RepoObservation } from "./repo-state.js";
 import type { RunCaptureConfig } from "./run-capture-config.js";
 import type { RuntimeObservabilityState, ToolCallFootprintRegion } from "./runtime-observability.js";
@@ -81,7 +81,7 @@ export interface ToolContext {
     readonly regions?: readonly ToolCallFootprintRegion[];
   }): void;
   resolvePath(relative: string): string;
-  getWarp(): Promise<WarpHandle>;
+  getWarp(): Promise<WarpContext>;
   getRepoState(): RepoObservation;
   getCausalContext(): RuntimeCausalContext;
   getWorkspaceOverlayFooting(): Promise<RuntimeWorkspaceOverlayFooting | null>;

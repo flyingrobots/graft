@@ -6,10 +6,11 @@ import type {
   CausalRegion,
   Evidence,
 } from "../contracts/causal-ontology.js";
-import type { WarpHandle } from "../ports/warp.js";
+import type { WarpContext } from "../warp/context.js";
+import { patchGraph } from "../warp/context.js";
 import type { RuntimeStagedTargetFullFile } from "./runtime-staged-target.js";
 
-export type PersistedLocalHistoryGraphWarp = Pick<WarpHandle, "hasNode" | "observer" | "patch">;
+export type PersistedLocalHistoryGraphWarp = WarpContext;
 
 export interface PersistedLocalHistoryGraphContext {
   readonly warp: PersistedLocalHistoryGraphWarp;
@@ -161,10 +162,10 @@ async function commitAccumulator(
   const ids = [...accumulator.nodes.keys()];
   const existence = new Map<string, boolean>();
   for (const id of ids) {
-    existence.set(id, await graph.warp.hasNode(id));
+    existence.set(id, await graph.warp.app.core().hasNode(id));
   }
 
-  await graph.warp.patch((patch) => {
+  await patchGraph(graph.warp, (patch) => {
     for (const [id, props] of accumulator.nodes.entries()) {
       const exists = existence.get(id) ?? false;
       if (!exists) {

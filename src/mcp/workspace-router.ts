@@ -37,7 +37,7 @@ import {
 import { resolveWorkspaceRequest, stableWorkspaceId } from "./workspace-router-resolution.js";
 import type { FileSystem } from "../ports/filesystem.js";
 import type { GitClient } from "../ports/git.js";
-import type { WarpHandle } from "../ports/warp.js";
+import type { WarpContext } from "../warp/context.js";
 import type { JsonObject } from "../contracts/json-object.js";
 import type { WarpPool } from "./warp-pool.js";
 import { DEFAULT_WARP_WRITER_ID } from "../warp/writer-id.js";
@@ -197,7 +197,7 @@ export class WorkspaceRouter {
     return this.requireBinding().resolvePath;
   }
 
-  getWarp(): Promise<WarpHandle> {
+  getWarp(): Promise<WarpContext> {
     return this.requireBinding().getWarp();
   }
 
