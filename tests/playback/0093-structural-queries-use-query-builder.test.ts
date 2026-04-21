@@ -11,27 +11,27 @@ function read(pathname: string): string {
   return fs.readFileSync(pathname, "utf-8");
 }
 
-describe("0093 structural-queries use QueryBuilder, not getEdges()", () => {
+describe("0093 structural-queries use traverse + query, not getEdges()", () => {
   it("Does structural-queries.ts never call getEdges() to pull all edges into memory?", () => {
     const content = read(STRUCTURAL_QUERIES);
 
     // getEdges() pulls all edges into JS memory — scalability bug.
-    // QueryBuilder filters inside the substrate.
     expect(content).not.toContain(".getEdges()");
   });
 
-  it("Does structural-queries.ts use QueryBuilder for commit→symbol traversal?", () => {
+  it("Does structural-queries.ts use traverse.bfs for edge-following?", () => {
     const content = read(STRUCTURAL_QUERIES);
 
-    // Must use query() + outgoing/incoming for graph traversal
-    expect(content).toContain(".query()");
-    expect(content).toMatch(/\.outgoing\(|\.incoming\(/);
+    // Traverse for edge walks — substrate-side filtering
+    expect(content).toContain("traverse.bfs(");
+    expect(content).toContain("labelFilter");
   });
 
-  it("Does structural-queries.ts avoid per-node getNodeProps() round-trips by using select?", () => {
+  it("Does structural-queries.ts use QueryBuilder for pattern matching and batch prop reads?", () => {
     const content = read(STRUCTURAL_QUERIES);
 
-    // select(["id", "props"]) returns props inline from query results
+    // Query for pattern matching + batch prop reads
+    expect(content).toContain(".query()");
     expect(content).toContain("select(");
   });
 

@@ -2,14 +2,13 @@
  * WARP Structural Query Helpers — commit-symbol traversals.
  *
  * Shared infrastructure for graft log, graft blame, and graft churn.
- * These functions read the WARP graph through observer lenses,
- * never walking the graph directly.
+ * Uses traverse for edge-following and QueryBuilder for pattern matching
+ * and batch prop reads. No getEdges() — filtering stays substrate-side.
  */
 
-import type { Lens } from "@git-stunts/git-warp";
+import type { Lens, QueryResultV1 } from "@git-stunts/git-warp";
 import type { WarpContext } from "./context.js";
 import { observeGraph } from "./context.js";
-import { observe } from "./observers.js";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -53,8 +52,6 @@ export interface SymbolHistory {
 // Internal helpers
 // ---------------------------------------------------------------------------
 
-const CHANGE_LABELS = new Set(["adds", "removes", "changes"]);
-
 /**
  * Lens that spans both commit and symbol nodes so the observer
  * can see the edges between them.
@@ -66,19 +63,7 @@ function commitSymbolLens(): Lens {
   };
 }
 
-function labelToChangeKind(label: string): ChangeKind {
-  switch (label) {
-    case "adds": return "added";
-    case "removes": return "removed";
-    case "changes": return "changed";
-    default: throw new Error(`Unknown edge label: ${label}`);
-  }
-}
-
 function filePathFromSymId(symId: string): string {
-  // sym:<filepath>:<symbolPath>
-  // The symbol path may itself contain ":" so we split at the first and
-  // last ":" after the prefix.
   const withoutPrefix = symId.slice("sym:".length);
   const lastColon = withoutPrefix.lastIndexOf(":");
   if (lastColon === -1) {
@@ -87,18 +72,17 @@ function filePathFromSymId(symId: string): string {
   return withoutPrefix.slice(0, lastColon);
 }
 
-/** Read symbol properties from an observer that already covers sym:* nodes. */
-async function readSymbolChange(
-  obs: { getNodeProps(nodeId: string): Promise<Record<string, unknown> | null> },
-  symId: string,
-): Promise<SymbolChange> {
-  const props = await obs.getNodeProps(symId);
+/** Extract a SymbolChange from a query result node. */
+function nodeToSymbolChange(node: { id?: string; props?: Record<string, unknown> }): SymbolChange | null {
+  if (!node.id?.startsWith("sym:")) return null;
+  const id = node.id;
 
-  const name = typeof props?.["name"] === "string" ? props["name"] : symId;
-  const kind = typeof props?.["kind"] === "string" ? props["kind"] : "unknown";
-  const signature = typeof props?.["signature"] === "string" ? props["signature"] : undefined;
-  const exported = typeof props?.["exported"] === "boolean" ? props["exported"] : false;
-  const filePath = filePathFromSymId(symId);
+  const props = node.props ?? {};
+  const name = typeof props["name"] === "string" ? props["name"] : id;
+  const kind = typeof props["kind"] === "string" ? props["kind"] : "unknown";
+  const signature = typeof props["signature"] === "string" ? props["signature"] : undefined;
+  const exported = typeof props["exported"] === "boolean" ? props["exported"] : false;
+  const filePath = filePathFromSymId(id);
 
   return { name, kind, signature, exported, filePath };
 }
@@ -111,11 +95,9 @@ async function readSymbolChange(
  * Given a commit SHA, return all symbols that were added, removed,
  * or changed in that commit.
  *
- * Uses the observer lens system — reads edges from the commit node
- * to symbol nodes via `adds` and `changes` edge labels. Removals are
- * detected by comparing symbol snapshots at tick N-1 and tick N,
- * because the graph deletes removed symbol nodes (making `removes`
- * edges invisible to observers).
+ * Uses traverse for edge-following (substrate-side), then QueryBuilder
+ * for batch prop reads. Removals are detected by temporal diff at
+ * tick N-1 vs tick N.
  */
 export async function symbolsForCommit(
   ctx: WarpContext,
@@ -123,34 +105,58 @@ export async function symbolsForCommit(
 ): Promise<CommitSymbols> {
   const commitId = `commit:${commitSha}`;
 
-  // Read the commit's tick from its node props.
-  const commitObs = await observeGraph(ctx, 
+  // Read the commit's tick for removal detection.
+  const commitObs = await observeGraph(ctx,
     { match: commitId, expose: ["tick"] },
   );
   const commitProps = await commitObs.getNodeProps(commitId);
   const tick = typeof commitProps?.["tick"] === "number" ? commitProps["tick"] : null;
 
-  // Observe commit + symbol nodes so edges between them are visible.
-  const csObs = await observe(ctx, commitSymbolLens());
-  const edges = await csObs.getEdges();
+  // Observer scoped to commit + symbol nodes.
+  const obs = await observeGraph(ctx, commitSymbolLens());
 
-  // Collect sym node IDs for adds and changes (these edges survive).
-  const addedIds: string[] = [];
-  const changedIds: string[] = [];
-
-  for (const edge of edges) {
-    if (edge.from !== commitId) continue;
-    if (!edge.to.startsWith("sym:")) continue;
-    if (edge.label === "adds") addedIds.push(edge.to);
-    else if (edge.label === "changes") changedIds.push(edge.to);
+  // Check if the commit node exists before traversing.
+  const commitExists = await obs.hasNode(commitId);
+  if (!commitExists) {
+    return { sha: commitSha, added: [], removed: [], changed: [] };
   }
 
-  const [added, changed] = await Promise.all([
-    Promise.all(addedIds.map((id) => readSymbolChange(csObs, id))),
-    Promise.all(changedIds.map((id) => readSymbolChange(csObs, id))),
+  // Traverse: follow outgoing edges from this commit by label.
+  const [addedIds, changedIds] = await Promise.all([
+    obs.traverse.bfs(commitId, { dir: "out", labelFilter: "adds", maxDepth: 1 }),
+    obs.traverse.bfs(commitId, { dir: "out", labelFilter: "changes", maxDepth: 1 }),
   ]);
 
-  // Detect removals by diffing symbol snapshots at tick-1 vs tick.
+  // Batch prop read for discovered sym nodes.
+  const allSymIds = [...addedIds, ...changedIds].filter((id) => id.startsWith("sym:"));
+
+  const symPropsMap = new Map<string, Record<string, unknown>>();
+  if (allSymIds.length > 0) {
+    const propsResult = await obs.query()
+      .match(allSymIds)
+      .select(["id", "props"])
+      .run() as QueryResultV1;
+    for (const node of propsResult.nodes) {
+      if (node.id !== undefined && node.props !== undefined) {
+        symPropsMap.set(node.id, node.props);
+      }
+    }
+  }
+
+  function toSymbolChange(symId: string): SymbolChange {
+    const props = symPropsMap.get(symId) ?? {};
+    const name = typeof props["name"] === "string" ? props["name"] : symId;
+    const kind = typeof props["kind"] === "string" ? props["kind"] : "unknown";
+    const signature = typeof props["signature"] === "string" ? props["signature"] : undefined;
+    const exported = typeof props["exported"] === "boolean" ? props["exported"] : false;
+    const filePath = filePathFromSymId(symId);
+    return { name, kind, signature, exported, filePath };
+  }
+
+  const added = addedIds.filter((id) => id.startsWith("sym:")).map(toSymbolChange);
+  const changed = changedIds.filter((id) => id.startsWith("sym:")).map(toSymbolChange);
+
+  // Detect removals by temporal diff.
   let removed: SymbolChange[] = [];
   if (tick !== null && tick > 1) {
     removed = await detectRemovals(ctx, tick);
@@ -178,75 +184,86 @@ async function detectRemovals(
     observeGraph(ctx, symLens, { source: { kind: "live", ceiling: tick } }),
   ]);
 
-  const [beforeNodes, afterNodes] = await Promise.all([
-    beforeObs.getNodes(),
-    afterObs.getNodes(),
+  // Query both snapshots for sym node IDs + props.
+  const [beforeResult, afterResult] = await Promise.all([
+    beforeObs.query().match("sym:*").select(["id", "props"]).run() as Promise<QueryResultV1>,
+    afterObs.query().match("sym:*").select(["id"]).run() as Promise<QueryResultV1>,
   ]);
 
-  const afterSet = new Set(afterNodes);
-  const removedIds = beforeNodes.filter((id) => !afterSet.has(id));
+  const afterIds = new Set(
+    afterResult.nodes.map((n) => n.id).filter((id): id is string => id !== undefined),
+  );
 
-  return Promise.all(removedIds.map((id) => readSymbolChange(beforeObs, id)));
+  // Removed = present before, absent after. Props come from before-result.
+  const changes: SymbolChange[] = [];
+  for (const node of beforeResult.nodes) {
+    if (node.id === undefined || afterIds.has(node.id)) continue;
+    const change = nodeToSymbolChange(node);
+    if (change !== null) changes.push(change);
+  }
+  return changes;
 }
 
 /**
  * Given a symbol name (and optional file path), return all commits
  * that touched it.
  *
- * Walks edges backward from commit nodes to find those that point
- * to matching symbol nodes via `adds`, `removes`, or `changes` labels.
+ * Uses QueryBuilder for pattern matching (find sym nodes by name),
+ * then traverse.bfs per sym node for edge-following (find connected
+ * commits). Per-node traversal preserves cardinality — the same commit
+ * touching init in two files produces two results.
  */
 export async function commitsForSymbol(
   ctx: WarpContext,
   symbolName: string,
   filePath?: string,
 ): Promise<SymbolHistory> {
-  // Observe commit + symbol nodes so edges between them are visible.
-  const commitObs = await observe(ctx, commitSymbolLens());
-  const allEdges: readonly { from: string; to: string; label: string }[] = await commitObs.getEdges();
+  const obs = await observeGraph(ctx, commitSymbolLens());
 
-  // Find edges from commit nodes to sym nodes matching the symbol name.
-  const matchingEdges: { commitId: string; changeKind: ChangeKind; symId: string }[] = [];
+  // Pattern match: find sym nodes matching the name.
+  const symPattern = filePath !== undefined
+    ? `sym:${filePath}:${symbolName}`
+    : `sym:*:${symbolName}`;
 
-  for (const edge of allEdges) {
-    if (!edge.from.startsWith("commit:")) continue;
-    if (!CHANGE_LABELS.has(edge.label)) continue;
-    if (!edge.to.startsWith("sym:")) continue;
+  const symResult = await obs.query()
+    .match(symPattern)
+    .select(["id", "props"])
+    .run() as QueryResultV1;
 
-    // Check if this sym node matches the requested symbol name.
-    // sym:<filepath>:<symbolPath> — the name is the last segment.
-    const symSuffix = edge.to.slice("sym:".length);
-    const lastColon = symSuffix.lastIndexOf(":");
-    const edgeSymName = lastColon === -1 ? symSuffix : symSuffix.slice(lastColon + 1);
-
-    if (edgeSymName !== symbolName) continue;
-
-    // If filePath filter is provided, check it matches.
-    if (filePath !== undefined) {
-      const edgeFilePath = filePathFromSymId(edge.to);
-      if (edgeFilePath !== filePath) continue;
-    }
-
-    matchingEdges.push({
-      commitId: edge.from,
-      changeKind: labelToChangeKind(edge.label),
-      symId: edge.to,
-    });
-  }
-
-  // Read signature from the sym node using the existing observer.
-  const commits: SymbolCommit[] = await Promise.all(
-    matchingEdges.map(async ({ commitId, changeKind, symId }) => {
-      const sha = commitId.slice("commit:".length);
-
-      const symProps = await commitObs.getNodeProps(symId);
-      const signature = typeof symProps?.["signature"] === "string"
-        ? symProps["signature"]
-        : undefined;
-
-      return { sha, changeKind, signature };
-    }),
+  const symNodes = symResult.nodes.filter(
+    (n): n is { id: string; props?: Record<string, unknown> } =>
+      n.id?.startsWith("sym:") === true,
   );
+
+  // Per sym node, traverse incoming edges by label to find commits.
+  const edgeLabels: readonly { label: string; changeKind: ChangeKind }[] = [
+    { label: "adds", changeKind: "added" },
+    { label: "changes", changeKind: "changed" },
+    { label: "removes", changeKind: "removed" },
+  ];
+
+  const commits: SymbolCommit[] = [];
+
+  for (const symNode of symNodes) {
+    const symProps = symNode.props ?? {};
+    const signature = typeof symProps["signature"] === "string"
+      ? symProps["signature"]
+      : undefined;
+
+    for (const { label, changeKind } of edgeLabels) {
+      const commitIds = await obs.traverse.bfs(symNode.id, {
+        dir: "in",
+        labelFilter: label,
+        maxDepth: 1,
+      });
+
+      for (const commitId of commitIds) {
+        if (!commitId.startsWith("commit:")) continue;
+        const sha = commitId.slice("commit:".length);
+        commits.push({ sha, changeKind, signature });
+      }
+    }
+  }
 
   return {
     symbol: symbolName,
