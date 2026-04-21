@@ -72,21 +72,6 @@ function filePathFromSymId(symId: string): string {
   return withoutPrefix.slice(0, lastColon);
 }
 
-/** Extract a SymbolChange from a query result node. */
-function nodeToSymbolChange(node: { id?: string; props?: Record<string, unknown> }): SymbolChange | null {
-  if (!node.id?.startsWith("sym:")) return null;
-  const id = node.id;
-
-  const props = node.props ?? {};
-  const name = typeof props["name"] === "string" ? props["name"] : id;
-  const kind = typeof props["kind"] === "string" ? props["kind"] : "unknown";
-  const signature = typeof props["signature"] === "string" ? props["signature"] : undefined;
-  const exported = typeof props["exported"] === "boolean" ? props["exported"] : false;
-  const filePath = filePathFromSymId(id);
-
-  return { name, kind, signature, exported, filePath };
-}
-
 // ---------------------------------------------------------------------------
 // Public API
 // ---------------------------------------------------------------------------
@@ -166,40 +151,51 @@ export async function symbolsForCommit(
 }
 
 /**
- * Detect symbol removals by comparing the symbol snapshot at
- * tick-1 (before the commit) vs tick (after the commit).
- * Symbols present at tick-1 but absent at tick were removed.
+ * Detect symbol removals via tick receipts.
+ *
+ * Instead of scanning all sym:* nodes at two ceilings (which assumes
+ * the full graph fits in memory), we materialize with receipts and
+ * inspect the receipt at the target tick for NodeTombstone ops on sym
+ * nodes. O(ops in one patch), not O(all sym nodes).
  */
 async function detectRemovals(
   ctx: WarpContext,
   tick: number,
 ): Promise<SymbolChange[]> {
+  // Materialize up to this tick with receipts.
+  const { receipts } = await ctx.app.core().materialize({ receipts: true, ceiling: tick });
+
+  // Find the receipt for this tick's patch.
+  const receipt = receipts.find((r) => r.lamport === tick);
+  if (receipt === undefined) return [];
+
+  // Tombstoned sym nodes = removals.
+  const removedIds = receipt.ops
+    .filter((op) => op.op === "NodeTombstone" && op.target.startsWith("sym:") && op.result === "applied")
+    .map((op) => op.target);
+
+  if (removedIds.length === 0) return [];
+
+  // Read props from the pre-tick observer (nodes are gone at current tick).
   const symLens: Lens = {
     match: "sym:*",
     expose: ["name", "kind", "signature", "exported"],
   };
+  const beforeObs = await observeGraph(ctx, symLens, { source: { kind: "live", ceiling: tick - 1 } });
 
-  const [beforeObs, afterObs] = await Promise.all([
-    observeGraph(ctx, symLens, { source: { kind: "live", ceiling: tick - 1 } }),
-    observeGraph(ctx, symLens, { source: { kind: "live", ceiling: tick } }),
-  ]);
-
-  // Query both snapshots for sym node IDs + props.
-  const [beforeResult, afterResult] = await Promise.all([
-    beforeObs.query().match("sym:*").select(["id", "props"]).run() as Promise<QueryResultV1>,
-    afterObs.query().match("sym:*").select(["id"]).run() as Promise<QueryResultV1>,
-  ]);
-
-  const afterIds = new Set(
-    afterResult.nodes.map((n) => n.id).filter((id): id is string => id !== undefined),
-  );
-
-  // Removed = present before, absent after. Props come from before-result.
+  // Targeted per-node reads — bounded by removals in one commit.
   const changes: SymbolChange[] = [];
-  for (const node of beforeResult.nodes) {
-    if (node.id === undefined || afterIds.has(node.id)) continue;
-    const change = nodeToSymbolChange(node);
-    if (change !== null) changes.push(change);
+  for (const id of removedIds) {
+    const props = await beforeObs.getNodeProps(id);
+    if (props === null) continue;
+
+    const name = typeof props["name"] === "string" ? props["name"] : id;
+    const kind = typeof props["kind"] === "string" ? props["kind"] : "unknown";
+    const signature = typeof props["signature"] === "string" ? props["signature"] : undefined;
+    const exported = typeof props["exported"] === "boolean" ? props["exported"] : false;
+    const filePath = filePathFromSymId(id);
+
+    changes.push({ name, kind, signature, exported, filePath });
   }
   return changes;
 }
