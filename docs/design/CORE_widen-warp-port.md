@@ -103,12 +103,42 @@ async function referencesForSymbol(app: WarpApp, symbolName: string, filePath: s
 ### Consumer pattern (writes)
 
 ```typescript
+import { patchGraph } from "../warp/context.js";
+
 function writeAst(ctx: WarpContext, filePath: string, root: TSNode): Promise<string> {
-  if (ctx.strandId) {
-    return ctx.app.patchStrand(ctx.strandId, (patch) => { /* ... */ });
-  }
-  return ctx.app.patch((patch) => { /* ... */ });
+  return patchGraph(ctx, (patch) => { /* ... */ });
 }
+```
+
+### Strand routing (no-op today, hooks in place)
+
+```typescript
+// src/warp/context.ts
+import type WarpApp from "@git-stunts/git-warp";
+import type { PatchBuilderV2 } from "@git-stunts/git-warp";
+
+export interface WarpContext {
+  readonly app: WarpApp;
+  readonly strandId: string | null;
+}
+
+export function patchGraph(
+  ctx: WarpContext,
+  build: (patch: PatchBuilderV2) => void | Promise<void>,
+): Promise<string> {
+  if (ctx.strandId !== null) {
+    throw new Error(
+      `Strand isolation not yet supported (strandId: ${ctx.strandId}). ` +
+      `git-warp strand merging is not ready.`,
+    );
+  }
+  return ctx.app.patch(build);
+}
+```
+
+When git-warp strand merging lands, the guard becomes:
+```typescript
+return ctx.app.patchStrand(ctx.strandId, build);
 ```
 
 ### WarpPool update
@@ -186,7 +216,8 @@ export function observe(app: WarpApp, lens: Lens): Promise<Observer> {
 2. **openWarp returns WarpApp** — unit test confirms return type, graph
    name, writer ID.
 3. **WarpContext routes writes** — with `strandId: null`, `patch()` is
-   called; with `strandId: "test-strand"`, `patchStrand()` is called.
+   called; with `strandId: "test-strand"`, `patchGraph()` throws
+   explicit "not yet supported" error.
 4. **Observer reads work unchanged** — existing warp query tests pass
    with `Observer` from git-warp replacing `WarpObserver`.
 5. **WarpPool vends WarpApp** — pool caches by (repoId, writerId),
@@ -194,11 +225,11 @@ export function observe(app: WarpApp, lens: Lens): Promise<Observer> {
 
 ### Edge cases
 
-- `WarpContext` with `strandId` set but strand doesn't exist yet →
-  strand is created lazily or error is explicit (TBD: depends on
-  whether daemon creates strands at agent registration or on first write).
-- Two agents with same `writerId` but different `strandId` — valid,
-  they share identity but write to different overlays.
+- `WarpContext` with `strandId` set → throws explicit "not yet
+  supported" error. Strand routing hooks exist but fail-closed until
+  git-warp strand merging is ready.
+- Two agents with same `writerId` but different `strandId` — future
+  valid case, currently unreachable (single agent enforced).
 - `openWarp` failure (corrupt `.git`) — error propagates cleanly, no
   partial WarpApp state.
 
