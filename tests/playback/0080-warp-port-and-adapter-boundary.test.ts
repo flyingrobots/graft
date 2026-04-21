@@ -2,14 +2,13 @@ import * as fs from "node:fs";
 import * as path from "node:path";
 import { describe, expect, it } from "vitest";
 
-const WARP_PORT = path.resolve(import.meta.dirname, "../../src/ports/warp.ts");
-const OPEN_WARP = path.resolve(import.meta.dirname, "../../src/warp/open.ts");
-const MCP_CONTEXT = path.resolve(import.meta.dirname, "../../src/mcp/context.ts");
-const WARP_POOL = path.resolve(import.meta.dirname, "../../src/mcp/warp-pool.ts");
-const WORKSPACE_ROUTER = path.resolve(import.meta.dirname, "../../src/mcp/workspace-router.ts");
-const LOCAL_HISTORY_GRAPH = path.resolve(import.meta.dirname, "../../src/mcp/persisted-local-history-graph.ts");
-const PRECISION = path.resolve(import.meta.dirname, "../../src/mcp/tools/precision.ts");
-const MIGRATE_LOCAL_HISTORY = path.resolve(import.meta.dirname, "../../src/cli/migrate-local-history.ts");
+const SRC = path.resolve(import.meta.dirname, "../../src");
+const WARP_CONTEXT = path.resolve(SRC, "warp/context.ts");
+const OPEN_WARP = path.resolve(SRC, "warp/open.ts");
+const WARP_POOL = path.resolve(SRC, "mcp/warp-pool.ts");
+const MCP_CONTEXT = path.resolve(SRC, "mcp/context.ts");
+const OLD_PORT = path.resolve(SRC, "ports/warp.ts");
+
 const PLAYBACK_TEST = path.resolve(
   import.meta.dirname,
   "./0080-warp-port-and-adapter-boundary.test.ts",
@@ -19,66 +18,95 @@ function read(pathname: string): string {
   return fs.readFileSync(pathname, "utf-8");
 }
 
-describe("0080 warp port and adapter boundary", () => {
-  it("Can a human point to one repo-visible WARP port contract instead of discovering graph capabilities by reading scattered raw `WarpApp` call sites?", () => {
-    const content = read(WARP_PORT);
+/**
+ * Recursively collect all .ts files under a directory.
+ */
+function collectTsFiles(dir: string): string[] {
+  const results: string[] = [];
+  for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+    const full = path.join(dir, entry.name);
+    if (entry.isDirectory()) {
+      results.push(...collectTsFiles(full));
+    } else if (entry.name.endsWith(".ts") && !entry.name.endsWith(".d.ts")) {
+      results.push(full);
+    }
+  }
+  return results;
+}
 
-    expect(content).toContain("export interface WarpHandle");
-    expect(content).toContain("export interface WarpObserver");
-    expect(content).toContain("export interface WarpPatchBuilder");
+describe("0080 warp boundary — git-warp as domain infrastructure", () => {
+  it("Has the old WarpHandle port been removed?", () => {
+    expect(
+      fs.existsSync(OLD_PORT),
+      "src/ports/warp.ts should no longer exist",
+    ).toBe(false);
   });
 
-  it("Can a human see that shared MCP and CLI code talk to an explicit WARP handle type rather than importing `@git-stunts/git-warp` directly?", () => {
-    const context = read(MCP_CONTEXT);
-    const migrate = read(MIGRATE_LOCAL_HISTORY);
+  it("Does WarpContext exist as the session-scoped DI bag with strandId routing?", () => {
+    const content = read(WARP_CONTEXT);
 
-    expect(context).toContain('import type { WarpHandle } from "../ports/warp.js";');
-    expect(context).not.toContain("@git-stunts/git-warp");
-    expect(migrate).not.toContain("@git-stunts/git-warp");
+    expect(content).toContain("export interface WarpContext");
+    expect(content).toContain("strandId");
+    expect(content).toContain("export function patchGraph");
+    expect(content).toContain("export function observeGraph");
+    expect(content).toContain("export function materializeGraph");
   });
 
-  it("Is the local-history graph seam no longer a cast-based “trust me” adapter?", () => {
-    const content = read(LOCAL_HISTORY_GRAPH);
+  it("Do strand routing helpers fail-closed when strandId is set?", () => {
+    const content = read(WARP_CONTEXT);
 
-    expect(content).toContain('type PersistedLocalHistoryGraphWarp = Pick<WarpHandle, "hasNode" | "observer" | "patch">;');
-    expect(content).not.toContain("asPersistedLocalHistoryGraphWarp");
-    expect(content).not.toContain("return warp as");
+    // All three helpers must guard against non-null strandId
+    expect(content).toContain("assertNoStrand");
+    expect(content).toMatch(/strand.*not yet supported/i);
   });
 
-  it("Does `src/ports/warp.ts` define the WARP handle, observer, patch, and materialization contract used by the rest of the repo?", () => {
-    const content = read(WARP_PORT);
-
-    expect(content).toContain("observer(lens: WarpObserverLens");
-    expect(content).toContain("patch(build: (patch: WarpPatchBuilder)");
-    expect(content).toContain("materialize(): Promise<void>;");
-    expect(content).toContain("materializeReceipts()");
-  });
-
-  it("Does `openWarp()` return that port handle while keeping raw `@git-stunts/git-warp` usage inside the adapter layer?", () => {
+  it("Is openWarp() the sole construction adapter — the only file that wires GitGraphAdapter + GitPlumbing?", () => {
     const content = read(OPEN_WARP);
 
     expect(content).toContain('from "@git-stunts/git-warp"');
-    expect(content).toContain("function wrapWarpApp");
-    expect(content).toContain("Promise<WarpHandle>");
+    expect(content).toContain("GitGraphAdapter");
+    expect(content).toContain("@git-stunts/plumbing");
+
+    // No other source file should import these construction-only types
+    const allFiles = collectTsFiles(SRC);
+    for (const file of allFiles) {
+      if (file === OPEN_WARP) continue;
+      // plumbing.d.ts is a type declaration, not app code
+      if (file.endsWith("plumbing.d.ts")) continue;
+      const source = read(file);
+      expect(source).not.toContain(
+        "GitGraphAdapter",
+        // intentionally no message — vitest shows the file path in the diff
+      );
+    }
   });
 
-  it("Do MCP and CLI surfaces use the port type for pooling, context, precision reads, and local-history graph access?", () => {
-    const context = read(MCP_CONTEXT);
-    const pool = read(WARP_POOL);
-    const router = read(WORKSPACE_ROUTER);
-    const precision = read(PRECISION);
-    const migrate = read(MIGRATE_LOCAL_HISTORY);
-
-    expect(context).toContain("getWarp(): Promise<WarpHandle>");
-    expect(pool).toContain("Promise<WarpHandle>");
-    expect(router).toContain("getWarp(): Promise<WarpHandle>");
-    // WarpHandle import moved to precision-warp.ts; the barrel re-exports from it
-    expect(precision).toContain("./precision-warp.js");
-    expect(precision).toContain("searchWarpSymbols");
-    expect(migrate).not.toContain("asPersistedLocalHistoryGraphWarp");
+  it("Does no source file import from the old ports/warp.ts path?", () => {
+    const allFiles = collectTsFiles(SRC);
+    for (const file of allFiles) {
+      const source = read(file);
+      expect(source).not.toMatch(
+        /from\s+["'].*ports\/warp/,
+        // intentionally no message — vitest shows the file path in the diff
+      );
+    }
   });
 
-  it("Is there a playback witness that mechanically proves the boundary instead of leaving it as a refactor-by-convention?", () => {
+  it("Does the WarpPool vend WarpApp, not WarpHandle?", () => {
+    const content = read(WARP_POOL);
+
+    expect(content).not.toContain("WarpHandle");
+    expect(content).toContain("WarpApp");
+  });
+
+  it("Does the MCP context expose WarpContext, not WarpHandle?", () => {
+    const content = read(MCP_CONTEXT);
+
+    expect(content).not.toContain("WarpHandle");
+    expect(content).toContain("WarpContext");
+  });
+
+  it("Is there a playback witness that mechanically proves the boundary?", () => {
     expect(fs.existsSync(PLAYBACK_TEST)).toBe(true);
   });
 });
