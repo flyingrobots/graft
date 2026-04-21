@@ -25,13 +25,13 @@ query capabilities.
 
 ## Rationale
 
-The current implementation:
-1. Creates an observer with a wide lens (`commit:* + sym:*`)
-2. Calls `getEdges()` to pull ALL edges into memory
-3. Manually loops and filters by `edge.from`, `edge.to`, `edge.label`
-4. Then reads node props one-by-one
+The current implementation pulls ALL visible edges into JS memory
+via `getEdges()`, then filters client-side. This is a scalability bug —
+we must never assume all edges fit in memory. As the graph grows with
+more files, more symbols, and more history ticks, this pattern will
+blow up.
 
-git-warp's `QueryBuilder` does this in a single fluent call:
+git-warp's `QueryBuilder` filters inside the substrate:
 ```typescript
 observer.query()
   .match("commit:<sha>")
@@ -40,8 +40,10 @@ observer.query()
   .run()
 ```
 
-The traversal and filtering happen inside the substrate where it can
-optimize. Less code, same semantics.
+The traversal and filtering stay in the substrate. Only matching
+results cross the boundary. This also eliminates N per-node
+`getNodeProps()` round-trips — `select(["id", "props"])` returns
+props inline.
 
 ## Design
 
