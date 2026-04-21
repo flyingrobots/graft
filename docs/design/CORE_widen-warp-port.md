@@ -65,7 +65,12 @@ export interface WarpContext {
 ```
 
 Not a port. Not an interface to implement. A typed record that carries
-session routing info.
+session routing info. **All** graph interactions — reads AND writes —
+go through `WarpContext`, because a strand scopes the agent's entire
+worldview. Strand-local writes are invisible from live reads; an agent
+on a strand must read from its strand too, or it won't see its own work.
+As time moves forward the divergence between strand and live grows — the
+context must be uniform.
 
 ### openWarp (adapter — the only boundary)
 
@@ -91,10 +96,10 @@ Returns `WarpApp` directly. No wrapping.
 ### Consumer pattern (reads)
 
 ```typescript
-import type { Observer, Lens } from "@git-stunts/git-warp";
+import { observeGraph } from "../warp/context.js";
 
-async function referencesForSymbol(app: WarpApp, symbolName: string, filePath: string) {
-  const obs = await app.observer({ match: ["ast:*", "file:*", "sym:*"] });
+async function referencesForSymbol(ctx: WarpContext, symbolName: string, filePath: string) {
+  const obs = await observeGraph(ctx, { match: ["ast:*", "file:*", "sym:*"] });
   const edges = await obs.getEdges();
   // ...
 }
@@ -112,33 +117,56 @@ function writeAst(ctx: WarpContext, filePath: string, root: TSNode): Promise<str
 
 ### Strand routing (no-op today, hooks in place)
 
+All graph access goes through routing helpers in `src/warp/context.ts`.
+Today they pass through to live. When strand merging lands, the strand
+path activates — reads see the strand's worldview, writes go to the
+strand's overlay.
+
 ```typescript
 // src/warp/context.ts
 import type WarpApp from "@git-stunts/git-warp";
-import type { PatchBuilderV2 } from "@git-stunts/git-warp";
+import type { Lens, Observer, ObserverOptions, PatchBuilderV2 } from "@git-stunts/git-warp";
 
 export interface WarpContext {
   readonly app: WarpApp;
   readonly strandId: string | null;
 }
 
-export function patchGraph(
-  ctx: WarpContext,
-  build: (patch: PatchBuilderV2) => void | Promise<void>,
-): Promise<string> {
+function assertNoStrand(ctx: WarpContext): void {
   if (ctx.strandId !== null) {
     throw new Error(
       `Strand isolation not yet supported (strandId: ${ctx.strandId}). ` +
       `git-warp strand merging is not ready.`,
     );
   }
-  return ctx.app.patch(build);
 }
-```
 
-When git-warp strand merging lands, the guard becomes:
-```typescript
-return ctx.app.patchStrand(ctx.strandId, build);
+export function patchGraph(
+  ctx: WarpContext,
+  build: (patch: PatchBuilderV2) => void | Promise<void>,
+): Promise<string> {
+  assertNoStrand(ctx);
+  return ctx.app.patch(build);
+  // future: return ctx.app.patchStrand(ctx.strandId, build);
+}
+
+export function observeGraph(
+  ctx: WarpContext,
+  lens: Lens,
+  options?: ObserverOptions,
+): Promise<Observer> {
+  assertNoStrand(ctx);
+  return ctx.app.observer(lens, options);
+  // future: return ctx.app.observer(lens, { ...options, source: { kind: 'strand', strandId: ctx.strandId } });
+}
+
+export async function materializeGraph(
+  ctx: WarpContext,
+): Promise<void> {
+  assertNoStrand(ctx);
+  await ctx.app.core().materialize();
+  // future: await ctx.app.core().materializeStrand(ctx.strandId);
+}
 ```
 
 ### WarpPool update
@@ -167,7 +195,7 @@ from `@git-stunts/git-warp` directly:
 
 | Port type | Replaced by |
 |-----------|-------------|
-| `WarpHandle` | `WarpApp` (or `WarpContext` where strand routing needed) |
+| `WarpHandle` | `WarpContext` (all graph access routes through context) |
 | `WarpObserver` | `Observer` from git-warp |
 | `WarpObserverLens` | `Lens` from git-warp |
 | `WarpPatchBuilder` | `PatchBuilderV2` from git-warp |
@@ -177,12 +205,15 @@ from `@git-stunts/git-warp` directly:
 ### Observers module stays
 
 `src/warp/observers.ts` keeps its lens factory functions. They return
-`Lens` (re-exported from git-warp) and remain the canonical place for
-graft's named apertures. The `observe()` helper becomes:
+`Lens` (from git-warp) and remain the canonical place for graft's named
+apertures. The `observe()` helper delegates to `observeGraph()`:
 
 ```typescript
-export function observe(app: WarpApp, lens: Lens): Promise<Observer> {
-  return app.observer(lens);
+import { observeGraph } from "./context.js";
+import type { WarpContext } from "./context.js";
+
+export function observe(ctx: WarpContext, lens: Lens): Promise<Observer> {
+  return observeGraph(ctx, lens);
 }
 ```
 
@@ -215,9 +246,11 @@ export function observe(app: WarpApp, lens: Lens): Promise<Observer> {
    imports, `tsc --noEmit` passes.
 2. **openWarp returns WarpApp** — unit test confirms return type, graph
    name, writer ID.
-3. **WarpContext routes writes** — with `strandId: null`, `patch()` is
-   called; with `strandId: "test-strand"`, `patchGraph()` throws
-   explicit "not yet supported" error.
+3. **WarpContext routes all access** — with `strandId: null`,
+   `patchGraph()` delegates to `app.patch()`, `observeGraph()` delegates
+   to `app.observer()`, `materializeGraph()` delegates to
+   `app.core().materialize()`. With `strandId: "test-strand"`, all three
+   throw explicit "not yet supported" error.
 4. **Observer reads work unchanged** — existing warp query tests pass
    with `Observer` from git-warp replacing `WarpObserver`.
 5. **WarpPool vends WarpApp** — pool caches by (repoId, writerId),
