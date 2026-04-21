@@ -46,8 +46,13 @@ timeline
 
 ## Next Target
 
-The immediate focus is **Entrypoint Convergence and Primary Adapter
-Extraction**. The next steps are to settle the three-surface capability
-model, keep pushing business flow out of the primary adapters, and
-reorganize the repo so API, CLI, and MCP are structurally obvious
-rather than merely implied.
+The immediate focus is **WARP migration and read-path correctness**.
+
+1. Eliminate whole-graph read assumptions — migrate remaining
+   `getEdges()`/`getNodes()` call sites to traverse, QueryBuilder, or
+   tick receipts. `references.ts` is the highest-severity remaining
+   offender.
+2. Continue the critical-path dependency chain:
+   `deprecate-index-commits` → `rewrite-operations-for-warp-queries`.
+3. When git-warp's observer geometry ladder (Rung 2-4) ships, migrate
+   graft's remaining full-scan reads to slice-first APIs.
