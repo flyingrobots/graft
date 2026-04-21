@@ -5,7 +5,6 @@
  */
 
 import type { WarpContext } from "./context.js";
-import { observeGraph } from "./context.js";
 import type { IdentityResolver } from "../operations/diff-identity.js";
 import { fileSymbolsLens, observe } from "./observers.js";
 

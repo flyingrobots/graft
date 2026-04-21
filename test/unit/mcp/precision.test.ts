@@ -8,7 +8,6 @@ import { git, createTestRepo, cleanupTestRepo } from "../../helpers/git.js";
 import { createServerInRepo, parse } from "../../helpers/mcp.js";
 import { openWarp } from "../../../src/warp/open.js";
 import { indexCommits } from "../../../src/warp/indexer.js";
-import type { WarpContext } from "../../../src/warp/context.js";
 import { JumpEntry, OutlineEntry } from "../../../src/parser/types.js";
 
 describe("mcp: code_show", () => {

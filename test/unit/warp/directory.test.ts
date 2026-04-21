@@ -6,7 +6,6 @@ import { git, createTestRepo, cleanupTestRepo } from "../../helpers/git.js";
 import { openWarp } from "../../../src/warp/open.js";
 import { indexCommits } from "../../../src/warp/indexer.js";
 import { directoryFilesLens, fileSymbolsLens } from "../../../src/warp/observers.js";
-import type { WarpContext } from "../../../src/warp/context.js";
 
 describe("warp: directory tree modeling", { timeout: 15000 }, () => {
   let tmpDir: string;

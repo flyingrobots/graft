@@ -47,9 +47,9 @@ describe("0080 warp boundary — git-warp as domain infrastructure", () => {
 
     expect(content).toContain("export interface WarpContext");
     expect(content).toContain("strandId");
-    expect(content).toContain("export function patchGraph");
-    expect(content).toContain("export function observeGraph");
-    expect(content).toContain("export function materializeGraph");
+    expect(content).toContain("export async function patchGraph");
+    expect(content).toContain("export async function observeGraph");
+    expect(content).toContain("export async function materializeGraph");
   });
 
   it("Do strand routing helpers fail-closed when strandId is set?", () => {

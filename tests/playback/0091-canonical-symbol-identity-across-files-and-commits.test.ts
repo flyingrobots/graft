@@ -5,7 +5,6 @@ import { nodeGit } from "../../src/adapters/node-git.js";
 import { openWarp } from "../../src/warp/open.js";
 import { indexCommits } from "../../src/warp/indexer.js";
 import { fileSymbolsLens } from "../../src/warp/observers.js";
-import type { WarpContext } from "../../src/warp/context.js";
 import { createServerInRepo, parse } from "../../test/helpers/mcp.js";
 import { cleanupTestRepo, createTestRepo, git } from "../../test/helpers/git.js";
 

@@ -6,7 +6,6 @@ import { indexHead } from "../../../src/warp/index-head.js";
 import { nodeGit } from "../../../src/adapters/node-git.js";
 import { nodePathOps } from "../../../src/adapters/node-paths.js";
 import { git, createTestRepo, cleanupTestRepo } from "../../helpers/git.js";
-import type { WarpContext } from "../../../src/warp/context.js";
 
 describe("warp: index HEAD", { timeout: 15000 }, () => {
   let tmpDir: string;

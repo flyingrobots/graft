@@ -6,7 +6,6 @@ import { git, createTestRepo, cleanupTestRepo } from "../../helpers/git.js";
 import { openWarp } from "../../../src/warp/open.js";
 import { indexCommits, type IndexResult } from "../../../src/warp/indexer.js";
 import { allSymbolsLens } from "../../../src/warp/observers.js";
-import type { WarpContext } from "../../../src/warp/context.js";
 
 function assertOk(result: IndexResult): asserts result is IndexResult & { ok: true } {
   if (!result.ok) throw new Error(`expected ok result but got error: ${result.error}`);
