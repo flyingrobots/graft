@@ -1,9 +1,15 @@
 ---
 title: Automatic breaking change detection
+legend: WARP
+lane: cool-ideas
+effort: L
+blocked_by:
+  - WARP_dead-symbol-detection
 requirements:
   - WARP Level 1 indexing (shipped)
   - graft_since structural diff (shipped)
   - Export surface diff (backlog)
+  - Dead symbol detection (backlog)
 acceptance_criteria:
   - Comparing two tags identifies removed exported symbols and changed exported signatures
   - Detected breaking changes auto-generate BREAKING CHANGE commit footer text

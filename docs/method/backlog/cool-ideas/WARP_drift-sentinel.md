@@ -2,10 +2,14 @@
 title: "Drift sentinel — detect when docs and code diverge"
 legend: WARP
 lane: cool-ideas
+effort: M
+blocked_by:
+  - WARP_stale-docs-checker
 requirements:
   - "WARP Level 1 indexing (shipped)"
   - "Outline extraction (shipped)"
   - "Symbol tracking across commits (shipped)"
+  - "Stale docs checker (backlog)"
 acceptance_criteria:
   - "Given a markdown file referencing a symbol by name, the sentinel detects when that symbol has been renamed or removed"
   - "Given a markdown file documenting a function signature, the sentinel flags when the actual signature differs"
