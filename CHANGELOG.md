@@ -9,6 +9,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ### Added
 
+- **Dead symbol detection**: `findDeadSymbols(ctx, options?)` finds
+  symbols removed from the codebase and never re-added. Supports
+  `maxCommits` depth limiting. Uses WARP snapshot diffs, no grep.
 - **Monitor tick ceiling tracking**: `runMonitorTickJob` skips
   `openWarp` and `indexHead` when HEAD hasn't changed since the last
   indexed commit. Idle monitor ticks are now near-zero-cost.
