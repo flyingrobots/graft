@@ -9,6 +9,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ### Added
 
+- **Symbol history timeline**: `symbolTimeline(ctx, name, filePath?)`
+  returns every version of a symbol across commits — signature, line
+  range, presence, and change kind, ordered by tick.
 - **Dead symbol detection**: `findDeadSymbols(ctx, options?)` finds
   symbols removed from the codebase and never re-added. Supports
   `maxCommits` depth limiting. Uses WARP snapshot diffs, no grep.
