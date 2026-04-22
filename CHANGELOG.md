@@ -9,6 +9,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ### Added
 
+- **Stale docs checker**: `checkStaleDocs` cross-references markdown
+  symbol mentions against the WARP graph to detect outdated docs.
+  `checkVersionDrift` compares CHANGELOG vs package.json versions.
 - **Session knowledge map**: `knowledge_map` MCP tool answers "what
   do I already know?" — observed files, symbols, staleness flags,
   and per-directory coverage.
