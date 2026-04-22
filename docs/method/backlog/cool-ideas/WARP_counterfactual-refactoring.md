@@ -10,8 +10,6 @@ acceptance_criteria:
   - Forked worldlines use structure-sharing (copy-on-write) so cost is proportional to the delta
   - The system recommends the refactor with the best structural outcome
   - A test verifies that forking a worldline and applying a hypothetical change does not modify the working tree
-blocked_by:
-  - WARP_codebase-entropy-trajectory
 ---
 
 # Counterfactual refactoring

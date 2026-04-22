@@ -11,8 +11,6 @@ acceptance_criteria:
   - Walking backward from a test failure reaches the read that informed the edit that caused it
   - No unobserved edits exist for writes made through agent tools
   - A test verifies that a read-then-edit sequence produces a causal chain in the WARP graph
-blocked_by:
-  - WARP_intent-and-decision-events
 ---
 
 # WARP: Causal write tracking

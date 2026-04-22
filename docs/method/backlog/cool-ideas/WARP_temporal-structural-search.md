@@ -9,8 +9,6 @@ acceptance_criteria:
   - Returns results across all of history, not just a single ref
   - Queries operate on structural meaning (symbol identity), not text patterns
   - Performance is bounded by worldline size, not raw git history size
-blocked_by:
-  - WARP_symbol-history-timeline
 ---
 
 # Temporal structural search

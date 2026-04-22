@@ -11,8 +11,6 @@ acceptance_criteria:
   - An agent can inspect causal blame before committing to verify correctness
   - A human can audit agent work via causal blame without reading the full session log
   - A test verifies that causal blame for a staged file traces back to the reads that informed the edit
-blocked_by:
-  - CORE_rewrite-structural-blame-to-use-warp-worldline-provenance
 ---
 
 # Causal blame for staged artifacts

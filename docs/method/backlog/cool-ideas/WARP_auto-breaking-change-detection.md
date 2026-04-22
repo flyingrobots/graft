@@ -11,8 +11,6 @@ acceptance_criteria:
   - An API migration guide is generated from the structural delta without human annotation
   - Non-breaking additions (new exports, additive parameters) are not flagged as breaking
   - A test verifies that removing an exported function between two tags is detected as breaking
-blocked_by:
-  - WARP_codebase-entropy-trajectory
 ---
 
 # Automatic breaking change detection

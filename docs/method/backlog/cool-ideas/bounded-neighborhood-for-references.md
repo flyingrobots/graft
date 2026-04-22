@@ -9,8 +9,6 @@ acceptance_criteria:
   - No explicit observer aperture or traversal setup is required by the caller
   - Response includes honest support cost from the WARP substrate
   - Performance is equal to or better than the current traversal-based implementation
-blocked_by:
-  - CORE_migrate-to-slice-first-reads
 ---
 
 # Bounded neighborhood read for referencesForSymbol

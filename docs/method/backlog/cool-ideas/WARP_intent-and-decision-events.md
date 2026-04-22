@@ -10,8 +10,6 @@ acceptance_criteria:
   - Decision events appear in causal slices, bridging otherwise disconnected read/write observations
   - Replaying an observation DAG with decision events produces a richer causal explanation than without
   - Human and agent decision events share a unified actor model
-blocked_by:
-  - CORE_agent-handoff-protocol
 ---
 
 # WARP intent and decision events

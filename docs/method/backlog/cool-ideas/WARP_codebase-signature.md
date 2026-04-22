@@ -10,8 +10,6 @@ acceptance_criteria:
   - An agent can query 'what kind of attention does this file need?' and receive the vector
   - No single scalar is used as a complete invariant of observer behavior
   - A test verifies that two files with different structural profiles produce distinct signature vectors
-blocked_by:
-  - CORE_rewrite-structural-churn-to-use-warp-aggregate-queries
 ---
 
 # Codebase signature (multi-axis observer vector)

@@ -10,8 +10,6 @@ acceptance_criteria:
   - The DAG can be traversed backwards from a write to reconstruct the full causal chain of reads that informed it
   - DAG size is bounded by structural universe sharing (not exponential in observation count)
   - "A staleness bug can be diagnosed by replaying the DAG: identifying where an agent read stale data"
-blocked_by:
-  - CORE_agent-handoff-protocol
 ---
 
 # Provenance DAG

@@ -10,8 +10,6 @@ acceptance_criteria:
   - Walking the observation DAG backwards from a write reconstructs the reasoning path that led to it
   - "Replay detects staleness: identifies when an agent acted on data that changed between read and write"
   - Replay output is human-readable, showing tick-by-tick structural observations with causal links
-blocked_by:
-  - CORE_agent-handoff-protocol
 ---
 
 # Reasoning trace replay

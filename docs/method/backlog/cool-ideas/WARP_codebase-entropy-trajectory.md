@@ -10,8 +10,6 @@ acceptance_criteria:
   - Coupling direction (increasing vs decreasing) is reported
   - Results are presented as a trajectory (time series), not a single-point snapshot
   - A test verifies that adding symbols across multiple commits increases the reported entropy metric
-blocked_by:
-  - CORE_rewrite-structural-churn-to-use-warp-aggregate-queries
 ---
 
 # Codebase entropy trajectory

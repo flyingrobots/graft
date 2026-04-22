@@ -9,9 +9,6 @@ acceptance_criteria:
   - Tracks curvature over time, showing debt accumulation or discharge trends
   - Identifies the top-N highest-curvature symbols driving structural debt
   - Produces a summary report (e.g., 'structural debt grew 12% this quarter, driven by 3 symbols in src/policy/')
-blocked_by:
-  - CORE_rewrite-structural-churn-to-use-warp-aggregate-queries
-  - WARP_refactor-difficulty-score
 ---
 
 # Technical debt as measurable curvature

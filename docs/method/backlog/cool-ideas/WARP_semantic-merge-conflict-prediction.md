@@ -9,8 +9,6 @@ acceptance_criteria:
   - "Reports specific incompatibilities: signature mismatches, missing parameters, interface violations"
   - Runs pre-merge and exits non-zero when semantic conflicts are found
   - Zero false positives on branches with only textual (non-structural) divergence
-blocked_by:
-  - WARP_codebase-entropy-trajectory
 ---
 
 # Semantic merge conflict prediction

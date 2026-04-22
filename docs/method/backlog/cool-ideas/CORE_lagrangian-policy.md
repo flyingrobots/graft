@@ -11,9 +11,6 @@ acceptance_criteria:
   - Weights are configurable per agent profile (e.g., phone agent vs. server agent)
   - The current dual-threshold policy (150 lines + 12 KB) is expressible as a degenerate case of the Lagrangian
   - Policy transitions are smooth and continuous, not step-function jumps
-blocked_by:
-  - CORE_rewrite-structural-churn-to-use-warp-aggregate-queries
-  - WARP_refactor-difficulty-score
 ---
 
 # Lagrangian policy engine
