@@ -2,6 +2,15 @@
 title: "Drift sentinel — detect when docs and code diverge"
 legend: WARP
 lane: cool-ideas
+requirements:
+  - "WARP Level 1 indexing (shipped)"
+  - "Outline extraction (shipped)"
+  - "Symbol tracking across commits (shipped)"
+acceptance_criteria:
+  - "Given a markdown file referencing a symbol by name, the sentinel detects when that symbol has been renamed or removed"
+  - "Given a markdown file documenting a function signature, the sentinel flags when the actual signature differs"
+  - "Can run as a pre-commit hook and exit non-zero when drift is detected"
+  - "Produces machine-readable output listing each stale reference with file, line, symbol, and nature of drift"
 ---
 
 # Drift sentinel — detect when docs and code diverge

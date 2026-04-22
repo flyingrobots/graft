@@ -2,6 +2,15 @@
 title: "Policy playground — speculative reads without the cost"
 legend: CORE
 lane: cool-ideas
+requirements:
+  - "Budget governor with projection decisions (shipped)"
+  - "Policy engine (shipped)"
+  - "Session tracking (shipped)"
+acceptance_criteria:
+  - "A `graft preview <path>` tool returns projection, reason, estimated bytes, and budget impact without consuming budget"
+  - "Preview does not trigger a read event or observation cache entry"
+  - "Preview output matches what an actual read would produce (same projection, same reason)"
+  - "Agents can call preview on multiple files to plan a read strategy before committing"
 ---
 
 # Policy playground — speculative reads without the cost

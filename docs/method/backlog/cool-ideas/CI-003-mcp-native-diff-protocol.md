@@ -1,5 +1,14 @@
 ---
 title: "CI-003 — MCP-native \"Diff\" Protocol"
+requirements:
+  - "graft_diff tool (shipped)"
+  - "graft_since tool (shipped)"
+  - "Structural diff with summary lines (shipped)"
+acceptance_criteria:
+  - "Graft defines a structured Diff response type richer than plain text JSON blobs"
+  - "The Diff response includes deep links to specific line ranges in the worktree"
+  - "graft_diff and graft_since tools emit the new Diff response type"
+  - "At least one MCP client (Cursor or Windsurf) can render the structured diff using its own UI primitives"
 ---
 
 # CI-003 — MCP-native "Diff" Protocol

@@ -1,5 +1,14 @@
 ---
 title: "CI-002 — Deterministic Scenario Replay"
+requirements:
+  - "MCP tool-call logging with versioned schemas (shipped)"
+  - "Session tracking (shipped)"
+  - "Filesystem and Git port abstractions (shipped)"
+acceptance_criteria:
+  - "A `graft replay` command accepts a session log and re-drives the runtime against a mock worktree"
+  - "Replayed sessions produce identical tool-call sequences as the original"
+  - "FS and Git ports are fully mocked from the log — no live IDE or editor required"
+  - "At least one regression scenario is captured and passes in CI"
 ---
 
 # CI-002 — Deterministic Scenario Replay

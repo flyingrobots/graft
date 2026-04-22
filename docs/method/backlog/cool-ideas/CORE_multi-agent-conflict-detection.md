@@ -1,5 +1,14 @@
 ---
 title: "Multi-agent conflict detection"
+requirements:
+  - "Observation cache (shipped)"
+  - "Session tracking (shipped)"
+  - "Shared observation state across MCP sessions (not shipped)"
+acceptance_criteria:
+  - "When agent B modifies a file that agent A has read, agent A is notified with a structural diff"
+  - "Conflict detection works across concurrent MCP sessions on the same codebase"
+  - "Shared state uses .graft/ directory or lightweight IPC — no external service required"
+  - "Detection latency is under 1 second from write to notification"
 ---
 
 # Multi-agent conflict detection

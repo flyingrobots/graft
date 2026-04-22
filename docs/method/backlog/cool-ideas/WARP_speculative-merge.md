@@ -1,5 +1,14 @@
 ---
 title: "WARP: Speculative merge forks"
+requirements:
+  - "WARP Level 1 indexing (shipped)"
+  - "git-warp Strands (backlog)"
+  - "Structural diff infrastructure (shipped)"
+acceptance_criteria:
+  - "A worldline can be forked and both branches' structural patches applied without modifying git state"
+  - "Structural conflicts are detected: duplicate method names, signature mismatches across branches, moved-then-modified symbols"
+  - "Speculative merge results are queryable (which symbols conflict, which are clean)"
+  - "Can simulate rebase-style replay by forking and applying patches in alternate order"
 ---
 
 # WARP: Speculative merge forks

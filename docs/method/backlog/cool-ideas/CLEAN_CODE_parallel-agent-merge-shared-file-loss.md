@@ -2,6 +2,14 @@
 title: "Parallel agent merge loses shared file edits on worktree cleanup"
 legend: CLEAN_CODE
 lane: cool-ideas
+requirements:
+  - "Parallel agent worktree support (shipped)"
+  - "Git merge infrastructure (shipped)"
+acceptance_criteria:
+  - "After parallel agents complete, their branches are merged sequentially with `git merge`, not file copy"
+  - "Shared files modified by multiple agents are combined via three-way merge, not overwritten"
+  - "New files that exist only in one agent's worktree are copied without merge"
+  - "A test scenario with N agents modifying the same file preserves all agents' additions"
 ---
 
 # Parallel agent merge loses shared file edits on worktree cleanup

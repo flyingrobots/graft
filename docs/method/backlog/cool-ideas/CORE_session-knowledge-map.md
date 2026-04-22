@@ -2,6 +2,16 @@
 title: "Session knowledge map — what do I already know?"
 legend: CORE
 lane: cool-ideas
+requirements:
+  - "Observation cache (shipped)"
+  - "Session tracking (shipped)"
+  - "activity_view tool (shipped)"
+  - "changed_since tool (shipped)"
+acceptance_criteria:
+  - "A `graft known` tool returns files read, symbols inspected, and per-directory coverage for the current session"
+  - "Stale entries (files modified since last read) are flagged"
+  - "Never-read directories are listed explicitly"
+  - "Agents can query 'do I have enough context?' before issuing additional reads"
 ---
 
 # Session knowledge map — what do I already know?

@@ -1,5 +1,16 @@
 ---
 title: "Causal blame for staged artifacts"
+requirements:
+  - "WARP graph ontology and causal collapse model (backlog)"
+  - "Persisted sub-commit local history (backlog)"
+  - "Provenance attribution instrumentation (backlog)"
+acceptance_criteria:
+  - "A surface (why_changed or stage-explain) returns the causal slice for a given staged file"
+  - "The causal slice includes the reads, writes, and transitions that contributed to the staged change"
+  - "Output is scoped to the specific staged target, not the full session replay"
+  - "An agent can inspect causal blame before committing to verify correctness"
+  - "A human can audit agent work via causal blame without reading the full session log"
+  - "A test verifies that causal blame for a staged file traces back to the reads that informed the edit"
 ---
 
 # Causal blame for staged artifacts

@@ -1,5 +1,16 @@
 ---
 title: "Lagrangian policy engine"
+requirements:
+  - "Budget governor (shipped)"
+  - "Session depth tracking (shipped)"
+  - "Refactor difficulty score (not shipped)"
+  - "Structural churn data (not shipped)"
+acceptance_criteria:
+  - "Policy decisions are computed via a multi-axis cost functional, not dual-threshold step functions"
+  - "Axes include at minimum: token cost, structural complexity, session depth, and context pressure"
+  - "Weights are configurable per agent profile (e.g., phone agent vs. server agent)"
+  - "The current dual-threshold policy (150 lines + 12 KB) is expressible as a degenerate case of the Lagrangian"
+  - "Policy transitions are smooth and continuous, not step-function jumps"
 ---
 
 # Lagrangian policy engine

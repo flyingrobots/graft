@@ -1,5 +1,15 @@
 ---
 title: "WARP intent and decision events"
+requirements:
+  - "WARP Level 1 indexing (shipped)"
+  - "Session tracking (shipped)"
+  - "Graph ontology and causal collapse model (backlog)"
+acceptance_criteria:
+  - "Agents can emit intent events (task goal, hypothesis) that are recorded in the WARP observation stream"
+  - "Agents can emit decision events (rejected alternatives, checkpoint rationale) alongside read/write events"
+  - "Decision events appear in causal slices, bridging otherwise disconnected read/write observations"
+  - "Replaying an observation DAG with decision events produces a richer causal explanation than without"
+  - "Human and agent decision events share a unified actor model"
 ---
 
 # WARP intent and decision events

@@ -1,5 +1,13 @@
 ---
 title: "Structural drift detection"
+requirements:
+  - "WARP Level 1 indexing (shipped)"
+  - "Docs-match-code invariant (shipped)"
+acceptance_criteria:
+  - "Compares structural facts stated in docs against the actual WARP graph and detects divergence"
+  - "Detects invariant violations (e.g., 'no direct getNodes calls in src/') by walking the WARP graph"
+  - "Detects method-level drift (e.g., BEARING says direction is WARP Level 2 but no Level 2 work has been committed)"
+  - "Produces a structured report of all detected drift with file locations and expected vs. actual values"
 ---
 
 # Structural drift detection

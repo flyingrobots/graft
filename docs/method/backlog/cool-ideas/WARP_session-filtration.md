@@ -1,5 +1,13 @@
 ---
 title: "Session filtration (accumulation-aware projections)"
+requirements:
+  - "Observation cache (shipped)"
+  - "Session tracking (shipped)"
+acceptance_criteria:
+  - "Graft tracks the agent's accumulated observations (filtration) within a session"
+  - "Subsequent reads of files in an already-outlined directory return higher detail than first reads"
+  - "Projection detail level adapts based on what the agent has already seen, not just the request"
+  - "A measurable reduction in redundant context-setting across repeated reads within a session"
 ---
 
 # Session filtration (accumulation-aware projections)

@@ -2,6 +2,18 @@
 title: SURFACE terminal activity browser TUI
 lane: cool-ideas
 legend: SURFACE
+requirements:
+  - "activity_view command (shipped)"
+  - "diag local-history-dag command (shipped)"
+  - "WARP Level 1 indexing (shipped)"
+  - "Attribution and evidence footprints in activity items (shipped)"
+acceptance_criteria:
+  - "A single command launches a terminal UI with timeline, DAG, and inspector panes"
+  - "Keyboard navigation allows selecting sessions, strands, epochs, and paths"
+  - "Selecting an activity item in the timeline reveals corresponding WARP support nodes and edges"
+  - "Truncation, degraded posture, and shared-worktree state are visually obvious"
+  - "No --json flag required to inspect recent activity"
+  - "The TUI gracefully degrades if the terminal is too narrow for multi-pane layout"
 ---
 
 # SURFACE terminal activity browser TUI

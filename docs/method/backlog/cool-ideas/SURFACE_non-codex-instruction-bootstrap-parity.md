@@ -1,5 +1,15 @@
 ---
 title: "Non-Codex instruction bootstrap parity"
+requirements:
+  - "graft init scaffolding (shipped)"
+  - "AGENTS.md bootstrap for Codex (shipped)"
+  - "MCP config seeding for non-Claude clients (shipped)"
+acceptance_criteria:
+  - "A client-by-client matrix documents which non-Claude/non-Codex clients honor repo-local instruction files"
+  - "For clients that support repo-local instructions, graft init seeds the appropriate instruction file"
+  - "For clients that do not support repo-local instructions, docs explicitly state MCP-only status"
+  - "Setup docs make the boundary between full-bootstrap and MCP-only clients obvious"
+  - "No instruction file is seeded for a client that cannot use it"
 ---
 
 # Non-Codex instruction bootstrap parity

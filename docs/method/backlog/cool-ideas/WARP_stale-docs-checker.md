@@ -1,5 +1,15 @@
 ---
 title: "Stale docs checker"
+requirements:
+  - "WARP Level 1 indexing (shipped)"
+  - "graft_since (shipped)"
+  - "Outline extraction (shipped)"
+acceptance_criteria:
+  - "Walks markdown files for symbol references (backtick-quoted names, code blocks) and cross-references against WARP worldline"
+  - "Flags docs where referenced symbols have changed since the doc was last modified"
+  - "Detects version number drift between CHANGELOG and package.json"
+  - "Detects numeric claims in docs (e.g., tool count) that no longer match reality"
+  - "Output includes file, line, stale reference, and the commit where the symbol changed"
 ---
 
 # Stale docs checker

@@ -1,5 +1,17 @@
 ---
 title: "Adaptive projection selection"
+requirements:
+  - "WARP Level 1 indexing (shipped)"
+  - "Outline projection (shipped)"
+  - "Content, range, diff, and map projections (shipped)"
+  - "Structural complexity metrics (backlog)"
+acceptance_criteria:
+  - "Given a file and task context, the system selects the projection that minimizes structural curvature"
+  - "Dense utility files default to outline; thin config files default to content"
+  - "Single-function investigation defaults to range; version comparison defaults to diff"
+  - "Projection selection is structural (graph-derived), not threshold-based"
+  - "The selected projection can be overridden by an explicit user/agent request"
+  - "A test verifies that a high-complexity file selects outline over content"
 ---
 
 # Adaptive projection selection

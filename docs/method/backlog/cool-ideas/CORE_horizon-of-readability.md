@@ -1,5 +1,14 @@
 ---
 title: "Horizon of readability"
+requirements:
+  - "Compression ratio tracking (shipped)"
+  - "file_outline tool (shipped)"
+  - "Budget governor with projection decisions (shipped)"
+acceptance_criteria:
+  - "The governor detects when no projection can meaningfully reduce a file's size (outline is near content size)"
+  - "When the horizon is reached, the governor returns full content instead of a degraded outline"
+  - "The response explicitly tells the agent: 'This cannot be simplified further — full content provided'"
+  - "Detection is based on measurable gradients (compression ratio, symbol density), not heuristics"
 ---
 
 # Horizon of readability

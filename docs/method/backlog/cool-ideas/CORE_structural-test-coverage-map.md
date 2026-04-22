@@ -1,5 +1,15 @@
 ---
 title: "Structural test coverage map"
+requirements:
+  - "graft_map structural mapping (shipped)"
+  - "file_outline symbol extraction (shipped)"
+  - "code_refs reference search (shipped)"
+acceptance_criteria:
+  - "Given src/ and test/ directories, the tool reports which exported symbols have test references and which do not"
+  - "Output explicitly labels coverage as structural/reference-based, not execution-based"
+  - "Symbols with zero test references are flagged as uncovered candidates"
+  - "The tool uses existing map/outline/search primitives without requiring instrumentation"
+  - "False positive rate acknowledged: structural reference does not guarantee execution coverage"
 ---
 
 # Structural test coverage map

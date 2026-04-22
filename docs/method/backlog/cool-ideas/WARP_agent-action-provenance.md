@@ -1,5 +1,17 @@
 ---
 title: "WARP: Agent action provenance (Level 3)"
+requirements:
+  - "WARP Level 1 indexing (shipped)"
+  - "Hooks integration for write interception (backlog)"
+  - "Sub-commit WARP nodes (backlog — persisted sub-commit local history)"
+  - "Provenance attribution instrumentation (backlog)"
+acceptance_criteria:
+  - "Agent reads are recorded as WARP observation nodes linked to file, commit, and agent ID"
+  - "Agent writes are recorded as WARP mutation nodes linked to symbol, commit, and preceding observation"
+  - "The causal chain from a write can be walked backward to the reads that informed it"
+  - "Multi-agent sessions produce distinct, interleaved observation chains"
+  - "Observation storage cost scales sub-linearly with tool-call frequency (not one node per keystroke)"
+  - "A test verifies that a read-then-write sequence produces a connected observation-mutation chain"
 ---
 
 # WARP: Agent action provenance (Level 3)

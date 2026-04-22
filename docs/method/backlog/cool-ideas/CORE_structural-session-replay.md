@@ -1,5 +1,15 @@
 ---
 title: "Structural session replay"
+requirements:
+  - "NDJSON metrics receipts (shipped)"
+  - "Session tracking (shipped)"
+  - "Provenance DAG (backlog)"
+acceptance_criteria:
+  - "A `graft replay <session-id>` command produces a navigable structural walkthrough from NDJSON receipts"
+  - "Replay output shows each tool call (map, outline, code_show, edit) in order with file/symbol targets"
+  - "At least one render format is supported (Markdown summary or HTML)"
+  - "Replay for a session that never read a test file makes that absence visible"
+  - "Replay can be generated for any completed session without requiring the original agent"
 ---
 
 # Structural session replay

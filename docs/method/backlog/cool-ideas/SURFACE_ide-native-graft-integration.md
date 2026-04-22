@@ -1,5 +1,18 @@
 ---
 title: "IDE-native Graft integration"
+requirements:
+  - "MCP server and tool surface (shipped)"
+  - "Causal session / strand model (backlog — WARP graph ontology and causal collapse model)"
+  - "Active causal workspace status surface (backlog)"
+  - "Causal blame for staged artifacts (backlog)"
+  - "Attach to existing causal session (backlog)"
+acceptance_criteria:
+  - "A VS Code extension (or equivalent) connects to the Graft MCP server and displays causal workspace status"
+  - "Status bar shows current causal session, checkout epoch, and confidence level"
+  - "An editor action for a staged file shows causal blame (why it changed)"
+  - "Branch switch triggers a prompt to park or fork the active strand"
+  - "The extension works for both human-driven and agent-hosted IDE workflows"
+  - "Minimum viable slice functions before the full causal-session model ships"
 ---
 
 # IDE-native Graft integration

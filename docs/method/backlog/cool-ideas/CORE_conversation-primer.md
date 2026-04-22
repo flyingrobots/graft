@@ -1,5 +1,14 @@
 ---
 title: "Conversation primer"
+requirements:
+  - "graft_map tool (shipped)"
+  - "Session tracking (shipped)"
+  - "MCP server bootstrap (shipped)"
+acceptance_criteria:
+  - "At conversation start, graft_map runs on a default scope and injects the result into the session bootstrap"
+  - "The agent begins oriented with directory structure, major symbols, and drill-down targets"
+  - "The primer is compact enough for small-context clients (configurable scope)"
+  - "The primer refreshes after writes or branch switches within the session"
 ---
 
 # Conversation primer

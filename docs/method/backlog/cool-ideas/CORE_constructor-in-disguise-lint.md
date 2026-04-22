@@ -1,5 +1,14 @@
 ---
 title: "Constructor-in-disguise detection"
+requirements:
+  - "Tree-sitter parsing (shipped)"
+  - "file_outline tool (shipped)"
+  - "WARP Level 1 indexing (shipped)"
+acceptance_criteria:
+  - "Functions named build*/create*/make*/assemble* that return object literals with 3+ fields are detected"
+  - "Detection runs as a `graft doctor` check or as annotations on file_outline entries"
+  - "When WARP data is available, the full dependency chain from constructor-in-disguise through consumers is mapped"
+  - "Suggestions include the class + method structure replacement"
 ---
 
 # Constructor-in-disguise detection

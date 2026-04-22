@@ -1,5 +1,14 @@
 ---
 title: "Graft as training signal"
+requirements:
+  - "Budget governor with projection decisions (shipped)"
+  - "file_outline tool (shipped)"
+  - "read_range tool (shipped)"
+acceptance_criteria:
+  - "Every governor response includes a `hint` field with a one-line suggestion for better context hygiene"
+  - "Hints are contextual — they reference the specific projection decision (outline, refused, etc.)"
+  - "Hints teach agents to prefer file_outline first, use read_range for details, and avoid full-file reads"
+  - "Hint generation adds no measurable latency to tool responses"
 ---
 
 # Graft as training signal

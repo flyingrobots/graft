@@ -1,5 +1,15 @@
 ---
 title: "Budget elasticity (progressive disclosure hints)"
+requirements:
+  - "Outline extraction (shipped)"
+  - "Compression ratio tracking (shipped)"
+  - "Structural complexity metrics (backlog)"
+acceptance_criteria:
+  - "Outline responses include per-symbol elasticity annotations indicating marginal understanding gain from deeper reading"
+  - "High-elasticity symbols (reading more resolves significant ambiguity) are distinguished from low-elasticity ones"
+  - "Elasticity values are derived from structural properties, not arbitrary thresholds"
+  - "An agent can use elasticity to prioritize which symbols to read next within a budget"
+  - "A test verifies that a structurally complex function has higher elasticity than a trivial getter"
 ---
 
 # Budget elasticity (progressive disclosure hints)

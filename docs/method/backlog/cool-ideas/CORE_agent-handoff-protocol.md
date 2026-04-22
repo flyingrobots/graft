@@ -2,6 +2,16 @@
 title: "Agent handoff protocol — structured session transfer"
 legend: CORE
 lane: cool-ideas
+requirements:
+  - "Session tracking (shipped)"
+  - "WARP Level 1 indexing (shipped)"
+  - "Observation cache (shipped)"
+  - "causal_attach tool (shipped)"
+acceptance_criteria:
+  - "Graft produces a structured handoff JSON when an agent session ends or hits its context limit"
+  - "Handoff includes filesRead, symbolsInspected, filesModified, plannedButNotDone, and budgetConsumed"
+  - "A new agent session can ingest the handoff and resume with full provenance"
+  - "Handoff is a projection over existing WARP graph and session state, not new infrastructure"
 ---
 
 # Agent handoff protocol — structured session transfer

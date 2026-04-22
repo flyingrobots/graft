@@ -1,5 +1,17 @@
 ---
 title: "Offer rename as an explicit refactor surface"
+requirements:
+  - "Symbol identity and reference tracing (shipped — code_refs)"
+  - "file_outline symbol extraction (shipped)"
+  - "Confidence / ambiguity reporting (backlog)"
+  - "Symbol identity and rename continuity ontology (backlog — WARP_symbol-identity-and-rename-continuity)"
+acceptance_criteria:
+  - "A human or agent can request a rename assessment for a given symbol"
+  - "The response includes a confidence rating, list of affected references, and a previewable edit plan"
+  - "Ambiguous or low-confidence renames are flagged rather than silently applied"
+  - "No file is modified without explicit user approval (preview-first contract)"
+  - "Rename covers all reference sites found by code_refs, not just the definition"
+  - "A test verifies that a rename with ambiguous references produces a warning rather than a silent edit"
 ---
 
 # Offer rename as an explicit refactor surface

@@ -1,5 +1,14 @@
 ---
 title: "Footprint-based parallelism"
+requirements:
+  - "WARP Level 1 indexing (shipped)"
+  - "WARP optics (backlog)"
+  - "Footprint declarations per tool call (backlog)"
+acceptance_criteria:
+  - "Given two tool calls with non-overlapping symbol footprints, the system identifies them as parallelizable"
+  - "Given two tool calls with overlapping symbol footprints, the system correctly rejects parallel execution"
+  - "Parallelism decisions are derived solely from structural footprint analysis, not programmer annotations"
+  - "A set of N refactor operations is partitioned into maximal parallelizable groups with no false positives"
 ---
 
 # Footprint-based parallelism

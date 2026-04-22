@@ -1,5 +1,16 @@
 ---
 title: "Attach to existing causal session"
+requirements:
+  - "Session tracking (shipped)"
+  - "Causal session / strand model (backlog — WARP graph ontology and causal collapse model)"
+  - "Same-repo concurrent agent model (backlog)"
+acceptance_criteria:
+  - "A new agent or resumed agent can attach to an existing causal workspace by session/strand ID"
+  - "Attach is rejected if repo, worktree, or checkout epoch does not match the target session"
+  - "Attach preserves the causal workspace identity rather than creating a new session"
+  - "When attach would be unlawful, the system forks a new strand instead of silently failing"
+  - "Multiple attached agents on the same strand are represented distinctly in the session model"
+  - "A test verifies that attach after repo mismatch is refused"
 ---
 
 # Attach to existing causal session

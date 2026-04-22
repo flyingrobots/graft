@@ -2,6 +2,15 @@
 title: MonitorTickWorkerJob could track tick ceiling for incremental re-indexing
 legend: CORE
 effort: S
+requirements:
+  - "WARP Level 1 indexing (shipped)"
+  - "Monitor tick worker job (shipped)"
+acceptance_criteria:
+  - "MonitorTickWorkerJob compares current headSha with the last indexed commit sha before indexing"
+  - "When headSha matches the last indexed commit, indexHead is skipped entirely"
+  - "When headSha differs, full indexHead runs as before"
+  - "Monitor tick cost is near-zero when the repo is idle (no new commits)"
+  - "A test verifies that consecutive ticks with the same HEAD do not re-index"
 ---
 
 ## Idea

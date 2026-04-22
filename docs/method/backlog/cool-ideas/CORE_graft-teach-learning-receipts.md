@@ -2,6 +2,16 @@
 title: "graft teach — learning receipts for agent read decisions"
 legend: CORE
 lane: cool-ideas
+requirements:
+  - "Budget governor with projection receipts (shipped)"
+  - "Session tracking (shipped)"
+  - "changed_since tool (shipped)"
+  - "file_outline tool (shipped)"
+acceptance_criteria:
+  - "Receipts include a `teaching` field with actionable hints when suboptimal reads are detected"
+  - "Hints cover at least: outline-projected large files, re-reads of unchanged files, and refused build output"
+  - "Teaching hints reference the correct alternative tool or path (e.g., file_outline, changed_since, src/ instead of dist/)"
+  - "Teaching field is omitted when the read decision was already optimal"
 ---
 
 # graft teach — learning receipts for agent read decisions

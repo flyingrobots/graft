@@ -1,5 +1,13 @@
 ---
 title: "Semantic drift detection in agent sessions"
+requirements:
+  - "Observation cache (shipped)"
+  - "Session tracking (shipped)"
+acceptance_criteria:
+  - "Graft tracks the reading path (sequence of files read) within a session"
+  - "When an agent re-reads a file after reading structurally related files, graft flags potential interpretation shift"
+  - "The holonomy detection identifies loops in the reading path where re-reading may yield different understanding"
+  - "Drift warnings include the specific reading chain that may have shifted the agent's interpretation"
 ---
 
 # Semantic drift detection in agent sessions

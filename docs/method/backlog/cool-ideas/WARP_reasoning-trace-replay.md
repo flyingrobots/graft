@@ -1,5 +1,15 @@
 ---
 title: "Reasoning trace replay"
+requirements:
+  - "WARP Level 1 indexing (shipped)"
+  - "Session tracking (shipped)"
+  - "Agent action provenance (backlog)"
+  - "Provenance DAG (backlog)"
+acceptance_criteria:
+  - "An agent's reads and writes are recorded as WARP observations with temporal ordering"
+  - "Walking the observation DAG backwards from a write reconstructs the reasoning path that led to it"
+  - "Replay detects staleness: identifies when an agent acted on data that changed between read and write"
+  - "Replay output is human-readable, showing tick-by-tick structural observations with causal links"
 ---
 
 # Reasoning trace replay

@@ -1,5 +1,14 @@
 ---
 title: "Cross-session structural resume"
+requirements:
+  - "WARP Level 1 indexing (shipped)"
+  - "state_save / state_load tools (shipped)"
+  - "graft_since / changed_since tools (shipped)"
+acceptance_criteria:
+  - "A new session can load a saved state and receive a structural diff from the last known state to current HEAD"
+  - "The structural diff includes added, removed, and modified symbols — not just file names"
+  - "Agents skip re-reading unchanged files and focus on what actually changed"
+  - "Resume works across branch switches and merges"
 ---
 
 # Cross-session structural resume
