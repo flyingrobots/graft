@@ -2,8 +2,7 @@ import { z } from "zod";
 import { structuralReview } from "../../operations/structural-review.js";
 import { toJsonObject } from "../../operations/result-dto.js";
 import type { ToolDefinition, ToolHandler } from "../context.js";
-import { nodeProcessRunner } from "../../adapters/node-process-runner.js";
-import { countSymbolReferences } from "../../warp/reference-count.js";
+import { countSymbolReferencesFromGraph } from "../../warp/warp-reference-count.js";
 
 export const structuralReviewTool: ToolDefinition = {
   name: "graft_review",
@@ -22,16 +21,8 @@ export const structuralReviewTool: ToolDefinition = {
         base: args["base"] as string | undefined,
         head: args["head"] as string | undefined,
         countReferences: async (symbolName, filePath) => {
-          const refs = await countSymbolReferences(symbolName, {
-            projectRoot: ctx.projectRoot,
-            git: ctx.git,
-            process: nodeProcessRunner,
-            filePath,
-          });
-          return {
-            referenceCount: refs.referenceCount,
-            referencingFiles: refs.referencingFiles,
-          };
+          const warpCtx = await ctx.getWarp();
+          return countSymbolReferencesFromGraph(warpCtx, symbolName, filePath);
         },
       });
       ctx.recordFootprint({

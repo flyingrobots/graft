@@ -27,6 +27,7 @@ describe("warp: warp-reference-count", { timeout: 15000 }, () => {
 
   async function index(ctx: WarpContext): Promise<void> {
     await indexHead({ cwd: tmpDir, git: nodeGit, pathOps: nodePathOps, ctx });
+    await ctx.app.core().materialize();
   }
 
   // Golden path: multi-file imports → count=2
@@ -37,11 +38,11 @@ describe("warp: warp-reference-count", { timeout: 15000 }, () => {
     );
     fs.writeFileSync(
       path.join(tmpDir, "handler.ts"),
-      "import { createUser } from './lib.js';\ncreateUser();\n",
+      "import { createUser } from './lib';\ncreateUser();\n",
     );
     fs.writeFileSync(
       path.join(tmpDir, "service.ts"),
-      "import { createUser } from './lib.js';\ncreateUser();\n",
+      "import { createUser } from './lib';\ncreateUser();\n",
     );
     git(tmpDir, "add -A");
     git(tmpDir, "commit -m 'multi-file imports'");
@@ -77,7 +78,7 @@ describe("warp: warp-reference-count", { timeout: 15000 }, () => {
     fs.writeFileSync(path.join(tmpDir, "b.ts"), "export function init(): void {}\n");
     fs.writeFileSync(
       path.join(tmpDir, "consumer.ts"),
-      "import { init } from './a.js';\ninit();\n",
+      "import { init } from './a';\ninit();\n",
     );
     git(tmpDir, "add -A");
     git(tmpDir, "commit -m 'same name diff files'");
@@ -115,7 +116,7 @@ describe("warp: warp-reference-count", { timeout: 15000 }, () => {
     );
     fs.writeFileSync(
       path.join(tmpDir, "index.ts"),
-      "export { engine } from './core.js';\n",
+      "export { engine } from './core';\n",
     );
     git(tmpDir, "add -A");
     git(tmpDir, "commit -m 're-export'");
