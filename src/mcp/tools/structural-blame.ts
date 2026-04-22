@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-deprecated -- commitsForSymbol rewrite pending */
 import { z } from "zod";
 import type { ToolDefinition, ToolHandler } from "../context.js";
 import {

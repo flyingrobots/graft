@@ -209,6 +209,10 @@ async function detectRemovals(
  * commits). Per-node traversal preserves cardinality — the same commit
  * touching init in two files produces two results.
  */
+/** @deprecated Use symbolTimeline() from ./symbol-timeline.ts instead.
+ *  This function returns the HEAD signature for all entries, not the
+ *  historical signature at each commit. symbolTimeline uses ceiling
+ *  observers for accurate per-tick data. */
 export async function commitsForSymbol(
   ctx: WarpContext,
   symbolName: string,

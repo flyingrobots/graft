@@ -10,7 +10,7 @@
  */
 
 import type { WarpContext } from "./context.js";
-import { commitsForSymbol } from "./structural-queries.js";
+import { symbolTimeline } from "./symbol-timeline.js";
 import { observeGraph } from "./context.js";
 
 
@@ -151,9 +151,9 @@ export async function checkStaleDocs(
   const unknownSymbols: string[] = [];
 
   for (const symbolName of symbolNames) {
-    const history = await commitsForSymbol(ctx, symbolName);
+    const timeline = await symbolTimeline(ctx, symbolName);
 
-    if (history.commits.length === 0) {
+    if (timeline.versions.length === 0) {
       unknownSymbols.push(symbolName);
       continue;
     }
@@ -162,19 +162,19 @@ export async function checkStaleDocs(
     // treat the doc as fresh (conservative).
     if (docTick === null) continue;
 
-    // Check if any commit that touched this symbol has a tick
-    // greater than the doc's commit tick (i.e., happened after the doc).
-    for (const commit of history.commits) {
-      const commitTick = await getCommitTick(ctx, commit.sha);
-      if (commitTick !== null && commitTick > docTick) {
-        // Symbol changed after doc was last modified.
-        if (commit.changeKind === "changed" || commit.changeKind === "removed") {
+    // Check if any version has a tick after the doc's commit tick.
+    // symbolTimeline returns versions in tick order with accurate
+    // per-commit data (unlike commitsForSymbol which returns HEAD
+    // signature for all entries).
+    for (const version of timeline.versions) {
+      if (version.tick > docTick) {
+        if (version.changeKind === "changed" || version.changeKind === "removed") {
           staleSymbols.push({
             symbol: symbolName,
-            changeKind: commit.changeKind,
-            lastChangeSha: commit.sha,
+            changeKind: version.changeKind,
+            lastChangeSha: version.sha,
           });
-          break; // one stale entry per symbol is enough
+          break;
         }
       }
     }

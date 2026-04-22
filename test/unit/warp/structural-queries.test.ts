@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-deprecated -- testing deprecated function */
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import * as fs from "node:fs";
 import * as path from "node:path";
