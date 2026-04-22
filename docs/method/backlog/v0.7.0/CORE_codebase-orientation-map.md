@@ -1,5 +1,7 @@
 ---
 title: "Codebase orientation map"
+feature: session
+kind: trunk
 legend: CORE
 lane: v0.7.0
 requirements:

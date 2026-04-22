@@ -1,5 +1,7 @@
 ---
 title: "Rewrite structural-log to use WARP worldline queries"
+feature: structural-queries
+kind: trunk
 legend: CORE
 release: "v0.7.0"
 lane: v0.7.0

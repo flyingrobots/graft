@@ -1,5 +1,7 @@
 ---
 title: "Traverse + query batch hydration helper"
+feature: structural-queries
+kind: leaf
 legend: CORE
 lane: cool-ideas
 effort: S

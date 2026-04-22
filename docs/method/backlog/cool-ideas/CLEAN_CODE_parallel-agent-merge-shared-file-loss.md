@@ -1,5 +1,7 @@
 ---
 title: "Parallel agent merge loses shared file edits on worktree cleanup"
+feature: agent-safety
+kind: leaf
 legend: CLEAN_CODE
 lane: cool-ideas
 effort: M

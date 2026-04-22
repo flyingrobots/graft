@@ -1,5 +1,7 @@
 ---
 title: "Governed edit tool for agent DX"
+feature: agent-safety
+kind: trunk
 legend: SURFACE
 lane: v0.7.0
 requirements:
@@ -9,7 +11,8 @@ acceptance_criteria:
   - "graft_edit MCP tool accepts path + old_string + new_string"
   - "Accepts read_range evidence instead of requiring native Read"
   - "Respects .graftignore and records edit in causal provenance"
-blocks:
+blocking:
+  - CORE_agent-drift-warning
   - SURFACE_governed-write-tools
 ---
 

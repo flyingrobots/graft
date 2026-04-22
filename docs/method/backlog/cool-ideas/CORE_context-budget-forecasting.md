@@ -1,5 +1,7 @@
 ---
 title: "Context budget forecasting — estimate before you start"
+feature: policy
+kind: leaf
 legend: CORE
 lane: cool-ideas
 effort: M

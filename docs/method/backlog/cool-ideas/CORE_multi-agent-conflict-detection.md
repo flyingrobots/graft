@@ -1,5 +1,7 @@
 ---
 title: "Multi-agent conflict detection"
+feature: agent-safety
+kind: trunk
 legend: CORE
 lane: cool-ideas
 effort: L

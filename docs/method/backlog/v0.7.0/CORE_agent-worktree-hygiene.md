@@ -1,5 +1,7 @@
 ---
 title: "Automatic worktree cleanup after parallel agent execution"
+feature: agent-safety
+kind: leaf
 legend: CORE
 lane: v0.7.0
 requirements:

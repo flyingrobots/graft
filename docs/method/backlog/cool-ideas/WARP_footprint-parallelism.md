@@ -1,5 +1,7 @@
 ---
 title: "Footprint-based parallelism"
+feature: projection
+kind: leaf
 legend: WARP
 lane: cool-ideas
 effort: XL

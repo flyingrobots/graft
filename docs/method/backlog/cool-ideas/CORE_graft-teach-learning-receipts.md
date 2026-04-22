@@ -1,5 +1,7 @@
 ---
 title: "graft teach — learning receipts for agent read decisions"
+feature: session
+kind: leaf
 legend: CORE
 lane: cool-ideas
 effort: S

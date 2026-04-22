@@ -1,5 +1,7 @@
 ---
 title: Refactor difficulty score
+feature: structural-metrics
+kind: trunk
 legend: WARP
 lane: v0.7.0
 requirements:

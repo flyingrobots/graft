@@ -1,5 +1,7 @@
 ---
 title: "Speculative read cost estimate"
+feature: policy
+kind: leaf
 legend: CORE
 lane: cool-ideas
 effort: S

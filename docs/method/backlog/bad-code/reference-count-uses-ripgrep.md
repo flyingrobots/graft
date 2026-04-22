@@ -1,5 +1,7 @@
 ---
 title: reference-count.ts uses ripgrep/grep instead of WARP-native queries
+feature: structural-queries
+kind: trunk
 legend: CLEAN_CODE
 effort: M
 requirements:

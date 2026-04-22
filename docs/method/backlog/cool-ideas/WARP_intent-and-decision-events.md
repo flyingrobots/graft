@@ -1,10 +1,10 @@
 ---
 title: "WARP intent and decision events"
+feature: provenance
+kind: leaf
 legend: WARP
 lane: cool-ideas
 effort: M
-blocked_by:
-  - WARP_agent-action-provenance
 requirements:
   - "WARP Level 1 indexing (shipped)"
   - "Session tracking (shipped)"
@@ -15,6 +15,8 @@ acceptance_criteria:
   - "Decision events appear in causal slices, bridging otherwise disconnected read/write observations"
   - "Replaying an observation DAG with decision events produces a richer causal explanation than without"
   - "Human and agent decision events share a unified actor model"
+blocked_by:
+  - WARP_agent-action-provenance
 ---
 
 # WARP intent and decision events

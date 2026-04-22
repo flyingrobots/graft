@@ -1,10 +1,10 @@
 ---
 title: "Codebase signature (multi-axis observer vector)"
+feature: structural-metrics
+kind: leaf
 legend: WARP
 lane: cool-ideas
 effort: L
-blocked_by:
-  - CORE_lagrangian-policy
 requirements:
   - "WARP Level 1 indexing (shipped)"
   - "Structural churn data via WARP aggregate queries (backlog — v0.7.0)"

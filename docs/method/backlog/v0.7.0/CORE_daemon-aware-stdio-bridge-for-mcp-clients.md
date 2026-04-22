@@ -1,5 +1,7 @@
 ---
 title: Daemon-aware stdio bridge for MCP clients
+feature: daemon
+kind: trunk
 legend: CORE
 lane: v0.7.0
 requirements:
@@ -9,7 +11,7 @@ acceptance_criteria:
   - A stdio bridge command proxies MCP traffic to the local daemon
   - Bridge auto-starts daemon if not running
   - Same-user local trust boundaries remain intact
-blocks:
+blocking:
   - CORE_opt-in-daemon-mode-mcp-bootstrap
 ---
 

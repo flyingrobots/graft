@@ -1,10 +1,10 @@
 ---
 title: "Causal blame for staged artifacts"
+feature: provenance
+kind: leaf
 legend: WARP
 lane: cool-ideas
 effort: L
-blocked_by:
-  - WARP_provenance-dag
 requirements:
   - "WARP Level 1 indexing (shipped)"
   - "Session tracking (shipped)"
@@ -18,6 +18,8 @@ acceptance_criteria:
   - "An agent can inspect causal blame before committing to verify correctness"
   - "A human can audit agent work via causal blame without reading the full session log"
   - "A test verifies that causal blame for a staged file traces back to the reads that informed the edit"
+blocked_by:
+  - WARP_provenance-dag
 ---
 
 # Causal blame for staged artifacts

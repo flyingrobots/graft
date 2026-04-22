@@ -1,10 +1,10 @@
 ---
 title: "Dead symbol detection"
+feature: structural-metrics
+kind: trunk
 legend: WARP
 lane: cool-ideas
 effort: S
-blocking:
-  - WARP_auto-breaking-change-detection
 requirements:
   - "WARP Level 1 indexing (shipped)"
   - "Commit→sym adds/changes/removes edges (shipped via indexHead reconciliation)"

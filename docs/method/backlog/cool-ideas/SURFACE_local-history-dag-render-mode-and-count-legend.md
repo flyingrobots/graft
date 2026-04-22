@@ -1,5 +1,7 @@
 ---
 title: "SURFACE local history dag render mode and count legend"
+feature: surface
+kind: leaf
 legend: SURFACE
 lane: cool-ideas
 effort: S

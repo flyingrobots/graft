@@ -1,10 +1,10 @@
 ---
 title: "Structural impact prediction"
+feature: speculative
+kind: trunk
 legend: WARP
 lane: cool-ideas
 effort: XL
-blocked_by:
-  - WARP_counterfactual-refactoring
 requirements:
   - "WARP Level 1 indexing (shipped)"
   - "Cross-file reference edges (shipped)"
@@ -15,6 +15,8 @@ acceptance_criteria:
   - "Blast radius is computed from structural dependency edges, not text grep"
   - "Speculative patches can be applied to a forked worldline to see incompatibilities without modifying code"
   - "Prediction includes the specific nature of each break (missing parameter, type mismatch, removed dependency)"
+blocked_by:
+  - WARP_counterfactual-refactoring
 ---
 
 # Structural impact prediction

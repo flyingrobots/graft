@@ -1,5 +1,7 @@
 ---
 title: "Session filtration (accumulation-aware projections)"
+feature: projection
+kind: leaf
 legend: WARP
 lane: cool-ideas
 effort: L

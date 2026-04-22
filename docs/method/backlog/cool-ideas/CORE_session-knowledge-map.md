@@ -1,5 +1,7 @@
 ---
 title: "Session knowledge map — what do I already know?"
+feature: session
+kind: trunk
 legend: CORE
 lane: cool-ideas
 effort: S

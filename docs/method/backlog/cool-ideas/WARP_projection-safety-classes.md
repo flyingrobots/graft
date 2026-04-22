@@ -1,5 +1,7 @@
 ---
 title: "Projection safety classes"
+feature: projection
+kind: trunk
 legend: WARP
 lane: cool-ideas
 effort: M

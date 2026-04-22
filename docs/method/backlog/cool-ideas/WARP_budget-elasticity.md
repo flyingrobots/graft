@@ -1,5 +1,7 @@
 ---
 title: "Budget elasticity (progressive disclosure hints)"
+feature: policy
+kind: leaf
 legend: WARP
 lane: cool-ideas
 effort: M

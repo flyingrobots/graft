@@ -1,10 +1,10 @@
 ---
 title: "Drift sentinel — detect when docs and code diverge"
+feature: docs-integrity
+kind: trunk
 legend: WARP
 lane: cool-ideas
 effort: M
-blocked_by:
-  - WARP_stale-docs-checker
 requirements:
   - "WARP Level 1 indexing (shipped)"
   - "Outline extraction (shipped)"
@@ -15,6 +15,8 @@ acceptance_criteria:
   - "Given a markdown file documenting a function signature, the sentinel flags when the actual signature differs"
   - "Can run as a pre-commit hook and exit non-zero when drift is detected"
   - "Produces machine-readable output listing each stale reference with file, line, symbol, and nature of drift"
+blocked_by:
+  - WARP_stale-docs-checker
 ---
 
 # Drift sentinel — detect when docs and code diverge

@@ -1,13 +1,10 @@
 ---
 title: Provenance DAG
+feature: provenance
+kind: trunk
 legend: WARP
 lane: cool-ideas
 effort: L
-blocked_by:
-  - WARP_agent-action-provenance
-blocking:
-  - WARP_reasoning-trace-replay
-  - WARP_causal-blame-for-staged-artifacts
 requirements:
   - WARP Level 1 indexing (shipped)
   - Session tracking (shipped)
@@ -18,6 +15,11 @@ acceptance_criteria:
   - The DAG can be traversed backwards from a write to reconstruct the full causal chain of reads that informed it
   - DAG size is bounded by structural universe sharing (not exponential in observation count)
   - "A staleness bug can be diagnosed by replaying the DAG: identifying where an agent read stale data"
+blocked_by:
+  - WARP_agent-action-provenance
+blocking:
+  - WARP_causal-blame-for-staged-artifacts
+  - WARP_reasoning-trace-replay
 ---
 
 # Provenance DAG

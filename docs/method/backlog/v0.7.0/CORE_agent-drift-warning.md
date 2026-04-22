@@ -1,5 +1,7 @@
 ---
 title: Agent drift warning
+feature: agent-safety
+kind: trunk
 legend: CORE
 lane: v0.7.0
 requirements:

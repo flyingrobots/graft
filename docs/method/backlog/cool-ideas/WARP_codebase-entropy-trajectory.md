@@ -1,12 +1,10 @@
 ---
 title: Codebase entropy trajectory
+feature: structural-metrics
+kind: leaf
 legend: WARP
 lane: cool-ideas
 effort: M
-blocked_by:
-  - CORE_rewrite-structural-churn-to-use-warp-aggregate-queries
-blocking:
-  - WARP_counterfactual-refactoring
 requirements:
   - WARP Level 1 indexing (shipped)
   - Worldline seek API (shipped)
@@ -17,6 +15,10 @@ acceptance_criteria:
   - Coupling direction (increasing vs decreasing) is reported
   - Results are presented as a trajectory (time series), not a single-point snapshot
   - A test verifies that adding symbols across multiple commits increases the reported entropy metric
+blocked_by:
+  - CORE_rewrite-structural-churn-to-use-warp-aggregate-queries
+blocking:
+  - WARP_counterfactual-refactoring
 ---
 
 # Codebase entropy trajectory

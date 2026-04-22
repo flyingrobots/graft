@@ -1,5 +1,7 @@
 ---
 title: "Conversation primer — auto-orient at session start"
+feature: session
+kind: trunk
 legend: CORE
 lane: cool-ideas
 effort: M

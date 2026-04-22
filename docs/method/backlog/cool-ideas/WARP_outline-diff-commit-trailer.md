@@ -1,5 +1,7 @@
 ---
 title: "Outline diff in commit trailers"
+feature: graph-indexing
+kind: leaf
 legend: WARP
 lane: cool-ideas
 effort: S

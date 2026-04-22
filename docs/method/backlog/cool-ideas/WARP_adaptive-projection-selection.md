@@ -1,5 +1,7 @@
 ---
 title: "Adaptive projection selection"
+feature: projection
+kind: trunk
 legend: WARP
 lane: cool-ideas
 effort: L

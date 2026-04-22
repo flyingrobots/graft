@@ -1,5 +1,7 @@
 ---
 title: "capture_range(handle, start, end)"
+feature: session
+kind: leaf
 legend: CORE
 lane: cool-ideas
 effort: S

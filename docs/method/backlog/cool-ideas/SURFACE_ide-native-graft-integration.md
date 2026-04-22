@@ -1,10 +1,10 @@
 ---
 title: "IDE-native Graft integration"
+feature: surface
+kind: trunk
 legend: SURFACE
 lane: cool-ideas
 effort: XL
-blocked_by:
-  - SURFACE_active-causal-workspace-status
 requirements:
   - "MCP server and tool surface (shipped)"
   - "Session tracking (shipped)"
@@ -19,6 +19,8 @@ acceptance_criteria:
   - "Branch switch triggers a prompt to park or fork the active strand"
   - "The extension works for both human-driven and agent-hosted IDE workflows"
   - "Minimum viable slice functions before the full causal-session model ships"
+blocked_by:
+  - SURFACE_active-causal-workspace-status
 ---
 
 # IDE-native Graft integration

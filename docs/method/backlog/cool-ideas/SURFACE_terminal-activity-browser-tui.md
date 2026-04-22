@@ -1,5 +1,7 @@
 ---
 title: "Terminal activity browser TUI"
+feature: surface
+kind: leaf
 legend: SURFACE
 lane: cool-ideas
 effort: L

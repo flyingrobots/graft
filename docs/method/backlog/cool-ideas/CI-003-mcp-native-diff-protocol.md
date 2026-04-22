@@ -1,5 +1,7 @@
 ---
 title: "CI-003 — MCP-native \"Diff\" Protocol"
+feature: surface
+kind: leaf
 legend: SURFACE
 lane: cool-ideas
 effort: M

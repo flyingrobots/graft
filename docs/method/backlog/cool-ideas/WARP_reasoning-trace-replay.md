@@ -1,10 +1,10 @@
 ---
 title: "Reasoning trace replay"
+feature: provenance
+kind: leaf
 legend: WARP
 lane: cool-ideas
 effort: M
-blocked_by:
-  - WARP_provenance-dag
 requirements:
   - "WARP Level 1 indexing (shipped)"
   - "Session tracking (shipped)"
@@ -15,6 +15,8 @@ acceptance_criteria:
   - "Walking the observation DAG backwards from a write reconstructs the reasoning path that led to it"
   - "Replay detects staleness: identifies when an agent acted on data that changed between read and write"
   - "Replay output is human-readable, showing tick-by-tick structural observations with causal links"
+blocked_by:
+  - WARP_provenance-dag
 ---
 
 # Reasoning trace replay

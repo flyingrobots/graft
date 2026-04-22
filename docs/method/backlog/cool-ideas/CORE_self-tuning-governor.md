@@ -1,5 +1,7 @@
 ---
 title: "Self-tuning governor"
+feature: policy
+kind: leaf
 legend: CORE
 lane: cool-ideas
 effort: M

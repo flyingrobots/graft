@@ -1,5 +1,7 @@
 ---
 title: "Structural session replay"
+feature: session
+kind: leaf
 legend: CORE
 lane: cool-ideas
 effort: M

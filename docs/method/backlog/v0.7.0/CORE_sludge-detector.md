@@ -1,5 +1,7 @@
 ---
 title: "Sludge detector"
+feature: structural-metrics
+kind: leaf
 legend: CORE
 lane: v0.7.0
 requirements:

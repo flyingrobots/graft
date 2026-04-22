@@ -1,5 +1,7 @@
 ---
 title: "Rewrite structural-blame to use WARP worldline provenance"
+feature: structural-queries
+kind: trunk
 legend: CORE
 release: "v0.7.0"
 lane: v0.7.0
@@ -11,6 +13,8 @@ acceptance_criteria:
   - "structural-blame traces symbol provenance through WARP ticks"
   - "Last-touch detection uses ProvenanceIndex, not full commit walking"
   - "Zero GitClient calls for commit history in the operation"
+blocking:
+  - CORE_git-graft-enhance
 ---
 
 # Rewrite structural-blame to use WARP worldline provenance

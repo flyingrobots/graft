@@ -1,5 +1,7 @@
 ---
 title: "Intentional degeneracy for agent safety"
+feature: agent-safety
+kind: leaf
 legend: WARP
 lane: cool-ideas
 effort: M

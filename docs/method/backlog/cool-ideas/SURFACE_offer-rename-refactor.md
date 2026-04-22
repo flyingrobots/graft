@@ -1,5 +1,7 @@
 ---
 title: "Offer rename as an explicit refactor surface"
+feature: surface
+kind: leaf
 legend: SURFACE
 lane: cool-ideas
 effort: L

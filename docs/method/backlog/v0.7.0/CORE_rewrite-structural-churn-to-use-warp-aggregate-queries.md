@@ -1,5 +1,7 @@
 ---
 title: Rewrite structural-churn to use WARP aggregate queries
+feature: structural-queries
+kind: trunk
 legend: CORE
 release: v0.7.0
 lane: v0.7.0
@@ -10,9 +12,9 @@ acceptance_criteria:
   - structural-churn uses WARP aggregate queries instead of per-commit iteration
   - Zero GitClient calls for commit enumeration in the operation
   - Change counts computed natively in WARP, not in-memory Maps
-blocks:
-  - WARP_refactor-difficulty-score
+blocking:
   - WARP_codebase-entropy-trajectory
+  - WARP_refactor-difficulty-score
 ---
 
 # Rewrite structural-churn to use WARP aggregate queries

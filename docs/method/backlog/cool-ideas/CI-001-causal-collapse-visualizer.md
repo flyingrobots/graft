@@ -1,10 +1,10 @@
 ---
 title: "CI-001 — Causal Collapse Visualizer"
+feature: provenance
+kind: leaf
 legend: WARP
 lane: cool-ideas
 effort: L
-blocked_by:
-  - WARP_agent-action-provenance
 requirements:
   - "WARP Level 1 indexing (shipped)"
   - "Session tracking (shipped)"
@@ -17,6 +17,8 @@ acceptance_criteria:
   - "Speculative strands (agent/human) are shown as separate branches"
   - "Collapse decision boundaries are highlighted at staged-target vs. canonical-commit points"
   - "Output is generated from live WARP graph data, not mocked"
+blocked_by:
+  - WARP_agent-action-provenance
 ---
 
 # CI-001 — Causal Collapse Visualizer

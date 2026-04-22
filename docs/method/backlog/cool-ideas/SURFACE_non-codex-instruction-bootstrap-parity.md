@@ -1,5 +1,7 @@
 ---
 title: "Non-Codex instruction bootstrap parity"
+feature: surface
+kind: leaf
 legend: SURFACE
 lane: cool-ideas
 effort: M

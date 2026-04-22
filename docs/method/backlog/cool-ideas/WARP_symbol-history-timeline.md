@@ -1,10 +1,10 @@
 ---
 title: "Symbol history timeline"
+feature: structural-metrics
+kind: trunk
 legend: WARP
 lane: cool-ideas
 effort: S
-blocking:
-  - WARP_temporal-structural-search
 requirements:
   - "WARP Level 1 indexing (shipped)"
   - "code_show (shipped)"
@@ -15,6 +15,8 @@ acceptance_criteria:
   - "Each version includes signature, line range, and presence/absence"
   - "Output is ordered chronologically by commit"
   - "Detects when a symbol was added, renamed, or removed across the timeline"
+blocking:
+  - WARP_temporal-structural-search
 ---
 
 # Symbol history timeline

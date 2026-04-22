@@ -1,5 +1,7 @@
 ---
 title: "Semantic drift detection in agent sessions"
+feature: projection
+kind: leaf
 legend: WARP
 lane: cool-ideas
 effort: M

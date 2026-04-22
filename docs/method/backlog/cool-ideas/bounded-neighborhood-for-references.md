@@ -1,5 +1,7 @@
 ---
 title: "Bounded neighborhood read for referencesForSymbol"
+feature: structural-queries
+kind: leaf
 legend: WARP
 lane: cool-ideas
 effort: S

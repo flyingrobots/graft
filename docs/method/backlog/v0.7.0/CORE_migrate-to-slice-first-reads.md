@@ -1,5 +1,7 @@
 ---
 title: "Migrate remaining full-scan reads to slice-first APIs"
+feature: projection
+kind: trunk
 legend: CORE
 lane: v0.7.0
 blocked_by_external:

@@ -1,5 +1,7 @@
 ---
 title: "Policy playground — speculative reads without the cost"
+feature: policy
+kind: leaf
 legend: CORE
 lane: cool-ideas
 effort: S

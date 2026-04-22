@@ -1,5 +1,7 @@
 ---
 title: "Rulial heat map"
+feature: speculative
+kind: leaf
 legend: WARP
 lane: cool-ideas
 effort: L

@@ -1,5 +1,7 @@
 ---
 title: "Horizon of readability"
+feature: projection
+kind: leaf
 legend: CORE
 lane: cool-ideas
 effort: M

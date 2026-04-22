@@ -1,5 +1,7 @@
 ---
 title: "Governed write tools"
+feature: agent-safety
+kind: trunk
 legend: SURFACE
 lane: v0.7.0
 requirements:

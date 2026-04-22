@@ -1,5 +1,7 @@
 ---
 title: "Symbol heatmap"
+feature: structural-metrics
+kind: leaf
 legend: WARP
 lane: cool-ideas
 effort: M

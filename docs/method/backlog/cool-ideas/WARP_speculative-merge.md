@@ -1,5 +1,7 @@
 ---
 title: "WARP: Speculative merge forks"
+feature: speculative
+kind: trunk
 legend: WARP
 lane: cool-ideas
 effort: XL

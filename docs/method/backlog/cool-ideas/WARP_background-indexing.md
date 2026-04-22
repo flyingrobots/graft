@@ -1,10 +1,10 @@
 ---
 title: "Background WARP indexing"
+feature: graph-indexing
+kind: trunk
 legend: WARP
 lane: cool-ideas
 effort: M
-blocked_by:
-  - monitor-tick-ceiling-tracking
 requirements:
   - "WARP Level 1 indexing (shipped)"
   - "Worldline seek API (shipped)"
@@ -16,6 +16,8 @@ acceptance_criteria:
   - "When indexing completes, WARP-backed tools automatically read from the graph instead of reparsing"
   - "Agent tool calls are never blocked waiting for background indexing to finish"
   - "A test verifies that a tool call during active indexing returns results (possibly stale) without hanging"
+blocked_by:
+  - monitor-tick-ceiling-tracking
 ---
 
 # Background WARP indexing

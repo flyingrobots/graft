@@ -1,5 +1,7 @@
 ---
 title: "Constructor-in-disguise detection"
+feature: structural-metrics
+kind: leaf
 legend: CORE
 lane: cool-ideas
 effort: M

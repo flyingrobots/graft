@@ -1,5 +1,7 @@
 ---
 title: "Attach to existing causal session"
+feature: surface
+kind: leaf
 legend: SURFACE
 lane: cool-ideas
 effort: M

@@ -1,5 +1,7 @@
 ---
 title: Opt-in daemon mode for generated MCP client config
+feature: daemon
+kind: trunk
 legend: CORE
 lane: v0.7.0
 requirements:
@@ -10,6 +12,8 @@ acceptance_criteria:
   - Default remains repo-local stdio; daemon only when requested
 blocked_by:
   - CORE_daemon-aware-stdio-bridge-for-mcp-clients
+blocking:
+  - SURFACE_bijou-tui-for-graft-daemon-control-plane
 ---
 
 # Opt-in daemon mode for generated MCP client config

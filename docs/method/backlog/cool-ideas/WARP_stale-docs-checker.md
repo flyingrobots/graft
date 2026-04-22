@@ -1,10 +1,10 @@
 ---
 title: "Stale docs checker"
+feature: docs-integrity
+kind: trunk
 legend: WARP
 lane: cool-ideas
 effort: M
-blocking:
-  - WARP_drift-sentinel
 requirements:
   - "WARP Level 1 indexing (shipped)"
   - "graft_since (shipped)"
@@ -15,6 +15,8 @@ acceptance_criteria:
   - "Detects version number drift between CHANGELOG and package.json"
   - "Detects numeric claims in docs (e.g., tool count) that no longer match reality"
   - "Output includes file, line, stale reference, and the commit where the symbol changed"
+blocking:
+  - WARP_drift-sentinel
 ---
 
 # Stale docs checker

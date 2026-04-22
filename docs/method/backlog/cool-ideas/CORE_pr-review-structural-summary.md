@@ -1,5 +1,7 @@
 ---
 title: "PR review structural summary"
+feature: surface
+kind: leaf
 legend: CORE
 lane: cool-ideas
 effort: M

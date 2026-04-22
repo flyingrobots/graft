@@ -1,10 +1,10 @@
 ---
 title: "Minimum viable context"
+feature: speculative
+kind: leaf
 legend: WARP
 lane: cool-ideas
 effort: M
-blocked_by:
-  - WARP_structural-impact-prediction
 requirements:
   - "WARP Level 1 indexing (shipped)"
   - "code_find (shipped)"

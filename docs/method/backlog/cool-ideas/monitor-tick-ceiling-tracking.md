@@ -1,10 +1,10 @@
 ---
 title: "MonitorTickWorkerJob could track tick ceiling for incremental re-indexing"
+feature: graph-indexing
+kind: trunk
 legend: CORE
 lane: cool-ideas
 effort: S
-blocking:
-  - WARP_background-indexing
 requirements:
   - "WARP Level 1 indexing (shipped)"
   - "Monitor tick worker job (shipped)"
@@ -14,6 +14,8 @@ acceptance_criteria:
   - "When headSha differs, full indexHead runs as before"
   - "Monitor tick cost is near-zero when the repo is idle (no new commits)"
   - "A test verifies that consecutive ticks with the same HEAD do not re-index"
+blocking:
+  - WARP_background-indexing
 ---
 
 # MonitorTickWorkerJob could track tick ceiling for incremental re-indexing

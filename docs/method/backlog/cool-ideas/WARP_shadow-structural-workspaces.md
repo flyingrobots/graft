@@ -1,5 +1,7 @@
 ---
 title: "Shadow structural workspaces"
+feature: speculative
+kind: leaf
 legend: WARP
 lane: cool-ideas
 effort: XL

@@ -1,5 +1,7 @@
 ---
 title: "Migrate all path operations to PathOps port"
+feature: structural-queries
+kind: trunk
 legend: CORE
 lane: v0.7.0
 requirements:

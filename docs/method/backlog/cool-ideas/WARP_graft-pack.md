@@ -1,5 +1,7 @@
 ---
 title: "graft pack"
+feature: surface
+kind: leaf
 legend: CORE
 lane: cool-ideas
 effort: M

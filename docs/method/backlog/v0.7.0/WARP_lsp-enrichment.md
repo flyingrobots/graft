@@ -1,5 +1,7 @@
 ---
 title: "LSP enrichment layer for WARP graph"
+feature: surface
+kind: leaf
 legend: WARP
 lane: v0.7.0
 requirements:

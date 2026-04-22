@@ -1,5 +1,7 @@
 ---
 title: "Agent handoff protocol — structured session transfer"
+feature: session
+kind: leaf
 legend: CORE
 lane: cool-ideas
 effort: M

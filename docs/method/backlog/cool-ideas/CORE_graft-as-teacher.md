@@ -1,5 +1,7 @@
 ---
 title: "Graft as training signal"
+feature: session
+kind: leaf
 legend: CORE
 lane: cool-ideas
 effort: S

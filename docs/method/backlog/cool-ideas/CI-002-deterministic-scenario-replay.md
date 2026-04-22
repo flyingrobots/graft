@@ -1,5 +1,7 @@
 ---
 title: "CI-002 — Deterministic Scenario Replay"
+feature: session
+kind: leaf
 legend: CORE
 lane: cool-ideas
 effort: L

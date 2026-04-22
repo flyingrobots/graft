@@ -1,5 +1,7 @@
 ---
 title: "Degeneracy warning"
+feature: agent-safety
+kind: leaf
 legend: WARP
 lane: cool-ideas
 effort: M

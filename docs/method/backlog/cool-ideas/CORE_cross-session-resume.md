@@ -1,5 +1,7 @@
 ---
 title: "Cross-session structural resume"
+feature: session
+kind: trunk
 legend: CORE
 lane: cool-ideas
 effort: S

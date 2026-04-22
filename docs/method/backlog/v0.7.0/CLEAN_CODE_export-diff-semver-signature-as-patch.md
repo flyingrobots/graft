@@ -1,15 +1,17 @@
 ---
 title: "export-surface-diff classifies all signature changes as patch (may be breaking)"
+feature: export-analysis
+kind: trunk
 legend: CLEAN_CODE
 lane: v0.7.0
-blocking:
-  - WARP_semantic-merge-conflict-prediction
-  - WARP_auto-breaking-change-detection
 requirements:
   - "export-surface-diff operation exists with deriveSemverImpact"
 acceptance_criteria:
   - "Signature changes that remove or narrow are classified as major, not patch"
   - "Additive signature changes remain classified as minor or patch"
+blocking:
+  - WARP_auto-breaking-change-detection
+  - WARP_semantic-merge-conflict-prediction
 ---
 
 # export-surface-diff classifies all signature changes as patch (may be breaking)

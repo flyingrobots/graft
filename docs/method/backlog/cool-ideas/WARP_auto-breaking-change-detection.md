@@ -1,11 +1,10 @@
 ---
 title: Automatic breaking change detection
+feature: export-analysis
+kind: trunk
 legend: WARP
 lane: cool-ideas
 effort: L
-blocked_by:
-  - WARP_dead-symbol-detection
-  - CLEAN_CODE_export-diff-semver-signature-as-patch
 requirements:
   - WARP Level 1 indexing (shipped)
   - graft_since structural diff (shipped)
@@ -18,6 +17,8 @@ acceptance_criteria:
   - An API migration guide is generated from the structural delta without human annotation
   - Non-breaking additions (new exports, additive parameters) are not flagged as breaking
   - A test verifies that removing an exported function between two tags is detected as breaking
+blocked_by:
+  - CLEAN_CODE_export-diff-semver-signature-as-patch
 ---
 
 # Automatic breaking change detection

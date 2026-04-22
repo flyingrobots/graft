@@ -1,5 +1,7 @@
 ---
 title: "Structural drift detection"
+feature: docs-integrity
+kind: leaf
 legend: WARP
 lane: cool-ideas
 effort: M

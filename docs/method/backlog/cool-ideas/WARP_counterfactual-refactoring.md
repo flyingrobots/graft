@@ -1,12 +1,10 @@
 ---
 title: Counterfactual refactoring
+feature: speculative
+kind: trunk
 legend: WARP
 lane: cool-ideas
 effort: XL
-blocked_by:
-  - WARP_codebase-entropy-trajectory
-blocking:
-  - WARP_structural-impact-prediction
 requirements:
   - WARP Level 1 indexing (shipped)
   - git-warp Strands for speculative writes (backlog)
@@ -17,6 +15,10 @@ acceptance_criteria:
   - Forked worldlines use structure-sharing (copy-on-write) so cost is proportional to the delta
   - The system recommends the refactor with the best structural outcome
   - A test verifies that forking a worldline and applying a hypothetical change does not modify the working tree
+blocked_by:
+  - WARP_codebase-entropy-trajectory
+blocking:
+  - WARP_structural-impact-prediction
 ---
 
 # Counterfactual refactoring

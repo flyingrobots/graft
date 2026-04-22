@@ -1,13 +1,10 @@
 ---
 title: "WARP: Agent action provenance (Level 3)"
+feature: provenance
+kind: trunk
 legend: WARP
 lane: cool-ideas
 effort: XL
-blocking:
-  - WARP_provenance-dag
-  - WARP_causal-write-tracking
-  - WARP_intent-and-decision-events
-  - CI-001-causal-collapse-visualizer
 requirements:
   - "WARP Level 1 indexing (shipped)"
   - "Hooks integration for write interception (backlog)"
@@ -20,6 +17,11 @@ acceptance_criteria:
   - "Multi-agent sessions produce distinct, interleaved observation chains"
   - "Observation storage cost scales sub-linearly with tool-call frequency (not one node per keystroke)"
   - "A test verifies that a read-then-write sequence produces a connected observation-mutation chain"
+blocking:
+  - CI-001-causal-collapse-visualizer
+  - WARP_causal-write-tracking
+  - WARP_intent-and-decision-events
+  - WARP_provenance-dag
 ---
 
 # WARP: Agent action provenance (Level 3)

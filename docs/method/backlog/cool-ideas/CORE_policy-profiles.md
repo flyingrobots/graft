@@ -1,5 +1,7 @@
 ---
 title: "Policy profiles"
+feature: policy
+kind: trunk
 legend: CORE
 lane: cool-ideas
 effort: M

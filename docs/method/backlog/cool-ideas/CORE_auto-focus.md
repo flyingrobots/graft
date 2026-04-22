@@ -1,5 +1,7 @@
 ---
 title: "Auto-focus — intent-driven read targeting"
+feature: policy
+kind: leaf
 legend: CORE
 lane: cool-ideas
 effort: L

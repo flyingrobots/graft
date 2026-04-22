@@ -1,12 +1,10 @@
 ---
 title: "Lagrangian policy engine"
+feature: policy
+kind: trunk
 legend: CORE
 lane: cool-ideas
 effort: XL
-blocked_by:
-  - WARP_refactor-difficulty-score
-blocking:
-  - WARP_codebase-signature
 requirements:
   - "Budget governor (shipped)"
   - "Session depth tracking (shipped)"
@@ -20,6 +18,8 @@ acceptance_criteria:
   - "The current dual-threshold policy (150 lines + 12 KB) is expressible as a degenerate case of the Lagrangian"
   - "Policy transitions are smooth and continuous, not step-function jumps"
   - "Performance is comparable to current policy — no measurable latency increase on tool calls"
+blocked_by:
+  - WARP_refactor-difficulty-score
 ---
 
 # Lagrangian policy engine
