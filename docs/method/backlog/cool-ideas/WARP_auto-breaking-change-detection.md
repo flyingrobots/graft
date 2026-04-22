@@ -5,6 +5,7 @@ lane: cool-ideas
 effort: L
 blocked_by:
   - WARP_dead-symbol-detection
+  - CLEAN_CODE_export-diff-semver-signature-as-patch
 requirements:
   - WARP Level 1 indexing (shipped)
   - graft_since structural diff (shipped)

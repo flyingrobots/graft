@@ -1,7 +1,10 @@
 ---
 title: MonitorTickWorkerJob could track tick ceiling for incremental re-indexing
 legend: CORE
+lane: cool-ideas
 effort: S
+blocking:
+  - WARP_background-indexing
 requirements:
   - "WARP Level 1 indexing (shipped)"
   - "Monitor tick worker job (shipped)"

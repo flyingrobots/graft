@@ -2,6 +2,9 @@
 title: "export-surface-diff classifies all signature changes as patch (may be breaking)"
 legend: CLEAN_CODE
 lane: v0.7.0
+blocking:
+  - WARP_semantic-merge-conflict-prediction
+  - WARP_auto-breaking-change-detection
 requirements:
   - "export-surface-diff operation exists with deriveSemverImpact"
 acceptance_criteria:

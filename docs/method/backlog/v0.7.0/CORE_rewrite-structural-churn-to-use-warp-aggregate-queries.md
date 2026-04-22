@@ -12,6 +12,7 @@ acceptance_criteria:
   - Change counts computed natively in WARP, not in-memory Maps
 blocks:
   - WARP_refactor-difficulty-score
+  - WARP_codebase-entropy-trajectory
 ---
 
 # Rewrite structural-churn to use WARP aggregate queries

@@ -1,5 +1,10 @@
 ---
 title: Counterfactual refactoring
+legend: WARP
+lane: cool-ideas
+effort: XL
+blocked_by:
+  - WARP_codebase-entropy-trajectory
 requirements:
   - WARP Level 1 indexing (shipped)
   - git-warp Strands for speculative writes (backlog)
