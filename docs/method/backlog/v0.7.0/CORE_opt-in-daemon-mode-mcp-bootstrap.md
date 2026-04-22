@@ -2,6 +2,12 @@
 title: "Opt-in daemon mode for generated MCP client config"
 legend: CORE
 lane: v0.7.0
+requirements:
+  - "Daemon-aware stdio bridge for MCP clients"
+acceptance_criteria:
+  - "graft init exposes an explicit daemon-mode opt-in flag"
+  - "Generated config points at the stdio bridge, not raw graft serve"
+  - "Default remains repo-local stdio; daemon only when requested"
 ---
 
 # Opt-in daemon mode for generated MCP client config

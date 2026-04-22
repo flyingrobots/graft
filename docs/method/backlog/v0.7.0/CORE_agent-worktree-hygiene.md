@@ -2,6 +2,11 @@
 title: "Automatic worktree cleanup after parallel agent execution"
 legend: CORE
 lane: v0.7.0
+requirements:
+  - "Claude Code worktree isolation feature exists"
+acceptance_criteria:
+  - "Worktree directories are cleaned up after parallel agent execution"
+  - "No .claude/worktrees/ paths appear in git commits"
 ---
 
 # Automatic worktree cleanup after parallel agent execution

@@ -2,6 +2,13 @@
 title: "Codebase orientation map"
 legend: CORE
 lane: v0.7.0
+requirements:
+  - "file_outline tool exists (shipped)"
+  - "Tree-sitter parsing pipeline (shipped)"
+acceptance_criteria:
+  - "graft map produces recursive structural outline of a directory tree"
+  - "Output includes function signatures, class hierarchies, export surfaces"
+  - "Respects .graftignore policy"
 ---
 
 # Codebase orientation map

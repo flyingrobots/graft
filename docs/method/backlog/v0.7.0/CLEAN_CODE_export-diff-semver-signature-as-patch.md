@@ -2,6 +2,11 @@
 title: "export-surface-diff classifies all signature changes as patch (may be breaking)"
 legend: CLEAN_CODE
 lane: v0.7.0
+requirements:
+  - "export-surface-diff operation exists with deriveSemverImpact"
+acceptance_criteria:
+  - "Signature changes that remove or narrow are classified as major, not patch"
+  - "Additive signature changes remain classified as minor or patch"
 ---
 
 # export-surface-diff classifies all signature changes as patch (may be breaking)

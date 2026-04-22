@@ -2,6 +2,12 @@
 title: "Agent drift warning"
 legend: CORE
 lane: v0.7.0
+requirements:
+  - "Session tracking and NDJSON metrics (shipped)"
+  - "Write interception via governed edit hooks"
+acceptance_criteria:
+  - "Agent receives a diagnostic when writing patterns that contradict session intent"
+  - "Drift detection uses structural outlines, not regex"
 ---
 
 # Agent drift warning

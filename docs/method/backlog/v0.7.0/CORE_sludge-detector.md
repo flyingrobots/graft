@@ -2,6 +2,13 @@
 title: "Sludge detector"
 legend: CORE
 lane: v0.7.0
+requirements:
+  - "file_outline tool exists (shipped)"
+  - "Tree-sitter parsing pipeline (shipped)"
+acceptance_criteria:
+  - "graft doctor --sludge scans files for structural smell signals"
+  - "Detects phantom shape ratio, cast density, homeless constructors"
+  - "Uses tree-sitter outlines, not regex"
 ---
 
 # Sludge detector
