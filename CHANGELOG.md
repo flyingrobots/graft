@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Added
+
+- **Monitor tick ceiling tracking**: `runMonitorTickJob` skips
+  `openWarp` and `indexHead` when HEAD hasn't changed since the last
+  indexed commit. Idle monitor ticks are now near-zero-cost.
+
 ## [0.6.1] - 2026-04-19
 
 ### Fixed
