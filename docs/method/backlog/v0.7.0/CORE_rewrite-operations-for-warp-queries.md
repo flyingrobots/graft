@@ -1,9 +1,7 @@
 ---
-title: "Rewrite structural operations to use WARP queries"
+title: Rewrite structural operations to use WARP queries
 legend: CORE
 lane: v0.7.0
-blocked_by:
-  - CORE_rewrite-structural-queries
 ---
 
 # Rewrite structural operations to use WARP queries
