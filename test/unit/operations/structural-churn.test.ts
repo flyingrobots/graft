@@ -4,16 +4,11 @@ import * as path from "node:path";
 import { nodeGit } from "../../../src/adapters/node-git.js";
 import { git, createTestRepo, cleanupTestRepo } from "../../helpers/git.js";
 import { openWarp } from "../../../src/warp/open.js";
-import { indexCommits, type IndexResult } from "../../../src/warp/indexer.js";
+import { indexHead } from "../../../src/warp/index-head.js";
 import { structuralChurn } from "../../../src/operations/structural-churn.js";
 import { nodePathOps } from "../../../src/adapters/node-paths.js";
 import { symbolsForCommit } from "../../../src/warp/structural-queries.js";
 import type { WarpContext } from "../../../src/warp/context.js";
-
-function assertOk(result: IndexResult): asserts result is IndexResult & { ok: true } {
-  expect(result.ok).toBe(true);
-  if (!result.ok) throw new Error("unreachable");
-}
 
 describe("operations: structural-churn", { timeout: 15000 }, () => {
   let tmpDir: string;
@@ -27,6 +22,9 @@ describe("operations: structural-churn", { timeout: 15000 }, () => {
   });
 
   it("counts changes for a function modified across multiple commits", async () => {
+    const warp = await openWarp({ cwd: tmpDir });
+    const ctx: WarpContext = { app: warp, strandId: null };
+
     // Commit 1: add function
     fs.writeFileSync(
       path.join(tmpDir, "math.ts"),
@@ -34,6 +32,7 @@ describe("operations: structural-churn", { timeout: 15000 }, () => {
     );
     git(tmpDir, "add -A");
     git(tmpDir, "commit -m 'add math'");
+    await indexHead({ cwd: tmpDir, git: nodeGit, pathOps: nodePathOps, ctx });
 
     // Commit 2: change function signature
     fs.writeFileSync(
@@ -42,6 +41,7 @@ describe("operations: structural-churn", { timeout: 15000 }, () => {
     );
     git(tmpDir, "add -A");
     git(tmpDir, "commit -m 'extend add'");
+    await indexHead({ cwd: tmpDir, git: nodeGit, pathOps: nodePathOps, ctx });
 
     // Commit 3: change function body (signature changes again for test simplicity)
     fs.writeFileSync(
@@ -50,11 +50,7 @@ describe("operations: structural-churn", { timeout: 15000 }, () => {
     );
     git(tmpDir, "add -A");
     git(tmpDir, "commit -m 'variadic add'");
-
-    const warp = await openWarp({ cwd: tmpDir });
-    const ctx: WarpContext = { app: warp, strandId: null };
-    const idxResult = await indexCommits(ctx, { cwd: tmpDir, git: nodeGit });
-    assertOk(idxResult);
+    await indexHead({ cwd: tmpDir, git: nodeGit, pathOps: nodePathOps, ctx });
 
     const result = await structuralChurn({
       cwd: tmpDir,
@@ -74,6 +70,9 @@ describe("operations: structural-churn", { timeout: 15000 }, () => {
   });
 
   it("ranks symbols by change frequency", async () => {
+    const warp = await openWarp({ cwd: tmpDir });
+    const ctx: WarpContext = { app: warp, strandId: null };
+
     // Commit 1: add two functions
     fs.writeFileSync(
       path.join(tmpDir, "api.ts"),
@@ -81,6 +80,7 @@ describe("operations: structural-churn", { timeout: 15000 }, () => {
     );
     git(tmpDir, "add -A");
     git(tmpDir, "commit -m 'add api'");
+    await indexHead({ cwd: tmpDir, git: nodeGit, pathOps: nodePathOps, ctx });
 
     // Commit 2: change volatile only
     fs.writeFileSync(
@@ -89,6 +89,7 @@ describe("operations: structural-churn", { timeout: 15000 }, () => {
     );
     git(tmpDir, "add -A");
     git(tmpDir, "commit -m 'change volatile'");
+    await indexHead({ cwd: tmpDir, git: nodeGit, pathOps: nodePathOps, ctx });
 
     // Commit 3: change volatile again
     fs.writeFileSync(
@@ -97,11 +98,7 @@ describe("operations: structural-churn", { timeout: 15000 }, () => {
     );
     git(tmpDir, "add -A");
     git(tmpDir, "commit -m 'change volatile again'");
-
-    const warp = await openWarp({ cwd: tmpDir });
-    const ctx: WarpContext = { app: warp, strandId: null };
-    const idxResult = await indexCommits(ctx, { cwd: tmpDir, git: nodeGit });
-    assertOk(idxResult);
+    await indexHead({ cwd: tmpDir, git: nodeGit, pathOps: nodePathOps, ctx });
 
     const result = await structuralChurn({
       cwd: tmpDir,
@@ -133,8 +130,7 @@ describe("operations: structural-churn", { timeout: 15000 }, () => {
 
     const warp = await openWarp({ cwd: tmpDir });
     const ctx: WarpContext = { app: warp, strandId: null };
-    const idxResult = await indexCommits(ctx, { cwd: tmpDir, git: nodeGit });
-    assertOk(idxResult);
+    await indexHead({ cwd: tmpDir, git: nodeGit, pathOps: nodePathOps, ctx });
 
     const result = await structuralChurn({
       cwd: tmpDir,
@@ -163,6 +159,9 @@ describe("operations: structural-churn — directory path filter", { timeout: 15
   });
 
   it("directory path filter matches symbols within directory", async () => {
+    const warp = await openWarp({ cwd: tmpDir });
+    const ctx: WarpContext = { app: warp, strandId: null };
+
     // Create files in different directories
     fs.mkdirSync(path.join(tmpDir, "src"), { recursive: true });
     fs.mkdirSync(path.join(tmpDir, "lib"), { recursive: true });
@@ -170,17 +169,14 @@ describe("operations: structural-churn — directory path filter", { timeout: 15
     fs.writeFileSync(path.join(tmpDir, "lib/b.ts"), "export function beta(): void {}\n");
     git(tmpDir, "add -A");
     git(tmpDir, "commit -m init");
+    await indexHead({ cwd: tmpDir, git: nodeGit, pathOps: nodePathOps, ctx });
 
     // Modify both
     fs.writeFileSync(path.join(tmpDir, "src/a.ts"), "export function alpha(): string { return \"\"; }\n");
     fs.writeFileSync(path.join(tmpDir, "lib/b.ts"), "export function beta(): string { return \"\"; }\n");
     git(tmpDir, "add -A");
     git(tmpDir, "commit -m modify");
-
-    const warp = await openWarp({ cwd: tmpDir });
-    const ctx: WarpContext = { app: warp, strandId: null };
-    const r1 = await indexCommits(ctx, { cwd: tmpDir, git: nodeGit });
-    assertOk(r1);
+    await indexHead({ cwd: tmpDir, git: nodeGit, pathOps: nodePathOps, ctx });
 
     const result = await structuralChurn({
       cwd: tmpDir,
@@ -197,21 +193,21 @@ describe("operations: structural-churn — directory path filter", { timeout: 15
   });
 
   it("exact file path filter still works", async () => {
+    const warp = await openWarp({ cwd: tmpDir });
+    const ctx: WarpContext = { app: warp, strandId: null };
+
     fs.mkdirSync(path.join(tmpDir, "src"), { recursive: true });
     fs.writeFileSync(path.join(tmpDir, "src/a.ts"), "export function alpha(): void {}\n");
     fs.writeFileSync(path.join(tmpDir, "src/b.ts"), "export function beta(): void {}\n");
     git(tmpDir, "add -A");
     git(tmpDir, "commit -m init");
+    await indexHead({ cwd: tmpDir, git: nodeGit, pathOps: nodePathOps, ctx });
 
     fs.writeFileSync(path.join(tmpDir, "src/a.ts"), "export function alpha(): string { return \"\"; }\n");
     fs.writeFileSync(path.join(tmpDir, "src/b.ts"), "export function beta(): string { return \"\"; }\n");
     git(tmpDir, "add -A");
     git(tmpDir, "commit -m modify");
-
-    const warp = await openWarp({ cwd: tmpDir });
-    const ctx: WarpContext = { app: warp, strandId: null };
-    const r1 = await indexCommits(ctx, { cwd: tmpDir, git: nodeGit });
-    assertOk(r1);
+    await indexHead({ cwd: tmpDir, git: nodeGit, pathOps: nodePathOps, ctx });
 
     const result = await structuralChurn({
       cwd: tmpDir,
@@ -227,22 +223,22 @@ describe("operations: structural-churn — directory path filter", { timeout: 15
   });
 
   it("directory filter with trailing slash works", async () => {
+    const warp = await openWarp({ cwd: tmpDir });
+    const ctx: WarpContext = { app: warp, strandId: null };
+
     fs.mkdirSync(path.join(tmpDir, "src"), { recursive: true });
     fs.mkdirSync(path.join(tmpDir, "lib"), { recursive: true });
     fs.writeFileSync(path.join(tmpDir, "src/a.ts"), "export function alpha(): void {}\n");
     fs.writeFileSync(path.join(tmpDir, "lib/b.ts"), "export function beta(): void {}\n");
     git(tmpDir, "add -A");
     git(tmpDir, "commit -m init");
+    await indexHead({ cwd: tmpDir, git: nodeGit, pathOps: nodePathOps, ctx });
 
     fs.writeFileSync(path.join(tmpDir, "src/a.ts"), "export function alpha(): string { return \"\"; }\n");
     fs.writeFileSync(path.join(tmpDir, "lib/b.ts"), "export function beta(): string { return \"\"; }\n");
     git(tmpDir, "add -A");
     git(tmpDir, "commit -m modify");
-
-    const warp = await openWarp({ cwd: tmpDir });
-    const ctx: WarpContext = { app: warp, strandId: null };
-    const r1 = await indexCommits(ctx, { cwd: tmpDir, git: nodeGit });
-    assertOk(r1);
+    await indexHead({ cwd: tmpDir, git: nodeGit, pathOps: nodePathOps, ctx });
 
     const result = await structuralChurn({
       cwd: tmpDir,

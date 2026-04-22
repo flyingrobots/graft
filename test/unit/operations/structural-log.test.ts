@@ -4,16 +4,11 @@ import * as path from "node:path";
 import { nodeGit } from "../../../src/adapters/node-git.js";
 import { git, createTestRepo, cleanupTestRepo } from "../../helpers/git.js";
 import { openWarp } from "../../../src/warp/open.js";
-import { indexCommits, type IndexResult } from "../../../src/warp/indexer.js";
+import { indexHead } from "../../../src/warp/index-head.js";
 import { symbolsForCommit } from "../../../src/warp/structural-queries.js";
 import { structuralLog } from "../../../src/operations/structural-log.js";
 import { nodePathOps } from "../../../src/adapters/node-paths.js";
 import type { WarpContext } from "../../../src/warp/context.js";
-
-function assertOk(result: IndexResult): asserts result is IndexResult & { ok: true } {
-  expect(result.ok).toBe(true);
-  if (!result.ok) throw new Error("unreachable");
-}
 
 function commitSha(cwd: string, ref = "HEAD"): string {
   return git(cwd, `rev-parse ${ref}`);
@@ -33,8 +28,7 @@ describe("operations: structural-log", { timeout: 20000 }, () => {
   async function indexRepo(): Promise<WarpContext> {
     const warp = await openWarp({ cwd: tmpDir });
     const ctx: WarpContext = { app: warp, strandId: null };
-    const result = await indexCommits(ctx, { cwd: tmpDir, git: nodeGit });
-    assertOk(result);
+    await indexHead({ cwd: tmpDir, git: nodeGit, pathOps: nodePathOps, ctx });
     return ctx;
   }
 
@@ -98,11 +92,10 @@ describe("operations: structural-log", { timeout: 20000 }, () => {
     git(tmpDir, "commit -m 'add optional title param'");
     const sha2 = commitSha(tmpDir);
 
-    // Re-index
+    // Re-index after second commit
     const reApp = await openWarp({ cwd: tmpDir });
     warp = { app: reApp, strandId: null };
-    const reindex = await indexCommits(warp, { cwd: tmpDir, git: nodeGit });
-    assertOk(reindex);
+    await indexHead({ cwd: tmpDir, git: nodeGit, pathOps: nodePathOps, ctx: warp });
 
     const e2 = await structuralLog({
       querySymbols: (s) => symbolsForCommit(warp, s),
@@ -121,7 +114,10 @@ describe("operations: structural-log", { timeout: 20000 }, () => {
   });
 
   it("respects limit option", async () => {
-    // Create 3 commits with symbols
+    const warp = await openWarp({ cwd: tmpDir });
+    const ctx: WarpContext = { app: warp, strandId: null };
+
+    // Create 3 commits with symbols, indexing after each
     for (let i = 0; i < 3; i++) {
       fs.writeFileSync(
         path.join(tmpDir, `file${String(i)}.ts`),
@@ -129,11 +125,12 @@ describe("operations: structural-log", { timeout: 20000 }, () => {
       );
       git(tmpDir, "add -A");
       git(tmpDir, `commit -m 'add fn${String(i)}'`);
+      await indexHead({ cwd: tmpDir, git: nodeGit, pathOps: nodePathOps, ctx });
     }
 
-    const warp = await indexRepo();
+    const warpCtx = ctx;
     const entries = await structuralLog({
-      querySymbols: (s) => symbolsForCommit(warp, s),
+      querySymbols: (s) => symbolsForCommit(warpCtx, s),
       git: nodeGit,
       pathOps: nodePathOps,
       cwd: tmpDir,
@@ -177,6 +174,9 @@ describe("operations: structural-log", { timeout: 20000 }, () => {
   });
 
   it("uses since option to filter commit range", async () => {
+    const warp = await openWarp({ cwd: tmpDir });
+    const ctx: WarpContext = { app: warp, strandId: null };
+
     fs.writeFileSync(
       path.join(tmpDir, "base.ts"),
       "export function base(): void {}\n",
@@ -184,6 +184,7 @@ describe("operations: structural-log", { timeout: 20000 }, () => {
     git(tmpDir, "add -A");
     git(tmpDir, "commit -m 'base commit'");
     const baseRef = commitSha(tmpDir);
+    await indexHead({ cwd: tmpDir, git: nodeGit, pathOps: nodePathOps, ctx });
 
     fs.writeFileSync(
       path.join(tmpDir, "newer.ts"),
@@ -191,10 +192,9 @@ describe("operations: structural-log", { timeout: 20000 }, () => {
     );
     git(tmpDir, "add -A");
     git(tmpDir, "commit -m 'newer commit'");
-
-    const warp = await indexRepo();
+    await indexHead({ cwd: tmpDir, git: nodeGit, pathOps: nodePathOps, ctx });
     const entries = await structuralLog({
-      querySymbols: (s) => symbolsForCommit(warp, s),
+      querySymbols: (s) => symbolsForCommit(ctx, s),
       git: nodeGit,
       pathOps: nodePathOps,
       cwd: tmpDir,

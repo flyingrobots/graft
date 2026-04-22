@@ -14,7 +14,6 @@ import { detectLang } from "../parser/lang.js";
 import { parseStructuredTree } from "../parser/runtime.js";
 import { extractOutlineForFile } from "../parser/outline.js";
 import { emitAstNodes } from "./ast-emitter.js";
-import { emitDirectoryChain } from "./indexer-graph.js";
 import { resolveImportEdges } from "./ast-import-resolver.js";
 import type { OutlineEntry } from "../parser/types.js";
 
@@ -29,6 +28,7 @@ function emitOutlineSyms(
   patch: PatchBuilderV2,
   filePath: string,
   entries: readonly OutlineEntry[],
+  jumpLookup: ReadonlyMap<string, { start: number; end: number }>,
   parentPath = "",
 ): Set<string> {
   const emitted = new Set<string>();
@@ -47,15 +47,47 @@ function emitOutlineSyms(
     if (entry.signature !== undefined) {
       patch.setProperty(symId, "signature", entry.signature);
     }
+    const jump = jumpLookup.get(entry.name);
+    if (jump !== undefined) {
+      patch.setProperty(symId, "startLine", jump.start);
+      patch.setProperty(symId, "endLine", jump.end);
+    }
     patch.addEdge(fileId, symId, "contains");
 
     if (entry.children !== undefined && entry.children.length > 0) {
-      for (const childId of emitOutlineSyms(patch, filePath, entry.children, symbolPath)) {
+      for (const childId of emitOutlineSyms(patch, filePath, entry.children, jumpLookup, symbolPath)) {
         emitted.add(childId);
       }
     }
   }
   return emitted;
+}
+
+
+// ---------------------------------------------------------------------------
+// Directory chain emission (inlined from indexer-graph.ts to avoid dep on
+// the legacy indexer module).
+// ---------------------------------------------------------------------------
+
+function emitDirectoryChain(patch: PatchBuilderV2, filePath: string): void {
+  const parts = filePath.split("/");
+  if (parts.length <= 1) return;
+
+  let current = "";
+  for (let index = 0; index < parts.length - 1; index++) {
+    const parent = current;
+    const part = parts[index] ?? "";
+    current = current.length > 0 ? `${current}/${part}` : part;
+    const dirId = `dir:${current}`;
+    patch.addNode(dirId);
+    patch.setProperty(dirId, "path", current);
+
+    if (parent.length > 0) {
+      patch.addEdge(`dir:${parent}`, dirId, "contains");
+    }
+  }
+
+  patch.addEdge(`dir:${current}`, `file:${filePath}`, "contains");
 }
 
 // ---------------------------------------------------------------------------
@@ -111,6 +143,7 @@ export async function indexHead(opts: IndexHeadOptions): Promise<IndexHeadResult
     filePath: string;
     root: TSNode;
     outline: readonly OutlineEntry[];
+    jumpLookup: ReadonlyMap<string, { start: number; end: number }>;
     cleanup: () => void;
   }[] = [];
 
@@ -124,11 +157,16 @@ export async function indexHead(opts: IndexHeadOptions): Promise<IndexHeadResult
     const tree = parseStructuredTree(lang, contentResult.stdout);
     const outlineResult = extractOutlineForFile(filePath, contentResult.stdout);
     const entries = outlineResult?.entries ?? [];
+    const jumpLookup = new Map<string, { start: number; end: number }>();
+    for (const jt of outlineResult?.jumpTable ?? []) {
+      jumpLookup.set(jt.symbol, { start: jt.start, end: jt.end });
+    }
 
     parsed.push({
       filePath,
       root: tree.root,
       outline: entries,
+      jumpLookup,
       cleanup: () => { tree.delete(); },
     });
   }
@@ -170,7 +208,7 @@ export async function indexHead(opts: IndexHeadOptions): Promise<IndexHeadResult
     patch.setProperty(commitId, "sha", headSha);
     patch.setProperty(commitId, "tick", tick);
 
-    for (const { filePath, root, outline } of parsed) {
+    for (const { filePath, root, outline, jumpLookup } of parsed) {
       // File node
       const fileId = `file:${filePath}`;
       patch.addNode(fileId);
@@ -181,8 +219,8 @@ export async function indexHead(opts: IndexHeadOptions): Promise<IndexHeadResult
       // Directory chain (dir:src, dir:src/mcp, etc.)
       emitDirectoryChain(patch, filePath);
 
-      // Symbol nodes from outline (includes signatures)
-      emitOutlineSyms(patch, filePath, outline);
+      // Symbol nodes from outline (includes signatures + line ranges)
+      emitOutlineSyms(patch, filePath, outline, jumpLookup);
 
       // Full AST
       emitAstNodes(patch, filePath, root);
