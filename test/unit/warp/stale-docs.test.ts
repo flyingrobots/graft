@@ -178,6 +178,18 @@ describe("warp: stale-docs-checker", { timeout: 15000 }, () => {
       expect(result.drifted).toBe(false);
     });
 
+    it("matches Keep a Changelog bracket format: ## [1.0.0]", () => {
+      const result = checkVersionDrift("1.0.0", "## [1.0.0] - 2026-01-01\n\n- Initial release\n");
+      expect(result.drifted).toBe(false);
+      expect(result.changelogVersion).toBe("1.0.0");
+    });
+
+    it("detects mismatch in bracket format", () => {
+      const result = checkVersionDrift("2.0.0", "## [1.5.0] - 2026-01-01\n");
+      expect(result.drifted).toBe(true);
+      expect(result.changelogVersion).toBe("1.5.0");
+    });
+
     it("handles missing version heading in CHANGELOG", () => {
       const result = checkVersionDrift("1.0.0", "No version headings here.\n");
       expect(result.drifted).toBe(true);
