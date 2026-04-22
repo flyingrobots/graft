@@ -12,13 +12,13 @@ afterEach(() => {
 
 function committedRepo(): string {
   const dir = createCommittedTestRepo("graft-ceiling-");
-  cleanups.push(() => cleanupTestRepo(dir));
+  cleanups.push(() => { cleanupTestRepo(dir); });
   return dir;
 }
 
 function emptyRepo(): string {
   const dir = createTestRepo("graft-ceiling-empty-");
-  cleanups.push(() => cleanupTestRepo(dir));
+  cleanups.push(() => { cleanupTestRepo(dir); });
   return dir;
 }
 
