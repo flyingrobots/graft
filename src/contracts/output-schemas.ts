@@ -1260,9 +1260,8 @@ export const CLI_OUTPUT_SCHEMAS: Record<CliCommandName, z.ZodType> = {
   index: withCliCommon("index", z.object({
     ok: z.boolean(),
     cwd: z.string(),
-    from: z.string().nullable(),
-    commitsIndexed: z.number().int().nonnegative().optional(),
-    patchesWritten: z.number().int().nonnegative().optional(),
+    filesIndexed: z.number().int().nonnegative().optional(),
+    nodesEmitted: z.number().int().nonnegative().optional(),
     error: z.string().optional(),
   }).strict()),
   read_safe: withCliPeerCommon("read_safe", mcpOutputBodySchemas.safe_read),

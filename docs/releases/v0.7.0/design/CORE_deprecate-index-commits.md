@@ -1,10 +1,50 @@
 ---
 title: "Remove legacy commit-walking indexer"
-legend: CORE
-lane: v0.7.0
+legend: "CORE"
+cycle: "CORE_deprecate-index-commits"
+release: "v0.7.0"
+source_backlog: "docs/method/backlog/v0.7.0/CORE_deprecate-index-commits.md"
 ---
 
 # Remove legacy commit-walking indexer
+
+Source backlog item: `docs/method/backlog/v0.7.0/CORE_deprecate-index-commits.md`
+Legend: CORE
+
+## Hill
+
+TBD
+
+## Playback Questions
+
+### Human
+
+- [ ] TBD
+
+### Agent
+
+- [ ] TBD
+
+## Accessibility and Assistive Reading
+
+- Linear truth / reduced-complexity posture: TBD
+- Non-visual or alternate-reading expectations: TBD
+
+## Localization and Directionality
+
+- Locale / wording / formatting assumptions: TBD
+- Logical direction / layout assumptions: TBD
+
+## Agent Inspectability and Explainability
+
+- What must be explicit and deterministic for agents: TBD
+- What must be attributable, evidenced, or governed: TBD
+
+## Non-goals
+
+- [ ] TBD
+
+## Backlog Context
 
 Source: WARP model alignment audit (2026-04-20)
 

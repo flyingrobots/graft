@@ -1,5 +1,6 @@
-import { indexCommits } from "../warp/indexer.js";
+import { indexHead } from "../warp/index-head.js";
 import { nodeGit } from "../adapters/node-git.js";
+import { nodePathOps } from "../adapters/node-paths.js";
 import { openWarp } from "../warp/open.js";
 
 export interface MonitorTickWorkerJob {
@@ -26,30 +27,13 @@ export type MonitorTickWorkerResult =
     readonly backlogCommits: number;
   };
 
-async function readGit(cwd: string, args: readonly string[]): Promise<string | null> {
-  const result = await nodeGit.run({ cwd, args });
+async function readHeadCommit(cwd: string): Promise<string | null> {
+  const result = await nodeGit.run({ cwd, args: ["rev-parse", "--verify", "HEAD"] });
   if (result.error !== undefined || result.status !== 0) {
     return null;
   }
   const trimmed = result.stdout.trim();
   return trimmed.length === 0 ? null : trimmed;
-}
-
-async function readHeadCommit(cwd: string): Promise<string | null> {
-  return readGit(cwd, ["rev-parse", "--verify", "HEAD"]);
-}
-
-async function countPendingCommits(
-  cwd: string,
-  from: string | null,
-  to: string | null,
-): Promise<number> {
-  if (to === null) return 0;
-  const range = from === null ? to : `${from}..${to}`;
-  const output = await readGit(cwd, ["rev-list", "--count", range]);
-  if (output === null) return 0;
-  const parsed = Number.parseInt(output, 10);
-  return Number.isInteger(parsed) && parsed >= 0 ? parsed : 0;
 }
 
 export async function runMonitorTickJob(job: MonitorTickWorkerJob): Promise<MonitorTickWorkerResult> {
@@ -61,43 +45,29 @@ export async function runMonitorTickJob(job: MonitorTickWorkerJob): Promise<Moni
       writerId: job.writerId,
     });
     const ctx = { app, strandId: null };
-    const result = await indexCommits(ctx, {
+    const result = await indexHead({
       cwd: job.worktreeRoot,
       git: nodeGit,
-      ...(job.lastIndexedCommit !== null ? { from: job.lastIndexedCommit } : {}),
-      ...(headAtStart !== null ? { to: headAtStart } : {}),
+      pathOps: nodePathOps,
+      ctx,
     });
-    if (!result.ok) {
-      throw new Error(result.error);
-    }
     const currentHead = await readHeadCommit(job.worktreeRoot);
-    const lastIndexedCommit = headAtStart ?? job.lastIndexedCommit;
-    const backlogCommits = await countPendingCommits(
-      job.worktreeRoot,
-      lastIndexedCommit,
-      currentHead,
-    );
     return {
       ok: true,
       headAtStart,
       currentHead,
-      lastIndexedCommit,
-      backlogCommits,
-      commitsIndexed: result.commitsIndexed,
-      patchesWritten: result.patchesWritten,
+      lastIndexedCommit: headAtStart,
+      backlogCommits: 0,
+      commitsIndexed: result.filesIndexed,
+      patchesWritten: result.nodesEmitted,
     };
   } catch (error) {
     const currentHead = await readHeadCommit(job.worktreeRoot);
-    const backlogCommits = await countPendingCommits(
-      job.worktreeRoot,
-      job.lastIndexedCommit,
-      currentHead,
-    );
     return {
       ok: false,
       error: error instanceof Error ? error.message : String(error),
       currentHead,
-      backlogCommits,
+      backlogCommits: 0,
     };
   }
 }

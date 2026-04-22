@@ -1,7 +1,8 @@
 import { CanonicalJsonCodec } from "../adapters/canonical-json.js";
 import { nodeGit } from "../adapters/node-git.js";
+import { nodePathOps } from "../adapters/node-paths.js";
 import { attachCliSchemaMeta, validateCliOutput } from "../contracts/output-schemas.js";
-import { indexCommits } from "../warp/indexer.js";
+import { indexHead } from "../warp/index-head.js";
 import { openWarp } from "../warp/open.js";
 import { writeCliError } from "./cli-error.js";
 import {
@@ -39,34 +40,30 @@ export async function runIndex(options: RunIndexOptions = {}): Promise<void> {
   const stderr = options.stderr ?? process.stderr;
 
   try {
-    const { json, from } = parseIndexCommandArgs(args);
+    const { json } = parseIndexCommandArgs(args);
     const app = await openWarp({ cwd });
     const ctx = { app, strandId: null };
-    const result = await indexCommits(ctx, {
+    const result = await indexHead({
       cwd,
       git: nodeGit,
-      ...(from !== null ? { from } : {}),
+      pathOps: nodePathOps,
+      ctx,
     });
-
-    if (!result.ok) {
-      throw new Error(result.error);
-    }
 
     if (json) {
       emitIndexJson(buildIndexCliSuccess({
         cwd,
-        from,
-        commitsIndexed: result.commitsIndexed,
-        patchesWritten: result.patchesWritten,
+        filesIndexed: result.filesIndexed,
+        nodesEmitted: result.nodesEmitted,
       }), stdout);
       return;
     }
 
     writeLine(stdout);
-    writeLine(stdout, `Indexing structural history in ${cwd}`);
+    writeLine(stdout, `Indexing HEAD in ${cwd}`);
     writeLine(stdout);
-    writeLine(stdout, `  commits indexed: ${String(result.commitsIndexed)}`);
-    writeLine(stdout, `  patches written: ${String(result.patchesWritten)}`);
+    writeLine(stdout, `  files indexed: ${String(result.filesIndexed)}`);
+    writeLine(stdout, `  nodes emitted: ${String(result.nodesEmitted)}`);
     writeLine(stdout);
     writeLine(stdout, "Done.");
     writeLine(stdout);
@@ -77,18 +74,15 @@ export async function runIndex(options: RunIndexOptions = {}): Promise<void> {
       try {
         return parseIndexCommandArgs(args);
       } catch {
-        return {
-          json: args.includes("--json"),
-          from: args.find((arg) => arg !== "--json" && !arg.startsWith("--")) ?? null,
-        };
+        return { json: args.includes("--json") };
       }
     })();
     if (parsed.json) {
-      emitIndexJson(buildIndexCliFailure({ cwd, from: parsed.from, error: message }), stdout);
+      emitIndexJson(buildIndexCliFailure({ cwd, error: message }), stdout);
       return;
     }
     writeCliError(stderr, message, {
-      usage: "graft index [<from-ref>] [--json]",
+      usage: "graft index [--json]",
       nextSteps: ["Use `--json` if you want a machine-readable indexing report."],
     });
   }

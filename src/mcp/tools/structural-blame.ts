@@ -8,7 +8,7 @@ import {
 } from "../../operations/structural-blame.js";
 import { commitsForSymbol, symbolsForCommit } from "../../warp/structural-queries.js";
 import { countSymbolReferences } from "../../warp/reference-count.js";
-import { getCommitMeta } from "../../warp/indexer-git.js";
+import { getCommitMeta } from "../../warp/commit-meta.js";
 
 export const structuralBlameTool: ToolDefinition = {
   name: "graft_blame",

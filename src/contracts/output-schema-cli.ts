@@ -17,9 +17,8 @@ export const cliOutputBodySchemas = {
   index: z.object({
     ok: z.boolean(),
     cwd: z.string(),
-    from: z.string().nullable(),
-    commitsIndexed: z.number().int().nonnegative().optional(),
-    patchesWritten: z.number().int().nonnegative().optional(),
+    filesIndexed: z.number().int().nonnegative().optional(),
+    nodesEmitted: z.number().int().nonnegative().optional(),
     error: z.string().optional(),
   }).strict(),
   migrate_local_history: z.object({

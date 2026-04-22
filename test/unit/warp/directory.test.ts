@@ -2,9 +2,10 @@ import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import * as fs from "node:fs";
 import * as path from "node:path";
 import { nodeGit } from "../../../src/adapters/node-git.js";
+import { nodePathOps } from "../../../src/adapters/node-paths.js";
 import { git, createTestRepo, cleanupTestRepo } from "../../helpers/git.js";
 import { openWarp } from "../../../src/warp/open.js";
-import { indexCommits } from "../../../src/warp/indexer.js";
+import { indexHead } from "../../../src/warp/index-head.js";
 import { directoryFilesLens, fileSymbolsLens } from "../../../src/warp/observers.js";
 
 describe("warp: directory tree modeling", { timeout: 15000 }, () => {
@@ -26,7 +27,7 @@ describe("warp: directory tree modeling", { timeout: 15000 }, () => {
     git(tmpDir, "commit -m 'nested file'");
 
     const warp = await openWarp({ cwd: tmpDir });
-    await indexCommits({ app: warp, strandId: null }, { cwd: tmpDir, git: nodeGit });
+    await indexHead({ cwd: tmpDir, git: nodeGit, pathOps: nodePathOps, ctx: { app: warp, strandId: null } });
     await warp.core().materialize();
 
     // Should have dir:src and dir:src/mcp
@@ -46,7 +47,7 @@ describe("warp: directory tree modeling", { timeout: 15000 }, () => {
     git(tmpDir, "commit -m 'src and test'");
 
     const warp = await openWarp({ cwd: tmpDir });
-    await indexCommits({ app: warp, strandId: null }, { cwd: tmpDir, git: nodeGit });
+    await indexHead({ cwd: tmpDir, git: nodeGit, pathOps: nodePathOps, ctx: { app: warp, strandId: null } });
     await warp.core().materialize();
 
     // Scoped to src/ — should only see src/app.ts
@@ -70,7 +71,7 @@ describe("warp: directory tree modeling", { timeout: 15000 }, () => {
     git(tmpDir, "commit -m 'src files'");
 
     const warp = await openWarp({ cwd: tmpDir });
-    await indexCommits({ app: warp, strandId: null }, { cwd: tmpDir, git: nodeGit });
+    await indexHead({ cwd: tmpDir, git: nodeGit, pathOps: nodePathOps, ctx: { app: warp, strandId: null } });
     await warp.core().materialize();
 
     // Get all files in src/

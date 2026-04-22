@@ -26,7 +26,7 @@ describe("cli: graft index", () => {
 
     expect(stdout.text()).toBe("");
     expect(stderr.text()).toContain("Unknown index arguments: --bad-flag");
-    expect(stderr.text()).toContain("Usage: graft index [<from-ref>] [--json]");
+    expect(stderr.text()).toContain("Usage: graft index [--json]");
     expect(stderr.text()).toContain("docs/CLI.md");
     expect(process.exitCode).toBe(1);
   });
