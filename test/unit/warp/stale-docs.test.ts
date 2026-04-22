@@ -14,8 +14,6 @@ import {
 import type { WarpContext } from "../../../src/warp/context.js";
 
 describe("warp: stale-docs-checker", { timeout: 15000 }, () => {
-  // ── extractDocSymbolReferences (pure) ──
-
   describe("extractDocSymbolReferences", () => {
     it("extracts backtick-quoted identifiers", () => {
       const refs = extractDocSymbolReferences(
@@ -55,8 +53,6 @@ describe("warp: stale-docs-checker", { timeout: 15000 }, () => {
     });
   });
 
-  // ── checkStaleDocs (requires WARP graph) ──
-
   describe("checkStaleDocs", () => {
     let tmpDir: string;
 
@@ -78,7 +74,6 @@ describe("warp: stale-docs-checker", { timeout: 15000 }, () => {
     }
 
     it("flags a symbol that changed after the doc was committed", async () => {
-      // Commit 1: add source + doc
       fs.writeFileSync(
         path.join(tmpDir, "api.ts"),
         "export function evaluate(): void {}\n",
@@ -94,7 +89,6 @@ describe("warp: stale-docs-checker", { timeout: 15000 }, () => {
       const ctx = await openCtx();
       await index(ctx);
 
-      // Commit 2: change the symbol's signature
       fs.writeFileSync(
         path.join(tmpDir, "api.ts"),
         "export function evaluate(policy: string): boolean { return true; }\n",
@@ -119,15 +113,19 @@ describe("warp: stale-docs-checker", { timeout: 15000 }, () => {
         path.join(tmpDir, "stable.ts"),
         "export function helper(): void {}\n",
       );
+      git(tmpDir, "add -A");
+      git(tmpDir, "commit -m 'add helper'");
+
+      const ctx = await openCtx();
+      await index(ctx);
+
       fs.writeFileSync(
         path.join(tmpDir, "GUIDE.md"),
         "Call `helper` for utility work.\n",
       );
       git(tmpDir, "add -A");
-      git(tmpDir, "commit -m 'add stable + guide'");
+      git(tmpDir, "commit -m 'add guide'");
       const docSha = git(tmpDir, "rev-parse HEAD");
-
-      const ctx = await openCtx();
       await index(ctx);
 
       const report = await checkStaleDocs(
@@ -167,18 +165,16 @@ describe("warp: stale-docs-checker", { timeout: 15000 }, () => {
     });
   });
 
-  // ── checkVersionDrift (pure) ──
-
   describe("checkVersionDrift", () => {
     it("detects version mismatch", () => {
-      const result = checkVersionDrift("2.0.0", "## [1.5.0] - 2026-01-01\n");
+      const result = checkVersionDrift("2.0.0", "## 1.5.0\n\n- Added feature X\n");
       expect(result.drifted).toBe(true);
       expect(result.packageVersion).toBe("2.0.0");
       expect(result.changelogVersion).toBe("1.5.0");
     });
 
     it("reports no drift when versions match", () => {
-      const result = checkVersionDrift("1.0.0", "## [1.0.0] - 2026-01-01\n");
+      const result = checkVersionDrift("1.0.0", "## 1.0.0\n\n- Initial release\n");
       expect(result.drifted).toBe(false);
     });
 
