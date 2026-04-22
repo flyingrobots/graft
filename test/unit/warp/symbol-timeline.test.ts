@@ -40,15 +40,15 @@ describe("warp: symbol-timeline", { timeout: 15000 }, () => {
     const ctx = await openCtx();
     await index(ctx);
 
-    const timeline = await symbolTimeline(ctx, "greet");
-    expect(timeline.length).toBe(1);
-    expect(timeline[0]!.changeKind).toBe("added");
-    expect(timeline[0]!.present).toBe(true);
-    expect(timeline[0]!.signature).toContain("greet");
+    const result = await symbolTimeline(ctx, "greet");
+    expect(result.symbol).toBe("greet");
+    expect(result.versions.length).toBe(1);
+    expect(result.versions[0]!.changeKind).toBe("added");
+    expect(result.versions[0]!.present).toBe(true);
+    expect(result.versions[0]!.signature).toContain("greet");
   });
 
   it("tracks signature changes across commits in tick order", async () => {
-    // Commit 1: original signature
     fs.writeFileSync(
       path.join(tmpDir, "math.ts"),
       "export function calc(a: number): number { return a; }\n",
@@ -59,7 +59,6 @@ describe("warp: symbol-timeline", { timeout: 15000 }, () => {
     const ctx = await openCtx();
     await index(ctx);
 
-    // Commit 2: changed signature
     fs.writeFileSync(
       path.join(tmpDir, "math.ts"),
       "export function calc(a: number, b: number): number { return a + b; }\n",
@@ -68,19 +67,12 @@ describe("warp: symbol-timeline", { timeout: 15000 }, () => {
     git(tmpDir, "commit -m 'calc v2'");
     await index(ctx);
 
-    const timeline = await symbolTimeline(ctx, "calc");
-    expect(timeline.length).toBe(2);
-
-    // Ordered chronologically
-    expect(timeline[0]!.tick).toBeLessThan(timeline[1]!.tick);
-
-    // First entry: original signature
-    expect(timeline[0]!.changeKind).toBe("added");
-    expect(timeline[0]!.signature).toContain("a: number)");
-
-    // Second entry: updated signature
-    expect(timeline[1]!.changeKind).toBe("changed");
-    expect(timeline[1]!.signature).toContain("b: number");
+    const result = await symbolTimeline(ctx, "calc");
+    expect(result.versions.length).toBe(2);
+    expect(result.versions[0]!.tick).toBeLessThan(result.versions[1]!.tick);
+    expect(result.versions[0]!.changeKind).toBe("added");
+    expect(result.versions[1]!.changeKind).toBe("changed");
+    expect(result.versions[0]!.signature).not.toBe(result.versions[1]!.signature);
   });
 
   it("detects removal with present=false", async () => {
@@ -94,21 +86,19 @@ describe("warp: symbol-timeline", { timeout: 15000 }, () => {
     const ctx = await openCtx();
     await index(ctx);
 
-    // Remove the symbol
     fs.writeFileSync(path.join(tmpDir, "temp.ts"), "// cleared\n");
     git(tmpDir, "add -A");
     git(tmpDir, "commit -m 'remove ephemeral'");
     await index(ctx);
 
-    const timeline = await symbolTimeline(ctx, "ephemeral");
-    expect(timeline.length).toBe(2);
-    expect(timeline[0]!.present).toBe(true);
-    expect(timeline[1]!.present).toBe(false);
-    expect(timeline[1]!.changeKind).toBe("removed");
+    const result = await symbolTimeline(ctx, "ephemeral");
+    expect(result.versions.length).toBe(2);
+    expect(result.versions[0]!.present).toBe(true);
+    expect(result.versions[1]!.present).toBe(false);
+    expect(result.versions[1]!.changeKind).toBe("removed");
   });
 
   it("filters by filePath", async () => {
-    // Same symbol name in two files
     fs.writeFileSync(path.join(tmpDir, "a.ts"), "export function dup(): void {}\n");
     fs.writeFileSync(path.join(tmpDir, "b.ts"), "export function dup(): void {}\n");
     git(tmpDir, "add -A");
@@ -120,9 +110,9 @@ describe("warp: symbol-timeline", { timeout: 15000 }, () => {
     const all = await symbolTimeline(ctx, "dup");
     const filtered = await symbolTimeline(ctx, "dup", "a.ts");
 
-    expect(all.length).toBeGreaterThanOrEqual(2);
-    expect(filtered.length).toBe(1);
-    expect(filtered[0]!.filePath).toContain("a.ts");
+    expect(all.versions.length).toBeGreaterThanOrEqual(2);
+    expect(filtered.versions.length).toBe(1);
+    expect(filtered.filePath).toBe("a.ts");
   });
 
   it("returns empty for nonexistent symbol", async () => {
@@ -133,7 +123,8 @@ describe("warp: symbol-timeline", { timeout: 15000 }, () => {
     const ctx = await openCtx();
     await index(ctx);
 
-    const timeline = await symbolTimeline(ctx, "doesNotExist");
-    expect(timeline).toEqual([]);
+    const result = await symbolTimeline(ctx, "doesNotExist");
+    expect(result.symbol).toBe("doesNotExist");
+    expect(result.versions).toEqual([]);
   });
 });
