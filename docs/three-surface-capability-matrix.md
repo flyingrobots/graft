@@ -18,7 +18,7 @@ changes, this matrix must be refreshed before release.
 
 - `4` CLI-only capabilities
 - `19` API + CLI + MCP capabilities
-- `20` API + MCP capabilities
+- `21` API + MCP capabilities
 - `1` API-only capability
 
 API exposure kinds:
@@ -83,4 +83,5 @@ CLI/MCP posture values:
 | `set_budget` | Yes | No | Yes | `tool_bridge` | `mcp_only` | `-` | `set_budget` |
 | `state_save` | Yes | No | Yes | `tool_bridge` | `mcp_only` | `-` | `state_save` |
 | `state_load` | Yes | No | Yes | `tool_bridge` | `mcp_only` | `-` | `state_load` |
+| `knowledge_map` | Yes | No | Yes | `tool_bridge` | `mcp_only` | `-` | `knowledge_map` |
 | `structured_buffer` | Yes | No | No | `structured_buffer` | `not_applicable` | `-` | `-` |

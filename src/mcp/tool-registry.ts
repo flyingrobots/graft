@@ -30,6 +30,7 @@ import { monitorResumeTool } from "./tools/monitor-resume.js";
 import { monitorStartTool } from "./tools/monitor-start.js";
 import { monitorStopTool } from "./tools/monitor-stop.js";
 import { activityViewTool } from "./tools/activity-view.js";
+import { knowledgeMapTool } from "./tools/knowledge-map.js";
 import { causalStatusTool } from "./tools/causal-status.js";
 import { causalAttachTool } from "./tools/causal-attach.js";
 import { workspaceAuthorizeTool } from "./tools/workspace-authorize.js";
@@ -65,6 +66,7 @@ export const TOOL_REGISTRY: readonly ToolDefinition[] = [
   structuralLogTool,
   structuralBlameTool,
   structuralReviewTool,
+  knowledgeMapTool,
 ];
 
 export const DAEMON_TOOL_REGISTRY: readonly ToolDefinition[] = [

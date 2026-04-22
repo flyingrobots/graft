@@ -9,6 +9,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ### Added
 
+- **Session knowledge map**: `knowledge_map` MCP tool answers "what
+  do I already know?" — observed files, symbols, staleness flags,
+  and per-directory coverage.
 - **Symbol history timeline**: `symbolTimeline(ctx, name, filePath?)`
   returns every version of a symbol across commits — signature, line
   range, presence, and change kind, ordered by tick.

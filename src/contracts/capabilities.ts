@@ -38,6 +38,7 @@ export const MCP_TOOL_NAMES = [
   "graft_log",
   "graft_blame",
   "graft_review",
+  "knowledge_map",
 ] as const;
 
 export type McpToolName = typeof MCP_TOOL_NAMES[number];
@@ -440,6 +441,12 @@ export const CAPABILITY_REGISTRY: readonly CapabilityDefinition[] = [
     cliCommand: "struct_review",
     cliPath: ["struct", "review"],
     cliMcpParity: "peer",
+  }),
+  defineCapability({
+    id: "knowledge_map",
+    description: "Session knowledge map — observed files, symbols, staleness, and coverage",
+    mcpTool: "knowledge_map",
+    cliMcpParity: "mcp_only",
   }),
   defineCapability({
     id: "structured_buffer",

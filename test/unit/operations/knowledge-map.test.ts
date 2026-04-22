@@ -5,11 +5,11 @@ import type { FileSystem } from "../../../src/ports/filesystem.js";
 
 function mockFs(files: Record<string, string>): FileSystem {
   return {
-    readFile: async (p: string) => files[p] ?? "",
-    writeFile: async () => {},
-    exists: async (p: string) => p in files,
-    readDir: async () => [],
-    stat: async () => ({ isFile: true, isDirectory: false, size: 0, mtimeMs: 0 }),
+    readFile: (p: string) => Promise.resolve(files[p] ?? ""),
+    writeFile: () => Promise.resolve(),
+    exists: (p: string) => Promise.resolve(p in files),
+    readDir: () => Promise.resolve([]),
+    stat: () => Promise.resolve({ isFile: true, isDirectory: false, size: 0, mtimeMs: 0 }),
     resolve: (...parts: string[]) => parts.join("/"),
     relative: (from: string, to: string) => to.replace(from + "/", ""),
     join: (...parts: string[]) => parts.join("/"),

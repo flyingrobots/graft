@@ -53,6 +53,7 @@ const TOOL_BURDEN_KIND: Record<McpToolName, BurdenKind> = {
   graft_log: "search",
   graft_blame: "search",
   graft_review: "search",
+  knowledge_map: "diagnostic",
 };
 
 export function emptyBurdenByKind(): BurdenByKind {
