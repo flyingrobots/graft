@@ -2,6 +2,13 @@
 title: "Governed edit tool for agent DX"
 legend: SURFACE
 lane: v0.7.0
+requirements:
+  - "Governed read hooks exist (shipped)"
+  - "read_range tool exists (shipped)"
+acceptance_criteria:
+  - "graft_edit MCP tool accepts path + old_string + new_string"
+  - "Accepts read_range evidence instead of requiring native Read"
+  - "Respects .graftignore and records edit in causal provenance"
 blocks:
   - SURFACE_governed-write-tools
 ---

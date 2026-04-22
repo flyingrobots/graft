@@ -2,6 +2,14 @@
 title: "LSP enrichment layer for WARP graph"
 legend: WARP
 lane: v0.7.0
+requirements:
+  - "indexHead pipeline (shipped)"
+  - "Tree-sitter parsing pipeline (shipped)"
+  - "tsserver available in project"
+acceptance_criteria:
+  - "indexHead emits LSP-derived semantic edges (calls, extends, implements)"
+  - "Resolved types appear as properties on sym nodes"
+  - "All enrichment happens in one atomic WARP patch alongside AST nodes"
 ---
 
 # LSP enrichment layer for WARP graph

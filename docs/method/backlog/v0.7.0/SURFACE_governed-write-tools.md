@@ -2,6 +2,12 @@
 title: "Governed write tools"
 legend: SURFACE
 lane: v0.7.0
+requirements:
+  - "graft_edit MCP tool exists (governed-edit)"
+acceptance_criteria:
+  - "Full governed write surface with write policy enforcement"
+  - "Provenance tracking for which tool/session wrote what"
+  - "Causal write events emitted for all governed writes"
 blocked_by:
   - SURFACE_agent-dx-governed-edit
 ---

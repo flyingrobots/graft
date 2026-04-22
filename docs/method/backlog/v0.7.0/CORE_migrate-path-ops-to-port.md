@@ -2,6 +2,11 @@
 title: "Migrate all path operations to PathOps port"
 legend: CORE
 lane: v0.7.0
+requirements:
+  - "PathOps port and node adapter exist (shipped)"
+acceptance_criteria:
+  - "Zero direct node:path imports outside src/adapters/"
+  - "All path operations route through PathOps port"
 ---
 
 # Migrate all path operations to PathOps port

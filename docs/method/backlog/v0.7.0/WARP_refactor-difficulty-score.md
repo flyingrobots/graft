@@ -2,6 +2,12 @@
 title: Refactor difficulty score
 legend: WARP
 lane: v0.7.0
+requirements:
+  - "Structural churn data from WARP aggregate queries"
+  - "Cross-file reference edges in WARP graph (shipped via indexHead)"
+acceptance_criteria:
+  - "A scalar difficulty score per symbol combining curvature and friction"
+  - "Agents can query the score to decide refactor vs workaround"
 ---
 
 # Refactor difficulty score

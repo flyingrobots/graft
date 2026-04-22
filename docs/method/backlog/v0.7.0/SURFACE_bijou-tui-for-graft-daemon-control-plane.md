@@ -2,6 +2,13 @@
 title: "Bijou TUI for Graft daemon control plane"
 legend: SURFACE
 lane: v0.7.0
+requirements:
+  - "Daemon control plane exists (shipped)"
+  - "Bijou TUI framework exists (shipped)"
+acceptance_criteria:
+  - "graft daemon tui launches a terminal UI showing daemon state"
+  - "Shows health, sessions, workspaces, monitors, worker pressure"
+  - "Interactive actions: authorize/revoke workspace, pause/resume monitors"
 ---
 
 # Bijou TUI for Graft daemon control plane

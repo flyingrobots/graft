@@ -4,6 +4,11 @@ legend: CORE
 lane: v0.7.0
 blocked_by_external:
   - "git-warp observer geometry ladder (Rung 2-4)"
+requirements:
+  - "git-warp observer geometry ladder Rung 2-4 APIs"
+acceptance_criteria:
+  - "No getNodes() or getEdges() on broad observer apertures in src/"
+  - "All graph reads use traverse, query, or bounded neighborhood APIs"
 ---
 
 # Migrate remaining full-scan reads to slice-first APIs
