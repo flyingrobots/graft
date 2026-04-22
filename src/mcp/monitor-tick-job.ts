@@ -55,6 +55,22 @@ async function countPendingCommits(
 export async function runMonitorTickJob(job: MonitorTickWorkerJob): Promise<MonitorTickWorkerResult> {
   const headAtStart = await readHeadCommit(job.worktreeRoot);
 
+  // ── Tick ceiling: skip indexing when HEAD hasn't moved ───────────
+  // When HEAD equals the last indexed commit (including both null for
+  // empty repos), there is nothing to index. Short-circuit before
+  // opening WARP or calling indexCommits to keep idle ticks near-zero-cost.
+  if (headAtStart === job.lastIndexedCommit) {
+    return {
+      ok: true,
+      headAtStart,
+      currentHead: headAtStart,
+      lastIndexedCommit: job.lastIndexedCommit,
+      backlogCommits: 0,
+      commitsIndexed: 0,
+      patchesWritten: 0,
+    };
+  }
+
   try {
     const warp = await openWarp({
       cwd: job.worktreeRoot,
