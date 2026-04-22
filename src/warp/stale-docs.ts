@@ -188,7 +188,7 @@ export async function checkStaleDocs(
 // ---------------------------------------------------------------------------
 
 /** Match the first semver-looking heading in a CHANGELOG. */
-const CHANGELOG_VERSION_RE = /^##\s+v?(\d+\.\d+\.\d+(?:-[A-Za-z0-9.]+)?)/m;
+const CHANGELOG_VERSION_RE = /^##\s+\[?v?(\d+\.\d+\.\d+(?:-[A-Za-z0-9.]+)?)\]?/m;
 
 /**
  * Check whether the latest version in a CHANGELOG matches
