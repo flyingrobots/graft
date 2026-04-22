@@ -3,6 +3,14 @@ title: "Rewrite structural-blame to use WARP worldline provenance"
 legend: CORE
 release: "v0.7.0"
 lane: v0.7.0
+requirements:
+  - "indexHead emits commit nodes with tick property (shipped)"
+  - "ProvenanceIndex class available in git-warp (shipped)"
+  - "Worldline.seek() API available in git-warp (shipped)"
+acceptance_criteria:
+  - "structural-blame traces symbol provenance through WARP ticks"
+  - "Last-touch detection uses ProvenanceIndex, not full commit walking"
+  - "Zero GitClient calls for commit history in the operation"
 ---
 
 # Rewrite structural-blame to use WARP worldline provenance

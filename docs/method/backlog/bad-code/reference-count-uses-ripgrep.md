@@ -2,6 +2,11 @@
 title: reference-count.ts uses ripgrep/grep instead of WARP-native queries
 legend: CLEAN_CODE
 effort: M
+requirements:
+  - "Cross-file reference edges in WARP graph (shipped via indexHead)"
+acceptance_criteria:
+  - "reference-count.ts replaced with WARP graph query for reference counting"
+  - "No ripgrep/grep subprocess spawning for symbol references"
 ---
 
 ## What
