@@ -3,6 +3,8 @@ title: "Symbol history timeline"
 legend: WARP
 lane: cool-ideas
 effort: S
+blocking:
+  - WARP_temporal-structural-search
 requirements:
   - "WARP Level 1 indexing (shipped)"
   - "code_show (shipped)"

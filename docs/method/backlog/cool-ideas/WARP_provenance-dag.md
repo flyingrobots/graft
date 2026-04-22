@@ -7,6 +7,7 @@ blocked_by:
   - WARP_agent-action-provenance
 blocking:
   - WARP_reasoning-trace-replay
+  - WARP_causal-blame-for-staged-artifacts
 requirements:
   - WARP Level 1 indexing (shipped)
   - Session tracking (shipped)

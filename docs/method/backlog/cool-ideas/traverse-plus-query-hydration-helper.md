@@ -1,5 +1,8 @@
 ---
 title: "Traverse + query batch hydration helper"
+legend: CORE
+lane: cool-ideas
+effort: S
 requirements:
   - "traverse.bfs API (shipped)"
   - "query().match().select().run() API (shipped)"
@@ -28,3 +31,51 @@ async function traverseAndHydrate(obs, startId, options) {
 
 Would clean up any future graph-walking code that needs both topology
 and properties.
+
+## Implementation path
+
+1. Define the helper function signature in a shared utility module
+   (e.g., `src/warp/helpers/traverse-hydrate.ts`).
+2. Accept parameters: observer instance, start node ID, traversal
+   options (edge filter, depth limit, direction), and optional
+   select fields (default to `["id", "props"]`).
+3. Implement: run BFS with the traversal options, collect discovered
+   node IDs, then batch-hydrate via `query().match(ids).select(fields).run()`.
+4. Return the hydrated nodes array.
+5. Refactor existing traverse-then-query callsites to use the helper.
+6. Add a test that verifies the helper produces identical results
+   to manual traverse + query.
+
+## Related cards
+
+- **bounded-neighborhood-for-references**: Bounded neighborhood
+  (git-warp Rung 2) would replace this pattern for reference
+  lookups — the substrate does traversal + hydration in one call.
+  But bounded neighborhood is an external dependency (not yet
+  available), and this helper is useful for ALL graph-walking
+  patterns, not just references. Independent builds — the helper
+  is useful now, bounded neighborhood is a future substrate
+  improvement.
+- **CORE_rewrite-structural-blame-to-use-warp-worldline-provenance**
+  (v0.7.0): Structural blame rewrites likely use the traverse +
+  query pattern. This helper could simplify that work, but blame
+  doesn't require it. Nice-to-have, not a dependency.
+- **CORE_rewrite-structural-log-to-use-warp-worldline-queries**
+  (v0.7.0): Same relationship — structural log rewrites would
+  benefit from the helper but don't require it.
+
+## No dependency edges
+
+All prerequisites are shipped (traverse.bfs, query API). This is
+a pure utility extraction — no new data, no new infrastructure.
+No backlog card requires this helper as a prerequisite, and no
+backlog card must ship before this can be built.
+
+## Effort rationale
+
+Small. This is a mechanical extraction of an existing two-step
+pattern into a reusable function. The BFS and query APIs are
+shipped and well-tested. The helper adds no new behavior — it
+composes two existing primitives. Implementation is a single
+function plus one test. S is generous; this is closer to XS if
+the scale existed.

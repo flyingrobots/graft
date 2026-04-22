@@ -5,6 +5,8 @@ lane: cool-ideas
 effort: XL
 blocked_by:
   - WARP_refactor-difficulty-score
+blocking:
+  - WARP_codebase-signature
 requirements:
   - "Budget governor (shipped)"
   - "Session depth tracking (shipped)"
