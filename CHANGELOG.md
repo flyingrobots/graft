@@ -9,6 +9,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ### Added
 
+- **WARP-based reference counting for structural-review**: `graft_review`
+  now counts symbol references via WARP graph traversal instead of
+  ripgrep. More precise (actual imports) and faster (no subprocess).
 - **Stale docs checker**: `checkStaleDocs` cross-references markdown
   symbol mentions against the WARP graph to detect outdated docs.
   `checkVersionDrift` compares CHANGELOG vs package.json versions.
