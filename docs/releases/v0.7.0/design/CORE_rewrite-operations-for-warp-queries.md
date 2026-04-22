@@ -1,10 +1,50 @@
 ---
-title: Rewrite structural operations to use WARP queries
-legend: CORE
-lane: v0.7.0
+title: "Rewrite structural operations to use WARP queries"
+legend: "CORE"
+cycle: "CORE_rewrite-operations-for-warp-queries"
+release: "v0.7.0"
+source_backlog: "docs/method/backlog/v0.7.0/CORE_rewrite-operations-for-warp-queries.md"
 ---
 
 # Rewrite structural operations to use WARP queries
+
+Source backlog item: `docs/method/backlog/v0.7.0/CORE_rewrite-operations-for-warp-queries.md`
+Legend: CORE
+
+## Hill
+
+TBD
+
+## Playback Questions
+
+### Human
+
+- [ ] TBD
+
+### Agent
+
+- [ ] TBD
+
+## Accessibility and Assistive Reading
+
+- Linear truth / reduced-complexity posture: TBD
+- Non-visual or alternate-reading expectations: TBD
+
+## Localization and Directionality
+
+- Locale / wording / formatting assumptions: TBD
+- Logical direction / layout assumptions: TBD
+
+## Agent Inspectability and Explainability
+
+- What must be explicit and deterministic for agents: TBD
+- What must be attributable, evidenced, or governed: TBD
+
+## Non-goals
+
+- [ ] TBD
+
+## Backlog Context
 
 Source: WARP model alignment audit (2026-04-20)
 
