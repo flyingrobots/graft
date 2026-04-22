@@ -1,14 +1,16 @@
 ---
-title: "Daemon-aware stdio bridge for MCP clients"
+title: Daemon-aware stdio bridge for MCP clients
 legend: CORE
 lane: v0.7.0
 requirements:
-  - "Daemon control plane exists (shipped)"
-  - "Daemon MCP surface at /mcp exists (shipped)"
+  - Daemon control plane exists (shipped)
+  - Daemon MCP surface at /mcp exists (shipped)
 acceptance_criteria:
-  - "A stdio bridge command proxies MCP traffic to the local daemon"
-  - "Bridge auto-starts daemon if not running"
-  - "Same-user local trust boundaries remain intact"
+  - A stdio bridge command proxies MCP traffic to the local daemon
+  - Bridge auto-starts daemon if not running
+  - Same-user local trust boundaries remain intact
+blocks:
+  - CORE_opt-in-daemon-mode-mcp-bootstrap
 ---
 
 # Daemon-aware stdio bridge for MCP clients

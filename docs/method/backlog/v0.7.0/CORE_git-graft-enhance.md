@@ -1,16 +1,18 @@
 ---
-title: "git graft enhance — structural annotations for git commands"
+title: git graft enhance — structural annotations for git commands
 legend: CORE
 lane: v0.7.0
 requirements:
-  - "graft_diff operation (shipped)"
-  - "WARP Level 1 indexing (shipped)"
-  - "Structural blame operation"
-  - "code_find tool (shipped)"
+  - graft_diff operation (shipped)
+  - WARP Level 1 indexing (shipped)
+  - Structural blame operation
+  - code_find tool (shipped)
 acceptance_criteria:
-  - "git graft enhance wraps git commands with structural annotations"
-  - "Supports log, diff, show, blame, shortlog subcommands"
-  - "Output format supports human and JSON modes"
+  - git graft enhance wraps git commands with structural annotations
+  - Supports log, diff, show, blame, shortlog subcommands
+  - Output format supports human and JSON modes
+blocked_by:
+  - CORE_rewrite-structural-blame-to-use-warp-worldline-provenance
 ---
 
 # git graft enhance — structural annotations for git commands

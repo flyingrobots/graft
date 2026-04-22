@@ -1,15 +1,17 @@
 ---
-title: "Rewrite structural-churn to use WARP aggregate queries"
+title: Rewrite structural-churn to use WARP aggregate queries
 legend: CORE
-release: "v0.7.0"
+release: v0.7.0
 lane: v0.7.0
 requirements:
-  - "indexHead emits commit nodes with tick property (shipped)"
-  - "QueryBuilder.aggregate() API available in git-warp (shipped)"
+  - indexHead emits commit nodes with tick property (shipped)
+  - QueryBuilder.aggregate() API available in git-warp (shipped)
 acceptance_criteria:
-  - "structural-churn uses WARP aggregate queries instead of per-commit iteration"
-  - "Zero GitClient calls for commit enumeration in the operation"
-  - "Change counts computed natively in WARP, not in-memory Maps"
+  - structural-churn uses WARP aggregate queries instead of per-commit iteration
+  - Zero GitClient calls for commit enumeration in the operation
+  - Change counts computed natively in WARP, not in-memory Maps
+blocks:
+  - WARP_refactor-difficulty-score
 ---
 
 # Rewrite structural-churn to use WARP aggregate queries
