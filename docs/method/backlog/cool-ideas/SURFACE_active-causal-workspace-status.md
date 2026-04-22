@@ -1,5 +1,9 @@
 ---
 title: "Active causal workspace status"
+legend: SURFACE
+lane: cool-ideas
+blocking:
+  - SURFACE_ide-native-graft-integration
 requirements:
   - "Session tracking (shipped)"
   - "Causal session / strand model (backlog — WARP graph ontology and causal collapse model)"

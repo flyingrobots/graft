@@ -1,5 +1,10 @@
 ---
 title: "WARP: Agent action provenance (Level 3)"
+legend: WARP
+lane: cool-ideas
+blocking:
+  - WARP_provenance-dag
+  - WARP_causal-write-tracking
 requirements:
   - "WARP Level 1 indexing (shipped)"
   - "Hooks integration for write interception (backlog)"

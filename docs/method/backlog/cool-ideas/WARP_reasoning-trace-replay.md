@@ -1,5 +1,9 @@
 ---
 title: Reasoning trace replay
+legend: WARP
+lane: cool-ideas
+blocked_by:
+  - WARP_provenance-dag
 requirements:
   - WARP Level 1 indexing (shipped)
   - Session tracking (shipped)

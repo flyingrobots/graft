@@ -10,6 +10,9 @@ acceptance_criteria:
   - Agents can query the score to decide refactor vs workaround
 blocked_by:
   - CORE_rewrite-structural-churn-to-use-warp-aggregate-queries
+blocking:
+  - CORE_lagrangian-policy
+  - WARP_technical-debt-curvature
 ---
 
 # Refactor difficulty score
