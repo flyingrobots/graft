@@ -141,6 +141,7 @@ export async function indexHead(opts: IndexHeadOptions): Promise<IndexHeadResult
 
   // Read prior sym state for diff detection
   const priorSyms = new Map<string, string | undefined>();
+  let priorCommitCount = 0;
   try {
     await materializeGraph(ctx);
     const priorObs = await observeGraph(ctx, { match: "sym:*", expose: ["signature"] });
@@ -150,18 +151,24 @@ export async function indexHead(opts: IndexHeadOptions): Promise<IndexHeadResult
       const sig = typeof props?.["signature"] === "string" ? props["signature"] : undefined;
       priorSyms.set(nodeId, sig);
     }
+    // Count existing commit nodes to derive the next tick value
+    const commitObs = await observeGraph(ctx, { match: "commit:*", expose: [] });
+    const commitNodes = await commitObs.getNodes();
+    priorCommitCount = commitNodes.length;
   } catch {
     // No prior state — first index, everything is "adds"
   }
 
   // Emit everything in one atomic WARP patch
   let nodesEmitted = 0;
+  const tick = priorCommitCount + 1;
 
   await patchGraph(ctx, (patch) => {
     // Commit node
     const commitId = `commit:${headSha}`;
     patch.addNode(commitId);
     patch.setProperty(commitId, "sha", headSha);
+    patch.setProperty(commitId, "tick", tick);
 
     for (const { filePath, root, outline } of parsed) {
       // File node
