@@ -1166,6 +1166,19 @@ const mcpOutputBodySchemas: Record<McpToolName, z.ZodType> = {
     }).strict()),
     summary: z.string(),
   }).strict(),
+  knowledge_map: z.object({
+    totalFiles: z.number().int().nonnegative(),
+    totalSymbols: z.number().int().nonnegative(),
+    files: z.array(z.object({
+      path: z.string(),
+      symbols: z.array(z.string()),
+      readCount: z.number().int().positive(),
+      lastReadAt: z.string(),
+      stale: z.boolean(),
+    }).strict()),
+    staleFiles: z.array(z.string()),
+    directoryCoverage: z.record(z.string(), z.number().int().nonnegative()),
+  }).strict(),
 };
 
 export const MCP_OUTPUT_SCHEMAS: Record<McpToolName, z.ZodType> = {
@@ -1211,6 +1224,7 @@ export const MCP_OUTPUT_SCHEMAS: Record<McpToolName, z.ZodType> = {
   graft_log: withMcpCommon("graft_log", mcpOutputBodySchemas.graft_log),
   graft_blame: withMcpCommon("graft_blame", mcpOutputBodySchemas.graft_blame),
   graft_review: withMcpCommon("graft_review", mcpOutputBodySchemas.graft_review),
+  knowledge_map: withMcpCommon("knowledge_map", mcpOutputBodySchemas.knowledge_map),
 };
 
 const initActionSchema = z.object({

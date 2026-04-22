@@ -152,4 +152,14 @@ export class ObservationCache {
     }
     this.entries.set(filePath, Observation.fromSnapshot(snapshot));
   }
+
+  /** Iterate all observed file paths and their observations. */
+  allEntries(): IterableIterator<[string, Observation]> {
+    return this.entries.entries();
+  }
+
+  /** Number of observed files. */
+  get size(): number {
+    return this.entries.size;
+  }
 }

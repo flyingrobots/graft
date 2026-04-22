@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Added
+
+- **knowledge_map MCP tool**: session knowledge map that answers "what do I
+  already know?" — lists all observed files and symbols, flags stale files
+  (changed since last read), and shows directory coverage. Helps agents
+  avoid redundant context consumption.
+
 ## [0.6.1] - 2026-04-19
 
 ### Fixed

@@ -59,7 +59,7 @@ describe("capability registry", () => {
     expect(baseline).toEqual({
       cliOnly: 4,
       apiCliMcp: 19,
-      apiMcp: 20,
+      apiMcp: 21,
       apiOnly: 1,
     });
     expect(rows).toEqual(expect.arrayContaining([
