@@ -1,15 +1,17 @@
 ---
-title: "Codebase entropy trajectory"
+title: Codebase entropy trajectory
 requirements:
-  - "WARP Level 1 indexing (shipped)"
-  - "Worldline seek API (shipped)"
-  - "Structural churn report (backlog)"
+  - WARP Level 1 indexing (shipped)
+  - Worldline seek API (shipped)
+  - Structural churn report (backlog)
 acceptance_criteria:
-  - "A command or tool computes structural entropy over a range of commits on the worldline"
-  - "Output includes trends for symbol addition/removal rate, signature stability, and export surface growth"
-  - "Coupling direction (increasing vs decreasing) is reported"
-  - "Results are presented as a trajectory (time series), not a single-point snapshot"
-  - "A test verifies that adding symbols across multiple commits increases the reported entropy metric"
+  - A command or tool computes structural entropy over a range of commits on the worldline
+  - Output includes trends for symbol addition/removal rate, signature stability, and export surface growth
+  - Coupling direction (increasing vs decreasing) is reported
+  - Results are presented as a trajectory (time series), not a single-point snapshot
+  - A test verifies that adding symbols across multiple commits increases the reported entropy metric
+blocked_by:
+  - CORE_rewrite-structural-churn-to-use-warp-aggregate-queries
 ---
 
 # Codebase entropy trajectory

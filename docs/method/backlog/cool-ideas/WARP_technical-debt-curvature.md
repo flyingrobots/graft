@@ -1,14 +1,17 @@
 ---
-title: "Technical debt as measurable curvature"
+title: Technical debt as measurable curvature
 requirements:
-  - "WARP Level 1 indexing (shipped)"
-  - "Structural churn report (backlog)"
-  - "Refactor difficulty score (backlog)"
+  - WARP Level 1 indexing (shipped)
+  - Structural churn report (backlog)
+  - Refactor difficulty score (backlog)
 acceptance_criteria:
-  - "Computes a curvature metric per symbol based on churn frequency and dependency fan-out"
-  - "Tracks curvature over time, showing debt accumulation or discharge trends"
-  - "Identifies the top-N highest-curvature symbols driving structural debt"
-  - "Produces a summary report (e.g., 'structural debt grew 12% this quarter, driven by 3 symbols in src/policy/')"
+  - Computes a curvature metric per symbol based on churn frequency and dependency fan-out
+  - Tracks curvature over time, showing debt accumulation or discharge trends
+  - Identifies the top-N highest-curvature symbols driving structural debt
+  - Produces a summary report (e.g., 'structural debt grew 12% this quarter, driven by 3 symbols in src/policy/')
+blocked_by:
+  - CORE_rewrite-structural-churn-to-use-warp-aggregate-queries
+  - WARP_refactor-difficulty-score
 ---
 
 # Technical debt as measurable curvature

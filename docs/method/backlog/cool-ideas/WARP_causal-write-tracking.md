@@ -1,16 +1,18 @@
 ---
 title: "WARP: Causal write tracking"
 requirements:
-  - "WARP Level 1 indexing (shipped)"
-  - "Write interception via hooks on Edit tool (backlog)"
-  - "Sub-commit WARP nodes (backlog — persisted sub-commit local history)"
-  - "Causal linking between observations (backlog — provenance attribution instrumentation)"
+  - WARP Level 1 indexing (shipped)
+  - Write interception via hooks on Edit tool (backlog)
+  - Sub-commit WARP nodes (backlog — persisted sub-commit local history)
+  - Causal linking between observations (backlog — provenance attribution instrumentation)
 acceptance_criteria:
-  - "Every agent write is recorded as a structural observation node in the WARP graph"
-  - "Write observations are causally linked to the preceding read observations that informed them"
-  - "Walking backward from a test failure reaches the read that informed the edit that caused it"
-  - "No unobserved edits exist for writes made through agent tools"
-  - "A test verifies that a read-then-edit sequence produces a causal chain in the WARP graph"
+  - Every agent write is recorded as a structural observation node in the WARP graph
+  - Write observations are causally linked to the preceding read observations that informed them
+  - Walking backward from a test failure reaches the read that informed the edit that caused it
+  - No unobserved edits exist for writes made through agent tools
+  - A test verifies that a read-then-edit sequence produces a causal chain in the WARP graph
+blocked_by:
+  - WARP_intent-and-decision-events
 ---
 
 # WARP: Causal write tracking

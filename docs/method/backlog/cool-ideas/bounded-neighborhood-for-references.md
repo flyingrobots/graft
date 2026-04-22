@@ -1,14 +1,16 @@
 ---
-title: "Bounded neighborhood read for referencesForSymbol"
+title: Bounded neighborhood read for referencesForSymbol
 requirements:
-  - "WARP Level 1 indexing (shipped)"
-  - "referencesForSymbol tool (shipped)"
-  - "WARP Level 2 bounded neighborhood API (not shipped)"
+  - WARP Level 1 indexing (shipped)
+  - referencesForSymbol tool (shipped)
+  - WARP Level 2 bounded neighborhood API (not shipped)
 acceptance_criteria:
-  - "referencesForSymbol resolves via a single bounded-neighborhood query instead of manual traversal"
-  - "No explicit observer aperture or traversal setup is required by the caller"
-  - "Response includes honest support cost from the WARP substrate"
-  - "Performance is equal to or better than the current traversal-based implementation"
+  - referencesForSymbol resolves via a single bounded-neighborhood query instead of manual traversal
+  - No explicit observer aperture or traversal setup is required by the caller
+  - Response includes honest support cost from the WARP substrate
+  - Performance is equal to or better than the current traversal-based implementation
+blocked_by:
+  - CORE_migrate-to-slice-first-reads
 ---
 
 # Bounded neighborhood read for referencesForSymbol

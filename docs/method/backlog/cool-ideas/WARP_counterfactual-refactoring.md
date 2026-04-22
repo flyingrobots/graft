@@ -1,15 +1,17 @@
 ---
-title: "Counterfactual refactoring"
+title: Counterfactual refactoring
 requirements:
-  - "WARP Level 1 indexing (shipped)"
-  - "git-warp Strands for speculative writes (backlog)"
-  - "Structural entropy and coupling metrics (backlog)"
+  - WARP Level 1 indexing (shipped)
+  - git-warp Strands for speculative writes (backlog)
+  - Structural entropy and coupling metrics (backlog)
 acceptance_criteria:
-  - "A hypothetical structural change can be applied to a forked worldline without modifying any files"
-  - "Multiple hypothetical refactors can be spawned and compared on structural entropy, export surface, and coupling"
-  - "Forked worldlines use structure-sharing (copy-on-write) so cost is proportional to the delta"
-  - "The system recommends the refactor with the best structural outcome"
-  - "A test verifies that forking a worldline and applying a hypothetical change does not modify the working tree"
+  - A hypothetical structural change can be applied to a forked worldline without modifying any files
+  - Multiple hypothetical refactors can be spawned and compared on structural entropy, export surface, and coupling
+  - Forked worldlines use structure-sharing (copy-on-write) so cost is proportional to the delta
+  - The system recommends the refactor with the best structural outcome
+  - A test verifies that forking a worldline and applying a hypothetical change does not modify the working tree
+blocked_by:
+  - WARP_codebase-entropy-trajectory
 ---
 
 # Counterfactual refactoring

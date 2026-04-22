@@ -1,15 +1,17 @@
 ---
-title: "Provenance DAG"
+title: Provenance DAG
 requirements:
-  - "WARP Level 1 indexing (shipped)"
-  - "Session tracking (shipped)"
-  - "Agent action provenance (backlog)"
+  - WARP Level 1 indexing (shipped)
+  - Session tracking (shipped)
+  - Agent action provenance (backlog)
 acceptance_criteria:
-  - "Observations are stored as DAG nodes with causal dependency edges (read X before writing Y)"
-  - "Each node records what was read, the projection chosen, and alternatives that existed"
-  - "The DAG can be traversed backwards from a write to reconstruct the full causal chain of reads that informed it"
-  - "DAG size is bounded by structural universe sharing (not exponential in observation count)"
+  - Observations are stored as DAG nodes with causal dependency edges (read X before writing Y)
+  - Each node records what was read, the projection chosen, and alternatives that existed
+  - The DAG can be traversed backwards from a write to reconstruct the full causal chain of reads that informed it
+  - DAG size is bounded by structural universe sharing (not exponential in observation count)
   - "A staleness bug can be diagnosed by replaying the DAG: identifying where an agent read stale data"
+blocked_by:
+  - CORE_agent-handoff-protocol
 ---
 
 # Provenance DAG

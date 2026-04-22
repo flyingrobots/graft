@@ -1,14 +1,16 @@
 ---
-title: "Temporal structural search"
+title: Temporal structural search
 requirements:
-  - "WARP Level 1 indexing (shipped)"
-  - "Symbol history timeline (backlog)"
-  - "Worldline seek API (shipped)"
+  - WARP Level 1 indexing (shipped)
+  - Symbol history timeline (backlog)
+  - Worldline seek API (shipped)
 acceptance_criteria:
   - "Answers temporal queries: 'when did this function first appear?', 'has this class ever had method X?'"
-  - "Returns results across all of history, not just a single ref"
-  - "Queries operate on structural meaning (symbol identity), not text patterns"
-  - "Performance is bounded by worldline size, not raw git history size"
+  - Returns results across all of history, not just a single ref
+  - Queries operate on structural meaning (symbol identity), not text patterns
+  - Performance is bounded by worldline size, not raw git history size
+blocked_by:
+  - WARP_symbol-history-timeline
 ---
 
 # Temporal structural search
