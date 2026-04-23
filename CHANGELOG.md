@@ -9,6 +9,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ### Added
 
+- **Outline-diff commit trailer**: `formatStructuralDiffTrailer` +
+  `parseStructuralDiffTrailer` for embedding structural diffs in
+  git commit messages as machine-readable trailers.
 - **Background indexing with monitor_nudge**: `monitor_nudge` MCP
   tool triggers immediate re-index for a running monitor. For
   post-commit hooks to notify graft that HEAD changed.
