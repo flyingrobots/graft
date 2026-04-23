@@ -29,7 +29,7 @@ describe("warp: outline-diff-trailer", () => {
 
     it("truncates beyond a threshold", () => {
       const entries: SymbolDiffEntry[] = Array.from({ length: 50 }, (_, i) => ({
-        name: `sym${i}`,
+        name: `sym${String(i)}`,
         kind: "function",
         changeKind: "added" as const,
       }));
