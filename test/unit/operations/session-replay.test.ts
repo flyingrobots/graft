@@ -2,7 +2,7 @@ import { describe, it, expect } from "vitest";
 import {
   parseReceiptsForReplay,
   renderReplayMarkdown,
-  type ReplayEntry,
+
 } from "../../../src/operations/session-replay.js";
 
 const SAMPLE_RECEIPTS = [
