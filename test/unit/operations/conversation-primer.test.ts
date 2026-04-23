@@ -3,6 +3,9 @@ import * as fs from "node:fs";
 import * as path from "node:path";
 import { git, createTestRepo, cleanupTestRepo } from "../../helpers/git.js";
 import { buildConversationPrimer } from "../../../src/operations/conversation-primer.js";
+import { nodeGit } from "../../../src/adapters/node-git.js";
+import { nodeFs } from "../../../src/adapters/node-fs.js";
+import { nodePathOps } from "../../../src/adapters/node-paths.js";
 
 describe("operations: conversation-primer", () => {
   let tmpDir: string;
@@ -22,7 +25,7 @@ describe("operations: conversation-primer", () => {
     git(tmpDir, "add -A");
     git(tmpDir, "commit -m 'add src'");
 
-    const primer = await buildConversationPrimer({ cwd: tmpDir });
+    const primer = await buildConversationPrimer({ cwd: tmpDir, git: nodeGit, fs: nodeFs, pathOps: nodePathOps });
 
     expect(primer.scope).toBeDefined();
     expect(primer.files.length).toBeGreaterThan(0);
@@ -37,7 +40,7 @@ describe("operations: conversation-primer", () => {
     git(tmpDir, "add -A");
     git(tmpDir, "commit -m 'structured repo'");
 
-    const primer = await buildConversationPrimer({ cwd: tmpDir });
+    const primer = await buildConversationPrimer({ cwd: tmpDir, git: nodeGit, fs: nodeFs, pathOps: nodePathOps });
 
     expect(primer.scope).toBe("src");
   });
@@ -47,7 +50,7 @@ describe("operations: conversation-primer", () => {
     git(tmpDir, "add -A");
     git(tmpDir, "commit -m 'flat repo'");
 
-    const primer = await buildConversationPrimer({ cwd: tmpDir });
+    const primer = await buildConversationPrimer({ cwd: tmpDir, git: nodeGit, fs: nodeFs, pathOps: nodePathOps });
 
     expect(primer.scope).toBe(".");
   });
@@ -60,14 +63,14 @@ describe("operations: conversation-primer", () => {
     git(tmpDir, "add -A");
     git(tmpDir, "commit -m 'many files'");
 
-    const primer = await buildConversationPrimer({ cwd: tmpDir, maxFiles: 5 });
+    const primer = await buildConversationPrimer({ cwd: tmpDir, git: nodeGit, fs: nodeFs, pathOps: nodePathOps, maxFiles: 5 });
 
     expect(primer.files.length).toBeLessThanOrEqual(5);
     expect(primer.truncated).toBe(true);
   });
 
   it("returns empty primer for repo with no tracked files", async () => {
-    const primer = await buildConversationPrimer({ cwd: tmpDir });
+    const primer = await buildConversationPrimer({ cwd: tmpDir, git: nodeGit, fs: nodeFs, pathOps: nodePathOps });
 
     expect(primer.files).toEqual([]);
   });
@@ -78,7 +81,7 @@ describe("operations: conversation-primer", () => {
     git(tmpDir, "add -A");
     git(tmpDir, "commit -m 'add lib'");
 
-    const primer = await buildConversationPrimer({ cwd: tmpDir, scope: "lib" });
+    const primer = await buildConversationPrimer({ cwd: tmpDir, git: nodeGit, fs: nodeFs, pathOps: nodePathOps, scope: "lib" });
 
     expect(primer.scope).toBe("lib");
     expect(primer.files.some((f) => f.includes("core.ts"))).toBe(true);
