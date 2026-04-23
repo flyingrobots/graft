@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { generateTeachingHint, type ProjectionContext } from "../../../src/operations/teaching-hints.js";
+import { generateTeachingHint } from "../../../src/operations/teaching-hints.js";
 
 describe("operations: teaching-hints", () => {
   it("suggests file_outline for outline-projected large files", () => {
