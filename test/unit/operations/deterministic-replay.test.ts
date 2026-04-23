@@ -2,7 +2,7 @@ import { describe, it, expect } from "vitest";
 import {
   createSnapshotFs,
   replayToolCalls,
-  type ReplayScenario,
+
   type RecordedToolCall,
 } from "../../../src/operations/deterministic-replay.js";
 
@@ -42,7 +42,7 @@ describe("operations: deterministic-replay", () => {
         { tool: "test_echo", args: { msg: "bye" }, expectedResult: { echo: "bye" } },
       ];
 
-      const handler = async (_tool: string, args: Record<string, unknown>) => ({
+      const handler = (_tool: string, args: Record<string, unknown>) => Promise.resolve({
         echo: args["msg"],
       });
 
@@ -59,7 +59,7 @@ describe("operations: deterministic-replay", () => {
         { tool: "test_echo", args: { msg: "hi" }, expectedResult: { echo: "hi" } },
       ];
 
-      const handler = async () => ({ echo: "wrong" });
+      const handler = () => Promise.resolve({ echo: "wrong" });
 
       const result = await replayToolCalls(calls, handler);
 
@@ -70,7 +70,7 @@ describe("operations: deterministic-replay", () => {
     });
 
     it("handles empty scenario", async () => {
-      const result = await replayToolCalls([], async () => ({}));
+      const result = await replayToolCalls([], () => Promise.resolve({}));
 
       expect(result.passed).toBe(true);
       expect(result.total).toBe(0);
