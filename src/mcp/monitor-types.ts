@@ -18,7 +18,7 @@ export const DEFAULT_POLL_INTERVAL_MS = 5_000;
 export type MonitorLifecycleState = "running" | "paused" | "stopped";
 export type MonitorHealth = "ok" | "lagging" | "error" | "unauthorized" | "paused" | "stopped";
 export type MonitorWorkerKind = "git_poll_indexer";
-export type MonitorAction = "start" | "pause" | "resume" | "stop";
+export type MonitorAction = "start" | "pause" | "resume" | "stop" | "nudge";
 
 // ── Persistence schemas ────────────────────────────────────────────
 

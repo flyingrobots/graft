@@ -27,6 +27,7 @@ import { daemonSessionsTool } from "./tools/daemon-sessions.js";
 import { daemonStatusTool } from "./tools/daemon-status.js";
 import { monitorPauseTool } from "./tools/monitor-pause.js";
 import { monitorResumeTool } from "./tools/monitor-resume.js";
+import { monitorNudgeTool } from "./tools/monitor-nudge.js";
 import { monitorStartTool } from "./tools/monitor-start.js";
 import { monitorStopTool } from "./tools/monitor-stop.js";
 import { activityViewTool } from "./tools/activity-view.js";
@@ -77,6 +78,7 @@ export const DAEMON_TOOL_REGISTRY: readonly ToolDefinition[] = [
   monitorStartTool,
   monitorPauseTool,
   monitorResumeTool,
+  monitorNudgeTool,
   monitorStopTool,
   workspaceAuthorizeTool,
   workspaceAuthorizationsTool,

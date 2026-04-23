@@ -31,6 +31,7 @@ const TOOL_BURDEN_KIND: Record<McpToolName, BurdenKind> = {
   monitor_start: "diagnostic",
   monitor_pause: "diagnostic",
   monitor_resume: "diagnostic",
+  monitor_nudge: "diagnostic",
   monitor_stop: "diagnostic",
   workspace_authorize: "diagnostic",
   workspace_authorizations: "diagnostic",

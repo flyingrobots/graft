@@ -18,7 +18,7 @@ changes, this matrix must be refreshed before release.
 
 - `4` CLI-only capabilities
 - `19` API + CLI + MCP capabilities
-- `21` API + MCP capabilities
+- `22` API + MCP capabilities
 - `1` API-only capability
 
 API exposure kinds:
@@ -65,6 +65,7 @@ CLI/MCP posture values:
 | `monitor_start` | Yes | No | Yes | `tool_bridge` | `mcp_only` | `-` | `monitor_start` |
 | `monitor_pause` | Yes | No | Yes | `tool_bridge` | `mcp_only` | `-` | `monitor_pause` |
 | `monitor_resume` | Yes | No | Yes | `tool_bridge` | `mcp_only` | `-` | `monitor_resume` |
+| `monitor_nudge` | Yes | No | Yes | `tool_bridge` | `mcp_only` | `-` | `monitor_nudge` |
 | `monitor_stop` | Yes | No | Yes | `tool_bridge` | `mcp_only` | `-` | `monitor_stop` |
 | `workspace_authorize` | Yes | No | Yes | `tool_bridge` | `mcp_only` | `-` | `workspace_authorize` |
 | `workspace_authorizations` | Yes | No | Yes | `tool_bridge` | `mcp_only` | `-` | `workspace_authorizations` |

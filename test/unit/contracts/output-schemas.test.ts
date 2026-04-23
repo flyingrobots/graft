@@ -141,6 +141,7 @@ describe("contracts: output schemas", () => {
     const daemonMonitors = parse(await daemonServer.callTool("daemon_monitors", {}));
     const daemonMonitorPause = parse(await daemonServer.callTool("monitor_pause", { cwd: repoDir }));
     const daemonMonitorResume = parse(await daemonServer.callTool("monitor_resume", { cwd: repoDir }));
+    const daemonMonitorNudge = parse(await daemonServer.callTool("monitor_nudge", { cwd: repoDir }));
     const daemonMonitorStop = parse(await daemonServer.callTool("monitor_stop", { cwd: repoDir }));
     const daemonAuthorizations = parse(await daemonServer.callTool("workspace_authorizations", {}));
     const daemonStatus = parse(await daemonServer.callTool("workspace_status", {}));
@@ -167,6 +168,7 @@ describe("contracts: output schemas", () => {
       monitor_start: daemonMonitorStart,
       monitor_pause: daemonMonitorPause,
       monitor_resume: daemonMonitorResume,
+      monitor_nudge: daemonMonitorNudge,
       monitor_stop: daemonMonitorStop,
       workspace_authorize: daemonAuthorize,
       workspace_authorizations: daemonAuthorizations,

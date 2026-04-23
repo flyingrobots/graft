@@ -179,6 +179,9 @@ export function buildRepoToolWorkerContext(
     resumeMonitor() {
       return unsupported("resumeMonitor");
     },
+    nudgeMonitor() {
+      return unsupported("nudgeMonitor");
+    },
     stopMonitor() {
       return unsupported("stopMonitor");
     },

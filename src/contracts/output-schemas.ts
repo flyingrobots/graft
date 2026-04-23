@@ -694,7 +694,7 @@ const monitorStatusSchema = z.object({
 
 const monitorActionSchema = z.object({
   ok: z.boolean(),
-  action: z.enum(["start", "pause", "resume", "stop"]),
+  action: z.enum(["start", "pause", "resume", "stop", "nudge"]),
   created: z.boolean(),
   changed: z.boolean(),
   status: monitorStatusSchema.optional(),
@@ -950,6 +950,7 @@ const mcpOutputBodySchemas: Record<McpToolName, z.ZodType> = {
   monitor_start: monitorActionSchema,
   monitor_pause: monitorActionSchema,
   monitor_resume: monitorActionSchema,
+  monitor_nudge: monitorActionSchema,
   monitor_stop: monitorActionSchema,
   workspace_authorize: workspaceAuthorizeSchema,
   workspace_authorizations: z.object({
@@ -1200,6 +1201,7 @@ export const MCP_OUTPUT_SCHEMAS: Record<McpToolName, z.ZodType> = {
   monitor_start: withMcpCommon("monitor_start", mcpOutputBodySchemas.monitor_start),
   monitor_pause: withMcpCommon("monitor_pause", mcpOutputBodySchemas.monitor_pause),
   monitor_resume: withMcpCommon("monitor_resume", mcpOutputBodySchemas.monitor_resume),
+  monitor_nudge: withMcpCommon("monitor_nudge", mcpOutputBodySchemas.monitor_nudge),
   monitor_stop: withMcpCommon("monitor_stop", mcpOutputBodySchemas.monitor_stop),
   workspace_authorize: withMcpCommon("workspace_authorize", mcpOutputBodySchemas.workspace_authorize),
   workspace_authorizations: withMcpCommon(

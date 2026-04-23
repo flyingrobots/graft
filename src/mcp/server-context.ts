@@ -195,6 +195,12 @@ export function buildToolContext(deps: ToolContextDeps): ToolContext {
       }
       return monitorRuntime.resumeMonitor(request);
     },
+    nudgeMonitor(request) {
+      if (monitorRuntime === null) {
+        return Promise.resolve({ ok: false, errorCode: "no_daemon", error: "Monitor runtime is not available." } as MonitorActionResult);
+      }
+      return monitorRuntime.nudgeMonitor(request);
+    },
     stopMonitor(request) {
       if (monitorRuntime === null) {
         throw new Error("monitor_stop is only available in daemon mode");

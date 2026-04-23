@@ -100,6 +100,7 @@ export interface ToolContext {
   pauseMonitor(request: WorkspaceBindRequest): Promise<MonitorActionResult>;
   resumeMonitor(request: WorkspaceBindRequest): Promise<MonitorActionResult>;
   stopMonitor(request: WorkspaceBindRequest): Promise<MonitorActionResult>;
+  nudgeMonitor(request: WorkspaceBindRequest): Promise<MonitorActionResult>;
   listWorkspaceAuthorizations(): Promise<readonly AuthorizedWorkspaceView[]>;
   authorizeWorkspace(request: WorkspaceAuthorizeRequest): Promise<WorkspaceAuthorizeResult>;
   revokeWorkspace(request: WorkspaceBindRequest): Promise<WorkspaceRevokeResult>;

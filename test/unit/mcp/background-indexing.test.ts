@@ -46,7 +46,7 @@ describe("background indexing", { timeout: 30_000 }, () => {
 
     // Check status — should show new HEAD as last indexed
     const status = parse(await server.callTool("daemon_monitors", {}));
-    const monitors = status["monitors"] as Array<Record<string, unknown>>;
+    const monitors = status["monitors"] as Record<string, unknown>[];
     const monitor = monitors[0];
     expect(monitor).toBeDefined();
     expect(monitor!["lastRunCommitsIndexed"]).toBeGreaterThan(0);

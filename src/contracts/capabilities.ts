@@ -16,6 +16,7 @@ export const MCP_TOOL_NAMES = [
   "monitor_start",
   "monitor_pause",
   "monitor_resume",
+  "monitor_nudge",
   "monitor_stop",
   "workspace_authorize",
   "workspace_authorizations",
@@ -283,6 +284,13 @@ export const CAPABILITY_REGISTRY: readonly CapabilityDefinition[] = [
     mcpTool: "monitor_resume",
     cliMcpParity: "mcp_only",
   }),
+  defineCapability({
+    id: "monitor_nudge",
+    description: "Trigger immediate re-index for a running monitor",
+    mcpTool: "monitor_nudge",
+    cliMcpParity: "mcp_only",
+  }),
+
   defineCapability({
     id: "monitor_stop",
     description: "Stop a repo-scoped persistent monitor",
