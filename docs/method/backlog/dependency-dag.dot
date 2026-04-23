@@ -9,31 +9,27 @@ digraph backlog {
   compound=true
 
   subgraph cluster_graph_indexing {
-    label="Graph Indexing (3)" labeljust=l fontsize=9 fontcolor="#555555"
+    label="Graph Indexing (2)" labeljust=l fontsize=9 fontcolor="#555555"
     style=rounded color="#cccccc" bgcolor="#fafafa"
     WARP_background_indexing [label="background-indexing · M" fillcolor="#B0D4F1" penwidth=2]
-    monitor_tick_ceiling_tracking [label="monitor-tick-ceiling-trac... · S" fillcolor="#D4E8F7" penwidth=2]
     WARP_outline_diff_commit_trailer [label="outline-diff-commit-trailer · S" fillcolor="#D4E8F7" penwidth=1]
   }
 
   subgraph cluster_structural_queries {
-    label="Structural Queries (7)" labeljust=l fontsize=9 fontcolor="#555555"
+    label="Structural Queries (6)" labeljust=l fontsize=9 fontcolor="#555555"
     style=rounded color="#cccccc" bgcolor="#fafafa"
     CORE_migrate_path_ops_to_port [label="migrate-path-ops-to-port [v0.7]" fillcolor="#FFA07A" penwidth=2]
     CORE_rewrite_structural_blame_to_use_warp_worldline_provenance [label="rewrite-structural-blame-... [v0.7]" fillcolor="#FFA07A" penwidth=2]
     CORE_rewrite_structural_churn_to_use_warp_aggregate_queries [label="rewrite-structural-churn-... [v0.7]" fillcolor="#FFA07A" penwidth=2]
     CORE_rewrite_structural_log_to_use_warp_worldline_queries [label="rewrite-structural-log-to... [v0.7]" fillcolor="#FFA07A" penwidth=2]
-    reference_count_uses_ripgrep [label="reference-count-uses-ripgrep · M" fillcolor="#B0D4F1" penwidth=2]
     bounded_neighborhood_for_references [label="bounded-neighborhood-for-... · S" fillcolor="#D4E8F7" penwidth=1]
     traverse_plus_query_hydration_helper [label="traverse-plus-query-hydra... · S" fillcolor="#D4E8F7" penwidth=1]
   }
 
   subgraph cluster_structural_metrics {
-    label="Structural Metrics (10)" labeljust=l fontsize=9 fontcolor="#555555"
+    label="Structural Metrics (8)" labeljust=l fontsize=9 fontcolor="#555555"
     style=rounded color="#cccccc" bgcolor="#fafafa"
-    WARP_dead_symbol_detection [label="dead-symbol-detection · S" fillcolor="#D4E8F7" penwidth=2]
     WARP_refactor_difficulty_score [label="refactor-difficulty-score [v0.7]" fillcolor="#FFA07A" penwidth=2]
-    WARP_symbol_history_timeline [label="symbol-history-timeline · S" fillcolor="#D4E8F7" penwidth=2]
     CORE_constructor_in_disguise_lint [label="constructor-in-disguise-lint · M" fillcolor="#B0D4F1" penwidth=1]
     CORE_sludge_detector [label="sludge-detector [v0.7]" fillcolor="#FFA07A" penwidth=1]
     WARP_codebase_entropy_trajectory [label="codebase-entropy-trajectory · M" fillcolor="#B0D4F1" penwidth=1]
@@ -52,10 +48,9 @@ digraph backlog {
   }
 
   subgraph cluster_docs_integrity {
-    label="Docs Integrity (3)" labeljust=l fontsize=9 fontcolor="#555555"
+    label="Docs Integrity (2)" labeljust=l fontsize=9 fontcolor="#555555"
     style=rounded color="#cccccc" bgcolor="#fafafa"
     WARP_drift_sentinel [label="drift-sentinel · M" fillcolor="#B0D4F1" penwidth=2]
-    WARP_stale_docs_checker [label="stale-docs-checker · M" fillcolor="#B0D4F1" penwidth=2]
     WARP_structural_drift_detection [label="structural-drift-detection · M" fillcolor="#B0D4F1" penwidth=1]
   }
 
@@ -108,12 +103,11 @@ digraph backlog {
   }
 
   subgraph cluster_session {
-    label="Session (10)" labeljust=l fontsize=9 fontcolor="#555555"
+    label="Session (9)" labeljust=l fontsize=9 fontcolor="#555555"
     style=rounded color="#cccccc" bgcolor="#fafafa"
     CORE_codebase_orientation_map [label="codebase-orientation-map [v0.7]" fillcolor="#FFA07A" penwidth=2]
     CORE_conversation_primer [label="conversation-primer · M" fillcolor="#B0D4F1" penwidth=2]
     CORE_cross_session_resume [label="cross-session-resume · S" fillcolor="#D4E8F7" penwidth=2]
-    CORE_session_knowledge_map [label="session-knowledge-map · S" fillcolor="#D4E8F7" penwidth=2]
     CI_002_deterministic_scenario_replay [label="CI-002-deterministic-scen... · L" fillcolor="#8EC5E5" penwidth=1]
     CORE_agent_handoff_protocol [label="agent-handoff-protocol · M" fillcolor="#B0D4F1" penwidth=1]
     CORE_capture_range [label="capture-range · S" fillcolor="#D4E8F7" penwidth=1]
@@ -162,7 +156,6 @@ digraph backlog {
   }
 
   // Internal spine edges
-  WARP_symbol_history_timeline -> WARP_temporal_structural_search
   WARP_provenance_dag -> WARP_causal_blame_for_staged_artifacts
   WARP_provenance_dag -> WARP_reasoning_trace_replay
   WARP_agent_action_provenance -> CI_001_causal_collapse_visualizer
@@ -170,8 +163,6 @@ digraph backlog {
   WARP_agent_action_provenance -> WARP_intent_and_decision_events
   WARP_agent_action_provenance -> WARP_provenance_dag
   SURFACE_active_causal_workspace_status -> SURFACE_ide_native_graft_integration
-  WARP_stale_docs_checker -> WARP_drift_sentinel
-  monitor_tick_ceiling_tracking -> WARP_background_indexing
   WARP_counterfactual_refactoring -> WARP_structural_impact_prediction
   WARP_refactor_difficulty_score -> WARP_technical_debt_curvature
   CORE_opt_in_daemon_mode_mcp_bootstrap -> SURFACE_bijou_tui_for_graft_daemon_control_plane
@@ -194,12 +185,10 @@ digraph backlog {
     node [fontsize=7 width=0.9]
     leg_trunk [label="trunk (bold)" fillcolor="#B0D4F1" penwidth=2]
     leg_leaf [label="leaf (thin)" fillcolor="#B0D4F1" penwidth=1]
-    leg_v07 [label="v0.7.0 / debt" fillcolor="#FFA07A"]
+    leg_v07 [label="v0.7.0" fillcolor="#FFA07A"]
     leg_seam [label="cross-feature\nseam" fillcolor="white"]
     leg_trunk -> leg_leaf [style=invis]
     leg_leaf -> leg_v07 [style=invis]
     leg_v07 -> leg_seam [style=invis]
-    edge_demo [label="" shape=point width=0.01 height=0.01 fillcolor=white style=invis]
-    leg_seam -> edge_demo [color="#cc3333" penwidth=2 style=dashed arrowsize=0.5]
   }
 }
