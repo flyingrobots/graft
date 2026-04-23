@@ -2,7 +2,7 @@ import { describe, it, expect } from "vitest";
 import {
   checkNumericClaim,
   checkPatternProhibition,
-  type DriftResult,
+
 } from "../../../src/warp/structural-drift-detection.js";
 
 describe("warp: structural-drift-detection", () => {
