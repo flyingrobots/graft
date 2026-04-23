@@ -3,6 +3,7 @@ import * as fs from "node:fs";
 import * as path from "node:path";
 import { git, createTestRepo, cleanupTestRepo } from "../../helpers/git.js";
 import { buildSessionResume } from "../../../src/operations/cross-session-resume.js";
+import { nodeGit } from "../../../src/adapters/node-git.js";
 
 describe("operations: cross-session-resume", () => {
   let tmpDir: string;
@@ -35,7 +36,7 @@ describe("operations: cross-session-resume", () => {
 
     const resume = await buildSessionResume({
       cwd: tmpDir,
-      savedHeadSha: savedHead,
+      savedHeadSha: savedHead, git: nodeGit,
     });
 
     expect(resume.resumable).toBe(true);
@@ -51,7 +52,7 @@ describe("operations: cross-session-resume", () => {
 
     const resume = await buildSessionResume({
       cwd: tmpDir,
-      savedHeadSha: head,
+      savedHeadSha: head, git: nodeGit,
     });
 
     expect(resume.resumable).toBe(true);
@@ -70,7 +71,7 @@ describe("operations: cross-session-resume", () => {
 
     const resume = await buildSessionResume({
       cwd: tmpDir,
-      savedHeadSha: savedHead,
+      savedHeadSha: savedHead, git: nodeGit,
     });
 
     expect(resume.changedFiles.some((f) => f.path.includes("new.ts"))).toBe(true);
@@ -88,7 +89,7 @@ describe("operations: cross-session-resume", () => {
 
     const resume = await buildSessionResume({
       cwd: tmpDir,
-      savedHeadSha: savedHead,
+      savedHeadSha: savedHead, git: nodeGit,
     });
 
     expect(resume.changedFiles.some((f) => f.path.includes("doomed.ts"))).toBe(true);
@@ -101,7 +102,7 @@ describe("operations: cross-session-resume", () => {
 
     const resume = await buildSessionResume({
       cwd: tmpDir,
-      savedHeadSha: "0000000000000000000000000000000000000000",
+      savedHeadSha: "0000000000000000000000000000000000000000", git: nodeGit,
     });
 
     expect(resume.resumable).toBe(false);
