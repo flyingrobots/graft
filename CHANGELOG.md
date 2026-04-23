@@ -9,6 +9,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ### Added
 
+- **Drift sentinel**: `runDriftSentinel(ctx, options)` scans all
+  tracked markdown files for stale symbol references against the
+  WARP graph. Returns pass/fail verdict for pre-commit hook use.
 - **WARP-based reference counting for structural-review**: `graft_review`
   now counts symbol references via WARP graph traversal instead of
   ripgrep. More precise (actual imports) and faster (no subprocess).
