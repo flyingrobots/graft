@@ -9,6 +9,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ### Added
 
+- **Structural drift detection**: `checkNumericClaim` and
+  `checkPatternProhibition` verify doc claims against reality —
+  numeric counts and pattern prohibitions.
 - **Drift sentinel**: `runDriftSentinel(ctx, options)` scans all
   tracked markdown files for stale symbol references against the
   WARP graph. Returns pass/fail verdict for pre-commit hook use.
