@@ -1,3 +1,4 @@
+import type { QueryResultV1 } from "@git-stunts/git-warp";
 import type { WarpContext } from "../../warp/context.js";
 import { observeGraph } from "../../warp/context.js";
 import { allSymbolsLens, commitsLens, fileSymbolsLens, symbolByNameLens } from "../../warp/observers.js";
@@ -38,12 +39,17 @@ function toMatch(
 export async function getIndexedCommitCeilings(ctx: WarpContext): Promise<ReadonlyMap<string, number>> {
   const ceilings = new Map<string, number>();
   const observer = await observeGraph(ctx, commitsLens());
-  const nodeIds = await observer.getNodes();
 
-  for (const nodeId of nodeIds) {
-    const props = await observer.getNodeProps(nodeId);
-    const sha = typeof props?.["sha"] === "string" ? props["sha"] : null;
-    const tick = typeof props?.["tick"] === "number" ? props["tick"] : null;
+  // Slice-first: use query API instead of getNodes() + per-node getNodeProps()
+  const result = await observer.query()
+    .match("commit:*")
+    .select(["id", "props"])
+    .run() as QueryResultV1;
+
+  for (const node of result.nodes) {
+    const props = node.props ?? {};
+    const sha = typeof props["sha"] === "string" ? props["sha"] : null;
+    const tick = typeof props["tick"] === "number" ? props["tick"] : null;
     if (sha !== null && tick !== null) {
       ceilings.set(sha, tick);
     }
@@ -76,15 +82,19 @@ export async function searchWarpSymbols(
     lens,
     request.ceiling !== undefined ? { source: { kind: "live", ceiling: request.ceiling } } : undefined,
   );
-  const nodeIds = await observer.getNodes();
+  // Slice-first: use query API instead of getNodes() + per-node getNodeProps()
+  const queryResult = await observer.query()
+    .match("*")
+    .select(["id", "props"])
+    .run() as QueryResultV1;
 
-  const matches = await Promise.all(nodeIds.map(async (nodeId) => {
-    const props = await observer.getNodeProps(nodeId);
-    if (props === null) return null;
-    const match = toMatch(nodeId, props);
+  const matches = queryResult.nodes.map((node) => {
+    const props = node.props ?? {};
+    if (node.id === undefined) return null;
+    const match = toMatch(node.id, props);
     if (match === null) return null;
     return request.rank(match);
-  }));
+  });
 
   const visibleMatches = matches.filter((match): match is RankedPrecisionSymbolMatch => match !== null);
   return request.sort(visibleMatches);
