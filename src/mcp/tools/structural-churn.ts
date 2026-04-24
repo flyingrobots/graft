@@ -1,7 +1,6 @@
 import { z } from "zod";
-import { structuralChurn, structuralChurnToJson } from "../../operations/structural-churn.js";
-import { nodePathOps } from "../../adapters/node-paths.js";
-import { symbolsForCommit } from "../../warp/structural-queries.js";
+import { structuralChurnToJson } from "../../operations/structural-churn.js";
+import { structuralChurnFromGraph } from "../../warp/warp-structural-churn.js";
 import type { ToolDefinition, ToolHandler } from "../context.js";
 
 export const structuralChurnTool: ToolDefinition = {
@@ -17,11 +16,7 @@ export const structuralChurnTool: ToolDefinition = {
   createHandler(): ToolHandler {
     return async (args, ctx) => {
       const warp = await ctx.getWarp();
-      const result = await structuralChurn({
-        cwd: ctx.projectRoot,
-        git: ctx.git,
-        pathOps: nodePathOps,
-        querySymbolsForCommit: (sha) => symbolsForCommit(warp, sha),
+      const result = await structuralChurnFromGraph(warp, {
         path: args["path"] as string | undefined,
         limit: args["limit"] as number | undefined,
       });
