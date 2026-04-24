@@ -1,7 +1,5 @@
 import { z } from "zod";
-import { structuralLog } from "../../operations/structural-log.js";
-import { nodePathOps } from "../../adapters/node-paths.js";
-import { symbolsForCommit } from "../../warp/structural-queries.js";
+import { structuralLogFromGraph } from "../../warp/warp-structural-log.js";
 import { toJsonObject } from "../../operations/result-dto.js";
 import type { ToolDefinition, ToolHandler } from "../context.js";
 
@@ -17,17 +15,11 @@ export const structuralLogTool: ToolDefinition = {
   },
   createHandler(): ToolHandler {
     return async (args, ctx) => {
-      const since = args["since"] as string | undefined;
       const filePath = args["path"] as string | undefined;
       const limit = args["limit"] as number | undefined;
       const warp = await ctx.getWarp();
 
-      const entries = await structuralLog({
-        querySymbols: (sha) => symbolsForCommit(warp, sha),
-        git: ctx.git,
-        pathOps: nodePathOps,
-        cwd: ctx.projectRoot,
-        since,
+      const entries = await structuralLogFromGraph(warp, {
         path: filePath,
         limit,
       });
