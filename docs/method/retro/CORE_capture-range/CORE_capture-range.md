@@ -2,15 +2,26 @@
 
 ## What shipped
 
-feat(session): CaptureHandleRegistry — opaque session-scoped handles for run_capture output
+`CaptureHandleRegistry` — maps opaque handles to capture content.
+`register(sessionId, content)` returns a handle;
+`getRange(handle, sessionId, start, end)` returns a line slice.
 
-## Cycle notes
+## Acceptance criteria review
 
-This retro is a placeholder created after the fact. The original
-cycle was executed without a proper Retro phase — Playback, Drift,
-and Retro were skipped during a high-throughput session. The code
-and tests are correct but the cycle ceremony was incomplete.
+| Criterion | Status |
+|---|---|
+| run_capture returns opaque handle | ❌ Registry exists but run_capture not modified |
+| capture_range accepts handle + start/end | ✅ Registry.getRange() |
+| Agents cannot bypass via read_range | ❌ No access control added |
+| Handles session-scoped | ✅ Validates session ID |
 
-## Status
+## Gaps
 
-Completed. Tests passing. Lint clean.
+1. **run_capture not modified**: The registry is standalone — run_capture
+   still returns raw log paths.
+2. **No read_range blocking**: Capture log files remain readable via
+   safe_read/read_range.
+
+## Drift check
+
+- Pure class, no node imports (counter-based IDs, not crypto) ✅

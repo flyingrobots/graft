@@ -2,15 +2,27 @@
 
 ## What shipped
 
-feat(session): buildHandoff — structured session transfer payload from observation cache
+`buildHandoff(options)` projects the observation cache into a
+portable JSON payload: filesRead, symbolsInspected, observations,
+budgetConsumed.
 
-## Cycle notes
+## Acceptance criteria review
 
-This retro is a placeholder created after the fact. The original
-cycle was executed without a proper Retro phase — Playback, Drift,
-and Retro were skipped during a high-throughput session. The code
-and tests are correct but the cycle ceremony was incomplete.
+| Criterion | Status |
+|---|---|
+| Structured handoff JSON on session end | ⚠️ Function exists, not wired to lifecycle |
+| Includes filesRead, symbolsInspected, filesModified, plannedButNotDone, budgetConsumed | ⚠️ Missing filesModified, plannedButNotDone |
+| New session can ingest handoff | ❌ No ingest path |
+| Projection over existing state | ✅ Reads ObservationCache |
+| Preserves causal workspace identity | ❌ No causal data |
 
-## Status
+## Gaps
 
-Completed. Tests passing. Lint clean.
+1. **Missing fields**: filesModified and plannedButNotDone not included.
+2. **No ingest path**: One-way — produces but doesn't consume.
+3. **No causal workspace**: sessionId is included but not causal chain.
+4. **No lifecycle integration**: Caller must invoke manually.
+
+## Drift check
+
+- Uses ObservationCache.allEntries() correctly ✅

@@ -2,15 +2,25 @@
 
 ## What shipped
 
-feat(projection): getQuestionClass + checkProjectionSafety + getSafetyClassMetadata
+`getQuestionClass(toolName)` classifies tools by information need.
+`checkProjectionSafety(tool, projection)` warns when insufficient.
+`getSafetyClassMetadata(projection)` returns answerable classes.
 
-## Cycle notes
+## Acceptance criteria review
 
-This retro is a placeholder created after the fact. The original
-cycle was executed without a proper Retro phase — Playback, Drift,
-and Retro were skipped during a high-throughput session. The code
-and tests are correct but the cycle ceremony was incomplete.
+| Criterion | Status |
+|---|---|
+| Declared question classes per projection | ✅ ANSWERABLE map |
+| Warning when question exceeds safety class | ✅ checkProjectionSafety |
+| Structural insufficiency floor per query | ❌ Fixed mapping, no per-file computation |
+| Metadata available programmatically | ✅ getSafetyClassMetadata |
 
-## Status
+## Gaps
 
-Completed. Tests passing. Lint clean.
+1. **No per-file insufficiency floor**: Uses a fixed question-class →
+   projection mapping. Card mentions computing the floor per file based
+   on compression ratio and symbol density.
+
+## Drift check
+
+- Pure functions, no imports, no architecture concerns ✅

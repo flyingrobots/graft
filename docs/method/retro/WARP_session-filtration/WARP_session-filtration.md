@@ -2,15 +2,24 @@
 
 ## What shipped
 
-feat(projection): computeFiltrationLevel + shouldEscalateDetail — monotone accumulation-aware escalation
+`computeFiltrationLevel(input)` measures session saturation (0→1).
+`shouldEscalateDetail(input)` triggers outline→content escalation.
 
-## Cycle notes
+## Acceptance criteria review
 
-This retro is a placeholder created after the fact. The original
-cycle was executed without a proper Retro phase — Playback, Drift,
-and Retro were skipped during a high-throughput session. The code
-and tests are correct but the cycle ceremony was incomplete.
+| Criterion | Status |
+|---|---|
+| Tracks accumulated observations | ✅ Takes observation counts |
+| Higher detail for already-outlined directories | ✅ shouldEscalateDetail |
+| Adapts based on what agent has seen | ✅ |
+| Measurable reduction in redundant context | ❌ No measurement |
+| Filtration state queryable | ⚠️ Function callable but not exposed as tool |
 
-## Status
+## Gaps
 
-Completed. Tests passing. Lint clean.
+1. **No measurement proof**: No benchmark showing reduced redundancy.
+2. **Not exposed as tool**: computeFiltrationLevel is a library function.
+
+## Drift check
+
+- Pure functions, no architecture concerns ✅

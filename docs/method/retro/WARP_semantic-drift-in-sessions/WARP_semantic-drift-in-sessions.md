@@ -2,15 +2,23 @@
 
 ## What shipped
 
-feat(projection): detectSemanticDrift — holonomy-based reading path drift warnings
+`detectSemanticDrift(readingPath, relatedFiles)` identifies re-reads
+where structurally related files were read in between.
 
-## Cycle notes
+## Acceptance criteria review
 
-This retro is a placeholder created after the fact. The original
-cycle was executed without a proper Retro phase — Playback, Drift,
-and Retro were skipped during a high-throughput session. The code
-and tests are correct but the cycle ceremony was incomplete.
+| Criterion | Status |
+|---|---|
+| Tracks reading path | ⚠️ Takes path as input, doesn't track it |
+| Flags interpretation shift on re-reads | ✅ |
+| Holonomy detection identifies loops | ✅ |
+| Warnings include reading chain | ✅ intervening field |
 
-## Status
+## Gaps
 
-Completed. Tests passing. Lint clean.
+1. **Doesn't track**: Caller must collect the reading path and pass it.
+   The function is a detector, not a tracker.
+
+## Drift check
+
+- Pure function, no architecture concerns ✅

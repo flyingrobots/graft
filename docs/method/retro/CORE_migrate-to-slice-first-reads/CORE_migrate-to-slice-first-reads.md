@@ -2,15 +2,23 @@
 
 ## What shipped
 
-refactor(projection): migrated precision-warp from getNodes to query API (slice-first)
+Migrated precision-warp.ts from getNodes() + per-node getNodeProps()
+to query().match().select().run() (QueryBuilder API).
 
-## Cycle notes
+## Acceptance criteria review
 
-This retro is a placeholder created after the fact. The original
-cycle was executed without a proper Retro phase — Playback, Drift,
-and Retro were skipped during a high-throughput session. The code
-and tests are correct but the cycle ceremony was incomplete.
+| Criterion | Status |
+|---|---|
+| No getNodes/getEdges on broad apertures | ⚠️ precision-warp fixed; local-history + persisted-local-history remain |
+| All reads use traverse/query/bounded-neighborhood | ⚠️ Partial — HIGH sites done, MEDIUM sites wait for git-warp Rung 2+ |
 
-## Status
+## Gaps
 
-Completed. Tests passing. Lint clean.
+MEDIUM-severity sites in local-history-dag-model.ts and
+persisted-local-history.ts still use getNodes/getEdges. Documented
+as waiting for git-warp observer geometry ladder Rung 2+ APIs.
+
+## Drift check
+
+- Uses QueryResultV1 from git-warp correctly ✅
+- observeGraph convention followed ✅

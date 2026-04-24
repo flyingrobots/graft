@@ -1,16 +1,25 @@
-# Retro: CORE_teaching-hints
+# Retro: CORE_graft-as-teacher + CORE_graft-teach-learning-receipts (unified)
 
 ## What shipped
 
-feat(session): generateTeachingHint — contextual guidance for suboptimal reads. Resolves graft-as-teacher + graft-teach-learning-receipts (deduplicated)
+`generateTeachingHint(ctx)` returns contextual hints for suboptimal
+read decisions. Pure function over projection decision context.
 
-## Cycle notes
+## Acceptance criteria review (graft-as-teacher)
 
-This retro is a placeholder created after the fact. The original
-cycle was executed without a proper Retro phase — Playback, Drift,
-and Retro were skipped during a high-throughput session. The code
-and tests are correct but the cycle ceremony was incomplete.
+| Criterion | Status |
+|---|---|
+| Every governor response includes a hint field | ❌ Function exists but not wired into governor |
+| Hints are contextual | ✅ References specific projection type |
+| Teaches file_outline first, read_range for details | ✅ |
+| No measurable latency | ✅ Pure function, no I/O |
+| Omitted when optimal | ✅ Returns undefined |
 
-## Status
+## Gaps
 
-Completed. Tests passing. Lint clean.
+1. **Not wired into governor**: The function exists but governor responses
+   don't include a hint field. Integration work remains.
+
+## Drift check
+
+- Pure function, no imports, no architecture concerns ✅

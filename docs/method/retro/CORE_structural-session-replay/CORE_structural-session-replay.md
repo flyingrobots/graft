@@ -2,15 +2,25 @@
 
 ## What shipped
 
-feat(session): parseReceiptsForReplay + renderReplayMarkdown — NDJSON receipt walkthrough
+`parseReceiptsForReplay(ndjson, sessionId)` extracts tool calls from
+NDJSON receipts. `renderReplayMarkdown(entries)` produces a Markdown
+table.
 
-## Cycle notes
+## Acceptance criteria review
 
-This retro is a placeholder created after the fact. The original
-cycle was executed without a proper Retro phase — Playback, Drift,
-and Retro were skipped during a high-throughput session. The code
-and tests are correct but the cycle ceremony was incomplete.
+| Criterion | Status |
+|---|---|
+| graft replay command | ❌ No CLI command — just parse/render functions |
+| Shows tool calls in order with targets | ✅ |
+| Markdown render format | ✅ |
+| Absence visible (test file never read) | ❌ No absence detection |
+| Works for any completed session | ✅ Reads NDJSON |
 
-## Status
+## Gaps
 
-Completed. Tests passing. Lint clean.
+1. **No CLI command**: Just library functions.
+2. **No absence detection**: Doesn't flag directories/files never visited.
+
+## Drift check
+
+- Pure functions, no architecture concerns ✅

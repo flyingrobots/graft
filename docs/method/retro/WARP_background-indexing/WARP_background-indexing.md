@@ -2,15 +2,27 @@
 
 ## What shipped
 
-feat(graph-indexing): background indexing with monitor_nudge MCP tool for post-commit hooks
+`monitor_nudge` MCP tool — triggers immediate re-index tick for a
+running monitor. Added `nudgeMonitor()` to PersistentMonitorRuntime.
+Wired through ToolContext, server-context, capability registry.
 
-## Cycle notes
+## Acceptance criteria review
 
-This retro is a placeholder created after the fact. The original
-cycle was executed without a proper Retro phase — Playback, Drift,
-and Retro were skipped during a high-throughput session. The code
-and tests are correct but the cycle ceremony was incomplete.
+| Criterion | Status |
+|---|---|
+| Runs in background on startup without blocking | ✅ Scheduler handles priority separation |
+| Post-commit hook triggers incremental indexing | ⚠️ monitor_nudge tool exists but no hook script |
+| Only commits since last indexed position | ✅ Tick ceiling handles this |
+| WARP-backed tools auto-read from graph | ✅ Already the behavior |
+| Agent tool calls never blocked | ✅ Scheduler separates bg/fg |
+| Test verifies non-blocking | ✅ Test exists |
 
-## Status
+## Gaps
 
-Completed. Tests passing. Lint clean.
+1. No post-commit hook script in scripts/hooks/ — only the nudge tool.
+
+## Drift check
+
+- monitor_nudge wired through proper ToolContext interface ✅
+- Capability registry, output schemas, burden all updated ✅
+- Uses same MonitorActionResult type as other monitor tools ✅

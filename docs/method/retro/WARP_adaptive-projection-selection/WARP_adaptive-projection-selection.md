@@ -2,15 +2,27 @@
 
 ## What shipped
 
-feat(projection): selectProjection — structural auto-select of outline/content/range
+`selectProjection(candidate)` chooses outline/content/range based
+on file metrics.
 
-## Cycle notes
+## Acceptance criteria review
 
-This retro is a placeholder created after the fact. The original
-cycle was executed without a proper Retro phase — Playback, Drift,
-and Retro were skipped during a high-throughput session. The code
-and tests are correct but the cycle ceremony was incomplete.
+| Criterion | Status |
+|---|---|
+| Minimizes structural curvature | ❌ Uses simple thresholds |
+| Dense → outline, thin config → content | ✅ |
+| Single-function → range | ✅ targetSymbol |
+| Structural, not threshold-based | ❌ IS threshold-based |
+| Overridable by user/agent | ❌ No override mechanism |
+| Test: high-complexity selects outline | ✅ |
 
-## Status
+## Gaps
 
-Completed. Tests passing. Lint clean.
+1. **Threshold-based, not graph-derived**: Card explicitly says
+   "structural (graph-derived), not threshold-based" but implementation
+   uses SMALL_FILE_THRESHOLD and HORIZON_RATIO constants.
+2. **No override mechanism**: Card says overridable but isn't.
+
+## Drift check
+
+- Pure function, no architecture concerns ✅
