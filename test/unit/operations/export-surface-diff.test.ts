@@ -79,7 +79,7 @@ describe("operations: export-surface-diff", { timeout: 15000 }, () => {
     expect(result.semverImpact).toBe("major");
   });
 
-  it("detects changed exported signature", async () => {
+  it("classifies adding a required exported parameter as major semver impact", async () => {
     // Commit 1: exported function
     fs.writeFileSync(
       path.join(tmpDir, "api.ts"),
@@ -111,6 +111,193 @@ describe("operations: export-surface-diff", { timeout: 15000 }, () => {
     expect(result.changed[0]!.previousSignature).toBeDefined();
     expect(result.changed[0]!.signature).toBeDefined();
     expect(result.changed[0]!.signature).not.toBe(result.changed[0]!.previousSignature);
+    expect(result.semverImpact).toBe("major");
+  });
+
+  it("classifies adding an optional exported parameter as minor semver impact", async () => {
+    // Commit 1: exported function
+    fs.writeFileSync(
+      path.join(tmpDir, "api.ts"),
+      "export function process(input: string): string { return input; }\n",
+    );
+    git(tmpDir, "add -A");
+    git(tmpDir, "commit -m 'init'");
+    const baseSha = git(tmpDir, "rev-parse HEAD");
+
+    // Commit 2: add optional parameter
+    fs.writeFileSync(
+      path.join(tmpDir, "api.ts"),
+      "export function process(input: string, options?: object): string { return input; }\n",
+    );
+    git(tmpDir, "add -A");
+    git(tmpDir, "commit -m 'add optional parameter'");
+    const headSha = git(tmpDir, "rev-parse HEAD");
+
+    const result = await exportSurfaceDiff({
+      cwd: tmpDir,
+      git: nodeGit,
+      base: baseSha,
+      head: headSha,
+    });
+
+    expect(result.changed.length).toBe(1);
+    expect(result.changed[0]!.symbol).toBe("process");
+    expect(result.semverImpact).toBe("minor");
+  });
+
+  it("classifies adding a default-valued exported parameter as minor semver impact", async () => {
+    // Commit 1: exported function
+    fs.writeFileSync(
+      path.join(tmpDir, "api.ts"),
+      "export function process(input: string): string { return input; }\n",
+    );
+    git(tmpDir, "add -A");
+    git(tmpDir, "commit -m 'init'");
+    const baseSha = git(tmpDir, "rev-parse HEAD");
+
+    // Commit 2: add parameter with a default value
+    fs.writeFileSync(
+      path.join(tmpDir, "api.ts"),
+      "export function process(input: string, fallback: string = \"ok\"): string { return input || fallback; }\n",
+    );
+    git(tmpDir, "add -A");
+    git(tmpDir, "commit -m 'add default parameter'");
+    const headSha = git(tmpDir, "rev-parse HEAD");
+
+    const result = await exportSurfaceDiff({
+      cwd: tmpDir,
+      git: nodeGit,
+      base: baseSha,
+      head: headSha,
+    });
+
+    expect(result.changed.length).toBe(1);
+    expect(result.changed[0]!.symbol).toBe("process");
+    expect(result.semverImpact).toBe("minor");
+  });
+
+  it("classifies removed optional exported parameter as major semver impact", async () => {
+    // Commit 1: exported function with optional parameter
+    fs.writeFileSync(
+      path.join(tmpDir, "api.ts"),
+      "export function process(input: string, options?: object): string { return input; }\n",
+    );
+    git(tmpDir, "add -A");
+    git(tmpDir, "commit -m 'init'");
+    const baseSha = git(tmpDir, "rev-parse HEAD");
+
+    // Commit 2: remove optional parameter
+    fs.writeFileSync(
+      path.join(tmpDir, "api.ts"),
+      "export function process(input: string): string { return input; }\n",
+    );
+    git(tmpDir, "add -A");
+    git(tmpDir, "commit -m 'remove optional parameter'");
+    const headSha = git(tmpDir, "rev-parse HEAD");
+
+    const result = await exportSurfaceDiff({
+      cwd: tmpDir,
+      git: nodeGit,
+      base: baseSha,
+      head: headSha,
+    });
+
+    expect(result.changed.length).toBe(1);
+    expect(result.changed[0]!.symbol).toBe("process");
+    expect(result.semverImpact).toBe("major");
+  });
+
+  it("classifies parameter type changes as major semver impact", async () => {
+    // Commit 1: exported function
+    fs.writeFileSync(
+      path.join(tmpDir, "api.ts"),
+      "export function process(input: string): string { return input; }\n",
+    );
+    git(tmpDir, "add -A");
+    git(tmpDir, "commit -m 'init'");
+    const baseSha = git(tmpDir, "rev-parse HEAD");
+
+    // Commit 2: change parameter type
+    fs.writeFileSync(
+      path.join(tmpDir, "api.ts"),
+      "export function process(input: number): string { return String(input); }\n",
+    );
+    git(tmpDir, "add -A");
+    git(tmpDir, "commit -m 'change parameter type'");
+    const headSha = git(tmpDir, "rev-parse HEAD");
+
+    const result = await exportSurfaceDiff({
+      cwd: tmpDir,
+      git: nodeGit,
+      base: baseSha,
+      head: headSha,
+    });
+
+    expect(result.changed.length).toBe(1);
+    expect(result.changed[0]!.symbol).toBe("process");
+    expect(result.semverImpact).toBe("major");
+  });
+
+  it("classifies exported return type changes as major semver impact", async () => {
+    // Commit 1: exported function
+    fs.writeFileSync(
+      path.join(tmpDir, "api.ts"),
+      "export function process(input: string): string | number { return input; }\n",
+    );
+    git(tmpDir, "add -A");
+    git(tmpDir, "commit -m 'init'");
+    const baseSha = git(tmpDir, "rev-parse HEAD");
+
+    // Commit 2: narrow return type
+    fs.writeFileSync(
+      path.join(tmpDir, "api.ts"),
+      "export function process(input: string): string { return input; }\n",
+    );
+    git(tmpDir, "add -A");
+    git(tmpDir, "commit -m 'change return type'");
+    const headSha = git(tmpDir, "rev-parse HEAD");
+
+    const result = await exportSurfaceDiff({
+      cwd: tmpDir,
+      git: nodeGit,
+      base: baseSha,
+      head: headSha,
+    });
+
+    expect(result.changed.length).toBe(1);
+    expect(result.changed[0]!.symbol).toBe("process");
+    expect(result.semverImpact).toBe("major");
+  });
+
+  it("classifies parameter rename-only signature changes as patch semver impact", async () => {
+    // Commit 1: exported function
+    fs.writeFileSync(
+      path.join(tmpDir, "api.ts"),
+      "export function process(input: string): string { return input; }\n",
+    );
+    git(tmpDir, "add -A");
+    git(tmpDir, "commit -m 'init'");
+    const baseSha = git(tmpDir, "rev-parse HEAD");
+
+    // Commit 2: rename parameter without changing type or arity
+    fs.writeFileSync(
+      path.join(tmpDir, "api.ts"),
+      "export function process(value: string): string { return value; }\n",
+    );
+    git(tmpDir, "add -A");
+    git(tmpDir, "commit -m 'rename parameter'");
+    const headSha = git(tmpDir, "rev-parse HEAD");
+
+    const result = await exportSurfaceDiff({
+      cwd: tmpDir,
+      git: nodeGit,
+      base: baseSha,
+      head: headSha,
+    });
+
+    expect(result.changed.length).toBe(1);
+    expect(result.changed[0]!.symbol).toBe("process");
+    expect(result.semverImpact).toBe("patch");
   });
 
   it("ignores non-exported symbols", async () => {

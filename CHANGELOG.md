@@ -72,6 +72,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ### Fixed
 
+- **Export surface semver impact**: `exportSurfaceDiff` now treats
+  breaking signature changes conservatively. Required parameter
+  additions, removed parameters, parameter type changes, and return
+  type changes are `major`; additive optional parameters are `minor`.
 - **Reference edge scan**: `referencesForSymbol` no longer scans all
   graph edges; it traverses incoming `references` edges from the target
   symbol/file node.

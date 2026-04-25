@@ -3,7 +3,7 @@ title: "export-surface-diff classifies all signature changes as patch (may be br
 feature: export-analysis
 kind: trunk
 legend: CLEAN_CODE
-lane: v0.7.0
+lane: graveyard
 requirements:
   - "export-surface-diff operation exists with deriveSemverImpact"
 acceptance_criteria:
@@ -15,6 +15,13 @@ blocking:
 ---
 
 # export-surface-diff classifies all signature changes as patch (may be breaking)
+
+Status: resolved in `CLEAN_CODE_export-diff-semver-signature-as-patch`.
+`deriveSemverImpact` now parses exported function signatures and
+classifies required parameter additions, removed parameters, parameter
+type changes, and return type changes as `major`. Additive optional
+parameters are `minor`; compatible text-only signature changes remain
+`patch`.
 
 Source: design review exercise 2026-04-19
 
