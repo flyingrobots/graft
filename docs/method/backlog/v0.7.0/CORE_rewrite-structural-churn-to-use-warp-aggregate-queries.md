@@ -1,5 +1,5 @@
 ---
-title: Rewrite structural-churn to use WARP aggregate queries
+title: Optimize structural-churn to use WARP aggregate queries
 feature: structural-queries
 kind: trunk
 legend: CORE
@@ -17,14 +17,20 @@ blocking:
   - WARP_refactor-difficulty-score
 ---
 
-# Rewrite structural-churn to use WARP aggregate queries
+# Optimize structural-churn to use WARP aggregate queries
 
 Source: decomposed from CORE_rewrite-operations-for-warp-queries
 
 ## Current state
 
-`structural-churn` iterates git commits, calls `symbolsForCommit()` per
-commit, accumulates change counts in a Map, then ranks by frequency.
+`graft_churn` now calls `structuralChurnFromGraph(ctx, options?)` from
+`src/warp/warp-structural-churn.ts`. It reads commit and symbol facts
+from WARP and makes zero GitClient calls on the MCP execution path.
+
+The remaining gap is narrower than the original rewrite card:
+`structuralChurnFromGraph` still traverses each commit and accumulates
+counts in an in-memory `Map`. That is functionally correct, but it is
+not yet the aggregate-query shape this card intended.
 
 ## Target state
 

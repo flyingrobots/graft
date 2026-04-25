@@ -1,7 +1,10 @@
 ---
 title: "Retro: CORE_rewrite-structural-queries"
 cycle: "CORE_rewrite-structural-queries"
-conclusion: "pass"
+release: "v0.7.0"
+design_doc: "docs/releases/v0.7.0/design/CORE_rewrite-structural-queries.md"
+outcome: "hill-met"
+drift_check: yes
 ---
 
 # Retro: CORE_rewrite-structural-queries

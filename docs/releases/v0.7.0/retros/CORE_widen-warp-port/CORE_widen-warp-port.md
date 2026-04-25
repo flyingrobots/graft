@@ -1,7 +1,10 @@
 ---
 title: "Retro: CORE_widen-warp-port"
 cycle: "CORE_widen-warp-port"
-conclusion: "pass"
+release: "v0.7.0"
+design_doc: "docs/releases/v0.7.0/design/CORE_widen-warp-port.md"
+outcome: "hill-met"
+drift_check: yes
 ---
 
 # Retro: CORE_widen-warp-port

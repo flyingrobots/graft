@@ -3,7 +3,7 @@ title: "Codebase orientation map"
 feature: session
 kind: trunk
 legend: CORE
-lane: v0.7.0
+lane: graveyard
 requirements:
   - "file_outline tool exists (shipped)"
   - "Tree-sitter parsing pipeline (shipped)"

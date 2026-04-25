@@ -473,7 +473,7 @@ Playback-question drift found.
 Scanned 1 active cycle, 8 playback questions, 211 test descriptions.
 Search basis: normalized match, semantic normalization, or high-confidence token similarity in tests/**/*.test.* and tests/**/*.spec.* descriptions.
 
-docs/design/CORE_widen-warp-port.md
+docs/releases/v0.7.0/design/CORE_widen-warp-port.md
 - Human: Can a human see that `src/ports/warp.ts` no longer exists and that git-warp types flow directly through application code?
   No matching test description found.
 - Human: Can a human confirm that `openWarp()` is the sole construction adapter — the only file that wires `GitGraphAdapter` + `GitPlumbing`?

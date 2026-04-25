@@ -1,7 +1,7 @@
 ---
 title: "Rewrite structural-queries to use WARP native operations"
 legend: CORE
-lane: v0.7.0
+lane: graveyard
 blocked_by:
   - CORE_widen-warp-port
 blocks:

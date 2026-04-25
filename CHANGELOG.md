@@ -7,8 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.7.0] - 2026-04-25
+
 ### Added
 
+- **WARP snapshot indexing**: `indexHead` is now the canonical
+  snapshot-based indexing path and emits commit, file, directory,
+  symbol, and AST facts with tick metadata.
+- **Cross-file import resolution**: WARP now records import,
+  re-export, and namespace reference edges for graph-native reference
+  queries.
 - **Outline-diff commit trailer**: `formatStructuralDiffTrailer` +
   `parseStructuralDiffTrailer` for embedding structural diffs in
   git commit messages as machine-readable trailers.
@@ -39,6 +47,36 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 - **Monitor tick ceiling tracking**: `runMonitorTickJob` skips
   `openWarp` and `indexHead` when HEAD hasn't changed since the last
   indexed commit. Idle monitor ticks are now near-zero-cost.
+
+### Changed
+
+- **WARP context boundary**: `WarpHandle` was removed in favor of
+  direct git-warp types carried through `WarpContext`, with fail-closed
+  strand routing hooks for future strand isolation.
+- **Structural query read paths**: structural queries now use
+  `traverse`, `QueryBuilder`, and tick receipts instead of broad
+  `getEdges()` scans.
+- **WARP-backed structural operations**: `graft_log`, `graft_churn`,
+  `graft_blame`, and `graft_review` now use WARP graph data for their
+  MCP execution paths.
+- **`graft_blame` output shape**: WARP-backed blame returns tick-aware
+  symbol timeline data and a simplified `createdInCommit` value. This
+  is a breaking pre-1.0 MCP schema change for consumers scraping the
+  old result shape.
+
+### Removed
+
+- **Legacy commit-walking indexer**: removed the old `indexCommits`
+  pipeline and related model/graph helpers. `indexHead` is the active
+  indexing path.
+
+### Fixed
+
+- **Reference edge scan**: `referencesForSymbol` no longer scans all
+  graph edges; it traverses incoming `references` edges from the target
+  symbol/file node.
+- **Keep a Changelog version drift**: `checkVersionDrift` now accepts
+  bracketed headings such as `## [0.7.0] - YYYY-MM-DD`.
 
 ## [0.6.1] - 2026-04-19
 

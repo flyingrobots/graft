@@ -4,7 +4,7 @@ feature: structural-queries
 kind: trunk
 legend: CORE
 release: "v0.7.0"
-lane: v0.7.0
+lane: graveyard
 requirements:
   - "indexHead emits commit nodes with tick property (shipped)"
   - "Worldline.seek() API available in git-warp (shipped)"
@@ -15,12 +15,22 @@ acceptance_criteria:
 
 # Rewrite structural-log to use WARP worldline queries
 
+Status: resolved by `CORE_rewrite-structural-log`. The shipped
+implementation uses WARP commit-node queries and edge traversal rather
+than Git log SHA walking. It did not use `worldline().seek()`
+literally; the retro records that design drift.
+
 Source: decomposed from CORE_rewrite-operations-for-warp-queries
 
 ## Current state
 
-`structural-log` walks git log SHAs via GitClient, calls
-`symbolsForCommit()` per commit, then transforms results in pure TS.
+`graft_log` now calls `structuralLogFromGraph(ctx, options?)` from
+`src/warp/warp-structural-log.ts`. It walks WARP commit nodes in
+reverse tick order and traverses commit-symbol edges. Zero GitClient
+calls remain on the MCP execution path.
+
+The remaining `since` schema drift is tracked separately in
+`docs/method/backlog/bad-code/structural-log-stale-since-param.md`.
 
 ## Target state
 

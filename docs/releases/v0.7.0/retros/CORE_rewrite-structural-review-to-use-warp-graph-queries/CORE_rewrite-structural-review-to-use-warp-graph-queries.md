@@ -1,4 +1,13 @@
-# Retro: CORE_rewrite-structural-review
+---
+title: "Retro: CORE_rewrite-structural-review-to-use-warp-graph-queries"
+cycle: "CORE_rewrite-structural-review-to-use-warp-graph-queries"
+release: "v0.7.0"
+design_doc: "docs/releases/v0.7.0/design/CORE_rewrite-structural-review-to-use-warp-graph-queries.md"
+outcome: "hill-met"
+drift_check: yes
+---
+
+# Retro: CORE_rewrite-structural-review-to-use-warp-graph-queries
 
 ## What shipped
 

@@ -1,7 +1,7 @@
 ---
 title: "Widen WarpHandle port to expose query/traverse/worldline"
 legend: CORE
-lane: v0.7.0
+lane: graveyard
 blocks:
   - CORE_deprecate-index-commits
   - CORE_rewrite-structural-queries

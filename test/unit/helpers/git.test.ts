@@ -35,7 +35,35 @@ describe("test helper: git isolation", () => {
     try {
       expect(repoDir.startsWith(os.tmpdir())).toBe(true);
       expect(git(repoDir, "rev-parse --is-inside-work-tree")).toBe("true");
+      expect(git(repoDir, "symbolic-ref --short HEAD")).toBe("main");
+      expect(git(repoDir, "config --get core.fsmonitor")).toBe("false");
     } finally {
+      cleanupTestRepo(repoDir);
+    }
+  });
+
+  it("scrubs inherited Git repository environment before executing commands", () => {
+    const repoRoot = path.resolve(import.meta.dirname, "../../..");
+    const repoDir = createTestRepo("graft-git-helper-env-");
+    const previousGitDir = process.env["GIT_DIR"];
+    const previousGitWorkTree = process.env["GIT_WORK_TREE"];
+    try {
+      process.env["GIT_DIR"] = path.join(repoRoot, ".git");
+      process.env["GIT_WORK_TREE"] = repoRoot;
+
+      const resolved = fs.realpathSync.native(repoDir);
+      expect(fs.realpathSync.native(git(repoDir, "rev-parse --show-toplevel"))).toBe(resolved);
+    } finally {
+      if (previousGitDir === undefined) {
+        delete process.env["GIT_DIR"];
+      } else {
+        process.env["GIT_DIR"] = previousGitDir;
+      }
+      if (previousGitWorkTree === undefined) {
+        delete process.env["GIT_WORK_TREE"];
+      } else {
+        process.env["GIT_WORK_TREE"] = previousGitWorkTree;
+      }
       cleanupTestRepo(repoDir);
     }
   });

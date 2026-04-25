@@ -1,5 +1,5 @@
 ---
-title: "Rewrite structural-blame to use WARP worldline provenance"
+title: "Use ProvenanceIndex for structural-blame last-touch provenance"
 feature: structural-queries
 kind: trunk
 legend: CORE
@@ -17,15 +17,21 @@ blocking:
   - CORE_git-graft-enhance
 ---
 
-# Rewrite structural-blame to use WARP worldline provenance
+# Use ProvenanceIndex for structural-blame last-touch provenance
 
 Source: decomposed from CORE_rewrite-operations-for-warp-queries
 
 ## Current state
 
-`structural-blame` is a pure function that takes pre-fetched symbol
-history and commit metadata. The MCP tool handler fetches this data
-via `commitsForSymbol()` + `getCommitMeta()` per commit.
+`graft_blame` now calls `structuralBlameFromGraph(ctx, symbolName,
+filePath)` from `src/warp/warp-structural-blame.ts`. It composes
+`symbolTimeline` and WARP-based reference counting, and makes zero
+GitClient calls on the MCP execution path.
+
+The remaining gap is narrower than the original rewrite card:
+last-touch provenance comes from `symbolTimeline`, not git-warp's
+`ProvenanceIndex`. That is accurate enough for the current tool shape
+but not the intended provenance primitive.
 
 ## Target state
 

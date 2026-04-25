@@ -23,12 +23,32 @@ export function assertIsolatedGitTestDir(cwd: string): void {
   }
 }
 
+function isolatedGitEnv(): NodeJS.ProcessEnv {
+  const env: NodeJS.ProcessEnv = {};
+  for (const [key, value] of Object.entries(process.env)) {
+    if (value === undefined || key.startsWith("GIT_")) {
+      continue;
+    }
+    env[key] = value;
+  }
+
+  // Test repos must not inherit the developer machine's Git repo/config
+  // identity. Inherited GIT_DIR/GIT_WORK_TREE can redirect operations into
+  // the live repo, and global core.fsmonitor can make tiny temp repos slow.
+  env["GIT_CONFIG_GLOBAL"] = os.devNull;
+  env["GIT_CONFIG_NOSYSTEM"] = "1";
+  env["GIT_TERMINAL_PROMPT"] = "0";
+
+  return env;
+}
+
 /** Run a git command in a directory and return trimmed stdout. */
 export function git(cwd: string, cmd: string): string {
   assertIsolatedGitTestDir(cwd);
   try {
     return execSync(`git ${cmd}`, {
       cwd,
+      env: isolatedGitEnv(),
       encoding: "utf-8",
       stdio: ["ignore", "pipe", "pipe"],
     }).trim();
@@ -56,11 +76,12 @@ export function ensureGitRepo(cwd: string): void {
   if (fs.existsSync(path.join(cwd, ".git"))) {
     return;
   }
-  git(cwd, "init");
+  git(cwd, "init --initial-branch main");
   git(cwd, "config user.email test@test.com");
   git(cwd, "config user.name test");
   git(cwd, "config commit.gpgsign false");
   git(cwd, "config tag.gpgSign false");
+  git(cwd, "config core.fsmonitor false");
 }
 
 export function createCommittedTestRepo(

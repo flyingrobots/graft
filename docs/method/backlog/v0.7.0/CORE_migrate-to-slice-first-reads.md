@@ -30,7 +30,6 @@ whole-graph reads disguised as local questions.
 
 | File | Line | Context | Severity |
 |------|------|---------|----------|
-| `src/warp/references.ts` | 30 | Scans all `ast:*+file:*+sym:*` edges to find `references` edges | HIGH — should be `traverse.bfs(targetId, { dir: 'in', labelFilter: 'references' })` |
 | `src/cli/local-history-dag-model.ts` | 423 | Renders local history DAG | MEDIUM — bounded by local history size |
 | `src/mcp/persisted-local-history.ts` | 488 | Walks local history events | MEDIUM — bounded by local history size |
 
@@ -38,9 +37,9 @@ whole-graph reads disguised as local questions.
 
 | File | Line | Context | Severity |
 |------|------|---------|----------|
-| `src/warp/identity-resolver.ts` | 20 | Scans sym nodes for one file | LOW — scoped to `sym:<file>:*` |
-| `src/warp/indexer-graph.ts` | 21, 42 | Reads commit/sym nodes | LOW — scoped to narrow lenses |
-| `src/mcp/tools/precision-warp.ts` | 41, 79 | Searches WARP symbols | HIGH — scans `commit:*` or broad sym apertures |
+| `src/warp/dead-symbols.ts` | 81, 120, 121 | Compares commit/symbol sets for dead-symbol detection | MEDIUM — bounded by indexed history but still materializes visible node sets |
+| `src/warp/index-head.ts` | 186, 194 | Prior-state reconciliation around HEAD indexing | MEDIUM — index-time only, but reads prior/commit node sets |
+| `src/warp/symbol-timeline.ts` | 77, 119 | Builds per-symbol timeline across commits | MEDIUM — bounded by query scope, but still materializes matching node sets |
 | `src/mcp/persisted-local-history.ts` | 469 | Reads local history nodes | MEDIUM — bounded by local history size |
 | `src/cli/local-history-dag-model.ts` | 416 | Renders local history DAG | MEDIUM — bounded by local history size |
 
@@ -62,11 +61,15 @@ first, then sweep the rest.
   + `QueryBuilder` (CORE_rewrite-structural-queries, 2026-04-21)
 - `structural-queries.ts`: `detectRemovals` full scan replaced with
   tick receipts (2026-04-21)
+- `references.ts`: `getEdges()` replaced with `traverse.bfs` +
+  `QueryBuilder` (CORE_references-getEdges-fix)
+- `precision-warp.ts`: `getNodes()` + per-node prop reads replaced with
+  query API access (CORE_migrate-to-slice-first-reads)
 
 ## What to do now
 
-- `references.ts` line 30: replace `getEdges()` with `traverse.bfs`
-  immediately — no upstream dependency, same pattern as structural-queries
-- All others: wait for git-warp Rung 2+ APIs
+The immediate high-risk call sites have been mitigated. The remaining
+work is a bounded sweep of medium-risk call sites after git-warp's
+observer geometry ladder exposes the needed slice-first APIs.
 
-Effort: S (references.ts now) + M (rest when upstream lands)
+Effort: M (remaining sweep when upstream lands)

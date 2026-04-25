@@ -473,7 +473,7 @@ Playback-question drift found.
 Scanned 1 active cycle, 5 playback questions, 215 test descriptions.
 Search basis: normalized match, semantic normalization, or high-confidence token similarity in tests/**/*.test.* and tests/**/*.spec.* descriptions.
 
-docs/design/CORE_rewrite-structural-queries.md
+docs/releases/v0.7.0/design/CORE_rewrite-structural-queries.md
 - Human: Can a human confirm the public API surface is unchanged (same exports, same types, same behavior)?
   No matching test description found.
 - Human: Can a human see that manual edge-filter loops have been replaced with QueryBuilder calls?
