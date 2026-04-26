@@ -1,9 +1,8 @@
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import * as fs from "node:fs";
 import * as path from "node:path";
-import { nodeGit } from "../../../src/adapters/node-git.js";
 import { nodePathOps } from "../../../src/adapters/node-paths.js";
-import { git, createTestRepo, cleanupTestRepo } from "../../helpers/git.js";
+import { git, createTestRepo, cleanupTestRepo, testGitClient } from "../../helpers/git.js";
 import { openWarp } from "../../../src/warp/open.js";
 import { indexHead } from "../../../src/warp/index-head.js";
 import { structuralBlameFromGraph } from "../../../src/warp/warp-structural-blame.js";
@@ -26,7 +25,7 @@ describe("warp: structural-blame-from-graph", { timeout: 15000 }, () => {
   }
 
   async function index(ctx: WarpContext): Promise<void> {
-    await indexHead({ cwd: tmpDir, git: nodeGit, pathOps: nodePathOps, ctx });
+    await indexHead({ cwd: tmpDir, git: testGitClient, pathOps: nodePathOps, ctx });
     await ctx.app.core().materialize();
   }
 

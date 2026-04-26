@@ -1,13 +1,38 @@
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import * as fs from "node:fs";
 import * as path from "node:path";
-import { nodeGit } from "../../../src/adapters/node-git.js";
+import type { PatchV2 } from "@git-stunts/git-warp";
 import { nodePathOps } from "../../../src/adapters/node-paths.js";
-import { git, createTestRepo, cleanupTestRepo } from "../../helpers/git.js";
+import { git, createTestRepo, cleanupTestRepo, testGitClient } from "../../helpers/git.js";
 import { openWarp } from "../../../src/warp/open.js";
 import { indexHead } from "../../../src/warp/index-head.js";
 import { symbolTimeline } from "../../../src/warp/symbol-timeline.js";
 import type { WarpContext } from "../../../src/warp/context.js";
+
+interface FakeWorldlineSnapshot {
+  getNodeProps(nodeId: string): Promise<Record<string, unknown> | null>;
+}
+
+interface FakeWorldline {
+  seek(options?: { source?: { ceiling?: number | null } }): Promise<FakeWorldlineSnapshot>;
+}
+
+function provenancePatch(sha: string, lamport: number, label: "adds" | "changes" | "removes"): PatchV2 {
+  return {
+    schema: 2,
+    writer: "test-writer",
+    lamport,
+    context: {},
+    ops: [
+      {
+        type: "EdgeAdd",
+        from: `commit:${sha}`,
+        to: "sym:src/app.ts:thing",
+        label,
+      },
+    ],
+  };
+}
 
 describe("warp: symbol-timeline", { timeout: 15000 }, () => {
   let tmpDir: string;
@@ -26,7 +51,7 @@ describe("warp: symbol-timeline", { timeout: 15000 }, () => {
   }
 
   async function index(ctx: WarpContext): Promise<void> {
-    await indexHead({ cwd: tmpDir, git: nodeGit, pathOps: nodePathOps, ctx });
+    await indexHead({ cwd: tmpDir, git: testGitClient, pathOps: nodePathOps, ctx });
   }
 
   it("returns a single entry for a newly added symbol", async () => {
@@ -73,6 +98,95 @@ describe("warp: symbol-timeline", { timeout: 15000 }, () => {
     expect(result.versions[0]!.changeKind).toBe("added");
     expect(result.versions[1]!.changeKind).toBe("changed");
     expect(result.versions[0]!.signature).not.toBe(result.versions[1]!.signature);
+  });
+
+  it("hydrates touched symbol versions from a worldline pinned at provenance ticks", async () => {
+    const patches = new Map<string, PatchV2>([
+      ["patch-add", provenancePatch("sha-add", 7, "adds")],
+      ["patch-change", provenancePatch("sha-change", 9, "changes")],
+    ]);
+    const seekCeilings: (number | null | undefined)[] = [];
+
+    const worldline: FakeWorldline = {
+      seek(options) {
+        const ceiling = options?.source?.ceiling;
+        seekCeilings.push(ceiling);
+
+        return Promise.resolve({
+          getNodeProps(nodeId) {
+            expect(nodeId).toBe("sym:src/app.ts:thing");
+
+            if (ceiling === 7) {
+              return Promise.resolve({
+                signature: "export function thing(): string",
+                startLine: 1,
+                endLine: 1,
+              });
+            }
+
+            if (ceiling === 9) {
+              return Promise.resolve({
+                signature: "export function thing(input: string): string",
+                startLine: 3,
+                endLine: 5,
+              });
+            }
+
+            return Promise.resolve(null);
+          },
+        });
+      },
+    };
+
+    const ctx = {
+      app: {
+        core() {
+          return {
+            patchesFor(entityId: string) {
+              expect(entityId).toBe("sym:src/app.ts:thing");
+              return Promise.resolve(["patch-add", "patch-change"]);
+            },
+            loadPatchBySha(sha: string) {
+              const patch = patches.get(sha);
+              if (patch === undefined) {
+                throw new Error(`missing fake patch ${sha}`);
+              }
+              return Promise.resolve(patch);
+            },
+          };
+        },
+        worldline() {
+          return worldline;
+        },
+      } as unknown as WarpContext["app"],
+      strandId: null,
+    } satisfies WarpContext;
+
+    const result = await symbolTimeline(ctx, "thing", "src/app.ts");
+
+    expect(seekCeilings).toEqual([7, 9]);
+    expect(result.versions).toEqual([
+      {
+        sha: "sha-add",
+        tick: 7,
+        changeKind: "added",
+        present: true,
+        signature: "export function thing(): string",
+        startLine: 1,
+        endLine: 1,
+        filePath: "src/app.ts",
+      },
+      {
+        sha: "sha-change",
+        tick: 9,
+        changeKind: "changed",
+        present: true,
+        signature: "export function thing(input: string): string",
+        startLine: 3,
+        endLine: 5,
+        filePath: "src/app.ts",
+      },
+    ]);
   });
 
   it("detects removal with present=false", async () => {

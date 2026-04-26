@@ -52,9 +52,6 @@ interface PatchOpView {
   readonly from?: unknown;
   readonly to?: unknown;
   readonly label?: unknown;
-  readonly node?: unknown;
-  readonly key?: unknown;
-  readonly value?: unknown;
 }
 
 interface ProvenanceTimelineCore {
@@ -76,22 +73,13 @@ function patchOps(patch: PatchV2): readonly PatchOpView[] {
   return Array.isArray(patch.ops) ? patch.ops as readonly PatchOpView[] : [];
 }
 
-function readSymbolProperty(
-  ops: readonly PatchOpView[],
-  symId: string,
-  key: string,
-): unknown {
-  for (let index = ops.length - 1; index >= 0; index--) {
-    const op = ops[index];
-    if (op?.type !== "PropSet") continue;
-    if (op.node !== symId) continue;
-    if (op.key !== key) continue;
-    return op.value;
-  }
-  return undefined;
+interface SymbolTouch {
+  readonly sha: string;
+  readonly tick: number;
+  readonly changeKind: ChangeKind;
 }
 
-function versionFromPatch(symId: string, patch: PatchV2): SymbolVersion | null {
+function touchFromPatch(symId: string, patch: PatchV2): SymbolTouch | null {
   const ops = patchOps(patch);
 
   for (const op of ops) {
@@ -102,23 +90,54 @@ function versionFromPatch(symId: string, patch: PatchV2): SymbolVersion | null {
     const changeKind = EDGE_CHANGE_KIND.get(op.label);
     if (changeKind === undefined) continue;
 
-    const signature = readSymbolProperty(ops, symId, "signature");
-    const startLine = readSymbolProperty(ops, symId, "startLine");
-    const endLine = readSymbolProperty(ops, symId, "endLine");
-
     return {
       sha: op.from.slice("commit:".length),
       tick: patch.lamport,
       changeKind,
-      present: changeKind !== "removed",
-      signature: typeof signature === "string" ? signature : undefined,
-      startLine: typeof startLine === "number" ? startLine : undefined,
-      endLine: typeof endLine === "number" ? endLine : undefined,
-      filePath: filePathFromSymId(symId),
     };
   }
 
   return null;
+}
+
+async function readSymbolPropsAtTick(
+  ctx: WarpContext,
+  symId: string,
+  tick: number,
+): Promise<Record<string, unknown> | null> {
+  const worldline = await ctx.app.worldline().seek({
+    source: { kind: "live", ceiling: tick },
+  });
+  return worldline.getNodeProps(symId);
+}
+
+async function versionFromPatch(
+  ctx: WarpContext,
+  symId: string,
+  patch: PatchV2,
+): Promise<SymbolVersion | null> {
+  const touch = touchFromPatch(symId, patch);
+  if (touch === null) {
+    return null;
+  }
+
+  const props = touch.changeKind === "removed"
+    ? null
+    : await readSymbolPropsAtTick(ctx, symId, touch.tick);
+  const signature = props?.["signature"];
+  const startLine = props?.["startLine"];
+  const endLine = props?.["endLine"];
+
+  return {
+    sha: touch.sha,
+    tick: touch.tick,
+    changeKind: touch.changeKind,
+    present: touch.changeKind !== "removed",
+    signature: typeof signature === "string" ? signature : undefined,
+    startLine: typeof startLine === "number" ? startLine : undefined,
+    endLine: typeof endLine === "number" ? endLine : undefined,
+    filePath: filePathFromSymId(symId),
+  };
 }
 
 async function liveSymbolIds(
@@ -151,7 +170,7 @@ async function readTimelineVersions(
     const patches = await Promise.all(patchShas.map(async (sha) => core.loadPatchBySha(sha)));
 
     for (const patch of patches) {
-      const version = versionFromPatch(symId, patch);
+      const version = await versionFromPatch(ctx, symId, patch);
       if (version === null) continue;
 
       const key = `${String(version.tick)}:${version.sha}:${symId}:${version.changeKind}`;

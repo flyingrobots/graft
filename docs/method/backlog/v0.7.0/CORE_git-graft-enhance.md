@@ -7,14 +7,12 @@ lane: v0.7.0
 requirements:
   - graft_diff operation (shipped)
   - WARP Level 1 indexing (shipped)
-  - Structural blame operation
+  - Provenance-backed structural blame operation (shipped)
   - code_find tool (shipped)
 acceptance_criteria:
   - git graft enhance wraps git commands with structural annotations
   - Supports log, diff, show, blame, shortlog subcommands
   - Output format supports human and JSON modes
-blocked_by:
-  - CORE_rewrite-structural-blame-to-use-warp-worldline-provenance
 ---
 
 # git graft enhance — structural annotations for git commands
@@ -121,4 +119,4 @@ Instant for indexed ranges.
 `--format=json`: structured JSON for agent consumption.
 
 Depends on: graft_diff (shipped), WARP Level 1 (shipped),
-structural blame (backlog), code_find (cycle 0024).
+provenance-backed structural blame (shipped), code_find (cycle 0024).
