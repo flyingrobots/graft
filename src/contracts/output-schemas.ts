@@ -1161,6 +1161,30 @@ const mcpOutputBodySchemas: Record<McpToolName, z.ZodType> = {
       signature: z.string().nullable(),
     }).strict()),
   }).strict(),
+  graft_difficulty: z.object({
+    symbol: z.string(),
+    path: z.string().optional(),
+    entries: z.array(z.object({
+      symbol: z.string(),
+      filePath: z.string(),
+      kind: z.string(),
+      score: z.number().nonnegative(),
+      risk: z.enum(["low", "medium", "high"]),
+      recommendation: z.enum(["refactor_freely", "refactor_with_tests", "plan_before_refactor"]),
+      curvature: z.object({
+        changeCount: z.number().int().nonnegative(),
+        signatureChangeCount: z.number().int().nonnegative(),
+        score: z.number().nonnegative(),
+      }).strict(),
+      friction: z.object({
+        referenceCount: z.number().int().nonnegative(),
+        referencingFiles: z.array(z.string()),
+        score: z.number().nonnegative(),
+      }).strict(),
+    }).strict()),
+    total: z.number().int().nonnegative(),
+    summary: z.string(),
+  }).strict(),
   graft_review: z.object({
     base: z.string(),
     head: z.string(),
@@ -1251,6 +1275,7 @@ export const MCP_OUTPUT_SCHEMAS: Record<McpToolName, z.ZodType> = {
   graft_exports: withMcpCommon("graft_exports", mcpOutputBodySchemas.graft_exports),
   graft_log: withMcpCommon("graft_log", mcpOutputBodySchemas.graft_log),
   graft_blame: withMcpCommon("graft_blame", mcpOutputBodySchemas.graft_blame),
+  graft_difficulty: withMcpCommon("graft_difficulty", mcpOutputBodySchemas.graft_difficulty),
   graft_review: withMcpCommon("graft_review", mcpOutputBodySchemas.graft_review),
   knowledge_map: withMcpCommon("knowledge_map", mcpOutputBodySchemas.knowledge_map),
 };
@@ -1318,6 +1343,7 @@ export const CLI_OUTPUT_SCHEMAS: Record<CliCommandName, z.ZodType> = {
   struct_exports: withCliPeerCommon("struct_exports", mcpOutputBodySchemas.graft_exports),
   struct_log: withCliPeerCommon("struct_log", mcpOutputBodySchemas.graft_log),
   symbol_blame: withCliPeerCommon("symbol_blame", mcpOutputBodySchemas.graft_blame),
+  symbol_difficulty: withCliPeerCommon("symbol_difficulty", mcpOutputBodySchemas.graft_difficulty),
   struct_review: withCliPeerCommon("struct_review", mcpOutputBodySchemas.graft_review),
   diag_doctor: withCliPeerCommon("diag_doctor", mcpOutputBodySchemas.doctor),
   diag_activity: withCliPeerCommon("diag_activity", mcpOutputBodySchemas.activity_view),

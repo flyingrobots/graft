@@ -63,8 +63,22 @@ function symNodeId(filePath: string, symbolName: string): string {
 
 interface ImportInfo {
   readonly specifierNodeId: string;
+  readonly node: TSNode;
   readonly importedName: string;
   readonly localName: string;
+}
+
+function emitAstAnchor(patch: PatchBuilderV2, filePath: string, node: TSNode): string {
+  const nodeId = astNodeId(filePath, node);
+  patch.addNode(nodeId);
+  patch.setProperty(nodeId, "type", node.type);
+  patch.setProperty(nodeId, "named", node.isNamed());
+  patch.setProperty(nodeId, "startRow", node.startPosition.row);
+  patch.setProperty(nodeId, "startCol", node.startPosition.column);
+  patch.setProperty(nodeId, "endRow", node.endPosition.row);
+  patch.setProperty(nodeId, "endCol", node.endPosition.column);
+  patch.setProperty(nodeId, "filePath", filePath);
+  return nodeId;
 }
 
 function extractImportSpecifiers(
@@ -86,6 +100,7 @@ function extractImportSpecifiers(
             if (nameNode !== null) {
               results.push({
                 specifierNodeId: astNodeId(filePath, spec),
+                node: spec,
                 importedName: nameNode.text,
                 localName: aliasNode !== null ? aliasNode.text : nameNode.text,
               });
@@ -98,6 +113,7 @@ function extractImportSpecifiers(
         // import foo from "..." (default import)
         results.push({
           specifierNodeId: astNodeId(filePath, child),
+          node: child,
           importedName: "default",
           localName: child.text,
         });
@@ -109,6 +125,7 @@ function extractImportSpecifiers(
         if (aliasNode !== undefined) {
           results.push({
             specifierNodeId: astNodeId(filePath, child),
+            node: child,
             importedName: "*",
             localName: aliasNode.text,
           });
@@ -136,6 +153,7 @@ function extractExportSpecifiers(
       if (nameNode !== null) {
         results.push({
           specifierNodeId: astNodeId(filePath, spec),
+          node: spec,
           importedName: nameNode.text,
           localName: aliasNode !== null ? aliasNode.text : nameNode.text,
         });
@@ -194,15 +212,17 @@ function handleImportStatement(
   // Emit resolves_to edge from the string node to the target file
   const stringNode = node.namedChildren.find((c) => c.type === "string");
   if (stringNode !== undefined && resolvedPath !== null) {
-    const stringId = astNodeId(filePath, stringNode);
+    const stringId = emitAstAnchor(patch, filePath, stringNode);
     patch.addEdge(stringId, `file:${resolvedPath}`, "resolves_to");
   }
 
   // Emit reference edges from specifiers to sym: nodes
   const specifiers = extractImportSpecifiers(node, filePath);
   for (const spec of specifiers) {
+    emitAstAnchor(patch, filePath, spec.node);
     patch.setProperty(spec.specifierNodeId, "importedName", spec.importedName);
     patch.setProperty(spec.specifierNodeId, "localName", spec.localName);
+    patch.setProperty(spec.specifierNodeId, "filePath", filePath);
 
     if (resolvedPath !== null) {
       if (spec.importedName === "*") {
@@ -231,14 +251,14 @@ function handleExportStatement(
 
   const stringNode = node.namedChildren.find((c) => c.type === "string");
   if (stringNode !== undefined && resolvedPath !== null) {
-    const stringId = astNodeId(filePath, stringNode);
+    const stringId = emitAstAnchor(patch, filePath, stringNode);
     patch.addEdge(stringId, `file:${resolvedPath}`, "resolves_to");
   }
 
   // Check for wildcard re-export: export * from "..."
   const hasWildcard = node.children.some((c) => c.type === "*" || c.type === "namespace_export");
   if (hasWildcard && resolvedPath !== null) {
-    const nodeId = astNodeId(filePath, node);
+    const nodeId = emitAstAnchor(patch, filePath, node);
     patch.addEdge(nodeId, `file:${resolvedPath}`, "reexports");
     return;
   }
@@ -246,8 +266,10 @@ function handleExportStatement(
   // Named re-exports: export { foo, bar as baz } from "..."
   const specifiers = extractExportSpecifiers(node, filePath);
   for (const spec of specifiers) {
+    emitAstAnchor(patch, filePath, spec.node);
     patch.setProperty(spec.specifierNodeId, "importedName", spec.importedName);
     patch.setProperty(spec.specifierNodeId, "localName", spec.localName);
+    patch.setProperty(spec.specifierNodeId, "filePath", filePath);
 
     if (resolvedPath !== null) {
       patch.addEdge(spec.specifierNodeId, symNodeId(resolvedPath, spec.importedName), "references");
@@ -274,7 +296,7 @@ function walkForDynamicImports(
           if (fragment !== undefined) {
             const resolved = resolveModulePath(fragment.text, filePath, pathOps, knownFiles);
             if (resolved !== null) {
-              const stringId = astNodeId(filePath, stringArg);
+              const stringId = emitAstAnchor(patch, filePath, stringArg);
               patch.addEdge(stringId, `file:${resolved}`, "resolves_to");
             }
           }

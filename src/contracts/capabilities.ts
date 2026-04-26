@@ -38,6 +38,7 @@ export const MCP_TOOL_NAMES = [
   "graft_exports",
   "graft_log",
   "graft_blame",
+  "graft_difficulty",
   "graft_review",
   "knowledge_map",
 ] as const;
@@ -67,6 +68,7 @@ export const CLI_COMMAND_NAMES = [
   "struct_exports",
   "struct_log",
   "symbol_blame",
+  "symbol_difficulty",
   "struct_review",
 ] as const;
 
@@ -440,6 +442,14 @@ export const CAPABILITY_REGISTRY: readonly CapabilityDefinition[] = [
     mcpTool: "graft_blame",
     cliCommand: "symbol_blame",
     cliPath: ["symbol", "blame"],
+    cliMcpParity: "peer",
+  }),
+  defineCapability({
+    id: "graft_difficulty",
+    description: "Refactor difficulty score — churn curvature times reference friction",
+    mcpTool: "graft_difficulty",
+    cliCommand: "symbol_difficulty",
+    cliPath: ["symbol", "difficulty"],
     cliMcpParity: "peer",
   }),
   defineCapability({

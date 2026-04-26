@@ -19,6 +19,7 @@ flowchart LR
 
 ## What it is for
 - bootstrap and setup via `graft init`
+- bounded, lazy WARP refresh via `graft index --path <path>`
 - one-time legacy import via `graft migrate local-history`
 - local debugging and dogfooding of MCP peer commands
 - human-facing inspection of bounded state such as:
@@ -27,21 +28,24 @@ flowchart LR
   - `graft diag doctor`
   - `graft doctor --sludge`
   - `graft diag stats`
+  - `graft symbol difficulty`
 
 ## Core namespaces
 - `read` — bounded reads and change checks
 - `struct` — structural diff / since / map
-- `symbol` — precision show / find
+- `symbol` — precision show / find / blame / difficulty
 - `diag` — activity, local-history-dag, doctor, explain, stats, capture
 
 ## Release-facing commands
 ```bash
+graft index --path src/app.ts --json
 graft migrate local-history --json
 graft diag activity --json
 graft diag local-history-dag --json
 graft diag doctor --json
 graft doctor --sludge --json
 graft symbol find 'create*' --json
+graft symbol difficulty createUser --path src/users.ts --json
 graft struct diff --json
 ```
 
@@ -58,6 +62,11 @@ Bare `graft ...` only works when the package is installed or linked onto your `P
 `graft diag activity` is the current human-facing between-commit surface. It reports bounded local `artifact_history`, not canonical provenance, and now renders a textual operator summary by default. Use `--json` when you want the structured machine-readable form.
 
 `graft diag local-history-dag` is a CLI-only debug surface over the repo-local WARP graph. It renders a bounded event-centric DAG for local history through Bijou's `dag()` component. In interactive terminals that means the Bijou DAG layout; in pipes or non-TTY contexts it degrades to Bijou's truthful pipe-mode graph listing.
+
+`graft index` follows the lazy-index policy. Use `--path <path>` to refresh a
+specific tracked source file at `HEAD`; read/search surfaces also opportunistically
+refresh the files they touch. Unbounded whole-repo indexing is guarded and returns
+a structured refusal when the request would write too many file patches at once.
 
 ## Related docs
 - [README](../README.md)

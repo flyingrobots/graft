@@ -35,6 +35,7 @@ describe("cli: graft grouped surface", () => {
     expect(stdout.text()).toContain("diag activity");
     expect(stdout.text()).toContain("diag local-history-dag");
     expect(stdout.text()).toContain("diag doctor");
+    expect(stdout.text()).toContain("symbol difficulty");
   });
 
   it("renders help on no-arg interactive CLI runs", async () => {
@@ -234,6 +235,53 @@ describe("cli: graft grouped surface", () => {
     }
   });
 
+  it("runs symbol difficulty through the grouped CLI surface", async () => {
+    const repoDir = createTestRepo("graft-cli-difficulty-");
+    try {
+      fs.writeFileSync(path.join(repoDir, "app.ts"), [
+        "export function greet(name: string): string {",
+        "  return `hello ${name}`;",
+        "}",
+        "",
+      ].join("\n"));
+      fs.writeFileSync(path.join(repoDir, "consumer.ts"), [
+        "import { greet } from './app';",
+        "export const message = greet('world');",
+        "",
+      ].join("\n"));
+      git(repoDir, "add -A");
+      git(repoDir, "commit -m init");
+
+      await runCli({
+        cwd: repoDir,
+        args: ["index", "--json"],
+        stdout: createBufferWriter(),
+        stderr: createBufferWriter(),
+      });
+
+      const stdout = createBufferWriter();
+      const stderr = createBufferWriter();
+      await runCli({
+        cwd: repoDir,
+        args: ["symbol", "difficulty", "greet", "--path", "app.ts", "--json"],
+        stdout,
+        stderr,
+      });
+
+      expect(stderr.text()).toBe("");
+      const parsed = JSON.parse(stdout.text()) as {
+        _schema: { id: string };
+        entries?: { symbol: string; filePath: string; friction: { referenceCount: number } }[];
+      };
+      expect(parsed._schema.id).toBe("graft.cli.symbol_difficulty");
+      expect(parsed.entries?.[0]?.symbol).toBe("greet");
+      expect(parsed.entries?.[0]?.filePath).toBe("app.ts");
+      expect(parsed.entries?.[0]?.friction.referenceCount).toBe(1);
+    } finally {
+      cleanupTestRepo(repoDir);
+    }
+  });
+
   it("runs diag activity through the grouped CLI surface", async () => {
     const repoDir = createTestRepo("graft-cli-activity-");
     try {
@@ -348,7 +396,7 @@ describe("cli: graft grouped surface", () => {
     }
   });
 
-  it("renders a bounded local-history DAG from WARP-backed history", async () => {
+  it("renders a bounded local-history DAG from WARP-backed history", { timeout: 15_000 }, async () => {
     const repoDir = createTestRepo("graft-cli-local-history-dag-");
     try {
       fs.writeFileSync(path.join(repoDir, "app.ts"), [

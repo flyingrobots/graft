@@ -143,7 +143,7 @@ For automation, CLI commands support `--json`:
 
 ```bash
 npx @flyingrobots/graft init --json
-npx @flyingrobots/graft index --json
+npx @flyingrobots/graft index --path src/app.ts --json
 npx @flyingrobots/graft read safe src/app.ts --json
 npx @flyingrobots/graft struct diff --json
 npx @flyingrobots/graft symbol find 'create*' --json
@@ -155,7 +155,7 @@ Grouped CLI namespaces:
 
 - `read` — `safe`, `outline`, `range`, `changed`
 - `struct` — `diff`, `since`, `map`
-- `symbol` — `show`, `find`
+- `symbol` — `show`, `find`, `blame`, `difficulty`
 - `diag` — `activity`, `doctor`, `explain`, `stats`, `capture`
 
 ## MCP Configuration
@@ -452,6 +452,7 @@ add to `.claude/settings.local.json`:
 | `graft_map` | Structural directory map of files and symbols under a path, with explicit denied-file reporting. |
 | `code_show` | Focus on a symbol by name and return its source with line metadata. |
 | `code_find` | Search symbols across the project by approximate name or glob pattern, with optional kind/path filter. |
+| `graft_difficulty` | Refactor difficulty score for a symbol. Combines WARP churn curvature with reference-edge friction and returns the scalar plus the underlying factors. |
 | `code_refs` | Search import sites, callsites, property access, or literal text references with explicit text-fallback provenance, pattern, and scope. |
 | `activity_view` | Bounded between-commit activity for the active workspace, including commit anchor, grouped recent activity, and degraded posture. |
 | `doctor` | Runtime health check including layered-worldline repo state and burden summary. Accepts an opt-in `sludge` scan for parser-backed structural smell signals. |
@@ -479,8 +480,8 @@ Declared output contracts live in `src/contracts/output-schemas.ts`.
 
 ## What the agent sees
 
-Once configured, the agent gains 17 MCP tools. Here's what
-happens when it uses them:
+Once configured, the agent gains the MCP tool surface. Here's what
+happens when it uses those tools:
 
 ### Reading files
 
@@ -512,9 +513,10 @@ and its symbols (function signatures, class shapes, exports) in
 one call. Denied files are surfaced explicitly instead of silently
 disappearing.
 
-Both tools work on the current working tree. For persistent
-structural indexing across git history, use `graft index` from the
-CLI.
+Both tools work on the current working tree. Persistent structural indexing is
+lazy: use `graft index --path <path>` from the CLI to refresh one tracked source
+file at `HEAD`, or let read/search surfaces opportunistically refresh the files
+they touch. Unbounded whole-repo eager indexing is guarded.
 
 ### Structural navigation
 

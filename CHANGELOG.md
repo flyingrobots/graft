@@ -16,6 +16,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   It reports typedef/class imbalance, JSDoc cast density, homeless
   constructor functions, free functions operating on project types, and
   high-symbol-count files.
+- **Refactor difficulty score**: `graft_difficulty` and
+  `graft symbol difficulty` report a scalar per-symbol refactor score
+  from WARP churn curvature and reference-edge friction.
 - **WARP snapshot indexing**: `indexHead` is now the canonical
   snapshot-based indexing path and emits commit, file, directory,
   symbol, and AST facts with tick metadata.

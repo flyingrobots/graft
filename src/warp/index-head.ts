@@ -1,10 +1,11 @@
 // ---------------------------------------------------------------------------
-// Index HEAD — parse all files at HEAD and emit full AST into WARP.
+// Index HEAD — emit compact structural facts into WARP.
 //
 // Also emits a commit node and commit→sym edges (adds/changes/removes)
 // so the structural query layer can detect what changed between ticks.
 // ---------------------------------------------------------------------------
 
+import { Buffer } from "node:buffer";
 import type { GitClient } from "../ports/git.js";
 import type { PathOps } from "../ports/paths.js";
 import type { WarpContext } from "./context.js";
@@ -13,11 +14,12 @@ import { patchGraph, observeGraph, materializeGraph } from "./context.js";
 import { detectLang } from "../parser/lang.js";
 import { parseStructuredTree } from "../parser/runtime.js";
 import { extractOutlineForFile } from "../parser/outline.js";
-import { emitAstNodes } from "./ast-emitter.js";
+import { attachAstSnapshot, emitAstNodes } from "./ast-emitter.js";
 import { resolveImportEdges } from "./ast-import-resolver.js";
 import type { OutlineEntry } from "../parser/types.js";
 
-type TSNode = import("web-tree-sitter").SyntaxNode;
+export const DEFAULT_INDEX_MAX_FILES_PER_CALL = 64;
+export const DEFAULT_INDEX_MAX_PATCH_JSON_BYTES = 2 * 1024 * 1024;
 
 // ---------------------------------------------------------------------------
 // Sym-node emission from outline entries (richer than the AST-only walker:
@@ -99,6 +101,9 @@ export interface IndexHeadOptions {
   readonly git: GitClient;
   readonly pathOps: PathOps;
   readonly ctx: WarpContext;
+  readonly paths?: readonly string[] | undefined;
+  readonly maxFilesPerCall?: number | undefined;
+  readonly maxPatchJsonBytes?: number | undefined;
 }
 
 export interface IndexHeadResult {
@@ -108,153 +113,55 @@ export interface IndexHeadResult {
 }
 
 /**
- * Index the current HEAD: parse every tracked file, emit full AST +
- * cross-file import edges into WARP as a single atomic patch.
+ * Index the current HEAD by writing one bounded patch per file.
+ *
+ * Full tree-sitter syntax is attached as file-node blob content. The graph
+ * itself only stores compact query facts: files, symbols, import/reference
+ * anchors, directories, and commit-to-symbol touch edges.
  *
  * Emits a `commit:{sha}` node with edges to sym nodes labelled
  * "adds", "changes", or "removes" so structural queries can detect
  * what changed between ticks.
- *
- * No commit walking. No history replay. WARP handles provenance.
  */
 export async function indexHead(opts: IndexHeadOptions): Promise<IndexHeadResult> {
   const { cwd, git, pathOps, ctx } = opts;
+  const maxFilesPerCall = opts.maxFilesPerCall ?? DEFAULT_INDEX_MAX_FILES_PER_CALL;
+  const maxPatchJsonBytes = opts.maxPatchJsonBytes ?? DEFAULT_INDEX_MAX_PATCH_JSON_BYTES;
 
-  // Get HEAD sha for commit node
   const headResult = await git.run({ args: ["rev-parse", "HEAD"], cwd });
   if (headResult.status !== 0) {
     throw new Error(`git rev-parse HEAD failed: ${headResult.stderr}`);
   }
   const headSha = headResult.stdout.trim();
 
-  // Get all tracked files
-  const result = await git.run({ args: ["ls-files"], cwd });
-  if (result.status !== 0) {
-    throw new Error(`git ls-files failed: ${result.stderr}`);
-  }
-  const allFiles = result.stdout.trim().split("\n").filter((f) => f.length > 0);
-
-  // Filter to parseable files
-  const parseableFiles = allFiles.filter((f) => detectLang(f) !== null);
+  const allFiles = await listTrackedFiles(cwd, git);
   const knownFiles = new Set(allFiles);
+  const parseableFiles = selectParseableFiles(allFiles, opts.paths);
 
-  // Parse all files and collect trees + outlines
-  const parsed: {
-    filePath: string;
-    root: TSNode;
-    outline: readonly OutlineEntry[];
-    jumpLookup: ReadonlyMap<string, { start: number; end: number }>;
-    cleanup: () => void;
-  }[] = [];
+  if (parseableFiles.length > maxFilesPerCall) {
+    throw new Error(
+      `indexHead refused to index ${String(parseableFiles.length)} files in one call. ` +
+      `Lazy indexing policy allows at most ${String(maxFilesPerCall)} files; ` +
+      `pass explicit paths or index on read.`,
+    );
+  }
 
+  let filesIndexed = 0;
   for (const filePath of parseableFiles) {
-    const contentResult = await git.run({ args: ["show", `HEAD:${filePath}`], cwd });
-    if (contentResult.status !== 0) continue;
-
-    const lang = detectLang(filePath);
-    if (lang === null) continue;
-
-    const tree = parseStructuredTree(lang, contentResult.stdout);
-    const outlineResult = extractOutlineForFile(filePath, contentResult.stdout);
-    const entries = outlineResult?.entries ?? [];
-    const jumpLookup = new Map<string, { start: number; end: number }>();
-    for (const jt of outlineResult?.jumpTable ?? []) {
-      jumpLookup.set(jt.symbol, { start: jt.start, end: jt.end });
-    }
-
-    parsed.push({
+    const indexed = await indexHeadFile({
+      cwd,
+      git,
+      pathOps,
+      ctx,
+      headSha,
+      knownFiles,
       filePath,
-      root: tree.root,
-      outline: entries,
-      jumpLookup,
-      cleanup: () => { tree.delete(); },
+      maxPatchJsonBytes,
     });
+    if (indexed) filesIndexed++;
   }
 
-  // Build current sym set with signatures (for reconciliation)
-  const currentSyms = new Map<string, string | undefined>();
-  for (const { filePath, outline } of parsed) {
-    collectSymIds(currentSyms, filePath, outline);
-  }
-
-  // Read prior sym state for diff detection
-  const priorSyms = new Map<string, string | undefined>();
-  let priorCommitCount = 0;
-  try {
-    await materializeGraph(ctx);
-    const priorObs = await observeGraph(ctx, { match: "sym:*", expose: ["signature"] });
-    const priorNodes = await priorObs.getNodes();
-    for (const nodeId of priorNodes) {
-      const props = await priorObs.getNodeProps(nodeId);
-      const sig = typeof props?.["signature"] === "string" ? props["signature"] : undefined;
-      priorSyms.set(nodeId, sig);
-    }
-    // Count existing commit nodes to derive the next tick value
-    const commitObs = await observeGraph(ctx, { match: "commit:*", expose: [] });
-    const commitNodes = await commitObs.getNodes();
-    priorCommitCount = commitNodes.length;
-  } catch {
-    // No prior state — first index, everything is "adds"
-  }
-
-  // Emit everything in one atomic WARP patch
-  let nodesEmitted = 0;
-  const tick = priorCommitCount + 1;
-
-  await patchGraph(ctx, (patch) => {
-    // Commit node
-    const commitId = `commit:${headSha}`;
-    patch.addNode(commitId);
-    patch.setProperty(commitId, "sha", headSha);
-    patch.setProperty(commitId, "tick", tick);
-
-    for (const { filePath, root, outline, jumpLookup } of parsed) {
-      // File node
-      const fileId = `file:${filePath}`;
-      patch.addNode(fileId);
-      patch.setProperty(fileId, "path", filePath);
-      patch.setProperty(fileId, "lang", detectLang(filePath) ?? "unknown");
-      patch.addEdge(commitId, fileId, "touches");
-
-      // Directory chain (dir:src, dir:src/mcp, etc.)
-      emitDirectoryChain(patch, filePath);
-
-      // Symbol nodes from outline (includes signatures + line ranges)
-      emitOutlineSyms(patch, filePath, outline, jumpLookup);
-
-      // Full AST
-      emitAstNodes(patch, filePath, root);
-
-      // Cross-file import resolution edges
-      resolveImportEdges(patch, filePath, root, pathOps, knownFiles);
-
-      nodesEmitted++;
-    }
-
-    // Commit→sym edges based on diff with prior state
-    for (const [symId, sig] of currentSyms) {
-      if (!priorSyms.has(symId)) {
-        patch.addEdge(commitId, symId, "adds");
-      } else if (priorSyms.get(symId) !== sig) {
-        patch.addEdge(commitId, symId, "changes");
-      }
-    }
-
-    // Removals: syms that existed before but are gone now
-    for (const symId of priorSyms.keys()) {
-      if (!currentSyms.has(symId)) {
-        patch.addEdge(commitId, symId, "removes");
-        patch.removeNode(symId);
-      }
-    }
-  });
-
-  // Cleanup parsed trees
-  for (const { cleanup } of parsed) {
-    cleanup();
-  }
-
-  return { ok: true, filesIndexed: parsed.length, nodesEmitted };
+  return { ok: true, filesIndexed, nodesEmitted: filesIndexed };
 }
 
 // ---------------------------------------------------------------------------
@@ -273,5 +180,153 @@ function collectSymIds(
     if (entry.children !== undefined && entry.children.length > 0) {
       collectSymIds(target, filePath, entry.children, symbolPath);
     }
+  }
+}
+
+async function listTrackedFiles(cwd: string, git: GitClient): Promise<readonly string[]> {
+  const result = await git.run({ args: ["ls-files"], cwd });
+  if (result.status !== 0) {
+    throw new Error(`git ls-files failed: ${result.stderr}`);
+  }
+  return result.stdout.trim().split("\n").filter((filePath) => filePath.length > 0);
+}
+
+function selectParseableFiles(
+  allFiles: readonly string[],
+  requestedPaths: readonly string[] | undefined,
+): readonly string[] {
+  const tracked = new Set(allFiles);
+  const candidates = requestedPaths !== undefined && requestedPaths.length > 0
+    ? requestedPaths.map((filePath) => filePath.trim()).filter((filePath) => filePath.length > 0 && tracked.has(filePath))
+    : allFiles;
+
+  return candidates.filter((filePath) => detectLang(filePath) !== null);
+}
+
+async function readPriorSymsForFile(
+  ctx: WarpContext,
+  filePath: string,
+): Promise<Map<string, string | undefined>> {
+  const priorSyms = new Map<string, string | undefined>();
+  const priorObs = await observeGraph(ctx, { match: `sym:${filePath}:*`, expose: ["signature"] });
+  const priorNodes = await priorObs.getNodes();
+  for (const nodeId of priorNodes) {
+    const props = await priorObs.getNodeProps(nodeId);
+    const sig = typeof props?.["signature"] === "string" ? props["signature"] : undefined;
+    priorSyms.set(nodeId, sig);
+  }
+  return priorSyms;
+}
+
+async function readPriorAstAnchorsForFile(
+  ctx: WarpContext,
+  filePath: string,
+): Promise<readonly string[]> {
+  const obs = await observeGraph(ctx, { match: `ast:${filePath}:*`, expose: [] });
+  return obs.getNodes();
+}
+
+function patchJsonByteLength(patch: PatchBuilderV2): number {
+  return Buffer.byteLength(JSON.stringify(patch.build()), "utf8");
+}
+
+function assertPatchWithinBudget(
+  patch: PatchBuilderV2,
+  filePath: string,
+  maxPatchJsonBytes: number,
+): void {
+  const bytes = patchJsonByteLength(patch);
+  if (bytes > maxPatchJsonBytes) {
+    throw new Error(
+      `indexHead refused to write ${filePath}: estimated patch payload ${String(bytes)} bytes ` +
+      `exceeds ${String(maxPatchJsonBytes)} bytes. Index smaller slices or attach bulky data as blobs.`,
+    );
+  }
+}
+
+async function indexHeadFile(input: {
+  readonly cwd: string;
+  readonly git: GitClient;
+  readonly pathOps: PathOps;
+  readonly ctx: WarpContext;
+  readonly headSha: string;
+  readonly knownFiles: ReadonlySet<string>;
+  readonly filePath: string;
+  readonly maxPatchJsonBytes: number;
+}): Promise<boolean> {
+  const { cwd, git, pathOps, ctx, headSha, knownFiles, filePath, maxPatchJsonBytes } = input;
+  const lang = detectLang(filePath);
+  if (lang === null) return false;
+
+  const contentResult = await git.run({ args: ["show", `HEAD:${filePath}`], cwd });
+  if (contentResult.status !== 0) return false;
+
+  const tree = parseStructuredTree(lang, contentResult.stdout);
+  try {
+    const outlineResult = extractOutlineForFile(filePath, contentResult.stdout);
+    const outline = outlineResult?.entries ?? [];
+    const jumpLookup = new Map<string, { start: number; end: number }>();
+    for (const jt of outlineResult?.jumpTable ?? []) {
+      jumpLookup.set(jt.symbol, { start: jt.start, end: jt.end });
+    }
+
+    const currentSyms = new Map<string, string | undefined>();
+    collectSymIds(currentSyms, filePath, outline);
+
+    let priorSyms = new Map<string, string | undefined>();
+    let priorAstAnchors: readonly string[] = [];
+    try {
+      await materializeGraph(ctx);
+      priorSyms = await readPriorSymsForFile(ctx, filePath);
+      priorAstAnchors = await readPriorAstAnchorsForFile(ctx, filePath);
+    } catch {
+      // No prior state: first lazy index writes adds only.
+    }
+
+    await patchGraph(ctx, async (patch) => {
+      const tick = patch.build().lamport;
+      const commitId = `commit:${headSha}`;
+      const fileId = `file:${filePath}`;
+
+      patch.addNode(commitId);
+      patch.setProperty(commitId, "sha", headSha);
+      patch.setProperty(commitId, "tick", tick);
+
+      patch.addNode(fileId);
+      patch.setProperty(fileId, "path", filePath);
+      patch.setProperty(fileId, "lang", lang);
+      patch.setProperty(fileId, "indexedCommit", headSha);
+      patch.addEdge(commitId, fileId, "touches");
+
+      emitDirectoryChain(patch, filePath);
+      for (const anchorId of priorAstAnchors) {
+        patch.removeNode(anchorId);
+      }
+      emitOutlineSyms(patch, filePath, outline, jumpLookup);
+      emitAstNodes(patch, filePath, tree.root);
+      resolveImportEdges(patch, filePath, tree.root, pathOps, knownFiles);
+      await attachAstSnapshot(patch, filePath, tree.root);
+
+      for (const [symId, sig] of currentSyms) {
+        if (!priorSyms.has(symId)) {
+          patch.addEdge(commitId, symId, "adds");
+        } else if (priorSyms.get(symId) !== sig) {
+          patch.addEdge(commitId, symId, "changes");
+        }
+      }
+
+      for (const symId of priorSyms.keys()) {
+        if (!currentSyms.has(symId)) {
+          patch.addEdge(commitId, symId, "removes");
+          patch.removeNode(symId);
+        }
+      }
+
+      assertPatchWithinBudget(patch, filePath, maxPatchJsonBytes);
+    });
+
+    return true;
+  } finally {
+    tree.delete();
   }
 }

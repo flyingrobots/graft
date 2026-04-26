@@ -8,14 +8,12 @@ effort: L
 requirements:
   - WARP Level 1 indexing (shipped)
   - Structural churn report via WARP aggregates (shipped)
-  - Refactor difficulty score (backlog)
+  - Refactor difficulty score (shipped)
 acceptance_criteria:
   - Computes a curvature metric per symbol based on churn frequency and dependency fan-out
   - Tracks curvature over time, showing debt accumulation or discharge trends
   - Identifies the top-N highest-curvature symbols driving structural debt
   - Produces a summary report (e.g., 'structural debt grew 12% this quarter, driven by 3 symbols in src/policy/')
-blocked_by:
-  - WARP_refactor-difficulty-score
 ---
 
 # Technical debt as measurable curvature
@@ -49,24 +47,19 @@ by 3 high-curvature symbols in src/policy/."
 6. Produce a summary narrative: "structural debt grew X% over
    period Y, driven by N symbols in Z"
 
-## Why blocked by refactor-difficulty-score
+## Refactor difficulty dependency
 
 `WARP_refactor-difficulty-score` (v0.7.0) computes the per-symbol
 curvature × friction scalar that this card consumes as its
 foundational metric. Technical debt curvature IS the refactor
-difficulty score tracked over time. Without the per-symbol score,
-this card would need to reimplement churn-frequency and fan-out
-computation from scratch — duplicating work that the difficulty
-score already delivers. **Hard dependency.**
-
-Note: `WARP_refactor-difficulty-score` now has aggregate-backed
-structural churn available, so this card's remaining hard dependency is
-the difficulty score itself.
+difficulty score tracked over time. The dependency is shipped; this
+card extends the score temporally instead of reimplementing
+churn-frequency and fan-out computation.
 
 ## Related cards
 
-- **WARP_refactor-difficulty-score** (blocked_by): The per-symbol
-  score that curvature tracking extends temporally. See above.
+- **WARP_refactor-difficulty-score** (shipped): The per-symbol score
+  that curvature tracking extends temporally. See above.
 - **WARP_codebase-entropy-trajectory**: Entropy trajectory tracks
   aggregate structural metrics (addition/removal rates, signature
   stability, coupling direction) over time. Curvature tracks

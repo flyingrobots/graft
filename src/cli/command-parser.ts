@@ -272,6 +272,22 @@ function parseSymbolCommand(argv: string[]): ParsedCommand {
     };
   }
 
+  if (subcommand === "difficulty") {
+    const symbol = consumePositional(argv, "symbol");
+    const filePath = consumeOption(argv, "--path");
+    const limitRaw = consumeOption(argv, "--limit");
+    expectNoArgs(argv);
+    return {
+      command: "symbol_difficulty",
+      json,
+      args: {
+        symbol,
+        ...(filePath !== undefined ? { path: filePath } : {}),
+        ...(limitRaw !== undefined ? { limit: parsePositiveInt(limitRaw, "--limit") } : {}),
+      },
+    };
+  }
+
   throw new Error(`Unknown symbol subcommand: ${subcommand}`);
 }
 

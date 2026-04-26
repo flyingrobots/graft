@@ -9,7 +9,7 @@ requirements:
   - "Budget governor (shipped)"
   - "Session depth tracking (shipped)"
   - "Policy engine with dual-threshold decisions (shipped)"
-  - "Refactor difficulty score (backlog — v0.7.0)"
+  - "Refactor difficulty score (shipped)"
   - "Structural churn data via WARP aggregate queries (shipped)"
 acceptance_criteria:
   - "Policy decisions are computed via a multi-axis cost functional, not dual-threshold step functions"
@@ -18,8 +18,6 @@ acceptance_criteria:
   - "The current dual-threshold policy (150 lines + 12 KB) is expressible as a degenerate case of the Lagrangian"
   - "Policy transitions are smooth and continuous, not step-function jumps"
   - "Performance is comparable to current policy — no measurable latency increase on tool calls"
-blocked_by:
-  - WARP_refactor-difficulty-score
 ---
 
 # Lagrangian policy engine
@@ -50,7 +48,7 @@ weights. The full Lagrangian is smooth and multi-dimensional.
 
 ## Related cards
 
-- **WARP_refactor-difficulty-score** (v0.7.0): Hard dependency. The "structural risk" axis requires refactor difficulty scores per symbol. Without this, the Lagrangian can launch with fewer axes but loses its most differentiating input. Blocked by this card.
+- **WARP_refactor-difficulty-score** (v0.7.0): Shipped prerequisite. The "structural risk" axis requires refactor difficulty scores per symbol. Without this, the Lagrangian can launch with fewer axes but loses its most differentiating input.
 - **CORE_rewrite-structural-churn-to-use-warp-aggregate-queries** (v0.7.0): Shipped prerequisite for refactor-difficulty-score. Churn data feeds difficulty scores, which feed the Lagrangian's risk axis.
 - **CORE_policy-profiles**: Profiles become named weight vectors in the Lagrangian. Independent builds — profiles work with current thresholds, and the Lagrangian works without named profiles. But they compose powerfully.
 - **CORE_self-tuning-governor**: Tuning would suggest weight adjustments instead of threshold changes. The tuning concept generalizes but the implementation differs. Independent.
@@ -59,7 +57,7 @@ weights. The full Lagrangian is smooth and multi-dimensional.
 
 ## Dependency edges
 
-**blocked_by: WARP_refactor-difficulty-score** — The Lagrangian's most novel axis is structural risk (refactor difficulty). Without difficulty scores, the Lagrangian is just a smoother version of the current dual-threshold policy — mathematically nicer but not meaningfully more capable. The difficulty score is what makes this "policy as physics" rather than "policy as config with better interpolation."
+The Lagrangian's most novel axis is structural risk (refactor difficulty). That score is now shipped, so the remaining work is policy design and integration rather than prerequisite metric work.
 
 Note: The Lagrangian COULD ship with only shipped axes (token cost, session depth, context pressure) and add the risk axis later. But that degenerate form provides marginal value over the current policy. The full vision requires difficulty scores.
 

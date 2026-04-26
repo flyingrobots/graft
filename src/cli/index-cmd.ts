@@ -40,7 +40,7 @@ export async function runIndex(options: RunIndexOptions = {}): Promise<void> {
   const stderr = options.stderr ?? process.stderr;
 
   try {
-    const { json } = parseIndexCommandArgs(args);
+    const { json, paths } = parseIndexCommandArgs(args);
     const app = await openWarp({ cwd });
     const ctx = { app, strandId: null };
     const result = await indexHead({
@@ -48,6 +48,7 @@ export async function runIndex(options: RunIndexOptions = {}): Promise<void> {
       git: nodeGit,
       pathOps: nodePathOps,
       ctx,
+      ...(paths.length > 0 ? { paths } : {}),
     });
 
     if (json) {
@@ -82,8 +83,8 @@ export async function runIndex(options: RunIndexOptions = {}): Promise<void> {
       return;
     }
     writeCliError(stderr, message, {
-      usage: "graft index [--json]",
-      nextSteps: ["Use `--json` if you want a machine-readable indexing report."],
+      usage: "graft index [--path <path>] [--json]",
+      nextSteps: ["Use `--path <path>` for lazy per-file indexing and `--json` for machine-readable output."],
     });
   }
 }

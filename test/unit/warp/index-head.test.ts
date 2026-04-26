@@ -118,4 +118,25 @@ describe("warp: index HEAD", { timeout: 15000 }, () => {
     expect(fileNodes).toContain("file:src/a.ts");
     expect(fileNodes).toContain("file:src/b.ts");
   });
+
+  it("refuses oversized eager index calls before writing a patch", async () => {
+    fs.mkdirSync(path.join(tmpDir, "src"), { recursive: true });
+    fs.writeFileSync(path.join(tmpDir, "src/a.ts"), "export const a = 1;\n");
+    fs.writeFileSync(path.join(tmpDir, "src/b.ts"), "export const b = 2;\n");
+    fs.writeFileSync(path.join(tmpDir, "src/c.ts"), "export const c = 3;\n");
+    git(tmpDir, "add -A");
+    git(tmpDir, "commit -m init");
+
+    const warp = await openWarp({ cwd: tmpDir });
+    await expect(indexHead({
+      cwd: tmpDir,
+      git: nodeGit,
+      pathOps: nodePathOps,
+      ctx: { app: warp, strandId: null },
+      maxFilesPerCall: 2,
+    })).rejects.toThrow("Lazy indexing policy");
+
+    const ref = git(tmpDir, "show-ref --verify refs/warp/graft-ast/writers/graft || true");
+    expect(ref.trim()).toBe("");
+  });
 });

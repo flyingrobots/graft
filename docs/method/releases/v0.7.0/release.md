@@ -12,6 +12,8 @@
 - Slice-first mitigation for the highest-risk graph read paths
 - Symbol timeline, dead-symbol detection, stale-doc checking, drift
   sentinel, and structural drift support tools
+- Refactor difficulty scoring through `graft_difficulty` and
+  `graft symbol difficulty`
 - Opt-in parser-backed sludge detection on `doctor`
 - Session/projection helpers that support agent handoff, replay,
   projection safety, and knowledge maps
@@ -25,6 +27,8 @@
 - **Structural metrics**: churn counts now come from WARP aggregate
   queries for live symbols, which unblocks the refactor-difficulty
   score work.
+- **Structural risk**: agents can query a refactor difficulty score
+  before choosing between direct refactor and safer workaround.
 - **Agent observability**: agents can inspect what they know, replay
   sessions, and reason over structural drift with more deterministic
   surfaces.

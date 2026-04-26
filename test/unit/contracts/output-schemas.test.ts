@@ -82,7 +82,7 @@ describe("contracts: output schemas", () => {
     expect((payload["_schema"] as Record<string, unknown>)["id"]).toEqual(expect.any(String));
   });
 
-  it("validates representative MCP tool outputs against the declared schemas", { timeout: 15_000 }, async () => {
+  it("validates representative MCP tool outputs against the declared schemas", { timeout: 30_000 }, async () => {
     const repoDir = createTestRepo("graft-output-schema-mcp-");
     cleanups.push(repoDir);
 
@@ -190,6 +190,7 @@ describe("contracts: output schemas", () => {
       graft_exports: parse(await server.callTool("graft_exports", { base, head })),
       graft_log: parse(await server.callTool("graft_log", {})),
       graft_blame: parse(await server.callTool("graft_blame", { symbol: "greet" })),
+      graft_difficulty: parse(await server.callTool("graft_difficulty", { symbol: "greet" })),
       graft_review: parse(await server.callTool("graft_review", { base, head })),
       knowledge_map: parse(await server.callTool("knowledge_map", {})),
     } as const;
@@ -294,6 +295,7 @@ describe("contracts: output schemas", () => {
       struct_exports: await runCliJson(repoDir, ["struct", "exports", base, head, "--json"]),
       symbol_show: await runCliJson(repoDir, ["symbol", "show", "greet", "--path", "app.ts", "--json"]),
       symbol_blame: await runCliJson(repoDir, ["symbol", "blame", "greet", "--json"]),
+      symbol_difficulty: await runCliJson(repoDir, ["symbol", "difficulty", "greet", "--json"]),
       symbol_find: await runCliJson(repoDir, ["symbol", "find", "greet*", "--json"]),
       diag_doctor: await runCliJson(repoDir, ["diag", "doctor", "--json"]),
       diag_activity: await runCliJson(repoDir, ["diag", "activity", "--limit", "5", "--json"]),

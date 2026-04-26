@@ -387,6 +387,30 @@ export const mcpOutputBodySchemas = {
       signature: z.string().optional(),
     }).strict()),
   }).strict(),
+  graft_difficulty: z.object({
+    symbol: z.string(),
+    path: z.string().optional(),
+    entries: z.array(z.object({
+      symbol: z.string(),
+      filePath: z.string(),
+      kind: z.string(),
+      score: z.number().nonnegative(),
+      risk: z.enum(["low", "medium", "high"]),
+      recommendation: z.enum(["refactor_freely", "refactor_with_tests", "plan_before_refactor"]),
+      curvature: z.object({
+        changeCount: z.number().int().nonnegative(),
+        signatureChangeCount: z.number().int().nonnegative(),
+        score: z.number().nonnegative(),
+      }).strict(),
+      friction: z.object({
+        referenceCount: z.number().int().nonnegative(),
+        referencingFiles: z.array(z.string()),
+        score: z.number().nonnegative(),
+      }).strict(),
+    }).strict()),
+    total: z.number().int().nonnegative(),
+    summary: z.string(),
+  }).strict(),
   graft_review: z.object({
     base: z.string(),
     head: z.string(),

@@ -63,10 +63,10 @@ const SYM_LENS: Lens = {
 /**
  * Find symbols that were removed and never re-added.
  *
- * For each commit in tick order, compares the sym-node set at tick-1
- * vs tick to find removals (present before, absent after). Then checks
- * if each removed symbol reappears at any later tick. Symbols that
- * never reappear are dead.
+ * For each commit in tick order, compares the sym-node set at the previous
+ * indexed commit tick vs this commit's tick to find removals (present before,
+ * absent after). A single Git commit can span multiple WARP Lamport ticks
+ * because lazy indexing writes one bounded patch per file.
  */
 export async function findDeadSymbols(
   ctx: WarpContext,
@@ -102,17 +102,23 @@ export async function findDeadSymbols(
     ? commits.slice(-limit)
     : commits;
 
-  // For each scoped commit, detect removals by diffing sym nodes
-  // at tick-1 vs tick.
-  // Track: symId → { sha, tick } for removed symbols.
+  // For each scoped commit, detect removals by diffing sym nodes at the
+  // previous indexed commit boundary vs this commit's boundary. Per-file lazy
+  // index patches inside the same Git commit are deliberately treated as one
+  // commit window.
+  // Track removed symbols with the pre-removal boundary needed to recover props.
   // If a symbol reappears at a later tick, remove it from the map.
-  const removals = new Map<string, { sha: string; tick: number }>();
+  const removals = new Map<string, { sha: string; tick: number; beforeTick: number }>();
 
   for (const commit of scopedCommits) {
-    if (commit.tick <= 1) continue;
+    const commitIndex = commits.indexOf(commit);
+    const previousCommit = commitIndex > 0 ? commits[commitIndex - 1] : undefined;
+    const beforeTick = commitIndex > 0
+      ? previousCommit?.tick ?? 0
+      : 0;
 
     const [beforeObs, afterObs] = await Promise.all([
-      observeGraph(ctx, SYM_LENS, { source: { kind: "live", ceiling: commit.tick - 1 } }),
+      observeGraph(ctx, SYM_LENS, { source: { kind: "live", ceiling: beforeTick } }),
       observeGraph(ctx, SYM_LENS, { source: { kind: "live", ceiling: commit.tick } }),
     ]);
 
@@ -127,7 +133,7 @@ export async function findDeadSymbols(
     // Symbols present before but absent after = removed in this commit.
     for (const symId of beforeNodes) {
       if (!afterSet.has(symId)) {
-        removals.set(symId, { sha: commit.sha, tick: commit.tick });
+        removals.set(symId, { sha: commit.sha, tick: commit.tick, beforeTick });
       }
     }
 
@@ -146,7 +152,7 @@ export async function findDeadSymbols(
 
   for (const [symId, removal] of removals) {
     const beforeObs = await observeGraph(ctx, SYM_LENS, {
-      source: { kind: "live", ceiling: removal.tick - 1 },
+      source: { kind: "live", ceiling: removal.beforeTick },
     });
 
     const props = await beforeObs.getNodeProps(symId);

@@ -141,51 +141,89 @@ export async function symbolsForCommit(
   const added = addedIds.filter((id) => id.startsWith("sym:")).map(toSymbolChange);
   const changed = changedIds.filter((id) => id.startsWith("sym:")).map(toSymbolChange);
 
-  // Detect removals by temporal diff.
+  // Detect removals by temporal receipts across the Git commit's indexed
+  // Lamport window. Lazy indexing can write one WARP patch per file, so one
+  // Git commit may span multiple Lamport ticks.
   let removed: SymbolChange[] = [];
-  if (tick !== null && tick > 1) {
-    removed = await detectRemovals(ctx, tick);
+  if (tick !== null) {
+    removed = await detectRemovals(ctx, await previousCommitTick(ctx, commitSha, tick), tick);
   }
 
   return { sha: commitSha, added, removed, changed };
+}
+
+async function previousCommitTick(
+  ctx: WarpContext,
+  commitSha: string,
+  tick: number,
+): Promise<number> {
+  const obs = await observeGraph(ctx, { match: "commit:*", expose: ["sha", "tick"] });
+  const nodeIds = await obs.getNodes();
+  let previous = 0;
+
+  for (const nodeId of nodeIds) {
+    const props = await obs.getNodeProps(nodeId);
+    const sha = typeof props?.["sha"] === "string"
+      ? props["sha"]
+      : nodeId.slice("commit:".length);
+    if (sha === commitSha) continue;
+
+    const candidate = typeof props?.["tick"] === "number" ? props["tick"] : null;
+    if (candidate !== null && candidate < tick && candidate > previous) {
+      previous = candidate;
+    }
+  }
+
+  return previous;
 }
 
 /**
  * Detect symbol removals via tick receipts.
  *
  * Instead of scanning all sym:* nodes at two ceilings (which assumes
- * the full graph fits in memory), we materialize with receipts and
- * inspect the receipt at the target tick for NodeTombstone ops on sym
- * nodes. O(ops in one patch), not O(all sym nodes).
+ * the full graph fits in memory), we materialize with receipts and inspect
+ * receipts in one Git commit's indexed Lamport window for NodeTombstone ops
+ * on sym nodes. O(ops in indexed file patches), not O(all sym nodes).
  */
 async function detectRemovals(
   ctx: WarpContext,
+  previousTick: number,
   tick: number,
 ): Promise<SymbolChange[]> {
-  // Materialize up to this tick with receipts.
-  const { receipts } = await ctx.app.core().materialize({ receipts: true, ceiling: tick });
+  // Use latest materialization and filter receipts locally. A ceiling
+  // materialization on the shared core would leave the app cached at an old
+  // tick, corrupting later live reads in the same operation.
+  const { receipts } = await ctx.app.core().materialize({ receipts: true });
 
-  // Find the receipt for this tick's patch.
-  const receipt = receipts.find((r) => r.lamport === tick);
-  if (receipt === undefined) return [];
+  const scopedReceipts = receipts.filter((receipt) =>
+    receipt.lamport > previousTick && receipt.lamport <= tick,
+  );
+  if (scopedReceipts.length === 0) return [];
 
   // Tombstoned sym nodes = removals.
-  const removedIds = receipt.ops
-    .filter((op) => op.op === "NodeTombstone" && op.target.startsWith("sym:") && op.result === "applied")
-    .map((op) => op.target);
+  const removed = new Map<string, number>();
+  for (const receipt of scopedReceipts) {
+    for (const op of receipt.ops) {
+      if (op.op === "NodeTombstone" && op.target.startsWith("sym:") && op.result === "applied") {
+        removed.set(op.target, receipt.lamport);
+      }
+    }
+  }
 
-  if (removedIds.length === 0) return [];
+  if (removed.size === 0) return [];
 
-  // Read props from the pre-tick observer (nodes are gone at current tick).
+  // Read props from the pre-removal observer (nodes are gone at current tick).
   const symLens: Lens = {
     match: "sym:*",
     expose: ["name", "kind", "signature", "exported"],
   };
-  const beforeObs = await observeGraph(ctx, symLens, { source: { kind: "live", ceiling: tick - 1 } });
 
   // Targeted per-node reads — bounded by removals in one commit.
   const changes: SymbolChange[] = [];
-  for (const id of removedIds) {
+  for (const [id, removalTick] of removed) {
+    const beforeObs = await observeGraph(ctx, symLens, {
+      source: { kind: "live", ceiling: removalTick - 1 },
+    });
     const props = await beforeObs.getNodeProps(id);
     if (props === null) continue;
 

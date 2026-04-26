@@ -10,6 +10,41 @@ import GitPlumbing from "@git-stunts/plumbing";
 import { DEFAULT_WARP_WRITER_ID } from "./writer-id.js";
 
 export const GRAPH_NAME = "graft-ast";
+const WARP_GIT_MAX_BUFFER_BYTES = 128 * 1024 * 1024;
+
+interface GitExecuteOptions {
+  readonly args: string[];
+  readonly input?: string | Uint8Array;
+  readonly env?: Record<string, string>;
+  readonly maxBytes?: number;
+}
+
+interface GitStreamLike {
+  readonly finished: Promise<{ code: number; stderr: string; error?: Error | undefined }>;
+  collect(opts?: { maxBytes?: number; asString?: boolean; encoding?: string }): Promise<Uint8Array | string>;
+  [Symbol.asyncIterator](): AsyncIterator<Uint8Array>;
+}
+
+function raiseWarpGitBufferLimit(plumbing: GitPlumbing): GitPlumbing {
+  const execute = plumbing.execute.bind(plumbing);
+  plumbing.execute = ((options: GitExecuteOptions) => execute({
+    ...options,
+    maxBytes: options.maxBytes ?? WARP_GIT_MAX_BUFFER_BYTES,
+  })) as GitPlumbing["execute"];
+
+  const executeStream = plumbing.executeStream.bind(plumbing);
+  plumbing.executeStream = (async (options: { args: string[]; input?: string | Uint8Array; env?: Record<string, string> }) => {
+    const stream = await executeStream(options);
+    const collect = stream.collect.bind(stream);
+    stream.collect = (opts = {}) => collect({
+      ...opts,
+      maxBytes: opts.maxBytes ?? WARP_GIT_MAX_BUFFER_BYTES,
+    });
+    return stream as GitStreamLike;
+  }) as GitPlumbing["executeStream"];
+
+  return plumbing;
+}
 
 export interface OpenWarpOptions {
   readonly cwd: string;
@@ -17,7 +52,7 @@ export interface OpenWarpOptions {
 }
 
 export async function openWarp(options: OpenWarpOptions): Promise<WarpApp> {
-  const plumbing = GitPlumbing.createDefault({ cwd: options.cwd });
+  const plumbing = raiseWarpGitBufferLimit(GitPlumbing.createDefault({ cwd: options.cwd }));
   const persistence = new GitGraphAdapter({ plumbing });
 
   return WarpApp.open({

@@ -1,13 +1,16 @@
 // ---------------------------------------------------------------------------
-// Full AST emitter — walks tree-sitter AST and emits every node into WARP
+// AST snapshot attachment — keeps bulky syntax trees out of graph state
 // ---------------------------------------------------------------------------
 
 import { createHash } from "node:crypto";
+import { Buffer } from "node:buffer";
 import type { PatchBuilderV2 } from "@git-stunts/git-warp";
 import type { WarpContext } from "./context.js";
 import { patchGraph } from "./context.js";
 
 type TSNode = import("web-tree-sitter").SyntaxNode;
+
+const AST_SNAPSHOT_MIME = "application/vnd.graft.ast+json";
 
 function hashId(input: string): string {
   return createHash("sha1").update(input).digest("hex").slice(0, 12);
@@ -18,47 +21,56 @@ function astNodeId(filePath: string, node: TSNode): string {
   return `ast:${filePath}:${hash}`;
 }
 
-function emitNode(
-  patch: PatchBuilderV2,
-  filePath: string,
-  node: TSNode,
-  parentId: string | undefined,
-): void {
-  const nodeId = astNodeId(filePath, node);
-  patch.addNode(nodeId);
-  patch.setProperty(nodeId, "type", node.type);
-  patch.setProperty(nodeId, "named", node.isNamed());
-  patch.setProperty(nodeId, "startRow", node.startPosition.row);
-  patch.setProperty(nodeId, "startCol", node.startPosition.column);
-  patch.setProperty(nodeId, "endRow", node.endPosition.row);
-  patch.setProperty(nodeId, "endCol", node.endPosition.column);
-  patch.setProperty(nodeId, "filePath", filePath);
+interface AstSnapshotNode {
+  readonly type: string;
+  readonly named: boolean;
+  readonly startRow: number;
+  readonly startCol: number;
+  readonly endRow: number;
+  readonly endCol: number;
+  readonly text?: string | undefined;
+  readonly children?: readonly AstSnapshotNode[] | undefined;
+}
 
-  // Store text for leaf nodes (no children)
-  if (node.childCount === 0) {
-    patch.setProperty(nodeId, "text", node.text);
+interface AstSnapshot {
+  readonly schema: "graft.ast-snapshot.v1";
+  readonly filePath: string;
+  readonly root: AstSnapshotNode;
+}
+
+function astSnapshotNode(node: TSNode): AstSnapshotNode {
+  const children: AstSnapshotNode[] = [];
+  for (let index = 0; index < node.childCount; index++) {
+    const child = node.child(index);
+    if (child !== null) children.push(astSnapshotNode(child));
   }
 
-  // Connect to parent
-  if (parentId !== undefined) {
-    patch.addEdge(parentId, nodeId, "child");
-  }
+  return {
+    type: node.type,
+    named: node.isNamed(),
+    startRow: node.startPosition.row,
+    startCol: node.startPosition.column,
+    endRow: node.endPosition.row,
+    endCol: node.endPosition.column,
+    ...(children.length === 0 ? { text: node.text } : {}),
+    ...(children.length > 0 ? { children } : {}),
+  };
+}
 
-  // Recurse into ALL children
-  for (let i = 0; i < node.childCount; i++) {
-    const child = node.child(i);
-    if (child !== null) {
-      emitNode(patch, filePath, child, nodeId);
-    }
-  }
+function astSnapshot(filePath: string, root: TSNode): AstSnapshot {
+  return {
+    schema: "graft.ast-snapshot.v1",
+    filePath,
+    root: astSnapshotNode(root),
+  };
 }
 
 /**
- * Emit the complete tree-sitter CST for a file into an existing patch.
+ * Emit a tiny AST root anchor into graph state.
  *
- * Every node (named and anonymous) becomes a graph node with ID
- * `ast:<filePath>:<hash>`. Parent-child relationships become `child`
- * edges. The file node gets a `contains` edge to the program root.
+ * The full tree belongs in an attached blob, not materialized WARP graph
+ * state. This anchor preserves a stable graph join point for tools that need
+ * to know a file has an attached AST snapshot.
  *
  * Call this inside a `warp.patch()` callback to co-locate AST emission
  * with other graph operations in the same atomic commit.
@@ -79,30 +91,43 @@ export function emitAstNodes(
   patch.setProperty(rootId, "endRow", root.endPosition.row);
   patch.setProperty(rootId, "endCol", root.endPosition.column);
   patch.setProperty(rootId, "filePath", filePath);
+  patch.setProperty(rootId, "summaryOnly", true);
 
   patch.addEdge(fileId, rootId, "contains_ast");
-
-  for (let i = 0; i < root.childCount; i++) {
-    const child = root.child(i);
-    if (child !== null) {
-      emitNode(patch, filePath, child, rootId);
-    }
-  }
 }
 
 /**
- * Standalone convenience: emit full AST as its own patch.
- * Prefer `emitAstNodes` inside an existing patch callback.
+ * Attach the complete tree-sitter CST as node content on the file node.
+ *
+ * The blob remains reachable through the WARP patch commit tree, but the
+ * materialized graph only carries the `_content` OID and metadata.
+ */
+export async function attachAstSnapshot(
+  patch: PatchBuilderV2,
+  filePath: string,
+  root: TSNode,
+): Promise<void> {
+  const fileId = `file:${filePath}`;
+  const content = Buffer.from(JSON.stringify(astSnapshot(filePath, root)), "utf8");
+  await patch.attachContent(fileId, content, {
+    mime: AST_SNAPSHOT_MIME,
+  });
+}
+
+/**
+ * Standalone convenience: emit the AST root anchor and attach the full AST
+ * snapshot as blob content in one patch.
  */
 export async function emitFullAst(
   ctx: WarpContext,
   filePath: string,
   root: TSNode,
 ): Promise<void> {
-  await patchGraph(ctx, (patch) => {
+  await patchGraph(ctx, async (patch) => {
     const fileId = `file:${filePath}`;
     patch.addNode(fileId);
     patch.setProperty(fileId, "path", filePath);
     emitAstNodes(patch, filePath, root);
+    await attachAstSnapshot(patch, filePath, root);
   });
 }

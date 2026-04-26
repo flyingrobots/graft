@@ -1,6 +1,8 @@
 import { z } from "zod";
 import { readRange } from "../../operations/read-range.js";
 import type { ToolDefinition, ToolContext, ToolHandler } from "../context.js";
+import { nodePathOps } from "../../adapters/node-paths.js";
+import { indexHead } from "../../warp/index-head.js";
 import { listProjectFiles } from "./git-files.js";
 import {
   evaluatePrecisionPolicy,
@@ -19,6 +21,26 @@ import {
 
 interface CodeShowOptions {
   readonly allowWarp: boolean;
+}
+
+async function lazyIndexReadPaths(
+  ctx: ToolContext,
+  paths: readonly string[],
+  dirty: boolean,
+): Promise<void> {
+  if (dirty || paths.length === 0) return;
+  try {
+    const warp = await ctx.getWarp();
+    await indexHead({
+      cwd: ctx.projectRoot,
+      git: ctx.git,
+      pathOps: nodePathOps,
+      ctx: warp,
+      paths: [...new Set(paths)],
+    });
+  } catch {
+    // Lazy indexing is a cache refresh. It must not break the read response.
+  }
 }
 
 export async function runCodeShow(
@@ -186,6 +208,7 @@ export async function runCodeShow(
       paths: [...new Set(visibleLocations.map((m) => m.path))],
       symbols: visibleLocations.map((m) => m.name),
     });
+    await lazyIndexReadPaths(ctx, visibleLocations.map((m) => m.path), repoState.dirty);
     return ctx.respond("code_show", {
       symbol: symbolName,
       ambiguous: true,
@@ -197,6 +220,9 @@ export async function runCodeShow(
 
   const loc = visibleLocations[0];
   if (loc?.startLine === undefined || loc.endLine === undefined) {
+    if (loc?.path !== undefined) {
+      await lazyIndexReadPaths(ctx, [loc.path], repoState.dirty);
+    }
     return ctx.respond("code_show", {
       symbol: symbolName,
       kind: loc?.kind,
@@ -228,6 +254,7 @@ export async function runCodeShow(
     symbols: [loc.name],
     regions: [{ path: loc.path, startLine: loc.startLine, endLine: loc.endLine }],
   });
+  await lazyIndexReadPaths(ctx, [loc.path], repoState.dirty);
 
   return ctx.respond("code_show", {
     symbol: loc.name,

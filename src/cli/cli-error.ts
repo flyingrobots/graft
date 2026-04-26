@@ -57,8 +57,8 @@ export function describeCliFailure(argv: readonly string[]): CliErrorDetails {
 
   if (group === "index") {
     return {
-      usage: "graft index [<from-ref>] [--json]",
-      nextSteps: ["Use `--json` for machine-readable output."],
+      usage: "graft index [--path <path>] [--json]",
+      nextSteps: ["Use `--path <path>` for lazy per-file indexing and `--json` for machine-readable output."],
     };
   }
 
@@ -101,8 +101,20 @@ export function describeCliFailure(argv: readonly string[]): CliErrorDetails {
     if (subcommand === "map") {
       return { usage: "graft struct map [<directory>] [--json]" };
     }
+    if (subcommand === "churn") {
+      return { usage: "graft struct churn [--path <path>] [--limit <n>] [--json]" };
+    }
+    if (subcommand === "exports") {
+      return { usage: "graft struct exports [<base-ref> <head-ref>] [--json]" };
+    }
+    if (subcommand === "log") {
+      return { usage: "graft struct log [--since <ref>] [--path <path>] [--limit <n>] [--json]" };
+    }
+    if (subcommand === "review") {
+      return { usage: "graft struct review [--base <ref>] [--head <ref>] [--json]" };
+    }
     return {
-      usage: "graft struct <diff|since|map> ...",
+      usage: "graft struct <diff|since|map|churn|exports|log|review> ...",
       nextSteps: ["Run `graft help` to see the available structural subcommands."],
     };
   }
@@ -114,8 +126,14 @@ export function describeCliFailure(argv: readonly string[]): CliErrorDetails {
     if (subcommand === "show") {
       return { usage: "graft symbol show <symbol> [--path <path>] [--ref <ref>] [--json]" };
     }
+    if (subcommand === "blame") {
+      return { usage: "graft symbol blame <symbol> [--path <path>] [--json]" };
+    }
+    if (subcommand === "difficulty") {
+      return { usage: "graft symbol difficulty <symbol> [--path <path>] [--limit <n>] [--json]" };
+    }
     return {
-      usage: "graft symbol <find|show> ...",
+      usage: "graft symbol <find|show|blame|difficulty> ...",
       nextSteps: ["Run `graft help` to see the available symbol subcommands."],
     };
   }
