@@ -29,10 +29,9 @@ has a repo-local instruction layer alongside the MCP config.
 
 Idempotent — safe to run again without duplicating entries.
 
-`init` bootstraps repo-local files and client config. It does not make a
-daemon session implicitly bound later; daemon mode still requires
-explicit authorization and workspace binding through MCP control-plane
-tools.
+`init` bootstraps repo-local files and client config. The default MCP
+runtime is repo-local stdio. Use `--mcp-runtime daemon` only when you
+want generated MCP config to launch the daemon-backed stdio bridge.
 
 ## Choose Your Setup Path
 
@@ -48,9 +47,10 @@ whole setup guide front-to-back.
 | Continue MCP in this repo | `npx @flyingrobots/graft init --write-continue-mcp` | Writes or merges `.continue/config.json` |
 | Cline MCP in this repo | `npx @flyingrobots/graft init --write-cline-mcp` | Writes or merges `.vscode/cline_mcp_settings.json` |
 | Codex MCP in this repo | `npx @flyingrobots/graft init --write-codex-mcp` | Writes or merges `.codex/config.toml` and seeds `AGENTS.md` |
+| Daemon-backed MCP in this repo | `npx @flyingrobots/graft init --mcp-runtime daemon --write-*-mcp` | Writes or merges client config that launches `graft serve --runtime daemon` |
 | Manual review before any config file write | `npx @flyingrobots/graft init` | Scaffolds repo files and prints the manual MCP / hook snippets |
-| Global config instead of project-local config | Edit your client's global MCP settings manually | Use the `npx @flyingrobots/graft serve` command + args shown below |
-| Another MCP-compatible client | Add graft manually to that client's MCP config | Use `command = npx`, `args = ["-y", "@flyingrobots/graft", "serve"]` |
+| Global config instead of project-local config | Edit your client's global MCP settings manually | Use the repo-local or daemon-backed `serve` args shown below |
+| Another MCP-compatible client | Add graft manually to that client's MCP config | Use `command = npx` with either `serve` or `serve --runtime daemon` |
 
 ## Governed Read Posture By Client
 
@@ -75,8 +75,8 @@ distinct runtime paths:
   Windows named pipe, with `/mcp` for MCP traffic and `/healthz` for
   liveness
 
-The daemon is intentionally not the default editor bootstrap story yet.
-It uses a stricter contract:
+The daemon is available as an explicit opt-in MCP bootstrap runtime. It
+is not the default because it uses a stricter contract:
 
 - daemon sessions start unbound
 - workspace binding requires prior authorization through the daemon
@@ -103,13 +103,49 @@ Daemon control-plane inspection now exists through MCP tools:
 - `workspace_rebind`
 - `workspace_revoke`
 
-Practical daemon first-use sequence:
+Practical daemon-backed MCP first-use sequence:
 
-1. start `npx @flyingrobots/graft daemon`
-2. connect your MCP client to the daemon surface
+1. configure your MCP client with `graft serve --runtime daemon`
+2. let the bridge auto-start the daemon, or start `npx @flyingrobots/graft daemon`
 3. call `workspace_authorize` with the target `cwd`
 4. call `workspace_bind` with the target `cwd`
 5. then use repository-scoped tools such as `safe_read` or `graft_map`
+
+### MCP runtime selection
+
+Repo-local stdio is the default and remains the simplest path:
+
+```json
+{
+  "mcpServers": {
+    "graft": {
+      "command": "npx",
+      "args": ["-y", "@flyingrobots/graft", "serve"]
+    }
+  }
+}
+```
+
+Daemon-backed stdio keeps the same MCP client shape but changes the
+runtime:
+
+```json
+{
+  "mcpServers": {
+    "graft": {
+      "command": "npx",
+      "args": ["-y", "@flyingrobots/graft", "serve", "--runtime", "daemon"]
+    }
+  }
+}
+```
+
+Use repo-local stdio when you want one MCP server bound directly to the
+current checkout. Use daemon-backed stdio when you want daemon-only
+capabilities such as shared worker pools, persistent monitors, and
+daemon control-plane inspection. Daemon-backed sessions start unbound;
+repository-scoped tools require `workspace_authorize` and
+`workspace_bind`.
 
 ### One-step bootstrap
 
@@ -125,8 +161,20 @@ npx @flyingrobots/graft init --write-cline-mcp
 npx @flyingrobots/graft init --write-codex-mcp
 ```
 
+Add `--mcp-runtime daemon` before a `--write-*-mcp` flag to generate
+daemon-backed stdio config instead of the default repo-local stdio
+config:
+
+```bash
+npx @flyingrobots/graft init --mcp-runtime daemon --write-codex-mcp
+```
+
 Supported write flags:
 
+- `--mcp-runtime repo-local` -> generate repo-local `graft serve` MCP
+  config; this is the default
+- `--mcp-runtime daemon` -> generate `graft serve --runtime daemon` MCP
+  config
 - `--write-claude-mcp` -> writes or merges `.mcp.json`
 - `--write-claude-hooks` -> writes or merges `.claude/settings.json`
 - `--write-cursor-mcp` -> writes or merges `.cursor/mcp.json`
@@ -162,6 +210,24 @@ Grouped CLI namespaces:
 
 Graft runs as an MCP server over stdio. Add it to your editor or
 agent's MCP configuration.
+
+The default runtime is repo-local:
+
+```bash
+npx @flyingrobots/graft serve
+```
+
+The daemon-backed runtime is explicit:
+
+```bash
+npx @flyingrobots/graft serve --runtime daemon
+```
+
+When the daemon-backed bridge cannot reach a daemon, it attempts to
+start one and waits for `/healthz`. Use `--no-autostart` when you want
+startup to fail instead of launching the daemon. Once connected,
+daemon sessions remain unbound until authorized and bound through the
+daemon workspace tools.
 
 ### Claude Code
 

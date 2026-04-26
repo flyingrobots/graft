@@ -39,8 +39,10 @@ export function describeCliFailure(argv: readonly string[]): CliErrorDetails {
 
   if (group === "serve") {
     return {
-      usage: "graft serve",
-      nextSteps: ["Run `graft help` to see the explicit transport entrypoints."],
+      usage: "graft serve [--runtime <repo-local|daemon>] [--socket <path>] [--no-autostart]",
+      nextSteps: [
+        "`graft serve` is repo-local stdio. Use `graft serve --runtime daemon` for the daemon-backed stdio bridge.",
+      ],
     };
   }
 
@@ -65,7 +67,7 @@ export function describeCliFailure(argv: readonly string[]): CliErrorDetails {
   if (group === "init") {
     return {
       usage:
-        "graft init [--json] [--write-claude-mcp] [--write-claude-hooks] "
+        "graft init [--json] [--mcp-runtime <repo-local|daemon>] [--write-claude-mcp] [--write-claude-hooks] "
         + "[--write-target-git-hooks] [--write-codex-mcp] [--write-cursor-mcp] "
         + "[--write-windsurf-mcp] [--write-continue-mcp] [--write-cline-mcp]",
       nextSteps: ["Run `graft help` to confirm the repo-local bootstrap surfaces."],

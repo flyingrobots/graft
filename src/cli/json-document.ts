@@ -36,8 +36,19 @@ export class JsonArrayNode {
     );
   }
 
+  objectEntries(): { index: number; node: JsonObjectNode }[] {
+    return this.value.map((item, index) => ({
+      index,
+      node: JsonObjectNode.fromUnknown(item, this.label, [...this.pointer, `[${String(index)}]`]),
+    }));
+  }
+
   push(value: JsonValue): void {
     this.value.push(cloneJsonValue(value));
+  }
+
+  set(index: number, value: JsonValue): void {
+    this.value[index] = cloneJsonValue(value);
   }
 }
 

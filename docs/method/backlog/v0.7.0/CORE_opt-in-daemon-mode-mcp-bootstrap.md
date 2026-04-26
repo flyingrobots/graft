@@ -10,8 +10,6 @@ acceptance_criteria:
   - graft init exposes an explicit daemon-mode opt-in flag
   - Generated config points at the stdio bridge, not raw graft serve
   - Default remains repo-local stdio; daemon only when requested
-blocked_by:
-  - CORE_daemon-aware-stdio-bridge-for-mcp-clients
 blocking:
   - SURFACE_bijou-tui-for-graft-daemon-control-plane
 ---

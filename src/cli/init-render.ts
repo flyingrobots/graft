@@ -1,6 +1,6 @@
 import { CanonicalJsonCodec } from "../adapters/canonical-json.js";
 import { attachCliSchemaMeta, validateCliOutput } from "../contracts/output-schemas.js";
-import { GRAFT_HOOKS_CONFIG, GRAFT_MCP_SERVER, InitFailure, InitResult, ParsedInitArgs, type JsonObjectValue } from "./init-model.js";
+import { GRAFT_HOOKS_CONFIG, InitFailure, InitResult, ParsedInitArgs, type JsonObjectValue } from "./init-model.js";
 
 const codec = new CanonicalJsonCodec();
 
@@ -37,7 +37,7 @@ export function renderInitText(result: InitResult, args: ParsedInitArgs, writer:
   if (!args.writesAnyMcpConfig) {
     writeLine(writer, "Done. Add graft to your MCP config:");
     writeLine(writer);
-    writeLine(writer, indentJson(GRAFT_MCP_SERVER.toJsonMcpConfig()));
+    writeLine(writer, indentJson(result.suggestedMcpServer.toJsonMcpConfig()));
     writeLine(writer);
     writeLine(writer, "Use explicit --write-*-mcp flags or --write-claude-hooks");
     writeLine(writer, "or --write-target-git-hooks for one-step bootstrap into project-local config files.");

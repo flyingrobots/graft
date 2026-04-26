@@ -1,7 +1,7 @@
 import * as path from "node:path";
 import { appendIfMissing, ensureTargetGitHooks, mergeClaudeHooksConfig, mergeClaudeMcpConfig, mergeClineMcpConfig, mergeCodexMcpConfig, mergeContinueMcpConfig, mergeCursorMcpConfig, mergeWindsurfMcpConfig, writeIfMissing } from "./init-bootstrap.js";
 import { writeCliError } from "./cli-error.js";
-import { GRAFT_HOOKS_CONFIG, GRAFT_MCP_SERVER, InitFailure, InitResult, ParsedInitArgs } from "./init-model.js";
+import { GRAFT_HOOKS_CONFIG, GraftMcpServer, InitFailure, InitResult, ParsedInitArgs } from "./init-model.js";
 import { emitInitJson, renderInitText } from "./init-render.js";
 
 const GRAFTIGNORE_TEMPLATE = `# Graft ignore patterns — files matching these are refused by safe_read.
@@ -45,6 +45,8 @@ export interface RunInitOptions {
 }
 
 function initProject(cwd: string, args: ParsedInitArgs): InitResult {
+  const mcpServer = new GraftMcpServer(args.mcpRuntime);
+  const updateExistingMcp = args.mcpRuntimeExplicit;
   const actions = [
     writeIfMissing(path.join(cwd, ".graftignore"), GRAFTIGNORE_TEMPLATE, ".graftignore"),
     appendIfMissing(path.join(cwd, ".gitignore"), ".graft/", GITIGNORE_ENTRY, ".gitignore"),
@@ -52,7 +54,7 @@ function initProject(cwd: string, args: ParsedInitArgs): InitResult {
   ];
 
   if (args.writeClaudeMcp) {
-    actions.push(mergeClaudeMcpConfig(cwd));
+    actions.push(mergeClaudeMcpConfig(cwd, mcpServer, updateExistingMcp));
   }
   if (args.writeClaudeHooks) {
     actions.push(mergeClaudeHooksConfig(cwd));
@@ -61,7 +63,7 @@ function initProject(cwd: string, args: ParsedInitArgs): InitResult {
     actions.push(...ensureTargetGitHooks(cwd));
   }
   if (args.writeCodexMcp) {
-    actions.push(mergeCodexMcpConfig(cwd));
+    actions.push(mergeCodexMcpConfig(cwd, mcpServer, updateExistingMcp));
     actions.push(
       appendIfMissing(
         path.join(cwd, "AGENTS.md"),
@@ -72,19 +74,19 @@ function initProject(cwd: string, args: ParsedInitArgs): InitResult {
     );
   }
   if (args.writeCursorMcp) {
-    actions.push(mergeCursorMcpConfig(cwd));
+    actions.push(mergeCursorMcpConfig(cwd, mcpServer, updateExistingMcp));
   }
   if (args.writeWindsurfMcp) {
-    actions.push(mergeWindsurfMcpConfig(cwd));
+    actions.push(mergeWindsurfMcpConfig(cwd, mcpServer, updateExistingMcp));
   }
   if (args.writeContinueMcp) {
-    actions.push(mergeContinueMcpConfig(cwd));
+    actions.push(mergeContinueMcpConfig(cwd, mcpServer, updateExistingMcp));
   }
   if (args.writeClineMcp) {
-    actions.push(mergeClineMcpConfig(cwd));
+    actions.push(mergeClineMcpConfig(cwd, mcpServer, updateExistingMcp));
   }
 
-  return new InitResult(cwd, actions, GRAFT_HOOKS_CONFIG, GRAFT_MCP_SERVER);
+  return new InitResult(cwd, actions, GRAFT_HOOKS_CONFIG, mcpServer);
 }
 
 export function runInit(options: RunInitOptions = {}): void {
@@ -110,7 +112,7 @@ export function runInit(options: RunInitOptions = {}): void {
     }
     writeCliError(stderr, message, {
       usage:
-        "graft init [--json] [--write-claude-mcp] [--write-claude-hooks] "
+        "graft init [--json] [--mcp-runtime <repo-local|daemon>] [--write-claude-mcp] [--write-claude-hooks] "
         + "[--write-target-git-hooks] [--write-codex-mcp] [--write-cursor-mcp] "
         + "[--write-windsurf-mcp] [--write-continue-mcp] [--write-cline-mcp]",
       nextSteps: [

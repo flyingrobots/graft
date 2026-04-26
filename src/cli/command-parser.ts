@@ -12,6 +12,14 @@ export interface ParsedCommand {
   args: Record<string, unknown>;
 }
 
+export type ServeRuntime = "repo-local" | "daemon";
+
+export interface ParsedServeCommand {
+  readonly runtime: ServeRuntime;
+  readonly socketPath?: string | undefined;
+  readonly spawnIfMissing?: boolean | undefined;
+}
+
 export function resolveEntrypointArgs(
   args: readonly string[],
   stdinIsTTY: boolean | undefined,
@@ -69,6 +77,39 @@ export function parseDaemonCommand(cwd: string, argv: string[]): { socketPath?: 
   const socketPath = consumeOption(argv, "--socket");
   expectNoArgs(argv);
   return socketPath !== undefined ? { socketPath: path.resolve(cwd, socketPath) } : {};
+}
+
+function parseServeRuntime(raw: string | undefined): ServeRuntime {
+  if (raw === undefined || raw === "repo-local") {
+    return "repo-local";
+  }
+  if (raw === "daemon") {
+    return "daemon";
+  }
+  throw new Error(`--runtime must be repo-local or daemon, got ${raw}`);
+}
+
+export function parseServeCommand(cwd: string, argv: string[]): ParsedServeCommand {
+  const runtime = parseServeRuntime(consumeOption(argv, "--runtime"));
+  const socketPath = consumeOption(argv, "--socket");
+  const noAutostart = consumeFlag(argv, "--no-autostart");
+  expectNoArgs(argv);
+
+  if (runtime === "repo-local") {
+    if (socketPath !== undefined) {
+      throw new Error("--socket requires --runtime daemon");
+    }
+    if (noAutostart) {
+      throw new Error("--no-autostart requires --runtime daemon");
+    }
+    return { runtime };
+  }
+
+  return {
+    runtime,
+    ...(socketPath !== undefined ? { socketPath: path.resolve(cwd, socketPath) } : {}),
+    ...(noAutostart ? { spawnIfMissing: false } : {}),
+  };
 }
 
 export function parseGlobalOptions(

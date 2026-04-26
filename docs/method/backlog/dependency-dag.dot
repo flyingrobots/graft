@@ -11,10 +11,9 @@ digraph backlog {
   nodesep=0.2
 
   subgraph cluster_v0_7_0 {
-    label="v0.7.0 (11)" labeljust=l fontsize=9 fontcolor="#555555"
+    label="v0.7.0 (10)" labeljust=l fontsize=9 fontcolor="#555555"
     style=rounded color="#cccccc" bgcolor="#fafafa"
     v0_7_0_CORE_agent_drift_warning [label="CORE-agent-drift-warning" fillcolor="#FFA07A" penwidth=2]
-    v0_7_0_CORE_daemon_aware_stdio_bridge_for_mcp_clients [label="CORE-daemon-aware-stdio-bridge-for-mcp-clients" fillcolor="#FFA07A" penwidth=2]
     v0_7_0_CORE_git_graft_enhance [label="CORE-git-graft-enhance" fillcolor="#FFA07A" penwidth=2]
     v0_7_0_CORE_migrate_path_ops_to_port [label="CORE-migrate-path-ops-to-port" fillcolor="#FFA07A" penwidth=2]
     v0_7_0_CORE_migrate_to_slice_first_reads [label="CORE-migrate-to-slice-first-reads" fillcolor="#FFA07A" penwidth=2]
@@ -131,7 +130,6 @@ digraph backlog {
   external_git_warp_observer_geometry_ladder__Rung_2_4_ -> v0_7_0_CORE_migrate_to_slice_first_reads [label="blocked_by_external" style=dashed color="#4477AA"]
   unresolved_CLEAN_CODE_export_diff_semver_signature_as_patch -> cool_ideas_WARP_auto_breaking_change_detection [label="blocked_by" style=dashed color="#CC3333"]
   unresolved_CLEAN_CODE_export_diff_semver_signature_as_patch -> cool_ideas_WARP_semantic_merge_conflict_prediction [label="blocked_by" style=dashed color="#CC3333"]
-  v0_7_0_CORE_daemon_aware_stdio_bridge_for_mcp_clients -> v0_7_0_CORE_opt_in_daemon_mode_mcp_bootstrap [label="blocked_by/blocking"]
   v0_7_0_CORE_opt_in_daemon_mode_mcp_bootstrap -> v0_7_0_SURFACE_bijou_tui_for_graft_daemon_control_plane [label="blocked_by/blocking"]
   v0_7_0_CORE_rewrite_structural_blame_to_use_warp_worldline_provenance -> v0_7_0_CORE_git_graft_enhance [label="blocked_by/blocking"]
   v0_7_0_SURFACE_agent_dx_governed_edit -> v0_7_0_CORE_agent_drift_warning [label="blocked_by/blocking"]

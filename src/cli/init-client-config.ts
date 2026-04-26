@@ -3,8 +3,12 @@ import * as path from "node:path";
 import {
   GRAFT_HOOKS_CONFIG,
   GRAFT_MCP_SERVER,
+  GraftMcpServer,
   InitAction,
+  isGraftMcpServerEntryForRuntime,
   type GraftHookMatcher,
+  type JsonObjectValue,
+  type JsonValue,
 } from "./init-model.js";
 import {
   JsonArrayNode,
@@ -14,28 +18,33 @@ import {
 class JsonMcpConfigDocument {
   constructor(
     private readonly document: JsonObjectDocument,
-    private readonly server: typeof GRAFT_MCP_SERVER,
+    private readonly server: GraftMcpServer,
+    private readonly updateExisting: boolean,
   ) {}
 
   static create(
     filePath: string,
     label: string,
-    server: typeof GRAFT_MCP_SERVER,
+    server: GraftMcpServer,
+    updateExisting: boolean,
   ): JsonMcpConfigDocument {
     return new JsonMcpConfigDocument(
       JsonObjectDocument.create(filePath, label, server.toJsonMcpConfig()),
       server,
+      updateExisting,
     );
   }
 
   static open(
     filePath: string,
     label: string,
-    server: typeof GRAFT_MCP_SERVER,
+    server: GraftMcpServer,
+    updateExisting: boolean,
   ): JsonMcpConfigDocument {
     return new JsonMcpConfigDocument(
       JsonObjectDocument.open(filePath, label),
       server,
+      updateExisting,
     );
   }
 
@@ -46,6 +55,15 @@ class JsonMcpConfigDocument {
   ensureGraftServer(): InitAction {
     const root = this.document.root();
     const servers = root.ensureObject("mcpServers");
+    const existing = servers.toJsonValue()[this.server.name];
+    if (existing !== undefined) {
+      if (isGraftMcpServerEntryForRuntime(existing, this.server.runtime) || !this.updateExisting) {
+        return InitAction.exists(this.document.label, "already has graft mcp server");
+      }
+      servers.set(this.server.name, this.server.toJsonServerEntry());
+      this.document.write();
+      return InitAction.append(this.document.label, `updated graft mcp server runtime to ${this.server.runtime}`);
+    }
     if (servers.has(this.server.name)) {
       return InitAction.exists(this.document.label, "already has graft mcp server");
     }
@@ -58,28 +76,33 @@ class JsonMcpConfigDocument {
 class ContinueMcpConfigDocument {
   constructor(
     private readonly document: JsonObjectDocument,
-    private readonly server: typeof GRAFT_MCP_SERVER,
+    private readonly server: GraftMcpServer,
+    private readonly updateExisting: boolean,
   ) {}
 
   static create(
     filePath: string,
     label: string,
-    server: typeof GRAFT_MCP_SERVER,
+    server: GraftMcpServer,
+    updateExisting: boolean,
   ): ContinueMcpConfigDocument {
     return new ContinueMcpConfigDocument(
       JsonObjectDocument.create(filePath, label, server.toContinueConfig()),
       server,
+      updateExisting,
     );
   }
 
   static open(
     filePath: string,
     label: string,
-    server: typeof GRAFT_MCP_SERVER,
+    server: GraftMcpServer,
+    updateExisting: boolean,
   ): ContinueMcpConfigDocument {
     return new ContinueMcpConfigDocument(
       JsonObjectDocument.open(filePath, label),
       server,
+      updateExisting,
     );
   }
 
@@ -90,11 +113,16 @@ class ContinueMcpConfigDocument {
   ensureGraftServer(): InitAction {
     const root = this.document.root();
     const servers = root.ensureArray("mcpServers");
-    const exists = servers
-      .objectItems()
-      .some((entry) => entry.stringValue("name") === this.server.name);
-    if (exists) {
-      return InitAction.exists(this.document.label, "already has graft mcp server");
+    const existingEntries = servers.objectEntries();
+    const existing = existingEntries
+      .find((entry) => entry.node.stringValue("name") === this.server.name);
+    if (existing !== undefined) {
+      if (isContinueServerEntryForRuntime(existing.node.toJsonValue(), this.server.runtime) || !this.updateExisting) {
+        return InitAction.exists(this.document.label, "already has graft mcp server");
+      }
+      servers.set(existing.index, this.server.toContinueServerEntry());
+      this.document.write();
+      return InitAction.append(this.document.label, `updated graft mcp server runtime to ${this.server.runtime}`);
     }
     servers.push(this.server.toContinueServerEntry());
     this.document.write();
@@ -180,12 +208,15 @@ class ClaudeHooksDocument {
 export function ensureCodexStartupTimeout(
   existing: string,
 ): { content: string; changed: boolean } {
+  const ensured = ensureCodexMcpServerBlock(existing, GRAFT_MCP_SERVER, false);
+  return { content: ensured.content, changed: ensured.changed };
+}
+
+function codexBlockBounds(lines: readonly string[]): { start: number; end: number } | undefined {
   const marker = "[mcp_servers.graft]";
-  const timeoutLine = `startup_timeout_sec = ${String(GRAFT_MCP_SERVER.codexStartupTimeoutSec)}`;
-  const lines = existing.split("\n");
   const blockStart = lines.findIndex((line) => line.trim() === marker);
   if (blockStart === -1) {
-    return { content: existing, changed: false };
+    return undefined;
   }
 
   let blockEnd = lines.length;
@@ -197,53 +228,143 @@ export function ensureCodexStartupTimeout(
     }
   }
 
-  const hasTimeout = lines
-    .slice(blockStart + 1, blockEnd)
-    .some((line) => line.trim().startsWith("startup_timeout_sec"));
-  if (hasTimeout) {
+  return { start: blockStart, end: blockEnd };
+}
+
+function replaceOrInsertLine(
+  lines: string[],
+  bounds: { readonly start: number; readonly end: number },
+  predicate: (line: string) => boolean,
+  value: string,
+): { end: number; changed: boolean } {
+  const index = lines
+    .slice(bounds.start + 1, bounds.end)
+    .findIndex(predicate);
+  if (index === -1) {
+    lines.splice(bounds.end, 0, value);
+    return { end: bounds.end + 1, changed: true };
+  }
+
+  const absoluteIndex = bounds.start + 1 + index;
+  if (lines[absoluteIndex] === value) {
+    return { end: bounds.end, changed: false };
+  }
+
+  lines[absoluteIndex] = value;
+  return { end: bounds.end, changed: true };
+}
+
+export function ensureCodexMcpServerBlock(
+  existing: string,
+  server: GraftMcpServer,
+  updateExisting: boolean,
+): { content: string; changed: boolean; detail?: string | undefined } {
+  const lines = existing.split("\n");
+  const bounds = codexBlockBounds(lines);
+  if (bounds === undefined) {
     return { content: existing, changed: false };
   }
 
-  lines.splice(blockEnd, 0, timeoutLine);
+  let changed = false;
+  let runtimeChanged = false;
+  let blockEnd = bounds.end;
+  if (updateExisting) {
+    const command = replaceOrInsertLine(
+      lines,
+      { start: bounds.start, end: blockEnd },
+      (line) => line.trim().startsWith("command"),
+      `command = "${server.command}"`,
+    );
+    runtimeChanged = command.changed;
+    changed = command.changed;
+    blockEnd = command.end;
+
+    const args = replaceOrInsertLine(
+      lines,
+      { start: bounds.start, end: blockEnd },
+      (line) => line.trim().startsWith("args"),
+      server.toCodexTomlArgsLine(),
+    );
+    runtimeChanged = runtimeChanged || args.changed;
+    changed = changed || args.changed;
+    blockEnd = args.end;
+  }
+
+  const hasTimeout = lines
+    .slice(bounds.start + 1, blockEnd)
+    .some((line) => line.trim().startsWith("startup_timeout_sec"));
+  if (!hasTimeout) {
+    lines.splice(blockEnd, 0, `startup_timeout_sec = ${String(server.codexStartupTimeoutSec)}`);
+    changed = true;
+  }
+
   return {
     content: lines.join("\n"),
-    changed: true,
+    changed,
+    ...(runtimeChanged ? { detail: `updated graft mcp server runtime to ${server.runtime}` } : {}),
   };
 }
 
-function ensureJsonMcpConfig(filePath: string, label: string): InitAction {
+function isContinueServerEntryForRuntime(value: JsonObjectValue, runtime: GraftMcpServer["runtime"]): boolean {
+  const { name, ...entry } = value;
+  void name;
+  return isGraftMcpServerEntryForRuntime(entry as JsonValue, runtime);
+}
+
+function ensureJsonMcpConfig(
+  filePath: string,
+  label: string,
+  server: GraftMcpServer,
+  updateExisting: boolean,
+): InitAction {
   if (!fs.existsSync(filePath)) {
-    const created = JsonMcpConfigDocument.create(filePath, label, GRAFT_MCP_SERVER);
+    const created = JsonMcpConfigDocument.create(filePath, label, server, updateExisting);
     created.write();
     return InitAction.create(label, "wrote graft mcp server");
   }
   return JsonMcpConfigDocument
-    .open(filePath, label, GRAFT_MCP_SERVER)
+    .open(filePath, label, server, updateExisting)
     .ensureGraftServer();
 }
 
-export function mergeClaudeMcpConfig(cwd: string): InitAction {
+export function mergeClaudeMcpConfig(
+  cwd: string,
+  server = GRAFT_MCP_SERVER,
+  updateExisting = false,
+): InitAction {
   const label = ".mcp.json";
   const filePath = path.join(cwd, label);
-  return ensureJsonMcpConfig(filePath, label);
+  return ensureJsonMcpConfig(filePath, label, server, updateExisting);
 }
 
-export function mergeCursorMcpConfig(cwd: string): InitAction {
+export function mergeCursorMcpConfig(
+  cwd: string,
+  server = GRAFT_MCP_SERVER,
+  updateExisting = false,
+): InitAction {
   const label = ".cursor/mcp.json";
   const filePath = path.join(cwd, ".cursor", "mcp.json");
-  return ensureJsonMcpConfig(filePath, label);
+  return ensureJsonMcpConfig(filePath, label, server, updateExisting);
 }
 
-export function mergeWindsurfMcpConfig(cwd: string): InitAction {
+export function mergeWindsurfMcpConfig(
+  cwd: string,
+  server = GRAFT_MCP_SERVER,
+  updateExisting = false,
+): InitAction {
   const label = ".codeium/windsurf/mcp_config.json";
   const filePath = path.join(cwd, ".codeium", "windsurf", "mcp_config.json");
-  return ensureJsonMcpConfig(filePath, label);
+  return ensureJsonMcpConfig(filePath, label, server, updateExisting);
 }
 
-export function mergeClineMcpConfig(cwd: string): InitAction {
+export function mergeClineMcpConfig(
+  cwd: string,
+  server = GRAFT_MCP_SERVER,
+  updateExisting = false,
+): InitAction {
   const label = ".vscode/cline_mcp_settings.json";
   const filePath = path.join(cwd, ".vscode", "cline_mcp_settings.json");
-  return ensureJsonMcpConfig(filePath, label);
+  return ensureJsonMcpConfig(filePath, label, server, updateExisting);
 }
 
 export function mergeClaudeHooksConfig(cwd: string): InitAction {
@@ -257,35 +378,43 @@ export function mergeClaudeHooksConfig(cwd: string): InitAction {
   return ClaudeHooksDocument.open(filePath, label, GRAFT_HOOKS_CONFIG).ensureGraftHooks();
 }
 
-export function mergeContinueMcpConfig(cwd: string): InitAction {
+export function mergeContinueMcpConfig(
+  cwd: string,
+  server = GRAFT_MCP_SERVER,
+  updateExisting = false,
+): InitAction {
   const label = ".continue/config.json";
   const filePath = path.join(cwd, ".continue", "config.json");
   if (!fs.existsSync(filePath)) {
-    const created = ContinueMcpConfigDocument.create(filePath, label, GRAFT_MCP_SERVER);
+    const created = ContinueMcpConfigDocument.create(filePath, label, server, updateExisting);
     created.write();
     return InitAction.create(label, "wrote graft mcp server");
   }
   return ContinueMcpConfigDocument
-    .open(filePath, label, GRAFT_MCP_SERVER)
+    .open(filePath, label, server, updateExisting)
     .ensureGraftServer();
 }
 
-export function mergeCodexMcpConfig(cwd: string): InitAction {
+export function mergeCodexMcpConfig(
+  cwd: string,
+  server = GRAFT_MCP_SERVER,
+  updateExisting = false,
+): InitAction {
   const label = ".codex/config.toml";
   const filePath = path.join(cwd, ".codex", "config.toml");
   const marker = "[mcp_servers.graft]";
   if (!fs.existsSync(filePath)) {
     fs.mkdirSync(path.dirname(filePath), { recursive: true });
-    fs.writeFileSync(filePath, GRAFT_MCP_SERVER.toCodexTomlBlock());
+    fs.writeFileSync(filePath, server.toCodexTomlBlock());
     return InitAction.create(label, "wrote graft mcp server");
   }
 
   const existing = fs.readFileSync(filePath, "utf-8");
   if (existing.includes(marker)) {
-    const ensured = ensureCodexStartupTimeout(existing);
+    const ensured = ensureCodexMcpServerBlock(existing, server, updateExisting);
     if (ensured.changed) {
       fs.writeFileSync(filePath, ensured.content);
-      return InitAction.append(label, "added graft startup timeout");
+      return InitAction.append(label, ensured.detail ?? "added graft startup timeout");
     }
     return InitAction.exists(label, "already has graft mcp server");
   }
@@ -293,7 +422,7 @@ export function mergeCodexMcpConfig(cwd: string): InitAction {
   const separator = existing.endsWith("\n") ? "\n" : "\n\n";
   fs.writeFileSync(
     filePath,
-    `${existing}${separator}${GRAFT_MCP_SERVER.toCodexTomlBlock()}`,
+    `${existing}${separator}${server.toCodexTomlBlock()}`,
   );
   return InitAction.append(label, "appended graft mcp server");
 }

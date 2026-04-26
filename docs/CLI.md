@@ -8,9 +8,10 @@ flowchart LR
     A --> C[Namespaces]
     B --> B1[init]
     B --> B2[serve]
-    B --> B3[daemon]
-    B --> B4[index]
-    B --> B5[migrate local-history]
+    B --> B3[serve --runtime daemon]
+    B --> B4[daemon]
+    B --> B5[index]
+    B --> B6[migrate local-history]
     C --> C1[read]
     C --> C2[struct]
     C --> C3[symbol]
@@ -19,6 +20,8 @@ flowchart LR
 
 ## What it is for
 - bootstrap and setup via `graft init`
+- repo-local stdio MCP via `graft serve`
+- daemon-backed stdio MCP via `graft serve --runtime daemon`
 - bounded, lazy WARP refresh via `graft index --path <path>`
 - one-time legacy import via `graft migrate local-history`
 - local debugging and dogfooding of MCP peer commands
@@ -38,6 +41,8 @@ flowchart LR
 
 ## Release-facing commands
 ```bash
+graft serve
+graft serve --runtime daemon
 graft index --path src/app.ts --json
 graft migrate local-history --json
 graft diag activity --json
@@ -67,6 +72,28 @@ Bare `graft ...` only works when the package is installed or linked onto your `P
 specific tracked source file at `HEAD`; read/search surfaces also opportunistically
 refresh the files they touch. Unbounded whole-repo indexing is guarded and returns
 a structured refusal when the request would write too many file patches at once.
+
+## MCP Runtime Selection
+
+`graft serve` is repo-local stdio MCP. The launched process owns one
+repo-local workspace rooted at the current checkout.
+
+`graft serve --runtime daemon` is daemon-backed stdio MCP. The launched
+process is a bridge to the local daemon `/mcp` surface. If the daemon is
+not already healthy, the bridge starts it and waits for readiness. Add
+`--no-autostart` to fail instead of starting a daemon, and add
+`--socket <path>` to target a non-default daemon socket.
+
+Generated MCP config uses the same distinction:
+
+```bash
+graft init --write-codex-mcp
+graft init --mcp-runtime daemon --write-codex-mcp
+```
+
+The first command emits `args = ["-y", "@flyingrobots/graft", "serve"]`.
+The second emits
+`args = ["-y", "@flyingrobots/graft", "serve", "--runtime", "daemon"]`.
 
 ## Related docs
 - [README](../README.md)

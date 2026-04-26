@@ -176,6 +176,7 @@ function internalErrorResponse(
 
 export interface StartDaemonBackedStdioBridgeOptions {
   socketPath?: string;
+  spawnIfMissing?: boolean;
   ensureReady?: ((options?: EnsureDaemonReadyOptions) => Promise<string>) | undefined;
 }
 
@@ -184,6 +185,7 @@ export async function startDaemonBackedStdioBridge(
 ): Promise<void> {
   const socketPath = await (options.ensureReady ?? ensureDaemonReady)({
     ...(options.socketPath !== undefined ? { socketPath: options.socketPath } : {}),
+    ...(options.spawnIfMissing !== undefined ? { spawnIfMissing: options.spawnIfMissing } : {}),
   });
   const stdioTransport = new StdioServerTransport();
   const daemonTransport = new StreamableHTTPClientTransport(

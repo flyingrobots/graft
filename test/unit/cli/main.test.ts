@@ -50,7 +50,8 @@ describe("cli: graft grouped surface", () => {
 
     expect(stderr.text()).toBe("");
     expect(stdout.text()).toContain("No args prints help.");
-    expect(stdout.text()).toContain("serve           Start the MCP stdio server");
+    expect(stdout.text()).toContain("serve           Start the repo-local MCP stdio server");
+    expect(stdout.text()).toContain("serve --runtime daemon");
   });
 
   it("routes explicit serve through the server starter", async () => {
@@ -72,6 +73,48 @@ describe("cli: graft grouped surface", () => {
     expect(stderr.text()).toBe("");
     expect(stdout.text()).toBe("");
     expect(calls).toEqual(["/tmp/example"]);
+  });
+
+  it("routes daemon runtime serve through the daemon stdio bridge", async () => {
+    const stdout = createBufferWriter();
+    const stderr = createBufferWriter();
+    const calls: { socketPath?: string | undefined; spawnIfMissing?: boolean | undefined }[] = [];
+
+    await runCli({
+      cwd: "/tmp/example",
+      args: ["serve", "--runtime", "daemon", "--socket", "runtime/graft.sock", "--no-autostart"],
+      stdout,
+      stderr,
+      startDaemonBridge: (options) => {
+        calls.push(options);
+        return Promise.resolve();
+      },
+    });
+
+    expect(stderr.text()).toBe("");
+    expect(stdout.text()).toBe("");
+    expect(calls).toEqual([{
+      socketPath: "/tmp/example/runtime/graft.sock",
+      spawnIfMissing: false,
+    }]);
+  });
+
+  it("reports daemon runtime serve startup failures with usage guidance", async () => {
+    const stdout = createBufferWriter();
+    const stderr = createBufferWriter();
+
+    await runCli({
+      cwd: "/tmp/example",
+      args: ["serve", "--runtime", "daemon", "--no-autostart"],
+      stdout,
+      stderr,
+      startDaemonBridge: () => Promise.reject(new Error("No graft daemon is listening")),
+    });
+
+    expect(stdout.text()).toBe("");
+    expect(stderr.text()).toContain("No graft daemon is listening");
+    expect(stderr.text()).toContain("Usage: graft serve [--runtime <repo-local|daemon>]");
+    expect(process.exitCode).toBe(1);
   });
 
   it("routes explicit daemon through the daemon starter", async () => {

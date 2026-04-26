@@ -7,6 +7,7 @@ import { runInit } from "../../../src/cli/init.js";
 import { assertIsolatedGitTestDir } from "../../helpers/git.js";
 import {
   createBufferWriter,
+  expectDaemonGraftServerEntry,
   expectGraftServerEntry,
   expectSingleGraftServerArray,
   expectSingleGraftServerRecord,
@@ -114,6 +115,48 @@ describe("cli: graft init", () => {
       mcpServers: { graft: { command: string; args: string[] } };
     };
     expectGraftServerEntry(mcpConfig.mcpServers.graft);
+  });
+
+  it("writes daemon-backed MCP config when the runtime is selected explicitly", () => {
+    const result = runInitJson(["--mcp-runtime", "daemon", "--write-claude-mcp"]);
+    expect(result.ok).toBe(true);
+    expect(result["suggestedMcpServer"]).toEqual({
+      mcpServers: {
+        graft: {
+          command: "npx",
+          args: ["-y", "@flyingrobots/graft", "serve", "--runtime", "daemon"],
+        },
+      },
+    });
+
+    const mcpConfig = readJsonFile(tmpDir, ".mcp.json") as {
+      mcpServers: { graft: { command: string; args: string[] } };
+    };
+    expectDaemonGraftServerEntry(mcpConfig.mcpServers.graft);
+  });
+
+  it("updates an existing graft MCP server only when runtime selection is explicit", () => {
+    fs.writeFileSync(path.join(tmpDir, ".mcp.json"), JSON.stringify({
+      mcpServers: {
+        graft: {
+          command: "npx",
+          args: ["-y", "@flyingrobots/graft", "serve"],
+        },
+      },
+    }, null, 2));
+
+    const defaultResult = runInitJson(["--write-claude-mcp"]);
+    expect(findAction(defaultResult, ".mcp.json").action).toBe("exists");
+
+    const daemonResult = runInitJson(["--mcp-runtime", "daemon", "--write-claude-mcp"]);
+    const action = findAction(daemonResult, ".mcp.json");
+    expect(action.action).toBe("append");
+    expect(action.detail).toBe("updated graft mcp server runtime to daemon");
+
+    const mcpConfig = readJsonFile(tmpDir, ".mcp.json") as {
+      mcpServers: { graft: { command: string; args: string[] } };
+    };
+    expectDaemonGraftServerEntry(mcpConfig.mcpServers.graft);
   });
 
   it("writes target-repo git transition hooks with an explicit flag", () => {
@@ -324,6 +367,14 @@ describe("cli: graft init", () => {
     expect(secondAction.action).toBe("exists");
   });
 
+  it("writes Codex daemon runtime args when selected explicitly", () => {
+    const result = runInitJson(["--mcp-runtime", "daemon", "--write-codex-mcp"]);
+    expect(result.ok).toBe(true);
+
+    const config = fs.readFileSync(path.join(tmpDir, ".codex", "config.toml"), "utf-8");
+    expect(config).toContain("args = [\"-y\", \"@flyingrobots/graft\", \"serve\", \"--runtime\", \"daemon\"]");
+  });
+
   it("upgrades an existing Codex graft block with the safer startup timeout", () => {
     fs.mkdirSync(path.join(tmpDir, ".codex"), { recursive: true });
     fs.writeFileSync(path.join(tmpDir, ".codex", "config.toml"), [
@@ -388,6 +439,43 @@ describe("cli: graft init", () => {
       command: continueConfig.mcpServers[0]!.command,
       args: continueConfig.mcpServers[0]!.args,
     });
+  });
+
+  it("writes daemon-backed config for every supported JSON MCP client", () => {
+    const result = runInitJson([
+      "--mcp-runtime",
+      "daemon",
+      "--write-cursor-mcp",
+      "--write-windsurf-mcp",
+      "--write-continue-mcp",
+      "--write-cline-mcp",
+    ]);
+    expect(result.ok).toBe(true);
+
+    const cursor = readJsonFile(tmpDir, ".cursor", "mcp.json") as {
+      mcpServers: { graft: { command: string; args: string[] } };
+    };
+    expectDaemonGraftServerEntry(cursor.mcpServers.graft);
+
+    const windsurf = readJsonFile(tmpDir, ".codeium", "windsurf", "mcp_config.json") as {
+      mcpServers: { graft: { command: string; args: string[] } };
+    };
+    expectDaemonGraftServerEntry(windsurf.mcpServers.graft);
+
+    const continueConfig = readJsonFile(tmpDir, ".continue", "config.json") as {
+      mcpServers: { name: string; command: string; args: string[] }[];
+    };
+    expect(continueConfig.mcpServers[0]).toBeDefined();
+    expect(continueConfig.mcpServers[0]!.name).toBe("graft");
+    expectDaemonGraftServerEntry({
+      command: continueConfig.mcpServers[0]!.command,
+      args: continueConfig.mcpServers[0]!.args,
+    });
+
+    const cline = readJsonFile(tmpDir, ".vscode", "cline_mcp_settings.json") as {
+      mcpServers: { graft: { command: string; args: string[] } };
+    };
+    expectDaemonGraftServerEntry(cline.mcpServers.graft);
   });
 
   it("merges Cursor MCP config without clobbering existing servers or duplicating graft", () => {

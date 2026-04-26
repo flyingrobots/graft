@@ -799,7 +799,16 @@ const suggestedMcpServerSchema = z.object({
   mcpServers: z.object({
     graft: z.object({
       command: z.literal("npx"),
-      args: z.tuple([z.literal("-y"), z.literal("@flyingrobots/graft"), z.literal("serve")]),
+      args: z.union([
+        z.tuple([z.literal("-y"), z.literal("@flyingrobots/graft"), z.literal("serve")]),
+        z.tuple([
+          z.literal("-y"),
+          z.literal("@flyingrobots/graft"),
+          z.literal("serve"),
+          z.literal("--runtime"),
+          z.literal("daemon"),
+        ]),
+      ]),
     }).strict(),
   }).strict(),
 }).strict();

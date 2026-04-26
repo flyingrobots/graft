@@ -27,6 +27,25 @@ This is the default repo-local MCP posture. The current checkout is the
 active workspace, so there is no separate daemon authorization or
 binding step.
 
+### Daemon-backed stdio MCP
+```bash
+npx @flyingrobots/graft serve --runtime daemon
+```
+
+This keeps compatibility with MCP clients that can launch only a stdio
+command while routing MCP traffic to the local daemon `/mcp` surface.
+The bridge auto-starts the daemon when it is missing, waits for
+`/healthz`, then proxies stdio traffic to the daemon. Use
+`--no-autostart` to require an already-running daemon:
+
+```bash
+npx @flyingrobots/graft serve --runtime daemon --no-autostart
+```
+
+Daemon-backed sessions start unbound. Repository-scoped tools fail
+until the session is authorized and bound through the workspace control
+plane.
+
 ### Local Daemon
 ```bash
 npx @flyingrobots/graft daemon
@@ -51,6 +70,8 @@ flow:
 
 ## Current Truth
 - MCP is the primary agent surface.
+- `graft serve` is repo-local stdio; `graft serve --runtime daemon` is
+  the daemon-backed stdio bridge.
 - Responses carry versioned `_schema` metadata and `_receipt` decision data.
 - `activity_view` provides bounded local `artifact_history` anchored to Git `HEAD`.
 
