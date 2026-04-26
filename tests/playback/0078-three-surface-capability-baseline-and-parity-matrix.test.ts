@@ -41,13 +41,13 @@ describe("0078 three-surface capability baseline and parity matrix", () => {
   it("Are the current CLI-only, MCP-only, and API-only exceptions obvious rather than surprising?", () => {
     const content = readMatrixDoc();
 
-    expect(CAPABILITY_REGISTRY.filter((capability) => capability.surfaces.join("+") === "cli")).toHaveLength(4);
+    expect(CAPABILITY_REGISTRY.filter((capability) => capability.surfaces.join("+") === "cli")).toHaveLength(5);
     expect(CAPABILITY_REGISTRY.filter((capability) => capability.surfaces.join("+") === "api+cli+mcp")).toHaveLength(20);
     expect(CAPABILITY_REGISTRY.filter((capability) => capability.surfaces.join("+") === "api+mcp")).toHaveLength(22);
     expect(CAPABILITY_REGISTRY.filter((capability) => capability.surfaces.join("+") === "api")).toHaveLength(1);
     expect(CAPABILITY_REGISTRY.filter((capability) => capability.surfaces.join("+") === "mcp")).toHaveLength(0);
 
-    expect(content).toContain("- `4` CLI-only capabilities");
+    expect(content).toContain("- `5` CLI-only capabilities");
     expect(content).toContain("- `20` API + CLI + MCP capabilities");
     expect(content).toContain("- `22` API + MCP capabilities");
     expect(content).toContain("- `1` API-only capability");
@@ -75,6 +75,6 @@ describe("0078 three-surface capability baseline and parity matrix", () => {
     expect(content).toContain("| `structured_buffer` | Yes | No | No | `structured_buffer` | `not_applicable` | `-` | `-` |");
     expect(content).toContain("| `safe_read` | Yes | Yes | Yes | `repo_workspace` | `peer` | `read safe` | `safe_read` |");
     expect(CAPABILITY_REGISTRY.filter((capability) => capability.surfaces.join("+") === "api")).toHaveLength(1);
-    expect(CAPABILITY_REGISTRY.filter((capability) => capability.surfaces.join("+") === "cli")).toHaveLength(4);
+    expect(CAPABILITY_REGISTRY.filter((capability) => capability.surfaces.join("+") === "cli")).toHaveLength(5);
   });
 });

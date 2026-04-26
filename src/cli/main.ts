@@ -19,6 +19,7 @@ import { describeCliFailure, writeCliError } from "./cli-error.js";
 import { readDaemonStatusSnapshot, type ReadDaemonStatusOptions } from "./daemon-status.js";
 import { buildDaemonStatusModel, type DaemonStatusReadSnapshot } from "./daemon-status-model.js";
 import { renderDaemonStatus } from "./daemon-status-render.js";
+import { runGitGraftEnhance, type GitGraftEnhancePeerInvoker } from "./git-graft-enhance.js";
 import { runIndex } from "./index-cmd.js";
 import { runInit } from "./init.js";
 import { runLocalHistoryDag } from "./local-history-dag.js";
@@ -36,6 +37,7 @@ export interface RunCliOptions {
   startDaemonBridge?: ((options: StartDaemonBackedStdioBridgeOptions) => Promise<void>) | undefined;
   startDaemon?: ((options: { socketPath?: string | undefined }) => Promise<GraftDaemonServer>) | undefined;
   readDaemonStatus?: ((options: ReadDaemonStatusOptions) => Promise<DaemonStatusReadSnapshot>) | undefined;
+  invokeGitGraftEnhancePeer?: GitGraftEnhancePeerInvoker | undefined;
 }
 
 function renderHelp(writer: Writer): void {
@@ -163,6 +165,22 @@ export async function runCli(options: RunCliOptions = {}): Promise<void> {
         json: parsed.json,
         stdout,
         stderr,
+      });
+      return;
+    }
+    if (parsed.command === "git_graft_enhance") {
+      const since = parsed.args["since"];
+      const head = parsed.args["head"];
+      if (typeof since !== "string") {
+        throw new Error("Missing --since");
+      }
+      await runGitGraftEnhance({
+        cwd,
+        since,
+        ...(typeof head === "string" ? { head } : {}),
+        json: parsed.json,
+        stdout,
+        invokePeer: options.invokeGitGraftEnhancePeer,
       });
       return;
     }

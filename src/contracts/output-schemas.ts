@@ -233,6 +233,33 @@ const runtimeLocalProvenanceSchema = z.object({
   provenanceLevel: z.literal("artifact_history"),
 }).strict();
 
+const gitGraftEnhanceBodySchema = z.object({
+  range: z.object({
+    since: z.string(),
+    head: z.string(),
+  }).strict(),
+  structural: z.object({
+    changedFiles: z.number().int().nonnegative(),
+    addedSymbols: z.number().int().nonnegative(),
+    removedSymbols: z.number().int().nonnegative(),
+    changedSymbols: z.number().int().nonnegative(),
+    topFilesByChangeCount: z.array(z.object({
+      path: z.string(),
+      status: z.string(),
+      changeCount: z.number().int().nonnegative(),
+      summary: z.string(),
+    }).strict()),
+  }).strict(),
+  exports: z.object({
+    changed: z.boolean(),
+    semverImpact: z.enum(["major", "minor", "patch", "none"]),
+    addedExports: z.number().int().nonnegative(),
+    removedExports: z.number().int().nonnegative(),
+    changedExports: z.number().int().nonnegative(),
+  }).strict(),
+  warnings: z.array(z.string()),
+}).strict();
+
 const runtimeStagedTargetSchema = z.discriminatedUnion("availability", [
   runtimeLocalProvenanceSchema.extend({
     availability: z.literal("none"),
@@ -1390,6 +1417,7 @@ export const CLI_OUTPUT_SCHEMAS: Record<CliCommandName, z.ZodType> = {
     edges: z.array(z.record(z.string(), z.unknown())),
     error: z.string().optional(),
   }).strict()),
+  git_graft_enhance: withCliCommon("git_graft_enhance", gitGraftEnhanceBodySchema),
 };
 
 export function getMcpOutputSchemaMeta(tool: McpToolName): OutputSchemaMeta {

@@ -5,14 +5,12 @@ kind: trunk
 legend: SURFACE
 lane: cool-ideas
 requirements:
-  - git graft enhance --since first slice
+  - git graft enhance --since first slice (shipped)
 acceptance_criteria:
   - "Enhance supports intentionally selected git-adjacent subcommands beyond --since"
   - "Each subcommand has a bounded model and renderer"
   - "Human output and JSON output are both deterministic"
   - "Unsupported git commands fail with clear guidance instead of silently passing through"
-blocked_by:
-  - CORE_git-graft-enhance
 ---
 
 # git graft enhance expanded git subcommands

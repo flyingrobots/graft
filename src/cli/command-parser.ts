@@ -437,6 +437,25 @@ function parseDiagCommand(argv: string[]): ParsedCommand {
   throw new Error(`Unknown diag subcommand: ${subcommand}`);
 }
 
+function parseEnhanceCommand(argv: string[]): ParsedCommand {
+  const json = consumeFlag(argv, "--json");
+  const since = consumeOption(argv, "--since");
+  const head = consumeOption(argv, "--head");
+  if (since === undefined) {
+    expectNoArgs(argv);
+    throw new Error("Missing --since");
+  }
+  expectNoArgs(argv);
+  return {
+    command: "git_graft_enhance",
+    json,
+    args: {
+      since,
+      ...(head !== undefined ? { head } : {}),
+    },
+  };
+}
+
 export function parseCommand(argv: string[]): ParsedCommand {
   const group = consumePositional(argv, "command");
 
@@ -459,6 +478,7 @@ export function parseCommand(argv: string[]): ParsedCommand {
   if (group === "symbol") return parseSymbolCommand(argv);
   if (group === "migrate") return parseMigrateCommand(argv);
   if (group === "diag") return parseDiagCommand(argv);
+  if (group === "enhance") return parseEnhanceCommand(argv);
 
   throw new Error(`Unknown command: ${group}`);
 }

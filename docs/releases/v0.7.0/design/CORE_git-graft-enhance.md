@@ -3,6 +3,9 @@ title: git graft enhance --since first slice
 feature: surface
 kind: leaf
 legend: CORE
+cycle: CORE_git-graft-enhance
+release: v0.7.0
+source_backlog: docs/method/backlog/v0.7.0/CORE_git-graft-enhance.md
 lane: v0.7.0
 requirements:
   - git-graft binary alias exists (shipped)
@@ -18,6 +21,76 @@ acceptance_criteria:
 ---
 
 # git graft enhance --since first slice
+
+Source backlog item: `docs/method/backlog/v0.7.0/CORE_git-graft-enhance.md`
+Legend: CORE
+
+## Hill
+
+Ship the first release-facing `git graft enhance` slice as a thin
+aggregator over existing structural surfaces. The cycle is complete when
+`git-graft enhance --since <ref> [--head <ref>] [--json]` and the Git
+external-command form `git graft enhance --since <ref>` resolve through
+the shared CLI entrypoint, build a deterministic model from
+`graft_since` and `graft_exports`, render a concise human review summary
+by default, and emit schema-validated JSON with `--json`.
+
+## Playback Questions
+
+### Human
+
+- [ ] Can I run git-graft enhance --since HEAD~1 in a temp repo and see
+      a concise structural review summary?
+- [ ] Can I run git-graft enhance --since HEAD~1 --json in a temp repo
+      and get schema-validated JSON for the same facts?
+- [ ] Does the documented Git external-command form git graft enhance
+      match the shipped git-graft binary behavior?
+
+### Agent
+
+- [ ] Does parseCommand route enhance --since <ref> with optional
+      --head and --json into one CLI command?
+- [ ] Does buildGitGraftEnhanceModel compose graft_since and
+      graft_exports output without calling WARP directly?
+- [ ] Does renderGitGraftEnhance render deterministically from the
+      model only?
+
+## Accessibility and Assistive Reading
+
+- Linear truth / reduced-complexity posture: human output should be a
+  short, sectioned summary with explicit range, structural totals,
+  export impact, and top changed files.
+- Non-visual or alternate-reading expectations: JSON output must expose
+  the same facts structurally so automation and assistive consumers do
+  not depend on terminal formatting.
+
+## Localization and Directionality
+
+- Locale / wording / formatting assumptions: ref names, file paths,
+  counts, and semver impact are locale-neutral identifiers. Human labels
+  are English operator text.
+- Logical direction / layout assumptions: output is left-to-right and
+  line-oriented.
+
+## Agent Inspectability and Explainability
+
+- What must be explicit and deterministic for agents: model building is
+  separate from rendering, and JSON output is schema-validated.
+- What must be attributable, evidenced, or governed: all model facts
+  come from existing `graft_since` and `graft_exports` outputs.
+
+## Non-goals
+
+- [ ] No new WARP indexing semantics.
+- [ ] No arbitrary Git command wrapping.
+- [ ] No `log`, `diff`, `show`, `blame`, `stash`, `merge`, or other
+      enhancement subcommands.
+- [ ] No per-symbol blame fanout.
+- [ ] No provenance hints.
+- [ ] No `code_find` reference expansion.
+- [ ] No governed write/edit work.
+- [ ] No LSP enrichment.
+- [ ] No live-checkout playback.
 
 ## Scope-check verdict
 

@@ -5,6 +5,33 @@ import { mcpOutputBodySchemas } from "./output-schema-mcp.js";
 
 const { initActionSchema, hooksConfigSchema, suggestedMcpServerSchema } = cliFragmentSchemas;
 
+const gitGraftEnhanceBodySchema = z.object({
+  range: z.object({
+    since: z.string(),
+    head: z.string(),
+  }).strict(),
+  structural: z.object({
+    changedFiles: z.number().int().nonnegative(),
+    addedSymbols: z.number().int().nonnegative(),
+    removedSymbols: z.number().int().nonnegative(),
+    changedSymbols: z.number().int().nonnegative(),
+    topFilesByChangeCount: z.array(z.object({
+      path: z.string(),
+      status: z.string(),
+      changeCount: z.number().int().nonnegative(),
+      summary: z.string(),
+    }).strict()),
+  }).strict(),
+  exports: z.object({
+    changed: z.boolean(),
+    semverImpact: z.enum(["major", "minor", "patch", "none"]),
+    addedExports: z.number().int().nonnegative(),
+    removedExports: z.number().int().nonnegative(),
+    changedExports: z.number().int().nonnegative(),
+  }).strict(),
+  warnings: z.array(z.string()),
+}).strict();
+
 export const cliOutputBodySchemas = {
   init: z.object({
     ok: z.boolean(),
@@ -66,6 +93,7 @@ export const cliOutputBodySchemas = {
   diag_explain: mcpOutputBodySchemas.explain,
   diag_stats: mcpOutputBodySchemas.stats,
   diag_capture: mcpOutputBodySchemas.run_capture,
+  git_graft_enhance: gitGraftEnhanceBodySchema,
   struct_churn: mcpOutputBodySchemas.graft_churn,
   struct_exports: mcpOutputBodySchemas.graft_exports,
   struct_log: mcpOutputBodySchemas.graft_log,

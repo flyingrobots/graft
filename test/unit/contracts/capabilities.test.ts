@@ -57,7 +57,7 @@ describe("capability registry", () => {
     const rows = buildCapabilityMatrixRows();
 
     expect(baseline).toEqual({
-      cliOnly: 4,
+      cliOnly: 5,
       apiCliMcp: 20,
       apiMcp: 22,
       apiOnly: 1,
@@ -81,6 +81,16 @@ describe("capability registry", () => {
         apiExposure: "structured_buffer",
         cliMcpParity: "not_applicable",
         cliPath: "-",
+        mcpTool: "-",
+      }),
+      expect.objectContaining({
+        id: "git_graft_enhance",
+        api: "No",
+        cli: "Yes",
+        mcp: "No",
+        apiExposure: "-",
+        cliMcpParity: "cli_only",
+        cliPath: "enhance",
         mcpTool: "-",
       }),
     ]));

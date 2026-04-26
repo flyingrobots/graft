@@ -70,6 +70,7 @@ export const CLI_COMMAND_NAMES = [
   "symbol_blame",
   "symbol_difficulty",
   "struct_review",
+  "git_graft_enhance",
 ] as const;
 
 export type CliCommandName = typeof CLI_COMMAND_NAMES[number];
@@ -459,6 +460,13 @@ export const CAPABILITY_REGISTRY: readonly CapabilityDefinition[] = [
     cliCommand: "struct_review",
     cliPath: ["struct", "review"],
     cliMcpParity: "peer",
+  }),
+  defineCapability({
+    id: "git_graft_enhance",
+    description: "Git-facing structural review summary over a ref range",
+    cliCommand: "git_graft_enhance",
+    cliPath: ["enhance"],
+    cliMcpParity: "cli_only",
   }),
   defineCapability({
     id: "knowledge_map",

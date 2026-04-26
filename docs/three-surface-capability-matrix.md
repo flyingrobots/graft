@@ -16,7 +16,7 @@ changes, this matrix must be refreshed before release.
 
 ## Current baseline
 
-- `4` CLI-only capabilities
+- `5` CLI-only capabilities
 - `20` API + CLI + MCP capabilities
 - `22` API + MCP capabilities
 - `1` API-only capability
@@ -59,6 +59,7 @@ CLI/MCP posture values:
 | `graft_blame` | Yes | Yes | Yes | `tool_bridge` | `peer` | `symbol blame` | `graft_blame` |
 | `graft_difficulty` | Yes | Yes | Yes | `tool_bridge` | `peer` | `symbol difficulty` | `graft_difficulty` |
 | `graft_review` | Yes | Yes | Yes | `tool_bridge` | `peer` | `struct review` | `graft_review` |
+| `git_graft_enhance` | No | Yes | No | `-` | `cli_only` | `enhance` | `-` |
 | `daemon_repos` | Yes | No | Yes | `tool_bridge` | `mcp_only` | `-` | `daemon_repos` |
 | `daemon_status` | Yes | No | Yes | `tool_bridge` | `mcp_only` | `-` | `daemon_status` |
 | `daemon_sessions` | Yes | No | Yes | `tool_bridge` | `mcp_only` | `-` | `daemon_sessions` |

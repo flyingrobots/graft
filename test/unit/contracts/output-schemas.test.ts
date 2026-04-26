@@ -303,6 +303,7 @@ describe("contracts: output schemas", () => {
       diag_explain: await runCliJson(repoDir, ["diag", "explain", "CONTENT", "--json"]),
       diag_stats: await runCliJson(repoDir, ["diag", "stats", "--json"]),
       diag_capture: await runCliJson(repoDir, ["diag", "capture", "--json", "--", "printf", "ok"]),
+      git_graft_enhance: await runCliJson(repoDir, ["enhance", "--since", base, "--head", head, "--json"]),
     } as const;
 
     for (const command of CLI_COMMAND_NAMES.filter((name) => !["init", "index", "migrate_local_history"].includes(name))) {

@@ -13,6 +13,7 @@ flowchart LR
     B --> B5[daemon status]
     B --> B6[index]
     B --> B7[migrate local-history]
+    B --> B8[enhance]
     C --> C1[read]
     C --> C2[struct]
     C --> C3[symbol]
@@ -26,6 +27,7 @@ flowchart LR
 - read-only daemon status inspection via `graft daemon status`
 - bounded, lazy WARP refresh via `graft index --path <path>`
 - one-time legacy import via `graft migrate local-history`
+- Git-facing structural review summaries via `git graft enhance`
 - local debugging and dogfooding of MCP peer commands
 - human-facing inspection of bounded state such as:
   - `graft diag activity`
@@ -56,6 +58,9 @@ graft doctor --sludge --json
 graft symbol find 'create*' --json
 graft symbol difficulty createUser --path src/users.ts --json
 graft struct diff --json
+git graft enhance --since HEAD~1
+git-graft enhance --since HEAD~1
+git-graft enhance --since HEAD~1 --json
 ```
 
 ## Repo-local invocation
@@ -67,6 +72,15 @@ pnpm graft diag activity
 ```
 
 Bare `graft ...` only works when the package is installed or linked onto your `PATH`.
+
+`git graft enhance --since <ref> [--head <ref>] [--json]` is the
+installed Git external-command form for the release-facing structural
+review aggregator. `git-graft enhance --since <ref>` is the direct
+package binary form. Both route through the same top-level `enhance`
+parser path. The command composes the shipped structural-since and
+export-surface facts into a concise review summary; it does not wrap
+arbitrary Git subcommands or expand into provenance, blame, reference, or
+write-tool behavior.
 
 `graft diag activity` is the current human-facing between-commit surface. It reports bounded local `artifact_history`, not canonical provenance, and now renders a textual operator summary by default. Use `--json` when you want the structured machine-readable form.
 

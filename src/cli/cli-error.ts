@@ -70,6 +70,15 @@ export function describeCliFailure(argv: readonly string[]): CliErrorDetails {
     };
   }
 
+  if (group === "enhance") {
+    return {
+      usage: "git-graft enhance --since <ref> [--head <ref>] [--json]",
+      nextSteps: [
+        "Use `git graft enhance --since <ref>` after package install, or `git-graft enhance --since <ref>` via the direct binary.",
+      ],
+    };
+  }
+
   if (group === "init") {
     return {
       usage:

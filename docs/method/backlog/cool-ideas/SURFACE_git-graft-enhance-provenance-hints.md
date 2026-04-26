@@ -5,15 +5,13 @@ kind: leaf
 legend: SURFACE
 lane: cool-ideas
 requirements:
-  - git graft enhance --since first slice
+  - git graft enhance --since first slice (shipped)
   - provenance-backed structural blame (shipped)
 acceptance_criteria:
   - "Enhance output includes bounded provenance hints for changed symbols"
   - "Hints use graft_blame or equivalent provenance-backed structural blame data"
   - "Ambiguous symbols are reported explicitly instead of guessed"
   - "The command remains bounded and does not fan out across unbounded symbol sets"
-blocked_by:
-  - CORE_git-graft-enhance
 ---
 
 # git graft enhance provenance hints
