@@ -9,6 +9,7 @@
 import type { Lens, QueryResultV1 } from "@git-stunts/git-warp";
 import type { WarpContext } from "./context.js";
 import { observeGraph } from "./context.js";
+import { symbolTimeline } from "./symbol-timeline.js";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -238,74 +239,20 @@ async function detectRemovals(
   return changes;
 }
 
-/**
- * Given a symbol name (and optional file path), return all commits
- * that touched it.
- *
- * Uses QueryBuilder for pattern matching (find sym nodes by name),
- * then traverse.bfs per sym node for edge-following (find connected
- * commits). Per-node traversal preserves cardinality — the same commit
- * touching init in two files produces two results.
- */
-/** @deprecated Use symbolTimeline() from ./symbol-timeline.ts instead.
- *  This function returns the HEAD signature for all entries, not the
- *  historical signature at each commit. symbolTimeline uses ceiling
- *  observers for accurate per-tick data. */
+/** @deprecated Use symbolTimeline() from ./symbol-timeline.ts instead. */
 export async function commitsForSymbol(
   ctx: WarpContext,
   symbolName: string,
   filePath?: string,
 ): Promise<SymbolHistory> {
-  const obs = await observeGraph(ctx, commitSymbolLens());
-
-  // Pattern match: find sym nodes matching the name.
-  const symPattern = filePath !== undefined
-    ? `sym:${filePath}:${symbolName}`
-    : `sym:*:${symbolName}`;
-
-  const symResult = await obs.query()
-    .match(symPattern)
-    .select(["id", "props"])
-    .run() as QueryResultV1;
-
-  const symNodes = symResult.nodes.filter(
-    (n): n is { id: string; props?: Record<string, unknown> } =>
-      n.id?.startsWith("sym:") === true,
-  );
-
-  // Per sym node, traverse incoming edges by label to find commits.
-  const edgeLabels: readonly { label: string; changeKind: ChangeKind }[] = [
-    { label: "adds", changeKind: "added" },
-    { label: "changes", changeKind: "changed" },
-    { label: "removes", changeKind: "removed" },
-  ];
-
-  const commits: SymbolCommit[] = [];
-
-  for (const symNode of symNodes) {
-    const symProps = symNode.props ?? {};
-    const signature = typeof symProps["signature"] === "string"
-      ? symProps["signature"]
-      : undefined;
-
-    for (const { label, changeKind } of edgeLabels) {
-      const commitIds = await obs.traverse.bfs(symNode.id, {
-        dir: "in",
-        labelFilter: label,
-        maxDepth: 1,
-      });
-
-      for (const commitId of commitIds) {
-        if (!commitId.startsWith("commit:")) continue;
-        const sha = commitId.slice("commit:".length);
-        commits.push({ sha, changeKind, signature });
-      }
-    }
-  }
-
+  const timeline = await symbolTimeline(ctx, symbolName, filePath);
   return {
     symbol: symbolName,
     filePath,
-    commits,
+    commits: timeline.versions.map((version) => ({
+      sha: version.sha,
+      changeKind: version.changeKind,
+      signature: version.signature,
+    })),
   };
 }

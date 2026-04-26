@@ -1,194 +1,124 @@
 digraph backlog {
   rankdir=TB
   fontname="Helvetica"
+  label="Active backlog graph generated from docs/method/backlog/*/*.md on 2026-04-26"
+  labelloc=t
+  fontsize=12
   node [shape=box style="rounded,filled" fontname="Helvetica" fontsize=8 margin="0.1,0.05" height=0.35]
   edge [color="#888888" arrowsize=0.5]
   newrank=true
   ranksep=0.5
   nodesep=0.15
-  compound=true
 
-  subgraph cluster_graph_indexing {
-    label="Graph Indexing (2)" labeljust=l fontsize=9 fontcolor="#555555"
+  subgraph cluster_v0_7_0 {
+    label="v0.7.0 (11)" labeljust=l fontsize=9 fontcolor="#555555"
     style=rounded color="#cccccc" bgcolor="#fafafa"
-    WARP_background_indexing [label="background-indexing · M" fillcolor="#B0D4F1" penwidth=2]
-    WARP_outline_diff_commit_trailer [label="outline-diff-commit-trailer · S" fillcolor="#D4E8F7" penwidth=1]
+    v0_7_0_CORE_agent_drift_warning [label="CORE-agent-drift-warning" fillcolor="#FFA07A" penwidth=2]
+    v0_7_0_CORE_daemon_aware_stdio_bridge_for_mcp_clients [label="CORE-daemon-aware-stdio-bridge-for-mcp-clients" fillcolor="#FFA07A" penwidth=2]
+    v0_7_0_CORE_git_graft_enhance [label="CORE-git-graft-enhance" fillcolor="#FFA07A" penwidth=2]
+    v0_7_0_CORE_migrate_path_ops_to_port [label="CORE-migrate-path-ops-to-port" fillcolor="#FFA07A" penwidth=2]
+    v0_7_0_CORE_migrate_to_slice_first_reads [label="CORE-migrate-to-slice-first-reads" fillcolor="#FFA07A" penwidth=2]
+    v0_7_0_CORE_opt_in_daemon_mode_mcp_bootstrap [label="CORE-opt-in-daemon-mode-mcp-bootstrap" fillcolor="#FFA07A" penwidth=2]
+    v0_7_0_CORE_rewrite_structural_blame_to_use_warp_worldline_provenance [label="CORE-rewrite-structural-blame-to-use-warp-worldline-provenance" fillcolor="#FFA07A" penwidth=2]
+    v0_7_0_SURFACE_agent_dx_governed_edit [label="SURFACE-agent-dx-governed-edit" fillcolor="#FFA07A" penwidth=2]
+    v0_7_0_SURFACE_bijou_tui_for_graft_daemon_control_plane [label="SURFACE-bijou-tui-for-graft-daemon-control-plane" fillcolor="#FFA07A" penwidth=2]
+    v0_7_0_SURFACE_governed_write_tools [label="SURFACE-governed-write-tools" fillcolor="#FFA07A" penwidth=2]
+    v0_7_0_WARP_lsp_enrichment [label="WARP-lsp-enrichment" fillcolor="#FFA07A" penwidth=2]
   }
 
-  subgraph cluster_structural_queries {
-    label="Structural Queries (6)" labeljust=l fontsize=9 fontcolor="#555555"
+  subgraph cluster_bad_code {
+    label="Bad Code (2)" labeljust=l fontsize=9 fontcolor="#555555"
     style=rounded color="#cccccc" bgcolor="#fafafa"
-    CORE_migrate_path_ops_to_port [label="migrate-path-ops-to-port [v0.7]" fillcolor="#FFA07A" penwidth=2]
-    CORE_rewrite_structural_blame_to_use_warp_worldline_provenance [label="rewrite-structural-blame-... [v0.7]" fillcolor="#FFA07A" penwidth=2]
-    CORE_rewrite_structural_churn_to_use_warp_aggregate_queries [label="rewrite-structural-churn-... [v0.7]" fillcolor="#FFA07A" penwidth=2]
-    CORE_rewrite_structural_log_to_use_warp_worldline_queries [label="rewrite-structural-log-to... [v0.7]" fillcolor="#FFA07A" penwidth=2]
-    bounded_neighborhood_for_references [label="bounded-neighborhood-for-... · S" fillcolor="#D4E8F7" penwidth=1]
-    traverse_plus_query_hydration_helper [label="traverse-plus-query-hydra... · S" fillcolor="#D4E8F7" penwidth=1]
+    bad_code_dead_code_old_git_operations [label="dead-code-old-git-operations - S" fillcolor="#F6B3B3" penwidth=2]
+    bad_code_reference_count_uses_ripgrep [label="reference-count-uses-ripgrep - M" fillcolor="#F6B3B3" penwidth=2]
   }
 
-  subgraph cluster_structural_metrics {
-    label="Structural Metrics (8)" labeljust=l fontsize=9 fontcolor="#555555"
+  subgraph cluster_cool_ideas {
+    label="Cool Ideas (73)" labeljust=l fontsize=9 fontcolor="#555555"
     style=rounded color="#cccccc" bgcolor="#fafafa"
-    WARP_refactor_difficulty_score [label="refactor-difficulty-score [v0.7]" fillcolor="#FFA07A" penwidth=2]
-    CORE_constructor_in_disguise_lint [label="constructor-in-disguise-lint · M" fillcolor="#B0D4F1" penwidth=1]
-    CORE_sludge_detector [label="sludge-detector [v0.7]" fillcolor="#FFA07A" penwidth=1]
-    WARP_codebase_entropy_trajectory [label="codebase-entropy-trajectory · M" fillcolor="#B0D4F1" penwidth=1]
-    WARP_codebase_signature [label="codebase-signature · L" fillcolor="#8EC5E5" penwidth=1]
-    WARP_symbol_heatmap [label="symbol-heatmap · M" fillcolor="#B0D4F1" penwidth=1]
-    WARP_technical_debt_curvature [label="technical-debt-curvature · L" fillcolor="#8EC5E5" penwidth=1]
-    WARP_temporal_structural_search [label="temporal-structural-search · M" fillcolor="#B0D4F1" penwidth=1]
+    cool_ideas_CI_001_causal_collapse_visualizer [label="CI-001-causal-collapse-visualizer - L" fillcolor="#D4E8F7" penwidth=1]
+    cool_ideas_CI_002_deterministic_scenario_replay [label="CI-002-deterministic-scenario-replay - L" fillcolor="#D4E8F7" penwidth=1]
+    cool_ideas_CI_003_mcp_native_diff_protocol [label="CI-003-mcp-native-diff-protocol - M" fillcolor="#D4E8F7" penwidth=1]
+    cool_ideas_CLEAN_CODE_parallel_agent_merge_shared_file_loss [label="CLEAN-CODE-parallel-agent-merge-shared-file-loss - M" fillcolor="#D4E8F7" penwidth=1]
+    cool_ideas_CORE_agent_handoff_protocol [label="CORE-agent-handoff-protocol - M" fillcolor="#D4E8F7" penwidth=1]
+    cool_ideas_CORE_auto_focus [label="CORE-auto-focus - L" fillcolor="#D4E8F7" penwidth=1]
+    cool_ideas_CORE_backlog_status_tool [label="CORE-backlog-status-tool - S" fillcolor="#D4E8F7" penwidth=1]
+    cool_ideas_CORE_capture_range [label="CORE-capture-range - S" fillcolor="#D4E8F7" penwidth=1]
+    cool_ideas_CORE_constructor_in_disguise_lint [label="CORE-constructor-in-disguise-lint - M" fillcolor="#D4E8F7" penwidth=1]
+    cool_ideas_CORE_context_budget_forecasting [label="CORE-context-budget-forecasting - M" fillcolor="#D4E8F7" penwidth=1]
+    cool_ideas_CORE_conversation_primer [label="CORE-conversation-primer - M" fillcolor="#D4E8F7" penwidth=1]
+    cool_ideas_CORE_cross_session_resume [label="CORE-cross-session-resume - S" fillcolor="#D4E8F7" penwidth=1]
+    cool_ideas_CORE_graft_as_teacher [label="CORE-graft-as-teacher - S" fillcolor="#D4E8F7" penwidth=1]
+    cool_ideas_CORE_graft_doctor [label="CORE-graft-doctor - M" fillcolor="#D4E8F7" penwidth=1]
+    cool_ideas_CORE_graft_teach_learning_receipts [label="CORE-graft-teach-learning-receipts - S" fillcolor="#D4E8F7" penwidth=1]
+    cool_ideas_CORE_horizon_of_readability [label="CORE-horizon-of-readability - M" fillcolor="#D4E8F7" penwidth=1]
+    cool_ideas_CORE_lagrangian_policy [label="CORE-lagrangian-policy - XL" fillcolor="#D4E8F7" penwidth=1]
+    cool_ideas_CORE_multi_agent_conflict_detection [label="CORE-multi-agent-conflict-detection - L" fillcolor="#D4E8F7" penwidth=1]
+    cool_ideas_CORE_policy_playground [label="CORE-policy-playground - S" fillcolor="#D4E8F7" penwidth=1]
+    cool_ideas_CORE_policy_profiles [label="CORE-policy-profiles - M" fillcolor="#D4E8F7" penwidth=1]
+    cool_ideas_CORE_pr_review_structural_summary [label="CORE-pr-review-structural-summary - M" fillcolor="#D4E8F7" penwidth=1]
+    cool_ideas_CORE_self_tuning_governor [label="CORE-self-tuning-governor - M" fillcolor="#D4E8F7" penwidth=1]
+    cool_ideas_CORE_session_knowledge_map [label="CORE-session-knowledge-map - S" fillcolor="#D4E8F7" penwidth=1]
+    cool_ideas_CORE_speculative_read_cost [label="CORE-speculative-read-cost - S" fillcolor="#D4E8F7" penwidth=1]
+    cool_ideas_CORE_structural_session_replay [label="CORE-structural-session-replay - M" fillcolor="#D4E8F7" penwidth=1]
+    cool_ideas_CORE_structural_test_coverage_map [label="CORE-structural-test-coverage-map - M" fillcolor="#D4E8F7" penwidth=1]
+    cool_ideas_CORE_wire_primitives_into_runtime [label="CORE-wire-primitives-into-runtime - M" fillcolor="#D4E8F7" penwidth=1]
+    cool_ideas_SURFACE_active_causal_workspace_status [label="SURFACE-active-causal-workspace-status - M" fillcolor="#D4E8F7" penwidth=1]
+    cool_ideas_SURFACE_attach_to_existing_causal_session [label="SURFACE-attach-to-existing-causal-session - M" fillcolor="#D4E8F7" penwidth=1]
+    cool_ideas_SURFACE_ide_native_graft_integration [label="SURFACE-ide-native-graft-integration - XL" fillcolor="#D4E8F7" penwidth=1]
+    cool_ideas_SURFACE_local_history_dag_render_mode_and_count_legend [label="SURFACE-local-history-dag-render-mode-and-count-legend - S" fillcolor="#D4E8F7" penwidth=1]
+    cool_ideas_SURFACE_non_codex_instruction_bootstrap_parity [label="SURFACE-non-codex-instruction-bootstrap-parity - M" fillcolor="#D4E8F7" penwidth=1]
+    cool_ideas_SURFACE_offer_rename_refactor [label="SURFACE-offer-rename-refactor - L" fillcolor="#D4E8F7" penwidth=1]
+    cool_ideas_SURFACE_terminal_activity_browser_tui [label="SURFACE-terminal-activity-browser-tui - L" fillcolor="#D4E8F7" penwidth=1]
+    cool_ideas_WARP_adaptive_projection_selection [label="WARP-adaptive-projection-selection - L" fillcolor="#D4E8F7" penwidth=1]
+    cool_ideas_WARP_agent_action_provenance [label="WARP-agent-action-provenance - XL" fillcolor="#D4E8F7" penwidth=1]
+    cool_ideas_WARP_auto_breaking_change_detection [label="WARP-auto-breaking-change-detection - L" fillcolor="#D4E8F7" penwidth=1]
+    cool_ideas_WARP_background_indexing [label="WARP-background-indexing - M" fillcolor="#D4E8F7" penwidth=1]
+    cool_ideas_WARP_budget_elasticity [label="WARP-budget-elasticity - M" fillcolor="#D4E8F7" penwidth=1]
+    cool_ideas_WARP_causal_blame_for_staged_artifacts [label="WARP-causal-blame-for-staged-artifacts - L" fillcolor="#D4E8F7" penwidth=1]
+    cool_ideas_WARP_causal_write_tracking [label="WARP-causal-write-tracking - L" fillcolor="#D4E8F7" penwidth=1]
+    cool_ideas_WARP_codebase_entropy_trajectory [label="WARP-codebase-entropy-trajectory - M" fillcolor="#D4E8F7" penwidth=1]
+    cool_ideas_WARP_codebase_signature [label="WARP-codebase-signature - L" fillcolor="#D4E8F7" penwidth=1]
+    cool_ideas_WARP_counterfactual_refactoring [label="WARP-counterfactual-refactoring - XL" fillcolor="#D4E8F7" penwidth=1]
+    cool_ideas_WARP_dead_symbol_detection [label="WARP-dead-symbol-detection - S" fillcolor="#D4E8F7" penwidth=1]
+    cool_ideas_WARP_degeneracy_warning [label="WARP-degeneracy-warning - M" fillcolor="#D4E8F7" penwidth=1]
+    cool_ideas_WARP_drift_sentinel [label="WARP-drift-sentinel - M" fillcolor="#D4E8F7" penwidth=1]
+    cool_ideas_WARP_footprint_parallelism [label="WARP-footprint-parallelism - XL" fillcolor="#D4E8F7" penwidth=1]
+    cool_ideas_WARP_graft_pack [label="WARP-graft-pack - M" fillcolor="#D4E8F7" penwidth=1]
+    cool_ideas_WARP_grouped_aggregate_queries [label="WARP-grouped-aggregate-queries - M" fillcolor="#D4E8F7" penwidth=1]
+    cool_ideas_WARP_intent_and_decision_events [label="WARP-intent-and-decision-events - M" fillcolor="#D4E8F7" penwidth=1]
+    cool_ideas_WARP_intentional_degeneracy_privacy [label="WARP-intentional-degeneracy-privacy - M" fillcolor="#D4E8F7" penwidth=1]
+    cool_ideas_WARP_minimum_viable_context [label="WARP-minimum-viable-context - M" fillcolor="#D4E8F7" penwidth=1]
+    cool_ideas_WARP_outline_diff_commit_trailer [label="WARP-outline-diff-commit-trailer - S" fillcolor="#D4E8F7" penwidth=1]
+    cool_ideas_WARP_projection_safety_classes [label="WARP-projection-safety-classes - M" fillcolor="#D4E8F7" penwidth=1]
+    cool_ideas_WARP_provenance_dag [label="WARP-provenance-dag - L" fillcolor="#D4E8F7" penwidth=1]
+    cool_ideas_WARP_reasoning_trace_replay [label="WARP-reasoning-trace-replay - M" fillcolor="#D4E8F7" penwidth=1]
+    cool_ideas_WARP_rulial_heat_map [label="WARP-rulial-heat-map - L" fillcolor="#D4E8F7" penwidth=1]
+    cool_ideas_WARP_semantic_drift_in_sessions [label="WARP-semantic-drift-in-sessions - M" fillcolor="#D4E8F7" penwidth=1]
+    cool_ideas_WARP_semantic_merge_conflict_prediction [label="WARP-semantic-merge-conflict-prediction - L" fillcolor="#D4E8F7" penwidth=1]
+    cool_ideas_WARP_session_filtration [label="WARP-session-filtration - L" fillcolor="#D4E8F7" penwidth=1]
+    cool_ideas_WARP_shadow_structural_workspaces [label="WARP-shadow-structural-workspaces - XL" fillcolor="#D4E8F7" penwidth=1]
+    cool_ideas_WARP_speculative_merge [label="WARP-speculative-merge - XL" fillcolor="#D4E8F7" penwidth=1]
+    cool_ideas_WARP_stale_docs_checker [label="WARP-stale-docs-checker - M" fillcolor="#D4E8F7" penwidth=1]
+    cool_ideas_WARP_structural_drift_detection [label="WARP-structural-drift-detection - M" fillcolor="#D4E8F7" penwidth=1]
+    cool_ideas_WARP_structural_impact_prediction [label="WARP-structural-impact-prediction - XL" fillcolor="#D4E8F7" penwidth=1]
+    cool_ideas_WARP_symbol_heatmap [label="WARP-symbol-heatmap - M" fillcolor="#D4E8F7" penwidth=1]
+    cool_ideas_WARP_symbol_history_timeline [label="WARP-symbol-history-timeline - S" fillcolor="#D4E8F7" penwidth=1]
+    cool_ideas_WARP_technical_debt_curvature [label="WARP-technical-debt-curvature - L" fillcolor="#D4E8F7" penwidth=1]
+    cool_ideas_WARP_temporal_structural_search [label="WARP-temporal-structural-search - M" fillcolor="#D4E8F7" penwidth=1]
+    cool_ideas_bounded_neighborhood_for_references [label="bounded-neighborhood-for-references - S" fillcolor="#D4E8F7" penwidth=1]
+    cool_ideas_monitor_tick_ceiling_tracking [label="monitor-tick-ceiling-tracking - S" fillcolor="#D4E8F7" penwidth=1]
+    cool_ideas_traverse_plus_query_hydration_helper [label="traverse-plus-query-hydration-helper - S" fillcolor="#D4E8F7" penwidth=1]
   }
-
-  subgraph cluster_export_analysis {
-    label="Export Analysis (3)" labeljust=l fontsize=9 fontcolor="#555555"
-    style=rounded color="#cccccc" bgcolor="#fafafa"
-    CLEAN_CODE_export_diff_semver_signature_as_patch [label="export-diff-semver-signat... [v0.7]" fillcolor="#FFA07A" penwidth=2]
-    WARP_auto_breaking_change_detection [label="auto-breaking-change-dete... · L" fillcolor="#8EC5E5" penwidth=2]
-    WARP_semantic_merge_conflict_prediction [label="semantic-merge-conflict-p... · L" fillcolor="#8EC5E5" penwidth=1]
-  }
-
-  subgraph cluster_docs_integrity {
-    label="Docs Integrity (2)" labeljust=l fontsize=9 fontcolor="#555555"
-    style=rounded color="#cccccc" bgcolor="#fafafa"
-    WARP_drift_sentinel [label="drift-sentinel · M" fillcolor="#B0D4F1" penwidth=2]
-    WARP_structural_drift_detection [label="structural-drift-detection · M" fillcolor="#B0D4F1" penwidth=1]
-  }
-
-  subgraph cluster_provenance {
-    label="Provenance (7)" labeljust=l fontsize=9 fontcolor="#555555"
-    style=rounded color="#cccccc" bgcolor="#fafafa"
-    WARP_agent_action_provenance [label="agent-action-provenance · XL" fillcolor="#7EB6E0" penwidth=2]
-    WARP_provenance_dag [label="provenance-dag · L" fillcolor="#8EC5E5" penwidth=2]
-    CI_001_causal_collapse_visualizer [label="CI-001-causal-collapse-vi... · L" fillcolor="#8EC5E5" penwidth=1]
-    WARP_causal_blame_for_staged_artifacts [label="causal-blame-for-staged-a... · L" fillcolor="#8EC5E5" penwidth=1]
-    WARP_causal_write_tracking [label="causal-write-tracking · L" fillcolor="#8EC5E5" penwidth=1]
-    WARP_intent_and_decision_events [label="intent-and-decision-events · M" fillcolor="#B0D4F1" penwidth=1]
-    WARP_reasoning_trace_replay [label="reasoning-trace-replay · M" fillcolor="#B0D4F1" penwidth=1]
-  }
-
-  subgraph cluster_policy {
-    label="Policy (8)" labeljust=l fontsize=9 fontcolor="#555555"
-    style=rounded color="#cccccc" bgcolor="#fafafa"
-    CORE_lagrangian_policy [label="lagrangian-policy · XL" fillcolor="#7EB6E0" penwidth=2]
-    CORE_policy_profiles [label="policy-profiles · M" fillcolor="#B0D4F1" penwidth=2]
-    CORE_auto_focus [label="auto-focus · L" fillcolor="#8EC5E5" penwidth=1]
-    CORE_context_budget_forecasting [label="context-budget-forecasting · M" fillcolor="#B0D4F1" penwidth=1]
-    CORE_policy_playground [label="policy-playground · S" fillcolor="#D4E8F7" penwidth=1]
-    CORE_self_tuning_governor [label="self-tuning-governor · M" fillcolor="#B0D4F1" penwidth=1]
-    CORE_speculative_read_cost [label="speculative-read-cost · S" fillcolor="#D4E8F7" penwidth=1]
-    WARP_budget_elasticity [label="budget-elasticity · M" fillcolor="#B0D4F1" penwidth=1]
-  }
-
-  subgraph cluster_projection {
-    label="Projection (7)" labeljust=l fontsize=9 fontcolor="#555555"
-    style=rounded color="#cccccc" bgcolor="#fafafa"
-    CORE_migrate_to_slice_first_reads [label="migrate-to-slice-first-reads [v0.7]" fillcolor="#FFA07A" penwidth=2]
-    WARP_adaptive_projection_selection [label="adaptive-projection-selec... · L" fillcolor="#8EC5E5" penwidth=2]
-    WARP_projection_safety_classes [label="projection-safety-classes · M" fillcolor="#B0D4F1" penwidth=2]
-    CORE_horizon_of_readability [label="horizon-of-readability · M" fillcolor="#B0D4F1" penwidth=1]
-    WARP_footprint_parallelism [label="footprint-parallelism · XL" fillcolor="#7EB6E0" penwidth=1]
-    WARP_semantic_drift_in_sessions [label="semantic-drift-in-sessions · M" fillcolor="#B0D4F1" penwidth=1]
-    WARP_session_filtration [label="session-filtration · L" fillcolor="#8EC5E5" penwidth=1]
-  }
-
-  subgraph cluster_speculative {
-    label="Speculative (6)" labeljust=l fontsize=9 fontcolor="#555555"
-    style=rounded color="#cccccc" bgcolor="#fafafa"
-    WARP_counterfactual_refactoring [label="counterfactual-refactoring · XL" fillcolor="#7EB6E0" penwidth=2]
-    WARP_speculative_merge [label="speculative-merge · XL" fillcolor="#7EB6E0" penwidth=2]
-    WARP_structural_impact_prediction [label="structural-impact-prediction · XL" fillcolor="#7EB6E0" penwidth=2]
-    WARP_minimum_viable_context [label="minimum-viable-context · M" fillcolor="#B0D4F1" penwidth=1]
-    WARP_rulial_heat_map [label="rulial-heat-map · L" fillcolor="#8EC5E5" penwidth=1]
-    WARP_shadow_structural_workspaces [label="shadow-structural-workspaces · XL" fillcolor="#7EB6E0" penwidth=1]
-  }
-
-  subgraph cluster_session {
-    label="Session (9)" labeljust=l fontsize=9 fontcolor="#555555"
-    style=rounded color="#cccccc" bgcolor="#fafafa"
-    CORE_codebase_orientation_map [label="codebase-orientation-map [v0.7]" fillcolor="#FFA07A" penwidth=2]
-    CORE_conversation_primer [label="conversation-primer · M" fillcolor="#B0D4F1" penwidth=2]
-    CORE_cross_session_resume [label="cross-session-resume · S" fillcolor="#D4E8F7" penwidth=2]
-    CI_002_deterministic_scenario_replay [label="CI-002-deterministic-scen... · L" fillcolor="#8EC5E5" penwidth=1]
-    CORE_agent_handoff_protocol [label="agent-handoff-protocol · M" fillcolor="#B0D4F1" penwidth=1]
-    CORE_capture_range [label="capture-range · S" fillcolor="#D4E8F7" penwidth=1]
-    CORE_graft_as_teacher [label="graft-as-teacher · S" fillcolor="#D4E8F7" penwidth=1]
-    CORE_graft_teach_learning_receipts [label="graft-teach-learning-rece... · S" fillcolor="#D4E8F7" penwidth=1]
-    CORE_structural_session_replay [label="structural-session-replay · M" fillcolor="#B0D4F1" penwidth=1]
-  }
-
-  subgraph cluster_agent_safety {
-    label="Agent Safety (8)" labeljust=l fontsize=9 fontcolor="#555555"
-    style=rounded color="#cccccc" bgcolor="#fafafa"
-    CORE_agent_drift_warning [label="agent-drift-warning [v0.7]" fillcolor="#FFA07A" penwidth=2]
-    CORE_multi_agent_conflict_detection [label="multi-agent-conflict-dete... · L" fillcolor="#8EC5E5" penwidth=2]
-    SURFACE_agent_dx_governed_edit [label="agent-dx-governed-edit [v0.7]" fillcolor="#FFA07A" penwidth=2]
-    SURFACE_governed_write_tools [label="governed-write-tools [v0.7]" fillcolor="#FFA07A" penwidth=2]
-    CLEAN_CODE_parallel_agent_merge_shared_file_loss [label="parallel-agent-merge-shar... · M" fillcolor="#B0D4F1" penwidth=1]
-    CORE_agent_worktree_hygiene [label="agent-worktree-hygiene [v0.7]" fillcolor="#FFA07A" penwidth=1]
-    WARP_degeneracy_warning [label="degeneracy-warning · M" fillcolor="#B0D4F1" penwidth=1]
-    WARP_intentional_degeneracy_privacy [label="intentional-degeneracy-pr... · M" fillcolor="#B0D4F1" penwidth=1]
-  }
-
-  subgraph cluster_surface {
-    label="Surface (13)" labeljust=l fontsize=9 fontcolor="#555555"
-    style=rounded color="#cccccc" bgcolor="#fafafa"
-    SURFACE_active_causal_workspace_status [label="active-causal-workspace-s... · M" fillcolor="#B0D4F1" penwidth=2]
-    SURFACE_ide_native_graft_integration [label="ide-native-graft-integration · XL" fillcolor="#7EB6E0" penwidth=2]
-    CI_003_mcp_native_diff_protocol [label="CI-003-mcp-native-diff-pr... · M" fillcolor="#B0D4F1" penwidth=1]
-    CORE_git_graft_enhance [label="git-graft-enhance [v0.7]" fillcolor="#FFA07A" penwidth=1]
-    CORE_pr_review_structural_summary [label="pr-review-structural-summary · M" fillcolor="#B0D4F1" penwidth=1]
-    CORE_structural_test_coverage_map [label="structural-test-coverage-map · M" fillcolor="#B0D4F1" penwidth=1]
-    SURFACE_attach_to_existing_causal_session [label="attach-to-existing-causal... · M" fillcolor="#B0D4F1" penwidth=1]
-    SURFACE_local_history_dag_render_mode_and_count_legend [label="local-history-dag-render-... · S" fillcolor="#D4E8F7" penwidth=1]
-    SURFACE_non_codex_instruction_bootstrap_parity [label="non-codex-instruction-boo... · M" fillcolor="#B0D4F1" penwidth=1]
-    SURFACE_offer_rename_refactor [label="offer-rename-refactor · L" fillcolor="#8EC5E5" penwidth=1]
-    SURFACE_terminal_activity_browser_tui [label="terminal-activity-browser... · L" fillcolor="#8EC5E5" penwidth=1]
-    WARP_graft_pack [label="graft-pack · M" fillcolor="#B0D4F1" penwidth=1]
-    WARP_lsp_enrichment [label="lsp-enrichment [v0.7]" fillcolor="#FFA07A" penwidth=1]
-  }
-
-  subgraph cluster_daemon {
-    label="Daemon (3)" labeljust=l fontsize=9 fontcolor="#555555"
-    style=rounded color="#cccccc" bgcolor="#fafafa"
-    CORE_daemon_aware_stdio_bridge_for_mcp_clients [label="daemon-aware-stdio-bridge... [v0.7]" fillcolor="#FFA07A" penwidth=2]
-    CORE_opt_in_daemon_mode_mcp_bootstrap [label="opt-in-daemon-mode-mcp-bo... [v0.7]" fillcolor="#FFA07A" penwidth=2]
-    SURFACE_bijou_tui_for_graft_daemon_control_plane [label="bijou-tui-for-graft-daemo... [v0.7]" fillcolor="#FFA07A" penwidth=1]
-  }
-
-  // Internal spine edges
-  WARP_provenance_dag -> WARP_causal_blame_for_staged_artifacts
-  WARP_provenance_dag -> WARP_reasoning_trace_replay
-  WARP_agent_action_provenance -> CI_001_causal_collapse_visualizer
-  WARP_agent_action_provenance -> WARP_causal_write_tracking
-  WARP_agent_action_provenance -> WARP_intent_and_decision_events
-  WARP_agent_action_provenance -> WARP_provenance_dag
-  SURFACE_active_causal_workspace_status -> SURFACE_ide_native_graft_integration
-  WARP_counterfactual_refactoring -> WARP_structural_impact_prediction
-  WARP_refactor_difficulty_score -> WARP_technical_debt_curvature
-  CORE_opt_in_daemon_mode_mcp_bootstrap -> SURFACE_bijou_tui_for_graft_daemon_control_plane
-  CORE_daemon_aware_stdio_bridge_for_mcp_clients -> CORE_opt_in_daemon_mode_mcp_bootstrap
-  SURFACE_agent_dx_governed_edit -> CORE_agent_drift_warning
-  SURFACE_agent_dx_governed_edit -> SURFACE_governed_write_tools
-  CLEAN_CODE_export_diff_semver_signature_as_patch -> WARP_auto_breaking_change_detection
-  CLEAN_CODE_export_diff_semver_signature_as_patch -> WARP_semantic_merge_conflict_prediction
-
-  // Cross-feature seam edges
-  CORE_rewrite_structural_blame_to_use_warp_worldline_provenance -> CORE_git_graft_enhance [color="#cc3333" penwidth=2 style=dashed]
-  CORE_rewrite_structural_churn_to_use_warp_aggregate_queries -> WARP_codebase_entropy_trajectory [color="#cc3333" penwidth=2 style=dashed]
-  CORE_rewrite_structural_churn_to_use_warp_aggregate_queries -> WARP_refactor_difficulty_score [color="#cc3333" penwidth=2 style=dashed]
-  WARP_codebase_entropy_trajectory -> WARP_counterfactual_refactoring [color="#cc3333" penwidth=2 style=dashed]
-  WARP_refactor_difficulty_score -> CORE_lagrangian_policy [color="#cc3333" penwidth=2 style=dashed]
 
   subgraph cluster_legend {
     label="Legend" labeljust=l fontsize=8 fontcolor="#aaaaaa"
     style=rounded color="#dddddd"
-    node [fontsize=7 width=0.9]
-    leg_trunk [label="trunk (bold)" fillcolor="#B0D4F1" penwidth=2]
-    leg_leaf [label="leaf (thin)" fillcolor="#B0D4F1" penwidth=1]
-    leg_v07 [label="v0.7.0" fillcolor="#FFA07A"]
-    leg_seam [label="cross-feature\nseam" fillcolor="white"]
-    leg_trunk -> leg_leaf [style=invis]
-    leg_leaf -> leg_v07 [style=invis]
-    leg_v07 -> leg_seam [style=invis]
+    node [fontsize=7 width=1.2]
+    leg_v07 [label="v0.7.0" fillcolor="#FFA07A" penwidth=2]
+    leg_bad [label="bad-code" fillcolor="#F6B3B3" penwidth=2]
+    leg_idea [label="cool-ideas" fillcolor="#D4E8F7" penwidth=1]
+    leg_v07 -> leg_bad [style=invis]
+    leg_bad -> leg_idea [style=invis]
   }
 }

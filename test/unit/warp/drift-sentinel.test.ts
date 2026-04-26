@@ -100,6 +100,44 @@ describe("warp: drift-sentinel", { timeout: 15000 }, () => {
     }
   });
 
+  it("honors the optional markdown path pattern", async () => {
+    fs.writeFileSync(
+      path.join(tmpDir, "api.ts"),
+      "export function serve(): void {}\n",
+    );
+    fs.writeFileSync(
+      path.join(tmpDir, "README.md"),
+      "Call `serve` from the README.\n",
+    );
+    fs.writeFileSync(
+      path.join(tmpDir, "GUIDE.md"),
+      "Call `serve` from the guide.\n",
+    );
+    git(tmpDir, "add -A");
+    git(tmpDir, "commit -m 'initial docs'");
+
+    const ctx = await openCtx();
+    await index(ctx);
+
+    fs.writeFileSync(
+      path.join(tmpDir, "api.ts"),
+      "export function serve(port: number): void {}\n",
+    );
+    git(tmpDir, "add -A");
+    git(tmpDir, "commit -m 'change serve'");
+    await index(ctx);
+
+    const report = await runDriftSentinel(ctx, {
+      cwd: tmpDir,
+      git: nodeGit,
+      pattern: "README.md",
+    });
+
+    expect(report.passed).toBe(false);
+    expect(report.results.map((r) => r.docPath)).toEqual(["README.md"]);
+    expect(report.totalStale).toBeGreaterThan(0);
+  });
+
   it("produces machine-readable output with file, symbol, and nature", async () => {
     fs.writeFileSync(
       path.join(tmpDir, "core.ts"),

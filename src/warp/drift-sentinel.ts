@@ -5,6 +5,7 @@
 import type { WarpContext } from "./context.js";
 import { checkStaleDocs, type StaleDocReport } from "./stale-docs.js";
 import type { GitClient } from "../ports/git.js";
+import picomatch from "picomatch";
 
 /** Options for the drift sentinel scan. */
 export interface DriftSentinelOptions {
@@ -49,10 +50,16 @@ export async function runDriftSentinel(
     return { passed: true, results: [], totalStale: 0, totalUnknown: 0 };
   }
 
+  const pattern = options.pattern?.trim();
+  const matchesPattern = pattern !== undefined && pattern.length > 0
+    ? picomatch(pattern)
+    : null;
+
   const mdFiles = lsResult.stdout
     .split("\n")
     .map((f) => f.trim())
-    .filter((f) => f.length > 0 && f.endsWith(".md"));
+    .filter((f) => f.length > 0 && f.endsWith(".md"))
+    .filter((f) => matchesPattern === null || matchesPattern(f));
 
   if (mdFiles.length === 0) {
     return { passed: true, results: [], totalStale: 0, totalUnknown: 0 };

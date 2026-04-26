@@ -108,7 +108,7 @@ export function describeCliFailure(argv: readonly string[]): CliErrorDetails {
       return { usage: "graft struct exports [<base-ref> <head-ref>] [--json]" };
     }
     if (subcommand === "log") {
-      return { usage: "graft struct log [--since <ref>] [--path <path>] [--limit <n>] [--json]" };
+      return { usage: "graft struct log [--path <path>] [--limit <n>] [--json]" };
     }
     if (subcommand === "review") {
       return { usage: "graft struct review [--base <ref>] [--head <ref>] [--json]" };

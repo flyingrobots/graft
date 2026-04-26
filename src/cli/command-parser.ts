@@ -190,7 +190,6 @@ function parseStructCommand(argv: string[]): ParsedCommand {
   }
 
   if (subcommand === "log") {
-    const since = consumeOption(argv, "--since");
     const filePath = consumeOption(argv, "--path");
     const limitRaw = consumeOption(argv, "--limit");
     expectNoArgs(argv);
@@ -198,7 +197,6 @@ function parseStructCommand(argv: string[]): ParsedCommand {
       command: "struct_log",
       json,
       args: {
-        ...(since !== undefined ? { since } : {}),
         ...(filePath !== undefined ? { path: filePath } : {}),
         ...(limitRaw !== undefined ? { limit: parsePositiveInt(limitRaw, "--limit") } : {}),
       },

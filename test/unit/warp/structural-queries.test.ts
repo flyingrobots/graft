@@ -168,9 +168,14 @@ describe("warp: structural-queries", { timeout: 15000 }, () => {
 
       const addedCommit = history.commits.find((c) => c.sha === sha1);
       expect(addedCommit?.changeKind).toBe("added");
+      expect(addedCommit?.signature).toContain("start");
+      expect(addedCommit?.signature).not.toContain("port");
 
       const changedCommit = history.commits.find((c) => c.sha === sha2);
       expect(changedCommit?.changeKind).toBe("changed");
+      expect(changedCommit?.signature).toContain("start");
+      expect(changedCommit?.signature).toContain("port");
+      expect(addedCommit?.signature).not.toBe(changedCommit?.signature);
     });
 
     it("filters by filePath when provided", async () => {

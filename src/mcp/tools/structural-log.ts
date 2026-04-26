@@ -9,7 +9,6 @@ export const structuralLogTool: ToolDefinition = {
     "Structural git log — shows symbol-level changes (added, removed, " +
     "changed) per commit. Like `git log` but for code structure, not lines.",
   schema: {
-    since: z.string().optional(),
     path: z.string().optional(),
     limit: z.number().optional(),
   },
