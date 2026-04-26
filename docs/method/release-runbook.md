@@ -78,13 +78,19 @@ Run validation strictly in order:
 3. `pnpm lint` — zero errors, zero warnings
 4. `pnpm release:surface-gate` — capability registry, public API
    contract, and three-surface matrix stay in sync
-5. `pnpm test` — all tests pass
+5. `pnpm test` — all tests pass in the Docker copy-in test container
 6. `pnpm security:check` — fail on any high / critical audit finding
 7. `pnpm pack:check` — packaging sanity check
 8. `npm info @flyingrobots/graft` — verify registry reachable
 
 Abort on the first hard failure. Do not claim success from queued or
 in-progress CI state.
+
+`pnpm test` is the canonical release validation path. It must not be
+replaced by a host-side `vitest run` unless the release is explicitly
+halted for test harness debugging. The Docker test image copies the
+repository without `.git`, so validation cannot inherit the operator's
+live checkout hooks or Git worktree environment.
 
 `pnpm security:check` is the release-time dependency/security gate.
 Current policy:

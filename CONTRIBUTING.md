@@ -29,9 +29,14 @@ pnpm install
 pnpm test
 ```
 
+`pnpm test` is intentionally Docker-isolated. It builds the repository
+into a copy-in test image with `.git` excluded from the Docker context,
+then runs Vitest inside that container. Use `pnpm test:local` only for
+explicit host-side debugging.
+
 ## Before submitting a PR
 
-- All tests pass: `pnpm test`
+- All tests pass in the isolated container: `pnpm test`
 - Lint is clean: `pnpm lint`
 - TypeScript compiles: `pnpm tsc --noEmit`
 - Commit messages follow [Conventional Commits](https://www.conventionalcommits.org/).
