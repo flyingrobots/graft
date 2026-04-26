@@ -3,12 +3,11 @@ import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import * as fs from "node:fs";
 import * as path from "node:path";
 import { nodeGit } from "../../../src/adapters/node-git.js";
-import { nodeProcessRunner } from "../../../src/adapters/node-process-runner.js";
 import { git, createTestRepo, cleanupTestRepo } from "../../helpers/git.js";
 import { openWarp } from "../../../src/warp/open.js";
 import { indexHead } from "../../../src/warp/index-head.js";
 import { commitsForSymbol, symbolsForCommit } from "../../../src/warp/structural-queries.js";
-import { countSymbolReferences } from "../../../src/warp/reference-count.js";
+import { countSymbolReferencesFromGraph } from "../../../src/warp/warp-reference-count.js";
 import { getCommitMeta } from "../../../src/warp/commit-meta.js";
 import { nodePathOps } from "../../../src/adapters/node-paths.js";
 import {
@@ -76,12 +75,7 @@ describe("operations: structural blame", { timeout: 15000 }, () => {
     }
 
     // Get reference count
-    const refs = await countSymbolReferences(symbolName, {
-      projectRoot: tmpDir,
-      git: nodeGit,
-      process: nodeProcessRunner,
-      ...(history.filePath !== undefined ? { filePath: history.filePath } : {}),
-    });
+    const refs = await countSymbolReferencesFromGraph(warp, symbolName, history.filePath);
 
     return structuralBlame({
       symbolName,

@@ -27,10 +27,9 @@ digraph backlog {
   }
 
   subgraph cluster_bad_code {
-    label="Bad Code (2)" labeljust=l fontsize=9 fontcolor="#555555"
+    label="Bad Code (1)" labeljust=l fontsize=9 fontcolor="#555555"
     style=rounded color="#cccccc" bgcolor="#fafafa"
     bad_code_dead_code_old_git_operations [label="dead-code-old-git-operations - S" fillcolor="#F6B3B3" penwidth=2]
-    bad_code_reference_count_uses_ripgrep [label="reference-count-uses-ripgrep - M" fillcolor="#F6B3B3" penwidth=2]
   }
 
   subgraph cluster_cool_ideas {

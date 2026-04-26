@@ -20,12 +20,10 @@ review.
 
 This slice is complete when:
 
-- `countSymbolReferences(name, opts)` returns the reference
+- `countSymbolReferencesFromGraph(ctx, name, filePath)` returns the reference
   count and list of referencing files
-- The search uses ripgrep with grep fallback (works on any
-  system)
-- Word-boundary matching (`-w`) prevents `User` from matching
-  `UserService` in most cases
+- The search uses WARP graph reference edges, not text search
+- Same-name symbols in different files are distinguished by symbol identity
 - The definition file is excluded from the count when
   `filePath` is provided
 - Files with no references return count 0 and empty list
@@ -37,19 +35,17 @@ This slice is complete when:
 - [ ] If I ask how many files reference `parse`, do I get an
       accurate count that excludes the file where `parse` is
       defined?
-- [ ] Does it work on a machine without ripgrep installed?
+- [ ] Does it work without ripgrep or grep installed?
 
 ### Agent
 
-- [ ] Does word-boundary matching (`-w`) correctly prevent
-      `User` from matching inside `UserService`?
+- [ ] Does symbol identity prevent same-name symbols in different
+      files from being conflated?
 - [ ] Does the function return `{ referenceCount: 0,
       referencingFiles: [] }` when no files reference the
       symbol?
-- [ ] Does the ripgrep-to-grep fallback activate correctly
-      when ripgrep is not installed?
-- [ ] Does the function handle symbols with regex-special
-      characters in their names?
+- [ ] Does the function count import and re-export references
+      without counting unrelated text matches?
 
 ## Accessibility and Assistive Reading
 
@@ -64,63 +60,44 @@ This slice is complete when:
 - Locale / wording / formatting assumptions:
   - File paths are repo-relative
 - Logical direction / layout assumptions:
-  - File list order is determined by ripgrep/grep output order
+  - File list order follows WARP reference edge traversal output
 
 ## Agent Inspectability and Explainability
 
 - What must be explicit and deterministic for agents:
   - The exact count and file list
-  - Whether the definition file was excluded
+  - The symbol identity used for the lookup
 - What must be attributable, evidenced, or governed:
-  - The search method (ripgrep vs grep) is implicit — callers
-    cannot tell which was used (see gap analysis)
+  - The search method is WARP graph traversal over reference edges
 
 ## Non-goals
 
-- [ ] Semantic reference resolution (this is text search, not
-      a type checker)
+- [ ] Type-checker-level reference resolution beyond the WARP edges
+      emitted by `indexHead`
 - [ ] Counting how many times a symbol is referenced within a
       single file (this counts files, not occurrences)
-- [ ] Using WARP graph edges for reference counting (the
-      backlog mentioned this but the implementation uses
-      ripgrep/grep only)
+- [ ] Text fallback reference counting
 - [ ] Handling cross-language references
 
 ## Acceptance Criteria
 
-1. `countSymbolReferences(name, opts)` returns
+1. `countSymbolReferencesFromGraph(ctx, name, filePath)` returns
    `ReferenceCountResult` with `symbol`, `referenceCount`,
    `referencingFiles`
-2. Uses ripgrep with `-w` (word-boundary) matching
-3. Falls back to grep with `-w` when ripgrep is unavailable
-4. Excludes the definition file when `opts.filePath` is
-   provided
-5. Returns count 0 and empty list when no files match
-6. Searches all tracked and untracked (non-ignored) files
-7. Throws with a clear error when both ripgrep and grep fail
+2. Uses WARP `references` edges, not ripgrep/grep subprocesses
+3. Requires `filePath` to construct the target symbol identity
+4. Returns count 0 and empty list when no graph references exist
+5. Counts each referencing file once, even with multiple reference edges
+6. Counts re-export edges as references
 
 ## Gap Analysis
 
-Comparing acceptance criteria against `src/warp/reference-count.ts`:
+Comparing acceptance criteria against `src/warp/warp-reference-count.ts`:
 
-- **PASS**: Criteria 1-7 are all implemented as specified
-- **GAP: Word-boundary matching has known false-positive edge
-  cases** — ripgrep `-w` uses `\b` word boundaries, which
-  means `get` will match inside `target` if `get` appears at
-  a word boundary elsewhere on the same line. More importantly,
-  `-w` will match `User` inside `User_legacy` or `User2` since
-  `_` and digits can be word-boundary adjacent depending on
-  locale. This is a known limitation of text-based search vs
-  semantic analysis. The grep fallback uses `-w -F` (fixed
-  string + word boundary) which has the same behavior.
-- **GAP: No search method attribution** — callers cannot
-  determine whether the result came from ripgrep or grep.
-  For explainability, the result should include which tool
-  was used. Filed as bad-code card.
-- **GAP: Large file lists may hit OS argument limits** — the
-  function passes ALL tracked file paths as arguments to
-  ripgrep/grep. On repos with tens of thousands of files,
-  this could exceed `ARG_MAX`. Filed as bad-code card.
+- **PASS**: Criteria 1-6 are implemented as specified
+- **GAP: filePath is required for accurate lookup** — without a
+  definition file path, the WARP symbol id cannot be constructed.
+  The function returns zero references in that case.
 
 ## Backlog Context
 
@@ -130,13 +107,13 @@ Used by structural blame (show impact) and structural review (breaking change im
 
 ## Approach
 
-1. First try WARP edges if available (fastest, indexed)
-2. Fall back to `code_refs` infrastructure (ripgrep text search)
+1. Traverse WARP reference edges for the target symbol id
+2. Deduplicate references by file path
 3. Return: count of referencing files, list of file paths
 
 ## Location
 
-`src/warp/reference-count.ts` or extend existing `src/mcp/tools/precision.ts` infrastructure.
+`src/warp/warp-reference-count.ts`
 
 ## Depends on
 

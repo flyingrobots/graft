@@ -1,18 +1,22 @@
 // ---------------------------------------------------------------------------
-// WARP-based symbol reference counting — replaces ripgrep approach
+// WARP-based symbol reference counting
 // ---------------------------------------------------------------------------
 
 import type { WarpContext } from "./context.js";
 import { referencesForSymbol } from "./references.js";
-import type { ReferenceCountResult } from "./reference-count.js";
+
+export interface ReferenceCountResult {
+  readonly symbol: string;
+  readonly referenceCount: number;
+  readonly referencingFiles: readonly string[];
+}
 
 /**
  * Count how many files reference a symbol via WARP graph edges.
  *
  * Uses `referencesForSymbol` which traverses incoming `references`
  * edges from import/export specifier AST nodes to the target sym node.
- * More precise than ripgrep (actual imports, not text matches) and
- * faster (no subprocess spawning).
+ * Uses actual imports, not text matches, and does not spawn subprocesses.
  *
  * @param ctx - WARP context
  * @param symbolName - The symbol to count references for

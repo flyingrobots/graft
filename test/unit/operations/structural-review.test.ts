@@ -1,12 +1,12 @@
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import { structuralReview } from "../../../src/operations/structural-review.js";
 import { nodeGit } from "../../../src/adapters/node-git.js";
-import { nodeProcessRunner } from "../../../src/adapters/node-process-runner.js";
-import { countSymbolReferences } from "../../../src/warp/reference-count.js";
 import { realFs } from "../../helpers/real-fs.js";
 import * as fs from "node:fs";
 import * as path from "node:path";
 import { git, createTestRepo, cleanupTestRepo } from "../../helpers/git.js";
+
+const noReferences = () => Promise.resolve({ referenceCount: 0, referencingFiles: [] });
 
 describe("operations: structural review", () => {
   let tmpDir: string;
@@ -19,15 +19,7 @@ describe("operations: structural review", () => {
       fs: realFs,
       git: nodeGit,
       resolveWorkingTreePath: (filePath: string) => path.join(tmpDir, filePath),
-      countReferences: async (symbolName: string, filePath: string) => {
-        const refs = await countSymbolReferences(symbolName, {
-          projectRoot: tmpDir,
-          git: nodeGit,
-          process: nodeProcessRunner,
-          filePath,
-        });
-        return { referenceCount: refs.referenceCount, referencingFiles: refs.referencingFiles };
-      },
+      countReferences: noReferences,
       ...overrides,
     };
   }
@@ -217,15 +209,7 @@ describe("operations: structural review — export-aware breaking changes", () =
       fs: realFs,
       git: nodeGit,
       resolveWorkingTreePath: (filePath: string) => path.join(tmpDir, filePath),
-      countReferences: async (symbolName: string, filePath: string) => {
-        const refs = await countSymbolReferences(symbolName, {
-          projectRoot: tmpDir,
-          git: nodeGit,
-          process: nodeProcessRunner,
-          filePath,
-        });
-        return { referenceCount: refs.referenceCount, referencingFiles: refs.referencingFiles };
-      },
+      countReferences: noReferences,
       ...overrides,
     };
   }
@@ -326,15 +310,7 @@ describe("operations: structural review — renamed files", () => {
       fs: realFs,
       git: nodeGit,
       resolveWorkingTreePath: (filePath: string) => path.join(tmpDir, filePath),
-      countReferences: async (symbolName: string, filePath: string) => {
-        const refs = await countSymbolReferences(symbolName, {
-          projectRoot: tmpDir,
-          git: nodeGit,
-          process: nodeProcessRunner,
-          filePath,
-        });
-        return { referenceCount: refs.referenceCount, referencingFiles: refs.referencingFiles };
-      },
+      countReferences: noReferences,
       ...overrides,
     };
   }

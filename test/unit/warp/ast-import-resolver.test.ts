@@ -187,6 +187,31 @@ describe("warp: AST import resolver", { timeout: 15000 }, () => {
     }
   });
 
+  it("resolves TypeScript ESM .js specifiers to .ts source files", async () => {
+    const tmpDir = setup();
+    try {
+      const warp = await openWarp({ cwd: tmpDir });
+      const knownFiles = new Set(["src/utils.ts", "src/greeter.ts"]);
+
+      await warp.patch((patch) => {
+        patch.addNode("file:src/utils.ts");
+        patch.addNode("sym:src/utils.ts:foo");
+      });
+
+      await emitFile(warp, "src/greeter.ts", 'import { foo } from "./utils.js";\n', knownFiles);
+
+      const resolves = await getEdgesLabeled(warp, "resolves_to");
+      const utilsResolve = resolves.find((e) => e.to === "file:src/utils.ts");
+      expect(utilsResolve).toBeDefined();
+
+      const refs = await getEdgesLabeled(warp, "references");
+      const fooRef = refs.find((e) => e.to === "sym:src/utils.ts:foo");
+      expect(fooRef).toBeDefined();
+    } finally {
+      cleanupTestRepo(tmpDir);
+    }
+  });
+
   it("non-relative import: no resolves_to edge, but AST still emitted", async () => {
     const tmpDir = setup();
     try {

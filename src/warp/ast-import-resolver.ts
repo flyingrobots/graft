@@ -36,9 +36,12 @@ function resolveModulePath(
     ? pathOps.join(dir, importSource)
     : pathOps.normalize(importSource);
 
+  const sourceExtensionCandidates = compiledSpecifierSourceCandidates(raw);
+
   // Try exact match, then with extensions
   const candidates = [
     raw,
+    ...sourceExtensionCandidates,
     `${raw}.ts`,
     `${raw}.tsx`,
     `${raw}.js`,
@@ -55,6 +58,24 @@ function resolveModulePath(
   }
 
   return null;
+}
+
+function compiledSpecifierSourceCandidates(resolvedImportSource: string): readonly string[] {
+  const compiledToSourceExtensions: readonly [string, readonly string[]][] = [
+    [".js", [".ts", ".tsx"]],
+    [".jsx", [".tsx", ".ts"]],
+    [".mjs", [".mts", ".ts"]],
+    [".cjs", [".cts", ".ts"]],
+  ];
+
+  for (const [compiledExtension, sourceExtensions] of compiledToSourceExtensions) {
+    if (!resolvedImportSource.endsWith(compiledExtension)) continue;
+
+    const base = resolvedImportSource.slice(0, -compiledExtension.length);
+    return sourceExtensions.map((sourceExtension) => `${base}${sourceExtension}`);
+  }
+
+  return [];
 }
 
 function symNodeId(filePath: string, symbolName: string): string {
