@@ -16,6 +16,9 @@ import {
   parseServeCommand,
 } from "./command-parser.js";
 import { describeCliFailure, writeCliError } from "./cli-error.js";
+import { readDaemonStatusSnapshot, type ReadDaemonStatusOptions } from "./daemon-status.js";
+import { buildDaemonStatusModel, type DaemonStatusReadSnapshot } from "./daemon-status-model.js";
+import { renderDaemonStatus } from "./daemon-status-render.js";
 import { runIndex } from "./index-cmd.js";
 import { runInit } from "./init.js";
 import { runLocalHistoryDag } from "./local-history-dag.js";
@@ -32,6 +35,7 @@ export interface RunCliOptions {
   startServer?: ((cwd: string) => Promise<void>) | undefined;
   startDaemonBridge?: ((options: StartDaemonBackedStdioBridgeOptions) => Promise<void>) | undefined;
   startDaemon?: ((options: { socketPath?: string | undefined }) => Promise<GraftDaemonServer>) | undefined;
+  readDaemonStatus?: ((options: ReadDaemonStatusOptions) => Promise<DaemonStatusReadSnapshot>) | undefined;
 }
 
 function renderHelp(writer: Writer): void {
@@ -46,6 +50,7 @@ function renderHelp(writer: Writer): void {
   writeLine(writer, "  serve --runtime daemon");
   writeLine(writer, "                  Start stdio bridge to the local graft daemon");
   writeLine(writer, "  daemon          Start the local MCP daemon");
+  writeLine(writer, "  daemon status   Show read-only daemon status");
   writeLine(writer);
 
   const grouped = new Map<string, { path: readonly string[]; description: string }[]>();
@@ -120,7 +125,18 @@ export async function runCli(options: RunCliOptions = {}): Promise<void> {
 
   if (argv[0] === "daemon") {
     try {
-      const daemon = await (options.startDaemon ?? startDaemonServer)(parseDaemonCommand(cwd, argv.slice(1)));
+      const parsedDaemon = parseDaemonCommand(cwd, argv.slice(1));
+      if (parsedDaemon.action === "status") {
+        const snapshot = await (options.readDaemonStatus ?? readDaemonStatusSnapshot)({
+          cwd,
+          ...(parsedDaemon.socketPath !== undefined ? { socketPath: parsedDaemon.socketPath } : {}),
+        });
+        writeLine(stdout, renderDaemonStatus(buildDaemonStatusModel({ cwd, snapshot })));
+        return;
+      }
+      const daemon = await (options.startDaemon ?? startDaemonServer)(
+        parsedDaemon.socketPath === undefined ? {} : { socketPath: parsedDaemon.socketPath },
+      );
       writeLine(stdout, `Daemon listening on ${daemon.socketPath}`);
     } catch (err: unknown) {
       process.exitCode = 1;

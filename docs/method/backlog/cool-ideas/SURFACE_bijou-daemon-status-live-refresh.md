@@ -5,10 +5,8 @@ kind: leaf
 legend: SURFACE
 lane: cool-ideas
 effort: M
-blocked_by:
-  - "SURFACE_bijou-daemon-status-first-slice"
 requirements:
-  - "Bijou daemon status first slice"
+  - "Bijou daemon status first slice (shipped)"
 acceptance_criteria:
   - "Daemon status view can refresh at a bounded interval without restarting the command"
   - "Refresh cadence, last-updated time, and stale/degraded state are visible"

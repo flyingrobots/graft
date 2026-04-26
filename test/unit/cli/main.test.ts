@@ -2,9 +2,67 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import * as fs from "node:fs";
 import * as path from "node:path";
 import { resolveEntrypointArgs, runCli } from "../../../src/cli/main.js";
+import type { DaemonStatusReadSnapshot } from "../../../src/cli/daemon-status-model.js";
 import { cleanupTestRepo, createTestRepo, git } from "../../helpers/git.js";
 import { createBufferWriter } from "../../helpers/init.js";
 import { writeLegacyLocalHistoryArtifact } from "../../helpers/legacy-local-history.js";
+
+function daemonStatusSnapshot(socketPath: string): DaemonStatusReadSnapshot {
+  return {
+    status: {
+      ok: true,
+      sessionMode: "daemon",
+      transport: "unix_socket",
+      sameUserOnly: true,
+      socketPath,
+      healthPath: "/healthz",
+      mcpPath: "/mcp",
+      activeSessions: 1,
+      boundSessions: 0,
+      unboundSessions: 1,
+      activeWarpRepos: 0,
+      authorizedWorkspaces: 0,
+      authorizedRepos: 0,
+      workspaceBindRequiresAuthorization: true,
+      totalMonitors: 0,
+      runningMonitors: 0,
+      pausedMonitors: 0,
+      stoppedMonitors: 0,
+      failingMonitors: 0,
+      backlogMonitors: 0,
+      scheduler: {
+        maxConcurrentJobs: 2,
+        activeJobs: 0,
+        queuedJobs: 0,
+        interactiveQueuedJobs: 0,
+        backgroundQueuedJobs: 0,
+        activeWriterLanes: 0,
+        queuedWriterLanes: 0,
+        completedJobs: 0,
+        failedJobs: 0,
+        longestQueuedWaitMs: 0,
+      },
+      workers: {
+        mode: "child_processes",
+        totalWorkers: 2,
+        busyWorkers: 0,
+        idleWorkers: 2,
+        queuedTasks: 0,
+        completedTasks: 0,
+        failedTasks: 0,
+      },
+      defaultCapabilityProfile: {
+        boundedReads: true,
+        structuralTools: true,
+        precisionTools: true,
+        stateBookmarks: true,
+        runtimeLogs: "session_local_only",
+        runCapture: false,
+      },
+      startedAt: "2026-04-26T12:00:00.000Z",
+    },
+  };
+}
 
 describe("cli: graft grouped surface", () => {
   let previousExitCode: typeof process.exitCode;
@@ -193,6 +251,67 @@ describe("cli: graft grouped surface", () => {
     expect(stderr.text()).toBe("");
     expect(stdout.text()).toContain("/tmp/example/runtime/graft.sock");
     expect(calls).toEqual([{ socketPath: "/tmp/example/runtime/graft.sock" }]);
+  });
+
+  it("routes daemon status through the read-only daemon status reader", async () => {
+    const stdout = createBufferWriter();
+    const stderr = createBufferWriter();
+    const calls: { cwd: string; socketPath?: string | undefined }[] = [];
+
+    await runCli({
+      cwd: "/tmp/example",
+      args: ["daemon", "status", "--socket", "runtime/graft.sock"],
+      stdout,
+      stderr,
+      readDaemonStatus: (options) => {
+        calls.push(options);
+        return Promise.resolve(daemonStatusSnapshot(options.socketPath ?? "default"));
+      },
+    });
+
+    expect(stderr.text()).toBe("");
+    expect(stdout.text()).toContain("Daemon Status");
+    expect(stdout.text()).toContain("socket: /tmp/example/runtime/graft.sock");
+    expect(calls).toEqual([{ cwd: "/tmp/example", socketPath: "/tmp/example/runtime/graft.sock" }]);
+  });
+
+  it("uses the default daemon socket for daemon status when --socket is omitted", async () => {
+    const stdout = createBufferWriter();
+    const stderr = createBufferWriter();
+    const calls: { cwd: string; socketPath?: string | undefined }[] = [];
+
+    await runCli({
+      cwd: "/tmp/example",
+      args: ["daemon", "status"],
+      stdout,
+      stderr,
+      readDaemonStatus: (options) => {
+        calls.push(options);
+        return Promise.resolve(daemonStatusSnapshot("default"));
+      },
+    });
+
+    expect(stderr.text()).toBe("");
+    expect(stdout.text()).toContain("Daemon Status");
+    expect(calls).toEqual([{ cwd: "/tmp/example" }]);
+  });
+
+  it("graft daemon status fails clearly when no daemon is listening", async () => {
+    const stdout = createBufferWriter();
+    const stderr = createBufferWriter();
+
+    await runCli({
+      cwd: "/tmp/example",
+      args: ["daemon", "status", "--socket", "missing.sock"],
+      stdout,
+      stderr,
+      readDaemonStatus: () => Promise.reject(new Error("No graft daemon is listening on /tmp/example/missing.sock")),
+    });
+
+    expect(stdout.text()).toBe("");
+    expect(stderr.text()).toContain("No graft daemon is listening");
+    expect(stderr.text()).toContain("Usage: graft daemon status [--socket <path>]");
+    expect(process.exitCode).toBe(1);
   });
 
   it("runs doctor sludge scan through the top-level doctor alias", async () => {

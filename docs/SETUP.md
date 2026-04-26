@@ -103,6 +103,19 @@ Daemon control-plane inspection now exists through MCP tools:
 - `workspace_rebind`
 - `workspace_revoke`
 
+Human operators can inspect the same read-side daemon posture without
+opening raw MCP JSON:
+
+```bash
+npx @flyingrobots/graft daemon status
+npx @flyingrobots/graft daemon status --socket /path/to/mcp.sock
+```
+
+`daemon status` is read-only. It shows daemon health, session counts,
+workspace authorization/bind posture, monitor summary, scheduler
+pressure, and worker pressure. It does not authorize, revoke, bind,
+rebind, pause, resume, start, or stop daemon resources.
+
 Practical daemon-backed MCP first-use sequence:
 
 1. configure your MCP client with `graft serve --runtime daemon`

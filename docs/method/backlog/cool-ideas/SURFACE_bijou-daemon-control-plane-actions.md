@@ -5,10 +5,8 @@ kind: leaf
 legend: SURFACE
 lane: cool-ideas
 effort: L
-blocked_by:
-  - "SURFACE_bijou-daemon-status-first-slice"
 requirements:
-  - "Bijou daemon status first slice"
+  - "Bijou daemon status first slice (shipped)"
   - "Daemon workspace and monitor mutation tools (shipped)"
 acceptance_criteria:
   - "Operator actions are explicit and confirmation-gated"

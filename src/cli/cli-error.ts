@@ -47,9 +47,15 @@ export function describeCliFailure(argv: readonly string[]): CliErrorDetails {
   }
 
   if (group === "daemon") {
+    if (subcommand === "status") {
+      return {
+        usage: "graft daemon status [--socket <path>]",
+        nextSteps: ["Start the daemon with `graft daemon` or target another daemon with `--socket <path>`."],
+      };
+    }
     return {
-      usage: "graft daemon [--socket <path>]",
-      nextSteps: ["Run `graft help` to see the daemon and grouped command surfaces."],
+      usage: "graft daemon [--socket <path>] | graft daemon status [--socket <path>]",
+      nextSteps: ["Run `graft daemon status` to inspect an already-running daemon without mutating daemon state."],
     };
   }
 
