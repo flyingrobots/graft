@@ -65,3 +65,4 @@ it. Cycles under that legend must verify the invariant holds.
 - [docs-match-code](docs-match-code.md) — docs reflect code at release
 - [tests-are-spec](tests-are-spec.md) — tests pass = correct
 - [zero-lint](zero-lint.md) — zero errors, zero warnings
+- [agent-worktree-hygiene](agent-worktree-hygiene.md) — agent scratch worktrees never enter commits

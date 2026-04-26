@@ -12,6 +12,8 @@
   sentinel, and structural drift support tools
 - Session/projection helpers that support agent handoff, replay,
   projection safety, and knowledge maps
+- Agent worktree hygiene guard for preventing `.claude/worktrees/`
+  artifacts from entering commits
 
 ## Hills Advanced
 
@@ -22,6 +24,8 @@
   surfaces.
 - **Release truth**: the branch, package version, changelog, release
   notes, BEARING, and METHOD packet now describe the same release line.
+- **Agent safety**: release preflight now catches staged parallel-agent
+  worktree artifacts before they can become commit history.
 
 ## Sponsored Users
 

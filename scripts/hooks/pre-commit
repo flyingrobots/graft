@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+echo "pre-commit: checking agent worktree hygiene..."
+pnpm guard:agent-worktrees
 echo "pre-commit: running lint..."
 pnpm lint
 echo "pre-commit: lint passed."

@@ -72,6 +72,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ### Fixed
 
+- **Agent worktree hygiene**: added `pnpm guard:agent-worktrees`,
+  wired it into release preflight and the repo-local pre-commit hook,
+  and covered forced embedded-repo gitlinks under `.claude/worktrees/`.
 - **Export surface semver impact**: `exportSurfaceDiff` now treats
   breaking signature changes conservatively. Required parameter
   additions, removed parameters, parameter type changes, and return

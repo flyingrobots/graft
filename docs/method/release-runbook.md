@@ -73,13 +73,15 @@ Do not continue past the first failed guard.
 Run validation strictly in order:
 
 1. `pnpm install` — ensure lockfile is current
-2. `pnpm lint` — zero errors, zero warnings
-3. `pnpm release:surface-gate` — capability registry, public API
+2. `pnpm guard:agent-worktrees` — no `.claude/worktrees/` paths are
+   tracked or staged
+3. `pnpm lint` — zero errors, zero warnings
+4. `pnpm release:surface-gate` — capability registry, public API
    contract, and three-surface matrix stay in sync
-4. `pnpm test` — all tests pass
-5. `pnpm security:check` — fail on any high / critical audit finding
-6. `pnpm pack:check` — packaging sanity check
-7. `npm info @flyingrobots/graft` — verify registry reachable
+5. `pnpm test` — all tests pass
+6. `pnpm security:check` — fail on any high / critical audit finding
+7. `pnpm pack:check` — packaging sanity check
+8. `npm info @flyingrobots/graft` — verify registry reachable
 
 Abort on the first hard failure. Do not claim success from queued or
 in-progress CI state.

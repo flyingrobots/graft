@@ -18,6 +18,7 @@ tagging, and publish verification are executed.
 | Step | Result |
 |------|--------|
 | `pnpm install` | pending |
+| `pnpm guard:agent-worktrees` | pending |
 | `pnpm lint` | pending |
 | `pnpm release:surface-gate` | pending |
 | `pnpm test` | pending |
