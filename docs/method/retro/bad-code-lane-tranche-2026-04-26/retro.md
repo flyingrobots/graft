@@ -27,9 +27,9 @@ or small enough to close without changing release posture:
 ## Playback
 
 The bad-code lane now keeps only unresolved work in `docs/method/backlog/bad-code/`.
-Completed cards were moved to `docs/method/graveyard/` so the original backlog
-records remain searchable. Completion evidence lives here under
-`docs/method/retro/`.
+Completed relevant card records live under `docs/design/`, and completion
+evidence lives here under `docs/method/retro/`. Graveyard is only for cards
+that fail the relevance check.
 
 ## Verification
 
