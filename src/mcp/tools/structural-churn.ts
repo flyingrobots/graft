@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { structuralChurnToJson } from "../../operations/structural-churn.js";
+import { toJsonObject } from "../../operations/result-dto.js";
 import { structuralChurnFromGraph } from "../../warp/warp-structural-churn.js";
 import type { ToolDefinition, ToolHandler } from "../context.js";
 
@@ -22,7 +22,7 @@ export const structuralChurnTool: ToolDefinition = {
       if (typeof pathArg === "string") options.path = pathArg;
       if (typeof limitArg === "number") options.limit = limitArg;
       const result = await structuralChurnFromGraph(warp, options);
-      return ctx.respond("graft_churn", structuralChurnToJson(result));
+      return ctx.respond("graft_churn", toJsonObject(result));
     };
   },
 };

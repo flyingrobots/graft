@@ -5,10 +5,28 @@
 import type { QueryResultV1 } from "@git-stunts/git-warp";
 import type { WarpContext } from "./context.js";
 import { observeGraph } from "./context.js";
-import type {
-  StructuralLogEntry,
-  StructuralLogSymbolChange,
-} from "../operations/structural-log.js";
+
+/** A symbol that was added, removed, or changed in a commit. */
+export interface StructuralLogSymbolChange {
+  readonly name: string;
+  readonly kind: string;
+  readonly signature?: string | undefined;
+  readonly exported: boolean;
+  readonly filePath: string;
+}
+
+export interface StructuralLogEntry {
+  readonly sha: string;
+  readonly message: string;
+  readonly author: string;
+  readonly date: string;
+  readonly symbols: {
+    readonly added: readonly StructuralLogSymbolChange[];
+    readonly removed: readonly StructuralLogSymbolChange[];
+    readonly changed: readonly StructuralLogSymbolChange[];
+  };
+  readonly summary: string;
+}
 
 /** Options for WARP-based structural log. */
 export interface WarpLogOptions {

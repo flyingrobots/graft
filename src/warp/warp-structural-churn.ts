@@ -5,7 +5,22 @@
 import type { AggregateResult, QueryResultV1, TickReceipt } from "@git-stunts/git-warp";
 import type { WarpContext } from "./context.js";
 import { observeGraph } from "./context.js";
-import type { ChurnEntry, StructuralChurnResult } from "../operations/structural-churn.js";
+
+export interface ChurnEntry {
+  readonly symbol: string;
+  readonly filePath: string;
+  readonly kind: string;
+  readonly changeCount: number;
+  readonly lastChangedSha: string;
+  readonly lastChangedDate: string;
+}
+
+export interface StructuralChurnResult {
+  readonly entries: readonly ChurnEntry[];
+  readonly totalSymbols: number;
+  readonly totalCommitsAnalyzed: number;
+  readonly summary: string;
+}
 
 /** Options for WARP-based churn analysis. */
 export interface WarpChurnOptions {

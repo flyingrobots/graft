@@ -88,7 +88,7 @@ This slice is complete when:
 
 ## Acceptance Criteria
 
-1. `structuralLog(opts)` returns `StructuralLogEntry[]` with
+1. `structuralLogFromGraph(ctx, options?)` returns `StructuralLogEntry[]` with
    `sha`, `message`, `author`, `date`, `symbols`, `summary`
 2. `symbols` contains `added[]`, `removed[]`, `changed[]` —
    each with `name`, `kind`, `signature?`, `exported`, `filePath`
@@ -101,7 +101,7 @@ This slice is complete when:
 
 ## Gap Analysis
 
-Comparing acceptance criteria against `src/operations/structural-log.ts`
+Comparing acceptance criteria against `src/warp/warp-structural-log.ts`
 and `src/mcp/tools/structural-log.ts`:
 
 - **PASS**: Criteria 1-6 are all implemented as specified
@@ -111,9 +111,9 @@ and `src/mcp/tools/structural-log.ts`:
   offset, or `hasMore` flag. For repos with thousands of
   commits this means the agent must guess whether to increase
   the limit. This is acceptable for v1 but worth noting.
-- **GAP: Sequential commit processing** — `structuralLog`
-  processes commits sequentially with `await` in a for-loop
-  rather than batching WARP queries. On 1000 commits this
+- **GAP: Per-commit edge traversal** — `structuralLogFromGraph`
+  traverses each scoped commit with `await` in a for-loop
+  rather than batching graph edge queries. On 1000 commits this
   would be slow. The default limit of 20 mitigates this, but
   callers can override the limit. Filed as bad-code card.
 - **PASS**: Path filter correctly handles both exact paths and
@@ -130,7 +130,7 @@ Per-commit structural changelog: symbols added, removed, and changed.
 
 ## Core operation
 
-`src/operations/structural-log.ts`:
+`src/warp/warp-structural-log.ts`:
 - Input: optional path filter
 - Output: array of `{ sha, author, date, message, symbols: { added, removed, changed } }`
 - Uses WARP commit-symbol query helpers

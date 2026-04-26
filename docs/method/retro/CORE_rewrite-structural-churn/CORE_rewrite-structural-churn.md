@@ -35,7 +35,8 @@ tick receipt evidence.
 
 - WarpContext + observeGraph convention ✅
 - QueryResultV1 from git-warp ✅
-- Reuses ChurnEntry/StructuralChurnResult types from operations layer ✅
+- WARP module owns ChurnEntry/StructuralChurnResult types after
+  `dead-code-old-git-operations` follow-up ✅
 - No direct node imports, no port bypasses ✅
 - Per-sym getNodeProps could be batched via query (minor) ⚠️
 
@@ -48,14 +49,16 @@ tick receipt evidence.
 
 ## What went well
 
-- The existing ChurnEntry type was reusable — no new output types needed.
+- The existing ChurnEntry shape was reusable; the WARP module now owns that
+  output type after the old operation module was removed.
 - The MCP tool swap was clean: one import change, one function call change.
-- Old structuralChurn() remains available for callers that don't have WarpContext.
+- Old structuralChurn() was later removed by `dead-code-old-git-operations`
+  because no runtime caller needed the git-backed path.
 
 ## What to watch
 
 - Per-commit traverse.bfs is O(commits × edge_fanout). For repos with
   thousands of commits, this could be slow. Consider QueryBuilder.aggregate()
   as a follow-up optimization.
-- Old structural-churn.ts with its git log approach is still in the codebase.
-  It's not dead — tests still use it — but the MCP tool no longer calls it.
+- Follow-up closure: the old structural-churn.ts git-log approach is no longer
+  in the codebase.

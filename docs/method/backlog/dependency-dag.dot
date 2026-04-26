@@ -26,12 +26,6 @@ digraph backlog {
     v0_7_0_WARP_lsp_enrichment [label="WARP-lsp-enrichment" fillcolor="#FFA07A" penwidth=2]
   }
 
-  subgraph cluster_bad_code {
-    label="Bad Code (1)" labeljust=l fontsize=9 fontcolor="#555555"
-    style=rounded color="#cccccc" bgcolor="#fafafa"
-    bad_code_dead_code_old_git_operations [label="dead-code-old-git-operations - S" fillcolor="#F6B3B3" penwidth=2]
-  }
-
   subgraph cluster_cool_ideas {
     label="Cool Ideas (73)" labeljust=l fontsize=9 fontcolor="#555555"
     style=rounded color="#cccccc" bgcolor="#fafafa"

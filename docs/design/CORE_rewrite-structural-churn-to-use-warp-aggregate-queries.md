@@ -40,7 +40,10 @@ accumulating counts in an operation-local map.
 
 - [x] Adding a grouped aggregate API to git-warp.
 - [x] Rewriting `graft_log` or `graft_blame`.
-- [x] Removing the legacy Git-backed `structuralChurn()` operation.
+- [x] Removing the legacy Git-backed `structuralChurn()` operation was out of
+      scope for this optimization cycle. Follow-up cycle
+      `dead-code-old-git-operations` later deleted the dead module after
+      migrating remaining tests.
 
 ## Notes
 

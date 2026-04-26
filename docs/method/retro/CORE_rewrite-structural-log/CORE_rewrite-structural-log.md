@@ -20,7 +20,8 @@ WARP-based `structuralLogFromGraph()`.
 ## Drift check
 
 - WarpContext + observeGraph convention ✅
-- Reuses StructuralLogEntry types from operations layer ✅
+- WARP module owns StructuralLogEntry types after
+  `dead-code-old-git-operations` follow-up ✅
 - No direct node imports, no port bypasses ✅
 
 ## Tests (4)
