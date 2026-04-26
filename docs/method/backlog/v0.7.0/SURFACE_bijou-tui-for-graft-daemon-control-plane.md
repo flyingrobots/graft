@@ -11,8 +11,6 @@ acceptance_criteria:
   - "graft daemon tui launches a terminal UI showing daemon state"
   - "Shows health, sessions, workspaces, monitors, worker pressure"
   - "Interactive actions: authorize/revoke workspace, pause/resume monitors"
-blocked_by:
-  - CORE_opt-in-daemon-mode-mcp-bootstrap
 ---
 
 # Bijou TUI for Graft daemon control plane
