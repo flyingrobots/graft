@@ -559,7 +559,7 @@ const activeCausalWorkspaceSchema = z.object({
   latestReadEvent: readEventSchema.nullable(),
   latestStageEvent: stageEventSchema.nullable(),
   latestTransitionEvent: transitionEventSchema.nullable(),
-  repoConcurrency: repoConcurrencySummarySchema,
+  repoConcurrency: repoConcurrencySummarySchema.nullable(),
   checkoutEpoch: z.number().int().nonnegative(),
   lastTransition: repoTransitionSchema.nullable(),
   semanticTransition: repoSemanticTransitionSchema.nullable(),

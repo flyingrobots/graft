@@ -2,9 +2,8 @@ import { describe, it, expect } from "vitest";
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
-import { nodeGit } from "../../../src/adapters/node-git.js";
 import { collectSymbols } from "../../../src/mcp/tools/precision.js";
-import { git, createTestRepo, cleanupTestRepo } from "../../helpers/git.js";
+import { git, createTestRepo, cleanupTestRepo, testGitClient } from "../../helpers/git.js";
 import { createServerInRepo, parse } from "../../helpers/mcp.js";
 import { openWarp } from "../../../src/warp/open.js";
 import { indexHead } from "../../../src/warp/index-head.js";
@@ -92,7 +91,7 @@ describe("mcp: code_show", () => {
       const c1 = git(tmpDir, "rev-parse HEAD");
 
       const warp = await openWarp({ cwd: tmpDir });
-      await indexHead({ cwd: tmpDir, git: nodeGit, pathOps: nodePathOps, ctx: { app: warp, strandId: null } });
+      await indexHead({ cwd: tmpDir, git: testGitClient, pathOps: nodePathOps, ctx: { app: warp, strandId: null } });
 
       fs.writeFileSync(
         path.join(tmpDir, "app.ts"),
@@ -101,7 +100,7 @@ describe("mcp: code_show", () => {
       git(tmpDir, "add -A");
       git(tmpDir, "commit -m v2");
 
-      await indexHead({ cwd: tmpDir, git: nodeGit, pathOps: nodePathOps, ctx: { app: warp, strandId: null } });
+      await indexHead({ cwd: tmpDir, git: testGitClient, pathOps: nodePathOps, ctx: { app: warp, strandId: null } });
 
       const server = createServerInRepo(tmpDir);
       const result = parse(await server.callTool("code_show", {
@@ -358,7 +357,7 @@ describe("mcp: code_find", () => {
       git(tmpDir, "commit -m init");
 
       const warp = await openWarp({ cwd: tmpDir });
-      await indexHead({ cwd: tmpDir, git: nodeGit, pathOps: nodePathOps, ctx: { app: warp, strandId: null } });
+      await indexHead({ cwd: tmpDir, git: testGitClient, pathOps: nodePathOps, ctx: { app: warp, strandId: null } });
 
       const server = createServerInRepo(tmpDir);
       const result = parse(await server.callTool("code_find", {
@@ -388,7 +387,7 @@ describe("mcp: code_find", () => {
       git(tmpDir, "commit -m init");
 
       const warp = await openWarp({ cwd: tmpDir });
-      await indexHead({ cwd: tmpDir, git: nodeGit, pathOps: nodePathOps, ctx: { app: warp, strandId: null } });
+      await indexHead({ cwd: tmpDir, git: testGitClient, pathOps: nodePathOps, ctx: { app: warp, strandId: null } });
 
       const server = createServerInRepo(tmpDir);
       const result = parse(await server.callTool("code_find", {
@@ -412,7 +411,7 @@ describe("mcp: code_find", () => {
       git(tmpDir, "commit -m init");
 
       const warp = await openWarp({ cwd: tmpDir });
-      await indexHead({ cwd: tmpDir, git: nodeGit, pathOps: nodePathOps, ctx: { app: warp, strandId: null } });
+      await indexHead({ cwd: tmpDir, git: testGitClient, pathOps: nodePathOps, ctx: { app: warp, strandId: null } });
 
       fs.writeFileSync(
         path.join(tmpDir, "src", "draft.ts"),

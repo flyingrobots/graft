@@ -87,6 +87,7 @@ interface WorkspaceRouterOptions {
   readonly authorizationPolicy?: WorkspaceAuthorizationPolicy | undefined;
   readonly sharedAttachPolicy?: WorkspaceSharedAttachPolicy | undefined;
   readonly persistedLocalHistory: PersistedLocalHistoryStore;
+  readonly persistedLocalHistoryGraph?: boolean;
 }
 
 export class WorkspaceRouter {
@@ -670,12 +671,18 @@ export class WorkspaceRouter {
   private async buildPersistedLocalHistoryGraphContext(
     binding: BoundWorkspace,
   ): Promise<PersistedLocalHistoryGraphContext | null> {
+    if (this.options.persistedLocalHistoryGraph === false) {
+      return null;
+    }
     return buildPersistedLocalHistoryGraphContext(binding.worktreeRoot, binding.getWarp);
   }
 
   private async buildPersistedLocalHistoryGraphContextFromExecution(
     execution: WorkspaceExecutionContext,
   ): Promise<PersistedLocalHistoryGraphContext | null> {
+    if (this.options.persistedLocalHistoryGraph === false) {
+      return null;
+    }
     return buildPersistedLocalHistoryGraphContext(execution.worktreeRoot, execution.getWarp);
   }
 }

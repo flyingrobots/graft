@@ -1,9 +1,8 @@
 import { describe, it, expect } from "vitest";
 import * as fs from "node:fs";
 import * as path from "node:path";
-import { nodeGit } from "../../../src/adapters/node-git.js";
 import { nodePathOps } from "../../../src/adapters/node-paths.js";
-import { git, createTestRepo, cleanupTestRepo } from "../../helpers/git.js";
+import { git, createTestRepo, cleanupTestRepo, testGitClient } from "../../helpers/git.js";
 import { createServerInRepo, parse } from "../../helpers/mcp.js";
 import { openWarp } from "../../../src/warp/open.js";
 import { indexHead } from "../../../src/warp/index-head.js";
@@ -25,7 +24,7 @@ describe("mcp: layered worldline model", { timeout: 15000 }, () => {
 
         const warp = await openWarp({ cwd: tmpDir });
         const ctx = { app: warp, strandId: null };
-        await indexHead({ cwd: tmpDir, git: nodeGit, pathOps: nodePathOps, ctx });
+        await indexHead({ cwd: tmpDir, git: testGitClient, pathOps: nodePathOps, ctx });
 
         fs.writeFileSync(
           path.join(tmpDir, "app.ts"),
@@ -34,7 +33,7 @@ describe("mcp: layered worldline model", { timeout: 15000 }, () => {
         git(tmpDir, "add -A");
         git(tmpDir, "commit -m v2");
 
-        await indexHead({ cwd: tmpDir, git: nodeGit, pathOps: nodePathOps, ctx });
+        await indexHead({ cwd: tmpDir, git: testGitClient, pathOps: nodePathOps, ctx });
 
         const server = createServerInRepo(tmpDir);
         const result = parse(await server.callTool("code_show", {
@@ -88,7 +87,7 @@ describe("mcp: layered worldline model", { timeout: 15000 }, () => {
 
         const warp = await openWarp({ cwd: tmpDir });
         const ctx = { app: warp, strandId: null };
-        await indexHead({ cwd: tmpDir, git: nodeGit, pathOps: nodePathOps, ctx });
+        await indexHead({ cwd: tmpDir, git: testGitClient, pathOps: nodePathOps, ctx });
 
         fs.writeFileSync(
           path.join(tmpDir, "src", "draft.ts"),

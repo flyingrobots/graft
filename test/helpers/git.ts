@@ -2,7 +2,8 @@ import * as fs from "node:fs";
 import * as path from "node:path";
 import * as os from "node:os";
 import { fileURLToPath } from "node:url";
-import { execSync } from "node:child_process";
+import { execSync, spawnSync } from "node:child_process";
+import type { GitClient, GitRunRequest } from "../../src/ports/git.js";
 
 const LIVE_REPO_ROOT = fs.realpathSync.native(
   path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../.."),
@@ -63,6 +64,30 @@ export function git(cwd: string, cmd: string): string {
     throw new Error(`git ${cmd} failed in ${cwd}${suffix}`, { cause: error });
   }
 }
+
+export function runIsolatedGit(request: GitRunRequest) {
+  assertIsolatedGitTestDir(request.cwd);
+  const result = spawnSync("git", [...request.args], {
+    cwd: request.cwd,
+    env: isolatedGitEnv(),
+    encoding: "utf-8",
+    stdio: ["ignore", "pipe", "pipe"],
+    ...(request.timeoutMs !== undefined ? { timeout: request.timeoutMs } : {}),
+    ...(request.maxBufferBytes !== undefined ? { maxBuffer: request.maxBufferBytes } : {}),
+  });
+  return {
+    status: result.status,
+    stdout: result.stdout,
+    stderr: result.stderr,
+    ...(result.error !== undefined ? { error: result.error } : {}),
+  };
+}
+
+export const testGitClient: GitClient = {
+  run(request: GitRunRequest) {
+    return Promise.resolve(runIsolatedGit(request));
+  },
+};
 
 /** Create a temp directory with an initialized git repo. */
 export function createTestRepo(prefix = "graft-test-"): string {

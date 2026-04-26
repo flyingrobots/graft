@@ -34,6 +34,8 @@ export interface StartDaemonServerOptions {
   readonly env?: Readonly<Record<string, string | undefined>> | undefined;
   readonly runCapture?: Partial<RunCaptureConfig> | undefined;
   readonly runtimeObservability?: Partial<RuntimeObservabilityState> | undefined;
+  readonly workerPoolSize?: number | undefined;
+  readonly persistedLocalHistoryGraph?: boolean | undefined;
 }
 
 export interface GraftDaemonServer {
@@ -55,7 +57,9 @@ export async function startDaemonServer(options: StartDaemonServerOptions = {}):
     graftDir,
   });
   const daemonScheduler = new DaemonJobScheduler();
-  const daemonWorkerPool = new ChildProcessDaemonWorkerPool();
+  const daemonWorkerPool = new ChildProcessDaemonWorkerPool({
+    ...(options.workerPoolSize !== undefined ? { size: options.workerPoolSize } : {}),
+  });
   const monitorRuntime = new PersistentMonitorRuntime({
     fs: nodeFs,
     codec: new CanonicalJsonCodec(),
@@ -102,6 +106,9 @@ export async function startDaemonServer(options: StartDaemonServerOptions = {}):
     ...(options.runCapture !== undefined ? { runCapture: options.runCapture } : {}),
     ...(options.runtimeObservability !== undefined
       ? { runtimeObservability: options.runtimeObservability }
+      : {}),
+    ...(options.persistedLocalHistoryGraph !== undefined
+      ? { persistedLocalHistoryGraph: options.persistedLocalHistoryGraph }
       : {}),
   });
 

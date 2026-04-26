@@ -3,7 +3,11 @@ import * as fs from "node:fs";
 import * as http from "node:http";
 import * as os from "node:os";
 import * as path from "node:path";
-import { startDaemonServer, type GraftDaemonServer } from "../../../src/mcp/daemon-server.js";
+import {
+  startDaemonServer,
+  type GraftDaemonServer,
+  type StartDaemonServerOptions,
+} from "../../../src/mcp/daemon-server.js";
 import { cleanupTestRepo, createTestRepo, git } from "../../helpers/git.js";
 
 interface JsonResponse {
@@ -147,6 +151,14 @@ async function waitFor<T>(
   throw new Error("Timed out waiting for expected daemon state");
 }
 
+async function startTestDaemonServer(options: StartDaemonServerOptions): Promise<GraftDaemonServer> {
+  return startDaemonServer({
+    workerPoolSize: 1,
+    persistedLocalHistoryGraph: false,
+    ...options,
+  });
+}
+
 describe("mcp: daemon transport and lifecycle", () => {
   const repos: string[] = [];
   const roots: string[] = [];
@@ -168,7 +180,7 @@ describe("mcp: daemon transport and lifecycle", () => {
     const rootDir = fs.mkdtempSync(path.join(os.tmpdir(), "graft-daemon-root-"));
     roots.push(rootDir);
     const socketPath = path.join(rootDir, "daemon.sock");
-    const daemon = await startDaemonServer({
+    const daemon = await startTestDaemonServer({
       graftDir: rootDir,
       socketPath,
     });
@@ -245,7 +257,7 @@ describe("mcp: daemon transport and lifecycle", () => {
     const rootDir = fs.mkdtempSync(path.join(os.tmpdir(), "graft-daemon-root-"));
     roots.push(rootDir);
     const socketPath = path.join(rootDir, "daemon.sock");
-    const daemon = await startDaemonServer({
+    const daemon = await startTestDaemonServer({
       graftDir: rootDir,
       socketPath,
     });
@@ -320,7 +332,7 @@ describe("mcp: daemon transport and lifecycle", () => {
     const rootDir = fs.mkdtempSync(path.join(os.tmpdir(), "graft-daemon-root-"));
     roots.push(rootDir);
     const socketPath = path.join(rootDir, "daemon.sock");
-    const daemon = await startDaemonServer({
+    const daemon = await startTestDaemonServer({
       graftDir: rootDir,
       socketPath,
     });
@@ -389,7 +401,7 @@ describe("mcp: daemon transport and lifecycle", () => {
     roots.push(rootDir);
     const socketPath = path.join(rootDir, "daemon.sock");
 
-    const daemonA = await startDaemonServer({
+    const daemonA = await startTestDaemonServer({
       graftDir: rootDir,
       socketPath,
     });
@@ -423,7 +435,7 @@ describe("mcp: daemon transport and lifecycle", () => {
     await daemonA.close();
     daemons.pop();
 
-    const daemonB = await startDaemonServer({
+    const daemonB = await startTestDaemonServer({
       graftDir: rootDir,
       socketPath,
     });

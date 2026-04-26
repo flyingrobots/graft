@@ -31,6 +31,8 @@ describe("integration: daemon-backed MCP bridge over stdio", () => {
     daemon = await startDaemonServer({
       graftDir: daemonRoot,
       socketPath,
+      workerPoolSize: 1,
+      persistedLocalHistoryGraph: false,
     });
 
     transport = new StdioClientTransport({
