@@ -23,7 +23,7 @@ digraph backlog {
   }
 
   subgraph cluster_cool_ideas {
-    label="Cool Ideas (75)" labeljust=l fontsize=9 fontcolor="#555555"
+    label="Cool Ideas (77)" labeljust=l fontsize=9 fontcolor="#555555"
     style=rounded color="#cccccc" bgcolor="#fafafa"
     cool_ideas_bounded_neighborhood_for_references [label="bounded-neighborhood-for-references - S" fillcolor="#D4E8F7" penwidth=1]
     cool_ideas_CI_001_causal_collapse_visualizer [label="CI-001-causal-collapse-visualizer - L" fillcolor="#D4E8F7" penwidth=1]
@@ -58,6 +58,8 @@ digraph backlog {
     cool_ideas_SURFACE_attach_to_existing_causal_session [label="SURFACE-attach-to-existing-causal-session - M" fillcolor="#D4E8F7" penwidth=1]
     cool_ideas_SURFACE_bijou_daemon_control_plane_actions [label="SURFACE-bijou-daemon-control-plane-actions - L" fillcolor="#D4E8F7" penwidth=1]
     cool_ideas_SURFACE_bijou_daemon_status_live_refresh [label="SURFACE-bijou-daemon-status-live-refresh - M" fillcolor="#D4E8F7" penwidth=1]
+    cool_ideas_SURFACE_git_graft_enhance_expanded_git_subcommands [label="SURFACE-git-graft-enhance-expanded-git-subcommands" fillcolor="#D4E8F7" penwidth=1]
+    cool_ideas_SURFACE_git_graft_enhance_provenance_hints [label="SURFACE-git-graft-enhance-provenance-hints" fillcolor="#D4E8F7" penwidth=1]
     cool_ideas_SURFACE_ide_native_graft_integration [label="SURFACE-ide-native-graft-integration - XL" fillcolor="#D4E8F7" penwidth=1]
     cool_ideas_SURFACE_local_history_dag_render_mode_and_count_legend [label="SURFACE-local-history-dag-render-mode-and-count-legend - S" fillcolor="#D4E8F7" penwidth=1]
     cool_ideas_SURFACE_non_codex_instruction_bootstrap_parity [label="SURFACE-non-codex-instruction-bootstrap-parity - M" fillcolor="#D4E8F7" penwidth=1]
@@ -129,6 +131,8 @@ digraph backlog {
   external_git_warp_observer_geometry_ladder__Rung_2_4_ -> v0_7_0_CORE_migrate_to_slice_first_reads [label="blocked_by_external" style=dashed color="#4477AA"]
   unresolved_CLEAN_CODE_export_diff_semver_signature_as_patch -> cool_ideas_WARP_auto_breaking_change_detection [label="blocked_by" style=dashed color="#CC3333"]
   unresolved_CLEAN_CODE_export_diff_semver_signature_as_patch -> cool_ideas_WARP_semantic_merge_conflict_prediction [label="blocked_by" style=dashed color="#CC3333"]
+  v0_7_0_CORE_git_graft_enhance -> cool_ideas_SURFACE_git_graft_enhance_expanded_git_subcommands [label="blocked_by"]
+  v0_7_0_CORE_git_graft_enhance -> cool_ideas_SURFACE_git_graft_enhance_provenance_hints [label="blocked_by"]
   v0_7_0_SURFACE_agent_dx_governed_edit -> v0_7_0_CORE_agent_drift_warning [label="blocked_by/blocking"]
   v0_7_0_SURFACE_agent_dx_governed_edit -> v0_7_0_SURFACE_governed_write_tools [label="blocked_by/blocking"]
 

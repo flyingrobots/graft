@@ -12,18 +12,18 @@
 <text xml:space="preserve" text-anchor="middle" x="5346" y="-359.6" font-family="Helvetica,sans-Serif" font-size="12.00">Active backlog graph generated from docs/method/backlog/*/*.md</text>
 <g id="clust1" class="cluster">
 <title>cluster_v0_7_0</title>
-<path fill="#fafafa" stroke="#cccccc" d="M20,-213.85C20,-213.85 519,-213.85 519,-213.85 525,-213.85 531,-219.85 531,-225.85 531,-225.85 531,-334.25 531,-334.25 531,-340.25 525,-346.25 519,-346.25 519,-346.25 20,-346.25 20,-346.25 14,-346.25 8,-340.25 8,-334.25 8,-334.25 8,-225.85 8,-225.85 8,-219.85 14,-213.85 20,-213.85"/>
-<text xml:space="preserve" text-anchor="middle" x="35.12" y="-333.7" font-family="Helvetica,sans-Serif" font-size="9.00" fill="#555555">v0.7.0 (7)</text>
+<path fill="#fafafa" stroke="#cccccc" d="M224,-213.85C224,-213.85 723,-213.85 723,-213.85 729,-213.85 735,-219.85 735,-225.85 735,-225.85 735,-334.25 735,-334.25 735,-340.25 729,-346.25 723,-346.25 723,-346.25 224,-346.25 224,-346.25 218,-346.25 212,-340.25 212,-334.25 212,-334.25 212,-225.85 212,-225.85 212,-219.85 218,-213.85 224,-213.85"/>
+<text xml:space="preserve" text-anchor="middle" x="239.12" y="-333.7" font-family="Helvetica,sans-Serif" font-size="9.00" fill="#555555">v0.7.0 (7)</text>
 </g>
 <g id="clust2" class="cluster">
 <title>cluster_cool_ideas</title>
 <path fill="#fafafa" stroke="#cccccc" d="M755,-140.4C755,-140.4 10284,-140.4 10284,-140.4 10290,-140.4 10296,-146.4 10296,-152.4 10296,-152.4 10296,-334.25 10296,-334.25 10296,-340.25 10290,-346.25 10284,-346.25 10284,-346.25 755,-346.25 755,-346.25 749,-346.25 743,-340.25 743,-334.25 743,-334.25 743,-152.4 743,-152.4 743,-146.4 749,-140.4 755,-140.4"/>
-<text xml:space="preserve" text-anchor="middle" x="782.5" y="-333.7" font-family="Helvetica,sans-Serif" font-size="9.00" fill="#555555">Cool Ideas (75)</text>
+<text xml:space="preserve" text-anchor="middle" x="782.5" y="-333.7" font-family="Helvetica,sans-Serif" font-size="9.00" fill="#555555">Cool Ideas (77)</text>
 </g>
 <g id="clust3" class="cluster">
 <title>cluster_external</title>
-<path fill="#f8fbff" stroke="#cccccc" d="M551,-287.3C551,-287.3 723,-287.3 723,-287.3 729,-287.3 735,-293.3 735,-299.3 735,-299.3 735,-334.25 735,-334.25 735,-340.25 729,-346.25 723,-346.25 723,-346.25 551,-346.25 551,-346.25 545,-346.25 539,-340.25 539,-334.25 539,-334.25 539,-299.3 539,-299.3 539,-293.3 545,-287.3 551,-287.3"/>
-<text xml:space="preserve" text-anchor="middle" x="582.25" y="-333.7" font-family="Helvetica,sans-Serif" font-size="9.00" fill="#555555">External blockers</text>
+<path fill="#f8fbff" stroke="#cccccc" d="M20,-287.3C20,-287.3 192,-287.3 192,-287.3 198,-287.3 204,-293.3 204,-299.3 204,-299.3 204,-334.25 204,-334.25 204,-340.25 198,-346.25 192,-346.25 192,-346.25 20,-346.25 20,-346.25 14,-346.25 8,-340.25 8,-334.25 8,-334.25 8,-299.3 8,-299.3 8,-293.3 14,-287.3 20,-287.3"/>
+<text xml:space="preserve" text-anchor="middle" x="51.25" y="-333.7" font-family="Helvetica,sans-Serif" font-size="9.00" fill="#555555">External blockers</text>
 </g>
 <g id="clust4" class="cluster">
 <title>cluster_unresolved</title>
@@ -38,58 +38,84 @@
 <!-- v0_7_0_CORE_agent_drift_warning -->
 <g id="node1" class="node">
 <title>v0_7_0_CORE_agent_drift_warning</title>
-<path fill="#ffa07a" stroke="black" stroke-width="2" d="M223.05,-247.05C223.05,-247.05 130.95,-247.05 130.95,-247.05 126.75,-247.05 122.55,-242.85 122.55,-238.65 122.55,-238.65 122.55,-230.25 122.55,-230.25 122.55,-226.05 126.75,-221.85 130.95,-221.85 130.95,-221.85 223.05,-221.85 223.05,-221.85 227.25,-221.85 231.45,-226.05 231.45,-230.25 231.45,-230.25 231.45,-238.65 231.45,-238.65 231.45,-242.85 227.25,-247.05 223.05,-247.05"/>
-<text xml:space="preserve" text-anchor="middle" x="177" y="-231.35" font-family="Helvetica,sans-Serif" font-size="8.00">CORE&#45;agent&#45;drift&#45;warning</text>
+<path fill="#ffa07a" stroke="black" stroke-width="2" d="M469.05,-247.05C469.05,-247.05 376.95,-247.05 376.95,-247.05 372.75,-247.05 368.55,-242.85 368.55,-238.65 368.55,-238.65 368.55,-230.25 368.55,-230.25 368.55,-226.05 372.75,-221.85 376.95,-221.85 376.95,-221.85 469.05,-221.85 469.05,-221.85 473.25,-221.85 477.45,-226.05 477.45,-230.25 477.45,-230.25 477.45,-238.65 477.45,-238.65 477.45,-242.85 473.25,-247.05 469.05,-247.05"/>
+<text xml:space="preserve" text-anchor="middle" x="423" y="-231.35" font-family="Helvetica,sans-Serif" font-size="8.00">CORE&#45;agent&#45;drift&#45;warning</text>
 </g>
 <!-- v0_7_0_CORE_git_graft_enhance -->
 <g id="node2" class="node">
 <title>v0_7_0_CORE_git_graft_enhance</title>
-<path fill="#ffa07a" stroke="black" stroke-width="2" d="M109.67,-320.5C109.67,-320.5 24.33,-320.5 24.33,-320.5 20.13,-320.5 15.92,-316.3 15.92,-312.1 15.92,-312.1 15.92,-303.7 15.92,-303.7 15.92,-299.5 20.13,-295.3 24.33,-295.3 24.33,-295.3 109.67,-295.3 109.67,-295.3 113.87,-295.3 118.08,-299.5 118.08,-303.7 118.08,-303.7 118.08,-312.1 118.08,-312.1 118.08,-316.3 113.88,-320.5 109.67,-320.5"/>
-<text xml:space="preserve" text-anchor="middle" x="67" y="-304.8" font-family="Helvetica,sans-Serif" font-size="8.00">CORE&#45;git&#45;graft&#45;enhance</text>
+<path fill="#ffa07a" stroke="black" stroke-width="2" d="M610.68,-320.5C610.68,-320.5 525.32,-320.5 525.32,-320.5 521.12,-320.5 516.92,-316.3 516.92,-312.1 516.92,-312.1 516.92,-303.7 516.92,-303.7 516.92,-299.5 521.12,-295.3 525.32,-295.3 525.32,-295.3 610.68,-295.3 610.68,-295.3 614.88,-295.3 619.08,-299.5 619.08,-303.7 619.08,-303.7 619.08,-312.1 619.08,-312.1 619.08,-316.3 614.88,-320.5 610.68,-320.5"/>
+<text xml:space="preserve" text-anchor="middle" x="568" y="-304.8" font-family="Helvetica,sans-Serif" font-size="8.00">CORE&#45;git&#45;graft&#45;enhance</text>
+</g>
+<!-- cool_ideas_SURFACE_git_graft_enhance_expanded_git_subcommands -->
+<g id="node41" class="node">
+<title>cool_ideas_SURFACE_git_graft_enhance_expanded_git_subcommands</title>
+<path fill="#d4e8f7" stroke="black" d="M964.3,-247.05C964.3,-247.05 759.7,-247.05 759.7,-247.05 755.5,-247.05 751.3,-242.85 751.3,-238.65 751.3,-238.65 751.3,-230.25 751.3,-230.25 751.3,-226.05 755.5,-221.85 759.7,-221.85 759.7,-221.85 964.3,-221.85 964.3,-221.85 968.5,-221.85 972.7,-226.05 972.7,-230.25 972.7,-230.25 972.7,-238.65 972.7,-238.65 972.7,-242.85 968.5,-247.05 964.3,-247.05"/>
+<text xml:space="preserve" text-anchor="middle" x="862" y="-231.35" font-family="Helvetica,sans-Serif" font-size="8.00">SURFACE&#45;git&#45;graft&#45;enhance&#45;expanded&#45;git&#45;subcommands</text>
+</g>
+<!-- v0_7_0_CORE_git_graft_enhance&#45;&gt;cool_ideas_SURFACE_git_graft_enhance_expanded_git_subcommands -->
+<g id="edge16" class="edge">
+<title>v0_7_0_CORE_git_graft_enhance&#45;&gt;cool_ideas_SURFACE_git_graft_enhance_expanded_git_subcommands</title>
+<path fill="none" stroke="#666666" d="M603.08,-294.36C610.6,-291.86 618.52,-289.38 626,-287.3 681.12,-271.98 744.49,-258.27 791.67,-248.8"/>
+<polygon fill="#666666" stroke="#666666" points="791.88,-250.54 796.44,-247.85 791.2,-247.11 791.88,-250.54"/>
+<text xml:space="preserve" text-anchor="middle" x="720.91" y="-268.65" font-family="Helvetica,sans-Serif" font-size="7.00">blocked_by</text>
+</g>
+<!-- cool_ideas_SURFACE_git_graft_enhance_provenance_hints -->
+<g id="node42" class="node">
+<title>cool_ideas_SURFACE_git_graft_enhance_provenance_hints</title>
+<path fill="#d4e8f7" stroke="black" d="M1160.42,-247.05C1160.42,-247.05 995.57,-247.05 995.57,-247.05 991.38,-247.05 987.17,-242.85 987.17,-238.65 987.17,-238.65 987.17,-230.25 987.17,-230.25 987.17,-226.05 991.38,-221.85 995.57,-221.85 995.57,-221.85 1160.42,-221.85 1160.42,-221.85 1164.62,-221.85 1168.83,-226.05 1168.83,-230.25 1168.83,-230.25 1168.83,-238.65 1168.83,-238.65 1168.83,-242.85 1164.62,-247.05 1160.42,-247.05"/>
+<text xml:space="preserve" text-anchor="middle" x="1078" y="-231.35" font-family="Helvetica,sans-Serif" font-size="8.00">SURFACE&#45;git&#45;graft&#45;enhance&#45;provenance&#45;hints</text>
+</g>
+<!-- v0_7_0_CORE_git_graft_enhance&#45;&gt;cool_ideas_SURFACE_git_graft_enhance_provenance_hints -->
+<g id="edge17" class="edge">
+<title>v0_7_0_CORE_git_graft_enhance&#45;&gt;cool_ideas_SURFACE_git_graft_enhance_provenance_hints</title>
+<path fill="none" stroke="#666666" d="M601.07,-294.31C609.13,-291.64 617.8,-289.09 626,-287.3 676.64,-276.27 690.49,-281.02 742,-275.3 822.31,-266.38 913.33,-255.54 980.36,-247.42"/>
+<polygon fill="#666666" stroke="#666666" points="980.52,-249.17 985.27,-246.83 980.1,-245.69 980.52,-249.17"/>
+<text xml:space="preserve" text-anchor="middle" x="823.97" y="-268.65" font-family="Helvetica,sans-Serif" font-size="7.00">blocked_by</text>
 </g>
 <!-- v0_7_0_CORE_migrate_path_ops_to_port -->
 <g id="node3" class="node">
 <title>v0_7_0_CORE_migrate_path_ops_to_port</title>
-<path fill="#ffa07a" stroke="black" stroke-width="2" d="M253.17,-320.5C253.17,-320.5 140.83,-320.5 140.83,-320.5 136.63,-320.5 132.43,-316.3 132.43,-312.1 132.43,-312.1 132.43,-303.7 132.43,-303.7 132.43,-299.5 136.63,-295.3 140.83,-295.3 140.83,-295.3 253.17,-295.3 253.17,-295.3 257.38,-295.3 261.57,-299.5 261.57,-303.7 261.57,-303.7 261.57,-312.1 261.57,-312.1 261.57,-316.3 257.38,-320.5 253.17,-320.5"/>
-<text xml:space="preserve" text-anchor="middle" x="197" y="-304.8" font-family="Helvetica,sans-Serif" font-size="8.00">CORE&#45;migrate&#45;path&#45;ops&#45;to&#45;port</text>
+<path fill="#ffa07a" stroke="black" stroke-width="2" d="M494.17,-320.5C494.17,-320.5 381.83,-320.5 381.83,-320.5 377.62,-320.5 373.43,-316.3 373.43,-312.1 373.43,-312.1 373.43,-303.7 373.43,-303.7 373.43,-299.5 377.62,-295.3 381.83,-295.3 381.83,-295.3 494.17,-295.3 494.17,-295.3 498.38,-295.3 502.57,-299.5 502.57,-303.7 502.57,-303.7 502.57,-312.1 502.57,-312.1 502.57,-316.3 498.38,-320.5 494.17,-320.5"/>
+<text xml:space="preserve" text-anchor="middle" x="438" y="-304.8" font-family="Helvetica,sans-Serif" font-size="8.00">CORE&#45;migrate&#45;path&#45;ops&#45;to&#45;port</text>
 </g>
 <!-- v0_7_0_CORE_migrate_to_slice_first_reads -->
 <g id="node4" class="node">
 <title>v0_7_0_CORE_migrate_to_slice_first_reads</title>
-<path fill="#ffa07a" stroke="black" stroke-width="2" d="M514.8,-247.05C514.8,-247.05 397.2,-247.05 397.2,-247.05 393,-247.05 388.8,-242.85 388.8,-238.65 388.8,-238.65 388.8,-230.25 388.8,-230.25 388.8,-226.05 393,-221.85 397.2,-221.85 397.2,-221.85 514.8,-221.85 514.8,-221.85 519,-221.85 523.2,-226.05 523.2,-230.25 523.2,-230.25 523.2,-238.65 523.2,-238.65 523.2,-242.85 519,-247.05 514.8,-247.05"/>
-<text xml:space="preserve" text-anchor="middle" x="456" y="-231.35" font-family="Helvetica,sans-Serif" font-size="8.00">CORE&#45;migrate&#45;to&#45;slice&#45;first&#45;reads</text>
+<path fill="#ffa07a" stroke="black" stroke-width="2" d="M345.8,-247.05C345.8,-247.05 228.2,-247.05 228.2,-247.05 224,-247.05 219.8,-242.85 219.8,-238.65 219.8,-238.65 219.8,-230.25 219.8,-230.25 219.8,-226.05 224,-221.85 228.2,-221.85 228.2,-221.85 345.8,-221.85 345.8,-221.85 350,-221.85 354.2,-226.05 354.2,-230.25 354.2,-230.25 354.2,-238.65 354.2,-238.65 354.2,-242.85 350,-247.05 345.8,-247.05"/>
+<text xml:space="preserve" text-anchor="middle" x="287" y="-231.35" font-family="Helvetica,sans-Serif" font-size="8.00">CORE&#45;migrate&#45;to&#45;slice&#45;first&#45;reads</text>
 </g>
 <!-- v0_7_0_SURFACE_agent_dx_governed_edit -->
 <g id="node5" class="node">
 <title>v0_7_0_SURFACE_agent_dx_governed_edit</title>
-<path fill="#ffa07a" stroke="black" stroke-width="2" d="M406.42,-320.5C406.42,-320.5 283.58,-320.5 283.58,-320.5 279.38,-320.5 275.18,-316.3 275.18,-312.1 275.18,-312.1 275.18,-303.7 275.18,-303.7 275.18,-299.5 279.38,-295.3 283.58,-295.3 283.58,-295.3 406.42,-295.3 406.42,-295.3 410.62,-295.3 414.82,-299.5 414.82,-303.7 414.82,-303.7 414.82,-312.1 414.82,-312.1 414.82,-316.3 410.62,-320.5 406.42,-320.5"/>
-<text xml:space="preserve" text-anchor="middle" x="345" y="-304.8" font-family="Helvetica,sans-Serif" font-size="8.00">SURFACE&#45;agent&#45;dx&#45;governed&#45;edit</text>
+<path fill="#ffa07a" stroke="black" stroke-width="2" d="M351.42,-320.5C351.42,-320.5 228.58,-320.5 228.58,-320.5 224.38,-320.5 220.18,-316.3 220.18,-312.1 220.18,-312.1 220.18,-303.7 220.18,-303.7 220.18,-299.5 224.38,-295.3 228.58,-295.3 228.58,-295.3 351.42,-295.3 351.42,-295.3 355.62,-295.3 359.82,-299.5 359.82,-303.7 359.82,-303.7 359.82,-312.1 359.82,-312.1 359.82,-316.3 355.62,-320.5 351.42,-320.5"/>
+<text xml:space="preserve" text-anchor="middle" x="290" y="-304.8" font-family="Helvetica,sans-Serif" font-size="8.00">SURFACE&#45;agent&#45;dx&#45;governed&#45;edit</text>
 </g>
 <!-- v0_7_0_SURFACE_agent_dx_governed_edit&#45;&gt;v0_7_0_CORE_agent_drift_warning -->
-<g id="edge16" class="edge">
+<g id="edge18" class="edge">
 <title>v0_7_0_SURFACE_agent_dx_governed_edit&#45;&gt;v0_7_0_CORE_agent_drift_warning</title>
-<path fill="none" stroke="#666666" d="M309.15,-294.4C293.87,-288.86 275.94,-282.07 260,-275.3 242.18,-267.73 222.64,-258.4 207,-250.67"/>
-<polygon fill="#666666" stroke="#666666" points="208.04,-249.23 202.78,-248.58 206.48,-252.37 208.04,-249.23"/>
-<text xml:space="preserve" text-anchor="middle" x="291.5" y="-268.65" font-family="Helvetica,sans-Serif" font-size="7.00">blocked_by/blocking</text>
+<path fill="none" stroke="#666666" d="M313.17,-294.45C335.63,-282.39 369.77,-264.04 394.02,-251.02"/>
+<polygon fill="#666666" stroke="#666666" points="394.74,-252.62 398.32,-248.71 393.09,-249.53 394.74,-252.62"/>
+<text xml:space="preserve" text-anchor="middle" x="391.99" y="-268.65" font-family="Helvetica,sans-Serif" font-size="7.00">blocked_by/blocking</text>
 </g>
 <!-- v0_7_0_SURFACE_governed_write_tools -->
 <g id="node6" class="node">
 <title>v0_7_0_SURFACE_governed_write_tools</title>
-<path fill="#ffa07a" stroke="black" stroke-width="2" d="M366.18,-247.05C366.18,-247.05 253.83,-247.05 253.83,-247.05 249.62,-247.05 245.43,-242.85 245.43,-238.65 245.43,-238.65 245.43,-230.25 245.43,-230.25 245.43,-226.05 249.62,-221.85 253.83,-221.85 253.83,-221.85 366.18,-221.85 366.18,-221.85 370.38,-221.85 374.57,-226.05 374.57,-230.25 374.57,-230.25 374.57,-238.65 374.57,-238.65 374.57,-242.85 370.38,-247.05 366.18,-247.05"/>
-<text xml:space="preserve" text-anchor="middle" x="310" y="-231.35" font-family="Helvetica,sans-Serif" font-size="8.00">SURFACE&#45;governed&#45;write&#45;tools</text>
+<path fill="#ffa07a" stroke="black" stroke-width="2" d="M612.18,-247.05C612.18,-247.05 499.82,-247.05 499.82,-247.05 495.62,-247.05 491.43,-242.85 491.43,-238.65 491.43,-238.65 491.43,-230.25 491.43,-230.25 491.43,-226.05 495.62,-221.85 499.82,-221.85 499.82,-221.85 612.18,-221.85 612.18,-221.85 616.38,-221.85 620.58,-226.05 620.58,-230.25 620.58,-230.25 620.58,-238.65 620.58,-238.65 620.58,-242.85 616.38,-247.05 612.18,-247.05"/>
+<text xml:space="preserve" text-anchor="middle" x="556" y="-231.35" font-family="Helvetica,sans-Serif" font-size="8.00">SURFACE&#45;governed&#45;write&#45;tools</text>
 </g>
 <!-- v0_7_0_SURFACE_agent_dx_governed_edit&#45;&gt;v0_7_0_SURFACE_governed_write_tools -->
-<g id="edge17" class="edge">
+<g id="edge19" class="edge">
 <title>v0_7_0_SURFACE_agent_dx_governed_edit&#45;&gt;v0_7_0_SURFACE_governed_write_tools</title>
-<path fill="none" stroke="#666666" d="M338.9,-294.45C333.33,-283.08 325.03,-266.13 318.75,-253.32"/>
-<polygon fill="#666666" stroke="#666666" points="320.46,-252.83 316.69,-249.11 317.32,-254.37 320.46,-252.83"/>
-<text xml:space="preserve" text-anchor="middle" x="360.05" y="-268.65" font-family="Helvetica,sans-Serif" font-size="7.00">blocked_by/blocking</text>
+<path fill="none" stroke="#666666" d="M336.93,-294.37C346.52,-291.93 356.57,-289.46 366,-287.3 392.51,-281.24 399.63,-281.96 426,-275.3 455.24,-267.91 487.67,-257.98 512.83,-249.87"/>
+<polygon fill="#666666" stroke="#666666" points="513.08,-251.63 517.29,-248.43 512,-248.3 513.08,-251.63"/>
+<text xml:space="preserve" text-anchor="middle" x="486.26" y="-268.65" font-family="Helvetica,sans-Serif" font-size="7.00">blocked_by/blocking</text>
 </g>
 <!-- v0_7_0_WARP_lsp_enrichment -->
 <g id="node7" class="node">
 <title>v0_7_0_WARP_lsp_enrichment</title>
-<path fill="#ffa07a" stroke="black" stroke-width="2" d="M514.55,-320.5C514.55,-320.5 437.45,-320.5 437.45,-320.5 433.25,-320.5 429.05,-316.3 429.05,-312.1 429.05,-312.1 429.05,-303.7 429.05,-303.7 429.05,-299.5 433.25,-295.3 437.45,-295.3 437.45,-295.3 514.55,-295.3 514.55,-295.3 518.75,-295.3 522.95,-299.5 522.95,-303.7 522.95,-303.7 522.95,-312.1 522.95,-312.1 522.95,-316.3 518.75,-320.5 514.55,-320.5"/>
-<text xml:space="preserve" text-anchor="middle" x="476" y="-304.8" font-family="Helvetica,sans-Serif" font-size="8.00">WARP&#45;lsp&#45;enrichment</text>
+<path fill="#ffa07a" stroke="black" stroke-width="2" d="M718.55,-320.5C718.55,-320.5 641.45,-320.5 641.45,-320.5 637.25,-320.5 633.05,-316.3 633.05,-312.1 633.05,-312.1 633.05,-303.7 633.05,-303.7 633.05,-299.5 637.25,-295.3 641.45,-295.3 641.45,-295.3 718.55,-295.3 718.55,-295.3 722.75,-295.3 726.95,-299.5 726.95,-303.7 726.95,-303.7 726.95,-312.1 726.95,-312.1 726.95,-316.3 722.75,-320.5 718.55,-320.5"/>
+<text xml:space="preserve" text-anchor="middle" x="680" y="-304.8" font-family="Helvetica,sans-Serif" font-size="8.00">WARP&#45;lsp&#45;enrichment</text>
 </g>
 <!-- cool_ideas_bounded_neighborhood_for_references -->
 <g id="node8" class="node">
@@ -266,7 +292,7 @@
 <text xml:space="preserve" text-anchor="middle" x="4868" y="-304.8" font-family="Helvetica,sans-Serif" font-size="8.00">monitor&#45;tick&#45;ceiling&#45;tracking &#45; S</text>
 </g>
 <!-- cool_ideas_WARP_background_indexing -->
-<g id="node50" class="node">
+<g id="node52" class="node">
 <title>cool_ideas_WARP_background_indexing</title>
 <path fill="#d4e8f7" stroke="black" d="M4924.55,-247.05C4924.55,-247.05 4811.45,-247.05 4811.45,-247.05 4807.25,-247.05 4803.05,-242.85 4803.05,-238.65 4803.05,-238.65 4803.05,-230.25 4803.05,-230.25 4803.05,-226.05 4807.25,-221.85 4811.45,-221.85 4811.45,-221.85 4924.55,-221.85 4924.55,-221.85 4928.75,-221.85 4932.95,-226.05 4932.95,-230.25 4932.95,-230.25 4932.95,-238.65 4932.95,-238.65 4932.95,-242.85 4928.75,-247.05 4924.55,-247.05"/>
 <text xml:space="preserve" text-anchor="middle" x="4868" y="-231.35" font-family="Helvetica,sans-Serif" font-size="8.00">WARP&#45;background&#45;indexing &#45; M</text>
@@ -285,7 +311,7 @@
 <text xml:space="preserve" text-anchor="middle" x="5034" y="-304.8" font-family="Helvetica,sans-Serif" font-size="8.00">SURFACE&#45;active&#45;causal&#45;workspace&#45;status &#45; M</text>
 </g>
 <!-- cool_ideas_SURFACE_ide_native_graft_integration -->
-<g id="node41" class="node">
+<g id="node43" class="node">
 <title>cool_ideas_SURFACE_ide_native_graft_integration</title>
 <path fill="#d4e8f7" stroke="black" d="M5109.3,-247.05C5109.3,-247.05 4958.7,-247.05 4958.7,-247.05 4954.5,-247.05 4950.3,-242.85 4950.3,-238.65 4950.3,-238.65 4950.3,-230.25 4950.3,-230.25 4950.3,-226.05 4954.5,-221.85 4958.7,-221.85 4958.7,-221.85 5109.3,-221.85 5109.3,-221.85 5113.5,-221.85 5117.7,-226.05 5117.7,-230.25 5117.7,-230.25 5117.7,-238.65 5117.7,-238.65 5117.7,-242.85 5113.5,-247.05 5109.3,-247.05"/>
 <text xml:space="preserve" text-anchor="middle" x="5034" y="-231.35" font-family="Helvetica,sans-Serif" font-size="8.00">SURFACE&#45;ide&#45;native&#45;graft&#45;integration &#45; XL</text>
@@ -316,43 +342,43 @@
 <text xml:space="preserve" text-anchor="middle" x="5639" y="-304.8" font-family="Helvetica,sans-Serif" font-size="8.00">SURFACE&#45;bijou&#45;daemon&#45;status&#45;live&#45;refresh &#45; M</text>
 </g>
 <!-- cool_ideas_SURFACE_local_history_dag_render_mode_and_count_legend -->
-<g id="node42" class="node">
+<g id="node44" class="node">
 <title>cool_ideas_SURFACE_local_history_dag_render_mode_and_count_legend</title>
 <path fill="#d4e8f7" stroke="black" d="M5980.18,-320.5C5980.18,-320.5 5753.82,-320.5 5753.82,-320.5 5749.62,-320.5 5745.43,-316.3 5745.43,-312.1 5745.43,-312.1 5745.43,-303.7 5745.43,-303.7 5745.43,-299.5 5749.62,-295.3 5753.82,-295.3 5753.82,-295.3 5980.18,-295.3 5980.18,-295.3 5984.38,-295.3 5988.57,-299.5 5988.57,-303.7 5988.57,-303.7 5988.57,-312.1 5988.57,-312.1 5988.57,-316.3 5984.38,-320.5 5980.18,-320.5"/>
 <text xml:space="preserve" text-anchor="middle" x="5867" y="-304.8" font-family="Helvetica,sans-Serif" font-size="8.00">SURFACE&#45;local&#45;history&#45;dag&#45;render&#45;mode&#45;and&#45;count&#45;legend &#45; S</text>
 </g>
 <!-- cool_ideas_SURFACE_non_codex_instruction_bootstrap_parity -->
-<g id="node43" class="node">
+<g id="node45" class="node">
 <title>cool_ideas_SURFACE_non_codex_instruction_bootstrap_parity</title>
 <path fill="#d4e8f7" stroke="black" d="M6199.43,-320.5C6199.43,-320.5 6010.57,-320.5 6010.57,-320.5 6006.38,-320.5 6002.18,-316.3 6002.18,-312.1 6002.18,-312.1 6002.18,-303.7 6002.18,-303.7 6002.18,-299.5 6006.38,-295.3 6010.57,-295.3 6010.57,-295.3 6199.43,-295.3 6199.43,-295.3 6203.62,-295.3 6207.82,-299.5 6207.82,-303.7 6207.82,-303.7 6207.82,-312.1 6207.82,-312.1 6207.82,-316.3 6203.62,-320.5 6199.43,-320.5"/>
 <text xml:space="preserve" text-anchor="middle" x="6105" y="-304.8" font-family="Helvetica,sans-Serif" font-size="8.00">SURFACE&#45;non&#45;codex&#45;instruction&#45;bootstrap&#45;parity &#45; M</text>
 </g>
 <!-- cool_ideas_SURFACE_offer_rename_refactor -->
-<g id="node44" class="node">
+<g id="node46" class="node">
 <title>cool_ideas_SURFACE_offer_rename_refactor</title>
 <path fill="#d4e8f7" stroke="black" d="M6359.43,-320.5C6359.43,-320.5 6230.57,-320.5 6230.57,-320.5 6226.38,-320.5 6222.18,-316.3 6222.18,-312.1 6222.18,-312.1 6222.18,-303.7 6222.18,-303.7 6222.18,-299.5 6226.38,-295.3 6230.57,-295.3 6230.57,-295.3 6359.43,-295.3 6359.43,-295.3 6363.62,-295.3 6367.82,-299.5 6367.82,-303.7 6367.82,-303.7 6367.82,-312.1 6367.82,-312.1 6367.82,-316.3 6363.62,-320.5 6359.43,-320.5"/>
 <text xml:space="preserve" text-anchor="middle" x="6295" y="-304.8" font-family="Helvetica,sans-Serif" font-size="8.00">SURFACE&#45;offer&#45;rename&#45;refactor &#45; L</text>
 </g>
 <!-- cool_ideas_SURFACE_terminal_activity_browser_tui -->
-<g id="node45" class="node">
+<g id="node47" class="node">
 <title>cool_ideas_SURFACE_terminal_activity_browser_tui</title>
 <path fill="#d4e8f7" stroke="black" d="M6539.55,-320.5C6539.55,-320.5 6390.45,-320.5 6390.45,-320.5 6386.25,-320.5 6382.05,-316.3 6382.05,-312.1 6382.05,-312.1 6382.05,-303.7 6382.05,-303.7 6382.05,-299.5 6386.25,-295.3 6390.45,-295.3 6390.45,-295.3 6539.55,-295.3 6539.55,-295.3 6543.75,-295.3 6547.95,-299.5 6547.95,-303.7 6547.95,-303.7 6547.95,-312.1 6547.95,-312.1 6547.95,-316.3 6543.75,-320.5 6539.55,-320.5"/>
 <text xml:space="preserve" text-anchor="middle" x="6465" y="-304.8" font-family="Helvetica,sans-Serif" font-size="8.00">SURFACE&#45;terminal&#45;activity&#45;browser&#45;tui &#45; L</text>
 </g>
 <!-- cool_ideas_traverse_plus_query_hydration_helper -->
-<g id="node46" class="node">
+<g id="node48" class="node">
 <title>cool_ideas_traverse_plus_query_hydration_helper</title>
 <path fill="#d4e8f7" stroke="black" d="M6711.8,-320.5C6711.8,-320.5 6570.2,-320.5 6570.2,-320.5 6566,-320.5 6561.8,-316.3 6561.8,-312.1 6561.8,-312.1 6561.8,-303.7 6561.8,-303.7 6561.8,-299.5 6566,-295.3 6570.2,-295.3 6570.2,-295.3 6711.8,-295.3 6711.8,-295.3 6716,-295.3 6720.2,-299.5 6720.2,-303.7 6720.2,-303.7 6720.2,-312.1 6720.2,-312.1 6720.2,-316.3 6716,-320.5 6711.8,-320.5"/>
 <text xml:space="preserve" text-anchor="middle" x="6641" y="-304.8" font-family="Helvetica,sans-Serif" font-size="8.00">traverse&#45;plus&#45;query&#45;hydration&#45;helper &#45; S</text>
 </g>
 <!-- cool_ideas_WARP_adaptive_projection_selection -->
-<g id="node47" class="node">
+<g id="node49" class="node">
 <title>cool_ideas_WARP_adaptive_projection_selection</title>
 <path fill="#d4e8f7" stroke="black" d="M6880.93,-320.5C6880.93,-320.5 6743.07,-320.5 6743.07,-320.5 6738.88,-320.5 6734.68,-316.3 6734.68,-312.1 6734.68,-312.1 6734.68,-303.7 6734.68,-303.7 6734.68,-299.5 6738.88,-295.3 6743.07,-295.3 6743.07,-295.3 6880.93,-295.3 6880.93,-295.3 6885.12,-295.3 6889.32,-299.5 6889.32,-303.7 6889.32,-303.7 6889.32,-312.1 6889.32,-312.1 6889.32,-316.3 6885.12,-320.5 6880.93,-320.5"/>
 <text xml:space="preserve" text-anchor="middle" x="6812" y="-304.8" font-family="Helvetica,sans-Serif" font-size="8.00">WARP&#45;adaptive&#45;projection&#45;selection &#45; L</text>
 </g>
 <!-- cool_ideas_WARP_agent_action_provenance -->
-<g id="node48" class="node">
+<g id="node50" class="node">
 <title>cool_ideas_WARP_agent_action_provenance</title>
 <path fill="#d4e8f7" stroke="black" d="M7042.55,-320.5C7042.55,-320.5 6911.45,-320.5 6911.45,-320.5 6907.25,-320.5 6903.05,-316.3 6903.05,-312.1 6903.05,-312.1 6903.05,-303.7 6903.05,-303.7 6903.05,-299.5 6907.25,-295.3 6911.45,-295.3 6911.45,-295.3 7042.55,-295.3 7042.55,-295.3 7046.75,-295.3 7050.95,-299.5 7050.95,-303.7 7050.95,-303.7 7050.95,-312.1 7050.95,-312.1 7050.95,-316.3 7046.75,-320.5 7042.55,-320.5"/>
 <text xml:space="preserve" text-anchor="middle" x="6977" y="-304.8" font-family="Helvetica,sans-Serif" font-size="8.00">WARP&#45;agent&#45;action&#45;provenance &#45; XL</text>
@@ -365,7 +391,7 @@
 <text xml:space="preserve" text-anchor="middle" x="7089.14" y="-268.65" font-family="Helvetica,sans-Serif" font-size="7.00">blocked_by/blocking</text>
 </g>
 <!-- cool_ideas_WARP_causal_write_tracking -->
-<g id="node53" class="node">
+<g id="node55" class="node">
 <title>cool_ideas_WARP_causal_write_tracking</title>
 <path fill="#d4e8f7" stroke="black" d="M6735.05,-247.05C6735.05,-247.05 6624.95,-247.05 6624.95,-247.05 6620.75,-247.05 6616.55,-242.85 6616.55,-238.65 6616.55,-238.65 6616.55,-230.25 6616.55,-230.25 6616.55,-226.05 6620.75,-221.85 6624.95,-221.85 6624.95,-221.85 6735.05,-221.85 6735.05,-221.85 6739.25,-221.85 6743.45,-226.05 6743.45,-230.25 6743.45,-230.25 6743.45,-238.65 6743.45,-238.65 6743.45,-242.85 6739.25,-247.05 6735.05,-247.05"/>
 <text xml:space="preserve" text-anchor="middle" x="6680" y="-231.35" font-family="Helvetica,sans-Serif" font-size="8.00">WARP&#45;causal&#45;write&#45;tracking &#45; L</text>
@@ -378,7 +404,7 @@
 <text xml:space="preserve" text-anchor="middle" x="6861.5" y="-268.65" font-family="Helvetica,sans-Serif" font-size="7.00">blocked_by/blocking</text>
 </g>
 <!-- cool_ideas_WARP_intent_and_decision_events -->
-<g id="node63" class="node">
+<g id="node65" class="node">
 <title>cool_ideas_WARP_intent_and_decision_events</title>
 <path fill="#d4e8f7" stroke="black" d="M6898.3,-247.05C6898.3,-247.05 6765.7,-247.05 6765.7,-247.05 6761.5,-247.05 6757.3,-242.85 6757.3,-238.65 6757.3,-238.65 6757.3,-230.25 6757.3,-230.25 6757.3,-226.05 6761.5,-221.85 6765.7,-221.85 6765.7,-221.85 6898.3,-221.85 6898.3,-221.85 6902.5,-221.85 6906.7,-226.05 6906.7,-230.25 6906.7,-230.25 6906.7,-238.65 6906.7,-238.65 6906.7,-242.85 6902.5,-247.05 6898.3,-247.05"/>
 <text xml:space="preserve" text-anchor="middle" x="6832" y="-231.35" font-family="Helvetica,sans-Serif" font-size="8.00">WARP&#45;intent&#45;and&#45;decision&#45;events &#45; M</text>
@@ -391,7 +417,7 @@
 <text xml:space="preserve" text-anchor="middle" x="6942.5" y="-268.65" font-family="Helvetica,sans-Serif" font-size="7.00">blocked_by/blocking</text>
 </g>
 <!-- cool_ideas_WARP_provenance_dag -->
-<g id="node68" class="node">
+<g id="node70" class="node">
 <title>cool_ideas_WARP_provenance_dag</title>
 <path fill="#d4e8f7" stroke="black" d="M7024.55,-247.05C7024.55,-247.05 6929.45,-247.05 6929.45,-247.05 6925.25,-247.05 6921.05,-242.85 6921.05,-238.65 6921.05,-238.65 6921.05,-230.25 6921.05,-230.25 6921.05,-226.05 6925.25,-221.85 6929.45,-221.85 6929.45,-221.85 7024.55,-221.85 7024.55,-221.85 7028.75,-221.85 7032.95,-226.05 7032.95,-230.25 7032.95,-230.25 7032.95,-238.65 7032.95,-238.65 7032.95,-242.85 7028.75,-247.05 7024.55,-247.05"/>
 <text xml:space="preserve" text-anchor="middle" x="6977" y="-231.35" font-family="Helvetica,sans-Serif" font-size="8.00">WARP&#45;provenance&#45;dag &#45; L</text>
@@ -404,31 +430,31 @@
 <text xml:space="preserve" text-anchor="middle" x="7008.5" y="-268.65" font-family="Helvetica,sans-Serif" font-size="7.00">blocked_by/blocking</text>
 </g>
 <!-- cool_ideas_WARP_auto_breaking_change_detection -->
-<g id="node49" class="node">
+<g id="node51" class="node">
 <title>cool_ideas_WARP_auto_breaking_change_detection</title>
-<path fill="#d4e8f7" stroke="black" d="M10089.3,-247.05C10089.3,-247.05 9938.7,-247.05 9938.7,-247.05 9934.5,-247.05 9930.3,-242.85 9930.3,-238.65 9930.3,-238.65 9930.3,-230.25 9930.3,-230.25 9930.3,-226.05 9934.5,-221.85 9938.7,-221.85 9938.7,-221.85 10089.3,-221.85 10089.3,-221.85 10093.5,-221.85 10097.7,-226.05 10097.7,-230.25 10097.7,-230.25 10097.7,-238.65 10097.7,-238.65 10097.7,-242.85 10093.5,-247.05 10089.3,-247.05"/>
-<text xml:space="preserve" text-anchor="middle" x="10014" y="-231.35" font-family="Helvetica,sans-Serif" font-size="8.00">WARP&#45;auto&#45;breaking&#45;change&#45;detection &#45; L</text>
+<path fill="#d4e8f7" stroke="black" d="M10279.3,-247.05C10279.3,-247.05 10128.7,-247.05 10128.7,-247.05 10124.5,-247.05 10120.3,-242.85 10120.3,-238.65 10120.3,-238.65 10120.3,-230.25 10120.3,-230.25 10120.3,-226.05 10124.5,-221.85 10128.7,-221.85 10128.7,-221.85 10279.3,-221.85 10279.3,-221.85 10283.5,-221.85 10287.7,-226.05 10287.7,-230.25 10287.7,-230.25 10287.7,-238.65 10287.7,-238.65 10287.7,-242.85 10283.5,-247.05 10279.3,-247.05"/>
+<text xml:space="preserve" text-anchor="middle" x="10204" y="-231.35" font-family="Helvetica,sans-Serif" font-size="8.00">WARP&#45;auto&#45;breaking&#45;change&#45;detection &#45; L</text>
 </g>
 <!-- cool_ideas_WARP_budget_elasticity -->
-<g id="node51" class="node">
+<g id="node53" class="node">
 <title>cool_ideas_WARP_budget_elasticity</title>
 <path fill="#d4e8f7" stroke="black" d="M7168.93,-320.5C7168.93,-320.5 7073.07,-320.5 7073.07,-320.5 7068.88,-320.5 7064.68,-316.3 7064.68,-312.1 7064.68,-312.1 7064.68,-303.7 7064.68,-303.7 7064.68,-299.5 7068.88,-295.3 7073.07,-295.3 7073.07,-295.3 7168.93,-295.3 7168.93,-295.3 7173.12,-295.3 7177.32,-299.5 7177.32,-303.7 7177.32,-303.7 7177.32,-312.1 7177.32,-312.1 7177.32,-316.3 7173.12,-320.5 7168.93,-320.5"/>
 <text xml:space="preserve" text-anchor="middle" x="7121" y="-304.8" font-family="Helvetica,sans-Serif" font-size="8.00">WARP&#45;budget&#45;elasticity &#45; M</text>
 </g>
 <!-- cool_ideas_WARP_causal_blame_for_staged_artifacts -->
-<g id="node52" class="node">
+<g id="node54" class="node">
 <title>cool_ideas_WARP_causal_blame_for_staged_artifacts</title>
 <path fill="#d4e8f7" stroke="black" d="M7128.18,-173.6C7128.18,-173.6 6973.82,-173.6 6973.82,-173.6 6969.62,-173.6 6965.43,-169.4 6965.43,-165.2 6965.43,-165.2 6965.43,-156.8 6965.43,-156.8 6965.43,-152.6 6969.62,-148.4 6973.82,-148.4 6973.82,-148.4 7128.18,-148.4 7128.18,-148.4 7132.38,-148.4 7136.57,-152.6 7136.57,-156.8 7136.57,-156.8 7136.57,-165.2 7136.57,-165.2 7136.57,-169.4 7132.38,-173.6 7128.18,-173.6"/>
 <text xml:space="preserve" text-anchor="middle" x="7051" y="-157.9" font-family="Helvetica,sans-Serif" font-size="8.00">WARP&#45;causal&#45;blame&#45;for&#45;staged&#45;artifacts &#45; L</text>
 </g>
 <!-- cool_ideas_WARP_codebase_entropy_trajectory -->
-<g id="node54" class="node">
+<g id="node56" class="node">
 <title>cool_ideas_WARP_codebase_entropy_trajectory</title>
 <path fill="#d4e8f7" stroke="black" d="M7338.68,-320.5C7338.68,-320.5 7199.32,-320.5 7199.32,-320.5 7195.12,-320.5 7190.93,-316.3 7190.93,-312.1 7190.93,-312.1 7190.93,-303.7 7190.93,-303.7 7190.93,-299.5 7195.12,-295.3 7199.32,-295.3 7199.32,-295.3 7338.68,-295.3 7338.68,-295.3 7342.88,-295.3 7347.07,-299.5 7347.07,-303.7 7347.07,-303.7 7347.07,-312.1 7347.07,-312.1 7347.07,-316.3 7342.88,-320.5 7338.68,-320.5"/>
 <text xml:space="preserve" text-anchor="middle" x="7269" y="-304.8" font-family="Helvetica,sans-Serif" font-size="8.00">WARP&#45;codebase&#45;entropy&#45;trajectory &#45; M</text>
 </g>
 <!-- cool_ideas_WARP_counterfactual_refactoring -->
-<g id="node56" class="node">
+<g id="node58" class="node">
 <title>cool_ideas_WARP_counterfactual_refactoring</title>
 <path fill="#d4e8f7" stroke="black" d="M7346.68,-247.05C7346.68,-247.05 7213.32,-247.05 7213.32,-247.05 7209.12,-247.05 7204.93,-242.85 7204.93,-238.65 7204.93,-238.65 7204.93,-230.25 7204.93,-230.25 7204.93,-226.05 7209.12,-221.85 7213.32,-221.85 7213.32,-221.85 7346.68,-221.85 7346.68,-221.85 7350.88,-221.85 7355.07,-226.05 7355.07,-230.25 7355.07,-230.25 7355.07,-238.65 7355.07,-238.65 7355.07,-242.85 7350.88,-247.05 7346.68,-247.05"/>
 <text xml:space="preserve" text-anchor="middle" x="7280" y="-231.35" font-family="Helvetica,sans-Serif" font-size="8.00">WARP&#45;counterfactual&#45;refactoring &#45; XL</text>
@@ -441,13 +467,13 @@
 <text xml:space="preserve" text-anchor="middle" x="7306.33" y="-268.65" font-family="Helvetica,sans-Serif" font-size="7.00">blocked_by/blocking</text>
 </g>
 <!-- cool_ideas_WARP_codebase_signature -->
-<g id="node55" class="node">
+<g id="node57" class="node">
 <title>cool_ideas_WARP_codebase_signature</title>
 <path fill="#d4e8f7" stroke="black" d="M7476.55,-320.5C7476.55,-320.5 7369.45,-320.5 7369.45,-320.5 7365.25,-320.5 7361.05,-316.3 7361.05,-312.1 7361.05,-312.1 7361.05,-303.7 7361.05,-303.7 7361.05,-299.5 7365.25,-295.3 7369.45,-295.3 7369.45,-295.3 7476.55,-295.3 7476.55,-295.3 7480.75,-295.3 7484.95,-299.5 7484.95,-303.7 7484.95,-303.7 7484.95,-312.1 7484.95,-312.1 7484.95,-316.3 7480.75,-320.5 7476.55,-320.5"/>
 <text xml:space="preserve" text-anchor="middle" x="7423" y="-304.8" font-family="Helvetica,sans-Serif" font-size="8.00">WARP&#45;codebase&#45;signature &#45; L</text>
 </g>
 <!-- cool_ideas_WARP_structural_impact_prediction -->
-<g id="node78" class="node">
+<g id="node80" class="node">
 <title>cool_ideas_WARP_structural_impact_prediction</title>
 <path fill="#d4e8f7" stroke="black" d="M7349.3,-173.6C7349.3,-173.6 7210.7,-173.6 7210.7,-173.6 7206.5,-173.6 7202.3,-169.4 7202.3,-165.2 7202.3,-165.2 7202.3,-156.8 7202.3,-156.8 7202.3,-152.6 7206.5,-148.4 7210.7,-148.4 7210.7,-148.4 7349.3,-148.4 7349.3,-148.4 7353.5,-148.4 7357.7,-152.6 7357.7,-156.8 7357.7,-156.8 7357.7,-165.2 7357.7,-165.2 7357.7,-169.4 7353.5,-173.6 7349.3,-173.6"/>
 <text xml:space="preserve" text-anchor="middle" x="7280" y="-157.9" font-family="Helvetica,sans-Serif" font-size="8.00">WARP&#45;structural&#45;impact&#45;prediction &#45; XL</text>
@@ -460,61 +486,61 @@
 <text xml:space="preserve" text-anchor="middle" x="7311.5" y="-195.2" font-family="Helvetica,sans-Serif" font-size="7.00">blocked_by/blocking</text>
 </g>
 <!-- cool_ideas_WARP_dead_symbol_detection -->
-<g id="node57" class="node">
+<g id="node59" class="node">
 <title>cool_ideas_WARP_dead_symbol_detection</title>
 <path fill="#d4e8f7" stroke="black" d="M7626.18,-320.5C7626.18,-320.5 7507.82,-320.5 7507.82,-320.5 7503.62,-320.5 7499.43,-316.3 7499.43,-312.1 7499.43,-312.1 7499.43,-303.7 7499.43,-303.7 7499.43,-299.5 7503.62,-295.3 7507.82,-295.3 7507.82,-295.3 7626.18,-295.3 7626.18,-295.3 7630.38,-295.3 7634.57,-299.5 7634.57,-303.7 7634.57,-303.7 7634.57,-312.1 7634.57,-312.1 7634.57,-316.3 7630.38,-320.5 7626.18,-320.5"/>
 <text xml:space="preserve" text-anchor="middle" x="7567" y="-304.8" font-family="Helvetica,sans-Serif" font-size="8.00">WARP&#45;dead&#45;symbol&#45;detection &#45; S</text>
 </g>
 <!-- cool_ideas_WARP_degeneracy_warning -->
-<g id="node58" class="node">
+<g id="node60" class="node">
 <title>cool_ideas_WARP_degeneracy_warning</title>
 <path fill="#d4e8f7" stroke="black" d="M7769.18,-320.5C7769.18,-320.5 7656.82,-320.5 7656.82,-320.5 7652.62,-320.5 7648.43,-316.3 7648.43,-312.1 7648.43,-312.1 7648.43,-303.7 7648.43,-303.7 7648.43,-299.5 7652.62,-295.3 7656.82,-295.3 7656.82,-295.3 7769.18,-295.3 7769.18,-295.3 7773.38,-295.3 7777.57,-299.5 7777.57,-303.7 7777.57,-303.7 7777.57,-312.1 7777.57,-312.1 7777.57,-316.3 7773.38,-320.5 7769.18,-320.5"/>
 <text xml:space="preserve" text-anchor="middle" x="7713" y="-304.8" font-family="Helvetica,sans-Serif" font-size="8.00">WARP&#45;degeneracy&#45;warning &#45; M</text>
 </g>
 <!-- cool_ideas_WARP_drift_sentinel -->
-<g id="node59" class="node">
+<g id="node61" class="node">
 <title>cool_ideas_WARP_drift_sentinel</title>
 <path fill="#d4e8f7" stroke="black" d="M9682.18,-247.05C9682.18,-247.05 9599.82,-247.05 9599.82,-247.05 9595.62,-247.05 9591.42,-242.85 9591.42,-238.65 9591.42,-238.65 9591.42,-230.25 9591.42,-230.25 9591.42,-226.05 9595.62,-221.85 9599.82,-221.85 9599.82,-221.85 9682.18,-221.85 9682.18,-221.85 9686.38,-221.85 9690.58,-226.05 9690.58,-230.25 9690.58,-230.25 9690.58,-238.65 9690.58,-238.65 9690.58,-242.85 9686.38,-247.05 9682.18,-247.05"/>
 <text xml:space="preserve" text-anchor="middle" x="9641" y="-231.35" font-family="Helvetica,sans-Serif" font-size="8.00">WARP&#45;drift&#45;sentinel &#45; M</text>
 </g>
 <!-- cool_ideas_WARP_footprint_parallelism -->
-<g id="node60" class="node">
+<g id="node62" class="node">
 <title>cool_ideas_WARP_footprint_parallelism</title>
 <path fill="#d4e8f7" stroke="black" d="M7911.8,-320.5C7911.8,-320.5 7800.2,-320.5 7800.2,-320.5 7796,-320.5 7791.8,-316.3 7791.8,-312.1 7791.8,-312.1 7791.8,-303.7 7791.8,-303.7 7791.8,-299.5 7796,-295.3 7800.2,-295.3 7800.2,-295.3 7911.8,-295.3 7911.8,-295.3 7916,-295.3 7920.2,-299.5 7920.2,-303.7 7920.2,-303.7 7920.2,-312.1 7920.2,-312.1 7920.2,-316.3 7916,-320.5 7911.8,-320.5"/>
 <text xml:space="preserve" text-anchor="middle" x="7856" y="-304.8" font-family="Helvetica,sans-Serif" font-size="8.00">WARP&#45;footprint&#45;parallelism &#45; XL</text>
 </g>
 <!-- cool_ideas_WARP_graft_pack -->
-<g id="node61" class="node">
+<g id="node63" class="node">
 <title>cool_ideas_WARP_graft_pack</title>
 <path fill="#d4e8f7" stroke="black" d="M8017.43,-320.5C8017.43,-320.5 7942.57,-320.5 7942.57,-320.5 7938.38,-320.5 7934.18,-316.3 7934.18,-312.1 7934.18,-312.1 7934.18,-303.7 7934.18,-303.7 7934.18,-299.5 7938.38,-295.3 7942.57,-295.3 7942.57,-295.3 8017.43,-295.3 8017.43,-295.3 8021.62,-295.3 8025.82,-299.5 8025.82,-303.7 8025.82,-303.7 8025.82,-312.1 8025.82,-312.1 8025.82,-316.3 8021.62,-320.5 8017.43,-320.5"/>
 <text xml:space="preserve" text-anchor="middle" x="7980" y="-304.8" font-family="Helvetica,sans-Serif" font-size="8.00">WARP&#45;graft&#45;pack &#45; M</text>
 </g>
 <!-- cool_ideas_WARP_grouped_aggregate_queries -->
-<g id="node62" class="node">
+<g id="node64" class="node">
 <title>cool_ideas_WARP_grouped_aggregate_queries</title>
 <path fill="#d4e8f7" stroke="black" d="M8185.93,-320.5C8185.93,-320.5 8048.07,-320.5 8048.07,-320.5 8043.88,-320.5 8039.68,-316.3 8039.68,-312.1 8039.68,-312.1 8039.68,-303.7 8039.68,-303.7 8039.68,-299.5 8043.88,-295.3 8048.07,-295.3 8048.07,-295.3 8185.93,-295.3 8185.93,-295.3 8190.13,-295.3 8194.33,-299.5 8194.33,-303.7 8194.33,-303.7 8194.33,-312.1 8194.33,-312.1 8194.33,-316.3 8190.13,-320.5 8185.93,-320.5"/>
 <text xml:space="preserve" text-anchor="middle" x="8117" y="-304.8" font-family="Helvetica,sans-Serif" font-size="8.00">WARP&#45;grouped&#45;aggregate&#45;queries &#45; M</text>
 </g>
 <!-- cool_ideas_WARP_intentional_degeneracy_privacy -->
-<g id="node64" class="node">
+<g id="node66" class="node">
 <title>cool_ideas_WARP_intentional_degeneracy_privacy</title>
 <path fill="#d4e8f7" stroke="black" d="M8364.8,-320.5C8364.8,-320.5 8217.2,-320.5 8217.2,-320.5 8213,-320.5 8208.8,-316.3 8208.8,-312.1 8208.8,-312.1 8208.8,-303.7 8208.8,-303.7 8208.8,-299.5 8213,-295.3 8217.2,-295.3 8217.2,-295.3 8364.8,-295.3 8364.8,-295.3 8369,-295.3 8373.2,-299.5 8373.2,-303.7 8373.2,-303.7 8373.2,-312.1 8373.2,-312.1 8373.2,-316.3 8369,-320.5 8364.8,-320.5"/>
 <text xml:space="preserve" text-anchor="middle" x="8291" y="-304.8" font-family="Helvetica,sans-Serif" font-size="8.00">WARP&#45;intentional&#45;degeneracy&#45;privacy &#45; M</text>
 </g>
 <!-- cool_ideas_WARP_minimum_viable_context -->
-<g id="node65" class="node">
+<g id="node67" class="node">
 <title>cool_ideas_WARP_minimum_viable_context</title>
 <path fill="#d4e8f7" stroke="black" d="M8518.43,-320.5C8518.43,-320.5 8395.57,-320.5 8395.57,-320.5 8391.38,-320.5 8387.17,-316.3 8387.17,-312.1 8387.17,-312.1 8387.17,-303.7 8387.17,-303.7 8387.17,-299.5 8391.38,-295.3 8395.57,-295.3 8395.57,-295.3 8518.43,-295.3 8518.43,-295.3 8522.62,-295.3 8526.83,-299.5 8526.83,-303.7 8526.83,-303.7 8526.83,-312.1 8526.83,-312.1 8526.83,-316.3 8522.62,-320.5 8518.43,-320.5"/>
 <text xml:space="preserve" text-anchor="middle" x="8457" y="-304.8" font-family="Helvetica,sans-Serif" font-size="8.00">WARP&#45;minimum&#45;viable&#45;context &#45; M</text>
 </g>
 <!-- cool_ideas_WARP_outline_diff_commit_trailer -->
-<g id="node66" class="node">
+<g id="node68" class="node">
 <title>cool_ideas_WARP_outline_diff_commit_trailer</title>
 <path fill="#d4e8f7" stroke="black" d="M8674.93,-320.5C8674.93,-320.5 8549.07,-320.5 8549.07,-320.5 8544.88,-320.5 8540.67,-316.3 8540.67,-312.1 8540.67,-312.1 8540.67,-303.7 8540.67,-303.7 8540.67,-299.5 8544.88,-295.3 8549.07,-295.3 8549.07,-295.3 8674.93,-295.3 8674.93,-295.3 8679.12,-295.3 8683.33,-299.5 8683.33,-303.7 8683.33,-303.7 8683.33,-312.1 8683.33,-312.1 8683.33,-316.3 8679.12,-320.5 8674.93,-320.5"/>
 <text xml:space="preserve" text-anchor="middle" x="8612" y="-304.8" font-family="Helvetica,sans-Serif" font-size="8.00">WARP&#45;outline&#45;diff&#45;commit&#45;trailer &#45; S</text>
 </g>
 <!-- cool_ideas_WARP_projection_safety_classes -->
-<g id="node67" class="node">
+<g id="node69" class="node">
 <title>cool_ideas_WARP_projection_safety_classes</title>
 <path fill="#d4e8f7" stroke="black" d="M8831.93,-320.5C8831.93,-320.5 8706.07,-320.5 8706.07,-320.5 8701.88,-320.5 8697.67,-316.3 8697.67,-312.1 8697.67,-312.1 8697.67,-303.7 8697.67,-303.7 8697.67,-299.5 8701.88,-295.3 8706.07,-295.3 8706.07,-295.3 8831.93,-295.3 8831.93,-295.3 8836.12,-295.3 8840.33,-299.5 8840.33,-303.7 8840.33,-303.7 8840.33,-312.1 8840.33,-312.1 8840.33,-316.3 8836.12,-320.5 8831.93,-320.5"/>
 <text xml:space="preserve" text-anchor="middle" x="8769" y="-304.8" font-family="Helvetica,sans-Serif" font-size="8.00">WARP&#45;projection&#45;safety&#45;classes &#45; M</text>
@@ -527,7 +553,7 @@
 <text xml:space="preserve" text-anchor="middle" x="7047.72" y="-195.2" font-family="Helvetica,sans-Serif" font-size="7.00">blocked_by/blocking</text>
 </g>
 <!-- cool_ideas_WARP_reasoning_trace_replay -->
-<g id="node69" class="node">
+<g id="node71" class="node">
 <title>cool_ideas_WARP_reasoning_trace_replay</title>
 <path fill="#d4e8f7" stroke="black" d="M6942.93,-173.6C6942.93,-173.6 6823.07,-173.6 6823.07,-173.6 6818.88,-173.6 6814.68,-169.4 6814.68,-165.2 6814.68,-165.2 6814.68,-156.8 6814.68,-156.8 6814.68,-152.6 6818.88,-148.4 6823.07,-148.4 6823.07,-148.4 6942.93,-148.4 6942.93,-148.4 6947.12,-148.4 6951.32,-152.6 6951.32,-156.8 6951.32,-156.8 6951.32,-165.2 6951.32,-165.2 6951.32,-169.4 6947.12,-173.6 6942.93,-173.6"/>
 <text xml:space="preserve" text-anchor="middle" x="6883" y="-157.9" font-family="Helvetica,sans-Serif" font-size="8.00">WARP&#45;reasoning&#45;trace&#45;replay &#45; M</text>
@@ -540,43 +566,43 @@
 <text xml:space="preserve" text-anchor="middle" x="6964.32" y="-195.2" font-family="Helvetica,sans-Serif" font-size="7.00">blocked_by/blocking</text>
 </g>
 <!-- cool_ideas_WARP_rulial_heat_map -->
-<g id="node70" class="node">
+<g id="node72" class="node">
 <title>cool_ideas_WARP_rulial_heat_map</title>
 <path fill="#d4e8f7" stroke="black" d="M8953.3,-320.5C8953.3,-320.5 8862.7,-320.5 8862.7,-320.5 8858.5,-320.5 8854.3,-316.3 8854.3,-312.1 8854.3,-312.1 8854.3,-303.7 8854.3,-303.7 8854.3,-299.5 8858.5,-295.3 8862.7,-295.3 8862.7,-295.3 8953.3,-295.3 8953.3,-295.3 8957.5,-295.3 8961.7,-299.5 8961.7,-303.7 8961.7,-303.7 8961.7,-312.1 8961.7,-312.1 8961.7,-316.3 8957.5,-320.5 8953.3,-320.5"/>
 <text xml:space="preserve" text-anchor="middle" x="8908" y="-304.8" font-family="Helvetica,sans-Serif" font-size="8.00">WARP&#45;rulial&#45;heat&#45;map &#45; L</text>
 </g>
 <!-- cool_ideas_WARP_semantic_drift_in_sessions -->
-<g id="node71" class="node">
+<g id="node73" class="node">
 <title>cool_ideas_WARP_semantic_drift_in_sessions</title>
 <path fill="#d4e8f7" stroke="black" d="M9113.43,-320.5C9113.43,-320.5 8984.57,-320.5 8984.57,-320.5 8980.38,-320.5 8976.17,-316.3 8976.17,-312.1 8976.17,-312.1 8976.17,-303.7 8976.17,-303.7 8976.17,-299.5 8980.38,-295.3 8984.57,-295.3 8984.57,-295.3 9113.43,-295.3 9113.43,-295.3 9117.62,-295.3 9121.83,-299.5 9121.83,-303.7 9121.83,-303.7 9121.83,-312.1 9121.83,-312.1 9121.83,-316.3 9117.62,-320.5 9113.43,-320.5"/>
 <text xml:space="preserve" text-anchor="middle" x="9049" y="-304.8" font-family="Helvetica,sans-Serif" font-size="8.00">WARP&#45;semantic&#45;drift&#45;in&#45;sessions &#45; M</text>
 </g>
 <!-- cool_ideas_WARP_semantic_merge_conflict_prediction -->
-<g id="node72" class="node">
+<g id="node74" class="node">
 <title>cool_ideas_WARP_semantic_merge_conflict_prediction</title>
-<path fill="#d4e8f7" stroke="black" d="M10279.43,-247.05C10279.43,-247.05 10120.57,-247.05 10120.57,-247.05 10116.38,-247.05 10112.17,-242.85 10112.17,-238.65 10112.17,-238.65 10112.17,-230.25 10112.17,-230.25 10112.17,-226.05 10116.38,-221.85 10120.57,-221.85 10120.57,-221.85 10279.43,-221.85 10279.43,-221.85 10283.62,-221.85 10287.83,-226.05 10287.83,-230.25 10287.83,-230.25 10287.83,-238.65 10287.83,-238.65 10287.83,-242.85 10283.62,-247.05 10279.43,-247.05"/>
-<text xml:space="preserve" text-anchor="middle" x="10200" y="-231.35" font-family="Helvetica,sans-Serif" font-size="8.00">WARP&#45;semantic&#45;merge&#45;conflict&#45;prediction &#45; L</text>
+<path fill="#d4e8f7" stroke="black" d="M10097.43,-247.05C10097.43,-247.05 9938.57,-247.05 9938.57,-247.05 9934.38,-247.05 9930.17,-242.85 9930.17,-238.65 9930.17,-238.65 9930.17,-230.25 9930.17,-230.25 9930.17,-226.05 9934.38,-221.85 9938.57,-221.85 9938.57,-221.85 10097.43,-221.85 10097.43,-221.85 10101.62,-221.85 10105.83,-226.05 10105.83,-230.25 10105.83,-230.25 10105.83,-238.65 10105.83,-238.65 10105.83,-242.85 10101.62,-247.05 10097.43,-247.05"/>
+<text xml:space="preserve" text-anchor="middle" x="10018" y="-231.35" font-family="Helvetica,sans-Serif" font-size="8.00">WARP&#45;semantic&#45;merge&#45;conflict&#45;prediction &#45; L</text>
 </g>
 <!-- cool_ideas_WARP_session_filtration -->
-<g id="node73" class="node">
+<g id="node75" class="node">
 <title>cool_ideas_WARP_session_filtration</title>
 <path fill="#d4e8f7" stroke="black" d="M9237.8,-320.5C9237.8,-320.5 9144.2,-320.5 9144.2,-320.5 9140,-320.5 9135.8,-316.3 9135.8,-312.1 9135.8,-312.1 9135.8,-303.7 9135.8,-303.7 9135.8,-299.5 9140,-295.3 9144.2,-295.3 9144.2,-295.3 9237.8,-295.3 9237.8,-295.3 9242,-295.3 9246.2,-299.5 9246.2,-303.7 9246.2,-303.7 9246.2,-312.1 9246.2,-312.1 9246.2,-316.3 9242,-320.5 9237.8,-320.5"/>
 <text xml:space="preserve" text-anchor="middle" x="9191" y="-304.8" font-family="Helvetica,sans-Serif" font-size="8.00">WARP&#45;session&#45;filtration &#45; L</text>
 </g>
 <!-- cool_ideas_WARP_shadow_structural_workspaces -->
-<g id="node74" class="node">
+<g id="node76" class="node">
 <title>cool_ideas_WARP_shadow_structural_workspaces</title>
 <path fill="#d4e8f7" stroke="black" d="M9419.3,-320.5C9419.3,-320.5 9268.7,-320.5 9268.7,-320.5 9264.5,-320.5 9260.3,-316.3 9260.3,-312.1 9260.3,-312.1 9260.3,-303.7 9260.3,-303.7 9260.3,-299.5 9264.5,-295.3 9268.7,-295.3 9268.7,-295.3 9419.3,-295.3 9419.3,-295.3 9423.5,-295.3 9427.7,-299.5 9427.7,-303.7 9427.7,-303.7 9427.7,-312.1 9427.7,-312.1 9427.7,-316.3 9423.5,-320.5 9419.3,-320.5"/>
 <text xml:space="preserve" text-anchor="middle" x="9344" y="-304.8" font-family="Helvetica,sans-Serif" font-size="8.00">WARP&#45;shadow&#45;structural&#45;workspaces &#45; XL</text>
 </g>
 <!-- cool_ideas_WARP_speculative_merge -->
-<g id="node75" class="node">
+<g id="node77" class="node">
 <title>cool_ideas_WARP_speculative_merge</title>
 <path fill="#d4e8f7" stroke="black" d="M9557.55,-320.5C9557.55,-320.5 9450.45,-320.5 9450.45,-320.5 9446.25,-320.5 9442.05,-316.3 9442.05,-312.1 9442.05,-312.1 9442.05,-303.7 9442.05,-303.7 9442.05,-299.5 9446.25,-295.3 9450.45,-295.3 9450.45,-295.3 9557.55,-295.3 9557.55,-295.3 9561.75,-295.3 9565.95,-299.5 9565.95,-303.7 9565.95,-303.7 9565.95,-312.1 9565.95,-312.1 9565.95,-316.3 9561.75,-320.5 9557.55,-320.5"/>
 <text xml:space="preserve" text-anchor="middle" x="9504" y="-304.8" font-family="Helvetica,sans-Serif" font-size="8.00">WARP&#45;speculative&#45;merge &#45; XL</text>
 </g>
 <!-- cool_ideas_WARP_stale_docs_checker -->
-<g id="node76" class="node">
+<g id="node78" class="node">
 <title>cool_ideas_WARP_stale_docs_checker</title>
 <path fill="#d4e8f7" stroke="black" d="M9693.8,-320.5C9693.8,-320.5 9588.2,-320.5 9588.2,-320.5 9584,-320.5 9579.8,-316.3 9579.8,-312.1 9579.8,-312.1 9579.8,-303.7 9579.8,-303.7 9579.8,-299.5 9584,-295.3 9588.2,-295.3 9588.2,-295.3 9693.8,-295.3 9693.8,-295.3 9698,-295.3 9702.2,-299.5 9702.2,-303.7 9702.2,-303.7 9702.2,-312.1 9702.2,-312.1 9702.2,-316.3 9698,-320.5 9693.8,-320.5"/>
 <text xml:space="preserve" text-anchor="middle" x="9641" y="-304.8" font-family="Helvetica,sans-Serif" font-size="8.00">WARP&#45;stale&#45;docs&#45;checker &#45; M</text>
@@ -589,25 +615,25 @@
 <text xml:space="preserve" text-anchor="middle" x="9672.5" y="-268.65" font-family="Helvetica,sans-Serif" font-size="7.00">blocked_by/blocking</text>
 </g>
 <!-- cool_ideas_WARP_structural_drift_detection -->
-<g id="node77" class="node">
+<g id="node79" class="node">
 <title>cool_ideas_WARP_structural_drift_detection</title>
 <path fill="#d4e8f7" stroke="black" d="M9847.8,-320.5C9847.8,-320.5 9724.2,-320.5 9724.2,-320.5 9720,-320.5 9715.8,-316.3 9715.8,-312.1 9715.8,-312.1 9715.8,-303.7 9715.8,-303.7 9715.8,-299.5 9720,-295.3 9724.2,-295.3 9724.2,-295.3 9847.8,-295.3 9847.8,-295.3 9852,-295.3 9856.2,-299.5 9856.2,-303.7 9856.2,-303.7 9856.2,-312.1 9856.2,-312.1 9856.2,-316.3 9852,-320.5 9847.8,-320.5"/>
 <text xml:space="preserve" text-anchor="middle" x="9786" y="-304.8" font-family="Helvetica,sans-Serif" font-size="8.00">WARP&#45;structural&#45;drift&#45;detection &#45; M</text>
 </g>
 <!-- cool_ideas_WARP_symbol_heatmap -->
-<g id="node79" class="node">
+<g id="node81" class="node">
 <title>cool_ideas_WARP_symbol_heatmap</title>
 <path fill="#d4e8f7" stroke="black" d="M9977.05,-320.5C9977.05,-320.5 9878.95,-320.5 9878.95,-320.5 9874.75,-320.5 9870.55,-316.3 9870.55,-312.1 9870.55,-312.1 9870.55,-303.7 9870.55,-303.7 9870.55,-299.5 9874.75,-295.3 9878.95,-295.3 9878.95,-295.3 9977.05,-295.3 9977.05,-295.3 9981.25,-295.3 9985.45,-299.5 9985.45,-303.7 9985.45,-303.7 9985.45,-312.1 9985.45,-312.1 9985.45,-316.3 9981.25,-320.5 9977.05,-320.5"/>
 <text xml:space="preserve" text-anchor="middle" x="9928" y="-304.8" font-family="Helvetica,sans-Serif" font-size="8.00">WARP&#45;symbol&#45;heatmap &#45; M</text>
 </g>
 <!-- cool_ideas_WARP_symbol_history_timeline -->
-<g id="node80" class="node">
+<g id="node82" class="node">
 <title>cool_ideas_WARP_symbol_history_timeline</title>
 <path fill="#d4e8f7" stroke="black" d="M10126.18,-320.5C10126.18,-320.5 10007.82,-320.5 10007.82,-320.5 10003.62,-320.5 9999.42,-316.3 9999.42,-312.1 9999.42,-312.1 9999.42,-303.7 9999.42,-303.7 9999.42,-299.5 10003.62,-295.3 10007.82,-295.3 10007.82,-295.3 10126.18,-295.3 10126.18,-295.3 10130.38,-295.3 10134.58,-299.5 10134.58,-303.7 10134.58,-303.7 10134.58,-312.1 10134.58,-312.1 10134.58,-316.3 10130.38,-320.5 10126.18,-320.5"/>
 <text xml:space="preserve" text-anchor="middle" x="10067" y="-304.8" font-family="Helvetica,sans-Serif" font-size="8.00">WARP&#45;symbol&#45;history&#45;timeline &#45; S</text>
 </g>
 <!-- cool_ideas_WARP_temporal_structural_search -->
-<g id="node82" class="node">
+<g id="node84" class="node">
 <title>cool_ideas_WARP_temporal_structural_search</title>
 <path fill="#d4e8f7" stroke="black" d="M9907.68,-247.05C9907.68,-247.05 9774.32,-247.05 9774.32,-247.05 9770.12,-247.05 9765.92,-242.85 9765.92,-238.65 9765.92,-238.65 9765.92,-230.25 9765.92,-230.25 9765.92,-226.05 9770.12,-221.85 9774.32,-221.85 9774.32,-221.85 9907.68,-221.85 9907.68,-221.85 9911.88,-221.85 9916.08,-226.05 9916.08,-230.25 9916.08,-230.25 9916.08,-238.65 9916.08,-238.65 9916.08,-242.85 9911.88,-247.05 9907.68,-247.05"/>
 <text xml:space="preserve" text-anchor="middle" x="9841" y="-231.35" font-family="Helvetica,sans-Serif" font-size="8.00">WARP&#45;temporal&#45;structural&#45;search &#45; M</text>
@@ -620,26 +646,26 @@
 <text xml:space="preserve" text-anchor="middle" x="9992.28" y="-268.65" font-family="Helvetica,sans-Serif" font-size="7.00">blocked_by/blocking</text>
 </g>
 <!-- cool_ideas_WARP_technical_debt_curvature -->
-<g id="node81" class="node">
+<g id="node83" class="node">
 <title>cool_ideas_WARP_technical_debt_curvature</title>
 <path fill="#d4e8f7" stroke="black" d="M10279.43,-320.5C10279.43,-320.5 10156.57,-320.5 10156.57,-320.5 10152.38,-320.5 10148.17,-316.3 10148.17,-312.1 10148.17,-312.1 10148.17,-303.7 10148.17,-303.7 10148.17,-299.5 10152.38,-295.3 10156.57,-295.3 10156.57,-295.3 10279.43,-295.3 10279.43,-295.3 10283.62,-295.3 10287.83,-299.5 10287.83,-303.7 10287.83,-303.7 10287.83,-312.1 10287.83,-312.1 10287.83,-316.3 10283.62,-320.5 10279.43,-320.5"/>
 <text xml:space="preserve" text-anchor="middle" x="10218" y="-304.8" font-family="Helvetica,sans-Serif" font-size="8.00">WARP&#45;technical&#45;debt&#45;curvature &#45; L</text>
 </g>
 <!-- external_git_warp_observer_geometry_ladder__Rung_2_4_ -->
-<g id="node83" class="node">
+<g id="node85" class="node">
 <title>external_git_warp_observer_geometry_ladder__Rung_2_4_</title>
-<path fill="#e8f2ff" stroke="black" d="M718.68,-320.5C718.68,-320.5 555.32,-320.5 555.32,-320.5 551.12,-320.5 546.92,-316.3 546.92,-312.1 546.92,-312.1 546.92,-303.7 546.92,-303.7 546.92,-299.5 551.12,-295.3 555.32,-295.3 555.32,-295.3 718.68,-295.3 718.68,-295.3 722.88,-295.3 727.08,-299.5 727.08,-303.7 727.08,-303.7 727.08,-312.1 727.08,-312.1 727.08,-316.3 722.88,-320.5 718.68,-320.5"/>
-<text xml:space="preserve" text-anchor="middle" x="637" y="-304.8" font-family="Helvetica,sans-Serif" font-size="8.00">git&#45;warp observer geometry ladder (Rung 2&#45;4)</text>
+<path fill="#e8f2ff" stroke="black" d="M187.67,-320.5C187.67,-320.5 24.33,-320.5 24.33,-320.5 20.13,-320.5 15.92,-316.3 15.92,-312.1 15.92,-312.1 15.92,-303.7 15.92,-303.7 15.92,-299.5 20.13,-295.3 24.33,-295.3 24.33,-295.3 187.67,-295.3 187.67,-295.3 191.87,-295.3 196.07,-299.5 196.07,-303.7 196.07,-303.7 196.07,-312.1 196.07,-312.1 196.07,-316.3 191.87,-320.5 187.67,-320.5"/>
+<text xml:space="preserve" text-anchor="middle" x="106" y="-304.8" font-family="Helvetica,sans-Serif" font-size="8.00">git&#45;warp observer geometry ladder (Rung 2&#45;4)</text>
 </g>
 <!-- external_git_warp_observer_geometry_ladder__Rung_2_4_&#45;&gt;v0_7_0_CORE_migrate_to_slice_first_reads -->
 <g id="edge13" class="edge">
 <title>external_git_warp_observer_geometry_ladder__Rung_2_4_&#45;&gt;v0_7_0_CORE_migrate_to_slice_first_reads</title>
-<path fill="none" stroke="#4477aa" stroke-dasharray="5,2" d="M606.7,-294.94C575.5,-282.62 526.82,-263.41 493.28,-250.16"/>
-<polygon fill="#4477aa" stroke="#4477aa" points="494.31,-248.69 489.02,-248.48 493.03,-251.95 494.31,-248.69"/>
-<text xml:space="preserve" text-anchor="middle" x="583.8" y="-268.65" font-family="Helvetica,sans-Serif" font-size="7.00">blocked_by_external</text>
+<path fill="none" stroke="#4477aa" stroke-dasharray="5,2" d="M136.3,-294.94C167.5,-282.62 216.18,-263.41 249.72,-250.16"/>
+<polygon fill="#4477aa" stroke="#4477aa" points="249.97,-251.95 253.98,-248.48 248.69,-248.69 249.97,-251.95"/>
+<text xml:space="preserve" text-anchor="middle" x="233.8" y="-268.65" font-family="Helvetica,sans-Serif" font-size="7.00">blocked_by_external</text>
 </g>
 <!-- unresolved_CLEAN_CODE_export_diff_semver_signature_as_patch -->
-<g id="node84" class="node">
+<g id="node86" class="node">
 <title>unresolved_CLEAN_CODE_export_diff_semver_signature_as_patch</title>
 <path fill="#f2f2f2" stroke="black" stroke-dasharray="5,2" d="M10543.3,-320.5C10543.3,-320.5 10320.7,-320.5 10320.7,-320.5 10316.5,-320.5 10312.3,-316.3 10312.3,-312.1 10312.3,-312.1 10312.3,-303.7 10312.3,-303.7 10312.3,-299.5 10316.5,-295.3 10320.7,-295.3 10320.7,-295.3 10543.3,-295.3 10543.3,-295.3 10547.5,-295.3 10551.7,-299.5 10551.7,-303.7 10551.7,-303.7 10551.7,-312.1 10551.7,-312.1 10551.7,-316.3 10547.5,-320.5 10543.3,-320.5"/>
 <text xml:space="preserve" text-anchor="middle" x="10432" y="-304.8" font-family="Helvetica,sans-Serif" font-size="8.00">missing: CLEAN_CODE_export&#45;diff&#45;semver&#45;signature&#45;as&#45;patch</text>
@@ -647,46 +673,46 @@
 <!-- unresolved_CLEAN_CODE_export_diff_semver_signature_as_patch&#45;&gt;cool_ideas_WARP_auto_breaking_change_detection -->
 <g id="edge14" class="edge">
 <title>unresolved_CLEAN_CODE_export_diff_semver_signature_as_patch&#45;&gt;cool_ideas_WARP_auto_breaking_change_detection</title>
-<path fill="none" stroke="#cc3333" stroke-dasharray="5,2" d="M10361.56,-294.86C10286.51,-282.03 10168.05,-261.78 10090.69,-248.56"/>
-<polygon fill="#cc3333" stroke="#cc3333" points="10091.44,-246.91 10086.22,-247.79 10090.85,-250.36 10091.44,-246.91"/>
-<text xml:space="preserve" text-anchor="middle" x="10253.16" y="-268.65" font-family="Helvetica,sans-Serif" font-size="7.00">blocked_by</text>
+<path fill="none" stroke="#cc3333" stroke-dasharray="5,2" d="M10393.58,-294.86C10353.54,-282.31 10290.87,-262.67 10248.65,-249.44"/>
+<polygon fill="#cc3333" stroke="#cc3333" points="10249.32,-247.82 10244.02,-247.99 10248.27,-251.16 10249.32,-247.82"/>
+<text xml:space="preserve" text-anchor="middle" x="10342.46" y="-268.65" font-family="Helvetica,sans-Serif" font-size="7.00">blocked_by</text>
 </g>
 <!-- unresolved_CLEAN_CODE_export_diff_semver_signature_as_patch&#45;&gt;cool_ideas_WARP_semantic_merge_conflict_prediction -->
 <g id="edge15" class="edge">
 <title>unresolved_CLEAN_CODE_export_diff_semver_signature_as_patch&#45;&gt;cool_ideas_WARP_semantic_merge_conflict_prediction</title>
-<path fill="none" stroke="#cc3333" stroke-dasharray="5,2" d="M10392.91,-294.86C10352.17,-282.31 10288.39,-262.67 10245.43,-249.44"/>
-<polygon fill="#cc3333" stroke="#cc3333" points="10245.99,-247.78 10240.7,-247.98 10244.96,-251.13 10245.99,-247.78"/>
-<text xml:space="preserve" text-anchor="middle" x="10340.58" y="-268.65" font-family="Helvetica,sans-Serif" font-size="7.00">blocked_by</text>
+<path fill="none" stroke="#cc3333" stroke-dasharray="5,2" d="M10362.24,-294.86C10288.05,-282.06 10171.05,-261.86 10094.41,-248.64"/>
+<polygon fill="#cc3333" stroke="#cc3333" points="10094.76,-246.92 10089.54,-247.8 10094.17,-250.37 10094.76,-246.92"/>
+<text xml:space="preserve" text-anchor="middle" x="10255.04" y="-268.65" font-family="Helvetica,sans-Serif" font-size="7.00">blocked_by</text>
 </g>
 <!-- leg_v07 -->
-<g id="node85" class="node">
+<g id="node87" class="node">
 <title>leg_v07</title>
 <path fill="#ffa07a" stroke="black" stroke-width="2" d="M10668,-320.5C10668,-320.5 10584,-320.5 10584,-320.5 10579.8,-320.5 10575.6,-316.3 10575.6,-312.1 10575.6,-312.1 10575.6,-303.7 10575.6,-303.7 10575.6,-299.5 10579.8,-295.3 10584,-295.3 10584,-295.3 10668,-295.3 10668,-295.3 10672.2,-295.3 10676.4,-299.5 10676.4,-303.7 10676.4,-303.7 10676.4,-312.1 10676.4,-312.1 10676.4,-316.3 10672.2,-320.5 10668,-320.5"/>
 <text xml:space="preserve" text-anchor="middle" x="10626" y="-305.38" font-family="Helvetica,sans-Serif" font-size="7.00">v0.7.0</text>
 </g>
 <!-- leg_bad -->
-<g id="node86" class="node">
+<g id="node88" class="node">
 <title>leg_bad</title>
 <path fill="#f6b3b3" stroke="black" stroke-width="2" d="M10668,-247.05C10668,-247.05 10584,-247.05 10584,-247.05 10579.8,-247.05 10575.6,-242.85 10575.6,-238.65 10575.6,-238.65 10575.6,-230.25 10575.6,-230.25 10575.6,-226.05 10579.8,-221.85 10584,-221.85 10584,-221.85 10668,-221.85 10668,-221.85 10672.2,-221.85 10676.4,-226.05 10676.4,-230.25 10676.4,-230.25 10676.4,-238.65 10676.4,-238.65 10676.4,-242.85 10672.2,-247.05 10668,-247.05"/>
 <text xml:space="preserve" text-anchor="middle" x="10626" y="-231.92" font-family="Helvetica,sans-Serif" font-size="7.00">bad&#45;code</text>
 </g>
 <!-- leg_v07&#45;&gt;leg_bad -->
 <!-- leg_idea -->
-<g id="node87" class="node">
+<g id="node89" class="node">
 <title>leg_idea</title>
 <path fill="#d4e8f7" stroke="black" d="M10668,-173.6C10668,-173.6 10584,-173.6 10584,-173.6 10579.8,-173.6 10575.6,-169.4 10575.6,-165.2 10575.6,-165.2 10575.6,-156.8 10575.6,-156.8 10575.6,-152.6 10579.8,-148.4 10584,-148.4 10584,-148.4 10668,-148.4 10668,-148.4 10672.2,-148.4 10676.4,-152.6 10676.4,-156.8 10676.4,-156.8 10676.4,-165.2 10676.4,-165.2 10676.4,-169.4 10672.2,-173.6 10668,-173.6"/>
 <text xml:space="preserve" text-anchor="middle" x="10626" y="-158.47" font-family="Helvetica,sans-Serif" font-size="7.00">cool&#45;ideas</text>
 </g>
 <!-- leg_bad&#45;&gt;leg_idea -->
 <!-- leg_external -->
-<g id="node88" class="node">
+<g id="node90" class="node">
 <title>leg_external</title>
 <path fill="#e8f2ff" stroke="black" d="M10668,-107.4C10668,-107.4 10584,-107.4 10584,-107.4 10579.8,-107.4 10575.6,-103.2 10575.6,-99 10575.6,-99 10575.6,-90.6 10575.6,-90.6 10575.6,-86.4 10579.8,-82.2 10584,-82.2 10584,-82.2 10668,-82.2 10668,-82.2 10672.2,-82.2 10676.4,-86.4 10676.4,-90.6 10676.4,-90.6 10676.4,-99 10676.4,-99 10676.4,-103.2 10672.2,-107.4 10668,-107.4"/>
 <text xml:space="preserve" text-anchor="middle" x="10626" y="-92.28" font-family="Helvetica,sans-Serif" font-size="7.00">external blocker</text>
 </g>
 <!-- leg_idea&#45;&gt;leg_external -->
 <!-- leg_unresolved -->
-<g id="node89" class="node">
+<g id="node91" class="node">
 <title>leg_unresolved</title>
 <path fill="#f2f2f2" stroke="black" stroke-dasharray="5,2" d="M10668,-41.2C10668,-41.2 10584,-41.2 10584,-41.2 10579.8,-41.2 10575.6,-37 10575.6,-32.8 10575.6,-32.8 10575.6,-24.4 10575.6,-24.4 10575.6,-20.2 10579.8,-16 10584,-16 10584,-16 10668,-16 10668,-16 10672.2,-16 10676.4,-20.2 10676.4,-24.4 10676.4,-24.4 10676.4,-32.8 10676.4,-32.8 10676.4,-37 10672.2,-41.2 10668,-41.2"/>
 <text xml:space="preserve" text-anchor="middle" x="10626" y="-26.08" font-family="Helvetica,sans-Serif" font-size="7.00">unresolved ref</text>
