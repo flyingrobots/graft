@@ -22,7 +22,7 @@ The root cause was two stacked replay paths:
   checkpoint existed, timeline reads still replayed historical patch chains.
 
 `graft symbol difficulty observeGraph --path src/warp/context.ts --json` now
-reports `latencyMs: 349` on the local `release/v0.7.0` graph.
+reports `latencyMs: 327` on the local `release/v0.7.0` graph.
 
 ## What Shipped
 
@@ -30,17 +30,16 @@ reports `latencyMs: 349` on the local `release/v0.7.0` graph.
   graph.
 - A focused regression proves materializing after enough patches creates
   `refs/warp/graft-ast/checkpoints/head`.
-- `symbolTimeline` skips legacy `commit:*` nodes without numeric WARP ticks.
 - `symbolTimeline` now uses provenance-backed patch reads for exact/live symbol
   timelines: `patchesFor(entityId)` plus `loadPatchBySha(sha)`.
-- The timeline path no longer uses detached ceiling observers for the common
-  exact-symbol query used by structural blame and refactor difficulty.
+- The detached ceiling-observer timeline path was removed rather than kept as a
+  compatibility branch.
 
 ## Validation
 
 - Focused timeline/open/difficulty/blame tests pass.
 - The live difficulty query that previously reported `latencyMs: 40695` now
-  reports `latencyMs: 349`.
+  reports `latencyMs: 327`.
 - The local graph now has a checkpoint ref at
   `refs/warp/graft-ast/checkpoints/head`.
 
@@ -48,7 +47,5 @@ See `witness/verification.md` for command output and timing.
 
 ## Follow-On Pressure
 
-`symbolTimeline` still has a legacy ceiling fallback for unresolved
-no-file-path, no-live-symbol cases. That preserves removed-symbol behavior for
-callers that only have a symbol name, but it is not the preferred path for hot
-truth surfaces.
+Removed-symbol history now requires an explicit `filePath`, because otherwise
+the caller has not identified a concrete `sym:<path>:<name>` entity.

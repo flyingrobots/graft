@@ -88,7 +88,7 @@ export async function runDriftSentinel(
 
   const totalStale = results.reduce((sum, r) => sum + r.staleSymbols.length, 0);
   const totalUnknown = results.reduce((sum, r) => sum + r.unknownSymbols.length, 0);
-  const passed = totalStale === 0;
+  const passed = totalStale === 0 && totalUnknown === 0;
 
   return { passed, results, totalStale, totalUnknown };
 }

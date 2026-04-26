@@ -31,8 +31,9 @@ symbolTimeline(...):          40277ms
 visible patch commits:        1678
 ```
 
-The materialized graph also contained legacy `commit:*` nodes without numeric
-`tick` properties, which the old timeline treated as `tick = 0`.
+The materialized graph also contained obsolete `commit:*` nodes without numeric
+`tick` properties. The ceiling-observer timeline path was removed rather than
+kept as a compatibility branch.
 
 ## Checkpoint Ref
 
@@ -70,8 +71,8 @@ post-checkpoint ceiling run:      latencyMs: 28465
 
 ## Final Runtime Trial
 
-After switching symbol timeline reads to WARP provenance for exact/live
-symbols:
+After switching symbol timeline reads to WARP provenance and removing the
+ceiling-observer path:
 
 ```bash
 time pnpm graft symbol difficulty observeGraph --path src/warp/context.ts --json
@@ -80,8 +81,8 @@ time pnpm graft symbol difficulty observeGraph --path src/warp/context.ts --json
 Result:
 
 ```text
-latencyMs: 349
-wall time:  3.219s
+latencyMs: 327
+wall time:  2.962s
 ```
 
 The command returned one low-risk `observeGraph` entry from
@@ -98,6 +99,20 @@ Result:
 ```text
 Test Files  4 passed (4)
 Tests       16 passed (16)
+```
+
+The drift/stale-doc surfaces were also checked after name-only removed symbols
+started reporting as unknown instead of inferred removed history:
+
+```bash
+pnpm exec vitest run test/unit/warp/drift-sentinel.test.ts test/unit/warp/stale-docs.test.ts test/unit/warp/symbol-timeline.test.ts
+```
+
+Result:
+
+```text
+Test Files  3 passed (3)
+Tests       23 passed (23)
 ```
 
 ## Full Validation

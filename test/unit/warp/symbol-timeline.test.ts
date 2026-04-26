@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
+import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import * as fs from "node:fs";
 import * as path from "node:path";
 import { nodeGit } from "../../../src/adapters/node-git.js";
@@ -91,7 +91,7 @@ describe("warp: symbol-timeline", { timeout: 15000 }, () => {
     git(tmpDir, "commit -m 'remove ephemeral'");
     await index(ctx);
 
-    const result = await symbolTimeline(ctx, "ephemeral");
+    const result = await symbolTimeline(ctx, "ephemeral", "temp.ts");
     expect(result.versions.length).toBe(2);
     expect(result.versions[0]!.present).toBe(true);
     expect(result.versions[1]!.present).toBe(false);
@@ -128,42 +128,26 @@ describe("warp: symbol-timeline", { timeout: 15000 }, () => {
     expect(result.versions).toEqual([]);
   });
 
-  it("skips legacy commit nodes without numeric ticks", async () => {
-    const observedCeilings: number[] = [];
-    const app = {
-      observer: vi.fn((lens, options) => {
-        if (lens.match === "commit:*") {
-          return Promise.resolve({
-            getNodes: () => Promise.resolve(["commit:legacy", "commit:modern"]),
-            getNodeProps: (nodeId: string) => Promise.resolve(nodeId === "commit:legacy"
-              ? { sha: "legacy" }
-              : { sha: "modern", tick: 7 }),
-            getEdges: () => Promise.resolve([]),
-          });
-        }
+  it("does not infer removed symbol identity from name-only history", async () => {
+    fs.writeFileSync(
+      path.join(tmpDir, "temp.ts"),
+      "export function gone(): void {}\n",
+    );
+    git(tmpDir, "add -A");
+    git(tmpDir, "commit -m 'add gone'");
 
-        const ceiling = options?.source?.ceiling;
-        if (typeof ceiling === "number") {
-          observedCeilings.push(ceiling);
-        }
+    const ctx = await openCtx();
+    await index(ctx);
 
-        return Promise.resolve({
-          getNodes: () => Promise.resolve(["sym:file.ts:target"]),
-          getNodeProps: () => Promise.resolve({
-            signature: "export function target(): void",
-            startLine: 1,
-            endLine: 1,
-          }),
-          getEdges: () => Promise.resolve([]),
-        });
-      }),
-    } as unknown as WarpContext["app"];
+    fs.writeFileSync(path.join(tmpDir, "temp.ts"), "// gone\n");
+    git(tmpDir, "add -A");
+    git(tmpDir, "commit -m 'remove gone'");
+    await index(ctx);
 
-    const result = await symbolTimeline({ app, strandId: null }, "target");
+    const nameOnly = await symbolTimeline(ctx, "gone");
+    const explicit = await symbolTimeline(ctx, "gone", "temp.ts");
 
-    expect(observedCeilings).toEqual([7]);
-    expect(result.versions).toHaveLength(1);
-    expect(result.versions[0]!.sha).toBe("modern");
-    expect(result.versions[0]!.tick).toBe(7);
+    expect(nameOnly.versions).toEqual([]);
+    expect(explicit.versions.at(-1)?.changeKind).toBe("removed");
   });
 });
