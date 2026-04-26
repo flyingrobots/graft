@@ -22,6 +22,7 @@ const {
   mapModeSchema,
   fileDiffSchema,
   burdenByKindSchema,
+  sludgeReportSchema,
   burdenSummarySchema,
   runtimeObservabilitySchema,
   runtimeCausalContextSchema,
@@ -269,6 +270,7 @@ export const mcpOutputBodySchemas = {
     attribution: attributionSummarySchema,
     persistedLocalHistory: persistedLocalHistorySummarySchema,
     recommendedNextAction: z.string(),
+    sludge: sludgeReportSchema.optional(),
   }).strict(),
   stats: z.object({
     totalReads: z.number().int().nonnegative(),

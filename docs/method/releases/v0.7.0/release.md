@@ -10,6 +10,7 @@
 - Slice-first mitigation for the highest-risk graph read paths
 - Symbol timeline, dead-symbol detection, stale-doc checking, drift
   sentinel, and structural drift support tools
+- Opt-in parser-backed sludge detection on `doctor`
 - Session/projection helpers that support agent handoff, replay,
   projection safety, and knowledge maps
 - Agent worktree hygiene guard for preventing `.claude/worktrees/`
@@ -22,6 +23,9 @@
 - **Agent observability**: agents can inspect what they know, replay
   sessions, and reason over structural drift with more deterministic
   surfaces.
+- **Structural metrics**: operators and agents can ask `doctor` for a
+  parser-backed sludge scan before deciding whether a file needs
+  refactoring.
 - **Release truth**: the branch, package version, changelog, release
   notes, BEARING, and METHOD packet now describe the same release line.
 - **Agent safety**: release preflight now catches staged parallel-agent

@@ -103,6 +103,45 @@ export const burdenByKindSchema = z.object({
   diagnostic: burdenBucketSchema,
 }).strict();
 
+export const sludgeSignalSchema = z.object({
+  kind: z.enum([
+    "phantom_shape",
+    "cast_density",
+    "homeless_constructor",
+    "free_function_data_behavior",
+    "god_file",
+  ]),
+  severity: z.enum(["low", "medium", "high"]),
+  message: z.string(),
+  line: z.number().int().positive().optional(),
+  symbol: z.string().optional(),
+  evidence: z.string(),
+}).strict();
+
+export const sludgeFileReportSchema = z.object({
+  path: z.string(),
+  score: z.number().int().nonnegative(),
+  metrics: z.object({
+    typedefCount: z.number().int().nonnegative(),
+    typeCastCount: z.number().int().nonnegative(),
+    classCount: z.number().int().nonnegative(),
+    functionCount: z.number().int().nonnegative(),
+    symbolCount: z.number().int().nonnegative(),
+    homelessConstructorCount: z.number().int().nonnegative(),
+    freeFunctionDataBehaviorCount: z.number().int().nonnegative(),
+  }).strict(),
+  signals: z.array(sludgeSignalSchema),
+}).strict();
+
+export const sludgeReportSchema = z.object({
+  scannedFiles: z.number().int().nonnegative(),
+  filesWithSignals: z.number().int().nonnegative(),
+  totalSignals: z.number().int().nonnegative(),
+  score: z.number().int().nonnegative(),
+  files: z.array(sludgeFileReportSchema),
+  summary: z.string(),
+}).strict();
+
 export const receiptSchema = z.object({
   sessionId: z.string(),
   traceId: z.string(),
@@ -798,6 +837,7 @@ export const mcpFragmentSchemas = {
   mapModeSchema,
   fileDiffSchema,
   burdenByKindSchema,
+  sludgeReportSchema,
   burdenSummarySchema,
   receiptSchema,
   runtimeObservabilitySchema,

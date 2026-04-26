@@ -51,6 +51,10 @@ export function describeCliFailure(argv: readonly string[]): CliErrorDetails {
     };
   }
 
+  if (group === "doctor") {
+    return { usage: "graft doctor [--sludge] [--path <path>] [--json]" };
+  }
+
   if (group === "index") {
     return {
       usage: "graft index [<from-ref>] [--json]",
@@ -130,7 +134,7 @@ export function describeCliFailure(argv: readonly string[]): CliErrorDetails {
       return { usage: "graft diag local-history-dag [--limit <n>] [--json]" };
     }
     if (subcommand === "doctor") {
-      return { usage: "graft diag doctor [--json]" };
+      return { usage: "graft diag doctor [--sludge] [--path <path>] [--json]" };
     }
     if (subcommand === "explain") {
       return { usage: "graft diag explain <reason-code> [--json]" };

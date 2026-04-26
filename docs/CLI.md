@@ -25,6 +25,7 @@ flowchart LR
   - `graft diag activity`
   - `graft diag local-history-dag`
   - `graft diag doctor`
+  - `graft doctor --sludge`
   - `graft diag stats`
 
 ## Core namespaces
@@ -39,6 +40,7 @@ graft migrate local-history --json
 graft diag activity --json
 graft diag local-history-dag --json
 graft diag doctor --json
+graft doctor --sludge --json
 graft symbol find 'create*' --json
 graft struct diff --json
 ```

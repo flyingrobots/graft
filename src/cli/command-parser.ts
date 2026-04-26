@@ -296,8 +296,17 @@ function parseDiagCommand(argv: string[]): ParsedCommand {
   const json = consumeFlag(argv, "--json");
 
   if (subcommand === "doctor") {
+    const sludge = consumeFlag(argv, "--sludge");
+    const filePath = consumeOption(argv, "--path");
     expectNoArgs(argv);
-    return { command: "diag_doctor", json, args: {} };
+    return {
+      command: "diag_doctor",
+      json,
+      args: {
+        ...(sludge ? { sludge } : {}),
+        ...(filePath !== undefined ? { path: filePath } : {}),
+      },
+    };
   }
 
   if (subcommand === "activity") {
@@ -364,6 +373,20 @@ function parseDiagCommand(argv: string[]): ParsedCommand {
 export function parseCommand(argv: string[]): ParsedCommand {
   const group = consumePositional(argv, "command");
 
+  if (group === "doctor") {
+    const json = consumeFlag(argv, "--json");
+    const sludge = consumeFlag(argv, "--sludge");
+    const filePath = consumeOption(argv, "--path");
+    expectNoArgs(argv);
+    return {
+      command: "diag_doctor",
+      json,
+      args: {
+        ...(sludge ? { sludge } : {}),
+        ...(filePath !== undefined ? { path: filePath } : {}),
+      },
+    };
+  }
   if (group === "read") return parseReadCommand(argv);
   if (group === "struct") return parseStructCommand(argv);
   if (group === "symbol") return parseSymbolCommand(argv);

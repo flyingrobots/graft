@@ -151,6 +151,52 @@ describe("cli: graft grouped surface", () => {
     expect(calls).toEqual([{ socketPath: "/tmp/example/runtime/graft.sock" }]);
   });
 
+  it("runs doctor sludge scan through the top-level doctor alias", async () => {
+    const repoDir = createTestRepo("graft-cli-sludge-");
+    try {
+      fs.mkdirSync(path.join(repoDir, "src"), { recursive: true });
+      fs.writeFileSync(path.join(repoDir, "src", "sloppy.ts"), [
+        "/** @typedef {{ name: string }} UserShape */",
+        "/** @type {UserShape} */",
+        "const user = {};",
+        "/** @type {UserShape} */",
+        "const nextUser = {};",
+        "/** @type {UserShape} */",
+        "const thirdUser = {};",
+        "type UserShape = { name: string };",
+        "export function buildUser(input: UserShape) {",
+        "  return { name: input.name };",
+        "}",
+        "",
+      ].join("\n"));
+      git(repoDir, "add -A");
+      git(repoDir, "commit -m sludge");
+
+      const stdout = createBufferWriter();
+      const stderr = createBufferWriter();
+      await runCli({
+        cwd: repoDir,
+        args: ["doctor", "--sludge", "--path", "src", "--json"],
+        stdout,
+        stderr,
+      });
+
+      expect(stderr.text()).toBe("");
+      const parsed = JSON.parse(stdout.text()) as {
+        sludge?: {
+          scannedFiles: number;
+          filesWithSignals: number;
+          files: { path: string; signals: { kind: string }[] }[];
+        };
+      };
+      expect(parsed.sludge?.scannedFiles).toBe(1);
+      expect(parsed.sludge?.filesWithSignals).toBe(1);
+      expect(parsed.sludge?.files[0]?.signals.map((signal) => signal.kind)).toContain("homeless_constructor");
+    } finally {
+      cleanupTestRepo(repoDir);
+    }
+  });
+
   it("keeps no-arg non-interactive entrypoints compatible with MCP clients", () => {
     expect(resolveEntrypointArgs([], false, false)).toEqual(["serve"]);
     expect(resolveEntrypointArgs([], true, true)).toEqual([]);

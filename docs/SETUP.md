@@ -454,7 +454,7 @@ add to `.claude/settings.local.json`:
 | `code_find` | Search symbols across the project by approximate name or glob pattern, with optional kind/path filter. |
 | `code_refs` | Search import sites, callsites, property access, or literal text references with explicit text-fallback provenance, pattern, and scope. |
 | `activity_view` | Bounded between-commit activity for the active workspace, including commit anchor, grouped recent activity, and degraded posture. |
-| `doctor` | Runtime health check including layered-worldline repo state and burden summary. |
+| `doctor` | Runtime health check including layered-worldline repo state and burden summary. Accepts an opt-in `sludge` scan for parser-backed structural smell signals. |
 | `stats` | Decision metrics for the current server session, including burden by tool kind. |
 | `explain` | Human-readable meaning and recommended action for a reason code. |
 | `run_capture` | Execute a shell command and return the last N lines of output (default 60). This tool is outside graft's bounded-read policy contract, responses include an explicit `policyBoundary` marker, log persistence can be disabled, and persisted output is redacted for obvious secrets by default. |
@@ -464,7 +464,7 @@ add to `.claude/settings.local.json`:
 MCP responses include versioned `_schema` metadata and `_receipt`
 fields. CLI peer commands also return versioned `_schema` metadata;
 the declared contracts live in `src/contracts/output-schemas.ts`.
-| `doctor` | Runtime health check. Shows project root, parser status, active thresholds, session depth, message count, and a compact burden summary. |
+| `doctor` | Runtime health check. Shows project root, parser status, active thresholds, session depth, message count, and a compact burden summary. With `sludge: true`, reports parser-backed structural smell signals. |
 | `set_budget` | Declare a session byte budget. Graft tightens read thresholds as the budget drains — no single read may consume more than 5% of remaining budget. Call once at session start. |
 | `explain` | Explain a graft reason code. Returns human-readable meaning and recommended next action for any code (e.g., `BINARY`, `BUDGET_CAP`). Case-insensitive. |
 | `stats` | Decision metrics for the current session. Total reads, outlines, refusals, cache hits, bytes avoided, and returned-byte burden by tool kind. |

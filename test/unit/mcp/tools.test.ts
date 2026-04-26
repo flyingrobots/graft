@@ -213,6 +213,42 @@ describe("mcp: tool handlers", () => {
     expect(parsed["recommendedNextAction"]).toBe("continue_active_causal_workspace");
   });
 
+  it("doctor returns sludge signals when requested", async () => {
+    const repoDir = createTestRepo("graft-mcp-tools-sludge-");
+    cleanups.push(() => { cleanupTestRepo(repoDir); });
+    fs.mkdirSync(path.join(repoDir, "src"), { recursive: true });
+    fs.writeFileSync(path.join(repoDir, "src", "sloppy.ts"), [
+      "/** @typedef {{ name: string }} UserShape */",
+      "/** @type {UserShape} */",
+      "const user = {};",
+      "/** @type {UserShape} */",
+      "const nextUser = {};",
+      "/** @type {UserShape} */",
+      "const thirdUser = {};",
+      "type UserShape = { name: string };",
+      "export function buildUser(input: UserShape) {",
+      "  return { name: input.name };",
+      "}",
+      "",
+    ].join("\n"));
+    git(repoDir, "add -A");
+    git(repoDir, "commit -m sludge");
+
+    const server = createServerForProjectRoot(repoDir);
+    const result = await server.callTool("doctor", { sludge: true, path: "src" });
+    const parsed = parse(result);
+    const sludge = parsed["sludge"] as {
+      scannedFiles: number;
+      filesWithSignals: number;
+      files: { path: string; signals: { kind: string }[] }[];
+    };
+
+    expect(sludge.scannedFiles).toBe(1);
+    expect(sludge.filesWithSignals).toBe(1);
+    expect(sludge.files[0]?.path).toBe("src/sloppy.ts");
+    expect(sludge.files[0]?.signals.map((signal) => signal.kind)).toContain("homeless_constructor");
+  });
+
   it("causal_status returns the active causal workspace posture", async () => {
     const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "graft-mcp-tools-causal-"));
     cleanups.push(() => { fs.rmSync(tmpDir, { recursive: true, force: true }); });

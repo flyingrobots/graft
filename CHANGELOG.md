@@ -11,6 +11,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ### Added
 
+- **Sludge detector**: `doctor` can run an opt-in parser-backed
+  structural smell scan with `sludge: true` or `graft doctor --sludge`.
+  It reports typedef/class imbalance, JSDoc cast density, homeless
+  constructor functions, free functions operating on project types, and
+  high-symbol-count files.
 - **WARP snapshot indexing**: `indexHead` is now the canonical
   snapshot-based indexing path and emits commit, file, directory,
   symbol, and AST facts with tick metadata.
