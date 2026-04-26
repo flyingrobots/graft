@@ -19,13 +19,13 @@ digraph backlog {
     v0_7_0_CORE_migrate_to_slice_first_reads [label="CORE-migrate-to-slice-first-reads" fillcolor="#FFA07A" penwidth=2]
     v0_7_0_CORE_rewrite_structural_blame_to_use_warp_worldline_provenance [label="CORE-rewrite-structural-blame-to-use-warp-worldline-provenance" fillcolor="#FFA07A" penwidth=2]
     v0_7_0_SURFACE_agent_dx_governed_edit [label="SURFACE-agent-dx-governed-edit" fillcolor="#FFA07A" penwidth=2]
-    v0_7_0_SURFACE_bijou_tui_for_graft_daemon_control_plane [label="SURFACE-bijou-tui-for-graft-daemon-control-plane" fillcolor="#FFA07A" penwidth=2]
+    v0_7_0_SURFACE_bijou_daemon_status_first_slice [label="SURFACE-bijou-daemon-status-first-slice" fillcolor="#FFA07A" penwidth=2]
     v0_7_0_SURFACE_governed_write_tools [label="SURFACE-governed-write-tools" fillcolor="#FFA07A" penwidth=2]
     v0_7_0_WARP_lsp_enrichment [label="WARP-lsp-enrichment" fillcolor="#FFA07A" penwidth=2]
   }
 
   subgraph cluster_cool_ideas {
-    label="Cool Ideas (73)" labeljust=l fontsize=9 fontcolor="#555555"
+    label="Cool Ideas (75)" labeljust=l fontsize=9 fontcolor="#555555"
     style=rounded color="#cccccc" bgcolor="#fafafa"
     cool_ideas_bounded_neighborhood_for_references [label="bounded-neighborhood-for-references - S" fillcolor="#D4E8F7" penwidth=1]
     cool_ideas_CI_001_causal_collapse_visualizer [label="CI-001-causal-collapse-visualizer - L" fillcolor="#D4E8F7" penwidth=1]
@@ -58,6 +58,8 @@ digraph backlog {
     cool_ideas_monitor_tick_ceiling_tracking [label="monitor-tick-ceiling-tracking - S" fillcolor="#D4E8F7" penwidth=1]
     cool_ideas_SURFACE_active_causal_workspace_status [label="SURFACE-active-causal-workspace-status - M" fillcolor="#D4E8F7" penwidth=1]
     cool_ideas_SURFACE_attach_to_existing_causal_session [label="SURFACE-attach-to-existing-causal-session - M" fillcolor="#D4E8F7" penwidth=1]
+    cool_ideas_SURFACE_bijou_daemon_control_plane_actions [label="SURFACE-bijou-daemon-control-plane-actions - L" fillcolor="#D4E8F7" penwidth=1]
+    cool_ideas_SURFACE_bijou_daemon_status_live_refresh [label="SURFACE-bijou-daemon-status-live-refresh - M" fillcolor="#D4E8F7" penwidth=1]
     cool_ideas_SURFACE_ide_native_graft_integration [label="SURFACE-ide-native-graft-integration - XL" fillcolor="#D4E8F7" penwidth=1]
     cool_ideas_SURFACE_local_history_dag_render_mode_and_count_legend [label="SURFACE-local-history-dag-render-mode-and-count-legend - S" fillcolor="#D4E8F7" penwidth=1]
     cool_ideas_SURFACE_non_codex_instruction_bootstrap_parity [label="SURFACE-non-codex-instruction-bootstrap-parity - M" fillcolor="#D4E8F7" penwidth=1]
@@ -132,6 +134,8 @@ digraph backlog {
   v0_7_0_CORE_rewrite_structural_blame_to_use_warp_worldline_provenance -> v0_7_0_CORE_git_graft_enhance [label="blocked_by/blocking"]
   v0_7_0_SURFACE_agent_dx_governed_edit -> v0_7_0_CORE_agent_drift_warning [label="blocked_by/blocking"]
   v0_7_0_SURFACE_agent_dx_governed_edit -> v0_7_0_SURFACE_governed_write_tools [label="blocked_by/blocking"]
+  v0_7_0_SURFACE_bijou_daemon_status_first_slice -> cool_ideas_SURFACE_bijou_daemon_control_plane_actions [label="blocked_by"]
+  v0_7_0_SURFACE_bijou_daemon_status_first_slice -> cool_ideas_SURFACE_bijou_daemon_status_live_refresh [label="blocked_by"]
 
   subgraph cluster_legend {
     label="Legend" labeljust=l fontsize=8 fontcolor="#aaaaaa"

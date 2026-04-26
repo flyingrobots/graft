@@ -52,7 +52,7 @@ acceptance_criteria:
 ## Related cards
 
 - **SURFACE_local-history-dag-render-mode-and-count-legend**: The DAG pane would consume the render mode label and count legend that this card proposes. Complementary — the TUI would benefit from clearer DAG rendering, but neither blocks the other. The TUI can render whatever mode the DAG command currently outputs.
-- **SURFACE_bijou-tui-for-graft-daemon-control-plane** (v0.7.0): Both are Bijou-based TUI surfaces. They share framework infrastructure but serve different domains (activity browsing vs daemon control). If the daemon TUI ships first, its patterns (pane layout, keyboard nav, degradation) become reusable for the activity browser.
+- **SURFACE_bijou-daemon-status-first-slice** (v0.7.0): Both are Bijou-based terminal surfaces. They share framework infrastructure but serve different domains (activity browsing vs daemon status). If the daemon status surface ships first, its model/render split and pipe-mode degradation become reusable for the activity browser.
 - **CORE_session-knowledge-map**: The "what do I know?" query could feed the inspector pane when a session is selected. Not a dependency — the inspector can show raw activity/attribution data without a knowledge map surface.
 - **SURFACE_ide-native-graft-integration**: IDE integration and TUI are parallel presentation surfaces for overlapping data. No dependency — they serve different environments (IDE vs terminal operator).
 
