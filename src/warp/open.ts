@@ -10,6 +10,7 @@ import GitPlumbing from "@git-stunts/plumbing";
 import { DEFAULT_WARP_WRITER_ID } from "./writer-id.js";
 
 export const GRAPH_NAME = "graft-ast";
+export const DEFAULT_WARP_CHECKPOINT_EVERY = 128;
 const WARP_GIT_MAX_BUFFER_BYTES = 128 * 1024 * 1024;
 
 interface GitExecuteOptions {
@@ -49,6 +50,7 @@ function raiseWarpGitBufferLimit(plumbing: GitPlumbing): GitPlumbing {
 export interface OpenWarpOptions {
   readonly cwd: string;
   readonly writerId?: string;
+  readonly checkpointEvery?: number;
 }
 
 export async function openWarp(options: OpenWarpOptions): Promise<WarpApp> {
@@ -59,6 +61,7 @@ export async function openWarp(options: OpenWarpOptions): Promise<WarpApp> {
     persistence,
     graphName: GRAPH_NAME,
     writerId: options.writerId ?? DEFAULT_WARP_WRITER_ID,
+    checkpointPolicy: { every: options.checkpointEvery ?? DEFAULT_WARP_CHECKPOINT_EVERY },
     onDeleteWithData: "cascade",
   });
 }

@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, afterEach } from "vitest";
+import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import * as fs from "node:fs";
 import * as path from "node:path";
 import { nodeGit } from "../../../src/adapters/node-git.js";
@@ -126,5 +126,44 @@ describe("warp: symbol-timeline", { timeout: 15000 }, () => {
     const result = await symbolTimeline(ctx, "doesNotExist");
     expect(result.symbol).toBe("doesNotExist");
     expect(result.versions).toEqual([]);
+  });
+
+  it("skips legacy commit nodes without numeric ticks", async () => {
+    const observedCeilings: number[] = [];
+    const app = {
+      observer: vi.fn((lens, options) => {
+        if (lens.match === "commit:*") {
+          return Promise.resolve({
+            getNodes: () => Promise.resolve(["commit:legacy", "commit:modern"]),
+            getNodeProps: (nodeId: string) => Promise.resolve(nodeId === "commit:legacy"
+              ? { sha: "legacy" }
+              : { sha: "modern", tick: 7 }),
+            getEdges: () => Promise.resolve([]),
+          });
+        }
+
+        const ceiling = options?.source?.ceiling;
+        if (typeof ceiling === "number") {
+          observedCeilings.push(ceiling);
+        }
+
+        return Promise.resolve({
+          getNodes: () => Promise.resolve(["sym:file.ts:target"]),
+          getNodeProps: () => Promise.resolve({
+            signature: "export function target(): void",
+            startLine: 1,
+            endLine: 1,
+          }),
+          getEdges: () => Promise.resolve([]),
+        });
+      }),
+    } as unknown as WarpContext["app"];
+
+    const result = await symbolTimeline({ app, strandId: null }, "target");
+
+    expect(observedCeilings).toEqual([7]);
+    expect(result.versions).toHaveLength(1);
+    expect(result.versions[0]!.sha).toBe("modern");
+    expect(result.versions[0]!.tick).toBe(7);
   });
 });
