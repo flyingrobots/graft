@@ -11,10 +11,9 @@ digraph backlog {
   nodesep=0.2
 
   subgraph cluster_v0_7_0 {
-    label="v0.7.0 (6)" labeljust=l fontsize=9 fontcolor="#555555"
+    label="v0.7.0 (5)" labeljust=l fontsize=9 fontcolor="#555555"
     style=rounded color="#cccccc" bgcolor="#fafafa"
     v0_7_0_CORE_agent_drift_warning [label="CORE-agent-drift-warning" fillcolor="#FFA07A" penwidth=2]
-    v0_7_0_CORE_migrate_path_ops_to_port [label="CORE-migrate-path-ops-to-port" fillcolor="#FFA07A" penwidth=2]
     v0_7_0_CORE_migrate_to_slice_first_reads [label="CORE-migrate-to-slice-first-reads" fillcolor="#FFA07A" penwidth=2]
     v0_7_0_SURFACE_agent_dx_governed_edit [label="SURFACE-agent-dx-governed-edit" fillcolor="#FFA07A" penwidth=2]
     v0_7_0_SURFACE_governed_write_tools [label="SURFACE-governed-write-tools" fillcolor="#FFA07A" penwidth=2]
