@@ -26,6 +26,11 @@ Functionally correct and still eliminates all git calls, but doesn't use
 the aggregate API. The aggregate approach would avoid per-commit traversal
 entirely — a follow-up optimization opportunity.
 
+Follow-up closure: `CORE_rewrite-structural-churn-to-use-warp-aggregate-queries`
+closed this gap by moving live-symbol churn counts to
+`QueryBuilder.aggregate()` and preserving tombstoned-symbol churn through
+tick receipt evidence.
+
 ## Drift check
 
 - WarpContext + observeGraph convention ✅

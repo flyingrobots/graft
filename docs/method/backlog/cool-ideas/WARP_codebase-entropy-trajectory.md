@@ -8,15 +8,13 @@ effort: M
 requirements:
   - WARP Level 1 indexing (shipped)
   - Worldline seek API (shipped)
-  - Structural churn report via WARP aggregates (backlog)
+  - Structural churn report via WARP aggregates (shipped)
 acceptance_criteria:
   - A command or tool computes structural entropy over a range of commits on the worldline
   - Output includes trends for symbol addition/removal rate, signature stability, and export surface growth
   - Coupling direction (increasing vs decreasing) is reported
   - Results are presented as a trajectory (time series), not a single-point snapshot
   - A test verifies that adding symbols across multiple commits increases the reported entropy metric
-blocked_by:
-  - CORE_rewrite-structural-churn-to-use-warp-aggregate-queries
 blocking:
   - WARP_counterfactual-refactoring
 ---
@@ -45,14 +43,12 @@ is a sentence no other tool can produce.
    distribution, churn velocity, coupling coefficients
 5. Return as a time series with per-tick and trend-line values
 
-## Why blocked by structural-churn rewrite
+## Structural churn dependency
 
 Entropy computes OVER churn data. The current churn implementation
-walks git commits and accumulates counts in-memory. The WARP
-rewrite (`CORE_rewrite-structural-churn-to-use-warp-aggregate-queries`)
-provides native aggregate queries — essential when computing
-entropy across potentially hundreds of commits. Without efficient
-aggregation, entropy computation would be prohibitively slow.
+uses WARP aggregate queries and tick receipts, so this card can consume
+structural churn without reviving Git commit walking or in-memory
+per-commit accumulation.
 
 ## Why blocks counterfactual-refactoring
 

@@ -6,6 +6,8 @@
 - Full AST emission and cross-file import/reference edges
 - WARP-backed `graft_log`, `graft_churn`, `graft_blame`, and
   `graft_review` MCP execution paths
+- Aggregate-backed `graft_churn` counts for live symbols, with
+  tick-receipt preservation for removed symbols
 - WARP-aware reference counting for structural review
 - Slice-first mitigation for the highest-risk graph read paths
 - Symbol timeline, dead-symbol detection, stale-doc checking, drift
@@ -20,10 +22,13 @@
 
 - **WARP**: structural history now reads from graph facts instead of
   shelling out to Git or grep for the primary MCP paths.
+- **Structural metrics**: churn counts now come from WARP aggregate
+  queries for live symbols, which unblocks the refactor-difficulty
+  score work.
 - **Agent observability**: agents can inspect what they know, replay
   sessions, and reason over structural drift with more deterministic
   surfaces.
-- **Structural metrics**: operators and agents can ask `doctor` for a
+- **Diagnostics**: operators and agents can ask `doctor` for a
   parser-backed sludge scan before deciding whether a file needs
   refactoring.
 - **Release truth**: the branch, package version, changelog, release

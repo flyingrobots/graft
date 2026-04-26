@@ -64,6 +64,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 - **WARP-backed structural operations**: `graft_log`, `graft_churn`,
   `graft_blame`, and `graft_review` now use WARP graph data for their
   MCP execution paths.
+- **Aggregate-backed structural churn**: `graft_churn` now computes
+  live-symbol change counts with WARP `QueryBuilder.aggregate()`, while
+  preserving removed-symbol churn from tick receipt evidence.
 - **`graft_blame` output shape**: WARP-backed blame returns tick-aware
   symbol timeline data and a simplified `createdInCommit` value. This
   is a breaking pre-1.0 MCP schema change for consumers scraping the

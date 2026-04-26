@@ -7,7 +7,7 @@ lane: cool-ideas
 effort: L
 requirements:
   - WARP Level 1 indexing (shipped)
-  - Structural churn report via WARP aggregates (backlog)
+  - Structural churn report via WARP aggregates (shipped)
   - Refactor difficulty score (backlog)
 acceptance_criteria:
   - Computes a curvature metric per symbol based on churn frequency and dependency fan-out
@@ -59,9 +59,9 @@ this card would need to reimplement churn-frequency and fan-out
 computation from scratch — duplicating work that the difficulty
 score already delivers. **Hard dependency.**
 
-Note: `WARP_refactor-difficulty-score` is itself blocked by
-`CORE_rewrite-structural-churn-to-use-warp-aggregate-queries`,
-so this card transitively depends on the churn rewrite as well.
+Note: `WARP_refactor-difficulty-score` now has aggregate-backed
+structural churn available, so this card's remaining hard dependency is
+the difficulty score itself.
 
 ## Related cards
 
@@ -81,8 +81,8 @@ so this card transitively depends on the churn rewrite as well.
   suggesting the debt was resolved by removal, not refactoring").
   Interesting but not a prerequisite.
 - **CORE_rewrite-structural-churn-to-use-warp-aggregate-queries**:
-  Transitive dependency via refactor-difficulty-score. Not a direct
-  blocker of this card.
+  Shipped prerequisite consumed through refactor-difficulty-score. Not
+  a direct blocker of this card.
 
 ## Effort rationale
 

@@ -5,13 +5,11 @@ kind: trunk
 legend: WARP
 lane: v0.7.0
 requirements:
-  - Structural churn data from WARP aggregate queries
+  - Structural churn data from WARP aggregate queries (shipped via CORE_rewrite-structural-churn-to-use-warp-aggregate-queries)
   - Cross-file reference edges in WARP graph (shipped via indexHead)
 acceptance_criteria:
   - A scalar difficulty score per symbol combining curvature and friction
   - Agents can query the score to decide refactor vs workaround
-blocked_by:
-  - CORE_rewrite-structural-churn-to-use-warp-aggregate-queries
 blocking:
   - CORE_lagrangian-policy
   - WARP_technical-debt-curvature
@@ -32,4 +30,5 @@ Low curvature × low friction = safe to refactor freely.
 Output: a scalar per symbol. Agents use it to decide whether to
 refactor or work around. Humans use it to prioritize tech debt.
 
-Depends on: WARP Level 1 (shipped), structural churn data.
+Depends on: WARP Level 1 (shipped), aggregate-backed structural churn
+data (shipped), and cross-file reference edges (shipped).

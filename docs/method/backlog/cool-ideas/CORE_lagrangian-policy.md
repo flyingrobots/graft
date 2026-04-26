@@ -10,7 +10,7 @@ requirements:
   - "Session depth tracking (shipped)"
   - "Policy engine with dual-threshold decisions (shipped)"
   - "Refactor difficulty score (backlog — v0.7.0)"
-  - "Structural churn data via WARP aggregate queries (backlog — v0.7.0)"
+  - "Structural churn data via WARP aggregate queries (shipped)"
 acceptance_criteria:
   - "Policy decisions are computed via a multi-axis cost functional, not dual-threshold step functions"
   - "Axes include at minimum: token cost, structural complexity, session depth, and context pressure"
@@ -51,7 +51,7 @@ weights. The full Lagrangian is smooth and multi-dimensional.
 ## Related cards
 
 - **WARP_refactor-difficulty-score** (v0.7.0): Hard dependency. The "structural risk" axis requires refactor difficulty scores per symbol. Without this, the Lagrangian can launch with fewer axes but loses its most differentiating input. Blocked by this card.
-- **CORE_rewrite-structural-churn-to-use-warp-aggregate-queries** (v0.7.0): Transitive dependency via refactor-difficulty-score. Churn data feeds difficulty scores, which feed the Lagrangian's risk axis.
+- **CORE_rewrite-structural-churn-to-use-warp-aggregate-queries** (v0.7.0): Shipped prerequisite for refactor-difficulty-score. Churn data feeds difficulty scores, which feed the Lagrangian's risk axis.
 - **CORE_policy-profiles**: Profiles become named weight vectors in the Lagrangian. Independent builds — profiles work with current thresholds, and the Lagrangian works without named profiles. But they compose powerfully.
 - **CORE_self-tuning-governor**: Tuning would suggest weight adjustments instead of threshold changes. The tuning concept generalizes but the implementation differs. Independent.
 - **WARP_adaptive-projection-selection**: Adaptive projection selects WHICH representation; the Lagrangian decides WHETHER to project at all and HOW aggressively. Complementary axes of the same decision space. Independent builds.

@@ -7,7 +7,7 @@ lane: cool-ideas
 effort: L
 requirements:
   - "WARP Level 1 indexing (shipped)"
-  - "Structural churn data via WARP aggregate queries (backlog — v0.7.0)"
+  - "Structural churn data via WARP aggregate queries (shipped)"
   - "Lagrangian policy framework (backlog)"
 acceptance_criteria:
   - "Each file/module has a multi-component signature vector: structural complexity, change velocity, coupling surface, export stability"
@@ -39,8 +39,7 @@ characterization.
    symbol count, nesting depth, export count. Shipped infrastructure.
 3. **Change velocity axis**: derive from WARP commit→sym edges —
    how frequently does this file's symbols appear in `changes` edges
-   over recent commits. Requires WARP aggregate queries (v0.7.0
-   backlog).
+   over recent commits. WARP aggregate-backed churn is shipped.
 4. **Coupling surface axis**: derive from `code_refs` — count
    incoming and outgoing reference edges per file. Shipped
    infrastructure.

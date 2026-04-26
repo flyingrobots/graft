@@ -1,6 +1,7 @@
-import { describe, it, expect, beforeEach, afterEach } from "vitest";
+import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import * as fs from "node:fs";
 import * as path from "node:path";
+import { QueryBuilder } from "@git-stunts/git-warp";
 import { nodeGit } from "../../../src/adapters/node-git.js";
 import { nodePathOps } from "../../../src/adapters/node-paths.js";
 import { git, createTestRepo, cleanupTestRepo } from "../../helpers/git.js";
@@ -57,6 +58,54 @@ describe("warp: structural-churn-from-graph", { timeout: 15000 }, () => {
     // 1 add + 1 change = 2 changes
     expect(addEntry!.changeCount).toBe(2);
     expect(result.totalCommitsAnalyzed).toBeGreaterThan(0);
+  });
+
+  it("counts removed symbols discovered from tick receipts", async () => {
+    fs.writeFileSync(
+      path.join(tmpDir, "utils.ts"),
+      "export function kept(): void {}\nexport function gone(): void {}\n",
+    );
+    git(tmpDir, "add -A");
+    git(tmpDir, "commit -m 'add utils'");
+    const ctx = await openCtx();
+    await index(ctx);
+
+    fs.writeFileSync(
+      path.join(tmpDir, "utils.ts"),
+      "export function kept(): void {}\n",
+    );
+    git(tmpDir, "add -A");
+    git(tmpDir, "commit -m 'remove gone'");
+    await index(ctx);
+
+    const result = await structuralChurnFromGraph(ctx, { limit: 10 });
+    const goneEntry = result.entries.find((e) => e.symbol === "gone");
+
+    expect(goneEntry).toBeDefined();
+    expect(goneEntry!.filePath).toBe("utils.ts");
+    expect(goneEntry!.kind).toBe("function");
+    expect(goneEntry!.changeCount).toBe(2);
+    expect(goneEntry!.lastChangedSha).toBe(git(tmpDir, "rev-parse HEAD"));
+  });
+
+  it("computes change counts through QueryBuilder.aggregate", async () => {
+    const aggregateSpy = vi.spyOn(QueryBuilder.prototype, "aggregate");
+
+    try {
+      fs.writeFileSync(path.join(tmpDir, "app.ts"), "export function main(): void {}\n");
+      git(tmpDir, "add -A");
+      git(tmpDir, "commit -m 'init'");
+      const ctx = await openCtx();
+      await index(ctx);
+
+      const result = await structuralChurnFromGraph(ctx, { limit: 10 });
+
+      expect(result.entries.length).toBeGreaterThan(0);
+      expect(aggregateSpy).toHaveBeenCalledWith({ count: true });
+      expect(aggregateSpy).toHaveBeenCalledWith({ count: true, max: "tick" });
+    } finally {
+      aggregateSpy.mockRestore();
+    }
   });
 
   it("returns empty result for repo with no indexed commits", async () => {
