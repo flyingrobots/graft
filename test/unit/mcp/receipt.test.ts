@@ -1,6 +1,6 @@
 import { describe, it, expect, afterEach } from "vitest";
 import type { GraftServer } from "../../../src/mcp/server.js";
-import { createIsolatedServer, extractText, fixturePath, parse } from "../../helpers/mcp.js";
+import { createFixtureWorkspace, createIsolatedServer, extractText, parse } from "../../helpers/mcp.js";
 
 interface Receipt {
   sessionId: string;
@@ -32,8 +32,8 @@ interface Receipt {
   };
 }
 
-const SMALL_TS = fixturePath("small.ts");
-const BANNED_IMAGE = fixturePath("ban-targets/image.png");
+const SMALL_TS = "fixtures/small.ts";
+const BANNED_IMAGE = "fixtures/ban-targets/image.png";
 
 describe("mcp: receipt mode", () => {
   const cleanups: (() => void)[] = [];
@@ -45,9 +45,11 @@ describe("mcp: receipt mode", () => {
   });
 
   function createServer(): GraftServer {
-    const isolated = createIsolatedServer();
+    const workspace = createFixtureWorkspace();
+    const isolated = createIsolatedServer({ projectRoot: workspace.projectRoot });
     cleanups.push(() => {
       isolated.cleanup();
+      workspace.cleanup();
     });
     return isolated.server;
   }

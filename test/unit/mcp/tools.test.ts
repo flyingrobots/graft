@@ -5,14 +5,14 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import type { GraftServer } from "../../../src/mcp/server.js";
-import { createIsolatedServer, fixturePath, parse } from "../../helpers/mcp.js";
+import { createFixtureWorkspace, createIsolatedServer, parse } from "../../helpers/mcp.js";
 import { cleanupTestRepo, createTestRepo, git } from "../../helpers/git.js";
 
 const EXPECTED_TOOL_NAMES = TOOL_REGISTRY.map((t) => t.name);
-const SMALL_TS = fixturePath("small.ts");
-const LARGE_TS = fixturePath("large.ts");
-const MEDIUM_TS = fixturePath("medium.ts");
-const BANNED_IMAGE = fixturePath("ban-targets/image.png");
+const SMALL_TS = "fixtures/small.ts";
+const LARGE_TS = "fixtures/large.ts";
+const MEDIUM_TS = "fixtures/medium.ts";
+const BANNED_IMAGE = "fixtures/ban-targets/image.png";
 
 const cleanups: (() => void)[] = [];
 
@@ -23,9 +23,11 @@ afterEach(() => {
 });
 
 function createServer(): GraftServer {
-  const isolated = createIsolatedServer();
+  const workspace = createFixtureWorkspace();
+  const isolated = createIsolatedServer({ projectRoot: workspace.projectRoot });
   cleanups.push(() => {
     isolated.cleanup();
+    workspace.cleanup();
   });
   return isolated.server;
 }
