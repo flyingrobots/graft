@@ -52,7 +52,7 @@ describe("warp: warp-reference-count", { timeout: 15000 }, () => {
 
     const result = await countSymbolReferencesFromGraph(ctx, "createUser", "lib.ts");
     expect(result.referenceCount).toBe(2);
-    expect(result.referencingFiles.sort()).toEqual(["handler.ts", "service.ts"]);
+    expect([...result.referencingFiles].sort()).toEqual(["handler.ts", "service.ts"]);
   });
 
   // Edge: unused symbol → count=0

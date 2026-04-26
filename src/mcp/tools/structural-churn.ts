@@ -16,10 +16,12 @@ export const structuralChurnTool: ToolDefinition = {
   createHandler(): ToolHandler {
     return async (args, ctx) => {
       const warp = await ctx.getWarp();
-      const result = await structuralChurnFromGraph(warp, {
-        path: args["path"] as string | undefined,
-        limit: args["limit"] as number | undefined,
-      });
+      const options: { path?: string; limit?: number } = {};
+      const pathArg = args["path"];
+      const limitArg = args["limit"];
+      if (typeof pathArg === "string") options.path = pathArg;
+      if (typeof limitArg === "number") options.limit = limitArg;
+      const result = await structuralChurnFromGraph(warp, options);
       return ctx.respond("graft_churn", structuralChurnToJson(result));
     };
   },

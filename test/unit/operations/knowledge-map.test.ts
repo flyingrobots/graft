@@ -1,7 +1,12 @@
 import { describe, it, expect } from "vitest";
 import { ObservationCache } from "../../../src/operations/observation-cache.js";
 import { buildKnowledgeMap } from "../../../src/operations/knowledge-map.js";
+import { OutlineEntry } from "../../../src/parser/types.js";
 import type { FileSystem } from "../../../src/ports/filesystem.js";
+
+function outline(name: string, signature = `${name}(): void`): OutlineEntry {
+  return new OutlineEntry({ name, kind: "function", signature, exported: true });
+}
 
 function mockFs(files: Record<string, string>): FileSystem {
   return {
@@ -37,7 +42,7 @@ describe("operations: knowledge-map", () => {
     cache.record(
       "src/app.ts",
       "hash1",
-      [{ name: "greet", kind: "function", signature: "greet(): string", exported: true, startLine: 1, endLine: 1 }],
+      [outline("greet", "greet(): string")],
       [],
       { lines: 1, bytes: 30 },
     );
@@ -60,7 +65,7 @@ describe("operations: knowledge-map", () => {
     cache.record(
       "src/changed.ts",
       "old-hash",
-      [{ name: "fn", kind: "function", signature: "fn(): void", exported: true, startLine: 1, endLine: 1 }],
+      [outline("fn")],
       [],
       { lines: 1, bytes: 20 },
     );
@@ -86,7 +91,7 @@ describe("operations: knowledge-map", () => {
     cache.record(
       "src/stable.ts",
       hash,
-      [{ name: "stable", kind: "function", signature: "stable(): void", exported: true, startLine: 1, endLine: 1 }],
+      [outline("stable")],
       [],
       { lines: 1, bytes: content.length },
     );
@@ -104,13 +109,13 @@ describe("operations: knowledge-map", () => {
   it("tracks multiple files across directories", async () => {
     const cache = new ObservationCache();
     cache.record("src/mcp/server.ts", "h1",
-      [{ name: "serve", kind: "function", signature: "serve(): void", exported: true, startLine: 1, endLine: 1 }],
+      [outline("serve")],
       [], { lines: 1, bytes: 10 });
     cache.record("src/mcp/tools.ts", "h2",
-      [{ name: "tool", kind: "function", signature: "tool(): void", exported: true, startLine: 1, endLine: 1 }],
+      [outline("tool")],
       [], { lines: 1, bytes: 10 });
     cache.record("src/warp/index.ts", "h3",
-      [{ name: "idx", kind: "function", signature: "idx(): void", exported: true, startLine: 1, endLine: 1 }],
+      [outline("idx")],
       [], { lines: 1, bytes: 10 });
 
     const result = await buildKnowledgeMap({

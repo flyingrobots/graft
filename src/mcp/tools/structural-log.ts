@@ -19,10 +19,10 @@ export const structuralLogTool: ToolDefinition = {
       const limit = args["limit"] as number | undefined;
       const warp = await ctx.getWarp();
 
-      const entries = await structuralLogFromGraph(warp, {
-        path: filePath,
-        limit,
-      });
+      const options: { path?: string; limit?: number } = {};
+      if (filePath !== undefined) options.path = filePath;
+      if (limit !== undefined) options.limit = limit;
+      const entries = await structuralLogFromGraph(warp, options);
 
       ctx.recordFootprint({
         symbols: entries.flatMap((e) => [

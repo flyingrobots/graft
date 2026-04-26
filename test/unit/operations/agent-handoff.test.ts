@@ -1,21 +1,30 @@
 import { describe, it, expect } from "vitest";
 import { ObservationCache } from "../../../src/operations/observation-cache.js";
 import { buildHandoff, type HandoffPayload } from "../../../src/operations/agent-handoff.js";
+import { OutlineEntry, type EntryKind } from "../../../src/parser/types.js";
+
+function outline(
+  name: string,
+  kind: EntryKind = "function",
+  signature = `${name}(): void`,
+  exported = true,
+): OutlineEntry {
+  return new OutlineEntry({ name, kind, signature, exported });
+}
 
 describe("operations: agent-handoff", () => {
   it("produces handoff with files read and symbols inspected", () => {
     const cache = new ObservationCache();
     cache.record("src/app.ts", "h1",
-      [{ name: "main", kind: "function", signature: "main(): void", exported: true, startLine: 1, endLine: 1 }],
+      [outline("main")],
       [], { lines: 1, bytes: 30 });
     cache.record("src/lib.ts", "h2",
-      [{ name: "helper", kind: "function", signature: "helper(): string", exported: true, startLine: 1, endLine: 1 },
-       { name: "util", kind: "function", signature: "util(): void", exported: false, startLine: 2, endLine: 2 }],
+      [outline("helper", "function", "helper(): string"), outline("util", "function", "util(): void", false)],
       [], { lines: 2, bytes: 60 });
 
     const handoff = buildHandoff({ cache, sessionId: "sess-1" });
 
-    expect(handoff.filesRead.sort()).toEqual(["src/app.ts", "src/lib.ts"]);
+    expect([...handoff.filesRead].sort()).toEqual(["src/app.ts", "src/lib.ts"]);
     expect(handoff.symbolsInspected).toContain("main");
     expect(handoff.symbolsInspected).toContain("helper");
     expect(handoff.symbolsInspected).toContain("util");
@@ -35,7 +44,7 @@ describe("operations: agent-handoff", () => {
   it("includes budget consumed percentage", () => {
     const cache = new ObservationCache();
     cache.record("a.ts", "h",
-      [{ name: "x", kind: "variable", signature: "x: number", exported: true, startLine: 1, endLine: 1 }],
+      [outline("x", "type", "type x = number")],
       [], { lines: 1, bytes: 100 });
 
     const handoff = buildHandoff({
@@ -51,7 +60,7 @@ describe("operations: agent-handoff", () => {
   it("handoff is JSON-serializable", () => {
     const cache = new ObservationCache();
     cache.record("x.ts", "h",
-      [{ name: "fn", kind: "function", signature: "fn(): void", exported: true, startLine: 1, endLine: 1 }],
+      [outline("fn")],
       [], { lines: 1, bytes: 10 });
 
     const handoff = buildHandoff({ cache, sessionId: "s" });

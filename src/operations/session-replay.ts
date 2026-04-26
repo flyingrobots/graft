@@ -33,8 +33,8 @@ export function parseReceiptsForReplay(ndjson: string, sessionId: string): Repla
 
     entries.push({
       tool: parsed["tool"],
-      path: typeof parsed["path"] === "string" ? parsed["path"] : undefined,
-      symbol: typeof parsed["symbol"] === "string" ? parsed["symbol"] : undefined,
+      ...(typeof parsed["path"] === "string" ? { path: parsed["path"] } : {}),
+      ...(typeof parsed["symbol"] === "string" ? { symbol: parsed["symbol"] } : {}),
       ts: typeof parsed["ts"] === "string" ? parsed["ts"] : "",
       sessionId,
     });

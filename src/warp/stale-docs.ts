@@ -103,8 +103,9 @@ export function extractDocSymbolReferences(markdown: string): string[] {
       let identMatch: RegExpExecArray | null;
       while ((identMatch = DESTRUCTURE_IDENT_RE.exec(inner)) !== null) {
         // Skip "as" keyword in "foo as bar" patterns — keep both identifiers
-        if (identMatch[1] !== "as") {
-          symbols.add(identMatch[1]);
+        const identifier = identMatch[1];
+        if (identifier !== undefined && identifier !== "as") {
+          symbols.add(identifier);
         }
       }
     }

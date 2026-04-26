@@ -197,7 +197,14 @@ export function buildToolContext(deps: ToolContextDeps): ToolContext {
     },
     nudgeMonitor(request) {
       if (monitorRuntime === null) {
-        return Promise.resolve({ ok: false, errorCode: "no_daemon", error: "Monitor runtime is not available." } as MonitorActionResult);
+        return Promise.resolve({
+          ok: false,
+          action: "nudge",
+          created: false,
+          changed: false,
+          errorCode: "no_daemon",
+          error: "Monitor runtime is not available.",
+        });
       }
       return monitorRuntime.nudgeMonitor(request);
     },

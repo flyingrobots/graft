@@ -203,6 +203,7 @@ export const mcpOutputBodySchemas = {
   monitor_start: monitorActionSchema,
   monitor_pause: monitorActionSchema,
   monitor_resume: monitorActionSchema,
+  monitor_nudge: monitorActionSchema,
   monitor_stop: monitorActionSchema,
   workspace_authorize: workspaceAuthorizeSchema,
   workspace_authorizations: z.object({
@@ -415,5 +416,18 @@ export const mcpOutputBodySchemas = {
       impactedFilePaths: z.array(z.string()),
     }).strict()),
     summary: z.string(),
+  }).strict(),
+  knowledge_map: z.object({
+    totalFiles: z.number().int().nonnegative(),
+    totalSymbols: z.number().int().nonnegative(),
+    files: z.array(z.object({
+      path: z.string(),
+      symbols: z.array(z.string()),
+      readCount: z.number().int().positive(),
+      lastReadAt: z.string(),
+      stale: z.boolean(),
+    }).strict()),
+    staleFiles: z.array(z.string()),
+    directoryCoverage: z.record(z.string(), z.number().int().nonnegative()),
   }).strict(),
 } satisfies Record<McpToolName, z.ZodType>;

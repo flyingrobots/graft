@@ -98,7 +98,7 @@ describe("warp: structural-drift-detection", () => {
       });
 
       expect(result.drifted).toBe(true);
-      expect(result.violations.sort()).toEqual(["src/a.ts", "src/b.ts"]);
+      expect([...result.violations].sort()).toEqual(["src/a.ts", "src/b.ts"]);
     });
   });
 });

@@ -7,7 +7,6 @@ import type { WarpContext } from "./context.js";
 import { observeGraph } from "./context.js";
 import type {
   StructuralLogEntry,
-  StructuralLogCommitSymbols,
   StructuralLogSymbolChange,
 } from "../operations/structural-log.js";
 
@@ -114,7 +113,6 @@ export async function structuralLogFromGraph(
       }
     }
 
-    const symbols: StructuralLogCommitSymbols = { added, removed, changed };
     const totalChanges = added.length + changed.length + removed.length;
 
     entries.push({
@@ -122,7 +120,7 @@ export async function structuralLogFromGraph(
       author: commit.author,
       date: commit.date,
       message: commit.message,
-      symbols,
+      symbols: { added, removed, changed },
       summary: totalChanges === 0
         ? "No structural changes."
         : `${String(added.length)} added, ${String(changed.length)} changed, ${String(removed.length)} removed.`,

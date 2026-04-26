@@ -18,7 +18,8 @@ interface MutableChurnEntry {
   filePath: string;
   kind: string;
   changeCount: number;
-  lastChangeSha: string;
+  lastChangedSha: string;
+  lastChangedDate: string;
 }
 
 /**
@@ -96,7 +97,7 @@ export async function structuralChurnFromGraph(
         const existing = accumulator.get(key);
         if (existing !== undefined) {
           existing.changeCount++;
-          existing.lastChangeSha = commit.sha;
+          existing.lastChangedSha = commit.sha;
         } else {
           // Read sym node props for kind
           const symProps = await symObs.getNodeProps(symId);
@@ -107,7 +108,8 @@ export async function structuralChurnFromGraph(
             filePath,
             kind,
             changeCount: 1,
-            lastChangeSha: commit.sha,
+            lastChangedSha: commit.sha,
+            lastChangedDate: "",
           });
         }
       }
@@ -120,9 +122,8 @@ export async function structuralChurnFromGraph(
     filePath: e.filePath,
     kind: e.kind,
     changeCount: e.changeCount,
-    lastChangeSha: e.lastChangeSha,
-    lastChangeDate: "",
-    exported: false,
+    lastChangedSha: e.lastChangedSha,
+    lastChangedDate: e.lastChangedDate,
   }));
 
   const top = entries[0];

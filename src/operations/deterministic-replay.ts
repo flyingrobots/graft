@@ -99,7 +99,7 @@ export function createSnapshotFs(
       const content = fileMap.get(path);
       return Promise.resolve({ size: content?.length ?? 0 });
     },
-  } as FileSystem;
+  } as unknown as FileSystem;
 }
 
 /**

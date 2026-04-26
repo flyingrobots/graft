@@ -33,11 +33,14 @@ export async function traverseAndHydrate(
 ): Promise<readonly HydratedNode[]> {
   let ids: string[];
   try {
-    ids = await observer.traverse.bfs(startId, {
-      dir: options.dir,
-      labelFilter: options.labelFilter,
-      maxDepth: options.maxDepth,
-    });
+    const bfsOptions: {
+      dir: "out" | "in";
+      labelFilter?: string;
+      maxDepth?: number;
+    } = { dir: options.dir };
+    if (options.labelFilter !== undefined) bfsOptions.labelFilter = options.labelFilter;
+    if (options.maxDepth !== undefined) bfsOptions.maxDepth = options.maxDepth;
+    ids = await observer.traverse.bfs(startId, bfsOptions);
   } catch {
     return [];
   }

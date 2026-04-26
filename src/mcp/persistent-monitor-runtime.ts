@@ -204,13 +204,23 @@ export class PersistentMonitorRuntime {
     await this.ensureLoaded();
     const resolved = await this.resolveAuthorizedRepo(request);
     if ("errorCode" in resolved) {
-      return { ok: false, ...resolved };
+      return {
+        ok: false,
+        action: "nudge",
+        created: false,
+        changed: false,
+        errorCode: resolved.errorCode,
+        error: resolved.error,
+      };
     }
     const { repoId } = resolved;
     const record = this.records.get(repoId);
     if (record?.lifecycleState !== "running") {
       return {
         ok: false,
+        action: "nudge",
+        created: false,
+        changed: false,
         errorCode: "not_running",
         error: "Monitor is not running — start it first.",
       };
