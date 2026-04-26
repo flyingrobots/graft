@@ -5,6 +5,8 @@ kind: trunk
 legend: CORE
 release: "v0.7.0"
 lane: graveyard
+superseded: true
+superseded_reason: "Absorbed by CORE_rewrite-structural-log, which shipped WARP commit-node queries rather than literal worldline.seek traversal"
 requirements:
   - "indexHead emits commit nodes with tick property (shipped)"
   - "Worldline.seek() API available in git-warp (shipped)"
@@ -15,10 +17,13 @@ acceptance_criteria:
 
 # Rewrite structural-log to use WARP worldline queries
 
-Status: resolved by `CORE_rewrite-structural-log`. The shipped
-implementation uses WARP commit-node queries and edge traversal rather
-than Git log SHA walking. It did not use `worldline().seek()`
-literally; the retro records that design drift.
+## Disposition
+
+Superseded as a standalone backlog card by
+`docs/method/retro/CORE_rewrite-structural-log/CORE_rewrite-structural-log.md`.
+The shipped implementation uses WARP commit-node queries and edge
+traversal rather than Git log SHA walking. It did not use
+`worldline().seek()` literally; the retro records that design drift.
 
 Source: decomposed from CORE_rewrite-operations-for-warp-queries
 

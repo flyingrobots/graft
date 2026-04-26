@@ -2,7 +2,7 @@
 title: "export-surface-diff semver signature classification"
 cycle: "CLEAN_CODE_export-diff-semver-signature-as-patch"
 design_doc: "docs/design/WARP_export-surface-diff.md"
-source_backlog: "docs/method/backlog/graveyard/CLEAN_CODE_export-diff-semver-signature-as-patch.md"
+source_backlog: "docs/method/backlog/v0.7.0/CLEAN_CODE_export-diff-semver-signature-as-patch.md"
 outcome: hill-met
 drift_check: yes
 ---
@@ -35,7 +35,8 @@ conservative release semantics:
 - Unit coverage now proves required parameter additions, optional
   parameter additions, optional parameter removals, parameter type
   changes, return type changes, and parameter rename-only changes.
-- The v0.7.0 backlog card moved to graveyard with a resolved status.
+- The v0.7.0 backlog card is closed by this retro/witness packet, not
+  by a graveyard tombstone.
 - The original export-surface design gap now records the resolved
   classifier behavior.
 
