@@ -274,6 +274,7 @@ describe("mcp: graft_edit RED contract", () => {
     const source = fs.readFileSync(sourcePath, "utf-8");
 
     expect(source).not.toMatch(/from\s+["']node:fs["']|from\s+["']fs["']|require\(["']fs["']\)/);
+    expect(source).not.toMatch(/\bBuffer\b/);
     expect(source).toMatch(/\bctx\.fs\.(readFile|writeFile)\b/);
   });
 

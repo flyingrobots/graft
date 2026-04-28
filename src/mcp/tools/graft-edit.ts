@@ -44,10 +44,14 @@ function countOccurrences(content: string, needle: string): number {
   return count;
 }
 
-function actualForContent(content: string): { lines: number; bytes: number } {
+async function actualForFile(
+  content: string,
+  stat: () => Promise<{ size: number }>,
+): Promise<{ lines: number; bytes: number }> {
+  const fileStat = await stat();
   return {
     lines: content.split("\n").length,
-    bytes: Buffer.byteLength(content, "utf-8"),
+    bytes: fileStat.size,
   };
 }
 
@@ -107,7 +111,7 @@ export const graftEditTool: ToolDefinition = {
         });
       }
 
-      const actual = actualForContent(content);
+      const actual = await actualForFile(content, () => ctx.fs.stat(filePath));
       const policy = evaluateMcpPolicy(ctx, filePath, actual);
       if (policy instanceof RefusedResult) {
         ctx.metrics.recordRefusal();
