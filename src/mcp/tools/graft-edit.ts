@@ -1,0 +1,173 @@
+import { z } from "zod";
+import { evaluateMcpPolicy } from "../policy.js";
+import { RefusedResult } from "../../policy/types.js";
+import type { ToolDefinition, ToolHandler } from "../context.js";
+
+type GraftEditReason =
+  | "NOT_FOUND"
+  | "OLD_STRING_NOT_FOUND"
+  | "OLD_STRING_AMBIGUOUS"
+  | RefusedResult["reason"];
+
+interface GraftEditResponse {
+  readonly path: string;
+  readonly operation: "replace";
+  readonly projection: "edited" | "refused";
+  readonly status: "edited" | "refused";
+  readonly changed: boolean;
+  readonly matches: number;
+  readonly replacements: number;
+  readonly reason?: GraftEditReason;
+  readonly reasonDetail?: string;
+  readonly next?: readonly string[];
+  readonly actual?: {
+    readonly lines: number;
+    readonly bytes: number;
+  };
+}
+
+function countOccurrences(content: string, needle: string): number {
+  if (needle.length === 0) {
+    return content.length + 1;
+  }
+
+  let count = 0;
+  let offset = 0;
+  while (offset <= content.length) {
+    const index = content.indexOf(needle, offset);
+    if (index === -1) {
+      return count;
+    }
+    count += 1;
+    offset = index + needle.length;
+  }
+  return count;
+}
+
+function actualForContent(content: string): { lines: number; bytes: number } {
+  return {
+    lines: content.split("\n").length,
+    bytes: Buffer.byteLength(content, "utf-8"),
+  };
+}
+
+function refused(input: {
+  readonly path: string;
+  readonly reason: GraftEditReason;
+  readonly reasonDetail?: string;
+  readonly next?: readonly string[];
+  readonly actual?: { readonly lines: number; readonly bytes: number };
+  readonly matches?: number;
+}): GraftEditResponse {
+  return {
+    path: input.path,
+    operation: "replace",
+    projection: "refused",
+    status: "refused",
+    changed: false,
+    matches: input.matches ?? 0,
+    replacements: 0,
+    reason: input.reason,
+    ...(input.reasonDetail !== undefined ? { reasonDetail: input.reasonDetail } : {}),
+    ...(input.next !== undefined ? { next: [...input.next] } : {}),
+    ...(input.actual !== undefined ? { actual: input.actual } : {}),
+  };
+}
+
+export const graftEditTool: ToolDefinition = {
+  name: "graft_edit",
+  description:
+    "Perform one governed exact string replacement in a repo file. " +
+    "Requires path, old_string, and new_string. Refuses missing or " +
+    "ambiguous old_string matches and policy-denied paths.",
+  schema: {
+    path: z.string(),
+    old_string: z.string(),
+    new_string: z.string(),
+  },
+  createHandler(): ToolHandler {
+    return async (args, ctx) => {
+      const filePath = ctx.resolvePath(args["path"] as string);
+      const oldString = args["old_string"] as string;
+      const newString = args["new_string"] as string;
+      ctx.recordFootprint({ paths: [filePath] });
+
+      let content: string;
+      try {
+        content = await ctx.fs.readFile(filePath, "utf-8");
+      } catch {
+        ctx.metrics.recordRefusal();
+        return ctx.respond("graft_edit", {
+          ...refused({
+            path: filePath,
+            reason: "NOT_FOUND",
+            reasonDetail: "File does not exist or cannot be read",
+            next: ["Choose an existing file; graft_edit does not create files"],
+          }),
+        });
+      }
+
+      const actual = actualForContent(content);
+      const policy = evaluateMcpPolicy(ctx, filePath, actual);
+      if (policy instanceof RefusedResult) {
+        ctx.metrics.recordRefusal();
+        return ctx.respond("graft_edit", {
+          ...refused({
+            path: filePath,
+            reason: policy.reason,
+            reasonDetail: policy.reasonDetail,
+            next: policy.next,
+            actual,
+          }),
+        });
+      }
+
+      const matches = countOccurrences(content, oldString);
+      if (matches === 0) {
+        ctx.metrics.recordRefusal();
+        return ctx.respond("graft_edit", {
+          ...refused({
+            path: filePath,
+            reason: "OLD_STRING_NOT_FOUND",
+            reasonDetail: "old_string does not occur in the target file",
+            next: ["Inspect the current file content and provide an exact old_string"],
+            actual,
+            matches,
+          }),
+        });
+      }
+
+      if (matches !== 1) {
+        ctx.metrics.recordRefusal();
+        return ctx.respond("graft_edit", {
+          ...refused({
+            path: filePath,
+            reason: "OLD_STRING_AMBIGUOUS",
+            reasonDetail: "old_string must occur exactly once",
+            next: ["Provide a longer old_string that uniquely identifies the edit site"],
+            actual,
+            matches,
+          }),
+        });
+      }
+
+      const nextContent = content.replace(oldString, newString);
+      const changed = nextContent !== content;
+      if (changed) {
+        await ctx.fs.writeFile(filePath, nextContent, "utf-8");
+      }
+
+      const response: GraftEditResponse = {
+        path: filePath,
+        operation: "replace",
+        projection: "edited",
+        status: "edited",
+        changed,
+        matches,
+        replacements: 1,
+        actual,
+      };
+      return ctx.respond("graft_edit", { ...response });
+    };
+  },
+};

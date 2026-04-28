@@ -120,6 +120,7 @@ describe("contracts: output schemas", () => {
       "}",
       "",
     ].join("\n"));
+    fs.writeFileSync(path.join(repoDir, "edit-target.ts"), "export const editTarget = \"before\";\n");
 
     const server = createServerInRepo(repoDir);
     const daemonServer = createDaemonServer(path.join(repoDir, ".graft-daemon"));
@@ -152,6 +153,11 @@ describe("contracts: output schemas", () => {
 
     const outputs = {
       safe_read: parse(await server.callTool("safe_read", { path: "app.ts" })),
+      graft_edit: parse(await server.callTool("graft_edit", {
+        path: "edit-target.ts",
+        old_string: "\"before\"",
+        new_string: "\"after\"",
+      })),
       file_outline: parse(await server.callTool("file_outline", { path: "app.ts" })),
       read_range: parse(await server.callTool("read_range", { path: "app.ts", start: 1, end: 3 })),
       changed_since: parse(await server.callTool("changed_since", { path: "app.ts" })),

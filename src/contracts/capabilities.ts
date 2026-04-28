@@ -1,5 +1,6 @@
 export const MCP_TOOL_NAMES = [
   "safe_read",
+  "graft_edit",
   "file_outline",
   "read_range",
   "changed_since",
@@ -171,6 +172,12 @@ export const CAPABILITY_REGISTRY: readonly CapabilityDefinition[] = [
     cliPath: ["read", "safe"],
     apiExposure: "repo_workspace",
     cliMcpParity: "peer",
+  }),
+  defineCapability({
+    id: "graft_edit",
+    description: "Governed exact replacement edit",
+    mcpTool: "graft_edit",
+    cliMcpParity: "mcp_only",
   }),
   defineCapability({
     id: "file_outline",

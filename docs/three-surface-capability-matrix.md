@@ -18,7 +18,7 @@ changes, this matrix must be refreshed before release.
 
 - `5` CLI-only capabilities
 - `20` API + CLI + MCP capabilities
-- `22` API + MCP capabilities
+- `23` API + MCP capabilities
 - `1` API-only capability
 
 API exposure kinds:
@@ -44,6 +44,7 @@ CLI/MCP posture values:
 | `index` | No | Yes | No | `-` | `cli_only` | `index` | `-` |
 | `migrate_local_history` | No | Yes | No | `-` | `cli_only` | `migrate local-history` | `-` |
 | `safe_read` | Yes | Yes | Yes | `repo_workspace` | `peer` | `read safe` | `safe_read` |
+| `graft_edit` | Yes | No | Yes | `tool_bridge` | `mcp_only` | `-` | `graft_edit` |
 | `file_outline` | Yes | Yes | Yes | `repo_workspace` | `peer` | `read outline` | `file_outline` |
 | `read_range` | Yes | Yes | Yes | `repo_workspace` | `peer` | `read range` | `read_range` |
 | `changed_since` | Yes | Yes | Yes | `repo_workspace` | `peer` | `read changed` | `changed_since` |

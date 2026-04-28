@@ -78,6 +78,18 @@ const tripwireSchema = z.object({
   recommendation: z.string(),
 }).strict();
 
+const graftEditReasonSchema = z.enum([
+  "NOT_FOUND",
+  "OLD_STRING_NOT_FOUND",
+  "OLD_STRING_AMBIGUOUS",
+  "BINARY",
+  "LOCKFILE",
+  "MINIFIED",
+  "BUILD_OUTPUT",
+  "SECRET",
+  "GRAFTIGNORE",
+]);
+
 const outlineEntrySchema: z.ZodType = z.lazy(() => z.object({
   _brand: z.literal("OutlineEntry").optional(),
   kind: z.string(),
@@ -885,6 +897,19 @@ const mcpOutputBodySchemas: Record<McpToolName, z.ZodType> = {
     lastReadAt: z.string().optional(),
     diff: outlineDiffSchema.optional(),
   }).strict(),
+  graft_edit: z.object({
+    path: z.string(),
+    operation: z.literal("replace"),
+    projection: z.enum(["edited", "refused"]),
+    status: z.enum(["edited", "refused"]),
+    changed: z.boolean(),
+    matches: z.number().int().nonnegative(),
+    replacements: z.number().int().nonnegative(),
+    reason: graftEditReasonSchema.optional(),
+    reasonDetail: z.string().optional(),
+    next: z.array(z.string()).optional(),
+    actual: actualSchema.optional(),
+  }).strict(),
   file_outline: z.union([
     z.object({
       path: z.string(),
@@ -1261,6 +1286,7 @@ const mcpOutputBodySchemas: Record<McpToolName, z.ZodType> = {
 
 export const MCP_OUTPUT_SCHEMAS: Record<McpToolName, z.ZodType> = {
   safe_read: withMcpCommon("safe_read", mcpOutputBodySchemas.safe_read),
+  graft_edit: withMcpCommon("graft_edit", mcpOutputBodySchemas.graft_edit),
   file_outline: withMcpCommon("file_outline", mcpOutputBodySchemas.file_outline),
   read_range: withMcpCommon("read_range", mcpOutputBodySchemas.read_range),
   changed_since: withMcpCommon("changed_since", mcpOutputBodySchemas.changed_since),

@@ -15,6 +15,7 @@ const ZERO_BUCKET: BurdenBucket = Object.freeze({ calls: 0, bytesReturned: 0 });
 
 const TOOL_BURDEN_KIND: Record<McpToolName, BurdenKind> = {
   safe_read: "read",
+  graft_edit: "state",
   file_outline: "read",
   read_range: "read",
   changed_since: "read",

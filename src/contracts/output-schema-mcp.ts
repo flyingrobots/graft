@@ -55,6 +55,18 @@ const {
   sessionDepthSchema,
 } = mcpFragmentSchemas;
 
+const graftEditReasonSchema = z.enum([
+  "NOT_FOUND",
+  "OLD_STRING_NOT_FOUND",
+  "OLD_STRING_AMBIGUOUS",
+  "BINARY",
+  "LOCKFILE",
+  "MINIFIED",
+  "BUILD_OUTPUT",
+  "SECRET",
+  "GRAFTIGNORE",
+]);
+
 export const mcpOutputBodySchemas = {
   safe_read: z.object({
     path: z.string(),
@@ -72,6 +84,19 @@ export const mcpOutputBodySchemas = {
     readCount: z.number().int().nonnegative().optional(),
     lastReadAt: z.string().optional(),
     diff: outlineDiffSchema.optional(),
+  }).strict(),
+  graft_edit: z.object({
+    path: z.string(),
+    operation: z.literal("replace"),
+    projection: z.enum(["edited", "refused"]),
+    status: z.enum(["edited", "refused"]),
+    changed: z.boolean(),
+    matches: z.number().int().nonnegative(),
+    replacements: z.number().int().nonnegative(),
+    reason: graftEditReasonSchema.optional(),
+    reasonDetail: z.string().optional(),
+    next: z.array(z.string()).optional(),
+    actual: actualSchema.optional(),
   }).strict(),
   file_outline: z.union([
     z.object({
