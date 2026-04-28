@@ -12,36 +12,53 @@ Legend: BADCODE
 
 ## Hill
 
-TBD
+The repo path resolver protects future governed write/create surfaces by
+checking the nearest existing ancestor before allowing a logical in-repo
+target. This closes symlink-parent escape paths without changing the
+existing read behavior, without broad `node:path` refactoring, and
+without implementing governed edit.
 
 ## Playback Questions
 
 ### Human
 
-- [ ] TBD
+- [ ] Can I see that non-existent writes through a symlinked parent are blocked before governed edit?
+- [ ] Can I see that normal non-existent in-root paths still resolve without broad path refactor?
 
 ### Agent
 
-- [ ] TBD
+- [ ] Does createRepoPathResolver reject non-existent children under symlinked directories that escape the repo while preserving existing symlink and absolute outside rejection?
+- [ ] Does createRepoPathResolver behave consistently for logical projectRoot and canonical real projectRoot?
 
 ## Accessibility and Assistive Reading
 
-- Linear truth / reduced-complexity posture: TBD
-- Non-visual or alternate-reading expectations: TBD
+- Linear truth / reduced-complexity posture: path refusal behavior must be
+  explicit and stable enough for operators and agents to understand that
+  the target escaped the repo through an existing ancestor.
+- Non-visual or alternate-reading expectations: playback evidence should
+  be test-name-addressable without relying on terminal screenshots.
 
 ## Localization and Directionality
 
-- Locale / wording / formatting assumptions: TBD
-- Logical direction / layout assumptions: TBD
+- Locale / wording / formatting assumptions: diagnostics remain English
+  operator text; paths are treated as opaque filesystem identifiers.
+- Logical direction / layout assumptions: no visual layout assumptions.
 
 ## Agent Inspectability and Explainability
 
-- What must be explicit and deterministic for agents: TBD
-- What must be attributable, evidenced, or governed: TBD
+- What must be explicit and deterministic for agents: the resolver must
+  return the logical target path for allowed paths and throw
+  `Path traversal blocked` for escaping paths.
+- What must be attributable, evidenced, or governed: the tests must show
+  that the write-precondition threat model is handled before governed
+  edit is pulled.
 
 ## Non-goals
 
-- [ ] TBD
+- [ ] No governed edit implementation.
+- [ ] No write tools.
+- [ ] No broad `node:path` refactor.
+- [ ] No WARP/LSP/daemon/provenance work.
 
 ## Backlog Context
 
