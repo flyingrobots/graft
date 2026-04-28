@@ -72,6 +72,12 @@ describe.each([
     expect(() => resolve("escape-dir/secret.ts")).toThrow("Path traversal blocked");
   });
 
+  it("rejects non-existent children under symlinked directories that escape the root", () => {
+    const { outsideDir, resolve } = setup();
+    fs.symlinkSync(outsideDir, path.join(root!, "escape-dir"));
+    expect(() => resolve("escape-dir/new-file.ts")).toThrow("Path traversal blocked");
+  });
+
   it("rejects symlink file escapes when the target exists", () => {
     const { outsideDir, resolve } = setup();
     fs.symlinkSync(path.join(outsideDir, "secret.ts"), path.join(root!, "linked-secret.ts"));
@@ -81,6 +87,56 @@ describe.each([
   it("allows non-existent paths inside the root", () => {
     const { root, resolve } = setup();
     expect(resolve("src/nested/new-file.ts")).toBe(path.resolve(root, "src", "nested", "new-file.ts"));
+  });
+});
+
+describe("path resolver project root canonicalization", () => {
+  let realRoot: string | null = null;
+  let aliasParent: string | null = null;
+  let outsideDir: string | null = null;
+
+  function setup(): {
+    readonly aliasRoot: string;
+    readonly outsideDir: string;
+    readonly realRoot: string;
+  } {
+    realRoot = fs.mkdtempSync(path.join(os.tmpdir(), "graft-path-real-root-"));
+    aliasParent = fs.mkdtempSync(path.join(os.tmpdir(), "graft-path-alias-parent-"));
+    outsideDir = fs.mkdtempSync(path.join(os.tmpdir(), "graft-path-outside-"));
+    fs.mkdirSync(path.join(realRoot, "src"), { recursive: true });
+    const aliasRoot = path.join(aliasParent, "repo-link");
+    fs.symlinkSync(realRoot, aliasRoot);
+    return { aliasRoot, outsideDir, realRoot };
+  }
+
+  afterEach(() => {
+    if (aliasParent !== null) {
+      fs.rmSync(aliasParent, { recursive: true, force: true });
+      aliasParent = null;
+    }
+    if (realRoot !== null) {
+      fs.rmSync(realRoot, { recursive: true, force: true });
+      realRoot = null;
+    }
+    if (outsideDir !== null) {
+      fs.rmSync(outsideDir, { recursive: true, force: true });
+      outsideDir = null;
+    }
+  });
+
+  it("allows non-existent children consistently for logical projectRoot and canonical real projectRoot", () => {
+    const { aliasRoot, realRoot } = setup();
+
+    expect(createRepoPathResolver(aliasRoot)("src/new-file.ts")).toBe(path.join(aliasRoot, "src", "new-file.ts"));
+    expect(createRepoPathResolver(realRoot)("src/new-file.ts")).toBe(path.join(realRoot, "src", "new-file.ts"));
+  });
+
+  it("rejects symlink-parent write escapes consistently for logical projectRoot and canonical real projectRoot", () => {
+    const { aliasRoot, outsideDir, realRoot } = setup();
+    fs.symlinkSync(outsideDir, path.join(realRoot, "escape-dir"));
+
+    expect(() => createRepoPathResolver(aliasRoot)("escape-dir/new-file.ts")).toThrow("Path traversal blocked");
+    expect(() => createRepoPathResolver(realRoot)("escape-dir/new-file.ts")).toThrow("Path traversal blocked");
   });
 });
 

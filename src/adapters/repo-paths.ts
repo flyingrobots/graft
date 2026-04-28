@@ -14,6 +14,23 @@ function realPathOrSelf(target: string): string {
   }
 }
 
+function nearestExistingAncestor(target: string): string {
+  let current = target;
+  while (current.length > 0) {
+    try {
+      fs.lstatSync(current);
+      return current;
+    } catch {
+      const parent = path.dirname(current);
+      if (parent === current) {
+        return current;
+      }
+      current = parent;
+    }
+  }
+  return target;
+}
+
 export function createRepoPathResolver(projectRoot: string): (input: string) => string {
   const normalizedRoot = path.resolve(projectRoot);
   const realProjectRoot = realPathOrSelf(normalizedRoot);
@@ -27,8 +44,8 @@ export function createRepoPathResolver(projectRoot: string): (input: string) => 
       throw new Error(`Path traversal blocked: ${input}`);
     }
 
-    const realResolved = realPathOrSelf(resolved);
-    if (pathEscapesRoot(realProjectRoot, realResolved)) {
+    const realAncestor = realPathOrSelf(nearestExistingAncestor(resolved));
+    if (pathEscapesRoot(realProjectRoot, realAncestor)) {
       throw new Error(`Path traversal blocked: ${input}`);
     }
 

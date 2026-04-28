@@ -1,26 +1,49 @@
 ---
 title: "Repo path resolver can miss symlink-parent escapes for future writes"
-feature: path-safety
-kind: bug
-legend: BADCODE
-lane: bad-code
-priority: release-blocking
-blocked_by: []
-blocking:
-  - SURFACE_agent-dx-governed-edit
-acceptance_criteria:
-  - "createRepoPathResolver rejects a non-existent child under a symlinked directory that escapes the repo"
-  - "createRepoPathResolver allows a non-existent child under a normal in-root directory"
-  - "createRepoPathResolver behaves consistently for logical projectRoot and canonical real projectRoot"
-  - "Existing absolute-outside rejection is preserved"
-  - "Existing symlink-file and symlink-directory rejection is preserved"
-  - "No broad node:path refactor"
-  - "No governed edit implementation"
-  - "Tests use temp repos only"
-  - "Validation uses Dockerized pnpm test only"
+legend: "BADCODE"
+cycle: "BADCODE_repo-path-resolver-symlink-parent-write-escape"
+source_backlog: "docs/method/backlog/bad-code/BADCODE_repo-path-resolver-symlink-parent-write-escape.md"
 ---
 
 # Repo path resolver can miss symlink-parent escapes for future writes
+
+Source backlog item: `docs/method/backlog/bad-code/BADCODE_repo-path-resolver-symlink-parent-write-escape.md`
+Legend: BADCODE
+
+## Hill
+
+TBD
+
+## Playback Questions
+
+### Human
+
+- [ ] TBD
+
+### Agent
+
+- [ ] TBD
+
+## Accessibility and Assistive Reading
+
+- Linear truth / reduced-complexity posture: TBD
+- Non-visual or alternate-reading expectations: TBD
+
+## Localization and Directionality
+
+- Locale / wording / formatting assumptions: TBD
+- Logical direction / layout assumptions: TBD
+
+## Agent Inspectability and Explainability
+
+- What must be explicit and deterministic for agents: TBD
+- What must be attributable, evidenced, or governed: TBD
+
+## Non-goals
+
+- [ ] TBD
+
+## Backlog Context
 
 ## Problem
 
