@@ -9,6 +9,31 @@ type GraftEditReason =
   | "OLD_STRING_AMBIGUOUS"
   | RefusedResult["reason"];
 
+type DriftPattern = "jsdoc_typedef";
+type DriftDirection = "removed" | "added";
+
+interface GraftEditDriftObservation {
+  readonly pattern: DriftPattern;
+  readonly path: string;
+  readonly direction: DriftDirection;
+}
+
+interface GraftEditDriftWarning {
+  readonly kind: "structural_pattern_reintroduced";
+  readonly severity: "advisory";
+  readonly pattern: DriftPattern;
+  readonly basis: "session_local_graft_edit";
+  readonly message: string;
+  readonly current: {
+    readonly path: string;
+    readonly direction: "added";
+  };
+  readonly previous: {
+    readonly path: string;
+    readonly direction: "removed";
+  };
+}
+
 interface GraftEditResponse {
   readonly path: string;
   readonly operation: "replace";
@@ -24,6 +49,7 @@ interface GraftEditResponse {
     readonly lines: number;
     readonly bytes: number;
   };
+  readonly driftWarnings?: readonly GraftEditDriftWarning[];
 }
 
 function countOccurrences(content: string, needle: string): number {
@@ -78,6 +104,66 @@ function refused(input: {
   };
 }
 
+function containsJsdocTypedef(content: string): boolean {
+  return content
+    .split(/\r?\n/u)
+    .some((line) => line.trimStart().startsWith("* @typedef "));
+}
+
+function classifyStructuralEdit(input: {
+  readonly path: string;
+  readonly oldString: string;
+  readonly newString: string;
+}): GraftEditDriftObservation | null {
+  const oldHasTypedef = containsJsdocTypedef(input.oldString);
+  const newHasTypedef = containsJsdocTypedef(input.newString);
+  if (oldHasTypedef === newHasTypedef) {
+    return null;
+  }
+  return {
+    path: input.path,
+    pattern: "jsdoc_typedef",
+    direction: oldHasTypedef ? "removed" : "added",
+  };
+}
+
+function buildDriftWarnings(
+  observation: GraftEditDriftObservation | null,
+  priorObservations: readonly GraftEditDriftObservation[],
+): GraftEditDriftWarning[] {
+  if (observation?.direction !== "added") {
+    return [];
+  }
+
+  let previous: GraftEditDriftObservation | undefined;
+  for (let i = priorObservations.length - 1; i >= 0; i--) {
+    const candidate = priorObservations[i];
+    if (candidate?.pattern === observation.pattern && candidate.direction === "removed") {
+      previous = candidate;
+      break;
+    }
+  }
+  if (previous === undefined) {
+    return [];
+  }
+
+  return [{
+    kind: "structural_pattern_reintroduced",
+    severity: "advisory",
+    pattern: observation.pattern,
+    basis: "session_local_graft_edit",
+    message: "You are adding a typedef in a session that has been removing typedefs.",
+    current: {
+      path: observation.path,
+      direction: "added",
+    },
+    previous: {
+      path: previous.path,
+      direction: "removed",
+    },
+  }];
+}
+
 export const graftEditTool: ToolDefinition = {
   name: "graft_edit",
   description:
@@ -90,6 +176,8 @@ export const graftEditTool: ToolDefinition = {
     new_string: z.string(),
   },
   createHandler(): ToolHandler {
+    const structuralEditObservations: GraftEditDriftObservation[] = [];
+
     return async (args, ctx) => {
       const filePath = ctx.resolvePath(args["path"] as string);
       const oldString = args["old_string"] as string;
@@ -161,6 +249,16 @@ export const graftEditTool: ToolDefinition = {
         await ctx.fs.writeFile(filePath, nextContent, "utf-8");
       }
 
+      const observation = classifyStructuralEdit({
+        path: filePath,
+        oldString,
+        newString,
+      });
+      const driftWarnings = buildDriftWarnings(observation, structuralEditObservations);
+      if (observation !== null) {
+        structuralEditObservations.push(observation);
+      }
+
       const response: GraftEditResponse = {
         path: filePath,
         operation: "replace",
@@ -170,6 +268,7 @@ export const graftEditTool: ToolDefinition = {
         matches,
         replacements: 1,
         actual,
+        ...(driftWarnings.length > 0 ? { driftWarnings } : {}),
       };
       return ctx.respond("graft_edit", { ...response });
     };

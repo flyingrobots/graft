@@ -156,7 +156,7 @@ describe("SURFACE_agent-dx-governed-edit playback", () => {
         }),
       ).rejects.toThrow(/Path traversal blocked|outside/i);
 
-      const cases: Array<{ path: string; reason: string }> = [
+      const cases: { path: string; reason: string }[] = [
         { path: "generated/secret.ts", reason: "GRAFTIGNORE" },
         { path: "pnpm-lock.yaml", reason: "LOCKFILE" },
         { path: "image.png", reason: "BINARY" },

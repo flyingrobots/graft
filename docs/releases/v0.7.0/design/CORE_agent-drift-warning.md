@@ -4,6 +4,9 @@ feature: agent-safety
 kind: trunk
 legend: CORE
 lane: v0.7.0
+cycle: CORE_agent-drift-warning
+release: v0.7.0
+source_backlog: docs/method/backlog/v0.7.0/CORE_agent-drift-warning.md
 scope_verdict: narrow-before-implementation
 requirements:
   - Session tracking and NDJSON metrics (shipped)

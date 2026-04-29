@@ -67,6 +67,22 @@ const graftEditReasonSchema = z.enum([
   "GRAFTIGNORE",
 ]);
 
+const graftEditDriftWarningSchema = z.object({
+  kind: z.literal("structural_pattern_reintroduced"),
+  severity: z.literal("advisory"),
+  pattern: z.literal("jsdoc_typedef"),
+  basis: z.literal("session_local_graft_edit"),
+  message: z.string(),
+  current: z.object({
+    path: z.string(),
+    direction: z.literal("added"),
+  }).strict(),
+  previous: z.object({
+    path: z.string(),
+    direction: z.literal("removed"),
+  }).strict(),
+}).strict();
+
 export const mcpOutputBodySchemas = {
   safe_read: z.object({
     path: z.string(),
@@ -97,6 +113,7 @@ export const mcpOutputBodySchemas = {
     reasonDetail: z.string().optional(),
     next: z.array(z.string()).optional(),
     actual: actualSchema.optional(),
+    driftWarnings: z.array(graftEditDriftWarningSchema).optional(),
   }).strict(),
   file_outline: z.union([
     z.object({
