@@ -111,7 +111,6 @@ digraph backlog {
     label="Unresolved internal refs" labeljust=l fontsize=9 fontcolor="#555555"
     style="rounded,dashed" color="#cc3333" bgcolor="#fff7f7"
     unresolved_CLEAN_CODE_export_diff_semver_signature_as_patch [label="missing: CLEAN_CODE_export-diff-semver-signature-as-patch" fillcolor="#F2F2F2" penwidth=1 style="rounded,dashed,filled"]
-    unresolved_SURFACE_agent_dx_governed_edit [label="missing: SURFACE_agent-dx-governed-edit" fillcolor="#F2F2F2" penwidth=1 style="rounded,dashed,filled"]
   }
 
   cool_ideas_monitor_tick_ceiling_tracking -> cool_ideas_WARP_background_indexing [label="blocked_by/blocking"]
@@ -129,8 +128,6 @@ digraph backlog {
   external_git_warp_observer_geometry_ladder__Rung_2_4_ -> v0_7_0_CORE_migrate_to_slice_first_reads [label="blocked_by_external" style=dashed color="#4477AA"]
   unresolved_CLEAN_CODE_export_diff_semver_signature_as_patch -> cool_ideas_WARP_auto_breaking_change_detection [label="blocked_by" style=dashed color="#CC3333"]
   unresolved_CLEAN_CODE_export_diff_semver_signature_as_patch -> cool_ideas_WARP_semantic_merge_conflict_prediction [label="blocked_by" style=dashed color="#CC3333"]
-  unresolved_SURFACE_agent_dx_governed_edit -> v0_7_0_CORE_agent_drift_warning [label="blocked_by" style=dashed color="#CC3333"]
-  unresolved_SURFACE_agent_dx_governed_edit -> v0_7_0_SURFACE_governed_write_tools [label="blocked_by" style=dashed color="#CC3333"]
 
   subgraph cluster_legend {
     label="Legend" labeljust=l fontsize=8 fontcolor="#aaaaaa"
