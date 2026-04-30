@@ -128,6 +128,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 - **Repo path symlink-parent escape**: repo path resolution validates
   the nearest existing ancestor so future create/write tools cannot
   escape through an existing symlinked parent directory.
+- **Monitor indexing ceiling**: background monitor ticks now batch
+  explicit paths through the existing `indexHead` cap instead of
+  failing every tick for repos with more than 64 parseable files.
+- **WARP structural log metadata**: `indexHead` now persists commit
+  message, author, email, date, and timestamp on commit nodes so
+  `graft struct log` retains user-visible commit context.
 - **Backlog dependency DAG**: the checked-in DAG now renders
   `blocked_by`, `blocking`, and `blocked_by_external` relationships
   from backlog card frontmatter.
