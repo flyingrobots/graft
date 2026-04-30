@@ -13,7 +13,10 @@
   is rerun.
 - Run daemon child workers from compiled JavaScript when executing from
   `dist`.
-- Declare `"sideEffects": false` in `package.json`.
+- Declare targeted `sideEffects` metadata in `package.json` so bundlers
+  preserve parser initialization.
+- Pin the patched `postcss` transitive used by the Vite development
+  toolchain.
 - Add `prepublishOnly: pnpm release:check` to protect manual publishes.
 - Update package/release tests to lock the distribution shape.
 
@@ -64,4 +67,7 @@ This release is ready to tag when all of the following are true:
 - `docs/method/releases/v0.7.1/verification.md` is filled with actual
   preflight/tag/publish evidence
 - focused package-shape tests pass
+- `pnpm security:check` passes with `critical=0` and `high=0`; any
+  remaining non-zero advisories are explicitly dispositioned in the
+  verification witness before tagging
 - `pnpm release:check` passes on the final release commit

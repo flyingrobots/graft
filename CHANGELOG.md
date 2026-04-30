@@ -16,8 +16,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   tooling, runs the package bin and generated Claude hook commands from
   compiled JavaScript, migrates generated v0.7.0 Claude hook commands
   through `graft init --write-claude-hooks`, declares
-  `"sideEffects": false`, and guards manual publishes with
-  `prepublishOnly`.
+  targeted `sideEffects` metadata for parser initialization, pins the
+  patched `postcss` transitive used by Vite, and guards manual publishes
+  with `prepublishOnly`.
 
 ## [0.7.0] - 2026-04-30
 

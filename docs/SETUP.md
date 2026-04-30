@@ -457,7 +457,7 @@ entry points.
 If developing graft itself, run `pnpm build` and replace the
 `node_modules/...` paths with local paths:
 
-```
+```text
 dist/hooks/pretooluse-read.js    (PreToolUse)
 dist/hooks/posttooluse-read.js   (PostToolUse)
 ```

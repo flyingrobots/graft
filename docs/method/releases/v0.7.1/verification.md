@@ -31,6 +31,18 @@ verification are still pending until the release branch is merged to
 | `docker run --rm --entrypoint node graft-runtime:test /app/bin/graft.js --help` | pass, 2026-04-30 09:50 PDT |
 | focused legacy Claude hook migration/package tests | pass, 36 tests, 2026-04-30 10:00 PDT |
 | `pnpm release:check` after PR feedback fix | pass, 195 files / 1469 tests, 2026-04-30 10:04 PDT |
+| focused CodeRabbit feedback tests | pass, 37 tests, 2026-04-30 10:07 PDT |
+| `pnpm security:check` after `postcss` pin | pass, critical=0 high=0 moderate=0 low=0 info=0, 2026-04-30 10:07 PDT |
+| final `pnpm release:check` after all PR feedback fixes | pass, 195 files / 1469 tests, security advisories=0, 2026-04-30 10:08 PDT |
+
+## Security Disposition
+
+The initial v0.7.1 preflight reported one moderate advisory:
+`GHSA-qx2v-qp2m-jg93` / `CVE-2026-41305` for `postcss@8.5.8`
+through the Vite development toolchain. The PR feedback pass resolved
+the advisory by pinning the transitive dependency to patched
+`postcss@8.5.12`; the latest `pnpm security:check` reports zero
+advisories.
 
 ## Package Delivery Checks
 
@@ -41,6 +53,7 @@ verification are still pending until the release branch is merged to
 | `bin/graft.js` has a Node shebang | pass |
 | `bin/graft.js` imports built `dist/cli/entrypoint.js` | pass |
 | runtime dependencies exclude `tsx` | pass |
+| bundler metadata preserves parser initialization side effects | pass |
 | `graft init --write-claude-hooks` migrates generated v0.7.0 Claude hooks from `src/hooks/*.ts` to `dist/hooks/*.js` | pass |
 
 ## Tag and Publish
