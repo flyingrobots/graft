@@ -424,7 +424,7 @@ Add to `.claude/settings.json` in your project root:
         "hooks": [
           {
             "type": "command",
-            "command": "node --import tsx node_modules/@flyingrobots/graft/src/hooks/pretooluse-read.ts"
+            "command": "node node_modules/@flyingrobots/graft/dist/hooks/pretooluse-read.js"
           }
         ]
       }
@@ -435,7 +435,7 @@ Add to `.claude/settings.json` in your project root:
         "hooks": [
           {
             "type": "command",
-            "command": "node --import tsx node_modules/@flyingrobots/graft/src/hooks/posttooluse-read.ts"
+            "command": "node node_modules/@flyingrobots/graft/dist/hooks/posttooluse-read.js"
           }
         ]
       }
@@ -450,12 +450,12 @@ Project-local shortcut:
 npx @flyingrobots/graft init --write-claude-hooks
 ```
 
-If developing graft itself, replace the `node_modules/...` paths
-with local paths:
+If developing graft itself, run `pnpm build` and replace the
+`node_modules/...` paths with local paths:
 
 ```
-src/hooks/pretooluse-read.ts    (PreToolUse)
-src/hooks/posttooluse-read.ts   (PostToolUse)
+dist/hooks/pretooluse-read.js    (PreToolUse)
+dist/hooks/posttooluse-read.js   (PostToolUse)
 ```
 
 ### PreToolUse — ban enforcement

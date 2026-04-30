@@ -227,10 +227,10 @@ export class GraftHooksConfig {
 export const GRAFT_MCP_SERVER = new GraftMcpServer();
 export const GRAFT_HOOKS_CONFIG = new GraftHooksConfig(
   new GraftHookMatcher("Read", [
-    new GraftHookCommand("node --import tsx node_modules/@flyingrobots/graft/src/hooks/pretooluse-read.ts"),
+    new GraftHookCommand("node node_modules/@flyingrobots/graft/dist/hooks/pretooluse-read.js"),
   ]),
   new GraftHookMatcher("Read", [
-    new GraftHookCommand("node --import tsx node_modules/@flyingrobots/graft/src/hooks/posttooluse-read.ts"),
+    new GraftHookCommand("node node_modules/@flyingrobots/graft/dist/hooks/posttooluse-read.js"),
   ]),
 );
 

@@ -28,8 +28,17 @@ function normalizeProcessPoolSize(value: number | undefined): number {
   return normalized;
 }
 
-function daemonWorkerProcessPath(): string {
-  return fileURLToPath(new URL("./daemon-worker-process.ts", import.meta.url));
+function isTypescriptModuleUrl(moduleUrl: string): boolean {
+  return fileURLToPath(moduleUrl).endsWith(".ts");
+}
+
+export function daemonWorkerProcessPath(moduleUrl = import.meta.url): string {
+  const extension = isTypescriptModuleUrl(moduleUrl) ? "ts" : "js";
+  return fileURLToPath(new URL(`./daemon-worker-process.${extension}`, moduleUrl));
+}
+
+export function daemonWorkerExecArgv(moduleUrl = import.meta.url): string[] {
+  return isTypescriptModuleUrl(moduleUrl) ? ["--import", "tsx"] : [];
 }
 
 async function stopChild(child: ChildProcess): Promise<void> {
@@ -128,7 +137,7 @@ export class ChildProcessDaemonWorkerPool implements DaemonWorkerPool {
     const workerId = crypto.randomUUID();
     const child = fork(daemonWorkerProcessPath(), [], {
       cwd: process.cwd(),
-      execArgv: ["--import", "tsx"],
+      execArgv: daemonWorkerExecArgv(),
       stdio: ["ignore", "ignore", "ignore", "ipc"],
     });
     const workerState: WorkerState = {

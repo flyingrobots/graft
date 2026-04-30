@@ -12,10 +12,13 @@ RUN corepack enable && corepack prepare pnpm@10.30.0 --activate
 COPY package.json pnpm-lock.yaml ./
 RUN pnpm install --frozen-lockfile --prod=false
 
-FROM deps AS test
+FROM deps AS build
 
 WORKDIR /app
 COPY . .
+RUN pnpm build
+
+FROM build AS test
 
 ENV CI=1
 ENV GRAFT_TEST_CONTAINER=1
@@ -27,9 +30,10 @@ FROM deps AS runtime
 
 WORKDIR /app
 
-# Copy source
 COPY bin/ bin/
-COPY src/ src/
+COPY package.json ./
+COPY --from=build /app/dist dist/
+RUN pnpm prune --prod
 
 # The project being analyzed is mounted at /workspace
 VOLUME /workspace
@@ -47,4 +51,4 @@ WORKDIR /workspace
 ENV NODE_PATH=/app/node_modules
 
 # MCP stdio transport — no TTY needed
-ENTRYPOINT ["node", "--import", "/app/node_modules/tsx/dist/esm/index.mjs", "/app/bin/graft.js"]
+ENTRYPOINT ["node", "/app/bin/graft.js"]

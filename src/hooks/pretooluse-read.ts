@@ -13,7 +13,7 @@
 // context. PostToolUse remains a backstop if an oversized code read
 // still slips through.
 //
-// Invoked as: node --import tsx src/hooks/pretooluse-read.ts
+// Invoked as: node node_modules/@flyingrobots/graft/dist/hooks/pretooluse-read.js
 // Receives JSON on stdin from Claude Code hooks system.
 // ---------------------------------------------------------------------------
 import { RefusedResult } from "../policy/types.js";

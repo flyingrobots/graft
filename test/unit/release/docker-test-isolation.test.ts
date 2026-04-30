@@ -37,7 +37,9 @@ describe("Docker-isolated test validation", () => {
     const dockerfile = readRepoFile("Dockerfile");
     const runner = readRepoFile("scripts/run-isolated-tests.ts");
 
-    expect(dockerfile).toContain("FROM deps AS test");
+    expect(dockerfile).toContain("FROM deps AS build");
+    expect(dockerfile).toContain("RUN pnpm build");
+    expect(dockerfile).toContain("FROM build AS test");
     expect(dockerfile).toContain("COPY . .");
     expect(dockerfile).toContain("ENV GRAFT_TEST_CONTAINER=1");
     expect(dockerfile).toContain("ENV NO_COLOR=1");

@@ -115,6 +115,23 @@ describe("cli: graft init", () => {
       mcpServers: { graft: { command: string; args: string[] } };
     };
     expectGraftServerEntry(mcpConfig.mcpServers.graft);
+
+    const hooksConfig = readJsonFile(tmpDir, ".claude", "settings.json") as {
+      hooks: {
+        PreToolUse: { hooks: { command: string }[] }[];
+        PostToolUse: { hooks: { command: string }[] }[];
+      };
+    };
+    const hookCommands = [
+      ...(hooksConfig.hooks.PreToolUse[0]?.hooks ?? []),
+      ...(hooksConfig.hooks.PostToolUse[0]?.hooks ?? []),
+    ].map((hook) => hook.command);
+    expect(hookCommands).toEqual(expect.arrayContaining([
+      "node node_modules/@flyingrobots/graft/dist/hooks/pretooluse-read.js",
+      "node node_modules/@flyingrobots/graft/dist/hooks/posttooluse-read.js",
+    ]));
+    expect(hookCommands.every((command) => !command.includes("node --import tsx"))).toBe(true);
+    expect(hookCommands.every((command) => !command.includes("/src/"))).toBe(true);
   });
 
   it("writes daemon-backed MCP config when the runtime is selected explicitly", () => {
@@ -345,7 +362,7 @@ describe("cli: graft init", () => {
     expect(readPostTool).toBeDefined();
     expect(readPostTool?.hooks.some((hook) => hook.command.includes("already-here"))).toBe(true);
     // Ensure graft hooks were not duplicated
-    const graftPostHooks = readPostTool?.hooks.filter((hook) => hook.command.includes("posttooluse-read.ts")) ?? [];
+    const graftPostHooks = readPostTool?.hooks.filter((hook) => hook.command.includes("posttooluse-read.js")) ?? [];
     expect(graftPostHooks).toHaveLength(1);
   });
 
