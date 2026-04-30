@@ -93,4 +93,21 @@ describe("warp: structural-log-from-graph", { timeout: 15000 }, () => {
     expect(entries.length).toBe(1);
     expect(entries[0]!.sha).toBe(sha);
   });
+
+  it("includes commit metadata from indexed commit nodes", async () => {
+    fs.writeFileSync(path.join(tmpDir, "metadata.ts"), "export const metadata = true;\n");
+    git(tmpDir, "add -A");
+    git(tmpDir, "commit -m 'add metadata'");
+    const ctx = await openCtx();
+    await index(ctx);
+
+    const entries = await structuralLogFromGraph(ctx, { limit: 10 });
+
+    expect(entries.length).toBe(1);
+    expect(entries[0]).toEqual(expect.objectContaining({
+      message: "add metadata",
+      author: "test",
+      date: expect.stringMatching(/^\d{4}-\d{2}-\d{2}T/),
+    }));
+  });
 });

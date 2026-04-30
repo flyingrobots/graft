@@ -17,6 +17,7 @@ import { extractOutlineForFile } from "../parser/outline.js";
 import { attachAstSnapshot, emitAstNodes } from "./ast-emitter.js";
 import { resolveImportEdges } from "./ast-import-resolver.js";
 import type { OutlineEntry } from "../parser/types.js";
+import { getCommitMeta } from "./commit-meta.js";
 
 export const DEFAULT_INDEX_MAX_FILES_PER_CALL = 64;
 export const DEFAULT_INDEX_MAX_PATCH_JSON_BYTES = 2 * 1024 * 1024;
@@ -112,6 +113,13 @@ export interface IndexHeadResult {
   readonly nodesEmitted: number;
 }
 
+interface HeadCommitMetadata {
+  readonly message: string;
+  readonly author: string;
+  readonly email: string;
+  readonly timestamp: string;
+}
+
 /**
  * Index the current HEAD by writing one bounded patch per file.
  *
@@ -133,6 +141,7 @@ export async function indexHead(opts: IndexHeadOptions): Promise<IndexHeadResult
     throw new Error(`git rev-parse HEAD failed: ${headResult.stderr}`);
   }
   const headSha = headResult.stdout.trim();
+  const commitMeta = await getCommitMeta(git, headSha, cwd);
 
   const allFiles = await listTrackedFiles(cwd, git);
   const knownFiles = new Set(allFiles);
@@ -154,6 +163,7 @@ export async function indexHead(opts: IndexHeadOptions): Promise<IndexHeadResult
       pathOps,
       ctx,
       headSha,
+      commitMeta,
       knownFiles,
       filePath,
       maxPatchJsonBytes,
@@ -250,11 +260,12 @@ async function indexHeadFile(input: {
   readonly pathOps: PathOps;
   readonly ctx: WarpContext;
   readonly headSha: string;
+  readonly commitMeta: HeadCommitMetadata;
   readonly knownFiles: ReadonlySet<string>;
   readonly filePath: string;
   readonly maxPatchJsonBytes: number;
 }): Promise<boolean> {
-  const { cwd, git, pathOps, ctx, headSha, knownFiles, filePath, maxPatchJsonBytes } = input;
+  const { cwd, git, pathOps, ctx, headSha, commitMeta, knownFiles, filePath, maxPatchJsonBytes } = input;
   const lang = detectLang(filePath);
   if (lang === null) return false;
 
@@ -291,6 +302,11 @@ async function indexHeadFile(input: {
       patch.addNode(commitId);
       patch.setProperty(commitId, "sha", headSha);
       patch.setProperty(commitId, "tick", tick);
+      patch.setProperty(commitId, "message", commitMeta.message);
+      patch.setProperty(commitId, "author", commitMeta.author);
+      patch.setProperty(commitId, "email", commitMeta.email);
+      patch.setProperty(commitId, "date", commitMeta.timestamp);
+      patch.setProperty(commitId, "timestamp", commitMeta.timestamp);
 
       patch.addNode(fileId);
       patch.setProperty(fileId, "path", filePath);

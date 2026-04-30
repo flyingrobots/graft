@@ -16,6 +16,16 @@ function committedRepo(): string {
   return dir;
 }
 
+function manyFileRepo(fileCount: number): string {
+  const files: Record<string, string> = {};
+  for (let index = 0; index < fileCount; index++) {
+    files[`src/file-${String(index)}.ts`] = `export const value${String(index)} = ${String(index)};\n`;
+  }
+  const dir = createCommittedTestRepo("graft-ceiling-many-", files);
+  cleanups.push(() => { cleanupTestRepo(dir); });
+  return dir;
+}
+
 function emptyRepo(): string {
   const dir = createTestRepo("graft-ceiling-empty-");
   cleanups.push(() => { cleanupTestRepo(dir); });
@@ -74,6 +84,17 @@ describe("monitor tick ceiling tracking", () => {
     expect(result.ok).toBe(true);
     if (!result.ok) return;
     expect(result.commitsIndexed).toBeGreaterThan(0);
+  });
+
+  it("does not hard-fail monitor ticks when a repo has more parseable files than the indexHead default cap", { timeout: 30_000 }, async () => {
+    const dir = manyFileRepo(65);
+
+    const result = await runMonitorTickJob(makeJob(dir, null));
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.commitsIndexed).toBe(65);
+    expect(result.patchesWritten).toBe(65);
   });
 
   it("consecutive ticks with same HEAD: second tick skips", { timeout: 15_000 }, async () => {
