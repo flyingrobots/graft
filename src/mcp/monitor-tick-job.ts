@@ -1,5 +1,6 @@
-import { indexCommits } from "../warp/indexer.js";
+import { DEFAULT_INDEX_MAX_FILES_PER_CALL, indexHead } from "../warp/index-head.js";
 import { nodeGit } from "../adapters/node-git.js";
+import { nodePathOps } from "../adapters/node-paths.js";
 import { openWarp } from "../warp/open.js";
 
 export interface MonitorTickWorkerJob {
@@ -7,6 +8,7 @@ export interface MonitorTickWorkerJob {
   readonly worktreeRoot: string;
   readonly writerId: string;
   readonly lastIndexedCommit: string | null;
+  readonly maxFilesPerBatch?: number | undefined;
 }
 
 export type MonitorTickWorkerResult =
@@ -26,8 +28,8 @@ export type MonitorTickWorkerResult =
     readonly backlogCommits: number;
   };
 
-async function readGit(cwd: string, args: readonly string[]): Promise<string | null> {
-  const result = await nodeGit.run({ cwd, args });
+async function readHeadCommit(cwd: string): Promise<string | null> {
+  const result = await nodeGit.run({ cwd, args: ["rev-parse", "--verify", "HEAD"] });
   if (result.error !== undefined || result.status !== 0) {
     return null;
   }
@@ -35,68 +37,117 @@ async function readGit(cwd: string, args: readonly string[]): Promise<string | n
   return trimmed.length === 0 ? null : trimmed;
 }
 
-async function readHeadCommit(cwd: string): Promise<string | null> {
-  return readGit(cwd, ["rev-parse", "--verify", "HEAD"]);
+function parseGitPathList(output: string): readonly string[] {
+  const seen = new Set<string>();
+  const paths: string[] = [];
+  for (const line of output.split("\n")) {
+    const filePath = line.trim();
+    if (filePath.length === 0 || seen.has(filePath)) continue;
+    seen.add(filePath);
+    paths.push(filePath);
+  }
+  return paths;
 }
 
-async function countPendingCommits(
-  cwd: string,
-  from: string | null,
-  to: string | null,
-): Promise<number> {
-  if (to === null) return 0;
-  const range = from === null ? to : `${from}..${to}`;
-  const output = await readGit(cwd, ["rev-list", "--count", range]);
-  if (output === null) return 0;
-  const parsed = Number.parseInt(output, 10);
-  return Number.isInteger(parsed) && parsed >= 0 ? parsed : 0;
+async function listTrackedPaths(cwd: string): Promise<readonly string[]> {
+  const result = await nodeGit.run({ cwd, args: ["ls-files"] });
+  if (result.error !== undefined || result.status !== 0) {
+    throw result.error ?? new Error(result.stderr.trim() || `git ls-files exited with status ${String(result.status)}`);
+  }
+  return parseGitPathList(result.stdout);
+}
+
+async function listChangedPaths(cwd: string, base: string, head: string): Promise<readonly string[] | null> {
+  const result = await nodeGit.run({ cwd, args: ["diff", "--name-only", `${base}..${head}`] });
+  if (result.error !== undefined || result.status !== 0) {
+    return null;
+  }
+  return parseGitPathList(result.stdout);
+}
+
+async function monitorIndexPaths(input: {
+  readonly cwd: string;
+  readonly currentHead: string | null;
+  readonly lastIndexedCommit: string | null;
+}): Promise<readonly string[]> {
+  if (input.currentHead === null) return [];
+  if (input.lastIndexedCommit !== null) {
+    const changedPaths = await listChangedPaths(input.cwd, input.lastIndexedCommit, input.currentHead);
+    if (changedPaths !== null) return changedPaths;
+  }
+  return listTrackedPaths(input.cwd);
+}
+
+function pathBatches(paths: readonly string[], size: number): readonly (readonly string[])[] {
+  const batches: (readonly string[])[] = [];
+  for (let index = 0; index < paths.length; index += size) {
+    batches.push(paths.slice(index, index + size));
+  }
+  return batches;
 }
 
 export async function runMonitorTickJob(job: MonitorTickWorkerJob): Promise<MonitorTickWorkerResult> {
   const headAtStart = await readHeadCommit(job.worktreeRoot);
 
+  // ── Tick ceiling: skip indexing when HEAD hasn't moved ───────────
+  // When HEAD equals the last indexed commit (including both null for
+  // empty repos), there is nothing to index. Short-circuit before
+  // opening WARP or calling indexCommits to keep idle ticks near-zero-cost.
+  if (headAtStart === job.lastIndexedCommit) {
+    return {
+      ok: true,
+      headAtStart,
+      currentHead: headAtStart,
+      lastIndexedCommit: job.lastIndexedCommit,
+      backlogCommits: 0,
+      commitsIndexed: 0,
+      patchesWritten: 0,
+    };
+  }
+
   try {
-    const warp = await openWarp({
+    const app = await openWarp({
       cwd: job.worktreeRoot,
       writerId: job.writerId,
     });
-    const result = await indexCommits(warp, {
+    const ctx = { app, strandId: null };
+    const paths = await monitorIndexPaths({
       cwd: job.worktreeRoot,
-      git: nodeGit,
-      ...(job.lastIndexedCommit !== null ? { from: job.lastIndexedCommit } : {}),
-      ...(headAtStart !== null ? { to: headAtStart } : {}),
+      currentHead: headAtStart,
+      lastIndexedCommit: job.lastIndexedCommit,
     });
-    if (!result.ok) {
-      throw new Error(result.error);
+    let commitsIndexed = 0;
+    let patchesWritten = 0;
+    const maxFilesPerBatch = job.maxFilesPerBatch ?? DEFAULT_INDEX_MAX_FILES_PER_CALL;
+    for (const batch of pathBatches(paths, maxFilesPerBatch)) {
+      const result = await indexHead({
+        cwd: job.worktreeRoot,
+        git: nodeGit,
+        pathOps: nodePathOps,
+        ctx,
+        paths: batch,
+        maxFilesPerCall: maxFilesPerBatch,
+      });
+      commitsIndexed += result.filesIndexed;
+      patchesWritten += result.nodesEmitted;
     }
     const currentHead = await readHeadCommit(job.worktreeRoot);
-    const lastIndexedCommit = headAtStart ?? job.lastIndexedCommit;
-    const backlogCommits = await countPendingCommits(
-      job.worktreeRoot,
-      lastIndexedCommit,
-      currentHead,
-    );
     return {
       ok: true,
       headAtStart,
       currentHead,
-      lastIndexedCommit,
-      backlogCommits,
-      commitsIndexed: result.commitsIndexed,
-      patchesWritten: result.patchesWritten,
+      lastIndexedCommit: headAtStart,
+      backlogCommits: 0,
+      commitsIndexed,
+      patchesWritten,
     };
   } catch (error) {
     const currentHead = await readHeadCommit(job.worktreeRoot);
-    const backlogCommits = await countPendingCommits(
-      job.worktreeRoot,
-      job.lastIndexedCommit,
-      currentHead,
-    );
     return {
       ok: false,
       error: error instanceof Error ? error.message : String(error),
       currentHead,
-      backlogCommits,
+      backlogCommits: 0,
     };
   }
 }

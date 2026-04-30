@@ -5,14 +5,30 @@ import { deriveCausalSurfaceNextAction } from "../semantic-transition-guidance.j
 import type { ToolDefinition, ToolHandler } from "../context.js";
 import { toJsonObject } from "../../operations/result-dto.js";
 import type { DoctorResponse } from "./diagnostic-models.js";
+import { detectSludge } from "../../operations/sludge-detector.js";
+import { z } from "zod";
 
 export const doctorTool: ToolDefinition = {
   name: "doctor",
   description:
     "Runtime health check. Shows project root, parser status, active " +
     "thresholds, session depth, message count, and burden summary.",
+  schema: {
+    sludge: z.boolean().optional(),
+    path: z.string().optional(),
+  },
   createHandler(): ToolHandler {
-    return async (_args, ctx) => {
+    return async (args, ctx) => {
+      const pathArg = typeof args["path"] === "string" ? args["path"] : undefined;
+      const sludge = args["sludge"] === true
+        ? await detectSludge({
+          cwd: ctx.projectRoot,
+          fs: ctx.fs,
+          git: ctx.git,
+          resolvePath: (filePath) => ctx.resolvePath(filePath),
+          ...(pathArg !== undefined ? { path: pathArg } : {}),
+        })
+        : undefined;
       const repoState = ctx.getRepoState();
       const causalContext = ctx.getCausalContext();
       const workspaceOverlayFooting = await ctx.getWorkspaceOverlayFooting();
@@ -59,6 +75,7 @@ export const doctorTool: ToolDefinition = {
         attribution: persistedLocalHistory.attribution,
         persistedLocalHistory,
         recommendedNextAction,
+        ...(sludge !== undefined ? { sludge } : {}),
       };
       return ctx.respond("doctor", toJsonObject(response));
     };

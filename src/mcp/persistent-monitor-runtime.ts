@@ -200,6 +200,43 @@ export class PersistentMonitorRuntime {
     return this.transitionMonitor("stop", request, "stopped");
   }
 
+  async nudgeMonitor(request: WorkspaceBindRequest): Promise<MonitorActionResult> {
+    await this.ensureLoaded();
+    const resolved = await this.resolveAuthorizedRepo(request);
+    if ("errorCode" in resolved) {
+      return {
+        ok: false,
+        action: "nudge",
+        created: false,
+        changed: false,
+        errorCode: resolved.errorCode,
+        error: resolved.error,
+      };
+    }
+    const { repoId } = resolved;
+    const record = this.records.get(repoId);
+    if (record?.lifecycleState !== "running") {
+      return {
+        ok: false,
+        action: "nudge",
+        created: false,
+        changed: false,
+        errorCode: "not_running",
+        error: "Monitor is not running — start it first.",
+      };
+    }
+    // Fire an immediate tick without changing lifecycle state
+    await this.runTick(repoId).catch(() => undefined);
+    return {
+      ok: true,
+      action: "nudge" as MonitorAction,
+      created: false,
+      changed: false,
+      status: await this.getStatusByRepoId(repoId),
+    };
+  }
+
+
   // ── Private: lifecycle transitions ─────────────────────────────
 
   private async transitionMonitor(

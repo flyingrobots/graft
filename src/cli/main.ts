@@ -7,13 +7,19 @@ import {
   cliCommandMcpTool,
 } from "../contracts/output-schemas.js";
 import { startDaemonServer, type GraftDaemonServer } from "../mcp/daemon-server.js";
+import { startDaemonBackedStdioBridge, type StartDaemonBackedStdioBridgeOptions } from "../mcp/daemon-stdio-bridge.js";
 import { startStdioServer } from "../mcp/stdio-server.js";
 import {
   parseCommand,
   parseDaemonCommand,
   parseGlobalOptions,
+  parseServeCommand,
 } from "./command-parser.js";
 import { describeCliFailure, writeCliError } from "./cli-error.js";
+import { readDaemonStatusSnapshot, type ReadDaemonStatusOptions } from "./daemon-status.js";
+import { buildDaemonStatusModel, type DaemonStatusReadSnapshot } from "./daemon-status-model.js";
+import { renderDaemonStatus } from "./daemon-status-render.js";
+import { runGitGraftEnhance, type GitGraftEnhancePeerInvoker } from "./git-graft-enhance.js";
 import { runIndex } from "./index-cmd.js";
 import { runInit } from "./init.js";
 import { runLocalHistoryDag } from "./local-history-dag.js";
@@ -28,7 +34,10 @@ export interface RunCliOptions {
   stdout?: Writer | undefined;
   stderr?: Writer | undefined;
   startServer?: ((cwd: string) => Promise<void>) | undefined;
+  startDaemonBridge?: ((options: StartDaemonBackedStdioBridgeOptions) => Promise<void>) | undefined;
   startDaemon?: ((options: { socketPath?: string | undefined }) => Promise<GraftDaemonServer>) | undefined;
+  readDaemonStatus?: ((options: ReadDaemonStatusOptions) => Promise<DaemonStatusReadSnapshot>) | undefined;
+  invokeGitGraftEnhancePeer?: GitGraftEnhancePeerInvoker | undefined;
 }
 
 function renderHelp(writer: Writer): void {
@@ -39,8 +48,11 @@ function renderHelp(writer: Writer): void {
   writeLine(writer, "Global options:");
   writeLine(writer, "  --cwd <path>    Run a command against another repo root");
   writeLine(writer, "  help            Show this help");
-  writeLine(writer, "  serve           Start the MCP stdio server");
+  writeLine(writer, "  serve           Start the repo-local MCP stdio server");
+  writeLine(writer, "  serve --runtime daemon");
+  writeLine(writer, "                  Start stdio bridge to the local graft daemon");
   writeLine(writer, "  daemon          Start the local MCP daemon");
+  writeLine(writer, "  daemon status   Show read-only daemon status");
   writeLine(writer);
 
   const grouped = new Map<string, { path: readonly string[]; description: string }[]>();
@@ -96,18 +108,37 @@ export async function runCli(options: RunCliOptions = {}): Promise<void> {
   }
 
   if (argv[0] === "serve") {
-    if (argv.length > 1) {
+    try {
+      const parsedServe = parseServeCommand(cwd, argv.slice(1));
+      if (parsedServe.runtime === "daemon") {
+        await (options.startDaemonBridge ?? startDaemonBackedStdioBridge)({
+          ...(parsedServe.socketPath !== undefined ? { socketPath: parsedServe.socketPath } : {}),
+          ...(parsedServe.spawnIfMissing !== undefined ? { spawnIfMissing: parsedServe.spawnIfMissing } : {}),
+        });
+        return;
+      }
+      await (options.startServer ?? startStdioServer)(cwd);
+    } catch (err: unknown) {
       process.exitCode = 1;
-      writeCliError(stderr, `Unexpected arguments: ${argv.slice(1).join(" ")}`, describeCliFailure(argv));
-      return;
+      writeCliError(stderr, err instanceof Error ? err.message : String(err), describeCliFailure(argv));
     }
-    await (options.startServer ?? startStdioServer)(cwd);
     return;
   }
 
   if (argv[0] === "daemon") {
     try {
-      const daemon = await (options.startDaemon ?? startDaemonServer)(parseDaemonCommand(cwd, argv.slice(1)));
+      const parsedDaemon = parseDaemonCommand(cwd, argv.slice(1));
+      if (parsedDaemon.action === "status") {
+        const snapshot = await (options.readDaemonStatus ?? readDaemonStatusSnapshot)({
+          cwd,
+          ...(parsedDaemon.socketPath !== undefined ? { socketPath: parsedDaemon.socketPath } : {}),
+        });
+        writeLine(stdout, renderDaemonStatus(buildDaemonStatusModel({ cwd, snapshot })));
+        return;
+      }
+      const daemon = await (options.startDaemon ?? startDaemonServer)(
+        parsedDaemon.socketPath === undefined ? {} : { socketPath: parsedDaemon.socketPath },
+      );
       writeLine(stdout, `Daemon listening on ${daemon.socketPath}`);
     } catch (err: unknown) {
       process.exitCode = 1;
@@ -134,6 +165,22 @@ export async function runCli(options: RunCliOptions = {}): Promise<void> {
         json: parsed.json,
         stdout,
         stderr,
+      });
+      return;
+    }
+    if (parsed.command === "git_graft_enhance") {
+      const since = parsed.args["since"];
+      const head = parsed.args["head"];
+      if (typeof since !== "string") {
+        throw new Error("Missing --since");
+      }
+      await runGitGraftEnhance({
+        cwd,
+        since,
+        ...(typeof head === "string" ? { head } : {}),
+        json: parsed.json,
+        stdout,
+        invokePeer: options.invokeGitGraftEnhancePeer,
       });
       return;
     }

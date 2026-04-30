@@ -1,0 +1,139 @@
+digraph backlog {
+  rankdir=TB
+  fontname="Helvetica"
+  label="Active backlog graph generated from docs/method/backlog/*/*.md"
+  labelloc=t
+  fontsize=12
+  node [shape=box style="rounded,filled" fontname="Helvetica" fontsize=8 margin="0.1,0.05" height=0.35]
+  edge [color="#666666" arrowsize=0.5 fontname="Helvetica" fontsize=7]
+  newrank=true
+  ranksep=0.55
+  nodesep=0.2
+
+  subgraph cluster_cool_ideas {
+    label="Cool Ideas (79)" labeljust=l fontsize=9 fontcolor="#555555"
+    style=rounded color="#cccccc" bgcolor="#fafafa"
+    cool_ideas_bounded_neighborhood_for_references [label="bounded-neighborhood-for-references - S" fillcolor="#D4E8F7" penwidth=1]
+    cool_ideas_CI_001_causal_collapse_visualizer [label="CI-001-causal-collapse-visualizer - L" fillcolor="#D4E8F7" penwidth=1]
+    cool_ideas_CI_002_deterministic_scenario_replay [label="CI-002-deterministic-scenario-replay - L" fillcolor="#D4E8F7" penwidth=1]
+    cool_ideas_CI_003_mcp_native_diff_protocol [label="CI-003-mcp-native-diff-protocol - M" fillcolor="#D4E8F7" penwidth=1]
+    cool_ideas_CLEAN_CODE_parallel_agent_merge_shared_file_loss [label="CLEAN-CODE-parallel-agent-merge-shared-file-loss - M" fillcolor="#D4E8F7" penwidth=1]
+    cool_ideas_CORE_agent_handoff_protocol [label="CORE-agent-handoff-protocol - M" fillcolor="#D4E8F7" penwidth=1]
+    cool_ideas_CORE_auto_focus [label="CORE-auto-focus - L" fillcolor="#D4E8F7" penwidth=1]
+    cool_ideas_CORE_backlog_status_tool [label="CORE-backlog-status-tool - S" fillcolor="#D4E8F7" penwidth=1]
+    cool_ideas_CORE_capture_range [label="CORE-capture-range - S" fillcolor="#D4E8F7" penwidth=1]
+    cool_ideas_CORE_constructor_in_disguise_lint [label="CORE-constructor-in-disguise-lint - M" fillcolor="#D4E8F7" penwidth=1]
+    cool_ideas_CORE_context_budget_forecasting [label="CORE-context-budget-forecasting - M" fillcolor="#D4E8F7" penwidth=1]
+    cool_ideas_CORE_conversation_primer [label="CORE-conversation-primer - M" fillcolor="#D4E8F7" penwidth=1]
+    cool_ideas_CORE_cross_session_resume [label="CORE-cross-session-resume - S" fillcolor="#D4E8F7" penwidth=1]
+    cool_ideas_CORE_graft_as_teacher [label="CORE-graft-as-teacher - S" fillcolor="#D4E8F7" penwidth=1]
+    cool_ideas_CORE_graft_doctor [label="CORE-graft-doctor - M" fillcolor="#D4E8F7" penwidth=1]
+    cool_ideas_CORE_graft_teach_learning_receipts [label="CORE-graft-teach-learning-receipts - S" fillcolor="#D4E8F7" penwidth=1]
+    cool_ideas_CORE_horizon_of_readability [label="CORE-horizon-of-readability - M" fillcolor="#D4E8F7" penwidth=1]
+    cool_ideas_CORE_lagrangian_policy [label="CORE-lagrangian-policy - XL" fillcolor="#D4E8F7" penwidth=1]
+    cool_ideas_CORE_migrate_to_slice_first_reads [label="CORE-migrate-to-slice-first-reads" fillcolor="#D4E8F7" penwidth=1]
+    cool_ideas_CORE_multi_agent_conflict_detection [label="CORE-multi-agent-conflict-detection - L" fillcolor="#D4E8F7" penwidth=1]
+    cool_ideas_CORE_policy_playground [label="CORE-policy-playground - S" fillcolor="#D4E8F7" penwidth=1]
+    cool_ideas_CORE_policy_profiles [label="CORE-policy-profiles - M" fillcolor="#D4E8F7" penwidth=1]
+    cool_ideas_CORE_pr_review_structural_summary [label="CORE-pr-review-structural-summary - M" fillcolor="#D4E8F7" penwidth=1]
+    cool_ideas_CORE_self_tuning_governor [label="CORE-self-tuning-governor - M" fillcolor="#D4E8F7" penwidth=1]
+    cool_ideas_CORE_session_knowledge_map [label="CORE-session-knowledge-map - S" fillcolor="#D4E8F7" penwidth=1]
+    cool_ideas_CORE_speculative_read_cost [label="CORE-speculative-read-cost - S" fillcolor="#D4E8F7" penwidth=1]
+    cool_ideas_CORE_structural_session_replay [label="CORE-structural-session-replay - M" fillcolor="#D4E8F7" penwidth=1]
+    cool_ideas_CORE_structural_test_coverage_map [label="CORE-structural-test-coverage-map - M" fillcolor="#D4E8F7" penwidth=1]
+    cool_ideas_CORE_wire_primitives_into_runtime [label="CORE-wire-primitives-into-runtime - M" fillcolor="#D4E8F7" penwidth=1]
+    cool_ideas_monitor_tick_ceiling_tracking [label="monitor-tick-ceiling-tracking - S" fillcolor="#D4E8F7" penwidth=1]
+    cool_ideas_SURFACE_active_causal_workspace_status [label="SURFACE-active-causal-workspace-status - M" fillcolor="#D4E8F7" penwidth=1]
+    cool_ideas_SURFACE_attach_to_existing_causal_session [label="SURFACE-attach-to-existing-causal-session - M" fillcolor="#D4E8F7" penwidth=1]
+    cool_ideas_SURFACE_bijou_daemon_control_plane_actions [label="SURFACE-bijou-daemon-control-plane-actions - L" fillcolor="#D4E8F7" penwidth=1]
+    cool_ideas_SURFACE_bijou_daemon_status_live_refresh [label="SURFACE-bijou-daemon-status-live-refresh - M" fillcolor="#D4E8F7" penwidth=1]
+    cool_ideas_SURFACE_git_graft_enhance_expanded_git_subcommands [label="SURFACE-git-graft-enhance-expanded-git-subcommands" fillcolor="#D4E8F7" penwidth=1]
+    cool_ideas_SURFACE_git_graft_enhance_provenance_hints [label="SURFACE-git-graft-enhance-provenance-hints" fillcolor="#D4E8F7" penwidth=1]
+    cool_ideas_SURFACE_ide_native_graft_integration [label="SURFACE-ide-native-graft-integration - XL" fillcolor="#D4E8F7" penwidth=1]
+    cool_ideas_SURFACE_local_history_dag_render_mode_and_count_legend [label="SURFACE-local-history-dag-render-mode-and-count-legend - S" fillcolor="#D4E8F7" penwidth=1]
+    cool_ideas_SURFACE_non_codex_instruction_bootstrap_parity [label="SURFACE-non-codex-instruction-bootstrap-parity - M" fillcolor="#D4E8F7" penwidth=1]
+    cool_ideas_SURFACE_offer_rename_refactor [label="SURFACE-offer-rename-refactor - L" fillcolor="#D4E8F7" penwidth=1]
+    cool_ideas_SURFACE_terminal_activity_browser_tui [label="SURFACE-terminal-activity-browser-tui - L" fillcolor="#D4E8F7" penwidth=1]
+    cool_ideas_traverse_plus_query_hydration_helper [label="traverse-plus-query-hydration-helper - S" fillcolor="#D4E8F7" penwidth=1]
+    cool_ideas_WARP_adaptive_projection_selection [label="WARP-adaptive-projection-selection - L" fillcolor="#D4E8F7" penwidth=1]
+    cool_ideas_WARP_agent_action_provenance [label="WARP-agent-action-provenance - XL" fillcolor="#D4E8F7" penwidth=1]
+    cool_ideas_WARP_auto_breaking_change_detection [label="WARP-auto-breaking-change-detection - L" fillcolor="#D4E8F7" penwidth=1]
+    cool_ideas_WARP_background_indexing [label="WARP-background-indexing - M" fillcolor="#D4E8F7" penwidth=1]
+    cool_ideas_WARP_budget_elasticity [label="WARP-budget-elasticity - M" fillcolor="#D4E8F7" penwidth=1]
+    cool_ideas_WARP_causal_blame_for_staged_artifacts [label="WARP-causal-blame-for-staged-artifacts - L" fillcolor="#D4E8F7" penwidth=1]
+    cool_ideas_WARP_causal_write_tracking [label="WARP-causal-write-tracking - L" fillcolor="#D4E8F7" penwidth=1]
+    cool_ideas_WARP_codebase_entropy_trajectory [label="WARP-codebase-entropy-trajectory - M" fillcolor="#D4E8F7" penwidth=1]
+    cool_ideas_WARP_codebase_signature [label="WARP-codebase-signature - L" fillcolor="#D4E8F7" penwidth=1]
+    cool_ideas_WARP_counterfactual_refactoring [label="WARP-counterfactual-refactoring - XL" fillcolor="#D4E8F7" penwidth=1]
+    cool_ideas_WARP_dead_symbol_detection [label="WARP-dead-symbol-detection - S" fillcolor="#D4E8F7" penwidth=1]
+    cool_ideas_WARP_degeneracy_warning [label="WARP-degeneracy-warning - M" fillcolor="#D4E8F7" penwidth=1]
+    cool_ideas_WARP_drift_sentinel [label="WARP-drift-sentinel - M" fillcolor="#D4E8F7" penwidth=1]
+    cool_ideas_WARP_footprint_parallelism [label="WARP-footprint-parallelism - XL" fillcolor="#D4E8F7" penwidth=1]
+    cool_ideas_WARP_graft_pack [label="WARP-graft-pack - M" fillcolor="#D4E8F7" penwidth=1]
+    cool_ideas_WARP_grouped_aggregate_queries [label="WARP-grouped-aggregate-queries - M" fillcolor="#D4E8F7" penwidth=1]
+    cool_ideas_WARP_intent_and_decision_events [label="WARP-intent-and-decision-events - M" fillcolor="#D4E8F7" penwidth=1]
+    cool_ideas_WARP_intentional_degeneracy_privacy [label="WARP-intentional-degeneracy-privacy - M" fillcolor="#D4E8F7" penwidth=1]
+    cool_ideas_WARP_lsp_enrichment [label="WARP-lsp-enrichment" fillcolor="#D4E8F7" penwidth=1]
+    cool_ideas_WARP_minimum_viable_context [label="WARP-minimum-viable-context - M" fillcolor="#D4E8F7" penwidth=1]
+    cool_ideas_WARP_outline_diff_commit_trailer [label="WARP-outline-diff-commit-trailer - S" fillcolor="#D4E8F7" penwidth=1]
+    cool_ideas_WARP_projection_safety_classes [label="WARP-projection-safety-classes - M" fillcolor="#D4E8F7" penwidth=1]
+    cool_ideas_WARP_provenance_dag [label="WARP-provenance-dag - L" fillcolor="#D4E8F7" penwidth=1]
+    cool_ideas_WARP_reasoning_trace_replay [label="WARP-reasoning-trace-replay - M" fillcolor="#D4E8F7" penwidth=1]
+    cool_ideas_WARP_rulial_heat_map [label="WARP-rulial-heat-map - L" fillcolor="#D4E8F7" penwidth=1]
+    cool_ideas_WARP_semantic_drift_in_sessions [label="WARP-semantic-drift-in-sessions - M" fillcolor="#D4E8F7" penwidth=1]
+    cool_ideas_WARP_semantic_merge_conflict_prediction [label="WARP-semantic-merge-conflict-prediction - L" fillcolor="#D4E8F7" penwidth=1]
+    cool_ideas_WARP_session_filtration [label="WARP-session-filtration - L" fillcolor="#D4E8F7" penwidth=1]
+    cool_ideas_WARP_shadow_structural_workspaces [label="WARP-shadow-structural-workspaces - XL" fillcolor="#D4E8F7" penwidth=1]
+    cool_ideas_WARP_speculative_merge [label="WARP-speculative-merge - XL" fillcolor="#D4E8F7" penwidth=1]
+    cool_ideas_WARP_stale_docs_checker [label="WARP-stale-docs-checker - M" fillcolor="#D4E8F7" penwidth=1]
+    cool_ideas_WARP_structural_drift_detection [label="WARP-structural-drift-detection - M" fillcolor="#D4E8F7" penwidth=1]
+    cool_ideas_WARP_structural_impact_prediction [label="WARP-structural-impact-prediction - XL" fillcolor="#D4E8F7" penwidth=1]
+    cool_ideas_WARP_symbol_heatmap [label="WARP-symbol-heatmap - M" fillcolor="#D4E8F7" penwidth=1]
+    cool_ideas_WARP_symbol_history_timeline [label="WARP-symbol-history-timeline - S" fillcolor="#D4E8F7" penwidth=1]
+    cool_ideas_WARP_technical_debt_curvature [label="WARP-technical-debt-curvature - L" fillcolor="#D4E8F7" penwidth=1]
+    cool_ideas_WARP_temporal_structural_search [label="WARP-temporal-structural-search - M" fillcolor="#D4E8F7" penwidth=1]
+  }
+
+  subgraph cluster_external {
+    label="External blockers" labeljust=l fontsize=9 fontcolor="#555555"
+    style=rounded color="#cccccc" bgcolor="#f8fbff"
+    external_git_warp_observer_geometry_ladder__Rung_2_4_ [label="git-warp observer geometry ladder (Rung 2-4)" fillcolor="#E8F2FF" penwidth=1]
+  }
+
+  subgraph cluster_unresolved {
+    label="Unresolved internal refs" labeljust=l fontsize=9 fontcolor="#555555"
+    style="rounded,dashed" color="#cc3333" bgcolor="#fff7f7"
+    unresolved_CLEAN_CODE_export_diff_semver_signature_as_patch [label="missing: CLEAN_CODE_export-diff-semver-signature-as-patch" fillcolor="#F2F2F2" penwidth=1 style="rounded,dashed,filled"]
+  }
+
+  cool_ideas_monitor_tick_ceiling_tracking -> cool_ideas_WARP_background_indexing [label="blocked_by/blocking"]
+  cool_ideas_SURFACE_active_causal_workspace_status -> cool_ideas_SURFACE_ide_native_graft_integration [label="blocked_by/blocking"]
+  cool_ideas_WARP_agent_action_provenance -> cool_ideas_CI_001_causal_collapse_visualizer [label="blocked_by/blocking"]
+  cool_ideas_WARP_agent_action_provenance -> cool_ideas_WARP_causal_write_tracking [label="blocked_by/blocking"]
+  cool_ideas_WARP_agent_action_provenance -> cool_ideas_WARP_intent_and_decision_events [label="blocked_by/blocking"]
+  cool_ideas_WARP_agent_action_provenance -> cool_ideas_WARP_provenance_dag [label="blocked_by/blocking"]
+  cool_ideas_WARP_codebase_entropy_trajectory -> cool_ideas_WARP_counterfactual_refactoring [label="blocked_by/blocking"]
+  cool_ideas_WARP_counterfactual_refactoring -> cool_ideas_WARP_structural_impact_prediction [label="blocked_by/blocking"]
+  cool_ideas_WARP_provenance_dag -> cool_ideas_WARP_causal_blame_for_staged_artifacts [label="blocked_by/blocking"]
+  cool_ideas_WARP_provenance_dag -> cool_ideas_WARP_reasoning_trace_replay [label="blocked_by/blocking"]
+  cool_ideas_WARP_stale_docs_checker -> cool_ideas_WARP_drift_sentinel [label="blocked_by/blocking"]
+  cool_ideas_WARP_symbol_history_timeline -> cool_ideas_WARP_temporal_structural_search [label="blocked_by/blocking"]
+  external_git_warp_observer_geometry_ladder__Rung_2_4_ -> cool_ideas_CORE_migrate_to_slice_first_reads [label="blocked_by_external" style=dashed color="#4477AA"]
+  unresolved_CLEAN_CODE_export_diff_semver_signature_as_patch -> cool_ideas_WARP_auto_breaking_change_detection [label="blocked_by" style=dashed color="#CC3333"]
+  unresolved_CLEAN_CODE_export_diff_semver_signature_as_patch -> cool_ideas_WARP_semantic_merge_conflict_prediction [label="blocked_by" style=dashed color="#CC3333"]
+
+  subgraph cluster_legend {
+    label="Legend" labeljust=l fontsize=8 fontcolor="#aaaaaa"
+    style=rounded color="#dddddd"
+    node [fontsize=7 width=1.4]
+    leg_v07 [label="v0.7.0" fillcolor="#FFA07A" penwidth=2]
+    leg_bad [label="bad-code" fillcolor="#F6B3B3" penwidth=2]
+    leg_idea [label="cool-ideas" fillcolor="#D4E8F7" penwidth=1]
+    leg_external [label="external blocker" fillcolor="#E8F2FF" penwidth=1]
+    leg_unresolved [label="unresolved ref" fillcolor="#F2F2F2" penwidth=1 style="rounded,dashed,filled"]
+    leg_v07 -> leg_bad [style=invis]
+    leg_bad -> leg_idea [style=invis]
+    leg_idea -> leg_external [style=invis]
+    leg_external -> leg_unresolved [style=invis]
+  }
+}

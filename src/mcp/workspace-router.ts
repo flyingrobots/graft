@@ -37,7 +37,7 @@ import {
 import { resolveWorkspaceRequest, stableWorkspaceId } from "./workspace-router-resolution.js";
 import type { FileSystem } from "../ports/filesystem.js";
 import type { GitClient } from "../ports/git.js";
-import type { WarpHandle } from "../ports/warp.js";
+import type { WarpContext } from "../warp/context.js";
 import type { JsonObject } from "../contracts/json-object.js";
 import type { WarpPool } from "./warp-pool.js";
 import { DEFAULT_WARP_WRITER_ID } from "../warp/writer-id.js";
@@ -87,6 +87,7 @@ interface WorkspaceRouterOptions {
   readonly authorizationPolicy?: WorkspaceAuthorizationPolicy | undefined;
   readonly sharedAttachPolicy?: WorkspaceSharedAttachPolicy | undefined;
   readonly persistedLocalHistory: PersistedLocalHistoryStore;
+  readonly persistedLocalHistoryGraph?: boolean;
 }
 
 export class WorkspaceRouter {
@@ -197,7 +198,7 @@ export class WorkspaceRouter {
     return this.requireBinding().resolvePath;
   }
 
-  getWarp(): Promise<WarpHandle> {
+  getWarp(): Promise<WarpContext> {
     return this.requireBinding().getWarp();
   }
 
@@ -670,12 +671,18 @@ export class WorkspaceRouter {
   private async buildPersistedLocalHistoryGraphContext(
     binding: BoundWorkspace,
   ): Promise<PersistedLocalHistoryGraphContext | null> {
+    if (this.options.persistedLocalHistoryGraph === false) {
+      return null;
+    }
     return buildPersistedLocalHistoryGraphContext(binding.worktreeRoot, binding.getWarp);
   }
 
   private async buildPersistedLocalHistoryGraphContextFromExecution(
     execution: WorkspaceExecutionContext,
   ): Promise<PersistedLocalHistoryGraphContext | null> {
+    if (this.options.persistedLocalHistoryGraph === false) {
+      return null;
+    }
     return buildPersistedLocalHistoryGraphContext(execution.worktreeRoot, execution.getWarp);
   }
 }

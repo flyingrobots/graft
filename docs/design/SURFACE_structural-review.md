@@ -81,7 +81,7 @@ This slice is complete when:
 - What must be attributable, evidenced, or governed:
   - Structural vs formatting distinction is based on outline
     diffing (symbol-level), not line-level heuristics
-  - Impact counts come from ripgrep reference counting
+  - Impact counts come from WARP graph reference counting
 
 ## Non-goals
 

@@ -1,6 +1,5 @@
 import { z } from "zod";
-import { structuralLog } from "../../operations/structural-log.js";
-import { symbolsForCommit } from "../../warp/structural-queries.js";
+import { structuralLogFromGraph } from "../../warp/warp-structural-log.js";
 import { toJsonObject } from "../../operations/result-dto.js";
 import type { ToolDefinition, ToolHandler } from "../context.js";
 
@@ -10,25 +9,19 @@ export const structuralLogTool: ToolDefinition = {
     "Structural git log — shows symbol-level changes (added, removed, " +
     "changed) per commit. Like `git log` but for code structure, not lines.",
   schema: {
-    since: z.string().optional(),
     path: z.string().optional(),
     limit: z.number().optional(),
   },
   createHandler(): ToolHandler {
     return async (args, ctx) => {
-      const since = args["since"] as string | undefined;
       const filePath = args["path"] as string | undefined;
       const limit = args["limit"] as number | undefined;
       const warp = await ctx.getWarp();
 
-      const entries = await structuralLog({
-        querySymbols: (sha) => symbolsForCommit(warp, sha),
-        git: ctx.git,
-        cwd: ctx.projectRoot,
-        since,
-        path: filePath,
-        limit,
-      });
+      const options: { path?: string; limit?: number } = {};
+      if (filePath !== undefined) options.path = filePath;
+      if (limit !== undefined) options.limit = limit;
+      const entries = await structuralLogFromGraph(warp, options);
 
       ctx.recordFootprint({
         symbols: entries.flatMap((e) => [

@@ -22,6 +22,10 @@ timeline
 - Explicit definition of session, strand, and checkout epoch.
 - Implementation of strand-aware causal collapse (admission of speculative work into canonical history).
 - Strengthening of symbol identity and rename continuity for precise slicing.
+- Migration from whole-graph read patterns (`getEdges()`, `getNodes()`) to
+  slice-first reads (`traverse`, `QueryBuilder`, tick receipts). The highest-risk
+  WARP reference and precision paths have been mitigated; medium-severity
+  local-history and newer structural-metric reads remain tracked.
 
 ### 3. Multi-Repo Coordination
 - Refinement of the Shared Daemon trust boundaries.
@@ -37,12 +41,27 @@ timeline
 - **Daemon Authz Isolation**: Ensuring that transport-scoped sessions cannot "hop" to unauthorized workspace slices via ID guessing.
 - **Git Subprocess Churn**: Frequent spawning of `git` for repo state observation in large repositories impacts latency.
 - **Session Semantic Drift**: The term `session` remains too transport-scoped in the code; it needs to move toward a strand-scoped causal envelope.
-- **Warp Level 1 Debt**: Much of the WARP integration is referenced as "future work" in docs but lacks explicit tracking in the code.
+- **Warp Level 1 Debt**: Some WARP follow-on work is implemented ahead
+  of the release bookkeeping that describes it. Release and METHOD
+  truth surfaces need to be kept in step with the code.
+- **Whole-Graph Read Assumptions**: Remaining read paths in
+  local-history, persisted-local-history, and newer WARP structural
+  metric helpers still call `getNodes()` / `getEdges()` in bounded or
+  medium-risk contexts. git-warp's observer geometry ladder (design
+  0035) plans slice-first APIs; graft tracks remaining call sites in
+  `CORE_migrate-to-slice-first-reads`.
 
 ## Next Target
 
-The immediate focus is **Entrypoint Convergence and Primary Adapter
-Extraction**. The next steps are to settle the three-surface capability
-model, keep pushing business flow out of the primary adapters, and
-reorganize the repo so API, CLI, and MCP are structurally obvious
-rather than merely implied.
+The immediate focus is **v0.7.0 release truth and stabilization**.
+
+1. Keep release surfaces aligned: `package.json`, `CHANGELOG.md`,
+   `docs/releases/v0.7.0.md`, METHOD release packet, and backlog lanes.
+2. Verify the WARP-backed structural operation rewrites against the
+   release bar: log, churn, blame, review, reference counting, and
+   slice-first read posture.
+3. The active v0.7.0 backlog lane is clear. `WARP_lsp-enrichment` and
+   `CORE_migrate-to-slice-first-reads` are preserved as post-v0.7.0
+   follow-ups rather than release blockers.
+4. When git-warp's observer geometry ladder (Rung 2-4) ships, migrate
+   the remaining medium-risk full-scan reads to slice-first APIs.

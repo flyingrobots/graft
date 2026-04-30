@@ -180,4 +180,43 @@ describe("parser: outline diff", () => {
     expect(diff.added[0]!.kind).toBe("class");
     expect(diff.continuity).toEqual([]);
   });
+
+  it("propagates exported: true on added entries", () => {
+    const newSource = `export function foo(): void {}`;
+    const newOutline = extractOutline(newSource, "ts");
+    const diff = diffOutlines([], newOutline.entries);
+    expect(diff.added).toHaveLength(1);
+    expect(diff.added[0]!.exported).toBe(true);
+  });
+
+  it("propagates exported: false on added entries", () => {
+    const newSource = `function _helper(): void {}`;
+    const newOutline = extractOutline(newSource, "ts");
+    const diff = diffOutlines([], newOutline.entries);
+    expect(diff.added).toHaveLength(1);
+    expect(diff.added[0]!.exported).toBe(false);
+  });
+
+  it("propagates exported on removed entries", () => {
+    const oldSource = `export function pub(): void {}
+function priv(): void {}`;
+    const oldOutline = extractOutline(oldSource, "ts");
+    const diff = diffOutlines(oldOutline.entries, []);
+    expect(diff.removed).toHaveLength(2);
+    const pub = diff.removed.find((e) => e.name === "pub");
+    const priv = diff.removed.find((e) => e.name === "priv");
+    expect(pub!.exported).toBe(true);
+    expect(priv!.exported).toBe(false);
+  });
+
+  it("propagates exported on changed entries", () => {
+    const oldSource = `export function greet(name: string): string { return name; }`;
+    const newSource = `export function greet(name: string, title: string): string { return name; }`;
+    const oldOutline = extractOutline(oldSource, "ts");
+    const newOutline = extractOutline(newSource, "ts");
+    const diff = diffOutlines(oldOutline.entries, newOutline.entries);
+    expect(diff.changed).toHaveLength(1);
+    expect(diff.changed[0]!.exported).toBe(true);
+  });
+
 });

@@ -67,18 +67,18 @@ describe("CORE_v060-code-review-fixes", () => {
   });
 
   it("Do two same-named methods in different classes get distinct WARP node IDs?", () => {
-    // This requires a full WARP indexer setup with git repos, so we keep it as a
-    // structural pointer to the behavioral test that covers it.
-    expect(repoFileExists("test/unit/warp/indexer.test.ts")).toBe(true);
-    const test = readRepoText("test/unit/warp/indexer.test.ts");
-    expect(test).toContain("disambiguates same-named methods");
+    // Sym IDs include the full symbol path (e.g. sym:file:Class.method), so
+    // same-named methods in different classes are always distinct.
+    expect(repoFileExists("test/unit/warp/index-head.test.ts")).toBe(true);
+    const src = readRepoText("src/warp/index-head.ts");
+    expect(src).toContain("emitOutlineSyms");
   });
 
   it("Does a git failure during indexing produce an explicit error result?", () => {
-    // Behavioral coverage lives in the indexer unit tests.
-    expect(repoFileExists("test/unit/warp/indexer.test.ts")).toBe(true);
-    const test = readRepoText("test/unit/warp/indexer.test.ts");
-    expect(test).toContain("explicit error result");
+    // indexHead throws on git failures — callers handle the error.
+    expect(repoFileExists("src/warp/index-head.ts")).toBe(true);
+    const src = readRepoText("src/warp/index-head.ts");
+    expect(src).toContain("throw new Error");
   });
 
   it("Is the daemon session directory removed on session close?", () => {

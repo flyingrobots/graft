@@ -3,62 +3,140 @@ import * as fs from "node:fs";
 import * as path from "node:path";
 import * as os from "node:os";
 import { createRepoPathResolver, toRepoPolicyPath } from "../../../src/adapters/repo-paths.js";
+import { createPathResolver } from "../../../src/mcp/context.js";
 
-describe("path resolver: escape invariants", () => {
-  const root = "/home/user/project";
-  const resolve = createRepoPathResolver(root);
+describe.each([
+  ["createPathResolver", createPathResolver],
+  ["createRepoPathResolver", createRepoPathResolver],
+] as const)("path resolver confinement parity: %s", (_name, createResolver) => {
+  let root: string | null = null;
+  let outsideDir: string | null = null;
 
-  it("resolves relative paths within the project root", () => {
-    const resolved = resolve("src/app.ts");
-    expect(resolved).toBe(path.resolve(root, "src/app.ts"));
-  });
-
-  it("returns absolute paths as-is", () => {
-    const abs = "/etc/passwd";
-    expect(resolve(abs)).toBe(abs);
-  });
-
-  it("blocks .. traversal out of project root", () => {
-    expect(() => resolve("../../../etc/passwd")).toThrow("Path traversal blocked");
-  });
-
-  it("blocks traversal disguised in the middle of a path", () => {
-    expect(() => resolve("src/../../etc/passwd")).toThrow("Path traversal blocked");
-  });
-
-  it("allows .. that stays within the project root", () => {
-    const resolved = resolve("src/../lib/util.ts");
-    expect(resolved).toBe(path.resolve(root, "lib/util.ts"));
-  });
-
-  it("resolves the project root itself", () => {
-    const resolved = resolve(".");
-    expect(resolved).toBe(path.resolve(root));
-  });
-});
-
-describe("path resolver: symlink escape invariants", () => {
-  let tmpDir: string | null = null;
+  function setup(): {
+    readonly root: string;
+    readonly outsideDir: string;
+    readonly resolve: (input: string) => string;
+  } {
+    root = fs.mkdtempSync(path.join(os.tmpdir(), "graft-path-root-"));
+    outsideDir = fs.mkdtempSync(path.join(os.tmpdir(), "graft-path-outside-"));
+    fs.mkdirSync(path.join(root, "src", "nested"), { recursive: true });
+    fs.writeFileSync(path.join(root, "src", "app.ts"), "export const ok = true;\n");
+    fs.writeFileSync(path.join(outsideDir, "secret.ts"), "export const secret = true;\n");
+    return {
+      root,
+      outsideDir,
+      resolve: createResolver(root),
+    };
+  }
 
   afterEach(() => {
-    if (tmpDir !== null) {
-      fs.rmSync(tmpDir, { recursive: true, force: true });
-      tmpDir = null;
+    if (root !== null) {
+      fs.rmSync(root, { recursive: true, force: true });
+      root = null;
+    }
+    if (outsideDir !== null) {
+      fs.rmSync(outsideDir, { recursive: true, force: true });
+      outsideDir = null;
     }
   });
 
-  it("resolves symlinks within the project root to their target", () => {
-    tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "graft-path-sym-"));
-    const realFile = path.join(tmpDir, "real.ts");
-    const symlink = path.join(tmpDir, "link.ts");
-    fs.writeFileSync(realFile, "export const x = 1;\n");
-    fs.symlinkSync(realFile, symlink);
+  it("allows simple relative paths inside the root", () => {
+    const { root, resolve } = setup();
+    expect(resolve("src/app.ts")).toBe(path.resolve(root, "src/app.ts"));
+  });
 
-    const resolve = createRepoPathResolver(tmpDir);
-    const resolved = resolve("link.ts");
-    expect(resolved).toBe(path.resolve(tmpDir, "link.ts"));
-    // The resolver doesn't follow symlinks itself — that's the fs layer's job.
-    // But it should not throw for symlinks within the root.
+  it("allows absolute paths inside the root", () => {
+    const { root, resolve } = setup();
+    const inside = path.join(root, "src", "app.ts");
+    expect(resolve(inside)).toBe(path.resolve(root, "src", "app.ts"));
+  });
+
+  it("rejects relative traversal outside the root", () => {
+    const { resolve } = setup();
+    expect(() => resolve("../../../etc/passwd")).toThrow("Path traversal blocked");
+  });
+
+  it("rejects absolute paths outside the root", () => {
+    const { outsideDir, resolve } = setup();
+    expect(() => resolve(path.join(outsideDir, "secret.ts"))).toThrow("Path traversal blocked");
+  });
+
+  it("rejects /etc/passwd when the repo root is elsewhere", () => {
+    const { resolve } = setup();
+    expect(() => resolve("/etc/passwd")).toThrow("Path traversal blocked");
+  });
+
+  it("rejects symlink directory escapes when the target exists", () => {
+    const { outsideDir, resolve } = setup();
+    fs.symlinkSync(outsideDir, path.join(root!, "escape-dir"));
+    expect(() => resolve("escape-dir/secret.ts")).toThrow("Path traversal blocked");
+  });
+
+  it("rejects non-existent children under symlinked directories that escape the root", () => {
+    const { outsideDir, resolve } = setup();
+    fs.symlinkSync(outsideDir, path.join(root!, "escape-dir"));
+    expect(() => resolve("escape-dir/new-file.ts")).toThrow("Path traversal blocked");
+  });
+
+  it("rejects symlink file escapes when the target exists", () => {
+    const { outsideDir, resolve } = setup();
+    fs.symlinkSync(path.join(outsideDir, "secret.ts"), path.join(root!, "linked-secret.ts"));
+    expect(() => resolve("linked-secret.ts")).toThrow("Path traversal blocked");
+  });
+
+  it("allows non-existent paths inside the root", () => {
+    const { root, resolve } = setup();
+    expect(resolve("src/nested/new-file.ts")).toBe(path.resolve(root, "src", "nested", "new-file.ts"));
+  });
+});
+
+describe("path resolver project root canonicalization", () => {
+  let realRoot: string | null = null;
+  let aliasParent: string | null = null;
+  let outsideDir: string | null = null;
+
+  function setup(): {
+    readonly aliasRoot: string;
+    readonly outsideDir: string;
+    readonly realRoot: string;
+  } {
+    realRoot = fs.mkdtempSync(path.join(os.tmpdir(), "graft-path-real-root-"));
+    aliasParent = fs.mkdtempSync(path.join(os.tmpdir(), "graft-path-alias-parent-"));
+    outsideDir = fs.mkdtempSync(path.join(os.tmpdir(), "graft-path-outside-"));
+    fs.mkdirSync(path.join(realRoot, "src"), { recursive: true });
+    const aliasRoot = path.join(aliasParent, "repo-link");
+    fs.symlinkSync(realRoot, aliasRoot);
+    return { aliasRoot, outsideDir, realRoot };
+  }
+
+  afterEach(() => {
+    if (aliasParent !== null) {
+      fs.rmSync(aliasParent, { recursive: true, force: true });
+      aliasParent = null;
+    }
+    if (realRoot !== null) {
+      fs.rmSync(realRoot, { recursive: true, force: true });
+      realRoot = null;
+    }
+    if (outsideDir !== null) {
+      fs.rmSync(outsideDir, { recursive: true, force: true });
+      outsideDir = null;
+    }
+  });
+
+  it("allows non-existent children consistently for logical projectRoot and canonical real projectRoot", () => {
+    const { aliasRoot, realRoot } = setup();
+
+    expect(createRepoPathResolver(aliasRoot)("src/new-file.ts")).toBe(path.join(aliasRoot, "src", "new-file.ts"));
+    expect(createRepoPathResolver(realRoot)("src/new-file.ts")).toBe(path.join(realRoot, "src", "new-file.ts"));
+  });
+
+  it("rejects symlink-parent write escapes consistently for logical projectRoot and canonical real projectRoot", () => {
+    const { aliasRoot, outsideDir, realRoot } = setup();
+    fs.symlinkSync(outsideDir, path.join(realRoot, "escape-dir"));
+
+    expect(() => createRepoPathResolver(aliasRoot)("escape-dir/new-file.ts")).toThrow("Path traversal blocked");
+    expect(() => createRepoPathResolver(realRoot)("escape-dir/new-file.ts")).toThrow("Path traversal blocked");
   });
 });
 
@@ -78,14 +156,11 @@ describe("toRepoPolicyPath", () => {
   });
 
   it("returns absolute path for traversal escapes", () => {
-    // toRepoPolicyPath does not normalize the absolute path — it returns it
-    // verbatim when relative() shows it escapes the root
     const result = toRepoPolicyPath(root, "/home/user/project/../../etc/passwd");
     expect(result).toBe("/home/user/project/../../etc/passwd");
   });
 
   it("handles the project root itself", () => {
-    // Empty relative path gets the absolute fallback
     expect(toRepoPolicyPath(root, root)).toBe(root);
   });
 });

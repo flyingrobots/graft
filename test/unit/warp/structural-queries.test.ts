@@ -1,17 +1,14 @@
+/* eslint-disable @typescript-eslint/no-deprecated -- testing deprecated function */
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import * as fs from "node:fs";
 import * as path from "node:path";
 import { nodeGit } from "../../../src/adapters/node-git.js";
+import { nodePathOps } from "../../../src/adapters/node-paths.js";
 import { git, createTestRepo, cleanupTestRepo } from "../../helpers/git.js";
 import { openWarp } from "../../../src/warp/open.js";
-import { indexCommits, type IndexResult } from "../../../src/warp/indexer.js";
+import { indexHead } from "../../../src/warp/index-head.js";
 import { symbolsForCommit, commitsForSymbol } from "../../../src/warp/structural-queries.js";
-import type { WarpHandle } from "../../../src/ports/warp.js";
-
-function assertOk(result: IndexResult): asserts result is IndexResult & { ok: true } {
-  expect(result.ok).toBe(true);
-  if (!result.ok) throw new Error("unreachable");
-}
+import type { WarpContext } from "../../../src/warp/context.js";
 
 function commitSha(cwd: string, ref = "HEAD"): string {
   return git(cwd, `rev-parse ${ref}`);
@@ -28,11 +25,13 @@ describe("warp: structural-queries", { timeout: 15000 }, () => {
     cleanupTestRepo(tmpDir);
   });
 
-  async function indexRepo(): Promise<WarpHandle> {
+  async function openCtx(): Promise<WarpContext> {
     const warp = await openWarp({ cwd: tmpDir });
-    const result = await indexCommits(warp, { cwd: tmpDir, git: nodeGit });
-    assertOk(result);
-    return warp;
+    return { app: warp, strandId: null };
+  }
+
+  async function index(ctx: WarpContext): Promise<void> {
+    await indexHead({ cwd: tmpDir, git: nodeGit, pathOps: nodePathOps, ctx });
   }
 
   describe("symbolsForCommit", () => {
@@ -45,8 +44,9 @@ describe("warp: structural-queries", { timeout: 15000 }, () => {
       git(tmpDir, "commit -m 'add math functions'");
 
       const sha = commitSha(tmpDir);
-      const warp = await indexRepo();
-      const result = await symbolsForCommit(warp, sha);
+      const ctx = await openCtx();
+      await index(ctx);
+      const result = await symbolsForCommit(ctx, sha);
 
       expect(result.sha).toBe(sha);
       expect(result.added.length).toBe(2);
@@ -65,6 +65,8 @@ describe("warp: structural-queries", { timeout: 15000 }, () => {
     });
 
     it("returns changed symbols when a function signature is modified", async () => {
+      const ctx = await openCtx();
+
       // Commit 1: original function
       fs.writeFileSync(
         path.join(tmpDir, "greet.ts"),
@@ -72,6 +74,7 @@ describe("warp: structural-queries", { timeout: 15000 }, () => {
       );
       git(tmpDir, "add -A");
       git(tmpDir, "commit -m 'add greet'");
+      await index(ctx);
 
       // Commit 2: change signature
       fs.writeFileSync(
@@ -80,10 +83,10 @@ describe("warp: structural-queries", { timeout: 15000 }, () => {
       );
       git(tmpDir, "add -A");
       git(tmpDir, "commit -m 'change greet signature'");
+      await index(ctx);
 
       const sha = commitSha(tmpDir);
-      const warp = await indexRepo();
-      const result = await symbolsForCommit(warp, sha);
+      const result = await symbolsForCommit(ctx, sha);
 
       expect(result.sha).toBe(sha);
       expect(result.changed.length).toBe(1);
@@ -98,6 +101,8 @@ describe("warp: structural-queries", { timeout: 15000 }, () => {
     });
 
     it("returns removed symbols when a function is deleted", async () => {
+      const ctx = await openCtx();
+
       // Commit 1: two functions
       fs.writeFileSync(
         path.join(tmpDir, "utils.ts"),
@@ -105,6 +110,7 @@ describe("warp: structural-queries", { timeout: 15000 }, () => {
       );
       git(tmpDir, "add -A");
       git(tmpDir, "commit -m 'add utils'");
+      await index(ctx);
 
       // Commit 2: remove bar
       fs.writeFileSync(
@@ -113,10 +119,10 @@ describe("warp: structural-queries", { timeout: 15000 }, () => {
       );
       git(tmpDir, "add -A");
       git(tmpDir, "commit -m 'remove bar'");
+      await index(ctx);
 
       const sha = commitSha(tmpDir);
-      const warp = await indexRepo();
-      const result = await symbolsForCommit(warp, sha);
+      const result = await symbolsForCommit(ctx, sha);
 
       expect(result.sha).toBe(sha);
       expect(result.removed.length).toBe(1);
@@ -129,6 +135,8 @@ describe("warp: structural-queries", { timeout: 15000 }, () => {
 
   describe("commitsForSymbol", () => {
     it("returns commits that touched a symbol in order", async () => {
+      const ctx = await openCtx();
+
       // Commit 1: add function
       fs.writeFileSync(
         path.join(tmpDir, "app.ts"),
@@ -137,6 +145,7 @@ describe("warp: structural-queries", { timeout: 15000 }, () => {
       git(tmpDir, "add -A");
       git(tmpDir, "commit -m 'add start'");
       const sha1 = commitSha(tmpDir);
+      await index(ctx);
 
       // Commit 2: change function
       fs.writeFileSync(
@@ -146,9 +155,9 @@ describe("warp: structural-queries", { timeout: 15000 }, () => {
       git(tmpDir, "add -A");
       git(tmpDir, "commit -m 'change start'");
       const sha2 = commitSha(tmpDir);
+      await index(ctx);
 
-      const warp = await indexRepo();
-      const history = await commitsForSymbol(warp, "start");
+      const history = await commitsForSymbol(ctx, "start");
 
       expect(history.symbol).toBe("start");
       expect(history.commits.length).toBe(2);
@@ -159,12 +168,19 @@ describe("warp: structural-queries", { timeout: 15000 }, () => {
 
       const addedCommit = history.commits.find((c) => c.sha === sha1);
       expect(addedCommit?.changeKind).toBe("added");
+      expect(addedCommit?.signature).toContain("start");
+      expect(addedCommit?.signature).not.toContain("port");
 
       const changedCommit = history.commits.find((c) => c.sha === sha2);
       expect(changedCommit?.changeKind).toBe("changed");
+      expect(changedCommit?.signature).toContain("start");
+      expect(changedCommit?.signature).toContain("port");
+      expect(addedCommit?.signature).not.toBe(changedCommit?.signature);
     });
 
     it("filters by filePath when provided", async () => {
+      const ctx = await openCtx();
+
       // Same symbol name in two files
       fs.writeFileSync(
         path.join(tmpDir, "a.ts"),
@@ -176,15 +192,14 @@ describe("warp: structural-queries", { timeout: 15000 }, () => {
       );
       git(tmpDir, "add -A");
       git(tmpDir, "commit -m 'add init in both files'");
-
-      const warp = await indexRepo();
+      await index(ctx);
 
       // Without filter — both files
-      const allHistory = await commitsForSymbol(warp, "init");
+      const allHistory = await commitsForSymbol(ctx, "init");
       expect(allHistory.commits.length).toBe(2);
 
       // With filter — only a.ts
-      const filteredHistory = await commitsForSymbol(warp, "init", "a.ts");
+      const filteredHistory = await commitsForSymbol(ctx, "init", "a.ts");
       expect(filteredHistory.commits.length).toBe(1);
       expect(filteredHistory.filePath).toBe("a.ts");
     });

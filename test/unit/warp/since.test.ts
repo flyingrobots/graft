@@ -2,13 +2,18 @@ import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import * as fs from "node:fs";
 import * as path from "node:path";
 import { nodeGit } from "../../../src/adapters/node-git.js";
+import { nodePathOps } from "../../../src/adapters/node-paths.js";
 import { git, createTestRepo, cleanupTestRepo } from "../../helpers/git.js";
 import { openWarp } from "../../../src/warp/open.js";
-import { indexCommits, type IndexResult } from "../../../src/warp/indexer.js";
+import { indexHead } from "../../../src/warp/index-head.js";
+import { observeGraph } from "../../../src/warp/context.js";
+import type { WarpContext } from "../../../src/warp/context.js";
 import { allSymbolsLens } from "../../../src/warp/observers.js";
 
-function assertOk(result: IndexResult): asserts result is IndexResult & { ok: true } {
-  if (!result.ok) throw new Error(`expected ok result but got error: ${result.error}`);
+async function getCommitTick(ctx: WarpContext, sha: string): Promise<number | null> {
+  const obs = await observeGraph(ctx, { match: `commit:${sha}`, expose: ["tick"] });
+  const props = await obs.getNodeProps(`commit:${sha}`);
+  return typeof props?.["tick"] === "number" ? props["tick"] : null;
 }
 
 describe("warp: graft_since (observer comparison)", { timeout: 15000 }, () => {
@@ -29,6 +34,10 @@ describe("warp: graft_since (observer comparison)", { timeout: 15000 }, () => {
     git(tmpDir, "commit -m v1");
     const c1 = git(tmpDir, "rev-parse HEAD");
 
+    const warp = await openWarp({ cwd: tmpDir });
+    const ctx: WarpContext = { app: warp, strandId: null };
+    await indexHead({ cwd: tmpDir, git: nodeGit, pathOps: nodePathOps, ctx });
+
     // Commit 2: add a second function
     fs.writeFileSync(path.join(tmpDir, "app.ts"),
       'export function start(): void {}\nexport function stop(): void {}\n');
@@ -36,16 +45,14 @@ describe("warp: graft_since (observer comparison)", { timeout: 15000 }, () => {
     git(tmpDir, "commit -m v2");
     const c2 = git(tmpDir, "rev-parse HEAD");
 
-    const warp = await openWarp({ cwd: tmpDir });
-    const result = await indexCommits(warp, { cwd: tmpDir, git: nodeGit });
-    assertOk(result);
+    await indexHead({ cwd: tmpDir, git: nodeGit, pathOps: nodePathOps, ctx });
 
-    const tick1 = result.commitTicks.get(c1);
-    const tick2 = result.commitTicks.get(c2);
+    const tick1 = await getCommitTick(ctx, c1);
+    const tick2 = await getCommitTick(ctx, c2);
     expect(tick1).toBeDefined();
     expect(tick2).toBeDefined();
 
-    await warp.materialize();
+    await warp.core().materialize();
 
     const lens = allSymbolsLens();
     const obs1 = await warp.observer(lens, { source: { kind: "live", ceiling: tick1 ?? null } });
@@ -66,19 +73,21 @@ describe("warp: graft_since (observer comparison)", { timeout: 15000 }, () => {
     git(tmpDir, "commit -m v1");
     const c1 = git(tmpDir, "rev-parse HEAD");
 
+    const warp = await openWarp({ cwd: tmpDir });
+    const ctx: WarpContext = { app: warp, strandId: null };
+    await indexHead({ cwd: tmpDir, git: nodeGit, pathOps: nodePathOps, ctx });
+
     fs.writeFileSync(path.join(tmpDir, "utils.ts"),
       'export function foo(): void {}\n');
     git(tmpDir, "add -A");
     git(tmpDir, "commit -m v2");
     const c2 = git(tmpDir, "rev-parse HEAD");
 
-    const warp = await openWarp({ cwd: tmpDir });
-    const result = await indexCommits(warp, { cwd: tmpDir, git: nodeGit });
-    assertOk(result);
-    await warp.materialize();
+    await indexHead({ cwd: tmpDir, git: nodeGit, pathOps: nodePathOps, ctx });
+    await warp.core().materialize();
 
-    const tick1 = result.commitTicks.get(c1);
-    const tick2 = result.commitTicks.get(c2);
+    const tick1 = await getCommitTick(ctx, c1);
+    const tick2 = await getCommitTick(ctx, c2);
     expect(tick1).toBeDefined();
     expect(tick2).toBeDefined();
 
@@ -101,19 +110,21 @@ describe("warp: graft_since (observer comparison)", { timeout: 15000 }, () => {
     git(tmpDir, "commit -m v1");
     const c1 = git(tmpDir, "rev-parse HEAD");
 
+    const warp = await openWarp({ cwd: tmpDir });
+    const ctx: WarpContext = { app: warp, strandId: null };
+    await indexHead({ cwd: tmpDir, git: nodeGit, pathOps: nodePathOps, ctx });
+
     fs.writeFileSync(path.join(tmpDir, "api.ts"),
       'export function handle(req: Request, res: Response): void {}\n');
     git(tmpDir, "add -A");
     git(tmpDir, "commit -m v2");
     const c2 = git(tmpDir, "rev-parse HEAD");
 
-    const warp = await openWarp({ cwd: tmpDir });
-    const result = await indexCommits(warp, { cwd: tmpDir, git: nodeGit });
-    assertOk(result);
-    await warp.materialize();
+    await indexHead({ cwd: tmpDir, git: nodeGit, pathOps: nodePathOps, ctx });
+    await warp.core().materialize();
 
-    const tick1 = result.commitTicks.get(c1);
-    const tick2 = result.commitTicks.get(c2);
+    const tick1 = await getCommitTick(ctx, c1);
+    const tick2 = await getCommitTick(ctx, c2);
     expect(tick1).toBeDefined();
     expect(tick2).toBeDefined();
 

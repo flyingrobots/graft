@@ -3,7 +3,7 @@ import type { CanonicalJsonCodec } from "../adapters/canonical-json.js";
 import type { FileSystem } from "../ports/filesystem.js";
 import type { ProcessRunner } from "../ports/process-runner.js";
 import type { GitClient } from "../ports/git.js";
-import type { WarpHandle } from "../ports/warp.js";
+import type { WarpContext } from "../warp/context.js";
 import type { ToolContext, ToolDefinition } from "./context.js";
 import type { McpToolResult } from "./receipt.js";
 import type { RunCaptureConfig } from "./run-capture-config.js";
@@ -92,7 +92,7 @@ export function buildToolContext(deps: ToolContextDeps): ToolContext {
     git: deps.git,
     runCapture: deps.runCapture,
     observability: deps.observability,
-    getWarp(): Promise<WarpHandle> {
+    getWarp(): Promise<WarpContext> {
       return getActiveExecutionContext()?.getWarp() ?? workspaceRouter.getWarp();
     },
     getRepoState() {
@@ -194,6 +194,19 @@ export function buildToolContext(deps: ToolContextDeps): ToolContext {
         throw new Error("monitor_resume is only available in daemon mode");
       }
       return monitorRuntime.resumeMonitor(request);
+    },
+    nudgeMonitor(request) {
+      if (monitorRuntime === null) {
+        return Promise.resolve({
+          ok: false,
+          action: "nudge",
+          created: false,
+          changed: false,
+          errorCode: "no_daemon",
+          error: "Monitor runtime is not available.",
+        });
+      }
+      return monitorRuntime.nudgeMonitor(request);
     },
     stopMonitor(request) {
       if (monitorRuntime === null) {

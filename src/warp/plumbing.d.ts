@@ -5,8 +5,17 @@ declare module "@git-stunts/plumbing" {
     readonly emptyTree: string;
     constructor(options: { runner: unknown; cwd?: string });
     static createDefault(options?: { cwd?: string; env?: string }): GitPlumbing;
-    execute(options: { args: string[]; input?: string | Uint8Array }): Promise<string>;
-    executeStream(options: { args: string[] }): Promise<{
+    execute(options: {
+      args: string[];
+      input?: string | Uint8Array;
+      env?: Record<string, string>;
+      maxBytes?: number;
+    }): Promise<string>;
+    executeStream(options: {
+      args: string[];
+      input?: string | Uint8Array;
+      env?: Record<string, string>;
+    }): Promise<{
       finished: Promise<{ code: number; stderr: string; error?: Error }>;
       collect(opts?: { maxBytes?: number; asString?: boolean; encoding?: string }): Promise<Uint8Array | string>;
       [Symbol.asyncIterator](): AsyncIterator<Uint8Array>;

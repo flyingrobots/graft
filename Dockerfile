@@ -1,13 +1,31 @@
-FROM node:22-alpine
+FROM node:22-alpine AS deps
 
 WORKDIR /app
 
-# Install pnpm
-RUN corepack enable && corepack prepare pnpm@latest --activate
+# Git is required by Graft tests and runtime repo inspection.
+RUN apk add --no-cache git
+
+# Install the package-manager version declared by package.json.
+RUN corepack enable && corepack prepare pnpm@10.30.0 --activate
 
 # Copy package manifests and install dependencies
 COPY package.json pnpm-lock.yaml ./
 RUN pnpm install --frozen-lockfile --prod=false
+
+FROM deps AS test
+
+WORKDIR /app
+COPY . .
+
+ENV CI=1
+ENV GRAFT_TEST_CONTAINER=1
+ENV NO_COLOR=1
+
+CMD ["pnpm", "test"]
+
+FROM deps AS runtime
+
+WORKDIR /app
 
 # Copy source
 COPY bin/ bin/

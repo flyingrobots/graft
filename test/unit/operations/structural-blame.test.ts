@@ -1,25 +1,21 @@
+/* eslint-disable @typescript-eslint/no-deprecated -- testing deprecated function */
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import * as fs from "node:fs";
 import * as path from "node:path";
 import { nodeGit } from "../../../src/adapters/node-git.js";
-import { nodeProcessRunner } from "../../../src/adapters/node-process-runner.js";
 import { git, createTestRepo, cleanupTestRepo } from "../../helpers/git.js";
 import { openWarp } from "../../../src/warp/open.js";
-import { indexCommits, type IndexResult } from "../../../src/warp/indexer.js";
+import { indexHead } from "../../../src/warp/index-head.js";
 import { commitsForSymbol, symbolsForCommit } from "../../../src/warp/structural-queries.js";
-import { countSymbolReferences } from "../../../src/warp/reference-count.js";
-import { getCommitMeta } from "../../../src/warp/indexer-git.js";
+import { countSymbolReferencesFromGraph } from "../../../src/warp/warp-reference-count.js";
+import { getCommitMeta } from "../../../src/warp/commit-meta.js";
+import { nodePathOps } from "../../../src/adapters/node-paths.js";
 import {
   structuralBlame,
   type CommitMetaInput,
   type SymbolMetaInput,
 } from "../../../src/operations/structural-blame.js";
-import type { WarpHandle } from "../../../src/ports/warp.js";
-
-function assertOk(result: IndexResult): asserts result is IndexResult & { ok: true } {
-  expect(result.ok).toBe(true);
-  if (!result.ok) throw new Error("unreachable");
-}
+import type { WarpContext } from "../../../src/warp/context.js";
 
 function commitSha(cwd: string, ref = "HEAD"): string {
   return git(cwd, `rev-parse ${ref}`);
@@ -36,18 +32,18 @@ describe("operations: structural blame", { timeout: 15000 }, () => {
     cleanupTestRepo(tmpDir);
   });
 
-  async function indexRepo(): Promise<WarpHandle> {
+  async function indexRepo(): Promise<WarpContext> {
     const warp = await openWarp({ cwd: tmpDir });
-    const result = await indexCommits(warp, { cwd: tmpDir, git: nodeGit });
-    assertOk(result);
-    return warp;
+    const ctx: WarpContext = { app: warp, strandId: null };
+    await indexHead({ cwd: tmpDir, git: nodeGit, pathOps: nodePathOps, ctx });
+    return ctx;
   }
 
   /**
    * Full blame pipeline: index repo, query WARP, gather git metadata,
    * then call the pure structuralBlame function.
    */
-  async function runBlame(symbolName: string, warp: WarpHandle, filePath?: string) {
+  async function runBlame(symbolName: string, warp: WarpContext, filePath?: string) {
     const history = await commitsForSymbol(warp, symbolName, filePath);
 
     // Get commit metadata
@@ -79,12 +75,7 @@ describe("operations: structural blame", { timeout: 15000 }, () => {
     }
 
     // Get reference count
-    const refs = await countSymbolReferences(symbolName, {
-      projectRoot: tmpDir,
-      git: nodeGit,
-      process: nodeProcessRunner,
-      ...(history.filePath !== undefined ? { filePath: history.filePath } : {}),
-    });
+    const refs = await countSymbolReferencesFromGraph(warp, symbolName, history.filePath);
 
     return structuralBlame({
       symbolName,
@@ -122,6 +113,9 @@ describe("operations: structural blame", { timeout: 15000 }, () => {
   });
 
   it("detects last signature change across commits", async () => {
+    const warp = await openWarp({ cwd: tmpDir });
+    const ctx: WarpContext = { app: warp, strandId: null };
+
     // Commit 1: original function
     fs.writeFileSync(
       path.join(tmpDir, "greet.ts"),
@@ -130,6 +124,7 @@ describe("operations: structural blame", { timeout: 15000 }, () => {
     git(tmpDir, "add -A");
     git(tmpDir, "commit -m 'add greet'");
     const creationSha = commitSha(tmpDir);
+    await indexHead({ cwd: tmpDir, git: nodeGit, pathOps: nodePathOps, ctx });
 
     // Commit 2: change signature
     fs.writeFileSync(
@@ -139,9 +134,8 @@ describe("operations: structural blame", { timeout: 15000 }, () => {
     git(tmpDir, "add -A");
     git(tmpDir, "commit -m 'add greeting param'");
     const changeSha = commitSha(tmpDir);
-
-    const warp = await indexRepo();
-    const result = await runBlame("greet", warp);
+    await indexHead({ cwd: tmpDir, git: nodeGit, pathOps: nodePathOps, ctx });
+    const result = await runBlame("greet", ctx);
 
     expect(result.symbol).toBe("greet");
     expect(result.changeCount).toBe(2);

@@ -1,11 +1,11 @@
 import { describe, it, expect } from "vitest";
 import * as fs from "node:fs";
 import * as path from "node:path";
-import { nodeGit } from "../../../src/adapters/node-git.js";
-import { git, createTestRepo, cleanupTestRepo } from "../../helpers/git.js";
+import { nodePathOps } from "../../../src/adapters/node-paths.js";
+import { git, createTestRepo, cleanupTestRepo, testGitClient } from "../../helpers/git.js";
 import { createServerInRepo, parse } from "../../helpers/mcp.js";
 import { openWarp } from "../../../src/warp/open.js";
-import { indexCommits } from "../../../src/warp/indexer.js";
+import { indexHead } from "../../../src/warp/index-head.js";
 
 // These RED tests intentionally mirror the 0025 playback questions while
 // spanning golden path, failure modes, edge cases, and stress behavior.
@@ -22,6 +22,10 @@ describe("mcp: layered worldline model", { timeout: 15000 }, () => {
         git(tmpDir, "commit -m v1");
         const c1 = git(tmpDir, "rev-parse HEAD");
 
+        const warp = await openWarp({ cwd: tmpDir });
+        const ctx = { app: warp, strandId: null };
+        await indexHead({ cwd: tmpDir, git: testGitClient, pathOps: nodePathOps, ctx });
+
         fs.writeFileSync(
           path.join(tmpDir, "app.ts"),
           'export function greet(): string {\n  return "v2";\n}\n',
@@ -29,8 +33,7 @@ describe("mcp: layered worldline model", { timeout: 15000 }, () => {
         git(tmpDir, "add -A");
         git(tmpDir, "commit -m v2");
 
-        const warp = await openWarp({ cwd: tmpDir });
-        await indexCommits(warp, { cwd: tmpDir, git: nodeGit });
+        await indexHead({ cwd: tmpDir, git: testGitClient, pathOps: nodePathOps, ctx });
 
         const server = createServerInRepo(tmpDir);
         const result = parse(await server.callTool("code_show", {
@@ -83,7 +86,8 @@ describe("mcp: layered worldline model", { timeout: 15000 }, () => {
         git(tmpDir, "commit -m init");
 
         const warp = await openWarp({ cwd: tmpDir });
-        await indexCommits(warp, { cwd: tmpDir, git: nodeGit });
+        const ctx = { app: warp, strandId: null };
+        await indexHead({ cwd: tmpDir, git: testGitClient, pathOps: nodePathOps, ctx });
 
         fs.writeFileSync(
           path.join(tmpDir, "src", "draft.ts"),

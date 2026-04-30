@@ -12,6 +12,7 @@ import type {
 } from "../persisted-local-history.js";
 import type { RuntimeWorkspaceOverlayFooting } from "../runtime-workspace-overlay.js";
 import type { CausalSurfaceNextAction } from "../../contracts/causal-surface-next-action.js";
+import type { SludgeReport } from "../../operations/sludge-detector.js";
 
 export interface SetBudgetResponse {
   readonly budget: {
@@ -72,6 +73,7 @@ export interface DoctorResponse {
   readonly attribution: PersistedLocalHistorySummary["attribution"];
   readonly persistedLocalHistory: PersistedLocalHistorySummary;
   readonly recommendedNextAction: CausalSurfaceNextAction;
+  readonly sludge?: SludgeReport | undefined;
 }
 
 export interface RunCapturePolicyBoundary {

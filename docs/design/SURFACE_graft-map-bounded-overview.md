@@ -124,6 +124,6 @@ Questions:
 
 Related:
 - `docs/method/backlog/bad-code/CLEAN_CODE_mcp-tool-map-collector-orchestration.md`
-- `docs/method/backlog/cool-ideas/CORE_codebase-orientation-map.md`
+- `docs/method/graveyard/CORE_codebase-orientation-map.md`
 
 Effort: M

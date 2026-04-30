@@ -1,6 +1,6 @@
 import type { FileSystem } from "../ports/filesystem.js";
 import type { GitClient } from "../ports/git.js";
-import { getChangedFiles, getFileAtRef } from "../git/diff.js";
+import { getChangedFilesWithStatus, getFileAtRef } from "../git/diff.js";
 import { detectLang } from "../parser/lang.js";
 import { extractOutline } from "../parser/outline.js";
 import { diffOutlines, OutlineDiff } from "../parser/diff.js";
@@ -82,7 +82,7 @@ export async function graftDiff(opts: GraftDiffOptions): Promise<GraftDiffResult
   const headLabel = opts.head ?? "working tree";
   const cwd = opts.cwd;
 
-  let changedFiles = await getChangedFiles({
+  let changedEntries = await getChangedFilesWithStatus({
     cwd,
     git: opts.git,
     base,
@@ -91,15 +91,19 @@ export async function graftDiff(opts: GraftDiffOptions): Promise<GraftDiffResult
 
   // Filter by path if provided
   if (opts.path !== undefined) {
-    changedFiles = changedFiles.filter((f) => f === opts.path);
+    changedEntries = changedEntries.filter((f) => f.path === opts.path);
   }
 
   const files: FileDiff[] = [];
   const refused: GraftDiffRefusal[] = [];
 
-  for (const filePath of changedFiles) {
+  for (const entry of changedEntries) {
+    const filePath = entry.path;
+    // For renames, read base content from the old path
+    const basePath = entry.oldPath ?? filePath;
+
     // Get content at base (null = file absent at ref)
-    const baseContent = await getFileAtRef(base, filePath, { cwd, git: opts.git });
+    const baseContent = await getFileAtRef(base, basePath, { cwd, git: opts.git });
 
     // Get content at head (null = file absent at ref/worktree)
     let headContent: string | null;
@@ -113,9 +117,12 @@ export async function graftDiff(opts: GraftDiffOptions): Promise<GraftDiffResult
       }
     }
 
-    // Determine status
+    // Determine status — trust git's rename detection for renames,
+    // fall back to content-based detection for other statuses
     let status: "modified" | "added" | "deleted";
-    if (baseContent === null && headContent === null) {
+    if (entry.status === "renamed") {
+      status = "modified";
+    } else if (baseContent === null && headContent === null) {
       // Both absent — file listed in diff but unreadable at both refs. Skip.
       continue;
     } else if (baseContent === null) {

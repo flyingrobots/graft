@@ -251,7 +251,7 @@ Risk: H
 ### Packet 11. Orientation and startup ergonomics
 Backlog docs:
 - [CORE_conversation-primer.md](backlog/cool-ideas/CORE_conversation-primer.md)
-- [CORE_codebase-orientation-map.md](backlog/cool-ideas/CORE_codebase-orientation-map.md)
+- [CORE_codebase-orientation-map.md](../graveyard/CORE_codebase-orientation-map.md)
 - [CORE_tool-name-namespacing.md](backlog/cool-ideas/CORE_tool-name-namespacing.md)
 - [SURFACE_non-codex-instruction-bootstrap-parity.md](backlog/cool-ideas/SURFACE_non-codex-instruction-bootstrap-parity.md)
 - [CLEAN_CODE_cli-main.md](backlog/bad-code/CLEAN_CODE_cli-main.md)

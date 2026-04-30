@@ -3,6 +3,7 @@ node_modules/
 .claude/settings.local.json
 .claude/projects/
 .claude/plans/
+.claude/worktrees/
 .mcp.json
 .DS_Store
 ._*

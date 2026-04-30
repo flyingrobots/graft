@@ -1,6 +1,7 @@
 import type { ToolDefinition } from "./context.js";
 
 import { safeReadTool } from "./tools/safe-read.js";
+import { graftEditTool } from "./tools/graft-edit.js";
 import { fileOutlineTool } from "./tools/file-outline.js";
 import { readRangeTool } from "./tools/read-range.js";
 import { changedSinceTool } from "./tools/changed-since.js";
@@ -20,6 +21,7 @@ import { structuralChurnTool } from "./tools/structural-churn.js";
 import { exportSurfaceDiffTool } from "./tools/export-surface-diff.js";
 import { structuralLogTool } from "./tools/structural-log.js";
 import { structuralBlameTool } from "./tools/structural-blame.js";
+import { refactorDifficultyTool } from "./tools/refactor-difficulty.js";
 import { structuralReviewTool } from "./tools/structural-review.js";
 import { daemonMonitorsTool } from "./tools/daemon-monitors.js";
 import { daemonReposTool } from "./tools/daemon-repos.js";
@@ -27,9 +29,11 @@ import { daemonSessionsTool } from "./tools/daemon-sessions.js";
 import { daemonStatusTool } from "./tools/daemon-status.js";
 import { monitorPauseTool } from "./tools/monitor-pause.js";
 import { monitorResumeTool } from "./tools/monitor-resume.js";
+import { monitorNudgeTool } from "./tools/monitor-nudge.js";
 import { monitorStartTool } from "./tools/monitor-start.js";
 import { monitorStopTool } from "./tools/monitor-stop.js";
 import { activityViewTool } from "./tools/activity-view.js";
+import { knowledgeMapTool } from "./tools/knowledge-map.js";
 import { causalStatusTool } from "./tools/causal-status.js";
 import { causalAttachTool } from "./tools/causal-attach.js";
 import { workspaceAuthorizeTool } from "./tools/workspace-authorize.js";
@@ -41,6 +45,7 @@ import { workspaceRebindTool } from "./tools/workspace-rebind.js";
 
 export const TOOL_REGISTRY: readonly ToolDefinition[] = [
   safeReadTool,
+  graftEditTool,
   fileOutlineTool,
   readRangeTool,
   changedSinceTool,
@@ -64,7 +69,9 @@ export const TOOL_REGISTRY: readonly ToolDefinition[] = [
   exportSurfaceDiffTool,
   structuralLogTool,
   structuralBlameTool,
+  refactorDifficultyTool,
   structuralReviewTool,
+  knowledgeMapTool,
 ];
 
 export const DAEMON_TOOL_REGISTRY: readonly ToolDefinition[] = [
@@ -75,6 +82,7 @@ export const DAEMON_TOOL_REGISTRY: readonly ToolDefinition[] = [
   monitorStartTool,
   monitorPauseTool,
   monitorResumeTool,
+  monitorNudgeTool,
   monitorStopTool,
   workspaceAuthorizeTool,
   workspaceAuthorizationsTool,

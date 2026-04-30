@@ -1,5 +1,6 @@
 export const MCP_TOOL_NAMES = [
   "safe_read",
+  "graft_edit",
   "file_outline",
   "read_range",
   "changed_since",
@@ -16,6 +17,7 @@ export const MCP_TOOL_NAMES = [
   "monitor_start",
   "monitor_pause",
   "monitor_resume",
+  "monitor_nudge",
   "monitor_stop",
   "workspace_authorize",
   "workspace_authorizations",
@@ -37,7 +39,9 @@ export const MCP_TOOL_NAMES = [
   "graft_exports",
   "graft_log",
   "graft_blame",
+  "graft_difficulty",
   "graft_review",
+  "knowledge_map",
 ] as const;
 
 export type McpToolName = typeof MCP_TOOL_NAMES[number];
@@ -65,7 +69,9 @@ export const CLI_COMMAND_NAMES = [
   "struct_exports",
   "struct_log",
   "symbol_blame",
+  "symbol_difficulty",
   "struct_review",
+  "git_graft_enhance",
 ] as const;
 
 export type CliCommandName = typeof CLI_COMMAND_NAMES[number];
@@ -166,6 +172,12 @@ export const CAPABILITY_REGISTRY: readonly CapabilityDefinition[] = [
     cliPath: ["read", "safe"],
     apiExposure: "repo_workspace",
     cliMcpParity: "peer",
+  }),
+  defineCapability({
+    id: "graft_edit",
+    description: "Governed exact replacement edit",
+    mcpTool: "graft_edit",
+    cliMcpParity: "mcp_only",
   }),
   defineCapability({
     id: "file_outline",
@@ -282,6 +294,13 @@ export const CAPABILITY_REGISTRY: readonly CapabilityDefinition[] = [
     mcpTool: "monitor_resume",
     cliMcpParity: "mcp_only",
   }),
+  defineCapability({
+    id: "monitor_nudge",
+    description: "Trigger immediate re-index for a running monitor",
+    mcpTool: "monitor_nudge",
+    cliMcpParity: "mcp_only",
+  }),
+
   defineCapability({
     id: "monitor_stop",
     description: "Stop a repo-scoped persistent monitor",
@@ -434,12 +453,33 @@ export const CAPABILITY_REGISTRY: readonly CapabilityDefinition[] = [
     cliMcpParity: "peer",
   }),
   defineCapability({
+    id: "graft_difficulty",
+    description: "Refactor difficulty score — churn curvature times reference friction",
+    mcpTool: "graft_difficulty",
+    cliCommand: "symbol_difficulty",
+    cliPath: ["symbol", "difficulty"],
+    cliMcpParity: "peer",
+  }),
+  defineCapability({
     id: "graft_review",
     description: "Zero-noise structural PR review with breaking change detection",
     mcpTool: "graft_review",
     cliCommand: "struct_review",
     cliPath: ["struct", "review"],
     cliMcpParity: "peer",
+  }),
+  defineCapability({
+    id: "git_graft_enhance",
+    description: "Git-facing structural review summary over a ref range",
+    cliCommand: "git_graft_enhance",
+    cliPath: ["enhance"],
+    cliMcpParity: "cli_only",
+  }),
+  defineCapability({
+    id: "knowledge_map",
+    description: "Session knowledge map — observed files, symbols, staleness, and coverage",
+    mcpTool: "knowledge_map",
+    cliMcpParity: "mcp_only",
   }),
   defineCapability({
     id: "structured_buffer",

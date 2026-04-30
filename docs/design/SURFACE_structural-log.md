@@ -21,8 +21,7 @@ This slice is complete when:
 
 - `graft_log` returns a list of commits with symbol-level
   changes (added, removed, changed) per commit
-- Results can be filtered by ref range (`--since`) and file
-  path (`--path`)
+- Results can be filtered by file path (`--path`)
 - Output is capped by a configurable limit (default 20) to
   prevent runaway results on large repos
 - Each entry includes commit metadata (SHA, author, date,
@@ -89,33 +88,32 @@ This slice is complete when:
 
 ## Acceptance Criteria
 
-1. `structuralLog(opts)` returns `StructuralLogEntry[]` with
+1. `structuralLogFromGraph(ctx, options?)` returns `StructuralLogEntry[]` with
    `sha`, `message`, `author`, `date`, `symbols`, `summary`
 2. `symbols` contains `added[]`, `removed[]`, `changed[]` —
    each with `name`, `kind`, `signature?`, `exported`, `filePath`
 3. `limit` parameter caps the number of commits (default 20)
-4. `since` parameter sets the base ref for the range
-5. `path` parameter filters to symbols in that file or
+4. `path` parameter filters to symbols in that file or
    directory prefix
-6. MCP tool `graft_log` exposes `since`, `path`, `limit`
+5. MCP tool `graft_log` exposes `path`, `limit`
    parameters
-7. Summary line format: `+N added, ~N changed, -N removed`
+6. Summary line format: `+N added, ~N changed, -N removed`
 
 ## Gap Analysis
 
-Comparing acceptance criteria against `src/operations/structural-log.ts`
+Comparing acceptance criteria against `src/warp/warp-structural-log.ts`
 and `src/mcp/tools/structural-log.ts`:
 
-- **PASS**: Criteria 1-7 are all implemented as specified
+- **PASS**: Criteria 1-6 are all implemented as specified
 - **GAP: No pagination or "more results available" signal** —
   when the limit is hit, the caller has no way to know there
   are more commits beyond the limit. There is no cursor,
   offset, or `hasMore` flag. For repos with thousands of
   commits this means the agent must guess whether to increase
   the limit. This is acceptable for v1 but worth noting.
-- **GAP: Sequential commit processing** — `structuralLog`
-  processes commits sequentially with `await` in a for-loop
-  rather than batching WARP queries. On 1000 commits this
+- **GAP: Per-commit edge traversal** — `structuralLogFromGraph`
+  traverses each scoped commit with `await` in a for-loop
+  rather than batching graph edge queries. On 1000 commits this
   would be slow. The default limit of 20 mitigates this, but
   callers can override the limit. Filed as bad-code card.
 - **PASS**: Path filter correctly handles both exact paths and
@@ -127,13 +125,13 @@ Per-commit structural changelog: symbols added, removed, and changed.
 
 ## Surfaces
 
-- **CLI**: `graft log [--since REF] [--path PATH]` — formatted terminal output
+- **CLI**: `graft struct log [--path PATH]` — formatted terminal output
 - **MCP**: `graft_log` tool — JSON structured output
 
 ## Core operation
 
-`src/operations/structural-log.ts`:
-- Input: ref range, optional path filter
+`src/warp/warp-structural-log.ts`:
+- Input: optional path filter
 - Output: array of `{ sha, author, date, message, symbols: { added, removed, changed } }`
 - Uses WARP commit-symbol query helpers
 

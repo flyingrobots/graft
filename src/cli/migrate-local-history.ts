@@ -70,7 +70,8 @@ export async function runMigrateLocalHistory(options: RunMigrateLocalHistoryOpti
   const graftDir = path.join(options.cwd, ".graft");
 
   try {
-    const warp = await openWarp({ cwd: options.cwd });
+    const app = await openWarp({ cwd: options.cwd });
+    const warpCtx = { app, strandId: null };
     const payload: MigrateLocalHistoryPayload = {
       cwd: options.cwd,
       ...await migrateLegacyPersistedLocalHistoryToGraph({
@@ -78,7 +79,7 @@ export async function runMigrateLocalHistory(options: RunMigrateLocalHistoryOpti
         codec,
         graftDir,
         graph: {
-          warp,
+          warp: warpCtx,
           worktreeRoot: options.cwd,
         },
       }),

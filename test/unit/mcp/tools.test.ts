@@ -5,14 +5,14 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import type { GraftServer } from "../../../src/mcp/server.js";
-import { createIsolatedServer, fixturePath, parse } from "../../helpers/mcp.js";
+import { createFixtureWorkspace, createIsolatedServer, parse } from "../../helpers/mcp.js";
 import { cleanupTestRepo, createTestRepo, git } from "../../helpers/git.js";
 
 const EXPECTED_TOOL_NAMES = TOOL_REGISTRY.map((t) => t.name);
-const SMALL_TS = fixturePath("small.ts");
-const LARGE_TS = fixturePath("large.ts");
-const MEDIUM_TS = fixturePath("medium.ts");
-const BANNED_IMAGE = fixturePath("ban-targets/image.png");
+const SMALL_TS = "fixtures/small.ts";
+const LARGE_TS = "fixtures/large.ts";
+const MEDIUM_TS = "fixtures/medium.ts";
+const BANNED_IMAGE = "fixtures/ban-targets/image.png";
 
 const cleanups: (() => void)[] = [];
 
@@ -23,9 +23,11 @@ afterEach(() => {
 });
 
 function createServer(): GraftServer {
-  const isolated = createIsolatedServer();
+  const workspace = createFixtureWorkspace();
+  const isolated = createIsolatedServer({ projectRoot: workspace.projectRoot });
   cleanups.push(() => {
     isolated.cleanup();
+    workspace.cleanup();
   });
   return isolated.server;
 }
@@ -211,6 +213,42 @@ describe("mcp: tool handlers", () => {
     }));
     expect(parsed["semanticTransition"]).toBeNull();
     expect(parsed["recommendedNextAction"]).toBe("continue_active_causal_workspace");
+  });
+
+  it("doctor returns sludge signals when requested", async () => {
+    const repoDir = createTestRepo("graft-mcp-tools-sludge-");
+    cleanups.push(() => { cleanupTestRepo(repoDir); });
+    fs.mkdirSync(path.join(repoDir, "src"), { recursive: true });
+    fs.writeFileSync(path.join(repoDir, "src", "sloppy.ts"), [
+      "/** @typedef {{ name: string }} UserShape */",
+      "/** @type {UserShape} */",
+      "const user = {};",
+      "/** @type {UserShape} */",
+      "const nextUser = {};",
+      "/** @type {UserShape} */",
+      "const thirdUser = {};",
+      "type UserShape = { name: string };",
+      "export function buildUser(input: UserShape) {",
+      "  return { name: input.name };",
+      "}",
+      "",
+    ].join("\n"));
+    git(repoDir, "add -A");
+    git(repoDir, "commit -m sludge");
+
+    const server = createServerForProjectRoot(repoDir);
+    const result = await server.callTool("doctor", { sludge: true, path: "src" });
+    const parsed = parse(result);
+    const sludge = parsed["sludge"] as {
+      scannedFiles: number;
+      filesWithSignals: number;
+      files: { path: string; signals: { kind: string }[] }[];
+    };
+
+    expect(sludge.scannedFiles).toBe(1);
+    expect(sludge.filesWithSignals).toBe(1);
+    expect(sludge.files[0]?.path).toBe("src/sloppy.ts");
+    expect(sludge.files[0]?.signals.map((signal) => signal.kind)).toContain("homeless_constructor");
   });
 
   it("causal_status returns the active causal workspace posture", async () => {

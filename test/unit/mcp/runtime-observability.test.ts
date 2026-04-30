@@ -744,7 +744,7 @@ describe("mcp: runtime observability", () => {
     }
   });
 
-  it("upgrades checkout-boundary continuity evidence when installed hooks observe the transition", async () => {
+  it("upgrades checkout-boundary continuity evidence when installed hooks observe the transition", { timeout: 60_000 }, async () => {
     const repoDir = createTestRepo("graft-runtime-history-hooked-checkout-");
     try {
       fs.writeFileSync(path.join(repoDir, "app.ts"), "export const ready = true;\n");

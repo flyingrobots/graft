@@ -29,10 +29,9 @@ has a repo-local instruction layer alongside the MCP config.
 
 Idempotent — safe to run again without duplicating entries.
 
-`init` bootstraps repo-local files and client config. It does not make a
-daemon session implicitly bound later; daemon mode still requires
-explicit authorization and workspace binding through MCP control-plane
-tools.
+`init` bootstraps repo-local files and client config. The default MCP
+runtime is repo-local stdio. Use `--mcp-runtime daemon` only when you
+want generated MCP config to launch the daemon-backed stdio bridge.
 
 ## Choose Your Setup Path
 
@@ -48,9 +47,10 @@ whole setup guide front-to-back.
 | Continue MCP in this repo | `npx @flyingrobots/graft init --write-continue-mcp` | Writes or merges `.continue/config.json` |
 | Cline MCP in this repo | `npx @flyingrobots/graft init --write-cline-mcp` | Writes or merges `.vscode/cline_mcp_settings.json` |
 | Codex MCP in this repo | `npx @flyingrobots/graft init --write-codex-mcp` | Writes or merges `.codex/config.toml` and seeds `AGENTS.md` |
+| Daemon-backed MCP in this repo | `npx @flyingrobots/graft init --mcp-runtime daemon --write-*-mcp` | Writes or merges client config that launches `graft serve --runtime daemon` |
 | Manual review before any config file write | `npx @flyingrobots/graft init` | Scaffolds repo files and prints the manual MCP / hook snippets |
-| Global config instead of project-local config | Edit your client's global MCP settings manually | Use the `npx @flyingrobots/graft serve` command + args shown below |
-| Another MCP-compatible client | Add graft manually to that client's MCP config | Use `command = npx`, `args = ["-y", "@flyingrobots/graft", "serve"]` |
+| Global config instead of project-local config | Edit your client's global MCP settings manually | Use the repo-local or daemon-backed `serve` args shown below |
+| Another MCP-compatible client | Add graft manually to that client's MCP config | Use `command = npx` with either `serve` or `serve --runtime daemon` |
 
 ## Governed Read Posture By Client
 
@@ -75,8 +75,8 @@ distinct runtime paths:
   Windows named pipe, with `/mcp` for MCP traffic and `/healthz` for
   liveness
 
-The daemon is intentionally not the default editor bootstrap story yet.
-It uses a stricter contract:
+The daemon is available as an explicit opt-in MCP bootstrap runtime. It
+is not the default because it uses a stricter contract:
 
 - daemon sessions start unbound
 - workspace binding requires prior authorization through the daemon
@@ -103,13 +103,62 @@ Daemon control-plane inspection now exists through MCP tools:
 - `workspace_rebind`
 - `workspace_revoke`
 
-Practical daemon first-use sequence:
+Human operators can inspect the same read-side daemon posture without
+opening raw MCP JSON:
 
-1. start `npx @flyingrobots/graft daemon`
-2. connect your MCP client to the daemon surface
+```bash
+npx @flyingrobots/graft daemon status
+npx @flyingrobots/graft daemon status --socket /path/to/mcp.sock
+```
+
+`daemon status` is read-only. It shows daemon health, session counts,
+workspace authorization/bind posture, monitor summary, scheduler
+pressure, and worker pressure. It does not authorize, revoke, bind,
+rebind, pause, resume, start, or stop daemon resources.
+
+Practical daemon-backed MCP first-use sequence:
+
+1. configure your MCP client with `graft serve --runtime daemon`
+2. let the bridge auto-start the daemon, or start `npx @flyingrobots/graft daemon`
 3. call `workspace_authorize` with the target `cwd`
 4. call `workspace_bind` with the target `cwd`
 5. then use repository-scoped tools such as `safe_read` or `graft_map`
+
+### MCP runtime selection
+
+Repo-local stdio is the default and remains the simplest path:
+
+```json
+{
+  "mcpServers": {
+    "graft": {
+      "command": "npx",
+      "args": ["-y", "@flyingrobots/graft", "serve"]
+    }
+  }
+}
+```
+
+Daemon-backed stdio keeps the same MCP client shape but changes the
+runtime:
+
+```json
+{
+  "mcpServers": {
+    "graft": {
+      "command": "npx",
+      "args": ["-y", "@flyingrobots/graft", "serve", "--runtime", "daemon"]
+    }
+  }
+}
+```
+
+Use repo-local stdio when you want one MCP server bound directly to the
+current checkout. Use daemon-backed stdio when you want daemon-only
+capabilities such as shared worker pools, persistent monitors, and
+daemon control-plane inspection. Daemon-backed sessions start unbound;
+repository-scoped tools require `workspace_authorize` and
+`workspace_bind`.
 
 ### One-step bootstrap
 
@@ -125,8 +174,20 @@ npx @flyingrobots/graft init --write-cline-mcp
 npx @flyingrobots/graft init --write-codex-mcp
 ```
 
+Add `--mcp-runtime daemon` before a `--write-*-mcp` flag to generate
+daemon-backed stdio config instead of the default repo-local stdio
+config:
+
+```bash
+npx @flyingrobots/graft init --mcp-runtime daemon --write-codex-mcp
+```
+
 Supported write flags:
 
+- `--mcp-runtime repo-local` -> generate repo-local `graft serve` MCP
+  config; this is the default
+- `--mcp-runtime daemon` -> generate `graft serve --runtime daemon` MCP
+  config
 - `--write-claude-mcp` -> writes or merges `.mcp.json`
 - `--write-claude-hooks` -> writes or merges `.claude/settings.json`
 - `--write-cursor-mcp` -> writes or merges `.cursor/mcp.json`
@@ -143,7 +204,7 @@ For automation, CLI commands support `--json`:
 
 ```bash
 npx @flyingrobots/graft init --json
-npx @flyingrobots/graft index --json
+npx @flyingrobots/graft index --path src/app.ts --json
 npx @flyingrobots/graft read safe src/app.ts --json
 npx @flyingrobots/graft struct diff --json
 npx @flyingrobots/graft symbol find 'create*' --json
@@ -155,13 +216,31 @@ Grouped CLI namespaces:
 
 - `read` — `safe`, `outline`, `range`, `changed`
 - `struct` — `diff`, `since`, `map`
-- `symbol` — `show`, `find`
+- `symbol` — `show`, `find`, `blame`, `difficulty`
 - `diag` — `activity`, `doctor`, `explain`, `stats`, `capture`
 
 ## MCP Configuration
 
 Graft runs as an MCP server over stdio. Add it to your editor or
 agent's MCP configuration.
+
+The default runtime is repo-local:
+
+```bash
+npx @flyingrobots/graft serve
+```
+
+The daemon-backed runtime is explicit:
+
+```bash
+npx @flyingrobots/graft serve --runtime daemon
+```
+
+When the daemon-backed bridge cannot reach a daemon, it attempts to
+start one and waits for `/healthz`. Use `--no-autostart` when you want
+startup to fail instead of launching the daemon. Once connected,
+daemon sessions remain unbound until authorized and bound through the
+daemon workspace tools.
 
 ### Claude Code
 
@@ -452,9 +531,10 @@ add to `.claude/settings.local.json`:
 | `graft_map` | Structural directory map of files and symbols under a path, with explicit denied-file reporting. |
 | `code_show` | Focus on a symbol by name and return its source with line metadata. |
 | `code_find` | Search symbols across the project by approximate name or glob pattern, with optional kind/path filter. |
+| `graft_difficulty` | Refactor difficulty score for a symbol. Combines WARP churn curvature with reference-edge friction and returns the scalar plus the underlying factors. |
 | `code_refs` | Search import sites, callsites, property access, or literal text references with explicit text-fallback provenance, pattern, and scope. |
 | `activity_view` | Bounded between-commit activity for the active workspace, including commit anchor, grouped recent activity, and degraded posture. |
-| `doctor` | Runtime health check including layered-worldline repo state and burden summary. |
+| `doctor` | Runtime health check including layered-worldline repo state and burden summary. Accepts an opt-in `sludge` scan for parser-backed structural smell signals. |
 | `stats` | Decision metrics for the current server session, including burden by tool kind. |
 | `explain` | Human-readable meaning and recommended action for a reason code. |
 | `run_capture` | Execute a shell command and return the last N lines of output (default 60). This tool is outside graft's bounded-read policy contract, responses include an explicit `policyBoundary` marker, log persistence can be disabled, and persisted output is redacted for obvious secrets by default. |
@@ -464,7 +544,7 @@ add to `.claude/settings.local.json`:
 MCP responses include versioned `_schema` metadata and `_receipt`
 fields. CLI peer commands also return versioned `_schema` metadata;
 the declared contracts live in `src/contracts/output-schemas.ts`.
-| `doctor` | Runtime health check. Shows project root, parser status, active thresholds, session depth, message count, and a compact burden summary. |
+| `doctor` | Runtime health check. Shows project root, parser status, active thresholds, session depth, message count, and a compact burden summary. With `sludge: true`, reports parser-backed structural smell signals. |
 | `set_budget` | Declare a session byte budget. Graft tightens read thresholds as the budget drains — no single read may consume more than 5% of remaining budget. Call once at session start. |
 | `explain` | Explain a graft reason code. Returns human-readable meaning and recommended next action for any code (e.g., `BINARY`, `BUDGET_CAP`). Case-insensitive. |
 | `stats` | Decision metrics for the current session. Total reads, outlines, refusals, cache hits, bytes avoided, and returned-byte burden by tool kind. |
@@ -479,8 +559,8 @@ Declared output contracts live in `src/contracts/output-schemas.ts`.
 
 ## What the agent sees
 
-Once configured, the agent gains 17 MCP tools. Here's what
-happens when it uses them:
+Once configured, the agent gains the MCP tool surface. Here's what
+happens when it uses those tools:
 
 ### Reading files
 
@@ -512,9 +592,10 @@ and its symbols (function signatures, class shapes, exports) in
 one call. Denied files are surfaced explicitly instead of silently
 disappearing.
 
-Both tools work on the current working tree. For persistent
-structural indexing across git history, use `graft index` from the
-CLI.
+Both tools work on the current working tree. Persistent structural indexing is
+lazy: use `graft index --path <path>` from the CLI to refresh one tracked source
+file at `HEAD`, or let read/search surfaces opportunistically refresh the files
+they touch. Unbounded whole-repo eager indexing is guarded.
 
 ### Structural navigation
 

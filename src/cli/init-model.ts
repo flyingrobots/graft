@@ -7,6 +7,7 @@ export interface JsonObjectValue {
 }
 
 type InitActionKind = "exists" | "create" | "append";
+export type GraftMcpRuntime = "repo-local" | "daemon";
 
 export class InitAction {
   constructor(
@@ -54,9 +55,33 @@ function consumeFlag(args: string[], flag: string): boolean {
   return true;
 }
 
+function consumeOption(args: string[], flag: string): string | undefined {
+  const index = args.indexOf(flag);
+  if (index === -1) {
+    return undefined;
+  }
+  if (index === args.length - 1) {
+    throw new Error(`Missing value for ${flag}`);
+  }
+  const [value] = args.splice(index, 2).slice(1);
+  return value;
+}
+
+function parseMcpRuntime(raw: string | undefined): { runtime: GraftMcpRuntime; explicit: boolean } {
+  if (raw === undefined) {
+    return { runtime: "repo-local", explicit: false };
+  }
+  if (raw === "repo-local" || raw === "daemon") {
+    return { runtime: raw, explicit: true };
+  }
+  throw new Error(`--mcp-runtime must be repo-local or daemon, got ${raw}`);
+}
+
 export class ParsedInitArgs {
   constructor(
     readonly json: boolean,
+    readonly mcpRuntime: GraftMcpRuntime,
+    readonly mcpRuntimeExplicit: boolean,
     readonly writeClaudeMcp: boolean,
     readonly writeClaudeHooks: boolean,
     readonly writeTargetGitHooks: boolean,
@@ -69,8 +94,11 @@ export class ParsedInitArgs {
 
   static parse(rawArgs: readonly string[]): ParsedInitArgs {
     const args = [...rawArgs];
+    const runtime = parseMcpRuntime(consumeOption(args, "--mcp-runtime"));
     const parsed = new ParsedInitArgs(
       consumeFlag(args, "--json"),
+      runtime.runtime,
+      runtime.explicit,
       consumeFlag(args, "--write-claude-mcp"),
       consumeFlag(args, "--write-claude-hooks"),
       consumeFlag(args, "--write-target-git-hooks"),
@@ -101,8 +129,15 @@ export class ParsedInitArgs {
 export class GraftMcpServer {
   readonly name = "graft";
   readonly command = "npx";
-  readonly args = ["-y", "@flyingrobots/graft", "serve"] as const;
   readonly codexStartupTimeoutSec = 120;
+
+  constructor(readonly runtime: GraftMcpRuntime = "repo-local") {}
+
+  get args(): readonly string[] {
+    return this.runtime === "daemon"
+      ? ["-y", "@flyingrobots/graft", "serve", "--runtime", "daemon"]
+      : ["-y", "@flyingrobots/graft", "serve"];
+  }
 
   toJsonServerEntry(): JsonObjectValue {
     return {
@@ -137,10 +172,14 @@ export class GraftMcpServer {
     return [
       "[mcp_servers.graft]",
       "command = \"npx\"",
-      "args = [\"-y\", \"@flyingrobots/graft\", \"serve\"]",
+      this.toCodexTomlArgsLine(),
       `startup_timeout_sec = ${String(this.codexStartupTimeoutSec)}`,
       "",
     ].join("\n");
+  }
+
+  toCodexTomlArgsLine(): string {
+    return `args = [${this.args.map((arg) => `"${arg}"`).join(", ")}]`;
   }
 }
 
@@ -226,4 +265,20 @@ export function isJsonObjectValue(value: unknown): value is JsonObjectValue {
 
 export function cloneJsonValue<T>(value: T): T {
   return JSON.parse(JSON.stringify(value)) as T;
+}
+
+export function isGraftMcpServerEntryForRuntime(
+  value: JsonValue | undefined,
+  runtime: GraftMcpRuntime,
+): boolean {
+  if (!isJsonObjectValue(value)) {
+    return false;
+  }
+  const command = value["command"];
+  const args = value["args"];
+  const expected = new GraftMcpServer(runtime);
+  return command === expected.command
+    && Array.isArray(args)
+    && args.length === expected.args.length
+    && args.every((arg, index) => arg === expected.args[index]);
 }

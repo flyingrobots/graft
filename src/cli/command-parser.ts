@@ -12,6 +12,19 @@ export interface ParsedCommand {
   args: Record<string, unknown>;
 }
 
+export type ServeRuntime = "repo-local" | "daemon";
+
+export interface ParsedServeCommand {
+  readonly runtime: ServeRuntime;
+  readonly socketPath?: string | undefined;
+  readonly spawnIfMissing?: boolean | undefined;
+}
+
+export interface ParsedDaemonCommand {
+  readonly action: "start" | "status";
+  readonly socketPath?: string | undefined;
+}
+
 export function resolveEntrypointArgs(
   args: readonly string[],
   stdinIsTTY: boolean | undefined,
@@ -65,10 +78,50 @@ function parsePositiveInt(raw: string | undefined, flag: string): number {
   return value;
 }
 
-export function parseDaemonCommand(cwd: string, argv: string[]): { socketPath?: string } {
+export function parseDaemonCommand(cwd: string, argv: string[]): ParsedDaemonCommand {
+  const action = argv[0] === "status" ? "status" : "start";
+  if (action === "status") {
+    argv.shift();
+  }
   const socketPath = consumeOption(argv, "--socket");
   expectNoArgs(argv);
-  return socketPath !== undefined ? { socketPath: path.resolve(cwd, socketPath) } : {};
+  return {
+    action,
+    ...(socketPath !== undefined ? { socketPath: path.resolve(cwd, socketPath) } : {}),
+  };
+}
+
+function parseServeRuntime(raw: string | undefined): ServeRuntime {
+  if (raw === undefined || raw === "repo-local") {
+    return "repo-local";
+  }
+  if (raw === "daemon") {
+    return "daemon";
+  }
+  throw new Error(`--runtime must be repo-local or daemon, got ${raw}`);
+}
+
+export function parseServeCommand(cwd: string, argv: string[]): ParsedServeCommand {
+  const runtime = parseServeRuntime(consumeOption(argv, "--runtime"));
+  const socketPath = consumeOption(argv, "--socket");
+  const noAutostart = consumeFlag(argv, "--no-autostart");
+  expectNoArgs(argv);
+
+  if (runtime === "repo-local") {
+    if (socketPath !== undefined) {
+      throw new Error("--socket requires --runtime daemon");
+    }
+    if (noAutostart) {
+      throw new Error("--no-autostart requires --runtime daemon");
+    }
+    return { runtime };
+  }
+
+  return {
+    runtime,
+    ...(socketPath !== undefined ? { socketPath: path.resolve(cwd, socketPath) } : {}),
+    ...(noAutostart ? { spawnIfMissing: false } : {}),
+  };
 }
 
 export function parseGlobalOptions(
@@ -190,7 +243,6 @@ function parseStructCommand(argv: string[]): ParsedCommand {
   }
 
   if (subcommand === "log") {
-    const since = consumeOption(argv, "--since");
     const filePath = consumeOption(argv, "--path");
     const limitRaw = consumeOption(argv, "--limit");
     expectNoArgs(argv);
@@ -198,7 +250,6 @@ function parseStructCommand(argv: string[]): ParsedCommand {
       command: "struct_log",
       json,
       args: {
-        ...(since !== undefined ? { since } : {}),
         ...(filePath !== undefined ? { path: filePath } : {}),
         ...(limitRaw !== undefined ? { limit: parsePositiveInt(limitRaw, "--limit") } : {}),
       },
@@ -272,6 +323,22 @@ function parseSymbolCommand(argv: string[]): ParsedCommand {
     };
   }
 
+  if (subcommand === "difficulty") {
+    const symbol = consumePositional(argv, "symbol");
+    const filePath = consumeOption(argv, "--path");
+    const limitRaw = consumeOption(argv, "--limit");
+    expectNoArgs(argv);
+    return {
+      command: "symbol_difficulty",
+      json,
+      args: {
+        symbol,
+        ...(filePath !== undefined ? { path: filePath } : {}),
+        ...(limitRaw !== undefined ? { limit: parsePositiveInt(limitRaw, "--limit") } : {}),
+      },
+    };
+  }
+
   throw new Error(`Unknown symbol subcommand: ${subcommand}`);
 }
 
@@ -296,8 +363,17 @@ function parseDiagCommand(argv: string[]): ParsedCommand {
   const json = consumeFlag(argv, "--json");
 
   if (subcommand === "doctor") {
+    const sludge = consumeFlag(argv, "--sludge");
+    const filePath = consumeOption(argv, "--path");
     expectNoArgs(argv);
-    return { command: "diag_doctor", json, args: {} };
+    return {
+      command: "diag_doctor",
+      json,
+      args: {
+        ...(sludge ? { sludge } : {}),
+        ...(filePath !== undefined ? { path: filePath } : {}),
+      },
+    };
   }
 
   if (subcommand === "activity") {
@@ -361,14 +437,48 @@ function parseDiagCommand(argv: string[]): ParsedCommand {
   throw new Error(`Unknown diag subcommand: ${subcommand}`);
 }
 
+function parseEnhanceCommand(argv: string[]): ParsedCommand {
+  const json = consumeFlag(argv, "--json");
+  const since = consumeOption(argv, "--since");
+  const head = consumeOption(argv, "--head");
+  if (since === undefined) {
+    expectNoArgs(argv);
+    throw new Error("Missing --since");
+  }
+  expectNoArgs(argv);
+  return {
+    command: "git_graft_enhance",
+    json,
+    args: {
+      since,
+      ...(head !== undefined ? { head } : {}),
+    },
+  };
+}
+
 export function parseCommand(argv: string[]): ParsedCommand {
   const group = consumePositional(argv, "command");
 
+  if (group === "doctor") {
+    const json = consumeFlag(argv, "--json");
+    const sludge = consumeFlag(argv, "--sludge");
+    const filePath = consumeOption(argv, "--path");
+    expectNoArgs(argv);
+    return {
+      command: "diag_doctor",
+      json,
+      args: {
+        ...(sludge ? { sludge } : {}),
+        ...(filePath !== undefined ? { path: filePath } : {}),
+      },
+    };
+  }
   if (group === "read") return parseReadCommand(argv);
   if (group === "struct") return parseStructCommand(argv);
   if (group === "symbol") return parseSymbolCommand(argv);
   if (group === "migrate") return parseMigrateCommand(argv);
   if (group === "diag") return parseDiagCommand(argv);
+  if (group === "enhance") return parseEnhanceCommand(argv);
 
   throw new Error(`Unknown command: ${group}`);
 }

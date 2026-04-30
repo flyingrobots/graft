@@ -175,3 +175,78 @@ describe("operations: graft diff", () => {
     expect(result.head).toBe("HEAD");
   });
 });
+
+// --- Tests added for review-renamed-files-false-breaking cycle ---
+
+describe("operations: graft diff — renamed files", () => {
+  let tmpDir: string;
+
+  function diffOpts(overrides: Partial<Parameters<typeof graftDiff>[0]> = {}) {
+    return {
+      cwd: tmpDir,
+      fs: realFs,
+      git: nodeGit,
+      resolveWorkingTreePath: (filePath: string) => path.join(tmpDir, filePath),
+      ...overrides,
+    };
+  }
+
+  beforeEach(() => {
+    tmpDir = createTestRepo("graft-diff-rename-");
+  });
+
+  afterEach(() => {
+    cleanupTestRepo(tmpDir);
+  });
+
+  it("renamed file appears as single modified FileDiff at new path", async () => {
+    fs.writeFileSync(
+      path.join(tmpDir, "lib.ts"),
+      "export function foo(): void {}\n",
+    );
+    git(tmpDir, "add -A");
+    git(tmpDir, "commit -m base");
+    const baseSha = git(tmpDir, "rev-parse HEAD");
+
+    git(tmpDir, "mv lib.ts moved.ts");
+    git(tmpDir, "commit -m rename");
+    const headSha = git(tmpDir, "rev-parse HEAD");
+
+    const result = await graftDiff(diffOpts({ base: baseSha, head: headSha }));
+
+    // Should be one file, not two (deleted + added)
+    expect(result.files).toHaveLength(1);
+    expect(result.files[0]!.path).toBe("moved.ts");
+    expect(result.files[0]!.status).toBe("modified");
+    // Symbols should be unchanged — no false added/removed
+    expect(result.files[0]!.diff.added).toHaveLength(0);
+    expect(result.files[0]!.diff.removed).toHaveLength(0);
+  });
+
+  it("renamed file with symbol changes shows accurate diff", async () => {
+    fs.writeFileSync(
+      path.join(tmpDir, "lib.ts"),
+      "export function foo(): void {}\n",
+    );
+    git(tmpDir, "add -A");
+    git(tmpDir, "commit -m base");
+    const baseSha = git(tmpDir, "rev-parse HEAD");
+
+    git(tmpDir, "mv lib.ts moved.ts");
+    fs.writeFileSync(
+      path.join(tmpDir, "moved.ts"),
+      "export function foo(): void {}\nexport function bar(): void {}\n",
+    );
+    git(tmpDir, "add -A");
+    git(tmpDir, "commit -m rename-and-add");
+    const headSha = git(tmpDir, "rev-parse HEAD");
+
+    const result = await graftDiff(diffOpts({ base: baseSha, head: headSha }));
+
+    expect(result.files).toHaveLength(1);
+    expect(result.files[0]!.path).toBe("moved.ts");
+    expect(result.files[0]!.diff.added).toHaveLength(1);
+    expect(result.files[0]!.diff.added[0]!.name).toBe("bar");
+    expect(result.files[0]!.diff.removed).toHaveLength(0);
+  });
+});

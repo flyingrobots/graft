@@ -40,6 +40,7 @@ export interface CreateDaemonSessionHostOptions {
   readonly env?: Readonly<Record<string, string | undefined>> | undefined;
   readonly runCapture?: Partial<RunCaptureConfig> | undefined;
   readonly runtimeObservability?: Partial<RuntimeObservabilityState> | undefined;
+  readonly persistedLocalHistoryGraph?: boolean | undefined;
 }
 
 export interface DaemonSessionHost {
@@ -124,6 +125,9 @@ async function createDaemonSession(
     ...(options.runCapture !== undefined ? { runCapture: options.runCapture } : {}),
     ...(options.runtimeObservability !== undefined
       ? { runtimeObservability: options.runtimeObservability }
+      : {}),
+    ...(options.persistedLocalHistoryGraph !== undefined
+      ? { persistedLocalHistoryGraph: options.persistedLocalHistoryGraph }
       : {}),
   });
   const session: DaemonSession = {

@@ -1,5 +1,26 @@
 ---
 title: "IDE-native Graft integration"
+feature: surface
+kind: trunk
+legend: SURFACE
+lane: cool-ideas
+effort: XL
+requirements:
+  - "MCP server and tool surface (shipped)"
+  - "Session tracking (shipped)"
+  - "WARP Level 1 indexing (shipped)"
+  - "Active causal workspace status surface (backlog)"
+  - "Causal blame for staged artifacts (backlog)"
+  - "Attach to existing causal session (backlog)"
+acceptance_criteria:
+  - "A VS Code extension (or equivalent) connects to the Graft MCP server and displays causal workspace status"
+  - "Status bar shows current causal session, checkout epoch, and confidence level"
+  - "An editor action for a staged file shows causal blame (why it changed)"
+  - "Branch switch triggers a prompt to park or fork the active strand"
+  - "The extension works for both human-driven and agent-hosted IDE workflows"
+  - "Minimum viable slice functions before the full causal-session model ships"
+blocked_by:
+  - SURFACE_active-causal-workspace-status
 ---
 
 # IDE-native Graft integration
@@ -34,22 +55,27 @@ Why it matters:
 - this is the most natural bridge between Git's hard checkpoints and
   Graft's between-commit memory
 
-Questions:
-- should this start as lightweight editor commands over existing MCP
-  surfaces, or as a richer extension with push notifications and branch
-  transition hooks
-- what editor events should become causal events versus stay local UI
-- how should IDE integration differ for human-first versus agent-hosted
-  workflows
-- what is the minimum useful IDE slice before the full causal-session
-  model exists
+## Implementation path
 
-Related:
-- `docs/method/backlog/cool-ideas/CORE_conversation-primer.md`
-- `docs/method/backlog/cool-ideas/SURFACE_active-causal-workspace-status.md`
-- `docs/method/backlog/cool-ideas/WARP_causal-blame-for-staged-artifacts.md`
-- `docs/method/backlog/cool-ideas/SURFACE_attach-to-existing-causal-session.md`
-- `docs/method/backlog/up-next/SURFACE_target-repo-git-hook-bootstrap.md`
-- `docs/method/backlog/cool-ideas/CORE_git-graft-enhance.md`
+1. Build a minimal VS Code extension scaffold that connects to the Graft MCP server via stdio or socket transport
+2. Implement a status bar item that queries `causal_status` (shipped) and displays session/workspace info
+3. Add a "Show Graft Map" command that runs `graft_map` for the current workspace root and renders it in a webview panel
+4. Wire `file_outline` into editor decorations: show symbol structure alongside VS Code's native outline
+5. Add a "Why Changed?" editor action that queries causal blame for a staged file (requires `WARP_causal-blame-for-staged-artifacts`)
+6. Implement branch-switch detection via VS Code workspace events, triggering strand park/fork prompts (requires `SURFACE_attach-to-existing-causal-session`)
+7. Add an attach/handoff flow: when a new editor window opens on a workspace with an active causal session, prompt to attach or fork
+8. Iterate on the minimum viable slice: steps 1-4 can ship before the full causal session model exists
 
-Effort: L
+## Related cards
+
+- **SURFACE_active-causal-workspace-status** (blocked_by): The IDE status bar needs this surface to display meaningful causal workspace info. Without it, the status bar can only show transport-level session data, which is not the interesting version. This is a real dependency — the IDE integration is a consumer of this surface.
+- **WARP_causal-blame-for-staged-artifacts**: The "why changed?" editor action depends on causal blame. Not a hard blocker because the IDE extension has value without this feature (steps 1-4), but the staged-file blame action cannot exist without it.
+- **SURFACE_attach-to-existing-causal-session**: The branch-switch and handoff flows need attach semantics. Again, not a hard blocker for the minimal slice, but required for the full vision.
+- **CORE_conversation-primer**: The IDE could auto-inject a `graft_map` primer when an agent session starts inside the editor. Complementary, not dependent.
+- **CORE_agent-handoff-protocol**: IDE handoff flow is a surface over handoff protocol. Complementary.
+- **SURFACE_non-codex-instruction-bootstrap-parity**: IDE integration and instruction bootstrap serve the same "meet agents where they work" goal but are independent implementations.
+- **SURFACE_terminal-activity-browser-tui**: Both are presentation surfaces over Graft data, but for different environments (IDE vs terminal). No dependency.
+
+## Effort rationale
+
+XL. This is a cross-platform product requiring: (a) a VS Code extension with its own build/publish lifecycle, (b) a transport bridge between the extension and the MCP server, (c) multiple editor integration points (status bar, decorations, commands, webviews), (d) graceful degradation when causal session features are not yet shipped, and (e) testing across both human-driven and agent-hosted IDE workflows. The extension itself is a separate software artifact.

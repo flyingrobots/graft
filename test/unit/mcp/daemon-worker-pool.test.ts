@@ -224,6 +224,50 @@ describe("mcp: daemon worker pool", () => {
     expect(secondPayload.reason).toBe("REREAD_UNCHANGED");
   });
 
+  it("refuses absolute paths outside the repo in the offloaded read worker context", async () => {
+    const repoDir = createTestRepo("graft-daemon-safe-read-worker-boundary-");
+    cleanups.push(() => {
+      cleanupTestRepo(repoDir);
+    });
+
+    fs.writeFileSync(path.join(repoDir, "app.ts"), "export const ok = true;\n");
+    git(repoDir, "add -A");
+    git(repoDir, "commit -m init");
+
+    const outsideDir = fs.mkdtempSync(path.join(path.dirname(repoDir), "graft-daemon-worker-outside-"));
+    cleanups.push(() => {
+      fs.rmSync(outsideDir, { recursive: true, force: true });
+    });
+    const outsideFile = path.join(outsideDir, "secret.ts");
+    fs.writeFileSync(outsideFile, "export const secret = true;\n");
+
+    const pool = new ChildProcessDaemonWorkerPool({ size: 1 });
+    cleanups.push(async () => {
+      await pool.close();
+    });
+
+    await expect(pool.runRepoTool({
+      sessionId: "session:test",
+      workspaceSliceId: "slice:test",
+      traceId: "trace:test",
+      seq: 1,
+      startedAtMs: Date.now(),
+      tool: "safe_read",
+      args: { path: outsideFile },
+      projectRoot: repoDir,
+      graftDir: path.join(repoDir, ".graft"),
+      graftignorePatterns: [],
+      repoId: "repo:test",
+      worktreeId: "worktree:test",
+      gitCommonDir: path.join(repoDir, ".git"),
+      writerId: "graft_session_test",
+      capabilityProfile: DEFAULT_DAEMON_CAPABILITY_PROFILE,
+      repoState: repoObservation(repoDir),
+      governorSnapshot: new GovernorTracker().snapshot(),
+      metricsSnapshot: new Metrics().snapshot(),
+    })).rejects.toThrow("Path traversal blocked");
+  });
+
   it("runs dirty code_find through the live worker path", async () => {
     const repoDir = createTestRepo("graft-daemon-code-find-worker-");
     cleanups.push(() => {

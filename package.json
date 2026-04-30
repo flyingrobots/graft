@@ -1,6 +1,6 @@
 {
   "name": "@flyingrobots/graft",
-  "version": "0.6.1",
+  "version": "0.7.0",
   "description": "Context governor and between-commit activity surface for coding agents",
   "type": "module",
   "packageManager": "pnpm@10.30.0",
@@ -37,14 +37,16 @@
     "graft": "node ./bin/graft.js",
     "build": "tsc -p tsconfig.build.json",
     "prepack": "pnpm build",
-    "test": "vitest run",
+    "test": "tsx scripts/run-isolated-tests.ts",
+    "test:local": "vitest run",
     "test:watch": "vitest",
     "lint": "eslint .",
     "typecheck": "tsc --noEmit",
     "pack:check": "pnpm pack --dry-run",
+    "guard:agent-worktrees": "tsx scripts/check-agent-worktree-hygiene.ts",
     "security:check": "tsx scripts/check-release-security.ts",
     "release:surface-gate": "vitest run --run test/unit/release/package-library-surface.test.ts test/unit/release/three-surface-capability-posture.test.ts",
-    "release:check": "pnpm lint && pnpm typecheck && pnpm release:surface-gate && pnpm test && pnpm security:check && pnpm pack:check"
+    "release:check": "pnpm guard:agent-worktrees && pnpm lint && pnpm typecheck && pnpm release:surface-gate && pnpm test && pnpm security:check && pnpm pack:check"
   },
   "engines": {
     "node": ">=20.11.0"

@@ -22,6 +22,7 @@ const {
   mapModeSchema,
   fileDiffSchema,
   burdenByKindSchema,
+  sludgeReportSchema,
   burdenSummarySchema,
   runtimeObservabilitySchema,
   runtimeCausalContextSchema,
@@ -54,6 +55,34 @@ const {
   sessionDepthSchema,
 } = mcpFragmentSchemas;
 
+const graftEditReasonSchema = z.enum([
+  "NOT_FOUND",
+  "OLD_STRING_NOT_FOUND",
+  "OLD_STRING_AMBIGUOUS",
+  "BINARY",
+  "LOCKFILE",
+  "MINIFIED",
+  "BUILD_OUTPUT",
+  "SECRET",
+  "GRAFTIGNORE",
+]);
+
+const graftEditDriftWarningSchema = z.object({
+  kind: z.literal("structural_pattern_reintroduced"),
+  severity: z.literal("advisory"),
+  pattern: z.literal("jsdoc_typedef"),
+  basis: z.literal("session_local_graft_edit"),
+  message: z.string(),
+  current: z.object({
+    path: z.string(),
+    direction: z.literal("added"),
+  }).strict(),
+  previous: z.object({
+    path: z.string(),
+    direction: z.literal("removed"),
+  }).strict(),
+}).strict();
+
 export const mcpOutputBodySchemas = {
   safe_read: z.object({
     path: z.string(),
@@ -71,6 +100,20 @@ export const mcpOutputBodySchemas = {
     readCount: z.number().int().nonnegative().optional(),
     lastReadAt: z.string().optional(),
     diff: outlineDiffSchema.optional(),
+  }).strict(),
+  graft_edit: z.object({
+    path: z.string(),
+    operation: z.literal("replace"),
+    projection: z.enum(["edited", "refused"]),
+    status: z.enum(["edited", "refused"]),
+    changed: z.boolean(),
+    matches: z.number().int().nonnegative(),
+    replacements: z.number().int().nonnegative(),
+    reason: graftEditReasonSchema.optional(),
+    reasonDetail: z.string().optional(),
+    next: z.array(z.string()).optional(),
+    actual: actualSchema.optional(),
+    driftWarnings: z.array(graftEditDriftWarningSchema).optional(),
   }).strict(),
   file_outline: z.union([
     z.object({
@@ -203,6 +246,7 @@ export const mcpOutputBodySchemas = {
   monitor_start: monitorActionSchema,
   monitor_pause: monitorActionSchema,
   monitor_resume: monitorActionSchema,
+  monitor_nudge: monitorActionSchema,
   monitor_stop: monitorActionSchema,
   workspace_authorize: workspaceAuthorizeSchema,
   workspace_authorizations: z.object({
@@ -268,6 +312,7 @@ export const mcpOutputBodySchemas = {
     attribution: attributionSummarySchema,
     persistedLocalHistory: persistedLocalHistorySummarySchema,
     recommendedNextAction: z.string(),
+    sludge: sludgeReportSchema.optional(),
   }).strict(),
   stats: z.object({
     totalReads: z.number().int().nonnegative(),
@@ -384,6 +429,30 @@ export const mcpOutputBodySchemas = {
       signature: z.string().optional(),
     }).strict()),
   }).strict(),
+  graft_difficulty: z.object({
+    symbol: z.string(),
+    path: z.string().optional(),
+    entries: z.array(z.object({
+      symbol: z.string(),
+      filePath: z.string(),
+      kind: z.string(),
+      score: z.number().nonnegative(),
+      risk: z.enum(["low", "medium", "high"]),
+      recommendation: z.enum(["refactor_freely", "refactor_with_tests", "plan_before_refactor"]),
+      curvature: z.object({
+        changeCount: z.number().int().nonnegative(),
+        signatureChangeCount: z.number().int().nonnegative(),
+        score: z.number().nonnegative(),
+      }).strict(),
+      friction: z.object({
+        referenceCount: z.number().int().nonnegative(),
+        referencingFiles: z.array(z.string()),
+        score: z.number().nonnegative(),
+      }).strict(),
+    }).strict()),
+    total: z.number().int().nonnegative(),
+    summary: z.string(),
+  }).strict(),
   graft_review: z.object({
     base: z.string(),
     head: z.string(),
@@ -415,5 +484,18 @@ export const mcpOutputBodySchemas = {
       impactedFilePaths: z.array(z.string()),
     }).strict()),
     summary: z.string(),
+  }).strict(),
+  knowledge_map: z.object({
+    totalFiles: z.number().int().nonnegative(),
+    totalSymbols: z.number().int().nonnegative(),
+    files: z.array(z.object({
+      path: z.string(),
+      symbols: z.array(z.string()),
+      readCount: z.number().int().positive(),
+      lastReadAt: z.string(),
+      stale: z.boolean(),
+    }).strict()),
+    staleFiles: z.array(z.string()),
+    directoryCoverage: z.record(z.string(), z.number().int().nonnegative()),
   }).strict(),
 } satisfies Record<McpToolName, z.ZodType>;

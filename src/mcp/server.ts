@@ -10,6 +10,7 @@ import { CanonicalJsonCodec } from "../adapters/canonical-json.js";
 import { nodeProcessRunner } from "../adapters/node-process-runner.js";
 import type { ProcessRunner } from "../ports/process-runner.js";
 import { nodeGit } from "../adapters/node-git.js";
+import type { GitClient } from "../ports/git.js";
 import { openWarp } from "../warp/open.js";
 import type { RunCaptureConfig } from "./run-capture-config.js";
 import { resolveRunCaptureConfig } from "./run-capture-config.js";
@@ -64,6 +65,8 @@ export interface CreateGraftServerOptions {
   daemonWorkerPool?: DaemonWorkerPool;
   daemonRuntime?: (() => DaemonRuntimeDescriptor) | undefined;
   processRunner?: ProcessRunner;
+  git?: GitClient;
+  persistedLocalHistoryGraph?: boolean;
 }
 
 export function createGraftServer(options: CreateGraftServerOptions = {}): GraftServer {
@@ -88,6 +91,7 @@ export function createGraftServer(options: CreateGraftServerOptions = {}): Graft
     ...(options.env !== undefined ? { env: options.env } : {}),
     ...(options.runtimeObservability !== undefined ? { overrides: options.runtimeObservability } : {}),
   });
+  const gitClient = options.git ?? nodeGit;
   const runtimeLogger = new RuntimeEventLogger({
     fs: nodeFs,
     codec,
@@ -107,7 +111,7 @@ export function createGraftServer(options: CreateGraftServerOptions = {}): Graft
     ? (options.daemonControlPlane ?? new DaemonControlPlane({
       fs: nodeFs,
       codec,
-      git: nodeGit,
+      git: gitClient,
       graftDir,
     }))
     : null;
@@ -116,7 +120,7 @@ export function createGraftServer(options: CreateGraftServerOptions = {}): Graft
     : (options.monitorRuntime ?? new PersistentMonitorRuntime({
       fs: nodeFs,
       codec,
-      git: nodeGit,
+      git: gitClient,
       graftDir,
       controlPlane: daemonControlPlane,
       scheduler: daemonScheduler,
@@ -139,7 +143,7 @@ export function createGraftServer(options: CreateGraftServerOptions = {}): Graft
   const workspaceRouter = new WorkspaceRouter({
     mode,
     fs: nodeFs,
-    git: nodeGit,
+    git: gitClient,
     graftDir,
     ...(projectRoot !== undefined ? { projectRoot } : {}),
     warpPool,
@@ -148,6 +152,7 @@ export function createGraftServer(options: CreateGraftServerOptions = {}): Graft
     ...(daemonControlPlane !== null ? { authorizationPolicy: daemonControlPlane } : {}),
     ...(daemonControlPlane !== null ? { sharedAttachPolicy: daemonControlPlane } : {}),
     persistedLocalHistory,
+    persistedLocalHistoryGraph: options.persistedLocalHistoryGraph ?? true,
   });
   const daemonRepoOverview = daemonControlPlane !== null && monitorRuntime !== null
     ? new DaemonRepoOverview({

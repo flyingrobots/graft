@@ -2,12 +2,12 @@ import { describe, it, expect } from "vitest";
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
-import { nodeGit } from "../../../src/adapters/node-git.js";
 import { collectSymbols } from "../../../src/mcp/tools/precision.js";
-import { git, createTestRepo, cleanupTestRepo } from "../../helpers/git.js";
+import { git, createTestRepo, cleanupTestRepo, testGitClient } from "../../helpers/git.js";
 import { createServerInRepo, parse } from "../../helpers/mcp.js";
 import { openWarp } from "../../../src/warp/open.js";
-import { indexCommits } from "../../../src/warp/indexer.js";
+import { indexHead } from "../../../src/warp/index-head.js";
+import { nodePathOps } from "../../../src/adapters/node-paths.js";
 import { JumpEntry, OutlineEntry } from "../../../src/parser/types.js";
 
 describe("mcp: code_show", () => {
@@ -90,6 +90,9 @@ describe("mcp: code_show", () => {
       git(tmpDir, "commit -m v1");
       const c1 = git(tmpDir, "rev-parse HEAD");
 
+      const warp = await openWarp({ cwd: tmpDir });
+      await indexHead({ cwd: tmpDir, git: testGitClient, pathOps: nodePathOps, ctx: { app: warp, strandId: null } });
+
       fs.writeFileSync(
         path.join(tmpDir, "app.ts"),
         'export function greet(): string {\n  return "v2";\n}\n',
@@ -97,8 +100,7 @@ describe("mcp: code_show", () => {
       git(tmpDir, "add -A");
       git(tmpDir, "commit -m v2");
 
-      const warp = await openWarp({ cwd: tmpDir });
-      await indexCommits(warp, { cwd: tmpDir, git: nodeGit });
+      await indexHead({ cwd: tmpDir, git: testGitClient, pathOps: nodePathOps, ctx: { app: warp, strandId: null } });
 
       const server = createServerInRepo(tmpDir);
       const result = parse(await server.callTool("code_show", {
@@ -355,18 +357,17 @@ describe("mcp: code_find", () => {
       git(tmpDir, "commit -m init");
 
       const warp = await openWarp({ cwd: tmpDir });
-      await indexCommits(warp, { cwd: tmpDir, git: nodeGit });
+      await indexHead({ cwd: tmpDir, git: testGitClient, pathOps: nodePathOps, ctx: { app: warp, strandId: null } });
 
       const server = createServerInRepo(tmpDir);
       const result = parse(await server.callTool("code_find", {
         query: "handle*",
       }));
 
-      const matches = result["matches"] as { name: string; identityId?: string; startLine?: number; endLine?: number }[];
+      const matches = result["matches"] as { name: string; startLine?: number; endLine?: number }[];
       expect(result["source"]).toBe("warp");
       expect(matches).toHaveLength(1);
       expect(matches[0]?.name).toBe("handleRequest");
-      expect(matches[0]?.identityId).toMatch(/^sid:[a-f0-9]{16}$/);
       expect(matches[0]?.startLine).toBeDefined();
       expect(matches[0]?.endLine).toBeDefined();
     } finally {
@@ -386,7 +387,7 @@ describe("mcp: code_find", () => {
       git(tmpDir, "commit -m init");
 
       const warp = await openWarp({ cwd: tmpDir });
-      await indexCommits(warp, { cwd: tmpDir, git: nodeGit });
+      await indexHead({ cwd: tmpDir, git: testGitClient, pathOps: nodePathOps, ctx: { app: warp, strandId: null } });
 
       const server = createServerInRepo(tmpDir);
       const result = parse(await server.callTool("code_find", {
@@ -410,7 +411,7 @@ describe("mcp: code_find", () => {
       git(tmpDir, "commit -m init");
 
       const warp = await openWarp({ cwd: tmpDir });
-      await indexCommits(warp, { cwd: tmpDir, git: nodeGit });
+      await indexHead({ cwd: tmpDir, git: testGitClient, pathOps: nodePathOps, ctx: { app: warp, strandId: null } });
 
       fs.writeFileSync(
         path.join(tmpDir, "src", "draft.ts"),

@@ -76,3 +76,109 @@ describe("git: diff helpers", () => {
       .toThrow(GitError);
   });
 });
+
+// --- Tests added for review-renamed-files-false-breaking cycle ---
+
+import { getChangedFilesWithStatus } from "../../../src/git/diff.js";
+
+describe("git: diff helpers — rename-aware changed files", () => {
+  let tmpDir: string;
+
+  beforeEach(() => {
+    tmpDir = createTestRepo("graft-git-rename-");
+    fs.writeFileSync(path.join(tmpDir, "a.ts"), "export function foo(): void {}\n");
+    git(tmpDir, "add -A");
+    git(tmpDir, "commit -m initial");
+  });
+
+  afterEach(() => {
+    cleanupTestRepo(tmpDir);
+  });
+
+  it("returns renamed status with oldPath for renamed files", async () => {
+    git(tmpDir, "mv a.ts b.ts");
+    git(tmpDir, "commit -m rename");
+    const files = await getChangedFilesWithStatus({ cwd: tmpDir, git: nodeGit, base: "HEAD~1", head: "HEAD" });
+    expect(files).toHaveLength(1);
+    expect(files[0]!.path).toBe("b.ts");
+    expect(files[0]!.status).toBe("renamed");
+    expect(files[0]!.oldPath).toBe("a.ts");
+  });
+
+  it("returns modified status for modified files", async () => {
+    fs.writeFileSync(path.join(tmpDir, "a.ts"), "export function foo(): string { return \"\"; }\n");
+    git(tmpDir, "add -A");
+    git(tmpDir, "commit -m modify");
+    const files = await getChangedFilesWithStatus({ cwd: tmpDir, git: nodeGit, base: "HEAD~1", head: "HEAD" });
+    expect(files).toHaveLength(1);
+    expect(files[0]!.path).toBe("a.ts");
+    expect(files[0]!.status).toBe("modified");
+    expect(files[0]!.oldPath).toBeUndefined();
+  });
+
+  it("returns added status for new files", async () => {
+    fs.writeFileSync(path.join(tmpDir, "b.ts"), "export const x = 1;\n");
+    git(tmpDir, "add -A");
+    git(tmpDir, "commit -m add-b");
+    const files = await getChangedFilesWithStatus({ cwd: tmpDir, git: nodeGit, base: "HEAD~1", head: "HEAD" });
+    const b = files.find((f) => f.path === "b.ts");
+    expect(b).toBeDefined();
+    expect(b!.status).toBe("added");
+  });
+
+  it("returns deleted status for deleted files", async () => {
+    fs.unlinkSync(path.join(tmpDir, "a.ts"));
+    git(tmpDir, "add -A");
+    git(tmpDir, "commit -m delete-a");
+    const files = await getChangedFilesWithStatus({ cwd: tmpDir, git: nodeGit, base: "HEAD~1", head: "HEAD" });
+    expect(files).toHaveLength(1);
+    expect(files[0]!.path).toBe("a.ts");
+    expect(files[0]!.status).toBe("deleted");
+  });
+
+  it("detects rename with content changes", async () => {
+    git(tmpDir, "mv a.ts b.ts");
+    fs.writeFileSync(path.join(tmpDir, "b.ts"), "export function foo(): void {}\nexport function bar(): void {}\n");
+    git(tmpDir, "add -A");
+    git(tmpDir, "commit -m rename-and-edit");
+    const files = await getChangedFilesWithStatus({ cwd: tmpDir, git: nodeGit, base: "HEAD~1", head: "HEAD" });
+    expect(files).toHaveLength(1);
+    expect(files[0]!.path).toBe("b.ts");
+    expect(files[0]!.status).toBe("renamed");
+    expect(files[0]!.oldPath).toBe("a.ts");
+  });
+
+  it("returns empty array for no changes", async () => {
+    const files = await getChangedFilesWithStatus({ cwd: tmpDir, git: nodeGit, base: "HEAD", head: "HEAD" });
+    expect(files).toEqual([]);
+  });
+
+  it("handles multiple renames in same commit", async () => {
+    fs.writeFileSync(path.join(tmpDir, "c.ts"), "export function baz(): void {}\n");
+    git(tmpDir, "add -A");
+    git(tmpDir, "commit -m add-c");
+    git(tmpDir, "mv a.ts x.ts");
+    git(tmpDir, "mv c.ts y.ts");
+    git(tmpDir, "commit -m rename-both");
+    const files = await getChangedFilesWithStatus({ cwd: tmpDir, git: nodeGit, base: "HEAD~1", head: "HEAD" });
+    const x = files.find((f) => f.path === "x.ts");
+    const y = files.find((f) => f.path === "y.ts");
+    expect(x).toBeDefined();
+    expect(x!.status).toBe("renamed");
+    expect(x!.oldPath).toBe("a.ts");
+    expect(y).toBeDefined();
+    expect(y!.status).toBe("renamed");
+    expect(y!.oldPath).toBe("c.ts");
+  });
+
+  it("detects rename to different directory", async () => {
+    fs.mkdirSync(path.join(tmpDir, "lib"), { recursive: true });
+    git(tmpDir, "mv a.ts lib/a.ts");
+    git(tmpDir, "commit -m rename-to-dir");
+    const files = await getChangedFilesWithStatus({ cwd: tmpDir, git: nodeGit, base: "HEAD~1", head: "HEAD" });
+    expect(files).toHaveLength(1);
+    expect(files[0]!.path).toBe("lib/a.ts");
+    expect(files[0]!.status).toBe("renamed");
+    expect(files[0]!.oldPath).toBe("a.ts");
+  });
+});

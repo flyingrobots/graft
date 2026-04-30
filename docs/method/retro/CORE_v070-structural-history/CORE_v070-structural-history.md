@@ -11,9 +11,10 @@ drift_check: yes
 ## Summary
 
 Hill met. Five structural analysis tools shipped — graft log, blame,
-review, churn, and exports. Each delivered as operation + CLI + MCP
-tool + tests. Two shared infrastructure modules (commit-symbol
-queries, reference counting) power all five.
+review, churn, and exports. The original delivery used operation + CLI + MCP
+tool + tests for each surface. Follow-up v0.7.0 cleanup moved log and churn
+fully onto WARP-native modules and deleted their old git-backed operation
+modules.
 
 ## What shipped
 

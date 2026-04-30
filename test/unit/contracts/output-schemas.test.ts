@@ -82,7 +82,7 @@ describe("contracts: output schemas", () => {
     expect((payload["_schema"] as Record<string, unknown>)["id"]).toEqual(expect.any(String));
   });
 
-  it("validates representative MCP tool outputs against the declared schemas", { timeout: 15_000 }, async () => {
+  it("validates representative MCP tool outputs against the declared schemas", { timeout: 30_000 }, async () => {
     const repoDir = createTestRepo("graft-output-schema-mcp-");
     cleanups.push(repoDir);
 
@@ -120,6 +120,7 @@ describe("contracts: output schemas", () => {
       "}",
       "",
     ].join("\n"));
+    fs.writeFileSync(path.join(repoDir, "edit-target.ts"), "export const editTarget = \"before\";\n");
 
     const server = createServerInRepo(repoDir);
     const daemonServer = createDaemonServer(path.join(repoDir, ".graft-daemon"));
@@ -141,6 +142,7 @@ describe("contracts: output schemas", () => {
     const daemonMonitors = parse(await daemonServer.callTool("daemon_monitors", {}));
     const daemonMonitorPause = parse(await daemonServer.callTool("monitor_pause", { cwd: repoDir }));
     const daemonMonitorResume = parse(await daemonServer.callTool("monitor_resume", { cwd: repoDir }));
+    const daemonMonitorNudge = parse(await daemonServer.callTool("monitor_nudge", { cwd: repoDir }));
     const daemonMonitorStop = parse(await daemonServer.callTool("monitor_stop", { cwd: repoDir }));
     const daemonAuthorizations = parse(await daemonServer.callTool("workspace_authorizations", {}));
     const daemonStatus = parse(await daemonServer.callTool("workspace_status", {}));
@@ -151,6 +153,11 @@ describe("contracts: output schemas", () => {
 
     const outputs = {
       safe_read: parse(await server.callTool("safe_read", { path: "app.ts" })),
+      graft_edit: parse(await server.callTool("graft_edit", {
+        path: "edit-target.ts",
+        old_string: "\"before\"",
+        new_string: "\"after\"",
+      })),
       file_outline: parse(await server.callTool("file_outline", { path: "app.ts" })),
       read_range: parse(await server.callTool("read_range", { path: "app.ts", start: 1, end: 3 })),
       changed_since: parse(await server.callTool("changed_since", { path: "app.ts" })),
@@ -167,6 +174,7 @@ describe("contracts: output schemas", () => {
       monitor_start: daemonMonitorStart,
       monitor_pause: daemonMonitorPause,
       monitor_resume: daemonMonitorResume,
+      monitor_nudge: daemonMonitorNudge,
       monitor_stop: daemonMonitorStop,
       workspace_authorize: daemonAuthorize,
       workspace_authorizations: daemonAuthorizations,
@@ -188,7 +196,9 @@ describe("contracts: output schemas", () => {
       graft_exports: parse(await server.callTool("graft_exports", { base, head })),
       graft_log: parse(await server.callTool("graft_log", {})),
       graft_blame: parse(await server.callTool("graft_blame", { symbol: "greet" })),
+      graft_difficulty: parse(await server.callTool("graft_difficulty", { symbol: "greet" })),
       graft_review: parse(await server.callTool("graft_review", { base, head })),
+      knowledge_map: parse(await server.callTool("knowledge_map", {})),
     } as const;
 
     for (const tool of MCP_TOOL_NAMES) {
@@ -291,6 +301,7 @@ describe("contracts: output schemas", () => {
       struct_exports: await runCliJson(repoDir, ["struct", "exports", base, head, "--json"]),
       symbol_show: await runCliJson(repoDir, ["symbol", "show", "greet", "--path", "app.ts", "--json"]),
       symbol_blame: await runCliJson(repoDir, ["symbol", "blame", "greet", "--json"]),
+      symbol_difficulty: await runCliJson(repoDir, ["symbol", "difficulty", "greet", "--json"]),
       symbol_find: await runCliJson(repoDir, ["symbol", "find", "greet*", "--json"]),
       diag_doctor: await runCliJson(repoDir, ["diag", "doctor", "--json"]),
       diag_activity: await runCliJson(repoDir, ["diag", "activity", "--limit", "5", "--json"]),
@@ -298,6 +309,7 @@ describe("contracts: output schemas", () => {
       diag_explain: await runCliJson(repoDir, ["diag", "explain", "CONTENT", "--json"]),
       diag_stats: await runCliJson(repoDir, ["diag", "stats", "--json"]),
       diag_capture: await runCliJson(repoDir, ["diag", "capture", "--json", "--", "printf", "ok"]),
+      git_graft_enhance: await runCliJson(repoDir, ["enhance", "--since", base, "--head", head, "--json"]),
     } as const;
 
     for (const command of CLI_COMMAND_NAMES.filter((name) => !["init", "index", "migrate_local_history"].includes(name))) {

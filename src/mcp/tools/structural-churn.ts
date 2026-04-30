@@ -1,6 +1,6 @@
 import { z } from "zod";
-import { structuralChurn, structuralChurnToJson } from "../../operations/structural-churn.js";
-import { symbolsForCommit } from "../../warp/structural-queries.js";
+import { toJsonObject } from "../../operations/result-dto.js";
+import { structuralChurnFromGraph } from "../../warp/warp-structural-churn.js";
 import type { ToolDefinition, ToolHandler } from "../context.js";
 
 export const structuralChurnTool: ToolDefinition = {
@@ -16,14 +16,13 @@ export const structuralChurnTool: ToolDefinition = {
   createHandler(): ToolHandler {
     return async (args, ctx) => {
       const warp = await ctx.getWarp();
-      const result = await structuralChurn({
-        cwd: ctx.projectRoot,
-        git: ctx.git,
-        querySymbolsForCommit: (sha) => symbolsForCommit(warp, sha),
-        path: args["path"] as string | undefined,
-        limit: args["limit"] as number | undefined,
-      });
-      return ctx.respond("graft_churn", structuralChurnToJson(result));
+      const options: { path?: string; limit?: number } = {};
+      const pathArg = args["path"];
+      const limitArg = args["limit"];
+      if (typeof pathArg === "string") options.path = pathArg;
+      if (typeof limitArg === "number") options.limit = limitArg;
+      const result = await structuralChurnFromGraph(warp, options);
+      return ctx.respond("graft_churn", toJsonObject(result));
     };
   },
 };

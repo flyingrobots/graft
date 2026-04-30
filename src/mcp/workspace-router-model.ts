@@ -4,7 +4,7 @@ import type { RepoStateTracker } from "./repo-state.js";
 import type { RuntimeCausalContext } from "./runtime-causal-context.js";
 import type { PersistedLocalHistorySummary } from "./persisted-local-history.js";
 import type { GovernorTracker } from "../session/tracker.js";
-import type { WarpHandle } from "../ports/warp.js";
+import type { WarpContext } from "../warp/context.js";
 
 export type WorkspaceMode = "repo_local" | "daemon";
 export type WorkspaceBindState = "bound" | "unbound";
@@ -89,7 +89,7 @@ export interface WorkspaceExecutionContext {
   readonly metrics: Metrics;
   readonly graftDir: string;
   readonly repoState: RepoStateTracker;
-  readonly getWarp: () => Promise<WarpHandle>;
+  readonly getWarp: () => Promise<WarpContext>;
 }
 
 export interface ResolvedWorkspace {

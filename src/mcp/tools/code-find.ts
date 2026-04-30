@@ -1,5 +1,7 @@
 import { z } from "zod";
 import type { ToolDefinition, ToolContext, ToolHandler } from "../context.js";
+import { nodePathOps } from "../../adapters/node-paths.js";
+import { indexHead } from "../../warp/index-head.js";
 import { GitFileQuery, listGitFiles } from "./git-files.js";
 import {
   evaluatePrecisionPolicy,
@@ -55,6 +57,26 @@ class CodeFindRequest {
 
 interface CodeFindOptions {
   readonly allowWarp: boolean;
+}
+
+async function lazyIndexReadPaths(
+  ctx: ToolContext,
+  paths: readonly string[],
+  dirty: boolean,
+): Promise<void> {
+  if (dirty || paths.length === 0) return;
+  try {
+    const warp = await ctx.getWarp();
+    await indexHead({
+      cwd: ctx.projectRoot,
+      git: ctx.git,
+      pathOps: nodePathOps,
+      ctx: warp,
+      paths: [...new Set(paths)],
+    });
+  } catch {
+    // Lazy indexing must never turn a successful read/search into a failure.
+  }
 }
 
 export async function runCodeFind(
@@ -140,6 +162,7 @@ export async function runCodeFind(
     paths: [...new Set(visibleMatches.map((m) => m.path))],
     symbols: visibleMatches.map((m) => m.name),
   });
+  await lazyIndexReadPaths(ctx, visibleMatches.map((m) => m.path), repoState.dirty);
 
   return ctx.respond("code_find", {
     query: request.query,

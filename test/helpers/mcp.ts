@@ -6,7 +6,7 @@ import type { CreateGraftServerOptions, GraftServer } from "../../src/mcp/server
 import type { RunCaptureConfig } from "../../src/mcp/run-capture-config.js";
 import type { RuntimeObservabilityState } from "../../src/mcp/runtime-observability.js";
 import type { WorkspaceMode } from "../../src/mcp/workspace-router.js";
-import { ensureGitRepo } from "./git.js";
+import { ensureGitRepo, testGitClient } from "./git.js";
 import { harnessPath } from "./fixtures.js";
 export { createFixtureWorkspace, fixturePath, harnessPath } from "./fixtures.js";
 
@@ -42,6 +42,7 @@ export interface CreateIsolatedServerOptions {
   graftDir?: string;
   runCapture?: Partial<RunCaptureConfig>;
   runtimeObservability?: Partial<RuntimeObservabilityState>;
+  persistedLocalHistoryGraph?: boolean;
 }
 
 type CreateServerInRepoOptions = Omit<CreateGraftServerOptions, "projectRoot" | "graftDir">;
@@ -53,6 +54,8 @@ export function createServerInRepo(
   return createGraftServer({
     projectRoot: repoDir,
     graftDir: path.join(repoDir, ".graft"),
+    git: testGitClient,
+    persistedLocalHistoryGraph: false,
     ...options,
   });
 }
@@ -75,10 +78,12 @@ export function createIsolatedServer(options: CreateIsolatedServerOptions = {}):
   return {
     server: createGraftServer({
       mode,
+      git: testGitClient,
       ...(mode === "repo_local" ? { projectRoot } : {}),
       graftDir,
       ...(options.runCapture !== undefined ? { runCapture: options.runCapture } : {}),
       ...(options.runtimeObservability !== undefined ? { runtimeObservability: options.runtimeObservability } : {}),
+      persistedLocalHistoryGraph: options.persistedLocalHistoryGraph ?? true,
     }),
     projectRoot,
     graftDir,

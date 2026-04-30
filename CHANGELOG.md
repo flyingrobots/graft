@@ -7,6 +7,141 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.7.0] - 2026-04-30
+
+### Added
+
+- **Sludge detector**: `doctor` can run an opt-in parser-backed
+  structural smell scan with `sludge: true` or `graft doctor --sludge`.
+  It reports typedef/class imbalance, JSDoc cast density, homeless
+  constructor functions, free functions operating on project types, and
+  high-symbol-count files.
+- **Refactor difficulty score**: `graft_difficulty` and
+  `graft symbol difficulty` report a scalar per-symbol refactor score
+  from WARP churn curvature and reference-edge friction.
+- **WARP snapshot indexing**: `indexHead` is now the canonical
+  snapshot-based indexing path and emits commit, file, directory,
+  symbol, and AST facts with tick metadata.
+- **Cross-file import resolution**: WARP now records import,
+  re-export, and namespace reference edges for graph-native reference
+  queries.
+- **Outline-diff commit trailer**: `formatStructuralDiffTrailer` +
+  `parseStructuralDiffTrailer` for embedding structural diffs in
+  git commit messages as machine-readable trailers.
+- **Background indexing with monitor_nudge**: `monitor_nudge` MCP
+  tool triggers immediate re-index for a running monitor. For
+  post-commit hooks to notify graft that HEAD changed.
+- **Structural drift detection**: `checkNumericClaim` and
+  `checkPatternProhibition` verify doc claims against reality —
+  numeric counts and pattern prohibitions.
+- **Drift sentinel**: `runDriftSentinel(ctx, options)` scans all
+  tracked markdown files for stale symbol references against the
+  WARP graph. Returns pass/fail verdict for pre-commit hook use.
+- **WARP-based reference counting for structural-review**: `graft_review`
+  now counts symbol references via WARP graph traversal instead of
+  ripgrep. More precise (actual imports) and faster (no subprocess).
+- **Stale docs checker**: `checkStaleDocs` cross-references markdown
+  symbol mentions against the WARP graph to detect outdated docs.
+  `checkVersionDrift` compares CHANGELOG vs package.json versions.
+- **Session knowledge map**: `knowledge_map` MCP tool answers "what
+  do I already know?" — observed files, symbols, staleness flags,
+  and per-directory coverage.
+- **Symbol history timeline**: `symbolTimeline(ctx, name, filePath?)`
+  returns every version of a symbol across commits — signature, line
+  range, presence, and change kind, ordered by tick.
+- **Dead symbol detection**: `findDeadSymbols(ctx, options?)` finds
+  symbols removed from the codebase and never re-added. Supports
+  `maxCommits` depth limiting. Uses WARP snapshot diffs, no grep.
+- **Monitor tick ceiling tracking**: `runMonitorTickJob` skips
+  `openWarp` and `indexHead` when HEAD hasn't changed since the last
+  indexed commit. Idle monitor ticks are now near-zero-cost.
+- **Daemon-backed stdio MCP runtime**: `graft serve --runtime daemon`
+  exposes the tested daemon bridge as a release-facing MCP runtime, and
+  `graft init --mcp-runtime daemon --write-*-mcp` can generate client
+  config for daemon-backed stdio instead of repo-local stdio.
+- **Read-only daemon status surface**: `graft daemon status
+  [--socket <path>]` renders daemon health, session counts, workspace
+  posture, monitor summary, scheduler pressure, and worker pressure
+  without adding daemon mutation actions.
+- **Git-facing enhance first slice**: `git graft enhance --since <ref>`
+  and `git-graft enhance --since <ref>` compose shipped structural
+  since and export-surface facts into a concise review summary, with
+  schema-validated JSON available through `--json`.
+- **Governed exact replacement edit**: `graft_edit` is a narrow MCP
+  edit tool for one exact replacement through Graft's path, policy,
+  schema, and filesystem-port boundaries.
+- **Agent drift advisory**: `graft_edit` responses can include optional
+  advisory `driftWarnings` when a same-session edit removes then later
+  reintroduces the narrow `jsdoc_typedef` structural pattern.
+
+### Changed
+
+- **WARP context boundary**: `WarpHandle` was removed in favor of
+  direct git-warp types carried through `WarpContext`, with fail-closed
+  strand routing hooks for future strand isolation.
+- **Structural query read paths**: structural queries now use
+  `traverse`, `QueryBuilder`, and tick receipts instead of broad
+  `getEdges()` scans.
+- **WARP-backed structural operations**: `graft_log`, `graft_churn`,
+  `graft_blame`, and `graft_review` now use WARP graph data for their
+  MCP execution paths.
+- **Aggregate-backed structural churn**: `graft_churn` now computes
+  live-symbol change counts with WARP `QueryBuilder.aggregate()`, while
+  preserving removed-symbol churn from tick receipt evidence.
+- **`graft_blame` output shape**: WARP-backed blame returns tick-aware
+  symbol timeline data and a simplified `createdInCommit` value. This
+  is a breaking pre-1.0 MCP schema change for consumers scraping the
+  old result shape.
+- **Daemon runtime selection**: repo-local `graft serve` remains
+  unchanged, while daemon-backed operation is now an explicit
+  `--runtime daemon` choice with clear setup docs.
+- **Release scope truth**: full LSP semantic enrichment and the
+  remaining medium-risk slice-first read sweep are preserved as
+  post-v0.7.0 follow-up cards instead of active release blockers.
+
+### Removed
+
+- **Legacy commit-walking indexer**: removed the old `indexCommits`
+  pipeline and related model/graph helpers. `indexHead` is the active
+  indexing path.
+
+### Fixed
+
+- **Agent worktree hygiene**: added `pnpm guard:agent-worktrees`,
+  wired it into release preflight and the repo-local pre-commit hook,
+  and covered forced embedded-repo gitlinks under `.claude/worktrees/`.
+- **Export surface semver impact**: `exportSurfaceDiff` now treats
+  breaking signature changes conservatively. Required parameter
+  additions, removed parameters, parameter type changes, and return
+  type changes are `major`; additive optional parameters are `minor`.
+- **Reference edge scan**: `referencesForSymbol` no longer scans all
+  graph edges; it traverses incoming `references` edges from the target
+  symbol/file node.
+- **Keep a Changelog version drift**: `checkVersionDrift` now accepts
+  bracketed headings such as `## [0.7.0] - YYYY-MM-DD`.
+- **Dockerized test isolation**: default `pnpm test` now runs in a
+  copy-in Docker container so validation cannot inherit the operator's
+  live checkout Git hooks or Git environment.
+- **Full-suite timeout nondeterminism**: test MCP servers and daemon
+  integration tests now use explicit temp-only Git/runtime seams to
+  avoid hidden WARP/server work under full-suite load.
+- **Repo path symlink-parent escape**: repo path resolution validates
+  the nearest existing ancestor so future create/write tools cannot
+  escape through an existing symlinked parent directory.
+- **Monitor indexing ceiling**: background monitor ticks now batch
+  explicit paths through the existing `indexHead` cap instead of
+  failing every tick for repos with more than 64 parseable files.
+- **WARP structural log metadata**: `indexHead` now persists commit
+  message, author, email, date, and timestamp on commit nodes so
+  `graft struct log` retains user-visible commit context.
+- **Cold WARP structural review impact**: `graft_review` now preserves
+  breaking-change impact counts on fresh worktrees by falling back to a
+  bounded import/re-export scan when graph reference edges are not
+  available yet.
+- **Backlog dependency DAG**: the checked-in DAG now renders
+  `blocked_by`, `blocking`, and `blocked_by_external` relationships
+  from backlog card frontmatter.
+
 ## [0.6.1] - 2026-04-19
 
 ### Fixed

@@ -48,6 +48,7 @@ export class DiffEntry {
   private readonly _brand = "DiffEntry" as const;
   readonly name: string;
   readonly kind: OutlineEntry["kind"];
+  readonly exported?: boolean;
   readonly signature?: string;
   readonly oldSignature?: string;
   readonly childDiff?: OutlineDiff;
@@ -57,6 +58,7 @@ export class DiffEntry {
   constructor(opts: {
     name: string;
     kind: OutlineEntry["kind"];
+    exported?: boolean;
     signature?: string;
     oldSignature?: string;
     childDiff?: OutlineDiff;
@@ -67,6 +69,7 @@ export class DiffEntry {
     }
     this.name = opts.name.trim();
     this.kind = opts.kind;
+    if (opts.exported !== undefined) this.exported = opts.exported;
     if (opts.signature !== undefined) this.signature = opts.signature;
     if (opts.oldSignature !== undefined) this.oldSignature = opts.oldSignature;
     if (opts.childDiff !== undefined) this.childDiff = opts.childDiff;
@@ -255,6 +258,7 @@ export function diffOutlines(
       added.push(new DiffEntry({
         name,
         kind: newEntry.kind,
+        exported: newEntry.exported,
         ...(newEntry.signature !== undefined ? { signature: newEntry.signature } : {}),
       }));
       addedEntries.push(newEntry);
@@ -265,6 +269,7 @@ export function diffOutlines(
         changed.push(new DiffEntry({
           name,
           kind: newEntry.kind,
+          exported: newEntry.exported,
           oldSignature: entrySignature(oldEntry),
           ...(newEntry.signature !== undefined ? { signature: newEntry.signature } : {}),
         }));
@@ -276,6 +281,7 @@ export function diffOutlines(
           const childDiff = diffOutlines(oldChildren, newChildren);
           if (childDiff.added.length > 0 || childDiff.removed.length > 0 || childDiff.changed.length > 0) {
             changed.push(new DiffEntry({
+              exported: newEntry.exported,
               name,
               kind: newEntry.kind,
               childDiff,
@@ -297,6 +303,7 @@ export function diffOutlines(
       removed.push(new DiffEntry({
         name,
         kind: oldEntry.kind,
+        exported: oldEntry.exported,
         ...(oldEntry.signature !== undefined ? { signature: oldEntry.signature } : {}),
       }));
       removedEntries.push(oldEntry);

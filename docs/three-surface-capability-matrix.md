@@ -16,9 +16,9 @@ changes, this matrix must be refreshed before release.
 
 ## Current baseline
 
-- `4` CLI-only capabilities
-- `19` API + CLI + MCP capabilities
-- `20` API + MCP capabilities
+- `5` CLI-only capabilities
+- `20` API + CLI + MCP capabilities
+- `23` API + MCP capabilities
 - `1` API-only capability
 
 API exposure kinds:
@@ -44,6 +44,7 @@ CLI/MCP posture values:
 | `index` | No | Yes | No | `-` | `cli_only` | `index` | `-` |
 | `migrate_local_history` | No | Yes | No | `-` | `cli_only` | `migrate local-history` | `-` |
 | `safe_read` | Yes | Yes | Yes | `repo_workspace` | `peer` | `read safe` | `safe_read` |
+| `graft_edit` | Yes | No | Yes | `tool_bridge` | `mcp_only` | `-` | `graft_edit` |
 | `file_outline` | Yes | Yes | Yes | `repo_workspace` | `peer` | `read outline` | `file_outline` |
 | `read_range` | Yes | Yes | Yes | `repo_workspace` | `peer` | `read range` | `read_range` |
 | `changed_since` | Yes | Yes | Yes | `repo_workspace` | `peer` | `read changed` | `changed_since` |
@@ -57,7 +58,9 @@ CLI/MCP posture values:
 | `graft_exports` | Yes | Yes | Yes | `tool_bridge` | `peer` | `struct exports` | `graft_exports` |
 | `graft_log` | Yes | Yes | Yes | `tool_bridge` | `peer` | `struct log` | `graft_log` |
 | `graft_blame` | Yes | Yes | Yes | `tool_bridge` | `peer` | `symbol blame` | `graft_blame` |
+| `graft_difficulty` | Yes | Yes | Yes | `tool_bridge` | `peer` | `symbol difficulty` | `graft_difficulty` |
 | `graft_review` | Yes | Yes | Yes | `tool_bridge` | `peer` | `struct review` | `graft_review` |
+| `git_graft_enhance` | No | Yes | No | `-` | `cli_only` | `enhance` | `-` |
 | `daemon_repos` | Yes | No | Yes | `tool_bridge` | `mcp_only` | `-` | `daemon_repos` |
 | `daemon_status` | Yes | No | Yes | `tool_bridge` | `mcp_only` | `-` | `daemon_status` |
 | `daemon_sessions` | Yes | No | Yes | `tool_bridge` | `mcp_only` | `-` | `daemon_sessions` |
@@ -65,6 +68,7 @@ CLI/MCP posture values:
 | `monitor_start` | Yes | No | Yes | `tool_bridge` | `mcp_only` | `-` | `monitor_start` |
 | `monitor_pause` | Yes | No | Yes | `tool_bridge` | `mcp_only` | `-` | `monitor_pause` |
 | `monitor_resume` | Yes | No | Yes | `tool_bridge` | `mcp_only` | `-` | `monitor_resume` |
+| `monitor_nudge` | Yes | No | Yes | `tool_bridge` | `mcp_only` | `-` | `monitor_nudge` |
 | `monitor_stop` | Yes | No | Yes | `tool_bridge` | `mcp_only` | `-` | `monitor_stop` |
 | `workspace_authorize` | Yes | No | Yes | `tool_bridge` | `mcp_only` | `-` | `workspace_authorize` |
 | `workspace_authorizations` | Yes | No | Yes | `tool_bridge` | `mcp_only` | `-` | `workspace_authorizations` |
@@ -83,4 +87,5 @@ CLI/MCP posture values:
 | `set_budget` | Yes | No | Yes | `tool_bridge` | `mcp_only` | `-` | `set_budget` |
 | `state_save` | Yes | No | Yes | `tool_bridge` | `mcp_only` | `-` | `state_save` |
 | `state_load` | Yes | No | Yes | `tool_bridge` | `mcp_only` | `-` | `state_load` |
+| `knowledge_map` | Yes | No | Yes | `tool_bridge` | `mcp_only` | `-` | `knowledge_map` |
 | `structured_buffer` | Yes | No | No | `structured_buffer` | `not_applicable` | `-` | `-` |

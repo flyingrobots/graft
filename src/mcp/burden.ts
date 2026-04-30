@@ -15,6 +15,7 @@ const ZERO_BUCKET: BurdenBucket = Object.freeze({ calls: 0, bytesReturned: 0 });
 
 const TOOL_BURDEN_KIND: Record<McpToolName, BurdenKind> = {
   safe_read: "read",
+  graft_edit: "state",
   file_outline: "read",
   read_range: "read",
   changed_since: "read",
@@ -31,6 +32,7 @@ const TOOL_BURDEN_KIND: Record<McpToolName, BurdenKind> = {
   monitor_start: "diagnostic",
   monitor_pause: "diagnostic",
   monitor_resume: "diagnostic",
+  monitor_nudge: "diagnostic",
   monitor_stop: "diagnostic",
   workspace_authorize: "diagnostic",
   workspace_authorizations: "diagnostic",
@@ -52,7 +54,9 @@ const TOOL_BURDEN_KIND: Record<McpToolName, BurdenKind> = {
   graft_exports: "search",
   graft_log: "search",
   graft_blame: "search",
+  graft_difficulty: "search",
   graft_review: "search",
+  knowledge_map: "diagnostic",
 };
 
 export function emptyBurdenByKind(): BurdenByKind {

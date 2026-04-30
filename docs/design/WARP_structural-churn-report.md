@@ -87,7 +87,7 @@ This slice is complete when:
 
 ## Acceptance Criteria
 
-1. `structuralChurn(opts)` returns `StructuralChurnResult`
+1. `structuralChurnFromGraph(ctx, options?)` returns `StructuralChurnResult`
    with `entries[]`, `totalSymbols`, `totalCommitsAnalyzed`,
    `summary`
 2. Each `ChurnEntry` has `symbol`, `filePath`, `kind`,
@@ -103,20 +103,12 @@ This slice is complete when:
 ## Gap Analysis
 
 Comparing acceptance criteria against
-`src/operations/structural-churn.ts` and
+`src/warp/warp-structural-churn.ts` and
 `src/mcp/tools/structural-churn.ts`:
 
-- **PASS**: Criteria 1-3, 5-8 implemented as specified
-- **GAP: Path filter matches exact file only, not directory
-  prefixes** — `accumulateSymbols` checks
-  `sym.filePath !== pathFilter`, which is an exact match. A
-  path of `src/warp/` would match nothing because file paths
-  don't end with `/`. The `listCommitShas` function passes the
-  path to `git log -- <path>` which does handle directories,
-  but the symbol-level filter does not. This means churn will
-  list commits touching a directory but then filter out all
-  symbols that don't have an exact file path match. Filed as
-  bad-code card.
+- **PASS**: Criteria 1-8 implemented as specified
+- **PASS**: Path filter handles exact files and directory prefixes through
+  `startsWith`.
 - **GAP: Does NOT distinguish per-commit vs per-symbol
   changes** — if a symbol changes once in each of 10 commits,
   it gets count 10. If a symbol appears in all three arrays
@@ -124,16 +116,9 @@ Comparing acceptance criteria against
   possible with re-processing), it could count as 3. The
   current design counts each array entry independently. This
   is acceptable but should be documented.
-- **GAP: Sequential commit processing with no parallelism** —
-  `structuralChurn` walks ALL commits with `await` in a
-  for-loop. On a repo with 10K commits, this would be very
-  slow. There is no batching, no progress indication, and no
-  early-exit optimization. Filed as bad-code card.
-- **GAP: `git log --reverse` with no `--max-count`** —
-  `listCommitShas` retrieves ALL commit SHAs in the repo
-  history with no limit. On large repos this is a performance
-  concern and memory concern. Filed as bad-code card (same
-  card as sequential processing).
+- **PASS**: Live-symbol change counts use `QueryBuilder.aggregate()`
+  over WARP commit nodes. Tombstoned symbols fall back to tick receipt
+  evidence because deleted `sym:*` nodes are no longer live query seeds.
 
 ## Backlog Context
 
@@ -148,7 +133,7 @@ the worldline.
 
 ## Core operation
 
-`src/operations/structural-churn.ts`:
+`src/warp/warp-structural-churn.ts`:
 - Input: optional path filter, limit
 - Output: ranked list of symbols by change frequency, with files and last-changed commit
 

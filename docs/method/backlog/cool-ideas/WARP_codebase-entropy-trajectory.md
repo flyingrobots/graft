@@ -1,5 +1,22 @@
 ---
-title: "Codebase entropy trajectory"
+title: Codebase entropy trajectory
+feature: structural-metrics
+kind: leaf
+legend: WARP
+lane: cool-ideas
+effort: M
+requirements:
+  - WARP Level 1 indexing (shipped)
+  - Worldline seek API (shipped)
+  - Structural churn report via WARP aggregates (shipped)
+acceptance_criteria:
+  - A command or tool computes structural entropy over a range of commits on the worldline
+  - Output includes trends for symbol addition/removal rate, signature stability, and export surface growth
+  - Coupling direction (increasing vs decreasing) is reported
+  - Results are presented as a trajectory (time series), not a single-point snapshot
+  - A test verifies that adding symbols across multiple commits increases the reported entropy metric
+blocking:
+  - WARP_counterfactual-refactoring
 ---
 
 # Codebase entropy trajectory
@@ -15,5 +32,43 @@ This is the health TRAJECTORY of a codebase — not a snapshot,
 a trend. "Your structural entropy increased 15% this quarter"
 is a sentence no other tool can produce.
 
-Depends on: WARP Level 1 (shipped), structural churn report
-(backlog).
+## Implementation path
+
+1. Walk the worldline over a commit range
+2. At each tick, query aggregate change counts via WARP
+   (`QueryBuilder.aggregate()` from the churn rewrite)
+3. Compute per-tick metrics: addition rate, removal rate,
+   signature change rate, export surface delta
+4. Derive entropy measures: Shannon entropy over symbol
+   distribution, churn velocity, coupling coefficients
+5. Return as a time series with per-tick and trend-line values
+
+## Structural churn dependency
+
+Entropy computes OVER churn data. The current churn implementation
+uses WARP aggregate queries and tick receipts, so this card can consume
+structural churn without reviving Git commit walking or in-memory
+per-commit accumulation.
+
+## Why blocks counterfactual-refactoring
+
+`WARP_counterfactual-refactoring` lists "structural entropy and
+coupling metrics" as a requirement. Counterfactual refactoring
+forks the worldline and compares alternative refactors by their
+entropy scores. This card provides those scores.
+
+## Related cards
+
+- **WARP_technical-debt-curvature**: "Technical debt as measurable
+  curvature" likely consumes entropy metrics. Related but not
+  verified as a hard dependency — curvature may define its own
+  metrics.
+- **WARP_dead-symbol-detection**: Dead-symbol rates feed into
+  addition/removal entropy, but dead-symbol-detection is a
+  per-symbol query while entropy is aggregate. No hard dependency.
+
+## Effort rationale
+
+Medium. The computation is non-trivial (entropy metrics, trend
+lines, coupling coefficients) but the data access is
+straightforward once the churn rewrite provides aggregate queries.

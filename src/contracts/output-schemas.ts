@@ -78,6 +78,34 @@ const tripwireSchema = z.object({
   recommendation: z.string(),
 }).strict();
 
+const graftEditReasonSchema = z.enum([
+  "NOT_FOUND",
+  "OLD_STRING_NOT_FOUND",
+  "OLD_STRING_AMBIGUOUS",
+  "BINARY",
+  "LOCKFILE",
+  "MINIFIED",
+  "BUILD_OUTPUT",
+  "SECRET",
+  "GRAFTIGNORE",
+]);
+
+const graftEditDriftWarningSchema = z.object({
+  kind: z.literal("structural_pattern_reintroduced"),
+  severity: z.literal("advisory"),
+  pattern: z.literal("jsdoc_typedef"),
+  basis: z.literal("session_local_graft_edit"),
+  message: z.string(),
+  current: z.object({
+    path: z.string(),
+    direction: z.literal("added"),
+  }).strict(),
+  previous: z.object({
+    path: z.string(),
+    direction: z.literal("removed"),
+  }).strict(),
+}).strict();
+
 const outlineEntrySchema: z.ZodType = z.lazy(() => z.object({
   _brand: z.literal("OutlineEntry").optional(),
   kind: z.string(),
@@ -120,6 +148,7 @@ const diffEntrySchema: z.ZodType = z.lazy(() => z.object({
   _brand: z.literal("DiffEntry").optional(),
   name: z.string(),
   kind: z.string(),
+  exported: z.boolean().optional(),
   signature: z.string().optional(),
   oldSignature: z.string().optional(),
   childDiff: outlineDiffSchema.optional(),
@@ -139,6 +168,45 @@ const burdenByKindSchema = z.object({
   shell: burdenBucketSchema,
   state: burdenBucketSchema,
   diagnostic: burdenBucketSchema,
+}).strict();
+
+const sludgeSignalSchema = z.object({
+  kind: z.enum([
+    "phantom_shape",
+    "cast_density",
+    "homeless_constructor",
+    "free_function_data_behavior",
+    "god_file",
+  ]),
+  severity: z.enum(["low", "medium", "high"]),
+  message: z.string(),
+  line: z.number().int().positive().optional(),
+  symbol: z.string().optional(),
+  evidence: z.string(),
+}).strict();
+
+const sludgeFileReportSchema = z.object({
+  path: z.string(),
+  score: z.number().int().nonnegative(),
+  metrics: z.object({
+    typedefCount: z.number().int().nonnegative(),
+    typeCastCount: z.number().int().nonnegative(),
+    classCount: z.number().int().nonnegative(),
+    functionCount: z.number().int().nonnegative(),
+    symbolCount: z.number().int().nonnegative(),
+    homelessConstructorCount: z.number().int().nonnegative(),
+    freeFunctionDataBehaviorCount: z.number().int().nonnegative(),
+  }).strict(),
+  signals: z.array(sludgeSignalSchema),
+}).strict();
+
+const sludgeReportSchema = z.object({
+  scannedFiles: z.number().int().nonnegative(),
+  filesWithSignals: z.number().int().nonnegative(),
+  totalSignals: z.number().int().nonnegative(),
+  score: z.number().int().nonnegative(),
+  files: z.array(sludgeFileReportSchema),
+  summary: z.string(),
 }).strict();
 
 const receiptSchema = z.object({
@@ -191,6 +259,33 @@ const runtimeCausalContextSchema = z.object({
 const runtimeLocalProvenanceSchema = z.object({
   stability: z.literal("runtime_local"),
   provenanceLevel: z.literal("artifact_history"),
+}).strict();
+
+const gitGraftEnhanceBodySchema = z.object({
+  range: z.object({
+    since: z.string(),
+    head: z.string(),
+  }).strict(),
+  structural: z.object({
+    changedFiles: z.number().int().nonnegative(),
+    addedSymbols: z.number().int().nonnegative(),
+    removedSymbols: z.number().int().nonnegative(),
+    changedSymbols: z.number().int().nonnegative(),
+    topFilesByChangeCount: z.array(z.object({
+      path: z.string(),
+      status: z.string(),
+      changeCount: z.number().int().nonnegative(),
+      summary: z.string(),
+    }).strict()),
+  }).strict(),
+  exports: z.object({
+    changed: z.boolean(),
+    semverImpact: z.enum(["major", "minor", "patch", "none"]),
+    addedExports: z.number().int().nonnegative(),
+    removedExports: z.number().int().nonnegative(),
+    changedExports: z.number().int().nonnegative(),
+  }).strict(),
+  warnings: z.array(z.string()),
 }).strict();
 
 const runtimeStagedTargetSchema = z.discriminatedUnion("availability", [
@@ -540,7 +635,7 @@ const activeCausalWorkspaceSchema = z.object({
   latestReadEvent: readEventSchema.nullable(),
   latestStageEvent: stageEventSchema.nullable(),
   latestTransitionEvent: transitionEventSchema.nullable(),
-  repoConcurrency: repoConcurrencySummarySchema,
+  repoConcurrency: repoConcurrencySummarySchema.nullable(),
   checkoutEpoch: z.number().int().nonnegative(),
   lastTransition: repoTransitionSchema.nullable(),
   semanticTransition: repoSemanticTransitionSchema.nullable(),
@@ -693,7 +788,7 @@ const monitorStatusSchema = z.object({
 
 const monitorActionSchema = z.object({
   ok: z.boolean(),
-  action: z.enum(["start", "pause", "resume", "stop"]),
+  action: z.enum(["start", "pause", "resume", "stop", "nudge"]),
   created: z.boolean(),
   changed: z.boolean(),
   status: monitorStatusSchema.optional(),
@@ -817,6 +912,20 @@ const mcpOutputBodySchemas: Record<McpToolName, z.ZodType> = {
     readCount: z.number().int().nonnegative().optional(),
     lastReadAt: z.string().optional(),
     diff: outlineDiffSchema.optional(),
+  }).strict(),
+  graft_edit: z.object({
+    path: z.string(),
+    operation: z.literal("replace"),
+    projection: z.enum(["edited", "refused"]),
+    status: z.enum(["edited", "refused"]),
+    changed: z.boolean(),
+    matches: z.number().int().nonnegative(),
+    replacements: z.number().int().nonnegative(),
+    reason: graftEditReasonSchema.optional(),
+    reasonDetail: z.string().optional(),
+    next: z.array(z.string()).optional(),
+    actual: actualSchema.optional(),
+    driftWarnings: z.array(graftEditDriftWarningSchema).optional(),
   }).strict(),
   file_outline: z.union([
     z.object({
@@ -949,6 +1058,7 @@ const mcpOutputBodySchemas: Record<McpToolName, z.ZodType> = {
   monitor_start: monitorActionSchema,
   monitor_pause: monitorActionSchema,
   monitor_resume: monitorActionSchema,
+  monitor_nudge: monitorActionSchema,
   monitor_stop: monitorActionSchema,
   workspace_authorize: workspaceAuthorizeSchema,
   workspace_authorizations: z.object({
@@ -1018,6 +1128,7 @@ const mcpOutputBodySchemas: Record<McpToolName, z.ZodType> = {
     attribution: attributionSummarySchema,
     persistedLocalHistory: persistedLocalHistorySummarySchema,
     recommendedNextAction: causalSurfaceNextActionSchema,
+    sludge: sludgeReportSchema.optional(),
   }).strict(),
   stats: z.object({
     totalReads: z.number().int().nonnegative(),
@@ -1106,33 +1217,42 @@ const mcpOutputBodySchemas: Record<McpToolName, z.ZodType> = {
   }).strict(),
   graft_blame: z.object({
     symbol: z.string(),
-    filePath: z.string().optional(),
-    currentSignature: z.string().optional(),
-    kind: z.string(),
-    exported: z.boolean(),
-    created: z.object({
-      sha: z.string(),
-      author: z.string(),
-      date: z.string(),
-      message: z.string(),
-    }).strict().optional(),
-    lastSignatureChange: z.object({
-      sha: z.string(),
-      author: z.string(),
-      date: z.string(),
-      message: z.string(),
-      previousSignature: z.string().optional(),
-    }).strict().optional(),
+    filePath: z.string(),
     changeCount: z.number().int().nonnegative(),
+    createdInCommit: z.string().nullable(),
+    lastSignatureChange: z.string().nullable(),
     referenceCount: z.number().int().nonnegative(),
-    referencingFiles: z.array(z.string()),
     history: z.array(z.object({
       sha: z.string(),
+      tick: z.number(),
       changeKind: z.string(),
-      date: z.string(),
-      author: z.string(),
-      signature: z.string().optional(),
+      present: z.boolean(),
+      signature: z.string().nullable(),
     }).strict()),
+  }).strict(),
+  graft_difficulty: z.object({
+    symbol: z.string(),
+    path: z.string().optional(),
+    entries: z.array(z.object({
+      symbol: z.string(),
+      filePath: z.string(),
+      kind: z.string(),
+      score: z.number().nonnegative(),
+      risk: z.enum(["low", "medium", "high"]),
+      recommendation: z.enum(["refactor_freely", "refactor_with_tests", "plan_before_refactor"]),
+      curvature: z.object({
+        changeCount: z.number().int().nonnegative(),
+        signatureChangeCount: z.number().int().nonnegative(),
+        score: z.number().nonnegative(),
+      }).strict(),
+      friction: z.object({
+        referenceCount: z.number().int().nonnegative(),
+        referencingFiles: z.array(z.string()),
+        score: z.number().nonnegative(),
+      }).strict(),
+    }).strict()),
+    total: z.number().int().nonnegative(),
+    summary: z.string(),
   }).strict(),
   graft_review: z.object({
     base: z.string(),
@@ -1166,10 +1286,24 @@ const mcpOutputBodySchemas: Record<McpToolName, z.ZodType> = {
     }).strict()),
     summary: z.string(),
   }).strict(),
+  knowledge_map: z.object({
+    totalFiles: z.number().int().nonnegative(),
+    totalSymbols: z.number().int().nonnegative(),
+    files: z.array(z.object({
+      path: z.string(),
+      symbols: z.array(z.string()),
+      readCount: z.number().int().positive(),
+      lastReadAt: z.string(),
+      stale: z.boolean(),
+    }).strict()),
+    staleFiles: z.array(z.string()),
+    directoryCoverage: z.record(z.string(), z.number().int().nonnegative()),
+  }).strict(),
 };
 
 export const MCP_OUTPUT_SCHEMAS: Record<McpToolName, z.ZodType> = {
   safe_read: withMcpCommon("safe_read", mcpOutputBodySchemas.safe_read),
+  graft_edit: withMcpCommon("graft_edit", mcpOutputBodySchemas.graft_edit),
   file_outline: withMcpCommon("file_outline", mcpOutputBodySchemas.file_outline),
   read_range: withMcpCommon("read_range", mcpOutputBodySchemas.read_range),
   changed_since: withMcpCommon("changed_since", mcpOutputBodySchemas.changed_since),
@@ -1186,6 +1320,7 @@ export const MCP_OUTPUT_SCHEMAS: Record<McpToolName, z.ZodType> = {
   monitor_start: withMcpCommon("monitor_start", mcpOutputBodySchemas.monitor_start),
   monitor_pause: withMcpCommon("monitor_pause", mcpOutputBodySchemas.monitor_pause),
   monitor_resume: withMcpCommon("monitor_resume", mcpOutputBodySchemas.monitor_resume),
+  monitor_nudge: withMcpCommon("monitor_nudge", mcpOutputBodySchemas.monitor_nudge),
   monitor_stop: withMcpCommon("monitor_stop", mcpOutputBodySchemas.monitor_stop),
   workspace_authorize: withMcpCommon("workspace_authorize", mcpOutputBodySchemas.workspace_authorize),
   workspace_authorizations: withMcpCommon(
@@ -1210,7 +1345,9 @@ export const MCP_OUTPUT_SCHEMAS: Record<McpToolName, z.ZodType> = {
   graft_exports: withMcpCommon("graft_exports", mcpOutputBodySchemas.graft_exports),
   graft_log: withMcpCommon("graft_log", mcpOutputBodySchemas.graft_log),
   graft_blame: withMcpCommon("graft_blame", mcpOutputBodySchemas.graft_blame),
+  graft_difficulty: withMcpCommon("graft_difficulty", mcpOutputBodySchemas.graft_difficulty),
   graft_review: withMcpCommon("graft_review", mcpOutputBodySchemas.graft_review),
+  knowledge_map: withMcpCommon("knowledge_map", mcpOutputBodySchemas.knowledge_map),
 };
 
 const initActionSchema = z.object({
@@ -1242,7 +1379,16 @@ const suggestedMcpServerSchema = z.object({
   mcpServers: z.object({
     graft: z.object({
       command: z.literal("npx"),
-      args: z.tuple([z.literal("-y"), z.literal("@flyingrobots/graft"), z.literal("serve")]),
+      args: z.union([
+        z.tuple([z.literal("-y"), z.literal("@flyingrobots/graft"), z.literal("serve")]),
+        z.tuple([
+          z.literal("-y"),
+          z.literal("@flyingrobots/graft"),
+          z.literal("serve"),
+          z.literal("--runtime"),
+          z.literal("daemon"),
+        ]),
+      ]),
     }).strict(),
   }).strict(),
 }).strict();
@@ -1259,9 +1405,8 @@ export const CLI_OUTPUT_SCHEMAS: Record<CliCommandName, z.ZodType> = {
   index: withCliCommon("index", z.object({
     ok: z.boolean(),
     cwd: z.string(),
-    from: z.string().nullable(),
-    commitsIndexed: z.number().int().nonnegative().optional(),
-    patchesWritten: z.number().int().nonnegative().optional(),
+    filesIndexed: z.number().int().nonnegative().optional(),
+    nodesEmitted: z.number().int().nonnegative().optional(),
     error: z.string().optional(),
   }).strict()),
   read_safe: withCliPeerCommon("read_safe", mcpOutputBodySchemas.safe_read),
@@ -1277,6 +1422,7 @@ export const CLI_OUTPUT_SCHEMAS: Record<CliCommandName, z.ZodType> = {
   struct_exports: withCliPeerCommon("struct_exports", mcpOutputBodySchemas.graft_exports),
   struct_log: withCliPeerCommon("struct_log", mcpOutputBodySchemas.graft_log),
   symbol_blame: withCliPeerCommon("symbol_blame", mcpOutputBodySchemas.graft_blame),
+  symbol_difficulty: withCliPeerCommon("symbol_difficulty", mcpOutputBodySchemas.graft_difficulty),
   struct_review: withCliPeerCommon("struct_review", mcpOutputBodySchemas.graft_review),
   diag_doctor: withCliPeerCommon("diag_doctor", mcpOutputBodySchemas.doctor),
   diag_activity: withCliPeerCommon("diag_activity", mcpOutputBodySchemas.activity_view),
@@ -1314,6 +1460,7 @@ export const CLI_OUTPUT_SCHEMAS: Record<CliCommandName, z.ZodType> = {
     edges: z.array(z.record(z.string(), z.unknown())),
     error: z.string().optional(),
   }).strict()),
+  git_graft_enhance: withCliCommon("git_graft_enhance", gitGraftEnhanceBodySchema),
 };
 
 export function getMcpOutputSchemaMeta(tool: McpToolName): OutputSchemaMeta {

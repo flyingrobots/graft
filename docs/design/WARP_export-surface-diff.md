@@ -133,15 +133,12 @@ Comparing acceptance criteria against
   However, `getFileAtRef` may return null for missing files
   depending on its implementation. Needs verification. Filed
   as bad-code card.
-- **GAP: Signature change classified as "patch" is
-  questionable** — changing an exported function's parameter
-  types is typically a major (breaking) change, not a patch.
-  The `deriveSemverImpact` function classifies all signature
-  changes as "patch", but narrowing a parameter type or adding
-  a required parameter is breaking. This is a design-level
-  concern — distinguishing additive vs breaking signature
-  changes requires deeper analysis than string comparison.
-  Filed as bad-code card.
+- **PASS**: Signature changes are no longer classified as `patch`
+  by default. `deriveSemverImpact` parses exported function
+  signatures and classifies required parameter additions, removed
+  parameters, parameter type changes, and return type changes as
+  `major`. Additive optional parameters are `minor`; compatible
+  text-only signature changes remain `patch`.
 - **PASS**: `export default` is handled through the parser's
   outline extraction which includes default exports
 

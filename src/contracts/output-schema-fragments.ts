@@ -82,6 +82,7 @@ export const diffEntrySchema: z.ZodType = z.lazy(() => z.object({
   _brand: z.literal("DiffEntry").optional(),
   name: z.string(),
   kind: z.string(),
+  exported: z.boolean().optional(),
   signature: z.string().optional(),
   oldSignature: z.string().optional(),
   childDiff: outlineDiffSchema.optional(),
@@ -100,6 +101,45 @@ export const burdenByKindSchema = z.object({
   shell: burdenBucketSchema,
   state: burdenBucketSchema,
   diagnostic: burdenBucketSchema,
+}).strict();
+
+export const sludgeSignalSchema = z.object({
+  kind: z.enum([
+    "phantom_shape",
+    "cast_density",
+    "homeless_constructor",
+    "free_function_data_behavior",
+    "god_file",
+  ]),
+  severity: z.enum(["low", "medium", "high"]),
+  message: z.string(),
+  line: z.number().int().positive().optional(),
+  symbol: z.string().optional(),
+  evidence: z.string(),
+}).strict();
+
+export const sludgeFileReportSchema = z.object({
+  path: z.string(),
+  score: z.number().int().nonnegative(),
+  metrics: z.object({
+    typedefCount: z.number().int().nonnegative(),
+    typeCastCount: z.number().int().nonnegative(),
+    classCount: z.number().int().nonnegative(),
+    functionCount: z.number().int().nonnegative(),
+    symbolCount: z.number().int().nonnegative(),
+    homelessConstructorCount: z.number().int().nonnegative(),
+    freeFunctionDataBehaviorCount: z.number().int().nonnegative(),
+  }).strict(),
+  signals: z.array(sludgeSignalSchema),
+}).strict();
+
+export const sludgeReportSchema = z.object({
+  scannedFiles: z.number().int().nonnegative(),
+  filesWithSignals: z.number().int().nonnegative(),
+  totalSignals: z.number().int().nonnegative(),
+  score: z.number().int().nonnegative(),
+  files: z.array(sludgeFileReportSchema),
+  summary: z.string(),
 }).strict();
 
 export const receiptSchema = z.object({
@@ -519,7 +559,7 @@ const activeCausalWorkspaceSchema = z.object({
   latestReadEvent: readEventSchema.nullable(),
   latestStageEvent: stageEventSchema.nullable(),
   latestTransitionEvent: transitionEventSchema.nullable(),
-  repoConcurrency: repoConcurrencySummarySchema,
+  repoConcurrency: repoConcurrencySummarySchema.nullable(),
   checkoutEpoch: z.number().int().nonnegative(),
   lastTransition: repoTransitionSchema.nullable(),
   semanticTransition: repoSemanticTransitionSchema.nullable(),
@@ -759,7 +799,16 @@ const suggestedMcpServerSchema = z.object({
   mcpServers: z.object({
     graft: z.object({
       command: z.literal("npx"),
-      args: z.tuple([z.literal("-y"), z.literal("@flyingrobots/graft"), z.literal("serve")]),
+      args: z.union([
+        z.tuple([z.literal("-y"), z.literal("@flyingrobots/graft"), z.literal("serve")]),
+        z.tuple([
+          z.literal("-y"),
+          z.literal("@flyingrobots/graft"),
+          z.literal("serve"),
+          z.literal("--runtime"),
+          z.literal("daemon"),
+        ]),
+      ]),
     }).strict(),
   }).strict(),
 }).strict();
@@ -797,6 +846,7 @@ export const mcpFragmentSchemas = {
   mapModeSchema,
   fileDiffSchema,
   burdenByKindSchema,
+  sludgeReportSchema,
   burdenSummarySchema,
   receiptSchema,
   runtimeObservabilitySchema,

@@ -48,6 +48,67 @@ async function objectExists(ref: string, filePath: string, cwd: string, gitClien
  * Throws GitError for invalid refs or non-git directories.
  * Returns empty array only when there are genuinely no changes.
  */
+
+export type ChangedFileStatus = "added" | "modified" | "deleted" | "renamed";
+
+export interface ChangedFile {
+  readonly path: string;
+  readonly status: ChangedFileStatus;
+  readonly oldPath?: string;
+}
+
+const STATUS_MAP: Record<string, ChangedFileStatus> = {
+  A: "added",
+  M: "modified",
+  D: "deleted",
+  R: "renamed",
+};
+
+function parseNameStatus(output: string): ChangedFile[] {
+  if (output === "") return [];
+  const lines = output.split("\n");
+  const result: ChangedFile[] = [];
+  for (const line of lines) {
+    const statusCode = line[0];
+    if (statusCode === undefined) continue;
+    const baseStatus = statusCode === "R" || statusCode === "C" ? statusCode : statusCode;
+    const status = STATUS_MAP[baseStatus] ?? "modified";
+    const parts = line.split("\t");
+    if (statusCode === "R" || statusCode === "C") {
+      const oldPath = parts[1];
+      const newPath = parts[2];
+      if (oldPath !== undefined && newPath !== undefined) {
+        result.push({ path: newPath, status, oldPath });
+      }
+    } else {
+      const filePath = parts[1];
+      if (filePath !== undefined) {
+        result.push({ path: filePath, status });
+      }
+    }
+  }
+  return result;
+}
+
+/**
+ * List files changed between two refs with rename detection.
+ * Returns structured data including status and old path for renames.
+ */
+export async function getChangedFilesWithStatus(opts: ChangedFilesOptions): Promise<ChangedFile[]> {
+  const base = opts.base ?? "HEAD";
+  const args = opts.head !== undefined
+    ? ["diff-tree", "--no-commit-id", "--name-status", "-M", "-r", base, opts.head]
+    : ["diff-index", "--name-status", "-M", base, "--"];
+
+  try {
+    const output = (await git(opts.git, args, opts.cwd)).trim();
+    return parseNameStatus(output);
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : String(err);
+    throw new GitError(`git diff failed: ${msg}`);
+  }
+}
+
 export async function getChangedFiles(opts: ChangedFilesOptions): Promise<string[]> {
   const base = opts.base ?? "HEAD";
   const args = opts.head !== undefined

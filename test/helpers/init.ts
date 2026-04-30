@@ -81,6 +81,13 @@ export function expectGraftServerEntry(entry: { command: string; args: string[] 
   });
 }
 
+export function expectDaemonGraftServerEntry(entry: { command: string; args: string[] }): void {
+  expect(entry).toEqual({
+    command: "npx",
+    args: ["-y", "@flyingrobots/graft", "serve", "--runtime", "daemon"],
+  });
+}
+
 export function expectSingleGraftServerRecord(
   record: Record<string, { command: string; args: string[] }>,
 ): void {

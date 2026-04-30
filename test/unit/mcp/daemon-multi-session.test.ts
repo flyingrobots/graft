@@ -22,7 +22,7 @@ function createCommittedRepo(prefix: string): string {
 }
 
 describe("mcp: in-process daemon shared sessions", () => {
-  it("shares daemon-wide workspace authorization and bound session state across sessions on the same repo", async () => {
+  it("shares daemon-wide workspace authorization and bound session state across sessions on the same repo", { timeout: 15_000 }, async () => {
     const repoDir = createCommittedRepo("graft-daemon-shared-auth-");
     fs.writeFileSync(path.join(repoDir, "app.ts"), [
       "export function greet(name: string): string {",

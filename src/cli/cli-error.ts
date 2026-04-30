@@ -39,29 +39,50 @@ export function describeCliFailure(argv: readonly string[]): CliErrorDetails {
 
   if (group === "serve") {
     return {
-      usage: "graft serve",
-      nextSteps: ["Run `graft help` to see the explicit transport entrypoints."],
+      usage: "graft serve [--runtime <repo-local|daemon>] [--socket <path>] [--no-autostart]",
+      nextSteps: [
+        "`graft serve` is repo-local stdio. Use `graft serve --runtime daemon` for the daemon-backed stdio bridge.",
+      ],
     };
   }
 
   if (group === "daemon") {
+    if (subcommand === "status") {
+      return {
+        usage: "graft daemon status [--socket <path>]",
+        nextSteps: ["Start the daemon with `graft daemon` or target another daemon with `--socket <path>`."],
+      };
+    }
     return {
-      usage: "graft daemon [--socket <path>]",
-      nextSteps: ["Run `graft help` to see the daemon and grouped command surfaces."],
+      usage: "graft daemon [--socket <path>] | graft daemon status [--socket <path>]",
+      nextSteps: ["Run `graft daemon status` to inspect an already-running daemon without mutating daemon state."],
     };
+  }
+
+  if (group === "doctor") {
+    return { usage: "graft doctor [--sludge] [--path <path>] [--json]" };
   }
 
   if (group === "index") {
     return {
-      usage: "graft index [<from-ref>] [--json]",
-      nextSteps: ["Use `--json` for machine-readable output."],
+      usage: "graft index [--path <path>] [--json]",
+      nextSteps: ["Use `--path <path>` for lazy per-file indexing and `--json` for machine-readable output."],
+    };
+  }
+
+  if (group === "enhance") {
+    return {
+      usage: "git-graft enhance --since <ref> [--head <ref>] [--json]",
+      nextSteps: [
+        "Use `git graft enhance --since <ref>` after package install, or `git-graft enhance --since <ref>` via the direct binary.",
+      ],
     };
   }
 
   if (group === "init") {
     return {
       usage:
-        "graft init [--json] [--write-claude-mcp] [--write-claude-hooks] "
+        "graft init [--json] [--mcp-runtime <repo-local|daemon>] [--write-claude-mcp] [--write-claude-hooks] "
         + "[--write-target-git-hooks] [--write-codex-mcp] [--write-cursor-mcp] "
         + "[--write-windsurf-mcp] [--write-continue-mcp] [--write-cline-mcp]",
       nextSteps: ["Run `graft help` to confirm the repo-local bootstrap surfaces."],
@@ -97,8 +118,20 @@ export function describeCliFailure(argv: readonly string[]): CliErrorDetails {
     if (subcommand === "map") {
       return { usage: "graft struct map [<directory>] [--json]" };
     }
+    if (subcommand === "churn") {
+      return { usage: "graft struct churn [--path <path>] [--limit <n>] [--json]" };
+    }
+    if (subcommand === "exports") {
+      return { usage: "graft struct exports [<base-ref> <head-ref>] [--json]" };
+    }
+    if (subcommand === "log") {
+      return { usage: "graft struct log [--path <path>] [--limit <n>] [--json]" };
+    }
+    if (subcommand === "review") {
+      return { usage: "graft struct review [--base <ref>] [--head <ref>] [--json]" };
+    }
     return {
-      usage: "graft struct <diff|since|map> ...",
+      usage: "graft struct <diff|since|map|churn|exports|log|review> ...",
       nextSteps: ["Run `graft help` to see the available structural subcommands."],
     };
   }
@@ -110,8 +143,14 @@ export function describeCliFailure(argv: readonly string[]): CliErrorDetails {
     if (subcommand === "show") {
       return { usage: "graft symbol show <symbol> [--path <path>] [--ref <ref>] [--json]" };
     }
+    if (subcommand === "blame") {
+      return { usage: "graft symbol blame <symbol> [--path <path>] [--json]" };
+    }
+    if (subcommand === "difficulty") {
+      return { usage: "graft symbol difficulty <symbol> [--path <path>] [--limit <n>] [--json]" };
+    }
     return {
-      usage: "graft symbol <find|show> ...",
+      usage: "graft symbol <find|show|blame|difficulty> ...",
       nextSteps: ["Run `graft help` to see the available symbol subcommands."],
     };
   }
@@ -130,7 +169,7 @@ export function describeCliFailure(argv: readonly string[]): CliErrorDetails {
       return { usage: "graft diag local-history-dag [--limit <n>] [--json]" };
     }
     if (subcommand === "doctor") {
-      return { usage: "graft diag doctor [--json]" };
+      return { usage: "graft diag doctor [--sludge] [--path <path>] [--json]" };
     }
     if (subcommand === "explain") {
       return { usage: "graft diag explain <reason-code> [--json]" };
