@@ -11,10 +11,9 @@ digraph backlog {
   nodesep=0.2
 
   subgraph cluster_v0_7_0 {
-    label="v0.7.0 (3)" labeljust=l fontsize=9 fontcolor="#555555"
+    label="v0.7.0 (2)" labeljust=l fontsize=9 fontcolor="#555555"
     style=rounded color="#cccccc" bgcolor="#fafafa"
     v0_7_0_CORE_migrate_to_slice_first_reads [label="CORE-migrate-to-slice-first-reads" fillcolor="#FFA07A" penwidth=2]
-    v0_7_0_SURFACE_governed_write_tools [label="SURFACE-governed-write-tools" fillcolor="#FFA07A" penwidth=2]
     v0_7_0_WARP_lsp_enrichment [label="WARP-lsp-enrichment" fillcolor="#FFA07A" penwidth=2]
   }
 
