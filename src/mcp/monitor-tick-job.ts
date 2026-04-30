@@ -8,6 +8,7 @@ export interface MonitorTickWorkerJob {
   readonly worktreeRoot: string;
   readonly writerId: string;
   readonly lastIndexedCommit: string | null;
+  readonly maxFilesPerBatch?: number | undefined;
 }
 
 export type MonitorTickWorkerResult =
@@ -117,14 +118,15 @@ export async function runMonitorTickJob(job: MonitorTickWorkerJob): Promise<Moni
     });
     let commitsIndexed = 0;
     let patchesWritten = 0;
-    for (const batch of pathBatches(paths, DEFAULT_INDEX_MAX_FILES_PER_CALL)) {
+    const maxFilesPerBatch = job.maxFilesPerBatch ?? DEFAULT_INDEX_MAX_FILES_PER_CALL;
+    for (const batch of pathBatches(paths, maxFilesPerBatch)) {
       const result = await indexHead({
         cwd: job.worktreeRoot,
         git: nodeGit,
         pathOps: nodePathOps,
         ctx,
         paths: batch,
-        maxFilesPerCall: DEFAULT_INDEX_MAX_FILES_PER_CALL,
+        maxFilesPerCall: maxFilesPerBatch,
       });
       commitsIndexed += result.filesIndexed;
       patchesWritten += result.nodesEmitted;

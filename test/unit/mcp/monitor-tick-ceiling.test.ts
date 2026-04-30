@@ -36,12 +36,17 @@ function headSha(cwd: string): string {
   return git(cwd, "rev-parse HEAD");
 }
 
-function makeJob(cwd: string, lastIndexedCommit: string | null): MonitorTickWorkerJob {
+function makeJob(
+  cwd: string,
+  lastIndexedCommit: string | null,
+  overrides: Partial<MonitorTickWorkerJob> = {},
+): MonitorTickWorkerJob {
   return {
     repoId: "test",
     worktreeRoot: cwd,
     writerId: "test-writer",
     lastIndexedCommit,
+    ...overrides,
   };
 }
 
@@ -86,15 +91,15 @@ describe("monitor tick ceiling tracking", () => {
     expect(result.commitsIndexed).toBeGreaterThan(0);
   });
 
-  it("does not hard-fail monitor ticks when a repo has more parseable files than the indexHead default cap", { timeout: 30_000 }, async () => {
-    const dir = manyFileRepo(65);
+  it("does not hard-fail monitor ticks when a repo has more parseable files than the indexHead per-call cap", { timeout: 15_000 }, async () => {
+    const dir = manyFileRepo(3);
 
-    const result = await runMonitorTickJob(makeJob(dir, null));
+    const result = await runMonitorTickJob(makeJob(dir, null, { maxFilesPerBatch: 2 }));
 
     expect(result.ok).toBe(true);
     if (!result.ok) return;
-    expect(result.commitsIndexed).toBe(65);
-    expect(result.patchesWritten).toBe(65);
+    expect(result.commitsIndexed).toBe(3);
+    expect(result.patchesWritten).toBe(3);
   });
 
   it("consecutive ticks with same HEAD: second tick skips", { timeout: 15_000 }, async () => {
