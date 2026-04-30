@@ -134,6 +134,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 - **WARP structural log metadata**: `indexHead` now persists commit
   message, author, email, date, and timestamp on commit nodes so
   `graft struct log` retains user-visible commit context.
+- **Cold WARP structural review impact**: `graft_review` now preserves
+  breaking-change impact counts on fresh worktrees by falling back to a
+  bounded import/re-export scan when graph reference edges are not
+  available yet.
 - **Backlog dependency DAG**: the checked-in DAG now renders
   `blocked_by`, `blocking`, and `blocked_by_external` relationships
   from backlog card frontmatter.
