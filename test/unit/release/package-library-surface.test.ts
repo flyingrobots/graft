@@ -15,7 +15,10 @@ describe("release package library surface", () => {
   it("declares a root import/export contract", () => {
     expect(packageJson.main).toBe("./dist/index.js");
     expect(packageJson.types).toBe("./dist/index.d.ts");
-    expect(packageJson.sideEffects).toBe(false);
+    expect(packageJson.sideEffects).toEqual([
+      "dist/parser/runtime.js",
+      "dist/operations/structured-buffer-model.js",
+    ]);
     expect(packageJson.exports).toEqual(expect.objectContaining({
       ".": {
         types: "./dist/index.d.ts",
@@ -45,6 +48,8 @@ describe("release package library surface", () => {
     const bin = fs.readFileSync(path.join(ROOT, "bin/graft.js"), "utf8");
     expect(bin.startsWith("#!/usr/bin/env node")).toBe(true);
     expect(bin).toContain("../dist/cli/entrypoint.js");
+    expect(bin).toContain('error.code === "ERR_MODULE_NOT_FOUND"');
+    expect(bin).toContain("Failed to load CLI entrypoint from dist.");
     expect(bin).not.toContain("../src/");
     expect(bin).not.toContain("tsx");
   });

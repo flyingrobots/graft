@@ -14,9 +14,13 @@ let entrypoint;
 try {
   entrypoint = await import(entrypointUrl);
 } catch (error) {
-  console.error(
-    "[graft] Missing built CLI output. Run `pnpm build` before invoking bin/graft.js from a source checkout.",
-  );
+  if (error.code === "ERR_MODULE_NOT_FOUND") {
+    console.error(
+      "[graft] Missing built CLI output. Run `pnpm build` before invoking bin/graft.js from a source checkout.",
+    );
+  } else {
+    console.error("[graft] Failed to load CLI entrypoint from dist.");
+  }
   if (process.env.GRAFT_DEBUG === "1") {
     console.error(error);
   }

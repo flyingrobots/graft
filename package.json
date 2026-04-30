@@ -6,7 +6,10 @@
   "packageManager": "pnpm@10.30.0",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
-  "sideEffects": false,
+  "sideEffects": [
+    "dist/parser/runtime.js",
+    "dist/operations/structured-buffer-model.js"
+  ],
   "exports": {
     ".": {
       "types": "./dist/index.d.ts",
@@ -107,7 +110,8 @@
     "onlyBuiltDependencies": [],
     "overrides": {
       "vite": "^8.0.5",
-      "hono": ">=4.12.14"
+      "hono": ">=4.12.14",
+      "postcss": "8.5.12"
     }
   }
 }
