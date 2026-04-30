@@ -15,6 +15,26 @@ import {
   JsonObjectDocument,
 } from "./json-document.js";
 
+const LEGACY_CLAUDE_HOOK_COMMANDS = new Map<string, ReadonlySet<string>>([
+  [
+    "node node_modules/@flyingrobots/graft/dist/hooks/pretooluse-read.js",
+    new Set([
+      "node --import tsx node_modules/@flyingrobots/graft/src/hooks/pretooluse-read.ts",
+    ]),
+  ],
+  [
+    "node node_modules/@flyingrobots/graft/dist/hooks/posttooluse-read.js",
+    new Set([
+      "node --import tsx node_modules/@flyingrobots/graft/src/hooks/posttooluse-read.ts",
+    ]),
+  ],
+]);
+
+function isLegacyClaudeHookCommand(command: string | undefined, replacement: string): boolean {
+  if (command === undefined) return false;
+  return LEGACY_CLAUDE_HOOK_COMMANDS.get(replacement)?.has(command) ?? false;
+}
+
 class JsonMcpConfigDocument {
   constructor(
     private readonly document: JsonObjectDocument,
@@ -167,8 +187,9 @@ class ClaudeHooksDocument {
     const hooksRoot = root.ensureObject("hooks");
     const preToolUse = hooksRoot.ensureArray("PreToolUse");
     const postToolUse = hooksRoot.ensureArray("PostToolUse");
-    const changed = this.mergeHookPhase(preToolUse, this.hooksConfig.preToolUse)
-      || this.mergeHookPhase(postToolUse, this.hooksConfig.postToolUse);
+    const preToolUseChanged = this.mergeHookPhase(preToolUse, this.hooksConfig.preToolUse);
+    const postToolUseChanged = this.mergeHookPhase(postToolUse, this.hooksConfig.postToolUse);
+    const changed = preToolUseChanged || postToolUseChanged;
     if (!changed) {
       return InitAction.exists(this.document.label, "already has graft hooks");
     }
@@ -191,11 +212,29 @@ class ClaudeHooksDocument {
     const hooks = existing.requireArray("hooks");
     let changed = false;
     for (const graftHook of entry.hooks) {
-      const alreadyPresent = hooks.objectItems().some((candidate) =>
-        candidate.stringValue("type") === "command"
-        && candidate.stringValue("command") === graftHook.command,
+      const entries = hooks.objectEntries();
+      const alreadyPresent = entries.some((candidate) =>
+        candidate.node.stringValue("type") === "command"
+        && candidate.node.stringValue("command") === graftHook.command,
+      );
+      const legacyEntries = entries.filter((candidate) =>
+        candidate.node.stringValue("type") === "command"
+        && isLegacyClaudeHookCommand(candidate.node.stringValue("command"), graftHook.command),
       );
       if (alreadyPresent) {
+        for (const legacyEntry of [...legacyEntries].reverse()) {
+          hooks.remove(legacyEntry.index);
+          changed = true;
+        }
+        continue;
+      }
+      const [firstLegacy, ...duplicateLegacy] = legacyEntries;
+      if (firstLegacy !== undefined) {
+        hooks.set(firstLegacy.index, graftHook.toJsonValue());
+        for (const legacyEntry of [...duplicateLegacy].reverse()) {
+          hooks.remove(legacyEntry.index);
+        }
+        changed = true;
         continue;
       }
       hooks.push(graftHook.toJsonValue());

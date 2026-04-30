@@ -14,8 +14,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 - **npm package runtime shape**: The published package now ships built
   `dist/` output without `src/`, keeps `tsx` as development-only
   tooling, runs the package bin and generated Claude hook commands from
-  compiled JavaScript, declares `"sideEffects": false`, and guards manual
-  publishes with `prepublishOnly`.
+  compiled JavaScript, migrates generated v0.7.0 Claude hook commands
+  through `graft init --write-claude-hooks`, declares
+  `"sideEffects": false`, and guards manual publishes with
+  `prepublishOnly`.
 
 ## [0.7.0] - 2026-04-30
 

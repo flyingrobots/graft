@@ -366,6 +366,62 @@ describe("cli: graft init", () => {
     expect(graftPostHooks).toHaveLength(1);
   });
 
+  it("migrates generated v0.7.0 Claude hook commands to dist entrypoints", () => {
+    fs.mkdirSync(path.join(tmpDir, ".claude"), { recursive: true });
+    fs.writeFileSync(path.join(tmpDir, ".claude", "settings.json"), JSON.stringify({
+      hooks: {
+        PreToolUse: [
+          {
+            matcher: "Read",
+            hooks: [
+              {
+                type: "command",
+                command: "node --import tsx node_modules/@flyingrobots/graft/src/hooks/pretooluse-read.ts",
+              },
+            ],
+          },
+        ],
+        PostToolUse: [
+          {
+            matcher: "Read",
+            hooks: [
+              { type: "command", command: "echo existing-post-read" },
+              {
+                type: "command",
+                command: "node --import tsx node_modules/@flyingrobots/graft/src/hooks/posttooluse-read.ts",
+              },
+            ],
+          },
+        ],
+      },
+    }, null, 2));
+
+    const result = runInitJson(["--write-claude-hooks"]);
+    const action = findAction(result, ".claude/settings.json");
+    expect(action.action).toBe("append");
+
+    const settings = readJsonFile(tmpDir, ".claude", "settings.json") as {
+      hooks: {
+        PreToolUse: { matcher: string; hooks: { command: string }[] }[];
+        PostToolUse: { matcher: string; hooks: { command: string }[] }[];
+      };
+    };
+    const readPreTool = settings.hooks.PreToolUse.find((entry) => entry.matcher === "Read");
+    const readPostTool = settings.hooks.PostToolUse.find((entry) => entry.matcher === "Read");
+    const commands = [
+      ...(readPreTool?.hooks ?? []),
+      ...(readPostTool?.hooks ?? []),
+    ].map((hook) => hook.command);
+
+    expect(commands).toEqual(expect.arrayContaining([
+      "node node_modules/@flyingrobots/graft/dist/hooks/pretooluse-read.js",
+      "node node_modules/@flyingrobots/graft/dist/hooks/posttooluse-read.js",
+      "echo existing-post-read",
+    ]));
+    expect(commands.some((command) => command.includes("node --import tsx"))).toBe(false);
+    expect(commands.some((command) => command.includes("/src/hooks/"))).toBe(false);
+  });
+
   it("appends Codex MCP config without duplicating the graft block", () => {
     fs.mkdirSync(path.join(tmpDir, ".codex"), { recursive: true });
     fs.writeFileSync(path.join(tmpDir, ".codex", "config.toml"), [

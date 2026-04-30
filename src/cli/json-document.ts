@@ -50,6 +50,10 @@ export class JsonArrayNode {
   set(index: number, value: JsonValue): void {
     this.value[index] = cloneJsonValue(value);
   }
+
+  remove(index: number): void {
+    this.value.splice(index, 1);
+  }
 }
 
 export class JsonObjectNode {

@@ -450,6 +450,10 @@ Project-local shortcut:
 npx @flyingrobots/graft init --write-claude-hooks
 ```
 
+Rerunning this command also upgrades generated v0.7.0 hook commands
+that pointed at `src/hooks/*.ts` to the published `dist/hooks/*.js`
+entry points.
+
 If developing graft itself, run `pnpm build` and replace the
 `node_modules/...` paths with local paths:
 

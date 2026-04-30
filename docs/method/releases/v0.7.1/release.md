@@ -8,6 +8,9 @@
   `dist/cli/entrypoint.js`.
 - Generate Claude hook commands that target built `dist/hooks/*.js`
   entry points.
+- Migrate generated v0.7.0 Claude hook commands to the new
+  `dist/hooks/*.js` entry points when `graft init --write-claude-hooks`
+  is rerun.
 - Run daemon child workers from compiled JavaScript when executing from
   `dist`.
 - Declare `"sideEffects": false` in `package.json`.
@@ -48,6 +51,8 @@ behavior, or documented feature semantics.
   `node --import tsx node_modules/@flyingrobots/graft/src/hooks/*.ts`
   with the generated `dist/hooks/*.js` commands from
   `graft init --write-claude-hooks`.
+- Existing generated v0.7.0 Claude hooks are upgraded automatically by
+  rerunning `graft init --write-claude-hooks`.
 
 ## Release Acceptance
 

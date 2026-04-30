@@ -10,7 +10,7 @@ verification are still pending until the release branch is merged to
 - Previous package version: `0.7.0`
 - Planned version: `0.7.1`
 - Branch: `release/v0.7.1`
-- Release branch synced with origin: pending
+- Release branch synced with origin: yes, after PR feedback push
 - `main` release guard: pending; final release runbook requires main
   to be exactly synced with `origin/main` before tag/publish
 
@@ -29,6 +29,8 @@ verification are still pending until the release branch is merged to
 | `pnpm release:check` | pass, 2026-04-30 09:49 PDT |
 | `docker build --target runtime -t graft-runtime:test .` | pass, 2026-04-30 09:50 PDT |
 | `docker run --rm --entrypoint node graft-runtime:test /app/bin/graft.js --help` | pass, 2026-04-30 09:50 PDT |
+| focused legacy Claude hook migration/package tests | pass, 36 tests, 2026-04-30 10:00 PDT |
+| `pnpm release:check` after PR feedback fix | pass, 195 files / 1469 tests, 2026-04-30 10:04 PDT |
 
 ## Package Delivery Checks
 
@@ -39,6 +41,7 @@ verification are still pending until the release branch is merged to
 | `bin/graft.js` has a Node shebang | pass |
 | `bin/graft.js` imports built `dist/cli/entrypoint.js` | pass |
 | runtime dependencies exclude `tsx` | pass |
+| `graft init --write-claude-hooks` migrates generated v0.7.0 Claude hooks from `src/hooks/*.ts` to `dist/hooks/*.js` | pass |
 
 ## Tag and Publish
 
