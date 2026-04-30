@@ -60,7 +60,8 @@ The immediate focus is **v0.7.0 release truth and stabilization**.
 2. Verify the WARP-backed structural operation rewrites against the
    release bar: log, churn, blame, review, reference counting, and
    slice-first read posture.
-3. Finish or reshape the remaining v0.7.0 backlog cards so each one
-   names the real current state rather than pre-rewrite assumptions.
+3. The active v0.7.0 backlog lane is clear. `WARP_lsp-enrichment` and
+   `CORE_migrate-to-slice-first-reads` are preserved as post-v0.7.0
+   follow-ups rather than release blockers.
 4. When git-warp's observer geometry ladder (Rung 2-4) ships, migrate
    the remaining medium-risk full-scan reads to slice-first APIs.

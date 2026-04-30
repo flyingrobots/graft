@@ -48,3 +48,8 @@ tagging, and publish verification are executed.
 - Final release must run from `main` per
   `docs/method/release-runbook.md`; this branch currently prepares the
   v0.7.0 truth surfaces.
+- METHOD `method_status` currently reports stale active cycles that
+  have repo-visible retros or completed design docs. For release prep,
+  treat checked-in backlog lanes, the generated dependency DAG, retros,
+  witnesses, and git state as the authoritative repo truth until METHOD
+  active-cycle reporting is repaired.

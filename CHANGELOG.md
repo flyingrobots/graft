@@ -7,7 +7,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
-## [0.7.0] - 2026-04-25
+## [0.7.0] - 2026-04-30
 
 ### Added
 
@@ -55,6 +55,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 - **Monitor tick ceiling tracking**: `runMonitorTickJob` skips
   `openWarp` and `indexHead` when HEAD hasn't changed since the last
   indexed commit. Idle monitor ticks are now near-zero-cost.
+- **Daemon-backed stdio MCP runtime**: `graft serve --runtime daemon`
+  exposes the tested daemon bridge as a release-facing MCP runtime, and
+  `graft init --mcp-runtime daemon --write-*-mcp` can generate client
+  config for daemon-backed stdio instead of repo-local stdio.
+- **Read-only daemon status surface**: `graft daemon status
+  [--socket <path>]` renders daemon health, session counts, workspace
+  posture, monitor summary, scheduler pressure, and worker pressure
+  without adding daemon mutation actions.
+- **Git-facing enhance first slice**: `git graft enhance --since <ref>`
+  and `git-graft enhance --since <ref>` compose shipped structural
+  since and export-surface facts into a concise review summary, with
+  schema-validated JSON available through `--json`.
+- **Governed exact replacement edit**: `graft_edit` is a narrow MCP
+  edit tool for one exact replacement through Graft's path, policy,
+  schema, and filesystem-port boundaries.
+- **Agent drift advisory**: `graft_edit` responses can include optional
+  advisory `driftWarnings` when a same-session edit removes then later
+  reintroduces the narrow `jsdoc_typedef` structural pattern.
 
 ### Changed
 
@@ -74,6 +92,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   symbol timeline data and a simplified `createdInCommit` value. This
   is a breaking pre-1.0 MCP schema change for consumers scraping the
   old result shape.
+- **Daemon runtime selection**: repo-local `graft serve` remains
+  unchanged, while daemon-backed operation is now an explicit
+  `--runtime daemon` choice with clear setup docs.
+- **Release scope truth**: full LSP semantic enrichment and the
+  remaining medium-risk slice-first read sweep are preserved as
+  post-v0.7.0 follow-up cards instead of active release blockers.
 
 ### Removed
 
@@ -95,6 +119,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   symbol/file node.
 - **Keep a Changelog version drift**: `checkVersionDrift` now accepts
   bracketed headings such as `## [0.7.0] - YYYY-MM-DD`.
+- **Dockerized test isolation**: default `pnpm test` now runs in a
+  copy-in Docker container so validation cannot inherit the operator's
+  live checkout Git hooks or Git environment.
+- **Full-suite timeout nondeterminism**: test MCP servers and daemon
+  integration tests now use explicit temp-only Git/runtime seams to
+  avoid hidden WARP/server work under full-suite load.
+- **Repo path symlink-parent escape**: repo path resolution validates
+  the nearest existing ancestor so future create/write tools cannot
+  escape through an existing symlinked parent directory.
+- **Backlog dependency DAG**: the checked-in DAG now renders
+  `blocked_by`, `blocking`, and `blocked_by_external` relationships
+  from backlog card frontmatter.
 
 ## [0.6.1] - 2026-04-19
 

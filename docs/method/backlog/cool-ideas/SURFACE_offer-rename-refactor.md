@@ -59,7 +59,7 @@ Needed first:
 - **WARP_structural-impact-prediction**: Impact prediction answers "what breaks if I change this signature?" — rename is a special case of signature change. Complementary. Impact prediction is a heavier tool (requires counterfactual refactoring and strands); rename assessment is narrower and can ship earlier using existing `code_refs`.
 - **SURFACE_governed-write-tools** (v0.7.0): If governed writes ship, rename_apply should use them for the approval flow. Not a hard dependency — rename can implement its own preview-first contract.
 - **WARP_auto-breaking-change-detection**: Renaming an exported symbol is a breaking change. The rename surface could consume breaking-change detection to warn about public API impact. Not a hard dependency.
-- **WARP_lsp-enrichment** (v0.7.0): LSP data would dramatically improve reference accuracy and confidence scoring. Not a hard dependency — the card works with tree-sitter + text fallback — but LSP enrichment would be a force multiplier.
+- **WARP_lsp-enrichment** (post-v0.7.0): LSP data would dramatically improve reference accuracy and confidence scoring. Not a hard dependency — the card works with tree-sitter + text fallback — but LSP enrichment would be a force multiplier.
 
 ## No dependency edges
 

@@ -3,7 +3,8 @@ title: "Migrate remaining full-scan reads to slice-first APIs"
 feature: projection
 kind: trunk
 legend: CORE
-lane: v0.7.0
+lane: cool-ideas
+release_scope: post-v0.7.0
 blocked_by_external:
   - "git-warp observer geometry ladder (Rung 2-4)"
 requirements:
@@ -17,6 +18,13 @@ acceptance_criteria:
 
 Source: non-streaming API audit during CORE_rewrite-structural-queries
 (2026-04-21)
+
+## Release Scope
+
+This is no longer active v0.7.0 blocking scope. The high-risk read paths
+were mitigated during the v0.7.0 WARP rewrite work. The remaining
+medium-risk sweep is externally blocked on git-warp observer geometry
+APIs and should be pulled after v0.7.0 when those APIs exist.
 
 ## Problem
 
@@ -69,7 +77,7 @@ first, then sweep the rest.
 ## What to do now
 
 The immediate high-risk call sites have been mitigated. The remaining
-work is a bounded sweep of medium-risk call sites after git-warp's
-observer geometry ladder exposes the needed slice-first APIs.
+work is a post-v0.7.0 bounded sweep of medium-risk call sites after
+git-warp's observer geometry ladder exposes the needed slice-first APIs.
 
 Effort: M (remaining sweep when upstream lands)

@@ -3,7 +3,8 @@ title: "Bounded LSP semantic enrichment first slice"
 feature: surface
 kind: leaf
 legend: WARP
-lane: v0.7.0
+lane: cool-ideas
+release_scope: post-v0.7.0
 requirements:
   - "indexHead pipeline (shipped)"
   - "Tree-sitter parsing pipeline (shipped)"
@@ -35,9 +36,9 @@ indexing guardrails. This first slice must preserve those boundaries.
 It should not turn one indexed file into an implicit whole-project LSP
 crawl.
 
-Keep this card in `v0.7.0` for now, but scope it as a bounded semantic
-enrichment seam and one tiny fact payload, not a full tsserver project
-model.
+This is no longer active v0.7.0 blocking scope. Keep it as a
+post-v0.7.0 bounded first slice: a semantic enrichment seam and one
+tiny fact payload, not a full tsserver project model.
 
 ## Hill
 
@@ -117,7 +118,6 @@ Effort: M for the first slice, L for the full original feature.
 
 ## Release Readiness Question
 
-After this card is narrowed, the remaining release decision is whether
-the bounded first slice is still worth including in v0.7.0. The full
-original LSP enrichment ambition should not block release prep unless it
-is explicitly re-accepted as release scope.
+This card should not block v0.7.0 release prep. Pull it after v0.7.0
+only if the next release explicitly wants a bounded semantic enrichment
+slice before broader LSP work.
