@@ -116,18 +116,31 @@ Before tagging, sanity-check graft against itself:
 If any tool returns unexpected results, abort and investigate.
 Record the dogfood results in the verification witness.
 
-## Phase 4: Commit, tag, and publish
+## Phase 4: Merge, tag, and CI publish
 
-1. Review the final diff.
-2. Stage the release changes.
-3. Create the release commit: `release: vX.Y.Z`
-4. Create the release tag: `vX.Y.Z`
-5. Verify the tag points at the release commit.
-6. Push `main` and the exact release tag atomically:
-   `git push origin main vX.Y.Z`
-7. Create the GitHub Release using the versioned release notes.
-8. Publish to npm: `pnpm publish --access public`
-9. Verify npm registry directly: `npm info @flyingrobots/graft`
+1. Open a PR from the release branch to `main`.
+2. Wait for required PR checks to pass.
+3. Merge the PR to `main` using the normal repository merge path.
+4. Check out `main` locally and update it from `origin/main`.
+5. Verify the working tree is clean.
+6. Verify `HEAD` exactly matches `origin/main`.
+7. Create the release tag on the `main` HEAD: `vX.Y.Z`.
+8. Verify the tag points at the `main` release commit.
+9. Push the exact release tag to origin.
+10. Confirm `.github/workflows/release.yml` starts from the pushed tag.
+11. Verify the release workflow sanity job passes. It checks tag/package
+    version alignment, lockfile consistency, package metadata, lint,
+    typecheck, Dockerized tests, security gate, and pack dry-run.
+12. Verify the release workflow creates the GitHub Release and uploads
+    the tarball assets.
+13. Verify the release workflow publishes to npm through OIDC
+    provenance.
+14. Verify npm registry delivery directly: `npm info @flyingrobots/graft`.
+
+Do not run `pnpm publish` manually during the normal release path. A
+manual publish is a recovery action only after the CI release workflow
+has failed or been intentionally bypassed, and it requires explicit
+operator approval.
 
 ## Evidence
 

@@ -39,9 +39,11 @@ tagging, and publish verification are executed.
 
 - Release commit: pending
 - Tag: pending
-- Push: pending
-- GitHub Release: pending
-- npm: pending
+- Tag push: pending
+- Release workflow: pending
+- GitHub Release created by workflow: pending
+- npm publish by workflow: pending
+- Direct npm registry verification: pending
 
 ## Warnings
 

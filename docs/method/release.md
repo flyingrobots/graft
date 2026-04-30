@@ -97,7 +97,9 @@ this review just because it is in-process.
 4. Run the sequential pre-flight in `docs/method/release-runbook.md`,
    including the three-surface posture gate.
 5. Dogfood: sanity-check graft against itself before tagging.
-6. Tag, publish, and verify delivery directly.
+6. Merge the release branch to `main`, tag the release commit on
+   `main`, push the tag, and let the tag-triggered release workflow
+   create the GitHub Release and publish to npm.
 7. Ship sync repo-level surfaces that the release changed.
 
 ## Pre-1.0
