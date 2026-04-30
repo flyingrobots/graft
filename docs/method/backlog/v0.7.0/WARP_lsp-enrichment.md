@@ -1,5 +1,5 @@
 ---
-title: "LSP enrichment layer for WARP graph"
+title: "Bounded LSP semantic enrichment first slice"
 feature: surface
 kind: leaf
 legend: WARP
@@ -7,42 +7,117 @@ lane: v0.7.0
 requirements:
   - "indexHead pipeline (shipped)"
   - "Tree-sitter parsing pipeline (shipped)"
-  - "tsserver available in project"
+  - "Semantic enrichment provider boundary"
+  - "Explicit-path lazy indexing"
 acceptance_criteria:
-  - "indexHead emits LSP-derived semantic edges (calls, extends, implements)"
-  - "Resolved types appear as properties on sym nodes"
-  - "All enrichment happens in one atomic WARP patch alongside AST nodes"
+  - "Semantic enrichment only runs for explicit indexed paths, not whole-repo eager indexing"
+  - "No daemon, background monitor, or automatic repo-wide LSP indexing is added"
+  - "A semantic provider/port boundary exists so tests can use a fake provider"
+  - "The first slice emits only bounded calls edges and/or provider-supplied typeof properties"
+  - "Semantic facts per file are capped and the existing maxPatchJsonBytes guard still applies"
+  - "Unavailable semantic provider degrades clearly without failing normal tree-sitter indexing"
+  - "Tests use a fake provider; any real provider is optional and only allowed if dependency/source is explicit"
+  - "No completeness claims are made for call graphs, type resolution, overloads, class hierarchy, or re-export chains"
 ---
 
-# LSP enrichment layer for WARP graph
+# Bounded LSP semantic enrichment first slice
 
 Source: symbol-reference-tracing cycle discussion (2026-04-20)
 
-Add tsserver-based semantic enrichment to `indexHead`. Same atomic patch,
-same graph — just richer edges and properties that tree-sitter can't provide.
+## Scope Verdict
 
-## What LSP adds
+The original card is valid product direction, but too broad for a safe
+v0.7.0 implementation cycle as written.
 
-- `calls` edges — type-resolved function call relationships
-- `extends` / `implements` edges — class hierarchy
-- `typeof` properties — resolved types (even inferred, no annotation)
-- Accurate module resolution — tsconfig paths, baseUrl, path aliases
-- Overload resolution — which specific overload is being called
-- Re-export chain following — through barrel files
+Graft already has `indexHead`, tree-sitter parsing, per-file WARP
+patches, attached AST snapshot blobs, `maxPatchJsonBytes`, and lazy
+indexing guardrails. This first slice must preserve those boundaries.
+It should not turn one indexed file into an implicit whole-project LSP
+crawl.
+
+Keep this card in `v0.7.0` for now, but scope it as a bounded semantic
+enrichment seam and one tiny fact payload, not a full tsserver project
+model.
+
+## Hill
+
+When a caller explicitly indexes a file path, Graft can optionally ask a
+semantic enrichment provider for a small, bounded set of semantic facts
+for that same file and write those facts in the same per-file WARP
+patch as the tree-sitter facts.
+
+If semantic enrichment is unavailable, the existing tree-sitter indexing
+path still succeeds and reports a clear degraded/unavailable state.
+
+## First Slice In Scope
+
+- Explicit-path indexing only. The caller must pass `paths` or use an
+  equivalent explicit path surface.
+- No daemon, monitor, background, or automatic whole-repo enrichment.
+- A semantic provider boundary that can be backed by a fake provider in
+  tests.
+- A graceful unavailable result when no real provider is configured or
+  available.
+- One or two bounded fact kinds only:
+  - `calls` edges when the provider can identify a direct call target.
+  - provider-supplied `typeof` properties on symbol nodes when already
+    known.
+- A hard per-file semantic fact cap.
+- Preservation of the existing patch payload budget through
+  `maxPatchJsonBytes`.
+- Tests proving fake-provider facts are emitted deterministically and
+  unavailable providers do not break normal indexing.
+
+## Deferred From This Slice
+
+- Full tsserver project model.
+- Unbounded project-wide module graph loading.
+- Overload resolution.
+- Class hierarchy edges such as `extends` and `implements`, unless they
+  are proven small enough to fit this first slice without broadening it.
+- Re-export chain following.
+- Full semantic call graph.
+- Semantic completeness claims.
+- Daemon, monitor, background, or live-refresh enrichment.
+- Any change to governed edit/write behavior.
+- Any WARP materialization policy change beyond preserving the current
+  per-file patch budget.
 
 ## Model
 
-Run tsserver on HEAD alongside tree-sitter. Emit everything in the
-same `warp.patch()` call — one atomic snapshot. No two-pass enrichment.
+The implementation should introduce a narrow provider shape rather than
+wiring `indexHead` directly to a concrete tsserver process.
 
-## Approach
+Expected flow:
 
-1. Start tsserver with the project's tsconfig
-2. For each file, request references/definitions/types from the LSP
-3. Emit semantic edges alongside the AST nodes in the same patch
-4. Shut down tsserver
+1. `indexHead` selects parseable explicit paths using the existing lazy
+   indexing rules.
+2. For each file, tree-sitter parsing and outline/import emission run as
+   they do today.
+3. If a semantic provider is configured, `indexHead` asks it for bounded
+   semantic facts for that same file path and HEAD content.
+4. The provider returns facts or an unavailable/degraded result.
+5. `indexHead` emits accepted facts into the same per-file patch and
+   still enforces `maxPatchJsonBytes`.
 
-The tree-sitter pass gives structure. The LSP pass gives semantics.
-Both go into one tick.
+The provider contract is the product boundary. A real tsserver-backed
+provider is optional in this slice unless the dependency source,
+lifecycle, and failure behavior are made explicit before implementation.
 
-Effort: L
+## Non-Goals
+
+- No claim that Graft has complete type-aware reference tracing.
+- No claim that all calls, all inferred types, all overloads, or all
+  module aliases are resolved.
+- No recursive scan of `node_modules`.
+- No implicit use of the live checkout as test subject data.
+- No test dependence on an operator's ambient TypeScript server state.
+
+Effort: M for the first slice, L for the full original feature.
+
+## Release Readiness Question
+
+After this card is narrowed, the remaining release decision is whether
+the bounded first slice is still worth including in v0.7.0. The full
+original LSP enrichment ambition should not block release prep unless it
+is explicitly re-accepted as release scope.
