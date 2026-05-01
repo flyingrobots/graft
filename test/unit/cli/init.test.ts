@@ -367,6 +367,11 @@ describe("cli: graft init", () => {
   });
 
   it("migrates generated v0.7.0 Claude hook commands to dist entrypoints", () => {
+    const preToolUseDist = "node node_modules/@flyingrobots/graft/dist/hooks/pretooluse-read.js";
+    const postToolUseDist = "node node_modules/@flyingrobots/graft/dist/hooks/posttooluse-read.js";
+    const preToolUseLegacy = "node --import tsx node_modules/@flyingrobots/graft/src/hooks/pretooluse-read.ts";
+    const postToolUseLegacy = "node --import tsx node_modules/@flyingrobots/graft/src/hooks/posttooluse-read.ts";
+
     fs.mkdirSync(path.join(tmpDir, ".claude"), { recursive: true });
     fs.writeFileSync(path.join(tmpDir, ".claude", "settings.json"), JSON.stringify({
       hooks: {
@@ -376,7 +381,15 @@ describe("cli: graft init", () => {
             hooks: [
               {
                 type: "command",
-                command: "node --import tsx node_modules/@flyingrobots/graft/src/hooks/pretooluse-read.ts",
+                command: preToolUseDist,
+              },
+              {
+                type: "command",
+                command: preToolUseLegacy,
+              },
+              {
+                type: "command",
+                command: preToolUseLegacy,
               },
             ],
           },
@@ -388,7 +401,15 @@ describe("cli: graft init", () => {
               { type: "command", command: "echo existing-post-read" },
               {
                 type: "command",
-                command: "node --import tsx node_modules/@flyingrobots/graft/src/hooks/posttooluse-read.ts",
+                command: postToolUseDist,
+              },
+              {
+                type: "command",
+                command: postToolUseLegacy,
+              },
+              {
+                type: "command",
+                command: postToolUseLegacy,
               },
             ],
           },
@@ -414,10 +435,12 @@ describe("cli: graft init", () => {
     ].map((hook) => hook.command);
 
     expect(commands).toEqual(expect.arrayContaining([
-      "node node_modules/@flyingrobots/graft/dist/hooks/pretooluse-read.js",
-      "node node_modules/@flyingrobots/graft/dist/hooks/posttooluse-read.js",
+      preToolUseDist,
+      postToolUseDist,
       "echo existing-post-read",
     ]));
+    expect(commands.filter((command) => command === preToolUseDist)).toHaveLength(1);
+    expect(commands.filter((command) => command === postToolUseDist)).toHaveLength(1);
     expect(commands.some((command) => command.includes("node --import tsx"))).toBe(false);
     expect(commands.some((command) => command.includes("/src/hooks/"))).toBe(false);
   });
