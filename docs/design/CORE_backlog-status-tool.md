@@ -82,14 +82,17 @@ Build the model first, render second, and route CLI last.
 Preferred implementation shape:
 
 ```text
-checked-in METHOD files
-  -> buildBacklogStatusModel(...)
+explicit repo/METHOD root + filesystem/path adapter
+  -> checked-in METHOD files
+  -> buildBacklogStatusModel({ root, fs, pathOps, ... })
   -> renderBacklogStatus(model)
   -> graft backlog-status [--json]
 ```
 
 The model builder should be independent of terminal rendering and should
 not execute Git, call GitHub, call METHOD MCP tools, or modify files.
+It must receive an explicit root plus filesystem/path adapter and must
+not read from `process.cwd()` inside the model layer.
 
 ### Inputs
 
@@ -101,6 +104,11 @@ The first slice reads repo-local files only:
 - `docs/releases/**`
 - `docs/method/releases/**`
 - `docs/method/backlog/dependency-dag.dot`
+
+All reads are relative to the explicit root passed into the model. CLI
+code may resolve the command root from `--cwd` or the process cwd at the
+outer command boundary, but the model must stay cwd-free and testable
+against an explicit temp root.
 
 It may reuse or extract the frontmatter parsing and DAG model logic
 currently in `scripts/generate-backlog-dependency-dag.ts`, but runtime
@@ -176,6 +184,7 @@ add MCP, daemon, or API surfaces until the model proves useful and stable.
 - No daemon/WARP/LSP expansion.
 - No governed write/edit expansion.
 - No live repo playback as subject data.
+- No hidden `process.cwd()` dependency in the model layer.
 - No terminal TUI.
 - No attempt to fix every stale or ambiguous historical card.
 
@@ -197,6 +206,8 @@ add MCP, daemon, or API surfaces until the model proves useful and stable.
 
 - [ ] Is there a deterministic `buildBacklogStatusModel(...)` tested
       separately from rendering?
+- [ ] Does the model accept an explicit root plus filesystem/path
+      adapter instead of using `process.cwd()`?
 - [ ] Does the model use checked-in filesystem truth instead of METHOD
       MCP active-cycle state?
 - [ ] Does `renderBacklogStatus(model)` produce deterministic text
@@ -214,6 +225,8 @@ Stop here for this design phase. The next phase should begin with RED
 tests for:
 
 - model classification from synthetic temp METHOD trees
+- model behavior against an explicit temp root while the process cwd is
+  somewhere else, proving it does not depend on the live checkout cwd
 - lane/frontmatter mismatch warnings
 - internal, external, and unresolved dependency reporting
 - completed retro detection
