@@ -10,8 +10,14 @@ digraph backlog {
   ranksep=0.55
   nodesep=0.2
 
+  subgraph cluster_asap {
+    label="asap (1)" labeljust=l fontsize=9 fontcolor="#555555"
+    style=rounded color="#cccccc" bgcolor="#fafafa"
+    asap_CORE_backlog_status_tool [label="CORE-backlog-status-tool - S" fillcolor="#E5E7EB" penwidth=2]
+  }
+
   subgraph cluster_cool_ideas {
-    label="Cool Ideas (79)" labeljust=l fontsize=9 fontcolor="#555555"
+    label="Cool Ideas (78)" labeljust=l fontsize=9 fontcolor="#555555"
     style=rounded color="#cccccc" bgcolor="#fafafa"
     cool_ideas_bounded_neighborhood_for_references [label="bounded-neighborhood-for-references - S" fillcolor="#D4E8F7" penwidth=1]
     cool_ideas_CI_001_causal_collapse_visualizer [label="CI-001-causal-collapse-visualizer - L" fillcolor="#D4E8F7" penwidth=1]
@@ -20,7 +26,6 @@ digraph backlog {
     cool_ideas_CLEAN_CODE_parallel_agent_merge_shared_file_loss [label="CLEAN-CODE-parallel-agent-merge-shared-file-loss - M" fillcolor="#D4E8F7" penwidth=1]
     cool_ideas_CORE_agent_handoff_protocol [label="CORE-agent-handoff-protocol - M" fillcolor="#D4E8F7" penwidth=1]
     cool_ideas_CORE_auto_focus [label="CORE-auto-focus - L" fillcolor="#D4E8F7" penwidth=1]
-    cool_ideas_CORE_backlog_status_tool [label="CORE-backlog-status-tool - S" fillcolor="#D4E8F7" penwidth=1]
     cool_ideas_CORE_capture_range [label="CORE-capture-range - S" fillcolor="#D4E8F7" penwidth=1]
     cool_ideas_CORE_constructor_in_disguise_lint [label="CORE-constructor-in-disguise-lint - M" fillcolor="#D4E8F7" penwidth=1]
     cool_ideas_CORE_context_budget_forecasting [label="CORE-context-budget-forecasting - M" fillcolor="#D4E8F7" penwidth=1]
