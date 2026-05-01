@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.7.1] - 2026-04-30
+
+### Fixed
+
+- **npm package runtime shape**: The published package now ships built
+  `dist/` output without `src/`, keeps `tsx` as development-only
+  tooling, runs the package bin and generated Claude hook commands from
+  compiled JavaScript, migrates generated v0.7.0 Claude hook commands
+  through `graft init --write-claude-hooks`, declares
+  targeted `sideEffects` metadata for parser initialization, pins the
+  patched `postcss` transitive used by Vite, and guards manual publishes
+  with `prepublishOnly`.
+
 ## [0.7.0] - 2026-04-30
 
 ### Added

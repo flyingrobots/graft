@@ -7,6 +7,8 @@ import { runCli } from "../../../src/cli/main.js";
 import { cleanupTestRepo, createTestRepo, git } from "../../helpers/git.js";
 import { createBufferWriter } from "../../helpers/init.js";
 
+const ROOT = path.resolve(import.meta.dirname, "../../..");
+
 function writeScenario(repoDir: string): void {
   fs.writeFileSync(path.join(repoDir, "api.ts"), [
     "export function greet(name: string): string {",
@@ -40,6 +42,21 @@ function scrubbedEnvWithPath(binDir: string): NodeJS.ProcessEnv {
   delete env["GIT_WORK_TREE"];
   delete env["GIT_WARP_HOME"];
   return env;
+}
+
+let packageBinBuilt = false;
+
+function ensurePackageBinBuild(): void {
+  if (packageBinBuilt) return;
+  if (fs.existsSync(path.join(ROOT, "dist", "cli", "entrypoint.js"))) {
+    packageBinBuilt = true;
+    return;
+  }
+  execFileSync("pnpm", ["build"], {
+    cwd: ROOT,
+    stdio: "inherit",
+  });
+  packageBinBuilt = true;
 }
 
 describe("cli: git graft enhance integration", { timeout: 30_000 }, () => {
@@ -103,6 +120,7 @@ describe("cli: git graft enhance integration", { timeout: 30_000 }, () => {
     const binDir = fs.mkdtempSync(path.join(os.tmpdir(), "graft-enhance-bin-"));
     try {
       writeScenario(repoDir);
+      ensurePackageBinBuild();
       fs.symlinkSync(path.resolve(import.meta.dirname, "../../../bin/graft.js"), path.join(binDir, "git-graft"));
 
       const output = execFileSync("git", ["graft", "enhance", "--since", "HEAD~1"], {

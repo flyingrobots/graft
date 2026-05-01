@@ -1,17 +1,24 @@
+import * as fs from "node:fs";
+import * as path from "node:path";
+import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 import packageJson from "../../../package.json";
 
+const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../../..");
+
 describe("release package library surface", () => {
-  it("ships built artifacts for the root import surface", () => {
-    expect(packageJson.files).toEqual(expect.arrayContaining([
-      "dist/",
-      "src/",
-    ]));
+  it("ships built artifacts without publishing source internals", () => {
+    expect(packageJson.files).toEqual(expect.arrayContaining(["dist/"]));
+    expect(packageJson.files).not.toContain("src/");
   });
 
   it("declares a root import/export contract", () => {
     expect(packageJson.main).toBe("./dist/index.js");
     expect(packageJson.types).toBe("./dist/index.d.ts");
+    expect(packageJson.sideEffects).toEqual([
+      "dist/parser/runtime.js",
+      "dist/operations/structured-buffer-model.js",
+    ]);
     expect(packageJson.exports).toEqual(expect.objectContaining({
       ".": {
         types: "./dist/index.d.ts",
@@ -27,7 +34,23 @@ describe("release package library surface", () => {
     ]);
   });
 
-  it("builds dist automatically before packing", () => {
+  it("builds dist automatically before packing and blocks manual publish drift", () => {
     expect(packageJson.scripts.prepack).toBe("pnpm build");
+    expect(packageJson.scripts.prepublishOnly).toBe("pnpm release:check");
+  });
+
+  it("keeps TypeScript execution tooling out of runtime dependencies", () => {
+    expect(packageJson.dependencies).not.toHaveProperty("tsx");
+    expect(packageJson.devDependencies).toHaveProperty("tsx");
+  });
+
+  it("runs the published bin from built dist output", () => {
+    const bin = fs.readFileSync(path.join(ROOT, "bin/graft.js"), "utf8");
+    expect(bin.startsWith("#!/usr/bin/env node")).toBe(true);
+    expect(bin).toContain("../dist/cli/entrypoint.js");
+    expect(bin).toContain('error.code === "ERR_MODULE_NOT_FOUND"');
+    expect(bin).toContain("Failed to load CLI entrypoint from dist.");
+    expect(bin).not.toContain("../src/");
+    expect(bin).not.toContain("tsx");
   });
 });

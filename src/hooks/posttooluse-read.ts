@@ -12,7 +12,7 @@
 //
 // This teaches the agent to prefer graft's MCP tools voluntarily.
 //
-// Invoked as: node --import tsx src/hooks/posttooluse-read.ts
+// Invoked as: node node_modules/@flyingrobots/graft/dist/hooks/posttooluse-read.js
 // Receives JSON on stdin from Claude Code hooks system.
 // ---------------------------------------------------------------------------
 import { HookInput, HookOutput, runHook } from "./shared.js";

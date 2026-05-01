@@ -115,6 +115,23 @@ describe("cli: graft init", () => {
       mcpServers: { graft: { command: string; args: string[] } };
     };
     expectGraftServerEntry(mcpConfig.mcpServers.graft);
+
+    const hooksConfig = readJsonFile(tmpDir, ".claude", "settings.json") as {
+      hooks: {
+        PreToolUse: { hooks: { command: string }[] }[];
+        PostToolUse: { hooks: { command: string }[] }[];
+      };
+    };
+    const hookCommands = [
+      ...(hooksConfig.hooks.PreToolUse[0]?.hooks ?? []),
+      ...(hooksConfig.hooks.PostToolUse[0]?.hooks ?? []),
+    ].map((hook) => hook.command);
+    expect(hookCommands).toEqual(expect.arrayContaining([
+      "node node_modules/@flyingrobots/graft/dist/hooks/pretooluse-read.js",
+      "node node_modules/@flyingrobots/graft/dist/hooks/posttooluse-read.js",
+    ]));
+    expect(hookCommands.every((command) => !command.includes("node --import tsx"))).toBe(true);
+    expect(hookCommands.every((command) => !command.includes("/src/"))).toBe(true);
   });
 
   it("writes daemon-backed MCP config when the runtime is selected explicitly", () => {
@@ -345,8 +362,87 @@ describe("cli: graft init", () => {
     expect(readPostTool).toBeDefined();
     expect(readPostTool?.hooks.some((hook) => hook.command.includes("already-here"))).toBe(true);
     // Ensure graft hooks were not duplicated
-    const graftPostHooks = readPostTool?.hooks.filter((hook) => hook.command.includes("posttooluse-read.ts")) ?? [];
+    const graftPostHooks = readPostTool?.hooks.filter((hook) => hook.command.includes("posttooluse-read.js")) ?? [];
     expect(graftPostHooks).toHaveLength(1);
+  });
+
+  it("migrates generated v0.7.0 Claude hook commands to dist entrypoints", () => {
+    const preToolUseDist = "node node_modules/@flyingrobots/graft/dist/hooks/pretooluse-read.js";
+    const postToolUseDist = "node node_modules/@flyingrobots/graft/dist/hooks/posttooluse-read.js";
+    const preToolUseLegacy = "node --import tsx node_modules/@flyingrobots/graft/src/hooks/pretooluse-read.ts";
+    const postToolUseLegacy = "node --import tsx node_modules/@flyingrobots/graft/src/hooks/posttooluse-read.ts";
+
+    fs.mkdirSync(path.join(tmpDir, ".claude"), { recursive: true });
+    fs.writeFileSync(path.join(tmpDir, ".claude", "settings.json"), JSON.stringify({
+      hooks: {
+        PreToolUse: [
+          {
+            matcher: "Read",
+            hooks: [
+              {
+                type: "command",
+                command: preToolUseDist,
+              },
+              {
+                type: "command",
+                command: preToolUseLegacy,
+              },
+              {
+                type: "command",
+                command: preToolUseLegacy,
+              },
+            ],
+          },
+        ],
+        PostToolUse: [
+          {
+            matcher: "Read",
+            hooks: [
+              { type: "command", command: "echo existing-post-read" },
+              {
+                type: "command",
+                command: postToolUseDist,
+              },
+              {
+                type: "command",
+                command: postToolUseLegacy,
+              },
+              {
+                type: "command",
+                command: postToolUseLegacy,
+              },
+            ],
+          },
+        ],
+      },
+    }, null, 2));
+
+    const result = runInitJson(["--write-claude-hooks"]);
+    const action = findAction(result, ".claude/settings.json");
+    expect(action.action).toBe("append");
+
+    const settings = readJsonFile(tmpDir, ".claude", "settings.json") as {
+      hooks: {
+        PreToolUse: { matcher: string; hooks: { command: string }[] }[];
+        PostToolUse: { matcher: string; hooks: { command: string }[] }[];
+      };
+    };
+    const readPreTool = settings.hooks.PreToolUse.find((entry) => entry.matcher === "Read");
+    const readPostTool = settings.hooks.PostToolUse.find((entry) => entry.matcher === "Read");
+    const commands = [
+      ...(readPreTool?.hooks ?? []),
+      ...(readPostTool?.hooks ?? []),
+    ].map((hook) => hook.command);
+
+    expect(commands).toEqual(expect.arrayContaining([
+      preToolUseDist,
+      postToolUseDist,
+      "echo existing-post-read",
+    ]));
+    expect(commands.filter((command) => command === preToolUseDist)).toHaveLength(1);
+    expect(commands.filter((command) => command === postToolUseDist)).toHaveLength(1);
+    expect(commands.some((command) => command.includes("node --import tsx"))).toBe(false);
+    expect(commands.some((command) => command.includes("/src/hooks/"))).toBe(false);
   });
 
   it("appends Codex MCP config without duplicating the graft block", () => {

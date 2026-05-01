@@ -1,7 +1,11 @@
 import { afterEach, describe, expect, it } from "vitest";
 import * as fs from "node:fs";
 import * as path from "node:path";
-import { ChildProcessDaemonWorkerPool } from "../../../src/mcp/daemon-worker-pool.js";
+import {
+  ChildProcessDaemonWorkerPool,
+  daemonWorkerExecArgv,
+  daemonWorkerProcessPath,
+} from "../../../src/mcp/daemon-worker-pool.js";
 import { Metrics } from "../../../src/mcp/metrics.js";
 import type { RepoObservation } from "../../../src/mcp/repo-state.js";
 import { DEFAULT_DAEMON_CAPABILITY_PROFILE } from "../../../src/mcp/workspace-router.js";
@@ -46,6 +50,20 @@ function repoObservation(repoDir: string, options?: { dirty?: boolean }): RepoOb
 }
 
 describe("mcp: daemon worker pool", () => {
+  it("uses compiled JavaScript workers without tsx when running from dist", () => {
+    const moduleUrl = new URL("file:///package/dist/mcp/daemon-worker-child-pool.js").href;
+
+    expect(daemonWorkerProcessPath(moduleUrl)).toBe(path.normalize("/package/dist/mcp/daemon-worker-process.js"));
+    expect(daemonWorkerExecArgv(moduleUrl)).toEqual([]);
+  });
+
+  it("keeps tsx limited to source-checkout worker execution", () => {
+    const moduleUrl = new URL("file:///repo/src/mcp/daemon-worker-child-pool.ts").href;
+
+    expect(daemonWorkerProcessPath(moduleUrl)).toBe(path.normalize("/repo/src/mcp/daemon-worker-process.ts"));
+    expect(daemonWorkerExecArgv(moduleUrl)).toEqual(["--import", "tsx"]);
+  });
+
   it("runs monitor tick work on a child-process worker and reports worker counts", { timeout: 15_000 }, async () => {
     const repoDir = createTestRepo("graft-daemon-worker-");
     cleanups.push(() => {
