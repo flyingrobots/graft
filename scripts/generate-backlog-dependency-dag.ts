@@ -59,7 +59,7 @@ export interface WriteBacklogDagResult {
   readonly svgPath: string;
 }
 
-const LANE_ORDER = ["v0.7.0", "bad-code", "cool-ideas"];
+const LANE_ORDER = ["asap", "up-next", "v0.8.0", "v0.7.0", "bad-code", "inbox", "cool-ideas"];
 
 function compareText(left: string, right: string): number {
   return left.localeCompare(right);

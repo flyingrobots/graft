@@ -51,17 +51,30 @@ timeline
   0035) plans slice-first APIs; graft tracks remaining call sites in
   `CORE_migrate-to-slice-first-reads`.
 
+## Shipped Baseline
+
+`v0.7.0` shipped the WARP, daemon-runtime, daemon-status, git-facing
+enhance, governed-edit, path-boundary, and Dockerized validation spine.
+`v0.7.1` followed with npm package hygiene: built `dist/` runtime
+artifacts, no published `src/`, development-only `tsx`, and release
+publish guards.
+
 ## Next Target
 
-The immediate focus is **v0.7.0 release truth and stabilization**.
+The immediate focus is **v0.8.0 scope formation**, not feature work.
 
-1. Keep release surfaces aligned: `package.json`, `CHANGELOG.md`,
-   `docs/releases/v0.7.0.md`, METHOD release packet, and backlog lanes.
-2. Verify the WARP-backed structural operation rewrites against the
-   release bar: log, churn, blame, review, reference counting, and
-   slice-first read posture.
-3. The active v0.7.0 backlog lane is clear. `WARP_lsp-enrichment` and
-   `CORE_migrate-to-slice-first-reads` are preserved as post-v0.7.0
-   follow-ups rather than release blockers.
-4. When git-warp's observer geometry ladder (Rung 2-4) ships, migrate
-   the remaining medium-risk full-scan reads to slice-first APIs.
+1. Keep `main` release-clean after `v0.7.1`.
+2. Shape `v0.8.0` around operational truth surfaces: backlog/METHOD
+   status, health diagnostics, and structural review summaries.
+3. Pull `CORE_backlog-status-tool` next as the first scope-forming
+   cycle. The goal is a deterministic repo truth model before more
+   product surface expands.
+4. Recheck `CORE_graft-doctor` after backlog status. The command
+   already exists, so the card needs a narrow relevance/scope pass
+   before any unified health-report work.
+5. Keep `WARP_lsp-enrichment` and `CORE_migrate-to-slice-first-reads`
+   out of the opening v0.8.0 lane. LSP enrichment remains valid
+   optional scope; slice-first reads remain externally blocked until
+   git-warp observer geometry APIs land.
+6. Treat daemon live refresh and daemon control-plane actions as a
+   separate daemon-operator lane, not the default v0.8.0 spine.

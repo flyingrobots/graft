@@ -1,262 +1,66 @@
 # Next Release Ranked Queue
 
-Status: release bar cleared
+Status: v0.8.0 scope forming
 
 ## Release thesis
 
-The next release should tighten the product around day-to-day coding
-workflow truth before it expands into larger substrate bets.
+`v0.7.0` made the WARP, daemon, git-facing, and governed-edit surfaces
+real. `v0.7.1` cleaned the npm distribution shape. The next release
+should not immediately widen into another large substrate bet.
 
-That means:
+The best v0.8.0 spine is operational truth:
 
-- pay down the precision/search debt in the exact seams we are about to
-  build on
-- ship the next product-visible search/refactor capability on top of
-  those cleaner seams
-- only pull hook, context, and observability debt forward when the
-  corresponding product surface is actually in the release
+- make backlog and METHOD state queryable by Graft itself
+- make health diagnostics more coherent before adding more surfaces
+- reuse existing structural review facts in release and PR workflows
+- defer semantic enrichment and daemon actions until the truth surfaces
+  are boring and testable
 
-This is a release-shaping queue, not a commitment to burn down the full
-`bad-code/` lane.
+This queue is a scope decision, not a commitment to burn down every
+listed idea.
 
-## Completed tranche
+## Above the line
 
-Cycle `0045-CODE_mcp-tool-precision` cleared the first pre-release debt
-bar:
+1. [CORE_backlog-status-tool.md](backlog/asap/CORE_backlog-status-tool.md)
+   Build a deterministic backlog/METHOD status model and CLI surface so
+   agents stop rebuilding ad hoc scripts to answer "what is active,
+   blocked, completed, deferred, or stale?" This is the first proposed
+   v0.8.0 cycle.
 
-- `code_find` now uses a runtime-backed request model
-- precision query matching and match shaping moved out of the shared
-  helper blob
-- git file enumeration now runs through typed query/result seams
-- `graft_map` now uses runtime-backed request/result objects
+2. [CORE_graft-doctor.md](backlog/cool-ideas/CORE_graft-doctor.md)
+   Recheck scope after backlog status. `graft doctor` already exists as
+   a diagnostic surface, including `--sludge`; the remaining useful work
+   is likely a narrow unified health report over shipped checks, not a
+   from-scratch command.
 
-This retires the old `bad-code` items for:
+3. [CORE_pr-review-structural-summary.md](backlog/cool-ideas/CORE_pr-review-structural-summary.md)
+   Optional third slice if v0.8.0 wants a user-visible review workflow.
+   It should compose existing structural diff/enhance facts rather than
+   inventing a new review engine.
 
-- `CLEAN_CODE_mcp-tool-code-find`
-- `CLEAN_CODE_mcp-tool-precision`
-- `CLEAN_CODE_mcp-tool-git-files`
-- `CLEAN_CODE_mcp-tool-map`
+## Below the line
 
-Cycle `0046-default-governed-read-path` cleared the conditional hook
-debt tranche and shipped the first honest default-read guardrail:
+- [WARP_lsp-enrichment.md](backlog/cool-ideas/WARP_lsp-enrichment.md)
+  remains valid product direction, but it adds a semantic provider
+  boundary and new WARP fact class. Pull it only if v0.8.0 explicitly
+  becomes a semantic-enrichment release.
 
-- Claude `PreToolUse` now redirects large JS/TS native reads to
-  graft's bounded-read path before the full file lands in context
-- `PostToolUse` now acts as a backstop for oversized code reads that
-  still slip through
-- hook inspection and policy evaluation now share a smaller seam
+- [CORE_migrate-to-slice-first-reads.md](backlog/cool-ideas/CORE_migrate-to-slice-first-reads.md)
+  remains externally blocked on git-warp observer geometry APIs. Do not
+  pull it until those APIs exist.
 
-This retires the old `bad-code` items for:
+- [SURFACE_bijou-daemon-status-live-refresh.md](backlog/cool-ideas/SURFACE_bijou-daemon-status-live-refresh.md)
+  and [SURFACE_bijou-daemon-control-plane-actions.md](backlog/cool-ideas/SURFACE_bijou-daemon-control-plane-actions.md)
+  are coherent daemon-operator follow-ons, but they should not displace
+  the initial v0.8.0 truth-surface spine.
 
-- `CLEAN_CODE_hook-pretooluse-read`
-- `CLEAN_CODE_hook-posttooluse-read`
+- [CI-002-deterministic-scenario-replay.md](backlog/cool-ideas/CI-002-deterministic-scenario-replay.md)
+  is high leverage but large. Keep it for a later scoped pass unless a
+  concrete regression demands replay infrastructure immediately.
 
-Cycle `0047-non-claude-default-governed-read-integration` tightened the
-next-highest-leverage non-Claude path:
+## Next pull
 
-- `graft init --write-codex-mcp` now seeds `AGENTS.md` alongside
-  `.codex/config.toml`
-- setup docs now distinguish MCP availability from actual governed-read
-  posture by client
-- the remaining non-Codex instruction parity question is explicit in
-  backlog instead of implied
-
-Cycle `0048-mcp-runtime-observability` cleared the last conditional
-pre-release product/debt slice:
-
-- MCP sessions now emit metadata-only runtime events for session start,
-  tool call start, tool call completion, and tool failure
-- receipts now carry `traceId` and `latencyMs`, so logs and responses
-  correlate directly
-- `doctor` now reports the active runtime observability posture
-
-This pays down the receipt seam enough to keep observability shippable
-without promoting the broader MCP context cleanup into a release bar.
-
-Cycle `0049-CODE_sync-child-process-request-path` finished the shell/git
-hexagonal cutover:
-
-- added explicit `ProcessRunner` and `GitClient` ports plus node
-  adapters
-- moved MCP request-path git and shell execution behind those ports
-- moved WARP indexing onto the same git seam
-- removed the remaining `node:path` imports from `src/operations`
-
-This retires:
-
-- `CLEAN_CODE_sync-child-process-request-path`
-
-Cycle `0049-non-read-burden` shipped the measurement-first follow-on:
-
-- receipts now classify each tool call by burden kind and mark whether
-  the result is non-read
-- `stats` now exposes cumulative burden-by-kind totals and a non-read
-  aggregate
-- `doctor` now exposes a compact burden summary for the active session
-
-This keeps the non-read question evidence-backed without dragging new
-governor policy into the release bar.
-
-Cycle `0050-shared-daemon-authz-and-isolation` shaped the next system
-surface before transport work starts:
-
-- the future shared daemon is now explicitly same-user and local-machine
-  only by default, not an implicit remote or multi-user service
-- workspace bind is the authorization event, with server-resolved repo
-  and worktree identity
-- session state, receipts, runtime logs, and escape hatches now have an
-  explicit isolation model in repo docs and backlog follow-ons
-
-This keeps the daemon direction honest without pretending the transport
-or control plane already exist.
-
-Cycle `0051-system-wide-mcp-daemon-and-workspace-binding` turned that
-trust model into an actual routing contract:
-
-- repo-local `graft serve` remains the current stdio contract
-- a future daemon starts sessions unbound and authorizes repo-scoped
-  access at explicit workspace bind time
-- canonical repo identity, live worktree identity, and session-local
-  state now have an explicit split in the design and architecture docs
-- one repo-scoped WARP per canonical repo is now explicit, so shared
-  daemon sessions do not silently mint separate default WARP instances
-- the implementation path is now split into transport/lifecycle and
-  bind/routing backlog items
-
-This keeps the daemon roadmap concrete without pretending the daemon
-transport already ships.
-
-Cycle `0052-workspace-bind-and-routing-surface` made the routing
-contract real inside the MCP server:
-
-- daemon mode now exposes `workspace_bind`, `workspace_status`, and
-  `workspace_rebind`
-- daemon sessions now start unbound and deny repo-scoped tools until a
-  bind succeeds
-- successful rebind starts a fresh session-local slice, so cache,
-  budget, and saved state do not silently carry across worktrees
-- same-repo bindings now keep canonical repo identity stable and reuse
-  one repo-scoped WARP handle by default inside the daemon server
-
-This keeps the daemon work honest in code before any transport or
-control-plane story is added.
-
-Cycle `0053-local-daemon-transport-and-session-lifecycle` made the
-daemon runtime path real:
-
-- `graft daemon` now starts a same-user local daemon on a Unix socket or
-  Windows named pipe
-- `/mcp` now hosts Streamable HTTP MCP traffic, and `/healthz` exposes
-  daemon liveness and active-session counts
-- daemon sessions now open on initialize and close on DELETE instead of
-  being implied by one process-global stdio lifetime
-- same-repo daemon sessions now share one repo-scoped WARP pool by
-  default while keeping repo-local `graft serve` unchanged
-
-This keeps the daemon direction honest in runtime behavior, not just in
-design and internal server mode.
-
-Cycle `0054-system-wide-control-plane-for-persistent-monitors` shipped
-the first real daemon control plane:
-
-- daemon workspace authorization is now explicit and central instead of
-  being implied by `workspace_bind`
-- daemon-wide session and authorized-workspace inspection now exists
-  through MCP
-- daemon capability posture can now be changed per authorized workspace
-  without exposing another session's receipts or shell output
-- `/healthz` now reflects control-plane counts instead of only transport
-  liveness
-
-This makes the operator control plane real without pretending that
-actual persistent monitor workers or tray UI now exist.
-
-Cycle `0055-persistent-monitor-runtime-state-and-lifecycle` shipped the
-first real persistent daemon worker:
-
-- daemon mode now exposes `daemon_monitors`, `monitor_start`,
-  `monitor_pause`, `monitor_resume`, and `monitor_stop`
-- monitor identity is now one repo-scoped worker per canonical repo,
-  not one worker per worktree or session
-- the first worker kind is `git_poll_indexer`, a background incremental
-  WARP indexer that reuses the shared daemon WARP pool
-- monitor state now persists across daemon restart and surfaces bounded
-  lifecycle, health, and backlog counts through MCP and `/healthz`
-
-This makes the monitor claim real without pretending multi-repo control
-or same-repo concurrent agent safety are solved.
-
-Cycle `0056-system-wide-multi-repo-agent-coordination` shaped the next
-system-wide contract:
-
-- canonical repo identity, live worktree identity, and daemon session
-  identity are now explicit separate layers
-- system-wide coordination is now defined as observational and
-  authorization-filtered rather than permission-granting
-- same-repo concurrency stays separate from cross-repo coordination
-- the vague multi-repo item is now split into two concrete follow-ons:
-  filtered repo overview first, fairness second
-
-This keeps the daemon roadmap honest instead of pretending "multi-repo
-coordination" is already one implementable feature.
-
-Cycle `0057-system-wide-repo-overview-and-filtered-inspection` shipped
-the first real daemon-wide repo join:
-
-- daemon mode now exposes `daemon_repos`, a bounded one-row-per-
-  authorized-repo inspection surface
-- repo rows are keyed by canonical repo identity and include compact
-  worktree, session-count, backlog, monitor, and last-activity signal
-- filtered inspection can now narrow by authorized `repoId` or
-  authorized worktree `cwd`
-- the surface is still observational and authorization-filtered, with
-  no raw receipts, cache content, saved state, runtime-log payloads, or
-  shell output
-
-This makes the multi-repo overview claim real before fairness or
-resource arbitration work begins.
-
-## Ranked queue
-
-No remaining above-the-line work is required before the next release.
-
-If we choose to keep pushing before cutting the packet, the next
-candidates are:
-
-1. [SURFACE_system-wide-resource-pressure-and-fairness.md](backlog/up-next/SURFACE_system-wide-resource-pressure-and-fairness.md)
-   After the overview exists, daemon-wide backlog pressure and fairness
-   should become explicit instead of implicit.
-2. [WARP_persisted-sub-commit-local-history.md](backlog/up-next/WARP_persisted-sub-commit-local-history.md)
-   If we stay on substrate work instead, durable local history is the
-   next operator-facing WARP move with the best leverage.
-
-## Below the cut line
-
-These items are real but should not be treated as release blockers for
-the next packet:
-
-- [SURFACE_non-codex-instruction-bootstrap-parity.md](backlog/cool-ideas/SURFACE_non-codex-instruction-bootstrap-parity.md)
-- [SURFACE_system-wide-resource-pressure-and-fairness.md](backlog/up-next/SURFACE_system-wide-resource-pressure-and-fairness.md)
-- [CLEAN_CODE_mcp-server.md](backlog/bad-code/CLEAN_CODE_mcp-server.md)
-- [CLEAN_CODE_mcp-repo-state.md](backlog/bad-code/CLEAN_CODE_mcp-repo-state.md)
-- [WARP_name-based-symbol-matching.md](backlog/bad-code/WARP_name-based-symbol-matching.md)
-- [WARP_persisted-sub-commit-local-history.md](backlog/up-next/WARP_persisted-sub-commit-local-history.md)
-- [WARP_reactive-workspace-overlay.md](backlog/up-next/WARP_reactive-workspace-overlay.md)
-- [WARP_symbol-identity-and-rename-continuity.md](backlog/up-next/WARP_symbol-identity-and-rename-continuity.md)
-
-Why they stay below the line:
-
-- they are broader substrate or semantics work
-- they will absorb schedule quickly
-- they do not buy as much immediate operator-facing sharpness as the
-  current release frontier
-
-## Notes
-
-- This queue intentionally treats debt as attached to nearby product
-  surfaces, not as a parallel cleanup program.
-- The exact version number should be decided later in the shaped release
-  packet under `docs/method/releases/vX.Y.Z/`.
-- If the release narrows to only reference-search work, items 1 and 2
-  should both drop out of the packet rather than dragging extra
-  debt and scope into the ship.
+Pull `CORE_backlog-status-tool` next, starting with RED tests over the
+model boundary. Do not start with terminal rendering or broad METHOD
+automation. The first slice should read checked-in files, classify
+status deterministically, and render a compact table/JSON result.
