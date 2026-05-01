@@ -21,11 +21,11 @@ listed idea.
 
 ## Above the line
 
-1. [CORE_backlog-status-tool.md](backlog/asap/CORE_backlog-status-tool.md)
+1. [CORE_backlog-status-tool.md](../design/CORE_backlog-status-tool.md)
    Build a deterministic backlog/METHOD status model and CLI surface so
    agents stop rebuilding ad hoc scripts to answer "what is active,
-   blocked, completed, deferred, or stale?" This is the first proposed
-   v0.8.0 cycle.
+   blocked, completed, deferred, or stale?" This is the active opening
+   v0.8.0 design cycle.
 
 2. [CORE_graft-doctor.md](backlog/cool-ideas/CORE_graft-doctor.md)
    Recheck scope after backlog status. `graft doctor` already exists as
@@ -58,9 +58,10 @@ listed idea.
   is high leverage but large. Keep it for a later scoped pass unless a
   concrete regression demands replay infrastructure immediately.
 
-## Next pull
+## Active pull
 
-Pull `CORE_backlog-status-tool` next, starting with RED tests over the
-model boundary. Do not start with terminal rendering or broad METHOD
-automation. The first slice should read checked-in files, classify
-status deterministically, and render a compact table/JSON result.
+`CORE_backlog-status-tool` is pulled into design. Its next phase should
+start with RED tests over the model boundary. Do not start with terminal
+rendering or broad METHOD automation. The first slice should read
+checked-in files, classify status deterministically, and render a
+compact table/JSON result.

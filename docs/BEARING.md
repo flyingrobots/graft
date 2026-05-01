@@ -66,9 +66,9 @@ The immediate focus is **v0.8.0 scope formation**, not feature work.
 1. Keep `main` release-clean after `v0.7.1`.
 2. Shape `v0.8.0` around operational truth surfaces: backlog/METHOD
    status, health diagnostics, and structural review summaries.
-3. Pull `CORE_backlog-status-tool` next as the first scope-forming
-   cycle. The goal is a deterministic repo truth model before more
-   product surface expands.
+3. `CORE_backlog-status-tool` is the active scope-forming cycle. The
+   design goal is a deterministic repo truth model before more product
+   surface expands.
 4. Recheck `CORE_graft-doctor` after backlog status. The command
    already exists, so the card needs a narrow relevance/scope pass
    before any unified health-report work.

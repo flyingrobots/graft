@@ -12,9 +12,9 @@ Date: 2026-05-01
   artifacts, no published `src/`, development-only `tsx`, generated
   hook migration, and manual publish guards.
 - Before this decision, the active backlog lanes were clear. This
-  decision lanes `CORE_backlog-status-tool` into `asap/` as the next
-  pull candidate; remaining unselected work stays mostly in
-  `docs/method/backlog/cool-ideas/`.
+  decision laned `CORE_backlog-status-tool` into `asap/`; that card is
+  now pulled into `docs/design/CORE_backlog-status-tool.md` as the
+  active opening v0.8.0 design cycle.
 - `WARP_lsp-enrichment` and `CORE_migrate-to-slice-first-reads` were
   intentionally preserved as post-v0.7.0 follow-up scope rather than
   release blockers.
@@ -42,7 +42,7 @@ review evidence.
 
 | Card | Current reality | v0.8.0 verdict | Next action |
 | --- | --- | --- | --- |
-| `CORE_backlog-status-tool` | Backlog cards, retros, design docs, and DAG metadata already exist, but agents still inspect them with ad hoc shell/Python scripts. | Required first slice. | Moved to `asap/`; pull next as a normal METHOD cycle. |
+| `CORE_backlog-status-tool` | Backlog cards, retros, design docs, and DAG metadata already exist, but agents still inspect them with ad hoc shell/Python scripts. | Required first slice. | Active design cycle; proceed to RED only after design approval. |
 | `CORE_graft-doctor` | `graft doctor` and `graft diag doctor` already exist; `--sludge` is shipped. The card is partially stale. | Strong candidate after backlog status. | Run a scope check and narrow to shipped-check aggregation. |
 | `CORE_pr-review-structural-summary` | `git graft enhance` and structural diff facts exist. | Optional v0.8.0 product surface. | Pull only after truth/status surfaces are stable. |
 | `WARP_lsp-enrichment` | Bounded first-slice card exists and is valid, but introduces a semantic provider boundary and new WARP fact class. | Optional, not the default spine. | Keep in `cool-ideas` unless v0.8.0 explicitly becomes semantic-enrichment focused. |
@@ -60,9 +60,9 @@ review evidence.
 - No slice-first migration until the upstream git-warp APIs exist.
 - No release tag or publish work.
 
-## First Pull Recommendation
+## Active Pull
 
-Pull `CORE_backlog-status-tool`.
+`CORE_backlog-status-tool` is pulled into design.
 
 Start with RED tests for a deterministic status model over checked-in
 backlog, design, retro, and dependency metadata. Rendering and CLI
