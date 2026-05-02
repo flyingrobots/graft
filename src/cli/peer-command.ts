@@ -9,6 +9,7 @@ import {
 } from "../contracts/output-schemas.js";
 import { createGraftServer, type McpToolResult } from "../mcp/server.js";
 import { renderActivityView } from "./activity-render.js";
+import { renderDoctorPosture } from "./doctor-render.js";
 
 const codec = new CanonicalJsonCodec();
 
@@ -42,6 +43,10 @@ export function emitPeerCommand(
   }
   if (command === "diag_activity") {
     writer.write(`${renderActivityView(validated)}\n`);
+    return;
+  }
+  if (command === "diag_doctor") {
+    writer.write(`${renderDoctorPosture(validated)}\n`);
     return;
   }
   writer.write(`${JSON.stringify(validated, null, 2)}\n`);
