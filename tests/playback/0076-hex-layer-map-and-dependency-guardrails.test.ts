@@ -6,23 +6,37 @@ import { describe, expect, it } from "vitest";
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../..");
 const CONFIG_PATH = path.join(ROOT, "eslint.config.js");
+const SYNTHETIC_GUARDRAIL_FILES = [
+  "src/contracts/hex-guardrail.fixture.ts",
+  "src/ports/hex-guardrail.fixture.ts",
+  "src/operations/hex-guardrail.fixture.ts",
+  "src/adapters/hex-guardrail.fixture.ts",
+  "src/contracts/hex-guardrail-synthetic.fixture.ts",
+  "src/operations/hex-guardrail-allowed.fixture.ts",
+];
 
 async function lintRestrictedImports(text: string, relativeFilePath: string) {
   const absoluteFilePath = path.join(ROOT, relativeFilePath);
-  await fs.mkdir(path.dirname(absoluteFilePath), { recursive: true });
-  await fs.writeFile(absoluteFilePath, text, "utf8");
-
   const eslint = new ESLint({
     cwd: ROOT,
     overrideConfigFile: CONFIG_PATH,
+    overrideConfig: {
+      languageOptions: {
+        parserOptions: {
+          projectService: {
+            allowDefaultProject: [
+              "eslint.config.js",
+              "vitest.config.ts",
+              ...SYNTHETIC_GUARDRAIL_FILES,
+            ],
+          },
+        },
+      },
+    },
     ignore: false,
   });
-  try {
-    const [result] = await eslint.lintFiles([absoluteFilePath]);
-    return (result?.messages ?? []).filter((message) => message.ruleId === "no-restricted-imports");
-  } finally {
-    await fs.rm(absoluteFilePath, { force: true });
-  }
+  const [result] = await eslint.lintText(text, { filePath: absoluteFilePath });
+  return (result?.messages ?? []).filter((message) => message.ruleId === "no-restricted-imports");
 }
 
 async function readRepoText(relativeFilePath: string): Promise<string> {

@@ -23,10 +23,10 @@ listed idea.
 ## Above the line
 
 1. [CORE_graft-doctor.md](backlog/cool-ideas/CORE_graft-doctor.md)
-   Recheck scope first. `graft doctor` already exists as
-   a diagnostic surface, including `--sludge`; the remaining useful work
-   is likely a narrow unified health report over shipped checks, not a
-   from-scratch command.
+   Narrowed scope accepted for the next pull candidate. `graft doctor`
+   already exists as a diagnostic surface, including `--sludge`; the
+   first slice should clarify shipped repo-generic health/capability
+   posture, not run every integrity helper as a CI gate.
 
 2. [CORE_pr-review-structural-summary.md](backlog/cool-ideas/CORE_pr-review-structural-summary.md)
    Optional second slice if v0.8.0 wants a user-visible review workflow.
@@ -59,6 +59,7 @@ listed idea.
 
 ## Next pull
 
-Run a relevance/scope check on `CORE_graft-doctor` next. Keep the scope
-repo-generic: shipped diagnostics, health posture, structural review
-facts, and capability clarity that apply to any Git repository.
+Pull `CORE_graft-doctor` next only under the narrowed card. Keep the
+scope repo-generic: shipped diagnostics, health posture, optional sludge,
+and capability clarity that apply to any Git repository. Do not add
+METHOD state or broad all-integrity-check gate semantics.
