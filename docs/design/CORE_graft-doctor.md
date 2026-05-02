@@ -43,20 +43,20 @@ or an all-integrity-check gate.
 
 ### Human
 
-- [ ] Can I run `graft doctor` in a temp repo and read a concise health
+- [x] Can I run `graft doctor` in a temp repo and read a concise health
       posture report without seeing raw JSON?
-- [ ] Can I tell whether sludge scanning was requested without doctor
+- [x] Can I tell whether sludge scanning was requested without doctor
       pretending sludge is a mandatory lint gate?
-- [ ] Is there no METHOD backlog, release, retro, dependency-DAG, or
+- [x] Is there no METHOD backlog, release, retro, dependency-DAG, or
       project-management state in the output?
 
 ### Agent
 
-- [ ] Does `graft doctor --json` preserve the existing
+- [x] Does `graft doctor --json` preserve the existing
       schema-validated CLI peer surface?
-- [ ] Do top-level `graft doctor` and `graft diag doctor` use the same
+- [x] Do top-level `graft doctor` and `graft diag doctor` use the same
       repo-generic posture rendering by default?
-- [ ] Do tests prove the first slice does not mention drift-sentinel,
+- [x] Do tests prove the first slice does not mention drift-sentinel,
       structural-drift-detection, version-drift, or CI/pre-commit gate
       semantics?
 
