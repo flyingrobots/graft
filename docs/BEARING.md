@@ -64,12 +64,13 @@ publish guards.
 The immediate focus is **v0.8.0 scope formation**, not feature work.
 
 1. Keep `main` release-clean after `v0.7.1`.
-2. Shape `v0.8.0` around operational truth surfaces: backlog/METHOD
-   status, health diagnostics, and structural review summaries.
-3. Pull `CORE_backlog-status-tool` next as the first scope-forming
-   cycle. The goal is a deterministic repo truth model before more
-   product surface expands.
-4. Recheck `CORE_graft-doctor` after backlog status. The command
+2. Shape `v0.8.0` around repo-generic operational truth surfaces:
+   health diagnostics, structural review summaries, and capability
+   posture that apply to any Git repository.
+3. Do not add METHOD-specific backlog/status features to Graft. METHOD
+   backlog lanes, cards, retros, dependency DAGs, and release truth
+   surfaces belong in Method MCP / Method CLI.
+4. Recheck `CORE_graft-doctor` next. The command
    already exists, so the card needs a narrow relevance/scope pass
    before any unified health-report work.
 5. Keep `WARP_lsp-enrichment` and `CORE_migrate-to-slice-first-reads`

@@ -3,7 +3,7 @@ title: "graft backlog-status - feature completion tracking as a tool"
 feature: surface
 kind: leaf
 legend: CORE
-lane: asap
+lane: graveyard
 effort: S
 release_scope: v0.8.0-candidate
 requirements:
@@ -16,6 +16,20 @@ acceptance_criteria:
 ---
 
 # graft backlog-status - feature completion tracking
+
+## Disposition
+
+Canceled for Graft and moved to the graveyard.
+
+Rationale: METHOD-specific backlog/status surfaces do not belong in
+Graft. Graft must remain repo-generic and useful on any Git repository;
+METHOD backlog lanes, cards, retros, dependency DAGs, and release
+truth surfaces belong in Method MCP / Method CLI.
+
+The abandoned `cycle/CORE_backlog-status-tool` branch may be mined as
+prototype material for Method, but it must not be merged into Graft.
+
+## Original Proposal
 
 We keep rebuilding Python scripts to produce the feature menu.
 Make it a graft tool that reads card frontmatter, checks retro
