@@ -44,7 +44,7 @@ surfaces without making Graft depend on METHOD project conventions.
 | Card | Current reality | v0.8.0 verdict | Next action |
 | --- | --- | --- | --- |
 | `CORE_backlog-status-tool` | Backlog cards, retros, design docs, and DAG metadata are METHOD-domain truth surfaces, not repo-generic Graft surfaces. | Canceled for Graft. | Moved to `docs/method/graveyard/`; re-home in Method MCP / Method CLI if still wanted. |
-| `CORE_graft-doctor` | `graft doctor` and `graft diag doctor` already exist; `--sludge` is shipped. The card is partially stale. | Strong opening candidate. | Run a scope check and narrow to shipped-check aggregation. |
+| `CORE_graft-doctor` | `graft doctor` and `graft diag doctor` already exist; `--sludge` is shipped. The original card overreached into all-integrity-check CI gate semantics. | Strong opening candidate after narrowing. | Keep the first slice repo-generic: clarify shipped doctor health/capability posture without METHOD state or broad integrity gates. |
 | `CORE_pr-review-structural-summary` | `git graft enhance` and structural diff facts exist. | Optional v0.8.0 product surface. | Pull only after truth/status surfaces are stable. |
 | `WARP_lsp-enrichment` | Bounded first-slice card exists and is valid, but introduces a semantic provider boundary and new WARP fact class. | Optional, not the default spine. | Keep in `cool-ideas` unless v0.8.0 explicitly becomes semantic-enrichment focused. |
 | `CORE_migrate-to-slice-first-reads` | Remaining medium-risk full-scan reads are tracked; high-risk paths were mitigated. | Blocked. | Wait for git-warp observer geometry APIs. |
@@ -64,8 +64,10 @@ surfaces without making Graft depend on METHOD project conventions.
 
 ## First Pull Recommendation
 
-Run a relevance/scope check on `CORE_graft-doctor`.
+Pull `CORE_graft-doctor` only after the narrowed card is accepted.
 
-The check should start from the existing shipped command and ask what
-repo-generic diagnostic value remains. Do not rebuild METHOD backlog
-status inside Graft.
+The first slice should start from the existing shipped command and keep
+the value repo-generic: runtime health, capability posture, optional
+sludge, and existing repo footing. Do not rebuild METHOD backlog status
+inside Graft, and do not turn doctor into a broad CI integrity gate in
+the first slice.
