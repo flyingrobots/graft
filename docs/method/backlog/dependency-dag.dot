@@ -11,7 +11,7 @@ digraph backlog {
   nodesep=0.2
 
   subgraph cluster_cool_ideas {
-    label="Cool Ideas (78)" labeljust=l fontsize=9 fontcolor="#555555"
+    label="Cool Ideas (77)" labeljust=l fontsize=9 fontcolor="#555555"
     style=rounded color="#cccccc" bgcolor="#fafafa"
     cool_ideas_bounded_neighborhood_for_references [label="bounded-neighborhood-for-references - S" fillcolor="#D4E8F7" penwidth=1]
     cool_ideas_CI_001_causal_collapse_visualizer [label="CI-001-causal-collapse-visualizer - L" fillcolor="#D4E8F7" penwidth=1]
@@ -26,7 +26,6 @@ digraph backlog {
     cool_ideas_CORE_conversation_primer [label="CORE-conversation-primer - M" fillcolor="#D4E8F7" penwidth=1]
     cool_ideas_CORE_cross_session_resume [label="CORE-cross-session-resume - S" fillcolor="#D4E8F7" penwidth=1]
     cool_ideas_CORE_graft_as_teacher [label="CORE-graft-as-teacher - S" fillcolor="#D4E8F7" penwidth=1]
-    cool_ideas_CORE_graft_doctor [label="CORE-graft-doctor - S" fillcolor="#D4E8F7" penwidth=1]
     cool_ideas_CORE_graft_teach_learning_receipts [label="CORE-graft-teach-learning-receipts - S" fillcolor="#D4E8F7" penwidth=1]
     cool_ideas_CORE_horizon_of_readability [label="CORE-horizon-of-readability - M" fillcolor="#D4E8F7" penwidth=1]
     cool_ideas_CORE_lagrangian_policy [label="CORE-lagrangian-policy - XL" fillcolor="#D4E8F7" penwidth=1]
