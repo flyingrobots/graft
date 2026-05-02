@@ -54,7 +54,7 @@ describe("cli: doctor repo-generic posture", () => {
     process.exitCode = previousExitCode;
   });
 
-  it("renders top-level graft doctor as deterministic repo-generic posture text by default", async () => {
+  it("Can I run `graft doctor` in a temp repo and read a concise health posture report without seeing raw JSON?", async () => {
     const repoDir = createCommittedTestRepo("graft-cli-doctor-posture-");
     try {
       const { stdout, stderr } = await runDoctor(repoDir, ["doctor"]);
@@ -66,7 +66,7 @@ describe("cli: doctor repo-generic posture", () => {
     }
   });
 
-  it("renders graft diag doctor through the same repo-generic posture surface by default", async () => {
+  it("Do top-level `graft doctor` and `graft diag doctor` use the same repo-generic posture rendering by default?", async () => {
     const repoDir = createCommittedTestRepo("graft-cli-diag-doctor-posture-");
     try {
       const { stdout, stderr } = await runDoctor(repoDir, ["diag", "doctor"]);
@@ -78,7 +78,7 @@ describe("cli: doctor repo-generic posture", () => {
     }
   });
 
-  it("preserves the schema-validated JSON doctor peer surface when requested", async () => {
+  it("Does `graft doctor --json` preserve the existing schema-validated CLI peer surface?", async () => {
     const repoDir = createCommittedTestRepo("graft-cli-doctor-json-");
     try {
       const { stdout, stderr } = await runDoctor(repoDir, ["doctor", "--json"]);
@@ -96,6 +96,45 @@ describe("cli: doctor repo-generic posture", () => {
       expect(parsed.runtimeObservability).toBeDefined();
       expect(parsed.repoConcurrency).toBeDefined();
       expect(parsed.integrityChecks).toBeUndefined();
+    } finally {
+      cleanupTestRepo(repoDir);
+    }
+  });
+
+  it("Can I tell whether sludge scanning was requested without doctor pretending sludge is a mandatory lint gate?", async () => {
+    const repoDir = createCommittedTestRepo("graft-cli-doctor-sludge-posture-");
+    try {
+      const { stdout, stderr } = await runDoctor(repoDir, ["doctor"]);
+
+      expect(stderr).toBe("");
+      expect(stdout).toContain("Sludge scan");
+      expect(stdout).toContain("not requested");
+      expect(stdout).not.toContain("lint gate");
+      expect(stdout).not.toContain("mandatory");
+    } finally {
+      cleanupTestRepo(repoDir);
+    }
+  });
+
+  it("Is there no METHOD backlog, release, retro, dependency-DAG, or project-management state in the output?", async () => {
+    const repoDir = createCommittedTestRepo("graft-cli-doctor-no-method-state-");
+    try {
+      const { stdout, stderr } = await runDoctor(repoDir, ["doctor"]);
+
+      expect(stderr).toBe("");
+      expectRepoGenericDoctorPosture(stdout);
+    } finally {
+      cleanupTestRepo(repoDir);
+    }
+  });
+
+  it("Do tests prove the first slice does not mention drift-sentinel, structural-drift-detection, version-drift, or CI/pre-commit gate semantics?", async () => {
+    const repoDir = createCommittedTestRepo("graft-cli-doctor-no-gate-");
+    try {
+      const { stdout, stderr } = await runDoctor(repoDir, ["doctor"]);
+
+      expect(stderr).toBe("");
+      expectRepoGenericDoctorPosture(stdout);
     } finally {
       cleanupTestRepo(repoDir);
     }
