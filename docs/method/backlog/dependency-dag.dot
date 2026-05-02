@@ -10,12 +10,6 @@ digraph backlog {
   ranksep=0.55
   nodesep=0.2
 
-  subgraph cluster_asap {
-    label="asap (1)" labeljust=l fontsize=9 fontcolor="#555555"
-    style=rounded color="#cccccc" bgcolor="#fafafa"
-    asap_CORE_backlog_status_tool [label="CORE-backlog-status-tool - S" fillcolor="#E5E7EB" penwidth=2]
-  }
-
   subgraph cluster_cool_ideas {
     label="Cool Ideas (78)" labeljust=l fontsize=9 fontcolor="#555555"
     style=rounded color="#cccccc" bgcolor="#fafafa"

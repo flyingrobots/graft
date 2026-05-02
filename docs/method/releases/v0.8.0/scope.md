@@ -11,10 +11,10 @@ Date: 2026-05-01
 - `v0.7.1` shipped the npm package hygiene patch: `dist/` runtime
   artifacts, no published `src/`, development-only `tsx`, generated
   hook migration, and manual publish guards.
-- Before this decision, the active backlog lanes were clear. This
-  decision lanes `CORE_backlog-status-tool` into `asap/` as the next
-  pull candidate; remaining unselected work stays mostly in
-  `docs/method/backlog/cool-ideas/`.
+- Before this cleanup, `CORE_backlog-status-tool` was incorrectly
+  laned as the next Graft pull candidate. That was product-boundary
+  drift: METHOD-specific backlog/status surfaces belong in Method MCP /
+  Method CLI, not Graft.
 - `WARP_lsp-enrichment` and `CORE_migrate-to-slice-first-reads` were
   intentionally preserved as post-v0.7.0 follow-up scope rather than
   release blockers.
@@ -28,22 +28,23 @@ Date: 2026-05-01
 Make v0.8.0 an operational-truth release unless a stronger blocker
 appears.
 
-The opening spine should be:
+The opening spine should be repo-generic:
 
-1. `CORE_backlog-status-tool`
-2. `CORE_graft-doctor` relevance/scope check
-3. optional `CORE_pr-review-structural-summary`
+1. `CORE_graft-doctor` relevance/scope check
+2. optional `CORE_pr-review-structural-summary`
+3. optional capability/diagnostic posture cleanup that applies to any
+   Git repository
 
 This keeps the next release close to the problems we just encountered:
-release steering, backlog truth, METHOD drift, health checks, and PR
-review evidence.
+health checks, PR review evidence, and truthful repo-generic diagnostic
+surfaces without making Graft depend on METHOD project conventions.
 
 ## Candidate Matrix
 
 | Card | Current reality | v0.8.0 verdict | Next action |
 | --- | --- | --- | --- |
-| `CORE_backlog-status-tool` | Backlog cards, retros, design docs, and DAG metadata already exist, but agents still inspect them with ad hoc shell/Python scripts. | Required first slice. | Moved to `asap/`; pull next as a normal METHOD cycle. |
-| `CORE_graft-doctor` | `graft doctor` and `graft diag doctor` already exist; `--sludge` is shipped. The card is partially stale. | Strong candidate after backlog status. | Run a scope check and narrow to shipped-check aggregation. |
+| `CORE_backlog-status-tool` | Backlog cards, retros, design docs, and DAG metadata are METHOD-domain truth surfaces, not repo-generic Graft surfaces. | Canceled for Graft. | Moved to `docs/method/graveyard/`; re-home in Method MCP / Method CLI if still wanted. |
+| `CORE_graft-doctor` | `graft doctor` and `graft diag doctor` already exist; `--sludge` is shipped. The card is partially stale. | Strong opening candidate. | Run a scope check and narrow to shipped-check aggregation. |
 | `CORE_pr-review-structural-summary` | `git graft enhance` and structural diff facts exist. | Optional v0.8.0 product surface. | Pull only after truth/status surfaces are stable. |
 | `WARP_lsp-enrichment` | Bounded first-slice card exists and is valid, but introduces a semantic provider boundary and new WARP fact class. | Optional, not the default spine. | Keep in `cool-ideas` unless v0.8.0 explicitly becomes semantic-enrichment focused. |
 | `CORE_migrate-to-slice-first-reads` | Remaining medium-risk full-scan reads are tracked; high-risk paths were mitigated. | Blocked. | Wait for git-warp observer geometry APIs. |
@@ -58,13 +59,13 @@ review evidence.
 - No broad LSP/tsserver project model.
 - No daemon action TUI before read/status truth is stable.
 - No slice-first migration until the upstream git-warp APIs exist.
+- No METHOD-specific backlog/status surfaces in Graft.
 - No release tag or publish work.
 
 ## First Pull Recommendation
 
-Pull `CORE_backlog-status-tool`.
+Run a relevance/scope check on `CORE_graft-doctor`.
 
-Start with RED tests for a deterministic status model over checked-in
-backlog, design, retro, and dependency metadata. Rendering and CLI
-wiring come after the model is boring. Keep it read-only and avoid
-turning it into general METHOD automation in the first slice.
+The check should start from the existing shipped command and ask what
+repo-generic diagnostic value remains. Do not rebuild METHOD backlog
+status inside Graft.
