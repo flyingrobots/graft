@@ -17,9 +17,12 @@ changes, this matrix must be refreshed before release.
 ## Current baseline
 
 - `5` CLI-only capabilities
-- `20` API + CLI + MCP capabilities
-- `23` API + MCP capabilities
+- `21` API + CLI + MCP capabilities
+- `22` API + MCP capabilities
 - `1` API-only capability
+- `20` direct CLI/MCP peer capabilities
+- `1` composed CLI operator/lifecycle capability
+- `22` intentionally API + MCP-only agent/control-plane capabilities
 
 API exposure kinds:
 
@@ -30,11 +33,24 @@ API exposure kinds:
 
 CLI/MCP posture values:
 
-- `peer`: both CLI and MCP are intentionally present
-- `cli_only`: CLI-only by current product decision
-- `mcp_only`: MCP-only by current product decision
+- `peer`: the CLI command is a direct peer for the MCP tool
+- `cli_only`: CLI-only lifecycle, operator, debug, or Git-facing
+  command by current product decision
+- `composed_cli_operator`: the CLI command is a human/operator surface
+  that composes one or more existing tool/API truths rather than adding a
+  direct CLI peer
+- `mcp_only`: intentionally API + MCP-only agent/control-plane tool by
+  current product decision
 - `not_applicable`: direct API-only capability, so CLI/MCP parity does
   not apply
+
+Pure host/runtime launch commands such as `graft serve`,
+`graft serve --runtime daemon`, and `graft daemon` are documented in the
+CLI guide rather than as matrix capability rows. They start or route
+entry points. They do not expose a repo/tool capability result by
+themselves. When a top-level CLI command exposes capability truth by
+composing existing tools, it belongs in this matrix as
+`composed_cli_operator`; `graft daemon status` is the current example.
 
 ## Matrix
 
@@ -62,7 +78,7 @@ CLI/MCP posture values:
 | `graft_review` | Yes | Yes | Yes | `tool_bridge` | `peer` | `struct review` | `graft_review` |
 | `git_graft_enhance` | No | Yes | No | `-` | `cli_only` | `enhance` | `-` |
 | `daemon_repos` | Yes | No | Yes | `tool_bridge` | `mcp_only` | `-` | `daemon_repos` |
-| `daemon_status` | Yes | No | Yes | `tool_bridge` | `mcp_only` | `-` | `daemon_status` |
+| `daemon_status` | Yes | Yes | Yes | `tool_bridge` | `composed_cli_operator` | `daemon status` | `daemon_status` |
 | `daemon_sessions` | Yes | No | Yes | `tool_bridge` | `mcp_only` | `-` | `daemon_sessions` |
 | `daemon_monitors` | Yes | No | Yes | `tool_bridge` | `mcp_only` | `-` | `daemon_monitors` |
 | `monitor_start` | Yes | No | Yes | `tool_bridge` | `mcp_only` | `-` | `monitor_start` |

@@ -17,6 +17,12 @@ describe("capability registry", () => {
     expect(byId.get("doctor")?.surfaces).toEqual(["api", "cli", "mcp"]);
     expect(byId.get("doctor")?.apiExposure).toBe("tool_bridge");
 
+    expect(byId.get("daemon_status")?.surfaces).toEqual(["api", "cli", "mcp"]);
+    expect(byId.get("daemon_status")?.apiExposure).toBe("tool_bridge");
+    expect(byId.get("daemon_status")?.cliMcpParity).toBe("composed_cli_operator");
+    expect(byId.get("daemon_status")?.cliPath).toEqual(["daemon", "status"]);
+    expect(byId.get("daemon_status")?.cliCommand).toBeUndefined();
+
     expect(byId.get("local_history_dag")?.surfaces).toEqual(["cli"]);
     expect(byId.get("local_history_dag")?.cliMcpParity).toBe("cli_only");
 
@@ -37,9 +43,17 @@ describe("capability registry", () => {
         expect(capability.cliCommand).toBeDefined();
         expect(capability.mcpTool).toBeUndefined();
       }
+      if (capability.cliMcpParity === "composed_cli_operator") {
+        expect(capability.cliCommand).toBeUndefined();
+        expect(capability.cliPath).toBeDefined();
+        expect(capability.mcpTool).toBeDefined();
+        expect(capability.surfaces).toContain("cli");
+        expect(capability.surfaces).toContain("mcp");
+      }
       if (capability.cliMcpParity === "mcp_only") {
         expect(capability.cliCommand).toBeUndefined();
         expect(capability.mcpTool).toBeDefined();
+        expect(capability.cliPath).toBeUndefined();
       }
       if (capability.cliMcpParity === "not_applicable") {
         expect(capability.surfaces).toEqual(["api"]);
@@ -58,9 +72,12 @@ describe("capability registry", () => {
 
     expect(baseline).toEqual({
       cliOnly: 5,
-      apiCliMcp: 20,
-      apiMcp: 23,
+      apiCliMcp: 21,
+      apiMcp: 22,
       apiOnly: 1,
+      directCliMcpPeers: 20,
+      composedCliOperators: 1,
+      intentionallyApiMcpOnly: 22,
     });
     expect(rows).toEqual(expect.arrayContaining([
       expect.objectContaining({
@@ -82,6 +99,16 @@ describe("capability registry", () => {
         cliMcpParity: "not_applicable",
         cliPath: "-",
         mcpTool: "-",
+      }),
+      expect.objectContaining({
+        id: "daemon_status",
+        api: "Yes",
+        cli: "Yes",
+        mcp: "Yes",
+        apiExposure: "tool_bridge",
+        cliMcpParity: "composed_cli_operator",
+        cliPath: "daemon status",
+        mcpTool: "daemon_status",
       }),
       expect.objectContaining({
         id: "git_graft_enhance",
