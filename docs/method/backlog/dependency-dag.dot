@@ -10,8 +10,14 @@ digraph backlog {
   ranksep=0.55
   nodesep=0.2
 
+  subgraph cluster_bad_code {
+    label="bad-code (1)" labeljust=l fontsize=9 fontcolor="#555555"
+    style=rounded color="#cccccc" bgcolor="#fafafa"
+    bad_code_CORE_test_runner_docker_daemon_hard_failure [label="CORE-test-runner-docker-daemon-hard-failure - S" fillcolor="#F6B3B3" penwidth=2]
+  }
+
   subgraph cluster_cool_ideas {
-    label="Cool Ideas (78)" labeljust=l fontsize=9 fontcolor="#555555"
+    label="Cool Ideas (79)" labeljust=l fontsize=9 fontcolor="#555555"
     style=rounded color="#cccccc" bgcolor="#fafafa"
     cool_ideas_bounded_neighborhood_for_references [label="bounded-neighborhood-for-references - S" fillcolor="#D4E8F7" penwidth=1]
     cool_ideas_CI_001_causal_collapse_visualizer [label="CI-001-causal-collapse-visualizer - L" fillcolor="#D4E8F7" penwidth=1]
@@ -26,7 +32,6 @@ digraph backlog {
     cool_ideas_CORE_conversation_primer [label="CORE-conversation-primer - M" fillcolor="#D4E8F7" penwidth=1]
     cool_ideas_CORE_cross_session_resume [label="CORE-cross-session-resume - S" fillcolor="#D4E8F7" penwidth=1]
     cool_ideas_CORE_graft_as_teacher [label="CORE-graft-as-teacher - S" fillcolor="#D4E8F7" penwidth=1]
-    cool_ideas_CORE_graft_doctor [label="CORE-graft-doctor - S" fillcolor="#D4E8F7" penwidth=1]
     cool_ideas_CORE_graft_teach_learning_receipts [label="CORE-graft-teach-learning-receipts - S" fillcolor="#D4E8F7" penwidth=1]
     cool_ideas_CORE_horizon_of_readability [label="CORE-horizon-of-readability - M" fillcolor="#D4E8F7" penwidth=1]
     cool_ideas_CORE_lagrangian_policy [label="CORE-lagrangian-policy - XL" fillcolor="#D4E8F7" penwidth=1]
@@ -52,6 +57,8 @@ digraph backlog {
     cool_ideas_SURFACE_local_history_dag_render_mode_and_count_legend [label="SURFACE-local-history-dag-render-mode-and-count-legend - S" fillcolor="#D4E8F7" penwidth=1]
     cool_ideas_SURFACE_non_codex_instruction_bootstrap_parity [label="SURFACE-non-codex-instruction-bootstrap-parity - M" fillcolor="#D4E8F7" penwidth=1]
     cool_ideas_SURFACE_offer_rename_refactor [label="SURFACE-offer-rename-refactor - L" fillcolor="#D4E8F7" penwidth=1]
+    cool_ideas_SURFACE_pr_feedback_resolution_ledger [label="SURFACE-pr-feedback-resolution-ledger - M" fillcolor="#D4E8F7" penwidth=1]
+    cool_ideas_SURFACE_review_cooldown_status [label="SURFACE-review-cooldown-status - S" fillcolor="#D4E8F7" penwidth=1]
     cool_ideas_SURFACE_terminal_activity_browser_tui [label="SURFACE-terminal-activity-browser-tui - L" fillcolor="#D4E8F7" penwidth=1]
     cool_ideas_traverse_plus_query_hydration_helper [label="traverse-plus-query-hydration-helper - S" fillcolor="#D4E8F7" penwidth=1]
     cool_ideas_WARP_adaptive_projection_selection [label="WARP-adaptive-projection-selection - L" fillcolor="#D4E8F7" penwidth=1]

@@ -1,10 +1,8 @@
 ---
 title: "graft doctor repo-generic health posture"
-feature: surface
-kind: leaf
 legend: CORE
-lane: cool-ideas
-effort: S
+cycle: "CORE_graft-doctor"
+source_backlog: "docs/method/backlog/cool-ideas/CORE_graft-doctor.md"
 requirements:
   - "doctor MCP tool (shipped)"
   - "graft doctor CLI alias (shipped)"
@@ -22,6 +20,45 @@ acceptance_criteria:
 ---
 
 # graft doctor repo-generic health posture
+
+Source backlog item: `docs/method/backlog/cool-ideas/CORE_graft-doctor.md`
+Legend: CORE
+
+## Sponsors
+
+- Human: Repo operator
+- Agent: Implementation agent
+
+## Hill
+
+`graft doctor` presents the shipped runtime/repo health facts as a
+clear repo-generic posture report for any Git repository, while
+preserving `--json` as the schema-validated machine surface.
+
+The first slice is a presentation and contract cleanup over existing
+facts. It must not turn `doctor` into METHOD status, project management,
+or an all-integrity-check gate.
+
+## Playback Questions
+
+### Human
+
+- [x] Can I run `graft doctor` in a temp repo and read a concise health
+      posture report without seeing raw JSON?
+- [x] Can I tell whether sludge scanning was requested without doctor
+      pretending sludge is a mandatory lint gate?
+- [x] Is there no METHOD backlog, release, retro, dependency-DAG, or
+      project-management state in the output?
+
+### Agent
+
+- [x] Does `graft doctor --json` preserve the existing
+      schema-validated CLI peer surface?
+- [x] Do top-level `graft doctor` and `graft diag doctor` use the same
+      repo-generic posture rendering by default?
+- [x] Do tests prove the first slice does not mention drift-sentinel,
+      structural-drift-detection, version-drift, or CI/pre-commit gate
+      semantics?
 
 ## Scope Check Verdict
 
