@@ -10,12 +10,6 @@ digraph backlog {
   ranksep=0.55
   nodesep=0.2
 
-  subgraph cluster_bad_code {
-    label="bad-code (1)" labeljust=l fontsize=9 fontcolor="#555555"
-    style=rounded color="#cccccc" bgcolor="#fafafa"
-    bad_code_CORE_test_runner_docker_daemon_hard_failure [label="CORE-test-runner-docker-daemon-hard-failure - S" fillcolor="#F6B3B3" penwidth=2]
-  }
-
   subgraph cluster_cool_ideas {
     label="Cool Ideas (79)" labeljust=l fontsize=9 fontcolor="#555555"
     style=rounded color="#cccccc" bgcolor="#fafafa"
