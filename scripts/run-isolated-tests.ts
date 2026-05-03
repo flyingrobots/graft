@@ -1,5 +1,9 @@
 import { spawnSync } from "node:child_process";
 import process from "node:process";
+import {
+  checkDockerAvailability,
+  formatDockerUnavailableMessage,
+} from "./docker-availability.js";
 import { normalizeVitestArgs } from "./isolated-test-args.js";
 
 const CONTAINER_ENV = "GRAFT_TEST_CONTAINER";
@@ -42,6 +46,11 @@ if (process.env[CONTAINER_ENV] === "1") {
 }
 
 const image = process.env["GRAFT_TEST_IMAGE"] ?? DEFAULT_IMAGE;
+const dockerAvailability = checkDockerAvailability();
+if (!dockerAvailability.ok) {
+  console.error(formatDockerUnavailableMessage(dockerAvailability));
+  process.exit(1);
+}
 
 runChecked("docker", ["build", "--target", "test", "-t", image, "."]);
 run("docker", [

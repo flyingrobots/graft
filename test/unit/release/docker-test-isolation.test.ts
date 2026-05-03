@@ -49,4 +49,22 @@ describe("Docker-isolated test validation", () => {
     expect(runner).not.toContain("--volume");
     expect(runner).not.toContain("\"-v\"");
   });
+
+  it("preflights Docker availability before building the isolated image", () => {
+    const runner = readRepoFile("scripts/run-isolated-tests.ts");
+    const preflightIndex = runner.indexOf("checkDockerAvailability()");
+    const buildIndex = runner.indexOf("runChecked(\"docker\", [\"build\"");
+
+    expect(preflightIndex).toBeGreaterThan(0);
+    expect(buildIndex).toBeGreaterThan(preflightIndex);
+    expect(runner).toContain("formatDockerUnavailableMessage");
+  });
+
+  it("names the host-side local fallback without weakening isolated validation", () => {
+    const preflight = readRepoFile("scripts/docker-availability.ts");
+
+    expect(preflight).toContain("Docker is unavailable");
+    expect(preflight).toContain("`pnpm test` is the release-grade isolated runner");
+    expect(preflight).toContain("`pnpm test:local`");
+  });
 });
