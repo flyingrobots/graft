@@ -42,7 +42,7 @@ describe("CORE_graft-doctor playback", () => {
   });
 
   it("Is there no METHOD backlog, release, retro, dependency-DAG, or project-management state in the output?", async () => {
-    const repoDir = createCommittedTestRepo("graft-doctor-playback-no-method-");
+    const repoDir = createCommittedTestRepo("graft-doctor-playback-product-boundary-");
     try {
       const result = await runDoctor(repoDir, ["doctor"]);
 

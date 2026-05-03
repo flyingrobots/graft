@@ -2,6 +2,18 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { expectRepoGenericDoctorPosture, runDoctor } from "../../helpers/doctor.js";
 import { cleanupTestRepo, createCommittedTestRepo } from "../../helpers/git.js";
 
+function normalizeDoctorPostureForCommandParity(output: string): string {
+  return output
+    .split("\n")
+    .map((line) => {
+      const trimmed = line.trimStart();
+      if (trimmed.startsWith("next:")) return "  next: <runtime-posture>";
+      if (trimmed.startsWith("concurrency:")) return "  concurrency: <runtime-posture>";
+      return line;
+    })
+    .join("\n");
+}
+
 describe("cli: doctor repo-generic posture", () => {
   let previousExitCode: typeof process.exitCode;
 
@@ -29,13 +41,40 @@ describe("cli: doctor repo-generic posture", () => {
   it("Do top-level `graft doctor` and `graft diag doctor` use the same repo-generic posture rendering by default?", async () => {
     const repoDir = createCommittedTestRepo("graft-cli-diag-doctor-posture-");
     try {
-      const { stdout, stderr } = await runDoctor(repoDir, ["diag", "doctor"]);
+      const topLevel = await runDoctor(repoDir, ["doctor"]);
+      const grouped = await runDoctor(repoDir, ["diag", "doctor"]);
 
-      expect(stderr).toBe("");
-      expectRepoGenericDoctorPosture(stdout);
+      expect(topLevel.stderr).toBe("");
+      expect(grouped.stderr).toBe("");
+      expectRepoGenericDoctorPosture(topLevel.stdout);
+      expectRepoGenericDoctorPosture(grouped.stdout);
+      expect(normalizeDoctorPostureForCommandParity(grouped.stdout)).toBe(
+        normalizeDoctorPostureForCommandParity(topLevel.stdout),
+      );
     } finally {
       cleanupTestRepo(repoDir);
     }
+  });
+
+  it("Rejects product-boundary wording variants in doctor posture output", () => {
+    const baseline = [
+      "Graft Doctor",
+      "Health",
+      "Capability posture",
+      "Repo footing",
+      "Sludge scan",
+      "not requested",
+    ].join("\n");
+
+    expect(() => {
+      expectRepoGenericDoctorPosture(`${baseline}\ndependency-DAG`);
+    }).toThrow();
+    expect(() => {
+      expectRepoGenericDoctorPosture(`${baseline}\nProject Management`);
+    }).toThrow();
+    expect(() => {
+      expectRepoGenericDoctorPosture(`${baseline}\npre_commit gate`);
+    }).toThrow();
   });
 
   it("Does `graft doctor --json` preserve the existing schema-validated CLI peer surface?", async () => {
@@ -77,7 +116,7 @@ describe("cli: doctor repo-generic posture", () => {
   });
 
   it("Is there no METHOD backlog, release, retro, dependency-DAG, or project-management state in the output?", async () => {
-    const repoDir = createCommittedTestRepo("graft-cli-doctor-no-method-state-");
+    const repoDir = createCommittedTestRepo("graft-cli-doctor-product-boundary-");
     try {
       const { stdout, stderr } = await runDoctor(repoDir, ["doctor"]);
 
