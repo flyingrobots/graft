@@ -1,46 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { runCli } from "../../../src/cli/main.js";
+import { expectRepoGenericDoctorPosture, runDoctor } from "../../helpers/doctor.js";
 import { cleanupTestRepo, createCommittedTestRepo } from "../../helpers/git.js";
-import { createBufferWriter } from "../../helpers/init.js";
-
-const FORBIDDEN_PRODUCT_BOUNDARY_TERMS = [
-  "METHOD",
-  "backlog",
-  "retro",
-  "release",
-  "dependency DAG",
-  "project-management",
-  "drift-sentinel",
-  "structural-drift-detection",
-  "version-drift",
-  "CI gate",
-  "pre-commit gate",
-];
-
-async function runDoctor(repoDir: string, args: readonly string[]) {
-  const stdout = createBufferWriter();
-  const stderr = createBufferWriter();
-  await runCli({
-    cwd: repoDir,
-    args,
-    stdout,
-    stderr,
-  });
-  return { stdout: stdout.text(), stderr: stderr.text() };
-}
-
-function expectRepoGenericDoctorPosture(output: string): void {
-  expect(output.trimStart().startsWith("{")).toBe(false);
-  expect(output).toContain("Graft Doctor");
-  expect(output).toContain("Health");
-  expect(output).toContain("Capability posture");
-  expect(output).toContain("Repo footing");
-  expect(output).toContain("Sludge scan");
-  expect(output).toContain("not requested");
-  for (const forbidden of FORBIDDEN_PRODUCT_BOUNDARY_TERMS) {
-    expect(output).not.toContain(forbidden);
-  }
-}
 
 describe("cli: doctor repo-generic posture", () => {
   let previousExitCode: typeof process.exitCode;
