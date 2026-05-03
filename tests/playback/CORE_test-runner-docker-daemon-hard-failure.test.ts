@@ -4,6 +4,12 @@ import {
   formatDockerUnavailableMessage,
 } from "../../scripts/docker-availability.js";
 
+function dockerError(code: string, message: string): NodeJS.ErrnoException {
+  const error = new Error(message) as NodeJS.ErrnoException;
+  error.code = code;
+  return error;
+}
+
 describe("CORE_test-runner-docker-daemon-hard-failure", () => {
   it("Can I tell immediately that the failure is Docker availability, not a Vitest failure?", () => {
     const availability = checkDockerAvailability(() => ({
@@ -83,7 +89,10 @@ describe("CORE_test-runner-docker-daemon-hard-failure", () => {
     if (!availability.ok) {
       expect(formatDockerUnavailableMessage(availability)).toBe([
         "Cannot run isolated test suite because Docker is unavailable.",
-        "Docker preflight: ERROR: Cannot connect to the Docker daemon at unix:///var/run/docker.sock.",
+        [
+          "Docker preflight: ERROR: Cannot connect to the Docker daemon",
+          "at unix:///var/run/docker.sock.",
+        ].join(" "),
         "`pnpm test` is the release-grade isolated runner and still requires Docker.",
         "Use `pnpm test:local` for non-isolated local feedback while Docker is unavailable.",
       ].join("\n"));
@@ -99,5 +108,64 @@ describe("CORE_test-runner-docker-daemon-hard-failure", () => {
     }));
 
     expect(availability.ok).toBe(true);
+  });
+
+  it("reports a missing Docker CLI as unavailable Docker with the same fallback guidance", () => {
+    const availability = checkDockerAvailability(() => ({
+      status: null,
+      signal: null,
+      stdout: "",
+      stderr: "",
+      error: dockerError("ENOENT", "spawn docker ENOENT"),
+    }));
+
+    expect(availability.ok).toBe(false);
+    if (!availability.ok) {
+      expect(formatDockerUnavailableMessage(availability)).toBe([
+        "Cannot run isolated test suite because Docker is unavailable.",
+        "Docker preflight: Docker CLI was not found on PATH.",
+        "`pnpm test` is the release-grade isolated runner and still requires Docker.",
+        "Use `pnpm test:local` for non-isolated local feedback while Docker is unavailable.",
+      ].join("\n"));
+    }
+  });
+
+  it("reports Docker preflight spawn failures with the same fallback guidance", () => {
+    const availability = checkDockerAvailability(() => ({
+      status: null,
+      signal: null,
+      stdout: "",
+      stderr: "",
+      error: dockerError("EACCES", "permission denied"),
+    }));
+
+    expect(availability.ok).toBe(false);
+    if (!availability.ok) {
+      expect(formatDockerUnavailableMessage(availability)).toContain(
+        "Docker preflight: Docker preflight command failed to start: permission denied",
+      );
+      expect(formatDockerUnavailableMessage(availability)).toContain(
+        "Use `pnpm test:local` for non-isolated local feedback while Docker is unavailable.",
+      );
+    }
+  });
+
+  it("reports nonzero Docker preflight exits without stderr as unavailable Docker", () => {
+    const availability = checkDockerAvailability(() => ({
+      status: 125,
+      signal: null,
+      stdout: "",
+      stderr: "",
+    }));
+
+    expect(availability.ok).toBe(false);
+    if (!availability.ok) {
+      expect(formatDockerUnavailableMessage(availability)).toContain(
+        "Docker preflight: docker info exited with status 125",
+      );
+      expect(formatDockerUnavailableMessage(availability)).toContain(
+        "`pnpm test` is the release-grade isolated runner and still requires Docker.",
+      );
+    }
   });
 });

@@ -4,8 +4,9 @@ title: "Verification Witness for Cycle CORE_test-runner-docker-daemon-hard-failu
 
 # Verification Witness for Cycle CORE_test-runner-docker-daemon-hard-failure
 
-This witness proves that `Default test runner hard-fails when Docker is unavailable` now carries the required
-behavior and adheres to the repo invariants.
+This witness proves that `Default test runner hard-fails when Docker is
+unavailable` now carries the required behavior and adheres to the repo
+invariants.
 
 ## Isolated Test Runner Preflight
 
@@ -15,9 +16,11 @@ behavior and adheres to the repo invariants.
 > tsx scripts/run-isolated-tests.ts
 
 Cannot run isolated test suite because Docker is unavailable.
-Docker preflight: Cannot connect to the Docker daemon at unix://<HOME>/.docker/run/docker.sock. Is the docker daemon running?
+Docker preflight: Cannot connect to the Docker daemon at
+unix://<HOME>/.docker/run/docker.sock. Is the docker daemon running?
 `pnpm test` is the release-grade isolated runner and still requires Docker.
-Use `pnpm test:local` for non-isolated local feedback while Docker is unavailable.
+Use `pnpm test:local` for non-isolated local feedback while Docker is
+unavailable.
 
 ```
 
@@ -32,25 +35,32 @@ release-isolation requirement plus the local fallback.
 > vitest run
 
 Test Files  198 passed (198)
-     Tests  1490 passed (1490)
-  Duration  61.73s
+     Tests  1493 passed (1493)
+  Duration  58.76s
 ```
 
 ## Targeted Results
 
-```text
-> vitest run --run test/unit/method/backlog-dependency-dag.test.ts tests/playback/CORE_test-runner-docker-daemon-hard-failure.test.ts test/unit/release/docker-test-isolation.test.ts
-
-Test Files  3 passed (3)
-     Tests  10 passed (10)
+```sh
+pnpm test:local --run \
+  test/unit/method/backlog-dependency-dag.test.ts \
+  tests/playback/CORE_test-runner-docker-daemon-hard-failure.test.ts \
+  test/unit/release/docker-test-isolation.test.ts
 ```
 
-## Drift Results
+```text
+
+Test Files  3 passed (3)
+     Tests  16 passed (16)
+```
+
+## Pre-Close Drift Results
 
 ```text
 No playback-question drift found.
 Scanned 1 active cycle, 6 playback questions, 275 test descriptions.
-Search basis: normalized match, semantic normalization, or high-confidence token similarity in tests/**/*.test.* and tests/**/*.spec.* descriptions.
+Search basis: normalized match, semantic normalization, or high-confidence
+token similarity in tests/**/*.test.* and tests/**/*.spec.* descriptions.
 
 ```
 
@@ -67,7 +77,8 @@ pnpm typecheck  # passed
       with the Docker-unavailable diagnostic on this machine.
 - [x] Full local fallback passed: `pnpm test:local`.
 - [x] Static validation passed: `pnpm lint`, `pnpm typecheck`.
-- [x] Drift check passed: `method drift CORE_test-runner-docker-daemon-hard-failure`.
+- [x] Pre-close drift check passed:
+      `method drift CORE_test-runner-docker-daemon-hard-failure`.
 
 ## Human Verification
 
@@ -78,9 +89,13 @@ npm test
 pnpm test:local
 pnpm lint
 pnpm typecheck
-method drift CORE_test-runner-docker-daemon-hard-failure
 ```
 
 Expected when Docker is unavailable: `npm test` prints the preflight
 diagnostic above and exits before `docker build`; the remaining commands
 exit 0.
+
+The drift result above was captured before `method_close`. After close,
+the cycle is no longer active and `method drift
+CORE_test-runner-docker-daemon-hard-failure` is not a reproducible
+post-close command.

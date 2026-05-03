@@ -10,7 +10,16 @@ drift_check: yes
 
 ## Summary
 
-Added a Docker availability preflight to the isolated pnpm test runner. When Docker is unavailable, pnpm test now fails before docker build with a deterministic diagnostic that names Docker availability, preserves the release-grade Docker isolation requirement, and points local operators to pnpm test:local for non-isolated feedback. Added playback and release coverage, regenerated the backlog DAG after pulling the bad-code card, and verified with lint, typecheck, drift, targeted tests, pnpm test preflight behavior, and the full host-side Vitest suite.
+Added a Docker availability preflight to the isolated pnpm test runner.
+When Docker is unavailable, `pnpm test` now fails before `docker build`
+with a deterministic diagnostic that names Docker availability, preserves
+the release-grade Docker isolation requirement, and points local
+operators to `pnpm test:local` for non-isolated feedback.
+
+Added playback and release coverage, regenerated the backlog DAG after
+pulling the bad-code card, and verified with lint, typecheck, pre-close
+drift, targeted tests, `pnpm test` preflight behavior, and the full
+host-side Vitest suite.
 
 ## Playback Witness
 

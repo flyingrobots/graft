@@ -3,6 +3,7 @@ import * as path from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 import packageJson from "../../../package.json";
+import { runIsolatedTests, type RunnerSpawn } from "../../../scripts/isolated-test-runner.js";
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../../..");
 
@@ -35,7 +36,7 @@ describe("Docker-isolated test validation", () => {
 
   it("builds a copy-in test stage instead of bind-mounting the live checkout", () => {
     const dockerfile = readRepoFile("Dockerfile");
-    const runner = readRepoFile("scripts/run-isolated-tests.ts");
+    const runner = readRepoFile("scripts/isolated-test-runner.ts");
 
     expect(dockerfile).toContain("FROM deps AS build");
     expect(dockerfile).toContain("RUN pnpm build");
@@ -51,13 +52,41 @@ describe("Docker-isolated test validation", () => {
   });
 
   it("preflights Docker availability before building the isolated image", () => {
-    const runner = readRepoFile("scripts/run-isolated-tests.ts");
-    const preflightIndex = runner.indexOf("checkDockerAvailability()");
-    const buildIndex = runner.indexOf("runChecked(\"docker\", [\"build\"");
+    const calls: string[] = [];
+    const exits: number[] = [];
+    const spawn: RunnerSpawn = (command, args) => {
+      calls.push([command, ...args].join(" "));
+      return { status: 0 };
+    };
+    const exit = (code = 0): never => {
+      exits.push(code);
+      throw new Error(`exit ${String(code)}`);
+    };
 
-    expect(preflightIndex).toBeGreaterThan(0);
-    expect(buildIndex).toBeGreaterThan(preflightIndex);
-    expect(runner).toContain("formatDockerUnavailableMessage");
+    expect(() => runIsolatedTests({
+      argv: [],
+      env: {},
+      checkDocker: () => {
+        calls.push("docker preflight");
+        return { ok: true };
+      },
+      error: (message) => {
+        throw new Error(`unexpected stderr: ${message}`);
+      },
+      exit,
+      spawn,
+    })).toThrow("exit 0");
+
+    expect(calls).toEqual([
+      "docker preflight",
+      "docker build --target test -t graft-test:local .",
+      [
+        "docker run --rm --network none",
+        "-e GRAFT_TEST_CONTAINER=1",
+        "graft-test:local pnpm exec vitest run",
+      ].join(" "),
+    ]);
+    expect(exits).toEqual([0]);
   });
 
   it("names the host-side local fallback without weakening isolated validation", () => {
