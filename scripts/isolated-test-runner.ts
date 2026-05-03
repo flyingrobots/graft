@@ -60,12 +60,16 @@ function exitFrom(
     const message = result.error.message;
     error(`Failed to run ${command}: ${message}`);
     if (result.error.code === "ENOENT") {
-      error(
-        [
-          "Docker is required for `pnpm test`.",
-          "Use `pnpm test:local` only for explicit host-side debugging.",
-        ].join(" "),
-      );
+      if (command === "docker") {
+        error(
+          [
+            "Docker is required for `pnpm test`.",
+            "Use `pnpm test:local` only for explicit host-side debugging.",
+          ].join(" "),
+        );
+      } else {
+        error(`Executable \`${command}\` was not found on PATH. Install it or fix PATH.`);
+      }
     }
     exit(1);
   }

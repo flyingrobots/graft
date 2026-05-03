@@ -18,6 +18,12 @@ function dockerignoreLines(): string[] {
     .filter((line) => line.length > 0 && !line.startsWith("#"));
 }
 
+function missingExecutable(command: string): NodeJS.ErrnoException {
+  const error = new Error(`spawn ${command} ENOENT`) as NodeJS.ErrnoException;
+  error.code = "ENOENT";
+  return error;
+}
+
 describe("Docker-isolated test validation", () => {
   it("routes the default test command through the Docker isolation harness", () => {
     expect(packageJson.scripts.test).toBe("tsx scripts/run-isolated-tests.ts");
@@ -95,5 +101,35 @@ describe("Docker-isolated test validation", () => {
     expect(preflight).toContain("Docker is unavailable");
     expect(preflight).toContain("`pnpm test` is the release-grade isolated runner");
     expect(preflight).toContain("`pnpm test:local`");
+  });
+
+  it("does not print Docker guidance when pnpm is missing inside the isolated runner", () => {
+    const errors: string[] = [];
+    const exits: number[] = [];
+    const exit = (code = 0): never => {
+      exits.push(code);
+      throw new Error(`exit ${String(code)}`);
+    };
+
+    expect(() => runIsolatedTests({
+      argv: [],
+      env: { GRAFT_TEST_CONTAINER: "1" },
+      checkDocker: () => ({ ok: true }),
+      error: (message) => {
+        errors.push(message);
+      },
+      exit,
+      spawn: () => ({
+        status: null,
+        error: missingExecutable("pnpm"),
+      }),
+    })).toThrow("exit 1");
+
+    expect(errors).toEqual([
+      "Failed to run pnpm: spawn pnpm ENOENT",
+      "Executable `pnpm` was not found on PATH. Install it or fix PATH.",
+    ]);
+    expect(errors.join("\n")).not.toContain("Docker is required");
+    expect(exits).toEqual([1]);
   });
 });

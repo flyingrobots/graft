@@ -35,8 +35,8 @@ release-isolation requirement plus the local fallback.
 > vitest run
 
 Test Files  198 passed (198)
-     Tests  1493 passed (1493)
-  Duration  58.76s
+     Tests  1494 passed (1494)
+  Duration  65.80s
 ```
 
 ## Targeted Results
