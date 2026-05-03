@@ -42,15 +42,18 @@ describe("0078 three-surface capability baseline and parity matrix", () => {
     const content = readMatrixDoc();
 
     expect(CAPABILITY_REGISTRY.filter((capability) => capability.surfaces.join("+") === "cli")).toHaveLength(5);
-    expect(CAPABILITY_REGISTRY.filter((capability) => capability.surfaces.join("+") === "api+cli+mcp")).toHaveLength(20);
-    expect(CAPABILITY_REGISTRY.filter((capability) => capability.surfaces.join("+") === "api+mcp")).toHaveLength(23);
+    expect(CAPABILITY_REGISTRY.filter((capability) => capability.surfaces.join("+") === "api+cli+mcp")).toHaveLength(21);
+    expect(CAPABILITY_REGISTRY.filter((capability) => capability.surfaces.join("+") === "api+mcp")).toHaveLength(22);
     expect(CAPABILITY_REGISTRY.filter((capability) => capability.surfaces.join("+") === "api")).toHaveLength(1);
     expect(CAPABILITY_REGISTRY.filter((capability) => capability.surfaces.join("+") === "mcp")).toHaveLength(0);
 
     expect(content).toContain("- `5` CLI-only capabilities");
-    expect(content).toContain("- `20` API + CLI + MCP capabilities");
-    expect(content).toContain("- `23` API + MCP capabilities");
+    expect(content).toContain("- `21` API + CLI + MCP capabilities");
+    expect(content).toContain("- `22` API + MCP capabilities");
     expect(content).toContain("- `1` API-only capability");
+    expect(content).toContain("- `20` direct CLI/MCP peer capabilities");
+    expect(content).toContain("- `1` composed CLI operator/lifecycle capability");
+    expect(content).toContain("- `22` intentionally API + MCP-only agent/control-plane capabilities");
   });
 
   it("Does the capability registry explicitly model all three entry points?", () => {
@@ -76,5 +79,17 @@ describe("0078 three-surface capability baseline and parity matrix", () => {
     expect(content).toContain("| `safe_read` | Yes | Yes | Yes | `repo_workspace` | `peer` | `read safe` | `safe_read` |");
     expect(CAPABILITY_REGISTRY.filter((capability) => capability.surfaces.join("+") === "api")).toHaveLength(1);
     expect(CAPABILITY_REGISTRY.filter((capability) => capability.surfaces.join("+") === "cli")).toHaveLength(5);
+  });
+
+  it("Does the matrix name composed CLI operator surfaces instead of hiding them as MCP-only?", () => {
+    const content = readMatrixDoc();
+
+    expect(content).toContain(
+      "| `daemon_status` | Yes | Yes | Yes | `tool_bridge` | `composed_cli_operator` | `daemon status` | `daemon_status` |",
+    );
+    expect(CAPABILITY_REGISTRY.find((capability) => capability.id === "daemon_status")).toMatchObject({
+      cliMcpParity: "composed_cli_operator",
+      cliPath: ["daemon", "status"],
+    });
   });
 });

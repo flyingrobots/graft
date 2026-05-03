@@ -82,7 +82,7 @@ export type EntrypointSurface = typeof ENTRYPOINT_SURFACES[number];
 
 export type ApiExposure = "tool_bridge" | "repo_workspace" | "structured_buffer";
 
-export type CliMcpParity = "peer" | "cli_only" | "mcp_only" | "not_applicable";
+export type CliMcpParity = "peer" | "cli_only" | "composed_cli_operator" | "mcp_only" | "not_applicable";
 
 export interface CapabilityMatrixRow {
   readonly id: string;
@@ -100,6 +100,9 @@ export interface ThreeSurfaceCapabilityBaseline {
   readonly apiCliMcp: number;
   readonly apiMcp: number;
   readonly apiOnly: number;
+  readonly directCliMcpPeers: number;
+  readonly composedCliOperators: number;
+  readonly intentionallyApiMcpOnly: number;
 }
 
 export interface CapabilityDefinition {
@@ -130,6 +133,8 @@ function defineCapability(seed: CapabilitySeed): CapabilityDefinition {
     surfaces.push("api");
   }
   if (seed.cliCommand !== undefined) {
+    surfaces.push("cli");
+  } else if (seed.cliMcpParity === "composed_cli_operator") {
     surfaces.push("cli");
   }
   if (seed.mcpTool !== undefined) {
@@ -262,7 +267,8 @@ export const CAPABILITY_REGISTRY: readonly CapabilityDefinition[] = [
     id: "daemon_status",
     description: "Inspect daemon-wide health and control-plane posture",
     mcpTool: "daemon_status",
-    cliMcpParity: "mcp_only",
+    cliPath: ["daemon", "status"],
+    cliMcpParity: "composed_cli_operator",
   }),
   defineCapability({
     id: "daemon_sessions",
@@ -536,5 +542,12 @@ export function buildThreeSurfaceCapabilityBaseline(): ThreeSurfaceCapabilityBas
     apiCliMcp: CAPABILITY_REGISTRY.filter((capability) => capability.surfaces.join(",") === "api,cli,mcp").length,
     apiMcp: CAPABILITY_REGISTRY.filter((capability) => capability.surfaces.join(",") === "api,mcp").length,
     apiOnly: CAPABILITY_REGISTRY.filter((capability) => capability.surfaces.join(",") === "api").length,
+    directCliMcpPeers: CAPABILITY_REGISTRY.filter((capability) => capability.cliMcpParity === "peer").length,
+    composedCliOperators: CAPABILITY_REGISTRY.filter((capability) => {
+      return capability.cliMcpParity === "composed_cli_operator";
+    }).length,
+    intentionallyApiMcpOnly: CAPABILITY_REGISTRY.filter((capability) => {
+      return capability.cliMcpParity === "mcp_only";
+    }).length,
   };
 }

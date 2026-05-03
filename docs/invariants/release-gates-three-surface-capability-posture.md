@@ -33,6 +33,8 @@ The release gate keeps those surfaces tied together:
 - docs stay honest
 - API remains a first-class reviewed surface
 - releases do not silently widen or narrow capability posture
+- composed CLI operator/lifecycle commands cannot be hidden as MCP-only
+  rows
 
 ## How to check
 
@@ -40,3 +42,6 @@ The release gate keeps those surfaces tied together:
 - verify the release runbook requires that step
 - verify the capability matrix and public API docs still match the
   registry and package surface
+- verify CLI operator/lifecycle rows are either explicitly represented as
+  `composed_cli_operator` or documented as pure host/runtime launch
+  commands outside capability-row scope

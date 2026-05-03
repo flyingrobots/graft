@@ -26,6 +26,13 @@ describe("release: three-surface capability posture", () => {
     expect(matrixDoc).toContain(`- \`${String(baseline.apiCliMcp)}\` API + CLI + MCP capabilities`);
     expect(matrixDoc).toContain(`- \`${String(baseline.apiMcp)}\` API + MCP capabilities`);
     expect(matrixDoc).toContain(`- \`${String(baseline.apiOnly)}\` API-only capability`);
+    expect(matrixDoc).toContain(`- \`${String(baseline.directCliMcpPeers)}\` direct CLI/MCP peer capabilities`);
+    expect(matrixDoc).toContain(
+      `- \`${String(baseline.composedCliOperators)}\` composed CLI operator/lifecycle capability`,
+    );
+    expect(matrixDoc).toContain(
+      `- \`${String(baseline.intentionallyApiMcpOnly)}\` intentionally API + MCP-only agent/control-plane capabilities`,
+    );
   });
 
   it("keeps every documented matrix row aligned with the capability registry", () => {
@@ -36,6 +43,16 @@ describe("release: three-surface capability posture", () => {
         `| ${quoted(row.id)} | ${row.api} | ${row.cli} | ${row.mcp} | ${quoted(row.apiExposure)} | ${quoted(row.cliMcpParity)} | ${quoted(row.cliPath)} | ${quoted(row.mcpTool)} |`,
       );
     }
+  });
+
+  it("keeps composed CLI operator commands from being hidden as MCP-only", () => {
+    const cliDoc = readRepoFile("docs/CLI.md");
+    const matrixDoc = readRepoFile("docs/three-surface-capability-matrix.md");
+
+    expect(cliDoc).toContain("graft daemon status");
+    expect(matrixDoc).toContain(
+      "| `daemon_status` | Yes | Yes | Yes | `tool_bridge` | `composed_cli_operator` | `daemon status` | `daemon_status` |",
+    );
   });
 
   it("makes three-surface posture a first-class release gate", () => {
