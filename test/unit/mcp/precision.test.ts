@@ -117,6 +117,135 @@ describe("mcp: code_show", () => {
     }
   });
 
+  it("returns WARP symbol history when history is requested", async () => {
+    const tmpDir = createTestRepo("graft-precision-show-history-");
+    try {
+      fs.writeFileSync(
+        path.join(tmpDir, "app.ts"),
+        "export function greet(name: string): string {\n  return `hello ${name}`;\n}\n",
+      );
+      git(tmpDir, "add -A");
+      git(tmpDir, "commit -m 'add greet'");
+
+      const warp = await openWarp({ cwd: tmpDir });
+      const ctx = { app: warp, strandId: null };
+      await indexHead({ cwd: tmpDir, git: testGitClient, pathOps: nodePathOps, ctx });
+
+      fs.writeFileSync(
+        path.join(tmpDir, "app.ts"),
+        "export function greet(name: string, punctuation = \"!\"): string {\n" +
+          "  return `hello ${name}${punctuation}`;\n" +
+          "}\n",
+      );
+      git(tmpDir, "add -A");
+      git(tmpDir, "commit -m 'change greet signature'");
+      await indexHead({ cwd: tmpDir, git: testGitClient, pathOps: nodePathOps, ctx });
+
+      const server = createServerInRepo(tmpDir);
+      const result = parse(await server.callTool("code_show", {
+        symbol: "greet",
+        path: "app.ts",
+        history: true,
+      }));
+
+      expect(result["symbol"]).toBe("greet");
+      expect(result["path"]).toBe("app.ts");
+      expect(result["source"]).toBe("warp");
+      expect(result["layer"]).toBe("commit_worldline");
+      expect(result["content"]).toBeUndefined();
+
+      const history = result["history"] as {
+        changeKind: string;
+        present: boolean;
+        signature?: string;
+        startLine?: number;
+        endLine?: number;
+        path: string;
+      }[];
+      expect(history).toHaveLength(2);
+      expect(history.map((entry) => entry.changeKind)).toEqual(["added", "changed"]);
+      expect(history.every((entry) => entry.present)).toBe(true);
+      expect(history.every((entry) => entry.path === "app.ts")).toBe(true);
+      expect(history[0]!.signature).not.toBe(history[1]!.signature);
+      expect(history[0]!.startLine).toBe(1);
+      expect(history[0]!.endLine).toBe(3);
+    } finally {
+      cleanupTestRepo(tmpDir);
+    }
+  });
+
+  it("returns explicit removed-symbol history when the path is provided", async () => {
+    const tmpDir = createTestRepo("graft-precision-show-history-removed-");
+    try {
+      fs.writeFileSync(path.join(tmpDir, "temp.ts"), "export function gone(): void {}\n");
+      git(tmpDir, "add -A");
+      git(tmpDir, "commit -m 'add gone'");
+
+      const warp = await openWarp({ cwd: tmpDir });
+      const ctx = { app: warp, strandId: null };
+      await indexHead({ cwd: tmpDir, git: testGitClient, pathOps: nodePathOps, ctx });
+
+      fs.writeFileSync(path.join(tmpDir, "temp.ts"), "// gone\n");
+      git(tmpDir, "add -A");
+      git(tmpDir, "commit -m 'remove gone'");
+      await indexHead({ cwd: tmpDir, git: testGitClient, pathOps: nodePathOps, ctx });
+
+      const server = createServerInRepo(tmpDir);
+      const result = parse(await server.callTool("code_show", {
+        symbol: "gone",
+        path: "temp.ts",
+        history: true,
+      }));
+
+      const history = result["history"] as {
+        changeKind: string;
+        present: boolean;
+        signature?: string;
+      }[];
+      expect(history).toHaveLength(2);
+      expect(history[0]).toMatchObject({ changeKind: "added", present: true });
+      expect(history[1]).toMatchObject({ changeKind: "removed", present: false });
+      expect(history[1]!.signature).toBeUndefined();
+    } finally {
+      cleanupTestRepo(tmpDir);
+    }
+  });
+
+  it("refuses symbol history for paths matched by .graftignore", async () => {
+    const tmpDir = createTestRepo("graft-precision-show-history-ignore-");
+    try {
+      fs.writeFileSync(path.join(tmpDir, ".graftignore"), "generated/**\n");
+      fs.mkdirSync(path.join(tmpDir, "generated"), { recursive: true });
+      fs.writeFileSync(
+        path.join(tmpDir, "generated", "secret.ts"),
+        "export function hiddenThing(): boolean {\n  return true;\n}\n",
+      );
+      git(tmpDir, "add -A");
+      git(tmpDir, "commit -m init");
+
+      const warp = await openWarp({ cwd: tmpDir });
+      await indexHead({
+        cwd: tmpDir,
+        git: testGitClient,
+        pathOps: nodePathOps,
+        ctx: { app: warp, strandId: null },
+      });
+
+      const server = createServerInRepo(tmpDir);
+      const result = parse(await server.callTool("code_show", {
+        symbol: "hiddenThing",
+        path: "generated/secret.ts",
+        history: true,
+      }));
+
+      expect(result["projection"]).toBe("refused");
+      expect(result["reason"]).toBe("GRAFTIGNORE");
+      expect(result["history"]).toBeUndefined();
+    } finally {
+      cleanupTestRepo(tmpDir);
+    }
+  });
+
   it("falls back to live parsing for historical reads when WARP is not indexed", async () => {
     const tmpDir = createTestRepo("graft-precision-show-ref-live-");
     try {

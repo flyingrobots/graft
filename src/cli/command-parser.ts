@@ -281,6 +281,7 @@ function parseSymbolCommand(argv: string[]): ParsedCommand {
     const symbol = consumePositional(argv, "symbol");
     const filePath = consumeOption(argv, "--path");
     const ref = consumeOption(argv, "--ref");
+    const history = consumeFlag(argv, "--history");
     expectNoArgs(argv);
     return {
       command: "symbol_show",
@@ -289,6 +290,7 @@ function parseSymbolCommand(argv: string[]): ParsedCommand {
         symbol,
         ...(filePath !== undefined ? { path: filePath } : {}),
         ...(ref !== undefined ? { ref } : {}),
+        ...(history ? { history: true } : {}),
       },
     };
   }

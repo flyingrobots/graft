@@ -29,18 +29,25 @@ Structural git log for a single symbol. No other tool does this.
 
 ## Implementation path
 
-1. Resolve the symbol to its `sym:` node ID via `code_find`
-2. Walk commit nodes in chronological order on the worldline
-3. For each commit, check for `adds`/`changes`/`removes` edges
-   pointing at the target sym node
-4. Collect: signature, startLine/endLine, exported flag, and
-   the nature of the change (added, changed, removed)
-5. Return as an ordered timeline array
+Surface-completion slice:
 
-The infrastructure is fully in place. `indexHead` emits commit→sym
-edges labeled `adds`/`changes`/`removes` with signature metadata.
-The worldline seek API provides ordered commit traversal. This is
-purely orchestration over existing data.
+1. Keep the shipped `symbolTimeline(ctx, name, filePath?)` query as the
+   graph read primitive.
+2. Add `history: true` to MCP `code_show`.
+3. Add `--history` to `graft symbol show`.
+4. Return ordered WARP timeline entries with commit SHA, tick, change
+   kind, presence, signature, line range, and path.
+5. Preserve `.graftignore` refusal before returning symbol history.
+
+The core infrastructure is already in place. `indexHead` emits
+commit→sym edges labeled `adds`/`changes`/`removes` with signature
+metadata, and `symbolTimeline` reconstructs ordered history from WARP
+provenance patches.
+
+Rename truth: this slice does not claim canonical rename continuity.
+The current address-level timeline reports `added`, `changed`, and
+`removed` for `sym:<path>:<name>`. Cross-name continuity belongs to the
+canonical symbol identity model, not to this surface wrapper.
 
 ## Related cards
 

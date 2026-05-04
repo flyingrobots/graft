@@ -26,4 +26,24 @@ describe("cli: command parser", () => {
     expect(() => parseCommand(["enhance", "log", "HEAD~3"])).toThrow("Unexpected arguments");
     expect(() => parseCommand(["enhance", "--since", "HEAD~1", "diff"])).toThrow("Unexpected arguments");
   });
+
+  it("routes symbol show --history into the code_show peer args", () => {
+    expect(parseCommand([
+      "symbol",
+      "show",
+      "greet",
+      "--path",
+      "app.ts",
+      "--history",
+      "--json",
+    ])).toEqual({
+      command: "symbol_show",
+      json: true,
+      args: {
+        symbol: "greet",
+        path: "app.ts",
+        history: true,
+      },
+    });
+  });
 });

@@ -99,7 +99,7 @@ export function resolveDaemonOffloadedRepoTool(
     return dirty ? "code_find_live" : null;
   }
   if (name === "code_show") {
-    return parsed["ref"] === undefined ? "code_show_live" : null;
+    return parsed["ref"] === undefined && parsed["history"] !== true ? "code_show_live" : null;
   }
   return isOffloadedRepoTool(name) ? name : null;
 }

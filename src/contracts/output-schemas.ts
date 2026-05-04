@@ -438,6 +438,17 @@ const precisionSymbolMatchSchema = z.object({
   endLine: z.number().int().positive().optional(),
 }).strict();
 
+const codeShowHistoryEntrySchema = z.object({
+  sha: z.string(),
+  tick: z.number(),
+  changeKind: z.enum(["added", "changed", "removed"]),
+  present: z.boolean(),
+  path: z.string(),
+  signature: z.string().optional(),
+  startLine: z.number().int().positive().optional(),
+  endLine: z.number().int().positive().optional(),
+}).strict();
+
 const codeRefsMatchSchema = z.object({
   path: z.string(),
   line: z.number().int().positive(),
@@ -1000,6 +1011,7 @@ const mcpOutputBodySchemas: Record<McpToolName, z.ZodType> = {
     content: z.string().optional(),
     truncated: z.boolean().optional(),
     clipped: z.boolean().optional(),
+    history: z.array(codeShowHistoryEntrySchema).optional(),
     source: z.enum(["warp", "live"]),
     layer: worldlineLayerSchema,
     ambiguous: z.boolean().optional(),

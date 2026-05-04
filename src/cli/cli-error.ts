@@ -141,7 +141,7 @@ export function describeCliFailure(argv: readonly string[]): CliErrorDetails {
       return { usage: "graft symbol find <query> [--kind <kind>] [--path <path>] [--json]" };
     }
     if (subcommand === "show") {
-      return { usage: "graft symbol show <symbol> [--path <path>] [--ref <ref>] [--json]" };
+      return { usage: "graft symbol show <symbol> [--path <path>] [--ref <ref>] [--history] [--json]" };
     }
     if (subcommand === "blame") {
       return { usage: "graft symbol blame <symbol> [--path <path>] [--json]" };

@@ -14,6 +14,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   emits same-file `calls` edges and `typeof` symbol properties from
   accepted provider facts, caps per-file semantic facts, and reports
   unavailable providers without breaking tree-sitter indexing.
+- **Symbol history precision surface**: `code_show` accepts
+  `history: true`, and `graft symbol show <symbol> --history` routes to
+  the same peer surface. History responses return ordered WARP timeline
+  entries with commit SHA, tick, change kind, presence, signature, line
+  range, and path while preserving `.graftignore` refusal.
 
 ## [0.7.1] - 2026-04-30
 
