@@ -11,7 +11,7 @@ digraph backlog {
   nodesep=0.2
 
   subgraph cluster_cool_ideas {
-    label="Cool Ideas (79)" labeljust=l fontsize=9 fontcolor="#555555"
+    label="Cool Ideas (78)" labeljust=l fontsize=9 fontcolor="#555555"
     style=rounded color="#cccccc" bgcolor="#fafafa"
     cool_ideas_bounded_neighborhood_for_references [label="bounded-neighborhood-for-references - S" fillcolor="#D4E8F7" penwidth=1]
     cool_ideas_CI_001_causal_collapse_visualizer [label="CI-001-causal-collapse-visualizer - L" fillcolor="#D4E8F7" penwidth=1]
@@ -73,7 +73,6 @@ digraph backlog {
     cool_ideas_WARP_grouped_aggregate_queries [label="WARP-grouped-aggregate-queries - M" fillcolor="#D4E8F7" penwidth=1]
     cool_ideas_WARP_intent_and_decision_events [label="WARP-intent-and-decision-events - M" fillcolor="#D4E8F7" penwidth=1]
     cool_ideas_WARP_intentional_degeneracy_privacy [label="WARP-intentional-degeneracy-privacy - M" fillcolor="#D4E8F7" penwidth=1]
-    cool_ideas_WARP_lsp_enrichment [label="WARP-lsp-enrichment" fillcolor="#D4E8F7" penwidth=1]
     cool_ideas_WARP_minimum_viable_context [label="WARP-minimum-viable-context - M" fillcolor="#D4E8F7" penwidth=1]
     cool_ideas_WARP_outline_diff_commit_trailer [label="WARP-outline-diff-commit-trailer - S" fillcolor="#D4E8F7" penwidth=1]
     cool_ideas_WARP_projection_safety_classes [label="WARP-projection-safety-classes - M" fillcolor="#D4E8F7" penwidth=1]

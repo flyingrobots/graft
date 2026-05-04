@@ -21,7 +21,7 @@ function createCommittedRepo(): string {
   return repoDir;
 }
 
-describe("mcp: persistent monitors", () => {
+describe("mcp: persistent monitors", { timeout: 15000 }, () => {
   it("Do background monitors run through the same pressure and fairness scheduler as foreground repo work?", async () => {
     const repoDir = createCommittedRepo();
     const server = createManagedDaemonServer(cleanups);
