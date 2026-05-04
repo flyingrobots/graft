@@ -1,0 +1,155 @@
+---
+title: "v0.8.0 scope formation"
+legend: "CORE"
+cycle: "CORE_v080-scope-formation"
+source_backlog: "docs/method/backlog/asap/CORE_v080-scope-formation.md"
+---
+
+# v0.8.0 scope formation
+
+Source backlog item: `docs/method/backlog/asap/CORE_v080-scope-formation.md`
+Legend: CORE
+
+## Hill
+
+Settle the opening v0.8.0 lane before pulling more feature work.
+
+The lane must keep Graft focused on repo-generic operational truth
+surfaces for any Git repository: health posture, structural review
+summaries, and capability posture. It must also name the first
+implementation pull candidate and the work deliberately kept out of the
+opening lane.
+
+## Playback Questions
+
+### Human
+
+- [x] Can a human see that this cycle forms v0.8.0 scope instead of
+      shipping runtime behavior?
+- [x] Can a human identify the first implementation pull candidate and
+      the follow-up candidates?
+- [x] Can a human see which tempting work is explicitly deferred from
+      the opening v0.8.0 lane?
+
+### Agent
+
+- [x] Does the scope decision mechanically agree with the current
+      `docs/BEARING.md` next target?
+- [x] Does the design keep METHOD backlog/status features out of Graft?
+- [x] Does the design preserve the shipped doctor and capability
+      posture work as baseline, not work to reopen in this cycle?
+
+## Accessibility and Assistive Reading
+
+- Linear truth / reduced-complexity posture: the scope decision is
+  expressed as text tables and literal card ids, not inferred from a
+  diagram.
+- Non-visual or alternate-reading expectations: release lane, first
+  pull, follow-ups, and deferrals are named in prose with stable
+  backlog ids.
+
+## Localization and Directionality
+
+- Locale / wording / formatting assumptions: English repo docs and
+  ASCII backlog ids.
+- Logical direction / layout assumptions: no directional UI assumptions
+  in this planning slice.
+
+## Agent Inspectability and Explainability
+
+- What must be explicit and deterministic for agents: the lane spine,
+  first implementation card, follow-up candidates, and excluded work.
+- What must be attributable, evidenced, or governed: the decision must
+  cite repo-visible backlog/design cards and the current bearing rather
+  than relying on chat-only intent.
+
+## Non-goals
+
+- [ ] Add runtime behavior.
+- [ ] Move METHOD backlog, retro, dependency-DAG, release, or
+      project-management state into Graft product surfaces.
+- [ ] Continue WARP LSP enrichment beyond the merged seam.
+- [ ] Pull slice-first read migration before the needed git-warp
+      observer geometry APIs exist.
+- [ ] Add daemon live refresh or daemon control-plane actions to the
+      default v0.8.0 spine.
+- [ ] Reopen already shipped doctor or capability-posture cycles
+      without a new, narrow follow-up card.
+
+## Scope Decision
+
+The opening v0.8.0 lane is:
+
+> Repo-generic operational truth surfaces for any Git repository.
+
+That means the next implementation work should make a repository easier
+to inspect and review without adding project-management features,
+METHOD-specific status, broad release machinery, or another WARP
+ontology expansion.
+
+## Shipped Baseline To Preserve
+
+| Baseline | Posture |
+| --- | --- |
+| `CORE_graft-doctor` | Shipped repo-generic health posture; do not reopen unless a new narrow doctor follow-up is written. |
+| `CORE_three-surface-capability-baseline-and-parity-matrix` | Shipped capability posture baseline across API, CLI, and MCP. |
+| `CORE_release-gate-for-three-surface-capability-posture` | Shipped release gate for capability posture drift. |
+| `SURFACE_capability-matrix-truth` | Shipped correction for composed CLI operator truth. |
+
+## Opening Lane
+
+| Role | Card | Release posture |
+| --- | --- | --- |
+| First implementation pull | `CORE_pr-review-structural-summary` | Best match for v0.8.0 structural review summaries; repo-generic and all prerequisites are marked shipped. |
+| Follow-up candidate | `CORE_structural-test-coverage-map` | Repo-generic review helper; useful after the PR structural summary, but must avoid claiming execution coverage. |
+| Optional operator helper | `SURFACE_review-cooldown-status` | Useful for PR feedback loops, but not the release spine. |
+
+The next pull after this scope cycle should be
+`CORE_pr-review-structural-summary`. This card is promoted to `asap/`
+as the concrete next backlog item.
+
+## Explicit Deferrals
+
+| Deferred work | Reason |
+| --- | --- |
+| `WARP_lsp-enrichment` continuation | The seam has landed; further LSP work is valid optional scope, not the opening v0.8.0 lane. |
+| `CORE_migrate-to-slice-first-reads` | Explicitly blocked until git-warp observer geometry APIs land. |
+| `SURFACE_bijou-daemon-status-live-refresh` | Daemon operator lane, not default v0.8.0 spine. |
+| `SURFACE_bijou-daemon-control-plane-actions` | Daemon operator lane and mutating control-plane work; keep separate from repo-generic review/health posture. |
+| METHOD backlog/status/release surfaces | Belong in Method MCP / Method CLI, not Graft product surfaces. |
+
+No METHOD backlog/status product surface is part of this lane.
+
+## Pull Criteria For The Next Cycle
+
+Before pulling `CORE_pr-review-structural-summary`, preserve these
+constraints:
+
+- keep the first slice CLI-first or library-first, not GitHub Action
+  first, unless the design proves the action boundary is small
+- treat GitHub PR fetching as an adapter concern, not core review logic
+- make the output explicitly structural and advisory
+- do not claim semantic completeness, execution coverage, or merge
+  readiness
+- keep METHOD backlog/status state out of the result
+
+## Backlog Context
+
+Shape the opening v0.8.0 lane before pulling another implementation
+cycle.
+
+The current bearing says the immediate focus is v0.8.0 scope formation,
+centered on repo-generic operational truth surfaces: health diagnostics,
+structural review summaries, and capability posture for any Git
+repository.
+
+This cycle should turn that direction into a small, inspectable lane:
+
+- pick the first implementation pull candidate
+- identify follow-up candidates that belong in the same release shape
+- state what is deliberately deferred
+- avoid adding METHOD backlog/status features to Graft
+
+The likely first candidate is `CORE_pr-review-structural-summary`, with
+`CORE_structural-test-coverage-map` as a follow-up. Smaller PR workflow
+helpers may be useful, but should not become the release spine.

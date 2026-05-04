@@ -3,7 +3,8 @@ title: "PR review structural summary"
 feature: surface
 kind: leaf
 legend: CORE
-lane: cool-ideas
+lane: asap
+priority: 1
 effort: M
 requirements:
   - "graft_diff tool (shipped)"

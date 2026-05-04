@@ -10,8 +10,14 @@ digraph backlog {
   ranksep=0.55
   nodesep=0.2
 
+  subgraph cluster_asap {
+    label="asap (1)" labeljust=l fontsize=9 fontcolor="#555555"
+    style=rounded color="#cccccc" bgcolor="#fafafa"
+    asap_CORE_pr_review_structural_summary [label="CORE-pr-review-structural-summary - M" fillcolor="#E5E7EB" penwidth=2]
+  }
+
   subgraph cluster_cool_ideas {
-    label="Cool Ideas (78)" labeljust=l fontsize=9 fontcolor="#555555"
+    label="Cool Ideas (77)" labeljust=l fontsize=9 fontcolor="#555555"
     style=rounded color="#cccccc" bgcolor="#fafafa"
     cool_ideas_bounded_neighborhood_for_references [label="bounded-neighborhood-for-references - S" fillcolor="#D4E8F7" penwidth=1]
     cool_ideas_CI_001_causal_collapse_visualizer [label="CI-001-causal-collapse-visualizer - L" fillcolor="#D4E8F7" penwidth=1]
@@ -33,7 +39,6 @@ digraph backlog {
     cool_ideas_CORE_multi_agent_conflict_detection [label="CORE-multi-agent-conflict-detection - L" fillcolor="#D4E8F7" penwidth=1]
     cool_ideas_CORE_policy_playground [label="CORE-policy-playground - S" fillcolor="#D4E8F7" penwidth=1]
     cool_ideas_CORE_policy_profiles [label="CORE-policy-profiles - M" fillcolor="#D4E8F7" penwidth=1]
-    cool_ideas_CORE_pr_review_structural_summary [label="CORE-pr-review-structural-summary - M" fillcolor="#D4E8F7" penwidth=1]
     cool_ideas_CORE_self_tuning_governor [label="CORE-self-tuning-governor - M" fillcolor="#D4E8F7" penwidth=1]
     cool_ideas_CORE_session_knowledge_map [label="CORE-session-knowledge-map - S" fillcolor="#D4E8F7" penwidth=1]
     cool_ideas_CORE_speculative_read_cost [label="CORE-speculative-read-cost - S" fillcolor="#D4E8F7" penwidth=1]
