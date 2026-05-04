@@ -15,16 +15,18 @@ Targeted semantic playback:
 pnpm vitest run test/unit/warp/lsp-semantic-enrichment.test.ts
 
 Test Files  1 passed (1)
-Tests       8 passed (8)
+Tests       10 passed (10)
 ```
 
 Backlog DAG regeneration witness plus semantic playback:
 
 ```text
-pnpm vitest run test/unit/method/backlog-dependency-dag.test.ts test/unit/warp/lsp-semantic-enrichment.test.ts
+pnpm vitest run \
+  test/unit/method/backlog-dependency-dag.test.ts \
+  test/unit/warp/lsp-semantic-enrichment.test.ts
 
 Test Files  2 passed (2)
-Tests       10 passed (10)
+Tests       12 passed (12)
 ```
 
 Full non-isolated local suite:
@@ -33,7 +35,7 @@ Full non-isolated local suite:
 pnpm test:local
 
 Test Files  200 passed (200)
-Tests       1510 passed (1510)
+Tests       1512 passed (1512)
 ```
 
 Static validation:
@@ -57,7 +59,8 @@ pnpm test
 > tsx scripts/run-isolated-tests.ts
 
 Cannot run isolated test suite because Docker is unavailable.
-Docker preflight: Cannot connect to the Docker daemon at unix://<HOME>/.docker/run/docker.sock. Is the docker daemon running?
+Docker preflight: Cannot connect to the Docker daemon at
+unix://<HOME>/.docker/run/docker.sock. Is the docker daemon running?
 `pnpm test` is the release-grade isolated runner and still requires Docker.
 Use `pnpm test:local` for non-isolated local feedback while Docker is unavailable.
 
@@ -68,7 +71,8 @@ Use `pnpm test:local` for non-isolated local feedback while Docker is unavailabl
 ```text
 No playback-question drift found.
 Scanned 1 active cycle, 0 playback questions, 285 test descriptions.
-Search basis: normalized match, semantic normalization, or high-confidence token similarity in tests/**/*.test.* and tests/**/*.spec.* descriptions.
+Search basis: normalized match, semantic normalization, or high-confidence
+token similarity in tests/**/*.test.* and tests/**/*.spec.* descriptions.
 
 ```
 
@@ -91,7 +95,9 @@ To reproduce this verification independently from the workspace root:
 
 ```sh
 pnpm vitest run test/unit/warp/lsp-semantic-enrichment.test.ts
-pnpm vitest run test/unit/method/backlog-dependency-dag.test.ts test/unit/warp/lsp-semantic-enrichment.test.ts
+pnpm vitest run \
+  test/unit/method/backlog-dependency-dag.test.ts \
+  test/unit/warp/lsp-semantic-enrichment.test.ts
 pnpm test:local
 pnpm lint
 pnpm typecheck

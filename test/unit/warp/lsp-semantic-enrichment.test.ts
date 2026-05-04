@@ -12,6 +12,7 @@ import type {
 } from "../../../src/ports/semantic-enrichment.js";
 import { indexHead } from "../../../src/warp/index-head.js";
 import { openWarp } from "../../../src/warp/open.js";
+import { prepareSemanticFacts } from "../../../src/warp/semantic-enrichment.js";
 import { cleanupTestRepo, createTestRepo, git } from "../../helpers/git.js";
 
 describe("warp: bounded LSP semantic enrichment", { timeout: 15000 }, () => {
@@ -330,6 +331,67 @@ describe("warp: bounded LSP semantic enrichment", { timeout: 15000 }, () => {
     const obs = await warp.observer({ match: "sym:*" });
     expect((await obs.getNodeProps("sym:src/app.ts:fn63"))?.["typeof"]).toBe("() => void");
     expect((await obs.getNodeProps("sym:src/app.ts:fn64"))?.["typeof"]).toBeUndefined();
+  });
+
+  it("stress: does not inspect provider facts beyond the semantic fact cap", () => {
+    const facts = new Array<SemanticEnrichmentFact>(70);
+    facts[0] = {
+      kind: "typeof",
+      symbolId: "sym:src/app.ts:start",
+      typeName: "() => void",
+    };
+    for (let index = 1; index < facts.length; index++) {
+      Object.defineProperty(facts, index, {
+        configurable: true,
+        get() {
+          throw new Error(`inspected overflow fact ${String(index)}`);
+        },
+      });
+    }
+
+    const prepared = prepareSemanticFacts({
+      filePath: "src/app.ts",
+      currentSymbolIds: new Set(["sym:src/app.ts:start"]),
+      result: available(facts),
+      maxFacts: 1,
+    });
+
+    expect(prepared).toEqual({
+      acceptedFacts: [{
+        kind: "typeof",
+        symbolId: "sym:src/app.ts:start",
+        typeName: "() => void",
+      }],
+      factsRejected: 69,
+    });
+  });
+
+  it("edge case: normalizes malformed provider-reported rejection counts", () => {
+    const base = {
+      filePath: "src/app.ts",
+      currentSymbolIds: new Set(["sym:src/app.ts:start"]),
+      maxFacts: 64,
+    };
+
+    for (const factsRejected of [-1, 1.5, Number.NaN, Number.POSITIVE_INFINITY]) {
+      expect(prepareSemanticFacts({
+        ...base,
+        result: {
+          status: "available",
+          facts: [],
+          factsRejected,
+        },
+      }).factsRejected).toBe(0);
+    }
+
+    expect(prepareSemanticFacts({
+      ...base,
+      result: {
+        status: "available",
+        facts: [],
+        factsRejected: 2,
+      },
+    }).factsRejected).toBe(2);
   });
 
   it("stress: still applies maxPatchJsonBytes to provider-supplied semantic facts", async () => {

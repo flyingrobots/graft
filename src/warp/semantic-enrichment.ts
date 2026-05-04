@@ -16,14 +16,17 @@ export function prepareSemanticFacts(input: {
   readonly maxFacts: number;
 }): PreparedSemanticFacts {
   const acceptedFacts: SemanticEnrichmentFact[] = [];
-  let factsRejected = input.result.factsRejected ?? 0;
+  const maxFacts = normalizeFactLimit(input.maxFacts);
+  const factsToInspect = Math.min(input.result.facts.length, maxFacts);
+  let factsRejected = normalizeProviderFactsRejected(input.result.factsRejected) +
+    Math.max(0, input.result.facts.length - factsToInspect);
 
-  for (const [index, fact] of input.result.facts.entries()) {
-    if (index >= input.maxFacts) {
+  for (let index = 0; index < factsToInspect; index++) {
+    const fact = input.result.facts[index];
+    if (fact === undefined) {
       factsRejected++;
       continue;
     }
-
     if (!isAnchoredFact(input.filePath, input.currentSymbolIds, fact)) {
       factsRejected++;
       continue;
@@ -72,4 +75,13 @@ function isCurrentFileSymbol(
   symbolId: string,
 ): boolean {
   return symbolId.startsWith(`sym:${filePath}:`) && currentSymbolIds.has(symbolId);
+}
+
+function normalizeFactLimit(value: number): number {
+  return Number.isSafeInteger(value) && value > 0 ? value : 0;
+}
+
+function normalizeProviderFactsRejected(value: number | undefined): number {
+  if (value === undefined) return 0;
+  return Number.isSafeInteger(value) && value >= 0 ? value : 0;
 }
