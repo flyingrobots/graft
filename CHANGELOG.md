@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Added
+
+- **Bounded WARP semantic enrichment seam**: `indexHead` accepts an
+  optional semantic enrichment provider for explicit-path indexing,
+  emits same-file `calls` edges and `typeof` symbol properties from
+  accepted provider facts, caps per-file semantic facts, and reports
+  unavailable providers without breaking tree-sitter indexing.
+
 ## [0.7.1] - 2026-04-30
 
 ### Fixed

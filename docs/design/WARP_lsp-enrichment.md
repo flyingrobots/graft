@@ -26,26 +26,26 @@ add a concrete language server runtime.
 
 ### Human
 
-- [ ] Can a human tell this is a semantic enrichment provider boundary,
+- [x] Can a human tell this is a semantic enrichment provider boundary,
       not a full language server implementation?
-- [ ] Can a human see that enrichment only runs for explicit-path
+- [x] Can a human see that enrichment only runs for explicit-path
       indexing and never starts background or whole-repo indexing?
-- [ ] Can a human identify the first accepted fact kinds and the
+- [x] Can a human identify the first accepted fact kinds and the
       semantic work deliberately deferred?
 
 ### Agent
 
-- [ ] Does `indexHead` expose a semantic provider hook that is optional
+- [x] Does `indexHead` expose a semantic provider hook that is optional
       and deterministic under test?
-- [ ] Does `indexHead` ask the provider only for explicitly indexed file
+- [x] Does `indexHead` ask the provider only for explicitly indexed file
       paths and current HEAD content?
-- [ ] Do fake-provider `call` facts emit bounded `calls` edges anchored
+- [x] Do fake-provider `call` facts emit bounded `calls` edges anchored
       to existing same-file symbols?
-- [ ] Do fake-provider `typeof` facts emit bounded `typeof` properties
+- [x] Do fake-provider `typeof` facts emit bounded `typeof` properties
       on existing same-file symbol nodes?
-- [ ] Does an unavailable provider preserve normal tree-sitter indexing
+- [x] Does an unavailable provider preserve normal tree-sitter indexing
       while reporting semantic degradation?
-- [ ] Do semantic fact caps and the existing `maxPatchJsonBytes` patch
+- [x] Do semantic fact caps and the existing `maxPatchJsonBytes` patch
       budget protect WARP materialization?
 
 ## Accessibility and Assistive Reading
