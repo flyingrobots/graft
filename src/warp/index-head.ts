@@ -18,6 +18,14 @@ import { attachAstSnapshot, emitAstNodes } from "./ast-emitter.js";
 import { resolveImportEdges } from "./ast-import-resolver.js";
 import type { OutlineEntry } from "../parser/types.js";
 import { getCommitMeta } from "./commit-meta.js";
+import {
+  DEFAULT_SEMANTIC_FACT_LIMIT,
+  type SemanticEnrichmentFact,
+  type SemanticEnrichmentProvider,
+  type SemanticEnrichmentSummary,
+  type SemanticEnrichmentUnavailableFile,
+} from "../ports/semantic-enrichment.js";
+import { emitSemanticFacts, prepareSemanticFacts } from "./semantic-enrichment.js";
 
 export const DEFAULT_INDEX_MAX_FILES_PER_CALL = 64;
 export const DEFAULT_INDEX_MAX_PATCH_JSON_BYTES = 2 * 1024 * 1024;
@@ -105,12 +113,15 @@ export interface IndexHeadOptions {
   readonly paths?: readonly string[] | undefined;
   readonly maxFilesPerCall?: number | undefined;
   readonly maxPatchJsonBytes?: number | undefined;
+  readonly semanticProvider?: SemanticEnrichmentProvider | undefined;
+  readonly semanticFactLimit?: number | undefined;
 }
 
 export interface IndexHeadResult {
   readonly ok: true;
   readonly filesIndexed: number;
   readonly nodesEmitted: number;
+  readonly semanticEnrichment: SemanticEnrichmentSummary;
 }
 
 interface HeadCommitMetadata {
@@ -135,6 +146,15 @@ export async function indexHead(opts: IndexHeadOptions): Promise<IndexHeadResult
   const { cwd, git, pathOps, ctx } = opts;
   const maxFilesPerCall = opts.maxFilesPerCall ?? DEFAULT_INDEX_MAX_FILES_PER_CALL;
   const maxPatchJsonBytes = opts.maxPatchJsonBytes ?? DEFAULT_INDEX_MAX_PATCH_JSON_BYTES;
+  const semanticFactLimit = normalizeSemanticFactLimit(opts.semanticFactLimit);
+  const hasExplicitPaths = hasExplicitIndexPaths(opts.paths);
+  const semanticSummary = createMutableSemanticSummary({
+    providerConfigured: opts.semanticProvider !== undefined,
+    hasExplicitPaths,
+  });
+  const semanticProvider = opts.semanticProvider !== undefined && hasExplicitPaths
+    ? opts.semanticProvider
+    : undefined;
 
   const headResult = await git.run({ args: ["rev-parse", "HEAD"], cwd });
   if (headResult.status !== 0) {
@@ -167,11 +187,23 @@ export async function indexHead(opts: IndexHeadOptions): Promise<IndexHeadResult
       knownFiles,
       filePath,
       maxPatchJsonBytes,
+      semanticProvider,
+      semanticFactLimit,
     });
-    if (indexed) filesIndexed++;
+    if (indexed.indexed) {
+      filesIndexed++;
+      if (indexed.semantic !== undefined) {
+        mergeSemanticSummary(semanticSummary, indexed.semantic);
+      }
+    }
   }
 
-  return { ok: true, filesIndexed, nodesEmitted: filesIndexed };
+  return {
+    ok: true,
+    filesIndexed,
+    nodesEmitted: filesIndexed,
+    semanticEnrichment: finalizeSemanticSummary(semanticSummary),
+  };
 }
 
 // ---------------------------------------------------------------------------
@@ -211,6 +243,66 @@ function selectParseableFiles(
     : allFiles;
 
   return candidates.filter((filePath) => detectLang(filePath) !== null);
+}
+
+function hasExplicitIndexPaths(paths: readonly string[] | undefined): boolean {
+  return paths?.some((filePath) => filePath.trim().length > 0) ?? false;
+}
+
+function normalizeSemanticFactLimit(value: number | undefined): number {
+  if (value === undefined) return DEFAULT_SEMANTIC_FACT_LIMIT;
+  if (!Number.isInteger(value) || value < 0) {
+    throw new Error("indexHead semanticFactLimit must be a non-negative integer");
+  }
+  return value;
+}
+
+interface MutableSemanticSummary {
+  status: SemanticEnrichmentSummary["status"];
+  filesAttempted: number;
+  factsAccepted: number;
+  factsRejected: number;
+  unavailable: SemanticEnrichmentUnavailableFile[];
+}
+
+function createMutableSemanticSummary(input: {
+  readonly providerConfigured: boolean;
+  readonly hasExplicitPaths: boolean;
+}): MutableSemanticSummary {
+  const status = input.providerConfigured
+    ? input.hasExplicitPaths ? "available" : "skipped_not_explicit"
+    : "not_configured";
+  return {
+    status,
+    filesAttempted: 0,
+    factsAccepted: 0,
+    factsRejected: 0,
+    unavailable: [],
+  };
+}
+
+function mergeSemanticSummary(
+  target: MutableSemanticSummary,
+  fileSummary: SemanticEnrichmentSummary,
+): void {
+  target.filesAttempted += fileSummary.filesAttempted;
+  target.factsAccepted += fileSummary.factsAccepted;
+  target.factsRejected += fileSummary.factsRejected;
+  target.unavailable.push(...fileSummary.unavailable);
+}
+
+function finalizeSemanticSummary(summary: MutableSemanticSummary): SemanticEnrichmentSummary {
+  const status = summary.status === "available" && summary.unavailable.length > 0
+    ? "unavailable"
+    : summary.status;
+
+  return {
+    status,
+    filesAttempted: summary.filesAttempted,
+    factsAccepted: summary.factsAccepted,
+    factsRejected: summary.factsRejected,
+    unavailable: summary.unavailable,
+  };
 }
 
 async function readPriorSymsForFile(
@@ -264,13 +356,27 @@ async function indexHeadFile(input: {
   readonly knownFiles: ReadonlySet<string>;
   readonly filePath: string;
   readonly maxPatchJsonBytes: number;
-}): Promise<boolean> {
-  const { cwd, git, pathOps, ctx, headSha, commitMeta, knownFiles, filePath, maxPatchJsonBytes } = input;
+  readonly semanticProvider: SemanticEnrichmentProvider | undefined;
+  readonly semanticFactLimit: number;
+}): Promise<IndexHeadFileResult> {
+  const {
+    cwd,
+    git,
+    pathOps,
+    ctx,
+    headSha,
+    commitMeta,
+    knownFiles,
+    filePath,
+    maxPatchJsonBytes,
+    semanticProvider,
+    semanticFactLimit,
+  } = input;
   const lang = detectLang(filePath);
-  if (lang === null) return false;
+  if (lang === null) return { indexed: false };
 
   const contentResult = await git.run({ args: ["show", `HEAD:${filePath}`], cwd });
-  if (contentResult.status !== 0) return false;
+  if (contentResult.status !== 0) return { indexed: false };
 
   const tree = parseStructuredTree(lang, contentResult.stdout);
   try {
@@ -283,6 +389,17 @@ async function indexHeadFile(input: {
 
     const currentSyms = new Map<string, string | undefined>();
     collectSymIds(currentSyms, filePath, outline);
+    const currentSymbolIds = new Set(currentSyms.keys());
+    const semantic = await prepareFileSemanticEnrichment({
+      provider: semanticProvider,
+      repoRoot: cwd,
+      filePath,
+      language: lang,
+      content: contentResult.stdout,
+      headSha,
+      currentSymbolIds,
+      maxFacts: semanticFactLimit,
+    });
 
     let priorSyms = new Map<string, string | undefined>();
     let priorAstAnchors: readonly string[] = [];
@@ -321,6 +438,7 @@ async function indexHeadFile(input: {
       emitOutlineSyms(patch, filePath, outline, jumpLookup);
       emitAstNodes(patch, filePath, tree.root);
       resolveImportEdges(patch, filePath, tree.root, pathOps, knownFiles);
+      emitSemanticFacts(patch, semantic.factsToEmit);
       await attachAstSnapshot(patch, filePath, tree.root);
 
       for (const [symId, sig] of currentSyms) {
@@ -341,8 +459,99 @@ async function indexHeadFile(input: {
       assertPatchWithinBudget(patch, filePath, maxPatchJsonBytes);
     });
 
-    return true;
+    return { indexed: true, semantic: semantic.summary };
   } finally {
     tree.delete();
   }
+}
+
+interface IndexHeadFileResult {
+  readonly indexed: boolean;
+  readonly semantic?: SemanticEnrichmentSummary | undefined;
+}
+
+interface PreparedFileSemanticEnrichment {
+  readonly factsToEmit: readonly SemanticEnrichmentFact[];
+  readonly summary: SemanticEnrichmentSummary | undefined;
+}
+
+async function prepareFileSemanticEnrichment(input: {
+  readonly provider: SemanticEnrichmentProvider | undefined;
+  readonly repoRoot: string;
+  readonly filePath: string;
+  readonly language: NonNullable<ReturnType<typeof detectLang>>;
+  readonly content: string;
+  readonly headSha: string;
+  readonly currentSymbolIds: ReadonlySet<string>;
+  readonly maxFacts: number;
+}): Promise<PreparedFileSemanticEnrichment> {
+  if (input.provider === undefined) {
+    return { factsToEmit: [], summary: undefined };
+  }
+
+  try {
+    const providerResult = await input.provider.enrichFile({
+      repoRoot: input.repoRoot,
+      filePath: input.filePath,
+      language: input.language,
+      content: input.content,
+      headSha: input.headSha,
+      maxFacts: input.maxFacts,
+    });
+
+    if (providerResult.status === "unavailable") {
+      return unavailableFileSemanticEnrichment(
+        input.filePath,
+        normalizeUnavailableReason(providerResult.reason),
+      );
+    }
+
+    const prepared = prepareSemanticFacts({
+      filePath: input.filePath,
+      currentSymbolIds: input.currentSymbolIds,
+      result: providerResult,
+      maxFacts: input.maxFacts,
+    });
+
+    return {
+      factsToEmit: prepared.acceptedFacts,
+      summary: {
+        status: "available",
+        filesAttempted: 1,
+        factsAccepted: prepared.acceptedFacts.length,
+        factsRejected: prepared.factsRejected,
+        unavailable: [],
+      },
+    };
+  } catch (error) {
+    return unavailableFileSemanticEnrichment(
+      input.filePath,
+      `semantic provider failed: ${errorMessage(error)}`,
+    );
+  }
+}
+
+function unavailableFileSemanticEnrichment(
+  filePath: string,
+  reason: string,
+): PreparedFileSemanticEnrichment {
+  return {
+    factsToEmit: [],
+    summary: {
+      status: "unavailable",
+      filesAttempted: 1,
+      factsAccepted: 0,
+      factsRejected: 0,
+      unavailable: [{ filePath, reason }],
+    },
+  };
+}
+
+function normalizeUnavailableReason(reason: string): string {
+  const trimmed = reason.trim();
+  return trimmed.length > 0 ? trimmed : "semantic provider unavailable";
+}
+
+function errorMessage(error: unknown): string {
+  return error instanceof Error ? error.message : String(error);
 }
