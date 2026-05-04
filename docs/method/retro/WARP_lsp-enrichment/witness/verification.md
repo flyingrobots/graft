@@ -4,8 +4,8 @@ title: "Verification Witness for Cycle WARP_lsp-enrichment"
 
 # Verification Witness for Cycle WARP_lsp-enrichment
 
-This witness proves that `Bounded LSP semantic enrichment first slice` now carries the required
-behavior and adheres to the repo invariants.
+This witness proves that `Bounded LSP semantic enrichment first slice` now
+carries the required behavior and adheres to the repo invariants.
 
 ## Test Results
 
@@ -15,7 +15,7 @@ Targeted semantic playback:
 pnpm vitest run test/unit/warp/lsp-semantic-enrichment.test.ts
 
 Test Files  1 passed (1)
-Tests       10 passed (10)
+Tests       12 passed (12)
 ```
 
 Backlog DAG regeneration witness plus semantic playback:
@@ -26,7 +26,7 @@ pnpm vitest run \
   test/unit/warp/lsp-semantic-enrichment.test.ts
 
 Test Files  2 passed (2)
-Tests       12 passed (12)
+Tests       14 passed (14)
 ```
 
 Full non-isolated local suite:
@@ -35,7 +35,7 @@ Full non-isolated local suite:
 pnpm test:local
 
 Test Files  200 passed (200)
-Tests       1512 passed (1512)
+Tests       1514 passed (1514)
 ```
 
 Static validation:
@@ -58,12 +58,8 @@ pnpm test
 > @flyingrobots/graft@0.7.1 test
 > tsx scripts/run-isolated-tests.ts
 
-Cannot run isolated test suite because Docker is unavailable.
-Docker preflight: Cannot connect to the Docker daemon at
-unix://<HOME>/.docker/run/docker.sock. Is the docker daemon running?
-`pnpm test` is the release-grade isolated runner and still requires Docker.
-Use `pnpm test:local` for non-isolated local feedback while Docker is unavailable.
-
+Test Files  200 passed (200)
+Tests       1514 passed (1514)
 ```
 
 ## Drift Results
@@ -85,8 +81,7 @@ token similarity in tests/**/*.test.* and tests/**/*.spec.* descriptions.
 - [x] Lint passed.
 - [x] Typecheck passed.
 - [x] Surface release gate passed.
-- [ ] Docker-isolated release-grade `pnpm test` could not run because
-      Docker daemon was unavailable in this environment.
+- [x] Docker-isolated release-grade `pnpm test` passed.
 - [x] Drift check passed: `method drift WARP_lsp-enrichment`.
 
 ## Human Verification
@@ -106,7 +101,7 @@ pnpm test
 method drift WARP_lsp-enrichment
 ```
 
-Expected: all non-Docker validation commands exit 0.
-Expected: `pnpm test` exits 0 only when Docker is running; with Docker
-unavailable it exits at preflight with the recorded environment message.
+Expected: all validation commands exit 0 when Docker is running.
+Expected: if Docker is unavailable, `pnpm test` exits at Docker preflight
+with a clear environment message.
 Expected: the recorded drift command exits 0.

@@ -292,6 +292,84 @@ describe("warp: bounded LSP semantic enrichment", { timeout: 15000 }, () => {
     }));
   });
 
+  it("edge case: clears stale semantic facts when a later explicit index emits none", async () => {
+    writeAndCommit({
+      "src/app.ts": [
+        "export function helper(): string { return 'ready'; }",
+        "export function start(): string { return helper(); }",
+        "",
+      ].join("\n"),
+    });
+    const warp = await openWarp({ cwd: tmpDir });
+    const enrichFile = vi.fn()
+      .mockResolvedValueOnce(available([
+        {
+          kind: "typeof",
+          symbolId: "sym:src/app.ts:start",
+          typeName: "() => string",
+        },
+        {
+          kind: "call",
+          fromSymbolId: "sym:src/app.ts:start",
+          toSymbolId: "sym:src/app.ts:helper",
+        },
+      ]))
+      .mockResolvedValueOnce(available([]));
+    const provider: SemanticEnrichmentProvider = { enrichFile };
+
+    await indexHead({
+      cwd: tmpDir,
+      git: nodeGit,
+      pathOps: nodePathOps,
+      ctx: { app: warp, strandId: null },
+      paths: ["src/app.ts"],
+      semanticProvider: provider,
+    });
+    await warp.core().materialize();
+
+    let obs = await warp.observer({ match: "sym:*" });
+    expect((await obs.getNodeProps("sym:src/app.ts:start"))?.["typeof"]).toBe("() => string");
+    expect(await obs.getEdges()).toContainEqual(expect.objectContaining({
+      from: "sym:src/app.ts:start",
+      to: "sym:src/app.ts:helper",
+      label: "calls",
+    }));
+
+    writeAndCommit({
+      "src/app.ts": [
+        "export function helper(): string { return 'changed'; }",
+        "export function start(): string { return helper(); }",
+        "",
+      ].join("\n"),
+    });
+
+    const result = await indexHead({
+      cwd: tmpDir,
+      git: nodeGit,
+      pathOps: nodePathOps,
+      ctx: { app: warp, strandId: null },
+      paths: ["src/app.ts"],
+      semanticProvider: provider,
+    });
+    await warp.core().materialize();
+
+    expect(result.semanticEnrichment).toEqual({
+      status: "available",
+      filesAttempted: 1,
+      factsAccepted: 0,
+      factsRejected: 0,
+      unavailable: [],
+    });
+
+    obs = await warp.observer({ match: "sym:*" });
+    expect((await obs.getNodeProps("sym:src/app.ts:start"))?.["typeof"]).toBeNull();
+    expect(await obs.getEdges()).not.toContainEqual(expect.objectContaining({
+      from: "sym:src/app.ts:start",
+      to: "sym:src/app.ts:helper",
+      label: "calls",
+    }));
+  });
+
   it("stress: applies the per-file semantic fact cap before writing semantic facts", async () => {
     const source = Array.from({ length: 70 }, (_, index) => `export function fn${String(index)}(): void {}`).join("\n");
     writeAndCommit({
@@ -392,6 +470,22 @@ describe("warp: bounded LSP semantic enrichment", { timeout: 15000 }, () => {
         factsRejected: 2,
       },
     }).factsRejected).toBe(2);
+  });
+
+  it("edge case: rejects unsafe semantic fact limits before calling providers", async () => {
+    const warp = await openWarp({ cwd: tmpDir });
+    const enrichFile = vi.fn((): Promise<SemanticEnrichmentProviderResult> => Promise.resolve(available([])));
+
+    await expect(indexHead({
+      cwd: tmpDir,
+      git: nodeGit,
+      pathOps: nodePathOps,
+      ctx: { app: warp, strandId: null },
+      paths: ["src/app.ts"],
+      semanticProvider: { enrichFile },
+      semanticFactLimit: Number.MAX_SAFE_INTEGER + 1,
+    })).rejects.toThrow("safe non-negative integer");
+    expect(enrichFile).not.toHaveBeenCalled();
   });
 
   it("stress: still applies maxPatchJsonBytes to provider-supplied semantic facts", async () => {

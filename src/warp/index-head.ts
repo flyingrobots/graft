@@ -251,8 +251,8 @@ function hasExplicitIndexPaths(paths: readonly string[] | undefined): boolean {
 
 function normalizeSemanticFactLimit(value: number | undefined): number {
   if (value === undefined) return DEFAULT_SEMANTIC_FACT_LIMIT;
-  if (!Number.isInteger(value) || value < 0) {
-    throw new Error("indexHead semanticFactLimit must be a non-negative integer");
+  if (!Number.isSafeInteger(value) || value < 0) {
+    throw new Error("indexHead semanticFactLimit must be a safe non-negative integer");
   }
   return value;
 }
@@ -326,6 +326,84 @@ async function readPriorAstAnchorsForFile(
 ): Promise<readonly string[]> {
   const obs = await observeGraph(ctx, { match: `ast:${filePath}:*`, expose: [] });
   return obs.getNodes();
+}
+
+interface PriorSemanticCallEdge {
+  readonly from: string;
+  readonly to: string;
+  readonly label: "calls";
+}
+
+interface PriorSemanticFacts {
+  readonly callEdges: readonly PriorSemanticCallEdge[];
+  readonly typeofSymbolIds: readonly string[];
+}
+
+async function readPriorSemanticFactsForFile(
+  ctx: WarpContext,
+  filePath: string,
+): Promise<PriorSemanticFacts> {
+  const obs = await observeGraph(ctx, { match: `sym:${filePath}:*`, expose: ["typeof"] });
+  const nodeIds = await obs.getNodes();
+  const typeofSymbolIds: string[] = [];
+
+  for (const nodeId of nodeIds) {
+    const props = await obs.getNodeProps(nodeId);
+    if (props?.["typeof"] !== undefined && props["typeof"] !== null) {
+      typeofSymbolIds.push(nodeId);
+    }
+  }
+
+  const callEdges = (await obs.getEdges())
+    .filter((edge) =>
+      edge.label === "calls" &&
+      isSameFileSymbolId(filePath, edge.from) &&
+      isSameFileSymbolId(filePath, edge.to),
+    )
+    .map((edge): PriorSemanticCallEdge => ({
+      from: edge.from,
+      to: edge.to,
+      label: "calls",
+    }));
+
+  return { callEdges, typeofSymbolIds };
+}
+
+function emitStaleSemanticFactInvalidations(
+  patch: PatchBuilderV2,
+  priorFacts: PriorSemanticFacts,
+  currentFacts: readonly SemanticEnrichmentFact[],
+): void {
+  const currentCallEdges = new Set(
+    currentFacts
+      .filter((fact) => fact.kind === "call")
+      .map((fact) => semanticCallEdgeKey(fact.fromSymbolId, fact.toSymbolId)),
+  );
+  const currentTypeofSymbolIds = new Set(
+    currentFacts
+      .filter((fact) => fact.kind === "typeof")
+      .map((fact) => fact.symbolId),
+  );
+
+  for (const edge of priorFacts.callEdges) {
+    if (!currentCallEdges.has(semanticCallEdgeKey(edge.from, edge.to))) {
+      patch.removeEdge(edge.from, edge.to, edge.label);
+    }
+  }
+
+  for (const symbolId of priorFacts.typeofSymbolIds) {
+    if (!currentTypeofSymbolIds.has(symbolId)) {
+      patch.setProperty(symbolId, "typeof", null);
+    }
+  }
+}
+
+function semanticCallEdgeKey(fromSymbolId: string, toSymbolId: string): string {
+  return `${fromSymbolId}\0${toSymbolId}`;
+}
+
+function isSameFileSymbolId(filePath: string, symbolId: string): boolean {
+  return symbolId.startsWith(`sym:${filePath}:`);
 }
 
 function patchJsonByteLength(patch: PatchBuilderV2): number {
@@ -403,10 +481,12 @@ async function indexHeadFile(input: {
 
     let priorSyms = new Map<string, string | undefined>();
     let priorAstAnchors: readonly string[] = [];
+    let priorSemanticFacts: PriorSemanticFacts = { callEdges: [], typeofSymbolIds: [] };
     try {
       await materializeGraph(ctx);
       priorSyms = await readPriorSymsForFile(ctx, filePath);
       priorAstAnchors = await readPriorAstAnchorsForFile(ctx, filePath);
+      priorSemanticFacts = await readPriorSemanticFactsForFile(ctx, filePath);
     } catch {
       // No prior state: first lazy index writes adds only.
     }
@@ -438,6 +518,7 @@ async function indexHeadFile(input: {
       emitOutlineSyms(patch, filePath, outline, jumpLookup);
       emitAstNodes(patch, filePath, tree.root);
       resolveImportEdges(patch, filePath, tree.root, pathOps, knownFiles);
+      emitStaleSemanticFactInvalidations(patch, priorSemanticFacts, semantic.factsToEmit);
       emitSemanticFacts(patch, semantic.factsToEmit);
       await attachAstSnapshot(patch, filePath, tree.root);
 
