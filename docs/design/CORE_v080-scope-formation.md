@@ -89,20 +89,29 @@ ontology expansion.
 
 ## Shipped Baseline To Preserve
 
-| Baseline | Posture |
-| --- | --- |
-| `CORE_graft-doctor` | Shipped repo-generic health posture; do not reopen unless a new narrow doctor follow-up is written. |
-| `CORE_three-surface-capability-baseline-and-parity-matrix` | Shipped capability posture baseline across API, CLI, and MCP. |
-| `CORE_release-gate-for-three-surface-capability-posture` | Shipped release gate for capability posture drift. |
-| `SURFACE_capability-matrix-truth` | Shipped correction for composed CLI operator truth. |
+The opening lane inherits these shipped baselines:
+
+- `CORE_graft-doctor`: shipped repo-generic health posture. Do not
+  reopen unless a new narrow doctor follow-up is written.
+- `CORE_three-surface-capability-baseline-and-parity-matrix`: shipped
+  capability posture baseline across API, CLI, and MCP.
+- `CORE_release-gate-for-three-surface-capability-posture`: shipped
+  release gate for capability posture drift.
+- `SURFACE_capability-matrix-truth`: shipped correction for composed
+  CLI operator truth.
 
 ## Opening Lane
 
-| Role | Card | Release posture |
-| --- | --- | --- |
-| First implementation pull | `CORE_pr-review-structural-summary` | Best match for v0.8.0 structural review summaries; repo-generic and all prerequisites are marked shipped. |
-| Follow-up candidate | `CORE_structural-test-coverage-map` | Repo-generic review helper; useful after the PR structural summary, but must avoid claiming execution coverage. |
-| Optional operator helper | `SURFACE_review-cooldown-status` | Useful for PR feedback loops, but not the release spine. |
+The opening lane is intentionally small:
+
+- First implementation pull: `CORE_pr-review-structural-summary`.
+  This is the best match for v0.8.0 structural review summaries; it is
+  repo-generic and all prerequisites are marked shipped.
+- Follow-up candidate: `CORE_structural-test-coverage-map`. This is a
+  repo-generic review helper, but it must avoid claiming execution
+  coverage.
+- Optional operator helper: `SURFACE_review-cooldown-status`. This is
+  useful for PR feedback loops, but it is not the release spine.
 
 The next pull after this scope cycle should be
 `CORE_pr-review-structural-summary`. This card is promoted to `asap/`
@@ -110,13 +119,17 @@ as the concrete next backlog item.
 
 ## Explicit Deferrals
 
-| Deferred work | Reason |
-| --- | --- |
-| `WARP_lsp-enrichment` continuation | The seam has landed; further LSP work is valid optional scope, not the opening v0.8.0 lane. |
-| `CORE_migrate-to-slice-first-reads` | Explicitly blocked until git-warp observer geometry APIs land. |
-| `SURFACE_bijou-daemon-status-live-refresh` | Daemon operator lane, not default v0.8.0 spine. |
-| `SURFACE_bijou-daemon-control-plane-actions` | Daemon operator lane and mutating control-plane work; keep separate from repo-generic review/health posture. |
-| METHOD backlog/status/release surfaces | Belong in Method MCP / Method CLI, not Graft product surfaces. |
+- `WARP_lsp-enrichment` continuation: the seam has landed. Further
+  LSP work is valid optional scope, not the opening v0.8.0 lane.
+- `CORE_migrate-to-slice-first-reads`: explicitly blocked until
+  git-warp observer geometry APIs land.
+- `SURFACE_bijou-daemon-status-live-refresh`: daemon operator lane, not
+  the default v0.8.0 spine.
+- `SURFACE_bijou-daemon-control-plane-actions`: daemon operator lane and
+  mutating control-plane work. Keep it separate from repo-generic
+  review and health posture.
+- METHOD backlog/status/release surfaces: belong in Method MCP / Method
+  CLI, not Graft product surfaces.
 
 No METHOD backlog/status product surface is part of this lane.
 

@@ -10,7 +10,11 @@ drift_check: yes
 
 ## Summary
 
-Settled the opening v0.8.0 lane as repo-generic operational truth surfaces, named CORE_pr-review-structural-summary as the next implementation pull, listed follow-up candidates, and explicitly deferred LSP continuation, slice-first read migration, daemon control-plane work, and METHOD-specific product surfaces.
+Settled the opening v0.8.0 lane as repo-generic operational truth
+surfaces. Named `CORE_pr-review-structural-summary` as the next
+implementation pull, listed follow-up candidates, and explicitly
+deferred LSP continuation, slice-first read migration, daemon
+control-plane work, and METHOD-specific product surfaces.
 
 ## Playback Witness
 
@@ -26,4 +30,5 @@ No changes to approach.
 
 ## Follow-up items
 
-- None.
+- Pull `CORE_pr-review-structural-summary` from `asap/` after this
+  scope cycle lands.

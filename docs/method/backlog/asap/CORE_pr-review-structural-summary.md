@@ -11,10 +11,11 @@ requirements:
   - "Diff summary lines (shipped)"
   - "Tree-sitter parsing (shipped)"
 acceptance_criteria:
-  - "A `graft review <PR#>` command or GitHub Action produces a human-readable structural summary of a PR"
+  - "A `graft review <PR#>` CLI command produces a human-readable structural summary of a PR"
+  - "A library/model boundary can produce the same summary without GitHub transport"
   - "Summary distinguishes structural changes from formatting/whitespace-only changes"
   - "Summary reports file count, structural-change count, and per-file classification"
-  - "When run as a GitHub Action, the summary is posted as a PR comment"
+  - "GitHub Action posting is explicitly deferred from the first slice"
 ---
 
 # PR review structural summary
@@ -24,19 +25,21 @@ summary: "This PR touches 12 files but only 3 have structural
 changes. The rest are formatting/whitespace."
 
 Helps reviewers focus attention where it matters. Could be a CLI
-command (`graft review <PR#>`) or a GitHub Action that posts the
-summary as a PR comment.
+command (`graft review <PR#>`) backed by a small summary model. A GitHub
+Action that posts the summary as a PR comment is deferred until the core
+summary boundary is boring and tested.
 
 The diff summary lines feature (shipped in v0.3.0) is the primitive
 this builds on.
 
 ## Implementation path
 
-1. Fetch PR diff (via `gh pr diff` or GitHub API)
-2. Run `graft_diff` on each changed file to classify changes
-3. Aggregate: count structural vs non-structural changes per file
-4. Produce summary with per-file classification
-5. For GitHub Action: post as PR comment via API
+1. Model the review input as changed-file records from a PR diff or
+   local diff adapter.
+2. Run `graft_diff` on each changed file to classify changes.
+3. Aggregate structural vs non-structural changes per file.
+4. Produce a human-readable summary with per-file classification.
+5. Keep GitHub Action posting out of the first slice.
 
 ## Related cards
 

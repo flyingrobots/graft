@@ -45,7 +45,7 @@ pnpm test
 
 Cannot run isolated test suite because Docker is unavailable.
 Docker preflight: Cannot connect to the Docker daemon at
-unix:///Users/james/.docker/run/docker.sock. Is the docker daemon running?
+unix://<HOME>/.docker/run/docker.sock. Is the docker daemon running?
 `pnpm test` is the release-grade isolated runner and still requires Docker.
 Use `pnpm test:local` for non-isolated local feedback while Docker is unavailable.
 
@@ -56,9 +56,14 @@ Use `pnpm test:local` for non-isolated local feedback while Docker is unavailabl
 ```text
 No playback-question drift found.
 Scanned 1 active cycle, 0 playback questions, 291 test descriptions.
-Search basis: normalized match, semantic normalization, or high-confidence token similarity in tests/**/*.test.* and tests/**/*.spec.* descriptions.
+Search basis: normalized match, semantic normalization, or
+high-confidence token similarity in tests/**/*.test.* and
+tests/**/*.spec.* descriptions.
 
 ```
+
+This drift output was captured before `method_close` moved the cycle out
+of the active design set.
 
 ## Automated Capture
 
@@ -70,7 +75,8 @@ Search basis: normalized match, semantic normalization, or high-confidence token
 - [x] Full local suite passed.
 - [ ] Docker-isolated `pnpm test` could not run because Docker is
       unavailable in this environment.
-- [x] Drift check passed: `method drift CORE_v080-scope-formation`.
+- [x] Drift check passed before close:
+      `method drift CORE_v080-scope-formation`.
 
 ## Human Verification
 
@@ -84,9 +90,9 @@ pnpm lint
 pnpm typecheck
 pnpm test:local
 pnpm test
-method drift CORE_v080-scope-formation
 ```
 
 Expected: focused playback, lint, typecheck, and `pnpm test:local` exit 0.
 Expected: `pnpm test` exits at Docker preflight when Docker is unavailable.
-Expected: the recorded drift command exits 0.
+Expected: the recorded drift output remains historical evidence from
+before `method_close`; closed cycles are no longer active drift targets.
