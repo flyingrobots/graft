@@ -311,7 +311,7 @@ async function readPriorSymsForFile(
   filePath: string,
 ): Promise<Map<string, string | undefined>> {
   const priorSyms = new Map<string, string | undefined>();
-  const priorObs = await observeGraph(ctx, { match: `sym:${filePath}:*`, expose: ["signature"] });
+  const priorObs = await observeGraph(ctx, { match: SymIdCodec.filePattern(filePath), expose: ["signature"] });
   const priorNodes = await priorObs.getNodes();
   for (const nodeId of priorNodes) {
     const props = await priorObs.getNodeProps(nodeId);
@@ -344,7 +344,7 @@ async function readPriorSemanticFactsForFile(
   ctx: WarpContext,
   filePath: string,
 ): Promise<PriorSemanticFacts> {
-  const obs = await observeGraph(ctx, { match: `sym:${filePath}:*`, expose: ["typeof"] });
+  const obs = await observeGraph(ctx, { match: SymIdCodec.filePattern(filePath), expose: ["typeof"] });
   const nodeIds = await obs.getNodes();
   const typeofSymbolIds: string[] = [];
 

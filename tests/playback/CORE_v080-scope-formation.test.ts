@@ -1,8 +1,10 @@
 import { existsSync, readFileSync } from "node:fs";
 import { resolve } from "node:path";
-import { describe, expect, it } from "vitest";
+import { fileURLToPath } from "node:url";
+import { beforeAll, describe, expect, it } from "vitest";
 
-const repoRoot = resolve(import.meta.dirname, "../..");
+const repoRoot = resolve(fileURLToPath(new URL(".", import.meta.url)), "../..");
+let designDoc: string;
 
 function readRepoFile(path: string): string {
   return readFileSync(resolve(repoRoot, path), "utf8");
@@ -20,17 +22,20 @@ function markdownSection(markdown: string, heading: string): string {
   expect(start, `missing markdown section ${heading}`).toBeGreaterThanOrEqual(0);
 
   const end = lines.findIndex(
-    (line, index) => index > start && /^##\s+/.test(line),
+    (line, index) => index > start && /^#{1,2}\s+/.test(line),
   );
 
   return lines.slice(start + 1, end === -1 ? undefined : end).join("\n");
 }
 
 describe("CORE_v080-scope-formation playback", () => {
+  beforeAll(() => {
+    designDoc = readRepoFile("docs/design/CORE_v080-scope-formation.md");
+  });
+
   it("Can a human see that this cycle forms v0.8.0 scope instead of shipping runtime behavior?", () => {
-    const design = readRepoFile("docs/design/CORE_v080-scope-formation.md");
-    const hill = markdownSection(design, "Hill");
-    const nonGoals = markdownSection(design, "Non-goals");
+    const hill = markdownSection(designDoc, "Hill");
+    const nonGoals = markdownSection(designDoc, "Non-goals");
 
     expect(hill).toContain("Settle the opening v0.8.0 lane");
     expect(hill).toContain("repo-generic operational truth");
@@ -39,8 +44,7 @@ describe("CORE_v080-scope-formation playback", () => {
   });
 
   it("Can a human identify the first implementation pull candidate and the follow-up candidates?", () => {
-    const design = readRepoFile("docs/design/CORE_v080-scope-formation.md");
-    const openingLane = markdownSection(design, "Opening Lane");
+    const openingLane = markdownSection(designDoc, "Opening Lane");
 
     expect(openingLane).toContain("First implementation pull");
     expect(openingLane).toContain("`CORE_pr-review-structural-summary`");
@@ -51,8 +55,7 @@ describe("CORE_v080-scope-formation playback", () => {
   });
 
   it("Can a human see which tempting work is explicitly deferred from the opening v0.8.0 lane?", () => {
-    const design = readRepoFile("docs/design/CORE_v080-scope-formation.md");
-    const deferrals = markdownSection(design, "Explicit Deferrals");
+    const deferrals = markdownSection(designDoc, "Explicit Deferrals");
 
     expect(deferrals).toContain("`WARP_lsp-enrichment` continuation");
     expect(deferrals).toContain("`CORE_migrate-to-slice-first-reads`");
@@ -61,32 +64,29 @@ describe("CORE_v080-scope-formation playback", () => {
   });
 
   it("Does the scope decision record the bearing context used for the next target?", () => {
-    const design = readRepoFile("docs/design/CORE_v080-scope-formation.md");
-    const backlogContext = markdownSection(design, "Backlog Context");
+    const backlogContext = markdownSection(designDoc, "Backlog Context");
 
     expect(backlogContext).toContain("the immediate focus is v0.8.0 scope formation");
     expect(backlogContext).toContain("repo-generic operational truth surfaces");
     expect(backlogContext).toContain("avoid adding METHOD backlog/status features");
-    expect(design).toContain("The opening v0.8.0 lane is:");
-    expect(design).toContain("Repo-generic operational truth surfaces for any Git repository");
+    expect(designDoc).toContain("The opening v0.8.0 lane is:");
+    expect(designDoc).toContain("Repo-generic operational truth surfaces for any Git repository");
   });
 
   it("Does the design keep METHOD backlog/status features out of Graft?", () => {
-    const design = readRepoFile("docs/design/CORE_v080-scope-formation.md");
-    const deferrals = markdownSection(design, "Explicit Deferrals");
-    const pullCriteria = markdownSection(design, "Pull Criteria For The Next Cycle");
+    const deferrals = markdownSection(designDoc, "Explicit Deferrals");
+    const pullCriteria = markdownSection(designDoc, "Pull Criteria For The Next Cycle");
     const scopedText = `${deferrals}\n${pullCriteria}`.toLowerCase();
 
     expect(scopedText).toContain("no method backlog/status");
     expect(scopedText).toContain("method backlog/status/release surfaces");
     expect(scopedText).toMatch(/belong in method mcp\s*\/\s*method\s+cli/);
-    expect(design.toLowerCase()).not.toContain("graft backlog");
-    expect(design.toLowerCase()).not.toContain("graft retro");
+    expect(designDoc.toLowerCase()).not.toContain("graft backlog");
+    expect(designDoc.toLowerCase()).not.toContain("graft retro");
   });
 
   it("Does the design preserve the shipped doctor and capability posture work as baseline, not work to reopen in this cycle?", () => {
-    const design = readRepoFile("docs/design/CORE_v080-scope-formation.md");
-    const baseline = markdownSection(design, "Shipped Baseline To Preserve");
+    const baseline = markdownSection(designDoc, "Shipped Baseline To Preserve");
 
     expect(baseline).toContain("`CORE_graft-doctor`");
     expect(baseline.toLowerCase()).toContain("shipped repo-generic health posture");

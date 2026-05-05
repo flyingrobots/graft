@@ -374,7 +374,7 @@ export function createGraftServer(options: CreateGraftServerOptions = {}): Graft
     fs: nodeFs,
     codec,
     processRunner,
-    git: nodeGit,
+    git: gitClient,
     runCapture,
     observability,
     daemonControlPlane: daemon.controlPlane,

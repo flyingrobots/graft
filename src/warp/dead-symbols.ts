@@ -42,8 +42,8 @@ export interface DeadSymbolOptions {
 // Internal helpers
 // ---------------------------------------------------------------------------
 
-function filePathFromSymId(symId: string): string {
-  return SymIdCodec.filePath(symId) ?? symId;
+function filePathFromSymId(symId: string): string | null {
+  return SymIdCodec.filePath(symId);
 }
 
 const SYM_LENS: Lens = {
@@ -155,6 +155,7 @@ export async function findDeadSymbols(
     const kind = typeof props?.["kind"] === "string" ? props["kind"] : "unknown";
     const exported = typeof props?.["exported"] === "boolean" ? props["exported"] : false;
     const filePath = filePathFromSymId(symId);
+    if (filePath === null) continue;
 
     dead.push({
       name,

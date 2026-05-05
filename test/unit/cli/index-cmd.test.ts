@@ -1,9 +1,13 @@
+import * as fs from "node:fs";
+import * as path from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { runIndex } from "../../../src/cli/index-cmd.js";
+import { cleanupTestRepo, createTestRepo, git } from "../../helpers/git.js";
 import { createBufferWriter } from "../../helpers/init.js";
 
 describe("cli: graft index", () => {
   let previousExitCode: typeof process.exitCode;
+  const cleanups: string[] = [];
 
   beforeEach(() => {
     previousExitCode = process.exitCode;
@@ -12,6 +16,9 @@ describe("cli: graft index", () => {
 
   afterEach(() => {
     process.exitCode = previousExitCode;
+    while (cleanups.length > 0) {
+      cleanupTestRepo(cleanups.pop()!);
+    }
   });
 
   it("reports argument errors with usage guidance", async () => {
@@ -51,5 +58,31 @@ describe("cli: graft index", () => {
     expect(parsed.ok).toBe(false);
     expect(parsed.error).toContain("Unknown index arguments: --bad-flag");
     expect(process.exitCode).toBe(1);
+  });
+
+  it("calls the injected exit hook after successful json output", async () => {
+    const repoDir = createTestRepo("graft-index-exit-");
+    cleanups.push(repoDir);
+    fs.writeFileSync(path.join(repoDir, "app.ts"), "export const ready = true;\n");
+    git(repoDir, "add -A");
+    git(repoDir, "commit -m init");
+    const stdout = createBufferWriter();
+    const stderr = createBufferWriter();
+    const exits: number[] = [];
+
+    await runIndex({
+      cwd: repoDir,
+      args: ["--json"],
+      stdout,
+      stderr,
+      exit: (code = 0) => {
+        exits.push(code);
+        return undefined as never;
+      },
+    });
+
+    expect(stderr.text()).toBe("");
+    expect(JSON.parse(stdout.text())).toMatchObject({ ok: true });
+    expect(exits).toEqual([0]);
   });
 });

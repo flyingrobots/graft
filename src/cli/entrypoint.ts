@@ -5,6 +5,7 @@ export interface CliEntrypointOptions {
   readonly argv?: readonly string[] | undefined;
   readonly stdinIsTTY?: boolean | undefined;
   readonly stdoutIsTTY?: boolean | undefined;
+  readonly exit?: ((code?: number) => never) | undefined;
 }
 
 export async function runCliEntrypoint(options: CliEntrypointOptions = {}): Promise<void> {
@@ -14,5 +15,6 @@ export async function runCliEntrypoint(options: CliEntrypointOptions = {}): Prom
       options.stdinIsTTY ?? process.stdin.isTTY,
       options.stdoutIsTTY ?? process.stdout.isTTY,
     ),
+    exit: options.exit ?? ((code) => process.exit(code)),
   });
 }

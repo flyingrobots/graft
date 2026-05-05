@@ -58,7 +58,9 @@ async function loadParserRuntime(): Promise<ParserRuntime> {
 
 function requireParserRuntime(): ParserRuntime {
   if (parserRuntime === null) {
-    void loadParserRuntime();
+    void loadParserRuntime().catch(() => {
+      // Best-effort warmup: awaited parser entry points surface init errors.
+    });
     throw new ParserRuntimeNotReadyError();
   }
   return parserRuntime;

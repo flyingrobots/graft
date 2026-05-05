@@ -12,6 +12,7 @@
 import type { Lens, Observer } from "@git-stunts/git-warp";
 import type { WarpContext } from "./context.js";
 import { observeGraph } from "./context.js";
+import { SymIdCodec } from "./sym-id-codec.js";
 
 export type { Lens };
 
@@ -21,7 +22,7 @@ export type { Lens };
  */
 export function fileSymbolsLens(filePath: string): Lens {
   return {
-    match: `sym:${filePath}:*`,
+    match: SymIdCodec.filePattern(filePath),
     expose: ["name", "kind", "signature", "exported", "startLine", "endLine", "symbolPath", "identityId"],
   };
 }
@@ -54,7 +55,7 @@ export function allFilesLens(): Lens {
  */
 export function symbolByNameLens(symbolName: string): Lens {
   return {
-    match: `sym:*:${symbolName}`,
+    match: SymIdCodec.symbolNamePattern(symbolName),
     expose: ["name", "kind", "signature", "exported", "startLine", "endLine", "symbolPath", "identityId"],
   };
 }

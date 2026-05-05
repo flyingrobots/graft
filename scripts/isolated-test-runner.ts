@@ -29,7 +29,7 @@ export type RunnerSpawn = (
 export interface IsolatedTestRunnerOptions {
   argv: string[];
   env: NodeJS.ProcessEnv;
-  checkDocker?: () => DockerAvailability;
+  checkDocker?: () => DockerAvailability | Promise<DockerAvailability>;
   error?: (message: string) => void;
   exit?: (code?: number) => never;
   spawn?: RunnerSpawn;
@@ -98,7 +98,7 @@ function runChecked(
   }
 }
 
-export function runIsolatedTests(options: IsolatedTestRunnerOptions): never {
+export async function runIsolatedTests(options: IsolatedTestRunnerOptions): Promise<never> {
   const runnerOptions: Required<IsolatedTestRunnerOptions> = {
     checkDocker: options.checkDocker ?? ensureDockerAvailability,
     error: options.error ?? console.error,
@@ -114,14 +114,14 @@ export function runIsolatedTests(options: IsolatedTestRunnerOptions): never {
   }
 
   const image = runnerOptions.env["GRAFT_TEST_IMAGE"] ?? DEFAULT_IMAGE;
-  const dockerAvailability = runnerOptions.checkDocker();
+  const dockerAvailability = await runnerOptions.checkDocker();
   if (!dockerAvailability.ok) {
     runnerOptions.error(formatDockerUnavailableMessage(dockerAvailability));
     runnerOptions.exit(1);
   }
 
   runChecked("docker", ["build", "--target", "test", "-t", image, "."], runnerOptions);
-  run("docker", [
+  return run("docker", [
     "run",
     "--rm",
     "--network",

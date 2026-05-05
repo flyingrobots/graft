@@ -282,7 +282,9 @@ export function createStructuredBufferSnapshot(opts: {
     } catch (error) {
       if (error instanceof ParserRuntimeNotReadyError) {
         parseUnavailableReason = "PARSER_RUNTIME_NOT_READY";
-        void ensureParserReady();
+        void ensureParserReady().catch(() => {
+          // Best-effort warmup: snapshot already reports parser unavailability.
+        });
       } else {
         throw error;
       }

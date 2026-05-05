@@ -18,15 +18,17 @@ export interface DockerAutostartOptions {
   readonly platform?: NodeJS.Platform | undefined;
   readonly timeoutMs?: number | undefined;
   readonly pollIntervalMs?: number | undefined;
-  readonly sleep?: ((milliseconds: number) => void) | undefined;
+  readonly sleep?: ((milliseconds: number) => Promise<void> | void) | undefined;
 }
 
 const DEFAULT_TIMEOUT_MS = 120_000;
 const DEFAULT_POLL_INTERVAL_MS = 2_000;
+const DEFAULT_PROBE_TIMEOUT_MS = 10_000;
 
 function defaultCommandRunner(command: string, args: readonly string[]): DockerProbeResult {
   const result = spawnSync(command, [...args], {
     encoding: "utf8",
+    timeout: DEFAULT_PROBE_TIMEOUT_MS,
   });
   const probe: DockerProbeResult = {
     status: result.status,
@@ -40,8 +42,10 @@ function defaultCommandRunner(command: string, args: readonly string[]): DockerP
   return probe;
 }
 
-function defaultSleep(milliseconds: number): void {
-  Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, milliseconds);
+async function defaultSleep(milliseconds: number): Promise<void> {
+  await new Promise<void>((resolve) => {
+    setTimeout(resolve, milliseconds);
+  });
 }
 
 function firstLine(value: string): string | null {
@@ -79,9 +83,9 @@ function launchDockerDesktop(
   return { ok: true };
 }
 
-export function ensureDockerAvailability(
+export async function ensureDockerAvailability(
   options: DockerAutostartOptions = {},
-): DockerAvailability {
+): Promise<DockerAvailability> {
   const runProbe = options.runProbe ?? defaultCommandRunner;
   const first = checkDockerAvailability(runProbe);
   if (first.ok) {
@@ -107,7 +111,7 @@ export function ensureDockerAvailability(
 
   for (let attempt = 0; attempt < attempts; attempt++) {
     if (attempt > 0) {
-      sleep(pollIntervalMs);
+      await sleep(pollIntervalMs);
     }
     const availability = checkDockerAvailability(runProbe);
     if (availability.ok) {

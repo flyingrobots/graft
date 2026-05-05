@@ -105,7 +105,11 @@ export async function structuralLogFromGraph(
         const parsed = SymIdCodec.decode(symId);
         if (parsed === null) continue;
 
-        if (pathFilter !== undefined && !parsed.filePath.startsWith(pathFilter)) continue;
+        if (
+          pathFilter !== undefined &&
+          parsed.filePath !== pathFilter &&
+          !parsed.filePath.startsWith(`${pathFilter}/`)
+        ) continue;
 
         const symProps = await obs.getNodeProps(symId);
         const kind = typeof symProps?.["kind"] === "string" ? symProps["kind"] : "unknown";

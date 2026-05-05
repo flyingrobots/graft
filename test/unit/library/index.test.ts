@@ -95,6 +95,7 @@ describe("public library API", () => {
       {
         cwd: process.cwd(),
         encoding: "utf8",
+        timeout: 10_000,
       },
     );
 

@@ -40,6 +40,7 @@ export interface RunCliOptions {
   readDaemonStatus?: ((options: ReadDaemonStatusOptions) => Promise<DaemonStatusReadSnapshot>) | undefined;
   invokeGitGraftEnhancePeer?: GitGraftEnhancePeerInvoker | undefined;
   ensureGitVersion?: (() => Promise<void>) | undefined;
+  exit?: ((code?: number) => never) | undefined;
 }
 
 function renderHelp(writer: Writer): void {
@@ -113,7 +114,7 @@ export async function runCli(options: RunCliOptions = {}): Promise<void> {
   }
 
   if (argv[0] === "index") {
-    await runIndex({ cwd, args: argv.slice(1), stdout, stderr });
+    await runIndex({ cwd, args: argv.slice(1), stdout, stderr, exit: options.exit });
     return;
   }
 

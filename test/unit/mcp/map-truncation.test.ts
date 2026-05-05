@@ -2,7 +2,8 @@ import { describe, it, expect } from "vitest";
 import * as fs from "node:fs";
 import * as path from "node:path";
 import { createGraftServer } from "../../../src/mcp/server.js";
-import { createTestRepo, cleanupTestRepo, git } from "../../helpers/git.js";
+import type { GitClient } from "../../../src/ports/git.js";
+import { createTestRepo, cleanupTestRepo, git, testGitClient } from "../../helpers/git.js";
 import { parse } from "../../helpers/mcp.js";
 import { MAX_MAP_FILES, MAX_MAP_BYTES } from "../../../src/mcp/tools/map.js";
 
@@ -126,6 +127,41 @@ describe("graft_map truncation", () => {
       expect(result["truncated"]).toBeUndefined();
       expect(result["truncatedReason"]).toBeUndefined();
       expect(result["files"]).toHaveLength(1);
+    } finally {
+      cleanupTestRepo(tmpDir);
+    }
+  });
+
+  it("uses the injected git client for tool file listing", async () => {
+    const tmpDir = createTestRepo("graft-map-injected-git-");
+    const calls: string[] = [];
+    const recordingGit: GitClient = {
+      async run(request) {
+        calls.push(request.args.join(" "));
+        return testGitClient.run(request);
+      },
+    };
+
+    try {
+      fs.mkdirSync(path.join(tmpDir, "src"), { recursive: true });
+      fs.writeFileSync(
+        path.join(tmpDir, "src", "small.ts"),
+        "export const x = 1;\n",
+      );
+      git(tmpDir, "add -A");
+      git(tmpDir, "commit -m init");
+
+      const server = createGraftServer({
+        projectRoot: tmpDir,
+        graftDir: path.join(tmpDir, ".graft"),
+        git: recordingGit,
+      });
+      calls.length = 0;
+
+      const result = parse(await server.callTool("graft_map", { path: "src" }));
+
+      expect(result["files"]).toHaveLength(1);
+      expect(calls).toContain("ls-files --cached --others --exclude-standard -- src");
     } finally {
       cleanupTestRepo(tmpDir);
     }

@@ -2,15 +2,13 @@ import type { QueryResultV1 } from "@git-stunts/git-warp";
 import type { WarpContext } from "../../warp/context.js";
 import { observeGraph } from "../../warp/context.js";
 import { allSymbolsLens, commitsLens, fileSymbolsLens, symbolByNameLens } from "../../warp/observers.js";
+import { SymIdCodec } from "../../warp/sym-id-codec.js";
 import type { RankedPrecisionSymbolMatch } from "./precision-query.js";
 import { PrecisionSearchRequest } from "./precision-query.js";
 import { PrecisionSymbolMatch } from "./precision-match.js";
 
 function decodeSymbolPath(nodeId: string): string | null {
-  if (!nodeId.startsWith("sym:")) return null;
-  const lastColon = nodeId.lastIndexOf(":");
-  if (lastColon <= "sym:".length) return null;
-  return nodeId.slice("sym:".length, lastColon);
+  return SymIdCodec.filePath(nodeId);
 }
 
 function toMatch(

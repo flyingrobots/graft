@@ -20,10 +20,10 @@ function noSleep(): void {
 }
 
 describe("docker autostart helper", () => {
-  it("does not launch Docker when the daemon is already available", () => {
+  it("does not launch Docker when the daemon is already available", async () => {
     const launchCalls: string[] = [];
 
-    const availability = ensureDockerAvailability({
+    const availability = await ensureDockerAvailability({
       runProbe: () => result({ stdout: "\"25.0.0\"\n" }),
       runLaunch: (command, args) => {
         launchCalls.push([command, ...args].join(" "));
@@ -36,7 +36,7 @@ describe("docker autostart helper", () => {
     expect(launchCalls).toEqual([]);
   });
 
-  it("launches Docker Desktop on macOS and polls until Docker becomes available", () => {
+  it("launches Docker Desktop on macOS and polls until Docker becomes available", async () => {
     const probeCalls: string[] = [];
     const launchCalls: string[] = [];
     let probeCount = 0;
@@ -55,7 +55,7 @@ describe("docker autostart helper", () => {
       return result({});
     };
 
-    const availability = ensureDockerAvailability({
+    const availability = await ensureDockerAvailability({
       runProbe,
       runLaunch,
       platform: "darwin",
@@ -73,8 +73,8 @@ describe("docker autostart helper", () => {
     ]);
   });
 
-  it("reports unsupported auto-start platforms without hiding the original preflight", () => {
-    const availability = ensureDockerAvailability({
+  it("reports unsupported auto-start platforms without hiding the original preflight", async () => {
+    const availability = await ensureDockerAvailability({
       runProbe: () => result({
         status: 1,
         stderr: "Cannot connect to the Docker daemon.",
@@ -91,8 +91,8 @@ describe("docker autostart helper", () => {
     }
   });
 
-  it("reports Docker Desktop launch failures", () => {
-    const availability = ensureDockerAvailability({
+  it("reports Docker Desktop launch failures", async () => {
+    const availability = await ensureDockerAvailability({
       runProbe: () => result({
         status: 1,
         stderr: "Cannot connect to the Docker daemon.",
@@ -112,8 +112,8 @@ describe("docker autostart helper", () => {
     }
   });
 
-  it("times out with the last Docker preflight detail after launching", () => {
-    const availability = ensureDockerAvailability({
+  it("times out with the last Docker preflight detail after launching", async () => {
+    const availability = await ensureDockerAvailability({
       runProbe: () => result({
         status: 1,
         stderr: "Docker is still starting.",
@@ -129,6 +129,28 @@ describe("docker autostart helper", () => {
     if (!availability.ok) {
       expect(availability.detail).toContain("did not become available within 2ms");
       expect(availability.detail).toContain("Last preflight: Docker is still starting.");
+    }
+  });
+
+  it("treats timed out probe commands as bounded failures", async () => {
+    const availability = await ensureDockerAvailability({
+      runProbe: () => result({
+        status: null,
+        signal: "SIGTERM",
+        error: Object.assign(new Error("spawnSync docker ETIMEDOUT"), {
+          code: "ETIMEDOUT",
+        }) as NodeJS.ErrnoException,
+      }),
+      runLaunch: () => result({}),
+      platform: "darwin",
+      pollIntervalMs: 1,
+      timeoutMs: 1,
+      sleep: noSleep,
+    });
+
+    expect(availability.ok).toBe(false);
+    if (!availability.ok) {
+      expect(availability.detail).toContain("ETIMEDOUT");
     }
   });
 });

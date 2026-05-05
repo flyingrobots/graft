@@ -139,7 +139,7 @@ async function liveSymbolIds(
     return [symIdFor(filePath, symbolName)];
   }
 
-  const obs = await observeGraph(ctx, { match: `sym:*:${symbolName}`, expose: [] });
+  const obs = await observeGraph(ctx, { match: SymIdCodec.symbolNamePattern(symbolName), expose: [] });
   return obs.getNodes();
 }
 
