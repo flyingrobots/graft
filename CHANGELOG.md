@@ -43,7 +43,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   `.gql`, and `.graphqls` files using a compatible GraphQL
   tree-sitter WASM grammar with GraphQL-specific outline kinds for
   objects, fields, inputs, scalars, unions, directives, operations,
-  fragments, schema declarations, and enum values.
+  fragments, schema declarations, and enum values, with fixture coverage
+  for Continuum/Wesley-style contract schemas.
 - **Docker auto-start helper**: the isolated test runner now attempts to
   launch Docker Desktop on macOS before failing the Docker daemon
   preflight, while keeping the existing explicit fallback guidance for

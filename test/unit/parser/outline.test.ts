@@ -1,3 +1,4 @@
+import { readFileSync } from "node:fs";
 import { describe, it, expect } from "vitest";
 import { extractOutline, extractOutlineForFile } from "../../../src/parser/outline.js";
 import type { JumpEntry } from "../../../src/parser/types.js";
@@ -335,6 +336,95 @@ describe("parser: outline extraction", () => {
         signature: "query <anonymous query>",
         exported: true,
       }));
+    });
+
+    it("extracts a Continuum GraphQL contract fixture with domain-specific kinds", () => {
+      const source = readFileSync(
+        new URL("../../fixtures/graphql/continuum-runtime-boundary-family.graphql", import.meta.url),
+        "utf8",
+      );
+      const outline = extractOutlineForFile(
+        "test/fixtures/graphql/continuum-runtime-boundary-family.graphql",
+        source,
+      );
+
+      expect(outline).not.toBeNull();
+      expect(outline!.partial).not.toBe(true);
+      expect(outline!.entries).toHaveLength(13);
+      expect(outline!.jumpTable).toContainEqual(expect.objectContaining({
+        symbol: "Hash",
+        kind: "scalar",
+      }));
+      expect(outline!.jumpTable).toContainEqual(expect.objectContaining({
+        symbol: "Query",
+        kind: "object",
+      }));
+
+      const hash = outline!.entries.find((entry) => entry.name === "Hash");
+      expect(hash).toEqual(expect.objectContaining({
+        kind: "scalar",
+        signature: "scalar Hash",
+        exported: true,
+      }));
+
+      const outcomeKind = outline!.entries.find((entry) => entry.name === "RuntimeAdmissionOutcomeKind");
+      expect(outcomeKind).toEqual(expect.objectContaining({
+        kind: "enum",
+        signature: "enum RuntimeAdmissionOutcomeKind",
+      }));
+      expect(outcomeKind?.children).toEqual([
+        expect.objectContaining({ kind: "enum_value", name: "DERIVED" }),
+        expect.objectContaining({ kind: "enum_value", name: "PLURAL" }),
+        expect.objectContaining({ kind: "enum_value", name: "CONFLICT" }),
+        expect.objectContaining({ kind: "enum_value", name: "OBSTRUCTION" }),
+      ]);
+
+      const intentEnvelope = outline!.entries.find((entry) => entry.name === "IntentEnvelope");
+      expect(intentEnvelope).toEqual(expect.objectContaining({
+        kind: "object",
+        signature: expect.stringContaining("@wes_codec") as string,
+      }));
+      expect(intentEnvelope?.signature).toContain("@wes_registry");
+      expect(intentEnvelope?.children).toEqual(expect.arrayContaining([
+        expect.objectContaining({
+          kind: "field",
+          name: "intentId",
+          signature: "intentId: ID!",
+        }),
+        expect.objectContaining({
+          kind: "field",
+          name: "payloadDigest",
+          signature: "payloadDigest: Hash!",
+        }),
+      ]));
+
+      const query = outline!.entries.find((entry) => entry.name === "Query");
+      expect(query?.children).toHaveLength(7);
+      expect(query?.children).toEqual(expect.arrayContaining([
+        expect.objectContaining({
+          kind: "field",
+          name: "intentEnvelopes",
+          signature: "intentEnvelopes(targetLaneId: String): [IntentEnvelope!]!",
+        }),
+        expect.objectContaining({
+          kind: "field",
+          name: "importOutcomes",
+          signature: "importOutcomes(shellId: ID, targetRuntimeId: String): [ImportOutcome!]!",
+        }),
+      ]));
+
+      const invariants = outline!.entries.find((entry) => entry.name === "ContinuumRuntimeBoundaryFamilyInvariants");
+      expect(invariants).toEqual(expect.objectContaining({
+        kind: "object",
+        signature: expect.stringContaining("@wes_invariant") as string,
+      }));
+      expect(invariants?.children).toEqual([
+        expect.objectContaining({
+          kind: "field",
+          name: "_placeholder",
+          signature: "_placeholder: Boolean",
+        }),
+      ]);
     });
   });
 
