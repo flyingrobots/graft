@@ -143,6 +143,23 @@ function sourceCodeFiles(paths: readonly string[]): readonly string[] {
   return paths.filter((filePath) => detectLang(filePath) !== null);
 }
 
+async function existingFiles(
+  opts: StructuralTestCoverageMapOptions,
+  paths: readonly string[],
+): Promise<readonly string[]> {
+  const checks = await Promise.all(paths.map(async (filePath) => {
+    try {
+      await opts.fs.stat(opts.resolveWorkingTreePath(filePath));
+      return { filePath, exists: true };
+    } catch {
+      return { filePath, exists: false };
+    }
+  }));
+  return checks
+    .filter((check) => check.exists)
+    .map((check) => check.filePath);
+}
+
 function collectExportedSymbols(entries: readonly OutlineEntry[]): SourceSymbol[] {
   const symbols: SourceSymbol[] = [];
   for (const entry of entries) {
@@ -306,7 +323,7 @@ export async function structuralTestCoverageMap(
   ]);
 
   const codeSourceFiles = sourceCodeFiles(sourceFilePaths);
-  const codeTestFiles = sourceCodeFiles(testFilePaths);
+  const codeTestFiles = await existingFiles(opts, sourceCodeFiles(testFilePaths));
   const sourceFiles = (await Promise.all(
     codeSourceFiles.map((filePath) => parseSourceFile(opts, filePath)),
   )).filter((file): file is SourceFile => file !== null);

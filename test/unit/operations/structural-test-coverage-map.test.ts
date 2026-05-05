@@ -83,4 +83,46 @@ describe("operations: structural test coverage map", () => {
       cleanupTestRepo(repoDir);
     }
   });
+
+  it("skips tracked test files deleted from the working tree before reference search", async () => {
+    const repoDir = createTestRepo("graft-test-coverage-map-deleted-test-");
+    try {
+      writeCoverageScenario(repoDir);
+      fs.rmSync(path.join(repoDir, "test", "api.test.ts"));
+
+      const result = await structuralTestCoverageMap({
+        cwd: repoDir,
+        fs: realFs,
+        git: testGitClient,
+        process: nodeProcessRunner,
+        resolveWorkingTreePath: (filePath) => path.join(repoDir, filePath),
+        sourcePath: "src",
+        testPath: "test",
+      });
+
+      expect(result.totals).toEqual({
+        sourceFiles: 1,
+        testFiles: 0,
+        exportedSymbols: 2,
+        coveredSymbols: 0,
+        uncoveredSymbols: 2,
+      });
+      expect(result.files[0]!.symbols).toEqual([
+        expect.objectContaining({
+          name: "coveredApi",
+          status: "uncovered",
+          referenceCount: 0,
+          referencingTestFiles: [],
+        }),
+        expect.objectContaining({
+          name: "uncoveredApi",
+          status: "uncovered",
+          referenceCount: 0,
+          referencingTestFiles: [],
+        }),
+      ]);
+    } finally {
+      cleanupTestRepo(repoDir);
+    }
+  });
 });

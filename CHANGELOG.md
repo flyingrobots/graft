@@ -74,6 +74,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ### Fixed
 
+- **Structural test coverage review fix**: `graft struct
+  test-coverage` now skips tracked test files deleted from the working
+  tree before running reference searches, so unstaged or staged test
+  deletions degrade to uncovered symbols instead of failing on missing
+  paths.
 - **Structural review PR feedback**: `graft review` and
   `graft struct review` now require `--base` at parse time, nested
   object-literal defaults no longer compact into malformed signatures,
