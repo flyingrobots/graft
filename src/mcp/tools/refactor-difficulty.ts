@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { toJsonObject } from "../../operations/result-dto.js";
+import { ensureParserReady } from "../../parser/runtime.js";
 import { refactorDifficultyFromGraph } from "../../warp/refactor-difficulty.js";
 import type { ToolDefinition, ToolHandler } from "../context.js";
 
@@ -16,6 +17,7 @@ export const refactorDifficultyTool: ToolDefinition = {
   },
   createHandler(): ToolHandler {
     return async (args, ctx) => {
+      await ensureParserReady();
       const symbol = args["symbol"];
       const rawPath = args["path"];
       const rawLimit = args["limit"];
