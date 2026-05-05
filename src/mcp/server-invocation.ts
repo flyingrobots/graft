@@ -4,6 +4,7 @@ import { z } from "zod";
 import type { JsonObject } from "../contracts/json-object.js";
 import type { CanonicalJsonCodec } from "../adapters/canonical-json.js";
 import { buildReceiptResult } from "./receipt.js";
+import type { ObservationSnapshot } from "./cache.js";
 import type { ToolHandler, ToolDefinition, ToolContext } from "./context.js";
 import type { McpToolResult, McpToolReceipt } from "./receipt.js";
 import type {
@@ -45,6 +46,16 @@ export interface InvocationStore {
   readonly startedAtMs: number;
   readonly footprint: FootprintAccumulator;
   response?: { readonly receipt: McpToolReceipt; readonly tripwireSignals: readonly string[] };
+}
+
+interface InvocationEnvelope {
+  readonly traceId: string;
+  readonly startedAtMs: number;
+  readonly argKeys: readonly string[];
+}
+
+interface InvocationExecutionPlan {
+  readonly execution: WorkspaceExecutionContext | null;
 }
 
 /** Dependencies injected by the composition root to build the invocation engine. */
@@ -190,6 +201,270 @@ export function createInvocationEngine(deps: InvocationEngineDeps): InvocationEn
     return result;
   }
 
+  function openInvocation(args: JsonObject): InvocationEnvelope {
+    return {
+      traceId: crypto.randomUUID(),
+      startedAtMs: Date.now(),
+      argKeys: sanitizeArgKeys(args),
+    };
+  }
+
+  function createInvocationStore(envelope: InvocationEnvelope): InvocationStore {
+    return {
+      traceId: envelope.traceId,
+      startedAtMs: envelope.startedAtMs,
+      footprint: { paths: new Set(), symbols: new Set(), regions: [] },
+    };
+  }
+
+  async function emitInvocationStarted(
+    name: string,
+    envelope: InvocationEnvelope,
+  ): Promise<void> {
+    if (!observability.enabled) return;
+    await emitRuntimeEvent({
+      event: "tool_call_started",
+      sessionId,
+      traceId: envelope.traceId,
+      tool: name,
+      argKeys: envelope.argKeys,
+      sessionDepth: workspaceRouter.governor.getGovernorDepth(),
+    });
+  }
+
+  function decodeInvocationArgs(
+    args: JsonObject,
+    schema: z.ZodObject | undefined,
+  ): JsonObject {
+    return schema !== undefined ? schema.parse(args) : args;
+  }
+
+  function authorizeInvocation(name: string): void {
+    enforceDaemonToolAccess({
+      mode,
+      name,
+      isBound: workspaceRouter.isBound(),
+      status: workspaceRouter.getStatus(),
+    });
+  }
+
+  function planInvocationExecution(name: string): InvocationExecutionPlan {
+    const execution = daemonScheduler !== null
+      && workspaceRouter.isBound()
+      && daemonScheduledRepoTools.has(name)
+      ? workspaceRouter.captureExecutionContext()
+      : null;
+    return { execution };
+  }
+
+  async function executeHandlerInScope(input: {
+    readonly name: string;
+    readonly handler: ToolHandler;
+    readonly parsed: JsonObject;
+    readonly ctx: ToolContext;
+    readonly invocation: InvocationStore;
+    readonly execution: WorkspaceExecutionContext | null;
+  }): Promise<McpToolResult> {
+    return invocationStorage.run(input.invocation, async () => {
+      if (input.execution !== null) {
+        const activeExecution = input.execution;
+        return executionContextStorage.run(activeExecution, async () => {
+          if (!repoStateOptionalTools.has(input.name)) {
+            await activeExecution.repoState.observe();
+          }
+          return input.handler(input.parsed, input.ctx);
+        });
+      }
+      if (workspaceRouter.isBound() && !repoStateOptionalTools.has(input.name)) {
+        await workspaceRouter.observeRepoState();
+      }
+      return input.handler(input.parsed, input.ctx);
+    });
+  }
+
+  function snapshotWorkerCache(input: {
+    readonly parsed: JsonObject;
+    readonly execution: WorkspaceExecutionContext;
+  }): Record<string, ObservationSnapshot> | undefined {
+    if (typeof input.parsed["path"] !== "string") {
+      return undefined;
+    }
+    const filePath = input.execution.resolvePath(input.parsed["path"]);
+    const snapshot = input.execution.cache.snapshotEntry(filePath);
+    return snapshot === null ? {} : { [filePath]: snapshot };
+  }
+
+  async function runOffloadedRepoTool(input: {
+    readonly name: string;
+    readonly parsed: JsonObject;
+    readonly execution: WorkspaceExecutionContext;
+    readonly envelope: InvocationEnvelope;
+    readonly invocation: InvocationStore;
+    readonly executeHandler: () => Promise<McpToolResult>;
+  }): Promise<McpToolResult> {
+    if (daemonWorkerPool === null) {
+      return input.executeHandler();
+    }
+
+    await input.execution.repoState.observe();
+    const offloadedTool = resolveDaemonOffloadedRepoTool(
+      input.name,
+      input.parsed,
+      input.execution.repoState.getState().dirty,
+    );
+    if (offloadedTool === null) {
+      return input.executeHandler();
+    }
+
+    const cacheSnapshots = snapshotWorkerCache({
+      parsed: input.parsed,
+      execution: input.execution,
+    });
+    const workerResult = await daemonWorkerPool.runRepoTool({
+      sessionId,
+      workspaceSliceId: input.execution.sliceId,
+      traceId: input.envelope.traceId,
+      seq: ++seq,
+      startedAtMs: input.envelope.startedAtMs,
+      tool: offloadedTool,
+      args: input.parsed,
+      projectRoot: input.execution.projectRoot,
+      graftDir: input.execution.graftDir,
+      graftignorePatterns: input.execution.graftignorePatterns,
+      repoId: input.execution.repoId,
+      worktreeId: input.execution.worktreeId,
+      gitCommonDir: input.execution.gitCommonDir,
+      writerId: input.execution.warpWriterId,
+      capabilityProfile: input.execution.capabilityProfile,
+      repoState: input.execution.repoState.getState(),
+      governorSnapshot: input.execution.governor.snapshot(),
+      metricsSnapshot: input.execution.metrics.snapshot(),
+      ...(cacheSnapshots !== undefined ? { cacheSnapshots } : {}),
+    });
+
+    for (const update of workerResult.cacheUpdates) {
+      input.execution.cache.applySnapshot(update.path, update.observation);
+    }
+    input.execution.metrics.applyDelta(workerResult.metricsDelta);
+    input.execution.metrics.recordToolResult(
+      input.name as ToolDefinition["name"],
+      workerResult.textBytes,
+    );
+    input.execution.governor.recordBytesConsumed(workerResult.textBytes);
+    input.invocation.response = {
+      receipt: workerResult.receipt,
+      tripwireSignals: workerResult.tripwireSignals,
+    };
+    return workerResult.result;
+  }
+
+  async function dispatchInvocation(input: {
+    readonly name: string;
+    readonly parsed: JsonObject;
+    readonly handler: ToolHandler;
+    readonly ctx: ToolContext;
+    readonly invocation: InvocationStore;
+    readonly execution: WorkspaceExecutionContext | null;
+    readonly envelope: InvocationEnvelope;
+  }): Promise<McpToolResult> {
+    const executeHandler = async (): Promise<McpToolResult> => executeHandlerInScope(input);
+
+    if (input.execution === null || daemonScheduler === null) {
+      return executeHandler();
+    }
+
+    const activeExecution = input.execution;
+    return daemonScheduler.enqueue({
+      sessionId,
+      sliceId: activeExecution.sliceId,
+      repoId: activeExecution.repoId,
+      worktreeId: activeExecution.worktreeId,
+      tool: input.name,
+      kind: "repo_tool",
+      priority: "interactive",
+      writerId: activeExecution.warpWriterId,
+    }, async () => runOffloadedRepoTool({
+      name: input.name,
+      parsed: input.parsed,
+      execution: activeExecution,
+      envelope: input.envelope,
+      invocation: input.invocation,
+      executeHandler,
+    }));
+  }
+
+  async function emitInvocationCompleted(input: {
+    readonly name: string;
+    readonly invocation: InvocationStore;
+    readonly execution: WorkspaceExecutionContext | null;
+    readonly envelope: InvocationEnvelope;
+  }): Promise<void> {
+    if (!observability.enabled || input.invocation.response === undefined) {
+      return;
+    }
+    const footprint = snapshotFootprint(input.invocation.footprint);
+    await emitRuntimeEvent({
+      event: "tool_call_completed",
+      sessionId,
+      traceId: input.envelope.traceId,
+      seq: input.invocation.response.receipt.seq,
+      tool: input.name,
+      latencyMs: input.invocation.response.receipt.latencyMs,
+      projection: input.invocation.response.receipt.projection,
+      reason: input.invocation.response.receipt.reason,
+      burdenKind: input.invocation.response.receipt.burden.kind,
+      nonReadBurden: input.invocation.response.receipt.burden.nonRead,
+      returnedBytes: input.invocation.response.receipt.returnedBytes,
+      fileBytes: input.invocation.response.receipt.fileBytes,
+      sessionDepth: input.execution?.governor.getGovernorDepth() ?? workspaceRouter.governor.getGovernorDepth(),
+      tripwireSignals: input.invocation.response.tripwireSignals,
+      metrics: input.invocation.response.receipt.cumulative,
+      ...(footprint !== undefined ? { footprint } : {}),
+    });
+  }
+
+  async function recordReadAttribution(input: {
+    readonly name: string;
+    readonly parsed: JsonObject;
+    readonly result: McpToolResult;
+    readonly execution: WorkspaceExecutionContext | null;
+  }): Promise<void> {
+    if (!workspaceRouter.isBound() || !attributedReadTools.has(input.name)) {
+      return;
+    }
+    const payload = parseToolPayload(input.result);
+    if (payload === null) {
+      return;
+    }
+    await workspaceRouter.noteReadObservation(
+      input.name as "safe_read" | "file_outline" | "read_range",
+      input.parsed,
+      payload,
+      input.execution,
+    );
+  }
+
+  async function emitInvocationFailed(input: {
+    readonly name: string;
+    readonly error: unknown;
+    readonly envelope: InvocationEnvelope;
+    readonly execution: WorkspaceExecutionContext | null;
+  }): Promise<void> {
+    if (!observability.enabled) return;
+    const failure = classifyRuntimeFailure(input.error);
+    await emitRuntimeEvent({
+      event: "tool_call_failed",
+      sessionId,
+      traceId: input.envelope.traceId,
+      tool: input.name,
+      latencyMs: Date.now() - input.envelope.startedAtMs,
+      sessionDepth: input.execution?.governor.getGovernorDepth() ?? workspaceRouter.governor.getGovernorDepth(),
+      argKeys: input.envelope.argKeys,
+      errorKind: failure.kind,
+      errorName: failure.name,
+    });
+  }
+
   async function invokeTool(
     name: string,
     handler: ToolHandler,
@@ -200,177 +475,30 @@ export function createInvocationEngine(deps: InvocationEngineDeps): InvocationEn
     await runtimeReady;
     workspaceRouter.governor.recordMessage();
     workspaceRouter.governor.recordToolCall(name);
-    const traceId = crypto.randomUUID();
-    const startedAtMs = Date.now();
-    const argKeys = sanitizeArgKeys(args);
-
-    if (observability.enabled) {
-      await emitRuntimeEvent({
-        event: "tool_call_started",
-        sessionId,
-        traceId,
-        tool: name,
-        argKeys,
-        sessionDepth: workspaceRouter.governor.getGovernorDepth(),
-      });
-    }
-
-    const invocation: InvocationStore = {
-      traceId,
-      startedAtMs,
-      footprint: { paths: new Set(), symbols: new Set(), regions: [] },
-    };
+    const envelope = openInvocation(args);
+    await emitInvocationStarted(name, envelope);
+    const invocation = createInvocationStore(envelope);
     let execution: WorkspaceExecutionContext | null = null;
 
     try {
-      const parsed: JsonObject = schema !== undefined ? schema.parse(args) : args;
-      enforceDaemonToolAccess({
-        mode,
+      const parsed = decodeInvocationArgs(args, schema);
+      authorizeInvocation(name);
+      execution = planInvocationExecution(name).execution;
+      const result = await dispatchInvocation({
         name,
-        isBound: workspaceRouter.isBound(),
-        status: workspaceRouter.getStatus(),
+        parsed,
+        handler,
+        ctx,
+        invocation,
+        execution,
+        envelope,
       });
-
-      execution = daemonScheduler !== null
-        && workspaceRouter.isBound()
-        && daemonScheduledRepoTools.has(name)
-        ? workspaceRouter.captureExecutionContext()
-        : null;
-
-      const executeHandler = async (): Promise<McpToolResult> => {
-        return invocationStorage.run(invocation, async () => {
-          if (execution !== null) {
-            const activeExecution = execution;
-            return executionContextStorage.run(activeExecution, async () => {
-              if (!repoStateOptionalTools.has(name)) {
-                await activeExecution.repoState.observe();
-              }
-              return handler(parsed, ctx);
-            });
-          }
-          if (workspaceRouter.isBound() && !repoStateOptionalTools.has(name)) {
-            await workspaceRouter.observeRepoState();
-          }
-          return handler(parsed, ctx);
-        });
-      };
-
-      const result = execution !== null && daemonScheduler !== null
-        ? await daemonScheduler.enqueue({
-          sessionId,
-          sliceId: execution.sliceId,
-          repoId: execution.repoId,
-          worktreeId: execution.worktreeId,
-          tool: name,
-          kind: "repo_tool",
-          priority: "interactive",
-          writerId: execution.warpWriterId,
-        }, async () => {
-          const activeExecution = execution;
-          if (activeExecution !== null && daemonWorkerPool !== null) {
-            await activeExecution.repoState.observe();
-            const offloadedTool = resolveDaemonOffloadedRepoTool(
-              name,
-              parsed,
-              activeExecution.repoState.getState().dirty,
-            );
-            if (offloadedTool === null) {
-              return executeHandler();
-            }
-            const cacheSnapshots = typeof parsed["path"] === "string"
-              ? (() => {
-                const filePath = activeExecution.resolvePath(parsed["path"]);
-                const snapshot = activeExecution.cache.snapshotEntry(filePath);
-                return snapshot === null ? {} : { [filePath]: snapshot };
-              })()
-              : undefined;
-            const workerResult = await daemonWorkerPool.runRepoTool({
-              sessionId,
-              workspaceSliceId: activeExecution.sliceId,
-              traceId,
-              seq: ++seq,
-              startedAtMs,
-              tool: offloadedTool,
-              args: parsed,
-              projectRoot: activeExecution.projectRoot,
-              graftDir: activeExecution.graftDir,
-              graftignorePatterns: activeExecution.graftignorePatterns,
-              repoId: activeExecution.repoId,
-              worktreeId: activeExecution.worktreeId,
-              gitCommonDir: activeExecution.gitCommonDir,
-              writerId: activeExecution.warpWriterId,
-              capabilityProfile: activeExecution.capabilityProfile,
-              repoState: activeExecution.repoState.getState(),
-              governorSnapshot: activeExecution.governor.snapshot(),
-              metricsSnapshot: activeExecution.metrics.snapshot(),
-              ...(cacheSnapshots !== undefined ? { cacheSnapshots } : {}),
-            });
-            for (const update of workerResult.cacheUpdates) {
-              activeExecution.cache.applySnapshot(update.path, update.observation);
-            }
-            activeExecution.metrics.applyDelta(workerResult.metricsDelta);
-            activeExecution.metrics.recordToolResult(name as ToolDefinition["name"], workerResult.textBytes);
-            activeExecution.governor.recordBytesConsumed(workerResult.textBytes);
-            invocation.response = {
-              receipt: workerResult.receipt,
-              tripwireSignals: workerResult.tripwireSignals,
-            };
-            return workerResult.result;
-          }
-          return executeHandler();
-        })
-        : await executeHandler();
-
-      if (observability.enabled && invocation.response !== undefined) {
-        const footprint = snapshotFootprint(invocation.footprint);
-        await emitRuntimeEvent({
-          event: "tool_call_completed",
-          sessionId,
-          traceId,
-          seq: invocation.response.receipt.seq,
-          tool: name,
-          latencyMs: invocation.response.receipt.latencyMs,
-          projection: invocation.response.receipt.projection,
-          reason: invocation.response.receipt.reason,
-          burdenKind: invocation.response.receipt.burden.kind,
-          nonReadBurden: invocation.response.receipt.burden.nonRead,
-          returnedBytes: invocation.response.receipt.returnedBytes,
-          fileBytes: invocation.response.receipt.fileBytes,
-          sessionDepth: execution?.governor.getGovernorDepth() ?? workspaceRouter.governor.getGovernorDepth(),
-          tripwireSignals: invocation.response.tripwireSignals,
-          metrics: invocation.response.receipt.cumulative,
-          ...(footprint !== undefined ? { footprint } : {}),
-        });
-      }
-
-      if (workspaceRouter.isBound() && attributedReadTools.has(name)) {
-        const payload = parseToolPayload(result);
-        if (payload !== null) {
-          await workspaceRouter.noteReadObservation(
-            name as "safe_read" | "file_outline" | "read_range",
-            parsed,
-            payload,
-            execution,
-          );
-        }
-      }
+      await emitInvocationCompleted({ name, invocation, execution, envelope });
+      await recordReadAttribution({ name, parsed, result, execution });
 
       return result;
     } catch (error) {
-      if (observability.enabled) {
-        const failure = classifyRuntimeFailure(error);
-        await emitRuntimeEvent({
-          event: "tool_call_failed",
-          sessionId,
-          traceId,
-          tool: name,
-          latencyMs: Date.now() - startedAtMs,
-          sessionDepth: execution?.governor.getGovernorDepth() ?? workspaceRouter.governor.getGovernorDepth(),
-          argKeys,
-          errorKind: failure.kind,
-          errorName: failure.name,
-        });
-      }
+      await emitInvocationFailed({ name, error, envelope, execution });
       throw error;
     }
   }

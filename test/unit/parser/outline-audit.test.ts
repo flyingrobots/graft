@@ -1,8 +1,11 @@
 import { describe, it, expect } from "vitest";
 import { extractOutline } from "../../../src/parser/outline.js";
+import { ensureParserReady } from "../../../src/parser/runtime.js";
 import fs from "node:fs";
 import path from "node:path";
 import { fixturePath } from "../../helpers/fixtures.js";
+
+await ensureParserReady();
 
 const AUDIT = fixturePath("audit");
 

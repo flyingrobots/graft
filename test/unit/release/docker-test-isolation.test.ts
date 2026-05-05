@@ -57,7 +57,7 @@ describe("Docker-isolated test validation", () => {
     expect(runner).not.toContain("\"-v\"");
   });
 
-  it("preflights Docker availability before building the isolated image", () => {
+  it("preflights Docker availability before building the isolated image", async () => {
     const calls: string[] = [];
     const exits: number[] = [];
     const spawn: RunnerSpawn = (command, args) => {
@@ -69,7 +69,7 @@ describe("Docker-isolated test validation", () => {
       throw new Error(`exit ${String(code)}`);
     };
 
-    expect(() => runIsolatedTests({
+    await expect(runIsolatedTests({
       argv: [],
       env: {},
       checkDocker: () => {
@@ -81,7 +81,7 @@ describe("Docker-isolated test validation", () => {
       },
       exit,
       spawn,
-    })).toThrow("exit 0");
+    })).rejects.toThrow("exit 0");
 
     expect(calls).toEqual([
       "docker preflight",
@@ -97,13 +97,16 @@ describe("Docker-isolated test validation", () => {
 
   it("names the host-side local fallback without weakening isolated validation", () => {
     const preflight = readRepoFile("scripts/docker-availability.ts");
+    const autostart = readRepoFile("scripts/docker-autostart.ts");
 
     expect(preflight).toContain("Docker is unavailable");
     expect(preflight).toContain("`pnpm test` is the release-grade isolated runner");
     expect(preflight).toContain("`pnpm test:local`");
+    expect(autostart).toContain("open");
+    expect(autostart).toContain("Docker");
   });
 
-  it("does not print Docker guidance when pnpm is missing inside the isolated runner", () => {
+  it("does not print Docker guidance when pnpm is missing inside the isolated runner", async () => {
     const errors: string[] = [];
     const exits: number[] = [];
     const exit = (code = 0): never => {
@@ -111,7 +114,7 @@ describe("Docker-isolated test validation", () => {
       throw new Error(`exit ${String(code)}`);
     };
 
-    expect(() => runIsolatedTests({
+    await expect(runIsolatedTests({
       argv: [],
       env: { GRAFT_TEST_CONTAINER: "1" },
       checkDocker: () => ({ ok: true }),
@@ -123,7 +126,7 @@ describe("Docker-isolated test validation", () => {
         status: null,
         error: missingExecutable("pnpm"),
       }),
-    })).toThrow("exit 1");
+    })).rejects.toThrow("exit 1");
 
     expect(errors).toEqual([
       "Failed to run pnpm: spawn pnpm ENOENT",

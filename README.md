@@ -77,26 +77,38 @@ surface uses for `safe_read`, `file_outline`, `read_range`, and
 
 For close editor integration, use the buffer-native surface directly:
 ```ts
-import { createProjectionBundle, createStructuredBuffer } from "@flyingrobots/graft";
+import {
+  createProjectionBundle,
+  createStructuredBuffer,
+  ensureParserReady,
+} from "@flyingrobots/graft";
+
+await ensureParserReady();
 
 const buffer = createStructuredBuffer("src/app.tsx", liveEditorText, {
   basis: { kind: "editor_head", headId: "head-42", tick: 17 },
 });
-const spans = buffer.syntaxSpans({
-  viewport: {
-    start: { row: 0, column: 0 },
-    end: { row: 80, column: 0 },
-  },
-});
-const context = buffer.nodeAt({ row: 24, column: 12 });
-const rename = buffer.renamePreview({
-  position: { row: 24, column: 12 },
-  nextName: "nextValue",
-});
 
-// Every warm result now carries the basis it was derived from.
-console.log(spans.basis);
+try {
+  const spans = buffer.syntaxSpans({
+    viewport: {
+      start: { row: 0, column: 0 },
+      end: { row: 80, column: 0 },
+    },
+  });
+  const context = buffer.nodeAt({ row: 24, column: 12 });
+  const rename = buffer.renamePreview({
+    position: { row: 24, column: 12 },
+    nextName: "nextValue",
+  });
 
+  // Every warm result now carries the basis it was derived from.
+  console.log(spans.basis, context.kind, rename.edits.length);
+} finally {
+  buffer.dispose();
+}
+
+// createProjectionBundle owns the temporary StructuredBuffer lifecycle.
 const bundle = createProjectionBundle("src/app.tsx", liveEditorText, {
   basis: { kind: "editor_head", headId: "head-42", tick: 17 },
   viewport: {

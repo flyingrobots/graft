@@ -12,6 +12,7 @@
 
 import type { Lens } from "@git-stunts/git-warp";
 import { observeGraph, type WarpContext } from "./context.js";
+import { SymIdCodec } from "./sym-id-codec.js";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -41,14 +42,8 @@ export interface DeadSymbolOptions {
 // Internal helpers
 // ---------------------------------------------------------------------------
 
-/** Extract the file path from a sym node id like "sym:path/to/file.ts:symbolName". */
-function filePathFromSymId(symId: string): string {
-  const withoutPrefix = symId.slice("sym:".length);
-  const lastColon = withoutPrefix.lastIndexOf(":");
-  if (lastColon === -1) {
-    return withoutPrefix;
-  }
-  return withoutPrefix.slice(0, lastColon);
+function filePathFromSymId(symId: string): string | null {
+  return SymIdCodec.filePath(symId);
 }
 
 const SYM_LENS: Lens = {
@@ -160,6 +155,7 @@ export async function findDeadSymbols(
     const kind = typeof props?.["kind"] === "string" ? props["kind"] : "unknown";
     const exported = typeof props?.["exported"] === "boolean" ? props["exported"] : false;
     const filePath = filePathFromSymId(symId);
+    if (filePath === null) continue;
 
     dead.push({
       name,

@@ -5,7 +5,8 @@ import { CachedFile } from "./cached-file.js";
 import { ObservationCache, hashContent } from "./observation-cache.js";
 import { GovernorTracker } from "../session/tracker.js";
 import { diffOutlines, type OutlineDiff } from "../parser/diff.js";
-import { extractOutlineForFile } from "../parser/outline.js";
+import { extractOutlineForFileAsync } from "../parser/outline.js";
+import { detectStructuredFormat } from "../parser/lang.js";
 import type { JumpEntry, OutlineEntry } from "../parser/types.js";
 import { evaluatePolicy } from "../policy/evaluate.js";
 import { RefusedResult } from "../policy/types.js";
@@ -163,6 +164,10 @@ export class RepoWorkspace {
     if (snapshot?.supportsOutline === true) {
       const cacheResult = this.cache.check(filePath, snapshot.rawContent);
       if (cacheResult.hit) {
+        const refusal = this.evaluateRefusal(filePath, snapshot.actual);
+        if (refusal !== null) {
+          return refusal;
+        }
         cacheResult.obs.touch(this.cache.now());
         return {
           path: filePath,
@@ -182,15 +187,16 @@ export class RepoWorkspace {
         if (refusal !== null) {
           return refusal;
         }
-        this.cache.record(filePath, snapshot.hash, snapshot.outline, snapshot.jumpTable, snapshot.actual);
+        const { outline, jumpTable } = await snapshot.outlineSnapshot();
+        this.cache.record(filePath, snapshot.hash, outline, jumpTable, snapshot.actual);
         const updated = this.cache.get(filePath);
         return {
           path: filePath,
           projection: "diff",
           reason: "CHANGED_SINCE_LAST_READ",
-          diff: diffOutlines(cacheResult.stale.outline, snapshot.outline),
-          outline: snapshot.outline,
-          jumpTable: snapshot.jumpTable,
+          diff: diffOutlines(cacheResult.stale.outline, outline),
+          outline,
+          jumpTable,
           actual: snapshot.actual,
           readCount: cacheResult.stale.readCount + 1,
           lastReadAt: updated?.lastReadAt ?? this.cache.now(),
@@ -216,7 +222,12 @@ export class RepoWorkspace {
       (result.projection === "content" || result.projection === "outline") &&
       result.reason !== "UNSUPPORTED_LANGUAGE"
     ) {
-      this.cache.record(filePath, snapshot.hash, snapshot.outline, snapshot.jumpTable, result.actual);
+      try {
+        const { outline, jumpTable } = await snapshot.outlineSnapshot();
+        this.cache.record(filePath, snapshot.hash, outline, jumpTable, result.actual);
+      } catch {
+        // Cache writes are best-effort; never turn a successful read into an error.
+      }
     }
 
     return result;
@@ -306,8 +317,7 @@ export class RepoWorkspace {
       return { status: "refused", reason: refusal.reason };
     }
 
-    const newOutlineResult = extractOutlineForFile(filePath, rawContent);
-    if (newOutlineResult === null) {
+    if (detectStructuredFormat(filePath) === null) {
       return {
         status: "unsupported",
         reason: "UNSUPPORTED_LANGUAGE",
@@ -320,6 +330,14 @@ export class RepoWorkspace {
     }
     if (cacheResult.stale === null) {
       return { status: "no_previous_observation" };
+    }
+
+    const newOutlineResult = await extractOutlineForFileAsync(filePath, rawContent);
+    if (newOutlineResult === null) {
+      return {
+        status: "unsupported",
+        reason: "UNSUPPORTED_LANGUAGE",
+      };
     }
 
     const diff = diffOutlines(cacheResult.stale.outline, newOutlineResult.entries);

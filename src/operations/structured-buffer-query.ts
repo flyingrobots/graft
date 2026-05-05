@@ -6,6 +6,7 @@ import {
   type BufferPoint,
   type BufferRange,
   type BufferSelection,
+  type BufferUnavailableReason,
   type DiagnosticsResult,
   type FoldRegion,
   type FoldRegionsResult,
@@ -34,6 +35,19 @@ import {
   rangesEqual,
   summarizeNode,
 } from "./structured-buffer-model.js";
+
+function unavailableReason(snapshot: StructuredBufferSnapshot): BufferUnavailableReason {
+  return snapshot.parseUnavailableReason ?? "UNSUPPORTED_LANGUAGE";
+}
+
+function parseStatusReason(
+  snapshot: StructuredBufferSnapshot,
+): BufferUnavailableReason | undefined {
+  if (snapshot.format === null) {
+    return "UNSUPPORTED_LANGUAGE";
+  }
+  return snapshot.parseUnavailableReason;
+}
 
 const KEYWORDS = new Set([
   "as",
@@ -337,15 +351,15 @@ function resolveSymbol(
 }
 
 export function buildOutlineResult(snapshot: StructuredBufferSnapshot): BufferOutlineResult {
-  if (snapshot.format === null) {
+  if (snapshot.format === null || snapshot.parseUnavailableReason !== undefined) {
     return {
       path: snapshot.path,
       format: snapshot.format,
       basis: snapshot.basis,
       outline: [],
       jumpTable: [],
-      partial: false,
-      reason: "UNSUPPORTED_LANGUAGE",
+      partial: snapshot.partial,
+      reason: unavailableReason(snapshot),
     };
   }
   const result = extractOutline(snapshot.content, snapshot.format);
@@ -374,7 +388,7 @@ export function buildInjectionResult(snapshot: StructuredBufferSnapshot): Inject
       format: snapshot.format,
       basis: snapshot.basis,
       injections: [],
-      reason: "UNSUPPORTED_LANGUAGE",
+      reason: unavailableReason(snapshot),
     };
   }
   return {
@@ -400,7 +414,7 @@ export function buildSyntaxSpansResult(
       partial: snapshot.partial,
       spans: [],
       injections: buildInjectionResult(snapshot).injections,
-      reason: "UNSUPPORTED_LANGUAGE",
+      reason: unavailableReason(snapshot),
     };
   }
   const viewport = opts.viewport;
@@ -472,7 +486,7 @@ export function buildDiagnosticsResult(snapshot: StructuredBufferSnapshot): Diag
       basis: snapshot.basis,
       partial: snapshot.partial,
       diagnostics: [],
-      reason: "UNSUPPORTED_LANGUAGE",
+      reason: unavailableReason(snapshot),
     };
   }
   const diagnostics: BufferDiagnostic[] = [];
@@ -520,7 +534,7 @@ export function buildNodeLookupResult(snapshot: StructuredBufferSnapshot, positi
       partial: snapshot.partial,
       node: null,
       parents: [],
-      reason: "UNSUPPORTED_LANGUAGE",
+      reason: unavailableReason(snapshot),
     };
   }
   const node = snapshot.parsed.root.namedDescendantForPosition(position);
@@ -568,7 +582,7 @@ export function buildFoldRegionsResult(snapshot: StructuredBufferSnapshot): Fold
       basis: snapshot.basis,
       partial: snapshot.partial,
       regions: [],
-      reason: "UNSUPPORTED_LANGUAGE",
+      reason: unavailableReason(snapshot),
     };
   }
   const regions: FoldRegion[] = [];
@@ -612,7 +626,7 @@ export function buildSelectionExpandResult(
       partial: snapshot.partial,
       range: null,
       node: null,
-      reason: "UNSUPPORTED_LANGUAGE",
+      reason: unavailableReason(snapshot),
     };
   }
   const normalized = normalizeSelection(selection);
@@ -642,7 +656,7 @@ export function buildSelectionShrinkResult(
       partial: snapshot.partial,
       range: null,
       node: null,
-      reason: "UNSUPPORTED_LANGUAGE",
+      reason: unavailableReason(snapshot),
     };
   }
   const normalized = normalizeSelection(selection);
@@ -692,7 +706,7 @@ export function buildSymbolOccurrencesResult(
       symbol: null,
       occurrences: [],
       scopeApplied: "buffer",
-      reason: "UNSUPPORTED_LANGUAGE",
+      reason: unavailableReason(snapshot),
     };
   }
   const resolved = resolveSymbol(snapshot.parsed.root, opts);
@@ -784,7 +798,7 @@ export function buildWarmProjectionBundleResult(
       format: snapshot.format,
       partial: snapshot.partial,
       status: snapshot.format === null ? "unsupported" : snapshot.partial ? "partial" : "full",
-      reason: snapshot.format === null ? "UNSUPPORTED_LANGUAGE" : undefined,
+      reason: parseStatusReason(snapshot),
     },
     syntax,
     diagnostics,

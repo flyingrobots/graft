@@ -5,6 +5,7 @@
 import { createHash } from "node:crypto";
 import type { PatchBuilderV2 } from "@git-stunts/git-warp";
 import type { PathOps } from "../ports/paths.js";
+import { SymIdCodec } from "./sym-id-codec.js";
 
 type TSNode = import("web-tree-sitter").SyntaxNode;
 
@@ -79,7 +80,7 @@ function compiledSpecifierSourceCandidates(resolvedImportSource: string): readon
 }
 
 function symNodeId(filePath: string, symbolName: string): string {
-  return `sym:${filePath}:${symbolName}`;
+  return SymIdCodec.encode(filePath, symbolName);
 }
 
 interface ImportInfo {

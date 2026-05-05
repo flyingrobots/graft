@@ -1,3 +1,4 @@
+import { spawnSync } from "node:child_process";
 import { afterEach, describe, expect, it } from "vitest";
 import packageJson from "../../../package.json";
 import {
@@ -9,6 +10,8 @@ import {
   createRepoLocalGraft,
   createRepoWorkspace,
   createStructuredBuffer,
+  ensureParserReady,
+  isParserReady,
   startDaemonServer,
   startStdioServer,
 } from "../../../src/index.js";
@@ -49,6 +52,8 @@ describe("public library API", () => {
     expect(typeof createRepoWorkspace).toBe("function");
     expect(typeof createStructuredBuffer).toBe("function");
     expect(typeof createProjectionBundle).toBe("function");
+    expect(typeof ensureParserReady).toBe("function");
+    expect(typeof isParserReady).toBe("function");
     expect(typeof createRepoLocalGraft).toBe("function");
     expect(typeof callGraftTool).toBe("function");
     expect(typeof createGraftServer).toBe("function");
@@ -76,5 +81,32 @@ describe("public library API", () => {
     expect(bundle.outline.basis).toEqual(basis);
     expect(bundle.folds.basis).toEqual(basis);
     expect(bundle.diagnostics.basis).toEqual(basis);
+  });
+
+  it("keeps sync projection bundles non-throwing before parser warmup", () => {
+    const script = [
+      "import { createProjectionBundle } from './src/index.ts';",
+      "const bundle = createProjectionBundle('src/app.ts', 'export const x = 1;\\n');",
+      "console.log(JSON.stringify(bundle.parseStatus));",
+    ].join("\n");
+    const result = spawnSync(
+      process.execPath,
+      ["--import", "tsx", "--eval", script],
+      {
+        cwd: process.cwd(),
+        encoding: "utf8",
+        timeout: 10_000,
+      },
+    );
+
+    expect(result.stderr).toBe("");
+    expect(result.status).toBe(0);
+    expect(JSON.parse(result.stdout)).toEqual({
+      basis: null,
+      format: "ts",
+      partial: true,
+      status: "partial",
+      reason: "PARSER_RUNTIME_NOT_READY",
+    });
   });
 });

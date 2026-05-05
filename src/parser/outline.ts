@@ -2,7 +2,11 @@ import { detectStructuredFormat } from "./lang.js";
 import type { SupportedStructuredFormat } from "./lang.js";
 import { OutlineEntry, JumpEntry } from "./types.js";
 import type { OutlineResult } from "./types.js";
-import { parseStructuredTree } from "./runtime.js";
+import {
+  type ParsedTree,
+  parseStructuredTree,
+  parseStructuredTreeAsync,
+} from "./runtime.js";
 import { extractMarkdownOutline } from "./markdown.js";
 
 const MAX_SIGNATURE_LENGTH = 199;
@@ -207,6 +211,14 @@ export function extractOutline(
     return extractMarkdownOutline(source);
   }
   const parsed = parseStructuredTree(lang, source);
+  try {
+    return extractOutlineFromParsedTree(parsed);
+  } finally {
+    parsed.delete();
+  }
+}
+
+export function extractOutlineFromParsedTree(parsed: ParsedTree): OutlineResult {
   const root = parsed.root;
 
   const entries: OutlineEntry[] = [];
@@ -289,8 +301,6 @@ export function extractOutline(
     }
   }
 
-  parsed.delete();
-
   const result: OutlineResult = {
     entries,
     jumpTable,
@@ -303,6 +313,21 @@ export function extractOutline(
   return result;
 }
 
+export async function extractOutlineAsync(
+  source: string,
+  lang: SupportedStructuredFormat = "ts",
+): Promise<OutlineResult> {
+  if (lang === "md") {
+    return extractMarkdownOutline(source);
+  }
+  const parsed = await parseStructuredTreeAsync(lang, source);
+  try {
+    return extractOutlineFromParsedTree(parsed);
+  } finally {
+    parsed.delete();
+  }
+}
+
 export function extractOutlineForFile(
   filePath: string,
   source: string,
@@ -313,4 +338,16 @@ export function extractOutlineForFile(
   }
 
   return extractOutline(source, lang);
+}
+
+export async function extractOutlineForFileAsync(
+  filePath: string,
+  source: string,
+): Promise<OutlineResult | null> {
+  const lang = detectStructuredFormat(filePath);
+  if (lang === null) {
+    return null;
+  }
+
+  return extractOutlineAsync(source, lang);
 }

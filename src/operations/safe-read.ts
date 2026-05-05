@@ -1,7 +1,7 @@
 import { evaluatePolicy } from "../policy/evaluate.js";
 import { ContentResult, RefusedResult } from "../policy/types.js";
 import type { GovernorDepth } from "../policy/types.js";
-import { extractOutlineForFile } from "../parser/outline.js";
+import { extractOutlineForFileAsync } from "../parser/outline.js";
 import type { OutlineEntry, JumpEntry } from "../parser/types.js";
 import type { FileSystem } from "../ports/filesystem.js";
 import type { JsonCodec } from "../ports/codec.js";
@@ -88,7 +88,7 @@ export async function safeRead(
   }
 
   // projection === "outline"
-  const outlineResult = extractOutlineForFile(filePath, content);
+  const outlineResult = await extractOutlineForFileAsync(filePath, content);
   if (outlineResult === null) {
     const emptyOutlineJson = options.codec.encode({ entries: [], jumpTable: [] });
     const estimatedBytesAvoided = bytes - Buffer.byteLength(emptyOutlineJson, "utf-8");

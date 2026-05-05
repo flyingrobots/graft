@@ -1,10 +1,10 @@
 import { spawnSync } from "node:child_process";
 import process from "node:process";
 import {
-  checkDockerAvailability,
   formatDockerUnavailableMessage,
   type DockerAvailability,
 } from "./docker-availability.js";
+import { ensureDockerAvailability } from "./docker-autostart.js";
 import { normalizeVitestArgs } from "./isolated-test-args.js";
 
 const CONTAINER_ENV = "GRAFT_TEST_CONTAINER";
@@ -29,7 +29,7 @@ export type RunnerSpawn = (
 export interface IsolatedTestRunnerOptions {
   argv: string[];
   env: NodeJS.ProcessEnv;
-  checkDocker?: () => DockerAvailability;
+  checkDocker?: () => DockerAvailability | Promise<DockerAvailability>;
   error?: (message: string) => void;
   exit?: (code?: number) => never;
   spawn?: RunnerSpawn;
@@ -98,9 +98,9 @@ function runChecked(
   }
 }
 
-export function runIsolatedTests(options: IsolatedTestRunnerOptions): never {
+export async function runIsolatedTests(options: IsolatedTestRunnerOptions): Promise<never> {
   const runnerOptions: Required<IsolatedTestRunnerOptions> = {
-    checkDocker: options.checkDocker ?? checkDockerAvailability,
+    checkDocker: options.checkDocker ?? ensureDockerAvailability,
     error: options.error ?? console.error,
     exit: options.exit ?? ((code) => process.exit(code)),
     spawn: options.spawn ?? defaultSpawn,
@@ -114,14 +114,14 @@ export function runIsolatedTests(options: IsolatedTestRunnerOptions): never {
   }
 
   const image = runnerOptions.env["GRAFT_TEST_IMAGE"] ?? DEFAULT_IMAGE;
-  const dockerAvailability = runnerOptions.checkDocker();
+  const dockerAvailability = await runnerOptions.checkDocker();
   if (!dockerAvailability.ok) {
     runnerOptions.error(formatDockerUnavailableMessage(dockerAvailability));
     runnerOptions.exit(1);
   }
 
   runChecked("docker", ["build", "--target", "test", "-t", image, "."], runnerOptions);
-  run("docker", [
+  return run("docker", [
     "run",
     "--rm",
     "--network",

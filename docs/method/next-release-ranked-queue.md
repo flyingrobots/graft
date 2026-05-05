@@ -22,13 +22,13 @@ listed idea.
 
 ## Above the line
 
-1. [CORE_graft-doctor.md](backlog/cool-ideas/CORE_graft-doctor.md)
+1. [CORE_graft-doctor.md](../design/CORE_graft-doctor.md)
    Narrowed scope accepted for the next pull candidate. `graft doctor`
    already exists as a diagnostic surface, including `--sludge`; the
    first slice should clarify shipped repo-generic health/capability
    posture, not run every integrity helper as a CI gate.
 
-2. [CORE_pr-review-structural-summary.md](backlog/cool-ideas/CORE_pr-review-structural-summary.md)
+2. [CORE_pr-review-structural-summary.md](backlog/asap/CORE_pr-review-structural-summary.md)
    Optional second slice if v0.8.0 wants a user-visible review workflow.
    It should compose existing structural diff/enhance facts rather than
    inventing a new review engine.

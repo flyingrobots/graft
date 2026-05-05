@@ -110,4 +110,25 @@ describe("warp: structural-log-from-graph", { timeout: 15000 }, () => {
       date: expect.stringMatching(/^\d{4}-\d{2}-\d{2}T/),
     }));
   });
+
+  it("matches path filters on directory boundaries", async () => {
+    fs.mkdirSync(path.join(tmpDir, "src", "app"), { recursive: true });
+    fs.mkdirSync(path.join(tmpDir, "src", "apple"), { recursive: true });
+    fs.writeFileSync(path.join(tmpDir, "src", "app", "main.ts"), "export const app = true;\n");
+    fs.writeFileSync(path.join(tmpDir, "src", "apple", "main.ts"), "export const apple = true;\n");
+    git(tmpDir, "add -A");
+    git(tmpDir, "commit -m 'add neighboring paths'");
+    const ctx = await openCtx();
+    await index(ctx);
+
+    const entries = await structuralLogFromGraph(ctx, { limit: 10, path: "src/app" });
+    const changedPaths = entries.flatMap((entry) => [
+      ...entry.symbols.added,
+      ...entry.symbols.changed,
+      ...entry.symbols.removed,
+    ].map((symbol) => symbol.filePath));
+
+    expect(changedPaths).toContain("src/app/main.ts");
+    expect(changedPaths).not.toContain("src/apple/main.ts");
+  });
 });

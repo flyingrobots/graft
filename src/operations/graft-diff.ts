@@ -3,6 +3,7 @@ import type { GitClient } from "../ports/git.js";
 import { getChangedFilesWithStatus, getFileAtRef } from "../git/diff.js";
 import { detectLang } from "../parser/lang.js";
 import { extractOutline } from "../parser/outline.js";
+import { ensureParserReady } from "../parser/runtime.js";
 import { diffOutlines, OutlineDiff } from "../parser/diff.js";
 
 export interface FileDiff {
@@ -78,6 +79,7 @@ function measureActual(
  * Compute structural diffs between two git refs (or working tree).
  */
 export async function graftDiff(opts: GraftDiffOptions): Promise<GraftDiffResult> {
+  await ensureParserReady();
   const base = opts.base ?? "HEAD";
   const headLabel = opts.head ?? "working tree";
   const cwd = opts.cwd;

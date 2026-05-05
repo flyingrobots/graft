@@ -1,6 +1,7 @@
 import { diffOutlines } from "../parser/diff.js";
 import type {
   AnchorAffinityResult,
+  BufferUnavailableReason,
   BufferRange,
   ChangedRegion,
   SemanticSummaryResult,
@@ -21,6 +22,10 @@ import {
   pointToIndex,
 } from "./structured-buffer-model.js";
 import { buildOutlineResult, buildSyntaxSpansResult } from "./structured-buffer-query.js";
+
+function unavailableReason(snapshot: StructuredBufferSnapshot): BufferUnavailableReason {
+  return snapshot.parseUnavailableReason ?? "UNSUPPORTED_LANGUAGE";
+}
 
 function lineTable(source: string): readonly string[] {
   return source.split("\n");
@@ -359,7 +364,7 @@ export function buildAnchorAffinityResult(
       status: "lost",
       strategy: "none",
       confidence: "low",
-      reason: "UNSUPPORTED_LANGUAGE",
+      reason: current.parseUnavailableReason ?? unavailableReason(next),
     };
   }
   const target = findCoveringNamedNode(current.parsed.root, normalizeSelection(selection));

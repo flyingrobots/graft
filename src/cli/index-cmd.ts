@@ -23,6 +23,7 @@ export interface RunIndexOptions {
   args?: readonly string[] | undefined;
   stdout?: Writer | undefined;
   stderr?: Writer | undefined;
+  exit?: ((code?: number) => never) | undefined;
 }
 
 function writeLine(writer: Writer, line = ""): void {
@@ -38,6 +39,7 @@ export async function runIndex(options: RunIndexOptions = {}): Promise<void> {
   const args = options.args ?? process.argv.slice(3);
   const stdout = options.stdout ?? process.stdout;
   const stderr = options.stderr ?? process.stderr;
+  const exit = options.exit;
 
   try {
     const { json, paths } = parseIndexCommandArgs(args);
@@ -57,6 +59,7 @@ export async function runIndex(options: RunIndexOptions = {}): Promise<void> {
         filesIndexed: result.filesIndexed,
         nodesEmitted: result.nodesEmitted,
       }), stdout);
+      exit?.(0);
       return;
     }
 
@@ -68,6 +71,7 @@ export async function runIndex(options: RunIndexOptions = {}): Promise<void> {
     writeLine(stdout);
     writeLine(stdout, "Done.");
     writeLine(stdout);
+    exit?.(0);
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : String(err);
     process.exitCode = 1;

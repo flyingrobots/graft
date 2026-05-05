@@ -8,6 +8,7 @@ import type {
 } from "../contracts/causal-ontology.js";
 import type { WarpContext } from "../warp/context.js";
 import { patchGraph } from "../warp/context.js";
+import { SymIdCodec } from "../warp/sym-id-codec.js";
 import type { RuntimeStagedTargetFullFile } from "./runtime-staged-target.js";
 
 export type PersistedLocalHistoryGraphWarp = WarpContext;
@@ -106,7 +107,7 @@ function fileNodeId(filePath: string): string {
 }
 
 function symbolNodeId(filePath: string, symbol: string): string {
-  return `sym:${filePath}:${symbol}`;
+  return SymIdCodec.encode(filePath, symbol);
 }
 
 function deriveFootprintShape(footprint: CausalFootprint): "file_set" | "symbol_set" | "region_set" | "mixed" {

@@ -6,8 +6,12 @@
  * history must pass filePath so the symbol id is explicit.
  */
 
-import type { PatchV2 } from "@git-stunts/git-warp";
+import {
+  assertProvenanceTimelinePort,
+  type ProvenanceTimelinePatch,
+} from "../ports/provenance-timeline.js";
 import { observeGraph, type WarpContext } from "./context.js";
+import { SymIdCodec } from "./sym-id-codec.js";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -36,15 +40,6 @@ export interface SymbolTimelineResult {
 // Internal helpers
 // ---------------------------------------------------------------------------
 
-function filePathFromSymId(symId: string): string {
-  const withoutPrefix = symId.slice("sym:".length);
-  const lastColon = withoutPrefix.lastIndexOf(":");
-  if (lastColon === -1) {
-    return withoutPrefix;
-  }
-  return withoutPrefix.slice(0, lastColon);
-}
-
 type ChangeKind = SymbolVersion["changeKind"];
 
 interface PatchOpView {
@@ -54,11 +49,6 @@ interface PatchOpView {
   readonly label?: unknown;
 }
 
-interface ProvenanceTimelineCore {
-  patchesFor(entityId: string): Promise<string[]>;
-  loadPatchBySha(sha: string): Promise<PatchV2>;
-}
-
 const EDGE_CHANGE_KIND = new Map<string, ChangeKind>([
   ["adds", "added"],
   ["changes", "changed"],
@@ -66,10 +56,10 @@ const EDGE_CHANGE_KIND = new Map<string, ChangeKind>([
 ]);
 
 function symIdFor(filePath: string, symbolName: string): string {
-  return `sym:${filePath}:${symbolName}`;
+  return SymIdCodec.encode(filePath, symbolName);
 }
 
-function patchOps(patch: PatchV2): readonly PatchOpView[] {
+function patchOps(patch: ProvenanceTimelinePatch): readonly PatchOpView[] {
   return Array.isArray(patch.ops) ? patch.ops as readonly PatchOpView[] : [];
 }
 
@@ -79,7 +69,7 @@ interface SymbolTouch {
   readonly changeKind: ChangeKind;
 }
 
-function touchFromPatch(symId: string, patch: PatchV2): SymbolTouch | null {
+function touchFromPatch(symId: string, patch: ProvenanceTimelinePatch): SymbolTouch | null {
   const ops = patchOps(patch);
 
   for (const op of ops) {
@@ -114,7 +104,7 @@ async function readSymbolPropsAtTick(
 async function versionFromPatch(
   ctx: WarpContext,
   symId: string,
-  patch: PatchV2,
+  patch: ProvenanceTimelinePatch,
 ): Promise<SymbolVersion | null> {
   const touch = touchFromPatch(symId, patch);
   if (touch === null) {
@@ -136,7 +126,7 @@ async function versionFromPatch(
     signature: typeof signature === "string" ? signature : undefined,
     startLine: typeof startLine === "number" ? startLine : undefined,
     endLine: typeof endLine === "number" ? endLine : undefined,
-    filePath: filePathFromSymId(symId),
+    filePath: SymIdCodec.filePath(symId) ?? symId,
   };
 }
 
@@ -149,7 +139,7 @@ async function liveSymbolIds(
     return [symIdFor(filePath, symbolName)];
   }
 
-  const obs = await observeGraph(ctx, { match: `sym:*:${symbolName}`, expose: [] });
+  const obs = await observeGraph(ctx, { match: SymIdCodec.symbolNamePattern(symbolName), expose: [] });
   return obs.getNodes();
 }
 
@@ -158,7 +148,8 @@ async function readTimelineVersions(
   symbolName: string,
   filePath: string | undefined,
 ): Promise<SymbolVersion[]> {
-  const core = ctx.app.core() as unknown as ProvenanceTimelineCore;
+  const core = ctx.app.core();
+  assertProvenanceTimelinePort(core);
   const symIds = await liveSymbolIds(ctx, symbolName, filePath);
   if (symIds.length === 0) return [];
 

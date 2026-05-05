@@ -1,4 +1,4 @@
-import { extractOutlineForFile } from "../parser/outline.js";
+import { extractOutlineForFileAsync } from "../parser/outline.js";
 import type { OutlineEntry, JumpEntry } from "../parser/types.js";
 import type { FileSystem } from "../ports/filesystem.js";
 
@@ -28,7 +28,7 @@ export async function fileOutline(
     };
   }
 
-  const result = extractOutlineForFile(filePath, content);
+  const result = await extractOutlineForFileAsync(filePath, content);
   if (result === null) {
     return {
       path: filePath,

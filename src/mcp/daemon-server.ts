@@ -4,6 +4,7 @@ import * as path from "node:path";
 import { CanonicalJsonCodec } from "../adapters/canonical-json.js";
 import { nodeFs } from "../adapters/node-fs.js";
 import { nodeGit } from "../adapters/node-git.js";
+import { ensureGitVersionSupportsGraft } from "../git/version-guard.js";
 import { DaemonControlPlane, type DaemonStatusView } from "./daemon-control-plane.js";
 import { DaemonJobScheduler } from "./daemon-job-scheduler.js";
 import { ChildProcessDaemonWorkerPool } from "./daemon-worker-pool.js";
@@ -47,6 +48,7 @@ export interface GraftDaemonServer {
 }
 
 export async function startDaemonServer(options: StartDaemonServerOptions = {}): Promise<GraftDaemonServer> {
+  await ensureGitVersionSupportsGraft();
   const graftDir = path.resolve(options.graftDir ?? defaultDaemonRoot());
   const socketPath = resolveSocketPath(options.socketPath, graftDir);
   const warpPool = new InMemoryWarpPool((cwd) => openWarp({ cwd }));

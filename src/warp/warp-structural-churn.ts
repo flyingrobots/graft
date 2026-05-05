@@ -5,6 +5,7 @@
 import type { AggregateResult, QueryResultV1, TickReceipt } from "@git-stunts/git-warp";
 import type { WarpContext } from "./context.js";
 import { observeGraph } from "./context.js";
+import { SymIdCodec } from "./sym-id-codec.js";
 
 export interface ChurnEntry {
   readonly symbol: string;
@@ -162,7 +163,9 @@ function removedSymIds(receipts: readonly TickReceipt[]): string[] {
   const ids: string[] = [];
   for (const receipt of receipts) {
     for (const op of receipt.ops) {
-      if (op.op !== "NodeTombstone" || op.result !== "applied" || !op.target.startsWith("sym:")) continue;
+      if (op.op !== "NodeTombstone" || op.result !== "applied" || !SymIdCodec.isSymId(op.target)) {
+        continue;
+      }
       if (!ids.includes(op.target)) {
         ids.push(op.target);
       }
@@ -259,16 +262,9 @@ async function shaForTick(
 }
 
 function parseSymId(symId: string): { filePath: string; symbol: string } | null {
-  if (!symId.startsWith("sym:")) return null;
-
-  const withoutPrefix = symId.slice("sym:".length);
-  const lastColon = withoutPrefix.lastIndexOf(":");
-  if (lastColon === -1) return null;
-
-  return {
-    filePath: withoutPrefix.slice(0, lastColon),
-    symbol: withoutPrefix.slice(lastColon + 1),
-  };
+  const parsed = SymIdCodec.decode(symId);
+  if (parsed === null) return null;
+  return { filePath: parsed.filePath, symbol: parsed.symbolPath };
 }
 
 function matchesPathFilter(filePath: string, pathFilter: string | undefined): boolean {

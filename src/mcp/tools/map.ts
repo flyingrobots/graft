@@ -2,6 +2,7 @@ import * as path from "node:path";
 import { z } from "zod";
 import { extractOutline } from "../../parser/outline.js";
 import { detectLang } from "../../parser/lang.js";
+import { ensureParserReady } from "../../parser/runtime.js";
 import type { ToolDefinition, ToolHandler } from "../context.js";
 import { GitFileQuery, listGitFiles } from "./git-files.js";
 import { evaluateMcpRefusal, type McpPolicyRefusal } from "../policy.js";
@@ -86,6 +87,7 @@ export const mapTool: ToolDefinition = {
   },
   createHandler(): ToolHandler {
     return async (args, ctx) => {
+      await ensureParserReady();
       const request = new StructuralMapRequest(args, ctx.projectRoot);
 
       // Budget gate: if the session budget is exhausted, return summary-only.

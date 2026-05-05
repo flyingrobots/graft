@@ -29,8 +29,8 @@ export async function handlePostReadHook(input: HookInput): Promise<HookOutput> 
     return new HookOutput(0, "");
   }
 
-  const { extractOutlineForFile } = await import("../parser/outline.js");
-  const outline = extractOutlineForFile(
+  const { extractOutlineForFileAsync } = await import("../parser/outline.js");
+  const outline = await extractOutlineForFileAsync(
     inspection.absolutePath,
     inspection.rawContent,
   );

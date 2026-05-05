@@ -9,6 +9,7 @@
 import type { Lens, QueryResultV1 } from "@git-stunts/git-warp";
 import type { WarpContext } from "./context.js";
 import { observeGraph } from "./context.js";
+import { SymIdCodec } from "./sym-id-codec.js";
 import { symbolTimeline } from "./symbol-timeline.js";
 
 // ---------------------------------------------------------------------------
@@ -64,15 +65,6 @@ function commitSymbolLens(): Lens {
   };
 }
 
-function filePathFromSymId(symId: string): string {
-  const withoutPrefix = symId.slice("sym:".length);
-  const lastColon = withoutPrefix.lastIndexOf(":");
-  if (lastColon === -1) {
-    return withoutPrefix;
-  }
-  return withoutPrefix.slice(0, lastColon);
-}
-
 // ---------------------------------------------------------------------------
 // Public API
 // ---------------------------------------------------------------------------
@@ -114,7 +106,7 @@ export async function symbolsForCommit(
   ]);
 
   // Batch prop read for discovered sym nodes.
-  const allSymIds = [...addedIds, ...changedIds].filter((id) => id.startsWith("sym:"));
+  const allSymIds = [...addedIds, ...changedIds].filter((id) => SymIdCodec.isSymId(id));
 
   const symPropsMap = new Map<string, Record<string, unknown>>();
   if (allSymIds.length > 0) {
@@ -135,12 +127,12 @@ export async function symbolsForCommit(
     const kind = typeof props["kind"] === "string" ? props["kind"] : "unknown";
     const signature = typeof props["signature"] === "string" ? props["signature"] : undefined;
     const exported = typeof props["exported"] === "boolean" ? props["exported"] : false;
-    const filePath = filePathFromSymId(symId);
+    const filePath = SymIdCodec.filePath(symId) ?? symId;
     return { name, kind, signature, exported, filePath };
   }
 
-  const added = addedIds.filter((id) => id.startsWith("sym:")).map(toSymbolChange);
-  const changed = changedIds.filter((id) => id.startsWith("sym:")).map(toSymbolChange);
+  const added = addedIds.filter((id) => SymIdCodec.isSymId(id)).map(toSymbolChange);
+  const changed = changedIds.filter((id) => SymIdCodec.isSymId(id)).map(toSymbolChange);
 
   // Detect removals by temporal receipts across the Git commit's indexed
   // Lamport window. Lazy indexing can write one WARP patch per file, so one
@@ -205,7 +197,7 @@ async function detectRemovals(
   const removed = new Map<string, number>();
   for (const receipt of scopedReceipts) {
     for (const op of receipt.ops) {
-      if (op.op === "NodeTombstone" && op.target.startsWith("sym:") && op.result === "applied") {
+      if (op.op === "NodeTombstone" && SymIdCodec.isSymId(op.target) && op.result === "applied") {
         removed.set(op.target, receipt.lamport);
       }
     }
@@ -232,7 +224,7 @@ async function detectRemovals(
     const kind = typeof props["kind"] === "string" ? props["kind"] : "unknown";
     const signature = typeof props["signature"] === "string" ? props["signature"] : undefined;
     const exported = typeof props["exported"] === "boolean" ? props["exported"] : false;
-    const filePath = filePathFromSymId(id);
+    const filePath = SymIdCodec.filePath(id) ?? id;
 
     changes.push({ name, kind, signature, exported, filePath });
   }

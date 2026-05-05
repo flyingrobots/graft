@@ -43,6 +43,7 @@ work:
 - `CreateStructuredBufferOptions`
 - `CreateProjectionBundleOptions`
 - `StructuredBuffer`
+- `ensureParserReady(...)`
 - `WarmProjectionBasis`
 - `WarmProjectionBundleResult`
 - exported `Buffer*`, `Syntax*`, `Fold*`, `Selection*`, `Rename*`,
@@ -50,6 +51,13 @@ work:
 
 Use this family when a host app wants editor-native parsing, spans,
 rename previews, and diff/mapping on unsaved text.
+
+Tree-sitter grammar loading is async and lazy. Hosts that need full
+parser-backed results from the synchronous `StructuredBuffer` surface
+should call `await ensureParserReady()` during their own startup or
+before constructing JavaScript/TypeScript buffers. If they do not, the
+sync buffer surface remains non-throwing and returns partial,
+parser-unavailable results until the lazy runtime has warmed.
 
 Warm buffer results carry explicit basis identity when the caller
 provides it. Single-buffer queries expose `basis`; comparison-style
@@ -86,18 +94,25 @@ itself:
 - `createGraftServer(...)`
 - `startStdioServer(...)`
 - `startDaemonServer(...)`
+- `ensureGitVersionSupportsGraft(...)`
 - `CreateGraftServerOptions`
 - `GraftServer`
 - `StartDaemonServerOptions`
+- `GitVersion`
+- `GitVersionGuardOptions`
 
 Use this family when a host needs to boot or embed Graft runtimes,
 rather than call repo-local or buffer-local services directly.
+`ensureGitVersionSupportsGraft(...)` is an additive host guard for
+checking that the installed Git supports the plumbing features Graft
+runtimes require.
 
 ### 5. Metadata
 
 - `GRAFT_VERSION`
+- `GRAFT_MINIMUM_GIT_VERSION`
 
-This is public for version introspection and host diagnostics.
+These are public for version introspection and host diagnostics.
 
 ## What Is Not Public Contract
 
