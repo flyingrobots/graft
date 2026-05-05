@@ -64,6 +64,33 @@ human or agent can inspect.
 | 8 | `CORE_tool-context-injection-contracts` | Release hardening: prove review tools receive the resolved dependencies they were configured with. |
 | 9 | `TEST_bounded-subprocess-policy` | Release hardening: prevent review tooling and tests from introducing unbounded subprocess hangs. |
 
+## Language Breadth Candidate Pull Order
+
+These cards broaden the same review-truth thesis by making structural
+evidence useful in more repositories. Each card should land with suffix
+detection, parser runtime coverage, outline extraction, structural diff
+parity, real fixtures, and bounded degraded behavior for parse errors.
+
+| Priority | Card | Role |
+| :--- | :--- | :--- |
+| 10 | `CORE_python-structural-parsing` | First broad-appeal parser expansion for AI, data, backend, and agent tooling repos. |
+| 11 | `CORE_go-structural-parsing` | Infra, CLI, platform, and Kubernetes-adjacent codebases. |
+| 12 | `CORE_sql-structural-parsing` | Database schemas, migrations, views, and stored routines. |
+| 13 | `CORE_shell-structural-parsing` | High-risk automation scripts that agents frequently touch. |
+| 14 | `CORE_yaml-structured-config` | GitHub Actions, Kubernetes, Compose, OpenAPI, and other repo control-plane files. |
+| 15 | `CORE_toml-structured-config` | Python/Rust/package configuration and tool metadata. |
+| 16 | `CORE_json-structured-config` | Package manifests, schema documents, lock-adjacent metadata, and config files. |
+| 17 | `CORE_hcl-structured-config` | Terraform/OpenTofu infrastructure declarations. |
+| 18 | `CORE_java-structural-parsing` | Enterprise backend and Android-adjacent repositories. |
+| 19 | `CORE_csharp-structural-parsing` | .NET enterprise, tooling, and game-development repositories. |
+| 20 | `CORE_c-structural-parsing` | Runtime, embedded, systems, and native extension repositories. |
+| 21 | `CORE_cpp-structural-parsing` | Performance-critical, game engine, inference, and systems repositories. |
+| 22 | `CORE_php-structural-parsing` | Long-lived production web repositories. |
+| 23 | `CORE_ruby-structural-parsing` | Rails and Ruby toolchain repositories. |
+| 24 | `CORE_swift-structural-parsing` | Apple-platform repositories. |
+| 25 | `CORE_kotlin-structural-parsing` | Android and JVM service repositories. |
+| 26 | `CORE_jupyter-notebook-structure` | Notebook-heavy AI/data repos with output-stripped structural projection. |
+
 ## Baseline Already Shipped
 
 `CORE_graft-doctor` is part of the v0.8.0 context as shipped baseline,

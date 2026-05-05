@@ -11,11 +11,28 @@ digraph backlog {
   nodesep=0.2
 
   subgraph cluster_v0_8_0 {
-    label="v0.8.0 (9)" labeljust=l fontsize=9 fontcolor="#555555"
+    label="v0.8.0 (26)" labeljust=l fontsize=9 fontcolor="#555555"
     style=rounded color="#cccccc" bgcolor="#fafafa"
+    v0_8_0_CORE_c_structural_parsing [label="CORE-c-structural-parsing - M" fillcolor="#C8E6C9" penwidth=2]
+    v0_8_0_CORE_cpp_structural_parsing [label="CORE-cpp-structural-parsing - L" fillcolor="#C8E6C9" penwidth=2]
+    v0_8_0_CORE_csharp_structural_parsing [label="CORE-csharp-structural-parsing - M" fillcolor="#C8E6C9" penwidth=2]
+    v0_8_0_CORE_go_structural_parsing [label="CORE-go-structural-parsing - S" fillcolor="#C8E6C9" penwidth=2]
+    v0_8_0_CORE_hcl_structured_config [label="CORE-hcl-structured-config - M" fillcolor="#C8E6C9" penwidth=2]
+    v0_8_0_CORE_java_structural_parsing [label="CORE-java-structural-parsing - M" fillcolor="#C8E6C9" penwidth=2]
+    v0_8_0_CORE_json_structured_config [label="CORE-json-structured-config - S" fillcolor="#C8E6C9" penwidth=2]
+    v0_8_0_CORE_jupyter_notebook_structure [label="CORE-jupyter-notebook-structure - M" fillcolor="#C8E6C9" penwidth=2]
+    v0_8_0_CORE_kotlin_structural_parsing [label="CORE-kotlin-structural-parsing - M" fillcolor="#C8E6C9" penwidth=2]
+    v0_8_0_CORE_php_structural_parsing [label="CORE-php-structural-parsing - M" fillcolor="#C8E6C9" penwidth=2]
     v0_8_0_CORE_pr_review_structural_summary [label="CORE-pr-review-structural-summary - M" fillcolor="#C8E6C9" penwidth=2]
+    v0_8_0_CORE_python_structural_parsing [label="CORE-python-structural-parsing - S" fillcolor="#C8E6C9" penwidth=2]
+    v0_8_0_CORE_ruby_structural_parsing [label="CORE-ruby-structural-parsing - M" fillcolor="#C8E6C9" penwidth=2]
+    v0_8_0_CORE_shell_structural_parsing [label="CORE-shell-structural-parsing - M" fillcolor="#C8E6C9" penwidth=2]
+    v0_8_0_CORE_sql_structural_parsing [label="CORE-sql-structural-parsing - M" fillcolor="#C8E6C9" penwidth=2]
     v0_8_0_CORE_structural_test_coverage_map [label="CORE-structural-test-coverage-map - M" fillcolor="#C8E6C9" penwidth=2]
+    v0_8_0_CORE_swift_structural_parsing [label="CORE-swift-structural-parsing - M" fillcolor="#C8E6C9" penwidth=2]
+    v0_8_0_CORE_toml_structured_config [label="CORE-toml-structured-config - S" fillcolor="#C8E6C9" penwidth=2]
     v0_8_0_CORE_tool_context_injection_contracts [label="CORE-tool-context-injection-contracts - M" fillcolor="#C8E6C9" penwidth=2]
+    v0_8_0_CORE_yaml_structured_config [label="CORE-yaml-structured-config - M" fillcolor="#C8E6C9" penwidth=2]
     v0_8_0_SURFACE_git_graft_enhance_provenance_hints [label="SURFACE-git-graft-enhance-provenance-hints" fillcolor="#C8E6C9" penwidth=2]
     v0_8_0_SURFACE_pr_feedback_resolution_ledger [label="SURFACE-pr-feedback-resolution-ledger - M" fillcolor="#C8E6C9" penwidth=2]
     v0_8_0_SURFACE_review_cooldown_status [label="SURFACE-review-cooldown-status - S" fillcolor="#C8E6C9" penwidth=2]
