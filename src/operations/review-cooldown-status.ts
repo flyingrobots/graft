@@ -80,8 +80,31 @@ export function reviewCooldownStatus(
       comment,
       timestamp: timestampForComment(comment),
       durationMs: durationMsFromBody(comment.body),
-    }))
-    .sort((a, b) => (b.timestamp?.getTime() ?? 0) - (a.timestamp?.getTime() ?? 0));
+    }));
+
+  const incompleteMarker = markerComments.find((marker) =>
+    marker.timestamp === null || marker.durationMs === null
+  );
+  if (incompleteMarker !== undefined) {
+    return {
+      status: "unknown",
+      reviewer: "coderabbitai",
+      processedAt: now.toISOString(),
+      processedAtLocal: localString(now),
+      markerFound: true,
+      ...(incompleteMarker.timestamp !== null ? { sourceCommentAt: incompleteMarker.timestamp.toISOString() } : {}),
+      ...(incompleteMarker.durationMs !== null ? { cooldownDurationMs: incompleteMarker.durationMs } : {}),
+      reason: "cooldown_marker_missing_timestamp_or_duration",
+      summary: renderSummary("unknown", undefined),
+    };
+  }
+
+  markerComments.sort((a, b) => {
+    const bTimestamp = b.timestamp;
+    const aTimestamp = a.timestamp;
+    if (bTimestamp === null || aTimestamp === null) return 0;
+    return bTimestamp.getTime() - aTimestamp.getTime();
+  });
 
   const latest = markerComments[0];
   if (latest === undefined) {
@@ -95,21 +118,23 @@ export function reviewCooldownStatus(
     };
   }
 
-  if (latest.timestamp === null || latest.durationMs === null) {
+  const latestTimestamp = latest.timestamp;
+  const latestDurationMs = latest.durationMs;
+  if (latestTimestamp === null || latestDurationMs === null) {
     return {
       status: "unknown",
       reviewer: "coderabbitai",
       processedAt: now.toISOString(),
       processedAtLocal: localString(now),
       markerFound: true,
-      ...(latest.timestamp !== null ? { sourceCommentAt: latest.timestamp.toISOString() } : {}),
-      ...(latest.durationMs !== null ? { cooldownDurationMs: latest.durationMs } : {}),
+      ...(latestTimestamp !== null ? { sourceCommentAt: latestTimestamp.toISOString() } : {}),
+      ...(latestDurationMs !== null ? { cooldownDurationMs: latestDurationMs } : {}),
       reason: "cooldown_marker_missing_timestamp_or_duration",
       summary: renderSummary("unknown", undefined),
     };
   }
 
-  const expires = new Date(latest.timestamp.getTime() + latest.durationMs);
+  const expires = new Date(latestTimestamp.getTime() + latestDurationMs);
   const remainingMs = Math.max(0, expires.getTime() - now.getTime());
   const status: ReviewCooldownStatusKind = remainingMs > 0 ? "cooldown" : "ready";
 
@@ -119,8 +144,8 @@ export function reviewCooldownStatus(
     processedAt: now.toISOString(),
     processedAtLocal: localString(now),
     markerFound: true,
-    sourceCommentAt: latest.timestamp.toISOString(),
-    cooldownDurationMs: latest.durationMs,
+    sourceCommentAt: latestTimestamp.toISOString(),
+    cooldownDurationMs: latestDurationMs,
     cooldownExpiresAt: expires.toISOString(),
     cooldownExpiresAtLocal: localString(expires),
     remainingMs,

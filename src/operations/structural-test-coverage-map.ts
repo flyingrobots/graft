@@ -64,6 +64,7 @@ interface SourceFile {
 interface ReferenceSearchResult {
   readonly referenceCount: number;
   readonly referencingTestFiles: readonly string[];
+  readonly matchedLines: readonly MatchedReferenceLine[];
 }
 
 interface MatchedReferenceLine {
@@ -246,10 +247,52 @@ function parseMatchedReferenceLines(stdout: string): readonly MatchedReferenceLi
     .filter((line): line is MatchedReferenceLine => line !== null);
 }
 
+function escapeRegExp(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+function containsIdentifier(line: string, symbolName: string): boolean {
+  const identifierChars = "A-Za-z0-9_$";
+  const pattern = new RegExp(
+    `(^|[^${identifierChars}])${escapeRegExp(symbolName)}(?![${identifierChars}])`,
+  );
+  return pattern.test(line);
+}
+
+function normalizePathForSearch(filePath: string): string {
+  return filePath.replaceAll("\\", "/").replaceAll(/\/+/g, "/");
+}
+
+function stripFileExtension(filePath: string): string {
+  const normalized = normalizePathForSearch(filePath);
+  const lastSlash = normalized.lastIndexOf("/");
+  const lastDot = normalized.lastIndexOf(".");
+  return lastDot > lastSlash ? normalized.slice(0, lastDot) : normalized;
+}
+
+function sourcePathCandidates(sourceFilePath: string): readonly string[] {
+  const sourcePath = normalizePathForSearch(sourceFilePath);
+  return [...new Set([sourcePath, stripFileExtension(sourcePath)])];
+}
+
+function lineReferencesSourceFile(line: MatchedReferenceLine, sourceFilePath: string): boolean {
+  const content = normalizePathForSearch(line.content);
+  return sourcePathCandidates(sourceFilePath).some((candidate) => content.includes(candidate));
+}
+
+function referenceResultFromLines(lines: readonly MatchedReferenceLine[]): ReferenceSearchResult {
+  return {
+    referenceCount: lines.length,
+    referencingTestFiles: [...new Set(lines.map((line) => line.filePath))]
+      .sort((a, b) => a.localeCompare(b)),
+    matchedLines: lines,
+  };
+}
+
 function emptyReferenceResults(symbolNames: readonly string[]): ReadonlyMap<string, ReferenceSearchResult> {
   return new Map(symbolNames.map((symbolName) => [
     symbolName,
-    { referenceCount: 0, referencingTestFiles: [] },
+    { referenceCount: 0, referencingTestFiles: [], matchedLines: [] },
   ]));
 }
 
@@ -257,31 +300,53 @@ function collectReferenceResults(
   stdout: string,
   symbolNames: readonly string[],
 ): ReadonlyMap<string, ReferenceSearchResult> {
-  const counts = new Map<string, number>();
-  const fileSets = new Map<string, Set<string>>();
+  const matchedLines = new Map<string, MatchedReferenceLine[]>();
   for (const symbolName of symbolNames) {
-    counts.set(symbolName, 0);
-    fileSets.set(symbolName, new Set<string>());
+    matchedLines.set(symbolName, []);
   }
 
   for (const line of parseMatchedReferenceLines(stdout)) {
     for (const symbolName of symbolNames) {
-      if (!line.content.includes(symbolName)) {
+      if (!containsIdentifier(line.content, symbolName)) {
         continue;
       }
-      counts.set(symbolName, (counts.get(symbolName) ?? 0) + 1);
-      fileSets.get(symbolName)?.add(line.filePath);
+      matchedLines.get(symbolName)?.push(line);
     }
   }
 
   return new Map(symbolNames.map((symbolName) => [
     symbolName,
-    {
-      referenceCount: counts.get(symbolName) ?? 0,
-      referencingTestFiles: [...(fileSets.get(symbolName) ?? new Set<string>())]
-        .sort((a, b) => a.localeCompare(b)),
-    },
+    referenceResultFromLines(matchedLines.get(symbolName) ?? []),
   ]));
+}
+
+function ambiguousSymbolNames(sourceFiles: readonly SourceFile[]): ReadonlySet<string> {
+  const counts = new Map<string, number>();
+  for (const file of sourceFiles) {
+    for (const symbol of file.symbols) {
+      counts.set(symbol.name, (counts.get(symbol.name) ?? 0) + 1);
+    }
+  }
+  return new Set(
+    [...counts.entries()]
+      .filter(([, count]) => count > 1)
+      .map(([symbolName]) => symbolName),
+  );
+}
+
+function referencesForSymbol(
+  referenceResults: ReadonlyMap<string, ReferenceSearchResult>,
+  ambiguousNames: ReadonlySet<string>,
+  sourceFile: SourceFile,
+  symbol: SourceSymbol,
+): ReferenceSearchResult {
+  const refs = referenceResults.get(symbol.name) ?? { referenceCount: 0, referencingTestFiles: [], matchedLines: [] };
+  if (!ambiguousNames.has(symbol.name)) {
+    return refs;
+  }
+  return referenceResultFromLines(
+    refs.matchedLines.filter((line) => lineReferencesSourceFile(line, sourceFile.path)),
+  );
 }
 
 function runReferenceSearches(
@@ -364,6 +429,7 @@ export async function structuralTestCoverageMap(
   const symbolNames = [...new Set(sourceFiles.flatMap((file) => file.symbols.map((symbol) => symbol.name)))]
     .sort((a, b) => a.localeCompare(b));
   const referenceResults = runReferenceSearches(opts.cwd, opts.process, symbolNames, codeTestFiles);
+  const ambiguousNames = ambiguousSymbolNames(sourceFiles);
 
   const files: StructuralTestCoverageFile[] = [];
   let coveredSymbols = 0;
@@ -372,7 +438,7 @@ export async function structuralTestCoverageMap(
   for (const sourceFile of sourceFiles) {
     const symbols: StructuralTestCoverageSymbol[] = [];
     for (const symbol of sourceFile.symbols) {
-      const refs = referenceResults.get(symbol.name) ?? { referenceCount: 0, referencingTestFiles: [] };
+      const refs = referencesForSymbol(referenceResults, ambiguousNames, sourceFile, symbol);
       const status: StructuralTestCoverageStatus = refs.referenceCount > 0 ? "covered" : "uncovered";
       if (status === "covered") {
         coveredSymbols++;

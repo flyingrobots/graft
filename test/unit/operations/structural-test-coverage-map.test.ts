@@ -10,14 +10,16 @@ import { realFs } from "../../helpers/real-fs.js";
 class RecordingReferenceSearchRunner implements ProcessRunner {
   readonly requests: ProcessRunRequest[] = [];
 
+  constructor(private readonly stdoutLines: readonly string[] = [
+    "test/api.test.ts:1:10:import { coveredApi } from \"../src/api\";",
+    "test/api.test.ts:4:10:  expect(coveredApi()).toBe(\"covered\");",
+  ]) {}
+
   run(request: ProcessRunRequest): ProcessRunResult {
     this.requests.push(request);
     return {
       status: 0,
-      stdout: [
-        "test/api.test.ts:1:10:import { coveredApi } from \"../src/api\";",
-        "test/api.test.ts:4:10:  expect(coveredApi()).toBe(\"covered\");",
-      ].join("\n"),
+      stdout: this.stdoutLines.join("\n"),
       stderr: "",
     };
   }
@@ -179,6 +181,143 @@ describe("operations: structural test coverage map", () => {
         coveredSymbols: 1,
         uncoveredSymbols: 1,
       });
+    } finally {
+      cleanupTestRepo(repoDir);
+    }
+  });
+
+  it("does not mark substring symbol names as covered", async () => {
+    const repoDir = createTestRepo("graft-test-coverage-map-substring-");
+    try {
+      fs.mkdirSync(path.join(repoDir, "src"), { recursive: true });
+      fs.mkdirSync(path.join(repoDir, "test"), { recursive: true });
+      fs.writeFileSync(path.join(repoDir, "src", "foo.ts"), [
+        "export function foo(): string {",
+        "  return \"foo\";",
+        "}",
+      ].join("\n"));
+      fs.writeFileSync(path.join(repoDir, "src", "foobar.ts"), [
+        "export function foobar(): string {",
+        "  return \"foobar\";",
+        "}",
+      ].join("\n"));
+      fs.writeFileSync(path.join(repoDir, "test", "foobar.test.ts"), [
+        "import { foobar } from \"../src/foobar\";",
+        "",
+        "it(\"covers foobar only\", () => {",
+        "  expect(foobar()).toBe(\"foobar\");",
+        "});",
+      ].join("\n"));
+      git(repoDir, "add -A");
+      git(repoDir, "commit -m substring-scenario");
+
+      const process = new RecordingReferenceSearchRunner([
+        "test/foobar.test.ts:1:10:import { foobar } from \"../src/foobar\";",
+        "test/foobar.test.ts:4:10:  expect(foobar()).toBe(\"foobar\");",
+      ]);
+
+      const result = await structuralTestCoverageMap({
+        cwd: repoDir,
+        fs: realFs,
+        git: testGitClient,
+        process,
+        resolveWorkingTreePath: (filePath) => path.join(repoDir, filePath),
+        sourcePath: "src",
+        testPath: "test",
+      });
+
+      expect(process.requests).toHaveLength(1);
+      expect(result.totals).toEqual({
+        sourceFiles: 2,
+        testFiles: 1,
+        exportedSymbols: 2,
+        coveredSymbols: 1,
+        uncoveredSymbols: 1,
+      });
+      expect(result.files.find((file) => file.path === "src/foo.ts")?.symbols).toEqual([
+        expect.objectContaining({
+          name: "foo",
+          status: "uncovered",
+          referenceCount: 0,
+        }),
+      ]);
+      expect(result.files.find((file) => file.path === "src/foobar.ts")?.symbols).toEqual([
+        expect.objectContaining({
+          name: "foobar",
+          status: "covered",
+          referenceCount: 2,
+          referencingTestFiles: ["test/foobar.test.ts"],
+        }),
+      ]);
+    } finally {
+      cleanupTestRepo(repoDir);
+    }
+  });
+
+  it("keeps same-named exports attributed to the referenced source file", async () => {
+    const repoDir = createTestRepo("graft-test-coverage-map-same-name-");
+    try {
+      fs.mkdirSync(path.join(repoDir, "src"), { recursive: true });
+      fs.mkdirSync(path.join(repoDir, "test"), { recursive: true });
+      fs.writeFileSync(path.join(repoDir, "src", "a.ts"), [
+        "export function sharedApi(): string {",
+        "  return \"a\";",
+        "}",
+      ].join("\n"));
+      fs.writeFileSync(path.join(repoDir, "src", "b.ts"), [
+        "export function sharedApi(): string {",
+        "  return \"b\";",
+        "}",
+      ].join("\n"));
+      fs.writeFileSync(path.join(repoDir, "test", "a.test.ts"), [
+        "import { sharedApi } from \"../src/a\";",
+        "",
+        "it(\"covers the a implementation\", () => {",
+        "  expect(sharedApi()).toBe(\"a\");",
+        "});",
+      ].join("\n"));
+      git(repoDir, "add -A");
+      git(repoDir, "commit -m same-name-scenario");
+
+      const process = new RecordingReferenceSearchRunner([
+        "test/a.test.ts:1:10:import { sharedApi } from \"../src/a\";",
+        "test/a.test.ts:4:10:  expect(sharedApi()).toBe(\"a\");",
+      ]);
+
+      const result = await structuralTestCoverageMap({
+        cwd: repoDir,
+        fs: realFs,
+        git: testGitClient,
+        process,
+        resolveWorkingTreePath: (filePath) => path.join(repoDir, filePath),
+        sourcePath: "src",
+        testPath: "test",
+      });
+
+      expect(process.requests).toHaveLength(1);
+      expect(result.totals).toEqual({
+        sourceFiles: 2,
+        testFiles: 1,
+        exportedSymbols: 2,
+        coveredSymbols: 1,
+        uncoveredSymbols: 1,
+      });
+      expect(result.files.find((file) => file.path === "src/a.ts")?.symbols).toEqual([
+        expect.objectContaining({
+          name: "sharedApi",
+          status: "covered",
+          referenceCount: 1,
+          referencingTestFiles: ["test/a.test.ts"],
+        }),
+      ]);
+      expect(result.files.find((file) => file.path === "src/b.ts")?.symbols).toEqual([
+        expect.objectContaining({
+          name: "sharedApi",
+          status: "uncovered",
+          referenceCount: 0,
+          referencingTestFiles: [],
+        }),
+      ]);
     } finally {
       cleanupTestRepo(repoDir);
     }

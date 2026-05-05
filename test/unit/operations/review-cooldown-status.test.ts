@@ -94,4 +94,27 @@ describe("operations: review cooldown status", () => {
       reason: "cooldown_marker_missing_timestamp_or_duration",
     });
   });
+
+  it("reports unknown when any CodeRabbit rate-limit marker is missing a timestamp", () => {
+    const status = reviewCooldownStatus({
+      now: new Date("2026-05-05T15:10:00.000Z"),
+      comments: [
+        {
+          author: "coderabbitai",
+          body: "Rate limit exceeded. Please retry in 30 minutes.",
+          updatedAt: "2026-05-05T15:00:00.000Z",
+        },
+        {
+          author: "coderabbitai",
+          body: "Rate limit exceeded. Please retry in 15 minutes.",
+        },
+      ],
+    });
+
+    expect(status).toMatchObject({
+      status: "unknown",
+      markerFound: true,
+      reason: "cooldown_marker_missing_timestamp_or_duration",
+    });
+  });
 });
