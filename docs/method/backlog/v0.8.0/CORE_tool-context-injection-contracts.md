@@ -4,7 +4,7 @@ feature: core
 kind: debt
 legend: CORE
 lane: v0.8.0
-priority: 4
+priority: 6
 effort: M
 requirements:
   - "Composition root dependency inventory"

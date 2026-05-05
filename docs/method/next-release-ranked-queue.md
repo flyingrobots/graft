@@ -12,9 +12,12 @@ The best v0.8.0 spine is Review Truth:
 
 - tell reviewers what changed structurally before they read the whole
   diff
+- add bounded provenance hints for changed symbols
 - surface obvious structural test-reference gaps without claiming
   execution coverage
 - make automated review readiness explicit during PR feedback loops
+- keep feedback-resolution evidence tied to local commits before any PR
+  comment is posted
 - keep Graft repo-generic instead of embedding METHOD backlog, retro,
   release, or dependency-DAG conventions
 - defer semantic enrichment and daemon actions until the truth surfaces
@@ -38,13 +41,20 @@ listed idea.
 3. [CORE_structural-test-coverage-map.md](backlog/v0.8.0/CORE_structural-test-coverage-map.md)
    Follow-up review helper for structural test-reference signals.
 
-4. [SURFACE_review-cooldown-status.md](backlog/v0.8.0/SURFACE_review-cooldown-status.md)
+4. [SURFACE_git-graft-enhance-provenance-hints.md](backlog/v0.8.0/SURFACE_git-graft-enhance-provenance-hints.md)
+   Bounded provenance hints for changed symbols in review summaries.
+
+5. [SURFACE_review-cooldown-status.md](backlog/v0.8.0/SURFACE_review-cooldown-status.md)
    PR-feedback helper for making automated review readiness explicit.
 
-5. [CORE_tool-context-injection-contracts.md](backlog/v0.8.0/CORE_tool-context-injection-contracts.md)
+6. [SURFACE_pr-feedback-resolution-ledger.md](backlog/v0.8.0/SURFACE_pr-feedback-resolution-ledger.md)
+   Local ledger that maps unresolved feedback to resolutions, commits,
+   reply status, and markdown summaries before GitHub mutation.
+
+7. [CORE_tool-context-injection-contracts.md](backlog/v0.8.0/CORE_tool-context-injection-contracts.md)
    Release hardening gate for dependency injection correctness.
 
-6. [TEST_bounded-subprocess-policy.md](backlog/v0.8.0/TEST_bounded-subprocess-policy.md)
+8. [TEST_bounded-subprocess-policy.md](backlog/v0.8.0/TEST_bounded-subprocess-policy.md)
    Release hardening gate for bounded subprocess behavior in tests and
    scripts.
 
@@ -71,6 +81,11 @@ listed idea.
 - [CI-002-deterministic-scenario-replay.md](backlog/cool-ideas/CI-002-deterministic-scenario-replay.md)
   is high leverage but large. Keep it for a later scoped pass unless a
   concrete regression demands replay infrastructure immediately.
+
+- [SURFACE_git-graft-enhance-expanded-git-subcommands.md](backlog/cool-ideas/SURFACE_git-graft-enhance-expanded-git-subcommands.md)
+  and [CI-003-mcp-native-diff-protocol.md](backlog/cool-ideas/CI-003-mcp-native-diff-protocol.md)
+  are valid surface work, but they widen v0.8.0 into broad Git wrapping
+  or protocol shape. Keep them below the line for this release.
 
 ## Next pull
 

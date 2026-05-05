@@ -4,7 +4,7 @@ feature: surface
 kind: leaf
 legend: SURFACE
 lane: v0.8.0
-priority: 3
+priority: 4
 effort: S
 requirements:
   - "PR conversation comment reads"

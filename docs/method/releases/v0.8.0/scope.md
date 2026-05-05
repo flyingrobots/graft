@@ -32,14 +32,18 @@ The opening spine should be repo-generic:
 
 1. `CORE_pr-review-structural-summary`
 2. `CORE_structural-test-coverage-map`
-3. `SURFACE_review-cooldown-status`
-4. release hardening through `CORE_tool-context-injection-contracts`
+3. `SURFACE_git-graft-enhance-provenance-hints`
+4. `SURFACE_review-cooldown-status`
+5. `SURFACE_pr-feedback-resolution-ledger`
+6. release hardening through `CORE_tool-context-injection-contracts`
    and `TEST_bounded-subprocess-policy`
 
 This gives users bounded review evidence: what changed structurally,
-what has obvious structural test references, and whether the automated
-review loop is ready for another pass. It keeps Graft repo-generic
-without making it depend on METHOD project conventions.
+which changed symbols have bounded provenance hints, what has obvious
+structural test references, whether the automated review loop is ready
+for another pass, and which feedback items were addressed by which
+commits. It keeps Graft repo-generic without making it depend on METHOD
+project conventions.
 
 The shaped candidate lane lives at `docs/method/backlog/v0.8.0/`. It is
 not a release packet and does not imply that v0.8.0 is ready to cut.
@@ -52,9 +56,13 @@ not a release packet and does not imply that v0.8.0 is ready to cut.
 | `CORE_graft-doctor` | `graft doctor` and `graft diag doctor` already exist; `--sludge` is shipped. The original card overreached into all-integrity-check CI gate semantics. | Shipped baseline, not an active v0.8.0 card. | Reopen only with a narrow follow-up card backed by new evidence. |
 | `CORE_pr-review-structural-summary` | `git graft enhance` and structural diff facts exist. | Opening v0.8.0 product surface. | Pull first from `docs/method/backlog/v0.8.0/`. |
 | `CORE_structural-test-coverage-map` | Existing map, outline, and reference primitives can support a structural/reference-based test coverage report. | Included v0.8.0 review helper. | Pull after the PR review summary to expose structural test-reference signals. |
+| `SURFACE_git-graft-enhance-provenance-hints` | Structural blame and reference counts already exist; review summaries can use bounded symbol-level provenance. | Included v0.8.0 review evidence helper. | Add bounded hints without expanding into arbitrary Git command wrapping. |
 | `SURFACE_review-cooldown-status` | PR feedback loops currently require manual parsing of automated reviewer cooldown comments. | Included v0.8.0 helper. | Pull after the structural review surfaces unless cooldown friction blocks review iteration first. |
+| `SURFACE_pr-feedback-resolution-ledger` | Feedback processing currently stitches review threads, local commits, and PR replies by hand. | Included v0.8.0 evidence ledger. | Render local markdown summaries by default; require explicit confirmation or flags for GitHub mutation. |
 | `CORE_tool-context-injection-contracts` | A prior review found that resolved composition-root dependencies can be bypassed by ToolContext wiring. | Release hardening gate. | Prove review tools receive the configured dependencies they are supposed to use. |
 | `TEST_bounded-subprocess-policy` | Docker autostart and child-process tests exposed the risk of unbounded subprocess hangs. | Release hardening gate. | Add policy/regression coverage before review tooling grows more subprocess paths. |
+| `SURFACE_git-graft-enhance-expanded-git-subcommands` | The broader enhance vision includes many Git-adjacent verbs. | Defer. | Keep v0.8.0 on review paths instead of broad command expansion. |
+| `CI-003-mcp-native-diff-protocol` | Richer MCP diff rendering would improve client UX but changes response protocol shape. | Defer. | Revisit after Review Truth surfaces are stable. |
 | `WARP_lsp-enrichment` | Bounded first-slice card exists and is valid, but introduces a semantic provider boundary and new WARP fact class. | Optional, not the default spine. | Keep in `cool-ideas` unless v0.8.0 explicitly becomes semantic-enrichment focused. |
 | `CORE_migrate-to-slice-first-reads` | Remaining medium-risk full-scan reads are tracked; high-risk paths were mitigated. | Blocked. | Wait for git-warp observer geometry APIs. |
 | `SURFACE_bijou-daemon-status-live-refresh` | Read-only daemon status first slice shipped. | Valid daemon-operator follow-up, not opening spine. | Defer unless v0.8.0 pivots to daemon operations. |
@@ -85,5 +93,6 @@ backlog status inside Graft.
 
 Graft 0.8.0 helps PR authors and reviewers focus on the changes that
 matter by summarizing structural diff signal, surfacing obvious
-test-reference gaps, and tracking review readiness without
+test-reference gaps, adding bounded provenance hints, tracking review
+readiness, and recording local feedback-resolution evidence without
 project-specific workflow assumptions.

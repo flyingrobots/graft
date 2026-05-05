@@ -27,16 +27,20 @@ The v0.8.0 candidate shape is **Review Truth**:
 
 ## User Outcomes
 
-After v0.8.0, a user should be able to answer three questions without
+After v0.8.0, a user should be able to answer five questions without
 reading a whole diff blindly:
 
 1. What files changed structurally, and which changes are likely
    formatting or low-signal churn?
-2. Which changed or exported symbols have obvious test references, and
+2. What bounded provenance hints explain changed symbols without
+   guessing across ambiguous matches?
+3. Which changed or exported symbols have obvious test references, and
    which deserve review attention because no structural test reference
    is visible?
-3. Is the automated review loop ready for another pass, or is it still
+4. Is the automated review loop ready for another pass, or is it still
    cooling down?
+5. Which review feedback items were addressed by which commits, and
+   what summary can be rendered before posting back to GitHub?
 
 The release must not claim merge readiness, semantic correctness, or
 execution coverage. It should provide bounded structural evidence that a
@@ -48,9 +52,11 @@ human or agent can inspect.
 | :--- | :--- | :--- |
 | 1 | `CORE_pr-review-structural-summary` | Opening spine: structural PR review summary using shipped diff primitives. |
 | 2 | `CORE_structural-test-coverage-map` | Follow-up review helper: structural/reference test coverage map. |
-| 3 | `SURFACE_review-cooldown-status` | Review readiness helper for PR feedback loops. |
-| 4 | `CORE_tool-context-injection-contracts` | Release hardening: prove review tools receive the resolved dependencies they were configured with. |
-| 5 | `TEST_bounded-subprocess-policy` | Release hardening: prevent review tooling and tests from introducing unbounded subprocess hangs. |
+| 3 | `SURFACE_git-graft-enhance-provenance-hints` | Bounded provenance hints for changed symbols in review summaries. |
+| 4 | `SURFACE_review-cooldown-status` | Review readiness helper for PR feedback loops. |
+| 5 | `SURFACE_pr-feedback-resolution-ledger` | Local evidence ledger for unresolved feedback, fixes, SHAs, and markdown summaries. |
+| 6 | `CORE_tool-context-injection-contracts` | Release hardening: prove review tools receive the resolved dependencies they were configured with. |
+| 7 | `TEST_bounded-subprocess-policy` | Release hardening: prevent review tooling and tests from introducing unbounded subprocess hangs. |
 
 ## Baseline Already Shipped
 
@@ -65,6 +71,5 @@ later if new evidence appears.
 - daemon live refresh and daemon control-plane actions
 - deterministic scenario replay
 - METHOD backlog/status/release surfaces
-- `SURFACE_pr-feedback-resolution-ledger`, unless the release thesis is
-  deliberately widened from Review Truth into review workflow
-  bookkeeping
+- expanded `git graft enhance` subcommands beyond the review path
+- MCP-native Diff protocol changes

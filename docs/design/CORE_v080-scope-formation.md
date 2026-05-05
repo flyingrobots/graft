@@ -15,8 +15,9 @@ Legend: CORE
 Settle the opening v0.8.0 lane before pulling more feature work.
 
 The lane must keep Graft focused on Review Truth for any Git repository:
-structural PR review summaries, structural test-reference signals, and
-automated review readiness. It must also name the first implementation
+structural PR review summaries, bounded provenance hints, structural
+test-reference signals, automated review readiness, and a local review
+feedback evidence ledger. It must also name the first implementation
 pull candidate, release-quality gates, and the work deliberately kept
 out of the opening lane.
 
@@ -86,8 +87,9 @@ That means the next implementation work should make a repository easier
 to inspect and review without adding project-management features,
 METHOD-specific status, broad release machinery, or another WARP
 ontology expansion. The release should help users see structural diff
-signal, obvious structural test-reference gaps, and automated review
-readiness without claiming merge safety or semantic correctness.
+signal, bounded provenance hints, obvious structural test-reference
+gaps, automated review readiness, and local feedback-resolution evidence
+without claiming merge safety or semantic correctness.
 
 ## Shipped Baseline To Preserve
 
@@ -112,9 +114,15 @@ The opening lane is intentionally small:
 - Follow-up candidate: `CORE_structural-test-coverage-map`. This is a
   repo-generic review helper, but it must avoid claiming execution
   coverage.
+- Evidence enrichment: `SURFACE_git-graft-enhance-provenance-hints`.
+  This adds bounded creation/signature/reference hints for changed
+  symbols without unbounded traversal or ambiguous guessing.
 - Review readiness helper: `SURFACE_review-cooldown-status`. This
   keeps automated review-loop cooldowns explicit for PR authors and
   agents.
+- Feedback evidence helper: `SURFACE_pr-feedback-resolution-ledger`.
+  This keeps unresolved feedback, fix SHAs, reply status, and markdown
+  summaries inspectable before any GitHub mutation.
 - Release-quality gates: `CORE_tool-context-injection-contracts` and
   `TEST_bounded-subprocess-policy`. These are not user-facing review
   features, but they keep the review tools from growing on weak context
@@ -135,6 +143,11 @@ The next pull after this scope cycle should be
 - `SURFACE_bijou-daemon-control-plane-actions`: daemon operator lane and
   mutating control-plane work. Keep it separate from repo-generic
   review and health posture.
+- `SURFACE_git-graft-enhance-expanded-git-subcommands`: broad command
+  family expansion. Keep v0.8.0 focused on review paths rather than
+  wrapping more Git verbs.
+- `CI-003-mcp-native-diff-protocol`: valuable richer MCP protocol work,
+  but it is a wire-format bet, not required for this Review Truth lane.
 - METHOD backlog/status/release surfaces: belong in Method MCP / Method
   CLI, not Graft product surfaces.
 
@@ -160,8 +173,8 @@ cycle.
 
 The current bearing says the immediate focus is v0.8.0 scope formation,
 centered on Review Truth: structural PR review summaries, structural
-test-reference signals, and automated review readiness for any Git
-repository.
+test-reference signals, bounded provenance hints, automated review
+readiness, and local review evidence for any Git repository.
 
 This cycle should turn that direction into a small, inspectable lane:
 
@@ -172,7 +185,8 @@ This cycle should turn that direction into a small, inspectable lane:
 - avoid adding METHOD backlog/status features to Graft
 
 The likely first candidate is `CORE_pr-review-structural-summary`, with
-`CORE_structural-test-coverage-map` as a follow-up and
-`SURFACE_review-cooldown-status` as the review readiness helper. Smaller
-PR workflow bookkeeping may be useful later, but should not become the
-release spine.
+`SURFACE_git-graft-enhance-provenance-hints` and
+`CORE_structural-test-coverage-map` as follow-ups,
+`SURFACE_review-cooldown-status` as the review readiness helper, and
+`SURFACE_pr-feedback-resolution-ledger` as the local review evidence
+ledger.

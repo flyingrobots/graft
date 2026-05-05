@@ -65,8 +65,9 @@ The immediate focus is **v0.8.0 scope formation**, not feature work.
 
 1. Keep `main` release-clean after `v0.7.1`.
 2. Shape `v0.8.0` around **Review Truth**: structural PR review
-   summaries, structural test-reference signals, and automated review
-   readiness that apply to any Git repository.
+   summaries, bounded provenance hints, structural test-reference
+   signals, automated review readiness, and local feedback-resolution
+   evidence that apply to any Git repository.
 3. Do not add METHOD-specific backlog/status features to Graft. METHOD
    backlog lanes, cards, retros, dependency DAGs, and release truth
    surfaces belong in Method MCP / Method CLI.
