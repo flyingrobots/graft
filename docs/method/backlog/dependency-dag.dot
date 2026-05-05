@@ -16,6 +16,13 @@ digraph backlog {
     asap_CORE_pr_review_structural_summary [label="CORE-pr-review-structural-summary - M" fillcolor="#E5E7EB" penwidth=2]
   }
 
+  subgraph cluster_bad_code {
+    label="bad-code (2)" labeljust=l fontsize=9 fontcolor="#555555"
+    style=rounded color="#cccccc" bgcolor="#fafafa"
+    bad_code_CORE_tool_context_injection_contracts [label="CORE-tool-context-injection-contracts - M" fillcolor="#F6B3B3" penwidth=2]
+    bad_code_TEST_bounded_subprocess_policy [label="TEST-bounded-subprocess-policy - S" fillcolor="#F6B3B3" penwidth=2]
+  }
+
   subgraph cluster_cool_ideas {
     label="Cool Ideas (79)" labeljust=l fontsize=9 fontcolor="#555555"
     style=rounded color="#cccccc" bgcolor="#fafafa"

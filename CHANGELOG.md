@@ -45,6 +45,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ### Fixed
 
+- **PR review hardening follow-up**: Docker auto-start polling no longer
+  uses `Atomics.wait` on the main thread, Docker probe subprocesses are
+  bounded, parser warmup fire-and-forget paths consume rejected promises,
+  `SymIdCodec` rejects malformed IDs and escapes delimiter characters,
+  WARP structural path filters are directory-boundary safe, the MCP server
+  passes injected Git clients through `ToolContext`, and playback tests avoid
+  Node 21-only `import.meta.dirname`.
 - **Parser readiness follow-up**: root library hosts can now call
   `ensureParserReady()` before synchronous structured-buffer use, while
   pre-warm sync projection bundles return explicit partial parser
