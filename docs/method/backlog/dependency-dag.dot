@@ -25,7 +25,7 @@ digraph backlog {
   }
 
   subgraph cluster_cool_ideas {
-    label="Cool Ideas (73)" labeljust=l fontsize=9 fontcolor="#555555"
+    label="Cool Ideas (74)" labeljust=l fontsize=9 fontcolor="#555555"
     style=rounded color="#cccccc" bgcolor="#fafafa"
     cool_ideas_bounded_neighborhood_for_references [label="bounded-neighborhood-for-references - S" fillcolor="#D4E8F7" penwidth=1]
     cool_ideas_CI_001_causal_collapse_visualizer [label="CI-001-causal-collapse-visualizer - L" fillcolor="#D4E8F7" penwidth=1]
@@ -59,6 +59,7 @@ digraph backlog {
     cool_ideas_SURFACE_bijou_daemon_control_plane_actions [label="SURFACE-bijou-daemon-control-plane-actions - L" fillcolor="#D4E8F7" penwidth=1]
     cool_ideas_SURFACE_bijou_daemon_status_live_refresh [label="SURFACE-bijou-daemon-status-live-refresh - M" fillcolor="#D4E8F7" penwidth=1]
     cool_ideas_SURFACE_git_graft_enhance_expanded_git_subcommands [label="SURFACE-git-graft-enhance-expanded-git-subcommands" fillcolor="#D4E8F7" penwidth=1]
+    cool_ideas_SURFACE_graft_review_pr_number_adapter [label="SURFACE-graft-review-pr-number-adapter - M" fillcolor="#D4E8F7" penwidth=1]
     cool_ideas_SURFACE_ide_native_graft_integration [label="SURFACE-ide-native-graft-integration - XL" fillcolor="#D4E8F7" penwidth=1]
     cool_ideas_SURFACE_init_dry_run [label="SURFACE-init-dry-run - S" fillcolor="#D4E8F7" penwidth=1]
     cool_ideas_SURFACE_local_history_dag_render_mode_and_count_legend [label="SURFACE-local-history-dag-render-mode-and-count-legend - S" fillcolor="#D4E8F7" penwidth=1]

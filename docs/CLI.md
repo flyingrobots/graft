@@ -14,6 +14,7 @@ flowchart LR
     B --> B6[index]
     B --> B7[migrate local-history]
     B --> B8[enhance]
+    B --> B9[review]
     C --> C1[read]
     C --> C2[struct]
     C --> C3[symbol]
@@ -27,6 +28,7 @@ flowchart LR
 - read-only daemon status inspection via `graft daemon status`
 - bounded, lazy WARP refresh via `graft index --path <path>`
 - one-time legacy import via `graft migrate local-history`
+- human-facing structural review summaries via `graft review`
 - Git-facing structural review summaries via `git graft enhance`
 - local debugging and dogfooding of MCP peer commands
 - human-facing inspection of bounded state such as:
@@ -55,6 +57,8 @@ graft diag activity --json
 graft diag local-history-dag --json
 graft diag doctor --json
 graft doctor --sludge --json
+graft review --base HEAD~1
+graft review --base origin/main --head HEAD --json
 graft symbol find 'create*' --json
 graft symbol difficulty createUser --path src/users.ts --json
 graft struct diff --json
@@ -72,6 +76,15 @@ pnpm graft diag activity
 ```
 
 Bare `graft ...` only works when the package is installed or linked onto your `PATH`.
+
+`graft review --base <ref> [--head <ref>] [--json]` renders the
+repo-local structural review summary backed by the same `graft_review`
+model as MCP and `graft struct review`. Human output separates
+structural files from formatting, test, docs, and config churn. JSON
+output keeps the schema-validated `graft.cli.struct_review` payload for
+agents. GitHub PR-number resolution and comment posting are intentionally
+outside this first slice; check out or fetch the PR branch and compare
+refs locally.
 
 `git graft enhance --since <ref> [--head <ref>] [--json]` is the
 installed Git external-command form for the release-facing structural

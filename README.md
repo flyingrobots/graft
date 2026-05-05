@@ -44,6 +44,7 @@ npx @flyingrobots/graft serve
 Enforce policy on a single read or inspect structural history.
 ```bash
 npx @flyingrobots/graft read safe src/app.ts
+npx @flyingrobots/graft review --base HEAD~1
 npx @flyingrobots/graft struct since HEAD~3
 ```
 

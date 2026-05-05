@@ -10,6 +10,7 @@ import {
 import { createGraftServer, type McpToolResult } from "../mcp/server.js";
 import { renderActivityView } from "./activity-render.js";
 import { renderDoctorPosture } from "./doctor-render.js";
+import { renderStructuralReview } from "./structural-review-render.js";
 
 const codec = new CanonicalJsonCodec();
 
@@ -47,6 +48,10 @@ export function emitPeerCommand(
   }
   if (command === "diag_doctor") {
     writer.write(`${renderDoctorPosture(validated)}\n`);
+    return;
+  }
+  if (command === "struct_review") {
+    writer.write(`${renderStructuralReview(validated)}\n`);
     return;
   }
   writer.write(`${JSON.stringify(validated, null, 2)}\n`);
