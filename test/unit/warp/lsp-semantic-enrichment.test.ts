@@ -132,6 +132,36 @@ describe("warp: bounded LSP semantic enrichment", { timeout: 15000 }, () => {
     });
   });
 
+  it("passes Rust language identity to explicit-path semantic providers", async () => {
+    const headSha = writeAndCommit({
+      "src/lib.rs": [
+        "pub fn helper() -> String { String::from(\"ready\") }",
+        "pub fn start() -> String { helper() }",
+        "",
+      ].join("\n"),
+    });
+    const warp = await openWarp({ cwd: tmpDir });
+    const enrichFile = vi.fn((): Promise<SemanticEnrichmentProviderResult> => Promise.resolve(available([])));
+
+    await indexHead({
+      cwd: tmpDir,
+      git: nodeGit,
+      pathOps: nodePathOps,
+      ctx: { app: warp, strandId: null },
+      paths: ["src/lib.rs"],
+      semanticProvider: { enrichFile },
+    });
+
+    expect(enrichFile).toHaveBeenCalledWith({
+      repoRoot: tmpDir,
+      filePath: "src/lib.rs",
+      language: "rust",
+      content: expect.stringContaining("pub fn start"),
+      headSha,
+      maxFacts: 64,
+    });
+  });
+
   it("known failure: skips semantic enrichment for non-explicit eager indexing", async () => {
     writeAndCommit({
       "src/app.ts": "export function start(): void {}\n",

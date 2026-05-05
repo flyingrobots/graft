@@ -13,6 +13,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   [--head <ref>]` now renders a human-readable structural review summary
   from the existing `graft_review` model, while `--json` keeps the
   schema-validated `graft.cli.struct_review` payload for agents.
+- **Rust structural parsing**: parser-backed outlines, governed reads,
+  structural diffs, and WARP indexing now recognize `.rs` files using
+  the bundled Rust tree-sitter grammar.
 - **Docker auto-start helper**: the isolated test runner now attempts to
   launch Docker Desktop on macOS before failing the Docker daemon
   preflight, while keeping the existing explicit fallback guidance for

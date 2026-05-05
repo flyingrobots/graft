@@ -1,5 +1,5 @@
 import type { SyntaxNode as TSNode } from "web-tree-sitter";
-import { OutlineEntry } from "../types.js";
+import { type JumpEntry, OutlineEntry } from "../types.js";
 import {
   type LanguageExtractor,
   type ExtractorResult,
@@ -10,7 +10,7 @@ import {
 export class RustExtractor implements LanguageExtractor {
   extract(root: TSNode): ExtractorResult {
     const entries: OutlineEntry[] = [];
-    const jumpTable: any[] = [];
+    const jumpTable: JumpEntry[] = [];
 
     for (const child of root.children) {
       const kind = this.nodeKind(child.type);
@@ -61,6 +61,12 @@ export class RustExtractor implements LanguageExtractor {
     return undefined;
   }
 
+  private isPublic(node: TSNode): boolean {
+    return node.namedChildren.some((child) =>
+      child.type === "visibility_modifier" && child.text.startsWith("pub")
+    );
+  }
+
   private extractFunctionSignature(node: TSNode): string | undefined {
     const nameNode = node.childForFieldName("name");
     const params = node.childForFieldName("parameters");
@@ -92,7 +98,7 @@ export class RustExtractor implements LanguageExtractor {
 
     const children: OutlineEntry[] = [];
     for (const child of body.namedChildren) {
-      if (child.type === "function_item") {
+      if (child.type === "function_item" || child.type === "function_signature_item") {
         const name = this.extractName(child);
         if (!name) continue;
 
@@ -100,7 +106,7 @@ export class RustExtractor implements LanguageExtractor {
         children.push(new OutlineEntry({
           kind: "method",
           name,
-          exported: false,
+          exported: this.isPublic(child),
           ...(sig !== undefined ? { signature: sig } : {}),
         }));
       }
@@ -108,7 +114,7 @@ export class RustExtractor implements LanguageExtractor {
     return children;
   }
 
-  private processDeclaration(node: TSNode, exported: boolean): OutlineEntry | undefined {
+  private processDeclaration(node: TSNode, inheritedExported: boolean): OutlineEntry | undefined {
     const kind = this.nodeKind(node.type);
     if (!kind) return undefined;
 
@@ -116,8 +122,11 @@ export class RustExtractor implements LanguageExtractor {
     if (!name) return undefined;
 
     const isImpl = node.type === "impl_item";
+    const exported = inheritedExported || this.isPublic(node);
     const sig = (kind === "function" || isImpl) ? this.extractFunctionSignature(node) : undefined;
-    const children = (kind === "class" || isImpl) ? this.extractClassChildren(node) : undefined;
+    const children = (kind === "class" || kind === "interface" || isImpl)
+      ? this.extractClassChildren(node)
+      : undefined;
 
     return new OutlineEntry({
       kind,

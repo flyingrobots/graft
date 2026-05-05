@@ -97,6 +97,96 @@ describe("parser: outline extraction", () => {
     });
   });
 
+  describe("Rust", () => {
+    it("extracts public and private Rust declarations", () => {
+      const source = [
+        "pub fn greet(name: &str) -> String {",
+        "  name.to_string()",
+        "}",
+        "",
+        "fn hidden() {}",
+        "",
+        "pub struct User {",
+        "  name: String,",
+        "}",
+        "",
+        "pub trait Named {",
+        "  fn name(&self) -> &str;",
+        "}",
+      ].join("\n");
+
+      const outline = extractOutline(source, "rust");
+
+      expect(outline.entries).toEqual(expect.arrayContaining([
+        expect.objectContaining({
+          kind: "function",
+          name: "greet",
+          signature: "greet(name: &str): String",
+          exported: true,
+        }),
+        expect.objectContaining({
+          kind: "function",
+          name: "hidden",
+          exported: false,
+        }),
+        expect.objectContaining({
+          kind: "class",
+          name: "User",
+          exported: true,
+        }),
+        expect.objectContaining({
+          kind: "interface",
+          name: "Named",
+          exported: true,
+        }),
+      ]));
+
+      const trait = outline.entries.find((entry) => entry.name === "Named");
+      expect(trait?.children).toEqual(expect.arrayContaining([
+        expect.objectContaining({
+          kind: "method",
+          name: "name",
+          signature: "name(&self): &str",
+        }),
+      ]));
+    });
+
+    it("extracts impl blocks and public Rust methods", () => {
+      const source = [
+        "impl User {",
+        "  pub fn new() -> Self {",
+        "    Self {}",
+        "  }",
+        "",
+        "  fn hidden_method(&self) {}",
+        "}",
+      ].join("\n");
+
+      const outline = extractOutlineForFile("src/lib.rs", source);
+      expect(outline).not.toBeNull();
+
+      const implEntry = outline!.entries.find((entry) => entry.name === "User");
+      expect(implEntry).toEqual(expect.objectContaining({
+        kind: "class",
+        name: "User",
+        signature: "impl User",
+      }));
+      expect(implEntry?.children).toEqual(expect.arrayContaining([
+        expect.objectContaining({
+          kind: "method",
+          name: "new",
+          signature: "new(): Self",
+          exported: true,
+        }),
+        expect.objectContaining({
+          kind: "method",
+          name: "hidden_method",
+          exported: false,
+        }),
+      ]));
+    });
+  });
+
   describe("Markdown", () => {
     it("extracts heading hierarchy with section ranges", () => {
       const source = [

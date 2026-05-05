@@ -1,5 +1,5 @@
 import type { SyntaxNode as TSNode } from "web-tree-sitter";
-import { OutlineEntry } from "../types.js";
+import { type JumpEntry, OutlineEntry } from "../types.js";
 import {
   type LanguageExtractor,
   type ExtractorResult,
@@ -10,7 +10,7 @@ import {
 export class TypescriptExtractor implements LanguageExtractor {
   extract(root: TSNode): ExtractorResult {
     const entries: OutlineEntry[] = [];
-    const jumpTable: any[] = [];
+    const jumpTable: JumpEntry[] = [];
 
     for (const child of root.children) {
       if (child.type === "export_statement") {

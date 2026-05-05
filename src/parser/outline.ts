@@ -27,7 +27,7 @@ export function extractOutline(
   if (lang === "md") {
     return extractMarkdownOutline(source);
   }
-  
+
   const parsed = parseStructuredTree(lang, source);
   try {
     return extractOutlineFromParsedTree(parsed);
@@ -53,7 +53,7 @@ export async function extractOutlineAsync(
   if (lang === "md") {
     return extractMarkdownOutline(source);
   }
-  
+
   const parsed = await parseStructuredTreeAsync(lang, source);
   try {
     return extractOutlineFromParsedTree(parsed);
