@@ -11,18 +11,13 @@ digraph backlog {
   nodesep=0.2
 
   subgraph cluster_v0_8_0 {
-    label="v0.8.0 (3)" labeljust=l fontsize=9 fontcolor="#555555"
+    label="v0.8.0 (5)" labeljust=l fontsize=9 fontcolor="#555555"
     style=rounded color="#cccccc" bgcolor="#fafafa"
     v0_8_0_CORE_pr_review_structural_summary [label="CORE-pr-review-structural-summary - M" fillcolor="#C8E6C9" penwidth=2]
     v0_8_0_CORE_structural_test_coverage_map [label="CORE-structural-test-coverage-map - M" fillcolor="#C8E6C9" penwidth=2]
+    v0_8_0_CORE_tool_context_injection_contracts [label="CORE-tool-context-injection-contracts - M" fillcolor="#C8E6C9" penwidth=2]
     v0_8_0_SURFACE_review_cooldown_status [label="SURFACE-review-cooldown-status - S" fillcolor="#C8E6C9" penwidth=2]
-  }
-
-  subgraph cluster_bad_code {
-    label="bad-code (2)" labeljust=l fontsize=9 fontcolor="#555555"
-    style=rounded color="#cccccc" bgcolor="#fafafa"
-    bad_code_CORE_tool_context_injection_contracts [label="CORE-tool-context-injection-contracts - M" fillcolor="#F6B3B3" penwidth=2]
-    bad_code_TEST_bounded_subprocess_policy [label="TEST-bounded-subprocess-policy - S" fillcolor="#F6B3B3" penwidth=2]
+    v0_8_0_TEST_bounded_subprocess_policy [label="TEST-bounded-subprocess-policy - S" fillcolor="#C8E6C9" penwidth=2]
   }
 
   subgraph cluster_cool_ideas {

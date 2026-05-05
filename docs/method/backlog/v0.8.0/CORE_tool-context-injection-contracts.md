@@ -3,7 +3,8 @@ title: "ToolContext injection contract coverage"
 feature: core
 kind: debt
 legend: CORE
-lane: bad-code
+lane: v0.8.0
+priority: 4
 effort: M
 requirements:
   - "Composition root dependency inventory"
@@ -29,4 +30,3 @@ could affect any ToolContext dependency.
    not the default adapter, is used by the tool surface.
 4. Run the same checks in repo-local mode first, then add daemon-mode
    coverage for dependencies that cross the scheduler boundary.
-

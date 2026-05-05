@@ -8,10 +8,13 @@ Status: v0.8.0 backlog lane formed
 real. `v0.7.1` cleaned the npm distribution shape. The next release
 should not immediately widen into another large substrate bet.
 
-The best v0.8.0 spine is operational truth:
+The best v0.8.0 spine is Review Truth:
 
-- make health diagnostics more coherent before adding more surfaces
-- reuse existing structural review facts in release and PR workflows
+- tell reviewers what changed structurally before they read the whole
+  diff
+- surface obvious structural test-reference gaps without claiming
+  execution coverage
+- make automated review readiness explicit during PR feedback loops
 - keep Graft repo-generic instead of embedding METHOD backlog, retro,
   release, or dependency-DAG conventions
 - defer semantic enrichment and daemon actions until the truth surfaces
@@ -27,18 +30,23 @@ listed idea.
    or a tag promise; it is the pull-order truth for likely v0.8.0 work.
 
 2. [CORE_pr-review-structural-summary.md](backlog/v0.8.0/CORE_pr-review-structural-summary.md)
-   Opening implementation spine if v0.8.0 wants a user-visible review
+   Opening implementation spine for the user-visible Review Truth
    workflow.
    It should compose existing structural diff/enhance facts rather than
    inventing a new review engine.
 
 3. [CORE_structural-test-coverage-map.md](backlog/v0.8.0/CORE_structural-test-coverage-map.md)
-   Follow-up review helper if the release remains focused on structural
-   review truth.
+   Follow-up review helper for structural test-reference signals.
 
 4. [SURFACE_review-cooldown-status.md](backlog/v0.8.0/SURFACE_review-cooldown-status.md)
-   Optional PR-feedback helper. Pull only if cooldown state becomes part
-   of the release's operator story.
+   PR-feedback helper for making automated review readiness explicit.
+
+5. [CORE_tool-context-injection-contracts.md](backlog/v0.8.0/CORE_tool-context-injection-contracts.md)
+   Release hardening gate for dependency injection correctness.
+
+6. [TEST_bounded-subprocess-policy.md](backlog/v0.8.0/TEST_bounded-subprocess-policy.md)
+   Release hardening gate for bounded subprocess behavior in tests and
+   scripts.
 
 ## Below the line
 

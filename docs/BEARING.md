@@ -64,9 +64,9 @@ publish guards.
 The immediate focus is **v0.8.0 scope formation**, not feature work.
 
 1. Keep `main` release-clean after `v0.7.1`.
-2. Shape `v0.8.0` around repo-generic operational truth surfaces:
-   health diagnostics, structural review summaries, and capability
-   posture that apply to any Git repository.
+2. Shape `v0.8.0` around **Review Truth**: structural PR review
+   summaries, structural test-reference signals, and automated review
+   readiness that apply to any Git repository.
 3. Do not add METHOD-specific backlog/status features to Graft. METHOD
    backlog lanes, cards, retros, dependency DAGs, and release truth
    surfaces belong in Method MCP / Method CLI.
@@ -79,4 +79,5 @@ The immediate focus is **v0.8.0 scope formation**, not feature work.
 6. Treat daemon live refresh and daemon control-plane actions as a
    separate daemon-operator lane, not the default v0.8.0 spine.
 7. Use `docs/method/backlog/v0.8.0/` as the current scope lane, with
-   `CORE_pr-review-structural-summary` as the opening spine.
+   `CORE_pr-review-structural-summary` as the opening spine and the
+   two core hardening cards as release-quality gates.

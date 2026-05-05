@@ -38,7 +38,8 @@ describe("CORE_v080-scope-formation playback", () => {
     const nonGoals = markdownSection(designDoc, "Non-goals");
 
     expect(hill).toContain("Settle the opening v0.8.0 lane");
-    expect(hill).toContain("repo-generic operational truth");
+    expect(hill).toContain("Review Truth");
+    expect(hill).toContain("structural PR review summaries");
     expect(nonGoals).toMatch(/-\s+\[\s\]\s+Add runtime behavior\./);
     expect(hill).not.toContain("Add runtime behavior");
   });
@@ -50,10 +51,14 @@ describe("CORE_v080-scope-formation playback", () => {
     expect(openingLane).toContain("`CORE_pr-review-structural-summary`");
     expect(openingLane).toContain("`CORE_structural-test-coverage-map`");
     expect(openingLane).toContain("`SURFACE_review-cooldown-status`");
+    expect(openingLane).toContain("`CORE_tool-context-injection-contracts`");
+    expect(openingLane).toContain("`TEST_bounded-subprocess-policy`");
     expect(repoFileExists("docs/method/backlog/v0.8.0/README.md")).toBe(true);
     expect(repoFileExists("docs/method/backlog/v0.8.0/CORE_pr-review-structural-summary.md")).toBe(true);
     expect(repoFileExists("docs/method/backlog/v0.8.0/CORE_structural-test-coverage-map.md")).toBe(true);
     expect(repoFileExists("docs/method/backlog/v0.8.0/SURFACE_review-cooldown-status.md")).toBe(true);
+    expect(repoFileExists("docs/method/backlog/v0.8.0/CORE_tool-context-injection-contracts.md")).toBe(true);
+    expect(repoFileExists("docs/method/backlog/v0.8.0/TEST_bounded-subprocess-policy.md")).toBe(true);
   });
 
   it("Can a human see which tempting work is explicitly deferred from the opening v0.8.0 lane?", () => {
@@ -69,10 +74,11 @@ describe("CORE_v080-scope-formation playback", () => {
     const backlogContext = markdownSection(designDoc, "Backlog Context");
 
     expect(backlogContext).toContain("the immediate focus is v0.8.0 scope formation");
-    expect(backlogContext).toContain("repo-generic operational truth surfaces");
+    expect(backlogContext).toContain("centered on Review Truth");
+    expect(backlogContext).toContain("automated review readiness");
+    expect(designDoc).toContain("Review Truth for any Git repository");
     expect(backlogContext).toContain("avoid adding METHOD backlog/status features");
     expect(designDoc).toContain("The opening v0.8.0 lane is:");
-    expect(designDoc).toContain("Repo-generic operational truth surfaces for any Git repository");
   });
 
   it("Does the design keep METHOD backlog/status features out of Graft?", () => {

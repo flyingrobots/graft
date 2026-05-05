@@ -14,11 +14,11 @@ Legend: CORE
 
 Settle the opening v0.8.0 lane before pulling more feature work.
 
-The lane must keep Graft focused on repo-generic operational truth
-surfaces for any Git repository: health posture, structural review
-summaries, and capability posture. It must also name the first
-implementation pull candidate and the work deliberately kept out of the
-opening lane.
+The lane must keep Graft focused on Review Truth for any Git repository:
+structural PR review summaries, structural test-reference signals, and
+automated review readiness. It must also name the first implementation
+pull candidate, release-quality gates, and the work deliberately kept
+out of the opening lane.
 
 ## Playback Questions
 
@@ -80,12 +80,14 @@ opening lane.
 
 The opening v0.8.0 lane is:
 
-> Repo-generic operational truth surfaces for any Git repository.
+> Review Truth for any Git repository.
 
 That means the next implementation work should make a repository easier
 to inspect and review without adding project-management features,
 METHOD-specific status, broad release machinery, or another WARP
-ontology expansion.
+ontology expansion. The release should help users see structural diff
+signal, obvious structural test-reference gaps, and automated review
+readiness without claiming merge safety or semantic correctness.
 
 ## Shipped Baseline To Preserve
 
@@ -110,8 +112,13 @@ The opening lane is intentionally small:
 - Follow-up candidate: `CORE_structural-test-coverage-map`. This is a
   repo-generic review helper, but it must avoid claiming execution
   coverage.
-- Optional operator helper: `SURFACE_review-cooldown-status`. This is
-  useful for PR feedback loops, but it is not the release spine.
+- Review readiness helper: `SURFACE_review-cooldown-status`. This
+  keeps automated review-loop cooldowns explicit for PR authors and
+  agents.
+- Release-quality gates: `CORE_tool-context-injection-contracts` and
+  `TEST_bounded-subprocess-policy`. These are not user-facing review
+  features, but they keep the review tools from growing on weak context
+  injection or unbounded subprocess behavior.
 
 The next pull after this scope cycle should be
 `CORE_pr-review-structural-summary`. This card is promoted to the
@@ -152,17 +159,20 @@ Shape the opening v0.8.0 lane before pulling another implementation
 cycle.
 
 The current bearing says the immediate focus is v0.8.0 scope formation,
-centered on repo-generic operational truth surfaces: health diagnostics,
-structural review summaries, and capability posture for any Git
+centered on Review Truth: structural PR review summaries, structural
+test-reference signals, and automated review readiness for any Git
 repository.
 
 This cycle should turn that direction into a small, inspectable lane:
 
 - pick the first implementation pull candidate
 - identify follow-up candidates that belong in the same release shape
+- include release-quality gates that protect review-tool correctness
 - state what is deliberately deferred
 - avoid adding METHOD backlog/status features to Graft
 
 The likely first candidate is `CORE_pr-review-structural-summary`, with
-`CORE_structural-test-coverage-map` as a follow-up. Smaller PR workflow
-helpers may be useful, but should not become the release spine.
+`CORE_structural-test-coverage-map` as a follow-up and
+`SURFACE_review-cooldown-status` as the review readiness helper. Smaller
+PR workflow bookkeeping may be useful later, but should not become the
+release spine.
