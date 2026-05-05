@@ -26,6 +26,7 @@ import {
   type SemanticEnrichmentUnavailableFile,
 } from "../ports/semantic-enrichment.js";
 import { emitSemanticFacts, prepareSemanticFacts } from "./semantic-enrichment.js";
+import { SymIdCodec } from "./sym-id-codec.js";
 
 export const DEFAULT_INDEX_MAX_FILES_PER_CALL = 64;
 export const DEFAULT_INDEX_MAX_PATCH_JSON_BYTES = 2 * 1024 * 1024;
@@ -47,7 +48,7 @@ function emitOutlineSyms(
 
   for (const entry of entries) {
     const symbolPath = parentPath.length > 0 ? `${parentPath}.${entry.name}` : entry.name;
-    const symId = `sym:${filePath}:${symbolPath}`;
+    const symId = SymIdCodec.encode(filePath, symbolPath);
     emitted.add(symId);
 
     patch.addNode(symId);
@@ -218,7 +219,7 @@ function collectSymIds(
 ): void {
   for (const entry of entries) {
     const symbolPath = parentPath.length > 0 ? `${parentPath}.${entry.name}` : entry.name;
-    target.set(`sym:${filePath}:${symbolPath}`, entry.signature);
+    target.set(SymIdCodec.encode(filePath, symbolPath), entry.signature);
     if (entry.children !== undefined && entry.children.length > 0) {
       collectSymIds(target, filePath, entry.children, symbolPath);
     }
@@ -357,8 +358,8 @@ async function readPriorSemanticFactsForFile(
   const callEdges = (await obs.getEdges())
     .filter((edge) =>
       edge.label === "calls" &&
-      isSameFileSymbolId(filePath, edge.from) &&
-      isSameFileSymbolId(filePath, edge.to),
+      SymIdCodec.isForFile(edge.from, filePath) &&
+      SymIdCodec.isForFile(edge.to, filePath),
     )
     .map((edge): PriorSemanticCallEdge => ({
       from: edge.from,
@@ -402,23 +403,79 @@ function semanticCallEdgeKey(fromSymbolId: string, toSymbolId: string): string {
   return `${fromSymbolId}\0${toSymbolId}`;
 }
 
-function isSameFileSymbolId(filePath: string, symbolId: string): boolean {
-  return symbolId.startsWith(`sym:${filePath}:`);
+function estimatedTextBytes(value: string): number {
+  return Buffer.byteLength(value, "utf8");
 }
 
-function patchJsonByteLength(patch: PatchBuilderV2): number {
-  return Buffer.byteLength(JSON.stringify(patch.build()), "utf8");
+function estimateSemanticFactBytes(facts: readonly SemanticEnrichmentFact[]): number {
+  let bytes = 0;
+  for (const fact of facts) {
+    switch (fact.kind) {
+      case "call":
+        bytes += estimatedTextBytes(fact.fromSymbolId) +
+          estimatedTextBytes(fact.toSymbolId) +
+          96;
+        break;
+      case "typeof":
+        bytes += estimatedTextBytes(fact.symbolId) +
+          estimatedTextBytes(fact.typeName) +
+          96;
+        break;
+    }
+  }
+  return bytes;
 }
 
-function assertPatchWithinBudget(
-  patch: PatchBuilderV2,
+function estimateOutlineEntryBytes(entry: OutlineEntry): number {
+  let bytes = 128 +
+    estimatedTextBytes(entry.kind) +
+    estimatedTextBytes(entry.name) +
+    estimatedTextBytes(entry.signature ?? "");
+  for (const child of entry.children ?? []) {
+    bytes += estimateOutlineEntryBytes(child);
+  }
+  return bytes;
+}
+
+function estimateOutlineBytes(entries: readonly OutlineEntry[]): number {
+  let bytes = 0;
+  for (const entry of entries) {
+    bytes += estimateOutlineEntryBytes(entry);
+  }
+  return bytes;
+}
+
+function estimatePatchPayloadBytes(input: {
+  readonly filePath: string;
+  readonly content: string;
+  readonly outline: readonly OutlineEntry[];
+  readonly currentSymbolCount: number;
+  readonly priorSymbolCount: number;
+  readonly priorAstAnchorCount: number;
+  readonly semanticFacts: readonly SemanticEnrichmentFact[];
+}): number {
+  const sourceBytes = estimatedTextBytes(input.content);
+  const outlineBytes = estimateOutlineBytes(input.outline);
+  const filePathBytes = estimatedTextBytes(input.filePath);
+  const symbolBytes = (input.currentSymbolCount + input.priorSymbolCount) * (filePathBytes + 256);
+  const staleAstBytes = input.priorAstAnchorCount * (filePathBytes + 96);
+  const semanticBytes = estimateSemanticFactBytes(input.semanticFacts);
+  return 4096 +
+    sourceBytes * 12 +
+    outlineBytes * 2 +
+    symbolBytes +
+    staleAstBytes +
+    semanticBytes;
+}
+
+function assertEstimatedPatchWithinBudget(
   filePath: string,
+  estimatedBytes: number,
   maxPatchJsonBytes: number,
 ): void {
-  const bytes = patchJsonByteLength(patch);
-  if (bytes > maxPatchJsonBytes) {
+  if (estimatedBytes > maxPatchJsonBytes) {
     throw new Error(
-      `indexHead refused to write ${filePath}: estimated patch payload ${String(bytes)} bytes ` +
+      `indexHead refused to write ${filePath}: estimated patch payload ${String(estimatedBytes)} bytes ` +
       `exceeds ${String(maxPatchJsonBytes)} bytes. Index smaller slices or attach bulky data as blobs.`,
     );
   }
@@ -491,6 +548,20 @@ async function indexHeadFile(input: {
       // No prior state: first lazy index writes adds only.
     }
 
+    assertEstimatedPatchWithinBudget(
+      filePath,
+      estimatePatchPayloadBytes({
+        filePath,
+        content: contentResult.stdout,
+        outline,
+        currentSymbolCount: currentSyms.size,
+        priorSymbolCount: priorSyms.size,
+        priorAstAnchorCount: priorAstAnchors.length,
+        semanticFacts: semantic.factsToEmit,
+      }),
+      maxPatchJsonBytes,
+    );
+
     await patchGraph(ctx, async (patch) => {
       const tick = patch.build().lamport;
       const commitId = `commit:${headSha}`;
@@ -537,7 +608,6 @@ async function indexHeadFile(input: {
         }
       }
 
-      assertPatchWithinBudget(patch, filePath, maxPatchJsonBytes);
     });
 
     return { indexed: true, semantic: semantic.summary };

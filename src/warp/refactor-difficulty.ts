@@ -5,6 +5,7 @@
 import type { AggregateResult, QueryResultV1 } from "@git-stunts/git-warp";
 import type { WarpContext } from "./context.js";
 import { observeGraph } from "./context.js";
+import { SymIdCodec } from "./sym-id-codec.js";
 import { symbolTimeline, type SymbolVersion } from "./symbol-timeline.js";
 import { countSymbolReferencesFromGraph } from "./warp-reference-count.js";
 
@@ -232,16 +233,9 @@ function compareDifficultyEntries(
 }
 
 function parseSymId(symId: string): { filePath: string; symbol: string } | null {
-  if (!symId.startsWith("sym:")) return null;
-
-  const withoutPrefix = symId.slice("sym:".length);
-  const lastColon = withoutPrefix.lastIndexOf(":");
-  if (lastColon === -1) return null;
-
-  return {
-    filePath: withoutPrefix.slice(0, lastColon),
-    symbol: withoutPrefix.slice(lastColon + 1),
-  };
+  const parsed = SymIdCodec.decode(symId);
+  if (parsed === null) return null;
+  return { filePath: parsed.filePath, symbol: parsed.symbolPath };
 }
 
 function normalizeOptionalPath(path: string | undefined): string | undefined {

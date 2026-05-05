@@ -5,6 +5,7 @@
 import type { QueryResultV1 } from "@git-stunts/git-warp";
 import type { WarpContext } from "./context.js";
 import { observeGraph } from "./context.js";
+import { SymIdCodec } from "./sym-id-codec.js";
 
 export interface SymbolReference {
   readonly filePath: string;
@@ -36,7 +37,7 @@ export async function referencesForSymbol(
   // Determine the target node ID
   const targetId = symbolName === "*"
     ? `file:${filePath}`
-    : `sym:${filePath}:${symbolName}`;
+    : SymIdCodec.encode(filePath, symbolName);
 
   // Guard: target must exist for traverse to work.
   const targetExists = await obs.hasNode(targetId);

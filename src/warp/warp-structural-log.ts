@@ -5,6 +5,7 @@
 import type { QueryResultV1 } from "@git-stunts/git-warp";
 import type { WarpContext } from "./context.js";
 import { observeGraph } from "./context.js";
+import { SymIdCodec } from "./sym-id-codec.js";
 
 /** A symbol that was added, removed, or changed in a commit. */
 export interface StructuralLogSymbolChange {
@@ -101,16 +102,10 @@ export async function structuralLogFromGraph(
       });
 
       for (const symId of symIds) {
-        if (!symId.startsWith("sym:")) continue;
+        const parsed = SymIdCodec.decode(symId);
+        if (parsed === null) continue;
 
-        const withoutPrefix = symId.slice("sym:".length);
-        const lastColon = withoutPrefix.lastIndexOf(":");
-        if (lastColon === -1) continue;
-
-        const filePath = withoutPrefix.slice(0, lastColon);
-        const symbolName = withoutPrefix.slice(lastColon + 1);
-
-        if (pathFilter !== undefined && !filePath.startsWith(pathFilter)) continue;
+        if (pathFilter !== undefined && !parsed.filePath.startsWith(pathFilter)) continue;
 
         const symProps = await obs.getNodeProps(symId);
         const kind = typeof symProps?.["kind"] === "string" ? symProps["kind"] : "unknown";
@@ -118,11 +113,11 @@ export async function structuralLogFromGraph(
         const exported = typeof symProps?.["exported"] === "boolean" ? symProps["exported"] : false;
 
         const change: StructuralLogSymbolChange = {
-          name: symbolName,
+          name: parsed.symbolPath,
           kind,
           signature,
           exported,
-          filePath,
+          filePath: parsed.filePath,
         };
 
         if (key === "added") added.push(change);

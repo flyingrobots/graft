@@ -3,6 +3,7 @@ import type {
   SemanticEnrichmentAvailableResult,
   SemanticEnrichmentFact,
 } from "../ports/semantic-enrichment.js";
+import { SymIdCodec } from "./sym-id-codec.js";
 
 export interface PreparedSemanticFacts {
   readonly acceptedFacts: readonly SemanticEnrichmentFact[];
@@ -74,7 +75,7 @@ function isCurrentFileSymbol(
   currentSymbolIds: ReadonlySet<string>,
   symbolId: string,
 ): boolean {
-  return symbolId.startsWith(`sym:${filePath}:`) && currentSymbolIds.has(symbolId);
+  return SymIdCodec.isForFile(symbolId, filePath) && currentSymbolIds.has(symbolId);
 }
 
 function normalizeFactLimit(value: number): number {
