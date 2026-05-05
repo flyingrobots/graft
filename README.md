@@ -45,7 +45,10 @@ Enforce policy on a single read or inspect structural history.
 ```bash
 npx @flyingrobots/graft read safe src/app.ts
 npx @flyingrobots/graft review --base HEAD~1
+npx @flyingrobots/graft review cooldown --pr 48
 npx @flyingrobots/graft struct since HEAD~3
+npx @flyingrobots/graft struct dead-symbols --limit 20
+npx @flyingrobots/graft symbol history createUser --path src/users.ts
 ```
 
 ### 4. Direct Library API

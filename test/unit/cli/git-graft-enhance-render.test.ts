@@ -27,6 +27,7 @@ function model(): GitGraftEnhanceModel {
       changedExports: 1,
     },
     warnings: [],
+    provenanceHints: [],
   };
 }
 

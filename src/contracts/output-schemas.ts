@@ -286,6 +286,33 @@ const gitGraftEnhanceBodySchema = z.object({
     changedExports: z.number().int().nonnegative(),
   }).strict(),
   warnings: z.array(z.string()),
+  provenanceHints: z.array(z.object({
+    symbol: z.string(),
+    filePath: z.string(),
+    changeKind: z.enum(["added", "removed", "changed"]),
+    ambiguous: z.boolean(),
+    status: z.enum(["available", "unavailable"]),
+    createdInCommit: z.string().nullable().optional(),
+    lastSignatureChange: z.string().nullable().optional(),
+    referenceCount: z.number().int().nonnegative().optional(),
+    changeCount: z.number().int().nonnegative().optional(),
+    reason: z.string().optional(),
+  }).strict()),
+}).strict();
+
+const reviewCooldownBodySchema = z.object({
+  status: z.enum(["ready", "cooldown", "unknown"]),
+  reviewer: z.literal("coderabbitai"),
+  processedAt: z.string(),
+  processedAtLocal: z.string(),
+  markerFound: z.boolean(),
+  sourceCommentAt: z.string().optional(),
+  cooldownDurationMs: z.number().int().nonnegative().optional(),
+  cooldownExpiresAt: z.string().optional(),
+  cooldownExpiresAtLocal: z.string().optional(),
+  remainingMs: z.number().int().nonnegative().optional(),
+  reason: z.string().optional(),
+  summary: z.string(),
 }).strict();
 
 const runtimeStagedTargetSchema = z.discriminatedUnion("availability", [
@@ -1311,6 +1338,18 @@ const mcpOutputBodySchemas: Record<McpToolName, z.ZodType> = {
     }).strict()),
     summary: z.string(),
   }).strict(),
+  graft_dead_symbols: z.object({
+    maxCommits: z.number().int().positive().optional(),
+    symbols: z.array(z.object({
+      name: z.string(),
+      kind: z.string(),
+      filePath: z.string(),
+      exported: z.boolean(),
+      removedInCommit: z.string(),
+    }).strict()),
+    total: z.number().int().nonnegative(),
+    summary: z.string(),
+  }).strict(),
   knowledge_map: z.object({
     totalFiles: z.number().int().nonnegative(),
     totalSymbols: z.number().int().nonnegative(),
@@ -1373,6 +1412,7 @@ export const MCP_OUTPUT_SCHEMAS: Record<McpToolName, z.ZodType> = {
   graft_difficulty: withMcpCommon("graft_difficulty", mcpOutputBodySchemas.graft_difficulty),
   graft_review: withMcpCommon("graft_review", mcpOutputBodySchemas.graft_review),
   graft_test_coverage: withMcpCommon("graft_test_coverage", mcpOutputBodySchemas.graft_test_coverage),
+  graft_dead_symbols: withMcpCommon("graft_dead_symbols", mcpOutputBodySchemas.graft_dead_symbols),
   knowledge_map: withMcpCommon("knowledge_map", mcpOutputBodySchemas.knowledge_map),
 };
 
@@ -1451,6 +1491,7 @@ export const CLI_OUTPUT_SCHEMAS: Record<CliCommandName, z.ZodType> = {
   symbol_difficulty: withCliPeerCommon("symbol_difficulty", mcpOutputBodySchemas.graft_difficulty),
   struct_review: withCliPeerCommon("struct_review", mcpOutputBodySchemas.graft_review),
   struct_test_coverage: withCliPeerCommon("struct_test_coverage", mcpOutputBodySchemas.graft_test_coverage),
+  struct_dead_symbols: withCliPeerCommon("struct_dead_symbols", mcpOutputBodySchemas.graft_dead_symbols),
   diag_doctor: withCliPeerCommon("diag_doctor", mcpOutputBodySchemas.doctor),
   diag_activity: withCliPeerCommon("diag_activity", mcpOutputBodySchemas.activity_view),
   diag_explain: withCliPeerCommon("diag_explain", mcpOutputBodySchemas.explain),
@@ -1487,6 +1528,7 @@ export const CLI_OUTPUT_SCHEMAS: Record<CliCommandName, z.ZodType> = {
     edges: z.array(z.record(z.string(), z.unknown())),
     error: z.string().optional(),
   }).strict()),
+  review_cooldown: withCliCommon("review_cooldown", reviewCooldownBodySchema),
   git_graft_enhance: withCliCommon("git_graft_enhance", gitGraftEnhanceBodySchema),
 };
 

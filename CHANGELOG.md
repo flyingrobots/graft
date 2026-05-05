@@ -18,6 +18,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   report exported source symbols with or without bounded test-directory
   references, explicitly labeled as structural/reference coverage rather
   than execution coverage.
+- **Git enhance provenance hints**: `git graft enhance --since <ref>`
+  now adds a bounded provenance-hints section for changed symbols using
+  WARP-backed blame facts when available, including ambiguity,
+  creation/signature-change commits, reference count, and unavailable
+  blame reasons.
+- **Symbol history timeline**: `graft symbol history <symbol>
+  [--path <path>]` now renders a timeline-first human view over the
+  existing provenance-backed `graft_blame` facts while preserving the
+  `graft.cli.symbol_blame` JSON schema.
+- **Dead symbol detection**: `graft_dead_symbols` and `graft struct
+  dead-symbols [--limit <n>]` now list symbols removed from indexed WARP
+  history and not subsequently re-added.
+- **Review cooldown status helper**: `graft review cooldown [--pr
+  <number>]` now reads PR comments via `gh pr view --json comments`,
+  detects CodeRabbit rate-limit markers, and reports local ready,
+  cooldown, or unknown status; `--comments-file` supports fixture-backed
+  checks.
 - **Rust structural parsing**: parser-backed outlines, governed reads,
   structural diffs, and WARP indexing now recognize `.rs` files using
   the bundled Rust tree-sitter grammar.

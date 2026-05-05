@@ -74,6 +74,7 @@ describe("cli: git graft enhance model", () => {
         changedExports: 1,
       },
       warnings: [],
+      provenanceHints: [],
     });
   });
 
@@ -100,5 +101,69 @@ describe("cli: git graft enhance model", () => {
     });
 
     expect(model.warnings).toEqual(["No structural changes found for this range."]);
+    expect(model.provenanceHints).toEqual([]);
+  });
+
+  it("selects bounded provenance candidates and marks duplicate symbol names ambiguous", () => {
+    const model = buildGitGraftEnhanceModel({
+      since: "HEAD~1",
+      head: "HEAD",
+      structural: {
+        base: "HEAD~1",
+        head: "HEAD",
+        summary: "changed",
+        layer: "ref_view",
+        files: [{
+          path: "src/a.ts",
+          status: "modified",
+          summary: "src/a.ts | modified | ~1 changed",
+          diff: {
+            added: [],
+            removed: [],
+            changed: [{ name: "shared", kind: "function", exported: true }],
+            unchangedCount: 0,
+          },
+        }, {
+          path: "src/b.ts",
+          status: "modified",
+          summary: "src/b.ts | modified | -1 removed",
+          diff: {
+            added: [],
+            removed: [{ name: "shared", kind: "function", exported: true }],
+            changed: [],
+            unchangedCount: 0,
+          },
+        }],
+      },
+      exports: {
+        base: "HEAD~1",
+        head: "HEAD",
+        added: [],
+        removed: [],
+        changed: [],
+        semverImpact: "none",
+        summary: "No public API changes.",
+      },
+      provenanceHints: [{
+        symbol: "shared",
+        filePath: "src/a.ts",
+        changeKind: "changed",
+        ambiguous: true,
+        status: "available",
+        createdInCommit: "abc123",
+        lastSignatureChange: "def456",
+        referenceCount: 2,
+        changeCount: 3,
+      }],
+    });
+
+    expect(model.provenanceHints).toEqual([
+      expect.objectContaining({
+        symbol: "shared",
+        filePath: "src/a.ts",
+        ambiguous: true,
+        status: "available",
+      }),
+    ]);
   });
 });

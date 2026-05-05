@@ -30,6 +30,33 @@ const gitGraftEnhanceBodySchema = z.object({
     changedExports: z.number().int().nonnegative(),
   }).strict(),
   warnings: z.array(z.string()),
+  provenanceHints: z.array(z.object({
+    symbol: z.string(),
+    filePath: z.string(),
+    changeKind: z.enum(["added", "removed", "changed"]),
+    ambiguous: z.boolean(),
+    status: z.enum(["available", "unavailable"]),
+    createdInCommit: z.string().nullable().optional(),
+    lastSignatureChange: z.string().nullable().optional(),
+    referenceCount: z.number().int().nonnegative().optional(),
+    changeCount: z.number().int().nonnegative().optional(),
+    reason: z.string().optional(),
+  }).strict()),
+}).strict();
+
+const reviewCooldownBodySchema = z.object({
+  status: z.enum(["ready", "cooldown", "unknown"]),
+  reviewer: z.literal("coderabbitai"),
+  processedAt: z.string(),
+  processedAtLocal: z.string(),
+  markerFound: z.boolean(),
+  sourceCommentAt: z.string().optional(),
+  cooldownDurationMs: z.number().int().nonnegative().optional(),
+  cooldownExpiresAt: z.string().optional(),
+  cooldownExpiresAtLocal: z.string().optional(),
+  remainingMs: z.number().int().nonnegative().optional(),
+  reason: z.string().optional(),
+  summary: z.string(),
 }).strict();
 
 export const cliOutputBodySchemas = {
@@ -101,4 +128,6 @@ export const cliOutputBodySchemas = {
   symbol_difficulty: mcpOutputBodySchemas.graft_difficulty,
   struct_review: mcpOutputBodySchemas.graft_review,
   struct_test_coverage: mcpOutputBodySchemas.graft_test_coverage,
+  struct_dead_symbols: mcpOutputBodySchemas.graft_dead_symbols,
+  review_cooldown: reviewCooldownBodySchema,
 } satisfies Record<CliCommandName, z.ZodType>;

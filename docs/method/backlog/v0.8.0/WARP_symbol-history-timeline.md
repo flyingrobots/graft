@@ -12,10 +12,10 @@ requirements:
   - "Worldline seek API (shipped)"
   - "Commit→sym edges with signatures (shipped via indexHead reconciliation)"
 acceptance_criteria:
-  - "code_show with history flag returns every version of a symbol across commits"
-  - "Each version includes signature, line range, and presence/absence"
+  - "`graft symbol history <symbol> [--path <path>]` returns the indexed WARP history for a symbol"
+  - "Each version includes signature and presence/absence facts from the existing blame model"
   - "Output is ordered chronologically by commit"
-  - "Detects when a symbol was added, renamed, or removed across the timeline"
+  - "Detects when a symbol was added, changed, or removed across the timeline"
 blocking:
   - WARP_temporal-structural-search
 ---
@@ -64,3 +64,13 @@ requires per-symbol version history as a hard prerequisite.
 Small. The data model exists, the traversal API exists, the edges
 exist. This is a new query pattern over existing graph data —
 essentially a filtered walk with collection.
+
+## Implementation status
+
+Shipped in `cycle/CORE_structural-test-coverage-map`.
+
+The first slice exposes `graft symbol history <symbol> [--path <path>]`
+as a timeline-first human renderer over the existing `graft_blame`
+operation. JSON intentionally keeps the `graft.cli.symbol_blame` schema
+so symbol history and symbol blame do not drift into parallel wire
+formats for the same provenance truth.

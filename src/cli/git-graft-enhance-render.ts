@@ -22,6 +22,21 @@ export function renderGitGraftEnhance(model: GitGraftEnhanceModel): string {
     }
   }
 
+  if (model.provenanceHints.length > 0) {
+    lines.push("", "Provenance hints");
+    for (const hint of model.provenanceHints) {
+      const ambiguity = hint.ambiguous ? ", ambiguous symbol name" : "";
+      if (hint.status === "available") {
+        lines.push(
+          `- ${hint.filePath}: ${hint.symbol} ${hint.changeKind} `
+          + `(created: ${hint.createdInCommit ?? "unknown"}, last signature: ${hint.lastSignatureChange ?? "none"}, refs: ${String(hint.referenceCount ?? 0)}${ambiguity})`,
+        );
+      } else {
+        lines.push(`- ${hint.filePath}: ${hint.symbol} ${hint.changeKind} unavailable (${hint.reason ?? "unknown"}${ambiguity})`);
+      }
+    }
+  }
+
   if (model.warnings.length > 0) {
     lines.push("", "warnings:");
     for (const warning of model.warnings) {

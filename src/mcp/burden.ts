@@ -57,6 +57,7 @@ const TOOL_BURDEN_KIND: Record<McpToolName, BurdenKind> = {
   graft_difficulty: "search",
   graft_review: "search",
   graft_test_coverage: "search",
+  graft_dead_symbols: "search",
   knowledge_map: "diagnostic",
 };
 

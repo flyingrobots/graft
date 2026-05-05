@@ -219,6 +219,7 @@ describe("contracts: output schemas", () => {
       graft_difficulty: parse(await server.callTool("graft_difficulty", { symbol: "greet" })),
       graft_review: parse(await server.callTool("graft_review", { base, head })),
       graft_test_coverage: parse(await server.callTool("graft_test_coverage", { sourcePath: "src", testPath: "test" })),
+      graft_dead_symbols: parse(await server.callTool("graft_dead_symbols", { maxCommits: 5 })),
       knowledge_map: parse(await server.callTool("knowledge_map", {})),
     } as const;
 
@@ -327,6 +328,16 @@ describe("contracts: output schemas", () => {
       "}",
       "",
     ].join("\n"));
+    fs.writeFileSync(path.join(repoDir, "review-comments.json"), JSON.stringify({
+      comments: [
+        {
+          author: { login: "coderabbitai" },
+          body: "Rate limit exceeded. Please retry in 30 minutes.",
+          createdAt: "2026-05-05T15:00:00.000Z",
+          updatedAt: "2026-05-05T15:00:00.000Z",
+        },
+      ],
+    }));
 
     const outputs = {
       read_safe: await runCliJson(repoDir, ["read", "safe", "app.ts", "--json"]),
@@ -339,6 +350,7 @@ describe("contracts: output schemas", () => {
       struct_log: await runCliJson(repoDir, ["struct", "log", "--json"]),
       struct_review: await runCliJson(repoDir, ["struct", "review", "--base", base, "--head", head, "--json"]),
       struct_test_coverage: await runCliJson(repoDir, ["struct", "test-coverage", "--src", "src", "--tests", "test", "--json"]),
+      struct_dead_symbols: await runCliJson(repoDir, ["struct", "dead-symbols", "--limit", "5", "--json"]),
       struct_churn: await runCliJson(repoDir, ["struct", "churn", "--json"]),
       struct_exports: await runCliJson(repoDir, ["struct", "exports", base, head, "--json"]),
       symbol_show: await runCliJson(repoDir, ["symbol", "show", "greet", "--path", "app.ts", "--json"]),
@@ -351,6 +363,15 @@ describe("contracts: output schemas", () => {
       diag_explain: await runCliJson(repoDir, ["diag", "explain", "CONTENT", "--json"]),
       diag_stats: await runCliJson(repoDir, ["diag", "stats", "--json"]),
       diag_capture: await runCliJson(repoDir, ["diag", "capture", "--json", "--", "printf", "ok"]),
+      review_cooldown: await runCliJson(repoDir, [
+        "review",
+        "cooldown",
+        "--comments-file",
+        "review-comments.json",
+        "--now",
+        "2026-05-05T15:10:00.000Z",
+        "--json",
+      ]),
       git_graft_enhance: await runCliJson(repoDir, ["enhance", "--since", base, "--head", head, "--json"]),
     } as const;
 

@@ -71,11 +71,11 @@ describe("capability registry", () => {
     const rows = buildCapabilityMatrixRows();
 
     expect(baseline).toEqual({
-      cliOnly: 5,
-      apiCliMcp: 22,
+      cliOnly: 6,
+      apiCliMcp: 23,
       apiMcp: 22,
       apiOnly: 1,
-      directCliMcpPeers: 21,
+      directCliMcpPeers: 22,
       composedCliOperators: 1,
       intentionallyApiMcpOnly: 22,
     });
@@ -109,6 +109,26 @@ describe("capability registry", () => {
         cliMcpParity: "composed_cli_operator",
         cliPath: "daemon status",
         mcpTool: "daemon_status",
+      }),
+      expect.objectContaining({
+        id: "graft_dead_symbols",
+        api: "Yes",
+        cli: "Yes",
+        mcp: "Yes",
+        apiExposure: "tool_bridge",
+        cliMcpParity: "peer",
+        cliPath: "struct dead-symbols",
+        mcpTool: "graft_dead_symbols",
+      }),
+      expect.objectContaining({
+        id: "review_cooldown",
+        api: "No",
+        cli: "Yes",
+        mcp: "No",
+        apiExposure: "-",
+        cliMcpParity: "cli_only",
+        cliPath: "review cooldown",
+        mcpTool: "-",
       }),
       expect.objectContaining({
         id: "git_graft_enhance",

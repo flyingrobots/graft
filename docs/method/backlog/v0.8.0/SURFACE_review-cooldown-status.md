@@ -31,3 +31,14 @@ with the relevant timestamps printed in the operator's local timezone.
 The merge decision should not depend on stale or guessed reviewer state.
 Making the cooldown calculation explicit would make the final "request
 another review or wait" decision easier to audit.
+
+## Implementation status
+
+Shipped in `cycle/CORE_structural-test-coverage-map`.
+
+`graft review cooldown [--pr <number>] [--comments-file <path>] [--now
+<iso>] [--json]` now reads PR comments, detects CodeRabbit
+rate-limit markers, calculates the cooldown expiry, and prints both
+machine-readable ISO timestamps and local-time human output. The
+`--comments-file` path keeps playback tests deterministic without
+depending on live GitHub state.

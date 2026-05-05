@@ -133,8 +133,11 @@ export function describeCliFailure(argv: readonly string[]): CliErrorDetails {
     if (subcommand === "test-coverage") {
       return { usage: "graft struct test-coverage [--src <path>] [--tests <path>] [--json]" };
     }
+    if (subcommand === "dead-symbols") {
+      return { usage: "graft struct dead-symbols [--limit <n>] [--json]" };
+    }
     return {
-      usage: "graft struct <diff|since|map|churn|exports|log|review|test-coverage> ...",
+      usage: "graft struct <diff|since|map|churn|exports|log|review|test-coverage|dead-symbols> ...",
       nextSteps: ["Run `graft help` to see the available structural subcommands."],
     };
   }
@@ -149,11 +152,14 @@ export function describeCliFailure(argv: readonly string[]): CliErrorDetails {
     if (subcommand === "blame") {
       return { usage: "graft symbol blame <symbol> [--path <path>] [--json]" };
     }
+    if (subcommand === "history") {
+      return { usage: "graft symbol history <symbol> [--path <path>] [--json]" };
+    }
     if (subcommand === "difficulty") {
       return { usage: "graft symbol difficulty <symbol> [--path <path>] [--limit <n>] [--json]" };
     }
     return {
-      usage: "graft symbol <find|show|blame|difficulty> ...",
+      usage: "graft symbol <find|show|blame|history|difficulty> ...",
       nextSteps: ["Run `graft help` to see the available symbol subcommands."],
     };
   }
@@ -190,7 +196,14 @@ export function describeCliFailure(argv: readonly string[]): CliErrorDetails {
   }
 
   if (group === "review") {
-    return { usage: "graft review --base <ref> [--head <ref>] [--json]" };
+    if (subcommand === "cooldown") {
+      return {
+        usage: "graft review cooldown [--pr <number>] [--comments-file <path>] [--now <iso>] [--json]",
+      };
+    }
+    return {
+      usage: "graft review --base <ref> [--head <ref>] [--json] | graft review cooldown [--pr <number>] [--json]",
+    };
   }
 
   return {

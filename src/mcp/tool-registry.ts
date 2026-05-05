@@ -17,6 +17,7 @@ import { mapTool } from "./tools/map.js";
 import { codeShowTool } from "./tools/code-show.js";
 import { codeFindTool } from "./tools/code-find.js";
 import { codeRefsTool } from "./tools/code-refs.js";
+import { deadSymbolsTool } from "./tools/dead-symbols.js";
 import { structuralChurnTool } from "./tools/structural-churn.js";
 import { exportSurfaceDiffTool } from "./tools/export-surface-diff.js";
 import { structuralLogTool } from "./tools/structural-log.js";
@@ -73,6 +74,7 @@ export const TOOL_REGISTRY: readonly ToolDefinition[] = [
   refactorDifficultyTool,
   structuralReviewTool,
   structuralTestCoverageTool,
+  deadSymbolsTool,
   knowledgeMapTool,
 ];
 
