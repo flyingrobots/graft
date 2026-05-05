@@ -93,7 +93,7 @@ export class RustExtractor implements LanguageExtractor {
   }
 
   private extractClassChildren(node: TSNode): OutlineEntry[] {
-    const body = node.childForFieldName("body") ?? node.childForFieldName("declaration_list");
+    const body = node.childForFieldName("body");
     if (!body) return [];
 
     const children: OutlineEntry[] = [];

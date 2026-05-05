@@ -16,6 +16,13 @@ describe("cli: command parser", () => {
     });
   });
 
+  it("requires --base for structural review commands", () => {
+    expect(() => parseCommand(["review"])).toThrow("Missing --base");
+    expect(() => parseCommand(["review", "--head", "HEAD"])).toThrow("Missing --base");
+    expect(() => parseCommand(["struct", "review"])).toThrow("Missing --base");
+    expect(() => parseCommand(["struct", "review", "--head", "HEAD"])).toThrow("Missing --base");
+  });
+
   it("routes enhance --since with optional --head and --json into one CLI command", () => {
     expect(parseCommand(["enhance", "--since", "HEAD~1"])).toEqual({
       command: "git_graft_enhance",

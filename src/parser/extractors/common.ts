@@ -5,7 +5,7 @@ export const MAX_SIGNATURE_LENGTH = 199;
 
 /** Compact object-literal default values: `= { ... }` becomes `= {…}`. */
 export function compactObjectDefaults(sig: string): string {
-  return sig.replace(/=\s*\{[^}]*\}/g, "= {…}");
+  return sig.replace(/=\s*\{[^{}]*\}/g, "= {…}");
 }
 
 /** Truncate a signature to fit within MAX_SIGNATURE_LENGTH. */

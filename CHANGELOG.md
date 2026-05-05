@@ -52,6 +52,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ### Fixed
 
+- **Structural review PR feedback**: `graft review` and
+  `graft struct review` now require `--base` at parse time, nested
+  object-literal defaults no longer compact into malformed signatures,
+  and Rust impl/trait extraction uses the grammar's `body` field
+  without a dead fallback.
 - **PR review hardening follow-up**: Docker auto-start polling no longer
   uses `Atomics.wait` on the main thread, Docker probe subprocesses are
   bounded, parser warmup fire-and-forget paths consume rejected promises,

@@ -3,10 +3,12 @@ import { type LanguageExtractor } from "./common.js";
 import { TypescriptExtractor } from "./typescript.js";
 import { RustExtractor } from "./rust.js";
 
+const typescriptExtractor = new TypescriptExtractor();
+
 const EXTRACTORS: Record<SupportedLang, LanguageExtractor> = {
-  ts: new TypescriptExtractor(),
-  tsx: new TypescriptExtractor(),
-  js: new TypescriptExtractor(),
+  ts: typescriptExtractor,
+  tsx: typescriptExtractor,
+  js: typescriptExtractor,
   rust: new RustExtractor(),
 };
 

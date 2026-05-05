@@ -266,12 +266,16 @@ function parseStructCommand(argv: string[]): ParsedCommand {
 function parseReviewCommand(argv: string[], json = consumeFlag(argv, "--json")): ParsedCommand {
   const base = consumeOption(argv, "--base");
   const head = consumeOption(argv, "--head");
+  if (base === undefined) {
+    expectNoArgs(argv);
+    throw new Error("Missing --base");
+  }
   expectNoArgs(argv);
   return {
     command: "struct_review",
     json,
     args: {
-      ...(base !== undefined ? { base } : {}),
+      base,
       ...(head !== undefined ? { head } : {}),
     },
   };
