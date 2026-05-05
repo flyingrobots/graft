@@ -6,6 +6,7 @@ import {
 import {
   cliCommandMcpTool,
 } from "../contracts/output-schemas.js";
+import { ensureGitVersionSupportsGraft } from "../git/version-guard.js";
 import { startDaemonServer, type GraftDaemonServer } from "../mcp/daemon-server.js";
 import { startDaemonBackedStdioBridge, type StartDaemonBackedStdioBridgeOptions } from "../mcp/daemon-stdio-bridge.js";
 import { startStdioServer } from "../mcp/stdio-server.js";
@@ -38,6 +39,7 @@ export interface RunCliOptions {
   startDaemon?: ((options: { socketPath?: string | undefined }) => Promise<GraftDaemonServer>) | undefined;
   readDaemonStatus?: ((options: ReadDaemonStatusOptions) => Promise<DaemonStatusReadSnapshot>) | undefined;
   invokeGitGraftEnhancePeer?: GitGraftEnhancePeerInvoker | undefined;
+  ensureGitVersion?: (() => Promise<void>) | undefined;
 }
 
 function renderHelp(writer: Writer): void {
@@ -94,6 +96,14 @@ export async function runCli(options: RunCliOptions = {}): Promise<void> {
 
   if (argv.length === 0 || argv[0] === "help" || argv[0] === "--help") {
     renderHelp(stdout);
+    return;
+  }
+
+  try {
+    await (options.ensureGitVersion ?? (() => ensureGitVersionSupportsGraft()))();
+  } catch (err: unknown) {
+    process.exitCode = 1;
+    writeCliError(stderr, err instanceof Error ? err.message : String(err), describeCliFailure(argv));
     return;
   }
 

@@ -1,12 +1,15 @@
 // ---------------------------------------------------------------------------
-// ProvenanceTimeline port — narrow boundary for patch-history reads
+// ProvenanceTimeline port - narrow boundary for patch-history reads
 // ---------------------------------------------------------------------------
 
-import type { PatchV2 } from "@git-stunts/git-warp";
+export interface ProvenanceTimelinePatch {
+  readonly lamport: number;
+  readonly ops: readonly unknown[];
+}
 
 export interface ProvenanceTimelinePort {
   readonly patchesFor: (entityId: string) => Promise<readonly string[]>;
-  readonly loadPatchBySha: (sha: string) => Promise<PatchV2>;
+  readonly loadPatchBySha: (sha: string) => Promise<ProvenanceTimelinePatch>;
 }
 
 export function assertProvenanceTimelinePort(

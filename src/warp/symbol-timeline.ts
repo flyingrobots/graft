@@ -6,8 +6,10 @@
  * history must pass filePath so the symbol id is explicit.
  */
 
-import type { PatchV2 } from "@git-stunts/git-warp";
-import { assertProvenanceTimelinePort } from "../ports/provenance-timeline.js";
+import {
+  assertProvenanceTimelinePort,
+  type ProvenanceTimelinePatch,
+} from "../ports/provenance-timeline.js";
 import { observeGraph, type WarpContext } from "./context.js";
 import { SymIdCodec } from "./sym-id-codec.js";
 
@@ -57,7 +59,7 @@ function symIdFor(filePath: string, symbolName: string): string {
   return SymIdCodec.encode(filePath, symbolName);
 }
 
-function patchOps(patch: PatchV2): readonly PatchOpView[] {
+function patchOps(patch: ProvenanceTimelinePatch): readonly PatchOpView[] {
   return Array.isArray(patch.ops) ? patch.ops as readonly PatchOpView[] : [];
 }
 
@@ -67,7 +69,7 @@ interface SymbolTouch {
   readonly changeKind: ChangeKind;
 }
 
-function touchFromPatch(symId: string, patch: PatchV2): SymbolTouch | null {
+function touchFromPatch(symId: string, patch: ProvenanceTimelinePatch): SymbolTouch | null {
   const ops = patchOps(patch);
 
   for (const op of ops) {
@@ -102,7 +104,7 @@ async function readSymbolPropsAtTick(
 async function versionFromPatch(
   ctx: WarpContext,
   symId: string,
-  patch: PatchV2,
+  patch: ProvenanceTimelinePatch,
 ): Promise<SymbolVersion | null> {
   const touch = touchFromPatch(symId, patch);
   if (touch === null) {

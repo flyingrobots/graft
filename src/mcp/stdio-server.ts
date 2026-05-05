@@ -1,5 +1,6 @@
 import * as path from "node:path";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
+import { ensureGitVersionSupportsGraft } from "../git/version-guard.js";
 import { createGraftServer } from "./server.js";
 
 export interface StartStdioServerOptions {
@@ -16,6 +17,7 @@ function resolveProjectRoot(cwd: string): string {
 }
 
 export async function startStdioServer(cwd = process.cwd()): Promise<void> {
+  await ensureGitVersionSupportsGraft();
   const projectRoot = resolveProjectRoot(cwd);
   const graft = createGraftServer({
     projectRoot,
