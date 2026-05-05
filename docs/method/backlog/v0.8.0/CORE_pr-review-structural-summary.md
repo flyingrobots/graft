@@ -3,7 +3,7 @@ title: "PR review structural summary"
 feature: surface
 kind: leaf
 legend: CORE
-lane: asap
+lane: v0.8.0
 priority: 1
 effort: M
 requirements:

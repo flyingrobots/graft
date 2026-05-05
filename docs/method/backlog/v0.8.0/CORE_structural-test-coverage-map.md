@@ -3,7 +3,8 @@ title: "Structural test coverage map"
 feature: surface
 kind: leaf
 legend: CORE
-lane: cool-ideas
+lane: v0.8.0
+priority: 2
 effort: M
 requirements:
   - "graft_map structural mapping (shipped)"

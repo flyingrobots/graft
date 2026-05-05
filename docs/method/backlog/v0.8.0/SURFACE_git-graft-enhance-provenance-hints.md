@@ -3,7 +3,8 @@ title: git graft enhance provenance hints
 feature: surface
 kind: leaf
 legend: SURFACE
-lane: cool-ideas
+lane: v0.8.0
+priority: 3
 requirements:
   - git graft enhance --since first slice (shipped)
   - provenance-backed structural blame (shipped)

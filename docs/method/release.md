@@ -40,10 +40,15 @@ surface lives in `docs/releases/`.
 
 ## Scope
 
-Releases aggregate shipped work. They do not create
-`docs/method/backlog/<version>/` directories, and they do not move
-backlog items by version. Backlog lanes stay about priority and scope,
-not release membership.
+Releases aggregate shipped work. They do not require
+`docs/method/backlog/<version>/` directories, and release prep does not
+move backlog items by version by default. Backlog lanes stay about
+priority and scope, not release ceremony.
+
+A versioned backlog lane may exist when it is explicitly used for
+pre-release scope formation. In that case it is a shaped candidate lane,
+not a release artifact, publish plan, or substitute for
+`docs/method/releases/vX.Y.Z/release.md`.
 
 The release design names and justifies the intended version before
 tagging. Commit history, diff inspection, and validation can support or

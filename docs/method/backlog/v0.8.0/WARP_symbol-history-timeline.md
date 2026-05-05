@@ -3,7 +3,8 @@ title: "Symbol history timeline"
 feature: structural-metrics
 kind: trunk
 legend: WARP
-lane: cool-ideas
+lane: v0.8.0
+priority: 4
 effort: S
 requirements:
   - "WARP Level 1 indexing (shipped)"

@@ -10,21 +10,22 @@ digraph backlog {
   ranksep=0.55
   nodesep=0.2
 
-  subgraph cluster_asap {
-    label="asap (1)" labeljust=l fontsize=9 fontcolor="#555555"
+  subgraph cluster_v0_8_0 {
+    label="v0.8.0 (9)" labeljust=l fontsize=9 fontcolor="#555555"
     style=rounded color="#cccccc" bgcolor="#fafafa"
-    asap_CORE_pr_review_structural_summary [label="CORE-pr-review-structural-summary - M" fillcolor="#E5E7EB" penwidth=2]
-  }
-
-  subgraph cluster_bad_code {
-    label="bad-code (2)" labeljust=l fontsize=9 fontcolor="#555555"
-    style=rounded color="#cccccc" bgcolor="#fafafa"
-    bad_code_CORE_tool_context_injection_contracts [label="CORE-tool-context-injection-contracts - M" fillcolor="#F6B3B3" penwidth=2]
-    bad_code_TEST_bounded_subprocess_policy [label="TEST-bounded-subprocess-policy - S" fillcolor="#F6B3B3" penwidth=2]
+    v0_8_0_CORE_pr_review_structural_summary [label="CORE-pr-review-structural-summary - M" fillcolor="#C8E6C9" penwidth=2]
+    v0_8_0_CORE_structural_test_coverage_map [label="CORE-structural-test-coverage-map - M" fillcolor="#C8E6C9" penwidth=2]
+    v0_8_0_CORE_tool_context_injection_contracts [label="CORE-tool-context-injection-contracts - M" fillcolor="#C8E6C9" penwidth=2]
+    v0_8_0_SURFACE_git_graft_enhance_provenance_hints [label="SURFACE-git-graft-enhance-provenance-hints" fillcolor="#C8E6C9" penwidth=2]
+    v0_8_0_SURFACE_pr_feedback_resolution_ledger [label="SURFACE-pr-feedback-resolution-ledger - M" fillcolor="#C8E6C9" penwidth=2]
+    v0_8_0_SURFACE_review_cooldown_status [label="SURFACE-review-cooldown-status - S" fillcolor="#C8E6C9" penwidth=2]
+    v0_8_0_TEST_bounded_subprocess_policy [label="TEST-bounded-subprocess-policy - S" fillcolor="#C8E6C9" penwidth=2]
+    v0_8_0_WARP_dead_symbol_detection [label="WARP-dead-symbol-detection - S" fillcolor="#C8E6C9" penwidth=2]
+    v0_8_0_WARP_symbol_history_timeline [label="WARP-symbol-history-timeline - S" fillcolor="#C8E6C9" penwidth=2]
   }
 
   subgraph cluster_cool_ideas {
-    label="Cool Ideas (79)" labeljust=l fontsize=9 fontcolor="#555555"
+    label="Cool Ideas (73)" labeljust=l fontsize=9 fontcolor="#555555"
     style=rounded color="#cccccc" bgcolor="#fafafa"
     cool_ideas_bounded_neighborhood_for_references [label="bounded-neighborhood-for-references - S" fillcolor="#D4E8F7" penwidth=1]
     cool_ideas_CI_001_causal_collapse_visualizer [label="CI-001-causal-collapse-visualizer - L" fillcolor="#D4E8F7" penwidth=1]
@@ -51,7 +52,6 @@ digraph backlog {
     cool_ideas_CORE_session_knowledge_map [label="CORE-session-knowledge-map - S" fillcolor="#D4E8F7" penwidth=1]
     cool_ideas_CORE_speculative_read_cost [label="CORE-speculative-read-cost - S" fillcolor="#D4E8F7" penwidth=1]
     cool_ideas_CORE_structural_session_replay [label="CORE-structural-session-replay - M" fillcolor="#D4E8F7" penwidth=1]
-    cool_ideas_CORE_structural_test_coverage_map [label="CORE-structural-test-coverage-map - M" fillcolor="#D4E8F7" penwidth=1]
     cool_ideas_CORE_wire_primitives_into_runtime [label="CORE-wire-primitives-into-runtime - M" fillcolor="#D4E8F7" penwidth=1]
     cool_ideas_monitor_tick_ceiling_tracking [label="monitor-tick-ceiling-tracking - S" fillcolor="#D4E8F7" penwidth=1]
     cool_ideas_SURFACE_active_causal_workspace_status [label="SURFACE-active-causal-workspace-status - M" fillcolor="#D4E8F7" penwidth=1]
@@ -59,14 +59,11 @@ digraph backlog {
     cool_ideas_SURFACE_bijou_daemon_control_plane_actions [label="SURFACE-bijou-daemon-control-plane-actions - L" fillcolor="#D4E8F7" penwidth=1]
     cool_ideas_SURFACE_bijou_daemon_status_live_refresh [label="SURFACE-bijou-daemon-status-live-refresh - M" fillcolor="#D4E8F7" penwidth=1]
     cool_ideas_SURFACE_git_graft_enhance_expanded_git_subcommands [label="SURFACE-git-graft-enhance-expanded-git-subcommands" fillcolor="#D4E8F7" penwidth=1]
-    cool_ideas_SURFACE_git_graft_enhance_provenance_hints [label="SURFACE-git-graft-enhance-provenance-hints" fillcolor="#D4E8F7" penwidth=1]
     cool_ideas_SURFACE_ide_native_graft_integration [label="SURFACE-ide-native-graft-integration - XL" fillcolor="#D4E8F7" penwidth=1]
     cool_ideas_SURFACE_init_dry_run [label="SURFACE-init-dry-run - S" fillcolor="#D4E8F7" penwidth=1]
     cool_ideas_SURFACE_local_history_dag_render_mode_and_count_legend [label="SURFACE-local-history-dag-render-mode-and-count-legend - S" fillcolor="#D4E8F7" penwidth=1]
     cool_ideas_SURFACE_non_codex_instruction_bootstrap_parity [label="SURFACE-non-codex-instruction-bootstrap-parity - M" fillcolor="#D4E8F7" penwidth=1]
     cool_ideas_SURFACE_offer_rename_refactor [label="SURFACE-offer-rename-refactor - L" fillcolor="#D4E8F7" penwidth=1]
-    cool_ideas_SURFACE_pr_feedback_resolution_ledger [label="SURFACE-pr-feedback-resolution-ledger - M" fillcolor="#D4E8F7" penwidth=1]
-    cool_ideas_SURFACE_review_cooldown_status [label="SURFACE-review-cooldown-status - S" fillcolor="#D4E8F7" penwidth=1]
     cool_ideas_SURFACE_terminal_activity_browser_tui [label="SURFACE-terminal-activity-browser-tui - L" fillcolor="#D4E8F7" penwidth=1]
     cool_ideas_traverse_plus_query_hydration_helper [label="traverse-plus-query-hydration-helper - S" fillcolor="#D4E8F7" penwidth=1]
     cool_ideas_WARP_adaptive_projection_selection [label="WARP-adaptive-projection-selection - L" fillcolor="#D4E8F7" penwidth=1]
@@ -79,7 +76,6 @@ digraph backlog {
     cool_ideas_WARP_codebase_entropy_trajectory [label="WARP-codebase-entropy-trajectory - M" fillcolor="#D4E8F7" penwidth=1]
     cool_ideas_WARP_codebase_signature [label="WARP-codebase-signature - L" fillcolor="#D4E8F7" penwidth=1]
     cool_ideas_WARP_counterfactual_refactoring [label="WARP-counterfactual-refactoring - XL" fillcolor="#D4E8F7" penwidth=1]
-    cool_ideas_WARP_dead_symbol_detection [label="WARP-dead-symbol-detection - S" fillcolor="#D4E8F7" penwidth=1]
     cool_ideas_WARP_degeneracy_warning [label="WARP-degeneracy-warning - M" fillcolor="#D4E8F7" penwidth=1]
     cool_ideas_WARP_drift_sentinel [label="WARP-drift-sentinel - M" fillcolor="#D4E8F7" penwidth=1]
     cool_ideas_WARP_footprint_parallelism [label="WARP-footprint-parallelism - XL" fillcolor="#D4E8F7" penwidth=1]
@@ -102,7 +98,6 @@ digraph backlog {
     cool_ideas_WARP_structural_drift_detection [label="WARP-structural-drift-detection - M" fillcolor="#D4E8F7" penwidth=1]
     cool_ideas_WARP_structural_impact_prediction [label="WARP-structural-impact-prediction - XL" fillcolor="#D4E8F7" penwidth=1]
     cool_ideas_WARP_symbol_heatmap [label="WARP-symbol-heatmap - M" fillcolor="#D4E8F7" penwidth=1]
-    cool_ideas_WARP_symbol_history_timeline [label="WARP-symbol-history-timeline - S" fillcolor="#D4E8F7" penwidth=1]
     cool_ideas_WARP_technical_debt_curvature [label="WARP-technical-debt-curvature - L" fillcolor="#D4E8F7" penwidth=1]
     cool_ideas_WARP_temporal_structural_search [label="WARP-temporal-structural-search - M" fillcolor="#D4E8F7" penwidth=1]
   }
@@ -130,20 +125,22 @@ digraph backlog {
   cool_ideas_WARP_provenance_dag -> cool_ideas_WARP_causal_blame_for_staged_artifacts [label="blocked_by/blocking"]
   cool_ideas_WARP_provenance_dag -> cool_ideas_WARP_reasoning_trace_replay [label="blocked_by/blocking"]
   cool_ideas_WARP_stale_docs_checker -> cool_ideas_WARP_drift_sentinel [label="blocked_by/blocking"]
-  cool_ideas_WARP_symbol_history_timeline -> cool_ideas_WARP_temporal_structural_search [label="blocked_by/blocking"]
   external_git_warp_observer_geometry_ladder__Rung_2_4_ -> cool_ideas_CORE_migrate_to_slice_first_reads [label="blocked_by_external" style=dashed color="#4477AA"]
   unresolved_CLEAN_CODE_export_diff_semver_signature_as_patch -> cool_ideas_WARP_auto_breaking_change_detection [label="blocked_by" style=dashed color="#CC3333"]
   unresolved_CLEAN_CODE_export_diff_semver_signature_as_patch -> cool_ideas_WARP_semantic_merge_conflict_prediction [label="blocked_by" style=dashed color="#CC3333"]
+  v0_8_0_WARP_symbol_history_timeline -> cool_ideas_WARP_temporal_structural_search [label="blocked_by/blocking"]
 
   subgraph cluster_legend {
     label="Legend" labeljust=l fontsize=8 fontcolor="#aaaaaa"
     style=rounded color="#dddddd"
     node [fontsize=7 width=1.4]
+    leg_v08 [label="v0.8.0" fillcolor="#C8E6C9" penwidth=2]
     leg_v07 [label="v0.7.0" fillcolor="#FFA07A" penwidth=2]
     leg_bad [label="bad-code" fillcolor="#F6B3B3" penwidth=2]
     leg_idea [label="cool-ideas" fillcolor="#D4E8F7" penwidth=1]
     leg_external [label="external blocker" fillcolor="#E8F2FF" penwidth=1]
     leg_unresolved [label="unresolved ref" fillcolor="#F2F2F2" penwidth=1 style="rounded,dashed,filled"]
+    leg_v08 -> leg_v07 [style=invis]
     leg_v07 -> leg_bad [style=invis]
     leg_bad -> leg_idea [style=invis]
     leg_idea -> leg_external [style=invis]

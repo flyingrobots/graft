@@ -27,6 +27,7 @@ The Graft work doctrine: A backlog, a loop, and honest bookkeeping.
 | :--- | :--- |
 | **`asap/`** | Imminent work; pull into the next cycle. |
 | **`up-next/`** | Queued after `asap/`. |
+| **`v0.8.0/`** | Shaped candidates for the v0.8.0 release lane; scope formation only, not a release packet or tag promise. |
 | **`cool-ideas/`** | Uncommitted experiments. |
 | **`bad-code/`** | Technical debt that must be addressed. |
 | **`inbox/`** | Raw ideas. |

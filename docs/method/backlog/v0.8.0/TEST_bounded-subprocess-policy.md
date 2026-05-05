@@ -3,7 +3,8 @@ title: "Bounded subprocess policy for tests and scripts"
 feature: core
 kind: debt
 legend: TEST
-lane: bad-code
+lane: v0.8.0
+priority: 9
 effort: S
 requirements:
   - "Review every spawnSync/execSync call in tests and scripts"
@@ -33,4 +34,3 @@ subprocesses in tests and operational scripts.
    and prefer bounded probes for external systems.
 4. Add a focused regression check that flags new unbounded subprocesses
    in test files.
-
