@@ -50,6 +50,14 @@ card intentionally uses existing shipped primitives.
 - First versions should be explicit about these limitations in
   output
 
+## Implementation status
+
+Shipped in the current cycle as:
+
+- operation: `structuralTestCoverageMap`
+- MCP tool: `graft_test_coverage`
+- CLI peer: `graft struct test-coverage [--src <path>] [--tests <path>]`
+
 ## Related cards
 
 - **CORE_pr-review-structural-summary**: Both are review helpers.

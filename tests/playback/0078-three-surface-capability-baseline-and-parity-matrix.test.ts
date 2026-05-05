@@ -42,16 +42,16 @@ describe("0078 three-surface capability baseline and parity matrix", () => {
     const content = readMatrixDoc();
 
     expect(CAPABILITY_REGISTRY.filter((capability) => capability.surfaces.join("+") === "cli")).toHaveLength(5);
-    expect(CAPABILITY_REGISTRY.filter((capability) => capability.surfaces.join("+") === "api+cli+mcp")).toHaveLength(21);
+    expect(CAPABILITY_REGISTRY.filter((capability) => capability.surfaces.join("+") === "api+cli+mcp")).toHaveLength(22);
     expect(CAPABILITY_REGISTRY.filter((capability) => capability.surfaces.join("+") === "api+mcp")).toHaveLength(22);
     expect(CAPABILITY_REGISTRY.filter((capability) => capability.surfaces.join("+") === "api")).toHaveLength(1);
     expect(CAPABILITY_REGISTRY.filter((capability) => capability.surfaces.join("+") === "mcp")).toHaveLength(0);
 
     expect(content).toContain("- `5` CLI-only capabilities");
-    expect(content).toContain("- `21` API + CLI + MCP capabilities");
+    expect(content).toContain("- `22` API + CLI + MCP capabilities");
     expect(content).toContain("- `22` API + MCP capabilities");
     expect(content).toContain("- `1` API-only capability");
-    expect(content).toContain("- `20` direct CLI/MCP peer capabilities");
+    expect(content).toContain("- `21` direct CLI/MCP peer capabilities");
     expect(content).toContain("- `1` composed CLI operator/lifecycle capability");
     expect(content).toContain("- `22` intentionally API + MCP-only agent/control-plane capabilities");
   });

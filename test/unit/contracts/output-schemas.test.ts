@@ -92,6 +92,26 @@ describe("contracts: output schemas", () => {
       "}",
       "",
     ].join("\n"));
+    fs.mkdirSync(path.join(repoDir, "src"), { recursive: true });
+    fs.mkdirSync(path.join(repoDir, "test"), { recursive: true });
+    fs.writeFileSync(path.join(repoDir, "src", "coverage.ts"), [
+      "export function coveredByTest(): string {",
+      "  return \"covered\";",
+      "}",
+      "",
+      "export function uncoveredByTest(): string {",
+      "  return \"uncovered\";",
+      "}",
+      "",
+    ].join("\n"));
+    fs.writeFileSync(path.join(repoDir, "test", "coverage.test.ts"), [
+      "import { coveredByTest } from \"../src/coverage\";",
+      "",
+      "it(\"references the covered export\", () => {",
+      "  expect(coveredByTest()).toBe(\"covered\");",
+      "});",
+      "",
+    ].join("\n"));
     git(repoDir, "add -A");
     git(repoDir, "commit -m init");
     const base = git(repoDir, "rev-parse HEAD");
@@ -198,6 +218,7 @@ describe("contracts: output schemas", () => {
       graft_blame: parse(await server.callTool("graft_blame", { symbol: "greet" })),
       graft_difficulty: parse(await server.callTool("graft_difficulty", { symbol: "greet" })),
       graft_review: parse(await server.callTool("graft_review", { base, head })),
+      graft_test_coverage: parse(await server.callTool("graft_test_coverage", { sourcePath: "src", testPath: "test" })),
       knowledge_map: parse(await server.callTool("knowledge_map", {})),
     } as const;
 
@@ -258,6 +279,26 @@ describe("contracts: output schemas", () => {
       "}",
       "",
     ].join("\n"));
+    fs.mkdirSync(path.join(repoDir, "src"), { recursive: true });
+    fs.mkdirSync(path.join(repoDir, "test"), { recursive: true });
+    fs.writeFileSync(path.join(repoDir, "src", "coverage.ts"), [
+      "export function coveredByTest(): string {",
+      "  return \"covered\";",
+      "}",
+      "",
+      "export function uncoveredByTest(): string {",
+      "  return \"uncovered\";",
+      "}",
+      "",
+    ].join("\n"));
+    fs.writeFileSync(path.join(repoDir, "test", "coverage.test.ts"), [
+      "import { coveredByTest } from \"../src/coverage\";",
+      "",
+      "it(\"references the covered export\", () => {",
+      "  expect(coveredByTest()).toBe(\"covered\");",
+      "});",
+      "",
+    ].join("\n"));
     git(repoDir, "add -A");
     git(repoDir, "commit -m init");
     const base = git(repoDir, "rev-parse HEAD");
@@ -297,6 +338,7 @@ describe("contracts: output schemas", () => {
       struct_map: await runCliJson(repoDir, ["struct", "map", "--json"]),
       struct_log: await runCliJson(repoDir, ["struct", "log", "--json"]),
       struct_review: await runCliJson(repoDir, ["struct", "review", "--base", base, "--head", head, "--json"]),
+      struct_test_coverage: await runCliJson(repoDir, ["struct", "test-coverage", "--src", "src", "--tests", "test", "--json"]),
       struct_churn: await runCliJson(repoDir, ["struct", "churn", "--json"]),
       struct_exports: await runCliJson(repoDir, ["struct", "exports", base, head, "--json"]),
       symbol_show: await runCliJson(repoDir, ["symbol", "show", "greet", "--path", "app.ts", "--json"]),

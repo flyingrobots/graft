@@ -29,6 +29,7 @@ flowchart LR
 - bounded, lazy WARP refresh via `graft index --path <path>`
 - one-time legacy import via `graft migrate local-history`
 - human-facing structural review summaries via `graft review`
+- structural/reference test coverage maps via `graft struct test-coverage`
 - Git-facing structural review summaries via `git graft enhance`
 - local debugging and dogfooding of MCP peer commands
 - human-facing inspection of bounded state such as:
@@ -41,7 +42,7 @@ flowchart LR
 
 ## Core namespaces
 - `read` — bounded reads and change checks
-- `struct` — structural diff / since / map
+- `struct` — structural diff / since / map / review / test-coverage
 - `symbol` — precision show / find / blame / difficulty
 - `diag` — activity, local-history-dag, doctor, explain, stats, capture
 
@@ -62,6 +63,8 @@ graft review --base origin/main --head HEAD --json
 graft symbol find 'create*' --json
 graft symbol difficulty createUser --path src/users.ts --json
 graft struct diff --json
+graft struct test-coverage --src src --tests test
+graft struct test-coverage --src src --tests test --json
 git graft enhance --since HEAD~1
 git-graft enhance --since HEAD~1
 git-graft enhance --since HEAD~1 --json
@@ -85,6 +88,15 @@ output keeps the schema-validated `graft.cli.struct_review` payload for
 agents. GitHub PR-number resolution and comment posting are intentionally
 outside this first slice; check out or fetch the PR branch and compare
 refs locally.
+
+`graft struct test-coverage [--src <path>] [--tests <path>] [--json]`
+renders a structural/reference coverage map for exported source symbols.
+The default paths are `src` and `test`. Human output lists summary
+counts, limitations, and per-symbol `covered` / `uncovered` status.
+JSON output keeps the schema-validated
+`graft.cli.struct_test_coverage` payload. This command does not run
+tests or claim line, branch, statement, or execution coverage; imports
+and mentions in test files can count as structural references.
 
 `git graft enhance --since <ref> [--head <ref>] [--json]` is the
 installed Git external-command form for the release-facing structural

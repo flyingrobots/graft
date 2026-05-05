@@ -485,6 +485,31 @@ export const mcpOutputBodySchemas = {
     }).strict()),
     summary: z.string(),
   }).strict(),
+  graft_test_coverage: z.object({
+    sourcePath: z.string(),
+    testPath: z.string(),
+    coverageKind: z.literal("structural_reference"),
+    totals: z.object({
+      sourceFiles: z.number().int().nonnegative(),
+      testFiles: z.number().int().nonnegative(),
+      exportedSymbols: z.number().int().nonnegative(),
+      coveredSymbols: z.number().int().nonnegative(),
+      uncoveredSymbols: z.number().int().nonnegative(),
+    }).strict(),
+    limitations: z.array(z.string()),
+    files: z.array(z.object({
+      path: z.string(),
+      symbols: z.array(z.object({
+        name: z.string(),
+        kind: z.string(),
+        signature: z.string().optional(),
+        status: z.enum(["covered", "uncovered"]),
+        referenceCount: z.number().int().nonnegative(),
+        referencingTestFiles: z.array(z.string()),
+      }).strict()),
+    }).strict()),
+    summary: z.string(),
+  }).strict(),
   knowledge_map: z.object({
     totalFiles: z.number().int().nonnegative(),
     totalSymbols: z.number().int().nonnegative(),

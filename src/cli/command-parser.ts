@@ -260,6 +260,20 @@ function parseStructCommand(argv: string[]): ParsedCommand {
     return parseReviewCommand(argv, json);
   }
 
+  if (subcommand === "test-coverage") {
+    const sourcePath = consumeOption(argv, "--src");
+    const testPath = consumeOption(argv, "--tests");
+    expectNoArgs(argv);
+    return {
+      command: "struct_test_coverage",
+      json,
+      args: {
+        ...(sourcePath !== undefined ? { sourcePath } : {}),
+        ...(testPath !== undefined ? { testPath } : {}),
+      },
+    };
+  }
+
   throw new Error(`Unknown struct subcommand: ${subcommand}`);
 }
 

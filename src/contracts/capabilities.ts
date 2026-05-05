@@ -41,6 +41,7 @@ export const MCP_TOOL_NAMES = [
   "graft_blame",
   "graft_difficulty",
   "graft_review",
+  "graft_test_coverage",
   "knowledge_map",
 ] as const;
 
@@ -71,6 +72,7 @@ export const CLI_COMMAND_NAMES = [
   "symbol_blame",
   "symbol_difficulty",
   "struct_review",
+  "struct_test_coverage",
   "git_graft_enhance",
 ] as const;
 
@@ -472,6 +474,14 @@ export const CAPABILITY_REGISTRY: readonly CapabilityDefinition[] = [
     mcpTool: "graft_review",
     cliCommand: "struct_review",
     cliPath: ["struct", "review"],
+    cliMcpParity: "peer",
+  }),
+  defineCapability({
+    id: "graft_test_coverage",
+    description: "Structural/reference test coverage map over source and test directories",
+    mcpTool: "graft_test_coverage",
+    cliCommand: "struct_test_coverage",
+    cliPath: ["struct", "test-coverage"],
     cliMcpParity: "peer",
   }),
   defineCapability({

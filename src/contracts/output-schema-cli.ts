@@ -100,4 +100,5 @@ export const cliOutputBodySchemas = {
   symbol_blame: mcpOutputBodySchemas.graft_blame,
   symbol_difficulty: mcpOutputBodySchemas.graft_difficulty,
   struct_review: mcpOutputBodySchemas.graft_review,
+  struct_test_coverage: mcpOutputBodySchemas.graft_test_coverage,
 } satisfies Record<CliCommandName, z.ZodType>;

@@ -23,6 +23,28 @@ describe("cli: command parser", () => {
     expect(() => parseCommand(["struct", "review", "--head", "HEAD"])).toThrow("Missing --base");
   });
 
+  it("routes structural test coverage into the peer command", () => {
+    expect(parseCommand(["struct", "test-coverage"])).toEqual({
+      command: "struct_test_coverage",
+      json: false,
+      args: {},
+    });
+
+    expect(parseCommand([
+      "struct",
+      "test-coverage",
+      "--src",
+      "packages/core/src",
+      "--tests",
+      "packages/core/test",
+      "--json",
+    ])).toEqual({
+      command: "struct_test_coverage",
+      json: true,
+      args: { sourcePath: "packages/core/src", testPath: "packages/core/test" },
+    });
+  });
+
   it("routes enhance --since with optional --head and --json into one CLI command", () => {
     expect(parseCommand(["enhance", "--since", "HEAD~1"])).toEqual({
       command: "git_graft_enhance",

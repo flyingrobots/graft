@@ -11,6 +11,7 @@ import { createGraftServer, type McpToolResult } from "../mcp/server.js";
 import { renderActivityView } from "./activity-render.js";
 import { renderDoctorPosture } from "./doctor-render.js";
 import { renderStructuralReview } from "./structural-review-render.js";
+import { renderStructuralTestCoverageMap } from "./structural-test-coverage-render.js";
 
 const codec = new CanonicalJsonCodec();
 
@@ -52,6 +53,10 @@ export function emitPeerCommand(
   }
   if (command === "struct_review") {
     writer.write(`${renderStructuralReview(validated)}\n`);
+    return;
+  }
+  if (command === "struct_test_coverage") {
+    writer.write(`${renderStructuralTestCoverageMap(validated)}\n`);
     return;
   }
   writer.write(`${JSON.stringify(validated, null, 2)}\n`);

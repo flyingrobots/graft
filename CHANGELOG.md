@@ -13,6 +13,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   [--head <ref>]` now renders a human-readable structural review summary
   from the existing `graft_review` model, while `--json` keeps the
   schema-validated `graft.cli.struct_review` payload for agents.
+- **Structural test coverage map**: `graft_test_coverage` and
+  `graft struct test-coverage [--src <path>] [--tests <path>]` now
+  report exported source symbols with or without bounded test-directory
+  references, explicitly labeled as structural/reference coverage rather
+  than execution coverage.
 - **Rust structural parsing**: parser-backed outlines, governed reads,
   structural diffs, and WARP indexing now recognize `.rs` files using
   the bundled Rust tree-sitter grammar.

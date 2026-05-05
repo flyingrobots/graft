@@ -17,10 +17,10 @@ changes, this matrix must be refreshed before release.
 ## Current baseline
 
 - `5` CLI-only capabilities
-- `21` API + CLI + MCP capabilities
+- `22` API + CLI + MCP capabilities
 - `22` API + MCP capabilities
 - `1` API-only capability
-- `20` direct CLI/MCP peer capabilities
+- `21` direct CLI/MCP peer capabilities
 - `1` composed CLI operator/lifecycle capability
 - `22` intentionally API + MCP-only agent/control-plane capabilities
 
@@ -76,6 +76,7 @@ composing existing tools, it belongs in this matrix as
 | `graft_blame` | Yes | Yes | Yes | `tool_bridge` | `peer` | `symbol blame` | `graft_blame` |
 | `graft_difficulty` | Yes | Yes | Yes | `tool_bridge` | `peer` | `symbol difficulty` | `graft_difficulty` |
 | `graft_review` | Yes | Yes | Yes | `tool_bridge` | `peer` | `struct review` | `graft_review` |
+| `graft_test_coverage` | Yes | Yes | Yes | `tool_bridge` | `peer` | `struct test-coverage` | `graft_test_coverage` |
 | `git_graft_enhance` | No | Yes | No | `-` | `cli_only` | `enhance` | `-` |
 | `daemon_repos` | Yes | No | Yes | `tool_bridge` | `mcp_only` | `-` | `daemon_repos` |
 | `daemon_status` | Yes | Yes | Yes | `tool_bridge` | `composed_cli_operator` | `daemon status` | `daemon_status` |

@@ -1286,6 +1286,31 @@ const mcpOutputBodySchemas: Record<McpToolName, z.ZodType> = {
     }).strict()),
     summary: z.string(),
   }).strict(),
+  graft_test_coverage: z.object({
+    sourcePath: z.string(),
+    testPath: z.string(),
+    coverageKind: z.literal("structural_reference"),
+    totals: z.object({
+      sourceFiles: z.number().int().nonnegative(),
+      testFiles: z.number().int().nonnegative(),
+      exportedSymbols: z.number().int().nonnegative(),
+      coveredSymbols: z.number().int().nonnegative(),
+      uncoveredSymbols: z.number().int().nonnegative(),
+    }).strict(),
+    limitations: z.array(z.string()),
+    files: z.array(z.object({
+      path: z.string(),
+      symbols: z.array(z.object({
+        name: z.string(),
+        kind: z.string(),
+        signature: z.string().optional(),
+        status: z.enum(["covered", "uncovered"]),
+        referenceCount: z.number().int().nonnegative(),
+        referencingTestFiles: z.array(z.string()),
+      }).strict()),
+    }).strict()),
+    summary: z.string(),
+  }).strict(),
   knowledge_map: z.object({
     totalFiles: z.number().int().nonnegative(),
     totalSymbols: z.number().int().nonnegative(),
@@ -1347,6 +1372,7 @@ export const MCP_OUTPUT_SCHEMAS: Record<McpToolName, z.ZodType> = {
   graft_blame: withMcpCommon("graft_blame", mcpOutputBodySchemas.graft_blame),
   graft_difficulty: withMcpCommon("graft_difficulty", mcpOutputBodySchemas.graft_difficulty),
   graft_review: withMcpCommon("graft_review", mcpOutputBodySchemas.graft_review),
+  graft_test_coverage: withMcpCommon("graft_test_coverage", mcpOutputBodySchemas.graft_test_coverage),
   knowledge_map: withMcpCommon("knowledge_map", mcpOutputBodySchemas.knowledge_map),
 };
 
@@ -1424,6 +1450,7 @@ export const CLI_OUTPUT_SCHEMAS: Record<CliCommandName, z.ZodType> = {
   symbol_blame: withCliPeerCommon("symbol_blame", mcpOutputBodySchemas.graft_blame),
   symbol_difficulty: withCliPeerCommon("symbol_difficulty", mcpOutputBodySchemas.graft_difficulty),
   struct_review: withCliPeerCommon("struct_review", mcpOutputBodySchemas.graft_review),
+  struct_test_coverage: withCliPeerCommon("struct_test_coverage", mcpOutputBodySchemas.graft_test_coverage),
   diag_doctor: withCliPeerCommon("diag_doctor", mcpOutputBodySchemas.doctor),
   diag_activity: withCliPeerCommon("diag_activity", mcpOutputBodySchemas.activity_view),
   diag_explain: withCliPeerCommon("diag_explain", mcpOutputBodySchemas.explain),
