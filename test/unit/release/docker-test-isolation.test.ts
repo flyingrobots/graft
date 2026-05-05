@@ -97,10 +97,13 @@ describe("Docker-isolated test validation", () => {
 
   it("names the host-side local fallback without weakening isolated validation", () => {
     const preflight = readRepoFile("scripts/docker-availability.ts");
+    const autostart = readRepoFile("scripts/docker-autostart.ts");
 
     expect(preflight).toContain("Docker is unavailable");
     expect(preflight).toContain("`pnpm test` is the release-grade isolated runner");
     expect(preflight).toContain("`pnpm test:local`");
+    expect(autostart).toContain("open");
+    expect(autostart).toContain("Docker");
   });
 
   it("does not print Docker guidance when pnpm is missing inside the isolated runner", () => {

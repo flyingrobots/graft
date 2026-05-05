@@ -9,6 +9,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ### Added
 
+- **Docker auto-start helper**: the isolated test runner now attempts to
+  launch Docker Desktop on macOS before failing the Docker daemon
+  preflight, while keeping the existing explicit fallback guidance for
+  unsupported or failed startup paths.
 - **Bounded WARP semantic enrichment seam**: `indexHead` accepts an
   optional semantic enrichment provider for explicit-path indexing,
   emits same-file `calls` edges and `typeof` symbol properties from

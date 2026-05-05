@@ -1,7 +1,7 @@
 import type { SyntaxNode } from "web-tree-sitter";
 import { detectLang } from "../parser/lang.js";
 import { extractOutlineForFile } from "../parser/outline.js";
-import { parseStructuredTreeForFile } from "../parser/runtime.js";
+import { ensureParserReady, parseStructuredTreeForFile } from "../parser/runtime.js";
 import type { OutlineEntry } from "../parser/types.js";
 import type { FileSystem } from "../ports/filesystem.js";
 import type { GitClient } from "../ports/git.js";
@@ -319,6 +319,7 @@ export function analyzeSludgeFile(filePath: string, source: string): SludgeFileR
 }
 
 export async function detectSludge(options: DetectSludgeOptions): Promise<SludgeReport> {
+  await ensureParserReady();
   const args = ["ls-files"];
   if (options.path !== undefined) {
     args.push("--", options.path);

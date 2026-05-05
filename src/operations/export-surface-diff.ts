@@ -6,6 +6,7 @@ import type { GitClient } from "../ports/git.js";
 import { getChangedFiles, getFileAtRef } from "../git/diff.js";
 import { detectLang } from "../parser/lang.js";
 import { extractOutline } from "../parser/outline.js";
+import { ensureParserReady } from "../parser/runtime.js";
 import type { OutlineEntry } from "../parser/types.js";
 import { toJsonObject } from "./result-dto.js";
 import type { JsonObject } from "../contracts/json-object.js";
@@ -288,6 +289,7 @@ function buildSummary(
 export async function exportSurfaceDiff(
   opts: ExportSurfaceDiffOptions,
 ): Promise<ExportSurfaceDiffResult> {
+  await ensureParserReady();
   const { cwd, git } = opts;
   const base = opts.base ?? "HEAD~1";
   const head = opts.head ?? "HEAD";

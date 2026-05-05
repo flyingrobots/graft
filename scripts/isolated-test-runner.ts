@@ -1,10 +1,10 @@
 import { spawnSync } from "node:child_process";
 import process from "node:process";
 import {
-  checkDockerAvailability,
   formatDockerUnavailableMessage,
   type DockerAvailability,
 } from "./docker-availability.js";
+import { ensureDockerAvailability } from "./docker-autostart.js";
 import { normalizeVitestArgs } from "./isolated-test-args.js";
 
 const CONTAINER_ENV = "GRAFT_TEST_CONTAINER";
@@ -100,7 +100,7 @@ function runChecked(
 
 export function runIsolatedTests(options: IsolatedTestRunnerOptions): never {
   const runnerOptions: Required<IsolatedTestRunnerOptions> = {
-    checkDocker: options.checkDocker ?? checkDockerAvailability,
+    checkDocker: options.checkDocker ?? ensureDockerAvailability,
     error: options.error ?? console.error,
     exit: options.exit ?? ((code) => process.exit(code)),
     spawn: options.spawn ?? defaultSpawn,
