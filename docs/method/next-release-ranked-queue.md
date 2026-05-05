@@ -13,6 +13,8 @@ The best v0.8.0 spine is Review Truth:
 - tell reviewers what changed structurally before they read the whole
   diff
 - add bounded provenance hints for changed symbols
+- expose symbol history and removed-symbol evidence as small
+  WARP-backed review lenses
 - surface obvious structural test-reference gaps without claiming
   execution coverage
 - make automated review readiness explicit during PR feedback loops
@@ -44,17 +46,24 @@ listed idea.
 4. [SURFACE_git-graft-enhance-provenance-hints.md](backlog/v0.8.0/SURFACE_git-graft-enhance-provenance-hints.md)
    Bounded provenance hints for changed symbols in review summaries.
 
-5. [SURFACE_review-cooldown-status.md](backlog/v0.8.0/SURFACE_review-cooldown-status.md)
+5. [WARP_symbol-history-timeline.md](backlog/v0.8.0/WARP_symbol-history-timeline.md)
+   Per-symbol structural history for changed code using shipped WARP
+   commit-to-symbol edges.
+
+6. [WARP_dead-symbol-detection.md](backlog/v0.8.0/WARP_dead-symbol-detection.md)
+   Removed-symbol evidence for cleanup and API-surface shrinkage review.
+
+7. [SURFACE_review-cooldown-status.md](backlog/v0.8.0/SURFACE_review-cooldown-status.md)
    PR-feedback helper for making automated review readiness explicit.
 
-6. [SURFACE_pr-feedback-resolution-ledger.md](backlog/v0.8.0/SURFACE_pr-feedback-resolution-ledger.md)
+8. [SURFACE_pr-feedback-resolution-ledger.md](backlog/v0.8.0/SURFACE_pr-feedback-resolution-ledger.md)
    Local ledger that maps unresolved feedback to resolutions, commits,
    reply status, and markdown summaries before GitHub mutation.
 
-7. [CORE_tool-context-injection-contracts.md](backlog/v0.8.0/CORE_tool-context-injection-contracts.md)
+9. [CORE_tool-context-injection-contracts.md](backlog/v0.8.0/CORE_tool-context-injection-contracts.md)
    Release hardening gate for dependency injection correctness.
 
-8. [TEST_bounded-subprocess-policy.md](backlog/v0.8.0/TEST_bounded-subprocess-policy.md)
+10. [TEST_bounded-subprocess-policy.md](backlog/v0.8.0/TEST_bounded-subprocess-policy.md)
    Release hardening gate for bounded subprocess behavior in tests and
    scripts.
 
@@ -86,6 +95,11 @@ listed idea.
   and [CI-003-mcp-native-diff-protocol.md](backlog/cool-ideas/CI-003-mcp-native-diff-protocol.md)
   are valid surface work, but they widen v0.8.0 into broad Git wrapping
   or protocol shape. Keep them below the line for this release.
+
+- [WARP_auto-breaking-change-detection.md](backlog/cool-ideas/WARP_auto-breaking-change-detection.md)
+  remains review-adjacent, but it depends on the smaller dead-symbol
+  primitive and the unresolved export-diff semver classification fix.
+  Keep it below the line until those are settled.
 
 ## Next pull
 

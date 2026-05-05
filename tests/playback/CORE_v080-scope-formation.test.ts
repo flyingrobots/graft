@@ -51,6 +51,8 @@ describe("CORE_v080-scope-formation playback", () => {
     expect(openingLane).toContain("`CORE_pr-review-structural-summary`");
     expect(openingLane).toContain("`CORE_structural-test-coverage-map`");
     expect(openingLane).toContain("`SURFACE_git-graft-enhance-provenance-hints`");
+    expect(openingLane).toContain("`WARP_symbol-history-timeline`");
+    expect(openingLane).toContain("`WARP_dead-symbol-detection`");
     expect(openingLane).toContain("`SURFACE_review-cooldown-status`");
     expect(openingLane).toContain("`SURFACE_pr-feedback-resolution-ledger`");
     expect(openingLane).toContain("`CORE_tool-context-injection-contracts`");
@@ -59,6 +61,8 @@ describe("CORE_v080-scope-formation playback", () => {
     expect(repoFileExists("docs/method/backlog/v0.8.0/CORE_pr-review-structural-summary.md")).toBe(true);
     expect(repoFileExists("docs/method/backlog/v0.8.0/CORE_structural-test-coverage-map.md")).toBe(true);
     expect(repoFileExists("docs/method/backlog/v0.8.0/SURFACE_git-graft-enhance-provenance-hints.md")).toBe(true);
+    expect(repoFileExists("docs/method/backlog/v0.8.0/WARP_symbol-history-timeline.md")).toBe(true);
+    expect(repoFileExists("docs/method/backlog/v0.8.0/WARP_dead-symbol-detection.md")).toBe(true);
     expect(repoFileExists("docs/method/backlog/v0.8.0/SURFACE_review-cooldown-status.md")).toBe(true);
     expect(repoFileExists("docs/method/backlog/v0.8.0/SURFACE_pr-feedback-resolution-ledger.md")).toBe(true);
     expect(repoFileExists("docs/method/backlog/v0.8.0/CORE_tool-context-injection-contracts.md")).toBe(true);
@@ -74,6 +78,7 @@ describe("CORE_v080-scope-formation playback", () => {
     expect(deferrals).toContain("`SURFACE_bijou-daemon-control-plane-actions`");
     expect(deferrals).toContain("`SURFACE_git-graft-enhance-expanded-git-subcommands`");
     expect(deferrals).toContain("`CI-003-mcp-native-diff-protocol`");
+    expect(designDoc).toContain("`WARP_auto-breaking-change-detection`");
   });
 
   it("Does the scope decision record the bearing context used for the next target?", () => {
@@ -82,6 +87,7 @@ describe("CORE_v080-scope-formation playback", () => {
     expect(backlogContext).toContain("the immediate focus is v0.8.0 scope formation");
     expect(backlogContext).toContain("centered on Review Truth");
     expect(backlogContext).toMatch(/automated review\s+readiness/);
+    expect(backlogContext).toContain("removed-symbol evidence");
     expect(backlogContext).toContain("local review evidence");
     expect(designDoc).toContain("Review Truth for any Git repository");
     expect(backlogContext).toContain("avoid adding METHOD backlog/status features");

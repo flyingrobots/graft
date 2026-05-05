@@ -4,7 +4,7 @@ feature: core
 kind: debt
 legend: TEST
 lane: v0.8.0
-priority: 7
+priority: 9
 effort: S
 requirements:
   - "Review every spawnSync/execSync call in tests and scripts"

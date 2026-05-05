@@ -4,7 +4,7 @@ feature: surface
 kind: leaf
 legend: SURFACE
 lane: v0.8.0
-priority: 5
+priority: 7
 effort: M
 requirements:
   - "GitHub CLI or connector access"

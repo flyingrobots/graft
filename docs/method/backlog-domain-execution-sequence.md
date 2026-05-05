@@ -161,7 +161,7 @@ Backlog docs:
 - [WARP_reactive-workspace-overlay.md](backlog/up-next/WARP_reactive-workspace-overlay.md)
 - [WARP_richer-semantic-transitions.md](backlog/up-next/WARP_richer-semantic-transitions.md)
 - [WARP_temporal-structural-search.md](backlog/cool-ideas/WARP_temporal-structural-search.md)
-- [WARP_symbol-history-timeline.md](backlog/cool-ideas/WARP_symbol-history-timeline.md)
+- [WARP_symbol-history-timeline.md](backlog/v0.8.0/WARP_symbol-history-timeline.md)
 - [WARP_graft-since.md](backlog/cool-ideas/WARP_graft-since.md)
 - [WARP_reasoning-trace-replay.md](backlog/cool-ideas/WARP_reasoning-trace-replay.md)
 
@@ -211,7 +211,7 @@ Backlog docs:
 - [WARP_structural-blame.md](backlog/cool-ideas/WARP_structural-blame.md)
 - [WARP_structural-churn-report.md](backlog/cool-ideas/WARP_structural-churn-report.md)
 - [WARP_symbol-heatmap.md](backlog/cool-ideas/WARP_symbol-heatmap.md)
-- [WARP_dead-symbol-detection.md](backlog/cool-ideas/WARP_dead-symbol-detection.md)
+- [WARP_dead-symbol-detection.md](backlog/v0.8.0/WARP_dead-symbol-detection.md)
 
 Depends on:
 - Packet 8
@@ -327,6 +327,8 @@ Backlog docs:
 - [CORE_pr-review-structural-summary.md](backlog/v0.8.0/CORE_pr-review-structural-summary.md)
 - [CORE_structural-test-coverage-map.md](backlog/v0.8.0/CORE_structural-test-coverage-map.md)
 - [SURFACE_git-graft-enhance-provenance-hints.md](backlog/v0.8.0/SURFACE_git-graft-enhance-provenance-hints.md)
+- [WARP_symbol-history-timeline.md](backlog/v0.8.0/WARP_symbol-history-timeline.md)
+- [WARP_dead-symbol-detection.md](backlog/v0.8.0/WARP_dead-symbol-detection.md)
 - [SURFACE_review-cooldown-status.md](backlog/v0.8.0/SURFACE_review-cooldown-status.md)
 - [SURFACE_pr-feedback-resolution-ledger.md](backlog/v0.8.0/SURFACE_pr-feedback-resolution-ledger.md)
 - [WARP_zero-noise-code-review.md](backlog/cool-ideas/WARP_zero-noise-code-review.md)
@@ -339,8 +341,9 @@ Depends on:
 
 Subsequence:
 1. Build bounded review summaries on top of impact and provenance.
-2. Add provenance hints, test-reference signals, and feedback ledger
-   evidence as secondary review lenses.
+2. Add provenance hints, symbol history, removed-symbol evidence,
+   test-reference signals, and feedback ledger evidence as secondary
+   review lenses.
 3. Add stale-doc, breaking-change, and merge-conflict prediction
    afterward.
 4. Keep the surface noise-minimized and auditable.

@@ -16,10 +16,11 @@ Settle the opening v0.8.0 lane before pulling more feature work.
 
 The lane must keep Graft focused on Review Truth for any Git repository:
 structural PR review summaries, bounded provenance hints, structural
-test-reference signals, automated review readiness, and a local review
-feedback evidence ledger. It must also name the first implementation
-pull candidate, release-quality gates, and the work deliberately kept
-out of the opening lane.
+symbol history, removed-symbol evidence, structural test-reference
+signals, automated review readiness, and a local review feedback
+evidence ledger. It must also name the first implementation pull
+candidate, release-quality gates, and the work deliberately kept out of
+the opening lane.
 
 ## Playback Questions
 
@@ -87,9 +88,10 @@ That means the next implementation work should make a repository easier
 to inspect and review without adding project-management features,
 METHOD-specific status, broad release machinery, or another WARP
 ontology expansion. The release should help users see structural diff
-signal, bounded provenance hints, obvious structural test-reference
-gaps, automated review readiness, and local feedback-resolution evidence
-without claiming merge safety or semantic correctness.
+signal, bounded provenance hints, symbol history, removed-symbol
+evidence, obvious structural test-reference gaps, automated review
+readiness, and local feedback-resolution evidence without claiming merge
+safety or semantic correctness.
 
 ## Shipped Baseline To Preserve
 
@@ -117,6 +119,12 @@ The opening lane is intentionally small:
 - Evidence enrichment: `SURFACE_git-graft-enhance-provenance-hints`.
   This adds bounded creation/signature/reference hints for changed
   symbols without unbounded traversal or ambiguous guessing.
+- Symbol history lens: `WARP_symbol-history-timeline`. This gives a
+  changed symbol's chronological structural history using shipped
+  commit-to-symbol edges.
+- Removed-symbol lens: `WARP_dead-symbol-detection`. This flags symbols
+  removed in recent history and not re-added, helping reviewers see
+  cleanup and API-surface shrinkage signals.
 - Review readiness helper: `SURFACE_review-cooldown-status`. This
   keeps automated review-loop cooldowns explicit for PR authors and
   agents.
@@ -148,6 +156,9 @@ The next pull after this scope cycle should be
   wrapping more Git verbs.
 - `CI-003-mcp-native-diff-protocol`: valuable richer MCP protocol work,
   but it is a wire-format bet, not required for this Review Truth lane.
+- `WARP_auto-breaking-change-detection`: review-adjacent but still too
+  large for this lane. It depends on removed-symbol evidence plus the
+  unresolved export-diff semver classification fix.
 - METHOD backlog/status/release surfaces: belong in Method MCP / Method
   CLI, not Graft product surfaces.
 
@@ -173,8 +184,9 @@ cycle.
 
 The current bearing says the immediate focus is v0.8.0 scope formation,
 centered on Review Truth: structural PR review summaries, structural
-test-reference signals, bounded provenance hints, automated review
-readiness, and local review evidence for any Git repository.
+test-reference signals, bounded provenance hints, symbol history,
+removed-symbol evidence, automated review readiness, and local review
+evidence for any Git repository.
 
 This cycle should turn that direction into a small, inspectable lane:
 
@@ -187,6 +199,8 @@ This cycle should turn that direction into a small, inspectable lane:
 The likely first candidate is `CORE_pr-review-structural-summary`, with
 `SURFACE_git-graft-enhance-provenance-hints` and
 `CORE_structural-test-coverage-map` as follow-ups,
+`WARP_symbol-history-timeline` and `WARP_dead-symbol-detection` as
+small WARP-backed review lenses,
 `SURFACE_review-cooldown-status` as the review readiness helper, and
 `SURFACE_pr-feedback-resolution-ledger` as the local review evidence
 ledger.

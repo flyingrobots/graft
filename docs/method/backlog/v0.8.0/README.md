@@ -17,6 +17,8 @@ to: "What does v0.8.0 give users?"
 The v0.8.0 candidate shape is **Review Truth**:
 
 - tell PR authors and reviewers what changed structurally
+- show bounded symbol history for changed code
+- flag removed symbols that were not re-added
 - surface obvious structural test-reference gaps without pretending to
   prove execution coverage
 - make automated review-loop readiness explicit
@@ -27,19 +29,21 @@ The v0.8.0 candidate shape is **Review Truth**:
 
 ## User Outcomes
 
-After v0.8.0, a user should be able to answer five questions without
+After v0.8.0, a user should be able to answer seven questions without
 reading a whole diff blindly:
 
 1. What files changed structurally, and which changes are likely
    formatting or low-signal churn?
 2. What bounded provenance hints explain changed symbols without
    guessing across ambiguous matches?
-3. Which changed or exported symbols have obvious test references, and
+3. What is the structural history of a changed symbol across commits?
+4. Which symbols disappeared and were not re-added?
+5. Which changed or exported symbols have obvious test references, and
    which deserve review attention because no structural test reference
    is visible?
-4. Is the automated review loop ready for another pass, or is it still
+6. Is the automated review loop ready for another pass, or is it still
    cooling down?
-5. Which review feedback items were addressed by which commits, and
+7. Which review feedback items were addressed by which commits, and
    what summary can be rendered before posting back to GitHub?
 
 The release must not claim merge readiness, semantic correctness, or
@@ -53,10 +57,12 @@ human or agent can inspect.
 | 1 | `CORE_pr-review-structural-summary` | Opening spine: structural PR review summary using shipped diff primitives. |
 | 2 | `CORE_structural-test-coverage-map` | Follow-up review helper: structural/reference test coverage map. |
 | 3 | `SURFACE_git-graft-enhance-provenance-hints` | Bounded provenance hints for changed symbols in review summaries. |
-| 4 | `SURFACE_review-cooldown-status` | Review readiness helper for PR feedback loops. |
-| 5 | `SURFACE_pr-feedback-resolution-ledger` | Local evidence ledger for unresolved feedback, fixes, SHAs, and markdown summaries. |
-| 6 | `CORE_tool-context-injection-contracts` | Release hardening: prove review tools receive the resolved dependencies they were configured with. |
-| 7 | `TEST_bounded-subprocess-policy` | Release hardening: prevent review tooling and tests from introducing unbounded subprocess hangs. |
+| 4 | `WARP_symbol-history-timeline` | Per-symbol structural history for changed code. |
+| 5 | `WARP_dead-symbol-detection` | Removed-symbol evidence for cleanup and API-surface shrinkage review. |
+| 6 | `SURFACE_review-cooldown-status` | Review readiness helper for PR feedback loops. |
+| 7 | `SURFACE_pr-feedback-resolution-ledger` | Local evidence ledger for unresolved feedback, fixes, SHAs, and markdown summaries. |
+| 8 | `CORE_tool-context-injection-contracts` | Release hardening: prove review tools receive the resolved dependencies they were configured with. |
+| 9 | `TEST_bounded-subprocess-policy` | Release hardening: prevent review tooling and tests from introducing unbounded subprocess hangs. |
 
 ## Baseline Already Shipped
 
@@ -73,3 +79,4 @@ later if new evidence appears.
 - METHOD backlog/status/release surfaces
 - expanded `git graft enhance` subcommands beyond the review path
 - MCP-native Diff protocol changes
+- full automatic breaking-change detection
