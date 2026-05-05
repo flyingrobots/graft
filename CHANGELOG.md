@@ -45,6 +45,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   objects, fields, inputs, scalars, unions, directives, operations,
   fragments, schema declarations, and enum values, with fixture coverage
   for Continuum/Wesley-style contract schemas.
+- **Python structural parsing**: parser-backed outlines, governed reads,
+  structural diffs, and WARP indexing now recognize `.py` and `.pyi`
+  files using the bundled Python tree-sitter grammar. Outlines cover
+  functions, async functions, classes, public methods, class fields, and
+  uppercase module constants.
 - **Docker auto-start helper**: the isolated test runner now attempts to
   launch Docker Desktop on macOS before failing the Docker daemon
   preflight, while keeping the existing explicit fallback guidance for

@@ -18,6 +18,7 @@ export type EntryKind =
   | "fragment"
   | "schema"
   | "enum_value"
+  | "constant"
   | "heading";
 
 /** A single entry in a file outline. */

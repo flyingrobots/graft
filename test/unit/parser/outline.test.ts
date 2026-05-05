@@ -428,6 +428,114 @@ describe("parser: outline extraction", () => {
     });
   });
 
+  describe("Python", () => {
+    it("extracts functions, classes, public methods, fields, and module constants", () => {
+      const source = readFileSync(
+        new URL("../../fixtures/python/agent_service.py", import.meta.url),
+        "utf8",
+      );
+      const outline = extractOutlineForFile("test/fixtures/python/agent_service.py", source);
+
+      expect(outline).not.toBeNull();
+      expect(outline!.partial).not.toBe(true);
+      expect(outline!.entries).toEqual(expect.arrayContaining([
+        expect.objectContaining({
+          kind: "constant",
+          name: "DEFAULT_TIMEOUT",
+          signature: "DEFAULT_TIMEOUT: int",
+          exported: true,
+        }),
+        expect.objectContaining({
+          kind: "class",
+          name: "Runnable",
+          signature: "class Runnable(Protocol)",
+          exported: true,
+        }),
+        expect.objectContaining({
+          kind: "class",
+          name: "AgentService",
+          signature: "class AgentService",
+          exported: true,
+        }),
+        expect.objectContaining({
+          kind: "function",
+          name: "build_service",
+          signature: "build_service(service_id: str, *, timeout_seconds: int = DEFAULT_TIMEOUT): AgentService",
+          exported: true,
+        }),
+        expect.objectContaining({
+          kind: "function",
+          name: "fetch_payload",
+          signature: "async fetch_payload(url: str): bytes",
+          exported: true,
+        }),
+      ]));
+      expect(outline!.entries).not.toContainEqual(expect.objectContaining({
+        name: "_INTERNAL_SENTINEL",
+      }));
+
+      const runnable = outline!.entries.find((entry) => entry.name === "Runnable");
+      expect(runnable?.children).toEqual([
+        expect.objectContaining({
+          kind: "method",
+          name: "run",
+          signature: "run(self, payload: bytes): bytes",
+          exported: true,
+        }),
+      ]);
+
+      const service = outline!.entries.find((entry) => entry.name === "AgentService");
+      expect(service?.children).toEqual(expect.arrayContaining([
+        expect.objectContaining({
+          kind: "field",
+          name: "service_id",
+          signature: "service_id: str",
+        }),
+        expect.objectContaining({
+          kind: "field",
+          name: "timeout_seconds",
+          signature: "timeout_seconds: int",
+        }),
+        expect.objectContaining({
+          kind: "method",
+          name: "describe",
+          signature: "describe(self): str",
+          exported: true,
+        }),
+        expect.objectContaining({
+          kind: "method",
+          name: "execute",
+          signature: "async execute(self, payload: bytes): bytes",
+          exported: true,
+        }),
+        expect.objectContaining({
+          kind: "method",
+          name: "_debug_label",
+          exported: false,
+        }),
+      ]));
+
+      expect(outline!.jumpTable).toContainEqual(expect.objectContaining({
+        symbol: "DEFAULT_TIMEOUT",
+        kind: "constant",
+        start: 6,
+        end: 6,
+      }));
+      expect(outline!.jumpTable).toContainEqual(expect.objectContaining({
+        symbol: "AgentService",
+        kind: "class",
+        start: 15,
+        end: 27,
+      }));
+      expect(outline!.jumpTable).toContainEqual(expect.objectContaining({
+        symbol: "fetch_payload",
+        kind: "function",
+        start: 34,
+        end: 35,
+      }));
+    });
+  });
+
   describe("Markdown", () => {
     it("extracts heading hierarchy with section ranges", () => {
       const source = [
