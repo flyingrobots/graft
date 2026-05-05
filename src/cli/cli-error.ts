@@ -128,7 +128,7 @@ export function describeCliFailure(argv: readonly string[]): CliErrorDetails {
       return { usage: "graft struct log [--path <path>] [--limit <n>] [--json]" };
     }
     if (subcommand === "review") {
-      return { usage: "graft struct review [--base <ref>] [--head <ref>] [--json]" };
+      return { usage: "graft struct review --base <ref> [--head <ref>] [--json]" };
     }
     return {
       usage: "graft struct <diff|since|map|churn|exports|log|review> ...",
@@ -184,6 +184,10 @@ export function describeCliFailure(argv: readonly string[]): CliErrorDetails {
       usage: "graft diag <activity|local-history-dag|doctor|explain|stats|capture> ...",
       nextSteps: ["Run `graft help` to see the available diagnostic subcommands."],
     };
+  }
+
+  if (group === "review") {
+    return { usage: "graft review --base <ref> [--head <ref>] [--json]" };
   }
 
   return {

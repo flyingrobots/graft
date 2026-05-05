@@ -56,6 +56,7 @@ function renderHelp(writer: Writer): void {
   writeLine(writer, "                  Start stdio bridge to the local graft daemon");
   writeLine(writer, "  daemon          Start the local MCP daemon");
   writeLine(writer, "  daemon status   Show read-only daemon status");
+  writeLine(writer, "  review          Show a structural review summary for a ref range");
   writeLine(writer);
 
   const grouped = new Map<string, { path: readonly string[]; description: string }[]>();

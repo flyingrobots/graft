@@ -296,7 +296,7 @@ describe("contracts: output schemas", () => {
       struct_since: await runCliJson(repoDir, ["struct", "since", base, "--head", head, "--json"]),
       struct_map: await runCliJson(repoDir, ["struct", "map", "--json"]),
       struct_log: await runCliJson(repoDir, ["struct", "log", "--json"]),
-      struct_review: await runCliJson(repoDir, ["struct", "review", "--json"]),
+      struct_review: await runCliJson(repoDir, ["struct", "review", "--base", base, "--head", head, "--json"]),
       struct_churn: await runCliJson(repoDir, ["struct", "churn", "--json"]),
       struct_exports: await runCliJson(repoDir, ["struct", "exports", base, head, "--json"]),
       symbol_show: await runCliJson(repoDir, ["symbol", "show", "greet", "--path", "app.ts", "--json"]),

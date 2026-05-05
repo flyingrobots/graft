@@ -11,23 +11,24 @@ requirements:
   - "Diff summary lines (shipped)"
   - "Tree-sitter parsing (shipped)"
 acceptance_criteria:
-  - "A `graft review <PR#>` CLI command produces a human-readable structural summary of a PR"
+  - "A `graft review --base <ref> [--head <ref>]` CLI command produces a human-readable structural summary of a checked-out PR/range"
   - "A library/model boundary can produce the same summary without GitHub transport"
   - "Summary distinguishes structural changes from formatting/whitespace-only changes"
   - "Summary reports file count, structural-change count, and per-file classification"
-  - "GitHub Action posting is explicitly deferred from the first slice"
+  - "GitHub PR-number resolution and Action posting are explicitly deferred from the first slice"
 ---
 
 # PR review structural summary
 
 Run graft_diff on a PR and produce a human-readable structural
-summary: "This PR touches 12 files but only 3 have structural
+summary: "This range touches 12 files but only 3 have structural
 changes. The rest are formatting/whitespace."
 
 Helps reviewers focus attention where it matters. Could be a CLI
-command (`graft review <PR#>`) backed by a small summary model. A GitHub
-Action that posts the summary as a PR comment is deferred until the core
-summary boundary is boring and tested.
+command (`graft review --base origin/main --head HEAD`) backed by a
+small summary model. A future GitHub PR-number adapter and any GitHub
+Action that posts the summary as a PR comment are deferred until the
+core summary boundary is boring and tested.
 
 The diff summary lines feature (shipped in v0.3.0) is the primitive
 this builds on.
@@ -39,7 +40,23 @@ this builds on.
 2. Run `graft_diff` on each changed file to classify changes.
 3. Aggregate structural vs non-structural changes per file.
 4. Produce a human-readable summary with per-file classification.
-5. Keep GitHub Action posting out of the first slice.
+5. Keep GitHub PR-number resolution and Action posting out of the first
+   slice.
+
+## First Slice
+
+The first implementation slice exposes the existing `graft_review`
+model as a top-level local-range CLI:
+
+```bash
+graft review --base HEAD~1
+graft review --base origin/main --head HEAD --json
+```
+
+This keeps the summary repo-generic and transport-free. Users can review
+a PR by checking out or fetching the PR branch and comparing refs
+locally. Direct `graft review <PR#>` resolution remains a future
+transport adapter, not part of the model boundary.
 
 ## Related cards
 

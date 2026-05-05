@@ -2,7 +2,7 @@
 
 A context governor for coding agents. Graft enforces read policy so agents consume the smallest structurally correct view of a codebase instead of dumping raw files into their context window.
 
-Graft is designed for the operator who demands precision and the architect who needs a stable foundation for agentic work. It scales from simple policy-aware reads to high-fidelity causal provenance tracking across multi-session worktrees.
+Graft is designed for the operator who demands precision and the architect who needs a stable foundation for agentic work. It scales from simple policy-aware reads to high-fidelity causal provenance tracking across multi-session worktrees. Parser-backed structural views currently cover JavaScript, TypeScript, Rust, and Markdown.
 
 [![npm version](https://img.shields.io/npm/v/@flyingrobots/graft)](https://www.npmjs.com/package/@flyingrobots/graft)
 
@@ -44,6 +44,7 @@ npx @flyingrobots/graft serve
 Enforce policy on a single read or inspect structural history.
 ```bash
 npx @flyingrobots/graft read safe src/app.ts
+npx @flyingrobots/graft review --base HEAD~1
 npx @flyingrobots/graft struct since HEAD~3
 ```
 

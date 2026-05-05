@@ -1,4 +1,4 @@
-export const SUPPORTED_LANGS = ["ts", "tsx", "js"] as const;
+export const SUPPORTED_LANGS = ["ts", "tsx", "js", "rust"] as const;
 export type SupportedLang = typeof SUPPORTED_LANGS[number];
 
 export const SUPPORTED_STRUCTURED_FORMATS = [
@@ -11,6 +11,7 @@ const LANGUAGE_SUFFIXES: Readonly<Record<SupportedLang, readonly string[]>> = {
   ts: [".ts", ".mts", ".cts"],
   tsx: [".tsx", ".jsx"],
   js: [".js", ".mjs", ".cjs"],
+  rust: [".rs"],
 };
 
 const STRUCTURED_FORMAT_SUFFIXES: Readonly<Record<SupportedStructuredFormat, readonly string[]>> = {

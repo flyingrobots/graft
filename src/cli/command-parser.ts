@@ -257,20 +257,28 @@ function parseStructCommand(argv: string[]): ParsedCommand {
   }
 
   if (subcommand === "review") {
-    const base = consumeOption(argv, "--base");
-    const head = consumeOption(argv, "--head");
-    expectNoArgs(argv);
-    return {
-      command: "struct_review",
-      json,
-      args: {
-        ...(base !== undefined ? { base } : {}),
-        ...(head !== undefined ? { head } : {}),
-      },
-    };
+    return parseReviewCommand(argv, json);
   }
 
   throw new Error(`Unknown struct subcommand: ${subcommand}`);
+}
+
+function parseReviewCommand(argv: string[], json = consumeFlag(argv, "--json")): ParsedCommand {
+  const base = consumeOption(argv, "--base");
+  const head = consumeOption(argv, "--head");
+  if (base === undefined) {
+    expectNoArgs(argv);
+    throw new Error("Missing --base");
+  }
+  expectNoArgs(argv);
+  return {
+    command: "struct_review",
+    json,
+    args: {
+      base,
+      ...(head !== undefined ? { head } : {}),
+    },
+  };
 }
 
 function parseSymbolCommand(argv: string[]): ParsedCommand {
@@ -479,6 +487,7 @@ export function parseCommand(argv: string[]): ParsedCommand {
   if (group === "migrate") return parseMigrateCommand(argv);
   if (group === "diag") return parseDiagCommand(argv);
   if (group === "enhance") return parseEnhanceCommand(argv);
+  if (group === "review") return parseReviewCommand(argv);
 
   throw new Error(`Unknown command: ${group}`);
 }

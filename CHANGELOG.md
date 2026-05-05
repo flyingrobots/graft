@@ -9,6 +9,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ### Added
 
+- **Top-level structural review CLI**: `graft review --base <ref>
+  [--head <ref>]` now renders a human-readable structural review summary
+  from the existing `graft_review` model, while `--json` keeps the
+  schema-validated `graft.cli.struct_review` payload for agents.
+- **Rust structural parsing**: parser-backed outlines, governed reads,
+  structural diffs, and WARP indexing now recognize `.rs` files using
+  the bundled Rust tree-sitter grammar.
 - **Docker auto-start helper**: the isolated test runner now attempts to
   launch Docker Desktop on macOS before failing the Docker daemon
   preflight, while keeping the existing explicit fallback guidance for
@@ -45,6 +52,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ### Fixed
 
+- **Structural review PR feedback**: `graft review` and
+  `graft struct review` now require `--base` at parse time, nested
+  object-literal defaults no longer compact into malformed signatures,
+  and Rust impl/trait extraction uses the grammar's `body` field
+  without a dead fallback.
 - **PR review hardening follow-up**: Docker auto-start polling no longer
   uses `Atomics.wait` on the main thread, Docker probe subprocesses are
   bounded, parser warmup fire-and-forget paths consume rejected promises,
