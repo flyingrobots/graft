@@ -57,7 +57,7 @@ export async function runIndex(options: RunIndexOptions = {}): Promise<void> {
         filesIndexed: result.filesIndexed,
         nodesEmitted: result.nodesEmitted,
       }), stdout);
-      return;
+      process.exit(0);
     }
 
     writeLine(stdout);
@@ -68,6 +68,7 @@ export async function runIndex(options: RunIndexOptions = {}): Promise<void> {
     writeLine(stdout);
     writeLine(stdout, "Done.");
     writeLine(stdout);
+    process.exit(0);
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : String(err);
     process.exitCode = 1;
