@@ -45,6 +45,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ### Fixed
 
+- **Parser readiness follow-up**: root library hosts can now call
+  `ensureParserReady()` before synchronous structured-buffer use, while
+  pre-warm sync projection bundles return explicit partial parser
+  unavailable results instead of throwing. Outline cache writes are
+  best-effort after successful governed reads, lazy outline snapshots
+  share in-flight work, and WARP indexing reuses the parsed tree for
+  outline extraction.
 - **Projection bundle README example**: direct `StructuredBuffer` usage
   now shows explicit disposal, while `createProjectionBundle(...)` is
   documented as the lifecycle-owning wrapper.

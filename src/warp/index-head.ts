@@ -13,7 +13,7 @@ import type { PatchBuilderV2 } from "@git-stunts/git-warp";
 import { patchGraph, observeGraph, materializeGraph } from "./context.js";
 import { detectLang } from "../parser/lang.js";
 import { parseStructuredTreeAsync } from "../parser/runtime.js";
-import { extractOutlineForFileAsync } from "../parser/outline.js";
+import { extractOutlineFromParsedTree } from "../parser/outline.js";
 import { attachAstSnapshot, emitAstNodes } from "./ast-emitter.js";
 import { resolveImportEdges } from "./ast-import-resolver.js";
 import type { OutlineEntry } from "../parser/types.js";
@@ -515,10 +515,10 @@ async function indexHeadFile(input: {
 
   const tree = await parseStructuredTreeAsync(lang, contentResult.stdout);
   try {
-    const outlineResult = await extractOutlineForFileAsync(filePath, contentResult.stdout);
-    const outline = outlineResult?.entries ?? [];
+    const outlineResult = extractOutlineFromParsedTree(tree);
+    const outline = outlineResult.entries;
     const jumpLookup = new Map<string, { start: number; end: number }>();
-    for (const jt of outlineResult?.jumpTable ?? []) {
+    for (const jt of outlineResult.jumpTable ?? []) {
       jumpLookup.set(jt.symbol, { start: jt.start, end: jt.end });
     }
 

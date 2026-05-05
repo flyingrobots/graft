@@ -3,6 +3,7 @@ import type { SupportedStructuredFormat } from "./lang.js";
 import { OutlineEntry, JumpEntry } from "./types.js";
 import type { OutlineResult } from "./types.js";
 import {
+  type ParsedTree,
   parseStructuredTree,
   parseStructuredTreeAsync,
 } from "./runtime.js";
@@ -210,12 +211,14 @@ export function extractOutline(
     return extractMarkdownOutline(source);
   }
   const parsed = parseStructuredTree(lang, source);
-  return extractOutlineFromParsed(parsed);
+  try {
+    return extractOutlineFromParsedTree(parsed);
+  } finally {
+    parsed.delete();
+  }
 }
 
-type ParsedOutlineTree = ReturnType<typeof parseStructuredTree>;
-
-function extractOutlineFromParsed(parsed: ParsedOutlineTree): OutlineResult {
+export function extractOutlineFromParsedTree(parsed: ParsedTree): OutlineResult {
   const root = parsed.root;
 
   const entries: OutlineEntry[] = [];
@@ -298,8 +301,6 @@ function extractOutlineFromParsed(parsed: ParsedOutlineTree): OutlineResult {
     }
   }
 
-  parsed.delete();
-
   const result: OutlineResult = {
     entries,
     jumpTable,
@@ -320,7 +321,11 @@ export async function extractOutlineAsync(
     return extractMarkdownOutline(source);
   }
   const parsed = await parseStructuredTreeAsync(lang, source);
-  return extractOutlineFromParsed(parsed);
+  try {
+    return extractOutlineFromParsedTree(parsed);
+  } finally {
+    parsed.delete();
+  }
 }
 
 export function extractOutlineForFile(

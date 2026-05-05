@@ -2,8 +2,17 @@ import type Parser from "web-tree-sitter";
 import { detectStructuredFormat } from "../parser/lang.js";
 import type { SupportedStructuredFormat } from "../parser/lang.js";
 import type { OutlineDiff } from "../parser/diff.js";
-import { parseStructuredTreeForFile } from "../parser/runtime.js";
+import {
+  ParserRuntimeNotReadyError,
+  ensureParserReady,
+  parseStructuredTreeForFile,
+} from "../parser/runtime.js";
+import type { ParsedTree } from "../parser/runtime.js";
 import type { OutlineEntry, JumpEntry } from "../parser/types.js";
+
+export type BufferUnavailableReason =
+  | "UNSUPPORTED_LANGUAGE"
+  | "PARSER_RUNTIME_NOT_READY";
 
 export interface BufferPoint {
   readonly row: number;
@@ -31,7 +40,7 @@ export interface BufferOutlineResult {
   readonly outline: readonly OutlineEntry[];
   readonly jumpTable: readonly JumpEntry[];
   readonly partial: boolean;
-  readonly reason?: "UNSUPPORTED_LANGUAGE" | undefined;
+  readonly reason?: BufferUnavailableReason | undefined;
 }
 
 export type SyntaxClass =
@@ -59,7 +68,7 @@ export interface SyntaxSpanResult {
   readonly partial: boolean;
   readonly spans: readonly SyntaxSpan[];
   readonly injections: readonly InjectionRegion[];
-  readonly reason?: "UNSUPPORTED_LANGUAGE" | undefined;
+  readonly reason?: BufferUnavailableReason | undefined;
 }
 
 export interface BufferDiagnostic {
@@ -75,7 +84,7 @@ export interface DiagnosticsResult {
   readonly basis: WarmProjectionBasis | null;
   readonly partial: boolean;
   readonly diagnostics: readonly BufferDiagnostic[];
-  readonly reason?: "UNSUPPORTED_LANGUAGE" | undefined;
+  readonly reason?: BufferUnavailableReason | undefined;
 }
 
 export interface NodeSummary {
@@ -93,7 +102,7 @@ export interface NodeLookupResult {
   readonly partial: boolean;
   readonly node: NodeSummary | null;
   readonly parents: readonly NodeSummary[];
-  readonly reason?: "UNSUPPORTED_LANGUAGE" | undefined;
+  readonly reason?: BufferUnavailableReason | undefined;
 }
 
 export interface InjectionRegion {
@@ -108,7 +117,7 @@ export interface InjectionResult {
   readonly format: SupportedStructuredFormat | null;
   readonly basis: WarmProjectionBasis | null;
   readonly injections: readonly InjectionRegion[];
-  readonly reason?: "UNSUPPORTED_LANGUAGE" | undefined;
+  readonly reason?: BufferUnavailableReason | undefined;
 }
 
 export interface FoldRegion {
@@ -122,7 +131,7 @@ export interface FoldRegionsResult {
   readonly basis: WarmProjectionBasis | null;
   readonly partial: boolean;
   readonly regions: readonly FoldRegion[];
-  readonly reason?: "UNSUPPORTED_LANGUAGE" | undefined;
+  readonly reason?: BufferUnavailableReason | undefined;
 }
 
 export interface WarmProjectionParseStatus {
@@ -130,7 +139,7 @@ export interface WarmProjectionParseStatus {
   readonly format: SupportedStructuredFormat | null;
   readonly partial: boolean;
   readonly status: "full" | "partial" | "unsupported";
-  readonly reason?: "UNSUPPORTED_LANGUAGE" | undefined;
+  readonly reason?: BufferUnavailableReason | undefined;
 }
 
 export interface WarmProjectionBundleResult {
@@ -152,7 +161,7 @@ export interface SelectionStepResult {
   readonly partial: boolean;
   readonly range: BufferRange | null;
   readonly node: NodeSummary | null;
-  readonly reason?: "UNSUPPORTED_LANGUAGE" | "NO_SELECTION_STEP" | undefined;
+  readonly reason?: BufferUnavailableReason | "NO_SELECTION_STEP" | undefined;
 }
 
 export interface SymbolOccurrence {
@@ -169,7 +178,7 @@ export interface SymbolOccurrencesResult {
   readonly symbol: string | null;
   readonly occurrences: readonly SymbolOccurrence[];
   readonly scopeApplied: "buffer";
-  readonly reason?: "UNSUPPORTED_LANGUAGE" | "SYMBOL_NOT_FOUND" | undefined;
+  readonly reason?: BufferUnavailableReason | "SYMBOL_NOT_FOUND" | undefined;
 }
 
 export interface RenameEditPreview {
@@ -188,7 +197,7 @@ export interface RenamePreviewResult {
   readonly nextName: string;
   readonly edits: readonly RenameEditPreview[];
   readonly scopeApplied: "buffer";
-  readonly reason?: "UNSUPPORTED_LANGUAGE" | "SYMBOL_NOT_FOUND" | undefined;
+  readonly reason?: BufferUnavailableReason | "SYMBOL_NOT_FOUND" | undefined;
 }
 
 export interface ChangedRegion {
@@ -243,7 +252,7 @@ export interface AnchorAffinityResult {
   readonly status: "mapped" | "lost";
   readonly strategy: "named_path" | "named_search" | "text_search" | "none";
   readonly confidence: "high" | "medium" | "low";
-  readonly reason?: "UNSUPPORTED_LANGUAGE" | "ANCHOR_NOT_FOUND" | undefined;
+  readonly reason?: BufferUnavailableReason | "ANCHOR_NOT_FOUND" | undefined;
 }
 
 export interface StructuredBufferSnapshot {
@@ -252,7 +261,8 @@ export interface StructuredBufferSnapshot {
   readonly format: SupportedStructuredFormat | null;
   readonly basis: WarmProjectionBasis | null;
   readonly partial: boolean;
-  readonly parsed: ReturnType<typeof parseStructuredTreeForFile> | null;
+  readonly parsed: ParsedTree | null;
+  readonly parseUnavailableReason?: BufferUnavailableReason | undefined;
 }
 
 export function createStructuredBufferSnapshot(opts: {
@@ -261,16 +271,32 @@ export function createStructuredBufferSnapshot(opts: {
   basis?: WarmProjectionBasis | undefined;
 }): StructuredBufferSnapshot {
   const format = detectStructuredFormat(opts.path);
-  const parsed = format === null || format === "md"
-    ? null
-    : parseStructuredTreeForFile(opts.path, opts.content);
+  let parsed: ParsedTree | null = null;
+  let parseUnavailableReason: BufferUnavailableReason | undefined;
+
+  if (format === null) {
+    parseUnavailableReason = "UNSUPPORTED_LANGUAGE";
+  } else if (format !== "md") {
+    try {
+      parsed = parseStructuredTreeForFile(opts.path, opts.content);
+    } catch (error) {
+      if (error instanceof ParserRuntimeNotReadyError) {
+        parseUnavailableReason = "PARSER_RUNTIME_NOT_READY";
+        void ensureParserReady();
+      } else {
+        throw error;
+      }
+    }
+  }
+
   return {
     path: opts.path,
     content: opts.content,
     format,
     basis: opts.basis ?? null,
-    partial: parsed?.root.hasError() ?? false,
+    partial: parsed?.root.hasError() ?? parseUnavailableReason === "PARSER_RUNTIME_NOT_READY",
     parsed,
+    ...(parseUnavailableReason !== undefined ? { parseUnavailableReason } : {}),
   };
 }
 

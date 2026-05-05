@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { RefusedResult } from "../../policy/types.js";
+import { detectStructuredFormat } from "../../parser/lang.js";
 import { extractOutlineForFileAsync } from "../../parser/outline.js";
 import { diffOutlines } from "../../parser/diff.js";
 import { hashContent } from "../cache.js";
@@ -37,8 +38,7 @@ export const changedSinceTool: ToolDefinition = {
         return ctx.respond("changed_since", { status: "refused", reason: policy.reason });
       }
 
-      const newOutlineResult = await extractOutlineForFileAsync(filePath, rawContent);
-      if (newOutlineResult === null) {
+      if (detectStructuredFormat(filePath) === null) {
         return ctx.respond("changed_since", {
           status: "unsupported",
           reason: "UNSUPPORTED_LANGUAGE",
@@ -51,6 +51,14 @@ export const changedSinceTool: ToolDefinition = {
       }
       if (cacheResult.stale === null) {
         return ctx.respond("changed_since", { status: "no_previous_observation" });
+      }
+
+      const newOutlineResult = await extractOutlineForFileAsync(filePath, rawContent);
+      if (newOutlineResult === null) {
+        return ctx.respond("changed_since", {
+          status: "unsupported",
+          reason: "UNSUPPORTED_LANGUAGE",
+        });
       }
 
       const diff = diffOutlines(cacheResult.stale.outline, newOutlineResult.entries);

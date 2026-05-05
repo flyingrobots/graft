@@ -11,6 +11,7 @@ export {
   GRAFT_MINIMUM_GIT_VERSION,
   ensureGitVersionSupportsGraft,
 } from "../git/version-guard.js";
+export { ensureParserReady, isParserReady } from "../parser/runtime.js";
 export { createRepoLocalGraft, type CreateRepoLocalGraftOptions } from "./repo-local-graft.js";
 export { createRepoWorkspace, type CreateRepoWorkspaceOptions } from "./repo-workspace.js";
 export { callGraftTool, parseGraftToolPayload } from "./tool-bridge.js";

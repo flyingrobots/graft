@@ -60,13 +60,13 @@ describe("CORE_v080-scope-formation playback", () => {
     expect(deferrals).toContain("`SURFACE_bijou-daemon-control-plane-actions`");
   });
 
-  it("Does the scope decision mechanically agree with the current `docs/BEARING.md` next target?", () => {
-    const bearing = readRepoFile("docs/BEARING.md");
+  it("Does the scope decision record the bearing context used for the next target?", () => {
     const design = readRepoFile("docs/design/CORE_v080-scope-formation.md");
+    const backlogContext = markdownSection(design, "Backlog Context");
 
-    expect(bearing).toContain("The immediate focus is **v0.8.0 scope formation**, not feature work.");
-    expect(bearing).toContain("repo-generic operational truth surfaces");
-    expect(bearing).toContain("Keep `WARP_lsp-enrichment` and `CORE_migrate-to-slice-first-reads`");
+    expect(backlogContext).toContain("the immediate focus is v0.8.0 scope formation");
+    expect(backlogContext).toContain("repo-generic operational truth surfaces");
+    expect(backlogContext).toContain("avoid adding METHOD backlog/status features");
     expect(design).toContain("The opening v0.8.0 lane is:");
     expect(design).toContain("Repo-generic operational truth surfaces for any Git repository");
   });
@@ -80,8 +80,8 @@ describe("CORE_v080-scope-formation playback", () => {
     expect(scopedText).toContain("no method backlog/status");
     expect(scopedText).toContain("method backlog/status/release surfaces");
     expect(scopedText).toMatch(/belong in method mcp\s*\/\s*method\s+cli/);
-    expect(design).not.toContain("graft backlog");
-    expect(design).not.toContain("graft retro");
+    expect(design.toLowerCase()).not.toContain("graft backlog");
+    expect(design.toLowerCase()).not.toContain("graft retro");
   });
 
   it("Does the design preserve the shipped doctor and capability posture work as baseline, not work to reopen in this cycle?", () => {

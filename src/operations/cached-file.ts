@@ -24,6 +24,7 @@ export class CachedFile {
   readonly supportsOutline: boolean;
   readonly actual: { readonly lines: number; readonly bytes: number };
   #outline: CachedFileOutline | null = null;
+  #outlinePromise: Promise<CachedFileOutline> | null = null;
 
   constructor(filePath: string, rawContent: string) {
     this.path = filePath;
@@ -43,16 +44,28 @@ export class CachedFile {
     if (this.#outline !== null) {
       return this.#outline;
     }
+    if (this.#outlinePromise !== null) {
+      return this.#outlinePromise;
+    }
     if (!this.supportsOutline) {
       this.#outline = { outline: [], jumpTable: [] };
       return this.#outline;
     }
 
-    const result = await extractOutlineForFileAsync(this.path, this.rawContent);
-    this.#outline = {
-      outline: result?.entries ?? [],
-      jumpTable: result?.jumpTable ?? [],
-    };
-    return this.#outline;
+    this.#outlinePromise = (async () => {
+      try {
+        const result = await extractOutlineForFileAsync(this.path, this.rawContent);
+        const snapshot: CachedFileOutline = {
+          outline: result?.entries ?? [],
+          jumpTable: result?.jumpTable ?? [],
+        };
+        this.#outline = snapshot;
+        return snapshot;
+      } finally {
+        this.#outlinePromise = null;
+      }
+    })();
+
+    return this.#outlinePromise;
   }
 }

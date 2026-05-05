@@ -14,6 +14,15 @@ interface ParserRuntime {
 let parserRuntime: ParserRuntime | null = null;
 let parserRuntimePromise: Promise<ParserRuntime> | null = null;
 
+export class ParserRuntimeNotReadyError extends Error {
+  constructor() {
+    super(
+      "Parser runtime is not ready; await ensureParserReady() before synchronous structured parsing.",
+    );
+    this.name = "ParserRuntimeNotReadyError";
+  }
+}
+
 async function loadParserRuntime(): Promise<ParserRuntime> {
   if (parserRuntime !== null) {
     return parserRuntime;
@@ -49,9 +58,8 @@ async function loadParserRuntime(): Promise<ParserRuntime> {
 
 function requireParserRuntime(): ParserRuntime {
   if (parserRuntime === null) {
-    throw new Error(
-      "Parser runtime is not ready; call ensureParserReady() before synchronous parsing.",
-    );
+    void loadParserRuntime();
+    throw new ParserRuntimeNotReadyError();
   }
   return parserRuntime;
 }

@@ -77,7 +77,13 @@ surface uses for `safe_read`, `file_outline`, `read_range`, and
 
 For close editor integration, use the buffer-native surface directly:
 ```ts
-import { createProjectionBundle, createStructuredBuffer } from "@flyingrobots/graft";
+import {
+  createProjectionBundle,
+  createStructuredBuffer,
+  ensureParserReady,
+} from "@flyingrobots/graft";
+
+await ensureParserReady();
 
 const buffer = createStructuredBuffer("src/app.tsx", liveEditorText, {
   basis: { kind: "editor_head", headId: "head-42", tick: 17 },
