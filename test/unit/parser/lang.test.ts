@@ -28,15 +28,55 @@ describe("parser: detectLang", () => {
     expect(detectStructuredFormat("src/lib.rs")).toBe("rust");
   });
 
+  it("recognizes GraphQL extensions", () => {
+    expect(detectLang("schema.graphql")).toBe("graphql");
+    expect(detectLang("src/query.gql")).toBe("graphql");
+    expect(detectLang("src/schema.graphqls")).toBe("graphql");
+    expect(detectStructuredFormat("src/schema.graphql")).toBe("graphql");
+  });
+
+  it("recognizes Python extensions", () => {
+    expect(detectLang("app/main.py")).toBe("python");
+    expect(detectLang("types/package.pyi")).toBe("python");
+    expect(detectStructuredFormat("app/main.py")).toBe("python");
+  });
+
+  it("recognizes Go extensions", () => {
+    expect(detectLang("cmd/graft/main.go")).toBe("go");
+    expect(detectStructuredFormat("internal/service/agent.go")).toBe("go");
+  });
+
+  it("recognizes JSON extensions", () => {
+    expect(detectLang("package.json")).toBe("json");
+    expect(detectStructuredFormat("config/schema.JSON")).toBe("json");
+  });
+
+  it("recognizes TOML extensions", () => {
+    expect(detectLang("pyproject.toml")).toBe("toml");
+    expect(detectStructuredFormat("Cargo.toml")).toBe("toml");
+  });
+
+  it("recognizes YAML extensions", () => {
+    expect(detectLang(".github/workflows/ci.yml")).toBe("yaml");
+    expect(detectLang("k8s/service.yaml")).toBe("yaml");
+    expect(detectStructuredFormat("compose.yaml")).toBe("yaml");
+  });
+
   it("normalizes separators and casing without node:path", () => {
     expect(detectLang("SRC\\COMPONENT.TSX")).toBe("tsx");
     expect(detectLang("src/NESTED\\module.MJS")).toBe("js");
     expect(detectLang("SRC\\LIB.RS")).toBe("rust");
+    expect(detectLang("SRC\\SCHEMA.GRAPHQL")).toBe("graphql");
+    expect(detectLang("SRC\\SERVICE.PY")).toBe("python");
+    expect(detectLang("SRC\\SERVICE.GO")).toBe("go");
+    expect(detectLang("CONFIG\\PACKAGE.JSON")).toBe("json");
+    expect(detectLang("CONFIG\\PYPROJECT.TOML")).toBe("toml");
+    expect(detectLang("CONFIG\\WORKFLOW.YML")).toBe("yaml");
   });
 
   it("returns null for unsupported file types", () => {
     expect(detectLang("README.md")).toBeNull();
-    expect(detectLang("config.yaml")).toBeNull();
+    expect(detectLang("config.ini")).toBeNull();
   });
 });
 
@@ -46,22 +86,46 @@ describe("parser: detectStructuredFormat", () => {
   });
 
   it("returns null for unsupported structured formats", () => {
-    expect(detectStructuredFormat("config.yaml")).toBeNull();
+    expect(detectStructuredFormat("config.ini")).toBeNull();
   });
 });
 
 describe("parser: supported format identity", () => {
   it("exports explicit supported language identities", () => {
-    expect(SUPPORTED_LANGS).toEqual(["ts", "tsx", "js", "rust"]);
-    expect(SUPPORTED_STRUCTURED_FORMATS).toEqual(["ts", "tsx", "js", "rust", "md"]);
+    expect(SUPPORTED_LANGS).toEqual(["ts", "tsx", "js", "rust", "graphql", "python", "go", "json", "toml", "yaml"]);
+    expect(SUPPORTED_STRUCTURED_FORMATS).toEqual([
+      "ts",
+      "tsx",
+      "js",
+      "rust",
+      "graphql",
+      "python",
+      "go",
+      "json",
+      "toml",
+      "yaml",
+      "md",
+    ]);
   });
 
   it("provides runtime guards for supported identities", () => {
     expect(isSupportedLang("ts")).toBe(true);
     expect(isSupportedLang("rust")).toBe(true);
+    expect(isSupportedLang("graphql")).toBe(true);
+    expect(isSupportedLang("python")).toBe(true);
+    expect(isSupportedLang("go")).toBe(true);
+    expect(isSupportedLang("json")).toBe(true);
+    expect(isSupportedLang("toml")).toBe(true);
+    expect(isSupportedLang("yaml")).toBe(true);
     expect(isSupportedLang("md")).toBe(false);
     expect(isSupportedStructuredFormat("rust")).toBe(true);
+    expect(isSupportedStructuredFormat("graphql")).toBe(true);
+    expect(isSupportedStructuredFormat("python")).toBe(true);
+    expect(isSupportedStructuredFormat("go")).toBe(true);
+    expect(isSupportedStructuredFormat("json")).toBe(true);
+    expect(isSupportedStructuredFormat("toml")).toBe(true);
+    expect(isSupportedStructuredFormat("yaml")).toBe(true);
     expect(isSupportedStructuredFormat("md")).toBe(true);
-    expect(isSupportedStructuredFormat("yaml")).toBe(false);
+    expect(isSupportedStructuredFormat("ini")).toBe(false);
   });
 });

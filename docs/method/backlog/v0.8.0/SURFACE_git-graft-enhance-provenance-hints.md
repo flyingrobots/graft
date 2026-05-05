@@ -38,3 +38,13 @@ after the base enhance model and renderer are stable.
 - No LSP enrichment.
 - No reference expansion through `code_find`.
 - No unbounded per-symbol traversal.
+
+## Implementation status
+
+Shipped in `cycle/CORE_structural-test-coverage-map`.
+
+`git graft enhance --since <ref>` now collects a bounded set of changed
+symbols from the structural summary and asks `graft_blame` for
+provenance hints. The model and renderer expose creation commit, last
+signature-change commit, reference count, ambiguity, and unavailable
+blame reasons without fanning out across the whole symbol set.

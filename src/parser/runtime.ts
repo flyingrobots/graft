@@ -10,6 +10,12 @@ interface ParserRuntime {
   readonly tsxLang: Parser.Language;
   readonly jsLang: Parser.Language;
   readonly rustLang: Parser.Language;
+  readonly graphqlLang: Parser.Language;
+  readonly pythonLang: Parser.Language;
+  readonly goLang: Parser.Language;
+  readonly jsonLang: Parser.Language;
+  readonly tomlLang: Parser.Language;
+  readonly yamlLang: Parser.Language;
 }
 
 let parserRuntime: ParserRuntime | null = null;
@@ -34,7 +40,18 @@ async function loadParserRuntime(): Promise<ParserRuntime> {
 
   parserRuntimePromise = (async () => {
     await Parser.init();
-    const [tsLang, tsxLang, jsLang, rustLang] = await Promise.all([
+    const [
+      tsLang,
+      tsxLang,
+      jsLang,
+      rustLang,
+      graphqlLang,
+      pythonLang,
+      goLang,
+      jsonLang,
+      tomlLang,
+      yamlLang,
+    ] = await Promise.all([
       Parser.Language.load(
         esmRequire.resolve("tree-sitter-wasms/out/tree-sitter-typescript.wasm"),
       ),
@@ -47,8 +64,37 @@ async function loadParserRuntime(): Promise<ParserRuntime> {
       Parser.Language.load(
         esmRequire.resolve("tree-sitter-wasms/out/tree-sitter-rust.wasm"),
       ),
+      Parser.Language.load(
+        esmRequire.resolve("tree-sitter-graphql-grammar-wasm/grammar.wasm"),
+      ),
+      Parser.Language.load(
+        esmRequire.resolve("tree-sitter-wasms/out/tree-sitter-python.wasm"),
+      ),
+      Parser.Language.load(
+        esmRequire.resolve("tree-sitter-wasms/out/tree-sitter-go.wasm"),
+      ),
+      Parser.Language.load(
+        esmRequire.resolve("tree-sitter-wasms/out/tree-sitter-json.wasm"),
+      ),
+      Parser.Language.load(
+        esmRequire.resolve("tree-sitter-wasms/out/tree-sitter-toml.wasm"),
+      ),
+      Parser.Language.load(
+        esmRequire.resolve("tree-sitter-wasms/out/tree-sitter-yaml.wasm"),
+      ),
     ]);
-    return { tsLang, tsxLang, jsLang, rustLang };
+    return {
+      tsLang,
+      tsxLang,
+      jsLang,
+      rustLang,
+      graphqlLang,
+      pythonLang,
+      goLang,
+      jsonLang,
+      tomlLang,
+      yamlLang,
+    };
   })();
 
   try {
@@ -83,6 +129,18 @@ function languageFor(
       return runtime.jsLang;
     case "rust":
       return runtime.rustLang;
+    case "graphql":
+      return runtime.graphqlLang;
+    case "python":
+      return runtime.pythonLang;
+    case "go":
+      return runtime.goLang;
+    case "json":
+      return runtime.jsonLang;
+    case "toml":
+      return runtime.tomlLang;
+    case "yaml":
+      return runtime.yamlLang;
   }
 }
 

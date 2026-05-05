@@ -9,8 +9,11 @@ import {
 } from "../contracts/output-schemas.js";
 import { createGraftServer, type McpToolResult } from "../mcp/server.js";
 import { renderActivityView } from "./activity-render.js";
+import { renderDeadSymbols } from "./dead-symbols-render.js";
 import { renderDoctorPosture } from "./doctor-render.js";
+import { renderStructuralBlame } from "./structural-blame-render.js";
 import { renderStructuralReview } from "./structural-review-render.js";
+import { renderStructuralTestCoverageMap } from "./structural-test-coverage-render.js";
 
 const codec = new CanonicalJsonCodec();
 
@@ -52,6 +55,18 @@ export function emitPeerCommand(
   }
   if (command === "struct_review") {
     writer.write(`${renderStructuralReview(validated)}\n`);
+    return;
+  }
+  if (command === "symbol_blame") {
+    writer.write(`${renderStructuralBlame(validated)}\n`);
+    return;
+  }
+  if (command === "struct_test_coverage") {
+    writer.write(`${renderStructuralTestCoverageMap(validated)}\n`);
+    return;
+  }
+  if (command === "struct_dead_symbols") {
+    writer.write(`${renderDeadSymbols(validated)}\n`);
     return;
   }
   writer.write(`${JSON.stringify(validated, null, 2)}\n`);

@@ -13,9 +13,60 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   [--head <ref>]` now renders a human-readable structural review summary
   from the existing `graft_review` model, while `--json` keeps the
   schema-validated `graft.cli.struct_review` payload for agents.
+- **Structural test coverage map**: `graft_test_coverage` and
+  `graft struct test-coverage [--src <path>] [--tests <path>]` now
+  report exported source symbols with or without bounded test-directory
+  references, explicitly labeled as structural/reference coverage rather
+  than execution coverage.
+- **Git enhance provenance hints**: `git graft enhance --since <ref>`
+  now adds a bounded provenance-hints section for changed symbols using
+  WARP-backed blame facts when available, including ambiguity,
+  creation/signature-change commits, reference count, and unavailable
+  blame reasons.
+- **Symbol history timeline**: `graft symbol history <symbol>
+  [--path <path>]` now renders a timeline-first human view over the
+  existing provenance-backed `graft_blame` facts while preserving the
+  `graft.cli.symbol_blame` JSON schema.
+- **Dead symbol detection**: `graft_dead_symbols` and `graft struct
+  dead-symbols [--limit <n>]` now list symbols removed from indexed WARP
+  history and not subsequently re-added.
+- **Review cooldown status helper**: `graft review cooldown [--pr
+  <number>]` now reads PR comments via `gh pr view --json comments`,
+  detects CodeRabbit rate-limit markers, and reports local ready,
+  cooldown, or unknown status; `--comments-file` supports fixture-backed
+  checks.
 - **Rust structural parsing**: parser-backed outlines, governed reads,
   structural diffs, and WARP indexing now recognize `.rs` files using
   the bundled Rust tree-sitter grammar.
+- **GraphQL structural parsing**: parser-backed outlines, governed
+  reads, structural diffs, and WARP indexing now recognize `.graphql`,
+  `.gql`, and `.graphqls` files using a compatible GraphQL
+  tree-sitter WASM grammar with GraphQL-specific outline kinds for
+  objects, fields, inputs, scalars, unions, directives, operations,
+  fragments, schema declarations, and enum values, with fixture coverage
+  for Continuum/Wesley-style contract schemas.
+- **Python structural parsing**: parser-backed outlines, governed reads,
+  structural diffs, and WARP indexing now recognize `.py` and `.pyi`
+  files using the bundled Python tree-sitter grammar. Outlines cover
+  functions, async functions, classes, public methods, class fields, and
+  uppercase module constants.
+- **Go structural parsing**: parser-backed outlines, governed reads,
+  structural diffs, and WARP indexing now recognize `.go` files using
+  the bundled Go tree-sitter grammar. Outlines cover packages,
+  functions, receiver methods, structs, interfaces, constants, and
+  variables.
+- **JSON structured config projection**: parser-backed outlines,
+  governed reads, structural diffs, and WARP indexing now recognize
+  `.json` files using the bundled JSON tree-sitter grammar. Outlines
+  summarize top-level config keys with bounded nested object children.
+- **TOML structured config projection**: parser-backed outlines,
+  governed reads, structural diffs, and WARP indexing now recognize
+  `.toml` files using the bundled TOML tree-sitter grammar. Outlines
+  summarize tables, array tables, and bounded package/tool fields.
+- **YAML structured config projection**: parser-backed outlines,
+  governed reads, structural diffs, and WARP indexing now recognize
+  `.yaml` and `.yml` files using the bundled YAML tree-sitter grammar.
+  Outlines summarize top-level keys and bounded nested mapping anchors.
 - **Docker auto-start helper**: the isolated test runner now attempts to
   launch Docker Desktop on macOS before failing the Docker daemon
   preflight, while keeping the existing explicit fallback guidance for
@@ -52,6 +103,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ### Fixed
 
+- **Structural test coverage review fix**: `graft struct
+  test-coverage` now skips tracked test files deleted from the working
+  tree before running reference searches, so unstaged or staged test
+  deletions degrade to uncovered symbols instead of failing on missing
+  paths.
+- **Review truth follow-up**: CodeRabbit cooldown detection now ignores
+  unauthored rate-limit text by default, structural test coverage batches
+  symbol reference searches per run, CLI render schemas use strict object
+  definitions directly, and review-facing model/render tests cover empty
+  history plus provenance-hint output.
+- **Review truth collision follow-up**: CodeRabbit cooldown detection now
+  returns unknown when any authored rate-limit marker lacks timestamp or
+  duration evidence, and structural test coverage avoids substring
+  matches while attributing duplicate exported symbol names to the
+  referenced source file.
 - **Structural review PR feedback**: `graft review` and
   `graft struct review` now require `--base` at parse time, nested
   object-literal defaults no longer compact into malformed signatures,

@@ -260,6 +260,32 @@ function parseStructCommand(argv: string[]): ParsedCommand {
     return parseReviewCommand(argv, json);
   }
 
+  if (subcommand === "test-coverage") {
+    const sourcePath = consumeOption(argv, "--src");
+    const testPath = consumeOption(argv, "--tests");
+    expectNoArgs(argv);
+    return {
+      command: "struct_test_coverage",
+      json,
+      args: {
+        ...(sourcePath !== undefined ? { sourcePath } : {}),
+        ...(testPath !== undefined ? { testPath } : {}),
+      },
+    };
+  }
+
+  if (subcommand === "dead-symbols") {
+    const limitRaw = consumeOption(argv, "--limit");
+    expectNoArgs(argv);
+    return {
+      command: "struct_dead_symbols",
+      json,
+      args: {
+        ...(limitRaw !== undefined ? { maxCommits: parsePositiveInt(limitRaw, "--limit") } : {}),
+      },
+    };
+  }
+
   throw new Error(`Unknown struct subcommand: ${subcommand}`);
 }
 
@@ -277,6 +303,27 @@ function parseReviewCommand(argv: string[], json = consumeFlag(argv, "--json")):
     args: {
       base,
       ...(head !== undefined ? { head } : {}),
+    },
+  };
+}
+
+function parseReviewCooldownCommand(argv: string[]): ParsedCommand {
+  const subcommand = consumePositional(argv, "review subcommand");
+  if (subcommand !== "cooldown") {
+    throw new Error(`Unknown review subcommand: ${subcommand}`);
+  }
+  const json = consumeFlag(argv, "--json");
+  const pr = consumeOption(argv, "--pr");
+  const commentsFile = consumeOption(argv, "--comments-file");
+  const now = consumeOption(argv, "--now");
+  expectNoArgs(argv);
+  return {
+    command: "review_cooldown",
+    json,
+    args: {
+      ...(pr !== undefined ? { pr } : {}),
+      ...(commentsFile !== undefined ? { commentsFile } : {}),
+      ...(now !== undefined ? { now } : {}),
     },
   };
 }
@@ -317,7 +364,7 @@ function parseSymbolCommand(argv: string[]): ParsedCommand {
     };
   }
 
-  if (subcommand === "blame") {
+  if (subcommand === "blame" || subcommand === "history") {
     const symbol = consumePositional(argv, "symbol");
     const filePath = consumeOption(argv, "--path");
     expectNoArgs(argv);
@@ -487,7 +534,10 @@ export function parseCommand(argv: string[]): ParsedCommand {
   if (group === "migrate") return parseMigrateCommand(argv);
   if (group === "diag") return parseDiagCommand(argv);
   if (group === "enhance") return parseEnhanceCommand(argv);
-  if (group === "review") return parseReviewCommand(argv);
+  if (group === "review") {
+    if (argv[0] === "cooldown") return parseReviewCooldownCommand(argv);
+    return parseReviewCommand(argv);
+  }
 
   throw new Error(`Unknown command: ${group}`);
 }

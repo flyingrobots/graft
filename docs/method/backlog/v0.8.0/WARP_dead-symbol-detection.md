@@ -57,3 +57,12 @@ This is purely a WARP graph traversal — no file I/O, no grep.
 Small. It's a query over existing graph data — no new indexing,
 no new edge types, no new infrastructure. The hardest part is
 defining "last N commits" when the worldline may have branches.
+
+## Implementation status
+
+Shipped in `cycle/CORE_structural-test-coverage-map`.
+
+`graft_dead_symbols` and `graft struct dead-symbols [--limit <n>]` now
+return symbols removed from indexed WARP history and not subsequently
+re-added. The CLI renderer is intended for cleanup and API shrinkage
+review; JSON is schema-validated through `graft.cli.struct_dead_symbols`.

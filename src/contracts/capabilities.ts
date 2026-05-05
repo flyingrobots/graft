@@ -41,6 +41,8 @@ export const MCP_TOOL_NAMES = [
   "graft_blame",
   "graft_difficulty",
   "graft_review",
+  "graft_test_coverage",
+  "graft_dead_symbols",
   "knowledge_map",
 ] as const;
 
@@ -71,6 +73,9 @@ export const CLI_COMMAND_NAMES = [
   "symbol_blame",
   "symbol_difficulty",
   "struct_review",
+  "struct_test_coverage",
+  "struct_dead_symbols",
+  "review_cooldown",
   "git_graft_enhance",
 ] as const;
 
@@ -473,6 +478,29 @@ export const CAPABILITY_REGISTRY: readonly CapabilityDefinition[] = [
     cliCommand: "struct_review",
     cliPath: ["struct", "review"],
     cliMcpParity: "peer",
+  }),
+  defineCapability({
+    id: "graft_test_coverage",
+    description: "Structural/reference test coverage map over source and test directories",
+    mcpTool: "graft_test_coverage",
+    cliCommand: "struct_test_coverage",
+    cliPath: ["struct", "test-coverage"],
+    cliMcpParity: "peer",
+  }),
+  defineCapability({
+    id: "graft_dead_symbols",
+    description: "Dead symbol detection over indexed WARP history",
+    mcpTool: "graft_dead_symbols",
+    cliCommand: "struct_dead_symbols",
+    cliPath: ["struct", "dead-symbols"],
+    cliMcpParity: "peer",
+  }),
+  defineCapability({
+    id: "review_cooldown",
+    description: "Review bot cooldown readiness from PR comments",
+    cliCommand: "review_cooldown",
+    cliPath: ["review", "cooldown"],
+    cliMcpParity: "cli_only",
   }),
   defineCapability({
     id: "git_graft_enhance",

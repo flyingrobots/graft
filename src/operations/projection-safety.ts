@@ -55,6 +55,8 @@ const TOOL_QUESTION_CLASS: Readonly<Record<string, QuestionClass>> = {
   read_range: "behavior",
   graft_diff: "structure",
   graft_review: "structure",
+  graft_test_coverage: "structure",
+  graft_dead_symbols: "structure",
   changed_since: "structure",
 };
 

@@ -19,6 +19,7 @@ flowchart LR
     C --> C2[struct]
     C --> C3[symbol]
     C --> C4[diag]
+    C --> C5[review]
 ```
 
 ## What it is for
@@ -29,6 +30,9 @@ flowchart LR
 - bounded, lazy WARP refresh via `graft index --path <path>`
 - one-time legacy import via `graft migrate local-history`
 - human-facing structural review summaries via `graft review`
+- review-loop readiness via `graft review cooldown`
+- structural/reference test coverage maps via `graft struct test-coverage`
+- dead-symbol cleanup candidates via `graft struct dead-symbols`
 - Git-facing structural review summaries via `git graft enhance`
 - local debugging and dogfooding of MCP peer commands
 - human-facing inspection of bounded state such as:
@@ -37,12 +41,14 @@ flowchart LR
   - `graft diag doctor`
   - `graft doctor --sludge`
   - `graft diag stats`
+  - `graft symbol history`
   - `graft symbol difficulty`
 
 ## Core namespaces
 - `read` — bounded reads and change checks
-- `struct` — structural diff / since / map
-- `symbol` — precision show / find / blame / difficulty
+- `struct` — structural diff / since / map / review / test-coverage / dead-symbols
+- `symbol` — precision show / find / blame / history / difficulty
+- `review` — structural review and review-loop readiness
 - `diag` — activity, local-history-dag, doctor, explain, stats, capture
 
 ## Release-facing commands
@@ -59,9 +65,16 @@ graft diag doctor --json
 graft doctor --sludge --json
 graft review --base HEAD~1
 graft review --base origin/main --head HEAD --json
+graft review cooldown --pr 48
+graft review cooldown --comments-file comments.json --now 2026-05-05T15:10:00.000Z --json
 graft symbol find 'create*' --json
+graft symbol history createUser --path src/users.ts
 graft symbol difficulty createUser --path src/users.ts --json
 graft struct diff --json
+graft struct test-coverage --src src --tests test
+graft struct test-coverage --src src --tests test --json
+graft struct dead-symbols --limit 20
+graft struct dead-symbols --limit 20 --json
 git graft enhance --since HEAD~1
 git-graft enhance --since HEAD~1
 git-graft enhance --since HEAD~1 --json
@@ -86,14 +99,46 @@ agents. GitHub PR-number resolution and comment posting are intentionally
 outside this first slice; check out or fetch the PR branch and compare
 refs locally.
 
+`graft review cooldown [--pr <number>] [--comments-file <path>] [--now
+<iso>] [--json]` reads PR comments, detects CodeRabbit rate-limit
+markers, and reports whether another automated review request is ready,
+still cooling down, or unknown. Without `--comments-file` it shells out
+to `gh pr view [<number>] --json comments`; fixtures can use
+`--comments-file` to validate the same logic without network or GitHub
+state. Human output includes local timestamps; JSON output keeps the
+schema-validated `graft.cli.review_cooldown` payload.
+
+`graft struct test-coverage [--src <path>] [--tests <path>] [--json]`
+renders a structural/reference coverage map for exported source symbols.
+The default paths are `src` and `test`. Human output lists summary
+counts, limitations, and per-symbol `covered` / `uncovered` status.
+JSON output keeps the schema-validated
+`graft.cli.struct_test_coverage` payload. This command does not run
+tests or claim line, branch, statement, or execution coverage; imports
+and mentions in test files can count as structural references.
+
+`graft struct dead-symbols [--limit <n>] [--json]` lists symbols removed
+from indexed WARP history and not subsequently re-added. Human output is
+intended for cleanup and API-surface shrinkage review; JSON output keeps
+the schema-validated `graft.cli.struct_dead_symbols` payload backed by
+the `graft_dead_symbols` MCP peer.
+
+`graft symbol history <symbol> [--path <path>] [--json]` renders the
+same provenance-backed history as `graft symbol blame`, with a
+timeline-first human view over creation, signature-change, and reference
+facts. JSON output remains the schema-validated `graft.cli.symbol_blame`
+payload so the alias does not create a second wire shape for the same
+WARP truth.
+
 `git graft enhance --since <ref> [--head <ref>] [--json]` is the
 installed Git external-command form for the release-facing structural
 review aggregator. `git-graft enhance --since <ref>` is the direct
 package binary form. Both route through the same top-level `enhance`
 parser path. The command composes the shipped structural-since and
-export-surface facts into a concise review summary; it does not wrap
-arbitrary Git subcommands or expand into provenance, blame, reference, or
-write-tool behavior.
+export-surface facts into a concise review summary, plus bounded
+provenance hints for changed symbols when WARP blame data is available.
+It does not wrap arbitrary Git subcommands or expand into unbounded
+reference traversal or write-tool behavior.
 
 `graft diag activity` is the current human-facing between-commit surface. It reports bounded local `artifact_history`, not canonical provenance, and now renders a textual operator summary by default. Use `--json` when you want the structured machine-readable form.
 

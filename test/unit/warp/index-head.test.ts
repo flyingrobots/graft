@@ -90,7 +90,7 @@ describe("warp: index HEAD", { timeout: 15000 }, () => {
 
   it("skips non-parseable files gracefully", async () => {
     fs.writeFileSync(path.join(tmpDir, "readme.md"), "# Hello\n");
-    fs.writeFileSync(path.join(tmpDir, "data.json"), "{}");
+    fs.writeFileSync(path.join(tmpDir, "data.csv"), "name,value\nalpha,1\n");
     fs.writeFileSync(path.join(tmpDir, "app.ts"), "export const x = 1;\n");
     git(tmpDir, "add -A");
     git(tmpDir, "commit -m init");

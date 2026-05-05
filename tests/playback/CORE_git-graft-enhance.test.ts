@@ -5,6 +5,8 @@ import { runCli } from "../../src/cli/main.js";
 import { cleanupTestRepo, createTestRepo, git } from "../../test/helpers/git.js";
 import { createBufferWriter } from "../../test/helpers/init.js";
 
+const GIT_GRAFT_ENHANCE_PLAYBACK_TIMEOUT_MS = 15_000;
+
 function writeScenario(repoDir: string): void {
   fs.writeFileSync(path.join(repoDir, "api.ts"), [
     "export function greet(name: string): string {",
@@ -42,43 +44,51 @@ async function runEnhance(repoDir: string, args: readonly string[]): Promise<{ s
 }
 
 describe("CORE_git-graft-enhance playback", () => {
-  it("Can I run git-graft enhance --since HEAD~1 in a temp repo and see a concise structural review summary?", async () => {
-    const repoDir = createTestRepo("graft-enhance-playback-human-");
-    try {
-      writeScenario(repoDir);
+  it(
+    "Can I run git-graft enhance --since HEAD~1 in a temp repo and see a concise structural review summary?",
+    async () => {
+      const repoDir = createTestRepo("graft-enhance-playback-human-");
+      try {
+        writeScenario(repoDir);
 
-      const result = await runEnhance(repoDir, ["enhance", "--since", "HEAD~1"]);
+        const result = await runEnhance(repoDir, ["enhance", "--since", "HEAD~1"]);
 
-      expect(result.stderr).toBe("");
-      expect(result.stdout).toContain("Git Graft Enhance");
-      expect(result.stdout).toContain("range: HEAD~1..HEAD");
-      expect(result.stdout).toContain("symbols: +1 -0 ~1");
-      expect(result.stdout).toContain("semver impact: minor");
-    } finally {
-      cleanupTestRepo(repoDir);
-    }
-  });
+        expect(result.stderr).toBe("");
+        expect(result.stdout).toContain("Git Graft Enhance");
+        expect(result.stdout).toContain("range: HEAD~1..HEAD");
+        expect(result.stdout).toContain("symbols: +1 -0 ~1");
+        expect(result.stdout).toContain("semver impact: minor");
+      } finally {
+        cleanupTestRepo(repoDir);
+      }
+    },
+    GIT_GRAFT_ENHANCE_PLAYBACK_TIMEOUT_MS,
+  );
 
-  it("Can I run git-graft enhance --since HEAD~1 --json in a temp repo and get schema-validated JSON for the same facts?", async () => {
-    const repoDir = createTestRepo("graft-enhance-playback-json-");
-    try {
-      writeScenario(repoDir);
+  it(
+    "Can I run git-graft enhance --since HEAD~1 --json in a temp repo and get schema-validated JSON for the same facts?",
+    async () => {
+      const repoDir = createTestRepo("graft-enhance-playback-json-");
+      try {
+        writeScenario(repoDir);
 
-      const result = await runEnhance(repoDir, ["enhance", "--since", "HEAD~1", "--json"]);
+        const result = await runEnhance(repoDir, ["enhance", "--since", "HEAD~1", "--json"]);
 
-      expect(result.stderr).toBe("");
-      const parsed = JSON.parse(result.stdout) as {
-        _schema: { id: string };
-        structural: { addedSymbols: number; changedSymbols: number };
-        exports: { semverImpact: string };
-      };
-      expect(parsed._schema.id).toBe("graft.cli.git_graft_enhance");
-      expect(parsed.structural).toMatchObject({ addedSymbols: 1, changedSymbols: 1 });
-      expect(parsed.exports.semverImpact).toBe("minor");
-    } finally {
-      cleanupTestRepo(repoDir);
-    }
-  });
+        expect(result.stderr).toBe("");
+        const parsed = JSON.parse(result.stdout) as {
+          _schema: { id: string };
+          structural: { addedSymbols: number; changedSymbols: number };
+          exports: { semverImpact: string };
+        };
+        expect(parsed._schema.id).toBe("graft.cli.git_graft_enhance");
+        expect(parsed.structural).toMatchObject({ addedSymbols: 1, changedSymbols: 1 });
+        expect(parsed.exports.semverImpact).toBe("minor");
+      } finally {
+        cleanupTestRepo(repoDir);
+      }
+    },
+    GIT_GRAFT_ENHANCE_PLAYBACK_TIMEOUT_MS,
+  );
 
   it("Does the documented Git external-command form git graft enhance match the shipped git-graft binary behavior?", () => {
     const packageJson = JSON.parse(fs.readFileSync(path.resolve(import.meta.dirname, "../../package.json"), "utf8")) as {

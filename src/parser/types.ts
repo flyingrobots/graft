@@ -7,6 +7,21 @@ export type EntryKind =
   | "type"
   | "enum"
   | "export"
+  | "object"
+  | "field"
+  | "input"
+  | "input_field"
+  | "scalar"
+  | "union"
+  | "directive"
+  | "operation"
+  | "fragment"
+  | "schema"
+  | "enum_value"
+  | "constant"
+  | "variable"
+  | "package"
+  | "section"
   | "heading";
 
 /** A single entry in a file outline. */

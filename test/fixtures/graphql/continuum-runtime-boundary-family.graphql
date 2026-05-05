@@ -1,0 +1,197 @@
+# Continuum Runtime Boundary Family
+# Version: 0.1.0
+#
+# Continuum-authored minimum shared runtime-boundary family for:
+# - set-side intent carriage
+# - immediate admission result contracts
+# - get-side observer planning and reading request contracts
+# - distributed suffix exchange and import result contracts
+#
+# These are GraphQL-authored contract families.
+# Wesley compiles artifacts for them.
+# Sibling Continuum runtimes and tools later produce actual values conforming to them.
+#
+# Doctrine:
+# - `IntentEnvelope` is not a mutation definition and not an admission result
+# - `TickResult` names the immediate admission-result family, not the later reading
+# - `ObserverPlan` names the plan family, not the observer instance
+# - `ReadingEnvelope` names the observer-relative reading family, not the substrate itself
+# - `SuffixShell` is a witnessed import/export shell, not a patch list or
+#   materialized state snapshot
+
+scalar Hash
+
+enum RuntimeAdmissionOutcomeKind {
+  DERIVED
+  PLURAL
+  CONFLICT
+  OBSTRUCTION
+}
+
+enum ObservationSourceKind {
+  LIVE
+  COORDINATE
+  STRAND
+  HOLOGRAM
+}
+
+enum ObserverStateKind {
+  STATELESS
+  ACCUMULATIVE
+}
+
+type IntentEnvelope
+  @wes_codec(format: "cbor", canonical: true)
+  @wes_registry(id: 129)
+  @wes_version(major: 0, minor: 1)
+{
+  intentId: ID! @wes_stateField(key: true)
+  familyId: String! @wes_stateField
+  operationName: String! @wes_stateField
+  targetLaneId: String! @wes_stateField
+  payloadDigest: Hash! @wes_stateField
+  summary: String! @wes_stateField
+}
+
+type TickResult
+  @wes_codec(format: "cbor", canonical: true)
+  @wes_registry(id: 130)
+  @wes_version(major: 0, minor: 1)
+{
+  resultId: ID! @wes_stateField(key: true)
+  intentId: ID! @wes_stateField
+  laneId: String! @wes_stateField
+  headId: String @wes_stateField
+  frameIndex: Int! @wes_stateField @wes_constraint(min: 0)
+  outcomeKind: RuntimeAdmissionOutcomeKind! @wes_stateField
+  receiptId: ID @wes_stateField
+  hologramRef: String @wes_stateField
+  summary: String! @wes_stateField
+}
+
+type ObserverPlan
+  @wes_codec(format: "cbor", canonical: true)
+  @wes_registry(id: 131)
+  @wes_version(major: 0, minor: 1)
+{
+  planId: ID! @wes_stateField(key: true)
+  laneId: String @wes_stateField
+  apertureKey: String! @wes_stateField
+  basisKey: String! @wes_stateField
+  stateKind: ObserverStateKind! @wes_stateField
+  emissionKind: String! @wes_stateField
+  summary: String! @wes_stateField
+}
+
+type ObservationRequest
+  @wes_codec(format: "cbor", canonical: true)
+  @wes_registry(id: 132)
+  @wes_version(major: 0, minor: 1)
+{
+  requestId: ID! @wes_stateField(key: true)
+  planId: ID! @wes_stateField
+  laneId: String! @wes_stateField
+  sourceKind: ObservationSourceKind! @wes_stateField
+  frameIndex: Int @wes_stateField @wes_constraint(min: 0)
+  headId: String @wes_stateField
+  hologramRef: String @wes_stateField
+  summary: String! @wes_stateField
+}
+
+type ReadingEnvelope
+  @wes_codec(format: "cbor", canonical: true)
+  @wes_registry(id: 133)
+  @wes_version(major: 0, minor: 1)
+{
+  envelopeId: ID! @wes_stateField(key: true)
+  requestId: ID! @wes_stateField
+  planId: ID! @wes_stateField
+  laneId: String! @wes_stateField
+  frameIndex: Int! @wes_stateField @wes_constraint(min: 0)
+  readingDigest: Hash! @wes_stateField
+  witnessRef: String @wes_stateField
+  hologramRef: String @wes_stateField
+  summary: String! @wes_stateField
+}
+
+type SuffixShell
+  @wes_codec(format: "cbor", canonical: true)
+  @wes_registry(id: 134)
+  @wes_version(major: 0, minor: 1)
+{
+  shellId: ID! @wes_stateField(key: true)
+  historyId: String! @wes_stateField
+  laneId: String! @wes_stateField
+  sourceRuntimeId: String! @wes_stateField
+  sourceWriterId: String! @wes_stateField
+  baseFrontierDigest: Hash! @wes_stateField
+  targetFrontierDigest: Hash! @wes_stateField
+  transitionCount: Int! @wes_stateField @wes_constraint(min: 0)
+  witnessDigest: Hash! @wes_stateField
+  summary: String! @wes_stateField
+}
+
+type ImportOutcome
+  @wes_codec(format: "cbor", canonical: true)
+  @wes_registry(id: 135)
+  @wes_version(major: 0, minor: 1)
+{
+  outcomeId: ID! @wes_stateField(key: true)
+  shellId: ID! @wes_stateField
+  targetRuntimeId: String! @wes_stateField
+  laneId: String! @wes_stateField
+  outcomeKind: RuntimeAdmissionOutcomeKind! @wes_stateField
+  frontierDigest: Hash @wes_stateField
+  receiptId: ID @wes_stateField
+  summary: String! @wes_stateField
+}
+
+type Query {
+  intentEnvelopes(targetLaneId: String): [IntentEnvelope!]!
+    @wes_op(name: "intentEnvelopes", readonly: true)
+    @wes_footprint(reads: ["IntentEnvelope"])
+
+  tickResults(laneId: String!, frameIndex: Int): [TickResult!]!
+    @wes_op(name: "tickResults", readonly: true)
+    @wes_footprint(reads: ["TickResult"])
+
+  observerPlans(laneId: String): [ObserverPlan!]!
+    @wes_op(name: "observerPlans", readonly: true)
+    @wes_footprint(reads: ["ObserverPlan"])
+
+  observationRequests(planId: ID, laneId: String, sourceKind: ObservationSourceKind): [ObservationRequest!]!
+    @wes_op(name: "observationRequests", readonly: true)
+    @wes_footprint(reads: ["ObservationRequest"])
+
+  readingEnvelopes(planId: ID, laneId: String!, frameIndex: Int): [ReadingEnvelope!]!
+    @wes_op(name: "readingEnvelopes", readonly: true)
+    @wes_footprint(reads: ["ReadingEnvelope"])
+
+  suffixShells(laneId: String!, sourceRuntimeId: String): [SuffixShell!]!
+    @wes_op(name: "suffixShells", readonly: true)
+    @wes_footprint(reads: ["SuffixShell"])
+
+  importOutcomes(shellId: ID, targetRuntimeId: String): [ImportOutcome!]!
+    @wes_op(name: "importOutcomes", readonly: true)
+    @wes_footprint(reads: ["ImportOutcome"])
+}
+
+type ContinuumRuntimeBoundaryFamilyInvariants
+  @wes_invariant(
+    name: "tick_result_links_intent",
+    expr: "forall r in TickResult: exists i in IntentEnvelope: r.intentId == i.intentId and r.laneId == i.targetLaneId",
+    severity: "error"
+  )
+  @wes_invariant(
+    name: "reading_envelope_links_request_and_plan",
+    expr: "forall e in ReadingEnvelope: exists q in ObservationRequest: exists p in ObserverPlan: q.requestId == e.requestId and p.planId == e.planId and q.planId == p.planId",
+    severity: "error"
+  )
+  @wes_invariant(
+    name: "import_outcome_links_shell",
+    expr: "forall o in ImportOutcome: exists s in SuffixShell: o.shellId == s.shellId and o.laneId == s.laneId",
+    severity: "error"
+  )
+{
+  _placeholder: Boolean
+}

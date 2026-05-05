@@ -1,3 +1,4 @@
+import { readFileSync } from "node:fs";
 import { describe, it, expect } from "vitest";
 import { extractOutline, extractOutlineForFile } from "../../../src/parser/outline.js";
 import type { JumpEntry } from "../../../src/parser/types.js";
@@ -184,6 +185,686 @@ describe("parser: outline extraction", () => {
           exported: false,
         }),
       ]));
+    });
+  });
+
+  describe("GraphQL", () => {
+    it("extracts schema, type, field, directive, operation, and fragment outlines", () => {
+      const source = [
+        "schema { query: Query }",
+        "",
+        "type Query {",
+        "  user(id: ID!): User",
+        "}",
+        "",
+        "interface Node { id: ID! }",
+        "",
+        "type User implements Node {",
+        "  id: ID!",
+        "  name: String!",
+        "}",
+        "",
+        "input UserInput { name: String! }",
+        "",
+        "enum Role { ADMIN USER }",
+        "",
+        "scalar DateTime",
+        "",
+        "union SearchResult = User",
+        "",
+        "directive @auth(role: Role!) on FIELD_DEFINITION",
+        "",
+        "query GetUser($id: ID!) { user(id: $id) { id name } }",
+        "",
+        "fragment UserFields on User { id name }",
+        "",
+        "extend type User { email: String }",
+      ].join("\n");
+
+      const outline = extractOutlineForFile("src/schema.graphql", source);
+
+      expect(outline).not.toBeNull();
+      expect(outline!.entries).toEqual(expect.arrayContaining([
+        expect.objectContaining({
+          kind: "schema",
+          name: "schema",
+          signature: "schema",
+          exported: true,
+        }),
+        expect.objectContaining({
+          kind: "object",
+          name: "Query",
+          signature: "type Query",
+          exported: true,
+        }),
+        expect.objectContaining({
+          kind: "interface",
+          name: "Node",
+          signature: "interface Node",
+          exported: true,
+        }),
+        expect.objectContaining({
+          kind: "input",
+          name: "UserInput",
+          signature: "input UserInput",
+          exported: true,
+        }),
+        expect.objectContaining({
+          kind: "enum",
+          name: "Role",
+          signature: "enum Role",
+          exported: true,
+        }),
+        expect.objectContaining({
+          kind: "scalar",
+          name: "DateTime",
+          signature: "scalar DateTime",
+          exported: true,
+        }),
+        expect.objectContaining({
+          kind: "union",
+          name: "SearchResult",
+          signature: "union SearchResult = User",
+          exported: true,
+        }),
+        expect.objectContaining({
+          kind: "directive",
+          name: "@auth",
+          signature: "directive @auth(role: Role!) on FIELD_DEFINITION",
+          exported: true,
+        }),
+        expect.objectContaining({
+          kind: "operation",
+          name: "GetUser",
+          signature: "query GetUser($id: ID!)",
+          exported: true,
+        }),
+        expect.objectContaining({
+          kind: "fragment",
+          name: "UserFields",
+          signature: "fragment UserFields on User",
+          exported: true,
+        }),
+        expect.objectContaining({
+          kind: "object",
+          name: "extend User",
+          signature: "extend type User",
+          exported: true,
+        }),
+      ]));
+
+      const query = outline!.entries.find((entry) => entry.name === "Query");
+      expect(query?.children).toEqual([
+        expect.objectContaining({
+          kind: "field",
+          name: "user",
+          signature: "user(id: ID!): User",
+          exported: true,
+        }),
+      ]);
+
+      const input = outline!.entries.find((entry) => entry.name === "UserInput");
+      expect(input?.children).toEqual([
+        expect.objectContaining({
+          kind: "input_field",
+          name: "name",
+          signature: "name: String!",
+          exported: true,
+        }),
+      ]);
+
+      const role = outline!.entries.find((entry) => entry.name === "Role");
+      expect(role?.children).toEqual([
+        expect.objectContaining({ kind: "enum_value", name: "ADMIN" }),
+        expect.objectContaining({ kind: "enum_value", name: "USER" }),
+      ]);
+
+      expect(outline!.jumpTable).toContainEqual(expect.objectContaining({
+        symbol: "GetUser",
+        kind: "operation",
+        start: 24,
+        end: 24,
+      }));
+    });
+
+    it("names anonymous GraphQL operations without dropping the outline entry", () => {
+      const outline = extractOutline("{ viewer { id } }", "graphql");
+
+      expect(outline.entries).toContainEqual(expect.objectContaining({
+        kind: "operation",
+        name: "<anonymous query>",
+        signature: "query <anonymous query>",
+        exported: true,
+      }));
+    });
+
+    it("extracts a Continuum GraphQL contract fixture with domain-specific kinds", () => {
+      const source = readFileSync(
+        new URL("../../fixtures/graphql/continuum-runtime-boundary-family.graphql", import.meta.url),
+        "utf8",
+      );
+      const outline = extractOutlineForFile(
+        "test/fixtures/graphql/continuum-runtime-boundary-family.graphql",
+        source,
+      );
+
+      expect(outline).not.toBeNull();
+      expect(outline!.partial).not.toBe(true);
+      expect(outline!.entries).toHaveLength(13);
+      expect(outline!.jumpTable).toContainEqual(expect.objectContaining({
+        symbol: "Hash",
+        kind: "scalar",
+      }));
+      expect(outline!.jumpTable).toContainEqual(expect.objectContaining({
+        symbol: "Query",
+        kind: "object",
+      }));
+
+      const hash = outline!.entries.find((entry) => entry.name === "Hash");
+      expect(hash).toEqual(expect.objectContaining({
+        kind: "scalar",
+        signature: "scalar Hash",
+        exported: true,
+      }));
+
+      const outcomeKind = outline!.entries.find((entry) => entry.name === "RuntimeAdmissionOutcomeKind");
+      expect(outcomeKind).toEqual(expect.objectContaining({
+        kind: "enum",
+        signature: "enum RuntimeAdmissionOutcomeKind",
+      }));
+      expect(outcomeKind?.children).toEqual([
+        expect.objectContaining({ kind: "enum_value", name: "DERIVED" }),
+        expect.objectContaining({ kind: "enum_value", name: "PLURAL" }),
+        expect.objectContaining({ kind: "enum_value", name: "CONFLICT" }),
+        expect.objectContaining({ kind: "enum_value", name: "OBSTRUCTION" }),
+      ]);
+
+      const intentEnvelope = outline!.entries.find((entry) => entry.name === "IntentEnvelope");
+      expect(intentEnvelope).toEqual(expect.objectContaining({
+        kind: "object",
+        signature: expect.stringContaining("@wes_codec") as string,
+      }));
+      expect(intentEnvelope?.signature).toContain("@wes_registry");
+      expect(intentEnvelope?.children).toEqual(expect.arrayContaining([
+        expect.objectContaining({
+          kind: "field",
+          name: "intentId",
+          signature: "intentId: ID!",
+        }),
+        expect.objectContaining({
+          kind: "field",
+          name: "payloadDigest",
+          signature: "payloadDigest: Hash!",
+        }),
+      ]));
+
+      const query = outline!.entries.find((entry) => entry.name === "Query");
+      expect(query?.children).toHaveLength(7);
+      expect(query?.children).toEqual(expect.arrayContaining([
+        expect.objectContaining({
+          kind: "field",
+          name: "intentEnvelopes",
+          signature: "intentEnvelopes(targetLaneId: String): [IntentEnvelope!]!",
+        }),
+        expect.objectContaining({
+          kind: "field",
+          name: "importOutcomes",
+          signature: "importOutcomes(shellId: ID, targetRuntimeId: String): [ImportOutcome!]!",
+        }),
+      ]));
+
+      const invariants = outline!.entries.find((entry) => entry.name === "ContinuumRuntimeBoundaryFamilyInvariants");
+      expect(invariants).toEqual(expect.objectContaining({
+        kind: "object",
+        signature: expect.stringContaining("@wes_invariant") as string,
+      }));
+      expect(invariants?.children).toEqual([
+        expect.objectContaining({
+          kind: "field",
+          name: "_placeholder",
+          signature: "_placeholder: Boolean",
+        }),
+      ]);
+    });
+  });
+
+  describe("Python", () => {
+    it("extracts functions, classes, public methods, fields, and module constants", () => {
+      const source = readFileSync(
+        new URL("../../fixtures/python/agent_service.py", import.meta.url),
+        "utf8",
+      );
+      const outline = extractOutlineForFile("test/fixtures/python/agent_service.py", source);
+
+      expect(outline).not.toBeNull();
+      expect(outline!.partial).not.toBe(true);
+      expect(outline!.entries).toEqual(expect.arrayContaining([
+        expect.objectContaining({
+          kind: "constant",
+          name: "DEFAULT_TIMEOUT",
+          signature: "DEFAULT_TIMEOUT: int",
+          exported: true,
+        }),
+        expect.objectContaining({
+          kind: "class",
+          name: "Runnable",
+          signature: "class Runnable(Protocol)",
+          exported: true,
+        }),
+        expect.objectContaining({
+          kind: "class",
+          name: "AgentService",
+          signature: "class AgentService",
+          exported: true,
+        }),
+        expect.objectContaining({
+          kind: "function",
+          name: "build_service",
+          signature: "build_service(service_id: str, *, timeout_seconds: int = DEFAULT_TIMEOUT): AgentService",
+          exported: true,
+        }),
+        expect.objectContaining({
+          kind: "function",
+          name: "fetch_payload",
+          signature: "async fetch_payload(url: str): bytes",
+          exported: true,
+        }),
+      ]));
+      expect(outline!.entries).not.toContainEqual(expect.objectContaining({
+        name: "_INTERNAL_SENTINEL",
+      }));
+
+      const runnable = outline!.entries.find((entry) => entry.name === "Runnable");
+      expect(runnable?.children).toEqual([
+        expect.objectContaining({
+          kind: "method",
+          name: "run",
+          signature: "run(self, payload: bytes): bytes",
+          exported: true,
+        }),
+      ]);
+
+      const service = outline!.entries.find((entry) => entry.name === "AgentService");
+      expect(service?.children).toEqual(expect.arrayContaining([
+        expect.objectContaining({
+          kind: "field",
+          name: "service_id",
+          signature: "service_id: str",
+        }),
+        expect.objectContaining({
+          kind: "field",
+          name: "timeout_seconds",
+          signature: "timeout_seconds: int",
+        }),
+        expect.objectContaining({
+          kind: "method",
+          name: "describe",
+          signature: "describe(self): str",
+          exported: true,
+        }),
+        expect.objectContaining({
+          kind: "method",
+          name: "execute",
+          signature: "async execute(self, payload: bytes): bytes",
+          exported: true,
+        }),
+        expect.objectContaining({
+          kind: "method",
+          name: "_debug_label",
+          exported: false,
+        }),
+      ]));
+
+      expect(outline!.jumpTable).toContainEqual(expect.objectContaining({
+        symbol: "DEFAULT_TIMEOUT",
+        kind: "constant",
+        start: 6,
+        end: 6,
+      }));
+      expect(outline!.jumpTable).toContainEqual(expect.objectContaining({
+        symbol: "AgentService",
+        kind: "class",
+        start: 15,
+        end: 27,
+      }));
+      expect(outline!.jumpTable).toContainEqual(expect.objectContaining({
+        symbol: "fetch_payload",
+        kind: "function",
+        start: 34,
+        end: 35,
+      }));
+    });
+  });
+
+  describe("Go", () => {
+    it("extracts package declarations, functions, receiver methods, structs, interfaces, constants, and variables", () => {
+      const source = readFileSync(
+        new URL("../../fixtures/go/agent_service.go", import.meta.url),
+        "utf8",
+      );
+      const outline = extractOutlineForFile("test/fixtures/go/agent_service.go", source);
+
+      expect(outline).not.toBeNull();
+      expect(outline!.partial).not.toBe(true);
+      expect(outline!.entries).toEqual(expect.arrayContaining([
+        expect.objectContaining({
+          kind: "package",
+          name: "service",
+          signature: "package service",
+          exported: false,
+        }),
+        expect.objectContaining({
+          kind: "constant",
+          name: "DefaultLimit",
+          signature: "DefaultLimit = 50",
+          exported: true,
+        }),
+        expect.objectContaining({
+          kind: "constant",
+          name: "privateLimit",
+          signature: "privateLimit = 10",
+          exported: false,
+        }),
+        expect.objectContaining({
+          kind: "variable",
+          name: "ErrNotFound",
+          signature: "ErrNotFound = errors.New(\"not found\")",
+          exported: true,
+        }),
+        expect.objectContaining({
+          kind: "interface",
+          name: "Runner",
+          signature: "type Runner interface",
+          exported: true,
+        }),
+        expect.objectContaining({
+          kind: "class",
+          name: "AgentService",
+          signature: "type AgentService struct",
+          exported: true,
+        }),
+        expect.objectContaining({
+          kind: "function",
+          name: "NewAgentService",
+          signature: "NewAgentService(id string): *AgentService",
+          exported: true,
+        }),
+        expect.objectContaining({
+          kind: "method",
+          name: "AgentService.Run",
+          signature: "Run(ctx context.Context, payload []byte): ([]byte, error)",
+          exported: true,
+        }),
+        expect.objectContaining({
+          kind: "function",
+          name: "helper",
+          signature: "helper()",
+          exported: false,
+        }),
+      ]));
+
+      const runner = outline!.entries.find((entry) => entry.name === "Runner");
+      expect(runner?.children).toEqual([
+        expect.objectContaining({
+          kind: "method",
+          name: "Run",
+          signature: "Run(ctx context.Context, payload []byte): ([]byte, error)",
+          exported: true,
+        }),
+      ]);
+
+      const service = outline!.entries.find((entry) => entry.name === "AgentService");
+      expect(service?.children).toEqual(expect.arrayContaining([
+        expect.objectContaining({
+          kind: "field",
+          name: "ID",
+          signature: "ID string",
+          exported: true,
+        }),
+        expect.objectContaining({
+          kind: "field",
+          name: "timeoutSeconds",
+          signature: "timeoutSeconds int",
+          exported: false,
+        }),
+      ]));
+
+      expect(outline!.jumpTable).toContainEqual(expect.objectContaining({
+        symbol: "service",
+        kind: "package",
+        start: 1,
+        end: 1,
+      }));
+      expect(outline!.jumpTable).toContainEqual(expect.objectContaining({
+        symbol: "AgentService.Run",
+        kind: "method",
+        start: 28,
+        end: 30,
+      }));
+    });
+  });
+
+  describe("JSON", () => {
+    it("extracts bounded structured config keys and nested domain anchors", () => {
+      const source = readFileSync(
+        new URL("../../fixtures/json/package-config.json", import.meta.url),
+        "utf8",
+      );
+      const outline = extractOutlineForFile("test/fixtures/json/package-config.json", source);
+
+      expect(outline).not.toBeNull();
+      expect(outline!.partial).not.toBe(true);
+      expect(outline!.entries).toEqual([
+        expect.objectContaining({
+          kind: "field",
+          name: "name",
+          signature: "name: string",
+        }),
+        expect.objectContaining({
+          kind: "field",
+          name: "private",
+          signature: "private: boolean",
+        }),
+        expect.objectContaining({
+          kind: "field",
+          name: "scripts",
+          signature: "scripts: object (3 keys)",
+        }),
+        expect.objectContaining({
+          kind: "field",
+          name: "dependencies",
+          signature: "dependencies: object (2 keys)",
+        }),
+        expect.objectContaining({
+          kind: "field",
+          name: "devDependencies",
+          signature: "devDependencies: object (2 keys)",
+        }),
+        expect.objectContaining({
+          kind: "field",
+          name: "workspaces",
+          signature: "workspaces: array (1 items)",
+        }),
+        expect.objectContaining({
+          kind: "field",
+          name: "compilerOptions",
+          signature: "compilerOptions: object (2 keys)",
+        }),
+      ]);
+
+      const scripts = outline!.entries.find((entry) => entry.name === "scripts");
+      expect(scripts?.children).toEqual([
+        expect.objectContaining({ kind: "field", name: "build", signature: "build: string" }),
+        expect.objectContaining({ kind: "field", name: "test", signature: "test: string" }),
+        expect.objectContaining({ kind: "field", name: "lint", signature: "lint: string" }),
+      ]);
+
+      const compilerOptions = outline!.entries.find((entry) => entry.name === "compilerOptions");
+      expect(compilerOptions?.children).toEqual([
+        expect.objectContaining({ kind: "field", name: "strict", signature: "strict: boolean" }),
+        expect.objectContaining({ kind: "field", name: "module", signature: "module: string" }),
+      ]);
+
+      expect(outline!.jumpTable).toContainEqual(expect.objectContaining({
+        symbol: "scripts",
+        kind: "field",
+        start: 4,
+        end: 8,
+      }));
+      expect(outline!.jumpTable).toContainEqual(expect.objectContaining({
+        symbol: "compilerOptions",
+        kind: "field",
+        start: 20,
+        end: 23,
+      }));
+    });
+  });
+
+  describe("TOML", () => {
+    it("extracts table sections, array tables, and bounded config fields", () => {
+      const source = readFileSync(
+        new URL("../../fixtures/toml/pyproject.toml", import.meta.url),
+        "utf8",
+      );
+      const outline = extractOutlineForFile("test/fixtures/toml/pyproject.toml", source);
+
+      expect(outline).not.toBeNull();
+      expect(outline!.partial).not.toBe(true);
+      expect(outline!.entries).toEqual([
+        expect.objectContaining({
+          kind: "section",
+          name: "project",
+          signature: "table project",
+        }),
+        expect.objectContaining({
+          kind: "section",
+          name: "project.scripts",
+          signature: "table project.scripts",
+        }),
+        expect.objectContaining({
+          kind: "section",
+          name: "tool.pytest.ini_options",
+          signature: "table tool.pytest.ini_options",
+        }),
+        expect.objectContaining({
+          kind: "section",
+          name: "tool.graft.targets",
+          signature: "array_table tool.graft.targets",
+        }),
+      ]);
+
+      const project = outline!.entries.find((entry) => entry.name === "project");
+      expect(project?.children).toEqual([
+        expect.objectContaining({ kind: "field", name: "name", signature: "name: string" }),
+        expect.objectContaining({
+          kind: "field",
+          name: "requires-python",
+          signature: "requires-python: string",
+        }),
+        expect.objectContaining({
+          kind: "field",
+          name: "dependencies",
+          signature: "dependencies: array (2 items)",
+        }),
+      ]);
+
+      expect(outline!.jumpTable).toContainEqual(expect.objectContaining({
+        symbol: "project.scripts",
+        kind: "section",
+        start: 9,
+        end: 12,
+      }));
+      expect(outline!.jumpTable).toContainEqual(expect.objectContaining({
+        symbol: "tool.graft.targets",
+        kind: "section",
+        start: 16,
+        end: 19,
+      }));
+    });
+
+    it("extracts Cargo metadata sections without expanding dependency values", () => {
+      const source = readFileSync(
+        new URL("../../fixtures/toml/Cargo.toml", import.meta.url),
+        "utf8",
+      );
+      const outline = extractOutlineForFile("test/fixtures/toml/Cargo.toml", source);
+
+      expect(outline).not.toBeNull();
+      expect(outline!.entries).toEqual(expect.arrayContaining([
+        expect.objectContaining({ kind: "section", name: "package", signature: "table package" }),
+        expect.objectContaining({
+          kind: "section",
+          name: "dependencies",
+          signature: "table dependencies",
+        }),
+        expect.objectContaining({
+          kind: "section",
+          name: "dev-dependencies",
+          signature: "table dev-dependencies",
+        }),
+      ]));
+
+      const dependencies = outline!.entries.find((entry) => entry.name === "dependencies");
+      expect(dependencies?.children).toEqual([
+        expect.objectContaining({ kind: "field", name: "serde", signature: "serde: string" }),
+        expect.objectContaining({ kind: "field", name: "tokio", signature: "tokio: inline_table" }),
+      ]);
+    });
+  });
+
+  describe("YAML", () => {
+    it("extracts top-level keys and bounded nested mapping anchors", () => {
+      const source = readFileSync(
+        new URL("../../fixtures/yaml/github-actions.yml", import.meta.url),
+        "utf8",
+      );
+      const outline = extractOutlineForFile("test/fixtures/yaml/github-actions.yml", source);
+
+      expect(outline).not.toBeNull();
+      expect(outline!.partial).not.toBe(true);
+      expect(outline!.entries).toEqual([
+        expect.objectContaining({ kind: "field", name: "name", signature: "name: scalar" }),
+        expect.objectContaining({ kind: "field", name: "on", signature: "on: object (2 keys)" }),
+        expect.objectContaining({ kind: "field", name: "jobs", signature: "jobs: object (1 keys)" }),
+        expect.objectContaining({
+          kind: "field",
+          name: "services",
+          signature: "services: object (1 keys)",
+        }),
+      ]);
+
+      const on = outline!.entries.find((entry) => entry.name === "on");
+      expect(on?.children).toEqual([
+        expect.objectContaining({ kind: "field", name: "push", signature: "push: object (1 keys)" }),
+        expect.objectContaining({
+          kind: "field",
+          name: "pull_request",
+          signature: "pull_request: object (0 keys)",
+        }),
+      ]);
+
+      const jobs = outline!.entries.find((entry) => entry.name === "jobs");
+      expect(jobs?.children).toEqual([
+        expect.objectContaining({ kind: "field", name: "test", signature: "test: object (2 keys)" }),
+      ]);
+      const testJob = jobs?.children?.find((entry) => entry.name === "test");
+      expect(testJob?.children).toEqual([
+        expect.objectContaining({ kind: "field", name: "runs-on", signature: "runs-on: scalar" }),
+        expect.objectContaining({ kind: "field", name: "steps", signature: "steps: array (2 items)" }),
+      ]);
+
+      expect(outline!.jumpTable).toContainEqual(expect.objectContaining({
+        symbol: "jobs",
+        kind: "field",
+        start: 6,
+        end: 12,
+      }));
+      expect(outline!.jumpTable).toContainEqual(expect.objectContaining({
+        symbol: "services",
+        kind: "field",
+        start: 13,
+        end: 16,
+      }));
     });
   });
 

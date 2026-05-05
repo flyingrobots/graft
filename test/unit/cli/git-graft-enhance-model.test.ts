@@ -1,5 +1,8 @@
 import { describe, expect, it } from "vitest";
-import { buildGitGraftEnhanceModel } from "../../../src/cli/git-graft-enhance-model.js";
+import {
+  buildGitGraftEnhanceModel,
+  collectGitGraftEnhanceProvenanceCandidates,
+} from "../../../src/cli/git-graft-enhance-model.js";
 
 describe("cli: git graft enhance model", () => {
   it("composes graft_since and graft_exports output into a review model", () => {
@@ -74,6 +77,7 @@ describe("cli: git graft enhance model", () => {
         changedExports: 1,
       },
       warnings: [],
+      provenanceHints: [],
     });
   });
 
@@ -100,5 +104,107 @@ describe("cli: git graft enhance model", () => {
     });
 
     expect(model.warnings).toEqual(["No structural changes found for this range."]);
+    expect(model.provenanceHints).toEqual([]);
+  });
+
+  it("passes provenance hints through the model unchanged", () => {
+    const model = buildGitGraftEnhanceModel({
+      since: "HEAD~1",
+      head: "HEAD",
+      structural: {
+        base: "HEAD~1",
+        head: "HEAD",
+        summary: "changed",
+        layer: "ref_view",
+        files: [{
+          path: "src/a.ts",
+          status: "modified",
+          summary: "src/a.ts | modified | ~1 changed",
+          diff: {
+            added: [],
+            removed: [],
+            changed: [{ name: "shared", kind: "function", exported: true }],
+            unchangedCount: 0,
+          },
+        }, {
+          path: "src/b.ts",
+          status: "modified",
+          summary: "src/b.ts | modified | -1 removed",
+          diff: {
+            added: [],
+            removed: [{ name: "shared", kind: "function", exported: true }],
+            changed: [],
+            unchangedCount: 0,
+          },
+        }],
+      },
+      exports: {
+        base: "HEAD~1",
+        head: "HEAD",
+        added: [],
+        removed: [],
+        changed: [],
+        semverImpact: "none",
+        summary: "No public API changes.",
+      },
+      provenanceHints: [{
+        symbol: "shared",
+        filePath: "src/a.ts",
+        changeKind: "changed",
+        ambiguous: true,
+        status: "available",
+        createdInCommit: "abc123",
+        lastSignatureChange: "def456",
+        referenceCount: 2,
+        changeCount: 3,
+      }],
+    });
+
+    expect(model.provenanceHints).toEqual([
+      expect.objectContaining({
+        symbol: "shared",
+        filePath: "src/a.ts",
+        ambiguous: true,
+        status: "available",
+      }),
+    ]);
+  });
+
+  it("collects provenance candidates with ambiguity marking and limit", () => {
+    const candidates = collectGitGraftEnhanceProvenanceCandidates({
+      base: "HEAD~1",
+      head: "HEAD",
+      summary: "changed",
+      layer: "ref_view",
+      files: [{
+        path: "src/a.ts",
+        status: "modified",
+        summary: "src/a.ts | modified | ~1 changed",
+        diff: {
+          added: [],
+          removed: [],
+          changed: [{ name: "shared", kind: "function", exported: true }],
+          unchangedCount: 0,
+        },
+      }, {
+        path: "src/b.ts",
+        status: "modified",
+        summary: "src/b.ts | modified | -1 removed",
+        diff: {
+          added: [],
+          removed: [{ name: "shared", kind: "function", exported: true }],
+          changed: [],
+          unchangedCount: 0,
+        },
+      }],
+    }, 1);
+
+    expect(candidates).toHaveLength(1);
+    expect(candidates[0]).toEqual(expect.objectContaining({
+      symbol: "shared",
+      filePath: "src/a.ts",
+      changeKind: "changed",
+      ambiguous: true,
+    }));
   });
 });

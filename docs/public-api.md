@@ -55,9 +55,9 @@ rename previews, and diff/mapping on unsaved text.
 Tree-sitter grammar loading is async and lazy. Hosts that need full
 parser-backed results from the synchronous `StructuredBuffer` surface
 should call `await ensureParserReady()` during their own startup or
-before constructing JavaScript, TypeScript, or Rust buffers. If they do
-not, the sync buffer surface remains non-throwing and returns partial,
-parser-unavailable results until the lazy runtime has warmed.
+before constructing JavaScript, TypeScript, Rust, or GraphQL buffers. If
+they do not, the sync buffer surface remains non-throwing and returns
+partial, parser-unavailable results until the lazy runtime has warmed.
 
 Warm buffer results carry explicit basis identity when the caller
 provides it. Single-buffer queries expose `basis`; comparison-style

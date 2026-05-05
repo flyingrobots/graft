@@ -63,7 +63,8 @@ flow:
 ## Key Tool Groups
 - **Bounded Reads**: `safe_read`, `file_outline`, `read_range`, `changed_since`
 - **Governed Edits**: `graft_edit`
-- **Structural History**: `graft_diff`, `graft_since`, `graft_map`
+- **Structural History**: `graft_diff`, `graft_since`, `graft_map`,
+  `graft_review`, `graft_test_coverage`, `graft_dead_symbols`
 - **Structural Metrics**: `graft_churn`, `graft_difficulty`
 - **Precision**: `code_show`, `code_find`, `code_refs`
 - **Activity & Footing**: `activity_view`, `causal_status`, `causal_attach`, `doctor`

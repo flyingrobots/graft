@@ -260,18 +260,18 @@ export async function structuralReview(
     const hasStructuralChanges = diff !== undefined &&
       (diff.added.length > 0 || diff.removed.length > 0 || diff.changed.length > 0);
 
-    if (hasStructuralChanges) {
-      files.push({
-        path: filePath,
-        category: "structural",
-        structuralChanges: { added: diff.added.length, removed: diff.removed.length, changed: diff.changed.length },
-      });
-    } else if (isTestFile(filePath)) {
+    if (isTestFile(filePath)) {
       files.push({ path: filePath, category: "test" });
     } else if (isDocsFile(filePath)) {
       files.push({ path: filePath, category: "docs" });
     } else if (isConfigFile(filePath)) {
       files.push({ path: filePath, category: "config" });
+    } else if (hasStructuralChanges) {
+      files.push({
+        path: filePath,
+        category: "structural",
+        structuralChanges: { added: diff.added.length, removed: diff.removed.length, changed: diff.changed.length },
+      });
     } else {
       files.push({ path: filePath, category: "formatting" });
     }

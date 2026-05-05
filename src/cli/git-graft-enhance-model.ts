@@ -1,7 +1,17 @@
 export type GitGraftEnhanceSemverImpact = "major" | "minor" | "patch" | "none";
+export type GitGraftEnhanceSymbolChangeKind = "added" | "removed" | "changed";
+export type GitGraftEnhanceProvenanceHintStatus = "available" | "unavailable";
 
 export interface GitGraftEnhanceDiffBucket {
   readonly length: number;
+}
+
+export interface GitGraftEnhanceSymbolDiffEntry {
+  readonly name?: string | undefined;
+  readonly symbol?: string | undefined;
+  readonly kind?: string | undefined;
+  readonly signature?: string | undefined;
+  readonly exported?: boolean | undefined;
 }
 
 export interface GitGraftEnhanceFileDiff {
@@ -9,9 +19,9 @@ export interface GitGraftEnhanceFileDiff {
   readonly status: string;
   readonly summary: string;
   readonly diff: {
-    readonly added: GitGraftEnhanceDiffBucket;
-    readonly removed: GitGraftEnhanceDiffBucket;
-    readonly changed: GitGraftEnhanceDiffBucket;
+    readonly added: readonly GitGraftEnhanceSymbolDiffEntry[];
+    readonly removed: readonly GitGraftEnhanceSymbolDiffEntry[];
+    readonly changed: readonly GitGraftEnhanceSymbolDiffEntry[];
     readonly unchangedCount?: number | undefined;
   };
 }
@@ -40,6 +50,7 @@ export interface BuildGitGraftEnhanceModelInput {
   readonly head: string;
   readonly structural: GitGraftEnhanceStructuralInput;
   readonly exports: GitGraftEnhanceExportsInput;
+  readonly provenanceHints?: readonly GitGraftEnhanceProvenanceHint[] | undefined;
 }
 
 export interface GitGraftEnhanceTopFile {
@@ -69,6 +80,27 @@ export interface GitGraftEnhanceModel {
     readonly changedExports: number;
   };
   readonly warnings: readonly string[];
+  readonly provenanceHints: readonly GitGraftEnhanceProvenanceHint[];
+}
+
+export interface GitGraftEnhanceProvenanceCandidate {
+  readonly symbol: string;
+  readonly filePath: string;
+  readonly changeKind: GitGraftEnhanceSymbolChangeKind;
+  readonly ambiguous: boolean;
+}
+
+export interface GitGraftEnhanceProvenanceHint {
+  readonly symbol: string;
+  readonly filePath: string;
+  readonly changeKind: GitGraftEnhanceSymbolChangeKind;
+  readonly ambiguous: boolean;
+  readonly status: GitGraftEnhanceProvenanceHintStatus;
+  readonly createdInCommit?: string | null | undefined;
+  readonly lastSignatureChange?: string | null | undefined;
+  readonly referenceCount?: number | undefined;
+  readonly changeCount?: number | undefined;
+  readonly reason?: string | undefined;
 }
 
 function fileChangeCount(file: GitGraftEnhanceFileDiff): number {
@@ -85,6 +117,55 @@ function topFiles(files: readonly GitGraftEnhanceFileDiff[]): readonly GitGraftE
     }))
     .sort((a, b) => b.changeCount - a.changeCount || a.path.localeCompare(b.path))
     .slice(0, 5);
+}
+
+function symbolName(entry: GitGraftEnhanceSymbolDiffEntry): string | null {
+  const raw = entry.name ?? entry.symbol;
+  return typeof raw === "string" && raw.trim().length > 0 ? raw.trim() : null;
+}
+
+function symbolCandidatesForFile(
+  file: GitGraftEnhanceFileDiff,
+  changeKind: GitGraftEnhanceSymbolChangeKind,
+  entries: readonly GitGraftEnhanceSymbolDiffEntry[],
+): GitGraftEnhanceProvenanceCandidate[] {
+  return entries.flatMap((entry) => {
+    const symbol = symbolName(entry);
+    if (symbol === null) return [];
+    return [{
+      symbol,
+      filePath: file.path,
+      changeKind,
+      ambiguous: false,
+    }];
+  });
+}
+
+export function collectGitGraftEnhanceProvenanceCandidates(
+  structural: GitGraftEnhanceStructuralInput,
+  limit = 5,
+): readonly GitGraftEnhanceProvenanceCandidate[] {
+  const candidates = structural.files.flatMap((file) => [
+    ...symbolCandidatesForFile(file, "removed", file.diff.removed),
+    ...symbolCandidatesForFile(file, "changed", file.diff.changed),
+    ...symbolCandidatesForFile(file, "added", file.diff.added),
+  ]);
+  const symbolCounts = new Map<string, number>();
+  for (const candidate of candidates) {
+    symbolCounts.set(candidate.symbol, (symbolCounts.get(candidate.symbol) ?? 0) + 1);
+  }
+
+  return candidates
+    .map((candidate) => ({
+      ...candidate,
+      ambiguous: (symbolCounts.get(candidate.symbol) ?? 0) > 1,
+    }))
+    .sort((a, b) =>
+      a.filePath.localeCompare(b.filePath) ||
+      a.symbol.localeCompare(b.symbol) ||
+      a.changeKind.localeCompare(b.changeKind)
+    )
+    .slice(0, limit);
 }
 
 function buildWarnings(input: BuildGitGraftEnhanceModelInput): readonly string[] {
@@ -127,5 +208,6 @@ export function buildGitGraftEnhanceModel(input: BuildGitGraftEnhanceModelInput)
       changedExports,
     },
     warnings: buildWarnings(input),
+    provenanceHints: input.provenanceHints ?? [],
   };
 }

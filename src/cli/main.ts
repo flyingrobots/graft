@@ -26,6 +26,7 @@ import { runInit } from "./init.js";
 import { runLocalHistoryDag } from "./local-history-dag.js";
 import { runMigrateLocalHistory } from "./migrate-local-history.js";
 import { emitPeerCommand, invokePeerCommand, writeLine, type Writer } from "./peer-command.js";
+import { runReviewCooldown } from "./review-cooldown.js";
 
 export { resolveEntrypointArgs } from "./command-parser.js";
 
@@ -68,7 +69,7 @@ function renderHelp(writer: Writer): void {
     grouped.set(section, bucket);
   }
 
-  for (const section of ["project", "migrate", "read", "struct", "symbol", "diag"]) {
+  for (const section of ["project", "migrate", "read", "struct", "symbol", "review", "diag"]) {
     const entries = grouped.get(section);
     if (entries === undefined) continue;
     writeLine(writer, `${section}:`);
@@ -193,6 +194,17 @@ export async function runCli(options: RunCliOptions = {}): Promise<void> {
         json: parsed.json,
         stdout,
         invokePeer: options.invokeGitGraftEnhancePeer,
+      });
+      return;
+    }
+    if (parsed.command === "review_cooldown") {
+      runReviewCooldown({
+        cwd,
+        json: parsed.json,
+        stdout,
+        ...(typeof parsed.args["pr"] === "string" ? { pr: parsed.args["pr"] } : {}),
+        ...(typeof parsed.args["commentsFile"] === "string" ? { commentsFile: parsed.args["commentsFile"] } : {}),
+        ...(typeof parsed.args["now"] === "string" ? { now: parsed.args["now"] } : {}),
       });
       return;
     }
