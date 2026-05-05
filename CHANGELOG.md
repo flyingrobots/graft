@@ -113,6 +113,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   symbol reference searches per run, CLI render schemas use strict object
   definitions directly, and review-facing model/render tests cover empty
   history plus provenance-hint output.
+- **Review truth collision follow-up**: CodeRabbit cooldown detection now
+  returns unknown when any authored rate-limit marker lacks timestamp or
+  duration evidence, and structural test coverage avoids substring
+  matches while attributing duplicate exported symbol names to the
+  referenced source file.
 - **Structural review PR feedback**: `graft review` and
   `graft struct review` now require `--base` at parse time, nested
   object-literal defaults no longer compact into malformed signatures,
