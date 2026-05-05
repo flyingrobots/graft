@@ -12,8 +12,8 @@ import type { WarpContext } from "./context.js";
 import type { PatchBuilderV2 } from "@git-stunts/git-warp";
 import { patchGraph, observeGraph, materializeGraph } from "./context.js";
 import { detectLang } from "../parser/lang.js";
-import { parseStructuredTree } from "../parser/runtime.js";
-import { extractOutlineForFile } from "../parser/outline.js";
+import { parseStructuredTreeAsync } from "../parser/runtime.js";
+import { extractOutlineForFileAsync } from "../parser/outline.js";
 import { attachAstSnapshot, emitAstNodes } from "./ast-emitter.js";
 import { resolveImportEdges } from "./ast-import-resolver.js";
 import type { OutlineEntry } from "../parser/types.js";
@@ -456,9 +456,9 @@ async function indexHeadFile(input: {
   const contentResult = await git.run({ args: ["show", `HEAD:${filePath}`], cwd });
   if (contentResult.status !== 0) return { indexed: false };
 
-  const tree = parseStructuredTree(lang, contentResult.stdout);
+  const tree = await parseStructuredTreeAsync(lang, contentResult.stdout);
   try {
-    const outlineResult = extractOutlineForFile(filePath, contentResult.stdout);
+    const outlineResult = await extractOutlineForFileAsync(filePath, contentResult.stdout);
     const outline = outlineResult?.entries ?? [];
     const jumpLookup = new Map<string, { start: number; end: number }>();
     for (const jt of outlineResult?.jumpTable ?? []) {

@@ -92,11 +92,12 @@ export const safeReadTool: ToolDefinition = {
             });
           }
 
-          const diff = diffOutlines(cacheResult.stale.outline, cf.outline);
+          const outline = await cf.outlineSnapshot();
+          const diff = diffOutlines(cacheResult.stale.outline, outline.outline);
           const newReadCount = cacheResult.stale.readCount + 1;
-          ctx.cache.record(filePath, cf.hash, cf.outline, cf.jumpTable, cf.actual);
+          ctx.cache.record(filePath, cf.hash, outline.outline, outline.jumpTable, cf.actual);
           ctx.recordFootprint({
-            symbols: cf.outline.map((e) => e.name),
+            symbols: outline.outline.map((e) => e.name),
           });
           const updatedObs = ctx.cache.get(filePath);
           return ctx.respond("safe_read", {
@@ -104,8 +105,8 @@ export const safeReadTool: ToolDefinition = {
             projection: "diff",
             reason: "CHANGED_SINCE_LAST_READ",
             diff,
-            outline: cf.outline,
-            jumpTable: cf.jumpTable,
+            outline: outline.outline,
+            jumpTable: outline.jumpTable,
             actual: cf.actual,
             readCount: newReadCount,
             lastReadAt: updatedObs?.lastReadAt ?? ctx.cache.now(),
@@ -139,7 +140,8 @@ export const safeReadTool: ToolDefinition = {
         CACHEABLE_PROJECTIONS.has(result.projection) &&
         result.reason !== "UNSUPPORTED_LANGUAGE"
       ) {
-        ctx.cache.record(filePath, cf.hash, cf.outline, cf.jumpTable, result.actual);
+        const outline = await cf.outlineSnapshot();
+        ctx.cache.record(filePath, cf.hash, outline.outline, outline.jumpTable, result.actual);
       }
 
       return ctx.respond("safe_read", toJsonObject(result));
