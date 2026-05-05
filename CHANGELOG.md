@@ -79,6 +79,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   tree before running reference searches, so unstaged or staged test
   deletions degrade to uncovered symbols instead of failing on missing
   paths.
+- **Review truth follow-up**: CodeRabbit cooldown detection now ignores
+  unauthored rate-limit text by default, structural test coverage batches
+  symbol reference searches per run, CLI render schemas use strict object
+  definitions directly, and review-facing model/render tests cover empty
+  history plus provenance-hint output.
 - **Structural review PR feedback**: `graft review` and
   `graft struct review` now require `--base` at parse time, nested
   object-literal defaults no longer compact into malformed signatures,
