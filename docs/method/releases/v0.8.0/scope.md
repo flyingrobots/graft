@@ -1,7 +1,7 @@
 # v0.8.0 Scope Decision
 
-Status: scope forming
-Date: 2026-05-01
+Status: backlog lane formed
+Date: 2026-05-05
 
 ## Current State
 
@@ -25,27 +25,31 @@ Date: 2026-05-01
 
 ## Decision
 
-Make v0.8.0 an operational-truth release unless a stronger blocker
-appears.
+Make v0.8.0 an operational-truth release candidate shape unless a
+stronger blocker appears.
 
 The opening spine should be repo-generic:
 
-1. `CORE_graft-doctor` relevance/scope check
-2. optional `CORE_pr-review-structural-summary`
-3. optional capability/diagnostic posture cleanup that applies to any
-   Git repository
+1. `CORE_pr-review-structural-summary`
+2. `CORE_structural-test-coverage-map`
+3. optional `SURFACE_review-cooldown-status`
 
 This keeps the next release close to the problems we just encountered:
 health checks, PR review evidence, and truthful repo-generic diagnostic
 surfaces without making Graft depend on METHOD project conventions.
+
+The shaped candidate lane lives at `docs/method/backlog/v0.8.0/`. It is
+not a release packet and does not imply that v0.8.0 is ready to cut.
 
 ## Candidate Matrix
 
 | Card | Current reality | v0.8.0 verdict | Next action |
 | --- | --- | --- | --- |
 | `CORE_backlog-status-tool` | Backlog cards, retros, design docs, and DAG metadata are METHOD-domain truth surfaces, not repo-generic Graft surfaces. | Canceled for Graft. | Moved to `docs/method/graveyard/`; re-home in Method MCP / Method CLI if still wanted. |
-| `CORE_graft-doctor` | `graft doctor` and `graft diag doctor` already exist; `--sludge` is shipped. The original card overreached into all-integrity-check CI gate semantics. | Strong opening candidate after narrowing. | Keep the first slice repo-generic: clarify shipped doctor health/capability posture without METHOD state or broad integrity gates. |
-| `CORE_pr-review-structural-summary` | `git graft enhance` and structural diff facts exist. | Optional v0.8.0 product surface. | Pull only after truth/status surfaces are stable. |
+| `CORE_graft-doctor` | `graft doctor` and `graft diag doctor` already exist; `--sludge` is shipped. The original card overreached into all-integrity-check CI gate semantics. | Shipped baseline, not an active v0.8.0 card. | Reopen only with a narrow follow-up card backed by new evidence. |
+| `CORE_pr-review-structural-summary` | `git graft enhance` and structural diff facts exist. | Opening v0.8.0 product surface. | Pull first from `docs/method/backlog/v0.8.0/`. |
+| `CORE_structural-test-coverage-map` | Existing map, outline, and reference primitives can support a structural/reference-based test coverage report. | Follow-up v0.8.0 candidate. | Pull after the PR review summary if the release remains review-truth focused. |
+| `SURFACE_review-cooldown-status` | PR feedback loops currently require manual parsing of automated reviewer cooldown comments. | Optional v0.8.0 helper. | Pull only if PR feedback operations become part of the release spine. |
 | `WARP_lsp-enrichment` | Bounded first-slice card exists and is valid, but introduces a semantic provider boundary and new WARP fact class. | Optional, not the default spine. | Keep in `cool-ideas` unless v0.8.0 explicitly becomes semantic-enrichment focused. |
 | `CORE_migrate-to-slice-first-reads` | Remaining medium-risk full-scan reads are tracked; high-risk paths were mitigated. | Blocked. | Wait for git-warp observer geometry APIs. |
 | `SURFACE_bijou-daemon-status-live-refresh` | Read-only daemon status first slice shipped. | Valid daemon-operator follow-up, not opening spine. | Defer unless v0.8.0 pivots to daemon operations. |
@@ -64,10 +68,10 @@ surfaces without making Graft depend on METHOD project conventions.
 
 ## First Pull Recommendation
 
-Pull `CORE_graft-doctor` only after the narrowed card is accepted.
+Pull `CORE_pr-review-structural-summary` from
+`docs/method/backlog/v0.8.0/` when implementation work resumes.
 
-The first slice should start from the existing shipped command and keep
-the value repo-generic: runtime health, capability posture, optional
-sludge, and existing repo footing. Do not rebuild METHOD backlog status
-inside Graft, and do not turn doctor into a broad CI integrity gate in
-the first slice.
+The first slice should compose existing structural diff facts into a
+small review summary model and CLI surface. Do not start with GitHub
+Action posting, do not claim merge readiness, and do not rebuild METHOD
+backlog status inside Graft.

@@ -191,7 +191,7 @@ export function readBacklogCards(backlogRoot: string): BacklogCard[] {
     const laneRoot = path.join(backlogRoot, laneName);
     const cardFiles = fs
       .readdirSync(laneRoot, { withFileTypes: true })
-      .filter((entry) => entry.isFile() && entry.name.endsWith(".md"))
+      .filter((entry) => entry.isFile() && entry.name.endsWith(".md") && entry.name !== "README.md")
       .map((entry) => path.join(laneRoot, entry.name))
       .sort(compareText);
 
@@ -351,6 +351,10 @@ function formatNodeLabel(card: BacklogCard): string {
 }
 
 function laneFillColor(lane: string): string {
+  if (lane === "v0.8.0") {
+    return "#C8E6C9";
+  }
+
   if (lane === "v0.7.0") {
     return "#FFA07A";
   }
@@ -450,11 +454,13 @@ export function renderBacklogDagDot(model: BacklogDagModel): string {
   lines.push("    label=\"Legend\" labeljust=l fontsize=8 fontcolor=\"#aaaaaa\"");
   lines.push("    style=rounded color=\"#dddddd\"");
   lines.push("    node [fontsize=7 width=1.4]");
+  lines.push("    leg_v08 [label=\"v0.8.0\" fillcolor=\"#C8E6C9\" penwidth=2]");
   lines.push("    leg_v07 [label=\"v0.7.0\" fillcolor=\"#FFA07A\" penwidth=2]");
   lines.push("    leg_bad [label=\"bad-code\" fillcolor=\"#F6B3B3\" penwidth=2]");
   lines.push("    leg_idea [label=\"cool-ideas\" fillcolor=\"#D4E8F7\" penwidth=1]");
   lines.push("    leg_external [label=\"external blocker\" fillcolor=\"#E8F2FF\" penwidth=1]");
   lines.push("    leg_unresolved [label=\"unresolved ref\" fillcolor=\"#F2F2F2\" penwidth=1 style=\"rounded,dashed,filled\"]");
+  lines.push("    leg_v08 -> leg_v07 [style=invis]");
   lines.push("    leg_v07 -> leg_bad [style=invis]");
   lines.push("    leg_bad -> leg_idea [style=invis]");
   lines.push("    leg_idea -> leg_external [style=invis]");

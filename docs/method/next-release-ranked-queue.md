@@ -1,6 +1,6 @@
 # Next Release Ranked Queue
 
-Status: v0.8.0 scope forming
+Status: v0.8.0 backlog lane formed
 
 ## Release thesis
 
@@ -22,16 +22,23 @@ listed idea.
 
 ## Above the line
 
-1. [CORE_graft-doctor.md](../design/CORE_graft-doctor.md)
-   Narrowed scope accepted for the next pull candidate. `graft doctor`
-   already exists as a diagnostic surface, including `--sludge`; the
-   first slice should clarify shipped repo-generic health/capability
-   posture, not run every integrity helper as a CI gate.
+1. [v0.8.0 lane](backlog/v0.8.0/README.md)
+   Scope lane for the current candidate shape. This is not release prep
+   or a tag promise; it is the pull-order truth for likely v0.8.0 work.
 
-2. [CORE_pr-review-structural-summary.md](backlog/asap/CORE_pr-review-structural-summary.md)
-   Optional second slice if v0.8.0 wants a user-visible review workflow.
+2. [CORE_pr-review-structural-summary.md](backlog/v0.8.0/CORE_pr-review-structural-summary.md)
+   Opening implementation spine if v0.8.0 wants a user-visible review
+   workflow.
    It should compose existing structural diff/enhance facts rather than
    inventing a new review engine.
+
+3. [CORE_structural-test-coverage-map.md](backlog/v0.8.0/CORE_structural-test-coverage-map.md)
+   Follow-up review helper if the release remains focused on structural
+   review truth.
+
+4. [SURFACE_review-cooldown-status.md](backlog/v0.8.0/SURFACE_review-cooldown-status.md)
+   Optional PR-feedback helper. Pull only if cooldown state becomes part
+   of the release's operator story.
 
 ## Below the line
 
@@ -59,7 +66,7 @@ listed idea.
 
 ## Next pull
 
-Pull `CORE_graft-doctor` next only under the narrowed card. Keep the
-scope repo-generic: shipped diagnostics, health posture, optional sludge,
-and capability clarity that apply to any Git repository. Do not add
-METHOD state or broad all-integrity-check gate semantics.
+Pull `CORE_pr-review-structural-summary` next from the v0.8.0 lane.
+Keep the scope repo-generic: a structural review summary built on
+existing diff facts, with GitHub Action posting deferred. Do not add
+METHOD state or broad merge-readiness semantics.

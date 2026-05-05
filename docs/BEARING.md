@@ -70,12 +70,13 @@ The immediate focus is **v0.8.0 scope formation**, not feature work.
 3. Do not add METHOD-specific backlog/status features to Graft. METHOD
    backlog lanes, cards, retros, dependency DAGs, and release truth
    surfaces belong in Method MCP / Method CLI.
-4. Pull `CORE_graft-doctor` only under the narrowed scope. The command
-   already exists, so the next slice must clarify shipped repo-generic
-   health posture without METHOD state or broad integrity-gate semantics.
+4. Treat `CORE_graft-doctor` as shipped baseline, not the next active
+   card to reopen. New doctor work needs a narrow follow-up card.
 5. Keep `WARP_lsp-enrichment` and `CORE_migrate-to-slice-first-reads`
    out of the opening v0.8.0 lane. LSP enrichment remains valid
    optional scope; slice-first reads remain externally blocked until
    git-warp observer geometry APIs land.
 6. Treat daemon live refresh and daemon control-plane actions as a
    separate daemon-operator lane, not the default v0.8.0 spine.
+7. Use `docs/method/backlog/v0.8.0/` as the current scope lane, with
+   `CORE_pr-review-structural-summary` as the opening spine.

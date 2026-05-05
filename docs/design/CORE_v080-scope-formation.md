@@ -114,8 +114,8 @@ The opening lane is intentionally small:
   useful for PR feedback loops, but it is not the release spine.
 
 The next pull after this scope cycle should be
-`CORE_pr-review-structural-summary`. This card is promoted to `asap/`
-as the concrete next backlog item.
+`CORE_pr-review-structural-summary`. This card is promoted to the
+`v0.8.0/` backlog lane as the concrete next candidate.
 
 ## Explicit Deferrals
 

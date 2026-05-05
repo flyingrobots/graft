@@ -10,10 +10,12 @@ digraph backlog {
   ranksep=0.55
   nodesep=0.2
 
-  subgraph cluster_asap {
-    label="asap (1)" labeljust=l fontsize=9 fontcolor="#555555"
+  subgraph cluster_v0_8_0 {
+    label="v0.8.0 (3)" labeljust=l fontsize=9 fontcolor="#555555"
     style=rounded color="#cccccc" bgcolor="#fafafa"
-    asap_CORE_pr_review_structural_summary [label="CORE-pr-review-structural-summary - M" fillcolor="#E5E7EB" penwidth=2]
+    v0_8_0_CORE_pr_review_structural_summary [label="CORE-pr-review-structural-summary - M" fillcolor="#C8E6C9" penwidth=2]
+    v0_8_0_CORE_structural_test_coverage_map [label="CORE-structural-test-coverage-map - M" fillcolor="#C8E6C9" penwidth=2]
+    v0_8_0_SURFACE_review_cooldown_status [label="SURFACE-review-cooldown-status - S" fillcolor="#C8E6C9" penwidth=2]
   }
 
   subgraph cluster_bad_code {
@@ -24,7 +26,7 @@ digraph backlog {
   }
 
   subgraph cluster_cool_ideas {
-    label="Cool Ideas (79)" labeljust=l fontsize=9 fontcolor="#555555"
+    label="Cool Ideas (77)" labeljust=l fontsize=9 fontcolor="#555555"
     style=rounded color="#cccccc" bgcolor="#fafafa"
     cool_ideas_bounded_neighborhood_for_references [label="bounded-neighborhood-for-references - S" fillcolor="#D4E8F7" penwidth=1]
     cool_ideas_CI_001_causal_collapse_visualizer [label="CI-001-causal-collapse-visualizer - L" fillcolor="#D4E8F7" penwidth=1]
@@ -51,7 +53,6 @@ digraph backlog {
     cool_ideas_CORE_session_knowledge_map [label="CORE-session-knowledge-map - S" fillcolor="#D4E8F7" penwidth=1]
     cool_ideas_CORE_speculative_read_cost [label="CORE-speculative-read-cost - S" fillcolor="#D4E8F7" penwidth=1]
     cool_ideas_CORE_structural_session_replay [label="CORE-structural-session-replay - M" fillcolor="#D4E8F7" penwidth=1]
-    cool_ideas_CORE_structural_test_coverage_map [label="CORE-structural-test-coverage-map - M" fillcolor="#D4E8F7" penwidth=1]
     cool_ideas_CORE_wire_primitives_into_runtime [label="CORE-wire-primitives-into-runtime - M" fillcolor="#D4E8F7" penwidth=1]
     cool_ideas_monitor_tick_ceiling_tracking [label="monitor-tick-ceiling-tracking - S" fillcolor="#D4E8F7" penwidth=1]
     cool_ideas_SURFACE_active_causal_workspace_status [label="SURFACE-active-causal-workspace-status - M" fillcolor="#D4E8F7" penwidth=1]
@@ -66,7 +67,6 @@ digraph backlog {
     cool_ideas_SURFACE_non_codex_instruction_bootstrap_parity [label="SURFACE-non-codex-instruction-bootstrap-parity - M" fillcolor="#D4E8F7" penwidth=1]
     cool_ideas_SURFACE_offer_rename_refactor [label="SURFACE-offer-rename-refactor - L" fillcolor="#D4E8F7" penwidth=1]
     cool_ideas_SURFACE_pr_feedback_resolution_ledger [label="SURFACE-pr-feedback-resolution-ledger - M" fillcolor="#D4E8F7" penwidth=1]
-    cool_ideas_SURFACE_review_cooldown_status [label="SURFACE-review-cooldown-status - S" fillcolor="#D4E8F7" penwidth=1]
     cool_ideas_SURFACE_terminal_activity_browser_tui [label="SURFACE-terminal-activity-browser-tui - L" fillcolor="#D4E8F7" penwidth=1]
     cool_ideas_traverse_plus_query_hydration_helper [label="traverse-plus-query-hydration-helper - S" fillcolor="#D4E8F7" penwidth=1]
     cool_ideas_WARP_adaptive_projection_selection [label="WARP-adaptive-projection-selection - L" fillcolor="#D4E8F7" penwidth=1]
@@ -139,11 +139,13 @@ digraph backlog {
     label="Legend" labeljust=l fontsize=8 fontcolor="#aaaaaa"
     style=rounded color="#dddddd"
     node [fontsize=7 width=1.4]
+    leg_v08 [label="v0.8.0" fillcolor="#C8E6C9" penwidth=2]
     leg_v07 [label="v0.7.0" fillcolor="#FFA07A" penwidth=2]
     leg_bad [label="bad-code" fillcolor="#F6B3B3" penwidth=2]
     leg_idea [label="cool-ideas" fillcolor="#D4E8F7" penwidth=1]
     leg_external [label="external blocker" fillcolor="#E8F2FF" penwidth=1]
     leg_unresolved [label="unresolved ref" fillcolor="#F2F2F2" penwidth=1 style="rounded,dashed,filled"]
+    leg_v08 -> leg_v07 [style=invis]
     leg_v07 -> leg_bad [style=invis]
     leg_bad -> leg_idea [style=invis]
     leg_idea -> leg_external [style=invis]

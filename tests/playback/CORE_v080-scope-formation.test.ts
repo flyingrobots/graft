@@ -50,8 +50,10 @@ describe("CORE_v080-scope-formation playback", () => {
     expect(openingLane).toContain("`CORE_pr-review-structural-summary`");
     expect(openingLane).toContain("`CORE_structural-test-coverage-map`");
     expect(openingLane).toContain("`SURFACE_review-cooldown-status`");
-    expect(repoFileExists("docs/method/backlog/asap/CORE_pr-review-structural-summary.md")).toBe(true);
-    expect(repoFileExists("docs/method/backlog/cool-ideas/CORE_structural-test-coverage-map.md")).toBe(true);
+    expect(repoFileExists("docs/method/backlog/v0.8.0/README.md")).toBe(true);
+    expect(repoFileExists("docs/method/backlog/v0.8.0/CORE_pr-review-structural-summary.md")).toBe(true);
+    expect(repoFileExists("docs/method/backlog/v0.8.0/CORE_structural-test-coverage-map.md")).toBe(true);
+    expect(repoFileExists("docs/method/backlog/v0.8.0/SURFACE_review-cooldown-status.md")).toBe(true);
   });
 
   it("Can a human see which tempting work is explicitly deferred from the opening v0.8.0 lane?", () => {

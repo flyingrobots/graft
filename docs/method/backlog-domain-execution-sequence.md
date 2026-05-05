@@ -324,8 +324,9 @@ Risk: M
 
 ### Packet 14. Review surfaces
 Backlog docs:
-- [CORE_pr-review-structural-summary.md](backlog/asap/CORE_pr-review-structural-summary.md)
-- [CORE_structural-test-coverage-map.md](backlog/cool-ideas/CORE_structural-test-coverage-map.md)
+- [CORE_pr-review-structural-summary.md](backlog/v0.8.0/CORE_pr-review-structural-summary.md)
+- [CORE_structural-test-coverage-map.md](backlog/v0.8.0/CORE_structural-test-coverage-map.md)
+- [SURFACE_review-cooldown-status.md](backlog/v0.8.0/SURFACE_review-cooldown-status.md)
 - [WARP_zero-noise-code-review.md](backlog/cool-ideas/WARP_zero-noise-code-review.md)
 - [WARP_auto-breaking-change-detection.md](backlog/cool-ideas/WARP_auto-breaking-change-detection.md)
 - [WARP_stale-docs-checker.md](backlog/cool-ideas/WARP_stale-docs-checker.md)

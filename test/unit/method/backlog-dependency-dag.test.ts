@@ -18,6 +18,7 @@ describe("backlog dependency DAG", () => {
     const actualDot = fs.readFileSync(path.join(backlogRoot, "dependency-dag.dot"), "utf8");
 
     expect(actualDot).toBe(expectedDot);
+    expect(model.cards.some((card) => path.basename(card.filePath) === "README.md")).toBe(false);
     expect(model.edges.some((edge) => edge.kinds.includes("blocked_by"))).toBe(true);
     expect(model.edges.some((edge) => edge.kinds.includes("blocking"))).toBe(true);
     expect(model.edges.some((edge) => edge.kinds.includes("blocked_by_external"))).toBe(true);
