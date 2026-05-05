@@ -1,4 +1,4 @@
-export const SUPPORTED_LANGS = ["ts", "tsx", "js", "rust", "graphql", "python"] as const;
+export const SUPPORTED_LANGS = ["ts", "tsx", "js", "rust", "graphql", "python", "go", "json"] as const;
 export type SupportedLang = typeof SUPPORTED_LANGS[number];
 
 export const SUPPORTED_STRUCTURED_FORMATS = [
@@ -14,6 +14,8 @@ const LANGUAGE_SUFFIXES: Readonly<Record<SupportedLang, readonly string[]>> = {
   rust: [".rs"],
   graphql: [".graphql", ".gql", ".graphqls"],
   python: [".py", ".pyi"],
+  go: [".go"],
+  json: [".json"],
 };
 
 const STRUCTURED_FORMAT_SUFFIXES: Readonly<Record<SupportedStructuredFormat, readonly string[]>> = {

@@ -25,3 +25,8 @@ weakening generated/lockfile policy.
 - Extract top-level keys and well-known manifest/schema sections
 - Preserve refusal behavior for generated, lockfile, and policy-denied
   paths
+
+## Implementation status
+
+Pulled into `cycle/CORE_structural-test-coverage-map` alongside Go as
+the first structured-config breadth slice.

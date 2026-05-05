@@ -536,6 +536,190 @@ describe("parser: outline extraction", () => {
     });
   });
 
+  describe("Go", () => {
+    it("extracts package declarations, functions, receiver methods, structs, interfaces, constants, and variables", () => {
+      const source = readFileSync(
+        new URL("../../fixtures/go/agent_service.go", import.meta.url),
+        "utf8",
+      );
+      const outline = extractOutlineForFile("test/fixtures/go/agent_service.go", source);
+
+      expect(outline).not.toBeNull();
+      expect(outline!.partial).not.toBe(true);
+      expect(outline!.entries).toEqual(expect.arrayContaining([
+        expect.objectContaining({
+          kind: "package",
+          name: "service",
+          signature: "package service",
+          exported: false,
+        }),
+        expect.objectContaining({
+          kind: "constant",
+          name: "DefaultLimit",
+          signature: "DefaultLimit = 50",
+          exported: true,
+        }),
+        expect.objectContaining({
+          kind: "constant",
+          name: "privateLimit",
+          signature: "privateLimit = 10",
+          exported: false,
+        }),
+        expect.objectContaining({
+          kind: "variable",
+          name: "ErrNotFound",
+          signature: "ErrNotFound = errors.New(\"not found\")",
+          exported: true,
+        }),
+        expect.objectContaining({
+          kind: "interface",
+          name: "Runner",
+          signature: "type Runner interface",
+          exported: true,
+        }),
+        expect.objectContaining({
+          kind: "class",
+          name: "AgentService",
+          signature: "type AgentService struct",
+          exported: true,
+        }),
+        expect.objectContaining({
+          kind: "function",
+          name: "NewAgentService",
+          signature: "NewAgentService(id string): *AgentService",
+          exported: true,
+        }),
+        expect.objectContaining({
+          kind: "method",
+          name: "AgentService.Run",
+          signature: "Run(ctx context.Context, payload []byte): ([]byte, error)",
+          exported: true,
+        }),
+        expect.objectContaining({
+          kind: "function",
+          name: "helper",
+          signature: "helper()",
+          exported: false,
+        }),
+      ]));
+
+      const runner = outline!.entries.find((entry) => entry.name === "Runner");
+      expect(runner?.children).toEqual([
+        expect.objectContaining({
+          kind: "method",
+          name: "Run",
+          signature: "Run(ctx context.Context, payload []byte): ([]byte, error)",
+          exported: true,
+        }),
+      ]);
+
+      const service = outline!.entries.find((entry) => entry.name === "AgentService");
+      expect(service?.children).toEqual(expect.arrayContaining([
+        expect.objectContaining({
+          kind: "field",
+          name: "ID",
+          signature: "ID string",
+          exported: true,
+        }),
+        expect.objectContaining({
+          kind: "field",
+          name: "timeoutSeconds",
+          signature: "timeoutSeconds int",
+          exported: false,
+        }),
+      ]));
+
+      expect(outline!.jumpTable).toContainEqual(expect.objectContaining({
+        symbol: "service",
+        kind: "package",
+        start: 1,
+        end: 1,
+      }));
+      expect(outline!.jumpTable).toContainEqual(expect.objectContaining({
+        symbol: "AgentService.Run",
+        kind: "method",
+        start: 28,
+        end: 30,
+      }));
+    });
+  });
+
+  describe("JSON", () => {
+    it("extracts bounded structured config keys and nested domain anchors", () => {
+      const source = readFileSync(
+        new URL("../../fixtures/json/package-config.json", import.meta.url),
+        "utf8",
+      );
+      const outline = extractOutlineForFile("test/fixtures/json/package-config.json", source);
+
+      expect(outline).not.toBeNull();
+      expect(outline!.partial).not.toBe(true);
+      expect(outline!.entries).toEqual([
+        expect.objectContaining({
+          kind: "field",
+          name: "name",
+          signature: "name: string",
+        }),
+        expect.objectContaining({
+          kind: "field",
+          name: "private",
+          signature: "private: boolean",
+        }),
+        expect.objectContaining({
+          kind: "field",
+          name: "scripts",
+          signature: "scripts: object (3 keys)",
+        }),
+        expect.objectContaining({
+          kind: "field",
+          name: "dependencies",
+          signature: "dependencies: object (2 keys)",
+        }),
+        expect.objectContaining({
+          kind: "field",
+          name: "devDependencies",
+          signature: "devDependencies: object (2 keys)",
+        }),
+        expect.objectContaining({
+          kind: "field",
+          name: "workspaces",
+          signature: "workspaces: array (1 items)",
+        }),
+        expect.objectContaining({
+          kind: "field",
+          name: "compilerOptions",
+          signature: "compilerOptions: object (2 keys)",
+        }),
+      ]);
+
+      const scripts = outline!.entries.find((entry) => entry.name === "scripts");
+      expect(scripts?.children).toEqual([
+        expect.objectContaining({ kind: "field", name: "build", signature: "build: string" }),
+        expect.objectContaining({ kind: "field", name: "test", signature: "test: string" }),
+        expect.objectContaining({ kind: "field", name: "lint", signature: "lint: string" }),
+      ]);
+
+      const compilerOptions = outline!.entries.find((entry) => entry.name === "compilerOptions");
+      expect(compilerOptions?.children).toEqual([
+        expect.objectContaining({ kind: "field", name: "strict", signature: "strict: boolean" }),
+        expect.objectContaining({ kind: "field", name: "module", signature: "module: string" }),
+      ]);
+
+      expect(outline!.jumpTable).toContainEqual(expect.objectContaining({
+        symbol: "scripts",
+        kind: "field",
+        start: 4,
+        end: 8,
+      }));
+      expect(outline!.jumpTable).toContainEqual(expect.objectContaining({
+        symbol: "compilerOptions",
+        kind: "field",
+        start: 20,
+        end: 23,
+      }));
+    });
+  });
+
   describe("Markdown", () => {
     it("extracts heading hierarchy with section ranges", () => {
       const source = [

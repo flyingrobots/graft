@@ -4,6 +4,8 @@ import { TypescriptExtractor } from "./typescript.js";
 import { RustExtractor } from "./rust.js";
 import { GraphqlExtractor } from "./graphql.js";
 import { PythonExtractor } from "./python.js";
+import { GoExtractor } from "./go.js";
+import { JsonExtractor } from "./json.js";
 
 const typescriptExtractor = new TypescriptExtractor();
 
@@ -14,6 +16,8 @@ const EXTRACTORS: Record<SupportedLang, LanguageExtractor> = {
   rust: new RustExtractor(),
   graphql: new GraphqlExtractor(),
   python: new PythonExtractor(),
+  go: new GoExtractor(),
+  json: new JsonExtractor(),
 };
 
 export function getExtractor(lang: SupportedLang): LanguageExtractor {

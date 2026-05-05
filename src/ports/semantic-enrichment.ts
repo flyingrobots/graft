@@ -6,7 +6,15 @@ export type SemanticEnrichmentStatus =
   | "available"
   | "unavailable";
 
-export type SemanticEnrichmentLanguage = "ts" | "tsx" | "js" | "rust" | "graphql" | "python";
+export type SemanticEnrichmentLanguage =
+  | "ts"
+  | "tsx"
+  | "js"
+  | "rust"
+  | "graphql"
+  | "python"
+  | "go"
+  | "json";
 
 export interface SemanticEnrichmentRequest {
   readonly repoRoot: string;

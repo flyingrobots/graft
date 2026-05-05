@@ -41,12 +41,24 @@ describe("parser: detectLang", () => {
     expect(detectStructuredFormat("app/main.py")).toBe("python");
   });
 
+  it("recognizes Go extensions", () => {
+    expect(detectLang("cmd/graft/main.go")).toBe("go");
+    expect(detectStructuredFormat("internal/service/agent.go")).toBe("go");
+  });
+
+  it("recognizes JSON extensions", () => {
+    expect(detectLang("package.json")).toBe("json");
+    expect(detectStructuredFormat("config/schema.JSON")).toBe("json");
+  });
+
   it("normalizes separators and casing without node:path", () => {
     expect(detectLang("SRC\\COMPONENT.TSX")).toBe("tsx");
     expect(detectLang("src/NESTED\\module.MJS")).toBe("js");
     expect(detectLang("SRC\\LIB.RS")).toBe("rust");
     expect(detectLang("SRC\\SCHEMA.GRAPHQL")).toBe("graphql");
     expect(detectLang("SRC\\SERVICE.PY")).toBe("python");
+    expect(detectLang("SRC\\SERVICE.GO")).toBe("go");
+    expect(detectLang("CONFIG\\PACKAGE.JSON")).toBe("json");
   });
 
   it("returns null for unsupported file types", () => {
@@ -67,8 +79,8 @@ describe("parser: detectStructuredFormat", () => {
 
 describe("parser: supported format identity", () => {
   it("exports explicit supported language identities", () => {
-    expect(SUPPORTED_LANGS).toEqual(["ts", "tsx", "js", "rust", "graphql", "python"]);
-    expect(SUPPORTED_STRUCTURED_FORMATS).toEqual(["ts", "tsx", "js", "rust", "graphql", "python", "md"]);
+    expect(SUPPORTED_LANGS).toEqual(["ts", "tsx", "js", "rust", "graphql", "python", "go", "json"]);
+    expect(SUPPORTED_STRUCTURED_FORMATS).toEqual(["ts", "tsx", "js", "rust", "graphql", "python", "go", "json", "md"]);
   });
 
   it("provides runtime guards for supported identities", () => {
@@ -76,10 +88,14 @@ describe("parser: supported format identity", () => {
     expect(isSupportedLang("rust")).toBe(true);
     expect(isSupportedLang("graphql")).toBe(true);
     expect(isSupportedLang("python")).toBe(true);
+    expect(isSupportedLang("go")).toBe(true);
+    expect(isSupportedLang("json")).toBe(true);
     expect(isSupportedLang("md")).toBe(false);
     expect(isSupportedStructuredFormat("rust")).toBe(true);
     expect(isSupportedStructuredFormat("graphql")).toBe(true);
     expect(isSupportedStructuredFormat("python")).toBe(true);
+    expect(isSupportedStructuredFormat("go")).toBe(true);
+    expect(isSupportedStructuredFormat("json")).toBe(true);
     expect(isSupportedStructuredFormat("md")).toBe(true);
     expect(isSupportedStructuredFormat("yaml")).toBe(false);
   });

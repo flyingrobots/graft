@@ -19,6 +19,8 @@ export type EntryKind =
   | "schema"
   | "enum_value"
   | "constant"
+  | "variable"
+  | "package"
   | "heading";
 
 /** A single entry in a file outline. */

@@ -50,6 +50,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   files using the bundled Python tree-sitter grammar. Outlines cover
   functions, async functions, classes, public methods, class fields, and
   uppercase module constants.
+- **Go structural parsing**: parser-backed outlines, governed reads,
+  structural diffs, and WARP indexing now recognize `.go` files using
+  the bundled Go tree-sitter grammar. Outlines cover packages,
+  functions, receiver methods, structs, interfaces, constants, and
+  variables.
+- **JSON structured config projection**: parser-backed outlines,
+  governed reads, structural diffs, and WARP indexing now recognize
+  `.json` files using the bundled JSON tree-sitter grammar. Outlines
+  summarize top-level config keys with bounded nested object children.
 - **Docker auto-start helper**: the isolated test runner now attempts to
   launch Docker Desktop on macOS before failing the Docker daemon
   preflight, while keeping the existing explicit fallback guidance for

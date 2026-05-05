@@ -25,3 +25,8 @@ Kubernetes-adjacent services, and infrastructure projects.
 - Extract package-level functions, receiver methods, structs,
   interfaces, constants, and variables
 - Use public/private naming as exported evidence where practical
+
+## Implementation status
+
+Pulled into `cycle/CORE_structural-test-coverage-map` after the Python
+language-breadth trial.
