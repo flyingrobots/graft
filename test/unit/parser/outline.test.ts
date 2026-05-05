@@ -187,6 +187,147 @@ describe("parser: outline extraction", () => {
     });
   });
 
+  describe("GraphQL", () => {
+    it("extracts schema, type, field, directive, operation, and fragment outlines", () => {
+      const source = [
+        "schema { query: Query }",
+        "",
+        "type Query {",
+        "  user(id: ID!): User",
+        "}",
+        "",
+        "interface Node { id: ID! }",
+        "",
+        "type User implements Node {",
+        "  id: ID!",
+        "  name: String!",
+        "}",
+        "",
+        "input UserInput { name: String! }",
+        "",
+        "enum Role { ADMIN USER }",
+        "",
+        "scalar DateTime",
+        "",
+        "union SearchResult = User",
+        "",
+        "directive @auth(role: Role!) on FIELD_DEFINITION",
+        "",
+        "query GetUser($id: ID!) { user(id: $id) { id name } }",
+        "",
+        "fragment UserFields on User { id name }",
+        "",
+        "extend type User { email: String }",
+      ].join("\n");
+
+      const outline = extractOutlineForFile("src/schema.graphql", source);
+
+      expect(outline).not.toBeNull();
+      expect(outline!.entries).toEqual(expect.arrayContaining([
+        expect.objectContaining({
+          kind: "type",
+          name: "schema",
+          signature: "schema",
+          exported: true,
+        }),
+        expect.objectContaining({
+          kind: "type",
+          name: "Query",
+          signature: "type Query",
+          exported: true,
+        }),
+        expect.objectContaining({
+          kind: "interface",
+          name: "Node",
+          signature: "interface Node",
+          exported: true,
+        }),
+        expect.objectContaining({
+          kind: "type",
+          name: "UserInput",
+          signature: "input UserInput",
+          exported: true,
+        }),
+        expect.objectContaining({
+          kind: "enum",
+          name: "Role",
+          signature: "enum Role",
+          exported: true,
+        }),
+        expect.objectContaining({
+          kind: "type",
+          name: "DateTime",
+          signature: "scalar DateTime",
+          exported: true,
+        }),
+        expect.objectContaining({
+          kind: "type",
+          name: "SearchResult",
+          signature: "union SearchResult = User",
+          exported: true,
+        }),
+        expect.objectContaining({
+          kind: "function",
+          name: "@auth",
+          signature: "directive @auth(role: Role!) on FIELD_DEFINITION",
+          exported: true,
+        }),
+        expect.objectContaining({
+          kind: "function",
+          name: "GetUser",
+          signature: "query GetUser($id: ID!)",
+          exported: true,
+        }),
+        expect.objectContaining({
+          kind: "function",
+          name: "UserFields",
+          signature: "fragment UserFields on User",
+          exported: true,
+        }),
+        expect.objectContaining({
+          kind: "type",
+          name: "extend User",
+          signature: "extend type User",
+          exported: true,
+        }),
+      ]));
+
+      const query = outline!.entries.find((entry) => entry.name === "Query");
+      expect(query?.children).toEqual([
+        expect.objectContaining({
+          kind: "method",
+          name: "user",
+          signature: "user(id: ID!): User",
+          exported: true,
+        }),
+      ]);
+
+      const role = outline!.entries.find((entry) => entry.name === "Role");
+      expect(role?.children).toEqual([
+        expect.objectContaining({ kind: "export", name: "ADMIN" }),
+        expect.objectContaining({ kind: "export", name: "USER" }),
+      ]);
+
+      expect(outline!.jumpTable).toContainEqual(expect.objectContaining({
+        symbol: "GetUser",
+        kind: "function",
+        start: 24,
+        end: 24,
+      }));
+    });
+
+    it("names anonymous GraphQL operations without dropping the outline entry", () => {
+      const outline = extractOutline("{ viewer { id } }", "graphql");
+
+      expect(outline.entries).toContainEqual(expect.objectContaining({
+        kind: "function",
+        name: "<anonymous query>",
+        signature: "query <anonymous query>",
+        exported: true,
+      }));
+    });
+  });
+
   describe("Markdown", () => {
     it("extracts heading hierarchy with section ranges", () => {
       const source = [

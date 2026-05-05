@@ -10,6 +10,7 @@ interface ParserRuntime {
   readonly tsxLang: Parser.Language;
   readonly jsLang: Parser.Language;
   readonly rustLang: Parser.Language;
+  readonly graphqlLang: Parser.Language;
 }
 
 let parserRuntime: ParserRuntime | null = null;
@@ -34,7 +35,7 @@ async function loadParserRuntime(): Promise<ParserRuntime> {
 
   parserRuntimePromise = (async () => {
     await Parser.init();
-    const [tsLang, tsxLang, jsLang, rustLang] = await Promise.all([
+    const [tsLang, tsxLang, jsLang, rustLang, graphqlLang] = await Promise.all([
       Parser.Language.load(
         esmRequire.resolve("tree-sitter-wasms/out/tree-sitter-typescript.wasm"),
       ),
@@ -47,8 +48,11 @@ async function loadParserRuntime(): Promise<ParserRuntime> {
       Parser.Language.load(
         esmRequire.resolve("tree-sitter-wasms/out/tree-sitter-rust.wasm"),
       ),
+      Parser.Language.load(
+        esmRequire.resolve("tree-sitter-graphql-grammar-wasm/grammar.wasm"),
+      ),
     ]);
-    return { tsLang, tsxLang, jsLang, rustLang };
+    return { tsLang, tsxLang, jsLang, rustLang, graphqlLang };
   })();
 
   try {
@@ -83,6 +87,8 @@ function languageFor(
       return runtime.jsLang;
     case "rust":
       return runtime.rustLang;
+    case "graphql":
+      return runtime.graphqlLang;
   }
 }
 

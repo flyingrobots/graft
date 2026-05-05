@@ -38,6 +38,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 - **Rust structural parsing**: parser-backed outlines, governed reads,
   structural diffs, and WARP indexing now recognize `.rs` files using
   the bundled Rust tree-sitter grammar.
+- **GraphQL structural parsing**: parser-backed outlines, governed
+  reads, structural diffs, and WARP indexing now recognize `.graphql`,
+  `.gql`, and `.graphqls` files using a compatible GraphQL
+  tree-sitter WASM grammar.
 - **Docker auto-start helper**: the isolated test runner now attempts to
   launch Docker Desktop on macOS before failing the Docker daemon
   preflight, while keeping the existing explicit fallback guidance for

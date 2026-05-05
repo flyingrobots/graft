@@ -31,6 +31,9 @@ importers:
       picomatch:
         specifier: ^4.0.4
         version: 4.0.4
+      tree-sitter-graphql-grammar-wasm:
+        specifier: 1.0.1
+        version: 1.0.1
       tree-sitter-wasms:
         specifier: 0.1.13
         version: 0.1.13
@@ -1601,6 +1604,9 @@ packages:
 
   tr46@0.0.3:
     resolution: {integrity: sha512-N3WMsuqV66lT30CrXNbEjx4GEwlow3v6rr4mCcv6prnfwhS01rkgyFdjPNBYd9br7LpXV1+Emh01fHnq2Gdgrw==}
+
+  tree-sitter-graphql-grammar-wasm@1.0.1:
+    resolution: {integrity: sha512-IodB1pYLkxaD/6CzGz7u+gcHm6gC1n41NzJ2JO4B5o+GyjMykWZOGXWRhRsm1oPYz9/igzGwF+x+k9i2eik9CQ==}
 
   tree-sitter-wasms@0.1.13:
     resolution: {integrity: sha512-wT+cR6DwaIz80/vho3AvSF0N4txuNx/5bcRKoXouOfClpxh/qqrF4URNLQXbbt8MaAxeksZcZd1j8gcGjc+QxQ==}
@@ -3326,6 +3332,8 @@ snapshots:
   toidentifier@1.0.1: {}
 
   tr46@0.0.3: {}
+
+  tree-sitter-graphql-grammar-wasm@1.0.1: {}
 
   tree-sitter-wasms@0.1.13: {}
 

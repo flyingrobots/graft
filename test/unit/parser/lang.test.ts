@@ -28,10 +28,18 @@ describe("parser: detectLang", () => {
     expect(detectStructuredFormat("src/lib.rs")).toBe("rust");
   });
 
+  it("recognizes GraphQL extensions", () => {
+    expect(detectLang("schema.graphql")).toBe("graphql");
+    expect(detectLang("src/query.gql")).toBe("graphql");
+    expect(detectLang("src/schema.graphqls")).toBe("graphql");
+    expect(detectStructuredFormat("src/schema.graphql")).toBe("graphql");
+  });
+
   it("normalizes separators and casing without node:path", () => {
     expect(detectLang("SRC\\COMPONENT.TSX")).toBe("tsx");
     expect(detectLang("src/NESTED\\module.MJS")).toBe("js");
     expect(detectLang("SRC\\LIB.RS")).toBe("rust");
+    expect(detectLang("SRC\\SCHEMA.GRAPHQL")).toBe("graphql");
   });
 
   it("returns null for unsupported file types", () => {
@@ -52,15 +60,17 @@ describe("parser: detectStructuredFormat", () => {
 
 describe("parser: supported format identity", () => {
   it("exports explicit supported language identities", () => {
-    expect(SUPPORTED_LANGS).toEqual(["ts", "tsx", "js", "rust"]);
-    expect(SUPPORTED_STRUCTURED_FORMATS).toEqual(["ts", "tsx", "js", "rust", "md"]);
+    expect(SUPPORTED_LANGS).toEqual(["ts", "tsx", "js", "rust", "graphql"]);
+    expect(SUPPORTED_STRUCTURED_FORMATS).toEqual(["ts", "tsx", "js", "rust", "graphql", "md"]);
   });
 
   it("provides runtime guards for supported identities", () => {
     expect(isSupportedLang("ts")).toBe(true);
     expect(isSupportedLang("rust")).toBe(true);
+    expect(isSupportedLang("graphql")).toBe(true);
     expect(isSupportedLang("md")).toBe(false);
     expect(isSupportedStructuredFormat("rust")).toBe(true);
+    expect(isSupportedStructuredFormat("graphql")).toBe(true);
     expect(isSupportedStructuredFormat("md")).toBe(true);
     expect(isSupportedStructuredFormat("yaml")).toBe(false);
   });
