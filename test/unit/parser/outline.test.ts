@@ -720,6 +720,154 @@ describe("parser: outline extraction", () => {
     });
   });
 
+  describe("TOML", () => {
+    it("extracts table sections, array tables, and bounded config fields", () => {
+      const source = readFileSync(
+        new URL("../../fixtures/toml/pyproject.toml", import.meta.url),
+        "utf8",
+      );
+      const outline = extractOutlineForFile("test/fixtures/toml/pyproject.toml", source);
+
+      expect(outline).not.toBeNull();
+      expect(outline!.partial).not.toBe(true);
+      expect(outline!.entries).toEqual([
+        expect.objectContaining({
+          kind: "section",
+          name: "project",
+          signature: "table project",
+        }),
+        expect.objectContaining({
+          kind: "section",
+          name: "project.scripts",
+          signature: "table project.scripts",
+        }),
+        expect.objectContaining({
+          kind: "section",
+          name: "tool.pytest.ini_options",
+          signature: "table tool.pytest.ini_options",
+        }),
+        expect.objectContaining({
+          kind: "section",
+          name: "tool.graft.targets",
+          signature: "array_table tool.graft.targets",
+        }),
+      ]);
+
+      const project = outline!.entries.find((entry) => entry.name === "project");
+      expect(project?.children).toEqual([
+        expect.objectContaining({ kind: "field", name: "name", signature: "name: string" }),
+        expect.objectContaining({
+          kind: "field",
+          name: "requires-python",
+          signature: "requires-python: string",
+        }),
+        expect.objectContaining({
+          kind: "field",
+          name: "dependencies",
+          signature: "dependencies: array (2 items)",
+        }),
+      ]);
+
+      expect(outline!.jumpTable).toContainEqual(expect.objectContaining({
+        symbol: "project.scripts",
+        kind: "section",
+        start: 9,
+        end: 12,
+      }));
+      expect(outline!.jumpTable).toContainEqual(expect.objectContaining({
+        symbol: "tool.graft.targets",
+        kind: "section",
+        start: 16,
+        end: 19,
+      }));
+    });
+
+    it("extracts Cargo metadata sections without expanding dependency values", () => {
+      const source = readFileSync(
+        new URL("../../fixtures/toml/Cargo.toml", import.meta.url),
+        "utf8",
+      );
+      const outline = extractOutlineForFile("test/fixtures/toml/Cargo.toml", source);
+
+      expect(outline).not.toBeNull();
+      expect(outline!.entries).toEqual(expect.arrayContaining([
+        expect.objectContaining({ kind: "section", name: "package", signature: "table package" }),
+        expect.objectContaining({
+          kind: "section",
+          name: "dependencies",
+          signature: "table dependencies",
+        }),
+        expect.objectContaining({
+          kind: "section",
+          name: "dev-dependencies",
+          signature: "table dev-dependencies",
+        }),
+      ]));
+
+      const dependencies = outline!.entries.find((entry) => entry.name === "dependencies");
+      expect(dependencies?.children).toEqual([
+        expect.objectContaining({ kind: "field", name: "serde", signature: "serde: string" }),
+        expect.objectContaining({ kind: "field", name: "tokio", signature: "tokio: inline_table" }),
+      ]);
+    });
+  });
+
+  describe("YAML", () => {
+    it("extracts top-level keys and bounded nested mapping anchors", () => {
+      const source = readFileSync(
+        new URL("../../fixtures/yaml/github-actions.yml", import.meta.url),
+        "utf8",
+      );
+      const outline = extractOutlineForFile("test/fixtures/yaml/github-actions.yml", source);
+
+      expect(outline).not.toBeNull();
+      expect(outline!.partial).not.toBe(true);
+      expect(outline!.entries).toEqual([
+        expect.objectContaining({ kind: "field", name: "name", signature: "name: scalar" }),
+        expect.objectContaining({ kind: "field", name: "on", signature: "on: object (2 keys)" }),
+        expect.objectContaining({ kind: "field", name: "jobs", signature: "jobs: object (1 keys)" }),
+        expect.objectContaining({
+          kind: "field",
+          name: "services",
+          signature: "services: object (1 keys)",
+        }),
+      ]);
+
+      const on = outline!.entries.find((entry) => entry.name === "on");
+      expect(on?.children).toEqual([
+        expect.objectContaining({ kind: "field", name: "push", signature: "push: object (1 keys)" }),
+        expect.objectContaining({
+          kind: "field",
+          name: "pull_request",
+          signature: "pull_request: object (0 keys)",
+        }),
+      ]);
+
+      const jobs = outline!.entries.find((entry) => entry.name === "jobs");
+      expect(jobs?.children).toEqual([
+        expect.objectContaining({ kind: "field", name: "test", signature: "test: object (2 keys)" }),
+      ]);
+      const testJob = jobs?.children?.find((entry) => entry.name === "test");
+      expect(testJob?.children).toEqual([
+        expect.objectContaining({ kind: "field", name: "runs-on", signature: "runs-on: scalar" }),
+        expect.objectContaining({ kind: "field", name: "steps", signature: "steps: array (2 items)" }),
+      ]);
+
+      expect(outline!.jumpTable).toContainEqual(expect.objectContaining({
+        symbol: "jobs",
+        kind: "field",
+        start: 6,
+        end: 12,
+      }));
+      expect(outline!.jumpTable).toContainEqual(expect.objectContaining({
+        symbol: "services",
+        kind: "field",
+        start: 13,
+        end: 16,
+      }));
+    });
+  });
+
   describe("Markdown", () => {
     it("extracts heading hierarchy with section ranges", () => {
       const source = [

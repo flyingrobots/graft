@@ -23,3 +23,9 @@ jobs, resources, services, and API documents without dumping full files.
 - Detect `.yml` and `.yaml`
 - Extract top-level keys and nested domain anchors
 - Keep domain-specific handling additive and conservative
+
+## Implementation status
+
+- Pulled into `cycle/CORE_structural-test-coverage-map` with parser
+  runtime detection, bounded top-level and nested mapping outlines, array
+  shape summaries, and GitHub Actions fixture coverage.

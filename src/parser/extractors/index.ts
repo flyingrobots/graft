@@ -6,6 +6,8 @@ import { GraphqlExtractor } from "./graphql.js";
 import { PythonExtractor } from "./python.js";
 import { GoExtractor } from "./go.js";
 import { JsonExtractor } from "./json.js";
+import { TomlExtractor } from "./toml.js";
+import { YamlExtractor } from "./yaml.js";
 
 const typescriptExtractor = new TypescriptExtractor();
 
@@ -18,6 +20,8 @@ const EXTRACTORS: Record<SupportedLang, LanguageExtractor> = {
   python: new PythonExtractor(),
   go: new GoExtractor(),
   json: new JsonExtractor(),
+  toml: new TomlExtractor(),
+  yaml: new YamlExtractor(),
 };
 
 export function getExtractor(lang: SupportedLang): LanguageExtractor {

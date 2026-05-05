@@ -59,6 +59,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   governed reads, structural diffs, and WARP indexing now recognize
   `.json` files using the bundled JSON tree-sitter grammar. Outlines
   summarize top-level config keys with bounded nested object children.
+- **TOML structured config projection**: parser-backed outlines,
+  governed reads, structural diffs, and WARP indexing now recognize
+  `.toml` files using the bundled TOML tree-sitter grammar. Outlines
+  summarize tables, array tables, and bounded package/tool fields.
+- **YAML structured config projection**: parser-backed outlines,
+  governed reads, structural diffs, and WARP indexing now recognize
+  `.yaml` and `.yml` files using the bundled YAML tree-sitter grammar.
+  Outlines summarize top-level keys and bounded nested mapping anchors.
 - **Docker auto-start helper**: the isolated test runner now attempts to
   launch Docker Desktop on macOS before failing the Docker daemon
   preflight, while keeping the existing explicit fallback guidance for

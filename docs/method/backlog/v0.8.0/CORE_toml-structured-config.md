@@ -22,3 +22,10 @@ outline gives agents enough structure to choose targeted reads.
 - Detect `.toml`
 - Extract table headers and important package/tool sections
 - Keep values bounded and avoid exposing secrets from config payloads
+
+## Implementation status
+
+- Pulled into `cycle/CORE_structural-test-coverage-map` with parser
+  runtime detection, table and array-table outlines, bounded scalar and
+  collection signatures, and `pyproject.toml` plus `Cargo.toml` fixture
+  coverage.

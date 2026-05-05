@@ -21,6 +21,7 @@ export type EntryKind =
   | "constant"
   | "variable"
   | "package"
+  | "section"
   | "heading";
 
 /** A single entry in a file outline. */

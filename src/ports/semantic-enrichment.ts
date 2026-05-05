@@ -14,7 +14,9 @@ export type SemanticEnrichmentLanguage =
   | "graphql"
   | "python"
   | "go"
-  | "json";
+  | "json"
+  | "toml"
+  | "yaml";
 
 export interface SemanticEnrichmentRequest {
   readonly repoRoot: string;

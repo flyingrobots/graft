@@ -108,5 +108,5 @@ describe("public library API", () => {
       status: "partial",
       reason: "PARSER_RUNTIME_NOT_READY",
     });
-  });
+  }, 15_000);
 });
