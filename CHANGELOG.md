@@ -14,6 +14,36 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   emits same-file `calls` edges and `typeof` symbol properties from
   accepted provider facts, caps per-file semantic facts, and reports
   unavailable providers without breaking tree-sitter indexing.
+- **Git version startup guard**: CLI, stdio MCP, and daemon startup now
+  fail early when the installed Git is below the plumbing baseline
+  needed for flags such as `--path-format`. Hosts can also call
+  `ensureGitVersionSupportsGraft(...)` from the root package export.
+- **Method glossary**: `docs/method/GLOSSARY.md` defines core project
+  terms including WARP, causal provenance, strand, worldline, checkout
+  epoch, and workspace overlay.
+
+### Changed
+
+- **Lazy parser runtime**: Tree-sitter and grammar WASM loading now
+  happens through an explicit `ensureParserReady()` path instead of
+  top-level await, reducing cold-start pressure for runtimes that do
+  not parse immediately.
+- **MCP orchestration staging**: MCP invocation and server construction
+  are split into named stages and factories, preserving tool behavior
+  while reducing orchestration debt.
+- **Unified governed read logic**: MCP `safe_read` delegates cache and
+  structural-diff decisions to `RepoWorkspace.safeRead`, keeping the
+  MCP and direct library surfaces aligned.
+- **WARP symbol identity hardening**: symbol-id encoding and decoding
+  now route through `SymIdCodec`, and `indexHead` uses a lighter patch
+  payload estimator instead of serializing full patch JSON for budget
+  checks.
+
+### Fixed
+
+- **Projection bundle README example**: direct `StructuredBuffer` usage
+  now shows explicit disposal, while `createProjectionBundle(...)` is
+  documented as the lifecycle-owning wrapper.
 
 ## [0.7.1] - 2026-04-30
 

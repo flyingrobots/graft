@@ -86,18 +86,25 @@ itself:
 - `createGraftServer(...)`
 - `startStdioServer(...)`
 - `startDaemonServer(...)`
+- `ensureGitVersionSupportsGraft(...)`
 - `CreateGraftServerOptions`
 - `GraftServer`
 - `StartDaemonServerOptions`
+- `GitVersion`
+- `GitVersionGuardOptions`
 
 Use this family when a host needs to boot or embed Graft runtimes,
 rather than call repo-local or buffer-local services directly.
+`ensureGitVersionSupportsGraft(...)` is an additive host guard for
+checking that the installed Git supports the plumbing features Graft
+runtimes require.
 
 ### 5. Metadata
 
 - `GRAFT_VERSION`
+- `GRAFT_MINIMUM_GIT_VERSION`
 
-This is public for version introspection and host diagnostics.
+These are public for version introspection and host diagnostics.
 
 ## What Is Not Public Contract
 

@@ -7,26 +7,29 @@ was observed; this log records what the project plans to do about it.
 Source reports:
 
 - `docs/audit/2026-05-04_code-quality.md`
+- `docs/audit/2026-05-04_code-quality_2.md`
 - `docs/audit/2026-05-04_documentation-quality.md`
+- `docs/audit/2026-05-04_documentation-quality_2.md`
 - `docs/audit/2026-05-04_ship-readiness.md`
+- `docs/audit/2026-05-04_ship-readiness_2.md`
 
 ## Active Remediation Designs
 
 - `docs/design/CORE_mcp-invocation-pipeline.md`
-  Status: design ready.
+  Status: implementation started.
   Audit finding: large MCP invocation function.
 - `docs/design/CORE_composition-root-refactor.md`
-  Status: design ready.
+  Status: implementation started.
   Audit finding: large server composition root.
 - `docs/design/CORE_unified-read-logic.md`
-  Status: design ready.
+  Status: implementation started.
   Audit finding: duplicate governed read logic.
 
 ## Implementation Status
 
 ### MCP invocation pipeline
 
-Status: design ready, not implemented.
+Status: behavior-preserving first slice implemented.
 
 Tracks:
 
@@ -37,12 +40,12 @@ Tracks:
 - runtime observability failure isolation
 - read-attribution event recording
 
-Next action: pull `CORE_mcp-invocation-pipeline` into a METHOD cycle
-and start with behavior-preserving invocation tests.
+Next action: add smaller stage-level tests around the extracted helpers
+before adding new invocation behavior.
 
 ### Composition root refactor
 
-Status: design ready, not implemented.
+Status: behavior-preserving first slice implemented.
 
 Tracks:
 
@@ -53,30 +56,32 @@ Tracks:
 - MCP tool registration
 - returned `GraftServer` surface construction
 
-Next action: pull `CORE_composition-root-refactor` after or alongside
-the invocation pipeline if the write sets stay separate.
+Next action: keep future factory changes behavior-preserving and avoid
+adding runtime policy to the composition root.
 
 ### Unified governed read logic
 
-Status: design ready, not implemented.
+Status: MCP `safe_read` now delegates to `RepoWorkspace.safeRead`.
 
 Tracks:
 
-- `src/mcp/tools/safe-read.ts` cache and diff branches
-- `src/operations/repo-workspace.ts` parallel cache and diff branches
-- `src/operations/cached-file.ts` eager outline extraction
+- `src/mcp/tools/safe-read.ts` cache and diff branches removed
+- `src/operations/repo-workspace.ts` owns governed cache and diff logic
+- `src/operations/cached-file.ts` outline extraction made lazy
 
-Next action: add parity tests for MCP and library `safe_read` behavior,
-then extract the governed-read service.
+Next action: keep parity tests broad enough that future MCP changes
+cannot reintroduce duplicate governed-read branches.
 
 ## Related Documentation Remediation
 
 The documentation-quality audit also called out public-facing
-documentation gaps. They are not implemented in this docs-only hardening
-turn, but they should remain visible:
+documentation gaps. Some are implemented in the current remediation
+slice; the remaining gaps should stay visible:
 
+- README projection-bundle lifecycle example
 - README editor integration and idempotent init language
 - README verification section
+- `docs/method/GLOSSARY.md`
 - `docs/TROUBLESHOOTING.md` for daemon startup, socket ownership,
   stale sockets, and observability logs
 - a causal-provenance example for skeptical readers
@@ -85,7 +90,7 @@ turn, but they should remain visible:
 
 All active remediation designs are intended to be non-breaking.
 
-They must not change:
+They must not remove or incompatibly change:
 
 - root exports documented in `docs/public-api.md`
 - `createGraftServer`
@@ -96,8 +101,8 @@ They must not change:
 - MCP input schemas
 - MCP output schemas
 
-Any later decision to expose a new public helper must be handled as a
-separate API design and versioning decision.
+Additive root exports are allowed only when they are documented in
+`docs/public-api.md` and treated as semver-public.
 
 ## Anti-Sludge Guardrail
 
