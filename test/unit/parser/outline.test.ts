@@ -225,13 +225,13 @@ describe("parser: outline extraction", () => {
       expect(outline).not.toBeNull();
       expect(outline!.entries).toEqual(expect.arrayContaining([
         expect.objectContaining({
-          kind: "type",
+          kind: "schema",
           name: "schema",
           signature: "schema",
           exported: true,
         }),
         expect.objectContaining({
-          kind: "type",
+          kind: "object",
           name: "Query",
           signature: "type Query",
           exported: true,
@@ -243,7 +243,7 @@ describe("parser: outline extraction", () => {
           exported: true,
         }),
         expect.objectContaining({
-          kind: "type",
+          kind: "input",
           name: "UserInput",
           signature: "input UserInput",
           exported: true,
@@ -255,37 +255,37 @@ describe("parser: outline extraction", () => {
           exported: true,
         }),
         expect.objectContaining({
-          kind: "type",
+          kind: "scalar",
           name: "DateTime",
           signature: "scalar DateTime",
           exported: true,
         }),
         expect.objectContaining({
-          kind: "type",
+          kind: "union",
           name: "SearchResult",
           signature: "union SearchResult = User",
           exported: true,
         }),
         expect.objectContaining({
-          kind: "function",
+          kind: "directive",
           name: "@auth",
           signature: "directive @auth(role: Role!) on FIELD_DEFINITION",
           exported: true,
         }),
         expect.objectContaining({
-          kind: "function",
+          kind: "operation",
           name: "GetUser",
           signature: "query GetUser($id: ID!)",
           exported: true,
         }),
         expect.objectContaining({
-          kind: "function",
+          kind: "fragment",
           name: "UserFields",
           signature: "fragment UserFields on User",
           exported: true,
         }),
         expect.objectContaining({
-          kind: "type",
+          kind: "object",
           name: "extend User",
           signature: "extend type User",
           exported: true,
@@ -295,22 +295,32 @@ describe("parser: outline extraction", () => {
       const query = outline!.entries.find((entry) => entry.name === "Query");
       expect(query?.children).toEqual([
         expect.objectContaining({
-          kind: "method",
+          kind: "field",
           name: "user",
           signature: "user(id: ID!): User",
           exported: true,
         }),
       ]);
 
+      const input = outline!.entries.find((entry) => entry.name === "UserInput");
+      expect(input?.children).toEqual([
+        expect.objectContaining({
+          kind: "input_field",
+          name: "name",
+          signature: "name: String!",
+          exported: true,
+        }),
+      ]);
+
       const role = outline!.entries.find((entry) => entry.name === "Role");
       expect(role?.children).toEqual([
-        expect.objectContaining({ kind: "export", name: "ADMIN" }),
-        expect.objectContaining({ kind: "export", name: "USER" }),
+        expect.objectContaining({ kind: "enum_value", name: "ADMIN" }),
+        expect.objectContaining({ kind: "enum_value", name: "USER" }),
       ]);
 
       expect(outline!.jumpTable).toContainEqual(expect.objectContaining({
         symbol: "GetUser",
-        kind: "function",
+        kind: "operation",
         start: 24,
         end: 24,
       }));
@@ -320,7 +330,7 @@ describe("parser: outline extraction", () => {
       const outline = extractOutline("{ viewer { id } }", "graphql");
 
       expect(outline.entries).toContainEqual(expect.objectContaining({
-        kind: "function",
+        kind: "operation",
         name: "<anonymous query>",
         signature: "query <anonymous query>",
         exported: true,

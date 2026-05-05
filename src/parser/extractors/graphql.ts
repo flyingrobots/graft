@@ -78,7 +78,7 @@ export class GraphqlExtractor implements LanguageExtractor {
       case "schema_definition":
       case "schema_extension":
         return new OutlineEntry({
-          kind: "type",
+          kind: "schema",
           name: node.type === "schema_extension" ? "extend schema" : "schema",
           exported: true,
           signature: this.headerSignature(node),
@@ -97,9 +97,10 @@ export class GraphqlExtractor implements LanguageExtractor {
         return this.processEnumType(node);
       case "scalar_type_definition":
       case "scalar_type_extension":
+        return this.processNamedType(node, "scalar");
       case "union_type_definition":
       case "union_type_extension":
-        return this.processNamedType(node);
+        return this.processNamedType(node, "union");
       case "directive_definition":
         return this.processDirective(node);
       case "operation_definition":
@@ -112,7 +113,7 @@ export class GraphqlExtractor implements LanguageExtractor {
   }
 
   private processObjectType(node: TSNode): OutlineEntry | undefined {
-    return this.processNamedType(node, "type", this.fieldChildren(node));
+    return this.processNamedType(node, "object", this.fieldChildren(node));
   }
 
   private processInterfaceType(node: TSNode): OutlineEntry | undefined {
@@ -120,7 +121,7 @@ export class GraphqlExtractor implements LanguageExtractor {
   }
 
   private processInputObjectType(node: TSNode): OutlineEntry | undefined {
-    return this.processNamedType(node, "type", this.inputFieldChildren(node));
+    return this.processNamedType(node, "input", this.inputFieldChildren(node));
   }
 
   private processEnumType(node: TSNode): OutlineEntry | undefined {
@@ -153,7 +154,7 @@ export class GraphqlExtractor implements LanguageExtractor {
     }
 
     return new OutlineEntry({
-      kind: "function",
+      kind: "directive",
       name: `@${name}`,
       exported: true,
       signature: this.headerSignature(node),
@@ -165,7 +166,7 @@ export class GraphqlExtractor implements LanguageExtractor {
     const name = this.nameText(node) ?? `<anonymous ${operationType}>`;
     const variables = this.childText(node, "variable_definitions") ?? "";
     return new OutlineEntry({
-      kind: "function",
+      kind: "operation",
       name,
       exported: true,
       signature: boundSignature(`${operationType} ${name}${variables}`),
@@ -183,7 +184,7 @@ export class GraphqlExtractor implements LanguageExtractor {
       ? `fragment ${name}`
       : `fragment ${name} ${typeCondition}`;
     return new OutlineEntry({
-      kind: "function",
+      kind: "fragment",
       name,
       exported: true,
       signature: boundSignature(signature),
@@ -226,7 +227,7 @@ export class GraphqlExtractor implements LanguageExtractor {
           return [];
         }
         return [new OutlineEntry({
-          kind: "export",
+          kind: "enum_value",
           name: enumValue,
           exported: true,
         })];
@@ -246,7 +247,7 @@ export class GraphqlExtractor implements LanguageExtractor {
       : `${name}${args}: ${type}`;
 
     return [new OutlineEntry({
-      kind: "method",
+      kind: node.type === "input_value_definition" ? "input_field" : "field",
       name,
       exported: true,
       signature: boundSignature(signature),
