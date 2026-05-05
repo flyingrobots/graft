@@ -63,8 +63,11 @@ function renderSummary(status: ReviewCooldownStatusKind, remainingMs: number | u
   return "CodeRabbit review cooldown is ready.";
 }
 
-function isCodeRabbitComment(comment: ReviewCooldownComment): boolean {
-  return comment.author === undefined || CODERABBIT_AUTHOR_PATTERN.test(comment.author);
+function isCodeRabbitComment(comment: ReviewCooldownComment, trustUnknown = false): boolean {
+  if (comment.author === undefined) {
+    return trustUnknown;
+  }
+  return CODERABBIT_AUTHOR_PATTERN.test(comment.author);
 }
 
 export function reviewCooldownStatus(

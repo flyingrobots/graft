@@ -66,6 +66,11 @@ interface ReferenceSearchResult {
   readonly referencingTestFiles: readonly string[];
 }
 
+interface MatchedReferenceLine {
+  readonly filePath: string;
+  readonly content: string;
+}
+
 const DEFAULT_SOURCE_PATH = "src";
 const DEFAULT_TEST_PATH = "test";
 const GIT_FILE_LIST_TIMEOUT_MS = 10_000;
@@ -200,7 +205,11 @@ async function parseSourceFile(
   return { path: filePath, symbols };
 }
 
-function searchArgs(symbolName: string, testFiles: readonly string[]): readonly string[] {
+function patternArgs(symbolNames: readonly string[]): readonly string[] {
+  return symbolNames.flatMap((symbolName) => ["-e", symbolName]);
+}
+
+function searchArgs(symbolNames: readonly string[], testFiles: readonly string[]): readonly string[] {
   return [
     "--no-heading",
     "--line-number",
@@ -209,18 +218,17 @@ function searchArgs(symbolName: string, testFiles: readonly string[]): readonly 
     "never",
     "--with-filename",
     "-F",
-    "-e",
-    symbolName,
+    ...patternArgs(symbolNames),
     "--",
     ...testFiles,
   ];
 }
 
-function grepArgs(symbolName: string, testFiles: readonly string[]): readonly string[] {
-  return ["-nH", "-F", symbolName, "--", ...testFiles];
+function grepArgs(symbolNames: readonly string[], testFiles: readonly string[]): readonly string[] {
+  return ["-nH", "-F", ...patternArgs(symbolNames), "--", ...testFiles];
 }
 
-function parseMatchedFiles(stdout: string): readonly string[] {
+function parseMatchedReferenceLines(stdout: string): readonly MatchedReferenceLine[] {
   if (stdout.trim().length === 0) {
     return [];
   }
@@ -229,32 +237,66 @@ function parseMatchedFiles(stdout: string): readonly string[] {
     .trim()
     .split("\n")
     .map((line) => {
-      const match = /^(.*?):\d+(?::\d+)?:/.exec(line);
-      return match?.[1];
+      const match = /^(.*?):\d+(?::\d+)?:([\s\S]*)$/.exec(line);
+      if (match?.[1] === undefined || match[1].length === 0) {
+        return null;
+      }
+      return { filePath: match[1], content: match[2] ?? "" };
     })
-    .filter((filePath): filePath is string => filePath !== undefined && filePath.length > 0);
+    .filter((line): line is MatchedReferenceLine => line !== null);
 }
 
-function countSearchLines(stdout: string): number {
-  if (stdout.trim().length === 0) {
-    return 0;
+function emptyReferenceResults(symbolNames: readonly string[]): ReadonlyMap<string, ReferenceSearchResult> {
+  return new Map(symbolNames.map((symbolName) => [
+    symbolName,
+    { referenceCount: 0, referencingTestFiles: [] },
+  ]));
+}
+
+function collectReferenceResults(
+  stdout: string,
+  symbolNames: readonly string[],
+): ReadonlyMap<string, ReferenceSearchResult> {
+  const counts = new Map<string, number>();
+  const fileSets = new Map<string, Set<string>>();
+  for (const symbolName of symbolNames) {
+    counts.set(symbolName, 0);
+    fileSets.set(symbolName, new Set<string>());
   }
-  return stdout.trim().split("\n").length;
+
+  for (const line of parseMatchedReferenceLines(stdout)) {
+    for (const symbolName of symbolNames) {
+      if (!line.content.includes(symbolName)) {
+        continue;
+      }
+      counts.set(symbolName, (counts.get(symbolName) ?? 0) + 1);
+      fileSets.get(symbolName)?.add(line.filePath);
+    }
+  }
+
+  return new Map(symbolNames.map((symbolName) => [
+    symbolName,
+    {
+      referenceCount: counts.get(symbolName) ?? 0,
+      referencingTestFiles: [...(fileSets.get(symbolName) ?? new Set<string>())]
+        .sort((a, b) => a.localeCompare(b)),
+    },
+  ]));
 }
 
-function runReferenceSearch(
+function runReferenceSearches(
   cwd: string,
   process: ProcessRunner,
-  symbolName: string,
+  symbolNames: readonly string[],
   testFiles: readonly string[],
-): ReferenceSearchResult {
-  if (testFiles.length === 0) {
-    return { referenceCount: 0, referencingTestFiles: [] };
+): ReadonlyMap<string, ReferenceSearchResult> {
+  if (symbolNames.length === 0 || testFiles.length === 0) {
+    return emptyReferenceResults(symbolNames);
   }
 
   const ripgrep = process.run({
     command: "rg",
-    args: searchArgs(symbolName, testFiles),
+    args: searchArgs(symbolNames, testFiles),
     cwd,
     timeoutMs: REFERENCE_SEARCH_TIMEOUT_MS,
     maxBufferBytes: REFERENCE_SEARCH_MAX_BUFFER_BYTES,
@@ -262,14 +304,10 @@ function runReferenceSearch(
 
   if (ripgrep.error === undefined) {
     if (ripgrep.status === 0) {
-      const files = [...new Set(parseMatchedFiles(ripgrep.stdout))].sort((a, b) => a.localeCompare(b));
-      return {
-        referenceCount: countSearchLines(ripgrep.stdout),
-        referencingTestFiles: files,
-      };
+      return collectReferenceResults(ripgrep.stdout, symbolNames);
     }
     if (ripgrep.status === 1) {
-      return { referenceCount: 0, referencingTestFiles: [] };
+      return emptyReferenceResults(symbolNames);
     }
     const detail = ripgrep.stderr.trim();
     throw new Error(`ripgrep test reference search failed${detail.length > 0 ? `: ${detail}` : ""}`);
@@ -277,7 +315,7 @@ function runReferenceSearch(
 
   const grep = process.run({
     command: "grep",
-    args: grepArgs(symbolName, testFiles),
+    args: grepArgs(symbolNames, testFiles),
     cwd,
     timeoutMs: REFERENCE_SEARCH_TIMEOUT_MS,
     maxBufferBytes: REFERENCE_SEARCH_MAX_BUFFER_BYTES,
@@ -285,14 +323,10 @@ function runReferenceSearch(
 
   if (grep.error === undefined) {
     if (grep.status === 0) {
-      const files = [...new Set(parseMatchedFiles(grep.stdout))].sort((a, b) => a.localeCompare(b));
-      return {
-        referenceCount: countSearchLines(grep.stdout),
-        referencingTestFiles: files,
-      };
+      return collectReferenceResults(grep.stdout, symbolNames);
     }
     if (grep.status === 1) {
-      return { referenceCount: 0, referencingTestFiles: [] };
+      return emptyReferenceResults(symbolNames);
     }
     const detail = grep.stderr.trim();
     throw new Error(`grep test reference search failed${detail.length > 0 ? `: ${detail}` : ""}`);
@@ -327,6 +361,9 @@ export async function structuralTestCoverageMap(
   const sourceFiles = (await Promise.all(
     codeSourceFiles.map((filePath) => parseSourceFile(opts, filePath)),
   )).filter((file): file is SourceFile => file !== null);
+  const symbolNames = [...new Set(sourceFiles.flatMap((file) => file.symbols.map((symbol) => symbol.name)))]
+    .sort((a, b) => a.localeCompare(b));
+  const referenceResults = runReferenceSearches(opts.cwd, opts.process, symbolNames, codeTestFiles);
 
   const files: StructuralTestCoverageFile[] = [];
   let coveredSymbols = 0;
@@ -335,7 +372,7 @@ export async function structuralTestCoverageMap(
   for (const sourceFile of sourceFiles) {
     const symbols: StructuralTestCoverageSymbol[] = [];
     for (const symbol of sourceFile.symbols) {
-      const refs = runReferenceSearch(opts.cwd, opts.process, symbol.name, codeTestFiles);
+      const refs = referenceResults.get(symbol.name) ?? { referenceCount: 0, referencingTestFiles: [] };
       const status: StructuralTestCoverageStatus = refs.referenceCount > 0 ? "covered" : "uncovered";
       if (status === "covered") {
         coveredSymbols++;

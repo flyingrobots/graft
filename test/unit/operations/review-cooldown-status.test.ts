@@ -59,6 +59,23 @@ describe("operations: review cooldown status", () => {
     });
   });
 
+  it("does not trust cooldown markers without an explicit CodeRabbit author", () => {
+    const status = reviewCooldownStatus({
+      now: new Date("2026-05-05T15:10:00.000Z"),
+      comments: [
+        {
+          body: "Rate limit exceeded. Please retry in 30 minutes.",
+          updatedAt: "2026-05-05T15:00:00.000Z",
+        },
+      ],
+    });
+
+    expect(status).toMatchObject({
+      status: "ready",
+      markerFound: false,
+    });
+  });
+
   it("reports unknown when a marker lacks enough expiry evidence", () => {
     const status = reviewCooldownStatus({
       now: new Date("2026-05-05T15:10:00.000Z"),

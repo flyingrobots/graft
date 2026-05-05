@@ -1,5 +1,8 @@
 import { describe, expect, it } from "vitest";
-import { buildGitGraftEnhanceModel } from "../../../src/cli/git-graft-enhance-model.js";
+import {
+  buildGitGraftEnhanceModel,
+  collectGitGraftEnhanceProvenanceCandidates,
+} from "../../../src/cli/git-graft-enhance-model.js";
 
 describe("cli: git graft enhance model", () => {
   it("composes graft_since and graft_exports output into a review model", () => {
@@ -104,7 +107,7 @@ describe("cli: git graft enhance model", () => {
     expect(model.provenanceHints).toEqual([]);
   });
 
-  it("selects bounded provenance candidates and marks duplicate symbol names ambiguous", () => {
+  it("passes provenance hints through the model unchanged", () => {
     const model = buildGitGraftEnhanceModel({
       since: "HEAD~1",
       head: "HEAD",
@@ -165,5 +168,43 @@ describe("cli: git graft enhance model", () => {
         status: "available",
       }),
     ]);
+  });
+
+  it("collects provenance candidates with ambiguity marking and limit", () => {
+    const candidates = collectGitGraftEnhanceProvenanceCandidates({
+      base: "HEAD~1",
+      head: "HEAD",
+      summary: "changed",
+      layer: "ref_view",
+      files: [{
+        path: "src/a.ts",
+        status: "modified",
+        summary: "src/a.ts | modified | ~1 changed",
+        diff: {
+          added: [],
+          removed: [],
+          changed: [{ name: "shared", kind: "function", exported: true }],
+          unchangedCount: 0,
+        },
+      }, {
+        path: "src/b.ts",
+        status: "modified",
+        summary: "src/b.ts | modified | -1 removed",
+        diff: {
+          added: [],
+          removed: [{ name: "shared", kind: "function", exported: true }],
+          changed: [],
+          unchangedCount: 0,
+        },
+      }],
+    }, 1);
+
+    expect(candidates).toHaveLength(1);
+    expect(candidates[0]).toEqual(expect.objectContaining({
+      symbol: "shared",
+      filePath: "src/a.ts",
+      changeKind: "changed",
+      ambiguous: true,
+    }));
   });
 });

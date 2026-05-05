@@ -32,6 +32,38 @@ function model(): GitGraftEnhanceModel {
 }
 
 describe("cli: git graft enhance renderer", () => {
+  it("renders provenance hints when present", () => {
+    const rendered = renderGitGraftEnhance({
+      ...model(),
+      provenanceHints: [
+        {
+          symbol: "updateUser",
+          filePath: "src/api.ts",
+          changeKind: "changed",
+          ambiguous: true,
+          status: "available",
+          createdInCommit: "abc123",
+          lastSignatureChange: "def456",
+          referenceCount: 2,
+          changeCount: 3,
+        },
+        {
+          symbol: "legacyUser",
+          filePath: "src/old.ts",
+          changeKind: "removed",
+          ambiguous: false,
+          status: "unavailable",
+          reason: "not_indexed_or_not_found",
+        },
+      ],
+    });
+
+    expect(rendered).toContain("Provenance hints");
+    expect(rendered).toContain("src/api.ts: updateUser changed");
+    expect(rendered).toContain("ambiguous symbol name");
+    expect(rendered).toContain("src/old.ts: legacyUser removed unavailable (not_indexed_or_not_found)");
+  });
+
   it("renders a deterministic human review summary from the model only", () => {
     const first = renderGitGraftEnhance(model());
     const second = renderGitGraftEnhance(model());

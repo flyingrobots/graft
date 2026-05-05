@@ -37,4 +37,23 @@ describe("structural blame renderer", () => {
     expect(rendered).toContain("- 1234567890ab @ tick 1: added, present: true, buildThing(): string");
     expect(rendered).toContain("- abcdef123456 @ tick 2: changed, present: true, buildThing(input: string): string");
   });
+
+  it("renders an unavailable timeline when history is empty", () => {
+    const rendered = renderStructuralBlame({
+      symbol: "deletedFn",
+      filePath: "src/lib.ts",
+      changeCount: 0,
+      createdInCommit: null,
+      lastSignatureChange: null,
+      referenceCount: 0,
+      history: [],
+    });
+
+    expect(rendered).toContain("Graft Symbol History");
+    expect(rendered).toContain("symbol: deletedFn");
+    expect(rendered).toContain("path: src/lib.ts");
+    expect(rendered).toContain("created: unknown");
+    expect(rendered).toContain("last signature change: none");
+    expect(rendered).toContain("- unavailable: symbol was not found in the indexed WARP graph");
+  });
 });

@@ -1251,7 +1251,7 @@ const mcpOutputBodySchemas: Record<McpToolName, z.ZodType> = {
     referenceCount: z.number().int().nonnegative(),
     history: z.array(z.object({
       sha: z.string(),
-      tick: z.number(),
+      tick: z.number().int().nonnegative(),
       changeKind: z.string(),
       present: z.boolean(),
       signature: z.string().nullable(),

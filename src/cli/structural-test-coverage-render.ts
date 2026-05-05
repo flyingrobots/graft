@@ -1,11 +1,12 @@
 import { z } from "zod";
 import { mcpOutputBodySchemas } from "../contracts/output-schema-mcp.js";
 
-const structuralTestCoverageRenderSchema = mcpOutputBodySchemas.graft_test_coverage.extend({
+const structuralTestCoverageRenderSchema = z.strictObject({
+  ...mcpOutputBodySchemas.graft_test_coverage.shape,
   _schema: z.unknown().optional(),
   _receipt: z.unknown().optional(),
   tripwire: z.unknown().optional(),
-}).strict();
+});
 
 type StructuralTestCoverageModel = z.output<typeof structuralTestCoverageRenderSchema>;
 type CoverageFile = StructuralTestCoverageModel["files"][number];
