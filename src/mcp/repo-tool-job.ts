@@ -1,5 +1,6 @@
 import { z } from "zod";
 import type { GovernorTrackerSnapshot } from "../session/tracker.js";
+import { ensureParserReady } from "../parser/runtime.js";
 import type { McpToolReceipt, McpToolResult } from "./receipt.js";
 import type { ToolDefinition, ToolHandler } from "./context.js";
 import type { MetricsDelta, MetricsSnapshot } from "./metrics.js";
@@ -88,6 +89,7 @@ function resolveRepoToolDefinition(tool: OffloadedRepoToolName): ToolDefinition 
 }
 
 export async function runRepoToolJob(job: RepoToolWorkerJob): Promise<RepoToolWorkerResult> {
+  await ensureParserReady();
   const definition = resolveRepoToolDefinition(job.tool);
   const { ctx, takeResponse } = buildRepoToolWorkerContext(job);
   const rawHandler = definition.createHandler();

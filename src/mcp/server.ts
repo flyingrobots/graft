@@ -69,25 +69,256 @@ export interface CreateGraftServerOptions {
   persistedLocalHistoryGraph?: boolean;
 }
 
-export function createGraftServer(options: CreateGraftServerOptions = {}): GraftServer {
-  const mcpServer = new McpServer({ name: "graft", version: GRAFT_VERSION });
+interface ResolvedGraftServerConfig {
+  readonly sessionId: string;
+  readonly mode: WorkspaceMode;
+  readonly env: Readonly<Record<string, string | undefined>>;
+  readonly projectRoot: string | undefined;
+  readonly graftDir: string;
+  readonly sessionWarpWriterId: string | undefined;
+}
+
+interface DaemonRuntimeParts {
+  readonly scheduler: DaemonJobScheduler | null;
+  readonly workerPool: DaemonWorkerPool | null;
+  readonly controlPlane: DaemonControlPlane | null;
+  readonly monitorRuntime: PersistentMonitorRuntime | null;
+  readonly repoOverview: DaemonRepoOverview | null;
+  readonly runtime: () => DaemonRuntimeDescriptor;
+}
+
+interface RegisteredToolSurface {
+  readonly handlers: Map<string, ToolHandler>;
+  readonly schemas: Map<string, z.ZodObject>;
+}
+
+function setupMcpServer(): McpServer {
+  return new McpServer({ name: "graft", version: GRAFT_VERSION });
+}
+
+function resolveGraftServerConfig(
+  options: CreateGraftServerOptions,
+): ResolvedGraftServerConfig {
   const sessionId = options.sessionId ?? crypto.randomUUID();
   const mode = options.mode ?? "repo_local";
-  const sessionWarpWriterId = mode === "daemon" ? buildSessionWarpWriterId(sessionId) : undefined;
+  const sessionWarpWriterId = mode === "daemon"
+    ? buildSessionWarpWriterId(sessionId)
+    : undefined;
   const env = options.env ?? process.env;
-  const projectRoot = mode === "repo_local" ? (options.projectRoot ?? env["GRAFT_PROJECT_ROOT"]?.trim() ?? process.cwd()) : options.projectRoot;
+  const projectRoot = mode === "repo_local"
+    ? (options.projectRoot ?? env["GRAFT_PROJECT_ROOT"]?.trim() ?? process.cwd())
+    : options.projectRoot;
   const graftDir = options.graftDir
-    ?? (mode === "repo_local" && projectRoot !== undefined ? path.join(projectRoot, ".graft") : undefined);
+    ?? (mode === "repo_local" && projectRoot !== undefined
+      ? path.join(projectRoot, ".graft")
+      : undefined);
   if (graftDir === undefined) {
     throw new Error("daemon mode requires an explicit graftDir");
   }
+
+  return {
+    sessionId,
+    mode,
+    env,
+    projectRoot,
+    graftDir,
+    sessionWarpWriterId,
+  };
+}
+
+function createDaemonRuntimeParts(input: {
+  readonly config: ResolvedGraftServerConfig;
+  readonly options: CreateGraftServerOptions;
+  readonly codec: CanonicalJsonCodec;
+  readonly gitClient: GitClient;
+  readonly warpPool: WarpPool;
+}): DaemonRuntimeParts {
+  const { config, options, codec, gitClient, warpPool } = input;
+  const scheduler = config.mode === "daemon"
+    ? (options.daemonScheduler ?? new DaemonJobScheduler())
+    : null;
+  const workerPool = config.mode === "daemon"
+    ? (options.daemonWorkerPool ?? new InlineDaemonWorkerPool())
+    : null;
+  const controlPlane = config.mode === "daemon"
+    ? (options.daemonControlPlane ?? new DaemonControlPlane({
+      fs: nodeFs,
+      codec,
+      git: gitClient,
+      graftDir: config.graftDir,
+    }))
+    : null;
+  const monitorRuntime = config.mode !== "daemon" || controlPlane === null || scheduler === null || workerPool === null
+    ? null
+    : (options.monitorRuntime ?? new PersistentMonitorRuntime({
+      fs: nodeFs,
+      codec,
+      git: gitClient,
+      graftDir: config.graftDir,
+      controlPlane,
+      scheduler,
+      workerPool,
+    }));
+  const repoOverview = controlPlane !== null && monitorRuntime !== null
+    ? new DaemonRepoOverview({ controlPlane, monitorRuntime })
+    : null;
+  const daemonStartedAt = new Date().toISOString();
+  const runtime = options.daemonRuntime ?? (() => {
+    return {
+      transport: "unix_socket",
+      sameUserOnly: true,
+      socketPath: config.graftDir,
+      mcpPath: "/mcp",
+      healthPath: "/healthz",
+      activeWarpRepos: warpPool.size(),
+      startedAt: daemonStartedAt,
+    };
+  });
+
+  return {
+    scheduler,
+    workerPool,
+    controlPlane,
+    monitorRuntime,
+    repoOverview,
+    runtime,
+  };
+}
+
+function initWorkspaceRouter(input: {
+  readonly config: ResolvedGraftServerConfig;
+  readonly options: CreateGraftServerOptions;
+  readonly gitClient: GitClient;
+  readonly warpPool: WarpPool;
+  readonly persistedLocalHistory: PersistedLocalHistoryStore;
+  readonly daemon: DaemonRuntimeParts;
+}): WorkspaceRouter {
+  const {
+    config,
+    options,
+    gitClient,
+    warpPool,
+    persistedLocalHistory,
+    daemon,
+  } = input;
+  return new WorkspaceRouter({
+    mode: config.mode,
+    fs: nodeFs,
+    git: gitClient,
+    graftDir: config.graftDir,
+    ...(config.projectRoot !== undefined ? { projectRoot: config.projectRoot } : {}),
+    warpPool,
+    transportSessionId: config.sessionId,
+    ...(config.sessionWarpWriterId !== undefined ? { warpWriterId: config.sessionWarpWriterId } : {}),
+    ...(daemon.controlPlane !== null ? { authorizationPolicy: daemon.controlPlane } : {}),
+    ...(daemon.controlPlane !== null ? { sharedAttachPolicy: daemon.controlPlane } : {}),
+    persistedLocalHistory,
+    persistedLocalHistoryGraph: options.persistedLocalHistoryGraph ?? true,
+  });
+}
+
+function createRuntimeReady(input: {
+  readonly config: ResolvedGraftServerConfig;
+  readonly workspaceRouter: WorkspaceRouter;
+  readonly daemon: DaemonRuntimeParts;
+}): Promise<void> {
+  const { config, workspaceRouter, daemon } = input;
+  return (async () => {
+    if (config.mode === "repo_local" && config.projectRoot !== undefined) {
+      await ensureGraftDirExcluded(config.projectRoot, config.graftDir, nodeFs);
+    }
+    await workspaceRouter.initialize();
+    await Promise.all([
+      daemon.controlPlane?.initialize() ?? Promise.resolve(),
+      daemon.monitorRuntime?.initialize() ?? Promise.resolve(),
+    ]);
+  })().then(() => undefined);
+}
+
+function registerGraftToolSurface(input: {
+  readonly mcpServer: McpServer;
+  readonly mode: WorkspaceMode;
+  readonly engine: ReturnType<typeof createInvocationEngine>;
+  readonly ctx: ToolContext;
+}): RegisteredToolSurface {
+  const handlers = new Map<string, ToolHandler>();
+  const schemas = new Map<string, z.ZodObject>();
+  const activeToolRegistry = input.mode === "daemon" ? ALL_TOOL_REGISTRY : TOOL_REGISTRY;
+
+  for (const def of activeToolRegistry) {
+    const rawHandler = def.createHandler();
+    const handler = def.policyCheck === true ? wrapWithPolicyCheck(def.name, rawHandler) : rawHandler;
+    handlers.set(def.name, handler);
+
+    if (def.schema !== undefined) {
+      const zodSchema = z.object(def.schema).strict();
+      schemas.set(def.name, zodSchema);
+      input.mcpServer.registerTool(
+        def.name,
+        { description: def.description, inputSchema: def.schema },
+        async (args) => input.engine.invokeTool(def.name, handler, args, input.ctx, zodSchema),
+      );
+    } else {
+      input.mcpServer.registerTool(
+        def.name,
+        { description: def.description },
+        async () => input.engine.invokeTool(def.name, handler, {}, input.ctx),
+      );
+    }
+  }
+
+  return { handlers, schemas };
+}
+
+function createGraftServerSurface(input: {
+  readonly mcpServer: McpServer;
+  readonly workspaceRouter: WorkspaceRouter;
+  readonly engine: ReturnType<typeof createInvocationEngine>;
+  readonly ctx: ToolContext;
+  readonly registered: RegisteredToolSurface;
+}): GraftServer {
+  return {
+    getRegisteredTools(): string[] {
+      return [...input.registered.handlers.keys()];
+    },
+    async callTool(name: string, args: JsonObject): Promise<McpToolResult> {
+      const handler = input.registered.handlers.get(name);
+      if (handler === undefined) {
+        throw new Error(`Unknown tool: ${name}`);
+      }
+      const schema = input.registered.schemas.get(name);
+      return input.engine.invokeTool(name, handler, args, input.ctx, schema);
+    },
+    injectSessionMessages(count: number): void {
+      for (let i = 0; i < count; i++) {
+        input.workspaceRouter.governor.recordMessage();
+      }
+    },
+    getWorkspaceStatus() {
+      return input.workspaceRouter.getStatus();
+    },
+    getRuntimeCausalContext() {
+      if (input.workspaceRouter.getStatus().bindState !== "bound") {
+        return null;
+      }
+      return input.workspaceRouter.captureExecutionContext().getCausalContext();
+    },
+    getMcpServer(): McpServer {
+      return input.mcpServer;
+    },
+  };
+}
+
+export function createGraftServer(options: CreateGraftServerOptions = {}): GraftServer {
+  const config = resolveGraftServerConfig(options);
+  const mcpServer = setupMcpServer();
   const codec = new CanonicalJsonCodec();
   const runCapture = resolveRunCaptureConfig({
     ...(options.env !== undefined ? { env: options.env } : {}),
     ...(options.runCapture !== undefined ? { overrides: options.runCapture } : {}),
   });
   const observability = resolveRuntimeObservabilityState({
-    graftDir,
+    graftDir: config.graftDir,
     ...(options.env !== undefined ? { env: options.env } : {}),
     ...(options.runtimeObservability !== undefined ? { overrides: options.runtimeObservability } : {}),
   });
@@ -103,85 +334,36 @@ export function createGraftServer(options: CreateGraftServerOptions = {}): Graft
   const persistedLocalHistory = new PersistedLocalHistoryStore({
     fs: nodeFs,
     codec,
-    graftDir,
+    graftDir: config.graftDir,
   });
-  const daemonScheduler = mode === "daemon" ? (options.daemonScheduler ?? new DaemonJobScheduler()) : null;
-  const daemonWorkerPool = mode === "daemon" ? (options.daemonWorkerPool ?? new InlineDaemonWorkerPool()) : null;
-  const daemonControlPlane = mode === "daemon"
-    ? (options.daemonControlPlane ?? new DaemonControlPlane({
-      fs: nodeFs,
-      codec,
-      git: gitClient,
-      graftDir,
-    }))
-    : null;
-  const monitorRuntime = mode !== "daemon" || daemonControlPlane === null || daemonScheduler === null || daemonWorkerPool === null
-    ? null
-    : (options.monitorRuntime ?? new PersistentMonitorRuntime({
-      fs: nodeFs,
-      codec,
-      git: gitClient,
-      graftDir,
-      controlPlane: daemonControlPlane,
-      scheduler: daemonScheduler,
-      workerPool: daemonWorkerPool,
-    }));
-  const daemonStartedAt = new Date().toISOString();
-  const daemonRuntime = options.daemonRuntime ?? (() => {
-    return {
-      transport: "unix_socket",
-      sameUserOnly: true,
-      socketPath: graftDir,
-      mcpPath: "/mcp",
-      healthPath: "/healthz",
-      activeWarpRepos: warpPool.size(),
-      startedAt: daemonStartedAt,
-    };
-  });
-  const handlers = new Map<string, ToolHandler>();
-  const schemas = new Map<string, z.ZodObject>();
-  const workspaceRouter = new WorkspaceRouter({
-    mode,
-    fs: nodeFs,
-    git: gitClient,
-    graftDir,
-    ...(projectRoot !== undefined ? { projectRoot } : {}),
+  const daemon = createDaemonRuntimeParts({
+    config,
+    options,
+    codec,
+    gitClient,
     warpPool,
-    transportSessionId: sessionId,
-    ...(sessionWarpWriterId !== undefined ? { warpWriterId: sessionWarpWriterId } : {}),
-    ...(daemonControlPlane !== null ? { authorizationPolicy: daemonControlPlane } : {}),
-    ...(daemonControlPlane !== null ? { sharedAttachPolicy: daemonControlPlane } : {}),
-    persistedLocalHistory,
-    persistedLocalHistoryGraph: options.persistedLocalHistoryGraph ?? true,
   });
-  const daemonRepoOverview = daemonControlPlane !== null && monitorRuntime !== null
-    ? new DaemonRepoOverview({
-      controlPlane: daemonControlPlane,
-      monitorRuntime,
-    })
-    : null;
-  const runtimeReady = (async () => {
-    if (mode === "repo_local" && projectRoot !== undefined) {
-      await ensureGraftDirExcluded(projectRoot, graftDir, nodeFs);
-    }
-    await workspaceRouter.initialize();
-    await Promise.all([
-      daemonControlPlane?.initialize() ?? Promise.resolve(),
-      monitorRuntime?.initialize() ?? Promise.resolve(),
-    ]);
-  })().then(() => undefined);
+  const workspaceRouter = initWorkspaceRouter({
+    config,
+    options,
+    gitClient,
+    warpPool,
+    persistedLocalHistory,
+    daemon,
+  });
+  const runtimeReady = createRuntimeReady({ config, workspaceRouter, daemon });
 
   // --- Invocation engine: AsyncLocalStorage, respond(), invokeTool() ---
 
   const engine = createInvocationEngine({
-    sessionId,
-    mode,
+    sessionId: config.sessionId,
+    mode: config.mode,
     codec,
     observability,
     runtimeLogger,
     workspaceRouter,
-    daemonScheduler,
-    daemonWorkerPool,
+    daemonScheduler: daemon.scheduler,
+    daemonWorkerPool: daemon.workerPool,
     runtimeReady,
   });
 
@@ -195,12 +377,12 @@ export function createGraftServer(options: CreateGraftServerOptions = {}): Graft
     git: nodeGit,
     runCapture,
     observability,
-    daemonControlPlane,
-    daemonRepoOverview,
-    daemonScheduler,
-    daemonWorkerPool,
-    monitorRuntime,
-    daemonRuntime,
+    daemonControlPlane: daemon.controlPlane,
+    daemonRepoOverview: daemon.repoOverview,
+    daemonScheduler: daemon.scheduler,
+    daemonWorkerPool: daemon.workerPool,
+    monitorRuntime: daemon.monitorRuntime,
+    daemonRuntime: daemon.runtime,
     getActiveExecutionContext: engine.getActiveExecutionContext,
     respond: engine.respond,
     recordFootprint: (entry) => { recordFootprint(engine.invocationStorage, entry); },
@@ -208,63 +390,27 @@ export function createGraftServer(options: CreateGraftServerOptions = {}): Graft
 
   // --- Tool registration ---
 
-  const activeToolRegistry = mode === "daemon" ? ALL_TOOL_REGISTRY : TOOL_REGISTRY;
-
-  for (const def of activeToolRegistry) {
-    const rawHandler = def.createHandler();
-    const handler = def.policyCheck === true ? wrapWithPolicyCheck(def.name, rawHandler) : rawHandler;
-    handlers.set(def.name, handler);
-
-    if (def.schema !== undefined) {
-      const zodSchema = z.object(def.schema).strict();
-      schemas.set(def.name, zodSchema);
-      mcpServer.registerTool(def.name, { description: def.description, inputSchema: def.schema }, async (args) => {
-        return engine.invokeTool(def.name, handler, args, ctx, zodSchema);
-      });
-    } else {
-      mcpServer.registerTool(def.name, { description: def.description }, async () => {
-        return engine.invokeTool(def.name, handler, {}, ctx);
-      });
-    }
-  }
+  const registered = registerGraftToolSurface({
+    mcpServer,
+    mode: config.mode,
+    engine,
+    ctx,
+  });
 
   if (observability.enabled) {
     void engine.emitRuntimeEvent({
       event: "session_started",
-      sessionId,
+      sessionId: config.sessionId,
       logPath: observability.logPath,
       logPolicy: observability.logPolicy,
     });
   }
 
-  return {
-    getRegisteredTools(): string[] {
-      return [...handlers.keys()];
-    },
-    async callTool(name: string, args: JsonObject): Promise<McpToolResult> {
-      const handler = handlers.get(name);
-      if (handler === undefined) {
-        throw new Error(`Unknown tool: ${name}`);
-      }
-      const schema = schemas.get(name);
-      return engine.invokeTool(name, handler, args, ctx, schema);
-    },
-    injectSessionMessages(count: number): void {
-      for (let i = 0; i < count; i++) {
-        workspaceRouter.governor.recordMessage();
-      }
-    },
-    getWorkspaceStatus() {
-      return workspaceRouter.getStatus();
-    },
-    getRuntimeCausalContext() {
-      if (workspaceRouter.getStatus().bindState !== "bound") {
-        return null;
-      }
-      return workspaceRouter.captureExecutionContext().getCausalContext();
-    },
-    getMcpServer(): McpServer {
-      return mcpServer;
-    },
-  };
+  return createGraftServerSurface({
+    mcpServer,
+    workspaceRouter,
+    engine,
+    ctx,
+    registered,
+  });
 }
