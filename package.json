@@ -1,6 +1,6 @@
 {
   "name": "@flyingrobots/graft",
-  "version": "0.7.1",
+  "version": "0.8.0",
   "description": "Context governor and between-commit activity surface for coding agents",
   "type": "module",
   "packageManager": "pnpm@10.30.0",
@@ -112,6 +112,7 @@
     "overrides": {
       "vite": "^8.0.5",
       "hono": ">=4.12.14",
+      "ip-address": "10.2.0",
       "postcss": "8.5.12"
     }
   }

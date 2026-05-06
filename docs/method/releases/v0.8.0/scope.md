@@ -1,6 +1,6 @@
 # v0.8.0 Scope Decision
 
-Status: backlog lane formed
+Status: release prep
 Date: 2026-05-05
 
 ## Current State
@@ -25,10 +25,9 @@ Date: 2026-05-05
 
 ## Decision
 
-Make v0.8.0 a **Review Truth** release candidate shape unless a stronger
-blocker appears.
+Make v0.8.0 a **Review Truth** release.
 
-The opening spine should be repo-generic:
+The release spine is repo-generic:
 
 1. `CORE_pr-review-structural-summary`
 2. `CORE_structural-test-coverage-map`
@@ -36,20 +35,24 @@ The opening spine should be repo-generic:
 4. `WARP_symbol-history-timeline`
 5. `WARP_dead-symbol-detection`
 6. `SURFACE_review-cooldown-status`
-7. `SURFACE_pr-feedback-resolution-ledger`
-8. release hardening through `CORE_tool-context-injection-contracts`
-   and `TEST_bounded-subprocess-policy`
+7. first language-breadth stack: Rust, GraphQL, Python, Go, JSON,
+   TOML, and YAML
+8. release hardening through parser readiness, Docker preflight, Git
+   version checks, governed read parity, WARP symbol IDs, and MCP
+   orchestration cleanup
 
 This gives users bounded review evidence: what changed structurally,
 which changed symbols have bounded provenance hints, what has obvious
 structural history, which symbols disappeared and were not re-added,
 what has obvious structural test references, whether the automated
-review loop is ready for another pass, and which feedback items were
-addressed by which commits. It keeps Graft repo-generic without making
-it depend on METHOD project conventions.
+review loop is ready for another pass, and whether the inspected files
+can be navigated structurally across more common languages and config
+formats. It keeps Graft repo-generic without making it depend on METHOD
+project conventions.
 
 The shaped candidate lane lives at `docs/method/backlog/v0.8.0/`. It is
-not a release packet and does not imply that v0.8.0 is ready to cut.
+now the release scope ledger plus follow-up candidate queue. Release
+truth lives in `docs/method/releases/v0.8.0/`.
 
 ## Candidate Matrix
 
@@ -63,9 +66,9 @@ not a release packet and does not imply that v0.8.0 is ready to cut.
 | `WARP_symbol-history-timeline` | Commit-to-symbol edges with signatures are shipped and already support chronological per-symbol history. | Included v0.8.0 review lens. | Add a small query for the structural timeline of a changed symbol. |
 | `WARP_dead-symbol-detection` | Commit-to-symbol removal edges are shipped and can identify symbols removed and not re-added. | Included v0.8.0 review lens. | Add removed-symbol evidence without taking on full breaking-change automation. |
 | `SURFACE_review-cooldown-status` | PR feedback loops currently require manual parsing of automated reviewer cooldown comments. | Included v0.8.0 helper. | Pull after the structural review surfaces unless cooldown friction blocks review iteration first. |
-| `SURFACE_pr-feedback-resolution-ledger` | Feedback processing currently stitches review threads, local commits, and PR replies by hand. | Included v0.8.0 evidence ledger. | Render local markdown summaries by default; require explicit confirmation or flags for GitHub mutation. |
-| `CORE_tool-context-injection-contracts` | A prior review found that resolved composition-root dependencies can be bypassed by ToolContext wiring. | Release hardening gate. | Prove review tools receive the configured dependencies they are supposed to use. |
-| `TEST_bounded-subprocess-policy` | Docker autostart and child-process tests exposed the risk of unbounded subprocess hangs. | Release hardening gate. | Add policy/regression coverage before review tooling grows more subprocess paths. |
+| `SURFACE_pr-feedback-resolution-ledger` | Feedback processing currently stitches review threads, local commits, and PR replies by hand. | Defer. | Keep as the strongest follow-up review workflow card after v0.8.0. |
+| `CORE_tool-context-injection-contracts` | A prior review found that resolved composition-root dependencies can be bypassed by ToolContext wiring. | Defer. | Keep as a hardening sweep after the release unless validation exposes a direct blocker. |
+| `TEST_bounded-subprocess-policy` | Docker autostart and child-process tests exposed the risk of unbounded subprocess hangs. | Defer. | Keep as a hardening sweep after the release unless validation exposes a direct blocker. |
 | `SURFACE_git-graft-enhance-expanded-git-subcommands` | The broader enhance vision includes many Git-adjacent verbs. | Defer. | Keep v0.8.0 on review paths instead of broad command expansion. |
 | `CI-003-mcp-native-diff-protocol` | Richer MCP diff rendering would improve client UX but changes response protocol shape. | Defer. | Revisit after Review Truth surfaces are stable. |
 | `WARP_auto-breaking-change-detection` | Breaking-change detection is directly review-adjacent but depends on export-diff semver classification and dead-symbol detection. | Defer. | Revisit after the smaller dead-symbol primitive and export-diff fix exist. |
@@ -75,7 +78,7 @@ not a release packet and does not imply that v0.8.0 is ready to cut.
 | `SURFACE_bijou-daemon-control-plane-actions` | Existing daemon mutation tools exist, but terminal action UX is sharp. | Defer. | Do not pull before live/status posture is boring. |
 | `CI-002-deterministic-scenario-replay` | Logging and ports exist; full replay is still large. | Valuable but too large for opening slice. | Save for later scope pass or a concrete regression. |
 
-## Non-Goals For Opening v0.8.0
+## Non-Goals For v0.8.0
 
 - No governed write expansion.
 - No native editor write interception.
@@ -85,15 +88,23 @@ not a release packet and does not imply that v0.8.0 is ready to cut.
 - No METHOD-specific backlog/status surfaces in Graft.
 - No release tag or publish work.
 
-## First Pull Recommendation
+## Release Cut
 
-Pull `CORE_pr-review-structural-summary` from
-`docs/method/backlog/v0.8.0/` when implementation work resumes.
+The v0.8.0 cut line is now the merged Review Truth and language-breadth
+stack:
 
-The first slice should compose existing structural diff facts into a
-small review summary model and CLI surface. Do not start with GitHub
-Action posting, do not claim merge readiness, and do not rebuild METHOD
-backlog status inside Graft.
+- structural PR review summaries
+- structural/reference test coverage mapping
+- bounded provenance hints
+- symbol history timeline
+- dead-symbol detection
+- review cooldown status
+- Rust, GraphQL, Python, Go, JSON, TOML, and YAML structural support
+- lazy parser readiness, Docker preflight assistance, Git version
+  guardrails, governed read parity, and MCP orchestration hardening
+
+The remaining v0.8.0 lane cards are deferred follow-up candidates, not
+release blockers for this cut.
 
 ## User-Facing Promise
 

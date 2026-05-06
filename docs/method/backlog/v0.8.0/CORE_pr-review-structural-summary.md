@@ -58,6 +58,12 @@ a PR by checking out or fetching the PR branch and comparing refs
 locally. Direct `graft review <PR#>` resolution remains a future
 transport adapter, not part of the model boundary.
 
+## Implementation status
+
+Shipped in `cycle/CORE_structural-test-coverage-map` as the top-level
+`graft review --base <ref> [--head <ref>]` CLI with human and JSON
+rendering over the shared review model.
+
 ## Related cards
 
 - **CORE_structural-test-coverage-map**: Both are review helpers.
