@@ -10,7 +10,8 @@ verification are still pending until the release branch is merged to
 - Previous package version: `0.7.1`
 - Planned version: `0.8.0`
 - Branch: `release/v0.8.0`
-- Release branch synced with origin: pending push
+- Release branch synced with origin: pending push after witness
+  finalization
 - `main` release guard: pending; final release runbook requires main to
   be exactly synced with `origin/main` before tag/publish
 
@@ -52,7 +53,8 @@ advisories.
 
 ## Tag and Publish
 
-- Release commit: pending local commit
+- Release branch prep commit: `04c435b release: prepare v0.8.0`
+- Final release commit: pending merged `main` release commit
 - Tag: pending
 - Tag push: pending
 - Release workflow: pending
