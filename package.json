@@ -111,7 +111,7 @@
     "onlyBuiltDependencies": [],
     "overrides": {
       "vite": "^8.0.5",
-      "hono": ">=4.12.14",
+      "hono": ">=4.12.18",
       "postcss": "8.5.12"
     }
   }
