@@ -1,20 +1,21 @@
 # v0.8.0 Backlog Lane: Review Truth
 
-Status: forming
+Status: release-prep
 Date: 2026-05-05
 
-This lane holds shaped candidate cards for the eventual v0.8.0 release.
-It is a scope-formation lane, not a release packet, publish plan, or
-promise to tag soon.
+This lane holds shaped candidate cards for the v0.8.0 release and its
+immediate follow-up queue.
+It started as a scope-formation lane. The current cut line is now
+captured in `docs/method/releases/v0.8.0/release.md`; cards below the
+cut line remain valid follow-up candidates rather than blockers for the
+release branch.
 
-Release truth still belongs in `docs/method/releases/v0.8.0/` and
-user-facing release notes still belong in `docs/releases/` when release
-prep actually starts. Cards in this lane are simply the current answer
-to: "What does v0.8.0 give users?"
+Release truth lives in `docs/method/releases/v0.8.0/`, and
+user-facing release notes live in `docs/releases/`.
 
 ## Release Thesis
 
-The v0.8.0 candidate shape is **Review Truth**:
+The v0.8.0 release shape is **Review Truth**:
 
 - tell PR authors and reviewers what changed structurally
 - show bounded symbol history for changed code
@@ -29,7 +30,7 @@ The v0.8.0 candidate shape is **Review Truth**:
 
 ## User Outcomes
 
-After v0.8.0, a user should be able to answer seven questions without
+After v0.8.0, a user should be able to answer six questions without
 reading a whole diff blindly:
 
 1. What files changed structurally, and which changes are likely
@@ -43,8 +44,6 @@ reading a whole diff blindly:
    is visible?
 6. Is the automated review loop ready for another pass, or is it still
    cooling down?
-7. Which review feedback items were addressed by which commits, and
-   what summary can be rendered before posting back to GitHub?
 
 The release must not claim merge readiness, semantic correctness, or
 execution coverage. It should provide bounded structural evidence that a
@@ -60,9 +59,9 @@ human or agent can inspect.
 | 4 | `WARP_symbol-history-timeline` | Per-symbol structural history for changed code. |
 | 5 | `WARP_dead-symbol-detection` | Removed-symbol evidence for cleanup and API-surface shrinkage review. |
 | 6 | `SURFACE_review-cooldown-status` | Review readiness helper for PR feedback loops. |
-| 7 | `SURFACE_pr-feedback-resolution-ledger` | Local evidence ledger for unresolved feedback, fixes, SHAs, and markdown summaries. |
-| 8 | `CORE_tool-context-injection-contracts` | Release hardening: prove review tools receive the resolved dependencies they were configured with. |
-| 9 | `TEST_bounded-subprocess-policy` | Release hardening: prevent review tooling and tests from introducing unbounded subprocess hangs. |
+| 7 | `SURFACE_pr-feedback-resolution-ledger` | Deferred follow-up: local evidence ledger for unresolved feedback, fixes, SHAs, and markdown summaries. |
+| 8 | `CORE_tool-context-injection-contracts` | Deferred follow-up: prove review tools receive the resolved dependencies they were configured with. |
+| 9 | `TEST_bounded-subprocess-policy` | Deferred follow-up: prevent review tooling and tests from introducing unbounded subprocess hangs. |
 
 ## Language Breadth Candidate Pull Order
 
@@ -90,6 +89,15 @@ parity, real fixtures, and bounded degraded behavior for parse errors.
 | 24 | `CORE_swift-structural-parsing` | Apple-platform repositories. |
 | 25 | `CORE_kotlin-structural-parsing` | Android and JVM service repositories. |
 | 26 | `CORE_jupyter-notebook-structure` | Notebook-heavy AI/data repos with output-stripped structural projection. |
+
+## Release Cut Line
+
+The release branch includes the Review Truth spine plus the first
+language-breadth stack: Rust, GraphQL, Python, Go, JSON, TOML, and YAML.
+
+The remaining language cards, PR feedback ledger, ToolContext injection
+contract sweep, and bounded subprocess policy sweep are intentionally
+deferred unless release validation finds a direct blocker.
 
 ## Baseline Already Shipped
 

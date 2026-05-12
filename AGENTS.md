@@ -29,7 +29,7 @@ Do not audit the repository by recursively walking the filesystem. Follow the au
 - **`docs/design/`**: Active and landed cycle design documents.
 
 ### 4. The Proof
-- **`docs/CHANGELOG.md`**: Historical truth of merged behavior.
+- **`CHANGELOG.md`**: Historical truth of merged behavior.
 - **`docs/audit/`**: Structural health and due diligence reports.
 
 ## Context Recovery Protocol

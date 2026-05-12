@@ -10,6 +10,12 @@ digraph backlog {
   ranksep=0.55
   nodesep=0.2
 
+  subgraph cluster_up_next {
+    label="up-next (1)" labeljust=l fontsize=9 fontcolor="#555555"
+    style=rounded color="#cccccc" bgcolor="#fafafa"
+    up_next_CORE_continuum_structural_reading_port [label="CORE-continuum-structural-reading-port - L" fillcolor="#E5E7EB" penwidth=2]
+  }
+
   subgraph cluster_v0_8_0 {
     label="v0.8.0 (26)" labeljust=l fontsize=9 fontcolor="#555555"
     style=rounded color="#cccccc" bgcolor="#fafafa"
