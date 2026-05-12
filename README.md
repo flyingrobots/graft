@@ -143,6 +143,7 @@ daemon control-plane posture.
 
 ## Documentation
 
+- **[North Star](./NORTHSTAR.md)**: Long-term stack position and Continuum-shaped structural reading direction.
 - **[Guide](./GUIDE.md)**: Orientation, the fast path, and agent bootstrap.
 - **[Setup Guide](./docs/SETUP.md)**: Client-specific MCP setup, daemon posture, and workspace binding.
 - **[Advanced Guide](./ADVANCED_GUIDE.md)**: Deep dives into the pipeline, worldlines, and daemon mechanics.
