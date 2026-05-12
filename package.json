@@ -111,7 +111,8 @@
     "onlyBuiltDependencies": [],
     "overrides": {
       "vite": "^8.0.5",
-      "hono": ">=4.12.14",
+      "hono": "4.12.18",
+      "fast-uri": "3.1.2",
       "ip-address": "10.2.0",
       "postcss": "8.5.12"
     }
