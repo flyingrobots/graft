@@ -35,6 +35,22 @@ not a valid release signal.
 3. Isolated rerun of the affected files passed.
 4. Full `pnpm test` rerun passed.
 
+## v0.8.0 Release Recurrence
+
+During final v0.8.0 release validation on merged `main`, unbounded
+Docker-isolated Vitest worker concurrency reproduced the same class of
+failure at larger scale:
+
+- `pnpm release:check` failed inside `pnpm test` with 20 timeout
+  failures across 15 files.
+- The failing files passed in a focused host-side rerun: 15 files, 153
+  tests.
+- The full Docker-isolated suite passed when invoked with
+  `--maxWorkers 2`: 216 files, 1592 tests.
+
+This confirmed the release blocker as suite-wide resource contention,
+not a deterministic product assertion failure in the affected tests.
+
 ## Risk
 
 The failure pattern suggests timing pressure, hidden coupling, leaked
@@ -70,6 +86,8 @@ runtime budget:
 - run daemon integration tests with one real child-process worker and no
   unrelated persisted-history graph writes
 - update the causal status schemas to match observed nullable repo concurrency
+- bound the release-grade Docker-isolated Vitest worker count by default
+  while preserving explicit `--maxWorkers` overrides for local diagnosis
 
 ## Acceptance
 
@@ -91,3 +109,5 @@ runtime budget:
 - `pnpm typecheck`
 - `pnpm lint`
 - `env -u GIT_DIR -u GIT_WORK_TREE -u GIT_WARP_HOME pnpm test`
+- `pnpm test -- --maxWorkers 2`
+- `pnpm release:check`

@@ -1,8 +1,9 @@
 # Release Witness: v0.8.0
 
-This witness records release-branch preflight. Tagging and publish
-verification are still pending until the release branch is merged to
-`main` and the `v0.8.0` tag is pushed from the merged main commit.
+This witness records release-branch preflight and release-blocker
+follow-up validation. Tagging and publish verification are still pending
+until the release-blocker branch is merged to `main` and the `v0.8.0`
+tag is pushed from the merged main commit.
 
 ## Discovery
 
@@ -10,8 +11,9 @@ verification are still pending until the release branch is merged to
 - Previous package version: `0.7.1`
 - Planned version: `0.8.0`
 - Branch: `release/v0.8.0`
-- Release branch synced with origin: pending push after witness
-  finalization
+- Merged main baseline: `3394d6e Merge pull request #49 from flyingrobots/release/v0.8.0`
+- Release blocker branch: `release/v0.8.0-blockers`
+- Release blocker branch synced with origin: yes, `origin/release/v0.8.0-blockers`
 - `main` release guard: pending; final release runbook requires main to
   be exactly synced with `origin/main` before tag/publish
 
@@ -27,6 +29,30 @@ verification are still pending until the release branch is merged to
 | `pnpm pack:check` | pass, dry-run tarball `flyingrobots-graft-0.8.0.tgz`, 2026-05-06 11:58 PDT |
 | `pnpm release:check` | pass, 2026-05-06 11:58 PDT |
 | `git diff --check` | pass, 2026-05-06 12:00 PDT |
+
+## Release Gate Stabilization
+
+Merged-`main` validation on 2026-05-12 reproduced full-suite timeout
+nondeterminism before tagging:
+
+| Step | Result |
+|------|--------|
+| `pnpm release:check` on `main` at `3394d6e` | fail in Docker-isolated `pnpm test`: 15 failed files / 20 timed-out tests, 2026-05-12 |
+| Focused rerun of the failed files | pass, 15 files / 153 tests, 2026-05-12 |
+| `pnpm test -- --maxWorkers 2` | pass, Docker isolated, 216 files / 1592 tests, 2026-05-12 |
+
+The release blocker was suite-wide resource pressure from unbounded
+Vitest worker concurrency in the Docker-isolated release runner, not a
+deterministic assertion failure in the affected product paths.
+
+The release-blocker branch now applies bounded Docker-isolated Vitest
+worker concurrency by default while preserving explicit `--maxWorkers`
+overrides for diagnosis.
+
+| Step | Result |
+|------|--------|
+| `pnpm test:local --run test/unit/scripts/isolated-test-args.test.ts test/unit/release/docker-test-isolation.test.ts tests/playback/CORE_test-runner-docker-daemon-hard-failure.test.ts` | pass, 3 files / 19 tests, 2026-05-12 20:20 PDT |
+| `pnpm release:check` | pass, includes Docker-isolated test suite at 216 files / 1594 tests plus security and pack checks, 2026-05-12 20:23 PDT |
 
 ## Security Disposition
 

@@ -132,6 +132,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   WARP structural path filters are directory-boundary safe, the MCP server
   passes injected Git clients through `ToolContext`, and playback tests avoid
   Node 21-only `import.meta.dirname`.
+- **Release gate stability**: the Docker-isolated test runner now bounds
+  default Vitest worker concurrency unless an explicit `--maxWorkers`
+  argument is supplied, keeping full-suite release validation stable under
+  constrained Docker resources.
 - **Parser readiness follow-up**: root library hosts can now call
   `ensureParserReady()` before synchronous structured-buffer use, while
   pre-warm sync projection bundles return explicit partial parser

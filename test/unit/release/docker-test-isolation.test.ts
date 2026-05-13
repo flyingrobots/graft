@@ -89,7 +89,7 @@ describe("Docker-isolated test validation", () => {
       [
         "docker run --rm --network none",
         "-e GRAFT_TEST_CONTAINER=1",
-        "graft-test:local pnpm exec vitest run",
+        "graft-test:local pnpm exec vitest run --maxWorkers 2",
       ].join(" "),
     ]);
     expect(exits).toEqual([0]);
