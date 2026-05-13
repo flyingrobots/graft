@@ -46,7 +46,7 @@ git status --porcelain
 - If `gh` authentication fails, halt immediately with:
 
 ```text
-Auth error - run `gh auth login` and retry.
+Auth error — run `gh auth login` and retry.
 ```
 
 Do not continue a GitHub-dependent workflow after an auth failure.

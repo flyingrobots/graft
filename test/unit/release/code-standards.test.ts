@@ -17,6 +17,7 @@ describe("repository code standards", () => {
     expect(standards).toContain("# CODE_STANDARDS");
     expect(standards).toContain("Code Lawyer");
     expect(standards).toContain("Phase 0: Lockdown");
+    expect(standards).toContain("Auth error — run `gh auth login` and retry.");
     expect(standards).toContain("Merge Gate");
     expect(agents).toContain("CODE_STANDARDS.md");
   });
