@@ -13,8 +13,7 @@ tag is pushed from the merged main commit.
 - Branch: `release/v0.8.0`
 - Merged main baseline: `3394d6e Merge pull request #49 from flyingrobots/release/v0.8.0`
 - Release blocker branch: `release/v0.8.0-blockers`
-- Release blocker branch synced with origin: pending push after witness
-  finalization and commit
+- Release blocker branch synced with origin: yes, `origin/release/v0.8.0-blockers`
 - `main` release guard: pending; final release runbook requires main to
   be exactly synced with `origin/main` before tag/publish
 
