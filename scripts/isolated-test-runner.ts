@@ -5,7 +5,10 @@ import {
   type DockerAvailability,
 } from "./docker-availability.js";
 import { ensureDockerAvailability } from "./docker-autostart.js";
-import { normalizeVitestArgs } from "./isolated-test-args.js";
+import {
+  applyIsolatedVitestDefaults,
+  normalizeVitestArgs,
+} from "./isolated-test-args.js";
 
 const CONTAINER_ENV = "GRAFT_TEST_CONTAINER";
 const DEFAULT_IMAGE = "graft-test:local";
@@ -107,7 +110,7 @@ export async function runIsolatedTests(options: IsolatedTestRunnerOptions): Prom
     argv: options.argv,
     env: options.env,
   };
-  const testArgs = normalizeVitestArgs(runnerOptions.argv);
+  const testArgs = applyIsolatedVitestDefaults(normalizeVitestArgs(runnerOptions.argv));
 
   if (runnerOptions.env[CONTAINER_ENV] === "1") {
     run("pnpm", ["exec", "vitest", "run", ...testArgs], runnerOptions);

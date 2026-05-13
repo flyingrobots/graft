@@ -14,6 +14,8 @@
 - Add lazy parser readiness through `ensureParserReady()`.
 - Add Docker Desktop auto-start assistance for the isolated test runner
   on macOS.
+- Bound Docker-isolated release test worker concurrency by default while
+  preserving explicit `--maxWorkers` overrides.
 - Harden MCP invocation/server construction, governed read parity, WARP
   symbol-id handling, Git version checks, and projection-bundle docs.
 
