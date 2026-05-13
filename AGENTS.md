@@ -22,6 +22,7 @@ Do not audit the repository by recursively walking the filesystem. Follow the au
 - **`ARCHITECTURE.md`**: Authoritative structural reference (Ports, Adapters, WARP).
 - **`docs/VISION.md`**: Core tenets and the provenance-aware mission.
 - **`METHOD.md`**: Repo work doctrine (Backlog lanes, Cycle loop).
+- **`CODE_STANDARDS.md`**: Code Lawyer audit standards, Red-Green repair loop, and merge-gate doctrine.
 
 ### 3. The Direction
 - **`docs/BEARING.md`**: Current execution gravity and active tensions.
@@ -38,8 +39,9 @@ When starting a new session or recovering from context loss:
 
 1. **Read `docs/BEARING.md`** to find the current execution gravity.
 2. **Read `METHOD.md`** to understand the work doctrine.
-3. **Check `docs/method/backlog/asap/`** for imminent work.
-4. **Check `git log -n 5` and `git status`** to verify the current branch state.
+3. **Read `CODE_STANDARDS.md`** before review, release, or PR repair work.
+4. **Check `docs/method/backlog/asap/`** for imminent work.
+5. **Check `git log -n 5` and `git status`** to verify the current branch state.
 
 ## End of Turn Checklist
 
