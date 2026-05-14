@@ -30,4 +30,12 @@ describe("v0.8.0 release witness", () => {
       /Dependency and lockfile signature changes were observed as non-blocking\s+release-surface movement/,
     );
   });
+
+  it("does not freeze the final release commit before the tag point is known", () => {
+    const witness = readReleaseWitness();
+
+    expect(witness).toContain("- Final release commit: pending final pushed `main` tag point");
+    expect(witness).toContain("`main` release guard: final check pending");
+    expect(witness).not.toContain("- Final release commit: `1acd790`");
+  });
 });

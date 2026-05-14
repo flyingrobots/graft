@@ -14,9 +14,10 @@ pushes the `v0.8.0` tag from the merged main release commit.
 - Merged main baseline: `3394d6e Merge pull request #49 from flyingrobots/release/v0.8.0`
 - Release blocker branch: `release/v0.8.0-blockers`
 - Release blocker branch synced with origin: yes, `origin/release/v0.8.0-blockers`
-- Merged main release candidate: `1acd790 Merge pull request #53 from flyingrobots/docs/code-standards`
-- `main` release guard: pass; local `main` was aligned with
-  `origin/main` at `1acd790` before this witness branch was created
+- Merged main release candidate before direct witness/docs cleanup:
+  `1acd790 Merge pull request #53 from flyingrobots/docs/code-standards`
+- `main` release guard: final check pending; rerun immediately before
+  tagging so the tag points at the final pushed `main` commit
 - `v0.8.0` tag status: pending; no local or remote tag was present during
   pre-tag inspection
 
@@ -123,7 +124,7 @@ advisories.
 ## Tag and Publish
 
 - Release branch prep commit: `04c435b release: prepare v0.8.0`
-- Final release commit: `1acd790` merged main release candidate
+- Final release commit: pending final pushed `main` tag point
 - Tag: pending
 - Tag push: pending
 - Release workflow: pending
