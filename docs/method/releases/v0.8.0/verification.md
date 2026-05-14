@@ -1,21 +1,24 @@
 # Release Witness: v0.8.0
 
-This witness records release-branch preflight and release-blocker
-follow-up validation. Tagging and publish verification are still pending
-until the release-blocker branch is merged to `main` and the `v0.8.0`
-tag is pushed from the merged main commit.
+This witness records release-branch preflight, release-blocker follow-up
+validation, and merged-main pre-tag inspection. Tagging and publish
+verification are still pending until explicit release authorization
+pushes the `v0.8.0` tag from the merged main release commit.
 
 ## Discovery
 
 - Repository type: JS/TS package (pnpm)
-- Previous package version: `0.7.1`
+- Previous release tag: `v0.7.1`
 - Planned version: `0.8.0`
-- Branch: `release/v0.8.0`
+- Prepared release branch: `release/v0.8.0`
 - Merged main baseline: `3394d6e Merge pull request #49 from flyingrobots/release/v0.8.0`
 - Release blocker branch: `release/v0.8.0-blockers`
 - Release blocker branch synced with origin: yes, `origin/release/v0.8.0-blockers`
-- `main` release guard: pending; final release runbook requires main to
-  be exactly synced with `origin/main` before tag/publish
+- Merged main release candidate: `1acd790 Merge pull request #53 from flyingrobots/docs/code-standards`
+- `main` release guard: pass; local `main` was aligned with
+  `origin/main` at `1acd790` before this witness branch was created
+- `v0.8.0` tag status: pending; no local or remote tag was present during
+  pre-tag inspection
 
 ## Validation
 
@@ -29,6 +32,46 @@ tag is pushed from the merged main commit.
 | `pnpm pack:check` | pass, dry-run tarball `flyingrobots-graft-0.8.0.tgz`, 2026-05-06 11:58 PDT |
 | `pnpm release:check` | pass, 2026-05-06 11:58 PDT |
 | `git diff --check` | pass, 2026-05-06 12:00 PDT |
+
+## Merged Main Review Comparison
+
+The merged main release candidate was compared against the previous
+published release tag with:
+
+`pnpm graft review --base v0.7.1 --head HEAD --json`
+
+Capture time: 2026-05-13 20:06 PDT. Tool receipt trace:
+`8d491791-6027-41e7-aaa1-5c193d9e7d19`.
+
+| Signal | Value |
+|--------|-------|
+| Range | `v0.7.1..HEAD` |
+| Total changed files | `225` |
+| Docs files | `82` |
+| Structural files | `54` |
+| Test files | `44` |
+| Formatting files | `42` |
+| Config files | `3` |
+
+The release comparison supports the v0.8.0 "Review Truth" scope:
+documentation and release-method updates are the largest slice, while
+the structural and test slices capture the review CLI/MCP surfaces,
+parser breadth, symbol-history and dead-symbol lenses, review cooldown
+status, Docker-isolated test-runner hardening, and release guardrails.
+
+`graft review` reported the following breaking-change candidates:
+
+| File | Symbol | Change | Impacted files |
+|------|--------|--------|----------------|
+| `package.json` | `dependencies` | `9` dependency keys to `10` dependency keys | `0` |
+| `pnpm-lock.yaml` | `overrides` | `3` override keys to `5` override keys | `0` |
+| `pnpm-lock.yaml` | `packages` | `381` package keys to `382` package keys | `0` |
+| `pnpm-lock.yaml` | `snapshots` | `381` snapshot keys to `382` snapshot keys | `0` |
+
+Dependency and lockfile signature changes were observed as non-blocking
+release-surface movement. They reflect package graph and security
+posture changes, not a detected user-facing API break, because every
+candidate reported `0` impacted files.
 
 ## Release Gate Stabilization
 
@@ -80,7 +123,7 @@ advisories.
 ## Tag and Publish
 
 - Release branch prep commit: `04c435b release: prepare v0.8.0`
-- Final release commit: pending merged `main` release commit
+- Final release commit: `1acd790` merged main release candidate
 - Tag: pending
 - Tag push: pending
 - Release workflow: pending
