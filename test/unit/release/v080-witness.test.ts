@@ -18,4 +18,16 @@ describe("v0.8.0 release witness", () => {
     );
     expect(witness).not.toContain("Release blocker branch synced with origin: pending");
   });
+
+  it("records the merged-main graft review release comparison", () => {
+    const witness = readReleaseWitness();
+
+    expect(witness).toContain("`pnpm graft review --base v0.7.1 --head HEAD --json`");
+    expect(witness).toContain("| Total changed files | `225` |");
+    expect(witness).toContain("| Structural files | `54` |");
+    expect(witness).toContain("| Test files | `44` |");
+    expect(witness).toMatch(
+      /Dependency and lockfile signature changes were observed as non-blocking\s+release-surface movement/,
+    );
+  });
 });
