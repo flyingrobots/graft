@@ -1,9 +1,8 @@
 # Release Witness: v0.8.0
 
 This witness records release-branch preflight, release-blocker follow-up
-validation, and merged-main pre-tag inspection. Tagging and publish
-verification are still pending until explicit release authorization
-pushes the `v0.8.0` tag from the merged main release commit.
+validation, merged-main pre-tag inspection, and post-release publication
+verification for `v0.8.0`.
 
 ## Discovery
 
@@ -16,10 +15,10 @@ pushes the `v0.8.0` tag from the merged main release commit.
 - Release blocker branch synced with origin: yes, `origin/release/v0.8.0-blockers`
 - Merged main release candidate before direct witness/docs cleanup:
   `1acd790 Merge pull request #53 from flyingrobots/docs/code-standards`
-- `main` release guard: final check pending; rerun immediately before
-  tagging so the tag points at the final pushed `main` commit
-- `v0.8.0` tag status: pending; no local or remote tag was present during
-  pre-tag inspection
+- Final release commit: `a579229 docs: refresh v0.8.0 release witness`
+- `main` release guard: pass; local `main` and `origin/main` were aligned
+  at `a579229` before tagging
+- `v0.8.0` tag status: pushed to origin, resolves to commit `a579229`
 
 ## Validation
 
@@ -124,10 +123,22 @@ advisories.
 ## Tag and Publish
 
 - Release branch prep commit: `04c435b release: prepare v0.8.0`
-- Final release commit: pending final pushed `main` tag point
-- Tag: pending
-- Tag push: pending
-- Release workflow: pending
-- GitHub Release created by workflow: pending
-- npm publish by workflow: pending
-- Direct npm registry verification: pending
+- Final release commit: `a579229 docs: refresh v0.8.0 release witness`
+- Tag: `v0.8.0`, annotated and signed
+- Tag push: pass, `v0.8.0` pushed to `origin`, 2026-05-13 21:44 PDT
+- Release workflow: pass, GitHub Actions run `25842182477`,
+  2026-05-13 21:52 PDT
+- GitHub Release created by workflow: pass,
+  `https://github.com/flyingrobots/graft/releases/tag/v0.8.0`
+- GitHub Release assets: `flyingrobots-graft-0.8.0.tgz` and
+  `SHA256SUMS` uploaded
+- Release tarball digest:
+  `sha256:a94b91a7d370a3c9e1c519538ac65ec09bf207f1de0f4dce10e1e9d29ef29df0`
+- npm publish by workflow: pass with OIDC provenance
+- Direct npm registry verification: pass,
+  `npm view @flyingrobots/graft@0.8.0 version dist.tarball dist.integrity --json`
+  returned version `0.8.0`
+- npm tarball:
+  `https://registry.npmjs.org/@flyingrobots/graft/-/graft-0.8.0.tgz`
+- npm integrity:
+  `sha512-1BIQF3kAQYK8n0s4MVysFzJnEleHpGOu0ErZfbqv/i9S5/vAY0cvPq3wNUXku0SuZZPoswKTJmTEIKTRCtlqUQ==`

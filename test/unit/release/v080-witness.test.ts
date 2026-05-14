@@ -31,11 +31,15 @@ describe("v0.8.0 release witness", () => {
     );
   });
 
-  it("does not freeze the final release commit before the tag point is known", () => {
+  it("records the final tag and publication evidence after release", () => {
     const witness = readReleaseWitness();
 
-    expect(witness).toContain("- Final release commit: pending final pushed `main` tag point");
-    expect(witness).toContain("`main` release guard: final check pending");
-    expect(witness).not.toContain("- Final release commit: `1acd790`");
+    expect(witness).toContain("- Final release commit: `a579229 docs: refresh v0.8.0 release witness`");
+    expect(witness).toContain("- Tag: `v0.8.0`, annotated and signed");
+    expect(witness).toContain("- Release workflow: pass, GitHub Actions run `25842182477`");
+    expect(witness).toContain("- npm publish by workflow: pass with OIDC provenance");
+    expect(witness).toContain("- Direct npm registry verification: pass,");
+    expect(witness).not.toContain("- Tag: pending");
+    expect(witness).not.toContain("- npm publish by workflow: pending");
   });
 });
