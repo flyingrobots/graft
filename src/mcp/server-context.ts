@@ -4,6 +4,8 @@ import type { FileSystem } from "../ports/filesystem.js";
 import type { ProcessRunner } from "../ports/process-runner.js";
 import type { GitClient } from "../ports/git.js";
 import type { WarpContext } from "../warp/context.js";
+import { nodePathOps } from "../adapters/node-paths.js";
+import { createGitWarpStructuralReadingPort } from "../warp/structural-reading-adapter.js";
 import type { ToolContext, ToolDefinition } from "./context.js";
 import type { McpToolResult } from "./receipt.js";
 import type { RunCaptureConfig } from "./run-capture-config.js";
@@ -94,6 +96,15 @@ export function buildToolContext(deps: ToolContextDeps): ToolContext {
     observability: deps.observability,
     getWarp(): Promise<WarpContext> {
       return getActiveExecutionContext()?.getWarp() ?? workspaceRouter.getWarp();
+    },
+    getStructuralReadingPort() {
+      const execution = getActiveExecutionContext();
+      return createGitWarpStructuralReadingPort({
+        projectRoot: execution?.projectRoot ?? workspaceRouter.getProjectRoot(),
+        git: deps.git,
+        pathOps: nodePathOps,
+        getWarp: () => execution?.getWarp() ?? workspaceRouter.getWarp(),
+      });
     },
     getRepoState() {
       return getActiveExecutionContext()?.repoState.getState() ?? workspaceRouter.getRepoState();

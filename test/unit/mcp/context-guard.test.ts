@@ -26,6 +26,7 @@ function minimalContext(): Record<string, unknown> {
     respond: () => ({ content: [] }),
     resolvePath: (r: string) => r,
     getWarp: () => Promise.resolve({}),
+    getStructuralReadingPort: () => ({}),
     getRepoState: () => ({}),
     getCausalContext: () => ({}),
     getWorkspaceStatus: () => ({}),

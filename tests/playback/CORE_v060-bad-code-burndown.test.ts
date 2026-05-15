@@ -86,6 +86,7 @@ describe("CORE_v060-bad-code-burndown", () => {
       respond: () => ({ content: [] }),
       resolvePath: (r: string) => r,
       getWarp: () => Promise.resolve({}),
+      getStructuralReadingPort: () => ({}),
       getRepoState: () => { return {}; },
       getCausalContext: () => { return {}; },
       getWorkspaceStatus: () => { return {}; },

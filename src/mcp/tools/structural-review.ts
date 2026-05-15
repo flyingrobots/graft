@@ -2,9 +2,6 @@ import { z } from "zod";
 import { structuralReview, type ReferenceCountResult } from "../../operations/structural-review.js";
 import { toJsonObject } from "../../operations/result-dto.js";
 import type { ToolContext, ToolDefinition, ToolHandler } from "../context.js";
-import { countSymbolReferencesFromGraph } from "../../warp/warp-reference-count.js";
-import { nodePathOps } from "../../adapters/node-paths.js";
-import { countNamedImportReferencesAtRef } from "../../operations/import-reference-impact.js";
 
 async function countReviewReferences(
   ctx: ToolContext,
@@ -12,25 +9,15 @@ async function countReviewReferences(
   filePath: string,
   headRef: string,
 ): Promise<ReferenceCountResult> {
-  const warpCtx = await ctx.getWarp();
-  const graphResult = await countSymbolReferencesFromGraph(warpCtx, symbolName, filePath);
-  if (graphResult.referenceCount > 0) {
-    return graphResult;
-  }
-
-  try {
-    const fallbackResult = await countNamedImportReferencesAtRef({
-      cwd: ctx.projectRoot,
-      git: ctx.git,
-      pathOps: nodePathOps,
-      symbolName,
-      filePath,
-      ref: headRef,
-    });
-    return fallbackResult.referenceCount > 0 ? fallbackResult : graphResult;
-  } catch {
-    return graphResult;
-  }
+  const reading = await ctx.getStructuralReadingPort().countSymbolReferences({
+    symbolName,
+    filePath,
+    ref: headRef,
+  });
+  return {
+    referenceCount: reading.payload.referenceCount,
+    referencingFiles: reading.payload.referencingFiles,
+  };
 }
 
 export const structuralReviewTool: ToolDefinition = {

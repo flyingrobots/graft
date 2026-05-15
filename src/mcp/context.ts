@@ -11,6 +11,7 @@ import type { FileSystem } from "../ports/filesystem.js";
 import type { JsonCodec } from "../ports/codec.js";
 import type { ProcessRunner } from "../ports/process-runner.js";
 import type { GitClient } from "../ports/git.js";
+import type { StructuralReadingPort } from "../ports/structural-reading.js";
 import type { WarpContext } from "../warp/context.js";
 import type { RepoObservation } from "./repo-state.js";
 import type { RunCaptureConfig } from "./run-capture-config.js";
@@ -81,6 +82,7 @@ export interface ToolContext {
   }): void;
   resolvePath(relative: string): string;
   getWarp(): Promise<WarpContext>;
+  getStructuralReadingPort(): StructuralReadingPort;
   getRepoState(): RepoObservation;
   getCausalContext(): RuntimeCausalContext;
   getWorkspaceOverlayFooting(): Promise<RuntimeWorkspaceOverlayFooting | null>;
@@ -138,7 +140,15 @@ export function assertToolContext(value: unknown): asserts value is ToolContext 
     }
   }
 
-  const methods = ["respond", "resolvePath", "getWarp", "getRepoState", "getCausalContext", "getWorkspaceStatus"] as const;
+  const methods = [
+    "respond",
+    "resolvePath",
+    "getWarp",
+    "getStructuralReadingPort",
+    "getRepoState",
+    "getCausalContext",
+    "getWorkspaceStatus",
+  ] as const;
   for (const method of methods) {
     if (obj[method] === undefined || obj[method] === null) {
       throw new Error(`ToolContext missing method: ${method}`);

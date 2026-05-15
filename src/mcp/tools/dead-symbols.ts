@@ -1,6 +1,5 @@
 import { z } from "zod";
 import type { ToolDefinition, ToolHandler } from "../context.js";
-import { findDeadSymbols } from "../../warp/dead-symbols.js";
 
 export const deadSymbolsTool: ToolDefinition = {
   name: "graft_dead_symbols",
@@ -13,10 +12,10 @@ export const deadSymbolsTool: ToolDefinition = {
   createHandler(): ToolHandler {
     return async (args, ctx) => {
       const maxCommits = args["maxCommits"];
-      const warp = await ctx.getWarp();
-      const symbols = await findDeadSymbols(warp, {
+      const reading = await ctx.getStructuralReadingPort().findDeadSymbols({
         ...(typeof maxCommits === "number" ? { maxCommits } : {}),
       });
+      const symbols = reading.payload.symbols;
       const sorted = [...symbols].sort((a, b) =>
         a.filePath.localeCompare(b.filePath) ||
         a.name.localeCompare(b.name) ||
