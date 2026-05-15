@@ -59,6 +59,15 @@ or host projection as the primary ontology. The shared boundary is witnessed
 causal history plus the Continuum-authored contract families that make that
 history admissible, observable, exportable, and importable.
 
+The critical migration distinction is:
+
+```text
+Continuum-shaped, not Continuum-native.
+```
+
+Graft may normalize structural readings into a Continuum-compatible shape.
+Only Continuum-producing runtimes may claim Continuum-native witnesshood.
+
 The stack split is:
 
 | Layer | Owner | Responsibility |
@@ -130,6 +139,8 @@ A reading should name:
   rights-limited, unavailable, obstructed, or intentionally degraded
 - **support**: witness, receipt, shell, retained artifact, provenance payload,
   or explicit absence of support
+- **evidence status**: Continuum-native when backed by a native Continuum
+  witness, or translated-substrate when adapted from a non-native substrate
 - **payload identity**: digest, version, schema, or generated artifact id
 - **typed payload**: the actual Graft-owned structural answer
 
@@ -144,7 +155,7 @@ The long-term path is:
 ```text
 Continuum shared family
   -> Wesley-generated artifacts
-  -> Echo or git-warp runtime publication
+  -> Echo runtime publication or translated git-warp adapter evidence
   -> ObservationRequest / ObserverPlan
   -> ReadingEnvelope-backed runtime result
   -> Graft structural payload
@@ -154,6 +165,8 @@ Continuum shared family
 In practice:
 
 - `git-warp` remains the right adapter for cold, Git-backed committed history.
+  Until it publishes Continuum boundary artifacts directly, its evidence is
+  translated substrate evidence, not a Continuum-native witness.
 - Echo becomes the right adapter for hot, live, frontier-oriented histories.
 - Continuum owns shared runtime-boundary nouns such as `ObserverPlan`,
   `ObservationRequest`, `ReadingEnvelope`, `WitnessedSuffixShell`,
@@ -223,7 +236,8 @@ The move is:
 git-warp-shaped implementation
   -> substrate-neutral structural reading port
   -> git-warp adapter behind the port
-  -> Continuum runtime-boundary fixtures
+  -> translated-substrate evidence with nativeContinuumWitness: false
+  -> Continuum-native runtime-boundary fixtures
   -> Echo/live-frontier adapter
   -> generated shared artifacts where the family is no longer Graft-local
 ```
@@ -236,9 +250,9 @@ architecture honest.
 1. Ship `v0.8.0` as the final git-warp-first Review Truth release.
 2. Introduce a substrate-neutral structural reading port in Graft.
 3. Keep the existing git-warp committed-history implementation behind that
-   port.
-4. Add fixture-backed Continuum runtime-boundary coverage for `ObserverPlan`,
-   `ObservationRequest`, and `ReadingEnvelope`.
+   port and mark its evidence as translated/non-Continuum-native.
+4. Add fixture-backed or Echo-backed Continuum runtime-boundary coverage for
+   `ObserverPlan`, `ObservationRequest`, `ReadingEnvelope`, and evidence status.
 5. Prove one Echo or `jedit` live-frontier structural reading.
 6. Shape Graft-owned structural payloads so they can be wrapped in
    `ReadingEnvelope` posture without making Continuum own premature app nouns.
@@ -258,7 +272,7 @@ We know the north star is becoming real when these things are boring:
 - A PR review over committed Git history and a live editor reading over Echo
   both return evidence-bearing structural readings.
 - API, CLI, and MCP callers receive the same basis, freshness, residual,
-  support, and payload identity posture.
+  support, evidence-status, and payload identity posture.
 - `warp-ttd` can show a Graft structural reading alongside runtime receipts
   without hand-normalizing host-specific stories.
 - Continuum owns the shared families; Wesley generates the artifacts; runtimes
