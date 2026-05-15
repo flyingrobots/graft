@@ -8,6 +8,8 @@ The Graft work doctrine: A backlog, a loop, and honest bookkeeping.
 - **The filesystem is the coordination layer.** Directories are priorities; filenames are identities; moves are decisions.
 - **Tests are the executable spec.** Design names the problem; tests prove the answer.
 - **Reproducibility is the definition of done.** Results must be re-runnable proof, not static artifacts.
+- **Design packets come first.** Every implementation cycle starts by making
+  the design packet explicit before RED/GREEN work begins.
 
 ## Structure
 
@@ -38,7 +40,8 @@ The Graft work doctrine: A backlog, a loop, and honest bookkeeping.
 stateDiagram-v2
     direction LR
     [*] --> Pull: asap/
-    Pull --> Branch: cycle/
+    Pull --> Design: docs/design/
+    Design --> Branch: cycle/
     Branch --> Red: failing tests
     Red --> Green: passing tests
     Green --> Retro: findings/debt
@@ -46,12 +49,15 @@ stateDiagram-v2
     Ship --> [*]
 ```
 
-1. **Pull**: Move an item from `asap/` to `docs/design/`.
-2. **Branch**: Create `cycle/<cycle_name>`.
-3. **Red**: Write failing tests based on the design's playback questions.
-4. **Green**: Implement the solution until tests pass.
-5. **Retro**: Document findings and follow-on debt in the cycle doc.
-6. **Ship**: Open a PR to `main`. Update `BEARING.md` and `CHANGELOG.md` after merge.
+1. **Pull**: Select the backlog item from `asap/` or `up-next/`.
+2. **Design**: Create or update the `docs/design/` packet first. The packet
+   must name the hill, acceptance criteria, playback questions, non-goals, and
+   the expected test strategy before implementation begins.
+3. **Branch**: Create `cycle/<cycle_name>`.
+4. **Red**: Write failing tests based on the design's playback questions.
+5. **Green**: Implement the solution until tests pass.
+6. **Retro**: Document findings and follow-on debt in the cycle doc.
+7. **Ship**: Open a PR to `main`. Update `BEARING.md` and `CHANGELOG.md` after merge.
 
 ## Naming Convention
 Backlog and cycle files follow: `<LEGEND>_<slug>.md`

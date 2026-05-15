@@ -13,6 +13,11 @@ This guide is for AI agents and human operators recovering context in the Graft 
 
 Do not audit the repository by recursively walking the filesystem. Follow the authoritative manifests:
 
+Design packets come first. Before implementation, repair, or RED/GREEN work on
+a backlog item, pull the work into `docs/design/` and make the hill, acceptance
+criteria, playback questions, and non-goals explicit. Implementation starts
+from that packet, not from an unrecorded chat plan.
+
 ### 1. The Entrance
 - **`README.md`**: Public front door, core value prop, and quick start.
 - **`GUIDE.md`**: Orientation, fast path, and system orchestration.
