@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Changed
+
+- **Structural reading boundary**: `graft_review` impact counts and
+  `graft_dead_symbols` now read through a Graft-owned
+  `StructuralReadingPort` with explicit Continuum-native vs translated
+  git-warp evidence status, preserving existing public response shapes.
+
 ## [0.8.0] - 2026-05-13
 
 ### Added
