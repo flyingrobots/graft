@@ -11,14 +11,24 @@ timeline
 
 ## Active Gravity
 
-### 1. Entrypoint Convergence
+### 1. Continuum-Shaped Structural Reading Port
+- Defining `StructuralReadingPort` as the only Graft-facing structural read
+  boundary.
+- Keeping the current git-warp committed-history behavior behind that port
+  while marking its evidence as translated/non-Continuum-native.
+- Proving at least one fixture-backed or Echo-backed Continuum-native reading
+  branch without making Graft a Continuum semantic owner.
+- Routing API, CLI, MCP, and rendering paths through normalized Graft structural
+  payloads rather than substrate-specific facts.
+
+### 2. Entrypoint Convergence
 - Formalizing API, CLI, and MCP as equal first-class entry points.
 - Extracting application services so those three surfaces stop owning
   business flow.
 - Establishing baseline capability posture and parity expectations
   before more surface growth lands.
 
-### 2. WARP Ontology & Causal Collapse
+### 3. WARP Ontology & Causal Collapse
 - Explicit definition of session, strand, and checkout epoch.
 - Implementation of strand-aware causal collapse (admission of speculative work into canonical history).
 - Strengthening of symbol identity and rename continuity for precise slicing.
@@ -27,12 +37,12 @@ timeline
   WARP reference and precision paths have been mitigated; medium-severity
   local-history and newer structural-metric reads remain tracked.
 
-### 3. Multi-Repo Coordination
+### 4. Multi-Repo Coordination
 - Refinement of the Shared Daemon trust boundaries.
 - System-wide resource pressure and fairness summaries across multiple repos.
 - Authorization-filtered multi-repo overview surfaces.
 
-### 4. Agentic Observability
+### 5. Agentic Observability
 - Implementation of the Deterministic Scenario Replay pipeline.
 - Machine-readable between-commit activity views for agents and humans.
 
@@ -58,25 +68,28 @@ enhance, governed-edit, path-boundary, and Dockerized validation spine.
 `v0.7.1` followed with npm package hygiene: built `dist/` runtime
 artifacts, no published `src/`, development-only `tsx`, and release
 publish guards.
+`v0.8.0` shipped Review Truth: structural PR summaries, provenance
+signals, symbol history, removed-symbol evidence, structural
+test-reference signals, review readiness, and broader language/config
+parsing.
 
 ## Next Target
 
-The immediate focus is **v0.8.0 release prep**, not more feature work.
+The immediate focus is the **Continuum-shaped structural reading port**, not a
+runtime rewrite.
 
-1. Keep `main` release-clean after `v0.7.1`.
-2. Land `v0.8.0` as a **Review Truth** release: structural PR review
-   summaries, bounded provenance hints, symbol history, removed-symbol
-   evidence, structural test-reference signals, automated review
-   readiness, and the first language-breadth stack for Rust, GraphQL,
-   Python, Go, JSON, TOML, and YAML.
-3. Treat remaining `docs/method/backlog/v0.8.0/` cards as follow-up
-   candidates unless release validation exposes a direct blocker.
-4. Do not add METHOD-specific backlog/status features to Graft. METHOD
+1. Keep `main` clean after the `v0.8.0` release.
+2. Introduce `StructuralReadingPort` as Graft's single structural read boundary.
+3. Put git-warp committed-history reads behind the port and label them as
+   translated/non-Continuum-native evidence.
+4. Prove the Continuum-native branch with fixture-backed or Echo-backed
+   evidence before any adapter claims native witnesshood.
+5. Do not add METHOD-specific backlog/status features to Graft. METHOD
    backlog lanes, cards, retros, dependency DAGs, and release truth
    surfaces belong in Method MCP / Method CLI.
-5. Keep `WARP_lsp-enrichment` and `CORE_migrate-to-slice-first-reads`
-   out of this release. LSP enrichment remains valid optional scope;
+6. Keep `WARP_lsp-enrichment` and `CORE_migrate-to-slice-first-reads`
+   out of this slice. LSP enrichment remains valid optional scope;
    slice-first reads remain externally blocked until git-warp observer
    geometry APIs land.
-6. Treat daemon live refresh and daemon control-plane actions as a
-   separate daemon-operator lane, not part of the v0.8.0 cut.
+7. Treat daemon live refresh and daemon control-plane actions as a
+   separate daemon-operator lane, not part of this slice.
