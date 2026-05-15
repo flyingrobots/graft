@@ -109,6 +109,46 @@ describe("git-warp structural reading adapter", () => {
     });
   });
 
+  it("marks reference-count readings partial when committed fallback evidence is unavailable", async () => {
+    const port = createGitWarpStructuralReadingPort({
+      projectRoot: "/repo",
+      git,
+      pathOps,
+      getWarp: () => Promise.resolve(warp),
+      countSymbolReferencesFromGraph: vi.fn(() => Promise.resolve({
+        symbol: "buildThing",
+        referenceCount: 0,
+        referencingFiles: [],
+      })),
+      countNamedImportReferencesAtRef: vi.fn(() => Promise.reject(new Error("git unavailable"))),
+      findDeadSymbols: vi.fn(),
+    });
+
+    const reading = await port.countSymbolReferences({
+      symbolName: "buildThing",
+      filePath: "src/api.ts",
+      ref: "HEAD",
+    });
+
+    expect(reading.payload).toEqual({
+      symbol: "buildThing",
+      referenceCount: 0,
+      referencingFiles: [],
+    });
+    expect(reading.residualPosture).toBe("partial");
+    expect(reading.evidence).toMatchObject({
+      kind: "translated-substrate",
+      substrate: "git-warp",
+      nativeContinuumWitness: false,
+      evidence: {
+        kind: "symbol-reference-count",
+        source: "warp-graph",
+        symbolName: "buildThing",
+        filePath: "src/api.ts",
+      },
+    });
+  });
+
   it("labels dead-symbol readings as translated non-Continuum-native evidence", async () => {
     const port = createGitWarpStructuralReadingPort({
       projectRoot: "/repo",

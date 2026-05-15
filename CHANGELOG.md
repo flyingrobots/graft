@@ -14,6 +14,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   `StructuralReadingPort` with explicit Continuum-native vs translated
   git-warp evidence status, preserving existing public response shapes.
 
+### Fixed
+
+- **Structural reading residual posture**: Reference-count readings now
+  report a partial residual posture when committed import-scan fallback
+  evidence is unavailable after a zero-count WARP graph reading.
+
 ## [0.8.0] - 2026-05-13
 
 ### Added

@@ -4,6 +4,7 @@ import type {
   DeadSymbolsReadingPayload,
   DeadSymbolsReadingRequest,
   GitWarpEvidence,
+  StructuralReadingResidualPosture,
   StructuralReadingPort,
   StructuralReadingResult,
   SymbolReferenceReadingPayload,
@@ -100,6 +101,7 @@ export function createGitWarpStructuralReadingPort(
 
       let payload = symbolReferencePayload(request.symbolName, graphResult);
       let source: "warp-graph" | "committed-import-scan" = "warp-graph";
+      let residualPosture: StructuralReadingResidualPosture = "complete";
 
       if (graphResult.referenceCount === 0) {
         try {
@@ -117,13 +119,14 @@ export function createGitWarpStructuralReadingPort(
           }
         } catch {
           payload = symbolReferencePayload(request.symbolName, graphResult);
+          residualPosture = "partial";
         }
       }
 
       return {
         kind: "symbol-reference-count",
         freshness: "current",
-        residualPosture: "complete",
+        residualPosture,
         payload,
         evidence: translatedGitWarpEvidence(
           deps,
