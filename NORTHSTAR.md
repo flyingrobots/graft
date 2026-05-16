@@ -68,27 +68,44 @@ Continuum-shaped, not Continuum-native.
 Graft may normalize structural readings into a Continuum-compatible shape.
 Only Continuum-producing runtimes may claim Continuum-native witnesshood.
 
+The second migration distinction is:
+
+```text
+schema authority before substrate migration.
+```
+
+Graft must define its structural history in GraphQL first. Wesley then
+generates the TypeScript read model, validators, Echo-facing contracts,
+SQL/storage artifacts, and other runtime targets from that single source of
+truth. Echo is the primary causal-history substrate for Graft after parity is
+proven. git-warp is the legacy committed-history import and compatibility
+source, not the canonical model of Graft structural history.
+
 The stack split is:
 
 | Layer | Owner | Responsibility |
 | :--- | :--- | :--- |
 | Shared semantics | Continuum | Shared contract families, witness language, admission and compatibility nouns, registry truth. |
-| Compilation | Wesley | Generated artifacts, manifests, codecs, bundle identity, TTD surfaces, and witness tooling. |
-| Hot runtime | Echo | Low-latency admission, observation, retained readings, receipts, replay, and live/frontier runtime machinery. |
-| Cold runtime | `git-warp` | Git-backed, committed-history runtime implementation and durable structural history adapter. |
+| Graft structural schema | Graft | Canonical GraphQL structural history facts, code-aware reading semantics, and migration parity rules. |
+| Compilation | Wesley | Generated artifacts, manifests, codecs, TypeScript read models, validators, SQL/storage artifacts, Echo-facing contracts, and witness tooling. |
+| Primary substrate | Echo | Fast causal-history storage and execution for Graft's schema-generated structural history. |
+| Legacy compatibility | `git-warp` | Provenance-preserving committed-history import source and temporary fallback-translated adapter. |
 | Debugger/operator surface | `warp-ttd` | Wide-aperture navigation through lanes, frames, receipts, effects, sessions, delivery observations, and counterfactuals. |
 | Structural intelligence | Graft | Code-aware readings, review truth, symbol/reference history, structural test signals, provenance hints, and agent-facing context governance. |
 
-Echo and `git-warp` are sibling Continuum runtime implementations. Neither is
-the real graph. Neither is the subordinate half of the other. Runtime posture
-can differ: hot, cold, browser-hosted, archival, offline-first, editor-native,
-Git-backed. Shared meaning must still cross the Continuum boundary through
-authored families and witnessed artifacts.
+Echo and `git-warp` are substrates, not Graft's ontology. Both can converge on
+Wesley GraphQL contracts, but Graft must not copy git-warp's graph model into
+Echo and call that architecture. Runtime posture can differ: browser-hosted,
+archival, offline-first, editor-native, Git-backed, or massive-history
+optimized. Shared meaning must still cross the authored schema and Continuum
+boundary through generated contracts and witnessed artifacts where native
+witnesses exist.
 
 ## What Graft Owns
 
 Graft owns the code-aware observer layer:
 
+- the canonical GraphQL structural history schema
 - policy-governed reads and explicit refusals
 - structural outlines, diffs, and projections
 - symbol, reference, rename, and removed-symbol evidence
@@ -112,6 +129,7 @@ Graft must not become:
 - a runtime implementation competing with Echo or `git-warp`
 - the semantic owner of Continuum shared families
 - a hidden graph database API
+- a consumer of git-warp-native concepts as canonical structural history
 - a debugger product replacing `warp-ttd`
 - a permanent hand-normalization layer for incompatible host stories
 - a prose-only review assistant whose claims cannot be inspected
@@ -139,8 +157,9 @@ A reading should name:
   rights-limited, unavailable, obstructed, or intentionally degraded
 - **support**: witness, receipt, shell, retained artifact, provenance payload,
   or explicit absence of support
-- **evidence status**: Continuum-native when backed by a native Continuum
-  witness, or translated-substrate when adapted from a non-native substrate
+- **evidence status**: Echo-native, git-warp-imported, or
+  fallback-translated for Graft structural history; Continuum-native only when
+  backed by a native Continuum witness
 - **payload identity**: digest, version, schema, or generated artifact id
 - **typed payload**: the actual Graft-owned structural answer
 
@@ -153,26 +172,29 @@ truth.
 The long-term path is:
 
 ```text
-Continuum shared family
-  -> Wesley-generated artifacts
-  -> Echo runtime publication or translated git-warp adapter evidence
+Graft GraphQL structural history schema
+  -> Wesley-generated TypeScript / Zod / Echo / SQL artifacts
+  -> Echo-backed primary structural history
   -> ObservationRequest / ObserverPlan
-  -> ReadingEnvelope-backed runtime result
-  -> Graft structural payload
+  -> StructuralReadingPort
+  -> Graft structural reading payload
   -> API / CLI / MCP / warp-ttd presentation
 ```
 
 In practice:
 
-- `git-warp` remains the right adapter for cold, Git-backed committed history.
-  Until it publishes Continuum boundary artifacts directly, its evidence is
-  translated substrate evidence, not a Continuum-native witness.
-- Echo becomes the right adapter for hot, live, frontier-oriented histories.
+- Graft defines canonical structural facts in GraphQL.
+- Wesley generates every contract target from that file so TypeScript,
+  validators, SQL/storage artifacts, and Echo-facing files cannot drift.
+- Echo becomes the primary substrate for Graft structural history after parity
+  is proven.
+- `git-warp` becomes the provenance-preserving legacy import source and an
+  optional fallback compatibility adapter.
+- Evidence labels distinguish `echo-native`, `git-warp-imported`, and
+  `fallback-translated` facts.
 - Continuum owns shared runtime-boundary nouns such as `ObserverPlan`,
   `ObservationRequest`, `ReadingEnvelope`, `WitnessedSuffixShell`,
   `CausalSuffixBundle`, and `ImportOutcome`.
-- Wesley-generated artifacts replace shadow schemas and hand-normalized DTOs
-  where the boundary is shared.
 - Graft owns the code-aware structural payload at the edge of the reading.
 - `warp-ttd` may display Graft readings as observer artifacts, but should not
   become the long-term owner of code-review meaning.
@@ -207,23 +229,28 @@ outcome is that every caller gets the same truth posture.
 
 ## Boundary Laws
 
-1. Graft must not treat any materialized graph as the primary ontology.
-2. Graft must keep runtime admission, observation, import, export, and
+1. Graft owns structural semantics.
+2. Wesley owns generated contracts.
+3. Echo owns causal-history storage and execution.
+4. git-warp owns only legacy import and compatibility.
+5. No git-warp-native concept becomes canonical by accident.
+6. Graft must not treat any materialized graph as the primary ontology.
+7. Graft must keep runtime admission, observation, import, export, and
    settlement concerns behind explicit ports.
-3. Graft must not mutate Echo state directly.
-4. Graft must not make `warp-ttd` carry permanent host-normalization or
+8. Graft must not mutate Echo state directly.
+9. Graft must not make `warp-ttd` carry permanent host-normalization or
    structural-review debt.
-5. Graft must not re-author Continuum-owned shared nouns locally.
-6. Graft may own app/tool-local structural payloads until a second repo needs
+10. Graft must not re-author Continuum-owned shared nouns locally.
+11. Graft may own app/tool-local structural payloads until a second repo needs
    the same semantics.
-7. Shared structural payloads should graduate to Continuum only when promotion
+12. Shared structural payloads should graduate to Continuum only when promotion
    reduces drift rather than freezing confusion.
-8. API, CLI, MCP, and debugger presentation should expose the same
+13. API, CLI, MCP, and debugger presentation should expose the same
    structural-reading posture through their own appropriate contracts.
-9. Observer-side summaries must not be presented as canonical runtime
+14. Observer-side summaries must not be presented as canonical runtime
    admission unless the runtime actually admitted that collapse and can name
    the corresponding support.
-10. Every degraded or refused answer must say why.
+15. Every degraded or refused answer must say why.
 
 ## Migration Principle
 
@@ -234,12 +261,13 @@ The move is:
 
 ```text
 git-warp-shaped implementation
-  -> substrate-neutral structural reading port
-  -> git-warp adapter behind the port
-  -> translated-substrate evidence with nativeContinuumWitness: false
-  -> Continuum-native runtime-boundary fixtures
-  -> Echo/live-frontier adapter
-  -> generated shared artifacts where the family is no longer Graft-local
+  -> Graft GraphQL structural history schema
+  -> Wesley-generated contracts
+  -> Echo-backed primary structural store/read model
+  -> git-warp one-time import with provenance
+  -> parity validation against current public outputs
+  -> normal operation stops opening git-warp
+  -> optional fallback-translated compatibility for remaining gaps
 ```
 
 This keeps the current Review Truth behavior shippable while making the next
@@ -248,31 +276,42 @@ architecture honest.
 ## Near-Term Path
 
 1. Ship `v0.8.0` as the final git-warp-first Review Truth release.
-2. Introduce a substrate-neutral structural reading port in Graft.
-3. Keep the existing git-warp committed-history implementation behind that
-   port and mark its evidence as translated/non-Continuum-native.
-4. Add fixture-backed or Echo-backed Continuum runtime-boundary coverage for
-   `ObserverPlan`, `ObservationRequest`, `ReadingEnvelope`, and evidence status.
-5. Prove one Echo or `jedit` live-frontier structural reading.
-6. Shape Graft-owned structural payloads so they can be wrapped in
-   `ReadingEnvelope` posture without making Continuum own premature app nouns.
-7. Let `warp-ttd` display Graft structural readings as observer artifacts, not
+2. Keep the landed `StructuralReadingPort` as the Graft-facing read boundary,
+   but treat its hand-authored payloads as transitional.
+3. Define Graft's canonical structural history facts in GraphQL.
+4. Use Wesley to generate the TypeScript read model, validators, Echo-facing
+   contracts, and storage artifacts from that schema.
+5. Import existing git-warp structural data into Echo with preserved
+   provenance and `git-warp-imported` evidence.
+6. Validate parity against current git-warp-backed review, dead-symbol, blame,
+   difficulty, structural log, churn, and precision/code lookup outputs.
+7. Mark remaining compatibility reads as `fallback-translated` and never as
+   Continuum-native witnesses.
+8. Stop opening git-warp during normal operation once parity is proven.
+9. Let `warp-ttd` display Graft structural readings as observer artifacts, not
    debugger-native facts.
-8. Promote only the structural payloads that truly need cross-repo meaning into
+10. Promote only the structural payloads that truly need cross-repo meaning into
    Continuum.
 
 The first concrete post-`v0.8.0` slice is:
 
-- [CORE_continuum-structural-reading-port](./docs/method/backlog/up-next/CORE_continuum-structural-reading-port.md)
+- [CORE_structural-history-schema-and-echo-migration](./docs/method/backlog/up-next/CORE_structural-history-schema-and-echo-migration.md)
 
 ## Success State
 
 We know the north star is becoming real when these things are boring:
 
 - A PR review over committed Git history and a live editor reading over Echo
-  both return evidence-bearing structural readings.
+  both return evidence-bearing structural readings through the same generated
+  Graft schema.
 - API, CLI, and MCP callers receive the same basis, freshness, residual,
   support, evidence-status, and payload identity posture.
+- Generated TypeScript, validators, Echo-facing contracts, and storage
+  artifacts trace back to the same GraphQL source without hand-maintained drift.
+- Normal Graft operation no longer opens git-warp after import parity is
+  proven.
+- Legacy git-warp facts remain inspectable as imported provenance, not hidden
+  authority.
 - `warp-ttd` can show a Graft structural reading alongside runtime receipts
   without hand-normalizing host-specific stories.
 - Continuum owns the shared families; Wesley generates the artifacts; runtimes

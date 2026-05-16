@@ -11,15 +11,18 @@ timeline
 
 ## Active Gravity
 
-### 1. Continuum-Shaped Structural Reading Port
-- Defining `StructuralReadingPort` as the only Graft-facing structural read
-  boundary.
-- Keeping the current git-warp committed-history behavior behind that port
-  while marking its evidence as translated/non-Continuum-native.
-- Proving at least one fixture-backed or Echo-backed Continuum-native reading
-  branch without making Graft a Continuum semantic owner.
-- Routing API, CLI, MCP, and rendering paths through normalized Graft structural
-  payloads rather than substrate-specific facts.
+### 1. Structural History Schema and Echo Migration
+- Graft defines canonical structural history facts in GraphQL.
+- Wesley generates TypeScript read models, validators, Echo-facing contracts,
+  SQL/storage artifacts, and drift witnesses from that schema.
+- Echo becomes the primary causal-history substrate for Graft's structural
+  history after parity is proven.
+- git-warp is demoted to provenance-preserving legacy import and temporary
+  fallback compatibility.
+- Evidence labels distinguish `echo-native`, `git-warp-imported`, and
+  `fallback-translated` facts.
+- The landed `StructuralReadingPort` remains the Graft-facing read boundary,
+  but its hand-authored payloads are transitional.
 
 ### 2. Entrypoint Convergence
 - Formalizing API, CLI, and MCP as equal first-class entry points.
@@ -49,7 +52,10 @@ timeline
 ## Tensions
 
 - **Daemon Authz Isolation**: Ensuring that transport-scoped sessions cannot "hop" to unauthorized workspace slices via ID guessing.
-- **Git Subprocess Churn**: Frequent spawning of `git` for repo state observation in large repositories impacts latency.
+- **git-warp Substrate Strain**: Very large histories and ref sets push
+  git-warp through Git performance limits; Graft should move normal operation
+  to Echo after schema-backed parity rather than hand-translating git-warp's
+  graph model into Echo.
 - **Session Semantic Drift**: The term `session` remains too transport-scoped in the code; it needs to move toward a strand-scoped causal envelope.
 - **Warp Level 1 Debt**: Some WARP follow-on work is implemented ahead
   of the release bookkeeping that describes it. Release and METHOD
@@ -75,21 +81,27 @@ parsing.
 
 ## Next Target
 
-The immediate focus is the **Continuum-shaped structural reading port**, not a
-runtime rewrite.
+The immediate focus is **schema authority before substrate migration**.
 
 1. Keep `main` clean after the `v0.8.0` release.
-2. Introduce `StructuralReadingPort` as Graft's single structural read boundary.
-3. Put git-warp committed-history reads behind the port and label them as
-   translated/non-Continuum-native evidence.
-4. Prove the Continuum-native branch with fixture-backed or Echo-backed
-   evidence before any adapter claims native witnesshood.
-5. Do not add METHOD-specific backlog/status features to Graft. METHOD
+2. Pull
+   [CORE_structural-history-schema-and-echo-migration](./method/backlog/up-next/CORE_structural-history-schema-and-echo-migration.md)
+   as the next design/implementation cycle.
+3. Define Graft's canonical structural history facts in GraphQL before
+   adapting more git-warp output.
+4. Use Wesley to generate the TypeScript/Zod read model, Echo-facing
+   contracts, storage artifacts, and drift witnesses from that schema.
+5. Preserve current public command behavior while validating Echo-backed
+   outputs against git-warp-backed outputs.
+6. Treat git-warp evidence as `git-warp-imported` or `fallback-translated`,
+   never as Continuum-native witnesshood.
+7. Stop opening git-warp during normal Graft operation once parity is proven.
+8. Do not add METHOD-specific backlog/status features to Graft. METHOD
    backlog lanes, cards, retros, dependency DAGs, and release truth
    surfaces belong in Method MCP / Method CLI.
-6. Keep `WARP_lsp-enrichment` and `CORE_migrate-to-slice-first-reads`
+9. Keep `WARP_lsp-enrichment` and `CORE_migrate-to-slice-first-reads`
    out of this slice. LSP enrichment remains valid optional scope;
    slice-first reads remain externally blocked until git-warp observer
    geometry APIs land.
-7. Treat daemon live refresh and daemon control-plane actions as a
+10. Treat daemon live refresh and daemon control-plane actions as a
    separate daemon-operator lane, not part of this slice.

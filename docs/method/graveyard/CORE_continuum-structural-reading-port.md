@@ -3,9 +3,10 @@ title: "Continuum structural reading port"
 feature: core
 kind: architecture
 legend: CORE
-lane: up-next
+lane: graveyard
 priority: 1
 effort: L
+status: superseded
 requirements:
   - "v0.8.0 Review Truth release branch remains release-focused"
   - "Continuum runtime-boundary family: ObserverPlan, ObservationRequest, ReadingEnvelope, WitnessedSuffixShell, CausalSuffixBundle, ImportOutcome"
@@ -22,6 +23,17 @@ acceptance_criteria:
 ---
 
 # Continuum structural reading port
+
+## Disposition
+
+The first slice of this card landed in PR #55 and introduced
+`StructuralReadingPort` for `graft_review` and `graft_dead_symbols`.
+
+The remaining direction is superseded by
+[CORE_structural-history-schema-and-echo-migration](../backlog/up-next/CORE_structural-history-schema-and-echo-migration.md).
+The active correction is schema authority first: Graft owns structural
+semantics, Wesley generates contracts, Echo becomes the primary causal-history
+substrate, and git-warp becomes legacy import/compatibility.
 
 ## Hill
 
