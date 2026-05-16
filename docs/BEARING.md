@@ -13,8 +13,9 @@ timeline
 
 ### 1. Structural History Schema and Echo Migration
 - Graft defines canonical structural history facts in GraphQL.
-- Wesley generates TypeScript read models, validators, Echo-facing contracts,
-  SQL/storage artifacts, and drift witnesses from that schema.
+- Graft consumes the existing Wesley toolchain to derive TypeScript read
+  models, validators, Echo-consumable contracts, SQL/storage artifacts, and
+  drift witnesses from that schema.
 - Echo becomes the primary causal-history substrate for Graft's structural
   history after parity is proven.
 - git-warp is demoted to provenance-preserving legacy import and temporary
@@ -89,8 +90,9 @@ The immediate focus is **schema authority before substrate migration**.
    as the next design/implementation cycle.
 3. Define Graft's canonical structural history facts in GraphQL before
    adapting more git-warp output.
-4. Use Wesley to generate the TypeScript/Zod read model, Echo-facing
-   contracts, storage artifacts, and drift witnesses from that schema.
+4. Use the existing Wesley toolchain to derive the TypeScript/Zod read model,
+   Echo-consumable contracts, storage artifacts, and drift witnesses from that
+   schema.
 5. Preserve current public command behavior while validating Echo-backed
    outputs against git-warp-backed outputs.
 6. Treat git-warp evidence as `git-warp-imported` or `fallback-translated`,

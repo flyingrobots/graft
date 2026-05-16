@@ -32,8 +32,9 @@ can fossilize git-warp's model.
 ## Laws
 
 1. Graft owns structural semantics.
-2. Wesley owns generated contracts.
-3. Echo owns causal-history storage and execution.
+2. Wesley owns the compiler and generated-contract rules; Graft only supplies
+   schema and integration config.
+3. Echo owns causal-history storage and execution; Graft does not change Echo.
 4. git-warp owns only legacy import and compatibility.
 5. No git-warp-native concept becomes canonical by accident.
 
@@ -51,12 +52,15 @@ can fossilize git-warp's model.
       operation?
 - [ ] Can a human verify that git-warp remains a provenance-preserving legacy
       source instead of a hidden authority?
+- [ ] Can a human verify that the cycle does not require Echo or Wesley repo
+      changes?
 
 ### Agent
 
 - [ ] Does GraphQL define canonical Graft structural facts?
-- [ ] Does Wesley generate TypeScript read models, validators, and Echo-facing
-      contracts from that single source of truth?
+- [ ] Does Graft use the existing Wesley toolchain to derive TypeScript read
+      models, validators, and Echo-consumable contracts from that single source
+      of truth?
 - [ ] Do drift tests fail when generated artifacts or runtime contracts stop
       matching the GraphQL schema?
 - [ ] Do migration parity tests compare Echo-backed outputs against the current
@@ -82,15 +86,20 @@ The correct path is:
 
 ```text
 Graft GraphQL structural history schema
-  -> Wesley-generated TypeScript / Zod / Echo / SQL artifacts
+  -> existing Wesley compiler outputs for TypeScript / Zod / Echo / SQL
   -> Echo-backed primary structural history
   -> git-warp one-time import and fallback compatibility
 ```
 
 Schema authority comes first. Echo is a fast causal-history substrate. Wesley is
-the compiler that prevents drift across TypeScript, validators, SQL, Echo Rust
-files, and other generated artifacts. Graft owns the structural facts being
-modeled.
+the existing compiler that prevents drift across TypeScript, validators, SQL,
+Echo-consumable contract artifacts, and other generated outputs. Graft owns the
+structural facts being modeled.
+
+This design does not require modifying Echo or Wesley. If the existing Wesley
+compiler or Echo contract surface cannot support the schema, that is an
+upstream blocker to record separately rather than work to fold into this Graft
+cycle.
 
 ## Canonical Model Boundary
 
@@ -168,7 +177,7 @@ may normalize structural readings into Continuum-compatible shape.
 
 The migration should be explicit and auditable:
 
-1. Create the Wesley-owned schema generation boundary.
+1. Create the Graft-owned GraphQL schema boundary and local Wesley invocation.
 2. Make Echo the primary write/read substrate for new structural facts.
 3. Import current git-warp structural data into the canonical schema with
    `git-warp-imported` evidence.
@@ -196,7 +205,7 @@ derived artifacts:
 
 - TypeScript read model
 - Zod or equivalent runtime validators
-- Echo-facing contracts and Rust files
+- Echo-consumable contract artifacts produced by the existing Wesley toolchain
 - SQL/storage artifacts where needed
 - schema identity, generation manifest, and drift witness
 
@@ -207,15 +216,18 @@ The repo must not allow parallel models to diverge:
 - no hand-maintained Echo model that silently differs from GraphQL
 - no migration importer that smuggles git-warp-only concepts into the canonical
   schema
+- no Graft branch that changes Wesley just to make a Graft-local schema concept
+  work
 
 ## Echo Boundary
 
 Echo is deliberately dumb from Graft's perspective. Graft should not change Echo
 to understand Graft semantics manually.
 
-Graft declares structural history in GraphQL. Wesley compiles the Echo-facing
-contracts. Echo stores and executes causal history through those generated
-contracts. Graft consumes normalized structural payloads through its own ports.
+Graft declares structural history in GraphQL. The existing Wesley toolchain
+compiles the Echo-consumable contracts. Echo stores and executes causal history
+through those generated contracts. Graft consumes normalized structural payloads
+through its own ports.
 
 That keeps substrate performance and semantic authority separate.
 
@@ -281,13 +293,14 @@ API / CLI / MCP use case
 
 - Do not hand-port git-warp's graph model into Echo.
 - Do not change Echo to understand Graft semantics manually.
+- Do not change Wesley to understand Graft semantics manually.
 - Do not model git-warp internals as canonical Graft facts.
 - Do not change public command behavior during the migration unless a later
   packet explicitly authorizes a surface change.
 - Do not remove git-warp support before import parity and fallback behavior are
   proven.
-- Do not keep parallel hand-maintained TypeScript, Zod, SQL, and Echo Rust
-  models once Wesley generation exists.
+- Do not keep parallel hand-maintained TypeScript, Zod, SQL, and
+  Echo-consumable contract models once Wesley generation exists.
 - Do not claim Continuum-native witnesshood for imported or translated
   git-warp evidence.
 

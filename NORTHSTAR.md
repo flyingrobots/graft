@@ -75,11 +75,13 @@ schema authority before substrate migration.
 ```
 
 Graft must define its structural history in GraphQL first. Wesley then
-generates the TypeScript read model, validators, Echo-facing contracts,
+generates the TypeScript read model, validators, Echo-consumable contracts,
 SQL/storage artifacts, and other runtime targets from that single source of
-truth. Echo is the primary causal-history substrate for Graft after parity is
-proven. git-warp is the legacy committed-history import and compatibility
-source, not the canonical model of Graft structural history.
+truth. This does not imply changing Wesley or Echo. Graft authors schema and
+integration config, then consumes the existing Wesley compiler outputs and the
+existing Echo substrate. Echo is the primary causal-history substrate for Graft
+after parity is proven. git-warp is the legacy committed-history import and
+compatibility source, not the canonical model of Graft structural history.
 
 The stack split is:
 
@@ -87,7 +89,7 @@ The stack split is:
 | :--- | :--- | :--- |
 | Shared semantics | Continuum | Shared contract families, witness language, admission and compatibility nouns, registry truth. |
 | Graft structural schema | Graft | Canonical GraphQL structural history facts, code-aware reading semantics, and migration parity rules. |
-| Compilation | Wesley | Generated artifacts, manifests, codecs, TypeScript read models, validators, SQL/storage artifacts, Echo-facing contracts, and witness tooling. |
+| Compilation | Wesley | Existing compiler and generated-contract rules for artifacts, manifests, codecs, TypeScript read models, validators, SQL/storage artifacts, Echo-consumable contracts, and witness tooling. |
 | Primary substrate | Echo | Fast causal-history storage and execution for Graft's schema-generated structural history. |
 | Legacy compatibility | `git-warp` | Provenance-preserving committed-history import source and temporary fallback-translated adapter. |
 | Debugger/operator surface | `warp-ttd` | Wide-aperture navigation through lanes, frames, receipts, effects, sessions, delivery observations, and counterfactuals. |
@@ -173,7 +175,7 @@ The long-term path is:
 
 ```text
 Graft GraphQL structural history schema
-  -> Wesley-generated TypeScript / Zod / Echo / SQL artifacts
+  -> existing Wesley compiler outputs for TypeScript / Zod / Echo / SQL
   -> Echo-backed primary structural history
   -> ObservationRequest / ObserverPlan
   -> StructuralReadingPort
@@ -184,8 +186,8 @@ Graft GraphQL structural history schema
 In practice:
 
 - Graft defines canonical structural facts in GraphQL.
-- Wesley generates every contract target from that file so TypeScript,
-  validators, SQL/storage artifacts, and Echo-facing files cannot drift.
+- Graft invokes the existing Wesley toolchain so TypeScript, validators,
+  SQL/storage artifacts, and Echo-consumable files cannot drift from that file.
 - Echo becomes the primary substrate for Graft structural history after parity
   is proven.
 - `git-warp` becomes the provenance-preserving legacy import source and an
@@ -230,8 +232,9 @@ outcome is that every caller gets the same truth posture.
 ## Boundary Laws
 
 1. Graft owns structural semantics.
-2. Wesley owns generated contracts.
-3. Echo owns causal-history storage and execution.
+2. Wesley owns the compiler and generated-contract rules; Graft only supplies
+   schema and integration config.
+3. Echo owns causal-history storage and execution; Graft does not change Echo.
 4. git-warp owns only legacy import and compatibility.
 5. No git-warp-native concept becomes canonical by accident.
 6. Graft must not treat any materialized graph as the primary ontology.
@@ -262,7 +265,7 @@ The move is:
 ```text
 git-warp-shaped implementation
   -> Graft GraphQL structural history schema
-  -> Wesley-generated contracts
+  -> existing Wesley compiler outputs
   -> Echo-backed primary structural store/read model
   -> git-warp one-time import with provenance
   -> parity validation against current public outputs
@@ -279,8 +282,9 @@ architecture honest.
 2. Keep the landed `StructuralReadingPort` as the Graft-facing read boundary,
    but treat its hand-authored payloads as transitional.
 3. Define Graft's canonical structural history facts in GraphQL.
-4. Use Wesley to generate the TypeScript read model, validators, Echo-facing
-   contracts, and storage artifacts from that schema.
+4. Use the existing Wesley toolchain to derive the TypeScript read model,
+   validators, Echo-consumable contracts, and storage artifacts from that
+   schema.
 5. Import existing git-warp structural data into Echo with preserved
    provenance and `git-warp-imported` evidence.
 6. Validate parity against current git-warp-backed review, dead-symbol, blame,
@@ -306,7 +310,7 @@ We know the north star is becoming real when these things are boring:
   Graft schema.
 - API, CLI, and MCP callers receive the same basis, freshness, residual,
   support, evidence-status, and payload identity posture.
-- Generated TypeScript, validators, Echo-facing contracts, and storage
+- Generated TypeScript, validators, Echo-consumable contracts, and storage
   artifacts trace back to the same GraphQL source without hand-maintained drift.
 - Normal Graft operation no longer opens git-warp after import parity is
   proven.
@@ -314,8 +318,9 @@ We know the north star is becoming real when these things are boring:
   authority.
 - `warp-ttd` can show a Graft structural reading alongside runtime receipts
   without hand-normalizing host-specific stories.
-- Continuum owns the shared families; Wesley generates the artifacts; runtimes
-  emit and admit witnessed history; Graft reads code meaning from that history.
+- Continuum owns the shared families; Wesley supplies the compiler and
+  generated-contract rules; runtimes emit and admit witnessed history; Graft
+  reads code meaning from that history.
 - No one has to ask which graph is real.
 
 The answer is always: the graph is a chart. The work is witnessed causal
