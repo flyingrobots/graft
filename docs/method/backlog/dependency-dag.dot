@@ -13,7 +13,7 @@ digraph backlog {
   subgraph cluster_up_next {
     label="up-next (1)" labeljust=l fontsize=9 fontcolor="#555555"
     style=rounded color="#cccccc" bgcolor="#fafafa"
-    up_next_CORE_continuum_structural_reading_port [label="CORE-continuum-structural-reading-port - L" fillcolor="#E5E7EB" penwidth=2]
+    up_next_CORE_structural_history_schema_and_echo_migration [label="CORE-structural-history-schema-and-echo-migration - XL" fillcolor="#E5E7EB" penwidth=2]
   }
 
   subgraph cluster_v0_8_0 {

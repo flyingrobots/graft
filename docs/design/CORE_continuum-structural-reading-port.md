@@ -2,13 +2,25 @@
 title: "Continuum-shaped structural reading port"
 legend: "CORE"
 cycle: "CORE_continuum-structural-reading-port"
-source_backlog: "docs/method/backlog/up-next/CORE_continuum-structural-reading-port.md"
+source_backlog: "docs/method/graveyard/CORE_continuum-structural-reading-port.md"
 ---
 
 # Continuum-shaped structural reading port
 
-Source backlog item: `docs/method/backlog/up-next/CORE_continuum-structural-reading-port.md`
+Source backlog item: `docs/method/graveyard/CORE_continuum-structural-reading-port.md`
 Legend: CORE
+
+## Disposition
+
+The first port slice landed in PR #55. The remaining architecture direction is
+now superseded by
+[Structural history schema and Echo migration](./CORE_structural-history-schema-and-echo-migration.md).
+
+This packet remains useful as the historical explanation for
+`StructuralReadingPort` and the phrase "Continuum-shaped, not
+Continuum-native." New work should not extend the hand-authored port model as
+the canonical schema. It should move schema authority into Graft GraphQL and
+Wesley-generated artifacts.
 
 ## Sponsors
 
