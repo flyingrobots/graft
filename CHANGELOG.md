@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Added
+
+- **Structural history schema authority**: Graft now carries a canonical
+  `schemas/graft-structural-history.graphql` schema with Wesley-generated
+  TypeScript contracts and a deterministic artifact drift check, establishing
+  the schema-first Echo migration boundary without changing Echo or Wesley.
+
 ### Changed
 
 - **Structural reading boundary**: `graft_review` impact counts and

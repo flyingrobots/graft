@@ -1,0 +1,34 @@
+{
+  "schemaPath": "schemas/graft-structural-history.graphql",
+  "generatedTypesPath": "src/generated/graft-structural-history.ts",
+  "schemaSourceSha256": "588d2bd5b873387e9443d94e557423e8c82d824b69eb78efe91c279585412d81",
+  "generatedTypesSha256": "79737d3c089067685d553f9526c8eb442cb7a20c099a49a771162c2be29559cc",
+  "wesleyCliVersion": "0.0.4",
+  "wesleyL1RegistryHash": "0f6d6d2109142a0cd33ee8db9ebc28f1718e0d1ec2863ec4837048a1340bff61",
+  "requiredTypes": [
+    "StructuralRepository",
+    "StructuralBasis",
+    "StructuralFileVersion",
+    "StructuralParserRun",
+    "StructuralSymbol",
+    "StructuralSymbolRelation",
+    "StructuralReadingEvidence",
+    "StructuralReading",
+    "GitWarpImportBatch"
+  ],
+  "requiredOperationConstants": [
+    "queryStructuralRepositoriesOperation",
+    "queryStructuralBasesOperation",
+    "queryStructuralFileVersionsOperation",
+    "queryStructuralSymbolsOperation",
+    "queryStructuralSymbolRelationsOperation",
+    "queryStructuralReadingsOperation",
+    "queryStructuralReadingEvidenceOperation",
+    "queryGitWarpImportBatchesOperation"
+  ],
+  "requiredEvidenceLabels": [
+    "ECHO_NATIVE",
+    "GIT_WARP_IMPORTED",
+    "FALLBACK_TRANSLATED"
+  ]
+}

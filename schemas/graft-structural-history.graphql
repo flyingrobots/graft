@@ -1,0 +1,282 @@
+# Graft Structural History Schema
+# Version: 0.1.0
+#
+# Graft-authored canonical structural history facts.
+#
+# This schema is the source of truth for Graft structural semantics. Wesley
+# compiles derived artifacts from it. Echo stores and executes the resulting
+# contracts. git-warp may provide imported or fallback-translated evidence, but
+# git-warp concepts do not become canonical unless they are named here as Graft
+# facts.
+
+scalar Hash
+scalar Json
+
+enum StructuralBasisKind {
+  GIT_COMMIT
+  GIT_REF
+  ECHO_HEAD
+  LIVE_FRONTIER
+  IMPORT_BATCH
+}
+
+enum StructuralReadingKind {
+  SYMBOL_REFERENCE_COUNT
+  DEAD_SYMBOLS
+  SYMBOL_HISTORY
+  REFACTOR_DIFFICULTY
+  STRUCTURAL_LOG
+  STRUCTURAL_CHURN
+  PRECISION_CODE_LOOKUP
+}
+
+enum StructuralReadingFreshness {
+  CURRENT
+  STALE
+  INCOMPARABLE
+  UNKNOWN
+  LIVE_FRONTIER
+}
+
+enum StructuralReadingResidualPosture {
+  COMPLETE
+  PARTIAL
+  PLURAL
+  BUDGET_LIMITED
+  RIGHTS_LIMITED
+  UNAVAILABLE
+  OBSTRUCTED
+  DEGRADED
+}
+
+enum StructuralEvidenceKind {
+  ECHO_NATIVE
+  GIT_WARP_IMPORTED
+  FALLBACK_TRANSLATED
+}
+
+enum StructuralSubstrateKind {
+  ECHO
+  GIT_WARP
+}
+
+enum SourceSpanEncoding {
+  UTF8_BYTE_RANGE
+  UTF16_CODE_UNIT_RANGE
+  LINE_COLUMN
+}
+
+enum SymbolVisibility {
+  LOCAL
+  EXPORTED
+  UNKNOWN
+}
+
+enum SymbolRelationKind {
+  IMPORTS
+  EXPORTS
+  REFERENCES
+  CALLS
+  DEFINES
+  REMOVES
+}
+
+enum MigrationParityStatus {
+  NOT_CHECKED
+  MATCHED
+  MISMATCHED
+  PARTIAL
+}
+
+type StructuralRepository
+  @wes_codec(format: "cbor", canonical: true)
+  @wes_registry(id: 512)
+  @wes_version(major: 0, minor: 1)
+{
+  repositoryId: ID! @wes_stateField(key: true)
+  rootKey: String! @wes_stateField
+  defaultBranch: String @wes_stateField
+  summary: String! @wes_stateField
+}
+
+type StructuralBasis
+  @wes_codec(format: "cbor", canonical: true)
+  @wes_registry(id: 513)
+  @wes_version(major: 0, minor: 1)
+{
+  basisId: ID! @wes_stateField(key: true)
+  repositoryId: ID! @wes_stateField
+  basisKind: StructuralBasisKind! @wes_stateField
+  commitId: String @wes_stateField
+  refName: String @wes_stateField
+  echoHeadId: String @wes_stateField
+  importBatchId: ID @wes_stateField
+  summary: String! @wes_stateField
+}
+
+type StructuralFileVersion
+  @wes_codec(format: "cbor", canonical: true)
+  @wes_registry(id: 514)
+  @wes_version(major: 0, minor: 1)
+{
+  fileVersionId: ID! @wes_stateField(key: true)
+  repositoryId: ID! @wes_stateField
+  basisId: ID! @wes_stateField
+  path: String! @wes_stateField
+  contentDigest: Hash! @wes_stateField
+  language: String @wes_stateField
+  summary: String! @wes_stateField
+}
+
+type StructuralSourceSpan
+  @wes_codec(format: "cbor", canonical: true)
+  @wes_registry(id: 515)
+  @wes_version(major: 0, minor: 1)
+{
+  spanId: ID! @wes_stateField(key: true)
+  fileVersionId: ID! @wes_stateField
+  encoding: SourceSpanEncoding! @wes_stateField
+  startOffset: Int! @wes_stateField @wes_constraint(min: 0)
+  endOffset: Int! @wes_stateField @wes_constraint(min: 0)
+  startLine: Int @wes_stateField @wes_constraint(min: 1)
+  endLine: Int @wes_stateField @wes_constraint(min: 1)
+  summary: String! @wes_stateField
+}
+
+type StructuralParserRun
+  @wes_codec(format: "cbor", canonical: true)
+  @wes_registry(id: 516)
+  @wes_version(major: 0, minor: 1)
+{
+  parserRunId: ID! @wes_stateField(key: true)
+  fileVersionId: ID! @wes_stateField
+  parserName: String! @wes_stateField
+  parserVersion: String @wes_stateField
+  diagnosticCount: Int! @wes_stateField @wes_constraint(min: 0)
+  summary: String! @wes_stateField
+}
+
+type StructuralSymbol
+  @wes_codec(format: "cbor", canonical: true)
+  @wes_registry(id: 517)
+  @wes_version(major: 0, minor: 1)
+{
+  symbolId: ID! @wes_stateField(key: true)
+  repositoryId: ID! @wes_stateField
+  basisId: ID! @wes_stateField
+  fileVersionId: ID! @wes_stateField
+  parserRunId: ID @wes_stateField
+  name: String! @wes_stateField
+  kind: String! @wes_stateField
+  visibility: SymbolVisibility! @wes_stateField
+  declarationSpanId: ID @wes_stateField
+  exported: Boolean! @wes_stateField
+  summary: String! @wes_stateField
+}
+
+type StructuralSymbolRelation
+  @wes_codec(format: "cbor", canonical: true)
+  @wes_registry(id: 518)
+  @wes_version(major: 0, minor: 1)
+{
+  relationId: ID! @wes_stateField(key: true)
+  repositoryId: ID! @wes_stateField
+  basisId: ID! @wes_stateField
+  relationKind: SymbolRelationKind! @wes_stateField
+  fromSymbolId: ID @wes_stateField
+  toSymbolId: ID @wes_stateField
+  fileVersionId: ID @wes_stateField
+  spanId: ID @wes_stateField
+  summary: String! @wes_stateField
+}
+
+type StructuralReadingEvidence
+  @wes_codec(format: "cbor", canonical: true)
+  @wes_registry(id: 519)
+  @wes_version(major: 0, minor: 1)
+{
+  evidenceId: ID! @wes_stateField(key: true)
+  evidenceKind: StructuralEvidenceKind! @wes_stateField
+  substrate: StructuralSubstrateKind! @wes_stateField
+  basisId: ID! @wes_stateField
+  sourceRef: String @wes_stateField
+  migrationBatchId: ID @wes_stateField
+  nativeContinuumWitness: Boolean! @wes_stateField
+  parity: MigrationParityStatus! @wes_stateField
+  summary: String! @wes_stateField
+}
+
+type StructuralReading
+  @wes_codec(format: "cbor", canonical: true)
+  @wes_registry(id: 520)
+  @wes_version(major: 0, minor: 1)
+{
+  readingId: ID! @wes_stateField(key: true)
+  repositoryId: ID! @wes_stateField
+  basisId: ID! @wes_stateField
+  evidenceId: ID! @wes_stateField
+  readingKind: StructuralReadingKind! @wes_stateField
+  freshness: StructuralReadingFreshness! @wes_stateField
+  residualPosture: StructuralReadingResidualPosture! @wes_stateField
+  payloadDigest: Hash! @wes_stateField
+  payloadJson: Json @wes_stateField
+  summary: String! @wes_stateField
+}
+
+type GitWarpImportBatch
+  @wes_codec(format: "cbor", canonical: true)
+  @wes_registry(id: 521)
+  @wes_version(major: 0, minor: 1)
+{
+  importBatchId: ID! @wes_stateField(key: true)
+  repositoryId: ID! @wes_stateField
+  sourceRef: String! @wes_stateField
+  importedBasisId: ID! @wes_stateField
+  parity: MigrationParityStatus! @wes_stateField
+  importedReadingCount: Int! @wes_stateField @wes_constraint(min: 0)
+  summary: String! @wes_stateField
+}
+
+type Query {
+  structuralRepositories(repositoryId: ID): [StructuralRepository!]!
+    @wes_op(name: "structuralRepositories", readonly: true)
+    @wes_footprint(reads: ["StructuralRepository"])
+
+  structuralBases(repositoryId: ID!, basisKind: StructuralBasisKind): [StructuralBasis!]!
+    @wes_op(name: "structuralBases", readonly: true)
+    @wes_footprint(reads: ["StructuralBasis"])
+
+  structuralFileVersions(basisId: ID!, path: String): [StructuralFileVersion!]!
+    @wes_op(name: "structuralFileVersions", readonly: true)
+    @wes_footprint(reads: ["StructuralFileVersion"])
+
+  structuralSymbols(basisId: ID!, fileVersionId: ID, name: String): [StructuralSymbol!]!
+    @wes_op(name: "structuralSymbols", readonly: true)
+    @wes_footprint(reads: ["StructuralSymbol"])
+
+  structuralSymbolRelations(basisId: ID!, symbolId: ID, relationKind: SymbolRelationKind): [StructuralSymbolRelation!]!
+    @wes_op(name: "structuralSymbolRelations", readonly: true)
+    @wes_footprint(reads: ["StructuralSymbolRelation"])
+
+  structuralReadings(basisId: ID!, readingKind: StructuralReadingKind): [StructuralReading!]!
+    @wes_op(name: "structuralReadings", readonly: true)
+    @wes_footprint(reads: ["StructuralReading", "StructuralReadingEvidence"])
+
+  structuralReadingEvidence(evidenceId: ID, basisId: ID): [StructuralReadingEvidence!]!
+    @wes_op(name: "structuralReadingEvidence", readonly: true)
+    @wes_footprint(reads: ["StructuralReadingEvidence"])
+
+  gitWarpImportBatches(repositoryId: ID!, parity: MigrationParityStatus): [GitWarpImportBatch!]!
+    @wes_op(name: "gitWarpImportBatches", readonly: true)
+    @wes_footprint(reads: ["GitWarpImportBatch"])
+}
+
+type GraftStructuralHistoryInvariants
+  @wes_invariant(
+    name: "fallback_translated_is_not_native_continuum",
+    expr: "forall e in StructuralReadingEvidence: e.evidenceKind == FALLBACK_TRANSLATED implies e.nativeContinuumWitness == false",
+    severity: "error"
+  )
+{
+  _placeholder: Boolean
+}
