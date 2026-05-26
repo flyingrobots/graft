@@ -6,6 +6,7 @@ import * as path from "node:path";
 import {
   checkStructuralHistorySchemaArtifacts,
   EXPECTED_WESLEY_CLI_VERSION,
+  EXPECTED_WESLEY_L1_REGISTRY_HASH,
   readStructuralHistorySchemaManifest,
 } from "../../../scripts/check-structural-history-schema-artifacts.js";
 import {
@@ -44,7 +45,7 @@ function writeSchemaArtifactFixture(options: {
       schemaSourceSha256: sha256(schemaText),
       generatedTypesSha256: sha256(generatedText),
       wesleyCliVersion: EXPECTED_WESLEY_CLI_VERSION,
-      wesleyL1RegistryHash: "0f6d6d2109142a0cd33ee8db9ebc28f1718e0d1ec2863ec4837048a1340bff61",
+      wesleyL1RegistryHash: EXPECTED_WESLEY_L1_REGISTRY_HASH,
       requiredTypes: [],
       requiredOperationConstants: [],
       requiredEvidenceLabels: [],
@@ -124,6 +125,21 @@ describe("Graft structural history schema authority", () => {
     try {
       expect(checkStructuralHistorySchemaArtifacts(workspaceRoot).violations).toContain(
         "src/generated.ts is missing generated type Structural(Symbol.",
+      );
+    } finally {
+      fs.rmSync(workspaceRoot, { recursive: true, force: true });
+    }
+  });
+
+  it("rejects drift from the pinned Wesley L1 registry hash", () => {
+    const workspaceRoot = writeSchemaArtifactFixture({
+      manifestOverrides: {
+        wesleyL1RegistryHash: "tampered-registry-hash",
+      },
+    });
+    try {
+      expect(checkStructuralHistorySchemaArtifacts(workspaceRoot).violations).toContain(
+        `Unexpected Wesley L1 registry hash tampered-registry-hash; expected ${EXPECTED_WESLEY_L1_REGISTRY_HASH}.`,
       );
     } finally {
       fs.rmSync(workspaceRoot, { recursive: true, force: true });
