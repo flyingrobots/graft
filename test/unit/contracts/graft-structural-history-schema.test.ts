@@ -56,6 +56,10 @@ function writeSchemaArtifactFixture(options: {
   return workspaceRoot;
 }
 
+function canonicalSchemaText(): string {
+  return fs.readFileSync(path.join(process.cwd(), "schemas/graft-structural-history.graphql"), "utf8");
+}
+
 describe("Graft structural history schema authority", () => {
   it("keeps the GraphQL schema and Wesley-generated TypeScript artifact in lockstep", () => {
     expect(checkStructuralHistorySchemaArtifacts().violations).toEqual([]);
@@ -83,6 +87,17 @@ describe("Graft structural history schema authority", () => {
     expect(queryGitWarpImportBatchesOperation.directives.wes_footprint.reads).toEqual([
       "GitWarpImportBatch",
     ]);
+  });
+
+  it("declares ordering invariants for structural source spans", () => {
+    const schemaText = canonicalSchemaText();
+
+    expect(schemaText).toContain('name: "source_span_offsets_are_ordered"');
+    expect(schemaText).toContain("forall s in StructuralSourceSpan: s.endOffset >= s.startOffset");
+    expect(schemaText).toContain('name: "source_span_lines_are_ordered_when_present"');
+    expect(schemaText).toContain(
+      "forall s in StructuralSourceSpan: s.startLine == null or s.endLine == null or s.endLine >= s.startLine",
+    );
   });
 
   it("keeps generated structural reading values behaviorally typed", () => {

@@ -13,6 +13,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   `schemas/graft-structural-history.graphql` schema with Wesley-generated
   TypeScript contracts and a deterministic artifact drift check, establishing
   the schema-first Echo migration boundary without changing Echo or Wesley.
+- **Structural source span invariants**: The canonical structural-history schema
+  now rejects source spans whose end offsets or present end lines precede their
+  starts.
 - **Opened workspace paths**: MCP sessions can now call `workspace_open` to
   open another git worktree path, activate it by default, and inspect opened
   paths through `workspace_list_opened` without adding per-tool `cwd` routing.

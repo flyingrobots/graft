@@ -277,6 +277,16 @@ type GraftStructuralHistoryInvariants
     expr: "forall e in StructuralReadingEvidence: e.evidenceKind == FALLBACK_TRANSLATED implies e.nativeContinuumWitness == false",
     severity: "error"
   )
+  @wes_invariant(
+    name: "source_span_offsets_are_ordered",
+    expr: "forall s in StructuralSourceSpan: s.endOffset >= s.startOffset",
+    severity: "error"
+  )
+  @wes_invariant(
+    name: "source_span_lines_are_ordered_when_present",
+    expr: "forall s in StructuralSourceSpan: s.startLine == null or s.endLine == null or s.endLine >= s.startLine",
+    severity: "error"
+  )
 {
   _placeholder: Boolean
 }
