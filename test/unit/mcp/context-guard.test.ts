@@ -30,6 +30,8 @@ function minimalContext(): Record<string, unknown> {
     getRepoState: () => ({}),
     getCausalContext: () => ({}),
     getWorkspaceStatus: () => ({}),
+    openWorkspace: () => Promise.resolve({}),
+    listOpenedWorkspaces: () => Promise.resolve({}),
   };
 }
 
@@ -58,6 +60,18 @@ describe("assertToolContext", () => {
     const ctx = minimalContext();
     delete ctx["respond"];
     expect(() => { assertToolContext(ctx); }).toThrow("missing method: respond");
+  });
+
+  it("rejects missing workspace open method", () => {
+    const ctx = minimalContext();
+    delete ctx["openWorkspace"];
+    expect(() => { assertToolContext(ctx); }).toThrow("missing method: openWorkspace");
+  });
+
+  it("rejects missing opened workspace list method", () => {
+    const ctx = minimalContext();
+    delete ctx["listOpenedWorkspaces"];
+    expect(() => { assertToolContext(ctx); }).toThrow("missing method: listOpenedWorkspaces");
   });
 
   it("rejects non-function method", () => {

@@ -153,6 +153,8 @@ export function assertToolContext(value: unknown): asserts value is ToolContext 
     "getRepoState",
     "getCausalContext",
     "getWorkspaceStatus",
+    "openWorkspace",
+    "listOpenedWorkspaces",
   ] as const;
   for (const method of methods) {
     if (obj[method] === undefined || obj[method] === null) {
