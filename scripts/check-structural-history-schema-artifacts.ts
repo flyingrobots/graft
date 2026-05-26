@@ -79,8 +79,12 @@ function readWorkspaceFile(workspaceRoot: string, relativePath: string): string 
   return readFileSync(path.join(workspaceRoot, relativePath), "utf8");
 }
 
+function escapeRegexLiteral(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/gu, "\\$&");
+}
+
 function typePattern(typeName: string): RegExp {
-  return new RegExp(`export (interface|type) ${typeName}\\b`, "u");
+  return new RegExp(`export (interface|type) ${escapeRegexLiteral(typeName)}\\b`, "u");
 }
 
 function schemaRegistryTypes(schemaText: string): readonly string[] {
