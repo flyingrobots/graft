@@ -98,6 +98,8 @@ Daemon control-plane inspection now exists through MCP tools:
 - `monitor_stop`
 - `workspace_authorizations`
 - `workspace_authorize`
+- `workspace_open`
+- `workspace_list_opened`
 - `workspace_bind`
 - `workspace_status`
 - `workspace_rebind`
@@ -120,9 +122,13 @@ Practical daemon-backed MCP first-use sequence:
 
 1. configure your MCP client with `graft serve --runtime daemon`
 2. let the bridge auto-start the daemon, or start `npx @flyingrobots/graft daemon`
-3. call `workspace_authorize` with the target `cwd`
-4. call `workspace_bind` with the target `cwd`
+3. call `workspace_open` with the target `cwd`
+4. optionally call `workspace_list_opened` to inspect opened paths and the
+   active workspace
 5. then use repository-scoped tools such as `safe_read` or `graft_map`
+
+Use `workspace_authorize` plus `workspace_bind` when you need direct
+operator control over daemon authorization and binding state.
 
 ### MCP runtime selection
 
@@ -157,8 +163,7 @@ Use repo-local stdio when you want one MCP server bound directly to the
 current checkout. Use daemon-backed stdio when you want daemon-only
 capabilities such as shared worker pools, persistent monitors, and
 daemon control-plane inspection. Daemon-backed sessions start unbound;
-repository-scoped tools require `workspace_authorize` and
-`workspace_bind`.
+repository-scoped tools normally begin with `workspace_open`.
 
 ### One-step bootstrap
 
@@ -399,8 +404,9 @@ If your client doesn't support `npx`, install globally and use:
 
 This section shows the repo-local stdio path. If you connect through
 `graft daemon` instead, the MCP session starts `unbound` and needs
-`workspace_authorize` plus `workspace_bind` before repository-scoped
-tool calls.
+`workspace_open` before repository-scoped tool calls. The lower-level
+`workspace_authorize` and `workspace_bind` tools remain available for
+operator control-plane workflows.
 
 ## Claude Code Hooks
 

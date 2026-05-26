@@ -9,6 +9,7 @@
     "StructuralRepository",
     "StructuralBasis",
     "StructuralFileVersion",
+    "StructuralSourceSpan",
     "StructuralParserRun",
     "StructuralSymbol",
     "StructuralSymbolRelation",

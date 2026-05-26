@@ -83,6 +83,27 @@ function typePattern(typeName: string): RegExp {
   return new RegExp(`export (interface|type) ${typeName}\\b`, "u");
 }
 
+function schemaRegistryTypes(schemaText: string): readonly string[] {
+  const registryTypes: string[] = [];
+  let currentType: string | null = null;
+  for (const line of schemaText.split(/\r?\n/u)) {
+    const typeMatch = /^type\s+([A-Za-z_][A-Za-z0-9_]*)\b/u.exec(line);
+    if (typeMatch !== null) {
+      currentType = typeMatch[1] ?? null;
+      continue;
+    }
+    if (currentType !== null && line.includes("@wes_registry")) {
+      registryTypes.push(currentType);
+      currentType = null;
+      continue;
+    }
+    if (currentType !== null && line.trim() === "{") {
+      currentType = null;
+    }
+  }
+  return registryTypes;
+}
+
 export function checkStructuralHistorySchemaArtifacts(
   workspaceRoot = DEFAULT_WORKSPACE_ROOT,
 ): StructuralHistorySchemaArtifactCheck {
@@ -116,6 +137,13 @@ export function checkStructuralHistorySchemaArtifacts(
   for (const typeName of manifest.requiredTypes) {
     if (!typePattern(typeName).test(generatedText)) {
       violations.push(`${manifest.generatedTypesPath} is missing generated type ${typeName}.`);
+    }
+  }
+
+  const requiredTypeNames = new Set(manifest.requiredTypes);
+  for (const typeName of schemaRegistryTypes(schemaText)) {
+    if (!requiredTypeNames.has(typeName)) {
+      violations.push(`${manifest.schemaPath} registered type ${typeName} must be listed in manifest requiredTypes.`);
     }
   }
 

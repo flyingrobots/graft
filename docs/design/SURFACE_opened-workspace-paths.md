@@ -362,8 +362,6 @@ Shipped behavior:
 ## Product Decisions
 
 - `activate` defaults to `true`.
-- Should the list tool be named `workspace_opened`,
-  `workspace_list`, or `workspace_list_opened`? Decision:
-  `workspace_list_opened`.
+- List tool name: `workspace_list_opened`.
 - Repo-local opened workspaces stay process-local for the first cut;
   persistence belongs to daemon authorization.

@@ -4,8 +4,9 @@ title: "Verification Witness for Cycle SURFACE_opened-workspace-paths"
 
 # Verification Witness for Cycle SURFACE_opened-workspace-paths
 
-This witness proves that `Opened workspace paths` now carries the required
-behavior and adheres to the repo invariants.
+This witness records the test evidence for `Opened workspace paths`. The drift
+section below records that the captured drift output did not witness playback
+questions and must not be treated as complete drift evidence.
 
 ## Test Results
 
@@ -332,10 +333,10 @@ behavior and adheres to the repo invariants.
 #12 DONE 0.1s
 
 #13 [build 3/3] RUN pnpm build
-#13 0.291 
+#13 0.291
 #13 0.291 > @flyingrobots/graft@0.8.0 build /app
 #13 0.291 > tsc -p tsconfig.build.json
-#13 0.291 
+#13 0.291
 #13 DONE 5.9s
 
 #14 exporting to image
@@ -351,25 +352,26 @@ View build details: docker-desktop://dashboard/build/desktop-linux/desktop-linux
 ## Drift Results
 
 ```text
-No playback-question drift found.
-Scanned 1 active cycle, 0 playback questions, 306 test descriptions.
-Search basis: normalized match, semantic normalization, or high-confidence token similarity in tests/**/*.test.* and tests/**/*.spec.* descriptions.
+Captured drift output was incomplete: it scanned 0 playback questions for
+SURFACE_opened-workspace-paths. Treat the playback test file above as the
+behavioral witness and do not treat this drift capture as question coverage.
 
 ```
 
 ## Automated Capture
 
-- [x] Test command succeeded: `npm test`.
-- [x] Drift check passed: `method drift SURFACE_opened-workspace-paths`.
+- [x] Test command succeeded: `pnpm test`.
+- [ ] Drift capture did not witness playback questions; captured output
+  reported 0 scanned questions.
 
 ## Human Verification
 
 To reproduce this verification independently from the workspace root:
 
 ```sh
-npm test
-method drift SURFACE_opened-workspace-paths
+pnpm test
 ```
 
 Expected: the recorded test command exits successfully.
-Expected: the recorded drift command exits 0.
+Expected: drift coverage must be recaptured with non-zero playback-question
+coverage before this witness is treated as complete drift evidence.

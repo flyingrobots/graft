@@ -132,11 +132,15 @@ npx @flyingrobots/graft daemon
 ```
 
 Daemon sessions start `unbound`. If your client connects through the
-daemon instead of repo-local stdio, the first repo-scoped flow is:
+daemon instead of repo-local stdio, the normal agent-facing flow is:
 
-1. `workspace_authorize` for the target repo/worktree
-2. `workspace_bind` for the active daemon session
+1. `workspace_open` with the target repo/worktree `cwd`
+2. optionally `workspace_list_opened` to inspect opened paths and the
+   active workspace
 3. then use repository-scoped tools such as `safe_read`
+
+Use `workspace_authorize` and `workspace_bind` only when you need the
+lower-level daemon control plane directly.
 
 Use [docs/SETUP.md](./docs/SETUP.md) for the exact client bootstrap and
 daemon control-plane posture.

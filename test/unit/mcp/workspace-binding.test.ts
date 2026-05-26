@@ -6,7 +6,11 @@ import { CanonicalJsonCodec } from "../../../src/adapters/canonical-json.js";
 import { nodeFs } from "../../../src/adapters/node-fs.js";
 import { nodeGit } from "../../../src/adapters/node-git.js";
 import { PersistedLocalHistoryStore } from "../../../src/mcp/persisted-local-history.js";
-import { DEFAULT_DAEMON_CAPABILITY_PROFILE, WorkspaceRouter } from "../../../src/mcp/workspace-router.js";
+import {
+  DEFAULT_DAEMON_CAPABILITY_PROFILE,
+  type WorkspaceCapabilityProfile,
+  WorkspaceRouter,
+} from "../../../src/mcp/workspace-router.js";
 import type { FileSystem } from "../../../src/ports/filesystem.js";
 import { createManagedDaemonServer, parse } from "../../helpers/mcp.js";
 import { cleanupTestRepo, createCommittedTestRepo, git } from "../../helpers/git.js";
@@ -108,6 +112,58 @@ describe("mcp: daemon workspace binding", () => {
 
     const safeRead = parse(await server.callTool("safe_read", { path: "app.ts" }));
     expect(safeRead["projection"]).toBe("content");
+  });
+
+  it("treats runtime-log posture changes as workspace capability changes", async () => {
+    const repoDir = createCommittedRepo();
+    const graftDir = fs.mkdtempSync(path.join(os.tmpdir(), "graft-bind-runtime-logs-"));
+    cleanups.push(() => {
+      fs.rmSync(graftDir, { recursive: true, force: true });
+    });
+    const futureRuntimeLogsProfile = {
+      ...DEFAULT_DAEMON_CAPABILITY_PROFILE,
+      runtimeLogs: "future_runtime_log_posture",
+    } as unknown as WorkspaceCapabilityProfile;
+    let capabilityProfile: WorkspaceCapabilityProfile = DEFAULT_DAEMON_CAPABILITY_PROFILE;
+    const router = new WorkspaceRouter({
+      mode: "daemon",
+      fs: nodeFs,
+      git: nodeGit,
+      graftDir,
+      warpPool: {
+        getOrOpen(): Promise<never> {
+          return Promise.reject(new Error("unused in workspace binding test"));
+        },
+        size(): number {
+          return 0;
+        },
+      },
+      transportSessionId: "transport:test",
+      authorizationPolicy: {
+        getCapabilityProfile() {
+          return Promise.resolve(capabilityProfile);
+        },
+        noteBound(): Promise<void> {
+          return Promise.resolve();
+        },
+      },
+      persistedLocalHistory: new PersistedLocalHistoryStore({
+        fs: nodeFs,
+        codec: new CanonicalJsonCodec(),
+        graftDir,
+      }),
+    });
+
+    const first = await router.openWorkspace({ cwd: repoDir });
+    expect(first.ok).toBe(true);
+    expect(first.freshSessionSlice).toBe(true);
+
+    capabilityProfile = futureRuntimeLogsProfile;
+    const second = await router.openWorkspace({ cwd: repoDir });
+
+    expect(second.ok).toBe(true);
+    expect(second.freshSessionSlice).toBe(true);
+    expect(second.capabilityProfile?.runtimeLogs).toBe("future_runtime_log_posture");
   });
 
   it("Does workspace binding load graftignore without sync filesystem reads?", async () => {

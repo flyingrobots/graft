@@ -6,8 +6,18 @@ import { createManagedDaemonServer, createServerInRepo, parse } from "../../test
 const cleanups: (() => void)[] = [];
 
 afterEach(() => {
+  const errors: unknown[] = [];
   while (cleanups.length > 0) {
-    cleanups.pop()!();
+    const cleanup = cleanups.pop();
+    if (cleanup === undefined) continue;
+    try {
+      cleanup();
+    } catch (error) {
+      errors.push(error);
+    }
+  }
+  if (errors.length > 0) {
+    throw new AggregateError(errors, "Playback cleanup failure");
   }
 });
 
@@ -38,6 +48,21 @@ interface OpenedWorkspace {
 interface OpenedWorkspaceList {
   readonly activeWorktreeId: string | null;
   readonly workspaces: readonly OpenedWorkspace[];
+}
+
+interface StatsPayload {
+  readonly totalReads: number;
+  readonly totalCacheHits: number;
+}
+
+interface CausalStatusPayload {
+  readonly worktreeRoot: string | null;
+  readonly activeCausalWorkspace: {
+    readonly causalContext: {
+      readonly workspaceSliceId: string;
+      readonly checkoutEpochId: string;
+    };
+  } | null;
 }
 
 function workspaceFor(list: OpenedWorkspaceList, worktreeRoot: string): OpenedWorkspace {
@@ -145,17 +170,38 @@ describe("SURFACE opened workspace paths playback", () => {
 
     await server.callTool("state_save", { content: "alpha state" });
     await server.callTool("set_budget", { bytes: 100_000 });
+    const initialRead = parse(await server.callTool("safe_read", { path: "app.ts" }));
+    expect(initialRead["content"]).toContain("alphaThing");
+    const cachedRead = parse(await server.callTool("safe_read", { path: "app.ts" }));
+    expect(cachedRead["projection"]).toBe("cache_hit");
     const before = parse(await server.callTool("state_load", {}));
     expect(before["content"]).toBe("alpha state");
+    const beforeStats = parse(await server.callTool("stats", {})) as unknown as StatsPayload;
+    expect(beforeStats.totalReads).toBeGreaterThan(0);
+    expect(beforeStats.totalCacheHits).toBeGreaterThan(0);
+    const beforeCausal = parse(await server.callTool("causal_status", {})) as unknown as CausalStatusPayload;
+    const beforeCausalContext = beforeCausal.activeCausalWorkspace?.causalContext;
+    expect(beforeCausal.worktreeRoot).toBe(initialRepo);
+    expect(beforeCausalContext).toBeDefined();
 
     const opened = parse(await server.callTool("workspace_open", { cwd: nextRepo }));
     expect(opened["freshSessionSlice"]).toBe(true);
 
     const after = parse(await server.callTool("state_load", {}));
     expect(after["content"]).toBeNull();
+    const afterStats = parse(await server.callTool("stats", {})) as unknown as StatsPayload;
+    expect(afterStats.totalReads).toBe(0);
+    expect(afterStats.totalCacheHits).toBe(0);
+    const afterCausal = parse(await server.callTool("causal_status", {})) as unknown as CausalStatusPayload;
+    const afterCausalContext = afterCausal.activeCausalWorkspace?.causalContext;
+    expect(afterCausal.worktreeRoot).toBe(nextRepo);
+    expect(afterCausalContext).toBeDefined();
+    expect(afterCausalContext?.workspaceSliceId).not.toBe(beforeCausalContext?.workspaceSliceId);
+    expect(afterCausalContext?.checkoutEpochId).not.toBe(beforeCausalContext?.checkoutEpochId);
 
     const read = parse(await server.callTool("safe_read", { path: "app.ts" }));
     const receipt = read["_receipt"] as Record<string, unknown>;
+    expect(read["projection"]).not.toBe("cache_hit");
     expect(receipt["budget"]).toBeUndefined();
     expect(read["content"]).toContain("betaThing");
   });

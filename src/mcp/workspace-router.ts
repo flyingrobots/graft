@@ -111,10 +111,13 @@ function workspaceCapabilityProfilesEqual(
   left: WorkspaceCapabilityProfile,
   right: WorkspaceCapabilityProfile,
 ): boolean {
+  const leftRuntimeLogs: string = left.runtimeLogs;
+  const rightRuntimeLogs: string = right.runtimeLogs;
   return left.boundedReads === right.boundedReads
     && left.structuralTools === right.structuralTools
     && left.precisionTools === right.precisionTools
     && left.stateBookmarks === right.stateBookmarks
+    && leftRuntimeLogs === rightRuntimeLogs
     && left.runCapture === right.runCapture;
 }
 
