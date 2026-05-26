@@ -288,5 +288,6 @@ type GraftStructuralHistoryInvariants
     severity: "error"
   )
 {
+  # Required because GraphQL object types must declare at least one field.
   _placeholder: Boolean
 }

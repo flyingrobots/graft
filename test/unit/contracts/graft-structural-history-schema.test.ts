@@ -100,6 +100,12 @@ describe("Graft structural history schema authority", () => {
     );
   });
 
+  it("explains the invariant holder placeholder field", () => {
+    expect(canonicalSchemaText()).toContain(
+      "# Required because GraphQL object types must declare at least one field.\n  _placeholder: Boolean",
+    );
+  });
+
   it("keeps generated structural reading values behaviorally typed", () => {
     const evidenceKind: StructuralEvidenceKind = "FALLBACK_TRANSLATED";
     const evidence: StructuralReadingEvidence = {
