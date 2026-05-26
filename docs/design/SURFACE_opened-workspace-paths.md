@@ -180,7 +180,7 @@ Repo-local mode implementation:
 - store the opened record in memory only
 - activate through existing bind/rebind semantics
 
-### `workspace_opened`
+### `workspace_list_opened`
 
 Returns:
 
@@ -295,9 +295,9 @@ to open and optionally activate a path.
    - preserve capability profile and active-session counts
 4. Add MCP tools:
    - `workspace_open`
-   - `workspace_opened`
+   - `workspace_list_opened`
    - optionally `workspace_activate`
-5. Register `workspace_opened` and `workspace_open` in both repo-local
+5. Register `workspace_list_opened` and `workspace_open` in both repo-local
    and daemon tool registries.
 6. Add output schemas and capability metadata.
 7. Update MCP/setup docs to position `workspace_open` as the normal
@@ -318,7 +318,7 @@ Focused tests:
 - a non-git path returns `NOT_A_GIT_REPO`
 - path aliases resolve to one canonical worktree identity
 - daemon `workspace_open` updates the existing authorization registry
-- `workspace_opened` output validates against the MCP output schema
+- `workspace_list_opened` output validates against the MCP output schema
 
 Playback tests should cover the human story end to end: start Graft
 from one repo, open another repo path, inspect the opened set, and use
@@ -329,7 +329,7 @@ an existing repo-scoped tool against the new active workspace.
 Ship the narrow version first:
 
 - `workspace_open`
-- `workspace_opened`
+- `workspace_list_opened`
 - repo-local availability for `workspace_status`
 - `workspace_open({ activate: true })` as the common switch path
 
@@ -337,10 +337,11 @@ Defer standalone `workspace_activate` until there is evidence that
 agents need a separate "open but do not activate, then activate later"
 workflow often enough to justify another tool.
 
-## Open Questions
+## Product Decisions
 
-- Should `activate` default to `true`? Recommendation: yes.
-- Should the list tool be named `workspace_opened` or
-  `workspace_list`? Recommendation: `workspace_opened`.
-- Should repo-local opened workspaces ever persist beyond the process?
-  Recommendation: no; persistence belongs to daemon authorization.
+- `activate` defaults to `true`.
+- Should the list tool be named `workspace_opened`,
+  `workspace_list`, or `workspace_list_opened`? Decision:
+  `workspace_list_opened`.
+- Repo-local opened workspaces stay process-local for the first cut;
+  persistence belongs to daemon authorization.

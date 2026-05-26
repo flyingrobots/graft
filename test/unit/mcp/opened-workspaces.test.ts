@@ -15,10 +15,11 @@ function createRepo(prefix: string, content: string): string {
   const repoDir = createCommittedTestRepo(prefix, {
     "app.ts": content,
   });
+  const realRepoDir = fs.realpathSync(repoDir);
   cleanups.push(() => {
-    cleanupTestRepo(repoDir);
+    cleanupTestRepo(realRepoDir);
   });
-  return repoDir;
+  return realRepoDir;
 }
 
 interface ListedOpenedWorkspace {

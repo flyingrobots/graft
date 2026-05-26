@@ -18,11 +18,11 @@ changes, this matrix must be refreshed before release.
 
 - `6` CLI-only capabilities
 - `23` API + CLI + MCP capabilities
-- `22` API + MCP capabilities
+- `24` API + MCP capabilities
 - `1` API-only capability
 - `22` direct CLI/MCP peer capabilities
 - `1` composed CLI operator/lifecycle capability
-- `22` intentionally API + MCP-only agent/control-plane capabilities
+- `24` intentionally API + MCP-only agent/control-plane capabilities
 
 API exposure kinds:
 
@@ -92,6 +92,8 @@ composing existing tools, it belongs in this matrix as
 | `workspace_authorize` | Yes | No | Yes | `tool_bridge` | `mcp_only` | `-` | `workspace_authorize` |
 | `workspace_authorizations` | Yes | No | Yes | `tool_bridge` | `mcp_only` | `-` | `workspace_authorizations` |
 | `workspace_revoke` | Yes | No | Yes | `tool_bridge` | `mcp_only` | `-` | `workspace_revoke` |
+| `workspace_open` | Yes | No | Yes | `tool_bridge` | `mcp_only` | `-` | `workspace_open` |
+| `workspace_list_opened` | Yes | No | Yes | `tool_bridge` | `mcp_only` | `-` | `workspace_list_opened` |
 | `workspace_bind` | Yes | No | Yes | `tool_bridge` | `mcp_only` | `-` | `workspace_bind` |
 | `workspace_status` | Yes | No | Yes | `tool_bridge` | `mcp_only` | `-` | `workspace_status` |
 | `activity_view` | Yes | Yes | Yes | `tool_bridge` | `peer` | `diag activity` | `activity_view` |

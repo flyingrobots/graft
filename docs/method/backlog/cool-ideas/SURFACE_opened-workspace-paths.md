@@ -48,14 +48,14 @@ across the whole tool surface.
   - resolves git identity server-side
   - adds the worktree to the opened set
   - activates it by default
-- `workspace_opened`
+- `workspace_list_opened`
   - lists opened/authorized workspaces and marks the active one
 - `workspace_activate`
   - switches to an already-opened workspace by `cwd` or `worktreeId`
   - starts a fresh session-local slice
 
 The first implementation slice can be narrower: ship `workspace_open`
-and `workspace_opened`, with `workspace_open({ activate: true })` as
+and `workspace_list_opened`, with `workspace_open({ activate: true })` as
 the common switch path. A standalone `workspace_activate` can follow if
 the split proves useful in practice.
 

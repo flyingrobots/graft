@@ -165,6 +165,12 @@ export function buildRepoToolWorkerContext(
     getWorkspaceStatus() {
       return workerStatus(job);
     },
+    openWorkspace() {
+      return unsupported("openWorkspace");
+    },
+    listOpenedWorkspaces() {
+      return unsupported("listOpenedWorkspaces");
+    },
     bindWorkspace() {
       return unsupported("bindWorkspace");
     },

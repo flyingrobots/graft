@@ -22,6 +22,8 @@ export const MCP_TOOL_NAMES = [
   "workspace_authorize",
   "workspace_authorizations",
   "workspace_revoke",
+  "workspace_open",
+  "workspace_list_opened",
   "workspace_bind",
   "workspace_status",
   "activity_view",
@@ -334,6 +336,18 @@ export const CAPABILITY_REGISTRY: readonly CapabilityDefinition[] = [
     id: "workspace_revoke",
     description: "Revoke daemon authorization for a workspace",
     mcpTool: "workspace_revoke",
+    cliMcpParity: "mcp_only",
+  }),
+  defineCapability({
+    id: "workspace_open",
+    description: "Open a git worktree path in this MCP session",
+    mcpTool: "workspace_open",
+    cliMcpParity: "mcp_only",
+  }),
+  defineCapability({
+    id: "workspace_list_opened",
+    description: "List workspaces opened in this MCP session",
+    mcpTool: "workspace_list_opened",
     cliMcpParity: "mcp_only",
   }),
   defineCapability({

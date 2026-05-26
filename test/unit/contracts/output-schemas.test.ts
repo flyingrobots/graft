@@ -169,6 +169,8 @@ describe("contracts: output schemas", () => {
     const daemonBind = parse(await daemonServer.callTool("workspace_bind", { cwd: repoDir }));
     const daemonRebind = parse(await daemonServer.callTool("workspace_rebind", { cwd: repoDir }));
     const daemonRevoke = parse(await daemonServer.callTool("workspace_revoke", { cwd: repoDir }));
+    const workspaceOpen = parse(await server.callTool("workspace_open", { cwd: repoDir, activate: false }));
+    const workspaceListOpened = parse(await server.callTool("workspace_list_opened", {}));
     git(repoDir, "checkout -b feature/output-schema-attach");
 
     const outputs = {
@@ -199,6 +201,8 @@ describe("contracts: output schemas", () => {
       workspace_authorize: daemonAuthorize,
       workspace_authorizations: daemonAuthorizations,
       workspace_revoke: daemonRevoke,
+      workspace_open: workspaceOpen,
+      workspace_list_opened: workspaceListOpened,
       workspace_bind: daemonBind,
       workspace_status: daemonStatus,
       activity_view: parse(await server.callTool("activity_view", {})),

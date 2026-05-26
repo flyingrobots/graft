@@ -147,6 +147,12 @@ export function buildToolContext(deps: ToolContextDeps): ToolContext {
     getWorkspaceStatus() {
       return getActiveExecutionContext()?.status ?? workspaceRouter.getStatus();
     },
+    openWorkspace(request) {
+      return workspaceRouter.openWorkspace(request);
+    },
+    listOpenedWorkspaces() {
+      return Promise.resolve(workspaceRouter.listOpenedWorkspaces());
+    },
     bindWorkspace(request, actionName) {
       return workspaceRouter.bind(request, actionName);
     },
