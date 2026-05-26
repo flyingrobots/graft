@@ -107,6 +107,17 @@ interface OpenedWorkspaceRecord extends ResolvedWorkspace {
   readonly lastActivatedAt: string | null;
 }
 
+function workspaceCapabilityProfilesEqual(
+  left: WorkspaceCapabilityProfile,
+  right: WorkspaceCapabilityProfile,
+): boolean {
+  return left.boundedReads === right.boundedReads
+    && left.structuralTools === right.structuralTools
+    && left.precisionTools === right.precisionTools
+    && left.stateBookmarks === right.stateBookmarks
+    && left.runCapture === right.runCapture;
+}
+
 export class WorkspaceRouter {
   private bindingCounter = 0;
   private sliceIdCounter = 0;
@@ -310,7 +321,10 @@ export class WorkspaceRouter {
       };
     }
 
-    if (this.currentBinding?.worktreeId === resolved.worktreeId) {
+    if (
+      this.currentBinding?.worktreeId === resolved.worktreeId
+      && workspaceCapabilityProfilesEqual(this.currentBinding.capabilityProfile, capabilityProfile)
+    ) {
       this.noteWorkspaceActivated(resolved.worktreeId);
       return {
         ok: true,
@@ -747,14 +761,16 @@ export class WorkspaceRouter {
   ): boolean {
     const now = new Date().toISOString();
     const current = this.openedWorkspaces.get(resolved.worktreeId);
+    const nextSource = current?.source === "startup" ? current.source : source;
     const changed = current?.repoId !== resolved.repoId
       || current.worktreeRoot !== resolved.worktreeRoot
       || current.gitCommonDir !== resolved.gitCommonDir
-      || current.source !== source;
+      || current.source !== nextSource
+      || !workspaceCapabilityProfilesEqual(current.capabilityProfile, capabilityProfile);
     this.openedWorkspaces.set(resolved.worktreeId, {
       ...resolved,
       capabilityProfile,
-      source: current?.source === "startup" ? current.source : source,
+      source: nextSource,
       openedAt: current?.openedAt ?? now,
       lastActivatedAt: activated ? now : (current?.lastActivatedAt ?? null),
     });

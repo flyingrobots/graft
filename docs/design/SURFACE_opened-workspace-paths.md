@@ -1,8 +1,9 @@
 ---
 title: "Opened workspace paths"
 legend: "SURFACE"
+cycle: "SURFACE_opened-workspace-paths"
 source_backlog: "docs/method/backlog/cool-ideas/SURFACE_opened-workspace-paths.md"
-status: proposal
+status: completed
 ---
 
 # Opened workspace paths
@@ -34,23 +35,23 @@ The model is:
 
 ### Human
 
-- [ ] Can I tell an agent to work in another repo and have it open that
+- [x] Can I tell an agent to work in another repo and have it open that
   path in the existing Graft MCP session?
-- [ ] Can I inspect which paths are opened and which one is active?
-- [ ] Does switching repos feel like opening another workspace, not
+- [x] Can I inspect which paths are opened and which one is active?
+- [x] Does switching repos feel like opening another workspace, not
   editing low-level daemon authorization state by hand?
 
 ### Agent
 
-- [ ] Can a repo-local MCP server open a second git worktree and run
+- [x] Can a repo-local MCP server open a second git worktree and run
   `safe_read`, `graft_map`, and `code_find` against it without process
   restart?
-- [ ] Does activation reset session-local cache, budget, saved state,
+- [x] Does activation reset session-local cache, budget, saved state,
   metrics, and repo-state tracking instead of bleeding state across
   worktrees?
-- [ ] Does daemon mode reuse the existing authorization registry and
+- [x] Does daemon mode reuse the existing authorization registry and
   capability profile rather than creating a parallel allowlist?
-- [ ] Do repo-scoped tools keep their current repo-relative schemas?
+- [x] Do repo-scoped tools keep their current repo-relative schemas?
 
 ## Accessibility and Assistive Reading
 
@@ -280,7 +281,7 @@ to open and optionally activate a path.
    - `OpenedWorkspaceRecord`
    - `WorkspaceOpenRequest`
    - `WorkspaceOpenResult`
-   - `WorkspaceOpenedResult`
+   - `WorkspaceListOpenedResult`
    - optionally `WorkspaceActivateRequest`
 2. Extend `WorkspaceRouter`:
    - seed the opened set with the repo-local startup binding
@@ -336,6 +337,27 @@ Ship the narrow version first:
 Defer standalone `workspace_activate` until there is evidence that
 agents need a separate "open but do not activate, then activate later"
 workflow often enough to justify another tool.
+
+## Landed First Slice
+
+The first slice is implemented and witnessed by
+`tests/playback/SURFACE_opened-workspace-paths.test.ts`.
+
+Shipped behavior:
+
+- `workspace_open` is available in repo-local and daemon-backed MCP
+  sessions.
+- `activate` defaults to `true`; `activate: false` records without
+  changing the active workspace.
+- repo-local opened workspaces are process-local and seeded with the
+  startup workspace.
+- `workspace_list_opened` returns the opened set and active worktree id.
+- `workspace_status` is available in repo-local sessions.
+- daemon `workspace_open` writes through the existing authorization
+  registry, including capability posture such as `runCapture`, then
+  uses the existing bind/rebind activation path.
+- existing repo-scoped tools keep repo-relative input schemas and run
+  against the active workspace.
 
 ## Product Decisions
 

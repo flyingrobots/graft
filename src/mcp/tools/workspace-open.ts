@@ -12,11 +12,25 @@ export const workspaceOpenTool: ToolDefinition = {
   },
   createHandler(): ToolHandler {
     return async (args, ctx) => {
-      return ctx.respond("workspace_open", { ...await ctx.openWorkspace({
+      const request = {
         cwd: args["cwd"] as string,
         activate: args["activate"] as boolean | undefined,
         runCapture: args["runCapture"] as boolean | undefined,
-      }) });
+      };
+      if (ctx.getWorkspaceStatus().sessionMode === "daemon") {
+        const authorization = await ctx.authorizeWorkspace(request);
+        if (!authorization.ok) {
+          return ctx.respond("workspace_open", {
+            ok: false,
+            changed: false,
+            freshSessionSlice: false,
+            ...ctx.getWorkspaceStatus(),
+            errorCode: authorization.errorCode,
+            error: authorization.error,
+          });
+        }
+      }
+      return ctx.respond("workspace_open", { ...await ctx.openWorkspace(request) });
     };
   },
 };

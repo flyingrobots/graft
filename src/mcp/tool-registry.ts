@@ -63,6 +63,7 @@ export const TOOL_REGISTRY: readonly ToolDefinition[] = [
   causalAttachTool,
   workspaceOpenTool,
   workspaceListOpenedTool,
+  workspaceStatusTool,
   statsTool,
   explainTool,
   setBudgetTool,
@@ -96,7 +97,6 @@ export const DAEMON_TOOL_REGISTRY: readonly ToolDefinition[] = [
   workspaceAuthorizationsTool,
   workspaceRevokeTool,
   workspaceBindTool,
-  workspaceStatusTool,
   workspaceRebindTool,
 ];
 
