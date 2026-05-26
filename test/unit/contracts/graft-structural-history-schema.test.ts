@@ -5,6 +5,7 @@ import * as os from "node:os";
 import * as path from "node:path";
 import {
   checkStructuralHistorySchemaArtifacts,
+  EXPECTED_WESLEY_CLI_VERSION,
   readStructuralHistorySchemaManifest,
 } from "../../../scripts/check-structural-history-schema-artifacts.js";
 import {
@@ -42,7 +43,7 @@ function writeSchemaArtifactFixture(options: {
       generatedTypesPath,
       schemaSourceSha256: sha256(schemaText),
       generatedTypesSha256: sha256(generatedText),
-      wesleyCliVersion: "0.0.4",
+      wesleyCliVersion: EXPECTED_WESLEY_CLI_VERSION,
       wesleyL1RegistryHash: "0f6d6d2109142a0cd33ee8db9ebc28f1718e0d1ec2863ec4837048a1340bff61",
       requiredTypes: [],
       requiredOperationConstants: [],
@@ -67,7 +68,7 @@ describe("Graft structural history schema authority", () => {
       "GIT_WARP_IMPORTED",
       "FALLBACK_TRANSLATED",
     ]);
-    expect(manifest.wesleyCliVersion).toBe("0.0.4");
+    expect(manifest.wesleyCliVersion).toBe(EXPECTED_WESLEY_CLI_VERSION);
   });
 
   it("exposes structural reading and import operations from the generated contract", () => {
