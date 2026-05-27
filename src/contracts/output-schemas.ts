@@ -1284,7 +1284,10 @@ const mcpOutputBodySchemas: Record<McpToolName, z.ZodType> = {
       tick: z.number().int().nonnegative(),
       changeKind: z.string(),
       present: z.boolean(),
+      path: z.string(),
       signature: z.string().nullable(),
+      startLine: z.number().int().positive().optional(),
+      endLine: z.number().int().positive().optional(),
     }).strict()),
   }).strict(),
   graft_difficulty: z.object({

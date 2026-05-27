@@ -18,7 +18,10 @@ function renderVersion(version: StructuralBlameVersion): string {
   const signature = version.signature !== null && version.signature.length > 0
     ? `, ${version.signature}`
     : "";
-  return `- ${shortSha(version.sha)} @ tick ${String(version.tick)}: ${version.changeKind}, present: ${String(version.present)}${signature}`;
+  const location = version.startLine !== undefined && version.endLine !== undefined
+    ? `, ${version.path}:${String(version.startLine)}-${String(version.endLine)}`
+    : `, ${version.path}`;
+  return `- ${shortSha(version.sha)} @ tick ${String(version.tick)}: ${version.changeKind}, present: ${String(version.present)}${location}${signature}`;
 }
 
 export function renderStructuralBlame(input: Record<string, unknown>): string {

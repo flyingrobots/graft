@@ -125,10 +125,10 @@ the `graft_dead_symbols` MCP peer.
 
 `graft symbol history <symbol> [--path <path>] [--json]` renders the
 same provenance-backed history as `graft symbol blame`, with a
-timeline-first human view over creation, signature-change, and reference
-facts. JSON output remains the schema-validated `graft.cli.symbol_blame`
-payload so the alias does not create a second wire shape for the same
-WARP truth.
+timeline-first human view over creation, signature-change, per-version
+path and line-range facts, and reference facts. JSON output remains the
+schema-validated `graft.cli.symbol_blame` payload so the alias does not
+create a second wire shape for the same WARP truth.
 
 `git graft enhance --since <ref> [--head <ref>] [--json]` is the
 installed Git external-command form for the release-facing structural

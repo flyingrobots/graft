@@ -17,6 +17,9 @@ describe("structural blame renderer", () => {
           tick: 1,
           changeKind: "added",
           present: true,
+          path: "src/api.ts",
+          startLine: 1,
+          endLine: 1,
           signature: "buildThing(): string",
         },
         {
@@ -24,6 +27,9 @@ describe("structural blame renderer", () => {
           tick: 2,
           changeKind: "changed",
           present: true,
+          path: "src/api.ts",
+          startLine: 4,
+          endLine: 6,
           signature: "buildThing(input: string): string",
         },
       ],
@@ -34,8 +40,8 @@ describe("structural blame renderer", () => {
     expect(rendered).toContain("path: src/api.ts");
     expect(rendered).toContain("references: 3");
     expect(rendered).toContain("created: 1234567890abcdef");
-    expect(rendered).toContain("- 1234567890ab @ tick 1: added, present: true, buildThing(): string");
-    expect(rendered).toContain("- abcdef123456 @ tick 2: changed, present: true, buildThing(input: string): string");
+    expect(rendered).toContain("- 1234567890ab @ tick 1: added, present: true, src/api.ts:1-1, buildThing(): string");
+    expect(rendered).toContain("- abcdef123456 @ tick 2: changed, present: true, src/api.ts:4-6, buildThing(input: string): string");
   });
 
   it("renders an unavailable timeline when history is empty", () => {
