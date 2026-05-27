@@ -41,6 +41,8 @@ import { causalAttachTool } from "./tools/causal-attach.js";
 import { workspaceAuthorizeTool } from "./tools/workspace-authorize.js";
 import { workspaceAuthorizationsTool } from "./tools/workspace-authorizations.js";
 import { workspaceBindTool } from "./tools/workspace-bind.js";
+import { workspaceListOpenedTool } from "./tools/workspace-list-opened.js";
+import { workspaceOpenTool } from "./tools/workspace-open.js";
 import { workspaceRevokeTool } from "./tools/workspace-revoke.js";
 import { workspaceStatusTool } from "./tools/workspace-status.js";
 import { workspaceRebindTool } from "./tools/workspace-rebind.js";
@@ -59,6 +61,9 @@ export const TOOL_REGISTRY: readonly ToolDefinition[] = [
   activityViewTool,
   causalStatusTool,
   causalAttachTool,
+  workspaceOpenTool,
+  workspaceListOpenedTool,
+  workspaceStatusTool,
   statsTool,
   explainTool,
   setBudgetTool,
@@ -92,7 +97,6 @@ export const DAEMON_TOOL_REGISTRY: readonly ToolDefinition[] = [
   workspaceAuthorizationsTool,
   workspaceRevokeTool,
   workspaceBindTool,
-  workspaceStatusTool,
   workspaceRebindTool,
 ];
 

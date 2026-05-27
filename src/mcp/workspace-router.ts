@@ -23,6 +23,8 @@ import {
   DEFAULT_REPO_LOCAL_CAPABILITY_PROFILE,
   WorkspaceBindingRequiredError,
   type CausalAttachResult,
+  type OpenedWorkspaceSource,
+  type OpenedWorkspaceView,
   type ResolvedWorkspace,
   type WorkspaceActionResult,
   type WorkspaceAuthorizationPolicy,
@@ -30,7 +32,10 @@ import {
   type WorkspaceBindRequest,
   type WorkspaceCapabilityProfile,
   type WorkspaceExecutionContext,
+  type WorkspaceListOpenedResult,
   type WorkspaceMode,
+  type WorkspaceOpenRequest,
+  type WorkspaceOpenResult,
   type WorkspaceSharedAttachPolicy,
   type WorkspaceStatus,
 } from "./workspace-router-model.js";
@@ -62,6 +67,8 @@ export {
   WorkspaceBindingRequiredError,
   WorkspaceCapabilityDeniedError,
   type CausalAttachResult,
+  type OpenedWorkspaceSource,
+  type OpenedWorkspaceView,
   type ResolvedWorkspace,
   type WorkspaceActionResult,
   type WorkspaceAuthorizationPolicy,
@@ -69,7 +76,10 @@ export {
   type WorkspaceBindRequest,
   type WorkspaceCapabilityProfile,
   type WorkspaceExecutionContext,
+  type WorkspaceListOpenedResult,
   type WorkspaceMode,
+  type WorkspaceOpenRequest,
+  type WorkspaceOpenResult,
   type WorkspaceSharedAttachPolicy,
   type WorkspaceStatus,
 } from "./workspace-router-model.js";
@@ -90,12 +100,34 @@ interface WorkspaceRouterOptions {
   readonly persistedLocalHistoryGraph?: boolean;
 }
 
+interface OpenedWorkspaceRecord extends ResolvedWorkspace {
+  readonly capabilityProfile: WorkspaceCapabilityProfile;
+  readonly source: OpenedWorkspaceSource;
+  readonly openedAt: string;
+  readonly lastActivatedAt: string | null;
+}
+
+function workspaceCapabilityProfilesEqual(
+  left: WorkspaceCapabilityProfile,
+  right: WorkspaceCapabilityProfile,
+): boolean {
+  const leftRuntimeLogs: string = left.runtimeLogs;
+  const rightRuntimeLogs: string = right.runtimeLogs;
+  return left.boundedReads === right.boundedReads
+    && left.structuralTools === right.structuralTools
+    && left.precisionTools === right.precisionTools
+    && left.stateBookmarks === right.stateBookmarks
+    && leftRuntimeLogs === rightRuntimeLogs
+    && left.runCapture === right.runCapture;
+}
+
 export class WorkspaceRouter {
   private bindingCounter = 0;
   private sliceIdCounter = 0;
   private currentSlice: WorkspaceSlice;
   private currentBinding: BoundWorkspace | null = null;
   private initialization: Promise<void> | null = null;
+  private readonly openedWorkspaces = new Map<string, OpenedWorkspaceRecord>();
 
   constructor(private readonly options: WorkspaceRouterOptions) {
     const initialProjectRoot = options.mode === "repo_local" ? options.projectRoot : undefined;
@@ -157,6 +189,7 @@ export class WorkspaceRouter {
         currentGraph: await this.buildPersistedLocalHistoryGraphContext(currentBinding),
       });
       this.currentBinding = currentBinding;
+      this.noteOpenedWorkspace(initialWorkspace, DEFAULT_REPO_LOCAL_CAPABILITY_PROFILE, "startup", true);
     })();
 
     await this.initialization;
@@ -234,6 +267,107 @@ export class WorkspaceRouter {
       return unboundWorkspaceStatus(this.options.mode);
     }
     return boundWorkspaceStatus(this.options.mode, this.currentBinding);
+  }
+
+  listOpenedWorkspaces(): WorkspaceListOpenedResult {
+    const activeWorktreeId = this.currentBinding?.worktreeId ?? null;
+    return {
+      sessionMode: this.options.mode,
+      activeWorktreeId,
+      workspaces: [...this.openedWorkspaces.values()]
+        .map((record) => this.toOpenedWorkspaceView(record, activeWorktreeId))
+        .sort((left, right) => left.worktreeRoot.localeCompare(right.worktreeRoot)),
+    };
+  }
+
+  async openWorkspace(request: WorkspaceOpenRequest): Promise<WorkspaceOpenResult> {
+    const resolved = await resolveWorkspaceRequest(this.options.git, request);
+    if ("code" in resolved) {
+      return {
+        ok: false,
+        changed: false,
+        freshSessionSlice: false,
+        ...this.getStatus(),
+        errorCode: resolved.code,
+        error: resolved.message,
+      };
+    }
+
+    const capabilityProfile = this.options.mode === "repo_local"
+      ? DEFAULT_REPO_LOCAL_CAPABILITY_PROFILE
+      : (await this.options.authorizationPolicy?.getCapabilityProfile(resolved)) ?? null;
+    if (capabilityProfile === null) {
+      return {
+        ok: false,
+        changed: false,
+        freshSessionSlice: false,
+        ...this.getStatus(),
+        errorCode: "WORKSPACE_NOT_AUTHORIZED",
+        error: `Workspace ${resolved.worktreeRoot} is not authorized for daemon binding. Call workspace_authorize first.`,
+      };
+    }
+
+    const activate = request.activate ?? true;
+    const source: OpenedWorkspaceSource = this.options.mode === "daemon" ? "daemon_authorized" : "session_opened";
+    const changed = this.noteOpenedWorkspace(resolved, capabilityProfile, source, false);
+
+    if (!activate) {
+      return {
+        ok: true,
+        changed,
+        freshSessionSlice: false,
+        ...this.getStatus(),
+        openedWorkspace: this.toOpenedWorkspaceView(
+          this.requireOpenedWorkspace(resolved.worktreeId),
+          this.currentBinding?.worktreeId ?? null,
+        ),
+      };
+    }
+
+    if (
+      this.currentBinding?.worktreeId === resolved.worktreeId
+      && workspaceCapabilityProfilesEqual(this.currentBinding.capabilityProfile, capabilityProfile)
+    ) {
+      this.noteWorkspaceActivated(resolved.worktreeId);
+      return {
+        ok: true,
+        changed,
+        freshSessionSlice: false,
+        ...this.getStatus(),
+        openedWorkspace: this.toOpenedWorkspaceView(
+          this.requireOpenedWorkspace(resolved.worktreeId),
+          this.currentBinding.worktreeId,
+        ),
+      };
+    }
+
+    const action: WorkspaceBindAction = this.currentBinding === null ? "bind" : "rebind";
+    const result = await this.bindInternal(action, request, "workspace_open", {
+      openedSource: source,
+    });
+    return {
+      ok: result.ok,
+      changed,
+      freshSessionSlice: result.freshSessionSlice,
+      sessionMode: result.sessionMode,
+      bindState: result.bindState,
+      repoId: result.repoId,
+      worktreeId: result.worktreeId,
+      worktreeRoot: result.worktreeRoot,
+      gitCommonDir: result.gitCommonDir,
+      graftDir: result.graftDir,
+      capabilityProfile: result.capabilityProfile,
+      ...(result.ok
+        ? {
+            openedWorkspace: this.toOpenedWorkspaceView(
+              this.requireOpenedWorkspace(resolved.worktreeId),
+              result.worktreeId,
+            ),
+          }
+        : {}),
+      ...(result.errorCode !== undefined ? { errorCode: result.errorCode } : {}),
+      ...(result.error !== undefined ? { error: result.error } : {}),
+    };
   }
 
   async getPersistedLocalHistorySummary(): Promise<PersistedLocalHistorySummary> {
@@ -511,6 +645,7 @@ export class WorkspaceRouter {
     action: WorkspaceBindAction,
     request: WorkspaceBindRequest,
     actionName: string,
+    options: { readonly openedSource?: OpenedWorkspaceSource | undefined } = {},
   ): Promise<WorkspaceActionResult> {
     const resolved = await resolveWorkspaceRequest(this.options.git, request);
     if ("code" in resolved) {
@@ -564,6 +699,12 @@ export class WorkspaceRouter {
     }
     this.currentBinding = nextBinding;
     this.currentSlice = nextBinding.slice;
+    this.noteOpenedWorkspace(
+      resolved,
+      capabilityProfile,
+      options.openedSource ?? (this.options.mode === "daemon" ? "daemon_authorized" : "session_opened"),
+      true,
+    );
 
     return {
       ok: true,
@@ -613,6 +754,66 @@ export class WorkspaceRouter {
       throw new WorkspaceBindingRequiredError("workspace");
     }
     return repoState;
+  }
+
+  private noteOpenedWorkspace(
+    resolved: ResolvedWorkspace,
+    capabilityProfile: WorkspaceCapabilityProfile,
+    source: OpenedWorkspaceSource,
+    activated: boolean,
+  ): boolean {
+    const now = new Date().toISOString();
+    const current = this.openedWorkspaces.get(resolved.worktreeId);
+    const nextSource = current?.source === "startup" ? current.source : source;
+    const changed = current?.repoId !== resolved.repoId
+      || current.worktreeRoot !== resolved.worktreeRoot
+      || current.gitCommonDir !== resolved.gitCommonDir
+      || current.source !== nextSource
+      || !workspaceCapabilityProfilesEqual(current.capabilityProfile, capabilityProfile);
+    this.openedWorkspaces.set(resolved.worktreeId, {
+      ...resolved,
+      capabilityProfile,
+      source: nextSource,
+      openedAt: current?.openedAt ?? now,
+      lastActivatedAt: activated ? now : (current?.lastActivatedAt ?? null),
+    });
+    return changed;
+  }
+
+  private noteWorkspaceActivated(worktreeId: string): void {
+    const current = this.openedWorkspaces.get(worktreeId);
+    if (current === undefined) {
+      return;
+    }
+    this.openedWorkspaces.set(worktreeId, {
+      ...current,
+      lastActivatedAt: new Date().toISOString(),
+    });
+  }
+
+  private requireOpenedWorkspace(worktreeId: string): OpenedWorkspaceRecord {
+    const workspace = this.openedWorkspaces.get(worktreeId);
+    if (workspace === undefined) {
+      throw new Error(`Opened workspace missing for worktree ${worktreeId}`);
+    }
+    return workspace;
+  }
+
+  private toOpenedWorkspaceView(
+    record: OpenedWorkspaceRecord,
+    activeWorktreeId: string | null,
+  ): OpenedWorkspaceView {
+    return {
+      repoId: record.repoId,
+      worktreeId: record.worktreeId,
+      worktreeRoot: record.worktreeRoot,
+      gitCommonDir: record.gitCommonDir,
+      capabilityProfile: { ...record.capabilityProfile },
+      source: record.source,
+      active: activeWorktreeId === record.worktreeId,
+      openedAt: record.openedAt,
+      lastActivatedAt: record.lastActivatedAt,
+    };
   }
 
   private buildCausalContext(

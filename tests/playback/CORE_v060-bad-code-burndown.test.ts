@@ -90,6 +90,8 @@ describe("CORE_v060-bad-code-burndown", () => {
       getRepoState: () => { return {}; },
       getCausalContext: () => { return {}; },
       getWorkspaceStatus: () => { return {}; },
+      openWorkspace: () => Promise.resolve({}),
+      listOpenedWorkspaces: () => Promise.resolve({}),
     };
     expect(() => { assertToolContext(validCtx); }).not.toThrow();
 
@@ -107,6 +109,9 @@ describe("CORE_v060-bad-code-burndown", () => {
     // Rejects non-function method
     const badMethod = { ...validCtx, respond: "not a function" };
     expect(() => { assertToolContext(badMethod); }).toThrow("ToolContext missing method: respond");
+
+    const { openWorkspace: _openWorkspace, ...missingOpenWorkspace } = validCtx;
+    expect(() => { assertToolContext(missingOpenWorkspace); }).toThrow("ToolContext missing method: openWorkspace");
   });
 
   it("Is secret scrubbing applied to both run-capture output and observability arg values?", () => {

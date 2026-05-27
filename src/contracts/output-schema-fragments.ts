@@ -647,6 +647,34 @@ export const workspaceRevokeSchema = z.object({
   error: z.string().optional(),
 }).strict();
 
+const openedWorkspaceSchema = z.object({
+  repoId: z.string(),
+  worktreeId: z.string(),
+  worktreeRoot: z.string(),
+  gitCommonDir: z.string(),
+  source: z.enum(["startup", "session_opened", "daemon_authorized"]),
+  active: z.boolean(),
+  capabilityProfile: workspaceCapabilityProfileSchema,
+  openedAt: z.string(),
+  lastActivatedAt: z.string().nullable(),
+  activeSessions: z.number().int().nonnegative().optional(),
+}).strict();
+
+export const workspaceOpenSchema = workspaceStatusSchema.extend({
+  ok: z.boolean(),
+  changed: z.boolean(),
+  freshSessionSlice: z.boolean(),
+  openedWorkspace: openedWorkspaceSchema.optional(),
+  errorCode: z.string().optional(),
+  error: z.string().optional(),
+}).strict();
+
+export const workspaceListOpenedSchema = z.object({
+  sessionMode: z.enum(["repo_local", "daemon"]),
+  activeWorktreeId: z.string().nullable(),
+  workspaces: z.array(openedWorkspaceSchema),
+}).strict();
+
 export const daemonSessionSchema = z.object({
   sessionId: z.string(),
   sessionMode: z.literal("daemon"),
@@ -864,6 +892,8 @@ export const mcpFragmentSchemas = {
   causalAttachSchema,
   workspaceAuthorizeSchema,
   workspaceRevokeSchema,
+  workspaceOpenSchema,
+  workspaceListOpenedSchema,
   workspaceStatusSchema,
   workspaceActionSchema,
   workspaceOverlaySummarySchema,

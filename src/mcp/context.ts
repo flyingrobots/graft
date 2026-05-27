@@ -46,6 +46,9 @@ import type {
   WorkspaceActionResult,
   CausalAttachResult,
   WorkspaceBindRequest,
+  WorkspaceListOpenedResult,
+  WorkspaceOpenRequest,
+  WorkspaceOpenResult,
   WorkspaceStatus,
 } from "./workspace-router.js";
 
@@ -91,6 +94,8 @@ export interface ToolContext {
   getRepoConcurrencySummary(): Promise<RepoConcurrencySummary | null>;
   declareCausalAttach(request: PersistedLocalHistoryAttachDeclaration): Promise<CausalAttachResult>;
   getWorkspaceStatus(): WorkspaceStatus;
+  openWorkspace(request: WorkspaceOpenRequest): Promise<WorkspaceOpenResult>;
+  listOpenedWorkspaces(): Promise<WorkspaceListOpenedResult>;
   bindWorkspace(request: WorkspaceBindRequest, actionName: string): Promise<WorkspaceActionResult>;
   rebindWorkspace(request: WorkspaceBindRequest, actionName: string): Promise<WorkspaceActionResult>;
   getDaemonStatus(): Promise<DaemonStatusView>;
@@ -148,6 +153,8 @@ export function assertToolContext(value: unknown): asserts value is ToolContext 
     "getRepoState",
     "getCausalContext",
     "getWorkspaceStatus",
+    "openWorkspace",
+    "listOpenedWorkspaces",
   ] as const;
   for (const method of methods) {
     if (obj[method] === undefined || obj[method] === null) {

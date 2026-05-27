@@ -251,6 +251,7 @@ export default tseslint.config(
       "dist/",
       "coverage/",
       "node_modules/",
+      "src/generated/",
       ".graft/",
       ".claude/",
       ".obsidian/",

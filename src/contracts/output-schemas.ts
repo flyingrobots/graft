@@ -750,6 +750,34 @@ const workspaceRevokeSchema = z.object({
   error: z.string().optional(),
 }).strict();
 
+const openedWorkspaceSchema = z.object({
+  repoId: z.string(),
+  worktreeId: z.string(),
+  worktreeRoot: z.string(),
+  gitCommonDir: z.string(),
+  source: z.enum(["startup", "session_opened", "daemon_authorized"]),
+  active: z.boolean(),
+  capabilityProfile: workspaceCapabilityProfileSchema,
+  openedAt: z.string(),
+  lastActivatedAt: z.string().nullable(),
+  activeSessions: z.number().int().nonnegative().optional(),
+}).strict();
+
+const workspaceOpenSchema = workspaceStatusSchema.extend({
+  ok: z.boolean(),
+  changed: z.boolean(),
+  freshSessionSlice: z.boolean(),
+  openedWorkspace: openedWorkspaceSchema.optional(),
+  errorCode: z.string().optional(),
+  error: z.string().optional(),
+}).strict();
+
+const workspaceListOpenedSchema = z.object({
+  sessionMode: z.enum(["repo_local", "daemon"]),
+  activeWorktreeId: z.string().nullable(),
+  workspaces: z.array(openedWorkspaceSchema),
+}).strict();
+
 const daemonSessionSchema = z.object({
   sessionId: z.string(),
   sessionMode: z.literal("daemon"),
@@ -1092,6 +1120,8 @@ const mcpOutputBodySchemas: Record<McpToolName, z.ZodType> = {
     workspaces: z.array(authorizedWorkspaceSchema),
   }).strict(),
   workspace_revoke: workspaceRevokeSchema,
+  workspace_open: workspaceOpenSchema,
+  workspace_list_opened: workspaceListOpenedSchema,
   workspace_bind: workspaceActionSchema.extend({
     action: z.literal("bind"),
   }).strict(),
@@ -1392,6 +1422,8 @@ export const MCP_OUTPUT_SCHEMAS: Record<McpToolName, z.ZodType> = {
     mcpOutputBodySchemas.workspace_authorizations,
   ),
   workspace_revoke: withMcpCommon("workspace_revoke", mcpOutputBodySchemas.workspace_revoke),
+  workspace_open: withMcpCommon("workspace_open", mcpOutputBodySchemas.workspace_open),
+  workspace_list_opened: withMcpCommon("workspace_list_opened", mcpOutputBodySchemas.workspace_list_opened),
   workspace_bind: withMcpCommon("workspace_bind", mcpOutputBodySchemas.workspace_bind),
   workspace_status: withMcpCommon("workspace_status", mcpOutputBodySchemas.workspace_status),
   activity_view: withMcpCommon("activity_view", mcpOutputBodySchemas.activity_view),

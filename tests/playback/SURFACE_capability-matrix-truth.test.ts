@@ -59,7 +59,7 @@ describe("SURFACE capability matrix truth playback", () => {
   it("Do tests prove the intentionally API+MCP-only tools were not converted into direct CLI peers?", () => {
     const intentionallyApiMcpOnly = CAPABILITY_REGISTRY.filter((capability) => capability.cliMcpParity === "mcp_only");
 
-    expect(intentionallyApiMcpOnly).toHaveLength(22);
+    expect(intentionallyApiMcpOnly).toHaveLength(24);
     expect(intentionallyApiMcpOnly.every((capability) => capability.cliCommand === undefined)).toBe(true);
     expect(intentionallyApiMcpOnly.every((capability) => capability.cliPath === undefined)).toBe(true);
     expect(CAPABILITY_REGISTRY.find((capability) => capability.id === "daemon_status")?.cliCommand).toBeUndefined();

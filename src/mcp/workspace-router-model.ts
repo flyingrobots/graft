@@ -38,6 +38,38 @@ export interface WorkspaceActionResult extends WorkspaceStatus {
   readonly error?: string;
 }
 
+export type OpenedWorkspaceSource = "startup" | "session_opened" | "daemon_authorized";
+
+export interface OpenedWorkspaceView extends ResolvedWorkspace {
+  readonly source: OpenedWorkspaceSource;
+  readonly active: boolean;
+  readonly capabilityProfile: WorkspaceCapabilityProfile;
+  readonly openedAt: string;
+  readonly lastActivatedAt: string | null;
+  readonly activeSessions?: number | undefined;
+}
+
+export interface WorkspaceOpenRequest {
+  readonly cwd: string;
+  readonly activate?: boolean | undefined;
+  readonly runCapture?: boolean | undefined;
+}
+
+export interface WorkspaceOpenResult extends WorkspaceStatus {
+  readonly ok: boolean;
+  readonly changed: boolean;
+  readonly freshSessionSlice: boolean;
+  readonly openedWorkspace?: OpenedWorkspaceView | undefined;
+  readonly errorCode?: string;
+  readonly error?: string;
+}
+
+export interface WorkspaceListOpenedResult {
+  readonly sessionMode: WorkspaceMode;
+  readonly activeWorktreeId: string | null;
+  readonly workspaces: readonly OpenedWorkspaceView[];
+}
+
 export interface CausalAttachResult extends WorkspaceStatus {
   readonly ok: boolean;
   readonly action: "attach";

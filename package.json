@@ -46,6 +46,7 @@
     "test:watch": "vitest",
     "lint": "eslint .",
     "typecheck": "tsc --noEmit",
+    "schema:structural-history:check": "tsx scripts/check-structural-history-schema-artifacts.ts",
     "pack:check": "pnpm pack --dry-run",
     "guard:agent-worktrees": "tsx scripts/check-agent-worktree-hygiene.ts",
     "security:check": "tsx scripts/check-release-security.ts",
@@ -111,10 +112,12 @@
     "onlyBuiltDependencies": [],
     "overrides": {
       "vite": "^8.0.5",
+      "brace-expansion": "5.0.6",
       "hono": "4.12.18",
       "fast-uri": "3.1.2",
       "ip-address": "10.2.0",
-      "postcss": "8.5.12"
+      "postcss": "8.5.12",
+      "qs": "6.15.2"
     }
   }
 }

@@ -52,13 +52,17 @@ npx @flyingrobots/graft daemon
 ```
 
 Daemon sessions start `unbound`. Once a client is connected to the
-daemon MCP surface, repository-scoped work follows this control-plane
-flow:
+daemon MCP surface, repository-scoped work normally follows this
+agent-facing flow:
 
-1. `workspace_authorize` with the target `cwd`
-2. `workspace_bind` with the target `cwd`
+1. `workspace_open` with the target `cwd`
+2. optionally `workspace_list_opened` to inspect opened paths and the
+   active workspace
 3. then call repository-scoped tools such as `safe_read`, `graft_since`,
    or `code_show`
+
+`workspace_authorize` and `workspace_bind` remain available as lower-level
+daemon control-plane tools.
 
 ## Key Tool Groups
 - **Bounded Reads**: `safe_read`, `file_outline`, `read_range`, `changed_since`
@@ -68,7 +72,8 @@ flow:
 - **Structural Metrics**: `graft_churn`, `graft_difficulty`
 - **Precision**: `code_show`, `code_find`, `code_refs`
 - **Activity & Footing**: `activity_view`, `causal_status`, `causal_attach`, `doctor`
-- **Daemon Control Plane**: `workspace_authorizations`, `workspace_authorize`, `workspace_bind`, `workspace_status`, `workspace_rebind`, `workspace_revoke`, `daemon_status`, `daemon_repos`, `daemon_sessions`, `daemon_monitors`, `monitor_*`
+- **Workspace Routing**: `workspace_open`, `workspace_list_opened`, `workspace_status`
+- **Daemon Control Plane**: `workspace_authorizations`, `workspace_authorize`, `workspace_bind`, `workspace_rebind`, `workspace_revoke`, `daemon_status`, `daemon_repos`, `daemon_sessions`, `daemon_monitors`, `monitor_*`
 
 ## Current Truth
 - MCP is the primary agent surface.

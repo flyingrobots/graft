@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Added
+
+- **Structural history schema authority**: Graft now carries a canonical
+  `schemas/graft-structural-history.graphql` schema with Wesley-generated
+  TypeScript contracts and a deterministic artifact drift check, establishing
+  the schema-first Echo migration boundary without changing Echo or Wesley.
+- **Structural source span invariants**: The canonical structural-history schema
+  now rejects source spans whose end offsets or present end lines precede their
+  starts.
+- **Opened workspace paths**: MCP sessions can now call `workspace_open` to
+  open another git worktree path, activate it by default, and inspect opened
+  paths through `workspace_list_opened` without adding per-tool `cwd` routing.
+
 ### Changed
 
 - **Structural reading boundary**: `graft_review` impact counts and
@@ -19,6 +32,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 - **Structural reading residual posture**: Reference-count readings now
   report a partial residual posture when committed import-scan fallback
   evidence is unavailable after a zero-count WARP graph reading.
+
+### Security
+
+- **Dependency audit posture**: Patched audited transitive dependencies through
+  pnpm overrides for `brace-expansion` and `qs`, preserving a clean release
+  security gate.
 
 ## [0.8.0] - 2026-05-13
 
