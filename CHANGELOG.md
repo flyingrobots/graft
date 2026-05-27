@@ -19,6 +19,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 - **Opened workspace paths**: MCP sessions can now call `workspace_open` to
   open another git worktree path, activate it by default, and inspect opened
   paths through `workspace_list_opened` without adding per-tool `cwd` routing.
+- **Symbol history locations**: `graft_blame` and `graft symbol history`
+  now carry per-version path and available line-range facts from WARP symbol
+  timelines without adding a second `code_show` history response shape.
 
 ### Changed
 

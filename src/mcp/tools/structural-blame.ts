@@ -47,7 +47,10 @@ export const structuralBlameTool: ToolDefinition = {
           tick: v.tick,
           changeKind: v.changeKind,
           present: v.present,
+          path: v.filePath,
           signature: v.signature ?? null,
+          ...(v.startLine !== undefined ? { startLine: v.startLine } : {}),
+          ...(v.endLine !== undefined ? { endLine: v.endLine } : {}),
         })),
       }));
     };
