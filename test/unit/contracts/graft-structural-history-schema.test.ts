@@ -305,6 +305,29 @@ describe("Graft structural history schema authority", () => {
     }
   });
 
+  it("fails before emit when the configured Wesley binary reports the wrong L1 registry hash", () => {
+    const workspaceRoot = writeSchemaArtifactFixture();
+    const wesleyBin = writeFakeWesley(workspaceRoot, { l1RegistryHash: "tampered-live-hash" });
+
+    try {
+      const result = checkStructuralHistorySchemaArtifacts(workspaceRoot, {
+        requireWesley: true,
+        wesleyBin,
+      });
+
+      expect(result.violations).toEqual([
+        `Wesley L1 registry hash tampered-live-hash does not match manifest ${EXPECTED_WESLEY_L1_REGISTRY_HASH}.`,
+      ]);
+      expect(result.hermeticWesley).toBeNull();
+      expect(readFakeWesleyInvocations(workspaceRoot)).toEqual([
+        ["version"],
+        ["schema", "hash", "--schema", path.join(workspaceRoot, "schemas/schema.graphql")],
+      ]);
+    } finally {
+      fs.rmSync(workspaceRoot, { recursive: true, force: true });
+    }
+  });
+
   it("fails when the configured Wesley binary reports the wrong version", () => {
     const workspaceRoot = writeSchemaArtifactFixture();
     const wesleyBin = writeFakeWesley(workspaceRoot, { version: "0.0.2" });

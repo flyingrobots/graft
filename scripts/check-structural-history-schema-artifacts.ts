@@ -210,9 +210,12 @@ function checkHermeticWesleyGeneration(
     };
   }
   if (l1RegistryHash.text !== manifest.wesleyL1RegistryHash) {
-    violations.push(
-      `Wesley L1 registry hash ${l1RegistryHash.text} does not match manifest ${manifest.wesleyL1RegistryHash}.`,
-    );
+    return {
+      hermeticWesley: null,
+      violations: [
+        `Wesley L1 registry hash ${l1RegistryHash.text} does not match manifest ${manifest.wesleyL1RegistryHash}.`,
+      ],
+    };
   }
 
   const tempDir = mkdtempSync(path.join(os.tmpdir(), "graft-wesley-structural-history-"));
