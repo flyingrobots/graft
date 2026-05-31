@@ -86,7 +86,7 @@ this card.
 - [ ] No governed write/edit work.
 - [ ] No broad graph materialization policy changes.
 - [ ] No live-checkout playback or tests that use the repository under
-      `/Users/james/git/graft` as subject data.
+      `.` as subject data.
 
 ## Relevance Check
 

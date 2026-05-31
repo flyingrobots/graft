@@ -14,7 +14,7 @@ This slice turned the MCP, daemon, and CLI entrypoints into clearer composition 
 
 ## Playback Witness
 
-- [verification.md](/Users/james/git/graft/docs/method/retro/0081-composition-roots-for-cli-mcp-daemon-and-hooks/witness/verification.md)
+- [verification.md](./docs/method/retro/0081-composition-roots-for-cli-mcp-daemon-and-hooks/witness/verification.md)
 
 ## Drift
 

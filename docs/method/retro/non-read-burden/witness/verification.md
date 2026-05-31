@@ -14,7 +14,7 @@ behavior and adheres to the repo invariants.
 > vitest run
 
 
-[1m[46m RUN [49m[22m [36mv4.1.2 [39m[90m/Users/james/git/graft[39m
+[1m[46m RUN [49m[22m [36mv4.1.2 [39m[90m.[39m
 
  [32m✓[39m test/unit/operations/graft-diff.test.ts [2m([22m[2m10 tests[22m[2m)[22m[33m 6701[2mms[22m[39m
      [33m[2m✓[22m[39m diffs modified file between two refs [33m 319[2mms[22m[39m

@@ -39,7 +39,7 @@ on once upstream `git-warp v17.1.0+` support exists.
 
 ## Playback Witness
 
-- [verification.md](/Users/james/git/graft/docs/method/retro/0060-persisted-sub-commit-local-history/witness/verification.md)
+- [verification.md](./docs/method/retro/0060-persisted-sub-commit-local-history/witness/verification.md)
 
 ## Drift
 
@@ -48,7 +48,7 @@ on once upstream `git-warp v17.1.0+` support exists.
 ## New Debt
 
 - Added during cycle:
-  - [CLEAN_CODE_mcp-persisted-local-history-composition.md](/Users/james/git/graft/docs/method/backlog/bad-code/CLEAN_CODE_mcp-persisted-local-history-composition.md)
+  - [CLEAN_CODE_mcp-persisted-local-history-composition.md](./docs/method/backlog/bad-code/CLEAN_CODE_mcp-persisted-local-history-composition.md)
 
 The persistence seam is now doing enough work that storage,
 continuity policy, evidence derivation, and summary projection should

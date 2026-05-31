@@ -336,7 +336,7 @@ Concrete rules:
 
 Backlog:
 
-- [CORE_hex-layer-map-and-dependency-guardrails.md](/Users/james/git/graft/docs/method/backlog/asap/CORE_hex-layer-map-and-dependency-guardrails.md:1)
+- [CORE_hex-layer-map-and-dependency-guardrails.md](./docs/method/backlog/asap/CORE_hex-layer-map-and-dependency-guardrails.md:1)
 
 What it settles:
 
@@ -352,14 +352,14 @@ Why first:
 
 Backlog:
 
-- [CORE_primary-adapters-thin-use-case-extraction.md](/Users/james/git/graft/docs/method/backlog/up-next/CORE_primary-adapters-thin-use-case-extraction.md:1)
+- [CORE_primary-adapters-thin-use-case-extraction.md](./docs/method/backlog/up-next/CORE_primary-adapters-thin-use-case-extraction.md:1)
 
 Existing backlog clusters that fold into this slice:
 
-- [CLEAN_CODE_mcp-context.md](/Users/james/git/graft/docs/method/backlog/bad-code/CLEAN_CODE_mcp-context.md:1)
-- [CLEAN_CODE_cli-main.md](/Users/james/git/graft/docs/method/backlog/bad-code/CLEAN_CODE_cli-main.md:1)
-- [CLEAN_CODE_mcp-tool-code-find-orchestration.md](/Users/james/git/graft/docs/method/backlog/bad-code/CLEAN_CODE_mcp-tool-code-find-orchestration.md:1)
-- [CLEAN_CODE_mcp-tool-map-collector-orchestration.md](/Users/james/git/graft/docs/method/backlog/bad-code/CLEAN_CODE_mcp-tool-map-collector-orchestration.md:1)
+- [CLEAN_CODE_mcp-context.md](./docs/method/backlog/bad-code/CLEAN_CODE_mcp-context.md:1)
+- [CLEAN_CODE_cli-main.md](./docs/method/backlog/bad-code/CLEAN_CODE_cli-main.md:1)
+- [CLEAN_CODE_mcp-tool-code-find-orchestration.md](./docs/method/backlog/bad-code/CLEAN_CODE_mcp-tool-code-find-orchestration.md:1)
+- [CLEAN_CODE_mcp-tool-map-collector-orchestration.md](./docs/method/backlog/bad-code/CLEAN_CODE_mcp-tool-map-collector-orchestration.md:1)
 
 What it settles:
 
@@ -370,13 +370,13 @@ What it settles:
 
 Backlog:
 
-- [CORE_warp-port-and-adapter-boundary.md](/Users/james/git/graft/docs/method/backlog/up-next/CORE_warp-port-and-adapter-boundary.md:1)
+- [CORE_warp-port-and-adapter-boundary.md](./docs/method/backlog/up-next/CORE_warp-port-and-adapter-boundary.md:1)
 
 Existing backlog clusters that fold into this slice:
 
-- [CLEAN_CODE_warp-plumbing-declaration.md](/Users/james/git/graft/docs/method/backlog/bad-code/CLEAN_CODE_warp-plumbing-declaration.md:1)
-- [CLEAN_persisted-local-history-bypasses-git-warp-causal-graph.md](/Users/james/git/graft/docs/method/backlog/bad-code/CLEAN_persisted-local-history-bypasses-git-warp-causal-graph.md:1)
-- [CLEAN_CODE_mcp-persisted-local-history-composition.md](/Users/james/git/graft/docs/method/backlog/bad-code/CLEAN_CODE_mcp-persisted-local-history-composition.md:1)
+- [CLEAN_CODE_warp-plumbing-declaration.md](./docs/method/backlog/bad-code/CLEAN_CODE_warp-plumbing-declaration.md:1)
+- [CLEAN_persisted-local-history-bypasses-git-warp-causal-graph.md](./docs/method/backlog/bad-code/CLEAN_persisted-local-history-bypasses-git-warp-causal-graph.md:1)
+- [CLEAN_CODE_mcp-persisted-local-history-composition.md](./docs/method/backlog/bad-code/CLEAN_CODE_mcp-persisted-local-history-composition.md:1)
 
 What it settles:
 
@@ -387,14 +387,14 @@ What it settles:
 
 Backlog:
 
-- [CORE_composition-roots-for-cli-mcp-daemon-and-hooks.md](/Users/james/git/graft/docs/method/backlog/up-next/CORE_composition-roots-for-cli-mcp-daemon-and-hooks.md:1)
+- [CORE_composition-roots-for-cli-mcp-daemon-and-hooks.md](./docs/method/backlog/up-next/CORE_composition-roots-for-cli-mcp-daemon-and-hooks.md:1)
 
 Existing backlog clusters that fold into this slice:
 
-- [CLEAN_CODE_mcp-server.md](/Users/james/git/graft/docs/method/backlog/bad-code/CLEAN_CODE_mcp-server.md:1)
-- [CLEAN_CODE_mcp-workspace-router-composition.md](/Users/james/git/graft/docs/method/backlog/bad-code/CLEAN_CODE_mcp-workspace-router-composition.md:1)
-- [CLEAN_CODE_mcp-daemon-server-lifecycle-composition.md](/Users/james/git/graft/docs/method/backlog/bad-code/CLEAN_CODE_mcp-daemon-server-lifecycle-composition.md:1)
-- [CLEAN_CODE_mcp-daemon-control-plane-composition.md](/Users/james/git/graft/docs/method/backlog/bad-code/CLEAN_CODE_mcp-daemon-control-plane-composition.md:1)
+- [CLEAN_CODE_mcp-server.md](./docs/method/backlog/bad-code/CLEAN_CODE_mcp-server.md:1)
+- [CLEAN_CODE_mcp-workspace-router-composition.md](./docs/method/backlog/bad-code/CLEAN_CODE_mcp-workspace-router-composition.md:1)
+- [CLEAN_CODE_mcp-daemon-server-lifecycle-composition.md](./docs/method/backlog/bad-code/CLEAN_CODE_mcp-daemon-server-lifecycle-composition.md:1)
+- [CLEAN_CODE_mcp-daemon-control-plane-composition.md](./docs/method/backlog/bad-code/CLEAN_CODE_mcp-daemon-control-plane-composition.md:1)
 
 What it settles:
 
@@ -405,14 +405,14 @@ What it settles:
 
 Backlog:
 
-- [CORE_runtime-validated-command-and-context-models.md](/Users/james/git/graft/docs/method/backlog/up-next/CORE_runtime-validated-command-and-context-models.md:1)
+- [CORE_runtime-validated-command-and-context-models.md](./docs/method/backlog/up-next/CORE_runtime-validated-command-and-context-models.md:1)
 
 Existing backlog clusters that fold into this slice:
 
-- [CLEAN_CODE_contracts-output-schemas.md](/Users/james/git/graft/docs/method/backlog/bad-code/CLEAN_CODE_contracts-output-schemas.md:1)
-- [CLEAN_CODE_mcp-receipt.md](/Users/james/git/graft/docs/method/backlog/bad-code/CLEAN_CODE_mcp-receipt.md:1)
-- [CLEAN_CODE_mcp-tool-safe-read.md](/Users/james/git/graft/docs/method/backlog/bad-code/CLEAN_CODE_mcp-tool-safe-read.md:1)
-- [CLEAN_CODE_mcp-tool-doctor.md](/Users/james/git/graft/docs/method/backlog/bad-code/CLEAN_CODE_mcp-tool-doctor.md:1)
+- [CLEAN_CODE_contracts-output-schemas.md](./docs/method/backlog/bad-code/CLEAN_CODE_contracts-output-schemas.md:1)
+- [CLEAN_CODE_mcp-receipt.md](./docs/method/backlog/bad-code/CLEAN_CODE_mcp-receipt.md:1)
+- [CLEAN_CODE_mcp-tool-safe-read.md](./docs/method/backlog/bad-code/CLEAN_CODE_mcp-tool-safe-read.md:1)
+- [CLEAN_CODE_mcp-tool-doctor.md](./docs/method/backlog/bad-code/CLEAN_CODE_mcp-tool-doctor.md:1)
 
 What it settles:
 
@@ -426,21 +426,21 @@ It gives them a parent migration structure.
 
 Examples that still remain valid:
 
-- [CLEAN_CODE_parser-outline.md](/Users/james/git/graft/docs/method/backlog/bad-code/CLEAN_CODE_parser-outline.md:1)
-- [CLEAN_CODE_operations-graft-diff.md](/Users/james/git/graft/docs/method/backlog/bad-code/CLEAN_CODE_operations-graft-diff.md:1)
-- [CLEAN_CODE_mcp-runtime-observability-composition.md](/Users/james/git/graft/docs/method/backlog/bad-code/CLEAN_CODE_mcp-runtime-observability-composition.md:1)
+- [CLEAN_CODE_parser-outline.md](./docs/method/backlog/bad-code/CLEAN_CODE_parser-outline.md:1)
+- [CLEAN_CODE_operations-graft-diff.md](./docs/method/backlog/bad-code/CLEAN_CODE_operations-graft-diff.md:1)
+- [CLEAN_CODE_mcp-runtime-observability-composition.md](./docs/method/backlog/bad-code/CLEAN_CODE_mcp-runtime-observability-composition.md:1)
 
 These are implementation hotspots to burn down within the convergence
 sequence rather than evidence against having a sequence.
 
 ## New backlog produced by this cycle
 
-- [CORE_hex-layer-map-and-dependency-guardrails.md](/Users/james/git/graft/docs/method/backlog/asap/CORE_hex-layer-map-and-dependency-guardrails.md:1)
-- [CORE_primary-adapters-thin-use-case-extraction.md](/Users/james/git/graft/docs/method/backlog/up-next/CORE_primary-adapters-thin-use-case-extraction.md:1)
-- [CORE_warp-port-and-adapter-boundary.md](/Users/james/git/graft/docs/method/backlog/up-next/CORE_warp-port-and-adapter-boundary.md:1)
-- [CORE_composition-roots-for-cli-mcp-daemon-and-hooks.md](/Users/james/git/graft/docs/method/backlog/up-next/CORE_composition-roots-for-cli-mcp-daemon-and-hooks.md:1)
-- [CORE_runtime-validated-command-and-context-models.md](/Users/james/git/graft/docs/method/backlog/up-next/CORE_runtime-validated-command-and-context-models.md:1)
-- [CLEAN_architecture-doc-overclaims-strict-hexagonal-posture.md](/Users/james/git/graft/docs/method/backlog/bad-code/CLEAN_architecture-doc-overclaims-strict-hexagonal-posture.md:1)
+- [CORE_hex-layer-map-and-dependency-guardrails.md](./docs/method/backlog/asap/CORE_hex-layer-map-and-dependency-guardrails.md:1)
+- [CORE_primary-adapters-thin-use-case-extraction.md](./docs/method/backlog/up-next/CORE_primary-adapters-thin-use-case-extraction.md:1)
+- [CORE_warp-port-and-adapter-boundary.md](./docs/method/backlog/up-next/CORE_warp-port-and-adapter-boundary.md:1)
+- [CORE_composition-roots-for-cli-mcp-daemon-and-hooks.md](./docs/method/backlog/up-next/CORE_composition-roots-for-cli-mcp-daemon-and-hooks.md:1)
+- [CORE_runtime-validated-command-and-context-models.md](./docs/method/backlog/up-next/CORE_runtime-validated-command-and-context-models.md:1)
+- [CLEAN_architecture-doc-overclaims-strict-hexagonal-posture.md](./docs/method/backlog/bad-code/CLEAN_architecture-doc-overclaims-strict-hexagonal-posture.md:1)
 
 ## Release-facing recommendation
 

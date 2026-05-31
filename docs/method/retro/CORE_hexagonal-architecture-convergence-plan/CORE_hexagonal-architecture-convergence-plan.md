@@ -30,9 +30,9 @@ This closes as a design hill. No product code changed in this cycle.
 ## Playback Witness
 
 - Repo-visible playback witness:
-  - [0075-hexagonal-architecture-convergence-plan.test.ts](/Users/james/git/graft/tests/playback/0075-hexagonal-architecture-convergence-plan.test.ts:1)
+  - [0075-hexagonal-architecture-convergence-plan.test.ts](./tests/playback/0075-hexagonal-architecture-convergence-plan.test.ts:1)
 - Verification note:
-  - [verification.md](/Users/james/git/graft/docs/method/retro/0075-hexagonal-architecture-convergence-plan/witness/verification.md:1)
+  - [verification.md](./docs/method/retro/0075-hexagonal-architecture-convergence-plan/witness/verification.md:1)
 
 ## Drift
 

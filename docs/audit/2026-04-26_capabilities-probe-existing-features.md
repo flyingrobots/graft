@@ -159,9 +159,9 @@ still have enough unevenness that adding write tools now would compound drift.
 - `pnpm exec tsx -e ...` against capability contracts
 - `node --import tsx -e ...` against the MCP tool registry
 - `node bin/graft.js help`
-- `node bin/graft.js --cwd /Users/james/git/graft diag doctor --json`
-- `node bin/graft.js --cwd /Users/james/git/graft read outline src/index.ts --json`
-- `node bin/graft.js --cwd /Users/james/git/graft struct map src --json`
+- `node bin/graft.js --cwd . diag doctor --json`
+- `node bin/graft.js --cwd . read outline src/index.ts --json`
+- `node bin/graft.js --cwd . struct map src --json`
 - METHOD MCP `method_status` summary
 
 One registry probe through `pnpm exec tsx -e ...` failed because the transform

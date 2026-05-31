@@ -39,7 +39,7 @@ later implementation does not churn.
 
 ## Playback Witness
 
-- [verification.md](/Users/james/git/graft/docs/method/retro/0059-graph-ontology-and-causal-collapse-model/witness/verification.md)
+- [verification.md](./docs/method/retro/0059-graph-ontology-and-causal-collapse-model/witness/verification.md)
 
 ## Drift
 

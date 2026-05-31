@@ -20,7 +20,7 @@ additions and breaking changes explicitly.
 
 ## Playback Witness
 
-- [verification.md](/Users/james/git/graft/docs/method/retro/0083-public-api-contract-and-stability-policy/witness/verification.md)
+- [verification.md](./docs/method/retro/0083-public-api-contract-and-stability-policy/witness/verification.md)
 
 ## Drift
 

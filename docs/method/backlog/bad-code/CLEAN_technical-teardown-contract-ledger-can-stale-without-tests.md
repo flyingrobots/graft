@@ -27,10 +27,10 @@ reduces confidence in the teardown as a source of truth.
 
 ## Evidence
 
-- [`docs/TECHNICAL_TEARDOWN.md` ledger section](/Users/james/git/graft/docs/TECHNICAL_TEARDOWN.md#contract-ledger-golden-path)
-- [`src/operations/safe-read.ts`](/Users/james/git/graft/src/operations/safe-read.ts)
-- [`src/mcp/tools/safe-read.ts`](/Users/james/git/graft/src/mcp/tools/safe-read.ts)
-- [`src/mcp/tools/code-show.ts`](/Users/james/git/graft/src/mcp/tools/code-show.ts)
+- [`docs/TECHNICAL_TEARDOWN.md` ledger section](./docs/TECHNICAL_TEARDOWN.md#contract-ledger-golden-path)
+- [`src/operations/safe-read.ts`](./src/operations/safe-read.ts)
+- [`src/mcp/tools/safe-read.ts`](./src/mcp/tools/safe-read.ts)
+- [`src/mcp/tools/code-show.ts`](./src/mcp/tools/code-show.ts)
 
 ## Desired Outcome
 

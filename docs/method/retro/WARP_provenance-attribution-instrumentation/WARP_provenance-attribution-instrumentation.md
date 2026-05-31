@@ -44,7 +44,7 @@ truth model.
 
 ## Playback Witness
 
-- [verification.md](/Users/james/git/graft/docs/method/retro/0061-provenance-attribution-instrumentation/witness/verification.md)
+- [verification.md](./docs/method/retro/0061-provenance-attribution-instrumentation/witness/verification.md)
 
 ## Drift
 
