@@ -4,7 +4,7 @@
   "schemaSourceSha256": "20c335b4510efbfb5a57a61706bea28a7f82bfc063036b013bd19dc8176905ec",
   "generatedTypesSha256": "79737d3c089067685d553f9526c8eb442cb7a20c099a49a771162c2be29559cc",
   "wesleyCliVersion": "0.0.4",
-  "wesleyL1RegistryHash": "0f6d6d2109142a0cd33ee8db9ebc28f1718e0d1ec2863ec4837048a1340bff61",
+  "wesleyL1RegistryHash": "1f0956170eeec399e942fa8e418a4f23bc12ec40bf25f6e1de9510abbb15b832",
   "requiredTypes": [
     "StructuralRepository",
     "StructuralBasis",

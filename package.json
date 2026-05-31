@@ -51,7 +51,7 @@
     "guard:agent-worktrees": "tsx scripts/check-agent-worktree-hygiene.ts",
     "security:check": "tsx scripts/check-release-security.ts",
     "release:surface-gate": "vitest run --run test/unit/release/package-library-surface.test.ts test/unit/release/three-surface-capability-posture.test.ts",
-    "release:check": "pnpm guard:agent-worktrees && pnpm lint && pnpm typecheck && pnpm release:surface-gate && pnpm test && pnpm security:check && pnpm pack:check",
+    "release:check": "pnpm guard:agent-worktrees && pnpm schema:structural-history:check && pnpm lint && pnpm typecheck && pnpm release:surface-gate && pnpm test && pnpm security:check && pnpm pack:check",
     "gh:issues": "bash scripts/gh-issues.sh bootstrap",
     "gh-issues": "bash scripts/gh-issues.sh bootstrap",
     "gh-issues:check": "bash scripts/gh-issues-check.sh"
