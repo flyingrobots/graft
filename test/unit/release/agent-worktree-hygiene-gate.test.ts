@@ -4,6 +4,7 @@ import { describe, expect, it } from "vitest";
 import packageJson from "../../../package.json";
 
 const repoRoot = resolve(import.meta.dirname, "../../..");
+const ACTIONS_CACHE_V4_SHA = "0057852bfaa89a56745cba8c7296529d2fc39830";
 
 function readRepoFile(filePath: string): string {
   return readFileSync(resolve(repoRoot, filePath), "utf8");
@@ -24,5 +25,22 @@ describe("release: agent worktree hygiene gate", () => {
     expect(preCommitHook).toContain("pnpm guard:agent-worktrees");
     expect(releaseRunbook).toContain("`pnpm guard:agent-worktrees`");
     expect(invariant).toContain("scripts/check-agent-worktree-hygiene.ts");
+  });
+
+  it("pins the Wesley cache action to the verified actions/cache v4 commit", () => {
+    const workflowText = [
+      readRepoFile(".github/workflows/ci.yml"),
+      readRepoFile(".github/workflows/release.yml"),
+    ].join("\n");
+
+    const cacheActionRefs = [...workflowText.matchAll(/uses:\s+actions\/cache@([^\s]+)/gu)].map(
+      ([, ref]) => ref,
+    );
+
+    expect(cacheActionRefs).toEqual([
+      ACTIONS_CACHE_V4_SHA,
+      ACTIONS_CACHE_V4_SHA,
+      ACTIONS_CACHE_V4_SHA,
+    ]);
   });
 });
