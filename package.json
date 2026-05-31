@@ -54,7 +54,6 @@
     "release:check": "pnpm guard:agent-worktrees && pnpm lint && pnpm typecheck && pnpm release:surface-gate && pnpm test && pnpm security:check && pnpm pack:check",
     "gh:issues": "bash scripts/gh-issues.sh bootstrap",
     "gh-issues": "bash scripts/gh-issues.sh bootstrap",
-    "gh:issues:check": "bash scripts/gh-issues-check.sh",
     "gh-issues:check": "bash scripts/gh-issues-check.sh"
   },
   "engines": {
