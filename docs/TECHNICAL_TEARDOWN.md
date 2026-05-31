@@ -6,6 +6,8 @@
 
 ## Table of Contents
 
+- [Source of Truth Alignment](#source-of-truth-alignment)
+- [Scope and Non-Goals](#scope-and-non-goals)
 1. [Domain Dictionary](#1-domain-dictionary)
 2. [What Graft Is and Why It Exists](#2-what-graft-is-and-why-it-exists)
 3. [The Three Official Surfaces](#3-the-three-official-surfaces)
@@ -25,6 +27,71 @@
 17. [Security Boundaries](#17-security-boundaries)
 18. [Configuration and Environment Tuning](#18-configuration-and-environment-tuning)
 19. [Architectural Trade-offs](#19-architectural-trade-offs)
+20. [Contract Ledger (Golden Path)](#contract-ledger-golden-path)
+
+```mermaid
+mindmap
+  root((Graft Teardown Map))
+    Domain Dictionary
+    Context Governance
+      Policy Engine
+      Budgets & Tripwires
+    Core Surfaces
+      CLI
+      MCP Stdio
+      MCP Daemon
+    Runtime Flow
+      Bootstrapping
+      Golden Paths
+        safe_read
+        code_show
+        Daemon Lifecycle
+    Data Systems
+      Tree-Sitter Parser
+      WARP Memory
+      Observation Cache
+    Quality & Safety
+      Error Handling
+      Security Boundaries
+    Operations
+      Session Governance
+      External Interfaces
+      Concurrency
+      Configuration
+```
+
+---
+
+## Source of Truth Alignment
+
+Use these file-level anchors as the documentary authority when validating claims.
+
+| Topic | Primary Evidence |
+|-------|------------------|
+| `safe_read` tool orchestration | [src/mcp/tools/safe-read.ts:19-44](/Users/james/git/graft/src/mcp/tools/safe-read.ts:19), [src/operations/repo-workspace.ts:154-235](/Users/james/git/graft/src/operations/repo-workspace.ts:154), [src/operations/safe-read.ts:34-117](/Users/james/git/graft/src/operations/safe-read.ts:34) |
+| Policy decisioning and result kinds | [src/policy/evaluate.ts:96-178](/Users/james/git/graft/src/policy/evaluate.ts:96), [src/policy/types.ts:28-84](/Users/james/git/graft/src/policy/types.ts:28) |
+| Receipt emission and metadata | [src/mcp/receipt.ts:44-59](/Users/james/git/graft/src/mcp/receipt.ts:44), [src/mcp/server-invocation.ts:175-202](/Users/james/git/graft/src/mcp/server-invocation.ts:175) |
+| Tripwires + session depth/budget signals | [src/session/tracker.ts:61-145](/Users/james/git/graft/src/session/tracker.ts:61), [src/mcp/server-invocation.ts:242-249](/Users/james/git/graft/src/mcp/server-invocation.ts:242) |
+| Cache behavior (`cache_hit`, `diff`) | [src/operations/observation-cache.ts:91-138](/Users/james/git/graft/src/operations/observation-cache.ts:91), [src/operations/repo-workspace.ts:164-204](/Users/james/git/graft/src/operations/repo-workspace.ts:164) |
+| `code_show` branching and return forms | [src/mcp/tools/code-show.ts:46-274](/Users/james/git/graft/src/mcp/tools/code-show.ts:46) |
+| Daemon startup + workspace authorization | [src/mcp/daemon-server.ts:50-173](/Users/james/git/graft/src/mcp/daemon-server.ts:50), [src/mcp/daemon-control-plane.ts:122-160](/Users/james/git/graft/src/mcp/daemon-control-plane.ts:122) |
+| Repo-local path guard | [src/mcp/context.ts:116-123](/Users/james/git/graft/src/mcp/context.ts:116), [src/mcp/context.ts:1-5](/Users/james/git/graft/src/mcp/context.ts:1) |
+
+## Scope and Non-Goals
+
+This teardown focuses on runtime behavior that materially changes safety, cost, and signal quality for agent sessions.
+
+Primary scope:
+- policy input and projection selection
+- safe read and symbol lookup contracts (`safe_read`, `code_show`)
+- daemon session routing and authorization
+- parser, WARP, and index behavior as returned by symbol/outlining surfaces
+- receipt/tripwire telemetry on tool responses
+
+Out of scope:
+- pure developer ergonomics changes (argument descriptions, error wording, command wording)
+- infra/platform-specific deployment mechanics and CI policy
+- future optimization experiments that do not alter wire-visible behavior
 
 ---
 
@@ -431,6 +498,84 @@ flowchart TD
     J -->|"No"| L["ContentResult<br />reason: CONTENT<br />✅ Return full file"]
 ```
 
+### `safe_read` Contract Matrix (Implementation-backed)
+
+The following outputs are directly supported by current implementation branches:
+
+1. Content contract
+
+```json
+{
+  "projection": "content",
+  "reason": "CONTENT",
+  "path": "/abs/path/src/app.ts",
+  "content": "...",
+  "actual": { "lines": 87, "bytes": 2400 },
+  "thresholds": { "lines": 150, "bytes": 12288 }
+}
+```
+
+Evidence: [policy returns content](/Users/james/git/graft/src/policy/evaluate.ts:152-160), [safe-read returns content payload](/Users/james/git/graft/src/operations/safe-read.ts:79-81), [tool handler](/Users/james/git/graft/src/mcp/tools/safe-read.ts:33-44).
+
+2. Outline contract
+
+```json
+{
+  "projection": "outline",
+  "reason": "OUTLINE",
+  "path": "/abs/path/src/operations/repo-workspace.ts",
+  "outline": [{ "kind": "class", "name": "RepoWorkspace", "signature": "class RepoWorkspace" }],
+  "jumpTable": [{ "symbol": "safeRead", "start": 89, "end": 201 }],
+  "estimatedBytesAvoided": 23450
+}
+```
+
+Evidence: [outline reason path](/Users/james/git/graft/src/policy/evaluate.ts:164-177), [outline extraction branch](/Users/james/git/graft/src/operations/safe-read.ts:91-117), [safe-read result type](/Users/james/git/graft/src/operations/safe-read.ts:11-21).
+
+3. Refusal contract
+
+```json
+{
+  "projection": "refused",
+  "reason": "LOCKFILE",
+  "reasonDetail": "Lockfile package-lock.json is machine-generated and not useful to read",
+  "next": ["Read package.json for dependency info instead"],
+  "actual": { "lines": 500, "bytes": 620000 }
+}
+```
+
+Evidence: [ban and reason generation](/Users/james/git/graft/src/policy/evaluate.ts:45-93), [RefusedResult constructor usage](/Users/james/git/graft/src/policy/types.ts:66-83), [refusal return path](/Users/james/git/graft/src/operations/repo-workspace.ts:125-152).
+
+4. Cache-hit contract
+
+```json
+{
+  "projection": "cache_hit",
+  "reason": "REREAD_UNCHANGED",
+  "path": "/abs/path/src/operations/safe-read.ts",
+  "outline": [{ "kind": "function", "name": "safeRead" }],
+  "jumpTable": [{ "symbol": "safeRead", "start": 34, "end": 118 }],
+  "readCount": 4
+}
+```
+
+Evidence: [cache checks + hit response](/Users/james/git/graft/src/operations/observation-cache.ts:133-138), [cache-hit return](/Users/james/git/graft/src/operations/repo-workspace.ts:166-183), [cache metric wiring](/Users/james/git/graft/src/mcp/tools/safe-read.ts:8-17).
+
+5. Diff contract (changed content + cached outline)
+
+```json
+{
+  "projection": "diff",
+  "reason": "CHANGED_SINCE_LAST_READ",
+  "path": "/abs/path/src/operations/repo-workspace.ts",
+  "diff": [{ "kind": "function", "name": "safeRead", "operation": "modified" }],
+  "outline": [{ "kind": "class", "name": "RepoWorkspace" }],
+  "jumpTable": [{ "symbol": "safeRead", "start": 89, "end": 201 }]
+}
+```
+
+Evidence: [stale cache branch](/Users/james/git/graft/src/operations/repo-workspace.ts:185-203), [diff computation](/Users/james/git/graft/src/operations/repo-workspace.ts:197), [cache result type](/Users/james/git/graft/src/operations/repo-workspace.ts:38-53).
+
 ---
 
 ## 7. Golden Path 2: `code_show` — Precision Symbol Lookup
@@ -502,7 +647,90 @@ sequenceDiagram
 }
 ```
 
+### `code_show` Contract Matrix (Implementation-backed)
+
+1. Single-match contract
+
+```json
+{
+  "symbol": "createUser",
+  "kind": "function",
+  "path": "src/users.ts",
+  "startLine": 42,
+  "endLine": 67,
+  "signature": "async function createUser(opts: CreateUserOptions): Promise<User>",
+  "source": "live",
+  "layer": "workspace_overlay"
+}
+```
+
+Evidence: [single location branch](/Users/james/git/graft/src/mcp/tools/code-show.ts:221-271), [layer selection](/Users/james/git/graft/src/mcp/tools/code-show.ts:56-63), [search path with exact symbol](/Users/james/git/graft/src/mcp/tools/code-show.ts:46-74).
+
+2. Ambiguous-match contract
+
+```json
+{
+  "symbol": "createUser",
+  "ambiguous": true,
+  "matches": [
+    { "path": "src/users.ts", "startLine": 42, "endLine": 67 },
+    { "path": "src/admin.ts", "startLine": 10, "endLine": 20 }
+  ],
+  "source": "warp",
+  "layer": "commit_worldline"
+}
+```
+
+Evidence: [ambiguous branch](/Users/james/git/graft/src/mcp/tools/code-show.ts:206-219), [multiple match accumulation](/Users/james/git/graft/src/mcp/tools/code-show.ts:166-182).
+
+3. Refusal contract
+
+```json
+{
+  "projection": "refused",
+  "path": "src/secret.ts",
+  "reason": "SECRET",
+  "reasonDetail": "src/secret.ts may contain secrets and should not be read",
+  "next": ["Check for a .example or template version"],
+  "actual": { "lines": 120, "bytes": 12000 },
+  "source": "live",
+  "layer": "workspace_overlay"
+}
+```
+
+Evidence: [policy refuse in code_show](/Users/james/git/graft/src/mcp/tools/code-show.ts:175-179), [refusal response](/Users/james/git/graft/src/mcp/tools/code-show.ts:184-195), [reason catalogue](/Users/james/git/graft/src/policy/evaluate.ts:45-93).
+
+4. Not-found contract
+
+```json
+{
+  "symbol": "doesNotExist",
+  "error": "Symbol 'doesNotExist' not found",
+  "source": "warp",
+  "layer": "commit_worldline"
+}
+```
+
+Evidence: [not found branch](/Users/james/git/graft/src/mcp/tools/code-show.ts:198-204), [search layer selection](/Users/james/git/graft/src/mcp/tools/code-show.ts:143-151).
+
 **Why is this valuable?** An agent that wants to read a specific function can call `code_show` first (cheap — parses the jump table only) and then call `safe_read` with a `--range 42:67` argument, reading exactly 26 lines instead of the entire file.
+
+## Contract Ledger (Golden Path)
+
+Use this as a compact, machine-checkable onboarding checklist.
+
+| Tool | Contract | Trigger | Expected Output | Evidence |
+| --- | --- | --- | --- | --- |
+| `safe_read` | `content` | File is small / under policy threshold | `projection: "content"` + `content` body | [policy content branch](/Users/james/git/graft/src/policy/evaluate.ts:152-160), [safe-read content branch](/Users/james/git/graft/src/operations/safe-read.ts:79-81), [tool pass-through](/Users/james/git/graft/src/mcp/tools/safe-read.ts:33-44) |
+| `safe_read` | `outline` | File is large or exceeds session caps | `projection: "outline"` + `outline` + `jumpTable` | [outline branch](/Users/james/git/graft/src/operations/safe-read.ts:91-117), [policy reasons](/Users/james/git/graft/src/policy/evaluate.ts:164-177) |
+| `safe_read` | `cache_hit` | File re-read with unchanged hash | `projection: "cache_hit"` + `reason: "REREAD_UNCHANGED"` | [cache lookup](/Users/james/git/graft/src/operations/observation-cache.ts:133-138), [cache-hit return](/Users/james/git/graft/src/operations/repo-workspace.ts:166-183), [tool return metric](/Users/james/git/graft/src/mcp/tools/safe-read.ts:8-17) |
+| `safe_read` | `diff` | Cached observation stale vs current file state | `projection: "diff"` + `diff` payload | [stale path branch](/Users/james/git/graft/src/operations/repo-workspace.ts:185-203), [diff computation](/Users/james/git/graft/src/operations/repo-workspace.ts:197), [cache result type](/Users/james/git/graft/src/operations/repo-workspace.ts:38-53) |
+| `safe_read` | `refused` | Ban/budget/session policy blocks read | `projection: "refused"` + `reason` + `next` | [ban rules](/Users/james/git/graft/src/policy/evaluate.ts:45-93), [result union](/Users/james/git/graft/src/policy/types.ts:66-84), [workspace refusal](/Users/james/git/graft/src/operations/repo-workspace.ts:125-152) |
+| `code_show` | `single_match` | Exactly one symbol match | One symbol object with `startLine`/`endLine` and `file` | [single-match path](/Users/james/git/graft/src/mcp/tools/code-show.ts:221-271), [lookup pipeline](/Users/james/git/graft/src/mcp/tools/code-show.ts:46-74) |
+| `code_show` | `ambiguous` | Multiple symbol matches for request | `ambiguous: true` + `matches` array | [match accumulation](/Users/james/git/graft/src/mcp/tools/code-show.ts:166-182), [ambiguous return](/Users/james/git/graft/src/mcp/tools/code-show.ts:206-219) |
+| `code_show` | `refused` | All candidate symbols blocked by policy | `projection: "refused"` + `next` guidance | [policy filter](/Users/james/git/graft/src/mcp/tools/code-show.ts:175-179), [refusal return](/Users/james/git/graft/src/mcp/tools/code-show.ts:184-195) |
+| `code_show` | `not_found` | Requested symbol unavailable | `error` + missing symbol name | [not found](/Users/james/git/graft/src/mcp/tools/code-show.ts:198-204) |
+| `code_show` | `line_range` | Match has line metadata | `startLine`/`endLine` and `content` when available | [range extraction](/Users/james/git/graft/src/mcp/tools/code-show.ts:248-250), [full response](/Users/james/git/graft/src/mcp/tools/code-show.ts:259-271) |
 
 ---
 

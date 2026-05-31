@@ -153,6 +153,13 @@ npx @flyingrobots/graft init --write-claude-hooks --write-codex-mcp
 npx @flyingrobots/graft serve
 ```
 
+## Contributing with public visibility
+
+For bugs, capability requests, and ideas, start at
+[GitHub Issues](https://github.com/flyingrobots/graft/issues).
+That queue is the public view for priorities and discussion. Internal execution and design rigor still lives in
+`docs/method/backlog/` and `docs/design/` so details remain deterministic for contributors.
+
 ---
 
 ## Documentation
@@ -172,6 +179,7 @@ npx @flyingrobots/graft serve
 | [North Star](./NORTHSTAR.md) | Long-term stack position and Continuum-shaped direction |
 | [Vision](./docs/VISION.md) | Core tenets and the provenance-aware mission |
 | [Method](./METHOD.md) | Repo work doctrine and the cycle loop |
+| [Issue visibility and backlog mapping](./docs/github-issues-mirroring.md) | Public issue triage plus internal backlog synchronization |
 
 ---
 
