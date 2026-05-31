@@ -41,7 +41,11 @@ describe("release package docs", () => {
 
   it("keeps doc-local links from pretending repo-root paths are current-directory paths", () => {
     const badLinks: string[] = [];
-    const repoRootShapedLink = /\]\((\.\/(?:src|docs|test|tests|scripts|schemas|bin|package\.json|README\.md|METHOD\.md|ARCHITECTURE\.md|GUIDE\.md)[^)]+)\)/gu;
+    const repoRootShapedLink = /\]\((\.\/(?:src|docs|test|tests|scripts|schemas|bin|package\.json|README\.md|METHOD\.md|ARCHITECTURE\.md|GUIDE\.md)[^)]*)\)/gu;
+
+    expect([..."](./README.md)".matchAll(repoRootShapedLink)].map((match) => match[1])).toEqual([
+      "./README.md",
+    ]);
 
     for (const filePath of markdownFilesUnder(join(repoRoot, "docs"))) {
       const markdown = readFileSync(filePath, "utf8");
