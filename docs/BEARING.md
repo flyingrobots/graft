@@ -109,27 +109,27 @@ locked as a 5-slice execution plan.
 
 ## Locked Slice Plan (Execution)
 
-1. **Slice 0 — Hermetic Wesley check**  
+1. **Slice 0 — Hermetic Wesley check**
    Close the bad-code card `CLEAN_wesley-cli-not-hermetic-in-graft-ci.md` by
    adding deterministic regenerate-and-diff CI validation for
    `schemas/graft-structural-history.graphql` -> generated artifacts.
 
-2. **Slice 1 — Schema-first foundation**  
+2. **Slice 1 — Schema-first foundation**
    Execute the first slice of
    `CORE_structural-history-schema-and-echo-migration.md`:
    GraphQL as source of truth + Wesley-generated TS/Zod contracts +
    drift checks.
 
-3. **Slice 2 — Structural reading adapter boundary**  
+3. **Slice 2 — Structural reading adapter boundary**
    Map current `StructuralReadingPort` payloads to the generated model and
    preserve existing behavior while adding parity coverage.
 
-4. **Slice 3 — Trust defect remediation**  
+4. **Slice 3 — Trust defect remediation**
    Track `WARP_bijou-local-history-stale-after-branch-transition.md` as active
    high-priority follow-up if and only if stale local history is observed in
    dogfooding; otherwise it remains deferred behind slice 4.
 
-5. **Slice 4 — Follow-on architecture debt**  
+5. **Slice 4 — Follow-on architecture debt**
    Finish the remaining schema-facing debt:
    `CLEAN_remaining-structural-warp-reads-bypass-structural-reading-port.md`,
    then `CLEAN_technical-teardown-contract-ledger-can-stale-without-tests.md`.
