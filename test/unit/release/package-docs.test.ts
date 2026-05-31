@@ -46,7 +46,10 @@ describe("release package docs", () => {
     for (const filePath of markdownFilesUnder(join(repoRoot, "docs"))) {
       const markdown = readFileSync(filePath, "utf8");
       for (const match of markdown.matchAll(repoRootShapedLink)) {
-        badLinks.push(`${relative(repoRoot, filePath)} -> ${match[1]}`);
+        const target = match[1];
+        if (target !== undefined) {
+          badLinks.push(`${relative(repoRoot, filePath)} -> ${target}`);
+        }
       }
     }
 
