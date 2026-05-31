@@ -15,7 +15,7 @@ behavior and adheres to the repo invariants.
 > vitest run
 
 
-[1m[46m RUN [49m[22m [36mv4.1.2 [39m[90m.[39m
+[1m[46m RUN [49m[22m [36mv4.1.2 [39m[90m<repo-root>[39m
 
  [31m❯[39m tests/method/0069-graft-map-bounded-overview.test.ts [2m([22m[2m2 tests[22m[2m | [22m[31m2 failed[39m[2m)[22m[33m 3011[2mms[22m[39m
 [31m     [31m×[31m graft_map depth 0 returns direct files and summarized child directories for one-call orientation[39m[33m 1013[2mms[22m[39m

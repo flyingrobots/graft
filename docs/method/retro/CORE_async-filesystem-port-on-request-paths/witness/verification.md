@@ -15,7 +15,7 @@ behavior and adheres to the repo invariants.
 > vitest run
 
 
-[1m[46m RUN [49m[22m [36mv4.1.2 [39m[90m.[39m
+[1m[46m RUN [49m[22m [36mv4.1.2 [39m[90m<repo-root>[39m
 
  [32m✓[39m test/unit/mcp/daemon-worker-pool.test.ts [2m([22m[2m4 tests[22m[2m)[22m[33m 8052[2mms[22m[39m
      [33m[2m✓[22m[39m runs monitor tick work on a child-process worker and reports worker counts [33m 4199[2mms[22m[39m
