@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
-import { readdirSync, readFileSync, statSync } from "node:fs";
-import { join, relative, resolve } from "node:path";
+import { lstatSync, mkdtempSync, readdirSync, readFileSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { basename, join, relative, resolve } from "node:path";
 import packageJson from "../../../package.json";
 
 const repoRoot = resolve(import.meta.dirname, "../../..");
@@ -11,7 +12,10 @@ function markdownFilesUnder(directory: string): readonly string[] {
 
   for (const entry of entries) {
     const entryPath = join(directory, entry);
-    const stat = statSync(entryPath);
+    const stat = lstatSync(entryPath);
+    if (stat.isSymbolicLink()) {
+      continue;
+    }
     if (stat.isDirectory()) {
       markdownFiles.push(...markdownFilesUnder(entryPath));
       continue;
@@ -58,5 +62,19 @@ describe("release package docs", () => {
     }
 
     expect(badLinks).toEqual([]);
+  });
+
+  it("skips symlink cycles while collecting Markdown docs", () => {
+    const workspace = mkdtempSync(join(tmpdir(), "graft-package-docs-"));
+
+    try {
+      writeFileSync(join(workspace, "doc.md"), "# fixture\n");
+      symlinkSync("loop", join(workspace, "loop"), "dir");
+
+      expect(() => markdownFilesUnder(workspace)).not.toThrow();
+      expect(markdownFilesUnder(workspace).map((filePath) => basename(filePath))).toEqual(["doc.md"]);
+    } finally {
+      rmSync(workspace, { recursive: true, force: true });
+    }
   });
 });
