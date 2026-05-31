@@ -35,7 +35,7 @@ Graft is a tiered governor. It manages the context burden across three layers:
 - [ ] **I am configuring Claude Code**: Use `npx graft init --write-claude-hooks`.
 - [ ] **I am using daemon mode in a generic MCP client**: Read [docs/SETUP.md](./docs/SETUP.md) and expect `workspace_open` as the normal agent-facing path.
 - [ ] **I am debugging a structural diff**: Use `npx graft struct diff --json`.
-- [ ] **I am contributing to Graft**: Read `METHOD.md` and `docs/BEARING.md`.
+- [ ] **I am contributing to Graft**: Read `CONTRIBUTING.md`, `METHOD.md`, and [docs/github-issues-mirroring.md](./docs/github-issues-mirroring.md).
 
 ## Rule of Thumb
 
@@ -48,6 +48,11 @@ If you need the daemon trust boundary or handoff model, use
 If you need to know "what's true right now," use [docs/BEARING.md](./docs/BEARING.md).
 
 If you are just starting, use the [README.md](./README.md) and the setup instructions in [docs/SETUP.md](./docs/SETUP.md).
+
+If you are reporting a bug or feature idea as a newcomer, use
+[GitHub Issues](https://github.com/flyingrobots/graft/issues). Issues are
+the public discovery surface; execution details stay in Method backlog and
+design packets.
 
 ---
 **The goal is inevitably. Every feature is defined by its tests.**

@@ -14,3 +14,4 @@ dist/
 coverage/
 .obsidian/
 anti-sludge-policy-bundle/
+.pnpm-store/

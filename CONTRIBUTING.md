@@ -20,6 +20,22 @@ The short version:
 3. Every cycle follows: Design → RED → GREEN → Playback → PR → Close.
 4. Every cycle ends with a retrospective, successful or not.
 
+## Public intake and backlog mirroring
+
+GitHub Issues is the public collaboration layer for bugs, ideas, and
+feature requests. Internal execution still happens in:
+
+- `docs/method/backlog/` for lane-owned cards
+- `docs/design/` for cycle design packets
+- `CHANGELOG.md` and `docs/releases/` for release truth
+
+For each Issue that requires work, add or update the corresponding backlog
+and design documentation in the repository. This keeps execution truth in
+the repo while keeping triage and participation visible to newcomers.
+
+See [docs/github-issues-mirroring.md](docs/github-issues-mirroring.md) for the
+labeling, mapping, and sync rules.
+
 ## Getting started
 
 ```bash
