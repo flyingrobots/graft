@@ -4,6 +4,7 @@ set -euo pipefail
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 DOC_PATH="$ROOT_DIR/docs/github-issues-mirroring.md"
 GH_TIMEOUT_SECONDS=8
+GH_ISSUE_LIMIT="${GH_ISSUE_LIMIT:-300}"
 
 printf '%s\n' "Checking GitHub issue visibility health..."
 FAIL_COUNT=0
@@ -62,7 +63,7 @@ fi
 echo "Running remote health checks with gh auth..."
 echo
 
-missing_lane=$(timeout "$GH_TIMEOUT_SECONDS" gh issue list --state open --json number,labels --jq '.[] | select((.labels | map(.name) | map(startswith("lane:")) | any) == false) | .number')
+missing_lane=$(timeout "$GH_TIMEOUT_SECONDS" gh issue list --state open --limit "$GH_ISSUE_LIMIT" --json number,labels --jq '.[] | select((.labels | map(.name) | map(startswith("lane:")) | any) == false) | .number')
 if [[ -n "$missing_lane" ]]; then
   count=$(echo "$missing_lane" | wc -l | tr -d ' ')
   echo "✗ open issues missing lane label: $count"
@@ -72,7 +73,7 @@ else
   echo "✓ all open issues with labels include at least one lane label"
 fi
 
-missing_backlog=$(timeout "$GH_TIMEOUT_SECONDS" gh issue list --state open --json number,body --jq '.[] | select(.body == null or (.body | test("docs/(method/backlog|design)"; "i") | not)) | .number')
+missing_backlog=$(timeout "$GH_TIMEOUT_SECONDS" gh issue list --state open --limit "$GH_ISSUE_LIMIT" --json number,body --jq '.[] | select(.body == null or (.body | test("docs/(method/backlog|design)"; "i") | not)) | .number')
 if [[ -n "$missing_backlog" ]]; then
   count=$(echo "$missing_backlog" | wc -l | tr -d ' ')
   echo "✗ open issues missing docs/backlog/design reference: $count"
