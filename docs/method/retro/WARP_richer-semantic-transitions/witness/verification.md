@@ -59,9 +59,9 @@ method_drift 0063-richer-semantic-transitions
 ## Notes
 
 - The cycle extracted semantic summary interpretation into
-  [semantic-transition-summary.ts](./src/mcp/semantic-transition-summary.ts)
+  [semantic-transition-summary.ts](../../../../../src/mcp/semantic-transition-summary.ts)
   so `repo-state.ts` is no longer the only place where the meaning
   layer lives.
 - No new backlog card was required at close. The main nearby debt
   remains:
-  [CLEAN_CODE_mcp-repo-state.md](./docs/method/backlog/bad-code/CLEAN_CODE_mcp-repo-state.md)
+  [CLEAN_CODE_mcp-repo-state.md](../../../backlog/bad-code/CLEAN_CODE_mcp-repo-state.md)

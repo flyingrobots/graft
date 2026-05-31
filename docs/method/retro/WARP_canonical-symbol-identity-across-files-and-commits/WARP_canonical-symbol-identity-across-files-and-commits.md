@@ -26,7 +26,7 @@ identity directly.
 
 ## New Debt
 
-- [WARP_canonical-symbol-identity-projection-across-structural-diff-and-since-surfaces.md](./docs/method/backlog/up-next/WARP_canonical-symbol-identity-projection-across-structural-diff-and-since-surfaces.md:1)
+- [WARP_canonical-symbol-identity-projection-across-structural-diff-and-since-surfaces.md](../../backlog/up-next/WARP_canonical-symbol-identity-projection-across-structural-diff-and-since-surfaces.md#L1)
 
 ## Cool Ideas
 

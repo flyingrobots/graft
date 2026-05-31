@@ -1,5 +1,28 @@
 import { describe, expect, it } from "vitest";
+import { readdirSync, readFileSync, statSync } from "node:fs";
+import { join, relative, resolve } from "node:path";
 import packageJson from "../../../package.json";
+
+const repoRoot = resolve(import.meta.dirname, "../../..");
+
+function markdownFilesUnder(directory: string): readonly string[] {
+  const entries = readdirSync(directory);
+  const markdownFiles: string[] = [];
+
+  for (const entry of entries) {
+    const entryPath = join(directory, entry);
+    const stat = statSync(entryPath);
+    if (stat.isDirectory()) {
+      markdownFiles.push(...markdownFilesUnder(entryPath));
+      continue;
+    }
+    if (entry.endsWith(".md")) {
+      markdownFiles.push(entryPath);
+    }
+  }
+
+  return markdownFiles;
+}
 
 describe("release package docs", () => {
   it("ships every release-facing doc linked from README", () => {
@@ -14,5 +37,19 @@ describe("release package docs", () => {
       "docs/SETUP.md",
       "README.md",
     ]));
+  });
+
+  it("keeps doc-local links from pretending repo-root paths are current-directory paths", () => {
+    const badLinks: string[] = [];
+    const repoRootShapedLink = /\]\((\.\/(?:src|docs|test|tests|scripts|schemas|bin|package\.json|README\.md|METHOD\.md|ARCHITECTURE\.md|GUIDE\.md)[^)]+)\)/gu;
+
+    for (const filePath of markdownFilesUnder(join(repoRoot, "docs"))) {
+      const markdown = readFileSync(filePath, "utf8");
+      for (const match of markdown.matchAll(repoRootShapedLink)) {
+        badLinks.push(`${relative(repoRoot, filePath)} -> ${match[1]}`);
+      }
+    }
+
+    expect(badLinks).toEqual([]);
   });
 });

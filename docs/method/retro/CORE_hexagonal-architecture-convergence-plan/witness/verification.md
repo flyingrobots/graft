@@ -11,9 +11,9 @@ drift check.
 ## Artifacts
 
 - Design packet:
-  - [hexagonal-architecture-convergence-plan.md](./docs/design/0075-hexagonal-architecture-convergence-plan/hexagonal-architecture-convergence-plan.md:1)
+  - [hexagonal-architecture-convergence-plan.md](../../../../design/0075-hexagonal-architecture-convergence-plan/hexagonal-architecture-convergence-plan.md#L1)
 - Playback witness:
-  - [0075-hexagonal-architecture-convergence-plan.test.ts](./tests/playback/0075-hexagonal-architecture-convergence-plan.test.ts:1)
+  - [0075-hexagonal-architecture-convergence-plan.test.ts](../../../../../tests/playback/0075-hexagonal-architecture-convergence-plan.test.ts#L1)
 
 ## Commands Run
 

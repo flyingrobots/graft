@@ -225,8 +225,8 @@ checkout-boundary handling without pretending that:
 
 ## Related work
 
-- [SURFACE_target-repo-git-hook-bootstrap.md](./docs/method/backlog/up-next/SURFACE_target-repo-git-hook-bootstrap.md)
-- [WARP_richer-semantic-transitions.md](./docs/method/backlog/up-next/WARP_richer-semantic-transitions.md)
-- [WARP_same-repo-concurrent-agent-model.md](./docs/method/backlog/up-next/WARP_same-repo-concurrent-agent-model.md)
-- [CLEAN_CODE_mcp-repo-state.md](./docs/method/backlog/bad-code/CLEAN_CODE_mcp-repo-state.md)
-- [CLEAN_CODE_mcp-workspace-router-composition.md](./docs/method/backlog/bad-code/CLEAN_CODE_mcp-workspace-router-composition.md)
+- [SURFACE_target-repo-git-hook-bootstrap.md](../method/backlog/up-next/SURFACE_target-repo-git-hook-bootstrap.md)
+- [WARP_richer-semantic-transitions.md](../method/backlog/up-next/WARP_richer-semantic-transitions.md)
+- [WARP_same-repo-concurrent-agent-model.md](../method/backlog/up-next/WARP_same-repo-concurrent-agent-model.md)
+- [CLEAN_CODE_mcp-repo-state.md](../method/backlog/bad-code/CLEAN_CODE_mcp-repo-state.md)
+- [CLEAN_CODE_mcp-workspace-router-composition.md](../method/backlog/bad-code/CLEAN_CODE_mcp-workspace-router-composition.md)

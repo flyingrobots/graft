@@ -49,7 +49,7 @@ provenance or collapse-admitted explanation.
 
 ## Playback Witness
 
-- [verification.md](./docs/method/retro/0062-reactive-workspace-overlay/witness/verification.md)
+- [verification.md](../0062-reactive-workspace-overlay/witness/verification.md)
 
 ## Drift
 

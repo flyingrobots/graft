@@ -47,7 +47,7 @@ canonical provenance and not collapse-admitted explanation.
 
 ## Playback Witness
 
-- [verification.md](./docs/method/retro/0063-richer-semantic-transitions/witness/verification.md)
+- [verification.md](../0063-richer-semantic-transitions/witness/verification.md)
 
 ## Drift
 
@@ -57,7 +57,7 @@ canonical provenance and not collapse-admitted explanation.
 
 - No new backlog card was added during close. The main nearby debt
   remains:
-  [CLEAN_CODE_mcp-repo-state.md](./docs/method/backlog/bad-code/CLEAN_CODE_mcp-repo-state.md)
+  [CLEAN_CODE_mcp-repo-state.md](../../backlog/bad-code/CLEAN_CODE_mcp-repo-state.md)
 
 ## Cool Ideas
 

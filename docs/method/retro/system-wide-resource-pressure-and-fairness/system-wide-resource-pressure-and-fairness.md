@@ -28,7 +28,7 @@ invalidating the substrate work.
 
 ## Playback Witness
 
-- [verification.md](./docs/method/retro/0058-system-wide-resource-pressure-and-fairness/witness/verification.md)
+- [verification.md](../0058-system-wide-resource-pressure-and-fairness/witness/verification.md)
 
 ## Drift
 

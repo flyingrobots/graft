@@ -19,7 +19,7 @@ results remain explicit while carrying truthful basis metadata.
 
 ## Playback Witness
 
-- [verification.md](./docs/method/retro/0084-projection-basis-and-head-identity-for-jedit-warm-truth/witness/verification.md)
+- [verification.md](../0084-projection-basis-and-head-identity-for-jedit-warm-truth/witness/verification.md)
 
 ## Drift
 

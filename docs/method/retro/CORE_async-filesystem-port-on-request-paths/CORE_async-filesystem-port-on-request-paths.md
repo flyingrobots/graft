@@ -29,10 +29,10 @@ Key implementation commits:
 
 ## Playback Witness
 
-- Verification log: [verification.md](./docs/method/retro/0066-async-filesystem-port-on-request-paths/witness/verification.md:1)
-- Daemon bind regression: [workspace-binding.test.ts](./test/unit/mcp/workspace-binding.test.ts:124)
-- Startup exclusion regression: [runtime-observability.test.ts](./test/unit/mcp/runtime-observability.test.ts:877)
-- Request-path async posture regression: [safe-read.test.ts](./test/unit/operations/safe-read.test.ts:209)
+- Verification log: [verification.md](../0066-async-filesystem-port-on-request-paths/witness/verification.md#L1)
+- Daemon bind regression: [workspace-binding.test.ts](../../../../test/unit/mcp/workspace-binding.test.ts#L124)
+- Startup exclusion regression: [runtime-observability.test.ts](../../../../test/unit/mcp/runtime-observability.test.ts#L877)
+- Request-path async posture regression: [safe-read.test.ts](../../../../test/unit/operations/safe-read.test.ts#L209)
 
 ## Drift
 
