@@ -48,11 +48,10 @@ digraph backlog {
   }
 
   subgraph cluster_bad_code {
-    label="bad-code (4)" labeljust=l fontsize=9 fontcolor="#555555"
+    label="bad-code (3)" labeljust=l fontsize=9 fontcolor="#555555"
     style=rounded color="#cccccc" bgcolor="#fafafa"
     bad_code_CLEAN_remaining_structural_warp_reads_bypass_structural_reading_port [label="CLEAN-remaining-structural-warp-reads-bypass-structural-reading-port - M" fillcolor="#F6B3B3" penwidth=2]
     bad_code_CLEAN_technical_teardown_contract_ledger_can_stale_without_tests [label="CLEAN-technical-teardown-contract-ledger-can-stale-without-tests - M" fillcolor="#F6B3B3" penwidth=2]
-    bad_code_CLEAN_wesley_cli_not_hermetic_in_graft_ci [label="CLEAN-wesley-cli-not-hermetic-in-graft-ci - M" fillcolor="#F6B3B3" penwidth=2]
     bad_code_WARP_bijou_local_history_stale_after_branch_transition [label="WARP-bijou-local-history-stale-after-branch-transition - M" fillcolor="#F6B3B3" penwidth=2]
   }
 

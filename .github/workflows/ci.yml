@@ -8,6 +8,8 @@ on:
 
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
+  WESLEY_CLI_VERSION: "0.0.4"
+  WESLEY_CLI_REVISION: "9563173aefac30f5d4ef5f76db1d5be2566d244b"
 
 permissions:
   contents: read
@@ -32,6 +34,27 @@ jobs:
           node-version: ${{ matrix.node-version }}
           cache: pnpm
       - run: pnpm install --frozen-lockfile
+      - uses: actions/cache@v4
+        id: cache-wesley
+        with:
+          path: ~/.local/bin/wesley-${{ env.WESLEY_CLI_VERSION }}
+          key: ${{ runner.os }}-wesley-cli-${{ env.WESLEY_CLI_VERSION }}-${{ env.WESLEY_CLI_REVISION }}
+      - name: Install Wesley CLI
+        if: steps.cache-wesley.outputs.cache-hit != 'true'
+        run: |
+          cargo install \
+            --git https://github.com/flyingrobots/wesley.git \
+            --rev "$WESLEY_CLI_REVISION" \
+            --locked \
+            --root "$RUNNER_TEMP/wesley" \
+            wesley-cli
+          mkdir -p "$HOME/.local/bin"
+          cp "$RUNNER_TEMP/wesley/bin/wesley" "$HOME/.local/bin/wesley-$WESLEY_CLI_VERSION"
+      - name: Configure Wesley CLI
+        run: |
+          chmod +x "$HOME/.local/bin/wesley-$WESLEY_CLI_VERSION"
+          echo "WESLEY_BIN=$HOME/.local/bin/wesley-$WESLEY_CLI_VERSION" >> "$GITHUB_ENV"
+      - run: pnpm schema:structural-history:check
       - run: pnpm lint
       - run: pnpm typecheck
       - run: pnpm test

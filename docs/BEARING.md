@@ -85,25 +85,28 @@ parsing.
 The immediate focus is **schema authority before substrate migration**.
 
 1. Keep `main` clean after the `v0.8.0` release.
-2. Pull
+2. Treat the Wesley-backed structural-history generation gate as the active
+   quality invariant: generated TypeScript must be regenerated from GraphQL in
+   CI through the pinned Wesley CLI.
+3. Pull
    [CORE_structural-history-schema-and-echo-migration](./method/backlog/up-next/CORE_structural-history-schema-and-echo-migration.md)
    as the next design/implementation cycle.
-3. Define Graft's canonical structural history facts in GraphQL before
+4. Define Graft's canonical structural history facts in GraphQL before
    adapting more git-warp output.
-4. Use the existing Wesley toolchain to derive the TypeScript/Zod read model,
+5. Use the existing Wesley toolchain to derive the TypeScript/Zod read model,
    Echo-consumable contracts, storage artifacts, and drift witnesses from that
    schema.
-5. Preserve current public command behavior while validating Echo-backed
+6. Preserve current public command behavior while validating Echo-backed
    outputs against git-warp-backed outputs.
-6. Treat git-warp evidence as `git-warp-imported` or `fallback-translated`,
+7. Treat git-warp evidence as `git-warp-imported` or `fallback-translated`,
    never as Continuum-native witnesshood.
-7. Stop opening git-warp during normal Graft operation once parity is proven.
-8. Do not add METHOD-specific backlog/status features to Graft. METHOD
+8. Stop opening git-warp during normal Graft operation once parity is proven.
+9. Do not add METHOD-specific backlog/status features to Graft. METHOD
    backlog lanes, cards, retros, dependency DAGs, and release truth
    surfaces belong in Method MCP / Method CLI.
-9. Keep `WARP_lsp-enrichment` and `CORE_migrate-to-slice-first-reads`
+10. Keep `WARP_lsp-enrichment` and `CORE_migrate-to-slice-first-reads`
    out of this slice. LSP enrichment remains valid optional scope;
    slice-first reads remain externally blocked until git-warp observer
    geometry APIs land.
-10. Treat daemon live refresh and daemon control-plane actions as a
+11. Treat daemon live refresh and daemon control-plane actions as a
    separate daemon-operator lane, not part of this slice.
