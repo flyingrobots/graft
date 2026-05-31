@@ -75,13 +75,16 @@ Run validation strictly in order:
 1. `pnpm install` — ensure lockfile is current
 2. `pnpm guard:agent-worktrees` — no `.claude/worktrees/` paths are
    tracked or staged
-3. `pnpm lint` — zero errors, zero warnings
-4. `pnpm release:surface-gate` — capability registry, public API
+3. `WESLEY_BIN=/path/to/wesley pnpm schema:structural-history:check` —
+   generated structural-history artifacts match the GraphQL schema through the
+   pinned Wesley CLI
+4. `pnpm lint` — zero errors, zero warnings
+5. `pnpm release:surface-gate` — capability registry, public API
    contract, and three-surface matrix stay in sync
-5. `pnpm test` — all tests pass in the Docker copy-in test container
-6. `pnpm security:check` — fail on any high / critical audit finding
-7. `pnpm pack:check` — packaging sanity check
-8. `npm info @flyingrobots/graft` — verify registry reachable
+6. `pnpm test` — all tests pass in the Docker copy-in test container
+7. `pnpm security:check` — fail on any high / critical audit finding
+8. `pnpm pack:check` — packaging sanity check
+9. `npm info @flyingrobots/graft` — verify registry reachable
 
 Abort on the first hard failure. Do not claim success from queued or
 in-progress CI state.

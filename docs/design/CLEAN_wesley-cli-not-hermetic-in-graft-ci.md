@@ -2,12 +2,12 @@
 title: "Wesley CLI hermetic structural-history check"
 legend: CLEAN
 cycle: CLEAN_wesley-cli-not-hermetic-in-graft-ci
-source_backlog: "docs/method/backlog/bad-code/CLEAN_wesley-cli-not-hermetic-in-graft-ci.md"
+source_backlog: "docs/method/graveyard/CLEAN_wesley-cli-not-hermetic-in-graft-ci.md"
 ---
 
 # Wesley CLI hermetic structural-history check
 
-Source backlog item: `docs/method/backlog/bad-code/CLEAN_wesley-cli-not-hermetic-in-graft-ci.md`
+Source backlog item: `docs/method/graveyard/CLEAN_wesley-cli-not-hermetic-in-graft-ci.md`
 Legend: CLEAN
 
 ## Sponsors
@@ -24,13 +24,15 @@ pinned Wesley CLI, not hand-edited to match a manifest.
 ## Acceptance Criteria
 
 - `pnpm schema:structural-history:check` requires a configured `WESLEY_BIN`.
+- `pnpm release:check` includes the hermetic structural-history schema check.
 - The check fails when the configured Wesley binary is missing.
 - The check fails when the configured Wesley binary reports a version other
   than the manifest's `wesleyCliVersion`.
 - The check regenerates `src/generated/graft-structural-history.ts` into a
   temporary path and compares it byte-for-byte with the committed artifact.
 - The check verifies Wesley's L1 registry hash output against the manifest.
-- CI installs a pinned Wesley CLI and runs the regenerate-and-diff check.
+- CI and release workflows install a pinned Wesley CLI and run the
+  regenerate-and-diff check.
 - Echo and Wesley semantics are not changed.
 
 ## Playback Questions
@@ -58,9 +60,10 @@ it requires `WESLEY_BIN`, runs Wesley `version`, `schema hash`, and
 `emit typescript`, then compares the regenerated output with the committed
 artifact.
 
-CI installs Wesley from the pinned `flyingrobots/wesley` commit that backs
-release `v0.0.4`. The workflow caches the installed binary and exposes it to
-the package script through `WESLEY_BIN`.
+CI and release workflows install Wesley from the pinned `flyingrobots/wesley`
+commit that backs release `v0.0.4`. The workflows cache the installed binary
+and expose it to the package script through `WESLEY_BIN`. Release operators running
+`pnpm release:check` locally must provide the same environment variable.
 
 ## Non-goals
 

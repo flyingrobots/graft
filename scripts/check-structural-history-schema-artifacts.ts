@@ -193,9 +193,10 @@ function checkHermeticWesleyGeneration(
     };
   }
   if (version.text !== manifest.wesleyCliVersion) {
-    violations.push(
-      `Configured Wesley CLI version ${version.text} does not match manifest ${manifest.wesleyCliVersion}.`,
-    );
+    return {
+      hermeticWesley: null,
+      violations: [`Configured Wesley CLI version ${version.text} does not match manifest ${manifest.wesleyCliVersion}.`],
+    };
   }
 
   const l1RegistryHash = runWesleyText(wesleyBin, ["schema", "hash", "--schema", schemaPath], workspaceRoot);

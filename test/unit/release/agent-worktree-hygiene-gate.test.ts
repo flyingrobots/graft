@@ -19,7 +19,7 @@ describe("release: agent worktree hygiene gate", () => {
       "tsx scripts/check-agent-worktree-hygiene.ts",
     );
     expect(packageJson.scripts["release:check"]).toContain(
-      "pnpm guard:agent-worktrees && pnpm lint",
+      "pnpm guard:agent-worktrees && pnpm schema:structural-history:check && pnpm lint",
     );
     expect(preCommitHook).toContain("pnpm guard:agent-worktrees");
     expect(releaseRunbook).toContain("`pnpm guard:agent-worktrees`");

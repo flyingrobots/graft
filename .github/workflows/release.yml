@@ -8,6 +8,8 @@ on:
 
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
+  WESLEY_CLI_VERSION: "0.0.4"
+  WESLEY_CLI_REVISION: "9563173aefac30f5d4ef5f76db1d5be2566d244b"
 
 permissions:
   contents: write
@@ -32,6 +34,29 @@ jobs:
           cache: pnpm
 
       - run: pnpm install --frozen-lockfile
+
+      - uses: actions/cache@v4
+        id: cache-wesley
+        with:
+          path: ~/.local/bin/wesley-${{ env.WESLEY_CLI_VERSION }}
+          key: ${{ runner.os }}-wesley-cli-${{ env.WESLEY_CLI_VERSION }}-${{ env.WESLEY_CLI_REVISION }}
+
+      - name: Install Wesley CLI
+        if: steps.cache-wesley.outputs.cache-hit != 'true'
+        run: |
+          cargo install \
+            --git https://github.com/flyingrobots/wesley.git \
+            --rev "$WESLEY_CLI_REVISION" \
+            --locked \
+            --root "$RUNNER_TEMP/wesley" \
+            wesley-cli
+          mkdir -p "$HOME/.local/bin"
+          cp "$RUNNER_TEMP/wesley/bin/wesley" "$HOME/.local/bin/wesley-$WESLEY_CLI_VERSION"
+
+      - name: Configure Wesley CLI
+        run: |
+          chmod +x "$HOME/.local/bin/wesley-$WESLEY_CLI_VERSION"
+          echo "WESLEY_BIN=$HOME/.local/bin/wesley-$WESLEY_CLI_VERSION" >> "$GITHUB_ENV"
 
       # Version consistency: tag must match package.json
       - name: Verify tag matches package.json version
@@ -65,6 +90,10 @@ jobs:
             }
             console.log('package.json hygiene ✓');
           "
+
+      # Hermetic structural-history schema check
+      - name: Structural history schema check
+        run: pnpm schema:structural-history:check
 
       # Lint
       - name: Lint
@@ -163,6 +192,29 @@ jobs:
           cache: pnpm
 
       - run: pnpm install --frozen-lockfile
+
+      - uses: actions/cache@v4
+        id: cache-wesley
+        with:
+          path: ~/.local/bin/wesley-${{ env.WESLEY_CLI_VERSION }}
+          key: ${{ runner.os }}-wesley-cli-${{ env.WESLEY_CLI_VERSION }}-${{ env.WESLEY_CLI_REVISION }}
+
+      - name: Install Wesley CLI
+        if: steps.cache-wesley.outputs.cache-hit != 'true'
+        run: |
+          cargo install \
+            --git https://github.com/flyingrobots/wesley.git \
+            --rev "$WESLEY_CLI_REVISION" \
+            --locked \
+            --root "$RUNNER_TEMP/wesley" \
+            wesley-cli
+          mkdir -p "$HOME/.local/bin"
+          cp "$RUNNER_TEMP/wesley/bin/wesley" "$HOME/.local/bin/wesley-$WESLEY_CLI_VERSION"
+
+      - name: Configure Wesley CLI
+        run: |
+          chmod +x "$HOME/.local/bin/wesley-$WESLEY_CLI_VERSION"
+          echo "WESLEY_BIN=$HOME/.local/bin/wesley-$WESLEY_CLI_VERSION" >> "$GITHUB_ENV"
 
       - name: Publish to npm with OIDC provenance (npm >= 11.5.1 for trusted publishing)
         run: npx -y npm@latest publish --access public --provenance
