@@ -15,7 +15,7 @@ behavior and adheres to the repo invariants.
 > vitest run
 
 
-[1m[46m RUN [49m[22m [36mv4.1.2 [39m[90m.[39m
+[1m[46m RUN [49m[22m [36mv4.1.2 [39m[90m<repo-root>[39m
 
  [31m❯[39m tests/playback/0075-hexagonal-architecture-convergence-plan.test.ts [2m([22m[2m8 tests[22m[2m | [22m[31m1 failed[39m[2m)[22m[32m 7[2mms[22m[39m
      [32m✓[39m Can a human explain the target layer map: contracts, application/use cases, ports, secondary adapters, and primary adapters/composition roots?[32m 1[2mms[22m[39m

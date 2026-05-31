@@ -14,7 +14,7 @@ This first-pass slice tightened two real boundary seams instead of trying to typ
 
 ## Playback Witness
 
-- [verification.md](/Users/james/git/graft/docs/method/retro/0082-runtime-validated-command-and-context-models/witness/verification.md)
+- [verification.md](../0082-runtime-validated-command-and-context-models/witness/verification.md)
 
 ## Drift
 

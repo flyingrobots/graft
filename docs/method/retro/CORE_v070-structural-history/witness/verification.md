@@ -15,7 +15,7 @@ behavior and adheres to the repo invariants.
 > vitest run
 
 
-[1m[46m RUN [49m[22m [36mv4.1.2 [39m[90m.[39m
+[1m[46m RUN [49m[22m [36mv4.1.2 [39m[90m<repo-root>[39m
 
  [32m✓[39m test/unit/policy/cross-surface-parity.test.ts [2m([22m[2m6 tests[22m[2m)[22m[33m 12020[2mms[22m[39m
      [33m[2m✓[22m[39m keeps hard denial parity for 'binary' across hooks and bounded-read MCP tools [33m 2563[2mms[22m[39m

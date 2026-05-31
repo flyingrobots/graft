@@ -56,4 +56,4 @@ method_drift 0061-provenance-attribution-instrumentation
   `workspaceRouter.initialize()`.
 - No additional backlog item was needed for this cycle close. The main
   remaining composition debt stays tracked in:
-  [CLEAN_CODE_mcp-persisted-local-history-composition.md](/Users/james/git/graft/docs/method/backlog/bad-code/CLEAN_CODE_mcp-persisted-local-history-composition.md)
+  [CLEAN_CODE_mcp-persisted-local-history-composition.md](../../../backlog/bad-code/CLEAN_CODE_mcp-persisted-local-history-composition.md)

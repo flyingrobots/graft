@@ -62,4 +62,4 @@ method_drift 0062-reactive-workspace-overlay
   macOS.
 - No new backlog card was needed at close. The remaining nearby
   composition debt stays tracked in:
-  [CLEAN_CODE_mcp-persisted-local-history-composition.md](/Users/james/git/graft/docs/method/backlog/bad-code/CLEAN_CODE_mcp-persisted-local-history-composition.md)
+  [CLEAN_CODE_mcp-persisted-local-history-composition.md](../../../backlog/bad-code/CLEAN_CODE_mcp-persisted-local-history-composition.md)

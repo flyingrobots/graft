@@ -97,7 +97,7 @@ runtime budget:
   is deterministic
 - confirm daemon/socket/temp resources are created under isolated paths
   and cleaned up
-- confirm no test uses `/Users/james/git/graft` as subject repository
+- confirm no test uses `.` as subject repository
   data
 - document the final deterministic validation evidence
 

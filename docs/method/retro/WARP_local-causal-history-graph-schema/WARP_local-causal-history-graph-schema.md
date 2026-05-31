@@ -35,9 +35,9 @@ This closes as a design hill. No product code changed in this cycle.
 ## Playback Witness
 
 - Repo-visible playback witness:
-  - [0074-local-causal-history-graph-schema.test.ts](/Users/james/git/graft/tests/playback/0074-local-causal-history-graph-schema.test.ts:1)
+  - [0074-local-causal-history-graph-schema.test.ts](../../../../tests/playback/0074-local-causal-history-graph-schema.test.ts#L1)
 - Verification note:
-  - [verification.md](/Users/james/git/graft/docs/method/retro/0074-local-causal-history-graph-schema/witness/verification.md:1)
+  - [verification.md](../0074-local-causal-history-graph-schema/witness/verification.md#L1)
 
 ## Drift
 

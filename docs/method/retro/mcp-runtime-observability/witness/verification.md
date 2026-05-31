@@ -14,7 +14,7 @@ behavior and adheres to the repo invariants.
 > vitest run
 
 
-[1m[46m RUN [49m[22m [36mv4.1.2 [39m[90m/Users/james/git/graft[39m
+[1m[46m RUN [49m[22m [36mv4.1.2 [39m[90m<repo-root>[39m
 
  [32m✓[39m test/integration/mcp/server.test.ts [2m([22m[2m9 tests[22m[2m)[22m[33m 6290[2mms[22m[39m
      [33m[2m✓[22m[39m safe_read returns content for small files [33m 316[2mms[22m[39m

@@ -11,9 +11,9 @@ honest.
 ## Artifacts
 
 - Design packet:
-  - [local-causal-history-graph-schema.md](/Users/james/git/graft/docs/design/0074-local-causal-history-graph-schema/local-causal-history-graph-schema.md:1)
+  - [local-causal-history-graph-schema.md](../../../../design/0074-local-causal-history-graph-schema/local-causal-history-graph-schema.md#L1)
 - Playback witness:
-  - [0074-local-causal-history-graph-schema.test.ts](/Users/james/git/graft/tests/playback/0074-local-causal-history-graph-schema.test.ts:1)
+  - [0074-local-causal-history-graph-schema.test.ts](../../../../../tests/playback/0074-local-causal-history-graph-schema.test.ts#L1)
 
 ## Commands Run
 

@@ -82,22 +82,22 @@ parsing.
 
 ## Next Target
 
-The immediate focus is **schema authority before substrate migration**.
+The immediate focus is **schema authority before substrate migration**. This is
+locked as a 5-slice execution plan.
 
 1. Keep `main` clean after the `v0.8.0` release.
 2. Treat the Wesley-backed structural-history generation gate as the active
    quality invariant: generated TypeScript must be regenerated from GraphQL in
-   CI through the pinned Wesley CLI.
+   CI through the pinned Wesley CLI and fail if hand-edited.
 3. Pull
    [CORE_structural-history-schema-and-echo-migration](./method/backlog/up-next/CORE_structural-history-schema-and-echo-migration.md)
    as the next design/implementation cycle.
-4. Define Graft's canonical structural history facts in GraphQL before
-   adapting more git-warp output.
-5. Use the existing Wesley toolchain to derive the TypeScript/Zod read model,
-   Echo-consumable contracts, storage artifacts, and drift witnesses from that
-   schema.
-6. Preserve current public command behavior while validating Echo-backed
-   outputs against git-warp-backed outputs.
+4. Define Graft's canonical structural-history facts in GraphQL before adapting
+   any additional git-warp model output.
+5. Use the existing Wesley toolchain to derive TypeScript/Zod/read-models,
+   Echo contracts, storage artifacts, and drift witnesses from that schema.
+6. Preserve current public command behavior while validating Echo-backed outputs
+   against current git-warp-backed outputs.
 7. Treat git-warp evidence as `git-warp-imported` or `fallback-translated`,
    never as Continuum-native witnesshood.
 8. Stop opening git-warp during normal Graft operation once parity is proven.
@@ -108,5 +108,32 @@ The immediate focus is **schema authority before substrate migration**.
    out of this slice. LSP enrichment remains valid optional scope;
    slice-first reads remain externally blocked until git-warp observer
    geometry APIs land.
-11. Treat daemon live refresh and daemon control-plane actions as a
-   separate daemon-operator lane, not part of this slice.
+11. Treat daemon live refresh and daemon control-plane actions as a separate
+    daemon-operator lane, not part of this slice.
+
+## Locked Slice Plan (Execution)
+
+1. **Slice 0 — Hermetic Wesley check**
+   Keep the closed Wesley hermetic gate active: deterministic
+   regenerate-and-diff CI validation for
+   `schemas/graft-structural-history.graphql` -> generated artifacts.
+
+2. **Slice 1 — Schema-first foundation**
+   Execute the first slice of
+   `CORE_structural-history-schema-and-echo-migration.md`:
+   GraphQL as source of truth + Wesley-generated TS/Zod contracts +
+   drift checks.
+
+3. **Slice 2 — Structural reading adapter boundary**
+   Map current `StructuralReadingPort` payloads to the generated model and
+   preserve existing behavior while adding parity coverage.
+
+4. **Slice 3 — Trust defect remediation**
+   Track `WARP_bijou-local-history-stale-after-branch-transition.md` as active
+   high-priority follow-up if and only if stale local history is observed in
+   dogfooding; otherwise it remains deferred behind slice 4.
+
+5. **Slice 4 — Follow-on architecture debt**
+   Finish the remaining schema-facing debt:
+   `CLEAN_remaining-structural-warp-reads-bypass-structural-reading-port.md`,
+   then `CLEAN_technical-teardown-contract-ledger-can-stale-without-tests.md`.
