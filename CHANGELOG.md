@@ -25,6 +25,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ### Changed
 
+- **Structural history generation gate**: `pnpm schema:structural-history:check`
+  now requires a configured Wesley CLI, verifies the pinned CLI version and L1
+  registry hash, regenerates the TypeScript artifact from GraphQL, and
+  byte-compares it with the committed generated file. CI and release workflows
+  install Wesley from a pinned release commit before running the check, and
+  `pnpm release:check` includes the same gate.
 - **Structural reading boundary**: `graft_review` impact counts and
   `graft_dead_symbols` now read through a Graft-owned
   `StructuralReadingPort` with explicit Continuum-native vs translated

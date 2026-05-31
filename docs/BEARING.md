@@ -85,33 +85,37 @@ parsing.
 The immediate focus is **schema authority before substrate migration**. This is
 locked as a 5-slice execution plan.
 
-1. Pull
+1. Keep `main` clean after the `v0.8.0` release.
+2. Treat the Wesley-backed structural-history generation gate as the active
+   quality invariant: generated TypeScript must be regenerated from GraphQL in
+   CI through the pinned Wesley CLI and fail if hand-edited.
+3. Pull
    [CORE_structural-history-schema-and-echo-migration](./method/backlog/up-next/CORE_structural-history-schema-and-echo-migration.md)
    as the next design/implementation cycle.
-2. Set a hard CI quality invariant: generated structural-history artifacts must
-   be regenerated from GraphQL and fail if hand-edited.
-3. Define Graft's canonical structural-history facts in GraphQL before adapting
+4. Define Graft's canonical structural-history facts in GraphQL before adapting
    any additional git-warp model output.
-4. Use the existing Wesley toolchain to derive TypeScript/Zod/read-models,
+5. Use the existing Wesley toolchain to derive TypeScript/Zod/read-models,
    Echo contracts, storage artifacts, and drift witnesses from that schema.
-5. Preserve current public command behavior while validating Echo-backed outputs
+6. Preserve current public command behavior while validating Echo-backed outputs
    against current git-warp-backed outputs.
-6. Treat git-warp evidence as `git-warp-imported` or `fallback-translated`,
+7. Treat git-warp evidence as `git-warp-imported` or `fallback-translated`,
    never as Continuum-native witnesshood.
-7. Do not add METHOD-specific backlog/status features to Graft. METHOD
+8. Stop opening git-warp during normal Graft operation once parity is proven.
+9. Do not add METHOD-specific backlog/status features to Graft. METHOD
    backlog lanes, cards, retros, dependency DAGs, and release truth
    surfaces belong in Method MCP / Method CLI.
-8. Keep `WARP_lsp-enrichment` and `CORE_migrate-to-slice-first-reads`
-   out of this slice; slice-first reads remain blocked until git-warp observer
+10. Keep `WARP_lsp-enrichment` and `CORE_migrate-to-slice-first-reads`
+   out of this slice. LSP enrichment remains valid optional scope;
+   slice-first reads remain externally blocked until git-warp observer
    geometry APIs land.
-9. Treat daemon live refresh and daemon control-plane actions as a separate
-   daemon-operator lane, not part of this slice.
+11. Treat daemon live refresh and daemon control-plane actions as a separate
+    daemon-operator lane, not part of this slice.
 
 ## Locked Slice Plan (Execution)
 
 1. **Slice 0 — Hermetic Wesley check**
-   Close the bad-code card `CLEAN_wesley-cli-not-hermetic-in-graft-ci.md` by
-   adding deterministic regenerate-and-diff CI validation for
+   Keep the closed Wesley hermetic gate active: deterministic
+   regenerate-and-diff CI validation for
    `schemas/graft-structural-history.graphql` -> generated artifacts.
 
 2. **Slice 1 — Schema-first foundation**
