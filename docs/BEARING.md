@@ -82,16 +82,17 @@ parsing.
 
 ## Next Target
 
-The immediate focus is **schema authority before substrate migration**. This is
-locked as a 5-slice execution plan.
+The immediate focus is **schema authority before substrate migration**. The
+near-term work is locked as a Graft-only pre-Echo execution plan with a hard
+Echo integration gate after generated-model parity is proven.
 
 1. Keep `main` clean after the `v0.8.0` release.
 2. Treat the Wesley-backed structural-history generation gate as the active
    quality invariant: generated TypeScript must be regenerated from GraphQL in
    CI through the pinned Wesley CLI and fail if hand-edited.
-3. Pull
+3. Pull the `asap/` cards that decompose
    [CORE_structural-history-schema-and-echo-migration](./method/backlog/up-next/CORE_structural-history-schema-and-echo-migration.md)
-   as the next design/implementation cycle.
+   into Graft-only pre-Echo slices.
 4. Define Graft's canonical structural-history facts in GraphQL before adapting
    any additional git-warp model output.
 5. Use the existing Wesley toolchain to derive TypeScript/Zod/read-models,
@@ -118,22 +119,41 @@ locked as a 5-slice execution plan.
    regenerate-and-diff CI validation for
    `schemas/graft-structural-history.graphql` -> generated artifacts.
 
-2. **Slice 1 — Schema-first foundation**
-   Execute the first slice of
-   `CORE_structural-history-schema-and-echo-migration.md`:
-   GraphQL as source of truth + Wesley-generated TS/Zod contracts +
-   drift checks.
+2. **Slice 1 — Evidence label alignment**
+   Pull
+   [`CORE_structural-history-evidence-label-alignment`](./method/backlog/asap/CORE_structural-history-evidence-label-alignment.md):
+   establish `echo-native`, `git-warp-imported`, and
+   `fallback-translated` evidence posture before runtime migration.
 
-3. **Slice 2 — Structural reading adapter boundary**
-   Map current `StructuralReadingPort` payloads to the generated model and
+3. **Slice 2 — Echo package descriptor**
+   Pull
+   [`CORE_graft-structural-history-echo-package-descriptor`](./method/backlog/asap/CORE_graft-structural-history-echo-package-descriptor.md):
+   define the deterministic structural-history package descriptor Graft
+   expects Echo to install later.
+
+4. **Slice 3 — Fake Echo-shaped TypeScript witness**
+   Pull
+   [`CORE_graft-fake-echo-shaped-typescript-witness`](./method/backlog/asap/CORE_graft-fake-echo-shaped-typescript-witness.md):
+   prove the Graft-side app-safe Echo seam with a deterministic fake before
+   depending on a real Echo runtime.
+
+5. **Slice 4 — StructuralReadingPort generated-model parity**
+   Pull
+   [`CORE_structural-reading-port-generated-model-parity`](./method/backlog/asap/CORE_structural-reading-port-generated-model-parity.md):
+   map current `StructuralReadingPort` payloads to the generated model and
    preserve existing behavior while adding parity coverage.
 
-4. **Slice 3 — Trust defect remediation**
+6. **Echo integration gate**
+   Stop before claiming real `echo-native` evidence unless Echo exposes the
+   required TypeScript-facing runtime/client, retained-evidence posture, and
+   versioned package compatibility surface.
+
+7. **Trust defect remediation**
    Track `WARP_bijou-local-history-stale-after-branch-transition.md` as active
    high-priority follow-up if and only if stale local history is observed in
    dogfooding; otherwise it remains deferred behind slice 4.
 
-5. **Slice 4 — Follow-on architecture debt**
+8. **Follow-on architecture debt**
    Finish the remaining schema-facing debt:
    `CLEAN_remaining-structural-warp-reads-bypass-structural-reading-port.md`,
    then `CLEAN_technical-teardown-contract-ledger-can-stale-without-tests.md`.
