@@ -10,6 +10,15 @@ digraph backlog {
   ranksep=0.55
   nodesep=0.2
 
+  subgraph cluster_asap {
+    label="asap (4)" labeljust=l fontsize=9 fontcolor="#555555"
+    style=rounded color="#cccccc" bgcolor="#fafafa"
+    asap_CORE_graft_fake_echo_shaped_typescript_witness [label="CORE-graft-fake-echo-shaped-typescript-witness - L" fillcolor="#E5E7EB" penwidth=2]
+    asap_CORE_graft_structural_history_echo_package_descriptor [label="CORE-graft-structural-history-echo-package-descriptor - M" fillcolor="#E5E7EB" penwidth=2]
+    asap_CORE_structural_history_evidence_label_alignment [label="CORE-structural-history-evidence-label-alignment - M" fillcolor="#E5E7EB" penwidth=2]
+    asap_CORE_structural_reading_port_generated_model_parity [label="CORE-structural-reading-port-generated-model-parity - L" fillcolor="#E5E7EB" penwidth=2]
+  }
+
   subgraph cluster_up_next {
     label="up-next (1)" labeljust=l fontsize=9 fontcolor="#555555"
     style=rounded color="#cccccc" bgcolor="#fafafa"
