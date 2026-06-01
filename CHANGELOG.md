@@ -9,6 +9,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ### Added
 
+- **Structural-history Echo package descriptor**: Graft now carries a
+  deterministic descriptor for the structural-history package it expects Echo
+  to host later, with repo-root-relative schema and generated-artifact
+  identities, descriptor-only Echo posture, and a local drift check wired into
+  `pnpm schema:structural-history:check`.
 - **Structural history schema authority**: Graft now carries a canonical
   `schemas/graft-structural-history.graphql` schema with Wesley-generated
   TypeScript contracts and a deterministic artifact drift check, establishing

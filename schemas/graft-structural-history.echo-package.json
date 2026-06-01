@@ -1,0 +1,61 @@
+{
+  "descriptorVersion": 1,
+  "package": {
+    "id": "graft.structural-history",
+    "kind": "echo-contract-package",
+    "sourcePackageName": "@flyingrobots/graft",
+    "sourcePackageVersion": "0.8.0"
+  },
+  "schema": {
+    "format": "graphql",
+    "path": "schemas/graft-structural-history.graphql",
+    "sha256": "20c335b4510efbfb5a57a61706bea28a7f82bfc063036b013bd19dc8176905ec",
+    "wesleyL1RegistryHash": "1f0956170eeec399e942fa8e418a4f23bc12ec40bf25f6e1de9510abbb15b832"
+  },
+  "generatedArtifacts": [
+    {
+      "kind": "typescript",
+      "path": "src/generated/graft-structural-history.ts",
+      "sha256": "79737d3c089067685d553f9526c8eb442cb7a20c099a49a771162c2be29559cc",
+      "generator": {
+        "name": "wesley",
+        "version": "0.0.4"
+      }
+    }
+  ],
+  "echo": {
+    "runtimeRequired": false,
+    "packageInstallationRequired": false,
+    "integrationStage": "descriptor-only",
+    "typescriptClientBinding": "planned"
+  },
+  "contracts": {
+    "recordTypes": [
+      "StructuralRepository",
+      "StructuralBasis",
+      "StructuralFileVersion",
+      "StructuralSourceSpan",
+      "StructuralParserRun",
+      "StructuralSymbol",
+      "StructuralSymbolRelation",
+      "StructuralReadingEvidence",
+      "StructuralReading",
+      "GitWarpImportBatch"
+    ],
+    "evidenceLabels": [
+      "ECHO_NATIVE",
+      "GIT_WARP_IMPORTED",
+      "FALLBACK_TRANSLATED"
+    ],
+    "operations": [
+      "queryStructuralRepositoriesOperation",
+      "queryStructuralBasesOperation",
+      "queryStructuralFileVersionsOperation",
+      "queryStructuralSymbolsOperation",
+      "queryStructuralSymbolRelationsOperation",
+      "queryStructuralReadingsOperation",
+      "queryStructuralReadingEvidenceOperation",
+      "queryGitWarpImportBatchesOperation"
+    ]
+  }
+}
