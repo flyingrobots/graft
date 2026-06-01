@@ -33,6 +33,9 @@ would Graft hand to Echo?" It should not require Echo to run that package yet.
 ## Design Packet
 
 Primary design packet:
+[`docs/design/CORE_graft-structural-history-echo-package-descriptor.md`](../../../design/CORE_graft-structural-history-echo-package-descriptor.md)
+
+Parent requirements packet:
 [`docs/design/CORE_graft-echo-typescript-integration-requirements.md`](../../../design/CORE_graft-echo-typescript-integration-requirements.md)
 
 Related migration card:

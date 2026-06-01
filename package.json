@@ -46,7 +46,7 @@
     "test:watch": "vitest",
     "lint": "eslint .",
     "typecheck": "tsc --noEmit",
-    "schema:structural-history:check": "tsx scripts/check-structural-history-schema-artifacts.ts",
+    "schema:structural-history:check": "tsx scripts/check-structural-history-schema-artifacts.ts && tsx scripts/check-structural-history-echo-package.ts",
     "pack:check": "pnpm pack --dry-run",
     "guard:agent-worktrees": "tsx scripts/check-agent-worktree-hygiene.ts",
     "security:check": "tsx scripts/check-release-security.ts",
