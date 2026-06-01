@@ -6,6 +6,8 @@ legend: CORE
 lane: asap
 priority: 4
 effort: L
+blocked_by:
+  - "CORE_graft-fake-echo-shaped-typescript-witness"
 requirements:
   - "Current StructuralReadingPort payloads map into the generated structural-history model"
   - "Current public command behavior is preserved"

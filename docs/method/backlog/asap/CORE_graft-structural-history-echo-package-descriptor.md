@@ -6,6 +6,8 @@ legend: CORE
 lane: asap
 priority: 2
 effort: M
+blocked_by:
+  - "CORE_structural-history-evidence-label-alignment"
 requirements:
   - "Graft describes the Echo package it expects before requiring real Echo execution"
   - "The descriptor is deterministic and derived from schema authority"

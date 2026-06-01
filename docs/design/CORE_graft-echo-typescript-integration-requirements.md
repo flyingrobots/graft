@@ -45,6 +45,23 @@ requirements:
 
 None of those require Echo core to know Graft domain nouns.
 
+## Acceptance Criteria
+
+- Graft-owned responsibilities and Echo-owned responsibilities are explicitly
+  separated.
+- Echo requirements are stated as generic substrate, packaging, retention,
+  outcome, and TypeScript integration needs, not as Graft-domain semantics.
+- The app-safe TypeScript client surface excludes trusted host authority such as
+  package installation, ticking, WAL mutation, runtime recovery, and scheduler
+  control.
+- The first four Graft slices can proceed without Echo repository changes:
+  evidence label alignment, Echo package descriptor, fake Echo-shaped TypeScript
+  witness, and `StructuralReadingPort` generated-model parity.
+- The Echo integration gate is explicit before any follow-on work claims real
+  `echo-native` evidence.
+- Rust rewrite criteria are named as a later decision gate, not as scope for the
+  next Graft schema-authority work.
+
 ## Current Assumptions
 
 - Graft remains TypeScript for now.
@@ -136,7 +153,9 @@ Graft needs a TypeScript-facing Echo client that can do this:
 
 ```ts
 interface EchoContractClient {
-  installOrVerifyPackage?(request: EchoPackageInstallRequest): Promise<EchoPackageInstallResult>;
+  verifyPackageCompatibility?(
+    request: EchoPackageCompatibilityRequest,
+  ): Promise<EchoPackageCompatibilityResult>;
   submitIntent(request: EchoIntentSubmissionRequest): Promise<EchoIntentSubmissionHandle>;
   observeIntentOutcome(submissionId: string): Promise<EchoIntentOutcome>;
   observeQuery(request: EchoQueryObservationRequest): Promise<EchoQueryObservationResult>;
@@ -145,6 +164,11 @@ interface EchoContractClient {
 ```
 
 The exact names do not matter. The authority boundary does.
+
+Package installation is not part of the app-safe client. App code may verify
+that its generated package metadata is compatible with the configured Echo host,
+but mutation of the installed package registry belongs to a separate trusted-host
+entry point.
 
 ### App-safe TypeScript methods
 
@@ -168,7 +192,7 @@ The app-facing TypeScript surface must not expose:
 | :--- | :--- |
 | `tick`, `step`, `superTick`, or scheduler controls | Application code must not create ticks. |
 | Trusted runtime start/stop/drain control | Host policy, not application behavior. |
-| Package installation authority, unless explicitly separated as trusted host API | Installing packages changes runtime-owner configuration. |
+| Package installation authority | Installing packages changes runtime-owner configuration and must live in a trusted-host API. |
 | WAL append or recovery mutation | Durable recovery authority is trusted-host scope. |
 | Raw kernel object mutation | Graft should operate through generated contracts and readings. |
 | Scheduler fault recovery | Trusted runtime control plane. |
@@ -580,12 +604,12 @@ Acceptance criteria:
 - Hand-maintained duplicate model is rejected by tests.
 - No Echo core dependency is required.
 
-### `CORE_graft-fake-echo-shaped-contract-witness`
+### `CORE_graft-fake-echo-shaped-typescript-witness`
 
 Hill:
 
 Graft proves its Echo-facing adapter contract through a fake Echo-shaped
-transport before depending on real Echo runtime packaging.
+TypeScript witness before depending on real Echo runtime packaging.
 
 Acceptance criteria:
 
@@ -595,6 +619,23 @@ Acceptance criteria:
 - Parity fixtures compare fallback git-warp readings with generated model
   readings.
 - Tests fail if Graft leaks trusted-host authority into the app-facing adapter.
+
+### `CORE_structural-reading-port-generated-model-parity`
+
+Hill:
+
+Graft maps current `StructuralReadingPort` payloads into the generated
+structural-history model while preserving public command behavior.
+
+Acceptance criteria:
+
+- Current `StructuralReadingPort` payloads have a tested generated-model
+  mapping.
+- Parity fixtures show current git-warp-backed readings produce equivalent
+  public behavior.
+- Mapped evidence is labeled `git-warp-imported` or `fallback-translated`, not
+  `echo-native`.
+- No Echo runtime dependency is introduced.
 
 ## Sequencing Recommendation
 
@@ -613,6 +654,21 @@ Recommended parallel plan:
 
 This keeps Graft moving now while giving Echo a focused list of generic
 requirements.
+
+## Playback Questions
+
+1. Can a human tell which Graft slices can proceed before Echo changes are
+   required?
+2. Can a reviewer verify that Echo is not asked to learn Graft domain semantics?
+3. Does the app-safe TypeScript surface avoid trusted host authority such as
+   package installation, ticking, WAL mutation, runtime recovery, and scheduler
+   control?
+4. Can a future agent identify the Echo integration gate before claiming real
+   `echo-native` evidence?
+5. Do the suggested Graft planning cards match the actual `asap/` cards and
+   their intended order?
+6. Is the Rust rewrite decision deferred behind concrete TypeScript integration
+   evidence instead of treated as near-term scope?
 
 ## Open Questions
 

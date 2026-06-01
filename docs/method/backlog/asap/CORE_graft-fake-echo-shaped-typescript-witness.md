@@ -6,6 +6,8 @@ legend: CORE
 lane: asap
 priority: 3
 effort: L
+blocked_by:
+  - "CORE_graft-structural-history-echo-package-descriptor"
 requirements:
   - "Graft proves the Echo-facing TypeScript seam before depending on Echo runtime changes"
   - "The fake witness is deterministic and local"
