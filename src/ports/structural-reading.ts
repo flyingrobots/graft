@@ -2,6 +2,8 @@
 // StructuralReadingPort — Graft-owned structural read boundary.
 // ---------------------------------------------------------------------------
 
+import type { StructuralEvidenceKind as GeneratedStructuralEvidenceKind } from "../generated/graft-structural-history.js";
+
 export type StructuralReadingKind = "symbol-reference-count" | "dead-symbols";
 
 export type StructuralReadingFreshness = "current" | "stale" | "incomparable";
@@ -13,6 +15,30 @@ export type StructuralReadingResidualPosture =
   | "budget-limited"
   | "rights-limited"
   | "unavailable";
+
+export const STRUCTURAL_READING_EVIDENCE_LABELS = [
+  "echo-native",
+  "git-warp-imported",
+  "fallback-translated",
+] as const;
+
+export type StructuralReadingEvidenceLabel = typeof STRUCTURAL_READING_EVIDENCE_LABELS[number];
+
+export type GitWarpStructuralReadingEvidenceLabel =
+  | "git-warp-imported"
+  | "fallback-translated";
+
+const GENERATED_STRUCTURAL_EVIDENCE_KIND_BY_LABEL = {
+  "echo-native": "ECHO_NATIVE",
+  "git-warp-imported": "GIT_WARP_IMPORTED",
+  "fallback-translated": "FALLBACK_TRANSLATED",
+} satisfies Record<StructuralReadingEvidenceLabel, GeneratedStructuralEvidenceKind>;
+
+export function toGeneratedStructuralEvidenceKind(
+  label: StructuralReadingEvidenceLabel,
+): GeneratedStructuralEvidenceKind {
+  return GENERATED_STRUCTURAL_EVIDENCE_KIND_BY_LABEL[label];
+}
 
 export interface ContinuumReadingEnvelopeRef {
   readonly family: string;
@@ -30,6 +56,8 @@ export interface ContinuumWitnessedSuffixShellRef {
 
 export interface ContinuumNativeEvidence {
   readonly kind: "continuum-native";
+  readonly evidenceLabel: "echo-native";
+  readonly nativeContinuumWitness: true;
   readonly envelope: ContinuumReadingEnvelopeRef;
   readonly witness?: ContinuumWitnessedSuffixShellRef | undefined;
 }
@@ -60,6 +88,7 @@ export type GitWarpEvidence =
 
 export interface TranslatedSubstrateEvidence {
   readonly kind: "translated-substrate";
+  readonly evidenceLabel: GitWarpStructuralReadingEvidenceLabel;
   readonly substrate: "git-warp";
   readonly basis: GitWarpCommittedBasis;
   readonly evidence: GitWarpEvidence;
@@ -120,11 +149,53 @@ export interface StructuralReadingPort {
 export function isContinuumNativeEvidence(
   evidence: StructuralReadingEvidence,
 ): evidence is ContinuumNativeEvidence {
-  return evidence.kind === "continuum-native";
+  const candidate = evidence as {
+    readonly kind: unknown;
+    readonly evidenceLabel: unknown;
+    readonly nativeContinuumWitness: unknown;
+  };
+
+  return candidate.kind === "continuum-native" &&
+    candidate.evidenceLabel === "echo-native" &&
+    candidate.nativeContinuumWitness === true;
+}
+
+export function isEchoNativeEvidence(
+  evidence: StructuralReadingEvidence,
+): evidence is ContinuumNativeEvidence {
+  return isContinuumNativeEvidence(evidence);
 }
 
 export function isTranslatedSubstrateEvidence(
   evidence: StructuralReadingEvidence,
 ): evidence is TranslatedSubstrateEvidence {
   return evidence.kind === "translated-substrate";
+}
+
+export function isGitWarpImportedEvidence(
+  evidence: StructuralReadingEvidence,
+): evidence is TranslatedSubstrateEvidence & { readonly evidenceLabel: "git-warp-imported" } {
+  const candidate = evidence as {
+    readonly kind: unknown;
+    readonly evidenceLabel: unknown;
+    readonly nativeContinuumWitness: unknown;
+  };
+
+  return candidate.kind === "translated-substrate" &&
+    candidate.evidenceLabel === "git-warp-imported" &&
+    candidate.nativeContinuumWitness === false;
+}
+
+export function isFallbackTranslatedEvidence(
+  evidence: StructuralReadingEvidence,
+): evidence is TranslatedSubstrateEvidence & { readonly evidenceLabel: "fallback-translated" } {
+  const candidate = evidence as {
+    readonly kind: unknown;
+    readonly evidenceLabel: unknown;
+    readonly nativeContinuumWitness: unknown;
+  };
+
+  return candidate.kind === "translated-substrate" &&
+    candidate.evidenceLabel === "fallback-translated" &&
+    candidate.nativeContinuumWitness === false;
 }

@@ -1,16 +1,35 @@
 import { describe, expect, it } from "vitest";
 import {
+  STRUCTURAL_READING_EVIDENCE_LABELS,
+  isEchoNativeEvidence,
+  isFallbackTranslatedEvidence,
+  isGitWarpImportedEvidence,
   isContinuumNativeEvidence,
   isTranslatedSubstrateEvidence,
+  toGeneratedStructuralEvidenceKind,
   type ContinuumNativeEvidence,
+  type StructuralReadingEvidence,
   type StructuralReadingResult,
   type TranslatedSubstrateEvidence,
 } from "../../../src/ports/structural-reading.js";
 
 describe("StructuralReadingEvidence", () => {
-  it("separates Continuum-native evidence from translated substrate evidence", () => {
+  it("carries the Graft structural evidence label taxonomy", () => {
+    expect(STRUCTURAL_READING_EVIDENCE_LABELS).toEqual([
+      "echo-native",
+      "git-warp-imported",
+      "fallback-translated",
+    ]);
+    expect(toGeneratedStructuralEvidenceKind("echo-native")).toBe("ECHO_NATIVE");
+    expect(toGeneratedStructuralEvidenceKind("git-warp-imported")).toBe("GIT_WARP_IMPORTED");
+    expect(toGeneratedStructuralEvidenceKind("fallback-translated")).toBe("FALLBACK_TRANSLATED");
+  });
+
+  it("separates Echo-native evidence from translated substrate evidence", () => {
     const native = {
       kind: "continuum-native",
+      evidenceLabel: "echo-native",
+      nativeContinuumWitness: true,
       envelope: {
         family: "runtime-boundary",
         readingId: "reading:echo:frontier:1",
@@ -25,6 +44,7 @@ describe("StructuralReadingEvidence", () => {
 
     const translated = {
       kind: "translated-substrate",
+      evidenceLabel: "fallback-translated",
       substrate: "git-warp",
       basis: {
         kind: "git-committed-history",
@@ -40,15 +60,52 @@ describe("StructuralReadingEvidence", () => {
       nativeContinuumWitness: false,
     } satisfies TranslatedSubstrateEvidence;
 
+    const imported = {
+      ...translated,
+      evidenceLabel: "git-warp-imported",
+    } satisfies TranslatedSubstrateEvidence;
+
     expect(isContinuumNativeEvidence(native)).toBe(true);
+    expect(isEchoNativeEvidence(native)).toBe(true);
     expect(isContinuumNativeEvidence(translated)).toBe(false);
+    expect(isEchoNativeEvidence(translated)).toBe(false);
     expect(isTranslatedSubstrateEvidence(translated)).toBe(true);
     expect(isTranslatedSubstrateEvidence(native)).toBe(false);
+    expect(isFallbackTranslatedEvidence(translated)).toBe(true);
+    expect(isFallbackTranslatedEvidence(imported)).toBe(false);
+    expect(isGitWarpImportedEvidence(imported)).toBe(true);
+    expect(isGitWarpImportedEvidence(translated)).toBe(false);
     expect(translated.nativeContinuumWitness).toBe(false);
-    expect("nativeContinuumWitness" in native).toBe(false);
+    expect(native.nativeContinuumWitness).toBe(true);
   });
 
-  it("allows normalized Graft payloads to carry Continuum-native evidence", () => {
+  it("does not let malformed translated substrate evidence masquerade as Echo-native evidence", () => {
+    const malformed = {
+      kind: "translated-substrate",
+      evidenceLabel: "echo-native",
+      substrate: "git-warp",
+      basis: {
+        kind: "git-committed-history",
+        projectRoot: "/repo",
+        ref: "HEAD",
+      },
+      evidence: {
+        kind: "symbol-reference-count",
+        source: "warp-graph",
+        symbolName: "buildThing",
+        filePath: "src/api.ts",
+      },
+      nativeContinuumWitness: false,
+    } as unknown as StructuralReadingEvidence;
+
+    expect(isContinuumNativeEvidence(malformed)).toBe(false);
+    expect(isEchoNativeEvidence(malformed)).toBe(false);
+    expect(isTranslatedSubstrateEvidence(malformed)).toBe(true);
+    expect(isFallbackTranslatedEvidence(malformed)).toBe(false);
+    expect(isGitWarpImportedEvidence(malformed)).toBe(false);
+  });
+
+  it("allows normalized Graft payloads to carry Echo-native evidence", () => {
     const reading = {
       kind: "symbol-reference-count",
       freshness: "current",
@@ -60,6 +117,8 @@ describe("StructuralReadingEvidence", () => {
       },
       evidence: {
         kind: "continuum-native",
+        evidenceLabel: "echo-native",
+        nativeContinuumWitness: true,
         envelope: {
           family: "runtime-boundary",
           readingId: "reading:echo:references:buildThing",
@@ -83,6 +142,8 @@ describe("StructuralReadingEvidence", () => {
       referencingFiles: ["src/a.ts", "src/b.ts"],
     });
     expect(reading.evidence.kind).toBe("continuum-native");
+    expect(reading.evidence.evidenceLabel).toBe("echo-native");
     expect(isContinuumNativeEvidence(reading.evidence)).toBe(true);
+    expect(isEchoNativeEvidence(reading.evidence)).toBe(true);
   });
 });

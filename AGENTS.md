@@ -7,6 +7,8 @@ This guide is for AI agents and human operators recovering context in the Graft 
 - **NEVER** amend commits.
 - **NEVER** rebase or force-push.
 - **NEVER** push to `main` without explicit permission.
+- **NEVER** create draft pull requests.
+- **NEVER** use a `codex` prefix in branch names, PR titles, or commit messages.
 - Always use standard commits and regular pushes.
 
 ## Documentation & Planning Map

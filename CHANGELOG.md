@@ -33,8 +33,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   `pnpm release:check` includes the same gate.
 - **Structural reading boundary**: `graft_review` impact counts and
   `graft_dead_symbols` now read through a Graft-owned
-  `StructuralReadingPort` with explicit Continuum-native vs translated
-  git-warp evidence status, preserving existing public response shapes.
+  `StructuralReadingPort` with explicit `echo-native`,
+  `git-warp-imported`, and `fallback-translated` evidence labels, preserving
+  existing public response shapes while preventing current git-warp readings
+  from masquerading as Echo-native witnesshood.
 
 ### Fixed
 
