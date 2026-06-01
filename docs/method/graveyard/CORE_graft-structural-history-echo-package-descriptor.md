@@ -6,6 +6,7 @@ legend: CORE
 lane: asap
 priority: 2
 effort: M
+status: shipped
 blocked_by:
   - "CORE_structural-history-evidence-label-alignment"
 requirements:
@@ -22,6 +23,12 @@ acceptance_criteria:
 
 # Graft structural-history Echo package descriptor
 
+## Disposition
+
+Shipped in PR #65 and closed by retro PR #66. The shipped artifact is
+`schemas/graft-structural-history.echo-package.json`, with drift coverage wired
+into `pnpm schema:structural-history:check`.
+
 ## Hill
 
 Graft defines the contract package shape it expects Echo to install later, while
@@ -33,13 +40,13 @@ would Graft hand to Echo?" It should not require Echo to run that package yet.
 ## Design Packet
 
 Primary design packet:
-[`docs/design/CORE_graft-structural-history-echo-package-descriptor.md`](../../../design/CORE_graft-structural-history-echo-package-descriptor.md)
+[`docs/design/CORE_graft-structural-history-echo-package-descriptor.md`](../../design/CORE_graft-structural-history-echo-package-descriptor.md)
 
 Parent requirements packet:
-[`docs/design/CORE_graft-echo-typescript-integration-requirements.md`](../../../design/CORE_graft-echo-typescript-integration-requirements.md)
+[`docs/design/CORE_graft-echo-typescript-integration-requirements.md`](../../design/CORE_graft-echo-typescript-integration-requirements.md)
 
 Related migration card:
-[`docs/method/backlog/up-next/CORE_structural-history-schema-and-echo-migration.md`](../up-next/CORE_structural-history-schema-and-echo-migration.md)
+[`docs/method/backlog/up-next/CORE_structural-history-schema-and-echo-migration.md`](../backlog/up-next/CORE_structural-history-schema-and-echo-migration.md)
 
 ## Descriptor Contents
 

@@ -6,9 +6,8 @@ legend: CORE
 lane: asap
 priority: 3
 effort: L
-blocked_by:
-  - "CORE_graft-structural-history-echo-package-descriptor"
 requirements:
+  - "Structural-history Echo package descriptor shipped in PR #65"
   - "Graft proves the Echo-facing TypeScript seam before depending on Echo runtime changes"
   - "The fake witness is deterministic and local"
   - "Graft does not reach through the app/host authority boundary"
@@ -38,6 +37,9 @@ Primary design packet:
 
 Related migration card:
 [`docs/method/backlog/up-next/CORE_structural-history-schema-and-echo-migration.md`](../up-next/CORE_structural-history-schema-and-echo-migration.md)
+
+Shipped prerequisite:
+[`docs/method/graveyard/CORE_graft-structural-history-echo-package-descriptor.md`](../../graveyard/CORE_graft-structural-history-echo-package-descriptor.md)
 
 ## Required Boundary
 
