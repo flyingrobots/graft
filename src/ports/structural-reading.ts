@@ -149,13 +149,21 @@ export interface StructuralReadingPort {
 export function isContinuumNativeEvidence(
   evidence: StructuralReadingEvidence,
 ): evidence is ContinuumNativeEvidence {
-  return evidence.evidenceLabel === "echo-native";
+  const candidate = evidence as {
+    readonly kind: unknown;
+    readonly evidenceLabel: unknown;
+    readonly nativeContinuumWitness: unknown;
+  };
+
+  return candidate.kind === "continuum-native" &&
+    candidate.evidenceLabel === "echo-native" &&
+    candidate.nativeContinuumWitness === true;
 }
 
 export function isEchoNativeEvidence(
   evidence: StructuralReadingEvidence,
 ): evidence is ContinuumNativeEvidence {
-  return evidence.evidenceLabel === "echo-native";
+  return isContinuumNativeEvidence(evidence);
 }
 
 export function isTranslatedSubstrateEvidence(
@@ -167,11 +175,27 @@ export function isTranslatedSubstrateEvidence(
 export function isGitWarpImportedEvidence(
   evidence: StructuralReadingEvidence,
 ): evidence is TranslatedSubstrateEvidence & { readonly evidenceLabel: "git-warp-imported" } {
-  return evidence.evidenceLabel === "git-warp-imported";
+  const candidate = evidence as {
+    readonly kind: unknown;
+    readonly evidenceLabel: unknown;
+    readonly nativeContinuumWitness: unknown;
+  };
+
+  return candidate.kind === "translated-substrate" &&
+    candidate.evidenceLabel === "git-warp-imported" &&
+    candidate.nativeContinuumWitness === false;
 }
 
 export function isFallbackTranslatedEvidence(
   evidence: StructuralReadingEvidence,
 ): evidence is TranslatedSubstrateEvidence & { readonly evidenceLabel: "fallback-translated" } {
-  return evidence.evidenceLabel === "fallback-translated";
+  const candidate = evidence as {
+    readonly kind: unknown;
+    readonly evidenceLabel: unknown;
+    readonly nativeContinuumWitness: unknown;
+  };
+
+  return candidate.kind === "translated-substrate" &&
+    candidate.evidenceLabel === "fallback-translated" &&
+    candidate.nativeContinuumWitness === false;
 }

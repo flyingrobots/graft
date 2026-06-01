@@ -8,6 +8,7 @@ import {
   isTranslatedSubstrateEvidence,
   toGeneratedStructuralEvidenceKind,
   type ContinuumNativeEvidence,
+  type StructuralReadingEvidence,
   type StructuralReadingResult,
   type TranslatedSubstrateEvidence,
 } from "../../../src/ports/structural-reading.js";
@@ -76,6 +77,32 @@ describe("StructuralReadingEvidence", () => {
     expect(isGitWarpImportedEvidence(translated)).toBe(false);
     expect(translated.nativeContinuumWitness).toBe(false);
     expect(native.nativeContinuumWitness).toBe(true);
+  });
+
+  it("does not let malformed translated substrate evidence masquerade as Echo-native evidence", () => {
+    const malformed = {
+      kind: "translated-substrate",
+      evidenceLabel: "echo-native",
+      substrate: "git-warp",
+      basis: {
+        kind: "git-committed-history",
+        projectRoot: "/repo",
+        ref: "HEAD",
+      },
+      evidence: {
+        kind: "symbol-reference-count",
+        source: "warp-graph",
+        symbolName: "buildThing",
+        filePath: "src/api.ts",
+      },
+      nativeContinuumWitness: false,
+    } as unknown as StructuralReadingEvidence;
+
+    expect(isContinuumNativeEvidence(malformed)).toBe(false);
+    expect(isEchoNativeEvidence(malformed)).toBe(false);
+    expect(isTranslatedSubstrateEvidence(malformed)).toBe(true);
+    expect(isFallbackTranslatedEvidence(malformed)).toBe(false);
+    expect(isGitWarpImportedEvidence(malformed)).toBe(false);
   });
 
   it("allows normalized Graft payloads to carry Echo-native evidence", () => {
