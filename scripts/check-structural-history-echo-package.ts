@@ -159,7 +159,7 @@ function descriptorPathViolations(descriptor: StructuralHistoryEchoPackageDescri
   return [
     ...pathViolations("schema.path", descriptor.schema.path),
     ...descriptor.generatedArtifacts.flatMap((artifact, index) =>
-      pathViolations(`generatedArtifacts[${index}].path`, artifact.path),
+      pathViolations(`generatedArtifacts[${String(index)}].path`, artifact.path),
     ),
   ];
 }
