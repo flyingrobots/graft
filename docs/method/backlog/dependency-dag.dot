@@ -11,10 +11,9 @@ digraph backlog {
   nodesep=0.2
 
   subgraph cluster_asap {
-    label="asap (4)" labeljust=l fontsize=9 fontcolor="#555555"
+    label="asap (3)" labeljust=l fontsize=9 fontcolor="#555555"
     style=rounded color="#cccccc" bgcolor="#fafafa"
     asap_CORE_graft_fake_echo_shaped_typescript_witness [label="CORE-graft-fake-echo-shaped-typescript-witness - L" fillcolor="#E5E7EB" penwidth=2]
-    asap_CORE_graft_structural_history_echo_package_descriptor [label="CORE-graft-structural-history-echo-package-descriptor - M" fillcolor="#E5E7EB" penwidth=2]
     asap_CORE_structural_history_evidence_label_alignment [label="CORE-structural-history-evidence-label-alignment - M" fillcolor="#E5E7EB" penwidth=2]
     asap_CORE_structural_reading_port_generated_model_parity [label="CORE-structural-reading-port-generated-model-parity - L" fillcolor="#E5E7EB" penwidth=2]
   }
@@ -57,8 +56,9 @@ digraph backlog {
   }
 
   subgraph cluster_bad_code {
-    label="bad-code (3)" labeljust=l fontsize=9 fontcolor="#555555"
+    label="bad-code (4)" labeljust=l fontsize=9 fontcolor="#555555"
     style=rounded color="#cccccc" bgcolor="#fafafa"
+    bad_code_CLEAN_method_close_timeout_produces_no_retro_artifact [label="CLEAN-method-close-timeout-produces-no-retro-artifact - M" fillcolor="#F6B3B3" penwidth=2]
     bad_code_CLEAN_remaining_structural_warp_reads_bypass_structural_reading_port [label="CLEAN-remaining-structural-warp-reads-bypass-structural-reading-port - M" fillcolor="#F6B3B3" penwidth=2]
     bad_code_CLEAN_technical_teardown_contract_ledger_can_stale_without_tests [label="CLEAN-technical-teardown-contract-ledger-can-stale-without-tests - M" fillcolor="#F6B3B3" penwidth=2]
     bad_code_WARP_bijou_local_history_stale_after_branch_transition [label="WARP-bijou-local-history-stale-after-branch-transition - M" fillcolor="#F6B3B3" penwidth=2]
@@ -158,8 +158,6 @@ digraph backlog {
   }
 
   asap_CORE_graft_fake_echo_shaped_typescript_witness -> asap_CORE_structural_reading_port_generated_model_parity [label="blocked_by"]
-  asap_CORE_graft_structural_history_echo_package_descriptor -> asap_CORE_graft_fake_echo_shaped_typescript_witness [label="blocked_by"]
-  asap_CORE_structural_history_evidence_label_alignment -> asap_CORE_graft_structural_history_echo_package_descriptor [label="blocked_by"]
   cool_ideas_monitor_tick_ceiling_tracking -> cool_ideas_WARP_background_indexing [label="blocked_by/blocking"]
   cool_ideas_SURFACE_active_causal_workspace_status -> cool_ideas_SURFACE_ide_native_graft_integration [label="blocked_by/blocking"]
   cool_ideas_WARP_agent_action_provenance -> cool_ideas_CI_001_causal_collapse_visualizer [label="blocked_by/blocking"]
