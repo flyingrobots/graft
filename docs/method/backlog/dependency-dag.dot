@@ -56,16 +56,23 @@ digraph backlog {
   }
 
   subgraph cluster_bad_code {
-    label="bad-code (4)" labeljust=l fontsize=9 fontcolor="#555555"
+    label="bad-code (11)" labeljust=l fontsize=9 fontcolor="#555555"
     style=rounded color="#cccccc" bgcolor="#fafafa"
+    bad_code_CLEAN_backlog_dag_unresolved_internal_dependencies [label="CLEAN-backlog-dag-unresolved-internal-dependencies - S" fillcolor="#F6B3B3" penwidth=2]
+    bad_code_CLEAN_coderabbit_path_filters_skip_method_docs [label="CLEAN-coderabbit-path-filters-skip-method-docs - S" fillcolor="#F6B3B3" penwidth=2]
+    bad_code_CLEAN_completed_backlog_card_retirement_is_manual [label="CLEAN-completed-backlog-card-retirement-is-manual - M" fillcolor="#F6B3B3" penwidth=2]
+    bad_code_CLEAN_descriptor_checker_lacks_schema_validation [label="CLEAN-descriptor-checker-lacks-schema-validation - M" fillcolor="#F6B3B3" penwidth=2]
+    bad_code_CLEAN_generated_svg_dag_diff_noise_obscures_review [label="CLEAN-generated-svg-dag-diff-noise-obscures-review - S" fillcolor="#F6B3B3" penwidth=2]
     bad_code_CLEAN_method_close_timeout_produces_no_retro_artifact [label="CLEAN-method-close-timeout-produces-no-retro-artifact - M" fillcolor="#F6B3B3" penwidth=2]
+    bad_code_CLEAN_method_retro_witness_can_overstate_validation [label="CLEAN-method-retro-witness-can-overstate-validation - M" fillcolor="#F6B3B3" penwidth=2]
+    bad_code_CLEAN_pr_review_comments_not_actionability_typed [label="CLEAN-pr-review-comments-not-actionability-typed - M" fillcolor="#F6B3B3" penwidth=2]
     bad_code_CLEAN_remaining_structural_warp_reads_bypass_structural_reading_port [label="CLEAN-remaining-structural-warp-reads-bypass-structural-reading-port - M" fillcolor="#F6B3B3" penwidth=2]
     bad_code_CLEAN_technical_teardown_contract_ledger_can_stale_without_tests [label="CLEAN-technical-teardown-contract-ledger-can-stale-without-tests - M" fillcolor="#F6B3B3" penwidth=2]
     bad_code_WARP_bijou_local_history_stale_after_branch_transition [label="WARP-bijou-local-history-stale-after-branch-transition - M" fillcolor="#F6B3B3" penwidth=2]
   }
 
   subgraph cluster_cool_ideas {
-    label="Cool Ideas (76)" labeljust=l fontsize=9 fontcolor="#555555"
+    label="Cool Ideas (87)" labeljust=l fontsize=9 fontcolor="#555555"
     style=rounded color="#cccccc" bgcolor="#fafafa"
     cool_ideas_bounded_neighborhood_for_references [label="bounded-neighborhood-for-references - S" fillcolor="#D4E8F7" penwidth=1]
     cool_ideas_CI_001_causal_collapse_visualizer [label="CI-001-causal-collapse-visualizer - L" fillcolor="#D4E8F7" penwidth=1]
@@ -73,13 +80,19 @@ digraph backlog {
     cool_ideas_CI_003_mcp_native_diff_protocol [label="CI-003-mcp-native-diff-protocol - M" fillcolor="#D4E8F7" penwidth=1]
     cool_ideas_CLEAN_CODE_parallel_agent_merge_shared_file_loss [label="CLEAN-CODE-parallel-agent-merge-shared-file-loss - M" fillcolor="#D4E8F7" penwidth=1]
     cool_ideas_CLEAN_contract_ledger_schema_and_lint [label="CLEAN-contract-ledger-schema-and-lint - M" fillcolor="#D4E8F7" penwidth=1]
+    cool_ideas_CLEAN_generated_artifact_review_boundary [label="CLEAN-generated-artifact-review-boundary - S" fillcolor="#D4E8F7" penwidth=1]
     cool_ideas_CORE_agent_handoff_protocol [label="CORE-agent-handoff-protocol - M" fillcolor="#D4E8F7" penwidth=1]
     cool_ideas_CORE_auto_focus [label="CORE-auto-focus - L" fillcolor="#D4E8F7" penwidth=1]
+    cool_ideas_CORE_backlog_retirement_assistant [label="CORE-backlog-retirement-assistant - M" fillcolor="#D4E8F7" penwidth=1]
     cool_ideas_CORE_capture_range [label="CORE-capture-range - S" fillcolor="#D4E8F7" penwidth=1]
+    cool_ideas_CORE_code_lawyer_local_pr_audit_command [label="CORE-code-lawyer-local-pr-audit-command - L" fillcolor="#D4E8F7" penwidth=1]
     cool_ideas_CORE_constructor_in_disguise_lint [label="CORE-constructor-in-disguise-lint - M" fillcolor="#D4E8F7" penwidth=1]
     cool_ideas_CORE_context_budget_forecasting [label="CORE-context-budget-forecasting - M" fillcolor="#D4E8F7" penwidth=1]
     cool_ideas_CORE_conversation_primer [label="CORE-conversation-primer - M" fillcolor="#D4E8F7" penwidth=1]
     cool_ideas_CORE_cross_session_resume [label="CORE-cross-session-resume - S" fillcolor="#D4E8F7" penwidth=1]
+    cool_ideas_CORE_descriptor_package_registry_for_structural_contracts [label="CORE-descriptor-package-registry-for-structural-contracts - M" fillcolor="#D4E8F7" penwidth=1]
+    cool_ideas_CORE_echo_capability_gap_ledger [label="CORE-echo-capability-gap-ledger - S" fillcolor="#D4E8F7" penwidth=1]
+    cool_ideas_CORE_echo_descriptor_to_fake_witness_generator [label="CORE-echo-descriptor-to-fake-witness-generator - M" fillcolor="#D4E8F7" penwidth=1]
     cool_ideas_CORE_graft_as_teacher [label="CORE-graft-as-teacher - S" fillcolor="#D4E8F7" penwidth=1]
     cool_ideas_CORE_graft_teach_learning_receipts [label="CORE-graft-teach-learning-receipts - S" fillcolor="#D4E8F7" penwidth=1]
     cool_ideas_CORE_graft_tool_client [label="CORE-graft-tool-client - M" fillcolor="#D4E8F7" penwidth=1]
@@ -94,9 +107,13 @@ digraph backlog {
     cool_ideas_CORE_speculative_read_cost [label="CORE-speculative-read-cost - S" fillcolor="#D4E8F7" penwidth=1]
     cool_ideas_CORE_structural_session_replay [label="CORE-structural-session-replay - M" fillcolor="#D4E8F7" penwidth=1]
     cool_ideas_CORE_wire_primitives_into_runtime [label="CORE-wire-primitives-into-runtime - M" fillcolor="#D4E8F7" penwidth=1]
+    cool_ideas_METHOD_retro_recovery_mode [label="METHOD-retro-recovery-mode - M" fillcolor="#D4E8F7" penwidth=1]
     cool_ideas_monitor_tick_ceiling_tracking [label="monitor-tick-ceiling-tracking - S" fillcolor="#D4E8F7" penwidth=1]
     cool_ideas_SURFACE_active_causal_workspace_status [label="SURFACE-active-causal-workspace-status - M" fillcolor="#D4E8F7" penwidth=1]
+    cool_ideas_SURFACE_asap_queue_health_dashboard [label="SURFACE-asap-queue-health-dashboard - M" fillcolor="#D4E8F7" penwidth=1]
     cool_ideas_SURFACE_attach_to_existing_causal_session [label="SURFACE-attach-to-existing-causal-session - M" fillcolor="#D4E8F7" penwidth=1]
+    cool_ideas_SURFACE_backlog_card_lifecycle_linter [label="SURFACE-backlog-card-lifecycle-linter - M" fillcolor="#D4E8F7" penwidth=1]
+    cool_ideas_SURFACE_backlog_sitrep_command [label="SURFACE-backlog-sitrep-command - M" fillcolor="#D4E8F7" penwidth=1]
     cool_ideas_SURFACE_bijou_daemon_control_plane_actions [label="SURFACE-bijou-daemon-control-plane-actions - L" fillcolor="#D4E8F7" penwidth=1]
     cool_ideas_SURFACE_bijou_daemon_status_live_refresh [label="SURFACE-bijou-daemon-status-live-refresh - M" fillcolor="#D4E8F7" penwidth=1]
     cool_ideas_SURFACE_git_graft_enhance_expanded_git_subcommands [label="SURFACE-git-graft-enhance-expanded-git-subcommands" fillcolor="#D4E8F7" penwidth=1]
@@ -107,6 +124,7 @@ digraph backlog {
     cool_ideas_SURFACE_non_codex_instruction_bootstrap_parity [label="SURFACE-non-codex-instruction-bootstrap-parity - M" fillcolor="#D4E8F7" penwidth=1]
     cool_ideas_SURFACE_offer_rename_refactor [label="SURFACE-offer-rename-refactor - L" fillcolor="#D4E8F7" penwidth=1]
     cool_ideas_SURFACE_opened_workspace_paths [label="SURFACE-opened-workspace-paths - M" fillcolor="#D4E8F7" penwidth=1]
+    cool_ideas_SURFACE_pr_merge_gate_sitrep_command [label="SURFACE-pr-merge-gate-sitrep-command - M" fillcolor="#D4E8F7" penwidth=1]
     cool_ideas_SURFACE_terminal_activity_browser_tui [label="SURFACE-terminal-activity-browser-tui - L" fillcolor="#D4E8F7" penwidth=1]
     cool_ideas_traverse_plus_query_hydration_helper [label="traverse-plus-query-hydration-helper - S" fillcolor="#D4E8F7" penwidth=1]
     cool_ideas_WARP_adaptive_projection_selection [label="WARP-adaptive-projection-selection - L" fillcolor="#D4E8F7" penwidth=1]
