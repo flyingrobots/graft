@@ -33,6 +33,9 @@ in the schema-backed model that later storage work must preserve.
 ## Design Packet
 
 Primary design packet:
+[`docs/design/CORE_structural-history-evidence-label-alignment.md`](../../../design/CORE_structural-history-evidence-label-alignment.md)
+
+Parent design packet:
 [`docs/design/CORE_graft-echo-typescript-integration-requirements.md`](../../../design/CORE_graft-echo-typescript-integration-requirements.md)
 
 Related migration card:

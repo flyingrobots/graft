@@ -55,6 +55,7 @@ function translatedGitWarpEvidence(
 ): TranslatedSubstrateEvidence {
   return {
     kind: "translated-substrate",
+    evidenceLabel: "fallback-translated",
     substrate: "git-warp",
     basis: {
       kind: "git-committed-history",

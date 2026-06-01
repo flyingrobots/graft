@@ -50,6 +50,7 @@ describe("git-warp structural reading adapter", () => {
       residualPosture: "complete",
       evidence: {
         kind: "translated-substrate",
+        evidenceLabel: "fallback-translated",
         substrate: "git-warp",
         nativeContinuumWitness: false,
         basis: {
@@ -98,6 +99,7 @@ describe("git-warp structural reading adapter", () => {
     });
     expect(reading.evidence).toMatchObject({
       kind: "translated-substrate",
+      evidenceLabel: "fallback-translated",
       substrate: "git-warp",
       nativeContinuumWitness: false,
       evidence: {
@@ -138,6 +140,7 @@ describe("git-warp structural reading adapter", () => {
     expect(reading.residualPosture).toBe("partial");
     expect(reading.evidence).toMatchObject({
       kind: "translated-substrate",
+      evidenceLabel: "fallback-translated",
       substrate: "git-warp",
       nativeContinuumWitness: false,
       evidence: {
@@ -188,6 +191,7 @@ describe("git-warp structural reading adapter", () => {
       residualPosture: "complete",
       evidence: {
         kind: "translated-substrate",
+        evidenceLabel: "fallback-translated",
         substrate: "git-warp",
         nativeContinuumWitness: false,
         evidence: {
