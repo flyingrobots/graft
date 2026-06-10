@@ -169,12 +169,18 @@ function throwWireError(code: number, message: string): never {
 export function createEchoStructuralHistoryClient(
   transport: EchoKernelTransport,
 ): EchoStructuralHistoryClient {
-  function observe(operationName: string, vars: CborValue): Record<string, CborValue> {
-    const response = decodeStructuralHistoryObserveResponse(
+  async function observe(
+    operationName: string,
+    vars: CborValue,
+  ): Promise<Record<string, CborValue>> {
+    // The transport seam is synchronous today; awaiting keeps the client
+    // contract stable when a daemon-bridged async kernel replaces the fake.
+    const responseBytes = await Promise.resolve(
       transport.observeBytes(
         encodeStructuralHistoryObserveRequest({ operationName, vars }),
       ),
     );
+    const response = decodeStructuralHistoryObserveResponse(responseBytes);
     if (!response.ok) {
       throwWireError(response.code, response.message);
     }
@@ -182,35 +188,41 @@ export function createEchoStructuralHistoryClient(
   }
 
   return {
-    recordGitWarpImportBatch(vars) {
+    async recordGitWarpImportBatch(vars) {
       const envelope = packStructuralHistoryIntentV1(
         OP_RECORD_GIT_WARP_IMPORT_BATCH,
         encodeRecordGitWarpImportBatchVars(vars),
       );
-      const response = decodeStructuralHistoryIntentResponse(
+      const responseBytes = await Promise.resolve(
         transport.submitIntentBytes(envelope),
       );
+      const response = decodeStructuralHistoryIntentResponse(responseBytes);
       if (!response.ok) {
         throwWireError(response.code, response.message);
       }
-      return Promise.resolve({
+      return {
         submissionId: asString(response.fields["submissionId"] ?? null, "submissionId"),
-      });
+      };
     },
 
-    observeIntentOutcome(submissionId) {
-      const fields = observe(STRUCTURAL_HISTORY_OBSERVE_OPERATIONS.intentOutcome, { submissionId });
-      return Promise.resolve(parseOutcome(fields["outcome"] ?? null));
+    async observeIntentOutcome(submissionId) {
+      const fields = await observe(STRUCTURAL_HISTORY_OBSERVE_OPERATIONS.intentOutcome, { submissionId });
+      return parseOutcome(fields["outcome"] ?? null);
     },
 
-    observeStructuralReadings(request) {
-      const fields = observe(STRUCTURAL_HISTORY_OBSERVE_OPERATIONS.structuralReadings, {
+    async observeStructuralReadings(request) {
+      const fields = await observe(STRUCTURAL_HISTORY_OBSERVE_OPERATIONS.structuralReadings, {
         basisId: request.basisId,
         readingKind: request.readingKind ?? null,
       });
       const rawReadings = fields["readings"] ?? null;
+      if (!isCborArray(rawReadings)) {
+        throw new EchoEnvelopeCodecError(
+          "structural readings response is missing its readings array",
+        );
+      }
       const readings: EchoStructuralReadingRecord[] = [];
-      if (isCborArray(rawReadings)) {
+      {
         for (const raw of rawReadings) {
           const record = asRecord(raw, "structural reading");
           const evidence = asRecord(record["evidence"] ?? null, "reading evidence");
@@ -228,21 +240,21 @@ export function createEchoStructuralHistoryClient(
         }
       }
       const obstruction = fields["obstruction"];
-      return Promise.resolve({
+      return {
         readings,
         ...(obstruction !== undefined && obstruction !== null
           ? { obstruction: parseObstruction(obstruction) }
           : {}),
-      });
+      };
     },
 
-    inspectRetainedEvidence(request) {
-      const fields = observe(STRUCTURAL_HISTORY_OBSERVE_OPERATIONS.retainedEvidencePosture, { basisId: request.basisId });
+    async inspectRetainedEvidence(request) {
+      const fields = await observe(STRUCTURAL_HISTORY_OBSERVE_OPERATIONS.retainedEvidencePosture, { basisId: request.basisId });
       const posture = asString(fields["posture"] ?? null, "retained evidence posture");
       if (posture !== "retained" && posture !== "missing" && posture !== "obstructed") {
         throw new EchoEnvelopeCodecError(`unknown retained posture: ${posture}`);
       }
-      return Promise.resolve({ posture });
+      return { posture };
     },
   };
 }

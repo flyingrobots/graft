@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { readFileSync } from "node:fs";
 import path from "node:path";
+import { CONTROL_INTENT_V1_OP_ID } from "../../../src/ports/echo-kernel-transport.js";
 import { createFakeEchoKernelTransport } from "../../../src/adapters/fake-echo-kernel-transport.js";
 import { createEchoStructuralHistoryClient } from "../../../src/echo/structural-history-client.js";
 import { createEchoStructuralReadingPort } from "../../../src/echo/structural-reading-adapter.js";
@@ -75,7 +76,6 @@ describe("echo authority boundary", () => {
   it("rejects the reserved control op id at application dispatch", async () => {
     const { packStructuralHistoryIntentV1, decodeStructuralHistoryIntentResponse } =
       await import("../../../src/echo/structural-history-envelope-codec.js");
-    const CONTROL_INTENT_V1_OP_ID = 0xffffffff;
     const transport = createFakeEchoKernelTransport();
     const response = transport.submitIntentBytes(
       packStructuralHistoryIntentV1(CONTROL_INTENT_V1_OP_ID, new Uint8Array(0)),

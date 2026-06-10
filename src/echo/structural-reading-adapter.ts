@@ -146,7 +146,10 @@ export function createEchoStructuralReadingPort(
       const posture = mapPosture(observation.obstruction);
       const record = observation.readings.find((candidate) => {
         const payload = asRecordValue(candidate.payloadJson);
-        return payload["symbol"] === request.symbolName;
+        return (
+          payload["symbol"] === request.symbolName &&
+          payload["filePath"] === request.filePath
+        );
       });
       return {
         kind: "symbol-reference-count",

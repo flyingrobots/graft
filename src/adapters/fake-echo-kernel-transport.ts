@@ -26,6 +26,7 @@ import type { CborValue } from "../echo/canonical-cbor.js";
 import {
   OP_RECORD_GIT_WARP_IMPORT_BATCH,
   decodeRecordGitWarpImportBatchVars,
+  encodeRecordGitWarpImportBatchVars,
 } from "../generated/graft-structural-history.codec.generated.js";
 import { CodecError } from "../echo/codec-runtime.js";
 
@@ -75,6 +76,18 @@ interface FakeReadingRecord {
   readonly readingId: string;
   readonly readingKind: string;
   readonly payloadJson: CborValue;
+}
+
+function bytesEqual(a: Uint8Array, b: Uint8Array): boolean {
+  if (a.byteLength !== b.byteLength) {
+    return false;
+  }
+  for (let i = 0; i < a.byteLength; i += 1) {
+    if (a[i] !== b[i]) {
+      return false;
+    }
+  }
+  return true;
 }
 
 function submissionIdFor(envelope: Uint8Array): string {
@@ -145,6 +158,14 @@ export function createFakeEchoKernelTransport(
       }
       throw error;
     }
+    // The generated decoder does not reject trailing bytes (Wesley emitter
+    // gap, filed upstream); canonical re-encode equality is the backstop.
+    if (!bytesEqual(encodeRecordGitWarpImportBatchVars(vars), envelope.vars)) {
+      return encodeStructuralHistoryErrorResponse(
+        ABI_ERROR_CODES.CODEC_ERROR,
+        "intent vars carry trailing or non-canonical bytes",
+      );
+    }
     const submissionId = submissionIdFor(intentBytes);
     const receipt: CborValue = {
       submissionId,
@@ -196,6 +217,17 @@ export function createFakeEchoKernelTransport(
       });
     }
     if (request.operationName === STRUCTURAL_HISTORY_OBSERVE_OPERATIONS.structuralReadings) {
+      const requestedBasis =
+        typeof vars["basisId"] === "string" ? vars["basisId"] : basisId;
+      if (requestedBasis !== basisId) {
+        return encodeStructuralHistoryOkResponse({
+          readings: [],
+          obstruction: {
+            code: "MISSING_RETENTION",
+            message: `basis ${requestedBasis} is not retained by this kernel`,
+          },
+        });
+      }
       const readingKind = typeof vars["readingKind"] === "string" ? vars["readingKind"] : null;
       const obstruction = fixture.queryObstruction;
       const suppressReadings =
