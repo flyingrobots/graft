@@ -9,6 +9,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ### Added
 
+- **Fake Echo-shaped TypeScript witness**: Graft proves its Echo-facing seam
+  before any real Echo runtime exists. The canonical schema gains its first
+  Intent (`recordGitWarpImportBatch`), Wesley 0.0.5 emits LE-binary var
+  codecs (`src/generated/graft-structural-history.codec.generated.ts`), and
+  a new app-safe stack — `EchoKernelTransport` byte seam, EINT v1 +
+  canonical-CBOR envelope codec, typed structural-history client, and an
+  Echo-backed `StructuralReadingPort` adapter mapping Echo's
+  `ContractObstructionKind` taxonomy into Graft freshness/residual posture —
+  is exercised end to end by a deterministic fake transport. The fake
+  mirrors Echo's wire-level authority enforcement (`FORBIDDEN_CONTROL_INTENT`
+  for the reserved control op id), and guard tests keep the Echo adapter out
+  of production contexts. No public surface changes.
 - **Structural-history Echo package descriptor**: Graft now carries a
   deterministic descriptor for the structural-history package it expects Echo
   to host later, with repo-root-relative schema and generated-artifact

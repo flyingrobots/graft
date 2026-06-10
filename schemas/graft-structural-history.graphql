@@ -271,6 +271,22 @@ type Query {
     @wes_footprint(reads: ["GitWarpImportBatch"])
 }
 
+input RecordGitWarpImportBatchInput {
+  importBatchId: ID!
+  repositoryId: ID!
+  sourceRef: String!
+  importedBasisId: ID!
+  parity: MigrationParityStatus!
+  importedReadingCount: Int!
+  summary: String!
+}
+
+type Mutation {
+  recordGitWarpImportBatch(input: RecordGitWarpImportBatchInput!): GitWarpImportBatch!
+    @wes_op(name: "recordGitWarpImportBatch")
+    @wes_footprint(reads: ["GitWarpImportBatch"], creates: ["GitWarpImportBatch", "StructuralBasis"])
+}
+
 type GraftStructuralHistoryInvariants
   @wes_invariant(
     name: "fallback_translated_is_not_native_continuum",

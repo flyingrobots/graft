@@ -119,23 +119,22 @@ Echo integration gate after generated-model parity is proven.
    regenerate-and-diff CI validation for
    `schemas/graft-structural-history.graphql` -> generated artifacts.
 
-2. **Slice 1 — Evidence label alignment**
-   Pull
-   [`CORE_structural-history-evidence-label-alignment`](./method/backlog/asap/CORE_structural-history-evidence-label-alignment.md):
-   establish `echo-native`, `git-warp-imported`, and
+2. **Slice 1 — Evidence label alignment** (shipped, PR #64)
+   [`CORE_structural-history-evidence-label-alignment`](./method/backlog/asap/CORE_structural-history-evidence-label-alignment.md)
+   established `echo-native`, `git-warp-imported`, and
    `fallback-translated` evidence posture before runtime migration.
 
-3. **Slice 2 — Echo package descriptor**
-   Pull
-   [`CORE_graft-structural-history-echo-package-descriptor`](./method/backlog/asap/CORE_graft-structural-history-echo-package-descriptor.md):
-   define the deterministic structural-history package descriptor Graft
+3. **Slice 2 — Echo package descriptor** (shipped, PR #65)
+   [`CORE_graft-structural-history-echo-package-descriptor`](./method/graveyard/CORE_graft-structural-history-echo-package-descriptor.md)
+   defined the deterministic structural-history package descriptor Graft
    expects Echo to install later.
 
-4. **Slice 3 — Fake Echo-shaped TypeScript witness**
-   Pull
-   [`CORE_graft-fake-echo-shaped-typescript-witness`](./method/backlog/asap/CORE_graft-fake-echo-shaped-typescript-witness.md):
-   prove the Graft-side app-safe Echo seam with a deterministic fake before
-   depending on a real Echo runtime.
+4. **Slice 3 — Fake Echo-shaped TypeScript witness** (shipped; design
+   packet
+   [`CORE_graft-fake-echo-shaped-typescript-witness`](./design/CORE_graft-fake-echo-shaped-typescript-witness.md))
+   proved the Graft-side app-safe Echo seam — kernel transport port,
+   Wesley-generated LE codecs, typed client, Echo-backed reading adapter —
+   against a deterministic fake, with authority-boundary guards.
 
 5. **Slice 4 — StructuralReadingPort generated-model parity**
    Pull
