@@ -1,12 +1,12 @@
+---
+title: "Graft fake Echo-shaped TypeScript witness"
+kind: design-packet
+status: active
+source_card: docs/method/backlog/asap/CORE_graft-fake-echo-shaped-typescript-witness.md
+parent_design: docs/design/CORE_graft-echo-typescript-integration-requirements.md
+---
+
 # Graft Fake Echo-Shaped TypeScript Witness
-
-Status: active implementation packet.
-
-Source card:
-[`docs/method/backlog/asap/CORE_graft-fake-echo-shaped-typescript-witness.md`](../method/backlog/asap/CORE_graft-fake-echo-shaped-typescript-witness.md)
-
-Parent design:
-[`docs/design/CORE_graft-echo-typescript-integration-requirements.md`](CORE_graft-echo-typescript-integration-requirements.md)
 
 ## Hill
 
