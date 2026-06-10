@@ -77,7 +77,7 @@ git-warp-imported batch of structural facts. Schema authority is Graft-owned
 | Piece | Location | Role |
 | :--- | :--- | :--- |
 | Kernel transport port | `src/ports/echo-kernel-transport.ts` | Byte seam: `kernelInfo()`, `submitIntentBytes(Uint8Array): Uint8Array`, `observeBytes(Uint8Array): Uint8Array`. The swap point between fake and real Echo. |
-| Generated codecs | `src/generated/graft-structural-history.codec.generated.ts` | Wesley 0.0.4 `le-binary` TypeScript emitter output for Graft's schema: per-operation var encoders/decoders and `OP_*` ids, wire-compatible with Rust `echo_wasm_abi::codec` (proven by jedit's `rope.codec.generated.ts`). |
+| Generated codecs | `src/generated/graft-structural-history.codec.generated.ts` | Wesley 0.0.4 `le-binary` TypeScript emitter output (`crates/wesley-emit-typescript/src/le_binary.rs`) for Graft's schema: per-operation var encoders/decoders and `OP_*` ids, wire-compatible with Rust `echo_wasm_abi::codec` (proven by jedit's `rope.codec.generated.ts`). `OP_*` identity is Wesley's pinned FNV-1a `stable_op_id`, so submission identity derives from op id + canonical var bytes rather than anything hand-assigned. |
 | Codec runtime | `src/echo/codec-runtime.ts` | `Writer`/`Reader`/`CodecError` runtime the generated codecs import, mirrored from jedit's `src/codec.ts`. |
 | Envelope codec | `src/echo/structural-history-envelope-codec.ts` | Thin envelope packing (`packIntentV1(opId, encodedVars)`-style) and discriminated-union response decode over the generated codecs. No hand-authored field encoding. |
 | Typed client | `src/echo/structural-history-client.ts` | `createEchoStructuralHistoryClient(transport)`: `recordGitWarpImportBatch(...)`, `structuralReadings(...)`, `structuralReadingEvidence(...)` built from generated operation objects; throws typed obstruction error on `OBSTRUCTED` status. |
@@ -124,6 +124,9 @@ durability claim is made anywhere.
 - Do not replace git-warp-backed behavior in public surfaces or wire the Echo
   adapter into production contexts.
 - Do not build git-warp vs generated-model parity fixtures (slice 4).
+- Do not author a `weslaw/v1` semantic law document for structural history in
+  this slice; footprint law and contract-bundle manifests belong at the Echo
+  integration gate (filed separately as planning work).
 
 ## Test Plan
 
@@ -146,7 +149,8 @@ durability claim is made anywhere.
      schema-artifact gate (`pnpm schema:structural-history:check`), so drift
      between schema and codecs fails CI.
 3. **Submit/observe intent flow** (`recordGitWarpImportBatch`)
-   - Same canonical intent bytes → same stable submission identity.
+   - Same canonical intent bytes → same stable submission identity, derived
+     from Wesley's `stable_op_id` plus encoded var bytes.
    - Applied outcome carries receipt evidence; rejected outcome carries a
      typed reason and receipt; unknown submission id → typed `unknown`
      outcome, not a throw.
