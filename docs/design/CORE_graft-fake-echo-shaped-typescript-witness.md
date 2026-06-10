@@ -198,6 +198,37 @@ durability claim is made anywhere.
 4. Can a reviewer prove from tests alone that no trusted-host authority leaks
    into the app-facing surfaces?
 
+## Playback Answers (GREEN landed at 25cc6943)
+
+1. **Yes, and it is small.** Three transport methods, one declared intent,
+   and three observe operations (`intentOutcome`, `structuralReadings`,
+   `retainedEvidencePosture`). One honest caveat: the latter two observe
+   operations are envelope-level conventions, not schema-declared queries —
+   bounded observation with explicit basis/aperture/budgets/rights waits on
+   observer-plan generation, already filed as
+   `CORE_wesley-codec-and-observer-plan-generation-for-structural-history`.
+2. **Yes.** The swap point is the three-method `EchoKernelTransport`; the
+   proxy-witness test proves the entire stack above it touches nothing else.
+   The typed client, adapter, and `StructuralReadingPort` consumers are
+   transport-agnostic by construction.
+3. **Yes.** Gaps land as generic needs: Wesley codec/observer-plan pipeline
+   wiring and weslaw law binding (cool-ideas cards), and the Echo-side
+   app-safe TypeScript client remains the parent design's suggested
+   `PLATFORM_graft-app-safe-typescript-client`. No Graft nouns were pushed
+   toward Echo; the fake speaks only schema-declared structural-history
+   shapes.
+4. **Yes, from four tests:** forbidden-member absence on transport and
+   client, the recording-proxy transport witness, the wire-level
+   `FORBIDDEN_CONTROL_INTENT` rejection of the reserved control op id, and
+   the production-context import guard.
+
+Open-question resolutions: (1) schema intent — shipped in this slice;
+(2) codecs — Wesley 0.0.5 `le-binary` emitter, no hand-rolled stand-in;
+(3) evidence shape — Echo-native shape emitted in test space, production
+wiring barred by guard test; (4) envelope version (EINT v1 vs session-proto
+v2) — deliberately open until the integration gate; the transport port hides
+the choice.
+
 ## Open Questions
 
 1. Is adding the `recordGitWarpImportBatch` intent to the canonical schema in
