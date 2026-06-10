@@ -77,7 +77,9 @@ git-warp-imported batch of structural facts. Schema authority is Graft-owned
 | Piece | Location | Role |
 | :--- | :--- | :--- |
 | Kernel transport port | `src/ports/echo-kernel-transport.ts` | Byte seam: `kernelInfo()`, `submitIntentBytes(Uint8Array): Uint8Array`, `observeBytes(Uint8Array): Uint8Array`. The swap point between fake and real Echo. |
-| Envelope codec | `src/echo/structural-history-envelope-codec.ts` | Deterministic canonical-JSON envelope encode/decode for intents, observe requests, and discriminated-union responses (`graft-structural-history-json-v1`). LE binary codecs deferred to Wesley codegen. |
+| Generated codecs | `src/generated/graft-structural-history.codec.generated.ts` | Wesley 0.0.4 `le-binary` TypeScript emitter output for Graft's schema: per-operation var encoders/decoders and `OP_*` ids, wire-compatible with Rust `echo_wasm_abi::codec` (proven by jedit's `rope.codec.generated.ts`). |
+| Codec runtime | `src/echo/codec-runtime.ts` | `Writer`/`Reader`/`CodecError` runtime the generated codecs import, mirrored from jedit's `src/codec.ts`. |
+| Envelope codec | `src/echo/structural-history-envelope-codec.ts` | Thin envelope packing (`packIntentV1(opId, encodedVars)`-style) and discriminated-union response decode over the generated codecs. No hand-authored field encoding. |
 | Typed client | `src/echo/structural-history-client.ts` | `createEchoStructuralHistoryClient(transport)`: `recordGitWarpImportBatch(...)`, `structuralReadings(...)`, `structuralReadingEvidence(...)` built from generated operation objects; throws typed obstruction error on `OBSTRUCTED` status. |
 | Fake transport | `src/adapters/fake-echo-kernel-transport.ts` | Deterministic in-memory store seeded from fixtures; decodes envelopes, executes, encodes responses; produces typed obstructions on demand. |
 | Echo reading adapter | `src/echo/structural-reading-adapter.ts` | `createEchoStructuralReadingPort(client)` implementing `StructuralReadingPort`, sibling to `src/warp/structural-reading-adapter.ts`. |
@@ -117,8 +119,8 @@ durability claim is made anywhere.
 - Do not require Rust bindings, WASM kernels, or a real Echo daemon.
 - Do not implement package installation; the descriptor (slice 2) and a
   future installer remain trusted-host scope.
-- Do not hand-author LE binary codecs; the JSON-v1 envelope codec is the
-  deterministic stand-in until Wesley emits codecs for Graft.
+- Do not hand-author field-level codecs; all wire encoding comes from the
+  Wesley `le-binary` emitter plus the shared codec runtime.
 - Do not replace git-warp-backed behavior in public surfaces or wire the Echo
   adapter into production contexts.
 - Do not build git-warp vs generated-model parity fixtures (slice 4).
@@ -134,11 +136,15 @@ durability claim is made anywhere.
      both port flows, assert only the three declared members were touched.
    - Production-context guard: no `src/mcp/*context*.ts` module imports the
      Echo adapter, typed client, or fake transport.
-2. **Envelope codec**
-   - Intent and observe envelopes round-trip (encode → decode → deep-equal).
-   - Encoding is canonical: same logical envelope → identical bytes.
-   - Malformed bytes decode to a typed codec obstruction, not a throw from
-     JSON internals.
+2. **Codecs and envelopes**
+   - Generated var codecs round-trip (encode → decode → deep-equal) for the
+     intent and each query operation.
+   - Encoding is deterministic: same logical envelope → identical bytes.
+   - Malformed bytes surface as `CodecError` mapped to a typed codec
+     obstruction, never a raw runtime throw.
+   - The generated codec file is checked by the existing hermetic
+     schema-artifact gate (`pnpm schema:structural-history:check`), so drift
+     between schema and codecs fails CI.
 3. **Submit/observe intent flow** (`recordGitWarpImportBatch`)
    - Same canonical intent bytes → same stable submission identity.
    - Applied outcome carries receipt evidence; rejected outcome carries a
@@ -177,10 +183,12 @@ durability claim is made anywhere.
    schema slice? Recommendation: add it here — the canonical pattern requires
    a declared intent for the submit witness, and schema authority is already
    Graft-owned.
-2. Is the canonical-JSON `graft-structural-history-json-v1` envelope codec an
-   acceptable deterministic stand-in until Wesley emits codecs for Graft
-   (jedit's codec id is likewise `...-json-v1`)? Recommendation: yes, and
-   file the Wesley codec generation gap as explicit planning work.
+2. Resolved during playback: Wesley 0.0.4 (Graft's pinned version) already
+   emits LE-binary TypeScript codecs wire-compatible with Rust
+   `echo_wasm_abi::codec`, proven by jedit's `rope.codec.generated.ts`. The
+   witness uses generated codecs; no hand-rolled stand-in. Residual risk: if
+   the emitter rejects a construct in Graft's schema, that gap gets filed as
+   planning work rather than worked around by hand.
 3. Is emitting `ContinuumNativeEvidence` from the fake-backed adapter in test
    space acceptable, or should a distinct fake-witness evidence marker exist?
    Recommendation: emit the Echo-native shape, keep the adapter out of

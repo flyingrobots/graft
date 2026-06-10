@@ -1,5 +1,5 @@
 ---
-title: "Wesley codec and observer-plan generation for structural history"
+title: "Wesley codec pipeline wiring and observer-plan generation for structural history"
 feature: core
 kind: architecture
 legend: CORE
@@ -10,37 +10,40 @@ status: open
 reported: 2026-06-10
 ---
 
-# Wesley codec and observer-plan generation for structural history
+# Wesley codec pipeline wiring and observer-plan generation for structural history
 
 ## Context
 
-Jedit's Echo integration consumes four Wesley-generated artifact kinds: types,
-operation objects, binary/JSON codecs, and observer plans. Graft's generated
-structural-history model (`src/generated/graft-structural-history.ts`)
-currently has only types and operation objects. The fake Echo witness slice
-bridges the gap with a hand-rolled canonical-JSON envelope codec
-(`graft-structural-history-json-v1`) and no observer plans.
+Wesley 0.0.4 (Graft's pinned CLI version) emits LE-binary TypeScript codecs
+wire-compatible with Rust `echo_wasm_abi::codec` — jedit's
+`rope.codec.generated.ts` proves it. The fake Echo witness slice generates
+codecs for Graft's structural-history schema as part of its build. What jedit
+has that Graft still lacks after that slice:
+
+- observer plans (`*.observer-plan.generated.ts`) giving bounded reads
+  explicit aperture, basis, budgets, and rights;
+- first-class codec emission in the recurring schema pipeline
+  (`pnpm schema:structural-history:check` and the gen scripts), not just a
+  one-time generation;
+- zod schema emission (`host-node zod`) for runtime shape validation, which
+  would also serve the descriptor-checker validation gap
+  (`CLEAN_descriptor-checker-lacks-schema-validation`).
 
 ## Idea
 
-Before (or at) the real Echo integration gate, extend Graft's Wesley pipeline
-to emit:
-
-- envelope codecs (LE binary and/or JSON) for structural-history intents and
-  observe requests, replacing the hand-rolled JSON-v1 codec;
-- observer plans for the structural-history queries, so bounded reads carry
-  explicit aperture, basis, budgets, and rights the way jedit's
-  `*.observer-plan.generated.ts` artifacts do.
+Bring Graft's Wesley invocation to parity with jedit's generator matrix:
+typescript operations, le-binary codecs, zod schemas, and observer plans, all
+under the existing hermetic version/hash gate.
 
 ## Why it matters
 
-The hand-rolled codec is a witness-grade stand-in. Real Echo package
-compatibility wants generated codecs whose identity is captured in the
-contract package descriptor, and observer plans are how Echo bounds reads —
-Graft's read-governance story should ride that, not bypass it.
+Observer plans are how Echo bounds reads — Graft's read-governance story
+should ride that mechanism, not bypass it. Codec identity belongs in the
+contract package descriptor, which wants codecs to be a stable, gated
+pipeline output.
 
 ## First step
 
-Compare jedit's Wesley invocation/config with Graft's schema build
-(`pnpm schema check` pipeline) and list what generator features Graft is not
-yet using.
+Diff jedit's `scripts/run-wesley-tool.mjs` / `gen:contract:*` scripts against
+Graft's `scripts/check-structural-history-schema-artifacts.ts` and list the
+emitters Graft is not yet invoking.
