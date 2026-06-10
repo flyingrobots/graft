@@ -5,6 +5,10 @@ status: active
 source_card: docs/method/backlog/asap/CORE_graft-fake-echo-shaped-typescript-witness.md
 parent_design: docs/design/CORE_graft-echo-typescript-integration-requirements.md
 reference_implementation: ~/git/jedit (Echo/Wesley contract-host consumer)
+authoritative_contract:
+  - ~/git/echo docs/quickstart-local-contract-host.md (app vs trusted-host surface)
+  - ~/git/echo docs/spec/SPEC-0009-wasm-abi-v3.md (EINT v1, CBOR wire envelope, error codes)
+  - ~/git/echo crates/warp-core/src/contract_obstruction.rs (ContractObstructionKind)
 ---
 
 # Graft Fake Echo-Shaped TypeScript Witness
@@ -57,8 +61,13 @@ git-warp-imported batch of structural facts. Schema authority is Graft-owned
 
 - Graft has a byte-level Echo kernel transport port
   (`kernelInfo`, `submitIntentBytes`, `observeBytes`) exposing no trusted-host
-  authority: no tick/scheduler control, no runtime lifecycle, no package
-  installation, no WAL or kernel mutation.
+  authority (per Echo's quickstart boundary): no package installation, no
+  ticketed runtime ingress staging, no `super_tick`, no scheduler pass or
+  run-until-idle control, no scheduler fault recovery, no WAL or kernel
+  mutation.
+- The fake transport mirrors Echo's wire-level enforcement: the reserved
+  control op id (`0xFFFFFFFF`, `CONTROL_INTENT_V1_OP_ID`) submitted through
+  application dispatch fails with ABI error 19 `FORBIDDEN_CONTROL_INTENT`.
 - A typed structural-history client rides the transport using the generated
   operation objects and a deterministic envelope codec.
 - The canonical schema declares the `recordGitWarpImportBatch` intent and the
@@ -79,28 +88,34 @@ git-warp-imported batch of structural facts. Schema authority is Graft-owned
 | Kernel transport port | `src/ports/echo-kernel-transport.ts` | Byte seam: `kernelInfo()`, `submitIntentBytes(Uint8Array): Uint8Array`, `observeBytes(Uint8Array): Uint8Array`. The swap point between fake and real Echo. |
 | Generated codecs | `src/generated/graft-structural-history.codec.generated.ts` | Wesley 0.0.4 `le-binary` TypeScript emitter output (`crates/wesley-emit-typescript/src/le_binary.rs`) for Graft's schema: per-operation var encoders/decoders and `OP_*` ids, wire-compatible with Rust `echo_wasm_abi::codec` (proven by jedit's `rope.codec.generated.ts`). `OP_*` identity is Wesley's pinned FNV-1a `stable_op_id`, so submission identity derives from op id + canonical var bytes rather than anything hand-assigned. |
 | Codec runtime | `src/echo/codec-runtime.ts` | `Writer`/`Reader`/`CodecError` runtime the generated codecs import, mirrored from jedit's `src/codec.ts`. |
-| Envelope codec | `src/echo/structural-history-envelope-codec.ts` | Thin envelope packing (`packIntentV1(opId, encodedVars)`-style) and discriminated-union response decode over the generated codecs. No hand-authored field encoding. |
+| Envelope codec | `src/echo/structural-history-envelope-codec.ts` | EINT v1 packing per SPEC-0009 ABI v3: `"EINT"` magic + `op_id` (u32 LE) + `vars_len` (u32 LE) + vars bytes. Response decode follows the canonical-CBOR wire envelope (`{ok: true, …}` / `{ok: false, code, message}`, `docs/spec/js-cbor-mapping.md` rules). No hand-authored field encoding for vars. |
 | Typed client | `src/echo/structural-history-client.ts` | `createEchoStructuralHistoryClient(transport)`: `recordGitWarpImportBatch(...)`, `structuralReadings(...)`, `structuralReadingEvidence(...)` built from generated operation objects; throws typed obstruction error on `OBSTRUCTED` status. |
 | Fake transport | `src/adapters/fake-echo-kernel-transport.ts` | Deterministic in-memory store seeded from fixtures; decodes envelopes, executes, encodes responses; produces typed obstructions on demand. |
 | Echo reading adapter | `src/echo/structural-reading-adapter.ts` | `createEchoStructuralReadingPort(client)` implementing `StructuralReadingPort`, sibling to `src/warp/structural-reading-adapter.ts`. |
 
 ## Obstruction → Posture Mapping
 
-Obstructions carry `{ code, message, recovery? }`; the adapter branches on
-`code`:
+The taxonomy is Echo's, not ours: `ContractObstructionKind` in
+`crates/warp-core/src/contract_obstruction.rs` (eight variants) plus the ABI
+v3 error codes in `docs/spec/SPEC-0009-wasm-abi-v3.md`. Obstructions carry
+`{ code, message, recovery? }`; the adapter branches on `code`:
 
-| Obstruction code | Freshness | Residual posture |
+| Obstruction code (source) | Freshness | Residual posture |
 | :--- | :--- | :--- |
 | (successful reading) | `current` | `complete` |
-| `STALE_BASIS` | `stale` | `complete` |
-| `BUDGET_EXCEEDED` | `current` | `budget-limited` |
-| `RIGHTS_LIMITED` | `current` | `rights-limited` |
-| `MISSING_RETENTION` | `incomparable` | `unavailable` |
+| `STALE_BASIS` (`StaleBasis`) | `stale` | `complete` |
+| `BUDGET_EXCEEDED` (`BudgetExceeded`; ABI 18 `OBSERVATION_BUDGET_EXCEEDED`) | `current` | `budget-limited` |
+| `UNSUPPORTED_OBSERVATION_RIGHTS` (ABI 17) | `current` | `rights-limited` |
+| `MISSING_RETENTION` (`MissingRetention`) | `incomparable` | `unavailable` |
+| `RESIDUAL_READING` (`ResidualReading`) | `current` | `partial` |
+| `ADMISSION_OBSTRUCTION` (`AdmissionObstruction`) | intent outcome `obstructed` at admission; not a reading posture | — |
 | `UNSUPPORTED_OPERATION`, `UNSUPPORTED_QUERY`, `RUNTIME_FAULT` | typed Graft error (`EchoSubstrateObstructionError`); never a silent empty payload, never a raw substrate error | — |
 
 Runtime faults remain distinguishable from lawful rejections: a rejected
 intent is an `ok`-status response with a rejection outcome and receipt
-evidence; a fault is an `OBSTRUCTED` response.
+evidence; a fault is an `ok: false` envelope. Per Echo's retention boundary
+doctrine (quickstart): "missing retained material is an obstruction, not an
+empty successful reading."
 
 ## Evidence Posture Decision
 

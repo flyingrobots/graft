@@ -33,14 +33,21 @@ describe("structural history codecs", () => {
     expect(Buffer.from(first).equals(Buffer.from(second))).toBe(true);
   });
 
-  it("packs intent envelopes around the stable op id", () => {
+  it("packs EINT v1 envelopes per SPEC-0009 ABI v3", () => {
     const vars = encodeRecordGitWarpImportBatchVars(IMPORT_BATCH_VARS);
     const envelope = packStructuralHistoryIntentV1(
       OP_RECORD_GIT_WARP_IMPORT_BATCH,
       vars,
     );
-    expect(envelope).toBeInstanceOf(Uint8Array);
-    expect(envelope.byteLength).toBeGreaterThan(vars.byteLength);
+    const view = new DataView(
+      envelope.buffer,
+      envelope.byteOffset,
+      envelope.byteLength,
+    );
+    expect(Buffer.from(envelope.slice(0, 4)).toString("ascii")).toBe("EINT");
+    expect(view.getUint32(4, true)).toBe(OP_RECORD_GIT_WARP_IMPORT_BATCH);
+    expect(view.getUint32(8, true)).toBe(vars.byteLength);
+    expect(envelope.byteLength).toBe(12 + vars.byteLength);
   });
 
   it("round-trips observe requests", () => {

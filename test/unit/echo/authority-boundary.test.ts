@@ -72,6 +72,22 @@ describe("echo authority boundary", () => {
     }
   });
 
+  it("rejects the reserved control op id at application dispatch", async () => {
+    const { packStructuralHistoryIntentV1, decodeStructuralHistoryIntentResponse } =
+      await import("../../../src/echo/structural-history-envelope-codec.js");
+    const CONTROL_INTENT_V1_OP_ID = 0xffffffff;
+    const transport = createFakeEchoKernelTransport();
+    const response = transport.submitIntentBytes(
+      packStructuralHistoryIntentV1(CONTROL_INTENT_V1_OP_ID, new Uint8Array(0)),
+    );
+    const decoded = decodeStructuralHistoryIntentResponse(response);
+    expect(decoded.ok).toBe(false);
+    if (!decoded.ok) {
+      // ABI v3 error 19: FORBIDDEN_CONTROL_INTENT
+      expect(decoded.code).toBe(19);
+    }
+  });
+
   it("keeps the echo adapter out of production contexts", () => {
     const productionContexts = [
       "src/mcp/server-context.ts",

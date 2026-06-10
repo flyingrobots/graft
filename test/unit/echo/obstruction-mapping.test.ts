@@ -32,8 +32,10 @@ describe("obstruction to posture mapping", () => {
     expect(reading.residualPosture).toBe("budget-limited");
   });
 
-  it("maps RIGHTS_LIMITED to current/rights-limited", async () => {
-    const reading = await portWithObstruction("RIGHTS_LIMITED").findDeadSymbols({});
+  it("maps UNSUPPORTED_OBSERVATION_RIGHTS to current/rights-limited", async () => {
+    const reading = await portWithObstruction(
+      "UNSUPPORTED_OBSERVATION_RIGHTS",
+    ).findDeadSymbols({});
     expect(reading.freshness).toBe("current");
     expect(reading.residualPosture).toBe("rights-limited");
   });
@@ -42,6 +44,33 @@ describe("obstruction to posture mapping", () => {
     const reading = await portWithObstruction("MISSING_RETENTION").findDeadSymbols({});
     expect(reading.freshness).toBe("incomparable");
     expect(reading.residualPosture).toBe("unavailable");
+  });
+
+  it("maps RESIDUAL_READING to current/partial", async () => {
+    const reading = await portWithObstruction("RESIDUAL_READING").findDeadSymbols({});
+    expect(reading.freshness).toBe("current");
+    expect(reading.residualPosture).toBe("partial");
+  });
+
+  it("surfaces ADMISSION_OBSTRUCTION as an obstructed intent outcome", async () => {
+    const client = createEchoStructuralHistoryClient(
+      createFakeEchoKernelTransport({
+        fixture: { admissionObstructedBatchIds: ["batch-blocked"] },
+      }),
+    );
+    const submitted = await client.recordGitWarpImportBatch({
+      batch: {
+        batchId: "batch-blocked",
+        repositoryId: "repo-graft",
+        parity: "PENDING",
+        facts: [],
+      },
+    });
+    const outcome = await client.observeIntentOutcome(submitted.submissionId);
+    expect(outcome.kind).toBe("obstructed");
+    if (outcome.kind === "obstructed") {
+      expect(outcome.obstruction.code).toBe("ADMISSION_OBSTRUCTION");
+    }
   });
 
   it.each(["UNSUPPORTED_OPERATION", "UNSUPPORTED_QUERY", "RUNTIME_FAULT"])(
