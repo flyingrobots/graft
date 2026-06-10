@@ -6,9 +6,12 @@ source_card: docs/method/backlog/asap/CORE_graft-fake-echo-shaped-typescript-wit
 parent_design: docs/design/CORE_graft-echo-typescript-integration-requirements.md
 reference_implementation: ~/git/jedit (Echo/Wesley contract-host consumer)
 authoritative_contract:
-  - ~/git/echo docs/quickstart-local-contract-host.md (app vs trusted-host surface)
-  - ~/git/echo docs/spec/SPEC-0009-wasm-abi-v3.md (EINT v1, CBOR wire envelope, error codes)
-  - ~/git/echo crates/warp-core/src/contract_obstruction.rs (ContractObstructionKind)
+  # Echo docs validated against live source at echo@2048da5c:
+  - "app surface: docs/quickstart-local-contract-host.md, validated against crates/warp-core/src/trusted_runtime_host.rs#686,740,750@2048da5c (submit_intent / observe_intent_outcome(&Hash) / observe)"
+  - "obstruction taxonomy: crates/warp-core/src/contract_obstruction.rs#17@2048da5c (ContractObstructionKind, 8 variants)"
+  - "ABI error codes: crates/echo-wasm-abi/src/kernel_port.rs#316-320@2048da5c (17/18/19)"
+  - "EINT v1 intake: crates/echo-wasm-abi/src/kernel_port.rs#2687@2048da5c (OpticIntentPayload::EintV1); SPEC-0009 layout confirmed live"
+  - "EINT v2 exists at the session-proto layer only: crates/echo-session-proto/src/eint_v2.rs#3@2048da5c — not ABI v3 application dispatch"
 ---
 
 # Graft Fake Echo-Shaped TypeScript Witness
@@ -86,7 +89,7 @@ git-warp-imported batch of structural facts. Schema authority is Graft-owned
 | Piece | Location | Role |
 | :--- | :--- | :--- |
 | Kernel transport port | `src/ports/echo-kernel-transport.ts` | Byte seam: `kernelInfo()`, `submitIntentBytes(Uint8Array): Uint8Array`, `observeBytes(Uint8Array): Uint8Array`. The swap point between fake and real Echo. |
-| Generated codecs | `src/generated/graft-structural-history.codec.generated.ts` | Wesley 0.0.4 `le-binary` TypeScript emitter output (`crates/wesley-emit-typescript/src/le_binary.rs`) for Graft's schema: per-operation var encoders/decoders and `OP_*` ids, wire-compatible with Rust `echo_wasm_abi::codec` (proven by jedit's `rope.codec.generated.ts`). `OP_*` identity is Wesley's pinned FNV-1a `stable_op_id`, so submission identity derives from op id + canonical var bytes rather than anything hand-assigned. |
+| Generated codecs | `src/generated/graft-structural-history.codec.generated.ts` | Wesley 0.0.4 `le-binary` TypeScript emitter output (`crates/wesley-emit-typescript/src/le_binary.rs`) for Graft's schema: per-operation var encoders/decoders and `OP_*` ids, wire-compatible with Rust `echo_wasm_abi::codec` (proven by jedit's `rope.codec.generated.ts`). `OP_*` identity is Wesley's pinned FNV-1a `stable_op_id`, so submission identity derives from op id + canonical var bytes rather than anything hand-assigned; the submission id itself is a 32-byte hash (hex string in TS), mirroring `observe_intent_outcome(&Hash)` [`crates/warp-core/src/trusted_runtime_host.rs#740@2048da5c`]. |
 | Codec runtime | `src/echo/codec-runtime.ts` | `Writer`/`Reader`/`CodecError` runtime the generated codecs import, mirrored from jedit's `src/codec.ts`. |
 | Envelope codec | `src/echo/structural-history-envelope-codec.ts` | EINT v1 packing per SPEC-0009 ABI v3: `"EINT"` magic + `op_id` (u32 LE) + `vars_len` (u32 LE) + vars bytes. Response decode follows the canonical-CBOR wire envelope (`{ok: true, …}` / `{ok: false, code, message}`, `docs/spec/js-cbor-mapping.md` rules). No hand-authored field encoding for vars. |
 | Typed client | `src/echo/structural-history-client.ts` | `createEchoStructuralHistoryClient(transport)`: `recordGitWarpImportBatch(...)`, `structuralReadings(...)`, `structuralReadingEvidence(...)` built from generated operation objects; throws typed obstruction error on `OBSTRUCTED` status. |
@@ -212,3 +215,10 @@ durability claim is made anywhere.
    space acceptable, or should a distinct fake-witness evidence marker exist?
    Recommendation: emit the Echo-native shape, keep the adapter out of
    production wiring, and enforce that with a guard test.
+4. Which envelope version does the real Graft↔Echo transport use? The fake
+   mirrors WASM ABI v3 application dispatch (EINT v1). EINT v2
+   (`crates/echo-session-proto/src/eint_v2.rs#3@2048da5c`) carries the schema
+   hash in-envelope — a natural fit for descriptor-pinned contracts if the
+   real integration rides the session protocol (Mode B) instead of a WASM
+   kernel (Mode C). Decide at the integration gate; the transport port hides
+   the difference either way.
