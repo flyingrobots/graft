@@ -59,11 +59,14 @@ describe("obstruction to posture mapping", () => {
       }),
     );
     const submitted = await client.recordGitWarpImportBatch({
-      batch: {
-        batchId: "batch-blocked",
+      input: {
+        importBatchId: "batch-blocked",
         repositoryId: "repo-graft",
-        parity: "PENDING",
-        facts: [],
+        sourceRef: "refs/heads/main",
+        importedBasisId: "basis-0001",
+        parity: "NOT_CHECKED",
+        importedReadingCount: 0,
+        summary: "fixture import batch batch-blocked",
       },
     });
     const outcome = await client.observeIntentOutcome(submitted.submissionId);
@@ -91,11 +94,14 @@ describe("obstruction to posture mapping", () => {
       }),
     );
     const submitted = await client.recordGitWarpImportBatch({
-      batch: {
-        batchId: "batch-reject",
+      input: {
+        importBatchId: "batch-reject",
         repositoryId: "repo-graft",
-        parity: "PENDING",
-        facts: [],
+        sourceRef: "refs/heads/main",
+        importedBasisId: "basis-0001",
+        parity: "NOT_CHECKED",
+        importedReadingCount: 0,
+        summary: "fixture import batch batch-reject",
       },
     });
     const outcome = await client.observeIntentOutcome(submitted.submissionId);

@@ -56,9 +56,10 @@ digraph backlog {
   }
 
   subgraph cluster_bad_code {
-    label="bad-code (11)" labeljust=l fontsize=9 fontcolor="#555555"
+    label="bad-code (13)" labeljust=l fontsize=9 fontcolor="#555555"
     style=rounded color="#cccccc" bgcolor="#fafafa"
     bad_code_CLEAN_backlog_dag_unresolved_internal_dependencies [label="CLEAN-backlog-dag-unresolved-internal-dependencies - S" fillcolor="#F6B3B3" penwidth=2]
+    bad_code_CLEAN_code_show_parser_runtime_not_ready [label="CLEAN-code-show-parser-runtime-not-ready - S" fillcolor="#F6B3B3" penwidth=2]
     bad_code_CLEAN_coderabbit_path_filters_skip_method_docs [label="CLEAN-coderabbit-path-filters-skip-method-docs - S" fillcolor="#F6B3B3" penwidth=2]
     bad_code_CLEAN_completed_backlog_card_retirement_is_manual [label="CLEAN-completed-backlog-card-retirement-is-manual - M" fillcolor="#F6B3B3" penwidth=2]
     bad_code_CLEAN_descriptor_checker_lacks_schema_validation [label="CLEAN-descriptor-checker-lacks-schema-validation - M" fillcolor="#F6B3B3" penwidth=2]
@@ -66,13 +67,14 @@ digraph backlog {
     bad_code_CLEAN_method_close_timeout_produces_no_retro_artifact [label="CLEAN-method-close-timeout-produces-no-retro-artifact - M" fillcolor="#F6B3B3" penwidth=2]
     bad_code_CLEAN_method_retro_witness_can_overstate_validation [label="CLEAN-method-retro-witness-can-overstate-validation - M" fillcolor="#F6B3B3" penwidth=2]
     bad_code_CLEAN_pr_review_comments_not_actionability_typed [label="CLEAN-pr-review-comments-not-actionability-typed - M" fillcolor="#F6B3B3" penwidth=2]
+    bad_code_CLEAN_receipt_cumulative_bytes_avoided_stays_zero [label="CLEAN-receipt-cumulative-bytes-avoided-stays-zero - S" fillcolor="#F6B3B3" penwidth=2]
     bad_code_CLEAN_remaining_structural_warp_reads_bypass_structural_reading_port [label="CLEAN-remaining-structural-warp-reads-bypass-structural-reading-port - M" fillcolor="#F6B3B3" penwidth=2]
     bad_code_CLEAN_technical_teardown_contract_ledger_can_stale_without_tests [label="CLEAN-technical-teardown-contract-ledger-can-stale-without-tests - M" fillcolor="#F6B3B3" penwidth=2]
     bad_code_WARP_bijou_local_history_stale_after_branch_transition [label="WARP-bijou-local-history-stale-after-branch-transition - M" fillcolor="#F6B3B3" penwidth=2]
   }
 
   subgraph cluster_cool_ideas {
-    label="Cool Ideas (87)" labeljust=l fontsize=9 fontcolor="#555555"
+    label="Cool Ideas (89)" labeljust=l fontsize=9 fontcolor="#555555"
     style=rounded color="#cccccc" bgcolor="#fafafa"
     cool_ideas_bounded_neighborhood_for_references [label="bounded-neighborhood-for-references - S" fillcolor="#D4E8F7" penwidth=1]
     cool_ideas_CI_001_causal_collapse_visualizer [label="CI-001-causal-collapse-visualizer - L" fillcolor="#D4E8F7" penwidth=1]
@@ -106,6 +108,8 @@ digraph backlog {
     cool_ideas_CORE_session_knowledge_map [label="CORE-session-knowledge-map - S" fillcolor="#D4E8F7" penwidth=1]
     cool_ideas_CORE_speculative_read_cost [label="CORE-speculative-read-cost - S" fillcolor="#D4E8F7" penwidth=1]
     cool_ideas_CORE_structural_session_replay [label="CORE-structural-session-replay - M" fillcolor="#D4E8F7" penwidth=1]
+    cool_ideas_CORE_weslaw_semantic_law_for_structural_history [label="CORE-weslaw-semantic-law-for-structural-history - M" fillcolor="#D4E8F7" penwidth=1]
+    cool_ideas_CORE_wesley_codec_and_observer_plan_generation_for_structural_history [label="CORE-wesley-codec-and-observer-plan-generation-for-structural-history - M" fillcolor="#D4E8F7" penwidth=1]
     cool_ideas_CORE_wire_primitives_into_runtime [label="CORE-wire-primitives-into-runtime - M" fillcolor="#D4E8F7" penwidth=1]
     cool_ideas_METHOD_retro_recovery_mode [label="METHOD-retro-recovery-mode - M" fillcolor="#D4E8F7" penwidth=1]
     cool_ideas_monitor_tick_ceiling_tracking [label="monitor-tick-ceiling-tracking - S" fillcolor="#D4E8F7" penwidth=1]

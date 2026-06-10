@@ -56,7 +56,7 @@ describe("query flow through application code", () => {
         },
         respond: (_tool: string, payload: Record<string, unknown>) => payload,
       } as never,
-    )) as { symbols: ReadonlyArray<{ name: string }>; total: number };
+    )) as unknown as { symbols: readonly { name: string }[]; total: number };
 
     expect(response.total).toBe(2);
     expect(response.symbols.map((symbol) => symbol.name)).toEqual([

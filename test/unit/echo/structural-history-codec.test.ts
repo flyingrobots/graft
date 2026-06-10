@@ -11,11 +11,14 @@ import {
 } from "../../../src/echo/structural-history-envelope-codec.js";
 
 const IMPORT_BATCH_VARS = {
-  batch: {
-    batchId: "batch-0001",
+  input: {
+    importBatchId: "batch-0001",
     repositoryId: "repo-graft",
-    parity: "PENDING",
-    facts: [],
+    sourceRef: "refs/heads/main",
+    importedBasisId: "basis-0001",
+    parity: "NOT_CHECKED",
+    importedReadingCount: 0,
+    summary: "fixture import batch batch-0001",
   },
 } as const;
 
@@ -61,10 +64,9 @@ describe("structural history codecs", () => {
     expect(decoded).toEqual(request);
   });
 
-  it("surfaces malformed bytes as a typed codec obstruction", () => {
+  it("surfaces malformed bytes as a typed codec error", async () => {
+    const { CodecError } = await import("../../../src/echo/codec-runtime.js");
     const malformed = new Uint8Array([0xde, 0xad, 0xbe, 0xef]);
-    expect(() => decodeRecordGitWarpImportBatchVars(malformed)).toThrowError(
-      /codec/i,
-    );
+    expect(() => decodeRecordGitWarpImportBatchVars(malformed)).toThrow(CodecError);
   });
 });

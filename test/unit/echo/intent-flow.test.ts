@@ -3,10 +3,13 @@ import { createFakeEchoKernelTransport } from "../../../src/adapters/fake-echo-k
 import { createEchoStructuralHistoryClient } from "../../../src/echo/structural-history-client.js";
 
 const IMPORT_BATCH = {
-  batchId: "batch-0001",
+  importBatchId: "batch-0001",
   repositoryId: "repo-graft",
-  parity: "PENDING",
-  facts: [],
+  sourceRef: "refs/heads/main",
+  importedBasisId: "basis-0001",
+  parity: "NOT_CHECKED",
+  importedReadingCount: 0,
+  summary: "fixture import batch batch-0001",
 } as const;
 
 function newClient(
@@ -19,15 +22,15 @@ function newClient(
 
 describe("echo intent flow", () => {
   it("derives a stable submission identity from identical intent bytes", async () => {
-    const first = await newClient().recordGitWarpImportBatch({ batch: IMPORT_BATCH });
-    const second = await newClient().recordGitWarpImportBatch({ batch: IMPORT_BATCH });
+    const first = await newClient().recordGitWarpImportBatch({ input: IMPORT_BATCH });
+    const second = await newClient().recordGitWarpImportBatch({ input: IMPORT_BATCH });
     expect(first.submissionId).toBe(second.submissionId);
     expect(first.submissionId.length).toBeGreaterThan(0);
   });
 
   it("returns an applied outcome carrying receipt evidence", async () => {
     const client = newClient();
-    const submitted = await client.recordGitWarpImportBatch({ batch: IMPORT_BATCH });
+    const submitted = await client.recordGitWarpImportBatch({ input: IMPORT_BATCH });
     const outcome = await client.observeIntentOutcome(submitted.submissionId);
     expect(outcome.kind).toBe("applied");
     if (outcome.kind === "applied") {
@@ -38,9 +41,9 @@ describe("echo intent flow", () => {
 
   it("returns a typed rejection with receipt, not a throw", async () => {
     const client = newClient({
-      fixture: { rejectImportBatchIds: [IMPORT_BATCH.batchId] },
+      fixture: { rejectImportBatchIds: [IMPORT_BATCH.importBatchId] },
     });
-    const submitted = await client.recordGitWarpImportBatch({ batch: IMPORT_BATCH });
+    const submitted = await client.recordGitWarpImportBatch({ input: IMPORT_BATCH });
     const outcome = await client.observeIntentOutcome(submitted.submissionId);
     expect(outcome.kind).toBe("rejected");
     if (outcome.kind === "rejected") {

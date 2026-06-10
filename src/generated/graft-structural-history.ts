@@ -20,6 +20,16 @@ export type Json = unknown;
 
 export type MigrationParityStatus = "NOT_CHECKED" | "MATCHED" | "MISMATCHED" | "PARTIAL";
 
+export interface RecordGitWarpImportBatchInput {
+  importBatchId: string;
+  repositoryId: string;
+  sourceRef: string;
+  importedBasisId: string;
+  parity: MigrationParityStatus;
+  importedReadingCount: number;
+  summary: string;
+}
+
 export type SourceSpanEncoding = "UTF8_BYTE_RANGE" | "UTF16_CODE_UNIT_RANGE" | "LINE_COLUMN";
 
 export interface StructuralBasis {
@@ -288,4 +298,22 @@ export type QueryGitWarpImportBatchesOperation = {
   request: QueryGitWarpImportBatchesRequest;
   response: QueryGitWarpImportBatchesResponse;
   metadata: typeof queryGitWarpImportBatchesOperation;
+};
+
+export interface MutationRecordGitWarpImportBatchRequest {
+  input: RecordGitWarpImportBatchInput;
+}
+
+export type MutationRecordGitWarpImportBatchResponse = GitWarpImportBatch;
+
+export const mutationRecordGitWarpImportBatchOperation = {
+  operationType: "MUTATION",
+  fieldName: "recordGitWarpImportBatch",
+  directives: {"wes_op":{"name":"recordGitWarpImportBatch"},"wes_footprint":{"reads":["GitWarpImportBatch"],"creates":["GitWarpImportBatch","StructuralBasis"]}},
+} as const;
+
+export type MutationRecordGitWarpImportBatchOperation = {
+  request: MutationRecordGitWarpImportBatchRequest;
+  response: MutationRecordGitWarpImportBatchResponse;
+  metadata: typeof mutationRecordGitWarpImportBatchOperation;
 };
