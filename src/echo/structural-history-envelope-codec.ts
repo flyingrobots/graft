@@ -18,6 +18,29 @@ import {
 const EINT_MAGIC = Uint8Array.from([0x45, 0x49, 0x4e, 0x54]);
 const EINT_V1_HEADER_SIZE = 12;
 
+/** ABI v3 error codes [echo docs/spec/SPEC-0009-wasm-abi-v3.md@2048da5c]. */
+export const ABI_ERROR_CODES = {
+  INVALID_INTENT: 2,
+  NOT_SUPPORTED: 5,
+  CODEC_ERROR: 6,
+  UNSUPPORTED_QUERY: 11,
+  FORBIDDEN_CONTROL_INTENT: 19,
+} as const;
+
+export const ABI_ERROR_NAMES: Readonly<Record<number, string>> = Object.fromEntries(
+  Object.entries(ABI_ERROR_CODES).map(([name, code]) => [code, name]),
+);
+
+/** Envelope-level observe operation names (pre-observer-plan convention). */
+export const STRUCTURAL_HISTORY_OBSERVE_OPERATIONS = {
+  intentOutcome: "intentOutcome",
+  structuralReadings: "structuralReadings",
+  retainedEvidencePosture: "retainedEvidencePosture",
+} as const;
+
+/** Default basis id used by the witness fixture space. */
+export const DEFAULT_STRUCTURAL_HISTORY_BASIS_ID = "basis-live";
+
 export class EchoEnvelopeCodecError extends Error {
   constructor(message: string) {
     super(message);
@@ -31,7 +54,7 @@ export function packStructuralHistoryIntentV1(
 ): Uint8Array {
   const envelope = new Uint8Array(EINT_V1_HEADER_SIZE + vars.byteLength);
   envelope.set(EINT_MAGIC, 0);
-  const view = new DataView(envelope.buffer);
+  const view = new DataView(envelope.buffer, envelope.byteOffset, envelope.byteLength);
   view.setUint32(4, opId >>> 0, true);
   view.setUint32(8, vars.byteLength, true);
   envelope.set(vars, EINT_V1_HEADER_SIZE);

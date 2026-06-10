@@ -13,7 +13,10 @@ import {
   type EchoKernelTransport,
 } from "../ports/echo-kernel-transport.js";
 import {
+  ABI_ERROR_CODES,
+  DEFAULT_STRUCTURAL_HISTORY_BASIS_ID,
   EchoEnvelopeCodecError,
+  STRUCTURAL_HISTORY_OBSERVE_OPERATIONS,
   decodeStructuralHistoryObserveRequest,
   encodeStructuralHistoryErrorResponse,
   encodeStructuralHistoryOkResponse,
@@ -25,11 +28,6 @@ import {
   decodeRecordGitWarpImportBatchVars,
 } from "../generated/graft-structural-history.codec.generated.js";
 import { CodecError } from "../echo/codec-runtime.js";
-
-const ABI_INVALID_INTENT = 2;
-const ABI_NOT_SUPPORTED = 5;
-const ABI_CODEC_ERROR = 6;
-const ABI_FORBIDDEN_CONTROL_INTENT = 19;
 
 const FATAL_OR_EMPTY_OBSTRUCTIONS = new Set([
   "MISSING_RETENTION",
@@ -113,7 +111,7 @@ export function createFakeEchoKernelTransport(
   options: CreateFakeEchoKernelTransportOptions = {},
 ): EchoKernelTransport {
   const fixture = options.fixture ?? {};
-  const basisId = fixture.basisId ?? "basis-live";
+  const basisId = fixture.basisId ?? DEFAULT_STRUCTURAL_HISTORY_BASIS_ID;
   const outcomes = new Map<string, CborValue>();
 
   function handleIntent(intentBytes: Uint8Array): Uint8Array {
@@ -122,19 +120,19 @@ export function createFakeEchoKernelTransport(
       envelope = unpackStructuralHistoryIntentV1(intentBytes);
     } catch (error) {
       if (error instanceof EchoEnvelopeCodecError) {
-        return encodeStructuralHistoryErrorResponse(ABI_INVALID_INTENT, error.message);
+        return encodeStructuralHistoryErrorResponse(ABI_ERROR_CODES.INVALID_INTENT, error.message);
       }
       throw error;
     }
     if (envelope.opId === CONTROL_INTENT_V1_OP_ID) {
       return encodeStructuralHistoryErrorResponse(
-        ABI_FORBIDDEN_CONTROL_INTENT,
+        ABI_ERROR_CODES.FORBIDDEN_CONTROL_INTENT,
         "application dispatch rejected scheduler control intent",
       );
     }
     if (envelope.opId !== OP_RECORD_GIT_WARP_IMPORT_BATCH) {
       return encodeStructuralHistoryErrorResponse(
-        ABI_NOT_SUPPORTED,
+        ABI_ERROR_CODES.NOT_SUPPORTED,
         `no installed operation for op id ${String(envelope.opId)}`,
       );
     }
@@ -143,7 +141,7 @@ export function createFakeEchoKernelTransport(
       vars = decodeRecordGitWarpImportBatchVars(envelope.vars);
     } catch (error) {
       if (error instanceof CodecError) {
-        return encodeStructuralHistoryErrorResponse(ABI_CODEC_ERROR, error.message);
+        return encodeStructuralHistoryErrorResponse(ABI_ERROR_CODES.CODEC_ERROR, error.message);
       }
       throw error;
     }
@@ -182,22 +180,22 @@ export function createFakeEchoKernelTransport(
       request = decodeStructuralHistoryObserveRequest(requestBytes);
     } catch (error) {
       if (error instanceof EchoEnvelopeCodecError) {
-        return encodeStructuralHistoryErrorResponse(ABI_CODEC_ERROR, error.message);
+        return encodeStructuralHistoryErrorResponse(ABI_ERROR_CODES.CODEC_ERROR, error.message);
       }
       throw error;
     }
     const vars = (request.vars ?? {}) as Record<string, CborValue>;
-    if (request.operationName === "intentOutcome") {
+    if (request.operationName === STRUCTURAL_HISTORY_OBSERVE_OPERATIONS.intentOutcome) {
       const submissionId = typeof vars["submissionId"] === "string" ? vars["submissionId"] : "";
       const outcome = outcomes.get(submissionId) ?? { kind: "unknown" };
       return encodeStructuralHistoryOkResponse({ outcome });
     }
-    if (request.operationName === "retainedEvidencePosture") {
+    if (request.operationName === STRUCTURAL_HISTORY_OBSERVE_OPERATIONS.retainedEvidencePosture) {
       return encodeStructuralHistoryOkResponse({
         posture: fixture.retainedEvidencePosture ?? "retained",
       });
     }
-    if (request.operationName === "structuralReadings") {
+    if (request.operationName === STRUCTURAL_HISTORY_OBSERVE_OPERATIONS.structuralReadings) {
       const readingKind = typeof vars["readingKind"] === "string" ? vars["readingKind"] : null;
       const obstruction = fixture.queryObstruction;
       const suppressReadings =

@@ -24,6 +24,9 @@ export function isCborArray(value: CborValue): value is readonly CborValue[] {
   return Array.isArray(value);
 }
 
+const UTF8_ENCODER = new TextEncoder();
+const UTF8_DECODER = new TextDecoder("utf-8", { fatal: true });
+
 const MAJOR_UNSIGNED = 0;
 const MAJOR_NEGATIVE = 1;
 const MAJOR_TEXT = 3;
@@ -77,7 +80,7 @@ function encodeValue(value: CborValue, out: number[]): void {
     return;
   }
   if (typeof value === "string") {
-    const bytes = new TextEncoder().encode(value);
+    const bytes = UTF8_ENCODER.encode(value);
     out.push(...encodeHead(MAJOR_TEXT, bytes.length), ...bytes);
     return;
   }
@@ -143,9 +146,13 @@ class CborReader {
     }
     if (additional === 26) {
       const b = this.take(4);
+      // Pure arithmetic: bitwise OR would coerce to signed 32-bit and turn
+      // any length with the high bit set negative.
       return (
-        ((b[0] ?? 0) * 0x1000000 + ((b[1] ?? 0) << 16)) |
-        (((b[2] ?? 0) << 8) | (b[3] ?? 0))
+        (b[0] ?? 0) * 0x1000000 +
+        (b[1] ?? 0) * 0x10000 +
+        (b[2] ?? 0) * 0x100 +
+        (b[3] ?? 0)
       );
     }
     throw new CborCodecError(`unsupported CBOR length encoding: ${String(additional)}`);
@@ -162,7 +169,7 @@ class CborReader {
         return -this.readLength(additional) - 1;
       case MAJOR_TEXT: {
         const length = this.readLength(additional);
-        return new TextDecoder("utf-8", { fatal: true }).decode(this.take(length));
+        return UTF8_DECODER.decode(this.take(length));
       }
       case MAJOR_ARRAY: {
         const length = this.readLength(additional);

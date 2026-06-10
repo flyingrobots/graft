@@ -10,7 +10,9 @@
 import type { EchoKernelTransport } from "../ports/echo-kernel-transport.js";
 import { isCborArray, type CborValue } from "./canonical-cbor.js";
 import {
+  ABI_ERROR_NAMES,
   EchoEnvelopeCodecError,
+  STRUCTURAL_HISTORY_OBSERVE_OPERATIONS,
   decodeStructuralHistoryIntentResponse,
   decodeStructuralHistoryObserveResponse,
   encodeStructuralHistoryObserveRequest,
@@ -21,14 +23,6 @@ import {
   encodeRecordGitWarpImportBatchVars,
   type RecordGitWarpImportBatchVars,
 } from "../generated/graft-structural-history.codec.generated.js";
-
-const ABI_ERROR_NAMES: Readonly<Record<number, string>> = {
-  2: "INVALID_INTENT",
-  5: "NOT_SUPPORTED",
-  6: "CODEC_ERROR",
-  11: "UNSUPPORTED_QUERY",
-  19: "FORBIDDEN_CONTROL_INTENT",
-};
 
 export interface EchoContractObstruction {
   readonly code: string;
@@ -205,12 +199,12 @@ export function createEchoStructuralHistoryClient(
     },
 
     observeIntentOutcome(submissionId) {
-      const fields = observe("intentOutcome", { submissionId });
+      const fields = observe(STRUCTURAL_HISTORY_OBSERVE_OPERATIONS.intentOutcome, { submissionId });
       return Promise.resolve(parseOutcome(fields["outcome"] ?? null));
     },
 
     observeStructuralReadings(request) {
-      const fields = observe("structuralReadings", {
+      const fields = observe(STRUCTURAL_HISTORY_OBSERVE_OPERATIONS.structuralReadings, {
         basisId: request.basisId,
         readingKind: request.readingKind ?? null,
       });
@@ -243,7 +237,7 @@ export function createEchoStructuralHistoryClient(
     },
 
     inspectRetainedEvidence(request) {
-      const fields = observe("retainedEvidencePosture", { basisId: request.basisId });
+      const fields = observe(STRUCTURAL_HISTORY_OBSERVE_OPERATIONS.retainedEvidencePosture, { basisId: request.basisId });
       const posture = asString(fields["posture"] ?? null, "retained evidence posture");
       if (posture !== "retained" && posture !== "missing" && posture !== "obstructed") {
         throw new EchoEnvelopeCodecError(`unknown retained posture: ${posture}`);

@@ -22,6 +22,7 @@ import type {
   SymbolReferenceReadingRequest,
 } from "../ports/structural-reading.js";
 import { isCborArray, type CborValue } from "./canonical-cbor.js";
+import { DEFAULT_STRUCTURAL_HISTORY_BASIS_ID } from "./structural-history-envelope-codec.js";
 import {
   EchoSubstrateObstructionError,
   type EchoContractObstruction,
@@ -39,7 +40,7 @@ interface MappedPosture {
   readonly residualPosture: StructuralReadingResidualPosture;
 }
 
-const OBSTRUCTION_POSTURE: Readonly<Record<string, MappedPosture>> = {
+export const OBSTRUCTION_POSTURE: Readonly<Record<string, MappedPosture>> = {
   STALE_BASIS: { freshness: "stale", residualPosture: "complete" },
   BUDGET_EXCEEDED: { freshness: "current", residualPosture: "budget-limited" },
   UNSUPPORTED_OBSERVATION_RIGHTS: {
@@ -129,7 +130,7 @@ export function createEchoStructuralReadingPort(
   client: EchoStructuralHistoryClient,
   options: CreateEchoStructuralReadingPortOptions = {},
 ): StructuralReadingPort {
-  const basisId = options.basisId ?? "basis-live";
+  const basisId = options.basisId ?? DEFAULT_STRUCTURAL_HISTORY_BASIS_ID;
 
   async function observeKind(
     readingKind: string,
