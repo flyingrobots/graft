@@ -2,7 +2,7 @@
 title: "Graft fake Echo-shaped TypeScript witness"
 kind: design-packet
 status: active
-source_card: docs/method/backlog/asap/CORE_graft-fake-echo-shaped-typescript-witness.md
+source_card: docs/method/graveyard/CORE_graft-fake-echo-shaped-typescript-witness.md
 parent_design: docs/design/CORE_graft-echo-typescript-integration-requirements.md
 reference_implementation: ~/git/jedit (Echo/Wesley contract-host consumer)
 authoritative_contract:

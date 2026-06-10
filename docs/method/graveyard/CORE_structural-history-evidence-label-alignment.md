@@ -6,6 +6,7 @@ legend: CORE
 lane: asap
 priority: 1
 effort: M
+status: shipped
 requirements:
   - "Graft owns structural-history semantics"
   - "Evidence provenance is explicit in generated structural-history facts"
