@@ -3,7 +3,7 @@
 Status: active implementation packet.
 
 Source card:
-[`docs/method/backlog/asap/CORE_structural-history-evidence-label-alignment.md`](../method/backlog/asap/CORE_structural-history-evidence-label-alignment.md)
+[`docs/method/graveyard/CORE_structural-history-evidence-label-alignment.md`](../method/graveyard/CORE_structural-history-evidence-label-alignment.md)
 
 ## Hill
 

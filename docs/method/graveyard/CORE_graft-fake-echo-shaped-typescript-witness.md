@@ -6,6 +6,7 @@ legend: CORE
 lane: asap
 priority: 3
 effort: L
+status: shipped
 requirements:
   - "Structural-history Echo package descriptor shipped in PR #65"
   - "Graft proves the Echo-facing TypeScript seam before depending on Echo runtime changes"

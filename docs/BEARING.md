@@ -120,7 +120,7 @@ Echo integration gate after generated-model parity is proven.
    `schemas/graft-structural-history.graphql` -> generated artifacts.
 
 2. **Slice 1 — Evidence label alignment** (shipped, PR #64)
-   [`CORE_structural-history-evidence-label-alignment`](./method/backlog/asap/CORE_structural-history-evidence-label-alignment.md)
+   [`CORE_structural-history-evidence-label-alignment`](./method/graveyard/CORE_structural-history-evidence-label-alignment.md)
    established `echo-native`, `git-warp-imported`, and
    `fallback-translated` evidence posture before runtime migration.
 

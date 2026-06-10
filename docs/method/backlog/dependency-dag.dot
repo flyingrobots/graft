@@ -11,10 +11,8 @@ digraph backlog {
   nodesep=0.2
 
   subgraph cluster_asap {
-    label="asap (3)" labeljust=l fontsize=9 fontcolor="#555555"
+    label="asap (1)" labeljust=l fontsize=9 fontcolor="#555555"
     style=rounded color="#cccccc" bgcolor="#fafafa"
-    asap_CORE_graft_fake_echo_shaped_typescript_witness [label="CORE-graft-fake-echo-shaped-typescript-witness - L" fillcolor="#E5E7EB" penwidth=2]
-    asap_CORE_structural_history_evidence_label_alignment [label="CORE-structural-history-evidence-label-alignment - M" fillcolor="#E5E7EB" penwidth=2]
     asap_CORE_structural_reading_port_generated_model_parity [label="CORE-structural-reading-port-generated-model-parity - L" fillcolor="#E5E7EB" penwidth=2]
   }
 
@@ -180,9 +178,9 @@ digraph backlog {
     label="Unresolved internal refs" labeljust=l fontsize=9 fontcolor="#555555"
     style="rounded,dashed" color="#cc3333" bgcolor="#fff7f7"
     unresolved_CLEAN_CODE_export_diff_semver_signature_as_patch [label="missing: CLEAN_CODE_export-diff-semver-signature-as-patch" fillcolor="#F2F2F2" penwidth=1 style="rounded,dashed,filled"]
+    unresolved_CORE_graft_fake_echo_shaped_typescript_witness [label="missing: CORE_graft-fake-echo-shaped-typescript-witness" fillcolor="#F2F2F2" penwidth=1 style="rounded,dashed,filled"]
   }
 
-  asap_CORE_graft_fake_echo_shaped_typescript_witness -> asap_CORE_structural_reading_port_generated_model_parity [label="blocked_by"]
   cool_ideas_monitor_tick_ceiling_tracking -> cool_ideas_WARP_background_indexing [label="blocked_by/blocking"]
   cool_ideas_SURFACE_active_causal_workspace_status -> cool_ideas_SURFACE_ide_native_graft_integration [label="blocked_by/blocking"]
   cool_ideas_WARP_agent_action_provenance -> cool_ideas_CI_001_causal_collapse_visualizer [label="blocked_by/blocking"]
@@ -197,6 +195,7 @@ digraph backlog {
   external_git_warp_observer_geometry_ladder__Rung_2_4_ -> cool_ideas_CORE_migrate_to_slice_first_reads [label="blocked_by_external" style=dashed color="#4477AA"]
   unresolved_CLEAN_CODE_export_diff_semver_signature_as_patch -> cool_ideas_WARP_auto_breaking_change_detection [label="blocked_by" style=dashed color="#CC3333"]
   unresolved_CLEAN_CODE_export_diff_semver_signature_as_patch -> cool_ideas_WARP_semantic_merge_conflict_prediction [label="blocked_by" style=dashed color="#CC3333"]
+  unresolved_CORE_graft_fake_echo_shaped_typescript_witness -> asap_CORE_structural_reading_port_generated_model_parity [label="blocked_by" style=dashed color="#CC3333"]
   v0_8_0_WARP_symbol_history_timeline -> cool_ideas_WARP_temporal_structural_search [label="blocked_by/blocking"]
 
   subgraph cluster_legend {
