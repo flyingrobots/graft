@@ -465,6 +465,28 @@ describe("fromGeneratedStructuralReading — typed obstruction errors", () => {
     expectMappingError(() => fromGeneratedStructuralReading(reading, malformed), "MALFORMED_EVIDENCE_SUMMARY");
   });
 
+  it("rejects digest-valid payloads whose shape does not match the reading kind", async () => {
+    const { reading, evidence } = await mappedPair();
+    const empty = {
+      ...reading,
+      payloadJson: {},
+      payloadDigest: sha256Hex({}),
+    } as StructuralReading;
+    expectMappingError(() => fromGeneratedStructuralReading(empty, evidence), "MALFORMED_PAYLOAD");
+  });
+
+  it("rejects digest-valid dead-symbols payloads with malformed symbol entries", async () => {
+    const direct = await deadSymbolsResult({}, 25);
+    const { reading, evidence } = toGeneratedStructuralReading(direct, ctx);
+    const malformedPayload = { symbols: [{ name: 42 }], total: 1 };
+    const tampered = {
+      ...reading,
+      payloadJson: malformedPayload,
+      payloadDigest: sha256Hex(malformedPayload),
+    } as StructuralReading;
+    expectMappingError(() => fromGeneratedStructuralReading(tampered, evidence), "MALFORMED_PAYLOAD");
+  });
+
   it("rejects evidence facts whose kind disagrees with the reading kind", async () => {
     const { reading, evidence } = await mappedPair();
     const swapped = {

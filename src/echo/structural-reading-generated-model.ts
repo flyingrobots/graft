@@ -65,6 +65,7 @@ export type GeneratedModelMappingErrorCode =
   | "EVIDENCE_MISMATCH"
   | "MISSING_PAYLOAD_JSON"
   | "PAYLOAD_DIGEST_MISMATCH"
+  | "MALFORMED_PAYLOAD"
   | "MALFORMED_EVIDENCE_SUMMARY";
 
 export class GeneratedModelMappingError extends Error {
@@ -247,6 +248,59 @@ function parseTranslatedSubstrateFacts(summary: string): TranslatedSubstrateFact
     basis: candidate.basis as GitWarpCommittedBasis,
     evidence: candidate.evidence as GitWarpEvidence,
   };
+}
+
+function validatePayloadShape(kind: StructuralReadingKind, payload: unknown): void {
+  const malformed = (detail: string): GeneratedModelMappingError =>
+    new GeneratedModelMappingError(
+      "MALFORMED_PAYLOAD",
+      `payloadJson is not a valid ${kind} payload: ${detail}.`,
+    );
+
+  if (typeof payload !== "object" || payload === null) {
+    throw malformed("payload is not an object");
+  }
+
+  if (kind === "symbol-reference-count") {
+    const candidate = payload as {
+      readonly symbol?: unknown;
+      readonly referenceCount?: unknown;
+      readonly referencingFiles?: unknown;
+    };
+    if (
+      typeof candidate.symbol !== "string" ||
+      typeof candidate.referenceCount !== "number" ||
+      !Array.isArray(candidate.referencingFiles) ||
+      !candidate.referencingFiles.every((file) => typeof file === "string")
+    ) {
+      throw malformed("expected { symbol, referenceCount, referencingFiles[] }");
+    }
+    return;
+  }
+
+  const candidate = payload as { readonly symbols?: unknown; readonly total?: unknown };
+  if (
+    !Array.isArray(candidate.symbols) ||
+    typeof candidate.total !== "number" ||
+    !candidate.symbols.every((symbol) => {
+      const entry = symbol as {
+        readonly name?: unknown;
+        readonly kind?: unknown;
+        readonly filePath?: unknown;
+        readonly exported?: unknown;
+        readonly removedInCommit?: unknown;
+      };
+      return (
+        typeof entry.name === "string" &&
+        typeof entry.kind === "string" &&
+        typeof entry.filePath === "string" &&
+        typeof entry.exported === "boolean" &&
+        typeof entry.removedInCommit === "string"
+      );
+    })
+  ) {
+    throw malformed("expected { symbols: DeadSymbolReadingPayload[], total }");
+  }
 }
 
 export function toGeneratedStructuralReading<TPayload>(
@@ -434,6 +488,8 @@ export function fromGeneratedStructuralReading(
       `Reading ${reading.readingId} payloadJson does not match its payloadDigest.`,
     );
   }
+
+  validatePayloadShape(kind, reading.payloadJson);
 
   const facts = parseTranslatedSubstrateFacts(evidence.summary);
   if (facts.evidence.kind !== kind) {
