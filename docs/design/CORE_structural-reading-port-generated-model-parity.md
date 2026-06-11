@@ -5,6 +5,8 @@ status: active
 source_card: docs/method/backlog/asap/CORE_structural-reading-port-generated-model-parity.md
 parent_design: docs/design/CORE_graft-echo-typescript-integration-requirements.md
 predecessor: docs/design/CORE_graft-fake-echo-shaped-typescript-witness.md
+theory:
+  - "AIΩN Paper VII (DOI 10.5281/zenodo.19751149): the port's freshness/residual posture realizes the outcome algebra Derived ⊔ Plural ⊔ Conflict ⊔ Obstruction; evidence labels are witness-tier annotations; this mapping is a folding act (boundary-equivalent re-expression under an explicit contract, §3.3)"
 ---
 
 # StructuralReadingPort Generated-Model Parity
