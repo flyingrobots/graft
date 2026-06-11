@@ -39,7 +39,7 @@ public behavior. This is the last Graft-only pre-Echo slice; after it, any
 
 | Piece | Location | Role |
 | :--- | :--- | :--- |
-| Mapping module | `src/echo/structural-reading-generated-model.ts` | `toGeneratedStructuralReading(result, ctx)` → `{ reading, evidence }` and `fromGeneratedStructuralReading(reading, evidence)` → `StructuralReadingResult<T>`. Pure, deterministic, no I/O. |
+| Mapping module | `src/echo/structural-reading-generated-model.ts` | `toGeneratedStructuralReading(result, ctx)` → `{ reading, evidence, basis }` and `fromGeneratedStructuralReading(reading, evidence)` → `StructuralReadingResult<T>`. Pure, deterministic, no I/O. The `basis` row is a derived projection for future import batches; reconstruction needs only the `(reading, evidence)` pair. |
 | Id derivation | same module | `readingId`/`evidenceId`/`basisId` are sha256-derived from (repositoryId, basis facts, readingKind, payload digest) — stable across runs, no randomness, no clock. |
 | Payload digest | same module | `payloadDigest: Hash` = sha256 over canonical-JSON payload bytes (reusing the canonical JSON adapter); `payloadJson` carries the payload verbatim. |
 | Enum bridges | same module | port `freshness`/`residualPosture` (lowercase unions) ↔ generated `StructuralReadingFreshness`/`StructuralReadingResidualPosture` (SCREAMING enums); evidence labels via the existing `toGeneratedStructuralEvidenceKind`. |
@@ -90,6 +90,37 @@ Notes:
    - A "Blockers for Echo-backed replacement" section in this packet lists
      anything the mapping could not represent; empty means the gate is
      purely an Echo-runtime matter.
+
+## Blockers for Echo-backed replacement
+
+Findings from the GREEN implementation. None block this slice; each is a
+fact the Echo-backed replacement must absorb before claiming `echo-native`.
+
+1. **No typed columns for translated-substrate residue.** The v0.1 schema
+   gives `StructuralReadingEvidence` no slots for
+   `GitWarpCommittedBasis.projectRoot`/`base`/`maxCommits` or for the
+   `GitWarpEvidence` facts (`source`, `symbolName`, `filePath`,
+   `maxCommits`). The mapping re-expresses them verbatim as canonical JSON
+   in the evidence `summary` field — an explicit folding contract,
+   documented in the module header. Before Echo-native lands, either the
+   schema grows a typed `translatedFactsJson` field (or columns), or
+   summary-as-carrier is ratified as contract.
+2. **Unpinned bases are imprecise.** A dead-symbols reading with no
+   `ref`/`head` maps to `basisKind: GIT_REF` with `refName: null` — the
+   schema has no "unpinned committed history" basis kind, and
+   `LIVE_FRONTIER` would be wrong (the read is over committed history).
+3. **Generated-only enum values are unrepresentable in the port.**
+   Freshness `UNKNOWN`/`LIVE_FRONTIER`, postures `OBSTRUCTED`/`DEGRADED`,
+   and the five reading kinds beyond `SYMBOL_REFERENCE_COUNT`/
+   `DEAD_SYMBOLS` reverse-map to typed refusals. Echo-native results using
+   those values cannot surface through today's `StructuralReadingPort`
+   without widening the port unions (design 0035 territory).
+4. **`Hash`/`Json` are `unknown` in the generated TS**, so payload digests
+   have no compile-time shape; integrity is enforced at runtime
+   (`PAYLOAD_DIGEST_MISMATCH`).
+
+With the residue contract ratified, the gate is purely an Echo-runtime
+matter.
 
 ## Non-goals
 

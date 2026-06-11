@@ -7,6 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Added
+
+- **Generated-model parity for structural readings** (slice 4, last
+  Graft-only pre-Echo slice): `src/echo/structural-reading-generated-model.ts`
+  maps git-warp-backed `StructuralReadingResult` values onto the
+  Wesley-generated `StructuralReading`/`StructuralReadingEvidence`/
+  `StructuralBasis` triple and back, loss-free. Ids and payload digests are
+  sha256 over canonical JSON (deterministic, no clock, no randomness); the
+  mapping refuses to emit `ECHO_NATIVE` from translated substrates with a
+  typed error naming the `fallback_translated_is_not_native_continuum`
+  invariant, and the reverse path raises typed obstructions for
+  generated-only enum values, digest mismatches, and mismatched pairs.
+  Parity fixtures prove `graft_dead_symbols` and the `graft_review`
+  reference-count path produce deep-equal output through the
+  generated-model round-trip. Public behavior is unchanged.
+
 ## [0.9.0] - 2026-06-10
 
 ### Added

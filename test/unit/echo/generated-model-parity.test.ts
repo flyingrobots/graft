@@ -230,9 +230,9 @@ describe("toGeneratedStructuralReading — ECHO_NATIVE refusal", () => {
     } as unknown as StructuralReadingResult<SymbolReferenceReadingPayload>;
 
     expect(() => toGeneratedStructuralReading(forged, ctx))
-      .toThrowError(GeneratedModelMappingError);
+      .toThrow(GeneratedModelMappingError);
     expect(() => toGeneratedStructuralReading(forged, ctx))
-      .toThrowError(/fallback_translated_is_not_native_continuum/);
+      .toThrow(/fallback_translated_is_not_native_continuum/);
     try {
       toGeneratedStructuralReading(forged, ctx);
       expect.unreachable("mapping must refuse echo-native claims");
@@ -254,7 +254,7 @@ describe("toGeneratedStructuralReading — ECHO_NATIVE refusal", () => {
     } as unknown as StructuralReadingResult<SymbolReferenceReadingPayload>;
 
     expect(() => toGeneratedStructuralReading(nativeDressed, ctx))
-      .toThrowError(GeneratedModelMappingError);
+      .toThrow(GeneratedModelMappingError);
     try {
       toGeneratedStructuralReading(nativeDressed, ctx);
       expect.unreachable("mapping must refuse continuum-native evidence");
@@ -265,17 +265,17 @@ describe("toGeneratedStructuralReading — ECHO_NATIVE refusal", () => {
 });
 
 describe("fromGeneratedStructuralReading — round-trip", () => {
-  async function roundTrips(result: StructuralReadingResult<unknown>): Promise<void> {
+  function roundTrips(result: StructuralReadingResult<unknown>): void {
     const { reading, evidence } = toGeneratedStructuralReading(result, ctx);
     expect(fromGeneratedStructuralReading(reading, evidence)).toStrictEqual(result);
   }
 
   it("round-trips symbol-reference-count results loss-free", async () => {
-    await roundTrips(await symbolReferenceResult());
+    roundTrips(await symbolReferenceResult());
   });
 
   it("round-trips zero-reference counts with empty referencing files", async () => {
-    await roundTrips(await symbolReferenceResult({ referenceCount: 0, referencingFiles: [] }));
+    roundTrips(await symbolReferenceResult({ referenceCount: 0, referencingFiles: [] }));
   });
 
   it("round-trips partial-posture results (fallback scan failed)", async () => {
@@ -285,19 +285,19 @@ describe("fromGeneratedStructuralReading — round-trip", () => {
       fallbackThrows: true,
     });
     expect(result.residualPosture).toBe("partial");
-    await roundTrips(result);
+    roundTrips(result);
   });
 
   it("round-trips dead-symbols results loss-free", async () => {
-    await roundTrips(await deadSymbolsResult({}, 25));
+    roundTrips(await deadSymbolsResult({}, 25));
   });
 
   it("round-trips empty dead-symbol sets without maxCommits", async () => {
-    await roundTrips(await deadSymbolsResult({ deadSymbols: [] }));
+    roundTrips(await deadSymbolsResult({ deadSymbols: [] }));
   });
 
-  it("round-trips hand-built git-warp-imported results loss-free", async () => {
-    await roundTrips(importedResult);
+  it("round-trips hand-built git-warp-imported results loss-free", () => {
+    roundTrips(importedResult);
   });
 });
 
@@ -337,7 +337,7 @@ describe("fromGeneratedStructuralReading — typed obstruction errors", () => {
   }
 
   function expectCode(fn: () => unknown, code: string): void {
-    expect(fn).toThrowError(GeneratedModelMappingError);
+    expect(fn).toThrow(GeneratedModelMappingError);
     try {
       fn();
       expect.unreachable(`expected mapping error ${code}`);
