@@ -17,8 +17,11 @@ reported: 2026-06-10
 `crypto.createHash("sha256").update(...).digest("hex")` stable-id derivation
 is independently implemented in `src/mcp/runtime-causal-context.ts`,
 `src/mcp/repo-state-observation.ts`, `src/mcp/workspace-router-resolution.ts`,
-`src/warp/writer-id.ts`, `src/mcp/daemon-bootstrap.ts`, and now
-`src/adapters/fake-echo-kernel-transport.ts` (`submissionIdFor`).
+`src/warp/writer-id.ts`, `src/mcp/daemon-bootstrap.ts`,
+`src/adapters/fake-echo-kernel-transport.ts` (`submissionIdFor`), and now
+`src/echo/structural-reading-generated-model.ts` (`sha256Hex`/`deriveId`,
+slice 4) plus its test-side twin in
+`test/unit/echo/generated-model-parity.test.ts`.
 
 ## Risk
 

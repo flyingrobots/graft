@@ -75,7 +75,7 @@ digraph backlog {
   }
 
   subgraph cluster_cool_ideas {
-    label="Cool Ideas (89)" labeljust=l fontsize=9 fontcolor="#555555"
+    label="Cool Ideas (91)" labeljust=l fontsize=9 fontcolor="#555555"
     style=rounded color="#cccccc" bgcolor="#fafafa"
     cool_ideas_bounded_neighborhood_for_references [label="bounded-neighborhood-for-references - S" fillcolor="#D4E8F7" penwidth=1]
     cool_ideas_CI_001_causal_collapse_visualizer [label="CI-001-causal-collapse-visualizer - L" fillcolor="#D4E8F7" penwidth=1]
@@ -85,6 +85,7 @@ digraph backlog {
     cool_ideas_CLEAN_contract_ledger_schema_and_lint [label="CLEAN-contract-ledger-schema-and-lint - M" fillcolor="#D4E8F7" penwidth=1]
     cool_ideas_CLEAN_generated_artifact_review_boundary [label="CLEAN-generated-artifact-review-boundary - S" fillcolor="#D4E8F7" penwidth=1]
     cool_ideas_CORE_agent_handoff_protocol [label="CORE-agent-handoff-protocol - M" fillcolor="#D4E8F7" penwidth=1]
+    cool_ideas_CORE_align_structural_evidence_with_continuum_evidence_posture [label="CORE-align-structural-evidence-with-continuum-evidence-posture" fillcolor="#D4E8F7" penwidth=1]
     cool_ideas_CORE_auto_focus [label="CORE-auto-focus - L" fillcolor="#D4E8F7" penwidth=1]
     cool_ideas_CORE_backlog_retirement_assistant [label="CORE-backlog-retirement-assistant - M" fillcolor="#D4E8F7" penwidth=1]
     cool_ideas_CORE_capture_range [label="CORE-capture-range - S" fillcolor="#D4E8F7" penwidth=1]
@@ -96,6 +97,7 @@ digraph backlog {
     cool_ideas_CORE_descriptor_package_registry_for_structural_contracts [label="CORE-descriptor-package-registry-for-structural-contracts - M" fillcolor="#D4E8F7" penwidth=1]
     cool_ideas_CORE_echo_capability_gap_ledger [label="CORE-echo-capability-gap-ledger - S" fillcolor="#D4E8F7" penwidth=1]
     cool_ideas_CORE_echo_descriptor_to_fake_witness_generator [label="CORE-echo-descriptor-to-fake-witness-generator - M" fillcolor="#D4E8F7" penwidth=1]
+    cool_ideas_CORE_generated_model_reverse_id_content_binding [label="CORE-generated-model-reverse-id-content-binding" fillcolor="#D4E8F7" penwidth=1]
     cool_ideas_CORE_graft_as_teacher [label="CORE-graft-as-teacher - S" fillcolor="#D4E8F7" penwidth=1]
     cool_ideas_CORE_graft_teach_learning_receipts [label="CORE-graft-teach-learning-receipts - S" fillcolor="#D4E8F7" penwidth=1]
     cool_ideas_CORE_graft_tool_client [label="CORE-graft-tool-client - M" fillcolor="#D4E8F7" penwidth=1]
