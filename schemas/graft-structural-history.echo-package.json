@@ -4,7 +4,7 @@
     "id": "graft.structural-history",
     "kind": "echo-contract-package",
     "sourcePackageName": "@flyingrobots/graft",
-    "sourcePackageVersion": "0.8.0"
+    "sourcePackageVersion": "0.9.0"
   },
   "schema": {
     "format": "graphql",
