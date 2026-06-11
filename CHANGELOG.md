@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.9.0] - 2026-06-10
+
 ### Added
 
 - **Fake Echo-shaped TypeScript witness**: Graft proves its Echo-facing seam
