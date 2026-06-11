@@ -139,6 +139,26 @@ matter.
 3. Is there a precise gate before any follow-on work claims real
    Echo-native evidence?
 
+## Playback Answers
+
+1. **Yes.** `test/unit/echo/generated-model-parity.test.ts` drives the real
+   `createGitWarpStructuralReadingPort` over stubbed deps, round-trips
+   through the generated model, and proves the `graft_dead_symbols` handler
+   response and the `graft_review` reference-count projection are
+   deep-equal (`toStrictEqual`) to the direct-port outputs. Round-trip is
+   loss-free for the entire result, not just the consumed payload fields.
+2. **Yes.** `git-warp-imported` ↔ `GIT_WARP_IMPORTED` and
+   `fallback-translated` ↔ `FALLBACK_TRANSLATED` map exactly per source
+   label in both directions; `nativeContinuumWitness` is `false` on every
+   mapped fact, matching the schema invariant.
+3. **Yes.** The mapping throws `GeneratedModelMappingError` with code
+   `ECHO_NATIVE_REFUSED` naming `fallback_translated_is_not_native_continuum`
+   for any echo-native claim on the import path (forged labels, genuine
+   continuum-native evidence, and reverse-path `ECHO_NATIVE` rows alike),
+   and the "Blockers for Echo-backed replacement" section above enumerates
+   the four facts an Echo-backed implementation must absorb. The gate is
+   otherwise purely an Echo-runtime matter.
+
 ## Open Questions
 
 1. Where should the mapping module live — `src/echo/` (proposed, beside the
