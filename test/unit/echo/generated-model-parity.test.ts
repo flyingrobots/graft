@@ -16,6 +16,7 @@ import type {
   StructuralReadingResult,
   SymbolReferenceReadingPayload,
   DeadSymbolsReadingPayload,
+  TranslatedSubstrateEvidence,
 } from "../../../src/ports/structural-reading.js";
 import type {
   StructuralReading,
@@ -38,6 +39,16 @@ function sha256Hex(value: unknown): string {
 }
 
 const ctx = { repositoryId: "repo:graft-test" } as const;
+
+function expectMappingError(fn: () => unknown, code: string): void {
+  expect(fn).toThrow(GeneratedModelMappingError);
+  try {
+    fn();
+    expect.unreachable(`expected mapping error ${code}`);
+  } catch (error) {
+    expect((error as GeneratedModelMappingError).code).toBe(code);
+  }
+}
 
 // --- stub plumbing for the real git-warp adapter (same pattern as ---------
 // --- test/unit/warp/structural-reading-adapter.test.ts) -------------------
@@ -230,15 +241,8 @@ describe("toGeneratedStructuralReading — ECHO_NATIVE refusal", () => {
     } as unknown as StructuralReadingResult<SymbolReferenceReadingPayload>;
 
     expect(() => toGeneratedStructuralReading(forged, ctx))
-      .toThrow(GeneratedModelMappingError);
-    expect(() => toGeneratedStructuralReading(forged, ctx))
       .toThrow(/fallback_translated_is_not_native_continuum/);
-    try {
-      toGeneratedStructuralReading(forged, ctx);
-      expect.unreachable("mapping must refuse echo-native claims");
-    } catch (error) {
-      expect((error as GeneratedModelMappingError).code).toBe("ECHO_NATIVE_REFUSED");
-    }
+    expectMappingError(() => toGeneratedStructuralReading(forged, ctx), "ECHO_NATIVE_REFUSED");
   });
 
   it("refuses genuine continuum-native evidence: this mapping is the import path", async () => {
@@ -253,14 +257,85 @@ describe("toGeneratedStructuralReading — ECHO_NATIVE refusal", () => {
       },
     } as unknown as StructuralReadingResult<SymbolReferenceReadingPayload>;
 
-    expect(() => toGeneratedStructuralReading(nativeDressed, ctx))
-      .toThrow(GeneratedModelMappingError);
-    try {
-      toGeneratedStructuralReading(nativeDressed, ctx);
-      expect.unreachable("mapping must refuse continuum-native evidence");
-    } catch (error) {
-      expect((error as GeneratedModelMappingError).code).toBe("ECHO_NATIVE_REFUSED");
-    }
+    expectMappingError(() => toGeneratedStructuralReading(nativeDressed, ctx), "ECHO_NATIVE_REFUSED");
+  });
+
+  it("rejects unknown translated-substrate labels without misnaming them echo-native", async () => {
+    const result = await symbolReferenceResult();
+    const typoed = {
+      ...result,
+      evidence: { ...result.evidence, evidenceLabel: "git-warp" },
+    } as unknown as StructuralReadingResult<SymbolReferenceReadingPayload>;
+
+    expectMappingError(() => toGeneratedStructuralReading(typoed, ctx), "UNSUPPORTED_EVIDENCE_LABEL");
+  });
+});
+
+describe("toGeneratedStructuralReading — forward obstruction errors", () => {
+  it("refuses null payloads: payloadJson null means absent, not a null payload", async () => {
+    const result = await symbolReferenceResult();
+    const nulled = { ...result, payload: null } as unknown as StructuralReadingResult<unknown>;
+    expectMappingError(() => toGeneratedStructuralReading(nulled, ctx), "UNSERIALIZABLE_PAYLOAD");
+  });
+
+  it("refuses payloads canonical JSON cannot represent", async () => {
+    const result = await symbolReferenceResult();
+    const unserializable = { ...result, payload: undefined } as unknown as StructuralReadingResult<unknown>;
+    expectMappingError(() => toGeneratedStructuralReading(unserializable, ctx), "UNSERIALIZABLE_PAYLOAD");
+  });
+
+  it("refuses runtime-corrupt reading kinds instead of emitting undefined enums", async () => {
+    const result = await symbolReferenceResult();
+    const corrupt = { ...result, kind: "symbol-history" } as unknown as StructuralReadingResult<unknown>;
+    expectMappingError(() => toGeneratedStructuralReading(corrupt, ctx), "UNSUPPORTED_READING_KIND");
+  });
+
+  it("refuses runtime-corrupt freshness values", async () => {
+    const result = await symbolReferenceResult();
+    const corrupt = { ...result, freshness: "fresh" } as unknown as StructuralReadingResult<unknown>;
+    expectMappingError(() => toGeneratedStructuralReading(corrupt, ctx), "UNSUPPORTED_FRESHNESS");
+  });
+
+  it("refuses runtime-corrupt residual postures", async () => {
+    const result = await symbolReferenceResult();
+    const corrupt = { ...result, residualPosture: "fine" } as unknown as StructuralReadingResult<unknown>;
+    expectMappingError(() => toGeneratedStructuralReading(corrupt, ctx), "UNSUPPORTED_RESIDUAL_POSTURE");
+  });
+
+  it("refuses results whose reading kind disagrees with their evidence facts", async () => {
+    const result = await symbolReferenceResult();
+    const mismatched = {
+      ...result,
+      kind: "dead-symbols",
+    } as unknown as StructuralReadingResult<unknown>;
+    expectMappingError(() => toGeneratedStructuralReading(mismatched, ctx), "EVIDENCE_MISMATCH");
+  });
+
+  it("pins payloadDigest to a known canonical-JSON sha256 oracle", () => {
+    const importedEvidence = importedResult.evidence as TranslatedSubstrateEvidence;
+    const pinned: StructuralReadingResult<SymbolReferenceReadingPayload> = {
+      ...importedResult,
+      payload: {
+        symbol: "x",
+        referencingFiles: [],
+        referenceCount: 0,
+      },
+      evidence: {
+        ...importedEvidence,
+        evidence: {
+          kind: "symbol-reference-count",
+          source: "committed-import-scan",
+          symbolName: "x",
+          filePath: "src/x.ts",
+        },
+      },
+    };
+
+    const { reading } = toGeneratedStructuralReading(pinned, ctx);
+    // sha256 of {"referenceCount":0,"referencingFiles":[],"symbol":"x"}
+    expect(reading.payloadDigest).toBe(
+      "c77d91399387641569df1eaaf68f3e73f4fe240f92c2397971f85c4f2118470b",
+    );
   });
 });
 
@@ -336,68 +411,70 @@ describe("fromGeneratedStructuralReading — typed obstruction errors", () => {
     return { reading, evidence };
   }
 
-  function expectCode(fn: () => unknown, code: string): void {
-    expect(fn).toThrow(GeneratedModelMappingError);
-    try {
-      fn();
-      expect.unreachable(`expected mapping error ${code}`);
-    } catch (error) {
-      expect((error as GeneratedModelMappingError).code).toBe(code);
-    }
-  }
-
   it("refuses ECHO_NATIVE generated evidence", async () => {
     const { reading, evidence } = await mappedPair();
     const native = { ...evidence, evidenceKind: "ECHO_NATIVE", nativeContinuumWitness: true } as GeneratedStructuralReadingEvidence;
-    expectCode(() => fromGeneratedStructuralReading(reading, native), "ECHO_NATIVE_REFUSED");
+    expectMappingError(() => fromGeneratedStructuralReading(reading, native), "ECHO_NATIVE_REFUSED");
   });
 
   it("rejects generated reading kinds the port cannot express", async () => {
     const { reading, evidence } = await mappedPair();
     const widened = { ...reading, readingKind: "SYMBOL_HISTORY" } as StructuralReading;
-    expectCode(() => fromGeneratedStructuralReading(widened, evidence), "UNSUPPORTED_READING_KIND");
+    expectMappingError(() => fromGeneratedStructuralReading(widened, evidence), "UNSUPPORTED_READING_KIND");
   });
 
   it("rejects generated freshness values the port cannot express", async () => {
     const { reading, evidence } = await mappedPair();
     const widened = { ...reading, freshness: "UNKNOWN" } as StructuralReading;
-    expectCode(() => fromGeneratedStructuralReading(widened, evidence), "UNSUPPORTED_FRESHNESS");
+    expectMappingError(() => fromGeneratedStructuralReading(widened, evidence), "UNSUPPORTED_FRESHNESS");
   });
 
   it("rejects generated residual postures the port cannot express", async () => {
     const { reading, evidence } = await mappedPair();
     const widened = { ...reading, residualPosture: "OBSTRUCTED" } as StructuralReading;
-    expectCode(() => fromGeneratedStructuralReading(widened, evidence), "UNSUPPORTED_RESIDUAL_POSTURE");
+    expectMappingError(() => fromGeneratedStructuralReading(widened, evidence), "UNSUPPORTED_RESIDUAL_POSTURE");
   });
 
   it("rejects readings without payloadJson", async () => {
     const { reading, evidence } = await mappedPair();
     const stripped = { ...reading, payloadJson: null } as StructuralReading;
-    expectCode(() => fromGeneratedStructuralReading(stripped, evidence), "MISSING_PAYLOAD_JSON");
+    expectMappingError(() => fromGeneratedStructuralReading(stripped, evidence), "MISSING_PAYLOAD_JSON");
   });
 
   it("rejects payload digests that do not match the payload", async () => {
     const { reading, evidence } = await mappedPair();
     const tampered = { ...reading, payloadDigest: sha256Hex({ tampered: true }) } as StructuralReading;
-    expectCode(() => fromGeneratedStructuralReading(tampered, evidence), "PAYLOAD_DIGEST_MISMATCH");
+    expectMappingError(() => fromGeneratedStructuralReading(tampered, evidence), "PAYLOAD_DIGEST_MISMATCH");
   });
 
   it("rejects mismatched reading/evidence pairs", async () => {
     const { reading, evidence } = await mappedPair();
     const foreign = { ...evidence, evidenceId: "evidence:somebody-else" } as GeneratedStructuralReadingEvidence;
-    expectCode(() => fromGeneratedStructuralReading(reading, foreign), "EVIDENCE_MISMATCH");
+    expectMappingError(() => fromGeneratedStructuralReading(reading, foreign), "EVIDENCE_MISMATCH");
   });
 
   it("rejects ECHO-substrate evidence on the git-warp import path", async () => {
     const { reading, evidence } = await mappedPair();
     const echoSubstrate = { ...evidence, substrate: "ECHO" } as GeneratedStructuralReadingEvidence;
-    expectCode(() => fromGeneratedStructuralReading(reading, echoSubstrate), "UNSUPPORTED_SUBSTRATE");
+    expectMappingError(() => fromGeneratedStructuralReading(reading, echoSubstrate), "UNSUPPORTED_SUBSTRATE");
   });
 
   it("rejects evidence whose translated-substrate facts are malformed", async () => {
     const { reading, evidence } = await mappedPair();
     const malformed = { ...evidence, summary: "not json {" } as GeneratedStructuralReadingEvidence;
-    expectCode(() => fromGeneratedStructuralReading(reading, malformed), "MALFORMED_EVIDENCE_SUMMARY");
+    expectMappingError(() => fromGeneratedStructuralReading(reading, malformed), "MALFORMED_EVIDENCE_SUMMARY");
+  });
+
+  it("rejects evidence facts whose kind disagrees with the reading kind", async () => {
+    const { reading, evidence } = await mappedPair();
+    const swapped = {
+      ...evidence,
+      summary: codec.encode({
+        basis: { kind: "git-committed-history", projectRoot: "/repo" },
+        evidence: { kind: "dead-symbols", source: "warp-graph" },
+      }),
+    } as GeneratedStructuralReadingEvidence;
+    expectMappingError(() => fromGeneratedStructuralReading(reading, swapped), "EVIDENCE_MISMATCH");
   });
 });
 

@@ -118,6 +118,14 @@ fact the Echo-backed replacement must absorb before claiming `echo-native`.
 4. **`Hash`/`Json` are `unknown` in the generated TS**, so payload digests
    have no compile-time shape; integrity is enforced at runtime
    (`PAYLOAD_DIGEST_MISMATCH`).
+5. **The folding contract is JSON-bounded.** Payloads and basis facts must
+   be canonical-JSON-representable: explicit `undefined`-valued optional
+   keys and non-finite numbers cannot round-trip (JSON cannot carry them).
+   Null and unserializable payloads are refused on the forward path with
+   `UNSERIALIZABLE_PAYLOAD` because generated `payloadJson: null` is
+   reserved for "absent". Reverse-path id↔content binding is deliberately
+   not enforced (future producers may assign ids differently) — recorded
+   as `CORE_generated-model-reverse-id-content-binding` in cool-ideas.
 
 With the residue contract ratified, the gate is purely an Echo-runtime
 matter.
