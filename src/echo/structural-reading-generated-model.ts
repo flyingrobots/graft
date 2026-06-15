@@ -98,13 +98,18 @@ function deriveId(entity: "reading" | "evidence" | "basis", facts: unknown): str
   return `${entity}:${sha256Hex(codec.encode(facts))}`;
 }
 
+function normalizeBasisString(value: string | undefined): string | null {
+  const normalized = value?.trim();
+  return normalized === undefined || normalized.length === 0 ? null : normalized;
+}
+
 function toGeneratedStructuralBasisKind(
-  basis: GitWarpCommittedBasis,
+  basis: { readonly commitId: string | null; readonly refName: string | null },
 ): StructuralBasis["basisKind"] {
-  if (basis.head !== undefined) {
+  if (basis.commitId !== null) {
     return "GIT_COMMIT";
   }
-  if (basis.ref !== undefined) {
+  if (basis.refName !== null) {
     return "GIT_REF";
   }
   return "UNPINNED_COMMITTED";
@@ -388,6 +393,8 @@ export function toGeneratedStructuralReading<TPayload>(
     evidenceLabel: sourceEvidence.evidenceLabel,
     residue: residueCanonicalJson,
   });
+  const commitId = normalizeBasisString(basisFacts.head);
+  const refName = normalizeBasisString(basisFacts.ref);
   const readingId = deriveId("reading", {
     repositoryId: ctx.repositoryId,
     basisId,
@@ -401,9 +408,9 @@ export function toGeneratedStructuralReading<TPayload>(
   const basis: StructuralBasis = {
     basisId,
     repositoryId: ctx.repositoryId,
-    basisKind: toGeneratedStructuralBasisKind(basisFacts),
-    commitId: basisFacts.head ?? null,
-    refName: basisFacts.ref ?? null,
+    basisKind: toGeneratedStructuralBasisKind({ commitId, refName }),
+    commitId,
+    refName,
     echoHeadId: null,
     importBatchId: null,
     summary: `git-warp committed-history basis for ${basisFacts.projectRoot}`,
@@ -414,7 +421,7 @@ export function toGeneratedStructuralReading<TPayload>(
     evidenceKind: toGeneratedStructuralEvidenceKind(sourceEvidence.evidenceLabel),
     substrate: "GIT_WARP",
     basisId,
-    sourceRef: basisFacts.ref ?? null,
+    sourceRef: refName,
     migrationBatchId: null,
     nativeContinuumWitness: false,
     parity: "NOT_CHECKED",

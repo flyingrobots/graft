@@ -21,6 +21,15 @@
         "name": "wesley",
         "version": "0.0.5"
       }
+    },
+    {
+      "kind": "typescript-le-binary-codec",
+      "path": "src/generated/graft-structural-history.codec.generated.ts",
+      "sha256": "70058b2cfd4763e9e0cdf88c74b2c5a2a28a0d19309c64eacc6f89c03b3e9142",
+      "generator": {
+        "name": "wesley",
+        "version": "0.0.5"
+      }
     }
   ],
   "echo": {

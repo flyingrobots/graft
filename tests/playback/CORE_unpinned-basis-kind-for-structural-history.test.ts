@@ -108,14 +108,10 @@ describe("CORE_unpinned-basis-kind-for-structural-history playback", () => {
   });
 
   it("Does the RED parity test fail before the mapper/schema change and pass afterward?", () => {
-    const parityTestText = readFileSync(
-      path.join(process.cwd(), "test/unit/echo/generated-model-parity.test.ts"),
-      "utf8",
-    );
     const { basis } = toGeneratedStructuralReading(unpinnedDeadSymbolsResult(), ctx);
 
-    expect(parityTestText).toContain('expect(basis.basisKind).toBe("UNPINNED_COMMITTED")');
     expect(basis.basisKind).toBe("UNPINNED_COMMITTED");
+    expect(basis.refName).toBeNull();
   });
 
   it("Do the committed Wesley declarations, codec, manifest, and Echo package descriptor match the v0.2 schema?", () => {

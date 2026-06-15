@@ -161,6 +161,34 @@ const importedResult: StructuralReadingResult<SymbolReferenceReadingPayload> = {
   },
 };
 
+const blankRefResult: StructuralReadingResult<SymbolReferenceReadingPayload> = {
+  kind: "symbol-reference-count",
+  freshness: "current",
+  residualPosture: "complete",
+  payload: {
+    symbol: "blankRefThing",
+    referenceCount: 1,
+    referencingFiles: ["src/blank.ts"],
+  },
+  evidence: {
+    kind: "translated-substrate",
+    evidenceLabel: "fallback-translated",
+    substrate: "git-warp",
+    basis: {
+      kind: "git-committed-history",
+      projectRoot: "/repo",
+      ref: "   ",
+    },
+    evidence: {
+      kind: "symbol-reference-count",
+      source: "warp-graph",
+      symbolName: "blankRefThing",
+      filePath: "src/blank.ts",
+    },
+    nativeContinuumWitness: false,
+  },
+};
+
 describe("toGeneratedStructuralReading — mapping per reading kind", () => {
   it("maps symbol-reference-count results onto the generated model", async () => {
     const result = await symbolReferenceResult();
@@ -218,6 +246,15 @@ describe("toGeneratedStructuralReading — mapping per reading kind", () => {
     expect(basis.basisKind).toBe("GIT_COMMIT");
     expect(basis.commitId).toBe("deadbeefdeadbeefdeadbeefdeadbeefdeadbeef");
     expect(basis.refName).toBe("main");
+  });
+
+  it("does not emit GIT_REF for blank ref basis facts", () => {
+    const { evidence, basis } = toGeneratedStructuralReading(blankRefResult, ctx);
+
+    expect(basis.basisKind).toBe("UNPINNED_COMMITTED");
+    expect(basis.refName).toBeNull();
+    expect(basis.commitId).toBeNull();
+    expect(evidence.sourceRef).toBeNull();
   });
 
   it("keeps basis facts recoverable from the (reading, evidence) pair alone", async () => {

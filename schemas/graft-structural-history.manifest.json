@@ -1,8 +1,10 @@
 {
   "schemaPath": "schemas/graft-structural-history.graphql",
   "generatedTypesPath": "src/generated/graft-structural-history.ts",
+  "generatedCodecPath": "src/generated/graft-structural-history.codec.generated.ts",
   "schemaSourceSha256": "e8474cb3b267007da38ff640f82b0ff2b805f70c764632f02bfd9ed0addc271f",
   "generatedTypesSha256": "1375e1694f3ca48b2137ea77f841b396d8a9c6a6fdea99d2ba2305bd05159e7c",
+  "generatedCodecSha256": "70058b2cfd4763e9e0cdf88c74b2c5a2a28a0d19309c64eacc6f89c03b3e9142",
   "wesleyCliVersion": "0.0.5",
   "wesleyL1RegistryHash": "641017abf055a8276aacc92262f1efd63e2f02e182508f95eb70eb7d1def4e0b",
   "requiredTypes": [

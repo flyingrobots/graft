@@ -68,6 +68,11 @@ function translatedGitWarpEvidence(
   };
 }
 
+function normalizeRefOrDefault(ref: string | undefined): string {
+  const normalized = ref?.trim();
+  return normalized === undefined || normalized.length === 0 ? "HEAD" : normalized;
+}
+
 function symbolReferencePayload(
   symbolName: string,
   result: ReferenceCountResult | { readonly symbol: string; readonly referenceCount: number; readonly referencingFiles: readonly string[] },
@@ -92,7 +97,7 @@ export function createGitWarpStructuralReadingPort(
     async countSymbolReferences(
       request: SymbolReferenceReadingRequest,
     ): Promise<StructuralReadingResult<SymbolReferenceReadingPayload>> {
-      const ref = request.ref ?? "HEAD";
+      const ref = normalizeRefOrDefault(request.ref);
       const warp = await deps.getWarp();
       const graphResult = await countSymbolReferencesFromGraph(
         warp,
