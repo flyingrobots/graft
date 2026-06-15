@@ -13,6 +13,7 @@ import {
   queryGitWarpImportBatchesOperation,
   queryStructuralReadingEvidenceOperation,
   queryStructuralReadingsOperation,
+  type StructuralBasisKind,
   type StructuralEvidenceKind,
   type StructuralReading,
   type StructuralReadingEvidence,
@@ -170,6 +171,13 @@ describe("Graft structural history schema authority", () => {
     expect(schemaText).toContain(
       "forall s in StructuralSourceSpan: s.startLine == null or s.endLine == null or s.endLine >= s.startLine",
     );
+  });
+
+  it("names unpinned committed history separately from git refs", () => {
+    const basisKind: StructuralBasisKind = "UNPINNED_COMMITTED";
+
+    expect(basisKind).toBe("UNPINNED_COMMITTED");
+    expect(canonicalSchemaText()).toContain("UNPINNED_COMMITTED");
   });
 
   it("explains the invariant holder placeholder field", () => {

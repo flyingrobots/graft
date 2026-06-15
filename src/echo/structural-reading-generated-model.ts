@@ -5,7 +5,7 @@
 // values onto the generated (StructuralReading, StructuralReadingEvidence,
 // StructuralBasis) triple and back, loss-free.
 //
-// Folding contract: the generated v0.1 schema has no typed columns for the
+// Folding contract: the generated v0.2 schema has no typed columns for the
 // port's translated-substrate residue (GitWarpCommittedBasis projectRoot /
 // base / maxCommits, and the GitWarpEvidence discriminant). That residue is
 // re-expressed verbatim as canonical JSON in the evidence `summary` field, so
@@ -96,6 +96,18 @@ function sha256Hex(canonicalJson: string): string {
 
 function deriveId(entity: "reading" | "evidence" | "basis", facts: unknown): string {
   return `${entity}:${sha256Hex(codec.encode(facts))}`;
+}
+
+function toGeneratedStructuralBasisKind(
+  basis: GitWarpCommittedBasis,
+): StructuralBasis["basisKind"] {
+  if (basis.head !== undefined) {
+    return "GIT_COMMIT";
+  }
+  if (basis.ref !== undefined) {
+    return "GIT_REF";
+  }
+  return "UNPINNED_COMMITTED";
 }
 
 const ECHO_NATIVE_REFUSAL_MESSAGE =
@@ -389,7 +401,7 @@ export function toGeneratedStructuralReading<TPayload>(
   const basis: StructuralBasis = {
     basisId,
     repositoryId: ctx.repositoryId,
-    basisKind: basisFacts.head !== undefined ? "GIT_COMMIT" : "GIT_REF",
+    basisKind: toGeneratedStructuralBasisKind(basisFacts),
     commitId: basisFacts.head ?? null,
     refName: basisFacts.ref ?? null,
     echoHeadId: null,

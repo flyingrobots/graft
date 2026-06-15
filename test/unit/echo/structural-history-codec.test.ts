@@ -1,7 +1,9 @@
 import { describe, expect, it } from "vitest";
 import {
   OP_RECORD_GIT_WARP_IMPORT_BATCH,
+  decodeStructuralBasisKind,
   decodeRecordGitWarpImportBatchVars,
+  encodeStructuralBasisKind,
   encodeRecordGitWarpImportBatchVars,
 } from "../../../src/generated/graft-structural-history.codec.generated.js";
 import {
@@ -28,6 +30,11 @@ describe("structural history codecs", () => {
     expect(encoded).toBeInstanceOf(Uint8Array);
     const decoded = decodeRecordGitWarpImportBatchVars(encoded);
     expect(decoded).toEqual(IMPORT_BATCH_VARS);
+  });
+
+  it("round-trips the unpinned committed basis kind", () => {
+    const encoded = encodeStructuralBasisKind("UNPINNED_COMMITTED");
+    expect(decodeStructuralBasisKind(encoded)).toBe("UNPINNED_COMMITTED");
   });
 
   it("encodes deterministically", () => {

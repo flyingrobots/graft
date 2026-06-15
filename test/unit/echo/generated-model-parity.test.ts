@@ -201,7 +201,7 @@ describe("toGeneratedStructuralReading — mapping per reading kind", () => {
     expect(evidence.evidenceKind).toBe("FALLBACK_TRANSLATED");
     expect(evidence.nativeContinuumWitness).toBe(false);
     // dead-symbols basis has no ref/head — unpinned committed history
-    expect(basis.basisKind).toBe("GIT_REF");
+    expect(basis.basisKind).toBe("UNPINNED_COMMITTED");
     expect(basis.refName).toBeNull();
     expect(basis.commitId).toBeNull();
     expect(evidence.sourceRef).toBeNull();

@@ -9,6 +9,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ### Added
 
+- **Structural basis kind for unpinned committed history**: structural-history
+  schema v0.2 adds `UNPINNED_COMMITTED` so committed git-warp readings with no
+  `ref` and no `head` no longer masquerade as `GIT_REF` rows with a null
+  `refName`. Wesley-generated declarations, LE-binary codecs, manifest hashes,
+  the Echo package descriptor, and generated-model parity tests now pin that
+  `GIT_REF` means a named ref basis.
 - **Generated-model parity for structural readings** (slice 4, last
   Graft-only pre-Echo slice): `src/echo/structural-reading-generated-model.ts`
   maps git-warp-backed `StructuralReadingResult` values onto the

@@ -43,7 +43,7 @@ export interface StructuralBasis {
   summary: string;
 }
 
-export type StructuralBasisKind = "GIT_COMMIT" | "GIT_REF" | "ECHO_HEAD" | "LIVE_FRONTIER" | "IMPORT_BATCH";
+export type StructuralBasisKind = "GIT_COMMIT" | "GIT_REF" | "ECHO_HEAD" | "LIVE_FRONTIER" | "IMPORT_BATCH" | "UNPINNED_COMMITTED";
 
 export type StructuralEvidenceKind = "ECHO_NATIVE" | "GIT_WARP_IMPORTED" | "FALLBACK_TRANSLATED";
 
