@@ -1,5 +1,5 @@
 # Graft Structural History Schema
-# Version: 0.1.0
+# Version: 0.2.0
 #
 # Graft-authored canonical structural history facts.
 #
@@ -18,6 +18,7 @@ enum StructuralBasisKind {
   ECHO_HEAD
   LIVE_FRONTIER
   IMPORT_BATCH
+  UNPINNED_COMMITTED
 }
 
 enum StructuralReadingKind {
@@ -91,7 +92,7 @@ enum MigrationParityStatus {
 type StructuralRepository
   @wes_codec(format: "cbor", canonical: true)
   @wes_registry(id: 512)
-  @wes_version(major: 0, minor: 1)
+  @wes_version(major: 0, minor: 2)
 {
   repositoryId: ID! @wes_stateField(key: true)
   rootKey: String! @wes_stateField
@@ -102,7 +103,7 @@ type StructuralRepository
 type StructuralBasis
   @wes_codec(format: "cbor", canonical: true)
   @wes_registry(id: 513)
-  @wes_version(major: 0, minor: 1)
+  @wes_version(major: 0, minor: 2)
 {
   basisId: ID! @wes_stateField(key: true)
   repositoryId: ID! @wes_stateField
@@ -117,7 +118,7 @@ type StructuralBasis
 type StructuralFileVersion
   @wes_codec(format: "cbor", canonical: true)
   @wes_registry(id: 514)
-  @wes_version(major: 0, minor: 1)
+  @wes_version(major: 0, minor: 2)
 {
   fileVersionId: ID! @wes_stateField(key: true)
   repositoryId: ID! @wes_stateField
@@ -131,7 +132,7 @@ type StructuralFileVersion
 type StructuralSourceSpan
   @wes_codec(format: "cbor", canonical: true)
   @wes_registry(id: 515)
-  @wes_version(major: 0, minor: 1)
+  @wes_version(major: 0, minor: 2)
 {
   spanId: ID! @wes_stateField(key: true)
   fileVersionId: ID! @wes_stateField
@@ -146,7 +147,7 @@ type StructuralSourceSpan
 type StructuralParserRun
   @wes_codec(format: "cbor", canonical: true)
   @wes_registry(id: 516)
-  @wes_version(major: 0, minor: 1)
+  @wes_version(major: 0, minor: 2)
 {
   parserRunId: ID! @wes_stateField(key: true)
   fileVersionId: ID! @wes_stateField
@@ -159,7 +160,7 @@ type StructuralParserRun
 type StructuralSymbol
   @wes_codec(format: "cbor", canonical: true)
   @wes_registry(id: 517)
-  @wes_version(major: 0, minor: 1)
+  @wes_version(major: 0, minor: 2)
 {
   symbolId: ID! @wes_stateField(key: true)
   repositoryId: ID! @wes_stateField
@@ -177,7 +178,7 @@ type StructuralSymbol
 type StructuralSymbolRelation
   @wes_codec(format: "cbor", canonical: true)
   @wes_registry(id: 518)
-  @wes_version(major: 0, minor: 1)
+  @wes_version(major: 0, minor: 2)
 {
   relationId: ID! @wes_stateField(key: true)
   repositoryId: ID! @wes_stateField
@@ -193,7 +194,7 @@ type StructuralSymbolRelation
 type StructuralReadingEvidence
   @wes_codec(format: "cbor", canonical: true)
   @wes_registry(id: 519)
-  @wes_version(major: 0, minor: 1)
+  @wes_version(major: 0, minor: 2)
 {
   evidenceId: ID! @wes_stateField(key: true)
   evidenceKind: StructuralEvidenceKind! @wes_stateField
@@ -209,7 +210,7 @@ type StructuralReadingEvidence
 type StructuralReading
   @wes_codec(format: "cbor", canonical: true)
   @wes_registry(id: 520)
-  @wes_version(major: 0, minor: 1)
+  @wes_version(major: 0, minor: 2)
 {
   readingId: ID! @wes_stateField(key: true)
   repositoryId: ID! @wes_stateField
@@ -226,7 +227,7 @@ type StructuralReading
 type GitWarpImportBatch
   @wes_codec(format: "cbor", canonical: true)
   @wes_registry(id: 521)
-  @wes_version(major: 0, minor: 1)
+  @wes_version(major: 0, minor: 2)
 {
   importBatchId: ID! @wes_stateField(key: true)
   repositoryId: ID! @wes_stateField

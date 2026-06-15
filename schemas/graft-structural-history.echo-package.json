@@ -9,14 +9,23 @@
   "schema": {
     "format": "graphql",
     "path": "schemas/graft-structural-history.graphql",
-    "sha256": "a7d8aa0b1427b88a5b1c0ea5c76a50a8f7a41b4170b3b2597225cc5981606324",
-    "wesleyL1RegistryHash": "48651fa1fcf4fb0f5a3d7337be3d2b585431fefdafffab02c772a42fac1f81e9"
+    "sha256": "e8474cb3b267007da38ff640f82b0ff2b805f70c764632f02bfd9ed0addc271f",
+    "wesleyL1RegistryHash": "641017abf055a8276aacc92262f1efd63e2f02e182508f95eb70eb7d1def4e0b"
   },
   "generatedArtifacts": [
     {
       "kind": "typescript",
       "path": "src/generated/graft-structural-history.ts",
-      "sha256": "b1a9bb46818bdd8e34ca7838937d2c355ee72888e728e086a2f097748b5ba82d",
+      "sha256": "1375e1694f3ca48b2137ea77f841b396d8a9c6a6fdea99d2ba2305bd05159e7c",
+      "generator": {
+        "name": "wesley",
+        "version": "0.0.5"
+      }
+    },
+    {
+      "kind": "typescript-le-binary-codec",
+      "path": "src/generated/graft-structural-history.codec.generated.ts",
+      "sha256": "70058b2cfd4763e9e0cdf88c74b2c5a2a28a0d19309c64eacc6f89c03b3e9142",
       "generator": {
         "name": "wesley",
         "version": "0.0.5"

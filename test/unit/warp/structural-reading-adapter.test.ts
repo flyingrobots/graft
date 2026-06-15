@@ -68,6 +68,39 @@ describe("git-warp structural reading adapter", () => {
     });
   });
 
+  it("normalizes blank reference-count request refs to HEAD", async () => {
+    const fallback = vi.fn(() => Promise.resolve({
+      referenceCount: 1,
+      referencingFiles: ["src/consumer.ts"],
+    }));
+    const port = createGitWarpStructuralReadingPort({
+      projectRoot: "/repo",
+      git,
+      pathOps,
+      getWarp: () => Promise.resolve(warp),
+      countSymbolReferencesFromGraph: vi.fn(() => Promise.resolve({
+        symbol: "buildThing",
+        referenceCount: 0,
+        referencingFiles: [],
+      })),
+      countNamedImportReferencesAtRef: fallback,
+      findDeadSymbols: vi.fn(),
+    });
+
+    const reading = await port.countSymbolReferences({
+      symbolName: "buildThing",
+      filePath: "src/api.ts",
+      ref: "   ",
+    });
+
+    expect(fallback).toHaveBeenCalledWith(expect.objectContaining({ ref: "HEAD" }));
+    expect(reading.evidence).toMatchObject({
+      basis: {
+        ref: "HEAD",
+      },
+    });
+  });
+
   it("labels committed import-scan fallback counts as translated substrate evidence", async () => {
     const port = createGitWarpStructuralReadingPort({
       projectRoot: "/repo",

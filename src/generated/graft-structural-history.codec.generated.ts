@@ -108,7 +108,8 @@ export type StructuralBasisKind =
     | 'GIT_REF'
     | 'ECHO_HEAD'
     | 'LIVE_FRONTIER'
-    | 'IMPORT_BATCH';
+    | 'IMPORT_BATCH'
+    | 'UNPINNED_COMMITTED';
 export function _encStructuralBasisKind(w: Writer, v: StructuralBasisKind): void {
     switch (v) {
         case 'GIT_COMMIT': w.writeU32Le(0); return;
@@ -116,6 +117,7 @@ export function _encStructuralBasisKind(w: Writer, v: StructuralBasisKind): void
         case 'ECHO_HEAD': w.writeU32Le(2); return;
         case 'LIVE_FRONTIER': w.writeU32Le(3); return;
         case 'IMPORT_BATCH': w.writeU32Le(4); return;
+        case 'UNPINNED_COMMITTED': w.writeU32Le(5); return;
         default: throw new CodecError('invalid StructuralBasisKind variant: ' + String(v));
     }
 }
@@ -127,6 +129,7 @@ export function _decStructuralBasisKind(r: Reader): StructuralBasisKind {
         case 2: return 'ECHO_HEAD';
         case 3: return 'LIVE_FRONTIER';
         case 4: return 'IMPORT_BATCH';
+        case 5: return 'UNPINNED_COMMITTED';
         default: throw new CodecError('invalid StructuralBasisKind discriminant: ' + String(d));
     }
 }

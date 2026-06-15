@@ -15,6 +15,10 @@ const DEFAULT_PACKAGE_MANIFEST_PATH = "package.json";
 export const STRUCTURAL_HISTORY_ECHO_PACKAGE_ID = "graft.structural-history";
 export const STRUCTURAL_HISTORY_ECHO_PACKAGE_KIND = "echo-contract-package";
 
+export type StructuralHistoryGeneratedArtifactKind =
+  | "typescript"
+  | "typescript-le-binary-codec";
+
 export interface GraftPackageManifest {
   readonly name: string;
   readonly version: string;
@@ -35,7 +39,7 @@ export interface StructuralHistoryEchoPackageDescriptor {
     readonly wesleyL1RegistryHash: string;
   };
   readonly generatedArtifacts: readonly {
-    readonly kind: "typescript";
+    readonly kind: StructuralHistoryGeneratedArtifactKind;
     readonly path: string;
     readonly sha256: string;
     readonly generator: {
@@ -114,6 +118,15 @@ export function expectedStructuralHistoryEchoPackageDescriptor(
         kind: "typescript",
         path: manifest.generatedTypesPath,
         sha256: manifest.generatedTypesSha256,
+        generator: {
+          name: "wesley",
+          version: manifest.wesleyCliVersion,
+        },
+      },
+      {
+        kind: "typescript-le-binary-codec",
+        path: manifest.generatedCodecPath,
+        sha256: manifest.generatedCodecSha256,
         generator: {
           name: "wesley",
           version: manifest.wesleyCliVersion,

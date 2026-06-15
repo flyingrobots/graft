@@ -84,7 +84,8 @@ parsing.
 
 The immediate focus is **schema authority before substrate migration**. The
 near-term work is locked as a Graft-only pre-Echo execution plan with a hard
-Echo integration gate after generated-model parity is proven.
+Echo integration gate after generated-model parity and schema contract repair
+are proven.
 
 1. Keep `main` clean after the `v0.8.0` release.
 2. Treat the Wesley-backed structural-history generation gate as the active
@@ -136,23 +137,29 @@ Echo integration gate after generated-model parity is proven.
    Wesley-generated LE codecs, typed client, Echo-backed reading adapter —
    against a deterministic fake, with authority-boundary guards.
 
-5. **Slice 4 — StructuralReadingPort generated-model parity**
-   Pull
-   [`CORE_structural-reading-port-generated-model-parity`](./method/backlog/asap/CORE_structural-reading-port-generated-model-parity.md):
+5. **Slice 4 — StructuralReadingPort generated-model parity** (shipped)
+   [`CORE_structural-reading-port-generated-model-parity`](./method/graveyard/CORE_structural-reading-port-generated-model-parity.md)
    map current `StructuralReadingPort` payloads to the generated model and
    preserve existing behavior while adding parity coverage.
 
-6. **Echo integration gate**
+6. **Slice 5 — Unpinned committed-history basis kind** (active)
+   [`CORE_unpinned-basis-kind-for-structural-history`](./design/CORE_unpinned-basis-kind-for-structural-history.md):
+   schema v0.2 names committed-history readings with no `ref` and no `head`
+   as `UNPINNED_COMMITTED`, keeping `GIT_REF` reserved for bases with a
+   present `refName`.
+
+7. **Echo integration gate**
    Stop before claiming real `echo-native` evidence unless Echo exposes the
    required TypeScript-facing runtime/client, retained-evidence posture, and
    versioned package compatibility surface.
 
-7. **Trust defect remediation**
+8. **Trust defect remediation**
    Track `WARP_bijou-local-history-stale-after-branch-transition.md` as active
    high-priority follow-up if and only if stale local history is observed in
-   dogfooding; otherwise it remains deferred behind slice 4.
+   dogfooding; otherwise it remains deferred behind the active schema-contract
+   repair.
 
-8. **Follow-on architecture debt**
+9. **Follow-on architecture debt**
    Finish the remaining schema-facing debt:
    `CLEAN_remaining-structural-warp-reads-bypass-structural-reading-port.md`,
    then `CLEAN_technical-teardown-contract-ledger-can-stale-without-tests.md`.
