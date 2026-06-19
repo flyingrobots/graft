@@ -2,7 +2,7 @@
 title: "Daemon-first Graft-managed workspace store"
 legend: "SURFACE"
 cycle: "SURFACE_graft-managed-workspace-store"
-source_feedback: "multi-repo agent workflow feedback, 2026-06-18; enhance verdict, 2026-06-19"
+source_feedback: "multi-repo agent workflow feedback, 2026-06-18; enhance verdicts, 2026-06-19"
 ---
 
 # Daemon-first Graft-managed workspace store
@@ -13,46 +13,60 @@ Graft becomes a daemon-first, multi-workspace context governor. By default it
 stores Graft-owned observations, caches, document projections, and optional
 durable structural tracking under Graft's own home directory instead of inside
 each target repository. Current-state structural reads work across explicitly
-authorized client-session roots; durable WARP history is explicit, visible, and
-opt-in per workspace.
+authorized client-session roots or authorized file handles. Durable WARP
+history is explicit, visible, authorized, and opt-in per workspace.
 
-This packet is not implementation-ready until the contract-level concerns below
-are approved. The router must not ship before authorization, identity, state
-axes, consent, lifecycle, retention, path resolution, failure behavior, and
-receipts are settled.
+This packet is still a Slice 0 contract. No router, registry, cache, hook,
+document conversion, or tracking implementation starts until this contract is
+approved.
+
+All remaining SHOULD, COULD, and COOL IDEA items from the enhancement verdicts
+are treated as Slice 0 requirements here.
 
 ## Product Laws
 
 1. **Graft never expands a client session's authorized path set.** Daemon
    operating-system readability alone is insufficient authorization. Every
    request must be evaluated against an authenticated session capability,
-   allowed-root set, authorized file handle, or equivalent host-provided grant.
-2. **Daemon-first is the normal posture.** The daemon resolves authorized paths
-   into workspaces and lets a session operate across multiple repositories
-   without restarting or manually rebinding every repository.
-3. **Capability, observation, caching, and history are separate axes.** Do not
-   compress record existence, persistence mode, cache availability, exclusion,
-   and durable history into one enum.
-4. **Current-state reads do not require durable history.** `safe_read`,
+   allowed-root set, authorized workspace view, authorized file handle, or
+   equivalent host-provided grant.
+2. **Consent and authorization are different requirements.** Consent answers
+   whether the user wants durable tracking. Authorization answers whether the
+   daemon may access the filesystem target now or later. Durable tracking
+   requires both.
+3. **Daemon-first is the normal posture.** The daemon resolves authorized paths
+   into workspace views and workspaces, allowing one session to operate across
+   multiple repositories without manually rebinding every repository.
+4. **Capability, observation, caching, and history are separate axes.** Do not
+   compress record existence, storage topology, cache availability, exclusion,
+   authorization, and durable history into one enum.
+5. **Current-state reads do not require durable history.** `safe_read`,
    `file_outline`, `read_range`, current-snapshot `graft_map`, and document
-   projections can run from filesystem, parser, cache, or projection facts
-   without initializing WARP history.
-5. **History requires real consent.** Features that need durable WARP
-   structural history must require a host-confirmed approval, approval token, or
-   preconfigured user policy. An agent-followable `nextCall` is not consent.
-6. **Graft-managed storage is the default.** Target repositories are not
-   mutated by default. Repo-local `.graft` storage remains an explicit
-   portable/team mode and requires stronger approval.
-7. **Receipts are multi-axis.** Responses identify runtime, workspace, fact
-   source, history state, persistence mode, cache status, and policy decision.
-8. **Hard policy and hook guidance are separate.** Banned-file, secret,
-   symlink, and authorization rules are non-negotiable policy. Advisory,
-   balanced, strict, and hook-lockdown are guidance/enforcement postures for
-   instrumented client operations, not an operating-system sandbox.
-9. **Documents are projected with honest provenance.** Text-bearing documents
-   can be converted into bounded text/projection artifacts, but plain
-   `pdftotext` output is text, not Markdown, unless a defined Markdown
-   postprocessor creates it.
+   projections can run from authorized filesystem, parser, cache, or projection
+   facts without initializing WARP history.
+6. **History requires real consent and valid read authority.** Features that
+   need durable WARP structural history must require host-confirmed approval,
+   an approval token, or a preconfigured user policy, plus a filesystem
+   authorization model for initial and ongoing reads.
+7. **Storage is per-store, not per-workspace.** The registry, cache, and WARP
+   history store can live in different places. A workspace can use a
+   Graft-managed registry and projection cache while using repo-local WARP
+   history.
+8. **Receipts are multi-axis and scoped.** Responses identify runtime,
+   workspace, workspace view, incarnation, fact source, history lifecycle,
+   history availability, storage stores, cache status, policy decision, and
+   authorizing grant ID.
+9. **Derived data inherits input visibility.** A cache, index, map, summary, or
+   historical answer is not safe merely because one source path is currently
+   authorized. Aggregate artifacts must be scoped, filtered by input
+   provenance, or regenerated.
+10. **Hard policy and hook guidance are separate.** Authorization and
+    filesystem safety invariants are non-negotiable. Configurable content
+    governance and hook guidance are separate layers.
+11. **Documents are projected with honest provenance.** Text-bearing documents
+    can be converted into bounded text/projection artifacts, but plain
+    `pdftotext` output is text, not Markdown, unless a defined Markdown
+    postprocessor creates it.
 
 ## Problem
 
@@ -70,35 +84,40 @@ The correct product split is:
 
 ```text
 read current authorized files safely
-track durable history only when the user really opts in
+track durable history only when the user consents and the daemon has authority
 ```
 
-The dangerous shortcut is treating "the daemon process can read this path" as
-equivalent to "this client session is allowed to ask the daemon to read this
-path." A daemon running as the user may see more of the filesystem than an
-individual agent integration. Graft must not become a confused deputy.
+The dangerous shortcuts are:
+
+- treating "the daemon process can read this path" as equivalent to "this
+  client session may ask the daemon to read this path";
+- treating a user approval click as a durable filesystem capability;
+- serving aggregate cache/history artifacts created under a broader grant to a
+  narrower session;
+- attaching old path-derived history to a new unrelated checkout at the same
+  path.
 
 ## Security And State Contract
 
 ### Authorization boundary
 
 Every daemon-backed request must be bound to an authenticated client session.
-The request is authorized only if the resolved target falls within that
-session's grant.
+The request is authorized only if the opened target falls within that session's
+grant.
 
 Minimum contract:
 
 - Authenticate local clients and restrict the daemon socket.
 - Bind every request to a client session.
-- Give each session explicit allowed roots, path capabilities, approved file
-  handles, or equivalent host-provided grants.
-- Resolve symlinks before identity and policy decisions.
-- Recheck authorization after canonicalization and immediately before opening
-  the final object.
-- Resolve relative paths against the request `cwd`, workspace handle, or opened
-  root. Never use the daemon process's current working directory.
+- Give each session explicit allowed roots, path capabilities, workspace views,
+  approved file handles, or equivalent host-provided grants.
+- Resolve relative paths against the request `cwd`, workspace handle, workspace
+  view, or opened root. Never use the daemon process's current working
+  directory.
 - Never claim equivalence with host permissions when the integration cannot
   prove those permissions.
+- Identify the authorizing grant in receipts by opaque ID. Never expose a
+  bearer capability secret.
 
 Where a host cannot communicate path grants, valid alternatives are:
 
@@ -110,54 +129,188 @@ Where a host cannot communicate path grants, valid alternatives are:
 Slice 2 is blocked until this boundary is implemented or explicitly scoped to a
 safe fallback.
 
-### Orthogonal state axes
+### Control-plane authorization
 
-Workspace posture is described by separate fields:
+Management and diagnostic operations can leak workspace history even when they
+do not read source files. They require their own capabilities.
+
+Required control-plane capabilities:
+
+| Capability | Allows |
+|---|---|
+| `workspace-read` | Read status for workspaces intersecting the session grant. |
+| `workspace-manage-cache` | Clear or prune cache for authorized workspaces. |
+| `workspace-manage-history` | Pause, resume, purge, or relink authorized history stores. |
+| `workspace-mutate-target` | Mutate repo-local `.graft` or target repository state. |
+| `registry-list` | List registry entries visible to this session. |
+| `registry-admin` | Administer all local registry entries. |
+
+Required posture:
+
+- Trusted local owner CLI may receive `registry-admin`.
+- MCP and agent sessions see only workspaces and workspace views intersecting
+  their grants.
+- Destructive tools require both management authorization and explicit approval.
+- A tracking approval does not authorize listing, pruning, or deleting unrelated
+  workspace records.
+- `workspace_list_opened`, `workspace_status`, `workspace_explain`,
+  `workspace_prune`, and `workspace_forget` must apply control-plane
+  authorization before returning data.
+
+### Hard policy layers
+
+Hard policy is split into three layers:
+
+| Layer | Meaning |
+|---|---|
+| Authorization and filesystem safety | Root/view grants, opened-object safety, symlink containment, special-file refusal, storage integrity. |
+| Configurable content governance | Generated artifacts, build outputs, large files, vendor paths, size budgets, `.graftignore`. |
+| Hook guidance | Client-facing nudges or blocks that steer reads toward Graft. |
+
+Generated artifacts are not in the same category as escaping an authorized
+root. The first layer is invariant; the second layer is configurable policy;
+the third layer is integration behavior.
+
+## State Axes
+
+### Workspace record posture
+
+Workspace record state is computed, not stored in `metadata.json`.
 
 ```text
 recordState:
-  absent       # no durable workspace record exists
-  observed     # metadata record exists
+  absent       # no durable workspace metadata record exists
+  observed     # durable workspace metadata record exists
+```
 
-historyState:
-  off
-  active
-  paused
+`absent` cannot appear inside a nonexistent record. The presence of
+`metadata.json` implies `recordState: observed`.
 
-persistenceMode:
-  ephemeral
-  graft-managed
-  repo-local
+### Storage topology
 
-exclusionPolicy:
+The registry, cache, and history store are independently addressable.
+
+```text
+storage:
+  registry: none | memory | graft-managed
+  cache: none | memory | graft-managed
+  history: none | graft-managed | repo-local
+```
+
+Examples:
+
+```json
+{
+  "storage": {
+    "registry": "graft-managed",
+    "cache": "graft-managed",
+    "history": "none"
+  }
+}
+```
+
+```json
+{
+  "storage": {
+    "registry": "graft-managed",
+    "cache": "graft-managed",
+    "history": "repo-local"
+  }
+}
+```
+
+Consequences:
+
+- Ephemeral current-state reads use `registry: "memory"` or `registry: "none"`
+  and `cache: "memory"` or `cache: "none"`.
+- Repo-local portable history does not imply repo-local registry or repo-local
+  projection cache.
+- Graft-managed caches must not be silently copied into repo-local team-shared
+  storage.
+- Repo-local `.graft` contents are untrusted repository input until validated.
+
+### Exclusion posture
+
+Exclusion is stored in a global exclusion registry. It is not duplicated in
+workspace metadata.
+
+```text
+exclusionStatus:
   allowed
   excluded
 ```
 
-Important consequences:
+`exclude` means:
 
-- `absent` is the absence of a record, not a persisted state.
-- `observed` workspaces automatically support lightweight current-state
-  operations when policy allows.
-- "Lightweight" is a feature tier, not a state.
-- `historyState: paused` preserves existing history but stops maintaining it.
-- `exclusionPolicy: excluded` is stored in a global exclusion registry so Graft
-  remembers the opt-out even when no workspace record exists.
-- `persistenceMode: ephemeral` exists only in session memory and does not
-  create durable metadata.
-- "Tracking disabled" must not mean "all Graft state forbidden."
+- prohibit durable observation, durable cache writes, and tracking;
+- permit explicitly authorized current-state reads in ephemeral/no-store mode.
 
-Feature availability is therefore simple:
+If Graft needs to refuse a workspace entirely, that is a separate deny policy,
+not `exclude`.
+
+`include` removes an exclusion entry. After include, the workspace is `absent`
+until a successful operation observes it again.
+
+### History lifecycle and availability
+
+History has lifecycle, availability, and coverage watermark fields.
 
 ```text
-historyState != active  -> current-state features only
-historyState == active  -> current-state features plus WARP history features
+history:
+  lifecycle: off | active | paused
+  availability: none | readable | unavailable | corrupt
+  watermark:
+    observedAt: timestamp
+    commit: optional
+    sequence: optional
 ```
 
-### Consent for tracking
+Required behavior:
 
-History-only surfaces return an obstruction when history is not active. The
-obstruction may propose an action, but it must not count as consent by itself.
+| Lifecycle | Availability | Result |
+|---|---|---|
+| `off` | `none` | Return `WORKSPACE_TRACKING_REQUIRED` for history-only tools. |
+| `active` | `readable` | Historical queries are allowed and maintenance continues. |
+| `paused` | `readable` | Historical queries are allowed with a frozen/stale watermark. |
+| `active` | `unavailable` | Return `HISTORY_UNAVAILABLE`, not tracking-required. |
+| any | `corrupt` | Quarantine and return a specific corruption error. |
+
+Paused history is frozen history, not nonexistent history. Historical answers
+must include enough watermark information for agents to know whether the answer
+covers the current commit, an older commit, or only a prior daemon observation.
+`lastTrackedAt` alone is not sufficient.
+
+### Normative state transitions
+
+```text
+off       -- track + authorization + approval --> active
+active    -- pause                            --> paused
+paused    -- resume + valid authorization     --> active
+active    -- authorization revoked            --> paused
+paused    -- purge-history + approval         --> off
+any       -- forget                           --> absent
+any       -- exclude                          --> absent + exclusion entry
+excluded  -- include                          --> absent
+```
+
+Additional transition rules:
+
+- Authorization expiration or revocation pauses maintenance automatically.
+- `purge-history` removes WARP history but does not itself exclude future
+  observation.
+- `forget` for Graft-managed state leaves no durable workspace record by
+  default. If an audit tombstone is retained, the operation must be named and
+  documented as tombstone-retaining, not "full forget."
+- `exclude` records the opt-out in the global exclusion registry and removes
+  durable managed observation state.
+
+## Tracking Consent And Authorization
+
+### Tracking-required obstruction
+
+History-only surfaces return an obstruction when history lifecycle is `off` or
+when tracking must be enabled. The obstruction may propose an action, but it
+must not count as consent by itself.
 
 Example obstruction:
 
@@ -166,7 +319,12 @@ Example obstruction:
   "ok": false,
   "reason": "WORKSPACE_TRACKING_REQUIRED",
   "workspaceId": "ws_abc123",
-  "historyState": "off",
+  "workspaceViewId": "wv_docs",
+  "incarnationId": "wi_current",
+  "history": {
+    "lifecycle": "off",
+    "availability": "none"
+  },
   "availableFallbacks": [
     "safe_read",
     "file_outline",
@@ -177,7 +335,10 @@ Example obstruction:
     "tool": "workspace_enable_tracking",
     "args": {
       "workspaceId": "ws_abc123",
-      "storageMode": "graft-managed"
+      "workspaceViewId": "wv_docs",
+      "storage": {
+        "history": "graft-managed"
+      }
     }
   },
   "approval": {
@@ -196,43 +357,94 @@ Example obstruction:
   allowlist.
 
 The agent must not be able to manufacture the approval signal. Repo-local
-tracking requires a separate approval because it mutates the target repository.
-Tracking activation should record an immutable consent receipt including actor,
-scope, time, storage mode, target mutation posture, and approval mechanism.
+tracking requires separate stronger approval because it mutates or depends on
+the target repository.
 
-## Workspace Identity And Storage
+### Durable tracking authorization
 
-Default storage lives under the configured Graft home, normally `~/.graft`.
-Authoritative workspace directories are ID-only.
-
-```text
-~/.graft/
-  daemon/
-    runtime.json
-    activity/
-  exclusions/
-    workspaces.json
-  workspaces/
-    <workspace-id>/
-      metadata.json
-      cache/
-        outlines/
-        documents/
-      observations/
-      warp.git/              # created only after tracking is enabled
-```
-
-Minimum file permissions:
+Consent is not enough for ongoing maintenance. Continuous daemon maintenance
+must have a current or durable filesystem grant.
 
 ```text
-~/.graft       0700
-managed files 0600
+trackingAuthorization:
+  mode: session-bound | durable-grant
+  grantId: optional
+  scopeDigest: string
+  expiresAt: optional
+  revocationEpoch: optional
 ```
 
-Display names and aliases live inside metadata. They do not participate in the
-authoritative storage path.
+Rules:
 
-### Identity algorithm
+- Session-bound tracking updates history only during authorized sessions.
+- Durable-grant tracking may maintain history between sessions.
+- Grant expiration or revocation pauses maintenance automatically.
+- Consent and authorization are both required.
+- An approval token must not double as a filesystem capability unless the host
+  explicitly designed it to do both.
+- Repo-local mode requires stronger consent and an authorized write capability
+  for the target repository.
+- Never persist raw bearer capability tokens in workspace metadata.
+- Approval tokens are scoped to workspace ID, workspace view ID, incarnation ID,
+  storage target, and consent scope.
+
+Tracking activation records an immutable consent receipt including actor, scope,
+time, storage mode, target mutation posture, maintenance mode, read scope,
+write targets, and approval mechanism.
+
+### Tracking plan
+
+`workspace track-plan` is required before tracking activation surfaces. It must
+make consent informed, not ceremonial.
+
+Example:
+
+```json
+{
+  "workspace": "ws_abc123",
+  "workspaceView": "wv_repo",
+  "incarnation": "wi_current",
+  "maintenanceMode": "session-bound",
+  "readScope": "/repo",
+  "writeTargets": ["~/.graft/workspaces/ws_abc123/warp.git"],
+  "targetRepoMutation": false,
+  "estimatedInitialFiles": 482,
+  "estimatedInitialBytes": 18399221,
+  "ignoredCategories": ["build", "vendor"],
+  "retentionPolicy": "derived-content"
+}
+```
+
+## Workspace Views, Identity, And Storage
+
+### Workspace and view IDs
+
+Two identities are required:
+
+```text
+workspaceId      # physical checkout/location identity
+workspaceViewId  # checkout constrained to a particular authorized root/scope
+```
+
+A workspace view prevents a `/repo/docs` session from inheriting `/repo/src`
+facts through cache or history artifacts generated by a broader session.
+
+Workspace view identity is derived from:
+
+- workspace ID;
+- canonical authorized root or host-provided scope ID;
+- normalized include/exclude scope;
+- authorization epoch where the host provides one;
+- policy version that affects visible inputs.
+
+### Capability epochs
+
+Host grants may carry a monotonically changing authorization epoch.
+Cache and aggregate artifacts record the epoch and scope under which they were
+produced. Revocation or scope narrowing invalidates artifacts from older or
+broader epochs unless they can be safely filtered by input provenance.
+
+### Workspace identity algorithm
 
 Use at least 128 bits of hash output after truncation.
 
@@ -258,8 +470,77 @@ hash(
 ```
 
 Remote URLs are metadata only. They must be credential-stripped, query-stripped,
-and represented as a sanitized array, not as the first configured remote.
+token-stripped, fragment-stripped, and represented as a sanitized array.
 Changing remotes must not change the workspace ID.
+
+Do not collect `repositoryFamilyHint` in v1 unless a shipped feature uses it.
+Speculative identity metadata can become sensitive and stale.
+
+Explicit identity rules:
+
+- Moving a checkout produces a new location identity.
+- `graft workspace relink <old-id> <new-path>` can reconnect managed history
+  after validation and approval.
+- Two clones of the same remote are separate workspaces.
+- Linked Git worktrees are separate workspaces.
+- Access to a linked worktree's external Git common directory requires a
+  separate grant.
+- Changing remotes does not alter the workspace ID.
+- Nested repositories and submodules become separate workspaces only when
+  discovery is authorized.
+- Arbitrary single files must not each create permanent workspaces.
+- Bare Git repositories are out of scope for Slice 1 unless a separate identity
+  contract is approved.
+
+### History store identity
+
+Portable repo-local history needs its own identity:
+
+```text
+historyStoreId  # durable WARP store identity
+```
+
+A path-derived `workspaceId` must not become the authoritative identity
+embedded in a portable, team-shared `.graft` store. A repo-local store should
+have its own UUID or manifest identity and be mapped to each developer's local
+workspace.
+
+### Storage layout
+
+Default storage lives under the configured Graft home, normally `~/.graft`.
+Authoritative workspace directories are ID-only.
+
+```text
+~/.graft/
+  daemon/
+    runtime.json
+    activity/
+  exclusions/
+    workspaces.json
+  workspaces/
+    <workspace-id>/
+      metadata.json
+      incarnations/
+        <incarnation-id>.json
+      views/
+        <workspace-view-id>.json
+      cache/
+        outlines/
+        documents/
+        maps/
+      observations/
+      warp.git/              # only for graft-managed history
+```
+
+Minimum storage safety:
+
+```text
+~/.graft       0700
+managed files 0600
+```
+
+Storage creation must verify ownership, use restrictive umask/ACLs, create
+directories securely, and refuse to follow symlinked storage components.
 
 Example `metadata.json`:
 
@@ -271,14 +552,21 @@ Example `metadata.json`:
   "canonicalRoot": "/Users/james/git/graft",
   "gitCommonDir": "/Users/james/git/graft/.git",
   "sanitizedRemotes": ["git@github.com:flyingrobots/graft.git"],
-  "repositoryFamilyHint": "sha256:family-hash",
-  "recordState": "observed",
-  "historyState": "off",
-  "persistenceMode": "graft-managed",
-  "exclusionPolicy": "allowed",
+  "incarnationId": "wi_current",
+  "historyStoreId": null,
+  "storage": {
+    "registry": "graft-managed",
+    "cache": "graft-managed",
+    "history": "none"
+  },
+  "history": {
+    "lifecycle": "off",
+    "availability": "none",
+    "watermark": null
+  },
+  "trackingAuthorization": null,
   "createdAt": "2026-06-18T00:00:00.000Z",
   "lastObservedAt": "2026-06-18T00:00:00.000Z",
-  "lastTrackedAt": null,
   "retention": {
     "cachePolicy": "derived-content",
     "workspaceBudgetBytes": 104857600,
@@ -287,39 +575,162 @@ Example `metadata.json`:
 }
 ```
 
-Explicit identity rules:
+`metadata.json` does not contain `recordState` or `exclusionPolicy`; those are
+computed from record existence and the global exclusion registry.
 
-- Moving a checkout produces a new location identity.
-- `graft workspace relink <old-id> <new-path>` can reconnect managed history.
-- Two clones of the same remote are separate workspaces.
-- Linked Git worktrees are separate workspaces but may share a repository-family
-  hint.
-- Changing remotes does not alter the workspace ID.
-- Reusing the same path for an unrelated checkout requires replacement
-  detection or an explicit reset.
-- Nested repositories and submodules become separate workspaces.
-- Arbitrary single files must not each create permanent workspaces.
+### Incarnation and replacement detection
 
-## Path And Workspace Resolution
+Because `workspaceId` is location-derived, the same path can later contain an
+unrelated checkout. Graft needs a separate local incarnation identity:
 
-Every tool call needs an explicit request `cwd`, opened workspace handle, or
-authorized root.
+```text
+workspaceId    # deterministic location identity
+incarnationId  # generated identity for observed contents at that location
+```
 
-Resolution rules:
+Replacement evidence can include platform file identity for the root and Git
+common directory plus conservative repository fingerprints. These are detection
+hints, not authoritative workspace identity.
 
-- Relative paths resolve against request `cwd`, never daemon `cwd`.
-- A Git file resolves to its containing worktree root.
-- Nested repositories and submodules form their own workspaces.
-- A non-Git path resolves against an explicit opened root or session root.
-- Symlinks resolve before identity and policy decisions.
-- The final opened object must still match the authorized canonical path.
-- A successful operation, not merely a malformed request, creates an
-  observation record.
-- Low-value non-Git observations may remain ephemeral until repeated use,
-  explicit opening, or tracking activation promotes them.
-- `.graftignore` and user exclusions apply to Git and non-Git workspaces. For
-  non-Git workspaces, lookup starts at the opened root and does not walk above
-  the authorized root.
+On a strong mismatch:
+
+```json
+{
+  "ok": false,
+  "reason": "WORKSPACE_REPLACED",
+  "workspaceId": "ws_abc123",
+  "previousIncarnationId": "wi_old",
+  "observedIncarnationId": "wi_new"
+}
+```
+
+Required behavior:
+
+- Quarantine old caches and history.
+- Never automatically attach old WARP history.
+- Require explicit reset, replacement acceptance, or validated relink.
+- Scope approval tokens to workspace ID, workspace view ID, and incarnation ID.
+- Do not merge merely because sanitized remotes match.
+
+## Path Opening, Repository Discovery, And Observation
+
+### Race-safe opening
+
+The object read must be opened through an authorized root handle or equivalent
+race-resistant platform mechanism, with traversal constrained beneath that
+root. Authorization is validated against the opened object, not merely an
+earlier pathname resolution.
+
+Implementation may use platform-appropriate mechanisms such as
+directory-handle-relative traversal and no-follow/beneath-root constraints.
+
+Required behavior:
+
+- Reject FIFOs, device nodes, sockets, and other special files by default.
+- Apply bounded-read rules before potentially blocking file types.
+- Do not follow magic links or proc-like indirections.
+- Verify the final object type after opening.
+- Prevent traversal outside the root even when intermediate components change.
+- Document platform-specific guarantees where exact equivalence is impossible.
+- Resolve relative paths against request `cwd`, opened root, workspace view, or
+  workspace handle. Never use daemon `cwd`.
+
+### Repository discovery stays inside the grant
+
+Repository discovery never walks above the authorized root unless the grant
+explicitly includes metadata discovery above it.
+
+Rules:
+
+- A Git file resolves to its containing worktree root only when discovery to
+  that root is authorized.
+- A subdirectory grant may produce a scoped workspace view.
+- A file-handle-only grant may remain an ephemeral file operation with no
+  repository discovery.
+- Access to a linked worktree's external Git common directory requires a
+  separate grant.
+- Nested repositories and submodules are discovered only within authorized
+  roots.
+
+### Deterministic observation promotion
+
+Observation promotion has deterministic v1 rules:
+
+| Input posture | Durable registration |
+|---|---|
+| Git workspace under an authorized workspace-root grant | Register after first successful operation unless excluded or no-store. |
+| Explicitly opened non-Git root | Register after first successful operation unless excluded or no-store. |
+| Ad hoc file or file-handle operation | Remain ephemeral unless the host explicitly opens a workspace root. |
+
+Observation leases and heuristic promotion are later optimizations, not hidden
+Slice 2 policy.
+
+## Cache And History Visibility
+
+Rechecking authorization before a cache hit is necessary but not sufficient.
+Aggregate artifacts must not leak facts from a broader session to a narrower
+one.
+
+Every derived artifact needs input-level provenance:
+
+```json
+{
+  "inputs": [
+    {
+      "workspaceRelativePath": "src/example.ts",
+      "snapshot": {
+        "fileIdentity": "opaque-platform-id",
+        "size": 1234,
+        "mtimeNs": 123456789,
+        "sha256": null
+      }
+    }
+  ],
+  "scope": {
+    "root": "src/",
+    "recursive": true
+  },
+  "transform": {
+    "name": "tree-sitter-outline",
+    "version": "1.2.3"
+  }
+}
+```
+
+The contract requires one of:
+
+- Cache artifacts are scoped to the authorization view that generated them.
+- Aggregate artifacts contain path-level provenance and are filtered before
+  returning.
+- Artifacts are regenerated when safe filtering is impossible.
+
+This applies to:
+
+- workspace maps;
+- code indexes;
+- symbol timelines;
+- dead-symbol history;
+- historical deleted paths;
+- activity summaries;
+- document bundles.
+
+For historical files that no longer exist, authorization is evaluated against
+an authorized workspace root plus a normalized historical workspace-relative
+path. Current filesystem canonicalization cannot authorize a deleted path.
+
+Cache keys include:
+
+- source snapshot;
+- parser/converter version;
+- relevant policy version;
+- configuration;
+- projection options;
+- workspace view ID or equivalent authorization scope;
+- capability epoch where available.
+
+Content hashes are optional. A full cryptographic hash appears only when the
+complete source was already authorized and consumed, conversion or cache
+integrity genuinely requires it, and the file passed size and type limits.
 
 ## Lifecycle Operations
 
@@ -327,29 +738,67 @@ Ambiguous verbs are avoided.
 
 | Operation | Meaning |
 |---|---|
-| `track` | Create and maintain durable WARP history. |
-| `pause` | Stop maintaining history but preserve existing history. |
-| `resume` | Resume a paused history store. |
-| `purge-history` | Irreversibly delete WARP history. |
-| `forget` | Delete Graft-managed metadata, caches, and history; future reads may observe it again. |
-| `exclude` | Persistently prevent new managed observations/tracking for the workspace. |
-| `prune` | Remove eligible stale cache and untracked records according to policy. |
-| `relink` | Attach a managed workspace record/history to a moved checkout. |
+| `track` | Create and maintain durable WARP history after consent and authorization. |
+| `pause` | Stop maintaining history but preserve readable existing history. |
+| `resume` | Resume paused history maintenance with valid authorization. |
+| `purge-history` | Irreversibly delete WARP history after explicit approval. |
+| `forget` | Delete Graft-managed registry, cache, and managed history for a workspace. |
+| `exclude` | Prevent durable observation, durable cache, and tracking; allow ephemeral current-state reads. |
+| `include` | Remove an exclusion entry so future successful operations may observe again. |
+| `prune` | Plan or apply removal of eligible stale cache and untracked records according to policy. |
+| `relink` | Attach a managed workspace record/history to a moved checkout after validation. |
 
 `untrack` is intentionally not a primary operation because it hides whether the
 user means pause, purge, forget, or exclude.
 
-Lifecycle commands should accept either a path or workspace ID where possible.
-Destructive commands must accept workspace IDs because a deleted, moved, or
-forgotten path may no longer resolve.
+Lifecycle commands accept either a path or workspace ID where possible.
+Destructive commands must accept workspace IDs because a deleted or moved path
+may no longer resolve.
 
-`prune` rules:
+### Forget
 
-- Default to dry-run or summarize actions before changing state.
+Default `forget` semantics:
+
+- Delete Graft-managed registry, cache, and managed history for the workspace.
+- Do not mutate repo-local `.graft`.
+- Leave no durable workspace record unless the user selected an explicit
+  tombstone-retaining audit mode.
+
+Removing repo-local state requires an explicit destructive flag or separate
+operation with write authorization and stronger approval.
+
+A deleted or moved workspace with an existing managed record can be managed
+using its workspace ID. A fully forgotten workspace cannot be managed by ID
+unless an explicit tombstone was retained.
+
+### Prune
+
+`prune` is plan-only by default:
+
+```text
+graft workspace prune          # plan only
+graft workspace prune --apply  # mutate
+```
+
+Rules:
+
 - Never delete active or paused WARP history by default.
 - Require explicit flags and approval to remove tracked history.
 - Distinguish Graft-managed deletion from repo-local target mutation.
 - Never silently delete repo-local data from the target repository.
+- Show workspace IDs, incarnation IDs, storage stores, and affected byte counts
+  in the plan.
+
+### Relink
+
+`relink` must:
+
+- validate old history against the new incarnation;
+- disclose mismatches;
+- require approval;
+- never merge merely because sanitized remotes match;
+- explain whether it moves the managed store, creates a mapping, or changes a
+  manifest.
 
 ## Data Retention And Privacy
 
@@ -361,14 +810,21 @@ Defaults:
 
 - Do not cache raw read payloads by default.
 - Cache derived outlines and document projections only after policy allows the
-  source file.
-- Keep the activity ledger metadata-only by default.
-- Apply `.graftignore`, bans, and session authorization before fresh reads and
-  before cache hits.
-- Never serve a cached artifact if current policy would reject the source path.
+  source file and the requested workspace view.
+- Keep the activity ledger metadata-only by default: operation class, workspace
+  ID, workspace view ID, timestamps, aggregate sizes, and coarse result status.
+- Absolute file paths in the activity ledger are optional because metadata can
+  still be sensitive.
+- Apply authorization, `.graftignore`, bans, content governance, and session
+  scope before fresh reads and before cache hits.
+- Never serve a cached artifact if current policy would reject any unfiltered
+  source input.
 - Strip credentials, query parameters, tokens, and fragments from remote URLs.
 - Hard-ignore repo-local `.graft` from ordinary source indexing to prevent
   recursion.
+- Treat repo-local `.graft` contents as untrusted repository input. Validate
+  schemas, sizes, object names, symlinks, and path containment before loading
+  anything.
 - Do not silently place document caches or source copies into team-shared
   repo-local storage.
 - Rate-limit `lastObservedAt` updates instead of writing metadata on every read.
@@ -376,6 +832,8 @@ Defaults:
   conversion caches can grow without bound.
 - Provide inspection and clearing surfaces for metadata, caches, observations,
   document projections, and history.
+- Add schema and identity migration rules before the daemon becomes the default
+  writer.
 
 Recommended cache policies:
 
@@ -395,25 +853,30 @@ daemon-fragile.
 
 Nominal request flow:
 
-1. Tool receives a path plus request `cwd`, workspace handle, or authorized
-   root.
+1. Tool receives a path plus request `cwd`, workspace handle, workspace view, or
+   authorized root/file handle.
 2. Request is bound to an authenticated client session.
-3. Path is canonicalized and checked against the session grant.
-4. Daemon resolves the canonical target to a workspace identity.
-5. If durable observation is allowed and no record exists, the daemon creates an
-   `observed` record in Graft-managed storage.
-6. Current-state reads run from filesystem, parser, cache, or projection facts.
-7. History-backed tools require active tracking and real approval if tracking
-   must be enabled.
+3. Path traversal/opening occurs beneath the authorized root with race-resistant
+   platform mechanisms.
+4. Authorization is checked against the opened object.
+5. Daemon resolves the opened target to a workspace and workspace view only
+   within the authorized grant.
+6. Replacement/incarnation checks run before cache or history attachment.
+7. If durable observation is allowed and deterministic promotion says to
+   register, the daemon creates or updates an observed record.
+8. Current-state reads run from filesystem, parser, cache, or projection facts.
+9. History-backed tools require readable history, tracking consent, and valid
+   tracking authorization.
 
 Failure behavior:
 
 | Failure | Current-state tools | History tools |
 |---|---|---|
-| Daemon unavailable | May fall back in-process when policy permits; receipt says `runtime: "in-process-fallback"` and `persistenceMode: "ephemeral"`. | Fail clearly. |
+| Daemon unavailable | May fall back in-process when policy permits; receipt says `runtime: "in-process-fallback"` and `storage.registry/cache: "memory"` or `"none"`. | Fail clearly. |
 | Incompatible daemon protocol | Fail or fall back only if the operation is policy-equivalent. | Fail clearly. |
 | Unwritable `GRAFT_HOME` | May use ephemeral reads with explicit receipt. | Fail unless existing usable history is available without writes. |
-| Corrupt metadata | Quarantine or refuse that workspace; do not guess. | Fail clearly. |
+| Corrupt metadata | Quarantine or refuse that workspace; do not guess. | Return corruption error. |
+| History unavailable | Current-state features continue where policy allows. | Return `HISTORY_UNAVAILABLE`. |
 | Converter failure | Return projection failure with bounded diagnostics. | Not applicable unless history needs projection facts. |
 | Concurrent CLI/daemon writes | Use single-writer lock and atomic replacement. | Use single-writer lock and atomic replacement. |
 | Daemon restart during request | Retry idempotent reads when safe; otherwise fail clearly. | Fail or retry only with history consistency proof. |
@@ -442,7 +905,7 @@ Changing the behavior of bare `graft serve` is staged:
 ## Receipts
 
 Lightweight observation, daemon cache, and Graft-managed tracking are not
-mutually exclusive. Receipts should expose the relevant axes.
+mutually exclusive. Receipts expose the relevant axes.
 
 Example read receipt:
 
@@ -452,17 +915,38 @@ Example read receipt:
     "id": "ws_abc123",
     "root": "/Users/james/git/graft"
   },
+  "workspaceView": {
+    "id": "wv_docs",
+    "root": "/Users/james/git/graft/docs",
+    "authorizationEpoch": 7
+  },
+  "incarnationId": "wi_current",
   "runtime": "daemon",
   "factSource": "filesystem",
-  "historyState": "off",
-  "persistenceMode": "graft-managed",
+  "history": {
+    "lifecycle": "off",
+    "availability": "none",
+    "watermark": null
+  },
+  "storage": {
+    "registry": "graft-managed",
+    "cache": "graft-managed",
+    "history": "none"
+  },
+  "sourceSnapshot": {
+    "fileIdentity": "opaque-platform-id",
+    "size": 1234,
+    "mtimeNs": 123456789,
+    "sha256": null
+  },
   "cache": {
     "status": "miss",
-    "sourceSha256": "source-hash"
+    "scope": "wv_docs"
   },
   "policy": {
     "decision": "allowed",
-    "rule": "bounded-source-read"
+    "rule": "bounded-source-read",
+    "grantId": "grant_opaque"
   }
 }
 ```
@@ -471,22 +955,15 @@ Fact sources:
 
 | Source | Meaning |
 |---|---|
-| `filesystem` | Fresh current-state read from the authorized path. |
-| `daemon-cache` | Cached derived fact whose source is still policy-allowed. |
+| `filesystem` | Fresh current-state read from the authorized opened object. |
+| `daemon-cache` | Cached derived fact whose input provenance is still policy-allowed. |
 | `warp-history` | Durable structural history fact. |
 | `document-projection` | Bounded document conversion/projection artifact. |
 
-`graft_map` should distinguish current-snapshot output from historical map
-output in either naming or receipt fields.
+`graft_map` distinguishes current-snapshot output from historical map output in
+either naming or receipt fields.
 
 ## Hook Behavior
-
-Hook policy has two layers:
-
-| Layer | Purpose |
-|---|---|
-| Hard policy | Session authorization, symlink checks, secrets, banned files, generated outputs, recursion bans, and current ignore rules. |
-| Guidance mode | How strongly hooks steer instrumented clients toward Graft reads. |
 
 Guidance modes:
 
@@ -498,8 +975,9 @@ Guidance modes:
 | `strict` | Forces most source reads through Graft unless clearly small or allowlisted. |
 | `hook-lockdown` | Blocks native reads in instrumented clients except allowlisted paths/extensions. Not an OS sandbox. |
 
-Graft reminders must be contextual and rate-limited, for example once per
-session/workspace/threshold, not injected after every harmless native read.
+Graft reminders are contextual and rate-limited, for example once per session,
+workspace view, or meaningful threshold. They are not injected after every
+harmless native read.
 
 ## Document Projection
 
@@ -510,10 +988,11 @@ Initial document pipeline:
 
 ```text
 source document
-  -> authorize and apply bans/ignore policy
-  -> hash source bytes
+  -> authorize and apply filesystem safety/content governance
+  -> open through race-resistant path mechanism
+  -> hash source bytes only if full content is authorized and needed
   -> convert to bounded text or a named projection format
-  -> cache converted artifact under workspace cache when policy permits
+  -> cache converted artifact under workspace-view cache when policy permits
   -> apply normal Graft context policy to the projection
   -> return converted content, page map, or document outline
 ```
@@ -528,7 +1007,6 @@ Example response:
   "cacheHit": true,
   "pages": 42,
   "conversion": {
-    "sourceSha256": "source-hash",
     "artifactSha256": "text-hash",
     "converter": "pdftotext",
     "textCoverage": "partial",
@@ -539,10 +1017,11 @@ Example response:
 ```
 
 Document conversion must respect file bans, `.graftignore`, authorization,
-cache clearing, process limits, memory limits, time limits, and output-size
-limits. OCR and active embedded content are explicitly out of scope for the
-first document slice. Page markers should preserve reliable page provenance
-where the converter can provide it.
+cache clearing, process limits, memory limits, time limits, output-size limits,
+and workspace-view visibility. OCR is out of scope for the first document
+slice. Active content, external references, attachments, and network access are
+never executed or fetched. Page markers preserve reliable page provenance where
+the converter can provide it.
 
 ## Public Surfaces
 
@@ -557,13 +1036,15 @@ graft workspace status <path-or-workspace-id>
 graft workspace explain <path>
 graft workspace explain-last
 graft workspace track-plan <path-or-workspace-id>
-graft workspace track <path-or-workspace-id> [--storage graft-managed|repo-local]
+graft workspace track <path-or-workspace-id> [--storage-history graft-managed|repo-local]
 graft workspace pause <path-or-workspace-id>
 graft workspace resume <path-or-workspace-id>
 graft workspace purge-history <workspace-id>
 graft workspace forget <path-or-workspace-id>
 graft workspace exclude <path-or-workspace-id>
-graft workspace prune [--older-than 30d] [--dry-run]
+graft workspace include <path-or-workspace-id>
+graft workspace prune
+graft workspace prune --apply
 graft workspace relink <old-workspace-id> <new-path>
 ```
 
@@ -578,46 +1059,87 @@ workspace_resume_tracking
 workspace_purge_history
 workspace_forget
 workspace_exclude
+workspace_include
 workspace_prune
 workspace_explain
 ```
 
-Existing surfaces should grow multi-axis posture fields before new tools are
-fully required:
+Existing surfaces grow multi-axis posture fields before new tools are fully
+required:
 
 - `workspace_status`
 - `workspace_open`
 - `workspace_list_opened`
 - receipts for read-oriented tools
 - tracking-required obstructions
+- daemon status and doctor outputs
 
 ## Acceptance Criteria
 
 - A daemon-readable but session-unauthorized path is refused.
-- Relative paths resolve against request `cwd`, never daemon `cwd`.
-- Symlinks cannot bypass bans or authorized-root policy.
+- Control-plane operations cannot enumerate or mutate workspaces outside the
+  session's grants/capabilities.
+- Relative paths resolve against request `cwd`, authorized root, workspace
+  view, or handle. They never resolve against daemon `cwd`.
+- The opened object, not merely an earlier pathname, is authorized.
+- Symlinks, magic links, and changing intermediate path components cannot
+  bypass bans or authorized-root policy.
+- FIFOs, device nodes, sockets, and other special files are refused by default.
+- Repository discovery never walks above the authorized root without a metadata
+  discovery grant.
+- A subdirectory grant produces a scoped workspace view rather than silently
+  exposing the full repository.
 - A remote URL change does not change the workspace ID.
 - Two same-basename repositories get different IDs.
 - A daemon restart preserves the same ID.
-- A safe read creates no `.graft`, no `warp.git`, and no application-level
-  target-tree modifications.
+- A same-path replacement produces a new incarnation mismatch and quarantines
+  old cache/history.
+- Bare Git repositories are refused or explicitly out of scope.
+- A safe read creates no target `.graft`, no `warp.git`, and no
+  application-level target-tree modifications.
 - An unwritable managed store still permits an ephemeral safe read when policy
   allows fallback.
+- A workspace can use a Graft-managed registry/cache with repo-local history.
+- Repo-local history has a `historyStoreId` distinct from local `workspaceId`.
+- `metadata.json` does not store `recordState` or `exclusionPolicy`.
 - Tracking obstruction creates no history state.
-- Tracking cannot be enabled without an approval signal.
-- Repo-local tracking requires stronger approval than Graft-managed tracking.
-- `forget` allows later re-observation, while `exclude` prevents it.
-- Default pruning never deletes active or paused history.
-- A deleted, moved, or forgotten workspace can be managed using its workspace
-  ID.
-- Cache hits reapply current authorization, ignore, and file-ban rules.
+- Tracking cannot be enabled without an approval signal and valid read
+  authorization.
+- Durable maintenance pauses when tracking authorization expires or is revoked.
+- Repo-local tracking requires stronger approval and target write
+  authorization.
+- `paused` history remains readable with stale/frozen watermark receipts.
+- Unavailable active history returns `HISTORY_UNAVAILABLE`, not
+  `WORKSPACE_TRACKING_REQUIRED`.
+- `forget` allows later re-observation only after durable state is removed; it
+  does not mutate repo-local `.graft` by default.
+- `exclude` prevents durable observation/tracking while still allowing
+  authorized ephemeral reads.
+- `include` removes exclusion and returns the workspace to absent posture.
+- Default pruning is plan-only and never deletes active or paused history.
+- A deleted or moved workspace with an existing managed record can be managed
+  using its workspace ID.
+- Cache hits reapply current authorization, ignore, content governance, and
+  file-ban rules.
+- A narrow workspace view cannot receive aggregate cache/history facts created
+  by a broader view unless safely filtered by input provenance.
+- Historical deleted paths are authorized by workspace-relative historical path
+  under an authorized root, not by current filesystem canonicalization.
 - Concurrent first observation produces one valid workspace record.
 - Metadata updates use atomic replacement and a single-writer lock.
-- Current-state receipts include workspace, runtime, fact source, history state,
-  persistence mode, cache status, and policy decision.
+- Current-state receipts include workspace, workspace view, incarnation,
+  runtime, fact source, history lifecycle/availability/watermark, storage,
+  cache status, policy decision, and opaque grant ID.
+- Normal read receipts do not compute full source SHA-256 unless the full file
+  was already authorized and consumed and size/type limits permit it.
 - Plain `pdftotext` output is reported as text, not Markdown.
+- Document active content, external references, attachments, and network access
+  are never executed or fetched.
+- Schema and identity migration rules exist before the daemon becomes the
+  default writer.
 - Docs clearly distinguish host permissions, Graft authorization, Graft read
-  policy, persistence, and durable tracking opt-in.
+  policy, persistence stores, durable tracking consent, and durable tracking
+  authorization.
 
 ## Playback Questions
 
@@ -633,26 +1155,41 @@ fully required:
       authorization?
 - [ ] Is tracking consent something the human/host grants, not something an
       eager agent can auto-follow?
+- [ ] Is it clear how session-bound tracking differs from continuous tracking
+      under a durable grant?
+- [ ] Is it clear that a docs-only workspace view cannot inherit source-wide
+      caches or history answers?
+- [ ] Do lifecycle verbs make deletion, exclusion, pausing, and repo-local
+      mutation consequences explicit?
 
 ### Agent
 
 - [ ] Does workspace identity remain stable and collision-resistant when two
       repos share the same basename?
 - [ ] Does changing remote URLs leave the workspace ID unchanged?
+- [ ] Does a same-path repository replacement produce an incarnation mismatch
+      instead of attaching old history?
 - [ ] Does a safe read in an untracked workspace create only authorized
       Graft-managed metadata/cache state and no target-tree mutation?
 - [ ] Does a history-only tool ask for tracking with an approval-required
       obstruction and create no history state?
-- [ ] Can a workspace be forgotten, excluded, pruned, purged, or relinked with
-      unambiguous deletion semantics?
-- [ ] Do cache hits reapply the current authorization, ignore, and ban policy?
+- [ ] Can a workspace be forgotten, included, excluded, pruned, purged, or
+      relinked with unambiguous deletion semantics?
+- [ ] Do cache hits reapply the current authorization, ignore, ban, content
+      governance, workspace-view, and capability-epoch policy?
 - [ ] Does an unwritable managed store fall back to explicit ephemeral posture
       rather than lying about persistence?
+- [ ] Do paused history answers remain readable with stale/frozen watermarks?
+- [ ] Do control-plane tools hide unrelated registry entries from narrow MCP
+      sessions?
+- [ ] Does race-safe opening authorize the object actually read rather than a
+      stale path resolution?
 
 ## Non-goals
 
 - [ ] Do not make Graft a global filesystem permission system.
 - [ ] Do not treat daemon OS readability as client authorization.
+- [ ] Do not treat tracking consent as filesystem authorization.
 - [ ] Do not initialize WARP tracking merely because a file was read.
 - [ ] Do not let an agent auto-follow a proposed action and call that user
       consent.
@@ -664,92 +1201,93 @@ fully required:
 - [ ] Do not create durable workspace records for every random temporary file
       or directory.
 - [ ] Do not label plain converter text as Markdown.
+- [ ] Do not support bare Git repositories in Slice 1 without a separate
+      identity contract.
 
 ## Slice Plan
 
 ### Slice 0 — Security and state contract
 
-Freeze authorization, identity, state axes, tracking consent, lifecycle
-semantics, retention defaults, path resolution, daemon failure behavior, and
-receipt structure. This packet is the Slice 0 design artifact. No router work
-starts until Slice 0 is approved.
+Freeze authorization, control-plane capabilities, store topology, workspace
+views, identity, incarnation detection, history lifecycle/availability,
+tracking consent, tracking authorization, lifecycle semantics, retention
+defaults, path opening, repository discovery, daemon failure behavior, receipt
+structure, and migration rules. This packet is the Slice 0 design artifact. No
+router work starts until Slice 0 is approved.
 
 ### Slice 1 — Workspace registry
 
-Add ID-only storage paths, metadata schema, exclusion registry, status/list,
-atomic writes, permissions, sanitized remote metadata, and deterministic
-workspace identity. Safe reads still use existing execution paths.
+Add ID-only storage paths, workspace metadata schema, incarnation records,
+workspace view records, exclusion registry, include/exclude status, status/list
+authorization, atomic writes, secure directory creation, permissions, sanitized
+remote metadata, deterministic workspace identity, and schema/identity
+migration scaffolding. Safe reads still use existing execution paths.
 
 ### Slice 2 — Daemon routing and lightweight reads
 
 Blocked until Slice 0. Route authorized absolute or outside-current-workspace
-paths through daemon workspace resolution, creating observed records only after
-successful operations. Include session capabilities, root resolution, receipts,
-and in-process ephemeral fallback.
+paths through daemon workspace/view resolution. Include session capabilities,
+race-safe opening, repository discovery boundaries, deterministic observation
+promotion, aggregate cache scoping, receipts, and in-process ephemeral fallback.
 
-### Slice 3 — Tracking controls and obstructions
+### Slice 3A — Tracking approval, enable, pause, resume, obstruction
 
-Combine tracking-required obstructions with user-facing lifecycle controls:
-track, pause, resume, purge-history, forget, exclude, prune, and relink.
-Tracking activation must enforce approval and record consent receipts.
+Ship `track-plan`, approval-required obstructions, enable tracking, pause, and
+resume. Enforce tracking authorization and consent receipts. Paused history
+remains readable with a frozen watermark.
+
+### Slice 3B — Include, exclude, forget, prune
+
+Ship include/exclude, forget, and plan-first prune semantics. Enforce
+control-plane capabilities and distinguish Graft-managed deletion from
+repo-local target mutation.
+
+### Slice 3C — Purge-history, replacement handling, relink
+
+Ship destructive history purge, same-path replacement detection, quarantine,
+and explicit relink. Require approval, incarnation validation, and clear
+manifest/mapping behavior.
 
 ### Slice 4 — Hook modes
 
-Separate hard policy from guidance strictness. Add `advisory`, `balanced`,
-`strict`, and `hook-lockdown` modes, define outage behavior, and rate-limit
-native-read reminders.
+Separate authorization/filesystem safety, configurable content governance, and
+hook guidance. Add `advisory`, `balanced`, `strict`, and `hook-lockdown` modes,
+define outage behavior, and rate-limit native-read reminders.
 
 ### Slice 5 — Document projection
 
 Add sandboxed document conversion, accurate format provenance, page mapping,
-cache limits, confidence/warning fields, and failure states.
+cache limits, confidence/warning fields, active-content refusal, no-network
+guarantees, and failure states.
 
 ### Slice 6 — Default-command transition
 
 Move bare `graft serve` only after compatibility telemetry, generated config
-updates, notices, and a rollback story.
+updates, notices, migration rules, and a rollback story.
 
-## Should/Could Decisions
+## Folded Enhancement Requirements
 
-Folded from SHOULD:
+The following previously suggested SHOULD, COULD, and COOL IDEA items are now
+normative requirements in this packet:
 
-- Hard policy and guidance mode are split.
-- Graft reminders are contextual and rate-limited.
-- `lockdown` is renamed to `hook-lockdown` and scoped to instrumented client
-  operations.
-- `graft daemon status`, `graft doctor`, and `graft protocol-version` are
-  candidate surfaces.
-- `lastObservedAt` writes are rate-limited.
-- Storage budgets and cache policies are part of retention.
-- Status, forget, pause, purge, and related lifecycle commands accept path or
-  workspace ID where appropriate.
-- Current-snapshot `graft_map` and historical map facts are distinguished in
-  receipts or naming.
-- Repo-local history and local conversion caches are separable.
-- `.graftignore` lookup for non-Git workspaces is specified.
-- The document non-goal now says document projection is not implemented before
-  the document-projection slice.
+- Remove `repositoryFamilyHint` from v1 unless a shipped feature uses it.
+- Treat repo-local `.graft` contents as untrusted repository input.
+- Split hard policy into authorization/filesystem safety, configurable content
+  governance, and hook guidance.
+- Default the activity ledger to operation class, workspace IDs, timestamps,
+  and aggregate sizes; make absolute paths optional.
+- Require secure creation, ownership verification, restrictive permissions, and
+  symlink refusal for Graft-home storage.
+- State that document active content, external references, attachments, and
+  network access are never executed or fetched.
+- Add schema and identity migration rules before daemon default writing.
+- Split destructive tracking/lifecycle work into Slices 3A, 3B, and 3C.
+- Introduce `workspaceViewId` for authorized workspace views.
+- Include capability epochs for cache invalidation when grants change.
+- Strengthen `track-plan` into an informed consent surface.
+- Add the normative state-transition table.
+- Keep explicit `workspace relink` and require validation/approval.
+- Keep document projection confidence and page provenance.
 
-Folded from COULD:
-
-- `graft workspace explain <path>` and `graft workspace explain-last` are
-  candidate diagnostic surfaces.
-- `graft workspace track-plan <path-or-workspace-id>` is a candidate consent
-  planning surface.
-- Explicit `workspace relink` is part of lifecycle semantics.
-- Per-workspace cache policies are part of retention.
-- Immutable consent receipts are required for tracking activation.
-- Document page markers, projection confidence, and warnings are part of the
-  document-projection slice.
-
-Deferred SHOULD/COULD items not folded:
-
-- **Named workspace groups / project constellations.** Deferred because this is
-  a grouping and navigation feature, not part of the permission, identity, or
-  storage contract. It should build on stable workspace IDs rather than shape
-  them.
-- **Automatic moved-checkout detection and relink offers.** The packet folds in
-  explicit `workspace relink`, but defers heuristics that infer moves from
-  sanitized remotes and Git fingerprints. Automatic suggestions can create
-  false positives and should wait until identity, replacement detection, and
-  consent receipts exist.
+No SHOULD, COULD, or COOL IDEA item from the latest verdict is intentionally
+deferred.
