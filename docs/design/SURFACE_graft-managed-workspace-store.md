@@ -1886,17 +1886,7 @@ required:
 - [ ] Do not make `exclude` delete state.
 - [ ] Do not return filtered historical conclusions as globally complete.
 
-## Execution Roadmap
-
-The goalpost roadmap now lives in
-[`SURFACE_graft-managed-workspace-store-roadmap.md`](./SURFACE_graft-managed-workspace-store-roadmap.md).
-
-This packet remains the normative Slice 0 contract. The roadmap is the
-implementation control surface for sequencing, PR-sized slices, release
-checkpoints, and exit gates. If a sequencing question conflicts with the compact
-legacy outline below, follow the roadmap.
-
-## Legacy Slice Outline
+## Slice Plan
 
 ### Slice 0 — Security and state contract
 

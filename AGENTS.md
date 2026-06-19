@@ -10,6 +10,8 @@ This guide is for AI agents and human operators recovering context in the Graft 
 - **NEVER** create draft pull requests.
 - **NEVER** use a `codex` prefix in branch names, PR titles, or commit messages.
 - Always use standard commits and regular pushes.
+- When opening pull requests, include `Closed #XYZ` references for every GitHub
+  issue the PR closes.
 
 ## Documentation & Planning Map
 
