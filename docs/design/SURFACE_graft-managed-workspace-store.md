@@ -13,9 +13,10 @@ Graft becomes a daemon-first, multi-workspace context governor. By default it
 stores Graft-owned observations, caches, document projections, and optional
 durable structural tracking under Graft's own home directory instead of inside
 each target repository. Current-state structural reads work across explicitly
-authorized client-session roots, stable workspace views, opened roots, or
-authorized file handles. Durable WARP history is explicit, scoped, visible,
-authorized, and opt-in through history bindings.
+authorized client-session roots, authorized workspace-view handles with a
+current valid visibility context, opened roots, or authorized file handles.
+Durable WARP history is explicit, scoped, visible, authorized, and opt-in
+through history bindings.
 
 This packet is still a Slice 0 contract. No router, registry, cache, hook,
 document conversion, or tracking implementation starts until this contract is
@@ -29,8 +30,9 @@ treated as Slice 0 requirements here.
 1. **Graft never expands a client session's authorized path set.** Daemon
    operating-system readability alone is insufficient authorization. Every
    request must be evaluated against an authenticated session capability,
-   allowed-root set, stable workspace view, authorized file handle, or
-   equivalent host-provided grant.
+   allowed-root set, authorized file handle, or an authorized workspace-view
+   handle whose current visibility context is backed by a valid host-provided
+   grant.
 2. **Consent and authorization are different requirements.** Consent answers
    whether the user wants durable tracking or destructive maintenance.
    Authorization answers whether the daemon may access or mutate the target now
@@ -51,9 +53,11 @@ treated as Slice 0 requirements here.
    facts without initializing WARP history.
 7. **Storage is per-store, not per-workspace.** The registry, cache, and each
    history binding's WARP store can live in different places.
-8. **A workspace view is stable visibility, not a transient grant.** Grant ID,
-   grant epoch, policy digest, and session ID never define durable
-   `workspaceViewId`. They belong in a visibility context.
+8. **A workspace view is stable visibility, not a transient grant.**
+   `workspaceViewId` alone confers no authority. A workspace view becomes
+   usable only through a current valid `visibilityContext`. Grant ID, grant
+   epoch, policy digest, and session ID never define durable `workspaceViewId`.
+   They belong in a visibility context.
 9. **Receipts describe a resource scope.** Some operations have no workspace.
    File-handle-only and opened-root operations must not invent fake workspaces
    to satisfy a receipt schema.
@@ -114,11 +118,12 @@ Minimum contract:
 
 - Authenticate local clients and restrict the daemon socket.
 - Bind every request to a client session.
-- Give each session explicit allowed roots, path capabilities, workspace views,
-  approved file handles, or equivalent host-provided grants.
-- Resolve relative paths against the request `cwd`, workspace handle, stable
-  workspace view, opened root, or opened file object. Never use the daemon
-  process's current working directory.
+- Give each session explicit allowed roots, path capabilities, approved file
+  handles, authorized workspace-view handles with current visibility context,
+  or equivalent host-provided grants.
+- Resolve relative paths against the request `cwd`, workspace handle,
+  authorized workspace-view handle, opened root, or opened file object. Never
+  use the daemon process's current working directory.
 - Never claim equivalence with host permissions when the integration cannot
   prove those permissions.
 - Identify the authorizing grant in receipts by opaque ID. Never expose a
@@ -530,16 +535,50 @@ must not follow the lineage backward into `src/` unless separately authorized.
 ## Scope Algebra
 
 Workspace views, tracking scopes, cache scopes, and management scopes use one
-normalized scope algebra.
+normalized scope algebra. Uncertainty is a first-class security result.
 
 Required operations:
 
 ```text
-contains(a, b)
-intersects(a, b)
-subtract(a, b)
-equivalent(a, b)
+relation(a, b):
+  equivalent
+  contains
+  contained-by
+  overlaps
+  disjoint
+  unknown
+
+subtract(a, b):
+  ScopeSet
+  unknown
 ```
+
+`subtract` may produce multiple disjoint scopes. Exact containment or
+subtraction over arbitrary include/exclude languages can be limited in v1 to
+root-prefix and other provably comparable scopes. More expressive patterns
+return `unknown` rather than optimistic authorization.
+
+Normative handling:
+
+| Consumer | `unknown` behavior |
+|---|---|
+| Authorization | Deny. |
+| Management authority | Deny. |
+| Cache reuse | Treat as miss; regenerate if authorized. |
+| History query | Return `INSUFFICIENT_SCOPE`. |
+| Scope expansion | Require a new explicit plan. |
+| Historical filtering | Truncate or refuse; never guess. |
+
+Scope path normalization:
+
+- workspace-relative only;
+- canonical separator;
+- no absolute paths;
+- no `.` or `..` segments;
+- no NUL;
+- explicit case-sensitivity semantics;
+- explicit Unicode/byte-path semantics;
+- deterministic include/exclude rule ordering.
 
 This shared algebra governs:
 
@@ -648,7 +687,7 @@ Approval binds to:
 - expiry and daemon/host audience.
 
 Activation revalidates all preconditions. Material change returns
-`TRACK_PLAN_STALE`. Approval tokens are replay-resistant and preferably
+`OPERATION_PLAN_STALE`. Approval tokens are replay-resistant and preferably
 single-use.
 
 The same plan/commit pattern covers:
@@ -1565,13 +1604,13 @@ graft workspace track-plan <path-or-resource-id>
 graft workspace track <plan-id>
 graft workspace pause <history-binding-id>
 graft workspace resume <history-binding-id>
-graft workspace purge-history <history-binding-id>
-graft workspace forget <path-or-resource-id>
+graft workspace purge-history <plan-id>
+graft workspace forget <plan-id>
 graft workspace exclude <path-or-workspace-id>
 graft workspace include <path-or-workspace-id>
 graft workspace prune
-graft workspace prune --apply
-graft workspace relink <old-workspace-id> <new-path>
+graft workspace prune --apply <plan-id>
+graft workspace relink <plan-id>
 ```
 
 Candidate MCP tools:
@@ -1592,6 +1631,11 @@ workspace_prune
 workspace_explain
 workspace_explain_operation
 ```
+
+Specialized mutating MCP tools are aliases over `workspace_commit_operation`.
+They require `planId` plus a host-issued approval token reference and use the
+same digest, precondition, approval, idempotency, prepare/commit, and generation
+fencing path.
 
 Existing surfaces grow multi-axis posture fields before new tools are fully
 required:
@@ -1630,10 +1674,14 @@ required:
 - `workspaceViewId` is stable across grant epoch and policy changes.
 - Transient grant/policy data appears in `visibilityContext`, not durable view
   identity.
+- Possession or knowledge of a `workspaceViewId` without a valid grant does
+  not permit reads, cache access, history queries, or control-plane disclosure.
 - A daemon restart preserves the same IDs.
 - Strong same-path replacement signals produce incarnation mismatch and
   quarantine; weak evidence produces `suspect` or `unknown` and blocks durable
   attachment.
+- Every durable derived artifact is partitioned by `incarnationId`, and no
+  artifact created for one incarnation can attach to another incarnation.
 - Bare Git repositories are refused or explicitly out of scope.
 - A safe read creates no target `.graft`, no `warp.git`, and no
   application-level target-tree modifications.
@@ -1651,7 +1699,7 @@ required:
 - Tracking obstruction creates no history state.
 - Tracking cannot be enabled without an approved immutable plan and valid read
   authorization.
-- Activation returns `TRACK_PLAN_STALE` when plan preconditions materially
+- Activation returns `OPERATION_PLAN_STALE` when plan preconditions materially
   change.
 - Durable maintenance pauses when tracking authorization expires or is revoked.
 - Repo-local tracking requires stronger approval and target write
@@ -1661,7 +1709,14 @@ required:
   `WORKSPACE_TRACKING_REQUIRED`.
 - Corrupt active history becomes paused/corrupt and is quarantined.
 - History queries report `scopeCompleteness`.
+- History queries report `temporalCompleteness` and return
+  `INSUFFICIENT_HISTORY_COVERAGE` when coverage is too incomplete for the
+  requested claim.
+- Ambiguous non-equivalent history binding candidates return
+  `HISTORY_BINDING_AMBIGUOUS` instead of silently choosing or unioning.
 - Insufficiently scoped historical conclusions return `INSUFFICIENT_SCOPE`.
+- Uncertain scope algebra results deny authorization and management, miss cache
+  reuse, and refuse or truncate historical filtering.
 - Historical rename lineage is truncated at scope boundaries without revealing
   hidden paths or hidden counts.
 - `exclude` preserves managed state, pauses bindings, fences background
@@ -1686,6 +1741,11 @@ required:
   journals, startup reconciliation, and generation fencing.
 - No active binding exists without a valid consent receipt and initialized
   store.
+- No active or paused binding exists without a retained
+  `consentAuthorityRecord`.
+- Specialized mutation commands consume approved plan IDs and use the same
+  digest, precondition, approval, idempotency, journal, and generation-fence
+  path as `workspace_commit_operation`.
 - No background job runs after exclude, forget, purge, replacement quarantine,
   or grant revocation.
 - Normal read receipts do not compute full source SHA-256 unless the full file
@@ -1859,6 +1919,285 @@ guarantees, and failure states.
 Move bare `graft serve` only after compatibility evidence, generated config
 updates, notices, migration rules, and a rollback story.
 
+## Slice 0 Freeze Errata
+
+These errata are normative and freeze Slice 0 after the Take Four approval
+review.
+
+### View authority
+
+`workspaceViewId` alone confers no authority. Possession or knowledge of a
+workspace view ID without a valid grant does not permit reads, cache access,
+history queries, or control-plane disclosure. A workspace view becomes usable
+only through a current valid `visibilityContext` backed by a host-provided
+grant.
+
+### Incarnation-partitioned artifacts
+
+Stable `workspaceViewId` survives same-path replacement, so every durable
+derived artifact is partitioned by `incarnationId`.
+
+Required:
+
+- `incarnationId` appears in every durable artifact envelope.
+- `incarnationId` is part of cache keys, aggregate-index provenance, document
+  projections, map records, operation preconditions, and cache-directory
+  ownership or partitioning.
+- Cache layout either nests under `workspaces/<workspace-id>/incarnations/<incarnation-id>/cache/`
+  or every cache read/write path requires exact `incarnationId` match.
+
+Invariant:
+
+```text
+No durable derived fact created for one incarnation may be attached to another
+incarnation, even when workspaceId, workspaceViewId, path, size, and timestamps
+happen to match.
+```
+
+### Historical coverage and binding selection
+
+`scopeCompleteness` answers only spatial coverage. Historical answers also
+report temporal coverage.
+
+Binding coverage:
+
+```json
+{
+  "coverage": {
+    "basis": "git-history | observed-events | hybrid",
+    "from": {
+      "commit": "optional",
+      "observedAt": "optional"
+    },
+    "through": {
+      "commit": "optional",
+      "observedAt": "optional"
+    },
+    "continuity": "continuous | gapped | unknown"
+  }
+}
+```
+
+Historical answers report:
+
+```text
+scopeCompleteness:
+  complete | partial | insufficient
+temporalCompleteness:
+  complete | partial | insufficient | unknown
+```
+
+Dead-symbol history, structural churn, "never referenced", and similar claims
+require complete enough spatial scope and continuous temporal coverage. If the
+claim cannot be made honestly, return `INSUFFICIENT_HISTORY_COVERAGE`.
+
+History binding selection:
+
+1. Use an explicitly requested `historyBindingId` when authorized.
+2. Otherwise prefer an exact tracking-scope match.
+3. Otherwise use a uniquely superior binding based on contained scope and
+   usable coverage.
+4. If multiple non-equivalent bindings remain, return
+   `HISTORY_BINDING_AMBIGUOUS`.
+
+Ambiguity responses may list redacted candidate bindings the session is
+authorized to know about.
+
+### Live bindings do not store `off`
+
+No matching binding means effective tracking posture is off. Stored live
+binding lifecycle is only:
+
+```text
+active | paused
+```
+
+Revised binding transitions:
+
+```text
+absent binding
+  -- approved track -->
+active binding
+
+active
+  -- pause -->
+paused
+
+paused
+  -- resume -->
+active
+
+active | paused
+  -- approved purge -->
+absent binding
+```
+
+If an operation intentionally retains a post-purge descriptor, call it a
+retired binding record or audit record. Do not call it an ordinary `off`
+history binding.
+
+### Consent authority versus audit receipts
+
+Bindings distinguish authoritative consent from optional audit material.
+
+```json
+{
+  "consentAuthorityRecordId": "ca_123",
+  "consentAuditReceiptId": "cr_789"
+}
+```
+
+Rules:
+
+- The authoritative record cannot be pruned while the binding exists.
+- Deleting or revoking the authoritative record fences maintenance and pauses
+  the binding.
+- Purge removes the binding and authoritative consent record transactionally.
+- Residual audit receipts are separate and disclosed in the plan.
+- Full forget deletes or explicitly discloses every workspace-linked residual
+  record.
+
+### Canonical identity and plan encoding
+
+Slice 0 freezes the v1 encoding.
+
+```text
+installationId:
+  random 128-bit value generated when GRAFT_HOME is initialized
+canonical encoding:
+  deterministic CBOR
+digest:
+  SHA-256
+public ID:
+  typed prefix + lowercase base32 of at least 128 digest bits
+```
+
+Example:
+
+```text
+workspaceId = encode(
+  "ws_",
+  SHA-256(
+    deterministic-CBOR([
+      "graft-workspace",
+      1,
+      installationId,
+      platformNamespace,
+      volumeNamespace,
+      workspaceKind,
+      canonicalIdentityComponents
+    ])
+  )
+)
+```
+
+Use the same canonical-byte contract for `workspaceViewId`,
+`trackingScopeId`, plan digests, operation precondition digests, and
+visibility-context digests.
+
+Plan digest:
+
+```text
+planDigest = SHA-256(
+  deterministic-CBOR(plan excluding planDigest and approval/signature fields)
+)
+```
+
+The stale-plan obstruction is `OPERATION_PLAN_STALE`, because the generic
+protocol covers tracking, purge, prune, relink, forget, and target mutation.
+
+### Exclusion precedence
+
+`exclusionStatus: excluded` overrides binding lifecycle for content-serving
+operations.
+
+| Operation | Result while excluded |
+|---|---|
+| Authorized ephemeral current-state read | Allowed. |
+| Cache-derived content response | Blocked. |
+| Historical content query | `WORKSPACE_EXCLUDED`. |
+| Status/inspection | Allowed with control-plane authority. |
+| Include/forget/purge planning | Allowed with exact authority. |
+| Background maintenance | Fenced. |
+| Automatic cache pruning | Prohibited while preserve semantics apply. |
+| Explicit approved deletion | Allowed. |
+
+For v1, a location exclusion matches the canonical location and authorized
+descendant resource scopes without disclosing the hidden parent workspace to the
+requesting session. Object-only operations remain ephemeral and cannot create a
+durable bypass.
+
+### Mutating commands consume plans
+
+Specialized mutation commands are aliases over the same commit path, never
+alternate mutation implementations.
+
+```text
+graft workspace track <plan-id>
+graft workspace purge-history <plan-id>
+graft workspace forget <plan-id>
+graft workspace relink <plan-id>
+graft workspace prune --apply <plan-id>
+```
+
+Specialized MCP calls require:
+
+```json
+{
+  "planId": "op_123",
+  "approvalToken": "host-issued-reference"
+}
+```
+
+They invoke the same digest validation, precondition validation, approval
+validation, idempotency handling, prepare/commit journal, and generation fence.
+
+### Repo-local Git hardening additions
+
+Repo-local WARP access additionally prohibits:
+
+- replacement refs;
+- lazy object fetching;
+- ambient system/global Git configuration;
+- non-literal pathspec interpretation.
+
+Hardened invocation conceptually enforces:
+
+```text
+GIT_NO_REPLACE_OBJECTS=1
+GIT_NO_LAZY_FETCH=1
+GIT_CONFIG_NOSYSTEM=1
+explicit isolated HOME/config
+literal pathspecs
+no pager/editor/prompts
+no network
+```
+
+### Migration invariants
+
+Minimum migration contract:
+
+- Unknown major schema is refused or quarantined.
+- Managed-store migration is journaled and idempotent.
+- Old state remains recoverable until commit.
+- Interrupted migration reconciles at startup.
+- Repo-local migration requires target write authority and an approved plan.
+- Identity-version migration never silently merges workspaces, views, bindings,
+  or history stores.
+
+### Receipt retention
+
+`explain-operation <receipt-id>` implies a receipt retention contract.
+
+V1 must specify:
+
+- default TTL;
+- whether receipt bodies are durable or session-only;
+- which path fields are redacted at rest;
+- whether receipt IDs remain valid after forget;
+- whether operation explanation reads the original receipt or reconstructs it
+  from audit data.
+
 ## Folded Enhancement Requirements
 
 The following previously suggested SHOULD, COULD, and COOL IDEA items are now
@@ -1885,8 +2224,7 @@ normative requirements in this packet:
 - Keep explicit `workspace relink` and require validation/approval.
 - Keep document projection confidence and page provenance.
 - Add generic `workspace_plan_operation` and `workspace_commit_operation`.
-- Add scope algebra with `contains`, `intersects`, `subtract`, and
-  `equivalent`.
+- Add conservative scope algebra with `relation`, `subtract`, and `unknown`.
 - Add coherent source snapshot rules.
 - Freeze identity encoding, including local `workspaceId` and portable
   `historyStoreId`.
