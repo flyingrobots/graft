@@ -60,7 +60,7 @@ export interface IncarnationMetadataRecord {
   readonly schemaVersion: 1;
   readonly workspaceId: string;
   readonly incarnationId: string;
-  readonly status: "confirmed";
+  readonly incarnationStatus: "confirmed";
   readonly createdAt: string;
   readonly lastObservedAt: string;
   readonly evidence: {
@@ -315,7 +315,7 @@ export async function observeGitWorkspace(input: ObserveGitWorkspaceInput): Prom
     schemaVersion: 1,
     workspaceId,
     incarnationId,
-    status: "confirmed",
+    incarnationStatus: "confirmed",
     createdAt: await exists(paths.incarnationMetadataPath)
       ? (await readJson<IncarnationMetadataRecord>(paths.incarnationMetadataPath))?.createdAt ?? timestamp
       : timestamp,

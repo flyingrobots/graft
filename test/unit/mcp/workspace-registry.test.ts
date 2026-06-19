@@ -111,6 +111,9 @@ describe("workspace registry observation", () => {
 
     const paths = registryPaths(graftDir, observed.workspaceId, observed.incarnationId);
     const metadata = JSON.parse(fs.readFileSync(paths.metadataPath, "utf8")) as Record<string, unknown>;
+    const incarnationMetadata = JSON.parse(
+      fs.readFileSync(paths.incarnationMetadataPath, "utf8"),
+    ) as Record<string, unknown>;
 
     expect(path.basename(paths.workspaceDir)).toBe(observed.workspaceId);
     expect(paths.workspaceDir).not.toContain(path.basename(repoRoot));
@@ -138,6 +141,13 @@ describe("workspace registry observation", () => {
     expect(metadata).not.toHaveProperty("historyStoreId");
     expect(metadata).not.toHaveProperty("history");
     expect(metadata).not.toHaveProperty("trackingAuthorization");
+    expect(incarnationMetadata).toMatchObject({
+      schemaVersion: 1,
+      workspaceId: observed.workspaceId,
+      incarnationId: observed.incarnationId,
+      incarnationStatus: "confirmed",
+    });
+    expect(incarnationMetadata).not.toHaveProperty("status");
     expect(fs.existsSync(path.join(paths.incarnationCacheDir, "outlines"))).toBe(true);
     expect(fs.existsSync(path.join(paths.workspaceDir, "history"))).toBe(false);
     expect(fs.existsSync(path.join(paths.workspaceDir, "warp.git"))).toBe(false);
