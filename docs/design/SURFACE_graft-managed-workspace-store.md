@@ -15,7 +15,7 @@ durable structural tracking under Graft's own home directory instead of inside
 each target repository. Current-state structural reads work across explicitly
 authorized client-session roots, authorized workspace-view handles with a
 current valid visibility context, opened roots, or authorized file handles.
-Durable WARP history is explicit, scoped, visible, authorized, and opt-in
+Durable structural history is explicit, scoped, visible, authorized, and opt-in
 through history bindings.
 
 This packet is still a Slice 0 contract. No router, registry, cache, hook,
@@ -50,9 +50,9 @@ treated as Slice 0 requirements here.
 6. **Current-state reads do not require durable history.** `safe_read`,
    `file_outline`, `read_range`, current-snapshot `graft_map`, and document
    projections can run from authorized filesystem, parser, cache, or projection
-   facts without initializing WARP history.
+   facts without initializing durable structural history.
 7. **Storage is per-store, not per-workspace.** The registry, cache, and each
-   history binding's WARP store can live in different places.
+   history binding's provider store can live in different places.
 8. **A workspace view is stable visibility, not a transient grant.**
    `workspaceViewId` alone confers no authority. A workspace view becomes
    usable only through a current valid `visibilityContext`. Grant ID, grant
@@ -82,9 +82,9 @@ forks, generated clients, examples, vendor checkouts, or documentation repos.
 If Graft can only help in the initially bound Git repo, agents learn to bypass
 it and use native file reads.
 
-Durable WARP tracking is heavier than ordinary reading. Requiring repo-local
-Graft/WARP state before an agent can benefit from `safe_read` or `file_outline`
-creates unnecessary ceremony for the common case.
+Durable structural-history tracking is heavier than ordinary reading. Requiring
+repo-local Graft/provider state before an agent can benefit from `safe_read` or
+`file_outline` creates unnecessary ceremony for the common case.
 
 The correct product split is:
 
@@ -368,18 +368,18 @@ excluded + absent
 History-binding transitions:
 
 ```text
-off       -- track + authorization + approval --> active
-active    -- pause                            --> paused
-paused    -- resume + valid authorization     --> active
-active    -- authorization revoked            --> paused
-paused    -- purge-history + approval         --> off
+absent binding -- track + authorization + approval --> active binding
+active         -- pause                            --> paused
+paused         -- resume + valid authorization     --> active
+active         -- authorization revoked            --> paused
+active|paused  -- purge-history + approval         --> absent binding
 ```
 
 Additional transition rules:
 
 - Authorization expiration or revocation pauses maintenance automatically.
-- `purge-history` removes WARP history for a binding but does not itself
-  exclude future observation.
+- `purge-history` removes structural-history state for a binding but does not
+  itself exclude future observation.
 - `forget` for Graft-managed state leaves no durable workspace record by
   default. If an audit tombstone is retained, the operation must be named and
   documented as tombstone-retaining, not "full forget."
@@ -387,6 +387,35 @@ Additional transition rules:
   receipts, or history stores. It fences and pauses them.
 
 ## History Bindings
+
+### Substrate boundary
+
+Durable structural history sits behind a Graft-owned port and adapter boundary.
+The workspace registry does not depend on git-warp's graph shape, repository
+layout, observer model, or storage semantics.
+
+The primary target substrate is Echo-native structural history after the Echo
+integration gate is cleared. git-warp remains a provenance-preserving import
+source and temporary fallback adapter:
+
+```text
+StructuralHistoryPort
+  -> EchoStructuralHistoryAdapter          # primary after integration gate
+  -> GitWarpImportedHistoryAdapter         # import provenance
+  -> GitWarpFallbackHistoryAdapter         # compatibility while parity closes
+```
+
+Normative rules:
+
+- Workspace records store binding IDs and substrate-neutral metadata only.
+- History bindings declare provider/evidence posture without importing provider
+  internals into workspace metadata.
+- Echo-native facts use `echo-native` evidence only after a real Echo runtime,
+  retained-evidence posture, and package compatibility surface are proven.
+- git-warp facts are labeled `git-warp-imported` after import or
+  `fallback-translated` while served through compatibility paths.
+- No Slice 1 registry code may open git-warp or assume a `warp.git` path.
+- Provider-specific storage is owned by the adapter behind the binding record.
 
 ### Binding model
 
@@ -409,6 +438,10 @@ Example:
     "exclude": ["generated/**"]
   },
   "storage": "graft-managed",
+  "provider": {
+    "kind": "echo-native | git-warp-imported | fallback-translated",
+    "adapter": "echo | git-warp-import | git-warp-fallback"
+  },
   "lifecycle": "active",
   "availability": "readable",
   "watermark": {
@@ -440,11 +473,12 @@ Recommended v1 rule:
 one logical history binding = one physical history store
 ```
 
-Sharing one physical WARP store among differently scoped bindings can come
+Sharing one physical provider store among differently scoped bindings can come
 later, after strict partitioning is proven.
 
-Repo-local history initially requires a full-worktree tracking scope. A partial
-docs-only repo-local `.graft` history is portable confusion and is out of v1.
+Repo-local compatibility history initially requires a full-worktree tracking
+scope. A partial docs-only repo-local `.graft` history is portable confusion
+and is out of v1.
 
 ### History lifecycle and availability
 
@@ -452,7 +486,7 @@ History lifecycle and availability live on each history binding.
 
 ```text
 history binding:
-  lifecycle: off | active | paused
+  lifecycle: active | paused
   availability: none | readable | unavailable | corrupt
   watermark:
     observedAt: timestamp
@@ -464,7 +498,6 @@ Valid combinations:
 
 | Lifecycle | Valid availability |
 |---|---|
-| `off` | `none` |
 | `active` | `readable`, `unavailable` |
 | `paused` | `readable`, `unavailable`, `corrupt` |
 
@@ -472,7 +505,7 @@ Behavior:
 
 | Lifecycle | Availability | Result |
 |---|---|---|
-| `off` | `none` | Return `WORKSPACE_TRACKING_REQUIRED` for history-only tools. |
+| no binding | `none` | Return `WORKSPACE_TRACKING_REQUIRED` for history-only tools. |
 | `active` | `readable` | Historical queries are allowed and maintenance continues. |
 | `paused` | `readable` | Historical queries are allowed with a frozen/stale watermark. |
 | `active` | `unavailable` | Return `HISTORY_UNAVAILABLE`, not tracking-required. |
@@ -663,7 +696,7 @@ The plan returns:
     "maintenanceMode": "session-bound"
   },
   "effects": {
-    "writeTargets": ["~/.graft/workspaces/ws_abc123/history/hb_docs/warp.git"],
+    "writeTargets": ["~/.graft/workspaces/ws_abc123/history/hb_docs/provider"],
     "targetRepoMutation": false,
     "retainedArtifacts": []
   },
@@ -922,7 +955,7 @@ Rules:
 Portable repo-local history has its own identity:
 
 ```text
-historyStoreId  # durable WARP store identity
+historyStoreId  # durable provider-store identity
 ```
 
 A path-derived `workspaceId` must not become the authoritative identity
@@ -953,19 +986,20 @@ Authoritative workspace directories are ID-only.
     <workspace-id>/
       metadata.json
       incarnations/
-        <incarnation-id>.json
+        <incarnation-id>/
+          metadata.json
+          cache/
+            outlines/
+            documents/
+            maps/
       views/
         <workspace-view-id>.json
       history-bindings/
         <history-binding-id>.json
-      cache/
-        outlines/
-        documents/
-        maps/
       observations/
       history/
         <history-binding-id>/
-          warp.git/          # only for graft-managed history bindings
+          provider/          # adapter-owned, never interpreted by registry
 ```
 
 Minimum storage safety:
@@ -1055,7 +1089,7 @@ Required behavior:
 - Weak, missing, or conflicting evidence produces `suspect` or `unknown`.
 - Old cache/history is not attached unless the incarnation is confirmed.
 - Quarantine old caches and history on `replaced`.
-- Never automatically attach old WARP history.
+- Never automatically attach old structural history.
 - Require explicit reset, replacement acceptance, or validated relink.
 - Scope approval tokens to workspace ID, workspace view ID, incarnation ID, and
   tracking scope.
@@ -1233,7 +1267,7 @@ Ambiguous verbs are avoided.
 | `track` | Create and maintain a history binding after consent and authorization. |
 | `pause` | Stop maintaining a history binding but preserve readable existing history. |
 | `resume` | Resume paused history maintenance with valid authorization. |
-| `purge-history` | Irreversibly delete WARP history for an exact binding/store after explicit approval. |
+| `purge-history` | Irreversibly delete structural history for an exact binding/store after explicit approval. |
 | `forget` | Delete Graft-managed registry, cache, and managed histories as planned; does not change exclusion policy by default. |
 | `exclude` | Add exclusion policy, fence maintenance, pause bindings, and preserve state. |
 | `include` | Remove exclusion policy; does not automatically resume tracking. |
@@ -1276,7 +1310,7 @@ graft workspace prune --apply  # mutate
 
 Rules:
 
-- Never delete active or paused WARP history by default.
+- Never delete active or paused structural history by default.
 - Require explicit flags, exact resource authority, and approval to remove
   tracked history.
 - Distinguish Graft-managed deletion from repo-local target mutation.
@@ -1683,7 +1717,7 @@ required:
 - Every durable derived artifact is partitioned by `incarnationId`, and no
   artifact created for one incarnation can attach to another incarnation.
 - Bare Git repositories are refused or explicitly out of scope.
-- A safe read creates no target `.graft`, no `warp.git`, and no
+- A safe read creates no target `.graft`, no provider history store, and no
   application-level target-tree modifications.
 - An unwritable managed store still permits an ephemeral safe read when policy
   allows fallback.
@@ -1831,7 +1865,8 @@ required:
 - [ ] Do not make Graft a global filesystem permission system.
 - [ ] Do not treat daemon OS readability as client authorization.
 - [ ] Do not treat tracking consent as filesystem authorization.
-- [ ] Do not initialize WARP tracking merely because a file was read.
+- [ ] Do not initialize durable structural-history tracking merely because a
+      file was read.
 - [ ] Do not let an agent auto-follow a proposed action and call that user
       consent.
 - [ ] Do not require target repos to contain `.graft` by default.
@@ -1871,8 +1906,10 @@ stable workspace view records, history binding records, exclusion registry,
 include/exclude status, status/list authorization, atomic writes, secure
 directory creation, permissions, sanitized remote metadata, deterministic
 workspace identity, stable view identity, resource-scope receipts, and
-schema/identity migration scaffolding. Safe reads still use existing execution
-paths.
+schema/identity migration scaffolding. Structural-history provider storage sits
+behind `StructuralHistoryPort` adapters; Slice 1 registry code does not open
+git-warp or assume provider-specific history layout. Safe reads still use
+existing execution paths.
 
 ### Slice 2 — Daemon routing and lightweight reads
 

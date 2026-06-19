@@ -1,7 +1,9 @@
 import type { DaemonSchedulerCounts } from "./daemon-job-scheduler.js";
 import { ZERO_SCHEDULER_COUNTS } from "./daemon-job-scheduler.js";
 import type { DaemonWorkerCounts } from "./daemon-worker-pool.js";
+import type { GitClient } from "../ports/git.js";
 import type { RuntimeCausalContext } from "./runtime-causal-context.js";
+import { observeGitWorkspace } from "./workspace-registry.js";
 import {
   DEFAULT_DAEMON_CAPABILITY_PROFILE,
   resolveWorkspaceRequest,
@@ -152,6 +154,7 @@ export class DaemonControlPlane {
 
     this.authorizedWorkspaces.set(next.worktreeId, next);
     await this.persist();
+    await this.observeAuthorizedWorkspace(next);
     return {
       ok: true,
       changed,
@@ -304,7 +307,31 @@ export class DaemonControlPlane {
     await persistState(this.statePath, this.options.fs, this.options.codec, this.authorizedWorkspaces);
   }
 
+  private async observeAuthorizedWorkspace(record: AuthorizedWorkspaceRecord): Promise<void> {
+    await observeGitWorkspace({
+      graftDir: this.options.graftDir,
+      canonicalRoot: record.worktreeRoot,
+      gitCommonDir: record.gitCommonDir,
+      remotes: await readGitRemotes(this.options.git, record.worktreeRoot),
+    });
+  }
+
   private activeTransportsFor(worktreeId: string): number {
     return this.listTransports().filter((session) => session.worktreeId === worktreeId).length;
   }
+}
+
+async function readGitRemotes(git: GitClient, cwd: string): Promise<readonly string[]> {
+  const result = await git.run({ cwd, args: ["remote", "-v"] });
+  if (result.error !== undefined || result.status !== 0) {
+    return [];
+  }
+  const remotes = new Set<string>();
+  for (const line of result.stdout.split(/\r?\n/u)) {
+    const [, remoteUrl] = line.trim().split(/\s+/u);
+    if (remoteUrl !== undefined && remoteUrl.length > 0) {
+      remotes.add(remoteUrl);
+    }
+  }
+  return [...remotes].sort();
 }
