@@ -119,6 +119,24 @@ describe("mcp: receipt mode", () => {
     expect(typeof receipt.cumulative.burdenByKind.read.bytesReturned).toBe("number");
   });
 
+  it("compact receipt omits cumulative statistics but keeps call accounting", async () => {
+    const server = createServer();
+    const result = parse(await server.callTool("safe_read", {
+      path: SMALL_TS,
+      receipt: "compact",
+    }));
+    const receipt = result["_receipt"] as Record<string, unknown>;
+    expect(receipt["tool"]).toBe("safe_read");
+    expect(receipt["projection"]).toBe("content");
+    expect(receipt["reason"]).toBe("CONTENT");
+    expect(typeof receipt["returnedBytes"]).toBe("number");
+    expect(receipt["burden"]).toEqual({
+      kind: "read",
+      nonRead: false,
+    });
+    expect(receipt["cumulative"]).toBeUndefined();
+  });
+
   it("sessionId is stable across calls", async () => {
     const server = createServer();
     const r1 = parse(await server.callTool("safe_read", {

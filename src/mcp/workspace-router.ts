@@ -673,6 +673,10 @@ export class WorkspaceRouter {
         ...this.getStatus(),
         errorCode: "WORKSPACE_NOT_AUTHORIZED",
         error: `Workspace ${resolved.worktreeRoot} is not authorized for daemon binding. Call workspace_authorize first.`,
+        nextCall: {
+          tool: "workspace_authorize",
+          args: { cwd: resolved.worktreeRoot },
+        },
       };
     }
 

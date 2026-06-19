@@ -37,6 +37,7 @@ import { ALL_TOOL_REGISTRY, TOOL_REGISTRY } from "./tool-registry.js";
 import { wrapWithPolicyCheck } from "./server-tool-access.js";
 import { buildToolContext } from "./server-context.js";
 import { createInvocationEngine, recordFootprint } from "./server-invocation.js";
+import { COMMON_TOOL_INPUT_SCHEMA, toolInputSchema } from "./tool-input-controls.js";
 
 export type { McpToolResult, ToolHandler, ToolContext };
 export { ALL_TOOL_REGISTRY, TOOL_REGISTRY } from "./tool-registry.js";
@@ -250,21 +251,14 @@ function registerGraftToolSurface(input: {
     const handler = def.policyCheck === true ? wrapWithPolicyCheck(def.name, rawHandler) : rawHandler;
     handlers.set(def.name, handler);
 
-    if (def.schema !== undefined) {
-      const zodSchema = z.object(def.schema).strict();
-      schemas.set(def.name, zodSchema);
-      input.mcpServer.registerTool(
-        def.name,
-        { description: def.description, inputSchema: def.schema },
-        async (args) => input.engine.invokeTool(def.name, handler, args, input.ctx, zodSchema),
-      );
-    } else {
-      input.mcpServer.registerTool(
-        def.name,
-        { description: def.description },
-        async () => input.engine.invokeTool(def.name, handler, {}, input.ctx),
-      );
-    }
+    const inputSchema = { ...(def.schema ?? {}), ...COMMON_TOOL_INPUT_SCHEMA };
+    const zodSchema = toolInputSchema(def.schema);
+    schemas.set(def.name, zodSchema);
+    input.mcpServer.registerTool(
+      def.name,
+      { description: def.description, inputSchema },
+      async (args) => input.engine.invokeTool(def.name, handler, args, input.ctx, zodSchema),
+    );
   }
 
   return { handlers, schemas };

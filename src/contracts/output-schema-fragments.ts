@@ -142,7 +142,7 @@ export const sludgeReportSchema = z.object({
   summary: z.string(),
 }).strict();
 
-export const receiptSchema = z.object({
+const fullReceiptSchema = z.object({
   sessionId: z.string(),
   traceId: z.string(),
   seq: z.number().int().positive(),
@@ -170,6 +170,26 @@ export const receiptSchema = z.object({
   budget: budgetSchema.optional(),
   compressionRatio: z.number().nullable().optional(),
 }).strict();
+
+const compactReceiptSchema = z.object({
+  sessionId: z.string(),
+  traceId: z.string(),
+  seq: z.number().int().positive(),
+  ts: z.string(),
+  tool: z.string(),
+  projection: z.string(),
+  reason: z.string(),
+  latencyMs: z.number().int().nonnegative(),
+  fileBytes: z.number().int().nonnegative().nullable(),
+  returnedBytes: z.number().int().nonnegative(),
+  burden: z.object({
+    kind: burdenKindSchema,
+    nonRead: z.boolean(),
+  }).strict(),
+  compressionRatio: z.number().nullable().optional(),
+}).strict();
+
+export const receiptSchema = z.union([fullReceiptSchema, compactReceiptSchema]);
 
 export const runtimeObservabilitySchema = z.object({
   enabled: z.boolean(),
@@ -545,10 +565,18 @@ export const workspaceStatusSchema = z.object({
   capabilityProfile: workspaceCapabilityProfileSchema.nullable(),
 }).strict();
 
+const workspaceNextCallSchema = z.object({
+  tool: z.enum(["workspace_authorize", "workspace_bind", "workspace_status"]),
+  args: z.record(z.string(), z.unknown()),
+}).strict();
+
 export const workspaceActionSchema = workspaceStatusSchema.extend({
   ok: z.boolean(),
   action: z.enum(["bind", "rebind"]),
   freshSessionSlice: z.boolean(),
+  authorized: z.boolean().optional(),
+  authorizationChanged: z.boolean().optional(),
+  nextCall: workspaceNextCallSchema.optional(),
   errorCode: z.string().optional(),
   error: z.string().optional(),
 }).strict();

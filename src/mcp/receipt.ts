@@ -7,6 +7,7 @@ import type { MetricsSnapshot } from "./metrics.js";
 import type { Tripwire } from "../session/types.js";
 import type { JsonCodec } from "../ports/codec.js";
 import { attachMcpSchemaMeta, type McpToolName } from "../contracts/output-schemas.js";
+import type { ReceiptMode } from "./tool-input-controls.js";
 import {
   burdenKindForTool,
   isNonReadBurdenKind,
@@ -67,6 +68,7 @@ export interface ReceiptDeps {
   readonly tripwires: Tripwire[];
   readonly codec: JsonCodec;
   readonly budget?: ReceiptBudget | null;
+  readonly receiptMode?: ReceiptMode | undefined;
 }
 
 /** Mutable draft used internally during the size-stabilization loop. */
@@ -96,6 +98,21 @@ interface ReceiptDraft {
   compressionRatio?: number | null;
 }
 
+interface CompactReceiptDraft {
+  sessionId: string;
+  traceId: string;
+  seq: number;
+  ts: string;
+  tool: McpToolName;
+  projection: string;
+  reason: string;
+  latencyMs: number;
+  fileBytes: number | null;
+  returnedBytes: number;
+  burden: ReceiptBurden;
+  compressionRatio?: number | null;
+}
+
 function extractProjection(data: Record<string, unknown>): string {
   if (typeof data["projection"] === "string") return data["projection"];
   return "none";
@@ -120,6 +137,22 @@ function freezeReceipt(draft: ReceiptDraft): McpToolReceipt {
   Object.freeze(draft.cumulative);
   Object.freeze(draft);
   return draft as McpToolReceipt;
+}
+
+function compactReceiptDraft(full: ReceiptDraft): CompactReceiptDraft {
+  return {
+    sessionId: full.sessionId,
+    traceId: full.traceId,
+    seq: full.seq,
+    ts: full.ts,
+    tool: full.tool,
+    projection: full.projection,
+    reason: full.reason,
+    latencyMs: full.latencyMs,
+    fileBytes: full.fileBytes,
+    returnedBytes: full.returnedBytes,
+    burden: full.burden,
+  };
 }
 
 /**
@@ -165,9 +198,10 @@ export function buildReceiptResult(
     draft.budget = deps.budget;
   }
 
+  const outputReceipt = deps.receiptMode === "compact" ? compactReceiptDraft(draft) : draft;
   const fullData: Record<string, unknown> & { tripwire?: Tripwire[] } = attachMcpSchemaMeta(tool, {
     ...data,
-    _receipt: draft,
+    _receipt: outputReceipt,
   });
   if (deps.tripwires.length > 0) {
     fullData.tripwire = deps.tripwires;
@@ -182,10 +216,12 @@ export function buildReceiptResult(
     if (byteLen === prev) break;
     prev = byteLen;
     draft.returnedBytes = byteLen;
+    outputReceipt.returnedBytes = byteLen;
     const burdenByKind = projectBurdenByKind(deps.metrics.burdenByKind, tool, byteLen);
     draft.compressionRatio = draft.fileBytes !== null && draft.fileBytes > 0
       ? Math.round((byteLen / draft.fileBytes) * 1000) / 1000
       : null;
+    outputReceipt.compressionRatio = draft.compressionRatio;
     draft.cumulative.bytesReturned = deps.metrics.bytesReturned + byteLen;
     draft.cumulative.nonReadBytesReturned = totalNonReadBytesReturned(burdenByKind);
     draft.cumulative.burdenByKind = burdenByKind;

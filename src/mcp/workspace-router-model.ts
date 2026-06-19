@@ -34,6 +34,9 @@ export interface WorkspaceActionResult extends WorkspaceStatus {
   readonly ok: boolean;
   readonly action: WorkspaceBindAction;
   readonly freshSessionSlice: boolean;
+  readonly authorized?: boolean | undefined;
+  readonly authorizationChanged?: boolean | undefined;
+  readonly nextCall?: WorkspaceNextCall | undefined;
   readonly errorCode?: string;
   readonly error?: string;
 }
@@ -83,6 +86,11 @@ export interface WorkspaceBindRequest {
   readonly worktreeRoot?: string | undefined;
   readonly gitCommonDir?: string | undefined;
   readonly repoId?: string | undefined;
+}
+
+export interface WorkspaceNextCall {
+  readonly tool: "workspace_authorize" | "workspace_bind" | "workspace_status";
+  readonly args: Readonly<Record<string, unknown>>;
 }
 
 export class WorkspaceBindingRequiredError extends Error {

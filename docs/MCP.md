@@ -62,7 +62,10 @@ agent-facing flow:
    or `code_show`
 
 `workspace_authorize` and `workspace_bind` remain available as lower-level
-daemon control-plane tools.
+daemon control-plane tools. Clients that intentionally trust the target
+workspace can call `workspace_bind` with `authorize: true` to authorize and
+bind in one explicit round trip. Plain denied binds include a `nextCall` hint
+that names `workspace_authorize`.
 
 ## Key Tool Groups
 - **Bounded Reads**: `safe_read`, `file_outline`, `read_range`, `changed_since`
@@ -80,6 +83,11 @@ daemon control-plane tools.
 - `graft serve` is repo-local stdio; `graft serve --runtime daemon` is
   the daemon-backed stdio bridge.
 - Responses carry versioned `_schema` metadata and `_receipt` decision data.
+  Pass `receipt: "compact"` on MCP tool calls to keep per-call accounting while
+  omitting cumulative session statistics from that response.
+- `file_outline` returns both `outline` and `jumpTable` by default. Pass
+  `view: "outline"` or `view: "jump_table"` when a client only needs one
+  structural navigation form.
 - `activity_view` provides bounded local `artifact_history` anchored to Git `HEAD`.
 
 ## Related docs

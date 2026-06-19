@@ -209,7 +209,7 @@ const sludgeReportSchema = z.object({
   summary: z.string(),
 }).strict();
 
-const receiptSchema = z.object({
+const fullReceiptSchema = z.object({
   sessionId: z.string(),
   traceId: z.string(),
   seq: z.number().int().positive(),
@@ -237,6 +237,26 @@ const receiptSchema = z.object({
   budget: budgetSchema.optional(),
   compressionRatio: z.number().nullable().optional(),
 }).strict();
+
+const compactReceiptSchema = z.object({
+  sessionId: z.string(),
+  traceId: z.string(),
+  seq: z.number().int().positive(),
+  ts: z.string(),
+  tool: z.string(),
+  projection: z.string(),
+  reason: z.string(),
+  latencyMs: z.number().int().nonnegative(),
+  fileBytes: z.number().int().nonnegative().nullable(),
+  returnedBytes: z.number().int().nonnegative(),
+  burden: z.object({
+    kind: burdenKindSchema,
+    nonRead: z.boolean(),
+  }).strict(),
+  compressionRatio: z.number().nullable().optional(),
+}).strict();
+
+const receiptSchema = z.union([fullReceiptSchema, compactReceiptSchema]);
 
 const runtimeObservabilitySchema = z.object({
   enabled: z.boolean(),
@@ -648,10 +668,18 @@ const workspaceStatusSchema = z.object({
   capabilityProfile: workspaceCapabilityProfileSchema.nullable(),
 }).strict();
 
+const workspaceNextCallSchema = z.object({
+  tool: z.enum(["workspace_authorize", "workspace_bind", "workspace_status"]),
+  args: z.record(z.string(), z.unknown()),
+}).strict();
+
 const workspaceActionSchema = workspaceStatusSchema.extend({
   ok: z.boolean(),
   action: z.enum(["bind", "rebind"]),
   freshSessionSlice: z.boolean(),
+  authorized: z.boolean().optional(),
+  authorizationChanged: z.boolean().optional(),
+  nextCall: workspaceNextCallSchema.optional(),
   errorCode: z.string().optional(),
   error: z.string().optional(),
 }).strict();
@@ -985,8 +1013,9 @@ const mcpOutputBodySchemas: Record<McpToolName, z.ZodType> = {
   file_outline: z.union([
     z.object({
       path: z.string(),
-      outline: z.array(outlineEntrySchema),
-      jumpTable: z.array(jumpEntrySchema),
+      view: z.enum(["full", "outline", "jump_table"]).optional(),
+      outline: z.array(outlineEntrySchema).optional(),
+      jumpTable: z.array(jumpEntrySchema).optional(),
       partial: z.boolean().optional(),
       reason: z.string().optional(),
       error: z.string().optional(),

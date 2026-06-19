@@ -120,8 +120,9 @@ export const mcpOutputBodySchemas = {
   file_outline: z.union([
     z.object({
       path: z.string(),
-      outline: z.array(outlineEntrySchema),
-      jumpTable: z.array(jumpEntrySchema),
+      view: z.enum(["full", "outline", "jump_table"]).optional(),
+      outline: z.array(outlineEntrySchema).optional(),
+      jumpTable: z.array(jumpEntrySchema).optional(),
       partial: z.boolean().optional(),
       reason: z.string().optional(),
       error: z.string().optional(),

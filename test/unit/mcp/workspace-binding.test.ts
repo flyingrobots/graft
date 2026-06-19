@@ -91,6 +91,34 @@ describe("mcp: daemon workspace binding", () => {
     const bind = parse(await server.callTool("workspace_bind", { cwd: repoDir }));
     expect(bind["ok"]).toBe(false);
     expect(bind["errorCode"]).toBe("WORKSPACE_NOT_AUTHORIZED");
+    expect(bind["nextCall"]).toEqual({
+      tool: "workspace_authorize",
+      args: { cwd: fs.realpathSync(repoDir) },
+    });
+  });
+
+  it("can explicitly authorize and bind a daemon workspace in one call", async () => {
+    const repoDir = createCommittedRepo();
+    const server = createManagedDaemonServer(cleanups);
+
+    const bind = parse(await server.callTool("workspace_bind", {
+      cwd: repoDir,
+      authorize: true,
+    }));
+
+    expect(bind["ok"]).toBe(true);
+    expect(bind["authorized"]).toBe(true);
+    expect(bind["authorizationChanged"]).toBe(true);
+    expect(bind["bindState"]).toBe("bound");
+    expect(bind["worktreeRoot"]).toBe(fs.realpathSync(repoDir));
+
+    const authorizations = parse(await server.callTool("workspace_authorizations", {}));
+    expect(authorizations["workspaces"]).toEqual([
+      expect.objectContaining({
+        worktreeRoot: fs.realpathSync(repoDir),
+        lastBoundAt: expect.any(String),
+      }),
+    ]);
   });
 
   it("binds a daemon session to a repo and enables repo-scoped tools", async () => {

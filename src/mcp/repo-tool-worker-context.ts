@@ -106,6 +106,7 @@ export function buildRepoToolWorkerContext(
         metrics: metrics.snapshot(),
         tripwires,
         budget: governor.getBudget(),
+        receiptMode: job.receiptMode,
       });
       response = {
         result: built.result,

@@ -5,16 +5,35 @@ import { hashContent } from "../cache.js";
 import type { ToolDefinition, ToolHandler } from "../context.js";
 import { toJsonObject } from "../../operations/result-dto.js";
 
+type FileOutlineView = "full" | "outline" | "jump_table";
+
+function projectFileOutlinePayload(
+  payload: Record<string, unknown>,
+  view: FileOutlineView,
+): Record<string, unknown> {
+  if (view === "full") {
+    return payload;
+  }
+  const { outline, jumpTable, ...rest } = payload;
+  return view === "outline"
+    ? { ...rest, view, outline }
+    : { ...rest, view, jumpTable };
+}
+
 export const fileOutlineTool: ToolDefinition = {
   name: "file_outline",
   description:
     "Structural skeleton of a file \u2014 function signatures, class shapes, " +
     "exports. Includes a jump table mapping each symbol to its line range " +
     "for targeted read_range follow-ups.",
-  schema: { path: z.string() },
+  schema: {
+    path: z.string(),
+    view: z.enum(["full", "outline", "jump_table"]).optional(),
+  },
   policyCheck: true,
   createHandler(): ToolHandler {
     return async (args, ctx) => {
+      const view = (args["view"] as FileOutlineView | undefined) ?? "full";
       const filePath = ctx.resolvePath(args["path"] as string);
       ctx.recordFootprint({ paths: [filePath] });
 
@@ -36,12 +55,12 @@ export const fileOutlineTool: ToolDefinition = {
           ctx.recordFootprint({
             symbols: cacheResult.obs.outline.map((e) => e.name),
           });
-          return ctx.respond("file_outline", {
+          return ctx.respond("file_outline", projectFileOutlinePayload({
             path: filePath,
             outline: cacheResult.obs.outline,
             jumpTable: cacheResult.obs.jumpTable,
             cacheHit: true,
-          });
+          }, view));
         }
         // If stale, fall through to fresh parse (no diff for file_outline)
       }
@@ -61,7 +80,7 @@ export const fileOutlineTool: ToolDefinition = {
         );
       }
 
-      return ctx.respond("file_outline", toJsonObject(result));
+      return ctx.respond("file_outline", projectFileOutlinePayload(toJsonObject(result), view));
     };
   },
 };

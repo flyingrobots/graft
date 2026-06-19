@@ -128,6 +128,30 @@ describe("mcp: tool handlers", () => {
     expect(parsed["jumpTable"]).toBeDefined();
   });
 
+  it("file_outline can return only outline entries", async () => {
+    const server = createServer();
+    const result = await server.callTool("file_outline", {
+      path: MEDIUM_TS,
+      view: "outline",
+    });
+    const parsed = parse(result);
+    expect(parsed["view"]).toBe("outline");
+    expect(parsed["outline"]).toBeDefined();
+    expect(parsed["jumpTable"]).toBeUndefined();
+  });
+
+  it("file_outline can return only jump table entries", async () => {
+    const server = createServer();
+    const result = await server.callTool("file_outline", {
+      path: MEDIUM_TS,
+      view: "jump_table",
+    });
+    const parsed = parse(result);
+    expect(parsed["view"]).toBe("jump_table");
+    expect(parsed["outline"]).toBeUndefined();
+    expect(parsed["jumpTable"]).toBeDefined();
+  });
+
   it("file_outline returns a markdown heading outline", async () => {
     const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "graft-file-outline-tool-md-"));
     const server = createServerForProjectRoot(tmpDir);

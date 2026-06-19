@@ -1,4 +1,3 @@
-import { z } from "zod";
 import type { GovernorTrackerSnapshot } from "../session/tracker.js";
 import { ensureParserReady } from "../parser/runtime.js";
 import type { McpToolReceipt, McpToolResult } from "./receipt.js";
@@ -17,6 +16,7 @@ import { safeReadTool } from "./tools/safe-read.js";
 import { fileOutlineTool } from "./tools/file-outline.js";
 import { changedSinceTool } from "./tools/changed-since.js";
 import { buildRepoToolWorkerContext, wrapWithPolicyCheck } from "./repo-tool-worker-context.js";
+import { toolInputSchema, type ReceiptMode } from "./tool-input-controls.js";
 
 const codeFindLiveWorkerTool: ToolDefinition = {
   ...codeFindTool,
@@ -69,6 +69,7 @@ export interface RepoToolWorkerJob {
   readonly repoState: RepoObservation;
   readonly governorSnapshot: GovernorTrackerSnapshot;
   readonly metricsSnapshot: MetricsSnapshot;
+  readonly receiptMode?: ReceiptMode | undefined;
   readonly cacheSnapshots?: Readonly<Record<string, ObservationSnapshot>>;
 }
 
@@ -95,9 +96,7 @@ export async function runRepoToolJob(job: RepoToolWorkerJob): Promise<RepoToolWo
   const rawHandler = definition.createHandler();
   const handler = definition.policyCheck === true ? wrapWithPolicyCheck(definition.name, rawHandler) : rawHandler;
 
-  if (definition.schema !== undefined) {
-    z.object(definition.schema).strict().parse(job.args);
-  }
+  toolInputSchema(definition.schema).parse(job.args);
 
   await handler(job.args, ctx);
   return takeResponse();

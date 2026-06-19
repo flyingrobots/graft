@@ -9,6 +9,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ### Added
 
+- **MCP onboarding and response diet controls**: daemon `workspace_bind` and
+  `workspace_rebind` now accept an explicit `authorize: true` option so a new
+  client can authorize-and-bind in one intentional call, and denied binds return
+  a machine-readable `nextCall` hint naming `workspace_authorize`. MCP tools now
+  accept `receipt: "compact"` to omit cumulative receipt statistics from the
+  response envelope, and `file_outline` accepts `view: "outline"` or
+  `view: "jump_table"` when clients only need one structural navigation form.
 - **Structural basis kind for unpinned committed history**: structural-history
   schema v0.2 adds `UNPINNED_COMMITTED` so committed git-warp readings with no
   `ref` and no `head` no longer masquerade as `GIT_REF` rows with a null
