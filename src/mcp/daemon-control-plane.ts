@@ -154,7 +154,7 @@ export class DaemonControlPlane {
 
     this.authorizedWorkspaces.set(next.worktreeId, next);
     await this.persist();
-    await this.observeAuthorizedWorkspace(next);
+    await this.observeAuthorizedWorkspace(next).catch(() => undefined);
     return {
       ok: true,
       changed,

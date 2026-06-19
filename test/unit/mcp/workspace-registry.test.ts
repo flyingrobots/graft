@@ -217,6 +217,25 @@ describe("workspace registry observation", () => {
     expect(fs.existsSync(path.join(repoDir, ".graft"))).toBe(false);
     expect(fs.existsSync(path.join(workspaceDir, "history"))).toBe(false);
   });
+
+  it("keeps daemon authorization usable when managed registry observation is unavailable", async () => {
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), "graft-registry-unavailable-"));
+    cleanup.push(root);
+    const repoDir = createCommittedTestRepo("graft-registry-unavailable-repo-");
+    cleanup.push(repoDir);
+    const graftDir = path.join(root, "graft-home");
+    fs.mkdirSync(graftDir, { recursive: true });
+    fs.writeFileSync(path.join(graftDir, "workspaces"), "not a directory");
+    const isolated = createIsolatedServer({ mode: "daemon", graftDir });
+    cleanup.push(isolated.projectRoot);
+
+    const authorization = parse(await isolated.server.callTool("workspace_authorize", { cwd: repoDir }));
+    expect(authorization["ok"]).toBe(true);
+
+    const binding = parse(await isolated.server.callTool("workspace_bind", { cwd: repoDir }));
+    expect(binding["ok"]).toBe(true);
+    expect(fs.existsSync(path.join(repoDir, ".graft"))).toBe(false);
+  });
 });
 
 describe("structural history provider boundary", () => {
