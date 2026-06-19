@@ -13,6 +13,15 @@ This guide is for AI agents and human operators recovering context in the Graft 
 - When opening pull requests, include `Closed #XYZ` references for every GitHub
   issue the PR closes.
 
+## Test Rules
+
+Only write tests that assert actual Graft software invariants, behavior, and
+acceptance criteria. Do not write tests that merely assert design document
+formatting, markdown structure, incidental wording, or brittle strings in
+`stdout`/`stderr`. When command output is the product surface, assert stable
+semantics, structured data, or user-visible behavior rather than fragile
+phrasing. Write good tests.
+
 ## Documentation & Planning Map
 
 Do not audit the repository by recursively walking the filesystem. Follow the authoritative manifests:
