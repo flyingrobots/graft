@@ -55,7 +55,7 @@ As of `ba64ca25 feat: observe daemon workspaces in managed registry`:
 
 | Goalpost | Status | Notes |
 |---|---|---|
-| G0 Contract Freeze | Mostly complete | Errata are folded; playback drift is covered. Canonical fixture vectors and threat/conformance matrix still need explicit artifacts. |
+| G0 Contract Freeze | Complete | Errata are folded. Contract schemas, deterministic vectors, and threat/conformance matrix live under `schemas/graft-workspace-store-slice0.*.json` and are validated by `test/unit/contracts/workspace-store-slice0-contract.test.ts`. |
 | G1 Secure State and Identity | In progress | First registry increment landed: installation-local workspace IDs, ID-only metadata paths, incarnation cache partitioning, sanitized remotes, and daemon authorization observation. |
 | G2 Authorized Resource Router | Not started | Existing daemon binding remains the old authorization path; the new router security floor is not implemented. |
 | G3 Multi-workspace Safe Reads | Not started | This is the first product demo target. |
