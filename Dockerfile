@@ -5,8 +5,16 @@ WORKDIR /app
 # Git is required by Graft tests and runtime repo inspection.
 RUN apk add --no-cache git
 
-# Install the package-manager version declared by package.json.
-RUN corepack enable && corepack prepare pnpm@10.30.0 --activate
+# Install the package-manager version declared by package.json. Corepack fetches
+# over the network here, before project dependencies exist, so keep this retry
+# shell-native instead of depending on npm packages.
+RUN corepack enable && \
+    for attempt in 1 2 3; do \
+      corepack prepare pnpm@10.30.0 --activate && break; \
+      status=$?; \
+      if [ "$attempt" = "3" ]; then exit "$status"; fi; \
+      sleep "$((attempt * 2))"; \
+    done
 
 # Copy package manifests and install dependencies
 COPY package.json pnpm-lock.yaml ./

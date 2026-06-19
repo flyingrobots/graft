@@ -101,6 +101,7 @@
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
+    "@git-stunts/alfred": "^0.10.3",
     "@types/node": "^25.5.0",
     "@types/picomatch": "^4.0.2",
     "eslint": "^10.1.0",
