@@ -449,7 +449,7 @@ Example:
     "commit": "abc123"
   },
   "trackingAuthorizationRef": "ta_456",
-  "consentReceiptId": "cr_789"
+  "consentAuthorityRecordId": "ca_123"
 }
 ```
 
