@@ -437,6 +437,7 @@ describe("workspace registry observation", () => {
       volumeNamespace: "test-volume",
     });
     const oldMetadata = JSON.parse(fs.readFileSync(first.paths.metadataPath, "utf8")) as Record<string, unknown>;
+    fs.writeFileSync(path.join(first.paths.incarnationCacheDir, "outlines", "artifact.json"), "{}\n");
     fs.writeFileSync(
       first.paths.metadataPath,
       `${JSON.stringify({ ...oldMetadata, historyBindingIds: ["hb_old"] }, null, 2)}\n`,
@@ -461,7 +462,12 @@ describe("workspace registry observation", () => {
     expect(second.incarnationId).not.toBe(first.incarnationId);
     expect(second.metadata.historyBindingIds).toEqual([]);
     expect(incarnationMetadata["incarnationStatus"]).toBe("replaced");
-    expect(fs.existsSync(first.paths.incarnationMetadataPath)).toBe(true);
+    expect(fs.existsSync(first.paths.incarnationDir)).toBe(false);
+    const quarantineDir = fs.readdirSync(first.paths.incarnationsDir)
+      .find((name) => name.startsWith(`${first.incarnationId}.quarantine.`));
+    expect(quarantineDir).toBeDefined();
+    expect(fs.existsSync(path.join(first.paths.incarnationsDir, quarantineDir ?? "", "cache", "outlines", "artifact.json")))
+      .toBe(true);
   });
 
   it("serializes concurrent first workspace observation", async () => {

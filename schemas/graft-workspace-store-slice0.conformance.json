@@ -263,7 +263,8 @@
           "status": "covered",
           "path": "test/unit/mcp/workspace-registry.test.ts",
           "assertionIds": [
-            "workspace-registry.explicit-repository-evidence-required-for-incarnation-reuse"
+            "workspace-registry.explicit-repository-evidence-required-for-incarnation-reuse",
+            "workspace-registry.strong-replacement-quarantines-prior-incarnation"
           ]
         }
       ],

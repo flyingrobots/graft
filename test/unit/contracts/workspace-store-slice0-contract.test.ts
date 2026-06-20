@@ -154,6 +154,7 @@ const EXECUTABLE_CONFORMANCE_ASSERTIONS = new Set([
   "workspace-store.scope-relations-include-unknown",
   "workspace-store.unknown-fails-closed-by-consumer",
   "workspace-registry.explicit-repository-evidence-required-for-incarnation-reuse",
+  "workspace-registry.strong-replacement-quarantines-prior-incarnation",
 ]);
 
 const BASE32_ALPHABET = "abcdefghijklmnopqrstuvwxyz234567";

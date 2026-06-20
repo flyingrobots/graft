@@ -309,6 +309,28 @@ async function quarantineRegistryFile(graftDir: string, filePath: string, reason
   throw new Error(`${reason}; quarantined ${filePath}`);
 }
 
+async function quarantineManagedDirectory(graftDir: string, directoryPath: string): Promise<string | null> {
+  assertInsideGraftDir(graftDir, directoryPath);
+  try {
+    const stat = await fsp.lstat(directoryPath);
+    if (stat.isSymbolicLink() || !stat.isDirectory()) {
+      await quarantineRegistryFile(graftDir, directoryPath, "Unsupported managed directory: unsafe file type");
+    }
+  } catch (error: unknown) {
+    if (hasErrorCode(error, "ENOENT")) {
+      return null;
+    }
+    throw error;
+  }
+
+  const quarantinePath = path.join(
+    path.dirname(directoryPath),
+    `${path.basename(directoryPath)}.quarantine.${String(Date.now())}.${crypto.randomUUID()}`,
+  );
+  await fsp.rename(directoryPath, quarantinePath);
+  return quarantinePath;
+}
+
 async function readRegistryJson<T>(
   graftDir: string,
   filePath: string,
@@ -435,6 +457,16 @@ function fingerprintMatches(
     && existingFingerprint === currentFingerprint;
 }
 
+function hasStrongReplacementEvidence(
+  existing: IncarnationMetadataRecord | null,
+  currentFingerprint: string | null,
+): boolean {
+  const existingFingerprint = existing?.evidence.repositoryFingerprint;
+  return existingFingerprint !== undefined
+    && currentFingerprint !== null
+    && existingFingerprint !== currentFingerprint;
+}
+
 function isNodeError(error: unknown): error is NodeJS.ErrnoException {
   return error instanceof Error && "code" in error;
 }
@@ -493,8 +525,7 @@ function observedIncarnationStatus(
   if (reuseExistingIncarnation) {
     return existingIncarnation?.incarnationStatus ?? "confirmed";
   }
-  const existingFingerprint = existingIncarnation?.evidence.repositoryFingerprint;
-  if (existingFingerprint !== undefined && currentFingerprint !== null && existingFingerprint !== currentFingerprint) {
+  if (hasStrongReplacementEvidence(existingIncarnation, currentFingerprint)) {
     return "replaced";
   }
   if (hadExistingWorkspace) {
@@ -653,6 +684,13 @@ export async function observeGitWorkspace(input: ObserveGitWorkspaceInput): Prom
       repositoryFingerprint,
       existingHasDurableAttachments,
     );
+    if (
+      !reuseExistingIncarnation &&
+      existingIncarnationPaths !== null &&
+      hasStrongReplacementEvidence(existingIncarnation, repositoryFingerprint)
+    ) {
+      await quarantineManagedDirectory(graftDir, existingIncarnationPaths.incarnationDir);
+    }
     const incarnationId = reuseExistingIncarnation && existing !== null
       ? existing.incarnationId
       : randomTypedId("wi_", input.randomBytes ?? crypto.randomBytes);
