@@ -426,9 +426,27 @@ async function removeStaleInstallationLock(lockDir: string): Promise<boolean> {
 }
 
 async function fingerprintGitCommonDir(gitCommonDir: string): Promise<string | null> {
+  const gitDirIdentity = await fingerprintPathIdentity(gitCommonDir);
+  if (gitDirIdentity === null) {
+    return null;
+  }
+  const objectsIdentity = await fingerprintPathIdentity(path.join(gitCommonDir, "objects"));
+  const refsIdentity = await fingerprintPathIdentity(path.join(gitCommonDir, "refs"));
+  if (objectsIdentity === null && refsIdentity === null) {
+    return null;
+  }
+  return [
+    "fs",
+    gitDirIdentity,
+    `objects:${objectsIdentity ?? "missing"}`,
+    `refs:${refsIdentity ?? "missing"}`,
+  ].join("|");
+}
+
+async function fingerprintPathIdentity(filePath: string): Promise<string | null> {
   try {
-    const stat = await fsp.stat(gitCommonDir);
-    return `fs:${String(stat.dev)}:${String(stat.ino)}`;
+    const stat = await fsp.stat(filePath);
+    return `${String(stat.dev)}:${String(stat.ino)}`;
   } catch {
     return null;
   }
@@ -523,8 +541,9 @@ export function sanitizeRemoteUrl(remote: string): string {
     parsed.hash = "";
     return parsed.toString();
   } catch {
-    return trimmed
-      .replace(/[?#].*$/u, "")
+    const withoutQuery = trimmed.replace(/[?#].*$/u, "");
+    return withoutQuery
+      .replace(/^([a-z][a-z0-9+.-]*:\/\/)[^/@\s]+@(.+)$/iu, "$1$2")
       .replace(/^[^/@\s]+@([^:\s]+:)/u, "$1");
   }
 }

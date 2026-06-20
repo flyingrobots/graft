@@ -37,8 +37,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   records before reading them, quarantines unsupported registry metadata instead
   of reusing it, rejects malformed installation IDs, recovers stale first-time
   installation locks, caps remote collection during daemon authorization, strips
-  userinfo from scp-like remote URLs, serializes concurrent first workspace
-  observation, and only reuses an incarnation when stable repository evidence
+  userinfo from scp-like and malformed URL-style remote URLs, preserves spaces
+  in daemon-collected remote paths, serializes concurrent first workspace
+  observation, and only reuses an incarnation when stable Git store evidence
   matches. Same-path replacements get a new incarnation without inheriting old
   history bindings.
 

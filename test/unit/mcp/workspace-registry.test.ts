@@ -25,6 +25,12 @@ function fixedBytes(hex: string): () => Buffer {
   return () => Buffer.from(hex, "hex");
 }
 
+function writeMinimalGitCommonDir(gitCommonDir: string, config = "[core]\n\trepositoryformatversion = 0\n"): void {
+  fs.mkdirSync(path.join(gitCommonDir, "objects"), { recursive: true });
+  fs.mkdirSync(path.join(gitCommonDir, "refs"), { recursive: true });
+  fs.writeFileSync(path.join(gitCommonDir, "config"), config);
+}
+
 async function sleep(ms: number): Promise<void> {
   await new Promise((resolve) => setTimeout(resolve, ms));
 }
@@ -68,6 +74,8 @@ describe("workspace registry identity", () => {
 
     expect(sanitizeRemoteUrl("https://token@example.com/org/repo.git?secret=1#frag"))
       .toBe("https://example.com/org/repo.git");
+    expect(sanitizeRemoteUrl("https://token@example.com:bad/repo.git?secret=1#frag"))
+      .toBe("https://example.com:bad/repo.git");
     expect(sanitizeRemoteUrl("token@github.com:org/repo.git?secret=1#frag"))
       .toBe("github.com:org/repo.git");
     expect(sanitizeRemoteUrl("git@github.com:flyingrobots/graft.git"))
@@ -101,6 +109,7 @@ describe("workspace registry observation", () => {
     const repoRoot = path.join(root, "same-name");
     const gitCommonDir = path.join(repoRoot, ".git");
     fs.mkdirSync(gitCommonDir, { recursive: true });
+    writeMinimalGitCommonDir(gitCommonDir);
 
     const observed = await observeGitWorkspace({
       graftDir,
@@ -235,6 +244,7 @@ describe("workspace registry observation", () => {
     const repoRoot = path.join(root, "repo");
     const gitCommonDir = path.join(repoRoot, ".git");
     fs.mkdirSync(gitCommonDir, { recursive: true });
+    writeMinimalGitCommonDir(gitCommonDir);
 
     const first = await observeGitWorkspace({
       graftDir,
@@ -276,6 +286,7 @@ describe("workspace registry observation", () => {
     const repoRoot = path.join(root, "repo");
     const gitCommonDir = path.join(repoRoot, ".git");
     fs.mkdirSync(gitCommonDir, { recursive: true });
+    writeMinimalGitCommonDir(gitCommonDir);
 
     const first = await observeGitWorkspace({
       graftDir,
@@ -310,6 +321,45 @@ describe("workspace registry observation", () => {
 
     expect(second.incarnationId).toBe(first.incarnationId);
     expect(second.metadata.historyBindingIds).toEqual(["hb_old"]);
+  });
+
+  it("does not reuse an incarnation when only gitdir identity evidence exists", async () => {
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), "graft-registry-gitdir-only-"));
+    cleanup.push(root);
+    const graftDir = path.join(root, "graft-home");
+    const repoRoot = path.join(root, "repo");
+    const gitCommonDir = path.join(repoRoot, ".git");
+    fs.mkdirSync(gitCommonDir, { recursive: true });
+
+    const first = await observeGitWorkspace({
+      graftDir,
+      canonicalRoot: repoRoot,
+      gitCommonDir,
+      now: () => "2026-06-19T00:00:00.000Z",
+      randomBytes: fixedBytes("cccccccccccccccccccccccccccccccc"),
+      installationId: INSTALLATION_A,
+      platformNamespace: "test-platform",
+      volumeNamespace: "test-volume",
+    });
+    const oldMetadata = JSON.parse(fs.readFileSync(first.paths.metadataPath, "utf8")) as Record<string, unknown>;
+    fs.writeFileSync(
+      first.paths.metadataPath,
+      `${JSON.stringify({ ...oldMetadata, historyBindingIds: ["hb_old"] }, null, 2)}\n`,
+    );
+
+    const second = await observeGitWorkspace({
+      graftDir,
+      canonicalRoot: repoRoot,
+      gitCommonDir,
+      now: () => "2026-06-19T01:00:00.000Z",
+      randomBytes: fixedBytes("dddddddddddddddddddddddddddddddd"),
+      installationId: INSTALLATION_A,
+      platformNamespace: "test-platform",
+      volumeNamespace: "test-volume",
+    });
+
+    expect(second.incarnationId).not.toBe(first.incarnationId);
+    expect(second.metadata.historyBindingIds).toEqual([]);
   });
 
   it("quarantines unsupported workspace metadata before reuse", async () => {
@@ -534,6 +584,31 @@ describe("workspace registry observation", () => {
       .toBe(true);
     expect(remoteCalls.every((call) => call.maxBufferBytes !== undefined && call.maxBufferBytes <= 64 * 1024))
       .toBe(true);
+  });
+
+  it("preserves spaces in daemon remote URL metadata", async () => {
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), "graft-registry-daemon-space-remote-"));
+    cleanup.push(root);
+    const repoDir = createCommittedTestRepo("graft-registry-daemon-space-repo-");
+    cleanup.push(repoDir);
+    const spacedRemote = path.join(root, "space repo.git");
+    git(repoDir, `remote add spaced ${JSON.stringify(spacedRemote)}`);
+    const isolated = createIsolatedServer({ mode: "daemon" });
+    cleanup.push(isolated.graftDir);
+    cleanup.push(isolated.projectRoot);
+
+    const authorization = parse(await isolated.server.callTool("workspace_authorize", { cwd: repoDir }));
+    expect(authorization["ok"]).toBe(true);
+
+    const workspacesDir = path.join(isolated.graftDir, "workspaces");
+    const [workspaceId] = fs.readdirSync(workspacesDir);
+    if (workspaceId === undefined) {
+      throw new Error("workspace authorization did not create a registry entry");
+    }
+    const metadata = JSON.parse(
+      fs.readFileSync(path.join(workspacesDir, workspaceId, "metadata.json"), "utf8"),
+    ) as Record<string, unknown>;
+    expect(metadata["sanitizedRemotes"]).toEqual([spacedRemote]);
   });
 
   it("keeps daemon authorization usable when managed registry observation is unavailable", async () => {

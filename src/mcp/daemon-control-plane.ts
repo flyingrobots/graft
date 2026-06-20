@@ -334,10 +334,20 @@ async function readGitRemotes(git: GitClient, cwd: string): Promise<readonly str
   }
   const remotes = new Set<string>();
   for (const line of result.stdout.split(/\r?\n/u)) {
-    const [, remoteUrl] = line.trim().split(/\s+/u);
+    const remoteUrl = parseGitRemoteListingUrl(line);
     if (remoteUrl !== undefined && remoteUrl.length > 0) {
       remotes.add(remoteUrl);
     }
   }
   return [...remotes].sort();
+}
+
+function parseGitRemoteListingUrl(line: string): string | undefined {
+  const tabIndex = line.indexOf("\t");
+  const payload = tabIndex >= 0
+    ? line.slice(tabIndex + 1)
+    : line.trim().replace(/^\S+\s+/u, "");
+  const marker = /^(.*)\s+\((?:fetch|push)\)$/u.exec(payload);
+  const remoteUrl = (marker?.[1] ?? payload).trim();
+  return remoteUrl.length > 0 ? remoteUrl : undefined;
 }
