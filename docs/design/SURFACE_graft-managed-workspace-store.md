@@ -448,6 +448,17 @@ Example:
     "observedAt": "2026-06-19T00:00:00.000Z",
     "commit": "abc123"
   },
+  "coverage": {
+    "basis": "git-history",
+    "from": {
+      "commit": "base123"
+    },
+    "through": {
+      "commit": "abc123",
+      "observedAt": "2026-06-19T00:00:00.000Z"
+    },
+    "continuity": "continuous"
+  },
   "trackingAuthorizationRef": "ta_456",
   "consentAuthorityRecordId": "ca_123"
 }
