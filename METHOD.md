@@ -44,7 +44,7 @@ stateDiagram-v2
     Design --> Branch: cycle/
     Branch --> Red: failing tests
     Red --> Green: passing tests
-    Green --> Retro: findings/debt
+    Green --> Retro: local findings/debt packet
     Retro --> Ship: PR to main
     Ship --> [*]
 ```
@@ -56,8 +56,28 @@ stateDiagram-v2
 3. **Branch**: Create `cycle/<cycle_name>`.
 4. **Red**: Write failing tests based on the design's playback questions.
 5. **Green**: Implement the solution until tests pass.
-6. **Retro**: Document findings and follow-on debt in the cycle doc.
-7. **Ship**: Open a PR to `main`. Update `BEARING.md` and `CHANGELOG.md` after merge.
+6. **Retro**: Complete the local retro before publishing. Capture findings,
+   validation evidence, follow-on debt, and any required local retro artifacts;
+   commit them with the cycle work.
+7. **Ship**: Open a PR to `main` only after the local retro is complete,
+   committed, and validated. Update `BEARING.md` and `CHANGELOG.md` after merge.
+
+## Pull Request Opening Gate
+
+A pull request is not the retro. Do not open a PR while the local cycle is still
+waiting on retro work.
+
+Before opening a PR:
+
+1. Complete the local retro packet for the cycle.
+2. Capture or reference the validation evidence that supports the retro.
+3. File any follow-on `bad-code/` or `cool-ideas/` cards required by the retro.
+4. Commit the retro and backlog artifacts with the implementation branch.
+5. Run the validation appropriate to the changed surface.
+
+If the retro automation is unavailable, write the retro locally by hand and
+commit it before opening the PR. The PR may review the retro, but it must not be
+the first place the retro exists.
 
 ## Naming Convention
 Backlog and cycle files follow: `<LEGEND>_<slug>.md`

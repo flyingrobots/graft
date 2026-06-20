@@ -122,6 +122,11 @@ Regression quality rules:
 
 ## Phase III: Closure
 
+Before opening a PR for a cycle, complete and commit the local retro. A PR is a
+publication and review surface; it must not be used as a substitute for local
+cycle closeout. If the retro automation is unavailable, write the retro locally
+by hand, commit it, and only then publish the branch for review.
+
 For PR work, post an Activity Summary comment:
 
 ```markdown

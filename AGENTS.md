@@ -8,6 +8,9 @@ This guide is for AI agents and human operators recovering context in the Graft 
 - **NEVER** rebase or force-push.
 - **NEVER** push to `main` without explicit permission.
 - **NEVER** create draft pull requests.
+- **NEVER** open a pull request before the local retro for the cycle has been
+  completed, committed, and validated. PR creation is a Ship step, not a Retro
+  substitute.
 - **NEVER** use a `codex` prefix in branch names, PR titles, or commit messages.
 - Always use standard commits and regular pushes.
 
