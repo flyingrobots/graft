@@ -41,6 +41,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   in daemon-collected remote paths, serializes concurrent first workspace
   observation, and only lets observations without explicit repository evidence
   reuse unknown incarnations that have no durable cache or history attachments.
+- **Workspace-store contract taxonomy**: Slice 0 conformance failure codes are
+  now all included in the frozen `errorTaxonomy`, and the contract test rejects
+  covered conformance rows whose failure codes are absent from that taxonomy.
 
 ## [0.9.0] - 2026-06-10
 

@@ -440,6 +440,7 @@ describe("workspace store Slice 0 threat and conformance matrix", () => {
       expect(Object.keys(claim.supportedPlatformPosture).length).toBeGreaterThan(0);
       expect(claim.failureBehavior.kind.length).toBeGreaterThan(0);
       expect(claim.failureBehavior.code.length).toBeGreaterThan(0);
+      expect(CONTRACT.errorTaxonomy).toContain(claim.failureBehavior.code);
 
       for (const evidence of claim.testEvidence) {
         if (evidence.status === "covered") {
