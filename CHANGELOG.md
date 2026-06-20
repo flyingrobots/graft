@@ -35,9 +35,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   serializes first-time installation ID creation, fails closed when managed
   storage cannot be made private, rejects symlinked or unsafe registry storage
   records before reading them, quarantines unsupported registry metadata instead
-  of reusing it, and only reuses an incarnation when repository evidence matches.
-  Same-path replacements get a new incarnation without inheriting old history
-  bindings.
+  of reusing it, recovers stale first-time installation locks, caps remote
+  collection during daemon authorization, and only reuses an incarnation when
+  stable repository evidence matches. Same-path replacements get a new
+  incarnation without inheriting old history bindings.
 
 ## [0.9.0] - 2026-06-10
 

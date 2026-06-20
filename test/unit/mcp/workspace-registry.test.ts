@@ -9,12 +9,13 @@ import {
   registryPaths,
   sanitizeRemoteUrl,
 } from "../../../src/mcp/workspace-registry.js";
+import type { GitClient, GitRunRequest } from "../../../src/ports/git.js";
 import {
   ECHO_NATIVE_HISTORY_PROVIDER,
   GIT_WARP_FALLBACK_HISTORY_PROVIDER,
   GIT_WARP_IMPORTED_HISTORY_PROVIDER,
 } from "../../../src/ports/structural-history.js";
-import { createCommittedTestRepo, git } from "../../helpers/git.js";
+import { createCommittedTestRepo, git, testGitClient } from "../../helpers/git.js";
 import { createIsolatedServer, parse } from "../../helpers/mcp.js";
 
 const INSTALLATION_A = "00112233445566778899aabbccddeeff";
@@ -22,6 +23,10 @@ const INSTALLATION_B = "ffeeddccbbaa99887766554433221100";
 
 function fixedBytes(hex: string): () => Buffer {
   return () => Buffer.from(hex, "hex");
+}
+
+async function sleep(ms: number): Promise<void> {
+  await new Promise((resolve) => setTimeout(resolve, ms));
 }
 
 describe("workspace registry identity", () => {
@@ -180,6 +185,26 @@ describe("workspace registry observation", () => {
     expect(installation["installationId"]).toBe(ids[0]);
   });
 
+  it("recovers stale first-time installation locks", async () => {
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), "graft-registry-stale-lock-"));
+    cleanup.push(root);
+    const graftDir = path.join(root, "graft-home");
+    const lockDir = path.join(graftDir, "installation.lock");
+    fs.mkdirSync(lockDir, { recursive: true, mode: 0o700 });
+    const stale = new Date(Date.now() - 10 * 60 * 1000);
+    fs.utimesSync(lockDir, stale, stale);
+
+    const installationId = await loadOrCreateInstallationId({
+      graftDir,
+      now: () => "2026-06-19T00:00:00.000Z",
+      randomBytes: fixedBytes("99999999999999999999999999999999"),
+    });
+
+    expect(installationId).toBe("99999999999999999999999999999999");
+    expect(fs.existsSync(lockDir)).toBe(false);
+    expect(fs.existsSync(path.join(graftDir, "installation.json"))).toBe(true);
+  });
+
   it("preserves incarnation and createdAt on repeated observation", async () => {
     const root = fs.mkdtempSync(path.join(os.tmpdir(), "graft-registry-repeat-"));
     cleanup.push(root);
@@ -219,6 +244,49 @@ describe("workspace registry observation", () => {
     expect(metadata["createdAt"]).toBe("2026-06-19T00:00:00.000Z");
     expect(metadata["lastObservedAt"]).toBe("2026-06-19T01:00:00.000Z");
     expect(metadata["historyBindingIds"]).toEqual([]);
+  });
+
+  it("preserves incarnation across normal Git directory writes", async () => {
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), "graft-registry-git-write-"));
+    cleanup.push(root);
+    const graftDir = path.join(root, "graft-home");
+    const repoRoot = path.join(root, "repo");
+    const gitCommonDir = path.join(repoRoot, ".git");
+    fs.mkdirSync(gitCommonDir, { recursive: true });
+
+    const first = await observeGitWorkspace({
+      graftDir,
+      canonicalRoot: repoRoot,
+      gitCommonDir,
+      now: () => "2026-06-19T00:00:00.000Z",
+      randomBytes: fixedBytes("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"),
+      installationId: INSTALLATION_A,
+      platformNamespace: "test-platform",
+      volumeNamespace: "test-volume",
+    });
+    const oldMetadata = JSON.parse(fs.readFileSync(first.paths.metadataPath, "utf8")) as Record<string, unknown>;
+    fs.writeFileSync(
+      first.paths.metadataPath,
+      `${JSON.stringify({ ...oldMetadata, historyBindingIds: ["hb_old"] }, null, 2)}\n`,
+    );
+
+    await sleep(5);
+    fs.writeFileSync(path.join(gitCommonDir, "index.lock"), "normal git write\n");
+    fs.rmSync(path.join(gitCommonDir, "index.lock"));
+
+    const second = await observeGitWorkspace({
+      graftDir,
+      canonicalRoot: repoRoot,
+      gitCommonDir,
+      now: () => "2026-06-19T01:00:00.000Z",
+      randomBytes: fixedBytes("bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"),
+      installationId: INSTALLATION_A,
+      platformNamespace: "test-platform",
+      volumeNamespace: "test-volume",
+    });
+
+    expect(second.incarnationId).toBe(first.incarnationId);
+    expect(second.metadata.historyBindingIds).toEqual(["hb_old"]);
   });
 
   it("quarantines unsupported workspace metadata before reuse", async () => {
@@ -367,6 +435,32 @@ describe("workspace registry observation", () => {
     expect(metadata["sanitizedRemotes"]).toEqual(["https://example.com/org/repo.git"]);
     expect(fs.existsSync(path.join(repoDir, ".graft"))).toBe(false);
     expect(fs.existsSync(path.join(workspaceDir, "history"))).toBe(false);
+  });
+
+  it("bounds remote listing during daemon authorization observation", async () => {
+    const repoDir = createCommittedTestRepo("graft-registry-daemon-remotes-");
+    cleanup.push(repoDir);
+    git(repoDir, "remote add origin https://token@example.com/org/repo.git");
+    const calls: GitRunRequest[] = [];
+    const recordingGit: GitClient = {
+      async run(request) {
+        calls.push(request);
+        return testGitClient.run(request);
+      },
+    };
+    const isolated = createIsolatedServer({ mode: "daemon", git: recordingGit });
+    cleanup.push(isolated.graftDir);
+    cleanup.push(isolated.projectRoot);
+
+    const authorization = parse(await isolated.server.callTool("workspace_authorize", { cwd: repoDir }));
+    expect(authorization["ok"]).toBe(true);
+
+    const remoteCalls = calls.filter((call) => call.args.join(" ") === "remote -v");
+    expect(remoteCalls.length).toBeGreaterThan(0);
+    expect(remoteCalls.every((call) => typeof call.maxBufferBytes === "number" && call.maxBufferBytes > 0))
+      .toBe(true);
+    expect(remoteCalls.every((call) => call.maxBufferBytes !== undefined && call.maxBufferBytes <= 64 * 1024))
+      .toBe(true);
   });
 
   it("keeps daemon authorization usable when managed registry observation is unavailable", async () => {

@@ -12,6 +12,7 @@ const ID_DIGEST_BYTES = 16;
 const PRIVATE_DIR_MODE = 0o700;
 const PRIVATE_FILE_MODE = 0o600;
 const INSTALLATION_LOCK_DIR = "installation.lock";
+const INSTALLATION_LOCK_STALE_MS = 5 * 60 * 1000;
 
 export type WorkspaceRegistryKind = "git" | "directory";
 export type IncarnationStatus = "confirmed" | "suspect" | "replaced" | "unknown";
@@ -359,6 +360,9 @@ async function withInstallationLock<T>(graftDir: string, work: () => Promise<T>)
       await fsp.mkdir(lockDir, { mode: PRIVATE_DIR_MODE });
     } catch (error: unknown) {
       if (hasErrorCode(error, "EEXIST")) {
+        if (await removeStaleInstallationLock(lockDir)) {
+          continue;
+        }
         await delay(10);
         continue;
       }
@@ -374,12 +378,30 @@ async function withInstallationLock<T>(graftDir: string, work: () => Promise<T>)
   throw new Error(`Timed out waiting for Graft installation lock: ${lockDir}`);
 }
 
+async function removeStaleInstallationLock(lockDir: string): Promise<boolean> {
+  let stat;
+  try {
+    stat = await fsp.lstat(lockDir);
+  } catch (error: unknown) {
+    if (hasErrorCode(error, "ENOENT")) {
+      return true;
+    }
+    throw error;
+  }
+  if (stat.isSymbolicLink() || !stat.isDirectory()) {
+    throw new Error(`Refusing to use unsafe Graft installation lock: ${lockDir}`);
+  }
+  if (Date.now() - stat.mtimeMs < INSTALLATION_LOCK_STALE_MS) {
+    return false;
+  }
+  await fsp.rm(lockDir, { recursive: true, force: true });
+  return true;
+}
+
 async function fingerprintGitCommonDir(gitCommonDir: string): Promise<string | null> {
   try {
     const stat = await fsp.stat(gitCommonDir);
-    const birth = Number.isFinite(stat.birthtimeMs) ? Math.trunc(stat.birthtimeMs) : 0;
-    const changed = Number.isFinite(stat.ctimeMs) ? Math.trunc(stat.ctimeMs) : 0;
-    return `fs:${String(stat.dev)}:${String(stat.ino)}:${String(birth)}:${String(changed)}`;
+    return `fs:${String(stat.dev)}:${String(stat.ino)}`;
   } catch {
     return null;
   }

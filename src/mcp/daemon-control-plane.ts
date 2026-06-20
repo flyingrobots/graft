@@ -74,6 +74,8 @@ import type {
 // DaemonControlPlane
 // ---------------------------------------------------------------------------
 
+const REMOTE_LIST_MAX_BUFFER_BYTES = 64 * 1024;
+
 export class DaemonControlPlane {
   private readonly statePath: string;
   private readonly authorizedWorkspaces = new Map<string, AuthorizedWorkspaceRecord>();
@@ -322,7 +324,11 @@ export class DaemonControlPlane {
 }
 
 async function readGitRemotes(git: GitClient, cwd: string): Promise<readonly string[]> {
-  const result = await git.run({ cwd, args: ["remote", "-v"] });
+  const result = await git.run({
+    cwd,
+    args: ["remote", "-v"],
+    maxBufferBytes: REMOTE_LIST_MAX_BUFFER_BYTES,
+  });
   if (result.error !== undefined || result.status !== 0) {
     return [];
   }
