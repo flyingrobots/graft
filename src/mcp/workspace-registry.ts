@@ -12,6 +12,7 @@ const ID_DIGEST_BYTES = 16;
 const PRIVATE_DIR_MODE = 0o700;
 const PRIVATE_FILE_MODE = 0o600;
 const INSTALLATION_LOCK_DIR = "installation.lock";
+const WORKSPACE_OBSERVATION_LOCK_DIR = "observation.lock";
 const INSTALLATION_LOCK_STALE_MS = 5 * 60 * 1000;
 
 export type WorkspaceRegistryKind = "git" | "directory";
@@ -168,6 +169,10 @@ function isTypedId(value: unknown, prefix: string): value is string {
   return typeof value === "string" && new RegExp(`^${prefix}[a-z2-7]{26}$`, "u").test(value);
 }
 
+function isInstallationId(value: unknown): value is string {
+  return typeof value === "string" && /^[a-f0-9]{32}$/u.test(value);
+}
+
 function isRetention(value: unknown): value is WorkspaceRegistryRetention {
   return isRecord(value)
     && value["cachePolicy"] === "derived-content"
@@ -186,7 +191,7 @@ function isStorage(value: unknown): value is WorkspaceRegistryStorage {
 function isInstallationRecord(value: unknown): value is InstallationRecord {
   return isRecord(value)
     && value["schemaVersion"] === 1
-    && typeof value["installationId"] === "string"
+    && isInstallationId(value["installationId"])
     && typeof value["createdAt"] === "string";
 }
 
@@ -354,6 +359,28 @@ async function delay(ms: number): Promise<void> {
 
 async function withInstallationLock<T>(graftDir: string, work: () => Promise<T>): Promise<T> {
   const lockDir = path.join(path.resolve(graftDir), INSTALLATION_LOCK_DIR);
+  return withManagedLock(graftDir, lockDir, "Graft installation lock", work);
+}
+
+async function withWorkspaceObservationLock<T>(
+  graftDir: string,
+  workspaceDir: string,
+  work: () => Promise<T>,
+): Promise<T> {
+  return withManagedLock(
+    graftDir,
+    path.join(workspaceDir, WORKSPACE_OBSERVATION_LOCK_DIR),
+    "Graft workspace observation lock",
+    work,
+  );
+}
+
+async function withManagedLock<T>(
+  graftDir: string,
+  lockDir: string,
+  label: string,
+  work: () => Promise<T>,
+): Promise<T> {
   await ensureManagedDirectory(graftDir, path.dirname(lockDir));
   for (let attempt = 0; attempt < 100; attempt += 1) {
     try {
@@ -375,7 +402,7 @@ async function withInstallationLock<T>(graftDir: string, work: () => Promise<T>)
       await fsp.rm(lockDir, { recursive: true, force: true });
     }
   }
-  throw new Error(`Timed out waiting for Graft installation lock: ${lockDir}`);
+  throw new Error(`Timed out waiting for ${label}: ${lockDir}`);
 }
 
 async function removeStaleInstallationLock(lockDir: string): Promise<boolean> {
@@ -496,7 +523,9 @@ export function sanitizeRemoteUrl(remote: string): string {
     parsed.hash = "";
     return parsed.toString();
   } catch {
-    return trimmed.replace(/[?#].*$/u, "");
+    return trimmed
+      .replace(/[?#].*$/u, "")
+      .replace(/^[^/@\s]+@([^:\s]+:)/u, "$1");
   }
 }
 
@@ -550,95 +579,97 @@ export async function observeGitWorkspace(input: ObserveGitWorkspaceInput): Prom
   const placeholderIncarnationId = "wi_placeholder";
   const workspaceOnlyPaths = registryPaths(graftDir, workspaceId, placeholderIncarnationId);
   await ensureManagedDirectory(graftDir, workspaceOnlyPaths.workspaceDir);
-  const existing = await readRegistryJson(
-    graftDir,
-    workspaceOnlyPaths.metadataPath,
-    isWorkspaceMetadataRecord,
-    "workspace metadata",
-  );
-  if (existing !== null && existing.workspaceId !== workspaceId) {
-    await quarantineRegistryFile(graftDir, workspaceOnlyPaths.metadataPath, "Unsupported workspace metadata: identity mismatch");
-  }
-  const timestamp = nowIso(input.now);
-  const existingIncarnationPaths = existing === null
-    ? null
-    : registryPaths(graftDir, workspaceId, existing.incarnationId);
-  if (existingIncarnationPaths !== null) {
-    await ensureManagedDirectory(graftDir, existingIncarnationPaths.incarnationDir);
-  }
-  const existingIncarnation = existingIncarnationPaths === null
-    ? null
-    : await readRegistryJson(
+  return withWorkspaceObservationLock(graftDir, workspaceOnlyPaths.workspaceDir, async () => {
+    const existing = await readRegistryJson(
       graftDir,
-      existingIncarnationPaths.incarnationMetadataPath,
-      isIncarnationMetadataRecord,
-      "incarnation metadata",
+      workspaceOnlyPaths.metadataPath,
+      isWorkspaceMetadataRecord,
+      "workspace metadata",
     );
-  if (
-    existing !== null
-    && existingIncarnation !== null
-    && (existingIncarnation.workspaceId !== workspaceId || existingIncarnation.incarnationId !== existing.incarnationId)
-  ) {
-    await quarantineRegistryFile(
-      graftDir,
-      existingIncarnationPaths?.incarnationMetadataPath ?? workspaceOnlyPaths.metadataPath,
-      "Unsupported incarnation metadata: identity mismatch",
-    );
-  }
-  const repositoryFingerprint = input.repositoryFingerprint ?? await fingerprintGitCommonDir(gitCommonDir);
-  const reuseExistingIncarnation = canReuseIncarnation(existing, existingIncarnation, repositoryFingerprint);
-  const incarnationId = reuseExistingIncarnation && existing !== null
-    ? existing.incarnationId
-    : randomTypedId("wi_", input.randomBytes ?? crypto.randomBytes);
-  const paths = registryPaths(graftDir, workspaceId, incarnationId);
-  await ensureManagedDirectory(graftDir, paths.workspaceDir);
-  await ensureManagedDirectory(graftDir, paths.incarnationDir);
-  await ensureManagedDirectory(graftDir, path.join(paths.incarnationCacheDir, "outlines"));
-  await ensureManagedDirectory(graftDir, path.join(paths.incarnationCacheDir, "documents"));
-  await ensureManagedDirectory(graftDir, path.join(paths.incarnationCacheDir, "maps"));
+    if (existing !== null && existing.workspaceId !== workspaceId) {
+      await quarantineRegistryFile(graftDir, workspaceOnlyPaths.metadataPath, "Unsupported workspace metadata: identity mismatch");
+    }
+    const timestamp = nowIso(input.now);
+    const existingIncarnationPaths = existing === null
+      ? null
+      : registryPaths(graftDir, workspaceId, existing.incarnationId);
+    if (existingIncarnationPaths !== null) {
+      await ensureManagedDirectory(graftDir, existingIncarnationPaths.incarnationDir);
+    }
+    const existingIncarnation = existingIncarnationPaths === null
+      ? null
+      : await readRegistryJson(
+        graftDir,
+        existingIncarnationPaths.incarnationMetadataPath,
+        isIncarnationMetadataRecord,
+        "incarnation metadata",
+      );
+    if (
+      existing !== null
+      && existingIncarnation !== null
+      && (existingIncarnation.workspaceId !== workspaceId || existingIncarnation.incarnationId !== existing.incarnationId)
+    ) {
+      await quarantineRegistryFile(
+        graftDir,
+        existingIncarnationPaths?.incarnationMetadataPath ?? workspaceOnlyPaths.metadataPath,
+        "Unsupported incarnation metadata: identity mismatch",
+      );
+    }
+    const repositoryFingerprint = input.repositoryFingerprint ?? await fingerprintGitCommonDir(gitCommonDir);
+    const reuseExistingIncarnation = canReuseIncarnation(existing, existingIncarnation, repositoryFingerprint);
+    const incarnationId = reuseExistingIncarnation && existing !== null
+      ? existing.incarnationId
+      : randomTypedId("wi_", input.randomBytes ?? crypto.randomBytes);
+    const paths = registryPaths(graftDir, workspaceId, incarnationId);
+    await ensureManagedDirectory(graftDir, paths.workspaceDir);
+    await ensureManagedDirectory(graftDir, paths.incarnationDir);
+    await ensureManagedDirectory(graftDir, path.join(paths.incarnationCacheDir, "outlines"));
+    await ensureManagedDirectory(graftDir, path.join(paths.incarnationCacheDir, "documents"));
+    await ensureManagedDirectory(graftDir, path.join(paths.incarnationCacheDir, "maps"));
 
-  const metadata: WorkspaceMetadataRecord = {
-    schemaVersion: 1,
-    workspaceId,
-    displayName: path.basename(canonicalRoot),
-    canonicalRoot,
-    gitCommonDir,
-    sanitizedRemotes: [...new Set((input.remotes ?? []).map(sanitizeRemoteUrl).filter((remote) => remote.length > 0))],
-    incarnationId,
-    historyBindingIds: reuseExistingIncarnation && existing !== null ? existing.historyBindingIds : [],
-    storage: {
-      registry: "graft-managed",
-      cache: "graft-managed",
-    },
-    createdAt: existing?.createdAt ?? timestamp,
-    lastObservedAt: timestamp,
-    retention: existing?.retention ?? defaultRetention(),
-  };
-  const existingIncarnationCreatedAt = reuseExistingIncarnation
-    ? existingIncarnation?.createdAt
-    : undefined;
-  const incarnationStatus = observedIncarnationStatus(
-    existing !== null,
-    existingIncarnation,
-    repositoryFingerprint,
-    reuseExistingIncarnation,
-  );
-  const incarnation: IncarnationMetadataRecord = {
-    schemaVersion: 1,
-    workspaceId,
-    incarnationId,
-    incarnationStatus,
-    createdAt: existingIncarnationCreatedAt ?? timestamp,
-    lastObservedAt: timestamp,
-    evidence: {
-      kind: "git",
+    const metadata: WorkspaceMetadataRecord = {
+      schemaVersion: 1,
+      workspaceId,
+      displayName: path.basename(canonicalRoot),
       canonicalRoot,
       gitCommonDir,
-      ...(repositoryFingerprint === null ? {} : { repositoryFingerprint }),
-    },
-  };
+      sanitizedRemotes: [...new Set((input.remotes ?? []).map(sanitizeRemoteUrl).filter((remote) => remote.length > 0))],
+      incarnationId,
+      historyBindingIds: reuseExistingIncarnation && existing !== null ? existing.historyBindingIds : [],
+      storage: {
+        registry: "graft-managed",
+        cache: "graft-managed",
+      },
+      createdAt: existing?.createdAt ?? timestamp,
+      lastObservedAt: timestamp,
+      retention: existing?.retention ?? defaultRetention(),
+    };
+    const existingIncarnationCreatedAt = reuseExistingIncarnation
+      ? existingIncarnation?.createdAt
+      : undefined;
+    const incarnationStatus = observedIncarnationStatus(
+      existing !== null,
+      existingIncarnation,
+      repositoryFingerprint,
+      reuseExistingIncarnation,
+    );
+    const incarnation: IncarnationMetadataRecord = {
+      schemaVersion: 1,
+      workspaceId,
+      incarnationId,
+      incarnationStatus,
+      createdAt: existingIncarnationCreatedAt ?? timestamp,
+      lastObservedAt: timestamp,
+      evidence: {
+        kind: "git",
+        canonicalRoot,
+        gitCommonDir,
+        ...(repositoryFingerprint === null ? {} : { repositoryFingerprint }),
+      },
+    };
 
-  await writeJsonAtomic(graftDir, paths.metadataPath, metadata);
-  await writeJsonAtomic(graftDir, paths.incarnationMetadataPath, incarnation);
-  return { workspaceId, incarnationId, metadata, paths };
+    await writeJsonAtomic(graftDir, paths.metadataPath, metadata);
+    await writeJsonAtomic(graftDir, paths.incarnationMetadataPath, incarnation);
+    return { workspaceId, incarnationId, metadata, paths };
+  });
 }

@@ -68,8 +68,10 @@ describe("workspace registry identity", () => {
 
     expect(sanitizeRemoteUrl("https://token@example.com/org/repo.git?secret=1#frag"))
       .toBe("https://example.com/org/repo.git");
+    expect(sanitizeRemoteUrl("token@github.com:org/repo.git?secret=1#frag"))
+      .toBe("github.com:org/repo.git");
     expect(sanitizeRemoteUrl("git@github.com:flyingrobots/graft.git"))
-      .toBe("git@github.com:flyingrobots/graft.git");
+      .toBe("github.com:flyingrobots/graft.git");
     expect(deriveWorkspaceId({
       installationId: INSTALLATION_A,
       platformNamespace: "test-platform",
@@ -131,7 +133,7 @@ describe("workspace registry observation", () => {
       gitCommonDir,
       sanitizedRemotes: [
         "https://example.com/org/repo.git",
-        "git@github.com:flyingrobots/graft.git",
+        "github.com:flyingrobots/graft.git",
       ],
       incarnationId: observed.incarnationId,
       historyBindingIds: [],
@@ -203,6 +205,27 @@ describe("workspace registry observation", () => {
     expect(installationId).toBe("99999999999999999999999999999999");
     expect(fs.existsSync(lockDir)).toBe(false);
     expect(fs.existsSync(path.join(graftDir, "installation.json"))).toBe(true);
+  });
+
+  it("quarantines malformed installation IDs", async () => {
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), "graft-registry-bad-installation-"));
+    cleanup.push(root);
+    const graftDir = path.join(root, "graft-home");
+    fs.mkdirSync(graftDir, { recursive: true });
+    fs.writeFileSync(
+      path.join(graftDir, "installation.json"),
+      `${JSON.stringify({ schemaVersion: 1, installationId: "short", createdAt: "2026-06-19T00:00:00.000Z" })}\n`,
+    );
+
+    await expect(loadOrCreateInstallationId({
+      graftDir,
+      now: () => "2026-06-19T01:00:00.000Z",
+      randomBytes: fixedBytes("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"),
+    })).rejects.toThrow(/Unsupported installation record/iu);
+
+    expect(fs.existsSync(path.join(graftDir, "installation.json"))).toBe(false);
+    expect(fs.readdirSync(graftDir).some((name) => name.startsWith("installation.json.quarantine.")))
+      .toBe(true);
   });
 
   it("preserves incarnation and createdAt on repeated observation", async () => {
@@ -375,6 +398,56 @@ describe("workspace registry observation", () => {
     expect(second.metadata.historyBindingIds).toEqual([]);
     expect(incarnationMetadata["incarnationStatus"]).toBe("replaced");
     expect(fs.existsSync(first.paths.incarnationMetadataPath)).toBe(true);
+  });
+
+  it("serializes concurrent first workspace observation", async () => {
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), "graft-registry-concurrent-observe-"));
+    cleanup.push(root);
+    const graftDir = path.join(root, "graft-home");
+    const repoRoot = path.join(root, "repo");
+    const gitCommonDir = path.join(repoRoot, ".git");
+    fs.mkdirSync(gitCommonDir, { recursive: true });
+    const byteValues = [
+      "11111111111111111111111111111111",
+      "22222222222222222222222222222222",
+    ];
+    let nextByteValue = 0;
+    const randomBytes = () => {
+      const value = byteValues[nextByteValue] ?? "33333333333333333333333333333333";
+      nextByteValue += 1;
+      return Buffer.from(value, "hex");
+    };
+
+    const observations = await Promise.all([
+      observeGitWorkspace({
+        graftDir,
+        canonicalRoot: repoRoot,
+        gitCommonDir,
+        now: () => "2026-06-19T00:00:00.000Z",
+        randomBytes,
+        repositoryFingerprint: "repo-a",
+        installationId: INSTALLATION_A,
+        platformNamespace: "test-platform",
+        volumeNamespace: "test-volume",
+      }),
+      observeGitWorkspace({
+        graftDir,
+        canonicalRoot: repoRoot,
+        gitCommonDir,
+        now: () => "2026-06-19T00:00:00.000Z",
+        randomBytes,
+        repositoryFingerprint: "repo-a",
+        installationId: INSTALLATION_A,
+        platformNamespace: "test-platform",
+        volumeNamespace: "test-volume",
+      }),
+    ]);
+
+    expect(new Set(observations.map((observation) => observation.incarnationId)).size).toBe(1);
+    const paths = registryPaths(graftDir, observations[0].workspaceId, observations[0].incarnationId);
+    const incarnationDirs = fs.readdirSync(paths.incarnationsDir)
+      .filter((name) => name.startsWith("wi_"));
+    expect(incarnationDirs).toEqual([observations[0].incarnationId]);
   });
 
   it("rejects symlinked managed storage components before writing workspace state", async () => {
