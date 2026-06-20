@@ -4,6 +4,7 @@ import * as os from "node:os";
 import * as path from "node:path";
 import {
   deriveWorkspaceId,
+  loadOrCreateInstallationId,
   observeGitWorkspace,
   registryPaths,
   sanitizeRemoteUrl,
@@ -151,6 +152,32 @@ describe("workspace registry observation", () => {
     expect(fs.existsSync(path.join(paths.incarnationCacheDir, "outlines"))).toBe(true);
     expect(fs.existsSync(path.join(paths.workspaceDir, "history"))).toBe(false);
     expect(fs.existsSync(path.join(paths.workspaceDir, "warp.git"))).toBe(false);
+    if (process.platform !== "win32") {
+      expect(fs.statSync(paths.workspaceDir).mode & 0o077).toBe(0);
+      expect(fs.statSync(paths.metadataPath).mode & 0o077).toBe(0);
+    }
+  });
+
+  it("serializes first-time installation ID creation", async () => {
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), "graft-registry-installation-"));
+    cleanup.push(root);
+    const graftDir = path.join(root, "graft-home");
+    let generated = 0;
+
+    const ids = await Promise.all(Array.from({ length: 12 }, () => loadOrCreateInstallationId({
+      graftDir,
+      now: () => "2026-06-19T00:00:00.000Z",
+      randomBytes: () => {
+        generated += 1;
+        return Buffer.alloc(16, generated);
+      },
+    })));
+
+    expect(new Set(ids).size).toBe(1);
+    const installation = JSON.parse(
+      fs.readFileSync(path.join(graftDir, "installation.json"), "utf8"),
+    ) as Record<string, unknown>;
+    expect(installation["installationId"]).toBe(ids[0]);
   });
 
   it("preserves incarnation and createdAt on repeated observation", async () => {
@@ -167,6 +194,7 @@ describe("workspace registry observation", () => {
       gitCommonDir,
       now: () => "2026-06-19T00:00:00.000Z",
       randomBytes: fixedBytes("22222222222222222222222222222222"),
+      repositoryFingerprint: "repo-a",
       installationId: INSTALLATION_A,
       platformNamespace: "test-platform",
       volumeNamespace: "test-volume",
@@ -177,6 +205,7 @@ describe("workspace registry observation", () => {
       gitCommonDir,
       now: () => "2026-06-19T01:00:00.000Z",
       randomBytes: fixedBytes("33333333333333333333333333333333"),
+      repositoryFingerprint: "repo-a",
       installationId: INSTALLATION_A,
       platformNamespace: "test-platform",
       volumeNamespace: "test-volume",
@@ -190,6 +219,128 @@ describe("workspace registry observation", () => {
     expect(metadata["createdAt"]).toBe("2026-06-19T00:00:00.000Z");
     expect(metadata["lastObservedAt"]).toBe("2026-06-19T01:00:00.000Z");
     expect(metadata["historyBindingIds"]).toEqual([]);
+  });
+
+  it("quarantines unsupported workspace metadata before reuse", async () => {
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), "graft-registry-quarantine-"));
+    cleanup.push(root);
+    const graftDir = path.join(root, "graft-home");
+    const repoRoot = path.join(root, "repo");
+    const gitCommonDir = path.join(repoRoot, ".git");
+    fs.mkdirSync(gitCommonDir, { recursive: true });
+
+    const observed = await observeGitWorkspace({
+      graftDir,
+      canonicalRoot: repoRoot,
+      gitCommonDir,
+      now: () => "2026-06-19T00:00:00.000Z",
+      randomBytes: fixedBytes("44444444444444444444444444444444"),
+      repositoryFingerprint: "repo-a",
+      installationId: INSTALLATION_A,
+      platformNamespace: "test-platform",
+      volumeNamespace: "test-volume",
+    });
+    fs.writeFileSync(
+      observed.paths.metadataPath,
+      `${JSON.stringify({ schemaVersion: 2, workspaceId: observed.workspaceId })}\n`,
+    );
+
+    await expect(observeGitWorkspace({
+      graftDir,
+      canonicalRoot: repoRoot,
+      gitCommonDir,
+      now: () => "2026-06-19T01:00:00.000Z",
+      randomBytes: fixedBytes("55555555555555555555555555555555"),
+      repositoryFingerprint: "repo-a",
+      installationId: INSTALLATION_A,
+      platformNamespace: "test-platform",
+      volumeNamespace: "test-volume",
+    })).rejects.toThrow(/Unsupported workspace metadata/iu);
+
+    expect(fs.existsSync(observed.paths.metadataPath)).toBe(false);
+    expect(fs.readdirSync(observed.paths.workspaceDir).some((name) => name.startsWith("metadata.json.quarantine.")))
+      .toBe(true);
+  });
+
+  it("creates a new incarnation when repository evidence changes at the same path", async () => {
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), "graft-registry-replacement-"));
+    cleanup.push(root);
+    const graftDir = path.join(root, "graft-home");
+    const repoRoot = path.join(root, "repo");
+    const gitCommonDir = path.join(repoRoot, ".git");
+    fs.mkdirSync(gitCommonDir, { recursive: true });
+
+    const first = await observeGitWorkspace({
+      graftDir,
+      canonicalRoot: repoRoot,
+      gitCommonDir,
+      now: () => "2026-06-19T00:00:00.000Z",
+      randomBytes: fixedBytes("66666666666666666666666666666666"),
+      repositoryFingerprint: "repo-a",
+      installationId: INSTALLATION_A,
+      platformNamespace: "test-platform",
+      volumeNamespace: "test-volume",
+    });
+    const oldMetadata = JSON.parse(fs.readFileSync(first.paths.metadataPath, "utf8")) as Record<string, unknown>;
+    fs.writeFileSync(
+      first.paths.metadataPath,
+      `${JSON.stringify({ ...oldMetadata, historyBindingIds: ["hb_old"] }, null, 2)}\n`,
+    );
+
+    const second = await observeGitWorkspace({
+      graftDir,
+      canonicalRoot: repoRoot,
+      gitCommonDir,
+      now: () => "2026-06-19T01:00:00.000Z",
+      randomBytes: fixedBytes("77777777777777777777777777777777"),
+      repositoryFingerprint: "repo-b",
+      installationId: INSTALLATION_A,
+      platformNamespace: "test-platform",
+      volumeNamespace: "test-volume",
+    });
+    const incarnationMetadata = JSON.parse(
+      fs.readFileSync(second.paths.incarnationMetadataPath, "utf8"),
+    ) as Record<string, unknown>;
+
+    expect(second.workspaceId).toBe(first.workspaceId);
+    expect(second.incarnationId).not.toBe(first.incarnationId);
+    expect(second.metadata.historyBindingIds).toEqual([]);
+    expect(incarnationMetadata["incarnationStatus"]).toBe("replaced");
+    expect(fs.existsSync(first.paths.incarnationMetadataPath)).toBe(true);
+  });
+
+  it("rejects symlinked managed storage components before writing workspace state", async () => {
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), "graft-registry-symlink-"));
+    cleanup.push(root);
+    const graftDir = path.join(root, "graft-home");
+    const outside = path.join(root, "outside");
+    const repoRoot = path.join(root, "repo");
+    const gitCommonDir = path.join(repoRoot, ".git");
+    fs.mkdirSync(gitCommonDir, { recursive: true });
+    fs.mkdirSync(graftDir, { recursive: true });
+    fs.mkdirSync(outside, { recursive: true });
+    try {
+      fs.symlinkSync(outside, path.join(graftDir, "workspaces"), "dir");
+    } catch (error: unknown) {
+      if (error instanceof Error && "code" in error && (error.code === "EPERM" || error.code === "EINVAL")) {
+        return;
+      }
+      throw error;
+    }
+
+    await expect(observeGitWorkspace({
+      graftDir,
+      canonicalRoot: repoRoot,
+      gitCommonDir,
+      now: () => "2026-06-19T00:00:00.000Z",
+      randomBytes: fixedBytes("88888888888888888888888888888888"),
+      repositoryFingerprint: "repo-a",
+      installationId: INSTALLATION_A,
+      platformNamespace: "test-platform",
+      volumeNamespace: "test-volume",
+    })).rejects.toThrow(/symlinked Graft storage directory/iu);
+
+    expect(fs.readdirSync(outside)).toEqual([]);
   });
 
   it("daemon authorization observes registry state without target-repo mutation", async () => {

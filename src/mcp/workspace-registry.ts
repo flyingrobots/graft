@@ -9,8 +9,12 @@ const WORKSPACES_DIR = "workspaces";
 const METADATA_FILE = "metadata.json";
 const BASE32_ALPHABET = "abcdefghijklmnopqrstuvwxyz234567";
 const ID_DIGEST_BYTES = 16;
+const PRIVATE_DIR_MODE = 0o700;
+const PRIVATE_FILE_MODE = 0o600;
+const INSTALLATION_LOCK_DIR = "installation.lock";
 
 export type WorkspaceRegistryKind = "git" | "directory";
+export type IncarnationStatus = "confirmed" | "suspect" | "replaced" | "unknown";
 
 export interface WorkspaceIdentityInput {
   readonly installationId: string;
@@ -60,13 +64,14 @@ export interface IncarnationMetadataRecord {
   readonly schemaVersion: 1;
   readonly workspaceId: string;
   readonly incarnationId: string;
-  readonly incarnationStatus: "confirmed";
+  readonly incarnationStatus: IncarnationStatus;
   readonly createdAt: string;
   readonly lastObservedAt: string;
   readonly evidence: {
     readonly kind: "git";
     readonly canonicalRoot: string;
     readonly gitCommonDir: string;
+    readonly repositoryFingerprint?: string | undefined;
   };
 }
 
@@ -80,6 +85,7 @@ export interface ObserveGitWorkspaceInput {
   readonly volumeNamespace?: string | undefined;
   readonly now?: (() => string) | undefined;
   readonly randomBytes?: ((size: number) => Buffer) | undefined;
+  readonly repositoryFingerprint?: string | undefined;
 }
 
 export interface ObservedWorkspaceRecord {
@@ -145,50 +151,282 @@ function nowIso(now: (() => string) | undefined): string {
   return now?.() ?? new Date().toISOString();
 }
 
-async function exists(filePath: string): Promise<boolean> {
-  try {
-    await fsp.access(filePath);
-    return true;
-  } catch (error: unknown) {
-    if (error instanceof Error && "code" in error && error.code === "ENOENT") {
-      return false;
-    }
-    throw error;
+function hasErrorCode(error: unknown, code: string): boolean {
+  return error instanceof Error && "code" in error && error.code === code;
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function isStringArray(value: unknown): value is readonly string[] {
+  return Array.isArray(value) && value.every((item) => typeof item === "string");
+}
+
+function isTypedId(value: unknown, prefix: string): value is string {
+  return typeof value === "string" && new RegExp(`^${prefix}[a-z2-7]{26}$`, "u").test(value);
+}
+
+function isRetention(value: unknown): value is WorkspaceRegistryRetention {
+  return isRecord(value)
+    && value["cachePolicy"] === "derived-content"
+    && typeof value["workspaceBudgetBytes"] === "number"
+    && Number.isFinite(value["workspaceBudgetBytes"])
+    && typeof value["ttlDays"] === "number"
+    && Number.isFinite(value["ttlDays"]);
+}
+
+function isStorage(value: unknown): value is WorkspaceRegistryStorage {
+  return isRecord(value)
+    && value["registry"] === "graft-managed"
+    && value["cache"] === "graft-managed";
+}
+
+function isInstallationRecord(value: unknown): value is InstallationRecord {
+  return isRecord(value)
+    && value["schemaVersion"] === 1
+    && typeof value["installationId"] === "string"
+    && typeof value["createdAt"] === "string";
+}
+
+function isWorkspaceMetadataRecord(value: unknown): value is WorkspaceMetadataRecord {
+  return isRecord(value)
+    && value["schemaVersion"] === 1
+    && typeof value["workspaceId"] === "string"
+    && isTypedId(value["workspaceId"], "ws_")
+    && typeof value["displayName"] === "string"
+    && typeof value["canonicalRoot"] === "string"
+    && typeof value["gitCommonDir"] === "string"
+    && isStringArray(value["sanitizedRemotes"])
+    && isTypedId(value["incarnationId"], "wi_")
+    && isStringArray(value["historyBindingIds"])
+    && isStorage(value["storage"])
+    && typeof value["createdAt"] === "string"
+    && typeof value["lastObservedAt"] === "string"
+    && isRetention(value["retention"]);
+}
+
+function isIncarnationStatus(value: unknown): value is IncarnationStatus {
+  return value === "confirmed" || value === "suspect" || value === "replaced" || value === "unknown";
+}
+
+function isIncarnationMetadataRecord(value: unknown): value is IncarnationMetadataRecord {
+  if (!isRecord(value) || !isRecord(value["evidence"])) {
+    return false;
+  }
+  const evidence = value["evidence"];
+  return value["schemaVersion"] === 1
+    && isTypedId(value["workspaceId"], "ws_")
+    && isTypedId(value["incarnationId"], "wi_")
+    && isIncarnationStatus(value["incarnationStatus"])
+    && typeof value["createdAt"] === "string"
+    && typeof value["lastObservedAt"] === "string"
+    && evidence["kind"] === "git"
+    && typeof evidence["canonicalRoot"] === "string"
+    && typeof evidence["gitCommonDir"] === "string"
+    && (evidence["repositoryFingerprint"] === undefined || typeof evidence["repositoryFingerprint"] === "string");
+}
+
+function assertInsideGraftDir(graftDir: string, targetPath: string): void {
+  const root = path.resolve(graftDir);
+  const target = path.resolve(targetPath);
+  const relative = path.relative(root, target);
+  if (relative === "" || (!relative.startsWith("..") && !path.isAbsolute(relative))) {
+    return;
+  }
+  throw new Error(`Refusing to use storage path outside Graft home: ${targetPath}`);
+}
+
+async function assertPrivateDirectory(dir: string): Promise<void> {
+  const initial = await fsp.lstat(dir);
+  if (initial.isSymbolicLink()) {
+    throw new Error(`Refusing to use symlinked Graft storage directory: ${dir}`);
+  }
+  if (!initial.isDirectory()) {
+    throw new Error(`Refusing to use non-directory Graft storage path: ${dir}`);
+  }
+  await fsp.chmod(dir, PRIVATE_DIR_MODE);
+  const current = await fsp.lstat(dir);
+  if (current.isSymbolicLink() || !current.isDirectory()) {
+    throw new Error(`Refusing to use unsafe Graft storage directory: ${dir}`);
+  }
+  if (process.platform !== "win32" && (current.mode & 0o077) !== 0) {
+    throw new Error(`Refusing to use non-private Graft storage directory: ${dir}`);
   }
 }
 
-async function readJson<T>(filePath: string): Promise<T | null> {
+async function ensurePrivateDirectory(dir: string): Promise<void> {
+  await fsp.mkdir(dir, { recursive: true, mode: PRIVATE_DIR_MODE });
+  await assertPrivateDirectory(dir);
+}
+
+async function ensureManagedDirectory(graftDir: string, targetDir: string): Promise<void> {
+  const root = path.resolve(graftDir);
+  const target = path.resolve(targetDir);
+  assertInsideGraftDir(root, target);
+  await ensurePrivateDirectory(root);
+  const relative = path.relative(root, target);
+  if (relative === "") {
+    return;
+  }
+
+  let current = root;
+  for (const part of relative.split(path.sep)) {
+    if (part.length === 0 || part === "." || part === "..") {
+      throw new Error(`Refusing to create unsafe Graft storage path: ${targetDir}`);
+    }
+    current = path.join(current, part);
+    try {
+      await fsp.mkdir(current, { mode: PRIVATE_DIR_MODE });
+    } catch (error: unknown) {
+      if (!hasErrorCode(error, "EEXIST")) {
+        throw error;
+      }
+    }
+    await assertPrivateDirectory(current);
+  }
+}
+
+async function quarantineRegistryFile(graftDir: string, filePath: string, reason: string): Promise<never> {
+  assertInsideGraftDir(graftDir, filePath);
+  const quarantinePath = path.join(
+    path.dirname(filePath),
+    `${path.basename(filePath)}.quarantine.${String(Date.now())}.${crypto.randomUUID()}`,
+  );
   try {
-    return JSON.parse(await fsp.readFile(filePath, "utf8")) as T;
+    await fsp.rename(filePath, quarantinePath);
   } catch (error: unknown) {
-    if (error instanceof Error && "code" in error && error.code === "ENOENT") {
+    if (!hasErrorCode(error, "ENOENT")) {
+      throw error;
+    }
+  }
+  throw new Error(`${reason}; quarantined ${filePath}`);
+}
+
+async function readRegistryJson<T>(
+  graftDir: string,
+  filePath: string,
+  guard: (value: unknown) => value is T,
+  label: string,
+): Promise<T | null> {
+  try {
+    const stat = await fsp.lstat(filePath);
+    if (stat.isSymbolicLink() || !stat.isFile()) {
+      await quarantineRegistryFile(graftDir, filePath, `Unsupported ${label}: unsafe file type`);
+    }
+    const raw = await fsp.readFile(filePath, "utf8");
+    let parsed: unknown;
+    try {
+      parsed = JSON.parse(raw);
+    } catch {
+      await quarantineRegistryFile(graftDir, filePath, `Unsupported ${label}: invalid JSON`);
+    }
+    if (!guard(parsed)) {
+      await quarantineRegistryFile(graftDir, filePath, `Unsupported ${label}: schema mismatch`);
+    }
+    return parsed as T;
+  } catch (error: unknown) {
+    if (hasErrorCode(error, "ENOENT")) {
       return null;
     }
     throw error;
   }
 }
 
-async function ensurePrivateDirectory(dir: string): Promise<void> {
-  await fsp.mkdir(dir, { recursive: true, mode: 0o700 });
-  const stat = await fsp.lstat(dir);
-  if (stat.isSymbolicLink()) {
-    throw new Error(`Refusing to use symlinked Graft storage directory: ${dir}`);
-  }
-  await fsp.chmod(dir, 0o700).catch(() => undefined);
-}
-
-async function writeJsonAtomic(filePath: string, value: unknown): Promise<void> {
-  await ensurePrivateDirectory(path.dirname(filePath));
+async function writeJsonAtomic(graftDir: string, filePath: string, value: unknown): Promise<void> {
+  await ensureManagedDirectory(graftDir, path.dirname(filePath));
   const tmp = path.join(
     path.dirname(filePath),
     `.${path.basename(filePath)}.${String(process.pid)}.${crypto.randomUUID()}.tmp`,
   );
   await fsp.writeFile(tmp, `${JSON.stringify(value, null, 2)}\n`, {
     encoding: "utf8",
-    mode: 0o600,
+    mode: PRIVATE_FILE_MODE,
   });
-  await fsp.chmod(tmp, 0o600).catch(() => undefined);
+  await fsp.chmod(tmp, PRIVATE_FILE_MODE);
   await fsp.rename(tmp, filePath);
+}
+
+async function delay(ms: number): Promise<void> {
+  await new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+async function withInstallationLock<T>(graftDir: string, work: () => Promise<T>): Promise<T> {
+  const lockDir = path.join(path.resolve(graftDir), INSTALLATION_LOCK_DIR);
+  await ensureManagedDirectory(graftDir, path.dirname(lockDir));
+  for (let attempt = 0; attempt < 100; attempt += 1) {
+    try {
+      await fsp.mkdir(lockDir, { mode: PRIVATE_DIR_MODE });
+    } catch (error: unknown) {
+      if (hasErrorCode(error, "EEXIST")) {
+        await delay(10);
+        continue;
+      }
+      throw error;
+    }
+    await assertPrivateDirectory(lockDir);
+    try {
+      return await work();
+    } finally {
+      await fsp.rm(lockDir, { recursive: true, force: true });
+    }
+  }
+  throw new Error(`Timed out waiting for Graft installation lock: ${lockDir}`);
+}
+
+async function fingerprintGitCommonDir(gitCommonDir: string): Promise<string | null> {
+  try {
+    const stat = await fsp.stat(gitCommonDir);
+    const birth = Number.isFinite(stat.birthtimeMs) ? Math.trunc(stat.birthtimeMs) : 0;
+    const changed = Number.isFinite(stat.ctimeMs) ? Math.trunc(stat.ctimeMs) : 0;
+    return `fs:${String(stat.dev)}:${String(stat.ino)}:${String(birth)}:${String(changed)}`;
+  } catch {
+    return null;
+  }
+}
+
+function fingerprintMatches(
+  existing: IncarnationMetadataRecord | null,
+  currentFingerprint: string | null,
+): boolean {
+  const existingFingerprint = existing?.evidence.repositoryFingerprint;
+  return existingFingerprint !== undefined
+    && currentFingerprint !== null
+    && existingFingerprint === currentFingerprint;
+}
+
+function canReuseIncarnation(
+  existingWorkspace: WorkspaceMetadataRecord | null,
+  existingIncarnation: IncarnationMetadataRecord | null,
+  currentFingerprint: string | null,
+): boolean {
+  if (existingWorkspace === null || existingIncarnation === null) {
+    return false;
+  }
+  return existingWorkspace.incarnationId === existingIncarnation.incarnationId
+    && existingWorkspace.workspaceId === existingIncarnation.workspaceId
+    && existingWorkspace.canonicalRoot === existingIncarnation.evidence.canonicalRoot
+    && existingWorkspace.gitCommonDir === existingIncarnation.evidence.gitCommonDir
+    && fingerprintMatches(existingIncarnation, currentFingerprint);
+}
+
+function observedIncarnationStatus(
+  hadExistingWorkspace: boolean,
+  existingIncarnation: IncarnationMetadataRecord | null,
+  currentFingerprint: string | null,
+  reuseExistingIncarnation: boolean,
+): IncarnationStatus {
+  if (reuseExistingIncarnation) {
+    return existingIncarnation?.incarnationStatus ?? "confirmed";
+  }
+  const existingFingerprint = existingIncarnation?.evidence.repositoryFingerprint;
+  if (existingFingerprint !== undefined && currentFingerprint !== null && existingFingerprint !== currentFingerprint) {
+    return "replaced";
+  }
+  if (hadExistingWorkspace) {
+    return "suspect";
+  }
+  return currentFingerprint === null ? "unknown" : "confirmed";
 }
 
 export function deriveWorkspaceId(input: WorkspaceIdentityInput): string {
@@ -248,18 +486,24 @@ export async function loadOrCreateInstallationId(input: {
   const graftDir = path.resolve(input.graftDir);
   await ensurePrivateDirectory(graftDir);
   const installationPath = path.join(graftDir, INSTALLATION_FILE);
-  const existing = await readJson<InstallationRecord>(installationPath);
+  const existing = await readRegistryJson(graftDir, installationPath, isInstallationRecord, "installation record");
   if (existing !== null) {
     return existing.installationId;
   }
-  const randomBytes = input.randomBytes ?? crypto.randomBytes;
-  const record: InstallationRecord = {
-    schemaVersion: 1,
-    installationId: randomBytes(ID_DIGEST_BYTES).toString("hex"),
-    createdAt: nowIso(input.now),
-  };
-  await writeJsonAtomic(installationPath, record);
-  return record.installationId;
+  return withInstallationLock(graftDir, async () => {
+    const lockedExisting = await readRegistryJson(graftDir, installationPath, isInstallationRecord, "installation record");
+    if (lockedExisting !== null) {
+      return lockedExisting.installationId;
+    }
+    const randomBytes = input.randomBytes ?? crypto.randomBytes;
+    const record: InstallationRecord = {
+      schemaVersion: 1,
+      installationId: randomBytes(ID_DIGEST_BYTES).toString("hex"),
+      createdAt: nowIso(input.now),
+    };
+    await writeJsonAtomic(graftDir, installationPath, record);
+    return record.installationId;
+  });
 }
 
 export async function observeGitWorkspace(input: ObserveGitWorkspaceInput): Promise<ObservedWorkspaceRecord> {
@@ -283,16 +527,53 @@ export async function observeGitWorkspace(input: ObserveGitWorkspaceInput): Prom
   });
   const placeholderIncarnationId = "wi_placeholder";
   const workspaceOnlyPaths = registryPaths(graftDir, workspaceId, placeholderIncarnationId);
-  const existing = await readJson<WorkspaceMetadataRecord>(workspaceOnlyPaths.metadataPath);
+  await ensureManagedDirectory(graftDir, workspaceOnlyPaths.workspaceDir);
+  const existing = await readRegistryJson(
+    graftDir,
+    workspaceOnlyPaths.metadataPath,
+    isWorkspaceMetadataRecord,
+    "workspace metadata",
+  );
+  if (existing !== null && existing.workspaceId !== workspaceId) {
+    await quarantineRegistryFile(graftDir, workspaceOnlyPaths.metadataPath, "Unsupported workspace metadata: identity mismatch");
+  }
   const timestamp = nowIso(input.now);
-  const incarnationId = existing?.incarnationId
-    ?? randomTypedId("wi_", input.randomBytes ?? crypto.randomBytes);
+  const existingIncarnationPaths = existing === null
+    ? null
+    : registryPaths(graftDir, workspaceId, existing.incarnationId);
+  if (existingIncarnationPaths !== null) {
+    await ensureManagedDirectory(graftDir, existingIncarnationPaths.incarnationDir);
+  }
+  const existingIncarnation = existingIncarnationPaths === null
+    ? null
+    : await readRegistryJson(
+      graftDir,
+      existingIncarnationPaths.incarnationMetadataPath,
+      isIncarnationMetadataRecord,
+      "incarnation metadata",
+    );
+  if (
+    existing !== null
+    && existingIncarnation !== null
+    && (existingIncarnation.workspaceId !== workspaceId || existingIncarnation.incarnationId !== existing.incarnationId)
+  ) {
+    await quarantineRegistryFile(
+      graftDir,
+      existingIncarnationPaths?.incarnationMetadataPath ?? workspaceOnlyPaths.metadataPath,
+      "Unsupported incarnation metadata: identity mismatch",
+    );
+  }
+  const repositoryFingerprint = input.repositoryFingerprint ?? await fingerprintGitCommonDir(gitCommonDir);
+  const reuseExistingIncarnation = canReuseIncarnation(existing, existingIncarnation, repositoryFingerprint);
+  const incarnationId = reuseExistingIncarnation && existing !== null
+    ? existing.incarnationId
+    : randomTypedId("wi_", input.randomBytes ?? crypto.randomBytes);
   const paths = registryPaths(graftDir, workspaceId, incarnationId);
-  await ensurePrivateDirectory(paths.workspaceDir);
-  await ensurePrivateDirectory(paths.incarnationDir);
-  await ensurePrivateDirectory(path.join(paths.incarnationCacheDir, "outlines"));
-  await ensurePrivateDirectory(path.join(paths.incarnationCacheDir, "documents"));
-  await ensurePrivateDirectory(path.join(paths.incarnationCacheDir, "maps"));
+  await ensureManagedDirectory(graftDir, paths.workspaceDir);
+  await ensureManagedDirectory(graftDir, paths.incarnationDir);
+  await ensureManagedDirectory(graftDir, path.join(paths.incarnationCacheDir, "outlines"));
+  await ensureManagedDirectory(graftDir, path.join(paths.incarnationCacheDir, "documents"));
+  await ensureManagedDirectory(graftDir, path.join(paths.incarnationCacheDir, "maps"));
 
   const metadata: WorkspaceMetadataRecord = {
     schemaVersion: 1,
@@ -302,7 +583,7 @@ export async function observeGitWorkspace(input: ObserveGitWorkspaceInput): Prom
     gitCommonDir,
     sanitizedRemotes: [...new Set((input.remotes ?? []).map(sanitizeRemoteUrl).filter((remote) => remote.length > 0))],
     incarnationId,
-    historyBindingIds: existing?.historyBindingIds ?? [],
+    historyBindingIds: reuseExistingIncarnation && existing !== null ? existing.historyBindingIds : [],
     storage: {
       registry: "graft-managed",
       cache: "graft-managed",
@@ -311,23 +592,31 @@ export async function observeGitWorkspace(input: ObserveGitWorkspaceInput): Prom
     lastObservedAt: timestamp,
     retention: existing?.retention ?? defaultRetention(),
   };
+  const existingIncarnationCreatedAt = reuseExistingIncarnation
+    ? existingIncarnation?.createdAt
+    : undefined;
+  const incarnationStatus = observedIncarnationStatus(
+    existing !== null,
+    existingIncarnation,
+    repositoryFingerprint,
+    reuseExistingIncarnation,
+  );
   const incarnation: IncarnationMetadataRecord = {
     schemaVersion: 1,
     workspaceId,
     incarnationId,
-    incarnationStatus: "confirmed",
-    createdAt: await exists(paths.incarnationMetadataPath)
-      ? (await readJson<IncarnationMetadataRecord>(paths.incarnationMetadataPath))?.createdAt ?? timestamp
-      : timestamp,
+    incarnationStatus,
+    createdAt: existingIncarnationCreatedAt ?? timestamp,
     lastObservedAt: timestamp,
     evidence: {
       kind: "git",
       canonicalRoot,
       gitCommonDir,
+      ...(repositoryFingerprint === null ? {} : { repositoryFingerprint }),
     },
   };
 
-  await writeJsonAtomic(paths.metadataPath, metadata);
-  await writeJsonAtomic(paths.incarnationMetadataPath, incarnation);
+  await writeJsonAtomic(graftDir, paths.metadataPath, metadata);
+  await writeJsonAtomic(graftDir, paths.incarnationMetadataPath, incarnation);
   return { workspaceId, incarnationId, metadata, paths };
 }

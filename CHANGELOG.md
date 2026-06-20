@@ -29,6 +29,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   reference-count path produce deep-equal output through the
   generated-model round-trip. Public behavior is unchanged.
 
+### Changed
+
+- **Graft-managed workspace registry hardening**: workspace observation now
+  serializes first-time installation ID creation, fails closed when managed
+  storage cannot be made private, rejects symlinked or unsafe registry storage
+  records before reading them, quarantines unsupported registry metadata instead
+  of reusing it, and only reuses an incarnation when repository evidence matches.
+  Same-path replacements get a new incarnation without inheriting old history
+  bindings.
+
 ## [0.9.0] - 2026-06-10
 
 ### Added
