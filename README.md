@@ -10,7 +10,7 @@ A context governor for coding agents. Graft enforces read policy so agents consu
 
 ## TL;DR — Up and Running in 30 Seconds
 
-**What it is**: Graft sits between your AI coding agent and the filesystem. Instead of dumping entire files into the context window, it returns the minimum structurally correct view — full content for small files, AST-derived outlines for large ones, hard refusals for secrets and binaries. Every response carries a receipt so agents know exactly how much context they've consumed.
+**What it is**: Graft sits between your AI coding agent and the filesystem. Instead of dumping entire files into the context window, it returns the minimum structurally correct view — full content for small files, AST-derived outlines for large ones, hard refusals for secrets and binaries. Tool responses carry receipts so agents know exactly how much context they've consumed.
 
 **Why you want it**: Agents that read files naively fill their context window with lockfiles, minified output, and 2,000-line modules they only needed 10 lines of. Graft fixes that automatically.
 
@@ -25,7 +25,7 @@ npx @flyingrobots/graft serve
 npx @flyingrobots/graft read safe src/app.ts
 ```
 
-That's it. `init` scaffolds `.graftignore` and writes the MCP config your agent needs. `serve` starts listening on stdio. Your agent calls `safe_read` instead of reading files directly, and Graft handles the rest.
+That's it. `init` scaffolds `.graftignore`, appends agent read guidance, and writes the client config requested by the flags you pass. `serve` starts listening on stdio. Your agent calls `safe_read` instead of reading files directly, and Graft handles the rest.
 
 ---
 
@@ -41,7 +41,7 @@ Graft sits between the agent and the filesystem and enforces a simple rule: **re
 - Large file? A structural outline — function names, signatures, line ranges. The agent can drill in with a range read if it needs a specific function body.
 - Binary, secret, or lockfile? Hard refusal with a machine-readable reason code and a suggested alternative.
 
-Every response carries a receipt: bytes consumed, bytes avoided, session depth, policy decision. Agents can self-regulate. Operators can audit.
+Tool responses carry receipts: bytes consumed, bytes avoided, session depth, policy decision. Agents can self-regulate. Operators can audit.
 
 ---
 
@@ -49,19 +49,19 @@ Every response carries a receipt: bytes consumed, bytes avoided, session depth, 
 
 - **Parser-backed outlines.** Outlines come from Tree-Sitter ASTs, not heuristic line-scanning. Function signatures, class hierarchies, and jump tables are structurally accurate across JavaScript, TypeScript, Rust, Python, Go, GraphQL, JSON, TOML, YAML, Markdown, and more.
 
-- **Machine-readable contracts.** Every response carries versioned `_schema` metadata and a decision receipt. Agents reason about outcomes without scraping prose. Receipts accumulate cumulative session stats so agents know when they're burning budget.
+- **Machine-readable contracts.** Tool responses carry versioned `_schema` metadata and decision receipts. Agents reason about outcomes without scraping prose. Receipts accumulate cumulative session stats so agents know when they're burning budget.
 
-- **Structural memory across Git history.** WARP (Structural Worldline Memory) indexes AST outlines per commit into a Git-backed graph. Query what changed structurally — which symbols were added, removed, or renamed — without reading a single byte of source. No checkout required.
+- **Structural memory across Git history.** WARP (Structural Worldline Memory) is the current git-warp-backed structural history layer. Query what changed structurally — which symbols were added, removed, or renamed — without dumping source into the agent context. Graft is converging on a `StructuralReadingPort` boundary so Echo can become the primary causal-history substrate after parity is proven.
 
 - **Session governance.** The `GovernorTracker` watches for anti-patterns: runaway tool loops, late-session large reads, edit/bash thrash. Tripwire signals surface in receipts so agents and operators can act before context is exhausted.
 
-- **Industrial-grade daemon.** A same-user local runtime manages multi-repo authorization, background indexing, and shared worker pools. WARP graphs stay warm in memory across sessions. Multi-repo work happens without file conflicts.
+- **Industrial-grade daemon.** A same-user local runtime manages multi-repo authorization, persistent monitors, and shared worker pools. Current git-warp contexts stay warm in memory across sessions, while the public contract is moving behind substrate-neutral structural-history ports.
 
 ---
 
-## Four Official Surfaces
+## Three Official Entry Points
 
-Graft exposes the same core capabilities through four integration points. Choose based on your deployment context.
+Graft exposes capabilities through three official product entry points: CLI, MCP, and API. MCP has two runtimes: repo-local stdio for a single checkout and daemon-backed stdio for multi-repo sessions.
 
 ### 1. CLI — Operator and Debugging Workflows
 
@@ -76,7 +76,9 @@ npx @flyingrobots/graft review cooldown --pr 48
 
 Stateless. Print and exit. Good for scripting, spot-checking policy decisions, and inspecting structural history.
 
-### 2. MCP Stdio — Repo-Local Agent Sessions
+### 2. MCP — Agent Sessions
+
+#### Repo-Local Stdio
 
 The simplest path for single-repo agent work. The current checkout is the authority. No workspace binding required.
 
@@ -86,23 +88,29 @@ npx @flyingrobots/graft serve
 
 Point your MCP client at this process. Graft speaks JSON-RPC over stdin/stdout. The same binary auto-detects non-TTY stdio and enters serve mode automatically — so `npx @flyingrobots/graft` with no arguments works as an MCP server when piped.
 
-### 3. MCP Daemon — Multi-Repo and Multi-Session
+#### Daemon-Backed Stdio
 
-A persistent same-user runtime for long-running or multi-repo agent work. WARP graphs stay warm between sessions.
+A persistent same-user runtime for long-running or multi-repo agent work. Current git-warp contexts stay warm between sessions and persistent monitors can keep structural history current.
 
 ```bash
+# Start the daemon explicitly
 npx @flyingrobots/graft daemon
+
+# Or let the stdio bridge auto-start/connect to the daemon
+npx @flyingrobots/graft serve --runtime daemon
 ```
 
-Daemon sessions start unbound. The normal agent flow:
+Daemon sessions start unbound. The normal agent flow is:
 
-1. `workspace_open` with the target repo's `cwd`
+1. `workspace_open` with the target repo's `cwd`; in daemon mode this authorizes the workspace before opening it.
 2. Optionally `workspace_list_opened` to inspect active workspaces
 3. Use repository-scoped tools: `safe_read`, `file_outline`, `graft_diff`, etc.
 
+For explicit control-plane posture, use `workspace_authorize` followed by `workspace_bind`.
+
 See [docs/SETUP.md](./docs/SETUP.md) for client-specific bootstrap and daemon control-plane configuration.
 
-### 4. Library API — In-Process Integration
+### 3. API — In-Process Integration
 
 Embed Graft directly when you want structural reads or syntax data without spawning a subprocess or going through MCP transport.
 
@@ -112,7 +120,7 @@ import { createRepoWorkspace } from "@flyingrobots/graft";
 
 const workspace = await createRepoWorkspace({ cwd: process.cwd() });
 const result = await workspace.safeRead({ path: "src/app.ts" });
-// result.projection: "content" | "outline" | "refused"
+// result.projection: "content" | "outline" | "refused" | "cache_hit" | "diff"
 ```
 
 **In-process tool calls with receipts** (full MCP behavior, no subprocess):
