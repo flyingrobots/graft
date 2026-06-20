@@ -121,6 +121,7 @@ describe("workspace registry observation", () => {
       ],
       now: () => "2026-06-19T00:00:00.000Z",
       randomBytes: fixedBytes("11111111111111111111111111111111"),
+      repositoryFingerprint: "repo-a",
       installationId: INSTALLATION_A,
       platformNamespace: "test-platform",
       volumeNamespace: "test-volume",
@@ -294,11 +295,13 @@ describe("workspace registry observation", () => {
       gitCommonDir,
       now: () => "2026-06-19T00:00:00.000Z",
       randomBytes: fixedBytes("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"),
+      repositoryFingerprint: "repo-a",
       installationId: INSTALLATION_A,
       platformNamespace: "test-platform",
       volumeNamespace: "test-volume",
     });
     const oldMetadata = JSON.parse(fs.readFileSync(first.paths.metadataPath, "utf8")) as Record<string, unknown>;
+    fs.writeFileSync(path.join(first.paths.incarnationCacheDir, "outlines", "artifact.json"), "{}\n");
     fs.writeFileSync(
       first.paths.metadataPath,
       `${JSON.stringify({ ...oldMetadata, historyBindingIds: ["hb_old"] }, null, 2)}\n`,
@@ -314,6 +317,7 @@ describe("workspace registry observation", () => {
       gitCommonDir,
       now: () => "2026-06-19T01:00:00.000Z",
       randomBytes: fixedBytes("bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"),
+      repositoryFingerprint: "repo-a",
       installationId: INSTALLATION_A,
       platformNamespace: "test-platform",
       volumeNamespace: "test-volume",
@@ -323,13 +327,14 @@ describe("workspace registry observation", () => {
     expect(second.metadata.historyBindingIds).toEqual(["hb_old"]);
   });
 
-  it("does not reuse an incarnation when only gitdir identity evidence exists", async () => {
+  it("does not reuse an incarnation without explicit repository evidence", async () => {
     const root = fs.mkdtempSync(path.join(os.tmpdir(), "graft-registry-gitdir-only-"));
     cleanup.push(root);
     const graftDir = path.join(root, "graft-home");
     const repoRoot = path.join(root, "repo");
     const gitCommonDir = path.join(repoRoot, ".git");
     fs.mkdirSync(gitCommonDir, { recursive: true });
+    writeMinimalGitCommonDir(gitCommonDir);
 
     const first = await observeGitWorkspace({
       graftDir,
@@ -341,7 +346,11 @@ describe("workspace registry observation", () => {
       platformNamespace: "test-platform",
       volumeNamespace: "test-volume",
     });
+    const firstIncarnationMetadata = JSON.parse(
+      fs.readFileSync(first.paths.incarnationMetadataPath, "utf8"),
+    ) as Record<string, unknown>;
     const oldMetadata = JSON.parse(fs.readFileSync(first.paths.metadataPath, "utf8")) as Record<string, unknown>;
+    fs.writeFileSync(path.join(first.paths.incarnationCacheDir, "outlines", "artifact.json"), "{}\n");
     fs.writeFileSync(
       first.paths.metadataPath,
       `${JSON.stringify({ ...oldMetadata, historyBindingIds: ["hb_old"] }, null, 2)}\n`,
@@ -360,6 +369,11 @@ describe("workspace registry observation", () => {
 
     expect(second.incarnationId).not.toBe(first.incarnationId);
     expect(second.metadata.historyBindingIds).toEqual([]);
+    expect(firstIncarnationMetadata["incarnationStatus"]).toBe("unknown");
+    const secondIncarnationMetadata = JSON.parse(
+      fs.readFileSync(second.paths.incarnationMetadataPath, "utf8"),
+    ) as Record<string, unknown>;
+    expect(secondIncarnationMetadata["incarnationStatus"]).toBe("suspect");
   });
 
   it("quarantines unsupported workspace metadata before reuse", async () => {
@@ -544,6 +558,7 @@ describe("workspace registry observation", () => {
 
     const authorization = parse(await isolated.server.callTool("workspace_authorize", { cwd: repoDir }));
     expect(authorization["ok"]).toBe(true);
+    expect(authorization["registryObservation"]).toEqual({ ok: true });
 
     const workspacesDir = path.join(isolated.graftDir, "workspaces");
     const [workspaceId] = fs.readdirSync(workspacesDir);
@@ -558,6 +573,13 @@ describe("workspace registry observation", () => {
     expect(metadata["sanitizedRemotes"]).toEqual(["https://example.com/org/repo.git"]);
     expect(fs.existsSync(path.join(repoDir, ".graft"))).toBe(false);
     expect(fs.existsSync(path.join(workspaceDir, "history"))).toBe(false);
+
+    const incarnationsDir = path.join(workspaceDir, "incarnations");
+    const firstIncarnations = fs.readdirSync(incarnationsDir);
+    const repeatedAuthorization = parse(await isolated.server.callTool("workspace_authorize", { cwd: repoDir }));
+    expect(repeatedAuthorization["ok"]).toBe(true);
+    expect(repeatedAuthorization["registryObservation"]).toEqual({ ok: true });
+    expect(fs.readdirSync(incarnationsDir)).toEqual(firstIncarnations);
   });
 
   it("bounds remote listing during daemon authorization observation", async () => {
@@ -624,6 +646,10 @@ describe("workspace registry observation", () => {
 
     const authorization = parse(await isolated.server.callTool("workspace_authorize", { cwd: repoDir }));
     expect(authorization["ok"]).toBe(true);
+    expect(authorization["registryObservation"]).toMatchObject({
+      ok: false,
+      code: "REGISTRY_OBSERVATION_UNAVAILABLE",
+    });
 
     const binding = parse(await isolated.server.callTool("workspace_bind", { cwd: repoDir }));
     expect(binding["ok"]).toBe(true);

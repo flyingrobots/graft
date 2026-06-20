@@ -45,9 +45,20 @@ export interface WorkspaceAuthorizeResult {
   readonly ok: boolean;
   readonly changed: boolean;
   readonly authorization?: AuthorizedWorkspaceView;
+  readonly registryObservation?: WorkspaceRegistryObservationResult;
   readonly errorCode?: string;
   readonly error?: string;
 }
+
+export type WorkspaceRegistryObservationResult =
+  | {
+    readonly ok: true;
+  }
+  | {
+    readonly ok: false;
+    readonly code: "REGISTRY_OBSERVATION_UNAVAILABLE";
+    readonly message: string;
+  };
 
 export interface WorkspaceRevokeResult {
   readonly ok: boolean;

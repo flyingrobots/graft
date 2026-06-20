@@ -59,7 +59,7 @@ As of `ba64ca25 feat: observe daemon workspaces in managed registry`:
 | G1 Secure State and Identity | In progress | First registry increment landed: installation-local workspace IDs, ID-only metadata paths, incarnation cache partitioning, sanitized remotes, and daemon authorization observation. |
 | G2 Authorized Resource Router | Not started | Existing daemon binding remains the old authorization path; the new router security floor is not implemented. |
 | G3 Multi-workspace Safe Reads | Not started | This is the first product demo target. |
-| G4 Scoped Derived Cache | Not started | No durable derived cache should ship before G3. |
+| G4 Scoped Derived Cache | Not started | No durable derived cache ships before G3. |
 | G5 Plan/Commit Operation Kernel | Not started | Required before any public mutation surface. |
 | G6 Managed Structural-history Bindings | Not started | Must use `StructuralHistoryPort`; Echo is the primary target after its integration gate. |
 | G7 Truthful Historical Queries | Not started | Depends on G6 binding model and coverage semantics. |
@@ -80,7 +80,7 @@ Every slice must:
 - be internal-only, off by default, or guarded by an explicit rollout flag;
 - avoid mixing refactoring, migration, and new public behavior in one PR.
 
-A twelve-headed daemon architecture PR is not acceptable. Each slice should be
+A twelve-headed daemon architecture PR is not acceptable. Each slice must be
 small enough to review as behavior, not archaeology.
 
 ## G0 - Contract Freeze
@@ -88,8 +88,8 @@ small enough to review as behavior, not archaeology.
 ### Goalpost
 
 Take Four plus the required errata becomes the normative Slice 0 specification.
-No unresolved "recommended", "could", or "implementation decides" language
-remains on security-critical behavior.
+No unresolved soft-law or deferral language remains on security-critical
+behavior.
 
 | Slice | PR-sized result |
 |---|---|

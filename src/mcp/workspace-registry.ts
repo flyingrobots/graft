@@ -425,33 +425,6 @@ async function removeStaleInstallationLock(lockDir: string): Promise<boolean> {
   return true;
 }
 
-async function fingerprintGitCommonDir(gitCommonDir: string): Promise<string | null> {
-  const gitDirIdentity = await fingerprintPathIdentity(gitCommonDir);
-  if (gitDirIdentity === null) {
-    return null;
-  }
-  const objectsIdentity = await fingerprintPathIdentity(path.join(gitCommonDir, "objects"));
-  const refsIdentity = await fingerprintPathIdentity(path.join(gitCommonDir, "refs"));
-  if (objectsIdentity === null && refsIdentity === null) {
-    return null;
-  }
-  return [
-    "fs",
-    gitDirIdentity,
-    `objects:${objectsIdentity ?? "missing"}`,
-    `refs:${refsIdentity ?? "missing"}`,
-  ].join("|");
-}
-
-async function fingerprintPathIdentity(filePath: string): Promise<string | null> {
-  try {
-    const stat = await fsp.stat(filePath);
-    return `${String(stat.dev)}:${String(stat.ino)}`;
-  } catch {
-    return null;
-  }
-}
-
 function fingerprintMatches(
   existing: IncarnationMetadataRecord | null,
   currentFingerprint: string | null,
@@ -462,19 +435,53 @@ function fingerprintMatches(
     && existingFingerprint === currentFingerprint;
 }
 
+function isNodeError(error: unknown): error is NodeJS.ErrnoException {
+  return error instanceof Error && "code" in error;
+}
+
+async function directoryContainsDurableEntry(directory: string): Promise<boolean> {
+  try {
+    const entries = await fsp.readdir(directory, { withFileTypes: true });
+    for (const entry of entries) {
+      const entryPath = path.join(directory, entry.name);
+      if (!entry.isDirectory()) {
+        return true;
+      }
+      if (await directoryContainsDurableEntry(entryPath)) {
+        return true;
+      }
+    }
+    return false;
+  } catch (error: unknown) {
+    if (isNodeError(error) && error.code === "ENOENT") {
+      return false;
+    }
+    return true;
+  }
+}
+
 function canReuseIncarnation(
   existingWorkspace: WorkspaceMetadataRecord | null,
   existingIncarnation: IncarnationMetadataRecord | null,
   currentFingerprint: string | null,
+  hasDurableAttachments: boolean,
 ): boolean {
   if (existingWorkspace === null || existingIncarnation === null) {
     return false;
   }
-  return existingWorkspace.incarnationId === existingIncarnation.incarnationId
+  const identityMatches = existingWorkspace.incarnationId === existingIncarnation.incarnationId
     && existingWorkspace.workspaceId === existingIncarnation.workspaceId
     && existingWorkspace.canonicalRoot === existingIncarnation.evidence.canonicalRoot
-    && existingWorkspace.gitCommonDir === existingIncarnation.evidence.gitCommonDir
-    && fingerprintMatches(existingIncarnation, currentFingerprint);
+    && existingWorkspace.gitCommonDir === existingIncarnation.evidence.gitCommonDir;
+  if (!identityMatches) {
+    return false;
+  }
+  if (fingerprintMatches(existingIncarnation, currentFingerprint)) {
+    return true;
+  }
+  return existingIncarnation.evidence.repositoryFingerprint === undefined
+    && currentFingerprint === null
+    && !hasDurableAttachments;
 }
 
 function observedIncarnationStatus(
@@ -634,8 +641,18 @@ export async function observeGitWorkspace(input: ObserveGitWorkspaceInput): Prom
         "Unsupported incarnation metadata: identity mismatch",
       );
     }
-    const repositoryFingerprint = input.repositoryFingerprint ?? await fingerprintGitCommonDir(gitCommonDir);
-    const reuseExistingIncarnation = canReuseIncarnation(existing, existingIncarnation, repositoryFingerprint);
+    const repositoryFingerprint = input.repositoryFingerprint ?? null;
+    const existingHasDurableAttachments = existing !== null && (
+      existing.historyBindingIds.length > 0 ||
+      (existingIncarnationPaths !== null &&
+        await directoryContainsDurableEntry(existingIncarnationPaths.incarnationCacheDir))
+    );
+    const reuseExistingIncarnation = canReuseIncarnation(
+      existing,
+      existingIncarnation,
+      repositoryFingerprint,
+      existingHasDurableAttachments,
+    );
     const incarnationId = reuseExistingIncarnation && existing !== null
       ? existing.incarnationId
       : randomTypedId("wi_", input.randomBytes ?? crypto.randomBytes);

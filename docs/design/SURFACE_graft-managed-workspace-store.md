@@ -467,7 +467,7 @@ These fields do not appear as singular workspace metadata fields:
 - `history`
 - `trackingAuthorization`
 
-Recommended v1 rule:
+V1 requirement:
 
 ```text
 one logical history binding = one physical history store
@@ -910,7 +910,7 @@ Freeze:
 - identity-version migration;
 - whether IDs are local or portable.
 
-Recommended v1:
+Normative v1 identity rule:
 
 ```text
 workspaceId is installation-local
@@ -1021,7 +1021,7 @@ Example `metadata.json`:
   "displayName": "graft",
   "canonicalRoot": "/Users/james/git/graft",
   "gitCommonDir": "/Users/james/git/graft/.git",
-  "sanitizedRemotes": ["git@github.com:flyingrobots/graft.git"],
+  "sanitizedRemotes": ["github.com:flyingrobots/graft.git"],
   "incarnationId": "wi_current",
   "historyBindingIds": ["hb_docs"],
   "storage": {
@@ -1386,7 +1386,7 @@ Defaults:
 - Add schema and identity migration rules before the daemon becomes the default
   writer.
 
-Recommended cache policies:
+V1 cache policies:
 
 | Policy | Meaning |
 |---|---|
@@ -1443,7 +1443,7 @@ Repo-local sandbox remains available as an explicit mode:
 graft serve --runtime repo-local --sandbox
 ```
 
-The default setup should prefer daemon-backed serving:
+The default setup prefers daemon-backed serving:
 
 ```text
 graft serve --runtime daemon
@@ -1578,7 +1578,7 @@ harmless native read.
 
 ## Document Projection
 
-PDFs and other text-bearing documents should become projected documents, not
+PDFs and other text-bearing documents become projected documents, not
 generic binary refusals.
 
 Initial document pipeline:

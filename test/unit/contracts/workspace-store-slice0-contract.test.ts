@@ -118,6 +118,7 @@ interface ConformanceClaim {
     readonly status: "covered" | "required";
     readonly path?: string;
     readonly name?: string;
+    readonly assertionIds?: readonly string[];
   }[];
   readonly supportedPlatformPosture: Record<string, string>;
   readonly failureBehavior: {
@@ -145,6 +146,15 @@ const VECTORS = readJson("schemas/graft-workspace-store-slice0.vectors.json") as
 const CONFORMANCE = readJson(
   "schemas/graft-workspace-store-slice0.conformance.json",
 ) as Slice0Conformance;
+
+const EXECUTABLE_CONFORMANCE_ASSERTIONS = new Set([
+  "workspace-store.persisted-objects-versioned",
+  "workspace-store.workspace-state-axes-separated",
+  "workspace-store.history-binding-lifecycle-live-only",
+  "workspace-store.scope-relations-include-unknown",
+  "workspace-store.unknown-fails-closed-by-consumer",
+  "workspace-registry.explicit-repository-evidence-required-for-incarnation-reuse",
+]);
 
 const BASE32_ALPHABET = "abcdefghijklmnopqrstuvwxyz234567";
 
@@ -419,7 +429,7 @@ describe("workspace store Slice 0 threat and conformance matrix", () => {
     }
   });
 
-  it("gives each security claim an enforcement point, evidence path, platform posture, and failure behavior", () => {
+  it("gives each security claim enforcement, executable evidence, platform posture, and failure behavior", () => {
     const claimIds = new Set<string>();
     for (const claim of CONFORMANCE.claims) {
       expect(claimIds.has(claim.id)).toBe(false);
@@ -435,6 +445,10 @@ describe("workspace store Slice 0 threat and conformance matrix", () => {
         if (evidence.status === "covered") {
           expect(evidence.path).toBeDefined();
           expect(fs.existsSync(path.join(ROOT, evidence.path ?? ""))).toBe(true);
+          expect(evidence.assertionIds?.length ?? 0).toBeGreaterThan(0);
+          for (const assertionId of evidence.assertionIds ?? []) {
+            expect(EXECUTABLE_CONFORMANCE_ASSERTIONS.has(assertionId)).toBe(true);
+          }
         } else {
           expect(evidence.name).toBeDefined();
         }

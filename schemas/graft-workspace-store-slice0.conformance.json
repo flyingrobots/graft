@@ -120,7 +120,12 @@
       "testEvidence": [
         {
           "status": "covered",
-          "path": "test/unit/contracts/workspace-store-slice0-contract.test.ts"
+          "path": "test/unit/contracts/workspace-store-slice0-contract.test.ts",
+          "assertionIds": [
+            "workspace-store.persisted-objects-versioned",
+            "workspace-store.workspace-state-axes-separated",
+            "workspace-store.history-binding-lifecycle-live-only"
+          ]
         }
       ],
       "supportedPlatformPosture": {
@@ -186,7 +191,11 @@
       "testEvidence": [
         {
           "status": "covered",
-          "path": "test/unit/contracts/workspace-store-slice0-contract.test.ts"
+          "path": "test/unit/contracts/workspace-store-slice0-contract.test.ts",
+          "assertionIds": [
+            "workspace-store.scope-relations-include-unknown",
+            "workspace-store.unknown-fails-closed-by-consumer"
+          ]
         }
       ],
       "supportedPlatformPosture": {
@@ -251,8 +260,11 @@
       ],
       "testEvidence": [
         {
-          "status": "required",
-          "name": "strong replacement signal quarantines old caches and bindings"
+          "status": "covered",
+          "path": "test/unit/mcp/workspace-registry.test.ts",
+          "assertionIds": [
+            "workspace-registry.explicit-repository-evidence-required-for-incarnation-reuse"
+          ]
         }
       ],
       "supportedPlatformPosture": {

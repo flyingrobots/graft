@@ -52,6 +52,7 @@ export type {
   SharedAttachSource,
   WorkspaceAuthorizeRequest,
   WorkspaceAuthorizeResult,
+  WorkspaceRegistryObservationResult,
   WorkspaceRevokeResult,
 } from "./control-plane/types.js";
 
@@ -67,6 +68,7 @@ import type {
   SharedAttachSource,
   WorkspaceAuthorizeRequest,
   WorkspaceAuthorizeResult,
+  WorkspaceRegistryObservationResult,
   WorkspaceRevokeResult,
 } from "./control-plane/types.js";
 
@@ -156,11 +158,12 @@ export class DaemonControlPlane {
 
     this.authorizedWorkspaces.set(next.worktreeId, next);
     await this.persist();
-    await this.observeAuthorizedWorkspace(next).catch(() => undefined);
+    const registryObservation = await this.observeAuthorizedWorkspace(next);
     return {
       ok: true,
       changed,
       authorization: toAuthorizedWorkspaceView(next, this.activeTransportsFor(next.worktreeId)),
+      registryObservation,
     };
   }
 
@@ -309,13 +312,24 @@ export class DaemonControlPlane {
     await persistState(this.statePath, this.options.fs, this.options.codec, this.authorizedWorkspaces);
   }
 
-  private async observeAuthorizedWorkspace(record: AuthorizedWorkspaceRecord): Promise<void> {
-    await observeGitWorkspace({
-      graftDir: this.options.graftDir,
-      canonicalRoot: record.worktreeRoot,
-      gitCommonDir: record.gitCommonDir,
-      remotes: await readGitRemotes(this.options.git, record.worktreeRoot),
-    });
+  private async observeAuthorizedWorkspace(
+    record: AuthorizedWorkspaceRecord,
+  ): Promise<WorkspaceRegistryObservationResult> {
+    try {
+      await observeGitWorkspace({
+        graftDir: this.options.graftDir,
+        canonicalRoot: record.worktreeRoot,
+        gitCommonDir: record.gitCommonDir,
+        remotes: await readGitRemotes(this.options.git, record.worktreeRoot),
+      });
+      return { ok: true };
+    } catch (error: unknown) {
+      return {
+        ok: false,
+        code: "REGISTRY_OBSERVATION_UNAVAILABLE",
+        message: error instanceof Error ? error.message : String(error),
+      };
+    }
   }
 
   private activeTransportsFor(worktreeId: string): number {

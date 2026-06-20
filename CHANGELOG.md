@@ -39,9 +39,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   installation locks, caps remote collection during daemon authorization, strips
   userinfo from scp-like and malformed URL-style remote URLs, preserves spaces
   in daemon-collected remote paths, serializes concurrent first workspace
-  observation, and only reuses an incarnation when stable Git store evidence
-  matches. Same-path replacements get a new incarnation without inheriting old
-  history bindings.
+  observation, and only lets observations without explicit repository evidence
+  reuse unknown incarnations that have no durable cache or history attachments.
 
 ## [0.9.0] - 2026-06-10
 
