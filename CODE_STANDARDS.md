@@ -122,6 +122,11 @@ Regression quality rules:
 
 ## Phase III: Closure
 
+Before opening a PR for a cycle, complete and commit the local retro. A PR is a
+publication and review surface; it must not be used as a substitute for local
+cycle closeout. If the retro automation is unavailable, write the retro locally
+by hand, commit it, and only then publish the branch for review.
+
 For PR work, post an Activity Summary comment:
 
 ```markdown
@@ -147,12 +152,70 @@ OUTCOME:    {Summary of technical change}
 Before declaring a PR mergeable, verify all gates:
 
 - CI green via `gh pr checks`.
-- At least two approvals.
+- Third-party review satisfied.
 - Zero Changes Requested reviews.
-- No active CodeRabbit cooldown/rate-limit blocker.
 - Local tests and linters are 100% clean for the changed surface.
 - No unresolved actionable review threads.
 - Worktree is clean.
+
+### Requirement: Third-Party Review
+
+The merge gate requires completed third-party review on the current PR head. Do
+not require a fixed number of GitHub approving reviews in solo-owner
+repositories; the requirement is that a non-author reviewer had a chance to
+inspect the current head and either raised no issues or had every issue
+resolved.
+
+Eligible third-party reviewers include:
+
+- CodeRabbitAI.
+- Codex, when requested through a PR comment.
+- A human reviewer who is not the PR author.
+
+Acknowledgement is not review completion. CodeRabbitAI and Codex may react to a
+review-request comment or post a short acknowledgement before doing the actual
+review. Treat that as pending. Wait for the later substantive response.
+
+A third-party reviewer is finished only when one of these is true for the
+current PR head:
+
+- The reviewer reports `LGTM`, `no issues`, `no actionable comments`, `review
+  finished`, or an equivalent clean final result.
+- The reviewer opens PR comments, review threads, or issues, and every
+  actionable item has been fixed, answered, or explicitly accepted by the
+  operator.
+- A human reviewer submits an approving review and there are no unresolved
+  actionable comments from that reviewer.
+
+If CodeRabbitAI is in cooldown, rate-limited, out of credits, or otherwise
+temporarily unavailable, immediately request a Codex review by posting:
+
+```text
+@codex review please
+```
+
+CodeRabbitAI cooldown comments must be interpreted using their last-updated
+timestamp, not merely their original text. If the comment says to check back in
+N minutes and its last update was less than N minutes ago, wait the remaining
+time and check again. If the last update is older than the stated wait window
+and CodeRabbitAI has not completed a review and is not currently pending,
+request another CodeRabbitAI review by posting:
+
+```text
+@coderabbitai review please
+```
+
+The third-party-review gate is satisfied when every reviewer that was
+successfully requested for the current head has finished and no actionable
+review issue remains open. If CodeRabbitAI remains unavailable but Codex has
+completed a clean review of the current head, the third-party-review gate is
+satisfied unless the operator explicitly requires CodeRabbitAI for that PR.
+
+### Requirement: Green CI
+
+The merge gate requires green CI on the current PR head. Use `gh pr checks` as
+the primary evidence. All required status checks must pass. Pending checks keep
+the gate locked; failed checks require repair or an explicit operator override.
 
 If ready:
 
