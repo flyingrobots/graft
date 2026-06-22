@@ -1,0 +1,302 @@
+{
+  "schemaVersion": 1,
+  "contractId": "graft.workspace-store.slice0",
+  "goalpost": "G0",
+  "exitGateCoverage": [
+    {
+      "gate": "Every persisted object has a versioned schema.",
+      "claimIds": [
+        "STATE-01"
+      ]
+    },
+    {
+      "gate": "Every mutating operation is classified as plan/commit or internal maintenance.",
+      "claimIds": [
+        "PLAN-01",
+        "CRASH-01"
+      ]
+    },
+    {
+      "gate": "Scope comparison can return unknown.",
+      "claimIds": [
+        "SCOPE-01"
+      ]
+    },
+    {
+      "gate": "workspaceViewId alone grants nothing.",
+      "claimIds": [
+        "AUTHZ-02"
+      ]
+    },
+    {
+      "gate": "No security-relevant normative decision remains deferred.",
+      "claimIds": [
+        "AUTHZ-01",
+        "PATH-01",
+        "CACHE-01",
+        "HISTORY-01",
+        "REPLACE-01",
+        "REPOLOCAL-01"
+      ]
+    }
+  ],
+  "claims": [
+    {
+      "id": "AUTHZ-01",
+      "claim": "Daemon operating-system readability is not client-session authorization.",
+      "enforcementPoint": [
+        "G2.1 session authentication",
+        "G2.2 resource-scoped capabilities",
+        "G2.6 race-safe traversal"
+      ],
+      "testEvidence": [
+        {
+          "status": "required",
+          "name": "daemon-readable but session-unauthorized path is refused"
+        }
+      ],
+      "supportedPlatformPosture": {
+        "linux": "requires constrained traversal beneath authorized root or authorized handle",
+        "darwin": "requires authorized handle or in-sandbox fallback when containment cannot be proven",
+        "windows": "requires reparse-aware traversal or authorized handle"
+      },
+      "failureBehavior": {
+        "kind": "deny",
+        "code": "UNAUTHORIZED_PATH"
+      }
+    },
+    {
+      "id": "AUTHZ-02",
+      "claim": "workspaceViewId is stable visibility, not authority.",
+      "enforcementPoint": [
+        "G2.8 stable workspace views",
+        "G2.10 receipt visibility context"
+      ],
+      "testEvidence": [
+        {
+          "status": "required",
+          "name": "knowledge of workspaceViewId without valid visibilityContext grants no access"
+        }
+      ],
+      "supportedPlatformPosture": {
+        "all": "host grant or authorized handle required for every use"
+      },
+      "failureBehavior": {
+        "kind": "deny",
+        "code": "UNAUTHORIZED_VIEW"
+      }
+    },
+    {
+      "id": "PATH-01",
+      "claim": "The object read is authorized after it is opened, not merely after pathname canonicalization.",
+      "enforcementPoint": [
+        "G2.5 opened-root and file-object abstraction",
+        "G2.6 race-safe traversal"
+      ],
+      "testEvidence": [
+        {
+          "status": "required",
+          "name": "symlink, mount, and reparse traversal cannot escape the authorized root"
+        }
+      ],
+      "supportedPlatformPosture": {
+        "linux": "openat2-style beneath/in-root semantics or handle transfer",
+        "darwin": "handle transfer or fail closed when containment cannot be proven",
+        "windows": "reparse-aware traversal or handle transfer"
+      },
+      "failureBehavior": {
+        "kind": "fail-closed",
+        "code": "PATH_CONTAINMENT_UNPROVEN"
+      }
+    },
+    {
+      "id": "STATE-01",
+      "claim": "Persisted registry, cache, operation, receipt, exclusion, and history records are versioned and keep state axes separate.",
+      "enforcementPoint": [
+        "G0.2 canonical contract schemas",
+        "G1.4 workspace registry",
+        "G1.6 record repositories"
+      ],
+      "testEvidence": [
+        {
+          "status": "covered",
+          "path": "test/unit/contracts/workspace-store-slice0-contract.test.ts",
+          "assertionIds": [
+            "workspace-store.persisted-objects-versioned",
+            "workspace-store.workspace-state-axes-separated",
+            "workspace-store.history-binding-lifecycle-live-only"
+          ]
+        }
+      ],
+      "supportedPlatformPosture": {
+        "all": "versioned JSON-compatible records with unknown-major refusal or quarantine"
+      },
+      "failureBehavior": {
+        "kind": "quarantine",
+        "code": "UNSUPPORTED_SCHEMA_VERSION"
+      }
+    },
+    {
+      "id": "PLAN-01",
+      "claim": "User-visible mutations require immutable plan/commit with approval and precondition revalidation.",
+      "enforcementPoint": [
+        "G5.1 canonical operation plan",
+        "G5.2 approval adapter",
+        "G5.3 precondition engine",
+        "G5.7 specialized-command enforcement"
+      ],
+      "testEvidence": [
+        {
+          "status": "required",
+          "name": "plan digest changes when resource targets or preconditions change"
+        }
+      ],
+      "supportedPlatformPosture": {
+        "all": "single commit path for specialized and generic mutation commands"
+      },
+      "failureBehavior": {
+        "kind": "deny",
+        "code": "OPERATION_PLAN_STALE"
+      }
+    },
+    {
+      "id": "CRASH-01",
+      "claim": "Multi-record mutations are journaled, idempotent, and generation-fenced.",
+      "enforcementPoint": [
+        "G5.4 mutation journal",
+        "G5.5 consent authority records"
+      ],
+      "testEvidence": [
+        {
+          "status": "required",
+          "name": "restart during prepared operation reconciles or quarantines partial state"
+        }
+      ],
+      "supportedPlatformPosture": {
+        "all": "single-writer lock plus prepare/commit journal"
+      },
+      "failureBehavior": {
+        "kind": "quarantine",
+        "code": "OPERATION_JOURNAL_INCOMPLETE"
+      }
+    },
+    {
+      "id": "SCOPE-01",
+      "claim": "Scope algebra can return unknown, and unknown is never an optimistic authorization result.",
+      "enforcementPoint": [
+        "G2.3 scope normalization",
+        "G2.4 conservative scope algebra",
+        "G7.2 spatial completeness"
+      ],
+      "testEvidence": [
+        {
+          "status": "covered",
+          "path": "test/unit/contracts/workspace-store-slice0-contract.test.ts",
+          "assertionIds": [
+            "workspace-store.scope-relations-include-unknown",
+            "workspace-store.unknown-fails-closed-by-consumer"
+          ]
+        }
+      ],
+      "supportedPlatformPosture": {
+        "all": "unknown denies authority, misses cache, or returns insufficient scope"
+      },
+      "failureBehavior": {
+        "kind": "deny",
+        "code": "INSUFFICIENT_SCOPE"
+      }
+    },
+    {
+      "id": "CACHE-01",
+      "claim": "Derived artifacts are scoped by input provenance, visibility context, policy, and incarnation.",
+      "enforcementPoint": [
+        "G4.1 artifact envelope",
+        "G4.2 incarnation-partitioned layout",
+        "G4.6 aggregate provenance"
+      ],
+      "testEvidence": [
+        {
+          "status": "required",
+          "name": "narrow view cannot receive aggregate artifact created by broader view"
+        }
+      ],
+      "supportedPlatformPosture": {
+        "all": "cache hit revalidates current authorization and artifact provenance"
+      },
+      "failureBehavior": {
+        "kind": "miss",
+        "code": "CACHE_SCOPE_UNUSABLE"
+      }
+    },
+    {
+      "id": "HISTORY-01",
+      "claim": "Historical answers report spatial and temporal completeness and refuse unsupported claims.",
+      "enforcementPoint": [
+        "G7.1 binding selection",
+        "G7.3 temporal coverage",
+        "G7.5 insufficient-history handling"
+      ],
+      "testEvidence": [
+        {
+          "status": "required",
+          "name": "docs-only query cannot produce repository-wide dead-symbol claim"
+        }
+      ],
+      "supportedPlatformPosture": {
+        "all": "history output is scoped to authorized binding and coverage"
+      },
+      "failureBehavior": {
+        "kind": "insufficient-history",
+        "code": "INSUFFICIENT_HISTORY_COVERAGE"
+      }
+    },
+    {
+      "id": "REPLACE-01",
+      "claim": "Same-path replacement cannot attach stale cache or history to a new incarnation without explicit validation.",
+      "enforcementPoint": [
+        "G1.5 incarnation records",
+        "G8.6 replacement detection",
+        "G8.7 replacement quarantine"
+      ],
+      "testEvidence": [
+        {
+          "status": "covered",
+          "path": "test/unit/mcp/workspace-registry.test.ts",
+          "assertionIds": [
+            "workspace-registry.explicit-repository-evidence-required-for-incarnation-reuse",
+            "workspace-registry.strong-replacement-quarantines-prior-incarnation"
+          ]
+        }
+      ],
+      "supportedPlatformPosture": {
+        "all": "heuristics may be suspect or unknown and durable attachment blocks on uncertainty"
+      },
+      "failureBehavior": {
+        "kind": "quarantine",
+        "code": "WORKSPACE_REPLACED"
+      }
+    },
+    {
+      "id": "REPOLOCAL-01",
+      "claim": "Repo-local portable history is hostile input and never invokes ambient Git behavior.",
+      "enforcementPoint": [
+        "G9.1 hardened repo-local reader",
+        "G9.2 ambient Git neutralization",
+        "G9.4 repo-local track plan"
+      ],
+      "testEvidence": [
+        {
+          "status": "required",
+          "name": "repo-local store cannot use alternates, hooks, replacement refs, lazy fetch, config includes, helpers, or network"
+        }
+      ],
+      "supportedPlatformPosture": {
+        "all": "validated object store reader with sanitized environment and no network"
+      },
+      "failureBehavior": {
+        "kind": "deny",
+        "code": "UNTRUSTED_HISTORY_STORE"
+      }
+    }
+  ]
+}

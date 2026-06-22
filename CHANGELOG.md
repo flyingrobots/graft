@@ -29,6 +29,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   reference-count path produce deep-equal output through the
   generated-model round-trip. Public behavior is unchanged.
 
+### Changed
+
+- **Graft-managed workspace registry hardening**: workspace observation now
+  serializes first-time installation ID creation, fails closed when managed
+  storage cannot be made private, rejects symlinked or unsafe registry storage
+  records before reading them, quarantines unsupported registry metadata instead
+  of reusing it, rejects malformed installation IDs, recovers stale first-time
+  installation locks, caps remote collection during daemon authorization, strips
+  userinfo from scp-like and malformed URL-style remote URLs, preserves spaces
+  in daemon-collected remote paths, serializes concurrent first workspace
+  observation, and only lets observations without explicit repository evidence
+  reuse unknown incarnations that have no durable cache or history attachments.
+  Strong same-path replacement evidence now quarantines the prior incarnation
+  directory before advancing the workspace pointer.
+- **Workspace-store contract taxonomy**: Slice 0 conformance failure codes are
+  now all included in the frozen `errorTaxonomy`, and the contract test rejects
+  covered conformance rows whose failure codes are absent from that taxonomy.
+
 ## [0.9.0] - 2026-06-10
 
 ### Added

@@ -1,7 +1,9 @@
 import type { DaemonSchedulerCounts } from "./daemon-job-scheduler.js";
 import { ZERO_SCHEDULER_COUNTS } from "./daemon-job-scheduler.js";
 import type { DaemonWorkerCounts } from "./daemon-worker-pool.js";
+import type { GitClient } from "../ports/git.js";
 import type { RuntimeCausalContext } from "./runtime-causal-context.js";
+import { observeGitWorkspace } from "./workspace-registry.js";
 import {
   DEFAULT_DAEMON_CAPABILITY_PROFILE,
   resolveWorkspaceRequest,
@@ -50,6 +52,7 @@ export type {
   SharedAttachSource,
   WorkspaceAuthorizeRequest,
   WorkspaceAuthorizeResult,
+  WorkspaceRegistryObservationResult,
   WorkspaceRevokeResult,
 } from "./control-plane/types.js";
 
@@ -65,12 +68,15 @@ import type {
   SharedAttachSource,
   WorkspaceAuthorizeRequest,
   WorkspaceAuthorizeResult,
+  WorkspaceRegistryObservationResult,
   WorkspaceRevokeResult,
 } from "./control-plane/types.js";
 
 // ---------------------------------------------------------------------------
 // DaemonControlPlane
 // ---------------------------------------------------------------------------
+
+const REMOTE_LIST_MAX_BUFFER_BYTES = 64 * 1024;
 
 export class DaemonControlPlane {
   private readonly statePath: string;
@@ -152,10 +158,12 @@ export class DaemonControlPlane {
 
     this.authorizedWorkspaces.set(next.worktreeId, next);
     await this.persist();
+    const registryObservation = await this.observeAuthorizedWorkspace(next);
     return {
       ok: true,
       changed,
       authorization: toAuthorizedWorkspaceView(next, this.activeTransportsFor(next.worktreeId)),
+      registryObservation,
     };
   }
 
@@ -304,7 +312,56 @@ export class DaemonControlPlane {
     await persistState(this.statePath, this.options.fs, this.options.codec, this.authorizedWorkspaces);
   }
 
+  private async observeAuthorizedWorkspace(
+    record: AuthorizedWorkspaceRecord,
+  ): Promise<WorkspaceRegistryObservationResult> {
+    try {
+      await observeGitWorkspace({
+        graftDir: this.options.graftDir,
+        canonicalRoot: record.worktreeRoot,
+        gitCommonDir: record.gitCommonDir,
+        remotes: await readGitRemotes(this.options.git, record.worktreeRoot),
+      });
+      return { ok: true };
+    } catch (error: unknown) {
+      return {
+        ok: false,
+        code: "REGISTRY_OBSERVATION_UNAVAILABLE",
+        message: error instanceof Error ? error.message : String(error),
+      };
+    }
+  }
+
   private activeTransportsFor(worktreeId: string): number {
     return this.listTransports().filter((session) => session.worktreeId === worktreeId).length;
   }
+}
+
+async function readGitRemotes(git: GitClient, cwd: string): Promise<readonly string[]> {
+  const result = await git.run({
+    cwd,
+    args: ["remote", "-v"],
+    maxBufferBytes: REMOTE_LIST_MAX_BUFFER_BYTES,
+  });
+  if (result.error !== undefined || result.status !== 0) {
+    return [];
+  }
+  const remotes = new Set<string>();
+  for (const line of result.stdout.split(/\r?\n/u)) {
+    const remoteUrl = parseGitRemoteListingUrl(line);
+    if (remoteUrl !== undefined && remoteUrl.length > 0) {
+      remotes.add(remoteUrl);
+    }
+  }
+  return [...remotes].sort();
+}
+
+function parseGitRemoteListingUrl(line: string): string | undefined {
+  const tabIndex = line.indexOf("\t");
+  const payload = tabIndex >= 0
+    ? line.slice(tabIndex + 1)
+    : line.trim().replace(/^\S+\s+/u, "");
+  const marker = /^(.*)\s+\((?:fetch|push)\)$/u.exec(payload);
+  const remoteUrl = (marker?.[1] ?? payload).trim();
+  return remoteUrl.length > 0 ? remoteUrl : undefined;
 }
