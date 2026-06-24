@@ -43,6 +43,9 @@ function unavailableReason(snapshot: StructuredBufferSnapshot): BufferUnavailabl
 function parseStatusReason(
   snapshot: StructuredBufferSnapshot,
 ): BufferUnavailableReason | undefined {
+  if (snapshot.proseProjection !== undefined) {
+    return undefined;
+  }
   if (snapshot.format === null) {
     return "UNSUPPORTED_LANGUAGE";
   }
@@ -351,6 +354,16 @@ function resolveSymbol(
 }
 
 export function buildOutlineResult(snapshot: StructuredBufferSnapshot): BufferOutlineResult {
+  if (snapshot.proseProjection !== undefined) {
+    return {
+      path: snapshot.path,
+      format: snapshot.format,
+      basis: snapshot.basis,
+      outline: snapshot.proseProjection.outline,
+      jumpTable: snapshot.proseProjection.jumpTable,
+      partial: snapshot.proseProjection.partial,
+    };
+  }
   if (snapshot.format === null || snapshot.parseUnavailableReason !== undefined) {
     return {
       path: snapshot.path,
@@ -360,6 +373,17 @@ export function buildOutlineResult(snapshot: StructuredBufferSnapshot): BufferOu
       jumpTable: [],
       partial: snapshot.partial,
       reason: unavailableReason(snapshot),
+    };
+  }
+  if (snapshot.format === "prose") {
+    return {
+      path: snapshot.path,
+      format: snapshot.format,
+      basis: snapshot.basis,
+      outline: [],
+      jumpTable: [],
+      partial: snapshot.partial,
+      reason: "UNSUPPORTED_LANGUAGE",
     };
   }
   const result = extractOutline(snapshot.content, snapshot.format);
@@ -374,6 +398,14 @@ export function buildOutlineResult(snapshot: StructuredBufferSnapshot): BufferOu
 }
 
 export function buildInjectionResult(snapshot: StructuredBufferSnapshot): InjectionResult {
+  if (snapshot.proseProjection !== undefined) {
+    return {
+      path: snapshot.path,
+      format: snapshot.format,
+      basis: snapshot.basis,
+      injections: [],
+    };
+  }
   if (snapshot.format === "md") {
     return {
       path: snapshot.path,
@@ -406,6 +438,20 @@ export function buildSyntaxSpansResult(
   snapshot: StructuredBufferSnapshot,
   opts: { viewport?: BufferRange | undefined } = {},
 ): SyntaxSpanResult {
+  if (snapshot.proseProjection !== undefined) {
+    const viewport = opts.viewport;
+    const spans = viewport === undefined
+      ? snapshot.proseProjection.syntaxSpans
+      : snapshot.proseProjection.syntaxSpans.filter((span) => rangeOverlaps(span.range, viewport));
+    return {
+      path: snapshot.path,
+      format: snapshot.format,
+      basis: snapshot.basis,
+      partial: snapshot.proseProjection.partial,
+      spans,
+      injections: [],
+    };
+  }
   if (snapshot.parsed === null) {
     return {
       path: snapshot.path,
@@ -479,6 +525,15 @@ export function buildSyntaxSpansResult(
 }
 
 export function buildDiagnosticsResult(snapshot: StructuredBufferSnapshot): DiagnosticsResult {
+  if (snapshot.proseProjection !== undefined) {
+    return {
+      path: snapshot.path,
+      format: snapshot.format,
+      basis: snapshot.basis,
+      partial: snapshot.proseProjection.partial,
+      diagnostics: [],
+    };
+  }
   if (snapshot.parsed === null) {
     return {
       path: snapshot.path,
@@ -557,6 +612,23 @@ export function buildNodeLookupResult(snapshot: StructuredBufferSnapshot, positi
 }
 
 export function buildFoldRegionsResult(snapshot: StructuredBufferSnapshot): FoldRegionsResult {
+  if (snapshot.proseProjection !== undefined) {
+    return {
+      path: snapshot.path,
+      format: snapshot.format,
+      basis: snapshot.basis,
+      partial: snapshot.proseProjection.partial,
+      regions: snapshot.proseProjection.jumpTable
+        .filter((entry) => entry.end > entry.start)
+        .map((entry) => ({
+          kind: entry.kind,
+          range: {
+            start: point(entry.start - 1, 0),
+            end: point(entry.end - 1, 0),
+          },
+        })),
+    };
+  }
   if (snapshot.format === "md") {
     const outline = buildOutlineResult(snapshot);
     return {

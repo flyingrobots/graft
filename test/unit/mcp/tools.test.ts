@@ -1,10 +1,13 @@
 import { describe, it, expect, afterEach } from "vitest";
+import { createHash } from "node:crypto";
 import { ZodError } from "zod";
 import { TOOL_REGISTRY } from "../../../src/mcp/server.js";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import type { GraftServer } from "../../../src/mcp/server.js";
+import type { ProcessRunRequest, ProcessRunResult, ProcessRunner } from "../../../src/ports/process-runner.js";
+import { COLORFUL_VOCABULARY_HASH } from "../../../src/operations/colorful-prose-projection.js";
 import { createFixtureWorkspace, createIsolatedServer, parse } from "../../helpers/mcp.js";
 import { cleanupTestRepo, createTestRepo, git } from "../../helpers/git.js";
 
@@ -32,12 +35,67 @@ function createServer(): GraftServer {
   return isolated.server;
 }
 
-function createServerForProjectRoot(projectRoot: string): GraftServer {
-  const isolated = createIsolatedServer({ projectRoot });
+function createServerForProjectRoot(
+  projectRoot: string,
+  options: { readonly processRunner?: ProcessRunner | undefined } = {},
+): GraftServer {
+  const isolated = createIsolatedServer({
+    projectRoot,
+    ...(options.processRunner !== undefined ? { processRunner: options.processRunner } : {}),
+  });
   cleanups.push(() => {
     isolated.cleanup();
   });
   return isolated.server;
+}
+
+class FakeColorfulRunner implements ProcessRunner {
+  readonly requests: ProcessRunRequest[] = [];
+
+  run(request: ProcessRunRequest): ProcessRunResult {
+    this.requests.push(request);
+    const source = Buffer.from(request.stdin ?? "", "utf8");
+    const contentHash = `sha256:${createHash("sha256").update(source).digest("hex")}`;
+    return {
+      status: 0,
+      stdout: JSON.stringify({
+        contractVersion: "colorful.syntax/v1",
+        schemaHash: "sha256:test-schema",
+        vocabularyHash: COLORFUL_VOCABULARY_HASH,
+        source: {
+          unitId: "notes.txt",
+          contentHash,
+          utf8ByteLength: source.byteLength,
+        },
+        tokens: [
+          {
+            occurrenceId: "tok_ship",
+            byteRange: { startUtf8: 0, endUtf8: 4 },
+            tokenKind: "WORD",
+            lexicalClass: "FUNCTION",
+            functionKind: null,
+          },
+        ],
+        structure: [
+          {
+            nodeId: "paragraph_1",
+            kind: "PARAGRAPH",
+            byteRange: { startUtf8: 0, endUtf8: source.byteLength },
+            depth: 0,
+            childNodeIds: ["sentence_1"],
+          },
+          {
+            nodeId: "sentence_1",
+            kind: "SENTENCE",
+            byteRange: { startUtf8: 0, endUtf8: Math.min(source.byteLength, 14) },
+            depth: 1,
+            childNodeIds: [],
+          },
+        ],
+      }),
+      stderr: "",
+    };
+  }
 }
 
 describe("mcp: tool registration", () => {
@@ -143,6 +201,50 @@ describe("mcp: tool handlers", () => {
     );
     expect(parsed["error"]).toBeUndefined();
     fs.rmSync(tmpDir, { recursive: true, force: true });
+  });
+
+  it("file_outline returns a Colorful prose outline for text files", async () => {
+    const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "graft-file-outline-tool-prose-"));
+    cleanups.push(() => {
+      fs.rmSync(tmpDir, { recursive: true, force: true });
+    });
+    const processRunner = new FakeColorfulRunner();
+    const server = createServerForProjectRoot(tmpDir, { processRunner });
+    fs.writeFileSync(path.join(tmpDir, "notes.txt"), "ship the prose path\n");
+
+    const parsed = parse(await server.callTool("file_outline", { path: "notes.txt" }));
+
+    expect(parsed["outline"]).toContainEqual(expect.objectContaining({
+      kind: "paragraph",
+      signature: expect.stringContaining("ship the prose path"),
+    }));
+    expect(parsed["jumpTable"]).toContainEqual(expect.objectContaining({
+      kind: "sentence",
+      start: 1,
+      end: 1,
+    }));
+    expect(processRunner.requests[0]).toEqual(expect.objectContaining({
+      command: "colorful",
+      args: ["ir", "-"],
+      stdin: "ship the prose path\n",
+    }));
+  });
+
+  it("safe_read returns a Colorful prose outline for large text files", async () => {
+    const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "graft-safe-read-tool-prose-"));
+    cleanups.push(() => {
+      fs.rmSync(tmpDir, { recursive: true, force: true });
+    });
+    const processRunner = new FakeColorfulRunner();
+    const server = createServerForProjectRoot(tmpDir, { processRunner });
+    fs.writeFileSync(path.join(tmpDir, "notes.txt"), "ship the prose path\n".repeat(180));
+
+    const parsed = parse(await server.callTool("safe_read", { path: "notes.txt" }));
+
+    expect(parsed["projection"]).toBe("outline");
+    expect(parsed["reason"]).toBe("OUTLINE");
+    expect(parsed["outline"]).toContainEqual(expect.objectContaining({ kind: "paragraph" }));
+    expect(parsed["jumpTable"]).toContainEqual(expect.objectContaining({ kind: "paragraph" }));
   });
 
   it("file_outline refuses files matched by .graftignore", async () => {

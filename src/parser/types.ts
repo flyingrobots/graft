@@ -22,7 +22,9 @@ export type EntryKind =
   | "variable"
   | "package"
   | "section"
-  | "heading";
+  | "heading"
+  | "paragraph"
+  | "sentence";
 
 /** A single entry in a file outline. */
 export class OutlineEntry {

@@ -13,6 +13,7 @@ import { RefusedResult } from "../policy/types.js";
 import { loadGraftignore } from "../policy/graftignore.js";
 import type { FileSystem } from "../ports/filesystem.js";
 import type { JsonCodec } from "../ports/codec.js";
+import type { ProseProjectionProvider } from "./colorful-prose-projection.js";
 
 export interface RepoWorkspaceRefusedResult {
   readonly path: string;
@@ -73,6 +74,7 @@ export interface RepoWorkspaceOptions {
   readonly toPolicyPath?: ((resolvedPath: string) => string) | undefined;
   readonly governor?: GovernorTracker | undefined;
   readonly cache?: ObservationCache | undefined;
+  readonly proseProjector?: ProseProjectionProvider | undefined;
 }
 
 async function loadWorkspaceGraftignore(
@@ -95,6 +97,7 @@ export class RepoWorkspace {
   readonly graftignorePatterns: readonly string[];
   readonly governor: GovernorTracker;
   readonly cache: ObservationCache;
+  readonly proseProjector: ProseProjectionProvider | undefined;
 
   constructor(options: RepoWorkspaceOptions) {
     this.projectRoot = options.projectRoot;
@@ -103,6 +106,7 @@ export class RepoWorkspace {
     this.graftignorePatterns = options.graftignorePatterns ?? [];
     this.governor = options.governor ?? new GovernorTracker();
     this.cache = options.cache ?? new ObservationCache();
+    this.proseProjector = options.proseProjector;
     this.resolveWorkspacePath = options.resolvePath ?? ((input) => input);
     this.policyPathForWorkspaceFile = options.toPolicyPath ?? ((resolvedPath) => resolvedPath);
   }
@@ -213,6 +217,7 @@ export class RepoWorkspace {
       graftignorePatterns: [...this.graftignorePatterns],
       sessionDepth: this.governor.getGovernorDepth(),
       budgetRemaining: this.governor.getBudget()?.remaining,
+      proseProjector: this.proseProjector,
     });
 
     if (
@@ -264,7 +269,10 @@ export class RepoWorkspace {
       }
     }
 
-    const result = await fileOutline(filePath, { fs: this.fs });
+    const result = await fileOutline(filePath, {
+      fs: this.fs,
+      proseProjector: this.proseProjector,
+    });
     if (rawContent !== null && result.reason !== "UNSUPPORTED_LANGUAGE") {
       this.cache.record(
         filePath,

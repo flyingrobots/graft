@@ -43,6 +43,8 @@ work:
 - `CreateStructuredBufferOptions`
 - `CreateProjectionBundleOptions`
 - `StructuredBuffer`
+- `ProseProjectionProvider`
+- `createColorfulCliProseProjector(...)`
 - `ensureParserReady(...)`
 - `WarmProjectionBasis`
 - `WarmProjectionBundleResult`
@@ -70,6 +72,15 @@ feature-specific calls, `createProjectionBundle(...)` and
 `StructuredBuffer#projectionBundle(...)` return syntax spans,
 diagnostics, fold regions, outline, and explicit bundle-level parse
 status over one known editor head.
+
+`CreateStructuredBufferOptions` and `CreateProjectionBundleOptions` also
+accept `proseProjector`. This optional port lets a host project prose into
+the same syntax/outline bundle shape as parser-backed source files. Graft
+ships `createColorfulCliProseProjector(...)` for the Colorful
+`colorful.syntax/v1` contract; it shells out through a supplied
+`ProcessRunner`, validates source and vocabulary hashes, and returns
+`format: "prose"` for supported `.txt` buffers. Without a projector, text
+files keep the explicit `UNSUPPORTED_LANGUAGE` result.
 
 ### 3. Tool Bridge Surface
 
