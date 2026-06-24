@@ -131,4 +131,36 @@ describe("Colorful prose projection", () => {
       },
     })).toThrow(/vocabularyHash/);
   });
+
+  it("rejects IR ranges that split a UTF-8 character", () => {
+    const source = Buffer.from("éclair\n", "utf8");
+    const ir = {
+      ...(fixtureIr(source) as Record<string, unknown>),
+      tokens: [
+        {
+          occurrenceId: "tok_split",
+          byteRange: { startUtf8: 1, endUtf8: 2 },
+          tokenKind: "WORD",
+          lexicalClass: "CONTENT",
+          functionKind: null,
+        },
+      ],
+      structure: [
+        {
+          nodeId: "paragraph_1",
+          kind: "PARAGRAPH",
+          byteRange: { startUtf8: 0, endUtf8: source.byteLength },
+          depth: 0,
+          childNodeIds: [],
+        },
+      ],
+    };
+
+    expect(() => projectColorfulIr({
+      path: "notes.txt",
+      source,
+      sourceHash: contentHash(source),
+      ir,
+    })).toThrow(/UTF-8 character boundaries/);
+  });
 });

@@ -249,6 +249,50 @@ describe("library: structured buffer", () => {
     ]);
   });
 
+  it("honors an explicit prose projector for markdown buffers", () => {
+    const proseProjector: ProseProjectionProvider = {
+      project(input) {
+        if (!input.path.endsWith(".md")) {
+          return null;
+        }
+        return {
+          format: "prose",
+          partial: false,
+          syntaxSpans: [
+            {
+              className: "keyword",
+              range: { start: { row: 0, column: 2 }, end: { row: 0, column: 7 } },
+              text: "Notes",
+            },
+          ],
+          outline: [
+            new OutlineEntry({
+              kind: "paragraph",
+              name: "Paragraph 1",
+              exported: false,
+              signature: input.content,
+            }),
+          ],
+          jumpTable: [
+            new JumpEntry({ symbol: "Paragraph 1", kind: "paragraph", start: 1, end: 1 }),
+          ],
+        };
+      },
+    };
+    const buffer = track(createStructuredBuffer("README.md", "# Notes\n", { basis, proseProjector }));
+
+    expect(buffer.format).toBe("prose");
+    expect(buffer.outline()).toEqual(expect.objectContaining({
+      format: "prose",
+      outline: [expect.objectContaining({ kind: "paragraph", name: "Paragraph 1" })],
+    }));
+    expect(buffer.syntaxSpans().spans).toContainEqual(expect.objectContaining({
+      className: "keyword",
+      text: "Notes",
+    }));
+    expect(buffer.injections().injections).toEqual([]);
+  });
+
   it("keeps basis explicit for unsupported-language buffers", () => {
     const unsupportedBasis = { kind: "editor_head" as const, headId: "head-9", tick: 22 };
     const buffer = track(createStructuredBuffer("notes.txt", "hello", { basis: unsupportedBasis }));

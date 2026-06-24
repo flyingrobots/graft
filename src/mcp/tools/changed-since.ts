@@ -1,8 +1,9 @@
 import { z } from "zod";
+import { createColorfulCliProseProjector } from "../../adapters/colorful-cli-prose-projector.js";
 import { RefusedResult } from "../../policy/types.js";
 import { detectStructuredFormat } from "../../parser/lang.js";
-import { extractOutlineForFileAsync } from "../../parser/outline.js";
 import { diffOutlines } from "../../parser/diff.js";
+import { extractOutlineProjectionForContent } from "../../operations/file-outline.js";
 import { hashContent } from "../cache.js";
 import type { ToolDefinition, ToolHandler } from "../context.js";
 import { evaluateMcpPolicy } from "../policy.js";
@@ -38,22 +39,34 @@ export const changedSinceTool: ToolDefinition = {
         return ctx.respond("changed_since", { status: "refused", reason: policy.reason });
       }
 
-      if (detectStructuredFormat(filePath) === null) {
-        return ctx.respond("changed_since", {
-          status: "unsupported",
-          reason: "UNSUPPORTED_LANGUAGE",
-        });
-      }
-
       const cacheResult = ctx.cache.check(filePath, rawContent);
       if (cacheResult.hit) {
         return ctx.respond("changed_since", { status: "unchanged" });
       }
       if (cacheResult.stale === null) {
+        if (detectStructuredFormat(filePath) === null) {
+          const outline = await extractOutlineProjectionForContent(filePath, rawContent, {
+            proseProjector: createColorfulCliProseProjector({
+              processRunner: ctx.process,
+              cwd: ctx.projectRoot,
+            }),
+          });
+          if (outline === null) {
+            return ctx.respond("changed_since", {
+              status: "unsupported",
+              reason: "UNSUPPORTED_LANGUAGE",
+            });
+          }
+        }
         return ctx.respond("changed_since", { status: "no_previous_observation" });
       }
 
-      const newOutlineResult = await extractOutlineForFileAsync(filePath, rawContent);
+      const newOutlineResult = await extractOutlineProjectionForContent(filePath, rawContent, {
+        proseProjector: createColorfulCliProseProjector({
+          processRunner: ctx.process,
+          cwd: ctx.projectRoot,
+        }),
+      });
       if (newOutlineResult === null) {
         return ctx.respond("changed_since", {
           status: "unsupported",
@@ -61,14 +74,14 @@ export const changedSinceTool: ToolDefinition = {
         });
       }
 
-      const diff = diffOutlines(cacheResult.stale.outline, newOutlineResult.entries);
+      const diff = diffOutlines(cacheResult.stale.outline, newOutlineResult.outline);
 
       if (consume) {
         ctx.cache.record(
           filePath,
           hashContent(rawContent),
-          newOutlineResult.entries,
-          newOutlineResult.jumpTable ?? [],
+          newOutlineResult.outline,
+          newOutlineResult.jumpTable,
           actual,
         );
       }

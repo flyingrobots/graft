@@ -278,14 +278,10 @@ export function createStructuredBufferSnapshot(opts: {
   const format = detectStructuredFormat(opts.path);
   let parsed: ParsedTree | null = null;
   let parseUnavailableReason: BufferUnavailableReason | undefined;
-  let proseProjection: ProseProjection | undefined;
-
-  if (format === null) {
-    proseProjection = opts.proseProjector?.project({ path: opts.path, content: opts.content }) ?? undefined;
-    if (proseProjection === undefined) {
-      parseUnavailableReason = "UNSUPPORTED_LANGUAGE";
-    }
-  } else if (format !== "md") {
+  const proseProjection = opts.proseProjector?.project({ path: opts.path, content: opts.content }) ?? undefined;
+  if (proseProjection === undefined && format === null) {
+    parseUnavailableReason = "UNSUPPORTED_LANGUAGE";
+  } else if (proseProjection === undefined && format !== "md") {
     try {
       parsed = parseStructuredTreeForFile(opts.path, opts.content);
     } catch (error) {

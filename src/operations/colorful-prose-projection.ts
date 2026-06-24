@@ -205,9 +205,22 @@ function decodeColorfulDocumentAnalysis(value: unknown): ColorfulDocumentAnalysi
   };
 }
 
-function assertRangeWithinSource(range: ColorfulByteRange, sourceLength: number, label: string): void {
+interface ColorfulByteMapper {
+  readonly byteToPoint: (byte: number) => BufferPoint;
+  readonly hasBoundary: (byte: number) => boolean;
+}
+
+function assertRangeWithinSource(
+  range: ColorfulByteRange,
+  sourceLength: number,
+  byteMapper: ColorfulByteMapper,
+  label: string,
+): void {
   if (range.endUtf8 > sourceLength) {
     fail(`${label} extends past source.utf8ByteLength`);
+  }
+  if (!byteMapper.hasBoundary(range.startUtf8) || !byteMapper.hasBoundary(range.endUtf8)) {
+    fail(`${label} must start and end on UTF-8 character boundaries`);
   }
 }
 
@@ -223,32 +236,79 @@ export function isColorfulProsePath(
 }
 
 export function makeColorfulByteToPoint(source: Uint8Array): (byte: number) => BufferPoint {
+  return makeColorfulByteMapper(source).byteToPoint;
+}
+
+function makeColorfulByteMapper(source: Uint8Array): ColorfulByteMapper {
   const bytes = Buffer.from(source);
-  const lineStarts = [0];
-  for (let index = 0; index < bytes.length; index += 1) {
-    const byte = bytes[index];
-    if (byte === 0x0a) {
-      lineStarts.push(index + 1);
+  const pointByBoundary = new Map<number, BufferPoint>();
+  const boundaries: number[] = [];
+
+  const addBoundary = (byte: number, row: number, column: number): void => {
+    if (!pointByBoundary.has(byte)) {
+      boundaries.push(byte);
+    }
+    pointByBoundary.set(byte, { row, column });
+  };
+
+  let byteOffset = 0;
+  let row = 0;
+  let column = 0;
+  addBoundary(byteOffset, row, column);
+
+  const scalars = Array.from(bytes.toString("utf8"));
+  for (let index = 0; index < scalars.length; index += 1) {
+    const scalar = scalars[index] ?? "";
+    byteOffset += Buffer.byteLength(scalar, "utf8");
+
+    if (scalar === "\r" && scalars[index + 1] === "\n") {
+      column += 1;
+      addBoundary(byteOffset, row, column);
+      index += 1;
+      byteOffset += 1;
+      row += 1;
+      column = 0;
+      addBoundary(byteOffset, row, column);
       continue;
     }
-    if (byte === 0x0d) {
-      const crlf = bytes[index + 1] === 0x0a;
-      lineStarts.push(index + (crlf ? 2 : 1));
-      if (crlf) {
-        index += 1;
-      }
+
+    if (scalar === "\r" || scalar === "\n") {
+      row += 1;
+      column = 0;
+      addBoundary(byteOffset, row, column);
+      continue;
     }
+
+    column += 1;
+    addBoundary(byteOffset, row, column);
   }
 
-  return (byte: number): BufferPoint => {
+  const byteToPoint = (byte: number): BufferPoint => {
     const offset = Math.max(0, Math.min(byte, bytes.length));
-    let row = 0;
-    while (row + 1 < lineStarts.length && (lineStarts[row + 1] ?? 0) <= offset) {
-      row += 1;
+    const exact = pointByBoundary.get(offset);
+    if (exact !== undefined) {
+      return exact;
     }
-    const lineStart = lineStarts[row] ?? 0;
-    const column = Array.from(bytes.subarray(lineStart, offset).toString("utf8")).length;
-    return { row, column };
+
+    let low = 0;
+    let high = boundaries.length - 1;
+    while (low <= high) {
+      const mid = Math.floor((low + high) / 2);
+      const boundary = boundaries[mid] ?? 0;
+      if (boundary <= offset) {
+        low = mid + 1;
+      } else {
+        high = mid - 1;
+      }
+    }
+    return pointByBoundary.get(boundaries[Math.max(high, 0)] ?? 0) ?? { row: 0, column: 0 };
+  };
+
+  return {
+    byteToPoint,
+    hasBoundary(byte) {
+      return pointByBoundary.has(byte);
+    },
   };
 }
 
@@ -397,12 +457,23 @@ export function projectColorfulIr(input: {
     );
   }
 
-  const byteToPoint = makeColorfulByteToPoint(source);
+  const byteMapper = makeColorfulByteMapper(source);
+  const byteToPoint = byteMapper.byteToPoint;
   for (const [index, token] of document.tokens.entries()) {
-    assertRangeWithinSource(token.byteRange, source.byteLength, `Colorful IR.tokens[${String(index)}].byteRange`);
+    assertRangeWithinSource(
+      token.byteRange,
+      source.byteLength,
+      byteMapper,
+      `Colorful IR.tokens[${String(index)}].byteRange`,
+    );
   }
   for (const [index, node] of document.structure.entries()) {
-    assertRangeWithinSource(node.byteRange, source.byteLength, `Colorful IR.structure[${String(index)}].byteRange`);
+    assertRangeWithinSource(
+      node.byteRange,
+      source.byteLength,
+      byteMapper,
+      `Colorful IR.structure[${String(index)}].byteRange`,
+    );
   }
 
   const syntaxSpans = document.tokens.flatMap((token) => {

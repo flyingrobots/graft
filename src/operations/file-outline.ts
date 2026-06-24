@@ -13,6 +13,38 @@ export interface FileOutlineResult {
   error?: string | undefined;
 }
 
+export interface ExtractedFileOutline {
+  readonly outline: OutlineEntry[];
+  readonly jumpTable: JumpEntry[];
+  readonly partial?: boolean | undefined;
+}
+
+export async function extractOutlineProjectionForContent(
+  filePath: string,
+  content: string,
+  opts: { proseProjector?: ProseProjectionProvider | undefined },
+): Promise<ExtractedFileOutline | null> {
+  const result = await extractOutlineForFileAsync(filePath, content);
+  if (result !== null) {
+    return {
+      outline: result.entries,
+      jumpTable: result.jumpTable ?? [],
+      ...(result.partial === true ? { partial: true } : {}),
+    };
+  }
+
+  const proseProjection = opts.proseProjector?.project({ path: filePath, content }) ?? null;
+  if (proseProjection === null) {
+    return null;
+  }
+
+  return {
+    outline: [...proseProjection.outline],
+    jumpTable: [...proseProjection.jumpTable],
+    partial: proseProjection.partial,
+  };
+}
+
 export async function fileOutline(
   filePath: string,
   opts: { fs: FileSystem; proseProjector?: ProseProjectionProvider | undefined },
@@ -29,17 +61,10 @@ export async function fileOutline(
     };
   }
 
-  const result = await extractOutlineForFileAsync(filePath, content);
+  const result = await extractOutlineProjectionForContent(filePath, content, {
+    proseProjector: opts.proseProjector,
+  });
   if (result === null) {
-    const proseProjection = opts.proseProjector?.project({ path: filePath, content }) ?? null;
-    if (proseProjection !== null) {
-      return {
-        path: filePath,
-        outline: [...proseProjection.outline],
-        jumpTable: [...proseProjection.jumpTable],
-        partial: proseProjection.partial,
-      };
-    }
     return {
       path: filePath,
       outline: [],
@@ -51,8 +76,8 @@ export async function fileOutline(
 
   return {
     path: filePath,
-    outline: result.entries,
-    jumpTable: result.jumpTable ?? [],
+    outline: result.outline,
+    jumpTable: result.jumpTable,
     ...(result.partial === true ? { partial: true } : {}),
   };
 }

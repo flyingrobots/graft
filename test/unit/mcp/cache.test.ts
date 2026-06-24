@@ -1,9 +1,61 @@
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import type { GraftServer } from "../../../src/mcp/server.js";
+import { createHash } from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 import os from "node:os";
+import { COLORFUL_VOCABULARY_HASH } from "../../../src/operations/colorful-prose-projection.js";
+import type { ProcessRunRequest, ProcessRunResult, ProcessRunner } from "../../../src/ports/process-runner.js";
 import { createIsolatedServer, parse } from "../../helpers/mcp.js";
+
+class FakeColorfulRunner implements ProcessRunner {
+  readonly requests: ProcessRunRequest[] = [];
+
+  run(request: ProcessRunRequest): ProcessRunResult {
+    this.requests.push(request);
+    const source = Buffer.from(request.stdin ?? "", "utf8");
+    const contentHash = `sha256:${createHash("sha256").update(source).digest("hex")}`;
+    return {
+      status: 0,
+      stdout: JSON.stringify({
+        contractVersion: "colorful.syntax/v1",
+        schemaHash: "sha256:test-schema",
+        vocabularyHash: COLORFUL_VOCABULARY_HASH,
+        source: {
+          unitId: "notes.txt",
+          contentHash,
+          utf8ByteLength: source.byteLength,
+        },
+        tokens: [
+          {
+            occurrenceId: "tok_ship",
+            byteRange: { startUtf8: 0, endUtf8: Math.min(source.byteLength, 4) },
+            tokenKind: "WORD",
+            lexicalClass: "FUNCTION",
+            functionKind: null,
+          },
+        ],
+        structure: [
+          {
+            nodeId: "paragraph_1",
+            kind: "PARAGRAPH",
+            byteRange: { startUtf8: 0, endUtf8: source.byteLength },
+            depth: 0,
+            childNodeIds: ["sentence_1"],
+          },
+          {
+            nodeId: "sentence_1",
+            kind: "SENTENCE",
+            byteRange: { startUtf8: 0, endUtf8: Math.min(source.byteLength, 80) },
+            depth: 1,
+            childNodeIds: [],
+          },
+        ],
+      }),
+      stderr: "",
+    };
+  }
+}
 
 describe("mcp: re-read suppression", () => {
   let server: GraftServer;
@@ -101,6 +153,26 @@ describe("mcp: re-read suppression", () => {
     expect(result["outline"]).toBeDefined();
   });
 
+  it("file_outline caches Colorful prose outlines for text files", async () => {
+    cleanupServer();
+    const processRunner = new FakeColorfulRunner();
+    const isolated = createIsolatedServer({ projectRoot: tmpDir, processRunner });
+    server = isolated.server;
+    cleanupServer = () => {
+      isolated.cleanup();
+    };
+    const proseFile = path.join(tmpDir, "notes.txt");
+    fs.writeFileSync(proseFile, "ship the prose path\n");
+
+    const first = parse(await server.callTool("file_outline", { path: proseFile }));
+    expect(first["outline"]).toContainEqual(expect.objectContaining({ kind: "paragraph" }));
+
+    const second = parse(await server.callTool("file_outline", { path: proseFile }));
+    expect(second["cacheHit"]).toBe(true);
+    expect(second["outline"]).toContainEqual(expect.objectContaining({ kind: "paragraph" }));
+    expect(processRunner.requests).toHaveLength(1);
+  });
+
   it("stats includes cache metrics", async () => {
     await server.callTool("safe_read", { path: testFile });
     await server.callTool("safe_read", { path: testFile });
@@ -173,6 +245,29 @@ describe("mcp: re-read suppression", () => {
     const diff = changedResult["diff"] as { added: { name: string; kind: string }[] };
     expect(diff.added).toContainEqual(
       expect.objectContaining({ name: "Added", kind: "heading" }),
+    );
+  });
+
+  it("changed_since reports structural diffs for observed Colorful prose text", async () => {
+    cleanupServer();
+    const processRunner = new FakeColorfulRunner();
+    const isolated = createIsolatedServer({ projectRoot: tmpDir, processRunner });
+    server = isolated.server;
+    cleanupServer = () => {
+      isolated.cleanup();
+    };
+    const proseFile = path.join(tmpDir, "notes.txt");
+    fs.writeFileSync(proseFile, "ship the prose path\n".repeat(180));
+
+    const readResult = parse(await server.callTool("safe_read", { path: proseFile }));
+    expect(readResult["projection"]).toBe("outline");
+
+    fs.writeFileSync(proseFile, "change the prose path\n".repeat(180));
+
+    const changedResult = parse(await server.callTool("changed_since", { path: proseFile }));
+    const diff = changedResult["diff"] as { changed: { name: string; kind: string }[] };
+    expect(diff.changed).toContainEqual(
+      expect.objectContaining({ name: "Paragraph 1", kind: "paragraph" }),
     );
   });
 });
