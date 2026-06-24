@@ -9,10 +9,13 @@ import {
 } from "../parser/runtime.js";
 import type { ParsedTree } from "../parser/runtime.js";
 import type { OutlineEntry, JumpEntry } from "../parser/types.js";
+import type { ProseProjection, ProseProjectionProvider } from "./colorful-prose-projection.js";
 
 export type BufferUnavailableReason =
   | "UNSUPPORTED_LANGUAGE"
   | "PARSER_RUNTIME_NOT_READY";
+
+export type StructuredBufferFormat = SupportedStructuredFormat | "prose";
 
 export interface BufferPoint {
   readonly row: number;
@@ -35,7 +38,7 @@ export interface WarmProjectionBasis {
 
 export interface BufferOutlineResult {
   readonly path: string;
-  readonly format: SupportedStructuredFormat | null;
+  readonly format: StructuredBufferFormat | null;
   readonly basis: WarmProjectionBasis | null;
   readonly outline: readonly OutlineEntry[];
   readonly jumpTable: readonly JumpEntry[];
@@ -63,7 +66,7 @@ export interface SyntaxSpan {
 
 export interface SyntaxSpanResult {
   readonly path: string;
-  readonly format: SupportedStructuredFormat | null;
+  readonly format: StructuredBufferFormat | null;
   readonly basis: WarmProjectionBasis | null;
   readonly partial: boolean;
   readonly spans: readonly SyntaxSpan[];
@@ -80,7 +83,7 @@ export interface BufferDiagnostic {
 
 export interface DiagnosticsResult {
   readonly path: string;
-  readonly format: SupportedStructuredFormat | null;
+  readonly format: StructuredBufferFormat | null;
   readonly basis: WarmProjectionBasis | null;
   readonly partial: boolean;
   readonly diagnostics: readonly BufferDiagnostic[];
@@ -97,7 +100,7 @@ export interface NodeSummary {
 
 export interface NodeLookupResult {
   readonly path: string;
-  readonly format: SupportedStructuredFormat | null;
+  readonly format: StructuredBufferFormat | null;
   readonly basis: WarmProjectionBasis | null;
   readonly partial: boolean;
   readonly node: NodeSummary | null;
@@ -114,7 +117,7 @@ export interface InjectionRegion {
 
 export interface InjectionResult {
   readonly path: string;
-  readonly format: SupportedStructuredFormat | null;
+  readonly format: StructuredBufferFormat | null;
   readonly basis: WarmProjectionBasis | null;
   readonly injections: readonly InjectionRegion[];
   readonly reason?: BufferUnavailableReason | undefined;
@@ -127,7 +130,7 @@ export interface FoldRegion {
 
 export interface FoldRegionsResult {
   readonly path: string;
-  readonly format: SupportedStructuredFormat | null;
+  readonly format: StructuredBufferFormat | null;
   readonly basis: WarmProjectionBasis | null;
   readonly partial: boolean;
   readonly regions: readonly FoldRegion[];
@@ -136,7 +139,7 @@ export interface FoldRegionsResult {
 
 export interface WarmProjectionParseStatus {
   readonly basis: WarmProjectionBasis | null;
-  readonly format: SupportedStructuredFormat | null;
+  readonly format: StructuredBufferFormat | null;
   readonly partial: boolean;
   readonly status: "full" | "partial" | "unsupported";
   readonly reason?: BufferUnavailableReason | undefined;
@@ -144,7 +147,7 @@ export interface WarmProjectionParseStatus {
 
 export interface WarmProjectionBundleResult {
   readonly path: string;
-  readonly format: SupportedStructuredFormat | null;
+  readonly format: StructuredBufferFormat | null;
   readonly basis: WarmProjectionBasis | null;
   readonly partial: boolean;
   readonly parseStatus: WarmProjectionParseStatus;
@@ -156,7 +159,7 @@ export interface WarmProjectionBundleResult {
 
 export interface SelectionStepResult {
   readonly path: string;
-  readonly format: SupportedStructuredFormat | null;
+  readonly format: StructuredBufferFormat | null;
   readonly basis: WarmProjectionBasis | null;
   readonly partial: boolean;
   readonly range: BufferRange | null;
@@ -172,7 +175,7 @@ export interface SymbolOccurrence {
 
 export interface SymbolOccurrencesResult {
   readonly path: string;
-  readonly format: SupportedStructuredFormat | null;
+  readonly format: StructuredBufferFormat | null;
   readonly basis: WarmProjectionBasis | null;
   readonly partial: boolean;
   readonly symbol: string | null;
@@ -190,7 +193,7 @@ export interface RenameEditPreview {
 
 export interface RenamePreviewResult {
   readonly path: string;
-  readonly format: SupportedStructuredFormat | null;
+  readonly format: StructuredBufferFormat | null;
   readonly basis: WarmProjectionBasis | null;
   readonly partial: boolean;
   readonly symbol: string | null;
@@ -210,7 +213,7 @@ export interface ChangedRegion {
 
 export interface StructuredBufferDiffResult {
   readonly path: string;
-  readonly format: SupportedStructuredFormat | null;
+  readonly format: StructuredBufferFormat | null;
   readonly fromBasis: WarmProjectionBasis | null;
   readonly toBasis: WarmProjectionBasis | null;
   readonly partial: boolean;
@@ -232,7 +235,7 @@ export type SemanticSummaryKind =
 
 export interface SemanticSummaryResult {
   readonly path: string;
-  readonly format: SupportedStructuredFormat | null;
+  readonly format: StructuredBufferFormat | null;
   readonly fromBasis: WarmProjectionBasis | null;
   readonly toBasis: WarmProjectionBasis | null;
   readonly partial: boolean;
@@ -243,7 +246,7 @@ export interface SemanticSummaryResult {
 
 export interface AnchorAffinityResult {
   readonly path: string;
-  readonly format: SupportedStructuredFormat | null;
+  readonly format: StructuredBufferFormat | null;
   readonly fromBasis: WarmProjectionBasis | null;
   readonly toBasis: WarmProjectionBasis | null;
   readonly partial: boolean;
@@ -258,10 +261,11 @@ export interface AnchorAffinityResult {
 export interface StructuredBufferSnapshot {
   readonly path: string;
   readonly content: string;
-  readonly format: SupportedStructuredFormat | null;
+  readonly format: StructuredBufferFormat | null;
   readonly basis: WarmProjectionBasis | null;
   readonly partial: boolean;
   readonly parsed: ParsedTree | null;
+  readonly proseProjection?: ProseProjection | undefined;
   readonly parseUnavailableReason?: BufferUnavailableReason | undefined;
 }
 
@@ -269,14 +273,15 @@ export function createStructuredBufferSnapshot(opts: {
   path: string;
   content: string;
   basis?: WarmProjectionBasis | undefined;
+  proseProjector?: ProseProjectionProvider | undefined;
 }): StructuredBufferSnapshot {
   const format = detectStructuredFormat(opts.path);
   let parsed: ParsedTree | null = null;
   let parseUnavailableReason: BufferUnavailableReason | undefined;
-
-  if (format === null) {
+  const proseProjection = opts.proseProjector?.project({ path: opts.path, content: opts.content }) ?? undefined;
+  if (proseProjection === undefined && format === null) {
     parseUnavailableReason = "UNSUPPORTED_LANGUAGE";
-  } else if (format !== "md") {
+  } else if (proseProjection === undefined && format !== "md") {
     try {
       parsed = parseStructuredTreeForFile(opts.path, opts.content);
     } catch (error) {
@@ -294,10 +299,11 @@ export function createStructuredBufferSnapshot(opts: {
   return {
     path: opts.path,
     content: opts.content,
-    format,
+    format: proseProjection?.format ?? format,
     basis: opts.basis ?? null,
-    partial: parsed?.root.hasError() ?? parseUnavailableReason === "PARSER_RUNTIME_NOT_READY",
+    partial: proseProjection?.partial ?? (parsed?.root.hasError() ?? parseUnavailableReason === "PARSER_RUNTIME_NOT_READY"),
     parsed,
+    ...(proseProjection !== undefined ? { proseProjection } : {}),
     ...(parseUnavailableReason !== undefined ? { parseUnavailableReason } : {}),
   };
 }

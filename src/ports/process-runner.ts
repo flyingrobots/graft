@@ -6,6 +6,7 @@ export interface ProcessRunRequest {
   readonly command: string;
   readonly args: readonly string[];
   readonly cwd: string;
+  readonly stdin?: string;
   readonly timeoutMs?: number;
   readonly maxBufferBytes?: number;
 }

@@ -1,5 +1,7 @@
 import { afterEach, describe, expect, it } from "vitest";
 import { createStructuredBuffer } from "../../../src/index.js";
+import type { ProseProjectionProvider } from "../../../src/operations/colorful-prose-projection.js";
+import { JumpEntry, OutlineEntry } from "../../../src/parser/types.js";
 
 function locate(content: string, needle: string): { row: number; column: number; endColumn: number } {
   const index = content.indexOf(needle);
@@ -247,6 +249,50 @@ describe("library: structured buffer", () => {
     ]);
   });
 
+  it("honors an explicit prose projector for markdown buffers", () => {
+    const proseProjector: ProseProjectionProvider = {
+      project(input) {
+        if (!input.path.endsWith(".md")) {
+          return null;
+        }
+        return {
+          format: "prose",
+          partial: false,
+          syntaxSpans: [
+            {
+              className: "keyword",
+              range: { start: { row: 0, column: 2 }, end: { row: 0, column: 7 } },
+              text: "Notes",
+            },
+          ],
+          outline: [
+            new OutlineEntry({
+              kind: "paragraph",
+              name: "Paragraph 1",
+              exported: false,
+              signature: input.content,
+            }),
+          ],
+          jumpTable: [
+            new JumpEntry({ symbol: "Paragraph 1", kind: "paragraph", start: 1, end: 1 }),
+          ],
+        };
+      },
+    };
+    const buffer = track(createStructuredBuffer("README.md", "# Notes\n", { basis, proseProjector }));
+
+    expect(buffer.format).toBe("prose");
+    expect(buffer.outline()).toEqual(expect.objectContaining({
+      format: "prose",
+      outline: [expect.objectContaining({ kind: "paragraph", name: "Paragraph 1" })],
+    }));
+    expect(buffer.syntaxSpans().spans).toContainEqual(expect.objectContaining({
+      className: "keyword",
+      text: "Notes",
+    }));
+    expect(buffer.injections().injections).toEqual([]);
+  });
+
   it("keeps basis explicit for unsupported-language buffers", () => {
     const unsupportedBasis = { kind: "editor_head" as const, headId: "head-9", tick: 22 };
     const buffer = track(createStructuredBuffer("notes.txt", "hello", { basis: unsupportedBasis }));
@@ -271,5 +317,63 @@ describe("library: structured buffer", () => {
       diagnostics: expect.objectContaining({ reason: "UNSUPPORTED_LANGUAGE" }),
       folds: expect.objectContaining({ reason: "UNSUPPORTED_LANGUAGE" }),
     }));
+  });
+
+  it("projects prose buffers when a Colorful-compatible projector is supplied", () => {
+    const proseProjector: ProseProjectionProvider = {
+      project(input) {
+        expect(input.path).toBe("notes.txt");
+        expect(input.content).toBe("ship it\n");
+        return {
+          format: "prose",
+          partial: false,
+          syntaxSpans: [
+            {
+              className: "keyword",
+              range: { start: { row: 0, column: 0 }, end: { row: 0, column: 4 } },
+              text: "ship",
+            },
+          ],
+          outline: [
+            new OutlineEntry({
+              kind: "paragraph",
+              name: "Paragraph 1",
+              exported: false,
+              signature: "ship it",
+            }),
+          ],
+          jumpTable: [
+            new JumpEntry({ symbol: "Paragraph 1", kind: "paragraph", start: 1, end: 1 }),
+          ],
+        };
+      },
+    };
+    const buffer = track(createStructuredBuffer("notes.txt", "ship it\n", { basis, proseProjector }));
+
+    expect(buffer.format).toBe("prose");
+    expect(buffer.outline()).toEqual(expect.objectContaining({
+      format: "prose",
+      outline: [expect.objectContaining({ kind: "paragraph", name: "Paragraph 1" })],
+    }));
+    const syntaxSpans = buffer.syntaxSpans();
+    expect(syntaxSpans).toEqual(expect.objectContaining({
+      format: "prose",
+      spans: [expect.objectContaining({ className: "keyword", text: "ship" })],
+    }));
+    expect(syntaxSpans).not.toHaveProperty("reason");
+    const projectionBundle = buffer.projectionBundle();
+    expect(projectionBundle).toEqual(expect.objectContaining({
+      format: "prose",
+      parseStatus: expect.objectContaining({
+        format: "prose",
+        status: "full",
+        reason: undefined,
+      }),
+      diagnostics: expect.objectContaining({
+        format: "prose",
+        diagnostics: [],
+      }),
+    }));
+    expect(projectionBundle.diagnostics).not.toHaveProperty("reason");
   });
 });

@@ -18,6 +18,7 @@ import type {
   WarmProjectionBundleResult,
   WarmProjectionBasis,
 } from "./structured-buffer-model.js";
+import type { ProseProjectionProvider } from "./colorful-prose-projection.js";
 import { createStructuredBufferSnapshot } from "./structured-buffer-model.js";
 import {
   buildDiagnosticsResult,
@@ -59,6 +60,7 @@ export type {
   SemanticSummaryKind,
   SemanticSummaryResult,
   StructuredBufferDiffResult,
+  StructuredBufferFormat,
   SymbolOccurrence,
   SymbolOccurrencesResult,
   SyntaxClass,
@@ -78,7 +80,12 @@ export class StructuredBuffer {
   #disposed = false;
   #snapshot: StructuredBufferSnapshot;
 
-  constructor(opts: { path: string; content: string; basis?: WarmProjectionBasis | undefined }) {
+  constructor(opts: {
+    path: string;
+    content: string;
+    basis?: WarmProjectionBasis | undefined;
+    proseProjector?: ProseProjectionProvider | undefined;
+  }) {
     this.#snapshot = createStructuredBufferSnapshot(opts);
     this.path = this.#snapshot.path;
     this.content = this.#snapshot.content;
