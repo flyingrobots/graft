@@ -1,6 +1,6 @@
 import { z } from "zod";
+import { createColorfulCliProseProjector } from "../../adapters/colorful-cli-prose-projector.js";
 import { fileOutline } from "../../operations/file-outline.js";
-import { detectStructuredFormat } from "../../parser/lang.js";
 import { hashContent } from "../cache.js";
 import type { ToolDefinition, ToolHandler } from "../context.js";
 import { toJsonObject } from "../../operations/result-dto.js";
@@ -26,9 +26,7 @@ export const fileOutlineTool: ToolDefinition = {
         // proceed to fileOutline for error handling
       }
 
-      const outlineSupported = detectStructuredFormat(filePath) !== null;
-
-      if (rawContent !== null && outlineSupported) {
+      if (rawContent !== null) {
         const cacheResult = ctx.cache.check(filePath, rawContent);
         if (cacheResult.hit) {
           cacheResult.obs.touch(ctx.cache.now());
@@ -46,12 +44,18 @@ export const fileOutlineTool: ToolDefinition = {
         // If stale, fall through to fresh parse (no diff for file_outline)
       }
 
-      const result = await fileOutline(filePath, { fs: ctx.fs });
+      const result = await fileOutline(filePath, {
+        fs: ctx.fs,
+        proseProjector: createColorfulCliProseProjector({
+          processRunner: ctx.process,
+          cwd: ctx.projectRoot,
+        }),
+      });
       ctx.metrics.recordOutline();
       ctx.recordFootprint({ symbols: result.outline.map((e) => e.name) });
 
       // Record observation
-      if (rawContent !== null && outlineSupported && result.reason !== "UNSUPPORTED_LANGUAGE") {
+      if (rawContent !== null && result.reason !== "UNSUPPORTED_LANGUAGE") {
         ctx.cache.record(
           filePath,
           hashContent(rawContent),

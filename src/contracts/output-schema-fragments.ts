@@ -628,10 +628,22 @@ export const authorizedWorkspaceSchema = z.object({
   activeSessions: z.number().int().nonnegative(),
 }).strict();
 
+export const workspaceRegistryObservationSchema = z.discriminatedUnion("ok", [
+  z.object({
+    ok: z.literal(true),
+  }).strict(),
+  z.object({
+    ok: z.literal(false),
+    code: z.literal("REGISTRY_OBSERVATION_UNAVAILABLE"),
+    message: z.string(),
+  }).strict(),
+]);
+
 export const workspaceAuthorizeSchema = z.object({
   ok: z.boolean(),
   changed: z.boolean(),
   authorization: authorizedWorkspaceSchema.optional(),
+  registryObservation: workspaceRegistryObservationSchema.optional(),
   errorCode: z.string().optional(),
   error: z.string().optional(),
 }).strict();

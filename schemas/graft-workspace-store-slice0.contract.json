@@ -1,0 +1,345 @@
+{
+  "schemaVersion": 1,
+  "contractId": "graft.workspace-store.slice0",
+  "goalpost": "G0",
+  "identityEncoding": {
+    "canonicalEncoding": "deterministic-cbor",
+    "digest": "sha-256",
+    "publicId": {
+      "format": "typed-prefix-lowercase-base32",
+      "minimumDigestBits": 128
+    },
+    "workspaceIdScope": "installation-local",
+    "historyStoreIdScope": "portable"
+  },
+  "persistedObjects": [
+    {
+      "kind": "workspace-metadata",
+      "schemaVersion": 1,
+      "storageOwner": "registry",
+      "requiredFields": [
+        "schemaVersion",
+        "workspaceId",
+        "displayName",
+        "canonicalRoot",
+        "gitCommonDir",
+        "sanitizedRemotes",
+        "incarnationId",
+        "historyBindingIds",
+        "storage",
+        "createdAt",
+        "lastObservedAt",
+        "retention"
+      ],
+      "forbiddenFields": [
+        "recordState",
+        "exclusionPolicy",
+        "historyStoreId",
+        "history",
+        "trackingAuthorization"
+      ]
+    },
+    {
+      "kind": "incarnation-metadata",
+      "schemaVersion": 1,
+      "storageOwner": "registry",
+      "requiredFields": [
+        "schemaVersion",
+        "workspaceId",
+        "incarnationId",
+        "incarnationStatus",
+        "createdAt",
+        "lastObservedAt",
+        "evidence"
+      ],
+      "allowedStatuses": [
+        "confirmed",
+        "suspect",
+        "replaced",
+        "unknown"
+      ]
+    },
+    {
+      "kind": "workspace-view",
+      "schemaVersion": 1,
+      "storageOwner": "registry",
+      "requiredFields": [
+        "schemaVersion",
+        "workspaceViewId",
+        "workspaceId",
+        "stableScope"
+      ],
+      "forbiddenFields": [
+        "grantId",
+        "grantEpoch",
+        "policyDigest",
+        "sessionId"
+      ]
+    },
+    {
+      "kind": "visibility-context",
+      "schemaVersion": 1,
+      "storageOwner": "memory-or-receipt",
+      "requiredFields": [
+        "schemaVersion",
+        "grantId",
+        "grantEpoch",
+        "scopeDigest",
+        "policyDigest"
+      ],
+      "authority": "current-host-grant"
+    },
+    {
+      "kind": "history-binding",
+      "schemaVersion": 1,
+      "storageOwner": "registry",
+      "requiredFields": [
+        "schemaVersion",
+        "historyBindingId",
+        "historyStoreId",
+        "workspaceId",
+        "incarnationId",
+        "trackingScopeId",
+        "scope",
+        "storage",
+        "provider",
+        "lifecycle",
+        "availability",
+        "watermark",
+        "coverage",
+        "trackingAuthorizationRef",
+        "consentAuthorityRecordId"
+      ],
+      "allowedLifecycle": [
+        "active",
+        "paused"
+      ],
+      "forbiddenLifecycle": [
+        "off"
+      ]
+    },
+    {
+      "kind": "tracking-authorization",
+      "schemaVersion": 1,
+      "storageOwner": "registry",
+      "requiredFields": [
+        "schemaVersion",
+        "trackingAuthorizationId",
+        "mode",
+        "scopeDigest",
+        "expiresAt",
+        "revocationEpoch"
+      ],
+      "allowedModes": [
+        "session-bound",
+        "durable-grant"
+      ],
+      "forbiddenFields": [
+        "bearerToken",
+        "rawCapability"
+      ]
+    },
+    {
+      "kind": "consent-authority-record",
+      "schemaVersion": 1,
+      "storageOwner": "registry",
+      "requiredFields": [
+        "schemaVersion",
+        "consentAuthorityRecordId",
+        "operation",
+        "planDigest",
+        "workspaceId",
+        "incarnationId",
+        "trackingScopeId",
+        "createdAt"
+      ],
+      "retentionRule": "retained-while-binding-exists"
+    },
+    {
+      "kind": "consent-audit-receipt",
+      "schemaVersion": 1,
+      "storageOwner": "receipt-store",
+      "requiredFields": [
+        "schemaVersion",
+        "consentAuditReceiptId",
+        "operation",
+        "planDigest",
+        "createdAt",
+        "retention"
+      ],
+      "retentionRule": "disclosed-by-plan"
+    },
+    {
+      "kind": "operation-plan",
+      "schemaVersion": 1,
+      "storageOwner": "operation-journal",
+      "requiredFields": [
+        "schemaVersion",
+        "planId",
+        "planDigest",
+        "operation",
+        "preconditions",
+        "effects",
+        "writeTargets",
+        "residualRecords",
+        "expiresAt"
+      ]
+    },
+    {
+      "kind": "operation-receipt",
+      "schemaVersion": 1,
+      "storageOwner": "receipt-store",
+      "requiredFields": [
+        "schemaVersion",
+        "receiptId",
+        "operationId",
+        "resourceScope",
+        "visibilityContext",
+        "policy",
+        "runtime"
+      ]
+    },
+    {
+      "kind": "exclusion-entry",
+      "schemaVersion": 1,
+      "storageOwner": "global-exclusion-registry",
+      "requiredFields": [
+        "schemaVersion",
+        "exclusionId",
+        "targetKind",
+        "canonicalLocation",
+        "createdAt"
+      ],
+      "effect": "preserve-state-and-fence-maintenance"
+    },
+    {
+      "kind": "artifact-envelope",
+      "schemaVersion": 1,
+      "storageOwner": "cache",
+      "requiredFields": [
+        "schemaVersion",
+        "artifactId",
+        "workspaceId",
+        "incarnationId",
+        "workspaceViewId",
+        "visibilityContextDigest",
+        "policyDigest",
+        "inputs",
+        "transform"
+      ]
+    }
+  ],
+  "mutatingOperations": [
+    {
+      "operation": "workspace.track",
+      "visibility": "public",
+      "classification": "plan-commit"
+    },
+    {
+      "operation": "workspace.pause",
+      "visibility": "public",
+      "classification": "plan-commit"
+    },
+    {
+      "operation": "workspace.resume",
+      "visibility": "public",
+      "classification": "plan-commit"
+    },
+    {
+      "operation": "workspace.include",
+      "visibility": "public",
+      "classification": "plan-commit"
+    },
+    {
+      "operation": "workspace.exclude",
+      "visibility": "public",
+      "classification": "plan-commit"
+    },
+    {
+      "operation": "workspace.forget",
+      "visibility": "public",
+      "classification": "plan-commit"
+    },
+    {
+      "operation": "workspace.purge-history",
+      "visibility": "public",
+      "classification": "plan-commit"
+    },
+    {
+      "operation": "workspace.relink",
+      "visibility": "public",
+      "classification": "plan-commit"
+    },
+    {
+      "operation": "workspace.prune-apply",
+      "visibility": "public",
+      "classification": "plan-commit"
+    },
+    {
+      "operation": "workspace.observe-successful-read",
+      "visibility": "internal",
+      "classification": "internal-maintenance"
+    },
+    {
+      "operation": "cache.evict-expired-artifact",
+      "visibility": "internal",
+      "classification": "internal-maintenance"
+    }
+  ],
+  "scopeAlgebra": {
+    "relations": [
+      "equivalent",
+      "contains",
+      "contained-by",
+      "overlaps",
+      "disjoint",
+      "unknown"
+    ],
+    "subtractResult": [
+      "ScopeSet",
+      "unknown"
+    ],
+    "unknownBehaviorByConsumer": {
+      "authorization": "deny",
+      "management-authority": "deny",
+      "cache-reuse": "miss",
+      "history-query": "insufficient-scope",
+      "scope-expansion": "new-plan-required",
+      "historical-filtering": "truncate-or-refuse"
+    }
+  },
+  "authorityInvariants": [
+    {
+      "id": "workspace-view-id-is-not-authority",
+      "resource": "workspaceViewId",
+      "rule": "requires-current-visibility-context"
+    },
+    {
+      "id": "daemon-readability-is-not-client-authorization",
+      "resource": "daemon-filesystem",
+      "rule": "requires-session-grant-or-authorized-handle"
+    },
+    {
+      "id": "approval-is-not-filesystem-capability",
+      "resource": "operation-plan",
+      "rule": "requires-consent-and-authorization"
+    }
+  ],
+  "errorTaxonomy": [
+    "UNAUTHORIZED_PATH",
+    "UNAUTHORIZED_VIEW",
+    "PATH_CONTAINMENT_UNPROVEN",
+    "WORKSPACE_TRACKING_REQUIRED",
+    "UNSUPPORTED_SCHEMA_VERSION",
+    "HISTORY_UNAVAILABLE",
+    "HISTORY_BINDING_AMBIGUOUS",
+    "INSUFFICIENT_SCOPE",
+    "INSUFFICIENT_HISTORY_COVERAGE",
+    "WORKSPACE_EXCLUDED",
+    "OPERATION_JOURNAL_INCOMPLETE",
+    "CACHE_SCOPE_UNUSABLE",
+    "WORKSPACE_REPLACED",
+    "UNTRUSTED_HISTORY_STORE",
+    "OPERATION_PLAN_STALE"
+  ]
+}

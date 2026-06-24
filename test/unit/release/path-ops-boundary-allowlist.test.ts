@@ -42,6 +42,7 @@ const ALLOWED_NODE_PATH_IMPORTS = new Set([
   "src/mcp/tools/run-capture.ts",
   "src/mcp/tools/state.ts",
   "src/mcp/workspace-read-observation.ts",
+  "src/mcp/workspace-registry.ts",
   "src/mcp/workspace-router-resolution.ts",
   "src/mcp/workspace-router-runtime.ts",
   "src/mcp/workspace-router.ts",

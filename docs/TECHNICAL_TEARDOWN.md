@@ -23,7 +23,7 @@ For quick onboarding and project positioning, start at `README.md`.
 - [Scope and Non-Goals](#scope-and-non-goals)
 1. [Domain Dictionary](#1-domain-dictionary)
 2. [What Graft Is and Why It Exists](#2-what-graft-is-and-why-it-exists)
-3. [The Three Official Surfaces](#3-the-three-official-surfaces)
+3. [The Three Official Entry Points](#3-the-three-official-entry-points)
 4. [Bootstrapping vs. Runtime](#4-bootstrapping-vs-runtime)
 5. [The Entry Point: Following `int main()`](#5-the-entry-point-following-int-main)
 6. [Golden Path 1: `safe_read` — A Policy-Governed File Read](#6-golden-path-1-safe_read--a-policy-governed-file-read)
@@ -49,10 +49,12 @@ mindmap
     Context Governance
       Policy Engine
       Budgets & Tripwires
-    Core Surfaces
+    Core Entry Points
+      API
       CLI
-      MCP Stdio
-      MCP Daemon
+      MCP
+        Repo-Local Stdio
+        Daemon-Backed Stdio
     Runtime Flow
       Bootstrapping
       Golden Paths
@@ -114,23 +116,23 @@ Before any code is discussed, establish a shared vocabulary. These terms appear 
 
 | Term | Definition |
 |------|-----------|
-| **Agent** | An AI coding assistant (e.g., Claude, Copilot) that reads files and produces edits. Graft governs what agents are allowed to read. |
+| **Agent** | An AI coding assistant (e.g., Claude, Copilot) that reads files and produces edits. Graft governs reads routed through its tool surfaces; it is not an operating-system sandbox. |
 | **Context window** | The finite amount of text an AI model can hold in its "working memory" at one time. Graft exists to prevent this from being wasted. |
-| **Projection** | The *form* in which a file's content is returned. Either `"content"` (full text), `"outline"` (structural skeleton), or `"refused"` (nothing). |
+| **Projection** | The *form* in which file or structural evidence is returned. Common `safe_read` forms are `"content"`, `"outline"`, and `"refused"`; repeated observations can also return `"cache_hit"` or `"diff"`. |
 | **Outline** | A structural skeleton of a source file extracted from its AST: function names, class names, method signatures — but not implementation bodies. |
 | **AST** | Abstract Syntax Tree. A tree representation of source code's grammatical structure, produced by a parser. Graft uses Tree-Sitter to build these. |
 | **Policy** | A set of rules that determine which projection to return for a given file, based on file size, type, session depth, and budget. |
 | **Session** | One continuous conversation between an agent and Graft's MCP server. Sessions track how many messages, tool calls, and bytes have been consumed. |
 | **Budget** | An optional byte cap on how much raw file content an agent may consume in a session. When approaching the cap, Graft automatically downgrades projections. |
 | **Tripwire** | A behavioral signal that fires when an agent is doing something suspicious (reading huge files late in a session, spinning in tool loops, etc.). |
-| **WARP** | Graft's structural worldline memory layer. Git-backed AST outlines are stored per commit to enable symbol-level history queries without re-reading source. |
+| **WARP** | Graft's current git-warp-backed structural worldline memory layer. Git-backed AST outlines are stored per commit to enable symbol-level history queries without dumping source into the agent context. The active architecture is moving this behind `StructuralReadingPort` so Echo can become the primary causal-history substrate after parity is proven. |
 | **Worldline** | A sequence of structural states a file or symbol passes through across Git commits. The WARP graph stores these worldlines. |
 | **Receipt** | A machine-readable metadata envelope attached to every tool call result, carrying latency, byte counts, policy decision, and cumulative session stats. |
 | **MCP** | *Model Context Protocol*. An open protocol for tools that AI agents can call. Graft exposes all its capabilities as MCP tools. |
-| **Daemon** | Graft's persistent background process. Manages multiple repos, keeps WARP graphs warm in memory, and handles background indexing. |
+| **Daemon** | Graft's persistent same-user background process. It manages authorized workspaces, shared worker pools, persistent monitors, and current git-warp contexts across MCP sessions. |
 | **Repo-local mode** | A lightweight alternative to the daemon — a per-repo, in-process MCP server that reads one checkout. No persistent process. |
 | **`.graftignore`** | A file (like `.gitignore`) listing patterns for files Graft should refuse to read. |
-| **ObservationCache** | An in-memory deduplication store. If an agent reads the same file twice in a session, the second call returns a cached outline rather than re-parsing. |
+| **ObservationCache** | A session-scoped in-memory deduplication store. If an agent reads the same file twice in a session, the second call can return a cached outline or a structural diff rather than re-parsing blindly. |
 | **Burden** | Graft's internal label for the "cost" of a tool call: `"read"` (file I/O), `"compute"` (AST parsing, WARP queries), `"non_read"` (metadata). |
 | **Hexagonal Architecture** | An architectural pattern where business logic (the "core") is isolated from all I/O behind abstract interfaces called *ports*. Concrete implementations are called *adapters*. |
 
@@ -144,7 +146,7 @@ Graft solves this by acting as a **context governor** between the agent and the 
 
 1. **Evaluates a policy** — is this file too big? Is the agent's session already deep?
 2. **Returns the minimum structurally correct view** — full content for small files; a structural outline for large ones; a hard refusal for binaries, secrets, and lockfiles.
-3. **Tracks everything** — bytes consumed, files read, symbols seen — and embeds this telemetry in every response so the agent can self-regulate.
+3. **Tracks tool responses** — bytes consumed, files read, symbols seen — and embeds this telemetry in tool receipts so the agent can self-regulate.
 
 ```mermaid
 flowchart TD
@@ -159,16 +161,18 @@ The key insight is that **an outline is often enough**. If an agent needs to kno
 
 ---
 
-## 3. The Three Official Surfaces
+## 3. The Three Official Entry Points
 
-Graft exposes the same core capabilities through three distinct surfaces. They share identical business logic; only their transport layer differs.
+Graft exposes the same core capabilities through three official product entry points: API, CLI, and MCP. MCP has two runtimes: repo-local stdio for one checkout and daemon-backed stdio for multi-repo sessions. They share the same business logic; only the adapter and transport layer differ.
 
 ```mermaid
 graph TD
-    subgraph "Three Surfaces"
+    subgraph "Three Entry Points"
+        API["API<br />createRepoWorkspace()"]
         CLI["CLI<br />graft read safe src/app.ts"]
-        MCP_Local["MCP Stdio<br />(repo-local)"]
-        MCP_Daemon["MCP via Daemon<br />(multi-repo)"]
+        MCP["MCP<br />agent tool transport"]
+        MCP_Local["Repo-local stdio<br />runtime"]
+        MCP_Daemon["Daemon-backed stdio<br />runtime"]
     end
 
     subgraph "Core Logic"
@@ -179,7 +183,10 @@ graph TD
         Governor["GovernorTracker"]
     end
 
+    API --> Policy
     CLI --> Policy
+    MCP --> MCP_Local
+    MCP --> MCP_Daemon
     MCP_Local --> Policy
     MCP_Daemon --> Policy
     Policy --> Parser
@@ -188,13 +195,18 @@ graph TD
     Policy --> Governor
 ```
 
-| Surface | Use Case | Persistence | Backed By |
+| Entry Point | Use Case | Persistence | Backed By |
 |---------|----------|-------------|-----------|
+| **API** | In-process integrations and tests | Caller-owned | Direct package imports |
 | **CLI** | Human inspection, scripting | None (stateless) | Direct node process |
-| **MCP Stdio (repo-local)** | Single-repo agent sessions | Session-scoped | In-process `GraftServer` |
-| **MCP Daemon** | Multi-repo, long-running agents | Across sessions | Persistent daemon process |
+| **MCP** | Agent sessions over tool calls | Runtime-dependent | Repo-local or daemon-backed server |
 
-**Trade-off**: The daemon is more powerful (keeps WARP graphs warm, enables multi-repo work) but requires a background process. The repo-local server is zero-setup but cold-starts on every session. The CLI is stateless by design — it prints and exits.
+| MCP Runtime | Use Case | Persistence | Backed By |
+|-------------|----------|-------------|-----------|
+| **Repo-local stdio** | Single-repo agent sessions | Session-scoped | In-process `GraftServer` |
+| **Daemon-backed stdio** | Multi-repo, long-running agents | Across sessions | Persistent daemon process and stdio bridge |
+
+**Trade-off**: The daemon-backed runtime is more powerful (multi-repo routing, persistent monitors, warm current git-warp contexts) but requires a local background process or bridge auto-start. The repo-local server is zero-setup but cold-starts on every session. The CLI is stateless by design — it prints and exits.
 
 ---
 
@@ -238,7 +250,7 @@ In daemon mode, bootstrapping also includes:
 - Creating the **WARP pool** (one WARP graph per repo, loaded lazily)
 - Initializing the **DaemonJobScheduler** (work queue)
 - Spawning the **DaemonWorkerPool** (child processes for CPU-bound work)
-- Starting the **PersistentMonitorRuntime** (watches repos for changes)
+- Starting the **PersistentMonitorRuntime** (polls authorized monitor records for new commits)
 
 ### Runtime Phase
 
@@ -258,7 +270,7 @@ Graft's equivalent of `int main()` lives in two places depending on how it is in
 bin/graft.js          (thin shell shim, just imports)
     └── src/cli/entrypoint.ts   runCliEntrypoint()
             └── src/cli/main.ts  runCli()
-                    └── dispatch to command handlers
+                    └── dispatch to built-in handlers or peer-tool commands
 ```
 
 `runCliEntrypoint()` does the following before any business logic runs:
@@ -266,26 +278,30 @@ bin/graft.js          (thin shell shim, just imports)
 ```typescript
 // src/cli/entrypoint.ts (simplified)
 export async function runCliEntrypoint(options: CliEntrypointOptions = {}): Promise<void> {
-  // 1. Check git version >= 2.39.0 (throws if too old)
-  await ensureGitVersionSupportsGraft();
-
-  // 2. Detect "auto-serve" mode: if stdin/stdout are piped (not TTY),
-  //    assume we're being used as an MCP server and start serving.
-  const argv = options.argv ?? process.argv.slice(2);
-  const isAutoServe = !process.stdin.isTTY && !process.stdout.isTTY && argv.length === 0;
-
-  if (isAutoServe) {
-    // An MCP client (agent) connected via stdio — switch to serve mode.
-    await startStdioServer(cwd);
-    return;
-  }
-
-  // 3. Otherwise, parse args and dispatch to CLI handler.
-  await runCli(cwd, argv, writer);
+  await runCli({
+    args: resolveEntrypointArgs(
+      options.argv ?? process.argv.slice(2),
+      options.stdinIsTTY ?? process.stdin.isTTY,
+      options.stdoutIsTTY ?? process.stdout.isTTY,
+    ),
+    exit: options.exit ?? ((code) => process.exit(code)),
+  });
 }
 ```
 
-**Why the auto-serve detection?** This allows the same `graft` binary to be used both interactively (`graft read safe src/app.ts`) and as an MCP server (an agent launches `graft` as a subprocess and pipes JSON-RPC through stdin/stdout). The binary detects which mode it's in automatically.
+`resolveEntrypointArgs()` owns the auto-serve decision:
+
+```typescript
+// src/cli/command-parser.ts (simplified)
+export function resolveEntrypointArgs(args, stdinIsTTY, stdoutIsTTY): string[] {
+  if (args.length === 0 && stdinIsTTY !== true && stdoutIsTTY !== true) {
+    return ["serve"];
+  }
+  return [...args];
+}
+```
+
+Git-version checks and command execution happen inside `runCli()`. This lets the same `graft` binary be used both interactively (`graft read safe src/app.ts`) and as an MCP server (an agent launches `graft` as a subprocess and pipes JSON-RPC through stdin/stdout). With no arguments and non-TTY stdio, the binary rewrites the invocation to `serve`.
 
 ### MCP Entry: `src/mcp/stdio-server.ts`
 
@@ -294,14 +310,15 @@ When running as a repo-local MCP server:
 ```typescript
 // src/mcp/stdio-server.ts (simplified)
 export async function startStdioServer(cwd = process.cwd()): Promise<void> {
-  const server = createGraftServer({
-    mode: "repo_local",
-    projectRoot: cwd,
-    graftDir: path.join(cwd, ".graft"),
+  await ensureGitVersionSupportsGraft();
+  const projectRoot = resolveProjectRoot(cwd);
+  const graft = createGraftServer({
+    projectRoot,
+    graftDir: path.join(projectRoot, ".graft"),
   });
 
   const transport = new StdioServerTransport(); // From @modelcontextprotocol/sdk
-  await server.connect(transport);
+  await graft.getMcpServer().connect(transport);
   // Now blocking: reads JSON-RPC from stdin, writes to stdout
 }
 ```
@@ -314,13 +331,13 @@ flowchart TD
     B -->|"init"| C["initCommand()"]
     B -->|"serve"| D["startStdioServer() or daemon bridge"]
     B -->|"daemon"| E["startDaemonServer()"]
-    B -->|"read"| F["readCommand()"]
-    B -->|"struct"| G["structCommand()"]
-    B -->|"symbol"| H["symbolCommand()"]
-    B -->|"review"| I["reviewCommand()"]
-    B -->|"diag"| J["diagCommand()"]
-    B -->|"project"| K["projectCommand()"]
-    B -->|"migrate"| L["migrateCommand()"]
+    B -->|"read"| F["parseCommand() -> invokePeerCommand()"]
+    B -->|"struct"| G["parseCommand() -> invokePeerCommand()"]
+    B -->|"symbol"| H["parseCommand() -> invokePeerCommand()"]
+    B -->|"review"| I["parseCommand() or runReviewCooldown()"]
+    B -->|"diag"| J["parseCommand() -> invokePeerCommand()"]
+    B -->|"index"| K["runIndex()"]
+    B -->|"migrate"| L["runMigrateLocalHistory()"]
     B -->|"unknown"| M["printUsage() + exit 1"]
 ```
 
@@ -597,22 +614,22 @@ Evidence: [stale cache branch](../src/operations/repo-workspace.ts#L185-L203), [
 
 ### The Three Search Layers
 
-Before tracing the path, understand the three layers `code_show` can search:
+Before tracing the path, understand the three result layers `code_show` reports:
 
 ```mermaid
 graph TD
     subgraph "Layer 3: workspace_overlay"
-        WO["Dirty working tree<br />(uncommitted changes)"]
+        WO["Dirty working tree<br />(uncommitted changes)<br />live file search"]
     end
     subgraph "Layer 2: ref_view"
-        RV["Specific branch/tag/commit<br />(e.g., --ref main)"]
+        RV["Current ref view<br />(clean working tree)<br />live tracked-file search"]
     end
     subgraph "Layer 1: commit_worldline"
-        CW["WARP index<br />(all indexed commits)"]
+        CW["Explicit --ref<br />current git-warp index when available,<br />live git content fallback otherwise"]
     end
 
-    WO -->|"falls through to"| RV
-    RV -->|"falls through to"| CW
+    WO -. "reported layer when dirty" .-> RV
+    RV -. "reported layer when clean" .-> CW
 ```
 
 ### Sequence Diagram
@@ -622,27 +639,30 @@ sequenceDiagram
     participant Agent as AI Agent
     participant Tool as code_show handler
     participant WARP as WARP Graph
+    participant Git as Git Client
     participant FS as FileSystem
     participant Parser as Tree-Sitter
 
     Agent->>Tool: tool_call("code_show", { symbol: "createUser", path: "src/users.ts" })
     Tool->>Tool: Determine search layer
 
-    alt --ref specified
-        Tool->>WARP: querySymbol("createUser", ref="main")
-        WARP-->>Tool: PrecisionSymbolMatch { file, startLine, endLine, kind, signature }
-    else Working tree dirty
-        Tool->>FS: readFile("src/users.ts")
-        FS-->>Tool: rawContent
-        Tool->>Parser: extractJumpTable(rawContent, "ts")
-        Parser-->>Tool: JumpEntry[]
-        Tool->>Tool: find("createUser") in JumpEntry[]
-        Tool-->>Agent: { symbol, file, startLine: 42, endLine: 67, kind: "function" }
-    else Clean working tree, WARP indexed
-        Tool->>WARP: querySymbol("createUser", layer="commit_worldline")
+    alt --ref specified and indexed
+        Tool->>WARP: getIndexedCommitCeilings()
+        Tool->>WARP: searchWarpSymbols(exactName="createUser", ceiling)
         WARP-->>Tool: PrecisionSymbolMatch[]
-        Tool-->>Agent: matches
+    else --ref specified but not indexed
+        Tool->>Git: git show ref:path
+        Git-->>Tool: file content at ref
+        Tool->>Parser: searchLiveSymbols(...)
+        Parser-->>Tool: PrecisionSymbolMatch[]
+    else no --ref
+        Tool->>FS: read working-tree file(s)
+        FS-->>Tool: rawContent
+        Tool->>Parser: searchLiveSymbols(...)
+        Parser-->>Tool: PrecisionSymbolMatch[]
     end
+
+    Tool-->>Agent: single match, ambiguous matches, refusal, or not_found
 ```
 
 ### What a Symbol Result Looks Like
@@ -726,7 +746,7 @@ Evidence: [policy refuse in code_show](../src/mcp/tools/code-show.ts#L175-L179),
 
 Evidence: [not found branch](../src/mcp/tools/code-show.ts#L198-L204), [search layer selection](../src/mcp/tools/code-show.ts#L143-L151).
 
-**Why is this valuable?** An agent that wants to read a specific function can call `code_show` first (cheap — parses the jump table only) and then call `safe_read` with a `--range 42:67` argument, reading exactly 26 lines instead of the entire file.
+**Why is this valuable?** An agent that wants to read a specific function can call `code_show` first (cheap — parses the jump table only) and then call `read_range` (CLI: `graft read range <path> --start 42 --end 67`), reading exactly 26 lines instead of the entire file.
 
 ## Contract Ledger (Golden Path)
 
@@ -756,6 +776,7 @@ The daemon is Graft's persistent process for power users and long-running agent 
 ```mermaid
 sequenceDiagram
     participant Shell as Shell
+    participant Bridge as daemon stdio bridge
     participant Daemon as startDaemonServer()
     participant CP as DaemonControlPlane
     participant Pool as DaemonWorkerPool
@@ -764,26 +785,33 @@ sequenceDiagram
     participant WARP as InMemoryWarpPool
     participant Socket as Unix Socket
 
-    Shell->>Daemon: graft daemon (or graft serve --runtime daemon)
+    Shell->>Daemon: graft daemon
     Daemon->>WARP: initialize (empty, lazy-loaded)
     Daemon->>Sched: new DaemonJobScheduler()
     Daemon->>Pool: new DaemonWorkerPool(scheduler)
     Daemon->>CP: new DaemonControlPlane(warpPool, scheduler, pool)
     Daemon->>Monitor: new PersistentMonitorRuntime()
-    Daemon->>Socket: listen on ~/.graft/daemon.sock
+    Daemon->>Socket: listen on ~/.graft/daemon/mcp.sock (Unix) or named pipe (Windows)
     Socket-->>Shell: 🟢 Daemon ready
 
     Note over Daemon,Socket: Daemon is now blocking, waiting for sessions
 
-    Shell->>Socket: graft serve --runtime daemon (agent connects)
-    Socket->>Daemon: new session request
-    Daemon->>Daemon: createGraftServer({ mode: "daemon_backed" })
-    Daemon-->>Shell: MCP session established
+    Shell->>Bridge: graft serve --runtime daemon
+    Bridge->>Socket: GET /healthz
+    alt daemon missing and autostart allowed
+        Bridge->>Daemon: spawn graft daemon --socket <path>
+        Daemon->>Socket: listen
+    end
+    Bridge->>Socket: connect /mcp over local socket
+    Socket->>Daemon: new MCP session request
+    Daemon->>Daemon: createGraftServer({ mode: "daemon" })
+    Daemon-->>Bridge: MCP session established
+    Bridge-->>Shell: stdio MCP bridge established
 ```
 
 ### Multi-Repo Authorization Flow
 
-The daemon's control plane enforces a **nonce-based authorization** model to prevent one repo's agent from touching another repo's files.
+The daemon's control plane enforces an explicit workspace authorization and binding model to prevent one repo's agent session from silently operating on another repo. The current implementation does not use nonce round-tripping; `workspace_open` authorizes before opening in daemon mode, while explicit control-plane flows use `workspace_authorize` followed by `workspace_bind`.
 
 ```mermaid
 sequenceDiagram
@@ -792,16 +820,14 @@ sequenceDiagram
     participant WARP as InMemoryWarpPool
 
     Agent->>CP: workspace_authorize({ cwd: "/repos/project-a" })
-    Note right of CP: Generates crypto-random nonce<br />Stores { cwd → nonce } in memory
-    CP-->>Agent: { nonce: "a3f9..." }
+    Note right of CP: Resolves repo identity<br />Persists authorization in daemon control plane
+    CP-->>Agent: { ok: true, workspace: "/repos/project-a" }
 
-    Note over Agent: Agent must return nonce to prove<br />it received the response<br />(prevents CSRF-style attacks)
-
-    Agent->>CP: workspace_open({ cwd: "/repos/project-a", nonce: "a3f9..." })
-    CP->>CP: verify nonce matches stored nonce
+    Agent->>CP: workspace_bind({ cwd: "/repos/project-a" })
+    CP->>CP: verify workspace is authorized for binding
     CP->>WARP: loadOrCreate("/repos/project-a")
     WARP-->>CP: WarpContext (loaded from .git)
-    CP-->>Agent: { workspaceId: "ws_1", status: "opened" }
+    CP-->>Agent: { ok: true, status: "bound" }
 
     Note over Agent,CP: Session is now bound to /repos/project-a only
 
@@ -1055,7 +1081,7 @@ classDiagram
 
 ## 11. WARP: Structural Worldline Memory
 
-WARP is the most novel component in Graft. It transforms the Git history of a repository into a **queryable structural graph** — without ever having to re-parse old commits.
+WARP is Graft's current structural-history adapter. Today it uses `@git-stunts/git-warp` to transform the Git history of a repository into a **queryable structural graph**. The active architecture is moving durable structural history behind `StructuralReadingPort` so Echo can become the primary causal-history substrate after parity is proven; git-warp remains the current implementation and compatibility fallback until that migration lands.
 
 ### The Problem WARP Solves
 
@@ -1067,13 +1093,13 @@ WARP is the most novel component in Graft. It transforms the Git history of a re
 
 That is slow, destructive to the working tree, and not amenable to background indexing.
 
-WARP pre-computes and stores AST outlines **per commit**, indexed in a Git-backed graph structure (using `@git-stunts/git-warp`).
+The current git-warp-backed adapter pre-computes and stores AST outlines **per commit**, indexed in a Git-backed graph structure. Initial or background indexing still has to read commit contents and parse supported files once; the payoff is that later structural queries can use the stored graph instead of checking out old commits or dumping old source into the agent context.
 
 ### The Three Worldline Layers
 
 ```mermaid
 graph TD
-    subgraph "commit_worldline (WARP graph)"
+    subgraph "commit_worldline (current git-warp graph)"
         C1["commit abc123<br />outline: [createUser, UserRepo]"]
         C2["commit def456<br />outline: [createUser, UserRepo, deleteUser]"]
         C3["commit ghi789<br />outline: [UserRepo, deleteUser]"]
@@ -1119,23 +1145,22 @@ sequenceDiagram
 
 **Trade-off**: Child process overhead (~30ms spawn time) vs. unblocked main thread. For bulk indexing of 100+ commits, the trade-off strongly favors child processes.
 
-### Querying the WARP Graph
+### Querying the Structural History Graph
 
-Once indexed, structural queries are fast:
+Once indexed, structural queries are fast. These examples are conceptual; current public tools call through Graft's structural query and MCP/CLI surfaces rather than requiring callers to manipulate graph internals directly.
 
-```typescript
-// "Did createUser exist at main~10?"
-const result = await warpCtx.querySymbol("createUser", {
-  ref: "main~10",
-  path: "src/users.ts",
-});
+```bash
+# "What changed structurally since main~10?"
+graft struct since main~10
 
-// "Which files changed the most in the last 30 commits?"
-const churn = await warpCtx.structuralChurn({ commits: 30 });
+# "Which files changed structurally the most?"
+graft struct churn --limit 20
 
-// "Are there any symbols defined but never referenced?"
-const dead = await warpCtx.deadSymbols({ ref: "HEAD" });
+# "Are there any removed symbols with evidence?"
+graft struct dead-symbols --limit 20
 ```
+
+The MCP peer tools behind these commands include `graft_since`, `graft_churn`, and `graft_dead_symbols`; `graft_diff` backs `graft struct diff`.
 
 ---
 
@@ -1721,7 +1746,7 @@ The `.env.example` exception is deliberate — example env files are safe to rea
 
 ### Daemon Authorization Model
 
-The daemon requires a **two-step authorization handshake** before an agent can perform any operations on a repo:
+Daemon sessions start without an active workspace. A session must authorize and open or bind a workspace before repository-scoped tools can operate. Possession of a path string is not enough; daemon routing checks that the requested path belongs to the active authorized workspace.
 
 ```mermaid
 sequenceDiagram
@@ -1729,17 +1754,21 @@ sequenceDiagram
     participant CP as DaemonControlPlane
 
     Agent->>CP: workspace_authorize({ cwd: "/repos/myapp" })
-    Note right of CP: Generates crypto-random nonce<br />Stores { cwd → nonce } in memory
-    CP-->>Agent: { nonce: "f7a3b9..." }
+    Note right of CP: Resolve repo identity and store authorization
+    CP-->>Agent: { ok: true, workspace: "/repos/myapp" }
 
-    Note over Agent: Agent must return nonce to prove<br />it received the response<br />(prevents CSRF-style attacks)
+    Agent->>CP: workspace_open({ cwd: "/repos/myapp", activate: true })
+    Note right of CP: In daemon mode, workspace_open also authorizes first
+    CP-->>Agent: { ok: true, status: "opened" }
 
-    Agent->>CP: workspace_open({ cwd: "/repos/myapp", nonce: "f7a3b9..." })
-    CP->>CP: verify nonce matches stored nonce
-    CP-->>Agent: { workspaceId: "ws_42", status: "opened" }
+    alt explicit bind flow
+        Agent->>CP: workspace_bind({ cwd: "/repos/myapp" })
+        CP->>CP: verify workspace was authorized
+        CP-->>Agent: { ok: true, status: "bound" }
+    end
 
     Agent->>CP: safe_read({ path: "src/app.ts" })
-    Note right of CP: Checks: is path inside ws_42's root?
+    Note right of CP: Checks: is path inside active workspace root?
     CP-->>Agent: { projection: "content", ... }
 ```
 
@@ -1758,8 +1787,14 @@ The numeric thresholds, file paths, and defaults in this section are implementat
 | Variable | Default | Effect |
 |----------|---------|--------|
 | `GRAFT_PROJECT_ROOT` | `process.cwd()` | Override the detected project root. Useful in monorepos where the working directory isn't the repo root. |
-| `GRAFT_DEBUG` | `"0"` | Set to `"1"` to print full stack traces on errors instead of user-friendly messages. |
-| `GRAFT_WARP_CHECKPOINT_EVERY` | `128` | How many commits to index before writing a WARP checkpoint to disk. Lower values = more durable (less work lost on crash) but more I/O. |
+| `GRAFT_ENABLE_RUN_CAPTURE` | `"1"` | Enable or disable run-capture support in MCP command execution paths. |
+| `GRAFT_RUN_CAPTURE_PERSIST` | `"1"` | Persist captured run logs when run capture is enabled. |
+| `GRAFT_RUN_CAPTURE_REDACT` | `"1"` | Redact captured run logs before persistence. |
+| `GRAFT_ENABLE_MCP_RUNTIME_LOG` | `"1"` | Enable MCP runtime observability logging. |
+| `GRAFT_MCP_RUNTIME_LOG_PATH` | `<graftDir>/logs/mcp-runtime.ndjson` | Override the MCP runtime log file location. |
+| `GRAFT_MCP_RUNTIME_LOG_MAX_BYTES` | `1048576` | Configure MCP runtime log rotation size. |
+
+There is currently no supported `GRAFT_WARP_CHECKPOINT_EVERY` environment variable. Checkpoint cadence is an internal option of the current git-warp adapter path, not a public environment contract.
 
 ### Policy Thresholds (Hardcoded, Configurable in Future)
 
@@ -1876,7 +1911,7 @@ Every design decision is a compromise. Here are Graft's most significant ones, s
 
 **Gained**: Cross-platform correctness. `git fetch` updates `.git/refs/`, not the working tree — filesystem event watchers would miss it. Polling catches all cases uniformly.
 
-**Lost**: New commits are detected with a polling delay (configurable, default ~30s). Not suitable for sub-second real-time indexing.
+**Lost**: New commits are detected with a polling delay (`monitor_start.pollIntervalMs`, default 5 seconds in `PersistentMonitorRuntime`). Not suitable for sub-second real-time indexing.
 
 **When this matters**: For agents that commit frequently and immediately want WARP queries on their new commits, there may be a brief indexing lag.
 

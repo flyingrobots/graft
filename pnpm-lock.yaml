@@ -51,6 +51,9 @@ importers:
       '@eslint/js':
         specifier: ^10.0.1
         version: 10.0.1(eslint@10.1.0)
+      '@git-stunts/alfred':
+        specifier: ^0.10.3
+        version: 0.10.3
       '@types/node':
         specifier: ^25.5.0
         version: 25.5.0

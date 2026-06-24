@@ -1,0 +1,335 @@
+{
+  "schemaVersion": 1,
+  "contractId": "graft.workspace-store.slice0",
+  "identityVectors": [
+    {
+      "case": "git-location-workspace-id",
+      "prefix": "ws_",
+      "input": {
+        "installationId": "00112233445566778899aabbccddeeff",
+        "platformNamespace": "darwin:arm64",
+        "volumeNamespace": "apfs:dev-disk-01",
+        "workspaceKind": "git",
+        "canonicalIdentityComponents": [
+          "/Users/james/work/server",
+          "/Users/james/work/server/.git"
+        ]
+      },
+      "canonicalPreimage": [
+        "graft-workspace",
+        1,
+        "00112233445566778899aabbccddeeff",
+        "darwin:arm64",
+        "apfs:dev-disk-01",
+        "git",
+        [
+          "/Users/james/work/server",
+          "/Users/james/work/server/.git"
+        ]
+      ],
+      "canonicalCborHex": "876f67726166742d776f726b737061636501782030303131323233333434353536363737383839396161626263636464656566666c64617277696e3a61726d363470617066733a6465762d6469736b2d3031636769748278182f55736572732f6a616d65732f776f726b2f736572766572781d2f55736572732f6a616d65732f776f726b2f7365727665722f2e676974",
+      "sha256Hex": "e471001344f627b41e64a737086fa5cda8ebea2cf68466107643b0a1486b54be",
+      "expectedId": "ws_4ryqae2e6yt3ihteu43qq35fzu"
+    },
+    {
+      "case": "directory-location-workspace-id",
+      "prefix": "ws_",
+      "input": {
+        "installationId": "00112233445566778899aabbccddeeff",
+        "platformNamespace": "darwin:arm64",
+        "volumeNamespace": "apfs:dev-disk-01",
+        "workspaceKind": "directory",
+        "canonicalIdentityComponents": [
+          "/Users/james/work/docs"
+        ]
+      },
+      "canonicalPreimage": [
+        "graft-workspace",
+        1,
+        "00112233445566778899aabbccddeeff",
+        "darwin:arm64",
+        "apfs:dev-disk-01",
+        "directory",
+        [
+          "/Users/james/work/docs"
+        ]
+      ],
+      "canonicalCborHex": "876f67726166742d776f726b737061636501782030303131323233333434353536363737383839396161626263636464656566666c64617277696e3a61726d363470617066733a6465762d6469736b2d3031696469726563746f727981762f55736572732f6a616d65732f776f726b2f646f6373",
+      "sha256Hex": "11abc39de5ac921b83835202df6ade7e5e4ba9e7d06d1fe21de19bc53755b287",
+      "expectedId": "ws_cgv4hhpfvsjbxa4dkibn62w6py"
+    }
+  ],
+  "stableViewVectors": [
+    {
+      "case": "docs-workspace-view",
+      "prefix": "wv_",
+      "canonicalPreimage": [
+        "graft-workspace-view",
+        1,
+        "ws_4ryqae2e6yt3ihteu43qq35fzu",
+        {
+          "root": "docs/",
+          "include": [
+            "**/*"
+          ],
+          "exclude": []
+        }
+      ],
+      "canonicalCborHex": "847467726166742d776f726b73706163652d7669657701781d77735f3472797161653265367974336968746575343371713335667a75a364726f6f7465646f63732f676578636c7564658067696e636c75646581642a2a2f2a",
+      "sha256Hex": "67d2485e09a511a163fe5714beaf6827ad58305640ed4d80e945443eb9ab4a2f",
+      "expectedId": "wv_m7jeqxqjuui2cy76k4kl5l3ie4",
+      "stableIdentityExcludes": [
+        "grantId",
+        "grantEpoch",
+        "policyDigest",
+        "sessionId"
+      ]
+    }
+  ],
+  "trackingScopeVectors": [
+    {
+      "case": "docs-tracking-scope",
+      "prefix": "ts_",
+      "canonicalPreimage": [
+        "graft-tracking-scope",
+        1,
+        {
+          "root": "docs/",
+          "include": [
+            "**/*"
+          ],
+          "exclude": [
+            "generated/**"
+          ]
+        }
+      ],
+      "canonicalCborHex": "837467726166742d747261636b696e672d73636f706501a364726f6f7465646f63732f676578636c756465816c67656e6572617465642f2a2a67696e636c75646581642a2a2f2a",
+      "sha256Hex": "9d701971d44a31c9d66317f75d394b3b6d18ee8f860f997dd71495d7c61ef1e2",
+      "expectedId": "ts_tvybs4oujiy4tvtdc73v2oklhm"
+    }
+  ],
+  "planDigestVectors": [
+    {
+      "case": "session-bound-docs-track-plan",
+      "digestExcludes": [
+        "planDigest",
+        "approvalToken",
+        "approvalSignature"
+      ],
+      "plan": {
+        "schemaVersion": 1,
+        "planId": "op_track_docs",
+        "operation": "workspace.track",
+        "issuedAt": "2026-06-19T00:00:00.000Z",
+        "expiresAt": "2026-06-19T01:00:00.000Z",
+        "preconditions": {
+          "workspaceId": "ws_4ryqae2e6yt3ihteu43qq35fzu",
+          "incarnationId": "wi_current",
+          "workspaceViewId": "wv_m7jeqxqjuui2cy76k4kl5l3ie4",
+          "trackingScopeId": "ts_tvybs4oujiy4tvtdc73v2oklhm",
+          "grantEpoch": 7,
+          "historyStorage": "graft-managed",
+          "maintenanceMode": "session-bound"
+        },
+        "effects": [
+          {
+            "kind": "create-history-binding",
+            "historyBindingId": "hb_docs",
+            "historyStoreId": "hs_docs"
+          }
+        ],
+        "writeTargets": [
+          "~/.graft/workspaces/ws_4ryqae2e6yt3ihteu43qq35fzu/incarnations/wi_current/history/hb_docs"
+        ],
+        "residualRecords": [
+          {
+            "kind": "consent-audit",
+            "retentionDays": 90,
+            "containsAbsolutePaths": false
+          }
+        ],
+        "approval": {
+          "required": true,
+          "scope": "enable_structural_history",
+          "targetRepoMutation": false
+        },
+        "planDigest": "sha256:placeholder"
+      },
+      "canonicalCborHex": "aa66706c616e49646d6f705f747261636b5f646f6373676566666563747381a3646b696e64766372656174652d686973746f72792d62696e64696e676e686973746f727953746f726549646768735f646f637370686973746f727942696e64696e6749646768625f646f637368617070726f76616ca36573636f70657819656e61626c655f7374727563747572616c5f686973746f7279687265717569726564f5727461726765745265706f4d75746174696f6ef46869737375656441747818323032362d30362d31395430303a30303a30302e3030305a696578706972657341747818323032362d30362d31395430313a30303a30302e3030305a696f7065726174696f6e6f776f726b73706163652e747261636b6c7772697465546172676574738178597e2f2e67726166742f776f726b7370616365732f77735f3472797161653265367974336968746575343371713335667a752f696e6361726e6174696f6e732f77695f63757272656e742f686973746f72792f68625f646f63736d707265636f6e646974696f6e73a76a6772616e7445706f6368076b776f726b73706163654964781d77735f3472797161653265367974336968746575343371713335667a756d696e6361726e6174696f6e49646a77695f63757272656e746e686973746f727953746f726167656d67726166742d6d616e616765646f6d61696e74656e616e63654d6f64656d73657373696f6e2d626f756e646f747261636b696e6753636f70654964781d74735f7476796273346f756a6979347476746463373376326f6b6c686d6f776f726b7370616365566965774964781d77765f6d376a657178716a75756932637937366b346b6c356c336965346d736368656d6156657273696f6e016f726573696475616c5265636f72647381a3646b696e646d636f6e73656e742d61756469746d726574656e74696f6e44617973185a75636f6e7461696e734162736f6c7574655061746873f4",
+      "expectedDigest": "sha256:90ab9ca54bf9e150def36080a9cbf2ac13e1eb1afece70421b25247092cbc291"
+    }
+  ],
+  "scopeRelationVectors": [
+    {
+      "case": "same-root-equivalent",
+      "a": {
+        "root": "docs/",
+        "include": [
+          "**/*"
+        ],
+        "exclude": []
+      },
+      "b": {
+        "root": "docs/",
+        "include": [
+          "**/*"
+        ],
+        "exclude": []
+      },
+      "relation": "equivalent"
+    },
+    {
+      "case": "root-prefix-contains",
+      "a": {
+        "root": "docs/",
+        "include": [
+          "**/*"
+        ],
+        "exclude": []
+      },
+      "b": {
+        "root": "docs/api/",
+        "include": [
+          "**/*"
+        ],
+        "exclude": []
+      },
+      "relation": "contains"
+    },
+    {
+      "case": "different-roots-disjoint",
+      "a": {
+        "root": "docs/",
+        "include": [
+          "**/*"
+        ],
+        "exclude": []
+      },
+      "b": {
+        "root": "src/",
+        "include": [
+          "**/*"
+        ],
+        "exclude": []
+      },
+      "relation": "disjoint"
+    },
+    {
+      "case": "glob-algebra-not-proven",
+      "a": {
+        "root": "",
+        "include": [
+          "**/*.ts"
+        ],
+        "exclude": [
+          "src/private/**"
+        ]
+      },
+      "b": {
+        "root": "src/",
+        "include": [
+          "**/*"
+        ],
+        "exclude": []
+      },
+      "relation": "unknown"
+    }
+  ],
+  "stateTransitionVectors": [
+    {
+      "case": "track-creates-active-binding",
+      "from": "absent-binding",
+      "operation": "approved-track",
+      "requires": [
+        "authorization",
+        "approval"
+      ],
+      "to": {
+        "bindingLifecycle": "active"
+      }
+    },
+    {
+      "case": "pause-preserves-readable-history",
+      "from": {
+        "bindingLifecycle": "active",
+        "availability": "readable"
+      },
+      "operation": "pause",
+      "to": {
+        "bindingLifecycle": "paused",
+        "availability": "readable"
+      }
+    },
+    {
+      "case": "authorization-revocation-pauses-maintenance",
+      "from": {
+        "bindingLifecycle": "active"
+      },
+      "operation": "authorization-revoked",
+      "to": {
+        "bindingLifecycle": "paused"
+      }
+    },
+    {
+      "case": "purge-removes-binding",
+      "from": {
+        "bindingLifecycle": "paused"
+      },
+      "operation": "approved-purge-history",
+      "to": "absent-binding"
+    }
+  ],
+  "receiptRedactionVectors": [
+    {
+      "case": "docs-only-view-redacts-parent-workspace-root",
+      "input": {
+        "sessionScope": "docs-only",
+        "workspace": {
+          "id": "ws_4ryqae2e6yt3ihteu43qq35fzu",
+          "root": "/repo",
+          "gitCommonDir": "/repo/.git"
+        },
+        "workspaceView": {
+          "id": "wv_m7jeqxqjuui2cy76k4kl5l3ie4",
+          "root": "/repo/docs"
+        }
+      },
+      "output": {
+        "workspace": {
+          "id": "ws_4ryqae2e6yt3ihteu43qq35fzu",
+          "root": null,
+          "rootDisclosure": "redacted"
+        },
+        "workspaceView": {
+          "id": "wv_m7jeqxqjuui2cy76k4kl5l3ie4",
+          "root": "/repo/docs"
+        }
+      },
+      "forbiddenOutputFields": [
+        "gitCommonDir",
+        "historyStorePath",
+        "graftHome"
+      ]
+    }
+  ],
+  "visibilityContextVectors": [
+    {
+      "case": "grant-transients-not-view-identity",
+      "workspaceViewId": "wv_m7jeqxqjuui2cy76k4kl5l3ie4",
+      "visibilityContext": {
+        "grantId": "grant_opaque",
+        "grantEpoch": 7,
+        "scopeDigest": "sha256:scope",
+        "policyDigest": "sha256:policy"
+      },
+      "transientFields": [
+        "grantId",
+        "grantEpoch",
+        "scopeDigest",
+        "policyDigest",
+        "sessionId"
+      ],
+      "authorityRule": "workspaceViewId-alone-confers-no-authority"
+    }
+  ]
+}

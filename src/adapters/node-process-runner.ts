@@ -10,6 +10,7 @@ class NodeProcessRunner implements ProcessRunner {
     const result = spawnSync(request.command, [...request.args], {
       cwd: request.cwd,
       encoding: "utf-8",
+      input: request.stdin,
       stdio: ["pipe", "pipe", "pipe"],
       ...(request.timeoutMs !== undefined ? { timeout: request.timeoutMs } : {}),
       ...(request.maxBufferBytes !== undefined ? { maxBuffer: request.maxBufferBytes } : {}),

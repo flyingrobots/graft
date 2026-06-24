@@ -1,11 +1,15 @@
 import { safeRead, type SafeReadResult } from "./safe-read.js";
-import { fileOutline, type FileOutlineResult } from "./file-outline.js";
+import {
+  extractOutlineProjectionForContent,
+  fileOutline,
+  type ExtractedFileOutline,
+  type FileOutlineResult,
+} from "./file-outline.js";
 import { readRange, type ReadRangeResult } from "./read-range.js";
 import { CachedFile } from "./cached-file.js";
 import { ObservationCache, hashContent } from "./observation-cache.js";
 import { GovernorTracker } from "../session/tracker.js";
 import { diffOutlines, type OutlineDiff } from "../parser/diff.js";
-import { extractOutlineForFileAsync } from "../parser/outline.js";
 import { detectStructuredFormat } from "../parser/lang.js";
 import type { JumpEntry, OutlineEntry } from "../parser/types.js";
 import { evaluatePolicy } from "../policy/evaluate.js";
@@ -13,6 +17,7 @@ import { RefusedResult } from "../policy/types.js";
 import { loadGraftignore } from "../policy/graftignore.js";
 import type { FileSystem } from "../ports/filesystem.js";
 import type { JsonCodec } from "../ports/codec.js";
+import type { ProseProjectionProvider } from "./colorful-prose-projection.js";
 
 export interface RepoWorkspaceRefusedResult {
   readonly path: string;
@@ -73,6 +78,7 @@ export interface RepoWorkspaceOptions {
   readonly toPolicyPath?: ((resolvedPath: string) => string) | undefined;
   readonly governor?: GovernorTracker | undefined;
   readonly cache?: ObservationCache | undefined;
+  readonly proseProjector?: ProseProjectionProvider | undefined;
 }
 
 async function loadWorkspaceGraftignore(
@@ -95,6 +101,7 @@ export class RepoWorkspace {
   readonly graftignorePatterns: readonly string[];
   readonly governor: GovernorTracker;
   readonly cache: ObservationCache;
+  readonly proseProjector: ProseProjectionProvider | undefined;
 
   constructor(options: RepoWorkspaceOptions) {
     this.projectRoot = options.projectRoot;
@@ -103,6 +110,7 @@ export class RepoWorkspace {
     this.graftignorePatterns = options.graftignorePatterns ?? [];
     this.governor = options.governor ?? new GovernorTracker();
     this.cache = options.cache ?? new ObservationCache();
+    this.proseProjector = options.proseProjector;
     this.resolveWorkspacePath = options.resolvePath ?? ((input) => input);
     this.policyPathForWorkspaceFile = options.toPolicyPath ?? ((resolvedPath) => resolvedPath);
   }
@@ -151,6 +159,12 @@ export class RepoWorkspace {
     };
   }
 
+  private async outlineForSnapshot(snapshot: CachedFile): Promise<ExtractedFileOutline | null> {
+    return extractOutlineProjectionForContent(snapshot.path, snapshot.rawContent, {
+      proseProjector: this.proseProjector,
+    });
+  }
+
   async safeRead(args: { readonly path: string; readonly intent?: string | undefined }): Promise<RepoWorkspaceSafeReadResult> {
     const filePath = this.resolveWorkspacePath(args.path);
 
@@ -161,7 +175,7 @@ export class RepoWorkspace {
       // Let safeRead produce the not-found error shape.
     }
 
-    if (snapshot?.supportsOutline === true) {
+    if (snapshot !== null) {
       const cacheResult = this.cache.check(filePath, snapshot.rawContent);
       if (cacheResult.hit) {
         const refusal = this.evaluateRefusal(filePath, snapshot.actual);
@@ -187,16 +201,35 @@ export class RepoWorkspace {
         if (refusal !== null) {
           return refusal;
         }
-        const { outline, jumpTable } = await snapshot.outlineSnapshot();
-        this.cache.record(filePath, snapshot.hash, outline, jumpTable, snapshot.actual);
+        const freshOutline = await this.outlineForSnapshot(snapshot);
+        if (freshOutline === null) {
+          return await safeRead(filePath, {
+            fs: this.fs,
+            codec: this.codec,
+            content: snapshot.rawContent,
+            intent: args.intent,
+            policyPath: this.policyPathForWorkspaceFile(filePath),
+            graftignorePatterns: [...this.graftignorePatterns],
+            sessionDepth: this.governor.getGovernorDepth(),
+            budgetRemaining: this.governor.getBudget()?.remaining,
+            proseProjector: this.proseProjector,
+          });
+        }
+        this.cache.record(
+          filePath,
+          snapshot.hash,
+          freshOutline.outline,
+          freshOutline.jumpTable,
+          snapshot.actual,
+        );
         const updated = this.cache.get(filePath);
         return {
           path: filePath,
           projection: "diff",
           reason: "CHANGED_SINCE_LAST_READ",
-          diff: diffOutlines(cacheResult.stale.outline, outline),
-          outline,
-          jumpTable,
+          diff: diffOutlines(cacheResult.stale.outline, freshOutline.outline),
+          outline: freshOutline.outline,
+          jumpTable: freshOutline.jumpTable,
           actual: snapshot.actual,
           readCount: cacheResult.stale.readCount + 1,
           lastReadAt: updated?.lastReadAt ?? this.cache.now(),
@@ -213,18 +246,25 @@ export class RepoWorkspace {
       graftignorePatterns: [...this.graftignorePatterns],
       sessionDepth: this.governor.getGovernorDepth(),
       budgetRemaining: this.governor.getBudget()?.remaining,
+      proseProjector: this.proseProjector,
     });
 
     if (
       snapshot !== null &&
-      snapshot.supportsOutline &&
       result.actual !== undefined &&
       (result.projection === "content" || result.projection === "outline") &&
       result.reason !== "UNSUPPORTED_LANGUAGE"
     ) {
       try {
-        const { outline, jumpTable } = await snapshot.outlineSnapshot();
-        this.cache.record(filePath, snapshot.hash, outline, jumpTable, result.actual);
+        const outline = result.outline !== undefined
+          ? {
+            outline: result.outline,
+            jumpTable: result.jumpTable ?? [],
+          }
+          : await this.outlineForSnapshot(snapshot);
+        if (outline !== null) {
+          this.cache.record(filePath, snapshot.hash, outline.outline, outline.jumpTable, result.actual);
+        }
       } catch {
         // Cache writes are best-effort; never turn a successful read into an error.
       }
@@ -264,7 +304,10 @@ export class RepoWorkspace {
       }
     }
 
-    const result = await fileOutline(filePath, { fs: this.fs });
+    const result = await fileOutline(filePath, {
+      fs: this.fs,
+      proseProjector: this.proseProjector,
+    });
     if (rawContent !== null && result.reason !== "UNSUPPORTED_LANGUAGE") {
       this.cache.record(
         filePath,
@@ -317,22 +360,28 @@ export class RepoWorkspace {
       return { status: "refused", reason: refusal.reason };
     }
 
-    if (detectStructuredFormat(filePath) === null) {
-      return {
-        status: "unsupported",
-        reason: "UNSUPPORTED_LANGUAGE",
-      };
-    }
-
     const cacheResult = this.cache.check(filePath, rawContent);
     if (cacheResult.hit) {
       return { status: "unchanged" };
     }
     if (cacheResult.stale === null) {
+      if (detectStructuredFormat(filePath) === null) {
+        const outline = await extractOutlineProjectionForContent(filePath, rawContent, {
+          proseProjector: this.proseProjector,
+        });
+        if (outline === null) {
+          return {
+            status: "unsupported",
+            reason: "UNSUPPORTED_LANGUAGE",
+          };
+        }
+      }
       return { status: "no_previous_observation" };
     }
 
-    const newOutlineResult = await extractOutlineForFileAsync(filePath, rawContent);
+    const newOutlineResult = await extractOutlineProjectionForContent(filePath, rawContent, {
+      proseProjector: this.proseProjector,
+    });
     if (newOutlineResult === null) {
       return {
         status: "unsupported",
@@ -340,14 +389,14 @@ export class RepoWorkspace {
       };
     }
 
-    const diff = diffOutlines(cacheResult.stale.outline, newOutlineResult.entries);
+    const diff = diffOutlines(cacheResult.stale.outline, newOutlineResult.outline);
 
     if (consume) {
       this.cache.record(
         filePath,
         hashContent(rawContent),
-        newOutlineResult.entries,
-        newOutlineResult.jumpTable ?? [],
+        newOutlineResult.outline,
+        newOutlineResult.jumpTable,
         actual,
       );
     }

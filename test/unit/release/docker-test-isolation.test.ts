@@ -95,6 +95,126 @@ describe("Docker-isolated test validation", () => {
     expect(exits).toEqual([0]);
   });
 
+  it("retries the Docker image build before running isolated tests", async () => {
+    const calls: string[] = [];
+    const exits: number[] = [];
+    let buildAttempts = 0;
+    const spawn: RunnerSpawn = (command, args) => {
+      calls.push([command, ...args].join(" "));
+      if (args[0] === "build") {
+        buildAttempts += 1;
+        return { status: buildAttempts === 1 ? 1 : 0 };
+      }
+      return { status: 0 };
+    };
+    const exit = (code = 0): never => {
+      exits.push(code);
+      throw new Error(`exit ${String(code)}`);
+    };
+
+    await expect(runIsolatedTests({
+      argv: [],
+      env: {
+        GRAFT_TEST_DOCKER_BUILD_RETRIES: "2",
+        GRAFT_TEST_DOCKER_BUILD_RETRY_DELAY_MS: "0",
+      },
+      checkDocker: () => {
+        calls.push("docker preflight");
+        return { ok: true };
+      },
+      error: () => undefined,
+      exit,
+      spawn,
+    })).rejects.toThrow("exit 0");
+
+    expect(calls).toEqual([
+      "docker preflight",
+      "docker build --target test -t graft-test:local .",
+      "docker build --target test -t graft-test:local .",
+      [
+        "docker run --rm --network none",
+        "-e GRAFT_TEST_CONTAINER=1",
+        "graft-test:local pnpm exec vitest run --maxWorkers 2",
+      ].join(" "),
+    ]);
+    expect(exits).toEqual([0]);
+  });
+
+  it("stops after bounded Docker image build retries", async () => {
+    const calls: string[] = [];
+    const exits: number[] = [];
+    const spawn: RunnerSpawn = (command, args) => {
+      calls.push([command, ...args].join(" "));
+      return { status: args[0] === "build" ? 1 : 0 };
+    };
+    const exit = (code = 0): never => {
+      exits.push(code);
+      throw new Error(`exit ${String(code)}`);
+    };
+
+    await expect(runIsolatedTests({
+      argv: [],
+      env: {
+        GRAFT_TEST_DOCKER_BUILD_RETRIES: "2",
+        GRAFT_TEST_DOCKER_BUILD_RETRY_DELAY_MS: "0",
+      },
+      checkDocker: () => {
+        calls.push("docker preflight");
+        return { ok: true };
+      },
+      error: () => undefined,
+      exit,
+      spawn,
+    })).rejects.toThrow("exit 1");
+
+    expect(calls).toEqual([
+      "docker preflight",
+      "docker build --target test -t graft-test:local .",
+      "docker build --target test -t graft-test:local .",
+      "docker build --target test -t graft-test:local .",
+    ]);
+    expect(exits).toEqual([1]);
+  });
+
+  it("does not retry isolated test execution after the image build succeeds", async () => {
+    const calls: string[] = [];
+    const exits: number[] = [];
+    const spawn: RunnerSpawn = (command, args) => {
+      calls.push([command, ...args].join(" "));
+      return { status: args[0] === "run" ? 1 : 0 };
+    };
+    const exit = (code = 0): never => {
+      exits.push(code);
+      throw new Error(`exit ${String(code)}`);
+    };
+
+    await expect(runIsolatedTests({
+      argv: [],
+      env: {
+        GRAFT_TEST_DOCKER_BUILD_RETRIES: "2",
+        GRAFT_TEST_DOCKER_BUILD_RETRY_DELAY_MS: "0",
+      },
+      checkDocker: () => {
+        calls.push("docker preflight");
+        return { ok: true };
+      },
+      error: () => undefined,
+      exit,
+      spawn,
+    })).rejects.toThrow("exit 1");
+
+    expect(calls).toEqual([
+      "docker preflight",
+      "docker build --target test -t graft-test:local .",
+      [
+        "docker run --rm --network none",
+        "-e GRAFT_TEST_CONTAINER=1",
+        "graft-test:local pnpm exec vitest run --maxWorkers 2",
+      ].join(" "),
+    ]);
+    expect(exits).toEqual([1]);
+  });
+
   it("names the host-side local fallback without weakening isolated validation", () => {
     const preflight = readRepoFile("scripts/docker-availability.ts");
     const autostart = readRepoFile("scripts/docker-autostart.ts");

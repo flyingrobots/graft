@@ -5,6 +5,7 @@ import { extractOutlineForFileAsync } from "../parser/outline.js";
 import type { OutlineEntry, JumpEntry } from "../parser/types.js";
 import type { FileSystem } from "../ports/filesystem.js";
 import type { JsonCodec } from "../ports/codec.js";
+import type { ProseProjection, ProseProjectionProvider } from "./colorful-prose-projection.js";
 
 export interface SafeReadResult {
   path: string;
@@ -29,6 +30,7 @@ export interface SafeReadOptions {
   graftignorePatterns?: string[] | undefined;
   sessionDepth?: GovernorDepth | undefined;
   budgetRemaining?: number | undefined;
+  proseProjector?: ProseProjectionProvider | undefined;
 }
 
 export async function safeRead(
@@ -90,6 +92,27 @@ export async function safeRead(
   // projection === "outline"
   const outlineResult = await extractOutlineForFileAsync(filePath, content);
   if (outlineResult === null) {
+    let proseProjection: ProseProjection | null;
+    try {
+      proseProjection = options.proseProjector?.project({ path: filePath, content }) ?? null;
+    } catch {
+      proseProjection = null;
+    }
+    if (proseProjection !== null) {
+      const outlineJson = options.codec.encode({
+        entries: proseProjection.outline,
+        jumpTable: proseProjection.jumpTable,
+      });
+      const estimatedBytesAvoided = bytes - Buffer.byteLength(outlineJson, "utf-8");
+
+      return {
+        ...base,
+        outline: [...proseProjection.outline],
+        jumpTable: [...proseProjection.jumpTable],
+        estimatedBytesAvoided: estimatedBytesAvoided > 0 ? estimatedBytesAvoided : 0,
+      };
+    }
+
     const emptyOutlineJson = options.codec.encode({ entries: [], jumpTable: [] });
     const estimatedBytesAvoided = bytes - Buffer.byteLength(emptyOutlineJson, "utf-8");
 

@@ -79,4 +79,22 @@ describe("operations: file_outline", () => {
     expect(result.error).toBeUndefined();
     expect(result.reason).toBeUndefined();
   });
+
+  it("falls back to unsupported language when the prose projector throws", async () => {
+    const textFs = new FakeFileSystem({
+      "/virtual/notes.txt": "ship it\n",
+    });
+    const result = await fileOutline("/virtual/notes.txt", {
+      fs: textFs,
+      proseProjector: {
+        project() {
+          throw new Error("invalid Colorful JSON");
+        },
+      },
+    });
+
+    expect(result.reason).toBe("UNSUPPORTED_LANGUAGE");
+    expect(result.outline).toEqual([]);
+    expect(result.jumpTable).toEqual([]);
+  });
 });
