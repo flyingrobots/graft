@@ -54,6 +54,13 @@ class FakeColorfulRunner implements ProcessRunner {
 
   run(request: ProcessRunRequest): ProcessRunResult {
     this.requests.push(request);
+    if (request.args[0] === "--version") {
+      return {
+        status: 0,
+        stdout: "colorful 0.2.1\n",
+        stderr: "",
+      };
+    }
     const source = Buffer.from(request.stdin ?? "", "utf8");
     const contentHash = `sha256:${createHash("sha256").update(source).digest("hex")}`;
     return {
@@ -223,7 +230,8 @@ describe("mcp: tool handlers", () => {
       start: 1,
       end: 1,
     }));
-    expect(processRunner.requests[0]).toEqual(expect.objectContaining({
+    const irRequest = processRunner.requests.find((request) => request.args[0] === "ir");
+    expect(irRequest).toEqual(expect.objectContaining({
       command: "colorful",
       args: ["ir", "-"],
       stdin: "ship the prose path\n",

@@ -144,6 +144,26 @@ describe("operations: safe_read", () => {
     expect(result.next).toBeUndefined();
   });
 
+  it("falls back to unsupported-language outline when the prose projector throws", async () => {
+    const textFs = new FakeFileSystem({
+      "/virtual/large.txt": "ship it\n".repeat(180),
+    });
+    const result = await safeRead("/virtual/large.txt", {
+      fs: textFs,
+      codec,
+      proseProjector: {
+        project() {
+          throw new Error("invalid Colorful JSON");
+        },
+      },
+    });
+
+    expect(result.projection).toBe("outline");
+    expect(result.reason).toBe("UNSUPPORTED_LANGUAGE");
+    expect(result.outline).toEqual([]);
+    expect(result.jumpTable).toEqual([]);
+  });
+
   it("accepts optional intent parameter without changing policy", async () => {
     const result = await safeRead(
       "/virtual/large.ts",

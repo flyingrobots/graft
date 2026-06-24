@@ -5,7 +5,7 @@ import { extractOutlineForFileAsync } from "../parser/outline.js";
 import type { OutlineEntry, JumpEntry } from "../parser/types.js";
 import type { FileSystem } from "../ports/filesystem.js";
 import type { JsonCodec } from "../ports/codec.js";
-import type { ProseProjectionProvider } from "./colorful-prose-projection.js";
+import type { ProseProjection, ProseProjectionProvider } from "./colorful-prose-projection.js";
 
 export interface SafeReadResult {
   path: string;
@@ -92,7 +92,12 @@ export async function safeRead(
   // projection === "outline"
   const outlineResult = await extractOutlineForFileAsync(filePath, content);
   if (outlineResult === null) {
-    const proseProjection = options.proseProjector?.project({ path: filePath, content }) ?? null;
+    let proseProjection: ProseProjection | null;
+    try {
+      proseProjection = options.proseProjector?.project({ path: filePath, content }) ?? null;
+    } catch {
+      proseProjection = null;
+    }
     if (proseProjection !== null) {
       const outlineJson = options.codec.encode({
         entries: proseProjection.outline,

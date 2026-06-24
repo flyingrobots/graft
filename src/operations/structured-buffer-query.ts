@@ -1,5 +1,6 @@
 import type Parser from "web-tree-sitter";
 import { extractOutline } from "../parser/outline.js";
+import type { SupportedStructuredFormat } from "../parser/lang.js";
 import {
   type BufferDiagnostic,
   type BufferOutlineResult,
@@ -375,18 +376,9 @@ export function buildOutlineResult(snapshot: StructuredBufferSnapshot): BufferOu
       reason: unavailableReason(snapshot),
     };
   }
-  if (snapshot.format === "prose") {
-    return {
-      path: snapshot.path,
-      format: snapshot.format,
-      basis: snapshot.basis,
-      outline: [],
-      jumpTable: [],
-      partial: snapshot.partial,
-      reason: "UNSUPPORTED_LANGUAGE",
-    };
-  }
-  const result = extractOutline(snapshot.content, snapshot.format);
+  // Prose snapshots and unavailable/null formats returned above.
+  const format = snapshot.format as SupportedStructuredFormat;
+  const result = extractOutline(snapshot.content, format);
   return {
     path: snapshot.path,
     format: snapshot.format,

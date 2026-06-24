@@ -13,6 +13,13 @@ class FakeColorfulRunner implements ProcessRunner {
 
   run(request: ProcessRunRequest): ProcessRunResult {
     this.requests.push(request);
+    if (request.args[0] === "--version") {
+      return {
+        status: 0,
+        stdout: "colorful 0.2.1\n",
+        stderr: "",
+      };
+    }
     const source = Buffer.from(request.stdin ?? "", "utf8");
     const contentHash = `sha256:${createHash("sha256").update(source).digest("hex")}`;
     return {
@@ -170,7 +177,7 @@ describe("mcp: re-read suppression", () => {
     const second = parse(await server.callTool("file_outline", { path: proseFile }));
     expect(second["cacheHit"]).toBe(true);
     expect(second["outline"]).toContainEqual(expect.objectContaining({ kind: "paragraph" }));
-    expect(processRunner.requests).toHaveLength(1);
+    expect(processRunner.requests.filter((request) => request.args[0] === "ir")).toHaveLength(1);
   });
 
   it("stats includes cache metrics", async () => {

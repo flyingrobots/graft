@@ -1,7 +1,7 @@
 import { extractOutlineForFileAsync } from "../parser/outline.js";
 import type { OutlineEntry, JumpEntry } from "../parser/types.js";
 import type { FileSystem } from "../ports/filesystem.js";
-import type { ProseProjectionProvider } from "./colorful-prose-projection.js";
+import type { ProseProjection, ProseProjectionProvider } from "./colorful-prose-projection.js";
 
 export interface FileOutlineResult {
   path: string;
@@ -33,7 +33,12 @@ export async function extractOutlineProjectionForContent(
     };
   }
 
-  const proseProjection = opts.proseProjector?.project({ path: filePath, content }) ?? null;
+  let proseProjection: ProseProjection | null;
+  try {
+    proseProjection = opts.proseProjector?.project({ path: filePath, content }) ?? null;
+  } catch {
+    return null;
+  }
   if (proseProjection === null) {
     return null;
   }
@@ -41,7 +46,6 @@ export async function extractOutlineProjectionForContent(
   return {
     outline: [...proseProjection.outline],
     jumpTable: [...proseProjection.jumpTable],
-    partial: proseProjection.partial,
   };
 }
 

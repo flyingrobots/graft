@@ -431,7 +431,7 @@ function buildProseOutline(
     });
   };
 
-  const roots = structure.filter((node) => node.depth === 0 || !childIds.has(node.nodeId));
+  const roots = structure.filter((node) => !childIds.has(node.nodeId));
   return {
     outline: roots.map((node) => buildEntry(node, new Set())),
     jumpTable,

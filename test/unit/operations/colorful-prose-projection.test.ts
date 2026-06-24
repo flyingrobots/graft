@@ -163,4 +163,41 @@ describe("Colorful prose projection", () => {
       ir,
     })).toThrow(/UTF-8 character boundaries/);
   });
+
+  it("does not duplicate child structure nodes that report depth zero", () => {
+    const source = Buffer.from("Alpha. Beta.\n", "utf8");
+    const ir = {
+      ...(fixtureIr(source) as Record<string, unknown>),
+      tokens: [],
+      structure: [
+        {
+          nodeId: "paragraph_1",
+          kind: "PARAGRAPH",
+          byteRange: { startUtf8: 0, endUtf8: source.byteLength },
+          depth: 0,
+          childNodeIds: ["sentence_1"],
+        },
+        {
+          nodeId: "sentence_1",
+          kind: "SENTENCE",
+          byteRange: { startUtf8: 0, endUtf8: 6 },
+          depth: 0,
+          childNodeIds: [],
+        },
+      ],
+    };
+
+    const projection = projectColorfulIr({
+      path: "notes.txt",
+      source,
+      sourceHash: contentHash(source),
+      ir,
+    });
+
+    expect(projection.outline).toHaveLength(1);
+    expect(projection.outline[0]).toEqual(expect.objectContaining({
+      kind: "paragraph",
+      children: [expect.objectContaining({ kind: "sentence" })],
+    }));
+  });
 });
