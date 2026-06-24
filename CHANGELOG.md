@@ -11,13 +11,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 - **Colorful prose projection seam**: buffer-native projections can now opt into
   a `ProseProjectionProvider`, and Graft exports a Colorful CLI adapter for
-  hosts that want `.txt` buffers projected through `colorful ir -`. The
-  projector validates `colorful.syntax/v1`, the pinned vocabulary hash, the
-  source content hash, and UTF-8 byte ranges before returning normal Graft
-  syntax spans, paragraph/sentence outlines, and jump tables. MCP `file_outline`
-  and large-file `safe_read` calls now use that adapter when `colorful` is
-  available on `PATH`, while unsupported `.txt` behavior remains unchanged when
-  no projector is configured or the CLI is unavailable.
+  hosts that want `.txt` buffers projected through `colorful ir -` from
+  `colorful >= 0.2.1`. The projector validates `colorful.syntax/v1`, the pinned
+  vocabulary hash, the source content hash, and UTF-8 byte ranges before
+  returning normal Graft syntax spans, paragraph/sentence outlines, and jump
+  tables. MCP `file_outline` and large-file `safe_read` calls now use that
+  adapter when `colorful >= 0.2.1` is available on `PATH`, while unsupported
+  `.txt` behavior remains unchanged when no projector is configured or the CLI
+  is unavailable.
 - **Structural basis kind for unpinned committed history**: structural-history
   schema v0.2 adds `UNPINNED_COMMITTED` so committed git-warp readings with no
   `ref` and no `head` no longer masquerade as `GIT_REF` rows with a null

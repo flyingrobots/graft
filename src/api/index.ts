@@ -6,7 +6,10 @@ import { ObservationCache } from "../operations/observation-cache.js";
 import { RepoWorkspace } from "../operations/repo-workspace.js";
 import { StructuredBuffer } from "../operations/structured-buffer.js";
 import type { BufferRange, WarmProjectionBasis, WarmProjectionBundleResult } from "../operations/structured-buffer.js";
-import { createColorfulCliProseProjector } from "../adapters/colorful-cli-prose-projector.js";
+import {
+  COLORFUL_CLI_MINIMUM_VERSION,
+  createColorfulCliProseProjector,
+} from "../adapters/colorful-cli-prose-projector.js";
 import type { ProseProjectionProvider } from "../operations/colorful-prose-projection.js";
 import { GRAFT_VERSION } from "../version.js";
 export {
@@ -60,6 +63,7 @@ export function createProjectionBundle(
 }
 
 export {
+  COLORFUL_CLI_MINIMUM_VERSION,
   GRAFT_VERSION,
   MCP_TOOL_NAMES,
   ObservationCache,

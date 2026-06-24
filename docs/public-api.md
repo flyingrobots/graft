@@ -45,6 +45,7 @@ work:
 - `StructuredBuffer`
 - `ProseProjectionProvider`
 - `createColorfulCliProseProjector(...)`
+- `COLORFUL_CLI_MINIMUM_VERSION`
 - `ensureParserReady(...)`
 - `WarmProjectionBasis`
 - `WarmProjectionBundleResult`
@@ -77,10 +78,11 @@ status over one known editor head.
 accept `proseProjector`. This optional port lets a host project prose into
 the same syntax/outline bundle shape as parser-backed source files. Graft
 ships `createColorfulCliProseProjector(...)` for the Colorful
-`colorful.syntax/v1` contract; it shells out through a supplied
-`ProcessRunner`, validates source and vocabulary hashes, and returns
-`format: "prose"` for supported `.txt` buffers. Without a projector, text
-files keep the explicit `UNSUPPORTED_LANGUAGE` result.
+`colorful.syntax/v1` contract as emitted by `colorful >= 0.2.1`; it shells out
+through a supplied `ProcessRunner`, validates source and vocabulary hashes, and
+returns `format: "prose"` for supported `.txt` buffers. Without a projector, or
+without a compatible `colorful` CLI, text files keep the explicit
+`UNSUPPORTED_LANGUAGE` result.
 
 ### 3. Tool Bridge Surface
 

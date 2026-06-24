@@ -6,6 +6,8 @@ import {
 } from "../operations/colorful-prose-projection.js";
 import type { ProseProjectionProvider } from "../operations/colorful-prose-projection.js";
 
+export const COLORFUL_CLI_MINIMUM_VERSION = "0.2.1";
+
 export interface CreateColorfulCliProseProjectorOptions {
   readonly processRunner: ProcessRunner;
   readonly cwd: string;

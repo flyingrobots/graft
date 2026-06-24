@@ -10,10 +10,10 @@ for source buffers.
 
 Graft currently treats `.txt` buffers as unsupported and derives Markdown
 structure only from headings. Colorful now ships a Wesley-generated
-`colorful.syntax/v1` contract and a `colorful ir` CLI that exposes token and
-paragraph/sentence structure for prose. The next IR Spine slice needs Graft to
-consume that contract without making jedit learn a separate prose projection
-shape.
+`colorful.syntax/v1` contract and a `colorful ir` CLI in the public
+`colorful >= 0.2.1` release line. That CLI exposes token and paragraph/sentence
+structure for prose. The next IR Spine slice needs Graft to consume that
+contract without making jedit learn a separate prose projection shape.
 
 ## Acceptance Criteria
 
@@ -28,6 +28,8 @@ shape.
   the bytes being projected.
 - Tests do not require a live `colorful` binary; command execution remains
   behind the existing `ProcessRunner` port.
+- Runtime documentation names `colorful >= 0.2.1` as the minimum CLI release
+  that should be present when Graft uses the default Colorful CLI adapter.
 
 ## Playback Questions
 
