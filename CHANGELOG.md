@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.10.0] - 2026-06-24
+
 ### Added
 
 - **Colorful prose projection seam**: buffer-native projections can now opt into
@@ -41,6 +43,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ### Changed
 
+- **Release security floor**: release packaging now resolves Vite and Hono to
+  patched versions required by the release security gate.
 - **Graft-managed workspace registry hardening**: workspace observation now
   serializes first-time installation ID creation, fails closed when managed
   storage cannot be made private, rejects symlinked or unsafe registry storage
