@@ -19,16 +19,16 @@
       "sha256": "1375e1694f3ca48b2137ea77f841b396d8a9c6a6fdea99d2ba2305bd05159e7c",
       "generator": {
         "name": "wesley",
-        "version": "0.0.5"
+        "version": "0.1.0"
       }
     },
     {
       "kind": "typescript-le-binary-codec",
       "path": "src/generated/graft-structural-history.codec.generated.ts",
-      "sha256": "70058b2cfd4763e9e0cdf88c74b2c5a2a28a0d19309c64eacc6f89c03b3e9142",
+      "sha256": "e2848c88652a51f413bb0a6d1e3468147fc601e8f7717f84760a033011b043da",
       "generator": {
         "name": "wesley",
-        "version": "0.0.5"
+        "version": "0.1.0"
       }
     }
   ],

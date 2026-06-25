@@ -75,9 +75,10 @@ Run validation strictly in order:
 1. `pnpm install` — ensure lockfile is current
 2. `pnpm guard:agent-worktrees` — no `.claude/worktrees/` paths are
    tracked or staged
-3. `WESLEY_BIN=/path/to/wesley pnpm schema:structural-history:check` —
+3. Install the project-declared crates.io Wesley CLI, then run
+   `WESLEY_BIN=/path/to/wesley pnpm schema:structural-history:check` —
    generated structural-history artifacts match the GraphQL schema through the
-   pinned Wesley CLI
+   declared Wesley CLI version
 4. `pnpm lint` — zero errors, zero warnings
 5. `pnpm release:surface-gate` — capability registry, public API
    contract, and three-surface matrix stay in sync

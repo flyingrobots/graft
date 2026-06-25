@@ -19,7 +19,7 @@ Legend: CLEAN
 
 Graft's structural-history schema check proves that the checked-in TypeScript
 artifact was emitted from `schemas/graft-structural-history.graphql` by the
-pinned Wesley CLI, not hand-edited to match a manifest.
+project-declared Wesley CLI, not hand-edited to match a manifest.
 
 ## Acceptance Criteria
 
@@ -31,7 +31,8 @@ pinned Wesley CLI, not hand-edited to match a manifest.
 - The check regenerates `src/generated/graft-structural-history.ts` into a
   temporary path and compares it byte-for-byte with the committed artifact.
 - The check verifies Wesley's L1 registry hash output against the manifest.
-- CI and release workflows install a pinned Wesley CLI and run the
+- CI and release workflows install the project-declared Wesley CLI from
+  crates.io and run the
   regenerate-and-diff check.
 - Echo and Wesley semantics are not changed.
 
@@ -60,15 +61,16 @@ it requires `WESLEY_BIN`, runs Wesley `version`, `schema hash`, and
 `emit typescript`, then compares the regenerated output with the committed
 artifact.
 
-CI and release workflows install Wesley from the pinned `flyingrobots/wesley`
-commit that backs release `v0.0.4`. The workflows cache the installed binary
-and expose it to the package script through `WESLEY_BIN`. Release operators running
+CI and release workflows install Wesley from crates.io using the project-declared
+`WESLEY_CLI_VERSION`. The workflows cache the installed binary and expose it to
+the package script through `WESLEY_BIN`. Release operators running
 `pnpm release:check` locally must provide the same environment variable.
 
 ## Non-goals
 
 - Do not alter the GraphQL schema.
-- Do not alter generated TypeScript contents.
+- Do not hand-edit generated TypeScript outside the deterministic
+  structural-history codec postprocess.
 - Do not change Echo.
 - Do not change Wesley compiler semantics.
 - Do not make Graft depend on an unpublished npm wrapper.

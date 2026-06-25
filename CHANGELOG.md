@@ -21,6 +21,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   `OutlineNode.nodeId: Int!` and `childNodeIds: [Int!]!` from the real
   `colorful.syntax/v1` contract, normalizing those integer IDs to Graft's
   internal string keys instead of rejecting valid `colorful ir` output.
+- **Wesley release gate source**: CI and release workflows now install the
+  project-declared `wesley-cli` from crates.io instead of a pinned Git revision,
+  and the structural-history codec artifact has been regenerated with
+  `wesley-cli 0.1.0` plus Graft's deterministic `Hash`/`Json` scalar shims.
 
 ## [0.10.0] - 2026-06-24
 

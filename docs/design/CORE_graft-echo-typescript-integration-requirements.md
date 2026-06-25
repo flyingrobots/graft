@@ -548,6 +548,8 @@ Acceptance criteria:
 - WASM ABI/version documented if shipped.
 - Helper API version documented.
 - Compatible Wesley generator range documented.
+- Operation identity authority documented, including how generated TypeScript
+  consumers obtain stable `op_id` values without relying on value-codec output.
 - Package metadata verification fixture.
 - Release dry-run checks metadata.
 - Local sibling override documented as dev-only.

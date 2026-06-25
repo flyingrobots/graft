@@ -3,6 +3,7 @@ import type { EchoKernelTransport } from "../../../src/ports/echo-kernel-transpo
 import { createFakeEchoKernelTransport } from "../../../src/adapters/fake-echo-kernel-transport.js";
 import {
   EchoEnvelopeCodecError,
+  STRUCTURAL_HISTORY_WITNESS_INTENT_OPERATION_IDS,
   decodeStructuralHistoryIntentResponse,
   encodeStructuralHistoryOkResponse,
   packStructuralHistoryIntentV1,
@@ -10,7 +11,6 @@ import {
 import { createEchoStructuralHistoryClient } from "../../../src/echo/structural-history-client.js";
 import { createEchoStructuralReadingPort } from "../../../src/echo/structural-reading-adapter.js";
 import {
-  OP_RECORD_GIT_WARP_IMPORT_BATCH,
   encodeRecordGitWarpImportBatchVars,
 } from "../../../src/generated/graft-structural-history.codec.generated.js";
 
@@ -32,7 +32,10 @@ describe("wire strictness", () => {
     const padded = new Uint8Array(vars.byteLength + 3);
     padded.set(vars, 0);
     const response = createFakeEchoKernelTransport().submitIntentBytes(
-      packStructuralHistoryIntentV1(OP_RECORD_GIT_WARP_IMPORT_BATCH, padded),
+      packStructuralHistoryIntentV1(
+        STRUCTURAL_HISTORY_WITNESS_INTENT_OPERATION_IDS.recordGitWarpImportBatch,
+        padded,
+      ),
     );
     const decoded = decodeStructuralHistoryIntentResponse(response);
     expect(decoded.ok).toBe(false);

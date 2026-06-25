@@ -1,16 +1,17 @@
 import { describe, expect, it } from "vitest";
 import {
-  OP_RECORD_GIT_WARP_IMPORT_BATCH,
   decodeStructuralBasisKind,
   decodeRecordGitWarpImportBatchVars,
   encodeStructuralBasisKind,
   encodeRecordGitWarpImportBatchVars,
 } from "../../../src/generated/graft-structural-history.codec.generated.js";
 import {
+  STRUCTURAL_HISTORY_WITNESS_INTENT_OPERATION_IDS,
   decodeStructuralHistoryObserveRequest,
   encodeStructuralHistoryObserveRequest,
   packStructuralHistoryIntentV1,
 } from "../../../src/echo/structural-history-envelope-codec.js";
+import { CodecError } from "../../../src/echo/codec-runtime.js";
 
 const IMPORT_BATCH_VARS = {
   input: {
@@ -29,12 +30,15 @@ describe("structural history codecs", () => {
     const encoded = encodeRecordGitWarpImportBatchVars(IMPORT_BATCH_VARS);
     expect(encoded).toBeInstanceOf(Uint8Array);
     const decoded = decodeRecordGitWarpImportBatchVars(encoded);
-    expect(decoded).toEqual(IMPORT_BATCH_VARS);
+    expect(decoded).toEqual({ ok: true, value: IMPORT_BATCH_VARS });
   });
 
   it("round-trips the unpinned committed basis kind", () => {
     const encoded = encodeStructuralBasisKind("UNPINNED_COMMITTED");
-    expect(decodeStructuralBasisKind(encoded)).toBe("UNPINNED_COMMITTED");
+    expect(decodeStructuralBasisKind(encoded)).toEqual({
+      ok: true,
+      value: "UNPINNED_COMMITTED",
+    });
   });
 
   it("encodes deterministically", () => {
@@ -46,7 +50,7 @@ describe("structural history codecs", () => {
   it("packs EINT v1 envelopes per SPEC-0009 ABI v3", () => {
     const vars = encodeRecordGitWarpImportBatchVars(IMPORT_BATCH_VARS);
     const envelope = packStructuralHistoryIntentV1(
-      OP_RECORD_GIT_WARP_IMPORT_BATCH,
+      STRUCTURAL_HISTORY_WITNESS_INTENT_OPERATION_IDS.recordGitWarpImportBatch,
       vars,
     );
     const view = new DataView(
@@ -55,7 +59,9 @@ describe("structural history codecs", () => {
       envelope.byteLength,
     );
     expect(Buffer.from(envelope.slice(0, 4)).toString("ascii")).toBe("EINT");
-    expect(view.getUint32(4, true)).toBe(OP_RECORD_GIT_WARP_IMPORT_BATCH);
+    expect(view.getUint32(4, true)).toBe(
+      STRUCTURAL_HISTORY_WITNESS_INTENT_OPERATION_IDS.recordGitWarpImportBatch,
+    );
     expect(view.getUint32(8, true)).toBe(vars.byteLength);
     expect(envelope.byteLength).toBe(12 + vars.byteLength);
   });
@@ -71,9 +77,12 @@ describe("structural history codecs", () => {
     expect(decoded).toEqual(request);
   });
 
-  it("surfaces malformed bytes as a typed codec error", async () => {
-    const { CodecError } = await import("../../../src/echo/codec-runtime.js");
+  it("surfaces malformed bytes as a typed codec error", () => {
     const malformed = new Uint8Array([0xde, 0xad, 0xbe, 0xef]);
-    expect(() => decodeRecordGitWarpImportBatchVars(malformed)).toThrow(CodecError);
+    const decoded = decodeRecordGitWarpImportBatchVars(malformed);
+    expect(decoded.ok).toBe(false);
+    if (!decoded.ok) {
+      expect(decoded.error).toBeInstanceOf(CodecError);
+    }
   });
 });

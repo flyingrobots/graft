@@ -12,6 +12,7 @@ import { isCborArray, type CborValue } from "./canonical-cbor.js";
 import {
   ABI_ERROR_NAMES,
   EchoEnvelopeCodecError,
+  STRUCTURAL_HISTORY_WITNESS_INTENT_OPERATION_IDS,
   STRUCTURAL_HISTORY_OBSERVE_OPERATIONS,
   decodeStructuralHistoryIntentResponse,
   decodeStructuralHistoryObserveResponse,
@@ -19,7 +20,6 @@ import {
   packStructuralHistoryIntentV1,
 } from "./structural-history-envelope-codec.js";
 import {
-  OP_RECORD_GIT_WARP_IMPORT_BATCH,
   encodeRecordGitWarpImportBatchVars,
   type RecordGitWarpImportBatchVars,
 } from "../generated/graft-structural-history.codec.generated.js";
@@ -190,7 +190,7 @@ export function createEchoStructuralHistoryClient(
   return {
     async recordGitWarpImportBatch(vars) {
       const envelope = packStructuralHistoryIntentV1(
-        OP_RECORD_GIT_WARP_IMPORT_BATCH,
+        STRUCTURAL_HISTORY_WITNESS_INTENT_OPERATION_IDS.recordGitWarpImportBatch,
         encodeRecordGitWarpImportBatchVars(vars),
       );
       const responseBytes = await Promise.resolve(

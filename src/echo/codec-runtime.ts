@@ -102,14 +102,9 @@ export class Writer {
         this.pos += 4;
     }
 
-    /**
-     * 1 byte: 0x00 = false, 0x01 = true. Takes the literal byte value
-     * directly rather than a `boolean` because the quality gate forbids
-     * boolean parameters (no flag-shaped function signatures). Callers
-     * with a runtime `boolean` should write `w.writeBool(v ? 1 : 0)`.
-     */
-    writeBool(v: 0 | 1): void {
-        this.writeU8(v);
+    /** 1 byte: 0x00 = false, 0x01 = true. */
+    writeBool(v: boolean): void {
+        this.writeU8(v ? 0x01 : 0x00);
     }
 
     /**

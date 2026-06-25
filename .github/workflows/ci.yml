@@ -8,8 +8,7 @@ on:
 
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
-  WESLEY_CLI_VERSION: "0.0.5"
-  WESLEY_CLI_REVISION: "ca2755ff631abb28947bca006d25646828886e19"
+  WESLEY_CLI_VERSION: "0.1.0"
 
 permissions:
   contents: read
@@ -38,16 +37,15 @@ jobs:
         id: cache-wesley
         with:
           path: ~/.local/bin/wesley-${{ env.WESLEY_CLI_VERSION }}
-          key: ${{ runner.os }}-wesley-cli-${{ env.WESLEY_CLI_VERSION }}-${{ env.WESLEY_CLI_REVISION }}
+          key: ${{ runner.os }}-wesley-cli-crates-io-${{ env.WESLEY_CLI_VERSION }}
       - name: Install Wesley CLI
         if: steps.cache-wesley.outputs.cache-hit != 'true'
         run: |
           cargo install \
-            --git https://github.com/flyingrobots/wesley.git \
-            --rev "$WESLEY_CLI_REVISION" \
+            wesley-cli \
+            --version "$WESLEY_CLI_VERSION" \
             --locked \
-            --root "$RUNNER_TEMP/wesley" \
-            wesley-cli
+            --root "$RUNNER_TEMP/wesley"
           mkdir -p "$HOME/.local/bin"
           cp "$RUNNER_TEMP/wesley/bin/wesley" "$HOME/.local/bin/wesley-$WESLEY_CLI_VERSION"
       - name: Configure Wesley CLI

@@ -258,7 +258,7 @@ describe("Graft structural history schema authority", () => {
     }
   });
 
-  it("rejects drift from the pinned Wesley L1 registry hash", () => {
+  it("rejects drift from the declared Wesley L1 registry hash", () => {
     const workspaceRoot = writeSchemaArtifactFixture({
       manifestOverrides: {
         wesleyL1RegistryHash: "tampered-registry-hash",
@@ -277,7 +277,7 @@ describe("Graft structural history schema authority", () => {
     const workspaceRoot = writeSchemaArtifactFixture();
     try {
       expect(checkStructuralHistorySchemaArtifacts(workspaceRoot, { requireWesley: true }).violations).toContain(
-        "WESLEY_BIN is required for hermetic structural-history schema checks. Configure it to the pinned Wesley CLI binary.",
+        "WESLEY_BIN is required for hermetic structural-history schema checks. Configure it to the project-declared Wesley CLI binary.",
       );
     } finally {
       fs.rmSync(workspaceRoot, { recursive: true, force: true });

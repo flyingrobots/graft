@@ -14,14 +14,16 @@ reported: 2026-06-10
 
 ## Context
 
-Wesley 0.0.4 (Graft's pinned CLI version) emits LE-binary TypeScript codecs
-wire-compatible with Rust `echo_wasm_abi::codec` — jedit's
-`rope.codec.generated.ts` proves it. The fake Echo witness slice generates
-codecs for Graft's structural-history schema as part of its build. What jedit
-has that Graft still lacks after that slice:
+Wesley 0.1.0 emits LE-binary TypeScript value codecs wire-compatible with Rust
+`echo_wasm_abi::codec`, and Graft's release gate installs the declared
+`wesley-cli` from crates.io. The fake Echo witness slice generates codecs for
+Graft's structural-history schema as part of its build. What jedit has that
+Graft still lacks after that slice:
 
 - observer plans (`*.observer-plan.generated.ts`) giving bounded reads
   explicit aperture, basis, budgets, and rights;
+- released Echo contract-host operation identity artifacts, so EINT `op_id`
+  values are not copied into Graft witness code or inferred from value codecs;
 - first-class codec emission in the recurring schema pipeline
   (`pnpm schema:structural-history:check` and the gen scripts), not just a
   one-time generation;

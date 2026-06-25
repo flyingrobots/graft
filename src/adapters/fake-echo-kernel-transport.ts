@@ -16,6 +16,7 @@ import {
   ABI_ERROR_CODES,
   DEFAULT_STRUCTURAL_HISTORY_BASIS_ID,
   EchoEnvelopeCodecError,
+  STRUCTURAL_HISTORY_WITNESS_INTENT_OPERATION_IDS,
   STRUCTURAL_HISTORY_OBSERVE_OPERATIONS,
   decodeStructuralHistoryObserveRequest,
   encodeStructuralHistoryErrorResponse,
@@ -24,11 +25,8 @@ import {
 } from "../echo/structural-history-envelope-codec.js";
 import type { CborValue } from "../echo/canonical-cbor.js";
 import {
-  OP_RECORD_GIT_WARP_IMPORT_BATCH,
   decodeRecordGitWarpImportBatchVars,
-  encodeRecordGitWarpImportBatchVars,
 } from "../generated/graft-structural-history.codec.generated.js";
-import { CodecError } from "../echo/codec-runtime.js";
 
 const FATAL_OR_EMPTY_OBSTRUCTIONS = new Set([
   "MISSING_RETENTION",
@@ -76,18 +74,6 @@ interface FakeReadingRecord {
   readonly readingId: string;
   readonly readingKind: string;
   readonly payloadJson: CborValue;
-}
-
-function bytesEqual(a: Uint8Array, b: Uint8Array): boolean {
-  if (a.byteLength !== b.byteLength) {
-    return false;
-  }
-  for (let i = 0; i < a.byteLength; i += 1) {
-    if (a[i] !== b[i]) {
-      return false;
-    }
-  }
-  return true;
 }
 
 function submissionIdFor(envelope: Uint8Array): string {
@@ -143,29 +129,20 @@ export function createFakeEchoKernelTransport(
         "application dispatch rejected scheduler control intent",
       );
     }
-    if (envelope.opId !== OP_RECORD_GIT_WARP_IMPORT_BATCH) {
+    if (envelope.opId !== STRUCTURAL_HISTORY_WITNESS_INTENT_OPERATION_IDS.recordGitWarpImportBatch) {
       return encodeStructuralHistoryErrorResponse(
         ABI_ERROR_CODES.NOT_SUPPORTED,
         `no installed operation for op id ${String(envelope.opId)}`,
       );
     }
-    let vars;
-    try {
-      vars = decodeRecordGitWarpImportBatchVars(envelope.vars);
-    } catch (error) {
-      if (error instanceof CodecError) {
-        return encodeStructuralHistoryErrorResponse(ABI_ERROR_CODES.CODEC_ERROR, error.message);
-      }
-      throw error;
-    }
-    // The generated decoder does not reject trailing bytes (Wesley emitter
-    // gap, filed upstream); canonical re-encode equality is the backstop.
-    if (!bytesEqual(encodeRecordGitWarpImportBatchVars(vars), envelope.vars)) {
+    const decodedVars = decodeRecordGitWarpImportBatchVars(envelope.vars);
+    if (!decodedVars.ok) {
       return encodeStructuralHistoryErrorResponse(
         ABI_ERROR_CODES.CODEC_ERROR,
-        "intent vars carry trailing or non-canonical bytes",
+        decodedVars.error.message,
       );
     }
+    const vars = decodedVars.value;
     const submissionId = submissionIdFor(intentBytes);
     const receipt: CborValue = {
       submissionId,

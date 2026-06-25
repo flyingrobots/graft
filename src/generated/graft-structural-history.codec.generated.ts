@@ -4,23 +4,168 @@
 // Wire layout is Wesley little-endian variable codec v0. Field order is SDL
 // declaration order. Enums encode their zero-based variant index as u32 LE.
 
-import { Writer, Reader, CodecError } from '../echo/codec-runtime.js';
+import { Writer as RuntimeWriter, Reader as RuntimeReader, CodecError as RuntimeCodecError } from '../echo/codec-runtime.js';
+import type { Hash, Json } from './graft-structural-history.js';
+
+export type Result<T> =
+    | { ok: true; value: T }
+    | { ok: false; error: CodecError };
+
+export interface CodecError {
+    readonly message: string;
+}
+
+export interface Writer {
+    writeU32Le(value: number): void;
+    writeI32Le(value: number): void;
+    writeF32Le(value: number): void;
+    writeBool(value: boolean): void;
+    writeString(value: string): void;
+    writeOption<T>(value: T | null, write: (writer: Writer, value: T) => void): void;
+    writeList<T>(value: T[], write: (writer: Writer, value: T) => void): void;
+    finish(): Uint8Array;
+}
+
+export interface Reader {
+    readU32Le(): number;
+    readI32Le(): number;
+    readF32Le(): number;
+    readBool(): boolean;
+    readString(): string;
+    readOption<T>(read: (reader: Reader) => T): T | null;
+    readList<T>(read: (reader: Reader) => T): T[];
+    remaining(): number;
+}
+
+function ok<T>(value: T): Result<T> {
+    return { ok: true, value };
+}
+
+function err<T>(error: CodecError): Result<T> {
+    return { ok: false, error };
+}
+
+function codecErrorFromUnknown(error: unknown): CodecError {
+    if (error instanceof RuntimeCodecError) {
+        return error;
+    }
+    if (error instanceof Error) {
+        return new RuntimeCodecError(error.message);
+    }
+    return new RuntimeCodecError(String(error));
+}
+
+function decodeWithBoundary<T>(b: Uint8Array, read: (reader: Reader) => T): Result<T> {
+    try {
+        const r = new RuntimeReader(b);
+        const value = read(r);
+        if (r.remaining() > 0) {
+            return err(new RuntimeCodecError('trailing bytes after decode'));
+        }
+        return ok(value);
+    } catch (error) {
+        return err(codecErrorFromUnknown(error));
+    }
+}
+
+// Graft's structural-history schema uses custom scalars before Wesley
+// exposes TypeScript scalar codec ports. Keep these shims deterministic and
+// local to the generated structural-history codec artifact.
+function _encHash(w: Writer, v: Hash): void {
+    if (typeof v !== 'string') {
+        throw new RuntimeCodecError('Hash scalar must encode from a string');
+    }
+    w.writeString(v);
+}
+
+function _decHash(r: Reader): Hash {
+    return r.readString();
+}
+
+function _encJson(w: Writer, v: Json): void {
+    const encoded = JSON.stringify(v);
+    if (encoded === undefined) {
+        throw new RuntimeCodecError('Json scalar must be JSON-serializable');
+    }
+    w.writeString(encoded);
+}
+
+function _decJson(r: Reader): Json {
+    try {
+        return JSON.parse(r.readString()) as Json;
+    } catch (error) {
+        throw codecErrorFromUnknown(error);
+    }
+}
+
+// ─── type GitWarpImportBatch ───
+
+export interface GitWarpImportBatch {
+    importBatchId: string;
+    repositoryId: string;
+    sourceRef: string;
+    importedBasisId: string;
+    parity: MigrationParityStatus;
+    importedReadingCount: number;
+    summary: string;
+}
+
+export function _encGitWarpImportBatch(w: Writer, v: GitWarpImportBatch): void {
+    w.writeString(v.importBatchId);
+    w.writeString(v.repositoryId);
+    w.writeString(v.sourceRef);
+    w.writeString(v.importedBasisId);
+    _encMigrationParityStatus(w, v.parity);
+    w.writeI32Le(v.importedReadingCount);
+    w.writeString(v.summary);
+}
+
+export function _decGitWarpImportBatch(r: Reader): GitWarpImportBatch {
+    return {
+        importBatchId: r.readString(),
+        repositoryId: r.readString(),
+        sourceRef: r.readString(),
+        importedBasisId: r.readString(),
+        parity: _decMigrationParityStatus(r),
+        importedReadingCount: r.readI32Le(),
+        summary: r.readString(),
+    };
+}
+
+// ─── type GraftStructuralHistoryInvariants ───
+
+export interface GraftStructuralHistoryInvariants {
+    _placeholder: boolean | null;
+}
+
+export function _encGraftStructuralHistoryInvariants(w: Writer, v: GraftStructuralHistoryInvariants): void {
+    w.writeOption(v._placeholder, (w, x) => w.writeBool(x));
+}
+
+export function _decGraftStructuralHistoryInvariants(r: Reader): GraftStructuralHistoryInvariants {
+    return {
+        _placeholder: r.readOption((r) => r.readBool()),
+    };
+}
 
 // ─── enum MigrationParityStatus ───
+
 export type MigrationParityStatus =
     | 'NOT_CHECKED'
     | 'MATCHED'
     | 'MISMATCHED'
     | 'PARTIAL';
+
 export function _encMigrationParityStatus(w: Writer, v: MigrationParityStatus): void {
     switch (v) {
         case 'NOT_CHECKED': w.writeU32Le(0); return;
         case 'MATCHED': w.writeU32Le(1); return;
         case 'MISMATCHED': w.writeU32Le(2); return;
         case 'PARTIAL': w.writeU32Le(3); return;
-        default: throw new CodecError('invalid MigrationParityStatus variant: ' + String(v));
+        default: throw new RuntimeCodecError('invalid MigrationParityStatus variant: ' + String(v));
     }
 }
+
 export function _decMigrationParityStatus(r: Reader): MigrationParityStatus {
     const d = r.readU32Le();
     switch (d) {
@@ -28,19 +173,22 @@ export function _decMigrationParityStatus(r: Reader): MigrationParityStatus {
         case 1: return 'MATCHED';
         case 2: return 'MISMATCHED';
         case 3: return 'PARTIAL';
-        default: throw new CodecError('invalid MigrationParityStatus discriminant: ' + String(d));
+        default: throw new RuntimeCodecError('invalid MigrationParityStatus discriminant: ' + String(d));
     }
 }
+
 export function encodeMigrationParityStatus(v: MigrationParityStatus): Uint8Array {
-    const w = new Writer();
+    const w = new RuntimeWriter();
     _encMigrationParityStatus(w, v);
     return w.finish();
 }
-export function decodeMigrationParityStatus(b: Uint8Array): MigrationParityStatus {
-    return _decMigrationParityStatus(new Reader(b));
+
+export function decodeMigrationParityStatus(b: Uint8Array): Result<MigrationParityStatus> {
+    return decodeWithBoundary(b, (r) => _decMigrationParityStatus(r));
 }
 
 // ─── input RecordGitWarpImportBatchInput ───
+
 export interface RecordGitWarpImportBatchInput {
     importBatchId: string;
     repositoryId: string;
@@ -50,6 +198,7 @@ export interface RecordGitWarpImportBatchInput {
     importedReadingCount: number;
     summary: string;
 }
+
 export function _encRecordGitWarpImportBatchInput(w: Writer, v: RecordGitWarpImportBatchInput): void {
     w.writeString(v.importBatchId);
     w.writeString(v.repositoryId);
@@ -59,6 +208,7 @@ export function _encRecordGitWarpImportBatchInput(w: Writer, v: RecordGitWarpImp
     w.writeI32Le(v.importedReadingCount);
     w.writeString(v.summary);
 }
+
 export function _decRecordGitWarpImportBatchInput(r: Reader): RecordGitWarpImportBatchInput {
     return {
         importBatchId: r.readString(),
@@ -72,37 +222,80 @@ export function _decRecordGitWarpImportBatchInput(r: Reader): RecordGitWarpImpor
 }
 
 // ─── enum SourceSpanEncoding ───
+
 export type SourceSpanEncoding =
     | 'UTF8_BYTE_RANGE'
     | 'UTF16_CODE_UNIT_RANGE'
     | 'LINE_COLUMN';
+
 export function _encSourceSpanEncoding(w: Writer, v: SourceSpanEncoding): void {
     switch (v) {
         case 'UTF8_BYTE_RANGE': w.writeU32Le(0); return;
         case 'UTF16_CODE_UNIT_RANGE': w.writeU32Le(1); return;
         case 'LINE_COLUMN': w.writeU32Le(2); return;
-        default: throw new CodecError('invalid SourceSpanEncoding variant: ' + String(v));
+        default: throw new RuntimeCodecError('invalid SourceSpanEncoding variant: ' + String(v));
     }
 }
+
 export function _decSourceSpanEncoding(r: Reader): SourceSpanEncoding {
     const d = r.readU32Le();
     switch (d) {
         case 0: return 'UTF8_BYTE_RANGE';
         case 1: return 'UTF16_CODE_UNIT_RANGE';
         case 2: return 'LINE_COLUMN';
-        default: throw new CodecError('invalid SourceSpanEncoding discriminant: ' + String(d));
+        default: throw new RuntimeCodecError('invalid SourceSpanEncoding discriminant: ' + String(d));
     }
 }
+
 export function encodeSourceSpanEncoding(v: SourceSpanEncoding): Uint8Array {
-    const w = new Writer();
+    const w = new RuntimeWriter();
     _encSourceSpanEncoding(w, v);
     return w.finish();
 }
-export function decodeSourceSpanEncoding(b: Uint8Array): SourceSpanEncoding {
-    return _decSourceSpanEncoding(new Reader(b));
+
+export function decodeSourceSpanEncoding(b: Uint8Array): Result<SourceSpanEncoding> {
+    return decodeWithBoundary(b, (r) => _decSourceSpanEncoding(r));
+}
+
+// ─── type StructuralBasis ───
+
+export interface StructuralBasis {
+    basisId: string;
+    repositoryId: string;
+    basisKind: StructuralBasisKind;
+    commitId: string | null;
+    refName: string | null;
+    echoHeadId: string | null;
+    importBatchId: string | null;
+    summary: string;
+}
+
+export function _encStructuralBasis(w: Writer, v: StructuralBasis): void {
+    w.writeString(v.basisId);
+    w.writeString(v.repositoryId);
+    _encStructuralBasisKind(w, v.basisKind);
+    w.writeOption(v.commitId, (w, x) => w.writeString(x));
+    w.writeOption(v.refName, (w, x) => w.writeString(x));
+    w.writeOption(v.echoHeadId, (w, x) => w.writeString(x));
+    w.writeOption(v.importBatchId, (w, x) => w.writeString(x));
+    w.writeString(v.summary);
+}
+
+export function _decStructuralBasis(r: Reader): StructuralBasis {
+    return {
+        basisId: r.readString(),
+        repositoryId: r.readString(),
+        basisKind: _decStructuralBasisKind(r),
+        commitId: r.readOption((r) => r.readString()),
+        refName: r.readOption((r) => r.readString()),
+        echoHeadId: r.readOption((r) => r.readString()),
+        importBatchId: r.readOption((r) => r.readString()),
+        summary: r.readString(),
+    };
 }
 
 // ─── enum StructuralBasisKind ───
+
 export type StructuralBasisKind =
     | 'GIT_COMMIT'
     | 'GIT_REF'
@@ -110,6 +303,7 @@ export type StructuralBasisKind =
     | 'LIVE_FRONTIER'
     | 'IMPORT_BATCH'
     | 'UNPINNED_COMMITTED';
+
 export function _encStructuralBasisKind(w: Writer, v: StructuralBasisKind): void {
     switch (v) {
         case 'GIT_COMMIT': w.writeU32Le(0); return;
@@ -118,9 +312,10 @@ export function _encStructuralBasisKind(w: Writer, v: StructuralBasisKind): void
         case 'LIVE_FRONTIER': w.writeU32Le(3); return;
         case 'IMPORT_BATCH': w.writeU32Le(4); return;
         case 'UNPINNED_COMMITTED': w.writeU32Le(5); return;
-        default: throw new CodecError('invalid StructuralBasisKind variant: ' + String(v));
+        default: throw new RuntimeCodecError('invalid StructuralBasisKind variant: ' + String(v));
     }
 }
+
 export function _decStructuralBasisKind(r: Reader): StructuralBasisKind {
     const d = r.readU32Le();
     switch (d) {
@@ -130,56 +325,213 @@ export function _decStructuralBasisKind(r: Reader): StructuralBasisKind {
         case 3: return 'LIVE_FRONTIER';
         case 4: return 'IMPORT_BATCH';
         case 5: return 'UNPINNED_COMMITTED';
-        default: throw new CodecError('invalid StructuralBasisKind discriminant: ' + String(d));
+        default: throw new RuntimeCodecError('invalid StructuralBasisKind discriminant: ' + String(d));
     }
 }
+
 export function encodeStructuralBasisKind(v: StructuralBasisKind): Uint8Array {
-    const w = new Writer();
+    const w = new RuntimeWriter();
     _encStructuralBasisKind(w, v);
     return w.finish();
 }
-export function decodeStructuralBasisKind(b: Uint8Array): StructuralBasisKind {
-    return _decStructuralBasisKind(new Reader(b));
+
+export function decodeStructuralBasisKind(b: Uint8Array): Result<StructuralBasisKind> {
+    return decodeWithBoundary(b, (r) => _decStructuralBasisKind(r));
 }
 
 // ─── enum StructuralEvidenceKind ───
+
 export type StructuralEvidenceKind =
     | 'ECHO_NATIVE'
     | 'GIT_WARP_IMPORTED'
     | 'FALLBACK_TRANSLATED';
+
 export function _encStructuralEvidenceKind(w: Writer, v: StructuralEvidenceKind): void {
     switch (v) {
         case 'ECHO_NATIVE': w.writeU32Le(0); return;
         case 'GIT_WARP_IMPORTED': w.writeU32Le(1); return;
         case 'FALLBACK_TRANSLATED': w.writeU32Le(2); return;
-        default: throw new CodecError('invalid StructuralEvidenceKind variant: ' + String(v));
+        default: throw new RuntimeCodecError('invalid StructuralEvidenceKind variant: ' + String(v));
     }
 }
+
 export function _decStructuralEvidenceKind(r: Reader): StructuralEvidenceKind {
     const d = r.readU32Le();
     switch (d) {
         case 0: return 'ECHO_NATIVE';
         case 1: return 'GIT_WARP_IMPORTED';
         case 2: return 'FALLBACK_TRANSLATED';
-        default: throw new CodecError('invalid StructuralEvidenceKind discriminant: ' + String(d));
+        default: throw new RuntimeCodecError('invalid StructuralEvidenceKind discriminant: ' + String(d));
     }
 }
+
 export function encodeStructuralEvidenceKind(v: StructuralEvidenceKind): Uint8Array {
-    const w = new Writer();
+    const w = new RuntimeWriter();
     _encStructuralEvidenceKind(w, v);
     return w.finish();
 }
-export function decodeStructuralEvidenceKind(b: Uint8Array): StructuralEvidenceKind {
-    return _decStructuralEvidenceKind(new Reader(b));
+
+export function decodeStructuralEvidenceKind(b: Uint8Array): Result<StructuralEvidenceKind> {
+    return decodeWithBoundary(b, (r) => _decStructuralEvidenceKind(r));
+}
+
+// ─── type StructuralFileVersion ───
+
+export interface StructuralFileVersion {
+    fileVersionId: string;
+    repositoryId: string;
+    basisId: string;
+    path: string;
+    contentDigest: Hash;
+    language: string | null;
+    summary: string;
+}
+
+export function _encStructuralFileVersion(w: Writer, v: StructuralFileVersion): void {
+    w.writeString(v.fileVersionId);
+    w.writeString(v.repositoryId);
+    w.writeString(v.basisId);
+    w.writeString(v.path);
+    _encHash(w, v.contentDigest);
+    w.writeOption(v.language, (w, x) => w.writeString(x));
+    w.writeString(v.summary);
+}
+
+export function _decStructuralFileVersion(r: Reader): StructuralFileVersion {
+    return {
+        fileVersionId: r.readString(),
+        repositoryId: r.readString(),
+        basisId: r.readString(),
+        path: r.readString(),
+        contentDigest: _decHash(r),
+        language: r.readOption((r) => r.readString()),
+        summary: r.readString(),
+    };
+}
+
+// ─── type StructuralParserRun ───
+
+export interface StructuralParserRun {
+    parserRunId: string;
+    fileVersionId: string;
+    parserName: string;
+    parserVersion: string | null;
+    diagnosticCount: number;
+    summary: string;
+}
+
+export function _encStructuralParserRun(w: Writer, v: StructuralParserRun): void {
+    w.writeString(v.parserRunId);
+    w.writeString(v.fileVersionId);
+    w.writeString(v.parserName);
+    w.writeOption(v.parserVersion, (w, x) => w.writeString(x));
+    w.writeI32Le(v.diagnosticCount);
+    w.writeString(v.summary);
+}
+
+export function _decStructuralParserRun(r: Reader): StructuralParserRun {
+    return {
+        parserRunId: r.readString(),
+        fileVersionId: r.readString(),
+        parserName: r.readString(),
+        parserVersion: r.readOption((r) => r.readString()),
+        diagnosticCount: r.readI32Le(),
+        summary: r.readString(),
+    };
+}
+
+// ─── type StructuralReading ───
+
+export interface StructuralReading {
+    readingId: string;
+    repositoryId: string;
+    basisId: string;
+    evidenceId: string;
+    readingKind: StructuralReadingKind;
+    freshness: StructuralReadingFreshness;
+    residualPosture: StructuralReadingResidualPosture;
+    payloadDigest: Hash;
+    payloadJson: Json | null;
+    summary: string;
+}
+
+export function _encStructuralReading(w: Writer, v: StructuralReading): void {
+    w.writeString(v.readingId);
+    w.writeString(v.repositoryId);
+    w.writeString(v.basisId);
+    w.writeString(v.evidenceId);
+    _encStructuralReadingKind(w, v.readingKind);
+    _encStructuralReadingFreshness(w, v.freshness);
+    _encStructuralReadingResidualPosture(w, v.residualPosture);
+    _encHash(w, v.payloadDigest);
+    w.writeOption(v.payloadJson, (w, x) => _encJson(w, x));
+    w.writeString(v.summary);
+}
+
+export function _decStructuralReading(r: Reader): StructuralReading {
+    return {
+        readingId: r.readString(),
+        repositoryId: r.readString(),
+        basisId: r.readString(),
+        evidenceId: r.readString(),
+        readingKind: _decStructuralReadingKind(r),
+        freshness: _decStructuralReadingFreshness(r),
+        residualPosture: _decStructuralReadingResidualPosture(r),
+        payloadDigest: _decHash(r),
+        payloadJson: r.readOption((r) => _decJson(r)),
+        summary: r.readString(),
+    };
+}
+
+// ─── type StructuralReadingEvidence ───
+
+export interface StructuralReadingEvidence {
+    evidenceId: string;
+    evidenceKind: StructuralEvidenceKind;
+    substrate: StructuralSubstrateKind;
+    basisId: string;
+    sourceRef: string | null;
+    migrationBatchId: string | null;
+    nativeContinuumWitness: boolean;
+    parity: MigrationParityStatus;
+    summary: string;
+}
+
+export function _encStructuralReadingEvidence(w: Writer, v: StructuralReadingEvidence): void {
+    w.writeString(v.evidenceId);
+    _encStructuralEvidenceKind(w, v.evidenceKind);
+    _encStructuralSubstrateKind(w, v.substrate);
+    w.writeString(v.basisId);
+    w.writeOption(v.sourceRef, (w, x) => w.writeString(x));
+    w.writeOption(v.migrationBatchId, (w, x) => w.writeString(x));
+    w.writeBool(v.nativeContinuumWitness);
+    _encMigrationParityStatus(w, v.parity);
+    w.writeString(v.summary);
+}
+
+export function _decStructuralReadingEvidence(r: Reader): StructuralReadingEvidence {
+    return {
+        evidenceId: r.readString(),
+        evidenceKind: _decStructuralEvidenceKind(r),
+        substrate: _decStructuralSubstrateKind(r),
+        basisId: r.readString(),
+        sourceRef: r.readOption((r) => r.readString()),
+        migrationBatchId: r.readOption((r) => r.readString()),
+        nativeContinuumWitness: r.readBool(),
+        parity: _decMigrationParityStatus(r),
+        summary: r.readString(),
+    };
 }
 
 // ─── enum StructuralReadingFreshness ───
+
 export type StructuralReadingFreshness =
     | 'CURRENT'
     | 'STALE'
     | 'INCOMPARABLE'
     | 'UNKNOWN'
     | 'LIVE_FRONTIER';
+
 export function _encStructuralReadingFreshness(w: Writer, v: StructuralReadingFreshness): void {
     switch (v) {
         case 'CURRENT': w.writeU32Le(0); return;
@@ -187,9 +539,10 @@ export function _encStructuralReadingFreshness(w: Writer, v: StructuralReadingFr
         case 'INCOMPARABLE': w.writeU32Le(2); return;
         case 'UNKNOWN': w.writeU32Le(3); return;
         case 'LIVE_FRONTIER': w.writeU32Le(4); return;
-        default: throw new CodecError('invalid StructuralReadingFreshness variant: ' + String(v));
+        default: throw new RuntimeCodecError('invalid StructuralReadingFreshness variant: ' + String(v));
     }
 }
+
 export function _decStructuralReadingFreshness(r: Reader): StructuralReadingFreshness {
     const d = r.readU32Le();
     switch (d) {
@@ -198,19 +551,22 @@ export function _decStructuralReadingFreshness(r: Reader): StructuralReadingFres
         case 2: return 'INCOMPARABLE';
         case 3: return 'UNKNOWN';
         case 4: return 'LIVE_FRONTIER';
-        default: throw new CodecError('invalid StructuralReadingFreshness discriminant: ' + String(d));
+        default: throw new RuntimeCodecError('invalid StructuralReadingFreshness discriminant: ' + String(d));
     }
 }
+
 export function encodeStructuralReadingFreshness(v: StructuralReadingFreshness): Uint8Array {
-    const w = new Writer();
+    const w = new RuntimeWriter();
     _encStructuralReadingFreshness(w, v);
     return w.finish();
 }
-export function decodeStructuralReadingFreshness(b: Uint8Array): StructuralReadingFreshness {
-    return _decStructuralReadingFreshness(new Reader(b));
+
+export function decodeStructuralReadingFreshness(b: Uint8Array): Result<StructuralReadingFreshness> {
+    return decodeWithBoundary(b, (r) => _decStructuralReadingFreshness(r));
 }
 
 // ─── enum StructuralReadingKind ───
+
 export type StructuralReadingKind =
     | 'SYMBOL_REFERENCE_COUNT'
     | 'DEAD_SYMBOLS'
@@ -219,6 +575,7 @@ export type StructuralReadingKind =
     | 'STRUCTURAL_LOG'
     | 'STRUCTURAL_CHURN'
     | 'PRECISION_CODE_LOOKUP';
+
 export function _encStructuralReadingKind(w: Writer, v: StructuralReadingKind): void {
     switch (v) {
         case 'SYMBOL_REFERENCE_COUNT': w.writeU32Le(0); return;
@@ -228,9 +585,10 @@ export function _encStructuralReadingKind(w: Writer, v: StructuralReadingKind): 
         case 'STRUCTURAL_LOG': w.writeU32Le(4); return;
         case 'STRUCTURAL_CHURN': w.writeU32Le(5); return;
         case 'PRECISION_CODE_LOOKUP': w.writeU32Le(6); return;
-        default: throw new CodecError('invalid StructuralReadingKind variant: ' + String(v));
+        default: throw new RuntimeCodecError('invalid StructuralReadingKind variant: ' + String(v));
     }
 }
+
 export function _decStructuralReadingKind(r: Reader): StructuralReadingKind {
     const d = r.readU32Le();
     switch (d) {
@@ -241,19 +599,22 @@ export function _decStructuralReadingKind(r: Reader): StructuralReadingKind {
         case 4: return 'STRUCTURAL_LOG';
         case 5: return 'STRUCTURAL_CHURN';
         case 6: return 'PRECISION_CODE_LOOKUP';
-        default: throw new CodecError('invalid StructuralReadingKind discriminant: ' + String(d));
+        default: throw new RuntimeCodecError('invalid StructuralReadingKind discriminant: ' + String(d));
     }
 }
+
 export function encodeStructuralReadingKind(v: StructuralReadingKind): Uint8Array {
-    const w = new Writer();
+    const w = new RuntimeWriter();
     _encStructuralReadingKind(w, v);
     return w.finish();
 }
-export function decodeStructuralReadingKind(b: Uint8Array): StructuralReadingKind {
-    return _decStructuralReadingKind(new Reader(b));
+
+export function decodeStructuralReadingKind(b: Uint8Array): Result<StructuralReadingKind> {
+    return decodeWithBoundary(b, (r) => _decStructuralReadingKind(r));
 }
 
 // ─── enum StructuralReadingResidualPosture ───
+
 export type StructuralReadingResidualPosture =
     | 'COMPLETE'
     | 'PARTIAL'
@@ -263,6 +624,7 @@ export type StructuralReadingResidualPosture =
     | 'UNAVAILABLE'
     | 'OBSTRUCTED'
     | 'DEGRADED';
+
 export function _encStructuralReadingResidualPosture(w: Writer, v: StructuralReadingResidualPosture): void {
     switch (v) {
         case 'COMPLETE': w.writeU32Le(0); return;
@@ -273,9 +635,10 @@ export function _encStructuralReadingResidualPosture(w: Writer, v: StructuralRea
         case 'UNAVAILABLE': w.writeU32Le(5); return;
         case 'OBSTRUCTED': w.writeU32Le(6); return;
         case 'DEGRADED': w.writeU32Le(7); return;
-        default: throw new CodecError('invalid StructuralReadingResidualPosture variant: ' + String(v));
+        default: throw new RuntimeCodecError('invalid StructuralReadingResidualPosture variant: ' + String(v));
     }
 }
+
 export function _decStructuralReadingResidualPosture(r: Reader): StructuralReadingResidualPosture {
     const d = r.readU32Le();
     switch (d) {
@@ -287,47 +650,203 @@ export function _decStructuralReadingResidualPosture(r: Reader): StructuralReadi
         case 5: return 'UNAVAILABLE';
         case 6: return 'OBSTRUCTED';
         case 7: return 'DEGRADED';
-        default: throw new CodecError('invalid StructuralReadingResidualPosture discriminant: ' + String(d));
+        default: throw new RuntimeCodecError('invalid StructuralReadingResidualPosture discriminant: ' + String(d));
     }
 }
+
 export function encodeStructuralReadingResidualPosture(v: StructuralReadingResidualPosture): Uint8Array {
-    const w = new Writer();
+    const w = new RuntimeWriter();
     _encStructuralReadingResidualPosture(w, v);
     return w.finish();
 }
-export function decodeStructuralReadingResidualPosture(b: Uint8Array): StructuralReadingResidualPosture {
-    return _decStructuralReadingResidualPosture(new Reader(b));
+
+export function decodeStructuralReadingResidualPosture(b: Uint8Array): Result<StructuralReadingResidualPosture> {
+    return decodeWithBoundary(b, (r) => _decStructuralReadingResidualPosture(r));
+}
+
+// ─── type StructuralRepository ───
+
+export interface StructuralRepository {
+    repositoryId: string;
+    rootKey: string;
+    defaultBranch: string | null;
+    summary: string;
+}
+
+export function _encStructuralRepository(w: Writer, v: StructuralRepository): void {
+    w.writeString(v.repositoryId);
+    w.writeString(v.rootKey);
+    w.writeOption(v.defaultBranch, (w, x) => w.writeString(x));
+    w.writeString(v.summary);
+}
+
+export function _decStructuralRepository(r: Reader): StructuralRepository {
+    return {
+        repositoryId: r.readString(),
+        rootKey: r.readString(),
+        defaultBranch: r.readOption((r) => r.readString()),
+        summary: r.readString(),
+    };
+}
+
+// ─── type StructuralSourceSpan ───
+
+export interface StructuralSourceSpan {
+    spanId: string;
+    fileVersionId: string;
+    encoding: SourceSpanEncoding;
+    startOffset: number;
+    endOffset: number;
+    startLine: number | null;
+    endLine: number | null;
+    summary: string;
+}
+
+export function _encStructuralSourceSpan(w: Writer, v: StructuralSourceSpan): void {
+    w.writeString(v.spanId);
+    w.writeString(v.fileVersionId);
+    _encSourceSpanEncoding(w, v.encoding);
+    w.writeI32Le(v.startOffset);
+    w.writeI32Le(v.endOffset);
+    w.writeOption(v.startLine, (w, x) => w.writeI32Le(x));
+    w.writeOption(v.endLine, (w, x) => w.writeI32Le(x));
+    w.writeString(v.summary);
+}
+
+export function _decStructuralSourceSpan(r: Reader): StructuralSourceSpan {
+    return {
+        spanId: r.readString(),
+        fileVersionId: r.readString(),
+        encoding: _decSourceSpanEncoding(r),
+        startOffset: r.readI32Le(),
+        endOffset: r.readI32Le(),
+        startLine: r.readOption((r) => r.readI32Le()),
+        endLine: r.readOption((r) => r.readI32Le()),
+        summary: r.readString(),
+    };
 }
 
 // ─── enum StructuralSubstrateKind ───
+
 export type StructuralSubstrateKind =
     | 'ECHO'
     | 'GIT_WARP';
+
 export function _encStructuralSubstrateKind(w: Writer, v: StructuralSubstrateKind): void {
     switch (v) {
         case 'ECHO': w.writeU32Le(0); return;
         case 'GIT_WARP': w.writeU32Le(1); return;
-        default: throw new CodecError('invalid StructuralSubstrateKind variant: ' + String(v));
+        default: throw new RuntimeCodecError('invalid StructuralSubstrateKind variant: ' + String(v));
     }
 }
+
 export function _decStructuralSubstrateKind(r: Reader): StructuralSubstrateKind {
     const d = r.readU32Le();
     switch (d) {
         case 0: return 'ECHO';
         case 1: return 'GIT_WARP';
-        default: throw new CodecError('invalid StructuralSubstrateKind discriminant: ' + String(d));
+        default: throw new RuntimeCodecError('invalid StructuralSubstrateKind discriminant: ' + String(d));
     }
 }
+
 export function encodeStructuralSubstrateKind(v: StructuralSubstrateKind): Uint8Array {
-    const w = new Writer();
+    const w = new RuntimeWriter();
     _encStructuralSubstrateKind(w, v);
     return w.finish();
 }
-export function decodeStructuralSubstrateKind(b: Uint8Array): StructuralSubstrateKind {
-    return _decStructuralSubstrateKind(new Reader(b));
+
+export function decodeStructuralSubstrateKind(b: Uint8Array): Result<StructuralSubstrateKind> {
+    return decodeWithBoundary(b, (r) => _decStructuralSubstrateKind(r));
+}
+
+// ─── type StructuralSymbol ───
+
+export interface StructuralSymbol {
+    symbolId: string;
+    repositoryId: string;
+    basisId: string;
+    fileVersionId: string;
+    parserRunId: string | null;
+    name: string;
+    kind: string;
+    visibility: SymbolVisibility;
+    declarationSpanId: string | null;
+    exported: boolean;
+    summary: string;
+}
+
+export function _encStructuralSymbol(w: Writer, v: StructuralSymbol): void {
+    w.writeString(v.symbolId);
+    w.writeString(v.repositoryId);
+    w.writeString(v.basisId);
+    w.writeString(v.fileVersionId);
+    w.writeOption(v.parserRunId, (w, x) => w.writeString(x));
+    w.writeString(v.name);
+    w.writeString(v.kind);
+    _encSymbolVisibility(w, v.visibility);
+    w.writeOption(v.declarationSpanId, (w, x) => w.writeString(x));
+    w.writeBool(v.exported);
+    w.writeString(v.summary);
+}
+
+export function _decStructuralSymbol(r: Reader): StructuralSymbol {
+    return {
+        symbolId: r.readString(),
+        repositoryId: r.readString(),
+        basisId: r.readString(),
+        fileVersionId: r.readString(),
+        parserRunId: r.readOption((r) => r.readString()),
+        name: r.readString(),
+        kind: r.readString(),
+        visibility: _decSymbolVisibility(r),
+        declarationSpanId: r.readOption((r) => r.readString()),
+        exported: r.readBool(),
+        summary: r.readString(),
+    };
+}
+
+// ─── type StructuralSymbolRelation ───
+
+export interface StructuralSymbolRelation {
+    relationId: string;
+    repositoryId: string;
+    basisId: string;
+    relationKind: SymbolRelationKind;
+    fromSymbolId: string | null;
+    toSymbolId: string | null;
+    fileVersionId: string | null;
+    spanId: string | null;
+    summary: string;
+}
+
+export function _encStructuralSymbolRelation(w: Writer, v: StructuralSymbolRelation): void {
+    w.writeString(v.relationId);
+    w.writeString(v.repositoryId);
+    w.writeString(v.basisId);
+    _encSymbolRelationKind(w, v.relationKind);
+    w.writeOption(v.fromSymbolId, (w, x) => w.writeString(x));
+    w.writeOption(v.toSymbolId, (w, x) => w.writeString(x));
+    w.writeOption(v.fileVersionId, (w, x) => w.writeString(x));
+    w.writeOption(v.spanId, (w, x) => w.writeString(x));
+    w.writeString(v.summary);
+}
+
+export function _decStructuralSymbolRelation(r: Reader): StructuralSymbolRelation {
+    return {
+        relationId: r.readString(),
+        repositoryId: r.readString(),
+        basisId: r.readString(),
+        relationKind: _decSymbolRelationKind(r),
+        fromSymbolId: r.readOption((r) => r.readString()),
+        toSymbolId: r.readOption((r) => r.readString()),
+        fileVersionId: r.readOption((r) => r.readString()),
+        spanId: r.readOption((r) => r.readString()),
+        summary: r.readString(),
+    };
 }
 
 // ─── enum SymbolRelationKind ───
+
 export type SymbolRelationKind =
     | 'IMPORTS'
     | 'EXPORTS'
@@ -335,6 +854,7 @@ export type SymbolRelationKind =
     | 'CALLS'
     | 'DEFINES'
     | 'REMOVES';
+
 export function _encSymbolRelationKind(w: Writer, v: SymbolRelationKind): void {
     switch (v) {
         case 'IMPORTS': w.writeU32Le(0); return;
@@ -343,9 +863,10 @@ export function _encSymbolRelationKind(w: Writer, v: SymbolRelationKind): void {
         case 'CALLS': w.writeU32Le(3); return;
         case 'DEFINES': w.writeU32Le(4); return;
         case 'REMOVES': w.writeU32Le(5); return;
-        default: throw new CodecError('invalid SymbolRelationKind variant: ' + String(v));
+        default: throw new RuntimeCodecError('invalid SymbolRelationKind variant: ' + String(v));
     }
 }
+
 export function _decSymbolRelationKind(r: Reader): SymbolRelationKind {
     const d = r.readU32Le();
     switch (d) {
@@ -355,126 +876,155 @@ export function _decSymbolRelationKind(r: Reader): SymbolRelationKind {
         case 3: return 'CALLS';
         case 4: return 'DEFINES';
         case 5: return 'REMOVES';
-        default: throw new CodecError('invalid SymbolRelationKind discriminant: ' + String(d));
+        default: throw new RuntimeCodecError('invalid SymbolRelationKind discriminant: ' + String(d));
     }
 }
+
 export function encodeSymbolRelationKind(v: SymbolRelationKind): Uint8Array {
-    const w = new Writer();
+    const w = new RuntimeWriter();
     _encSymbolRelationKind(w, v);
     return w.finish();
 }
-export function decodeSymbolRelationKind(b: Uint8Array): SymbolRelationKind {
-    return _decSymbolRelationKind(new Reader(b));
+
+export function decodeSymbolRelationKind(b: Uint8Array): Result<SymbolRelationKind> {
+    return decodeWithBoundary(b, (r) => _decSymbolRelationKind(r));
 }
 
 // ─── enum SymbolVisibility ───
+
 export type SymbolVisibility =
     | 'LOCAL'
     | 'EXPORTED'
     | 'UNKNOWN';
+
 export function _encSymbolVisibility(w: Writer, v: SymbolVisibility): void {
     switch (v) {
         case 'LOCAL': w.writeU32Le(0); return;
         case 'EXPORTED': w.writeU32Le(1); return;
         case 'UNKNOWN': w.writeU32Le(2); return;
-        default: throw new CodecError('invalid SymbolVisibility variant: ' + String(v));
+        default: throw new RuntimeCodecError('invalid SymbolVisibility variant: ' + String(v));
     }
 }
+
 export function _decSymbolVisibility(r: Reader): SymbolVisibility {
     const d = r.readU32Le();
     switch (d) {
         case 0: return 'LOCAL';
         case 1: return 'EXPORTED';
         case 2: return 'UNKNOWN';
-        default: throw new CodecError('invalid SymbolVisibility discriminant: ' + String(d));
+        default: throw new RuntimeCodecError('invalid SymbolVisibility discriminant: ' + String(d));
     }
 }
+
 export function encodeSymbolVisibility(v: SymbolVisibility): Uint8Array {
-    const w = new Writer();
+    const w = new RuntimeWriter();
     _encSymbolVisibility(w, v);
     return w.finish();
 }
-export function decodeSymbolVisibility(b: Uint8Array): SymbolVisibility {
-    return _decSymbolVisibility(new Reader(b));
+
+export function decodeSymbolVisibility(b: Uint8Array): Result<SymbolVisibility> {
+    return decodeWithBoundary(b, (r) => _decSymbolVisibility(r));
 }
 
 // ─── query structuralRepositories ───
-/** EINT op id for query `structuralRepositories`. Stable across Rust and TypeScript emitters. */
-export const OP_STRUCTURAL_REPOSITORIES: number = 2032910390;
+
 export interface StructuralRepositoriesVars {
     repositoryId: string | null;
 }
-export function encodeStructuralRepositoriesVars(v: StructuralRepositoriesVars): Uint8Array {
-    const w = new Writer();
+
+export function _encStructuralRepositoriesVars(w: Writer, v: StructuralRepositoriesVars): void {
     w.writeOption(v.repositoryId, (w, x) => w.writeString(x));
-    return w.finish();
 }
-export function decodeStructuralRepositoriesVars(b: Uint8Array): StructuralRepositoriesVars {
-    const r = new Reader(b);
+
+export function _decStructuralRepositoriesVars(r: Reader): StructuralRepositoriesVars {
     return {
         repositoryId: r.readOption((r) => r.readString()),
     };
 }
 
+export function encodeStructuralRepositoriesVars(v: StructuralRepositoriesVars): Uint8Array {
+    const w = new RuntimeWriter();
+    _encStructuralRepositoriesVars(w, v);
+    return w.finish();
+}
+
+export function decodeStructuralRepositoriesVars(b: Uint8Array): Result<StructuralRepositoriesVars> {
+    return decodeWithBoundary(b, (r) => _decStructuralRepositoriesVars(r));
+}
+
 // ─── query structuralBases ───
-/** EINT op id for query `structuralBases`. Stable across Rust and TypeScript emitters. */
-export const OP_STRUCTURAL_BASES: number = 1248717276;
+
 export interface StructuralBasesVars {
     repositoryId: string;
     basisKind: StructuralBasisKind | null;
 }
-export function encodeStructuralBasesVars(v: StructuralBasesVars): Uint8Array {
-    const w = new Writer();
+
+export function _encStructuralBasesVars(w: Writer, v: StructuralBasesVars): void {
     w.writeString(v.repositoryId);
     w.writeOption(v.basisKind, (w, x) => _encStructuralBasisKind(w, x));
-    return w.finish();
 }
-export function decodeStructuralBasesVars(b: Uint8Array): StructuralBasesVars {
-    const r = new Reader(b);
+
+export function _decStructuralBasesVars(r: Reader): StructuralBasesVars {
     return {
         repositoryId: r.readString(),
         basisKind: r.readOption((r) => _decStructuralBasisKind(r)),
     };
 }
 
+export function encodeStructuralBasesVars(v: StructuralBasesVars): Uint8Array {
+    const w = new RuntimeWriter();
+    _encStructuralBasesVars(w, v);
+    return w.finish();
+}
+
+export function decodeStructuralBasesVars(b: Uint8Array): Result<StructuralBasesVars> {
+    return decodeWithBoundary(b, (r) => _decStructuralBasesVars(r));
+}
+
 // ─── query structuralFileVersions ───
-/** EINT op id for query `structuralFileVersions`. Stable across Rust and TypeScript emitters. */
-export const OP_STRUCTURAL_FILE_VERSIONS: number = 1424315131;
+
 export interface StructuralFileVersionsVars {
     basisId: string;
     path: string | null;
 }
-export function encodeStructuralFileVersionsVars(v: StructuralFileVersionsVars): Uint8Array {
-    const w = new Writer();
+
+export function _encStructuralFileVersionsVars(w: Writer, v: StructuralFileVersionsVars): void {
     w.writeString(v.basisId);
     w.writeOption(v.path, (w, x) => w.writeString(x));
-    return w.finish();
 }
-export function decodeStructuralFileVersionsVars(b: Uint8Array): StructuralFileVersionsVars {
-    const r = new Reader(b);
+
+export function _decStructuralFileVersionsVars(r: Reader): StructuralFileVersionsVars {
     return {
         basisId: r.readString(),
         path: r.readOption((r) => r.readString()),
     };
 }
 
+export function encodeStructuralFileVersionsVars(v: StructuralFileVersionsVars): Uint8Array {
+    const w = new RuntimeWriter();
+    _encStructuralFileVersionsVars(w, v);
+    return w.finish();
+}
+
+export function decodeStructuralFileVersionsVars(b: Uint8Array): Result<StructuralFileVersionsVars> {
+    return decodeWithBoundary(b, (r) => _decStructuralFileVersionsVars(r));
+}
+
 // ─── query structuralSymbols ───
-/** EINT op id for query `structuralSymbols`. Stable across Rust and TypeScript emitters. */
-export const OP_STRUCTURAL_SYMBOLS: number = 1921506065;
+
 export interface StructuralSymbolsVars {
     basisId: string;
     fileVersionId: string | null;
     name: string | null;
 }
-export function encodeStructuralSymbolsVars(v: StructuralSymbolsVars): Uint8Array {
-    const w = new Writer();
+
+export function _encStructuralSymbolsVars(w: Writer, v: StructuralSymbolsVars): void {
     w.writeString(v.basisId);
     w.writeOption(v.fileVersionId, (w, x) => w.writeString(x));
     w.writeOption(v.name, (w, x) => w.writeString(x));
-    return w.finish();
 }
-export function decodeStructuralSymbolsVars(b: Uint8Array): StructuralSymbolsVars {
-    const r = new Reader(b);
+
+export function _decStructuralSymbolsVars(r: Reader): StructuralSymbolsVars {
     return {
         basisId: r.readString(),
         fileVersionId: r.readOption((r) => r.readString()),
@@ -482,23 +1032,31 @@ export function decodeStructuralSymbolsVars(b: Uint8Array): StructuralSymbolsVar
     };
 }
 
+export function encodeStructuralSymbolsVars(v: StructuralSymbolsVars): Uint8Array {
+    const w = new RuntimeWriter();
+    _encStructuralSymbolsVars(w, v);
+    return w.finish();
+}
+
+export function decodeStructuralSymbolsVars(b: Uint8Array): Result<StructuralSymbolsVars> {
+    return decodeWithBoundary(b, (r) => _decStructuralSymbolsVars(r));
+}
+
 // ─── query structuralSymbolRelations ───
-/** EINT op id for query `structuralSymbolRelations`. Stable across Rust and TypeScript emitters. */
-export const OP_STRUCTURAL_SYMBOL_RELATIONS: number = 3823410673;
+
 export interface StructuralSymbolRelationsVars {
     basisId: string;
     symbolId: string | null;
     relationKind: SymbolRelationKind | null;
 }
-export function encodeStructuralSymbolRelationsVars(v: StructuralSymbolRelationsVars): Uint8Array {
-    const w = new Writer();
+
+export function _encStructuralSymbolRelationsVars(w: Writer, v: StructuralSymbolRelationsVars): void {
     w.writeString(v.basisId);
     w.writeOption(v.symbolId, (w, x) => w.writeString(x));
     w.writeOption(v.relationKind, (w, x) => _encSymbolRelationKind(w, x));
-    return w.finish();
 }
-export function decodeStructuralSymbolRelationsVars(b: Uint8Array): StructuralSymbolRelationsVars {
-    const r = new Reader(b);
+
+export function _decStructuralSymbolRelationsVars(r: Reader): StructuralSymbolRelationsVars {
     return {
         basisId: r.readString(),
         symbolId: r.readOption((r) => r.readString()),
@@ -506,83 +1064,125 @@ export function decodeStructuralSymbolRelationsVars(b: Uint8Array): StructuralSy
     };
 }
 
+export function encodeStructuralSymbolRelationsVars(v: StructuralSymbolRelationsVars): Uint8Array {
+    const w = new RuntimeWriter();
+    _encStructuralSymbolRelationsVars(w, v);
+    return w.finish();
+}
+
+export function decodeStructuralSymbolRelationsVars(b: Uint8Array): Result<StructuralSymbolRelationsVars> {
+    return decodeWithBoundary(b, (r) => _decStructuralSymbolRelationsVars(r));
+}
+
 // ─── query structuralReadings ───
-/** EINT op id for query `structuralReadings`. Stable across Rust and TypeScript emitters. */
-export const OP_STRUCTURAL_READINGS: number = 2423586293;
+
 export interface StructuralReadingsVars {
     basisId: string;
     readingKind: StructuralReadingKind | null;
 }
-export function encodeStructuralReadingsVars(v: StructuralReadingsVars): Uint8Array {
-    const w = new Writer();
+
+export function _encStructuralReadingsVars(w: Writer, v: StructuralReadingsVars): void {
     w.writeString(v.basisId);
     w.writeOption(v.readingKind, (w, x) => _encStructuralReadingKind(w, x));
-    return w.finish();
 }
-export function decodeStructuralReadingsVars(b: Uint8Array): StructuralReadingsVars {
-    const r = new Reader(b);
+
+export function _decStructuralReadingsVars(r: Reader): StructuralReadingsVars {
     return {
         basisId: r.readString(),
         readingKind: r.readOption((r) => _decStructuralReadingKind(r)),
     };
 }
 
+export function encodeStructuralReadingsVars(v: StructuralReadingsVars): Uint8Array {
+    const w = new RuntimeWriter();
+    _encStructuralReadingsVars(w, v);
+    return w.finish();
+}
+
+export function decodeStructuralReadingsVars(b: Uint8Array): Result<StructuralReadingsVars> {
+    return decodeWithBoundary(b, (r) => _decStructuralReadingsVars(r));
+}
+
 // ─── query structuralReadingEvidence ───
-/** EINT op id for query `structuralReadingEvidence`. Stable across Rust and TypeScript emitters. */
-export const OP_STRUCTURAL_READING_EVIDENCE: number = 1860328781;
+
 export interface StructuralReadingEvidenceVars {
     evidenceId: string | null;
     basisId: string | null;
 }
-export function encodeStructuralReadingEvidenceVars(v: StructuralReadingEvidenceVars): Uint8Array {
-    const w = new Writer();
+
+export function _encStructuralReadingEvidenceVars(w: Writer, v: StructuralReadingEvidenceVars): void {
     w.writeOption(v.evidenceId, (w, x) => w.writeString(x));
     w.writeOption(v.basisId, (w, x) => w.writeString(x));
-    return w.finish();
 }
-export function decodeStructuralReadingEvidenceVars(b: Uint8Array): StructuralReadingEvidenceVars {
-    const r = new Reader(b);
+
+export function _decStructuralReadingEvidenceVars(r: Reader): StructuralReadingEvidenceVars {
     return {
         evidenceId: r.readOption((r) => r.readString()),
         basisId: r.readOption((r) => r.readString()),
     };
 }
 
+export function encodeStructuralReadingEvidenceVars(v: StructuralReadingEvidenceVars): Uint8Array {
+    const w = new RuntimeWriter();
+    _encStructuralReadingEvidenceVars(w, v);
+    return w.finish();
+}
+
+export function decodeStructuralReadingEvidenceVars(b: Uint8Array): Result<StructuralReadingEvidenceVars> {
+    return decodeWithBoundary(b, (r) => _decStructuralReadingEvidenceVars(r));
+}
+
 // ─── query gitWarpImportBatches ───
-/** EINT op id for query `gitWarpImportBatches`. Stable across Rust and TypeScript emitters. */
-export const OP_GIT_WARP_IMPORT_BATCHES: number = 533666208;
+
 export interface GitWarpImportBatchesVars {
     repositoryId: string;
     parity: MigrationParityStatus | null;
 }
-export function encodeGitWarpImportBatchesVars(v: GitWarpImportBatchesVars): Uint8Array {
-    const w = new Writer();
+
+export function _encGitWarpImportBatchesVars(w: Writer, v: GitWarpImportBatchesVars): void {
     w.writeString(v.repositoryId);
     w.writeOption(v.parity, (w, x) => _encMigrationParityStatus(w, x));
-    return w.finish();
 }
-export function decodeGitWarpImportBatchesVars(b: Uint8Array): GitWarpImportBatchesVars {
-    const r = new Reader(b);
+
+export function _decGitWarpImportBatchesVars(r: Reader): GitWarpImportBatchesVars {
     return {
         repositoryId: r.readString(),
         parity: r.readOption((r) => _decMigrationParityStatus(r)),
     };
 }
 
+export function encodeGitWarpImportBatchesVars(v: GitWarpImportBatchesVars): Uint8Array {
+    const w = new RuntimeWriter();
+    _encGitWarpImportBatchesVars(w, v);
+    return w.finish();
+}
+
+export function decodeGitWarpImportBatchesVars(b: Uint8Array): Result<GitWarpImportBatchesVars> {
+    return decodeWithBoundary(b, (r) => _decGitWarpImportBatchesVars(r));
+}
+
 // ─── mutation recordGitWarpImportBatch ───
-/** EINT op id for mutation `recordGitWarpImportBatch`. Stable across Rust and TypeScript emitters. */
-export const OP_RECORD_GIT_WARP_IMPORT_BATCH: number = 2574440766;
+
 export interface RecordGitWarpImportBatchVars {
     input: RecordGitWarpImportBatchInput;
 }
-export function encodeRecordGitWarpImportBatchVars(v: RecordGitWarpImportBatchVars): Uint8Array {
-    const w = new Writer();
+
+export function _encRecordGitWarpImportBatchVars(w: Writer, v: RecordGitWarpImportBatchVars): void {
     _encRecordGitWarpImportBatchInput(w, v.input);
-    return w.finish();
 }
-export function decodeRecordGitWarpImportBatchVars(b: Uint8Array): RecordGitWarpImportBatchVars {
-    const r = new Reader(b);
+
+export function _decRecordGitWarpImportBatchVars(r: Reader): RecordGitWarpImportBatchVars {
     return {
         input: _decRecordGitWarpImportBatchInput(r),
     };
+}
+
+export function encodeRecordGitWarpImportBatchVars(v: RecordGitWarpImportBatchVars): Uint8Array {
+    const w = new RuntimeWriter();
+    _encRecordGitWarpImportBatchVars(w, v);
+    return w.finish();
+}
+
+export function decodeRecordGitWarpImportBatchVars(b: Uint8Array): Result<RecordGitWarpImportBatchVars> {
+    return decodeWithBoundary(b, (r) => _decRecordGitWarpImportBatchVars(r));
 }

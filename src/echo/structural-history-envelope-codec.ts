@@ -38,6 +38,14 @@ export const STRUCTURAL_HISTORY_OBSERVE_OPERATIONS = {
   retainedEvidencePosture: "retainedEvidencePosture",
 } as const;
 
+/**
+ * EINT v1 operation ids for Graft's internal fake Echo witness.
+ * The real authority belongs in Echo's released contract-host generator.
+ */
+export const STRUCTURAL_HISTORY_WITNESS_INTENT_OPERATION_IDS = {
+  recordGitWarpImportBatch: 2574440766,
+} as const;
+
 /** Default basis id used by the witness fixture space. */
 export const DEFAULT_STRUCTURAL_HISTORY_BASIS_ID = "basis-live";
 

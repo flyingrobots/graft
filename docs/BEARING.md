@@ -90,7 +90,8 @@ are proven.
 1. Keep `main` clean after the `v0.8.0` release.
 2. Treat the Wesley-backed structural-history generation gate as the active
    quality invariant: generated TypeScript must be regenerated from GraphQL in
-   CI through the pinned Wesley CLI and fail if hand-edited.
+   CI through the project-declared crates.io Wesley CLI and fail if
+   hand-edited.
 3. Pull the `asap/` cards that decompose
    [CORE_structural-history-schema-and-echo-migration](./method/backlog/up-next/CORE_structural-history-schema-and-echo-migration.md)
    into Graft-only pre-Echo slices.
