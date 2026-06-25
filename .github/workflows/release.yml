@@ -26,7 +26,7 @@ jobs:
     steps:
       - uses: actions/checkout@v5
 
-      - uses: pnpm/action-setup@v4
+      - uses: pnpm/action-setup@v6.0.9
 
       - uses: actions/setup-node@v5
         with:
@@ -35,7 +35,7 @@ jobs:
 
       - run: pnpm install --frozen-lockfile
 
-      - uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830
+      - uses: actions/cache@2c8a9bd7457de244a408f35966fab2fb45fda9c8
         id: cache-wesley
         with:
           path: ~/.local/bin/wesley-${{ env.WESLEY_CLI_VERSION }}
@@ -124,7 +124,7 @@ jobs:
         with:
           fetch-depth: 0
 
-      - uses: pnpm/action-setup@v4
+      - uses: pnpm/action-setup@v6.0.9
 
       - uses: actions/setup-node@v5
         with:
@@ -154,7 +154,7 @@ jobs:
           mkdir -p release-assets
           pnpm pack --pack-destination release-assets
           cd release-assets
-          sha256sum *.tgz > SHA256SUMS
+          sha256sum -- *.tgz > SHA256SUMS
 
       - name: Create GitHub release
         env:
@@ -184,7 +184,7 @@ jobs:
     steps:
       - uses: actions/checkout@v5
 
-      - uses: pnpm/action-setup@v4
+      - uses: pnpm/action-setup@v6.0.9
 
       - uses: actions/setup-node@v5
         with:
@@ -193,7 +193,7 @@ jobs:
 
       - run: pnpm install --frozen-lockfile
 
-      - uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830
+      - uses: actions/cache@2c8a9bd7457de244a408f35966fab2fb45fda9c8
         id: cache-wesley
         with:
           path: ~/.local/bin/wesley-${{ env.WESLEY_CLI_VERSION }}
