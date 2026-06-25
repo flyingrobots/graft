@@ -85,14 +85,14 @@ class FakeColorfulRunner implements ProcessRunner {
         ],
         structure: [
           {
-            nodeId: "paragraph_1",
+            nodeId: 0,
             kind: "PARAGRAPH",
             byteRange: { startUtf8: 0, endUtf8: source.byteLength },
             depth: 0,
-            childNodeIds: ["sentence_1"],
+            childNodeIds: [1],
           },
           {
-            nodeId: "sentence_1",
+            nodeId: 1,
             kind: "SENTENCE",
             byteRange: { startUtf8: 0, endUtf8: Math.min(source.byteLength, 14) },
             depth: 1,

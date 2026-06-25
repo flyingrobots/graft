@@ -13,6 +13,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   help includes the same version identity without requiring repository or daemon
   initialization.
 
+### Fixed
+
+- **Colorful prose IR compatibility**: the prose projector now accepts
+  `OutlineNode.nodeId: Int!` and `childNodeIds: [Int!]!` from the real
+  `colorful.syntax/v1` contract, normalizing those integer IDs to Graft's
+  internal string keys instead of rejecting valid `colorful ir` output.
+
 ## [0.10.0] - 2026-06-24
 
 ### Added
