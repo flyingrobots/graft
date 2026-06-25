@@ -1,6 +1,7 @@
 import { createHash } from "node:crypto";
 import { describe, expect, it } from "vitest";
 import {
+  ColorfulIrProjectionError,
   COLORFUL_VOCABULARY_HASH,
   makeColorfulByteToPoint,
   projectColorfulIr,
@@ -222,6 +223,6 @@ describe("Colorful prose projection", () => {
       source,
       sourceHash: contentHash(source),
       ir,
-    })).toThrow(/nodeId/);
+    })).toThrow(ColorfulIrProjectionError);
   });
 });
