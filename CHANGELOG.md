@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Added
+
+- `graft --version` and `graft -V` now print the package version, and grouped
+  help includes the same version identity without requiring repository or daemon
+  initialization.
+
 ## [0.10.0] - 2026-06-24
 
 ### Added

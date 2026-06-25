@@ -3,6 +3,7 @@ import * as fs from "node:fs";
 import * as path from "node:path";
 import { resolveEntrypointArgs, runCli } from "../../../src/cli/main.js";
 import type { DaemonStatusReadSnapshot } from "../../../src/cli/daemon-status-model.js";
+import { GRAFT_VERSION } from "../../../src/version.js";
 import { cleanupTestRepo, createTestRepo, git } from "../../helpers/git.js";
 import { createBufferWriter } from "../../helpers/init.js";
 import { writeLegacyLocalHistoryArtifact } from "../../helpers/legacy-local-history.js";
@@ -87,6 +88,8 @@ describe("cli: graft grouped surface", () => {
     });
 
     expect(stderr.text()).toBe("");
+    expect(stdout.text()).toContain(`graft ${GRAFT_VERSION}`);
+    expect(stdout.text()).toContain("--version");
     expect(stdout.text()).toContain("migrate local-history");
     expect(stdout.text()).toContain("read safe");
     expect(stdout.text()).toContain("struct diff");
@@ -107,9 +110,44 @@ describe("cli: graft grouped surface", () => {
     });
 
     expect(stderr.text()).toBe("");
+    expect(stdout.text()).toContain(`graft ${GRAFT_VERSION}`);
     expect(stdout.text()).toContain("No args prints help.");
     expect(stdout.text()).toContain("serve           Start the repo-local MCP stdio server");
     expect(stdout.text()).toContain("serve --runtime daemon");
+  });
+
+  it("prints package version without touching repo guards", async () => {
+    const stdout = createBufferWriter();
+    const stderr = createBufferWriter();
+    let gitGuardCalled = false;
+
+    await runCli({
+      args: ["--version"],
+      stdout,
+      stderr,
+      ensureGitVersion: () => {
+        gitGuardCalled = true;
+        return Promise.resolve();
+      },
+    });
+
+    expect(stderr.text()).toBe("");
+    expect(stdout.text()).toBe(`graft ${GRAFT_VERSION}\n`);
+    expect(gitGuardCalled).toBe(false);
+  });
+
+  it("aliases -V to package version output", async () => {
+    const stdout = createBufferWriter();
+    const stderr = createBufferWriter();
+
+    await runCli({
+      args: ["-V"],
+      stdout,
+      stderr,
+    });
+
+    expect(stderr.text()).toBe("");
+    expect(stdout.text()).toBe(`graft ${GRAFT_VERSION}\n`);
   });
 
   it("routes explicit serve through the server starter", async () => {
