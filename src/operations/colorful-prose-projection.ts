@@ -98,6 +98,14 @@ function requireInteger(value: unknown, label: string): number {
   return value;
 }
 
+function requireOutlineId(value: unknown, label: string): string {
+  const id = requireInteger(value, label);
+  if (id < 0) {
+    fail(`${label} must be a non-negative integer`);
+  }
+  return String(id);
+}
+
 function requireArray(value: unknown, label: string): readonly unknown[] {
   if (!Array.isArray(value)) {
     fail(`${label} must be an array`);
@@ -163,12 +171,12 @@ function decodeToken(value: unknown, label: string): ColorfulToken {
 function decodeStructureNode(value: unknown, label: string): ColorfulStructureNode {
   const record = requireRecord(value, label);
   return {
-    nodeId: requireString(record["nodeId"], `${label}.nodeId`),
+    nodeId: requireOutlineId(record["nodeId"], `${label}.nodeId`),
     kind: decodeOutlineKind(record["kind"], `${label}.kind`),
     byteRange: decodeByteRange(record["byteRange"], `${label}.byteRange`),
     depth: requireInteger(record["depth"], `${label}.depth`),
     childNodeIds: requireArray(record["childNodeIds"], `${label}.childNodeIds`).map((entry, index) =>
-      requireString(entry, `${label}.childNodeIds[${String(index)}]`)
+      requireOutlineId(entry, `${label}.childNodeIds[${String(index)}]`)
     ),
   };
 }
