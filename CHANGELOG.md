@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Added
+
+- `graft --version` and `graft -V` now print the package version, and grouped
+  help includes the same version identity without requiring repository or daemon
+  initialization.
+
 ### Fixed
 
 - **Colorful prose IR compatibility**: the prose projector now accepts

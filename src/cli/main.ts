@@ -27,6 +27,7 @@ import { runLocalHistoryDag } from "./local-history-dag.js";
 import { runMigrateLocalHistory } from "./migrate-local-history.js";
 import { emitPeerCommand, invokePeerCommand, writeLine, type Writer } from "./peer-command.js";
 import { runReviewCooldown } from "./review-cooldown.js";
+import { GRAFT_VERSION } from "../version.js";
 
 export { resolveEntrypointArgs } from "./command-parser.js";
 
@@ -45,12 +46,13 @@ export interface RunCliOptions {
 }
 
 function renderHelp(writer: Writer): void {
-  writeLine(writer, "graft CLI");
+  writeLine(writer, `graft ${GRAFT_VERSION} CLI`);
   writeLine(writer);
   writeLine(writer, "No args prints help.");
   writeLine(writer);
   writeLine(writer, "Global options:");
   writeLine(writer, "  --cwd <path>    Run a command against another repo root");
+  writeLine(writer, "  -V, --version   Print the graft CLI version");
   writeLine(writer, "  help            Show this help");
   writeLine(writer, "  serve           Start the repo-local MCP stdio server");
   writeLine(writer, "  serve --runtime daemon");
@@ -80,6 +82,10 @@ function renderHelp(writer: Writer): void {
   }
 }
 
+function renderVersion(writer: Writer): void {
+  writeLine(writer, `graft ${GRAFT_VERSION}`);
+}
+
 export async function runCli(options: RunCliOptions = {}): Promise<void> {
   const stdout = options.stdout ?? process.stdout;
   const stderr = options.stderr ?? process.stderr;
@@ -99,6 +105,11 @@ export async function runCli(options: RunCliOptions = {}): Promise<void> {
 
   if (argv.length === 0 || argv[0] === "help" || argv[0] === "--help") {
     renderHelp(stdout);
+    return;
+  }
+
+  if (argv.length === 1 && (argv[0] === "--version" || argv[0] === "-V")) {
+    renderVersion(stdout);
     return;
   }
 
