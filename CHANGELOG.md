@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.10.1] - 2026-06-25
+
 ### Added
 
 - `graft --version` and `graft -V` now print the package version, and grouped
