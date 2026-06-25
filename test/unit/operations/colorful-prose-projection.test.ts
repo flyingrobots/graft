@@ -45,21 +45,21 @@ function fixtureIr(source: Uint8Array): unknown {
     ],
     structure: [
       {
-        nodeId: "paragraph_1",
+        nodeId: 0,
         kind: "PARAGRAPH",
         byteRange: { startUtf8: 0, endUtf8: 13 },
         depth: 0,
-        childNodeIds: ["sentence_1", "sentence_2"],
+        childNodeIds: [1, 2],
       },
       {
-        nodeId: "sentence_1",
+        nodeId: 1,
         kind: "SENTENCE",
         byteRange: { startUtf8: 0, endUtf8: 5 },
         depth: 1,
         childNodeIds: [],
       },
       {
-        nodeId: "sentence_2",
+        nodeId: 2,
         kind: "SENTENCE",
         byteRange: { startUtf8: 6, endUtf8: 13 },
         depth: 1,
@@ -147,7 +147,7 @@ describe("Colorful prose projection", () => {
       ],
       structure: [
         {
-          nodeId: "paragraph_1",
+          nodeId: 0,
           kind: "PARAGRAPH",
           byteRange: { startUtf8: 0, endUtf8: source.byteLength },
           depth: 0,
@@ -171,14 +171,14 @@ describe("Colorful prose projection", () => {
       tokens: [],
       structure: [
         {
-          nodeId: "paragraph_1",
+          nodeId: 0,
           kind: "PARAGRAPH",
           byteRange: { startUtf8: 0, endUtf8: source.byteLength },
           depth: 0,
-          childNodeIds: ["sentence_1"],
+          childNodeIds: [1],
         },
         {
-          nodeId: "sentence_1",
+          nodeId: 1,
           kind: "SENTENCE",
           byteRange: { startUtf8: 0, endUtf8: 6 },
           depth: 0,
@@ -199,5 +199,29 @@ describe("Colorful prose projection", () => {
       kind: "paragraph",
       children: [expect.objectContaining({ kind: "sentence" })],
     }));
+  });
+
+  it("rejects outline IDs outside the Colorful integer contract", () => {
+    const source = Buffer.from("Alpha.\n", "utf8");
+    const ir = {
+      ...(fixtureIr(source) as Record<string, unknown>),
+      tokens: [],
+      structure: [
+        {
+          nodeId: "paragraph_1",
+          kind: "PARAGRAPH",
+          byteRange: { startUtf8: 0, endUtf8: source.byteLength },
+          depth: 0,
+          childNodeIds: [],
+        },
+      ],
+    };
+
+    expect(() => projectColorfulIr({
+      path: "notes.txt",
+      source,
+      sourceHash: contentHash(source),
+      ir,
+    })).toThrow(/nodeId/);
   });
 });
