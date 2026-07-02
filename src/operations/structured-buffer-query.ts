@@ -44,13 +44,24 @@ function unavailableReason(snapshot: StructuredBufferSnapshot): BufferUnavailabl
 function parseStatusReason(
   snapshot: StructuredBufferSnapshot,
 ): BufferUnavailableReason | undefined {
-  if (snapshot.proseProjection !== undefined) {
+  if (snapshot.proseProjection !== undefined || snapshot.edictProjection !== undefined) {
     return undefined;
   }
-  if (snapshot.format === null) {
-    return "UNSUPPORTED_LANGUAGE";
+  if (snapshot.format === null || snapshot.parseUnavailableReason !== undefined) {
+    return unavailableReason(snapshot);
   }
-  return snapshot.parseUnavailableReason;
+  return undefined;
+}
+
+function parseStatus(snapshot: StructuredBufferSnapshot): "full" | "partial" | "unsupported" {
+  if (
+    snapshot.format === null
+    || snapshot.parseUnavailableReason === "UNSUPPORTED_LANGUAGE"
+    || snapshot.parseUnavailableReason === "PROJECTION_PROVIDER_UNAVAILABLE"
+  ) {
+    return "unsupported";
+  }
+  return snapshot.partial ? "partial" : "full";
 }
 
 const KEYWORDS = new Set([
@@ -355,6 +366,16 @@ function resolveSymbol(
 }
 
 export function buildOutlineResult(snapshot: StructuredBufferSnapshot): BufferOutlineResult {
+  if (snapshot.edictProjection !== undefined) {
+    return {
+      path: snapshot.path,
+      format: snapshot.format,
+      basis: snapshot.basis,
+      outline: [],
+      jumpTable: [],
+      partial: snapshot.partial,
+    };
+  }
   if (snapshot.proseProjection !== undefined) {
     return {
       path: snapshot.path,
@@ -390,6 +411,14 @@ export function buildOutlineResult(snapshot: StructuredBufferSnapshot): BufferOu
 }
 
 export function buildInjectionResult(snapshot: StructuredBufferSnapshot): InjectionResult {
+  if (snapshot.edictProjection !== undefined) {
+    return {
+      path: snapshot.path,
+      format: snapshot.format,
+      basis: snapshot.basis,
+      injections: [],
+    };
+  }
   if (snapshot.proseProjection !== undefined) {
     return {
       path: snapshot.path,
@@ -430,6 +459,23 @@ export function buildSyntaxSpansResult(
   snapshot: StructuredBufferSnapshot,
   opts: { viewport?: BufferRange | undefined } = {},
 ): SyntaxSpanResult {
+  if (snapshot.edictProjection !== undefined) {
+    const viewport = opts.viewport;
+    const spans = snapshot.edictProjection.syntax.state === "available"
+      ? snapshot.edictProjection.syntax.value.spans
+      : [];
+    const filtered = viewport === undefined
+      ? spans
+      : spans.filter((span) => rangeOverlaps(span.range, viewport));
+    return {
+      path: snapshot.path,
+      format: snapshot.format,
+      basis: snapshot.basis,
+      partial: snapshot.partial,
+      spans: filtered,
+      injections: [],
+    };
+  }
   if (snapshot.proseProjection !== undefined) {
     const viewport = opts.viewport;
     const spans = viewport === undefined
@@ -517,6 +563,23 @@ export function buildSyntaxSpansResult(
 }
 
 export function buildDiagnosticsResult(snapshot: StructuredBufferSnapshot): DiagnosticsResult {
+  if (snapshot.edictProjection !== undefined) {
+    return {
+      path: snapshot.path,
+      format: snapshot.format,
+      basis: snapshot.basis,
+      partial: snapshot.partial,
+      diagnostics: snapshot.edictProjection.diagnostics.items.map((item) => ({
+        severity: item.severity,
+        code: "compiler_diagnostic",
+        message: item.message ?? item.kind,
+        range: item.range,
+        source: "edict",
+        stage: item.stage,
+        kind: item.kind,
+      })),
+    };
+  }
   if (snapshot.proseProjection !== undefined) {
     return {
       path: snapshot.path,
@@ -604,6 +667,15 @@ export function buildNodeLookupResult(snapshot: StructuredBufferSnapshot, positi
 }
 
 export function buildFoldRegionsResult(snapshot: StructuredBufferSnapshot): FoldRegionsResult {
+  if (snapshot.edictProjection !== undefined) {
+    return {
+      path: snapshot.path,
+      format: snapshot.format,
+      basis: snapshot.basis,
+      partial: snapshot.partial,
+      regions: [],
+    };
+  }
   if (snapshot.proseProjection !== undefined) {
     return {
       path: snapshot.path,
@@ -861,7 +933,7 @@ export function buildWarmProjectionBundleResult(
       basis: snapshot.basis,
       format: snapshot.format,
       partial: snapshot.partial,
-      status: snapshot.format === null ? "unsupported" : snapshot.partial ? "partial" : "full",
+      status: parseStatus(snapshot),
       reason: parseStatusReason(snapshot),
     },
     syntax,

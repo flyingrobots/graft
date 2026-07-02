@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it } from "vitest";
 import { createStructuredBuffer } from "../../../src/index.js";
+import type { EdictProjectionProvider } from "../../../src/operations/edict-projection.js";
 import type { ProseProjectionProvider } from "../../../src/operations/colorful-prose-projection.js";
 import { JumpEntry, OutlineEntry } from "../../../src/parser/types.js";
 
@@ -316,6 +317,185 @@ describe("library: structured buffer", () => {
       syntax: expect.objectContaining({ reason: "UNSUPPORTED_LANGUAGE" }),
       diagnostics: expect.objectContaining({ reason: "UNSUPPORTED_LANGUAGE" }),
       folds: expect.objectContaining({ reason: "UNSUPPORTED_LANGUAGE" }),
+    }));
+  });
+
+  it("recognizes Edict buffers and reports missing projection provider explicitly", () => {
+    const buffer = track(createStructuredBuffer("demo.edict", "package demo.echo@1;\n", { basis }));
+
+    expect(buffer.format).toBe("edict");
+    expect(buffer.syntaxSpans()).toEqual(expect.objectContaining({
+      format: "edict",
+      basis,
+      reason: "PROJECTION_PROVIDER_UNAVAILABLE",
+    }));
+    expect(buffer.projectionBundle()).toEqual(expect.objectContaining({
+      format: "edict",
+      basis,
+      parseStatus: expect.objectContaining({
+        format: "edict",
+        status: "unsupported",
+        reason: "PROJECTION_PROVIDER_UNAVAILABLE",
+      }),
+    }));
+  });
+
+  it("projects Edict syntax and diagnostics through an injected Edict projector", () => {
+    const edictProjector: EdictProjectionProvider = {
+      project(input) {
+        expect(input.name).toBe("demo.edict");
+        expect(input.content).toBe("package demo.echo@1;\n");
+        expect(input.basis).toEqual(basis);
+        expect(input.emit).toEqual(["syntax", "diagnostics", "core", "targetIr"]);
+        return {
+          language: "edict",
+          name: input.name,
+          basis: input.basis ?? null,
+          syntax: {
+            state: "available",
+            value: {
+              spans: [
+                {
+                  className: "keyword",
+                  range: { start: { row: 0, column: 0 }, end: { row: 0, column: 7 } },
+                  text: "package",
+                },
+              ],
+            },
+          },
+          diagnostics: {
+            items: [
+              {
+                stage: "parse",
+                kind: "ExpectedToken",
+                severity: "error",
+                message: "expected token",
+                range: { start: { row: 0, column: 18 }, end: { row: 0, column: 19 } },
+              },
+            ],
+          },
+          core: { state: "blocked", reason: [{ kind: "ExpectedToken" }] },
+          targetIr: { state: "not_requested" },
+          status: {
+            status: "ok",
+            checked: 1,
+            errors: 1,
+            exitCode: 0,
+          },
+        };
+      },
+    };
+    const buffer = track(createStructuredBuffer("demo.edict", "package demo.echo@1;\n", {
+      basis,
+      edictProjector,
+    }));
+
+    expect(buffer.format).toBe("edict");
+    expect(buffer.edictProjection()).toEqual(expect.objectContaining({
+      language: "edict",
+      name: "demo.edict",
+      basis,
+      core: { state: "blocked", reason: [{ kind: "ExpectedToken" }] },
+    }));
+    expect(buffer.syntaxSpans()).toEqual(expect.objectContaining({
+      format: "edict",
+      partial: true,
+      spans: [
+        {
+          className: "keyword",
+          range: { start: { row: 0, column: 0 }, end: { row: 0, column: 7 } },
+          text: "package",
+        },
+      ],
+    }));
+    expect(buffer.diagnostics().diagnostics).toEqual([
+      expect.objectContaining({
+        code: "compiler_diagnostic",
+        source: "edict",
+        stage: "parse",
+        kind: "ExpectedToken",
+      }),
+    ]);
+  });
+
+  it("marks Edict snapshots partial when requested syntax projection fails", () => {
+    const edictProjector: EdictProjectionProvider = {
+      project(input) {
+        return {
+          language: "edict",
+          name: input.name,
+          basis: input.basis ?? null,
+          syntax: {
+            state: "failed",
+            error: { kind: "missing_projection_record" },
+          },
+          diagnostics: { items: [] },
+          core: {
+            state: "available",
+            value: {
+              digest: "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+              review: { apiVersion: "edict.core/v1" },
+            },
+          },
+          targetIr: {
+            state: "available",
+            value: {
+              domain: "echo.span-ir/v1",
+              target: {
+                coordinate: "echo.dpo@1",
+                digest: "sha256:2222222222222222222222222222222222222222222222222222222222222222",
+              },
+              digest: "sha256:3333333333333333333333333333333333333333333333333333333333333333",
+              review: { intents: {} },
+            },
+          },
+          status: {
+            status: "ok",
+            checked: 1,
+            errors: 0,
+            exitCode: 0,
+          },
+        };
+      },
+    };
+    const buffer = track(createStructuredBuffer("demo.edict", "package demo.echo@1;\n", {
+      basis,
+      edictProjector,
+    }));
+
+    expect(buffer.syntaxSpans()).toEqual(expect.objectContaining({
+      format: "edict",
+      partial: true,
+      spans: [],
+    }));
+    expect(buffer.projectionBundle().parseStatus).toEqual(expect.objectContaining({
+      format: "edict",
+      status: "partial",
+    }));
+  });
+
+  it("reports projection provider unavailable when an Edict projector throws", () => {
+    const edictProjector: EdictProjectionProvider = {
+      project() {
+        throw new Error("edict CLI unavailable");
+      },
+    };
+
+    const buffer = track(createStructuredBuffer("demo.edict", "package demo.echo@1;\n", {
+      basis,
+      edictProjector,
+    }));
+
+    expect(buffer.format).toBe("edict");
+    expect(buffer.syntaxSpans()).toEqual(expect.objectContaining({
+      format: "edict",
+      basis,
+      reason: "PROJECTION_PROVIDER_UNAVAILABLE",
+    }));
+    expect(buffer.projectionBundle().parseStatus).toEqual(expect.objectContaining({
+      format: "edict",
+      status: "unsupported",
+      reason: "PROJECTION_PROVIDER_UNAVAILABLE",
     }));
   });
 

@@ -2,9 +2,11 @@ import { spawnSync } from "node:child_process";
 import { afterEach, describe, expect, it } from "vitest";
 import packageJson from "../../../package.json";
 import {
+  EdictProjectionError,
   GRAFT_VERSION,
   MCP_TOOL_NAMES,
   callGraftTool,
+  createEdictCliProjectionProvider,
   createProjectionBundle,
   createGraftServer,
   createRepoLocalGraft,
@@ -52,6 +54,8 @@ describe("public library API", () => {
     expect(typeof createRepoWorkspace).toBe("function");
     expect(typeof createStructuredBuffer).toBe("function");
     expect(typeof createProjectionBundle).toBe("function");
+    expect(typeof createEdictCliProjectionProvider).toBe("function");
+    expect(typeof EdictProjectionError).toBe("function");
     expect(typeof ensureParserReady).toBe("function");
     expect(typeof isParserReady).toBe("function");
     expect(typeof createRepoLocalGraft).toBe("function");
@@ -91,7 +95,7 @@ describe("public library API", () => {
     ].join("\n");
     const result = spawnSync(
       process.execPath,
-      ["--import", "tsx", "--eval", script],
+      ["--no-deprecation", "--import", "tsx", "--eval", script],
       {
         cwd: process.cwd(),
         encoding: "utf8",

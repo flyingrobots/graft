@@ -149,6 +149,37 @@ const bundle = createProjectionBundle("src/app.tsx", liveEditorText, {
 
 `createProjectionBundle` owns the WASM buffer lifecycle internally. Use `createStructuredBuffer` directly if you need to hold a buffer across multiple operations and manage `dispose()` yourself.
 
+**Edict projection bridge** (dirty `.edict` buffer to syntax/Core/Target IR):
+```ts
+import {
+  createEdictCliProjectionProvider,
+  createStructuredBuffer,
+} from "@flyingrobots/graft";
+import { nodeProcessRunner } from "./your-process-runner.js";
+
+const edictProjector = createEdictCliProjectionProvider({
+  processRunner: nodeProcessRunner,
+  cwd: process.cwd(),
+  target: {
+    coordinate: "echo.dpo@1",
+    profileDigest: "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+    irDomain: "echo.span-ir/v1",
+  },
+});
+
+const buffer = createStructuredBuffer("demo.edict", liveEditorText, {
+  basis: { kind: "editor_head", headId: "head-42", tick: 18 },
+  edictProjector,
+});
+
+const syntax = buffer.syntaxSpans();
+const edict = buffer.edictProjection();
+// edict?.core and edict?.targetIr preserve available/blocked/failed slot truth.
+```
+
+This bridge invokes Edict's projection CLI over stdin JSONL. It does not execute
+Echo, admit bundles, or require the editor buffer to exist on disk.
+
 ---
 
 ## Quick Start
