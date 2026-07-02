@@ -242,7 +242,7 @@ describe("Edict projection decoding", () => {
         errors: 0,
         exitCode: 0,
       },
-    ])).toThrow(/input.name/);
+    ])).toThrow(EdictProjectionError);
   });
 
   it("marks requested projection slots as failed when Edict omits their records", () => {
@@ -345,6 +345,6 @@ describe("Edict projection decoding", () => {
         errors: 0,
         exitCode: 0,
       },
-    ])).toThrow(/command/);
+    ])).toThrow(EdictProjectionError);
   });
 });
