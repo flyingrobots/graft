@@ -54,6 +54,30 @@ FAIL test/unit/library/structured-buffer.test.ts > library: structured buffer > 
 AssertionError: expected partial: false to equal partial: true
 ```
 
+Code Lawyer follow-up produced these targeted RED checks before the final PR
+repair pass:
+
+```text
+$ pnpm vitest run test/unit/library/structured-buffer.test.ts
+
+FAIL test/unit/library/structured-buffer.test.ts > library: structured buffer > reports projection provider unavailable when an Edict projector throws
+Error: edict CLI unavailable
+```
+
+```text
+$ pnpm vitest run test/unit/operations/edict-projection.test.ts
+
+FAIL test/unit/operations/edict-projection.test.ts > Edict projection decoding > rejects negative status counters
+AssertionError: expected function to throw an error, but it didn't
+```
+
+```text
+$ pnpm vitest run test/unit/library/index.test.ts
+
+FAIL test/unit/library/index.test.ts > public library API > exports direct, bridge, and host surfaces from the root package
+AssertionError: expected 'undefined' to be 'function'
+```
+
 ## GREEN
 
 ```text
@@ -70,6 +94,36 @@ $ pnpm vitest run test/unit/operations/edict-projection.test.ts test/unit/librar
 
 Test Files  2 passed (2)
 Tests  18 passed (18)
+```
+
+Code Lawyer follow-up focused GREEN:
+
+```text
+$ pnpm vitest run test/unit/library/structured-buffer.test.ts
+
+Test Files  1 passed (1)
+Tests  13 passed (13)
+```
+
+```text
+$ pnpm vitest run test/unit/operations/edict-projection.test.ts
+
+Test Files  1 passed (1)
+Tests  7 passed (7)
+```
+
+```text
+$ pnpm vitest run test/unit/adapters/edict-cli-projection-provider.test.ts
+
+Test Files  1 passed (1)
+Tests  2 passed (2)
+```
+
+```text
+$ pnpm vitest run test/unit/library/index.test.ts
+
+Test Files  1 passed (1)
+Tests  5 passed (5)
 ```
 
 ```text
@@ -112,7 +166,7 @@ PASS
 $ pnpm test
 
 Test Files  240 passed (240)
-Tests  1783 passed (1783)
+Tests  1785 passed (1785)
 ```
 
 ## Scope Guard
