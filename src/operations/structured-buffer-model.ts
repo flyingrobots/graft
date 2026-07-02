@@ -290,14 +290,19 @@ export function createStructuredBufferSnapshot(opts: {
   const proseProjection = edictPath
     ? undefined
     : opts.proseProjector?.project({ path: opts.path, content: opts.content }) ?? undefined;
-  const edictProjection = edictPath
-    ? opts.edictProjector?.project({
-      name: opts.path,
-      content: opts.content,
-      basis: opts.basis,
-      emit: ["syntax", "diagnostics", "core", "targetIr"],
-    }) ?? undefined
-    : undefined;
+  let edictProjection: EdictProjectionBundle | undefined;
+  if (edictPath && opts.edictProjector !== undefined) {
+    try {
+      edictProjection = opts.edictProjector.project({
+        name: opts.path,
+        content: opts.content,
+        basis: opts.basis,
+        emit: ["syntax", "diagnostics", "core", "targetIr"],
+      });
+    } catch {
+      parseUnavailableReason = "PROJECTION_PROVIDER_UNAVAILABLE";
+    }
+  }
   if (edictPath && edictProjection === undefined) {
     parseUnavailableReason = "PROJECTION_PROVIDER_UNAVAILABLE";
   } else if (proseProjection === undefined && edictProjection === undefined && format === null) {

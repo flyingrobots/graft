@@ -474,6 +474,31 @@ describe("library: structured buffer", () => {
     }));
   });
 
+  it("reports projection provider unavailable when an Edict projector throws", () => {
+    const edictProjector: EdictProjectionProvider = {
+      project() {
+        throw new Error("edict CLI unavailable");
+      },
+    };
+
+    const buffer = track(createStructuredBuffer("demo.edict", "package demo.echo@1;\n", {
+      basis,
+      edictProjector,
+    }));
+
+    expect(buffer.format).toBe("edict");
+    expect(buffer.syntaxSpans()).toEqual(expect.objectContaining({
+      format: "edict",
+      basis,
+      reason: "PROJECTION_PROVIDER_UNAVAILABLE",
+    }));
+    expect(buffer.projectionBundle().parseStatus).toEqual(expect.objectContaining({
+      format: "edict",
+      status: "unsupported",
+      reason: "PROJECTION_PROVIDER_UNAVAILABLE",
+    }));
+  });
+
   it("projects prose buffers when a Colorful-compatible projector is supplied", () => {
     const proseProjector: ProseProjectionProvider = {
       project(input) {
