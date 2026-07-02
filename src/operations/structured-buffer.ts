@@ -19,6 +19,7 @@ import type {
   WarmProjectionBasis,
 } from "./structured-buffer-model.js";
 import type { ProseProjectionProvider } from "./colorful-prose-projection.js";
+import type { EdictProjectionBundle, EdictProjectionProvider } from "./edict-projection.js";
 import { createStructuredBufferSnapshot } from "./structured-buffer-model.js";
 import {
   buildDiagnosticsResult,
@@ -71,6 +72,23 @@ export type {
   WarmProjectionBasis,
 } from "./structured-buffer-model.js";
 
+export type {
+  EdictCoreProjection,
+  EdictDiagnosticItem,
+  EdictProjectionBundle,
+  EdictProjectionCompilerContext,
+  EdictProjectionDiagnostics,
+  EdictProjectionEmit,
+  EdictProjectionFailure,
+  EdictProjectionProvider,
+  EdictProjectionRequest,
+  EdictProjectionSlot,
+  EdictProjectionStatus,
+  EdictProjectionTargetSettings,
+  EdictTargetIrProjection,
+  EdictSyntaxProjection,
+} from "./edict-projection.js";
+
 export class StructuredBuffer {
   readonly path: string;
   readonly content: string;
@@ -85,6 +103,7 @@ export class StructuredBuffer {
     content: string;
     basis?: WarmProjectionBasis | undefined;
     proseProjector?: ProseProjectionProvider | undefined;
+    edictProjector?: EdictProjectionProvider | undefined;
   }) {
     this.#snapshot = createStructuredBufferSnapshot(opts);
     this.path = this.#snapshot.path;
@@ -140,6 +159,11 @@ export class StructuredBuffer {
   projectionBundle(opts: { viewport?: BufferRange | undefined } = {}): WarmProjectionBundleResult {
     this.#assertLive();
     return buildWarmProjectionBundleResult(this.#snapshot, opts);
+  }
+
+  edictProjection(): EdictProjectionBundle | null {
+    this.#assertLive();
+    return this.#snapshot.edictProjection ?? null;
   }
 
   selectionExpand(selection: BufferSelection): SelectionStepResult {

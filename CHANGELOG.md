@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Added
+
+- **Edict projection bridge**: buffer-native editor integrations can now opt
+  into an `EdictProjectionProvider` for `.edict` buffers. Graft exports
+  `createEdictCliProjectionProvider(...)`, shells out through the existing
+  `ProcessRunner` port, sends dirty source text to Edict over stdin JSONL, maps
+  Edict syntax byte offsets into Graft row/column spans, preserves compiler
+  diagnostics, and exposes Core/Target IR projection slots with explicit
+  `not_requested`, `available`, `blocked`, and `failed` states. Without a
+  projector, `.edict` buffers are recognized and report
+  `PROJECTION_PROVIDER_UNAVAILABLE`; this bridge does not execute Echo or admit
+  bundles.
+
 ## [0.10.1] - 2026-06-25
 
 ### Added

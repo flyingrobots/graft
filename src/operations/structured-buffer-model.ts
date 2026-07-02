@@ -10,12 +10,15 @@ import {
 import type { ParsedTree } from "../parser/runtime.js";
 import type { OutlineEntry, JumpEntry } from "../parser/types.js";
 import type { ProseProjection, ProseProjectionProvider } from "./colorful-prose-projection.js";
+import { isEdictPath } from "./edict-projection.js";
+import type { EdictProjectionBundle, EdictProjectionProvider } from "./edict-projection.js";
 
 export type BufferUnavailableReason =
   | "UNSUPPORTED_LANGUAGE"
-  | "PARSER_RUNTIME_NOT_READY";
+  | "PARSER_RUNTIME_NOT_READY"
+  | "PROJECTION_PROVIDER_UNAVAILABLE";
 
-export type StructuredBufferFormat = SupportedStructuredFormat | "prose";
+export type StructuredBufferFormat = SupportedStructuredFormat | "prose" | "edict";
 
 export interface BufferPoint {
   readonly row: number;
@@ -76,9 +79,12 @@ export interface SyntaxSpanResult {
 
 export interface BufferDiagnostic {
   readonly severity: "error" | "warning";
-  readonly code: "parse_error" | "missing_node";
+  readonly code: "parse_error" | "missing_node" | "compiler_diagnostic";
   readonly message: string;
   readonly range: BufferRange;
+  readonly source?: "tree_sitter" | "edict" | undefined;
+  readonly stage?: string | undefined;
+  readonly kind?: string | undefined;
 }
 
 export interface DiagnosticsResult {
@@ -266,6 +272,7 @@ export interface StructuredBufferSnapshot {
   readonly partial: boolean;
   readonly parsed: ParsedTree | null;
   readonly proseProjection?: ProseProjection | undefined;
+  readonly edictProjection?: EdictProjectionBundle | undefined;
   readonly parseUnavailableReason?: BufferUnavailableReason | undefined;
 }
 
@@ -274,14 +281,28 @@ export function createStructuredBufferSnapshot(opts: {
   content: string;
   basis?: WarmProjectionBasis | undefined;
   proseProjector?: ProseProjectionProvider | undefined;
+  edictProjector?: EdictProjectionProvider | undefined;
 }): StructuredBufferSnapshot {
-  const format = detectStructuredFormat(opts.path);
+  const edictPath = isEdictPath(opts.path);
+  const format = edictPath ? "edict" : detectStructuredFormat(opts.path);
   let parsed: ParsedTree | null = null;
   let parseUnavailableReason: BufferUnavailableReason | undefined;
-  const proseProjection = opts.proseProjector?.project({ path: opts.path, content: opts.content }) ?? undefined;
-  if (proseProjection === undefined && format === null) {
+  const proseProjection = edictPath
+    ? undefined
+    : opts.proseProjector?.project({ path: opts.path, content: opts.content }) ?? undefined;
+  const edictProjection = edictPath
+    ? opts.edictProjector?.project({
+      name: opts.path,
+      content: opts.content,
+      basis: opts.basis,
+      emit: ["syntax", "diagnostics", "core", "targetIr"],
+    }) ?? undefined
+    : undefined;
+  if (edictPath && edictProjection === undefined) {
+    parseUnavailableReason = "PROJECTION_PROVIDER_UNAVAILABLE";
+  } else if (proseProjection === undefined && edictProjection === undefined && format === null) {
     parseUnavailableReason = "UNSUPPORTED_LANGUAGE";
-  } else if (proseProjection === undefined && format !== "md") {
+  } else if (proseProjection === undefined && edictProjection === undefined && format !== "md") {
     try {
       parsed = parseStructuredTreeForFile(opts.path, opts.content);
     } catch (error) {
@@ -299,11 +320,18 @@ export function createStructuredBufferSnapshot(opts: {
   return {
     path: opts.path,
     content: opts.content,
-    format: proseProjection?.format ?? format,
+    format: edictProjection !== undefined ? "edict" : proseProjection?.format ?? format,
     basis: opts.basis ?? null,
-    partial: proseProjection?.partial ?? (parsed?.root.hasError() ?? parseUnavailableReason === "PARSER_RUNTIME_NOT_READY"),
+    partial: edictProjection !== undefined
+      ? edictProjection.diagnostics.items.length > 0
+        || edictProjection.core.state === "blocked"
+        || edictProjection.core.state === "failed"
+        || edictProjection.targetIr.state === "blocked"
+        || edictProjection.targetIr.state === "failed"
+      : proseProjection?.partial ?? (parsed?.root.hasError() ?? parseUnavailableReason === "PARSER_RUNTIME_NOT_READY"),
     parsed,
     ...(proseProjection !== undefined ? { proseProjection } : {}),
+    ...(edictProjection !== undefined ? { edictProjection } : {}),
     ...(parseUnavailableReason !== undefined ? { parseUnavailableReason } : {}),
   };
 }

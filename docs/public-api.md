@@ -46,6 +46,10 @@ work:
 - `ProseProjectionProvider`
 - `createColorfulCliProseProjector(...)`
 - `COLORFUL_CLI_MINIMUM_VERSION`
+- `EdictProjectionProvider`
+- `createEdictCliProjectionProvider(...)`
+- exported `Edict*Projection*` request, result, slot, compiler-context,
+  target-settings, status, and failure types
 - `ensureParserReady(...)`
 - `WarmProjectionBasis`
 - `WarmProjectionBundleResult`
@@ -83,6 +87,18 @@ through a supplied `ProcessRunner`, validates source and vocabulary hashes, and
 returns `format: "prose"` for supported `.txt` buffers. Without a projector, or
 without a compatible `colorful` CLI, text files keep the explicit
 `UNSUPPORTED_LANGUAGE` result.
+
+`CreateStructuredBufferOptions` and `CreateProjectionBundleOptions` also
+accept `edictProjector`. This optional port lets a host project dirty `.edict`
+buffers through Edict's public JSONL `project` operation without writing the
+buffer to disk. Graft ships `createEdictCliProjectionProvider(...)`, which
+shells out through a supplied `ProcessRunner`, sends source text on stdin, and
+maps Edict syntax byte offsets into normal Graft row/column spans. The Edict
+bundle preserves compiler diagnostics plus Core and Target IR projection slots
+with explicit `not_requested`, `available`, `blocked`, and `failed` states.
+Without an Edict projector, `.edict` buffers are still recognized and report
+`PROJECTION_PROVIDER_UNAVAILABLE`; Graft does not execute Echo or admit
+bundles.
 
 ### 3. Tool Bridge Surface
 

@@ -11,6 +11,8 @@ import {
   createColorfulCliProseProjector,
 } from "../adapters/colorful-cli-prose-projector.js";
 import type { ProseProjectionProvider } from "../operations/colorful-prose-projection.js";
+import { createEdictCliProjectionProvider } from "../adapters/edict-cli-projection-provider.js";
+import type { EdictProjectionProvider } from "../operations/edict-projection.js";
 import { GRAFT_VERSION } from "../version.js";
 export {
   GRAFT_MINIMUM_GIT_VERSION,
@@ -25,6 +27,7 @@ export type { GitVersion, GitVersionGuardOptions } from "../git/version-guard.js
 export interface CreateStructuredBufferOptions {
   readonly basis?: WarmProjectionBasis | undefined;
   readonly proseProjector?: ProseProjectionProvider | undefined;
+  readonly edictProjector?: EdictProjectionProvider | undefined;
 }
 
 export interface CreateProjectionBundleOptions extends CreateStructuredBufferOptions {
@@ -41,6 +44,7 @@ export function createStructuredBuffer(
     content,
     basis: options.basis,
     proseProjector: options.proseProjector,
+    edictProjector: options.edictProjector,
   });
 }
 
@@ -54,6 +58,7 @@ export function createProjectionBundle(
     content,
     basis: options.basis,
     proseProjector: options.proseProjector,
+    edictProjector: options.edictProjector,
   });
   try {
     return buffer.projectionBundle({ viewport: options.viewport });
@@ -70,6 +75,7 @@ export {
   RepoWorkspace,
   StructuredBuffer,
   createColorfulCliProseProjector,
+  createEdictCliProjectionProvider,
   createGraftServer,
   startDaemonServer,
   startStdioServer,
@@ -105,6 +111,20 @@ export type {
   WarmProjectionBundleResult,
   WarmProjectionParseStatus,
   WarmProjectionBasis,
+  EdictCoreProjection,
+  EdictDiagnosticItem,
+  EdictProjectionBundle,
+  EdictProjectionCompilerContext,
+  EdictProjectionDiagnostics,
+  EdictProjectionEmit,
+  EdictProjectionFailure,
+  EdictProjectionProvider,
+  EdictProjectionRequest,
+  EdictProjectionSlot,
+  EdictProjectionStatus,
+  EdictProjectionTargetSettings,
+  EdictTargetIrProjection,
+  EdictSyntaxProjection,
 } from "../operations/structured-buffer.js";
 
 export type {
@@ -116,6 +136,10 @@ export type {
 export type {
   CreateColorfulCliProseProjectorOptions,
 } from "../adapters/colorful-cli-prose-projector.js";
+
+export type {
+  CreateEdictCliProjectionProviderOptions,
+} from "../adapters/edict-cli-projection-provider.js";
 
 export type {
   StartDaemonServerOptions,
