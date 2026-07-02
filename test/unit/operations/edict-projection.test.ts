@@ -187,8 +187,8 @@ describe("Edict projection decoding", () => {
           type: "core",
           command: "project",
           input: { name: "unsaved/demo.edict" },
-          state: "blocked",
-          reason: [{ kind: "ExpectedToken" }],
+          state: "failed",
+          error: { kind: "semantic_error", message: "Core projection failed" },
         },
         {
           schema: "edict.projection.target-ir/v1",
@@ -212,13 +212,36 @@ describe("Edict projection decoding", () => {
 
     expect(bundle.syntax).toEqual({ state: "not_requested" });
     expect(bundle.core).toEqual({
-      state: "blocked",
-      reason: [{ kind: "ExpectedToken" }],
+      state: "failed",
+      error: { kind: "semantic_error", message: "Core projection failed" },
     });
     expect(bundle.targetIr).toEqual({
       state: "failed",
       error: { kind: "unsupported_target", message: "target unsupported" },
     });
+  });
+
+  it("rejects projection records for a different input name", () => {
+    const source = "package demo.echo@1;\n";
+
+    expect(() => projectEdictJsonlRecords(request(source), [
+      {
+        schema: "edict.projection.syntax/v1",
+        type: "syntax",
+        command: "project",
+        input: { name: "other/demo.edict" },
+        spans: [],
+      },
+      {
+        schema: "edict.cli.event/v1",
+        type: "status",
+        command: "project",
+        status: "ok",
+        checked: 1,
+        errors: 0,
+        exitCode: 0,
+      },
+    ])).toThrow(/input.name/);
   });
 
   it("marks requested projection slots as failed when Edict omits their records", () => {
@@ -253,6 +276,37 @@ describe("Edict projection decoding", () => {
       state: "failed",
       error: expect.objectContaining({ kind: "missing_projection_record" }),
     });
+  });
+
+  it("fails closed when Edict omits a requested diagnostics record", () => {
+    const source = "package demo.echo@1;\n";
+    const bundle = projectEdictJsonlRecords(
+      {
+        ...request(source),
+        emit: ["diagnostics"],
+      },
+      [
+        {
+          schema: "edict.cli.event/v1",
+          type: "status",
+          command: "project",
+          status: "ok",
+          checked: 1,
+          errors: 0,
+          exitCode: 0,
+        },
+      ],
+    );
+
+    expect(bundle.diagnostics.items).toEqual([
+      {
+        stage: "projection",
+        kind: "missing_projection_record",
+        severity: "error",
+        message: "Edict did not emit a requested diagnostics projection record",
+        range: { start: { row: 0, column: 0 }, end: { row: 0, column: 0 } },
+      },
+    ]);
   });
 
   it("rejects Edict JSONL records with the wrong command envelope", () => {

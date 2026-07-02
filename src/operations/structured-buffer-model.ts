@@ -323,7 +323,9 @@ export function createStructuredBufferSnapshot(opts: {
     format: edictProjection !== undefined ? "edict" : proseProjection?.format ?? format,
     basis: opts.basis ?? null,
     partial: edictProjection !== undefined
-      ? edictProjection.diagnostics.items.length > 0
+      ? edictProjection.syntax.state === "blocked"
+        || edictProjection.syntax.state === "failed"
+        || edictProjection.diagnostics.items.length > 0
         || edictProjection.core.state === "blocked"
         || edictProjection.core.state === "failed"
         || edictProjection.targetIr.state === "blocked"

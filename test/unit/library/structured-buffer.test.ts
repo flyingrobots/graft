@@ -418,6 +418,62 @@ describe("library: structured buffer", () => {
     ]);
   });
 
+  it("marks Edict snapshots partial when requested syntax projection fails", () => {
+    const edictProjector: EdictProjectionProvider = {
+      project(input) {
+        return {
+          language: "edict",
+          name: input.name,
+          basis: input.basis ?? null,
+          syntax: {
+            state: "failed",
+            error: { kind: "missing_projection_record" },
+          },
+          diagnostics: { items: [] },
+          core: {
+            state: "available",
+            value: {
+              digest: "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+              review: { apiVersion: "edict.core/v1" },
+            },
+          },
+          targetIr: {
+            state: "available",
+            value: {
+              domain: "echo.span-ir/v1",
+              target: {
+                coordinate: "echo.dpo@1",
+                digest: "sha256:2222222222222222222222222222222222222222222222222222222222222222",
+              },
+              digest: "sha256:3333333333333333333333333333333333333333333333333333333333333333",
+              review: { intents: {} },
+            },
+          },
+          status: {
+            status: "ok",
+            checked: 1,
+            errors: 0,
+            exitCode: 0,
+          },
+        };
+      },
+    };
+    const buffer = track(createStructuredBuffer("demo.edict", "package demo.echo@1;\n", {
+      basis,
+      edictProjector,
+    }));
+
+    expect(buffer.syntaxSpans()).toEqual(expect.objectContaining({
+      format: "edict",
+      partial: true,
+      spans: [],
+    }));
+    expect(buffer.projectionBundle().parseStatus).toEqual(expect.objectContaining({
+      format: "edict",
+      status: "partial",
+    }));
+  });
+
   it("projects prose buffers when a Colorful-compatible projector is supplied", () => {
     const proseProjector: ProseProjectionProvider = {
       project(input) {

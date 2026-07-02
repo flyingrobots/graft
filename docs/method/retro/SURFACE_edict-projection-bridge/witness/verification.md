@@ -35,6 +35,25 @@ FAIL test/unit/operations/edict-projection.test.ts > Edict projection decoding >
 AssertionError: expected [Function] to throw an error
 ```
 
+Post-review repair produced this targeted RED before fixing the projection
+boundary:
+
+```text
+$ pnpm vitest run test/unit/operations/edict-projection.test.ts test/unit/library/structured-buffer.test.ts
+
+FAIL test/unit/operations/edict-projection.test.ts > Edict projection decoding > keeps blocked and failed projection slots explicit
+EdictProjectionError: unknown Edict core state failed
+
+FAIL test/unit/operations/edict-projection.test.ts > Edict projection decoding > rejects projection records for a different input name
+AssertionError: expected [Function] to throw an error
+
+FAIL test/unit/operations/edict-projection.test.ts > Edict projection decoding > fails closed when Edict omits a requested diagnostics record
+AssertionError: expected [] to deeply equal [...]
+
+FAIL test/unit/library/structured-buffer.test.ts > library: structured buffer > marks Edict snapshots partial when requested syntax projection fails
+AssertionError: expected partial: false to equal partial: true
+```
+
 ## GREEN
 
 ```text
@@ -42,6 +61,15 @@ $ pnpm vitest run test/unit/operations/edict-projection.test.ts test/unit/adapte
 
 Test Files  4 passed (4)
 Tests  22 passed (22)
+```
+
+Post-review repair focused GREEN:
+
+```text
+$ pnpm vitest run test/unit/operations/edict-projection.test.ts test/unit/library/structured-buffer.test.ts
+
+Test Files  2 passed (2)
+Tests  18 passed (18)
 ```
 
 ```text
@@ -84,7 +112,7 @@ PASS
 $ pnpm test
 
 Test Files  240 passed (240)
-Tests  1780 passed (1780)
+Tests  1783 passed (1783)
 ```
 
 ## Scope Guard

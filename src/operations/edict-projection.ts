@@ -211,6 +211,14 @@ function requireEnvelope(record: Record<string, unknown>, expectedType: string, 
   }
 }
 
+function requireInputName(record: Record<string, unknown>, requestName: string, label: string): void {
+  const input = requireRecord(record["input"], `${label}.input`);
+  const inputName = requireString(input["name"], `${label}.input.name`);
+  if (inputName !== requestName) {
+    fail(`${label}.input.name must match the projection request name`);
+  }
+}
+
 function makeUtf8ByteMapper(source: string): Utf8ByteMapper {
   const pointByBoundary = new Map<number, { row: number; column: number }>();
   let byte = 0;
@@ -336,6 +344,9 @@ function decodeCoreRecord(value: Record<string, unknown>): EdictProjectionSlot<E
   if (state === "blocked") {
     return { state, reason: decodeReason(value["reason"], "Edict core.reason") };
   }
+  if (state === "failed") {
+    return { state, error: decodeFailure(value["error"], "Edict core.error") };
+  }
   fail(`unknown Edict core state ${state}`);
 }
 
@@ -404,6 +415,7 @@ export function projectEdictJsonlRecords(
   const mapper = makeUtf8ByteMapper(request.content);
   let syntax: EdictProjectionSlot<EdictSyntaxProjection> = { state: "not_requested" };
   let diagnostics: EdictProjectionDiagnostics = { items: [] };
+  let diagnosticsSeen = false;
   let core: EdictProjectionSlot<EdictCoreProjection> = { state: "not_requested" };
   let targetIr: EdictProjectionSlot<EdictTargetIrProjection> = { state: "not_requested" };
   let status: EdictProjectionStatus | undefined;
@@ -414,18 +426,23 @@ export function projectEdictJsonlRecords(
     switch (schema) {
       case "edict.projection.syntax/v1":
         requireEnvelope(record, "syntax", "Edict syntax");
+        requireInputName(record, request.name, "Edict syntax");
         syntax = decodeSyntaxRecord(record, request.content, mapper);
         break;
       case "edict.projection.diagnostics/v1":
         requireEnvelope(record, "diagnostics", "Edict diagnostics");
+        requireInputName(record, request.name, "Edict diagnostics");
         diagnostics = decodeDiagnosticsRecord(record, request.content, mapper);
+        diagnosticsSeen = true;
         break;
       case "edict.projection.core/v1":
         requireEnvelope(record, "core", "Edict core");
+        requireInputName(record, request.name, "Edict core");
         core = decodeCoreRecord(record);
         break;
       case "edict.projection.target-ir/v1":
         requireEnvelope(record, "targetIr", "Edict targetIr");
+        requireInputName(record, request.name, "Edict targetIr");
         targetIr = decodeTargetIrRecord(record);
         break;
       case "edict.cli.event/v1":
@@ -439,6 +456,23 @@ export function projectEdictJsonlRecords(
 
   if (status === undefined) {
     fail("Edict JSONL stream is missing final status record");
+  }
+
+  if (request.emit.includes("diagnostics") && !diagnosticsSeen) {
+    diagnostics = {
+      items: [
+        {
+          stage: "projection",
+          kind: "missing_projection_record",
+          severity: "error",
+          message: "Edict did not emit a requested diagnostics projection record",
+          range: {
+            start: mapper.byteToPoint(0),
+            end: mapper.byteToPoint(0),
+          },
+        },
+      ],
+    };
   }
 
   if (request.emit.includes("syntax") && syntax.state === "not_requested") {
