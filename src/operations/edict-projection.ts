@@ -396,10 +396,15 @@ function decodeStatusRecord(value: Record<string, unknown>): EdictProjectionStat
   if (exitCode !== 0 && exitCode !== 1 && exitCode !== 2) {
     fail("Edict status.exitCode must be 0, 1, or 2");
   }
+  const checked = requireInteger(value["checked"], "Edict status.checked");
+  const errors = requireInteger(value["errors"], "Edict status.errors");
+  if (checked < 0 || errors < 0) {
+    fail("Edict status.checked and Edict status.errors must be non-negative");
+  }
   return {
     status,
-    checked: requireInteger(value["checked"], "Edict status.checked"),
-    errors: requireInteger(value["errors"], "Edict status.errors"),
+    checked,
+    errors,
     exitCode,
   };
 }

@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  EdictProjectionError,
   projectEdictJsonlRecords,
   type EdictProjectionRequest,
 } from "../../../src/operations/edict-projection.js";
@@ -307,6 +308,28 @@ describe("Edict projection decoding", () => {
         range: { start: { row: 0, column: 0 }, end: { row: 0, column: 0 } },
       },
     ]);
+  });
+
+  it("rejects negative status counters", () => {
+    const source = "package demo.echo@1;\n";
+
+    expect(() => projectEdictJsonlRecords(
+      {
+        ...request(source),
+        emit: [],
+      },
+      [
+        {
+          schema: "edict.cli.event/v1",
+          type: "status",
+          command: "project",
+          status: "ok",
+          checked: -1,
+          errors: 0,
+          exitCode: 0,
+        },
+      ],
+    )).toThrow(EdictProjectionError);
   });
 
   it("rejects Edict JSONL records with the wrong command envelope", () => {
