@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { createEdictCliProjectionProvider } from "../../../src/adapters/edict-cli-projection-provider.js";
+import { EdictProjectionError } from "../../../src/operations/edict-projection.js";
 import type { ProcessRunRequest, ProcessRunResult, ProcessRunner } from "../../../src/ports/process-runner.js";
 
 const TARGET_PROFILE_DIGEST = "sha256:1111111111111111111111111111111111111111111111111111111111111111";
@@ -206,6 +207,6 @@ describe("Edict CLI projection provider", () => {
       name: "bad.edict",
       content: "package bad@1;\n",
       emit: ["syntax"],
-    })).toThrow(/Edict projection command failed/);
+    })).toThrow(EdictProjectionError);
   });
 });
