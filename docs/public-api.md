@@ -47,6 +47,7 @@ work:
 - `createColorfulCliProseProjector(...)`
 - `COLORFUL_CLI_MINIMUM_VERSION`
 - `EdictProjectionProvider`
+- `EdictProjectionError`
 - `createEdictCliProjectionProvider(...)`
 - exported `Edict*Projection*` request, result, slot, compiler-context,
   target-settings, status, and failure types

@@ -72,6 +72,8 @@ export type {
   WarmProjectionBasis,
 } from "./structured-buffer-model.js";
 
+export { EdictProjectionError } from "./edict-projection.js";
+
 export type {
   EdictCoreProjection,
   EdictDiagnosticItem,

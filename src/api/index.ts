@@ -12,6 +12,7 @@ import {
 } from "../adapters/colorful-cli-prose-projector.js";
 import type { ProseProjectionProvider } from "../operations/colorful-prose-projection.js";
 import { createEdictCliProjectionProvider } from "../adapters/edict-cli-projection-provider.js";
+import { EdictProjectionError } from "../operations/edict-projection.js";
 import type { EdictProjectionProvider } from "../operations/edict-projection.js";
 import { GRAFT_VERSION } from "../version.js";
 export {
@@ -76,6 +77,7 @@ export {
   StructuredBuffer,
   createColorfulCliProseProjector,
   createEdictCliProjectionProvider,
+  EdictProjectionError,
   createGraftServer,
   startDaemonServer,
   startStdioServer,
