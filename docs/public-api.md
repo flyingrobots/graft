@@ -50,6 +50,10 @@ work:
 - `ProjectionProviderRegistryError`
 - exported `ProjectionProvider*` registry, registration, resolution, and
   binding types
+- `createProjectionProfileResolver(...)`
+- `ProjectionProfileResolverError`
+- exported `ProjectionProfile*`, `ProjectionRoute*`,
+  `ResolvedAuthorityContext`, and `ProjectionRoutingFailure*` types
 - `EdictProjectionProvider`
 - `EdictProjectionError`
 - `createEdictCliProjectionProvider(...)`
@@ -116,6 +120,17 @@ pretending that the path exists on disk. Blank language ids are treated as
 absent. The direct `edictProjector` option remains supported and takes
 precedence for `.edict` buffers; the registry does not normalize
 language-specific payloads into an Edict-shaped model.
+
+Hosts preparing profile-aware projection can create a
+`ProjectionProfileResolver` with `createProjectionProfileResolver(...)`. The
+resolver accepts an already-parsed in-memory profile config, computes
+deterministic `profileDigest` and `routingDigest` review strings, and resolves
+dirty-buffer names through explicit profile override, project route globs, or
+extension fallback. Blank profile overrides are treated as absent, unknown
+profiles and ambiguous route matches return structured routing failures, and
+route-only changes move only `routingDigest`. This resolver does not read
+`graft.projections.toml`, attach authority context to `StructuredBuffer`, or
+interpret Wesley SDL, descriptor, Echo, Edict, or Colorful semantics.
 
 ### 3. Tool Bridge Surface
 

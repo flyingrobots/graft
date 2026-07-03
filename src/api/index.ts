@@ -19,6 +19,10 @@ import {
   createProjectionProviderRegistry,
 } from "../operations/projection-provider-registry.js";
 import type { ProjectionProviderRegistry } from "../operations/projection-provider-registry.js";
+import {
+  ProjectionProfileResolverError,
+  createProjectionProfileResolver,
+} from "../operations/projection-profile-resolver.js";
 import { GRAFT_VERSION } from "../version.js";
 export {
   GRAFT_MINIMUM_GIT_VERSION,
@@ -88,8 +92,10 @@ export {
   StructuredBuffer,
   createColorfulCliProseProjector,
   createEdictCliProjectionProvider,
+  createProjectionProfileResolver,
   createProjectionProviderRegistry,
   EdictProjectionError,
+  ProjectionProfileResolverError,
   ProjectionProviderRegistryError,
   createGraftServer,
   startDaemonServer,
@@ -145,6 +151,20 @@ export type {
   ProjectionProviderRegistry,
   ProjectionProviderResolution,
 } from "../operations/structured-buffer.js";
+
+export type {
+  ProjectionAuthorityResolution,
+  ProjectionExtensionFallbackInput,
+  ProjectionProfileExtension,
+  ProjectionProfileExtensionInput,
+  ProjectionProfileInput,
+  ProjectionProfileResolver,
+  ProjectionProfileResolverConfig,
+  ProjectionRouteInput,
+  ProjectionRoutingFailure,
+  ProjectionRoutingFailureKind,
+  ResolvedAuthorityContext,
+} from "../operations/projection-profile-resolver.js";
 
 export type {
   ProseProjection,

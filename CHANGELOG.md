@@ -9,6 +9,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ### Added
 
+- **Projection profile resolver**: editor hosts can now construct an in-memory
+  `ProjectionProfileResolver` with `createProjectionProfileResolver(...)` to
+  resolve dirty-buffer names to projection authority context before the
+  profile-aware Wesley provider lands. The resolver computes deterministic
+  `profileDigest` and `routingDigest` review strings, treats blank profile
+  overrides as absent, returns structured failures for unknown profiles,
+  ambiguous route matches, and no-provider cases, and keeps profile identity
+  separate from routing identity. This slice does not parse
+  `graft.projections.toml`, attach authority context to `StructuredBuffer`, or
+  interpret Wesley SDL, descriptor, Echo, Edict, or Colorful semantics.
 - **Projection provider registry**: editor hosts can now create a
   `ProjectionProviderRegistry`, register an Edict provider by language id and
   file extension, and pass the registry to `createStructuredBuffer(...)` or
