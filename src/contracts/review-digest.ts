@@ -1,33 +1,67 @@
 // Pure canonical JSON + SHA-256 review digests for application-layer contracts.
 
+type ReviewJsonValue =
+  | null
+  | boolean
+  | number
+  | string
+  | readonly ReviewJsonValue[]
+  | { readonly [key: string]: ReviewJsonValue };
+
 export function canonicalJsonSha256Review(domain: string, value: unknown): string {
   return `sha256:${sha256Utf8Hex(canonicalJsonEncode([domain, value]))}`;
 }
 
 function canonicalJsonEncode(value: unknown): string {
-  return JSON.stringify(sortCanonicalJson(value));
+  return JSON.stringify(normalizeCanonicalJson(value));
 }
 
-function sortCanonicalJson(value: unknown, seen = new WeakSet()): unknown {
-  if (value === null || typeof value !== "object") {
+function normalizeCanonicalJson(value: unknown, seen = new WeakSet()): ReviewJsonValue {
+  if (value === null || typeof value === "string" || typeof value === "boolean") {
     return value;
   }
+  if (typeof value === "number") {
+    if (!Number.isFinite(value)) {
+      throw new TypeError("Canonical JSON input must contain only finite numbers");
+    }
+    return value;
+  }
+  if (
+    value === undefined ||
+    typeof value === "function" ||
+    typeof value === "symbol" ||
+    typeof value === "bigint"
+  ) {
+    throw new TypeError("Canonical JSON input must be JSON data");
+  }
+
   if (seen.has(value)) {
     throw new TypeError("Canonical JSON input must not contain circular data");
   }
   seen.add(value);
   try {
     if (Array.isArray(value)) {
-      return value.map((item) => sortCanonicalJson(item, seen));
+      const output: ReviewJsonValue[] = [];
+      for (let index = 0; index < value.length; index += 1) {
+        if (!Object.hasOwn(value, index)) {
+          throw new TypeError("Canonical JSON input arrays must not contain holes");
+        }
+        output.push(normalizeCanonicalJson(value[index], seen));
+      }
+      return output;
     }
     const proto = Object.getPrototypeOf(value) as unknown;
     if (proto !== Object.prototype && proto !== null) {
-      return value;
+      throw new TypeError("Canonical JSON input must contain only plain objects");
     }
     const record = value as Record<string, unknown>;
-    const sorted: Record<string, unknown> = {};
+    const sorted: Record<string, ReviewJsonValue> = {};
     for (const key of Object.keys(record).sort()) {
-      sorted[key] = sortCanonicalJson(record[key], seen);
+      const item = record[key];
+      if (item === undefined) {
+        throw new TypeError("Canonical JSON input object fields must not be undefined");
+      }
+      sorted[key] = normalizeCanonicalJson(item, seen);
     }
     return sorted;
   } finally {
