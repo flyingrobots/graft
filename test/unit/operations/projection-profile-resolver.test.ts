@@ -321,5 +321,22 @@ describe("projection profile resolver", () => {
         { language: "wesley-sdl", profileId: "wesley-base", fileExtensions: ["schema/graphqls"] },
       ],
     })).toThrow(ProjectionProfileResolverError);
+
+    expect(() => createProjectionProfileResolver({
+      profiles: [
+        ...baseConfig().profiles,
+        {
+          id: "rust-profile",
+          language: "rust",
+          provider: "rust-provider",
+          extensions: [
+            { coordinate: "rust.syntax/v1", digest: BASE_DIGEST },
+          ],
+        },
+      ],
+      extensionFallbacks: [
+        { language: "wesley-sdl", profileId: "rust-profile", fileExtensions: [".rs"] },
+      ],
+    })).toThrow(ProjectionProfileResolverError);
   });
 });

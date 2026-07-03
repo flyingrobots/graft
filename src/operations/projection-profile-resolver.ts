@@ -343,8 +343,12 @@ function normalizeExtensionFallbacks(
   return Object.freeze(inputs.map((input) => {
     const language = normalizeLanguage(input.language, "projection extension fallback language");
     const profileId = normalizeRequiredText(input.profileId, "projection extension fallback profile id");
-    if (!profiles.has(profileId)) {
+    const profile = profiles.get(profileId);
+    if (profile === undefined) {
       fail(`Projection extension fallback references missing profile ${profileId}`);
+    }
+    if (profile.language !== language) {
+      fail(`Projection extension fallback ${profileId} language must match its profile language`);
     }
     const fileExtensions = normalizeFileExtensionList(input.fileExtensions, `projection extension fallback ${profileId}`);
     for (const extension of fileExtensions) {
