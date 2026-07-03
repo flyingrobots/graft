@@ -153,6 +153,7 @@ const bundle = createProjectionBundle("src/app.tsx", liveEditorText, {
 ```ts
 import {
   createEdictCliProjectionProvider,
+  createProjectionProviderRegistry,
   createStructuredBuffer,
 } from "@flyingrobots/graft";
 import { nodeProcessRunner } from "./your-process-runner.js";
@@ -167,9 +168,15 @@ const edictProjector = createEdictCliProjectionProvider({
   },
 });
 
+const projectionRegistry = createProjectionProviderRegistry().register({
+  language: "edict",
+  extensions: [".edict"],
+  provider: { kind: "edict", provider: edictProjector },
+});
+
 const buffer = createStructuredBuffer("demo.edict", liveEditorText, {
   basis: { kind: "editor_head", headId: "head-42", tick: 18 },
-  edictProjector,
+  projectionRegistry,
 });
 
 const syntax = buffer.syntaxSpans();
@@ -179,6 +186,9 @@ const edict = buffer.edictProjection();
 
 This bridge invokes Edict's projection CLI over stdin JSONL. It does not execute
 Echo, admit bundles, or require the editor buffer to exist on disk.
+Hosts may pass `language: "edict"` with a registry for synthetic dirty buffers
+such as untitled editor tabs. Direct `edictProjector` injection remains
+supported for single-language hosts.
 
 ---
 

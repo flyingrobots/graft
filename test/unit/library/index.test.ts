@@ -8,12 +8,14 @@ import {
   callGraftTool,
   createEdictCliProjectionProvider,
   createProjectionBundle,
+  createProjectionProviderRegistry,
   createGraftServer,
   createRepoLocalGraft,
   createRepoWorkspace,
   createStructuredBuffer,
   ensureParserReady,
   isParserReady,
+  ProjectionProviderRegistryError,
   startDaemonServer,
   startStdioServer,
 } from "../../../src/index.js";
@@ -54,8 +56,10 @@ describe("public library API", () => {
     expect(typeof createRepoWorkspace).toBe("function");
     expect(typeof createStructuredBuffer).toBe("function");
     expect(typeof createProjectionBundle).toBe("function");
+    expect(typeof createProjectionProviderRegistry).toBe("function");
     expect(typeof createEdictCliProjectionProvider).toBe("function");
     expect(typeof EdictProjectionError).toBe("function");
+    expect(typeof ProjectionProviderRegistryError).toBe("function");
     expect(typeof ensureParserReady).toBe("function");
     expect(typeof isParserReady).toBe("function");
     expect(typeof createRepoLocalGraft).toBe("function");
