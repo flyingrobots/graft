@@ -122,6 +122,60 @@ Test Files  1 passed (1)
 Tests       7 passed (7)
 ```
 
+## Review Repair
+
+Resolved-provider regression RED:
+
+```text
+$ pnpm vitest run test/unit/library/structured-buffer.test.ts
+
+Test Files  1 failed (1)
+Tests       1 failed | 23 passed (24)
+
+Failure:
+- expected a resolved Wesley authority without a registered provider to report
+  `PROJECTION_PROVIDER_UNAVAILABLE`
+```
+
+Authority partial regression RED:
+
+```text
+$ pnpm vitest run test/unit/library/structured-buffer.test.ts
+
+Test Files  1 failed (1)
+Tests       1 failed | 24 passed (25)
+
+Failure:
+- expected an Edict `no_provider` authority failure to keep warm bundle
+  `partial` metadata true
+```
+
+Test-quality cleanups:
+
+```text
+RED not applicable: assertion shape only.
+```
+
+Review repair GREEN:
+
+```text
+$ pnpm vitest run test/unit/library/structured-buffer.test.ts test/unit/library/index.test.ts
+
+Test Files  2 passed (2)
+Tests       30 passed (30)
+
+$ pnpm typecheck
+$ pnpm build
+$ pnpm lint
+$ pnpm release:surface-gate
+$ pnpm vitest run test/unit/release/package-docs.test.ts
+$ git diff --check
+$ pnpm test
+
+Test Files  243 passed (243)
+Tests       1817 passed (1817)
+```
+
 ## Scope Guard
 
 - Projection bundles now expose an authority slot.
