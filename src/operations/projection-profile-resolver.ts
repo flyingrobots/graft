@@ -497,13 +497,16 @@ function normalizeJsonValue(value: unknown, label: string, seen = new WeakSet())
     seen.add(value);
     try {
       const record = value as Record<string, unknown>;
-      const output: Record<string, JsonValue> = {};
+      const output = Object.create(null) as Record<string, JsonValue>;
       for (const key of Object.keys(record).sort()) {
         const item = record[key];
         if (item === undefined) {
           fail(`${label}.${key} must not be undefined`);
         }
-        output[key] = normalizeJsonValue(item, `${label}.${key}`, seen);
+        Object.defineProperty(output, key, {
+          enumerable: true,
+          value: normalizeJsonValue(item, `${label}.${key}`, seen),
+        });
       }
       return Object.freeze(output);
     } finally {

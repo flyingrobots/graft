@@ -251,6 +251,43 @@ describe("projection profile resolver", () => {
     expect(profileOnly.authority.profileDigest).not.toBe(originalRoute.authority.profileDigest);
   });
 
+  it("binds profile options keys named __proto__ into profile digests", () => {
+    const withoutProtoKey = createProjectionProfileResolver({
+      profiles: [
+        {
+          id: "with-options",
+          language: "wesley-sdl",
+          provider: "wesley",
+          extensions: [
+            { coordinate: "wesley.graphql-sdl/v1", digest: BASE_DIGEST },
+          ],
+          options: {},
+        },
+      ],
+    }).resolve({ path: "schema.graphqls", profile: "with-options" });
+    const withProtoKey = createProjectionProfileResolver({
+      profiles: [
+        {
+          id: "with-options",
+          language: "wesley-sdl",
+          provider: "wesley",
+          extensions: [
+            { coordinate: "wesley.graphql-sdl/v1", digest: BASE_DIGEST },
+          ],
+          options: JSON.parse('{"__proto__":{"mode":"x"}}') as Record<string, unknown>,
+        },
+      ],
+    }).resolve({ path: "schema.graphqls", profile: "with-options" });
+
+    expect(withoutProtoKey.state).toBe("resolved");
+    expect(withProtoKey.state).toBe("resolved");
+    if (withoutProtoKey.state !== "resolved" || withProtoKey.state !== "resolved") {
+      throw new Error("expected profile option fixtures to resolve");
+    }
+
+    expect(withProtoKey.authority.profileDigest).not.toBe(withoutProtoKey.authority.profileDigest);
+  });
+
   it("rejects invalid profile configuration before resolution", () => {
     expect(() => createProjectionProfileResolver({
       ...baseConfig(),

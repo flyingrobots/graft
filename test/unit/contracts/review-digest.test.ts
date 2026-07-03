@@ -22,6 +22,15 @@ describe("review digest contracts", () => {
     expect(canonicalJsonSha256Review("graft.test/v1", value)).toBe(oracleDigest("graft.test/v1", value));
   });
 
+  it("preserves JSON keys named __proto__ in the digest preimage", () => {
+    const value = JSON.parse('{"__proto__":{"mode":"x"}}') as unknown;
+    const expected = `sha256:${createHash("sha256")
+      .update('["graft.test/v1",{"__proto__":{"mode":"x"}}]')
+      .digest("hex")}`;
+
+    expect(canonicalJsonSha256Review("graft.test/v1", value)).toBe(expected);
+  });
+
   it("rejects lossy non-JSON preimages before hashing", () => {
     expect(() => canonicalJsonSha256Review("graft.test/v1", { a: undefined })).toThrow(TypeError);
     expect(() => canonicalJsonSha256Review("graft.test/v1", [undefined])).toThrow(TypeError);

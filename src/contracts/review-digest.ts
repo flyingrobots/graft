@@ -55,13 +55,16 @@ function normalizeCanonicalJson(value: unknown, seen = new WeakSet()): ReviewJso
       throw new TypeError("Canonical JSON input must contain only plain objects");
     }
     const record = value as Record<string, unknown>;
-    const sorted: Record<string, ReviewJsonValue> = {};
+    const sorted = Object.create(null) as Record<string, ReviewJsonValue>;
     for (const key of Object.keys(record).sort()) {
       const item = record[key];
       if (item === undefined) {
         throw new TypeError("Canonical JSON input object fields must not be undefined");
       }
-      sorted[key] = normalizeCanonicalJson(item, seen);
+      Object.defineProperty(sorted, key, {
+        enumerable: true,
+        value: normalizeCanonicalJson(item, seen),
+      });
     }
     return sorted;
   } finally {
