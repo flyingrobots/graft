@@ -78,6 +78,10 @@ export {
   ProjectionProviderRegistryError,
   createProjectionProviderRegistry,
 } from "./projection-provider-registry.js";
+export {
+  ProjectionProfileResolverError,
+  createProjectionProfileResolver,
+} from "./projection-profile-resolver.js";
 
 export type {
   EdictCoreProjection,
@@ -102,6 +106,20 @@ export type {
   ProjectionProviderRegistry,
   ProjectionProviderResolution,
 } from "./projection-provider-registry.js";
+
+export type {
+  ProjectionAuthorityResolution,
+  ProjectionExtensionFallbackInput,
+  ProjectionProfileExtension,
+  ProjectionProfileExtensionInput,
+  ProjectionProfileInput,
+  ProjectionProfileResolver,
+  ProjectionProfileResolverConfig,
+  ProjectionRouteInput,
+  ProjectionRoutingFailure,
+  ProjectionRoutingFailureKind,
+  ResolvedAuthorityContext,
+} from "./projection-profile-resolver.js";
 
 export class StructuredBuffer {
   readonly path: string;
