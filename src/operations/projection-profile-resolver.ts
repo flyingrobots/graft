@@ -365,7 +365,7 @@ function normalizePatternList(
   if (opts.requireNonEmpty && values.length === 0) {
     fail(`${label} must include at least one glob`);
   }
-  const patterns = normalizeUniqueSorted(values, label, (value) => normalizeRequiredText(value, label));
+  const patterns = normalizeUniqueSorted(values, label, (value) => normalizeGlobPattern(value, label));
   if (opts.requireNonEmpty && patterns.length === 0) {
     fail(`${label} must include at least one glob`);
   }
@@ -415,6 +415,14 @@ function normalizeRequiredText(value: string, label: string): string {
     fail(`${label} must not be empty`);
   }
   return text;
+}
+
+function normalizeGlobPattern(value: string, label: string): string {
+  const pattern = normalizeRequiredText(value, label);
+  if (pattern.startsWith("!")) {
+    fail(`${label} must use the exclude field instead of negated glob patterns`);
+  }
+  return pattern;
 }
 
 function normalizeLanguage(value: string, label: string): string {
