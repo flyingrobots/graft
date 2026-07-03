@@ -128,9 +128,11 @@ deterministic `profileDigest` and `routingDigest` review strings, and resolves
 dirty-buffer names through explicit profile override, project route globs, or
 extension fallback. Blank profile overrides are treated as absent, unknown
 profiles and ambiguous route matches return structured routing failures, and
-route-only changes move only `routingDigest`. This resolver does not read
-`graft.projections.toml`, attach authority context to `StructuredBuffer`, or
-interpret Wesley SDL, descriptor, Echo, Edict, or Colorful semantics.
+route-only changes move only `routingDigest`. Resolver config rejects lossy
+digest preimages, negated route globs, and malformed fallback file extensions.
+This resolver does not read `graft.projections.toml`, attach authority context
+to `StructuredBuffer`, or interpret Wesley SDL, descriptor, Echo, Edict, or
+Colorful semantics.
 
 ### 3. Tool Bridge Surface
 

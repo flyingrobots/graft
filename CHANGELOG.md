@@ -16,9 +16,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   `profileDigest` and `routingDigest` review strings, treats blank profile
   overrides as absent, returns structured failures for unknown profiles,
   ambiguous route matches, and no-provider cases, and keeps profile identity
-  separate from routing identity. This slice does not parse
-  `graft.projections.toml`, attach authority context to `StructuredBuffer`, or
-  interpret Wesley SDL, descriptor, Echo, Edict, or Colorful semantics.
+  separate from routing identity. Resolver config rejects lossy digest
+  preimages, negated route globs, and malformed fallback file extensions before
+  resolution. This slice does not parse `graft.projections.toml`, attach
+  authority context to `StructuredBuffer`, or interpret Wesley SDL, descriptor,
+  Echo, Edict, or Colorful semantics.
 - **Projection provider registry**: editor hosts can now create a
   `ProjectionProviderRegistry`, register an Edict provider by language id and
   file extension, and pass the registry to `createStructuredBuffer(...)` or

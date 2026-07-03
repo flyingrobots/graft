@@ -102,6 +102,10 @@ The resolver computes review digests from normalized config:
 - semantic extension coordinates and digests
 - semantic provider options
 
+Digest input must be strict JSON data. The digest path rejects lossy preimages
+such as `undefined`, array holes, non-finite numbers, functions, symbols,
+bigints, and non-plain objects before hashing.
+
 `routingDigest` binds:
 
 - profile id
@@ -139,6 +143,7 @@ Project route matching is deterministic:
 
 - Include globs match normalized slash paths.
 - Exclude globs remove a route from consideration.
+- Negated glob patterns are rejected; callers must use `exclude` instead.
 - Matching zero routes falls through to extension fallback.
 - Matching one route resolves that route.
 - Matching more than one route returns `ambiguous_profile`.
@@ -178,7 +183,8 @@ capability checks belong to the provider-contract slice.
 - Extension fallback is used after project routes.
 - No matching route or fallback returns `no_provider`.
 - Config validation rejects duplicate profile ids, missing routes, duplicate
-  extension fallbacks, malformed digests, and empty route includes.
+  extension fallbacks, malformed digests, negated route globs, malformed
+  fallback file extensions, and empty route includes.
 - The root package exports the resolver factory, error class, and public types.
 
 ## Playback Questions

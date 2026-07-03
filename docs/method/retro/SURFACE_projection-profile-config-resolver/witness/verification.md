@@ -18,6 +18,7 @@ Changed files:
 - `src/contracts/review-digest.ts`
 - `src/operations/projection-profile-resolver.ts`
 - `src/operations/structured-buffer.ts`
+- `test/unit/contracts/review-digest.test.ts`
 - `test/unit/library/index.test.ts`
 - `test/unit/operations/projection-profile-resolver.test.ts`
 - `docs/method/retro/SURFACE_projection-profile-config-resolver/SURFACE_projection-profile-config-resolver.md`
@@ -37,6 +38,18 @@ FAIL test/unit/library/index.test.ts
 Expected root export createProjectionProfileResolver to exist.
 ```
 
+Review repair regressions:
+
+```text
+$ pnpm vitest run test/unit/contracts/review-digest.test.ts test/unit/operations/projection-profile-resolver.test.ts
+
+FAIL test/unit/contracts/review-digest.test.ts
+expected function to throw an error, but it didn't
+
+FAIL test/unit/operations/projection-profile-resolver.test.ts
+expected function to throw an error, but it didn't
+```
+
 ## GREEN
 
 Focused resolver/root-export regression:
@@ -46,6 +59,15 @@ $ pnpm vitest run test/unit/operations/projection-profile-resolver.test.ts test/
 
 Test Files  2 passed (2)
 Tests       13 passed (13)
+```
+
+Review repair regressions:
+
+```text
+$ pnpm vitest run test/unit/contracts/review-digest.test.ts test/unit/operations/projection-profile-resolver.test.ts test/unit/library/index.test.ts
+
+Test Files  3 passed (3)
+Tests       15 passed (15)
 ```
 
 TypeScript:
@@ -94,8 +116,8 @@ Full isolated test suite:
 ```text
 $ pnpm test
 
-Test Files  242 passed (242)
-Tests       1805 passed (1805)
+Test Files  243 passed (243)
+Tests       1807 passed (1807)
 ```
 
 ## Scope Guard
@@ -110,6 +132,9 @@ Tests       1805 passed (1805)
 - Route-only changes move only `routingDigest`.
 - Profile semantic changes move `profileDigest`.
 - Digest output is tested against canonical JSON plus SHA-256 oracle behavior.
+- Digest input rejects lossy non-JSON preimages before hashing.
+- Route config rejects negated glob patterns.
+- Extension fallback config rejects malformed file suffixes.
 - No TOML parser or filesystem discovery was added.
 - No authority context was attached to `StructuredBuffer`.
 - No Wesley provider was added.
