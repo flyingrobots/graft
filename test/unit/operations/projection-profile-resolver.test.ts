@@ -318,6 +318,20 @@ describe("projection profile resolver", () => {
     })).toThrow(ProjectionProfileResolverError);
 
     expect(() => createProjectionProfileResolver({
+      profiles: [
+        {
+          id: "sparse-options",
+          language: "wesley-sdl",
+          provider: "wesley",
+          extensions: [
+            { coordinate: "wesley.graphql-sdl/v1", digest: BASE_DIGEST },
+          ],
+          options: { rules: Array(1) },
+        },
+      ],
+    })).toThrow(ProjectionProfileResolverError);
+
+    expect(() => createProjectionProfileResolver({
       profiles: baseConfig().profiles,
       routes: [
         { profileId: "missing", include: ["schemas/**/*.graphqls"] },

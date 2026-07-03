@@ -481,7 +481,14 @@ function normalizeJsonValue(value: unknown, label: string, seen = new WeakSet())
     }
     seen.add(value);
     try {
-      return Object.freeze(value.map((item, index) => normalizeJsonValue(item, `${label}[${String(index)}]`, seen)));
+      const output: JsonValue[] = [];
+      for (let index = 0; index < value.length; index += 1) {
+        if (!Object.hasOwn(value, index)) {
+          fail(`${label} must not contain sparse arrays`);
+        }
+        output.push(normalizeJsonValue(value[index], `${label}[${String(index)}]`, seen));
+      }
+      return Object.freeze(output);
     } finally {
       seen.delete(value);
     }
