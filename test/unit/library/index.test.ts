@@ -21,6 +21,7 @@ import {
   startDaemonServer,
   startStdioServer,
 } from "../../../src/index.js";
+import type { ProjectionAuthoritySlot } from "../../../src/index.js";
 import { cleanupTestRepo, createCommittedTestRepo } from "../../helpers/git.js";
 
 describe("public library API", () => {
@@ -89,6 +90,8 @@ describe("public library API", () => {
 
     expect(bundle.basis).toEqual(basis);
     expect(bundle.parseStatus.status).toBe("full");
+    const authority: ProjectionAuthoritySlot = bundle.authority;
+    expect(authority.state).toBe("not_configured");
     expect(bundle.syntax.basis).toEqual(basis);
     expect(bundle.outline.basis).toEqual(basis);
     expect(bundle.folds.basis).toEqual(basis);

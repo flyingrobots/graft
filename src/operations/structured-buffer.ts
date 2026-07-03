@@ -21,6 +21,7 @@ import type {
 import type { ProseProjectionProvider } from "./colorful-prose-projection.js";
 import type { EdictProjectionBundle, EdictProjectionProvider } from "./edict-projection.js";
 import type { ProjectionProviderRegistry } from "./projection-provider-registry.js";
+import type { ProjectionProfileResolver } from "./projection-profile-resolver.js";
 import { createStructuredBufferSnapshot } from "./structured-buffer-model.js";
 import {
   buildDiagnosticsResult,
@@ -71,6 +72,7 @@ export type {
   WarmProjectionBundleResult,
   WarmProjectionParseStatus,
   WarmProjectionBasis,
+  ProjectionAuthoritySlot,
 } from "./structured-buffer-model.js";
 
 export { EdictProjectionError } from "./edict-projection.js";
@@ -134,10 +136,12 @@ export class StructuredBuffer {
     path: string;
     content: string;
     language?: string | undefined;
+    profile?: string | null | undefined;
     basis?: WarmProjectionBasis | undefined;
     proseProjector?: ProseProjectionProvider | undefined;
     edictProjector?: EdictProjectionProvider | undefined;
     projectionRegistry?: ProjectionProviderRegistry | undefined;
+    projectionProfileResolver?: ProjectionProfileResolver | undefined;
   }) {
     this.#snapshot = createStructuredBufferSnapshot(opts);
     this.path = this.#snapshot.path;

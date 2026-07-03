@@ -4,6 +4,7 @@ import type {
   SyntaxSpan,
   WarmProjectionBasis,
 } from "./structured-buffer-model.js";
+import type { ResolvedAuthorityContext } from "./projection-profile-resolver.js";
 
 export type JsonObject = Readonly<Record<string, unknown>>;
 
@@ -70,6 +71,7 @@ export interface EdictProjectionRequest {
   readonly content: string;
   readonly basis?: WarmProjectionBasis | null | undefined;
   readonly emit: readonly EdictProjectionEmit[];
+  readonly authority?: ResolvedAuthorityContext | undefined;
   readonly compilerContext?: EdictProjectionCompilerContext | undefined;
   readonly target?: EdictProjectionTargetSettings | undefined;
 }

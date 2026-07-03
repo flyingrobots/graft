@@ -9,6 +9,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ### Added
 
+- **Projection authority context bundles**: `createStructuredBuffer(...)` and
+  `createProjectionBundle(...)` can now accept a `projectionProfileResolver`
+  plus optional `profile` override, attach the resolved authority context to
+  warm projection bundles, and pass that same context to registry-routed
+  providers. Bundles distinguish `not_configured`, `resolved`, and `failed`
+  authority states so editor hosts can display profile ids, profile digests,
+  routing digests, provider ids, language ids, and semantic extension
+  identities before the profile-aware Wesley provider lands. Resolver failures
+  are surfaced as structured projection results and skip provider invocation;
+  this slice does not parse `graft.projections.toml`, interpret Wesley SDL, run
+  Echo, admit Jim artifacts, or claim settlement authority.
 - **Projection profile resolver**: editor hosts can now construct an in-memory
   `ProjectionProfileResolver` with `createProjectionProfileResolver(...)` to
   resolve dirty-buffer names to projection authority context before the
@@ -21,9 +32,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   negated route globs, and malformed fallback file extensions before
   resolution. Profile digests preserve JSON option keys named `__proto__` and
   are independent of semantic extension declaration order using locale-free
-  code-point comparison. This slice does not parse `graft.projections.toml`,
-  attach authority context to `StructuredBuffer`, or interpret Wesley SDL,
-  descriptor, Echo, Edict, or Colorful semantics.
+  code-point comparison. The resolver itself does not parse
+  `graft.projections.toml` or interpret Wesley SDL, descriptor, Echo, Edict, or
+  Colorful semantics.
 - **Projection provider registry**: editor hosts can now create a
   `ProjectionProviderRegistry`, register an Edict provider by language id and
   file extension, and pass the registry to `createStructuredBuffer(...)` or

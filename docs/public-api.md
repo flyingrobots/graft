@@ -133,9 +133,20 @@ digest preimages, sparse option arrays, fallback/profile language mismatches,
 negated route globs, and malformed fallback file extensions. Profile digests
 preserve JSON option keys named `__proto__` and are independent of semantic
 extension declaration order using locale-free code-point comparison. This
-resolver does not read `graft.projections.toml`, attach authority context to
-`StructuredBuffer`, or interpret Wesley SDL, descriptor, Echo, Edict, or
-Colorful semantics.
+resolver does not read `graft.projections.toml` or interpret Wesley SDL,
+descriptor, Echo, Edict, or Colorful semantics.
+
+`CreateStructuredBufferOptions` and `CreateProjectionBundleOptions` also accept
+`projectionProfileResolver` and optional `profile`. When a resolver is supplied,
+Graft resolves authority before provider invocation and includes an authority
+slot on `WarmProjectionBundleResult`: `not_configured`, `resolved`, or
+`failed`. Resolved slots carry the selected profile id, profile digest, optional
+routing digest, provider id, language id, resolution source, and semantic
+extension identities. Failed slots preserve the resolver's structured routing
+failure and skip provider invocation. Registry-routed providers receive the
+same resolved authority context as optional request metadata. This is routing
+and support context only; Graft still does not interpret Wesley SDL or execute
+target runtimes.
 
 ### 3. Tool Bridge Surface
 

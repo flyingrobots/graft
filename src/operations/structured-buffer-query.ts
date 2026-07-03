@@ -57,6 +57,7 @@ function parseStatus(snapshot: StructuredBufferSnapshot): "full" | "partial" | "
   if (
     snapshot.format === null
     || snapshot.parseUnavailableReason === "UNSUPPORTED_LANGUAGE"
+    || snapshot.parseUnavailableReason === "PROJECTION_AUTHORITY_UNAVAILABLE"
     || snapshot.parseUnavailableReason === "PROJECTION_PROVIDER_UNAVAILABLE"
   ) {
     return "unsupported";
@@ -929,6 +930,7 @@ export function buildWarmProjectionBundleResult(
     format: snapshot.format,
     basis: snapshot.basis,
     partial: snapshot.partial,
+    authority: snapshot.authority,
     parseStatus: {
       basis: snapshot.basis,
       format: snapshot.format,

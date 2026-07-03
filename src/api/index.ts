@@ -23,6 +23,7 @@ import {
   ProjectionProfileResolverError,
   createProjectionProfileResolver,
 } from "../operations/projection-profile-resolver.js";
+import type { ProjectionProfileResolver } from "../operations/projection-profile-resolver.js";
 import { GRAFT_VERSION } from "../version.js";
 export {
   GRAFT_MINIMUM_GIT_VERSION,
@@ -36,10 +37,12 @@ export type { GitVersion, GitVersionGuardOptions } from "../git/version-guard.js
 
 export interface CreateStructuredBufferOptions {
   readonly language?: string | undefined;
+  readonly profile?: string | null | undefined;
   readonly basis?: WarmProjectionBasis | undefined;
   readonly proseProjector?: ProseProjectionProvider | undefined;
   readonly edictProjector?: EdictProjectionProvider | undefined;
   readonly projectionRegistry?: ProjectionProviderRegistry | undefined;
+  readonly projectionProfileResolver?: ProjectionProfileResolver | undefined;
 }
 
 export interface CreateProjectionBundleOptions extends CreateStructuredBufferOptions {
@@ -55,10 +58,12 @@ export function createStructuredBuffer(
     path,
     content,
     language: options.language,
+    profile: options.profile,
     basis: options.basis,
     proseProjector: options.proseProjector,
     edictProjector: options.edictProjector,
     projectionRegistry: options.projectionRegistry,
+    projectionProfileResolver: options.projectionProfileResolver,
   });
 }
 
@@ -71,10 +76,12 @@ export function createProjectionBundle(
     path,
     content,
     language: options.language,
+    profile: options.profile,
     basis: options.basis,
     proseProjector: options.proseProjector,
     edictProjector: options.edictProjector,
     projectionRegistry: options.projectionRegistry,
+    projectionProfileResolver: options.projectionProfileResolver,
   });
   try {
     return buffer.projectionBundle({ viewport: options.viewport });
@@ -150,6 +157,7 @@ export type {
   ProjectionProviderRegistration,
   ProjectionProviderRegistry,
   ProjectionProviderResolution,
+  ProjectionAuthoritySlot,
 } from "../operations/structured-buffer.js";
 
 export type {
