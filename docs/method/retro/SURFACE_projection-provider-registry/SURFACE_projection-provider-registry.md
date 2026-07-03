@@ -34,6 +34,8 @@ contract violations: language-only registrations with no extensions, and partial
 mutation if extension validation failed after the language map had already been
 updated. A self-review RED caught both before commit, and registration now
 validates the complete language/extension set before mutating either lookup map.
+The PR self-review also caught a docs overclaim around multiple provider
+bindings and a blank-language throw path; both were repaired before merge.
 
 ## What would you do differently?
 

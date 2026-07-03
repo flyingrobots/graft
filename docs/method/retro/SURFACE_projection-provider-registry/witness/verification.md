@@ -41,6 +41,16 @@ FAIL test/unit/operations/projection-provider-registry.test.ts > projection prov
 AssertionError: expected { language: 'edict', ... } to be null
 ```
 
+PR self-review produced this targeted RED before blank language ids were
+normalized at the buffer boundary:
+
+```text
+$ pnpm vitest run test/unit/library/structured-buffer.test.ts
+
+FAIL test/unit/library/structured-buffer.test.ts > library: structured buffer > treats blank explicit language ids as absent when a registry is present
+ProjectionProviderRegistryError: projection language override must not be empty
+```
+
 ## GREEN
 
 Focused GREEN after implementation and self-review repair:
@@ -49,7 +59,7 @@ Focused GREEN after implementation and self-review repair:
 $ pnpm vitest run test/unit/operations/projection-provider-registry.test.ts test/unit/library/structured-buffer.test.ts test/unit/library/index.test.ts
 
 Test Files  3 passed (3)
-Tests  26 passed (26)
+Tests  29 passed (29)
 ```
 
 Type and lint gates:
@@ -98,7 +108,7 @@ PASS
 $ pnpm test
 
 Test Files  241 passed (241)
-Tests  1793 passed (1793)
+Tests  1796 passed (1796)
 ```
 
 ## Scope Guard

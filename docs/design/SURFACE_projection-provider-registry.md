@@ -2,10 +2,10 @@
 
 ## Hill
 
-Editor hosts can register language projection providers once and let Graft route
-dirty-buffer projection requests by extension or explicit language id, without
-adding a new top-level `createStructuredBuffer` option for every projected
-language.
+Editor hosts can register supported projection provider bindings once and let
+Graft route dirty-buffer projection requests by extension or explicit language
+id, without adding a new top-level `createStructuredBuffer` option for every
+projected language.
 
 ## Problem
 
@@ -16,17 +16,20 @@ projection authorities would turn buffer construction into option sprawl and
 would couple editor hosts to every language-specific parameter.
 
 Graft needs a small registry seam that normalizes provider routing while keeping
-language semantics and transport details owned by each provider.
+language semantics and transport details owned by each provider. This slice adds
+the registry shell and the current Edict provider binding; other language
+bindings remain future work.
 
 ## Acceptance Criteria
 
-- Hosts can create a projection registry and register providers with a language
-  id plus one or more file extensions.
+- Hosts can create a projection registry and register the supported Edict
+  provider binding with a language id plus one or more file extensions.
 - `createStructuredBuffer(...)` and `createProjectionBundle(...)` accept the
   registry without breaking the existing `edictProjector` option.
 - Registry routing is deterministic and case-insensitive for extensions.
 - An explicit language id can override extension routing for dirty buffers with
   synthetic names.
+- Blank language ids are treated as absent at the buffer boundary.
 - Existing Edict projection behavior still works when routed through the
   registry.
 - Existing direct `edictProjector` behavior remains supported for compatibility.

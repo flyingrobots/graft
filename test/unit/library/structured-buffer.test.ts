@@ -1,5 +1,9 @@
 import { afterEach, describe, expect, it } from "vitest";
-import { createProjectionProviderRegistry, createStructuredBuffer } from "../../../src/index.js";
+import {
+  createProjectionBundle,
+  createProjectionProviderRegistry,
+  createStructuredBuffer,
+} from "../../../src/index.js";
 import type { EdictProjectionProvider } from "../../../src/operations/edict-projection.js";
 import type { ProseProjectionProvider } from "../../../src/operations/colorful-prose-projection.js";
 import { JumpEntry, OutlineEntry } from "../../../src/parser/types.js";
@@ -514,6 +518,135 @@ describe("library: structured buffer", () => {
     expect(buffer.projectionBundle().parseStatus).toEqual(expect.objectContaining({
       format: "edict",
       status: "full",
+    }));
+  });
+
+  it("creates one-shot projection bundles through a projection provider registry", () => {
+    const edictProjector: EdictProjectionProvider = {
+      project(input) {
+        expect(input.name).toBe("demo.edict");
+        return {
+          language: "edict",
+          name: input.name,
+          basis: input.basis ?? null,
+          syntax: {
+            state: "available",
+            value: {
+              spans: [
+                {
+                  className: "keyword",
+                  range: { start: { row: 0, column: 0 }, end: { row: 0, column: 7 } },
+                  text: "package",
+                },
+              ],
+            },
+          },
+          diagnostics: { items: [] },
+          core: { state: "not_requested" },
+          targetIr: { state: "not_requested" },
+          status: {
+            status: "ok",
+            checked: 1,
+            errors: 0,
+            exitCode: 0,
+          },
+        };
+      },
+    };
+    const projectionRegistry = createProjectionProviderRegistry().register({
+      language: "edict",
+      extensions: [".edict"],
+      provider: { kind: "edict", provider: edictProjector },
+    });
+
+    const bundle = createProjectionBundle("demo.edict", "package demo.echo@1;\n", {
+      basis,
+      projectionRegistry,
+    });
+
+    expect(bundle.parseStatus).toEqual(expect.objectContaining({
+      format: "edict",
+      status: "full",
+    }));
+    expect(bundle.syntax.spans).toEqual([
+      expect.objectContaining({ className: "keyword", text: "package" }),
+    ]);
+  });
+
+  it("prefers a direct Edict projector over a registry provider", () => {
+    const directProjector: EdictProjectionProvider = {
+      project(input) {
+        return {
+          language: "edict",
+          name: input.name,
+          basis: input.basis ?? null,
+          syntax: {
+            state: "available",
+            value: {
+              spans: [
+                {
+                  className: "keyword",
+                  range: { start: { row: 0, column: 0 }, end: { row: 0, column: 6 } },
+                  text: "direct",
+                },
+              ],
+            },
+          },
+          diagnostics: { items: [] },
+          core: { state: "not_requested" },
+          targetIr: { state: "not_requested" },
+          status: {
+            status: "ok",
+            checked: 1,
+            errors: 0,
+            exitCode: 0,
+          },
+        };
+      },
+    };
+    const registryProjector: EdictProjectionProvider = {
+      project() {
+        throw new Error("registry provider should not be used when a direct Edict projector is supplied");
+      },
+    };
+    const projectionRegistry = createProjectionProviderRegistry().register({
+      language: "edict",
+      extensions: [".edict"],
+      provider: { kind: "edict", provider: registryProjector },
+    });
+    const buffer = track(createStructuredBuffer("demo.edict", "package demo.echo@1;\n", {
+      basis,
+      edictProjector: directProjector,
+      projectionRegistry,
+    }));
+
+    expect(buffer.syntaxSpans().spans).toEqual([
+      expect.objectContaining({ className: "keyword", text: "direct" }),
+    ]);
+  });
+
+  it("treats blank explicit language ids as absent when a registry is present", () => {
+    const edictProjector: EdictProjectionProvider = {
+      project() {
+        throw new Error("blank language id should not route synthetic buffers");
+      },
+    };
+    const projectionRegistry = createProjectionProviderRegistry().register({
+      language: "edict",
+      extensions: [".edict"],
+      provider: { kind: "edict", provider: edictProjector },
+    });
+    const buffer = track(createStructuredBuffer("untitled-1", "package demo.echo@1;\n", {
+      basis,
+      language: "  ",
+      projectionRegistry,
+    }));
+
+    expect(buffer.format).toBeNull();
+    expect(buffer.syntaxSpans()).toEqual(expect.objectContaining({
+      format: null,
+      basis,
+      reason: "UNSUPPORTED_LANGUAGE",
     }));
   });
 

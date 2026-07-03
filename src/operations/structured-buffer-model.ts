@@ -286,16 +286,17 @@ export function createStructuredBufferSnapshot(opts: {
   edictProjector?: EdictProjectionProvider | undefined;
   projectionRegistry?: ProjectionProviderRegistry | undefined;
 }): StructuredBufferSnapshot {
+  const requestedLanguage = normalizeProjectionLanguage(opts.language);
   const projectionProvider = opts.projectionRegistry?.resolve({
     path: opts.path,
-    language: opts.language,
+    language: requestedLanguage,
   }) ?? null;
-  const requestedLanguage = opts.language?.trim().toLowerCase();
+  const requestedLanguageId = requestedLanguage?.toLowerCase();
   const registryEdictProjector = projectionProvider?.provider.kind === "edict"
     ? projectionProvider.provider.provider
     : undefined;
   const edictRequested = isEdictPath(opts.path)
-    || requestedLanguage === "edict"
+    || requestedLanguageId === "edict"
     || projectionProvider?.provider.kind === "edict";
   const edictProjector = opts.edictProjector ?? registryEdictProjector;
   const format = edictRequested ? "edict" : detectStructuredFormat(opts.path);
@@ -355,6 +356,11 @@ export function createStructuredBufferSnapshot(opts: {
     ...(edictProjection !== undefined ? { edictProjection } : {}),
     ...(parseUnavailableReason !== undefined ? { parseUnavailableReason } : {}),
   };
+}
+
+function normalizeProjectionLanguage(value: string | undefined): string | undefined {
+  const trimmed = value?.trim();
+  return trimmed === undefined || trimmed.length === 0 ? undefined : trimmed;
 }
 
 export function isPoint(value: BufferSelection): value is BufferPoint {
