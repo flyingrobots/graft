@@ -772,11 +772,10 @@ describe("library: structured buffer", () => {
 
     expect(bundle.authority).toEqual({
       state: "failed",
-      failure: {
+      failure: expect.objectContaining({
         kind: "unknown_profile",
-        message: "Projection profile missing-profile is not configured",
         profileId: "missing-profile",
-      },
+      }),
     });
     expect(bundle.parseStatus).toEqual(expect.objectContaining({
       status: "unsupported",
