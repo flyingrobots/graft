@@ -739,19 +739,15 @@ describe("library: structured buffer", () => {
         resolutionSource: "project_config",
       }),
     });
-    expect(explicitOverride.authority).toEqual({
-      state: "resolved",
-      authority: expect.not.objectContaining({
-        routingDigest: expect.any(String),
-      }),
-    });
-    expect(explicitOverride.authority).toEqual({
-      state: "resolved",
-      authority: expect.objectContaining({
-        profileId: "edict-base",
-        resolutionSource: "explicit",
-      }),
-    });
+    expect(explicitOverride.authority.state).toBe("resolved");
+    if (explicitOverride.authority.state !== "resolved") {
+      throw new Error("expected explicit override to resolve authority");
+    }
+    expect(explicitOverride.authority.authority).toEqual(expect.objectContaining({
+      profileId: "edict-base",
+      resolutionSource: "explicit",
+    }));
+    expect(explicitOverride.authority.authority).not.toHaveProperty("routingDigest");
   });
 
   it("surfaces authority failures without invoking registry providers", () => {
