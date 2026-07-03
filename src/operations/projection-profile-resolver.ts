@@ -5,6 +5,7 @@ const PROFILE_DIGEST_DOMAIN = "graft.projection-profile/v1";
 const ROUTE_DIGEST_DOMAIN = "graft.projection-route/v1";
 
 const LOWERCASE_SHA256_REVIEW = /^sha256:[0-9a-f]{64}$/u;
+const FILE_EXTENSION_SUFFIX = /^\.[a-z0-9][a-z0-9_-]*$/u;
 
 type JsonValue = null | boolean | number | string | readonly JsonValue[] | { readonly [key: string]: JsonValue };
 
@@ -440,8 +441,8 @@ function normalizeDigest(value: string, label: string): string {
 function normalizeFileExtension(value: string): string {
   const text = normalizeRequiredText(value, "projection fallback file extension").toLowerCase();
   const extension = text.startsWith(".") ? text : `.${text}`;
-  if (extension.length <= 1) {
-    fail("projection fallback file extension must not be empty");
+  if (!FILE_EXTENSION_SUFFIX.test(extension)) {
+    fail("projection fallback file extension must be a simple file suffix");
   }
   return extension;
 }

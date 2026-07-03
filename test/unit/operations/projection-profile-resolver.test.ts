@@ -300,5 +300,26 @@ describe("projection profile resolver", () => {
         { profileId: "wesley-base", include: ["schemas/**/*.graphqls", "!schemas/private/**"] },
       ],
     })).toThrow(ProjectionProfileResolverError);
+
+    expect(() => createProjectionProfileResolver({
+      profiles: baseConfig().profiles,
+      extensionFallbacks: [
+        { language: "wesley-sdl", profileId: "wesley-base", fileExtensions: ["graphql*"] },
+      ],
+    })).toThrow(ProjectionProfileResolverError);
+
+    expect(() => createProjectionProfileResolver({
+      profiles: baseConfig().profiles,
+      extensionFallbacks: [
+        { language: "wesley-sdl", profileId: "wesley-base", fileExtensions: ["schema.graphqls"] },
+      ],
+    })).toThrow(ProjectionProfileResolverError);
+
+    expect(() => createProjectionProfileResolver({
+      profiles: baseConfig().profiles,
+      extensionFallbacks: [
+        { language: "wesley-sdl", profileId: "wesley-base", fileExtensions: ["schema/graphqls"] },
+      ],
+    })).toThrow(ProjectionProfileResolverError);
   });
 });
