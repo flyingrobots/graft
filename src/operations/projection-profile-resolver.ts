@@ -296,9 +296,10 @@ function normalizeProfile(input: ProjectionProfileInput): NormalizedProfile {
   const options = input.options === undefined
     ? undefined
     : normalizeJsonValue(input.options, `projection profile ${id} options`);
+  const digestExtensions = [...extensions].sort((left, right) => left.coordinate.localeCompare(right.coordinate));
   const digestInput = options === undefined
-    ? { id, language, provider, extensions }
-    : { id, language, provider, extensions, options };
+    ? { id, language, provider, extensions: digestExtensions }
+    : { id, language, provider, extensions: digestExtensions, options };
 
   return Object.freeze({
     id,

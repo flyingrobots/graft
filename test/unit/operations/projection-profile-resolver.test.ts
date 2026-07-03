@@ -95,8 +95,8 @@ describe("projection profile resolver", () => {
       language: "wesley-sdl",
       provider: "wesley",
       extensions: [
-        { coordinate: "wesley.graphql-sdl/v1", digest: BASE_DIGEST },
         { coordinate: "echo.graphql-contract-descriptors/v1", digest: ECHO_DIGEST },
+        { coordinate: "wesley.graphql-sdl/v1", digest: BASE_DIGEST },
       ],
     }));
     expect(result.authority.routingDigest).toBe(digestReview(ROUTE_DIGEST_DOMAIN, {
@@ -226,26 +226,41 @@ describe("projection profile resolver", () => {
           : profile,
       ),
     });
+    const extensionReordered = createProjectionProfileResolver({
+      ...baseConfig(),
+      profiles: baseConfig().profiles.map((profile) =>
+        profile.id === "echo-contract-sdl"
+          ? {
+              ...profile,
+              extensions: [...profile.extensions].reverse(),
+            }
+          : profile,
+      ),
+    });
 
     const originalRoute = resolver.resolve({ path: "schemas/echo/schema.graphqls" });
     const reorderedRoute = reordered.resolve({ path: "schemas/echo/schema.graphqls" });
     const routeOnly = routeChanged.resolve({ path: "contracts/echo/schema.graphqls" });
     const profileOnly = profileChanged.resolve({ path: "schemas/echo/schema.graphqls" });
+    const extensionReorderedRoute = extensionReordered.resolve({ path: "schemas/echo/schema.graphqls" });
 
     expect(originalRoute.state).toBe("resolved");
     expect(reorderedRoute.state).toBe("resolved");
     expect(routeOnly.state).toBe("resolved");
     expect(profileOnly.state).toBe("resolved");
+    expect(extensionReorderedRoute.state).toBe("resolved");
     if (
       originalRoute.state !== "resolved" ||
       reorderedRoute.state !== "resolved" ||
       routeOnly.state !== "resolved" ||
-      profileOnly.state !== "resolved"
+      profileOnly.state !== "resolved" ||
+      extensionReorderedRoute.state !== "resolved"
     ) {
       throw new Error("expected resolved profile fixtures");
     }
 
     expect(reorderedRoute.authority).toEqual(originalRoute.authority);
+    expect(extensionReorderedRoute.authority.profileDigest).toBe(originalRoute.authority.profileDigest);
     expect(routeOnly.authority.profileDigest).toBe(originalRoute.authority.profileDigest);
     expect(routeOnly.authority.routingDigest).not.toBe(originalRoute.authority.routingDigest);
     expect(profileOnly.authority.profileDigest).not.toBe(originalRoute.authority.profileDigest);
