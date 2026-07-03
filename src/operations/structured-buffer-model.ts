@@ -338,6 +338,22 @@ export function createStructuredBufferSnapshot(opts: {
     path: opts.path,
     language: providerLanguage,
   }) ?? null : null;
+  if (
+    authority.state === "resolved"
+    && projectionProvider === null
+    && !(authority.authority.language === "edict" && opts.edictProjector !== undefined)
+  ) {
+    return {
+      path: opts.path,
+      content: opts.content,
+      format: detectStructuredFormat(opts.path),
+      basis: opts.basis ?? null,
+      partial: true,
+      parsed: null,
+      authority,
+      parseUnavailableReason: "PROJECTION_PROVIDER_UNAVAILABLE",
+    };
+  }
   const requestedLanguageId = providerLanguage?.toLowerCase();
   const registryEdictProjector = projectionProvider?.provider.kind === "edict"
     ? projectionProvider.provider.provider

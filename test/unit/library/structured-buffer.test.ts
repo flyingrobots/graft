@@ -24,6 +24,7 @@ function locate(content: string, needle: string): { row: number; column: number;
 const activeBuffers: { dispose(): void }[] = [];
 const BASE_DIGEST = "sha256:1111111111111111111111111111111111111111111111111111111111111111";
 const EDICT_DIGEST = "sha256:2222222222222222222222222222222222222222222222222222222222222222";
+const WESLEY_DIGEST = "sha256:3333333333333333333333333333333333333333333333333333333333333333";
 
 function track<T extends { dispose(): void }>(value: T): T {
   activeBuffers.push(value);
@@ -62,6 +63,27 @@ function edictAuthorityResolver() {
         language: "edict",
         profileId: "edict-base",
         fileExtensions: [".edict"],
+      },
+    ],
+  });
+}
+
+function wesleyAuthorityResolver() {
+  return createProjectionProfileResolver({
+    profiles: [
+      {
+        id: "wesley-base",
+        language: "wesley-sdl",
+        provider: "wesley",
+        extensions: [
+          { coordinate: "wesley.graphql-sdl/v1", digest: WESLEY_DIGEST },
+        ],
+      },
+    ],
+    routes: [
+      {
+        profileId: "wesley-base",
+        include: ["schemas/**/*.graphql"],
       },
     ],
   });
@@ -772,6 +794,27 @@ describe("library: structured buffer", () => {
     expect(bundle.authority).toEqual({ state: "not_configured" });
     expect(bundle.parseStatus).toEqual(expect.objectContaining({
       status: "full",
+    }));
+  });
+
+  it("reports provider unavailable when resolved authority has no registry provider", () => {
+    const bundle = createProjectionBundle("schemas/demo.graphql", "type Query { greeting: String }\n", {
+      basis,
+      projectionProfileResolver: wesleyAuthorityResolver(),
+    });
+
+    expect(bundle.authority).toEqual({
+      state: "resolved",
+      authority: expect.objectContaining({
+        language: "wesley-sdl",
+        provider: "wesley",
+        profileId: "wesley-base",
+        resolutionSource: "project_config",
+      }),
+    });
+    expect(bundle.parseStatus).toEqual(expect.objectContaining({
+      status: "unsupported",
+      reason: "PROJECTION_PROVIDER_UNAVAILABLE",
     }));
   });
 
