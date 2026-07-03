@@ -105,6 +105,8 @@ The resolver computes review digests from normalized config:
 Digest input must be strict JSON data. The digest path rejects lossy preimages
 such as `undefined`, array holes, non-finite numbers, functions, symbols,
 bigints, and non-plain objects before hashing.
+Profile option keys are JSON data, including keys named `__proto__`, and must
+be preserved as own data properties in the digest preimage.
 
 `routingDigest` binds:
 
@@ -115,8 +117,8 @@ bigints, and non-plain objects before hashing.
 Changing route globs must not change `profileDigest`.
 Changing profile semantic inputs must change `profileDigest`.
 
-Profile order and route order in the config object must not affect the digest
-for a selected profile or route.
+Profile order, route order, and semantic extension declaration order in the
+config object must not affect the digest for a selected profile or route.
 
 ## Resolution Rules
 
@@ -182,9 +184,10 @@ capability checks belong to the provider-contract slice.
 - Excluded routes do not match.
 - Extension fallback is used after project routes.
 - No matching route or fallback returns `no_provider`.
-- Config validation rejects duplicate profile ids, missing routes, duplicate
-  extension fallbacks, malformed digests, negated route globs, malformed
-  fallback file extensions, and empty route includes.
+- Config validation rejects duplicate profile ids, missing routes, fallback
+  language/profile language mismatches, duplicate extension fallbacks, malformed
+  digests, sparse option arrays, negated route globs, malformed fallback file
+  extensions, and empty route includes.
 - The root package exports the resolver factory, error class, and public types.
 
 ## Playback Questions

@@ -50,6 +50,21 @@ FAIL test/unit/operations/projection-profile-resolver.test.ts
 expected function to throw an error, but it didn't
 ```
 
+Second review repair regressions:
+
+```text
+$ pnpm vitest run test/unit/operations/projection-profile-resolver.test.ts
+
+FAIL test/unit/operations/projection-profile-resolver.test.ts
+expected function to throw an error, but it didn't
+
+FAIL test/unit/operations/projection-profile-resolver.test.ts
+expected error to be instance of ProjectionProfileResolverError
+
+FAIL test/unit/operations/projection-profile-resolver.test.ts
+expected profile digests for reordered extension inputs to match
+```
+
 ## GREEN
 
 Focused resolver/root-export regression:
@@ -67,7 +82,7 @@ Review repair regressions:
 $ pnpm vitest run test/unit/contracts/review-digest.test.ts test/unit/operations/projection-profile-resolver.test.ts test/unit/library/index.test.ts
 
 Test Files  3 passed (3)
-Tests       15 passed (15)
+Tests       17 passed (17)
 ```
 
 TypeScript:
@@ -117,7 +132,7 @@ Full isolated test suite:
 $ pnpm test
 
 Test Files  243 passed (243)
-Tests       1807 passed (1807)
+Tests       1809 passed (1809)
 ```
 
 ## Scope Guard
@@ -133,8 +148,12 @@ Tests       1807 passed (1807)
 - Profile semantic changes move `profileDigest`.
 - Digest output is tested against canonical JSON plus SHA-256 oracle behavior.
 - Digest input rejects lossy non-JSON preimages before hashing.
+- Profile option keys named `__proto__` are preserved as JSON data.
+- Sparse option arrays are rejected by resolver config validation.
 - Route config rejects negated glob patterns.
 - Extension fallback config rejects malformed file suffixes.
+- Extension fallback language must match the referenced profile language.
+- Semantic extension declaration order does not move `profileDigest`.
 - No TOML parser or filesystem discovery was added.
 - No authority context was attached to `StructuredBuffer`.
 - No Wesley provider was added.

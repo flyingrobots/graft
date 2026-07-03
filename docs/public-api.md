@@ -129,10 +129,12 @@ dirty-buffer names through explicit profile override, project route globs, or
 extension fallback. Blank profile overrides are treated as absent, unknown
 profiles and ambiguous route matches return structured routing failures, and
 route-only changes move only `routingDigest`. Resolver config rejects lossy
-digest preimages, negated route globs, and malformed fallback file extensions.
-This resolver does not read `graft.projections.toml`, attach authority context
-to `StructuredBuffer`, or interpret Wesley SDL, descriptor, Echo, Edict, or
-Colorful semantics.
+digest preimages, sparse option arrays, fallback/profile language mismatches,
+negated route globs, and malformed fallback file extensions. Profile digests
+preserve JSON option keys named `__proto__` and are independent of semantic
+extension declaration order. This resolver does not read
+`graft.projections.toml`, attach authority context to `StructuredBuffer`, or
+interpret Wesley SDL, descriptor, Echo, Edict, or Colorful semantics.
 
 ### 3. Tool Bridge Surface
 
