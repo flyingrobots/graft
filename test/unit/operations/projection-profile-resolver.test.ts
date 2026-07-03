@@ -303,6 +303,37 @@ describe("projection profile resolver", () => {
     expect(withProtoKey.authority.profileDigest).not.toBe(withoutProtoKey.authority.profileDigest);
   });
 
+  it("uses code-point ordering for profile extension digest preimages", () => {
+    const result = createProjectionProfileResolver({
+      profiles: [
+        {
+          id: "code-point-profile",
+          language: "wesley-sdl",
+          provider: "wesley",
+          extensions: [
+            { coordinate: "a.extension/v1", digest: ECHO_DIGEST },
+            { coordinate: "Z.extension/v1", digest: BASE_DIGEST },
+          ],
+        },
+      ],
+    }).resolve({ path: "schema.graphqls", profile: "code-point-profile" });
+
+    expect(result.state).toBe("resolved");
+    if (result.state !== "resolved") {
+      throw new Error("expected code-point profile fixture to resolve");
+    }
+
+    expect(result.authority.profileDigest).toBe(digestReview(PROFILE_DIGEST_DOMAIN, {
+      id: "code-point-profile",
+      language: "wesley-sdl",
+      provider: "wesley",
+      extensions: [
+        { coordinate: "Z.extension/v1", digest: BASE_DIGEST },
+        { coordinate: "a.extension/v1", digest: ECHO_DIGEST },
+      ],
+    }));
+  });
+
   it("rejects invalid profile configuration before resolution", () => {
     expect(() => createProjectionProfileResolver({
       ...baseConfig(),

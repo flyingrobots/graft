@@ -65,6 +65,15 @@ FAIL test/unit/operations/projection-profile-resolver.test.ts
 expected profile digests for reordered extension inputs to match
 ```
 
+Third review repair regression:
+
+```text
+$ pnpm vitest run test/unit/operations/projection-profile-resolver.test.ts
+
+FAIL test/unit/operations/projection-profile-resolver.test.ts
+expected 'sha256:8d61b9bdf6e0da9a7afcfc68bd9661...' to be 'sha256:972bf720f5785b0e376438a35e4993...'
+```
+
 ## GREEN
 
 Focused resolver/root-export regression:
@@ -83,6 +92,15 @@ $ pnpm vitest run test/unit/contracts/review-digest.test.ts test/unit/operations
 
 Test Files  3 passed (3)
 Tests       17 passed (17)
+```
+
+Code-point ordering regression:
+
+```text
+$ pnpm vitest run test/unit/operations/projection-profile-resolver.test.ts
+
+Test Files  1 passed (1)
+Tests       10 passed (10)
 ```
 
 TypeScript:
@@ -132,7 +150,7 @@ Full isolated test suite:
 $ pnpm test
 
 Test Files  243 passed (243)
-Tests       1809 passed (1809)
+Tests       1810 passed (1810)
 ```
 
 ## Scope Guard
@@ -154,6 +172,7 @@ Tests       1809 passed (1809)
 - Extension fallback config rejects malformed file suffixes.
 - Extension fallback language must match the referenced profile language.
 - Semantic extension declaration order does not move `profileDigest`.
+- Semantic extension digest ordering uses locale-free code-point comparison.
 - No TOML parser or filesystem discovery was added.
 - No authority context was attached to `StructuredBuffer`.
 - No Wesley provider was added.

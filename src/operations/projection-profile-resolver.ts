@@ -296,7 +296,7 @@ function normalizeProfile(input: ProjectionProfileInput): NormalizedProfile {
   const options = input.options === undefined
     ? undefined
     : normalizeJsonValue(input.options, `projection profile ${id} options`);
-  const digestExtensions = [...extensions].sort((left, right) => left.coordinate.localeCompare(right.coordinate));
+  const digestExtensions = [...extensions].sort((left, right) => compareCodePoint(left.coordinate, right.coordinate));
   const digestInput = options === undefined
     ? { id, language, provider, extensions: digestExtensions }
     : { id, language, provider, extensions: digestExtensions, options };
@@ -526,6 +526,16 @@ function normalizeJsonValue(value: unknown, label: string, seen = new WeakSet())
 
 function digestReview(domain: string, value: unknown): string {
   return canonicalJsonSha256Review(domain, value);
+}
+
+function compareCodePoint(left: string, right: string): number {
+  if (left < right) {
+    return -1;
+  }
+  if (left > right) {
+    return 1;
+  }
+  return 0;
 }
 
 function fail(message: string): never {

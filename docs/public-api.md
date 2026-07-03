@@ -132,9 +132,10 @@ route-only changes move only `routingDigest`. Resolver config rejects lossy
 digest preimages, sparse option arrays, fallback/profile language mismatches,
 negated route globs, and malformed fallback file extensions. Profile digests
 preserve JSON option keys named `__proto__` and are independent of semantic
-extension declaration order. This resolver does not read
-`graft.projections.toml`, attach authority context to `StructuredBuffer`, or
-interpret Wesley SDL, descriptor, Echo, Edict, or Colorful semantics.
+extension declaration order using locale-free code-point comparison. This
+resolver does not read `graft.projections.toml`, attach authority context to
+`StructuredBuffer`, or interpret Wesley SDL, descriptor, Echo, Edict, or
+Colorful semantics.
 
 ### 3. Tool Bridge Surface
 

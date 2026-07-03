@@ -119,6 +119,8 @@ Changing profile semantic inputs must change `profileDigest`.
 
 Profile order, route order, and semantic extension declaration order in the
 config object must not affect the digest for a selected profile or route.
+Semantic extension digest preimages use locale-free code-point ordering, not
+host collation.
 
 ## Resolution Rules
 
