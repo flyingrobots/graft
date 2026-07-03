@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it } from "vitest";
-import { createStructuredBuffer } from "../../../src/index.js";
+import { createProjectionProviderRegistry, createStructuredBuffer } from "../../../src/index.js";
 import type { EdictProjectionProvider } from "../../../src/operations/edict-projection.js";
 import type { ProseProjectionProvider } from "../../../src/operations/colorful-prose-projection.js";
 import { JumpEntry, OutlineEntry } from "../../../src/parser/types.js";
@@ -416,6 +416,105 @@ describe("library: structured buffer", () => {
         kind: "ExpectedToken",
       }),
     ]);
+  });
+
+  it("projects Edict buffers through a projection provider registry", () => {
+    const edictProjector: EdictProjectionProvider = {
+      project(input) {
+        expect(input.name).toBe("DEMO.EDICT");
+        expect(input.content).toBe("package demo.echo@1;\n");
+        expect(input.basis).toEqual(basis);
+        return {
+          language: "edict",
+          name: input.name,
+          basis: input.basis ?? null,
+          syntax: {
+            state: "available",
+            value: {
+              spans: [
+                {
+                  className: "keyword",
+                  range: { start: { row: 0, column: 0 }, end: { row: 0, column: 7 } },
+                  text: "package",
+                },
+              ],
+            },
+          },
+          diagnostics: { items: [] },
+          core: { state: "not_requested" },
+          targetIr: { state: "not_requested" },
+          status: {
+            status: "ok",
+            checked: 1,
+            errors: 0,
+            exitCode: 0,
+          },
+        };
+      },
+    };
+    const projectionRegistry = createProjectionProviderRegistry().register({
+      language: "edict",
+      extensions: [".edict"],
+      provider: { kind: "edict", provider: edictProjector },
+    });
+    const buffer = track(createStructuredBuffer("DEMO.EDICT", "package demo.echo@1;\n", {
+      basis,
+      projectionRegistry,
+    }));
+
+    expect(buffer.format).toBe("edict");
+    expect(buffer.edictProjection()).toEqual(expect.objectContaining({
+      language: "edict",
+      name: "DEMO.EDICT",
+      basis,
+    }));
+    expect(buffer.syntaxSpans().spans).toEqual([
+      expect.objectContaining({ className: "keyword", text: "package" }),
+    ]);
+  });
+
+  it("routes synthetic dirty Edict buffers by explicit language id", () => {
+    const edictProjector: EdictProjectionProvider = {
+      project(input) {
+        expect(input.name).toBe("untitled-1");
+        return {
+          language: "edict",
+          name: input.name,
+          basis: input.basis ?? null,
+          syntax: { state: "available", value: { spans: [] } },
+          diagnostics: { items: [] },
+          core: { state: "not_requested" },
+          targetIr: { state: "not_requested" },
+          status: {
+            status: "ok",
+            checked: 1,
+            errors: 0,
+            exitCode: 0,
+          },
+        };
+      },
+    };
+    const projectionRegistry = createProjectionProviderRegistry().register({
+      language: "edict",
+      extensions: [".edict"],
+      provider: { kind: "edict", provider: edictProjector },
+    });
+    const buffer = track(createStructuredBuffer("untitled-1", "package demo.echo@1;\n", {
+      basis,
+      language: "edict",
+      projectionRegistry,
+    }));
+
+    expect(buffer.format).toBe("edict");
+    expect(buffer.edictProjection()).toEqual(expect.objectContaining({
+      language: "edict",
+      name: "untitled-1",
+      basis,
+    }));
+    expect(buffer.projectionBundle().parseStatus).toEqual(expect.objectContaining({
+      format: "edict",
+      status: "full",
+    }));
   });
 
   it("marks Edict snapshots partial when requested syntax projection fails", () => {

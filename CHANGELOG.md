@@ -9,6 +9,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ### Added
 
+- **Projection provider registry**: editor hosts can now create a
+  `ProjectionProviderRegistry`, register a language provider by language id and
+  file extension, and pass the registry to `createStructuredBuffer(...)` or
+  `createProjectionBundle(...)`. The registry routes `.edict` buffers through
+  the existing Edict projection provider, supports explicit `language` routing
+  for synthetic dirty buffers, and keeps the direct `edictProjector` option for
+  compatibility. The registry is a routing shell only; it does not execute Echo,
+  admit bundles, or make Graft own language-specific semantics.
 - **Edict projection bridge**: buffer-native editor integrations can now opt
   into an `EdictProjectionProvider` for `.edict` buffers. Graft exports
   `createEdictCliProjectionProvider(...)` and `EdictProjectionError`, shells out

@@ -12,6 +12,7 @@ import type { OutlineEntry, JumpEntry } from "../parser/types.js";
 import type { ProseProjection, ProseProjectionProvider } from "./colorful-prose-projection.js";
 import { isEdictPath } from "./edict-projection.js";
 import type { EdictProjectionBundle, EdictProjectionProvider } from "./edict-projection.js";
+import type { ProjectionProviderRegistry } from "./projection-provider-registry.js";
 
 export type BufferUnavailableReason =
   | "UNSUPPORTED_LANGUAGE"
@@ -279,21 +280,34 @@ export interface StructuredBufferSnapshot {
 export function createStructuredBufferSnapshot(opts: {
   path: string;
   content: string;
+  language?: string | undefined;
   basis?: WarmProjectionBasis | undefined;
   proseProjector?: ProseProjectionProvider | undefined;
   edictProjector?: EdictProjectionProvider | undefined;
+  projectionRegistry?: ProjectionProviderRegistry | undefined;
 }): StructuredBufferSnapshot {
-  const edictPath = isEdictPath(opts.path);
-  const format = edictPath ? "edict" : detectStructuredFormat(opts.path);
+  const projectionProvider = opts.projectionRegistry?.resolve({
+    path: opts.path,
+    language: opts.language,
+  }) ?? null;
+  const requestedLanguage = opts.language?.trim().toLowerCase();
+  const registryEdictProjector = projectionProvider?.provider.kind === "edict"
+    ? projectionProvider.provider.provider
+    : undefined;
+  const edictRequested = isEdictPath(opts.path)
+    || requestedLanguage === "edict"
+    || projectionProvider?.provider.kind === "edict";
+  const edictProjector = opts.edictProjector ?? registryEdictProjector;
+  const format = edictRequested ? "edict" : detectStructuredFormat(opts.path);
   let parsed: ParsedTree | null = null;
   let parseUnavailableReason: BufferUnavailableReason | undefined;
-  const proseProjection = edictPath
+  const proseProjection = edictRequested
     ? undefined
     : opts.proseProjector?.project({ path: opts.path, content: opts.content }) ?? undefined;
   let edictProjection: EdictProjectionBundle | undefined;
-  if (edictPath && opts.edictProjector !== undefined) {
+  if (edictRequested && edictProjector !== undefined) {
     try {
-      edictProjection = opts.edictProjector.project({
+      edictProjection = edictProjector.project({
         name: opts.path,
         content: opts.content,
         basis: opts.basis,
@@ -303,7 +317,7 @@ export function createStructuredBufferSnapshot(opts: {
       parseUnavailableReason = "PROJECTION_PROVIDER_UNAVAILABLE";
     }
   }
-  if (edictPath && edictProjection === undefined) {
+  if (edictRequested && edictProjection === undefined) {
     parseUnavailableReason = "PROJECTION_PROVIDER_UNAVAILABLE";
   } else if (proseProjection === undefined && edictProjection === undefined && format === null) {
     parseUnavailableReason = "UNSUPPORTED_LANGUAGE";

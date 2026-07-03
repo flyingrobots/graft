@@ -46,6 +46,10 @@ work:
 - `ProseProjectionProvider`
 - `createColorfulCliProseProjector(...)`
 - `COLORFUL_CLI_MINIMUM_VERSION`
+- `createProjectionProviderRegistry(...)`
+- `ProjectionProviderRegistryError`
+- exported `ProjectionProvider*` registry, registration, resolution, and
+  binding types
 - `EdictProjectionProvider`
 - `EdictProjectionError`
 - `createEdictCliProjectionProvider(...)`
@@ -100,6 +104,16 @@ with explicit `not_requested`, `available`, `blocked`, and `failed` states.
 Without an Edict projector, `.edict` buffers are still recognized and report
 `PROJECTION_PROVIDER_UNAVAILABLE`; Graft does not execute Echo or admit
 bundles.
+
+Hosts that need more than one language projection provider can instead pass
+`projectionRegistry`, created with `createProjectionProviderRegistry(...)`.
+Registry entries bind a language id, one or more file extensions, and a
+language-specific provider binding. Routing is case-insensitive for extensions,
+and the optional `language` field on buffer options lets synthetic dirty buffers
+route without pretending that the path exists on disk. The direct
+`edictProjector` option remains supported and takes precedence for `.edict`
+buffers; the registry is only a routing shell and does not normalize
+language-specific payloads into an Edict-shaped model.
 
 ### 3. Tool Bridge Surface
 

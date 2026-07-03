@@ -14,6 +14,11 @@ import type { ProseProjectionProvider } from "../operations/colorful-prose-proje
 import { createEdictCliProjectionProvider } from "../adapters/edict-cli-projection-provider.js";
 import { EdictProjectionError } from "../operations/edict-projection.js";
 import type { EdictProjectionProvider } from "../operations/edict-projection.js";
+import {
+  ProjectionProviderRegistryError,
+  createProjectionProviderRegistry,
+} from "../operations/projection-provider-registry.js";
+import type { ProjectionProviderRegistry } from "../operations/projection-provider-registry.js";
 import { GRAFT_VERSION } from "../version.js";
 export {
   GRAFT_MINIMUM_GIT_VERSION,
@@ -26,9 +31,11 @@ export { callGraftTool, parseGraftToolPayload } from "./tool-bridge.js";
 export type { GitVersion, GitVersionGuardOptions } from "../git/version-guard.js";
 
 export interface CreateStructuredBufferOptions {
+  readonly language?: string | undefined;
   readonly basis?: WarmProjectionBasis | undefined;
   readonly proseProjector?: ProseProjectionProvider | undefined;
   readonly edictProjector?: EdictProjectionProvider | undefined;
+  readonly projectionRegistry?: ProjectionProviderRegistry | undefined;
 }
 
 export interface CreateProjectionBundleOptions extends CreateStructuredBufferOptions {
@@ -43,9 +50,11 @@ export function createStructuredBuffer(
   return new StructuredBuffer({
     path,
     content,
+    language: options.language,
     basis: options.basis,
     proseProjector: options.proseProjector,
     edictProjector: options.edictProjector,
+    projectionRegistry: options.projectionRegistry,
   });
 }
 
@@ -57,9 +66,11 @@ export function createProjectionBundle(
   const buffer = new StructuredBuffer({
     path,
     content,
+    language: options.language,
     basis: options.basis,
     proseProjector: options.proseProjector,
     edictProjector: options.edictProjector,
+    projectionRegistry: options.projectionRegistry,
   });
   try {
     return buffer.projectionBundle({ viewport: options.viewport });
@@ -77,7 +88,9 @@ export {
   StructuredBuffer,
   createColorfulCliProseProjector,
   createEdictCliProjectionProvider,
+  createProjectionProviderRegistry,
   EdictProjectionError,
+  ProjectionProviderRegistryError,
   createGraftServer,
   startDaemonServer,
   startStdioServer,
@@ -127,6 +140,10 @@ export type {
   EdictProjectionTargetSettings,
   EdictTargetIrProjection,
   EdictSyntaxProjection,
+  ProjectionProviderBinding,
+  ProjectionProviderRegistration,
+  ProjectionProviderRegistry,
+  ProjectionProviderResolution,
 } from "../operations/structured-buffer.js";
 
 export type {
