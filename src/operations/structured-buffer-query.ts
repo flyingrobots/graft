@@ -1,6 +1,7 @@
 import type Parser from "web-tree-sitter";
 import { extractOutline } from "../parser/outline.js";
 import type { SupportedStructuredFormat } from "../parser/lang.js";
+import { buildXmlSyntaxSpans } from "./xml-syntax.js";
 import {
   type BufferDiagnostic,
   type BufferOutlineResult,
@@ -386,6 +387,16 @@ export function buildOutlineResult(snapshot: StructuredBufferSnapshot): BufferOu
       partial: snapshot.proseProjection.partial,
     };
   }
+  if (snapshot.format === "xml") {
+    return {
+      path: snapshot.path,
+      format: snapshot.format,
+      basis: snapshot.basis,
+      outline: [],
+      jumpTable: [],
+      partial: snapshot.partial,
+    };
+  }
   if (snapshot.format === null || snapshot.parseUnavailableReason !== undefined) {
     return {
       path: snapshot.path,
@@ -433,6 +444,14 @@ export function buildInjectionResult(snapshot: StructuredBufferSnapshot): Inject
       format: snapshot.format,
       basis: snapshot.basis,
       injections: fencedCodeInjections(snapshot.content),
+    };
+  }
+  if (snapshot.format === "xml") {
+    return {
+      path: snapshot.path,
+      format: snapshot.format,
+      basis: snapshot.basis,
+      injections: [],
     };
   }
   if (snapshot.parsed === null) {
@@ -487,6 +506,16 @@ export function buildSyntaxSpansResult(
       basis: snapshot.basis,
       partial: snapshot.proseProjection.partial,
       spans,
+      injections: [],
+    };
+  }
+  if (snapshot.format === "xml") {
+    return {
+      path: snapshot.path,
+      format: snapshot.format,
+      basis: snapshot.basis,
+      partial: snapshot.partial,
+      spans: buildXmlSyntaxSpans(snapshot.content, { viewport: opts.viewport }),
       injections: [],
     };
   }
@@ -586,6 +615,15 @@ export function buildDiagnosticsResult(snapshot: StructuredBufferSnapshot): Diag
       format: snapshot.format,
       basis: snapshot.basis,
       partial: snapshot.proseProjection.partial,
+      diagnostics: [],
+    };
+  }
+  if (snapshot.format === "xml") {
+    return {
+      path: snapshot.path,
+      format: snapshot.format,
+      basis: snapshot.basis,
+      partial: snapshot.partial,
       diagnostics: [],
     };
   }
@@ -709,6 +747,15 @@ export function buildFoldRegionsResult(snapshot: StructuredBufferSnapshot): Fold
             end: point(entry.end - 1, 0),
           },
         })),
+    };
+  }
+  if (snapshot.format === "xml") {
+    return {
+      path: snapshot.path,
+      format: snapshot.format,
+      basis: snapshot.basis,
+      partial: snapshot.partial,
+      regions: [],
     };
   }
   if (snapshot.parsed === null) {

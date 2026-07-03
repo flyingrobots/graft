@@ -15,6 +15,7 @@ export type SupportedLang = typeof SUPPORTED_LANGS[number];
 export const SUPPORTED_STRUCTURED_FORMATS = [
   ...SUPPORTED_LANGS,
   "md",
+  "xml",
 ] as const;
 export type SupportedStructuredFormat = typeof SUPPORTED_STRUCTURED_FORMATS[number];
 
@@ -34,6 +35,7 @@ const LANGUAGE_SUFFIXES: Readonly<Record<SupportedLang, readonly string[]>> = {
 const STRUCTURED_FORMAT_SUFFIXES: Readonly<Record<SupportedStructuredFormat, readonly string[]>> = {
   ...LANGUAGE_SUFFIXES,
   md: [".md"],
+  xml: [".xml", ".svg"],
 };
 
 function normalizedSuffix(filePath: string): string {

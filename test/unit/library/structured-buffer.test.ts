@@ -131,6 +131,53 @@ describe("library: structured buffer", () => {
     });
   });
 
+  it("projects SVG and XML syntax spans without a tree-sitter parser", () => {
+    const content = [
+      "<?xml version=\"1.0\" encoding=\"UTF-8\"?>",
+      "<!-- original logo -->",
+      "<svg viewBox=\"0 0 512 512\" role=\"img\">",
+      "  <path d=\"M256 42 470 256Z\" fill=\"#17b6ff\"/>",
+      "</svg>",
+    ].join("\n");
+
+    const buffer = track(createStructuredBuffer("assets/JimLogo.SVG", content, { basis }));
+    expect(buffer.format).toBe("xml");
+    expect(buffer.partial).toBe(false);
+
+    const spans = buffer.syntaxSpans({
+      viewport: {
+        start: { row: 0, column: 0 },
+        end: { row: 4, column: 0 },
+      },
+    });
+    expect(spans.basis).toEqual(basis);
+    expect(spans.reason).toBeUndefined();
+    expect(spans.spans).toEqual(expect.arrayContaining([
+      expect.objectContaining({ className: "type", text: "svg" }),
+      expect.objectContaining({ className: "property", text: "viewBox" }),
+      expect.objectContaining({ className: "string", text: "\"0 0 512 512\"" }),
+      expect.objectContaining({ className: "comment", text: "<!-- original logo -->" }),
+      expect.objectContaining({ className: "type", text: "path" }),
+      expect.objectContaining({ className: "property", text: "fill" }),
+    ]));
+
+    const bundle = buffer.projectionBundle();
+    expect(bundle.parseStatus).toEqual({
+      basis,
+      format: "xml",
+      partial: false,
+      status: "full",
+      reason: undefined,
+    });
+    expect(bundle.outline).toEqual(expect.objectContaining({ outline: [], jumpTable: [] }));
+    expect(bundle.diagnostics).toEqual(expect.objectContaining({ diagnostics: [] }));
+    expect(bundle.folds).toEqual(expect.objectContaining({ regions: [] }));
+    expect(bundle.syntax.spans).toEqual(expect.arrayContaining([
+      expect.objectContaining({ className: "keyword", text: "xml" }),
+      expect.objectContaining({ className: "punctuation", text: "/>" }),
+    ]));
+  });
+
   it("supports cursor lookup plus structural expand and shrink", () => {
     const content = [
       "export function greet(name: string) {",

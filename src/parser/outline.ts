@@ -27,6 +27,9 @@ export function extractOutline(
   if (lang === "md") {
     return extractMarkdownOutline(source);
   }
+  if (lang === "xml") {
+    return { entries: [], jumpTable: [], partial: false };
+  }
 
   const parsed = parseStructuredTree(lang, source);
   try {
@@ -52,6 +55,9 @@ export async function extractOutlineAsync(
 ): Promise<OutlineResult> {
   if (lang === "md") {
     return extractMarkdownOutline(source);
+  }
+  if (lang === "xml") {
+    return { entries: [], jumpTable: [], partial: false };
   }
 
   const parsed = await parseStructuredTreeAsync(lang, source);
