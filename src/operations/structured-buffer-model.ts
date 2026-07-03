@@ -418,7 +418,11 @@ export function createStructuredBufferSnapshot(opts: {
         || edictProjection.core.state === "failed"
         || edictProjection.targetIr.state === "blocked"
         || edictProjection.targetIr.state === "failed"
-      : proseProjection?.partial ?? (parsed?.root.hasError() ?? parseUnavailableReason === "PARSER_RUNTIME_NOT_READY"),
+      : proseProjection?.partial ?? (
+        (parsed?.root.hasError() ?? false)
+        || parseUnavailableReason === "PARSER_RUNTIME_NOT_READY"
+        || parseUnavailableReason === "PROJECTION_AUTHORITY_UNAVAILABLE"
+      ),
     parsed,
     authority,
     ...(proseProjection !== undefined ? { proseProjection } : {}),

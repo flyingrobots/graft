@@ -788,6 +788,27 @@ describe("library: structured buffer", () => {
     }));
   });
 
+  it("marks Edict authority no-provider failures partial", () => {
+    const bundle = createProjectionBundle("demo.edict", "package demo.echo@1;\n", {
+      basis,
+      projectionProfileResolver: createProjectionProfileResolver({ profiles: [] }),
+    });
+
+    expect(bundle.authority).toEqual({
+      state: "failed",
+      failure: expect.objectContaining({
+        kind: "no_provider",
+        path: "demo.edict",
+      }),
+    });
+    expect(bundle.parseStatus).toEqual(expect.objectContaining({
+      partial: true,
+      status: "unsupported",
+      reason: "PROJECTION_AUTHORITY_UNAVAILABLE",
+    }));
+    expect(bundle.partial).toBe(true);
+  });
+
   it("reports authority as not configured when no resolver is supplied", () => {
     const bundle = createProjectionBundle("src/view.ts", "export const x = 1;\n", { basis });
 
