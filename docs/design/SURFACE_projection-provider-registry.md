@@ -29,7 +29,8 @@ bindings remain future work.
 - Registry routing is deterministic and case-insensitive for extensions.
 - An explicit language id can override extension routing for dirty buffers with
   synthetic names.
-- Blank language ids are treated as absent at the buffer boundary.
+- Blank language ids are treated as absent during registry lookup and before
+  buffer-level registry routing.
 - Existing Edict projection behavior still works when routed through the
   registry.
 - Existing direct `edictProjector` behavior remains supported for compatibility.

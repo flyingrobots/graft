@@ -97,7 +97,7 @@ class ProjectionProviderRegistryImpl implements ProjectionProviderRegistry {
 }
 
 function normalizeOptionalLanguage(value: string | null | undefined): string | null {
-  if (value === null || value === undefined) {
+  if (value === null || value === undefined || value.trim().length === 0) {
     return null;
   }
   return normalizeLanguage(value, "projection language override");

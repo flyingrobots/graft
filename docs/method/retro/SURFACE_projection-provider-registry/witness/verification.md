@@ -51,6 +51,16 @@ FAIL test/unit/library/structured-buffer.test.ts > library: structured buffer > 
 ProjectionProviderRegistryError: projection language override must not be empty
 ```
 
+The final Code Lawyer pass produced this targeted RED before
+`ProjectionProviderRegistry.resolve(...)` treated blank language ids as absent:
+
+```text
+$ pnpm vitest run test/unit/operations/projection-provider-registry.test.ts
+
+FAIL test/unit/operations/projection-provider-registry.test.ts > projection provider registry > treats blank language overrides as absent
+ProjectionProviderRegistryError: projection language override must not be empty
+```
+
 ## GREEN
 
 Focused GREEN after implementation and self-review repair:
@@ -59,7 +69,7 @@ Focused GREEN after implementation and self-review repair:
 $ pnpm vitest run test/unit/operations/projection-provider-registry.test.ts test/unit/library/structured-buffer.test.ts test/unit/library/index.test.ts
 
 Test Files  3 passed (3)
-Tests  29 passed (29)
+Tests  30 passed (30)
 ```
 
 Type and lint gates:
@@ -108,7 +118,7 @@ PASS
 $ pnpm test
 
 Test Files  241 passed (241)
-Tests  1796 passed (1796)
+Tests  1797 passed (1797)
 ```
 
 ## Scope Guard

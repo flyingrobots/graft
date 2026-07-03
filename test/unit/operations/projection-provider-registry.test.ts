@@ -58,6 +58,20 @@ describe("projection provider registry", () => {
     expect(registry.resolve({ path: "demo.edict", language: "wesley-sdl" })).toBeNull();
   });
 
+  it("treats blank language overrides as absent", () => {
+    const registry = createProjectionProviderRegistry().register({
+      language: "edict",
+      extensions: [".edict"],
+      provider: { kind: "edict", provider: edictProvider },
+    });
+
+    expect(registry.resolve({ path: "demo.edict", language: "" })).toEqual({
+      language: "edict",
+      provider: { kind: "edict", provider: edictProvider },
+    });
+    expect(registry.resolve({ path: "untitled-1", language: "  " })).toBeNull();
+  });
+
   it("rejects ambiguous duplicate languages and extensions", () => {
     expect(() => createProjectionProviderRegistry([
       {

@@ -36,6 +36,9 @@ updated. A self-review RED caught both before commit, and registration now
 validates the complete language/extension set before mutating either lookup map.
 The PR self-review also caught a docs overclaim around multiple provider
 bindings and a blank-language throw path; both were repaired before merge.
+The final Code Lawyer pass tightened that repair so the public registry
+`resolve(...)` method itself, not only `StructuredBuffer`, treats blank language
+ids as absent.
 
 ## What would you do differently?
 
