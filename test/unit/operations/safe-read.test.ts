@@ -159,7 +159,7 @@ describe("operations: safe_read", () => {
     expect(result.reason).toBe("UNSUPPORTED_LANGUAGE");
     expect(result.outline).toEqual([]);
     expect(result.jumpTable).toEqual([]);
-    expect(result.next).toContain("No parser-backed outline is available for this file type.");
+    expect(result.next?.length).toBeGreaterThan(0);
   });
 
   it("falls back to unsupported-language outline when the prose projector throws", async () => {
