@@ -115,8 +115,74 @@ Tests       1822 passed (1822)
   through the projection registry.
 - Graft passes the resolved authority context to Wesley.
 - Graft preserves Wesley syntax, diagnostics, digests, and payload lanes.
+- Graft fails closed when resolved Wesley authority is paired with a mismatched
+  registry provider kind.
+- The Wesley projection contract does not import the Edict projection contract.
 - Graft does not parse `graft.projections.toml`.
 - Graft does not ship a real Wesley process, CLI, LSP, LSM, or WASM adapter.
 - Graft does not interpret Wesley directives or descriptor semantics.
 - Graft does not execute Echo, admit Jim artifacts, settle consequences, or
   claim reintegration authority.
+
+## Code Lawyer Repair
+
+Provider-kind mismatch RED:
+
+```text
+$ pnpm vitest run test/unit/library/structured-buffer.test.ts --testNamePattern "fails closed when Wesley authority resolves to a mismatched registry provider kind"
+
+Test Files  1 failed (1)
+Tests       1 failed | 29 skipped (30)
+
+Failure:
+- expected the mismatched Edict provider not to be invoked under Wesley
+  authority
+```
+
+Provider-kind mismatch GREEN:
+
+```text
+$ pnpm vitest run test/unit/library/structured-buffer.test.ts --testNamePattern "fails closed when Wesley authority resolves to a mismatched registry provider kind"
+
+Test Files  1 passed (1)
+Tests       1 passed | 29 skipped (30)
+```
+
+Provider-contract independence RED:
+
+```text
+$ pnpm vitest run test/unit/operations/wesley-projection.test.ts
+
+Test Files  1 failed (1)
+Tests       1 failed (1)
+
+Failure:
+- expected `src/operations/wesley-projection.ts` not to import
+  `./edict-projection.js`
+```
+
+Provider-contract independence GREEN:
+
+```text
+$ pnpm vitest run test/unit/operations/wesley-projection.test.ts
+
+Test Files  1 passed (1)
+Tests       1 passed (1)
+```
+
+Focused repair suite:
+
+```text
+$ pnpm vitest run test/unit/operations/projection-provider-registry.test.ts test/unit/operations/wesley-projection.test.ts test/unit/library/structured-buffer.test.ts test/unit/library/index.test.ts
+
+Test Files  4 passed (4)
+Tests       44 passed (44)
+```
+
+TypeScript:
+
+```text
+$ pnpm typecheck
+
+PASS
+```

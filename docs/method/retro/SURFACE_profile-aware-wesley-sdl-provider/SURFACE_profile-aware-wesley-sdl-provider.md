@@ -23,6 +23,8 @@ The slice preserves the authority boundary:
 - Wesley syntax and diagnostics feed the common projection shell;
 - Wesley payload lanes are preserved on `StructuredBuffer.wesleyProjection()`;
 - wrong-profile diagnostics remain provider-owned;
+- mismatched registry provider kinds fail closed instead of invoking a provider
+  under the wrong authority;
 - provider failures become `PROJECTION_PROVIDER_UNAVAILABLE`;
 - no TOML discovery, Wesley CLI/WASM transport, Echo execution, Jim admission,
   settlement, or reintegration authority was added.
@@ -39,6 +41,11 @@ did the right preparatory work. The main self-review catch was partial-state
 truth: a Wesley provider can report an error status even when it does not emit a
 diagnostic or blocked payload slot, and Graft must still mark the snapshot
 partial.
+
+The Code Lawyer pass also found and repaired two boundary issues before merge:
+registry provider kind mismatches now fail closed, and the Wesley projection
+contract no longer imports JSON payload types from the Edict projection
+contract.
 
 ## What would you do differently?
 

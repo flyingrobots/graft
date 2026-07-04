@@ -18,7 +18,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   slots, expose the Wesley projection sidecar through
   `StructuredBuffer.wesleyProjection()`, and preserve authority-owned payload
   lanes without interpreting descriptor semantics. Wrong-profile diagnostics
-  remain provider-owned and provider failures surface as
+  remain provider-owned, mismatched registry provider kinds fail closed, and
+  provider failures surface as
   `PROJECTION_PROVIDER_UNAVAILABLE`. This slice does not add TOML discovery,
   Wesley CLI/WASM transport, Echo execution, Jim admission, or settlement
   authority.
