@@ -19,6 +19,12 @@ export const SUPPORTED_STRUCTURED_FORMATS = [
 ] as const;
 export type SupportedStructuredFormat = typeof SUPPORTED_STRUCTURED_FORMATS[number];
 
+export const SUPPORTED_OUTLINE_FORMATS = [
+  ...SUPPORTED_LANGS,
+  "md",
+] as const;
+export type SupportedOutlineFormat = typeof SUPPORTED_OUTLINE_FORMATS[number];
+
 const LANGUAGE_SUFFIXES: Readonly<Record<SupportedLang, readonly string[]>> = {
   ts: [".ts", ".mts", ".cts"],
   tsx: [".tsx", ".jsx"],
@@ -36,6 +42,11 @@ const STRUCTURED_FORMAT_SUFFIXES: Readonly<Record<SupportedStructuredFormat, rea
   ...LANGUAGE_SUFFIXES,
   md: [".md"],
   xml: [".xml", ".svg"],
+};
+
+const OUTLINE_FORMAT_SUFFIXES: Readonly<Record<SupportedOutlineFormat, readonly string[]>> = {
+  ...LANGUAGE_SUFFIXES,
+  md: [".md"],
 };
 
 function normalizedSuffix(filePath: string): string {
@@ -72,6 +83,12 @@ export function isSupportedStructuredFormat(
   return (SUPPORTED_STRUCTURED_FORMATS as readonly string[]).includes(value);
 }
 
+export function isSupportedOutlineFormat(
+  value: string,
+): value is SupportedOutlineFormat {
+  return (SUPPORTED_OUTLINE_FORMATS as readonly string[]).includes(value);
+}
+
 /**
  * Detect the tree-sitter language from a file suffix.
  * Returns null for unsupported file types.
@@ -88,4 +105,14 @@ export function detectStructuredFormat(
   filePath: string,
 ): SupportedStructuredFormat | null {
   return detectBySuffix(filePath, STRUCTURED_FORMAT_SUFFIXES);
+}
+
+/**
+ * Detect formats that support outline extraction for bounded read surfaces.
+ * Syntax-only formats, such as XML/SVG, intentionally return null here.
+ */
+export function detectOutlineFormat(
+  filePath: string,
+): SupportedOutlineFormat | null {
+  return detectBySuffix(filePath, OUTLINE_FORMAT_SUFFIXES);
 }

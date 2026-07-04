@@ -1,5 +1,11 @@
-import type { BufferRange, SyntaxClass, SyntaxSpan } from "./structured-buffer-model.js";
-import { indexToPoint, rangeOverlaps } from "./structured-buffer-model.js";
+import type { BufferPoint, BufferRange, SyntaxClass, SyntaxSpan } from "./structured-buffer-model.js";
+import { rangeOverlaps } from "./structured-buffer-model.js";
+
+interface XmlPointCursor {
+  index: number;
+  row: number;
+  column: number;
+}
 
 function isXmlSpace(char: string | undefined): boolean {
   return char === " " || char === "\t" || char === "\n" || char === "\r";
@@ -31,9 +37,31 @@ function readName(source: string, index: number): number {
   return current;
 }
 
+function pointAtCursor(cursor: XmlPointCursor): BufferPoint {
+  return { row: cursor.row, column: cursor.column };
+}
+
+function advanceCursor(source: string, cursor: XmlPointCursor, targetIndex: number): BufferPoint {
+  if (targetIndex < cursor.index) {
+    throw new Error("XML syntax span cursor moved backwards");
+  }
+  while (cursor.index < targetIndex) {
+    const char = source[cursor.index];
+    cursor.index += 1;
+    if (char === "\n") {
+      cursor.row += 1;
+      cursor.column = 0;
+    } else {
+      cursor.column += 1;
+    }
+  }
+  return pointAtCursor(cursor);
+}
+
 function pushSpan(
   spans: SyntaxSpan[],
   source: string,
+  cursor: XmlPointCursor,
   className: SyntaxClass,
   start: number,
   end: number,
@@ -44,14 +72,14 @@ function pushSpan(
   spans.push({
     className,
     range: {
-      start: indexToPoint(source, start),
-      end: indexToPoint(source, end),
+      start: advanceCursor(source, cursor, start),
+      end: advanceCursor(source, cursor, end),
     },
     text: source.slice(start, end),
   });
 }
 
-function parseXmlMarkup(source: string, start: number, spans: SyntaxSpan[]): number {
+function parseXmlMarkup(source: string, start: number, spans: SyntaxSpan[], cursor: XmlPointCursor): number {
   const declaration = source.startsWith("<!", start);
   const processingInstruction = source.startsWith("<?", start);
   let opener = "<";
@@ -63,26 +91,26 @@ function parseXmlMarkup(source: string, start: number, spans: SyntaxSpan[]): num
     opener = "<!";
   }
 
-  pushSpan(spans, source, "punctuation", start, start + opener.length);
+  pushSpan(spans, source, cursor, "punctuation", start, start + opener.length);
   let index = start + opener.length;
   index = skipXmlSpace(source, index);
 
   const nameStart = index;
   const nameEnd = readName(source, index);
   if (nameEnd > nameStart) {
-    pushSpan(spans, source, declaration || processingInstruction ? "keyword" : "type", nameStart, nameEnd);
+    pushSpan(spans, source, cursor, declaration || processingInstruction ? "keyword" : "type", nameStart, nameEnd);
     index = nameEnd;
   }
 
   let expectingValue = false;
   while (index < source.length) {
     if (source.startsWith("?>", index) || source.startsWith("/>", index)) {
-      pushSpan(spans, source, "punctuation", index, index + 2);
+      pushSpan(spans, source, cursor, "punctuation", index, index + 2);
       return index + 2;
     }
     const char = source[index];
     if (char === ">") {
-      pushSpan(spans, source, "punctuation", index, index + 1);
+      pushSpan(spans, source, cursor, "punctuation", index, index + 1);
       return index + 1;
     }
     if (isXmlSpace(char)) {
@@ -90,7 +118,7 @@ function parseXmlMarkup(source: string, start: number, spans: SyntaxSpan[]): num
       continue;
     }
     if (char === "=") {
-      pushSpan(spans, source, "operator", index, index + 1);
+      pushSpan(spans, source, cursor, "operator", index, index + 1);
       expectingValue = true;
       index += 1;
       continue;
@@ -98,7 +126,7 @@ function parseXmlMarkup(source: string, start: number, spans: SyntaxSpan[]): num
     if (char === "\"" || char === "'") {
       const close = source.indexOf(char, index + 1);
       const end = close >= 0 ? close + 1 : source.length;
-      pushSpan(spans, source, "string", index, end);
+      pushSpan(spans, source, cursor, "string", index, end);
       expectingValue = false;
       index = end;
       continue;
@@ -110,7 +138,7 @@ function parseXmlMarkup(source: string, start: number, spans: SyntaxSpan[]): num
       index += 1;
       continue;
     }
-    pushSpan(spans, source, expectingValue ? "string" : "property", tokenStart, tokenEnd);
+    pushSpan(spans, source, cursor, expectingValue ? "string" : "property", tokenStart, tokenEnd);
     expectingValue = false;
     index = tokenEnd;
   }
@@ -123,6 +151,7 @@ export function buildXmlSyntaxSpans(
   opts: { viewport?: BufferRange | undefined } = {},
 ): SyntaxSpan[] {
   const spans: SyntaxSpan[] = [];
+  const cursor: XmlPointCursor = { index: 0, row: 0, column: 0 };
   let index = 0;
   while (index < source.length) {
     const open = source.indexOf("<", index);
@@ -132,18 +161,18 @@ export function buildXmlSyntaxSpans(
     if (source.startsWith("<!--", open)) {
       const close = source.indexOf("-->", open + 4);
       const end = close >= 0 ? close + 3 : source.length;
-      pushSpan(spans, source, "comment", open, end);
+      pushSpan(spans, source, cursor, "comment", open, end);
       index = end;
       continue;
     }
     if (source.startsWith("<![CDATA[", open)) {
       const close = source.indexOf("]]>", open + 9);
       const end = close >= 0 ? close + 3 : source.length;
-      pushSpan(spans, source, "string", open, end);
+      pushSpan(spans, source, cursor, "string", open, end);
       index = end;
       continue;
     }
-    index = parseXmlMarkup(source, open, spans);
+    index = parseXmlMarkup(source, open, spans, cursor);
   }
 
   const viewport = opts.viewport;

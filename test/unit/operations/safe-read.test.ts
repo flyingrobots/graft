@@ -144,6 +144,24 @@ describe("operations: safe_read", () => {
     expect(result.next).toBeUndefined();
   });
 
+  it("does not treat syntax-only XML formats as outline-supported", async () => {
+    const svgFs = new FakeFileSystem({
+      "/virtual/large-logo.svg": [
+        "<svg viewBox=\"0 0 512 512\">",
+        ...Array.from({ length: 180 }, (_entry, index) => `  <path d="M${String(index)} 0 512 512" fill="#17b6ff"/>`),
+        "</svg>",
+      ].join("\n"),
+    });
+
+    const result = await safeRead("/virtual/large-logo.svg", { fs: svgFs, codec });
+
+    expect(result.projection).toBe("outline");
+    expect(result.reason).toBe("UNSUPPORTED_LANGUAGE");
+    expect(result.outline).toEqual([]);
+    expect(result.jumpTable).toEqual([]);
+    expect(result.next).toContain("No parser-backed outline is available for this file type.");
+  });
+
   it("falls back to unsupported-language outline when the prose projector throws", async () => {
     const textFs = new FakeFileSystem({
       "/virtual/large.txt": "ship it\n".repeat(180),

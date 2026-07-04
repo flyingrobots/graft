@@ -1,9 +1,12 @@
 import { describe, it, expect } from "vitest";
 import {
+  SUPPORTED_OUTLINE_FORMATS,
   SUPPORTED_LANGS,
   SUPPORTED_STRUCTURED_FORMATS,
   detectLang,
+  detectOutlineFormat,
   detectStructuredFormat,
+  isSupportedOutlineFormat,
   isSupportedLang,
   isSupportedStructuredFormat,
 } from "../../../src/parser/lang.js";
@@ -67,6 +70,8 @@ describe("parser: detectLang", () => {
     expect(detectLang("config/layout.xml")).toBeNull();
     expect(detectStructuredFormat("assets/logo.SVG")).toBe("xml");
     expect(detectStructuredFormat("config/layout.XML")).toBe("xml");
+    expect(detectOutlineFormat("assets/logo.SVG")).toBeNull();
+    expect(detectOutlineFormat("config/layout.XML")).toBeNull();
   });
 
   it("normalizes separators and casing without node:path", () => {
@@ -115,6 +120,19 @@ describe("parser: supported format identity", () => {
       "md",
       "xml",
     ]);
+    expect(SUPPORTED_OUTLINE_FORMATS).toEqual([
+      "ts",
+      "tsx",
+      "js",
+      "rust",
+      "graphql",
+      "python",
+      "go",
+      "json",
+      "toml",
+      "yaml",
+      "md",
+    ]);
   });
 
   it("provides runtime guards for supported identities", () => {
@@ -137,6 +155,9 @@ describe("parser: supported format identity", () => {
     expect(isSupportedStructuredFormat("yaml")).toBe(true);
     expect(isSupportedStructuredFormat("md")).toBe(true);
     expect(isSupportedStructuredFormat("xml")).toBe(true);
+    expect(isSupportedOutlineFormat("md")).toBe(true);
+    expect(isSupportedOutlineFormat("xml")).toBe(false);
     expect(isSupportedStructuredFormat("ini")).toBe(false);
+    expect(isSupportedOutlineFormat("ini")).toBe(false);
   });
 });

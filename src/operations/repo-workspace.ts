@@ -10,7 +10,7 @@ import { CachedFile } from "./cached-file.js";
 import { ObservationCache, hashContent } from "./observation-cache.js";
 import { GovernorTracker } from "../session/tracker.js";
 import { diffOutlines, type OutlineDiff } from "../parser/diff.js";
-import { detectStructuredFormat } from "../parser/lang.js";
+import { detectOutlineFormat } from "../parser/lang.js";
 import type { JumpEntry, OutlineEntry } from "../parser/types.js";
 import { evaluatePolicy } from "../policy/evaluate.js";
 import { RefusedResult } from "../policy/types.js";
@@ -365,7 +365,7 @@ export class RepoWorkspace {
       return { status: "unchanged" };
     }
     if (cacheResult.stale === null) {
-      if (detectStructuredFormat(filePath) === null) {
+      if (detectOutlineFormat(filePath) === null) {
         const outline = await extractOutlineProjectionForContent(filePath, rawContent, {
           proseProjector: this.proseProjector,
         });

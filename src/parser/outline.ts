@@ -1,4 +1,4 @@
-import { detectStructuredFormat } from "./lang.js";
+import { detectOutlineFormat } from "./lang.js";
 import type { SupportedStructuredFormat } from "./lang.js";
 import type { OutlineResult } from "./types.js";
 import {
@@ -72,7 +72,7 @@ export function extractOutlineForFile(
   filePath: string,
   source: string,
 ): OutlineResult | null {
-  const lang = detectStructuredFormat(filePath);
+  const lang = detectOutlineFormat(filePath);
   if (lang === null) {
     return null;
   }
@@ -84,7 +84,7 @@ export async function extractOutlineForFileAsync(
   filePath: string,
   source: string,
 ): Promise<OutlineResult | null> {
-  const lang = detectStructuredFormat(filePath);
+  const lang = detectOutlineFormat(filePath);
   if (lang === null) {
     return null;
   }

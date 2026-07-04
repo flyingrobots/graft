@@ -143,6 +143,7 @@ describe("library: structured buffer", () => {
     const buffer = track(createStructuredBuffer("assets/JimLogo.SVG", content, { basis }));
     expect(buffer.format).toBe("xml");
     expect(buffer.partial).toBe(false);
+    const fill = locate(content, "fill");
 
     const spans = buffer.syntaxSpans({
       viewport: {
@@ -159,6 +160,14 @@ describe("library: structured buffer", () => {
       expect.objectContaining({ className: "comment", text: "<!-- original logo -->" }),
       expect.objectContaining({ className: "type", text: "path" }),
       expect.objectContaining({ className: "property", text: "fill" }),
+      expect.objectContaining({
+        className: "property",
+        text: "fill",
+        range: expect.objectContaining({
+          start: expect.objectContaining({ row: fill.row, column: fill.column }),
+          end: expect.objectContaining({ row: fill.row, column: fill.endColumn }),
+        }),
+      }),
     ]));
 
     const bundle = buffer.projectionBundle();
