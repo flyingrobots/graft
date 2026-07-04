@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { EdictProjectionProvider } from "../../../src/operations/edict-projection.js";
+import type { WesleyProjectionProvider } from "../../../src/operations/wesley-projection.js";
 import {
   ProjectionProviderRegistryError,
   createProjectionProviderRegistry,
@@ -16,6 +17,21 @@ const edictProvider: EdictProjectionProvider = {
       core: { state: "not_requested" },
       targetIr: { state: "not_requested" },
       status: { status: "ok", checked: 1, errors: 0, exitCode: 0 },
+    };
+  },
+};
+
+const wesleyProvider: WesleyProjectionProvider = {
+  project(input) {
+    return {
+      language: "wesley-sdl",
+      name: input.name,
+      basis: input.basis ?? null,
+      syntax: { state: "not_requested" },
+      diagnostics: { items: [] },
+      digests: { state: "not_requested" },
+      payloads: {},
+      status: { status: "ok", checked: 1, errors: 0 },
     };
   },
 };
@@ -48,6 +64,23 @@ describe("projection provider registry", () => {
     expect(registry.resolve({ path: "untitled-1", language: "Edict" })).toEqual({
       language: "edict",
       provider: { kind: "edict", provider: edictProvider },
+    });
+  });
+
+  it("routes Wesley providers by GraphQL SDL extensions", () => {
+    const registry = createProjectionProviderRegistry().register({
+      language: "wesley-sdl",
+      extensions: [".graphql", ".graphqls"],
+      provider: { kind: "wesley", provider: wesleyProvider },
+    });
+
+    expect(registry.resolve({ path: "schemas/demo.graphql" })).toEqual({
+      language: "wesley-sdl",
+      provider: { kind: "wesley", provider: wesleyProvider },
+    });
+    expect(registry.resolve({ path: "schemas/DEMO.GRAPHQLS" })).toEqual({
+      language: "wesley-sdl",
+      provider: { kind: "wesley", provider: wesleyProvider },
     });
   });
 
