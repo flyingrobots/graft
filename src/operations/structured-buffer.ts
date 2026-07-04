@@ -111,6 +111,7 @@ export type {
   WesleyProjectionDiagnostics,
   WesleyProjectionEmit,
   WesleyProjectionFailure,
+  WesleyJsonObject,
   WesleyProjectionProvider,
   WesleyProjectionRequest,
   WesleyProjectionSlot,

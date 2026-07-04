@@ -4,7 +4,8 @@ import type {
   WarmProjectionBasis,
 } from "./structured-buffer-model.js";
 import type { ResolvedAuthorityContext } from "./projection-profile-resolver.js";
-import type { JsonObject } from "./edict-projection.js";
+
+export type WesleyJsonObject = Readonly<Record<string, unknown>>;
 
 export type WesleyProjectionEmit =
   | "syntax"
@@ -23,7 +24,7 @@ export interface WesleyProjectionRequest {
 export type WesleyProjectionSlot<TValue> =
   | { readonly state: "not_requested" }
   | { readonly state: "available"; readonly value: TValue }
-  | { readonly state: "blocked"; readonly reason: readonly JsonObject[] }
+  | { readonly state: "blocked"; readonly reason: readonly WesleyJsonObject[] }
   | { readonly state: "failed"; readonly error: WesleyProjectionFailure };
 
 export interface WesleySyntaxProjection {
@@ -54,7 +55,7 @@ export interface WesleyDigestItem {
 export interface WesleyProjectionFailure {
   readonly kind: string;
   readonly message?: string | undefined;
-  readonly failures?: readonly JsonObject[] | undefined;
+  readonly failures?: readonly WesleyJsonObject[] | undefined;
 }
 
 export interface WesleyProjectionStatus {
