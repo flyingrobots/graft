@@ -340,9 +340,14 @@ export function createStructuredBufferSnapshot(opts: {
     path: opts.path,
     language: providerLanguage,
   }) ?? null : null;
+  const matchedProjectionProvider = authority.state === "resolved"
+    && projectionProvider !== null
+    && projectionProvider.provider.kind !== authority.authority.provider
+    ? null
+    : projectionProvider;
   if (
     authority.state === "resolved"
-    && projectionProvider === null
+    && matchedProjectionProvider === null
     && !(authority.authority.language === "edict" && opts.edictProjector !== undefined)
   ) {
     return {
@@ -357,17 +362,17 @@ export function createStructuredBufferSnapshot(opts: {
     };
   }
   const requestedLanguageId = providerLanguage?.toLowerCase();
-  const registryEdictProjector = projectionProvider?.provider.kind === "edict"
-    ? projectionProvider.provider.provider
+  const registryEdictProjector = matchedProjectionProvider?.provider.kind === "edict"
+    ? matchedProjectionProvider.provider.provider
     : undefined;
-  const registryWesleyProjector = projectionProvider?.provider.kind === "wesley"
-    ? projectionProvider.provider.provider
+  const registryWesleyProjector = matchedProjectionProvider?.provider.kind === "wesley"
+    ? matchedProjectionProvider.provider.provider
     : undefined;
   const wesleyRequested = requestedLanguageId === "wesley-sdl"
-    || projectionProvider?.provider.kind === "wesley";
+    || matchedProjectionProvider?.provider.kind === "wesley";
   const edictRequested = isEdictPath(opts.path)
     || requestedLanguageId === "edict"
-    || projectionProvider?.provider.kind === "edict";
+    || matchedProjectionProvider?.provider.kind === "edict";
   const edictProjector = providerInvocationAllowed ? opts.edictProjector ?? registryEdictProjector : undefined;
   const format = edictRequested ? "edict" : wesleyRequested ? "graphql" : detectStructuredFormat(opts.path);
   let parsed: ParsedTree | null = null;

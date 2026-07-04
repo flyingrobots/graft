@@ -1052,6 +1052,51 @@ describe("library: structured buffer", () => {
     });
   });
 
+  it("fails closed when Wesley authority resolves to a mismatched registry provider kind", () => {
+    let edictInvoked = false;
+    const edictProjector: EdictProjectionProvider = {
+      project(input) {
+        edictInvoked = true;
+        return {
+          language: "edict",
+          name: input.name,
+          basis: input.basis ?? null,
+          syntax: { state: "available", value: { spans: [] } },
+          diagnostics: { items: [] },
+          core: { state: "not_requested" },
+          targetIr: { state: "not_requested" },
+          status: { status: "ok", checked: 1, errors: 0, exitCode: 0 },
+        };
+      },
+    };
+    const projectionRegistry = createProjectionProviderRegistry().register({
+      language: "wesley-sdl",
+      extensions: [".graphql", ".graphqls"],
+      provider: { kind: "edict", provider: edictProjector },
+    });
+
+    const bundle = createProjectionBundle("schemas/demo.graphqls", "type Query { greeting: String }\n", {
+      basis,
+      projectionProfileResolver: wesleyAuthorityResolver(),
+      projectionRegistry,
+    });
+
+    expect(edictInvoked).toBe(false);
+    expect(bundle.parseStatus).toEqual(expect.objectContaining({
+      format: "graphql",
+      status: "unsupported",
+      reason: "PROJECTION_PROVIDER_UNAVAILABLE",
+    }));
+    expect(bundle.authority).toEqual({
+      state: "resolved",
+      authority: expect.objectContaining({
+        language: "wesley-sdl",
+        provider: "wesley",
+        profileId: "wesley-base",
+      }),
+    });
+  });
+
   it("marks Wesley snapshots partial when provider status reports errors", () => {
     const wesleyProvider: WesleyProjectionProvider = {
       project(input) {
