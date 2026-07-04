@@ -1,9 +1,12 @@
 import { describe, it, expect } from "vitest";
 import {
+  SUPPORTED_OUTLINE_FORMATS,
   SUPPORTED_LANGS,
   SUPPORTED_STRUCTURED_FORMATS,
   detectLang,
+  detectOutlineFormat,
   detectStructuredFormat,
+  isSupportedOutlineFormat,
   isSupportedLang,
   isSupportedStructuredFormat,
 } from "../../../src/parser/lang.js";
@@ -62,6 +65,15 @@ describe("parser: detectLang", () => {
     expect(detectStructuredFormat("compose.yaml")).toBe("yaml");
   });
 
+  it("recognizes XML-family extensions as structured syntax-only formats", () => {
+    expect(detectLang("assets/logo.svg")).toBeNull();
+    expect(detectLang("config/layout.xml")).toBeNull();
+    expect(detectStructuredFormat("assets/logo.SVG")).toBe("xml");
+    expect(detectStructuredFormat("config/layout.XML")).toBe("xml");
+    expect(detectOutlineFormat("assets/logo.SVG")).toBeNull();
+    expect(detectOutlineFormat("config/layout.XML")).toBeNull();
+  });
+
   it("normalizes separators and casing without node:path", () => {
     expect(detectLang("SRC\\COMPONENT.TSX")).toBe("tsx");
     expect(detectLang("src/NESTED\\module.MJS")).toBe("js");
@@ -72,6 +84,7 @@ describe("parser: detectLang", () => {
     expect(detectLang("CONFIG\\PACKAGE.JSON")).toBe("json");
     expect(detectLang("CONFIG\\PYPROJECT.TOML")).toBe("toml");
     expect(detectLang("CONFIG\\WORKFLOW.YML")).toBe("yaml");
+    expect(detectStructuredFormat("ASSETS\\LOGO.SVG")).toBe("xml");
   });
 
   it("returns null for unsupported file types", () => {
@@ -105,6 +118,20 @@ describe("parser: supported format identity", () => {
       "toml",
       "yaml",
       "md",
+      "xml",
+    ]);
+    expect(SUPPORTED_OUTLINE_FORMATS).toEqual([
+      "ts",
+      "tsx",
+      "js",
+      "rust",
+      "graphql",
+      "python",
+      "go",
+      "json",
+      "toml",
+      "yaml",
+      "md",
     ]);
   });
 
@@ -118,6 +145,7 @@ describe("parser: supported format identity", () => {
     expect(isSupportedLang("toml")).toBe(true);
     expect(isSupportedLang("yaml")).toBe(true);
     expect(isSupportedLang("md")).toBe(false);
+    expect(isSupportedLang("xml")).toBe(false);
     expect(isSupportedStructuredFormat("rust")).toBe(true);
     expect(isSupportedStructuredFormat("graphql")).toBe(true);
     expect(isSupportedStructuredFormat("python")).toBe(true);
@@ -126,6 +154,10 @@ describe("parser: supported format identity", () => {
     expect(isSupportedStructuredFormat("toml")).toBe(true);
     expect(isSupportedStructuredFormat("yaml")).toBe(true);
     expect(isSupportedStructuredFormat("md")).toBe(true);
+    expect(isSupportedStructuredFormat("xml")).toBe(true);
+    expect(isSupportedOutlineFormat("md")).toBe(true);
+    expect(isSupportedOutlineFormat("xml")).toBe(false);
     expect(isSupportedStructuredFormat("ini")).toBe(false);
+    expect(isSupportedOutlineFormat("ini")).toBe(false);
   });
 });

@@ -1,5 +1,5 @@
 import { extractOutlineForFileAsync } from "../parser/outline.js";
-import { detectStructuredFormat } from "../parser/lang.js";
+import { detectStructuredFormat, isSupportedOutlineFormat } from "../parser/lang.js";
 import type { SupportedStructuredFormat } from "../parser/lang.js";
 import type { OutlineEntry, JumpEntry } from "../parser/types.js";
 import { hashContent } from "./observation-cache.js";
@@ -35,7 +35,7 @@ export class CachedFile {
       bytes: Buffer.byteLength(rawContent),
     };
     this.lang = detectStructuredFormat(filePath);
-    this.supportsOutline = this.lang !== null;
+    this.supportsOutline = this.lang !== null && isSupportedOutlineFormat(this.lang);
     Object.freeze(this.actual);
     Object.freeze(this);
   }

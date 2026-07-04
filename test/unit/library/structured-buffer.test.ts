@@ -21,6 +21,18 @@ function locate(content: string, needle: string): { row: number; column: number;
   return { row, column, endColumn: column + needle.length };
 }
 
+function locateByCodePoint(content: string, needle: string): { row: number; column: number; endColumn: number } {
+  const index = content.indexOf(needle);
+  if (index < 0) {
+    throw new Error(`Missing needle: ${needle}`);
+  }
+  const before = content.slice(0, index);
+  const lines = before.split("\n");
+  const row = lines.length - 1;
+  const column = Array.from(lines[lines.length - 1] ?? "").length;
+  return { row, column, endColumn: column + Array.from(needle).length };
+}
+
 const activeBuffers: { dispose(): void }[] = [];
 const BASE_DIGEST = "sha256:1111111111111111111111111111111111111111111111111111111111111111";
 const EDICT_DIGEST = "sha256:2222222222222222222222222222222222222222222222222222222222222222";
@@ -212,6 +224,90 @@ describe("library: structured buffer", () => {
       status: "partial",
       reason: undefined,
     });
+  });
+
+  it("projects SVG and XML syntax spans without a tree-sitter parser", () => {
+    const content = [
+      "<?xml version=\"1.0\" encoding=\"UTF-8\"?>",
+      "<!-- original logo -->",
+      "<svg viewBox=\"0 0 512 512\" role=\"img\">",
+      "  <path d=\"M256 42 470 256Z\" fill=\"#17b6ff\"/>",
+      "</svg>",
+    ].join("\n");
+
+    const buffer = track(createStructuredBuffer("assets/JimLogo.SVG", content, { basis }));
+    expect(buffer.format).toBe("xml");
+    expect(buffer.partial).toBe(false);
+    const fill = locate(content, "fill");
+
+    const spans = buffer.syntaxSpans({
+      viewport: {
+        start: { row: 0, column: 0 },
+        end: { row: 4, column: 0 },
+      },
+    });
+    expect(spans.basis).toEqual(basis);
+    expect(spans.reason).toBeUndefined();
+    expect(spans.spans).toEqual(expect.arrayContaining([
+      expect.objectContaining({ className: "type", text: "svg" }),
+      expect.objectContaining({ className: "property", text: "viewBox" }),
+      expect.objectContaining({ className: "string", text: "\"0 0 512 512\"" }),
+      expect.objectContaining({ className: "comment", text: "<!-- original logo -->" }),
+      expect.objectContaining({ className: "type", text: "path" }),
+      expect.objectContaining({ className: "property", text: "fill" }),
+      expect.objectContaining({
+        className: "property",
+        text: "fill",
+        range: expect.objectContaining({
+          start: expect.objectContaining({ row: fill.row, column: fill.column }),
+          end: expect.objectContaining({ row: fill.row, column: fill.endColumn }),
+        }),
+      }),
+    ]));
+
+    const bundle = buffer.projectionBundle();
+    expect(bundle.parseStatus).toEqual({
+      basis,
+      format: "xml",
+      partial: false,
+      status: "full",
+      reason: undefined,
+    });
+    expect(bundle.outline).toEqual(expect.objectContaining({ outline: [], jumpTable: [] }));
+    expect(bundle.diagnostics).toEqual(expect.objectContaining({ diagnostics: [] }));
+    expect(bundle.folds).toEqual(expect.objectContaining({ regions: [] }));
+    expect(bundle.syntax.spans).toEqual(expect.arrayContaining([
+      expect.objectContaining({ className: "keyword", text: "xml" }),
+      expect.objectContaining({ className: "punctuation", text: "/>" }),
+    ]));
+  });
+
+  it("projects XML syntax spans after non-BMP text with scalar columns", () => {
+    const content = "<svg><text>😀</text><path fill=\"#17b6ff\"/></svg>";
+    const buffer = track(createStructuredBuffer("assets/emoji.svg", content, { basis }));
+    const path = locateByCodePoint(content, "path");
+    const fill = locateByCodePoint(content, "fill");
+
+    const spans = buffer.syntaxSpans();
+
+    expect(spans.spans).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        className: "type",
+        text: "path",
+        range: expect.objectContaining({
+          start: expect.objectContaining({ row: path.row, column: path.column }),
+          end: expect.objectContaining({ row: path.row, column: path.endColumn }),
+        }),
+      }),
+      expect.objectContaining({
+        className: "property",
+        text: "fill",
+        range: expect.objectContaining({
+          start: expect.objectContaining({ row: fill.row, column: fill.column }),
+          end: expect.objectContaining({ row: fill.row, column: fill.endColumn }),
+        }),
+      }),
+    ]));
   });
 
   it("supports cursor lookup plus structural expand and shrink", () => {
@@ -800,6 +896,44 @@ describe("library: structured buffer", () => {
     });
     expect(bundle.parseStatus).toEqual(expect.objectContaining({
       status: "unsupported",
+      reason: "PROJECTION_AUTHORITY_UNAVAILABLE",
+    }));
+  });
+
+  it("keeps XML projection lanes unavailable when authority resolution fails", () => {
+    const bundle = createProjectionBundle("assets/logo.svg", "<svg><path fill=\"#17b6ff\"/></svg>", {
+      basis,
+      profile: "missing-profile",
+      projectionProfileResolver: createProjectionProfileResolver({ profiles: [] }),
+    });
+
+    expect(bundle.authority).toEqual({
+      state: "failed",
+      failure: expect.objectContaining({
+        kind: "unknown_profile",
+        profileId: "missing-profile",
+      }),
+    });
+    expect(bundle.parseStatus).toEqual(expect.objectContaining({
+      status: "unsupported",
+      reason: "PROJECTION_AUTHORITY_UNAVAILABLE",
+    }));
+    expect(bundle.syntax).toEqual(expect.objectContaining({
+      spans: [],
+      injections: [],
+      reason: "PROJECTION_AUTHORITY_UNAVAILABLE",
+    }));
+    expect(bundle.outline).toEqual(expect.objectContaining({
+      outline: [],
+      jumpTable: [],
+      reason: "PROJECTION_AUTHORITY_UNAVAILABLE",
+    }));
+    expect(bundle.diagnostics).toEqual(expect.objectContaining({
+      diagnostics: [],
+      reason: "PROJECTION_AUTHORITY_UNAVAILABLE",
+    }));
+    expect(bundle.folds).toEqual(expect.objectContaining({
+      regions: [],
       reason: "PROJECTION_AUTHORITY_UNAVAILABLE",
     }));
   });

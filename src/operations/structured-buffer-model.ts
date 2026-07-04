@@ -1,5 +1,5 @@
 import type Parser from "web-tree-sitter";
-import { detectStructuredFormat } from "../parser/lang.js";
+import { detectStructuredFormat, isSupportedLang } from "../parser/lang.js";
 import type { SupportedStructuredFormat } from "../parser/lang.js";
 import type { OutlineDiff } from "../parser/diff.js";
 import {
@@ -424,7 +424,8 @@ export function createStructuredBufferSnapshot(opts: {
     proseProjection === undefined
     && edictProjection === undefined
     && parseUnavailableReason === undefined
-    && format !== "md"
+    && format !== null
+    && isSupportedLang(format)
   ) {
     try {
       parsed = parseStructuredTreeForFile(opts.path, opts.content);

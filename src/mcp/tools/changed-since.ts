@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { createColorfulCliProseProjector } from "../../adapters/colorful-cli-prose-projector.js";
 import { RefusedResult } from "../../policy/types.js";
-import { detectStructuredFormat } from "../../parser/lang.js";
+import { detectOutlineFormat } from "../../parser/lang.js";
 import { diffOutlines } from "../../parser/diff.js";
 import { extractOutlineProjectionForContent } from "../../operations/file-outline.js";
 import { hashContent } from "../cache.js";
@@ -44,7 +44,7 @@ export const changedSinceTool: ToolDefinition = {
         return ctx.respond("changed_since", { status: "unchanged" });
       }
       if (cacheResult.stale === null) {
-        if (detectStructuredFormat(filePath) === null) {
+        if (detectOutlineFormat(filePath) === null) {
           const outline = await extractOutlineProjectionForContent(filePath, rawContent, {
             proseProjector: createColorfulCliProseProjector({
               processRunner: ctx.process,

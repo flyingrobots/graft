@@ -1,4 +1,4 @@
-import { detectStructuredFormat } from "./lang.js";
+import { detectOutlineFormat } from "./lang.js";
 import type { SupportedStructuredFormat } from "./lang.js";
 import type { OutlineResult } from "./types.js";
 import {
@@ -27,6 +27,9 @@ export function extractOutline(
   if (lang === "md") {
     return extractMarkdownOutline(source);
   }
+  if (lang === "xml") {
+    return { entries: [], jumpTable: [], partial: false };
+  }
 
   const parsed = parseStructuredTree(lang, source);
   try {
@@ -53,6 +56,9 @@ export async function extractOutlineAsync(
   if (lang === "md") {
     return extractMarkdownOutline(source);
   }
+  if (lang === "xml") {
+    return { entries: [], jumpTable: [], partial: false };
+  }
 
   const parsed = await parseStructuredTreeAsync(lang, source);
   try {
@@ -66,7 +72,7 @@ export function extractOutlineForFile(
   filePath: string,
   source: string,
 ): OutlineResult | null {
-  const lang = detectStructuredFormat(filePath);
+  const lang = detectOutlineFormat(filePath);
   if (lang === null) {
     return null;
   }
@@ -78,7 +84,7 @@ export async function extractOutlineForFileAsync(
   filePath: string,
   source: string,
 ): Promise<OutlineResult | null> {
-  const lang = detectStructuredFormat(filePath);
+  const lang = detectOutlineFormat(filePath);
   if (lang === null) {
     return null;
   }
