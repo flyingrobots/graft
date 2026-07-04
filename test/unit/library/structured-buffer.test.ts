@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it } from "vitest";
 import {
   createProjectionBundle,
+  createProjectionProfileResolver,
   createProjectionProviderRegistry,
   createStructuredBuffer,
 } from "../../../src/index.js";
@@ -21,10 +22,71 @@ function locate(content: string, needle: string): { row: number; column: number;
 }
 
 const activeBuffers: { dispose(): void }[] = [];
+const BASE_DIGEST = "sha256:1111111111111111111111111111111111111111111111111111111111111111";
+const EDICT_DIGEST = "sha256:2222222222222222222222222222222222222222222222222222222222222222";
+const WESLEY_DIGEST = "sha256:3333333333333333333333333333333333333333333333333333333333333333";
 
 function track<T extends { dispose(): void }>(value: T): T {
   activeBuffers.push(value);
   return value;
+}
+
+function edictAuthorityResolver() {
+  return createProjectionProfileResolver({
+    profiles: [
+      {
+        id: "edict-base",
+        language: "edict",
+        provider: "edict",
+        extensions: [
+          { coordinate: "edict.projection/v1", digest: BASE_DIGEST },
+        ],
+      },
+      {
+        id: "edict-lawpack",
+        language: "edict",
+        provider: "edict",
+        extensions: [
+          { coordinate: "edict.projection/v1", digest: BASE_DIGEST },
+          { coordinate: "edict.lawpack-descriptors/v1", digest: EDICT_DIGEST },
+        ],
+      },
+    ],
+    routes: [
+      {
+        profileId: "edict-lawpack",
+        include: ["lawpacks/**/*.edict"],
+      },
+    ],
+    extensionFallbacks: [
+      {
+        language: "edict",
+        profileId: "edict-base",
+        fileExtensions: [".edict"],
+      },
+    ],
+  });
+}
+
+function wesleyAuthorityResolver() {
+  return createProjectionProfileResolver({
+    profiles: [
+      {
+        id: "wesley-base",
+        language: "wesley-sdl",
+        provider: "wesley",
+        extensions: [
+          { coordinate: "wesley.graphql-sdl/v1", digest: WESLEY_DIGEST },
+        ],
+      },
+    ],
+    routes: [
+      {
+        profileId: "wesley-base",
+        include: ["schemas/**/*.graphql"],
+      },
+    ],
+  });
 }
 
 afterEach(() => {
@@ -571,6 +633,229 @@ describe("library: structured buffer", () => {
     expect(bundle.syntax.spans).toEqual([
       expect.objectContaining({ className: "keyword", text: "package" }),
     ]);
+  });
+
+  it("attaches resolved authority context to bundles and registry provider requests", () => {
+    let receivedAuthority: unknown;
+    const edictProjector: EdictProjectionProvider = {
+      project(input) {
+        receivedAuthority = input.authority;
+        return {
+          language: "edict",
+          name: input.name,
+          basis: input.basis ?? null,
+          syntax: { state: "available", value: { spans: [] } },
+          diagnostics: { items: [] },
+          core: { state: "not_requested" },
+          targetIr: { state: "not_requested" },
+          status: {
+            status: "ok",
+            checked: 1,
+            errors: 0,
+            exitCode: 0,
+          },
+        };
+      },
+    };
+    const projectionRegistry = createProjectionProviderRegistry().register({
+      language: "edict",
+      extensions: [".edict"],
+      provider: { kind: "edict", provider: edictProjector },
+    });
+    const projectionProfileResolver = edictAuthorityResolver();
+
+    const bundle = createProjectionBundle("lawpacks/demo.edict", "package demo.echo@1;\n", {
+      basis,
+      projectionProfileResolver,
+      projectionRegistry,
+    });
+
+    expect(bundle.authority).toEqual({
+      state: "resolved",
+      authority: expect.objectContaining({
+        language: "edict",
+        provider: "edict",
+        profileId: "edict-lawpack",
+        resolutionSource: "project_config",
+        routingDigest: expect.stringMatching(/^sha256:[0-9a-f]{64}$/u),
+        profileDigest: expect.stringMatching(/^sha256:[0-9a-f]{64}$/u),
+        extensions: [
+          { coordinate: "edict.projection/v1", digest: BASE_DIGEST },
+          { coordinate: "edict.lawpack-descriptors/v1", digest: EDICT_DIGEST },
+        ],
+      }),
+    });
+    expect(bundle.authority.state).toBe("resolved");
+    if (bundle.authority.state !== "resolved") {
+      throw new Error("expected resolved authority context");
+    }
+    expect(receivedAuthority).toEqual(bundle.authority.authority);
+  });
+
+  it("treats blank profile overrides as absent and explicit profile overrides as authority", () => {
+    const edictProjector: EdictProjectionProvider = {
+      project(input) {
+        return {
+          language: "edict",
+          name: input.name,
+          basis: input.basis ?? null,
+          syntax: { state: "available", value: { spans: [] } },
+          diagnostics: { items: [] },
+          core: { state: "not_requested" },
+          targetIr: { state: "not_requested" },
+          status: {
+            status: "ok",
+            checked: 1,
+            errors: 0,
+            exitCode: 0,
+          },
+        };
+      },
+    };
+    const projectionRegistry = createProjectionProviderRegistry().register({
+      language: "edict",
+      extensions: [".edict"],
+      provider: { kind: "edict", provider: edictProjector },
+    });
+    const projectionProfileResolver = edictAuthorityResolver();
+
+    const blankOverride = createProjectionBundle("lawpacks/demo.edict", "package demo.echo@1;\n", {
+      basis,
+      profile: "   ",
+      projectionProfileResolver,
+      projectionRegistry,
+    });
+    const explicitOverride = createProjectionBundle("lawpacks/demo.edict", "package demo.echo@1;\n", {
+      basis,
+      profile: "edict-base",
+      projectionProfileResolver,
+      projectionRegistry,
+    });
+
+    expect(blankOverride.authority).toEqual({
+      state: "resolved",
+      authority: expect.objectContaining({
+        profileId: "edict-lawpack",
+        resolutionSource: "project_config",
+      }),
+    });
+    expect(explicitOverride.authority.state).toBe("resolved");
+    if (explicitOverride.authority.state !== "resolved") {
+      throw new Error("expected explicit override to resolve authority");
+    }
+    expect(explicitOverride.authority.authority).toEqual(expect.objectContaining({
+      profileId: "edict-base",
+      resolutionSource: "explicit",
+    }));
+    expect(explicitOverride.authority.authority).not.toHaveProperty("routingDigest");
+  });
+
+  it("surfaces authority failures without invoking registry providers", () => {
+    const edictProjector: EdictProjectionProvider = {
+      project() {
+        throw new Error("provider should not run when authority resolution fails");
+      },
+    };
+    const projectionRegistry = createProjectionProviderRegistry().register({
+      language: "edict",
+      extensions: [".edict"],
+      provider: { kind: "edict", provider: edictProjector },
+    });
+    const projectionProfileResolver = edictAuthorityResolver();
+
+    const bundle = createProjectionBundle("demo.edict", "package demo.echo@1;\n", {
+      basis,
+      profile: "missing-profile",
+      projectionProfileResolver,
+      projectionRegistry,
+    });
+
+    expect(bundle.authority).toEqual({
+      state: "failed",
+      failure: expect.objectContaining({
+        kind: "unknown_profile",
+        profileId: "missing-profile",
+      }),
+    });
+    expect(bundle.parseStatus).toEqual(expect.objectContaining({
+      status: "unsupported",
+      reason: "PROJECTION_AUTHORITY_UNAVAILABLE",
+    }));
+  });
+
+  it("marks Edict authority no-provider failures partial", () => {
+    const bundle = createProjectionBundle("demo.edict", "package demo.echo@1;\n", {
+      basis,
+      projectionProfileResolver: createProjectionProfileResolver({ profiles: [] }),
+    });
+
+    expect(bundle.authority).toEqual({
+      state: "failed",
+      failure: expect.objectContaining({
+        kind: "no_provider",
+        path: "demo.edict",
+      }),
+    });
+    expect(bundle.parseStatus).toEqual(expect.objectContaining({
+      partial: true,
+      status: "unsupported",
+      reason: "PROJECTION_AUTHORITY_UNAVAILABLE",
+    }));
+    expect(bundle.partial).toBe(true);
+  });
+
+  it("reports authority as not configured when no resolver is supplied", () => {
+    const bundle = createProjectionBundle("src/view.ts", "export const x = 1;\n", { basis });
+
+    expect(bundle.authority).toEqual({ state: "not_configured" });
+    expect(bundle.parseStatus).toEqual(expect.objectContaining({
+      status: "full",
+    }));
+  });
+
+  it("reports provider unavailable when resolved authority has no registry provider", () => {
+    const bundle = createProjectionBundle("schemas/demo.graphql", "type Query { greeting: String }\n", {
+      basis,
+      projectionProfileResolver: wesleyAuthorityResolver(),
+    });
+
+    expect(bundle.authority).toEqual({
+      state: "resolved",
+      authority: expect.objectContaining({
+        language: "wesley-sdl",
+        provider: "wesley",
+        profileId: "wesley-base",
+        resolutionSource: "project_config",
+      }),
+    });
+    expect(bundle.parseStatus).toEqual(expect.objectContaining({
+      status: "unsupported",
+      reason: "PROJECTION_PROVIDER_UNAVAILABLE",
+    }));
+  });
+
+  it("preserves native structured parsing when resolver has no matching profile", () => {
+    const bundle = createProjectionBundle("src/view.ts", "export const x = 1;\n", {
+      basis,
+      projectionProfileResolver: edictAuthorityResolver(),
+    });
+
+    expect(bundle.authority).toEqual({
+      state: "failed",
+      failure: expect.objectContaining({
+        kind: "no_provider",
+        path: "src/view.ts",
+      }),
+    });
+    expect(bundle.parseStatus).toEqual(expect.objectContaining({
+      format: "ts",
+      status: "full",
+      reason: undefined,
+    }));
+    expect(bundle.syntax.spans).toContainEqual(expect.objectContaining({
+      className: "keyword",
+      text: "export",
+    }));
   });
 
   it("prefers a direct Edict projector over a registry provider", () => {
