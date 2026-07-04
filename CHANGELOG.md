@@ -71,6 +71,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   `PROJECTION_PROVIDER_UNAVAILABLE`; this bridge does not execute Echo or admit
   bundles.
 
+### Fixed
+
+- **XML and SVG projection authority failures**: native XML/SVG syntax,
+  outline, diagnostics, and fold projections now preserve
+  `PROJECTION_AUTHORITY_UNAVAILABLE` instead of emitting fallback projection
+  lanes when explicit profile resolution fails.
+
 ## [0.10.1] - 2026-06-25
 
 ### Added

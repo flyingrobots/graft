@@ -42,6 +42,10 @@ function unavailableReason(snapshot: StructuredBufferSnapshot): BufferUnavailabl
   return snapshot.parseUnavailableReason ?? "UNSUPPORTED_LANGUAGE";
 }
 
+function snapshotUnavailable(snapshot: StructuredBufferSnapshot): boolean {
+  return snapshot.format === null || snapshot.parseUnavailableReason !== undefined;
+}
+
 function parseStatusReason(
   snapshot: StructuredBufferSnapshot,
 ): BufferUnavailableReason | undefined {
@@ -401,17 +405,7 @@ export function buildOutlineResult(snapshot: StructuredBufferSnapshot): BufferOu
       partial: snapshot.proseProjection.partial,
     };
   }
-  if (snapshot.format === "xml") {
-    return {
-      path: snapshot.path,
-      format: snapshot.format,
-      basis: snapshot.basis,
-      outline: [],
-      jumpTable: [],
-      partial: snapshot.partial,
-    };
-  }
-  if (snapshot.format === null || snapshot.parseUnavailableReason !== undefined) {
+  if (snapshotUnavailable(snapshot)) {
     return {
       path: snapshot.path,
       format: snapshot.format,
@@ -420,6 +414,16 @@ export function buildOutlineResult(snapshot: StructuredBufferSnapshot): BufferOu
       jumpTable: [],
       partial: snapshot.partial,
       reason: unavailableReason(snapshot),
+    };
+  }
+  if (snapshot.format === "xml") {
+    return {
+      path: snapshot.path,
+      format: snapshot.format,
+      basis: snapshot.basis,
+      outline: [],
+      jumpTable: [],
+      partial: snapshot.partial,
     };
   }
   // Prose snapshots and unavailable/null formats returned above.
@@ -466,6 +470,15 @@ export function buildInjectionResult(snapshot: StructuredBufferSnapshot): Inject
       format: snapshot.format,
       basis: snapshot.basis,
       injections: fencedCodeInjections(snapshot.content),
+    };
+  }
+  if (snapshot.parseUnavailableReason !== undefined) {
+    return {
+      path: snapshot.path,
+      format: snapshot.format,
+      basis: snapshot.basis,
+      injections: [],
+      reason: unavailableReason(snapshot),
     };
   }
   if (snapshot.format === "xml") {
@@ -546,6 +559,17 @@ export function buildSyntaxSpansResult(
       partial: snapshot.proseProjection.partial,
       spans,
       injections: [],
+    };
+  }
+  if (snapshot.parseUnavailableReason !== undefined) {
+    return {
+      path: snapshot.path,
+      format: snapshot.format,
+      basis: snapshot.basis,
+      partial: snapshot.partial,
+      spans: [],
+      injections: buildInjectionResult(snapshot).injections,
+      reason: unavailableReason(snapshot),
     };
   }
   if (snapshot.format === "xml") {
@@ -672,6 +696,16 @@ export function buildDiagnosticsResult(snapshot: StructuredBufferSnapshot): Diag
       basis: snapshot.basis,
       partial: snapshot.proseProjection.partial,
       diagnostics: [],
+    };
+  }
+  if (snapshot.parseUnavailableReason !== undefined) {
+    return {
+      path: snapshot.path,
+      format: snapshot.format,
+      basis: snapshot.basis,
+      partial: snapshot.partial,
+      diagnostics: [],
+      reason: unavailableReason(snapshot),
     };
   }
   if (snapshot.format === "xml") {
@@ -812,6 +846,16 @@ export function buildFoldRegionsResult(snapshot: StructuredBufferSnapshot): Fold
             end: point(entry.end - 1, 0),
           },
         })),
+    };
+  }
+  if (snapshot.parseUnavailableReason !== undefined) {
+    return {
+      path: snapshot.path,
+      format: snapshot.format,
+      basis: snapshot.basis,
+      partial: snapshot.partial,
+      regions: [],
+      reason: unavailableReason(snapshot),
     };
   }
   if (snapshot.format === "xml") {

@@ -900,6 +900,44 @@ describe("library: structured buffer", () => {
     }));
   });
 
+  it("keeps XML projection lanes unavailable when authority resolution fails", () => {
+    const bundle = createProjectionBundle("assets/logo.svg", "<svg><path fill=\"#17b6ff\"/></svg>", {
+      basis,
+      profile: "missing-profile",
+      projectionProfileResolver: createProjectionProfileResolver({ profiles: [] }),
+    });
+
+    expect(bundle.authority).toEqual({
+      state: "failed",
+      failure: expect.objectContaining({
+        kind: "unknown_profile",
+        profileId: "missing-profile",
+      }),
+    });
+    expect(bundle.parseStatus).toEqual(expect.objectContaining({
+      status: "unsupported",
+      reason: "PROJECTION_AUTHORITY_UNAVAILABLE",
+    }));
+    expect(bundle.syntax).toEqual(expect.objectContaining({
+      spans: [],
+      injections: [],
+      reason: "PROJECTION_AUTHORITY_UNAVAILABLE",
+    }));
+    expect(bundle.outline).toEqual(expect.objectContaining({
+      outline: [],
+      jumpTable: [],
+      reason: "PROJECTION_AUTHORITY_UNAVAILABLE",
+    }));
+    expect(bundle.diagnostics).toEqual(expect.objectContaining({
+      diagnostics: [],
+      reason: "PROJECTION_AUTHORITY_UNAVAILABLE",
+    }));
+    expect(bundle.folds).toEqual(expect.objectContaining({
+      regions: [],
+      reason: "PROJECTION_AUTHORITY_UNAVAILABLE",
+    }));
+  });
+
   it("marks Edict authority no-provider failures partial", () => {
     const bundle = createProjectionBundle("demo.edict", "package demo.echo@1;\n", {
       basis,
