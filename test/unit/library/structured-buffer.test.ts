@@ -21,6 +21,18 @@ function locate(content: string, needle: string): { row: number; column: number;
   return { row, column, endColumn: column + needle.length };
 }
 
+function locateByCodePoint(content: string, needle: string): { row: number; column: number; endColumn: number } {
+  const index = content.indexOf(needle);
+  if (index < 0) {
+    throw new Error(`Missing needle: ${needle}`);
+  }
+  const before = content.slice(0, index);
+  const lines = before.split("\n");
+  const row = lines.length - 1;
+  const column = Array.from(lines[lines.length - 1] ?? "").length;
+  return { row, column, endColumn: column + Array.from(needle).length };
+}
+
 const activeBuffers: { dispose(): void }[] = [];
 const BASE_DIGEST = "sha256:1111111111111111111111111111111111111111111111111111111111111111";
 const EDICT_DIGEST = "sha256:2222222222222222222222222222222222222222222222222222222222222222";
@@ -267,6 +279,34 @@ describe("library: structured buffer", () => {
     expect(bundle.syntax.spans).toEqual(expect.arrayContaining([
       expect.objectContaining({ className: "keyword", text: "xml" }),
       expect.objectContaining({ className: "punctuation", text: "/>" }),
+    ]));
+  });
+
+  it("projects XML syntax spans after non-BMP text with scalar columns", () => {
+    const content = "<svg><text>😀</text><path fill=\"#17b6ff\"/></svg>";
+    const buffer = track(createStructuredBuffer("assets/emoji.svg", content, { basis }));
+    const path = locateByCodePoint(content, "path");
+    const fill = locateByCodePoint(content, "fill");
+
+    const spans = buffer.syntaxSpans();
+
+    expect(spans.spans).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        className: "type",
+        text: "path",
+        range: expect.objectContaining({
+          start: expect.objectContaining({ row: path.row, column: path.column }),
+          end: expect.objectContaining({ row: path.row, column: path.endColumn }),
+        }),
+      }),
+      expect.objectContaining({
+        className: "property",
+        text: "fill",
+        range: expect.objectContaining({
+          start: expect.objectContaining({ row: fill.row, column: fill.column }),
+          end: expect.objectContaining({ row: fill.row, column: fill.endColumn }),
+        }),
+      }),
     ]));
   });
 

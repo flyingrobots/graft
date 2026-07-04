@@ -46,8 +46,9 @@ function advanceCursor(source: string, cursor: XmlPointCursor, targetIndex: numb
     throw new Error("XML syntax span cursor moved backwards");
   }
   while (cursor.index < targetIndex) {
-    const char = source[cursor.index];
-    cursor.index += 1;
+    const codePoint = source.codePointAt(cursor.index);
+    const char = codePoint === undefined ? "" : String.fromCodePoint(codePoint);
+    cursor.index += char.length > 0 ? char.length : 1;
     if (char === "\n") {
       cursor.row += 1;
       cursor.column = 0;
