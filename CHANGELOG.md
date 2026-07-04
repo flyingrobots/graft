@@ -9,6 +9,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ### Added
 
+- **Profile-aware Wesley SDL provider seam**: projection registries can now
+  register a Wesley provider for `.graphql` and `.graphqls` buffers. When a
+  `projectionProfileResolver` resolves `wesley-sdl` authority context,
+  `createStructuredBuffer(...)` and `createProjectionBundle(...)` pass dirty
+  buffer text, basis, emit set, and the exact `ResolvedAuthorityContext` to the
+  provider, surface Wesley syntax and diagnostics through the common projection
+  slots, expose the Wesley projection sidecar through
+  `StructuredBuffer.wesleyProjection()`, and preserve authority-owned payload
+  lanes without interpreting descriptor semantics. Wrong-profile diagnostics
+  remain provider-owned, mismatched registry provider kinds fail closed, and
+  provider failures surface as
+  `PROJECTION_PROVIDER_UNAVAILABLE`. This slice does not add TOML discovery,
+  Wesley CLI/WASM transport, Echo execution, Jim admission, or settlement
+  authority.
+- **Projection authority context bundles**: `createStructuredBuffer(...)` and
+  `createProjectionBundle(...)` can now accept a `projectionProfileResolver`
+  plus optional `profile` override, attach the resolved authority context to
+  warm projection bundles, and pass that same context to registry-routed
+  providers. Bundles distinguish `not_configured`, `resolved`, and `failed`
+  authority states so editor hosts can display profile ids, profile digests,
+  routing digests, provider ids, language ids, and semantic extension
+  identities before the profile-aware Wesley provider lands. Resolver failures
+  are surfaced as structured projection results and skip provider invocation;
+  this slice does not parse `graft.projections.toml`, interpret Wesley SDL, run
+  Echo, admit Jim artifacts, or claim settlement authority.
 - **Projection profile resolver**: editor hosts can now construct an in-memory
   `ProjectionProfileResolver` with `createProjectionProfileResolver(...)` to
   resolve dirty-buffer names to projection authority context before the
@@ -21,9 +46,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   negated route globs, and malformed fallback file extensions before
   resolution. Profile digests preserve JSON option keys named `__proto__` and
   are independent of semantic extension declaration order using locale-free
-  code-point comparison. This slice does not parse `graft.projections.toml`,
-  attach authority context to `StructuredBuffer`, or interpret Wesley SDL,
-  descriptor, Echo, Edict, or Colorful semantics.
+  code-point comparison. The resolver itself does not parse
+  `graft.projections.toml` or interpret Wesley SDL, descriptor, Echo, Edict, or
+  Colorful semantics.
 - **Projection provider registry**: editor hosts can now create a
   `ProjectionProviderRegistry`, register an Edict provider by language id and
   file extension, and pass the registry to `createStructuredBuffer(...)` or

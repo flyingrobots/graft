@@ -13,10 +13,17 @@ import type { ProseProjection, ProseProjectionProvider } from "./colorful-prose-
 import { isEdictPath } from "./edict-projection.js";
 import type { EdictProjectionBundle, EdictProjectionProvider } from "./edict-projection.js";
 import type { ProjectionProviderRegistry } from "./projection-provider-registry.js";
+import type {
+  ProjectionProfileResolver,
+  ProjectionRoutingFailure,
+  ResolvedAuthorityContext,
+} from "./projection-profile-resolver.js";
+import type { WesleyProjectionBundle } from "./wesley-projection.js";
 
 export type BufferUnavailableReason =
   | "UNSUPPORTED_LANGUAGE"
   | "PARSER_RUNTIME_NOT_READY"
+  | "PROJECTION_AUTHORITY_UNAVAILABLE"
   | "PROJECTION_PROVIDER_UNAVAILABLE";
 
 export type StructuredBufferFormat = SupportedStructuredFormat | "prose" | "edict";
@@ -83,7 +90,7 @@ export interface BufferDiagnostic {
   readonly code: "parse_error" | "missing_node" | "compiler_diagnostic";
   readonly message: string;
   readonly range: BufferRange;
-  readonly source?: "tree_sitter" | "edict" | undefined;
+  readonly source?: "tree_sitter" | "edict" | "wesley" | undefined;
   readonly stage?: string | undefined;
   readonly kind?: string | undefined;
 }
@@ -152,11 +159,23 @@ export interface WarmProjectionParseStatus {
   readonly reason?: BufferUnavailableReason | undefined;
 }
 
+export type ProjectionAuthoritySlot =
+  | { readonly state: "not_configured" }
+  | {
+      readonly state: "resolved";
+      readonly authority: ResolvedAuthorityContext;
+    }
+  | {
+      readonly state: "failed";
+      readonly failure: ProjectionRoutingFailure;
+    };
+
 export interface WarmProjectionBundleResult {
   readonly path: string;
   readonly format: StructuredBufferFormat | null;
   readonly basis: WarmProjectionBasis | null;
   readonly partial: boolean;
+  readonly authority: ProjectionAuthoritySlot;
   readonly parseStatus: WarmProjectionParseStatus;
   readonly syntax: SyntaxSpanResult;
   readonly diagnostics: DiagnosticsResult;
@@ -272,8 +291,10 @@ export interface StructuredBufferSnapshot {
   readonly basis: WarmProjectionBasis | null;
   readonly partial: boolean;
   readonly parsed: ParsedTree | null;
+  readonly authority: ProjectionAuthoritySlot;
   readonly proseProjection?: ProseProjection | undefined;
   readonly edictProjection?: EdictProjectionBundle | undefined;
+  readonly wesleyProjection?: WesleyProjectionBundle | undefined;
   readonly parseUnavailableReason?: BufferUnavailableReason | undefined;
 }
 
@@ -281,50 +302,128 @@ export function createStructuredBufferSnapshot(opts: {
   path: string;
   content: string;
   language?: string | undefined;
+  profile?: string | null | undefined;
   basis?: WarmProjectionBasis | undefined;
   proseProjector?: ProseProjectionProvider | undefined;
   edictProjector?: EdictProjectionProvider | undefined;
   projectionRegistry?: ProjectionProviderRegistry | undefined;
+  projectionProfileResolver?: ProjectionProfileResolver | undefined;
 }): StructuredBufferSnapshot {
   const requestedLanguage = normalizeProjectionLanguage(opts.language);
-  const projectionProvider = opts.projectionRegistry?.resolve({
+  const authority = resolveAuthority({
     path: opts.path,
     language: requestedLanguage,
-  }) ?? null;
-  const requestedLanguageId = requestedLanguage?.toLowerCase();
-  const registryEdictProjector = projectionProvider?.provider.kind === "edict"
-    ? projectionProvider.provider.provider
+    profile: opts.profile,
+    projectionProfileResolver: opts.projectionProfileResolver,
+  });
+  if (authority.state === "failed" && authority.failure.kind !== "no_provider") {
+    const requestedLanguageId = requestedLanguage?.toLowerCase();
+    return {
+      path: opts.path,
+      content: opts.content,
+      format: isEdictPath(opts.path) || requestedLanguageId === "edict"
+        ? "edict"
+        : detectStructuredFormat(opts.path),
+      basis: opts.basis ?? null,
+      partial: true,
+      parsed: null,
+      authority,
+      parseUnavailableReason: "PROJECTION_AUTHORITY_UNAVAILABLE",
+    };
+  }
+
+  const providerLanguage = authority.state === "resolved"
+    ? authority.authority.language
+    : requestedLanguage;
+  const providerInvocationAllowed = authority.state !== "failed";
+  const projectionProvider = providerInvocationAllowed ? opts.projectionRegistry?.resolve({
+    path: opts.path,
+    language: providerLanguage,
+  }) ?? null : null;
+  const matchedProjectionProvider = authority.state === "resolved"
+    && projectionProvider !== null
+    && projectionProvider.provider.kind !== authority.authority.provider
+    ? null
+    : projectionProvider;
+  if (
+    authority.state === "resolved"
+    && matchedProjectionProvider === null
+    && !(authority.authority.language === "edict" && opts.edictProjector !== undefined)
+  ) {
+    return {
+      path: opts.path,
+      content: opts.content,
+      format: detectStructuredFormat(opts.path),
+      basis: opts.basis ?? null,
+      partial: true,
+      parsed: null,
+      authority,
+      parseUnavailableReason: "PROJECTION_PROVIDER_UNAVAILABLE",
+    };
+  }
+  const requestedLanguageId = providerLanguage?.toLowerCase();
+  const registryEdictProjector = matchedProjectionProvider?.provider.kind === "edict"
+    ? matchedProjectionProvider.provider.provider
     : undefined;
+  const registryWesleyProjector = matchedProjectionProvider?.provider.kind === "wesley"
+    ? matchedProjectionProvider.provider.provider
+    : undefined;
+  const wesleyRequested = requestedLanguageId === "wesley-sdl"
+    || matchedProjectionProvider?.provider.kind === "wesley";
   const edictRequested = isEdictPath(opts.path)
     || requestedLanguageId === "edict"
-    || projectionProvider?.provider.kind === "edict";
-  const edictProjector = opts.edictProjector ?? registryEdictProjector;
-  const format = edictRequested ? "edict" : detectStructuredFormat(opts.path);
+    || matchedProjectionProvider?.provider.kind === "edict";
+  const edictProjector = providerInvocationAllowed ? opts.edictProjector ?? registryEdictProjector : undefined;
+  const format = edictRequested ? "edict" : wesleyRequested ? "graphql" : detectStructuredFormat(opts.path);
   let parsed: ParsedTree | null = null;
   let parseUnavailableReason: BufferUnavailableReason | undefined;
-  const proseProjection = edictRequested
+  const proseProjection = edictRequested || wesleyRequested || !providerInvocationAllowed
     ? undefined
     : opts.proseProjector?.project({ path: opts.path, content: opts.content }) ?? undefined;
   let edictProjection: EdictProjectionBundle | undefined;
-  if (edictRequested && edictProjector !== undefined) {
+  let wesleyProjection: WesleyProjectionBundle | undefined;
+  if (edictRequested && authority.state === "failed") {
+    parseUnavailableReason = "PROJECTION_AUTHORITY_UNAVAILABLE";
+  } else if (edictRequested && edictProjector !== undefined) {
     try {
       edictProjection = edictProjector.project({
         name: opts.path,
         content: opts.content,
         basis: opts.basis,
         emit: ["syntax", "diagnostics", "core", "targetIr"],
+        ...(authority.state === "resolved" ? { authority: authority.authority } : {}),
       });
     } catch {
       parseUnavailableReason = "PROJECTION_PROVIDER_UNAVAILABLE";
     }
   }
-  if (edictRequested && edictProjection === undefined) {
+  if (edictRequested && authority.state === "failed") {
+    // Authority failure already selected the stable unavailability reason.
+  } else if (edictRequested && edictProjection === undefined) {
     parseUnavailableReason = "PROJECTION_PROVIDER_UNAVAILABLE";
+  } else if (wesleyRequested && authority.state !== "resolved") {
+    parseUnavailableReason = "PROJECTION_AUTHORITY_UNAVAILABLE";
+  } else if (wesleyRequested && registryWesleyProjector !== undefined && authority.state === "resolved") {
+    try {
+      wesleyProjection = registryWesleyProjector.project({
+        name: opts.path,
+        content: opts.content,
+        basis: opts.basis,
+        authority: authority.authority,
+        emit: ["syntax", "diagnostics", "digests", "payloads"],
+      });
+    } catch {
+      parseUnavailableReason = "PROJECTION_PROVIDER_UNAVAILABLE";
+    }
+    if (wesleyProjection === undefined) {
+      parseUnavailableReason = "PROJECTION_PROVIDER_UNAVAILABLE";
+    }
   } else if (proseProjection === undefined && edictProjection === undefined && format === null) {
     parseUnavailableReason = "UNSUPPORTED_LANGUAGE";
   } else if (
     proseProjection === undefined
     && edictProjection === undefined
+    && parseUnavailableReason === undefined
     && format !== null
     && isSupportedLang(format)
   ) {
@@ -355,12 +454,46 @@ export function createStructuredBufferSnapshot(opts: {
         || edictProjection.core.state === "failed"
         || edictProjection.targetIr.state === "blocked"
         || edictProjection.targetIr.state === "failed"
-      : proseProjection?.partial ?? (parsed?.root.hasError() ?? parseUnavailableReason === "PARSER_RUNTIME_NOT_READY"),
+      : wesleyProjection !== undefined
+        ? wesleyProjection.syntax.state === "blocked"
+          || wesleyProjection.syntax.state === "failed"
+          || wesleyProjection.diagnostics.items.length > 0
+          || wesleyProjection.digests.state === "blocked"
+          || wesleyProjection.digests.state === "failed"
+          || wesleyProjection.status.status === "error"
+          || wesleyProjection.status.errors > 0
+          || Object.values(wesleyProjection.payloads).some((slot) =>
+            slot.state === "blocked" || slot.state === "failed"
+          )
+      : proseProjection?.partial ?? (
+        (parsed?.root.hasError() ?? false)
+        || parseUnavailableReason === "PARSER_RUNTIME_NOT_READY"
+        || parseUnavailableReason === "PROJECTION_AUTHORITY_UNAVAILABLE"
+      ),
     parsed,
+    authority,
     ...(proseProjection !== undefined ? { proseProjection } : {}),
     ...(edictProjection !== undefined ? { edictProjection } : {}),
+    ...(wesleyProjection !== undefined ? { wesleyProjection } : {}),
     ...(parseUnavailableReason !== undefined ? { parseUnavailableReason } : {}),
   };
+}
+
+function resolveAuthority(opts: {
+  readonly path: string;
+  readonly language?: string | undefined;
+  readonly profile?: string | null | undefined;
+  readonly projectionProfileResolver?: ProjectionProfileResolver | undefined;
+}): ProjectionAuthoritySlot {
+  const resolver = opts.projectionProfileResolver;
+  if (resolver === undefined) {
+    return { state: "not_configured" };
+  }
+  return resolver.resolve({
+    path: opts.path,
+    language: opts.language,
+    profile: opts.profile,
+  });
 }
 
 function normalizeProjectionLanguage(value: string | undefined): string | undefined {

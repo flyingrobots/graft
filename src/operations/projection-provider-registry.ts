@@ -1,9 +1,15 @@
 import type { EdictProjectionProvider } from "./edict-projection.js";
+import type { WesleyProjectionProvider } from "./wesley-projection.js";
 
-export interface ProjectionProviderBinding {
-  readonly kind: "edict";
-  readonly provider: EdictProjectionProvider;
-}
+export type ProjectionProviderBinding =
+  | {
+      readonly kind: "edict";
+      readonly provider: EdictProjectionProvider;
+    }
+  | {
+      readonly kind: "wesley";
+      readonly provider: WesleyProjectionProvider;
+    };
 
 export interface ProjectionProviderRegistration {
   readonly language: string;

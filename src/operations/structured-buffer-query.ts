@@ -48,6 +48,9 @@ function parseStatusReason(
   if (snapshot.proseProjection !== undefined || snapshot.edictProjection !== undefined) {
     return undefined;
   }
+  if (snapshot.wesleyProjection !== undefined) {
+    return undefined;
+  }
   if (snapshot.format === null || snapshot.parseUnavailableReason !== undefined) {
     return unavailableReason(snapshot);
   }
@@ -58,6 +61,7 @@ function parseStatus(snapshot: StructuredBufferSnapshot): "full" | "partial" | "
   if (
     snapshot.format === null
     || snapshot.parseUnavailableReason === "UNSUPPORTED_LANGUAGE"
+    || snapshot.parseUnavailableReason === "PROJECTION_AUTHORITY_UNAVAILABLE"
     || snapshot.parseUnavailableReason === "PROJECTION_PROVIDER_UNAVAILABLE"
   ) {
     return "unsupported";
@@ -377,6 +381,16 @@ export function buildOutlineResult(snapshot: StructuredBufferSnapshot): BufferOu
       partial: snapshot.partial,
     };
   }
+  if (snapshot.wesleyProjection !== undefined) {
+    return {
+      path: snapshot.path,
+      format: snapshot.format,
+      basis: snapshot.basis,
+      outline: [],
+      jumpTable: [],
+      partial: snapshot.partial,
+    };
+  }
   if (snapshot.proseProjection !== undefined) {
     return {
       path: snapshot.path,
@@ -423,6 +437,14 @@ export function buildOutlineResult(snapshot: StructuredBufferSnapshot): BufferOu
 
 export function buildInjectionResult(snapshot: StructuredBufferSnapshot): InjectionResult {
   if (snapshot.edictProjection !== undefined) {
+    return {
+      path: snapshot.path,
+      format: snapshot.format,
+      basis: snapshot.basis,
+      injections: [],
+    };
+  }
+  if (snapshot.wesleyProjection !== undefined) {
     return {
       path: snapshot.path,
       format: snapshot.format,
@@ -482,6 +504,23 @@ export function buildSyntaxSpansResult(
     const viewport = opts.viewport;
     const spans = snapshot.edictProjection.syntax.state === "available"
       ? snapshot.edictProjection.syntax.value.spans
+      : [];
+    const filtered = viewport === undefined
+      ? spans
+      : spans.filter((span) => rangeOverlaps(span.range, viewport));
+    return {
+      path: snapshot.path,
+      format: snapshot.format,
+      basis: snapshot.basis,
+      partial: snapshot.partial,
+      spans: filtered,
+      injections: [],
+    };
+  }
+  if (snapshot.wesleyProjection !== undefined) {
+    const viewport = opts.viewport;
+    const spans = snapshot.wesleyProjection.syntax.state === "available"
+      ? snapshot.wesleyProjection.syntax.value.spans
       : [];
     const filtered = viewport === undefined
       ? spans
@@ -609,6 +648,23 @@ export function buildDiagnosticsResult(snapshot: StructuredBufferSnapshot): Diag
       })),
     };
   }
+  if (snapshot.wesleyProjection !== undefined) {
+    return {
+      path: snapshot.path,
+      format: snapshot.format,
+      basis: snapshot.basis,
+      partial: snapshot.partial,
+      diagnostics: snapshot.wesleyProjection.diagnostics.items.map((item) => ({
+        severity: item.severity,
+        code: "compiler_diagnostic",
+        message: item.message ?? item.kind,
+        range: item.range,
+        source: "wesley",
+        stage: item.stage,
+        kind: item.kind,
+      })),
+    };
+  }
   if (snapshot.proseProjection !== undefined) {
     return {
       path: snapshot.path,
@@ -706,6 +762,15 @@ export function buildNodeLookupResult(snapshot: StructuredBufferSnapshot, positi
 
 export function buildFoldRegionsResult(snapshot: StructuredBufferSnapshot): FoldRegionsResult {
   if (snapshot.edictProjection !== undefined) {
+    return {
+      path: snapshot.path,
+      format: snapshot.format,
+      basis: snapshot.basis,
+      partial: snapshot.partial,
+      regions: [],
+    };
+  }
+  if (snapshot.wesleyProjection !== undefined) {
     return {
       path: snapshot.path,
       format: snapshot.format,
@@ -976,6 +1041,7 @@ export function buildWarmProjectionBundleResult(
     format: snapshot.format,
     basis: snapshot.basis,
     partial: snapshot.partial,
+    authority: snapshot.authority,
     parseStatus: {
       basis: snapshot.basis,
       format: snapshot.format,

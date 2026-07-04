@@ -20,7 +20,9 @@ import type {
 } from "./structured-buffer-model.js";
 import type { ProseProjectionProvider } from "./colorful-prose-projection.js";
 import type { EdictProjectionBundle, EdictProjectionProvider } from "./edict-projection.js";
+import type { WesleyProjectionBundle } from "./wesley-projection.js";
 import type { ProjectionProviderRegistry } from "./projection-provider-registry.js";
+import type { ProjectionProfileResolver } from "./projection-profile-resolver.js";
 import { createStructuredBufferSnapshot } from "./structured-buffer-model.js";
 import {
   buildDiagnosticsResult,
@@ -71,6 +73,7 @@ export type {
   WarmProjectionBundleResult,
   WarmProjectionParseStatus,
   WarmProjectionBasis,
+  ProjectionAuthoritySlot,
 } from "./structured-buffer-model.js";
 
 export { EdictProjectionError } from "./edict-projection.js";
@@ -99,6 +102,22 @@ export type {
   EdictTargetIrProjection,
   EdictSyntaxProjection,
 } from "./edict-projection.js";
+
+export type {
+  WesleyDiagnosticItem,
+  WesleyDigestItem,
+  WesleyDigestProjection,
+  WesleyProjectionBundle,
+  WesleyProjectionDiagnostics,
+  WesleyProjectionEmit,
+  WesleyProjectionFailure,
+  WesleyJsonObject,
+  WesleyProjectionProvider,
+  WesleyProjectionRequest,
+  WesleyProjectionSlot,
+  WesleyProjectionStatus,
+  WesleySyntaxProjection,
+} from "./wesley-projection.js";
 
 export type {
   ProjectionProviderBinding,
@@ -134,10 +153,12 @@ export class StructuredBuffer {
     path: string;
     content: string;
     language?: string | undefined;
+    profile?: string | null | undefined;
     basis?: WarmProjectionBasis | undefined;
     proseProjector?: ProseProjectionProvider | undefined;
     edictProjector?: EdictProjectionProvider | undefined;
     projectionRegistry?: ProjectionProviderRegistry | undefined;
+    projectionProfileResolver?: ProjectionProfileResolver | undefined;
   }) {
     this.#snapshot = createStructuredBufferSnapshot(opts);
     this.path = this.#snapshot.path;
@@ -198,6 +219,11 @@ export class StructuredBuffer {
   edictProjection(): EdictProjectionBundle | null {
     this.#assertLive();
     return this.#snapshot.edictProjection ?? null;
+  }
+
+  wesleyProjection(): WesleyProjectionBundle | null {
+    this.#assertLive();
+    return this.#snapshot.wesleyProjection ?? null;
   }
 
   selectionExpand(selection: BufferSelection): SelectionStepResult {
