@@ -9,6 +9,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ### Added
 
+- **Profile-aware Wesley SDL provider seam**: projection registries can now
+  register a Wesley provider for `.graphql` and `.graphqls` buffers. When a
+  `projectionProfileResolver` resolves `wesley-sdl` authority context,
+  `createStructuredBuffer(...)` and `createProjectionBundle(...)` pass dirty
+  buffer text, basis, emit set, and the exact `ResolvedAuthorityContext` to the
+  provider, surface Wesley syntax and diagnostics through the common projection
+  slots, expose the Wesley projection sidecar through
+  `StructuredBuffer.wesleyProjection()`, and preserve authority-owned payload
+  lanes without interpreting descriptor semantics. Wrong-profile diagnostics
+  remain provider-owned and provider failures surface as
+  `PROJECTION_PROVIDER_UNAVAILABLE`. This slice does not add TOML discovery,
+  Wesley CLI/WASM transport, Echo execution, Jim admission, or settlement
+  authority.
 - **Projection authority context bundles**: `createStructuredBuffer(...)` and
   `createProjectionBundle(...)` can now accept a `projectionProfileResolver`
   plus optional `profile` override, attach the resolved authority context to

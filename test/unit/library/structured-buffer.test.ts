@@ -5,7 +5,7 @@ import {
   createProjectionProviderRegistry,
   createStructuredBuffer,
 } from "../../../src/index.js";
-import type { EdictProjectionProvider } from "../../../src/operations/edict-projection.js";
+import type { EdictProjectionProvider, WesleyProjectionProvider } from "../../../src/index.js";
 import type { ProseProjectionProvider } from "../../../src/operations/colorful-prose-projection.js";
 import { JumpEntry, OutlineEntry } from "../../../src/parser/types.js";
 
@@ -25,6 +25,7 @@ const activeBuffers: { dispose(): void }[] = [];
 const BASE_DIGEST = "sha256:1111111111111111111111111111111111111111111111111111111111111111";
 const EDICT_DIGEST = "sha256:2222222222222222222222222222222222222222222222222222222222222222";
 const WESLEY_DIGEST = "sha256:3333333333333333333333333333333333333333333333333333333333333333";
+const ECHO_WESLEY_DIGEST = "sha256:4444444444444444444444444444444444444444444444444444444444444444";
 
 function track<T extends { dispose(): void }>(value: T): T {
   activeBuffers.push(value);
@@ -79,11 +80,31 @@ function wesleyAuthorityResolver() {
           { coordinate: "wesley.graphql-sdl/v1", digest: WESLEY_DIGEST },
         ],
       },
+      {
+        id: "echo-contract-sdl",
+        language: "wesley-sdl",
+        provider: "wesley",
+        extensions: [
+          { coordinate: "wesley.graphql-sdl/v1", digest: WESLEY_DIGEST },
+          { coordinate: "echo.graphql-contract-descriptors/v1", digest: ECHO_WESLEY_DIGEST },
+        ],
+      },
     ],
     routes: [
       {
+        profileId: "echo-contract-sdl",
+        include: ["schemas/echo/**/*.graphql", "schemas/echo/**/*.graphqls"],
+      },
+      {
         profileId: "wesley-base",
-        include: ["schemas/**/*.graphql"],
+        include: ["schemas/base/**/*.graphql", "schemas/base/**/*.graphqls", "schemas/*.graphql"],
+      },
+    ],
+    extensionFallbacks: [
+      {
+        language: "wesley-sdl",
+        profileId: "wesley-base",
+        fileExtensions: [".graphql", ".graphqls"],
       },
     ],
   });
@@ -831,6 +852,237 @@ describe("library: structured buffer", () => {
     expect(bundle.parseStatus).toEqual(expect.objectContaining({
       status: "unsupported",
       reason: "PROJECTION_PROVIDER_UNAVAILABLE",
+    }));
+  });
+
+  it("projects Wesley SDL through registry authority context without owning payload semantics", () => {
+    const source = "type Query { greeting: String }\n";
+    let receivedInput: Parameters<WesleyProjectionProvider["project"]>[0] | undefined;
+    const wesleyProvider: WesleyProjectionProvider = {
+      project(input) {
+        receivedInput = input;
+        return {
+          language: "wesley-sdl",
+          name: input.name,
+          basis: input.basis ?? null,
+          syntax: {
+            state: "available",
+            value: {
+              spans: [
+                {
+                  className: "type",
+                  range: { start: { row: 0, column: 5 }, end: { row: 0, column: 10 } },
+                  text: "Query",
+                },
+              ],
+            },
+          },
+          diagnostics: { items: [] },
+          digests: {
+            state: "available",
+            value: {
+              items: [
+                { kind: "schemaModel", digest: WESLEY_DIGEST },
+              ],
+            },
+          },
+          payloads: {
+            schemaModel: {
+              state: "available",
+              value: {
+                digest: WESLEY_DIGEST,
+                review: { types: ["Query"] },
+              },
+            },
+            descriptors: {
+              state: "available",
+              value: [],
+            },
+          },
+          status: { status: "ok", checked: 1, errors: 0 },
+        };
+      },
+    };
+    const projectionRegistry = createProjectionProviderRegistry().register({
+      language: "wesley-sdl",
+      extensions: [".graphql", ".graphqls"],
+      provider: { kind: "wesley", provider: wesleyProvider },
+    });
+    const buffer = track(createStructuredBuffer("schemas/demo.graphqls", source, {
+      basis,
+      projectionProfileResolver: wesleyAuthorityResolver(),
+      projectionRegistry,
+    }));
+
+    expect(buffer.format).toBe("graphql");
+    expect(buffer.syntaxSpans()).toEqual(expect.objectContaining({
+      format: "graphql",
+      partial: false,
+      spans: [expect.objectContaining({ className: "type", text: "Query" })],
+    }));
+    expect(buffer.diagnostics().diagnostics).toEqual([]);
+    expect(buffer.projectionBundle().authority).toEqual({
+      state: "resolved",
+      authority: expect.objectContaining({
+        language: "wesley-sdl",
+        provider: "wesley",
+        profileId: "wesley-base",
+        resolutionSource: "extension_fallback",
+      }),
+    });
+    expect(buffer.wesleyProjection()).toEqual(expect.objectContaining({
+      language: "wesley-sdl",
+      name: "schemas/demo.graphqls",
+      basis,
+      payloads: expect.objectContaining({
+        schemaModel: {
+          state: "available",
+          value: {
+            digest: WESLEY_DIGEST,
+            review: { types: ["Query"] },
+          },
+        },
+      }),
+    }));
+    expect(receivedInput).toEqual(expect.objectContaining({
+      name: "schemas/demo.graphqls",
+      content: source,
+      basis,
+      emit: ["syntax", "diagnostics", "digests", "payloads"],
+      authority: expect.objectContaining({
+        profileId: "wesley-base",
+        extensions: [
+          { coordinate: "wesley.graphql-sdl/v1", digest: WESLEY_DIGEST },
+        ],
+      }),
+    }));
+  });
+
+  it("preserves Wesley wrong-profile diagnostics without rerouting source directives", () => {
+    const source = "extend schema @echoContractHost\n";
+    let receivedProfile: string | undefined;
+    const wesleyProvider: WesleyProjectionProvider = {
+      project(input) {
+        receivedProfile = input.authority.profileId;
+        return {
+          language: "wesley-sdl",
+          name: input.name,
+          basis: input.basis ?? null,
+          syntax: { state: "available", value: { spans: [] } },
+          diagnostics: {
+            items: [
+              {
+                stage: "semantic",
+                kind: "missing_extension",
+                severity: "error",
+                message: "echo contract descriptors are not enabled for this profile",
+                range: { start: { row: 0, column: 14 }, end: { row: 0, column: 31 } },
+              },
+            ],
+          },
+          digests: { state: "not_requested" },
+          payloads: {
+            descriptors: { state: "blocked", reason: [{ kind: "missing_extension" }] },
+          },
+          status: { status: "error", checked: 1, errors: 1 },
+        };
+      },
+    };
+    const projectionRegistry = createProjectionProviderRegistry().register({
+      language: "wesley-sdl",
+      extensions: [".graphql", ".graphqls"],
+      provider: { kind: "wesley", provider: wesleyProvider },
+    });
+    const bundle = createProjectionBundle("schemas/echo/contract.graphqls", source, {
+      basis,
+      profile: "wesley-base",
+      projectionProfileResolver: wesleyAuthorityResolver(),
+      projectionRegistry,
+    });
+
+    expect(receivedProfile).toBe("wesley-base");
+    expect(bundle.authority).toEqual({
+      state: "resolved",
+      authority: expect.objectContaining({
+        profileId: "wesley-base",
+        resolutionSource: "explicit",
+      }),
+    });
+    expect(bundle.partial).toBe(true);
+    expect(bundle.parseStatus).toEqual(expect.objectContaining({
+      format: "graphql",
+      status: "partial",
+    }));
+    expect(bundle.diagnostics.diagnostics).toEqual([
+      expect.objectContaining({
+        code: "compiler_diagnostic",
+        source: "wesley",
+        stage: "semantic",
+        kind: "missing_extension",
+      }),
+    ]);
+  });
+
+  it("reports provider unavailable when a Wesley provider throws", () => {
+    const wesleyProvider: WesleyProjectionProvider = {
+      project() {
+        throw new Error("wesley unavailable");
+      },
+    };
+    const projectionRegistry = createProjectionProviderRegistry().register({
+      language: "wesley-sdl",
+      extensions: [".graphql", ".graphqls"],
+      provider: { kind: "wesley", provider: wesleyProvider },
+    });
+    const bundle = createProjectionBundle("schemas/demo.graphqls", "type Query { greeting: String }\n", {
+      basis,
+      projectionProfileResolver: wesleyAuthorityResolver(),
+      projectionRegistry,
+    });
+
+    expect(bundle.parseStatus).toEqual(expect.objectContaining({
+      status: "unsupported",
+      reason: "PROJECTION_PROVIDER_UNAVAILABLE",
+    }));
+    expect(bundle.authority).toEqual({
+      state: "resolved",
+      authority: expect.objectContaining({
+        profileId: "wesley-base",
+      }),
+    });
+  });
+
+  it("marks Wesley snapshots partial when provider status reports errors", () => {
+    const wesleyProvider: WesleyProjectionProvider = {
+      project(input) {
+        return {
+          language: "wesley-sdl",
+          name: input.name,
+          basis: input.basis ?? null,
+          syntax: { state: "available", value: { spans: [] } },
+          diagnostics: { items: [] },
+          digests: { state: "not_requested" },
+          payloads: {},
+          status: { status: "error", checked: 1, errors: 1 },
+        };
+      },
+    };
+    const projectionRegistry = createProjectionProviderRegistry().register({
+      language: "wesley-sdl",
+      extensions: [".graphql", ".graphqls"],
+      provider: { kind: "wesley", provider: wesleyProvider },
+    });
+    const buffer = track(createStructuredBuffer("schemas/demo.graphqls", "type Query { greeting: String }\n", {
+      basis,
+      projectionProfileResolver: wesleyAuthorityResolver(),
+      projectionRegistry,
+    }));
+
+    expect(buffer.partial).toBe(true);
+    expect(buffer.projectionBundle().parseStatus).toEqual(expect.objectContaining({
+      format: "graphql",
+      partial: true,
+      status: "partial",
     }));
   });
 
