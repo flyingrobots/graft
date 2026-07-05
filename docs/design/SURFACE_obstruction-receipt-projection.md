@@ -15,14 +15,13 @@ editor bridge needs a place to carry that receipt forward without collapsing it
 into existing projection meanings.
 
 The dangerous shortcut would be to treat an obstructed receipt as a compiler
-diagnostic, a hard rejection, or a scheduler counterfactual. Those are different
-facts:
+diagnostic, a hard rejection, or a scheduler counterfactual. Those facts remain
+separate:
 
-| Fact | Meaning |
-| :--- | :--- |
-| Scheduler counterfactual | The candidate was not admitted and did not run. |
-| Obstructed strand | Echo ran an accepted artifact into an obstruction outcome. |
-| Hard rejection | A profile, validation, input, or runtime rule refused execution. |
+- Scheduler counterfactual: the candidate was not admitted and did not run.
+- Obstructed strand: Echo ran an accepted artifact into an obstruction outcome.
+- Hard rejection: a profile, validation, input, or runtime rule refused
+  execution.
 
 Graft's job in this slice is preservation. It displays and transports the
 receipt shell. It does not decide what a domain-specific obstruction reason

@@ -6,7 +6,7 @@ outcome: hill-met
 drift_check: manual
 ---
 
-# SURFACE: Obstruction receipt projection preservation Retro
+## SURFACE: Obstruction receipt projection preservation Retro
 
 ## Summary
 

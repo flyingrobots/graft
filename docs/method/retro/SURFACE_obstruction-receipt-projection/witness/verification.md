@@ -5,7 +5,9 @@
 Focused receipt decoder regression:
 
 ```text
-$ pnpm vitest run test/unit/operations/edict-projection.test.ts -t "preserves opaque Echo obstruction receipt projection records"
+$ pnpm vitest run \
+    test/unit/operations/edict-projection.test.ts \
+    -t "preserves opaque Echo obstruction receipt projection records"
 
 Test Files  1 failed (1)
 Tests       1 failed | 7 skipped (8)
@@ -72,7 +74,7 @@ Full suite:
 $ pnpm test
 
 Test Files  244 passed (244)
-Tests       1832 passed (1832)
+Tests       1834 passed (1834)
 ```
 
 ## Scope Guard
