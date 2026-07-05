@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.11.0] - 2026-07-05
+
 ### Added
 
 - **Obstruction receipt projection preservation**: Edict projection bundles now
