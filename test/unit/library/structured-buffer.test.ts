@@ -602,6 +602,35 @@ describe("library: structured buffer", () => {
     ]);
   });
 
+  it("normalizes legacy Edict projection bundles without receipt slots", () => {
+    const edictProjector: EdictProjectionProvider = {
+      project(input) {
+        return {
+          language: "edict",
+          name: input.name,
+          basis: input.basis ?? null,
+          syntax: { state: "available", value: { spans: [] } },
+          diagnostics: { items: [] },
+          core: { state: "not_requested" },
+          targetIr: { state: "not_requested" },
+          status: {
+            status: "ok",
+            checked: 1,
+            errors: 0,
+            exitCode: 0,
+          },
+        };
+      },
+    };
+    const buffer = track(createStructuredBuffer("demo.edict", "package demo.echo@1;\n", {
+      basis,
+      edictProjector,
+    }));
+
+    expect(buffer.partial).toBe(false);
+    expect(buffer.edictProjection()?.echoReceipt).toEqual({ state: "not_requested" });
+  });
+
   it("preserves opaque Echo obstruction receipt projections without reclassification", () => {
     const edictProjector: EdictProjectionProvider = {
       project(input) {

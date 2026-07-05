@@ -144,7 +144,7 @@ export interface EdictProjectionBundle {
   readonly diagnostics: EdictProjectionDiagnostics;
   readonly core: EdictProjectionSlot<EdictCoreProjection>;
   readonly targetIr: EdictProjectionSlot<EdictTargetIrProjection>;
-  readonly echoReceipt: EdictProjectionSlot<EdictEchoReceiptProjection>;
+  readonly echoReceipt?: EdictProjectionSlot<EdictEchoReceiptProjection> | undefined;
   readonly status: EdictProjectionStatus;
 }
 
