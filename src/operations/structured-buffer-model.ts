@@ -28,6 +28,10 @@ import type { WesleyProjectionBundle } from "./wesley-projection.js";
 const EDICT_ECHO_RECEIPT_NOT_REQUESTED: EdictProjectionSlot<EdictEchoReceiptProjection> =
   Object.freeze({ state: "not_requested" as const });
 
+type NormalizedEdictProjectionBundle = EdictProjectionBundle & {
+  readonly echoReceipt: EdictProjectionSlot<EdictEchoReceiptProjection>;
+};
+
 export type BufferUnavailableReason =
   | "UNSUPPORTED_LANGUAGE"
   | "PARSER_RUNTIME_NOT_READY"
@@ -388,7 +392,7 @@ export function createStructuredBufferSnapshot(opts: {
   const proseProjection = edictRequested || wesleyRequested || !providerInvocationAllowed
     ? undefined
     : opts.proseProjector?.project({ path: opts.path, content: opts.content }) ?? undefined;
-  let edictProjection: EdictProjectionBundle | undefined;
+  let edictProjection: NormalizedEdictProjectionBundle | undefined;
   let wesleyProjection: WesleyProjectionBundle | undefined;
   if (edictRequested && authority.state === "failed") {
     parseUnavailableReason = "PROJECTION_AUTHORITY_UNAVAILABLE";
@@ -449,6 +453,8 @@ export function createStructuredBufferSnapshot(opts: {
     }
   }
 
+  const edictEchoReceiptState = edictProjection?.echoReceipt.state;
+
   return {
     path: opts.path,
     content: opts.content,
@@ -462,8 +468,8 @@ export function createStructuredBufferSnapshot(opts: {
         || edictProjection.core.state === "failed"
         || edictProjection.targetIr.state === "blocked"
         || edictProjection.targetIr.state === "failed"
-        || edictEchoReceiptSlot(edictProjection).state === "blocked"
-        || edictEchoReceiptSlot(edictProjection).state === "failed"
+        || edictEchoReceiptState === "blocked"
+        || edictEchoReceiptState === "failed"
       : wesleyProjection !== undefined
         ? wesleyProjection.syntax.state === "blocked"
           || wesleyProjection.syntax.state === "failed"
@@ -489,14 +495,11 @@ export function createStructuredBufferSnapshot(opts: {
   };
 }
 
-function normalizeEdictProjectionBundle(bundle: EdictProjectionBundle): EdictProjectionBundle {
-  return bundle.echoReceipt === undefined
-    ? { ...bundle, echoReceipt: EDICT_ECHO_RECEIPT_NOT_REQUESTED }
-    : bundle;
-}
-
-function edictEchoReceiptSlot(bundle: EdictProjectionBundle): EdictProjectionSlot<EdictEchoReceiptProjection> {
-  return bundle.echoReceipt ?? EDICT_ECHO_RECEIPT_NOT_REQUESTED;
+function normalizeEdictProjectionBundle(bundle: EdictProjectionBundle): NormalizedEdictProjectionBundle {
+  return {
+    ...bundle,
+    echoReceipt: bundle.echoReceipt ?? EDICT_ECHO_RECEIPT_NOT_REQUESTED,
+  };
 }
 
 function resolveAuthority(opts: {
