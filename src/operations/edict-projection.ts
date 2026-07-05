@@ -410,6 +410,7 @@ function decodeEchoReceiptRecord(value: Record<string, unknown>): EdictProjectio
     const reasonRecord = reason !== undefined
       ? requireRecord(reason, "Edict echoReceipt.reason")
       : undefined;
+    const reasonKind = reasonRecord?.["kind"];
     const reasonPayload = reasonRecord?.["payload"];
     const targetIrDomain = value["targetIrDomain"];
     return {
@@ -420,8 +421,8 @@ function decodeEchoReceiptRecord(value: Record<string, unknown>): EdictProjectio
         ...(targetIrDomain !== undefined
           ? { targetIrDomain: requireString(targetIrDomain, "Edict echoReceipt.targetIrDomain") }
           : {}),
-        ...(reasonRecord !== undefined
-          ? { reasonKind: requireString(reasonRecord["kind"], "Edict echoReceipt.reason.kind") }
+        ...(reasonKind !== undefined
+          ? { reasonKind: requireString(reasonKind, "Edict echoReceipt.reason.kind") }
           : {}),
         ...(reasonPayload !== undefined
           ? { reasonPayload: asJsonObject(reasonPayload, "Edict echoReceipt.reason.payload") }

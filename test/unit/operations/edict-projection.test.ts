@@ -299,6 +299,56 @@ describe("Edict projection decoding", () => {
     });
   });
 
+  it("preserves Echo receipt reason payloads without reason kinds", () => {
+    const source = "package demo.echo@1;\n";
+    const bundle = projectEdictJsonlRecords(
+      {
+        ...request(source),
+        emit: ["receipt"],
+      },
+      [
+        {
+          schema: "edict.projection.echo-receipt/v1",
+          type: "echoReceipt",
+          command: "project",
+          input: { name: "unsaved/demo.edict" },
+          state: "available",
+          outcomeKind: "obstructed_strand",
+          targetIrDigest: DIGEST_3,
+          reason: {
+            payload: {
+              inputBasisDigest: DIGEST_1,
+            },
+          },
+          receipt: {
+            schema: "echo.execution.receipt.review/v0",
+            outcome_kind: "obstructed_strand",
+            target_ir_digest: DIGEST_3,
+          },
+        },
+        {
+          schema: "edict.cli.event/v1",
+          type: "status",
+          command: "project",
+          status: "ok",
+          checked: 1,
+          errors: 0,
+          exitCode: 0,
+        },
+      ],
+    );
+
+    expect(bundle.echoReceipt).toEqual({
+      state: "available",
+      value: expect.objectContaining({
+        targetIrDigest: DIGEST_3,
+        reasonPayload: {
+          inputBasisDigest: DIGEST_1,
+        },
+      }),
+    });
+  });
+
   it("rejects Echo receipt projection digests until receipt bytes are canonical", () => {
     const source = "package demo.echo@1;\n";
 
