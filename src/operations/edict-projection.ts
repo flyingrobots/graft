@@ -402,10 +402,10 @@ function decodeTargetIrRecord(value: Record<string, unknown>): EdictProjectionSl
 
 function decodeEchoReceiptRecord(value: Record<string, unknown>): EdictProjectionSlot<EdictEchoReceiptProjection> {
   const state = requireString(value["state"], "Edict echoReceipt.state");
+  if (value["receiptDigest"] !== undefined) {
+    fail("Edict echoReceipt.receiptDigest is not supported until canonical receipt bytes exist");
+  }
   if (state === "available") {
-    if (value["receiptDigest"] !== undefined) {
-      fail("Edict echoReceipt.receiptDigest is not supported until canonical receipt bytes exist");
-    }
     const reason = value["reason"];
     const reasonRecord = reason !== undefined
       ? requireRecord(reason, "Edict echoReceipt.reason")

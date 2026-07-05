@@ -336,6 +336,59 @@ describe("Edict projection decoding", () => {
     )).toThrow("receiptDigest is not supported until canonical receipt bytes exist");
   });
 
+  it("rejects Echo receipt projection digests on non-available records", () => {
+    const source = "package demo.echo@1;\n";
+    const unsupportedDigestRecords = [
+      {
+        schema: "edict.projection.echo-receipt/v1",
+        type: "echoReceipt",
+        command: "project",
+        input: { name: "unsaved/demo.edict" },
+        state: "blocked",
+        receiptDigest: DIGEST_4,
+        reason: [
+          {
+            kind: "missing_target_ir",
+            message: "target-ir slot was not available",
+          },
+        ],
+      },
+      {
+        schema: "edict.projection.echo-receipt/v1",
+        type: "echoReceipt",
+        command: "project",
+        input: { name: "unsaved/demo.edict" },
+        state: "failed",
+        receiptDigest: DIGEST_4,
+        error: {
+          kind: "internal_error",
+          message: "receipt projection failed",
+        },
+      },
+    ];
+
+    for (const record of unsupportedDigestRecords) {
+      expect(() => projectEdictJsonlRecords(
+        {
+          ...request(source),
+          emit: ["receipt"],
+        },
+        [
+          record,
+          {
+            schema: "edict.cli.event/v1",
+            type: "status",
+            command: "project",
+            status: "ok",
+            checked: 1,
+            errors: 0,
+            exitCode: 0,
+          },
+        ],
+      )).toThrow("receiptDigest is not supported until canonical receipt bytes exist");
+    }
+  });
+
   it("rejects projection records for a different input name", () => {
     const source = "package demo.echo@1;\n";
 
