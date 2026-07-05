@@ -454,6 +454,8 @@ export function createStructuredBufferSnapshot(opts: {
         || edictProjection.core.state === "failed"
         || edictProjection.targetIr.state === "blocked"
         || edictProjection.targetIr.state === "failed"
+        || edictProjection.echoReceipt.state === "blocked"
+        || edictProjection.echoReceipt.state === "failed"
       : wesleyProjection !== undefined
         ? wesleyProjection.syntax.state === "blocked"
           || wesleyProjection.syntax.state === "failed"

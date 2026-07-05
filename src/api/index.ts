@@ -141,6 +141,7 @@ export type {
   WarmProjectionBasis,
   EdictCoreProjection,
   EdictDiagnosticItem,
+  EdictEchoReceiptProjection,
   EdictProjectionBundle,
   EdictProjectionCompilerContext,
   EdictProjectionDiagnostics,
