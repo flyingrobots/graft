@@ -40,8 +40,22 @@ Notes:
 
 ## Dogfood
 
-Pending before tagging. The release PR must merge first so dogfood and tagging
-happen from the exact `main` release commit.
+Run from merged `main` commit `4251423676770acd28555d78817704c2cb7461df`.
+
+| Command | Result |
+| :--- | :--- |
+| `node bin/graft.js --version` | `graft 0.11.0` |
+| `node bin/graft.js diag doctor --json` | parser healthy; thresholds 150 lines / 12288 bytes |
+| `node bin/graft.js read safe src/parser/lang.ts --json` | `projection: "content"`; 119 lines / 3351 bytes |
+| `node bin/graft.js read safe src/mcp/server.ts --json` | `projection: "outline"`; 18 outline entries for 417 lines / 14027 bytes |
+| `node bin/graft.js read outline src/echo/structural-history-client.ts --json` | 18 outline entries; first entry `EchoContractObstruction` |
+| `node bin/graft.js diag stats` | stats receipt emitted for `stats` |
+
+Note: an initial parallel dogfood attempt produced one expected writer-ref
+contention refusal (`writer ref was updated by another process`). The dogfood
+commands were rerun sequentially and passed. The release path should treat
+dogfood as sequential because the local history writer is intentionally
+single-writer.
 
 ## Merge, Tag, Publish
 
