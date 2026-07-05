@@ -13,6 +13,7 @@ export type EdictProjectionEmit =
   | "diagnostics"
   | "core"
   | "targetIr"
+  | "receipt"
   | "digests";
 
 export type EdictWriteClass =
@@ -113,6 +114,15 @@ export interface EdictTargetIrProjection {
   readonly review: JsonObject;
 }
 
+export interface EdictEchoReceiptProjection {
+  readonly outcomeKind: string;
+  readonly targetIrDigest: string;
+  readonly targetIrDomain?: string | undefined;
+  readonly reasonKind?: string | undefined;
+  readonly reasonPayload?: JsonObject | undefined;
+  readonly receipt: JsonObject;
+}
+
 export interface EdictProjectionFailure {
   readonly kind: string;
   readonly message?: string | undefined;
@@ -134,6 +144,7 @@ export interface EdictProjectionBundle {
   readonly diagnostics: EdictProjectionDiagnostics;
   readonly core: EdictProjectionSlot<EdictCoreProjection>;
   readonly targetIr: EdictProjectionSlot<EdictTargetIrProjection>;
+  readonly echoReceipt?: EdictProjectionSlot<EdictEchoReceiptProjection> | undefined;
   readonly status: EdictProjectionStatus;
 }
 
@@ -389,6 +400,46 @@ function decodeTargetIrRecord(value: Record<string, unknown>): EdictProjectionSl
   fail(`unknown Edict targetIr state ${state}`);
 }
 
+function decodeEchoReceiptRecord(value: Record<string, unknown>): EdictProjectionSlot<EdictEchoReceiptProjection> {
+  const state = requireString(value["state"], "Edict echoReceipt.state");
+  if (value["receiptDigest"] !== undefined) {
+    fail("Edict echoReceipt.receiptDigest is not supported until canonical receipt bytes exist");
+  }
+  if (state === "available") {
+    const reason = value["reason"];
+    const reasonRecord = reason !== undefined
+      ? requireRecord(reason, "Edict echoReceipt.reason")
+      : undefined;
+    const reasonKind = reasonRecord?.["kind"];
+    const reasonPayload = reasonRecord?.["payload"];
+    const targetIrDomain = value["targetIrDomain"];
+    return {
+      state,
+      value: {
+        outcomeKind: requireString(value["outcomeKind"], "Edict echoReceipt.outcomeKind"),
+        targetIrDigest: requireDigest(value["targetIrDigest"], "Edict echoReceipt.targetIrDigest"),
+        ...(targetIrDomain !== undefined
+          ? { targetIrDomain: requireString(targetIrDomain, "Edict echoReceipt.targetIrDomain") }
+          : {}),
+        ...(reasonKind !== undefined
+          ? { reasonKind: requireString(reasonKind, "Edict echoReceipt.reason.kind") }
+          : {}),
+        ...(reasonPayload !== undefined
+          ? { reasonPayload: asJsonObject(reasonPayload, "Edict echoReceipt.reason.payload") }
+          : {}),
+        receipt: asJsonObject(value["receipt"], "Edict echoReceipt.receipt"),
+      },
+    };
+  }
+  if (state === "blocked") {
+    return { state, reason: decodeReason(value["reason"], "Edict echoReceipt.reason") };
+  }
+  if (state === "failed") {
+    return { state, error: decodeFailure(value["error"], "Edict echoReceipt.error") };
+  }
+  fail(`unknown Edict echoReceipt state ${state}`);
+}
+
 function decodeStatusRecord(value: Record<string, unknown>): EdictProjectionStatus {
   const status = requireString(value["status"], "Edict status.status");
   if (status !== "ok" && status !== "error") {
@@ -425,6 +476,7 @@ export function projectEdictJsonlRecords(
   let diagnosticsSeen = false;
   let core: EdictProjectionSlot<EdictCoreProjection> = { state: "not_requested" };
   let targetIr: EdictProjectionSlot<EdictTargetIrProjection> = { state: "not_requested" };
+  let echoReceipt: EdictProjectionSlot<EdictEchoReceiptProjection> = { state: "not_requested" };
   let status: EdictProjectionStatus | undefined;
 
   for (const entry of records) {
@@ -451,6 +503,11 @@ export function projectEdictJsonlRecords(
         requireEnvelope(record, "targetIr", "Edict targetIr");
         requireInputName(record, request.name, "Edict targetIr");
         targetIr = decodeTargetIrRecord(record);
+        break;
+      case "edict.projection.echo-receipt/v1":
+        requireEnvelope(record, "echoReceipt", "Edict echoReceipt");
+        requireInputName(record, request.name, "Edict echoReceipt");
+        echoReceipt = decodeEchoReceiptRecord(record);
         break;
       case "edict.cli.event/v1":
         requireEnvelope(record, "status", "Edict status");
@@ -515,6 +572,15 @@ export function projectEdictJsonlRecords(
       },
     };
   }
+  if (request.emit.includes("receipt") && echoReceipt.state === "not_requested") {
+    echoReceipt = {
+      state: "failed",
+      error: {
+        kind: "missing_projection_record",
+        message: "Edict did not emit a requested Echo receipt projection record",
+      },
+    };
+  }
 
   return {
     language: "edict",
@@ -524,6 +590,7 @@ export function projectEdictJsonlRecords(
     diagnostics,
     core,
     targetIr,
+    echoReceipt,
     status,
   };
 }

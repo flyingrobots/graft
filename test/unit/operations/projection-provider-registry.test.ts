@@ -16,6 +16,7 @@ const edictProvider: EdictProjectionProvider = {
       diagnostics: { items: [] },
       core: { state: "not_requested" },
       targetIr: { state: "not_requested" },
+      echoReceipt: { state: "not_requested" },
       status: { status: "ok", checked: 1, errors: 0, exitCode: 0 },
     };
   },

@@ -8,6 +8,7 @@ import {
 const DIGEST_1 = "sha256:1111111111111111111111111111111111111111111111111111111111111111";
 const DIGEST_2 = "sha256:2222222222222222222222222222222222222222222222222222222222222222";
 const DIGEST_3 = "sha256:3333333333333333333333333333333333333333333333333333333333333333";
+const DIGEST_4 = "sha256:4444444444444444444444444444444444444444444444444444444444444444";
 
 const basis = { kind: "editor_head" as const, headId: "head-edict", tick: 4 };
 
@@ -220,6 +221,222 @@ describe("Edict projection decoding", () => {
       state: "failed",
       error: { kind: "unsupported_target", message: "target unsupported" },
     });
+  });
+
+  it("preserves opaque Echo obstruction receipt projection records", () => {
+    const source = "package demo.echo@1;\n";
+    const bundle = projectEdictJsonlRecords(
+      {
+        ...request(source),
+        emit: ["receipt"],
+      },
+      [
+        {
+          schema: "edict.projection.echo-receipt/v1",
+          type: "echoReceipt",
+          command: "project",
+          input: { name: "unsaved/demo.edict" },
+          state: "available",
+          outcomeKind: "obstructed_strand",
+          targetIrDigest: DIGEST_3,
+          targetIrDomain: "echo.span-ir/v1",
+          reason: {
+            kind: "jim.EditObstruction.StaleBase",
+            payload: {
+              inputBasisDigest: DIGEST_1,
+              observedBasisDigest: DIGEST_4,
+            },
+          },
+          receipt: {
+            schema: "echo.execution.receipt.review/v0",
+            outcome_kind: "obstructed_strand",
+            target_ir_digest: DIGEST_3,
+            obstruction: {
+              reason_kind: "jim.EditObstruction.StaleBase",
+              payload: {
+                input_basis_digest: DIGEST_1,
+                observed_basis_digest: DIGEST_4,
+              },
+            },
+          },
+        },
+        {
+          schema: "edict.cli.event/v1",
+          type: "status",
+          command: "project",
+          status: "ok",
+          checked: 1,
+          errors: 0,
+          exitCode: 0,
+        },
+      ],
+    );
+
+    expect(bundle.echoReceipt).toEqual({
+      state: "available",
+      value: {
+        outcomeKind: "obstructed_strand",
+        targetIrDigest: DIGEST_3,
+        targetIrDomain: "echo.span-ir/v1",
+        reasonKind: "jim.EditObstruction.StaleBase",
+        reasonPayload: {
+          inputBasisDigest: DIGEST_1,
+          observedBasisDigest: DIGEST_4,
+        },
+        receipt: {
+          schema: "echo.execution.receipt.review/v0",
+          outcome_kind: "obstructed_strand",
+          target_ir_digest: DIGEST_3,
+          obstruction: {
+            reason_kind: "jim.EditObstruction.StaleBase",
+            payload: {
+              input_basis_digest: DIGEST_1,
+              observed_basis_digest: DIGEST_4,
+            },
+          },
+        },
+      },
+    });
+  });
+
+  it("preserves Echo receipt reason payloads without reason kinds", () => {
+    const source = "package demo.echo@1;\n";
+    const bundle = projectEdictJsonlRecords(
+      {
+        ...request(source),
+        emit: ["receipt"],
+      },
+      [
+        {
+          schema: "edict.projection.echo-receipt/v1",
+          type: "echoReceipt",
+          command: "project",
+          input: { name: "unsaved/demo.edict" },
+          state: "available",
+          outcomeKind: "obstructed_strand",
+          targetIrDigest: DIGEST_3,
+          reason: {
+            payload: {
+              inputBasisDigest: DIGEST_1,
+            },
+          },
+          receipt: {
+            schema: "echo.execution.receipt.review/v0",
+            outcome_kind: "obstructed_strand",
+            target_ir_digest: DIGEST_3,
+          },
+        },
+        {
+          schema: "edict.cli.event/v1",
+          type: "status",
+          command: "project",
+          status: "ok",
+          checked: 1,
+          errors: 0,
+          exitCode: 0,
+        },
+      ],
+    );
+
+    expect(bundle.echoReceipt).toEqual({
+      state: "available",
+      value: expect.objectContaining({
+        targetIrDigest: DIGEST_3,
+        reasonPayload: {
+          inputBasisDigest: DIGEST_1,
+        },
+      }),
+    });
+  });
+
+  it("rejects Echo receipt projection digests until receipt bytes are canonical", () => {
+    const source = "package demo.echo@1;\n";
+
+    expect(() => projectEdictJsonlRecords(
+      {
+        ...request(source),
+        emit: ["receipt"],
+      },
+      [
+        {
+          schema: "edict.projection.echo-receipt/v1",
+          type: "echoReceipt",
+          command: "project",
+          input: { name: "unsaved/demo.edict" },
+          state: "available",
+          outcomeKind: "obstructed_strand",
+          targetIrDigest: DIGEST_3,
+          receiptDigest: DIGEST_4,
+          receipt: {
+            schema: "echo.execution.receipt.review/v0",
+            outcome_kind: "obstructed_strand",
+            target_ir_digest: DIGEST_3,
+          },
+        },
+        {
+          schema: "edict.cli.event/v1",
+          type: "status",
+          command: "project",
+          status: "ok",
+          checked: 1,
+          errors: 0,
+          exitCode: 0,
+        },
+      ],
+    )).toThrow("receiptDigest is not supported until canonical receipt bytes exist");
+  });
+
+  it("rejects Echo receipt projection digests on non-available records", () => {
+    const source = "package demo.echo@1;\n";
+    const unsupportedDigestRecords = [
+      {
+        schema: "edict.projection.echo-receipt/v1",
+        type: "echoReceipt",
+        command: "project",
+        input: { name: "unsaved/demo.edict" },
+        state: "blocked",
+        receiptDigest: DIGEST_4,
+        reason: [
+          {
+            kind: "missing_target_ir",
+            message: "target-ir slot was not available",
+          },
+        ],
+      },
+      {
+        schema: "edict.projection.echo-receipt/v1",
+        type: "echoReceipt",
+        command: "project",
+        input: { name: "unsaved/demo.edict" },
+        state: "failed",
+        receiptDigest: DIGEST_4,
+        error: {
+          kind: "internal_error",
+          message: "receipt projection failed",
+        },
+      },
+    ];
+
+    for (const record of unsupportedDigestRecords) {
+      expect(() => projectEdictJsonlRecords(
+        {
+          ...request(source),
+          emit: ["receipt"],
+        },
+        [
+          record,
+          {
+            schema: "edict.cli.event/v1",
+            type: "status",
+            command: "project",
+            status: "ok",
+            checked: 1,
+            errors: 0,
+            exitCode: 0,
+          },
+        ],
+      )).toThrow("receiptDigest is not supported until canonical receipt bytes exist");
+    }
   });
 
   it("rejects projection records for a different input name", () => {

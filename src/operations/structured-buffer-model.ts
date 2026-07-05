@@ -11,7 +11,12 @@ import type { ParsedTree } from "../parser/runtime.js";
 import type { OutlineEntry, JumpEntry } from "../parser/types.js";
 import type { ProseProjection, ProseProjectionProvider } from "./colorful-prose-projection.js";
 import { isEdictPath } from "./edict-projection.js";
-import type { EdictProjectionBundle, EdictProjectionProvider } from "./edict-projection.js";
+import type {
+  EdictEchoReceiptProjection,
+  EdictProjectionBundle,
+  EdictProjectionProvider,
+  EdictProjectionSlot,
+} from "./edict-projection.js";
 import type { ProjectionProviderRegistry } from "./projection-provider-registry.js";
 import type {
   ProjectionProfileResolver,
@@ -19,6 +24,13 @@ import type {
   ResolvedAuthorityContext,
 } from "./projection-profile-resolver.js";
 import type { WesleyProjectionBundle } from "./wesley-projection.js";
+
+const EDICT_ECHO_RECEIPT_NOT_REQUESTED: EdictProjectionSlot<EdictEchoReceiptProjection> =
+  Object.freeze({ state: "not_requested" as const });
+
+type NormalizedEdictProjectionBundle = EdictProjectionBundle & {
+  readonly echoReceipt: EdictProjectionSlot<EdictEchoReceiptProjection>;
+};
 
 export type BufferUnavailableReason =
   | "UNSUPPORTED_LANGUAGE"
@@ -380,19 +392,19 @@ export function createStructuredBufferSnapshot(opts: {
   const proseProjection = edictRequested || wesleyRequested || !providerInvocationAllowed
     ? undefined
     : opts.proseProjector?.project({ path: opts.path, content: opts.content }) ?? undefined;
-  let edictProjection: EdictProjectionBundle | undefined;
+  let edictProjection: NormalizedEdictProjectionBundle | undefined;
   let wesleyProjection: WesleyProjectionBundle | undefined;
   if (edictRequested && authority.state === "failed") {
     parseUnavailableReason = "PROJECTION_AUTHORITY_UNAVAILABLE";
   } else if (edictRequested && edictProjector !== undefined) {
     try {
-      edictProjection = edictProjector.project({
+      edictProjection = normalizeEdictProjectionBundle(edictProjector.project({
         name: opts.path,
         content: opts.content,
         basis: opts.basis,
         emit: ["syntax", "diagnostics", "core", "targetIr"],
         ...(authority.state === "resolved" ? { authority: authority.authority } : {}),
-      });
+      }));
     } catch {
       parseUnavailableReason = "PROJECTION_PROVIDER_UNAVAILABLE";
     }
@@ -441,6 +453,8 @@ export function createStructuredBufferSnapshot(opts: {
     }
   }
 
+  const edictEchoReceiptState = edictProjection?.echoReceipt.state;
+
   return {
     path: opts.path,
     content: opts.content,
@@ -454,6 +468,8 @@ export function createStructuredBufferSnapshot(opts: {
         || edictProjection.core.state === "failed"
         || edictProjection.targetIr.state === "blocked"
         || edictProjection.targetIr.state === "failed"
+        || edictEchoReceiptState === "blocked"
+        || edictEchoReceiptState === "failed"
       : wesleyProjection !== undefined
         ? wesleyProjection.syntax.state === "blocked"
           || wesleyProjection.syntax.state === "failed"
@@ -476,6 +492,13 @@ export function createStructuredBufferSnapshot(opts: {
     ...(edictProjection !== undefined ? { edictProjection } : {}),
     ...(wesleyProjection !== undefined ? { wesleyProjection } : {}),
     ...(parseUnavailableReason !== undefined ? { parseUnavailableReason } : {}),
+  };
+}
+
+function normalizeEdictProjectionBundle(bundle: EdictProjectionBundle): NormalizedEdictProjectionBundle {
+  return {
+    ...bundle,
+    echoReceipt: bundle.echoReceipt ?? EDICT_ECHO_RECEIPT_NOT_REQUESTED,
   };
 }
 

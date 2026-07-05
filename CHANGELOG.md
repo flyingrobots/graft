@@ -9,6 +9,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ### Added
 
+- **Obstruction receipt projection preservation**: Edict projection bundles now
+  include an explicit `echoReceipt` slot so future Edict projection providers
+  can pass Echo obstruction receipt review payloads through Graft without
+  reclassifying them as hard rejections or scheduler counterfactuals. Graft
+  preserves the outcome kind, Target IR digest, reason kind, reason payload, and
+  opaque receipt review object, while rejecting top-level `receiptDigest` fields
+  until canonical Echo receipt bytes exist. `StructuredBuffer` keeps the default
+  Edict CLI request limited to syntax, diagnostics, Core, and Target IR; this
+  slice does not execute Echo, admit Jim artifacts, canonicalize receipt bytes,
+  or interpret obstruction semantics.
 - **Profile-aware Wesley SDL provider seam**: projection registries can now
   register a Wesley provider for `.graphql` and `.graphqls` buffers. When a
   `projectionProfileResolver` resolves `wesley-sdl` authority context,

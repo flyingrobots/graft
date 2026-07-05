@@ -559,6 +559,7 @@ describe("library: structured buffer", () => {
           },
           core: { state: "blocked", reason: [{ kind: "ExpectedToken" }] },
           targetIr: { state: "not_requested" },
+          echoReceipt: { state: "not_requested" },
           status: {
             status: "ok",
             checked: 1,
@@ -601,6 +602,100 @@ describe("library: structured buffer", () => {
     ]);
   });
 
+  it("normalizes legacy Edict projection bundles without receipt slots", () => {
+    const edictProjector: EdictProjectionProvider = {
+      project(input) {
+        return {
+          language: "edict",
+          name: input.name,
+          basis: input.basis ?? null,
+          syntax: { state: "available", value: { spans: [] } },
+          diagnostics: { items: [] },
+          core: { state: "not_requested" },
+          targetIr: { state: "not_requested" },
+          status: {
+            status: "ok",
+            checked: 1,
+            errors: 0,
+            exitCode: 0,
+          },
+        };
+      },
+    };
+    const buffer = track(createStructuredBuffer("demo.edict", "package demo.echo@1;\n", {
+      basis,
+      edictProjector,
+    }));
+
+    expect(buffer.partial).toBe(false);
+    expect(buffer.edictProjection()?.echoReceipt).toEqual({ state: "not_requested" });
+  });
+
+  it("preserves opaque Echo obstruction receipt projections without reclassification", () => {
+    const edictProjector: EdictProjectionProvider = {
+      project(input) {
+        return {
+          language: "edict",
+          name: input.name,
+          basis: input.basis ?? null,
+          syntax: { state: "available", value: { spans: [] } },
+          diagnostics: { items: [] },
+          core: { state: "not_requested" },
+          targetIr: { state: "not_requested" },
+          echoReceipt: {
+            state: "available",
+            value: {
+              outcomeKind: "obstructed_strand",
+              targetIrDigest: EDICT_DIGEST,
+              targetIrDomain: "echo.span-ir/v1",
+              reasonKind: "jim.EditObstruction.StaleBase",
+              reasonPayload: {
+                inputBasisDigest: BASE_DIGEST,
+                observedBasisDigest: WESLEY_DIGEST,
+              },
+              receipt: {
+                schema: "echo.execution.receipt.review/v0",
+                outcome_kind: "obstructed_strand",
+                target_ir_digest: EDICT_DIGEST,
+                obstruction: {
+                  reason_kind: "jim.EditObstruction.StaleBase",
+                  payload: {
+                    input_basis_digest: BASE_DIGEST,
+                    observed_basis_digest: WESLEY_DIGEST,
+                  },
+                },
+              },
+            },
+          },
+          status: {
+            status: "ok",
+            checked: 1,
+            errors: 0,
+            exitCode: 0,
+          },
+        };
+      },
+    };
+    const buffer = track(createStructuredBuffer("demo.edict", "package demo.echo@1;\n", {
+      basis,
+      edictProjector,
+    }));
+
+    expect(buffer.partial).toBe(false);
+    expect(buffer.edictProjection()?.echoReceipt).toEqual({
+      state: "available",
+      value: expect.objectContaining({
+        outcomeKind: "obstructed_strand",
+        reasonKind: "jim.EditObstruction.StaleBase",
+        targetIrDigest: EDICT_DIGEST,
+        receipt: expect.objectContaining({
+          outcome_kind: "obstructed_strand",
+          target_ir_digest: EDICT_DIGEST,
+        }),
+      }),
+    });
+  });
+
   it("projects Edict buffers through a projection provider registry", () => {
     const edictProjector: EdictProjectionProvider = {
       project(input) {
@@ -626,6 +721,7 @@ describe("library: structured buffer", () => {
           diagnostics: { items: [] },
           core: { state: "not_requested" },
           targetIr: { state: "not_requested" },
+          echoReceipt: { state: "not_requested" },
           status: {
             status: "ok",
             checked: 1,
@@ -668,6 +764,7 @@ describe("library: structured buffer", () => {
           diagnostics: { items: [] },
           core: { state: "not_requested" },
           targetIr: { state: "not_requested" },
+          echoReceipt: { state: "not_requested" },
           status: {
             status: "ok",
             checked: 1,
@@ -723,6 +820,7 @@ describe("library: structured buffer", () => {
           diagnostics: { items: [] },
           core: { state: "not_requested" },
           targetIr: { state: "not_requested" },
+          echoReceipt: { state: "not_requested" },
           status: {
             status: "ok",
             checked: 1,
@@ -765,6 +863,7 @@ describe("library: structured buffer", () => {
           diagnostics: { items: [] },
           core: { state: "not_requested" },
           targetIr: { state: "not_requested" },
+          echoReceipt: { state: "not_requested" },
           status: {
             status: "ok",
             checked: 1,
@@ -820,6 +919,7 @@ describe("library: structured buffer", () => {
           diagnostics: { items: [] },
           core: { state: "not_requested" },
           targetIr: { state: "not_requested" },
+          echoReceipt: { state: "not_requested" },
           status: {
             status: "ok",
             checked: 1,
@@ -1199,6 +1299,7 @@ describe("library: structured buffer", () => {
           diagnostics: { items: [] },
           core: { state: "not_requested" },
           targetIr: { state: "not_requested" },
+          echoReceipt: { state: "not_requested" },
           status: { status: "ok", checked: 1, errors: 0, exitCode: 0 },
         };
       },
@@ -1311,6 +1412,7 @@ describe("library: structured buffer", () => {
           diagnostics: { items: [] },
           core: { state: "not_requested" },
           targetIr: { state: "not_requested" },
+          echoReceipt: { state: "not_requested" },
           status: {
             status: "ok",
             checked: 1,
@@ -1397,6 +1499,7 @@ describe("library: structured buffer", () => {
               review: { intents: {} },
             },
           },
+          echoReceipt: { state: "not_requested" },
           status: {
             status: "ok",
             checked: 1,

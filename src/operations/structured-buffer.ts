@@ -89,6 +89,7 @@ export {
 export type {
   EdictCoreProjection,
   EdictDiagnosticItem,
+  EdictEchoReceiptProjection,
   EdictProjectionBundle,
   EdictProjectionCompilerContext,
   EdictProjectionDiagnostics,
