@@ -15,8 +15,6 @@ const CONTAINER_ENV = "GRAFT_TEST_CONTAINER";
 const DEFAULT_IMAGE = "graft-test:local";
 const DEFAULT_DOCKER_BUILD_RETRIES = 1;
 const DEFAULT_DOCKER_BUILD_RETRY_DELAY_MS = 1_000;
-const DOCKER_CACHE_FROM_ENV = "GRAFT_TEST_DOCKER_CACHE_FROM";
-const DOCKER_CACHE_TO_ENV = "GRAFT_TEST_DOCKER_CACHE_TO";
 const TRANSIENT_SPAWN_ERROR_CODES = new Set([
   "EAGAIN",
   "ECONNABORTED",
@@ -110,30 +108,6 @@ function envInteger(
   if (raw === undefined) return fallback;
   const parsed = Number.parseInt(raw, 10);
   return Number.isFinite(parsed) && parsed >= 0 ? parsed : fallback;
-}
-
-function envString(env: NodeJS.ProcessEnv, name: string): string | null {
-  const raw = env[name];
-  if (raw === undefined) return null;
-  const trimmed = raw.trim();
-  return trimmed.length > 0 ? trimmed : null;
-}
-
-function dockerBuildArgs(env: NodeJS.ProcessEnv, image: string): string[] {
-  const cacheFrom = envString(env, DOCKER_CACHE_FROM_ENV);
-  const cacheTo = envString(env, DOCKER_CACHE_TO_ENV);
-  if (cacheFrom === null && cacheTo === null) {
-    return ["build", "--target", "test", "-t", image, "."];
-  }
-
-  const args = ["buildx", "build", "--load"];
-  if (cacheFrom !== null) {
-    args.push("--cache-from", cacheFrom);
-  }
-  if (cacheTo !== null) {
-    args.push("--cache-to", cacheTo);
-  }
-  return [...args, "--target", "test", "-t", image, "."];
 }
 
 function retryCause(error: unknown): unknown {
@@ -245,7 +219,7 @@ export async function runIsolatedTests(options: IsolatedTestRunnerOptions): Prom
     runnerOptions.exit(1);
   }
 
-  await runRetriedDockerBuild(dockerBuildArgs(runnerOptions.env, image), runnerOptions);
+  await runRetriedDockerBuild(["build", "--target", "test", "-t", image, "."], runnerOptions);
   return run("docker", [
     "run",
     "--rm",

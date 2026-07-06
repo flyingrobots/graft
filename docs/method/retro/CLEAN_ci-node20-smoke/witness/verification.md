@@ -1,4 +1,4 @@
-# Verification Witness: CLEAN CI Docker cache and Node 20 smoke
+# Verification Witness: CLEAN CI Node 20 smoke
 
 ## Baseline Evidence
 
@@ -14,8 +14,18 @@ The Dockerfile test stage uses `node:22-alpine`, so the Node 20 lane's full
 `pnpm test` step rebuilt and ran the same Node 22 test container rather than
 executing the full suite under Node 20.
 
-Release run `28760752340` spent about 3m29s in the release sanity `Tests`
-step. That path remains release-grade and now receives Buildx cache hints.
+## Cache Rollback Evidence
+
+The first PR #225 run with Buildx cache enabled produced:
+
+```text
+test (20): pass, 36s
+test (22): pass, 4m43s
+```
+
+Because the cache path made the first PR run slower than the baseline, it was
+removed from the final diff. The proven improvement kept in the branch is the
+Node 20 lane reduction from 4m36s to 36s.
 
 ## Focused Runner Tests
 
@@ -29,7 +39,7 @@ Result:
 
 ```text
 Test Files  2 passed (2)
-Tests       14 passed (14)
+Tests       13 passed (13)
 ```
 
 ## Docker-Isolated Focused Proof
@@ -44,7 +54,7 @@ Result:
 
 ```text
 Test Files  2 passed (2)
-Tests       14 passed (14)
+Tests       13 passed (13)
 ```
 
 The Docker run used the default local path and preserved the existing
@@ -75,7 +85,4 @@ node bin/graft.js --version: graft 0.11.1
 - The `test (22)` check remains the full Docker-isolated lane.
 - The `test (20)` check remains present and now proves Node 20 host package
   compatibility.
-- CI and release pass Docker cache hints through
-  `GRAFT_TEST_DOCKER_CACHE_FROM` and `GRAFT_TEST_DOCKER_CACHE_TO`.
-- Local `pnpm test` defaults are unchanged when those environment variables
-  are absent.
+- Local `pnpm test` defaults are unchanged.
