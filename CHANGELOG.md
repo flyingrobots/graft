@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Changed
+
+- **CI test feedback**: pull request CI now keeps the release-grade
+  Docker-isolated full test suite on the Node 22 lane while making the Node 20
+  lane an explicit host-side package compatibility smoke, avoiding a duplicate
+  Dockerized full-suite run that did not actually execute inside Node 20.
+
 ## [0.11.1] - 2026-07-05
 
 ### Added
