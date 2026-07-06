@@ -47,6 +47,36 @@ number of GitHub approvals.
 - Green CI on the current PR head is always required unless the operator
   explicitly overrides the gate.
 
+## GitHub Actions and Release Inspection
+
+Do not infer release or publish state by waiting on a coarse progress display.
+When a workflow looks slow, inspect the workflow and the job state directly.
+
+Required release-debug sequence:
+
+1. Read the workflow that owns the behavior, usually
+   `.github/workflows/release.yml`, before guessing what the run is doing.
+2. Query the run and jobs:
+   `gh run view <run-id> --json status,conclusion,jobs,url,workflowName,event,headBranch,headSha`.
+3. If a job is still active, inspect the active step from the job list. Do not
+   call it stuck unless the job is not advancing or the logs prove a blocker.
+4. If a job failed, inspect logs through Actions:
+   `gh run view <run-id> --job <job-id> --log`.
+   If `gh` says logs are unavailable while the job is in progress, use the job
+   state first and wait only with a stated reason.
+5. For npm publish, verify delivery from the registry:
+   `npm view @flyingrobots/graft version dist-tags time --json`.
+   The registry result is the publish truth; the GitHub Release asset upload is
+   not npm delivery.
+6. Record the run id, job outcomes, GitHub Release URL, and npm registry result
+   in the release witness. Do not claim publish success until both the Actions
+   publish job and registry query agree.
+
+For tag-triggered releases, sanity, GitHub Release creation, and npm publish are
+separate jobs. Treat each job as its own gate. If publish is slow, inspect the
+`publish` job and npm registry state instead of assuming the publish step is
+hung.
+
 ## Documentation & Planning Map
 
 Do not audit the repository by recursively walking the filesystem. Follow the authoritative manifests:
