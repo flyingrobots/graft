@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.11.1] - 2026-07-05
+
+### Added
+
+- **Release workflow guidance**: contributor guidance now requires operators to
+  inspect the tag-triggered GitHub Actions release workflow, individual job
+  state, job logs, GitHub Release assets, and npm registry state before
+  claiming release or publish success. It also records the release invariant
+  that releases must be cut only from version-tagged commits already on `main`;
+  release branches, pull request heads, local-only commits, and untagged commits
+  are not release authorities.
+
 ## [0.11.0] - 2026-07-05
 
 ### Added
