@@ -52,6 +52,13 @@ number of GitHub approvals.
 Do not infer release or publish state by waiting on a coarse progress display.
 When a workflow looks slow, inspect the workflow and the job state directly.
 
+Releases are tag-driven from `main`. A release must only occur from a commit
+that is already on `main` and tagged with the release version, for example
+`v1.2.3`. Merge release-prep work to `main` first, create the version tag on
+that `main` commit, then push the tag and let GitHub Actions deploy that tag.
+Do not cut releases from release branches, PR heads, local-only commits, or
+untagged commits.
+
 Required release-debug sequence:
 
 1. Read the workflow that owns the behavior, usually
