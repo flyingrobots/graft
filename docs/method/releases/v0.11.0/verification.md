@@ -40,8 +40,27 @@ Notes:
 
 ## Dogfood
 
-Pending before tagging. The release PR must merge first so dogfood and tagging
-happen from the exact `main` release commit.
+Run through a fresh MCP stdio session using `StdioClientTransport` against
+`node bin/graft.js serve` on PR head `6f7e7fc89f840336a3805f2a8c8710ccd15f2852`.
+
+| Command | Result |
+| :--- | :--- |
+| `client.listTools()` | 33 tools listed |
+| MCP `doctor` | parser healthy; thresholds 150 lines / 12288 bytes |
+| MCP `safe_read` for `src/parser/lang.ts` | `projection: "content"`; 119 lines / 3351 bytes |
+| MCP `safe_read` for `src/mcp/server.ts` | `projection: "outline"`; 18 outline entries for 417 lines / 14027 bytes |
+| MCP `file_outline` for `src/echo/structural-history-client.ts` | 18 outline entries; first entry `EchoContractObstruction` |
+| MCP `stats` | stats receipt emitted; reads=1, outlines=2, refusals=0, cacheHits=0 |
+
+The final tag step must rerun this same MCP stdio dogfood after this witness
+PR merges and before pushing `v0.11.0`, because GitHub creates a new merge
+commit for `main`. The tag is blocked if the final-main dogfood result differs.
+
+Note: an initial CLI-only dogfood attempt was rejected as insufficient because
+the release runbook requires exercising the MCP session path. An initial
+parallel CLI attempt also produced one expected writer-ref contention refusal
+(`writer ref was updated by another process`). The release path treats dogfood
+as sequential because the local history writer is intentionally single-writer.
 
 ## Merge, Tag, Publish
 
