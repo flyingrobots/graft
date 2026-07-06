@@ -95,6 +95,52 @@ describe("Docker-isolated test validation", () => {
     expect(exits).toEqual([0]);
   });
 
+  it("uses Docker Buildx cache hints when configured", async () => {
+    const calls: string[] = [];
+    const exits: number[] = [];
+    const spawn: RunnerSpawn = (command, args) => {
+      calls.push([command, ...args].join(" "));
+      return { status: 0 };
+    };
+    const exit = (code = 0): never => {
+      exits.push(code);
+      throw new Error(`exit ${String(code)}`);
+    };
+
+    await expect(runIsolatedTests({
+      argv: [],
+      env: {
+        GRAFT_TEST_DOCKER_CACHE_FROM: "type=gha,scope=graft-test",
+        GRAFT_TEST_DOCKER_CACHE_TO: "type=gha,mode=max,scope=graft-test,ignore-error=true",
+      },
+      checkDocker: () => {
+        calls.push("docker preflight");
+        return { ok: true };
+      },
+      error: (message) => {
+        throw new Error(`unexpected stderr: ${message}`);
+      },
+      exit,
+      spawn,
+    })).rejects.toThrow("exit 0");
+
+    expect(calls).toEqual([
+      "docker preflight",
+      [
+        "docker buildx build --load",
+        "--cache-from type=gha,scope=graft-test",
+        "--cache-to type=gha,mode=max,scope=graft-test,ignore-error=true",
+        "--target test -t graft-test:local .",
+      ].join(" "),
+      [
+        "docker run --rm --network none",
+        "-e GRAFT_TEST_CONTAINER=1",
+        "graft-test:local pnpm exec vitest run --maxWorkers 2",
+      ].join(" "),
+    ]);
+    expect(exits).toEqual([0]);
+  });
+
   it("retries the Docker image build before running isolated tests", async () => {
     const calls: string[] = [];
     const exits: number[] = [];

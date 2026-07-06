@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Changed
+
+- **CI Docker test feedback**: pull request CI now keeps the release-grade
+  Docker-isolated full test suite on the Node 22 lane while making the Node 20
+  lane an explicit host-side package compatibility smoke. CI and release sanity
+  also opt into Docker Buildx layer caching for the isolated test image without
+  changing local `pnpm test` defaults.
+
 ## [0.11.1] - 2026-07-05
 
 ### Added
