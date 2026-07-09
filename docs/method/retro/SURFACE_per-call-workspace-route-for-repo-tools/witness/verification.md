@@ -11,16 +11,10 @@ npx vitest run test/unit/mcp/per-call-workspace-route.test.ts
 Result: passed, 5 tests.
 
 ```text
-npx vitest run test/unit/mcp/per-call-workspace-route.test.ts test/unit/mcp/opened-workspaces.test.ts test/unit/mcp/workspace-binding.test.ts test/unit/mcp/path-boundary-runtime.test.ts test/unit/mcp/daemon-multi-session.test.ts test/unit/contracts/capabilities.test.ts
+npx vitest run test/unit/mcp/per-call-workspace-route.test.ts test/unit/mcp/opened-workspaces.test.ts test/unit/mcp/workspace-binding.test.ts test/unit/mcp/path-boundary-runtime.test.ts test/unit/mcp/daemon-multi-session.test.ts test/unit/contracts/output-schemas.test.ts test/unit/contracts/capabilities.test.ts
 ```
 
-Result: passed, 6 files and 32 tests.
-
-```text
-npx vitest run test/unit/contracts/output-schemas.test.ts
-```
-
-Result: passed, 1 file and 8 tests.
+Result: passed, 7 files and 40 tests.
 
 ```text
 pnpm typecheck
@@ -53,7 +47,8 @@ exceeded its old 60000 ms cap both in the combined command and in
 isolation on this machine. The test intentionally exercises the full CLI
 peer JSON matrix, so its timeout was raised to a named 120000 ms cap.
 `npx vitest run test/unit/contracts/output-schemas.test.ts` then passed
-in isolation with 1 file and 8 tests.
+in isolation with 1 file and 8 tests, and the original 7-file validation
+command passed with 40 tests after the timeout stabilization.
 
 The daemon multi-session divergent-checkout test also uses real git
 worktree setup. Its timeout was aligned with neighboring daemon harness
