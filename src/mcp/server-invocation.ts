@@ -31,6 +31,7 @@ import {
   parseToolPayload,
   repoStateOptionalTools,
   resolveDaemonOffloadedRepoTool,
+  workspaceRoutedRepoTools,
 } from "./server-tool-access.js";
 
 /** Mutable footprint accumulator for the current tool invocation. */
@@ -220,6 +221,7 @@ export function createInvocationEngine(deps: InvocationEngineDeps): InvocationEn
   async function emitInvocationStarted(
     name: string,
     envelope: InvocationEnvelope,
+    execution: WorkspaceExecutionContext | null,
   ): Promise<void> {
     if (!observability.enabled) return;
     await emitRuntimeEvent({
@@ -228,7 +230,7 @@ export function createInvocationEngine(deps: InvocationEngineDeps): InvocationEn
       traceId: envelope.traceId,
       tool: name,
       argKeys: envelope.argKeys,
-      sessionDepth: workspaceRouter.governor.getGovernorDepth(),
+      sessionDepth: execution?.governor.getGovernorDepth() ?? workspaceRouter.governor.getGovernorDepth(),
     });
   }
 
@@ -239,16 +241,34 @@ export function createInvocationEngine(deps: InvocationEngineDeps): InvocationEn
     return schema !== undefined ? schema.parse(args) : args;
   }
 
-  function authorizeInvocation(name: string): void {
+  function resolveWorkspaceRoute(name: string, parsed: JsonObject): string | null {
+    const cwd = parsed["cwd"];
+    return mode === "daemon"
+      && workspaceRoutedRepoTools.has(name)
+      && typeof cwd === "string"
+      && cwd.trim().length > 0
+      ? cwd
+      : null;
+  }
+
+  function authorizeInvocation(name: string, parsed: JsonObject): void {
     enforceDaemonToolAccess({
       mode,
       name,
       isBound: workspaceRouter.isBound(),
       status: workspaceRouter.getStatus(),
+      hasWorkspaceRoute: resolveWorkspaceRoute(name, parsed) !== null,
     });
   }
 
-  function planInvocationExecution(name: string): InvocationExecutionPlan {
+  async function planInvocationExecution(name: string, parsed: JsonObject): Promise<InvocationExecutionPlan> {
+    const routedCwd = resolveWorkspaceRoute(name, parsed);
+    if (routedCwd !== null) {
+      return {
+        execution: await workspaceRouter.captureExecutionContextForWorkspace({ cwd: routedCwd }),
+      };
+    }
+
     const execution = daemonScheduler !== null
       && workspaceRouter.isBound()
       && daemonScheduledRepoTools.has(name)
@@ -429,7 +449,7 @@ export function createInvocationEngine(deps: InvocationEngineDeps): InvocationEn
     readonly result: McpToolResult;
     readonly execution: WorkspaceExecutionContext | null;
   }): Promise<void> {
-    if (!workspaceRouter.isBound() || !attributedReadTools.has(input.name)) {
+    if ((input.execution === null && !workspaceRouter.isBound()) || !attributedReadTools.has(input.name)) {
       return;
     }
     const payload = parseToolPayload(input.result);
@@ -473,17 +493,36 @@ export function createInvocationEngine(deps: InvocationEngineDeps): InvocationEn
     schema?: z.ZodObject,
   ): Promise<McpToolResult> {
     await runtimeReady;
-    workspaceRouter.governor.recordMessage();
-    workspaceRouter.governor.recordToolCall(name);
     const envelope = openInvocation(args);
-    await emitInvocationStarted(name, envelope);
     const invocation = createInvocationStore(envelope);
     let execution: WorkspaceExecutionContext | null = null;
+    let invocationRecorded = false;
+    let invocationStarted = false;
+
+    const recordInvocation = (): void => {
+      if (invocationRecorded) {
+        return;
+      }
+      const governor = execution?.governor ?? workspaceRouter.governor;
+      governor.recordMessage();
+      governor.recordToolCall(name);
+      invocationRecorded = true;
+    };
+
+    const emitInvocationStartedOnce = async (): Promise<void> => {
+      if (invocationStarted) {
+        return;
+      }
+      await emitInvocationStarted(name, envelope, execution);
+      invocationStarted = true;
+    };
 
     try {
       const parsed = decodeInvocationArgs(args, schema);
-      authorizeInvocation(name);
-      execution = planInvocationExecution(name).execution;
+      authorizeInvocation(name, parsed);
+      execution = (await planInvocationExecution(name, parsed)).execution;
+      recordInvocation();
+      await emitInvocationStartedOnce();
       const result = await dispatchInvocation({
         name,
         parsed,
@@ -498,6 +537,8 @@ export function createInvocationEngine(deps: InvocationEngineDeps): InvocationEn
 
       return result;
     } catch (error) {
+      recordInvocation();
+      await emitInvocationStartedOnce();
       await emitInvocationFailed({ name, error, envelope, execution });
       throw error;
     }

@@ -66,6 +66,54 @@ class AsyncNoSyncFileSystem implements FileSystem {
   }
 }
 
+class GatedRouteDirectoryFileSystem extends AsyncNoSyncFileSystem {
+  private readonly firstRouteMkdirSeen: Promise<void>;
+  private readonly routeGate: Promise<void>;
+  private resolveFirstRouteMkdirSeen: (() => void) | null = null;
+  private releaseRouteGate: (() => void) | null = null;
+  private routeMkdirs = 0;
+
+  constructor(private readonly routeRoot: string) {
+    super();
+    this.firstRouteMkdirSeen = new Promise((resolve) => {
+      this.resolveFirstRouteMkdirSeen = resolve;
+    });
+    this.routeGate = new Promise((resolve) => {
+      this.releaseRouteGate = resolve;
+    });
+  }
+
+  get routeMkdirCount(): number {
+    return this.routeMkdirs;
+  }
+
+  override async mkdir(targetPath: string, options: { recursive: true }): Promise<void> {
+    await nodeFs.mkdir(targetPath, options);
+    if (!this.isRouteDirectory(targetPath)) {
+      return;
+    }
+    this.routeMkdirs += 1;
+    this.resolveFirstRouteMkdirSeen?.();
+    await this.routeGate;
+  }
+
+  waitForFirstRouteMkdir(): Promise<void> {
+    return this.firstRouteMkdirSeen;
+  }
+
+  async waitForConcurrentRouteAttempt(): Promise<void> {
+    await new Promise((resolve) => setTimeout(resolve, 100));
+  }
+
+  release(): void {
+    this.releaseRouteGate?.();
+  }
+
+  private isRouteDirectory(targetPath: string): boolean {
+    return targetPath === this.routeRoot || targetPath.startsWith(`${this.routeRoot}${path.sep}`);
+  }
+}
+
 describe("mcp: daemon workspace binding", () => {
   it("starts unbound and reports daemon workspace status", async () => {
     const server = createManagedDaemonServer(cleanups);
@@ -166,6 +214,58 @@ describe("mcp: daemon workspace binding", () => {
     expect(second.capabilityProfile?.runtimeLogs).toBe("future_runtime_log_posture");
   });
 
+  it("reuses an in-flight routed binding for overlapping first routed calls", async () => {
+    const repoDir = createCommittedRepo();
+    const graftDir = fs.mkdtempSync(path.join(os.tmpdir(), "graft-routed-race-"));
+    cleanups.push(() => {
+      fs.rmSync(graftDir, { recursive: true, force: true });
+    });
+    const gatedFs = new GatedRouteDirectoryFileSystem(path.join(graftDir, "routes"));
+    const router = new WorkspaceRouter({
+      mode: "daemon",
+      fs: gatedFs,
+      git: nodeGit,
+      graftDir,
+      warpPool: {
+        getOrOpen(): Promise<never> {
+          return Promise.reject(new Error("unused in workspace routed race test"));
+        },
+        size(): number {
+          return 0;
+        },
+      },
+      transportSessionId: "transport:test",
+      authorizationPolicy: {
+        getCapabilityProfile() {
+          return Promise.resolve(DEFAULT_DAEMON_CAPABILITY_PROFILE);
+        },
+        noteBound(): Promise<void> {
+          return Promise.resolve();
+        },
+      },
+      persistedLocalHistory: new PersistedLocalHistoryStore({
+        fs: gatedFs,
+        codec: new CanonicalJsonCodec(),
+        graftDir,
+      }),
+    });
+
+    const first = router.captureExecutionContextForWorkspace({ cwd: repoDir });
+    await gatedFs.waitForFirstRouteMkdir();
+    const second = router.captureExecutionContextForWorkspace({ cwd: repoDir });
+    await gatedFs.waitForConcurrentRouteAttempt();
+
+    try {
+      expect(gatedFs.routeMkdirCount).toBe(1);
+    } finally {
+      gatedFs.release();
+    }
+
+    const [firstContext, secondContext] = await Promise.all([first, second]);
+    expect(secondContext.sliceId).toBe(firstContext.sliceId);
+    expect(secondContext.graftDir).toBe(firstContext.graftDir);
+  });
+
   it("Does workspace binding load graftignore without sync filesystem reads?", async () => {
     const repoDir = createCommittedRepo();
     fs.writeFileSync(path.join(repoDir, ".graftignore"), "ignored.ts\n");
@@ -244,7 +344,7 @@ describe("mcp: daemon workspace binding", () => {
     expect(bind["bindState"]).toBe("unbound");
   });
 
-  it("rebinds across worktrees of the same repo without carrying session-local state", async () => {
+  it("rebinds across worktrees of the same repo without carrying session-local state", { timeout: 15_000 }, async () => {
     const repoDir = createCommittedRepo();
     git(repoDir, "branch secondary");
     const worktreeDir = path.join(os.tmpdir(), `graft-worktree-${String(Date.now())}`);

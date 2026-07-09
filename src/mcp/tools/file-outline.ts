@@ -11,7 +11,7 @@ export const fileOutlineTool: ToolDefinition = {
     "Structural skeleton of a file \u2014 function signatures, class shapes, " +
     "exports. Includes a jump table mapping each symbol to its line range " +
     "for targeted read_range follow-ups.",
-  schema: { path: z.string() },
+  schema: { path: z.string(), cwd: z.string().optional() },
   policyCheck: true,
   createHandler(): ToolHandler {
     return async (args, ctx) => {

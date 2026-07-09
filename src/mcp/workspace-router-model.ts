@@ -103,6 +103,15 @@ export class WorkspaceCapabilityDeniedError extends Error {
   }
 }
 
+export class WorkspaceRouteUnauthorizedError extends Error {
+  readonly code = "WORKSPACE_NOT_AUTHORIZED";
+
+  constructor(workspaceRoot: string) {
+    super(`Workspace ${workspaceRoot} is not authorized for routed daemon access. Call workspace_authorize or workspace_open first.`);
+    this.name = "WorkspaceRouteUnauthorizedError";
+  }
+}
+
 export interface WorkspaceExecutionContext {
   readonly sliceId: string;
   readonly repoId: string;

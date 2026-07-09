@@ -22,6 +22,7 @@ import { buildWorkspaceReadObservation, type AttributedReadToolName } from "./wo
 import {
   DEFAULT_REPO_LOCAL_CAPABILITY_PROFILE,
   WorkspaceBindingRequiredError,
+  WorkspaceRouteUnauthorizedError,
   type CausalAttachResult,
   type OpenedWorkspaceSource,
   type OpenedWorkspaceView,
@@ -66,6 +67,7 @@ export {
   DEFAULT_REPO_LOCAL_CAPABILITY_PROFILE,
   WorkspaceBindingRequiredError,
   WorkspaceCapabilityDeniedError,
+  WorkspaceRouteUnauthorizedError,
   type CausalAttachResult,
   type OpenedWorkspaceSource,
   type OpenedWorkspaceView,
@@ -84,6 +86,8 @@ export {
   type WorkspaceStatus,
 } from "./workspace-router-model.js";
 export { resolveWorkspaceRequest } from "./workspace-router-resolution.js";
+
+const MAX_ROUTED_BINDINGS = 8;
 
 interface WorkspaceRouterOptions {
   readonly mode: WorkspaceMode;
@@ -128,6 +132,8 @@ export class WorkspaceRouter {
   private currentBinding: BoundWorkspace | null = null;
   private initialization: Promise<void> | null = null;
   private readonly openedWorkspaces = new Map<string, OpenedWorkspaceRecord>();
+  private readonly routedBindings = new Map<string, BoundWorkspace>();
+  private readonly routedBindingInitializations = new Map<string, Promise<BoundWorkspace>>();
 
   constructor(private readonly options: WorkspaceRouterOptions) {
     const initialProjectRoot = options.mode === "repo_local" ? options.projectRoot : undefined;
@@ -535,6 +541,109 @@ export class WorkspaceRouter {
 
   captureExecutionContext(): WorkspaceExecutionContext {
     const binding = this.requireBinding();
+    return this.buildExecutionContext(binding);
+  }
+
+  async captureExecutionContextForWorkspace(request: WorkspaceBindRequest): Promise<WorkspaceExecutionContext> {
+    const resolved = await resolveWorkspaceRequest(this.options.git, request);
+    if ("code" in resolved) {
+      throw new Error(resolved.message);
+    }
+
+    const capabilityProfile = this.options.mode === "repo_local"
+      ? DEFAULT_REPO_LOCAL_CAPABILITY_PROFILE
+      : (await this.options.authorizationPolicy?.getCapabilityProfile(resolved)) ?? null;
+    if (capabilityProfile === null) {
+      this.routedBindings.delete(resolved.worktreeId);
+      this.routedBindingInitializations.delete(resolved.worktreeId);
+      throw new WorkspaceRouteUnauthorizedError(resolved.worktreeRoot);
+    }
+
+    if (
+      this.currentBinding?.worktreeId === resolved.worktreeId
+      && workspaceCapabilityProfilesEqual(this.currentBinding.capabilityProfile, capabilityProfile)
+    ) {
+      return this.captureExecutionContext();
+    }
+
+    const existing = this.routedBindings.get(resolved.worktreeId);
+    if (existing !== undefined && this.routedBindingMatches(existing, resolved, capabilityProfile)) {
+      this.noteRoutedBinding(existing);
+      return this.buildExecutionContext(existing);
+    }
+
+    const initializing = this.routedBindingInitializations.get(resolved.worktreeId);
+    if (initializing !== undefined) {
+      const binding = await initializing;
+      if (this.routedBindingMatches(binding, resolved, capabilityProfile)) {
+        this.noteRoutedBinding(binding);
+        return this.buildExecutionContext(binding);
+      }
+    }
+
+    const bindingInitialization = this.createRoutedBinding(resolved, capabilityProfile);
+    this.routedBindingInitializations.set(resolved.worktreeId, bindingInitialization);
+    let binding: BoundWorkspace;
+    try {
+      binding = await bindingInitialization;
+    } finally {
+      if (this.routedBindingInitializations.get(resolved.worktreeId) === bindingInitialization) {
+        this.routedBindingInitializations.delete(resolved.worktreeId);
+      }
+    }
+    this.noteRoutedBinding(binding);
+    this.noteOpenedWorkspace(
+      resolved,
+      capabilityProfile,
+      this.options.mode === "daemon" ? "daemon_authorized" : "session_opened",
+      false,
+    );
+    return this.buildExecutionContext(binding);
+  }
+
+  private async createRoutedBinding(
+    resolved: ResolvedWorkspace,
+    capabilityProfile: WorkspaceCapabilityProfile,
+  ): Promise<BoundWorkspace> {
+    const routeDir = path.join(
+      this.options.graftDir,
+      "routes",
+      `slice-${String(++this.bindingCounter).padStart(4, "0")}`,
+    );
+    await this.options.fs.mkdir(routeDir, { recursive: true });
+    const binding = await this.createBoundWorkspace(resolved, routeDir, capabilityProfile, undefined);
+    const repoState = binding.slice.repoState;
+    if (repoState === null) {
+      throw new WorkspaceBindingRequiredError("workspace");
+    }
+    await repoState.initialize();
+    return binding;
+  }
+
+  private routedBindingMatches(
+    binding: BoundWorkspace,
+    resolved: ResolvedWorkspace,
+    capabilityProfile: WorkspaceCapabilityProfile,
+  ): boolean {
+    return binding.repoId === resolved.repoId
+      && binding.worktreeRoot === resolved.worktreeRoot
+      && binding.gitCommonDir === resolved.gitCommonDir
+      && workspaceCapabilityProfilesEqual(binding.capabilityProfile, capabilityProfile);
+  }
+
+  private noteRoutedBinding(binding: BoundWorkspace): void {
+    this.routedBindings.delete(binding.worktreeId);
+    this.routedBindings.set(binding.worktreeId, binding);
+    while (this.routedBindings.size > MAX_ROUTED_BINDINGS) {
+      const oldest = this.routedBindings.keys().next().value;
+      if (oldest === undefined) {
+        return;
+      }
+      this.routedBindings.delete(oldest);
+    }
+  }
+
+  private buildExecutionContext(binding: BoundWorkspace): WorkspaceExecutionContext {
     const repoState = binding.slice.repoState;
     if (repoState === null) {
       throw new WorkspaceBindingRequiredError("workspace");

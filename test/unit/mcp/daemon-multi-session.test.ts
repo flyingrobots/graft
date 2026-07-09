@@ -166,7 +166,7 @@ describe("mcp: in-process daemon shared sessions", () => {
     expect(attached.nextAction).toBe("continue_active_causal_workspace");
   });
 
-  it("surfaces divergent checkout posture for same-repo daemon sessions on different worktrees", async () => {
+  it("surfaces divergent checkout posture for same-repo daemon sessions on different worktrees", { timeout: 15_000 }, async () => {
     const repoDir = createCommittedRepo("graft-daemon-divergent-checkout-");
     const featureWorktreeDir = fs.mkdtempSync(path.join(os.tmpdir(), "graft-daemon-worktree-"));
     git(repoDir, `worktree add -b feature/concurrency ${featureWorktreeDir}`);

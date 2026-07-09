@@ -184,6 +184,7 @@ export const codeFindTool: ToolDefinition = {
     query: z.string(),
     kind: z.string().optional(),
     path: z.string().optional(),
+    cwd: z.string().optional(),
   },
   policyCheck: true,
   createHandler(): ToolHandler {

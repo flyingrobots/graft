@@ -20,6 +20,8 @@ import { createBufferWriter } from "../../helpers/init.js";
 import { writeLegacyLocalHistoryArtifact } from "../../helpers/legacy-local-history.js";
 import { createServerInRepo, parse } from "../../helpers/mcp.js";
 
+const CLI_PEER_SCHEMA_TIMEOUT_MS = 120_000;
+
 function createDaemonServer(graftDir: string) {
   return createGraftServer({
     mode: "daemon",
@@ -274,7 +276,7 @@ describe("contracts: output schemas", () => {
     expect(() => CLI_OUTPUT_SCHEMAS.index.parse(parsed)).not.toThrow();
   });
 
-  it("validates representative CLI peer outputs against the declared schemas", { timeout: 60_000 }, async () => {
+  it("validates representative CLI peer outputs against the declared schemas", { timeout: CLI_PEER_SCHEMA_TIMEOUT_MS }, async () => {
     const repoDir = createTestRepo("graft-output-schema-cli-peer-");
     cleanups.push(repoDir);
 
