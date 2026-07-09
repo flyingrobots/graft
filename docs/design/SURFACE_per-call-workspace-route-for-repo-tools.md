@@ -1,10 +1,10 @@
 ---
 title: "Per-call workspace route for repo tools"
 legend: "SURFACE"
-cycle: "SURFACE_per-call-workspace-route-for-bounded-reads"
+cycle: "SURFACE_per-call-workspace-route-for-repo-tools"
 source_backlog: "docs/method/backlog/bad-code/SURFACE_session-global-workspace-activation-races.md"
 status: completed
-retro: "docs/method/retro/SURFACE_per-call-workspace-route-for-bounded-reads/SURFACE_per-call-workspace-route-for-bounded-reads.md"
+retro: "docs/method/retro/SURFACE_per-call-workspace-route-for-repo-tools/SURFACE_per-call-workspace-route-for-repo-tools.md"
 ---
 
 # Per-call workspace route for repo tools
@@ -21,10 +21,9 @@ Legend: SURFACE
 
 ## Hill
 
-An agent can pass an explicit `cwd` to repo-scoped read, structural,
-search, and diff tools and get path resolution, policy checks, receipts,
-cache, metrics, and attribution for that workspace without mutating the
-MCP session's active workspace.
+An agent can pass an explicit `cwd` to routed repo tools and get path
+resolution, policy checks, receipts, cache, metrics, and attribution for
+that workspace without mutating the MCP session's active workspace.
 
 The model is:
 
@@ -43,7 +42,7 @@ The model is:
 - [x] Can I use a daemon-authorized workspace without making it the
   session-global active workspace?
 - [x] Does `workspace_status` remain honest about the active workspace
-  after a routed read?
+  after a routed call?
 
 ### Agent
 
@@ -61,7 +60,7 @@ The model is:
 ## Accessibility and Assistive Reading
 
 - Linear truth / reduced-complexity posture: the active workspace is
-  still a single status field, while routed reads carry their own
+  still a single status field, while routed calls carry their own
   explicit `cwd`.
 - Non-visual or alternate-reading expectations: routed behavior is
   visible in structured receipts and returned absolute paths; operators
@@ -80,15 +79,16 @@ The model is:
   call used an explicit `cwd`, which resolved worktree backed the call,
   and whether the active workspace changed.
 - What must be attributable, evidenced, or governed: daemon
-  authorization, path-boundary enforcement, routed read attribution, and
-  the fact that client-provided `cwd` is a path hint resolved
+  authorization, path-boundary enforcement, routed execution, read
+  attribution for read tools, and the fact that client-provided `cwd`
+  is a path hint resolved
   server-side rather than an authority token.
 
 ## Non-goals
 
 - [ ] Do not remove active workspace binding in this slice.
 - [ ] Do not make client-supplied repo or worktree ids authoritative.
-- [ ] Do not auto-authorize daemon workspaces from a routed read.
+- [ ] Do not auto-authorize daemon workspaces from a routed call.
 - [ ] Do not add per-call routing to mutating tools or daemon
   control-plane tools in this slice.
 - [ ] Do not expose another session's receipts, cache contents, or raw
@@ -109,7 +109,9 @@ multiple agents multiplexed through the same MCP session.
 
 ## Repair Shape
 
-Add a per-call route for daemon-scheduled repo tools:
+Add a per-call route for daemon-scheduled repo tools: `safe_read`,
+`file_outline`, `read_range`, `changed_since`, `graft_diff`,
+`graft_since`, `graft_map`, `code_show`, `code_find`, and `code_refs`.
 
 ```json
 {

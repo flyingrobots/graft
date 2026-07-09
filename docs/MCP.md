@@ -62,7 +62,9 @@ agent-facing flow:
    or `code_show`
 
 For concurrent multi-repo use inside one daemon-backed MCP session,
-repo-scoped read, structural, search, and diff tools also accept `cwd`.
+repo tools that support routing also accept `cwd`: `safe_read`,
+`file_outline`, `read_range`, `changed_since`, `graft_diff`,
+`graft_since`, `graft_map`, `code_show`, `code_find`, and `code_refs`.
 That `cwd` is resolved server-side as a per-call route and does not
 mutate the active workspace.
 

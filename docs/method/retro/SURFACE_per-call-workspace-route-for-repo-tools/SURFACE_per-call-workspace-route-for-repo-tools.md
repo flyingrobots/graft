@@ -1,7 +1,7 @@
 ---
 title: "Per-call workspace route for repo tools"
-cycle: "SURFACE_per-call-workspace-route-for-bounded-reads"
-design_doc: "docs/design/SURFACE_per-call-workspace-route-for-bounded-reads.md"
+cycle: "SURFACE_per-call-workspace-route-for-repo-tools"
+design_doc: "docs/design/SURFACE_per-call-workspace-route-for-repo-tools.md"
 outcome: hill-met
 drift_check: manual
 ---
@@ -10,12 +10,14 @@ drift_check: manual
 
 ## Summary
 
-Repo-scoped read, structural, search, and diff tools now accept an
-explicit `cwd` route. The invocation engine resolves that route into an
-immutable workspace execution context before policy checks and handlers
-run, and `WorkspaceRouter` creates or reuses routed bindings without
-mutating the session-global active workspace. Daemon routed calls still
-require prior authorization.
+Routed repo tools now accept an explicit `cwd` route: `safe_read`,
+`file_outline`, `read_range`, `changed_since`, `graft_diff`,
+`graft_since`, `graft_map`, `code_show`, `code_find`, and `code_refs`.
+The invocation engine resolves that route into an immutable workspace
+execution context before policy checks and handlers run, and
+`WorkspaceRouter` creates or reuses routed bindings without mutating the
+session-global active workspace. Daemon routed calls still require prior
+authorization.
 
 The regression covers the dogfooding failure mode: one daemon-backed MCP
 session activates repo A, then repo B, and routed `safe_read` and
@@ -25,7 +27,7 @@ active-workspace calls continue to resolve against repo B.
 ## Playback Witness
 
 Artifacts under
-`docs/method/retro/SURFACE_per-call-workspace-route-for-bounded-reads/witness`.
+`docs/method/retro/SURFACE_per-call-workspace-route-for-repo-tools/witness`.
 
 ## What surprised you?
 

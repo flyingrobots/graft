@@ -1,9 +1,10 @@
 ---
 legend: SURFACE
-status: active
+status: completed
 severity: P1
 source: dogfooding
-design: docs/design/SURFACE_per-call-workspace-route-for-bounded-reads.md
+design: docs/design/SURFACE_per-call-workspace-route-for-repo-tools.md
+retro: docs/method/retro/SURFACE_per-call-workspace-route-for-repo-tools/SURFACE_per-call-workspace-route-for-repo-tools.md
 ---
 
 # Session-global workspace activation races

@@ -221,6 +221,7 @@ export function createInvocationEngine(deps: InvocationEngineDeps): InvocationEn
   async function emitInvocationStarted(
     name: string,
     envelope: InvocationEnvelope,
+    execution: WorkspaceExecutionContext | null,
   ): Promise<void> {
     if (!observability.enabled) return;
     await emitRuntimeEvent({
@@ -229,7 +230,7 @@ export function createInvocationEngine(deps: InvocationEngineDeps): InvocationEn
       traceId: envelope.traceId,
       tool: name,
       argKeys: envelope.argKeys,
-      sessionDepth: workspaceRouter.governor.getGovernorDepth(),
+      sessionDepth: execution?.governor.getGovernorDepth() ?? workspaceRouter.governor.getGovernorDepth(),
     });
   }
 
@@ -489,17 +490,36 @@ export function createInvocationEngine(deps: InvocationEngineDeps): InvocationEn
     schema?: z.ZodObject,
   ): Promise<McpToolResult> {
     await runtimeReady;
-    workspaceRouter.governor.recordMessage();
-    workspaceRouter.governor.recordToolCall(name);
     const envelope = openInvocation(args);
-    await emitInvocationStarted(name, envelope);
     const invocation = createInvocationStore(envelope);
     let execution: WorkspaceExecutionContext | null = null;
+    let invocationRecorded = false;
+    let invocationStarted = false;
+
+    const recordInvocation = (): void => {
+      if (invocationRecorded) {
+        return;
+      }
+      const governor = execution?.governor ?? workspaceRouter.governor;
+      governor.recordMessage();
+      governor.recordToolCall(name);
+      invocationRecorded = true;
+    };
+
+    const emitInvocationStartedOnce = async (): Promise<void> => {
+      if (invocationStarted) {
+        return;
+      }
+      await emitInvocationStarted(name, envelope, execution);
+      invocationStarted = true;
+    };
 
     try {
       const parsed = decodeInvocationArgs(args, schema);
       authorizeInvocation(name, parsed);
       execution = (await planInvocationExecution(name, parsed)).execution;
+      recordInvocation();
+      await emitInvocationStartedOnce();
       const result = await dispatchInvocation({
         name,
         parsed,
@@ -514,6 +534,8 @@ export function createInvocationEngine(deps: InvocationEngineDeps): InvocationEn
 
       return result;
     } catch (error) {
+      recordInvocation();
+      await emitInvocationStartedOnce();
       await emitInvocationFailed({ name, error, envelope, execution });
       throw error;
     }

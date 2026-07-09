@@ -24,6 +24,30 @@ function createRepo(prefix: string, content: string): string {
 }
 
 describe("mcp: per-call workspace route", () => {
+  it("rejects routed calls to unauthorized daemon workspaces", { timeout: 15_000 }, async () => {
+    const repoDir = createRepo("graft-route-unauthorized-", "export const repo = 'unauthorized';\n");
+    const harness = await createInProcessDaemonHarness();
+    cleanups.push(() => harness.close());
+    const session = harness.createSession();
+
+    await expect(session.callToolJson("safe_read", {
+      cwd: repoDir,
+      path: "app.ts",
+    })).rejects.toThrow(/not authorized for routed daemon access/);
+
+    await expect(session.callToolJson("code_find", {
+      cwd: repoDir,
+      query: "repo",
+    })).rejects.toThrow(/not authorized for routed daemon access/);
+
+    const status = await session.callToolJson<{
+      bindState: string;
+      worktreeRoot: string | null;
+    }>("workspace_status", {});
+    expect(status.bindState).toBe("unbound");
+    expect(status.worktreeRoot).toBeNull();
+  });
+
   it("routes safe_read through cwd without binding the daemon session", { timeout: 15_000 }, async () => {
     const repoDir = createRepo("graft-route-unbound-", "export const repo = 'routed';\n");
     const harness = await createInProcessDaemonHarness();
@@ -109,6 +133,32 @@ describe("mcp: per-call workspace route", () => {
     );
     expect(status.bindState).toBe("bound");
     expect(status.worktreeRoot).toBe(repoB);
+  });
+
+  it("does not charge routed calls to the active workspace governor", { timeout: 15_000 }, async () => {
+    const repoA = createRepo("graft-route-governor-a-", "export const repo = 'a';\n");
+    const repoB = createRepo("graft-route-governor-b-", "export const repo = 'b';\n");
+    const harness = await createInProcessDaemonHarness();
+    cleanups.push(() => harness.close());
+    const session = harness.createSession();
+
+    await session.callToolJson("workspace_open", {
+      cwd: repoA,
+      activate: true,
+    });
+    await session.callToolJson("workspace_open", {
+      cwd: repoB,
+      activate: true,
+    });
+
+    const before = await session.callToolJson<{ totalMessages: number }>("doctor", {});
+    await session.callToolJson("safe_read", {
+      cwd: repoA,
+      path: "app.ts",
+    });
+    const after = await session.callToolJson<{ totalMessages: number }>("doctor", {});
+
+    expect(after.totalMessages).toBe(before.totalMessages + 1);
   });
 
   it("routes structural search through cwd after another workspace becomes active", { timeout: 15_000 }, async () => {

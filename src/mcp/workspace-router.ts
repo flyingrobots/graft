@@ -22,6 +22,7 @@ import { buildWorkspaceReadObservation, type AttributedReadToolName } from "./wo
 import {
   DEFAULT_REPO_LOCAL_CAPABILITY_PROFILE,
   WorkspaceBindingRequiredError,
+  WorkspaceRouteUnauthorizedError,
   type CausalAttachResult,
   type OpenedWorkspaceSource,
   type OpenedWorkspaceView,
@@ -66,6 +67,7 @@ export {
   DEFAULT_REPO_LOCAL_CAPABILITY_PROFILE,
   WorkspaceBindingRequiredError,
   WorkspaceCapabilityDeniedError,
+  WorkspaceRouteUnauthorizedError,
   type CausalAttachResult,
   type OpenedWorkspaceSource,
   type OpenedWorkspaceView,
@@ -84,6 +86,8 @@ export {
   type WorkspaceStatus,
 } from "./workspace-router-model.js";
 export { resolveWorkspaceRequest } from "./workspace-router-resolution.js";
+
+const MAX_ROUTED_BINDINGS = 8;
 
 interface WorkspaceRouterOptions {
   readonly mode: WorkspaceMode;
@@ -549,7 +553,8 @@ export class WorkspaceRouter {
       ? DEFAULT_REPO_LOCAL_CAPABILITY_PROFILE
       : (await this.options.authorizationPolicy?.getCapabilityProfile(resolved)) ?? null;
     if (capabilityProfile === null) {
-      throw new WorkspaceBindingRequiredError("workspace route");
+      this.routedBindings.delete(resolved.worktreeId);
+      throw new WorkspaceRouteUnauthorizedError(resolved.worktreeRoot);
     }
 
     if (
@@ -566,6 +571,7 @@ export class WorkspaceRouter {
       && existing.gitCommonDir === resolved.gitCommonDir
       && workspaceCapabilityProfilesEqual(existing.capabilityProfile, capabilityProfile)
     ) {
+      this.noteRoutedBinding(existing);
       return this.buildExecutionContext(existing);
     }
 
@@ -581,7 +587,7 @@ export class WorkspaceRouter {
       throw new WorkspaceBindingRequiredError("workspace");
     }
     await repoState.initialize();
-    this.routedBindings.set(resolved.worktreeId, binding);
+    this.noteRoutedBinding(binding);
     this.noteOpenedWorkspace(
       resolved,
       capabilityProfile,
@@ -589,6 +595,18 @@ export class WorkspaceRouter {
       false,
     );
     return this.buildExecutionContext(binding);
+  }
+
+  private noteRoutedBinding(binding: BoundWorkspace): void {
+    this.routedBindings.delete(binding.worktreeId);
+    this.routedBindings.set(binding.worktreeId, binding);
+    while (this.routedBindings.size > MAX_ROUTED_BINDINGS) {
+      const oldest = this.routedBindings.keys().next().value;
+      if (oldest === undefined) {
+        return;
+      }
+      this.routedBindings.delete(oldest);
+    }
   }
 
   private buildExecutionContext(binding: BoundWorkspace): WorkspaceExecutionContext {
