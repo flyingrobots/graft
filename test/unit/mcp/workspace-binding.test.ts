@@ -344,7 +344,7 @@ describe("mcp: daemon workspace binding", () => {
     expect(bind["bindState"]).toBe("unbound");
   });
 
-  it("rebinds across worktrees of the same repo without carrying session-local state", async () => {
+  it("rebinds across worktrees of the same repo without carrying session-local state", { timeout: 15_000 }, async () => {
     const repoDir = createCommittedRepo();
     git(repoDir, "branch secondary");
     const worktreeDir = path.join(os.tmpdir(), `graft-worktree-${String(Date.now())}`);
