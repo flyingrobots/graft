@@ -243,7 +243,10 @@ export function createInvocationEngine(deps: InvocationEngineDeps): InvocationEn
 
   function resolveWorkspaceRoute(name: string, parsed: JsonObject): string | null {
     const cwd = parsed["cwd"];
-    return workspaceRoutedRepoTools.has(name) && typeof cwd === "string" && cwd.trim().length > 0
+    return mode === "daemon"
+      && workspaceRoutedRepoTools.has(name)
+      && typeof cwd === "string"
+      && cwd.trim().length > 0
       ? cwd
       : null;
   }

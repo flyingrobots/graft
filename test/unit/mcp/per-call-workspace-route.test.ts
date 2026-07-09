@@ -3,6 +3,7 @@ import * as fs from "node:fs";
 import * as path from "node:path";
 import { createInProcessDaemonHarness } from "../../helpers/daemon.js";
 import { cleanupTestRepo, createCommittedTestRepo } from "../../helpers/git.js";
+import { createServerInRepo, parse } from "../../helpers/mcp.js";
 
 const cleanups: (() => Promise<void> | void)[] = [];
 
@@ -24,6 +25,23 @@ function createRepo(prefix: string, content: string): string {
 }
 
 describe("mcp: per-call workspace route", () => {
+  it("ignores cwd routing for repo-local tool calls", async () => {
+    const repoA = createRepo("graft-route-local-a-", "export const repo = 'a';\n");
+    const repoB = createRepo("graft-route-local-b-", "export const repo = 'b';\n");
+    const server = createServerInRepo(repoA);
+
+    const read = parse(await server.callTool("safe_read", {
+      cwd: repoB,
+      path: "app.ts",
+    }));
+
+    expect(read).toEqual(expect.objectContaining({
+      projection: "content",
+      path: path.join(repoA, "app.ts"),
+      content: "export const repo = 'a';\n",
+    }));
+  });
+
   it("rejects routed calls to unauthorized daemon workspaces", { timeout: 15_000 }, async () => {
     const repoDir = createRepo("graft-route-unauthorized-", "export const repo = 'unauthorized';\n");
     const harness = await createInProcessDaemonHarness();
