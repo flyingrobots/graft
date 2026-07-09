@@ -106,6 +106,11 @@ Daemon sessions start unbound. The normal agent flow is:
 2. Optionally `workspace_list_opened` to inspect active workspaces
 3. Use repository-scoped tools: `safe_read`, `file_outline`, `graft_diff`, etc.
 
+When several agents share one daemon-backed MCP session, repo-scoped
+read, structural, search, and diff tools can carry their own explicit
+route: pass `cwd` to resolve that call against the requested authorized
+workspace without changing the active workspace.
+
 For explicit control-plane posture, use `workspace_authorize` followed by `workspace_bind`.
 
 See [docs/SETUP.md](./docs/SETUP.md) for client-specific bootstrap and daemon control-plane configuration.

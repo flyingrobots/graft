@@ -57,6 +57,7 @@ export const repoStateOptionalTools = new Set<string>([
 export const daemonScheduledRepoTools = new Set<string>([
   "safe_read",
   "file_outline",
+  "read_range",
   "changed_since",
   "graft_diff",
   "graft_since",
@@ -72,6 +73,8 @@ export const attributedReadTools = new Set<string>([
   "read_range",
 ]);
 
+export const workspaceRoutedRepoTools = new Set<string>(daemonScheduledRepoTools);
+
 function isOffloadedRepoTool(name: string): name is OffloadedRepoToolName {
   return OFFLOADED_DAEMON_REPO_TOOL_NAMES.includes(name as OffloadedRepoToolName);
 }
@@ -81,9 +84,13 @@ export function enforceDaemonToolAccess(input: {
   readonly name: string;
   readonly isBound: boolean;
   readonly status: WorkspaceStatus;
+  readonly hasWorkspaceRoute?: boolean | undefined;
 }): void {
   if (input.mode !== "daemon") return;
   if (daemonAlwaysAvailableTools.has(input.name)) {
+    return;
+  }
+  if (input.hasWorkspaceRoute === true && workspaceRoutedRepoTools.has(input.name)) {
     return;
   }
   if (!input.isBound) {

@@ -31,6 +31,7 @@ import {
   parseToolPayload,
   repoStateOptionalTools,
   resolveDaemonOffloadedRepoTool,
+  workspaceRoutedRepoTools,
 } from "./server-tool-access.js";
 
 /** Mutable footprint accumulator for the current tool invocation. */
@@ -239,16 +240,31 @@ export function createInvocationEngine(deps: InvocationEngineDeps): InvocationEn
     return schema !== undefined ? schema.parse(args) : args;
   }
 
-  function authorizeInvocation(name: string): void {
+  function resolveWorkspaceRoute(name: string, parsed: JsonObject): string | null {
+    const cwd = parsed["cwd"];
+    return workspaceRoutedRepoTools.has(name) && typeof cwd === "string" && cwd.trim().length > 0
+      ? cwd
+      : null;
+  }
+
+  function authorizeInvocation(name: string, parsed: JsonObject): void {
     enforceDaemonToolAccess({
       mode,
       name,
       isBound: workspaceRouter.isBound(),
       status: workspaceRouter.getStatus(),
+      hasWorkspaceRoute: resolveWorkspaceRoute(name, parsed) !== null,
     });
   }
 
-  function planInvocationExecution(name: string): InvocationExecutionPlan {
+  async function planInvocationExecution(name: string, parsed: JsonObject): Promise<InvocationExecutionPlan> {
+    const routedCwd = resolveWorkspaceRoute(name, parsed);
+    if (routedCwd !== null) {
+      return {
+        execution: await workspaceRouter.captureExecutionContextForWorkspace({ cwd: routedCwd }),
+      };
+    }
+
     const execution = daemonScheduler !== null
       && workspaceRouter.isBound()
       && daemonScheduledRepoTools.has(name)
@@ -429,7 +445,7 @@ export function createInvocationEngine(deps: InvocationEngineDeps): InvocationEn
     readonly result: McpToolResult;
     readonly execution: WorkspaceExecutionContext | null;
   }): Promise<void> {
-    if (!workspaceRouter.isBound() || !attributedReadTools.has(input.name)) {
+    if ((input.execution === null && !workspaceRouter.isBound()) || !attributedReadTools.has(input.name)) {
       return;
     }
     const payload = parseToolPayload(input.result);
@@ -482,8 +498,8 @@ export function createInvocationEngine(deps: InvocationEngineDeps): InvocationEn
 
     try {
       const parsed = decodeInvocationArgs(args, schema);
-      authorizeInvocation(name);
-      execution = planInvocationExecution(name).execution;
+      authorizeInvocation(name, parsed);
+      execution = (await planInvocationExecution(name, parsed)).execution;
       const result = await dispatchInvocation({
         name,
         parsed,

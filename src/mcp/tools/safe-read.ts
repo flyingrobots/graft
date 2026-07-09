@@ -23,7 +23,7 @@ export const safeReadTool: ToolDefinition = {
     "structural outline with jump table for large files, or refusal with " +
     "reason code for banned files. Detects re-reads and returns cached " +
     "outlines or structural diffs.",
-  schema: { path: z.string(), intent: z.string().optional() },
+  schema: { path: z.string(), intent: z.string().optional(), cwd: z.string().optional() },
   createHandler(): ToolHandler {
     return async (args, ctx) => {
       const filePath = ctx.resolvePath(args["path"] as string);

@@ -384,6 +384,7 @@ export const codeRefsTool: ToolDefinition = {
     query: z.string(),
     mode: z.enum(CODE_REFS_MODES).optional(),
     path: z.string().optional(),
+    cwd: z.string().optional(),
   },
   createHandler(): ToolHandler {
     return async (args, ctx) => {

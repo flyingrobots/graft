@@ -9,7 +9,7 @@ export const graftDiffTool: ToolDefinition = {
     "Structural diff between two git refs. Shows added, removed, and " +
     "changed symbols per file \u2014 not line hunks. Defaults to working " +
     "tree vs HEAD.",
-  schema: { base: z.string().optional(), head: z.string().optional(), path: z.string().optional() },
+  schema: { base: z.string().optional(), head: z.string().optional(), path: z.string().optional(), cwd: z.string().optional() },
   createHandler(): ToolHandler {
     return async (args, ctx) => {
       const head = args["head"] as string | undefined;

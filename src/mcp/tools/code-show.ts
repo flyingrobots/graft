@@ -282,6 +282,7 @@ export const codeShowTool: ToolDefinition = {
     symbol: z.string(),
     path: z.string().optional(),
     ref: z.string().optional(),
+    cwd: z.string().optional(),
   },
   createHandler(): ToolHandler {
     return (args, ctx) => runCodeShow(ctx, args, { allowWarp: true });

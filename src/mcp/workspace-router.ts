@@ -128,6 +128,7 @@ export class WorkspaceRouter {
   private currentBinding: BoundWorkspace | null = null;
   private initialization: Promise<void> | null = null;
   private readonly openedWorkspaces = new Map<string, OpenedWorkspaceRecord>();
+  private readonly routedBindings = new Map<string, BoundWorkspace>();
 
   constructor(private readonly options: WorkspaceRouterOptions) {
     const initialProjectRoot = options.mode === "repo_local" ? options.projectRoot : undefined;
@@ -535,6 +536,62 @@ export class WorkspaceRouter {
 
   captureExecutionContext(): WorkspaceExecutionContext {
     const binding = this.requireBinding();
+    return this.buildExecutionContext(binding);
+  }
+
+  async captureExecutionContextForWorkspace(request: WorkspaceBindRequest): Promise<WorkspaceExecutionContext> {
+    const resolved = await resolveWorkspaceRequest(this.options.git, request);
+    if ("code" in resolved) {
+      throw new Error(resolved.message);
+    }
+
+    const capabilityProfile = this.options.mode === "repo_local"
+      ? DEFAULT_REPO_LOCAL_CAPABILITY_PROFILE
+      : (await this.options.authorizationPolicy?.getCapabilityProfile(resolved)) ?? null;
+    if (capabilityProfile === null) {
+      throw new WorkspaceBindingRequiredError("workspace route");
+    }
+
+    if (
+      this.currentBinding?.worktreeId === resolved.worktreeId
+      && workspaceCapabilityProfilesEqual(this.currentBinding.capabilityProfile, capabilityProfile)
+    ) {
+      return this.captureExecutionContext();
+    }
+
+    const existing = this.routedBindings.get(resolved.worktreeId);
+    if (
+      existing?.repoId === resolved.repoId
+      && existing.worktreeRoot === resolved.worktreeRoot
+      && existing.gitCommonDir === resolved.gitCommonDir
+      && workspaceCapabilityProfilesEqual(existing.capabilityProfile, capabilityProfile)
+    ) {
+      return this.buildExecutionContext(existing);
+    }
+
+    const routeDir = path.join(
+      this.options.graftDir,
+      "routes",
+      `slice-${String(++this.bindingCounter).padStart(4, "0")}`,
+    );
+    await this.options.fs.mkdir(routeDir, { recursive: true });
+    const binding = await this.createBoundWorkspace(resolved, routeDir, capabilityProfile, undefined);
+    const repoState = binding.slice.repoState;
+    if (repoState === null) {
+      throw new WorkspaceBindingRequiredError("workspace");
+    }
+    await repoState.initialize();
+    this.routedBindings.set(resolved.worktreeId, binding);
+    this.noteOpenedWorkspace(
+      resolved,
+      capabilityProfile,
+      this.options.mode === "daemon" ? "daemon_authorized" : "session_opened",
+      false,
+    );
+    return this.buildExecutionContext(binding);
+  }
+
+  private buildExecutionContext(binding: BoundWorkspace): WorkspaceExecutionContext {
     const repoState = binding.slice.repoState;
     if (repoState === null) {
       throw new WorkspaceBindingRequiredError("workspace");

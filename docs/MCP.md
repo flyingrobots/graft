@@ -61,6 +61,11 @@ agent-facing flow:
 3. then call repository-scoped tools such as `safe_read`, `graft_since`,
    or `code_show`
 
+For concurrent multi-repo use inside one daemon-backed MCP session,
+repo-scoped read, structural, search, and diff tools also accept `cwd`.
+That `cwd` is resolved server-side as a per-call route and does not
+mutate the active workspace.
+
 `workspace_authorize` and `workspace_bind` remain available as lower-level
 daemon control-plane tools.
 

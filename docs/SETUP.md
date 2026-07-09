@@ -127,6 +127,11 @@ Practical daemon-backed MCP first-use sequence:
    active workspace
 5. then use repository-scoped tools such as `safe_read` or `graft_map`
 
+If concurrent agents share one daemon-backed MCP session, prefer
+explicit `cwd` routes for repo-specific read, structural, search, and
+diff calls. The route resolves one call against the requested authorized
+workspace without changing the active workspace.
+
 Use `workspace_authorize` plus `workspace_bind` when you need direct
 operator control over daemon authorization and binding state.
 

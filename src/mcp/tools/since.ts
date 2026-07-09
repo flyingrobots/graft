@@ -12,6 +12,7 @@ export const sinceTool: ToolDefinition = {
   schema: {
     base: z.string(),
     head: z.string().optional(),
+    cwd: z.string().optional(),
   },
   createHandler(): ToolHandler {
     return async (args, ctx) => {
