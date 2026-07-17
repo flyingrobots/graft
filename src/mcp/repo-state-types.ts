@@ -10,6 +10,10 @@ export type RepoSemanticTransitionKind =
 export type RepoSemanticTransitionAuthority =
   | "authoritative_git_state"
   | "repo_snapshot";
+export type RepoSemanticTransitionObservationBasis =
+  | "current_state"
+  | "snapshot_delta"
+  | "git_transition_evidence";
 export type RepoSemanticTransitionPhase =
   | "started"
   | "conflicted"
@@ -31,6 +35,7 @@ export interface RepoTransition {
 export interface RepoSemanticTransition {
   readonly kind: RepoSemanticTransitionKind;
   readonly authority: RepoSemanticTransitionAuthority;
+  readonly observationBasis: RepoSemanticTransitionObservationBasis;
   readonly phase: RepoSemanticTransitionPhase | null;
   readonly summary: string;
   readonly evidence: {

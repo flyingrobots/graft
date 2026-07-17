@@ -48,6 +48,7 @@ describe("mcp: semantic transition guidance", () => {
       {
         kind: "merge_phase",
         authority: "authoritative_git_state",
+        observationBasis: "current_state",
         phase: "conflicted",
         summary: "Merge is waiting on conflict resolution.",
         evidence: {

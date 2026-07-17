@@ -573,6 +573,7 @@ export async function writeCausalEventToGraph(
     accumulator.ensureNode(eventNode, {
       semanticKind: input.event.payload.semanticKind,
       authority: input.event.payload.authority,
+      observationBasis: input.event.payload.observationBasis,
       phase: input.event.payload.phase,
       summary: input.event.payload.summary,
       transitionKind: input.event.payload.transitionKind,

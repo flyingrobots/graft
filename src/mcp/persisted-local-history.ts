@@ -377,6 +377,7 @@ const LOCAL_HISTORY_GRAPH_EXPOSE = [
   "evidenceKind",
   "fromRef",
   "occurredAt",
+  "observationBasis",
   "path",
   "paths",
   "phase",
@@ -753,6 +754,7 @@ function readTransitionEventFromGraph(
     payload: {
       semanticKind: asString(node.props["semanticKind"]),
       authority: asString(node.props["authority"]),
+      observationBasis: asString(node.props["observationBasis"]),
       phase: asNullableString(node.props["phase"]) ?? null,
       summary: asString(node.props["summary"]),
       transitionKind: asNullableString(node.props["transitionKind"]) ?? null,
@@ -1493,6 +1495,9 @@ export class PersistedLocalHistoryStore {
     readonly attribution: AttributionSummary;
     readonly graph?: PersistedLocalHistoryGraphContext | null;
   }): Promise<void> {
+    if (input.semanticTransition.observationBasis === "current_state") {
+      return;
+    }
     const continuityKey = buildContinuityKey(input.current.repoId, input.current.worktreeId);
     const state = await this.loadWritableState(
       input.graph,

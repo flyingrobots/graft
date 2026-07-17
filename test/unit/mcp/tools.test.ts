@@ -533,7 +533,12 @@ describe("mcp: tool handlers", () => {
       latestReadEvent: null;
       latestStageEvent: null;
       latestTransitionEvent: null;
-      semanticTransition: { kind: string; authority: string; phase: string | null } | null;
+      semanticTransition: {
+        kind: string;
+        authority: string;
+        observationBasis: string;
+        phase: string | null;
+      } | null;
       workspaceOverlayFooting: {
         observationMode: string;
         lineagePosture: string;
@@ -566,7 +571,12 @@ describe("mcp: tool handlers", () => {
     expect(activeCausalWorkspace.attribution.actor.actorKind).toBe("agent");
     expect(activeCausalWorkspace.latestReadEvent).toBeNull();
     expect(activeCausalWorkspace.latestStageEvent).toBeNull();
-    expect(activeCausalWorkspace.semanticTransition).toBeNull();
+    expect(activeCausalWorkspace.semanticTransition).toEqual(expect.objectContaining({
+      kind: "unknown",
+      authority: "repo_snapshot",
+      observationBasis: "git_transition_evidence",
+      phase: null,
+    }));
     expect(activeCausalWorkspace.workspaceOverlayFooting.observationMode).toBe("inferred_between_tool_calls");
     expect(activeCausalWorkspace.workspaceOverlayFooting.lineagePosture).toBe("forked_after_transition");
     expect(activeCausalWorkspace.workspaceOverlayFooting.boundaryAuthority).toBe("repo_snapshot");

@@ -6,6 +6,7 @@ import {
   PersistedLocalHistoryStore,
   buildContinuityKey,
 } from "../../../src/mcp/persisted-local-history.js";
+import { createTransitionEvent } from "../../../src/mcp/persisted-local-history-policy.js";
 import { createCausalContext } from "../../helpers/causal-context.js";
 import {
   FakePersistedLocalHistoryWarp,
@@ -670,6 +671,7 @@ describe("mcp: persisted local history", () => {
     const semanticTransition = {
       kind: "merge_phase" as const,
       authority: "repo_snapshot" as const,
+      observationBasis: "git_transition_evidence" as const,
       phase: "completed_or_cleared" as const,
       summary: "Merge transition completed or merge state has cleared.",
       evidence: {
@@ -697,6 +699,44 @@ describe("mcp: persisted local history", () => {
         reflogSubject: current.transitionReflogSubject,
       },
     };
+
+    expect(createTransitionEvent({
+      current,
+      semanticTransition,
+      transition,
+      attribution,
+    }).eventId).not.toBe(createTransitionEvent({
+      current,
+      semanticTransition: {
+        ...semanticTransition,
+        observationBasis: "snapshot_delta",
+      },
+      transition,
+      attribution,
+    }).eventId);
+
+    await store.noteSemanticTransitionObservation({
+      current,
+      semanticTransition: {
+        ...semanticTransition,
+        observationBasis: "current_state",
+      },
+      transition: null,
+      attribution,
+      graph: harness.graph,
+    });
+    const baselineSummary = await store.summarize(
+      harness.status({
+        repoId: current.repoId,
+        worktreeId: current.worktreeId,
+      }),
+      harness.causal(current),
+      harness.graph,
+    );
+    expect(baselineSummary.availability).toBe("present");
+    if (baselineSummary.availability === "present") {
+      expect(baselineSummary.latestTransitionEvent).toBeNull();
+    }
 
     await store.noteSemanticTransitionObservation({
       current,
@@ -728,14 +768,36 @@ describe("mcp: persisted local history", () => {
     }
     expect(summary.latestTransitionEvent?.eventKind).toBe("transition");
     expect(summary.latestTransitionEvent?.payload.semanticKind).toBe("merge_phase");
+    expect(summary.latestTransitionEvent?.payload.observationBasis).toBe(
+      "git_transition_evidence",
+    );
     expect(summary.latestTransitionEvent?.payload.transitionKind).toBe("merge");
     expect(summary.latestTransitionEvent?.payload.phase).toBe("completed_or_cleared");
     expect(summary.latestTransitionEvent?.attribution.actor.actorKind).toBe("git");
 
-    expect(harness.warp.findNodes((props) =>
+    const transitionNodes = harness.warp.findNodes((props) =>
       props["entityKind"] === "local_history_event" &&
       props["eventKind"] === "transition"
-    )).toHaveLength(1);
+    );
+    expect(transitionNodes).toHaveLength(1);
+
+    const legacyTransitionNode = transitionNodes[0];
+    expect(legacyTransitionNode).toBeDefined();
+    if (legacyTransitionNode === undefined) {
+      return;
+    }
+    delete legacyTransitionNode[1]["observationBasis"];
+    const legacySummary = await store.summarize(
+      harness.status({
+        repoId: current.repoId,
+        worktreeId: current.worktreeId,
+      }),
+      harness.causal(current),
+      harness.graph,
+    );
+    expect(legacySummary.latestTransitionEvent?.payload.observationBasis).toBe(
+      "legacy_unclassified",
+    );
   });
 
   it("summarizes shared repo posture when another worktree is active on the same checkout", async () => {

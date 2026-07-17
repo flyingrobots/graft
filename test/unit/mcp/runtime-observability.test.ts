@@ -291,7 +291,7 @@ describe("mcp: runtime observability", () => {
     }
   });
 
-  it("surfaces a full-file runtime staged target for staged rename selections", async () => {
+  it("surfaces a staged rename baseline without inventing movement", async () => {
     const repoDir = createTestRepo("graft-runtime-staged-target-rename-");
     try {
       fs.writeFileSync(path.join(repoDir, "app.ts"), "export const ready = true;\n");
@@ -371,16 +371,9 @@ describe("mcp: runtime observability", () => {
         ).toBeGreaterThan(0);
         expect(workspaceOverlayFooting.hookBootstrap.posture).toBe("absent");
         expect(workspaceOverlayFooting.hookBootstrap.supportsCheckoutBoundaries).toBe(false);
-        expect(semanticTransition?.kind).toBe("index_update");
-        expect(semanticTransition?.authority).toBe("repo_snapshot");
-        expect(semanticTransition?.phase ?? null).toBeNull();
-        expect(semanticTransition?.evidence.stagedPaths).toBeGreaterThan(0);
-        expect(semanticTransition?.evidence.totalPaths).toBeGreaterThan(0);
+        expect(semanticTransition).toBeNull();
         expect(recommendedNextAction).toBe("continue_active_causal_workspace");
-        expect(latestTransitionEvent?.eventKind).toBe("transition");
-        expect(latestTransitionEvent?.payload.semanticKind).toBe("index_update");
-        expect(latestTransitionEvent?.payload.transitionKind).toBeNull();
-        expect(latestTransitionEvent?.attribution.actor.actorKind).toBe("unknown");
+        expect(latestTransitionEvent).toBeNull();
         expect(["full_file", "ambiguous"]).toContain(stagedTarget.availability);
         expect(stagedTarget.attribution?.actor.actorKind).toBe("unknown");
         expect(stagedTarget.attribution?.confidence).toBe("unknown");
@@ -402,11 +395,132 @@ describe("mcp: runtime observability", () => {
           expect(persistedLocalHistory.latestStageEvent?.payload.targetId).toBe(
             stagedTarget.target?.targetId,
           );
-          expect(persistedLocalHistory.latestTransitionEvent?.payload.semanticKind).toBe("index_update");
+          expect(persistedLocalHistory.latestTransitionEvent).toBeNull();
         } else {
           expect(persistedLocalHistory.latestStageEvent).toBeNull();
-          expect(persistedLocalHistory.latestTransitionEvent?.payload.semanticKind).toBe("index_update");
+          expect(persistedLocalHistory.latestTransitionEvent).toBeNull();
         }
+      } finally {
+        isolated.cleanup();
+      }
+    } finally {
+      cleanupTestRepo(repoDir);
+    }
+  });
+
+  it("reports a hundreds-path dirty baseline and unchanged repeat before a real snapshot delta", async () => {
+    const repoDir = createTestRepo("graft-runtime-baseline-delta-");
+    try {
+      fs.writeFileSync(path.join(repoDir, "app.ts"), "export const value = 1;\n");
+      git(repoDir, "add -A");
+      git(repoDir, "commit -m init");
+      fs.writeFileSync(path.join(repoDir, "app.ts"), "export const value = 2;\n");
+      fs.writeFileSync(path.join(repoDir, "staged.ts"), "export const staged = true;\n");
+      git(repoDir, "add staged.ts");
+      for (let index = 0; index < 253; index += 1) {
+        fs.writeFileSync(
+          path.join(repoDir, `scratch-${String(index)}.ts`),
+          `export const scratch${String(index)} = true;\n`,
+        );
+      }
+
+      const isolated = createIsolatedServer({
+        projectRoot: repoDir,
+        graftDir: path.join(repoDir, ".graft"),
+      });
+      try {
+        const first = parse(await isolated.server.callTool("causal_status", {}));
+        const repeated = parse(await isolated.server.callTool("causal_status", {}));
+        const firstWorkspace = first["activeCausalWorkspace"] as {
+          workspaceOverlay: {
+            dirty: boolean;
+            stagedPaths: number;
+            changedPaths: number;
+            untrackedPaths: number;
+          } | null;
+          semanticTransition: unknown;
+        } | null;
+        const repeatedWorkspace = repeated["activeCausalWorkspace"] as {
+          workspaceOverlay: { dirty: boolean } | null;
+          semanticTransition: unknown;
+        } | null;
+
+        expect(firstWorkspace?.workspaceOverlay).toEqual(expect.objectContaining({
+          dirty: true,
+          stagedPaths: 1,
+          changedPaths: 1,
+          untrackedPaths: 253,
+        }));
+        expect(firstWorkspace?.semanticTransition).toBeNull();
+        expect(repeatedWorkspace?.workspaceOverlay?.dirty).toBe(true);
+        expect(repeatedWorkspace?.semanticTransition).toBeNull();
+
+        fs.writeFileSync(path.join(repoDir, "scratch-253.ts"), "export const next = true;\n");
+        const changed = parse(await isolated.server.callTool("causal_status", {}));
+        const changedWorkspace = changed["activeCausalWorkspace"] as {
+          semanticTransition: {
+            kind: string;
+            observationBasis: string;
+          } | null;
+        } | null;
+
+        expect(changedWorkspace?.semanticTransition).toEqual(expect.objectContaining({
+          kind: "bulk_transition",
+          observationBasis: "snapshot_delta",
+        }));
+      } finally {
+        isolated.cleanup();
+      }
+    } finally {
+      cleanupTestRepo(repoDir);
+    }
+  });
+
+  it("reports and persists the observed delta when the workspace becomes clean", async () => {
+    const repoDir = createTestRepo("graft-runtime-clean-delta-");
+    try {
+      const original = "export const value = 1;\n";
+      fs.writeFileSync(path.join(repoDir, "app.ts"), original);
+      git(repoDir, "add -A");
+      git(repoDir, "commit -m init");
+
+      const isolated = createIsolatedServer({
+        projectRoot: repoDir,
+        graftDir: path.join(repoDir, ".graft"),
+      });
+      try {
+        await isolated.server.callTool("causal_status", {});
+        fs.writeFileSync(
+          path.join(repoDir, "app.ts"),
+          "export const value = 2;\nexport const changed = true;\n",
+        );
+        await isolated.server.callTool("causal_status", {});
+        fs.writeFileSync(path.join(repoDir, "app.ts"), original);
+
+        const cleaned = parse(await isolated.server.callTool("causal_status", {}));
+        const activeCausalWorkspace = cleaned["activeCausalWorkspace"] as {
+          workspaceOverlay: unknown;
+          semanticTransition: {
+            kind: string;
+            observationBasis: string;
+            evidence: { totalPaths: number };
+          } | null;
+        } | null;
+        const persistedLocalHistory = cleaned["persistedLocalHistory"] as {
+          latestTransitionEvent: {
+            payload: { observationBasis: string };
+          } | null;
+        };
+
+        expect(activeCausalWorkspace?.workspaceOverlay).toBeNull();
+        expect(activeCausalWorkspace?.semanticTransition).toEqual(expect.objectContaining({
+          kind: "unknown",
+          observationBasis: "snapshot_delta",
+          evidence: expect.objectContaining({ totalPaths: 0 }),
+        }));
+        expect(persistedLocalHistory.latestTransitionEvent?.payload.observationBasis).toBe(
+          "snapshot_delta",
+        );
       } finally {
         isolated.cleanup();
       }
@@ -427,26 +541,36 @@ describe("mcp: runtime observability", () => {
       git(repoDir, "add -A");
       git(repoDir, "commit -m init");
 
-      for (let index = 0; index < 8; index += 1) {
-        fs.writeFileSync(
-          path.join(repoDir, `file-${String(index)}.ts`),
-          `export const value${String(index)} = ${String(index + 1)};\n`,
-        );
-      }
-
       const isolated = createIsolatedServer({
         projectRoot: repoDir,
         graftDir: path.join(repoDir, ".graft"),
       });
       try {
+        await isolated.server.callTool("causal_status", {});
+        for (let index = 0; index < 8; index += 1) {
+          fs.writeFileSync(
+            path.join(repoDir, `file-${String(index)}.ts`),
+            `export const value${String(index)} = ${String(index + 1)};\n`,
+          );
+        }
+
         const status = parse(await isolated.server.callTool("causal_status", {}));
         const activeCausalWorkspace = status["activeCausalWorkspace"] as {
-          semanticTransition: { kind: string; authority: string; phase: string | null; summary: string } | null;
+          semanticTransition: {
+            kind: string;
+            authority: string;
+            observationBasis: string;
+            phase: string | null;
+            evidence: { totalPaths: number; changedPaths: number };
+          } | null;
         } | null;
 
         expect(activeCausalWorkspace?.semanticTransition?.kind).toBe("bulk_transition");
         expect(activeCausalWorkspace?.semanticTransition?.authority).toBe("repo_snapshot");
-        expect(activeCausalWorkspace?.semanticTransition?.summary).toContain("Bulk edit sweep spans");
+        expect(activeCausalWorkspace?.semanticTransition?.observationBasis).toBe("snapshot_delta");
+        expect(activeCausalWorkspace?.semanticTransition?.evidence).toEqual(
+          expect.objectContaining({ totalPaths: 8, changedPaths: 8 }),
+        );
         expect(status["nextAction"]).toBe("inspect_bulk_transition_scope_before_continuing");
       } finally {
         isolated.cleanup();
@@ -533,27 +657,37 @@ describe("mcp: runtime observability", () => {
       git(repoDir, "add -A");
       git(repoDir, "commit -m init");
 
-      for (let index = 0; index < 8; index += 1) {
-        fs.writeFileSync(
-          path.join(repoDir, `file-${String(index)}.ts`),
-          `export const value${String(index)} = ${String(index + 10)};\n`,
-        );
-      }
-      git(repoDir, "add -A");
-
       const isolated = createIsolatedServer({
         projectRoot: repoDir,
         graftDir: path.join(repoDir, ".graft"),
       });
       try {
+        await isolated.server.callTool("causal_status", {});
+        for (let index = 0; index < 8; index += 1) {
+          fs.writeFileSync(
+            path.join(repoDir, `file-${String(index)}.ts`),
+            `export const value${String(index)} = ${String(index + 10)};\n`,
+          );
+        }
+        git(repoDir, "add -A");
+
         const status = parse(await isolated.server.callTool("causal_status", {}));
         const activeCausalWorkspace = status["activeCausalWorkspace"] as {
-          semanticTransition: { kind: string; authority: string; phase: string | null; summary: string } | null;
+          semanticTransition: {
+            kind: string;
+            authority: string;
+            observationBasis: string;
+            phase: string | null;
+            evidence: { totalPaths: number; stagedPaths: number };
+          } | null;
         } | null;
 
         expect(activeCausalWorkspace?.semanticTransition?.kind).toBe("bulk_transition");
         expect(activeCausalWorkspace?.semanticTransition?.authority).toBe("repo_snapshot");
-        expect(activeCausalWorkspace?.semanticTransition?.summary).toContain("Bulk staging spans");
+        expect(activeCausalWorkspace?.semanticTransition?.observationBasis).toBe("snapshot_delta");
+        expect(activeCausalWorkspace?.semanticTransition?.evidence).toEqual(
+          expect.objectContaining({ totalPaths: 8, stagedPaths: 8 }),
+        );
         expect(status["nextAction"]).toBe("inspect_bulk_transition_scope_before_continuing");
       } finally {
         isolated.cleanup();
@@ -590,17 +724,22 @@ describe("mcp: runtime observability", () => {
 
         const status = parse(await isolated.server.callTool("causal_status", {}));
         const activeCausalWorkspace = status["activeCausalWorkspace"] as {
-          semanticTransition: { kind: string; authority: string; phase: string | null } | null;
+          semanticTransition: {
+            kind: string;
+            authority: string;
+            observationBasis: string;
+            phase: string | null;
+          } | null;
         } | null;
         const doctor = parse(await isolated.server.callTool("doctor", {}));
 
         expect(activeCausalWorkspace?.semanticTransition?.kind).toBe("merge_phase");
         expect(activeCausalWorkspace?.semanticTransition?.authority).toBe("authoritative_git_state");
-        expect(["conflicted", "resolved_waiting_commit"]).toContain(
-          activeCausalWorkspace?.semanticTransition?.phase ?? null,
-        );
+        expect(activeCausalWorkspace?.semanticTransition?.observationBasis).toBe("current_state");
+        expect(activeCausalWorkspace?.semanticTransition?.phase).toBe("conflicted");
         expect(status["nextAction"]).toBe("complete_merge_phase_before_continuing");
         expect(doctor["recommendedNextAction"]).toBe("complete_merge_phase_before_continuing");
+        expect(doctor["latestTransitionEvent"]).toBeNull();
       } finally {
         isolated.cleanup();
       }
@@ -638,17 +777,30 @@ describe("mcp: runtime observability", () => {
 
         const status = parse(await isolated.server.callTool("causal_status", {}));
         const activeCausalWorkspace = status["activeCausalWorkspace"] as {
-          semanticTransition: { kind: string; authority: string; phase: string | null } | null;
+          semanticTransition: {
+            kind: string;
+            authority: string;
+            observationBasis: string;
+            phase: string | null;
+          } | null;
         } | null;
         const doctor = parse(await isolated.server.callTool("doctor", {}));
 
         expect(activeCausalWorkspace?.semanticTransition?.kind).toBe("rebase_phase");
         expect(activeCausalWorkspace?.semanticTransition?.authority).toBe("authoritative_git_state");
-        expect(["conflicted", "continued", "started"]).toContain(
-          activeCausalWorkspace?.semanticTransition?.phase ?? null,
+        expect(activeCausalWorkspace?.semanticTransition?.observationBasis).toBe(
+          "git_transition_evidence",
         );
+        expect(activeCausalWorkspace?.semanticTransition?.phase).toBe("conflicted");
         expect(status["nextAction"]).toBe("continue_rebase_phase_before_continuing");
         expect(doctor["recommendedNextAction"]).toBe("continue_rebase_phase_before_continuing");
+        expect(doctor["latestTransitionEvent"]).toEqual(expect.objectContaining({
+          eventKind: "transition",
+          payload: expect.objectContaining({
+            semanticKind: "rebase_phase",
+            observationBasis: "git_transition_evidence",
+          }),
+        }));
       } finally {
         isolated.cleanup();
       }

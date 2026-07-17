@@ -531,6 +531,11 @@ const repoSemanticTransitionSchema = z.object({
     "authoritative_git_state",
     "repo_snapshot",
   ]),
+  observationBasis: z.enum([
+    "current_state",
+    "snapshot_delta",
+    "git_transition_evidence",
+  ]),
   phase: z.enum([
     "started",
     "conflicted",

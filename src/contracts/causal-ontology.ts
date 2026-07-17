@@ -328,6 +328,20 @@ export const SEMANTIC_TRANSITION_AUTHORITIES = [
 export const semanticTransitionAuthoritySchema = z.enum(SEMANTIC_TRANSITION_AUTHORITIES);
 export type SemanticTransitionAuthority = z.infer<typeof semanticTransitionAuthoritySchema>;
 
+export const SEMANTIC_TRANSITION_OBSERVATION_BASES = [
+  "current_state",
+  "snapshot_delta",
+  "git_transition_evidence",
+  "legacy_unclassified",
+] as const;
+
+export const semanticTransitionObservationBasisSchema = z.enum(
+  SEMANTIC_TRANSITION_OBSERVATION_BASES,
+);
+export type SemanticTransitionObservationBasis = z.infer<
+  typeof semanticTransitionObservationBasisSchema
+>;
+
 export const REPO_CONCURRENCY_POSTURES = [
   "exclusive",
   "shared_repo_only",
@@ -469,6 +483,9 @@ const commitEventPayloadSchema = z.object({
 const transitionEventPayloadSchema = z.object({
   semanticKind: semanticTransitionKindSchema,
   authority: semanticTransitionAuthoritySchema,
+  // Transition events written before observation basis existed cannot be
+  // upgraded honestly to either endpoint state or observed movement.
+  observationBasis: semanticTransitionObservationBasisSchema.default("legacy_unclassified"),
   phase: semanticTransitionPhaseSchema.nullable(),
   summary: z.string().min(1),
   transitionKind: transitionKindSchema.nullable(),

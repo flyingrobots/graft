@@ -153,9 +153,17 @@ describe("mcp: layered worldline model", { timeout: 15000 }, () => {
           fromRef?: string;
           toRef?: string;
         };
+        const semanticTransition = second["semanticTransition"] as {
+          kind?: string;
+          observationBasis?: string;
+        } | null;
         expect(transition.kind).toBe("checkout");
         expect(transition.fromRef).toBe("feature");
         expect(transition.toRef).toBe(baseBranch);
+        expect(semanticTransition).toEqual(expect.objectContaining({
+          kind: "unknown",
+          observationBasis: "git_transition_evidence",
+        }));
       } finally {
         cleanupTestRepo(tmpDir);
       }
@@ -321,8 +329,16 @@ describe("mcp: layered worldline model", { timeout: 15000 }, () => {
 
         const doctor = parse(await server.callTool("doctor", {}));
         const transition = doctor["lastTransition"] as { kind?: string } | undefined;
+        const semanticTransition = doctor["semanticTransition"] as {
+          kind?: string;
+          observationBasis?: string;
+        } | null;
         expect(transition).toBeDefined();
         expect(transition?.kind).toBe("reset");
+        expect(semanticTransition).toEqual(expect.objectContaining({
+          kind: "unknown",
+          observationBasis: "git_transition_evidence",
+        }));
 
         const historical = parse(await server.callTool("code_show", {
           symbol: "keep",
@@ -365,6 +381,7 @@ describe("mcp: layered worldline model", { timeout: 15000 }, () => {
           kind?: string;
           phase?: string | null;
           authority?: string;
+          observationBasis?: string;
         } | null;
         expect(transition).toBeDefined();
         expect(transition?.kind).toBe("merge");
@@ -373,6 +390,7 @@ describe("mcp: layered worldline model", { timeout: 15000 }, () => {
         expect(semanticTransition?.kind).toBe("merge_phase");
         expect(semanticTransition?.phase).toBe("completed_or_cleared");
         expect(semanticTransition?.authority).toBe("repo_snapshot");
+        expect(semanticTransition?.observationBasis).toBe("git_transition_evidence");
       } finally {
         cleanupTestRepo(tmpDir);
       }
@@ -406,12 +424,14 @@ describe("mcp: layered worldline model", { timeout: 15000 }, () => {
           kind?: string;
           phase?: string | null;
           authority?: string;
+          observationBasis?: string;
         } | null;
         expect(transition).toBeDefined();
         expect(transition?.kind).toBe("rebase");
         expect(semanticTransition?.kind).toBe("rebase_phase");
         expect(semanticTransition?.phase).toBe("completed_or_cleared");
         expect(semanticTransition?.authority).toBe("repo_snapshot");
+        expect(semanticTransition?.observationBasis).toBe("git_transition_evidence");
 
         const refView = parse(await server.callTool("graft_since", {
           base: baseBranch,

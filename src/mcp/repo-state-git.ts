@@ -81,8 +81,27 @@ function countStatusLines(statusLines: readonly string[]): {
 }
 
 async function countUnmergedPaths(gitClient: GitClient, cwd: string): Promise<number> {
-  const paths = await readGitLines(gitClient, ["diff", "--name-only", "--diff-filter=U", "--"], cwd);
-  return new Set(paths.filter((value) => value.length > 0)).size;
+  const entries = await readGitLines(gitClient, ["ls-files", "--unmerged", "--"], cwd);
+  return new Set(
+    entries
+      .map((entry) => entry.split("\t").at(-1) ?? "")
+      .filter((value) => value.length > 0),
+  ).size;
+}
+
+function verifiedWorktreeStatusLines(
+  statusLines: readonly string[],
+  numstatLines: readonly string[],
+): readonly string[] {
+  const verifiedPaths = new Set(
+    numstatLines
+      .map((line) => line.split("\t").at(-1) ?? "")
+      .filter((value) => value.length > 0),
+  );
+  return statusLines.filter((line) => {
+    const filePath = line.split("\t").at(-1) ?? "";
+    return verifiedPaths.has(filePath);
+  });
 }
 
 function mergeStatusLines(
@@ -221,9 +240,22 @@ export async function isAncestor(
 
 export async function captureSnapshot(cwd: string, fs: FileSystem, gitClient: GitClient): Promise<RepoSnapshot> {
   const headSha = await readGit(gitClient, ["rev-parse", "HEAD"], cwd);
+  const worktreeStatusLines = await readGitLines(
+    gitClient,
+    ["diff-files", "--find-renames", "--name-status", "--"],
+    cwd,
+  );
+  // `diff-files --name-status` can report a false dirty entry when a file is
+  // modified and restored inside Git's racy-clean timestamp window because it
+  // trusts cached index stat data. Numstat forces content inspection and still
+  // includes content, deletion, type, binary, submodule, and mode-only changes.
+  const verifiedWorktreeLines = verifiedWorktreeStatusLines(
+    worktreeStatusLines,
+    await readGitLines(gitClient, ["diff-files", "--numstat", "--"], cwd),
+  );
   const statusLines = mergeStatusLines(
     headSha === null ? [] : await readGitLines(gitClient, ["diff-index", "--cached", "--find-renames", "--name-status", headSha, "--"], cwd),
-    await readGitLines(gitClient, ["diff-files", "--find-renames", "--name-status", "--"], cwd),
+    verifiedWorktreeLines,
     await readGitLines(gitClient, ["ls-files", "--others", "--exclude-standard"], cwd),
   );
   const counts = countStatusLines(statusLines);

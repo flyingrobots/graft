@@ -114,7 +114,9 @@ export function buildSemanticTransitionSummary(input: {
         case "resolved_waiting_commit":
           return "Rebase conflicts are cleared and the rebase is waiting for the next step.";
         default:
-          return "Rebase state is active.";
+          return evidence.rebaseStep !== null && evidence.rebaseTotalSteps !== null
+            ? `Rebase is active at step ${String(evidence.rebaseStep)} of ${String(evidence.rebaseTotalSteps)}.`
+            : "Rebase state is active.";
       }
     case "conflict_resolution":
       return buildConflictResolutionSummary(evidence, previousUnmergedPaths);

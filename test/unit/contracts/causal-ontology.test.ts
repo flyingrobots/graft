@@ -244,6 +244,7 @@ describe("contracts: causal ontology", () => {
       payload: {
         semanticKind: "merge_phase",
         authority: "authoritative_git_state",
+        observationBasis: "git_transition_evidence",
         phase: "conflicted",
         summary: "Merge is in conflict across 2 path(s).",
         transitionKind: "merge",
@@ -256,6 +257,23 @@ describe("contracts: causal ontology", () => {
     expect(readEvent.eventKind).toBe("read");
     expect(stageEvent.eventKind).toBe("stage");
     expect(transitionEvent.eventKind).toBe("transition");
+    const legacyPayload: Record<string, unknown> = { ...transitionEvent.payload };
+    delete legacyPayload["observationBasis"];
+    const legacyTransitionEvent = causalEventSchema.parse(JSON.parse(JSON.stringify({
+      ...transitionEvent,
+      payload: legacyPayload,
+    })));
+    expect(legacyTransitionEvent.eventKind).toBe("transition");
+    if (legacyTransitionEvent.eventKind === "transition") {
+      expect(legacyTransitionEvent.payload.observationBasis).toBe("legacy_unclassified");
+    }
+    expect(() => causalEventSchema.parse({
+      ...transitionEvent,
+      payload: {
+        ...transitionEvent.payload,
+        observationBasis: "unsupported_basis",
+      },
+    })).toThrow();
   });
 
   it("keeps attribution confidence bounded by evidence strength", () => {

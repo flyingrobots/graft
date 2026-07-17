@@ -88,6 +88,23 @@ Graft may expose bounded, authorization-filtered repo facts for those consumers,
 but it must not absorb METHOD-specific workflow state. This follows the product
 boundary in `docs/BEARING.md`.
 
+## Observation law
+
+A snapshot supports an endpoint claim; a semantic transition is a stronger
+claim about evidence connecting endpoints. Equal snapshots therefore support
+neither a movement claim nor a claim that no movement occurred. In this
+contract, `semanticTransition: null` means that the available evidence supports
+no transition claim. Independent Git transition evidence may still support a
+transition when the visible endpoint projection is unchanged.
+
+This is why observation basis is part of the structured contract and durable
+transition identity rather than an inference from summary prose.
+
+Legacy persisted transition records that predate this field decode as
+`legacy_unclassified`. That compatibility posture preserves the record without
+inventing either current-state authority or an observed delta. It is valid only
+for historical event decoding and is not a live semantic-transition basis.
+
 ## Acceptance criteria
 
 ### Slice 1: baseline observation truth
@@ -127,6 +144,12 @@ boundary in `docs/BEARING.md`.
   Every MCP output schema advances from version `1.0.0` to `2.0.0`; CLI output
   schema versions remain unchanged because CLI peers explicitly request full
   receipts.
+
+- Slice 1 adds the required live `observationBasis` field while this branch
+  still advertises the version-1 MCP shape. It is therefore an unreleased
+  intermediate commit and must not merge or release independently. Slice 2's
+  version-2 schema transition is the public compatibility boundary for both
+  changes.
 - A no-argument MCP call receives the version-2 compact receipt. Existing MCP
   clients that require cumulative receipt fields must update to request
   `receipt: "full"` and validate the version-2 full variant.
@@ -179,7 +202,7 @@ boundary in `docs/BEARING.md`.
 
 ### Human
 
-- [ ] Does opening a repository with hundreds of pre-existing untracked files
+- [x] Does opening a repository with hundreds of pre-existing untracked files
       describe a baseline rather than invented movement?
 - [ ] Can I request the old full receipt and full diagnostic views explicitly?
 - [ ] Is the default doctor result small enough to use at every session start?
@@ -239,6 +262,35 @@ software behavior:
 Relevant changed-surface validation is `pnpm lint`, `pnpm typecheck`, targeted
 unit/playback tests, and the full test command required by the resulting runtime
 surface. No timing assertion may depend on ambient machine speed.
+
+## Slice playback witnesses
+
+### Slice 1: baseline observation truth
+
+- A runtime temp repo opens with one staged path, one unstaged path, and 253
+  pre-existing untracked paths. Its first and repeated observations preserve
+  those workspace facts while returning `semanticTransition: null`; adding the
+  254th untracked path produces a `snapshot_delta`.
+- Restoring a dirty file to its committed bytes produces and persists an
+  `unknown` `snapshot_delta` with zero remaining dirty paths, including inside
+  Git's racy-clean timestamp window.
+- First and unchanged merge, rebase, and conflict postures remain
+  `current_state`. Conflict identity changes produce a delta, while unrelated
+  workspace churn does not impersonate conflict progress.
+- Fresh checkout and reset evidence remain inspectable as
+  `git_transition_evidence` even when the workspace projection is unchanged.
+- New `current_state` observations are not persisted. Legacy graph records
+  without a basis decode as `legacy_unclassified`, and observation basis
+  participates in transition event identity.
+- The expanded affected constellation passes 11 files and 121 tests, including
+  repo-local runtime, production-adapter daemon workers, strict output schemas,
+  causal ontology, layered worldlines, and durable graph history. Lint,
+  typecheck, and diff hygiene are separate closure gates.
+
+The final full-suite witness must be run from the exact Slice 1 commit in a
+clean temporary worktree. The operator's unrelated untracked cool-idea card is
+intentionally excluded from the slice and changes the generated backlog DAG if
+it is copied into the isolated Docker context.
 
 ## Slice and commit plan
 

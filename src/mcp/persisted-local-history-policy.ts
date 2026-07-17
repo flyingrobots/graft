@@ -462,6 +462,7 @@ export function createTransitionEvent(input: {
         workspaceOverlayId: input.current.workspaceOverlayId,
         semanticKind: semanticTransition.kind,
         authority: semanticTransition.authority,
+        observationBasis: semanticTransition.observationBasis,
         phase: semanticTransition.phase,
         summary: semanticTransition.summary,
         transitionKind: transition?.kind ?? null,
@@ -490,6 +491,7 @@ export function createTransitionEvent(input: {
     payload: {
       semanticKind: semanticTransition.kind,
       authority: semanticTransition.authority,
+      observationBasis: semanticTransition.observationBasis,
       phase: semanticTransition.phase,
       summary: semanticTransition.summary,
       transitionKind: transition?.kind ?? null,

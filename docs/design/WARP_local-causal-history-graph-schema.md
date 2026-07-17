@@ -482,12 +482,21 @@ Event kinds:
 `transition` event required subtype properties:
 - `semanticKind`
 - `authority`
+- `observationBasis`
 - `summary`
 - `phase?`
 - `transitionKind?`
 - `fromRef?`
 - `toRef?`
 - `createdCheckoutEpochId?`
+
+Only new observations based on `snapshot_delta` or
+`git_transition_evidence` become durable transition events. A live
+`current_state` signal describes an authoritative endpoint posture and is not
+persisted as historical movement. Pre-basis transition records decode as
+`legacy_unclassified`: they remain inspectable without being silently upgraded
+to either current-state authority or observed movement. New writers never emit
+that compatibility-only basis.
 
 `handoff` event required subtype properties:
 - `handoffKind`
@@ -643,6 +652,7 @@ Graph-backed mapping:
 - Becomes:
   - `semanticKind`
   - `authority`
+  - `observationBasis`
   - `phase`
   - `transitionKind`
   - `fromRef`

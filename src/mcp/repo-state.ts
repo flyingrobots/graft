@@ -11,6 +11,7 @@ export type {
   RepoTransitionKind,
   RepoSemanticTransitionKind,
   RepoSemanticTransitionAuthority,
+  RepoSemanticTransitionObservationBasis,
   RepoSemanticTransitionPhase,
   RepoTransition,
   RepoSemanticTransition,

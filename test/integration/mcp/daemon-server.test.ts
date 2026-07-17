@@ -311,15 +311,16 @@ describe("mcp: daemon transport and lifecycle", () => {
     expect(daemonStatus.workers.completedTasks).toBeGreaterThanOrEqual(2);
   });
 
-  it("offloads dirty precision lookups through child-process workers", async () => {
+  it("offloads dirty precision lookups and recognizes restored worktree bytes", async () => {
     const repoDir = createTestRepo("graft-daemon-precision-live-");
     repos.push(repoDir);
-    fs.writeFileSync(path.join(repoDir, "app.ts"), [
+    const committedSource = [
       "export function greet(name: string): string {",
       "  return `hello ${name}`;",
       "}",
       "",
-    ].join("\n"));
+    ].join("\n");
+    fs.writeFileSync(path.join(repoDir, "app.ts"), committedSource);
     git(repoDir, "add -A");
     git(repoDir, "commit -m init");
     fs.writeFileSync(path.join(repoDir, "app.ts"), [
@@ -379,12 +380,25 @@ describe("mcp: daemon transport and lifecycle", () => {
     expect(show.layer).toBe("workspace_overlay");
     expect(show.content).toContain("return `hey ${name}`;");
 
+    fs.writeFileSync(path.join(repoDir, "app.ts"), committedSource);
+    const restored = await callTool<{ total: number; layer: string }>(
+      socketPath,
+      sessionId,
+      "code_find",
+      { query: "greet" },
+      44,
+    );
+    expect(restored).toMatchObject({
+      total: 1,
+      layer: "ref_view",
+    });
+
     const daemonStatus = await callTool<{ workers: { completedTasks: number; mode: string } }>(
       socketPath,
       sessionId,
       "daemon_status",
       {},
-      44,
+      45,
     );
     expect(daemonStatus.workers.mode).toBe("child_processes");
     expect(daemonStatus.workers.completedTasks).toBeGreaterThanOrEqual(2);

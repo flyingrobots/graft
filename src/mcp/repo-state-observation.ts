@@ -55,6 +55,50 @@ function buildSemanticTransitionEvidence(
   };
 }
 
+function statusLinesMatch(
+  previous: readonly string[],
+  current: readonly string[],
+): boolean {
+  return previous.length === current.length
+    && previous.every((line, index) => line === current[index]);
+}
+
+const UNMERGED_STATUS_CODES = new Set([
+  "DD",
+  "AU",
+  "UD",
+  "UA",
+  "DU",
+  "AA",
+  "UU",
+  // Graft merges `diff-index` and `diff-files` plumbing rows. An unmerged
+  // index row (`U`) plus a modified worktree row (`M`) therefore appears as
+  // `UM`, even though porcelain status would normally render `UU`.
+  "UM",
+]);
+
+function unmergedStatusLines(snapshot: RepoSnapshot): readonly string[] {
+  return snapshot.statusLines.filter((line) => UNMERGED_STATUS_CODES.has(line.slice(0, 2)));
+}
+
+function mergeStateChanged(previous: RepoSnapshot | null, current: RepoSnapshot): boolean {
+  return previous !== null && (
+    previous.mergeInProgress !== current.mergeInProgress
+    || previous.unmergedPaths !== current.unmergedPaths
+    || !statusLinesMatch(unmergedStatusLines(previous), unmergedStatusLines(current))
+  );
+}
+
+function rebaseStateChanged(previous: RepoSnapshot | null, current: RepoSnapshot): boolean {
+  return previous !== null && (
+    previous.rebase.inProgress !== current.rebase.inProgress
+    || previous.rebase.step !== current.rebase.step
+    || previous.rebase.total !== current.rebase.total
+    || previous.unmergedPaths !== current.unmergedPaths
+    || !statusLinesMatch(unmergedStatusLines(previous), unmergedStatusLines(current))
+  );
+}
+
 export function buildSemanticTransition(
   previous: RepoSnapshot | null,
   current: RepoSnapshot,
@@ -63,9 +107,13 @@ export function buildSemanticTransition(
   const evidence = buildSemanticTransitionEvidence(current, lastTransition);
 
   if (current.mergeInProgress) {
+    const observationBasis = lastTransition?.kind === "merge"
+      ? "git_transition_evidence"
+      : (mergeStateChanged(previous, current) ? "snapshot_delta" : "current_state");
     return {
       kind: "merge_phase",
       authority: "authoritative_git_state",
+      observationBasis,
       phase: current.unmergedPaths > 0 ? "conflicted" : "resolved_waiting_commit",
       summary: buildSemanticTransitionSummary({
         kind: "merge_phase",
@@ -77,12 +125,19 @@ export function buildSemanticTransition(
   }
 
   if (current.rebase.inProgress) {
-    const phase: RepoSemanticTransitionPhase = current.unmergedPaths > 0
+    const stateChanged = rebaseStateChanged(previous, current);
+    const observationBasis = lastTransition?.kind === "rebase"
+      ? "git_transition_evidence"
+      : (stateChanged ? "snapshot_delta" : "current_state");
+    const phase: RepoSemanticTransitionPhase | null = current.unmergedPaths > 0
       ? "conflicted"
-      : ((current.rebase.step ?? 1) > 1 ? "continued" : "started");
+      : (observationBasis === "current_state"
+          ? null
+          : (previous?.rebase.inProgress === true ? "continued" : "started"));
     return {
       kind: "rebase_phase",
       authority: "authoritative_git_state",
+      observationBasis,
       phase,
       summary: buildSemanticTransitionSummary({
         kind: "rebase_phase",
@@ -93,11 +148,17 @@ export function buildSemanticTransition(
     };
   }
 
-  const unmergedChanged = previous !== null && previous.unmergedPaths !== current.unmergedPaths;
-  if (current.unmergedPaths > 0 || unmergedChanged) {
+  const conflictStateChanged = previous !== null
+    && (previous.unmergedPaths > 0 || current.unmergedPaths > 0)
+    && (
+      previous.unmergedPaths !== current.unmergedPaths
+      || !statusLinesMatch(unmergedStatusLines(previous), unmergedStatusLines(current))
+    );
+  if (current.unmergedPaths > 0 || conflictStateChanged) {
     return {
       kind: "conflict_resolution",
       authority: "authoritative_git_state",
+      observationBasis: conflictStateChanged ? "snapshot_delta" : "current_state",
       phase: null,
       summary: buildSemanticTransitionSummary({
         kind: "conflict_resolution",
@@ -113,6 +174,7 @@ export function buildSemanticTransition(
     return {
       kind: "merge_phase",
       authority: "repo_snapshot",
+      observationBasis: "git_transition_evidence",
       phase: "completed_or_cleared",
       summary: buildSemanticTransitionSummary({
         kind: "merge_phase",
@@ -127,6 +189,7 @@ export function buildSemanticTransition(
     return {
       kind: "rebase_phase",
       authority: "repo_snapshot",
+      observationBasis: "git_transition_evidence",
       phase: "completed_or_cleared",
       summary: buildSemanticTransitionSummary({
         kind: "rebase_phase",
@@ -137,10 +200,32 @@ export function buildSemanticTransition(
     };
   }
 
+  if (lastTransition !== null) {
+    return {
+      kind: "unknown",
+      authority: "repo_snapshot",
+      observationBasis: "git_transition_evidence",
+      phase: null,
+      summary: buildSemanticTransitionSummary({
+        kind: "unknown",
+        evidence,
+        phase: null,
+      }),
+      evidence,
+    };
+  }
+
+  // Null means this observation supports no transition claim. It does not prove
+  // that no unobserved transition occurred between equal endpoint snapshots.
+  if (previous === null || statusLinesMatch(previous.statusLines, current.statusLines)) {
+    return null;
+  }
+
   if (current.statusLines.length >= 8) {
     return {
       kind: "bulk_transition",
       authority: "repo_snapshot",
+      observationBasis: "snapshot_delta",
       phase: null,
       summary: buildSemanticTransitionSummary({
         kind: "bulk_transition",
@@ -155,6 +240,7 @@ export function buildSemanticTransition(
     return {
       kind: "index_update",
       authority: "repo_snapshot",
+      observationBasis: "snapshot_delta",
       phase: null,
       summary: buildSemanticTransitionSummary({
         kind: "index_update",
@@ -165,21 +251,18 @@ export function buildSemanticTransition(
     };
   }
 
-  if (current.statusLines.length > 0) {
-    return {
+  return {
+    kind: "unknown",
+    authority: "repo_snapshot",
+    observationBasis: "snapshot_delta",
+    phase: null,
+    summary: buildSemanticTransitionSummary({
       kind: "unknown",
-      authority: "repo_snapshot",
-      phase: null,
-      summary: buildSemanticTransitionSummary({
-        kind: "unknown",
-        evidence,
-        phase: null,
-      }),
       evidence,
-    };
-  }
-
-  return null;
+      phase: null,
+    }),
+    evidence,
+  };
 }
 
 export function buildObservation(

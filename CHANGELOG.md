@@ -9,6 +9,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ### Changed
 
+- **Repository observation truth**: ordinary dirty state is now treated as an
+  initial or unchanged workspace baseline rather than invented movement.
+  Semantic transition output distinguishes authoritative current state,
+  observed snapshot deltas, and direct Git transition evidence; live merge,
+  rebase, and conflict posture remains visible without persisting current state
+  as a historical transition event. Pre-basis historical events remain
+  inspectable as `legacy_unclassified` rather than being upgraded to movement.
+  Working-tree snapshots also verify stat-derived `diff-files` candidates
+  against content-derived evidence, avoiding false dirty state when bytes are
+  restored inside Git's racy-clean timestamp window.
 - **CI test feedback**: pull request CI now keeps the release-grade
   Docker-isolated full test suite on the Node 22 lane while making the Node 20
   lane an explicit host-side package compatibility smoke, avoiding a duplicate
