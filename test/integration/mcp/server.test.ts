@@ -7,6 +7,10 @@ import {
   type McpToolName,
 } from "../../../src/contracts/output-schemas.js";
 import { parseJsonObject } from "../../../src/contracts/json-object.js";
+import {
+  MCP_CAPABILITY_FAMILY_DETAIL_MAX_BYTES,
+  MCP_CAPABILITY_SUMMARY_MAX_BYTES,
+} from "../../../src/contracts/mcp-capability-discovery.js";
 import * as fs from "node:fs";
 import * as path from "node:path";
 import { extractText, harnessPath } from "../../helpers/mcp.js";
@@ -181,6 +185,55 @@ describe("integration: MCP server over stdio", { timeout: 60_000 }, () => {
       const detail = tool?.inputSchema.properties?.["detail"] as { enum?: string[] } | undefined;
       expect(detail?.enum).toEqual(["summary", "full"]);
     }
+  });
+
+  it("discovers bounded repo-local workflow families", async () => {
+    const summaryResult = await client.callTool({
+      name: "capabilities",
+      arguments: {},
+    });
+    const summaryText = extractText(summaryResult);
+    const summary = structuredPayload(summaryResult, "capabilities");
+    expect(Buffer.byteLength(summaryText, "utf8")).toBeLessThanOrEqual(
+      MCP_CAPABILITY_SUMMARY_MAX_BYTES,
+    );
+    expect(summary).toMatchObject({
+      projection: "summary",
+      reason: "CAPABILITY_SUMMARY",
+      discoveryBasis: "registered_surface",
+      sessionMode: "repo_local",
+      registeredToolCount: TOOL_REGISTRY.length,
+    });
+    expect((summary["families"] as { family: string }[]).map((entry) => entry.family)).toEqual([
+      "session",
+      "workspace",
+      "read",
+      "code",
+      "history",
+      "review",
+      "diagnostic",
+    ]);
+
+    const detailResult = await client.callTool({
+      name: "capabilities",
+      arguments: { family: "workspace" },
+    });
+    const detailText = extractText(detailResult);
+    const detail = structuredPayload(detailResult, "capabilities");
+    expect(Buffer.byteLength(detailText, "utf8")).toBeLessThanOrEqual(
+      MCP_CAPABILITY_FAMILY_DETAIL_MAX_BYTES,
+    );
+    expect(detail).toMatchObject({
+      projection: "family_detail",
+      reason: "CAPABILITY_FAMILY_DETAIL",
+      discoveryBasis: "registered_surface",
+      sessionMode: "repo_local",
+      family: "workspace",
+      openingCall: "workspace_status",
+    });
+    const toolNames = (detail["tools"] as { name: string }[]).map((entry) => entry.name);
+    expect(toolNames).toContain("workspace_open");
+    expect(toolNames).not.toContain("daemon_status");
   });
 
   it("safe_read returns content for small files", { timeout: 60_000 }, async () => {

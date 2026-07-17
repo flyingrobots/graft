@@ -1,5 +1,6 @@
 import type { ToolDefinition } from "./context.js";
 
+import { capabilitiesTool } from "./tools/capabilities.js";
 import { safeReadTool } from "./tools/safe-read.js";
 import { graftEditTool } from "./tools/graft-edit.js";
 import { fileOutlineTool } from "./tools/file-outline.js";
@@ -48,6 +49,7 @@ import { workspaceStatusTool } from "./tools/workspace-status.js";
 import { workspaceRebindTool } from "./tools/workspace-rebind.js";
 
 export const TOOL_REGISTRY: readonly ToolDefinition[] = [
+  capabilitiesTool,
   safeReadTool,
   graftEditTool,
   fileOutlineTool,

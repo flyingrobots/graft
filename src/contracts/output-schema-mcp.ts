@@ -9,6 +9,7 @@ import {
   mcpFragmentSchemas,
 } from "./output-schema-fragments.js";
 import type { McpToolName } from "./capabilities.js";
+import { mcpCapabilityDiscoveryBodySchema } from "./mcp-capability-discovery.js";
 import { causalSurfaceNextActionSchema } from "./causal-surface-next-action.js";
 import { diagnosticEvidenceGapSchema } from "./diagnostic-evidence-gap.js";
 
@@ -132,6 +133,7 @@ export const doctorFullSchema = z.object({
 }).strict();
 
 export const mcpOutputBodySchemas = {
+  capabilities: mcpCapabilityDiscoveryBodySchema,
   safe_read: z.object({
     path: z.string(),
     projection: z.enum(["content", "outline", "refused", "error", "cache_hit", "diff"]),

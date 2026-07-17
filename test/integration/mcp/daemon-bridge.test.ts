@@ -7,6 +7,7 @@ import * as path from "node:path";
 import { ALL_TOOL_REGISTRY } from "../../../src/mcp/server.js";
 import { MCP_OUTPUT_SCHEMAS } from "../../../src/contracts/output-schemas.js";
 import { parseJsonObject } from "../../../src/contracts/json-object.js";
+import { MCP_CAPABILITY_FAMILY_DETAIL_MAX_BYTES } from "../../../src/contracts/mcp-capability-discovery.js";
 import { startDaemonServer, type GraftDaemonServer } from "../../../src/mcp/daemon-server.js";
 import { cleanupTestRepo, createTestRepo, git } from "../../helpers/git.js";
 import { extractText, harnessPath } from "../../helpers/mcp.js";
@@ -21,6 +22,16 @@ function structuredSafeRead(result: SdkToolResult): Record<string, unknown> {
   const structured = parseJsonObject(result.structuredContent, "daemon safe_read structured content");
   expect(structured).toEqual(textPayload);
   expect(() => MCP_OUTPUT_SCHEMAS.safe_read.parse(structured)).not.toThrow();
+  return structured;
+}
+
+function structuredCapabilities(result: SdkToolResult): Record<string, unknown> {
+  expect(result.isError).not.toBe(true);
+  const textPayload = JSON.parse(extractText(result)) as unknown;
+  expect(result.structuredContent).toBeDefined();
+  const structured = parseJsonObject(result.structuredContent, "daemon capabilities structured content");
+  expect(structured).toEqual(textPayload);
+  expect(() => MCP_OUTPUT_SCHEMAS.capabilities.parse(structured)).not.toThrow();
   return structured;
 }
 
@@ -87,6 +98,29 @@ describe("integration: daemon-backed MCP bridge over stdio", () => {
       return tool.outputSchema;
     });
     expect(Buffer.byteLength(JSON.stringify(schemas), "utf8")).toBeLessThanOrEqual(65_536);
+  });
+
+  it("discovers the registered daemon surface before workspace binding", async () => {
+    const result = await client.callTool({
+      name: "capabilities",
+      arguments: { family: "workspace" },
+    });
+    const payload = structuredCapabilities(result);
+
+    expect(Buffer.byteLength(extractText(result), "utf8")).toBeLessThanOrEqual(
+      MCP_CAPABILITY_FAMILY_DETAIL_MAX_BYTES,
+    );
+    expect(payload).toMatchObject({
+      projection: "family_detail",
+      discoveryBasis: "registered_surface",
+      sessionMode: "daemon",
+      registeredToolCount: ALL_TOOL_REGISTRY.length,
+      family: "workspace",
+      openingCall: "workspace_status",
+    });
+    const toolNames = (payload["tools"] as { name: string }[]).map((entry) => entry.name);
+    expect(toolNames).toContain("daemon_status");
+    expect(toolNames).toContain("workspace_authorize");
   });
 
   it("proxies daemon-only workspace binding flow through stdio", async () => {

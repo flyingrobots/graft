@@ -47,10 +47,18 @@ describe("public library API", () => {
     expect(result["_schema"]).toEqual(
       expect.objectContaining({ id: "graft.mcp.safe_read" }),
     );
+
+    const capabilities = await callGraftTool(graft, "capabilities", {}) as Record<string, unknown>;
+    expect(capabilities).toMatchObject({
+      projection: "summary",
+      discoveryBasis: "registered_surface",
+      sessionMode: "repo_local",
+    });
   });
 
   it("exports stable top-level metadata and capability names", () => {
     expect(GRAFT_VERSION).toBe(packageJson.version);
+    expect(MCP_TOOL_NAMES).toContain("capabilities");
     expect(MCP_TOOL_NAMES).toContain("safe_read");
     expect(MCP_TOOL_NAMES).toContain("doctor");
   });

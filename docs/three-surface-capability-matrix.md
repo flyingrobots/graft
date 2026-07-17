@@ -18,11 +18,11 @@ changes, this matrix must be refreshed before release.
 
 - `6` CLI-only capabilities
 - `23` API + CLI + MCP capabilities
-- `24` API + MCP capabilities
+- `25` API + MCP capabilities
 - `1` API-only capability
 - `22` direct CLI/MCP peer capabilities
 - `1` composed CLI operator/lifecycle capability
-- `24` intentionally API + MCP-only agent/control-plane capabilities
+- `25` intentionally API + MCP-only agent/control-plane capabilities
 
 API exposure kinds:
 
@@ -56,6 +56,7 @@ composing existing tools, it belongs in this matrix as
 
 | Capability | API | CLI | MCP | API exposure | CLI/MCP posture | CLI path | MCP tool |
 |---|---|---|---|---|---|---|---|
+| `capabilities` | Yes | No | Yes | `tool_bridge` | `mcp_only` | `-` | `capabilities` |
 | `init` | No | Yes | No | `-` | `cli_only` | `init` | `-` |
 | `index` | No | Yes | No | `-` | `cli_only` | `index` | `-` |
 | `migrate_local_history` | No | Yes | No | `-` | `cli_only` | `migrate local-history` | `-` |

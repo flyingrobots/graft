@@ -12,6 +12,7 @@ import {
 import type { ToolContext, ToolDefinition, ToolHandler } from "./context.js";
 
 const daemonAlwaysAvailableTools = new Set<string>([
+  "capabilities",
   "daemon_repos",
   "daemon_status",
   "daemon_sessions",
@@ -34,6 +35,7 @@ const daemonAlwaysAvailableTools = new Set<string>([
 ]);
 
 export const repoStateOptionalTools = new Set<string>([
+  "capabilities",
   "daemon_repos",
   "daemon_status",
   "daemon_sessions",

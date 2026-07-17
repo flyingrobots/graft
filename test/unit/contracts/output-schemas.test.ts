@@ -223,6 +223,7 @@ describe("contracts: output schemas", () => {
     git(repoDir, "checkout -b feature/output-schema-attach");
 
     const outputs = {
+      capabilities: parse(await server.callTool("capabilities", {})),
       safe_read: parse(await server.callTool("safe_read", { path: "app.ts" })),
       graft_edit: parse(await server.callTool("graft_edit", {
         path: "edit-target.ts",

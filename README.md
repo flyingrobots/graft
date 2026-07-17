@@ -58,7 +58,9 @@ remain available through `stats`.
   carry versioned `_schema` metadata and decision receipts, so agents can
   reason about outcomes without scraping prose. MCP defaults to a bounded
   compact receipt; explicit full receipts and `stats` expose cumulative session
-  accounting when it is needed.
+  accounting when it is needed. The compact `capabilities` tool is the starting
+  call for discovering Graft's seven workflow families without asking the agent
+  to infer workflow from every individual tool definition.
 
 - **Structural memory across Git history.** WARP (Structural Worldline Memory) is the current git-warp-backed structural history layer. Query what changed structurally — which symbols were added, removed, or renamed — without dumping source into the agent context. Graft is converging on a `StructuralReadingPort` boundary so Echo can become the primary causal-history substrate after parity is proven.
 
@@ -100,6 +102,10 @@ npx @flyingrobots/graft serve
 
 Point your MCP client at this process. Graft speaks JSON-RPC over stdin/stdout. The same binary auto-detects non-TTY stdio and enters serve mode automatically — so `npx @flyingrobots/graft` with no arguments works as an MCP server when piped.
 
+Start with `capabilities`. Its default response summarizes the seven registered
+workflow families in at most 2 KiB; pass one explicit `family` only when the
+agent needs that family's bounded tool names and next-step guidance.
+
 #### Daemon-Backed Stdio
 
 A persistent same-user runtime for long-running or multi-repo agent work. Current git-warp contexts stay warm between sessions and persistent monitors can keep structural history current.
@@ -112,11 +118,14 @@ npx @flyingrobots/graft daemon
 npx @flyingrobots/graft serve --runtime daemon
 ```
 
-Daemon sessions start unbound. The normal agent flow is:
+Daemon sessions start unbound. `capabilities` remains available before binding
+and reports the daemon's registered surface without claiming that every tool is
+currently authorized. The normal agent flow is:
 
-1. `workspace_open` with the target repo's `cwd`; in daemon mode this authorizes the workspace before opening it.
-2. Optionally `workspace_list_opened` to inspect active workspaces
-3. Use repository-scoped tools: `safe_read`, `file_outline`, `graft_diff`, etc.
+1. optionally call `capabilities` or `capabilities({ family: "workspace" })`
+2. `workspace_open` with the target repo's `cwd`; in daemon mode this authorizes the workspace before opening it
+3. optionally `workspace_list_opened` to inspect active workspaces
+4. use repository-scoped tools: `safe_read`, `file_outline`, `graft_diff`, etc.
 
 When several agents share one daemon-backed MCP session, repo tools can
 carry their own explicit route: pass `cwd` to `safe_read`,

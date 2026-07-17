@@ -1,4 +1,5 @@
 export const MCP_TOOL_NAMES = [
+  "capabilities",
   "safe_read",
   "graft_edit",
   "file_outline",
@@ -155,6 +156,12 @@ function defineCapability(seed: CapabilitySeed): CapabilityDefinition {
 }
 
 export const CAPABILITY_REGISTRY: readonly CapabilityDefinition[] = [
+  defineCapability({
+    id: "capabilities",
+    description: "Bounded MCP tool-family discovery",
+    mcpTool: "capabilities",
+    cliMcpParity: "mcp_only",
+  }),
   defineCapability({
     id: "init",
     description: "Initialize graft in a repo",

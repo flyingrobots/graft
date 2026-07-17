@@ -55,10 +55,11 @@ Daemon sessions start `unbound`. Once a client is connected to the
 daemon MCP surface, repository-scoped work normally follows this
 agent-facing flow:
 
-1. `workspace_open` with the target `cwd`
-2. optionally `workspace_list_opened` to inspect opened paths and the
+1. optionally call `capabilities` or select its `workspace` family
+2. `workspace_open` with the target `cwd`
+3. optionally `workspace_list_opened` to inspect opened paths and the
    active workspace
-3. then call repository-scoped tools such as `safe_read`, `graft_since`,
+4. then call repository-scoped tools such as `safe_read`, `graft_since`,
    or `code_show`
 
 For concurrent multi-repo use inside one daemon-backed MCP session,
@@ -71,7 +72,33 @@ mutate the active workspace.
 `workspace_authorize` and `workspace_bind` remain available as lower-level
 daemon control-plane tools.
 
+## Capability Discovery
+
+`capabilities` is the bounded agent-native starting call. With no family it
+returns all seven workflow families—`session`, `workspace`, `read`, `code`,
+`history`, `review`, and `diagnostic`—with one canonical opening call, one-line
+guidance, and a registered-tool count for each. The complete compact response,
+including its receipt, is at most 2 KiB and contains no per-tool description
+dump.
+
+Pass one explicit family when deeper discovery is useful:
+
+```json
+{ "family": "read" }
+```
+
+The family-detail response is at most 4 KiB with a compact receipt and returns
+only that family's deterministically ordered names and capability-registry
+descriptions. It is available in an unbound daemon session and does not inspect
+Git or open WARP.
+
+Every response states `discoveryBasis: "registered_surface"`. That basis means
+the names are installed in the active repo-local or daemon runtime. It is not a
+claim that every registered tool is authorized for the current workspace:
+binding, per-call routing, and capability policy can still obstruct an action.
+
 ## Key Tool Groups
+- **Discovery**: `capabilities`
 - **Bounded Reads**: `safe_read`, `file_outline`, `read_range`, `changed_since`
 - **Governed Edits**: `graft_edit`
 - **Structural History**: `graft_diff`, `graft_since`, `graft_map`,
@@ -84,6 +111,9 @@ daemon control-plane tools.
 
 ## Current Truth
 - MCP is the primary agent surface.
+- `capabilities` is the compact workflow-discovery surface. Its summary is
+  bounded to 2 KiB and one selected family detail to 4 KiB with compact
+  receipts; it reports registration rather than current authorization.
 - `graft serve` is repo-local stdio; `graft serve --runtime daemon` is
   the daemon-backed stdio bridge.
 - MCP responses carry version-2 `_schema` metadata and a compact `_receipt` by

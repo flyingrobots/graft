@@ -7,9 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Added
+
+- **Bounded agent capability discovery**: the new `capabilities` MCP tool gives
+  agents a seven-family workflow map instead of making them infer workflow from
+  every registry entry. Its default compact-receipt summary is bounded to 2 KiB;
+  one explicitly selected family detail is bounded to 4 KiB. Results are
+  deterministic, runtime-relative, derived from the capability registry, and
+  explicitly identify their basis as the registered surface rather than
+  overstating current authorization. Discovery remains available to unbound
+  daemon sessions and does not cold-observe repository state.
+
 ### Changed
 
-- **MCP-native bounded output contracts**: all 47 public MCP tools now advertise
+- **MCP-native bounded output contracts**: all 48 public MCP tools now advertise
   object-root `outputSchema` contracts derived from Graft's strict versioned
   validators. Successful calls return validated `structuredContent` alongside
   equivalent canonical JSON compatibility text, including compact/full receipt

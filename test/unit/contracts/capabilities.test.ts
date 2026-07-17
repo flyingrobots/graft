@@ -10,6 +10,10 @@ describe("capability registry", () => {
   it("treats API, CLI, and MCP as explicit entrypoint surfaces", () => {
     const byId = new Map(CAPABILITY_REGISTRY.map((capability) => [capability.id, capability]));
 
+    expect(byId.get("capabilities")?.surfaces).toEqual(["api", "mcp"]);
+    expect(byId.get("capabilities")?.apiExposure).toBe("tool_bridge");
+    expect(byId.get("capabilities")?.cliMcpParity).toBe("mcp_only");
+
     expect(byId.get("safe_read")?.surfaces).toEqual(["api", "cli", "mcp"]);
     expect(byId.get("safe_read")?.apiExposure).toBe("repo_workspace");
     expect(byId.get("safe_read")?.cliMcpParity).toBe("peer");
@@ -73,13 +77,23 @@ describe("capability registry", () => {
     expect(baseline).toEqual({
       cliOnly: 6,
       apiCliMcp: 23,
-      apiMcp: 24,
+      apiMcp: 25,
       apiOnly: 1,
       directCliMcpPeers: 22,
       composedCliOperators: 1,
-      intentionallyApiMcpOnly: 24,
+      intentionallyApiMcpOnly: 25,
     });
     expect(rows).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        id: "capabilities",
+        api: "Yes",
+        cli: "No",
+        mcp: "Yes",
+        apiExposure: "tool_bridge",
+        cliMcpParity: "mcp_only",
+        cliPath: "-",
+        mcpTool: "capabilities",
+      }),
       expect.objectContaining({
         id: "safe_read",
         api: "Yes",

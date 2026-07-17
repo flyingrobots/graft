@@ -6,6 +6,7 @@ import {
   MCP_TOOL_NAMES,
   type McpToolName,
 } from "./capabilities.js";
+import { mcpCapabilityDiscoveryBodySchema } from "./mcp-capability-discovery.js";
 import {
   attributionSummarySchema,
   attributionConfidenceSchema,
@@ -1095,6 +1096,7 @@ const doctorFullSchema = z.object({
 }).strict();
 
 const mcpOutputBodySchemas: Record<McpToolName, z.ZodType> = {
+  capabilities: mcpCapabilityDiscoveryBodySchema,
   safe_read: z.object({
     path: z.string(),
     projection: z.enum(["content", "outline", "refused", "error", "cache_hit", "diff"]),
@@ -1524,6 +1526,7 @@ const mcpOutputBodySchemas: Record<McpToolName, z.ZodType> = {
 };
 
 export const MCP_OUTPUT_SCHEMAS: Record<McpToolName, z.ZodType> = {
+  capabilities: withMcpCommon("capabilities", mcpOutputBodySchemas.capabilities),
   safe_read: withMcpCommon("safe_read", mcpOutputBodySchemas.safe_read),
   graft_edit: withMcpCommon("graft_edit", mcpOutputBodySchemas.graft_edit),
   file_outline: withMcpCommon("file_outline", mcpOutputBodySchemas.file_outline),

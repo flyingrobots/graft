@@ -14,6 +14,7 @@ export type BurdenByKind = Record<BurdenKind, BurdenBucket>;
 const ZERO_BUCKET: BurdenBucket = Object.freeze({ calls: 0, bytesReturned: 0 });
 
 const TOOL_BURDEN_KIND: Record<McpToolName, BurdenKind> = {
+  capabilities: "diagnostic",
   safe_read: "read",
   graft_edit: "state",
   file_outline: "read",
