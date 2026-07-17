@@ -291,7 +291,8 @@ for historical event decoding and is not a live semantic-transition basis.
 - No public tool renames.
 - No hosted schema registry, external schema URI, or new npm schema subpath in
   the first native-output slice. MCP discovery is the first agent-facing
-  publication surface; non-MCP schema distribution can be justified separately.
+  publication surface; exact on-demand distribution is deferred to
+  `SURFACE_on-demand-exact-mcp-output-contracts.md`.
 - No `delta` receipt or `receipt_get` store in the first compact-receipt slice.
 - No arbitrary `doctor(include: ...)` projection matrix in the first diagnostic
   slice. Focused detail remains available through `causal_status`,
@@ -416,6 +417,41 @@ cool-idea work remained outside the isolated witness and outside the commit.
   from a clean detached worktree: 247 files and 1,873 tests. The Docker test
   image build also passes typecheck, and the runtime suite reports zero
   failures.
+
+### Slice 4: MCP-native structured output
+
+- Every repo-local and daemon tool advertises an MCP-native object-root
+  `outputSchema`. The schema is derived from the strict versioned Zod contract,
+  preserving top-level fields, scalar constraints, discriminants, exact
+  `_schema` identity, and compact/full receipt posture while projecting deep
+  objects and array members shallowly.
+- The current strict schemas encode to 498,341 bytes across 47 tools, with
+  `doctor` alone accounting for 67,291 bytes. The actual SDK `tools/list`
+  discovery projections total 50,093 bytes; the largest is `doctor` at 3,109
+  bytes. All roots are objects, below the 65,536-byte aggregate and 8,192-byte
+  per-tool budgets.
+- Root-object projection is a correctness adapter as well as a size bound. The
+  installed SDK cannot directly register the strict `file_outline` root union:
+  it omits the output schema during discovery and fails invocation. The derived
+  projection flattens object-union fields deterministically and marks
+  variant-only fields optional.
+- Successful calls derive `structuredContent` by decoding the finalized
+  canonical compatibility text, then validate that exact value against both
+  the strict schema and discovery projection. The representations therefore
+  cannot drift, and strict output-contract violations fail before success.
+- `returnedBytes` remains the UTF-8 byte count of canonical compatibility text.
+  It does not count the equivalent structured representation or protocol
+  framing. MCP errors remain usable as text-only `isError` results, as the
+  protocol permits.
+- In-process API and read-attribution consumers prefer native structured
+  content and retain text-only compatibility for older peers. Installed-SDK
+  tests exercise compact/full receipts, every root-union tool, direct
+  stdio, daemon HTTP/stdio bridging, and child-worker offload.
+- The final affected constellation passes 16 files and 176 tests, including all
+  47 emitted tool contracts, real SDK discovery and client validation,
+  receipt byte accounting, summary/full diagnostics, policy refusals, API
+  consumers, worker offload, workspace routing, and both stdio runtimes. Lint,
+  typecheck, diff hygiene, and an independent Code Lawyer review also pass.
 
 ## Slice and commit plan
 

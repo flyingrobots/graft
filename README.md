@@ -52,10 +52,13 @@ remain available through `stats`.
 
 - **Parser-backed outlines.** Outlines come from Tree-Sitter ASTs, not heuristic line-scanning. Function signatures, class hierarchies, and jump tables are structurally accurate across JavaScript, TypeScript, Rust, Python, Go, GraphQL, JSON, TOML, YAML, Markdown, and more.
 
-- **Machine-readable contracts.** Tool responses carry versioned `_schema`
-  metadata and decision receipts, so agents can reason about outcomes without
-  scraping prose. MCP defaults to a bounded compact receipt; explicit full
-  receipts and `stats` expose cumulative session accounting when it is needed.
+- **Machine-readable contracts.** Every MCP tool advertises a bounded native
+  `outputSchema`, and successful calls return validated `structuredContent`
+  alongside equivalent canonical JSON text for older hosts. Responses also
+  carry versioned `_schema` metadata and decision receipts, so agents can
+  reason about outcomes without scraping prose. MCP defaults to a bounded
+  compact receipt; explicit full receipts and `stats` expose cumulative session
+  accounting when it is needed.
 
 - **Structural memory across Git history.** WARP (Structural Worldline Memory) is the current git-warp-backed structural history layer. Query what changed structurally — which symbols were added, removed, or renamed — without dumping source into the agent context. Graft is converging on a `StructuralReadingPort` boundary so Echo can become the primary causal-history substrate after parity is proven.
 

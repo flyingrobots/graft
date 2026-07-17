@@ -6,7 +6,13 @@ import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
 import type { MetricsSnapshot } from "./metrics.js";
 import type { Tripwire } from "../session/types.js";
 import type { JsonCodec } from "../ports/codec.js";
-import { attachMcpSchemaMeta, type McpToolName } from "../contracts/output-schemas.js";
+import {
+  attachMcpSchemaMeta,
+  getMcpOutputSchema,
+  type McpToolName,
+} from "../contracts/output-schemas.js";
+import { getMcpDiscoveryOutputSchema } from "../contracts/mcp-discovery-output-schemas.js";
+import { parseJsonObject } from "../contracts/json-object.js";
 import type { ReceiptMode } from "./tool-input-controls.js";
 import {
   burdenKindForTool,
@@ -304,9 +310,18 @@ export function buildReceiptResult(
 
   Object.freeze(outputReceipt);
   const receipt = freezeReceipt(draft);
+  const structuredContent = parseJsonObject(
+    deps.codec.decode(text),
+    `MCP ${tool} output`,
+  );
+  getMcpOutputSchema(tool).parse(structuredContent);
+  getMcpDiscoveryOutputSchema(tool).parse(structuredContent);
 
   return {
-    result: { content: [{ type: "text", text }] },
+    result: {
+      content: [{ type: "text", text }],
+      structuredContent,
+    },
     textBytes: Buffer.byteLength(text, "utf8"),
     receipt,
   };

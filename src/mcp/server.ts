@@ -38,6 +38,7 @@ import { wrapWithPolicyCheck } from "./server-tool-access.js";
 import { buildToolContext } from "./server-context.js";
 import { createInvocationEngine, recordFootprint } from "./server-invocation.js";
 import { COMMON_TOOL_INPUT_SCHEMA, toolInputSchema } from "./tool-input-controls.js";
+import { getMcpDiscoveryOutputSchema } from "../contracts/mcp-discovery-output-schemas.js";
 
 export type { McpToolResult, ToolHandler, ToolContext };
 export { ALL_TOOL_REGISTRY, TOOL_REGISTRY } from "./tool-registry.js";
@@ -259,7 +260,11 @@ function registerGraftToolSurface(input: {
     schemas.set(def.name, zodSchema);
     input.mcpServer.registerTool(
       def.name,
-      { description: def.description, inputSchema },
+      {
+        description: def.description,
+        inputSchema,
+        outputSchema: getMcpDiscoveryOutputSchema(def.name),
+      },
       async (args) => input.engine.invokeTool(def.name, handler, args, input.ctx, zodSchema),
     );
   }

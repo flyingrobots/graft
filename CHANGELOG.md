@@ -9,6 +9,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ### Changed
 
+- **MCP-native bounded output contracts**: all 47 public MCP tools now advertise
+  object-root `outputSchema` contracts derived from Graft's strict versioned
+  validators. Successful calls return validated `structuredContent` alongside
+  equivalent canonical JSON compatibility text, including compact/full receipt
+  and summary/full diagnostic variants. Discovery keeps exact top-level fields,
+  scalars, discriminants, schema identity, and receipt posture while shallowly
+  projecting deep audit structures under a 64 KiB aggregate / 8 KiB per-tool
+  budget. `returnedBytes` continues to count the canonical compatibility JSON.
 - **Summary-first MCP diagnostics**: `doctor` now defaults to a strict bounded
   health, workspace, history-readiness, evidence-gap, and next-action summary;
   `activity_view` defaults to bounded anchor, count, truncation, group-summary,

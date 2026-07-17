@@ -3,6 +3,8 @@ import { buildReceiptResult } from "../../../src/mcp/receipt.js";
 import { MetricsSnapshot } from "../../../src/mcp/metrics.js";
 import { CanonicalJsonCodec } from "../../../src/adapters/canonical-json.js";
 import { emptyBurdenByKind } from "../../../src/mcp/burden.js";
+import { getMcpOutputSchema } from "../../../src/contracts/output-schemas.js";
+import { getMcpDiscoveryOutputSchema } from "../../../src/contracts/mcp-discovery-output-schemas.js";
 
 const codec = new CanonicalJsonCodec();
 
@@ -18,21 +20,61 @@ function emptyMetrics(): MetricsSnapshot {
   });
 }
 
-function payloadOf(result: ReturnType<typeof buildReceiptResult>["result"]): Record<string, unknown> {
+function payloadOfText(result: ReturnType<typeof buildReceiptResult>["result"]): string {
   const content = result.content[0];
   if (content?.type !== "text") {
     throw new Error("expected a text MCP response");
   }
-  return JSON.parse(content.text) as Record<string, unknown>;
+  return content.text;
+}
+
+function payloadOf(result: ReturnType<typeof buildReceiptResult>["result"]): Record<string, unknown> {
+  return JSON.parse(payloadOfText(result)) as Record<string, unknown>;
+}
+
+function safeReadBody(
+  overrides: Record<string, unknown> = {},
+): Record<string, unknown> {
+  return {
+    path: "app.ts",
+    projection: "content",
+    reason: "CONTENT",
+    ...overrides,
+  };
+}
+
+function statsBody(): Record<string, unknown> {
+  return {
+    totalReads: 0,
+    totalOutlines: 0,
+    totalRefusals: 0,
+    totalCacheHits: 0,
+    totalBytesReturned: 0,
+    totalBytesAvoidedByCache: 0,
+    totalNonReadBytesReturned: 0,
+    burdenByKind: emptyBurdenByKind(),
+  };
+}
+
+function runCaptureBody(): Record<string, unknown> {
+  return {
+    output: "",
+    totalLines: 0,
+    tailedLines: 0,
+    truncated: false,
+    policyBoundary: {
+      kind: "shell_escape_hatch",
+      boundedReadContract: false,
+      policyEnforced: false,
+    },
+  };
 }
 
 describe("buildReceiptResult (unit)", () => {
   it("projects a compact wire receipt without weakening the internal audit receipt", () => {
-    const built = buildReceiptResult("safe_read", {
-      projection: "content",
-      reason: "CONTENT",
+    const built = buildReceiptResult("safe_read", safeReadBody({
       actual: { bytes: 1234, lines: 50 },
-    }, {
+    }), {
       sessionId: "s1",
       traceId: "t1",
       seq: 1,
@@ -63,14 +105,20 @@ describe("buildReceiptResult (unit)", () => {
     expect(built.receipt.traceId).toBe("t1");
     expect(built.receipt.fileBytes).toBe(1234);
     expect(built.receipt.cumulative).toBeDefined();
+    expect(built.result.structuredContent).toEqual(payloadOf(built.result));
+    expect(() => getMcpOutputSchema("safe_read").parse(
+      built.result.structuredContent,
+    )).not.toThrow();
+    expect(() => getMcpDiscoveryOutputSchema("safe_read").parse(
+      built.result.structuredContent,
+    )).not.toThrow();
   });
 
   it("bounds long multibyte compact reasons while preserving full internal evidence", () => {
     const reason = "agent-observed-" + "🧶".repeat(200);
-    const built = buildReceiptResult("safe_read", {
-      projection: "content",
+    const built = buildReceiptResult("safe_read", safeReadBody({
       reason,
-    }, {
+    }), {
       sessionId: "s1",
       traceId: "t1",
       seq: 1,
@@ -89,7 +137,7 @@ describe("buildReceiptResult (unit)", () => {
   });
 
   it("projects the legacy audit fields with a full v2 discriminator", () => {
-    const built = buildReceiptResult("stats", {}, {
+    const built = buildReceiptResult("stats", statsBody(), {
       sessionId: "s1",
       traceId: "t1",
       seq: 1,
@@ -109,12 +157,12 @@ describe("buildReceiptResult (unit)", () => {
   });
 
   it("keeps exact full-response bytes when a rounded ratio has no fixed point", () => {
-    const built = buildReceiptResult("safe_read", {
+    const built = buildReceiptResult("safe_read", safeReadBody({
       projection: "diff",
       reason: "CHANGED_SINCE_LAST_READ",
       actual: { bytes: 57, lines: 3 },
-      padding: "",
-    }, {
+      content: "",
+    }), {
       sessionId: "s1",
       traceId: "t1",
       seq: 1,
@@ -134,7 +182,7 @@ describe("buildReceiptResult (unit)", () => {
   });
 
   it("produces a frozen receipt", () => {
-    const { receipt } = buildReceiptResult("safe_read", {}, {
+    const { receipt } = buildReceiptResult("safe_read", safeReadBody(), {
       sessionId: "s1",
       traceId: "t1",
       seq: 1,
@@ -149,7 +197,10 @@ describe("buildReceiptResult (unit)", () => {
   });
 
   it("extracts projection from data safely", () => {
-    const { receipt } = buildReceiptResult("graft_diff", { projection: "diff", reason: "FULL" }, {
+    const { receipt } = buildReceiptResult("safe_read", safeReadBody({
+      projection: "diff",
+      reason: "FULL",
+    }), {
       sessionId: "s1",
       traceId: "t1",
       seq: 1,
@@ -163,7 +214,7 @@ describe("buildReceiptResult (unit)", () => {
   });
 
   it("defaults projection and reason when absent", () => {
-    const { receipt } = buildReceiptResult("stats", {}, {
+    const { receipt } = buildReceiptResult("stats", statsBody(), {
       sessionId: "s1",
       traceId: "t1",
       seq: 1,
@@ -176,8 +227,8 @@ describe("buildReceiptResult (unit)", () => {
     expect(receipt.reason).toBe("none");
   });
 
-  it("handles non-string projection gracefully", () => {
-    const { receipt } = buildReceiptResult("stats", { projection: 42 }, {
+  it("rejects a strict output-contract violation before returning success", () => {
+    expect(() => buildReceiptResult("safe_read", safeReadBody({ path: 42 }), {
       sessionId: "s1",
       traceId: "t1",
       seq: 1,
@@ -185,12 +236,13 @@ describe("buildReceiptResult (unit)", () => {
       metrics: emptyMetrics(),
       tripwires: [],
       codec,
-    });
-    expect(receipt.projection).toBe("none");
+    })).toThrow();
   });
 
   it("extracts fileBytes from data.actual.bytes", () => {
-    const { receipt } = buildReceiptResult("safe_read", { actual: { bytes: 1234, lines: 50 } }, {
+    const { receipt } = buildReceiptResult("safe_read", safeReadBody({
+      actual: { bytes: 1234, lines: 50 },
+    }), {
       sessionId: "s1",
       traceId: "t1",
       seq: 1,
@@ -203,7 +255,7 @@ describe("buildReceiptResult (unit)", () => {
   });
 
   it("sets fileBytes to null when actual is absent", () => {
-    const { receipt } = buildReceiptResult("stats", {}, {
+    const { receipt } = buildReceiptResult("stats", statsBody(), {
       sessionId: "s1",
       traceId: "t1",
       seq: 1,
@@ -217,7 +269,7 @@ describe("buildReceiptResult (unit)", () => {
 
   it("attaches budget when provided", () => {
     const budget = { total: 100000, consumed: 5000, remaining: 95000, fraction: 0.05 };
-    const { receipt } = buildReceiptResult("safe_read", {}, {
+    const { receipt } = buildReceiptResult("safe_read", safeReadBody(), {
       sessionId: "s1",
       traceId: "t1",
       seq: 1,
@@ -231,7 +283,7 @@ describe("buildReceiptResult (unit)", () => {
   });
 
   it("stabilizes returnedBytes to match textBytes", () => {
-    const { receipt, textBytes } = buildReceiptResult("safe_read", {}, {
+    const { receipt, textBytes, result } = buildReceiptResult("safe_read", safeReadBody(), {
       sessionId: "s1",
       traceId: "t1",
       seq: 1,
@@ -241,17 +293,18 @@ describe("buildReceiptResult (unit)", () => {
       codec,
     });
     expect(receipt.returnedBytes).toBe(textBytes);
+    expect(textBytes).toBe(Buffer.byteLength(payloadOfText(result), "utf8"));
   });
 
   it("classifies burden kind correctly", () => {
-    const { receipt: readReceipt } = buildReceiptResult("safe_read", {}, {
+    const { receipt: readReceipt } = buildReceiptResult("safe_read", safeReadBody(), {
       sessionId: "s1", traceId: "t1", seq: 1, latencyMs: 1,
       metrics: emptyMetrics(), tripwires: [], codec,
     });
     expect(readReceipt.burden.kind).toBe("read");
     expect(readReceipt.burden.nonRead).toBe(false);
 
-    const { receipt: shellReceipt } = buildReceiptResult("run_capture", {}, {
+    const { receipt: shellReceipt } = buildReceiptResult("run_capture", runCaptureBody(), {
       sessionId: "s1", traceId: "t1", seq: 1, latencyMs: 1,
       metrics: emptyMetrics(), tripwires: [], codec,
     });

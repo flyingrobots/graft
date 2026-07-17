@@ -90,6 +90,17 @@ daemon control-plane tools.
   default. Every tool accepts the common optional input
   `receipt: "compact" | "full"`; use `"full"` only when the complete audit and
   cumulative-accounting envelope is required.
+- Every public tool advertises an MCP-native `outputSchema`. The advertised
+  schema is a bounded object-root projection of Graft's stricter versioned
+  validator: it preserves top-level answer fields, scalar types,
+  discriminants, exact `_schema` identity, and compact/full receipt posture
+  without recursively dumping every deep audit object into tool discovery.
+- Successful calls return the same machine-readable value twice: natively in
+  `structuredContent` and as canonical JSON `TextContent` for compatibility
+  with older hosts. Graft validates the value against both its strict contract
+  and the advertised projection before returning success. `_receipt.returnedBytes`
+  continues to count only the canonical compatibility JSON, not both equivalent
+  MCP representations or JSON-RPC framing.
 - Compact receipts contain only `mode`, `receiptId`, `seq`, `reason`,
   `latencyMs`, and the exact encoded `returnedBytes`. The `receiptId` correlates
   with the runtime-observability log; it is not a fetch handle. `stats` is the

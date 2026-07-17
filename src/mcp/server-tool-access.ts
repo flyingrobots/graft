@@ -1,5 +1,5 @@
 import type { McpToolResult } from "./receipt.js";
-import type { JsonObject } from "../contracts/json-object.js";
+import { tryParseJsonObject, type JsonObject } from "../contracts/json-object.js";
 import { parseJsonTextObject } from "../adapters/json-text-decoder.js";
 import { evaluateMcpPolicy } from "./policy.js";
 import { RefusedResult } from "../policy/types.js";
@@ -116,6 +116,9 @@ export function resolveDaemonOffloadedRepoTool(
 }
 
 export function parseToolPayload(result: McpToolResult): JsonObject | null {
+  if (result.structuredContent !== undefined) {
+    return tryParseJsonObject(result.structuredContent);
+  }
   const textBlock = result.content.find((entry) => entry.type === "text");
   if (textBlock === undefined) {
     return null;

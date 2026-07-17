@@ -1,10 +1,13 @@
 import type { McpToolName } from "../contracts/capabilities.js";
-import type { JsonObject } from "../contracts/json-object.js";
+import { parseJsonObject, type JsonObject } from "../contracts/json-object.js";
 import { parseJsonTextObject } from "../adapters/json-text-decoder.js";
 import { getMcpOutputSchema, type McpOutputFor } from "../contracts/output-schemas.js";
 import type { GraftServer, McpToolResult } from "../mcp/server.js";
 
 export function parseGraftToolPayload(result: McpToolResult): JsonObject {
+  if (result.structuredContent !== undefined) {
+    return parseJsonObject(result.structuredContent, "Graft tool structured result");
+  }
   const payload = result.content.find((item) => item.type === "text");
   if (payload === undefined) {
     throw new Error("Graft tool result did not contain a text payload");

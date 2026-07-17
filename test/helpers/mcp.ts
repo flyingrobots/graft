@@ -1,6 +1,7 @@
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
+import { deepStrictEqual } from "node:assert/strict";
 import { createGraftServer } from "../../src/mcp/server.js";
 import type { CreateGraftServerOptions, GraftServer } from "../../src/mcp/server.js";
 import type { RunCaptureConfig } from "../../src/mcp/run-capture-config.js";
@@ -26,7 +27,15 @@ export function extractText(result: unknown): string {
 }
 
 export function parse(result: unknown): Record<string, unknown> {
-  return JSON.parse(extractText(result)) as Record<string, unknown>;
+  const parsedText = JSON.parse(extractText(result)) as Record<string, unknown>;
+  const structuredContent = (result as {
+    structuredContent?: Record<string, unknown>;
+  }).structuredContent;
+  if (structuredContent === undefined) {
+    throw new Error("No structured content in successful Graft MCP result");
+  }
+  deepStrictEqual(structuredContent, parsedText);
+  return structuredContent;
 }
 
 export interface IsolatedServer {
