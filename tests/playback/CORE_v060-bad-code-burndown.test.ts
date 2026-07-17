@@ -194,7 +194,11 @@ describe("CORE_v060-bad-code-burndown", () => {
       burdenByKind: freezeBurdenByKind(emptyBurdenByKind()),
     });
     const codec = { encode: (v: unknown) => JSON.stringify(v), decode: (s: string) => JSON.parse(s) as unknown };
-    const result = buildReceiptResult("safe_read", { projection: "content" }, {
+    const result = buildReceiptResult("safe_read", {
+      path: "README.md",
+      projection: "content",
+      reason: "receipt immutability fixture",
+    }, {
       sessionId: "test-session",
       traceId: "test-trace",
       seq: 1,
