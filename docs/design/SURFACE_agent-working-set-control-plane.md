@@ -412,6 +412,10 @@ cool-idea work remained outside the isolated witness and outside the commit.
   including strict output contracts, MCP discovery, runtime observability,
   layered worldlines, per-call routing, CLI rendering, and Git-heavy playback.
   Lint, typecheck, and diff hygiene also pass.
+- The exact Slice 3 commit (`7dec2a9c`) passes the Docker-isolated full suite
+  from a clean detached worktree: 247 files and 1,873 tests. The Docker test
+  image build also passes typecheck, and the runtime suite reports zero
+  failures.
 
 ## Slice and commit plan
 
