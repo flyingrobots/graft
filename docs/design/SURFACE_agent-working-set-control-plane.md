@@ -239,12 +239,44 @@ for historical event decoding and is not a live semantic-transition basis.
 - A compact `capabilities` MCP tool groups currently registered public tools
   into the conceptual families `session`, `workspace`, `read`, `code`,
   `history`, `review`, and `diagnostic`.
-- The response names the canonical opening call and one-line next-step guidance
-  for each family without dumping every internal capability field.
-- Family detail is bounded, deterministically ordered, and selected explicitly.
+- The default response is a summary object with `projection: "summary"`, the
+  active `sessionMode`, the active tool count, and all seven families in the
+  fixed order above. Each family contains only `name`, `openingCall`,
+  `guidance`, and `toolCount`; it does not dump tool descriptions or internal
+  capability fields.
+- Supplying one explicit `family` returns `projection: "family_detail"` and
+  exactly one family object. That object adds a deterministically ordered
+  `tools` array containing canonical tool names and descriptions derived from
+  the capability registry. Arbitrary multi-family include lists are out of
+  scope.
+- The complete compatibility response, including its compact receipt, is at
+  most 4,096 UTF-8 bytes for the default summary and at most 8,192 UTF-8 bytes
+  for every selected family detail.
+- Discovery is runtime-relative. Repo-local mode advertises exactly the shared
+  registry; daemon mode advertises the complete registry. The discovery tool
+  is daemon-always-available and repo-state-optional, so an unbound daemon can
+  ask what to do without first binding a workspace or cold-observing Git.
 - Existing MCP tool names and CLI commands are not renamed or removed.
 - The projection is derived from or checked against the authoritative
-  capability registry so it cannot silently advertise missing tools.
+  capability and runtime registries so it cannot silently advertise a missing,
+  duplicate, wrong-runtime, or non-callable tool.
+
+The first family contract is intentionally explicit:
+
+| Family | Opening call | Guidance | Tool membership |
+| --- | --- | --- | --- |
+| `session` | `capabilities` | Choose one bounded workflow family, then request only that family's detail. | `capabilities`, `state_save`, `state_load`, `set_budget`, `knowledge_map` |
+| `workspace` | `workspace_status` | Inspect workspace and binding posture before routed or daemon work. | `daemon_repos`, `daemon_status`, `daemon_sessions`, `daemon_monitors`, `monitor_start`, `monitor_pause`, `monitor_resume`, `monitor_nudge`, `monitor_stop`, `workspace_authorize`, `workspace_authorizations`, `workspace_revoke`, `workspace_open`, `workspace_list_opened`, `workspace_bind`, `workspace_status`, `workspace_rebind` |
+| `read` | `safe_read` | Start with a policy-bounded read and drill into ranges only when needed. | `safe_read`, `file_outline`, `read_range`, `changed_since` |
+| `code` | `code_find` | Locate a symbol, then focus or inspect references before editing. | `graft_edit`, `code_show`, `code_find`, `code_refs` |
+| `history` | `graft_since` | Start from a named base, then deepen with diff, log, blame, or difficulty. | `graft_diff`, `graft_since`, `graft_map`, `graft_churn`, `graft_exports`, `graft_log`, `graft_blame`, `graft_difficulty` |
+| `review` | `graft_review` | Review a bounded ref range before focused coverage or dead-symbol checks. | `graft_review`, `graft_test_coverage`, `graft_dead_symbols` |
+| `diagnostic` | `doctor` | Start with summary health and request full detail only to investigate. | `activity_view`, `causal_status`, `causal_attach`, `run_capture`, `explain`, `doctor`, `stats` |
+
+The fourteen daemon-only workspace tools are filtered from repo-local family
+detail and counts. All opening calls remain available in both runtimes. The
+result is 34 active tools in repo-local mode and 48 in daemon mode after the new
+tool is registered.
 
 ## Playback questions
 
@@ -452,6 +484,18 @@ cool-idea work remained outside the isolated witness and outside the commit.
   receipt byte accounting, summary/full diagnostics, policy refusals, API
   consumers, worker offload, workspace routing, and both stdio runtimes. Lint,
   typecheck, diff hygiene, and an independent Code Lawyer review also pass.
+- The first exact-commit run exposed two stale repository witnesses that focused
+  tests had missed: an old receipt playback supplied an invalid `safe_read`
+  body, and the generated backlog dependency graph omitted the newly filed
+  on-demand-schema idea. The strict runtime validator correctly rejected the
+  invalid fixture; both witnesses were repaired without weakening the product
+  contract.
+- The exact repair commit (`dccd2d13`) passes a clean detached Docker build,
+  explicit image typecheck, and the full isolated suite: 249 files and 1,889
+  tests with zero failures. The only child change before this witness was the
+  generated SVG companion to the already-validated dependency-DAG source. That
+  exact child (`2f6d843a`) changes only the SVG, passes the two relevant files
+  and 15 tests from a clean detached worktree, and has a clean diff.
 
 ## Slice and commit plan
 
