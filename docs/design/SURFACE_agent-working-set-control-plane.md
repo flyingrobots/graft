@@ -239,19 +239,22 @@ for historical event decoding and is not a live semantic-transition basis.
 - A compact `capabilities` MCP tool groups currently registered public tools
   into the conceptual families `session`, `workspace`, `read`, `code`,
   `history`, `review`, and `diagnostic`.
-- The default response is a summary object with `projection: "summary"`, the
-  active `sessionMode`, the active tool count, and all seven families in the
-  fixed order above. Each family contains only `name`, `openingCall`,
+- The default response is a summary object with `projection: "summary"`,
+  `reason: "CAPABILITY_SUMMARY"`, `discoveryBasis: "registered_surface"`, the
+  active `sessionMode`, `registeredToolCount`, and all seven families in the
+  fixed order above. Each family contains only `family`, `openingCall`,
   `guidance`, and `toolCount`; it does not dump tool descriptions or internal
   capability fields.
 - Supplying one explicit `family` returns `projection: "family_detail"` and
-  exactly one family object. That object adds a deterministically ordered
-  `tools` array containing canonical tool names and descriptions derived from
-  the capability registry. Arbitrary multi-family include lists are out of
-  scope.
+  `reason: "CAPABILITY_FAMILY_DETAIL"`. The selected `family`, `openingCall`,
+  `guidance`, `toolCount`, and `tools` remain flat top-level fields so bounded
+  MCP discovery preserves their scalar contracts. The tool array contains
+  canonical names and descriptions derived from the capability registry.
+  Arbitrary multi-family include lists are out of scope.
 - The complete compatibility response, including its compact receipt, is at
-  most 4,096 UTF-8 bytes for the default summary and at most 8,192 UTF-8 bytes
-  for every selected family detail.
+  most 2,048 UTF-8 bytes for the default summary and at most 4,096 UTF-8 bytes
+  for every selected family detail. Explicit full audit receipts are not part
+  of these compact-response bounds.
 - Discovery is runtime-relative. Repo-local mode advertises exactly the shared
   registry; daemon mode advertises the complete registry. The discovery tool
   is daemon-always-available and repo-state-optional, so an unbound daemon can
@@ -259,24 +262,27 @@ for historical event decoding and is not a live semantic-transition basis.
 - Existing MCP tool names and CLI commands are not renamed or removed.
 - The projection is derived from or checked against the authoritative
   capability and runtime registries so it cannot silently advertise a missing,
-  duplicate, wrong-runtime, or non-callable tool.
+  duplicate, or wrong-runtime tool. Registration is not represented as current
+  authorization: binding, per-call routing, and capability policy may still
+  obstruct a registered tool.
 
 The first family contract is intentionally explicit:
 
 | Family | Opening call | Guidance | Tool membership |
 | --- | --- | --- | --- |
-| `session` | `capabilities` | Choose one bounded workflow family, then request only that family's detail. | `capabilities`, `state_save`, `state_load`, `set_budget`, `knowledge_map` |
-| `workspace` | `workspace_status` | Inspect workspace and binding posture before routed or daemon work. | `daemon_repos`, `daemon_status`, `daemon_sessions`, `daemon_monitors`, `monitor_start`, `monitor_pause`, `monitor_resume`, `monitor_nudge`, `monitor_stop`, `workspace_authorize`, `workspace_authorizations`, `workspace_revoke`, `workspace_open`, `workspace_list_opened`, `workspace_bind`, `workspace_status`, `workspace_rebind` |
-| `read` | `safe_read` | Start with a policy-bounded read and drill into ranges only when needed. | `safe_read`, `file_outline`, `read_range`, `changed_since` |
-| `code` | `code_find` | Locate a symbol, then focus or inspect references before editing. | `graft_edit`, `code_show`, `code_find`, `code_refs` |
-| `history` | `graft_since` | Start from a named base, then deepen with diff, log, blame, or difficulty. | `graft_diff`, `graft_since`, `graft_map`, `graft_churn`, `graft_exports`, `graft_log`, `graft_blame`, `graft_difficulty` |
-| `review` | `graft_review` | Review a bounded ref range before focused coverage or dead-symbol checks. | `graft_review`, `graft_test_coverage`, `graft_dead_symbols` |
-| `diagnostic` | `doctor` | Start with summary health and request full detail only to investigate. | `activity_view`, `causal_status`, `causal_attach`, `run_capture`, `explain`, `doctor`, `stats` |
+| `session` | `capabilities` | Choose one bounded workflow family, then request only that family's detail. | `capabilities`, `knowledge_map`, `set_budget`, `state_load`, `state_save` |
+| `workspace` | `workspace_status` | Inspect workspace and binding posture before routed or daemon work. | `workspace_status`, `causal_attach`, `daemon_monitors`, `daemon_repos`, `daemon_sessions`, `daemon_status`, `monitor_nudge`, `monitor_pause`, `monitor_resume`, `monitor_start`, `monitor_stop`, `workspace_authorizations`, `workspace_authorize`, `workspace_bind`, `workspace_list_opened`, `workspace_open`, `workspace_rebind`, `workspace_revoke` |
+| `read` | `safe_read` | Start with a policy-bounded read and drill into ranges only when needed. | `safe_read`, `changed_since`, `file_outline`, `read_range` |
+| `code` | `code_find` | Locate a symbol, then focus or inspect references before editing. | `code_find`, `code_refs`, `code_show`, `graft_edit` |
+| `history` | `graft_since` | Start from a named base, then deepen with diff, log, blame, or difficulty. | `graft_since`, `graft_blame`, `graft_churn`, `graft_diff`, `graft_difficulty`, `graft_exports`, `graft_log`, `graft_map` |
+| `review` | `graft_review` | Review a bounded ref range before focused coverage or dead-symbol checks. | `graft_review`, `graft_dead_symbols`, `graft_test_coverage` |
+| `diagnostic` | `doctor` | Start with summary health and request full detail only to investigate. | `doctor`, `activity_view`, `causal_status`, `explain`, `run_capture`, `stats` |
 
-The fourteen daemon-only workspace tools are filtered from repo-local family
-detail and counts. All opening calls remain available in both runtimes. The
-result is 34 active tools in repo-local mode and 48 in daemon mode after the new
-tool is registered.
+Within each family the opening call is first and remaining tools use
+deterministic code-point order. The fourteen daemon-only workspace tools are
+filtered from repo-local family detail and counts. All opening calls remain
+registered in both runtimes. The result is 34 registered tools in repo-local
+mode and 48 in daemon mode after the new tool is registered.
 
 ## Playback questions
 
@@ -306,7 +312,9 @@ tool is registered.
       through MCP structured content and compatibility JSON text?
 - [ ] Does native output discovery stay bounded instead of adding the complete
       internal audit schema to every tool definition?
-- [ ] Does capability discovery recommend only registered, callable tools?
+- [ ] Does capability discovery recommend only tools registered in this
+      runtime, state that registration basis explicitly, and avoid presenting
+      registration as authorization?
 
 ## Non-goals
 
