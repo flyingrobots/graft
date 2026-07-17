@@ -7,6 +7,7 @@ import type { MetricsSnapshot } from "./metrics.js";
 import type { Tripwire } from "../session/types.js";
 import type { JsonCodec } from "../ports/codec.js";
 import { attachMcpSchemaMeta, type McpToolName } from "../contracts/output-schemas.js";
+import type { ReceiptMode } from "./tool-input-controls.js";
 import {
   burdenKindForTool,
   isNonReadBurdenKind,
@@ -42,6 +43,10 @@ export interface ReceiptBurden {
 }
 
 export interface McpToolReceipt {
+  /** Requested public projection. Internal accounting fields remain available in both modes. */
+  readonly mode: ReceiptMode;
+  /** Correlates this receipt with the matching completed runtime-observability record. */
+  readonly receiptId: string;
   readonly sessionId: string;
   readonly traceId: string;
   readonly seq: number;
@@ -67,10 +72,14 @@ export interface ReceiptDeps {
   readonly tripwires: Tripwire[];
   readonly codec: JsonCodec;
   readonly budget?: ReceiptBudget | null;
+  /** Direct builder callers retain the historical full projection by default. */
+  readonly receiptMode?: ReceiptMode | undefined;
 }
 
 /** Mutable draft used internally during the size-stabilization loop. */
 interface ReceiptDraft {
+  mode: ReceiptMode;
+  receiptId: string;
   sessionId: string;
   traceId: string;
   seq: number;
@@ -94,6 +103,39 @@ interface ReceiptDraft {
   };
   budget?: ReceiptBudget;
   compressionRatio?: number | null;
+}
+
+interface CompactReceiptDraft {
+  mode: "compact";
+  receiptId: string;
+  seq: number;
+  reason: string;
+  latencyMs: number;
+  returnedBytes: number;
+}
+
+type FullReceiptDraft = Omit<ReceiptDraft, "receiptId">;
+
+const COMPACT_RECEIPT_MAX_BYTES = 512;
+const COMPACT_REASON_MAX_BYTES = 256;
+
+function boundedCompactReason(reason: string): string {
+  if (Buffer.byteLength(reason, "utf8") <= COMPACT_REASON_MAX_BYTES) {
+    return reason;
+  }
+  const suffix = "…";
+  const contentBudget = COMPACT_REASON_MAX_BYTES - Buffer.byteLength(suffix, "utf8");
+  let bounded = "";
+  let bytes = 0;
+  for (const character of reason) {
+    const characterBytes = Buffer.byteLength(character, "utf8");
+    if (bytes + characterBytes > contentBudget) {
+      break;
+    }
+    bounded += character;
+    bytes += characterBytes;
+  }
+  return `${bounded}${suffix}`;
 }
 
 function extractProjection(data: Record<string, unknown>): string {
@@ -122,6 +164,22 @@ function freezeReceipt(draft: ReceiptDraft): McpToolReceipt {
   return draft as McpToolReceipt;
 }
 
+function compactReceiptDraft(full: ReceiptDraft): CompactReceiptDraft {
+  return {
+    mode: "compact",
+    receiptId: full.receiptId,
+    seq: full.seq,
+    reason: boundedCompactReason(full.reason),
+    latencyMs: full.latencyMs,
+    returnedBytes: full.returnedBytes,
+  };
+}
+
+function fullReceiptDraft(internal: ReceiptDraft): FullReceiptDraft {
+  const { receiptId: _receiptId, ...output } = internal;
+  return output;
+}
+
 /**
  * Build a tool response with an attached receipt.
  * Returns the finalized MCP result and the byte count of the serialized text
@@ -133,8 +191,11 @@ export function buildReceiptResult(
   deps: ReceiptDeps,
 ): { result: McpToolResult; textBytes: number; receipt: McpToolReceipt } {
   const burdenKind = burdenKindForTool(tool);
+  const receiptMode = deps.receiptMode ?? "full";
 
   const draft: ReceiptDraft = {
+    mode: receiptMode,
+    receiptId: deps.traceId,
     sessionId: deps.sessionId,
     traceId: deps.traceId,
     seq: deps.seq,
@@ -165,32 +226,53 @@ export function buildReceiptResult(
     draft.budget = deps.budget;
   }
 
+  const outputReceipt: FullReceiptDraft | CompactReceiptDraft = receiptMode === "compact"
+    ? compactReceiptDraft(draft)
+    : fullReceiptDraft(draft);
   const fullData: Record<string, unknown> & { tripwire?: Tripwire[] } = attachMcpSchemaMeta(tool, {
     ...data,
-    _receipt: draft,
+    _receipt: outputReceipt,
   });
   if (deps.tripwires.length > 0) {
     fullData.tripwire = deps.tripwires;
   }
 
-  // Stabilize self-referential size fields (use UTF-8 byte length, not char count)
-  let prev = 0;
+  // Stabilize self-referential size fields (use UTF-8 byte length, not char count).
+  // Equality means the encoded text already contains the byte count it reports.
+  const maxStabilizationPasses = 32;
   let text = "";
-  for (let i = 0; i < 5; i++) {
+  let stabilized = false;
+  for (let i = 0; i < maxStabilizationPasses; i++) {
     text = deps.codec.encode(fullData);
     const byteLen = Buffer.byteLength(text, "utf8");
-    if (byteLen === prev) break;
-    prev = byteLen;
+    if (byteLen === outputReceipt.returnedBytes) {
+      stabilized = true;
+      break;
+    }
     draft.returnedBytes = byteLen;
+    outputReceipt.returnedBytes = byteLen;
     const burdenByKind = projectBurdenByKind(deps.metrics.burdenByKind, tool, byteLen);
     draft.compressionRatio = draft.fileBytes !== null && draft.fileBytes > 0
       ? Math.round((byteLen / draft.fileBytes) * 1000) / 1000
       : null;
+    if (outputReceipt.mode === "full") {
+      outputReceipt.compressionRatio = draft.compressionRatio;
+    }
     draft.cumulative.bytesReturned = deps.metrics.bytesReturned + byteLen;
     draft.cumulative.nonReadBytesReturned = totalNonReadBytesReturned(burdenByKind);
     draft.cumulative.burdenByKind = burdenByKind;
   }
+  if (!stabilized) {
+    throw new Error("MCP receipt byte accounting did not converge");
+  }
+  if (
+    outputReceipt.mode === "compact"
+    && Buffer.byteLength(deps.codec.encode(outputReceipt), "utf8") > COMPACT_RECEIPT_MAX_BYTES
+  ) {
+    throw new Error("Compact MCP receipt exceeded its 512-byte contract");
+  }
 
+  Object.freeze(outputReceipt);
   const receipt = freezeReceipt(draft);
 
   return {

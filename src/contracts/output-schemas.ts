@@ -23,24 +23,27 @@ import { causalSurfaceNextActionSchema } from "./causal-surface-next-action.js";
 export { CLI_COMMAND_NAMES, MCP_TOOL_NAMES };
 export type { CliCommandName, McpToolName } from "./capabilities.js";
 
-export const OUTPUT_SCHEMA_VERSION = "1.0.0" as const;
+export const MCP_OUTPUT_SCHEMA_VERSION = "2.0.0" as const;
+export const CLI_OUTPUT_SCHEMA_VERSION = "1.0.0" as const;
+/** @deprecated Use the surface-specific schema version constants. */
+export const OUTPUT_SCHEMA_VERSION = MCP_OUTPUT_SCHEMA_VERSION;
 
 export interface OutputSchemaMeta {
   readonly id: string;
-  readonly version: typeof OUTPUT_SCHEMA_VERSION;
+  readonly version: typeof MCP_OUTPUT_SCHEMA_VERSION | typeof CLI_OUTPUT_SCHEMA_VERSION;
 }
 
 const mcpOutputSchemaMeta = Object.freeze(Object.fromEntries(
   MCP_TOOL_NAMES.map((tool) => [tool, Object.freeze({
     id: `graft.mcp.${tool}`,
-    version: OUTPUT_SCHEMA_VERSION,
+    version: MCP_OUTPUT_SCHEMA_VERSION,
   })]),
 ) as Record<McpToolName, OutputSchemaMeta>);
 
 const cliOutputSchemaMeta = Object.freeze(Object.fromEntries(
   CLI_COMMAND_NAMES.map((command) => [command, Object.freeze({
     id: `graft.cli.${command}`,
-    version: OUTPUT_SCHEMA_VERSION,
+    version: CLI_OUTPUT_SCHEMA_VERSION,
   })]),
 ) as Record<CliCommandName, OutputSchemaMeta>);
 
@@ -209,7 +212,8 @@ const sludgeReportSchema = z.object({
   summary: z.string(),
 }).strict();
 
-const receiptSchema = z.object({
+const fullReceiptSchema = z.object({
+  mode: z.literal("full"),
   sessionId: z.string(),
   traceId: z.string(),
   seq: z.number().int().positive(),
@@ -237,6 +241,22 @@ const receiptSchema = z.object({
   budget: budgetSchema.optional(),
   compressionRatio: z.number().nullable().optional(),
 }).strict();
+
+const compactReceiptSchema = z.object({
+  mode: z.literal("compact"),
+  receiptId: z.string(),
+  seq: z.number().int().positive(),
+  reason: z.string(),
+  latencyMs: z.number().int().nonnegative(),
+  returnedBytes: z.number().int().nonnegative(),
+}).strict();
+
+const receiptSchema = z.discriminatedUnion("mode", [
+  compactReceiptSchema,
+  fullReceiptSchema,
+]);
+
+const legacyCliReceiptSchema = fullReceiptSchema.omit({ mode: true });
 
 const runtimeObservabilitySchema = z.object({
   enabled: z.boolean(),
@@ -962,7 +982,7 @@ function withCliPeerCommon(
 ): z.ZodType {
   return extendWithCommonFields(schema, {
     _schema: schemaMetaLiteral(cliOutputSchemaMeta[command]),
-    _receipt: receiptSchema,
+    _receipt: legacyCliReceiptSchema,
     tripwire: z.array(tripwireSchema).optional(),
   });
 }

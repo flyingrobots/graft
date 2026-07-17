@@ -86,7 +86,17 @@ daemon control-plane tools.
 - MCP is the primary agent surface.
 - `graft serve` is repo-local stdio; `graft serve --runtime daemon` is
   the daemon-backed stdio bridge.
-- Responses carry versioned `_schema` metadata and `_receipt` decision data.
+- MCP responses carry version-2 `_schema` metadata and a compact `_receipt` by
+  default. Every tool accepts the common optional input
+  `receipt: "compact" | "full"`; use `"full"` only when the complete audit and
+  cumulative-accounting envelope is required.
+- Compact receipts contain only `mode`, `receiptId`, `seq`, `reason`,
+  `latencyMs`, and the exact encoded `returnedBytes`. The `receiptId` correlates
+  with the runtime-observability log; it is not a fetch handle. `stats` is the
+  explicit cumulative-counter surface.
+- Tripwire warnings remain top-level response data in both receipt modes.
+- CLI peer commands intentionally request full MCP receipts and project them
+  into their unchanged version-1 CLI JSON contracts.
 - `activity_view` provides bounded local `artifact_history` anchored to Git `HEAD`.
 
 ## Related docs

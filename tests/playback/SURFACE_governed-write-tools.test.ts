@@ -72,11 +72,11 @@ describe("SURFACE_governed-write-tools scope playback", () => {
       old_string: "'old'",
       new_string: "'new'",
     }));
-    const receipt = result["_receipt"] as { traceId: string };
+    const receipt = result["_receipt"] as { receiptId: string };
     const completed = readRuntimeEvents(repoDir).find((event) =>
       event["event"] === "tool_call_completed" &&
       event["tool"] === "graft_edit" &&
-      event["traceId"] === receipt.traceId
+      event["receiptId"] === receipt.receiptId
     );
 
     expect(completed?.["footprint"]).toMatchObject({
@@ -101,6 +101,7 @@ describe("SURFACE_governed-write-tools scope playback", () => {
       path: "src/app.ts",
       start: 1,
       end: 2,
+      receipt: "full",
     }));
     const receipt = result["_receipt"] as Record<string, unknown>;
 
@@ -159,8 +160,9 @@ describe("SURFACE_governed-write-tools scope playback", () => {
           direction: "removed",
         },
       }],
-      _schema: { id: "graft.mcp.graft_edit", version: "1.0.0" },
+      _schema: { id: "graft.mcp.graft_edit", version: "2.0.0" },
       _receipt: {
+        mode: "full",
         sessionId: "session",
         traceId: "trace",
         seq: 1,

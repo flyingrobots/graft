@@ -142,7 +142,8 @@ export const sludgeReportSchema = z.object({
   summary: z.string(),
 }).strict();
 
-export const receiptSchema = z.object({
+export const fullReceiptSchema = z.object({
+  mode: z.literal("full"),
   sessionId: z.string(),
   traceId: z.string(),
   seq: z.number().int().positive(),
@@ -170,6 +171,22 @@ export const receiptSchema = z.object({
   budget: budgetSchema.optional(),
   compressionRatio: z.number().nullable().optional(),
 }).strict();
+
+export const compactReceiptSchema = z.object({
+  mode: z.literal("compact"),
+  receiptId: z.string(),
+  seq: z.number().int().positive(),
+  reason: z.string(),
+  latencyMs: z.number().int().nonnegative(),
+  returnedBytes: z.number().int().nonnegative(),
+}).strict();
+
+export const receiptSchema = z.discriminatedUnion("mode", [
+  compactReceiptSchema,
+  fullReceiptSchema,
+]);
+
+export const legacyCliReceiptSchema = fullReceiptSchema.omit({ mode: true });
 
 export const runtimeObservabilitySchema = z.object({
   enabled: z.boolean(),
@@ -894,6 +911,7 @@ export const mcpFragmentSchemas = {
   sludgeReportSchema,
   burdenSummarySchema,
   receiptSchema,
+  legacyCliReceiptSchema,
   runtimeObservabilitySchema,
   runtimeCausalContextSchema,
   runtimeStagedTargetSchema,

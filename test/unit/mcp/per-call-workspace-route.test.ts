@@ -90,14 +90,18 @@ describe("mcp: per-call workspace route", () => {
       projection: string;
       path: string;
       content: string;
+      _receipt: { mode: string; cumulative: Record<string, unknown> };
     }>("safe_read", {
       cwd: repoDir,
       path: "app.ts",
+      receipt: "full",
     });
 
     expect(routedRead.projection).toBe("content");
     expect(routedRead.path).toBe(path.join(repoDir, "app.ts"));
     expect(routedRead.content).toBe("export const repo = 'routed';\n");
+    expect(routedRead._receipt.mode).toBe("full");
+    expect(routedRead._receipt.cumulative).toBeDefined();
 
     const status = await session.callToolJson<{
       bindState: string;

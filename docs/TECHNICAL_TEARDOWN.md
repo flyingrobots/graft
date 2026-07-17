@@ -127,7 +127,7 @@ Before any code is discussed, establish a shared vocabulary. These terms appear 
 | **Tripwire** | A behavioral signal that fires when an agent is doing something suspicious (reading huge files late in a session, spinning in tool loops, etc.). |
 | **WARP** | Graft's current git-warp-backed structural worldline memory layer. Git-backed AST outlines are stored per commit to enable symbol-level history queries without dumping source into the agent context. The active architecture is moving this behind `StructuralReadingPort` so Echo can become the primary causal-history substrate after parity is proven. |
 | **Worldline** | A sequence of structural states a file or symbol passes through across Git commits. The WARP graph stores these worldlines. |
-| **Receipt** | A machine-readable metadata envelope attached to every tool call result, carrying latency, byte counts, policy decision, and cumulative session stats. |
+| **Receipt** | A machine-readable metadata envelope attached to every tool call result. MCP defaults to a compact decision/correlation receipt; explicit full mode carries the complete audit and cumulative session stats. |
 | **MCP** | *Model Context Protocol*. An open protocol for tools that AI agents can call. Graft exposes all its capabilities as MCP tools. |
 | **Daemon** | Graft's persistent same-user background process. It manages authorized workspaces, shared worker pools, persistent monitors, and current git-warp contexts across MCP sessions. |
 | **Repo-local mode** | A lightweight alternative to the daemon — a per-repo, in-process MCP server that reads one checkout. No persistent process. |
@@ -146,7 +146,7 @@ Graft solves this by acting as a **context governor** between the agent and the 
 
 1. **Evaluates a policy** — is this file too big? Is the agent's session already deep?
 2. **Returns the minimum structurally correct view** — full content for small files; a structural outline for large ones; a hard refusal for binaries, secrets, and lockfiles.
-3. **Tracks tool responses** — bytes consumed, files read, symbols seen — and embeds this telemetry in tool receipts so the agent can self-regulate.
+3. **Tracks tool responses** — bytes consumed, files read, symbols seen — while emitting a bounded compact receipt by default. Agents request full audit telemetry explicitly or query cumulative state through `stats`.
 
 ```mermaid
 flowchart TD
@@ -391,8 +391,9 @@ sequenceDiagram
         end
     end
 
-    Tool->>Tool: buildReceipt(result, latency, cumulative)
-    Tool-->>MCP: { ...result, _receipt: McpToolReceipt }
+    Tool->>Tool: build full internal audit record
+    Tool->>Tool: project compact (default) or full receipt
+    Tool-->>MCP: { ...result, _receipt: McpReceipt }
     MCP-->>Agent: tool_result
 ```
 
@@ -440,36 +441,26 @@ Since 87 lines < 150 (the threshold), and the file is not banned:
   "actual": { "lines": 87, "bytes": 2400 },
   "thresholds": { "lines": 150, "bytes": 12288 },
   "_receipt": {
-    "sessionId": "sess_abc123",
-    "traceId": "trace_xyz",
+    "mode": "compact",
+    "receiptId": "trace_xyz",
     "seq": 3,
-    "ts": "2025-05-27T14:23:01.042Z",
-    "tool": "safe_read",
-    "projection": "content",
     "reason": "CONTENT",
     "latencyMs": 12,
-    "fileBytes": 2400,
-    "returnedBytes": 2400,
-    "burden": { "kind": "read", "nonRead": false },
-    "cumulative": {
-      "reads": 3,
-      "outlines": 1,
-      "refusals": 0,
-      "cacheHits": 0,
-      "bytesReturned": 6821,
-      "bytesAvoided": 18400,
-      "nonReadBytesReturned": 0,
-      "burdenByKind": { "read": 3, "compute": 0, "non_read": 0 }
-    }
+    "returnedBytes": 912
   }
 }
 ```
 
-Notice `bytesAvoided: 18400` — that's how many bytes Graft saved the agent's context window by returning outlines instead of full content on previous calls.
+Pass `receipt: "full"` to retain the session, trace, timestamp, tool,
+projection, file-byte, burden, budget, compression, and cumulative fields used
+for audit/debugging. The internal full record is always retained for runtime
+logging and accounting; compact mode changes only the public projection.
 
 ### Receipt Entity Relationship
 
-Every tool call produces one receipt that accumulates session-wide stats:
+Every tool call produces one complete internal audit receipt. MCP projects that
+record into a compact receipt by default; explicit full mode exposes the
+session-wide cumulative relationship shown below:
 
 ```mermaid
 erDiagram
@@ -1249,7 +1240,10 @@ flowchart TD
     J -->|"No"| L["✅ OK to proceed"]
 ```
 
-Tripwires are **advisory, not blocking**. They appear in the `_receipt` attached to the tool result. The agent can read them and self-correct. Graft does not forcibly prevent the read — it trusts the agent to respond to the signal.
+Tripwires are **advisory, not blocking**. They appear as an immediate top-level
+`tripwire` field on the tool result in both receipt modes. The agent can read
+them and self-correct. Graft does not forcibly prevent the read — it trusts the
+agent to respond to the signal.
 
 **Trade-off**: A hard block would be more authoritative but would break agent workflows unexpectedly. An advisory signal is gentler and allows the agent to contextualize (maybe that large read was intentional and justified).
 
@@ -1389,7 +1383,7 @@ OutlineResult {
   "result": {
     "content": [{
       "type": "text",
-      "text": "{\"path\":\"src/operations/repo-workspace.ts\",\"projection\":\"outline\",\"reason\":\"OUTLINE\",\"actual\":{\"lines\":612,\"bytes\":24891},\"thresholds\":{\"lines\":150,\"bytes\":12288},\"outline\":[...],\"jumpTable\":[...],\"estimatedBytesAvoided\":24891,\"_receipt\":{\"seq\":8,\"latencyMs\":34,\"returnedBytes\":1240,\"cumulative\":{\"bytesAvoided\":49782,...}}}"
+      "text": "{\"path\":\"src/operations/repo-workspace.ts\",\"projection\":\"outline\",\"reason\":\"OUTLINE\",\"actual\":{\"lines\":612,\"bytes\":24891},\"thresholds\":{\"lines\":150,\"bytes\":12288},\"outline\":[...],\"jumpTable\":[...],\"estimatedBytesAvoided\":24891,\"_receipt\":{\"mode\":\"compact\",\"receiptId\":\"trace_xyz\",\"seq\":8,\"reason\":\"OUTLINE\",\"latencyMs\":34,\"returnedBytes\":1240}}"
     }]
   }
 }
@@ -1871,7 +1865,7 @@ Every design decision is a compromise. Here are Graft's most significant ones, s
 
 ### Trade-off 3: Tripwires Are Advisory, Not Blocking
 
-**Decision**: Tripwire signals appear in receipts but do not prevent the tool call from completing.
+**Decision**: Tripwire signals appear at the top level of responses but do not prevent the tool call from completing.
 
 **Gained**: Agent workflows are never broken unexpectedly. An agent can contextualize and decide the tripwire is a false positive for its specific task.
 

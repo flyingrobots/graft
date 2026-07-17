@@ -61,6 +61,20 @@ CLI JSON responses should do the same with:
 CLI commands should keep human text output by default and add `--json`
 for machine-readable automation.
 
+## Current compatibility evolution
+
+This cycle established version `1.0.0` for both output families. The later
+agent working-set control-plane campaign intentionally advances every MCP
+output schema to `2.0.0` because compact receipts become the MCP default and
+the receipt variants gain an explicit `mode` discriminator. CLI output schemas
+remain at `1.0.0`: CLI peers request the full MCP variant and remove the
+MCP-only discriminator before validating and rendering the legacy CLI shape.
+
+The current contract and migration requirements are defined in
+`docs/design/SURFACE_agent-working-set-control-plane.md`. The version-1 text
+above remains the historical design witness for Cycle 0035 rather than a claim
+that MCP can never advance.
+
 Tests should validate representative emitted payloads against the
 declared schemas, not only against ad hoc field assertions.
 

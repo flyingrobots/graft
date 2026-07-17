@@ -300,12 +300,13 @@ describe("SURFACE_agent-dx-governed-edit playback", () => {
         old_string: "'old'",
         new_string: "'new'",
       });
-      const receipt = result["_receipt"] as { traceId: string };
+      const receipt = result["_receipt"] as { receiptId: string };
       const runtimeLog = fs.readFileSync(path.join(repoDir, ".graft", "logs", "mcp-runtime.ndjson"), "utf-8");
       const events = runtimeLog.trim().split("\n").map((line) => JSON.parse(line) as {
         event: string;
         tool?: string;
         traceId?: string;
+        receiptId?: string;
         footprint?: { paths?: string[] };
         provenance?: unknown;
         causalWriteEvent?: unknown;
@@ -313,7 +314,7 @@ describe("SURFACE_agent-dx-governed-edit playback", () => {
       const completed = events.find((event) =>
         event.event === "tool_call_completed" &&
         event.tool === "graft_edit" &&
-        event.traceId === receipt.traceId
+        event.receiptId === receipt.receiptId
       );
 
       expect(completed?.footprint?.paths).toEqual([path.join(repoDir, "src/app.ts")]);

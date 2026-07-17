@@ -41,7 +41,10 @@ Graft sits between the agent and the filesystem and enforces a simple rule: **re
 - Large file? A structural outline — function names, signatures, line ranges. The agent can drill in with a range read if it needs a specific function body.
 - Binary, secret, or lockfile? Hard refusal with a machine-readable reason code and a suggested alternative.
 
-Tool responses carry receipts: bytes consumed, bytes avoided, session depth, policy decision. Agents can self-regulate. Operators can audit.
+Tool responses carry compact decision receipts by default: a correlation ID,
+sequence, reason, latency, and exact encoded response size. Agents that need the
+complete audit envelope can request `receipt: "full"`; cumulative session totals
+remain available through `stats`.
 
 ---
 
@@ -49,11 +52,17 @@ Tool responses carry receipts: bytes consumed, bytes avoided, session depth, pol
 
 - **Parser-backed outlines.** Outlines come from Tree-Sitter ASTs, not heuristic line-scanning. Function signatures, class hierarchies, and jump tables are structurally accurate across JavaScript, TypeScript, Rust, Python, Go, GraphQL, JSON, TOML, YAML, Markdown, and more.
 
-- **Machine-readable contracts.** Tool responses carry versioned `_schema` metadata and decision receipts. Agents reason about outcomes without scraping prose. Receipts accumulate cumulative session stats so agents know when they're burning budget.
+- **Machine-readable contracts.** Tool responses carry versioned `_schema`
+  metadata and decision receipts, so agents can reason about outcomes without
+  scraping prose. MCP defaults to a bounded compact receipt; explicit full
+  receipts and `stats` expose cumulative session accounting when it is needed.
 
 - **Structural memory across Git history.** WARP (Structural Worldline Memory) is the current git-warp-backed structural history layer. Query what changed structurally — which symbols were added, removed, or renamed — without dumping source into the agent context. Graft is converging on a `StructuralReadingPort` boundary so Echo can become the primary causal-history substrate after parity is proven.
 
-- **Session governance.** The `GovernorTracker` watches for anti-patterns: runaway tool loops, late-session large reads, edit/bash thrash. Tripwire signals surface in receipts so agents and operators can act before context is exhausted.
+- **Session governance.** The `GovernorTracker` watches for anti-patterns:
+  runaway tool loops, late-session large reads, edit/bash thrash. Tripwire
+  signals remain immediate top-level response fields even when the receipt is
+  compact, so agents and operators can act before context is exhausted.
 
 - **Industrial-grade daemon.** A same-user local runtime manages multi-repo authorization, persistent monitors, and shared worker pools. Current git-warp contexts stay warm in memory across sessions, while the public contract is moving behind substrate-neutral structural-history ports.
 
@@ -130,12 +139,18 @@ const result = await workspace.safeRead({ path: "src/app.ts" });
 // result.projection: "content" | "outline" | "refused" | "cache_hit" | "diff"
 ```
 
-**In-process tool calls with receipts** (full MCP behavior, no subprocess):
+**In-process tool calls with receipts** (MCP behavior, no subprocess):
 ```ts
 import { createRepoLocalGraft, callGraftTool } from "@flyingrobots/graft";
 
 const graft = createRepoLocalGraft({ cwd: process.cwd() });
 const outline = await callGraftTool(graft, "file_outline", { path: "src/app.ts" });
+
+// Audit/debug clients can opt into the complete cumulative envelope.
+const audited = await callGraftTool(graft, "file_outline", {
+  path: "src/app.ts",
+  receipt: "full",
+});
 ```
 
 **Editor-native syntax highlighting** (Tree-Sitter WASM, no I/O, viewport-aware):

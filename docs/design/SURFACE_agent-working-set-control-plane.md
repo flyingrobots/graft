@@ -211,9 +211,9 @@ for historical event decoding and is not a live semantic-transition basis.
 
 ### Agent
 
-- [ ] Is a normal precision-read receipt below 512 encoded bytes while retaining
+- [x] Is a normal precision-read receipt below 512 encoded bytes while retaining
       a stable evidence identifier and exact returned-byte count?
-- [ ] Does `stats` still expose cumulative burden after compact calls?
+- [x] Does `stats` still expose cumulative burden after compact calls?
 - [ ] Does default `doctor` name health, workspace, readiness, degradation, and
       exactly one next action in less than 2 KiB?
 - [ ] Does default `activity_view` omit event bodies while retaining bounded
@@ -287,10 +287,37 @@ surface. No timing assertion may depend on ambient machine speed.
   causal ontology, layered worldlines, and durable graph history. Lint,
   typecheck, and diff hygiene are separate closure gates.
 
-The final full-suite witness must be run from the exact Slice 1 commit in a
-clean temporary worktree. The operator's unrelated untracked cool-idea card is
-intentionally excluded from the slice and changes the generated backlog DAG if
-it is copied into the isolated Docker context.
+The exact Slice 1 commit (`da1956f7`) passes the full suite from a clean detached
+temporary worktree: 246 files and 1,856 tests. The operator's unrelated
+cool-idea work remained outside the isolated witness and outside the commit.
+
+### Slice 2: compact receipt policy
+
+- All registered MCP tools, including tools without domain arguments, advertise
+  and strictly validate the common optional `receipt` control. Missing policy
+  selects compact; explicit `full` selects the audit projection; invalid values
+  fail validation.
+- Default compact receipts contain exactly `mode`, `receiptId`, `seq`, `reason`,
+  `latencyMs`, and `returnedBytes`, remain below 512 canonical UTF-8 bytes, and
+  stabilize `returnedBytes` against the final encoded response.
+- Explicit full receipts preserve the previous audit, projection, burden,
+  budget, compression, and cumulative fields with a `mode: "full"`
+  discriminator. The complete internal record remains available to metrics and
+  runtime observability even when the public projection is compact.
+- Compact `receiptId` is the invocation trace identity and correlates with both
+  started and completed runtime-observability events. It does not introduce a
+  receipt store or retrieval promise.
+- Receipt policy crosses the daemon-worker boundary as a required job field;
+  in-process and offloaded calls therefore use the same default and projection.
+- MCP schemas advance to version `2.0.0` with strict compact/full alternatives.
+  CLI peers request full, project away the MCP-only discriminator, and continue
+  validating and emitting their version-`1.0.0` legacy receipt contract.
+- Compact calls still contribute their exact encoded bytes to cumulative
+  accounting. `stats` exposes those totals, while tripwire warnings remain
+  immediate top-level response fields rather than receipt members.
+- Focused receipt, schema, stdio, worker, observability, and CLI compatibility
+  witnesses pass. Lint, typecheck, targeted playback tests, and the exact-commit
+  full suite remain the closure gates before this slice is declared complete.
 
 ## Slice and commit plan
 

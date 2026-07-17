@@ -10,6 +10,7 @@ interface RuntimeEvent {
   readonly event: string;
   readonly sessionId: string;
   readonly traceId?: string;
+  readonly receiptId?: string;
   readonly seq?: number;
   readonly tool?: string;
   readonly projection?: string;
@@ -61,10 +62,9 @@ describe("mcp: runtime observability", () => {
         path: testFile,
       }));
       const receipt = result["_receipt"] as {
-        sessionId: string;
-        traceId: string;
+        mode: "compact";
+        receiptId: string;
         seq: number;
-        projection: string;
         reason: string;
       };
       const doctor = parse(await isolated.server.callTool("doctor", {}));
@@ -78,18 +78,21 @@ describe("mcp: runtime observability", () => {
       const events = readRuntimeLog(runtime.logPath);
 
       expect(events[0]?.event).toBe("session_started");
-      expect(events[0]?.sessionId).toBe(receipt.sessionId);
+      expect(receipt.mode).toBe("compact");
 
-      const started = events.find((event) => event.event === "tool_call_started" && event.traceId === receipt.traceId);
+      const started = events.find((event) => event.event === "tool_call_started" && event.traceId === receipt.receiptId);
       expect(started).toBeDefined();
       expect(started?.tool).toBe("safe_read");
       expect(started?.argKeys).toEqual(["path"]);
 
-      const completed = events.find((event) => event.event === "tool_call_completed" && event.traceId === receipt.traceId);
+      const completed = events.find((event) =>
+        event.event === "tool_call_completed" && event.receiptId === receipt.receiptId
+      );
       expect(completed).toBeDefined();
-      expect(completed?.sessionId).toBe(receipt.sessionId);
+      expect(completed?.traceId).toBe(receipt.receiptId);
+      expect(completed?.sessionId).toBe(events[0]?.sessionId);
       expect(completed?.seq).toBe(receipt.seq);
-      expect(completed?.projection).toBe(receipt.projection);
+      expect(completed?.projection).toBe("content");
       expect(completed?.reason).toBe(receipt.reason);
       expect(completed?.burdenKind).toBe("read");
       expect(completed?.nonReadBurden).toBe(false);

@@ -33,6 +33,11 @@ import {
   resolveDaemonOffloadedRepoTool,
   workspaceRoutedRepoTools,
 } from "./server-tool-access.js";
+import {
+  readReceiptMode,
+  stripCommonToolInputs,
+  type ReceiptMode,
+} from "./tool-input-controls.js";
 
 /** Mutable footprint accumulator for the current tool invocation. */
 export interface FootprintAccumulator {
@@ -45,6 +50,7 @@ export interface FootprintAccumulator {
 export interface InvocationStore {
   readonly traceId: string;
   readonly startedAtMs: number;
+  readonly receiptMode: ReceiptMode;
   readonly footprint: FootprintAccumulator;
   response?: { readonly receipt: McpToolReceipt; readonly tripwireSignals: readonly string[] };
 }
@@ -53,6 +59,7 @@ interface InvocationEnvelope {
   readonly traceId: string;
   readonly startedAtMs: number;
   readonly argKeys: readonly string[];
+  readonly receiptMode: ReceiptMode;
 }
 
 interface InvocationExecutionPlan {
@@ -192,6 +199,7 @@ export function createInvocationEngine(deps: InvocationEngineDeps): InvocationEn
       metrics: metrics.snapshot(),
       tripwires,
       budget: governor.getBudget(),
+      receiptMode: invocation.receiptMode,
     });
     invocation.response = {
       receipt,
@@ -207,6 +215,7 @@ export function createInvocationEngine(deps: InvocationEngineDeps): InvocationEn
       traceId: crypto.randomUUID(),
       startedAtMs: Date.now(),
       argKeys: sanitizeArgKeys(args),
+      receiptMode: readReceiptMode(args),
     };
   }
 
@@ -214,6 +223,7 @@ export function createInvocationEngine(deps: InvocationEngineDeps): InvocationEn
     return {
       traceId: envelope.traceId,
       startedAtMs: envelope.startedAtMs,
+      receiptMode: envelope.receiptMode,
       footprint: { paths: new Set(), symbols: new Set(), regions: [] },
     };
   }
@@ -359,6 +369,7 @@ export function createInvocationEngine(deps: InvocationEngineDeps): InvocationEn
       repoState: input.execution.repoState.getState(),
       governorSnapshot: input.execution.governor.snapshot(),
       metricsSnapshot: input.execution.metrics.snapshot(),
+      receiptMode: input.envelope.receiptMode,
       ...(cacheSnapshots !== undefined ? { cacheSnapshots } : {}),
     });
 
@@ -427,6 +438,7 @@ export function createInvocationEngine(deps: InvocationEngineDeps): InvocationEn
       event: "tool_call_completed",
       sessionId,
       traceId: input.envelope.traceId,
+      receiptId: input.invocation.response.receipt.receiptId,
       seq: input.invocation.response.receipt.seq,
       tool: input.name,
       latencyMs: input.invocation.response.receipt.latencyMs,
@@ -518,7 +530,7 @@ export function createInvocationEngine(deps: InvocationEngineDeps): InvocationEn
     };
 
     try {
-      const parsed = decodeInvocationArgs(args, schema);
+      const parsed = stripCommonToolInputs(decodeInvocationArgs(args, schema));
       authorizeInvocation(name, parsed);
       execution = (await planInvocationExecution(name, parsed)).execution;
       recordInvocation();

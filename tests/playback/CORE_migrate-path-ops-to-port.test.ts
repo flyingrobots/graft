@@ -75,6 +75,7 @@ async function expectWorkerRefusesOutsidePath(repoDir: string, outsideFile: stri
     seq: 1,
     startedAtMs: Date.now(),
     tool: "safe_read",
+    receiptMode: "compact",
     args: { path: outsideFile },
     projectRoot: repoDir,
     graftDir: path.join(repoDir, ".graft"),

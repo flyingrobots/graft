@@ -6,6 +6,7 @@ import type { ToolDefinition, ToolHandler } from "./context.js";
 import type { MetricsDelta, MetricsSnapshot } from "./metrics.js";
 import type { ObservationSnapshot } from "./cache.js";
 import type { RepoObservation } from "./repo-state.js";
+import type { ReceiptMode } from "./tool-input-controls.js";
 import type { WorkspaceCapabilityProfile } from "./workspace-router.js";
 import { graftDiffTool } from "./tools/graft-diff.js";
 import { sinceTool } from "./tools/since.js";
@@ -69,6 +70,8 @@ export interface RepoToolWorkerJob {
   readonly repoState: RepoObservation;
   readonly governorSnapshot: GovernorTrackerSnapshot;
   readonly metricsSnapshot: MetricsSnapshot;
+  /** Public receipt projection selected by the parent invocation. */
+  readonly receiptMode: ReceiptMode;
   readonly cacheSnapshots?: Readonly<Record<string, ObservationSnapshot>>;
 }
 

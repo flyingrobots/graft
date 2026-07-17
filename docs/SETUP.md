@@ -635,10 +635,14 @@ tracks cumulative bytes consumed and tightens thresholds as the
 budget drains. No single read may consume more than 5% of remaining
 budget. When the budget is exhausted, all reads return outlines.
 
-Budget status appears in every receipt:
+Budget status is available in an explicit full receipt or through `stats`:
 ```json
 "budget": { "total": 500000, "consumed": 14345, "remaining": 485655, "fraction": 0.029 }
 ```
+
+Pass `receipt: "full"` on the original MCP call when the per-call audit
+envelope is required. Compact receipts intentionally omit budget and cumulative
+session state.
 
 ### Session awareness
 
@@ -656,14 +660,31 @@ messages, edit-bash loops, runaway tool calls).
 
 ### Receipts
 
-Every response includes a `_receipt` block with session ID,
-trace ID, sequence number, latency, projection type, bytes
-returned, and cumulative counters. This is for usage analysis and
-correlation — you can usually ignore it.
+Every response includes a `_receipt` block. MCP calls default to the bounded
+compact form:
 
-If MCP runtime observability is enabled, `traceId` and `seq` line up
-with `.graft/logs/mcp-runtime.ndjson`. `doctor` also reports the
-current runtime log path and policy.
+```json
+{
+  "mode": "compact",
+  "receiptId": "trace_xyz",
+  "seq": 3,
+  "reason": "CONTENT",
+  "latencyMs": 12,
+  "returnedBytes": 912
+}
+```
+
+Every MCP tool accepts `receipt: "full"` when an audit/debugging client needs
+the previous session ID, trace ID, projection, burden, budget, and cumulative
+counter fields. `stats` remains the dedicated cumulative-counter tool. CLI peer
+commands request full internally, so their version-1 JSON and human output stay
+compatible.
+
+If MCP runtime observability is enabled, compact `receiptId` (or full
+`traceId`) and `seq` line up with `.graft/logs/mcp-runtime.ndjson`. The ID is a
+correlation key, not a promise that receipt detail can be fetched later.
+`doctor` also reports the current runtime log path and policy. Tripwire warnings
+are immediate top-level response fields rather than receipt members.
 
 ## Configuration
 

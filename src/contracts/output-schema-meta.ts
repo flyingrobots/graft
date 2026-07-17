@@ -6,24 +6,27 @@ import {
   type McpToolName,
 } from "./capabilities.js";
 
-export const OUTPUT_SCHEMA_VERSION = "1.0.0" as const;
+export const MCP_OUTPUT_SCHEMA_VERSION = "2.0.0" as const;
+export const CLI_OUTPUT_SCHEMA_VERSION = "1.0.0" as const;
+/** @deprecated Use the surface-specific schema version constants. */
+export const OUTPUT_SCHEMA_VERSION = MCP_OUTPUT_SCHEMA_VERSION;
 
 export interface OutputSchemaMeta {
   readonly id: string;
-  readonly version: typeof OUTPUT_SCHEMA_VERSION;
+  readonly version: typeof MCP_OUTPUT_SCHEMA_VERSION | typeof CLI_OUTPUT_SCHEMA_VERSION;
 }
 
 export const mcpOutputSchemaMeta = Object.freeze(Object.fromEntries(
   MCP_TOOL_NAMES.map((tool) => [tool, Object.freeze({
     id: `graft.mcp.${tool}`,
-    version: OUTPUT_SCHEMA_VERSION,
+    version: MCP_OUTPUT_SCHEMA_VERSION,
   })]),
 ) as Record<McpToolName, OutputSchemaMeta>);
 
 export const cliOutputSchemaMeta = Object.freeze(Object.fromEntries(
   CLI_COMMAND_NAMES.map((command) => [command, Object.freeze({
     id: `graft.cli.${command}`,
-    version: OUTPUT_SCHEMA_VERSION,
+    version: CLI_OUTPUT_SCHEMA_VERSION,
   })]),
 ) as Record<CliCommandName, OutputSchemaMeta>);
 

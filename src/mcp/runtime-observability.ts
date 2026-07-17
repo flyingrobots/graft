@@ -95,6 +95,8 @@ export interface RuntimeToolCallCompletedEvent {
   readonly event: "tool_call_completed";
   readonly sessionId: string;
   readonly traceId: string;
+  /** Public compact-receipt correlation identifier. Equal to traceId in v2. */
+  readonly receiptId: string;
   readonly seq: number;
   readonly tool: string;
   readonly latencyMs: number;

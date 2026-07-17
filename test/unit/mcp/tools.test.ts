@@ -632,7 +632,7 @@ describe("mcp: context budget", () => {
   it("budget appears in receipt after set_budget", async () => {
     const server = createServer();
     await server.callTool("set_budget", { bytes: 100000 });
-    const result = await server.callTool("safe_read", { path: SMALL_TS });
+    const result = await server.callTool("safe_read", { path: SMALL_TS, receipt: "full" });
     const parsed = parse(result);
     const receipt = parsed["_receipt"] as { budget?: { total: number; remaining: number } };
     expect(receipt.budget).toBeDefined();
@@ -644,7 +644,7 @@ describe("mcp: context budget", () => {
     const server = createServer();
     // Set a very tight budget — 5% of 1000 = 50 bytes max per read
     await server.callTool("set_budget", { bytes: 1000 });
-    const result = await server.callTool("safe_read", { path: MEDIUM_TS });
+    const result = await server.callTool("safe_read", { path: MEDIUM_TS, receipt: "full" });
     const parsed = parse(result);
     // medium.ts should get an outline due to tight budget cap
     expect(["outline", "content"]).toContain(parsed["projection"]);
@@ -654,7 +654,7 @@ describe("mcp: context budget", () => {
 
   it("no budget in receipt when budget not set", async () => {
     const server = createServer();
-    const result = await server.callTool("safe_read", { path: SMALL_TS });
+    const result = await server.callTool("safe_read", { path: SMALL_TS, receipt: "full" });
     const parsed = parse(result);
     const receipt = parsed["_receipt"] as Record<string, unknown>;
     expect(receipt["budget"]).toBeUndefined();
@@ -778,5 +778,7 @@ describe("mcp: session tracking", () => {
     });
     const parsed = parse(result);
     expect(parsed["tripwire"]).toBeDefined();
+    expect(parsed["_receipt"]).toMatchObject({ mode: "compact" });
+    expect((parsed["_receipt"] as Record<string, unknown>)["cumulative"]).toBeUndefined();
   });
 });

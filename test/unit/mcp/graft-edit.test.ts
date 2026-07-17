@@ -53,6 +53,7 @@ async function callGraftEdit(
 interface RuntimeEvent {
   readonly event: string;
   readonly traceId?: string;
+  readonly receiptId?: string;
   readonly tool?: string;
   readonly footprint?: {
     readonly paths?: readonly string[];
@@ -288,12 +289,12 @@ describe("mcp: graft_edit RED contract", () => {
       old_string: "hello",
       new_string: "goodbye",
     });
-    const receipt = result["_receipt"] as { traceId: string };
+    const receipt = result["_receipt"] as { receiptId: string };
     const events = readRuntimeLog(repoDir);
     const completed = events.find((event) =>
       event.event === "tool_call_completed" &&
       event.tool === "graft_edit" &&
-      event.traceId === receipt.traceId
+      event.receiptId === receipt.receiptId
     );
 
     expect(completed?.footprint?.paths).toEqual([path.join(repoDir, "src/app.ts")]);

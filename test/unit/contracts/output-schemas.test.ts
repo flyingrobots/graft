@@ -8,7 +8,9 @@ import {
   MCP_TOOL_NAMES,
   MCP_OUTPUT_SCHEMAS,
   attachCliSchemaMeta,
+  getCliOutputSchemaMeta,
   getCliOutputJsonSchema,
+  getMcpOutputSchemaMeta,
   getMcpOutputJsonSchema,
   validateCliOutput,
 } from "../../../src/contracts/output-schemas.js";
@@ -59,6 +61,51 @@ describe("contracts: output schemas", () => {
       const jsonSchema = getCliOutputJsonSchema(command);
       expect(jsonSchema).toBeDefined();
     }
+  });
+
+  it("advances every MCP contract to v2 while preserving CLI contracts at v1", () => {
+    for (const tool of MCP_TOOL_NAMES) {
+      expect(getMcpOutputSchemaMeta(tool).version).toBe("2.0.0");
+    }
+    for (const command of CLI_COMMAND_NAMES) {
+      expect(getCliOutputSchemaMeta(command).version).toBe("1.0.0");
+    }
+  });
+
+  it("enforces strict compact and full receipt alternatives", async () => {
+    const repoDir = createTestRepo("graft-output-schema-receipts-");
+    cleanups.push(repoDir);
+    fs.writeFileSync(path.join(repoDir, "app.ts"), "export const ready = true;\n");
+    git(repoDir, "add -A");
+    git(repoDir, "commit -m init");
+    const server = createServerInRepo(repoDir);
+
+    const compact = parse(await server.callTool("safe_read", { path: "app.ts" }));
+    const full = parse(await server.callTool("safe_read", {
+      path: "app.ts",
+      receipt: "full",
+    }));
+
+    expect(() => MCP_OUTPUT_SCHEMAS.safe_read.parse(compact)).not.toThrow();
+    expect(() => MCP_OUTPUT_SCHEMAS.safe_read.parse(full)).not.toThrow();
+
+    const compactReceipt = compact["_receipt"] as Record<string, unknown>;
+    expect(() => MCP_OUTPUT_SCHEMAS.safe_read.parse({
+      ...compact,
+      _receipt: { ...compactReceipt, cumulative: {} },
+    })).toThrow();
+
+    const fullReceipt = full["_receipt"] as Record<string, unknown>;
+    const { mode: _mode, ...missingMode } = fullReceipt;
+    expect(() => MCP_OUTPUT_SCHEMAS.safe_read.parse({
+      ...full,
+      _receipt: missingMode,
+    })).toThrow();
+    const { cumulative: _cumulative, ...missingCumulative } = fullReceipt;
+    expect(() => MCP_OUTPUT_SCHEMAS.safe_read.parse({
+      ...full,
+      _receipt: missingCumulative,
+    })).toThrow();
   });
 
   it("preserves concrete CLI output types through the helper stack", () => {
@@ -384,6 +431,12 @@ describe("contracts: output schemas", () => {
     for (const command of CLI_COMMAND_NAMES.filter((name) => !["init", "index", "migrate_local_history"].includes(name))) {
       expect(() => CLI_OUTPUT_SCHEMAS[command].parse(outputs[command as keyof typeof outputs])).not.toThrow();
     }
+
+    const cliReadReceipt = outputs.read_safe["_receipt"] as Record<string, unknown>;
+    expect(outputs.read_safe["_schema"]).toEqual({ id: "graft.cli.read_safe", version: "1.0.0" });
+    expect(cliReadReceipt["mode"]).toBeUndefined();
+    expect(cliReadReceipt["receiptId"]).toBeUndefined();
+    expect(cliReadReceipt["cumulative"]).toBeDefined();
   });
 
   it("validates local-history migration JSON output against the declared CLI schema", { timeout: 15_000 }, async () => {

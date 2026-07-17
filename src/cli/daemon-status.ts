@@ -70,7 +70,10 @@ export async function readDaemonStatusSnapshot(
     ): Promise<T> => {
       const result = await client.callTool({
         name: tool,
-        arguments: args,
+        arguments: {
+          ...args,
+          receipt: "full",
+        },
       });
       return parseToolBody(schema, result);
     };

@@ -254,6 +254,7 @@ describe("0058 playback: system-wide resource pressure and fairness", () => {
       seq: 1,
       startedAtMs: Date.now(),
       tool: "safe_read",
+      receiptMode: "compact",
       args: { path: "app.ts" },
       projectRoot: repoDir,
       graftDir: path.join(repoDir, ".graft"),

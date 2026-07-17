@@ -9,6 +9,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ### Changed
 
+- **Compact-by-default MCP receipts**: every MCP tool now accepts a common
+  `receipt: "compact" | "full"` control and defaults to a six-field compact
+  receipt bounded to 512 encoded bytes. Explicit full mode preserves the prior
+  audit, budget, and cumulative fields; `stats` remains the cumulative-counter
+  surface, tripwires remain top-level and immediate, and runtime logs retain the
+  full internal evidence correlated by compact `receiptId`. MCP output schemas
+  advance to `2.0.0`, while CLI peers explicitly request full receipts and
+  preserve their existing `1.0.0` JSON contracts. Response accounting uses the
+  exact UTF-8 bytes of the final encoded response in both in-process and daemon
+  worker paths.
 - **Repository observation truth**: ordinary dirty state is now treated as an
   initial or unchanged workspace baseline rather than invented movement.
   Semantic transition output distinguishes authoritative current state,

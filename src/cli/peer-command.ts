@@ -33,13 +33,29 @@ export function writeLine(writer: Writer, line = ""): void {
   writer.write(`${line}\n`);
 }
 
+function projectMcpV2FullReceiptToCliV1(data: JsonObject): JsonObject {
+  const receipt = data["_receipt"];
+  if (receipt === null || typeof receipt !== "object" || Array.isArray(receipt)) {
+    throw new Error("CLI peer response did not contain a full MCP receipt");
+  }
+  const { mode, ...legacyReceipt } = receipt as Record<string, unknown>;
+  if (mode !== "full") {
+    throw new Error("CLI peer commands require an explicit full MCP receipt");
+  }
+  return {
+    ...data,
+    _receipt: legacyReceipt,
+  };
+}
+
 export function emitPeerCommand(
   command: CliCommandName,
   data: JsonObject,
   json: boolean,
   writer: Writer,
 ): void {
-  const { _schema: _mcpSchema, ...rest } = data;
+  const projected = projectMcpV2FullReceiptToCliV1(data);
+  const { _schema: _mcpSchema, ...rest } = projected;
   const validated = validateCliOutput(command, attachCliSchemaMeta(command, rest));
   if (json) {
     writer.write(`${codec.encode(validated)}\n`);
@@ -81,5 +97,8 @@ export async function invokePeerCommand(
     projectRoot: cwd,
     graftDir: path.join(cwd, ".graft"),
   });
-  return parseToolResult(await server.callTool(tool, args));
+  return parseToolResult(await server.callTool(tool, {
+    ...args,
+    receipt: "full",
+  }));
 }

@@ -143,10 +143,15 @@ describe("integration: MCP server over stdio", { timeout: 60_000 }, () => {
 
   it("tools have JSON Schema input definitions", async () => {
     const tools = await client.listTools();
-    const safeRead = tools.tools.find((t) => t.name === "safe_read");
-    expect(safeRead).toBeDefined();
-    expect(safeRead!.inputSchema).toBeDefined();
-    expect(safeRead!.inputSchema.properties).toHaveProperty("path");
+    for (const tool of tools.tools) {
+      const properties = tool.inputSchema.properties as Record<string, {
+        enum?: string[];
+      }>;
+      expect(properties).toHaveProperty("receipt");
+      expect(properties["receipt"]?.enum).toEqual(["compact", "full"]);
+    }
+    const safeRead = tools.tools.find((tool) => tool.name === "safe_read");
+    expect(safeRead?.inputSchema.properties).toHaveProperty("path");
   });
 
   it("safe_read returns content for small files", { timeout: 60_000 }, async () => {
@@ -157,6 +162,21 @@ describe("integration: MCP server over stdio", { timeout: 60_000 }, () => {
     const parsed = JSON.parse(extractText(result)) as Record<string, unknown>;
     expect(parsed["projection"]).toBe("content");
     expect(parsed["content"]).toContain("greet");
+    expect(parsed["_schema"]).toEqual({ id: "graft.mcp.safe_read", version: "2.0.0" });
+    expect(parsed["_receipt"]).toMatchObject({ mode: "compact", reason: "CONTENT" });
+  });
+
+  it("safe_read returns the full receipt only when requested", { timeout: 60_000 }, async () => {
+    const result = await client.callTool({
+      name: "safe_read",
+      arguments: { path: "test/fixtures/small.ts", receipt: "full" },
+    });
+    const parsed = JSON.parse(extractText(result)) as Record<string, unknown>;
+    expect(parsed["_receipt"]).toMatchObject({
+      mode: "full",
+      tool: "safe_read",
+      cumulative: expect.any(Object),
+    });
   });
 
   it("safe_read returns outline for large files", { timeout: 60_000 }, async () => {

@@ -129,6 +129,7 @@ describe("mcp: daemon worker pool", () => {
       seq: 1,
       startedAtMs: Date.now(),
       tool: "graft_map",
+      receiptMode: "compact",
       args: {},
       projectRoot: repoDir,
       graftDir: path.join(repoDir, ".graft"),
@@ -193,6 +194,7 @@ describe("mcp: daemon worker pool", () => {
       workspaceSliceId: "slice:test",
       traceId: "trace:test",
       tool: "safe_read" as const,
+      receiptMode: "compact" as const,
       args: { path: "app.ts" },
       projectRoot: repoDir,
       graftDir: path.join(repoDir, ".graft"),
@@ -217,8 +219,13 @@ describe("mcp: daemon worker pool", () => {
     if (firstContent?.type !== "text") {
       throw new Error("expected text content");
     }
-    const firstPayload = JSON.parse(firstContent.text) as { projection: string };
+    const firstPayload = JSON.parse(firstContent.text) as {
+      projection: string;
+      _receipt: { mode: string; receiptId: string };
+    };
     expect(firstPayload.projection).toBe("content");
+    expect(firstPayload._receipt.mode).toBe("compact");
+    expect(firstPayload._receipt.receiptId).toBe("trace:test");
     expect(first.cacheUpdates).toHaveLength(1);
     expect(first.cacheUpdates[0]?.observation).not.toBeNull();
     expect(governorSnapshot).toEqual(governorSnapshotBefore);
@@ -228,6 +235,7 @@ describe("mcp: daemon worker pool", () => {
       ...jobBase,
       seq: 2,
       startedAtMs: Date.now(),
+      receiptMode: "full",
       cacheSnapshots: {
         [first.cacheUpdates[0]!.path]: first.cacheUpdates[0]!.observation!,
       },
@@ -237,9 +245,15 @@ describe("mcp: daemon worker pool", () => {
     if (secondContent?.type !== "text") {
       throw new Error("expected text content");
     }
-    const secondPayload = JSON.parse(secondContent.text) as { projection: string; reason: string };
+    const secondPayload = JSON.parse(secondContent.text) as {
+      projection: string;
+      reason: string;
+      _receipt: { mode: string; cumulative: Record<string, unknown> };
+    };
     expect(secondPayload.projection).toBe("cache_hit");
     expect(secondPayload.reason).toBe("REREAD_UNCHANGED");
+    expect(secondPayload._receipt.mode).toBe("full");
+    expect(secondPayload._receipt.cumulative).toBeDefined();
   });
 
   it("refuses absolute paths outside the repo in the offloaded read worker context", async () => {
@@ -271,6 +285,7 @@ describe("mcp: daemon worker pool", () => {
       seq: 1,
       startedAtMs: Date.now(),
       tool: "safe_read",
+      receiptMode: "compact",
       args: { path: outsideFile },
       projectRoot: repoDir,
       graftDir: path.join(repoDir, ".graft"),
@@ -320,6 +335,7 @@ describe("mcp: daemon worker pool", () => {
       seq: 1,
       startedAtMs: Date.now(),
       tool: "code_find_live",
+      receiptMode: "compact",
       args: { query: "greet" },
       projectRoot: repoDir,
       graftDir: path.join(repoDir, ".graft"),

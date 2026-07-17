@@ -169,7 +169,10 @@ describe("mcp: changed-since-last-read", () => {
   it("receipt includes diff projection on changed reads", async () => {
     await server.callTool("safe_read", { path: testFile });
     fs.writeFileSync(testFile, 'export function hello(): string {\n  return "hi";\n}\nexport function extra(): void {}\n');
-    const result = parse(await server.callTool("safe_read", { path: testFile }));
+    const result = parse(await server.callTool("safe_read", {
+      path: testFile,
+      receipt: "full",
+    }));
     const receipt = result["_receipt"] as { projection: string; reason: string };
     expect(receipt.projection).toBe("diff");
     expect(receipt.reason).toBe("CHANGED_SINCE_LAST_READ");
