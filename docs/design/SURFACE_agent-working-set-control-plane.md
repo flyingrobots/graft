@@ -315,9 +315,15 @@ cool-idea work remained outside the isolated witness and outside the commit.
 - Compact calls still contribute their exact encoded bytes to cumulative
   accounting. `stats` exposes those totals, while tripwire warnings remain
   immediate top-level response fields rather than receipt members.
-- Focused receipt, schema, stdio, worker, observability, and CLI compatibility
-  witnesses pass. Lint, typecheck, targeted playback tests, and the exact-commit
-  full suite remain the closure gates before this slice is declared complete.
+- Focused receipt, schema, stdio, worker, observability, CLI compatibility, and
+  playback witnesses pass alongside lint, typecheck, and diff hygiene. The exact
+  Slice 2 closure commit (`cb1958f1`) passes the Docker-isolated full suite: 246
+  files and 1,868 tests.
+- The exact-commit suite exposed a rounded-compression-ratio width cycle that
+  focused tests had not triggered. A follow-up regression now preserves exact
+  `returnedBytes`; when the optional rounded ratio makes a fixed point
+  mathematically impossible, the public full receipt omits that derived field
+  while the complete internal audit receipt retains the ratio.
 
 ## Slice and commit plan
 
