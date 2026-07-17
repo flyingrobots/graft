@@ -1,7 +1,7 @@
 import { z } from "zod";
 import type { CliCommandName } from "./capabilities.js";
-import { activityViewSchema, cliFragmentSchemas, localHistoryDagEdgeSchema, localHistoryDagNodeSchema } from "./output-schema-fragments.js";
-import { mcpOutputBodySchemas } from "./output-schema-mcp.js";
+import { activityViewFullSchema, cliFragmentSchemas, localHistoryDagEdgeSchema, localHistoryDagNodeSchema } from "./output-schema-fragments.js";
+import { doctorFullSchema, mcpOutputBodySchemas } from "./output-schema-mcp.js";
 
 const { initActionSchema, hooksConfigSchema, suggestedMcpServerSchema } = cliFragmentSchemas;
 
@@ -100,8 +100,8 @@ export const cliOutputBodySchemas = {
   struct_map: mcpOutputBodySchemas.graft_map,
   symbol_show: mcpOutputBodySchemas.code_show,
   symbol_find: mcpOutputBodySchemas.code_find,
-  diag_doctor: mcpOutputBodySchemas.doctor,
-  diag_activity: activityViewSchema,
+  diag_doctor: doctorFullSchema,
+  diag_activity: activityViewFullSchema,
   diag_local_history_dag: z.object({
     cwd: z.string(),
     repoId: z.string(),

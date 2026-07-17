@@ -1,5 +1,9 @@
 import { z } from "zod";
 import {
+  ACTIVITY_SUMMARY_BOUNDS,
+  utf8ByteBoundedStringSchema,
+} from "./diagnostic-summary-bounds.js";
+import {
   attributionSummarySchema,
   attributionConfidenceSchema,
   evidenceSchema,
@@ -268,7 +272,7 @@ export const activityViewItemSchema = z.union([
   transitionEventSchema,
 ]);
 
-const activityViewGroupSchema = z.object({
+export const activityViewFullGroupSchema = z.object({
   groupKind: z.enum(["transition", "stage", "continuity", "read"]),
   label: z.string(),
   summary: z.string(),
@@ -276,11 +280,23 @@ const activityViewGroupSchema = z.object({
   items: z.array(activityViewItemSchema),
 }).strict();
 
-const activityViewSummarySchema = z.object({
+export const activityViewSummaryGroupSchema = z.object({
+  groupKind: z.enum(["transition", "stage", "continuity", "read"]),
+  summary: utf8ByteBoundedStringSchema(ACTIVITY_SUMMARY_BOUNDS.group),
+  count: z.number().int().positive(),
+}).strict();
+
+const activityViewFullNarrativeSchema = z.object({
   headline: z.string(),
   anchor: z.string(),
   workspace: z.string(),
   groups: z.array(z.string()),
+}).strict();
+
+const activityViewSummaryNarrativeSchema = z.object({
+  headline: utf8ByteBoundedStringSchema(ACTIVITY_SUMMARY_BOUNDS.headline),
+  anchor: utf8ByteBoundedStringSchema(ACTIVITY_SUMMARY_BOUNDS.anchor),
+  workspace: utf8ByteBoundedStringSchema(ACTIVITY_SUMMARY_BOUNDS.workspace),
 }).strict();
 
 export const persistedLocalHistorySummarySchema = z.discriminatedUnion("availability", [
@@ -607,10 +623,17 @@ export const causalAttachSchema = workspaceStatusSchema.extend({
   error: z.string().optional(),
 }).strict();
 
-export const activityViewSchema = workspaceStatusSchema.extend({
+export const diagnosticWorkspaceSummarySchema = z.object({
+  sessionMode: z.enum(["repo_local", "daemon"]),
+  bindState: z.enum(["bound", "unbound"]),
+  repoId: z.string().nullable(),
+  worktreeId: z.string().nullable(),
+}).strict();
+
+export const activityViewFullSchema = workspaceStatusSchema.extend({
   truthClass: z.literal("artifact_history"),
   anchor: activityViewAnchorSchema,
-  summary: activityViewSummarySchema,
+  summary: activityViewFullNarrativeSchema,
   activeCausalWorkspace: z.object({
     causalContext: runtimeCausalContextSchema,
     attribution: attributionSummarySchema,
@@ -630,7 +653,7 @@ export const activityViewSchema = workspaceStatusSchema.extend({
     totalMatchingItems: z.number().int().nonnegative(),
     truncated: z.boolean(),
     missingSignalKinds: z.array(z.string()),
-    groups: z.array(activityViewGroupSchema),
+    groups: z.array(activityViewFullGroupSchema),
   }).strict(),
   degradedReasons: z.array(z.string()),
   nextAction: z.union([
@@ -638,6 +661,46 @@ export const activityViewSchema = workspaceStatusSchema.extend({
     z.literal("bind_workspace_to_begin_local_history"),
   ]),
 }).strict();
+
+export const activityViewSummarySchema = z.object({
+  workspace: diagnosticWorkspaceSummarySchema,
+  truthClass: z.literal("artifact_history"),
+  anchor: z.discriminatedUnion("posture", [
+    z.object({
+      posture: z.literal("head_commit"),
+      headRef: utf8ByteBoundedStringSchema(ACTIVITY_SUMMARY_BOUNDS.headRef).nullable(),
+      headRefTruncated: z.boolean(),
+      headSha: z.string(),
+    }).strict(),
+    z.object({
+      posture: z.literal("unknown"),
+      headRef: utf8ByteBoundedStringSchema(ACTIVITY_SUMMARY_BOUNDS.headRef).nullable(),
+      headRefTruncated: z.boolean(),
+      headSha: z.string().nullable(),
+      reason: z.enum(["workspace_unbound", "missing_head_commit"]),
+    }).strict(),
+  ]),
+  summary: activityViewSummaryNarrativeSchema,
+  activityWindow: z.object({
+    limit: z.number().int().positive(),
+    returned: z.number().int().nonnegative(),
+    totalMatchingItems: z.number().int().nonnegative(),
+    truncated: z.boolean(),
+    missingSignalKinds: z.array(z.string()),
+    itemDetailAvailable: z.boolean(),
+    groups: z.array(activityViewSummaryGroupSchema),
+  }).strict(),
+  degradedReasons: z.array(z.string()),
+  nextAction: z.union([
+    causalSurfaceNextActionSchema,
+    z.literal("bind_workspace_to_begin_local_history"),
+  ]),
+}).strict();
+
+export const activityViewSchema = z.union([
+  activityViewSummarySchema,
+  activityViewFullSchema,
+]);
 
 export const authorizedWorkspaceSchema = z.object({
   repoId: z.string(),
@@ -922,6 +985,9 @@ export const mcpFragmentSchemas = {
   codeRefsProvenanceSchema,
   structuralRefusalSchema,
   worldlineLayerSchema,
+  diagnosticWorkspaceSummarySchema,
+  activityViewSummarySchema,
+  activityViewFullSchema,
   activityViewSchema,
   causalStatusSchema,
   causalAttachSchema,

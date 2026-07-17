@@ -124,6 +124,15 @@ changing the active workspace.
 
 For explicit control-plane posture, use `workspace_authorize` followed by `workspace_bind`.
 
+MCP diagnostics follow the same bounded-output discipline as file reads.
+`doctor` and `activity_view` default to strict summaries below 2 KiB, including
+their compact receipts. Pass `detail: "full"` when an agent needs exhaustive
+runtime evidence or individual activity items. Doctor's summary treats health
+as an evidence posture: `degradedReasons` names unavailable, unknown, or adverse
+evidence rather than silently treating missing evidence as healthy. The CLI
+doctor and activity commands continue to request full detail internally, so
+their existing human and JSON output remains compatible.
+
 See [docs/SETUP.md](./docs/SETUP.md) for client-specific bootstrap and daemon control-plane configuration.
 
 ### 3. API — In-Process Integration

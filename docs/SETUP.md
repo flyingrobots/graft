@@ -550,29 +550,50 @@ add to `.claude/settings.local.json`:
 | `code_find` | Search symbols across the project by approximate name or glob pattern, with optional kind/path filter. |
 | `graft_difficulty` | Refactor difficulty score for a symbol. Combines WARP churn curvature with reference-edge friction and returns the scalar plus the underlying factors. |
 | `code_refs` | Search import sites, callsites, property access, or literal text references with explicit text-fallback provenance, pattern, and scope. |
-| `activity_view` | Bounded between-commit activity for the active workspace, including commit anchor, grouped recent activity, and degraded posture. |
-| `doctor` | Runtime health check including layered-worldline repo state and burden summary. Accepts an opt-in `sludge` scan for parser-backed structural smell signals. |
+| `activity_view` | Summary-first between-commit activity for the active workspace. The default preserves the commit anchor, counts, truncation truth, group summaries, evidence gaps, and item-detail availability without event bodies; pass `detail: "full"` for individual activity items and active-causal-workspace evidence. |
+| `doctor` | Summary-first runtime and evidence-posture check. The default reports health, workspace identity, structural/local-history readiness, named evidence gaps, and one next action; pass `detail: "full"` for exhaustive runtime evidence. An opt-in `sludge` scan forces full detail and adds parser-backed structural smell signals. |
+| `set_budget` | Declare a session byte budget. Graft tightens read thresholds as the budget drains, and no single read may consume more than 5% of the remaining budget. |
 | `stats` | Decision metrics for the current server session, including burden by tool kind. |
 | `explain` | Human-readable meaning and recommended action for a reason code. |
 | `run_capture` | Execute a shell command and return the last N lines of output (default 60). This tool is outside graft's bounded-read policy contract, responses include an explicit `policyBoundary` marker, log persistence can be disabled, and persisted output is redacted for obvious secrets by default. |
 | `state_save` | Save session working state (max 8 KB). Use for session bookmarks: current task, files modified, next planned actions. |
 | `state_load` | Load previously saved session state. Returns null if no state has been saved. |
 
-MCP responses include versioned `_schema` metadata and `_receipt`
-fields. CLI peer commands also return versioned `_schema` metadata;
-the declared contracts live in `src/contracts/output-schemas.ts`.
-| `doctor` | Runtime health check. Shows project root, parser status, active thresholds, session depth, message count, and a compact burden summary. With `sludge: true`, reports parser-backed structural smell signals. |
-| `set_budget` | Declare a session byte budget. Graft tightens read thresholds as the budget drains — no single read may consume more than 5% of remaining budget. Call once at session start. |
-| `explain` | Explain a graft reason code. Returns human-readable meaning and recommended next action for any code (e.g., `BINARY`, `BUDGET_CAP`). Case-insensitive. |
-| `stats` | Decision metrics for the current session. Total reads, outlines, refusals, cache hits, bytes avoided, and returned-byte burden by tool kind. |
-
 Every MCP tool response includes:
+
 - `_receipt` — runtime decision metadata
 - `_schema` — versioned output contract metadata
 
-Declared output contracts live in `src/contracts/output-schemas.ts`.
-| `graft_since` | Structural changes since a git ref. Shows symbols added, removed, and changed per file — not line hunks. Includes per-file summary lines. Policy-denied files are omitted from `files` and surfaced in `refused`. |
-| `graft_map` | Structural map of a directory — all files and their symbols (function signatures, class shapes, exports) in one call. Uses tree-sitter to parse the working tree directly. Policy-denied files are omitted from `files` and surfaced in `refused`. |
+CLI peer commands also return versioned `_schema` metadata. Declared output
+contracts live in `src/contracts/output-schemas.ts`.
+
+### Summary-first diagnostics
+
+Ordinary MCP diagnostics are intentionally small:
+
+- `doctor({})` returns a strict summary below 2 KiB, including its compact
+  receipt. It reports `health`, the selected workspace, structural- and
+  local-history readiness, `degradedReasons`, and one `recommendedNextAction`.
+- `activity_view({ limit })` returns a strict summary below 2 KiB, including its
+  compact receipt. It keeps the Git anchor, matching and returned counts,
+  `truncated`, group counts, named evidence gaps, and `itemDetailAvailable`, but
+  omits individual event bodies and `activeCausalWorkspace`. If a long Git ref
+  is abbreviated to preserve the bound, `anchor.headRefTruncated` is true and
+  the exact commit SHA remains available.
+- Pass `detail: "full"` to either MCP tool for its exhaustive response. A doctor
+  call with `sludge: true` also selects full detail because the scan is an
+  explicitly requested diagnostic section.
+
+Diagnostic health is an evidence posture. `health: "degraded"` may identify
+missing, unknown, inactive, or adverse evidence without claiming that the
+parser or server failed. In particular, structural-history readiness remains
+`unknown` with reason `not_observed` until an authoritative readiness signal has
+actually been observed. Graft names that gap instead of guessing.
+
+The CLI remains exhaustive for compatibility. `graft doctor`,
+`graft diag doctor`, and `graft diag activity` request full detail and full
+receipts internally, preserving their existing human rendering and version-1
+JSON contracts.
 
 ## What the agent sees
 
@@ -813,5 +834,7 @@ You can also ask the agent to call `doctor` to verify:
 Use the doctor tool to check graft's health.
 ```
 
-This returns the project root, parser status, active thresholds,
-and session depth.
+The MCP call returns the bounded evidence summary: health, selected workspace,
+history readiness, named evidence gaps, and one recommended next action. Ask for
+`detail: "full"` when troubleshooting requires the project root, parser status,
+thresholds, session depth, runtime log posture, or other exhaustive evidence.

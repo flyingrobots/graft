@@ -32,7 +32,7 @@ describe("project root resolution", () => {
       env: { GRAFT_PROJECT_ROOT: envRoot },
     });
 
-    const result = await server.callTool("doctor", {});
+    const result = await server.callTool("doctor", { detail: "full" });
     expect(parse(result)["projectRoot"]).toBe(explicit);
   });
 
@@ -44,7 +44,7 @@ describe("project root resolution", () => {
       env: { GRAFT_PROJECT_ROOT: envRoot },
     });
 
-    const result = await server.callTool("doctor", {});
+    const result = await server.callTool("doctor", { detail: "full" });
     expect(parse(result)["projectRoot"]).toBe(envRoot);
   });
 

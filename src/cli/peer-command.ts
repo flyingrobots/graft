@@ -97,8 +97,10 @@ export async function invokePeerCommand(
     projectRoot: cwd,
     graftDir: path.join(cwd, ".graft"),
   });
+  const requiresFullDetail = tool === "doctor" || tool === "activity_view";
   return parseToolResult(await server.callTool(tool, {
     ...args,
+    ...(requiresFullDetail ? { detail: "full" } : {}),
     receipt: "full",
   }));
 }

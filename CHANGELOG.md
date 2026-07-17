@@ -9,6 +9,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ### Changed
 
+- **Summary-first MCP diagnostics**: `doctor` now defaults to a strict bounded
+  health, workspace, history-readiness, evidence-gap, and next-action summary;
+  `activity_view` defaults to bounded anchor, count, truncation, group-summary,
+  and detail-availability facts without embedding event bodies. Both tools
+  accept `detail: "full"` for their previous exhaustive evidence, sludge scans
+  force full doctor detail, and CLI peers retain their existing full version-1
+  contracts. Long Git refs are explicitly abbreviated in summaries with
+  `headRefTruncated` while exact commit identity and full-detail refs remain
+  available.
 - **Compact-by-default MCP receipts**: every MCP tool now accepts a common
   `receipt: "compact" | "full"` control and defaults to a six-field compact
   receipt bounded to 512 encoded bytes. Explicit full mode preserves the prior

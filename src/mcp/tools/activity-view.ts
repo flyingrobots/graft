@@ -3,8 +3,12 @@ import { buildRuntimeStagedTarget } from "../runtime-staged-target.js";
 import { deriveCausalSurfaceNextAction } from "../semantic-transition-guidance.js";
 import type { PersistedLocalActivityItem } from "../persisted-local-history.js";
 import type { ToolDefinition, ToolHandler } from "../context.js";
+import type { WorkspaceStatus } from "../workspace-router.js";
+import { ACTIVITY_SUMMARY_BOUNDS } from "../../contracts/diagnostic-summary-bounds.js";
+import { diagnosticDetailSchema, readDiagnosticDetail } from "./diagnostic-detail.js";
 
 const limitSchema = z.number().int().positive().max(50).optional();
+const graphemeSegmenter = new Intl.Segmenter("en", { granularity: "grapheme" });
 
 type ActivityGroupKind = "transition" | "stage" | "continuity" | "read";
 
@@ -75,6 +79,70 @@ function pluralize(count: number, singular: string, plural = `${singular}s`): st
 
 function countText(count: number): string {
   return String(count);
+}
+
+function utf8Prefix(value: string, maxBytes: number): string {
+  let bounded = "";
+  let usedBytes = 0;
+  for (const { segment: character } of graphemeSegmenter.segment(value)) {
+    const characterBytes = Buffer.byteLength(character, "utf8");
+    if (usedBytes + characterBytes > maxBytes) {
+      break;
+    }
+    bounded += character;
+    usedBytes += characterBytes;
+  }
+  return bounded;
+}
+
+function utf8Suffix(value: string, maxBytes: number): string {
+  const segments = Array.from(
+    graphemeSegmenter.segment(value),
+    ({ segment }) => segment,
+  );
+  let bounded = "";
+  let usedBytes = 0;
+  for (let index = segments.length - 1; index >= 0; index -= 1) {
+    const character = segments[index];
+    if (character === undefined) {
+      continue;
+    }
+    const characterBytes = Buffer.byteLength(character, "utf8");
+    if (usedBytes + characterBytes > maxBytes) {
+      break;
+    }
+    bounded = `${character}${bounded}`;
+    usedBytes += characterBytes;
+  }
+  return bounded;
+}
+
+function boundUtf8(value: string, maxBytes: number): { value: string; truncated: boolean } {
+  if (Buffer.byteLength(value, "utf8") <= maxBytes) {
+    return { value, truncated: false };
+  }
+
+  const marker = "…";
+  const contentBudget = maxBytes - Buffer.byteLength(marker, "utf8");
+  return {
+    value: `${utf8Prefix(value, contentBudget)}${marker}`,
+    truncated: true,
+  };
+}
+
+function abbreviateUtf8(value: string, maxBytes: number): { value: string; truncated: boolean } {
+  if (Buffer.byteLength(value, "utf8") <= maxBytes) {
+    return { value, truncated: false };
+  }
+
+  const marker = "…";
+  const contentBudget = maxBytes - Buffer.byteLength(marker, "utf8");
+  const prefixBudget = Math.floor(contentBudget / 2);
+  const suffixBudget = contentBudget - prefixBudget;
+  return {
+    value: `${utf8Prefix(value, prefixBudget)}${marker}${utf8Suffix(value, suffixBudget)}`,
+    truncated: true,
+  };
 }
 
 function shortSha(sha: string | null): string {
@@ -199,19 +267,68 @@ function buildHeadline(
   return truncated ? `${headline} Results are truncated to the requested window.` : headline;
 }
 
+function workspaceSummary(status: WorkspaceStatus) {
+  return {
+    sessionMode: status.sessionMode,
+    bindState: status.bindState,
+    repoId: status.repoId,
+    worktreeId: status.worktreeId,
+  };
+}
+
+function summaryAnchor(anchor: ReturnType<typeof buildAnchor>) {
+  if (anchor.headRef === null) {
+    return { ...anchor, headRefTruncated: false };
+  }
+  const bounded = abbreviateUtf8(anchor.headRef, ACTIVITY_SUMMARY_BOUNDS.headRef);
+  return {
+    ...anchor,
+    headRef: bounded.value,
+    headRefTruncated: bounded.truncated,
+  };
+}
+
 export const activityViewTool: ToolDefinition = {
   name: "activity_view",
   description:
     "Inspect recent bounded local artifact history for the active workspace, anchored to the current commit when possible.",
   schema: {
     limit: limitSchema,
+    detail: diagnosticDetailSchema,
   },
   createHandler(): ToolHandler {
     return async (args, ctx) => {
       const limit = limitSchema.parse(args["limit"]) ?? 20;
+      const detail = readDiagnosticDetail(args);
       const workspaceStatus = ctx.getWorkspaceStatus();
 
       if (workspaceStatus.bindState === "unbound") {
+        if (detail === "summary") {
+          return ctx.respond("activity_view", {
+            workspace: workspaceSummary(workspaceStatus),
+            truthClass: "artifact_history",
+            anchor: summaryAnchor(buildAnchor(false, null, null)),
+            summary: {
+              headline: boundUtf8(
+                buildHeadline(0, false),
+                ACTIVITY_SUMMARY_BOUNDS.headline,
+              ).value,
+              anchor: "No bound workspace; Git anchor unavailable.",
+              workspace: "Bind a workspace to begin local history.",
+            },
+            activityWindow: {
+              limit,
+              returned: 0,
+              totalMatchingItems: 0,
+              truncated: false,
+              missingSignalKinds: ["write_events_not_captured"],
+              itemDetailAvailable: false,
+              groups: [],
+            },
+            degradedReasons: ["workspace_unbound", "anchor_unknown"],
+            nextAction: "bind_workspace_to_begin_local_history",
+          });
+        }
         return ctx.respond("activity_view", {
           ...workspaceStatus,
           truthClass: "artifact_history",
@@ -279,6 +396,50 @@ export const activityViewTool: ToolDefinition = {
           ? [repoConcurrency.posture]
           : []),
       ]);
+
+      if (detail === "summary") {
+        const boundedAnchor = summaryAnchor(anchor);
+        return ctx.respond("activity_view", {
+          workspace: workspaceSummary(workspaceStatus),
+          truthClass: "artifact_history",
+          anchor: boundedAnchor,
+          summary: {
+            headline: boundUtf8(
+              buildHeadline(activityWindow.items.length, activityWindow.truncated),
+              ACTIVITY_SUMMARY_BOUNDS.headline,
+            ).value,
+            anchor: boundUtf8(
+              describeAnchor(boundedAnchor),
+              ACTIVITY_SUMMARY_BOUNDS.anchor,
+            ).value,
+            workspace: boundUtf8(
+              describeWorkspace(
+                repoConcurrency === null
+                  ? null
+                  : { posture: repoConcurrency.posture, summary: repoConcurrency.summary },
+                repoState.semanticTransition?.summary ?? null,
+                stagedTarget,
+              ),
+              ACTIVITY_SUMMARY_BOUNDS.workspace,
+            ).value,
+          },
+          activityWindow: {
+            limit: activityWindow.limit,
+            returned: activityWindow.items.length,
+            totalMatchingItems: activityWindow.totalMatchingItems,
+            truncated: activityWindow.truncated,
+            missingSignalKinds: ["write_events_not_captured"],
+            itemDetailAvailable: activityWindow.items.length > 0,
+            groups: groups.map((group) => ({
+              groupKind: group.groupKind,
+              summary: boundUtf8(group.summary, ACTIVITY_SUMMARY_BOUNDS.group).value,
+              count: group.count,
+            })),
+          },
+          degradedReasons,
+          nextAction,
+        });
+      }
 
       return ctx.respond("activity_view", {
         ...workspaceStatus,

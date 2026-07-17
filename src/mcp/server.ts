@@ -45,7 +45,10 @@ export { ALL_TOOL_REGISTRY, TOOL_REGISTRY } from "./tool-registry.js";
 export interface GraftServer {
   getRegisteredTools(): string[];
   callTool(name: string, args: JsonObject): Promise<McpToolResult>;
+  /** @internal Deterministic governor test support; not an MCP capability. */
   injectSessionMessages(count: number): void;
+  /** @internal Deterministic governor test support; not an MCP capability. */
+  injectSessionToolCalls(toolNames: readonly string[]): void;
   getWorkspaceStatus(): import("./workspace-router.js").WorkspaceStatus;
   getRuntimeCausalContext(): import("./runtime-causal-context.js").RuntimeCausalContext | null;
   getMcpServer(): McpServer;
@@ -286,6 +289,11 @@ function createGraftServerSurface(input: {
     injectSessionMessages(count: number): void {
       for (let i = 0; i < count; i++) {
         input.workspaceRouter.governor.recordMessage();
+      }
+    },
+    injectSessionToolCalls(toolNames: readonly string[]): void {
+      for (const toolName of toolNames) {
+        input.workspaceRouter.governor.recordToolCall(toolName);
       }
     },
     getWorkspaceStatus() {

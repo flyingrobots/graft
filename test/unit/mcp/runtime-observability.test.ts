@@ -67,7 +67,7 @@ describe("mcp: runtime observability", () => {
         seq: number;
         reason: string;
       };
-      const doctor = parse(await isolated.server.callTool("doctor", {}));
+      const doctor = parse(await isolated.server.callTool("doctor", { detail: "full" }));
       const runtime = doctor["runtimeObservability"] as { logPath: string };
       const latestReadEvent = doctor["latestReadEvent"] as {
         eventKind: string;
@@ -136,7 +136,7 @@ describe("mcp: runtime observability", () => {
     const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "graft-rt-obs-doctor-"));
     const isolated = createIsolatedServer({ projectRoot: tmpDir });
     try {
-      const doctor = parse(await isolated.server.callTool("doctor", {}));
+      const doctor = parse(await isolated.server.callTool("doctor", { detail: "full" }));
       const runtime = doctor["runtimeObservability"] as {
         enabled: boolean;
         logPath: string;
@@ -308,7 +308,7 @@ describe("mcp: runtime observability", () => {
         graftDir: path.join(repoDir, ".graft"),
       });
       try {
-        const doctor = parse(await isolated.server.callTool("doctor", {}));
+        const doctor = parse(await isolated.server.callTool("doctor", { detail: "full" }));
         const stagedTarget = doctor["stagedTarget"] as {
           availability: string;
           reason?: string;
@@ -596,7 +596,10 @@ describe("mcp: runtime observability", () => {
       });
       try {
         await isolated.server.callTool("safe_read", { path: "app.ts" });
-        const activityView = parse(await isolated.server.callTool("activity_view", { limit: 5 }));
+        const activityView = parse(await isolated.server.callTool("activity_view", {
+          detail: "full",
+          limit: 5,
+        }));
 
         const anchor = activityView["anchor"] as {
           posture: string;
@@ -734,7 +737,7 @@ describe("mcp: runtime observability", () => {
             phase: string | null;
           } | null;
         } | null;
-        const doctor = parse(await isolated.server.callTool("doctor", {}));
+        const doctor = parse(await isolated.server.callTool("doctor", { detail: "full" }));
 
         expect(activeCausalWorkspace?.semanticTransition?.kind).toBe("merge_phase");
         expect(activeCausalWorkspace?.semanticTransition?.authority).toBe("authoritative_git_state");
@@ -787,7 +790,7 @@ describe("mcp: runtime observability", () => {
             phase: string | null;
           } | null;
         } | null;
-        const doctor = parse(await isolated.server.callTool("doctor", {}));
+        const doctor = parse(await isolated.server.callTool("doctor", { detail: "full" }));
 
         expect(activeCausalWorkspace?.semanticTransition?.kind).toBe("rebase_phase");
         expect(activeCausalWorkspace?.semanticTransition?.authority).toBe("authoritative_git_state");
@@ -824,7 +827,7 @@ describe("mcp: runtime observability", () => {
         graftDir: path.join(repoDir, ".graft"),
       });
       try {
-        const first = parse(await isolated.server.callTool("doctor", {}));
+        const first = parse(await isolated.server.callTool("doctor", { detail: "full" }));
         const firstHistory = first["persistedLocalHistory"] as {
           availability: string;
           totalContinuityRecords: number;
@@ -837,7 +840,7 @@ describe("mcp: runtime observability", () => {
 
         git(repoDir, "checkout -b feature/history");
 
-        const second = parse(await isolated.server.callTool("doctor", {}));
+        const second = parse(await isolated.server.callTool("doctor", { detail: "full" }));
         const secondHistory = second["persistedLocalHistory"] as {
           availability: string;
           active: boolean;
@@ -917,14 +920,14 @@ describe("mcp: runtime observability", () => {
         graftDir: path.join(repoDir, ".graft"),
       });
       try {
-        const first = parse(await isolated.server.callTool("doctor", {}));
+        const first = parse(await isolated.server.callTool("doctor", { detail: "full" }));
         const firstCausal = first["causalContext"] as {
           checkoutEpochId: string;
         };
 
         git(repoDir, "checkout -b feature/hooked-history");
 
-        const second = parse(await isolated.server.callTool("doctor", {}));
+        const second = parse(await isolated.server.callTool("doctor", { detail: "full" }));
         const secondHistory = second["persistedLocalHistory"] as {
           availability: string;
           continuityConfidence: string;
@@ -984,7 +987,7 @@ describe("mcp: runtime observability", () => {
         const safeRead = parse(await isolated.server.callTool("safe_read", { path: "app.ts" }));
         expect(safeRead["projection"]).toBe("content");
 
-        const doctor = parse(await isolated.server.callTool("doctor", {}));
+        const doctor = parse(await isolated.server.callTool("doctor", { detail: "full" }));
         expect(doctor["workspaceOverlay"]).toBeNull();
 
         const excludePath = path.join(repoDir, ".git", "info", "exclude");
@@ -1016,7 +1019,7 @@ describe("mcp: runtime observability", () => {
         graftDir: path.join(repoDir, ".graft"),
       });
       try {
-        const doctor = parse(await isolated.server.callTool("doctor", {}));
+        const doctor = parse(await isolated.server.callTool("doctor", { detail: "full" }));
         const workspaceOverlayFooting = doctor["workspaceOverlayFooting"] as {
           observationMode: string;
           lineagePosture: string;
@@ -1082,7 +1085,7 @@ describe("mcp: runtime observability", () => {
         graftDir: path.join(repoDir, ".graft"),
       });
       try {
-        const doctor = parse(await isolated.server.callTool("doctor", {}));
+        const doctor = parse(await isolated.server.callTool("doctor", { detail: "full" }));
         const workspaceOverlayFooting = doctor["workspaceOverlayFooting"] as {
           observationMode: string;
           lineagePosture: string;

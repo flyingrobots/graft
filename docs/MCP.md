@@ -97,7 +97,25 @@ daemon control-plane tools.
 - Tripwire warnings remain top-level response data in both receipt modes.
 - CLI peer commands intentionally request full MCP receipts and project them
   into their unchanged version-1 CLI JSON contracts.
-- `activity_view` provides bounded local `artifact_history` anchored to Git `HEAD`.
+- `doctor` and `activity_view` default to strict summary responses. Each default
+  response, including its compact receipt, is bounded below 2 KiB. Pass
+  `detail: "full"` on the original MCP call for the exhaustive diagnostic view.
+- The doctor summary reports overall evidence posture, active workspace
+  identity, structural- and local-history readiness, named `degradedReasons`,
+  and one recommended next action. `unknown` readiness remains unknown; it is
+  not silently promoted to ready. Consequently, `health: "degraded"` can mean
+  that evidence is incomplete, not that the runtime itself failed.
+- A requested doctor sludge scan is an explicit exhaustive diagnostic and
+  therefore returns full detail even if `detail: "summary"` is also supplied.
+- The activity summary preserves its Git anchor, matching-item counts,
+  truncation truth, group counts, evidence gaps, and whether item detail is
+  available, but omits `activeCausalWorkspace` and individual event bodies.
+  Long refs and narrative fields are bounded; `anchor.headRefTruncated` is true
+  when the summary abbreviates a ref, while the exact commit SHA remains
+  present. Use `detail: "full"` to retrieve complete refs and activity items.
+- CLI doctor and activity peers explicitly request full detail as well as full
+  receipts, preserving their existing human rendering and version-1 JSON
+  contracts while MCP remains summary-first.
 
 ## Related docs
 - [README](../README.md)

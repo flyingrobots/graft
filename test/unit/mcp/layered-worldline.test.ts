@@ -139,10 +139,10 @@ describe("mcp: layered worldline model", { timeout: 15000 }, () => {
         git(tmpDir, "commit -m feature");
 
         const server = createServerInRepo(tmpDir);
-        const first = parse(await server.callTool("doctor", {}));
+        const first = parse(await server.callTool("doctor", { detail: "full" }));
 
         git(tmpDir, `checkout -q ${baseBranch}`);
-        const second = parse(await server.callTool("doctor", {}));
+        const second = parse(await server.callTool("doctor", { detail: "full" }));
 
         expect(first["checkoutEpoch"]).toBeDefined();
         expect(second["checkoutEpoch"]).toBeDefined();
@@ -204,7 +204,7 @@ describe("mcp: layered worldline model", { timeout: 15000 }, () => {
         );
 
         const server = createServerInRepo(tmpDir);
-        const result = parse(await server.callTool("doctor", {}));
+        const result = parse(await server.callTool("doctor", { detail: "full" }));
         const overlay = result["workspaceOverlay"] as {
           actorGuess?: string;
           confidence?: string;
@@ -235,7 +235,7 @@ describe("mcp: layered worldline model", { timeout: 15000 }, () => {
         );
 
         const server = createServerInRepo(tmpDir);
-        const result = parse(await server.callTool("doctor", {}));
+        const result = parse(await server.callTool("doctor", { detail: "full" }));
         const overlay = result["workspaceOverlay"] as {
           totalPaths?: number;
           stagedPaths?: number;
@@ -263,10 +263,10 @@ describe("mcp: layered worldline model", { timeout: 15000 }, () => {
         git(tmpDir, "commit -m v2");
 
         const server = createServerInRepo(tmpDir);
-        const before = parse(await server.callTool("doctor", {}));
+        const before = parse(await server.callTool("doctor", { detail: "full" }));
 
         git(tmpDir, `checkout -q ${c1}`);
-        const after = parse(await server.callTool("doctor", {}));
+        const after = parse(await server.callTool("doctor", { detail: "full" }));
 
         expect(before["checkoutEpoch"]).toBeDefined();
         expect(after["checkoutEpoch"]).toBeDefined();
@@ -295,7 +295,7 @@ describe("mcp: layered worldline model", { timeout: 15000 }, () => {
         const server = createServerInRepo(tmpDir);
         git(tmpDir, "checkout -q -b feature/rebase-ui");
 
-        const doctor = parse(await server.callTool("doctor", {}));
+        const doctor = parse(await server.callTool("doctor", { detail: "full" }));
         const transition = doctor["lastTransition"] as { kind?: string; toRef?: string | null } | undefined;
 
         expect(transition).toBeDefined();
@@ -327,7 +327,7 @@ describe("mcp: layered worldline model", { timeout: 15000 }, () => {
         const server = createServerInRepo(tmpDir);
         git(tmpDir, "reset -q --hard HEAD~1");
 
-        const doctor = parse(await server.callTool("doctor", {}));
+        const doctor = parse(await server.callTool("doctor", { detail: "full" }));
         const transition = doctor["lastTransition"] as { kind?: string } | undefined;
         const semanticTransition = doctor["semanticTransition"] as {
           kind?: string;
@@ -371,7 +371,7 @@ describe("mcp: layered worldline model", { timeout: 15000 }, () => {
         const server = createServerInRepo(tmpDir);
         git(tmpDir, "merge -q --no-ff feature -m merge-feature");
 
-        const doctor = parse(await server.callTool("doctor", {}));
+        const doctor = parse(await server.callTool("doctor", { detail: "full" }));
         const transition = doctor["lastTransition"] as {
           kind?: string;
           fromRef?: string;
@@ -418,7 +418,7 @@ describe("mcp: layered worldline model", { timeout: 15000 }, () => {
         const server = createServerInRepo(tmpDir);
         git(tmpDir, `rebase -q ${baseBranch}`);
 
-        const doctor = parse(await server.callTool("doctor", {}));
+        const doctor = parse(await server.callTool("doctor", { detail: "full" }));
         const transition = doctor["lastTransition"] as { kind?: string } | undefined;
         const semanticTransition = doctor["semanticTransition"] as {
           kind?: string;
@@ -463,7 +463,7 @@ describe("mcp: layered worldline model", { timeout: 15000 }, () => {
 
         for (const target of [baseBranch, "feature", baseBranch, "feature", baseBranch]) {
           git(tmpDir, `checkout -q ${target}`);
-          const doctor = parse(await server.callTool("doctor", {}));
+          const doctor = parse(await server.callTool("doctor", { detail: "full" }));
           epochs.push(doctor["checkoutEpoch"]);
           const transition = doctor["lastTransition"] as { kind?: string } | undefined;
           expect(transition).toBeDefined();

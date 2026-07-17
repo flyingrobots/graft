@@ -19,6 +19,11 @@ import {
   stagedTargetSchema,
 } from "./causal-ontology.js";
 import { causalSurfaceNextActionSchema } from "./causal-surface-next-action.js";
+import { diagnosticEvidenceGapSchema } from "./diagnostic-evidence-gap.js";
+import {
+  ACTIVITY_SUMMARY_BOUNDS,
+  utf8ByteBoundedStringSchema,
+} from "./diagnostic-summary-bounds.js";
 
 export { CLI_COMMAND_NAMES, MCP_TOOL_NAMES };
 export type { CliCommandName, McpToolName } from "./capabilities.js";
@@ -392,7 +397,7 @@ const activityViewItemSchema = z.union([
   transitionEventSchema,
 ]);
 
-const activityViewGroupSchema = z.object({
+const activityViewFullGroupSchema = z.object({
   groupKind: z.enum(["transition", "stage", "continuity", "read"]),
   label: z.string(),
   summary: z.string(),
@@ -400,11 +405,23 @@ const activityViewGroupSchema = z.object({
   items: z.array(activityViewItemSchema),
 }).strict();
 
-const activityViewSummarySchema = z.object({
+const activityViewSummaryGroupSchema = z.object({
+  groupKind: z.enum(["transition", "stage", "continuity", "read"]),
+  summary: utf8ByteBoundedStringSchema(ACTIVITY_SUMMARY_BOUNDS.group),
+  count: z.number().int().positive(),
+}).strict();
+
+const activityViewFullNarrativeSchema = z.object({
   headline: z.string(),
   anchor: z.string(),
   workspace: z.string(),
   groups: z.array(z.string()),
+}).strict();
+
+const activityViewSummaryNarrativeSchema = z.object({
+  headline: utf8ByteBoundedStringSchema(ACTIVITY_SUMMARY_BOUNDS.headline),
+  anchor: utf8ByteBoundedStringSchema(ACTIVITY_SUMMARY_BOUNDS.anchor),
+  workspace: utf8ByteBoundedStringSchema(ACTIVITY_SUMMARY_BOUNDS.workspace),
 }).strict();
 
 const persistedLocalHistorySummarySchema = z.discriminatedUnion("availability", [
@@ -673,6 +690,13 @@ const workspaceStatusSchema = z.object({
   capabilityProfile: workspaceCapabilityProfileSchema.nullable(),
 }).strict();
 
+const diagnosticWorkspaceSummarySchema = z.object({
+  sessionMode: z.enum(["repo_local", "daemon"]),
+  bindState: z.enum(["bound", "unbound"]),
+  repoId: z.string().nullable(),
+  worktreeId: z.string().nullable(),
+}).strict();
+
 const workspaceActionSchema = workspaceStatusSchema.extend({
   ok: z.boolean(),
   action: z.enum(["bind", "rebind"]),
@@ -713,10 +737,10 @@ const causalAttachSchema = workspaceStatusSchema.extend({
   error: z.string().optional(),
 }).strict();
 
-const activityViewSchema = workspaceStatusSchema.extend({
+const activityViewFullSchema = workspaceStatusSchema.extend({
   truthClass: z.literal("artifact_history"),
   anchor: activityViewAnchorSchema,
-  summary: activityViewSummarySchema,
+  summary: activityViewFullNarrativeSchema,
   activeCausalWorkspace: z.object({
     causalContext: runtimeCausalContextSchema,
     attribution: attributionSummarySchema,
@@ -736,7 +760,7 @@ const activityViewSchema = workspaceStatusSchema.extend({
     totalMatchingItems: z.number().int().nonnegative(),
     truncated: z.boolean(),
     missingSignalKinds: z.array(z.string()),
-    groups: z.array(activityViewGroupSchema),
+    groups: z.array(activityViewFullGroupSchema),
   }).strict(),
   degradedReasons: z.array(z.string()),
   nextAction: z.union([
@@ -744,6 +768,46 @@ const activityViewSchema = workspaceStatusSchema.extend({
     z.literal("bind_workspace_to_begin_local_history"),
   ]),
 }).strict();
+
+const activityViewSummarySchema = z.object({
+  workspace: diagnosticWorkspaceSummarySchema,
+  truthClass: z.literal("artifact_history"),
+  anchor: z.discriminatedUnion("posture", [
+    z.object({
+      posture: z.literal("head_commit"),
+      headRef: utf8ByteBoundedStringSchema(ACTIVITY_SUMMARY_BOUNDS.headRef).nullable(),
+      headRefTruncated: z.boolean(),
+      headSha: z.string(),
+    }).strict(),
+    z.object({
+      posture: z.literal("unknown"),
+      headRef: utf8ByteBoundedStringSchema(ACTIVITY_SUMMARY_BOUNDS.headRef).nullable(),
+      headRefTruncated: z.boolean(),
+      headSha: z.string().nullable(),
+      reason: z.enum(["workspace_unbound", "missing_head_commit"]),
+    }).strict(),
+  ]),
+  summary: activityViewSummaryNarrativeSchema,
+  activityWindow: z.object({
+    limit: z.number().int().positive(),
+    returned: z.number().int().nonnegative(),
+    totalMatchingItems: z.number().int().nonnegative(),
+    truncated: z.boolean(),
+    missingSignalKinds: z.array(z.string()),
+    itemDetailAvailable: z.boolean(),
+    groups: z.array(activityViewSummaryGroupSchema),
+  }).strict(),
+  degradedReasons: z.array(z.string()),
+  nextAction: z.union([
+    causalSurfaceNextActionSchema,
+    z.literal("bind_workspace_to_begin_local_history"),
+  ]),
+}).strict();
+
+const activityViewSchema = z.union([
+  activityViewSummarySchema,
+  activityViewFullSchema,
+]);
 
 const authorizedWorkspaceSchema = z.object({
   repoId: z.string(),
@@ -987,6 +1051,49 @@ function withCliPeerCommon(
   });
 }
 
+const doctorSummarySchema = z.object({
+  health: z.enum(["healthy", "degraded"]),
+  workspace: diagnosticWorkspaceSummarySchema,
+  history: z.object({
+    structural: z.object({
+      readiness: z.literal("unknown"),
+      reason: z.literal("not_observed"),
+    }).strict(),
+    local: z.object({
+      readiness: z.enum(["ready", "degraded", "unavailable"]),
+      active: z.boolean(),
+    }).strict(),
+  }).strict(),
+  degradedReasons: z.array(diagnosticEvidenceGapSchema),
+  recommendedNextAction: causalSurfaceNextActionSchema,
+}).strict();
+
+const doctorFullSchema = z.object({
+  projectRoot: z.string(),
+  parserHealthy: z.boolean(),
+  thresholds: thresholdsSchema,
+  sessionDepth: z.enum(["early", "mid", "late"]),
+  totalMessages: z.number().int().nonnegative(),
+  burdenSummary: burdenSummarySchema,
+  runtimeObservability: runtimeObservabilitySchema,
+  causalContext: runtimeCausalContextSchema,
+  latestReadEvent: readEventSchema.nullable(),
+  latestStageEvent: stageEventSchema.nullable(),
+  latestTransitionEvent: transitionEventSchema.nullable(),
+  repoConcurrency: repoConcurrencySummarySchema.nullable(),
+  checkoutEpoch: z.number().int().nonnegative(),
+  lastTransition: repoTransitionSchema.nullable(),
+  semanticTransition: repoSemanticTransitionSchema.nullable(),
+  workspaceOverlayId: z.string().nullable(),
+  workspaceOverlay: workspaceOverlaySummarySchema.nullable(),
+  workspaceOverlayFooting: workspaceOverlayFootingSchema,
+  stagedTarget: runtimeStagedTargetSchema,
+  attribution: attributionSummarySchema,
+  persistedLocalHistory: persistedLocalHistorySummarySchema,
+  recommendedNextAction: causalSurfaceNextActionSchema,
+  sludge: sludgeReportSchema.optional(),
+}).strict();
+
 const mcpOutputBodySchemas: Record<McpToolName, z.ZodType> = {
   safe_read: z.object({
     path: z.string(),
@@ -1199,31 +1306,7 @@ const mcpOutputBodySchemas: Record<McpToolName, z.ZodType> = {
     error: z.string().optional(),
     knownCodes: z.string().optional(),
   }).strict(),
-  doctor: z.object({
-    projectRoot: z.string(),
-    parserHealthy: z.boolean(),
-    thresholds: thresholdsSchema,
-    sessionDepth: z.enum(["early", "mid", "late"]),
-    totalMessages: z.number().int().nonnegative(),
-    burdenSummary: burdenSummarySchema,
-    runtimeObservability: runtimeObservabilitySchema,
-    causalContext: runtimeCausalContextSchema,
-    latestReadEvent: readEventSchema.nullable(),
-    latestStageEvent: stageEventSchema.nullable(),
-    latestTransitionEvent: transitionEventSchema.nullable(),
-    repoConcurrency: repoConcurrencySummarySchema.nullable(),
-    checkoutEpoch: z.number().int().nonnegative(),
-    lastTransition: repoTransitionSchema.nullable(),
-    semanticTransition: repoSemanticTransitionSchema.nullable(),
-    workspaceOverlayId: z.string().nullable(),
-    workspaceOverlay: workspaceOverlaySummarySchema.nullable(),
-    workspaceOverlayFooting: workspaceOverlayFootingSchema,
-    stagedTarget: runtimeStagedTargetSchema,
-    attribution: attributionSummarySchema,
-    persistedLocalHistory: persistedLocalHistorySummarySchema,
-    recommendedNextAction: causalSurfaceNextActionSchema,
-    sludge: sludgeReportSchema.optional(),
-  }).strict(),
+  doctor: z.union([doctorSummarySchema, doctorFullSchema]),
   stats: z.object({
     totalReads: z.number().int().nonnegative(),
     totalOutlines: z.number().int().nonnegative(),
@@ -1564,8 +1647,8 @@ export const CLI_OUTPUT_SCHEMAS: Record<CliCommandName, z.ZodType> = {
   struct_review: withCliPeerCommon("struct_review", mcpOutputBodySchemas.graft_review),
   struct_test_coverage: withCliPeerCommon("struct_test_coverage", mcpOutputBodySchemas.graft_test_coverage),
   struct_dead_symbols: withCliPeerCommon("struct_dead_symbols", mcpOutputBodySchemas.graft_dead_symbols),
-  diag_doctor: withCliPeerCommon("diag_doctor", mcpOutputBodySchemas.doctor),
-  diag_activity: withCliPeerCommon("diag_activity", mcpOutputBodySchemas.activity_view),
+  diag_doctor: withCliPeerCommon("diag_doctor", doctorFullSchema),
+  diag_activity: withCliPeerCommon("diag_activity", activityViewFullSchema),
   diag_explain: withCliPeerCommon("diag_explain", mcpOutputBodySchemas.explain),
   diag_stats: withCliPeerCommon("diag_stats", mcpOutputBodySchemas.stats),
   diag_capture: withCliPeerCommon("diag_capture", mcpOutputBodySchemas.run_capture),
@@ -1659,7 +1742,11 @@ export type McpOutputFor<K extends McpToolName> = z.output<(typeof MCP_OUTPUT_SC
 /** Inferred output type for a given CLI command name. */
 export type CliOutputFor<K extends CliCommandName> = z.output<(typeof CLI_OUTPUT_SCHEMAS)[K]>;
 
-export const DIAG_ACTIVITY_CLI_SCHEMA = activityViewSchema.extend({ _schema: z.unknown().optional(), _receipt: z.unknown().optional(), tripwire: z.unknown().optional() }).strict();
+export const DIAG_ACTIVITY_CLI_SCHEMA = activityViewFullSchema.extend({
+  _schema: z.unknown().optional(),
+  _receipt: z.unknown().optional(),
+  tripwire: z.unknown().optional(),
+}).strict();
 
 export const RECEIPT_SCHEMA = receiptSchema;
 export const RECEIPT_JSON_SCHEMA = z.toJSONSchema(receiptSchema);

@@ -13,6 +13,9 @@ import type {
 import type { RuntimeWorkspaceOverlayFooting } from "../runtime-workspace-overlay.js";
 import type { CausalSurfaceNextAction } from "../../contracts/causal-surface-next-action.js";
 import type { SludgeReport } from "../../operations/sludge-detector.js";
+import type { DiagnosticEvidenceGap } from "../../contracts/diagnostic-evidence-gap.js";
+
+export type { DiagnosticEvidenceGap } from "../../contracts/diagnostic-evidence-gap.js";
 
 export interface SetBudgetResponse {
   readonly budget: {
@@ -50,7 +53,29 @@ export interface DoctorBurdenSummary {
   readonly topCalls: number;
 }
 
-export interface DoctorResponse {
+export interface DoctorSummaryResponse {
+  readonly health: "healthy" | "degraded";
+  readonly workspace: {
+    readonly sessionMode: "repo_local" | "daemon";
+    readonly bindState: "bound" | "unbound";
+    readonly repoId: string | null;
+    readonly worktreeId: string | null;
+  };
+  readonly history: {
+    readonly structural: {
+      readonly readiness: "unknown";
+      readonly reason: "not_observed";
+    };
+    readonly local: {
+      readonly readiness: "ready" | "degraded" | "unavailable";
+      readonly active: boolean;
+    };
+  };
+  readonly degradedReasons: readonly DiagnosticEvidenceGap[];
+  readonly recommendedNextAction: CausalSurfaceNextAction;
+}
+
+export interface DoctorFullResponse {
   readonly projectRoot: string;
   readonly parserHealthy: boolean;
   readonly thresholds: { readonly lines: number; readonly bytes: number };
@@ -75,6 +100,8 @@ export interface DoctorResponse {
   readonly recommendedNextAction: CausalSurfaceNextAction;
   readonly sludge?: SludgeReport | undefined;
 }
+
+export type DoctorResponse = DoctorSummaryResponse | DoctorFullResponse;
 
 export interface RunCapturePolicyBoundary {
   readonly kind: "shell_escape_hatch";

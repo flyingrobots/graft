@@ -194,7 +194,7 @@ describe("0088 target-repo git hook bootstrap", () => {
       isolated.cleanup();
     });
 
-    const doctor = parse(await isolated.server.callTool("doctor", {}));
+    const doctor = parse(await isolated.server.callTool("doctor", { detail: "full" }));
     const footing = doctor["workspaceOverlayFooting"] as {
       observationMode: string;
       degradedReason: string;
@@ -244,7 +244,7 @@ describe("0088 target-repo git hook bootstrap", () => {
       isolated.cleanup();
     });
 
-    const doctor = parse(await isolated.server.callTool("doctor", {}));
+    const doctor = parse(await isolated.server.callTool("doctor", { detail: "full" }));
     const footing = doctor["workspaceOverlayFooting"] as {
       observationMode: string;
       boundaryAuthority: string;

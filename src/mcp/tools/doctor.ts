@@ -4,23 +4,74 @@ import { buildRuntimeStagedTarget } from "../runtime-staged-target.js";
 import { deriveCausalSurfaceNextAction } from "../semantic-transition-guidance.js";
 import type { ToolDefinition, ToolHandler } from "../context.js";
 import { toJsonObject } from "../../operations/result-dto.js";
-import type { DoctorResponse } from "./diagnostic-models.js";
+import type {
+  DiagnosticEvidenceGap,
+  DoctorFullResponse,
+  DoctorSummaryResponse,
+} from "./diagnostic-models.js";
 import { detectSludge } from "../../operations/sludge-detector.js";
+import type { PersistedLocalHistorySummary, RepoConcurrencySummary } from "../persisted-local-history.js";
+import type { WorkspaceStatus } from "../workspace-router.js";
+import { diagnosticDetailSchema, readDiagnosticDetail } from "./diagnostic-detail.js";
 import { z } from "zod";
+
+function workspaceSummary(status: WorkspaceStatus): DoctorSummaryResponse["workspace"] {
+  return {
+    sessionMode: status.sessionMode,
+    bindState: status.bindState,
+    repoId: status.repoId,
+    worktreeId: status.worktreeId,
+  };
+}
+
+function localHistorySummary(
+  status: WorkspaceStatus,
+  history: PersistedLocalHistorySummary,
+): DoctorSummaryResponse["history"]["local"] {
+  if (status.bindState === "unbound") {
+    return { readiness: "unavailable", active: false };
+  }
+  if (history.availability === "none") {
+    return { readiness: "ready", active: false };
+  }
+  return history.active
+    ? { readiness: "ready", active: true }
+    : { readiness: "degraded", active: false };
+}
+
+function concurrencyGap(
+  concurrency: RepoConcurrencySummary | null,
+): DiagnosticEvidenceGap | null {
+  switch (concurrency?.posture) {
+    case undefined:
+    case "unknown":
+      return "repo_concurrency_unknown";
+    case "exclusive":
+      return null;
+    case "shared_repo_only":
+    case "shared_worktree":
+    case "overlapping_actors":
+    case "divergent_checkout":
+      return concurrency.posture;
+  }
+}
 
 export const doctorTool: ToolDefinition = {
   name: "doctor",
   description:
-    "Runtime health check. Shows project root, parser status, active " +
-    "thresholds, session depth, message count, and burden summary.",
+    "Return bounded runtime health, workspace, history-readiness, evidence-gap, " +
+    "and next-action guidance. Request detail='full' for exhaustive evidence.",
   schema: {
     sludge: z.boolean().optional(),
     path: z.string().optional(),
+    detail: diagnosticDetailSchema,
   },
   createHandler(): ToolHandler {
     return async (args, ctx) => {
       const pathArg = typeof args["path"] === "string" ? args["path"] : undefined;
-      const sludge = args["sludge"] === true
+      const sludgeRequested = args["sludge"] === true;
+      const detail = readDiagnosticDetail(args, sludgeRequested);
+      const sludge = sludgeRequested
         ? await detectSludge({
           cwd: ctx.projectRoot,
           fs: ctx.fs,
@@ -30,10 +81,8 @@ export const doctorTool: ToolDefinition = {
         })
         : undefined;
       const repoState = ctx.getRepoState();
-      const causalContext = ctx.getCausalContext();
+      const status = ctx.getWorkspaceStatus();
       const workspaceOverlayFooting = await ctx.getWorkspaceOverlayFooting();
-      const metrics = ctx.metrics.snapshot();
-      const topBurden = topBurdenKind(metrics.burdenByKind);
       const persistedLocalHistory = await ctx.getPersistedLocalHistorySummary();
       const repoConcurrency = await ctx.getRepoConcurrencySummary();
       const recommendedNextAction = deriveCausalSurfaceNextAction(
@@ -41,7 +90,45 @@ export const doctorTool: ToolDefinition = {
         repoState.semanticTransition,
         repoConcurrency,
       );
-      const response: DoctorResponse = {
+
+      if (detail === "summary") {
+        const localHistory = localHistorySummary(status, persistedLocalHistory);
+        const repoConcurrencyGap = concurrencyGap(repoConcurrency);
+        const degradedReasons: DiagnosticEvidenceGap[] = [
+          "structural_history_readiness_unknown",
+          ...(status.bindState === "unbound" ? ["workspace_unbound" as const] : []),
+          ...(localHistory.readiness === "unavailable"
+            ? ["local_history_unavailable" as const]
+            : localHistory.readiness === "degraded"
+              ? ["local_history_inactive" as const]
+              : []),
+          ...(workspaceOverlayFooting === null
+            ? []
+            : [workspaceOverlayFooting.degradedReason]),
+          ...(repoConcurrencyGap === null
+            ? []
+            : [repoConcurrencyGap]),
+        ];
+        const response: DoctorSummaryResponse = {
+          health: degradedReasons.length === 0 ? "healthy" : "degraded",
+          workspace: workspaceSummary(status),
+          history: {
+            structural: {
+              readiness: "unknown",
+              reason: "not_observed",
+            },
+            local: localHistory,
+          },
+          degradedReasons: [...new Set(degradedReasons)],
+          recommendedNextAction,
+        };
+        return ctx.respond("doctor", toJsonObject(response));
+      }
+
+      const causalContext = ctx.getCausalContext();
+      const metrics = ctx.metrics.snapshot();
+      const topBurden = topBurdenKind(metrics.burdenByKind);
+      const response: DoctorFullResponse = {
         projectRoot: ctx.projectRoot,
         parserHealthy: true,
         thresholds: { lines: STATIC_THRESHOLDS.lines, bytes: STATIC_THRESHOLDS.bytes },
@@ -67,7 +154,7 @@ export const doctorTool: ToolDefinition = {
         workspaceOverlay: repoState.workspaceOverlay,
         workspaceOverlayFooting,
         stagedTarget: buildRuntimeStagedTarget(
-          ctx.getWorkspaceStatus(),
+          status,
           causalContext,
           repoState,
           persistedLocalHistory.attribution,

@@ -152,6 +152,11 @@ describe("integration: MCP server over stdio", { timeout: 60_000 }, () => {
     }
     const safeRead = tools.tools.find((tool) => tool.name === "safe_read");
     expect(safeRead?.inputSchema.properties).toHaveProperty("path");
+    for (const toolName of ["doctor", "activity_view"]) {
+      const tool = tools.tools.find((candidate) => candidate.name === toolName);
+      const detail = tool?.inputSchema.properties?.["detail"] as { enum?: string[] } | undefined;
+      expect(detail?.enum).toEqual(["summary", "full"]);
+    }
   });
 
   it("safe_read returns content for small files", { timeout: 60_000 }, async () => {
@@ -220,14 +225,22 @@ describe("integration: MCP server over stdio", { timeout: 60_000 }, () => {
     expect(parsed["endLine"]).toBe(5);
   });
 
-  it("doctor returns health check", { timeout: 60_000 }, async () => {
-    const result = await client.callTool({
+  it("doctor defaults to summary and preserves explicit full detail", { timeout: 60_000 }, async () => {
+    const summaryResult = await client.callTool({
       name: "doctor",
       arguments: {},
     });
-    const parsed = JSON.parse(extractText(result)) as Record<string, unknown>;
-    expect(parsed["projectRoot"]).toBe(projectRoot);
-    expect(parsed["parserHealthy"]).toBe(true);
+    const summary = JSON.parse(extractText(summaryResult)) as Record<string, unknown>;
+    expect(summary["health"]).toBe("degraded");
+    expect(summary["workspace"]).toEqual(expect.objectContaining({ bindState: "bound" }));
+
+    const fullResult = await client.callTool({
+      name: "doctor",
+      arguments: { detail: "full" },
+    });
+    const full = JSON.parse(extractText(fullResult)) as Record<string, unknown>;
+    expect(full["projectRoot"]).toBe(projectRoot);
+    expect(full["parserHealthy"]).toBe(true);
   });
 
   it("stats returns metrics summary", { timeout: 60_000 }, async () => {

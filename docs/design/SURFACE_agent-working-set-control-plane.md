@@ -24,7 +24,10 @@ question before exposing detail, and an initial repository snapshot is never
 described as movement that Graft did not observe.
 
 The first campaign also gives agents one compact capability map for discovering
-the intended next Graft call without renaming the existing public tools.
+the intended next Graft call without renaming the existing public tools. Before
+that map lands, Graft exposes its already-versioned output contracts through
+MCP-native `outputSchema` and `structuredContent` so agents and hosts do not
+have to reverse-engineer serialized JSON text.
 
 ## Source and confidence
 
@@ -51,7 +54,7 @@ not be cherry-picked wholesale.
 
 ## Problem statement
 
-Four current behaviors make Graft less useful to an agent than its precision
+Five current behaviors make Graft less useful to an agent than its precision
 read model suggests:
 
 1. Every response repeats a full cumulative receipt, including the complete
@@ -63,6 +66,10 @@ read model suggests:
    can continue to look like movement.
 4. The capability registry is authoritative, but agents have no small product
    map that presents the intended tool families and opening calls.
+5. Graft validates strict, versioned output schemas internally, but MCP tool
+   discovery advertises only input schemas and successful calls return the
+   machine-readable result only as serialized text. Hosts cannot use MCP's
+   native output validation or structured-result path.
 
 Metadata volume and truth wording are product-correctness concerns for a tool
 whose purpose is to conserve context and support lawful decisions.
@@ -77,6 +84,7 @@ The wider feedback is routed as follows:
 | Feedback seam | Destination |
 | :--- | :--- |
 | Compact receipts; summary diagnostics; baseline truth; capability discovery | This campaign |
+| MCP-native bounded output schemas and structured results | This campaign |
 | Actor bootstrap; one-call orientation; portable checkpoint/resume | Later Graft session-lifecycle campaign |
 | Readiness/phase timing; durable job handles | Later Graft durable-operations campaign |
 | Write observation; generic evidence references | Later Graft observation/evidence campaign |
@@ -168,6 +176,11 @@ for historical event decoding and is not a live semantic-transition basis.
   3. whether persisted structural/local history is ready;
   4. which named evidence gaps degrade confidence; and
   5. the single recommended next action.
+- Structural-tool authority is not structural-provider readiness. This slice
+  reports persisted local-history readiness from owned evidence and reports
+  structural readiness as `unknown` with reason `not_observed` until a
+  provider-neutral readiness signal exists. Default doctor must not cold-open
+  WARP merely to manufacture a readiness answer.
 - The default encoded `doctor()` response is below 2 KiB, including its compact
   receipt.
 - `doctor({ detail: "full" })` preserves the existing exhaustive response.
@@ -180,13 +193,48 @@ for historical event decoding and is not a live semantic-transition basis.
   compact receipt. Its counts describe matching activity, `truncated` remains
   authoritative, and it explicitly reports whether full item detail is
   available.
+- Summary references and narrative fields are byte-bounded. When a Git ref is
+  abbreviated to preserve the response budget, `headRefTruncated` says so while
+  the exact commit SHA remains present; full detail preserves the complete ref.
 - `activity_view({ detail: "full" })` preserves the existing grouped item view.
 - CLI doctor and activity peers explicitly request full detail so their current
   presentation and JSON contracts remain stable.
 - Summary and full variants are strict, versioned output-schema alternatives;
   no untyped optional-property bag is introduced.
 
-### Slice 4: capability discovery
+### Slice 4: MCP-native structured output
+
+- Every registered public MCP tool advertises an `outputSchema` and returns its
+  successful machine-readable result in `structuredContent`.
+- The existing serialized JSON `TextContent` remains present for compatibility.
+  Parsing that text yields the same JSON value as `structuredContent`; the two
+  representations cannot drift.
+- Graft's strict versioned Zod schema remains the validation authority. The MCP
+  discovery schema is a deterministic bounded projection of that authority,
+  not a second hand-maintained contract. Every emitted structured result must
+  satisfy both the strict schema and the advertised projection.
+- The discovery projection preserves top-level answer fields, scalar types,
+  enums and discriminants, `_schema` identity, and compact/full receipt posture.
+  Deep audit objects are summarized rather than recursively inlined merely
+  because the internal validator knows their entire shape.
+- A baseline measurement over the current 47 tools produces 479,464 bytes of
+  strict generated output schemas, versus 11,319 bytes of input schemas.
+  Advertising those strict schemas verbatim is therefore prohibited. The
+  daemon-mode aggregate encoded `outputSchema` budget is at most 65,536 bytes,
+  and no individual advertised output schema may exceed 8,192 bytes.
+- Compact and full receipts, plus summary and full diagnostic bodies, validate
+  through the same advertised tool schema. Receipt/detail policy does not
+  require separate public tool names.
+- `returnedBytes` continues to mean the exact canonical JSON payload encoded in
+  compatibility text. It does not silently change to count JSON-RPC framing or
+  both equivalent MCP representations.
+- Tests use the installed MCP SDK client to prove `tools/list` discovery,
+  structured-result validation, strict-schema validation, text/structured
+  equivalence, and schema-size budgets. Playback records real client rendering
+  separately; this slice does not claim that every host will display or meter
+  structured results identically.
+
+### Slice 5: capability discovery
 
 - A compact `capabilities` MCP tool groups currently registered public tools
   into the conceptual families `session`, `workspace`, `read`, `code`,
@@ -206,6 +254,8 @@ for historical event decoding and is not a live semantic-transition basis.
       describe a baseline rather than invented movement?
 - [ ] Can I request the old full receipt and full diagnostic views explicitly?
 - [ ] Is the default doctor result small enough to use at every session start?
+- [ ] Can an MCP client discover and validate Graft's output shape without a
+      Graft-specific schema fetch or reverse-engineering response prose?
 - [ ] Can I discover the intended Graft workflow without reading the full MCP
       registry?
 
@@ -220,6 +270,10 @@ for historical event decoding and is not a live semantic-transition basis.
       counts, truncation truth, and group summaries?
 - [ ] Can `receipt: "full"` and `detail: "full"` reproduce the explicit audit
       surfaces needed by compatibility clients?
+- [ ] Does every successful tool call expose one semantically identical value
+      through MCP structured content and compatibility JSON text?
+- [ ] Does native output discovery stay bounded instead of adding the complete
+      internal audit schema to every tool definition?
 - [ ] Does capability discovery recommend only registered, callable tools?
 
 ## Non-goals
@@ -235,6 +289,9 @@ for historical event decoding and is not a live semantic-transition basis.
   projection.
 - No transactional multi-file patching.
 - No public tool renames.
+- No hosted schema registry, external schema URI, or new npm schema subpath in
+  the first native-output slice. MCP discovery is the first agent-facing
+  publication surface; non-MCP schema distribution can be justified separately.
 - No `delta` receipt or `receipt_get` store in the first compact-receipt slice.
 - No arbitrary `doctor(include: ...)` projection matrix in the first diagnostic
   slice. Focused detail remains available through `causal_status`,
@@ -256,7 +313,10 @@ software behavior:
 3. Doctor and activity tests validate both strict schema variants, encoded size
    budgets, default omission of detail, full compatibility, and CLI full-mode
    behavior.
-4. Capability tests prove deterministic family order, registry membership, and
+4. Native-output tests prove output-schema discovery for every registered tool,
+   strict and advertised validation, text/structured equivalence, and aggregate
+   and per-tool schema budgets.
+5. Capability tests prove deterministic family order, registry membership, and
    bounded default output.
 
 Relevant changed-surface validation is `pnpm lint`, `pnpm typecheck`, targeted
@@ -325,13 +385,42 @@ cool-idea work remained outside the isolated witness and outside the commit.
   mathematically impossible, the public full receipt omits that derived field
   while the complete internal audit receipt retains the ratio.
 
+### Slice 3: summary-first diagnostics
+
+- Default `doctor` and `activity_view` responses are strict MCP version-2
+  summary variants below 2 KiB, including their compact receipts. Explicit
+  `detail: "full"` reproduces the exhaustive bodies; sludge scans force the full
+  doctor variant; CLI peers continue to request full detail and validate their
+  unchanged version-1 contracts.
+- Doctor separates owned local-history readiness from structural readiness. It
+  reports structural readiness as `unknown` / `not_observed` rather than
+  cold-opening WARP or turning tool authority into invented provider evidence,
+  and names degradation through a closed evidence-gap vocabulary.
+- Activity summaries preserve anchor identity, returned and matching counts,
+  truncation truth, group summaries, and item-detail availability while
+  omitting event bodies and the active causal-workspace audit object.
+- An adversarial long-ref witness exposed a real budget violation: a legal
+  723-character branch produced a 2,919-byte default response. Summary refs and
+  narratives are now byte-bounded, `headRefTruncated` makes abbreviation
+  explicit, the exact commit SHA remains present, and full detail preserves the
+  complete ref. The same witness now encodes to 1,268 bytes.
+- A second aggregate witness exercises all four activity kinds plus every
+  session tripwire and encodes to 1,879 bytes. The summary budget is therefore
+  enforced at the complete compatibility-response boundary, not inferred from
+  one independently bounded field.
+- The affected compatibility constellation passes 13 files and 129 tests,
+  including strict output contracts, MCP discovery, runtime observability,
+  layered worldlines, per-call routing, CLI rendering, and Git-heavy playback.
+  Lint, typecheck, and diff hygiene also pass.
+
 ## Slice and commit plan
 
 1. `fix(mcp): distinguish baseline state from observed transitions`
 2. `feat(mcp): default to compact response receipts`
 3. `feat(mcp): make diagnostics summary-first`
-4. `feat(mcp): expose compact capability discovery`
-5. Retro, drift reconciliation, backlog follow-ups, and validation witness.
+4. `feat(mcp): expose bounded structured tool outputs`
+5. `feat(mcp): expose compact capability discovery`
+6. Retro, drift reconciliation, backlog follow-ups, and validation witness.
 
 Each implementation slice remains a focused commit. The branch is pushed after
 every commit. The local retro is completed, committed, and validated before any

@@ -305,7 +305,7 @@ describe("mcp: tool handlers", () => {
     const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "graft-mcp-tools-doctor-"));
     cleanups.push(() => { fs.rmSync(tmpDir, { recursive: true, force: true }); });
     const server = createServerForProjectRoot(tmpDir);
-    const result = await server.callTool("doctor", {});
+    const result = await server.callTool("doctor", { detail: "full" });
     const parsed = parse(result);
     expect(parsed["projectRoot"]).toBeDefined();
     expect(parsed["parserHealthy"]).toBeDefined();
@@ -443,7 +443,7 @@ describe("mcp: tool handlers", () => {
     const server = createServerForProjectRoot(repoDir);
     await server.callTool("safe_read", { path: "app.ts" });
 
-    const parsed = parse(await server.callTool("activity_view", { limit: 5 }));
+    const parsed = parse(await server.callTool("activity_view", { detail: "full", limit: 5 }));
     expect(parsed["bindState"]).toBe("bound");
     expect(parsed["truthClass"]).toBe("artifact_history");
     expect(parsed["nextAction"]).toBe("continue_active_causal_workspace");
@@ -602,7 +602,7 @@ describe("mcp: tool handlers", () => {
     const server = createServer();
     await server.callTool("run_capture", { command: "printf 'alpha'", tail: 1 });
 
-    const doctor = parse(await server.callTool("doctor", {}));
+    const doctor = parse(await server.callTool("doctor", { detail: "full" }));
     const burdenSummary = doctor["burdenSummary"] as {
       topKind: string | null;
       totalBytesReturned: number;
@@ -764,7 +764,7 @@ describe("mcp: session tracking", () => {
     for (let i = 0; i < 5; i++) {
       await server.callTool("safe_read", { path: SMALL_TS });
     }
-    const result = await server.callTool("doctor", {});
+    const result = await server.callTool("doctor", { detail: "full" });
     const parsed = parse(result);
     expect(parsed["sessionDepth"]).toBeDefined();
   });

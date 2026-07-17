@@ -173,12 +173,16 @@ describe("mcp: per-call workspace route", () => {
       activate: true,
     });
 
-    const before = await session.callToolJson<{ totalMessages: number }>("doctor", {});
+    const before = await session.callToolJson<{ totalMessages: number }>("doctor", {
+      detail: "full",
+    });
     await session.callToolJson("safe_read", {
       cwd: repoA,
       path: "app.ts",
     });
-    const after = await session.callToolJson<{ totalMessages: number }>("doctor", {});
+    const after = await session.callToolJson<{ totalMessages: number }>("doctor", {
+      detail: "full",
+    });
 
     expect(after.totalMessages).toBe(before.totalMessages + 1);
   });

@@ -9,6 +9,8 @@ import {
   mcpFragmentSchemas,
 } from "./output-schema-fragments.js";
 import type { McpToolName } from "./capabilities.js";
+import { causalSurfaceNextActionSchema } from "./causal-surface-next-action.js";
+import { diagnosticEvidenceGapSchema } from "./diagnostic-evidence-gap.js";
 
 const {
   actualSchema,
@@ -34,6 +36,7 @@ const {
   codeRefsProvenanceSchema,
   structuralRefusalSchema,
   worldlineLayerSchema,
+  diagnosticWorkspaceSummarySchema,
   activityViewSchema,
   causalStatusSchema,
   causalAttachSchema,
@@ -83,6 +86,49 @@ const graftEditDriftWarningSchema = z.object({
     path: z.string(),
     direction: z.literal("removed"),
   }).strict(),
+}).strict();
+
+export const doctorSummarySchema = z.object({
+  health: z.enum(["healthy", "degraded"]),
+  workspace: diagnosticWorkspaceSummarySchema,
+  history: z.object({
+    structural: z.object({
+      readiness: z.literal("unknown"),
+      reason: z.literal("not_observed"),
+    }).strict(),
+    local: z.object({
+      readiness: z.enum(["ready", "degraded", "unavailable"]),
+      active: z.boolean(),
+    }).strict(),
+  }).strict(),
+  degradedReasons: z.array(diagnosticEvidenceGapSchema),
+  recommendedNextAction: causalSurfaceNextActionSchema,
+}).strict();
+
+export const doctorFullSchema = z.object({
+  projectRoot: z.string(),
+  parserHealthy: z.boolean(),
+  thresholds: thresholdsSchema,
+  sessionDepth: z.enum(["early", "mid", "late"]),
+  totalMessages: z.number().int().nonnegative(),
+  burdenSummary: burdenSummarySchema,
+  runtimeObservability: runtimeObservabilitySchema,
+  causalContext: runtimeCausalContextSchema,
+  latestReadEvent: readEventSchema.nullable(),
+  latestStageEvent: stageEventSchema.nullable(),
+  latestTransitionEvent: transitionEventSchema.nullable(),
+  repoConcurrency: repoConcurrencySummarySchema.nullable(),
+  checkoutEpoch: z.number().int().nonnegative(),
+  lastTransition: repoTransitionSchema.nullable(),
+  semanticTransition: repoSemanticTransitionSchema.nullable(),
+  workspaceOverlayId: z.string().nullable(),
+  workspaceOverlay: workspaceOverlaySummarySchema.nullable(),
+  workspaceOverlayFooting: workspaceOverlayFootingSchema,
+  stagedTarget: runtimeStagedTargetSchema,
+  attribution: attributionSummarySchema,
+  persistedLocalHistory: persistedLocalHistorySummarySchema,
+  recommendedNextAction: causalSurfaceNextActionSchema,
+  sludge: sludgeReportSchema.optional(),
 }).strict();
 
 export const mcpOutputBodySchemas = {
@@ -293,31 +339,7 @@ export const mcpOutputBodySchemas = {
     error: z.string().optional(),
     knownCodes: z.string().optional(),
   }).strict(),
-  doctor: z.object({
-    projectRoot: z.string(),
-    parserHealthy: z.boolean(),
-    thresholds: thresholdsSchema,
-    sessionDepth: z.enum(["early", "mid", "late"]),
-    totalMessages: z.number().int().nonnegative(),
-    burdenSummary: burdenSummarySchema,
-    runtimeObservability: runtimeObservabilitySchema,
-    causalContext: runtimeCausalContextSchema,
-    latestReadEvent: readEventSchema.nullable(),
-    latestStageEvent: stageEventSchema.nullable(),
-    latestTransitionEvent: transitionEventSchema.nullable(),
-    repoConcurrency: repoConcurrencySummarySchema.nullable(),
-    checkoutEpoch: z.number().int().nonnegative(),
-    lastTransition: repoTransitionSchema.nullable(),
-    semanticTransition: repoSemanticTransitionSchema.nullable(),
-    workspaceOverlayId: z.string().nullable(),
-    workspaceOverlay: workspaceOverlaySummarySchema.nullable(),
-    workspaceOverlayFooting: workspaceOverlayFootingSchema,
-    stagedTarget: runtimeStagedTargetSchema,
-    attribution: attributionSummarySchema,
-    persistedLocalHistory: persistedLocalHistorySummarySchema,
-    recommendedNextAction: z.string(),
-    sludge: sludgeReportSchema.optional(),
-  }).strict(),
+  doctor: z.union([doctorSummarySchema, doctorFullSchema]),
   stats: z.object({
     totalReads: z.number().int().nonnegative(),
     totalOutlines: z.number().int().nonnegative(),
