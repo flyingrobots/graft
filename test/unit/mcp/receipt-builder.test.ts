@@ -108,6 +108,31 @@ describe("buildReceiptResult (unit)", () => {
     expect(publicReceipt["returnedBytes"]).toBe(built.textBytes);
   });
 
+  it("keeps exact full-response bytes when a rounded ratio has no fixed point", () => {
+    const built = buildReceiptResult("safe_read", {
+      projection: "diff",
+      reason: "CHANGED_SINCE_LAST_READ",
+      actual: { bytes: 57, lines: 3 },
+      padding: "",
+    }, {
+      sessionId: "s1",
+      traceId: "t1",
+      seq: 1,
+      latencyMs: 175,
+      metrics: emptyMetrics(),
+      tripwires: [],
+      codec,
+      receiptMode: "full",
+    });
+    const publicReceipt = payloadOf(built.result)["_receipt"] as Record<string, unknown>;
+
+    expect(publicReceipt["returnedBytes"]).toBe(built.textBytes);
+    expect(publicReceipt["compressionRatio"]).toBeUndefined();
+    expect(built.receipt.compressionRatio).toBe(
+      Math.round((built.textBytes / 57) * 1000) / 1000,
+    );
+  });
+
   it("produces a frozen receipt", () => {
     const { receipt } = buildReceiptResult("safe_read", {}, {
       sessionId: "s1",

@@ -239,16 +239,15 @@ export function buildReceiptResult(
 
   // Stabilize self-referential size fields (use UTF-8 byte length, not char count).
   // Equality means the encoded text already contains the byte count it reports.
+  //
+  // A rounded compressionRatio can make the JSON-width function non-monotonic:
+  // for example, alternating between 13.86 and 13.842 changes the response by
+  // one byte and can create a two-state cycle. The field is already optional,
+  // so an impossible fixed point falls back to exact byte accounting without
+  // projecting the derived ratio. The complete internal receipt still records
+  // the ratio once the final byte count is known.
   const maxStabilizationPasses = 32;
-  let text = "";
-  let stabilized = false;
-  for (let i = 0; i < maxStabilizationPasses; i++) {
-    text = deps.codec.encode(fullData);
-    const byteLen = Buffer.byteLength(text, "utf8");
-    if (byteLen === outputReceipt.returnedBytes) {
-      stabilized = true;
-      break;
-    }
+  const updateAccounting = (byteLen: number, exposeCompressionRatio: boolean): void => {
     draft.returnedBytes = byteLen;
     outputReceipt.returnedBytes = byteLen;
     const burdenByKind = projectBurdenByKind(deps.metrics.burdenByKind, tool, byteLen);
@@ -256,15 +255,46 @@ export function buildReceiptResult(
       ? Math.round((byteLen / draft.fileBytes) * 1000) / 1000
       : null;
     if (outputReceipt.mode === "full") {
-      outputReceipt.compressionRatio = draft.compressionRatio;
+      if (exposeCompressionRatio) {
+        outputReceipt.compressionRatio = draft.compressionRatio;
+      } else {
+        delete outputReceipt.compressionRatio;
+      }
     }
     draft.cumulative.bytesReturned = deps.metrics.bytesReturned + byteLen;
     draft.cumulative.nonReadBytesReturned = totalNonReadBytesReturned(burdenByKind);
     draft.cumulative.burdenByKind = burdenByKind;
+  };
+  const stabilize = (exposeCompressionRatio: boolean): string | null => {
+    for (let i = 0; i < maxStabilizationPasses; i++) {
+      const candidate = deps.codec.encode(fullData);
+      const byteLen = Buffer.byteLength(candidate, "utf8");
+      if (byteLen === outputReceipt.returnedBytes) {
+        return candidate;
+      }
+      updateAccounting(byteLen, exposeCompressionRatio);
+    }
+    return null;
+  };
+
+  let text = stabilize(true);
+  if (text === null && outputReceipt.mode === "full") {
+    delete outputReceipt.compressionRatio;
+    draft.returnedBytes = 0;
+    outputReceipt.returnedBytes = 0;
+    draft.cumulative.bytesReturned = 0;
+    draft.cumulative.nonReadBytesReturned = totalNonReadBytesReturned(
+      deps.metrics.burdenByKind,
+    );
+    draft.cumulative.burdenByKind = deps.metrics.burdenByKind;
+    text = stabilize(false);
   }
-  if (!stabilized) {
+  if (text === null) {
     throw new Error("MCP receipt byte accounting did not converge");
   }
+  const exposesCompressionRatio = outputReceipt.mode === "full"
+    && outputReceipt.compressionRatio !== undefined;
+  updateAccounting(Buffer.byteLength(text, "utf8"), exposesCompressionRatio);
   if (
     outputReceipt.mode === "compact"
     && Buffer.byteLength(deps.codec.encode(outputReceipt), "utf8") > COMPACT_RECEIPT_MAX_BYTES
