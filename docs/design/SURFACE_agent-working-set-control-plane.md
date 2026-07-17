@@ -290,11 +290,11 @@ mode and 48 in daemon mode after the new tool is registered.
 
 - [x] Does opening a repository with hundreds of pre-existing untracked files
       describe a baseline rather than invented movement?
-- [ ] Can I request the old full receipt and full diagnostic views explicitly?
-- [ ] Is the default doctor result small enough to use at every session start?
-- [ ] Can an MCP client discover and validate Graft's output shape without a
+- [x] Can I request the old full receipt and full diagnostic views explicitly?
+- [x] Is the default doctor result small enough to use at every session start?
+- [x] Can an MCP client discover and validate Graft's output shape without a
       Graft-specific schema fetch or reverse-engineering response prose?
-- [ ] Can I discover the intended Graft workflow without reading the full MCP
+- [x] Can I discover the intended Graft workflow without reading the full MCP
       registry?
 
 ### Agent
@@ -302,17 +302,17 @@ mode and 48 in daemon mode after the new tool is registered.
 - [x] Is a normal precision-read receipt below 512 encoded bytes while retaining
       a stable evidence identifier and exact returned-byte count?
 - [x] Does `stats` still expose cumulative burden after compact calls?
-- [ ] Does default `doctor` name health, workspace, readiness, degradation, and
+- [x] Does default `doctor` name health, workspace, readiness, degradation, and
       exactly one next action in less than 2 KiB?
-- [ ] Does default `activity_view` omit event bodies while retaining bounded
+- [x] Does default `activity_view` omit event bodies while retaining bounded
       counts, truncation truth, and group summaries?
-- [ ] Can `receipt: "full"` and `detail: "full"` reproduce the explicit audit
+- [x] Can `receipt: "full"` and `detail: "full"` reproduce the explicit audit
       surfaces needed by compatibility clients?
-- [ ] Does every successful tool call expose one semantically identical value
+- [x] Does every successful tool call expose one semantically identical value
       through MCP structured content and compatibility JSON text?
-- [ ] Does native output discovery stay bounded instead of adding the complete
+- [x] Does native output discovery stay bounded instead of adding the complete
       internal audit schema to every tool definition?
-- [ ] Does capability discovery recommend only tools registered in this
+- [x] Does capability discovery recommend only tools registered in this
       runtime, state that registration basis explicitly, and avoid presenting
       registration as authorization?
 
@@ -504,6 +504,49 @@ cool-idea work remained outside the isolated witness and outside the commit.
   generated SVG companion to the already-validated dependency-DAG source. That
   exact child (`2f6d843a`) changes only the SVG, passes the two relevant files
   and 15 tests from a clean detached worktree, and has a clean diff.
+
+### Slice 5: capability discovery
+
+- The new `capabilities` tool is registered in both runtimes, remains available
+  before daemon workspace binding, and does not require repository-state
+  observation. Repo-local discovery reports 34 registered tools; daemon
+  discovery reports 48.
+- Default discovery returns the seven fixed workflow families without per-tool
+  descriptions. One explicit family returns only that family's tool names and
+  capability-registry descriptions, with the opening call first and all
+  remaining names in deterministic code-point order.
+- Every registered MCP tool belongs to exactly one family. The fourteen
+  daemon-only tools exactly match the daemon registry and are absent from
+  repo-local detail. Contract tests compare the product taxonomy with the real
+  shared, daemon-only, and combined runtime registries.
+- Every result states `discoveryBasis: "registered_surface"`. Documentation and
+  tests preserve the distinction between installed registration and current
+  authorization: workspace binding, explicit routing, and capability policy
+  may still obstruct a registered tool.
+- Complete compact responses measure 1,393 bytes for repo-local summary and
+  1,390 bytes for daemon summary. The largest repo-local family detail is 1,233
+  bytes; the largest daemon detail is 2,111 bytes. All remain below the 2 KiB
+  summary and 4 KiB detail contracts.
+- With the 48th tool included, strict generated MCP schemas total 511,333
+  bytes, with `doctor` largest at 67,291 bytes. Advertised discovery schemas
+  total 52,446 bytes, with `doctor` largest at 3,114 bytes. `capabilities`
+  contributes a 12,992-byte strict schema and a 2,118-byte discovery schema;
+  the advertised surface remains below the 65,536-byte aggregate and
+  8,192-byte per-tool budgets.
+- The installed MCP SDK proves repo-local summary/detail invocation and unbound
+  daemon detail invocation, strict output validation, bounded advertised
+  schemas, and exact equality between structured content and compatibility JSON
+  text. The affected compatibility sweep passes 43 files and 341 tests.
+- The live-worktree full suite passed 250 files and 1,901 tests but correctly
+  failed its dependency-DAG witness because an unrelated operator-owned
+  untracked backlog card was present in the Docker build context. That result
+  is recorded as contaminated rather than called green or repaired by absorbing
+  the operator's work.
+- The exact Slice 5 commit (`8af1aa3a`) passes a clean detached Docker build,
+  image typecheck, image lint, diff hygiene, and the complete isolated suite:
+  251 files and 1,902 tests with zero failures. A local Code Lawyer pass found
+  no actionable P0-P3 issue; the independent affected-test sweep also reported
+  zero failures.
 
 ## Slice and commit plan
 
