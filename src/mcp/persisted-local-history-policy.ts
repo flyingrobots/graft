@@ -445,8 +445,10 @@ export function createTransitionEvent(input: {
   readonly transition: RepoObservation["lastTransition"];
   readonly attribution: AttributionSummary;
 }): Extract<CausalEvent, { eventKind: "transition" }> {
-  const transition = input.transition;
   const semanticTransition = input.semanticTransition;
+  const transition = semanticTransition.observationBasis === "git_transition_evidence"
+    ? input.transition
+    : null;
   const footprint = {
     paths: [],
     symbols: [],

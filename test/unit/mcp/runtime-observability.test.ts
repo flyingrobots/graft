@@ -894,6 +894,34 @@ describe("mcp: runtime observability", () => {
         expect(secondHistory.nextAction).toBe("review_transition_boundary_before_continuing");
         expect(secondCausal.checkoutEpochId).not.toBe(firstCausal.checkoutEpochId);
         expect(secondCausal.strandId).not.toBe(firstCausal.strandId);
+
+        fs.writeFileSync(
+          path.join(repoDir, "app.ts"),
+          "export const ready = true;\nexport const editedAfterCheckout = true;\n",
+        );
+        const third = parse(await isolated.server.callTool("doctor", { detail: "full" }));
+        const thirdSemanticTransition = third["semanticTransition"] as {
+          observationBasis: string;
+        } | null;
+        const thirdHistory = third["persistedLocalHistory"] as {
+          latestTransitionEvent: {
+            payload: {
+              observationBasis: string;
+              transitionKind: string | null;
+              fromRef: string | null;
+              toRef: string | null;
+              createdCheckoutEpochId: string | null;
+            };
+          } | null;
+        };
+        expect(thirdSemanticTransition?.observationBasis).toBe("snapshot_delta");
+        expect(thirdHistory.latestTransitionEvent?.payload).toEqual(expect.objectContaining({
+          observationBasis: "snapshot_delta",
+          transitionKind: null,
+          fromRef: null,
+          toRef: null,
+          createdCheckoutEpochId: null,
+        }));
       } finally {
         isolated.cleanup();
       }

@@ -700,6 +700,37 @@ describe("mcp: persisted local history", () => {
       },
     };
 
+    const snapshotDeltaEvent = createTransitionEvent({
+      current: {
+        ...current,
+        observedAt: "2026-04-10T01:10:01.000Z",
+      },
+      semanticTransition: {
+        ...semanticTransition,
+        kind: "unknown",
+        observationBasis: "snapshot_delta",
+        phase: null,
+        summary: "Workspace contents changed between observations.",
+        evidence: {
+          ...semanticTransition.evidence,
+          lastTransitionKind: null,
+          reflogSubject: null,
+        },
+      },
+      // RepoObservation intentionally retains the last known Git transition
+      // for status output. That historical status must not be attached to a
+      // later snapshot-delta occurrence.
+      transition,
+      attribution,
+    });
+    expect(snapshotDeltaEvent.payload).toEqual(expect.objectContaining({
+      observationBasis: "snapshot_delta",
+      transitionKind: null,
+      fromRef: null,
+      toRef: null,
+      createdCheckoutEpochId: null,
+    }));
+
     expect(createTransitionEvent({
       current,
       semanticTransition,
