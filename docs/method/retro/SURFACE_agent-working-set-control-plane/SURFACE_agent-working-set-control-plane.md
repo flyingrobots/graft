@@ -11,8 +11,10 @@ drift_check: manual
 ## Status
 
 Implementation, agent playback, human playback, drift reconciliation, and
-exact-commit validation are complete. The operator approved the four remaining
-human playback claims by directing the branch to proceed to pull request.
+exact-commit validation are complete. A complete pre-PR Code Lawyer pass then
+found seven issues; every concrete branch defect was repaired and the final
+runtime head passed 253 files and 1,910 tests. The operator approved the four
+remaining human playback claims and explicitly authorized repair and push.
 
 ## Summary
 
@@ -44,7 +46,8 @@ history transport, transactional patches, or a hosted schema registry.
 The implementation, strict schemas, advertised schemas, public documentation,
 capability matrix, affected tests, full exact-commit suites, and non-goals were
 compared manually with the design packet. No undocumented product-surface drift
-was found. All eight agent playback questions now have executable evidence.
+remains after the repair addendum. All eight agent playback questions now have
+executable evidence.
 
 Method's automated drift command was also run, but its apparent clean result was
 rejected as evidence because it scanned zero playback questions and only the
@@ -69,6 +72,15 @@ does not see most unit and integration evidence. That defect is recorded in
 - Graft already had two exhaustive MCP output-schema authorities, and they had
   drifted. Slice 5 wired the new contract through both but filed the duplication
   as debt instead of hiding a campaign-expanding refactor.
+- Endpoint-shaped event identity was insufficient for causal history: an
+  A-to-B-to-A sequence could reuse a node and create a cycle. Durable history
+  requires occurrence identity as well as semantic identity.
+- Requesting a full MCP response did not by itself preserve CLI-v1 body shape.
+  Compatibility requires an explicit projection plus frozen structural
+  witnesses, not an unchanged version string.
+- Strict response validation belongs before an irreversible edit. Graft now
+  preflights the exact-edit body; broader daemon mutation planning remains a
+  separate transactional design problem.
 
 ## What would we do differently?
 
@@ -80,6 +92,9 @@ does not see most unit and integration evidence. That defect is recorded in
 - Bound auxiliary-agent review calls with a short timeout and immediately fall
   back to local review; this closeout lost substantial wall-clock time waiting
   on a stalled review call even though the implementation evidence was ready.
+- End delegated review work at the first missed progress deadline. The repair
+  cycle again lost wall-clock time to a hung agent-launch call even while five
+  completed repairs had already reached the remote branch.
 
 ## Follow-up Items
 
@@ -89,6 +104,9 @@ does not see most unit and integration evidence. That defect is recorded in
   zero-input drift checks explicit and scan Graft's real evidence roots.
 - `SURFACE_on-demand-exact-mcp-output-contracts.md`: add exact on-demand schema
   distribution only if clients need more than bounded native discovery.
+- `CLEAN_mutating-tools-need-prepared-response-contract.md`: generalize the
+  exact-edit preflight into plan/validate/commit and idempotency semantics for
+  consequential daemon and foreign effects.
 
 ## Automation Limitations
 
@@ -96,4 +114,4 @@ The normal Method close path was not used. It would rerun and overwrite witness
 capture in the operator's intentionally dirty worktree, where an unrelated
 untracked backlog card changes the dependency-DAG input. The manual packet
 therefore separates focused local results, contaminated live-worktree results,
-clean exact-commit evidence, drift limitations, and pending human attestation.
+clean exact-commit evidence, drift limitations, and final human attestation.

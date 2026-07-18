@@ -29,8 +29,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   projecting deep audit structures under a 64 KiB aggregate / 8 KiB per-tool
   budget. `returnedBytes` continues to count the canonical compatibility JSON.
   The governed exact-edit path preflights its strict domain response before
-  committing file bytes, so response-contract drift cannot turn a successful
+  committing file bytes, so domain-contract drift cannot turn a successful
   edit into an ordinary post-write validation failure.
+  Optional legacy WARP `identityId` data remains valid in precision-match
+  responses until that compatibility path is explicitly migrated.
 - **Summary-first MCP diagnostics**: `doctor` now defaults to a strict bounded
   health, workspace, history-readiness, evidence-gap, and next-action summary;
   `activity_view` defaults to bounded anchor, count, truncation, group-summary,
@@ -47,9 +49,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   surface, tripwires remain top-level and immediate, and runtime logs retain the
   full internal evidence correlated by compact `receiptId`. MCP output schemas
   advance to `2.0.0`, while CLI peers explicitly request full receipts and
-  preserve their existing `1.0.0` JSON contracts. Response accounting uses the
-  exact UTF-8 bytes of the final encoded response in both in-process and daemon
-  worker paths.
+  preserve their existing `1.0.0` JSON contracts through an explicit nested
+  projection checked against frozen pre-v2 schema digests. Response accounting
+  uses the exact UTF-8 bytes of the final encoded response in both in-process
+  and daemon worker paths.
 - **Repository observation truth**: ordinary dirty state is now treated as an
   initial or unchanged workspace baseline rather than invented movement.
   Semantic transition output distinguishes authoritative current state,
@@ -57,6 +60,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   rebase, and conflict posture remains visible without persisting current state
   as a historical transition event. Pre-basis historical events remain
   inspectable as `legacy_unclassified` rather than being upgraded to movement.
+  Initialized reflog entries remain baseline evidence until the record changes;
+  snapshot deltas cannot inherit stale checkout/reset provenance; and repeated
+  semantic endpoints receive distinct occurrence identities so causal
+  `follows` edges cannot collapse into a cycle.
   Working-tree snapshots also verify stat-derived `diff-files` candidates
   against content-derived evidence, avoiding false dirty state when bytes are
   restored inside Git's racy-clean timestamp window.

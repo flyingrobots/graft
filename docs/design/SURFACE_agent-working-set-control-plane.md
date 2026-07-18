@@ -129,6 +129,14 @@ for historical event decoding and is not a live semantic-transition basis.
   or direct Git transition evidence.
 - A later snapshot with an unchanged dirty or active-phase status does not
   create a new movement merely because that state remains present.
+- The reflog entry captured during initialization is baseline evidence. A
+  same-second timestamp cannot upgrade an unchanged entry into newly observed
+  movement; direct reflog evidence requires a changed record.
+- Durable `snapshot_delta` events do not inherit Git-transition kind, refs, or
+  checkout-epoch creation from a previously retained checkout/reset.
+- Separate occurrences of the same semantic endpoint receive separate durable
+  event identities while repeated persistence of one observation remains
+  idempotent. Their `follows` edges remain an acyclic occurrence chain.
 - Current workspace facts remain inspectable even when `semanticTransition` is
   `null`; suppressing an invented transition must not suppress the baseline.
 - Regression tests assert structured truth classes, not incidental prose.
@@ -166,7 +174,9 @@ for historical event decoding and is not a live semantic-transition basis.
 - Internal metrics, budget accounting, runtime logging, and final
   `returnedBytes` semantics remain based on the actual encoded response.
 - CLI peer commands explicitly request full receipts so existing CLI JSON and
-  human rendering contracts do not change in this slice.
+  human rendering contracts do not change in this slice. Diagnostic CLI v1
+  schemas and payloads project MCP-v2-only `observationBasis` fields away and
+  remain structurally identical to `origin/main@c3885dab`.
 
 ### Slice 3: summary-first diagnostics
 
@@ -218,6 +228,9 @@ for historical event decoding and is not a live semantic-transition basis.
   leave the target file and session-local structural-edit observations
   unchanged; the finalized receipt remains runtime-owned and is published only
   after the write succeeds.
+- Legacy WARP precision matches may still contain optional `identityId` data.
+  Strict `code_find` and ambiguous `code_show` output validation preserves that
+  compatibility field until the legacy graph path is explicitly migrated.
 - The discovery projection preserves top-level answer fields, scalar types,
   enums and discriminants, `_schema` identity, and compact/full receipt posture.
   Deep audit objects are summarized rather than recursively inlined merely
@@ -386,6 +399,13 @@ surface. No timing assertion may depend on ambient machine speed.
   workspace churn does not impersonate conflict progress.
 - Fresh checkout and reset evidence remain inspectable as
   `git_transition_evidence` even when the workspace projection is unchanged.
+- Unchanged same-second reflog entries remain baseline evidence. Only a changed
+  reflog record or independently changed head/ref position supports a new Git
+  transition.
+- A checkout followed by an ordinary edit persists the edit as a pure
+  `snapshot_delta`, with null Git kind, refs, and created-epoch identity.
+- Repeating an A-to-B-to-A workspace sequence produces three distinct event
+  nodes and a linear acyclic `follows` chain.
 - New `current_state` observations are not persisted. Legacy graph records
   without a basis decode as `legacy_unclassified`, and observation basis
   participates in transition event identity.
@@ -489,6 +509,11 @@ cool-idea work remained outside the isolated witness and outside the commit.
   the filesystem write. A fault-injection regression proves contract rejection
   leaves file bytes unchanged; successful calls still build and publish the
   finalized receipt after the write.
+- Receipt-boundary regressions preserve optional legacy WARP `identityId` data
+  for both `code_find` and ambiguous `code_show` results.
+- Complete generated-schema digests for `diag_doctor` and `diag_activity` are
+  frozen to `origin/main@c3885dab`; nested MCP-v2 observation-basis fields are
+  removed before CLI-v1 validation and rendering.
 - `returnedBytes` remains the UTF-8 byte count of canonical compatibility text.
   It does not count the equivalent structured representation or protocol
   framing. MCP errors remain usable as text-only `isError` results, as the
@@ -501,7 +526,9 @@ cool-idea work remained outside the isolated witness and outside the commit.
   47 emitted tool contracts, real SDK discovery and client validation,
   receipt byte accounting, summary/full diagnostics, policy refusals, API
   consumers, worker offload, workspace routing, and both stdio runtimes. Lint,
-  typecheck, diff hygiene, and an independent Code Lawyer review also pass.
+  typecheck and diff hygiene also pass. A later full-branch Code Lawyer review
+  found compatibility and mutation-boundary defects that are recorded and
+  repaired below.
 - The first exact-commit run exposed two stale repository witnesses that focused
   tests had missed: an old receipt playback supplied an invalid `safe_read`
   body, and the generated backlog dependency graph omitted the newly filed
@@ -554,9 +581,31 @@ cool-idea work remained outside the isolated witness and outside the commit.
   the operator's work.
 - The exact Slice 5 commit (`8af1aa3a`) passes a clean detached Docker build,
   image typecheck, image lint, diff hygiene, and the complete isolated suite:
-  251 files and 1,902 tests with zero failures. A local Code Lawyer pass found
-  no actionable P0-P3 issue; the independent affected-test sweep also reported
-  zero failures.
+  251 files and 1,902 tests with zero failures. An early local review missed
+  issues later found by the complete pre-PR Code Lawyer pass; the independent
+  affected-test sweep itself reported zero failures.
+
+## Post-review repair witnesses
+
+The complete pre-PR self-review found three P1, three P2, and one P4 issue. The
+campaign repaired the concrete defects before publication:
+
+| Finding | Repair commit | Executable witness |
+| --- | --- | --- |
+| Repeated transition identity could cycle the history graph | `5948e250` | A-to-B-to-A produces distinct occurrence IDs and an acyclic `follows` chain. |
+| Snapshot deltas inherited stale Git evidence | `1e577e3a` | Checkout then ordinary edit persists null Git kind, refs, and created epoch. |
+| Legacy WARP `identityId` failed strict responses | `3c9b0344` | Receipt-boundary `code_find` and ambiguous `code_show` cases accept the optional field. |
+| Same-second baseline reflog looked fresh | `32137c12` | Unchanged baseline entries produce no transition; changed reflogs still do. |
+| Diagnostic CLI v1 changed under its old version | `f74d212e` | Full generated schemas match frozen `origin/main@c3885dab` digests and nested payloads project exactly. |
+| Edit response validation followed the file write | `4561d5a0` | Injected domain-contract failure leaves file bytes and edit observations unchanged. |
+| Public agent-flow Markdown was inconsistent/incomplete | `7f73d011` | README, MCP, and setup flows use consistent steps and publish capability onboarding. |
+| New context method was absent from guard fixtures | `34c42b7d` | Unit and playback construction-contract fixtures pass. |
+
+At `34c42b7d`, typecheck, lint, branch diff hygiene, and the complete default
+suite pass: 253 files and 1,910 tests. Broader two-phase semantics for daemon
+control-plane mutations remain explicit follow-up in
+`CLEAN_mutating-tools-need-prepared-response-contract.md`; the active campaign
+does not represent that future work as already shipped.
 
 ## Slice and commit plan
 

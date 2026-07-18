@@ -19,6 +19,51 @@ interrupted, or zero-input check as green.
 The generated dependency-DAG SVG child `2f6d843a` separately passed its two
 relevant files and 15 tests from a clean detached worktree.
 
+## Code Lawyer Repair Commits
+
+| Severity | Finding | Commit | Focused evidence |
+| --- | --- | --- | --- |
+| P1 | Repeated transition occurrences reused event identity | `5948e250` | Distinct A-to-B-to-A IDs; linear acyclic graph. |
+| P1 | Snapshot deltas inherited stale Git transition evidence | `1e577e3a` | Checkout then edit persists null Git kind/refs/created epoch. |
+| P2 | Legacy WARP `identityId` failed strict validation | `3c9b0344` | `code_find` and ambiguous `code_show` receipt regressions. |
+| P2 | Same-second baseline reflog appeared fresh | `32137c12` | Unchanged baseline returns null; fresh reflog remains visible. |
+| P1 | Diagnostic CLI JSON changed beneath version 1 | `f74d212e` | Complete schema digests match `origin/main@c3885dab`; nested payload projection passes. |
+| P2 | Exact-edit validation occurred after file mutation | `4561d5a0` | Injected body-contract failure leaves file bytes unchanged. |
+| P4 | Agent onboarding Markdown was inconsistent | `7f73d011` | README/MCP/SETUP flows aligned; `capabilities` added to setup reference. |
+| Test repair | Context guard fixtures omitted the new method | `34c42b7d` | 22 focused unit/playback tests pass. |
+
+History-focused validation passed four files and 46 tests. Schema/CLI focused
+validation passed receipt, projection, rendering, frozen-schema, and real-peer
+witnesses. Mutation-boundary validation passed five files and 47 tests before
+the construction-contract fixture repair.
+
+## Final Combined-Head Validation
+
+The clean linked repair worktree at `34c42b7d` produced:
+
+```text
+pnpm typecheck
+PASS
+
+pnpm lint
+PASS
+
+git diff --check origin/main...HEAD
+PASS
+
+pnpm exec vitest run --maxWorkers 2
+Test Files  253 passed (253)
+Tests       1910 passed (1910)
+PASS
+```
+
+The first combined run exposed six stale context-guard fixtures and one
+resource-pressure timeout in the dead-symbol playback. The fixtures were
+repaired in `34c42b7d`; the dead-symbol playback passed immediately in the
+focused diagnostic run and the unchanged default full-suite rerun then passed.
+The only final diagnostic was the pre-existing Node `DEP0205
+module.register()` deprecation warning.
+
 ## Slice 5 Exact-Commit Validation
 
 The following commands ran from a clean detached worktree at `8af1aa3a` and a
@@ -94,11 +139,15 @@ authoritative result, and its dependency-DAG tests pass.
 
 ## Review
 
-- Local Code Lawyer review of the complete Slice 5 diff: no actionable P0-P3
-  finding.
-- Independent affected-test sweep: zero failures.
-- A separate independent-review subagent stalled without producing a finding;
-  it is recorded as interrupted, not as approval.
+- The early Slice 5 review was insufficient and missed actionable defects.
+- The complete pre-PR Code Lawyer pass found three P1, three P2, and one P4
+  issue. All concrete active-branch defects were repaired before PR creation.
+- The broad mutation-atomicity question was narrowed honestly: `graft_edit`
+  preflights its domain body before writing, while general daemon
+  plan/validate/commit semantics are filed as explicit architectural debt.
+- Two delegated review/repair launches stalled. Their elapsed time is not
+  counted as review evidence; completed findings, commits, tests, and final
+  local validation are the evidence.
 - Third-party PR-head review remains a later merge gate and is not claimed here.
 
 ## Drift
