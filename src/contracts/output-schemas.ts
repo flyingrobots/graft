@@ -497,6 +497,7 @@ const precisionSymbolMatchSchema = z.object({
   name: z.string(),
   kind: z.string(),
   path: z.string(),
+  identityId: z.string().optional(),
   signature: z.string().optional(),
   exported: z.boolean(),
   startLine: z.number().int().positive().optional(),

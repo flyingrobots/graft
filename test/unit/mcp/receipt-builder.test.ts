@@ -5,6 +5,7 @@ import { CanonicalJsonCodec } from "../../../src/adapters/canonical-json.js";
 import { emptyBurdenByKind } from "../../../src/mcp/burden.js";
 import { getMcpOutputSchema } from "../../../src/contracts/output-schemas.js";
 import { getMcpDiscoveryOutputSchema } from "../../../src/contracts/mcp-discovery-output-schemas.js";
+import { PrecisionSymbolMatch } from "../../../src/mcp/tools/precision.js";
 
 const codec = new CanonicalJsonCodec();
 
@@ -71,6 +72,59 @@ function runCaptureBody(): Record<string, unknown> {
 }
 
 describe("buildReceiptResult (unit)", () => {
+  it("accepts supported WARP identity ids in precision-search responses", () => {
+    const legacyWarpMatch = new PrecisionSymbolMatch({
+      name: "handle",
+      kind: "function",
+      path: "src/handler.ts",
+      identityId: "sid:legacy-handler",
+      signature: "handle(): void",
+      exported: true,
+      startLine: 3,
+      endLine: 5,
+    });
+    const receiptDeps = {
+      sessionId: "s1",
+      traceId: "t1",
+      seq: 1,
+      latencyMs: 1,
+      metrics: emptyMetrics(),
+      tripwires: [],
+      codec,
+    };
+
+    const find = buildReceiptResult("code_find", {
+      query: "handle",
+      kind: null,
+      matches: [legacyWarpMatch],
+      total: 1,
+      source: "warp",
+      layer: "ref_view",
+    }, receiptDeps);
+    const show = buildReceiptResult("code_show", {
+      symbol: "handle",
+      ambiguous: true,
+      matches: [legacyWarpMatch, new PrecisionSymbolMatch({
+        name: "handle",
+        kind: "function",
+        path: "src/other-handler.ts",
+        identityId: "sid:legacy-other-handler",
+        exported: true,
+        startLine: 8,
+        endLine: 10,
+      })],
+      source: "warp",
+      layer: "ref_view",
+    }, receiptDeps);
+
+    expect(
+      ((payloadOf(find.result)["matches"] as Record<string, unknown>[])[0])?.["identityId"],
+    ).toBe("sid:legacy-handler");
+    expect(
+      ((payloadOf(show.result)["matches"] as Record<string, unknown>[])[1])?.["identityId"],
+    ).toBe("sid:legacy-other-handler");
+  });
+
   it("projects a compact wire receipt without weakening the internal audit receipt", () => {
     const built = buildReceiptResult("safe_read", safeReadBody({
       actual: { bytes: 1234, lines: 50 },
