@@ -800,6 +800,113 @@ describe("mcp: persisted local history", () => {
     );
   });
 
+  it("records repeated equal semantic transitions as distinct ordered occurrences", async () => {
+    const graftTmp = createTestDir("graft-history-");
+    cleanups.push(graftTmp);
+    const graftDir = graftTmp.path;
+
+    const store = new PersistedLocalHistoryStore({
+      fs: nodeFs,
+      codec: new CanonicalJsonCodec(),
+      graftDir,
+    });
+    const harness = createGraphHarness(graftDir);
+    const first = context({
+      workspaceOverlayId: "overlay:dirty-a",
+      observedAt: "2026-04-10T01:10:00.000Z",
+    });
+    await store.noteBinding({ current: first, currentGraph: harness.graph });
+    const baseline = await store.summarize(
+      harness.status(),
+      harness.causal(first),
+      harness.graph,
+    );
+    const semanticTransition = {
+      kind: "unknown" as const,
+      authority: "repo_snapshot" as const,
+      observationBasis: "snapshot_delta" as const,
+      phase: null,
+      summary: "Workspace contents changed between observations.",
+      evidence: {
+        totalPaths: 1,
+        stagedPaths: 0,
+        changedPaths: 1,
+        untrackedPaths: 0,
+        unmergedPaths: 0,
+        mergeInProgress: false,
+        rebaseInProgress: false,
+        rebaseStep: null,
+        rebaseTotalSteps: null,
+        lastTransitionKind: null,
+        reflogSubject: null,
+      },
+    };
+    const middleTransition = {
+      ...semanticTransition,
+      kind: "index_update" as const,
+      summary: "The Git index changed between observations.",
+    };
+    const middle = context({
+      workspaceOverlayId: null,
+      observedAt: "2026-04-10T01:11:00.000Z",
+    });
+    const repeated = context({
+      workspaceOverlayId: "overlay:dirty-a",
+      observedAt: "2026-04-10T01:12:00.000Z",
+    });
+
+    await store.noteSemanticTransitionObservation({
+      current: first,
+      semanticTransition,
+      transition: null,
+      attribution: baseline.attribution,
+      graph: harness.graph,
+    });
+    await store.noteSemanticTransitionObservation({
+      current: middle,
+      semanticTransition: middleTransition,
+      transition: null,
+      attribution: baseline.attribution,
+      graph: harness.graph,
+    });
+    await store.noteSemanticTransitionObservation({
+      current: repeated,
+      semanticTransition,
+      transition: null,
+      attribution: baseline.attribution,
+      graph: harness.graph,
+    });
+    // Re-persisting the same observation remains idempotent.
+    await store.noteSemanticTransitionObservation({
+      current: repeated,
+      semanticTransition,
+      transition: null,
+      attribution: baseline.attribution,
+      graph: harness.graph,
+    });
+
+    const transitionNodes = harness.warp.findNodes((props) =>
+      props["entityKind"] === "local_history_event" &&
+      props["eventKind"] === "transition"
+    );
+    expect(transitionNodes).toHaveLength(3);
+
+    const eventIdsByTime = new Map(transitionNodes.map(([nodeId, props]) => [
+      props["occurredAt"],
+      nodeId,
+    ]));
+    const firstNode = eventIdsByTime.get(first.observedAt);
+    const middleNode = eventIdsByTime.get(middle.observedAt);
+    const repeatedNode = eventIdsByTime.get(repeated.observedAt);
+    expect(firstNode).toBeDefined();
+    expect(middleNode).toBeDefined();
+    expect(repeatedNode).toBeDefined();
+    expect(new Set([firstNode, middleNode, repeatedNode])).toHaveLength(3);
+    expect(harness.warp.hasEdge(middleNode!, firstNode!, "follows")).toBe(true);
+    expect(harness.warp.hasEdge(repeatedNode!, middleNode!, "follows")).toBe(true);
+    expect(harness.warp.hasEdge(firstNode!, repeatedNode!, "follows")).toBe(false);
+  });
+
   it("summarizes shared repo posture when another worktree is active on the same checkout", async () => {
     const graftTmp = createTestDir("graft-history-");
     cleanups.push(graftTmp);

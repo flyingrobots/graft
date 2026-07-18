@@ -458,6 +458,7 @@ export function createTransitionEvent(input: {
       "event",
       JSON.stringify({
         eventKind: "transition",
+        observedAt: input.current.observedAt,
         checkoutEpochId: input.current.checkoutEpochId,
         workspaceOverlayId: input.current.workspaceOverlayId,
         semanticKind: semanticTransition.kind,
