@@ -604,12 +604,17 @@ campaign repaired the concrete defects before publication:
 | Edit response validation followed the file write | `4561d5a0` | Injected domain-contract failure leaves file bytes and edit observations unchanged. |
 | Public agent-flow Markdown was inconsistent/incomplete | `7f73d011` | README, MCP, and setup flows use consistent steps and publish capability onboarding. |
 | New context method was absent from guard fixtures | `34c42b7d` | Unit and playback construction-contract fixtures pass. |
+| Daemon status sent v2-only receipt controls to pre-v2 peers | `55d21c14` | Schema-negotiation unit coverage omits the field for old inputs and preserves full receipts for v2; the current-daemon CLI integration passes. |
 
 At `34c42b7d`, typecheck, lint, branch diff hygiene, and the complete default
 suite pass: 253 files and 1,910 tests. Broader two-phase semantics for daemon
 control-plane mutations remain explicit follow-up in
 `CLEAN_mutating-tools-need-prepared-response-contract.md`; the active campaign
 does not represent that future work as already shipped.
+
+The post-publication `55d21c14` repair separately passes typecheck, lint, diff
+hygiene, and its two-file / three-test compatibility constellation. PR CI on
+that head remains the full-suite merge gate.
 
 ## Slice and commit plan
 

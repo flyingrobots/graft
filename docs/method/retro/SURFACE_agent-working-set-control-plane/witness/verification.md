@@ -31,6 +31,7 @@ relevant files and 15 tests from a clean detached worktree.
 | P2 | Exact-edit validation occurred after file mutation | `4561d5a0` | Injected body-contract failure leaves file bytes unchanged. |
 | P4 | Agent onboarding Markdown was inconsistent | `7f73d011` | README/MCP/SETUP flows aligned; `capabilities` added to setup reference. |
 | Test repair | Context guard fixtures omitted the new method | `34c42b7d` | 22 focused unit/playback tests pass. |
+| P2 (PR review) | Daemon status sent the v2-only receipt control to pre-v2 daemon tools | `55d21c14` | Old advertised schemas omit the field, v2 schemas request full receipts, and the current-daemon CLI integration passes. |
 
 History-focused validation passed four files and 46 tests. Schema/CLI focused
 validation passed receipt, projection, rendering, frozen-schema, and real-peer
@@ -106,6 +107,38 @@ An independent affected-surface sweep passed 43 files and 341 tests:
 
 The only diagnostic was Node's pre-existing `DEP0205 module.register()`
 deprecation warning.
+
+## Post-Publication Review Validation
+
+Codex reviewed PR #233 at `5a5a4c22` and found that the composed
+`graft daemon status` reader unconditionally sent `receipt: "full"`. A CLI from
+this campaign could therefore fail against a still-running pre-v2 daemon whose
+strict tool inputs did not recognize that field.
+
+Repair commit `55d21c14` lists the daemon's advertised tools once and includes
+the full-receipt control only when the selected tool advertises it. The repair
+passed:
+
+```text
+pnpm typecheck
+PASS
+
+pnpm lint
+PASS
+
+git diff --check
+PASS
+
+pnpm exec vitest run \
+  test/unit/cli/daemon-status.test.ts \
+  test/integration/mcp/daemon-status-cli.test.ts
+Test Files  2 passed (2)
+Tests       3 passed (3)
+```
+
+The 253-file / 1,910-test exact-head witness above predates this repair. The
+focused evidence proves the changed compatibility seam; green PR CI on the
+current head remains required before merge readiness is claimed.
 
 ## Capability and Schema Measurements
 

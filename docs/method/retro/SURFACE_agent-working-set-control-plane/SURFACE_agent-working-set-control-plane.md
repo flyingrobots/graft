@@ -15,6 +15,10 @@ exact-commit validation are complete. A complete pre-PR Code Lawyer pass then
 found seven issues; every concrete branch defect was repaired and the final
 runtime head passed 253 files and 1,910 tests. The operator approved the four
 remaining human playback claims and explicitly authorized repair and push.
+After publication, Codex found one additional rolling-upgrade compatibility
+defect in the composed daemon-status reader. `55d21c14` repairs it through
+advertised-input negotiation; focused compatibility tests, typecheck, lint,
+and diff hygiene pass, while current-head PR CI remains the merge gate.
 
 ## Summary
 
