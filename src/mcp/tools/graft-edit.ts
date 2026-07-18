@@ -245,9 +245,6 @@ export const graftEditTool: ToolDefinition = {
 
       const nextContent = content.replace(oldString, newString);
       const changed = nextContent !== content;
-      if (changed) {
-        await ctx.fs.writeFile(filePath, nextContent, "utf-8");
-      }
 
       const observation = classifyStructuralEdit({
         path: filePath,
@@ -255,9 +252,6 @@ export const graftEditTool: ToolDefinition = {
         newString,
       });
       const driftWarnings = buildDriftWarnings(observation, structuralEditObservations);
-      if (observation !== null) {
-        structuralEditObservations.push(observation);
-      }
 
       const response: GraftEditResponse = {
         path: filePath,
@@ -270,6 +264,13 @@ export const graftEditTool: ToolDefinition = {
         actual,
         ...(driftWarnings.length > 0 ? { driftWarnings } : {}),
       };
+      ctx.validateResponse("graft_edit", { ...response });
+      if (changed) {
+        await ctx.fs.writeFile(filePath, nextContent, "utf-8");
+      }
+      if (observation !== null) {
+        structuralEditObservations.push(observation);
+      }
       return ctx.respond("graft_edit", { ...response });
     };
   },

@@ -28,6 +28,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   scalars, discriminants, schema identity, and receipt posture while shallowly
   projecting deep audit structures under a 64 KiB aggregate / 8 KiB per-tool
   budget. `returnedBytes` continues to count the canonical compatibility JSON.
+  The governed exact-edit path preflights its strict domain response before
+  committing file bytes, so response-contract drift cannot turn a successful
+  edit into an ordinary post-write validation failure.
 - **Summary-first MCP diagnostics**: `doctor` now defaults to a strict bounded
   health, workspace, history-readiness, evidence-gap, and next-action summary;
   `activity_view` defaults to bounded anchor, count, truncation, group-summary,

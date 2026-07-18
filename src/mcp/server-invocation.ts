@@ -2,6 +2,7 @@ import { AsyncLocalStorage } from "node:async_hooks";
 import * as crypto from "node:crypto";
 import { z } from "zod";
 import type { JsonObject } from "../contracts/json-object.js";
+import { validateMcpOutputBody } from "../contracts/output-schemas.js";
 import type { CanonicalJsonCodec } from "../adapters/canonical-json.js";
 import { buildReceiptResult } from "./receipt.js";
 import type { ObservationSnapshot } from "./cache.js";
@@ -88,6 +89,8 @@ export interface InvocationEngine {
   /** Monotonically increasing sequence counter (mutable). */
   getSeq(): number;
   incrementSeq(): number;
+  /** Validate a domain response before a consequential side effect. */
+  validateResponse: (tool: ToolDefinition["name"], data: JsonObject) => void;
   /** Build the respond() function suitable for ToolContext. */
   respond: (tool: ToolDefinition["name"], data: JsonObject) => McpToolResult;
   /** Get the active execution context from AsyncLocalStorage. */
@@ -208,6 +211,10 @@ export function createInvocationEngine(deps: InvocationEngineDeps): InvocationEn
     metrics.recordToolResult(tool, textBytes);
     governor.recordBytesConsumed(textBytes);
     return result;
+  }
+
+  function validateResponse(tool: ToolDefinition["name"], data: JsonObject): void {
+    validateMcpOutputBody(tool, data);
   }
 
   function openInvocation(args: JsonObject): InvocationEnvelope {
@@ -561,6 +568,7 @@ export function createInvocationEngine(deps: InvocationEngineDeps): InvocationEn
     invocationStorage,
     getSeq: () => seq,
     incrementSeq: () => ++seq,
+    validateResponse,
     respond,
     getActiveExecutionContext,
     invokeTool,

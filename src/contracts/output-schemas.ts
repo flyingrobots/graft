@@ -22,6 +22,7 @@ import {
 } from "./causal-ontology.js";
 import { causalSurfaceNextActionSchema } from "./causal-surface-next-action.js";
 import { diagnosticEvidenceGapSchema } from "./diagnostic-evidence-gap.js";
+import { parseJsonObject, type JsonObject } from "./json-object.js";
 import {
   ACTIVITY_SUMMARY_BOUNDS,
   utf8ByteBoundedStringSchema,
@@ -1586,6 +1587,23 @@ const mcpOutputBodySchemas: Record<McpToolName, z.ZodType> = {
     directoryCoverage: z.record(z.string(), z.number().int().nonnegative()),
   }).strict(),
 };
+
+/**
+ * Validate one tool's domain response before a consequential side effect.
+ *
+ * Receipt and schema metadata are runtime-owned and are validated when the
+ * finalized MCP result is built. This preflight keeps domain-contract drift
+ * from being discovered only after a mutating tool has committed its effect.
+ */
+export function validateMcpOutputBody(
+  tool: McpToolName,
+  data: JsonObject,
+): JsonObject {
+  return parseJsonObject(
+    mcpOutputBodySchemas[tool].parse(data),
+    `MCP ${tool} output body`,
+  );
+}
 
 export const MCP_OUTPUT_SCHEMAS: Record<McpToolName, z.ZodType> = {
   capabilities: withMcpCommon("capabilities", mcpOutputBodySchemas.capabilities),

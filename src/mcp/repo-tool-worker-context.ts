@@ -18,6 +18,7 @@ import { resolveRunCaptureConfig } from "./run-capture-config.js";
 import { resolveRuntimeObservabilityState } from "./runtime-observability.js";
 import { buildRuntimeCausalContext } from "./runtime-causal-context.js";
 import type { RepoToolWorkerJob, RepoToolWorkerResult } from "./repo-tool-job.js";
+import { validateMcpOutputBody } from "../contracts/output-schemas.js";
 
 function unsupported(name: string): never {
   throw new Error(`${name} is not available in repo-tool worker mode`);
@@ -95,6 +96,9 @@ export function buildRepoToolWorkerContext(
     git: nodeGit,
     runCapture: resolveRunCaptureConfig({}),
     observability: resolveRuntimeObservabilityState({ graftDir: job.graftDir }),
+    validateResponse(tool, data) {
+      validateMcpOutputBody(tool, data);
+    },
     respond(tool, data) {
       const tripwires = governor.checkTripwires();
       const built = buildReceiptResult(tool, data, {

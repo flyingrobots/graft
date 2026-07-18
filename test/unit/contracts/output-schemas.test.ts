@@ -13,6 +13,7 @@ import {
   getCliOutputJsonSchema,
   getMcpOutputSchemaMeta,
   getMcpOutputJsonSchema,
+  validateMcpOutputBody,
   validateCliOutput,
 } from "../../../src/contracts/output-schemas.js";
 import { runCli } from "../../../src/cli/main.js";
@@ -122,6 +123,25 @@ describe("contracts: output schemas", () => {
     expect(() => MCP_OUTPUT_SCHEMAS.safe_read.parse({
       ...full,
       _receipt: missingCumulative,
+    })).toThrow();
+  });
+
+  it("preflights governed edit domain responses without runtime metadata", () => {
+    const response = {
+      path: "/repo/app.ts",
+      operation: "replace",
+      projection: "edited",
+      status: "edited",
+      changed: true,
+      matches: 1,
+      replacements: 1,
+      actual: { lines: 2, bytes: 26 },
+    };
+
+    expect(validateMcpOutputBody("graft_edit", response)).toEqual(response);
+    expect(() => validateMcpOutputBody("graft_edit", {
+      ...response,
+      unsupported: true,
     })).toThrow();
   });
 

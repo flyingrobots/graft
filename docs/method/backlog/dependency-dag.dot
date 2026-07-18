@@ -48,7 +48,7 @@ digraph backlog {
   }
 
   subgraph cluster_bad_code {
-    label="bad-code (19)" labeljust=l fontsize=9 fontcolor="#555555"
+    label="bad-code (20)" labeljust=l fontsize=9 fontcolor="#555555"
     style=rounded color="#cccccc" bgcolor="#fafafa"
     bad_code_CLEAN_backlog_dag_unresolved_internal_dependencies [label="CLEAN-backlog-dag-unresolved-internal-dependencies - S" fillcolor="#F6B3B3" penwidth=2]
     bad_code_CLEAN_canonical_codec_seams_diverge [label="CLEAN-canonical-codec-seams-diverge - M" fillcolor="#F6B3B3" penwidth=2]
@@ -62,6 +62,7 @@ digraph backlog {
     bad_code_CLEAN_method_close_timeout_produces_no_retro_artifact [label="CLEAN-method-close-timeout-produces-no-retro-artifact - M" fillcolor="#F6B3B3" penwidth=2]
     bad_code_CLEAN_method_drift_can_silently_pass_with_zero_playback_questions [label="CLEAN-method-drift-can-silently-pass-with-zero-playback-questions - S" fillcolor="#F6B3B3" penwidth=2]
     bad_code_CLEAN_method_retro_witness_can_overstate_validation [label="CLEAN-method-retro-witness-can-overstate-validation - M" fillcolor="#F6B3B3" penwidth=2]
+    bad_code_CLEAN_mutating_tools_need_prepared_response_contract [label="CLEAN-mutating-tools-need-prepared-response-contract" fillcolor="#F6B3B3" penwidth=2]
     bad_code_CLEAN_pr_review_comments_not_actionability_typed [label="CLEAN-pr-review-comments-not-actionability-typed - M" fillcolor="#F6B3B3" penwidth=2]
     bad_code_CLEAN_receipt_cumulative_bytes_avoided_stays_zero [label="CLEAN-receipt-cumulative-bytes-avoided-stays-zero - S" fillcolor="#F6B3B3" penwidth=2]
     bad_code_CLEAN_remaining_structural_warp_reads_bypass_structural_reading_port [label="CLEAN-remaining-structural-warp-reads-bypass-structural-reading-port - M" fillcolor="#F6B3B3" penwidth=2]

@@ -77,6 +77,7 @@ export interface ToolContext {
   readonly git: GitClient;
   readonly runCapture: RunCaptureConfig;
   readonly observability: RuntimeObservabilityState;
+  validateResponse(tool: McpToolName, data: Record<string, unknown>): void;
   respond(tool: McpToolName, data: Record<string, unknown>): McpToolResult;
   recordFootprint(entry: {
     readonly paths?: readonly string[];
@@ -146,6 +147,7 @@ export function assertToolContext(value: unknown): asserts value is ToolContext 
   }
 
   const methods = [
+    "validateResponse",
     "respond",
     "resolvePath",
     "getWarp",

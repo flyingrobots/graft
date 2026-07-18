@@ -213,6 +213,11 @@ for historical event decoding and is not a live semantic-transition basis.
   discovery schema is a deterministic bounded projection of that authority,
   not a second hand-maintained contract. Every emitted structured result must
   satisfy both the strict schema and the advertised projection.
+- `graft_edit` validates its complete domain response against the strict output
+  contract before writing replacement bytes. A response-contract failure must
+  leave the target file and session-local structural-edit observations
+  unchanged; the finalized receipt remains runtime-owned and is published only
+  after the write succeeds.
 - The discovery projection preserves top-level answer fields, scalar types,
   enums and discriminants, `_schema` identity, and compact/full receipt posture.
   Deep audit objects are summarized rather than recursively inlined merely
@@ -355,8 +360,9 @@ software behavior:
    budgets, default omission of detail, full compatibility, and CLI full-mode
    behavior.
 4. Native-output tests prove output-schema discovery for every registered tool,
-   strict and advertised validation, text/structured equivalence, and aggregate
-   and per-tool schema budgets.
+   strict and advertised validation, text/structured equivalence, aggregate and
+   per-tool schema budgets, and pre-write domain validation for the governed
+   exact-edit path.
 5. Capability tests prove deterministic family order, registry membership, and
    bounded default output.
 
@@ -479,6 +485,10 @@ cool-idea work remained outside the isolated witness and outside the commit.
   canonical compatibility text, then validate that exact value against both
   the strict schema and discovery projection. The representations therefore
   cannot drift, and strict output-contract violations fail before success.
+- The governed exact-edit path separately preflights its domain response before
+  the filesystem write. A fault-injection regression proves contract rejection
+  leaves file bytes unchanged; successful calls still build and publish the
+  finalized receipt after the write.
 - `returnedBytes` remains the UTF-8 byte count of canonical compatibility text.
   It does not count the equivalent structured representation or protocol
   framing. MCP errors remain usable as text-only `isError` results, as the

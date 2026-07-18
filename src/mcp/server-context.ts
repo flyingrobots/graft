@@ -38,6 +38,7 @@ export interface ToolContextDeps {
   readonly monitorRuntime: PersistentMonitorRuntime | null;
   readonly daemonRuntime: () => DaemonRuntimeDescriptor;
   readonly getActiveExecutionContext: () => WorkspaceExecutionContext | null;
+  readonly validateResponse: (tool: ToolDefinition["name"], data: JsonObject) => void;
   readonly respond: (tool: ToolDefinition["name"], data: JsonObject) => McpToolResult;
   readonly recordFootprint: (entry: {
     readonly paths?: readonly string[];
@@ -61,6 +62,7 @@ export function buildToolContext(deps: ToolContextDeps): ToolContext {
     monitorRuntime,
     daemonRuntime,
     getActiveExecutionContext,
+    validateResponse,
     respond,
   } = deps;
 
@@ -83,6 +85,7 @@ export function buildToolContext(deps: ToolContextDeps): ToolContext {
     get metrics() {
       return getActiveExecutionContext()?.metrics ?? workspaceRouter.metrics;
     },
+    validateResponse,
     respond,
     recordFootprint: deps.recordFootprint,
     resolvePath(relative: string): string {

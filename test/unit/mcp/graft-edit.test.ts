@@ -8,6 +8,9 @@ import { MCP_OUTPUT_SCHEMAS } from "../../../src/contracts/output-schemas.js";
 import type { ToolDefinition } from "../../../src/mcp/context.js";
 import { createTestRepo } from "../../helpers/git.js";
 import { createServerInRepo, parse } from "../../helpers/mcp.js";
+import { nodeFs } from "../../../src/adapters/node-fs.js";
+import { Metrics } from "../../../src/mcp/metrics.js";
+import { GovernorTracker } from "../../../src/session/tracker.js";
 
 const cleanups: string[] = [];
 
@@ -125,6 +128,40 @@ describe("mcp: graft_edit RED contract", () => {
       replacements: 1,
     });
     expect(readRepoFile(repoDir, "src/app.ts")).toBe("export const greeting = 'goodbye';\n");
+  });
+
+  it("validates the edited response before committing file bytes", async () => {
+    const repoDir = createRepo({
+      "src/app.ts": "export const greeting = 'hello';\n",
+    });
+    const handler = graftEditDefinition().createHandler();
+    const context = {
+      projectRoot: repoDir,
+      graftignorePatterns: [],
+      governor: new GovernorTracker(),
+      metrics: new Metrics(),
+      fs: nodeFs,
+      resolvePath(relativePath: string): string {
+        return path.join(repoDir, relativePath);
+      },
+      recordFootprint(): void {
+        return undefined;
+      },
+      validateResponse(): never {
+        throw new Error("injected output-contract failure");
+      },
+      respond(): never {
+        throw new Error("respond must not run after a failed preflight");
+      },
+    } as unknown as Parameters<typeof handler>[1];
+
+    await expect(handler({
+      path: "src/app.ts",
+      old_string: "hello",
+      new_string: "goodbye",
+    }, context)).rejects.toThrow("injected output-contract failure");
+
+    expect(readRepoFile(repoDir, "src/app.ts")).toBe("export const greeting = 'hello';\n");
   });
 
   it("refuses a missing old_string without changing the file", async () => {

@@ -391,6 +391,7 @@ export function createGraftServer(options: CreateGraftServerOptions = {}): Graft
     monitorRuntime: daemon.monitorRuntime,
     daemonRuntime: daemon.runtime,
     getActiveExecutionContext: engine.getActiveExecutionContext,
+    validateResponse: engine.validateResponse,
     respond: engine.respond,
     recordFootprint: (entry) => { recordFootprint(engine.invocationStorage, entry); },
   });
