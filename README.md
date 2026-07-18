@@ -122,10 +122,13 @@ Daemon sessions start unbound. `capabilities` remains available before binding
 and reports the daemon's registered surface without claiming that every tool is
 currently authorized. The normal agent flow is:
 
-1. optionally call `capabilities` or `capabilities({ family: "workspace" })`
-2. `workspace_open` with the target repo's `cwd`; in daemon mode this authorizes the workspace before opening it
-3. optionally `workspace_list_opened` to inspect active workspaces
-4. use repository-scoped tools: `safe_read`, `file_outline`, `graft_diff`, etc.
+1. Optionally call `capabilities` or
+   `capabilities({ family: "workspace" })`.
+2. Call `workspace_open` with the target repo's `cwd`; in daemon mode this
+   authorizes the workspace before opening it.
+3. Optionally call `workspace_list_opened` to inspect active workspaces.
+4. Use repository-scoped tools such as `safe_read`, `file_outline`, and
+   `graft_diff`.
 
 When several agents share one daemon-backed MCP session, repo tools can
 carry their own explicit route: pass `cwd` to `safe_read`,

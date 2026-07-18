@@ -120,12 +120,14 @@ rebind, pause, resume, start, or stop daemon resources.
 
 Practical daemon-backed MCP first-use sequence:
 
-1. configure your MCP client with `graft serve --runtime daemon`
-2. let the bridge auto-start the daemon, or start `npx @flyingrobots/graft daemon`
-3. call `workspace_open` with the target `cwd`
-4. optionally call `workspace_list_opened` to inspect opened paths and the
-   active workspace
-5. then use repository-scoped tools such as `safe_read` or `graft_map`
+1. Configure your MCP client with `graft serve --runtime daemon`.
+2. Let the bridge auto-start the daemon, or start
+   `npx @flyingrobots/graft daemon`.
+3. Optionally call `capabilities` or select its `workspace` family.
+4. Call `workspace_open` with the target `cwd`.
+5. Optionally call `workspace_list_opened` to inspect opened paths and the
+   active workspace.
+6. Use repository-scoped tools such as `safe_read` or `graft_map`.
 
 If concurrent agents share one daemon-backed MCP session, prefer
 explicit `cwd` routes for repo-specific tools that support routing:
@@ -169,8 +171,10 @@ runtime:
 Use repo-local stdio when you want one MCP server bound directly to the
 current checkout. Use daemon-backed stdio when you want daemon-only
 capabilities such as shared worker pools, persistent monitors, and
-daemon control-plane inspection. Daemon-backed sessions start unbound;
-repository-scoped tools normally begin with `workspace_open`.
+daemon control-plane inspection. Daemon-backed sessions start unbound.
+`capabilities` remains available in that state and reports the registered
+surface without claiming current authorization; repository-scoped tools
+normally begin with `workspace_open`.
 
 ### One-step bootstrap
 
@@ -539,6 +543,7 @@ add to `.claude/settings.local.json`:
 
 | Tool | Description |
 |------|-------------|
+| `capabilities` | Bounded agent-native workflow discovery. The default summarizes seven registered tool families; pass one `family` for its opening call, guidance, and tool names. Registration does not imply current workspace authorization. |
 | `safe_read` | Policy-enforced file read. Returns full content for small files, structural outline with jump table for large files, or refusal with reason code for banned files. Detects re-reads and returns cached outlines or structural diffs. |
 | `file_outline` | Structural skeleton of a file — function signatures, class shapes, exports. Includes a jump table mapping each symbol to its line range for targeted `read_range` follow-ups. |
 | `read_range` | Read a bounded range of lines from a file. Maximum 250 lines. Use jump table entries from `file_outline` or `safe_read` to target specific symbols. |

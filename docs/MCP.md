@@ -55,12 +55,12 @@ Daemon sessions start `unbound`. Once a client is connected to the
 daemon MCP surface, repository-scoped work normally follows this
 agent-facing flow:
 
-1. optionally call `capabilities` or select its `workspace` family
-2. `workspace_open` with the target `cwd`
-3. optionally `workspace_list_opened` to inspect opened paths and the
-   active workspace
-4. then call repository-scoped tools such as `safe_read`, `graft_since`,
-   or `code_show`
+1. Optionally call `capabilities` or select its `workspace` family.
+2. Call `workspace_open` with the target `cwd`.
+3. Optionally call `workspace_list_opened` to inspect opened paths and the
+   active workspace.
+4. Call repository-scoped tools such as `safe_read`, `graft_since`, or
+   `code_show`.
 
 For concurrent multi-repo use inside one daemon-backed MCP session,
 repo tools that support routing also accept `cwd`: `safe_read`,
