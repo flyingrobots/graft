@@ -83,6 +83,7 @@ describe("CORE_v060-bad-code-burndown", () => {
       governor: {},
       cache: {},
       metrics: {},
+      validateResponse: () => undefined,
       respond: () => ({ content: [] }),
       resolvePath: (r: string) => r,
       getWarp: () => Promise.resolve({}),

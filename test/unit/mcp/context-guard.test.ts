@@ -23,6 +23,7 @@ function minimalContext(): Record<string, unknown> {
     git: { run: () => Promise.resolve({}) },
     runCapture: {},
     observability: {},
+    validateResponse: () => undefined,
     respond: () => ({ content: [] }),
     resolvePath: (r: string) => r,
     getWarp: () => Promise.resolve({}),
