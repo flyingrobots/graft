@@ -293,6 +293,7 @@ describe("mcp: layered worldline model", { timeout: 15000 }, () => {
         git(tmpDir, "commit -m base");
 
         const server = createServerInRepo(tmpDir);
+        await server.callTool("doctor", { detail: "full" });
         git(tmpDir, "checkout -q -b feature/rebase-ui");
 
         const doctor = parse(await server.callTool("doctor", { detail: "full" }));
@@ -325,6 +326,7 @@ describe("mcp: layered worldline model", { timeout: 15000 }, () => {
         const c2 = git(tmpDir, "rev-parse HEAD");
 
         const server = createServerInRepo(tmpDir);
+        await server.callTool("doctor", { detail: "full" });
         git(tmpDir, "reset -q --hard HEAD~1");
 
         const doctor = parse(await server.callTool("doctor", { detail: "full" }));
@@ -369,6 +371,7 @@ describe("mcp: layered worldline model", { timeout: 15000 }, () => {
         git(tmpDir, "commit -m mainline");
 
         const server = createServerInRepo(tmpDir);
+        await server.callTool("doctor", { detail: "full" });
         git(tmpDir, "merge -q --no-ff feature -m merge-feature");
 
         const doctor = parse(await server.callTool("doctor", { detail: "full" }));
@@ -416,6 +419,7 @@ describe("mcp: layered worldline model", { timeout: 15000 }, () => {
 
         git(tmpDir, "checkout -q feature");
         const server = createServerInRepo(tmpDir);
+        await server.callTool("doctor", { detail: "full" });
         git(tmpDir, `rebase -q ${baseBranch}`);
 
         const doctor = parse(await server.callTool("doctor", { detail: "full" }));
@@ -459,6 +463,7 @@ describe("mcp: layered worldline model", { timeout: 15000 }, () => {
         git(tmpDir, "commit -m feature");
 
         const server = createServerInRepo(tmpDir);
+        await server.callTool("doctor", { detail: "full" });
         const epochs: unknown[] = [];
 
         for (const target of [baseBranch, "feature", baseBranch, "feature", baseBranch]) {

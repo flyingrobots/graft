@@ -41,9 +41,6 @@ export class RepoStateTracker {
     statusLines: [],
   };
   private initialization: Promise<void> | null = null;
-  private readonly startedAtSec = Math.floor(Date.now() / 1000);
-  private hasObservedTransition = false;
-
   /** Pending observe promise used for debounce coalescing. */
   private pendingObserve: Promise<RepoObservation> | null = null;
   /** Timestamp of the last completed observation (ms since epoch). */
@@ -126,12 +123,9 @@ export class RepoStateTracker {
       this.cwd,
       previousSnapshot,
       nextSnapshot,
-      this.startedAtSec,
-      !this.hasObservedTransition,
     );
     if (transition !== null) {
       this.checkoutEpoch++;
-      this.hasObservedTransition = true;
     }
 
     this.snapshot = nextSnapshot;

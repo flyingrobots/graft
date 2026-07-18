@@ -16,16 +16,13 @@ function parseCheckoutTarget(value: string): string | null {
 function parseTransitionFromReflog(
   previous: RepoSnapshot,
   current: RepoSnapshot,
-  bootstrapTimestampSec: number,
-  allowBootstrap: boolean,
 ): RepoTransition | null {
   const entry = current.headReflog;
   if (entry === null) {
     return null;
   }
   const hasFreshReflog = previous.headReflog?.raw !== entry.raw;
-  const bootstrapEligible = allowBootstrap && entry.timestampSec !== null && entry.timestampSec >= bootstrapTimestampSec;
-  if (!hasFreshReflog && !bootstrapEligible) {
+  if (!hasFreshReflog) {
     return null;
   }
 
@@ -93,10 +90,8 @@ export async function detectTransition(
   cwd: string,
   previous: RepoSnapshot,
   current: RepoSnapshot,
-  bootstrapTimestampSec: number,
-  allowBootstrap: boolean,
 ): Promise<RepoTransition | null> {
-  const reflogTransition = parseTransitionFromReflog(previous, current, bootstrapTimestampSec, allowBootstrap);
+  const reflogTransition = parseTransitionFromReflog(previous, current);
   if (reflogTransition !== null) {
     return reflogTransition;
   }

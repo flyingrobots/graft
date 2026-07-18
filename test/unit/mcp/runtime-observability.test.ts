@@ -779,6 +779,7 @@ describe("mcp: runtime observability", () => {
         graftDir: path.join(repoDir, ".graft"),
       });
       try {
+        await isolated.server.callTool("doctor", { detail: "full" });
         expect(() => git(repoDir, `rebase ${baseBranch}`)).toThrow();
 
         const status = parse(await isolated.server.callTool("causal_status", {}));
