@@ -17,6 +17,7 @@ import {
   repoConcurrencyPostureSchema,
   stageEventSchema,
   transitionEventSchema,
+  legacyCliV1TransitionEventSchema,
   stagedTargetSchema,
 } from "./causal-ontology.js";
 import { causalSurfaceNextActionSchema } from "./causal-surface-next-action.js";
@@ -406,6 +407,17 @@ const activityViewFullGroupSchema = z.object({
   items: z.array(activityViewItemSchema),
 }).strict();
 
+const legacyCliV1ActivityViewItemSchema = z.union([
+  activityViewContinuityItemSchema,
+  readEventSchema,
+  stageEventSchema,
+  legacyCliV1TransitionEventSchema,
+]);
+
+const legacyCliV1ActivityViewFullGroupSchema = activityViewFullGroupSchema.extend({
+  items: z.array(legacyCliV1ActivityViewItemSchema),
+}).strict();
+
 const activityViewSummaryGroupSchema = z.object({
   groupKind: z.enum(["transition", "stage", "continuity", "read"]),
   summary: utf8ByteBoundedStringSchema(ACTIVITY_SUMMARY_BOUNDS.group),
@@ -475,6 +487,13 @@ const persistedLocalHistorySummarySchema = z.discriminatedUnion("availability", 
       "review_transition_boundary_before_continuing",
       "inspect_or_resume_local_history",
     ]),
+  }).strict(),
+]);
+
+const legacyCliV1PersistedLocalHistorySummarySchema = z.discriminatedUnion("availability", [
+  persistedLocalHistorySummarySchema.options[0],
+  persistedLocalHistorySummarySchema.options[1].extend({
+    latestTransitionEvent: legacyCliV1TransitionEventSchema.nullable(),
   }).strict(),
 ]);
 
@@ -597,6 +616,10 @@ const repoSemanticTransitionSchema = z.object({
     reflogSubject: z.string().nullable(),
   }).strict(),
 }).strict();
+
+const legacyCliV1RepoSemanticTransitionSchema = repoSemanticTransitionSchema.omit({
+  observationBasis: true,
+});
 
 const workspaceOverlaySummarySchema = z.object({
   dirty: z.literal(true),
@@ -763,6 +786,38 @@ const activityViewFullSchema = workspaceStatusSchema.extend({
     truncated: z.boolean(),
     missingSignalKinds: z.array(z.string()),
     groups: z.array(activityViewFullGroupSchema),
+  }).strict(),
+  degradedReasons: z.array(z.string()),
+  nextAction: z.union([
+    causalSurfaceNextActionSchema,
+    z.literal("bind_workspace_to_begin_local_history"),
+  ]),
+}).strict();
+
+const legacyCliV1ActivityViewFullSchema = workspaceStatusSchema.extend({
+  truthClass: z.literal("artifact_history"),
+  anchor: activityViewAnchorSchema,
+  summary: activityViewFullNarrativeSchema,
+  activeCausalWorkspace: z.object({
+    causalContext: runtimeCausalContextSchema,
+    attribution: attributionSummarySchema,
+    repoConcurrency: repoConcurrencySummarySchema.nullable(),
+    checkoutEpoch: z.number().int().nonnegative(),
+    lastTransition: repoTransitionSchema.nullable(),
+    semanticTransition: legacyCliV1RepoSemanticTransitionSchema.nullable(),
+    workspaceOverlayId: z.string().nullable(),
+    workspaceOverlay: workspaceOverlaySummarySchema.nullable(),
+    workspaceOverlayFooting: workspaceOverlayFootingSchema.nullable(),
+    stagedTarget: runtimeStagedTargetSchema,
+  }).nullable(),
+  activityWindow: z.object({
+    historyPath: z.string().nullable(),
+    limit: z.number().int().positive(),
+    returned: z.number().int().nonnegative(),
+    totalMatchingItems: z.number().int().nonnegative(),
+    truncated: z.boolean(),
+    missingSignalKinds: z.array(z.string()),
+    groups: z.array(legacyCliV1ActivityViewFullGroupSchema),
   }).strict(),
   degradedReasons: z.array(z.string()),
   nextAction: z.union([
@@ -1094,6 +1149,12 @@ const doctorFullSchema = z.object({
   persistedLocalHistory: persistedLocalHistorySummarySchema,
   recommendedNextAction: causalSurfaceNextActionSchema,
   sludge: sludgeReportSchema.optional(),
+}).strict();
+
+const legacyCliV1DoctorFullSchema = doctorFullSchema.extend({
+  latestTransitionEvent: legacyCliV1TransitionEventSchema.nullable(),
+  semanticTransition: legacyCliV1RepoSemanticTransitionSchema.nullable(),
+  persistedLocalHistory: legacyCliV1PersistedLocalHistorySummarySchema,
 }).strict();
 
 const mcpOutputBodySchemas: Record<McpToolName, z.ZodType> = {
@@ -1656,8 +1717,8 @@ export const CLI_OUTPUT_SCHEMAS: Record<CliCommandName, z.ZodType> = {
   struct_review: withCliPeerCommon("struct_review", mcpOutputBodySchemas.graft_review),
   struct_test_coverage: withCliPeerCommon("struct_test_coverage", mcpOutputBodySchemas.graft_test_coverage),
   struct_dead_symbols: withCliPeerCommon("struct_dead_symbols", mcpOutputBodySchemas.graft_dead_symbols),
-  diag_doctor: withCliPeerCommon("diag_doctor", doctorFullSchema),
-  diag_activity: withCliPeerCommon("diag_activity", activityViewFullSchema),
+  diag_doctor: withCliPeerCommon("diag_doctor", legacyCliV1DoctorFullSchema),
+  diag_activity: withCliPeerCommon("diag_activity", legacyCliV1ActivityViewFullSchema),
   diag_explain: withCliPeerCommon("diag_explain", mcpOutputBodySchemas.explain),
   diag_stats: withCliPeerCommon("diag_stats", mcpOutputBodySchemas.stats),
   diag_capture: withCliPeerCommon("diag_capture", mcpOutputBodySchemas.run_capture),
@@ -1751,7 +1812,7 @@ export type McpOutputFor<K extends McpToolName> = z.output<(typeof MCP_OUTPUT_SC
 /** Inferred output type for a given CLI command name. */
 export type CliOutputFor<K extends CliCommandName> = z.output<(typeof CLI_OUTPUT_SCHEMAS)[K]>;
 
-export const DIAG_ACTIVITY_CLI_SCHEMA = activityViewFullSchema.extend({
+export const DIAG_ACTIVITY_CLI_SCHEMA = legacyCliV1ActivityViewFullSchema.extend({
   _schema: z.unknown().optional(),
   _receipt: z.unknown().optional(),
   tripwire: z.unknown().optional(),

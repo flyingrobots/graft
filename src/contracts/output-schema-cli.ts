@@ -1,9 +1,23 @@
 import { z } from "zod";
 import type { CliCommandName } from "./capabilities.js";
-import { activityViewFullSchema, cliFragmentSchemas, localHistoryDagEdgeSchema, localHistoryDagNodeSchema } from "./output-schema-fragments.js";
+import { legacyCliV1TransitionEventSchema } from "./causal-ontology.js";
+import {
+  cliFragmentSchemas,
+  legacyCliV1ActivityViewFullSchema,
+  legacyCliV1PersistedLocalHistorySummarySchema,
+  legacyCliV1RepoSemanticTransitionSchema,
+  localHistoryDagEdgeSchema,
+  localHistoryDagNodeSchema,
+} from "./output-schema-fragments.js";
 import { doctorFullSchema, mcpOutputBodySchemas } from "./output-schema-mcp.js";
 
 const { initActionSchema, hooksConfigSchema, suggestedMcpServerSchema } = cliFragmentSchemas;
+
+const legacyCliV1DoctorFullSchema = doctorFullSchema.extend({
+  latestTransitionEvent: legacyCliV1TransitionEventSchema.nullable(),
+  semanticTransition: legacyCliV1RepoSemanticTransitionSchema.nullable(),
+  persistedLocalHistory: legacyCliV1PersistedLocalHistorySummarySchema,
+}).strict();
 
 const gitGraftEnhanceBodySchema = z.object({
   range: z.object({
@@ -100,8 +114,8 @@ export const cliOutputBodySchemas = {
   struct_map: mcpOutputBodySchemas.graft_map,
   symbol_show: mcpOutputBodySchemas.code_show,
   symbol_find: mcpOutputBodySchemas.code_find,
-  diag_doctor: doctorFullSchema,
-  diag_activity: activityViewFullSchema,
+  diag_doctor: legacyCliV1DoctorFullSchema,
+  diag_activity: legacyCliV1ActivityViewFullSchema,
   diag_local_history_dag: z.object({
     cwd: z.string(),
     repoId: z.string(),

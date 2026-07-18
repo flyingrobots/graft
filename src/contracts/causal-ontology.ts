@@ -531,6 +531,12 @@ export const transitionEventSchema = causalEventCommonSchema.extend({
   payload: transitionEventPayloadSchema,
 }).strict();
 
+/** Frozen transition-event shape used by CLI JSON v1 projections. */
+export const legacyCliV1TransitionEventSchema = causalEventCommonSchema.extend({
+  eventKind: z.literal("transition"),
+  payload: transitionEventPayloadSchema.omit({ observationBasis: true }),
+}).strict();
+
 export const handoffEventSchema = causalEventCommonSchema.extend({
   eventKind: z.literal("handoff"),
   payload: handoffEventPayloadSchema,

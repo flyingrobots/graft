@@ -33,7 +33,21 @@ export function writeLine(writer: Writer, line = ""): void {
   writer.write(`${line}\n`);
 }
 
-function projectMcpV2FullReceiptToCliV1(data: JsonObject): JsonObject {
+function removeMcpV2OnlyCliFields(value: unknown): unknown {
+  if (Array.isArray(value)) {
+    return value.map(removeMcpV2OnlyCliFields);
+  }
+  if (value === null || typeof value !== "object") {
+    return value;
+  }
+  return Object.fromEntries(
+    Object.entries(value)
+      .filter(([key]) => key !== "observationBasis")
+      .map(([key, item]) => [key, removeMcpV2OnlyCliFields(item)]),
+  );
+}
+
+export function projectMcpV2PeerPayloadToCliV1(data: JsonObject): JsonObject {
   const receipt = data["_receipt"];
   if (receipt === null || typeof receipt !== "object" || Array.isArray(receipt)) {
     throw new Error("CLI peer response did not contain a full MCP receipt");
@@ -42,8 +56,9 @@ function projectMcpV2FullReceiptToCliV1(data: JsonObject): JsonObject {
   if (mode !== "full") {
     throw new Error("CLI peer commands require an explicit full MCP receipt");
   }
+  const projected = removeMcpV2OnlyCliFields(data) as JsonObject;
   return {
-    ...data,
+    ...projected,
     _receipt: legacyReceipt,
   };
 }
@@ -54,7 +69,7 @@ export function emitPeerCommand(
   json: boolean,
   writer: Writer,
 ): void {
-  const projected = projectMcpV2FullReceiptToCliV1(data);
+  const projected = projectMcpV2PeerPayloadToCliV1(data);
   const { _schema: _mcpSchema, ...rest } = projected;
   const validated = validateCliOutput(command, attachCliSchemaMeta(command, rest));
   if (json) {

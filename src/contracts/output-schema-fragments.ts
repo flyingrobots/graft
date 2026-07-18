@@ -13,6 +13,7 @@ import {
   repoConcurrencyPostureSchema,
   stageEventSchema,
   transitionEventSchema,
+  legacyCliV1TransitionEventSchema,
   stagedTargetSchema,
 } from "./causal-ontology.js";
 import { causalSurfaceNextActionSchema } from "./causal-surface-next-action.js";
@@ -280,6 +281,17 @@ export const activityViewFullGroupSchema = z.object({
   items: z.array(activityViewItemSchema),
 }).strict();
 
+const legacyCliV1ActivityViewItemSchema = z.union([
+  activityViewContinuityItemSchema,
+  readEventSchema,
+  stageEventSchema,
+  legacyCliV1TransitionEventSchema,
+]);
+
+const legacyCliV1ActivityViewFullGroupSchema = activityViewFullGroupSchema.extend({
+  items: z.array(legacyCliV1ActivityViewItemSchema),
+}).strict();
+
 export const activityViewSummaryGroupSchema = z.object({
   groupKind: z.enum(["transition", "stage", "continuity", "read"]),
   summary: utf8ByteBoundedStringSchema(ACTIVITY_SUMMARY_BOUNDS.group),
@@ -351,6 +363,16 @@ export const persistedLocalHistorySummarySchema = z.discriminatedUnion("availabi
     ]),
   }).strict(),
 ]);
+
+export const legacyCliV1PersistedLocalHistorySummarySchema = z.discriminatedUnion(
+  "availability",
+  [
+    persistedLocalHistorySummarySchema.options[0],
+    persistedLocalHistorySummarySchema.options[1].extend({
+      latestTransitionEvent: legacyCliV1TransitionEventSchema.nullable(),
+    }).strict(),
+  ],
+);
 
 export const repoConcurrencySummarySchema = z.object({
   posture: repoConcurrencyPostureSchema,
@@ -488,6 +510,10 @@ export const repoSemanticTransitionSchema = z.object({
     reflogSubject: z.string().nullable(),
   }).strict(),
 }).strict();
+
+export const legacyCliV1RepoSemanticTransitionSchema = repoSemanticTransitionSchema.omit({
+  observationBasis: true,
+});
 
 export const workspaceOverlaySummarySchema = z.object({
   dirty: z.literal(true),
@@ -654,6 +680,38 @@ export const activityViewFullSchema = workspaceStatusSchema.extend({
     truncated: z.boolean(),
     missingSignalKinds: z.array(z.string()),
     groups: z.array(activityViewFullGroupSchema),
+  }).strict(),
+  degradedReasons: z.array(z.string()),
+  nextAction: z.union([
+    causalSurfaceNextActionSchema,
+    z.literal("bind_workspace_to_begin_local_history"),
+  ]),
+}).strict();
+
+export const legacyCliV1ActivityViewFullSchema = workspaceStatusSchema.extend({
+  truthClass: z.literal("artifact_history"),
+  anchor: activityViewAnchorSchema,
+  summary: activityViewFullNarrativeSchema,
+  activeCausalWorkspace: z.object({
+    causalContext: runtimeCausalContextSchema,
+    attribution: attributionSummarySchema,
+    repoConcurrency: repoConcurrencySummarySchema.nullable(),
+    checkoutEpoch: z.number().int().nonnegative(),
+    lastTransition: repoTransitionSchema.nullable(),
+    semanticTransition: legacyCliV1RepoSemanticTransitionSchema.nullable(),
+    workspaceOverlayId: z.string().nullable(),
+    workspaceOverlay: workspaceOverlaySummarySchema.nullable(),
+    workspaceOverlayFooting: workspaceOverlayFootingSchema.nullable(),
+    stagedTarget: runtimeStagedTargetSchema,
+  }).nullable(),
+  activityWindow: z.object({
+    historyPath: z.string().nullable(),
+    limit: z.number().int().positive(),
+    returned: z.number().int().nonnegative(),
+    totalMatchingItems: z.number().int().nonnegative(),
+    truncated: z.boolean(),
+    missingSignalKinds: z.array(z.string()),
+    groups: z.array(legacyCliV1ActivityViewFullGroupSchema),
   }).strict(),
   degradedReasons: z.array(z.string()),
   nextAction: z.union([

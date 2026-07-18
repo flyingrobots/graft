@@ -1,4 +1,5 @@
 import { afterEach, describe, expect, expectTypeOf, it } from "vitest";
+import { createHash } from "node:crypto";
 import * as fs from "node:fs";
 import * as path from "node:path";
 import { ALL_TOOL_REGISTRY, createGraftServer } from "../../../src/mcp/server.js";
@@ -23,6 +24,15 @@ import { writeLegacyLocalHistoryArtifact } from "../../helpers/legacy-local-hist
 import { createServerInRepo, parse } from "../../helpers/mcp.js";
 
 const CLI_PEER_SCHEMA_TIMEOUT_MS = 120_000;
+// Frozen from origin/main@c3885dab before MCP v2 added observationBasis.
+const ORIGIN_MAIN_CLI_V1_SCHEMA_DIGESTS = {
+  diag_doctor: "9540b569945677f16ca90c3f87e041975ab27e218da2241c28e4a908b4072db1",
+  diag_activity: "cfd20f0c83ff2217b40822569de28a2acd703c3706f58649e0102abb1aa232dd",
+} as const;
+
+function schemaDigest(schema: unknown): string {
+  return createHash("sha256").update(JSON.stringify(schema)).digest("hex");
+}
 
 function createDaemonServer(graftDir: string) {
   return createGraftServer({
@@ -69,6 +79,13 @@ describe("contracts: output schemas", () => {
     }
     for (const command of CLI_COMMAND_NAMES) {
       expect(getCliOutputSchemaMeta(command).version).toBe("1.0.0");
+    }
+  });
+
+  it("preserves the complete origin/main v1 diagnostic CLI schemas", () => {
+    for (const [command, expectedDigest] of Object.entries(ORIGIN_MAIN_CLI_V1_SCHEMA_DIGESTS)) {
+      expect(schemaDigest(getCliOutputJsonSchema(command as "diag_doctor" | "diag_activity")))
+        .toBe(expectedDigest);
     }
   });
 
