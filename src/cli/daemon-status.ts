@@ -13,6 +13,23 @@ export interface ReadDaemonStatusOptions {
   readonly socketPath?: string | undefined;
 }
 
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+export function buildDaemonStatusProbeArguments(
+  inputSchema: unknown,
+  args: Readonly<Record<string, unknown>> = {},
+): Record<string, unknown> {
+  const properties = isRecord(inputSchema) && isRecord(inputSchema["properties"])
+    ? inputSchema["properties"]
+    : null;
+
+  return properties !== null && Object.hasOwn(properties, "receipt")
+    ? { ...args, receipt: "full" }
+    : { ...args };
+}
+
 function readToolText(result: unknown): string {
   const content = (result as { readonly content?: unknown }).content;
   if (!Array.isArray(content)) {
@@ -63,6 +80,10 @@ export async function readDaemonStatusSnapshot(
 
   await client.connect(transport as unknown as Parameters<Client["connect"]>[0]);
   try {
+    const listedTools = await client.listTools();
+    const inputSchemas = new Map(
+      listedTools.tools.map((tool) => [tool.name, tool.inputSchema] as const),
+    );
     const call = async <T>(
       tool: string,
       schema: z.ZodType<T>,
@@ -70,10 +91,7 @@ export async function readDaemonStatusSnapshot(
     ): Promise<T> => {
       const result = await client.callTool({
         name: tool,
-        arguments: {
-          ...args,
-          receipt: "full",
-        },
+        arguments: buildDaemonStatusProbeArguments(inputSchemas.get(tool), args),
       });
       return parseToolBody(schema, result);
     };

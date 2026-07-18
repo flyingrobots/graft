@@ -177,6 +177,10 @@ for historical event decoding and is not a live semantic-transition basis.
   human rendering contracts do not change in this slice. Diagnostic CLI v1
   schemas and payloads project MCP-v2-only `observationBasis` fields away and
   remain structurally identical to `origin/main@c3885dab`.
+- The composed `graft daemon status` reader negotiates the `receipt` input
+  control from each daemon tool's advertised input schema. It requests a full
+  receipt from v2-aware daemons and omits the unknown field for pre-v2 daemons,
+  preserving read-only status probes during a rolling CLI/daemon upgrade.
 
 ### Slice 3: summary-first diagnostics
 

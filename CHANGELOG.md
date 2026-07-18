@@ -52,7 +52,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   preserve their existing `1.0.0` JSON contracts through an explicit nested
   projection checked against frozen pre-v2 schema digests. Response accounting
   uses the exact UTF-8 bytes of the final encoded response in both in-process
-  and daemon worker paths.
+  and daemon worker paths. The composed `graft daemon status` reader negotiates
+  that input control from each daemon tool's advertised schema, requesting full
+  receipts from v2-aware peers while omitting the unknown field for pre-v2
+  daemons during rolling upgrades.
 - **Repository observation truth**: ordinary dirty state is now treated as an
   initial or unchanged workspace baseline rather than invented movement.
   Semantic transition output distinguishes authoritative current state,
