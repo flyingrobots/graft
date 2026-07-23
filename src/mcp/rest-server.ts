@@ -106,7 +106,7 @@ export function startRestServer(options: StartRestServerOptions): Promise<http.S
             fs.mkdirSync(sessionsPath, { recursive: true });
           }
 
-          const repositoryUrl = typeof body.repositoryUrl === "string" ? body.repositoryUrl : null;
+          const repositoryUrl = typeof body["repositoryUrl"] === "string" ? body["repositoryUrl"] : null;
 
           if (repositoryUrl) {
             // Clone the arbitrary remote repo
@@ -136,7 +136,7 @@ export function startRestServer(options: StartRestServerOptions): Promise<http.S
     // Sessions: GET /sessions/:id/tools
     const sessionToolsMatch = url.match(/^\/sessions\/([^/]+)\/tools$/);
     if (req.method === "GET" && sessionToolsMatch) {
-      const sessionId = sessionToolsMatch[1];
+      const sessionId = sessionToolsMatch[1] as string;
       const sessionServer = sessions.get(sessionId);
       if (!sessionServer) {
         return sendJson(404, { error: `Unknown session: ${sessionId}` });
@@ -153,8 +153,8 @@ export function startRestServer(options: StartRestServerOptions): Promise<http.S
     // Sessions: POST /sessions/:id/tools/:name
     const sessionToolCallMatch = url.match(/^\/sessions\/([^/]+)\/tools\/(.+)$/);
     if (req.method === "POST" && sessionToolCallMatch) {
-      const sessionId = sessionToolCallMatch[1];
-      const toolName = sessionToolCallMatch[2];
+      const sessionId = sessionToolCallMatch[1] as string;
+      const toolName = sessionToolCallMatch[2] as string;
       
       const sessionServer = sessions.get(sessionId);
       if (!sessionServer) {
@@ -170,6 +170,7 @@ export function startRestServer(options: StartRestServerOptions): Promise<http.S
           const result = await sessionServer.callTool(toolName, args);
           sendJson(200, result);
         } catch (e) {
+          console.error("Tool execution failed:", e);
           sendJson(500, { error: e instanceof Error ? e.message : String(e) });
         }
       }).catch((e) => sendJson(400, { error: e.message }));

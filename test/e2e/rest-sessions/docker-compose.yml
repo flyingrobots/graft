@@ -4,6 +4,10 @@ services:
       context: ../../../
       dockerfile: test/e2e/rest-sessions/Dockerfile
     ports:
-      - "3000:3000"
+      - "3001:3001"
     environment:
-      - PORT=3000
+      - PORT=3001
+      - GIT_AUTHOR_NAME=Graft E2E
+      - GIT_AUTHOR_EMAIL=e2e@graft.local
+      - GIT_COMMITTER_NAME=Graft E2E
+      - GIT_COMMITTER_EMAIL=e2e@graft.local
