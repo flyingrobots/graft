@@ -31,7 +31,13 @@ export function startRestServer(options: StartRestServerOptions): Promise<http.S
     activeRegistry = activeRegistry.filter(t => !bannedTools.includes(t.name));
   }
 
-  const sessions = new Map<string, GraftServer>();
+  interface SessionEntry {
+    readonly server: GraftServer;
+    queue: Promise<void>;
+  }
+
+  const sessions = new Map<string, SessionEntry>();
+  let globalQueue = Promise.resolve();
 
   const server = http.createServer((req, res) => {
     // Enable CORS for testing
@@ -113,13 +119,15 @@ export function startRestServer(options: StartRestServerOptions): Promise<http.S
         ? readBody()
         : Promise.resolve(parseQueryParams(parsedUrl.searchParams));
 
-      return readArgs.then(async (args) => {
-        try {
-          const result = await graftServer.callTool(toolName, args);
-          sendJson(200, result);
-        } catch (e) {
-          sendJson(500, { error: e instanceof Error ? e.message : String(e) });
-        }
+      return readArgs.then((args) => {
+        globalQueue = globalQueue.then(async () => {
+          try {
+            const result = await graftServer.callTool(toolName, args);
+            sendJson(200, result);
+          } catch (e) {
+            sendJson(500, { error: e instanceof Error ? e.message : String(e) });
+          }
+        });
       }).catch((e) => sendJson(400, { error: e.message }));
     }
 
@@ -161,7 +169,10 @@ export function startRestServer(options: StartRestServerOptions): Promise<http.S
             projectRoot: sessionDir,
           });
 
-          sessions.set(sessionId, sessionServer);
+          sessions.set(sessionId, {
+            server: sessionServer,
+            queue: Promise.resolve(),
+          });
           // Omit sessionDir from response for security (don't leak host filesystem structure)
           sendJson(200, { sessionId });
         } catch (e) {
@@ -174,8 +185,8 @@ export function startRestServer(options: StartRestServerOptions): Promise<http.S
     const sessionToolsMatch = pathname.match(/^\/sessions\/([^/]+)\/tools$/);
     if (req.method === "GET" && sessionToolsMatch) {
       const sessionId = sessionToolsMatch[1] as string;
-      const sessionServer = sessions.get(sessionId);
-      if (!sessionServer) {
+      const sessionEntry = sessions.get(sessionId);
+      if (!sessionEntry) {
         return sendJson(404, { error: `Unknown session: ${sessionId}` });
       }
       
@@ -193,8 +204,8 @@ export function startRestServer(options: StartRestServerOptions): Promise<http.S
       const sessionId = sessionToolCallMatch[1] as string;
       const toolName = sessionToolCallMatch[2] as string;
       
-      const sessionServer = sessions.get(sessionId);
-      if (!sessionServer) {
+      const sessionEntry = sessions.get(sessionId);
+      if (!sessionEntry) {
         return sendJson(404, { error: `Unknown session: ${sessionId}` });
       }
 
@@ -206,14 +217,16 @@ export function startRestServer(options: StartRestServerOptions): Promise<http.S
         ? readBody()
         : Promise.resolve(parseQueryParams(parsedUrl.searchParams));
 
-      return readArgs.then(async (args) => {
-        try {
-          const result = await sessionServer.callTool(toolName, args);
-          sendJson(200, result);
-        } catch (e) {
-          console.error("Tool execution failed:", e);
-          sendJson(500, { error: e instanceof Error ? e.message : String(e) });
-        }
+      return readArgs.then((args) => {
+        sessionEntry.queue = sessionEntry.queue.then(async () => {
+          try {
+            const result = await sessionEntry.server.callTool(toolName, args);
+            sendJson(200, result);
+          } catch (e) {
+            console.error("Tool execution failed:", e);
+            sendJson(500, { error: e instanceof Error ? e.message : String(e) });
+          }
+        });
       }).catch((e) => sendJson(400, { error: e.message }));
     }
 
