@@ -45,7 +45,8 @@ export function startRestServer(options: StartRestServerOptions): Promise<http.S
       return;
     }
 
-    const url = req.url ?? "";
+    const parsedUrl = new URL(req.url ?? "", "http://localhost");
+    const pathname = parsedUrl.pathname;
 
     // Helper for sending JSON
     const sendJson = (status: number, payload: any) => {
@@ -72,9 +73,27 @@ export function startRestServer(options: StartRestServerOptions): Promise<http.S
         req.on("error", reject);
       });
     };
+    // Helper to parse and coerce query parameters for GET requests
+    const parseQueryParams = (searchParams: URLSearchParams): JsonObject => {
+      const args: JsonObject = {};
+      for (const [key, value] of searchParams.entries()) {
+        if (value === "true") {
+          args[key] = true;
+        } else if (value === "false") {
+          args[key] = false;
+        } else if (/^\d+$/.test(value)) {
+          args[key] = parseInt(value, 10);
+        } else if (/^\d+\.\d+$/.test(value)) {
+          args[key] = parseFloat(value);
+        } else {
+          args[key] = value;
+        }
+      }
+      return args;
+    };
 
     // Global: GET /tools
-    if (req.method === "GET" && url === "/tools") {
+    if (req.method === "GET" && pathname === "/tools") {
       const tools = activeRegistry.map((def) => ({
         name: def.name,
         description: def.description,
@@ -83,14 +102,18 @@ export function startRestServer(options: StartRestServerOptions): Promise<http.S
       return sendJson(200, { tools });
     }
 
-    // Global: POST /tools/:name
-    if (req.method === "POST" && url.startsWith("/tools/") && graftServer) {
-      const toolName = url.slice("/tools/".length);
+    // Global: POST/GET /tools/:name
+    if ((req.method === "POST" || req.method === "GET") && pathname.startsWith("/tools/") && graftServer) {
+      const toolName = pathname.slice("/tools/".length);
       if (!activeRegistry.some(t => t.name === toolName)) {
         return sendJson(404, { error: `Unknown tool: ${toolName}` });
       }
+      
+      const readArgs = req.method === "POST"
+        ? readBody()
+        : Promise.resolve(parseQueryParams(parsedUrl.searchParams));
 
-      return readBody().then(async (args) => {
+      return readArgs.then(async (args) => {
         try {
           const result = await graftServer.callTool(toolName, args);
           sendJson(200, result);
@@ -101,7 +124,7 @@ export function startRestServer(options: StartRestServerOptions): Promise<http.S
     }
 
     // Sessions: POST /sessions
-    if (req.method === "POST" && url === "/sessions") {
+    if (req.method === "POST" && pathname === "/sessions") {
       if (!sessionsPath) {
         return sendJson(500, { error: "Server not configured for sessions (missing sessionsPath)" });
       }
@@ -144,7 +167,7 @@ export function startRestServer(options: StartRestServerOptions): Promise<http.S
     }
 
     // Sessions: GET /sessions/:id/tools
-    const sessionToolsMatch = url.match(/^\/sessions\/([^/]+)\/tools$/);
+    const sessionToolsMatch = pathname.match(/^\/sessions\/([^/]+)\/tools$/);
     if (req.method === "GET" && sessionToolsMatch) {
       const sessionId = sessionToolsMatch[1] as string;
       const sessionServer = sessions.get(sessionId);
@@ -160,9 +183,9 @@ export function startRestServer(options: StartRestServerOptions): Promise<http.S
       return sendJson(200, { tools });
     }
 
-    // Sessions: POST /sessions/:id/tools/:name
-    const sessionToolCallMatch = url.match(/^\/sessions\/([^/]+)\/tools\/(.+)$/);
-    if (req.method === "POST" && sessionToolCallMatch) {
+    // Sessions: GET/POST /sessions/:id/tools/:name
+    const sessionToolCallMatch = pathname.match(/^\/sessions\/([^/]+)\/tools\/(.+)$/);
+    if ((req.method === "POST" || req.method === "GET") && sessionToolCallMatch) {
       const sessionId = sessionToolCallMatch[1] as string;
       const toolName = sessionToolCallMatch[2] as string;
       
@@ -175,7 +198,11 @@ export function startRestServer(options: StartRestServerOptions): Promise<http.S
         return sendJson(404, { error: `Unknown tool: ${toolName}` });
       }
 
-      return readBody().then(async (args) => {
+      const readArgs = req.method === "POST"
+        ? readBody()
+        : Promise.resolve(parseQueryParams(parsedUrl.searchParams));
+
+      return readArgs.then(async (args) => {
         try {
           const result = await sessionServer.callTool(toolName, args);
           sendJson(200, result);
