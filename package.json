@@ -97,7 +97,8 @@
     "tree-sitter-graphql-grammar-wasm": "1.0.1",
     "tree-sitter-wasms": "0.1.13",
     "web-tree-sitter": "^0.20.8",
-    "zod": "4.3.6"
+    "zod": "4.3.6",
+    "zod-to-json-schema": "^3.25.2"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",

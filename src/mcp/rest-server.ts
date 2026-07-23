@@ -6,6 +6,7 @@ import { exec } from "node:child_process";
 import { promisify } from "node:util";
 import { createGraftServer, type GraftServer } from "./server.js";
 import { ALL_TOOL_REGISTRY, TOOL_REGISTRY } from "./tool-registry.js";
+import { zodToJsonSchema } from "zod-to-json-schema";
 import type { JsonObject } from "../contracts/json-object.js";
 
 const execAsync = promisify(exec);
@@ -20,7 +21,14 @@ export interface StartRestServerOptions {
 
 export function startRestServer(options: StartRestServerOptions): Promise<http.Server> {
   const { port, graftServer, baseRepoPath, sessionsPath, mode = "repo_local" } = options;
-  const activeRegistry = mode === "daemon" ? ALL_TOOL_REGISTRY : TOOL_REGISTRY;
+  let activeRegistry = mode === "daemon" ? ALL_TOOL_REGISTRY : TOOL_REGISTRY;
+
+  // Hard containment: prevent arbitrary command execution over the web REST bridge.
+  // In repo_local web sessions, we do not allow these tools.
+  if (mode === "repo_local") {
+    const bannedTools = ["run_capture", "graft_edit", "state_save", "state_load", "workspace_open"];
+    activeRegistry = activeRegistry.filter(t => !bannedTools.includes(t.name));
+  }
 
   const sessions = new Map<string, GraftServer>();
 
@@ -69,7 +77,7 @@ export function startRestServer(options: StartRestServerOptions): Promise<http.S
       const tools = activeRegistry.map((def) => ({
         name: def.name,
         description: def.description,
-        schema: def.schema ?? {},
+        inputSchema: def.schema ? zodToJsonSchema(def.schema) : { type: "object", additionalProperties: false },
       }));
       return sendJson(200, { tools });
     }
@@ -126,7 +134,8 @@ export function startRestServer(options: StartRestServerOptions): Promise<http.S
           });
 
           sessions.set(sessionId, sessionServer);
-          sendJson(200, { sessionId, sessionDir });
+          // Omit sessionDir from response for security (don't leak host filesystem structure)
+          sendJson(200, { sessionId });
         } catch (e) {
           sendJson(500, { error: `Failed to create session: ${e instanceof Error ? e.message : String(e)}` });
         }
@@ -142,10 +151,10 @@ export function startRestServer(options: StartRestServerOptions): Promise<http.S
         return sendJson(404, { error: `Unknown session: ${sessionId}` });
       }
       
-      const tools = TOOL_REGISTRY.map((def) => ({
+      const tools = activeRegistry.map((def) => ({
         name: def.name,
         description: def.description,
-        schema: def.schema ?? {},
+        inputSchema: def.schema ? zodToJsonSchema(def.schema) : { type: "object", additionalProperties: false },
       }));
       return sendJson(200, { tools });
     }

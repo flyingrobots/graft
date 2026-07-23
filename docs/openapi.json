@@ -44,10 +44,6 @@
                     "sessionId": {
                       "type": "string",
                       "description": "The unique UUID of the newly created session."
-                    },
-                    "sessionDir": {
-                      "type": "string",
-                      "description": "The absolute path of the session on the server."
                     }
                   },
                   "required": ["sessionId"]
@@ -92,7 +88,7 @@
                         "properties": {
                           "name": { "type": "string" },
                           "description": { "type": "string" },
-                          "schema": { "type": "object" }
+                          "inputSchema": { "type": "object" }
                         }
                       }
                     }
@@ -152,13 +148,22 @@
                       "type": "array",
                       "items": {
                         "type": "object",
-                        "properties": {
-                          "type": { "type": "string" },
-                          "text": { "type": "string" }
-                        }
+                        "additionalProperties": true
                       }
                     },
-                    "isError": { "type": "boolean" }
+                    "structuredContent": {
+                      "description": "Machine-readable tool output.",
+                      "type": "object",
+                      "additionalProperties": true
+                    },
+                    "isError": { 
+                      "type": "boolean",
+                      "default": false
+                    },
+                    "_meta": {
+                      "type": "object",
+                      "additionalProperties": true
+                    }
                   }
                 }
               }
