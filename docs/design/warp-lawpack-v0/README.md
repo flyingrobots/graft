@@ -35,8 +35,10 @@ Proven: the action resolves and lowers to real Core IR and real Target IR under 
 
 Not proven: bundle assembly, full runtime execution (`TrustedRuntimeHost`/scheduler/receipts), persistence semantics, or stale-basis enforcement.
 
+**Research-only finding (no Echo changes made):** the checked lowerer/verifier components' narrowness is not a data/configuration limit — it's literal hardcoded Rust `if`/`==` control flow (`echo-edict-provider-lowerer`/`-verifier`'s `src/lib.rs`) recognizing exactly one fixture's coordinate, type shapes, action name, and budget. Teaching it a new action requires real source changes to those crates (either a second hand-written recognizer branch, or genuinely generalizing the lowerer into a real interpreter — neither of which the crate's current design supports without one of those changes), a WASM recompile via the existing `xtask` pipeline, and the same `echo-wesley-gen` regeneration/re-verification as the vocabulary migration. See `teaching-a-new-action-research.md`.
+
 ## Next steps
 
-Given the shape-isolation finding, the Echo `intent`→`action` migration is **no longer the obvious next step** — it would not, by itself, unblock any new action (Graft's or otherwise) through this specific checked component, since the component doesn't generalize past its one reviewed identity regardless of vocabulary. The actual gating question is: what would it take to get the checked lowerer component to recognize a *second* action identity at all. That likely requires the same `echo-wesley-gen` regeneration machinery either way, so it may be worth learning what that involves before committing to either the epoch migration or a "teach the component a new action" effort as separate projects.
+Given both findings, neither the Echo `intent`→`action` migration nor "teach the component a new action" is a quick or opportunistic task — both are real, separately-scoped engineering projects that happen to touch the same digest-locked package, and doing them together may make sense precisely because of that overlap. Nothing here recommends starting either yet; this design packet's job was to establish exactly what each would cost before that decision gets made.
 
-See `lowering-evidence.md`, `pinned-epoch-evidence.md`, and `shape-isolation-evidence.md` for full detail, in that order.
+See `lowering-evidence.md`, `pinned-epoch-evidence.md`, `shape-isolation-evidence.md`, and `teaching-a-new-action-research.md` for full detail, in that order.
