@@ -101,6 +101,68 @@
       }
     },
     "/sessions/{sessionId}/tools/{toolName}": {
+      "get": {
+        "summary": "Execute a Tool via GET query parameters",
+        "description": "Executes a specific Graft tool within the sandbox session using query parameters for arguments.",
+        "operationId": "executeToolGet",
+        "parameters": [
+          {
+            "name": "sessionId",
+            "in": "path",
+            "required": true,
+            "description": "The UUID of the session.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "toolName",
+            "in": "path",
+            "required": true,
+            "description": "The name of the tool to execute (e.g., safe_read, capabilities).",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Tool executed successfully.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "content": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "additionalProperties": true
+                      }
+                    },
+                    "structuredContent": {
+                      "description": "Machine-readable tool output.",
+                      "type": "object",
+                      "additionalProperties": true
+                    },
+                    "isError": {
+                      "type": "boolean",
+                      "default": false
+                    },
+                    "_meta": {
+                      "type": "object",
+                      "additionalProperties": true
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Session or Tool not found."
+          }
+        }
+      },
       "post": {
         "summary": "Execute a Tool",
         "description": "Executes a specific Graft tool within the sandbox session.",
