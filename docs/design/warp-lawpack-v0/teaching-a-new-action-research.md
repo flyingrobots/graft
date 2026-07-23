@@ -30,7 +30,7 @@ Notably, **`echo-edict-provider-lowerer` does not depend on `edict-syntax` at al
 ## Downstream cost, either path
 
 Whichever path, changing this component's Rust source means:
-- Recompiling to WASM via the existing `xtask` pipeline (`xtask/src/provider_lowerer_component.rs`, a 2,100+ line build/packaging tool — this already exists and is real, not something to build from scratch).
+- Recompiling to WASM via the existing `xtask` pipeline (`xtask/src/provider_lowerer_component.rs`, 2,868 lines as of this writing — a real, already-built tool, not something to write from scratch).
 - Regenerating the full digest-locked distribution via `echo-wesley-gen --bin echo-edict-provider-package` (new component bytes → new digests throughout the manifest chain).
 - Re-verifying via `scripts/verify-edict-provider-host-v1.sh`.
 - Updating or regenerating any of Echo's own tests that assert exact digests against the current component (`RAW_TARGET_IR_SHA256`, `DOMAIN_TARGET_IR_SHA256`, etc. in `host_contract.rs` — these are byte-identity-pinned to the current component's exact output and would need updating once its behavior changes).

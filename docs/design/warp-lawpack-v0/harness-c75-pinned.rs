@@ -32,7 +32,7 @@ use edict_syntax::{
 use sha2::{Digest, Sha256};
 
 const CANONICAL_ACTION_SOURCE: &str =
-    include_str!("../../warp-lawpack-experiment/graft-warp-record-symbol-change.edict");
+    include_str!("../record-symbol-change.edict");
 
 const LOWERABILITY_DOMAIN: &str = "edict.lowering-requirements/v1";
 const GENERATED_ARTIFACT_DOMAIN: &str = "echo.generated-artifact/v1";

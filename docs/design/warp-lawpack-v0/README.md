@@ -16,7 +16,8 @@ This came out of investigating the long-term architecture where Echo hosts Graft
 
 | File | What it is |
 |---|---|
-| `record-symbol-change.edict` | The actual Edict source: one action, `graft.warp@1 / recordSymbolChange`. |
+| `record-symbol-change.edict` | The canonical Edict source (current `action` syntax): one action, `graft.warp@1 / recordSymbolChange`. |
+| `record-symbol-change.c75-pinned.edict` | The mechanically-derived `intent`-keyword variant used for the pinned-epoch and shape-isolation runs, checked in for inspection (the harnesses re-derive it from the canonical source at build time; this file is a byte-for-byte record of that derivation's output, SHA-256-verified to match). |
 | `authority-facts.json` | Human-readable record of the compiler-context facts used by `harness.rs`. **Documentation only** — the harness builds these facts directly via `CompilerContext` builder calls, it does not load this file. |
 | `harness.rs` | The standalone Rust harness that drives the source through `parse_module` → `compile_to_core` → `lower_with_builtin_lowerer`, plus four negative controls. Depends on `edict-syntax` as a local path dependency. |
 | `lowering-evidence.md` | The full write-up: narrow claim statement, setup, the dependency-drift finding, positive result, negative-control table, success-criteria checklist, and what remains unproven. |
@@ -28,6 +29,11 @@ This came out of investigating the long-term architecture where Echo hosts Graft
 | `harness-c75-shape-isolation.rs` | Three-variant harness isolating whether the checked component's refusal is about epoch, shape, or identity — includes a positive control (the exact original fixture) and a single-field Graft action. |
 | `shape-isolation-evidence.md` | The write-up: the refusal is about neither epoch nor shape — the checked component accepts exactly one action identity (the original fixture), full stop. Includes an honestly-recorded harness bug found and fixed mid-experiment. |
 | `evidence/edict-c75-shape-isolation-output.txt` | Full raw stdout from the shape-isolation run (post-fix). |
+| `teaching-a-new-action-research.md` | Research-only note (no Echo changes made): traces the refusal to its exact source in `echo-edict-provider-lowerer`/`-verifier`'s hardcoded Rust constants, and documents what changing it would actually require. |
+
+## Reproducing these results
+
+Each `harness*.rs` file is a snapshot of exactly what was run, not a self-contained crate — there is no checked-in `Cargo.toml`. To rebuild one: create a new binary crate, put the harness as `src/main.rs`, copy `record-symbol-change.edict` alongside it (all three harnesses `include_str!` that file directly), and add `edict-syntax` as a dependency (a local `path` dependency against a checkout of `~/git/edict` is simplest — `main` for `harness.rs`, a worktree pinned at `c75c3f550d049485ba00eae0dc272c6dd6aca11f` for the other two, which also need `edict-provider-schema` and `edict-provider-host-wasmtime` at that same revision). The two `c75`-pinned harnesses additionally `include_bytes!` several of Echo's checked provider-package files via absolute paths under `~/git/echo/schemas/edict-provider/...` — a local Echo checkout at that path is required. All three harnesses were independently rebuilt this way and reproduced byte-for-byte identical output to what's checked into `evidence/` as part of verifying this design packet's accuracy.
 
 ## Status, precisely
 

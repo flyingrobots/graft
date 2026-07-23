@@ -5,7 +5,7 @@ use edict_syntax::{
 };
 use sha2::{Digest, Sha256};
 
-const GRAFT_SOURCE: &str = include_str!("../graft-warp-record-symbol-change.edict");
+const GRAFT_SOURCE: &str = include_str!("../record-symbol-change.edict");
 
 fn source_sha256() -> String {
     let mut hasher = Sha256::new();
