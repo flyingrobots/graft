@@ -7,6 +7,7 @@ import { promisify } from "node:util";
 import { createGraftServer, type GraftServer } from "./server.js";
 import { ALL_TOOL_REGISTRY, TOOL_REGISTRY } from "./tool-registry.js";
 import { zodToJsonSchema } from "zod-to-json-schema";
+import { z } from "zod";
 import type { JsonObject } from "../contracts/json-object.js";
 
 const execAsync = promisify(exec);
@@ -77,7 +78,7 @@ export function startRestServer(options: StartRestServerOptions): Promise<http.S
       const tools = activeRegistry.map((def) => ({
         name: def.name,
         description: def.description,
-        inputSchema: def.schema ? zodToJsonSchema(def.schema) : { type: "object", additionalProperties: false },
+        inputSchema: def.schema ? zodToJsonSchema(z.object(def.schema) as any) : { type: "object", additionalProperties: false },
       }));
       return sendJson(200, { tools });
     }
@@ -154,7 +155,7 @@ export function startRestServer(options: StartRestServerOptions): Promise<http.S
       const tools = activeRegistry.map((def) => ({
         name: def.name,
         description: def.description,
-        inputSchema: def.schema ? zodToJsonSchema(def.schema) : { type: "object", additionalProperties: false },
+        inputSchema: def.schema ? zodToJsonSchema(z.object(def.schema) as any) : { type: "object", additionalProperties: false },
       }));
       return sendJson(200, { tools });
     }
