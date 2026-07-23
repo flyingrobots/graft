@@ -6,7 +6,7 @@ import { exec } from "node:child_process";
 import { promisify } from "node:util";
 import { createGraftServer, type GraftServer } from "./server.js";
 import { ALL_TOOL_REGISTRY, TOOL_REGISTRY } from "./tool-registry.js";
-import { zodToJsonSchema } from "zod-to-json-schema";
+import { toJSONSchema } from "zod/v4-mini";
 import { z } from "zod";
 import type { JsonObject } from "../contracts/json-object.js";
 
@@ -78,7 +78,7 @@ export function startRestServer(options: StartRestServerOptions): Promise<http.S
       const tools = activeRegistry.map((def) => ({
         name: def.name,
         description: def.description,
-        inputSchema: def.schema ? zodToJsonSchema(z.object(def.schema) as any) : { type: "object", additionalProperties: false },
+        inputSchema: def.schema ? toJSONSchema(z.object(def.schema)) : { type: "object", additionalProperties: false },
       }));
       return sendJson(200, { tools });
     }
@@ -86,7 +86,7 @@ export function startRestServer(options: StartRestServerOptions): Promise<http.S
     // Global: POST /tools/:name
     if (req.method === "POST" && url.startsWith("/tools/") && graftServer) {
       const toolName = url.slice("/tools/".length);
-      if (!graftServer.getRegisteredTools().includes(toolName)) {
+      if (!activeRegistry.some(t => t.name === toolName)) {
         return sendJson(404, { error: `Unknown tool: ${toolName}` });
       }
 
@@ -155,7 +155,7 @@ export function startRestServer(options: StartRestServerOptions): Promise<http.S
       const tools = activeRegistry.map((def) => ({
         name: def.name,
         description: def.description,
-        inputSchema: def.schema ? zodToJsonSchema(z.object(def.schema) as any) : { type: "object", additionalProperties: false },
+        inputSchema: def.schema ? toJSONSchema(z.object(def.schema)) : { type: "object", additionalProperties: false },
       }));
       return sendJson(200, { tools });
     }
@@ -171,7 +171,7 @@ export function startRestServer(options: StartRestServerOptions): Promise<http.S
         return sendJson(404, { error: `Unknown session: ${sessionId}` });
       }
 
-      if (!sessionServer.getRegisteredTools().includes(toolName)) {
+      if (!activeRegistry.some(t => t.name === toolName)) {
         return sendJson(404, { error: `Unknown tool: ${toolName}` });
       }
 
