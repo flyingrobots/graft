@@ -6,8 +6,10 @@ Evolve the REST API bridge to support sandboxed, session-based playgrounds. Agen
 ## Acceptance Criteria
 - `POST /sessions` provisions a new sandboxed session.
   - It generates a unique `sessionId`.
-  - It creates an isolated Git worktree linked to a target base repository (e.g., `git worktree add -b session-<id> <sessionsPath>/<id>`).
-  - It instantiates a dedicated `repo_local` `GraftServer` tied to that new worktree.
+  - It accepts an optional `{"repositoryUrl": "https://..."}` in the JSON body.
+  - If `repositoryUrl` is provided, it clones that repository into the session directory (`git clone <repositoryUrl> <sessionsPath>/<id>`).
+  - Otherwise, it creates an isolated Git worktree linked to the server's configured base repository (`git worktree add -b session-<id> <sessionsPath>/<id>`).
+  - It instantiates a dedicated `repo_local` `GraftServer` tied to that new worktree/clone.
 - `GET /sessions/:sessionId/tools` lists the available tools for that specific session.
 - `POST /sessions/:sessionId/tools/:name` executes a tool within the context of that session's isolated `GraftServer` and worktree.
 - The `startRestServer` configuration is extended to accept a `baseRepoPath` (the repo to branch from) and a `sessionsPath` (the directory to host the worktrees).
@@ -20,7 +22,7 @@ Evolve the REST API bridge to support sandboxed, session-based playgrounds. Agen
 ## Non-Goals
 - Automatic cleanup/garbage collection of old sessions and worktrees (this can be managed externally or added in a future milestone).
 - Full security hardening (e.g., containerization or `chroot`). The isolation is at the Git worktree and GraftServer boundary.
-- Support for cloning arbitrary remote repositories over the network in this slice (we'll start by checking out a worktree from an existing local base repo, though arbitrary clones are a natural next step).
+- Support for complex network proxying for clones (relies on standard Git networking).
 
 ## Test Strategy
 - Unit tests will spin up the REST server with a fixture base repo.

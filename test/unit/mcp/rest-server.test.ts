@@ -5,6 +5,7 @@ import * as path from "node:path";
 import * as os from "node:os";
 import { startRestServer } from "../../../src/mcp/rest-server.js";
 import { createFixtureWorkspace, createIsolatedServer } from "../../helpers/mcp.js";
+import { ensureGitRepo } from "../../helpers/git.js";
 
 describe("MCP REST bridge", () => {
   let server: http.Server;
@@ -127,5 +128,29 @@ describe("MCP REST bridge", () => {
   it("returns 404 when querying an unknown session", async () => {
     const res = await fetch(`http://127.0.0.1:${port}/sessions/bogus-id/tools`);
     expect(res.status).toBe(404);
+  });
+
+  it("can create a new session by cloning an arbitrary repository", async () => {
+    // We will use a new fixture workspace as the "remote" repository to clone.
+    const remoteWorkspace = createFixtureWorkspace();
+    ensureGitRepo(remoteWorkspace.projectRoot);
+    
+    const createRes = await fetch(`http://127.0.0.1:${port}/sessions`, {
+      method: "POST",
+      body: JSON.stringify({ repositoryUrl: remoteWorkspace.projectRoot }),
+    });
+    
+    if (createRes.status !== 200) {
+      console.log("Error body:", await createRes.text());
+    }
+    expect(createRes.status).toBe(200);
+    const createBody = await createRes.json();
+    const sessionId = createBody.sessionId;
+    expect(sessionId).toBeDefined();
+
+    // Verify it was actually cloned
+    expect(fs.existsSync(path.join(sessionsPath, sessionId, ".git"))).toBe(true);
+
+    remoteWorkspace.cleanup();
   });
 });

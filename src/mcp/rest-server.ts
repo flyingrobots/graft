@@ -93,11 +93,11 @@ export function startRestServer(options: StartRestServerOptions): Promise<http.S
 
     // Sessions: POST /sessions
     if (req.method === "POST" && url === "/sessions") {
-      if (!baseRepoPath || !sessionsPath) {
-        return sendJson(500, { error: "Server not configured for sessions (missing baseRepoPath or sessionsPath)" });
+      if (!sessionsPath) {
+        return sendJson(500, { error: "Server not configured for sessions (missing sessionsPath)" });
       }
 
-      return readBody().then(async () => {
+      return readBody().then(async (body) => {
         try {
           const sessionId = crypto.randomUUID();
           const sessionDir = path.join(sessionsPath, sessionId);
@@ -106,8 +106,18 @@ export function startRestServer(options: StartRestServerOptions): Promise<http.S
             fs.mkdirSync(sessionsPath, { recursive: true });
           }
 
-          // Create a new worktree branched from the current state
-          await execAsync(`git worktree add -b session-${sessionId} ${sessionDir}`, { cwd: baseRepoPath });
+          const repositoryUrl = typeof body.repositoryUrl === "string" ? body.repositoryUrl : null;
+
+          if (repositoryUrl) {
+            // Clone the arbitrary remote repo
+            await execAsync(`git clone ${repositoryUrl} ${sessionDir}`);
+          } else {
+            // Create a new worktree branched from the base state
+            if (!baseRepoPath) {
+              return sendJson(500, { error: "Server not configured for local sessions (missing baseRepoPath)" });
+            }
+            await execAsync(`git worktree add -b session-${sessionId} ${sessionDir}`, { cwd: baseRepoPath });
+          }
 
           // Initialize a dedicated GraftServer for this worktree
           const sessionServer = createGraftServer({
