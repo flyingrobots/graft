@@ -1,4 +1,4 @@
-FROM node:20-slim
+FROM node:22-slim
 RUN apt-get update && apt-get install -y git jq curl && rm -rf /var/lib/apt/lists/*
 RUN git config --global user.email "test@graft.local" && git config --global user.name "Graft Test"
 ENV GIT_AUTHOR_NAME="Graft E2E"
