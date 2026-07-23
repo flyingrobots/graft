@@ -1,0 +1,29 @@
+package graft.warp@1;
+
+type SymbolChangeInput = {
+  symbolId: String<max=128>,
+  priorVersionId: String<max=64>,
+  changeKind: String<max=16>,
+  signatureDigest: String<max=64>,
+};
+
+type SymbolReceipt = {
+  symbolId: String<max=128>,
+  newVersionId: String<max=64>,
+};
+
+type SymbolChangeOutput = {
+  symbolId: String<max=128>,
+  newVersionId: String<max=64>,
+};
+
+intent recordSymbolChange(input: SymbolChangeInput) returns SymbolChangeOutput
+  profile graft.structuralWrite
+  basis none
+  budget <= graft.tinyBudget
+{
+  let receipt: SymbolReceipt = target.replace(input.symbolId)
+    else { rejected(reason) => graft.SymbolChangeObstruction.BasisConflict };
+
+  return { symbolId: input.symbolId, newVersionId: receipt.newVersionId };
+}

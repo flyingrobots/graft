@@ -1,0 +1,299 @@
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.07s
+     Running `target/debug/warp-lawpack-c75-experiment`
+=== PINNED EDICT REVISION: c75c3f550d049485ba00eae0dc272c6dd6aca11f (local worktree) ===
+
+=== STEP 1: mechanical dialect derivation ===
+Canonical (action) source SHA-256:  9c0dcb789f8c4574caf444666a445ba27fd47d2758d9e4b771ff47b00cb0a6ed
+Derived (intent) source SHA-256:    8cc1259a045df7ce3b293ef31197e618416b478ef333ca84142181e3e60ed0bc
+Derived source:
+package graft.warp@1;
+
+type SymbolChangeInput = {
+  symbolId: String<max=128>,
+  priorVersionId: String<max=64>,
+  changeKind: String<max=16>,
+  signatureDigest: String<max=64>,
+};
+
+type SymbolReceipt = {
+  symbolId: String<max=128>,
+  newVersionId: String<max=64>,
+};
+
+type SymbolChangeOutput = {
+  symbolId: String<max=128>,
+  newVersionId: String<max=64>,
+};
+
+intent recordSymbolChange(input: SymbolChangeInput) returns SymbolChangeOutput
+  profile graft.structuralWrite
+  basis none
+  budget <= graft.tinyBudget
+{
+  let receipt: SymbolReceipt = target.replace(input.symbolId)
+    else { rejected(reason) => graft.SymbolChangeObstruction.BasisConflict };
+
+  return { symbolId: input.symbolId, newVersionId: receipt.newVersionId };
+}
+
+
+=== STEP 2: parse + compile_to_core at c75 ===
+compile_to_core: OK
+Core module (debug):
+CoreModule {
+    api_version: "edict.core/v1",
+    coordinate: "graft.warp@1",
+    imports: [],
+    types: {
+        "SymbolChangeInput": Record {
+            fields: {
+                "changeKind": "graft.warp@1.SymbolChangeInput.changeKind",
+                "priorVersionId": "graft.warp@1.SymbolChangeInput.priorVersionId",
+                "signatureDigest": "graft.warp@1.SymbolChangeInput.signatureDigest",
+                "symbolId": "graft.warp@1.SymbolChangeInput.symbolId",
+            },
+        },
+        "SymbolChangeInput.changeKind": String {
+            max: 16,
+            canonical: "raw-utf8",
+        },
+        "SymbolChangeInput.priorVersionId": String {
+            max: 64,
+            canonical: "raw-utf8",
+        },
+        "SymbolChangeInput.signatureDigest": String {
+            max: 64,
+            canonical: "raw-utf8",
+        },
+        "SymbolChangeInput.symbolId": String {
+            max: 128,
+            canonical: "raw-utf8",
+        },
+        "SymbolChangeOutput": Record {
+            fields: {
+                "newVersionId": "graft.warp@1.SymbolChangeOutput.newVersionId",
+                "symbolId": "graft.warp@1.SymbolChangeOutput.symbolId",
+            },
+        },
+        "SymbolChangeOutput.newVersionId": String {
+            max: 64,
+            canonical: "raw-utf8",
+        },
+        "SymbolChangeOutput.symbolId": String {
+            max: 128,
+            canonical: "raw-utf8",
+        },
+        "SymbolReceipt": Record {
+            fields: {
+                "newVersionId": "graft.warp@1.SymbolReceipt.newVersionId",
+                "symbolId": "graft.warp@1.SymbolReceipt.symbolId",
+            },
+        },
+        "SymbolReceipt.newVersionId": String {
+            max: 64,
+            canonical: "raw-utf8",
+        },
+        "SymbolReceipt.symbolId": String {
+            max: 128,
+            canonical: "raw-utf8",
+        },
+    },
+    intents: {
+        "recordSymbolChange": CoreIntent {
+            input: "graft.warp@1.SymbolChangeInput",
+            output: "graft.warp@1.SymbolChangeOutput",
+            required_operation_profile: "continuum.profile.write/v1",
+            input_constraints: [],
+            core_evaluation_budget: CoreBudget {
+                max_steps: 8,
+                max_allocated_bytes: 1024,
+                max_output_bytes: 256,
+            },
+            body: CoreBlock {
+                locals: [
+                    LocalRef {
+                        id: "arg.0",
+                        alpha_name: "$arg0",
+                        ty: "graft.warp@1.SymbolChangeInput",
+                    },
+                    LocalRef {
+                        id: "local.0",
+                        alpha_name: "$local0",
+                        ty: "graft.warp@1.SymbolReceipt",
+                    },
+                    LocalRef {
+                        id: "obstruction.0",
+                        alpha_name: "$obstruction0",
+                        ty: "target.replace.rejected",
+                    },
+                ],
+                nodes: [
+                    Effect {
+                        binding: LocalRef {
+                            id: "local.0",
+                            alpha_name: "$local0",
+                            ty: "graft.warp@1.SymbolReceipt",
+                        },
+                        effect: "target.replace",
+                        input: Field {
+                            base: Local {
+                                reference: LocalRef {
+                                    id: "arg.0",
+                                    alpha_name: "$arg0",
+                                    ty: "graft.warp@1.SymbolChangeInput",
+                                },
+                            },
+                            field: "symbolId",
+                        },
+                        obstruction_map: {
+                            "rejected": CoreObstructionArm {
+                                binder: LocalRef {
+                                    id: "obstruction.0",
+                                    alpha_name: "$obstruction0",
+                                    ty: "target.replace.rejected",
+                                },
+                                value: Call {
+                                    callee: "graft.SymbolChangeObstruction.BasisConflict",
+                                    type_args: [],
+                                    args: [],
+                                },
+                            },
+                        },
+                    },
+                ],
+                result: Record {
+                    fields: {
+                        "newVersionId": Field {
+                            base: Local {
+                                reference: LocalRef {
+                                    id: "local.0",
+                                    alpha_name: "$local0",
+                                    ty: "graft.warp@1.SymbolReceipt",
+                                },
+                            },
+                            field: "newVersionId",
+                        },
+                        "symbolId": Field {
+                            base: Local {
+                                reference: LocalRef {
+                                    id: "arg.0",
+                                    alpha_name: "$arg0",
+                                    ty: "graft.warp@1.SymbolChangeInput",
+                                },
+                            },
+                            field: "symbolId",
+                        },
+                    },
+                },
+            },
+        },
+    },
+    required_core_capabilities: [],
+}
+
+=== STEP 3: native oracle lowering (built-in Rust lowerer, c75) ===
+Native oracle Target IR (debug):
+TargetIrArtifact {
+    domain: "echo.span-ir/v1",
+    target_profile: ResourceRef {
+        coordinate: "echo.dpo@1",
+        digest: Some(
+            "sha256:0000000000000000000000000000000000000000000000000000000000000000",
+        ),
+    },
+    source_core_coordinate: "graft.warp@1",
+    intents: {
+        "recordSymbolChange": TargetIrIntent {
+            operation_profile: "continuum.profile.write/v1",
+            input_constraints: [],
+            core_evaluation_budget: CoreBudget {
+                max_steps: 8,
+                max_allocated_bytes: 1024,
+                max_output_bytes: 256,
+            },
+            requirements: [],
+            steps: [
+                TargetIrStep {
+                    id: "recordSymbolChange.step.0",
+                    binding: LocalRef {
+                        id: "local.0",
+                        alpha_name: "$local0",
+                        ty: "graft.warp@1.SymbolReceipt",
+                    },
+                    effect: "target.replace",
+                    target_intrinsic: "echo.dpo@1.replace",
+                    input: Field {
+                        base: Local {
+                            reference: LocalRef {
+                                id: "arg.0",
+                                alpha_name: "$arg0",
+                                ty: "graft.warp@1.SymbolChangeInput",
+                            },
+                        },
+                        field: "symbolId",
+                    },
+                    obstruction_failures: [
+                        "rejected",
+                    ],
+                    obstruction_arms: {
+                        "rejected": CoreObstructionArm {
+                            binder: LocalRef {
+                                id: "obstruction.0",
+                                alpha_name: "$obstruction0",
+                                ty: "target.replace.rejected",
+                            },
+                            value: Call {
+                                callee: "graft.SymbolChangeObstruction.BasisConflict",
+                                type_args: [],
+                                args: [],
+                            },
+                        },
+                    },
+                },
+            ],
+            result: Record {
+                fields: {
+                    "newVersionId": Field {
+                        base: Local {
+                            reference: LocalRef {
+                                id: "local.0",
+                                alpha_name: "$local0",
+                                ty: "graft.warp@1.SymbolReceipt",
+                            },
+                        },
+                        field: "newVersionId",
+                    },
+                    "symbolId": Field {
+                        base: Local {
+                            reference: LocalRef {
+                                id: "arg.0",
+                                alpha_name: "$arg0",
+                                ty: "graft.warp@1.SymbolChangeInput",
+                            },
+                        },
+                        field: "symbolId",
+                    },
+                },
+            },
+        },
+    },
+}
+
+=== STEP 4: REAL WASM lowerer-component invocation (Echo's checked lowerer.echo-dpo.component.wasm, unmodified) ===
+validate_provider_lowering_request: OK
+invoke_lowerer: call succeeded (WASM component executed)
+Component returned a REFUSAL (this is the outcome, not a crash):
+ProviderRefusal {
+    kind: UnsupportedSemantics,
+    subject: Some(
+        "graft.warp@1",
+    ),
+    diagnostics: [
+        ProviderDiagnostic {
+            code: "echo.provider.unsupported-semantics",
+            severity: Error,
+            message: "the supplied semantics are outside the exact first Echo lowering closure",
+            repair: None,
+        },
+    ],
+}
