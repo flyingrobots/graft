@@ -1,6 +1,7 @@
 import { startDaemonServer } from "../mcp/daemon-server.js";
 import { MCP_TOOL_NAMES } from "../contracts/capabilities.js";
 import { createGraftServer } from "../mcp/server.js";
+import { startRestServer } from "../mcp/rest-server.js";
 import { startStdioServer } from "../mcp/stdio-server.js";
 import { ObservationCache } from "../operations/observation-cache.js";
 import { RepoWorkspace } from "../operations/repo-workspace.js";
@@ -106,6 +107,7 @@ export {
   ProjectionProviderRegistryError,
   createGraftServer,
   startDaemonServer,
+  startRestServer,
   startStdioServer,
 };
 
@@ -205,6 +207,10 @@ export type {
 export type {
   StartDaemonServerOptions,
 } from "../mcp/daemon-server.js";
+
+export type {
+  StartRestServerOptions,
+} from "../mcp/rest-server.js";
 
 export type {
   CreateGraftServerOptions,
