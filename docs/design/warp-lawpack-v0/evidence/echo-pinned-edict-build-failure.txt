@@ -1,0 +1,31 @@
+Context: this is NOT a build failure of the Echo repository itself. Echo's own
+test crate (tests/edict-provider-host-v1/) was never rebuilt against this pin
+during this experiment. This is the output of building the standalone
+`warp-lawpack-experiment` harness (harness.rs in this design packet) when its
+Cargo.toml pointed at Echo's actual pinned Edict commit
+(c75c3f550d049485ba00eae0dc272c6dd6aca11f) instead of Edict's current main.
+
+Precise claim: "the current lowering harness does not build against Echo's
+pinned Edict revision." Nothing here demonstrates that Echo's own build or
+test suite fails at that pin -- that is a separate, not-yet-performed check.
+
+--- raw compiler output ---
+
+error[E0609]: no field `actions` on type `TargetIrArtifact`
+  --> src/main.rs:76:61
+   |
+76 |                     println!("action names: {:?}", artifact.actions.keys().collect::<Vec<_>>());
+   |                                                             ^^^^^^^ unknown field
+   |
+   = note: available fields are: `domain`, `target_profile`, `source_core_coordinate`, `intents`
+
+error[E0609]: no field `actions` on type `TargetIrArtifact`
+  --> src/main.rs:77:53
+   |
+77 |                     for (name, action) in &artifact.actions {
+   |                                                     ^^^^^^^ unknown field
+   |
+   = note: available fields are: `domain`, `target_profile`, `source_core_coordinate`, `intents`
+
+For more information about this error, try `rustc --explain E0609`.
+error: could not compile `warp-lawpack-experiment` (bin "warp-lawpack-experiment") due to 2 previous errors

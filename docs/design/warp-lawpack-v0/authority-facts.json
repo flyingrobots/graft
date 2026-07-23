@@ -1,0 +1,30 @@
+{
+  "_note": "This file documents the compiler-context facts used by harness.rs. It is a human-readable record, not a file the harness loads at runtime -- harness.rs constructs these facts directly via edict_syntax::CompilerContext builder calls (with_operation_profile, with_operation_profile_write_classes, with_effect_write_class, with_budget). See lowering-evidence.md for the negative-control results proving these three facts (plus the effect write class) are the ones the compiler actually resolves against.",
+  "operationProfiles": {
+    "graft.structuralWrite": "continuum.profile.write/v1"
+  },
+  "operationProfileWriteClasses": {
+    "graft.structuralWrite": ["Replace"]
+  },
+  "effectWriteClasses": {
+    "target.replace": "Replace"
+  },
+  "budgets": {
+    "graft.tinyBudget": {
+      "maxSteps": 8,
+      "maxAllocatedBytes": 1024,
+      "maxOutputBytes": 256
+    }
+  },
+  "targetIrLoweringFacts": {
+    "targetProfileCoordinate": "echo.dpo@1",
+    "targetProfileDigest": "sha256:0000000000000000000000000000000000000000000000000000000000000000",
+    "_digestNote": "Placeholder digest satisfying Edict's is_sha256_review_digest shape check only (sha256: prefix + 64 hex chars). Not a real content digest of anything. Edict's built-in lowerer refuses an undigested (None) target_profile with TargetLoweringFailureKind::UndigestedTargetProfile -- confirmed during this experiment.",
+    "targetIrDomain": "echo.span-ir/v1",
+    "operationProfiles": ["continuum.profile.write/v1"],
+    "obstructionCoordinates": ["rejected"],
+    "effectLowerings": [
+      { "effect": "target.replace", "targetIntrinsic": "echo.dpo@1.replace" }
+    ]
+  }
+}
