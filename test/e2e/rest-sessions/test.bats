@@ -77,8 +77,8 @@ teardown_file() {
 }
 
 @test "Invoke tools via GET query parameters" {
-  # 1. Create session cloning Hello-World
-  result=$(curl -s -X POST http://localhost:3001/sessions -H "Content-Type: application/json" -d '{"repositoryUrl": "https://github.com/octocat/Hello-World.git"}')
+  # 1. Create session cloning Hello-World via GET
+  result=$(curl -s -X GET "http://localhost:3001/sessions?repositoryUrl=https://github.com/octocat/Hello-World.git")
   session_id=$(echo "$result" | jq -r .sessionId)
   
   # 2. Call safe_read via GET

@@ -123,13 +123,17 @@ export function startRestServer(options: StartRestServerOptions): Promise<http.S
       }).catch((e) => sendJson(400, { error: e.message }));
     }
 
-    // Sessions: POST /sessions
-    if (req.method === "POST" && pathname === "/sessions") {
+    // Sessions: POST/GET /sessions
+    if ((req.method === "POST" || req.method === "GET") && pathname === "/sessions") {
       if (!sessionsPath) {
         return sendJson(500, { error: "Server not configured for sessions (missing sessionsPath)" });
       }
 
-      return readBody().then(async (body) => {
+      const readArgs = req.method === "POST"
+        ? readBody()
+        : Promise.resolve(parseQueryParams(parsedUrl.searchParams));
+
+      return readArgs.then(async (body) => {
         try {
           const sessionId = crypto.randomUUID();
           const sessionDir = path.join(sessionsPath, sessionId);
