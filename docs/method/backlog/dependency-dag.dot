@@ -48,7 +48,7 @@ digraph backlog {
   }
 
   subgraph cluster_bad_code {
-    label="bad-code (20)" labeljust=l fontsize=9 fontcolor="#555555"
+    label="bad-code (22)" labeljust=l fontsize=9 fontcolor="#555555"
     style=rounded color="#cccccc" bgcolor="#fafafa"
     bad_code_CLEAN_backlog_dag_unresolved_internal_dependencies [label="CLEAN-backlog-dag-unresolved-internal-dependencies - S" fillcolor="#F6B3B3" penwidth=2]
     bad_code_CLEAN_canonical_codec_seams_diverge [label="CLEAN-canonical-codec-seams-diverge - M" fillcolor="#F6B3B3" penwidth=2]
@@ -66,6 +66,8 @@ digraph backlog {
     bad_code_CLEAN_pr_review_comments_not_actionability_typed [label="CLEAN-pr-review-comments-not-actionability-typed - M" fillcolor="#F6B3B3" penwidth=2]
     bad_code_CLEAN_receipt_cumulative_bytes_avoided_stays_zero [label="CLEAN-receipt-cumulative-bytes-avoided-stays-zero - S" fillcolor="#F6B3B3" penwidth=2]
     bad_code_CLEAN_remaining_structural_warp_reads_bypass_structural_reading_port [label="CLEAN-remaining-structural-warp-reads-bypass-structural-reading-port - M" fillcolor="#F6B3B3" penwidth=2]
+    bad_code_CLEAN_rest_api_branch_lint_baseline [label="CLEAN-rest-api-branch-lint-baseline - M" fillcolor="#F6B3B3" penwidth=2]
+    bad_code_CLEAN_rest_server_bypasses_path_ops_boundary [label="CLEAN-rest-server-bypasses-path-ops-boundary - S" fillcolor="#F6B3B3" penwidth=2]
     bad_code_CLEAN_sha256_stable_id_helper_duplication [label="CLEAN-sha256-stable-id-helper-duplication - S" fillcolor="#F6B3B3" penwidth=2]
     bad_code_CLEAN_technical_teardown_contract_ledger_can_stale_without_tests [label="CLEAN-technical-teardown-contract-ledger-can-stale-without-tests - M" fillcolor="#F6B3B3" penwidth=2]
     bad_code_SURFACE_session_global_workspace_activation_races [label="SURFACE-session-global-workspace-activation-races" fillcolor="#F6B3B3" penwidth=2]

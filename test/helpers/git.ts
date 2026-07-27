@@ -102,11 +102,11 @@ export function ensureGitRepo(cwd: string): void {
     return;
   }
   git(cwd, "init --initial-branch main");
-  git(cwd, "config user.email test@test.com");
-  git(cwd, "config user.name test");
-  git(cwd, "config commit.gpgsign false");
-  git(cwd, "config tag.gpgSign false");
-  git(cwd, "config core.fsmonitor false");
+  git(cwd, "config --local user.email test@test.com");
+  git(cwd, "config --local user.name test");
+  git(cwd, "config --local commit.gpgsign false");
+  git(cwd, "config --local tag.gpgSign false");
+  git(cwd, "config --local core.fsmonitor false");
 }
 
 export function createCommittedTestRepo(

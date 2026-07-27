@@ -19,6 +19,25 @@ teardown_file() {
   docker compose -f test/e2e/rest-sessions/docker-compose.yml down
 }
 
+@test "Container uses copied source with no host mounts or Git remotes" {
+  container_id=$(docker compose -f test/e2e/rest-sessions/docker-compose.yml ps -q graft-rest)
+  [ -n "$container_id" ]
+
+  run docker inspect --format '{{json .Mounts}}' "$container_id"
+  [ "$status" -eq 0 ]
+  [ "$output" = "[]" ]
+
+  run docker compose -f test/e2e/rest-sessions/docker-compose.yml exec -T graft-rest \
+    git -C /app rev-parse --absolute-git-dir
+  [ "$status" -eq 0 ]
+  [ "$output" = "/app/.git" ]
+
+  run docker compose -f test/e2e/rest-sessions/docker-compose.yml exec -T graft-rest \
+    git -C /app remote
+  [ "$status" -eq 0 ]
+  [ -z "$output" ]
+}
+
 @test "Global endpoint security and schema validation" {
   # 1. Get global tools
   tools_result=$(curl -s -X GET http://localhost:3001/tools)
@@ -91,5 +110,4 @@ teardown_file() {
   reason=$(echo "$cap_result" | jq -r '.structuredContent.reason')
   [ "$reason" = "CAPABILITY_FAMILY_DETAIL" ]
 }
-
 

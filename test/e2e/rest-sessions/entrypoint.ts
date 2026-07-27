@@ -1,15 +1,7 @@
 import { startRestServer } from "../../../src/mcp/rest-server.js";
-import { execSync } from "child_process";
 
-const port = process.env.PORT ? parseInt(process.env.PORT, 10) : 3000;
-
-try {
-  execSync('git config --global user.email "e2e@graft.local"');
-  execSync('git config --global user.name "Graft E2E"');
-  console.log("Git global identity configured.");
-} catch (e) {
-  console.warn("Failed to set git global config", e);
-}
+const portValue = process.env["PORT"];
+const port = portValue === undefined ? 3000 : Number.parseInt(portValue, 10);
 
 startRestServer({
   port,
@@ -17,8 +9,8 @@ startRestServer({
   baseRepoPath: "/app",
   mode: "repo_local",
 }).then(() => {
-  console.log(`Graft REST server running on port ${port}`);
-}).catch(err => {
-  console.error("Failed to start server", err);
+  console.log(`Graft REST server running on port ${String(port)}`);
+}).catch((error: unknown) => {
+  console.error("Failed to start server", error);
   process.exit(1);
 });

@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Fixed
+
+- **REST-session Git identity isolation**: starting the standalone REST-session
+  harness no longer writes `user.name` or `user.email` into the operator's
+  global Git configuration. Test authorship remains process-scoped through
+  explicit author and committer environment variables, while temporary test
+  repositories use explicit local Git configuration. Its Docker image copies
+  source without host mounts, creates a fresh image-local repository, and
+  removes its Git remote.
+
 ### Added
 
 - **Bounded agent capability discovery**: the new `capabilities` MCP tool gives

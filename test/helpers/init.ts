@@ -66,8 +66,8 @@ export function findAction(result: InitResultJson, label: string): InitActionJso
 
 export function initGitRepo(cwd: string): void {
   git(cwd, "init");
-  git(cwd, "config user.email test@test.com");
-  git(cwd, "config user.name test");
+  git(cwd, "config --local user.email test@test.com");
+  git(cwd, "config --local user.name test");
 }
 
 export function readJsonFile(cwd: string, ...segments: string[]): unknown {
