@@ -6,9 +6,14 @@
  *
  * Analysis previously received a general `FileSystem` and reached through it to
  * the live disk, so "read the workspace" and "read anything" were one
- * authority. A read view separates them: it carries settled bytes and cannot
- * reach past them, which is what lets analysis run after an observation has
- * settled rather than racing the disk it is describing.
+ * authority. A read view separates them, which is what will let analysis run
+ * after an observation has settled rather than racing the disk it is
+ * describing.
+ *
+ * The seam is landed; the settled side of it is not. Both production
+ * composition roots pass `LiveWorkspaceReadSource`, so what this interface
+ * buys today is that the authority is named and singular, not that it is
+ * settled. See `AdmittedWorkspaceSnapshot` for what is still missing.
  *
  * The primitive is bytes, not text. A basis identifies bytes, so a seam that
  * decoded on the way through could not honour it: an undecodable file would
@@ -121,14 +126,20 @@ export async function observeFile(
 declare const admittedSnapshotBrand: unique symbol;
 
 /**
- * An immutable observation Echo has settled.
+ * An immutable observation, shaped as Echo would settle one.
  *
- * The brand is not decoration. "Admitted" has to mean an observation Echo
- * actually settled, and a plain exported interface would let any caller
- * assemble one by hand and have analysis treat it as evidence. Production
- * instances come only from decoding a settlement; tests use the explicitly
- * named test constructor below, so a hand-built snapshot is visible as such at
- * every call site.
+ * NOT YET PRODUCED IN PRODUCTION. There is no decoder that turns an Echo
+ * settlement into one of these, and no composition root constructs one. The
+ * only constructor is the test constructor below, so today every value of this
+ * type is admitted by assertion. Every production Graft read still goes through
+ * `LiveWorkspaceReadSource` to the live disk. Building the decoder is the
+ * remaining work in #228; until it exists, this type describes the destination,
+ * not the current state.
+ *
+ * The brand is compile-time friction, not runtime evidence. It stops a caller
+ * assembling one inline and having analysis treat it as settled, but a brand
+ * cannot attest that Echo settled anything — only a decoder validating the
+ * settlement envelope can, and that is what does not exist yet.
  *
  * The request-side fields are retained because analysis must be attributable
  * to the observation that produced it: a snapshot with no request or
