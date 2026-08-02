@@ -16,6 +16,11 @@ import { evaluatePolicy } from "../policy/evaluate.js";
 import { RefusedResult } from "../policy/types.js";
 import { loadGraftignore } from "../policy/graftignore.js";
 import type { FileSystem } from "../ports/filesystem.js";
+import {
+  readUtf8,
+  UnadmittedPathError,
+  type WorkspaceReadView,
+} from "./workspace-read-view.js";
 import type { JsonCodec } from "../ports/codec.js";
 import type { ProseProjectionProvider } from "./colorful-prose-projection.js";
 
@@ -71,7 +76,16 @@ export type RepoWorkspaceChangedSinceResult =
 
 export interface RepoWorkspaceOptions {
   readonly projectRoot: string;
-  readonly fs: FileSystem;
+  /**
+   * The single read authority for this workspace.
+   *
+   * There is deliberately no filesystem parameter beside it. Two doors would
+   * leave correctness resting on every code path remembering which one is
+   * lawful; a workspace built over a settled observation must not be able to
+   * reach the live disk at all. Callers that still want live reads pass a
+   * `FilesystemWorkspaceReadView` and are visible by name.
+   */
+  readonly readView: WorkspaceReadView;
   readonly codec: JsonCodec;
   readonly graftignorePatterns?: readonly string[] | undefined;
   readonly resolvePath?: ((input: string) => string) | undefined;
@@ -96,16 +110,36 @@ export class RepoWorkspace {
   private readonly resolveWorkspacePath: (input: string) => string;
   private readonly policyPathForWorkspaceFile: (resolvedPath: string) => string;
   readonly projectRoot: string;
-  readonly fs: FileSystem;
+  readonly readView: WorkspaceReadView;
   readonly codec: JsonCodec;
   readonly graftignorePatterns: readonly string[];
   readonly governor: GovernorTracker;
   readonly cache: ObservationCache;
   readonly proseProjector: ProseProjectionProvider | undefined;
 
+  /**
+   * Presents the read view in the shape the operation helpers expect.
+   *
+   * They take a `FileSystem` and use exactly one method of it. Handing them
+   * the real filesystem here would reopen the second door this class exists to
+   * close, so they receive a facade over the same single authority. Every
+   * other `FileSystem` capability is absent rather than stubbed, so a helper
+   * that started using one fails to compile instead of silently reaching the
+   * disk.
+   */
+  private readViewAsFileSystem(): Pick<FileSystem, "readFile"> {
+    const view = this.readView;
+    return {
+      readFile: (async (path: string, encoding?: "utf-8") =>
+        encoding === "utf-8"
+          ? await readUtf8(view, path)
+          : Buffer.from(await view.readBytes(path))) as FileSystem["readFile"],
+    };
+  }
+
   constructor(options: RepoWorkspaceOptions) {
     this.projectRoot = options.projectRoot;
-    this.fs = options.fs;
+    this.readView = options.readView;
     this.codec = options.codec;
     this.graftignorePatterns = options.graftignorePatterns ?? [];
     this.governor = options.governor ?? new GovernorTracker();
@@ -170,8 +204,14 @@ export class RepoWorkspace {
 
     let snapshot: CachedFile | null = null;
     try {
-      snapshot = new CachedFile(filePath, await this.fs.readFile(filePath, "utf-8"));
-    } catch {
+      snapshot = new CachedFile(filePath, await readUtf8(this.readView, filePath));
+    } catch (error) {
+      // A path the observation never admitted is a refusal, not an absence.
+      // Reporting it as not-found would make an authority escalation look like
+      // a cache miss.
+      if (error instanceof UnadmittedPathError) {
+        throw error;
+      }
       // Let safeRead produce the not-found error shape.
     }
 
@@ -204,7 +244,7 @@ export class RepoWorkspace {
         const freshOutline = await this.outlineForSnapshot(snapshot);
         if (freshOutline === null) {
           return await safeRead(filePath, {
-            fs: this.fs,
+            fs: this.readViewAsFileSystem() as FileSystem,
             codec: this.codec,
             content: snapshot.rawContent,
             intent: args.intent,
@@ -238,7 +278,7 @@ export class RepoWorkspace {
     }
 
     const result = await safeRead(filePath, {
-      fs: this.fs,
+      fs: this.readViewAsFileSystem() as FileSystem,
       codec: this.codec,
       content: snapshot?.rawContent,
       intent: args.intent,
@@ -278,7 +318,7 @@ export class RepoWorkspace {
 
     let rawContent: string | null = null;
     try {
-      rawContent = await this.fs.readFile(filePath, "utf-8");
+      rawContent = await readUtf8(this.readView, filePath);
     } catch {
       // Let fileOutline shape the not-found result.
     }
@@ -305,7 +345,7 @@ export class RepoWorkspace {
     }
 
     const result = await fileOutline(filePath, {
-      fs: this.fs,
+      fs: this.readViewAsFileSystem() as FileSystem,
       proseProjector: this.proseProjector,
     });
     if (rawContent !== null && result.reason !== "UNSUPPORTED_LANGUAGE") {
@@ -324,7 +364,7 @@ export class RepoWorkspace {
     const filePath = this.resolveWorkspacePath(args.path);
     let rawContent: string | null = null;
     try {
-      rawContent = await this.fs.readFile(filePath, "utf-8");
+      rawContent = await readUtf8(this.readView, filePath);
     } catch {
       // Let readRange shape the not-found result.
     }
@@ -337,7 +377,7 @@ export class RepoWorkspace {
         return refusal;
       }
     }
-    return readRange(filePath, args.start, args.end, { fs: this.fs });
+    return readRange(filePath, args.start, args.end, { fs: this.readViewAsFileSystem() as FileSystem });
   }
 
   async changedSince(args: { readonly path: string; readonly consume?: boolean | undefined }): Promise<RepoWorkspaceChangedSinceResult> {
@@ -346,7 +386,7 @@ export class RepoWorkspace {
 
     let rawContent: string;
     try {
-      rawContent = await this.fs.readFile(filePath, "utf-8");
+      rawContent = await readUtf8(this.readView, filePath);
     } catch {
       return { status: "file_not_found" };
     }

@@ -91,7 +91,7 @@ export function unsafeAdmittedWorkspaceSnapshotForTest(
     ...fields,
     aperture: [...fields.aperture],
     files,
-  } as AdmittedWorkspaceSnapshot;
+  } as unknown as AdmittedWorkspaceSnapshot;
 }
 
 /** A path the snapshot does not admit. */
@@ -137,21 +137,21 @@ export class SnapshotWorkspaceReadView implements WorkspaceReadView {
   // Asynchronous because a filesystem-backed view cannot read lazily behind a
   // synchronous signature, and both must satisfy one interface for
   // RepoWorkspace to hold exactly one read authority.
-  async readBytes(path: string): Promise<Uint8Array> {
+  readBytes(path: string): Promise<Uint8Array> {
     if (!this.admitted.has(path)) {
-      throw new UnadmittedPathError(path);
+      return Promise.reject(new UnadmittedPathError(path));
     }
     const content = this.bytes.get(path);
     if (content === undefined) {
-      throw new MissingSnapshotBytesError(path);
+      return Promise.reject(new MissingSnapshotBytesError(path));
     }
     // Copied on the way out, so a caller writing through the returned array
     // cannot rewrite the retained evidence.
-    return Uint8Array.from(content);
+    return Promise.resolve(Uint8Array.from(content));
   }
 
-  async listPaths(): Promise<readonly string[]> {
-    return [...this.bytes.keys()];
+  listPaths(): Promise<readonly string[]> {
+    return Promise.resolve([...this.bytes.keys()]);
   }
 }
 
@@ -176,11 +176,11 @@ export class FilesystemWorkspaceReadView implements WorkspaceReadView {
     return Uint8Array.from(await this.fs.readFile(path));
   }
 
-  async listPaths(): Promise<readonly string[]> {
+  listPaths(): Promise<readonly string[]> {
     // The live filesystem has no admitted path set to enumerate. Callers that
     // need one are asking a question only a settled observation can answer.
-    throw new Error(
-      `a filesystem read view has no admitted path set to list: ${this.projectRoot}`,
+    return Promise.reject(
+      new Error(`a filesystem read view has no admitted path set to list: ${this.projectRoot}`),
     );
   }
 }
