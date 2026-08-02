@@ -16,12 +16,40 @@
  * observed content. Decoding is an analysis projection, applied above.
  */
 export interface WorkspaceReadView {
-  /** Identity of the exact bytes this view exposes. */
-  readonly basisDigest: string;
-  /** Returns the settled bytes for a path. Rejects for an unadmitted path. */
+  /** Returns the bytes for a path. Rejects if it cannot produce them. */
   readBytes(path: string): Promise<Uint8Array>;
-  /** Every path this view admits. */
-  listPaths(): Promise<readonly string[]>;
+}
+
+/**
+ * What an observation retained about itself.
+ *
+ * Analysis has to be attributable to the observation that produced it. A
+ * result carrying no request or settlement identity cannot be replayed, and
+ * cannot be told apart from bytes someone assembled.
+ */
+export interface WorkspaceReadEvidence {
+  readonly requestId: string;
+  readonly settlementId: string;
+  readonly workspaceRoot: string;
+  /** Identity of the exact bytes the observation settled. */
+  readonly basisDigest: string;
+}
+
+/**
+ * A read view over bytes an observation settled.
+ *
+ * Separate from `WorkspaceReadView` because fetching bytes and possessing
+ * settled bytes are not the same capability, and a single interface for both
+ * forced the live filesystem to inhabit a contract it cannot satisfy. It has
+ * no basis, so it supplied a sentinel in the field whose contract is "the
+ * identity of the exact bytes" — a value meaning "this is not a basis" living
+ * where the basis goes. One of these performs an effect and the other carries
+ * evidence; they are not substitutable.
+ */
+export interface AdmittedWorkspaceReadView extends WorkspaceReadView {
+  readonly evidence: WorkspaceReadEvidence;
+  /** Every path the request admitted, in the order it declared them. */
+  admittedPaths(): readonly string[];
 }
 
 /**
@@ -199,13 +227,20 @@ export class MissingSnapshotBytesError extends Error {
  * for authority the observation did not grant, and answering it from disk
  * would silently reintroduce the coupling this type exists to remove.
  */
-export class SnapshotWorkspaceReadView implements WorkspaceReadView {
-  readonly basisDigest: string;
+export class SnapshotWorkspaceReadView implements AdmittedWorkspaceReadView {
+  readonly evidence: WorkspaceReadEvidence;
   private readonly bytes: ReadonlyMap<string, Uint8Array>;
+  private readonly aperture: readonly string[];
   private readonly admitted: ReadonlySet<string>;
 
   constructor(snapshot: AdmittedWorkspaceSnapshot) {
-    this.basisDigest = snapshot.basisDigest;
+    this.evidence = {
+      requestId: snapshot.requestId,
+      settlementId: snapshot.settlementId,
+      workspaceRoot: snapshot.workspaceRoot,
+      basisDigest: snapshot.basisDigest,
+    };
+    this.aperture = [...snapshot.aperture];
     this.admitted = new Set(snapshot.aperture);
     // Copied on the way in, so a snapshot assembled from a caller's mutable
     // maps cannot change underneath the view once it exists.
@@ -225,6 +260,9 @@ export class SnapshotWorkspaceReadView implements WorkspaceReadView {
     }
     const content = this.bytes.get(path);
     if (content === undefined) {
+      // Unreachable: admission requires the aperture and the settled-file set
+      // to agree exactly. Kept as a guard so a future decoder that skipped
+      // that check would fail loudly here rather than return absent bytes.
       return Promise.reject(new MissingSnapshotBytesError(path));
     }
     // Copied on the way out, so a caller writing through the returned array
@@ -232,37 +270,35 @@ export class SnapshotWorkspaceReadView implements WorkspaceReadView {
     return Promise.resolve(Uint8Array.from(content));
   }
 
-  listPaths(): Promise<readonly string[]> {
-    return Promise.resolve([...this.bytes.keys()]);
+  admittedPaths(): readonly string[] {
+    // From the aperture, which is what the request admitted — not from the
+    // byte entries that happen to be present. Answering from the latter is how
+    // a partial settlement would report itself as a complete one.
+    return [...this.aperture];
   }
 }
 
 /**
- * A read view backed by the live filesystem.
+ * Bytes read from the live filesystem at the moment of the call.
  *
  * This is the behaviour Graft had before observations were admitted, kept as
- * an explicitly named adapter rather than as a default. Nothing about it is
- * settled: the bytes it returns describe the disk at the moment of the call,
- * so two reads can disagree and a basis over them means nothing. Composition
- * roots that still use it are visible by name.
+ * an explicitly named adapter rather than as a default. It is deliberately
+ * **not** an `AdmittedWorkspaceReadView`: nothing about it is settled. The
+ * bytes it returns describe the disk when it was asked, so two reads can
+ * disagree, no basis over them means anything, and it has no admitted path set
+ * to enumerate. It offers neither, so a caller needing either fails to compile
+ * rather than receiving a sentinel or a rejected promise.
+ *
+ * Every production composition root still uses this. That is the remaining
+ * work in #228, and it is visible by name at each one.
  */
-export class FilesystemWorkspaceReadView implements WorkspaceReadView {
-  readonly basisDigest = "unsettled:filesystem";
-
+export class LiveWorkspaceReadSource implements WorkspaceReadView {
   constructor(
     private readonly fs: { readFile(path: string): Promise<Uint8Array | Buffer> },
-    private readonly projectRoot: string,
+    readonly workspaceRoot: string,
   ) {}
 
   async readBytes(path: string): Promise<Uint8Array> {
     return Uint8Array.from(await this.fs.readFile(path));
-  }
-
-  listPaths(): Promise<readonly string[]> {
-    // The live filesystem has no admitted path set to enumerate. Callers that
-    // need one are asking a question only a settled observation can answer.
-    return Promise.reject(
-      new Error(`a filesystem read view has no admitted path set to list: ${this.projectRoot}`),
-    );
   }
 }

@@ -1,5 +1,5 @@
 import * as path from "node:path";
-import { FilesystemWorkspaceReadView } from "../operations/workspace-read-view.js";
+import { LiveWorkspaceReadSource } from "../operations/workspace-read-view.js";
 import { CanonicalJsonCodec } from "../adapters/canonical-json.js";
 import { nodeFs } from "../adapters/node-fs.js";
 import { createRepoPathResolver, toRepoPolicyPath } from "../adapters/repo-paths.js";
@@ -27,7 +27,7 @@ export async function createRepoWorkspace(options: CreateRepoWorkspaceOptions = 
     // Still the live filesystem, now named rather than ambient. Replacing
     // this with a settled observation is the remaining work in #228; until
     // then the authority is the same, but a reader can see which kind it is.
-    readView: new FilesystemWorkspaceReadView(fs, cwd),
+    readView: new LiveWorkspaceReadSource(fs, cwd),
     codec,
     graftignorePatterns: options.graftignorePatterns ?? await RepoWorkspace.loadGraftignorePatterns(fs, cwd),
     resolvePath: createRepoPathResolver(cwd),

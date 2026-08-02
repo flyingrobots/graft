@@ -96,7 +96,7 @@ describe("graft analysis over an admitted workspace snapshot", () => {
     await expect(view.readBytes("secrets.env")).rejects.toThrow(
       /outside the admitted snapshot aperture/,
     );
-    expect(await view.listPaths()).toEqual(["app.ts"]);
+    expect(view.admittedPaths()).toEqual(["app.ts"]);
   });
 
   it("cannot be rewritten through the bytes it returns", async () => {
