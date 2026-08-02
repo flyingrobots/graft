@@ -63,8 +63,22 @@ export interface AdmittedWorkspaceSnapshot {
   readonly aperture: readonly string[];
   readonly byteBudget: number;
   readonly symlinkPolicy: "refuse";
-  /** The settled bytes, keyed by workspace-relative path. */
-  readonly files: ReadonlyMap<string, Uint8Array>;
+  /** The settled files, keyed by workspace-relative path. */
+  readonly files: ReadonlyMap<string, SettledFile>;
+}
+
+/**
+ * One file as the observation recorded it.
+ *
+ * The entry kind is carried rather than assumed because refusing symlinks is a
+ * claim about what was observed, and a claim with nowhere to record its
+ * subject cannot be checked. A settlement that reports a symlink while
+ * declaring `symlinkPolicy: "refuse"` is self-contradictory, and the only
+ * place that contradiction is visible is here.
+ */
+export interface SettledFile {
+  readonly bytes: Uint8Array;
+  readonly entryKind: "regular" | "symlink";
 }
 
 /** The fields a snapshot carries, without the admission brand. */
@@ -83,9 +97,9 @@ export type WorkspaceSnapshotFields = Omit<
 export function unsafeAdmittedWorkspaceSnapshotForTest(
   fields: WorkspaceSnapshotFields,
 ): AdmittedWorkspaceSnapshot {
-  const files = new Map<string, Uint8Array>();
-  for (const [path, bytes] of fields.files) {
-    files.set(path, Uint8Array.from(bytes));
+  const files = new Map<string, SettledFile>();
+  for (const [path, file] of fields.files) {
+    files.set(path, { bytes: Uint8Array.from(file.bytes), entryKind: file.entryKind });
   }
   return {
     ...fields,
@@ -128,8 +142,8 @@ export class SnapshotWorkspaceReadView implements WorkspaceReadView {
     // Copied on the way in, so a snapshot assembled from a caller's mutable
     // maps cannot change underneath the view once it exists.
     const bytes = new Map<string, Uint8Array>();
-    for (const [path, content] of snapshot.files) {
-      bytes.set(path, Uint8Array.from(content));
+    for (const [path, file] of snapshot.files) {
+      bytes.set(path, Uint8Array.from(file.bytes));
     }
     this.bytes = bytes;
   }

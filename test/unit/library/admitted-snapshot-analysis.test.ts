@@ -7,11 +7,19 @@ import {
   SnapshotWorkspaceReadView,
   unsafeAdmittedWorkspaceSnapshotForTest,
   type AdmittedWorkspaceSnapshot,
+  type SettledFile,
   type WorkspaceSnapshotFields,
 } from "../../../src/operations/workspace-read-view.js";
 import { CanonicalJsonCodec } from "../../../src/adapters/canonical-json.js";
 
 const SOURCE = "export function greet(name: string): string {\n  return `hello ${name}`;\n}\n";
+
+function regular(bytes: Uint8Array | string): SettledFile {
+  return {
+    bytes: typeof bytes === "string" ? new TextEncoder().encode(bytes) : bytes,
+    entryKind: "regular",
+  };
+}
 
 function snapshotFields(overrides: Partial<WorkspaceSnapshotFields> = {}): WorkspaceSnapshotFields {
   return {
@@ -22,7 +30,7 @@ function snapshotFields(overrides: Partial<WorkspaceSnapshotFields> = {}): Works
     aperture: ["app.ts"],
     byteBudget: 65_536,
     symlinkPolicy: "refuse",
-    files: new Map([["app.ts", new TextEncoder().encode(SOURCE)]]),
+    files: new Map([["app.ts", regular(SOURCE)]]),
     ...overrides,
   };
 }
@@ -71,17 +79,17 @@ describe("graft analysis over an admitted workspace snapshot", () => {
     // The failure this catches is a view that aliases its caller's data. If it
     // holds the same Map and the same arrays, whoever assembled the snapshot
     // can still rewrite what analysis later calls settled evidence.
-    const files = new Map([["app.ts", new TextEncoder().encode(SOURCE)]]);
+    const files = new Map([["app.ts", regular(SOURCE)]]);
     const aperture = ["app.ts"];
     const snapshot = unsafeAdmittedWorkspaceSnapshotForTest(snapshotFields({ files, aperture }));
     const view = new SnapshotWorkspaceReadView(snapshot);
 
-    files.set("app.ts", new TextEncoder().encode("export const rewritten = true;\n"));
-    files.set("secrets.env", new TextEncoder().encode("TOKEN=leaked\n"));
+    files.set("app.ts", regular("export const rewritten = true;\n"));
+    files.set("secrets.env", regular("TOKEN=leaked\n"));
     aperture.push("secrets.env");
     const original = files.get("app.ts");
     if (original !== undefined) {
-      original.fill(0x41);
+      original.bytes.fill(0x41);
     }
 
     expect(new TextDecoder().decode(await view.readBytes("app.ts"))).toBe(SOURCE);
@@ -130,7 +138,7 @@ describe("graft analysis over an admitted workspace snapshot", () => {
     const view = new SnapshotWorkspaceReadView(
       admittedSnapshot({
         aperture: ["blob.bin"],
-        files: new Map([["blob.bin", invalid]]),
+        files: new Map([["blob.bin", regular(invalid)]]),
       }),
     );
 
