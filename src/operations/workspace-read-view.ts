@@ -4,30 +4,57 @@
 /**
  * The bytes Graft analysis is permitted to see, and nothing else.
  *
- * Analysis today receives a general `FileSystem` and reaches through it to the
- * live disk, so "read the workspace" and "read anything" are one authority.
- * A read view separates them: it carries settled bytes and cannot reach past
- * them, which is what lets analysis run after an observation has settled
- * rather than racing the disk it is describing.
+ * Analysis previously received a general `FileSystem` and reached through it to
+ * the live disk, so "read the workspace" and "read anything" were one
+ * authority. A read view separates them: it carries settled bytes and cannot
+ * reach past them, which is what lets analysis run after an observation has
+ * settled rather than racing the disk it is describing.
+ *
+ * The primitive is bytes, not text. A basis identifies bytes, so a seam that
+ * decoded on the way through could not honour it: an undecodable file would
+ * either throw at the boundary or arrive silently replaced, and neither is the
+ * observed content. Decoding is an analysis projection, applied above.
  */
 export interface WorkspaceReadView {
   /** Identity of the exact bytes this view exposes. */
   readonly basisDigest: string;
-  /** Returns the settled bytes for a path, or undefined when unadmitted. */
-  readFile(path: string): string | undefined;
+  /** Returns the settled bytes for a path. Rejects for an unadmitted path. */
+  readBytes(path: string): Promise<Uint8Array>;
   /** Every path this view admits. */
-  listFiles(): readonly string[];
+  listPaths(): Promise<readonly string[]>;
 }
+
+/**
+ * Decodes settled bytes as UTF-8, refusing anything that is not valid UTF-8.
+ *
+ * Decoding sits here rather than in the view because a basis identifies bytes.
+ * A seam that decoded on the way through could not honour it: an undecodable
+ * file would either throw at the boundary or arrive silently replaced, and
+ * neither is the observed content.
+ */
+export async function readUtf8(view: WorkspaceReadView, path: string): Promise<string> {
+  return new TextDecoder("utf-8", { fatal: true }).decode(await view.readBytes(path));
+}
+
+declare const admittedSnapshotBrand: unique symbol;
 
 /**
  * An immutable observation Echo has settled.
  *
+ * The brand is not decoration. "Admitted" has to mean an observation Echo
+ * actually settled, and a plain exported interface would let any caller
+ * assemble one by hand and have analysis treat it as evidence. Production
+ * instances come only from decoding a settlement; tests use the explicitly
+ * named test constructor below, so a hand-built snapshot is visible as such at
+ * every call site.
+ *
  * The request-side fields are retained because analysis must be attributable
  * to the observation that produced it: a snapshot with no request or
- * settlement identity cannot be replayed, and cannot be distinguished from
- * bytes someone assembled by hand.
+ * settlement identity cannot be replayed, and cannot be told apart from bytes
+ * someone assembled.
  */
 export interface AdmittedWorkspaceSnapshot {
+  readonly [admittedSnapshotBrand]: true;
   readonly requestId: string;
   readonly settlementId: string;
   readonly workspaceRoot: string;
@@ -40,11 +67,46 @@ export interface AdmittedWorkspaceSnapshot {
   readonly files: ReadonlyMap<string, Uint8Array>;
 }
 
+/** The fields a snapshot carries, without the admission brand. */
+export type WorkspaceSnapshotFields = Omit<
+  AdmittedWorkspaceSnapshot,
+  typeof admittedSnapshotBrand
+>;
+
+/**
+ * Builds a snapshot that is admitted by assertion rather than by settlement.
+ *
+ * Named for what it is so that a production composition root using it is
+ * obvious in review. Copies its input, so a caller mutating the maps and
+ * arrays it passed cannot reach the snapshot afterwards.
+ */
+export function unsafeAdmittedWorkspaceSnapshotForTest(
+  fields: WorkspaceSnapshotFields,
+): AdmittedWorkspaceSnapshot {
+  const files = new Map<string, Uint8Array>();
+  for (const [path, bytes] of fields.files) {
+    files.set(path, Uint8Array.from(bytes));
+  }
+  return {
+    ...fields,
+    aperture: [...fields.aperture],
+    files,
+  } as AdmittedWorkspaceSnapshot;
+}
+
 /** A path the snapshot does not admit. */
 export class UnadmittedPathError extends Error {
   constructor(readonly path: string) {
     super(`path is outside the admitted snapshot aperture: ${path}`);
     this.name = "UnadmittedPathError";
+  }
+}
+
+/** A path the snapshot admits but for which it carries no bytes. */
+export class MissingSnapshotBytesError extends Error {
+  constructor(readonly path: string) {
+    super(`admitted path carries no settled bytes: ${path}`);
+    this.name = "MissingSnapshotBytesError";
   }
 }
 
@@ -57,28 +119,68 @@ export class UnadmittedPathError extends Error {
  */
 export class SnapshotWorkspaceReadView implements WorkspaceReadView {
   readonly basisDigest: string;
-  private readonly decoded: ReadonlyMap<string, string>;
+  private readonly bytes: ReadonlyMap<string, Uint8Array>;
   private readonly admitted: ReadonlySet<string>;
 
-  constructor(private readonly snapshot: AdmittedWorkspaceSnapshot) {
+  constructor(snapshot: AdmittedWorkspaceSnapshot) {
     this.basisDigest = snapshot.basisDigest;
     this.admitted = new Set(snapshot.aperture);
-    const decoder = new TextDecoder();
-    const decoded = new Map<string, string>();
-    for (const [path, bytes] of snapshot.files) {
-      decoded.set(path, decoder.decode(bytes));
+    // Copied on the way in, so a snapshot assembled from a caller's mutable
+    // maps cannot change underneath the view once it exists.
+    const bytes = new Map<string, Uint8Array>();
+    for (const [path, content] of snapshot.files) {
+      bytes.set(path, Uint8Array.from(content));
     }
-    this.decoded = decoded;
+    this.bytes = bytes;
   }
 
-  readFile(path: string): string | undefined {
+  // Asynchronous because a filesystem-backed view cannot read lazily behind a
+  // synchronous signature, and both must satisfy one interface for
+  // RepoWorkspace to hold exactly one read authority.
+  async readBytes(path: string): Promise<Uint8Array> {
     if (!this.admitted.has(path)) {
       throw new UnadmittedPathError(path);
     }
-    return this.decoded.get(path);
+    const content = this.bytes.get(path);
+    if (content === undefined) {
+      throw new MissingSnapshotBytesError(path);
+    }
+    // Copied on the way out, so a caller writing through the returned array
+    // cannot rewrite the retained evidence.
+    return Uint8Array.from(content);
   }
 
-  listFiles(): readonly string[] {
-    return [...this.snapshot.files.keys()];
+  async listPaths(): Promise<readonly string[]> {
+    return [...this.bytes.keys()];
+  }
+}
+
+/**
+ * A read view backed by the live filesystem.
+ *
+ * This is the behaviour Graft had before observations were admitted, kept as
+ * an explicitly named adapter rather than as a default. Nothing about it is
+ * settled: the bytes it returns describe the disk at the moment of the call,
+ * so two reads can disagree and a basis over them means nothing. Composition
+ * roots that still use it are visible by name.
+ */
+export class FilesystemWorkspaceReadView implements WorkspaceReadView {
+  readonly basisDigest = "unsettled:filesystem";
+
+  constructor(
+    private readonly fs: { readFile(path: string): Promise<Uint8Array | Buffer> },
+    private readonly projectRoot: string,
+  ) {}
+
+  async readBytes(path: string): Promise<Uint8Array> {
+    return Uint8Array.from(await this.fs.readFile(path));
+  }
+
+  async listPaths(): Promise<readonly string[]> {
+    // The live filesystem has no admitted path set to enumerate. Callers that
+    // need one are asking a question only a settled observation can answer.
+    throw new Error(
+      `a filesystem read view has no admitted path set to list: ${this.projectRoot}`,
+    );
   }
 }
