@@ -1,0 +1,182 @@
+---
+title: "Admitted workspace snapshots for Graft analysis"
+---
+
+# Admitted workspace snapshots for Graft analysis
+
+Source issue: [flyingrobots/graft#228](https://github.com/flyingrobots/graft/issues/228)
+Parent goalpost: #232
+Legend: CORE
+
+## Sponsors
+
+- Human: James
+- Agent: Claude
+
+## Hill
+
+Graft analysis runs over bytes an observation settled, not over the disk it is
+describing.
+
+The whole feature is larger than one cycle. This packet names the whole hill
+and then states plainly which part of it is standing and which part is not, so
+that no reader — human or agent — mistakes the seam for the connection.
+
+### What is actually true today
+
+`RepoWorkspace` holds exactly one read authority. It no longer takes a
+`FileSystem`; it takes a `WorkspaceReadView`. That is real and it is landed.
+
+Everything below that line is not connected:
+
+- There is **no production decoder** that turns an Echo settlement into an
+  `AdmittedWorkspaceSnapshot`. The only constructor is
+  `unsafeAdmittedWorkspaceSnapshotForTest`.
+- **Both production composition roots** (`src/api/repo-workspace.ts`,
+  `src/mcp/repo-workspace.ts`) construct the live-filesystem view. Every real
+  Graft read today is a live disk read.
+- There is **no Graft-owned Edict source** declaring `ObserveWorkspaceSnapshot`,
+  and therefore no request, claim, or settlement.
+
+Graft's reads really do read. They read the live disk. They do not capture an
+Echo-admitted read intent, and they do not replay from Echo-settled bytes.
+
+That is an unfinished integration, not a failed architecture. The failure mode
+worth guarding against is letting the unfinished integration wear finished
+clothes.
+
+### This cycle's hill
+
+Close the gap between what the admitted-snapshot types *claim* and what they
+*enforce*, before anything is built on top of them.
+
+A type that declares `byteBudget`, `symlinkPolicy: "refuse"`, and an `aperture`
+while enforcing only the aperture is making a semantic claim the code does not
+honour. Downstream work that trusts those fields would inherit the lie.
+
+## Acceptance
+
+Carried from #228 (the whole feature). Checked items are met; unchecked items
+are the remaining slices.
+
+- [ ] exact Graft Edict source constructs a declared `ObserveWorkspaceSnapshot` request
+- [ ] Echo admits the request before an adapter reads the workspace
+- [ ] the request binds workspace root, path aperture, byte budget, symlink policy, and expected basis
+- [ ] the adapter returns schema-bound bytes or content references plus basis evidence
+- [ ] Echo admits the settlement before Graft analysis resumes
+- [ ] parsing, indexing, search, and diff analysis are deterministic over the admitted snapshot
+- [ ] unauthorized and escaped paths obstruct before observation
+- [ ] duplicate and conflicting settlements are handled explicitly
+- [ ] restart recovers pending observation without inventing an outcome
+- [ ] replay consumes the retained settlement and does not reread the workspace
+- [ ] no stdin/stdout command protocol, fake Echo transport, native Graft callback, or handwritten executable-operation package substitutes for the admitted path
+
+### This cycle's acceptance
+
+- [ ] a snapshot whose settled bytes exceed `byteBudget` is refused at construction, not at read time
+- [ ] a path recorded as a symlink is refused, honouring `symlinkPolicy: "refuse"`
+- [ ] aperture and settled-file key set must agree exactly; disagreement is refused at construction
+- [ ] `MissingSnapshotBytesError` becomes unreachable by construction
+- [ ] the admitted read view and the live-filesystem ingress are not the same type and are not substitutable
+- [ ] no `basisDigest` sentinel stands in for "this has no basis"
+- [ ] each of `safeRead`, `fileOutline`, and `readRange` performs exactly one observation
+- [ ] a mutation between policy evaluation and projection cannot change the returned bytes
+- [ ] invalid UTF-8 never reaches a caller as replacement text
+- [ ] an authority refusal stays an authority refusal across every projection, never becoming not-found
+- [ ] no `as FileSystem` cast remains
+
+## Playback Questions
+
+### Human
+
+- [ ] If I read this packet and then read the code, will I correctly believe
+      that production reads still hit the live disk?
+- [ ] Can a snapshot exist that claims a byte budget it exceeds?
+- [ ] When Graft refuses a path I am not allowed to read, does it tell me that,
+      or does it tell me the file does not exist?
+
+### Agent
+
+- [ ] Can I construct an `AdmittedWorkspaceSnapshot` that violates its own
+      declared fields?
+- [ ] Can I pass a live-filesystem view where admitted evidence is required and
+      have it compile?
+- [ ] Does any single operation observe the same path more than once?
+- [ ] Does any comment in `workspace-read-view.ts` describe behavior that does
+      not exist yet as though it exists?
+
+## Accessibility and Assistive Reading
+
+- Linear truth / reduced-complexity posture: refusal reasons are distinct,
+  stable kinds (`UNADMITTED_PATH`, `MISSING_SETTLED_BYTES`, `INVALID_UTF8`,
+  `NOT_FOUND`) rather than one collapsed not-found, so a reader who cannot see
+  a stack trace can still tell an authority problem from an absence problem.
+- Non-visual or alternate-reading expectations: every refusal is structured
+  data with a reason code, not prose in a message string.
+
+## Localization and Directionality
+
+Path handling is byte- and codepoint-exact. Paths are not case-folded,
+normalized, or reordered for display. Invalid UTF-8 in file *content* is
+surfaced as a typed outcome rather than being replaced, which is what makes
+non-UTF-8 source trees legible instead of silently corrupted.
+
+## Agent Inspectability and Explainability
+
+An agent must be able to answer "where did these bytes come from?" from the
+returned value alone. Today the honest answer is "the live disk at call time,"
+and the type system should say so by name rather than by a sentinel digest.
+
+## Non-goals
+
+- workspace mutation
+- Git or GitHub automation
+- git-warp migration
+- production default cutover
+- the autonomous delivery loop
+- **this cycle only:** the production settlement decoder, the Graft-owned Edict
+  source, restart recovery, and zero-reread replay. Those are the following
+  slices, and this packet must not be read as claiming them.
+
+## Deferred, with reasons
+
+Named here so they are not silently dropped:
+
+- **The first-basis protocol question.** Hello Echo's request fixture computes
+  the expected basis *before* sending the request, so it is a verify-and-admit
+  protocol, not a first-observation protocol. Graft's first read of an unknown
+  dirty workspace has no basis to declare. Resolving this is an Echo/Edict
+  decision (propose-and-admit vs. unknown-basis observation), not a Graft one,
+  and it gates the real-admission slice.
+- **hello-echo#26** — the observation host does not project basis/evidence
+  fields, so a settlement cannot yet be bound to observed bytes. Closure
+  condition for #228, not a blocker on this cycle.
+- **`intent` is a no-op.** Declared at `safe-read.ts:28`, read nowhere. It is
+  either removed or given semantics; it does not stay decorative.
+- **`hashContent` is a 32-bit FNV-style hash** over UTF-16 code units. Adequate
+  as an opportunistic cache fingerprint, not adequate for any "unchanged" or
+  replay claim.
+- **`deterministic-replay.ts`** is a fixture comparator, not causal replay, and
+  has no production importer.
+- **MCP "receipts"** are session telemetry (wall-clock, latency, counters) with
+  no causal basis. The name invites confusion with Echo receipts.
+
+## Backlog Context
+
+Dependency graph, corrected: #228 needs hello-echo#10 (closed 2026-07-30).
+#229 needs #228. #237 needs hello-echo#11 (closed). #228 carried a
+`state: blocked` label for three days after its dependency closed; the label
+was wrong, not the dependency.
+
+## Implementation Notes
+
+The double-observation window in `fileOutline` and `readRange` is only a real
+TOCTOU hazard for the live-filesystem view — snapshot bytes are immutable, so
+two reads of a snapshot agree by construction. The repair is still correct: it
+removes the hazard from the transitional adapter and removes the second read
+from both.
+
+`safeRead` already accepts pre-read `content` and skips its own read when given
+it, so it is close to single-observation already. Its UTF-8 defect is in the
+fall-through: when the fatal decoder throws, `content` arrives undefined, the
+helper re-reads raw bytes and `Buffer.toString("utf-8")` substitutes U+FFFD.
