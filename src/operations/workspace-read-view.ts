@@ -129,7 +129,11 @@ function checkSnapshotFields(fields: WorkspaceSnapshotFields): void {
     if (!admitted.has(path)) {
       throw new SnapshotAdmissionError(`settled bytes for a path outside the aperture: ${path}`);
     }
-    if (fields.symlinkPolicy === "refuse" && file.entryKind === "symlink") {
+    // Unconditional because `symlinkPolicy` admits exactly one value today.
+    // Branching on it would read as though a snapshot could permit symlinks,
+    // and the first reader to add a second policy value would find the branch
+    // already written and assume it had been thought through.
+    if (file.entryKind === "symlink") {
       throw new SnapshotAdmissionError(
         `symlink recorded under a policy that refuses symlinks: ${path}`,
       );
@@ -139,7 +143,8 @@ function checkSnapshotFields(fields: WorkspaceSnapshotFields): void {
 
   if (settledBytes > fields.byteBudget) {
     throw new SnapshotAdmissionError(
-      `settled bytes exceed the declared byte budget: ${settledBytes} > ${fields.byteBudget}`,
+      `settled bytes exceed the declared byte budget: ` +
+        `${String(settledBytes)} > ${String(fields.byteBudget)}`,
     );
   }
 }
