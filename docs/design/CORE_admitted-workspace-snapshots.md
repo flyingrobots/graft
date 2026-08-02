@@ -73,17 +73,27 @@ are the remaining slices.
 
 ### This cycle's acceptance
 
-- [ ] a snapshot whose settled bytes exceed `byteBudget` is refused at construction, not at read time
-- [ ] a path recorded as a symlink is refused, honouring `symlinkPolicy: "refuse"`
-- [ ] aperture and settled-file key set must agree exactly; disagreement is refused at construction
-- [ ] `MissingSnapshotBytesError` becomes unreachable by construction
-- [ ] the admitted read view and the live-filesystem ingress are not the same type and are not substitutable
-- [ ] no `basisDigest` sentinel stands in for "this has no basis"
-- [ ] each of `safeRead`, `fileOutline`, and `readRange` performs exactly one observation
-- [ ] a mutation between policy evaluation and projection cannot change the returned bytes
-- [ ] invalid UTF-8 never reaches a caller as replacement text
-- [ ] an authority refusal stays an authority refusal across every projection, never becoming not-found
-- [ ] no `as FileSystem` cast remains
+- [x] a snapshot whose settled bytes exceed `byteBudget` is refused at construction, not at read time
+- [x] a path recorded as a symlink is refused, honouring `symlinkPolicy: "refuse"`
+- [x] aperture and settled-file key set must agree exactly; disagreement is refused at construction
+- [x] `MissingSnapshotBytesError` becomes unreachable by construction
+- [x] the admitted read view and the live-filesystem ingress are not the same type and are not substitutable
+- [x] no `basisDigest` sentinel stands in for "this has no basis"
+- [x] each of `safeRead`, `fileOutline`, and `readRange` performs exactly one observation
+- [x] a mutation between policy evaluation and projection cannot change the returned bytes
+- [x] invalid UTF-8 never reaches a caller as replacement text
+- [x] an authority refusal stays an authority refusal across every projection, never becoming not-found
+- [x] no `as FileSystem` cast remains
+
+Added during the cycle, not foreseen when it opened:
+
+- [x] every MCP read path goes through the single read authority. `read_range`
+      and `file_outline` built their own reads from `ctx.fs` and never applied
+      workspace read policy at all; `code_show` re-read a file it had already
+      loaded
+- [x] policy is evaluated for every observation, not only decodable ones. The
+      first version of the UTF-8 refusal shadowed `BINARY`, so a binary file
+      was reported as an encoding problem instead of a banned one
 
 ## Playback Questions
 
@@ -151,15 +161,15 @@ Named here so they are not silently dropped:
 - **hello-echo#26** — the observation host does not project basis/evidence
   fields, so a settlement cannot yet be bound to observed bytes. Closure
   condition for #228, not a blocker on this cycle.
-- **`intent` is a no-op.** Declared at `safe-read.ts:28`, read nowhere. It is
-  either removed or given semantics; it does not stay decorative.
-- **`hashContent` is a 32-bit FNV-style hash** over UTF-16 code units. Adequate
-  as an opportunistic cache fingerprint, not adequate for any "unchanged" or
-  replay claim.
-- **`deterministic-replay.ts`** is a fixture comparator, not causal replay, and
-  has no production importer.
-- **MCP "receipts"** are session telemetry (wall-clock, latency, counters) with
-  no causal basis. The name invites confusion with Echo receipts.
+- **`intent` is a no-op.** Removed from the `safeRead` operation, which now
+  takes only what it uses, but still declared on the MCP surface where removing
+  it would be a breaking schema change. Filed as
+  `bad-code/CLEAN_safe-read-intent-is-decorative.md`.
+- **`hashContent`, `deterministic-replay.ts`, and the MCP receipt** all borrow
+  evidence vocabulary without the substance. Filed as
+  `bad-code/CLEAN_evidence-grade-naming-overclaims.md`.
+- **Duplicate bounded-read and policy-wrapper implementations.** Filed as
+  `bad-code/CLEAN_duplicate-bounded-read-implementations.md`.
 
 ## Backlog Context
 
