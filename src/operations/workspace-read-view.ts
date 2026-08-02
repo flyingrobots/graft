@@ -87,16 +87,79 @@ export type WorkspaceSnapshotFields = Omit<
   typeof admittedSnapshotBrand
 >;
 
+/** A snapshot that contradicts a field it declares. */
+export class SnapshotAdmissionError extends Error {
+  constructor(readonly detail: string) {
+    super(`snapshot contradicts its own declaration: ${detail}`);
+    this.name = "SnapshotAdmissionError";
+  }
+}
+
+/**
+ * Checks a snapshot against the fields it declares.
+ *
+ * Every check here is internal consistency: it asks whether the settlement
+ * honours the request it claims to answer, not whether Echo settled it. That
+ * second question needs the settlement envelope, and belongs to the decoder
+ * that does not exist yet. Both callers want these checks, so they live apart
+ * from either.
+ *
+ * Refusing at construction rather than at read time is the point. A snapshot
+ * that passes here is total over its aperture, so analysis can treat the
+ * observation as complete instead of discovering a hole partway through and
+ * having to decide what an absent admitted path means.
+ */
+function checkSnapshotFields(fields: WorkspaceSnapshotFields): void {
+  const admitted = new Set<string>();
+  for (const path of fields.aperture) {
+    if (admitted.has(path)) {
+      throw new SnapshotAdmissionError(`aperture lists a duplicate path: ${path}`);
+    }
+    admitted.add(path);
+  }
+
+  for (const path of admitted) {
+    if (!fields.files.has(path)) {
+      throw new SnapshotAdmissionError(`aperture path carries no settled bytes: ${path}`);
+    }
+  }
+
+  let settledBytes = 0;
+  for (const [path, file] of fields.files) {
+    if (!admitted.has(path)) {
+      throw new SnapshotAdmissionError(`settled bytes for a path outside the aperture: ${path}`);
+    }
+    if (fields.symlinkPolicy === "refuse" && file.entryKind === "symlink") {
+      throw new SnapshotAdmissionError(
+        `symlink recorded under a policy that refuses symlinks: ${path}`,
+      );
+    }
+    settledBytes += file.bytes.byteLength;
+  }
+
+  if (settledBytes > fields.byteBudget) {
+    throw new SnapshotAdmissionError(
+      `settled bytes exceed the declared byte budget: ${settledBytes} > ${fields.byteBudget}`,
+    );
+  }
+}
+
 /**
  * Builds a snapshot that is admitted by assertion rather than by settlement.
  *
  * Named for what it is so that a production composition root using it is
- * obvious in review. Copies its input, so a caller mutating the maps and
- * arrays it passed cannot reach the snapshot afterwards.
+ * obvious in review. The assertion is only about provenance: no Echo
+ * settlement stands behind this value. The fields it declares are still
+ * checked, because a test fixture that could contradict itself would prove
+ * analysis works against observations that cannot occur.
+ *
+ * Copies its input, so a caller mutating the maps and arrays it passed cannot
+ * reach the snapshot afterwards.
  */
 export function unsafeAdmittedWorkspaceSnapshotForTest(
   fields: WorkspaceSnapshotFields,
 ): AdmittedWorkspaceSnapshot {
+  checkSnapshotFields(fields);
   const files = new Map<string, SettledFile>();
   for (const [path, file] of fields.files) {
     files.set(path, { bytes: Uint8Array.from(file.bytes), entryKind: file.entryKind });
