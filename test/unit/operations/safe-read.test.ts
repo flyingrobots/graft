@@ -3,6 +3,7 @@ import { safeRead } from "../../../src/operations/safe-read.js";
 import { CanonicalJsonCodec } from "../../../src/adapters/canonical-json.js";
 import { fileOutline } from "../../../src/operations/file-outline.js";
 import { FakeFileSystem } from "../../helpers/fake-fs.js";
+import { observe } from "../../helpers/observed.js";
 import {
   SMALL_TS,
   MEDIUM_TS,
@@ -32,7 +33,7 @@ const fs = new FakeFileSystem({
 
 describe("operations: safe_read", () => {
   it("returns content for small files", async () => {
-    const result = await safeRead("/virtual/small.ts", { fs, codec });
+    const result = await safeRead(await observe(fs, "/virtual/small.ts"), { codec });
     expect(result.projection).toBe("content");
     expect(result.content).toBeDefined();
     expect(result.content).toContain("greet");
@@ -40,7 +41,7 @@ describe("operations: safe_read", () => {
   });
 
   it("returns outline for large files", async () => {
-    const result = await safeRead("/virtual/large.ts", { fs, codec });
+    const result = await safeRead(await observe(fs, "/virtual/large.ts"), { codec });
     expect(result.projection).toBe("outline");
     expect(result.outline).toBeDefined();
     expect(result.outline!.length).toBeGreaterThan(0);
@@ -50,80 +51,67 @@ describe("operations: safe_read", () => {
   });
 
   it("returns refused for binary files", async () => {
-    const result = await safeRead(
-      "/virtual/ban-targets/image.png",
-      { fs, codec },
-    );
+    const result = await safeRead(await observe(fs, "/virtual/ban-targets/image.png"), {codec });
     expect(result.projection).toBe("refused");
     expect(result.reason).toBe("BINARY");
     expect(result.next).toBeDefined();
   });
 
   it("returns refused for lockfiles", async () => {
-    const result = await safeRead(
-      "/virtual/ban-targets/package-lock.json",
-      { fs, codec },
-    );
+    const result = await safeRead(await observe(fs, "/virtual/ban-targets/package-lock.json"), {codec });
     expect(result.projection).toBe("refused");
     expect(result.reason).toBe("LOCKFILE");
   });
 
   it("returns refused for minified files", async () => {
-    const result = await safeRead(
-      "/virtual/ban-targets/bundle.min.js",
-      { fs, codec },
-    );
+    const result = await safeRead(await observe(fs, "/virtual/ban-targets/bundle.min.js"), {codec });
     expect(result.projection).toBe("refused");
     expect(result.reason).toBe("MINIFIED");
   });
 
   it("returns refused for secret files", async () => {
-    const result = await safeRead(
-      "/virtual/ban-targets/.env",
-      { fs, codec },
-    );
+    const result = await safeRead(await observe(fs, "/virtual/ban-targets/.env"), {codec });
     expect(result.projection).toBe("refused");
     expect(result.reason).toBe("SECRET");
   });
 
-  it("returns error for nonexistent files", async () => {
-    const result = await safeRead(
-      "/virtual/does-not-exist.ts",
-      { fs, codec },
-    );
-    expect(result.projection).toBe("error");
-    expect(result.reason).toBe("NOT_FOUND");
+  it("cannot be reached for a nonexistent file", async () => {
+    // Absence is the observation's answer, not the projection's. safeRead no
+    // longer takes a filesystem, so it has no way to invent a NOT_FOUND for a
+    // file it was never handed. RepoWorkspace.safeRead covers the shape a
+    // caller actually sees.
+    await expect(observe(fs, "/virtual/nope.ts")).rejects.toThrow();
   });
 
   it("returns path in every result", async () => {
     const filePath = "/virtual/small.ts";
-    const result = await safeRead(filePath, { fs, codec });
+    const result = await safeRead(await observe(fs, filePath), { codec });
     expect(result.path).toBe(filePath);
   });
 
   it("includes actual dimensions in result", async () => {
-    const result = await safeRead("/virtual/small.ts", { fs, codec });
+    const result = await safeRead(await observe(fs, "/virtual/small.ts"), { codec });
     expect(result.actual).toBeDefined();
     expect(result.actual!.lines).toBeGreaterThan(0);
     expect(result.actual!.bytes).toBeGreaterThan(0);
   });
 
   it("includes threshold values in result", async () => {
-    const result = await safeRead("/virtual/small.ts", { fs, codec });
+    const result = await safeRead(await observe(fs, "/virtual/small.ts"), { codec });
     expect(result.thresholds).toBeDefined();
     expect(result.thresholds!.lines).toBe(150);
     expect(result.thresholds!.bytes).toBe(12288);
   });
 
   it("includes estimatedBytesAvoided when outline returned", async () => {
-    const result = await safeRead("/virtual/large.ts", { fs, codec });
+    const result = await safeRead(await observe(fs, "/virtual/large.ts"), { codec });
     expect(result.projection).toBe("outline");
     expect(result.estimatedBytesAvoided).toBeDefined();
     expect(result.estimatedBytesAvoided!).toBeGreaterThan(0);
   });
 
   it("returns a heading outline for large markdown files", async () => {
-    const result = await safeRead("/virtual/large-readme.md", { fs, codec });
+    const result = await safeRead(await observe(fs, "/virtual/large-readme.md"), { codec });
     expect(result.projection).toBe("outline");
     expect(result.reason).toBe("OUTLINE");
     expect(result.outline).toContainEqual(
@@ -136,7 +124,7 @@ describe("operations: safe_read", () => {
   });
 
   it("returns an empty outline for large markdown files with no headings", async () => {
-    const result = await safeRead("/virtual/large-no-headings.md", { fs, codec });
+    const result = await safeRead(await observe(fs, "/virtual/large-no-headings.md"), { codec });
     expect(result.projection).toBe("outline");
     expect(result.reason).toBe("OUTLINE");
     expect(result.outline).toEqual([]);
@@ -153,7 +141,7 @@ describe("operations: safe_read", () => {
       ].join("\n"),
     });
 
-    const result = await safeRead("/virtual/large-logo.svg", { fs: svgFs, codec });
+    const result = await safeRead(await observe(svgFs, "/virtual/large-logo.svg"), { codec });
 
     expect(result.projection).toBe("outline");
     expect(result.reason).toBe("UNSUPPORTED_LANGUAGE");
@@ -166,8 +154,7 @@ describe("operations: safe_read", () => {
     const textFs = new FakeFileSystem({
       "/virtual/large.txt": "ship it\n".repeat(180),
     });
-    const result = await safeRead("/virtual/large.txt", {
-      fs: textFs,
+    const result = await safeRead(await observe(textFs, "/virtual/large.txt"), {
       codec,
       proseProjector: {
         project() {
@@ -182,21 +169,9 @@ describe("operations: safe_read", () => {
     expect(result.jumpTable).toEqual([]);
   });
 
-  it("accepts optional intent parameter without changing policy", async () => {
-    const result = await safeRead(
-      "/virtual/large.ts",
-      { fs, codec, intent: "reviewing the class structure" },
-    );
-    // Intent is advisory only — still returns outline for large file
-    expect(result.projection).toBe("outline");
-  });
-
   it("respects session depth when provided", async () => {
     // medium.ts is under static thresholds but may exceed dynamic cap
-    const result = await safeRead(
-      "/virtual/medium.ts",
-      { fs, codec, sessionDepth: "late" },
-    );
+    const result = await safeRead(await observe(fs, "/virtual/medium.ts"), {codec, sessionDepth: "late" });
     // medium.ts is ~3KB — check if it exceeds 4KB late cap
     // If under 4KB, should be content; if over, SESSION_CAP
     expect(["content", "outline"]).toContain(result.projection);
@@ -219,8 +194,8 @@ describe("operations: safe_read", () => {
     });
     asyncFs.readFileSync = syncRead;
 
-    const safeReadResult = await safeRead(filePath, { fs: asyncFs, codec });
-    const fileOutlineResult = await fileOutline(filePath, { fs: asyncFs });
+    const safeReadResult = await safeRead(await observe(asyncFs, filePath), { codec });
+    const fileOutlineResult = await fileOutline(await observe(asyncFs, filePath));
 
     expect(safeReadResult.projection).toBe("content");
     expect(fileOutlineResult.outline).toEqual(expect.arrayContaining([

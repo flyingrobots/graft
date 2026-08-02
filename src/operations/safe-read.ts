@@ -3,7 +3,7 @@ import { ContentResult, RefusedResult } from "../policy/types.js";
 import type { GovernorDepth } from "../policy/types.js";
 import { extractOutlineForFileAsync } from "../parser/outline.js";
 import type { OutlineEntry, JumpEntry } from "../parser/types.js";
-import type { FileSystem } from "../ports/filesystem.js";
+import { observedActual, type ObservedFile } from "./workspace-read-view.js";
 import type { JsonCodec } from "../ports/codec.js";
 import type { ProseProjection, ProseProjectionProvider } from "./colorful-prose-projection.js";
 
@@ -22,10 +22,7 @@ export interface SafeReadResult {
 }
 
 export interface SafeReadOptions {
-  fs: FileSystem;
   codec: JsonCodec;
-  content?: string | undefined;
-  intent?: string | undefined;
   policyPath?: string | undefined;
   graftignorePatterns?: string[] | undefined;
   sessionDepth?: GovernorDepth | undefined;
@@ -33,32 +30,18 @@ export interface SafeReadOptions {
   proseProjector?: ProseProjectionProvider | undefined;
 }
 
+/**
+ * Applies read policy to bytes already observed.
+ *
+ * Takes the observation rather than a filesystem: the content this returns is
+ * necessarily the content the policy decision was made about.
+ */
 export async function safeRead(
-  filePath: string,
+  file: ObservedFile,
   options: SafeReadOptions,
 ): Promise<SafeReadResult> {
-  let content: string;
-  let bytes: number;
-
-  if (options.content !== undefined) {
-    content = options.content;
-    bytes = Buffer.byteLength(content, "utf-8");
-  } else {
-    let raw: Buffer;
-    try {
-      raw = await options.fs.readFile(filePath);
-    } catch {
-      return {
-        path: filePath,
-        projection: "error",
-        reason: "NOT_FOUND",
-      };
-    }
-    content = raw.toString("utf-8");
-    bytes = raw.byteLength;
-  }
-
-  const lines = content.split("\n").length;
+  const filePath = file.path;
+  const { lines, bytes } = observedActual(file);
 
   const policy = evaluatePolicy(
     { path: options.policyPath ?? filePath, lines, bytes },
@@ -78,15 +61,37 @@ export async function safeRead(
     ...(policy.sessionDepth !== undefined ? { sessionDepth: policy.sessionDepth } : {}),
   };
 
-  if (policy instanceof ContentResult) {
-    return { ...base, content };
-  }
-
   if (policy instanceof RefusedResult) {
     return {
       ...base,
       next: [...policy.next],
     };
+  }
+
+  // Below here the projection returns text, so the bytes have to have one.
+  // Refused rather than decoded leniently: the previous path read raw bytes
+  // and called Buffer.toString("utf-8"), which substitutes U+FFFD for invalid
+  // sequences, returning content the observation never settled under the
+  // identity of content it did.
+  //
+  // After the policy decision, not before it. A banned or binary path is
+  // refused for being banned or binary whatever its encoding, and reporting
+  // that as an encoding problem would lose the reason the caller needs.
+  if (file.utf8 === null) {
+    return {
+      ...base,
+      projection: "refused",
+      reason: "INVALID_UTF8",
+      next: [
+        "This file is not valid UTF-8, so it has no faithful text projection.",
+        "Read it as bytes if you need its contents.",
+      ],
+    };
+  }
+  const content = file.utf8;
+
+  if (policy instanceof ContentResult) {
+    return { ...base, content };
   }
 
   // projection === "outline"

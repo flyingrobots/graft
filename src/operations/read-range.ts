@@ -1,4 +1,4 @@
-import type { FileSystem } from "../ports/filesystem.js";
+import type { ObservedFile } from "./workspace-read-view.js";
 
 const MAX_RANGE_LINES = 250;
 
@@ -12,18 +12,23 @@ export interface ReadRangeResult {
   clipped?: boolean | undefined;
 }
 
-export async function readRange(
-  filePath: string,
+/**
+ * Projects a line range from bytes already observed.
+ *
+ * Synchronous because it performs no I/O. The caller supplies the observation,
+ * so the range returned is necessarily cut from the same bytes the caller
+ * authorised.
+ */
+export function readRange(
+  file: ObservedFile,
   start: number,
   end: number,
-  opts: { fs: FileSystem },
-): Promise<ReadRangeResult> {
-  let raw: string;
-  try {
-    raw = await opts.fs.readFile(filePath, "utf-8");
-  } catch {
-    return { path: filePath, reason: "NOT_FOUND" };
+): ReadRangeResult {
+  const filePath = file.path;
+  if (file.utf8 === null) {
+    return { path: filePath, reason: "INVALID_UTF8" };
   }
+  const raw = file.utf8;
 
   if (start > end) {
     return { path: filePath, reason: "INVALID_RANGE" };

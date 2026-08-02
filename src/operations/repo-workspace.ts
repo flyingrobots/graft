@@ -17,8 +17,10 @@ import { RefusedResult } from "../policy/types.js";
 import { loadGraftignore } from "../policy/graftignore.js";
 import type { FileSystem } from "../ports/filesystem.js";
 import {
-  readUtf8,
+  observedActual,
+  observeFile,
   UnadmittedPathError,
+  type ObservedFile,
   type WorkspaceReadView,
 } from "./workspace-read-view.js";
 import type { JsonCodec } from "../ports/codec.js";
@@ -83,7 +85,7 @@ export interface RepoWorkspaceOptions {
    * leave correctness resting on every code path remembering which one is
    * lawful; a workspace built over a settled observation must not be able to
    * reach the live disk at all. Callers that still want live reads pass a
-   * `FilesystemWorkspaceReadView` and are visible by name.
+   * `LiveWorkspaceReadSource` and are visible by name.
    */
   readonly readView: WorkspaceReadView;
   readonly codec: JsonCodec;
@@ -116,26 +118,6 @@ export class RepoWorkspace {
   readonly governor: GovernorTracker;
   readonly cache: ObservationCache;
   readonly proseProjector: ProseProjectionProvider | undefined;
-
-  /**
-   * Presents the read view in the shape the operation helpers expect.
-   *
-   * They take a `FileSystem` and use exactly one method of it. Handing them
-   * the real filesystem here would reopen the second door this class exists to
-   * close, so they receive a facade over the same single authority. Every
-   * other `FileSystem` capability is absent rather than stubbed, so a helper
-   * that started using one fails to compile instead of silently reaching the
-   * disk.
-   */
-  private readViewAsFileSystem(): Pick<FileSystem, "readFile"> {
-    const view = this.readView;
-    return {
-      readFile: (async (path: string, encoding?: "utf-8") =>
-        encoding === "utf-8"
-          ? await readUtf8(view, path)
-          : Buffer.from(await view.readBytes(path))) as FileSystem["readFile"],
-    };
-  }
 
   constructor(options: RepoWorkspaceOptions) {
     this.projectRoot = options.projectRoot;
@@ -193,6 +175,25 @@ export class RepoWorkspace {
     };
   }
 
+  /**
+   * Observes a path exactly once, or reports that it could not be observed.
+   *
+   * A path the observation never admitted is a refusal, not an absence, and it
+   * propagates. Folding it into not-found would report an authority escalation
+   * as a cache miss, and would tell a caller a file does not exist when what
+   * is true is that they may not read it.
+   */
+  private async observe(filePath: string): Promise<ObservedFile | null> {
+    try {
+      return await observeFile(this.readView, filePath);
+    } catch (error) {
+      if (error instanceof UnadmittedPathError) {
+        throw error;
+      }
+      return null;
+    }
+  }
+
   private async outlineForSnapshot(snapshot: CachedFile): Promise<ExtractedFileOutline | null> {
     return extractOutlineProjectionForContent(snapshot.path, snapshot.rawContent, {
       proseProjector: this.proseProjector,
@@ -202,18 +203,15 @@ export class RepoWorkspace {
   async safeRead(args: { readonly path: string; readonly intent?: string | undefined }): Promise<RepoWorkspaceSafeReadResult> {
     const filePath = this.resolveWorkspacePath(args.path);
 
-    let snapshot: CachedFile | null = null;
-    try {
-      snapshot = new CachedFile(filePath, await readUtf8(this.readView, filePath));
-    } catch (error) {
-      // A path the observation never admitted is a refusal, not an absence.
-      // Reporting it as not-found would make an authority escalation look like
-      // a cache miss.
-      if (error instanceof UnadmittedPathError) {
-        throw error;
-      }
-      // Let safeRead produce the not-found error shape.
+    const observed = await this.observe(filePath);
+    if (observed === null) {
+      return { path: filePath, projection: "error", reason: "NOT_FOUND" };
     }
+
+    // No cache entry for bytes with no faithful text projection. Hashing and
+    // comparing a lenient decode would key the cache by content the
+    // observation never settled.
+    const snapshot = observed.utf8 === null ? null : new CachedFile(filePath, observed.utf8);
 
     if (snapshot !== null) {
       const cacheResult = this.cache.check(filePath, snapshot.rawContent);
@@ -243,11 +241,8 @@ export class RepoWorkspace {
         }
         const freshOutline = await this.outlineForSnapshot(snapshot);
         if (freshOutline === null) {
-          return await safeRead(filePath, {
-            fs: this.readViewAsFileSystem() as FileSystem,
+          return await safeRead(observed, {
             codec: this.codec,
-            content: snapshot.rawContent,
-            intent: args.intent,
             policyPath: this.policyPathForWorkspaceFile(filePath),
             graftignorePatterns: [...this.graftignorePatterns],
             sessionDepth: this.governor.getGovernorDepth(),
@@ -277,11 +272,8 @@ export class RepoWorkspace {
       }
     }
 
-    const result = await safeRead(filePath, {
-      fs: this.readViewAsFileSystem() as FileSystem,
+    const result = await safeRead(observed, {
       codec: this.codec,
-      content: snapshot?.rawContent,
-      intent: args.intent,
       policyPath: this.policyPathForWorkspaceFile(filePath),
       graftignorePatterns: [...this.graftignorePatterns],
       sessionDepth: this.governor.getGovernorDepth(),
@@ -316,22 +308,20 @@ export class RepoWorkspace {
   async fileOutline(args: { readonly path: string }): Promise<RepoWorkspaceFileOutlineResult> {
     const filePath = this.resolveWorkspacePath(args.path);
 
-    let rawContent: string | null = null;
-    try {
-      rawContent = await readUtf8(this.readView, filePath);
-    } catch {
-      // Let fileOutline shape the not-found result.
+    const observed = await this.observe(filePath);
+    if (observed === null) {
+      return { path: filePath, outline: [], jumpTable: [], reason: "NOT_FOUND", error: "File not found" };
+    }
+    const rawContent = observed.utf8;
+
+    // Refusal is evaluated for every observation. Gating it on a successful
+    // decode let a banned or binary path skip policy and reach the projection.
+    const refusal = this.evaluateRefusal(filePath, observedActual(observed));
+    if (refusal !== null) {
+      return refusal;
     }
 
     if (rawContent !== null) {
-      const actual = {
-        lines: rawContent.split("\n").length,
-        bytes: Buffer.byteLength(rawContent),
-      };
-      const refusal = this.evaluateRefusal(filePath, actual);
-      if (refusal !== null) {
-        return refusal;
-      }
       const cacheResult = this.cache.check(filePath, rawContent);
       if (cacheResult.hit) {
         cacheResult.obs.touch(this.cache.now());
@@ -340,12 +330,12 @@ export class RepoWorkspace {
           outline: [...cacheResult.obs.outline],
           jumpTable: [...cacheResult.obs.jumpTable],
           cacheHit: true,
+          actual: { ...cacheResult.obs.actual },
         };
       }
     }
 
-    const result = await fileOutline(filePath, {
-      fs: this.readViewAsFileSystem() as FileSystem,
+    const result = await fileOutline(observed, {
       proseProjector: this.proseProjector,
     });
     if (rawContent !== null && result.reason !== "UNSUPPORTED_LANGUAGE") {
@@ -362,43 +352,37 @@ export class RepoWorkspace {
 
   async readRange(args: { readonly path: string; readonly start: number; readonly end: number }): Promise<RepoWorkspaceReadRangeResult> {
     const filePath = this.resolveWorkspacePath(args.path);
-    let rawContent: string | null = null;
-    try {
-      rawContent = await readUtf8(this.readView, filePath);
-    } catch {
-      // Let readRange shape the not-found result.
+    const observed = await this.observe(filePath);
+    if (observed === null) {
+      return { path: filePath, reason: "NOT_FOUND" };
     }
-    if (rawContent !== null) {
-      const refusal = this.evaluateRefusal(filePath, {
-        lines: rawContent.split("\n").length,
-        bytes: Buffer.byteLength(rawContent),
-      });
-      if (refusal !== null) {
-        return refusal;
-      }
+    // Refusal is evaluated for every observation, decodable or not.
+    const refusal = this.evaluateRefusal(filePath, observedActual(observed));
+    if (refusal !== null) {
+      return refusal;
     }
-    return readRange(filePath, args.start, args.end, { fs: this.readViewAsFileSystem() as FileSystem });
+    return readRange(observed, args.start, args.end);
   }
 
   async changedSince(args: { readonly path: string; readonly consume?: boolean | undefined }): Promise<RepoWorkspaceChangedSinceResult> {
     const filePath = this.resolveWorkspacePath(args.path);
     const consume = args.consume === true;
 
-    let rawContent: string;
-    try {
-      rawContent = await readUtf8(this.readView, filePath);
-    } catch {
+    const observed = await this.observe(filePath);
+    if (observed === null) {
       return { status: "file_not_found" };
     }
-
-    const actual = {
-      lines: rawContent.split("\n").length,
-      bytes: Buffer.byteLength(rawContent),
-    };
+    const actual = observedActual(observed);
     const refusal = this.evaluateRefusal(filePath, actual);
     if (refusal !== null) {
       return { status: "refused", reason: refusal.reason };
     }
+    if (observed.utf8 === null) {
+      // Not an absence and not an unchanged file: there is no faithful text
+      // projection to compare outlines across.
+      return { status: "refused", reason: "INVALID_UTF8" };
+    }
+    const rawContent = observed.utf8;
 
     const cacheResult = this.cache.check(filePath, rawContent);
     if (cacheResult.hit) {

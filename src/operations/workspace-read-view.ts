@@ -64,6 +64,60 @@ export async function readUtf8(view: WorkspaceReadView, path: string): Promise<s
   return new TextDecoder("utf-8", { fatal: true }).decode(await view.readBytes(path));
 }
 
+/**
+ * One file as a single observation saw it.
+ *
+ * Operations take this rather than a filesystem so that policy evaluation,
+ * cache comparison, and projection all describe the same bytes. When each
+ * step fetched its own copy, a file rewritten between two of them could be
+ * authorised in one version and returned in another, and the cache would
+ * record the hash of one beside the outline of the other.
+ *
+ * `utf8` is null when the bytes are not valid UTF-8. It is a separate field
+ * rather than a decode at the point of use because a basis identifies bytes:
+ * substituting replacement characters would return content the observation
+ * never settled, under the identity of content it did.
+ */
+export interface ObservedFile {
+  readonly path: string;
+  readonly bytes: Uint8Array;
+  readonly utf8: string | null;
+}
+
+/**
+ * The size an observation has, whether or not it decodes as text.
+ *
+ * Policy must be evaluated for every observation, including bytes with no
+ * faithful text projection: a binary or banned path is refused for being
+ * binary or banned, and skipping the check when decoding fails would let it
+ * through to a projection instead. Counting 0x0A is exact for any byte
+ * sequence, because a newline byte cannot occur inside a multi-byte UTF-8
+ * sequence.
+ */
+export function observedActual(file: ObservedFile): { lines: number; bytes: number } {
+  return {
+    lines: file.utf8 !== null
+      ? file.utf8.split("\n").length
+      : file.bytes.reduce((count, byte) => (byte === 0x0a ? count + 1 : count), 1),
+    bytes: file.bytes.byteLength,
+  };
+}
+
+/** Observes a path exactly once. Rejects if the view cannot produce it. */
+export async function observeFile(
+  view: WorkspaceReadView,
+  path: string,
+): Promise<ObservedFile> {
+  const bytes = await view.readBytes(path);
+  let utf8: string | null;
+  try {
+    utf8 = new TextDecoder("utf-8", { fatal: true }).decode(bytes);
+  } catch {
+    utf8 = null;
+  }
+  return { path, bytes, utf8 };
+}
+
 declare const admittedSnapshotBrand: unique symbol;
 
 /**

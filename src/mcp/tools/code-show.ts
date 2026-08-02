@@ -1,5 +1,4 @@
 import { z } from "zod";
-import { readRange } from "../../operations/read-range.js";
 import type { ToolDefinition, ToolContext, ToolHandler } from "../context.js";
 import { nodePathOps } from "../../adapters/node-paths.js";
 import { indexHead } from "../../warp/index-head.js";
@@ -245,9 +244,10 @@ export async function runCodeShow(
     });
   }
 
-  const rangeResult = resolvedRef !== undefined
-    ? readRangeFromContent(loc.path, content, loc.startLine, loc.endLine)
-    : await readRange(ctx.resolvePath(loc.path), loc.startLine, loc.endLine, { fs: ctx.fs });
+  // From the content already in hand on both branches. The live branch used to
+  // read the file a second time here, so the range could be cut from different
+  // bytes than the ones loaded and policy-checked just above.
+  const rangeResult = readRangeFromContent(loc.path, content, loc.startLine, loc.endLine);
 
   ctx.recordFootprint({
     paths: [loc.path],

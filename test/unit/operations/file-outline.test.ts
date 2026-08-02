@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest";
 import { fileOutline } from "../../../src/operations/file-outline.js";
 import { FakeFileSystem } from "../../helpers/fake-fs.js";
+import { observe } from "../../helpers/observed.js";
 import {
   SMALL_TS,
   MEDIUM_TS,
@@ -21,13 +22,13 @@ const fs = new FakeFileSystem({
 
 describe("operations: file_outline", () => {
   it("returns outline for any file (never refused)", async () => {
-    const result = await fileOutline("/virtual/large.ts", { fs });
+    const result = await fileOutline(await observe(fs, "/virtual/large.ts"));
     expect(result.outline).toBeDefined();
     expect(result.outline.length).toBeGreaterThan(0);
   });
 
   it("includes jump table", async () => {
-    const result = await fileOutline("/virtual/medium.ts", { fs });
+    const result = await fileOutline(await observe(fs, "/virtual/medium.ts"));
     expect(result.jumpTable).toBeDefined();
     expect(result.jumpTable.length).toBeGreaterThan(0);
     expect(result.jumpTable[0]).toHaveProperty("symbol");
@@ -37,7 +38,7 @@ describe("operations: file_outline", () => {
   });
 
   it("extracts classes, functions, interfaces, types from medium.ts", async () => {
-    const result = await fileOutline("/virtual/medium.ts", { fs });
+    const result = await fileOutline(await observe(fs, "/virtual/medium.ts"));
     const kinds = result.outline.map((e) => e.kind);
     expect(kinds).toContain("class");
     expect(kinds).toContain("function");
@@ -45,25 +46,25 @@ describe("operations: file_outline", () => {
     expect(kinds).toContain("type");
   });
 
-  it("returns error for nonexistent file", async () => {
-    const result = await fileOutline("/virtual/nope.ts", { fs });
-    expect(result.error).toBeDefined();
+  it("cannot be reached for a nonexistent file", async () => {
+    // Absence is the observation's answer, not the projection's.
+    await expect(observe(fs, "/virtual/nope.ts")).rejects.toThrow();
   });
 
   it("handles broken files with partial: true", async () => {
-    const result = await fileOutline("/virtual/broken.ts", { fs });
+    const result = await fileOutline(await observe(fs, "/virtual/broken.ts"));
     expect(result.partial).toBe(true);
     expect(result.outline.length).toBeGreaterThan(0);
   });
 
   it("includes path in result", async () => {
     const filePath = "/virtual/small.ts";
-    const result = await fileOutline(filePath, { fs });
+    const result = await fileOutline(await observe(fs, filePath));
     expect(result.path).toBe(filePath);
   });
 
   it("returns a heading outline for markdown files", async () => {
-    const result = await fileOutline("/virtual/README.md", { fs });
+    const result = await fileOutline(await observe(fs, "/virtual/README.md"));
     expect(result.outline).toContainEqual(
       expect.objectContaining({
         kind: "heading",
@@ -84,8 +85,7 @@ describe("operations: file_outline", () => {
     const textFs = new FakeFileSystem({
       "/virtual/notes.txt": "ship it\n",
     });
-    const result = await fileOutline("/virtual/notes.txt", {
-      fs: textFs,
+    const result = await fileOutline(await observe(textFs, "/virtual/notes.txt"), {
       proseProjector: {
         project() {
           throw new Error("invalid Colorful JSON");

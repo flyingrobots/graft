@@ -1003,6 +1003,9 @@ const mcpOutputBodySchemas: Record<McpToolName, z.ZodType> = {
       reason: z.string().optional(),
       error: z.string().optional(),
       cacheHit: z.boolean().optional(),
+      // The size of the observation the outline was taken from. Present on a
+      // cache hit so a caller can see what the retained outline describes.
+      actual: z.object({ lines: z.number(), bytes: z.number() }).optional(),
     }).strict(),
     z.object({
       path: z.string(),

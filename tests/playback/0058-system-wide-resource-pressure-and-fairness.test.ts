@@ -1,4 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { observe } from "../../test/helpers/observed.js";
 import * as fs from "node:fs";
 import * as path from "node:path";
 import { CanonicalJsonCodec } from "../../src/adapters/canonical-json.js";
@@ -213,8 +214,8 @@ describe("0058 playback: system-wide resource pressure and fairness", () => {
     });
     asyncFs.readFileSync = syncRead;
 
-    const safeReadResult = await safeRead(filePath, { fs: asyncFs, codec });
-    const fileOutlineResult = await fileOutline(filePath, { fs: asyncFs });
+    const safeReadResult = await safeRead(await observe(asyncFs, filePath), { codec });
+    const fileOutlineResult = await fileOutline(await observe(asyncFs, filePath));
 
     expect(safeReadResult.projection).toBe("content");
     expect(fileOutlineResult.outline).toEqual(expect.arrayContaining([
