@@ -127,6 +127,7 @@ export const cliOutputBodySchemas = {
   symbol_blame: mcpOutputBodySchemas.graft_blame,
   symbol_difficulty: mcpOutputBodySchemas.graft_difficulty,
   struct_review: mcpOutputBodySchemas.graft_review,
+  struct_import_diagnostics: mcpOutputBodySchemas.graft_import_diagnostics,
   struct_test_coverage: mcpOutputBodySchemas.graft_test_coverage,
   struct_dead_symbols: mcpOutputBodySchemas.graft_dead_symbols,
   review_cooldown: reviewCooldownBodySchema,

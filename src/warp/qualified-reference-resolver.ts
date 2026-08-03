@@ -1,0 +1,579 @@
+// ---------------------------------------------------------------------------
+// Qualified reference resolver — shared language-adapter contract
+// ---------------------------------------------------------------------------
+
+import { createHash } from "node:crypto";
+import type { PatchBuilderV2 } from "@git-stunts/git-warp";
+import type { SupportedLang } from "../parser/lang.js";
+import type { PathOps } from "../ports/paths.js";
+import type { ImportBindingDiagnostic } from "./import-diagnostic.js";
+import { SymIdCodec } from "./sym-id-codec.js";
+import { resolvePythonModulePath } from "./python-import-resolver.js";
+
+type TSNode = import("web-tree-sitter").SyntaxNode;
+
+export type QualifiedReferenceLanguage = "python" | "ts" | "tsx" | "js" | "rust" | "go";
+
+export interface GoReferenceContext {
+  readonly modulePath: string;
+  readonly packageNames: ReadonlyMap<string, string | null>;
+  readonly packageFiles: ReadonlyMap<string, readonly string[]>;
+  /** package directory -> exported name -> unique declaring file, or null when ambiguous */
+  readonly declarations: ReadonlyMap<string, ReadonlyMap<string, string | null>>;
+}
+
+export interface QualifiedReferenceContext {
+  readonly pathOps: PathOps;
+  readonly knownFiles: ReadonlySet<string>;
+  readonly go?: GoReferenceContext | undefined;
+}
+
+export interface ResolvedImportBinding {
+  readonly name: string;
+  readonly targetFilePath: string | null;
+  readonly packageDirectory?: string | undefined;
+  readonly importNode: TSNode;
+}
+
+export interface QualifiedReferenceAccess {
+  readonly binding: string;
+  readonly member: string;
+  readonly targetFilePath: string;
+  readonly node: TSNode;
+  readonly shadow: ImportBindingDiagnostic | null;
+}
+
+export interface QualifiedReferenceAnalysis {
+  readonly bindings: readonly ResolvedImportBinding[];
+  readonly accesses: readonly QualifiedReferenceAccess[];
+  readonly diagnostics: readonly ImportBindingDiagnostic[];
+}
+
+interface ShadowRegion {
+  readonly binding: string;
+  readonly startIndex: number;
+  readonly endIndex: number;
+  readonly diagnostic: ImportBindingDiagnostic;
+}
+
+function astNodeId(filePath: string, node: TSNode): string {
+  const hash = createHash("sha1")
+    .update(`${filePath}:${node.type}:${String(node.startIndex)}:${String(node.endIndex)}`)
+    .digest("hex")
+    .slice(0, 12);
+  return `ast:${filePath}:${hash}`;
+}
+
+function emitAstAnchor(patch: PatchBuilderV2, filePath: string, node: TSNode): string {
+  const nodeId = astNodeId(filePath, node);
+  patch.addNode(nodeId);
+  patch.setProperty(nodeId, "type", node.type);
+  patch.setProperty(nodeId, "named", node.isNamed());
+  patch.setProperty(nodeId, "startRow", node.startPosition.row);
+  patch.setProperty(nodeId, "startCol", node.startPosition.column);
+  patch.setProperty(nodeId, "endRow", node.endPosition.row);
+  patch.setProperty(nodeId, "endCol", node.endPosition.column);
+  patch.setProperty(nodeId, "filePath", filePath);
+  return nodeId;
+}
+
+function walk(node: TSNode, visit: (candidate: TSNode) => void): void {
+  visit(node);
+  for (const child of node.namedChildren) walk(child, visit);
+}
+
+function languageName(language: QualifiedReferenceLanguage): ImportBindingDiagnostic["language"] {
+  if (language === "ts" || language === "tsx") return "typescript";
+  if (language === "js") return "javascript";
+  return language;
+}
+
+function compiledSpecifierSourceCandidates(raw: string): readonly string[] {
+  const pairs: readonly [string, readonly string[]][] = [
+    [".js", [".ts", ".tsx"]], [".jsx", [".tsx", ".ts"]],
+    [".mjs", [".mts", ".ts"]], [".cjs", [".cts", ".ts"]],
+  ];
+  for (const [extension, replacements] of pairs) {
+    if (!raw.endsWith(extension)) continue;
+    const base = raw.slice(0, -extension.length);
+    return replacements.map((replacement) => `${base}${replacement}`);
+  }
+  return [];
+}
+
+function resolveRelativeModule(
+  source: string,
+  importingFilePath: string,
+  context: QualifiedReferenceContext,
+): string | null {
+  if (!source.startsWith(".") && !source.startsWith("/")) return null;
+  const directory = importingFilePath.includes("/")
+    ? importingFilePath.slice(0, importingFilePath.lastIndexOf("/"))
+    : "";
+  const raw = directory === ""
+    ? context.pathOps.normalize(source)
+    : context.pathOps.join(directory, source);
+  const candidates = [
+    raw,
+    ...compiledSpecifierSourceCandidates(raw),
+    `${raw}.ts`, `${raw}.tsx`, `${raw}.js`, `${raw}.jsx`,
+    `${raw}/index.ts`, `${raw}/index.tsx`, `${raw}/index.js`,
+  ];
+  return candidates.find((candidate) => context.knownFiles.has(candidate)) ?? null;
+}
+
+function stringValue(node: TSNode): string | null {
+  const fragment = node.namedChildren.find((child) => child.type === "string_fragment");
+  if (fragment !== undefined) return fragment.text;
+  const text = node.text;
+  return text.length >= 2 ? text.slice(1, -1) : null;
+}
+
+function pythonBindings(
+  root: TSNode,
+  filePath: string,
+  context: QualifiedReferenceContext,
+): readonly ResolvedImportBinding[] {
+  const bindings: ResolvedImportBinding[] = [];
+  for (const statement of root.namedChildren) {
+    if (statement.type === "import_statement") {
+      for (const specifier of statement.namedChildren) {
+        const moduleNode = specifier.type === "aliased_import"
+          ? specifier.childForFieldName("name") ?? specifier.namedChildren.find((child) => child.type === "dotted_name")
+          : specifier;
+        if (moduleNode?.type !== "dotted_name") continue;
+        const alias = specifier.type === "aliased_import"
+          ? specifier.childForFieldName("alias") ?? specifier.namedChildren.find((child) => child.type === "identifier")
+          : undefined;
+        const bindingName = alias?.text ?? moduleNode.text.split(".")[0];
+        if (bindingName === undefined) continue;
+        if (alias === undefined && moduleNode.text.includes(".")) continue;
+        bindings.push({
+          name: bindingName,
+          targetFilePath: resolvePythonModulePath(moduleNode.text, filePath, context.pathOps, context.knownFiles),
+          importNode: specifier,
+        });
+      }
+      continue;
+    }
+    if (statement.type !== "import_from_statement") continue;
+    const packageNode = statement.childForFieldName("module_name") ??
+      statement.namedChildren.find((child) => child.type === "dotted_name" || child.type === "relative_import");
+    if (packageNode === undefined) continue;
+    const packagePath = resolvePythonModulePath(packageNode.text, filePath, context.pathOps, context.knownFiles);
+    for (const specifier of statement.namedChildren.slice(statement.namedChildren.indexOf(packageNode) + 1)) {
+      if (specifier.type === "wildcard_import") continue;
+      const imported = specifier.type === "aliased_import"
+        ? specifier.childForFieldName("name") ?? specifier.namedChildren.find((child) => child.type === "dotted_name")
+        : specifier;
+      if (imported?.type !== "dotted_name") continue;
+      const alias = specifier.type === "aliased_import"
+        ? specifier.childForFieldName("alias") ?? specifier.namedChildren.find((child) => child.type === "identifier")
+        : undefined;
+      const childPath = packagePath?.endsWith("/__init__.py") === true || packagePath === null
+        ? resolvePythonModulePath(`${packageNode.text}.${imported.text}`, filePath, context.pathOps, context.knownFiles)
+        : null;
+      if (childPath !== null) bindings.push({ name: alias?.text ?? imported.text, targetFilePath: childPath, importNode: specifier });
+    }
+  }
+  return bindings;
+}
+
+function typescriptBindings(
+  root: TSNode,
+  filePath: string,
+  context: QualifiedReferenceContext,
+): readonly ResolvedImportBinding[] {
+  const bindings: ResolvedImportBinding[] = [];
+  for (const statement of root.namedChildren) {
+    if (statement.type !== "import_statement") continue;
+    const sourceNode = statement.childForFieldName("source") ?? statement.namedChildren.find((child) => child.type === "string");
+    const source = sourceNode === undefined ? null : stringValue(sourceNode);
+    if (source === null) continue;
+    const namespace = statement.namedChildren
+      .find((child) => child.type === "import_clause")
+      ?.namedChildren.find((child) => child.type === "namespace_import");
+    const alias = namespace?.namedChildren.find((child) => child.type === "identifier");
+    if (namespace !== undefined && alias !== undefined) {
+      bindings.push({ name: alias.text, targetFilePath: resolveRelativeModule(source, filePath, context), importNode: namespace });
+    }
+  }
+  return bindings;
+}
+
+function rustSourceRoot(filePath: string, knownFiles: ReadonlySet<string>): string {
+  const parts = filePath.split("/");
+  for (let length = parts.length - 1; length >= 0; length--) {
+    const directory = parts.slice(0, length).join("/");
+    const manifest = directory === "" ? "Cargo.toml" : `${directory}/Cargo.toml`;
+    if (knownFiles.has(manifest)) return directory === "" ? "src" : `${directory}/src`;
+  }
+  const srcIndex = parts.lastIndexOf("src");
+  return srcIndex >= 0 ? parts.slice(0, srcIndex + 1).join("/") : "";
+}
+
+function resolveRustModule(
+  source: string,
+  filePath: string,
+  context: QualifiedReferenceContext,
+): string | null {
+  const sourceRoot = rustSourceRoot(filePath, context.knownFiles);
+  const directory = filePath.includes("/") ? filePath.slice(0, filePath.lastIndexOf("/")) : "";
+  const segments = source.split("::");
+  const prefix = segments.shift();
+  let base: string;
+  if (prefix === "crate") base = sourceRoot;
+  else if (prefix === "self") base = directory;
+  else if (prefix === "super") {
+    const dirname = (value: string): string => value.includes("/") ? value.slice(0, value.lastIndexOf("/")) : "";
+    base = dirname(directory);
+    while (segments[0] === "super") { segments.shift(); base = dirname(base); }
+  } else return null;
+  const raw = context.pathOps.normalize(context.pathOps.join(base, ...segments));
+  return [`${raw}.rs`, `${raw}/mod.rs`].find((candidate) => context.knownFiles.has(candidate)) ?? null;
+}
+
+function rustBindings(
+  root: TSNode,
+  filePath: string,
+  context: QualifiedReferenceContext,
+): readonly ResolvedImportBinding[] {
+  const bindings: ResolvedImportBinding[] = [];
+  for (const statement of root.namedChildren) {
+    if (statement.type !== "use_declaration") continue;
+    const argument = statement.childForFieldName("argument") ?? statement.namedChildren[0];
+    if (argument === undefined) continue;
+    if (argument.type === "use_as_clause") {
+      const imported = argument.childForFieldName("path") ?? argument.namedChildren[0];
+      const alias = argument.childForFieldName("alias") ?? argument.namedChildren.at(-1);
+      if (imported !== undefined && alias !== undefined) bindings.push({ name: alias.text, targetFilePath: resolveRustModule(imported.text, filePath, context), importNode: argument });
+      continue;
+    }
+    if (argument.type === "scoped_identifier") {
+      const name = argument.childForFieldName("name") ?? argument.namedChildren.at(-1);
+      if (name !== undefined) bindings.push({ name: name.text, targetFilePath: resolveRustModule(argument.text, filePath, context), importNode: argument });
+    }
+  }
+  return bindings;
+}
+
+function goBindings(root: TSNode, context: QualifiedReferenceContext): readonly ResolvedImportBinding[] {
+  const go = context.go;
+  if (go === undefined) return [];
+  const bindings: ResolvedImportBinding[] = [];
+  walk(root, (node) => {
+    if (node.type !== "import_spec") return;
+    const pathNode = node.childForFieldName("path") ?? node.namedChildren.find((child) => child.type.endsWith("string_literal"));
+    if (pathNode === undefined) return;
+    const importPath = stringValue(pathNode);
+    if (importPath === null || (importPath !== go.modulePath && !importPath.startsWith(`${go.modulePath}/`))) return;
+    const directory = importPath === go.modulePath ? "" : importPath.slice(go.modulePath.length + 1);
+    const explicit = node.childForFieldName("name") ?? node.namedChildren.find((child) => child.type === "package_identifier");
+    const name = explicit?.text ?? go.packageNames.get(directory);
+    if (name === undefined || name === null || name === "_" || name === ".") return;
+    bindings.push({ name, targetFilePath: null, packageDirectory: directory, importNode: node });
+  });
+  return bindings;
+}
+
+export function resolveQualifiedImportBindings(
+  language: QualifiedReferenceLanguage,
+  filePath: string,
+  root: TSNode,
+  context: QualifiedReferenceContext,
+): readonly ResolvedImportBinding[] {
+  if (language === "python") return pythonBindings(root, filePath, context);
+  if (language === "rust") return rustBindings(root, filePath, context);
+  if (language === "go") return goBindings(root, context);
+  return typescriptBindings(root, filePath, context);
+}
+
+function nearestAncestor(node: TSNode, types: ReadonlySet<string>): TSNode | null {
+  let cursor = node.parent;
+  while (cursor !== null) {
+    if (types.has(cursor.type)) return cursor;
+    cursor = cursor.parent;
+  }
+  return null;
+}
+
+function matchingIdentifier(node: TSNode | null | undefined, bindings: ReadonlySet<string>): TSNode | null {
+  if (node === null || node === undefined) return null;
+  if ((node.type === "identifier" || node.type === "type_identifier" || node.type === "package_identifier") && bindings.has(node.text)) return node;
+  for (const child of node.namedChildren) {
+    const found = matchingIdentifier(child, bindings);
+    if (found !== null) return found;
+  }
+  return null;
+}
+
+function diagnosticFor(
+  language: QualifiedReferenceLanguage,
+  filePath: string,
+  binding: string,
+  targetFilePath: string,
+  shadowKind: string,
+  node: TSNode,
+): ImportBindingDiagnostic {
+  return {
+    code: "import_binding_shadowed",
+    severity: "warning",
+    language: languageName(language),
+    filePath,
+    range: {
+      startLine: node.startPosition.row + 1,
+      startColumn: node.startPosition.column + 1,
+      endLine: node.endPosition.row + 1,
+      endColumn: node.endPosition.column + 1,
+    },
+    binding,
+    targetFilePath,
+    shadowKind,
+    message: `Import binding '${binding}' is shadowed; affected qualified accesses were excluded from reference inference.`,
+  };
+}
+
+function collectShadowRegions(
+  language: QualifiedReferenceLanguage,
+  filePath: string,
+  root: TSNode,
+  bindings: readonly ResolvedImportBinding[],
+  context: QualifiedReferenceContext,
+): readonly ShadowRegion[] {
+  const bindingNames = new Set(bindings.map((binding) => binding.name));
+  const targetByBinding = new Map(bindings.map((binding) => {
+    const packageFiles = context.go?.declarations.get(binding.packageDirectory ?? "");
+    const goTarget = packageFiles === undefined ? undefined : [...packageFiles.values()].find((value): value is string => value !== null);
+    return [binding.name, binding.targetFilePath ?? goTarget ?? ""] as const;
+  }));
+  const regions: ShadowRegion[] = [];
+  const add = (identifier: TSNode | null, kind: string, start: number, end: number): void => {
+    if (identifier === null) return;
+    const target = targetByBinding.get(identifier.text);
+    if (target === undefined) return;
+    const diagnostic = diagnosticFor(language, filePath, identifier.text, target, kind, identifier);
+    regions.push({ binding: identifier.text, startIndex: start, endIndex: end, diagnostic });
+  };
+
+  walk(root, (node) => {
+    if (language === "python") {
+      if (node.type === "function_definition" || node.type === "lambda") {
+        const parameters = node.childForFieldName("parameters");
+        const body = node.childForFieldName("body") ?? node.namedChildren.at(-1);
+        if (body !== undefined) for (const name of bindingNames) {
+          const identifier = matchingIdentifier(parameters, new Set([name]));
+          add(identifier, "parameter", body.startIndex, body.endIndex);
+        }
+      }
+      if (["assignment", "augmented_assignment", "named_expression", "for_statement", "for_in_clause"].includes(node.type)) {
+        const left = node.childForFieldName("left") ?? node.childForFieldName("target") ?? node.namedChildren[0];
+        const identifier = matchingIdentifier(left, bindingNames);
+        if (identifier !== null) {
+          const comprehension = nearestAncestor(node, new Set(["list_comprehension", "set_comprehension", "dictionary_comprehension", "generator_expression"]));
+          const scope = nearestAncestor(node, new Set(["function_definition", "lambda", "class_definition"]));
+          if (comprehension !== null) add(identifier, "comprehension_binding", comprehension.startIndex, comprehension.endIndex);
+          else if (scope !== null) {
+            const body = scope.childForFieldName("body") ?? scope;
+            const start = scope.type === "function_definition" || scope.type === "lambda"
+              ? body.startIndex
+              : node.startIndex;
+            add(identifier, node.type === "for_statement" ? "loop_binding" : "local_binding", start, body.endIndex);
+          }
+          else add(identifier, node.type === "for_statement" ? "loop_binding" : "assignment", node.startIndex, root.endIndex);
+        }
+      }
+      if (node.type === "function_definition" || node.type === "class_definition") {
+        const identifier = matchingIdentifier(node.childForFieldName("name"), bindingNames);
+        if (identifier !== null) {
+          const scope = nearestAncestor(node, new Set(["function_definition", "class_definition"]));
+          const body = scope?.childForFieldName("body");
+          const start = scope?.type === "function_definition" ? body?.startIndex ?? scope.startIndex : node.startIndex;
+          const end = body?.endIndex ?? root.endIndex;
+          add(identifier, node.type === "class_definition" ? "class_declaration" : "function_declaration", start, end);
+        }
+      }
+      return;
+    }
+
+    const functionTypes = language === "rust"
+      ? new Set(["function_item", "closure_expression"])
+      : language === "go"
+        ? new Set(["function_declaration", "method_declaration", "func_literal"])
+        : new Set(["function_declaration", "function_expression", "arrow_function", "method_definition"]);
+    const blockTypes = language === "rust" || language === "go"
+      ? new Set(["block"])
+      : new Set(["statement_block", "program"]);
+    const functionNode = nearestAncestor(node, functionTypes);
+    const functionBody = functionNode?.childForFieldName("body") ?? functionNode?.namedChildren.at(-1);
+
+    const parameterTypes = language === "rust"
+      ? ["parameter"]
+      : language === "go"
+        ? ["parameter_declaration", "variadic_parameter_declaration"]
+        : ["required_parameter", "optional_parameter", "rest_pattern"];
+    if (parameterTypes.includes(node.type) && functionBody !== undefined) {
+      add(matchingIdentifier(node.childForFieldName("pattern") ?? node.childForFieldName("name") ?? node.namedChildren[0], bindingNames), "parameter", functionBody.startIndex, functionBody.endIndex);
+    }
+
+    const localTypes = language === "rust"
+      ? ["let_declaration"]
+      : language === "go"
+        ? ["short_var_declaration", "var_spec", "assignment_statement"]
+        : ["variable_declarator", "assignment_expression"];
+    if (localTypes.includes(node.type)) {
+      const identifier = matchingIdentifier(node.childForFieldName("pattern") ?? node.childForFieldName("name") ?? node.childForFieldName("left") ?? node.namedChildren[0], bindingNames);
+      const loop = nearestAncestor(node, new Set(language === "go" ? ["for_statement"] : language === "rust" ? ["for_expression"] : ["for_statement", "for_in_statement"]));
+      let scope = loop ?? nearestAncestor(node, blockTypes) ?? root;
+      if ((language === "ts" || language === "tsx" || language === "js") && node.type === "variable_declarator") {
+        const declaration = nearestAncestor(node, new Set(["lexical_declaration", "variable_declaration"]));
+        if (declaration?.type === "variable_declaration") scope = functionBody ?? root;
+      }
+      const declarationPoint = language === "rust" || language === "go"
+        ? node.endIndex
+        : node.type === "assignment_expression"
+          ? node.startIndex
+          : scope.startIndex;
+      add(identifier, loop === null ? (node.type === "assignment_statement" ? "assignment" : "local_binding") : "loop_binding", declarationPoint, scope.endIndex);
+    }
+
+    if (language === "rust" && ["for_expression", "match_arm"].includes(node.type)) {
+      const identifier = matchingIdentifier(node.childForFieldName("pattern") ?? node.namedChildren[0], bindingNames);
+      const body = node.childForFieldName("body") ?? node;
+      add(identifier, "pattern_binding", body.startIndex, body.endIndex);
+    }
+    if (language === "go" && node.type === "range_clause") {
+      const identifier = matchingIdentifier(node.childForFieldName("left") ?? node.namedChildren[0], bindingNames);
+      const loop = nearestAncestor(node, new Set(["for_statement"]));
+      const body = loop?.childForFieldName("body");
+      if (loop !== null) add(identifier, "range_binding", body?.startIndex ?? node.endIndex, loop.endIndex);
+    }
+    if ((language === "ts" || language === "tsx" || language === "js") && node.type === "catch_clause") {
+      const identifier = matchingIdentifier(node.childForFieldName("parameter") ?? node.namedChildren[0], bindingNames);
+      const body = node.childForFieldName("body") ?? node;
+      add(identifier, "catch_binding", body.startIndex, body.endIndex);
+    }
+    if ((language === "ts" || language === "tsx" || language === "js") && ["for_in_statement", "for_of_statement"].includes(node.type)) {
+      const identifier = matchingIdentifier(node.childForFieldName("left") ?? node.namedChildren[0], bindingNames);
+      const body = node.childForFieldName("body") ?? node;
+      add(identifier, "loop_binding", body.startIndex, body.endIndex);
+    }
+
+    const declarationTypes = language === "rust"
+      ? ["function_item", "struct_item", "enum_item", "type_item"]
+      : language === "go"
+        ? ["function_declaration", "type_spec"]
+        : ["function_declaration", "class_declaration"];
+    if (declarationTypes.includes(node.type)) {
+      const identifier = matchingIdentifier(node.childForFieldName("name"), bindingNames);
+      const scope = nearestAncestor(node, blockTypes) ?? root;
+      const declarationPoint = language === "rust" || language === "go" ? node.startIndex : scope.startIndex;
+      add(identifier, node.type.includes("class") || node.type.includes("struct") || node.type.includes("type") ? "type_declaration" : "function_declaration", declarationPoint, scope.endIndex);
+    }
+  });
+
+  const unique = new Map<string, ShadowRegion>();
+  for (const region of regions) {
+    const key = `${region.binding}:${String(region.diagnostic.range.startLine)}:${String(region.diagnostic.range.startColumn)}:${region.diagnostic.shadowKind}`;
+    unique.set(key, region);
+  }
+  return [...unique.values()];
+}
+
+function accessParts(language: QualifiedReferenceLanguage, node: TSNode): { readonly binding: TSNode; readonly member: TSNode } | null {
+  if (language === "python" && node.type === "attribute") {
+    const binding = node.childForFieldName("object") ?? node.namedChildren[0];
+    const member = node.childForFieldName("attribute") ?? node.namedChildren[1];
+    return binding?.type === "identifier" && member?.type === "identifier" ? { binding, member } : null;
+  }
+  if ((language === "ts" || language === "tsx" || language === "js") && node.type === "member_expression") {
+    const binding = node.childForFieldName("object"); const member = node.childForFieldName("property");
+    return binding?.type === "identifier" && member?.type === "property_identifier" ? { binding, member } : null;
+  }
+  if (language === "rust" && node.type === "scoped_identifier") {
+    const binding = node.childForFieldName("path"); const member = node.childForFieldName("name");
+    return binding?.type === "identifier" && member?.type === "identifier" ? { binding, member } : null;
+  }
+  if (language === "go" && node.type === "selector_expression") {
+    const binding = node.childForFieldName("operand"); const member = node.childForFieldName("field");
+    return binding?.type === "identifier" && member?.type === "field_identifier" ? { binding, member } : null;
+  }
+  return null;
+}
+
+export function analyzeQualifiedReferences(
+  language: QualifiedReferenceLanguage,
+  filePath: string,
+  root: TSNode,
+  context: QualifiedReferenceContext,
+): QualifiedReferenceAnalysis {
+  const bindings = resolveQualifiedImportBindings(language, filePath, root, context).filter((binding) =>
+    binding.targetFilePath !== null || context.go?.declarations.has(binding.packageDirectory ?? "") === true,
+  );
+  const bindingByName = new Map(bindings.map((binding) => [binding.name, binding]));
+  const shadows = collectShadowRegions(language, filePath, root, bindings, context);
+  const accesses: QualifiedReferenceAccess[] = [];
+  walk(root, (node) => {
+    const parts = accessParts(language, node);
+    if (parts === null) return;
+    const binding = bindingByName.get(parts.binding.text);
+    if (binding === undefined) return;
+    const target = language === "go"
+      ? context.go?.declarations.get(binding.packageDirectory ?? "")?.get(parts.member.text)
+      : binding.targetFilePath;
+    if (target === null || target === undefined) return;
+    const shadowRegion = shadows.find((region) =>
+      region.binding === binding.name && node.startIndex >= region.startIndex && node.startIndex < region.endIndex,
+    );
+    const shadow = shadowRegion === undefined
+      ? null
+      : { ...shadowRegion.diagnostic, targetFilePath: target };
+    accesses.push({ binding: binding.name, member: parts.member.text, targetFilePath: target, node, shadow });
+  });
+  return { bindings, accesses, diagnostics: shadows.map((region) => region.diagnostic) };
+}
+
+/** Emit import-level file edges and precision-preserving qualified symbol edges. */
+export function resolveQualifiedReferenceEdges(
+  patch: PatchBuilderV2,
+  language: QualifiedReferenceLanguage,
+  filePath: string,
+  root: TSNode,
+  context: QualifiedReferenceContext,
+  emitImportFileEdges: boolean,
+): QualifiedReferenceAnalysis {
+  const analysis = analyzeQualifiedReferences(language, filePath, root, context);
+  if (emitImportFileEdges) {
+    const importTargets = language === "go"
+      ? analysis.bindings.flatMap((binding) =>
+        (context.go?.packageFiles.get(binding.packageDirectory ?? "") ?? []).map((target) => ({ binding, target })),
+      )
+      : analysis.bindings.map((binding) => ({ binding, target: binding.targetFilePath }));
+    const emitted = new Set<string>();
+    for (const item of importTargets) {
+      const binding = item.binding;
+      const target = item.target;
+      if (target === null) continue;
+      const key = `${binding.name}:${target}`;
+      if (emitted.has(key)) continue;
+      emitted.add(key);
+      const anchor = emitAstAnchor(patch, filePath, binding.importNode);
+      patch.setProperty(anchor, "importedName", "*");
+      patch.setProperty(anchor, "localName", binding.name);
+      patch.setProperty(anchor, "filePath", filePath);
+      patch.addEdge(anchor, `file:${target}`, "references");
+    }
+  }
+  for (const access of analysis.accesses) {
+    if (access.shadow !== null) continue;
+    const anchor = emitAstAnchor(patch, filePath, access.node);
+    patch.setProperty(anchor, "importedName", access.member);
+    patch.setProperty(anchor, "localName", access.member);
+    patch.setProperty(anchor, "filePath", filePath);
+    patch.addEdge(anchor, SymIdCodec.encode(access.targetFilePath, access.member), "references");
+  }
+  return analysis;
+}
+
+export function isQualifiedReferenceLanguage(language: SupportedLang): language is QualifiedReferenceLanguage {
+  return language === "python" || language === "ts" || language === "tsx" || language === "js" || language === "rust" || language === "go";
+}

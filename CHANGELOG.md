@@ -7,7 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Added
+
+- **Import binding diagnostics**: `graft_import_diagnostics` and
+  `graft struct import-diagnostics` report structured first-party import
+  shadows at an exact Git ref across Python, TypeScript/JavaScript, Rust, and
+  Go.
+
 ### Changed
+
+- **Qualified reference confidence**: WARP indexing and cold-graph structural
+  review now resolve first-party qualified module/package members across
+  Python, TypeScript/JavaScript, Rust, and Go. Shadowed accesses are excluded
+  from symbol edges and review counts, and breaking changes expose
+  `referenceConfidence` plus relevant `referenceWarnings` without forcing a
+  full WARP index.
 
 - **CI test feedback**: pull request CI now keeps the release-grade
   Docker-isolated full test suite on the Node 22 lane while making the Node 20

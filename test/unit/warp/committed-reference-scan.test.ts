@@ -1,0 +1,94 @@
+import * as fs from "node:fs";
+import * as path from "node:path";
+import { describe, expect, it } from "vitest";
+import { nodeGit } from "../../../src/adapters/node-git.js";
+import { nodePathOps } from "../../../src/adapters/node-paths.js";
+import {
+  importDiagnosticsAtRef,
+  scanQualifiedReferencesAtRef,
+} from "../../../src/warp/committed-reference-scan.js";
+import { cleanupTestRepo, createTestRepo, git } from "../../helpers/git.js";
+
+function write(repo: string, filePath: string, content: string): void {
+  const absolute = path.join(repo, filePath);
+  fs.mkdirSync(path.dirname(absolute), { recursive: true });
+  fs.writeFileSync(absolute, content);
+}
+
+describe("committed qualified-reference scan", { timeout: 20_000 }, () => {
+  it("counts Python, TypeScript, Rust, and Go callers at the exact ref", async () => {
+    const cwd = createTestRepo("committed-qualified-scan-");
+    try {
+      const files = {
+        "py/sources.py": "def pending_ids(): return []\n",
+        "py/caller.py": "import py.sources as source\nsource.pending_ids()\n",
+        "ts/api.ts": "export function buildThing() {}\n",
+        "ts/caller.ts": 'import * as api from "./api"; api.buildThing();\n',
+        "Cargo.toml": "[package]\nname='scan'\nversion='0.1.0'\n",
+        "src/sources.rs": "pub fn pending_ids() {}\n",
+        "src/caller.rs": "use crate::sources as source; fn call(){ source::pending_ids(); }\n",
+        "go.mod": "module example.com/project\n",
+        "go/sources/pending.go": "package sources\nfunc PendingIDs() {}\n",
+        "go/caller.go": "package caller\nimport src \"example.com/project/go/sources\"\nfunc call(){ src.PendingIDs() }\n",
+      };
+      for (const [filePath, content] of Object.entries(files)) write(cwd, filePath, content);
+      git(cwd, "add -A"); git(cwd, "commit -m qualified-scan");
+      const ref = git(cwd, "rev-parse HEAD");
+      write(cwd, "py/uncommitted.py", "import py.sources as source\nsource.pending_ids()\n");
+      const base = { cwd, git: nodeGit, pathOps: nodePathOps, ref };
+
+      await expect(scanQualifiedReferencesAtRef({ ...base, symbolName: "pending_ids", filePath: "py/sources.py" }))
+        .resolves.toMatchObject({ referenceCount: 1, referencingFiles: ["py/caller.py"], confidence: "complete" });
+      await expect(scanQualifiedReferencesAtRef({ ...base, symbolName: "buildThing", filePath: "ts/api.ts" }))
+        .resolves.toMatchObject({ referenceCount: 1, referencingFiles: ["ts/caller.ts"] });
+      await expect(scanQualifiedReferencesAtRef({ ...base, symbolName: "pending_ids", filePath: "src/sources.rs" }))
+        .resolves.toMatchObject({ referenceCount: 1, referencingFiles: ["src/caller.rs"] });
+      await expect(scanQualifiedReferencesAtRef({ ...base, symbolName: "PendingIDs", filePath: "go/sources/pending.go" }))
+        .resolves.toMatchObject({ referenceCount: 1, referencingFiles: ["go/caller.go"] });
+    } finally {
+      cleanupTestRepo(cwd);
+    }
+  });
+
+  it("returns only relevant shadow warnings and ignores standard-library imports", async () => {
+    const cwd = createTestRepo("committed-shadow-scan-");
+    try {
+      write(cwd, "pkg/sources.py", "def pending_ids(): return []\n");
+      write(cwd, "pkg/caller.py", [
+        "import json",
+        "import pkg.sources as source",
+        "def shadow(source): source.pending_ids(); source.pending_ids()",
+        "source.pending_ids()",
+      ].join("\n"));
+      git(cwd, "add -A"); git(cwd, "commit -m shadow-scan");
+      const ref = git(cwd, "rev-parse HEAD");
+      const options = { cwd, git: nodeGit, pathOps: nodePathOps, ref };
+      const result = await scanQualifiedReferencesAtRef({ ...options, symbolName: "pending_ids", filePath: "pkg/sources.py" });
+      expect(result).toMatchObject({ referenceCount: 1, referencingFiles: ["pkg/caller.py"], confidence: "partial" });
+      expect(result.warnings).toEqual([expect.objectContaining({ code: "import_binding_shadowed", binding: "source", targetFilePath: "pkg/sources.py", shadowKind: "parameter" })]);
+
+      const diagnostics = await importDiagnosticsAtRef(options);
+      expect(diagnostics.ref).toBe(ref);
+      expect(diagnostics.diagnostics).toEqual([expect.objectContaining({ binding: "source", targetFilePath: "pkg/sources.py" })]);
+      expect(diagnostics.diagnostics.some((diagnostic) => diagnostic.binding === "json")).toBe(false);
+    } finally {
+      cleanupTestRepo(cwd);
+    }
+  });
+
+  it("marks a target-specific dynamic import limitation partial without inventing a caller", async () => {
+    const cwd = createTestRepo("committed-dynamic-scan-");
+    try {
+      write(cwd, "pkg/sources.py", "def pending_ids(): return []\n");
+      write(cwd, "pkg/dynamic.py", "import importlib\nmod = importlib.import_module('pkg.sources')\ngetattr(mod, 'pending_ids')()\n");
+      git(cwd, "add -A"); git(cwd, "commit -m dynamic-scan");
+      const result = await scanQualifiedReferencesAtRef({
+        cwd, git: nodeGit, pathOps: nodePathOps, ref: "HEAD",
+        symbolName: "pending_ids", filePath: "pkg/sources.py",
+      });
+      expect(result).toMatchObject({ referenceCount: 0, referencingFiles: [], confidence: "partial", warnings: [] });
+    } finally {
+      cleanupTestRepo(cwd);
+    }
+  });
+});

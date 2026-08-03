@@ -963,6 +963,7 @@ function withCliPeerCommon(
 }
 
 const mcpOutputBodySchemas: Record<McpToolName, z.ZodType> = {
+  graft_import_diagnostics: z.object({ ref: z.string(), diagnostics: z.array(z.object({ code: z.literal("import_binding_shadowed"), severity: z.literal("warning"), language: z.enum(["python", "typescript", "javascript", "rust", "go"]), filePath: z.string(), range: z.object({ startLine: z.number().int().positive(), startColumn: z.number().int().positive(), endLine: z.number().int().positive(), endColumn: z.number().int().positive() }).strict(), binding: z.string(), targetFilePath: z.string(), shadowKind: z.string(), message: z.string() }).strict()), summary: z.string() }).strict(),
   safe_read: z.object({
     path: z.string(),
     projection: z.enum(["content", "outline", "refused", "error", "cache_hit", "diff"]),
@@ -1355,6 +1356,13 @@ const mcpOutputBodySchemas: Record<McpToolName, z.ZodType> = {
       newSignature: z.string().optional(),
       impactedFiles: z.number().int().nonnegative(),
       impactedFilePaths: z.array(z.string()),
+      referenceWarnings: z.array(z.object({
+        code: z.literal("import_binding_shadowed"), severity: z.literal("warning"),
+        language: z.enum(["python", "typescript", "javascript", "rust", "go"]), filePath: z.string(),
+        range: z.object({ startLine: z.number().int().positive(), startColumn: z.number().int().positive(), endLine: z.number().int().positive(), endColumn: z.number().int().positive() }).strict(),
+        binding: z.string(), targetFilePath: z.string(), shadowKind: z.string(), message: z.string(),
+      }).strict()),
+      referenceConfidence: z.enum(["complete", "partial"]),
     }).strict()),
     summary: z.string(),
   }).strict(),
@@ -1458,6 +1466,7 @@ export const MCP_OUTPUT_SCHEMAS: Record<McpToolName, z.ZodType> = {
   graft_blame: withMcpCommon("graft_blame", mcpOutputBodySchemas.graft_blame),
   graft_difficulty: withMcpCommon("graft_difficulty", mcpOutputBodySchemas.graft_difficulty),
   graft_review: withMcpCommon("graft_review", mcpOutputBodySchemas.graft_review),
+  graft_import_diagnostics: withMcpCommon("graft_import_diagnostics", mcpOutputBodySchemas.graft_import_diagnostics),
   graft_test_coverage: withMcpCommon("graft_test_coverage", mcpOutputBodySchemas.graft_test_coverage),
   graft_dead_symbols: withMcpCommon("graft_dead_symbols", mcpOutputBodySchemas.graft_dead_symbols),
   knowledge_map: withMcpCommon("knowledge_map", mcpOutputBodySchemas.knowledge_map),
@@ -1537,6 +1546,7 @@ export const CLI_OUTPUT_SCHEMAS: Record<CliCommandName, z.ZodType> = {
   symbol_blame: withCliPeerCommon("symbol_blame", mcpOutputBodySchemas.graft_blame),
   symbol_difficulty: withCliPeerCommon("symbol_difficulty", mcpOutputBodySchemas.graft_difficulty),
   struct_review: withCliPeerCommon("struct_review", mcpOutputBodySchemas.graft_review),
+  struct_import_diagnostics: withCliPeerCommon("struct_import_diagnostics", mcpOutputBodySchemas.graft_import_diagnostics),
   struct_test_coverage: withCliPeerCommon("struct_test_coverage", mcpOutputBodySchemas.graft_test_coverage),
   struct_dead_symbols: withCliPeerCommon("struct_dead_symbols", mcpOutputBodySchemas.graft_dead_symbols),
   diag_doctor: withCliPeerCommon("diag_doctor", mcpOutputBodySchemas.doctor),

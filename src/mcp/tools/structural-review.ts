@@ -1,7 +1,10 @@
 import { z } from "zod";
 import { structuralReview, type ReferenceCountResult } from "../../operations/structural-review.js";
+import { scanQualifiedReferencesAtRef } from "../../warp/committed-reference-scan.js";
+import { countSymbolReferencesFromGraph } from "../../warp/warp-reference-count.js";
 import { toJsonObject } from "../../operations/result-dto.js";
 import type { ToolContext, ToolDefinition, ToolHandler } from "../context.js";
+import { nodePathOps } from "../../adapters/node-paths.js";
 
 async function countReviewReferences(
   ctx: ToolContext,
@@ -9,15 +12,15 @@ async function countReviewReferences(
   filePath: string,
   headRef: string,
 ): Promise<ReferenceCountResult> {
-  const reading = await ctx.getStructuralReadingPort().countSymbolReferences({
-    symbolName,
-    filePath,
-    ref: headRef,
-  });
-  return {
-    referenceCount: reading.payload.referenceCount,
-    referencingFiles: reading.payload.referencingFiles,
+  const graph = await countSymbolReferencesFromGraph(await ctx.getWarp(), symbolName, filePath);
+  const scan = await scanQualifiedReferencesAtRef({ cwd: ctx.projectRoot, git: ctx.git, pathOps: nodePathOps, symbolName, filePath, ref: headRef });
+  if (graph.referenceCount > 0) return {
+    referenceCount: graph.referenceCount,
+    referencingFiles: graph.referencingFiles,
+    warnings: scan.warnings,
+    confidence: scan.confidence,
   };
+  return scan;
 }
 
 export const structuralReviewTool: ToolDefinition = {

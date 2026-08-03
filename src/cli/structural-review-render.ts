@@ -31,7 +31,14 @@ function renderBreakingChangeLine(change: BreakingChange): string {
     `- ${change.filePath}: ${change.symbol}`,
     `${change.changeType},`,
     `impacted files: ${String(change.impactedFiles)}`,
+    `confidence: ${change.referenceConfidence}`,
   ].join(" ");
+}
+
+function renderReferenceWarning(change: BreakingChange): readonly string[] {
+  return change.referenceWarnings.map((warning) =>
+    `  warning ${warning.code}: ${warning.filePath}:${String(warning.range.startLine)}:${String(warning.range.startColumn)} ${warning.message}`,
+  );
 }
 
 export function renderStructuralReview(input: Record<string, unknown>): string {
@@ -60,6 +67,7 @@ export function renderStructuralReview(input: Record<string, unknown>): string {
     lines.push("", "Breaking changes");
     for (const change of model.breakingChanges) {
       lines.push(renderBreakingChangeLine(change));
+      lines.push(...renderReferenceWarning(change));
     }
   }
 

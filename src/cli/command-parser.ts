@@ -260,6 +260,12 @@ function parseStructCommand(argv: string[]): ParsedCommand {
     return parseReviewCommand(argv, json);
   }
 
+  if (subcommand === "import-diagnostics") {
+    const ref = consumeOption(argv, "--ref");
+    expectNoArgs(argv);
+    return { command: "struct_import_diagnostics", json, args: { ...(ref !== undefined ? { ref } : {}) } };
+  }
+
   if (subcommand === "test-coverage") {
     const sourcePath = consumeOption(argv, "--src");
     const testPath = consumeOption(argv, "--tests");

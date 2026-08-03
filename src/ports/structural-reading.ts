@@ -71,7 +71,7 @@ export interface GitWarpCommittedBasis {
   readonly maxCommits?: number | undefined;
 }
 
-export type GitWarpEvidenceSource = "warp-graph" | "committed-import-scan";
+export type GitWarpEvidenceSource = "warp-graph" | "committed-reference-scan";
 
 export type GitWarpEvidence =
   | {

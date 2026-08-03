@@ -130,6 +130,9 @@ export function describeCliFailure(argv: readonly string[]): CliErrorDetails {
     if (subcommand === "review") {
       return { usage: "graft struct review --base <ref> [--head <ref>] [--json]" };
     }
+    if (subcommand === "import-diagnostics") {
+      return { usage: "graft struct import-diagnostics [--ref <ref>] [--json]" };
+    }
     if (subcommand === "test-coverage") {
       return { usage: "graft struct test-coverage [--src <path>] [--tests <path>] [--json]" };
     }
@@ -137,7 +140,7 @@ export function describeCliFailure(argv: readonly string[]): CliErrorDetails {
       return { usage: "graft struct dead-symbols [--limit <n>] [--json]" };
     }
     return {
-      usage: "graft struct <diff|since|map|churn|exports|log|review|test-coverage|dead-symbols> ...",
+      usage: "graft struct <diff|since|map|churn|exports|log|review|import-diagnostics|test-coverage|dead-symbols> ...",
       nextSteps: ["Run `graft help` to see the available structural subcommands."],
     };
   }

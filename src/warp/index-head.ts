@@ -16,6 +16,9 @@ import { parseStructuredTreeAsync } from "../parser/runtime.js";
 import { extractOutlineFromParsedTree } from "../parser/outline.js";
 import { attachAstSnapshot, emitAstNodes } from "./ast-emitter.js";
 import { resolveImportEdges } from "./ast-import-resolver.js";
+import { resolvePythonImportEdges } from "./python-import-resolver.js";
+import { buildGoReferenceContext, type RefFileReader } from "./go-reference-context.js";
+import { isQualifiedReferenceLanguage, resolveQualifiedReferenceEdges } from "./qualified-reference-resolver.js";
 import type { OutlineEntry } from "../parser/types.js";
 import { getCommitMeta } from "./commit-meta.js";
 import {
@@ -167,6 +170,15 @@ export async function indexHead(opts: IndexHeadOptions): Promise<IndexHeadResult
   const allFiles = await listTrackedFiles(cwd, git);
   const knownFiles = new Set(allFiles);
   const parseableFiles = selectParseableFiles(allFiles, opts.paths);
+  const headContent = new Map<string, Promise<string | null>>();
+  const readHeadFile: RefFileReader = (filePath) => {
+    const existing = headContent.get(filePath);
+    if (existing !== undefined) return existing;
+    const pending = git.run({ args: ["show", `HEAD:${filePath}`], cwd })
+      .then((result) => result.status === 0 ? result.stdout : null);
+    headContent.set(filePath, pending);
+    return pending;
+  };
 
   if (parseableFiles.length > maxFilesPerCall) {
     throw new Error(
@@ -190,6 +202,7 @@ export async function indexHead(opts: IndexHeadOptions): Promise<IndexHeadResult
       maxPatchJsonBytes,
       semanticProvider,
       semanticFactLimit,
+      readHeadFile,
     });
     if (indexed.indexed) {
       filesIndexed++;
@@ -493,6 +506,7 @@ async function indexHeadFile(input: {
   readonly maxPatchJsonBytes: number;
   readonly semanticProvider: SemanticEnrichmentProvider | undefined;
   readonly semanticFactLimit: number;
+  readonly readHeadFile: RefFileReader;
 }): Promise<IndexHeadFileResult> {
   const {
     cwd,
@@ -506,6 +520,7 @@ async function indexHeadFile(input: {
     maxPatchJsonBytes,
     semanticProvider,
     semanticFactLimit,
+    readHeadFile,
   } = input;
   const lang = detectLang(filePath);
   if (lang === null) return { indexed: false };
@@ -515,6 +530,9 @@ async function indexHeadFile(input: {
 
   const tree = await parseStructuredTreeAsync(lang, contentResult.stdout);
   try {
+    const go = lang === "go"
+      ? await buildGoReferenceContext(filePath, knownFiles, readHeadFile)
+      : undefined;
     const outlineResult = extractOutlineFromParsedTree(tree);
     const outline = outlineResult.entries;
     const jumpLookup = new Map<string, { start: number; end: number }>();
@@ -588,7 +606,21 @@ async function indexHeadFile(input: {
       }
       emitOutlineSyms(patch, filePath, outline, jumpLookup);
       emitAstNodes(patch, filePath, tree.root);
-      resolveImportEdges(patch, filePath, tree.root, pathOps, knownFiles);
+      if (lang === "python") {
+        resolvePythonImportEdges(patch, filePath, tree.root, pathOps, knownFiles);
+      } else {
+        resolveImportEdges(patch, filePath, tree.root, pathOps, knownFiles);
+      }
+      if (isQualifiedReferenceLanguage(lang)) {
+        resolveQualifiedReferenceEdges(
+          patch,
+          lang,
+          filePath,
+          tree.root,
+          { pathOps, knownFiles, ...(go !== undefined ? { go } : {}) },
+          lang === "rust" || lang === "go",
+        );
+      }
       emitStaleSemanticFactInvalidations(patch, priorSemanticFacts, semantic.factsToEmit);
       emitSemanticFacts(patch, semantic.factsToEmit);
       await attachAstSnapshot(patch, filePath, tree.root);

@@ -12,6 +12,20 @@ import { getChangedFilesWithStatus } from "../git/diff.js";
 export interface ReferenceCountResult {
   readonly referenceCount: number;
   readonly referencingFiles: readonly string[];
+  readonly warnings?: readonly ReferenceWarning[];
+  readonly confidence?: "complete" | "partial";
+}
+
+export interface ReferenceWarning {
+  readonly code: string;
+  readonly severity: "warning";
+  readonly language: string;
+  readonly filePath: string;
+  readonly range: { readonly startLine: number; readonly startColumn: number; readonly endLine: number; readonly endColumn: number };
+  readonly binding: string;
+  readonly targetFilePath: string;
+  readonly shadowKind: string;
+  readonly message: string;
 }
 
 export type ReferenceCounter = (
@@ -37,6 +51,8 @@ export interface BreakingChange {
   readonly newSignature?: string;
   readonly impactedFiles: number;
   readonly impactedFilePaths: readonly string[];
+  readonly referenceWarnings: readonly ReferenceWarning[];
+  readonly referenceConfidence: "complete" | "partial";
 }
 
 export interface StructuralReviewResult {
@@ -130,6 +146,8 @@ async function detectBreakingChanges(
         ...(removed.signature !== undefined ? { previousSignature: removed.signature } : {}),
         impactedFiles: refs.referenceCount,
         impactedFilePaths: refs.referencingFiles,
+        referenceWarnings: refs.warnings ?? [],
+        referenceConfidence: refs.confidence ?? "complete",
       });
     }
 
@@ -148,6 +166,8 @@ async function detectBreakingChanges(
           newSignature: changed.signature,
           impactedFiles: refs.referenceCount,
           impactedFilePaths: refs.referencingFiles,
+          referenceWarnings: refs.warnings ?? [],
+          referenceConfidence: refs.confidence ?? "complete",
         });
       }
     }
@@ -213,6 +233,12 @@ function renderSummary(
       }
     }
     parts.push(`    Impact: referenced by ${String(bc.impactedFiles)} files`);
+    if (bc.referenceConfidence === "partial") {
+      const reason = bc.referenceWarnings.length === 0
+        ? "unsupported dynamic reference semantics may hide callers"
+        : `${String(bc.referenceWarnings.length)} excluded shadowed access${bc.referenceWarnings.length === 1 ? "" : "es"}`;
+      parts.push(`    Confidence: partial (${reason})`);
+    }
   }
 
   return parts.join("\n");

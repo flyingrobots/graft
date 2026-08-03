@@ -251,7 +251,7 @@ function parseTranslatedSubstrateFacts(summary: string): TranslatedSubstrateFact
     | undefined;
   const validEvidence =
     (evidence?.kind === "symbol-reference-count" &&
-      (evidence.source === "warp-graph" || evidence.source === "committed-import-scan") &&
+      (evidence.source === "warp-graph" || evidence.source === "committed-reference-scan") &&
       typeof evidence.symbolName === "string" &&
       typeof evidence.filePath === "string") ||
     (evidence?.kind === "dead-symbols" &&

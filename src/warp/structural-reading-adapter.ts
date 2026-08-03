@@ -13,8 +13,8 @@ import type {
 } from "../ports/structural-reading.js";
 import type { ReferenceCountResult } from "../operations/structural-review.js";
 import {
-  countNamedImportReferencesAtRef as defaultCountNamedImportReferencesAtRef,
-} from "../operations/import-reference-impact.js";
+  scanQualifiedReferencesAtRef as defaultCountNamedImportReferencesAtRef,
+} from "./committed-reference-scan.js";
 import {
   countSymbolReferencesFromGraph as defaultCountSymbolReferencesFromGraph,
 } from "./warp-reference-count.js";
@@ -34,7 +34,7 @@ export interface GitWarpStructuralReadingPortDeps {
     symbolName: string,
     filePath?: string,
   ) => Promise<{ readonly symbol: string; readonly referenceCount: number; readonly referencingFiles: readonly string[] }>;
-  readonly countNamedImportReferencesAtRef?: (opts: {
+  readonly countCommittedReferencesAtRef?: (opts: {
     readonly cwd: string;
     readonly git: GitClient;
     readonly pathOps: PathOps;
@@ -89,8 +89,8 @@ export function createGitWarpStructuralReadingPort(
 ): StructuralReadingPort {
   const countSymbolReferencesFromGraph =
     deps.countSymbolReferencesFromGraph ?? defaultCountSymbolReferencesFromGraph;
-  const countNamedImportReferencesAtRef =
-    deps.countNamedImportReferencesAtRef ?? defaultCountNamedImportReferencesAtRef;
+  const countCommittedReferencesAtRef =
+    deps.countCommittedReferencesAtRef ?? defaultCountNamedImportReferencesAtRef;
   const findDeadSymbols = deps.findDeadSymbols ?? defaultFindDeadSymbols;
 
   return {
@@ -106,12 +106,12 @@ export function createGitWarpStructuralReadingPort(
       );
 
       let payload = symbolReferencePayload(request.symbolName, graphResult);
-      let source: "warp-graph" | "committed-import-scan" = "warp-graph";
+      let source: "warp-graph" | "committed-reference-scan" = "warp-graph";
       let residualPosture: StructuralReadingResidualPosture = "complete";
 
       if (graphResult.referenceCount === 0) {
         try {
-          const fallbackResult = await countNamedImportReferencesAtRef({
+          const fallbackResult = await countCommittedReferencesAtRef({
             cwd: deps.projectRoot,
             git: deps.git,
             pathOps: deps.pathOps,
@@ -119,10 +119,9 @@ export function createGitWarpStructuralReadingPort(
             filePath: request.filePath,
             ref,
           });
-          if (fallbackResult.referenceCount > 0) {
-            payload = symbolReferencePayload(request.symbolName, fallbackResult);
-            source = "committed-import-scan";
-          }
+          payload = symbolReferencePayload(request.symbolName, fallbackResult);
+          source = "committed-reference-scan";
+          if (fallbackResult.confidence === "partial") residualPosture = "partial";
         } catch {
           payload = symbolReferencePayload(request.symbolName, graphResult);
           residualPosture = "partial";

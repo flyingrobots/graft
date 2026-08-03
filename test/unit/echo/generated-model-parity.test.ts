@@ -103,7 +103,7 @@ function makePort(overrides: PortStubOverrides = {}): StructuralReadingPort {
       referenceCount,
       referencingFiles,
     })),
-    countNamedImportReferencesAtRef: overrides.fallbackThrows
+    countCommittedReferencesAtRef: overrides.fallbackThrows
       ? vi.fn(() => Promise.reject(new Error("scan failed")))
       : vi.fn(() => Promise.resolve({ referenceCount: 0, referencingFiles: [] })),
     findDeadSymbols: vi.fn(() => Promise.resolve([...(overrides.deadSymbols ?? deadSymbolFixtures)])),
@@ -153,7 +153,7 @@ const importedResult: StructuralReadingResult<SymbolReferenceReadingPayload> = {
     },
     evidence: {
       kind: "symbol-reference-count",
-      source: "committed-import-scan",
+        source: "committed-reference-scan",
       symbolName: "importedThing",
       filePath: "src/x.ts",
     },
@@ -361,7 +361,7 @@ describe("toGeneratedStructuralReading — forward obstruction errors", () => {
         ...importedEvidence,
         evidence: {
           kind: "symbol-reference-count",
-          source: "committed-import-scan",
+          source: "committed-reference-scan",
           symbolName: "x",
           filePath: "src/x.ts",
         },
