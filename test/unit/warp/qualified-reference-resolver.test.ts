@@ -376,7 +376,7 @@ describe("qualified reference language adapters", () => {
       ["Options", "resolved"],
       ["Options", "resolved"],
       ["buildThing", "resolved"],
-      ["Options", "parameter"],
+      ["Options", "resolved"],
       ["buildThing", "parameter"],
     ]);
   });

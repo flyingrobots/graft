@@ -54,6 +54,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   Python qualified attribute writes and deletions no longer count as callers;
   matching exact-ref reviews report partial confidence for those unsupported
   monkey-patching semantics.
+  TypeScript value bindings now shadow value-qualified accesses without
+  suppressing independent type-namespace references; class and enum
+  declarations continue to shadow both meanings.
   Go shadow diagnostics fall back to a meaningful package directory when an
   imported first-party package has no tracked source file.
   Committed scans containing supported-language parse errors report partial

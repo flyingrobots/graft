@@ -75,6 +75,7 @@ interface ShadowRegion {
   readonly endIndex: number;
   readonly diagnostic: ImportBindingDiagnostic;
   readonly pythonClassScope?: TSNode | undefined;
+  readonly namespaces: ReadonlySet<"value" | "type">;
 }
 
 function walk(node: TSNode, visit: (candidate: TSNode) => void): void {
@@ -743,7 +744,13 @@ interface ShadowCollector {
   readonly bindingNames: ReadonlySet<string>;
   readonly regions: ShadowRegion[];
   readonly resolvedImportDeclarationStarts: ReadonlySet<number>;
-  readonly addAll: (identifiers: readonly TSNode[], kind: string, start: number, end: number) => void;
+  readonly addAll: (
+    identifiers: readonly TSNode[],
+    kind: string,
+    start: number,
+    end: number,
+    namespaces?: ReadonlySet<"value" | "type">,
+  ) => void;
 }
 
 function createShadowCollector(
@@ -789,7 +796,7 @@ function createShadowCollector(
     bindingNames,
     regions,
     resolvedImportDeclarationStarts,
-    addAll: (identifiers, kind, start, end): void => {
+    addAll: (identifiers, kind, start, end, namespaces = new Set(["value", "type"])): void => {
       for (const identifier of identifiers) {
         const binding = activeBinding(identifier.text, start);
         if (binding === undefined) continue;
@@ -803,6 +810,7 @@ function createShadowCollector(
           startIndex: start,
           endIndex: end,
           diagnostic,
+          namespaces,
           ...(pythonClassScope !== undefined ? { pythonClassScope } : {}),
         });
       }
@@ -946,6 +954,9 @@ function collectTypeScriptShadowRegions(
   collector: ShadowCollector,
 ): void {
   const { root, bindingNames, addAll } = collector;
+  const valueNamespace = new Set<"value" | "type">(["value"]);
+  const typeNamespace = new Set<"value" | "type">(["type"]);
+  const bothNamespaces = new Set<"value" | "type">(["value", "type"]);
   walk(root, (node) => {
     const functionNode = nearestAncestor(node, TYPESCRIPT_FUNCTION_TYPES);
     const functionBody = functionNode?.childForFieldName("body") ?? functionNode?.namedChildren.at(-1);
@@ -953,7 +964,7 @@ function collectTypeScriptShadowRegions(
       const body = node.childForFieldName("body") ?? node.namedChildren.at(-1);
       const parameters = node.childForFieldName("parameters") ?? node.childForFieldName("parameter");
       if (body !== undefined) {
-        addAll(matchingBindingIdentifiers(language, parameters, bindingNames), "parameter", body.startIndex, body.endIndex);
+        addAll(matchingBindingIdentifiers(language, parameters, bindingNames), "parameter", body.startIndex, body.endIndex, valueNamespace);
       }
     }
     if (TYPESCRIPT_LOCAL_TYPES.has(node.type)) {
@@ -967,17 +978,17 @@ function collectTypeScriptShadowRegions(
         if (declaration?.type === "variable_declaration") scope = functionBody ?? root;
       }
       const declarationPoint = node.type === "assignment_expression" ? node.startIndex : scope.startIndex;
-      addAll(identifiers, loop === null ? "local_binding" : "loop_binding", declarationPoint, scope.endIndex);
+      addAll(identifiers, loop === null ? "local_binding" : "loop_binding", declarationPoint, scope.endIndex, valueNamespace);
     }
     if (node.type === "catch_clause") {
       const identifiers = matchingBindingIdentifiers(language, node.childForFieldName("parameter") ?? node.namedChildren[0], bindingNames);
       const body = node.childForFieldName("body") ?? node;
-      addAll(identifiers, "catch_binding", body.startIndex, body.endIndex);
+      addAll(identifiers, "catch_binding", body.startIndex, body.endIndex, valueNamespace);
     }
     if (TYPESCRIPT_SCOPED_LOOP_TYPES.has(node.type)) {
       const identifiers = matchingBindingIdentifiers(language, node.childForFieldName("left") ?? node.namedChildren[0], bindingNames);
       const body = node.childForFieldName("body") ?? node;
-      addAll(identifiers, "loop_binding", body.startIndex, body.endIndex);
+      addAll(identifiers, "loop_binding", body.startIndex, body.endIndex, valueNamespace);
     }
     if (node.type === "function_declaration" || node.type === "generator_function_declaration" ||
         node.type === "class_declaration" || node.type === "enum_declaration") {
@@ -986,7 +997,18 @@ function collectTypeScriptShadowRegions(
       const kind = node.type === "class_declaration" || node.type === "enum_declaration"
         ? "type_declaration"
         : "function_declaration";
-      addAll(identifiers, kind, scope.startIndex, scope.endIndex);
+      addAll(
+        identifiers,
+        kind,
+        scope.startIndex,
+        scope.endIndex,
+        node.type === "class_declaration" || node.type === "enum_declaration" ? bothNamespaces : valueNamespace,
+      );
+    }
+    if (node.type === "interface_declaration" || node.type === "type_alias_declaration") {
+      const identifiers = matchingBindingIdentifiers(language, node.childForFieldName("name"), bindingNames);
+      const scope = nearestAncestor(node, TYPESCRIPT_BLOCK_TYPES) ?? root;
+      addAll(identifiers, "type_declaration", scope.startIndex, scope.endIndex, typeNamespace);
     }
   });
 }
@@ -1139,6 +1161,7 @@ function accessParts(language: QualifiedReferenceLanguage, node: TSNode): {
   readonly binding: TSNode;
   readonly qualifier: readonly string[];
   readonly member: TSNode;
+  readonly namespace: "value" | "type";
 } | null {
   if (language === "python" && node.type === "attribute") {
     const member = node.childForFieldName("attribute") ?? node.namedChildren[1];
@@ -1151,23 +1174,23 @@ function accessParts(language: QualifiedReferenceLanguage, node: TSNode): {
       qualifier.unshift(attribute.text);
       binding = binding.childForFieldName("object") ?? binding.namedChildren[0];
     }
-    return binding?.type === "identifier" ? { binding, qualifier, member } : null;
+    return binding?.type === "identifier" ? { binding, qualifier, member, namespace: "value" } : null;
   }
   if ((language === "ts" || language === "tsx" || language === "js") && node.type === "member_expression") {
     const binding = node.childForFieldName("object"); const member = node.childForFieldName("property");
-    return binding?.type === "identifier" && member?.type === "property_identifier" ? { binding, qualifier: [], member } : null;
+    return binding?.type === "identifier" && member?.type === "property_identifier" ? { binding, qualifier: [], member, namespace: "value" } : null;
   }
   if ((language === "ts" || language === "tsx") && node.type === "nested_type_identifier") {
     const binding = node.childForFieldName("module"); const member = node.childForFieldName("name");
-    return binding?.type === "identifier" && member?.type === "type_identifier" ? { binding, qualifier: [], member } : null;
+    return binding?.type === "identifier" && member?.type === "type_identifier" ? { binding, qualifier: [], member, namespace: "type" } : null;
   }
   if (language === "rust" && node.type === "scoped_identifier") {
     const binding = node.childForFieldName("path"); const member = node.childForFieldName("name");
-    return binding?.type === "identifier" && member?.type === "identifier" ? { binding, qualifier: [], member } : null;
+    return binding?.type === "identifier" && member?.type === "identifier" ? { binding, qualifier: [], member, namespace: "value" } : null;
   }
   if (language === "go" && node.type === "selector_expression") {
     const binding = node.childForFieldName("operand"); const member = node.childForFieldName("field");
-    return binding?.type === "identifier" && member?.type === "field_identifier" ? { binding, qualifier: [], member } : null;
+    return binding?.type === "identifier" && member?.type === "field_identifier" ? { binding, qualifier: [], member, namespace: "value" } : null;
   }
   return null;
 }
@@ -1250,6 +1273,7 @@ export function analyzeQualifiedReferences(
       region.binding === binding.name &&
       node.startIndex >= region.startIndex &&
       node.startIndex < region.endIndex &&
+      region.namespaces.has(parts.namespace) &&
       (region.pythonClassScope === undefined || pythonClassNamespaceAppliesAtIndex(region.pythonClassScope, node.startIndex)),
     );
     const target = language === "go"
