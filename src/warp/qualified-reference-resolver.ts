@@ -263,13 +263,34 @@ function rustLogicalModuleDirectory(filePath: string): string {
   return directory === "" ? moduleName : `${directory}/${moduleName}`;
 }
 
+function rustInlineModuleSegments(node: TSNode): readonly string[] {
+  const segments: string[] = [];
+  let cursor = node.parent;
+  while (cursor !== null) {
+    if (cursor.type === "mod_item") {
+      const body = cursor.childForFieldName("body") ??
+        cursor.namedChildren.find((child) => child.type === "declaration_list");
+      const name = cursor.childForFieldName("name") ??
+        cursor.namedChildren.find((child) => child.type === "identifier");
+      if (body !== undefined && name !== undefined) segments.unshift(name.text);
+    }
+    cursor = cursor.parent;
+  }
+  return segments;
+}
+
 function resolveRustModule(
   source: string,
   filePath: string,
   context: QualifiedReferenceContext,
+  importNode?: TSNode,
 ): string | null {
   const sourceRoot = rustSourceRoot(filePath, context.knownFiles);
-  const moduleDirectory = rustLogicalModuleDirectory(filePath);
+  const logicalDirectory = rustLogicalModuleDirectory(filePath);
+  const inlineSegments = importNode === undefined ? [] : rustInlineModuleSegments(importNode);
+  const moduleDirectory = inlineSegments.length === 0
+    ? logicalDirectory
+    : context.pathOps.join(logicalDirectory, ...inlineSegments);
   const segments = source.split("::");
   const prefix = segments.shift();
   let base: string;
@@ -349,7 +370,7 @@ function rustBindings(
     for (const candidate of rustUseModuleCandidates(argument)) {
       bindings.push({
         name: candidate.name,
-        targetFilePath: resolveRustModule(candidate.source, filePath, context),
+        targetFilePath: resolveRustModule(candidate.source, filePath, context, candidate.importNode),
         scopeStartIndex,
         scopeEndIndex,
         importNode: candidate.importNode,
@@ -434,11 +455,11 @@ export function analyzeDirectSymbolImportReferences(
       const argument = statement.childForFieldName("argument") ?? statement.namedChildren[0];
       if (argument === undefined) return;
       for (const candidate of rustUseModuleCandidates(argument)) {
-        if (resolveRustModule(candidate.source, filePath, context) !== null) continue;
+        if (resolveRustModule(candidate.source, filePath, context, candidate.importNode) !== null) continue;
         const segments = candidate.source.split("::");
         const importedName = segments.pop();
         if (importedName === undefined || segments.length === 0) continue;
-        const targetFilePath = resolveRustModule(segments.join("::"), filePath, context);
+        const targetFilePath = resolveRustModule(segments.join("::"), filePath, context, candidate.importNode);
         if (targetFilePath !== null) references.push({ importedName, targetFilePath });
       }
     });

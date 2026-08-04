@@ -541,6 +541,35 @@ describe("qualified reference language adapters", () => {
     ]);
   });
 
+  it("resolves Rust self and super through enclosing inline modules", async () => {
+    const source = [
+      "mod nested {",
+      "    mod client;",
+      "    use self::client as local;",
+      "    mod deeper {",
+      "        use super::client as parent;",
+      "        fn call() { parent::run(); }",
+      "    }",
+      "    fn call() { local::run(); }",
+      "}",
+    ].join("\n");
+    const analysis = await analyze("rust", "src/network.rs", source, new Map([
+      ["Cargo.toml", "[package]\nname='demo'"],
+      ["src/network.rs", source],
+      ["src/network/nested/client.rs", "pub fn run() {}"],
+      ["src/network/client.rs", "pub fn run() {}"],
+      ["src/client.rs", "pub fn run() {}"],
+    ]));
+
+    expect(analysis.bindings).toEqual([
+      expect.objectContaining({ name: "local", targetFilePath: "src/network/nested/client.rs" }),
+      expect.objectContaining({ name: "parent", targetFilePath: "src/network/nested/client.rs" }),
+    ]);
+    expect(analysis.accesses.map((access) => access.targetFilePath)).toEqual([
+      "src/network/nested/client.rs", "src/network/nested/client.rs",
+    ]);
+  });
+
   it("anchors Rust crate imports at Cargo auto-target roots", async () => {
     const source = "use crate::sources as src; fn call(){ src::pending(); }";
     const files = new Map([
