@@ -532,8 +532,11 @@ function collectShadowRegions(
 ): readonly ShadowRegion[] {
   const bindingNames = new Set(bindings.map((binding) => binding.name));
   const targetByBinding = new Map(bindings.map((binding) => {
-    const packageFiles = context.go?.declarations.get(binding.packageDirectory ?? "");
-    const goTarget = packageFiles === undefined ? undefined : [...packageFiles.values()].find((value): value is string => value !== null);
+    const packageDeclarations = context.go?.declarations.get(binding.packageDirectory ?? "");
+    const goTarget = packageDeclarations === undefined
+      ? undefined
+      : [...packageDeclarations.values()].find((value): value is string => value !== null) ??
+        context.go?.packageFiles.get(binding.packageDirectory ?? "")?.[0];
     return [binding.name, binding.targetFilePath ?? goTarget ?? ""] as const;
   }));
   const regions: ShadowRegion[] = [];
@@ -830,10 +833,19 @@ export function analyzeQualifiedReferences(
     accesses.push({ binding: binding.name, member: parts.member.text, targetFilePath: target, node, shadow });
   });
   const diagnostics = language === "go"
-    ? [...new Map(accesses.flatMap((access) => access.shadow === null ? [] : [[
-      `${access.shadow.binding}:${String(access.shadow.range.startLine)}:${String(access.shadow.range.startColumn)}:${access.shadow.targetFilePath}`,
-      access.shadow,
-    ] as const])).values()]
+    ? (() => {
+        const keyFor = (diagnostic: ImportBindingDiagnostic): string => [
+          diagnostic.binding,
+          diagnostic.range.startLine,
+          diagnostic.range.startColumn,
+          diagnostic.shadowKind,
+        ].join(":");
+        const byRegion = new Map(shadows.map((region) => [keyFor(region.diagnostic), region.diagnostic] as const));
+        for (const access of accesses) {
+          if (access.shadow !== null) byRegion.set(keyFor(access.shadow), access.shadow);
+        }
+        return [...byRegion.values()];
+      })()
     : shadows.map((region) => region.diagnostic);
   return { bindings, accesses, diagnostics };
 }

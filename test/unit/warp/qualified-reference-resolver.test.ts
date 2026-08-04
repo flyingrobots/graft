@@ -482,6 +482,25 @@ describe("qualified reference language adapters", () => {
     ]);
   });
 
+  it("uses a deterministic package file for Go shadows without a resolved selector", async () => {
+    const source = [
+      "package cli",
+      'import src "example.com/project/sources"',
+      "func shadow(src int){ src.Missing() }",
+    ].join("\n");
+    const analysis = await analyze("go", "cli/main.go", source, new Map([
+      ["go.mod", "module example.com/project\n"],
+      ["cli/main.go", source],
+      ["sources/a.go", "package sources\nfunc Alpha() {}\n"],
+      ["sources/z.go", "package sources\nfunc Zed() {}\n"],
+    ]));
+
+    expect(analysis.accesses).toEqual([]);
+    expect(analysis.diagnostics).toEqual([
+      expect.objectContaining({ binding: "src", targetFilePath: "sources/a.go", shadowKind: "parameter" }),
+    ]);
+  });
+
   it("ignores external Go imports and packages without a unique declaration", async () => {
     const source = [
       "package cli",
