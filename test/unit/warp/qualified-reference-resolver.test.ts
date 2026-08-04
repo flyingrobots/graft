@@ -66,6 +66,24 @@ describe("qualified reference language adapters", () => {
     expect(analysis.diagnostics.map((diagnostic) => diagnostic.binding)).toEqual(["sources", "sources"]);
   });
 
+  it("collects every target in a chained Python assignment", async () => {
+    const source = [
+      "import pkg.sources as source",
+      "def shadow():",
+      "    source.pending_ids()",
+      "    other = source = object()",
+      "    source.pending_ids()",
+    ].join("\n");
+    const analysis = await analyze("python", "pkg/caller.py", source, new Map([
+      ["pkg/caller.py", source],
+      ["pkg/sources.py", "def pending_ids(): return []\n"],
+    ]));
+
+    expect(analysis.accesses.map((access) => access.shadow?.shadowKind ?? "resolved")).toEqual([
+      "local_binding", "local_binding",
+    ]);
+  });
+
   it("excludes Python qualified writes and deletes from caller references", async () => {
     const source = [
       "import pkg.sources as source",
