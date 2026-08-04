@@ -121,10 +121,6 @@ function createAdapter(
   };
 }
 
-export const registeredQualifiedReferenceLanguages = [
-  "python", "ts", "tsx", "js", "rust", "go",
-] as const satisfies readonly QualifiedReferenceLanguage[];
-
 const adapters = {
   python: createAdapter("python", pythonAccessParts, pythonUnsupportedWrite),
   ts: createAdapter("ts", typescriptAccessParts),
@@ -133,6 +129,10 @@ const adapters = {
   rust: createAdapter("rust", rustAccessParts),
   go: createAdapter("go", goAccessParts),
 } satisfies Record<QualifiedReferenceLanguage, QualifiedReferenceLanguageAdapter>;
+
+export const registeredQualifiedReferenceLanguages = Object.freeze(
+  Object.keys(adapters) as QualifiedReferenceLanguage[],
+);
 
 export function qualifiedReferenceAdapterFor(
   language: QualifiedReferenceLanguage,
