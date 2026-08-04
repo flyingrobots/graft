@@ -991,6 +991,23 @@ describe("qualified reference language adapters", () => {
     ]);
   });
 
+  it("confines Rust type-item shadows to their inline module declaration list", async () => {
+    const source = [
+      "use crate::sources as api;",
+      "mod first { struct api; fn call() { api::pending(); } }",
+      "mod second { fn call() { api::pending(); } }",
+    ].join("\n");
+    const analysis = await analyze("rust", "src/caller.rs", source, new Map([
+      ["Cargo.toml", "[package]\nname='x'"],
+      ["src/caller.rs", source],
+      ["src/sources.rs", "pub fn pending() {}\n"],
+    ]));
+
+    expect(analysis.accesses.map((access) => access.shadow?.shadowKind ?? "resolved")).toEqual([
+      "type_declaration", "resolved",
+    ]);
+  });
+
   it("anchors Go imports in go.mod and requires one exported declaration", async () => {
     const source = [
       "package cli",

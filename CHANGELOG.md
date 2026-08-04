@@ -68,6 +68,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   Rust value parameters, locals, patterns, functions, constants, and statics
   no longer shadow module paths; type/module items and generic type parameters
   remain conservative type-namespace shadows.
+  Rust type/module item shadows are now confined to their nearest block or
+  inline-module declaration list instead of suppressing sibling modules.
   Go shadow diagnostics fall back to a meaningful package directory when an
   imported first-party package has no tracked source file.
   Committed scans containing supported-language parse errors report partial

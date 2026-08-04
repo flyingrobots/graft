@@ -687,7 +687,6 @@ const TYPESCRIPT_LOCAL_TYPES = new Set(["variable_declarator", "assignment_expre
 const TYPESCRIPT_LOOP_TYPES = new Set(["for_statement", "for_in_statement"]);
 const TYPESCRIPT_DECLARATION_TYPES = new Set(["lexical_declaration", "variable_declaration"]);
 const TYPESCRIPT_SCOPED_LOOP_TYPES = new Set(["for_in_statement", "for_of_statement"]);
-const RUST_BLOCK_TYPES = new Set(["block"]);
 const RUST_IMPORT_SCOPE_TYPES = new Set(["block", "declaration_list"]);
 const RUST_USE_DECLARATION_TYPES = new Set(["use_declaration"]);
 const RUST_DECLARATION_TYPES = new Set(["function_item", "struct_item", "enum_item", "type_item", "const_item", "static_item", "union_item", "trait_item", "mod_item"]);
@@ -1081,7 +1080,7 @@ function collectRustShadowRegions(collector: ShadowCollector): void {
     }
     if (RUST_TYPE_NAMESPACE_DECLARATION_TYPES.has(node.type)) {
       const identifiers = matchingBindingIdentifiers("rust", node.childForFieldName("name"), bindingNames);
-      const scope = nearestAncestor(node, RUST_BLOCK_TYPES) ?? root;
+      const scope = nearestAncestor(node, RUST_IMPORT_SCOPE_TYPES) ?? root;
       const kind = node.type === "mod_item" ? "module_declaration" : "type_declaration";
       addAll(identifiers, kind, scope.startIndex, scope.endIndex, typeNamespace);
     }
