@@ -78,6 +78,33 @@ describe("committed qualified-reference scan", { timeout: 20_000 }, () => {
     }
   });
 
+  it("marks Python qualified writes partial without counting them as callers", async () => {
+    const cwd = createTestRepo("committed-python-qualified-write-");
+    try {
+      write(cwd, "pkg/sources.py", "def pending_ids(): return []\n");
+      write(cwd, "pkg/caller.py", [
+        "import pkg.sources as source",
+        "source.pending_ids = replacement",
+        "del source.pending_ids",
+      ].join("\n"));
+      git(cwd, "add -A"); git(cwd, "commit -m qualified-write");
+
+      const result = await scanQualifiedReferencesAtRef({
+        cwd, git: nodeGit, pathOps: nodePathOps, ref: "HEAD",
+        symbolName: "pending_ids", filePath: "pkg/sources.py",
+      });
+
+      expect(result).toMatchObject({
+        referenceCount: 0,
+        referencingFiles: [],
+        confidence: "partial",
+        warnings: [],
+      });
+    } finally {
+      cleanupTestRepo(cwd);
+    }
+  });
+
   it("orders diagnostic paths by locale-free code points", async () => {
     const cwd = createTestRepo("committed-diagnostic-order-");
     try {

@@ -1121,6 +1121,20 @@ function collectShadowRegions(
   return [...unique.values()];
 }
 
+function isPythonQualifiedWrite(node: TSNode): boolean {
+  let cursor = node.parent;
+  while (cursor !== null) {
+    if (cursor.type === "delete_statement") return true;
+    if (cursor.type === "assignment" || cursor.type === "augmented_assignment") {
+      const left = cursor.childForFieldName("left") ?? cursor.namedChildren[0];
+      return left !== undefined && containsIndex(left, node.startIndex);
+    }
+    if (cursor.type === "expression_statement" || cursor.type === "block" || cursor.type === "module") return false;
+    cursor = cursor.parent;
+  }
+  return false;
+}
+
 function accessParts(language: QualifiedReferenceLanguage, node: TSNode): {
   readonly binding: TSNode;
   readonly qualifier: readonly string[];
@@ -1252,6 +1266,16 @@ export function analyzeQualifiedReferences(
           shadow: shadowRegion?.diagnostic ?? null,
         });
       }
+      return;
+    }
+    if (language === "python" && isPythonQualifiedWrite(node)) {
+      unresolvedAccesses.push({
+        binding: binding.name,
+        member: parts.member.text,
+        targetFilePath: target,
+        node,
+        shadow: null,
+      });
       return;
     }
     const shadow = shadowRegion === undefined

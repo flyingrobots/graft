@@ -51,6 +51,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   Python class imports and class-local shadows now follow class-namespace
   visibility: they do not leak into nested bodies or comprehension bodies,
   while the outermost comprehension iterable still sees the class namespace.
+  Python qualified attribute writes and deletions no longer count as callers;
+  matching exact-ref reviews report partial confidence for those unsupported
+  monkey-patching semantics.
   Go shadow diagnostics fall back to a meaningful package directory when an
   imported first-party package has no tracked source file.
   Committed scans containing supported-language parse errors report partial

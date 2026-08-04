@@ -61,9 +61,28 @@ describe("qualified reference language adapters", () => {
     ]));
 
     expect(analysis.accesses.map((access) => access.shadow?.shadowKind ?? "resolved")).toEqual([
-      "resolved", "parameter", "local_binding", "resolved", "resolved", "resolved",
+      "resolved", "parameter", "local_binding", "resolved", "resolved",
     ]);
     expect(analysis.diagnostics.map((diagnostic) => diagnostic.binding)).toEqual(["sources", "sources"]);
+  });
+
+  it("excludes Python qualified writes and deletes from caller references", async () => {
+    const source = [
+      "import pkg.sources as source",
+      "source.pending_ids = replacement",
+      "del source.pending_ids",
+      "source.pending_ids()",
+    ].join("\n");
+    const analysis = await analyze("python", "pkg/caller.py", source, new Map([
+      ["pkg/caller.py", source],
+      ["pkg/sources.py", "def pending_ids(): return []\n"],
+    ]));
+
+    expect(analysis.accesses.map((access) => access.member)).toEqual(["pending_ids"]);
+    expect(analysis.unresolvedAccesses).toEqual([
+      expect.objectContaining({ binding: "source", member: "pending_ids", targetFilePath: "pkg/sources.py" }),
+      expect.objectContaining({ binding: "source", member: "pending_ids", targetFilePath: "pkg/sources.py" }),
+    ]);
   });
 
   it("honors Python global and nonlocal declarations before reassignment", async () => {
@@ -187,7 +206,7 @@ describe("qualified reference language adapters", () => {
     ]));
 
     expect(analysis.accesses.map((access) => access.shadow?.shadowKind ?? "resolved")).toEqual([
-      "deletion", "deletion", "resolved", "resolved", "resolved",
+      "deletion", "deletion", "resolved", "resolved",
     ]);
     expect(analysis.diagnostics).toEqual([
       expect.objectContaining({ binding: "source", shadowKind: "deletion" }),
