@@ -387,22 +387,72 @@ function nearestAncestor(node: TSNode, types: ReadonlySet<string>): TSNode | nul
   return null;
 }
 
-function matchingIdentifier(node: TSNode | null | undefined, bindings: ReadonlySet<string>): TSNode | null {
-  if (node === null || node === undefined) return null;
-  if ((node.type === "identifier" || node.type === "type_identifier" || node.type === "package_identifier") && bindings.has(node.text)) return node;
-  for (const child of node.namedChildren) {
-    const found = matchingIdentifier(child, bindings);
-    if (found !== null) return found;
-  }
-  return null;
-}
-
-function matchingPythonAssignmentIdentifier(
+function directMatchingIdentifier(
   node: TSNode | null | undefined,
   bindings: ReadonlySet<string>,
-): TSNode | null {
-  if (node?.type === "attribute" || node?.type === "subscript") return null;
-  return matchingIdentifier(node, bindings);
+): readonly TSNode[] {
+  if (node === null || node === undefined) return [];
+  return ["identifier", "type_identifier", "package_identifier", "shorthand_property_identifier_pattern"].includes(node.type) && bindings.has(node.text)
+    ? [node]
+    : [];
+}
+
+function matchingBindingIdentifiers(
+  language: QualifiedReferenceLanguage,
+  node: TSNode | null | undefined,
+  bindings: ReadonlySet<string>,
+): readonly TSNode[] {
+  const direct = directMatchingIdentifier(node, bindings);
+  if (direct.length > 0 || node === null || node === undefined) return direct;
+
+  if (language === "python") {
+    if (["default_parameter", "typed_parameter", "typed_default_parameter"].includes(node.type)) {
+      return matchingBindingIdentifiers(language, node.childForFieldName("name") ?? node.childForFieldName("parameter") ?? node.namedChildren[0], bindings);
+    }
+    if (["parameters", "lambda_parameters", "pattern_list", "tuple_pattern", "list_pattern", "list_splat_pattern", "dictionary_splat_pattern", "as_pattern_target"].includes(node.type)) {
+      return node.namedChildren.flatMap((child) => matchingBindingIdentifiers(language, child, bindings));
+    }
+    return [];
+  }
+
+  if (language === "ts" || language === "tsx" || language === "js") {
+    if (node.type === "pair_pattern") {
+      return matchingBindingIdentifiers(language, node.childForFieldName("value") ?? node.namedChildren.at(-1), bindings);
+    }
+    if (node.type === "assignment_pattern") {
+      return matchingBindingIdentifiers(language, node.childForFieldName("left") ?? node.namedChildren[0], bindings);
+    }
+    if (["required_parameter", "optional_parameter"].includes(node.type)) {
+      return matchingBindingIdentifiers(language, node.childForFieldName("pattern") ?? node.childForFieldName("name") ?? node.namedChildren[0], bindings);
+    }
+    if (node.type === "rest_pattern") {
+      return matchingBindingIdentifiers(language, node.childForFieldName("pattern") ?? node.namedChildren[0], bindings);
+    }
+    if (["formal_parameters", "object_pattern", "array_pattern"].includes(node.type)) {
+      return node.namedChildren.flatMap((child) => matchingBindingIdentifiers(language, child, bindings));
+    }
+    return [];
+  }
+
+  if (language === "rust") {
+    if (node.type === "parameter") {
+      return matchingBindingIdentifiers(language, node.childForFieldName("pattern") ?? node.namedChildren[0], bindings);
+    }
+    if (["match_pattern", "tuple_pattern", "slice_pattern", "tuple_struct_pattern", "struct_pattern", "field_pattern", "reference_pattern", "mut_pattern", "or_pattern"].includes(node.type)) {
+      return node.namedChildren.flatMap((child) => matchingBindingIdentifiers(language, child, bindings));
+    }
+    return [];
+  }
+
+  if (["parameter_declaration", "variadic_parameter_declaration"].includes(node.type)) {
+    return node.namedChildren
+      .filter((child) => child.type === "identifier")
+      .flatMap((child) => directMatchingIdentifier(child, bindings));
+  }
+  if (node.type === "expression_list") {
+    return node.namedChildren.flatMap((child) => directMatchingIdentifier(child, bindings));
+  }
+  return [];
 }
 
 function diagnosticFor(
@@ -452,42 +502,46 @@ function collectShadowRegions(
     const diagnostic = diagnosticFor(language, filePath, identifier.text, target, kind, identifier);
     regions.push({ binding: identifier.text, startIndex: start, endIndex: end, diagnostic });
   };
+  const addAll = (identifiers: readonly TSNode[], kind: string, start: number, end: number): void => {
+    for (const identifier of identifiers) add(identifier, kind, start, end);
+  };
 
   walk(root, (node) => {
     if (language === "python") {
       if (node.type === "function_definition" || node.type === "lambda") {
         const parameters = node.childForFieldName("parameters");
         const body = node.childForFieldName("body") ?? node.namedChildren.at(-1);
-        if (body !== undefined) for (const name of bindingNames) {
-          const identifier = matchingIdentifier(parameters, new Set([name]));
-          add(identifier, "parameter", body.startIndex, body.endIndex);
+        if (body !== undefined) {
+          addAll(matchingBindingIdentifiers(language, parameters, bindingNames), "parameter", body.startIndex, body.endIndex);
         }
       }
       if (["assignment", "augmented_assignment", "named_expression", "for_statement", "for_in_clause"].includes(node.type)) {
         const left = node.childForFieldName("left") ?? node.childForFieldName("target") ?? node.namedChildren[0];
-        const identifier = matchingPythonAssignmentIdentifier(left, bindingNames);
-        if (identifier !== null) {
+        const identifiers = left?.type === "attribute" || left?.type === "subscript"
+          ? []
+          : matchingBindingIdentifiers(language, left, bindingNames);
+        if (identifiers.length > 0) {
           const comprehension = nearestAncestor(node, new Set(["list_comprehension", "set_comprehension", "dictionary_comprehension", "generator_expression"]));
           const scope = nearestAncestor(node, new Set(["function_definition", "lambda", "class_definition"]));
-          if (comprehension !== null) add(identifier, "comprehension_binding", comprehension.startIndex, comprehension.endIndex);
+          if (comprehension !== null) addAll(identifiers, "comprehension_binding", comprehension.startIndex, comprehension.endIndex);
           else if (scope !== null) {
             const body = scope.childForFieldName("body") ?? scope;
             const start = scope.type === "function_definition" || scope.type === "lambda"
               ? body.startIndex
               : node.startIndex;
-            add(identifier, node.type === "for_statement" ? "loop_binding" : "local_binding", start, body.endIndex);
+            addAll(identifiers, node.type === "for_statement" ? "loop_binding" : "local_binding", start, body.endIndex);
           }
-          else add(identifier, node.type === "for_statement" ? "loop_binding" : "assignment", node.startIndex, root.endIndex);
+          else addAll(identifiers, node.type === "for_statement" ? "loop_binding" : "assignment", node.startIndex, root.endIndex);
         }
       }
       if (node.type === "function_definition" || node.type === "class_definition") {
-        const identifier = matchingIdentifier(node.childForFieldName("name"), bindingNames);
-        if (identifier !== null) {
+        const identifiers = matchingBindingIdentifiers(language, node.childForFieldName("name"), bindingNames);
+        if (identifiers.length > 0) {
           const scope = nearestAncestor(node, new Set(["function_definition", "class_definition"]));
           const body = scope?.childForFieldName("body");
           const start = scope?.type === "function_definition" ? body?.startIndex ?? scope.startIndex : node.startIndex;
           const end = body?.endIndex ?? root.endIndex;
-          add(identifier, node.type === "class_definition" ? "class_declaration" : "function_declaration", start, end);
+          addAll(identifiers, node.type === "class_definition" ? "class_declaration" : "function_declaration", start, end);
         }
       }
       if (node.type === "except_clause") {
@@ -495,7 +549,7 @@ function collectShadowRegions(
         const target = asPattern?.namedChildren.find((child) => child.type === "as_pattern_target");
         const body = node.namedChildren.find((child) => child.type === "block");
         if (body !== undefined) {
-          add(matchingIdentifier(target, bindingNames), "except_binding", body.startIndex, body.endIndex);
+          addAll(matchingBindingIdentifiers(language, target, bindingNames), "except_binding", body.startIndex, body.endIndex);
         }
       }
       return;
@@ -522,7 +576,7 @@ function collectShadowRegions(
       (node.parent?.type === "arrow_function" && node.parent.childForFieldName("parameter")?.startIndex === node.startIndex)
     );
     if ((parameterTypes.includes(node.type) || plainJavaScriptParameter) && functionBody !== undefined) {
-      add(matchingIdentifier(node.childForFieldName("pattern") ?? node.childForFieldName("name") ?? node.namedChildren[0] ?? node, bindingNames), "parameter", functionBody.startIndex, functionBody.endIndex);
+      addAll(matchingBindingIdentifiers(language, node, bindingNames), "parameter", functionBody.startIndex, functionBody.endIndex);
     }
 
     const localTypes = language === "rust"
@@ -531,7 +585,7 @@ function collectShadowRegions(
         ? ["short_var_declaration", "var_spec", "assignment_statement"]
         : ["variable_declarator", "assignment_expression"];
     if (localTypes.includes(node.type)) {
-      const identifier = matchingIdentifier(node.childForFieldName("pattern") ?? node.childForFieldName("name") ?? node.childForFieldName("left") ?? node.namedChildren[0], bindingNames);
+      const identifiers = matchingBindingIdentifiers(language, node.childForFieldName("pattern") ?? node.childForFieldName("name") ?? node.childForFieldName("left") ?? node.namedChildren[0], bindingNames);
       const enclosingLoop = nearestAncestor(node, new Set(language === "go" ? ["for_statement"] : language === "rust" ? ["for_expression"] : ["for_statement", "for_in_statement"]));
       const loopBody = enclosingLoop?.childForFieldName("body");
       const loop = enclosingLoop !== null && (loopBody === null || loopBody === undefined || node.startIndex < loopBody.startIndex)
@@ -547,29 +601,29 @@ function collectShadowRegions(
         : node.type === "assignment_expression"
           ? node.startIndex
           : scope.startIndex;
-      add(identifier, loop === null ? (node.type === "assignment_statement" ? "assignment" : "local_binding") : "loop_binding", declarationPoint, scope.endIndex);
+      addAll(identifiers, loop === null ? (node.type === "assignment_statement" ? "assignment" : "local_binding") : "loop_binding", declarationPoint, scope.endIndex);
     }
 
     if (language === "rust" && ["for_expression", "match_arm"].includes(node.type)) {
-      const identifier = matchingIdentifier(node.childForFieldName("pattern") ?? node.namedChildren[0], bindingNames);
+      const identifiers = matchingBindingIdentifiers(language, node.childForFieldName("pattern") ?? node.namedChildren[0], bindingNames);
       const body = node.childForFieldName("body") ?? node;
-      add(identifier, "pattern_binding", body.startIndex, body.endIndex);
+      addAll(identifiers, "pattern_binding", body.startIndex, body.endIndex);
     }
     if (language === "go" && node.type === "range_clause") {
-      const identifier = matchingIdentifier(node.childForFieldName("left") ?? node.namedChildren[0], bindingNames);
+      const identifiers = matchingBindingIdentifiers(language, node.childForFieldName("left") ?? node.namedChildren[0], bindingNames);
       const loop = nearestAncestor(node, new Set(["for_statement"]));
       const body = loop?.childForFieldName("body");
-      if (loop !== null) add(identifier, "range_binding", body?.startIndex ?? node.endIndex, loop.endIndex);
+      if (loop !== null) addAll(identifiers, "range_binding", body?.startIndex ?? node.endIndex, loop.endIndex);
     }
     if ((language === "ts" || language === "tsx" || language === "js") && node.type === "catch_clause") {
-      const identifier = matchingIdentifier(node.childForFieldName("parameter") ?? node.namedChildren[0], bindingNames);
+      const identifiers = matchingBindingIdentifiers(language, node.childForFieldName("parameter") ?? node.namedChildren[0], bindingNames);
       const body = node.childForFieldName("body") ?? node;
-      add(identifier, "catch_binding", body.startIndex, body.endIndex);
+      addAll(identifiers, "catch_binding", body.startIndex, body.endIndex);
     }
     if ((language === "ts" || language === "tsx" || language === "js") && ["for_in_statement", "for_of_statement"].includes(node.type)) {
-      const identifier = matchingIdentifier(node.childForFieldName("left") ?? node.namedChildren[0], bindingNames);
+      const identifiers = matchingBindingIdentifiers(language, node.childForFieldName("left") ?? node.namedChildren[0], bindingNames);
       const body = node.childForFieldName("body") ?? node;
-      add(identifier, "loop_binding", body.startIndex, body.endIndex);
+      addAll(identifiers, "loop_binding", body.startIndex, body.endIndex);
     }
 
     const declarationTypes = language === "rust"
@@ -578,10 +632,10 @@ function collectShadowRegions(
         ? ["function_declaration", "type_spec"]
         : ["function_declaration", "class_declaration"];
     if (declarationTypes.includes(node.type)) {
-      const identifier = matchingIdentifier(node.childForFieldName("name"), bindingNames);
+      const identifiers = matchingBindingIdentifiers(language, node.childForFieldName("name"), bindingNames);
       const scope = nearestAncestor(node, blockTypes) ?? root;
       const declarationPoint = language === "rust" ? scope.startIndex : node.startIndex;
-      add(identifier, node.type.includes("class") || node.type.includes("struct") || node.type.includes("type") ? "type_declaration" : "function_declaration", declarationPoint, scope.endIndex);
+      addAll(identifiers, node.type.includes("class") || node.type.includes("struct") || node.type.includes("type") ? "type_declaration" : "function_declaration", declarationPoint, scope.endIndex);
     }
   });
 

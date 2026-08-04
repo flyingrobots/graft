@@ -66,6 +66,33 @@ describe("qualified reference language adapters", () => {
     expect(analysis.diagnostics.map((diagnostic) => diagnostic.binding)).toEqual(["sources", "sources"]);
   });
 
+  it("extracts every binding pattern without treating defaults as bindings", async () => {
+    const python = [
+      "import pkg.sources as source",
+      "def default_only(value=source.pending_ids()):",
+      "    source.pending_ids()",
+    ].join("\n");
+    const pythonAnalysis = await analyze("python", "pkg/caller.py", python, new Map([
+      ["pkg/caller.py", python], ["pkg/sources.py", "def pending_ids(): return []"],
+    ]));
+    expect(pythonAnalysis.accesses.map((access) => access.shadow?.shadowKind ?? "resolved")).toEqual([
+      "resolved", "resolved",
+    ]);
+
+    const typescript = [
+      'import * as api from "./api";',
+      'import * as other from "./other";',
+      "{ const { left: api, right: other } = value; api.run(); other.run(); }",
+    ].join("\n");
+    const typescriptAnalysis = await analyze("ts", "src/caller.ts", typescript, new Map([
+      ["src/caller.ts", typescript], ["src/api.ts", "export function run() {}"],
+      ["src/other.ts", "export function run() {}"],
+    ]));
+    expect(typescriptAnalysis.accesses.map((access) => access.shadow?.shadowKind ?? "resolved")).toEqual([
+      "local_binding", "local_binding",
+    ]);
+  });
+
   it("resolves nested Python imports within their lexical scopes", async () => {
     const source = [
       "import pkg.outer as source",
