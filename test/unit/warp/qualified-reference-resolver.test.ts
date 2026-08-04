@@ -103,6 +103,33 @@ describe("qualified reference language adapters", () => {
     ]);
   });
 
+  it("resolves extensionless modern TypeScript module candidates", async () => {
+    const source = [
+      'import * as mts from "./module-mts";',
+      'import * as cts from "./module-cts";',
+      'import * as jsxIndex from "./jsx-index";',
+      'import * as mtsIndex from "./mts-index";',
+      'import * as ctsIndex from "./cts-index";',
+      "mts.run(); cts.run(); jsxIndex.run(); mtsIndex.run(); ctsIndex.run();",
+    ].join("\n");
+    const analysis = await analyze("ts", "src/caller.ts", source, new Map([
+      ["src/caller.ts", source],
+      ["src/module-mts.mts", "export function run() {}"],
+      ["src/module-cts.cts", "export function run() {}"],
+      ["src/jsx-index/index.jsx", "export function run() {}"],
+      ["src/mts-index/index.mts", "export function run() {}"],
+      ["src/cts-index/index.cts", "export function run() {}"],
+    ]));
+
+    expect(analysis.accesses.map((access) => access.targetFilePath)).toEqual([
+      "src/module-mts.mts",
+      "src/module-cts.cts",
+      "src/jsx-index/index.jsx",
+      "src/mts-index/index.mts",
+      "src/cts-index/index.cts",
+    ]);
+  });
+
   it("shares namespace resolution and lexical declaration scopes across TSX and JavaScript", async () => {
     const tsx = [
       'import * as view from "./view";',

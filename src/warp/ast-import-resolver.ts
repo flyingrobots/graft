@@ -47,9 +47,14 @@ function resolveModulePath(
     `${raw}.tsx`,
     `${raw}.js`,
     `${raw}.jsx`,
+    `${raw}.mts`,
+    `${raw}.cts`,
     `${raw}/index.ts`,
     `${raw}/index.tsx`,
     `${raw}/index.js`,
+    `${raw}/index.jsx`,
+    `${raw}/index.mts`,
+    `${raw}/index.cts`,
   ];
 
   for (const candidate of candidates) {

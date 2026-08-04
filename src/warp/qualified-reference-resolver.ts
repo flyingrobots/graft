@@ -124,8 +124,9 @@ function resolveRelativeModule(
   const candidates = [
     raw,
     ...compiledSpecifierSourceCandidates(raw),
-    `${raw}.ts`, `${raw}.tsx`, `${raw}.js`, `${raw}.jsx`,
-    `${raw}/index.ts`, `${raw}/index.tsx`, `${raw}/index.js`,
+    `${raw}.ts`, `${raw}.tsx`, `${raw}.js`, `${raw}.jsx`, `${raw}.mts`, `${raw}.cts`,
+    `${raw}/index.ts`, `${raw}/index.tsx`, `${raw}/index.js`, `${raw}/index.jsx`,
+    `${raw}/index.mts`, `${raw}/index.cts`,
   ];
   return candidates.find((candidate) => context.knownFiles.has(candidate)) ?? null;
 }
