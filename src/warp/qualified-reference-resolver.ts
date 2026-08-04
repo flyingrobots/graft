@@ -163,6 +163,15 @@ export function analyzeQualifiedReferences(
           shadow: shadowRegion?.diagnostic ?? null,
         });
       }
+      if (language === "rust" && binding.targetFilePath !== null) {
+        unresolvedAccesses.push({
+          binding: binding.name,
+          member: parts.member.text,
+          targetFilePath: binding.targetFilePath,
+          node,
+          shadow: shadowRegion?.diagnostic ?? null,
+        });
+      }
       return;
     }
     if (adapter.isUnsupportedWrite(node)) {

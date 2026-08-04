@@ -99,6 +99,30 @@ describe("committed qualified-reference scan", { timeout: 20_000 }, () => {
     }
   });
 
+  it("marks qualified Rust inline-module paths unresolved at the owner file", async () => {
+    const cwd = createTestRepo("committed-rust-inline-module-");
+    try {
+      write(cwd, "Cargo.toml", "[package]\nname='qualified'\nversion='0.1.0'\n");
+      write(cwd, "src/api.rs", "pub mod inner { pub fn run() {} }\n");
+      write(cwd, "src/caller.rs", "use crate::api; fn call() { api::inner::run(); }\n");
+      git(cwd, "add -A"); git(cwd, "commit -m rust-inline-module");
+
+      const result = await scanQualifiedReferencesAtRef({
+        cwd, git: nodeGit, pathOps: nodePathOps, ref: "HEAD",
+        symbolName: "run", filePath: "src/api.rs",
+      });
+
+      expect(result).toMatchObject({
+        referenceCount: 0,
+        referencingFiles: [],
+        confidence: "partial",
+        warnings: [],
+      });
+    } finally {
+      cleanupTestRepo(cwd);
+    }
+  });
+
   it("counts callers through direct Rust module declarations", async () => {
     const cwd = createTestRepo("committed-rust-direct-module-");
     try {

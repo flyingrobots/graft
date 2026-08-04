@@ -70,6 +70,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   declaring-symbol reference evidence as qualified value paths.
   Nested Rust paths such as `api::nested::run()` now resolve through the
   imported parent module to the child module's declaring file.
+  Nested Rust paths whose child module has no distinct source file now lower
+  matching owner-file confidence instead of disappearing from the analysis.
   Rust value parameters, locals, patterns, functions, constants, and statics
   no longer shadow module paths; type/module items and generic type parameters
   remain conservative type-namespace shadows.
