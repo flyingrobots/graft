@@ -560,6 +560,27 @@ describe("qualified reference language adapters", () => {
     ]);
   });
 
+  it("scopes Go select and type-switch bindings without suppressing siblings", async () => {
+    const source = [
+      "package cli",
+      'import src "example.com/project/sources"',
+      "func selectShadow(ch chan int) { select { case src := <-ch: src.PendingIDs(); default: }; src.PendingIDs() }",
+      "func typeShadow(value any) { switch src := value.(type) { case int: src.PendingIDs() }; src.PendingIDs() }",
+    ].join("\n");
+    const analysis = await analyze("go", "cli/main.go", source, new Map([
+      ["go.mod", "module example.com/project\n"], ["cli/main.go", source],
+      ["sources/pending.go", "package sources\nfunc PendingIDs() {}\n"],
+    ]));
+
+    expect(analysis.accesses.map((access) => access.shadow?.shadowKind ?? "resolved")).toEqual([
+      "pattern_binding", "resolved", "pattern_binding", "resolved",
+    ]);
+    expect(analysis.diagnostics).toEqual([
+      expect.objectContaining({ binding: "src", shadowKind: "pattern_binding" }),
+      expect.objectContaining({ binding: "src", shadowKind: "pattern_binding" }),
+    ]);
+  });
+
   it("treats local Go constants as declaration-point block shadows", async () => {
     const source = [
       "package cli",

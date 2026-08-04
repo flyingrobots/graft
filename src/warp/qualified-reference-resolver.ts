@@ -849,6 +849,17 @@ function collectGoShadowRegions(collector: ShadowCollector): void {
       const body = loop?.childForFieldName("body");
       if (loop !== null) addAll(identifiers, "range_binding", body?.startIndex ?? node.endIndex, loop.endIndex);
     }
+    if (node.type === "receive_statement" && node.parent?.type === "communication_case") {
+      const identifiers = matchingBindingIdentifiers("go", node.childForFieldName("left") ?? node.namedChildren[0], bindingNames);
+      addAll(identifiers, "pattern_binding", node.endIndex, node.parent.endIndex);
+    }
+    if (node.type === "type_switch_statement") {
+      const alias = node.namedChildren.find((child) => child.type === "expression_list");
+      const firstCase = node.namedChildren.find((child) => child.type === "type_case" || child.type === "default_case");
+      if (firstCase !== undefined) {
+        addAll(matchingBindingIdentifiers("go", alias, bindingNames), "pattern_binding", firstCase.startIndex, node.endIndex);
+      }
+    }
     if (GO_DECLARATION_TYPES.has(node.type)) {
       const identifiers = matchingBindingIdentifiers("go", node.childForFieldName("name"), bindingNames);
       const scope = nearestAncestor(node, GO_BLOCK_TYPES) ?? root;
