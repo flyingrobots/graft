@@ -964,7 +964,13 @@ function collectTypeScriptShadowRegions(
       const body = node.childForFieldName("body") ?? node.namedChildren.at(-1);
       const parameters = node.childForFieldName("parameters") ?? node.childForFieldName("parameter");
       if (body !== undefined) {
-        addAll(matchingBindingIdentifiers(language, parameters, bindingNames), "parameter", body.startIndex, body.endIndex, valueNamespace);
+        addAll(
+          matchingBindingIdentifiers(language, parameters, bindingNames),
+          "parameter",
+          parameters?.startIndex ?? node.startIndex,
+          body.endIndex,
+          valueNamespace,
+        );
       }
     }
     if (TYPESCRIPT_LOCAL_TYPES.has(node.type)) {

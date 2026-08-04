@@ -323,6 +323,30 @@ describe("qualified reference language adapters", () => {
     ]);
   });
 
+  it("scopes TypeScript and JavaScript parameters across default initializers", async () => {
+    const source = [
+      'import * as api from "./api";',
+      "function self(api = api.run()) {}",
+      "function later(value = api.run(), api) {}",
+      "function unshadowed(value = api.run()) {}",
+    ].join("\n");
+    const files = new Map([
+      ["src/api.ts", "export function run() {}"],
+      ["src/caller.ts", source],
+      ["src/caller.js", source],
+    ]);
+
+    const typescript = await analyze("ts", "src/caller.ts", source, files);
+    const javascript = await analyze("js", "src/caller.js", source, files);
+
+    expect(typescript.accesses.map((access) => access.shadow?.shadowKind ?? "resolved")).toEqual([
+      "parameter", "parameter", "resolved",
+    ]);
+    expect(javascript.accesses.map((access) => access.shadow?.shadowKind ?? "resolved")).toEqual([
+      "parameter", "parameter", "resolved",
+    ]);
+  });
+
   it("treats TypeScript enum declarations as lexical namespace shadows", async () => {
     const source = [
       'import * as api from "./api";',

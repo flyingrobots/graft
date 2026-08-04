@@ -57,6 +57,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   TypeScript value bindings now shadow value-qualified accesses without
   suppressing independent type-namespace references; class and enum
   declarations continue to shadow both meanings.
+  TypeScript and JavaScript parameter bindings now cover their full default-
+  initializer environment, including self-references and references to later
+  parameters.
   Go shadow diagnostics fall back to a meaningful package directory when an
   imported first-party package has no tracked source file.
   Committed scans containing supported-language parse errors report partial
