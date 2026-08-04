@@ -103,7 +103,6 @@ describe("warp: Python import resolver", { timeout: 15000 }, () => {
 
     expect(result.edges.filter((edge) => edge.label === "references").map((edge) => edge.to).sort()).toEqual([
       "file:package/child.py",
-      "file:package/wild.py",
       "sym:package/module.py:other",
       "sym:package/module.py:symbol",
     ]);
@@ -113,7 +112,6 @@ describe("warp: Python import resolver", { timeout: 15000 }, () => {
       "file:package/wild.py",
     ]);
     expect(result.metadata).toEqual([
-      { importedName: "*", localName: "*", filePath: "consumer.py" },
       { importedName: "child", localName: "child", filePath: "consumer.py" },
       { importedName: "other", localName: "local_other", filePath: "consumer.py" },
       { importedName: "symbol", localName: "symbol", filePath: "consumer.py" },

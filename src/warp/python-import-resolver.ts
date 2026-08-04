@@ -104,15 +104,13 @@ function handleFromImportStatement(patch: PatchBuilderV2, filePath: string, node
 
   for (const child of node.namedChildren.slice(node.namedChildren.indexOf(moduleNode) + 1)) {
     const info = importInfo(child, true);
-    if (info === null) continue;
+    if (info === null || info.importedName === "*") continue;
     const childModule = resolvedPath === null || isPythonPackageModulePath(resolvedPath)
       ? resolvePythonModulePath(pythonChildModuleSource(moduleNode.text, info.importedName), filePath, pathOps, knownFiles)
       : null;
-    const target = info.importedName === "*"
-      ? (resolvedPath === null ? null : `file:${resolvedPath}`)
-      : childModule !== null
-        ? `file:${childModule}`
-        : resolvedPath === null ? null : SymIdCodec.encode(resolvedPath, info.importedName);
+    const target = childModule !== null
+      ? `file:${childModule}`
+      : resolvedPath === null ? null : SymIdCodec.encode(resolvedPath, info.importedName);
     emitReference(patch, filePath, info, target);
   }
 }
