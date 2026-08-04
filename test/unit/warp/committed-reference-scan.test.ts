@@ -170,6 +170,26 @@ describe("committed qualified-reference scan", { timeout: 20_000 }, () => {
     }
   });
 
+  it("counts direct Python and Rust symbol imports by their imported names", async () => {
+    const cwd = createTestRepo("committed-direct-import-scan-");
+    try {
+      write(cwd, "py/sources.py", "def pending_ids(): return []\n");
+      write(cwd, "py/caller.py", "from py.sources import pending_ids as local\nlocal()\n");
+      write(cwd, "Cargo.toml", "[package]\nname='direct'\nversion='0.1.0'\n");
+      write(cwd, "src/sources.rs", "pub fn pending_ids() {}\n");
+      write(cwd, "src/caller.rs", "use crate::sources::pending_ids as local; fn call(){ local(); }\n");
+      git(cwd, "add -A"); git(cwd, "commit -m direct-import-scan");
+      const base = { cwd, git: nodeGit, pathOps: nodePathOps, ref: "HEAD", symbolName: "pending_ids" };
+
+      await expect(scanQualifiedReferencesAtRef({ ...base, filePath: "py/sources.py" }))
+        .resolves.toMatchObject({ referenceCount: 1, referencingFiles: ["py/caller.py"] });
+      await expect(scanQualifiedReferencesAtRef({ ...base, filePath: "src/sources.rs" }))
+        .resolves.toMatchObject({ referenceCount: 1, referencingFiles: ["src/caller.rs"] });
+    } finally {
+      cleanupTestRepo(cwd);
+    }
+  });
+
   it("marks a target-specific dynamic import limitation partial without inventing a caller", async () => {
     const cwd = createTestRepo("committed-dynamic-scan-");
     try {

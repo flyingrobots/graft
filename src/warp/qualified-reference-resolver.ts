@@ -52,6 +52,11 @@ export interface QualifiedReferenceAnalysis {
   readonly diagnostics: readonly ImportBindingDiagnostic[];
 }
 
+export interface DirectSymbolImportReference {
+  readonly importedName: string;
+  readonly targetFilePath: string;
+}
+
 interface ShadowRegion {
   readonly binding: string;
   readonly startIndex: number;
@@ -323,6 +328,53 @@ export function resolveQualifiedImportBindings(
   if (language === "rust") return rustBindings(root, filePath, context);
   if (language === "go") return goBindings(root, context);
   return typescriptBindings(root, filePath, context);
+}
+
+export function analyzeDirectSymbolImportReferences(
+  language: QualifiedReferenceLanguage,
+  filePath: string,
+  root: TSNode,
+  context: QualifiedReferenceContext,
+): readonly DirectSymbolImportReference[] {
+  const references: DirectSymbolImportReference[] = [];
+  if (language === "python") {
+    walk(root, (statement) => {
+      if (statement.type !== "import_from_statement") return;
+      const packageNode = statement.childForFieldName("module_name") ??
+        statement.namedChildren.find((child) => child.type === "dotted_name" || child.type === "relative_import");
+      if (packageNode === undefined) return;
+      const packagePath = resolvePythonModulePath(packageNode.text, filePath, context.pathOps, context.knownFiles);
+      if (packagePath === null) return;
+      for (const specifier of statement.namedChildren.slice(statement.namedChildren.indexOf(packageNode) + 1)) {
+        if (specifier.type === "wildcard_import") continue;
+        const imported = specifier.type === "aliased_import"
+          ? specifier.childForFieldName("name") ?? specifier.namedChildren.find((child) => child.type === "dotted_name")
+          : specifier;
+        if (imported?.type !== "dotted_name") continue;
+        const childModule = packagePath.endsWith("/__init__.py")
+          ? resolvePythonModulePath(pythonChildModuleSource(packageNode.text, imported.text), filePath, context.pathOps, context.knownFiles)
+          : null;
+        if (childModule === null) references.push({ importedName: imported.text, targetFilePath: packagePath });
+      }
+    });
+  }
+  if (language === "rust") {
+    walk(root, (statement) => {
+      if (statement.type !== "use_declaration") return;
+      const argument = statement.childForFieldName("argument") ?? statement.namedChildren[0];
+      const imported = argument?.type === "use_as_clause"
+        ? argument.childForFieldName("path") ?? argument.namedChildren[0]
+        : argument;
+      if (imported?.type !== "scoped_identifier") return;
+      if (resolveRustModule(imported.text, filePath, context) !== null) return;
+      const segments = imported.text.split("::");
+      const importedName = segments.pop();
+      if (importedName === undefined || segments.length === 0) return;
+      const targetFilePath = resolveRustModule(segments.join("::"), filePath, context);
+      if (targetFilePath !== null) references.push({ importedName, targetFilePath });
+    });
+  }
+  return references;
 }
 
 function nearestAncestor(node: TSNode, types: ReadonlySet<string>): TSNode | null {

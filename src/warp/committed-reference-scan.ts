@@ -6,6 +6,7 @@ import type { ReferenceCountResult } from "../operations/structural-review.js";
 import { analyzeStaticTypeScriptReferences } from "./ast-import-resolver.js";
 import { buildGoReferenceContext } from "./go-reference-context.js";
 import {
+  analyzeDirectSymbolImportReferences,
   analyzeQualifiedReferences,
   isQualifiedReferenceLanguage,
 } from "./qualified-reference-resolver.js";
@@ -124,7 +125,11 @@ async function analyzeFile(
     });
     const staticReferences = language === "ts" || language === "tsx" || language === "js"
       ? analyzeStaticTypeScriptReferences(parsed.root, filePath, opts.pathOps, refContext.knownFiles)
-      : [];
+      : analyzeDirectSymbolImportReferences(language, filePath, parsed.root, {
+        pathOps: opts.pathOps,
+        knownFiles: refContext.knownFiles,
+        ...(go !== undefined ? { go } : {}),
+      });
     return { ...qualified, staticReferences };
   } finally {
     parsed.delete();
