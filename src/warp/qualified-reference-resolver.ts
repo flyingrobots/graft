@@ -32,6 +32,8 @@ export interface ResolvedImportBinding {
   readonly name: string;
   readonly targetFilePath: string | null;
   readonly qualifiedPath?: readonly string[] | undefined;
+  readonly scopeStartIndex?: number | undefined;
+  readonly scopeEndIndex?: number | undefined;
   readonly packageDirectory?: string | undefined;
   readonly importNode: TSNode;
 }
@@ -136,7 +138,19 @@ function pythonBindings(
   context: QualifiedReferenceContext,
 ): readonly ResolvedImportBinding[] {
   const bindings: ResolvedImportBinding[] = [];
-  for (const statement of root.namedChildren) {
+  const statements: TSNode[] = [];
+  walk(root, (node) => {
+    if (node.type === "import_statement" || node.type === "import_from_statement") {
+      statements.push(node);
+    }
+  });
+  for (const statement of statements) {
+    const lexicalScope = nearestAncestor(statement, new Set(["function_definition", "lambda", "class_definition"]));
+    const scopeBody = lexicalScope?.childForFieldName("body") ?? lexicalScope;
+    const scopeStartIndex = lexicalScope?.type === "function_definition" || lexicalScope?.type === "lambda"
+      ? scopeBody?.startIndex ?? statement.endIndex
+      : statement.endIndex;
+    const scopeEndIndex = scopeBody?.endIndex ?? root.endIndex;
     if (statement.type === "import_statement") {
       for (const specifier of statement.namedChildren) {
         const moduleNode = specifier.type === "aliased_import"
@@ -153,6 +167,8 @@ function pythonBindings(
           name: bindingName,
           targetFilePath: resolvePythonModulePath(moduleNode.text, filePath, context.pathOps, context.knownFiles),
           ...(alias === undefined && moduleParts.length > 1 ? { qualifiedPath: moduleParts.slice(1) } : {}),
+          scopeStartIndex,
+          scopeEndIndex,
           importNode: specifier,
         });
       }
@@ -175,7 +191,13 @@ function pythonBindings(
       const childPath = packagePath?.endsWith("/__init__.py") === true || packagePath === null
         ? resolvePythonModulePath(pythonChildModuleSource(packageNode.text, imported.text), filePath, context.pathOps, context.knownFiles)
         : null;
-      if (childPath !== null) bindings.push({ name: alias?.text ?? imported.text, targetFilePath: childPath, importNode: specifier });
+      bindings.push({
+        name: alias?.text ?? imported.text,
+        targetFilePath: childPath,
+        scopeStartIndex,
+        scopeEndIndex,
+        importNode: specifier,
+      });
     }
   }
   return bindings;
@@ -541,7 +563,8 @@ export function analyzeQualifiedReferences(
   root: TSNode,
   context: QualifiedReferenceContext,
 ): QualifiedReferenceAnalysis {
-  const bindings = resolveQualifiedImportBindings(language, filePath, root, context).filter((binding) =>
+  const discoveredBindings = resolveQualifiedImportBindings(language, filePath, root, context);
+  const bindings = discoveredBindings.filter((binding) =>
     binding.targetFilePath !== null || context.go?.declarations.has(binding.packageDirectory ?? "") === true,
   );
   const shadows = collectShadowRegions(language, filePath, root, bindings, context);
@@ -549,11 +572,17 @@ export function analyzeQualifiedReferences(
   walk(root, (node) => {
     const parts = accessParts(language, node);
     if (parts === null) return;
-    const binding = bindings.find((candidate) =>
-      candidate.name === parts.binding.text &&
-      (candidate.qualifiedPath ?? []).length === parts.qualifier.length &&
-      (candidate.qualifiedPath ?? []).every((segment, index) => segment === parts.qualifier[index])
-    );
+    const binding = discoveredBindings
+      .filter((candidate) =>
+        candidate.name === parts.binding.text &&
+        (candidate.qualifiedPath ?? []).length === parts.qualifier.length &&
+        (candidate.qualifiedPath ?? []).every((segment, index) => segment === parts.qualifier[index]) &&
+        node.startIndex >= (candidate.scopeStartIndex ?? root.startIndex) &&
+        node.startIndex < (candidate.scopeEndIndex ?? root.endIndex)
+      )
+      .sort((left, right) =>
+        (right.scopeStartIndex ?? root.startIndex) - (left.scopeStartIndex ?? root.startIndex)
+      )[0];
     if (binding === undefined) return;
     const target = language === "go"
       ? context.go?.declarations.get(binding.packageDirectory ?? "")?.get(parts.member.text)

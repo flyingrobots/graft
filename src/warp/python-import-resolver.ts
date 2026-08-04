@@ -121,8 +121,16 @@ export function resolvePythonImportEdges(
   pathOps: PathOps,
   knownFiles: ReadonlySet<string>,
 ): void {
-  for (const child of root.namedChildren) {
-    if (child.type === "import_statement") handleImportStatement(patch, filePath, child, pathOps, knownFiles);
-    else if (child.type === "import_from_statement") handleFromImportStatement(patch, filePath, child, pathOps, knownFiles);
-  }
+  const visit = (node: TSNode): void => {
+    if (node.type === "import_statement") {
+      handleImportStatement(patch, filePath, node, pathOps, knownFiles);
+      return;
+    }
+    if (node.type === "import_from_statement") {
+      handleFromImportStatement(patch, filePath, node, pathOps, knownFiles);
+      return;
+    }
+    for (const child of node.namedChildren) visit(child);
+  };
+  visit(root);
 }
