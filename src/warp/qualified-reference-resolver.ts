@@ -456,8 +456,12 @@ function collectShadowRegions(
       : language === "go"
         ? ["parameter_declaration", "variadic_parameter_declaration"]
         : ["required_parameter", "optional_parameter", "rest_pattern"];
-    if (parameterTypes.includes(node.type) && functionBody !== undefined) {
-      add(matchingIdentifier(node.childForFieldName("pattern") ?? node.childForFieldName("name") ?? node.namedChildren[0], bindingNames), "parameter", functionBody.startIndex, functionBody.endIndex);
+    const plainJavaScriptParameter = language === "js" && node.type === "identifier" && (
+      node.parent?.type === "formal_parameters" ||
+      (node.parent?.type === "arrow_function" && node.parent.childForFieldName("parameter")?.startIndex === node.startIndex)
+    );
+    if ((parameterTypes.includes(node.type) || plainJavaScriptParameter) && functionBody !== undefined) {
+      add(matchingIdentifier(node.childForFieldName("pattern") ?? node.childForFieldName("name") ?? node.namedChildren[0] ?? node, bindingNames), "parameter", functionBody.startIndex, functionBody.endIndex);
     }
 
     const localTypes = language === "rust"

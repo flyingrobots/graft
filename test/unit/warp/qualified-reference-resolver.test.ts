@@ -126,12 +126,13 @@ describe("qualified reference language adapters", () => {
       "  if (ok) { var api = local; }",
       "  api.run();",
       "}",
+      "function parameterShadow(api) { api.run(); }",
     ].join("\n");
     const jsAnalysis = await analyze("js", "src/caller.js", javascript, new Map([
       ["src/caller.js", javascript], ["src/api.js", "export function run() {}"],
     ]));
     expect(jsAnalysis.accesses.map((access) => access.shadow?.shadowKind ?? "resolved")).toEqual([
-      "local_binding", "local_binding",
+      "local_binding", "local_binding", "parameter",
     ]);
   });
 
