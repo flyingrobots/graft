@@ -84,6 +84,7 @@ export function analyzeQualifiedReferences(
       )
       .map(([directory]) => directory)
     : [];
+  const unresolvedGoAccessKeys = new Set<string>();
   walk(root, (node) => {
     const parts = adapter.accessParts(node);
     if (parts === null) return;
@@ -128,6 +129,9 @@ export function analyzeQualifiedReferences(
       }
       if (language === "go" && context.go !== undefined) {
         for (const packageDirectory of unresolvedGoPackageDirectories) {
+          const key = [packageDirectory, parts.binding.text, parts.member.text].join("\0");
+          if (unresolvedGoAccessKeys.has(key)) continue;
+          unresolvedGoAccessKeys.add(key);
           unresolvedAccesses.push({
             binding: parts.binding.text,
             member: parts.member.text,

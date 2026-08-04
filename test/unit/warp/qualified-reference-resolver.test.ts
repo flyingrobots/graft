@@ -1278,6 +1278,24 @@ describe("qualified reference language adapters", () => {
     ]);
   });
 
+  it("deduplicates repeated selectors across unresolved unaliased Go packages", async () => {
+    const source = [
+      "package cli",
+      'import "example.com/project/alpha"',
+      'import "example.com/project/beta"',
+      "func run() { missing.Pending(); missing.Pending() }",
+    ].join("\n");
+    const analysis = await analyze("go", "cli/main.go", source, new Map([
+      ["go.mod", "module example.com/project\n"],
+      ["cli/main.go", source],
+    ]));
+
+    expect(analysis.unresolvedAccesses.map((access) => access.targetDirectoryPath)).toEqual([
+      "alpha",
+      "beta",
+    ]);
+  });
+
   it("ignores external Go imports and packages without a unique declaration", async () => {
     const source = [
       "package cli",
