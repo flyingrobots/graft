@@ -18,6 +18,43 @@ const pathOps = {
 const warp = { app: {}, strandId: null } as unknown as WarpContext;
 
 describe("git-warp structural reading adapter", () => {
+  it("does not acquire WARP when the exact-ref committed scan succeeds", async () => {
+    const getWarp = vi.fn(() => Promise.reject(new Error("cold graph unavailable")));
+    const graphCount = vi.fn();
+    const port = createGitWarpStructuralReadingPort({
+      projectRoot: "/repo",
+      git,
+      pathOps,
+      getWarp,
+      countSymbolReferencesFromGraph: graphCount,
+      countCommittedReferencesAtRef: vi.fn(() => Promise.resolve({
+        referenceCount: 1,
+        referencingFiles: ["src/consumer.ts"],
+        warnings: [],
+        confidence: "complete" as const,
+      })),
+      findDeadSymbols: vi.fn(),
+    });
+
+    const reading = await port.countSymbolReferences({
+      symbolName: "buildThing",
+      filePath: "src/api.ts",
+      ref: "review-head",
+    });
+
+    expect(reading.payload).toMatchObject({
+      referenceCount: 1,
+      referencingFiles: ["src/consumer.ts"],
+      referenceConfidence: "complete",
+    });
+    expect(reading.evidence).toMatchObject({
+      basis: { ref: "review-head" },
+      evidence: { source: "committed-reference-scan" },
+    });
+    expect(getWarp).not.toHaveBeenCalled();
+    expect(graphCount).not.toHaveBeenCalled();
+  });
+
   it("retains WARP graph reference counts as partial evidence when the committed scan fails", async () => {
     const port = createGitWarpStructuralReadingPort({
       projectRoot: "/repo",

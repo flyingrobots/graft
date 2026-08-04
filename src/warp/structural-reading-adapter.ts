@@ -138,15 +138,9 @@ export function createGitWarpStructuralReadingPort(
       request: SymbolReferenceReadingRequest,
     ): Promise<StructuralReadingResult<SymbolReferenceReadingPayload>> {
       const ref = normalizeRefOrDefault(request.ref);
-      const warp = await deps.getWarp();
-      const graphResult = await countSymbolReferencesFromGraph(
-        warp,
-        request.symbolName,
-        request.filePath,
-      );
 
       let payload: SymbolReferenceReadingPayload;
-      let source: "warp-graph" | "committed-reference-scan" = "warp-graph";
+      let source: "warp-graph" | "committed-reference-scan";
       let residualPosture: StructuralReadingResidualPosture;
 
       try {
@@ -165,7 +159,14 @@ export function createGitWarpStructuralReadingPort(
         source = "committed-reference-scan";
         residualPosture = committedResult.confidence === "partial" ? "partial" : "complete";
       } catch {
+        const warp = await deps.getWarp();
+        const graphResult = await countSymbolReferencesFromGraph(
+          warp,
+          request.symbolName,
+          request.filePath,
+        );
         payload = symbolReferencePayload(request.symbolName, graphResult);
+        source = "warp-graph";
         residualPosture = "partial";
       }
 

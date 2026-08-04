@@ -37,6 +37,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   imported-module inference throughout their containing function. Local
   TypeScript enum declarations suppress imported namespace inference in their
   lexical scope.
+  Exact-ref committed scans now run before WARP acquisition, so a cold or
+  unavailable graph cannot prevent authoritative committed-reference counts.
   Go shadow diagnostics fall back to a meaningful package directory when an
   imported first-party package has no tracked source file.
   Committed scans containing supported-language parse errors report partial
