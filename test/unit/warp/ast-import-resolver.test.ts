@@ -221,6 +221,44 @@ describe("warp: AST import resolver", { timeout: 15000 }, () => {
     }
   });
 
+  it("resolves declaration-only TypeScript modules", async () => {
+    const tmpDir = setup();
+    try {
+      const warp = await openWarp({ cwd: tmpDir });
+      const knownFiles = new Set([
+        "src/api.d.ts", "src/module-api.d.mts", "src/common-api.d.cts", "src/consumer.ts",
+      ]);
+
+      await warp.patch((patch) => {
+        patch.addNode("file:src/api.d.ts");
+        patch.addNode("sym:src/api.d.ts:Options");
+        patch.addNode("file:src/module-api.d.mts");
+        patch.addNode("sym:src/module-api.d.mts:ModuleOptions");
+        patch.addNode("file:src/common-api.d.cts");
+        patch.addNode("sym:src/common-api.d.cts:CommonOptions");
+      });
+
+      await emitFile(warp, "src/consumer.ts", [
+        'import type { Options } from "./api";',
+        'import type { ModuleOptions } from "./module-api";',
+        'import type { CommonOptions } from "./common-api";',
+      ].join("\n"), knownFiles);
+
+      const resolves = await getEdgesLabeled(warp, "resolves_to");
+      expect(resolves.map((edge) => edge.to).sort()).toEqual([
+        "file:src/api.d.ts", "file:src/common-api.d.cts", "file:src/module-api.d.mts",
+      ]);
+      const references = await getEdgesLabeled(warp, "references");
+      expect(references.map((edge) => edge.to).sort()).toEqual([
+        "sym:src/api.d.ts:Options",
+        "sym:src/common-api.d.cts:CommonOptions",
+        "sym:src/module-api.d.mts:ModuleOptions",
+      ]);
+    } finally {
+      cleanupTestRepo(tmpDir);
+    }
+  });
+
   it("non-relative import: no resolves_to edge, but AST still emitted", async () => {
     const tmpDir = setup();
     try {

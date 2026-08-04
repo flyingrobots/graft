@@ -249,7 +249,11 @@ describe("qualified reference language adapters", () => {
       'import * as jsxIndex from "./jsx-index";',
       'import * as mtsIndex from "./mts-index";',
       'import * as ctsIndex from "./cts-index";',
+      'import type * as declaration from "./declaration";',
+      'import type * as moduleDeclaration from "./module-declaration";',
+      'import type * as commonDeclaration from "./common-declaration";',
       "mts.run(); cts.run(); jsxIndex.run(); mtsIndex.run(); ctsIndex.run();",
+      "type Declared = declaration.Options | moduleDeclaration.Options | commonDeclaration.Options;",
     ].join("\n");
     const analysis = await analyze("ts", "src/caller.ts", source, new Map([
       ["src/caller.ts", source],
@@ -258,6 +262,9 @@ describe("qualified reference language adapters", () => {
       ["src/jsx-index/index.jsx", "export function run() {}"],
       ["src/mts-index/index.mts", "export function run() {}"],
       ["src/cts-index/index.cts", "export function run() {}"],
+      ["src/declaration.d.ts", "export interface Options {}"],
+      ["src/module-declaration.d.mts", "export interface Options {}"],
+      ["src/common-declaration.d.cts", "export interface Options {}"],
     ]));
 
     expect(analysis.accesses.map((access) => access.targetFilePath)).toEqual([
@@ -266,6 +273,9 @@ describe("qualified reference language adapters", () => {
       "src/jsx-index/index.jsx",
       "src/mts-index/index.mts",
       "src/cts-index/index.cts",
+      "src/declaration.d.ts",
+      "src/module-declaration.d.mts",
+      "src/common-declaration.d.cts",
     ]);
   });
 
