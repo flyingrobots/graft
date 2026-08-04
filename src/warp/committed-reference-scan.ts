@@ -4,7 +4,7 @@ import type { GitClient } from "../ports/git.js";
 import type { PathOps } from "../ports/paths.js";
 import type { ReferenceCountResult } from "../operations/structural-review.js";
 import { analyzeStaticTypeScriptReferences } from "./ast-import-resolver.js";
-import { buildGoReferenceContext } from "./go-reference-context.js";
+import { createGoReferenceContextResolver } from "./go-reference-context.js";
 import {
   analyzeDirectSymbolImportReferences,
   analyzeQualifiedReferences,
@@ -56,7 +56,7 @@ interface RefAnalysisContext {
   readonly files: readonly string[];
   readonly knownFiles: ReadonlySet<string>;
   readFile(filePath: string): Promise<string | null>;
-  goContext(importingFilePath: string): ReturnType<typeof buildGoReferenceContext>;
+  goContext: ReturnType<typeof createGoReferenceContextResolver>;
 }
 
 function createRefAnalysisContext(
@@ -65,7 +65,6 @@ function createRefAnalysisContext(
 ): RefAnalysisContext {
   const knownFiles = new Set(files);
   const content = new Map<string, Promise<string | null>>();
-  const goContexts = new Map<string, ReturnType<typeof buildGoReferenceContext>>();
   const readFile = (filePath: string): Promise<string | null> => {
     const existing = content.get(filePath);
     if (existing !== undefined) return existing;
@@ -88,21 +87,7 @@ function createRefAnalysisContext(
     files,
     knownFiles,
     readFile,
-    goContext(importingFilePath) {
-      const manifest = [...knownFiles]
-        .filter((candidate) => candidate === "go.mod" || candidate.endsWith("/go.mod"))
-        .filter((candidate) => {
-          const directory = candidate === "go.mod" ? "" : candidate.slice(0, -"/go.mod".length);
-          return directory === "" || importingFilePath.startsWith(`${directory}/`);
-        })
-        .sort((left, right) => right.length - left.length)[0] ?? "";
-      const cacheKey = `${manifest}\0${importingFilePath}`;
-      const existing = goContexts.get(cacheKey);
-      if (existing !== undefined) return existing;
-      const pending = buildGoReferenceContext(importingFilePath, knownFiles, readFile);
-      goContexts.set(cacheKey, pending);
-      return pending;
-    },
+    goContext: createGoReferenceContextResolver(knownFiles, readFile),
   };
 }
 

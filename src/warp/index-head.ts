@@ -17,7 +17,11 @@ import { extractOutlineFromParsedTree } from "../parser/outline.js";
 import { attachAstSnapshot, emitAstNodes } from "./ast-emitter.js";
 import { resolveImportEdges } from "./ast-import-resolver.js";
 import { resolvePythonImportEdges } from "./python-import-resolver.js";
-import { buildGoReferenceContext, type RefFileReader } from "./go-reference-context.js";
+import {
+  createGoReferenceContextResolver,
+  type GoReferenceContextResolver,
+  type RefFileReader,
+} from "./go-reference-context.js";
 import { isQualifiedReferenceLanguage, resolveQualifiedReferenceEdges } from "./qualified-reference-resolver.js";
 import type { OutlineEntry } from "../parser/types.js";
 import { getCommitMeta } from "./commit-meta.js";
@@ -179,6 +183,7 @@ export async function indexHead(opts: IndexHeadOptions): Promise<IndexHeadResult
     headContent.set(filePath, pending);
     return pending;
   };
+  const resolveGoContext = createGoReferenceContextResolver(knownFiles, readHeadFile);
 
   if (parseableFiles.length > maxFilesPerCall) {
     throw new Error(
@@ -202,6 +207,7 @@ export async function indexHead(opts: IndexHeadOptions): Promise<IndexHeadResult
       semanticProvider,
       semanticFactLimit,
       readHeadFile,
+      resolveGoContext,
     });
     if (indexed.indexed) {
       filesIndexed++;
@@ -505,6 +511,7 @@ async function indexHeadFile(input: {
   readonly semanticProvider: SemanticEnrichmentProvider | undefined;
   readonly semanticFactLimit: number;
   readonly readHeadFile: RefFileReader;
+  readonly resolveGoContext: GoReferenceContextResolver;
 }): Promise<IndexHeadFileResult> {
   const {
     cwd,
@@ -518,6 +525,7 @@ async function indexHeadFile(input: {
     semanticProvider,
     semanticFactLimit,
     readHeadFile,
+    resolveGoContext,
   } = input;
   const lang = detectLang(filePath);
   if (lang === null) return { indexed: false };
@@ -528,7 +536,7 @@ async function indexHeadFile(input: {
   const tree = await parseStructuredTreeAsync(lang, content);
   try {
     const go = lang === "go"
-      ? await buildGoReferenceContext(filePath, knownFiles, readHeadFile)
+      ? await resolveGoContext(filePath)
       : undefined;
     const outlineResult = extractOutlineFromParsedTree(tree);
     const outline = outlineResult.entries;
