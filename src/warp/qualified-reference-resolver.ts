@@ -532,7 +532,11 @@ function collectShadowRegions(
         : ["variable_declarator", "assignment_expression"];
     if (localTypes.includes(node.type)) {
       const identifier = matchingIdentifier(node.childForFieldName("pattern") ?? node.childForFieldName("name") ?? node.childForFieldName("left") ?? node.namedChildren[0], bindingNames);
-      const loop = nearestAncestor(node, new Set(language === "go" ? ["for_statement"] : language === "rust" ? ["for_expression"] : ["for_statement", "for_in_statement"]));
+      const enclosingLoop = nearestAncestor(node, new Set(language === "go" ? ["for_statement"] : language === "rust" ? ["for_expression"] : ["for_statement", "for_in_statement"]));
+      const loopBody = enclosingLoop?.childForFieldName("body");
+      const loop = enclosingLoop !== null && (loopBody === null || loopBody === undefined || node.startIndex < loopBody.startIndex)
+        ? enclosingLoop
+        : null;
       let scope = loop ?? nearestAncestor(node, blockTypes) ?? root;
       if ((language === "ts" || language === "tsx" || language === "js") && node.type === "variable_declarator") {
         const declaration = nearestAncestor(node, new Set(["lexical_declaration", "variable_declaration"]));

@@ -101,6 +101,21 @@ describe("qualified reference language adapters", () => {
     expect(analysis.accesses.map((access) => access.shadow?.shadowKind ?? "resolved")).toEqual([
       "resolved", "parameter", "local_binding", "resolved",
     ]);
+
+    const loopSource = [
+      'import * as api from "./api";',
+      "for (const item of api.items) {",
+      "  api.buildThing();",
+      "  const api = local;",
+      "}",
+      "api.buildThing();",
+    ].join("\n");
+    const loopAnalysis = await analyze("ts", "src/loop.ts", loopSource, new Map([
+      ["src/loop.ts", loopSource], ["src/api.ts", "export function buildThing() {}"],
+    ]));
+    expect(loopAnalysis.accesses.map((access) => access.shadow?.shadowKind ?? "resolved")).toEqual([
+      "resolved", "local_binding", "resolved",
+    ]);
   });
 
   it("resolves extensionless modern TypeScript module candidates", async () => {
