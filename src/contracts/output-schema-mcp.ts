@@ -85,13 +85,28 @@ const graftEditDriftWarningSchema = z.object({
   }).strict(),
 }).strict();
 
+export const importBindingDiagnosticSchema = z.object({
+  code: z.literal("import_binding_shadowed"),
+  severity: z.literal("warning"),
+  language: z.enum(["python", "typescript", "javascript", "rust", "go"]),
+  filePath: z.string(),
+  range: z.object({
+    startLine: z.number().int().positive(),
+    startColumn: z.number().int().positive(),
+    endLine: z.number().int().positive(),
+    endColumn: z.number().int().positive(),
+  }).strict(),
+  binding: z.string(),
+  targetFilePath: z.string(),
+  shadowKind: z.string(),
+  message: z.string(),
+}).strict();
+
 export const mcpOutputBodySchemas = {
   graft_import_diagnostics: z.object({
     ref: z.string(),
-    diagnostics: z.array(z.object({
-      code: z.literal("import_binding_shadowed"), severity: z.literal("warning"), language: z.enum(["python", "typescript", "javascript", "rust", "go"]), filePath: z.string(),
-      range: z.object({ startLine: z.number().int().positive(), startColumn: z.number().int().positive(), endLine: z.number().int().positive(), endColumn: z.number().int().positive() }).strict(), binding: z.string(), targetFilePath: z.string(), shadowKind: z.string(), message: z.string(),
-    }).strict()), summary: z.string(),
+    diagnostics: z.array(importBindingDiagnosticSchema),
+    summary: z.string(),
   }).strict(),
   safe_read: z.object({
     path: z.string(),
@@ -481,12 +496,7 @@ export const mcpOutputBodySchemas = {
       newSignature: z.string().optional(),
       impactedFiles: z.number().int().nonnegative(),
       impactedFilePaths: z.array(z.string()),
-      referenceWarnings: z.array(z.object({
-        code: z.literal("import_binding_shadowed"), severity: z.literal("warning"),
-        language: z.enum(["python", "typescript", "javascript", "rust", "go"]), filePath: z.string(),
-        range: z.object({ startLine: z.number().int().positive(), startColumn: z.number().int().positive(), endLine: z.number().int().positive(), endColumn: z.number().int().positive() }).strict(),
-        binding: z.string(), targetFilePath: z.string(), shadowKind: z.string(), message: z.string(),
-      }).strict()),
+      referenceWarnings: z.array(importBindingDiagnosticSchema),
       referenceConfidence: z.enum(["complete", "partial"]),
     }).strict()),
     summary: z.string(),

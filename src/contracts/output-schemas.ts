@@ -28,6 +28,10 @@ import {
   type OutputSchemaMeta,
   type OutputSchemaVersion,
 } from "./output-schema-meta.js";
+import {
+  importBindingDiagnosticSchema,
+  mcpOutputBodySchemas as splitMcpOutputBodySchemas,
+} from "./output-schema-mcp.js";
 
 export { CLI_COMMAND_NAMES, MCP_TOOL_NAMES };
 export type { CliCommandName, McpToolName } from "./capabilities.js";
@@ -946,7 +950,7 @@ function withCliPeerCommon(
 }
 
 const mcpOutputBodySchemas: Record<McpToolName, z.ZodType> = {
-  graft_import_diagnostics: z.object({ ref: z.string(), diagnostics: z.array(z.object({ code: z.literal("import_binding_shadowed"), severity: z.literal("warning"), language: z.enum(["python", "typescript", "javascript", "rust", "go"]), filePath: z.string(), range: z.object({ startLine: z.number().int().positive(), startColumn: z.number().int().positive(), endLine: z.number().int().positive(), endColumn: z.number().int().positive() }).strict(), binding: z.string(), targetFilePath: z.string(), shadowKind: z.string(), message: z.string() }).strict()), summary: z.string() }).strict(),
+  graft_import_diagnostics: splitMcpOutputBodySchemas.graft_import_diagnostics,
   safe_read: z.object({
     path: z.string(),
     projection: z.enum(["content", "outline", "refused", "error", "cache_hit", "diff"]),
@@ -1339,12 +1343,7 @@ const mcpOutputBodySchemas: Record<McpToolName, z.ZodType> = {
       newSignature: z.string().optional(),
       impactedFiles: z.number().int().nonnegative(),
       impactedFilePaths: z.array(z.string()),
-      referenceWarnings: z.array(z.object({
-        code: z.literal("import_binding_shadowed"), severity: z.literal("warning"),
-        language: z.enum(["python", "typescript", "javascript", "rust", "go"]), filePath: z.string(),
-        range: z.object({ startLine: z.number().int().positive(), startColumn: z.number().int().positive(), endLine: z.number().int().positive(), endColumn: z.number().int().positive() }).strict(),
-        binding: z.string(), targetFilePath: z.string(), shadowKind: z.string(), message: z.string(),
-      }).strict()),
+      referenceWarnings: z.array(importBindingDiagnosticSchema),
       referenceConfidence: z.enum(["complete", "partial"]),
     }).strict()),
     summary: z.string(),

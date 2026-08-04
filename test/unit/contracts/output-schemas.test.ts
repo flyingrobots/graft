@@ -18,6 +18,10 @@ import {
   cliOutputSchemaMeta,
   mcpOutputSchemaMeta,
 } from "../../../src/contracts/output-schema-meta.js";
+import {
+  importBindingDiagnosticSchema,
+  mcpOutputBodySchemas,
+} from "../../../src/contracts/output-schema-mcp.js";
 import { runCli } from "../../../src/cli/main.js";
 import { runInit } from "../../../src/cli/init.js";
 import { runIndex } from "../../../src/cli/index-cmd.js";
@@ -74,6 +78,11 @@ describe("contracts: output schemas", () => {
     expect(getCliOutputSchemaMeta("struct_review").version).toBe("2.0.0");
     expect(getMcpOutputSchemaMeta("graft_diff").version).toBe("1.0.0");
     expect(getCliOutputSchemaMeta("struct_diff").version).toBe("1.0.0");
+  });
+
+  it("shares one import-binding diagnostic schema across diagnostics and review warnings", () => {
+    expect(mcpOutputBodySchemas.graft_import_diagnostics.shape.diagnostics.element).toBe(importBindingDiagnosticSchema);
+    expect(mcpOutputBodySchemas.graft_review.shape.breakingChanges.element.shape.referenceWarnings.element).toBe(importBindingDiagnosticSchema);
   });
 
   it("preserves concrete CLI output types through the helper stack", () => {
