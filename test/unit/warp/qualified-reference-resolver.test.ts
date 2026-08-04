@@ -172,6 +172,27 @@ describe("qualified reference language adapters", () => {
     ]);
   });
 
+  it("resolves TypeScript namespace members in both type and value positions", async () => {
+    const source = [
+      'import * as api from "./api";',
+      "type Local = api.Options;",
+      "const value: api.Options = api.buildThing();",
+      "function shadow(api: unknown) { const local: api.Options = api.buildThing(); }",
+    ].join("\n");
+    const analysis = await analyze("ts", "src/consumer.ts", source, new Map([
+      ["src/consumer.ts", source],
+      ["src/api.ts", "export interface Options {}\nexport function buildThing(): Options { return {}; }"],
+    ]));
+
+    expect(analysis.accesses.map((access) => [access.member, access.shadow?.shadowKind ?? "resolved"])).toEqual([
+      ["Options", "resolved"],
+      ["Options", "resolved"],
+      ["buildThing", "resolved"],
+      ["Options", "parameter"],
+      ["buildThing", "parameter"],
+    ]);
+  });
+
   it("resolves extensionless modern TypeScript module candidates", async () => {
     const source = [
       'import * as mts from "./module-mts";',

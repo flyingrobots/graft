@@ -775,6 +775,10 @@ function accessParts(language: QualifiedReferenceLanguage, node: TSNode): {
     const binding = node.childForFieldName("object"); const member = node.childForFieldName("property");
     return binding?.type === "identifier" && member?.type === "property_identifier" ? { binding, qualifier: [], member } : null;
   }
+  if ((language === "ts" || language === "tsx") && node.type === "nested_type_identifier") {
+    const binding = node.childForFieldName("module"); const member = node.childForFieldName("name");
+    return binding?.type === "identifier" && member?.type === "type_identifier" ? { binding, qualifier: [], member } : null;
+  }
   if (language === "rust" && node.type === "scoped_identifier") {
     const binding = node.childForFieldName("path"); const member = node.childForFieldName("name");
     return binding?.type === "identifier" && member?.type === "identifier" ? { binding, qualifier: [], member } : null;
