@@ -15,6 +15,13 @@ function readMatrixDoc(): string {
   return fs.readFileSync(MATRIX_DOC, "utf-8");
 }
 
+function matrixCapabilityIds(content: string): string[] {
+  return content.split("\n").flatMap((line) => {
+    const match = /^\| `([^`]+)` \|/.exec(line);
+    return match?.[1] === undefined ? [] : [match[1]];
+  });
+}
+
 describe("0078 three-surface capability baseline and parity matrix", () => {
   it("Can a human answer “where is this capability available?” for API, CLI, and MCP from one matrix doc?", () => {
     const content = readMatrixDoc();
@@ -47,13 +54,9 @@ describe("0078 three-surface capability baseline and parity matrix", () => {
     expect(CAPABILITY_REGISTRY.filter((capability) => capability.surfaces.join("+") === "api")).toHaveLength(1);
     expect(CAPABILITY_REGISTRY.filter((capability) => capability.surfaces.join("+") === "mcp")).toHaveLength(0);
 
-    expect(content).toContain("- `6` CLI-only capabilities");
-    expect(content).toContain("- `24` API + CLI + MCP capabilities");
-    expect(content).toContain("- `24` API + MCP capabilities");
-    expect(content).toContain("- `1` API-only capability");
-    expect(content).toContain("- `23` direct CLI/MCP peer capabilities");
-    expect(content).toContain("- `1` composed CLI operator/lifecycle capability");
-    expect(content).toContain("- `24` intentionally API + MCP-only agent/control-plane capabilities");
+    const matrixIds = matrixCapabilityIds(content);
+    expect(matrixIds).toHaveLength(CAPABILITY_REGISTRY.length);
+    expect(new Set(matrixIds).size).toBe(CAPABILITY_REGISTRY.length);
   });
 
   it("Does the capability registry explicitly model all three entry points?", () => {
