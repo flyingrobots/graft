@@ -149,8 +149,11 @@ async function analyzeFile(
 }
 
 interface DynamicReferenceFacts {
+  readonly language: "python" | "ts" | "tsx" | "js" | "rust" | "go";
   readonly targetSpecifiers: readonly string[];
   readonly memberNames: readonly string[];
+  readonly hasUnknownTargetSpecifier: boolean;
+  readonly hasUnknownMember: boolean;
   readonly computedNamespaceAccesses: readonly {
     readonly binding: string;
     readonly member: string | null;
@@ -181,6 +184,8 @@ function analyzeDynamicReferenceFacts(
     member: string | null;
     startIndex: number;
   }[] = [];
+  let hasUnknownTargetSpecifier = false;
+  let hasUnknownMember = false;
   const visit = (node: TSNode): void => {
     const member = language === "python" && node.type === "attribute"
       ? node.childForFieldName("attribute")
@@ -192,17 +197,27 @@ function analyzeDynamicReferenceFacts(
     if (language === "python" && node.type === "call") {
       const fn = node.childForFieldName("function");
       const args = node.childForFieldName("arguments")?.namedChildren ?? [];
-      const importedModule = fn?.type === "attribute" &&
+      const isImportlibCall = fn?.type === "attribute" &&
           fn.childForFieldName("object")?.text === "importlib" &&
-          fn.childForFieldName("attribute")?.text === "import_module"
-        ? syntaxStringValue(args[0])
-        : fn?.type === "identifier" && fn.text === "__import__"
-          ? syntaxStringValue(args[0])
-          : null;
-      if (importedModule !== null) targetSpecifiers.add(importedModule);
+          fn.childForFieldName("attribute")?.text === "import_module";
+      const isBuiltinImportCall = fn?.type === "identifier" && fn.text === "__import__";
+      if (isImportlibCall || isBuiltinImportCall) {
+        const importedModule = syntaxStringValue(args[0]);
+        if (importedModule === null) hasUnknownTargetSpecifier = true;
+        else targetSpecifiers.add(importedModule);
+      }
       if (fn?.type === "identifier" && fn.text === "getattr") {
         const name = syntaxStringValue(args[1]);
-        if (name !== null) memberNames.add(name);
+        if (name === null) hasUnknownMember = true;
+        else memberNames.add(name);
+        const binding = args[0];
+        if (binding?.type === "identifier") {
+          computedNamespaceAccesses.push({
+            binding: binding.text,
+            member: name,
+            startIndex: node.startIndex,
+          });
+        }
       }
     }
 
@@ -210,7 +225,8 @@ function analyzeDynamicReferenceFacts(
       const fn = node.childForFieldName("function");
       if (fn?.type === "import") {
         const value = syntaxStringValue(node.childForFieldName("arguments")?.namedChildren[0]);
-        if (value !== null) targetSpecifiers.add(value);
+        if (value === null) hasUnknownTargetSpecifier = true;
+        else targetSpecifiers.add(value);
       }
     }
     if ((language === "ts" || language === "tsx" || language === "js") && node.type === "subscript_expression") {
@@ -227,10 +243,36 @@ function analyzeDynamicReferenceFacts(
   };
   visit(root);
   return {
+    language,
     targetSpecifiers: [...targetSpecifiers],
     memberNames: [...memberNames],
+    hasUnknownTargetSpecifier,
+    hasUnknownMember,
     computedNamespaceAccesses,
   };
+}
+
+function normalizedDynamicTargetPath(
+  facts: DynamicReferenceFacts,
+  specifier: string,
+  referencingDirectory: string,
+  pathOps: PathOps,
+): string {
+  const withoutExtension = specifier.replace(/\.(?:pyi?|tsx?|jsx?|mjs|cjs|rs|go)$/u, "");
+  if (facts.language === "python") {
+    const relative = /^(\.+)(.*)$/u.exec(withoutExtension);
+    if (relative !== null) {
+      const dots = relative[1] ?? "";
+      let base = referencingDirectory;
+      for (let level = 1; level < dots.length; level++) base = parentDirectory(base);
+      const suffix = (relative[2] ?? "").replaceAll(".", "/");
+      return suffix === "" ? base : pathOps.normalize(pathOps.join(base, suffix));
+    }
+    return withoutExtension.replaceAll(".", "/");
+  }
+  return withoutExtension.startsWith(".")
+    ? pathOps.normalize(pathOps.join(referencingDirectory, withoutExtension))
+    : withoutExtension;
 }
 
 function hasUnsupportedDynamicReference(
@@ -255,7 +297,8 @@ function hasUnsupportedDynamicReference(
       access.startIndex < (binding.scopeEndIndex ?? Number.POSITIVE_INFINITY)
     )
   )) return true;
-  if (!facts.memberNames.includes(symbolName)) return false;
+  if (!facts.memberNames.includes(symbolName) && !facts.hasUnknownMember) return false;
+  if (facts.hasUnknownTargetSpecifier) return true;
   const targetModulePath = targetFilePath
     .replace(/\.(?:pyi?|tsx?|jsx?|mjs|cjs|rs|go)$/u, "")
     .replace(/\/__init__$/u, "");
@@ -263,10 +306,7 @@ function hasUnsupportedDynamicReference(
     ? referencingFilePath.slice(0, referencingFilePath.lastIndexOf("/"))
     : "";
   return facts.targetSpecifiers.some((specifier) => {
-    const withoutExtension = specifier.replace(/\.(?:pyi?|tsx?|jsx?|mjs|cjs|rs|go)$/u, "");
-    const candidate = withoutExtension.startsWith(".")
-      ? pathOps.normalize(pathOps.join(referencingDirectory, withoutExtension))
-      : withoutExtension.replaceAll(".", "/");
+    const candidate = normalizedDynamicTargetPath(facts, specifier, referencingDirectory, pathOps);
     return candidate === targetModulePath;
   });
 }

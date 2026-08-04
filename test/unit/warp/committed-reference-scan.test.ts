@@ -579,6 +579,65 @@ describe("committed qualified-reference scan", { timeout: 20_000 }, () => {
     }
   });
 
+  it("normalizes relative Python importlib targets before lowering confidence", async () => {
+    const cwd = createTestRepo("committed-relative-dynamic-scan-");
+    try {
+      write(cwd, "pkg/sources.py", "def pending_ids(): return []\n");
+      write(cwd, "pkg/dynamic.py", [
+        "import importlib",
+        'mod = importlib.import_module(".sources", __package__)',
+        'getattr(mod, "pending_ids")()',
+      ].join("\n"));
+      git(cwd, "add -A"); git(cwd, "commit -m relative-dynamic-scan");
+
+      const result = await scanQualifiedReferencesAtRef({
+        cwd, git: nodeGit, pathOps: nodePathOps, ref: "HEAD",
+        symbolName: "pending_ids", filePath: "pkg/sources.py",
+      });
+
+      expect(result).toMatchObject({
+        referenceCount: 0,
+        referencingFiles: [],
+        confidence: "partial",
+        warnings: [],
+      });
+    } finally {
+      cleanupTestRepo(cwd);
+    }
+  });
+
+  it("marks nonliteral dynamic targets and members partial", async () => {
+    const cwd = createTestRepo("committed-nonliteral-dynamic-scan-");
+    try {
+      write(cwd, "pkg/sources.py", "def pending_ids(): return []\n");
+      write(cwd, "pkg/unknown-target.py", [
+        "import importlib",
+        "mod = importlib.import_module(module_name)",
+        "mod.pending_ids()",
+      ].join("\n"));
+      write(cwd, "pkg/unknown-member.py", [
+        "import importlib",
+        'mod = importlib.import_module("pkg.sources")',
+        "getattr(mod, member_name)()",
+      ].join("\n"));
+      git(cwd, "add -A"); git(cwd, "commit -m nonliteral-dynamic-scan");
+
+      const result = await scanQualifiedReferencesAtRef({
+        cwd, git: nodeGit, pathOps: nodePathOps, ref: "HEAD",
+        symbolName: "pending_ids", filePath: "pkg/sources.py",
+      });
+
+      expect(result).toMatchObject({
+        referenceCount: 0,
+        referencingFiles: [],
+        confidence: "partial",
+        warnings: [],
+      });
+    } finally {
+      cleanupTestRepo(cwd);
+    }
+  });
+
   it("marks computed TypeScript and JavaScript namespace access partial", async () => {
     const cwd = createTestRepo("committed-computed-namespace-scan-");
     try {

@@ -73,6 +73,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   External Rust declarations such as `mod api;` now bind the corresponding
   first-party module file for qualified value and type references, including
   paths nested in inline modules.
+  Exact-ref scans now normalize relative Python `importlib` specifiers and
+  conservatively report partial confidence for nonliteral dynamic import
+  targets or member names that could affect the reviewed symbol.
   Go shadow diagnostics fall back to a meaningful package directory when an
   imported first-party package has no tracked source file.
   Committed scans containing supported-language parse errors report partial
