@@ -19,42 +19,20 @@ import {
   stagedTargetSchema,
 } from "./causal-ontology.js";
 import { causalSurfaceNextActionSchema } from "./causal-surface-next-action.js";
+import {
+  cliOutputSchemaMeta,
+  mcpOutputSchemaMeta,
+  OUTPUT_SCHEMA_VERSION,
+  REVIEW_OUTPUT_SCHEMA_VERSION,
+  schemaMetaLiteral,
+  type OutputSchemaMeta,
+  type OutputSchemaVersion,
+} from "./output-schema-meta.js";
 
 export { CLI_COMMAND_NAMES, MCP_TOOL_NAMES };
 export type { CliCommandName, McpToolName } from "./capabilities.js";
-
-export const OUTPUT_SCHEMA_VERSION = "1.0.0" as const;
-export const REVIEW_OUTPUT_SCHEMA_VERSION = "2.0.0" as const;
-
-export type OutputSchemaVersion =
-  | typeof OUTPUT_SCHEMA_VERSION
-  | typeof REVIEW_OUTPUT_SCHEMA_VERSION;
-
-export interface OutputSchemaMeta {
-  readonly id: string;
-  readonly version: OutputSchemaVersion;
-}
-
-const mcpOutputSchemaMeta = Object.freeze(Object.fromEntries(
-  MCP_TOOL_NAMES.map((tool) => [tool, Object.freeze({
-    id: `graft.mcp.${tool}`,
-    version: tool === "graft_review" ? REVIEW_OUTPUT_SCHEMA_VERSION : OUTPUT_SCHEMA_VERSION,
-  })]),
-) as Record<McpToolName, OutputSchemaMeta>);
-
-const cliOutputSchemaMeta = Object.freeze(Object.fromEntries(
-  CLI_COMMAND_NAMES.map((command) => [command, Object.freeze({
-    id: `graft.cli.${command}`,
-    version: command === "struct_review" ? REVIEW_OUTPUT_SCHEMA_VERSION : OUTPUT_SCHEMA_VERSION,
-  })]),
-) as Record<CliCommandName, OutputSchemaMeta>);
-
-function schemaMetaLiteral(meta: OutputSchemaMeta) {
-  return z.object({
-    id: z.literal(meta.id),
-    version: z.literal(meta.version),
-  }).strict();
-}
+export { OUTPUT_SCHEMA_VERSION, REVIEW_OUTPUT_SCHEMA_VERSION };
+export type { OutputSchemaMeta, OutputSchemaVersion };
 
 const sessionDepthSchema = z.enum(["early", "mid", "late", "unknown"]);
 const worldlineLayerSchema = z.enum(["commit_worldline", "ref_view", "workspace_overlay"]);

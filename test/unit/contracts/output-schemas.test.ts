@@ -14,6 +14,10 @@ import {
   getMcpOutputSchemaMeta,
   validateCliOutput,
 } from "../../../src/contracts/output-schemas.js";
+import {
+  cliOutputSchemaMeta,
+  mcpOutputSchemaMeta,
+} from "../../../src/contracts/output-schema-meta.js";
 import { runCli } from "../../../src/cli/main.js";
 import { runInit } from "../../../src/cli/init.js";
 import { runIndex } from "../../../src/cli/index-cmd.js";
@@ -64,6 +68,8 @@ describe("contracts: output schemas", () => {
   });
 
   it("versions the expanded review response independently", () => {
+    expect(getMcpOutputSchemaMeta("graft_review")).toBe(mcpOutputSchemaMeta.graft_review);
+    expect(getCliOutputSchemaMeta("struct_review")).toBe(cliOutputSchemaMeta.struct_review);
     expect(getMcpOutputSchemaMeta("graft_review").version).toBe("2.0.0");
     expect(getCliOutputSchemaMeta("struct_review").version).toBe("2.0.0");
     expect(getMcpOutputSchemaMeta("graft_diff").version).toBe("1.0.0");
