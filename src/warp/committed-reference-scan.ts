@@ -26,10 +26,12 @@ export interface ImportReferenceImpactOptions {
   readonly ref: string;
 }
 
-export type ImportDiagnosticsOptions = Pick<
+export interface ImportDiagnosticsOptions extends Pick<
   ImportReferenceImpactOptions,
   "cwd" | "git" | "pathOps" | "ref"
->;
+> {
+  readonly candidateTargetFilePaths?: readonly string[] | undefined;
+}
 
 export interface CommittedReferenceAnalysis {
   readonly diagnostics: readonly ImportBindingDiagnostic[];
@@ -79,8 +81,10 @@ interface RefAnalysisContext {
 function createRefAnalysisContext(
   opts: Pick<ImportReferenceImpactOptions, "cwd" | "git" | "ref">,
   files: readonly string[],
+  candidateTargetFilePaths: readonly string[],
 ): RefAnalysisContext {
-  const knownFiles = new Set(files);
+  const knownFiles = new Set([...files, ...candidateTargetFilePaths]);
+  const committedFiles = new Set(files);
   const content = new Map<string, Promise<string | null>>();
   const readFile = (filePath: string): Promise<string | null> => {
     const existing = content.get(filePath);
@@ -104,7 +108,7 @@ function createRefAnalysisContext(
     files,
     knownFiles,
     readFile,
-    goContext: createGoReferenceContextResolver(knownFiles, readFile),
+    goContext: createGoReferenceContextResolver(committedFiles, readFile),
   };
 }
 
@@ -159,7 +163,7 @@ export async function analyzeCommittedReferencesAtRef(
   const commitId = await resolveCommitAtRef(opts);
   const pinnedOpts = { ...opts, ref: commitId };
   const files = await listFilesAtRef(pinnedOpts);
-  const refContext = createRefAnalysisContext(pinnedOpts, files);
+  const refContext = createRefAnalysisContext(pinnedOpts, files, opts.candidateTargetFilePaths ?? []);
   const analyzed: {
     readonly filePath: string;
     readonly source: string;
@@ -225,7 +229,10 @@ export async function analyzeCommittedReferencesAtRef(
 export async function scanQualifiedReferencesAtRef(
   opts: ImportReferenceImpactOptions,
 ): Promise<ReferenceScanResult> {
-  const analysis = await analyzeCommittedReferencesAtRef(opts);
+  const analysis = await analyzeCommittedReferencesAtRef({
+    ...opts,
+    candidateTargetFilePaths: [opts.filePath],
+  });
   return analysis.countReferences(opts.symbolName, opts.filePath);
 }
 

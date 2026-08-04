@@ -31,6 +31,7 @@ export interface ReferenceWarning {
 export type ReferenceCounter = (
   symbolName: string,
   filePath: string,
+  candidateTargetFilePaths: readonly string[],
 ) => Promise<ReferenceCountResult>;
 
 
@@ -132,12 +133,13 @@ async function detectBreakingChanges(
   countReferences: ReferenceCounter,
 ): Promise<BreakingChange[]> {
   const breaking: BreakingChange[] = [];
+  const candidateTargetFilePaths = structuralFiles.map((file) => file.path);
 
   for (const file of structuralFiles) {
     // Removed exports → breaking
     for (const removed of file.diff.removed) {
       if (removed.exported !== true) continue;
-      const refs = await countReferences(removed.name, file.path);
+      const refs = await countReferences(removed.name, file.path, candidateTargetFilePaths);
       breaking.push({
         symbol: removed.name,
         kind: removed.kind,
@@ -156,7 +158,7 @@ async function detectBreakingChanges(
       if (changed.exported !== true) continue;
       if (changed.oldSignature !== undefined && changed.signature !== undefined &&
           changed.oldSignature !== changed.signature) {
-        const refs = await countReferences(changed.name, file.path);
+        const refs = await countReferences(changed.name, file.path, candidateTargetFilePaths);
         breaking.push({
           symbol: changed.name,
           kind: changed.kind,

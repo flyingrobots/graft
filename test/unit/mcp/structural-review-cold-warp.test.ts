@@ -105,4 +105,31 @@ describe("mcp: graft_review cold WARP", () => {
       cleanupTestRepo(repoDir);
     }
   });
+
+  it("counts qualified callers of a declaring file deleted at the reviewed head", async () => {
+    const repoDir = createTestRepo("graft-review-deleted-target-");
+    try {
+      fs.mkdirSync(path.join(repoDir, "pkg"), { recursive: true });
+      fs.writeFileSync(path.join(repoDir, "pkg", "sources.py"), "def pending_ids():\n    return []\n");
+      fs.writeFileSync(path.join(repoDir, "pkg", "caller.py"), "import pkg.sources as source\nsource.pending_ids()\n");
+      git(repoDir, "add -A"); git(repoDir, "commit -m base");
+      const base = git(repoDir, "rev-parse HEAD");
+      fs.unlinkSync(path.join(repoDir, "pkg", "sources.py"));
+      git(repoDir, "add -A"); git(repoDir, "commit -m head");
+      const head = git(repoDir, "rev-parse HEAD");
+
+      const result = parse(await createServerInRepo(repoDir).callTool("graft_review", { base, head }));
+
+      expect(result["breakingChanges"]).toContainEqual(expect.objectContaining({
+        symbol: "pending_ids",
+        filePath: "pkg/sources.py",
+        changeType: "removed_export",
+        impactedFiles: 1,
+        impactedFilePaths: ["pkg/caller.py"],
+        referenceConfidence: "complete",
+      }));
+    } finally {
+      cleanupTestRepo(repoDir);
+    }
+  });
 });

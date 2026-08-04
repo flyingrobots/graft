@@ -197,6 +197,30 @@ describe("committed qualified-reference scan", { timeout: 20_000 }, () => {
     }
   });
 
+  it("counts qualified callers when the declaring file is deleted at the reviewed ref", async () => {
+    const cwd = createTestRepo("committed-deleted-target-");
+    try {
+      write(cwd, "pkg/sources.py", "def pending_ids(): return []\n");
+      write(cwd, "pkg/caller.py", "import pkg.sources as source\nsource.pending_ids()\n");
+      git(cwd, "add -A"); git(cwd, "commit -m before-delete");
+      fs.unlinkSync(path.join(cwd, "pkg/sources.py"));
+      git(cwd, "add -A"); git(cwd, "commit -m delete-target");
+
+      const result = await scanQualifiedReferencesAtRef({
+        cwd, git: nodeGit, pathOps: nodePathOps, ref: "HEAD",
+        symbolName: "pending_ids", filePath: "pkg/sources.py",
+      });
+
+      expect(result).toMatchObject({
+        referenceCount: 1,
+        referencingFiles: ["pkg/caller.py"],
+        confidence: "complete",
+      });
+    } finally {
+      cleanupTestRepo(cwd);
+    }
+  });
+
   it("counts direct Python and Rust symbol imports by their imported names", async () => {
     const cwd = createTestRepo("committed-direct-import-scan-");
     try {

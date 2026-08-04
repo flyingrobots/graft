@@ -60,12 +60,13 @@ export const structuralReviewTool: ToolDefinition = {
       const head = args["head"] as string | undefined;
       const headRef = head ?? "HEAD";
       let committedAnalysis: Promise<CommittedReferenceAnalysis> | undefined;
-      const getCommittedAnalysis = (): Promise<CommittedReferenceAnalysis> => {
+      const getCommittedAnalysis = (candidateTargetFilePaths: readonly string[]): Promise<CommittedReferenceAnalysis> => {
         committedAnalysis ??= analyzeCommittedReferencesAtRef({
           cwd: ctx.projectRoot,
           git: ctx.git,
           pathOps: nodePathOps,
           ref: headRef,
+          candidateTargetFilePaths,
         });
         return committedAnalysis;
       };
@@ -76,9 +77,9 @@ export const structuralReviewTool: ToolDefinition = {
         resolveWorkingTreePath: (filePath) => ctx.resolvePath(filePath),
         base: args["base"] as string | undefined,
         head,
-        countReferences: async (symbolName, filePath) => {
+        countReferences: async (symbolName, filePath, candidateTargetFilePaths) => {
           return countReviewReferences(ctx, symbolName, filePath, async () =>
-            (await getCommittedAnalysis()).countReferences(symbolName, filePath)
+            (await getCommittedAnalysis(candidateTargetFilePaths)).countReferences(symbolName, filePath)
           );
         },
       });
