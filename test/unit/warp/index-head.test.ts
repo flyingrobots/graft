@@ -164,6 +164,9 @@ describe("warp: index HEAD", { timeout: 15000 }, () => {
     const warp = await openWarp({ cwd: tmpDir });
     await indexHead({ cwd: tmpDir, git: countingGit, pathOps: nodePathOps, ctx: { app: warp, strandId: null } });
 
+    expect(showCounts.size).toBeGreaterThan(0);
+    expect(showCounts.get("HEAD:sources/pending.go")).toBe(1);
+    expect(showCounts.get("HEAD:caller.go")).toBe(1);
     expect([...showCounts.values()].every((count) => count === 1)).toBe(true);
   });
 });
