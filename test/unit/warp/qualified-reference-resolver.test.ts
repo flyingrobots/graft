@@ -93,6 +93,33 @@ describe("qualified reference language adapters", () => {
     ]);
   });
 
+  it("treats Python with aliases and match captures as enclosing-scope bindings", async () => {
+    const source = [
+      "import pkg.sources as source",
+      "def with_shadow():",
+      "    source.pending_ids()",
+      "    with manager() as source:",
+      "        source.pending_ids()",
+      "    source.pending_ids()",
+      "def match_shadow(value):",
+      "    source.pending_ids()",
+      "    match value:",
+      "        case (_, source):",
+      "            source.pending_ids()",
+      "    source.pending_ids()",
+      "source.pending_ids()",
+    ].join("\n");
+    const analysis = await analyze("python", "pkg/caller.py", source, new Map([
+      ["pkg/caller.py", source], ["pkg/sources.py", "def pending_ids(): return []"],
+    ]));
+
+    expect(analysis.accesses.map((access) => access.shadow?.shadowKind ?? "resolved")).toEqual([
+      "with_binding", "with_binding", "with_binding",
+      "pattern_binding", "pattern_binding", "pattern_binding",
+      "resolved",
+    ]);
+  });
+
   it("resolves nested Python imports within their lexical scopes", async () => {
     const source = [
       "import pkg.outer as source",

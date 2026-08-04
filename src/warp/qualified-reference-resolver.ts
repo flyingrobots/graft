@@ -406,10 +406,13 @@ function matchingBindingIdentifiers(
   if (direct.length > 0 || node === null || node === undefined) return direct;
 
   if (language === "python") {
+    if (node.type === "dotted_name" && node.namedChildren.length === 1) {
+      return directMatchingIdentifier(node.namedChildren[0], bindings);
+    }
     if (["default_parameter", "typed_parameter", "typed_default_parameter"].includes(node.type)) {
       return matchingBindingIdentifiers(language, node.childForFieldName("name") ?? node.childForFieldName("parameter") ?? node.namedChildren[0], bindings);
     }
-    if (["parameters", "lambda_parameters", "pattern_list", "tuple_pattern", "list_pattern", "list_splat_pattern", "dictionary_splat_pattern", "as_pattern_target"].includes(node.type)) {
+    if (["parameters", "lambda_parameters", "case_pattern", "pattern_list", "tuple_pattern", "list_pattern", "dict_pattern", "union_pattern", "list_splat_pattern", "dictionary_splat_pattern", "as_pattern", "as_pattern_target"].includes(node.type)) {
       return node.namedChildren.flatMap((child) => matchingBindingIdentifiers(language, child, bindings));
     }
     return [];
@@ -550,6 +553,32 @@ function collectShadowRegions(
         const body = node.namedChildren.find((child) => child.type === "block");
         if (body !== undefined) {
           addAll(matchingBindingIdentifiers(language, target, bindingNames), "except_binding", body.startIndex, body.endIndex);
+        }
+      }
+      if (node.type === "with_item") {
+        const asPattern = node.namedChildren.find((child) => child.type === "as_pattern");
+        const alias = asPattern?.childForFieldName("alias") ??
+          asPattern?.namedChildren.find((child) => child.type === "as_pattern_target");
+        const identifiers = matchingBindingIdentifiers(language, alias, bindingNames);
+        if (identifiers.length > 0) {
+          const scope = nearestAncestor(node, new Set(["function_definition", "lambda", "class_definition"]));
+          const body = scope?.childForFieldName("body") ?? scope;
+          const start = scope?.type === "function_definition" || scope?.type === "lambda"
+            ? body?.startIndex ?? scope.startIndex
+            : node.startIndex;
+          addAll(identifiers, "with_binding", start, body?.endIndex ?? root.endIndex);
+        }
+      }
+      if (node.type === "case_clause") {
+        const pattern = node.childForFieldName("pattern") ?? node.namedChildren[0];
+        const identifiers = matchingBindingIdentifiers(language, pattern, bindingNames);
+        if (identifiers.length > 0) {
+          const scope = nearestAncestor(node, new Set(["function_definition", "lambda", "class_definition"]));
+          const body = scope?.childForFieldName("body") ?? scope;
+          const start = scope?.type === "function_definition" || scope?.type === "lambda"
+            ? body?.startIndex ?? scope.startIndex
+            : node.startIndex;
+          addAll(identifiers, "pattern_binding", start, body?.endIndex ?? root.endIndex);
         }
       }
       return;
