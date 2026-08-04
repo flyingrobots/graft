@@ -33,7 +33,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   aliases that may name an inline module in another file conservatively make
   matching owner-file counts partial instead of returning a complete zero.
   Python class-body imports remain visible to the class body without leaking
-  into nested method, lambda, or class bodies.
+  into nested method, lambda, or class bodies, and bare `del` targets suppress
+  imported-module inference throughout their containing function.
   Go shadow diagnostics fall back to a meaningful package directory when an
   imported first-party package has no tracked source file.
   Committed scans containing supported-language parse errors report partial

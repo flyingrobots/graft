@@ -143,6 +143,31 @@ describe("qualified reference language adapters", () => {
     ]);
   });
 
+  it("treats bare Python deletion targets as whole-function shadows", async () => {
+    const source = [
+      "import pkg.sources as source",
+      "def delete_name():",
+      "    source.pending_ids()",
+      "    del source",
+      "    source.pending_ids()",
+      "def delete_attribute():",
+      "    del source.cache",
+      "    source.pending_ids()",
+      "source.pending_ids()",
+    ].join("\n");
+    const analysis = await analyze("python", "pkg/caller.py", source, new Map([
+      ["pkg/caller.py", source],
+      ["pkg/sources.py", "def pending_ids(): return []\n"],
+    ]));
+
+    expect(analysis.accesses.map((access) => access.shadow?.shadowKind ?? "resolved")).toEqual([
+      "deletion", "deletion", "resolved", "resolved", "resolved",
+    ]);
+    expect(analysis.diagnostics).toEqual([
+      expect.objectContaining({ binding: "source", shadowKind: "deletion" }),
+    ]);
+  });
+
   it("resolves nested Python imports within their lexical scopes", async () => {
     const source = [
       "import pkg.outer as source",

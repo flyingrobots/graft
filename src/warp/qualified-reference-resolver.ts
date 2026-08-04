@@ -589,6 +589,16 @@ function matchingBindingIdentifiers(
   return [];
 }
 
+function pythonDeletionIdentifiers(
+  node: TSNode,
+  bindings: ReadonlySet<string>,
+): readonly TSNode[] {
+  if (node.type === "attribute" || node.type === "subscript") return [];
+  const direct = directMatchingIdentifier(node, bindings);
+  if (direct.length > 0) return direct;
+  return node.namedChildren.flatMap((child) => pythonDeletionIdentifiers(child, bindings));
+}
+
 function matchingRustUseBindingIdentifiers(
   node: TSNode | null | undefined,
   bindings: ReadonlySet<string>,
@@ -808,6 +818,13 @@ function collectPythonShadowRegions(collector: ShadowCollector): void {
         } else {
           addAll(identifiers, node.type === "for_statement" ? "loop_binding" : "assignment", node.startIndex, root.endIndex);
         }
+      }
+    }
+    if (node.type === "delete_statement") {
+      const scope = nearestAncestor(node, PYTHON_LEXICAL_SCOPE_TYPES);
+      if (scope?.type === "function_definition" || scope?.type === "lambda") {
+        const body = scope.childForFieldName("body") ?? scope;
+        addAll(pythonDeletionIdentifiers(node, bindingNames), "deletion", body.startIndex, body.endIndex);
       }
     }
     if (node.type === "function_definition" || node.type === "class_definition") {
