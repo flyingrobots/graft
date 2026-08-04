@@ -121,26 +121,21 @@ function createAdapter(
   };
 }
 
-const pythonAdapter = createAdapter("python", pythonAccessParts, pythonUnsupportedWrite);
-const typescriptAdapter = createAdapter("ts", typescriptAccessParts);
-const tsxAdapter = createAdapter("tsx", typescriptAccessParts);
-const javascriptAdapter = createAdapter("js", javascriptAccessParts);
-const rustAdapter = createAdapter("rust", rustAccessParts);
-const goAdapter = createAdapter("go", goAccessParts);
-
 export const registeredQualifiedReferenceLanguages = [
   "python", "ts", "tsx", "js", "rust", "go",
 ] as const satisfies readonly QualifiedReferenceLanguage[];
 
-const adapters = new Map<QualifiedReferenceLanguage, QualifiedReferenceLanguageAdapter>();
-for (const adapter of [pythonAdapter, typescriptAdapter, tsxAdapter, javascriptAdapter, rustAdapter, goAdapter]) {
-  for (const language of adapter.languages) adapters.set(language, adapter);
-}
+const adapters = {
+  python: createAdapter("python", pythonAccessParts, pythonUnsupportedWrite),
+  ts: createAdapter("ts", typescriptAccessParts),
+  tsx: createAdapter("tsx", typescriptAccessParts),
+  js: createAdapter("js", javascriptAccessParts),
+  rust: createAdapter("rust", rustAccessParts),
+  go: createAdapter("go", goAccessParts),
+} satisfies Record<QualifiedReferenceLanguage, QualifiedReferenceLanguageAdapter>;
 
 export function qualifiedReferenceAdapterFor(
   language: QualifiedReferenceLanguage,
 ): QualifiedReferenceLanguageAdapter {
-  const adapter = adapters.get(language);
-  if (adapter === undefined) throw new Error(`No qualified-reference adapter is registered for ${language}`);
-  return adapter;
+  return adapters[language];
 }
