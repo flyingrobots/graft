@@ -33,6 +33,13 @@ function declarationNames(root: TSNode): readonly string[] {
     }
     if (!["type_declaration", "var_declaration", "const_declaration"].includes(declaration.type)) continue;
     for (const spec of declaration.namedChildren) {
+      if (spec.type === "var_spec" || spec.type === "const_spec") {
+        for (const child of spec.namedChildren) {
+          if (child.type !== "identifier") break;
+          names.push(child.text);
+        }
+        continue;
+      }
       const name = spec.childForFieldName("name");
       if (name !== null) names.push(name.text);
     }

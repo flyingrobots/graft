@@ -258,6 +258,19 @@ describe("qualified reference language adapters", () => {
     expect(analysis.accesses).toEqual([expect.objectContaining({ member: "Run", targetFilePath: "v2/client/client.go" })]);
   });
 
+  it("resolves every exported name in a grouped Go declaration", async () => {
+    const source = "package cli\nimport values \"example.com/project/values\"\nfunc call(){ values.Beta() }";
+    const analysis = await analyze("go", "cli/main.go", source, new Map([
+      ["go.mod", "module example.com/project\n"],
+      ["cli/main.go", source],
+      ["values/values.go", "package values\nvar Alpha, Beta = 1, 2\n"],
+    ]));
+
+    expect(analysis.accesses).toEqual([
+      expect.objectContaining({ member: "Beta", targetFilePath: "values/values.go" }),
+    ]);
+  });
+
   it("ignores external Go imports and packages without a unique declaration", async () => {
     const source = [
       "package cli",
