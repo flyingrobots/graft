@@ -105,7 +105,12 @@ function makePort(overrides: PortStubOverrides = {}): StructuralReadingPort {
     })),
     countCommittedReferencesAtRef: overrides.fallbackThrows
       ? vi.fn(() => Promise.reject(new Error("scan failed")))
-      : vi.fn(() => Promise.resolve({ referenceCount: 0, referencingFiles: [] })),
+      : vi.fn(() => Promise.resolve({
+          referenceCount,
+          referencingFiles,
+          warnings: [],
+          confidence: "complete" as const,
+        })),
     findDeadSymbols: vi.fn(() => Promise.resolve([...(overrides.deadSymbols ?? deadSymbolFixtures)])),
   });
 }
@@ -426,7 +431,9 @@ describe("determinism", () => {
     const reordered = {
       ...base,
       payload: {
+        referenceConfidence: base.payload.referenceConfidence,
         referencingFiles: base.payload.referencingFiles,
+        referenceWarnings: base.payload.referenceWarnings,
         referenceCount: base.payload.referenceCount,
         symbol: base.payload.symbol,
       },

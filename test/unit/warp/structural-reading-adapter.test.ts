@@ -18,7 +18,7 @@ const pathOps = {
 const warp = { app: {}, strandId: null } as unknown as WarpContext;
 
 describe("git-warp structural reading adapter", () => {
-  it("labels WARP graph reference counts as translated non-Continuum-native evidence", async () => {
+  it("retains WARP graph reference counts as partial evidence when the committed scan fails", async () => {
     const port = createGitWarpStructuralReadingPort({
       projectRoot: "/repo",
       git,
@@ -29,7 +29,7 @@ describe("git-warp structural reading adapter", () => {
         referenceCount: 2,
         referencingFiles: ["src/a.ts", "src/b.ts"],
       })),
-      countCommittedReferencesAtRef: vi.fn(),
+      countCommittedReferencesAtRef: vi.fn(() => Promise.reject(new Error("scan unavailable"))),
       findDeadSymbols: vi.fn(),
     });
 
@@ -47,7 +47,7 @@ describe("git-warp structural reading adapter", () => {
     expect(reading).toMatchObject({
       kind: "symbol-reference-count",
       freshness: "current",
-      residualPosture: "complete",
+      residualPosture: "partial",
       evidence: {
         kind: "translated-substrate",
         evidenceLabel: "fallback-translated",
@@ -143,6 +143,44 @@ describe("git-warp structural reading adapter", () => {
         symbolName: "buildThing",
         filePath: "src/api.ts",
       },
+    });
+  });
+
+  it("prefers a complete committed scan over a nonzero bounded graph count", async () => {
+    const committed = vi.fn(() => Promise.resolve({
+      referenceCount: 2,
+      referencingFiles: ["src/a.ts", "src/b.ts"],
+      warnings: [],
+      confidence: "complete" as const,
+    }));
+    const port = createGitWarpStructuralReadingPort({
+      projectRoot: "/repo",
+      git,
+      pathOps,
+      getWarp: () => Promise.resolve(warp),
+      countSymbolReferencesFromGraph: vi.fn(() => Promise.resolve({
+        symbol: "buildThing",
+        referenceCount: 1,
+        referencingFiles: ["src/a.ts"],
+      })),
+      countCommittedReferencesAtRef: committed,
+      findDeadSymbols: vi.fn(),
+    });
+
+    const reading = await port.countSymbolReferences({
+      symbolName: "buildThing",
+      filePath: "src/api.ts",
+      ref: "HEAD",
+    });
+
+    expect(committed).toHaveBeenCalledOnce();
+    expect(reading.payload).toMatchObject({
+      referenceCount: 2,
+      referencingFiles: ["src/a.ts", "src/b.ts"],
+      referenceConfidence: "complete",
+    });
+    expect(reading.evidence).toMatchObject({
+      evidence: { source: "committed-reference-scan" },
     });
   });
 

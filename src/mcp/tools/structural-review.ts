@@ -1,36 +1,7 @@
 import { z } from "zod";
-import { structuralReview, type ReferenceCountResult } from "../../operations/structural-review.js";
+import { structuralReview } from "../../operations/structural-review.js";
 import { toJsonObject } from "../../operations/result-dto.js";
 import type { ToolDefinition, ToolHandler } from "../context.js";
-
-interface GraphReferenceResult {
-  readonly symbol: string;
-  readonly referenceCount: number;
-  readonly referencingFiles: readonly string[];
-}
-
-export async function combineReviewReferenceEvidence(
-  graph: GraphReferenceResult,
-  scan: () => Promise<ReferenceCountResult>,
-): Promise<ReferenceCountResult> {
-  try {
-    const committed = await scan();
-    if (graph.referenceCount > 0) return {
-      referenceCount: graph.referenceCount,
-      referencingFiles: graph.referencingFiles,
-      warnings: committed.warnings ?? [],
-      confidence: committed.confidence ?? "complete",
-    };
-    return committed;
-  } catch {
-    return {
-      referenceCount: graph.referenceCount,
-      referencingFiles: graph.referencingFiles,
-      warnings: [],
-      confidence: "partial",
-    };
-  }
-}
 
 export const structuralReviewTool: ToolDefinition = {
   name: "graft_review",
