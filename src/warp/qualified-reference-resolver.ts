@@ -74,6 +74,7 @@ interface ShadowRegion {
   readonly startIndex: number;
   readonly endIndex: number;
   readonly diagnostic: ImportBindingDiagnostic;
+  readonly pythonClassScope?: TSNode | undefined;
 }
 
 function walk(node: TSNode, visit: (candidate: TSNode) => void): void {
@@ -688,6 +689,43 @@ const GO_LOOP_TYPES = new Set(["for_statement"]);
 const GO_CONTROL_TYPES = new Set(["if_statement", "expression_switch_statement", "type_switch_statement"]);
 const GO_DECLARATION_TYPES = new Set(["function_declaration", "type_spec"]);
 
+function containsIndex(node: TSNode, index: number): boolean {
+  return index >= node.startIndex && index < node.endIndex;
+}
+
+function pythonClassNamespaceAppliesAtIndex(classScope: TSNode, index: number): boolean {
+  let cursor = classScope;
+  let child = cursor.namedChildren.find((candidate) => containsIndex(candidate, index));
+  while (child !== undefined) {
+    if (PYTHON_LEXICAL_SCOPE_TYPES.has(child.type)) {
+      const body = child.childForFieldName("body") ?? child;
+      if (containsIndex(body, index)) return false;
+    }
+    if (PYTHON_COMPREHENSION_TYPES.has(child.type)) {
+      const outermostForClause = child.namedChildren.find((candidate) => candidate.type === "for_in_clause");
+      const iterable = outermostForClause?.childForFieldName("right") ?? outermostForClause?.namedChildren.at(-1);
+      if (iterable === undefined || !containsIndex(iterable, index)) return false;
+    }
+    cursor = child;
+    child = cursor.namedChildren.find((candidate) => containsIndex(candidate, index));
+  }
+  return true;
+}
+
+function pythonClassScopeForBindingIdentifier(identifier: TSNode): TSNode | undefined {
+  let scope = nearestAncestor(identifier, PYTHON_LEXICAL_SCOPE_TYPES);
+  if (scope !== null) {
+    const declarationName = scope.childForFieldName("name");
+    if (declarationName !== null && containsIndex(declarationName, identifier.startIndex)) {
+      scope = nearestAncestor(scope, PYTHON_LEXICAL_SCOPE_TYPES);
+    }
+  }
+  if (scope?.type !== "class_definition") return undefined;
+  const comprehension = nearestAncestor(identifier, PYTHON_COMPREHENSION_TYPES);
+  if (comprehension !== null && containsIndex(scope, comprehension.startIndex)) return undefined;
+  return scope;
+}
+
 function importBindingAppliesAtIndex(
   language: QualifiedReferenceLanguage,
   binding: ResolvedImportBinding,
@@ -696,13 +734,7 @@ function importBindingAppliesAtIndex(
   if (language !== "python") return true;
   const importScope = nearestAncestor(binding.importNode, PYTHON_LEXICAL_SCOPE_TYPES);
   if (importScope?.type !== "class_definition") return true;
-  let hiddenByNestedScope = false;
-  walk(importScope, (node) => {
-    if (node === importScope || (node.type !== "function_definition" && node.type !== "lambda" && node.type !== "class_definition")) return;
-    const body = node.childForFieldName("body") ?? node;
-    if (index >= body.startIndex && index < body.endIndex) hiddenByNestedScope = true;
-  });
-  return !hiddenByNestedScope;
+  return pythonClassNamespaceAppliesAtIndex(importScope, index);
 }
 
 interface ShadowCollector {
@@ -763,7 +795,16 @@ function createShadowCollector(
         if (binding === undefined) continue;
         const target = targetForBinding(binding);
         const diagnostic = diagnosticFor(language, filePath, identifier.text, target, kind, identifier);
-        regions.push({ binding: identifier.text, startIndex: start, endIndex: end, diagnostic });
+        const pythonClassScope = language === "python"
+          ? pythonClassScopeForBindingIdentifier(identifier)
+          : undefined;
+        regions.push({
+          binding: identifier.text,
+          startIndex: start,
+          endIndex: end,
+          diagnostic,
+          ...(pythonClassScope !== undefined ? { pythonClassScope } : {}),
+        });
       }
     },
   };
@@ -1192,7 +1233,10 @@ export function analyzeQualifiedReferences(
       return;
     }
     const shadowRegion = shadows.find((region) =>
-      region.binding === binding.name && node.startIndex >= region.startIndex && node.startIndex < region.endIndex,
+      region.binding === binding.name &&
+      node.startIndex >= region.startIndex &&
+      node.startIndex < region.endIndex &&
+      (region.pythonClassScope === undefined || pythonClassNamespaceAppliesAtIndex(region.pythonClassScope, node.startIndex)),
     );
     const target = language === "go"
       ? context.go?.declarations.get(binding.packageDirectory ?? "")?.get(parts.member.text)

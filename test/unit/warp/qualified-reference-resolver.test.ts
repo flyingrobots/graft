@@ -245,6 +245,33 @@ describe("qualified reference language adapters", () => {
     ]);
   });
 
+  it("does not leak Python class bindings into methods or comprehension bodies", async () => {
+    const source = [
+      "import pkg.outer as api",
+      "class Shadowing:",
+      "    api = object()",
+      "    def method(self):",
+      "        api.run()",
+      "class Comprehension:",
+      "    import pkg.inner as api",
+      "    values = [api.run() for item in api.items()]",
+    ].join("\n");
+    const analysis = await analyze("python", "pkg/caller.py", source, new Map([
+      ["pkg/caller.py", source],
+      ["pkg/outer.py", "def run(): pass\n"],
+      ["pkg/inner.py", "def run(): pass\ndef items(): return []\n"],
+    ]));
+
+    expect(analysis.accesses.map((access) => [
+      access.targetFilePath,
+      access.shadow?.shadowKind ?? "resolved",
+    ])).toEqual([
+      ["pkg/outer.py", "resolved"],
+      ["pkg/outer.py", "resolved"],
+      ["pkg/inner.py", "resolved"],
+    ]);
+  });
+
   it("uses TypeScript block and parameter scopes without suppressing siblings", async () => {
     const source = [
       'import * as api from "./api";',

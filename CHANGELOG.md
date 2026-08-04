@@ -48,6 +48,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   Python `global` and `nonlocal` declarations preserve qualified import
   references before reassignment and suppress them only from the reassignment
   point onward.
+  Python class imports and class-local shadows now follow class-namespace
+  visibility: they do not leak into nested bodies or comprehension bodies,
+  while the outermost comprehension iterable still sees the class namespace.
   Go shadow diagnostics fall back to a meaningful package directory when an
   imported first-party package has no tracked source file.
   Committed scans containing supported-language parse errors report partial
