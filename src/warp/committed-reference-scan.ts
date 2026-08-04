@@ -89,10 +89,11 @@ function createRefAnalysisContext(
           return directory === "" || importingFilePath.startsWith(`${directory}/`);
         })
         .sort((left, right) => right.length - left.length)[0] ?? "";
-      const existing = goContexts.get(manifest);
+      const cacheKey = `${manifest}\0${importingFilePath}`;
+      const existing = goContexts.get(cacheKey);
       if (existing !== undefined) return existing;
       const pending = buildGoReferenceContext(importingFilePath, knownFiles, readFile);
-      goContexts.set(manifest, pending);
+      goContexts.set(cacheKey, pending);
       return pending;
     },
   };

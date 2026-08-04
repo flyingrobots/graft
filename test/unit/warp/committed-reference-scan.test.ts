@@ -76,6 +76,38 @@ describe("committed qualified-reference scan", { timeout: 20_000 }, () => {
     }
   });
 
+  it("builds Go reference context for each importing file", async () => {
+    const cwd = createTestRepo("committed-go-context-scan-");
+    try {
+      write(cwd, "go.mod", "module example.com/project\n");
+      write(cwd, "go/alpha/alpha.go", "package alpha\nfunc Alpha() {}\n");
+      write(cwd, "go/beta/beta.go", "package beta\nfunc Beta() {}\n");
+      write(cwd, "go/a_caller.go", [
+        "package caller",
+        'import alpha "example.com/project/go/alpha"',
+        "func callAlpha(){ alpha.Alpha() }",
+      ].join("\n"));
+      write(cwd, "go/z_caller.go", [
+        "package caller",
+        'import beta "example.com/project/go/beta"',
+        "func callBeta(){ beta.Beta() }",
+      ].join("\n"));
+      git(cwd, "add -A"); git(cwd, "commit -m go-context-scan");
+
+      const result = await scanQualifiedReferencesAtRef({
+        cwd, git: nodeGit, pathOps: nodePathOps, ref: "HEAD",
+        symbolName: "Beta", filePath: "go/beta/beta.go",
+      });
+
+      expect(result).toMatchObject({
+        referenceCount: 1,
+        referencingFiles: ["go/z_caller.go"],
+      });
+    } finally {
+      cleanupTestRepo(cwd);
+    }
+  });
+
   it("marks a target-specific dynamic import limitation partial without inventing a caller", async () => {
     const cwd = createTestRepo("committed-dynamic-scan-");
     try {
