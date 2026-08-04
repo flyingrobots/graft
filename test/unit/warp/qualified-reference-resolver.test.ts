@@ -666,7 +666,7 @@ describe("qualified reference language adapters", () => {
       "func sibling() { src.PendingIDs() }",
     ].join("\n");
     const files = new Map([
-      ["go.mod", "module example.com/project\n"], ["cli/main.go", source],
+      ["go.mod", 'module "example.com/project"\n'], ["cli/main.go", source],
       ["matcher/sources/pending.go", "package sources\nfunc PendingIDs() {}\nfunc Other() {}\n"],
       ["matcher/sources/duplicate.go", "package sources\nfunc Other() {}\n"],
     ]);

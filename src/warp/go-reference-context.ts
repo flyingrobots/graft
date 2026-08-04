@@ -18,7 +18,12 @@ function nearestGoMod(filePath: string, knownFiles: ReadonlySet<string>): string
 function moduleCoordinate(content: string): string | null {
   for (const line of content.split("\n")) {
     const match = /^\s*module\s+(\S+)\s*(?:\/\/.*)?$/u.exec(line);
-    if (match?.[1] !== undefined) return match[1];
+    const token = match?.[1];
+    if (token === undefined) continue;
+    const quote = token[0];
+    if (quote !== '"' && quote !== "`") return token;
+    if (token.length < 2 || token.at(-1) !== quote) return null;
+    return token.slice(1, -1);
   }
   return null;
 }

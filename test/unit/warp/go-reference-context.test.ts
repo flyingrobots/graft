@@ -37,4 +37,21 @@ describe("Go reference context", () => {
 
     expect(reads.get("sources/pending.go")).toBeUndefined();
   });
+
+  it("normalizes quoted module coordinates", async () => {
+    const files = new Map([
+      ["go.mod", 'module "example.com/project"\n'],
+      ["cli/main.go", 'package cli\nimport "example.com/project/sources"\n'],
+      ["sources/pending.go", "package sources\nfunc Pending() {}\n"],
+    ]);
+    const resolve = createGoReferenceContextResolver(
+      new Set(files.keys()),
+      (filePath) => Promise.resolve(files.get(filePath) ?? null),
+    );
+
+    const context = await resolve("cli/main.go");
+
+    expect(context?.modulePath).toBe("example.com/project");
+    expect(context?.declarations.get("sources")?.get("Pending")).toBe("sources/pending.go");
+  });
 });

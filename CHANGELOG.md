@@ -27,7 +27,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   their enclosing lexical scope, and function-local imports shadow outer
   bindings before activating their imported module target. Declaration-only
   TypeScript modules participate in both qualified and static import
-  resolution. The expanded `graft_review` / `struct_review` wire contract is
+  resolution, and quoted Go module directives match their unquoted import
+  paths. The expanded `graft_review` / `struct_review` wire contract is
   versioned as `2.0.0`; unchanged output contracts remain at `1.0.0`.
 
 - **CI test feedback**: pull request CI now keeps the release-grade
