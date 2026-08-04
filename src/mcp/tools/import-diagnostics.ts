@@ -9,6 +9,18 @@ export const importDiagnosticsTool: ToolDefinition = {
   description: "Report first-party import bindings whose lexical shadows exclude qualified reference inference.",
   schema: { ref: z.string().optional() },
   createHandler(): ToolHandler {
-    return async (args, ctx) => ctx.respond("graft_import_diagnostics", toJsonObject(await importDiagnosticsAtRef({ cwd: ctx.projectRoot, git: ctx.git, pathOps: nodePathOps, ref: (args["ref"] as string | undefined) ?? "HEAD" })));
+    return async (args, ctx) => {
+      const result = await importDiagnosticsAtRef({
+        cwd: ctx.projectRoot,
+        git: ctx.git,
+        pathOps: nodePathOps,
+        ref: (args["ref"] as string | undefined) ?? "HEAD",
+      });
+      ctx.recordFootprint({
+        paths: [...new Set(result.diagnostics.map((diagnostic) => diagnostic.filePath))],
+        symbols: [...new Set(result.diagnostics.map((diagnostic) => diagnostic.binding))],
+      });
+      return ctx.respond("graft_import_diagnostics", toJsonObject(result));
+    };
   },
 };

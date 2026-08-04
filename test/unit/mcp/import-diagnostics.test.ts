@@ -3,6 +3,9 @@ import * as path from "node:path";
 import { describe, expect, it } from "vitest";
 import { cleanupTestRepo, createTestRepo, git } from "../../helpers/git.js";
 import { createServerInRepo, parse } from "../../helpers/mcp.js";
+import { nodeGit } from "../../../src/adapters/node-git.js";
+import type { ToolContext } from "../../../src/mcp/context.js";
+import { importDiagnosticsTool } from "../../../src/mcp/tools/import-diagnostics.js";
 
 describe("mcp: graft_import_diagnostics", () => {
   it("reports every first-party import shadow at the requested ref", async () => {
@@ -32,6 +35,40 @@ describe("mcp: graft_import_diagnostics", () => {
         targetFilePath: "pkg/sources.py",
         shadowKind: "parameter",
         message: "Import binding 'source' is shadowed; affected qualified accesses were excluded from reference inference.",
+      }]);
+    } finally {
+      cleanupTestRepo(cwd);
+    }
+  });
+
+  it("records unique diagnostic paths and affected bindings in the tool footprint", async () => {
+    const cwd = createTestRepo("import-diagnostics-footprint-");
+    try {
+      fs.mkdirSync(path.join(cwd, "pkg"), { recursive: true });
+      fs.writeFileSync(path.join(cwd, "pkg", "sources.py"), "def pending_ids(): return []\n");
+      fs.writeFileSync(path.join(cwd, "pkg", "caller.py"), [
+        "import pkg.sources as source",
+        "def first(source): return source.pending_ids()",
+        "def second(source): return source.pending_ids()",
+      ].join("\n"));
+      fs.writeFileSync(path.join(cwd, "pkg", "other.py"), [
+        "import pkg.sources as source",
+        "def third(source): return source.pending_ids()",
+      ].join("\n"));
+      git(cwd, "add -A"); git(cwd, "commit -m footprint");
+      const footprints: unknown[] = [];
+      const handler = importDiagnosticsTool.createHandler();
+
+      await handler({}, {
+        projectRoot: cwd,
+        git: nodeGit,
+        recordFootprint: (footprint: unknown) => footprints.push(footprint),
+        respond: (_tool: string, payload: Record<string, unknown>) => payload,
+      } as unknown as ToolContext);
+
+      expect(footprints).toEqual([{
+        paths: ["pkg/caller.py", "pkg/other.py"],
+        symbols: ["source"],
       }]);
     } finally {
       cleanupTestRepo(cwd);
