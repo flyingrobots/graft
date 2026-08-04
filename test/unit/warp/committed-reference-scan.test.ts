@@ -3,7 +3,9 @@ import * as path from "node:path";
 import { describe, expect, it } from "vitest";
 import { nodeGit } from "../../../src/adapters/node-git.js";
 import { nodePathOps } from "../../../src/adapters/node-paths.js";
+import type { GitClient } from "../../../src/ports/git.js";
 import {
+  analyzeCommittedReferencesAtRef,
   importDiagnosticsAtRef,
   scanQualifiedReferencesAtRef,
 } from "../../../src/warp/committed-reference-scan.js";
@@ -133,6 +135,36 @@ describe("committed qualified-reference scan", { timeout: 20_000 }, () => {
         referenceCount: 1,
         referencingFiles: ["src/valid.ts"],
       });
+    } finally {
+      cleanupTestRepo(cwd);
+    }
+  });
+
+  it("reuses one committed analysis for multiple symbol queries", async () => {
+    const cwd = createTestRepo("committed-analysis-session-");
+    try {
+      write(cwd, "pkg/sources.py", "def pending_ids(): return []\ndef survivors(): return []\n");
+      write(cwd, "pkg/caller.py", [
+        "import pkg.sources as source",
+        "source.pending_ids()",
+        "source.survivors()",
+      ].join("\n"));
+      git(cwd, "add -A"); git(cwd, "commit -m analysis-session");
+      let blobReads = 0;
+      const countingGit: GitClient = {
+        async run(request) {
+          if (request.args[0] === "show") blobReads++;
+          return nodeGit.run(request);
+        },
+      };
+
+      const analysis = await analyzeCommittedReferencesAtRef({
+        cwd, git: countingGit, pathOps: nodePathOps, ref: "HEAD",
+      });
+      const readsAfterAnalysis = blobReads;
+      expect(analysis.countReferences("pending_ids", "pkg/sources.py")).toMatchObject({ referenceCount: 1 });
+      expect(analysis.countReferences("survivors", "pkg/sources.py")).toMatchObject({ referenceCount: 1 });
+      expect(blobReads).toBe(readsAfterAnalysis);
     } finally {
       cleanupTestRepo(cwd);
     }

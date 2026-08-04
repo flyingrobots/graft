@@ -8,11 +8,11 @@ source_cycle: "WARP_cross-language-qualified-reference-resolution"
 
 ## Problem
 
-The ref-pinned scanner reparses the repository for each changed symbol. The
-dedicated diagnostic command also reads each supported source blob through a
-separate Git process. Correctness is bounded by the tracked source tree rather
-than WARP index size, but reviews with several breaking symbols repeat the same
-blob reads, parsing, import resolution, and shadow analysis.
+The ref-pinned scanner now shares one immutable analysis across every changed
+symbol in a review. However, each supported source blob is still read through a
+separate Git process, and diagnostic/review analysis remains sequential.
+Correctness is bounded by the tracked source tree rather than WARP index size,
+but process overhead and latency still scale linearly with repository size.
 
 On the Graft repository witness (`1498` tracked files, `598` supported source
 files), `graft struct import-diagnostics --ref HEAD --json` took about
@@ -20,13 +20,13 @@ files), `graft struct import-diagnostics --ref HEAD --json` took about
 
 ## Hill
 
-Analyze a committed ref once per review/diagnostic operation and answer all
-target-symbol queries from that immutable analysis without changing exact-ref
-semantics or forcing a whole-repository WARP index.
+Read committed blobs with bounded concurrency or batching while preserving the
+single immutable analysis per review/diagnostic operation, exact-ref semantics,
+and the bounded WARP index policy.
 
 ## Acceptance Criteria
 
-- One review with multiple breaking symbols reads and parses each relevant
+- [x] One review with multiple breaking symbols reads and parses each relevant
   source blob at most once.
 - Git blob reads use a bounded batch or bounded-concurrency mechanism.
 - Diagnostic ordering and review counts remain deterministic.
@@ -38,3 +38,8 @@ semantics or forcing a whole-repository WARP index.
 - Expanding the bounded WARP indexing policy.
 - Persisting a second unbounded repository graph.
 - Adding type checking, flow inference, or third-party dependency analysis.
+
+## Landed
+
+- Review and diagnostic callers can build one committed-analysis session and
+  answer multiple symbol queries without additional Git reads or parsing.

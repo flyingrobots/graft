@@ -30,6 +30,11 @@ export type ImportDiagnosticsOptions = Pick<
   "cwd" | "git" | "pathOps" | "ref"
 >;
 
+export interface CommittedReferenceAnalysis {
+  readonly diagnostics: readonly ImportBindingDiagnostic[];
+  countReferences(symbolName: string, filePath: string): ReferenceScanResult;
+}
+
 async function listFilesAtRef(
   opts: Pick<ImportReferenceImpactOptions, "cwd" | "git" | "ref">,
 ): Promise<readonly string[]> {
@@ -141,50 +146,78 @@ function hasUnsupportedDynamicReference(
   return /\b(?:importlib|__import__|getattr|reflect)\b|\bimport\s*\(/u.test(source);
 }
 
+export async function analyzeCommittedReferencesAtRef(
+  opts: ImportDiagnosticsOptions,
+): Promise<CommittedReferenceAnalysis> {
+  const files = await listFilesAtRef(opts);
+  const refContext = createRefAnalysisContext(opts, files);
+  const analyzed: {
+    readonly filePath: string;
+    readonly source: string;
+    readonly analysis: NonNullable<Awaited<ReturnType<typeof analyzeFile>>>;
+  }[] = [];
+  const diagnostics: ImportBindingDiagnostic[] = [];
+  for (const candidate of files) {
+    const analysis = await analyzeFile(candidate, opts, refContext);
+    if (analysis === null) continue;
+    const source = await refContext.readFile(candidate);
+    if (source === null) continue;
+    analyzed.push({ filePath: candidate, source, analysis });
+    diagnostics.push(...analysis.diagnostics);
+  }
+  diagnostics.sort((left, right) =>
+    left.filePath.localeCompare(right.filePath) ||
+    left.range.startLine - right.range.startLine ||
+    left.range.startColumn - right.range.startColumn,
+  );
+  return {
+    diagnostics,
+    countReferences(symbolName, filePath) {
+      const referencingFiles = new Set<string>();
+      const warnings = new Map<string, ImportBindingDiagnostic>();
+      let unsupportedDynamicSemantics = false;
+      for (const candidate of analyzed) {
+        if (candidate.filePath === filePath) continue;
+        for (const access of candidate.analysis.accesses) {
+          if (access.targetFilePath !== filePath || access.member !== symbolName) continue;
+          if (access.shadow === null) referencingFiles.add(candidate.filePath);
+          else {
+            const warning = access.shadow;
+            const key = [
+              warning.filePath,
+              warning.binding,
+              warning.targetFilePath,
+              warning.shadowKind,
+              warning.range.startLine,
+              warning.range.startColumn,
+            ].join(":");
+            warnings.set(key, warning);
+          }
+        }
+        for (const reference of candidate.analysis.staticReferences) {
+          if (reference.targetFilePath === filePath && reference.importedName === symbolName) {
+            referencingFiles.add(candidate.filePath);
+          }
+        }
+        if (hasUnsupportedDynamicReference(candidate.source, symbolName, filePath)) {
+          unsupportedDynamicSemantics = true;
+        }
+      }
+      return {
+        referenceCount: referencingFiles.size,
+        referencingFiles: [...referencingFiles].sort(),
+        warnings: [...warnings.values()],
+        confidence: warnings.size === 0 && !unsupportedDynamicSemantics ? "complete" : "partial",
+      };
+    },
+  };
+}
+
 export async function scanQualifiedReferencesAtRef(
   opts: ImportReferenceImpactOptions,
 ): Promise<ReferenceScanResult> {
-  const files = await listFilesAtRef(opts);
-  const refContext = createRefAnalysisContext(opts, files);
-  const referencingFiles = new Set<string>();
-  const warnings = new Map<string, ImportBindingDiagnostic>();
-  let unsupportedDynamicSemantics = false;
-  for (const candidate of files) {
-    if (candidate === opts.filePath) continue;
-    const analysis = await analyzeFile(candidate, opts, refContext);
-    if (analysis === null) continue;
-    for (const access of analysis.accesses) {
-      if (access.targetFilePath !== opts.filePath || access.member !== opts.symbolName) continue;
-      if (access.shadow === null) referencingFiles.add(candidate);
-      else {
-        const warning = access.shadow;
-        const key = [
-          warning.filePath,
-          warning.binding,
-          warning.targetFilePath,
-          warning.shadowKind,
-          warning.range.startLine,
-          warning.range.startColumn,
-        ].join(":");
-        warnings.set(key, warning);
-      }
-    }
-    for (const reference of analysis.staticReferences) {
-      if (reference.targetFilePath === opts.filePath && reference.importedName === opts.symbolName) {
-        referencingFiles.add(candidate);
-      }
-    }
-    const source = await refContext.readFile(candidate);
-    if (source !== null && hasUnsupportedDynamicReference(source, opts.symbolName, opts.filePath)) {
-      unsupportedDynamicSemantics = true;
-    }
-  }
-  return {
-    referenceCount: referencingFiles.size,
-    referencingFiles: [...referencingFiles].sort(),
-    warnings: [...warnings.values()],
-    confidence: warnings.size === 0 && !unsupportedDynamicSemantics ? "complete" : "partial",
-  };
+  const analysis = await analyzeCommittedReferencesAtRef(opts);
+  return analysis.countReferences(opts.symbolName, opts.filePath);
 }
 
 export async function importDiagnosticsAtRef(
@@ -194,18 +227,8 @@ export async function importDiagnosticsAtRef(
   readonly diagnostics: readonly ImportBindingDiagnostic[];
   readonly summary: string;
 }> {
-  const files = await listFilesAtRef(opts);
-  const refContext = createRefAnalysisContext(opts, files);
-  const diagnostics: ImportBindingDiagnostic[] = [];
-  for (const filePath of files) {
-    const analysis = await analyzeFile(filePath, opts, refContext);
-    if (analysis !== null) diagnostics.push(...analysis.diagnostics);
-  }
-  diagnostics.sort((left, right) =>
-    left.filePath.localeCompare(right.filePath) ||
-    left.range.startLine - right.range.startLine ||
-    left.range.startColumn - right.range.startColumn,
-  );
+  const analysis = await analyzeCommittedReferencesAtRef(opts);
+  const diagnostics = analysis.diagnostics;
   return {
     ref: opts.ref,
     diagnostics,
