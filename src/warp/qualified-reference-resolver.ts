@@ -644,6 +644,23 @@ const GO_LOOP_TYPES = new Set(["for_statement"]);
 const GO_CONTROL_TYPES = new Set(["if_statement", "expression_switch_statement", "type_switch_statement"]);
 const GO_DECLARATION_TYPES = new Set(["function_declaration", "type_spec"]);
 
+function importBindingAppliesAtIndex(
+  language: QualifiedReferenceLanguage,
+  binding: ResolvedImportBinding,
+  index: number,
+): boolean {
+  if (language !== "python") return true;
+  const importScope = nearestAncestor(binding.importNode, PYTHON_LEXICAL_SCOPE_TYPES);
+  if (importScope?.type !== "class_definition") return true;
+  let hiddenByNestedScope = false;
+  walk(importScope, (node) => {
+    if (node === importScope || (node.type !== "function_definition" && node.type !== "lambda" && node.type !== "class_definition")) return;
+    const body = node.childForFieldName("body") ?? node;
+    if (index >= body.startIndex && index < body.endIndex) hiddenByNestedScope = true;
+  });
+  return !hiddenByNestedScope;
+}
+
 interface ShadowCollector {
   readonly root: TSNode;
   readonly bindings: readonly ResolvedImportBinding[];
@@ -678,7 +695,8 @@ function createShadowCollector(
       .filter((binding) =>
         binding.name === bindingName &&
         scopeStart >= (binding.scopeStartIndex ?? root.startIndex) &&
-        scopeStart < (binding.scopeEndIndex ?? root.endIndex)
+        scopeStart < (binding.scopeEndIndex ?? root.endIndex) &&
+        importBindingAppliesAtIndex(language, binding, scopeStart)
       )
       .sort((left, right) =>
         (right.scopeStartIndex ?? root.startIndex) - (left.scopeStartIndex ?? root.startIndex) ||
@@ -1042,7 +1060,8 @@ export function analyzeQualifiedReferences(
         (candidate.qualifiedPath ?? []).length === parts.qualifier.length &&
         (candidate.qualifiedPath ?? []).every((segment, index) => segment === parts.qualifier[index]) &&
         node.startIndex >= (candidate.scopeStartIndex ?? root.startIndex) &&
-        node.startIndex < (candidate.scopeEndIndex ?? root.endIndex)
+        node.startIndex < (candidate.scopeEndIndex ?? root.endIndex) &&
+        importBindingAppliesAtIndex(language, candidate, node.startIndex)
       )
       .sort((left, right) =>
         (right.scopeStartIndex ?? root.startIndex) - (left.scopeStartIndex ?? root.startIndex) ||

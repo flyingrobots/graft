@@ -171,6 +171,29 @@ describe("qualified reference language adapters", () => {
     ]);
   });
 
+  it("does not expose Python class imports inside method bodies", async () => {
+    const source = [
+      "import pkg.outer as api",
+      "class Container:",
+      "    import pkg.inner as api",
+      "    class_value = api.run()",
+      "    def method(self):",
+      "        api.run()",
+      "api.run()",
+    ].join("\n");
+    const analysis = await analyze("python", "pkg/caller.py", source, new Map([
+      ["pkg/caller.py", source],
+      ["pkg/outer.py", "def run(): pass\n"],
+      ["pkg/inner.py", "def run(): pass\n"],
+    ]));
+
+    expect(analysis.accesses.map((access) => access.targetFilePath)).toEqual([
+      "pkg/inner.py",
+      "pkg/outer.py",
+      "pkg/outer.py",
+    ]);
+  });
+
   it("uses TypeScript block and parameter scopes without suppressing siblings", async () => {
     const source = [
       'import * as api from "./api";',
