@@ -271,19 +271,37 @@ function rustBindings(
   context: QualifiedReferenceContext,
 ): readonly ResolvedImportBinding[] {
   const bindings: ResolvedImportBinding[] = [];
-  for (const statement of root.namedChildren) {
-    if (statement.type !== "use_declaration") continue;
+  const statements: TSNode[] = [];
+  walk(root, (node) => {
+    if (node.type === "use_declaration") statements.push(node);
+  });
+  for (const statement of statements) {
     const argument = statement.childForFieldName("argument") ?? statement.namedChildren[0];
     if (argument === undefined) continue;
+    const scope = nearestAncestor(statement, RUST_BLOCK_TYPES);
+    const scopeStartIndex = scope?.startIndex ?? root.startIndex;
+    const scopeEndIndex = scope?.endIndex ?? root.endIndex;
     if (argument.type === "use_as_clause") {
       const imported = argument.childForFieldName("path") ?? argument.namedChildren[0];
       const alias = argument.childForFieldName("alias") ?? argument.namedChildren.at(-1);
-      if (imported !== undefined && alias !== undefined) bindings.push({ name: alias.text, targetFilePath: resolveRustModule(imported.text, filePath, context), importNode: argument });
+      if (imported !== undefined && alias !== undefined) bindings.push({
+        name: alias.text,
+        targetFilePath: resolveRustModule(imported.text, filePath, context),
+        scopeStartIndex,
+        scopeEndIndex,
+        importNode: argument,
+      });
       continue;
     }
     if (argument.type === "scoped_identifier") {
       const name = argument.childForFieldName("name") ?? argument.namedChildren.at(-1);
-      if (name !== undefined) bindings.push({ name: name.text, targetFilePath: resolveRustModule(argument.text, filePath, context), importNode: argument });
+      if (name !== undefined) bindings.push({
+        name: name.text,
+        targetFilePath: resolveRustModule(argument.text, filePath, context),
+        scopeStartIndex,
+        scopeEndIndex,
+        importNode: argument,
+      });
     }
   }
   return bindings;
@@ -528,6 +546,7 @@ const RUST_BLOCK_TYPES = new Set(["block"]);
 const RUST_LOOP_TYPES = new Set(["for_expression"]);
 const RUST_PATTERN_TYPES = new Set(["for_expression", "match_arm"]);
 const RUST_CONDITIONAL_TYPES = new Set(["if_expression", "while_expression"]);
+const RUST_USE_DECLARATION_TYPES = new Set(["use_declaration"]);
 const RUST_DECLARATION_TYPES = new Set(["function_item", "struct_item", "enum_item", "type_item", "const_item", "static_item", "union_item", "trait_item", "mod_item"]);
 const GO_FUNCTION_TYPES = new Set(["function_declaration", "method_declaration", "func_literal"]);
 const GO_BLOCK_TYPES = new Set(["block"]);
@@ -540,6 +559,7 @@ interface ShadowCollector {
   readonly root: TSNode;
   readonly bindingNames: ReadonlySet<string>;
   readonly regions: ShadowRegion[];
+  readonly resolvedImportDeclarationStarts: ReadonlySet<number>;
   readonly addAll: (identifiers: readonly TSNode[], kind: string, start: number, end: number) => void;
 }
 
@@ -571,10 +591,15 @@ function createShadowCollector(
         right.importNode.startIndex - left.importNode.startIndex
       )[0];
   const regions: ShadowRegion[] = [];
+  const resolvedImportDeclarationStarts = new Set(bindings.flatMap((binding) => {
+    const declaration = nearestAncestor(binding.importNode, RUST_USE_DECLARATION_TYPES);
+    return declaration === null ? [] : [declaration.startIndex];
+  }));
   return {
     root,
     bindingNames,
     regions,
+    resolvedImportDeclarationStarts,
     addAll: (identifiers, kind, start, end): void => {
       for (const identifier of identifiers) {
         const binding = activeBinding(identifier.text, start);
@@ -699,7 +724,7 @@ function collectTypeScriptShadowRegions(
 }
 
 function collectRustShadowRegions(collector: ShadowCollector): void {
-  const { root, bindingNames, addAll } = collector;
+  const { root, bindingNames, resolvedImportDeclarationStarts, addAll } = collector;
   walk(root, (node) => {
     const functionNode = nearestAncestor(node, RUST_FUNCTION_TYPES);
     const functionBody = functionNode?.childForFieldName("body") ?? functionNode?.namedChildren.at(-1);
@@ -726,6 +751,7 @@ function collectRustShadowRegions(collector: ShadowCollector): void {
       if (body !== null && body !== undefined) addAll(identifiers, "pattern_binding", node.endIndex, body.endIndex);
     }
     if (node.type === "use_declaration") {
+      if (resolvedImportDeclarationStarts.has(node.startIndex)) return;
       const scope = nearestAncestor(node, RUST_BLOCK_TYPES);
       if (scope !== null) {
         const argument = node.childForFieldName("argument") ?? node.namedChildren[0];
@@ -859,7 +885,8 @@ export function analyzeQualifiedReferences(
   walk(root, (node) => {
     const parts = accessParts(language, node);
     if (parts === null) return;
-    const binding = discoveredBindings
+    const bindingCandidates = language === "rust" ? bindings : discoveredBindings;
+    const binding = bindingCandidates
       .filter((candidate) =>
         candidate.name === parts.binding.text &&
         (candidate.qualifiedPath ?? []).length === parts.qualifier.length &&
@@ -868,7 +895,8 @@ export function analyzeQualifiedReferences(
         node.startIndex < (candidate.scopeEndIndex ?? root.endIndex)
       )
       .sort((left, right) =>
-        (right.scopeStartIndex ?? root.startIndex) - (left.scopeStartIndex ?? root.startIndex)
+        (right.scopeStartIndex ?? root.startIndex) - (left.scopeStartIndex ?? root.startIndex) ||
+        right.importNode.startIndex - left.importNode.startIndex
       )[0];
     if (binding === undefined) return;
     const shadowRegion = shadows.find((region) =>

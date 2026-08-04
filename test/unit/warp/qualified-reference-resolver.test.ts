@@ -362,7 +362,7 @@ describe("qualified reference language adapters", () => {
     ]);
   });
 
-  it("hoists every Rust block item shadow across its containing block", async () => {
+  it("hoists Rust block item shadows and recognizes first-party local imports", async () => {
     const source = [
       "use crate::sources as src;",
       "fn const_shadow() { src::pending(); const src: usize = 0; src::pending(); }",
@@ -383,7 +383,35 @@ describe("qualified reference language adapters", () => {
       "type_declaration", "type_declaration",
       "type_declaration", "type_declaration",
       "module_declaration", "module_declaration",
-      "import_declaration", "import_declaration",
+      "resolved", "resolved",
+    ]);
+  });
+
+  it("resolves first-party Rust block imports and conservatively shadows unresolved ones", async () => {
+    const source = [
+      "use crate::sources as src;",
+      "fn local() { src::pending(); use crate::other as src; src::pending(); }",
+      "fn external() { use serde::json as src; src::pending(); }",
+      "fn sibling() { src::pending(); }",
+    ].join("\n");
+    const analysis = await analyze("rust", "src/caller.rs", source, new Map([
+      ["Cargo.toml", "[package]\nname='x'"],
+      ["src/caller.rs", source],
+      ["src/sources.rs", "pub fn pending() {}"],
+      ["src/other.rs", "pub fn pending() {}"],
+    ]));
+
+    expect(analysis.accesses.map((access) => [
+      access.targetFilePath,
+      access.shadow?.shadowKind ?? "resolved",
+    ])).toEqual([
+      ["src/other.rs", "resolved"],
+      ["src/other.rs", "resolved"],
+      ["src/sources.rs", "import_declaration"],
+      ["src/sources.rs", "resolved"],
+    ]);
+    expect(analysis.diagnostics).toEqual([
+      expect.objectContaining({ binding: "src", targetFilePath: "src/sources.rs", shadowKind: "import_declaration" }),
     ]);
   });
 
