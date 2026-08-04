@@ -578,7 +578,10 @@ const PYTHON_LEXICAL_SCOPE_TYPES = new Set(["function_definition", "lambda", "cl
 const PYTHON_DECLARATION_SCOPE_TYPES = new Set(["function_definition", "class_definition"]);
 const PYTHON_COMPREHENSION_TYPES = new Set(["list_comprehension", "set_comprehension", "dictionary_comprehension", "generator_expression"]);
 const PYTHON_ASSIGNMENT_TYPES = new Set(["assignment", "augmented_assignment", "named_expression", "for_statement", "for_in_clause"]);
-const TYPESCRIPT_FUNCTION_TYPES = new Set(["function_declaration", "function_expression", "arrow_function", "method_definition"]);
+const TYPESCRIPT_FUNCTION_TYPES = new Set([
+  "function_declaration", "function_expression", "generator_function_declaration", "generator_function",
+  "arrow_function", "method_definition",
+]);
 const TYPESCRIPT_BLOCK_TYPES = new Set(["statement_block", "program"]);
 const TYPESCRIPT_LOCAL_TYPES = new Set(["variable_declarator", "assignment_expression"]);
 const TYPESCRIPT_LOOP_TYPES = new Set(["for_statement", "for_in_statement"]);
@@ -758,7 +761,7 @@ function collectTypeScriptShadowRegions(
       const body = node.childForFieldName("body") ?? node;
       addAll(identifiers, "loop_binding", body.startIndex, body.endIndex);
     }
-    if (node.type === "function_declaration" || node.type === "class_declaration") {
+    if (node.type === "function_declaration" || node.type === "generator_function_declaration" || node.type === "class_declaration") {
       const identifiers = matchingBindingIdentifiers(language, node.childForFieldName("name"), bindingNames);
       const scope = nearestAncestor(node, TYPESCRIPT_BLOCK_TYPES) ?? root;
       addAll(identifiers, node.type === "class_declaration" ? "type_declaration" : "function_declaration", scope.startIndex, scope.endIndex);

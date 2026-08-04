@@ -316,6 +316,30 @@ describe("qualified reference language adapters", () => {
     ]);
   });
 
+  it("treats TypeScript and JavaScript generator parameters as function-local shadows", async () => {
+    const source = [
+      'import * as api from "./api";',
+      "function* declaration(api) { api.run(); }",
+      "const expression = function* ({ api }) { api.run(); };",
+      "{ api.run(); function* api() {} }",
+      "api.run();",
+    ].join("\n");
+    const files = new Map([
+      ["src/api.ts", "export function run() {}"],
+      ["src/caller.ts", source],
+      ["src/caller.js", source],
+    ]);
+
+    const typescript = await analyze("ts", "src/caller.ts", source, files);
+    const javascript = await analyze("js", "src/caller.js", source, files);
+    expect(typescript.accesses.map((access) => access.shadow?.shadowKind ?? "resolved")).toEqual([
+      "parameter", "parameter", "function_declaration", "resolved",
+    ]);
+    expect(javascript.accesses.map((access) => access.shadow?.shadowKind ?? "resolved")).toEqual([
+      "parameter", "parameter", "function_declaration", "resolved",
+    ]);
+  });
+
   it("confines comprehension, loop, catch, range, and pattern bindings to their lexical regions", async () => {
     const python = [
       "import pkg.sources as src",
