@@ -426,12 +426,15 @@ describe("committed qualified-reference scan", { timeout: 20_000 }, () => {
       write(cwd, "pkg/sources.py", "def pending_ids(): return []\n");
       write(cwd, "pkg/broken.py", "def broken(:\n");
       git(cwd, "add -A"); git(cwd, "commit -m incomplete-import-diagnostics");
+      const commitId = git(cwd, "rev-parse HEAD");
 
       await expect(importDiagnosticsAtRef({
         cwd, git: nodeGit, pathOps: nodePathOps, ref: "HEAD",
       })).rejects.toMatchObject({
         name: "IncompleteImportDiagnosticsError",
         code: "import_diagnostics_incomplete",
+        ref: commitId,
+        message: `Import diagnostics at ${commitId} are incomplete because at least one supported source file contains parse errors.`,
       });
     } finally {
       cleanupTestRepo(cwd);

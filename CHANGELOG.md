@@ -39,6 +39,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   lexical scope.
   Exact-ref committed scans now run before WARP acquisition, so a cold or
   unavailable graph cannot prevent authoritative committed-reference counts.
+  Incomplete import-diagnostics errors now identify the pinned commit that was
+  analyzed rather than the caller's potentially moving symbolic ref.
   Each structural review now reuses one reading port across all breaking
   symbols, preserving its repository-analysis cache.
   Go package inference now stops at nested `go.mod` boundaries instead of
