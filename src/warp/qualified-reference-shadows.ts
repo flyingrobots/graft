@@ -487,8 +487,6 @@ function collectTypeScriptShadowRegions(
   const typeNamespace = new Set<"value" | "type">(["type"]);
   const bothNamespaces = new Set<"value" | "type">(["value", "type"]);
   walk(root, (node) => {
-    const functionNode = nearestAncestor(node, TYPESCRIPT_FUNCTION_TYPES);
-    const functionBody = functionNode?.childForFieldName("body") ?? functionNode?.namedChildren.at(-1);
     if (TYPESCRIPT_FUNCTION_TYPES.has(node.type)) {
       const body = node.childForFieldName("body") ?? node.namedChildren.at(-1);
       const parameters = node.childForFieldName("parameters") ?? node.childForFieldName("parameter");
@@ -536,7 +534,11 @@ function collectTypeScriptShadowRegions(
       let scope = loop ?? nearestAncestor(node, TYPESCRIPT_BLOCK_TYPES) ?? root;
       if (node.type === "variable_declarator") {
         const declaration = nearestAncestor(node, TYPESCRIPT_DECLARATION_TYPES);
-        if (declaration?.type === "variable_declaration") scope = functionBody ?? root;
+        if (declaration?.type === "variable_declaration") {
+          const functionNode = nearestAncestor(node, TYPESCRIPT_FUNCTION_TYPES);
+          const functionBody = functionNode?.childForFieldName("body") ?? functionNode?.namedChildren.at(-1);
+          scope = functionBody ?? root;
+        }
       }
       const declarationPoint = node.type === "assignment_expression" ? node.startIndex : scope.startIndex;
       addAll(identifiers, loop === null ? "local_binding" : "loop_binding", declarationPoint, scope.endIndex, valueNamespace);
@@ -617,10 +619,12 @@ function collectRustShadowRegions(collector: ShadowCollector): void {
 function collectGoShadowRegions(collector: ShadowCollector): void {
   const { root, bindingNames, addAll } = collector;
   walk(root, (node) => {
-    const functionNode = nearestAncestor(node, GO_FUNCTION_TYPES);
-    const functionBody = functionNode?.childForFieldName("body") ?? functionNode?.namedChildren.at(-1);
-    if ((node.type === "parameter_declaration" || node.type === "variadic_parameter_declaration") && functionBody !== undefined) {
-      addAll(matchingBindingIdentifiers("go", node, bindingNames), "parameter", functionBody.startIndex, functionBody.endIndex);
+    if (node.type === "parameter_declaration" || node.type === "variadic_parameter_declaration") {
+      const functionNode = nearestAncestor(node, GO_FUNCTION_TYPES);
+      const functionBody = functionNode?.childForFieldName("body") ?? functionNode?.namedChildren.at(-1);
+      if (functionBody !== undefined) {
+        addAll(matchingBindingIdentifiers("go", node, bindingNames), "parameter", functionBody.startIndex, functionBody.endIndex);
+      }
     }
     if (GO_LOCAL_TYPES.has(node.type)) {
       const identifiers = node.type === "var_spec" || node.type === "const_spec"
