@@ -441,7 +441,16 @@ function matchingBindingIdentifiers(
     if (node.type === "parameter") {
       return matchingBindingIdentifiers(language, node.childForFieldName("pattern") ?? node.namedChildren[0], bindings);
     }
-    if (["match_pattern", "tuple_pattern", "slice_pattern", "tuple_struct_pattern", "struct_pattern", "field_pattern", "reference_pattern", "mut_pattern", "or_pattern"].includes(node.type)) {
+    if (node.type === "tuple_struct_pattern" || node.type === "struct_pattern") {
+      const type = node.childForFieldName("type");
+      return node.namedChildren
+        .filter((child) => type === null || child.startIndex !== type.startIndex)
+        .flatMap((child) => matchingBindingIdentifiers(language, child, bindings));
+    }
+    if (node.type === "field_pattern") {
+      return matchingBindingIdentifiers(language, node.childForFieldName("pattern") ?? node.childForFieldName("name") ?? node.namedChildren.at(-1), bindings);
+    }
+    if (["match_pattern", "tuple_pattern", "slice_pattern", "reference_pattern", "mut_pattern", "or_pattern"].includes(node.type)) {
       return node.namedChildren.flatMap((child) => matchingBindingIdentifiers(language, child, bindings));
     }
     return [];
@@ -663,6 +672,15 @@ function collectShadowRegions(
       const identifiers = matchingBindingIdentifiers(language, node.childForFieldName("pattern") ?? node.namedChildren[0], bindingNames);
       const body = node.childForFieldName("body") ?? node;
       addAll(identifiers, "pattern_binding", body.startIndex, body.endIndex);
+    }
+    if (language === "rust" && node.type === "let_condition") {
+      const pattern = node.childForFieldName("pattern") ?? node.namedChildren[0];
+      const identifiers = matchingBindingIdentifiers(language, pattern, bindingNames);
+      const conditional = nearestAncestor(node, new Set(["if_expression", "while_expression"]));
+      const body = conditional?.childForFieldName(conditional.type === "if_expression" ? "consequence" : "body");
+      if (body !== null && body !== undefined) {
+        addAll(identifiers, "pattern_binding", node.endIndex, body.endIndex);
+      }
     }
     if (language === "rust" && node.type === "use_declaration") {
       const scope = nearestAncestor(node, new Set(["block"]));

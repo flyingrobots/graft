@@ -343,6 +343,22 @@ describe("qualified reference language adapters", () => {
     ]);
   });
 
+  it("scopes Rust conditional pattern bindings to their branch and loop bodies", async () => {
+    const source = [
+      "use crate::sources as src;",
+      "fn branch(value: Option<usize>) { if let Some(src) = value { src::pending(); } src::pending(); }",
+      "fn looping(mut value: Option<usize>) { while let Some(src) = value { src::pending(); value = None; } src::pending(); }",
+    ].join("\n");
+    const analysis = await analyze("rust", "src/caller.rs", source, new Map([
+      ["Cargo.toml", "[package]\nname='x'"], ["src/caller.rs", source],
+      ["src/sources.rs", "pub fn pending() {}"],
+    ]));
+
+    expect(analysis.accesses.map((access) => access.shadow?.shadowKind ?? "resolved")).toEqual([
+      "pattern_binding", "resolved", "pattern_binding", "resolved",
+    ]);
+  });
+
   it("anchors Go imports in go.mod and requires one exported declaration", async () => {
     const source = [
       "package cli",
