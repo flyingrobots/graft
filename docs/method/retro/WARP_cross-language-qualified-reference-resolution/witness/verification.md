@@ -206,11 +206,13 @@ another twelve repair items:
 
 The older lazy-WARP-query nit was already enforced by `9f99d2a2` and its
 no-acquisition regression, so it required no duplicate change. At `e8dd3011`,
-the full GraphQL audit reported `83` review threads and zero unresolved
-threads. The focused acceptance set passed `15` files and `200` tests, and the
-Docker-isolated repository suite passed `252` files and `1968` tests. Lint,
-typecheck, build, structural-history artifact parity, agent-worktree hygiene,
-and whitespace validation also passed.
+a delayed Codex review independently reported the duplicate-registry issue
+already fixed by that commit; its outdated thread was resolved with
+current-head proof. The final full GraphQL audit reported `84` review threads
+and zero unresolved threads. The focused acceptance set passed `15` files and
+`200` tests, and the Docker-isolated repository suite passed `252` files and
+`1968` tests. Lint, typecheck, build, structural-history artifact parity,
+agent-worktree hygiene, and whitespace validation also passed.
 
 ## CLI Witness
 
