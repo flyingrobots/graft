@@ -575,7 +575,7 @@ function collectTypeScriptShadowRegions(
 }
 
 function collectRustShadowRegions(collector: ShadowCollector): void {
-  const { root, bindingNames, resolvedImportDeclarationStarts, addAll } = collector;
+  const { root, bindings, bindingNames, resolvedImportDeclarationStarts, addAll } = collector;
   const typeNamespace = new Set<"value" | "type">(["type"]);
   walk(root, (node) => {
     if (node.type === "type_parameters") {
@@ -589,11 +589,19 @@ function collectRustShadowRegions(collector: ShadowCollector): void {
       );
     }
     if (node.type === "use_declaration") {
-      if (resolvedImportDeclarationStarts.has(node.startIndex)) return;
       const scope = nearestAncestor(node, RUST_IMPORT_SCOPE_TYPES);
       if (scope !== null) {
         const argument = node.childForFieldName("argument") ?? node.namedChildren[0];
-        addAll(matchingRustUseBindingIdentifiers(argument, bindingNames), "import_declaration", scope.startIndex, scope.endIndex);
+        const identifiers = matchingRustUseBindingIdentifiers(argument, bindingNames).filter((identifier) =>
+          !bindings.some((binding) => {
+            const declaration = nearestAncestor(binding.importNode, RUST_USE_DECLARATION_TYPES);
+            return declaration?.startIndex === node.startIndex &&
+              binding.name === identifier.text &&
+              identifier.startIndex >= binding.importNode.startIndex &&
+              identifier.endIndex <= binding.importNode.endIndex;
+          })
+        );
+        addAll(identifiers, "import_declaration", scope.startIndex, scope.endIndex);
       }
     }
     if (RUST_TYPE_NAMESPACE_DECLARATION_TYPES.has(node.type)) {

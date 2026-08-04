@@ -75,6 +75,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   remain conservative type-namespace shadows.
   Rust type/module item shadows are now confined to their nearest block or
   inline-module declaration list instead of suppressing sibling modules.
+  Mixed Rust `use` declarations now retain resolved first-party leaves while
+  conservatively shadowing same-name unresolved or external leaves.
   External Rust declarations such as `mod api;` now bind the corresponding
   first-party module file for qualified value and type references, including
   paths nested in inline modules.

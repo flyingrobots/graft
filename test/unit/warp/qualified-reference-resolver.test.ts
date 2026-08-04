@@ -859,6 +859,24 @@ describe("qualified reference language adapters", () => {
     ]);
   });
 
+  it("shadows unresolved leaves in mixed Rust use declarations", async () => {
+    const source = [
+      "use crate::sources as src;",
+      "fn mixed() { use {crate::other, serde::json as src}; src::pending(); }",
+      "fn sibling() { src::pending(); }",
+    ].join("\n");
+    const analysis = await analyze("rust", "src/caller.rs", source, new Map([
+      ["Cargo.toml", "[package]\nname='demo'"],
+      ["src/caller.rs", source],
+      ["src/sources.rs", "pub fn pending() {}"],
+      ["src/other.rs", "pub fn run() {}"],
+    ]));
+
+    expect(analysis.accesses.map((access) => access.shadow?.shadowKind ?? "resolved")).toEqual([
+      "import_declaration", "resolved",
+    ]);
+  });
+
   it("marks aliases to possible inline Rust modules unresolved at their owner file", async () => {
     const source = "use crate::sources::nested as api; fn call() { api::pending(); }";
     const analysis = await analyze("rust", "src/caller.rs", source, new Map([
