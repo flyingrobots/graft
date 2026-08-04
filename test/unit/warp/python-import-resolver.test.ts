@@ -86,9 +86,9 @@ describe("warp: Python import resolver", { timeout: 15000 }, () => {
     expect(result.edges.filter((edge) => edge.label === "resolves_to")).toHaveLength(4);
     expect(result.metadata).toEqual([
       { importedName: "*", localName: "alias", filePath: "app.py" },
-      { importedName: "*", localName: "direct", filePath: "app.py" },
-      { importedName: "*", localName: "first", filePath: "app.py" },
-      { importedName: "*", localName: "second", filePath: "app.py" },
+      { importedName: "*", localName: "package", filePath: "app.py" },
+      { importedName: "*", localName: "package", filePath: "app.py" },
+      { importedName: "*", localName: "package", filePath: "app.py" },
     ]);
   });
 

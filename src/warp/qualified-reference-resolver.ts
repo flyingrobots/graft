@@ -31,6 +31,7 @@ export interface QualifiedReferenceContext {
 export interface ResolvedImportBinding {
   readonly name: string;
   readonly targetFilePath: string | null;
+  readonly qualifiedPath?: readonly string[] | undefined;
   readonly packageDirectory?: string | undefined;
   readonly importNode: TSNode;
 }
@@ -145,12 +146,13 @@ function pythonBindings(
         const alias = specifier.type === "aliased_import"
           ? specifier.childForFieldName("alias") ?? specifier.namedChildren.find((child) => child.type === "identifier")
           : undefined;
-        const bindingName = alias?.text ?? moduleNode.text.split(".")[0];
+        const moduleParts = moduleNode.text.split(".");
+        const bindingName = alias?.text ?? moduleParts[0];
         if (bindingName === undefined) continue;
-        if (alias === undefined && moduleNode.text.includes(".")) continue;
         bindings.push({
           name: bindingName,
           targetFilePath: resolvePythonModulePath(moduleNode.text, filePath, context.pathOps, context.knownFiles),
+          ...(alias === undefined && moduleParts.length > 1 ? { qualifiedPath: moduleParts.slice(1) } : {}),
           importNode: specifier,
         });
       }
@@ -500,23 +502,35 @@ function collectShadowRegions(
   return [...unique.values()];
 }
 
-function accessParts(language: QualifiedReferenceLanguage, node: TSNode): { readonly binding: TSNode; readonly member: TSNode } | null {
+function accessParts(language: QualifiedReferenceLanguage, node: TSNode): {
+  readonly binding: TSNode;
+  readonly qualifier: readonly string[];
+  readonly member: TSNode;
+} | null {
   if (language === "python" && node.type === "attribute") {
-    const binding = node.childForFieldName("object") ?? node.namedChildren[0];
     const member = node.childForFieldName("attribute") ?? node.namedChildren[1];
-    return binding?.type === "identifier" && member?.type === "identifier" ? { binding, member } : null;
+    if (member?.type !== "identifier") return null;
+    const qualifier: string[] = [];
+    let binding = node.childForFieldName("object") ?? node.namedChildren[0];
+    while (binding?.type === "attribute") {
+      const attribute = binding.childForFieldName("attribute") ?? binding.namedChildren[1];
+      if (attribute?.type !== "identifier") return null;
+      qualifier.unshift(attribute.text);
+      binding = binding.childForFieldName("object") ?? binding.namedChildren[0];
+    }
+    return binding?.type === "identifier" ? { binding, qualifier, member } : null;
   }
   if ((language === "ts" || language === "tsx" || language === "js") && node.type === "member_expression") {
     const binding = node.childForFieldName("object"); const member = node.childForFieldName("property");
-    return binding?.type === "identifier" && member?.type === "property_identifier" ? { binding, member } : null;
+    return binding?.type === "identifier" && member?.type === "property_identifier" ? { binding, qualifier: [], member } : null;
   }
   if (language === "rust" && node.type === "scoped_identifier") {
     const binding = node.childForFieldName("path"); const member = node.childForFieldName("name");
-    return binding?.type === "identifier" && member?.type === "identifier" ? { binding, member } : null;
+    return binding?.type === "identifier" && member?.type === "identifier" ? { binding, qualifier: [], member } : null;
   }
   if (language === "go" && node.type === "selector_expression") {
     const binding = node.childForFieldName("operand"); const member = node.childForFieldName("field");
-    return binding?.type === "identifier" && member?.type === "field_identifier" ? { binding, member } : null;
+    return binding?.type === "identifier" && member?.type === "field_identifier" ? { binding, qualifier: [], member } : null;
   }
   return null;
 }
@@ -530,13 +544,16 @@ export function analyzeQualifiedReferences(
   const bindings = resolveQualifiedImportBindings(language, filePath, root, context).filter((binding) =>
     binding.targetFilePath !== null || context.go?.declarations.has(binding.packageDirectory ?? "") === true,
   );
-  const bindingByName = new Map(bindings.map((binding) => [binding.name, binding]));
   const shadows = collectShadowRegions(language, filePath, root, bindings, context);
   const accesses: QualifiedReferenceAccess[] = [];
   walk(root, (node) => {
     const parts = accessParts(language, node);
     if (parts === null) return;
-    const binding = bindingByName.get(parts.binding.text);
+    const binding = bindings.find((candidate) =>
+      candidate.name === parts.binding.text &&
+      (candidate.qualifiedPath ?? []).length === parts.qualifier.length &&
+      (candidate.qualifiedPath ?? []).every((segment, index) => segment === parts.qualifier[index])
+    );
     if (binding === undefined) return;
     const target = language === "go"
       ? context.go?.declarations.get(binding.packageDirectory ?? "")?.get(parts.member.text)

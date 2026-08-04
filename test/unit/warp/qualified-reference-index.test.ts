@@ -64,6 +64,16 @@ describe("qualified reference WARP indexing", { timeout: 20_000 }, () => {
     expect(refs.importedFile).toEqual([{ filePath: "pkg/caller.py", importedName: "sources", localName: "sources" }]);
   });
 
+  it("indexes members through an unaliased dotted Python import", async () => {
+    const refs = await indexedReferences({
+      "pkg/sources.py": "def pending_ids(): return []\n",
+      "pkg/caller.py": "import pkg.sources\npkg.sources.pending_ids()\n",
+    }, "pending_ids", "pkg/sources.py");
+
+    expect(refs.symbol).toEqual([{ filePath: "pkg/caller.py", importedName: "pending_ids", localName: "pending_ids" }]);
+    expect(refs.importedFile).toEqual([{ filePath: "pkg/caller.py", importedName: "*", localName: "pkg" }]);
+  });
+
   it("indexes TypeScript namespace members and suppresses parameter shadows", async () => {
     const refs = await indexedReferences({
       "src/api.ts": "export function buildThing(): void {}\n",

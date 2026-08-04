@@ -63,7 +63,7 @@ function importInfo(node: TSNode, fromImport: boolean): ImportInfo | null {
   if (node.type === "dotted_name") {
     return fromImport
       ? { node, importedName: node.text, localName: node.text }
-      : (() => { const localName = node.text.split(".").at(-1); return localName === undefined ? null : { node, importedName: "*", localName }; })();
+      : (() => { const localName = node.text.split(".")[0]; return localName === undefined ? null : { node, importedName: "*", localName }; })();
   }
   if (node.type !== "aliased_import") return null;
   const imported = node.namedChildren.find((child) => child.type === "dotted_name");
