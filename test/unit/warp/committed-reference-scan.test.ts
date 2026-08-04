@@ -674,6 +674,33 @@ describe("committed qualified-reference scan", { timeout: 20_000 }, () => {
     }
   });
 
+  it("preserves extension-like final segments in Python dynamic module names", async () => {
+    const cwd = createTestRepo("committed-python-dotted-module-scan-");
+    try {
+      write(cwd, "pkg/go.py", "def pending_ids(): return []\n");
+      write(cwd, "pkg/dynamic.py", [
+        "import importlib",
+        'mod = importlib.import_module("pkg.go")',
+        'getattr(mod, "pending_ids")()',
+      ].join("\n"));
+      git(cwd, "add -A"); git(cwd, "commit -m dotted-module-scan");
+
+      const result = await scanQualifiedReferencesAtRef({
+        cwd, git: nodeGit, pathOps: nodePathOps, ref: "HEAD",
+        symbolName: "pending_ids", filePath: "pkg/go.py",
+      });
+
+      expect(result).toMatchObject({
+        referenceCount: 0,
+        referencingFiles: [],
+        confidence: "partial",
+        warnings: [],
+      });
+    } finally {
+      cleanupTestRepo(cwd);
+    }
+  });
+
   it("marks nonliteral dynamic targets and members partial", async () => {
     const cwd = createTestRepo("committed-nonliteral-dynamic-scan-");
     try {

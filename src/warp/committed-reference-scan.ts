@@ -268,9 +268,8 @@ function normalizedDynamicTargetPath(
   referencingDirectory: string,
   pathOps: PathOps,
 ): string {
-  const withoutExtension = specifier.replace(/\.(?:pyi?|tsx?|jsx?|mjs|cjs|rs|go)$/u, "");
   if (facts.language === "python") {
-    const relative = /^(\.+)(.*)$/u.exec(withoutExtension);
+    const relative = /^(\.+)(.*)$/u.exec(specifier);
     if (relative !== null) {
       const dots = relative[1] ?? "";
       let base = referencingDirectory;
@@ -278,8 +277,9 @@ function normalizedDynamicTargetPath(
       const suffix = (relative[2] ?? "").replaceAll(".", "/");
       return suffix === "" ? base : pathOps.normalize(pathOps.join(base, suffix));
     }
-    return withoutExtension.replaceAll(".", "/");
+    return specifier.replaceAll(".", "/");
   }
+  const withoutExtension = specifier.replace(/\.(?:pyi?|tsx?|jsx?|mjs|cjs|rs|go)$/u, "");
   return withoutExtension.startsWith(".")
     ? pathOps.normalize(pathOps.join(referencingDirectory, withoutExtension))
     : withoutExtension;
