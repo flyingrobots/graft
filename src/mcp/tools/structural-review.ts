@@ -14,6 +14,7 @@ export const structuralReviewTool: ToolDefinition = {
     return async (args, ctx) => {
       const head = args["head"] as string | undefined;
       const headRef = head ?? "HEAD";
+      const structuralReadingPort = ctx.getStructuralReadingPort();
       const result = await structuralReview({
         cwd: ctx.projectRoot,
         fs: ctx.fs,
@@ -22,7 +23,7 @@ export const structuralReviewTool: ToolDefinition = {
         base: args["base"] as string | undefined,
         head,
         countReferences: async (symbolName, filePath, candidateTargetFilePaths) => {
-          const reading = await ctx.getStructuralReadingPort().countSymbolReferences({
+          const reading = await structuralReadingPort.countSymbolReferences({
             symbolName,
             filePath,
             ref: headRef,
