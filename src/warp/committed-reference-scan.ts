@@ -36,6 +36,23 @@ export interface CommittedReferenceAnalysis {
   countReferences(symbolName: string, filePath: string): ReferenceScanResult;
 }
 
+async function resolveCommitAtRef(
+  opts: Pick<ImportReferenceImpactOptions, "cwd" | "git" | "ref">,
+): Promise<string> {
+  const result = await opts.git.run({
+    args: ["rev-parse", "--verify", `${opts.ref}^{commit}`],
+    cwd: opts.cwd,
+  });
+  if (result.error !== undefined || result.status !== 0) {
+    throw result.error ?? new Error(
+      result.stderr.trim() || `git rev-parse failed with status ${String(result.status)}`,
+    );
+  }
+  const commitId = result.stdout.trim();
+  if (commitId === "") throw new Error(`git rev-parse returned no commit for ${opts.ref}`);
+  return commitId;
+}
+
 async function listFilesAtRef(
   opts: Pick<ImportReferenceImpactOptions, "cwd" | "git" | "ref">,
 ): Promise<readonly string[]> {
@@ -139,8 +156,10 @@ function hasUnsupportedDynamicReference(
 export async function analyzeCommittedReferencesAtRef(
   opts: ImportDiagnosticsOptions,
 ): Promise<CommittedReferenceAnalysis> {
-  const files = await listFilesAtRef(opts);
-  const refContext = createRefAnalysisContext(opts, files);
+  const commitId = await resolveCommitAtRef(opts);
+  const pinnedOpts = { ...opts, ref: commitId };
+  const files = await listFilesAtRef(pinnedOpts);
+  const refContext = createRefAnalysisContext(pinnedOpts, files);
   const analyzed: {
     readonly filePath: string;
     readonly source: string;

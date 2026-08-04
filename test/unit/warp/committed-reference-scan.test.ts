@@ -170,6 +170,33 @@ describe("committed qualified-reference scan", { timeout: 20_000 }, () => {
     }
   });
 
+  it("pins a symbolic ref to one commit before reading its tree and blobs", async () => {
+    const cwd = createTestRepo("committed-pinned-ref-");
+    try {
+      write(cwd, "pkg/sources.py", "def pending_ids(): return []\n");
+      write(cwd, "pkg/caller.py", "import pkg.sources as source\nsource.pending_ids()\n");
+      git(cwd, "add -A"); git(cwd, "commit -m pinned-ref");
+      const commitId = git(cwd, "rev-parse HEAD");
+      const requests: string[][] = [];
+      const recordingGit: GitClient = {
+        async run(request) {
+          requests.push([...request.args]);
+          return nodeGit.run(request);
+        },
+      };
+
+      await analyzeCommittedReferencesAtRef({
+        cwd, git: recordingGit, pathOps: nodePathOps, ref: "HEAD",
+      });
+
+      expect(requests[0]).toEqual(["rev-parse", "--verify", "HEAD^{commit}"]);
+      expect(requests.find((args) => args[0] === "ls-tree")?.at(-1)).toBe(commitId);
+      expect(requests.filter((args) => args[0] === "show").every((args) => args[1]?.startsWith(`${commitId}:`))).toBe(true);
+    } finally {
+      cleanupTestRepo(cwd);
+    }
+  });
+
   it("counts direct Python and Rust symbol imports by their imported names", async () => {
     const cwd = createTestRepo("committed-direct-import-scan-");
     try {
