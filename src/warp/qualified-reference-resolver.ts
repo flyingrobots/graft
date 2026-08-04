@@ -130,7 +130,7 @@ function pythonBindings(
     }
   });
   for (const statement of statements) {
-    const lexicalScope = nearestAncestor(statement, new Set(["function_definition", "lambda", "class_definition"]));
+    const lexicalScope = nearestAncestor(statement, PYTHON_LEXICAL_SCOPE_TYPES);
     const scopeBody = lexicalScope?.childForFieldName("body") ?? lexicalScope;
     const scopeStartIndex = lexicalScope?.type === "function_definition" || lexicalScope?.type === "lambda"
       ? scopeBody?.startIndex ?? statement.endIndex
@@ -502,13 +502,44 @@ function diagnosticFor(
   };
 }
 
-function collectShadowRegions(
+const PYTHON_LEXICAL_SCOPE_TYPES = new Set(["function_definition", "lambda", "class_definition"]);
+const PYTHON_DECLARATION_SCOPE_TYPES = new Set(["function_definition", "class_definition"]);
+const PYTHON_COMPREHENSION_TYPES = new Set(["list_comprehension", "set_comprehension", "dictionary_comprehension", "generator_expression"]);
+const PYTHON_ASSIGNMENT_TYPES = new Set(["assignment", "augmented_assignment", "named_expression", "for_statement", "for_in_clause"]);
+const TYPESCRIPT_FUNCTION_TYPES = new Set(["function_declaration", "function_expression", "arrow_function", "method_definition"]);
+const TYPESCRIPT_BLOCK_TYPES = new Set(["statement_block", "program"]);
+const TYPESCRIPT_PARAMETER_TYPES = new Set(["required_parameter", "optional_parameter", "rest_pattern"]);
+const TYPESCRIPT_LOCAL_TYPES = new Set(["variable_declarator", "assignment_expression"]);
+const TYPESCRIPT_LOOP_TYPES = new Set(["for_statement", "for_in_statement"]);
+const TYPESCRIPT_DECLARATION_TYPES = new Set(["lexical_declaration", "variable_declaration"]);
+const TYPESCRIPT_SCOPED_LOOP_TYPES = new Set(["for_in_statement", "for_of_statement"]);
+const RUST_FUNCTION_TYPES = new Set(["function_item", "closure_expression"]);
+const RUST_BLOCK_TYPES = new Set(["block"]);
+const RUST_LOOP_TYPES = new Set(["for_expression"]);
+const RUST_PATTERN_TYPES = new Set(["for_expression", "match_arm"]);
+const RUST_CONDITIONAL_TYPES = new Set(["if_expression", "while_expression"]);
+const RUST_DECLARATION_TYPES = new Set(["function_item", "struct_item", "enum_item", "type_item", "const_item", "static_item", "union_item", "trait_item", "mod_item"]);
+const GO_FUNCTION_TYPES = new Set(["function_declaration", "method_declaration", "func_literal"]);
+const GO_BLOCK_TYPES = new Set(["block"]);
+const GO_LOCAL_TYPES = new Set(["short_var_declaration", "var_spec", "const_spec", "assignment_statement"]);
+const GO_LOOP_TYPES = new Set(["for_statement"]);
+const GO_CONTROL_TYPES = new Set(["if_statement", "expression_switch_statement", "type_switch_statement"]);
+const GO_DECLARATION_TYPES = new Set(["function_declaration", "type_spec"]);
+
+interface ShadowCollector {
+  readonly root: TSNode;
+  readonly bindingNames: ReadonlySet<string>;
+  readonly regions: ShadowRegion[];
+  readonly addAll: (identifiers: readonly TSNode[], kind: string, start: number, end: number) => void;
+}
+
+function createShadowCollector(
   language: QualifiedReferenceLanguage,
   filePath: string,
   root: TSNode,
   bindings: readonly ResolvedImportBinding[],
   context: QualifiedReferenceContext,
-): readonly ShadowRegion[] {
+): ShadowCollector {
   const bindingNames = new Set(bindings.map((binding) => binding.name));
   const targetByBinding = new Map(bindings.map((binding) => {
     const packageDeclarations = context.go?.declarations.get(binding.packageDirectory ?? "");
@@ -519,216 +550,234 @@ function collectShadowRegions(
     return [binding.name, binding.targetFilePath ?? goTarget ?? ""] as const;
   }));
   const regions: ShadowRegion[] = [];
-  const add = (identifier: TSNode | null, kind: string, start: number, end: number): void => {
-    if (identifier === null) return;
-    const target = targetByBinding.get(identifier.text);
-    if (target === undefined) return;
-    const diagnostic = diagnosticFor(language, filePath, identifier.text, target, kind, identifier);
-    regions.push({ binding: identifier.text, startIndex: start, endIndex: end, diagnostic });
+  return {
+    root,
+    bindingNames,
+    regions,
+    addAll: (identifiers, kind, start, end): void => {
+      for (const identifier of identifiers) {
+        const target = targetByBinding.get(identifier.text);
+        if (target === undefined) continue;
+        const diagnostic = diagnosticFor(language, filePath, identifier.text, target, kind, identifier);
+        regions.push({ binding: identifier.text, startIndex: start, endIndex: end, diagnostic });
+      }
+    },
   };
-  const addAll = (identifiers: readonly TSNode[], kind: string, start: number, end: number): void => {
-    for (const identifier of identifiers) add(identifier, kind, start, end);
-  };
+}
 
+function collectPythonShadowRegions(collector: ShadowCollector): void {
+  const { root, bindingNames, addAll } = collector;
   walk(root, (node) => {
-    if (language === "python") {
-      if (node.type === "function_definition" || node.type === "lambda") {
-        const parameters = node.childForFieldName("parameters");
-        const body = node.childForFieldName("body") ?? node.namedChildren.at(-1);
-        if (body !== undefined) {
-          addAll(matchingBindingIdentifiers(language, parameters, bindingNames), "parameter", body.startIndex, body.endIndex);
-        }
-      }
-      if (["assignment", "augmented_assignment", "named_expression", "for_statement", "for_in_clause"].includes(node.type)) {
-        const left = node.childForFieldName("left") ?? node.childForFieldName("target") ?? node.namedChildren[0];
-        const identifiers = left?.type === "attribute" || left?.type === "subscript"
-          ? []
-          : matchingBindingIdentifiers(language, left, bindingNames);
-        if (identifiers.length > 0) {
-          const comprehension = nearestAncestor(node, new Set(["list_comprehension", "set_comprehension", "dictionary_comprehension", "generator_expression"]));
-          const scope = nearestAncestor(node, new Set(["function_definition", "lambda", "class_definition"]));
-          if (comprehension !== null) addAll(identifiers, "comprehension_binding", comprehension.startIndex, comprehension.endIndex);
-          else if (scope !== null) {
-            const body = scope.childForFieldName("body") ?? scope;
-            const start = scope.type === "function_definition" || scope.type === "lambda"
-              ? body.startIndex
-              : node.startIndex;
-            addAll(identifiers, node.type === "for_statement" ? "loop_binding" : "local_binding", start, body.endIndex);
-          }
-          else addAll(identifiers, node.type === "for_statement" ? "loop_binding" : "assignment", node.startIndex, root.endIndex);
-        }
-      }
-      if (node.type === "function_definition" || node.type === "class_definition") {
-        const identifiers = matchingBindingIdentifiers(language, node.childForFieldName("name"), bindingNames);
-        if (identifiers.length > 0) {
-          const scope = nearestAncestor(node, new Set(["function_definition", "class_definition"]));
-          const body = scope?.childForFieldName("body");
-          const start = scope?.type === "function_definition" ? body?.startIndex ?? scope.startIndex : node.startIndex;
-          const end = body?.endIndex ?? root.endIndex;
-          addAll(identifiers, node.type === "class_definition" ? "class_declaration" : "function_declaration", start, end);
-        }
-      }
-      if (node.type === "except_clause") {
-        const asPattern = node.namedChildren.find((child) => child.type === "as_pattern");
-        const target = asPattern?.namedChildren.find((child) => child.type === "as_pattern_target");
-        const body = node.namedChildren.find((child) => child.type === "block");
-        if (body !== undefined) {
-          addAll(matchingBindingIdentifiers(language, target, bindingNames), "except_binding", body.startIndex, body.endIndex);
-        }
-      }
-      if (node.type === "with_item") {
-        const asPattern = node.namedChildren.find((child) => child.type === "as_pattern");
-        const alias = asPattern?.childForFieldName("alias") ??
-          asPattern?.namedChildren.find((child) => child.type === "as_pattern_target");
-        const identifiers = matchingBindingIdentifiers(language, alias, bindingNames);
-        if (identifiers.length > 0) {
-          const scope = nearestAncestor(node, new Set(["function_definition", "lambda", "class_definition"]));
-          const body = scope?.childForFieldName("body") ?? scope;
-          const start = scope?.type === "function_definition" || scope?.type === "lambda"
-            ? body?.startIndex ?? scope.startIndex
-            : node.startIndex;
-          addAll(identifiers, "with_binding", start, body?.endIndex ?? root.endIndex);
-        }
-      }
-      if (node.type === "case_clause") {
-        const pattern = node.childForFieldName("pattern") ?? node.namedChildren[0];
-        const identifiers = matchingBindingIdentifiers(language, pattern, bindingNames);
-        if (identifiers.length > 0) {
-          const scope = nearestAncestor(node, new Set(["function_definition", "lambda", "class_definition"]));
-          const body = scope?.childForFieldName("body") ?? scope;
-          const start = scope?.type === "function_definition" || scope?.type === "lambda"
-            ? body?.startIndex ?? scope.startIndex
-            : node.startIndex;
-          addAll(identifiers, "pattern_binding", start, body?.endIndex ?? root.endIndex);
-        }
-      }
-      return;
+    if (node.type === "function_definition" || node.type === "lambda") {
+      const parameters = node.childForFieldName("parameters");
+      const body = node.childForFieldName("body") ?? node.namedChildren.at(-1);
+      if (body !== undefined) addAll(matchingBindingIdentifiers("python", parameters, bindingNames), "parameter", body.startIndex, body.endIndex);
     }
+    if (PYTHON_ASSIGNMENT_TYPES.has(node.type)) {
+      const left = node.childForFieldName("left") ?? node.childForFieldName("target") ?? node.namedChildren[0];
+      const identifiers = left?.type === "attribute" || left?.type === "subscript"
+        ? []
+        : matchingBindingIdentifiers("python", left, bindingNames);
+      if (identifiers.length > 0) {
+        const comprehension = nearestAncestor(node, PYTHON_COMPREHENSION_TYPES);
+        const scope = nearestAncestor(node, PYTHON_LEXICAL_SCOPE_TYPES);
+        if (comprehension !== null) addAll(identifiers, "comprehension_binding", comprehension.startIndex, comprehension.endIndex);
+        else if (scope !== null) {
+          const body = scope.childForFieldName("body") ?? scope;
+          const start = scope.type === "function_definition" || scope.type === "lambda" ? body.startIndex : node.startIndex;
+          addAll(identifiers, node.type === "for_statement" ? "loop_binding" : "local_binding", start, body.endIndex);
+        } else {
+          addAll(identifiers, node.type === "for_statement" ? "loop_binding" : "assignment", node.startIndex, root.endIndex);
+        }
+      }
+    }
+    if (node.type === "function_definition" || node.type === "class_definition") {
+      const identifiers = matchingBindingIdentifiers("python", node.childForFieldName("name"), bindingNames);
+      if (identifiers.length > 0) {
+        const scope = nearestAncestor(node, PYTHON_DECLARATION_SCOPE_TYPES);
+        const body = scope?.childForFieldName("body");
+        const start = scope?.type === "function_definition" ? body?.startIndex ?? scope.startIndex : node.startIndex;
+        addAll(identifiers, node.type === "class_definition" ? "class_declaration" : "function_declaration", start, body?.endIndex ?? root.endIndex);
+      }
+    }
+    if (node.type === "except_clause") {
+      const asPattern = node.namedChildren.find((child) => child.type === "as_pattern");
+      const target = asPattern?.namedChildren.find((child) => child.type === "as_pattern_target");
+      const body = node.namedChildren.find((child) => child.type === "block");
+      if (body !== undefined) addAll(matchingBindingIdentifiers("python", target, bindingNames), "except_binding", body.startIndex, body.endIndex);
+    }
+    if (node.type === "with_item") {
+      const asPattern = node.namedChildren.find((child) => child.type === "as_pattern");
+      const alias = asPattern?.childForFieldName("alias") ?? asPattern?.namedChildren.find((child) => child.type === "as_pattern_target");
+      const identifiers = matchingBindingIdentifiers("python", alias, bindingNames);
+      if (identifiers.length > 0) {
+        const scope = nearestAncestor(node, PYTHON_LEXICAL_SCOPE_TYPES);
+        const body = scope?.childForFieldName("body") ?? scope;
+        const start = scope?.type === "function_definition" || scope?.type === "lambda" ? body?.startIndex ?? scope.startIndex : node.startIndex;
+        addAll(identifiers, "with_binding", start, body?.endIndex ?? root.endIndex);
+      }
+    }
+    if (node.type === "case_clause") {
+      const pattern = node.childForFieldName("pattern") ?? node.namedChildren[0];
+      const identifiers = matchingBindingIdentifiers("python", pattern, bindingNames);
+      if (identifiers.length > 0) {
+        const scope = nearestAncestor(node, PYTHON_LEXICAL_SCOPE_TYPES);
+        const body = scope?.childForFieldName("body") ?? scope;
+        const start = scope?.type === "function_definition" || scope?.type === "lambda" ? body?.startIndex ?? scope.startIndex : node.startIndex;
+        addAll(identifiers, "pattern_binding", start, body?.endIndex ?? root.endIndex);
+      }
+    }
+  });
+}
 
-    const functionTypes = language === "rust"
-      ? new Set(["function_item", "closure_expression"])
-      : language === "go"
-        ? new Set(["function_declaration", "method_declaration", "func_literal"])
-        : new Set(["function_declaration", "function_expression", "arrow_function", "method_definition"]);
-    const blockTypes = language === "rust" || language === "go"
-      ? new Set(["block"])
-      : new Set(["statement_block", "program"]);
-    const functionNode = nearestAncestor(node, functionTypes);
+function collectTypeScriptShadowRegions(
+  language: "ts" | "tsx" | "js",
+  collector: ShadowCollector,
+): void {
+  const { root, bindingNames, addAll } = collector;
+  walk(root, (node) => {
+    const functionNode = nearestAncestor(node, TYPESCRIPT_FUNCTION_TYPES);
     const functionBody = functionNode?.childForFieldName("body") ?? functionNode?.namedChildren.at(-1);
-
-    const parameterTypes = language === "rust"
-      ? ["parameter"]
-      : language === "go"
-        ? ["parameter_declaration", "variadic_parameter_declaration"]
-        : ["required_parameter", "optional_parameter", "rest_pattern"];
     const plainJavaScriptParameter = language === "js" && node.type === "identifier" && (
       node.parent?.type === "formal_parameters" ||
       (node.parent?.type === "arrow_function" && node.parent.childForFieldName("parameter")?.startIndex === node.startIndex)
     );
-    if ((parameterTypes.includes(node.type) || plainJavaScriptParameter) && functionBody !== undefined) {
+    if ((TYPESCRIPT_PARAMETER_TYPES.has(node.type) || plainJavaScriptParameter) && functionBody !== undefined) {
       addAll(matchingBindingIdentifiers(language, node, bindingNames), "parameter", functionBody.startIndex, functionBody.endIndex);
     }
-
-    const localTypes = language === "rust"
-      ? ["let_declaration"]
-      : language === "go"
-        ? ["short_var_declaration", "var_spec", "const_spec", "assignment_statement"]
-        : ["variable_declarator", "assignment_expression"];
-    if (localTypes.includes(node.type)) {
-      const identifiers = language === "go" && (node.type === "var_spec" || node.type === "const_spec")
-        ? matchingGoSpecIdentifiers(node, bindingNames)
-        : matchingBindingIdentifiers(language, node.childForFieldName("pattern") ?? node.childForFieldName("name") ?? node.childForFieldName("left") ?? node.namedChildren[0], bindingNames);
-      const enclosingLoop = nearestAncestor(node, new Set(language === "go" ? ["for_statement"] : language === "rust" ? ["for_expression"] : ["for_statement", "for_in_statement"]));
+    if (TYPESCRIPT_LOCAL_TYPES.has(node.type)) {
+      const identifiers = matchingBindingIdentifiers(language, node.childForFieldName("pattern") ?? node.childForFieldName("name") ?? node.childForFieldName("left") ?? node.namedChildren[0], bindingNames);
+      const enclosingLoop = nearestAncestor(node, TYPESCRIPT_LOOP_TYPES);
       const loopBody = enclosingLoop?.childForFieldName("body");
-      const loop = enclosingLoop !== null && (loopBody === null || loopBody === undefined || node.startIndex < loopBody.startIndex)
-        ? enclosingLoop
-        : null;
-      const controlStatement = language === "go"
-        ? nearestAncestor(node, new Set(["if_statement", "expression_switch_statement", "type_switch_statement"]))
-        : null;
+      const loop = enclosingLoop !== null && (loopBody === null || loopBody === undefined || node.startIndex < loopBody.startIndex) ? enclosingLoop : null;
+      let scope = loop ?? nearestAncestor(node, TYPESCRIPT_BLOCK_TYPES) ?? root;
+      if (node.type === "variable_declarator") {
+        const declaration = nearestAncestor(node, TYPESCRIPT_DECLARATION_TYPES);
+        if (declaration?.type === "variable_declaration") scope = functionBody ?? root;
+      }
+      const declarationPoint = node.type === "assignment_expression" ? node.startIndex : scope.startIndex;
+      addAll(identifiers, loop === null ? "local_binding" : "loop_binding", declarationPoint, scope.endIndex);
+    }
+    if (node.type === "catch_clause") {
+      const identifiers = matchingBindingIdentifiers(language, node.childForFieldName("parameter") ?? node.namedChildren[0], bindingNames);
+      const body = node.childForFieldName("body") ?? node;
+      addAll(identifiers, "catch_binding", body.startIndex, body.endIndex);
+    }
+    if (TYPESCRIPT_SCOPED_LOOP_TYPES.has(node.type)) {
+      const identifiers = matchingBindingIdentifiers(language, node.childForFieldName("left") ?? node.namedChildren[0], bindingNames);
+      const body = node.childForFieldName("body") ?? node;
+      addAll(identifiers, "loop_binding", body.startIndex, body.endIndex);
+    }
+    if (node.type === "function_declaration" || node.type === "class_declaration") {
+      const identifiers = matchingBindingIdentifiers(language, node.childForFieldName("name"), bindingNames);
+      const scope = nearestAncestor(node, TYPESCRIPT_BLOCK_TYPES) ?? root;
+      addAll(identifiers, node.type === "class_declaration" ? "type_declaration" : "function_declaration", node.startIndex, scope.endIndex);
+    }
+  });
+}
+
+function collectRustShadowRegions(collector: ShadowCollector): void {
+  const { root, bindingNames, addAll } = collector;
+  walk(root, (node) => {
+    const functionNode = nearestAncestor(node, RUST_FUNCTION_TYPES);
+    const functionBody = functionNode?.childForFieldName("body") ?? functionNode?.namedChildren.at(-1);
+    if (node.type === "parameter" && functionBody !== undefined) {
+      addAll(matchingBindingIdentifiers("rust", node, bindingNames), "parameter", functionBody.startIndex, functionBody.endIndex);
+    }
+    if (node.type === "let_declaration") {
+      const identifiers = matchingBindingIdentifiers("rust", node.childForFieldName("pattern") ?? node.namedChildren[0], bindingNames);
+      const enclosingLoop = nearestAncestor(node, RUST_LOOP_TYPES);
+      const loopBody = enclosingLoop?.childForFieldName("body");
+      const loop = enclosingLoop !== null && (loopBody === null || loopBody === undefined || node.startIndex < loopBody.startIndex) ? enclosingLoop : null;
+      const scope = loop ?? nearestAncestor(node, RUST_BLOCK_TYPES) ?? root;
+      addAll(identifiers, loop === null ? "local_binding" : "loop_binding", node.endIndex, scope.endIndex);
+    }
+    if (RUST_PATTERN_TYPES.has(node.type)) {
+      const identifiers = matchingBindingIdentifiers("rust", node.childForFieldName("pattern") ?? node.namedChildren[0], bindingNames);
+      const body = node.childForFieldName("body") ?? node;
+      addAll(identifiers, "pattern_binding", body.startIndex, body.endIndex);
+    }
+    if (node.type === "let_condition") {
+      const identifiers = matchingBindingIdentifiers("rust", node.childForFieldName("pattern") ?? node.namedChildren[0], bindingNames);
+      const conditional = nearestAncestor(node, RUST_CONDITIONAL_TYPES);
+      const body = conditional?.childForFieldName(conditional.type === "if_expression" ? "consequence" : "body");
+      if (body !== null && body !== undefined) addAll(identifiers, "pattern_binding", node.endIndex, body.endIndex);
+    }
+    if (node.type === "use_declaration") {
+      const scope = nearestAncestor(node, RUST_BLOCK_TYPES);
+      if (scope !== null) {
+        const argument = node.childForFieldName("argument") ?? node.namedChildren[0];
+        addAll(matchingRustUseBindingIdentifiers(argument, bindingNames), "import_declaration", scope.startIndex, scope.endIndex);
+      }
+    }
+    if (RUST_DECLARATION_TYPES.has(node.type)) {
+      const identifiers = matchingBindingIdentifiers("rust", node.childForFieldName("name"), bindingNames);
+      const scope = nearestAncestor(node, RUST_BLOCK_TYPES) ?? root;
+      const kind = node.type === "const_item" || node.type === "static_item"
+        ? "item_declaration"
+        : node.type === "mod_item"
+          ? "module_declaration"
+          : node.type === "function_item"
+            ? "function_declaration"
+            : "type_declaration";
+      addAll(identifiers, kind, scope.startIndex, scope.endIndex);
+    }
+  });
+}
+
+function collectGoShadowRegions(collector: ShadowCollector): void {
+  const { root, bindingNames, addAll } = collector;
+  walk(root, (node) => {
+    const functionNode = nearestAncestor(node, GO_FUNCTION_TYPES);
+    const functionBody = functionNode?.childForFieldName("body") ?? functionNode?.namedChildren.at(-1);
+    if ((node.type === "parameter_declaration" || node.type === "variadic_parameter_declaration") && functionBody !== undefined) {
+      addAll(matchingBindingIdentifiers("go", node, bindingNames), "parameter", functionBody.startIndex, functionBody.endIndex);
+    }
+    if (GO_LOCAL_TYPES.has(node.type)) {
+      const identifiers = node.type === "var_spec" || node.type === "const_spec"
+        ? matchingGoSpecIdentifiers(node, bindingNames)
+        : matchingBindingIdentifiers("go", node.childForFieldName("pattern") ?? node.childForFieldName("name") ?? node.childForFieldName("left") ?? node.namedChildren[0], bindingNames);
+      const enclosingLoop = nearestAncestor(node, GO_LOOP_TYPES);
+      const loopBody = enclosingLoop?.childForFieldName("body");
+      const loop = enclosingLoop !== null && (loopBody === null || loopBody === undefined || node.startIndex < loopBody.startIndex) ? enclosingLoop : null;
+      const controlStatement = nearestAncestor(node, GO_CONTROL_TYPES);
       const initializer = controlStatement?.childForFieldName("initializer");
       const initializedControl = controlStatement !== null && initializer !== null && initializer !== undefined &&
           node.startIndex >= initializer.startIndex && node.endIndex <= initializer.endIndex
         ? controlStatement
         : null;
-      let scope = loop ?? initializedControl ?? nearestAncestor(node, blockTypes) ?? root;
-      if ((language === "ts" || language === "tsx" || language === "js") && node.type === "variable_declarator") {
-        const declaration = nearestAncestor(node, new Set(["lexical_declaration", "variable_declaration"]));
-        if (declaration?.type === "variable_declaration") scope = functionBody ?? root;
-      }
-      const declarationPoint = language === "rust" || language === "go"
-        ? node.endIndex
-        : node.type === "assignment_expression"
-          ? node.startIndex
-          : scope.startIndex;
-      addAll(identifiers, loop === null ? (node.type === "assignment_statement" ? "assignment" : "local_binding") : "loop_binding", declarationPoint, scope.endIndex);
+      const scope = loop ?? initializedControl ?? nearestAncestor(node, GO_BLOCK_TYPES) ?? root;
+      addAll(identifiers, loop === null ? (node.type === "assignment_statement" ? "assignment" : "local_binding") : "loop_binding", node.endIndex, scope.endIndex);
     }
-
-    if (language === "rust" && ["for_expression", "match_arm"].includes(node.type)) {
-      const identifiers = matchingBindingIdentifiers(language, node.childForFieldName("pattern") ?? node.namedChildren[0], bindingNames);
-      const body = node.childForFieldName("body") ?? node;
-      addAll(identifiers, "pattern_binding", body.startIndex, body.endIndex);
-    }
-    if (language === "rust" && node.type === "let_condition") {
-      const pattern = node.childForFieldName("pattern") ?? node.namedChildren[0];
-      const identifiers = matchingBindingIdentifiers(language, pattern, bindingNames);
-      const conditional = nearestAncestor(node, new Set(["if_expression", "while_expression"]));
-      const body = conditional?.childForFieldName(conditional.type === "if_expression" ? "consequence" : "body");
-      if (body !== null && body !== undefined) {
-        addAll(identifiers, "pattern_binding", node.endIndex, body.endIndex);
-      }
-    }
-    if (language === "rust" && node.type === "use_declaration") {
-      const scope = nearestAncestor(node, new Set(["block"]));
-      if (scope !== null) {
-        const argument = node.childForFieldName("argument") ?? node.namedChildren[0];
-        const identifiers = matchingRustUseBindingIdentifiers(argument, bindingNames);
-        addAll(identifiers, "import_declaration", scope.startIndex, scope.endIndex);
-      }
-    }
-    if (language === "go" && node.type === "range_clause") {
-      const identifiers = matchingBindingIdentifiers(language, node.childForFieldName("left") ?? node.namedChildren[0], bindingNames);
-      const loop = nearestAncestor(node, new Set(["for_statement"]));
+    if (node.type === "range_clause") {
+      const identifiers = matchingBindingIdentifiers("go", node.childForFieldName("left") ?? node.namedChildren[0], bindingNames);
+      const loop = nearestAncestor(node, GO_LOOP_TYPES);
       const body = loop?.childForFieldName("body");
       if (loop !== null) addAll(identifiers, "range_binding", body?.startIndex ?? node.endIndex, loop.endIndex);
     }
-    if ((language === "ts" || language === "tsx" || language === "js") && node.type === "catch_clause") {
-      const identifiers = matchingBindingIdentifiers(language, node.childForFieldName("parameter") ?? node.namedChildren[0], bindingNames);
-      const body = node.childForFieldName("body") ?? node;
-      addAll(identifiers, "catch_binding", body.startIndex, body.endIndex);
-    }
-    if ((language === "ts" || language === "tsx" || language === "js") && ["for_in_statement", "for_of_statement"].includes(node.type)) {
-      const identifiers = matchingBindingIdentifiers(language, node.childForFieldName("left") ?? node.namedChildren[0], bindingNames);
-      const body = node.childForFieldName("body") ?? node;
-      addAll(identifiers, "loop_binding", body.startIndex, body.endIndex);
-    }
-
-    const declarationTypes = language === "rust"
-      ? ["function_item", "struct_item", "enum_item", "type_item", "const_item", "static_item", "union_item", "trait_item", "mod_item"]
-      : language === "go"
-        ? ["function_declaration", "type_spec"]
-        : ["function_declaration", "class_declaration"];
-    if (declarationTypes.includes(node.type)) {
-      const identifiers = matchingBindingIdentifiers(language, node.childForFieldName("name"), bindingNames);
-      const scope = nearestAncestor(node, blockTypes) ?? root;
-      const declarationPoint = language === "rust" ? scope.startIndex : node.startIndex;
-      const kind = language === "rust"
-        ? node.type === "const_item" || node.type === "static_item"
-          ? "item_declaration"
-          : node.type === "mod_item"
-            ? "module_declaration"
-            : node.type === "function_item"
-              ? "function_declaration"
-              : "type_declaration"
-        : node.type.includes("class") || node.type.includes("struct") || node.type.includes("type")
-          ? "type_declaration"
-          : "function_declaration";
-      addAll(identifiers, kind, declarationPoint, scope.endIndex);
+    if (GO_DECLARATION_TYPES.has(node.type)) {
+      const identifiers = matchingBindingIdentifiers("go", node.childForFieldName("name"), bindingNames);
+      const scope = nearestAncestor(node, GO_BLOCK_TYPES) ?? root;
+      addAll(identifiers, node.type === "type_spec" ? "type_declaration" : "function_declaration", node.startIndex, scope.endIndex);
     }
   });
+}
+
+function collectShadowRegions(
+  language: QualifiedReferenceLanguage,
+  filePath: string,
+  root: TSNode,
+  bindings: readonly ResolvedImportBinding[],
+  context: QualifiedReferenceContext,
+): readonly ShadowRegion[] {
+  const collector = createShadowCollector(language, filePath, root, bindings, context);
+  if (language === "python") collectPythonShadowRegions(collector);
+  else if (language === "rust") collectRustShadowRegions(collector);
+  else if (language === "go") collectGoShadowRegions(collector);
+  else collectTypeScriptShadowRegions(language, collector);
 
   const unique = new Map<string, ShadowRegion>();
-  for (const region of regions) {
+  for (const region of collector.regions) {
     const key = `${region.binding}:${String(region.diagnostic.range.startLine)}:${String(region.diagnostic.range.startColumn)}:${region.diagnostic.shadowKind}`;
     unique.set(key, region);
   }
