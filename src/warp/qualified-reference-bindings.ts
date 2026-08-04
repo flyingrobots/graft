@@ -70,12 +70,34 @@ function stringValue(node: TSNode): string | null {
   return text.length >= 2 ? text.slice(1, -1) : null;
 }
 
-function pythonBindings(
+interface PythonImportScope {
+  readonly scopeStartIndex: number;
+  readonly scopeEndIndex: number;
+}
+
+interface PythonModuleImportClause extends PythonImportScope {
+  readonly kind: "module";
+  readonly specifier: TSNode;
+  readonly moduleNode: TSNode;
+  readonly alias: TSNode | undefined;
+}
+
+interface PythonFromImportClause extends PythonImportScope {
+  readonly kind: "from";
+  readonly specifier: TSNode;
+  readonly packagePath: string | null;
+  readonly imported: TSNode;
+  readonly alias: TSNode | undefined;
+  readonly childPath: string | null;
+}
+
+type PythonImportClause = PythonModuleImportClause | PythonFromImportClause;
+
+function* pythonImportClauses(
   root: TSNode,
   filePath: string,
   context: QualifiedReferenceContext,
-): readonly ResolvedImportBinding[] {
-  const bindings: ResolvedImportBinding[] = [];
+): Generator<PythonImportClause> {
   const statements: TSNode[] = [];
   walk(root, (node) => {
     if (node.type === "import_statement" || node.type === "import_from_statement") {
@@ -85,8 +107,10 @@ function pythonBindings(
   for (const statement of statements) {
     const lexicalScope = nearestAncestor(statement, PYTHON_LEXICAL_SCOPE_TYPES);
     const scopeBody = lexicalScope?.childForFieldName("body") ?? lexicalScope;
-    const scopeStartIndex = statement.endIndex;
-    const scopeEndIndex = scopeBody?.endIndex ?? root.endIndex;
+    const scope = {
+      scopeStartIndex: statement.endIndex,
+      scopeEndIndex: scopeBody?.endIndex ?? root.endIndex,
+    };
     if (statement.type === "import_statement") {
       for (const specifier of statement.namedChildren) {
         const moduleNode = specifier.type === "aliased_import"
@@ -96,21 +120,10 @@ function pythonBindings(
         const alias = specifier.type === "aliased_import"
           ? specifier.childForFieldName("alias") ?? specifier.namedChildren.find((child) => child.type === "identifier")
           : undefined;
-        const moduleParts = moduleNode.text.split(".");
-        const bindingName = alias?.text ?? moduleParts[0];
-        if (bindingName === undefined) continue;
-        bindings.push({
-          name: bindingName,
-          targetFilePath: resolvePythonModulePath(moduleNode.text, filePath, context.pathOps, context.knownFiles),
-          ...(alias === undefined && moduleParts.length > 1 ? { qualifiedPath: moduleParts.slice(1) } : {}),
-          scopeStartIndex,
-          scopeEndIndex,
-          importNode: specifier,
-        });
+        yield { kind: "module", specifier, moduleNode, alias, ...scope };
       }
       continue;
     }
-    if (statement.type !== "import_from_statement") continue;
     const packageNode = statement.childForFieldName("module_name") ??
       statement.namedChildren.find((child) => child.type === "dotted_name" || child.type === "relative_import");
     if (packageNode === undefined) continue;
@@ -125,16 +138,46 @@ function pythonBindings(
         ? specifier.childForFieldName("alias") ?? specifier.namedChildren.find((child) => child.type === "identifier")
         : undefined;
       const childPath = packagePath === null || isPythonPackageModulePath(packagePath)
-        ? resolvePythonModulePath(pythonChildModuleSource(packageNode.text, imported.text), filePath, context.pathOps, context.knownFiles)
+        ? resolvePythonModulePath(
+          pythonChildModuleSource(packageNode.text, imported.text),
+          filePath,
+          context.pathOps,
+          context.knownFiles,
+        )
         : null;
-      bindings.push({
-        name: alias?.text ?? imported.text,
-        targetFilePath: childPath,
-        scopeStartIndex,
-        scopeEndIndex,
-        importNode: specifier,
-      });
+      yield { kind: "from", specifier, packagePath, imported, alias, childPath, ...scope };
     }
+  }
+}
+
+function pythonBindings(
+  root: TSNode,
+  filePath: string,
+  context: QualifiedReferenceContext,
+): readonly ResolvedImportBinding[] {
+  const bindings: ResolvedImportBinding[] = [];
+  for (const clause of pythonImportClauses(root, filePath, context)) {
+    if (clause.kind === "module") {
+      const moduleParts = clause.moduleNode.text.split(".");
+      const bindingName = clause.alias?.text ?? moduleParts[0];
+      if (bindingName === undefined) continue;
+      bindings.push({
+        name: bindingName,
+        targetFilePath: resolvePythonModulePath(clause.moduleNode.text, filePath, context.pathOps, context.knownFiles),
+        ...(clause.alias === undefined && moduleParts.length > 1 ? { qualifiedPath: moduleParts.slice(1) } : {}),
+        scopeStartIndex: clause.scopeStartIndex,
+        scopeEndIndex: clause.scopeEndIndex,
+        importNode: clause.specifier,
+      });
+      continue;
+    }
+    bindings.push({
+      name: clause.alias?.text ?? clause.imported.text,
+      targetFilePath: clause.childPath,
+      scopeStartIndex: clause.scopeStartIndex,
+      scopeEndIndex: clause.scopeEndIndex,
+      importNode: clause.specifier,
+    });
   }
   return bindings;
 }
@@ -417,25 +460,11 @@ export function analyzeDirectSymbolImportReferences(
 ): readonly DirectSymbolImportReference[] {
   const references: DirectSymbolImportReference[] = [];
   if (language === "python") {
-    walk(root, (statement) => {
-      if (statement.type !== "import_from_statement") return;
-      const packageNode = statement.childForFieldName("module_name") ??
-        statement.namedChildren.find((child) => child.type === "dotted_name" || child.type === "relative_import");
-      if (packageNode === undefined) return;
-      const packagePath = resolvePythonModulePath(packageNode.text, filePath, context.pathOps, context.knownFiles);
-      if (packagePath === null) return;
-      for (const specifier of statement.namedChildren.slice(statement.namedChildren.indexOf(packageNode) + 1)) {
-        if (specifier.type === "wildcard_import") continue;
-        const imported = specifier.type === "aliased_import"
-          ? specifier.childForFieldName("name") ?? specifier.namedChildren.find((child) => child.type === "dotted_name")
-          : specifier;
-        if (imported?.type !== "dotted_name") continue;
-        const childModule = isPythonPackageModulePath(packagePath)
-          ? resolvePythonModulePath(pythonChildModuleSource(packageNode.text, imported.text), filePath, context.pathOps, context.knownFiles)
-          : null;
-        if (childModule === null) references.push({ importedName: imported.text, targetFilePath: packagePath });
+    for (const clause of pythonImportClauses(root, filePath, context)) {
+      if (clause.kind === "from" && clause.packagePath !== null && clause.childPath === null) {
+        references.push({ importedName: clause.imported.text, targetFilePath: clause.packagePath });
       }
-    });
+    }
   }
   if (language === "rust") {
     walk(root, (statement) => {
