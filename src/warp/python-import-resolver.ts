@@ -2,9 +2,9 @@
 // Python AST import resolver — adds first-party reference edges to WARP
 // ---------------------------------------------------------------------------
 
-import { createHash } from "node:crypto";
 import type { PatchBuilderV2 } from "@git-stunts/git-warp";
 import type { PathOps } from "../ports/paths.js";
+import { emitAstAnchor } from "./ast-emitter.js";
 import { SymIdCodec } from "./sym-id-codec.js";
 
 type TSNode = import("web-tree-sitter").SyntaxNode;
@@ -13,24 +13,6 @@ interface ImportInfo {
   readonly node: TSNode;
   readonly importedName: string;
   readonly localName: string;
-}
-
-function astNodeId(filePath: string, node: TSNode): string {
-  const hash = createHash("sha1").update(`${filePath}:${node.type}:${String(node.startIndex)}:${String(node.endIndex)}`).digest("hex").slice(0, 12);
-  return `ast:${filePath}:${hash}`;
-}
-
-function emitAstAnchor(patch: PatchBuilderV2, filePath: string, node: TSNode): string {
-  const nodeId = astNodeId(filePath, node);
-  patch.addNode(nodeId);
-  patch.setProperty(nodeId, "type", node.type);
-  patch.setProperty(nodeId, "named", node.isNamed());
-  patch.setProperty(nodeId, "startRow", node.startPosition.row);
-  patch.setProperty(nodeId, "startCol", node.startPosition.column);
-  patch.setProperty(nodeId, "endRow", node.endPosition.row);
-  patch.setProperty(nodeId, "endCol", node.endPosition.column);
-  patch.setProperty(nodeId, "filePath", filePath);
-  return nodeId;
 }
 
 function moduleCandidates(path: string): readonly string[] {

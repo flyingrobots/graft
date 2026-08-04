@@ -1,12 +1,21 @@
 import { describe, it, expect } from "vitest";
 import { openWarp } from "../../../src/warp/open.js";
 import { parseStructuredTree } from "../../../src/parser/runtime.js";
-import { emitAstNodes } from "../../../src/warp/ast-emitter.js";
+import { astNodeId, emitAstNodes } from "../../../src/warp/ast-emitter.js";
 import { resolveImportEdges } from "../../../src/warp/ast-import-resolver.js";
 import { nodePathOps } from "../../../src/adapters/node-paths.js";
 import { createTestRepo, cleanupTestRepo } from "../../helpers/git.js";
 
 describe("warp: AST import resolver", { timeout: 15000 }, () => {
+  it("preserves the canonical AST anchor ID contract", () => {
+    const parsed = parseStructuredTree("ts", "const x = 1;");
+    try {
+      expect(astNodeId("src/example.ts", parsed.root)).toBe("ast:src/example.ts:7ef53d7c4004");
+    } finally {
+      parsed.delete();
+    }
+  });
+
   function setup() {
     const tmpDir = createTestRepo("warp-import-");
     return tmpDir;

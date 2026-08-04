@@ -2,10 +2,10 @@
 // Qualified reference resolver — shared language-adapter contract
 // ---------------------------------------------------------------------------
 
-import { createHash } from "node:crypto";
 import type { PatchBuilderV2 } from "@git-stunts/git-warp";
 import type { SupportedLang } from "../parser/lang.js";
 import type { PathOps } from "../ports/paths.js";
+import { emitAstAnchor } from "./ast-emitter.js";
 import type { ImportBindingDiagnostic } from "./import-diagnostic.js";
 import { SymIdCodec } from "./sym-id-codec.js";
 import { isPythonPackageModulePath, pythonChildModuleSource, resolvePythonModulePath } from "./python-import-resolver.js";
@@ -62,27 +62,6 @@ interface ShadowRegion {
   readonly startIndex: number;
   readonly endIndex: number;
   readonly diagnostic: ImportBindingDiagnostic;
-}
-
-function astNodeId(filePath: string, node: TSNode): string {
-  const hash = createHash("sha1")
-    .update(`${filePath}:${node.type}:${String(node.startIndex)}:${String(node.endIndex)}`)
-    .digest("hex")
-    .slice(0, 12);
-  return `ast:${filePath}:${hash}`;
-}
-
-function emitAstAnchor(patch: PatchBuilderV2, filePath: string, node: TSNode): string {
-  const nodeId = astNodeId(filePath, node);
-  patch.addNode(nodeId);
-  patch.setProperty(nodeId, "type", node.type);
-  patch.setProperty(nodeId, "named", node.isNamed());
-  patch.setProperty(nodeId, "startRow", node.startPosition.row);
-  patch.setProperty(nodeId, "startCol", node.startPosition.column);
-  patch.setProperty(nodeId, "endRow", node.endPosition.row);
-  patch.setProperty(nodeId, "endCol", node.endPosition.column);
-  patch.setProperty(nodeId, "filePath", filePath);
-  return nodeId;
 }
 
 function walk(node: TSNode, visit: (candidate: TSNode) => void): void {
