@@ -394,6 +394,37 @@ describe("qualified reference language adapters", () => {
     expect(goAnalysis.accesses.map((access) => access.shadow?.shadowKind ?? "resolved")).toEqual(["range_binding", "resolved"]);
   });
 
+  it("resolves a Python comprehension iterable before binding its target", async () => {
+    const source = [
+      "import pkg.sources as source",
+      "[source.pending_ids() for source in source.items()]",
+      "source.pending_ids()",
+    ].join("\n");
+    const analysis = await analyze("python", "pkg/caller.py", source, new Map([
+      ["pkg/caller.py", source],
+      ["pkg/sources.py", "def pending_ids(): return []\ndef items(): return []\n"],
+    ]));
+
+    expect(analysis.accesses.map((access) => access.shadow?.shadowKind ?? "resolved")).toEqual([
+      "comprehension_binding", "resolved", "resolved",
+    ]);
+    expect(analysis.diagnostics).toEqual([
+      expect.objectContaining({ binding: "source", shadowKind: "comprehension_binding" }),
+    ]);
+
+    const nestedSource = [
+      "import pkg.sources as source",
+      "[source.pending_ids() for value in values for source in source.items()]",
+    ].join("\n");
+    const nested = await analyze("python", "pkg/nested.py", nestedSource, new Map([
+      ["pkg/nested.py", nestedSource],
+      ["pkg/sources.py", "def pending_ids(): return []\ndef items(): return []\n"],
+    ]));
+    expect(nested.accesses.map((access) => access.shadow?.shadowKind ?? "resolved")).toEqual([
+      "comprehension_binding", "comprehension_binding",
+    ]);
+  });
+
   it("resolves Rust crate/self/super aliases and declaration-point shadows", async () => {
     const source = [
       "use crate::sources as imported;",

@@ -694,7 +694,17 @@ function collectPythonShadowRegions(collector: ShadowCollector): void {
       if (identifiers.length > 0) {
         const comprehension = nearestAncestor(node, PYTHON_COMPREHENSION_TYPES);
         const scope = nearestAncestor(node, PYTHON_LEXICAL_SCOPE_TYPES);
-        if (comprehension !== null) addAll(identifiers, "comprehension_binding", comprehension.startIndex, comprehension.endIndex);
+        const outermostForClause = comprehension?.namedChildren.find((child) => child.type === "for_in_clause");
+        if (comprehension !== null && node.type === "for_in_clause" && node.startIndex === outermostForClause?.startIndex) {
+          const element = comprehension.namedChildren[0];
+          const iterable = node.childForFieldName("right") ?? node.namedChildren.at(-1);
+          if (element !== undefined) {
+            addAll(identifiers, "comprehension_binding", element.startIndex, element.endIndex);
+          }
+          addAll(identifiers, "comprehension_binding", iterable?.endIndex ?? node.endIndex, comprehension.endIndex);
+        } else if (comprehension !== null) {
+          addAll(identifiers, "comprehension_binding", comprehension.startIndex, comprehension.endIndex);
+        }
         else if (scope !== null) {
           const body = scope.childForFieldName("body") ?? scope;
           const start = scope.type === "function_definition" || scope.type === "lambda" ? body.startIndex : node.startIndex;
@@ -906,7 +916,14 @@ function collectShadowRegions(
 
   const unique = new Map<string, ShadowRegion>();
   for (const region of collector.regions) {
-    const key = `${region.binding}:${String(region.diagnostic.range.startLine)}:${String(region.diagnostic.range.startColumn)}:${region.diagnostic.shadowKind}`;
+    const key = [
+      region.binding,
+      region.diagnostic.range.startLine,
+      region.diagnostic.range.startColumn,
+      region.diagnostic.shadowKind,
+      region.startIndex,
+      region.endIndex,
+    ].join(":");
     unique.set(key, region);
   }
   return [...unique.values()];
@@ -1024,21 +1041,21 @@ export function analyzeQualifiedReferences(
       : { ...shadowRegion.diagnostic, targetFilePath: target };
     accesses.push({ binding: binding.name, member: parts.member.text, targetFilePath: target, node, shadow });
   });
-  const diagnostics = language === "go"
-    ? (() => {
-        const keyFor = (diagnostic: ImportBindingDiagnostic): string => [
-          diagnostic.binding,
-          diagnostic.range.startLine,
-          diagnostic.range.startColumn,
-          diagnostic.shadowKind,
-        ].join(":");
-        const byRegion = new Map(shadows.map((region) => [keyFor(region.diagnostic), region.diagnostic] as const));
-        for (const access of accesses) {
-          if (access.shadow !== null) byRegion.set(keyFor(access.shadow), access.shadow);
-        }
-        return [...byRegion.values()];
-      })()
-    : shadows.map((region) => region.diagnostic);
+  const keyForDiagnostic = (diagnostic: ImportBindingDiagnostic): string => [
+    diagnostic.binding,
+    diagnostic.range.startLine,
+    diagnostic.range.startColumn,
+    diagnostic.shadowKind,
+  ].join(":");
+  const diagnosticsByRegion = new Map(
+    shadows.map((region) => [keyForDiagnostic(region.diagnostic), region.diagnostic] as const),
+  );
+  if (language === "go") {
+    for (const access of accesses) {
+      if (access.shadow !== null) diagnosticsByRegion.set(keyForDiagnostic(access.shadow), access.shadow);
+    }
+  }
+  const diagnostics = [...diagnosticsByRegion.values()];
   return { bindings, accesses, unresolvedAccesses, diagnostics };
 }
 
