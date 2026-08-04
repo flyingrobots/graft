@@ -8,7 +8,7 @@ import type { SupportedLang } from "../parser/lang.js";
 import type { PathOps } from "../ports/paths.js";
 import type { ImportBindingDiagnostic } from "./import-diagnostic.js";
 import { SymIdCodec } from "./sym-id-codec.js";
-import { resolvePythonModulePath } from "./python-import-resolver.js";
+import { pythonChildModuleSource, resolvePythonModulePath } from "./python-import-resolver.js";
 
 type TSNode = import("web-tree-sitter").SyntaxNode;
 
@@ -171,7 +171,7 @@ function pythonBindings(
         ? specifier.childForFieldName("alias") ?? specifier.namedChildren.find((child) => child.type === "identifier")
         : undefined;
       const childPath = packagePath?.endsWith("/__init__.py") === true || packagePath === null
-        ? resolvePythonModulePath(`${packageNode.text}.${imported.text}`, filePath, context.pathOps, context.knownFiles)
+        ? resolvePythonModulePath(pythonChildModuleSource(packageNode.text, imported.text), filePath, context.pathOps, context.knownFiles)
         : null;
       if (childPath !== null) bindings.push({ name: alias?.text ?? imported.text, targetFilePath: childPath, importNode: specifier });
     }

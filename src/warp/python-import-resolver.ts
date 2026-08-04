@@ -37,6 +37,12 @@ function moduleCandidates(path: string): readonly string[] {
   return [`${path}.py`, `${path}/__init__.py`];
 }
 
+export function pythonChildModuleSource(packageSource: string, childName: string): string {
+  return packageSource.endsWith(".")
+    ? `${packageSource}${childName}`
+    : `${packageSource}.${childName}`;
+}
+
 export function resolvePythonModulePath(
   source: string,
   importingFilePath: string,
@@ -96,7 +102,7 @@ function handleFromImportStatement(patch: PatchBuilderV2, filePath: string, node
     const info = importInfo(child, true);
     if (info === null) continue;
     const childModule = resolvedPath?.endsWith("/__init__.py") === true || resolvedPath === null
-      ? resolvePythonModulePath(`${moduleNode.text}.${info.importedName}`, filePath, pathOps, knownFiles)
+      ? resolvePythonModulePath(pythonChildModuleSource(moduleNode.text, info.importedName), filePath, pathOps, knownFiles)
       : null;
     const target = info.importedName === "*"
       ? (resolvedPath === null ? null : `file:${resolvedPath}`)
