@@ -6,6 +6,7 @@ import {
   buildCapabilityMatrixRows,
   buildThreeSurfaceCapabilityBaseline,
 } from "../../../src/contracts/capabilities.js";
+import { parseDocumentedCapabilityBaseline } from "../../helpers/capability-matrix.js";
 
 const repoRoot = resolve(import.meta.dirname, "../../..");
 
@@ -22,17 +23,7 @@ describe("release: three-surface capability posture", () => {
     const matrixDoc = readRepoFile("docs/three-surface-capability-matrix.md");
     const baseline = buildThreeSurfaceCapabilityBaseline();
 
-    expect(matrixDoc).toContain(`- \`${String(baseline.cliOnly)}\` CLI-only capabilities`);
-    expect(matrixDoc).toContain(`- \`${String(baseline.apiCliMcp)}\` API + CLI + MCP capabilities`);
-    expect(matrixDoc).toContain(`- \`${String(baseline.apiMcp)}\` API + MCP capabilities`);
-    expect(matrixDoc).toContain(`- \`${String(baseline.apiOnly)}\` API-only capability`);
-    expect(matrixDoc).toContain(`- \`${String(baseline.directCliMcpPeers)}\` direct CLI/MCP peer capabilities`);
-    expect(matrixDoc).toContain(
-      `- \`${String(baseline.composedCliOperators)}\` composed CLI operator/lifecycle capability`,
-    );
-    expect(matrixDoc).toContain(
-      `- \`${String(baseline.intentionallyApiMcpOnly)}\` intentionally API + MCP-only agent/control-plane capabilities`,
-    );
+    expect(parseDocumentedCapabilityBaseline(matrixDoc)).toEqual(baseline);
   });
 
   it("keeps every documented matrix row aligned with the capability registry", () => {

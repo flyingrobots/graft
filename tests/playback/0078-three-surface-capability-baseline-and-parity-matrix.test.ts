@@ -4,7 +4,9 @@ import { describe, expect, it } from "vitest";
 import {
   API_EXPOSED_CAPABILITIES,
   CAPABILITY_REGISTRY,
+  buildThreeSurfaceCapabilityBaseline,
 } from "../../src/contracts/capabilities.js";
+import { parseDocumentedCapabilityBaseline } from "../../test/helpers/capability-matrix.js";
 
 const MATRIX_DOC = path.resolve(
   import.meta.dirname,
@@ -53,6 +55,7 @@ describe("0078 three-surface capability baseline and parity matrix", () => {
     expect(CAPABILITY_REGISTRY.filter((capability) => capability.surfaces.join("+") === "api+mcp")).toHaveLength(24);
     expect(CAPABILITY_REGISTRY.filter((capability) => capability.surfaces.join("+") === "api")).toHaveLength(1);
     expect(CAPABILITY_REGISTRY.filter((capability) => capability.surfaces.join("+") === "mcp")).toHaveLength(0);
+    expect(parseDocumentedCapabilityBaseline(content)).toEqual(buildThreeSurfaceCapabilityBaseline());
 
     const matrixIds = matrixCapabilityIds(content);
     expect(matrixIds).toHaveLength(CAPABILITY_REGISTRY.length);
