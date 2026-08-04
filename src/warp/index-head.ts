@@ -192,7 +192,6 @@ export async function indexHead(opts: IndexHeadOptions): Promise<IndexHeadResult
   for (const filePath of parseableFiles) {
     const indexed = await indexHeadFile({
       cwd,
-      git,
       pathOps,
       ctx,
       headSha,
@@ -496,7 +495,6 @@ function assertEstimatedPatchWithinBudget(
 
 async function indexHeadFile(input: {
   readonly cwd: string;
-  readonly git: GitClient;
   readonly pathOps: PathOps;
   readonly ctx: WarpContext;
   readonly headSha: string;
@@ -510,7 +508,6 @@ async function indexHeadFile(input: {
 }): Promise<IndexHeadFileResult> {
   const {
     cwd,
-    git,
     pathOps,
     ctx,
     headSha,
@@ -525,10 +522,10 @@ async function indexHeadFile(input: {
   const lang = detectLang(filePath);
   if (lang === null) return { indexed: false };
 
-  const contentResult = await git.run({ args: ["show", `HEAD:${filePath}`], cwd });
-  if (contentResult.status !== 0) return { indexed: false };
+  const content = await readHeadFile(filePath);
+  if (content === null) return { indexed: false };
 
-  const tree = await parseStructuredTreeAsync(lang, contentResult.stdout);
+  const tree = await parseStructuredTreeAsync(lang, content);
   try {
     const go = lang === "go"
       ? await buildGoReferenceContext(filePath, knownFiles, readHeadFile)
@@ -548,7 +545,7 @@ async function indexHeadFile(input: {
       repoRoot: cwd,
       filePath,
       language: lang,
-      content: contentResult.stdout,
+      content,
       headSha,
       currentSymbolIds,
       maxFacts: semanticFactLimit,
@@ -570,7 +567,7 @@ async function indexHeadFile(input: {
       filePath,
       estimatePatchPayloadBytes({
         filePath,
-        content: contentResult.stdout,
+        content,
         outline,
         currentSymbolCount: currentSyms.size,
         priorSymbolCount: priorSyms.size,

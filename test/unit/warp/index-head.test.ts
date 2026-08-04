@@ -5,6 +5,7 @@ import { openWarp } from "../../../src/warp/open.js";
 import { indexHead } from "../../../src/warp/index-head.js";
 import { nodeGit } from "../../../src/adapters/node-git.js";
 import { nodePathOps } from "../../../src/adapters/node-paths.js";
+import type { GitClient } from "../../../src/ports/git.js";
 import { git, createTestRepo, cleanupTestRepo } from "../../helpers/git.js";
 
 describe("warp: index HEAD", { timeout: 15000 }, () => {
@@ -138,5 +139,31 @@ describe("warp: index HEAD", { timeout: 15000 }, () => {
 
     const ref = git(tmpDir, "show-ref --verify refs/warp/graft-ast/writers/graft || true");
     expect(ref.trim()).toBe("");
+  });
+
+  it("reads each indexed Go blob through the shared HEAD cache", async () => {
+    fs.mkdirSync(path.join(tmpDir, "sources"), { recursive: true });
+    fs.writeFileSync(path.join(tmpDir, "go.mod"), "module example.com/project\n");
+    fs.writeFileSync(path.join(tmpDir, "sources", "pending.go"), "package sources\nfunc Pending() {}\n");
+    fs.writeFileSync(path.join(tmpDir, "caller.go"), [
+      "package caller",
+      'import sources "example.com/project/sources"',
+      "func Call(){ sources.Pending() }",
+    ].join("\n"));
+    git(tmpDir, "add -A"); git(tmpDir, "commit -m go-cache");
+    const showCounts = new Map<string, number>();
+    const countingGit: GitClient = {
+      async run(request) {
+        if (request.args[0] === "show" && request.args[1] !== undefined) {
+          showCounts.set(request.args[1], (showCounts.get(request.args[1]) ?? 0) + 1);
+        }
+        return nodeGit.run(request);
+      },
+    };
+
+    const warp = await openWarp({ cwd: tmpDir });
+    await indexHead({ cwd: tmpDir, git: countingGit, pathOps: nodePathOps, ctx: { app: warp, strandId: null } });
+
+    expect([...showCounts.values()].every((count) => count === 1)).toBe(true);
   });
 });
