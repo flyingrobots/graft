@@ -437,6 +437,14 @@ function collectShadowRegions(
           add(identifier, node.type === "class_definition" ? "class_declaration" : "function_declaration", start, end);
         }
       }
+      if (node.type === "except_clause") {
+        const asPattern = node.namedChildren.find((child) => child.type === "as_pattern");
+        const target = asPattern?.namedChildren.find((child) => child.type === "as_pattern_target");
+        const body = node.namedChildren.find((child) => child.type === "block");
+        if (body !== undefined) {
+          add(matchingIdentifier(target, bindingNames), "except_binding", body.startIndex, body.endIndex);
+        }
+      }
       return;
     }
 

@@ -137,11 +137,21 @@ describe("qualified reference language adapters", () => {
   });
 
   it("confines comprehension, loop, catch, range, and pattern bindings to their lexical regions", async () => {
-    const python = "import pkg.sources as src\nvalues = [src.pending_ids() for src in items]\nsrc.pending_ids()\n";
+    const python = [
+      "import pkg.sources as src",
+      "values = [src.pending_ids() for src in items]",
+      "try:",
+      "    run()",
+      "except Error as src:",
+      "    src.pending_ids()",
+      "src.pending_ids()",
+    ].join("\n");
     const pythonAnalysis = await analyze("python", "caller.py", python, new Map([
       ["caller.py", python], ["pkg/sources.py", "def pending_ids(): return []"],
     ]));
-    expect(pythonAnalysis.accesses.map((access) => access.shadow?.shadowKind ?? "resolved")).toEqual(["comprehension_binding", "resolved"]);
+    expect(pythonAnalysis.accesses.map((access) => access.shadow?.shadowKind ?? "resolved")).toEqual([
+      "comprehension_binding", "except_binding", "resolved",
+    ]);
 
     const typescript = 'import * as api from "./api"; for (const api of xs) { api.build(); } try {} catch (api) { api.build(); } api.build();';
     const tsAnalysis = await analyze("ts", "src/caller.ts", typescript, new Map([
