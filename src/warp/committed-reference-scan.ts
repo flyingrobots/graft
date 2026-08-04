@@ -336,7 +336,10 @@ export async function analyzeCommittedReferencesAtRef(
           }
         }
         for (const access of candidate.analysis.unresolvedAccesses) {
-          if (access.targetDirectoryPath !== parentDirectory(filePath) || access.member !== symbolName) continue;
+          const targetsChangedFile = access.targetFilePath === undefined
+            ? access.targetDirectoryPath === parentDirectory(filePath)
+            : access.targetFilePath === filePath;
+          if (!targetsChangedFile || access.member !== symbolName) continue;
           unresolvedQualifiedSemantics = true;
           if (access.shadow !== null) {
             const warning = { ...access.shadow, targetFilePath: filePath };

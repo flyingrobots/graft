@@ -416,6 +416,28 @@ describe("committed qualified-reference scan", { timeout: 20_000 }, () => {
     }
   });
 
+  it("marks possible inline Rust module aliases partial at the owner file", async () => {
+    const cwd = createTestRepo("committed-inline-rust-scan-");
+    try {
+      write(cwd, "Cargo.toml", "[package]\nname='inline'\nversion='0.1.0'\n");
+      write(cwd, "src/sources.rs", "pub mod nested { pub fn pending() {} }\n");
+      write(cwd, "src/caller.rs", "use crate::sources::nested as api; fn call(){ api::pending(); }\n");
+      git(cwd, "add -A"); git(cwd, "commit -m inline-rust-scan");
+
+      await expect(scanQualifiedReferencesAtRef({
+        cwd, git: nodeGit, pathOps: nodePathOps, ref: "HEAD",
+        symbolName: "pending", filePath: "src/sources.rs",
+      })).resolves.toMatchObject({
+        referenceCount: 0,
+        referencingFiles: [],
+        confidence: "partial",
+        warnings: [],
+      });
+    } finally {
+      cleanupTestRepo(cwd);
+    }
+  });
+
   it("counts grouped Rust direct-symbol imports at the exact ref", async () => {
     const cwd = createTestRepo("committed-grouped-rust-symbol-scan-");
     try {

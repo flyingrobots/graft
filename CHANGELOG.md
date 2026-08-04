@@ -29,7 +29,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   TypeScript modules participate in both qualified and static import
   resolution, and quoted Go module directives match their unquoted import
   paths. Rust `self` and `super` imports include enclosing inline-module paths,
-  and inline-module import aliases remain within their declaration lists.
+  inline-module import aliases remain within their declaration lists, and
+  aliases that may name an inline module in another file conservatively make
+  matching owner-file counts partial instead of returning a complete zero.
   Python class-body imports remain visible to the class body without leaking
   into nested method, lambda, or class bodies.
   Go shadow diagnostics fall back to a meaningful package directory when an

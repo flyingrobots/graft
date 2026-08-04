@@ -32,6 +32,7 @@ export interface QualifiedReferenceContext {
 export interface ResolvedImportBinding {
   readonly name: string;
   readonly targetFilePath: string | null;
+  readonly unresolvedTargetFilePath?: string | undefined;
   readonly qualifiedPath?: readonly string[] | undefined;
   readonly scopeStartIndex?: number | undefined;
   readonly scopeEndIndex?: number | undefined;
@@ -50,7 +51,8 @@ export interface QualifiedReferenceAccess {
 export interface UnresolvedQualifiedReferenceAccess {
   readonly binding: string;
   readonly member: string;
-  readonly targetDirectoryPath: string;
+  readonly targetDirectoryPath?: string | undefined;
+  readonly targetFilePath?: string | undefined;
   readonly node: TSNode;
   readonly shadow: ImportBindingDiagnostic | null;
 }
@@ -279,7 +281,7 @@ function rustInlineModuleSegments(node: TSNode): readonly string[] {
   return segments;
 }
 
-function resolveRustModule(
+function rustModuleCandidatePath(
   source: string,
   filePath: string,
   context: QualifiedReferenceContext,
@@ -300,8 +302,35 @@ function resolveRustModule(
     base = parentDirectory(moduleDirectory);
     while (segments[0] === "super") { segments.shift(); base = parentDirectory(base); }
   } else return null;
-  const raw = context.pathOps.normalize(context.pathOps.join(base, ...segments));
+  return context.pathOps.normalize(context.pathOps.join(base, ...segments));
+}
+
+function resolveRustModule(
+  source: string,
+  filePath: string,
+  context: QualifiedReferenceContext,
+  importNode?: TSNode,
+): string | null {
+  const raw = rustModuleCandidatePath(source, filePath, context, importNode);
+  if (raw === null) return null;
   return [`${raw}.rs`, `${raw}/mod.rs`].find((candidate) => context.knownFiles.has(candidate)) ?? null;
+}
+
+function unresolvedRustModuleOwner(
+  source: string,
+  filePath: string,
+  context: QualifiedReferenceContext,
+  importNode?: TSNode,
+): string | null {
+  let candidate = rustModuleCandidatePath(source, filePath, context, importNode);
+  if (candidate === null) return null;
+  while (candidate !== "") {
+    const owner = [`${candidate}.rs`, `${candidate}/mod.rs`]
+      .find((file) => context.knownFiles.has(file));
+    if (owner !== undefined) return owner;
+    candidate = parentDirectory(candidate);
+  }
+  return null;
 }
 
 interface RustUseModuleCandidate {
@@ -368,9 +397,13 @@ function rustBindings(
     const scopeStartIndex = scope?.startIndex ?? root.startIndex;
     const scopeEndIndex = scope?.endIndex ?? root.endIndex;
     for (const candidate of rustUseModuleCandidates(argument)) {
+      const targetFilePath = resolveRustModule(candidate.source, filePath, context, candidate.importNode);
       bindings.push({
         name: candidate.name,
-        targetFilePath: resolveRustModule(candidate.source, filePath, context, candidate.importNode),
+        targetFilePath,
+        ...(targetFilePath === null
+          ? { unresolvedTargetFilePath: unresolvedRustModuleOwner(candidate.source, filePath, context, candidate.importNode) ?? undefined }
+          : {}),
         scopeStartIndex,
         scopeEndIndex,
         importNode: candidate.importNode,
@@ -1068,6 +1101,28 @@ export function analyzeQualifiedReferences(
         right.importNode.startIndex - left.importNode.startIndex
       )[0];
     if (binding === undefined) {
+      if (language === "rust") {
+        const unresolvedBinding = discoveredBindings
+          .filter((candidate) =>
+            candidate.name === parts.binding.text &&
+            candidate.unresolvedTargetFilePath !== undefined &&
+            node.startIndex >= (candidate.scopeStartIndex ?? root.startIndex) &&
+            node.startIndex < (candidate.scopeEndIndex ?? root.endIndex)
+          )
+          .sort((left, right) =>
+            (right.scopeStartIndex ?? root.startIndex) - (left.scopeStartIndex ?? root.startIndex) ||
+            right.importNode.startIndex - left.importNode.startIndex
+          )[0];
+        if (unresolvedBinding?.unresolvedTargetFilePath !== undefined) {
+          unresolvedAccesses.push({
+            binding: unresolvedBinding.name,
+            member: parts.member.text,
+            targetFilePath: unresolvedBinding.unresolvedTargetFilePath,
+            node,
+            shadow: null,
+          });
+        }
+      }
       if (language === "go" && context.go !== undefined) {
         for (const packageDirectory of unresolvedGoPackageDirectories) {
           unresolvedAccesses.push({

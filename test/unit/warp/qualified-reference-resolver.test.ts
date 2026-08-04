@@ -564,6 +564,24 @@ describe("qualified reference language adapters", () => {
     ]);
   });
 
+  it("marks aliases to possible inline Rust modules unresolved at their owner file", async () => {
+    const source = "use crate::sources::nested as api; fn call() { api::pending(); }";
+    const analysis = await analyze("rust", "src/caller.rs", source, new Map([
+      ["Cargo.toml", "[package]\nname='demo'"],
+      ["src/caller.rs", source],
+      ["src/sources.rs", "pub mod nested { pub fn pending() {} }"],
+    ]));
+
+    expect(analysis.accesses).toEqual([]);
+    expect(analysis.unresolvedAccesses).toEqual([
+      expect.objectContaining({
+        binding: "api",
+        member: "pending",
+        targetFilePath: "src/sources.rs",
+      }),
+    ]);
+  });
+
   it("resolves Rust self and super through enclosing inline modules", async () => {
     const source = [
       "mod nested {",
