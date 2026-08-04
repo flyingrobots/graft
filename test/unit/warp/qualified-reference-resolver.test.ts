@@ -298,6 +298,24 @@ describe("qualified reference language adapters", () => {
     ]);
   });
 
+  it("binds Go shadow diagnostics to the accessed declaration file", async () => {
+    const source = [
+      "package cli",
+      'import src "example.com/project/sources"',
+      "func shadow(src int){ src.Zed() }",
+    ].join("\n");
+    const analysis = await analyze("go", "cli/main.go", source, new Map([
+      ["go.mod", "module example.com/project\n"],
+      ["cli/main.go", source],
+      ["sources/a.go", "package sources\nfunc Alpha() {}\n"],
+      ["sources/z.go", "package sources\nfunc Zed() {}\n"],
+    ]));
+
+    expect(analysis.diagnostics).toEqual([
+      expect.objectContaining({ binding: "src", targetFilePath: "sources/z.go", shadowKind: "parameter" }),
+    ]);
+  });
+
   it("ignores external Go imports and packages without a unique declaration", async () => {
     const source = [
       "package cli",

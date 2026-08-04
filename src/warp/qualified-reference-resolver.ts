@@ -661,7 +661,13 @@ export function analyzeQualifiedReferences(
       : { ...shadowRegion.diagnostic, targetFilePath: target };
     accesses.push({ binding: binding.name, member: parts.member.text, targetFilePath: target, node, shadow });
   });
-  return { bindings, accesses, diagnostics: shadows.map((region) => region.diagnostic) };
+  const diagnostics = language === "go"
+    ? [...new Map(accesses.flatMap((access) => access.shadow === null ? [] : [[
+      `${access.shadow.binding}:${String(access.shadow.range.startLine)}:${String(access.shadow.range.startColumn)}:${access.shadow.targetFilePath}`,
+      access.shadow,
+    ] as const])).values()]
+    : shadows.map((region) => region.diagnostic);
+  return { bindings, accesses, diagnostics };
 }
 
 /** Emit import-level file edges and precision-preserving qualified symbol edges. */
