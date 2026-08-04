@@ -241,6 +241,25 @@ describe("qualified reference language adapters", () => {
     ]);
   });
 
+  it("lets a later Python import override an earlier local binding", async () => {
+    const source = [
+      "import pkg.outer as source",
+      "def nested():",
+      "    source = object()",
+      "    import pkg.inner as source",
+      "    source.pending_ids()",
+    ].join("\n");
+    const analysis = await analyze("python", "pkg/caller.py", source, new Map([
+      ["pkg/caller.py", source],
+      ["pkg/outer.py", "def pending_ids(): return []"],
+      ["pkg/inner.py", "def pending_ids(): return []"],
+    ]));
+
+    expect(analysis.accesses).toEqual([
+      expect.objectContaining({ targetFilePath: "pkg/inner.py", shadow: null }),
+    ]);
+  });
+
   it("does not expose Python class imports inside method bodies", async () => {
     const source = [
       "import pkg.outer as api",

@@ -335,6 +335,7 @@ function createShadowCollector(
           : undefined;
         regions.push({
           binding: identifier.text,
+          bindingImportStartIndex: binding.importNode.startIndex,
           startIndex: start,
           endIndex: end,
           diagnostic,

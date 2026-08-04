@@ -48,6 +48,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   Python `global` and `nonlocal` declarations preserve qualified import
   references before reassignment and suppress them only from the reassignment
   point onward.
+  A later function-local Python import now supersedes earlier same-name local
+  bindings for accesses after that import, while pre-import accesses remain
+  excluded.
   Python class imports and class-local shadows now follow class-namespace
   visibility: they do not leak into nested bodies or comprehension bodies,
   while the outermost comprehension iterable still sees the class namespace.

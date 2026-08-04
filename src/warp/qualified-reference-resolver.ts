@@ -121,6 +121,7 @@ export function analyzeQualifiedReferences(
     }
     const shadowRegion = shadows.find((region) =>
       region.binding === binding.name &&
+      region.bindingImportStartIndex === binding.importNode.startIndex &&
       node.startIndex >= region.startIndex &&
       node.startIndex < region.endIndex &&
       region.namespaces.has(parts.namespace) &&

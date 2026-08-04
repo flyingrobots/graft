@@ -63,6 +63,7 @@ export interface DirectSymbolImportReference {
 
 export interface ShadowRegion {
   readonly binding: string;
+  readonly bindingImportStartIndex: number;
   readonly startIndex: number;
   readonly endIndex: number;
   readonly diagnostic: ImportBindingDiagnostic;
