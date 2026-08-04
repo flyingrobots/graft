@@ -582,7 +582,7 @@ const TYPESCRIPT_FUNCTION_TYPES = new Set([
   "function_declaration", "function_expression", "generator_function_declaration", "generator_function",
   "arrow_function", "method_definition",
 ]);
-const TYPESCRIPT_BLOCK_TYPES = new Set(["statement_block", "program"]);
+const TYPESCRIPT_BLOCK_TYPES = new Set(["statement_block", "switch_statement", "program"]);
 const TYPESCRIPT_LOCAL_TYPES = new Set(["variable_declarator", "assignment_expression"]);
 const TYPESCRIPT_LOOP_TYPES = new Set(["for_statement", "for_in_statement"]);
 const TYPESCRIPT_DECLARATION_TYPES = new Set(["lexical_declaration", "variable_declaration"]);

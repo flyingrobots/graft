@@ -195,6 +195,24 @@ describe("qualified reference language adapters", () => {
     ]);
   });
 
+  it("limits TypeScript switch lexical shadows while hoisting var to the function", async () => {
+    const source = [
+      'import * as api from "./api";',
+      "function letShadow(value) { switch (value) { case 1: let api = local; api.run(); break; case 2: api.run(); } api.run(); }",
+      "function constShadow(value) { switch (value) { case 1: const api = local; api.run(); break; case 2: api.run(); } api.run(); }",
+      "function varShadow(value) { api.run(); switch (value) { case 1: var api = local; api.run(); } api.run(); }",
+    ].join("\n");
+    const analysis = await analyze("ts", "src/caller.ts", source, new Map([
+      ["src/caller.ts", source], ["src/api.ts", "export function run() {}"],
+    ]));
+
+    expect(analysis.accesses.map((access) => access.shadow?.shadowKind ?? "resolved")).toEqual([
+      "local_binding", "local_binding", "resolved",
+      "local_binding", "local_binding", "resolved",
+      "local_binding", "local_binding", "local_binding",
+    ]);
+  });
+
   it("resolves TypeScript namespace members in both type and value positions", async () => {
     const source = [
       'import * as api from "./api";',
