@@ -26,8 +26,9 @@ lexically shadowed bindings never create confident symbol edges.
   comprehensions, and pattern bindings create language-correct shadow regions.
   A shadow suppresses only the affected qualified symbol edge; import-level
   file evidence remains available.
-- `graft_review` uses WARP graph counts when present and otherwise reports
-  `committed-reference-scan` evidence pinned to the requested head.
+- `graft_review` uses `committed-reference-scan` evidence pinned to the
+  requested head whenever the exact-ref analysis succeeds. Bounded WARP graph
+  evidence remains a partial fallback when that scan cannot be completed.
 - Every breaking change includes `referenceConfidence` and
   `referenceWarnings`; only shadows affecting that changed symbol are shown.
 - `graft_import_diagnostics` and
