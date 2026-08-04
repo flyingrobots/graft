@@ -7,8 +7,8 @@ title: "Cross-language qualified reference verification witness"
 Cycle: `WARP_cross-language-qualified-reference-resolution`
 Date: `2026-08-04`
 Branch: `feature/python-import-resolution`
-Full-suite code head: `e3cc2006`
-Final acceptance code head: `a134fbb2`
+Full-suite code head: `d74544c5`
+Final acceptance code head: `d74544c5`
 
 ## Acceptance Coverage
 
@@ -51,7 +51,7 @@ pnpm exec vitest run \
   test/unit/echo/generated-model-parity.test.ts
 ```
 
-Result: `14` test files and `150` tests passed.
+Result: `14` test files and `152` tests passed.
 
 The cold-WARP Python review fixture changes the signature of
 `coqui/matcher/sources.py:pending_ids` and reports
@@ -82,7 +82,7 @@ Results:
 - the first isolated run found one stale generated backlog DAG after this
   cycle added a bad-code card. The owning generator repaired the DOT and SVG
   in `e3cc2006`.
-- final isolated full suite passed: `251` test files and `1918` tests.
+- final isolated full suite passed: `251` test files and `1920` tests.
 
 ## Post-Retro Acceptance Closure
 
@@ -92,6 +92,14 @@ earlier review repair had weakened it to structural-only assertions. The
 restored byte-identical assertion passed alongside the structural assertions:
 `4` compatibility test files and `31` tests passed, followed by focused lint,
 full typecheck, and whitespace validation.
+
+The requested final-head Codex review then found two additional language
+edges. Commit `385b6dfe` counts direct symbols imported through grouped Rust
+`use` trees. Commit `d74544c5` preserves the enclosing-module access in a
+Python comprehension's outermost iterable while retaining conservative local
+scope for its element and later clauses. Both regressions are included in the
+final focused and isolated-suite totals above; all three review threads from
+that round are resolved.
 
 ## CLI Witness
 
