@@ -840,8 +840,17 @@ function collectPythonShadowRegions(collector: ShadowCollector): void {
     if (node.type === "except_clause") {
       const asPattern = node.namedChildren.find((child) => child.type === "as_pattern");
       const target = asPattern?.namedChildren.find((child) => child.type === "as_pattern_target");
-      const body = node.namedChildren.find((child) => child.type === "block");
-      if (body !== undefined) addAll(matchingBindingIdentifiers("python", target, bindingNames), "except_binding", body.startIndex, body.endIndex);
+      const scope = nearestAncestor(node, PYTHON_LEXICAL_SCOPE_TYPES);
+      const scopeBody = scope?.childForFieldName("body") ?? scope;
+      const start = scope?.type === "function_definition" || scope?.type === "lambda"
+        ? scopeBody?.startIndex ?? scope.startIndex
+        : target?.startIndex ?? node.startIndex;
+      addAll(
+        matchingBindingIdentifiers("python", target, bindingNames),
+        "except_binding",
+        start,
+        scopeBody?.endIndex ?? root.endIndex,
+      );
     }
     if (node.type === "with_item") {
       const asPattern = node.namedChildren.find((child) => child.type === "as_pattern");

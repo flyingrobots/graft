@@ -43,6 +43,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   symbols, preserving its repository-analysis cache.
   Go package inference now stops at nested `go.mod` boundaries instead of
   attributing nested-module declarations to an importing parent module.
+  Python exception aliases are now treated as function-wide locals and remain
+  unavailable after handler cleanup in their defining module or class scope.
   Go shadow diagnostics fall back to a meaningful package directory when an
   imported first-party package has no tracked source file.
   Committed scans containing supported-language parse errors report partial

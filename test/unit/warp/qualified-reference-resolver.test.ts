@@ -457,7 +457,7 @@ describe("qualified reference language adapters", () => {
       ["caller.py", python], ["pkg/sources.py", "def pending_ids(): return []"],
     ]));
     expect(pythonAnalysis.accesses.map((access) => access.shadow?.shadowKind ?? "resolved")).toEqual([
-      "comprehension_binding", "except_binding", "resolved",
+      "comprehension_binding", "except_binding", "except_binding",
     ]);
 
     const typescript = 'import * as api from "./api"; for (const api of xs) { api.build(); } try {} catch (api) { api.build(); } api.build();';
@@ -477,6 +477,36 @@ describe("qualified reference language adapters", () => {
       ["go.mod", "module example.com/p\n"], ["caller.go", go], ["sources/pending.go", "package sources\nfunc Pending() {}"],
     ]));
     expect(goAnalysis.accesses.map((access) => access.shadow?.shadowKind ?? "resolved")).toEqual(["range_binding", "resolved"]);
+  });
+
+  it("models Python exception targets as function locals and deletes outer-scope aliases", async () => {
+    const source = [
+      "import pkg.sources as src",
+      "def function_scope():",
+      "    src.pending_ids()",
+      "    try:",
+      "        run()",
+      "    except Error as src:",
+      "        src.pending_ids()",
+      "    src.pending_ids()",
+      "class ClassScope:",
+      "    import pkg.sources as src",
+      "    src.pending_ids()",
+      "    try:",
+      "        run()",
+      "    except Error as src:",
+      "        src.pending_ids()",
+      "    src.pending_ids()",
+    ].join("\n");
+    const analysis = await analyze("python", "pkg/caller.py", source, new Map([
+      ["pkg/caller.py", source],
+      ["pkg/sources.py", "def pending_ids(): return []\n"],
+    ]));
+
+    expect(analysis.accesses.map((access) => access.shadow?.shadowKind ?? "resolved")).toEqual([
+      "except_binding", "except_binding", "except_binding",
+      "resolved", "except_binding", "except_binding",
+    ]);
   });
 
   it("resolves a Python comprehension iterable before binding its target", async () => {
