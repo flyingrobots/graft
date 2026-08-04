@@ -588,10 +588,30 @@ describe("public-surface parity through the generated model", () => {
       return {
         referenceCount: payload.referenceCount,
         referencingFiles: payload.referencingFiles,
+        referenceWarnings: payload.referenceWarnings,
+        referenceConfidence: payload.referenceConfidence,
       };
     };
 
-    const direct = await symbolReferenceResult();
+    const base = await symbolReferenceResult();
+    const direct: StructuralReadingResult<SymbolReferenceReadingPayload> = {
+      ...base,
+      payload: {
+        ...base.payload,
+        referenceWarnings: [{
+          code: "import_binding_shadowed",
+          severity: "warning",
+          language: "python",
+          filePath: "src/caller.py",
+          range: { startLine: 3, startColumn: 5, endLine: 3, endColumn: 8 },
+          binding: "api",
+          targetFilePath: "src/api.py",
+          shadowKind: "parameter",
+          message: "affected qualified accesses were excluded from reference inference",
+        }],
+        referenceConfidence: "partial",
+      },
+    };
     const { reading, evidence } = toGeneratedStructuralReading(direct, ctx);
     const roundTripped = fromGeneratedStructuralReading(reading, evidence);
 

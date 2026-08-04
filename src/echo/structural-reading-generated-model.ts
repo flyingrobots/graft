@@ -283,12 +283,17 @@ function validatePayloadShape(kind: StructuralReadingKind, payload: unknown): vo
       readonly symbol?: unknown;
       readonly referenceCount?: unknown;
       readonly referencingFiles?: unknown;
+      readonly referenceWarnings?: unknown;
+      readonly referenceConfidence?: unknown;
     };
     if (
       typeof candidate.symbol !== "string" ||
       typeof candidate.referenceCount !== "number" ||
       !Array.isArray(candidate.referencingFiles) ||
-      !candidate.referencingFiles.every((file) => typeof file === "string")
+      !candidate.referencingFiles.every((file) => typeof file === "string") ||
+      (candidate.referenceWarnings !== undefined && !Array.isArray(candidate.referenceWarnings)) ||
+      (candidate.referenceConfidence !== undefined &&
+        candidate.referenceConfidence !== "complete" && candidate.referenceConfidence !== "partial")
     ) {
       throw malformed("expected { symbol, referenceCount, referencingFiles[] }");
     }

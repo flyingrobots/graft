@@ -129,6 +129,8 @@ describe("git-warp structural reading adapter", () => {
       symbol: "buildThing",
       referenceCount: 1,
       referencingFiles: ["src/consumer.ts"],
+      referenceWarnings: [],
+      referenceConfidence: "complete",
     });
     expect(reading.evidence).toMatchObject({
       kind: "translated-substrate",

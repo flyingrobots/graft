@@ -1,11 +1,61 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import * as fs from "node:fs";
 import * as path from "node:path";
 import { cleanupTestRepo, createTestRepo, git } from "../../helpers/git.js";
 import { createServerInRepo, parse } from "../../helpers/mcp.js";
 import { combineReviewReferenceEvidence } from "../../../src/mcp/tools/structural-review.js";
+import { structuralReviewTool } from "../../../src/mcp/tools/structural-review.js";
+import { nodeFs } from "../../../src/adapters/node-fs.js";
+import { nodeGit } from "../../../src/adapters/node-git.js";
+import type { ToolContext } from "../../../src/mcp/context.js";
+import type { StructuralReadingPort } from "../../../src/ports/structural-reading.js";
 
 describe("mcp: graft_review cold WARP", () => {
+  it("routes impact counts through the configured structural-reading port", async () => {
+    const repoDir = createTestRepo("graft-review-reading-port-");
+    try {
+      fs.mkdirSync(path.join(repoDir, "src"), { recursive: true });
+      fs.writeFileSync(path.join(repoDir, "src", "api.ts"), "export function buildThing(input: string): string { return input; }\n");
+      git(repoDir, "add -A"); git(repoDir, "commit -m base");
+      const base = git(repoDir, "rev-parse HEAD");
+      fs.writeFileSync(path.join(repoDir, "src", "api.ts"), "export function buildThing(input: number): string { return String(input); }\n");
+      git(repoDir, "add -A"); git(repoDir, "commit -m head");
+      const head = git(repoDir, "rev-parse HEAD");
+      const countSymbolReferences = vi.fn(() => Promise.resolve({
+        kind: "symbol-reference-count" as const,
+        freshness: "current" as const,
+        residualPosture: "complete" as const,
+        payload: { symbol: "buildThing", referenceCount: 7, referencingFiles: ["src/consumer.ts"] },
+        evidence: {
+          kind: "translated-substrate" as const,
+          evidenceLabel: "fallback-translated" as const,
+          substrate: "git-warp" as const,
+          basis: { kind: "git-committed-history" as const, projectRoot: repoDir, ref: head },
+          evidence: { kind: "symbol-reference-count" as const, source: "committed-reference-scan" as const, symbolName: "buildThing", filePath: "src/api.ts" },
+          nativeContinuumWitness: false as const,
+        },
+      }));
+      const port = { countSymbolReferences } as unknown as StructuralReadingPort;
+      const result = await structuralReviewTool.createHandler()({ base, head }, {
+        projectRoot: repoDir,
+        fs: nodeFs,
+        git: nodeGit,
+        resolvePath: (filePath: string) => path.join(repoDir, filePath),
+        getStructuralReadingPort: () => port,
+        getWarp: () => Promise.reject(new Error("review bypassed the structural-reading port")),
+        recordFootprint: () => undefined,
+        respond: (_tool: string, payload: Record<string, unknown>) => payload,
+      } as unknown as ToolContext) as unknown as Record<string, unknown>;
+
+      expect(countSymbolReferences).toHaveBeenCalledWith(expect.objectContaining({
+        symbolName: "buildThing", filePath: "src/api.ts", ref: head,
+      }));
+      expect(result["breakingChanges"]).toContainEqual(expect.objectContaining({ impactedFiles: 7 }));
+    } finally {
+      cleanupTestRepo(repoDir);
+    }
+  });
+
   it("preserves graph evidence with partial confidence when the committed scan fails", async () => {
     const result = await combineReviewReferenceEvidence({
       symbol: "buildThing",

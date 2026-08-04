@@ -77,11 +77,18 @@ function symbolReferencePayload(
   symbolName: string,
   result: ReferenceCountResult | { readonly symbol: string; readonly referenceCount: number; readonly referencingFiles: readonly string[] },
 ): SymbolReferenceReadingPayload {
-  return {
+  const payload = {
     symbol: "symbol" in result ? result.symbol : symbolName,
     referenceCount: result.referenceCount,
     referencingFiles: result.referencingFiles,
   };
+  return "symbol" in result
+    ? payload
+    : {
+        ...payload,
+        referenceWarnings: result.warnings ?? [],
+        referenceConfidence: result.confidence ?? "complete",
+      };
 }
 
 export function createGitWarpStructuralReadingPort(

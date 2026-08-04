@@ -111,12 +111,32 @@ export interface SymbolReferenceReadingRequest {
   readonly symbolName: string;
   readonly filePath: string;
   readonly ref?: string | undefined;
+  readonly candidateTargetFilePaths?: readonly string[] | undefined;
+}
+
+export interface StructuralReferenceWarning {
+  readonly code: string;
+  readonly severity: "warning";
+  readonly language: string;
+  readonly filePath: string;
+  readonly range: {
+    readonly startLine: number;
+    readonly startColumn: number;
+    readonly endLine: number;
+    readonly endColumn: number;
+  };
+  readonly binding: string;
+  readonly targetFilePath: string;
+  readonly shadowKind: string;
+  readonly message: string;
 }
 
 export interface SymbolReferenceReadingPayload {
   readonly symbol: string;
   readonly referenceCount: number;
   readonly referencingFiles: readonly string[];
+  readonly referenceWarnings?: readonly StructuralReferenceWarning[] | undefined;
+  readonly referenceConfidence?: "complete" | "partial" | undefined;
 }
 
 export interface DeadSymbolsReadingRequest {

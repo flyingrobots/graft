@@ -6,6 +6,7 @@ import type { FileSystem } from "../ports/filesystem.js";
 import type { GitClient } from "../ports/git.js";
 import { graftDiff, type FileDiff, type GraftDiffOptions } from "./graft-diff.js";
 import { getChangedFilesWithStatus } from "../git/diff.js";
+import type { StructuralReferenceWarning } from "../ports/structural-reading.js";
 
 // ---- Public types ---------------------------------------------------------
 
@@ -16,17 +17,7 @@ export interface ReferenceCountResult {
   readonly confidence?: "complete" | "partial";
 }
 
-export interface ReferenceWarning {
-  readonly code: string;
-  readonly severity: "warning";
-  readonly language: string;
-  readonly filePath: string;
-  readonly range: { readonly startLine: number; readonly startColumn: number; readonly endLine: number; readonly endColumn: number };
-  readonly binding: string;
-  readonly targetFilePath: string;
-  readonly shadowKind: string;
-  readonly message: string;
-}
+export type ReferenceWarning = StructuralReferenceWarning;
 
 export type ReferenceCounter = (
   symbolName: string,
