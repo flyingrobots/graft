@@ -66,6 +66,29 @@ describe("qualified reference language adapters", () => {
     expect(analysis.diagnostics.map((diagnostic) => diagnostic.binding)).toEqual(["sources", "sources"]);
   });
 
+  it("targets Python shadow diagnostics to the import active in each lexical scope", async () => {
+    const source = [
+      "def first():",
+      "    import pkg.alpha as source",
+      "    def shadow(source): source.run()",
+      "def second():",
+      "    import pkg.beta as source",
+      "    def shadow(source): source.run()",
+      "def unrelated():",
+      "    def shadow(source): source.run()",
+    ].join("\n");
+    const analysis = await analyze("python", "pkg/caller.py", source, new Map([
+      ["pkg/caller.py", source],
+      ["pkg/alpha.py", "def run(): pass\n"],
+      ["pkg/beta.py", "def run(): pass\n"],
+    ]));
+
+    expect(analysis.diagnostics).toEqual([
+      expect.objectContaining({ binding: "source", targetFilePath: "pkg/alpha.py", shadowKind: "parameter" }),
+      expect.objectContaining({ binding: "source", targetFilePath: "pkg/beta.py", shadowKind: "parameter" }),
+    ]);
+  });
+
   it("extracts every binding pattern without treating defaults as bindings", async () => {
     const python = [
       "import pkg.sources as source",

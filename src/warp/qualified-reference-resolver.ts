@@ -551,14 +551,25 @@ function createShadowCollector(
   context: QualifiedReferenceContext,
 ): ShadowCollector {
   const bindingNames = new Set(bindings.map((binding) => binding.name));
-  const targetByBinding = new Map(bindings.map((binding) => {
+  const targetForBinding = (binding: ResolvedImportBinding): string => {
     const packageDeclarations = context.go?.declarations.get(binding.packageDirectory ?? "");
     const goTarget = packageDeclarations === undefined
       ? undefined
       : [...packageDeclarations.values()].find((value): value is string => value !== null) ??
         context.go?.packageFiles.get(binding.packageDirectory ?? "")?.[0];
-    return [binding.name, binding.targetFilePath ?? goTarget ?? ""] as const;
-  }));
+    return binding.targetFilePath ?? goTarget ?? "";
+  };
+  const activeBinding = (bindingName: string, scopeStart: number): ResolvedImportBinding | undefined =>
+    bindings
+      .filter((binding) =>
+        binding.name === bindingName &&
+        scopeStart >= (binding.scopeStartIndex ?? root.startIndex) &&
+        scopeStart < (binding.scopeEndIndex ?? root.endIndex)
+      )
+      .sort((left, right) =>
+        (right.scopeStartIndex ?? root.startIndex) - (left.scopeStartIndex ?? root.startIndex) ||
+        right.importNode.startIndex - left.importNode.startIndex
+      )[0];
   const regions: ShadowRegion[] = [];
   return {
     root,
@@ -566,8 +577,9 @@ function createShadowCollector(
     regions,
     addAll: (identifiers, kind, start, end): void => {
       for (const identifier of identifiers) {
-        const target = targetByBinding.get(identifier.text);
-        if (target === undefined) continue;
+        const binding = activeBinding(identifier.text, start);
+        if (binding === undefined) continue;
+        const target = targetForBinding(binding);
         const diagnostic = diagnosticFor(language, filePath, identifier.text, target, kind, identifier);
         regions.push({ binding: identifier.text, startIndex: start, endIndex: end, diagnostic });
       }
