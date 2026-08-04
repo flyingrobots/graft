@@ -232,6 +232,10 @@ function hasUnsupportedDynamicReference(
   });
 }
 
+function parentDirectory(filePath: string): string {
+  return filePath.includes("/") ? filePath.slice(0, filePath.lastIndexOf("/")) : "";
+}
+
 export async function analyzeCommittedReferencesAtRef(
   opts: ImportDiagnosticsOptions,
 ): Promise<CommittedReferenceAnalysis> {
@@ -261,6 +265,7 @@ export async function analyzeCommittedReferencesAtRef(
       const referencingFiles = new Set<string>();
       const warnings = new Map<string, ImportBindingDiagnostic>();
       let unsupportedDynamicSemantics = false;
+      let unresolvedQualifiedSemantics = false;
       for (const candidate of analyzed) {
         if (candidate.filePath === filePath) continue;
         for (const access of candidate.analysis.accesses) {
@@ -284,6 +289,22 @@ export async function analyzeCommittedReferencesAtRef(
             referencingFiles.add(candidate.filePath);
           }
         }
+        for (const access of candidate.analysis.unresolvedAccesses) {
+          if (access.targetDirectoryPath !== parentDirectory(filePath) || access.member !== symbolName) continue;
+          unresolvedQualifiedSemantics = true;
+          if (access.shadow !== null) {
+            const warning = { ...access.shadow, targetFilePath: filePath };
+            const key = [
+              warning.filePath,
+              warning.binding,
+              warning.targetFilePath,
+              warning.shadowKind,
+              warning.range.startLine,
+              warning.range.startColumn,
+            ].join(":");
+            warnings.set(key, warning);
+          }
+        }
         if (hasUnsupportedDynamicReference(
           candidate.analysis.dynamicReferences,
           candidate.filePath,
@@ -298,7 +319,9 @@ export async function analyzeCommittedReferencesAtRef(
         referenceCount: referencingFiles.size,
         referencingFiles: [...referencingFiles].sort(),
         warnings: [...warnings.values()],
-        confidence: warnings.size === 0 && !unsupportedDynamicSemantics ? "complete" : "partial",
+        confidence: warnings.size === 0 && !unsupportedDynamicSemantics && !unresolvedQualifiedSemantics
+          ? "complete"
+          : "partial",
       };
     },
   };

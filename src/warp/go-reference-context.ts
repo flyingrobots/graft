@@ -190,7 +190,13 @@ export function createGoReferenceContextResolver(
       packageFiles.set(directory, target.files);
       declarations.set(directory, target.declarations);
     }
-    return { modulePath: module.modulePath, packageNames, packageFiles, declarations };
+    return {
+      modulePath: module.modulePath,
+      moduleDirectory: module.moduleDirectory,
+      packageNames,
+      packageFiles,
+      declarations,
+    };
   };
 }
 

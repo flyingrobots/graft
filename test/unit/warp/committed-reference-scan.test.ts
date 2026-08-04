@@ -221,6 +221,52 @@ describe("committed qualified-reference scan", { timeout: 20_000 }, () => {
     }
   });
 
+  it("marks an unresolved Go selector partial when its declaring file is deleted", async () => {
+    const cwd = createTestRepo("committed-deleted-go-target-");
+    try {
+      write(cwd, "go.mod", "module example.com/project\n");
+      write(cwd, "go/sources/pending.go", "package sources\nfunc PendingIDs() {}\n");
+      write(cwd, "go/caller.go", [
+        "package caller",
+        'import source "example.com/project/go/sources"',
+        "func call(){ source.PendingIDs() }",
+        "func shadow(source interface{ PendingIDs() }) { source.PendingIDs() }",
+      ].join("\n"));
+      git(cwd, "add -A"); git(cwd, "commit -m before-go-delete");
+      fs.unlinkSync(path.join(cwd, "go/sources/pending.go"));
+      git(cwd, "add -A"); git(cwd, "commit -m delete-go-target");
+
+      const result = await scanQualifiedReferencesAtRef({
+        cwd, git: nodeGit, pathOps: nodePathOps, ref: "HEAD",
+        symbolName: "PendingIDs", filePath: "go/sources/pending.go",
+      });
+
+      expect(result).toMatchObject({
+        referenceCount: 0,
+        referencingFiles: [],
+        confidence: "partial",
+      });
+      expect(result.warnings).toEqual([
+        expect.objectContaining({
+          binding: "source",
+          targetFilePath: "go/sources/pending.go",
+          shadowKind: "parameter",
+        }),
+      ]);
+      await expect(scanQualifiedReferencesAtRef({
+        cwd, git: nodeGit, pathOps: nodePathOps, ref: "HEAD",
+        symbolName: "Other", filePath: "go/sources/pending.go",
+      })).resolves.toMatchObject({
+        referenceCount: 0,
+        referencingFiles: [],
+        confidence: "complete",
+        warnings: [],
+      });
+    } finally {
+      cleanupTestRepo(cwd);
+    }
+  });
+
   it("counts direct Python and Rust symbol imports by their imported names", async () => {
     const cwd = createTestRepo("committed-direct-import-scan-");
     try {

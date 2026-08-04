@@ -16,6 +16,7 @@ export type QualifiedReferenceLanguage = "python" | "ts" | "tsx" | "js" | "rust"
 
 export interface GoReferenceContext {
   readonly modulePath: string;
+  readonly moduleDirectory: string;
   readonly packageNames: ReadonlyMap<string, string | null>;
   readonly packageFiles: ReadonlyMap<string, readonly string[]>;
   /** package directory -> exported name -> unique declaring file, or null when ambiguous */
@@ -46,9 +47,18 @@ export interface QualifiedReferenceAccess {
   readonly shadow: ImportBindingDiagnostic | null;
 }
 
+export interface UnresolvedQualifiedReferenceAccess {
+  readonly binding: string;
+  readonly member: string;
+  readonly targetDirectoryPath: string;
+  readonly node: TSNode;
+  readonly shadow: ImportBindingDiagnostic | null;
+}
+
 export interface QualifiedReferenceAnalysis {
   readonly bindings: readonly ResolvedImportBinding[];
   readonly accesses: readonly QualifiedReferenceAccess[];
+  readonly unresolvedAccesses: readonly UnresolvedQualifiedReferenceAccess[];
   readonly diagnostics: readonly ImportBindingDiagnostic[];
 }
 
@@ -833,6 +843,7 @@ export function analyzeQualifiedReferences(
   );
   const shadows = collectShadowRegions(language, filePath, root, bindings, context);
   const accesses: QualifiedReferenceAccess[] = [];
+  const unresolvedAccesses: UnresolvedQualifiedReferenceAccess[] = [];
   walk(root, (node) => {
     const parts = accessParts(language, node);
     if (parts === null) return;
@@ -848,13 +859,30 @@ export function analyzeQualifiedReferences(
         (right.scopeStartIndex ?? root.startIndex) - (left.scopeStartIndex ?? root.startIndex)
       )[0];
     if (binding === undefined) return;
-    const target = language === "go"
-      ? context.go?.declarations.get(binding.packageDirectory ?? "")?.get(parts.member.text)
-      : binding.targetFilePath;
-    if (target === null || target === undefined) return;
     const shadowRegion = shadows.find((region) =>
       region.binding === binding.name && node.startIndex >= region.startIndex && node.startIndex < region.endIndex,
     );
+    const target = language === "go"
+      ? context.go?.declarations.get(binding.packageDirectory ?? "")?.get(parts.member.text)
+      : binding.targetFilePath;
+    if (target === null || target === undefined) {
+      if (language === "go" && context.go !== undefined) {
+        const packageDirectory = binding.packageDirectory ?? "";
+        const targetDirectoryPath = context.go.moduleDirectory === ""
+          ? packageDirectory
+          : packageDirectory === ""
+            ? context.go.moduleDirectory
+            : context.pathOps.join(context.go.moduleDirectory, packageDirectory);
+        unresolvedAccesses.push({
+          binding: binding.name,
+          member: parts.member.text,
+          targetDirectoryPath,
+          node,
+          shadow: shadowRegion?.diagnostic ?? null,
+        });
+      }
+      return;
+    }
     const shadow = shadowRegion === undefined
       ? null
       : { ...shadowRegion.diagnostic, targetFilePath: target };
@@ -875,7 +903,7 @@ export function analyzeQualifiedReferences(
         return [...byRegion.values()];
       })()
     : shadows.map((region) => region.diagnostic);
-  return { bindings, accesses, diagnostics };
+  return { bindings, accesses, unresolvedAccesses, diagnostics };
 }
 
 /** Emit import-level file edges and precision-preserving qualified symbol edges. */
