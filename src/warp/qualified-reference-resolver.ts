@@ -326,6 +326,16 @@ function goBindings(root: TSNode, context: QualifiedReferenceContext): readonly 
   return bindings;
 }
 
+function goTargetDirectoryPath(
+  context: GoReferenceContext,
+  packageDirectory: string,
+  pathOps: PathOps,
+): string {
+  if (context.moduleDirectory === "") return packageDirectory;
+  if (packageDirectory === "") return context.moduleDirectory;
+  return pathOps.join(context.moduleDirectory, packageDirectory);
+}
+
 export function resolveQualifiedImportBindings(
   language: QualifiedReferenceLanguage,
   filePath: string,
@@ -882,6 +892,14 @@ export function analyzeQualifiedReferences(
   const shadows = collectShadowRegions(language, filePath, root, bindings, context);
   const accesses: QualifiedReferenceAccess[] = [];
   const unresolvedAccesses: UnresolvedQualifiedReferenceAccess[] = [];
+  const unresolvedGoPackageDirectories = language === "go" && context.go !== undefined
+    ? [...context.go.packageNames.entries()]
+      .filter(([directory, packageName]) =>
+        packageName === null &&
+        !discoveredBindings.some((binding) => binding.packageDirectory === directory)
+      )
+      .map(([directory]) => directory)
+    : [];
   walk(root, (node) => {
     const parts = accessParts(language, node);
     if (parts === null) return;
@@ -898,7 +916,20 @@ export function analyzeQualifiedReferences(
         (right.scopeStartIndex ?? root.startIndex) - (left.scopeStartIndex ?? root.startIndex) ||
         right.importNode.startIndex - left.importNode.startIndex
       )[0];
-    if (binding === undefined) return;
+    if (binding === undefined) {
+      if (language === "go" && context.go !== undefined) {
+        for (const packageDirectory of unresolvedGoPackageDirectories) {
+          unresolvedAccesses.push({
+            binding: parts.binding.text,
+            member: parts.member.text,
+            targetDirectoryPath: goTargetDirectoryPath(context.go, packageDirectory, context.pathOps),
+            node,
+            shadow: null,
+          });
+        }
+      }
+      return;
+    }
     const shadowRegion = shadows.find((region) =>
       region.binding === binding.name && node.startIndex >= region.startIndex && node.startIndex < region.endIndex,
     );
@@ -908,15 +939,10 @@ export function analyzeQualifiedReferences(
     if (target === null || target === undefined) {
       if (language === "go" && context.go !== undefined) {
         const packageDirectory = binding.packageDirectory ?? "";
-        const targetDirectoryPath = context.go.moduleDirectory === ""
-          ? packageDirectory
-          : packageDirectory === ""
-            ? context.go.moduleDirectory
-            : context.pathOps.join(context.go.moduleDirectory, packageDirectory);
         unresolvedAccesses.push({
           binding: binding.name,
           member: parts.member.text,
-          targetDirectoryPath,
+          targetDirectoryPath: goTargetDirectoryPath(context.go, packageDirectory, context.pathOps),
           node,
           shadow: shadowRegion?.diagnostic ?? null,
         });

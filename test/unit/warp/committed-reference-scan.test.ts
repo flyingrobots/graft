@@ -305,6 +305,36 @@ describe("committed qualified-reference scan", { timeout: 20_000 }, () => {
     }
   });
 
+  it("marks an unaliased Go package selector partial when the package is deleted", async () => {
+    const cwd = createTestRepo("committed-deleted-unaliased-go-target-");
+    try {
+      write(cwd, "go.mod", "module example.com/project\n");
+      write(cwd, "go/sources/pending.go", "package sources\nfunc PendingIDs() {}\n");
+      write(cwd, "go/caller.go", [
+        "package caller",
+        'import "example.com/project/go/sources"',
+        "func call(){ sources.PendingIDs() }",
+      ].join("\n"));
+      git(cwd, "add -A"); git(cwd, "commit -m before-unaliased-go-delete");
+      fs.unlinkSync(path.join(cwd, "go/sources/pending.go"));
+      git(cwd, "add -A"); git(cwd, "commit -m delete-unaliased-go-target");
+
+      const result = await scanQualifiedReferencesAtRef({
+        cwd, git: nodeGit, pathOps: nodePathOps, ref: "HEAD",
+        symbolName: "PendingIDs", filePath: "go/sources/pending.go",
+      });
+
+      expect(result).toMatchObject({
+        referenceCount: 0,
+        referencingFiles: [],
+        confidence: "partial",
+        warnings: [],
+      });
+    } finally {
+      cleanupTestRepo(cwd);
+    }
+  });
+
   it("counts direct Python and Rust symbol imports by their imported names", async () => {
     const cwd = createTestRepo("committed-direct-import-scan-");
     try {
