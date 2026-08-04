@@ -166,7 +166,7 @@ describe("warp: Python import resolver", { timeout: 15000 }, () => {
     ]);
   });
 
-  it("preserves the TypeScript resolver edge and metadata semantics", async () => {
+  it("preserves the TypeScript resolver edge vocabulary byte-for-byte", async () => {
     const result = await resolveEdges(
       "ts",
       "src/consumer.ts",
@@ -175,6 +175,7 @@ describe("warp: Python import resolver", { timeout: 15000 }, () => {
       resolveImportEdges,
     );
 
+    expect(JSON.stringify(result)).toBe('{"edges":[{"from":"ast:src/consumer.ts:413c7c7e4515","to":"file:src/whole.ts","label":"references"},{"from":"ast:src/consumer.ts:5d68e1e6697b","to":"file:src/module.ts","label":"resolves_to"},{"from":"ast:src/consumer.ts:bfd46b79d5c9","to":"file:src/whole.ts","label":"resolves_to"},{"from":"ast:src/consumer.ts:e02cd5ad38a4","to":"sym:src/module.ts:named","label":"references"}],"metadata":[{"importedName":"*","localName":"namespace","filePath":"src/consumer.ts"},{"importedName":"named","localName":"local","filePath":"src/consumer.ts"}]}');
     expect(result.edges.map(({ label, to }) => ({ label, to }))).toEqual([
       { label: "references", to: "file:src/whole.ts" },
       { label: "resolves_to", to: "file:src/module.ts" },
