@@ -402,6 +402,24 @@ describe("qualified reference language adapters", () => {
     ]);
   });
 
+  it("treats local Go constants as declaration-point block shadows", async () => {
+    const source = [
+      "package cli",
+      'import src "example.com/project/sources"',
+      "func single() { src.PendingIDs(); const src = 1; src.PendingIDs() }",
+      "func grouped() { const ( other = 1; src = 2 ); src.PendingIDs() }",
+      "func sibling() { src.PendingIDs() }",
+    ].join("\n");
+    const analysis = await analyze("go", "cli/main.go", source, new Map([
+      ["go.mod", "module example.com/project\n"], ["cli/main.go", source],
+      ["sources/pending.go", "package sources\nfunc PendingIDs() {}\n"],
+    ]));
+
+    expect(analysis.accesses.map((access) => access.shadow?.shadowKind ?? "resolved")).toEqual([
+      "resolved", "local_binding", "local_binding", "resolved",
+    ]);
+  });
+
   it("uses the declared Go package name when an import has no local alias", async () => {
     const source = "package cli\nimport \"example.com/project/v2/client\"\nfunc call(){ service.Run() }";
     const analysis = await analyze("go", "cli/main.go", source, new Map([

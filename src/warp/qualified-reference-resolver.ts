@@ -444,7 +444,7 @@ function matchingBindingIdentifiers(
     if (node.type === "tuple_struct_pattern" || node.type === "struct_pattern") {
       const type = node.childForFieldName("type");
       return node.namedChildren
-        .filter((child) => type === null || child.startIndex !== type.startIndex)
+        .filter((child) => child.startIndex !== type?.startIndex)
         .flatMap((child) => matchingBindingIdentifiers(language, child, bindings));
     }
     if (node.type === "field_pattern") {
@@ -483,6 +483,18 @@ function matchingRustUseBindingIdentifiers(
     return node.namedChildren.flatMap((child) => matchingRustUseBindingIdentifiers(child, bindings));
   }
   return [];
+}
+
+function matchingGoSpecIdentifiers(
+  node: TSNode,
+  bindings: ReadonlySet<string>,
+): readonly TSNode[] {
+  const identifiers: TSNode[] = [];
+  for (const child of node.namedChildren) {
+    if (child.type !== "identifier") break;
+    identifiers.push(...directMatchingIdentifier(child, bindings));
+  }
+  return identifiers;
 }
 
 function diagnosticFor(
@@ -638,10 +650,12 @@ function collectShadowRegions(
     const localTypes = language === "rust"
       ? ["let_declaration"]
       : language === "go"
-        ? ["short_var_declaration", "var_spec", "assignment_statement"]
+        ? ["short_var_declaration", "var_spec", "const_spec", "assignment_statement"]
         : ["variable_declarator", "assignment_expression"];
     if (localTypes.includes(node.type)) {
-      const identifiers = matchingBindingIdentifiers(language, node.childForFieldName("pattern") ?? node.childForFieldName("name") ?? node.childForFieldName("left") ?? node.namedChildren[0], bindingNames);
+      const identifiers = language === "go" && (node.type === "var_spec" || node.type === "const_spec")
+        ? matchingGoSpecIdentifiers(node, bindingNames)
+        : matchingBindingIdentifiers(language, node.childForFieldName("pattern") ?? node.childForFieldName("name") ?? node.childForFieldName("left") ?? node.namedChildren[0], bindingNames);
       const enclosingLoop = nearestAncestor(node, new Set(language === "go" ? ["for_statement"] : language === "rust" ? ["for_expression"] : ["for_statement", "for_in_statement"]));
       const loopBody = enclosingLoop?.childForFieldName("body");
       const loop = enclosingLoop !== null && (loopBody === null || loopBody === undefined || node.startIndex < loopBody.startIndex)
