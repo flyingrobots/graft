@@ -37,7 +37,17 @@ export interface ImportDiagnosticsOptions extends Pick<
 
 export interface CommittedReferenceAnalysis {
   readonly diagnostics: readonly ImportBindingDiagnostic[];
+  readonly hasParseErrors: boolean;
   countReferences(symbolName: string, filePath: string): ReferenceScanResult;
+}
+
+export class IncompleteImportDiagnosticsError extends Error {
+  readonly code = "import_diagnostics_incomplete";
+
+  constructor(ref: string) {
+    super(`Import diagnostics at ${ref} are incomplete because at least one supported source file contains parse errors.`);
+    this.name = "IncompleteImportDiagnosticsError";
+  }
 }
 
 async function resolveCommitAtRef(
@@ -347,6 +357,7 @@ export async function analyzeCommittedReferencesAtRef(
   const hasParseErrors = analyzed.some((candidate) => candidate.analysis.hasParseErrors);
   return {
     diagnostics,
+    hasParseErrors,
     countReferences(symbolName, filePath) {
       const referencingFiles = new Set<string>();
       const warnings = new Map<string, ImportBindingDiagnostic>();
@@ -435,6 +446,7 @@ export async function importDiagnosticsAtRef(
   readonly summary: string;
 }> {
   const analysis = await analyzeCommittedReferencesAtRef(opts);
+  if (analysis.hasParseErrors) throw new IncompleteImportDiagnosticsError(opts.ref);
   const diagnostics = analysis.diagnostics;
   return {
     ref: opts.ref,

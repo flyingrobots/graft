@@ -372,6 +372,24 @@ describe("committed qualified-reference scan", { timeout: 20_000 }, () => {
     }
   });
 
+  it("fails import diagnostics when a supported source cannot be parsed completely", async () => {
+    const cwd = createTestRepo("committed-incomplete-import-diagnostics-");
+    try {
+      write(cwd, "pkg/sources.py", "def pending_ids(): return []\n");
+      write(cwd, "pkg/broken.py", "def broken(:\n");
+      git(cwd, "add -A"); git(cwd, "commit -m incomplete-import-diagnostics");
+
+      await expect(importDiagnosticsAtRef({
+        cwd, git: nodeGit, pathOps: nodePathOps, ref: "HEAD",
+      })).rejects.toMatchObject({
+        name: "IncompleteImportDiagnosticsError",
+        code: "import_diagnostics_incomplete",
+      });
+    } finally {
+      cleanupTestRepo(cwd);
+    }
+  });
+
   it("counts qualified callers when the declaring file is deleted at the reviewed ref", async () => {
     const cwd = createTestRepo("committed-deleted-target-");
     try {

@@ -8,6 +8,28 @@ import type { ToolContext } from "../../../src/mcp/context.js";
 import { importDiagnosticsTool } from "../../../src/mcp/tools/import-diagnostics.js";
 
 describe("mcp: graft_import_diagnostics", () => {
+  it("fails closed when the pinned repository contains a supported parse error", async () => {
+    const cwd = createTestRepo("import-diagnostics-incomplete-");
+    try {
+      fs.mkdirSync(path.join(cwd, "pkg"), { recursive: true });
+      fs.writeFileSync(path.join(cwd, "pkg", "broken.py"), "def broken(:\n");
+      git(cwd, "add -A"); git(cwd, "commit -m incomplete");
+
+      const handler = importDiagnosticsTool.createHandler();
+      await expect(handler({}, {
+        projectRoot: cwd,
+        git: nodeGit,
+        recordFootprint: () => undefined,
+        respond: (_tool: string, payload: Record<string, unknown>) => payload,
+      } as unknown as ToolContext)).rejects.toMatchObject({
+        name: "IncompleteImportDiagnosticsError",
+        code: "import_diagnostics_incomplete",
+      });
+    } finally {
+      cleanupTestRepo(cwd);
+    }
+  });
+
   it("reports every first-party import shadow at the requested ref", async () => {
     const cwd = createTestRepo("import-diagnostics-");
     try {

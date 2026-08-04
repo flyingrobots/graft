@@ -76,6 +76,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   Exact-ref scans now normalize relative Python `importlib` specifiers and
   conservatively report partial confidence for nonliteral dynamic import
   targets or member names that could affect the reviewed symbol.
+  Import-diagnostic scans now fail closed when a supported source at the
+  pinned ref contains parse errors, preserving the exhaustive meaning of a
+  successful `{ ref, diagnostics, summary }` response.
   Go shadow diagnostics fall back to a meaningful package directory when an
   imported first-party package has no tracked source file.
   Committed scans containing supported-language parse errors report partial
