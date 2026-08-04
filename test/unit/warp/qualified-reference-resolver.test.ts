@@ -369,6 +369,23 @@ describe("qualified reference language adapters", () => {
     expect(analysis.accesses.some((access) => access.member === "Other")).toBe(false);
   });
 
+  it("limits Go initializer bindings to their control-statement scopes", async () => {
+    const source = [
+      "package cli",
+      'import src "example.com/project/sources"',
+      "func ifShadow() { if src := local; ok { src.PendingIDs() }; src.PendingIDs() }",
+      "func switchShadow() { switch src := local; value { case 1: src.PendingIDs() }; src.PendingIDs() }",
+    ].join("\n");
+    const analysis = await analyze("go", "cli/main.go", source, new Map([
+      ["go.mod", "module example.com/project\n"], ["cli/main.go", source],
+      ["sources/pending.go", "package sources\nfunc PendingIDs() {}\n"],
+    ]));
+
+    expect(analysis.accesses.map((access) => access.shadow?.shadowKind ?? "resolved")).toEqual([
+      "local_binding", "resolved", "local_binding", "resolved",
+    ]);
+  });
+
   it("uses the declared Go package name when an import has no local alias", async () => {
     const source = "package cli\nimport \"example.com/project/v2/client\"\nfunc call(){ service.Run() }";
     const analysis = await analyze("go", "cli/main.go", source, new Map([

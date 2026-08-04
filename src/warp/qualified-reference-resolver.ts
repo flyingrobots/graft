@@ -638,7 +638,15 @@ function collectShadowRegions(
       const loop = enclosingLoop !== null && (loopBody === null || loopBody === undefined || node.startIndex < loopBody.startIndex)
         ? enclosingLoop
         : null;
-      let scope = loop ?? nearestAncestor(node, blockTypes) ?? root;
+      const controlStatement = language === "go"
+        ? nearestAncestor(node, new Set(["if_statement", "expression_switch_statement", "type_switch_statement"]))
+        : null;
+      const initializer = controlStatement?.childForFieldName("initializer");
+      const initializedControl = controlStatement !== null && initializer !== null && initializer !== undefined &&
+          node.startIndex >= initializer.startIndex && node.endIndex <= initializer.endIndex
+        ? controlStatement
+        : null;
+      let scope = loop ?? initializedControl ?? nearestAncestor(node, blockTypes) ?? root;
       if ((language === "ts" || language === "tsx" || language === "js") && node.type === "variable_declarator") {
         const declaration = nearestAncestor(node, new Set(["lexical_declaration", "variable_declaration"]));
         if (declaration?.type === "variable_declaration") scope = functionBody ?? root;
