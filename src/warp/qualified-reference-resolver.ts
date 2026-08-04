@@ -467,7 +467,7 @@ function matchingBindingIdentifiers(
     if (node.type === "field_pattern") {
       return matchingBindingIdentifiers(language, node.childForFieldName("pattern") ?? node.childForFieldName("name") ?? node.namedChildren.at(-1), bindings);
     }
-    if (["match_pattern", "tuple_pattern", "slice_pattern", "reference_pattern", "mut_pattern", "or_pattern"].includes(node.type)) {
+    if (["parameters", "closure_parameters", "match_pattern", "tuple_pattern", "slice_pattern", "reference_pattern", "mut_pattern", "or_pattern"].includes(node.type)) {
       return node.namedChildren.flatMap((child) => matchingBindingIdentifiers(language, child, bindings));
     }
     return [];
@@ -735,10 +735,13 @@ function collectTypeScriptShadowRegions(
 function collectRustShadowRegions(collector: ShadowCollector): void {
   const { root, bindingNames, resolvedImportDeclarationStarts, addAll } = collector;
   walk(root, (node) => {
-    const functionNode = nearestAncestor(node, RUST_FUNCTION_TYPES);
-    const functionBody = functionNode?.childForFieldName("body") ?? functionNode?.namedChildren.at(-1);
-    if (node.type === "parameter" && functionBody !== undefined) {
-      addAll(matchingBindingIdentifiers("rust", node, bindingNames), "parameter", functionBody.startIndex, functionBody.endIndex);
+    if (RUST_FUNCTION_TYPES.has(node.type)) {
+      const body = node.childForFieldName("body") ?? node.namedChildren.at(-1);
+      const parameters = node.childForFieldName("parameters") ??
+        node.namedChildren.find((child) => child.type === "parameters" || child.type === "closure_parameters");
+      if (body !== undefined) {
+        addAll(matchingBindingIdentifiers("rust", parameters, bindingNames), "parameter", body.startIndex, body.endIndex);
+      }
     }
     if (node.type === "let_declaration") {
       const identifiers = matchingBindingIdentifiers("rust", node.childForFieldName("pattern") ?? node.namedChildren[0], bindingNames);

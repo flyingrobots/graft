@@ -455,6 +455,26 @@ describe("qualified reference language adapters", () => {
     ]);
   });
 
+  it("extracts Rust closure parameter patterns without shadowing siblings", async () => {
+    const source = [
+      "use crate::sources as src;",
+      "fn outer() {",
+      "    let direct = |src| src::pending();",
+      "    let tuple = |(src, other)| src::pending();",
+      "    src::pending();",
+      "}",
+    ].join("\n");
+    const analysis = await analyze("rust", "src/caller.rs", source, new Map([
+      ["Cargo.toml", "[package]\nname='x'"],
+      ["src/caller.rs", source],
+      ["src/sources.rs", "pub fn pending() {}"],
+    ]));
+
+    expect(analysis.accesses.map((access) => access.shadow?.shadowKind ?? "resolved")).toEqual([
+      "parameter", "parameter", "resolved",
+    ]);
+  });
+
   it("scopes Rust conditional pattern bindings to their branch and loop bodies", async () => {
     const source = [
       "use crate::sources as src;",
