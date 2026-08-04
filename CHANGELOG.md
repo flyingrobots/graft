@@ -39,6 +39,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   lexical scope.
   Exact-ref committed scans now run before WARP acquisition, so a cold or
   unavailable graph cannot prevent authoritative committed-reference counts.
+  When exact-ref scanning fails and bounded WARP evidence is used, the
+  translated evidence now retains the scan failure reason.
   Incomplete import-diagnostics errors now identify the pinned commit that was
   analyzed rather than the caller's potentially moving symbolic ref.
   Each structural review now reuses one reading port across all breaking

@@ -100,6 +100,7 @@ describe("git-warp structural reading adapter", () => {
           source: "warp-graph",
           symbolName: "buildThing",
           filePath: "src/api.ts",
+          fallbackReason: "scan unavailable",
         },
       },
     });

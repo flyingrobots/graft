@@ -79,6 +79,7 @@ export type GitWarpEvidence =
       readonly source: GitWarpEvidenceSource;
       readonly symbolName: string;
       readonly filePath: string;
+      readonly fallbackReason?: string | undefined;
     }
   | {
       readonly kind: "dead-symbols";

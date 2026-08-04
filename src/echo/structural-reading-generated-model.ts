@@ -246,6 +246,7 @@ function parseTranslatedSubstrateFacts(summary: string): TranslatedSubstrateFact
         readonly source?: unknown;
         readonly symbolName?: unknown;
         readonly filePath?: unknown;
+        readonly fallbackReason?: unknown;
         readonly maxCommits?: unknown;
       }
     | undefined;
@@ -253,7 +254,8 @@ function parseTranslatedSubstrateFacts(summary: string): TranslatedSubstrateFact
     (evidence?.kind === "symbol-reference-count" &&
       (evidence.source === "warp-graph" || evidence.source === "committed-reference-scan") &&
       typeof evidence.symbolName === "string" &&
-      typeof evidence.filePath === "string") ||
+      typeof evidence.filePath === "string" &&
+      isOptionalString(evidence.fallbackReason)) ||
     (evidence?.kind === "dead-symbols" &&
       evidence.source === "warp-graph" &&
       isOptionalNumber(evidence.maxCommits));

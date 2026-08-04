@@ -75,6 +75,12 @@ function normalizeRefOrDefault(ref: string | undefined): string {
   return normalized === undefined || normalized.length === 0 ? "HEAD" : normalized;
 }
 
+function fallbackReason(error: unknown): string {
+  if (error instanceof Error) return error.message.trim() === "" ? error.name : error.message;
+  if (typeof error === "string" && error.trim() !== "") return error;
+  return "Unknown committed-reference scan failure";
+}
+
 function symbolReferencePayload(
   symbolName: string,
   result: ReferenceCountResult | { readonly symbol: string; readonly referenceCount: number; readonly referencingFiles: readonly string[] },
@@ -142,6 +148,7 @@ export function createGitWarpStructuralReadingPort(
       let payload: SymbolReferenceReadingPayload;
       let source: "warp-graph" | "committed-reference-scan";
       let residualPosture: StructuralReadingResidualPosture;
+      let committedScanFailure: string | undefined;
 
       try {
         const committedResult = await countCommittedReferencesAtRef({
@@ -158,7 +165,8 @@ export function createGitWarpStructuralReadingPort(
         payload = symbolReferencePayload(request.symbolName, committedResult);
         source = "committed-reference-scan";
         residualPosture = committedResult.confidence === "partial" ? "partial" : "complete";
-      } catch {
+      } catch (error) {
+        committedScanFailure = fallbackReason(error);
         const warp = await deps.getWarp();
         const graphResult = await countSymbolReferencesFromGraph(
           warp,
@@ -183,6 +191,7 @@ export function createGitWarpStructuralReadingPort(
             source,
             symbolName: request.symbolName,
             filePath: request.filePath,
+            ...(committedScanFailure !== undefined ? { fallbackReason: committedScanFailure } : {}),
           },
         ),
       };
