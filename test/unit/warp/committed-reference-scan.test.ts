@@ -621,6 +621,32 @@ describe("committed qualified-reference scan", { timeout: 20_000 }, () => {
     }
   });
 
+  it("marks getattr reflection on a static Python import partial", async () => {
+    const cwd = createTestRepo("committed-static-getattr-scan-");
+    try {
+      write(cwd, "pkg/sources.py", "def pending_ids(): return []\n");
+      write(cwd, "pkg/caller.py", [
+        "import pkg.sources as source",
+        'getattr(source, "pending_ids")()',
+      ].join("\n"));
+      git(cwd, "add -A"); git(cwd, "commit -m static-getattr-scan");
+
+      const result = await scanQualifiedReferencesAtRef({
+        cwd, git: nodeGit, pathOps: nodePathOps, ref: "HEAD",
+        symbolName: "pending_ids", filePath: "pkg/sources.py",
+      });
+
+      expect(result).toMatchObject({
+        referenceCount: 0,
+        referencingFiles: [],
+        confidence: "partial",
+        warnings: [],
+      });
+    } finally {
+      cleanupTestRepo(cwd);
+    }
+  });
+
   it("normalizes relative Python importlib targets before lowering confidence", async () => {
     const cwd = createTestRepo("committed-relative-dynamic-scan-");
     try {
