@@ -150,6 +150,11 @@ async function analyzeFile(
 interface DynamicReferenceFacts {
   readonly targetSpecifiers: readonly string[];
   readonly memberNames: readonly string[];
+  readonly computedNamespaceAccesses: readonly {
+    readonly binding: string;
+    readonly member: string | null;
+    readonly startIndex: number;
+  }[];
 }
 
 function syntaxStringValue(node: TSNode | undefined): string | null {
@@ -170,6 +175,11 @@ function analyzeDynamicReferenceFacts(
 ): DynamicReferenceFacts {
   const targetSpecifiers = new Set<string>();
   const memberNames = new Set<string>();
+  const computedNamespaceAccesses: {
+    binding: string;
+    member: string | null;
+    startIndex: number;
+  }[] = [];
   const visit = (node: TSNode): void => {
     const member = language === "python" && node.type === "attribute"
       ? node.childForFieldName("attribute")
@@ -202,10 +212,24 @@ function analyzeDynamicReferenceFacts(
         if (value !== null) targetSpecifiers.add(value);
       }
     }
+    if ((language === "ts" || language === "tsx" || language === "js") && node.type === "subscript_expression") {
+      const binding = node.childForFieldName("object");
+      if (binding?.type === "identifier") {
+        computedNamespaceAccesses.push({
+          binding: binding.text,
+          member: syntaxStringValue(node.childForFieldName("index") ?? undefined),
+          startIndex: node.startIndex,
+        });
+      }
+    }
     for (const child of node.namedChildren) visit(child);
   };
   visit(root);
-  return { targetSpecifiers: [...targetSpecifiers], memberNames: [...memberNames] };
+  return {
+    targetSpecifiers: [...targetSpecifiers],
+    memberNames: [...memberNames],
+    computedNamespaceAccesses,
+  };
 }
 
 function hasUnsupportedDynamicReference(
@@ -214,7 +238,22 @@ function hasUnsupportedDynamicReference(
   symbolName: string,
   targetFilePath: string,
   pathOps: PathOps,
+  bindings: readonly {
+    readonly name: string;
+    readonly targetFilePath: string | null;
+    readonly scopeStartIndex?: number | undefined;
+    readonly scopeEndIndex?: number | undefined;
+  }[],
 ): boolean {
+  if (facts.computedNamespaceAccesses.some((access) =>
+    (access.member === null || access.member === symbolName) &&
+    bindings.some((binding) =>
+      binding.name === access.binding &&
+      binding.targetFilePath === targetFilePath &&
+      access.startIndex >= (binding.scopeStartIndex ?? 0) &&
+      access.startIndex < (binding.scopeEndIndex ?? Number.POSITIVE_INFINITY)
+    )
+  )) return true;
   if (!facts.memberNames.includes(symbolName)) return false;
   const targetModulePath = targetFilePath
     .replace(/\.(?:pyi?|tsx?|jsx?|mjs|cjs|rs|go)$/u, "")
@@ -316,6 +355,7 @@ export async function analyzeCommittedReferencesAtRef(
           symbolName,
           filePath,
           opts.pathOps,
+          candidate.analysis.bindings,
         )) {
           unsupportedDynamicSemantics = true;
         }

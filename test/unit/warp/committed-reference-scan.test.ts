@@ -371,6 +371,40 @@ describe("committed qualified-reference scan", { timeout: 20_000 }, () => {
     }
   });
 
+  it("marks computed TypeScript and JavaScript namespace access partial", async () => {
+    const cwd = createTestRepo("committed-computed-namespace-scan-");
+    try {
+      write(cwd, "src/api.ts", "export function run() {}\nexport function keep() {}\n");
+      write(cwd, "src/caller.ts", [
+        'import * as api from "./api";',
+        'api["run"]();',
+        "api.keep();",
+      ].join("\n"));
+      write(cwd, "src/caller.js", [
+        'import * as api from "./api";',
+        'api["run"]();',
+        'other["run"]();',
+      ].join("\n"));
+      git(cwd, "add -A"); git(cwd, "commit -m computed-namespace-scan");
+      const base = { cwd, git: nodeGit, pathOps: nodePathOps, ref: "HEAD", filePath: "src/api.ts" };
+
+      await expect(scanQualifiedReferencesAtRef({ ...base, symbolName: "run" })).resolves.toMatchObject({
+        referenceCount: 0,
+        referencingFiles: [],
+        confidence: "partial",
+        warnings: [],
+      });
+      await expect(scanQualifiedReferencesAtRef({ ...base, symbolName: "keep" })).resolves.toMatchObject({
+        referenceCount: 1,
+        referencingFiles: ["src/caller.ts"],
+        confidence: "complete",
+        warnings: [],
+      });
+    } finally {
+      cleanupTestRepo(cwd);
+    }
+  });
+
   it("ignores dynamic-reference words that occur only in comments and strings", async () => {
     const cwd = createTestRepo("committed-dynamic-decoy-");
     try {
