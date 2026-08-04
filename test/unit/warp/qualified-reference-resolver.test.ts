@@ -470,6 +470,32 @@ describe("qualified reference language adapters", () => {
     ]);
   });
 
+  it("anchors Rust crate imports at Cargo auto-target roots", async () => {
+    const source = "use crate::sources as src; fn call(){ src::pending(); }";
+    const files = new Map([
+      ["Cargo.toml", "[package]\nname='demo'"],
+      ["src/sources.rs", "pub fn pending() {}"],
+      ["src/library.rs", source],
+      ["src/bin/cli.rs", source],
+      ["src/bin/sources.rs", "pub fn pending() {}"],
+      ["src/bin/admin/main.rs", source],
+      ["src/bin/admin/sources.rs", "pub fn pending() {}"],
+    ]);
+
+    const library = await analyze("rust", "src/library.rs", source, files);
+    const flatBinary = await analyze("rust", "src/bin/cli.rs", source, files);
+    const directoryBinary = await analyze("rust", "src/bin/admin/main.rs", source, files);
+    expect(library.bindings).toEqual([
+      expect.objectContaining({ targetFilePath: "src/sources.rs" }),
+    ]);
+    expect(flatBinary.bindings).toEqual([
+      expect.objectContaining({ targetFilePath: "src/bin/sources.rs" }),
+    ]);
+    expect(directoryBinary.bindings).toEqual([
+      expect.objectContaining({ targetFilePath: "src/bin/admin/sources.rs" }),
+    ]);
+  });
+
   it("hoists Rust block item shadows and recognizes first-party local imports", async () => {
     const source = [
       "use crate::sources as src;",

@@ -225,7 +225,25 @@ function rustSourceRoot(filePath: string, knownFiles: ReadonlySet<string>): stri
   for (let length = parts.length - 1; length >= 0; length--) {
     const directory = parts.slice(0, length).join("/");
     const manifest = directory === "" ? "Cargo.toml" : `${directory}/Cargo.toml`;
-    if (knownFiles.has(manifest)) return directory === "" ? "src" : `${directory}/src`;
+    if (!knownFiles.has(manifest)) continue;
+    const sourceRoot = directory === "" ? "src" : `${directory}/src`;
+    const autoTargetRoots = [
+      `${sourceRoot}/bin`,
+      directory === "" ? "examples" : `${directory}/examples`,
+      directory === "" ? "tests" : `${directory}/tests`,
+      directory === "" ? "benches" : `${directory}/benches`,
+    ];
+    for (const targetRoot of autoTargetRoots) {
+      if (parentDirectory(filePath) === targetRoot) return targetRoot;
+      if (!filePath.startsWith(`${targetRoot}/`)) continue;
+      const relative = filePath.slice(targetRoot.length + 1);
+      const targetName = relative.split("/")[0];
+      if (targetName === undefined) continue;
+      const directoryTarget = `${targetRoot}/${targetName}`;
+      if (knownFiles.has(`${directoryTarget}/main.rs`)) return directoryTarget;
+      if (knownFiles.has(`${targetRoot}/${targetName}.rs`)) return targetRoot;
+    }
+    return sourceRoot;
   }
   const srcIndex = parts.lastIndexOf("src");
   return srcIndex >= 0 ? parts.slice(0, srcIndex + 1).join("/") : "";
