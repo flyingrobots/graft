@@ -7,8 +7,8 @@ title: "Cross-language qualified reference verification witness"
 Cycle: `WARP_cross-language-qualified-reference-resolution`
 Date: `2026-08-04`
 Branch: `feature/python-import-resolution`
-Full-suite code head: `d74544c5`
-Final acceptance code head: `d74544c5`
+Full-suite code head: `577a0140`
+Final acceptance code head: `577a0140`
 
 ## Acceptance Coverage
 
@@ -51,7 +51,7 @@ pnpm exec vitest run \
   test/unit/echo/generated-model-parity.test.ts
 ```
 
-Result: `14` test files and `152` tests passed.
+Result: `14` test files and `167` tests passed.
 
 The cold-WARP Python review fixture changes the signature of
 `coqui/matcher/sources.py:pending_ids` and reports
@@ -82,7 +82,7 @@ Results:
 - the first isolated run found one stale generated backlog DAG after this
   cycle added a bad-code card. The owning generator repaired the DOT and SVG
   in `e3cc2006`.
-- final isolated full suite passed: `251` test files and `1920` tests.
+- final isolated full suite passed: `251` test files and `1932` tests.
 
 ## Post-Retro Acceptance Closure
 
@@ -100,6 +100,37 @@ Python comprehension's outermost iterable while retaining conservative local
 scope for its element and later clauses. Both regressions are included in the
 final focused and isolated-suite totals above; all three review threads from
 that round are resolved.
+
+A later Code Lawyer pass closed the remaining current-head findings in focused
+commits:
+
+- `3bbb26b4` scopes Python walrus targets to their enclosing lexical scope;
+- `4f5a39b4` prevents function-local imports from activating before their
+  declaration while retaining their function-wide local binding;
+- `9143eaa3` resolves TypeScript declaration-only modules on both qualified and
+  static import paths;
+- `da9552bd` normalizes quoted and raw-string Go module coordinates;
+- `33778168` resolves Rust `self` and `super` paths through enclosing inline
+  modules;
+- `17395cdc` downgrades parse-error committed scans from false complete counts
+  to partial confidence;
+- `c2149ae6` confines Rust inline-module imports to their declaration lists;
+- `7b3a3b57` gives empty first-party Go package diagnostics a meaningful target
+  directory;
+- `2f8075ce` keeps Python class-body imports out of nested function, lambda, and
+  class bodies;
+- `76d0443a` marks possible cross-file inline Rust module aliases partial at the
+  nearest physical owner instead of inventing an edge;
+- `cbca42ea` treats bare Python deletion targets as whole-function shadows; and
+- `577a0140` treats TypeScript enums as lexical namespace shadows.
+
+The exact-head Rust declaration-list thread duplicated the already-landed
+`c2149ae6` regression and was resolved with current-head proof rather than a
+redundant commit. At `577a0140`, the full GraphQL audit reported `58` review
+threads and zero unresolved threads. The focused acceptance set passed `14`
+files and `167` tests, and the Docker-isolated repository suite passed `251`
+files and `1932` tests. Lint, typecheck, build, structural-history artifact
+parity, agent-worktree hygiene, and whitespace validation were also green.
 
 ## CLI Witness
 
