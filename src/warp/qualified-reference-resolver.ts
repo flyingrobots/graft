@@ -904,10 +904,14 @@ function collectTypeScriptShadowRegions(
       const body = node.childForFieldName("body") ?? node;
       addAll(identifiers, "loop_binding", body.startIndex, body.endIndex);
     }
-    if (node.type === "function_declaration" || node.type === "generator_function_declaration" || node.type === "class_declaration") {
+    if (node.type === "function_declaration" || node.type === "generator_function_declaration" ||
+        node.type === "class_declaration" || node.type === "enum_declaration") {
       const identifiers = matchingBindingIdentifiers(language, node.childForFieldName("name"), bindingNames);
       const scope = nearestAncestor(node, TYPESCRIPT_BLOCK_TYPES) ?? root;
-      addAll(identifiers, node.type === "class_declaration" ? "type_declaration" : "function_declaration", scope.startIndex, scope.endIndex);
+      const kind = node.type === "class_declaration" || node.type === "enum_declaration"
+        ? "type_declaration"
+        : "function_declaration";
+      addAll(identifiers, kind, scope.startIndex, scope.endIndex);
     }
   });
 }

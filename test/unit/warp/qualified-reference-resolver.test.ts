@@ -251,6 +251,25 @@ describe("qualified reference language adapters", () => {
     ]);
   });
 
+  it("treats TypeScript enum declarations as lexical namespace shadows", async () => {
+    const source = [
+      'import * as api from "./api";',
+      "function enumShadow() { api.run(); enum api { run }; api.run(); }",
+      "function sibling() { api.run(); }",
+    ].join("\n");
+    const analysis = await analyze("ts", "src/caller.ts", source, new Map([
+      ["src/caller.ts", source],
+      ["src/api.ts", "export function run() {}"],
+    ]));
+
+    expect(analysis.accesses.map((access) => access.shadow?.shadowKind ?? "resolved")).toEqual([
+      "type_declaration", "type_declaration", "resolved",
+    ]);
+    expect(analysis.diagnostics).toEqual([
+      expect.objectContaining({ binding: "api", shadowKind: "type_declaration" }),
+    ]);
+  });
+
   it("limits TypeScript switch lexical shadows while hoisting var to the function", async () => {
     const source = [
       'import * as api from "./api";',
