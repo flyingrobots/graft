@@ -87,7 +87,7 @@ describe("qualified reference WARP indexing", { timeout: 20_000 }, () => {
     expect(refs.importedFile).toEqual([{ filePath: "src/consumer.ts", importedName: "*", localName: "api" }]);
   });
 
-  it("indexes Rust module members and suppresses declaration-point shadows", async () => {
+  it("indexes Rust module members across same-named value bindings", async () => {
     const refs = await indexedReferences({
       "Cargo.toml": "[package]\nname='qualified'\nversion='0.1.0'\n",
       "src/sources.rs": "pub fn pending_ids() {}\n",
@@ -97,7 +97,10 @@ describe("qualified reference WARP indexing", { timeout: 20_000 }, () => {
         "pub fn shadowed() { let imported = (); imported::pending_ids(); }",
       ].join("\n"),
     }, "pending_ids", "src/sources.rs");
-    expect(refs.symbol).toEqual([{ filePath: "src/consumer.rs", importedName: "pending_ids", localName: "pending_ids" }]);
+    expect(refs.symbol).toEqual([
+      { filePath: "src/consumer.rs", importedName: "pending_ids", localName: "pending_ids" },
+      { filePath: "src/consumer.rs", importedName: "pending_ids", localName: "pending_ids" },
+    ]);
     expect(refs.importedFile).toEqual([{ filePath: "src/consumer.rs", importedName: "*", localName: "imported" }]);
   });
 

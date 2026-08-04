@@ -620,6 +620,21 @@ function matchingRustUseBindingIdentifiers(
   return [];
 }
 
+function matchingRustTypeParameterIdentifiers(
+  node: TSNode,
+  bindings: ReadonlySet<string>,
+): readonly TSNode[] {
+  if (node.type === "type_identifier") return directMatchingIdentifier(node, bindings);
+  if (node.type === "constrained_type_parameter" || node.type === "optional_type_parameter") {
+    const name = node.namedChildren[0];
+    return name === undefined ? [] : matchingRustTypeParameterIdentifiers(name, bindings);
+  }
+  if (node.type === "type_parameters") {
+    return node.namedChildren.flatMap((child) => matchingRustTypeParameterIdentifiers(child, bindings));
+  }
+  return [];
+}
+
 function matchingGoSpecIdentifiers(
   node: TSNode,
   bindings: ReadonlySet<string>,
@@ -672,14 +687,11 @@ const TYPESCRIPT_LOCAL_TYPES = new Set(["variable_declarator", "assignment_expre
 const TYPESCRIPT_LOOP_TYPES = new Set(["for_statement", "for_in_statement"]);
 const TYPESCRIPT_DECLARATION_TYPES = new Set(["lexical_declaration", "variable_declaration"]);
 const TYPESCRIPT_SCOPED_LOOP_TYPES = new Set(["for_in_statement", "for_of_statement"]);
-const RUST_FUNCTION_TYPES = new Set(["function_item", "closure_expression"]);
 const RUST_BLOCK_TYPES = new Set(["block"]);
 const RUST_IMPORT_SCOPE_TYPES = new Set(["block", "declaration_list"]);
-const RUST_LOOP_TYPES = new Set(["for_expression"]);
-const RUST_PATTERN_TYPES = new Set(["for_expression", "match_arm"]);
-const RUST_CONDITIONAL_TYPES = new Set(["if_expression", "while_expression"]);
 const RUST_USE_DECLARATION_TYPES = new Set(["use_declaration"]);
 const RUST_DECLARATION_TYPES = new Set(["function_item", "struct_item", "enum_item", "type_item", "const_item", "static_item", "union_item", "trait_item", "mod_item"]);
+const RUST_TYPE_NAMESPACE_DECLARATION_TYPES = new Set(["struct_item", "enum_item", "type_item", "union_item", "trait_item", "mod_item"]);
 const GO_FUNCTION_TYPES = new Set(["function_declaration", "method_declaration", "func_literal"]);
 const GO_BLOCK_TYPES = new Set(["block"]);
 const GO_LEXICAL_SCOPE_TYPES = new Set([
@@ -1047,33 +1059,17 @@ function collectTypeScriptShadowRegions(
 
 function collectRustShadowRegions(collector: ShadowCollector): void {
   const { root, bindingNames, resolvedImportDeclarationStarts, addAll } = collector;
+  const typeNamespace = new Set<"value" | "type">(["type"]);
   walk(root, (node) => {
-    if (RUST_FUNCTION_TYPES.has(node.type)) {
-      const body = node.childForFieldName("body") ?? node.namedChildren.at(-1);
-      const parameters = node.childForFieldName("parameters") ??
-        node.namedChildren.find((child) => child.type === "parameters" || child.type === "closure_parameters");
-      if (body !== undefined) {
-        addAll(matchingBindingIdentifiers("rust", parameters, bindingNames), "parameter", body.startIndex, body.endIndex);
-      }
-    }
-    if (node.type === "let_declaration") {
-      const identifiers = matchingBindingIdentifiers("rust", node.childForFieldName("pattern") ?? node.namedChildren[0], bindingNames);
-      const enclosingLoop = nearestAncestor(node, RUST_LOOP_TYPES);
-      const loopBody = enclosingLoop?.childForFieldName("body");
-      const loop = enclosingLoop !== null && (loopBody === null || loopBody === undefined || node.startIndex < loopBody.startIndex) ? enclosingLoop : null;
-      const scope = loop ?? nearestAncestor(node, RUST_BLOCK_TYPES) ?? root;
-      addAll(identifiers, loop === null ? "local_binding" : "loop_binding", node.endIndex, scope.endIndex);
-    }
-    if (RUST_PATTERN_TYPES.has(node.type)) {
-      const identifiers = matchingBindingIdentifiers("rust", node.childForFieldName("pattern") ?? node.namedChildren[0], bindingNames);
-      const body = node.childForFieldName("body") ?? node;
-      addAll(identifiers, "pattern_binding", body.startIndex, body.endIndex);
-    }
-    if (node.type === "let_condition") {
-      const identifiers = matchingBindingIdentifiers("rust", node.childForFieldName("pattern") ?? node.namedChildren[0], bindingNames);
-      const conditional = nearestAncestor(node, RUST_CONDITIONAL_TYPES);
-      const body = conditional?.childForFieldName(conditional.type === "if_expression" ? "consequence" : "body");
-      if (body !== null && body !== undefined) addAll(identifiers, "pattern_binding", node.endIndex, body.endIndex);
+    if (node.type === "type_parameters") {
+      const scope = nearestAncestor(node, RUST_DECLARATION_TYPES) ?? root;
+      addAll(
+        matchingRustTypeParameterIdentifiers(node, bindingNames),
+        "type_declaration",
+        scope.startIndex,
+        scope.endIndex,
+        typeNamespace,
+      );
     }
     if (node.type === "use_declaration") {
       if (resolvedImportDeclarationStarts.has(node.startIndex)) return;
@@ -1083,17 +1079,11 @@ function collectRustShadowRegions(collector: ShadowCollector): void {
         addAll(matchingRustUseBindingIdentifiers(argument, bindingNames), "import_declaration", scope.startIndex, scope.endIndex);
       }
     }
-    if (RUST_DECLARATION_TYPES.has(node.type)) {
+    if (RUST_TYPE_NAMESPACE_DECLARATION_TYPES.has(node.type)) {
       const identifiers = matchingBindingIdentifiers("rust", node.childForFieldName("name"), bindingNames);
       const scope = nearestAncestor(node, RUST_BLOCK_TYPES) ?? root;
-      const kind = node.type === "const_item" || node.type === "static_item"
-        ? "item_declaration"
-        : node.type === "mod_item"
-          ? "module_declaration"
-          : node.type === "function_item"
-            ? "function_declaration"
-            : "type_declaration";
-      addAll(identifiers, kind, scope.startIndex, scope.endIndex);
+      const kind = node.type === "mod_item" ? "module_declaration" : "type_declaration";
+      addAll(identifiers, kind, scope.startIndex, scope.endIndex, typeNamespace);
     }
   });
 }
@@ -1220,7 +1210,7 @@ function accessParts(language: QualifiedReferenceLanguage, node: TSNode): {
     const binding = node.childForFieldName("path"); const member = node.childForFieldName("name");
     const expectedMemberType = node.type === "scoped_type_identifier" ? "type_identifier" : "identifier";
     return binding?.type === "identifier" && member?.type === expectedMemberType
-      ? { binding, qualifier: [], member, namespace: node.type === "scoped_type_identifier" ? "type" : "value" }
+      ? { binding, qualifier: [], member, namespace: "type" }
       : null;
   }
   if (language === "go" && node.type === "selector_expression") {

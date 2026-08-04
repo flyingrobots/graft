@@ -602,7 +602,7 @@ describe("qualified reference language adapters", () => {
     const rustAnalysis = await analyze("rust", "src/caller.rs", rust, new Map([
       ["Cargo.toml", "[package]\nname='x'"], ["src/caller.rs", rust], ["src/sources.rs", "pub fn pending() {}"],
     ]));
-    expect(rustAnalysis.accesses.map((access) => access.shadow?.shadowKind ?? "resolved")).toEqual(["pattern_binding", "pattern_binding", "resolved"]);
+    expect(rustAnalysis.accesses.map((access) => access.shadow?.shadowKind ?? "resolved")).toEqual(["resolved", "resolved", "resolved"]);
 
     const go = "package p\nimport src \"example.com/p/sources\"\nfunc f(){ for _, src := range xs { src.Pending() }; src.Pending() }";
     const goAnalysis = await analyze("go", "caller.go", go, new Map([
@@ -712,7 +712,7 @@ describe("qualified reference language adapters", () => {
 
     expect(analysis.bindings).toEqual([expect.objectContaining({ name: "imported", targetFilePath: "src/sources.rs" })]);
     expect(analysis.accesses.map((access) => access.shadow?.shadowKind ?? "resolved")).toEqual([
-      "resolved", "local_binding", "resolved", "type_declaration",
+      "resolved", "resolved", "resolved", "type_declaration",
     ]);
 
     const nested = "use self::local as child; use super::sources as parent; fn call(){ child::run(); parent::pending_ids(); }";
@@ -898,8 +898,8 @@ describe("qualified reference language adapters", () => {
     ]));
 
     expect(analysis.accesses.map((access) => access.shadow?.shadowKind ?? "resolved")).toEqual([
-      "item_declaration", "item_declaration",
-      "item_declaration", "item_declaration",
+      "resolved", "resolved",
+      "resolved", "resolved",
       "type_declaration", "type_declaration",
       "type_declaration", "type_declaration",
       "module_declaration", "module_declaration",
@@ -951,7 +951,7 @@ describe("qualified reference language adapters", () => {
     ]));
 
     expect(analysis.accesses.map((access) => access.shadow?.shadowKind ?? "resolved")).toEqual([
-      "parameter", "parameter", "resolved",
+      "resolved", "resolved", "resolved",
     ]);
   });
 
@@ -967,7 +967,27 @@ describe("qualified reference language adapters", () => {
     ]));
 
     expect(analysis.accesses.map((access) => access.shadow?.shadowKind ?? "resolved")).toEqual([
-      "pattern_binding", "resolved", "pattern_binding", "resolved",
+      "resolved", "resolved", "resolved", "resolved",
+    ]);
+  });
+
+  it("shadows Rust module paths with type items and generic type parameters", async () => {
+    const source = [
+      "use crate::sources as api;",
+      "fn generic<api>() { api::pending(); }",
+      "fn type_item() { api::pending(); type api = usize; api::pending(); }",
+      "fn value_items(api: usize) { api::pending(); let api = 1; api::pending(); fn api() {} api::pending(); }",
+    ].join("\n");
+    const analysis = await analyze("rust", "src/caller.rs", source, new Map([
+      ["Cargo.toml", "[package]\nname='x'"],
+      ["src/caller.rs", source],
+      ["src/sources.rs", "pub fn pending() {}\n"],
+    ]));
+
+    expect(analysis.accesses.map((access) => access.shadow?.shadowKind ?? "resolved")).toEqual([
+      "type_declaration",
+      "type_declaration", "type_declaration",
+      "resolved", "resolved", "resolved",
     ]);
   });
 
