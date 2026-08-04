@@ -214,8 +214,14 @@ describe("operations: structural review", () => {
       }),
     }));
 
+    expect(result.breakingChanges).toEqual([
+      expect.objectContaining({
+        symbol: "removed",
+        referenceConfidence: "partial",
+        referenceWarnings: [],
+      }),
+    ]);
     expect(result.summary).toContain("unresolved or unsupported reference analysis may hide callers");
-    expect(result.summary).not.toContain("unsupported dynamic reference semantics");
   });
 });
 
