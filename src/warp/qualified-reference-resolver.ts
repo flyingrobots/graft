@@ -662,12 +662,16 @@ function createShadowCollector(
 ): ShadowCollector {
   const bindingNames = new Set(bindings.map((binding) => binding.name));
   const targetForBinding = (binding: ResolvedImportBinding): string => {
-    const packageDeclarations = context.go?.declarations.get(binding.packageDirectory ?? "");
+    const packageDirectory = binding.packageDirectory ?? "";
+    const packageDeclarations = context.go?.declarations.get(packageDirectory);
     const goTarget = packageDeclarations === undefined
       ? undefined
       : [...packageDeclarations.values()].find((value): value is string => value !== null) ??
-        context.go?.packageFiles.get(binding.packageDirectory ?? "")?.[0];
-    return binding.targetFilePath ?? goTarget ?? "";
+        context.go?.packageFiles.get(packageDirectory)?.[0];
+    const goDirectory = context.go === undefined
+      ? undefined
+      : goTargetDirectoryPath(context.go, packageDirectory, context.pathOps);
+    return binding.targetFilePath ?? goTarget ?? goDirectory ?? "";
   };
   const activeBinding = (bindingName: string, scopeStart: number): ResolvedImportBinding | undefined =>
     bindings

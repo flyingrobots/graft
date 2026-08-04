@@ -30,6 +30,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   resolution, and quoted Go module directives match their unquoted import
   paths. Rust `self` and `super` imports include enclosing inline-module paths,
   and inline-module import aliases remain within their declaration lists.
+  Go shadow diagnostics fall back to a meaningful package directory when an
+  imported first-party package has no tracked source file.
   Committed scans containing supported-language parse errors report partial
   confidence rather than a false complete result. The expanded `graft_review`
   / `struct_review` wire contract is versioned as `2.0.0`; unchanged output

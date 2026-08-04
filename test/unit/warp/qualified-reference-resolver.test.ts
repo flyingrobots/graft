@@ -869,6 +869,23 @@ describe("qualified reference language adapters", () => {
     ]);
   });
 
+  it("uses the Go package directory for shadows when the package has no files", async () => {
+    const source = [
+      "package cli",
+      'import src "example.com/project/missing"',
+      "func shadow(src int){ src.Pending() }",
+    ].join("\n");
+    const analysis = await analyze("go", "cli/main.go", source, new Map([
+      ["go.mod", "module example.com/project\n"],
+      ["cli/main.go", source],
+    ]));
+
+    expect(analysis.accesses).toEqual([]);
+    expect(analysis.diagnostics).toEqual([
+      expect.objectContaining({ binding: "src", targetFilePath: "missing", shadowKind: "parameter" }),
+    ]);
+  });
+
   it("ignores external Go imports and packages without a unique declaration", async () => {
     const source = [
       "package cli",
