@@ -58,6 +58,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   Python class imports and class-local shadows now follow class-namespace
   visibility: they do not leak into nested bodies or comprehension bodies,
   while the outermost comprehension iterable still sees the class namespace.
+  Python loop iterables at module and class scope, and loops targeting a
+  `global` or `nonlocal` name, resolve before the loop target is assigned;
+  function-local loop targets remain lexical across the whole function.
   Python qualified attribute writes and deletions no longer count as callers;
   matching exact-ref reviews report partial confidence for those unsupported
   monkey-patching semantics.

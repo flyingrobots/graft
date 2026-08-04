@@ -396,6 +396,9 @@ function collectPythonShadowRegions(collector: ShadowCollector): void {
         const outerIdentifiers = identifiers.filter((identifier) => outerNames.has(identifier.text));
         const localIdentifiers = identifiers.filter((identifier) => !outerNames.has(identifier.text));
         const outermostForClause = comprehension?.namedChildren.find((child) => child.type === "for_in_clause");
+        const assignmentStart = node.type === "for_statement"
+          ? node.childForFieldName("right")?.endIndex ?? node.startIndex
+          : node.startIndex;
         if (node.type === "named_expression") {
           const body = scope?.childForFieldName("body") ?? scope;
           const start = scope?.type === "function_definition" || scope?.type === "lambda"
@@ -415,11 +418,18 @@ function collectPythonShadowRegions(collector: ShadowCollector): void {
         }
         else if (scope !== null) {
           const body = scope.childForFieldName("body") ?? scope;
-          const start = scope.type === "function_definition" || scope.type === "lambda" ? body.startIndex : node.startIndex;
+          const start = scope.type === "function_definition" || scope.type === "lambda"
+            ? body.startIndex
+            : assignmentStart;
           addAll(localIdentifiers, node.type === "for_statement" ? "loop_binding" : "local_binding", start, body.endIndex);
-          addAll(outerIdentifiers, "assignment", node.startIndex, body.endIndex);
+          addAll(outerIdentifiers, "assignment", assignmentStart, body.endIndex);
         } else {
-          addAll(identifiers, node.type === "for_statement" ? "loop_binding" : "assignment", node.startIndex, root.endIndex);
+          addAll(
+            identifiers,
+            node.type === "for_statement" ? "loop_binding" : "assignment",
+            assignmentStart,
+            root.endIndex,
+          );
         }
       }
     }

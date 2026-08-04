@@ -709,6 +709,38 @@ describe("qualified reference language adapters", () => {
     ]);
   });
 
+  it("resolves Python loop iterables before non-function target bindings", async () => {
+    const source = [
+      "import pkg.sources as module_source",
+      "for module_source in module_source.items():",
+      "    module_source.pending_ids()",
+      "class Container:",
+      "    import pkg.sources as class_source",
+      "    for class_source in class_source.items():",
+      "        class_source.pending_ids()",
+      "import pkg.sources as function_source",
+      "def run():",
+      "    for function_source in function_source.items():",
+      "        function_source.pending_ids()",
+      "import pkg.sources as global_source",
+      "def mutate_global():",
+      "    global global_source",
+      "    for global_source in global_source.items():",
+      "        global_source.pending_ids()",
+    ].join("\n");
+    const analysis = await analyze("python", "pkg/caller.py", source, new Map([
+      ["pkg/caller.py", source],
+      ["pkg/sources.py", "def pending_ids(): return []\ndef items(): return []\n"],
+    ]));
+
+    expect(analysis.accesses.map((access) => access.shadow?.shadowKind ?? "resolved")).toEqual([
+      "resolved", "loop_binding",
+      "resolved", "loop_binding",
+      "loop_binding", "loop_binding",
+      "resolved", "assignment",
+    ]);
+  });
+
   it("keeps Python comprehension walrus targets in the enclosing function scope", async () => {
     const source = [
       "import pkg.sources as source",
