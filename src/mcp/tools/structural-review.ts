@@ -6,6 +6,35 @@ import { toJsonObject } from "../../operations/result-dto.js";
 import type { ToolContext, ToolDefinition, ToolHandler } from "../context.js";
 import { nodePathOps } from "../../adapters/node-paths.js";
 
+interface GraphReferenceResult {
+  readonly symbol: string;
+  readonly referenceCount: number;
+  readonly referencingFiles: readonly string[];
+}
+
+export async function combineReviewReferenceEvidence(
+  graph: GraphReferenceResult,
+  scan: () => Promise<ReferenceCountResult>,
+): Promise<ReferenceCountResult> {
+  try {
+    const committed = await scan();
+    if (graph.referenceCount > 0) return {
+      referenceCount: graph.referenceCount,
+      referencingFiles: graph.referencingFiles,
+      warnings: committed.warnings ?? [],
+      confidence: committed.confidence ?? "complete",
+    };
+    return committed;
+  } catch {
+    return {
+      referenceCount: graph.referenceCount,
+      referencingFiles: graph.referencingFiles,
+      warnings: [],
+      confidence: "partial",
+    };
+  }
+}
+
 async function countReviewReferences(
   ctx: ToolContext,
   symbolName: string,
@@ -13,14 +42,14 @@ async function countReviewReferences(
   headRef: string,
 ): Promise<ReferenceCountResult> {
   const graph = await countSymbolReferencesFromGraph(await ctx.getWarp(), symbolName, filePath);
-  const scan = await scanQualifiedReferencesAtRef({ cwd: ctx.projectRoot, git: ctx.git, pathOps: nodePathOps, symbolName, filePath, ref: headRef });
-  if (graph.referenceCount > 0) return {
-    referenceCount: graph.referenceCount,
-    referencingFiles: graph.referencingFiles,
-    warnings: scan.warnings,
-    confidence: scan.confidence,
-  };
-  return scan;
+  return combineReviewReferenceEvidence(graph, () => scanQualifiedReferencesAtRef({
+    cwd: ctx.projectRoot,
+    git: ctx.git,
+    pathOps: nodePathOps,
+    symbolName,
+    filePath,
+    ref: headRef,
+  }));
 }
 
 export const structuralReviewTool: ToolDefinition = {

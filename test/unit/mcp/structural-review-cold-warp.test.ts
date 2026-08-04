@@ -3,8 +3,24 @@ import * as fs from "node:fs";
 import * as path from "node:path";
 import { cleanupTestRepo, createTestRepo, git } from "../../helpers/git.js";
 import { createServerInRepo, parse } from "../../helpers/mcp.js";
+import { combineReviewReferenceEvidence } from "../../../src/mcp/tools/structural-review.js";
 
 describe("mcp: graft_review cold WARP", () => {
+  it("preserves graph evidence with partial confidence when the committed scan fails", async () => {
+    const result = await combineReviewReferenceEvidence({
+      symbol: "buildThing",
+      referenceCount: 2,
+      referencingFiles: ["src/a.ts", "src/b.ts"],
+    }, () => Promise.reject(new Error("scan unavailable")));
+
+    expect(result).toEqual({
+      referenceCount: 2,
+      referencingFiles: ["src/a.ts", "src/b.ts"],
+      warnings: [],
+      confidence: "partial",
+    });
+  });
+
   it("preserves breaking-change impact counts without a pre-indexed WARP graph", async () => {
     const repoDir = createTestRepo("graft-review-cold-warp-");
     try {
