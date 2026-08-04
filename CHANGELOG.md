@@ -45,6 +45,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   attributing nested-module declarations to an importing parent module.
   Python exception aliases are now treated as function-wide locals and remain
   unavailable after handler cleanup in their defining module or class scope.
+  Python `global` and `nonlocal` declarations preserve qualified import
+  references before reassignment and suppress them only from the reassignment
+  point onward.
   Go shadow diagnostics fall back to a meaningful package directory when an
   imported first-party package has no tracked source file.
   Committed scans containing supported-language parse errors report partial

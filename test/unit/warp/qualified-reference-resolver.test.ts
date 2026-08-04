@@ -66,6 +66,32 @@ describe("qualified reference language adapters", () => {
     expect(analysis.diagnostics.map((diagnostic) => diagnostic.binding)).toEqual(["sources", "sources"]);
   });
 
+  it("honors Python global and nonlocal declarations before reassignment", async () => {
+    const source = [
+      "import pkg.sources as source",
+      "def mutate_global(replacement):",
+      "    global source",
+      "    source.pending_ids()",
+      "    source = replacement",
+      "    source.pending_ids()",
+      "def outer():",
+      "    import pkg.sources as nested_source",
+      "    def mutate_nonlocal(replacement):",
+      "        nonlocal nested_source",
+      "        nested_source.pending_ids()",
+      "        nested_source = replacement",
+      "        nested_source.pending_ids()",
+    ].join("\n");
+    const analysis = await analyze("python", "pkg/caller.py", source, new Map([
+      ["pkg/caller.py", source],
+      ["pkg/sources.py", "def pending_ids(): return []\n"],
+    ]));
+
+    expect(analysis.accesses.map((access) => access.shadow?.shadowKind ?? "resolved")).toEqual([
+      "resolved", "assignment", "resolved", "assignment",
+    ]);
+  });
+
   it("targets Python shadow diagnostics to the import active in each lexical scope", async () => {
     const source = [
       "def first():",

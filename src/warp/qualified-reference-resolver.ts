@@ -771,6 +771,25 @@ function createShadowCollector(
 
 function collectPythonShadowRegions(collector: ShadowCollector): void {
   const { root, bindings, bindingNames, addAll } = collector;
+  const declaredOuterNames = new WeakMap<TSNode, ReadonlySet<string>>();
+  const outerNamesForScope = (scope: TSNode): ReadonlySet<string> => {
+    const existing = declaredOuterNames.get(scope);
+    if (existing !== undefined) return existing;
+    const names = new Set<string>();
+    const visit = (node: TSNode): void => {
+      if (node !== scope && PYTHON_LEXICAL_SCOPE_TYPES.has(node.type)) return;
+      if (node.type === "global_statement" || node.type === "nonlocal_statement") {
+        walk(node, (candidate) => {
+          if (candidate.type === "identifier" && bindingNames.has(candidate.text)) names.add(candidate.text);
+        });
+        return;
+      }
+      for (const child of node.namedChildren) visit(child);
+    };
+    visit(scope);
+    declaredOuterNames.set(scope, names);
+    return names;
+  };
   for (const binding of bindings) {
     const statement = nearestAncestor(binding.importNode, PYTHON_IMPORT_STATEMENT_TYPES);
     const scope = statement === null ? null : nearestAncestor(statement, PYTHON_LEXICAL_SCOPE_TYPES);
@@ -795,13 +814,17 @@ function collectPythonShadowRegions(collector: ShadowCollector): void {
       if (identifiers.length > 0) {
         const comprehension = nearestAncestor(node, PYTHON_COMPREHENSION_TYPES);
         const scope = nearestAncestor(node, PYTHON_LEXICAL_SCOPE_TYPES);
+        const outerNames = scope === null ? new Set<string>() : outerNamesForScope(scope);
+        const outerIdentifiers = identifiers.filter((identifier) => outerNames.has(identifier.text));
+        const localIdentifiers = identifiers.filter((identifier) => !outerNames.has(identifier.text));
         const outermostForClause = comprehension?.namedChildren.find((child) => child.type === "for_in_clause");
         if (node.type === "named_expression") {
           const body = scope?.childForFieldName("body") ?? scope;
           const start = scope?.type === "function_definition" || scope?.type === "lambda"
             ? body?.startIndex ?? scope.startIndex
             : node.startIndex;
-          addAll(identifiers, scope === null ? "assignment" : "local_binding", start, body?.endIndex ?? root.endIndex);
+          addAll(localIdentifiers, scope === null ? "assignment" : "local_binding", start, body?.endIndex ?? root.endIndex);
+          addAll(outerIdentifiers, "assignment", node.startIndex, body?.endIndex ?? root.endIndex);
         } else if (comprehension !== null && node.type === "for_in_clause" && node.startIndex === outermostForClause?.startIndex) {
           const element = comprehension.namedChildren[0];
           const iterable = node.childForFieldName("right") ?? node.namedChildren.at(-1);
@@ -815,7 +838,8 @@ function collectPythonShadowRegions(collector: ShadowCollector): void {
         else if (scope !== null) {
           const body = scope.childForFieldName("body") ?? scope;
           const start = scope.type === "function_definition" || scope.type === "lambda" ? body.startIndex : node.startIndex;
-          addAll(identifiers, node.type === "for_statement" ? "loop_binding" : "local_binding", start, body.endIndex);
+          addAll(localIdentifiers, node.type === "for_statement" ? "loop_binding" : "local_binding", start, body.endIndex);
+          addAll(outerIdentifiers, "assignment", node.startIndex, body.endIndex);
         } else {
           addAll(identifiers, node.type === "for_statement" ? "loop_binding" : "assignment", node.startIndex, root.endIndex);
         }
