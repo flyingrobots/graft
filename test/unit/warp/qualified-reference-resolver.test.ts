@@ -425,6 +425,28 @@ describe("qualified reference language adapters", () => {
     ]);
   });
 
+  it("keeps Python comprehension walrus targets in the enclosing function scope", async () => {
+    const source = [
+      "import pkg.sources as source",
+      "def rebind(values):",
+      "    source.pending_ids()",
+      "    [(source := value) for value in values]",
+      "    source.pending_ids()",
+      "source.pending_ids()",
+    ].join("\n");
+    const analysis = await analyze("python", "pkg/caller.py", source, new Map([
+      ["pkg/caller.py", source],
+      ["pkg/sources.py", "def pending_ids(): return []\n"],
+    ]));
+
+    expect(analysis.accesses.map((access) => access.shadow?.shadowKind ?? "resolved")).toEqual([
+      "local_binding", "local_binding", "resolved",
+    ]);
+    expect(analysis.diagnostics).toEqual([
+      expect.objectContaining({ binding: "source", shadowKind: "local_binding" }),
+    ]);
+  });
+
   it("resolves Rust crate/self/super aliases and declaration-point shadows", async () => {
     const source = [
       "use crate::sources as imported;",

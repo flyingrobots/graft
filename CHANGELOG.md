@@ -23,8 +23,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   `referenceConfidence` plus relevant `referenceWarnings` without forcing a
   full WARP index. Absent or ambiguous Go declarations continue to emit no
   inferred symbol edge and now make the matching review count explicitly
-  partial. The expanded `graft_review` / `struct_review` wire contract is
-  versioned as `2.0.0`; unchanged output contracts remain at `1.0.0`.
+  partial. Python assignment-expression targets inside comprehensions retain
+  their enclosing lexical scope. The expanded `graft_review` / `struct_review`
+  wire contract is versioned as `2.0.0`; unchanged output contracts remain at
+  `1.0.0`.
 
 - **CI test feedback**: pull request CI now keeps the release-grade
   Docker-isolated full test suite on the Node 22 lane while making the Node 20

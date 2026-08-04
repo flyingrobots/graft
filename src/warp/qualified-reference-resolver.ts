@@ -695,7 +695,13 @@ function collectPythonShadowRegions(collector: ShadowCollector): void {
         const comprehension = nearestAncestor(node, PYTHON_COMPREHENSION_TYPES);
         const scope = nearestAncestor(node, PYTHON_LEXICAL_SCOPE_TYPES);
         const outermostForClause = comprehension?.namedChildren.find((child) => child.type === "for_in_clause");
-        if (comprehension !== null && node.type === "for_in_clause" && node.startIndex === outermostForClause?.startIndex) {
+        if (node.type === "named_expression") {
+          const body = scope?.childForFieldName("body") ?? scope;
+          const start = scope?.type === "function_definition" || scope?.type === "lambda"
+            ? body?.startIndex ?? scope.startIndex
+            : node.startIndex;
+          addAll(identifiers, scope === null ? "assignment" : "local_binding", start, body?.endIndex ?? root.endIndex);
+        } else if (comprehension !== null && node.type === "for_in_clause" && node.startIndex === outermostForClause?.startIndex) {
           const element = comprehension.namedChildren[0];
           const iterable = node.childForFieldName("right") ?? node.namedChildren.at(-1);
           if (element !== undefined) {
