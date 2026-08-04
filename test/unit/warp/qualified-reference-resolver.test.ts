@@ -181,6 +181,7 @@ describe("qualified reference language adapters", () => {
       "    imported::pending_ids();",
       "}",
       "fn sibling() { imported::pending_ids(); }",
+      "fn item_shadow() { imported::pending_ids(); struct imported; }",
     ].join("\n");
     const analysis = await analyze("rust", "src/cli.rs", source, new Map([
       ["Cargo.toml", "[package]\nname='demo'"], ["src/cli.rs", source],
@@ -189,7 +190,7 @@ describe("qualified reference language adapters", () => {
 
     expect(analysis.bindings).toEqual([expect.objectContaining({ name: "imported", targetFilePath: "src/sources.rs" })]);
     expect(analysis.accesses.map((access) => access.shadow?.shadowKind ?? "resolved")).toEqual([
-      "resolved", "local_binding", "resolved",
+      "resolved", "local_binding", "resolved", "type_declaration",
     ]);
 
     const nested = "use self::local as child; use super::sources as parent; fn call(){ child::run(); parent::pending_ids(); }";

@@ -523,7 +523,7 @@ function collectShadowRegions(
     if (declarationTypes.includes(node.type)) {
       const identifier = matchingIdentifier(node.childForFieldName("name"), bindingNames);
       const scope = nearestAncestor(node, blockTypes) ?? root;
-      const declarationPoint = language === "rust" || language === "go" ? node.startIndex : scope.startIndex;
+      const declarationPoint = language === "rust" ? scope.startIndex : node.startIndex;
       add(identifier, node.type.includes("class") || node.type.includes("struct") || node.type.includes("type") ? "type_declaration" : "function_declaration", declarationPoint, scope.endIndex);
     }
   });
