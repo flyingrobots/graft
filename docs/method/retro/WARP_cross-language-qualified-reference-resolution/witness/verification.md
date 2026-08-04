@@ -7,13 +7,14 @@ title: "Cross-language qualified reference verification witness"
 - Cycle: `WARP_cross-language-qualified-reference-resolution`
 - Date: `2026-08-04`
 - Branch: `feature/python-import-resolution`
-- Full-suite code head: `577a0140`
-- Final acceptance code head: `577a0140`
+- Full-suite code head: `f51fa241`
+- Final acceptance code head: `f51fa241`
 
 ## Acceptance Coverage
 
-- Shared adapter fixtures cover Python, TypeScript, TSX, JavaScript, Rust, and
-  Go qualified accesses and lexical scopes.
+- A typed language-adapter contract and shared adapter fixtures cover Python,
+  TypeScript, TSX, JavaScript, Rust, and Go qualified accesses and lexical
+  scopes.
 - WARP integration fixtures verify qualified symbol edges and retained
   import-level file edges for Python, TypeScript, Rust, and Go.
 - The committed scanner fixture counts all four language families at an exact
@@ -30,12 +31,16 @@ title: "Cross-language qualified reference verification witness"
   symbol-specific partial confidence.
 - MCP and CLI fixtures cover command parsing, schemas, capability registration,
   generated model parity, structured diagnostics, and human review rendering.
+- Exact-ref scans take precedence over stale WARP edges, reuse one repository
+  analysis per review, and fail import diagnostics closed when parsing is
+  incomplete.
 
 ## Focused Validation
 
 ```bash
 pnpm exec vitest run \
   test/unit/warp/qualified-reference-resolver.test.ts \
+  test/unit/warp/qualified-reference-language-adapters.test.ts \
   test/unit/warp/qualified-reference-index.test.ts \
   test/unit/warp/committed-reference-scan.test.ts \
   test/unit/warp/index-head.test.ts \
@@ -51,7 +56,7 @@ pnpm exec vitest run \
   test/unit/echo/generated-model-parity.test.ts
 ```
 
-Result: `14` test files and `167` tests passed.
+Result: `15` test files and `190` tests passed.
 
 The cold-WARP Python review fixture changes the signature of
 `coqui/matcher/sources.py:pending_ids` and reports
@@ -82,7 +87,7 @@ Results:
 - the first isolated run found one stale generated backlog DAG after this
   cycle added a bad-code card. The owning generator repaired the DOT and SVG
   in `e3cc2006`.
-- final isolated full suite passed: `251` test files and `1932` tests.
+- final isolated full suite passed: `252` test files and `1958` tests.
 
 ## Post-Retro Acceptance Closure
 
@@ -132,15 +137,53 @@ files and `167` tests, and the Docker-isolated repository suite passed `251`
 files and `1932` tests. Lint, typecheck, build, structural-history artifact
 parity, agent-worktree hygiene, and whitespace validation were also green.
 
+The final Code Lawyer closure then repaired all `19` findings from the
+current-head self-audit in focused commits:
+
+- `9f99d2a2` prefers exact-ref committed scans over potentially stale WARP
+  evidence;
+- `dd8811c4` reuses one structural-reading analysis per review;
+- `1e1f3122` respects nested Go module boundaries;
+- `4f52de05` models Python exception-target lifetime;
+- `744cc68a` honors Python `global` and `nonlocal` declarations;
+- `1f352c60` enforces Python class-namespace visibility;
+- `b1b708fe` excludes Python qualified writes from caller inference;
+- `606b97d8` separates TypeScript value and type shadows;
+- `308222da` scopes JavaScript parameters across default expressions;
+- `da5fa18d` scopes named JavaScript function and class expressions;
+- `fc79d737` resolves Rust qualified type references;
+- `c6d80770` honors Rust module namespace separation;
+- `9372b733` limits Rust item shadows to their declaration lists;
+- `19ce94b6` resolves direct Rust module declarations;
+- `d66ef8bb` classifies unresolved dynamic references;
+- `c9d01fb2` fails incomplete import-diagnostic scans closed;
+- `4ff5ac8d` splits qualified-reference logic behind the shared language-adapter
+  contract;
+- `f51fa241` formats this witness's cycle metadata; and
+- the final witness refresh records the exact published validation and
+  disposable-repository evidence without changing the validated code head.
+
+All `10` inline threads that were unresolved at the start of this closure are
+resolved. At `f51fa241`, the focused acceptance set passed `15` files and `190`
+tests, and the Docker-isolated repository suite passed `252` files and `1958`
+tests. Lint, typecheck, build, structural-history artifact parity,
+agent-worktree hygiene, and whitespace validation also passed.
+
 ## CLI Witness
 
 ```bash
 pnpm graft struct import-diagnostics --ref HEAD --json
 ```
 
-The command exited successfully with CLI schema
-`graft.cli.struct_import_diagnostics`, `ref: "HEAD"`, and a structured empty
-diagnostic set for the reviewed Graft commit.
+On the final code head, the command exits non-zero with
+`import_diagnostics_incomplete`. That is the required fail-closed result:
+Graft intentionally tracks `test/fixtures/broken.ts`, and the configured
+Tree-sitter grammar also reports incomplete parses for several newer
+TypeScript type forms. Returning an empty diagnostic set would incorrectly
+claim repository-wide completeness. The successful response schema
+`graft.cli.struct_import_diagnostics`, exact-ref behavior, and structured empty
+and non-empty diagnostic sets are verified in clean disposable repositories by
+the CLI, MCP, and output-contract tests included above.
 
 ## Disposable SalesOS Witness
 
@@ -150,7 +193,7 @@ real `/Users/james/git/salesos` checkout was not modified.
 Starting from current SalesOS commit
 `26c11c204a450a940bfd9f56d1a7a371689d5e5b`, the first disposable signature
 change produced synthetic head
-`22f78917c27be85a53a3dab31f8bfadebc18504d`. A cold
+`363683ddcad9277483fa72d5b42b219b5971da4a`. A cold
 `graft struct review --json` reported the repository's unchanged direct test
 caller:
 
@@ -163,8 +206,8 @@ caller:
 
 The disposable history then added an unchanged qualified
 `sources.pending_ids` caller at `coqui/matcher/cli.py` in synthetic baseline
-`70571ae37151e98c4cb9755859bbee34197c55f8`, followed by a signature-only head
-`7e71d406fee41834069c5bc4dd39f04796acf246`. A second cold review reported:
+`fbbcc5edc5260841df9cb28144ad61fbd4e56151`, followed by a signature-only head
+`2c6fe2d306bd6af3ac9d41a3dbca9b6a70838f96`. A second cold review reported:
 
 - direct impacted files: `coqui/matcher/cli.py` and
   `coqui/tests/test_sources.py`;
