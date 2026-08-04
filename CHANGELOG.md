@@ -63,6 +63,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   Named TypeScript and JavaScript function and class expressions now shadow
   matching imported namespaces only within their expression bodies, with
   function names remaining value-only in TypeScript.
+  Rust qualified type paths such as `api::Target` now produce the same
+  declaring-symbol reference evidence as qualified value paths.
   Go shadow diagnostics fall back to a meaningful package directory when an
   imported first-party package has no tracked source file.
   Committed scans containing supported-language parse errors report partial

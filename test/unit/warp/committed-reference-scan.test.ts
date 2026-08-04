@@ -52,6 +52,29 @@ describe("committed qualified-reference scan", { timeout: 20_000 }, () => {
     }
   });
 
+  it("counts Rust qualified type callers at the exact ref", async () => {
+    const cwd = createTestRepo("committed-rust-qualified-type-");
+    try {
+      write(cwd, "Cargo.toml", "[package]\nname='qualified'\nversion='0.1.0'\n");
+      write(cwd, "src/api.rs", "pub struct Target;\n");
+      write(cwd, "src/caller.rs", "use crate::api; fn call(value: api::Target) {}\n");
+      git(cwd, "add -A"); git(cwd, "commit -m rust-qualified-type");
+
+      const result = await scanQualifiedReferencesAtRef({
+        cwd, git: nodeGit, pathOps: nodePathOps, ref: "HEAD",
+        symbolName: "Target", filePath: "src/api.rs",
+      });
+
+      expect(result).toMatchObject({
+        referenceCount: 1,
+        referencingFiles: ["src/caller.rs"],
+        confidence: "complete",
+      });
+    } finally {
+      cleanupTestRepo(cwd);
+    }
+  });
+
   it("returns only relevant shadow warnings and ignores standard-library imports", async () => {
     const cwd = createTestRepo("committed-shadow-scan-");
     try {

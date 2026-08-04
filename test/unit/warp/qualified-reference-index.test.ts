@@ -101,6 +101,17 @@ describe("qualified reference WARP indexing", { timeout: 20_000 }, () => {
     expect(refs.importedFile).toEqual([{ filePath: "src/consumer.rs", importedName: "*", localName: "imported" }]);
   });
 
+  it("indexes a Rust qualified type exactly once", async () => {
+    const refs = await indexedReferences({
+      "Cargo.toml": "[package]\nname='qualified'\nversion='0.1.0'\n",
+      "src/api.rs": "pub struct Target;\n",
+      "src/consumer.rs": "use crate::api; pub fn caller(value: api::Target) {}\n",
+    }, "Target", "src/api.rs");
+
+    expect(refs.symbol).toEqual([{ filePath: "src/consumer.rs", importedName: "Target", localName: "Target" }]);
+    expect(refs.importedFile).toEqual([{ filePath: "src/consumer.rs", importedName: "*", localName: "api" }]);
+  });
+
   it("indexes a Go selector only when go.mod ownership and declaration uniqueness agree", async () => {
     const refs = await indexedReferences({
       "go.mod": "module example.com/project\n",

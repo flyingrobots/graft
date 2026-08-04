@@ -744,6 +744,20 @@ describe("qualified reference language adapters", () => {
     ]);
   });
 
+  it("resolves Rust module members in qualified type positions", async () => {
+    const source = "use crate::api; fn call(value: api::Target) { api::run(); }";
+    const analysis = await analyze("rust", "src/caller.rs", source, new Map([
+      ["Cargo.toml", "[package]\nname='qualified'\n"],
+      ["src/caller.rs", source],
+      ["src/api.rs", "pub struct Target; pub fn run() {}\n"],
+    ]));
+
+    expect(analysis.accesses.map((access) => [access.member, access.targetFilePath])).toEqual([
+      ["Target", "src/api.rs"],
+      ["run", "src/api.rs"],
+    ]);
+  });
+
   it("resolves grouped Rust module imports without admitting unresolved leaves", async () => {
     const source = [
       "use crate::{sources as grouped};",

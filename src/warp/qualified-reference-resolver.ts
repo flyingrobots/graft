@@ -1216,9 +1216,12 @@ function accessParts(language: QualifiedReferenceLanguage, node: TSNode): {
     const binding = node.childForFieldName("module"); const member = node.childForFieldName("name");
     return binding?.type === "identifier" && member?.type === "type_identifier" ? { binding, qualifier: [], member, namespace: "type" } : null;
   }
-  if (language === "rust" && node.type === "scoped_identifier") {
+  if (language === "rust" && (node.type === "scoped_identifier" || node.type === "scoped_type_identifier")) {
     const binding = node.childForFieldName("path"); const member = node.childForFieldName("name");
-    return binding?.type === "identifier" && member?.type === "identifier" ? { binding, qualifier: [], member, namespace: "value" } : null;
+    const expectedMemberType = node.type === "scoped_type_identifier" ? "type_identifier" : "identifier";
+    return binding?.type === "identifier" && member?.type === expectedMemberType
+      ? { binding, qualifier: [], member, namespace: node.type === "scoped_type_identifier" ? "type" : "value" }
+      : null;
   }
   if (language === "go" && node.type === "selector_expression") {
     const binding = node.childForFieldName("operand"); const member = node.childForFieldName("field");
