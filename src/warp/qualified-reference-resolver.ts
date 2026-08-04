@@ -142,9 +142,7 @@ function pythonBindings(
   for (const statement of statements) {
     const lexicalScope = nearestAncestor(statement, PYTHON_LEXICAL_SCOPE_TYPES);
     const scopeBody = lexicalScope?.childForFieldName("body") ?? lexicalScope;
-    const scopeStartIndex = lexicalScope?.type === "function_definition" || lexicalScope?.type === "lambda"
-      ? scopeBody?.startIndex ?? statement.endIndex
-      : statement.endIndex;
+    const scopeStartIndex = statement.endIndex;
     const scopeEndIndex = scopeBody?.endIndex ?? root.endIndex;
     if (statement.type === "import_statement") {
       for (const specifier of statement.namedChildren) {
@@ -593,6 +591,7 @@ function diagnosticFor(
 
 const PYTHON_LEXICAL_SCOPE_TYPES = new Set(["function_definition", "lambda", "class_definition"]);
 const PYTHON_DECLARATION_SCOPE_TYPES = new Set(["function_definition", "class_definition"]);
+const PYTHON_IMPORT_STATEMENT_TYPES = new Set(["import_statement", "import_from_statement"]);
 const PYTHON_COMPREHENSION_TYPES = new Set(["list_comprehension", "set_comprehension", "dictionary_comprehension", "generator_expression"]);
 const PYTHON_ASSIGNMENT_TYPES = new Set(["assignment", "augmented_assignment", "named_expression", "for_statement", "for_in_clause"]);
 const TYPESCRIPT_FUNCTION_TYPES = new Set([
@@ -623,6 +622,7 @@ const GO_DECLARATION_TYPES = new Set(["function_declaration", "type_spec"]);
 
 interface ShadowCollector {
   readonly root: TSNode;
+  readonly bindings: readonly ResolvedImportBinding[];
   readonly bindingNames: ReadonlySet<string>;
   readonly regions: ShadowRegion[];
   readonly resolvedImportDeclarationStarts: ReadonlySet<number>;
@@ -663,6 +663,7 @@ function createShadowCollector(
   }));
   return {
     root,
+    bindings,
     bindingNames,
     regions,
     resolvedImportDeclarationStarts,
@@ -679,7 +680,17 @@ function createShadowCollector(
 }
 
 function collectPythonShadowRegions(collector: ShadowCollector): void {
-  const { root, bindingNames, addAll } = collector;
+  const { root, bindings, bindingNames, addAll } = collector;
+  for (const binding of bindings) {
+    const statement = nearestAncestor(binding.importNode, PYTHON_IMPORT_STATEMENT_TYPES);
+    const scope = statement === null ? null : nearestAncestor(statement, PYTHON_LEXICAL_SCOPE_TYPES);
+    if (statement === null || (scope?.type !== "function_definition" && scope?.type !== "lambda")) continue;
+    const body = scope.childForFieldName("body") ?? scope;
+    const alias = binding.importNode.type === "aliased_import"
+      ? binding.importNode.childForFieldName("alias") ?? binding.importNode.namedChildren.at(-1)
+      : binding.importNode.namedChildren.find((child) => child.type === "identifier" && child.text === binding.name);
+    addAll(directMatchingIdentifier(alias, bindingNames), "import_declaration", body.startIndex, statement.endIndex);
+  }
   walk(root, (node) => {
     if (node.type === "function_definition" || node.type === "lambda") {
       const parameters = node.childForFieldName("parameters");

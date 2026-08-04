@@ -147,6 +147,7 @@ describe("qualified reference language adapters", () => {
     const source = [
       "import pkg.outer as source",
       "def nested():",
+      "    source.pending_ids()",
       "    import pkg.inner as source",
       "    source.pending_ids()",
       "source.pending_ids()",
@@ -157,9 +158,16 @@ describe("qualified reference language adapters", () => {
       ["pkg/inner.py", "def pending_ids(): return []"],
     ]));
 
-    expect(analysis.accesses.map((access) => access.targetFilePath)).toEqual([
-      "pkg/inner.py",
-      "pkg/outer.py",
+    expect(analysis.accesses.map((access) => [
+      access.targetFilePath,
+      access.shadow?.shadowKind ?? "resolved",
+    ])).toEqual([
+      ["pkg/outer.py", "import_declaration"],
+      ["pkg/inner.py", "resolved"],
+      ["pkg/outer.py", "resolved"],
+    ]);
+    expect(analysis.diagnostics).toEqual([
+      expect.objectContaining({ binding: "source", targetFilePath: "pkg/outer.py", shadowKind: "import_declaration" }),
     ]);
   });
 
