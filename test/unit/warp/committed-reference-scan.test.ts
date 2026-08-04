@@ -97,6 +97,25 @@ describe("committed qualified-reference scan", { timeout: 20_000 }, () => {
     }
   });
 
+  it("analyzes tracked source paths that Git would otherwise quote", async () => {
+    const cwd = createTestRepo("committed-quoted-path-");
+    try {
+      write(cwd, "pkg/sources.py", "def pending_ids(): return []\n");
+      write(cwd, "ä.py", "import pkg.sources as source\ndef shadow(source): source.pending_ids()\n");
+      git(cwd, "add -A"); git(cwd, "commit -m quoted-path");
+
+      const result = await importDiagnosticsAtRef({
+        cwd, git: nodeGit, pathOps: nodePathOps, ref: "HEAD",
+      });
+
+      expect(result.diagnostics).toEqual([
+        expect.objectContaining({ filePath: "ä.py", targetFilePath: "pkg/sources.py" }),
+      ]);
+    } finally {
+      cleanupTestRepo(cwd);
+    }
+  });
+
   it("builds Go reference context for each importing file", async () => {
     const cwd = createTestRepo("committed-go-context-scan-");
     try {

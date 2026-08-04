@@ -61,7 +61,7 @@ async function listFilesAtRef(
   opts: Pick<ImportReferenceImpactOptions, "cwd" | "git" | "ref">,
 ): Promise<readonly string[]> {
   const result = await opts.git.run({
-    args: ["ls-tree", "-r", "--name-only", opts.ref],
+    args: ["ls-tree", "-r", "-z", "--name-only", opts.ref],
     cwd: opts.cwd,
   });
   if (result.error !== undefined || result.status !== 0) {
@@ -69,8 +69,7 @@ async function listFilesAtRef(
       result.stderr.trim() || `git ls-tree failed with status ${String(result.status)}`,
     );
   }
-  const output = result.stdout.trim();
-  return output === "" ? [] : output.split("\n");
+  return result.stdout === "" ? [] : result.stdout.split("\0").filter((filePath) => filePath !== "");
 }
 
 interface RefAnalysisContext {
