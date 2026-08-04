@@ -115,6 +115,17 @@ describe("qualified reference WARP indexing", { timeout: 20_000 }, () => {
     expect(refs.importedFile).toEqual([{ filePath: "src/consumer.rs", importedName: "*", localName: "api" }]);
   });
 
+  it("indexes members through direct Rust module declarations", async () => {
+    const refs = await indexedReferences({
+      "Cargo.toml": "[package]\nname='qualified'\nversion='0.1.0'\n",
+      "src/lib.rs": "mod api; pub fn caller() { api::run(); }\n",
+      "src/api.rs": "pub fn run() {}\n",
+    }, "run", "src/api.rs");
+
+    expect(refs.symbol).toEqual([{ filePath: "src/lib.rs", importedName: "run", localName: "run" }]);
+    expect(refs.importedFile).toEqual([{ filePath: "src/lib.rs", importedName: "*", localName: "api" }]);
+  });
+
   it("indexes a Go selector only when go.mod ownership and declaration uniqueness agree", async () => {
     const refs = await indexedReferences({
       "go.mod": "module example.com/project\n",

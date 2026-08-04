@@ -70,6 +70,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   remain conservative type-namespace shadows.
   Rust type/module item shadows are now confined to their nearest block or
   inline-module declaration list instead of suppressing sibling modules.
+  External Rust declarations such as `mod api;` now bind the corresponding
+  first-party module file for qualified value and type references, including
+  paths nested in inline modules.
   Go shadow diagnostics fall back to a meaningful package directory when an
   imported first-party package has no tracked source file.
   Committed scans containing supported-language parse errors report partial

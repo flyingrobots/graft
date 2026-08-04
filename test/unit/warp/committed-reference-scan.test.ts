@@ -75,6 +75,29 @@ describe("committed qualified-reference scan", { timeout: 20_000 }, () => {
     }
   });
 
+  it("counts callers through direct Rust module declarations", async () => {
+    const cwd = createTestRepo("committed-rust-direct-module-");
+    try {
+      write(cwd, "Cargo.toml", "[package]\nname='qualified'\nversion='0.1.0'\n");
+      write(cwd, "src/lib.rs", "mod api; fn call() { api::run(); }\n");
+      write(cwd, "src/api.rs", "pub fn run() {}\n");
+      git(cwd, "add -A"); git(cwd, "commit -m rust-direct-module");
+
+      const result = await scanQualifiedReferencesAtRef({
+        cwd, git: nodeGit, pathOps: nodePathOps, ref: "HEAD",
+        symbolName: "run", filePath: "src/api.rs",
+      });
+
+      expect(result).toMatchObject({
+        referenceCount: 1,
+        referencingFiles: ["src/lib.rs"],
+        confidence: "complete",
+      });
+    } finally {
+      cleanupTestRepo(cwd);
+    }
+  });
+
   it("returns only relevant shadow warnings and ignores standard-library imports", async () => {
     const cwd = createTestRepo("committed-shadow-scan-");
     try {

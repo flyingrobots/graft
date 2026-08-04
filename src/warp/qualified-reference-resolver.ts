@@ -412,6 +412,21 @@ function rustBindings(
       });
     }
   }
+  walk(root, (node) => {
+    if (node.type !== "mod_item" || node.childForFieldName("body") !== null) return;
+    const name = node.childForFieldName("name") ?? node.namedChildren.find((child) => child.type === "identifier");
+    if (name === undefined) return;
+    const targetFilePath = resolveRustModule(`self::${name.text}`, filePath, context, node);
+    if (targetFilePath === null) return;
+    const scope = nearestAncestor(node, RUST_IMPORT_SCOPE_TYPES);
+    bindings.push({
+      name: name.text,
+      targetFilePath,
+      scopeStartIndex: scope?.startIndex ?? root.startIndex,
+      scopeEndIndex: scope?.endIndex ?? root.endIndex,
+      importNode: node,
+    });
+  });
   return bindings;
 }
 
@@ -798,6 +813,7 @@ function createShadowCollector(
       )[0];
   const regions: ShadowRegion[] = [];
   const resolvedImportDeclarationStarts = new Set(bindings.flatMap((binding) => {
+    if (binding.importNode.type === "mod_item") return [binding.importNode.startIndex];
     const declaration = nearestAncestor(binding.importNode, RUST_USE_DECLARATION_TYPES);
     return declaration === null ? [] : [declaration.startIndex];
   }));
@@ -1079,6 +1095,7 @@ function collectRustShadowRegions(collector: ShadowCollector): void {
       }
     }
     if (RUST_TYPE_NAMESPACE_DECLARATION_TYPES.has(node.type)) {
+      if (resolvedImportDeclarationStarts.has(node.startIndex)) return;
       const identifiers = matchingBindingIdentifiers("rust", node.childForFieldName("name"), bindingNames);
       const scope = nearestAncestor(node, RUST_IMPORT_SCOPE_TYPES) ?? root;
       const kind = node.type === "mod_item" ? "module_declaration" : "type_declaration";

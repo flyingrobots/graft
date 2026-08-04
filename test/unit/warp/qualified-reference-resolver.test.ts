@@ -758,6 +758,30 @@ describe("qualified reference language adapters", () => {
     ]);
   });
 
+  it("resolves external Rust module declarations as qualified bindings", async () => {
+    const source = [
+      "mod api;",
+      "fn call(value: api::Target) { api::run(); }",
+      "mod nested { mod child; fn call() { child::run(); } }",
+    ].join("\n");
+    const analysis = await analyze("rust", "src/lib.rs", source, new Map([
+      ["Cargo.toml", "[package]\nname='qualified'\n"],
+      ["src/lib.rs", source],
+      ["src/api.rs", "pub struct Target; pub fn run() {}\n"],
+      ["src/nested/child.rs", "pub fn run() {}\n"],
+    ]));
+
+    expect(analysis.bindings).toEqual([
+      expect.objectContaining({ name: "api", targetFilePath: "src/api.rs" }),
+      expect.objectContaining({ name: "child", targetFilePath: "src/nested/child.rs" }),
+    ]);
+    expect(analysis.accesses.map((access) => [access.member, access.targetFilePath])).toEqual([
+      ["Target", "src/api.rs"],
+      ["run", "src/api.rs"],
+      ["run", "src/nested/child.rs"],
+    ]);
+  });
+
   it("resolves grouped Rust module imports without admitting unresolved leaves", async () => {
     const source = [
       "use crate::{sources as grouped};",
@@ -825,6 +849,7 @@ describe("qualified reference language adapters", () => {
     expect(analysis.bindings).toEqual([
       expect.objectContaining({ name: "local", targetFilePath: "src/network/nested/client.rs" }),
       expect.objectContaining({ name: "parent", targetFilePath: "src/network/nested/client.rs" }),
+      expect.objectContaining({ name: "client", targetFilePath: "src/network/nested/client.rs" }),
     ]);
     expect(analysis.accesses.map((access) => access.targetFilePath)).toEqual([
       "src/network/nested/client.rs", "src/network/nested/client.rs",
