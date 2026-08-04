@@ -29,8 +29,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   TypeScript modules participate in both qualified and static import
   resolution, and quoted Go module directives match their unquoted import
   paths. Rust `self` and `super` imports include enclosing inline-module paths.
-  The expanded `graft_review` / `struct_review` wire contract is versioned as
-  `2.0.0`; unchanged output contracts remain at `1.0.0`.
+  Committed scans containing supported-language parse errors report partial
+  confidence rather than a false complete result. The expanded `graft_review` /
+  `struct_review` wire contract is versioned as `2.0.0`; unchanged output
+  contracts remain at `1.0.0`.
 
 - **CI test feedback**: pull request CI now keeps the release-grade
   Docker-isolated full test suite on the Node 22 lane while making the Node 20

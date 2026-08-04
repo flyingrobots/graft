@@ -141,6 +141,7 @@ async function analyzeFile(
       ...qualified,
       staticReferences,
       dynamicReferences: analyzeDynamicReferenceFacts(language, parsed.root),
+      hasParseErrors: parsed.root.hasError(),
     };
   } finally {
     parsed.delete();
@@ -303,6 +304,7 @@ export async function analyzeCommittedReferencesAtRef(
     left.range.startLine - right.range.startLine ||
     left.range.startColumn - right.range.startColumn,
   );
+  const hasParseErrors = analyzed.some((candidate) => candidate.analysis.hasParseErrors);
   return {
     diagnostics,
     countReferences(symbolName, filePath) {
@@ -364,7 +366,7 @@ export async function analyzeCommittedReferencesAtRef(
         referenceCount: referencingFiles.size,
         referencingFiles: [...referencingFiles].sort(),
         warnings: [...warnings.values()],
-        confidence: warnings.size === 0 && !unsupportedDynamicSemantics && !unresolvedQualifiedSemantics
+        confidence: warnings.size === 0 && !unsupportedDynamicSemantics && !unresolvedQualifiedSemantics && !hasParseErrors
           ? "complete"
           : "partial",
       };

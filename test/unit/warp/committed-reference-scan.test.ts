@@ -235,6 +235,42 @@ describe("committed qualified-reference scan", { timeout: 20_000 }, () => {
     }
   });
 
+  it("marks a parse-error committed scan partial at the pinned commit", async () => {
+    const cwd = createTestRepo("committed-parse-error-scan-");
+    try {
+      write(cwd, "pkg/sources.py", "def pending_ids(): return []\n");
+      write(cwd, "pkg/broken.py", "def broken(:\n");
+      git(cwd, "add -A"); git(cwd, "commit -m parse-error-scan");
+      const commitId = git(cwd, "rev-parse HEAD");
+      const requests: string[][] = [];
+      const recordingGit: GitClient = {
+        async run(request) {
+          requests.push([...request.args]);
+          return nodeGit.run(request);
+        },
+      };
+
+      const result = await scanQualifiedReferencesAtRef({
+        cwd, git: recordingGit, pathOps: nodePathOps, ref: "HEAD",
+        symbolName: "pending_ids", filePath: "pkg/sources.py",
+      });
+
+      expect(result).toMatchObject({
+        referenceCount: 0,
+        referencingFiles: [],
+        confidence: "partial",
+        warnings: [],
+      });
+      expect(requests.filter((args) => args[0] === "rev-parse")).toHaveLength(1);
+      expect(requests.find((args) => args[0] === "ls-tree")?.at(-1)).toBe(commitId);
+      const showRequests = requests.filter((args) => args[0] === "show");
+      expect(showRequests.length).toBeGreaterThan(0);
+      expect(showRequests.every((args) => args[1]?.startsWith(`${commitId}:`))).toBe(true);
+    } finally {
+      cleanupTestRepo(cwd);
+    }
+  });
+
   it("counts qualified callers when the declaring file is deleted at the reviewed ref", async () => {
     const cwd = createTestRepo("committed-deleted-target-");
     try {
