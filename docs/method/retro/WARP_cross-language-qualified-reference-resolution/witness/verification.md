@@ -7,8 +7,8 @@ title: "Cross-language qualified reference verification witness"
 - Cycle: `WARP_cross-language-qualified-reference-resolution`
 - Date: `2026-08-04`
 - Branch: `feature/python-import-resolution`
-- Full-suite code head: `f51fa241`
-- Final acceptance code head: `f51fa241`
+- Full-suite code head: `cfeaa81a`
+- Final acceptance code head: `cfeaa81a`
 
 ## Acceptance Coverage
 
@@ -56,7 +56,7 @@ pnpm exec vitest run \
   test/unit/echo/generated-model-parity.test.ts
 ```
 
-Result: `15` test files and `190` tests passed.
+Result: `15` test files and `196` tests passed.
 
 The cold-WARP Python review fixture changes the signature of
 `coqui/matcher/sources.py:pending_ids` and reports
@@ -87,7 +87,7 @@ Results:
 - the first isolated run found one stale generated backlog DAG after this
   cycle added a bad-code card. The owning generator repaired the DOT and SVG
   in `e3cc2006`.
-- final isolated full suite passed: `252` test files and `1958` tests.
+- final isolated full suite passed: `252` test files and `1964` tests.
 
 ## Post-Retro Acceptance Closure
 
@@ -137,7 +137,7 @@ files and `167` tests, and the Docker-isolated repository suite passed `251`
 files and `1932` tests. Lint, typecheck, build, structural-history artifact
 parity, agent-worktree hygiene, and whitespace validation were also green.
 
-The final Code Lawyer closure then repaired all `19` findings from the
+The final Code Lawyer closure repaired all `19` original findings from the
 current-head self-audit in focused commits:
 
 - `9f99d2a2` prefers exact-ref committed scans over potentially stale WARP
@@ -160,14 +160,29 @@ current-head self-audit in focused commits:
 - `4ff5ac8d` splits qualified-reference logic behind the shared language-adapter
   contract;
 - `f51fa241` formats this witness's cycle metadata; and
-- the final witness refresh records the exact published validation and
-  disposable-repository evidence without changing the validated code head.
+- `e7fd5434` records the published validation and disposable-repository
+  evidence from that closure.
 
-All `10` inline threads that were unresolved at the start of this closure are
-resolved. At `f51fa241`, the focused acceptance set passed `15` files and `190`
-tests, and the Docker-isolated repository suite passed `252` files and `1958`
-tests. Lint, typecheck, build, structural-history artifact parity,
-agent-worktree hygiene, and whitespace validation also passed.
+Thirteen late Codex threads arrived after the self-audit. Eight duplicated
+repairs above. The remaining five distinct findings were closed by:
+
+- `1fd176d5`, which lets later function-local Python imports supersede earlier
+  same-name local shadows;
+- `ce59b677`, which resolves nested Rust module paths to their child declaring
+  files;
+- `9877f997`, which adds exact regression coverage for chained Python
+  assignment targets already handled by the shared pattern extractor;
+- `5c003b74`, which inspects unresolved leaves inside mixed Rust `use`
+  declarations; and
+- `cfeaa81a`, which adds exact regression coverage for static-import Python
+  `getattr` confidence already repaired by `d66ef8bb`.
+
+All `24` distinct findings are closed. At `cfeaa81a`, the full GraphQL audit
+reported `81` review threads and zero unresolved threads. The focused
+acceptance set passed `15` files and `196` tests, and the Docker-isolated
+repository suite passed `252` files and `1964` tests. Lint, typecheck, build,
+structural-history artifact parity, agent-worktree hygiene, and whitespace
+validation also passed.
 
 ## CLI Witness
 
