@@ -276,6 +276,25 @@ describe("qualified reference language adapters", () => {
     ]);
   });
 
+  it("hoists TypeScript function and class shadows across their lexical blocks", async () => {
+    const source = [
+      'import * as api from "./api";',
+      "{ api.run(); function api() {}; api.run(); }",
+      "{ api.run(); class api {}; api.run(); }",
+      "api.run();",
+    ].join("\n");
+    const analysis = await analyze("ts", "src/caller.ts", source, new Map([
+      ["src/caller.ts", source],
+      ["src/api.ts", "export function run() {}"],
+    ]));
+
+    expect(analysis.accesses.map((access) => access.shadow?.shadowKind ?? "resolved")).toEqual([
+      "function_declaration", "function_declaration",
+      "type_declaration", "type_declaration",
+      "resolved",
+    ]);
+  });
+
   it("confines comprehension, loop, catch, range, and pattern bindings to their lexical regions", async () => {
     const python = [
       "import pkg.sources as src",
