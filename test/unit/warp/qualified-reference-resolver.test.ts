@@ -402,6 +402,32 @@ describe("qualified reference language adapters", () => {
     ]);
   });
 
+  it("resolves grouped Rust module imports without admitting unresolved leaves", async () => {
+    const source = [
+      "use crate::{sources as grouped};",
+      "use crate::{sources};",
+      "use crate::sources::{self as scoped, pending};",
+      "use crate::{missing as unresolved};",
+      "fn call() { grouped::pending(); sources::pending(); scoped::pending(); unresolved::pending(); }",
+    ].join("\n");
+    const analysis = await analyze("rust", "src/caller.rs", source, new Map([
+      ["Cargo.toml", "[package]\nname='demo'"],
+      ["src/caller.rs", source],
+      ["src/sources.rs", "pub fn pending() {}"],
+    ]));
+
+    expect(analysis.bindings).toEqual([
+      expect.objectContaining({ name: "grouped", targetFilePath: "src/sources.rs" }),
+      expect.objectContaining({ name: "sources", targetFilePath: "src/sources.rs" }),
+      expect.objectContaining({ name: "scoped", targetFilePath: "src/sources.rs" }),
+    ]);
+    expect(analysis.accesses.map((access) => [access.binding, access.member])).toEqual([
+      ["grouped", "pending"],
+      ["sources", "pending"],
+      ["scoped", "pending"],
+    ]);
+  });
+
   it("hoists Rust block item shadows and recognizes first-party local imports", async () => {
     const source = [
       "use crate::sources as src;",

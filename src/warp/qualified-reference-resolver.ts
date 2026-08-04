@@ -265,6 +265,53 @@ function resolveRustModule(
   return [`${raw}.rs`, `${raw}/mod.rs`].find((candidate) => context.knownFiles.has(candidate)) ?? null;
 }
 
+interface RustUseModuleCandidate {
+  readonly name: string;
+  readonly source: string;
+  readonly importNode: TSNode;
+}
+
+function joinRustUsePath(prefix: string, path: string): string {
+  if (path === "self") return prefix === "" ? path : prefix;
+  if (path === "crate" || path === "super" || path.startsWith("crate::") || path.startsWith("self::") || path.startsWith("super::")) {
+    return path;
+  }
+  return prefix === "" ? path : `${prefix}::${path}`;
+}
+
+function rustUseModuleCandidates(node: TSNode, prefix = ""): readonly RustUseModuleCandidate[] {
+  if (node.type === "use_as_clause") {
+    const path = node.childForFieldName("path") ?? node.namedChildren[0];
+    const alias = node.childForFieldName("alias") ?? node.namedChildren.at(-1);
+    if (path === undefined || alias === undefined) return [];
+    return [{ name: alias.text, source: joinRustUsePath(prefix, path.text), importNode: node }];
+  }
+  if (node.type === "scoped_use_list") {
+    const path = node.childForFieldName("path") ?? node.namedChildren[0];
+    const list = node.namedChildren.find((child) => child.type === "use_list");
+    if (path === undefined || list === undefined) return [];
+    const nestedPrefix = joinRustUsePath(prefix, path.text);
+    return list.namedChildren.flatMap((child) => rustUseModuleCandidates(child, nestedPrefix));
+  }
+  if (node.type === "use_list") {
+    return node.namedChildren.flatMap((child) => rustUseModuleCandidates(child, prefix));
+  }
+  if (node.type === "scoped_identifier") {
+    const name = node.childForFieldName("name") ?? node.namedChildren.at(-1);
+    return name === undefined
+      ? []
+      : [{ name: name.text, source: joinRustUsePath(prefix, node.text), importNode: node }];
+  }
+  if (node.type === "identifier") {
+    return [{ name: node.text, source: joinRustUsePath(prefix, node.text), importNode: node }];
+  }
+  if (node.type === "self" && prefix !== "") {
+    const name = prefix.split("::").at(-1);
+    return name === undefined ? [] : [{ name, source: prefix, importNode: node }];
+  }
+  return [];
+}
+
 function rustBindings(
   root: TSNode,
   filePath: string,
@@ -281,26 +328,13 @@ function rustBindings(
     const scope = nearestAncestor(statement, RUST_BLOCK_TYPES);
     const scopeStartIndex = scope?.startIndex ?? root.startIndex;
     const scopeEndIndex = scope?.endIndex ?? root.endIndex;
-    if (argument.type === "use_as_clause") {
-      const imported = argument.childForFieldName("path") ?? argument.namedChildren[0];
-      const alias = argument.childForFieldName("alias") ?? argument.namedChildren.at(-1);
-      if (imported !== undefined && alias !== undefined) bindings.push({
-        name: alias.text,
-        targetFilePath: resolveRustModule(imported.text, filePath, context),
+    for (const candidate of rustUseModuleCandidates(argument)) {
+      bindings.push({
+        name: candidate.name,
+        targetFilePath: resolveRustModule(candidate.source, filePath, context),
         scopeStartIndex,
         scopeEndIndex,
-        importNode: argument,
-      });
-      continue;
-    }
-    if (argument.type === "scoped_identifier") {
-      const name = argument.childForFieldName("name") ?? argument.namedChildren.at(-1);
-      if (name !== undefined) bindings.push({
-        name: name.text,
-        targetFilePath: resolveRustModule(argument.text, filePath, context),
-        scopeStartIndex,
-        scopeEndIndex,
-        importNode: argument,
+        importNode: candidate.importNode,
       });
     }
   }

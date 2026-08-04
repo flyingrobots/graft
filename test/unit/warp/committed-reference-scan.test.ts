@@ -355,6 +355,31 @@ describe("committed qualified-reference scan", { timeout: 20_000 }, () => {
     }
   });
 
+  it("counts grouped Rust module callers at the exact ref", async () => {
+    const cwd = createTestRepo("committed-grouped-rust-scan-");
+    try {
+      write(cwd, "Cargo.toml", "[package]\nname='grouped'\nversion='0.1.0'\n");
+      write(cwd, "src/sources.rs", "pub fn pending_ids() {}\n");
+      write(cwd, "src/caller.rs", [
+        "use crate::{sources as grouped};",
+        "use crate::sources::{self as scoped};",
+        "fn call(){ grouped::pending_ids(); scoped::pending_ids(); }",
+      ].join("\n"));
+      git(cwd, "add -A"); git(cwd, "commit -m grouped-rust-scan");
+
+      await expect(scanQualifiedReferencesAtRef({
+        cwd, git: nodeGit, pathOps: nodePathOps, ref: "HEAD",
+        symbolName: "pending_ids", filePath: "src/sources.rs",
+      })).resolves.toMatchObject({
+        referenceCount: 1,
+        referencingFiles: ["src/caller.rs"],
+        confidence: "complete",
+      });
+    } finally {
+      cleanupTestRepo(cwd);
+    }
+  });
+
   it("marks a target-specific dynamic import limitation partial without inventing a caller", async () => {
     const cwd = createTestRepo("committed-dynamic-scan-");
     try {
