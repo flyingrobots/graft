@@ -596,6 +596,9 @@ const RUST_USE_DECLARATION_TYPES = new Set(["use_declaration"]);
 const RUST_DECLARATION_TYPES = new Set(["function_item", "struct_item", "enum_item", "type_item", "const_item", "static_item", "union_item", "trait_item", "mod_item"]);
 const GO_FUNCTION_TYPES = new Set(["function_declaration", "method_declaration", "func_literal"]);
 const GO_BLOCK_TYPES = new Set(["block"]);
+const GO_LEXICAL_SCOPE_TYPES = new Set([
+  "block", "expression_case", "type_case", "communication_case", "default_case",
+]);
 const GO_LOCAL_TYPES = new Set(["short_var_declaration", "var_spec", "const_spec", "assignment_statement"]);
 const GO_LOOP_TYPES = new Set(["for_statement"]);
 const GO_CONTROL_TYPES = new Set(["if_statement", "expression_switch_statement", "type_switch_statement"]);
@@ -843,7 +846,7 @@ function collectGoShadowRegions(collector: ShadowCollector): void {
           node.startIndex >= initializer.startIndex && node.endIndex <= initializer.endIndex
         ? controlStatement
         : null;
-      const scope = loop ?? initializedControl ?? nearestAncestor(node, GO_BLOCK_TYPES) ?? root;
+      const scope = loop ?? initializedControl ?? nearestAncestor(node, GO_LEXICAL_SCOPE_TYPES) ?? root;
       addAll(identifiers, loop === null ? (node.type === "assignment_statement" ? "assignment" : "local_binding") : "loop_binding", node.endIndex, scope.endIndex);
     }
     if (node.type === "range_clause") {

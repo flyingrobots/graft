@@ -623,6 +623,23 @@ describe("qualified reference language adapters", () => {
     ]);
   });
 
+  it("limits Go declarations to implicit switch and select clause scopes", async () => {
+    const source = [
+      "package cli",
+      'import src "example.com/project/sources"',
+      "func switchShadow(value int) { switch value { case 1: src := local; src.PendingIDs() }; src.PendingIDs() }",
+      "func selectShadow() { select { default: src := local; src.PendingIDs() }; src.PendingIDs() }",
+    ].join("\n");
+    const analysis = await analyze("go", "cli/main.go", source, new Map([
+      ["go.mod", "module example.com/project\n"], ["cli/main.go", source],
+      ["sources/pending.go", "package sources\nfunc PendingIDs() {}\n"],
+    ]));
+
+    expect(analysis.accesses.map((access) => access.shadow?.shadowKind ?? "resolved")).toEqual([
+      "local_binding", "resolved", "local_binding", "resolved",
+    ]);
+  });
+
   it("treats local Go constants as declaration-point block shadows", async () => {
     const source = [
       "package cli",
