@@ -256,4 +256,27 @@ describe("committed qualified-reference scan", { timeout: 20_000 }, () => {
       cleanupTestRepo(cwd);
     }
   });
+
+  it("ignores dynamic-reference words that occur only in comments and strings", async () => {
+    const cwd = createTestRepo("committed-dynamic-decoy-");
+    try {
+      write(cwd, "pkg/sources.py", "def pending_ids(): return []\n");
+      write(cwd, "pkg/decoy.py", [
+        "# importlib getattr pkg.sources pending_ids",
+        "note = 'importlib getattr pkg.sources pending_ids'",
+      ].join("\n"));
+      git(cwd, "add -A"); git(cwd, "commit -m dynamic-decoy");
+
+      const result = await scanQualifiedReferencesAtRef({
+        cwd, git: nodeGit, pathOps: nodePathOps, ref: "HEAD",
+        symbolName: "pending_ids", filePath: "pkg/sources.py",
+      });
+
+      expect(result).toMatchObject({
+        referenceCount: 0, referencingFiles: [], confidence: "complete", warnings: [],
+      });
+    } finally {
+      cleanupTestRepo(cwd);
+    }
+  });
 });

@@ -12,6 +12,8 @@ import {
 } from "./qualified-reference-resolver.js";
 import type { ImportBindingDiagnostic } from "./import-diagnostic.js";
 
+type TSNode = import("web-tree-sitter").SyntaxNode;
+
 export interface ReferenceScanResult extends ReferenceCountResult {
   readonly warnings: readonly ImportBindingDiagnostic[];
   readonly confidence: "complete" | "partial";
@@ -136,25 +138,98 @@ async function analyzeFile(
         knownFiles: refContext.knownFiles,
         ...(go !== undefined ? { go } : {}),
       });
-    return { ...qualified, staticReferences };
+    return {
+      ...qualified,
+      staticReferences,
+      dynamicReferences: analyzeDynamicReferenceFacts(language, parsed.root),
+    };
   } finally {
     parsed.delete();
   }
 }
 
+interface DynamicReferenceFacts {
+  readonly targetSpecifiers: readonly string[];
+  readonly memberNames: readonly string[];
+}
+
+function syntaxStringValue(node: TSNode | undefined): string | null {
+  if (node === undefined || !["string", "string_literal", "interpreted_string_literal", "raw_string_literal"].includes(node.type)) return null;
+  const text = node.text;
+  const quoteIndex = text.search(/['"]/u);
+  if (quoteIndex < 0) return null;
+  const quote = text.charAt(quoteIndex);
+  const quoteLength = text.startsWith(quote.repeat(3), quoteIndex) ? 3 : 1;
+  const start = quoteIndex + quoteLength;
+  const end = text.length - quoteLength;
+  return end < start ? null : text.slice(start, end);
+}
+
+function analyzeDynamicReferenceFacts(
+  language: "python" | "ts" | "tsx" | "js" | "rust" | "go",
+  root: TSNode,
+): DynamicReferenceFacts {
+  const targetSpecifiers = new Set<string>();
+  const memberNames = new Set<string>();
+  const visit = (node: TSNode): void => {
+    const member = language === "python" && node.type === "attribute"
+      ? node.childForFieldName("attribute")
+      : (language === "ts" || language === "tsx" || language === "js") && node.type === "member_expression"
+        ? node.childForFieldName("property")
+        : undefined;
+    if (member !== null && member !== undefined) memberNames.add(member.text);
+
+    if (language === "python" && node.type === "call") {
+      const fn = node.childForFieldName("function");
+      const args = node.childForFieldName("arguments")?.namedChildren ?? [];
+      const importedModule = fn?.type === "attribute" &&
+          fn.childForFieldName("object")?.text === "importlib" &&
+          fn.childForFieldName("attribute")?.text === "import_module"
+        ? syntaxStringValue(args[0])
+        : fn?.type === "identifier" && fn.text === "__import__"
+          ? syntaxStringValue(args[0])
+          : null;
+      if (importedModule !== null) targetSpecifiers.add(importedModule);
+      if (fn?.type === "identifier" && fn.text === "getattr") {
+        const name = syntaxStringValue(args[1]);
+        if (name !== null) memberNames.add(name);
+      }
+    }
+
+    if ((language === "ts" || language === "tsx" || language === "js") && node.type === "call_expression") {
+      const fn = node.childForFieldName("function");
+      if (fn?.type === "import") {
+        const value = syntaxStringValue(node.childForFieldName("arguments")?.namedChildren[0]);
+        if (value !== null) targetSpecifiers.add(value);
+      }
+    }
+    for (const child of node.namedChildren) visit(child);
+  };
+  visit(root);
+  return { targetSpecifiers: [...targetSpecifiers], memberNames: [...memberNames] };
+}
+
 function hasUnsupportedDynamicReference(
-  source: string,
+  facts: DynamicReferenceFacts,
+  referencingFilePath: string,
   symbolName: string,
   targetFilePath: string,
+  pathOps: PathOps,
 ): boolean {
-  if (!source.includes(symbolName)) return false;
-  const withoutExtension = targetFilePath.replace(/\.(?:pyi?|tsx?|jsx?|mjs|cjs|rs|go)$/u, "");
-  const basename = withoutExtension.split("/").at(-1);
-  const mentionsTarget = source.includes(withoutExtension) ||
-    source.includes(withoutExtension.replaceAll("/", ".")) ||
-    (basename !== undefined && source.includes(basename));
-  if (!mentionsTarget) return false;
-  return /\b(?:importlib|__import__|getattr|reflect)\b|\bimport\s*\(/u.test(source);
+  if (!facts.memberNames.includes(symbolName)) return false;
+  const targetModulePath = targetFilePath
+    .replace(/\.(?:pyi?|tsx?|jsx?|mjs|cjs|rs|go)$/u, "")
+    .replace(/\/__init__$/u, "");
+  const referencingDirectory = referencingFilePath.includes("/")
+    ? referencingFilePath.slice(0, referencingFilePath.lastIndexOf("/"))
+    : "";
+  return facts.targetSpecifiers.some((specifier) => {
+    const withoutExtension = specifier.replace(/\.(?:pyi?|tsx?|jsx?|mjs|cjs|rs|go)$/u, "");
+    const candidate = withoutExtension.startsWith(".")
+      ? pathOps.normalize(pathOps.join(referencingDirectory, withoutExtension))
+      : withoutExtension.replaceAll(".", "/");
+    return candidate === targetModulePath;
+  });
 }
 
 export async function analyzeCommittedReferencesAtRef(
@@ -166,16 +241,13 @@ export async function analyzeCommittedReferencesAtRef(
   const refContext = createRefAnalysisContext(pinnedOpts, files, opts.candidateTargetFilePaths ?? []);
   const analyzed: {
     readonly filePath: string;
-    readonly source: string;
     readonly analysis: NonNullable<Awaited<ReturnType<typeof analyzeFile>>>;
   }[] = [];
   const diagnostics: ImportBindingDiagnostic[] = [];
   for (const candidate of files) {
     const analysis = await analyzeFile(candidate, opts, refContext);
     if (analysis === null) continue;
-    const source = await refContext.readFile(candidate);
-    if (source === null) continue;
-    analyzed.push({ filePath: candidate, source, analysis });
+    analyzed.push({ filePath: candidate, analysis });
     diagnostics.push(...analysis.diagnostics);
   }
   diagnostics.sort((left, right) =>
@@ -212,7 +284,13 @@ export async function analyzeCommittedReferencesAtRef(
             referencingFiles.add(candidate.filePath);
           }
         }
-        if (hasUnsupportedDynamicReference(candidate.source, symbolName, filePath)) {
+        if (hasUnsupportedDynamicReference(
+          candidate.analysis.dynamicReferences,
+          candidate.filePath,
+          symbolName,
+          filePath,
+          opts.pathOps,
+        )) {
           unsupportedDynamicSemantics = true;
         }
       }
