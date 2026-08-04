@@ -5,8 +5,9 @@ title: "Cross-language qualified reference verification witness"
 # Verification witness
 
 Cycle: `WARP_cross-language-qualified-reference-resolution`
-Date: `2026-08-03`
+Date: `2026-08-04`
 Branch: `feature/python-import-resolution`
+Verified code head: `e3cc2006`
 
 ## Acceptance Coverage
 
@@ -20,8 +21,12 @@ Branch: `feature/python-import-resolution`
   declarations, duplicate declarations, external imports, and test-file
   exclusion.
 - Shadow fixtures cover parameters, locals, declarations, assignments,
-  comprehensions, loops/ranges, catches, and Rust patterns. Repeated accesses
-  under one shadow produce one diagnostic.
+  comprehensions, loops/ranges, catches, generators, switch/select clauses,
+  Rust closures and patterns, and Go type-switch/receive bindings. Repeated
+  accesses under one shadow produce one diagnostic.
+- Rust fixtures cover grouped `use` trees and Cargo auto-target crate roots;
+  computed TypeScript/JavaScript namespace access is excluded with
+  symbol-specific partial confidence.
 - MCP and CLI fixtures cover command parsing, schemas, capability registration,
   generated model parity, structured diagnostics, and human review rendering.
 
@@ -32,6 +37,10 @@ pnpm exec vitest run \
   test/unit/warp/qualified-reference-resolver.test.ts \
   test/unit/warp/qualified-reference-index.test.ts \
   test/unit/warp/committed-reference-scan.test.ts \
+  test/unit/warp/index-head.test.ts \
+  test/unit/warp/go-reference-context.test.ts \
+  test/unit/warp/python-import-resolver.test.ts \
+  test/unit/warp/ast-import-resolver.test.ts \
   test/unit/mcp/import-diagnostics.test.ts \
   test/unit/mcp/structural-review-cold-warp.test.ts \
   test/unit/warp/structural-reading-adapter.test.ts \
@@ -41,7 +50,7 @@ pnpm exec vitest run \
   test/unit/echo/generated-model-parity.test.ts
 ```
 
-Result: `10` test files and `79` tests passed.
+Result: `14` test files and `150` tests passed.
 
 The cold-WARP Python review fixture changes the signature of
 `coqui/matcher/sources.py:pending_ids` and reports
@@ -69,7 +78,10 @@ Results:
 - hermetic structural-history schema and Echo package checks passed with
   Wesley `0.1.0`.
 - agent worktree hygiene passed.
-- isolated full suite passed: `250` test files and `1868` tests.
+- the first isolated run found one stale generated backlog DAG after this
+  cycle added a bad-code card. The owning generator repaired the DOT and SVG
+  in `e3cc2006`.
+- final isolated full suite passed: `251` test files and `1918` tests.
 
 The full suite includes the existing byte-identical TypeScript import-resolver
 fixture.
@@ -89,21 +101,34 @@ diagnostic set for the reviewed Graft commit.
 The witness used a `git clone --no-local` disposable clone under `/tmp`. The
 real `/Users/james/git/salesos` checkout was not modified.
 
-Starting from SalesOS commit
-`904aa491c646576f63d7e9e832e7e59152255cd0`, the disposable clone changed only
-the `coqui/matcher/sources.py:pending_ids` signature and committed synthetic
-head `d958d7eb326c08ac9fda81329d43eccd5eb1e17b`. A cold
-`graft struct review --json` reported:
+Starting from current SalesOS commit
+`26c11c204a450a940bfd9f56d1a7a371689d5e5b`, the first disposable signature
+change produced synthetic head
+`22f78917c27be85a53a3dab31f8bfadebc18504d`. A cold
+`graft struct review --json` reported the repository's unchanged direct test
+caller:
 
 - breaking symbol: `pending_ids`;
 - declaring file: `coqui/matcher/sources.py`;
 - direct impacted file: `coqui/tests/test_sources.py`;
 - impact count: `1`;
-- confidence: `partial`;
+- confidence: `complete`;
 - shadow warnings: none.
 
-The current SalesOS CLI obtains the module through `_load_sources()` and then
-assigns it to a local `sources` variable. Interprocedural alias inference is an
-explicit non-goal, so those CLI accesses are deliberately excluded and the
-partial-confidence result is the precision-preserving outcome. The disposable
-clone was moved to Trash after verification.
+The disposable history then added an unchanged qualified
+`sources.pending_ids` caller at `coqui/matcher/cli.py` in synthetic baseline
+`70571ae37151e98c4cb9755859bbee34197c55f8`, followed by a signature-only head
+`7e71d406fee41834069c5bc4dd39f04796acf246`. A second cold review reported:
+
+- direct impacted files: `coqui/matcher/cli.py` and
+  `coqui/tests/test_sources.py`;
+- impact count: `2`;
+- confidence: `complete`;
+- shadow warnings: none.
+
+No WARP graph/index files existed in the clone; the command created only its
+runtime log. The current real SalesOS checkout has no production
+`pending_ids` call in `coqui/matcher/cli.py`, so the CLI caller was deliberately
+synthetic to verify the planned unchanged-caller path without modifying
+`/Users/james/git/salesos`. The disposable clone was moved to Trash after
+verification, and the real checkout remained clean at its original commit.

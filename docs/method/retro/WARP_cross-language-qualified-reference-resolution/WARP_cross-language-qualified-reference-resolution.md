@@ -29,8 +29,14 @@ diagnostics are available through both MCP and CLI surfaces.
 - Added Go module-coordinate, declared-package-name, exported-declaration, and
   ambiguous-declaration checks.
 - Added language-correct lexical shadow regions for parameters, locals,
-  assignments, declarations, loops/ranges, catches, comprehensions, and Rust
-  patterns.
+  assignments, declarations, loops/ranges, catches, comprehensions,
+  generators, switch/select clauses, Rust closures/patterns, and Go
+  type-switch/receive bindings.
+- Resolved grouped Rust module imports and common Cargo auto-target crate
+  roots without admitting unresolved or direct-symbol leaves as module
+  bindings.
+- Marked computed TypeScript/JavaScript namespace access partial only when it
+  can affect the changed first-party symbol.
 - Preserved import-level file evidence when a shadow suppresses a qualified
   symbol edge.
 - Added `referenceWarnings` and `referenceConfidence` to breaking changes and
@@ -47,12 +53,13 @@ diagnostics are available through both MCP and CLI surfaces.
 
 ## Drift
 
-- The current SalesOS `feature/dev-profiler` branch loads matcher sources
-  through `_load_sources()`. That interprocedural alias is intentionally outside
-  this cycle's inference model, so the disposable witness reports partial
-  confidence rather than inventing a caller edge.
-- Direct qualified `sources.pending_ids` behavior is covered by the cold-WARP
-  review fixture at the planned `coqui/matcher/cli.py` path.
+- Current SalesOS has one unchanged direct test caller and no production
+  `pending_ids` call in `coqui/matcher/cli.py`; the disposable real-current
+  witness therefore reports that test caller with complete confidence.
+- A second disposable baseline added a synthetic unchanged direct
+  `sources.pending_ids` caller at the planned `coqui/matcher/cli.py` path. The
+  subsequent signature-only cold review reports both CLI and test callers with
+  complete confidence and no prebuilt WARP index.
 
 ## New Debt
 
