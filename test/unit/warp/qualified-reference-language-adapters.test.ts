@@ -16,6 +16,7 @@ describe("qualified reference language-adapter contract", () => {
         resolveBindings: expect.any(Function),
         collectShadows: expect.any(Function),
         accessParts: expect.any(Function),
+        isUnsupportedWrite: expect.any(Function),
       });
     }
   });
