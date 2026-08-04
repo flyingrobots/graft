@@ -148,6 +148,34 @@ describe("committed qualified-reference scan", { timeout: 20_000 }, () => {
     }
   });
 
+  it("does not count Go callers across a nested module boundary", async () => {
+    const cwd = createTestRepo("committed-go-module-boundary-");
+    try {
+      write(cwd, "go.mod", "module example.com/root\n");
+      write(cwd, "cli/main.go", [
+        "package cli",
+        'import nested "example.com/root/nested/pkg"',
+        "func call(){ nested.Run() }",
+      ].join("\n"));
+      write(cwd, "nested/go.mod", "module other.example/nested\n");
+      write(cwd, "nested/pkg/value.go", "package pkg\nfunc Run() {}\n");
+      git(cwd, "add -A"); git(cwd, "commit -m nested-module-boundary");
+
+      const result = await scanQualifiedReferencesAtRef({
+        cwd, git: nodeGit, pathOps: nodePathOps, ref: "HEAD",
+        symbolName: "Run", filePath: "nested/pkg/value.go",
+      });
+
+      expect(result).toMatchObject({
+        referenceCount: 0,
+        referencingFiles: [],
+        confidence: "complete",
+      });
+    } finally {
+      cleanupTestRepo(cwd);
+    }
+  });
+
   it("counts every TypeScript import by its imported name and target", async () => {
     const cwd = createTestRepo("committed-typescript-import-scan-");
     try {

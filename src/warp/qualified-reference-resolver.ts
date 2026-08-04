@@ -424,6 +424,7 @@ function goBindings(root: TSNode, context: QualifiedReferenceContext): readonly 
     const importPath = stringValue(pathNode);
     if (importPath === null || (importPath !== go.modulePath && !importPath.startsWith(`${go.modulePath}/`))) return;
     const directory = importPath === go.modulePath ? "" : importPath.slice(go.modulePath.length + 1);
+    if (!go.packageNames.has(directory)) return;
     const explicit = node.childForFieldName("name") ?? node.namedChildren.find((child) => child.type === "package_identifier");
     const name = explicit?.text ?? go.packageNames.get(directory);
     if (name === undefined || name === null || name === "_" || name === ".") return;

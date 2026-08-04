@@ -91,6 +91,20 @@ interface GoPackageFacts {
   readonly declarations: ReadonlyMap<string, string | null>;
 }
 
+function crossesNestedModuleBoundary(
+  module: GoModuleFacts,
+  directory: string,
+  knownFiles: ReadonlySet<string>,
+): boolean {
+  const segments = directory.split("/").filter((segment) => segment.length > 0);
+  for (let length = 1; length <= segments.length; length++) {
+    const relativeDirectory = segments.slice(0, length).join("/");
+    const manifestPath = `${module.filePrefix}${relativeDirectory}/go.mod`;
+    if (knownFiles.has(manifestPath)) return true;
+  }
+  return false;
+}
+
 export type GoReferenceContextResolver = (
   importingFilePath: string,
 ) => Promise<GoReferenceContext | undefined>;
@@ -148,6 +162,9 @@ export function createGoReferenceContextResolver(
     const existing = packages.get(cacheKey);
     if (existing !== undefined) return existing;
     const pending = (async (): Promise<GoPackageFacts> => {
+      if (crossesNestedModuleBoundary(module, directory, knownFiles)) {
+        return { packageName: null, files: [], declarations: new Map() };
+      }
       const files = [...knownFiles].filter((filePath) => {
         if (!filePath.startsWith(module.filePrefix) || !filePath.endsWith(".go") || filePath.endsWith("_test.go")) return false;
         const relative = filePath.slice(module.filePrefix.length);
@@ -190,6 +207,7 @@ export function createGoReferenceContextResolver(
     const packageFiles = new Map<string, readonly string[]>();
     const declarations = new Map<string, ReadonlyMap<string, string | null>>();
     for (const directory of directories) {
+      if (crossesNestedModuleBoundary(module, directory, knownFiles)) continue;
       const target = await packageFor(module, directory);
       packageNames.set(directory, target.packageName);
       packageFiles.set(directory, target.files);

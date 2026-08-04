@@ -115,4 +115,20 @@ describe("qualified reference WARP indexing", { timeout: 20_000 }, () => {
     expect(refs.symbol).toEqual([{ filePath: "cli/main.go", importedName: "PendingIDs", localName: "PendingIDs" }]);
     expect(refs.importedFile).toEqual([{ filePath: "cli/main.go", importedName: "*", localName: "src" }]);
   });
+
+  it("does not index Go selectors across a nested module boundary", async () => {
+    const refs = await indexedReferences({
+      "go.mod": "module example.com/root\n",
+      "cli/main.go": [
+        "package cli",
+        'import nested "example.com/root/nested/pkg"',
+        "func caller() { nested.Run() }",
+      ].join("\n"),
+      "nested/go.mod": "module other.example/nested\n",
+      "nested/pkg/value.go": "package pkg\nfunc Run() {}\n",
+    }, "Run", "nested/pkg/value.go");
+
+    expect(refs.symbol).toEqual([]);
+    expect(refs.importedFile).toEqual([]);
+  });
 });
