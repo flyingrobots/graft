@@ -147,6 +147,27 @@ describe("warp: Python import resolver", { timeout: 15000 }, () => {
     expect(result.edges).toEqual([]);
   });
 
+  it("resolves first-party modules and package children declared only by Python stubs", async () => {
+    const result = await resolveEdges(
+      "python",
+      "consumer.py",
+      "import package.direct as direct\nfrom package.module import symbol\nfrom package import child\n",
+      ["package/direct.pyi", "package/module.pyi", "package/__init__.pyi", "package/child.pyi"],
+      resolvePythonImportEdges,
+    );
+
+    expect(result.edges.filter((edge) => edge.label === "references").map((edge) => edge.to).sort()).toEqual([
+      "file:package/child.pyi",
+      "file:package/direct.pyi",
+      "sym:package/module.pyi:symbol",
+    ]);
+    expect(result.edges.filter((edge) => edge.label === "resolves_to").map((edge) => edge.to).sort()).toEqual([
+      "file:package/__init__.pyi",
+      "file:package/direct.pyi",
+      "file:package/module.pyi",
+    ]);
+  });
+
   it("preserves the TypeScript resolver edge and metadata semantics", async () => {
     const result = await resolveEdges(
       "ts",

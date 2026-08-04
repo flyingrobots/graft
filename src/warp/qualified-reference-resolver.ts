@@ -8,7 +8,7 @@ import type { SupportedLang } from "../parser/lang.js";
 import type { PathOps } from "../ports/paths.js";
 import type { ImportBindingDiagnostic } from "./import-diagnostic.js";
 import { SymIdCodec } from "./sym-id-codec.js";
-import { pythonChildModuleSource, resolvePythonModulePath } from "./python-import-resolver.js";
+import { isPythonPackageModulePath, pythonChildModuleSource, resolvePythonModulePath } from "./python-import-resolver.js";
 
 type TSNode = import("web-tree-sitter").SyntaxNode;
 
@@ -194,7 +194,7 @@ function pythonBindings(
       const alias = specifier.type === "aliased_import"
         ? specifier.childForFieldName("alias") ?? specifier.namedChildren.find((child) => child.type === "identifier")
         : undefined;
-      const childPath = packagePath?.endsWith("/__init__.py") === true || packagePath === null
+      const childPath = packagePath === null || isPythonPackageModulePath(packagePath)
         ? resolvePythonModulePath(pythonChildModuleSource(packageNode.text, imported.text), filePath, context.pathOps, context.knownFiles)
         : null;
       bindings.push({
@@ -352,7 +352,7 @@ export function analyzeDirectSymbolImportReferences(
           ? specifier.childForFieldName("name") ?? specifier.namedChildren.find((child) => child.type === "dotted_name")
           : specifier;
         if (imported?.type !== "dotted_name") continue;
-        const childModule = packagePath.endsWith("/__init__.py")
+        const childModule = isPythonPackageModulePath(packagePath)
           ? resolvePythonModulePath(pythonChildModuleSource(packageNode.text, imported.text), filePath, context.pathOps, context.knownFiles)
           : null;
         if (childModule === null) references.push({ importedName: imported.text, targetFilePath: packagePath });

@@ -34,7 +34,11 @@ function emitAstAnchor(patch: PatchBuilderV2, filePath: string, node: TSNode): s
 }
 
 function moduleCandidates(path: string): readonly string[] {
-  return [`${path}.py`, `${path}/__init__.py`];
+  return [`${path}.py`, `${path}.pyi`, `${path}/__init__.py`, `${path}/__init__.pyi`];
+}
+
+export function isPythonPackageModulePath(filePath: string): boolean {
+  return filePath.endsWith("/__init__.py") || filePath.endsWith("/__init__.pyi");
 }
 
 export function pythonChildModuleSource(packageSource: string, childName: string): string {
@@ -101,7 +105,7 @@ function handleFromImportStatement(patch: PatchBuilderV2, filePath: string, node
   for (const child of node.namedChildren.slice(node.namedChildren.indexOf(moduleNode) + 1)) {
     const info = importInfo(child, true);
     if (info === null) continue;
-    const childModule = resolvedPath?.endsWith("/__init__.py") === true || resolvedPath === null
+    const childModule = resolvedPath === null || isPythonPackageModulePath(resolvedPath)
       ? resolvePythonModulePath(pythonChildModuleSource(moduleNode.text, info.importedName), filePath, pathOps, knownFiles)
       : null;
     const target = info.importedName === "*"
