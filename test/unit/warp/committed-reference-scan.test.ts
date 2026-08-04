@@ -108,6 +108,36 @@ describe("committed qualified-reference scan", { timeout: 20_000 }, () => {
     }
   });
 
+  it("counts every TypeScript import by its imported name and target", async () => {
+    const cwd = createTestRepo("committed-typescript-import-scan-");
+    try {
+      write(cwd, "src/api.ts", "export function buildThing() {}\n");
+      write(cwd, "src/other.ts", "export function buildThing() {}\nexport function other() {}\n");
+      write(cwd, "src/valid.ts", [
+        'import { buildThing as otherBuild } from "./other";',
+        'import { buildThing as targetBuild } from "./api";',
+        "targetBuild();",
+      ].join("\n"));
+      write(cwd, "src/local-alias.ts", [
+        'import { other as buildThing } from "./api";',
+        "buildThing();",
+      ].join("\n"));
+      git(cwd, "add -A"); git(cwd, "commit -m typescript-import-scan");
+
+      const result = await scanQualifiedReferencesAtRef({
+        cwd, git: nodeGit, pathOps: nodePathOps, ref: "HEAD",
+        symbolName: "buildThing", filePath: "src/api.ts",
+      });
+
+      expect(result).toMatchObject({
+        referenceCount: 1,
+        referencingFiles: ["src/valid.ts"],
+      });
+    } finally {
+      cleanupTestRepo(cwd);
+    }
+  });
+
   it("marks a target-specific dynamic import limitation partial without inventing a caller", async () => {
     const cwd = createTestRepo("committed-dynamic-scan-");
     try {

@@ -3,6 +3,7 @@ import { parseStructuredTreeAsync } from "../parser/runtime.js";
 import type { GitClient } from "../ports/git.js";
 import type { PathOps } from "../ports/paths.js";
 import type { ReferenceCountResult } from "../operations/structural-review.js";
+import { analyzeStaticTypeScriptReferences } from "./ast-import-resolver.js";
 import { buildGoReferenceContext } from "./go-reference-context.js";
 import {
   analyzeQualifiedReferences,
@@ -111,11 +112,15 @@ async function analyzeFile(
   const go = language === "go" ? await refContext.goContext(filePath) : undefined;
   const parsed = await parseStructuredTreeAsync(language, source);
   try {
-    return analyzeQualifiedReferences(language, filePath, parsed.root, {
+    const qualified = analyzeQualifiedReferences(language, filePath, parsed.root, {
       pathOps: opts.pathOps,
       knownFiles: refContext.knownFiles,
       ...(go !== undefined ? { go } : {}),
     });
+    const staticReferences = language === "ts" || language === "tsx" || language === "js"
+      ? analyzeStaticTypeScriptReferences(parsed.root, filePath, opts.pathOps, refContext.knownFiles)
+      : [];
+    return { ...qualified, staticReferences };
   } finally {
     parsed.delete();
   }
@@ -164,34 +169,12 @@ export async function scanQualifiedReferencesAtRef(
         warnings.set(key, warning);
       }
     }
-    // Preserve existing named-import evidence. Qualified adapters supplement
-    // direct symbol imports; they do not weaken the committed fallback.
-    const source = await refContext.readFile(candidate);
-    const language = detectLang(candidate);
-    if (source !== null && (language === "ts" || language === "tsx" || language === "js")) {
-      const escaped = opts.symbolName.replace(/[.*+?^${}()|[\]\\]/gu, "\\$&");
-      const pattern = new RegExp(
-        `\\b(?:import|export)\\s+(?:type\\s+)?\\{[^}]*\\b${escaped}\\b[^}]*\\}\\s+from\\s+["']([^"']+)["']`,
-        "u",
-      );
-      const sourceMatch = pattern.exec(source)?.[1];
-      if (sourceMatch !== undefined) {
-        const binding = analysis.bindings.find((candidateBinding) =>
-          candidateBinding.targetFilePath === opts.filePath,
-        );
-        if (binding !== undefined) referencingFiles.add(candidate);
-        else {
-          // Named imports are not part of the namespace binding set. Resolve
-          // their relative source with the same first-party candidate rules.
-          const directory = candidate.includes("/") ? candidate.slice(0, candidate.lastIndexOf("/")) : "";
-          const raw = directory === "" ? opts.pathOps.normalize(sourceMatch) : opts.pathOps.join(directory, sourceMatch);
-          const base = raw.replace(/\.(?:mjs|cjs|js|jsx)$/u, "");
-          if ([raw, `${base}.ts`, `${base}.tsx`, `${base}.js`, `${base}.jsx`, `${base}/index.ts`, `${base}/index.js`].includes(opts.filePath)) {
-            referencingFiles.add(candidate);
-          }
-        }
+    for (const reference of analysis.staticReferences) {
+      if (reference.targetFilePath === opts.filePath && reference.importedName === opts.symbolName) {
+        referencingFiles.add(candidate);
       }
     }
+    const source = await refContext.readFile(candidate);
     if (source !== null && hasUnsupportedDynamicReference(source, opts.symbolName, opts.filePath)) {
       unsupportedDynamicSemantics = true;
     }

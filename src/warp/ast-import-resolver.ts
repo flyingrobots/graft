@@ -193,6 +193,43 @@ function getModuleSource(node: TSNode): string | null {
   return fragment !== undefined ? fragment.text : null;
 }
 
+export interface StaticTypeScriptReference {
+  readonly importedName: string;
+  readonly localName: string;
+  readonly targetFilePath: string;
+}
+
+/** Analyze direct static imports/re-exports without emitting graph state. */
+export function analyzeStaticTypeScriptReferences(
+  root: TSNode,
+  filePath: string,
+  pathOps: PathOps,
+  knownFiles: ReadonlySet<string>,
+): readonly StaticTypeScriptReference[] {
+  const references: StaticTypeScriptReference[] = [];
+  for (const statement of root.namedChildren) {
+    const specifiers = statement.type === "import_statement"
+      ? extractImportSpecifiers(statement, filePath)
+      : statement.type === "export_statement"
+        ? extractExportSpecifiers(statement, filePath)
+        : [];
+    if (specifiers.length === 0) continue;
+    const source = getModuleSource(statement);
+    if (source === null) continue;
+    const targetFilePath = resolveModulePath(source, filePath, pathOps, knownFiles);
+    if (targetFilePath === null) continue;
+    for (const specifier of specifiers) {
+      if (specifier.importedName === "*") continue;
+      references.push({
+        importedName: specifier.importedName,
+        localName: specifier.localName,
+        targetFilePath,
+      });
+    }
+  }
+  return references;
+}
+
 /**
  * Resolve import/export statements and emit cross-file reference edges.
  *
