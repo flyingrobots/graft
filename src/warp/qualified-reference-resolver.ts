@@ -44,6 +44,24 @@ function walk(node: TSNode, visit: (candidate: TSNode) => void): void {
   for (const child of node.namedChildren) walk(child, visit);
 }
 
+function rustQualifiedTargetFilePath(
+  targetFilePath: string | null,
+  qualifier: readonly string[],
+  context: QualifiedReferenceContext,
+): string | null {
+  if (targetFilePath === null || qualifier.length === 0) return targetFilePath;
+  const directory = targetFilePath.includes("/")
+    ? targetFilePath.slice(0, targetFilePath.lastIndexOf("/"))
+    : "";
+  const fileName = targetFilePath.slice(directory === "" ? 0 : directory.length + 1);
+  const logicalRoot = fileName === "lib.rs" || fileName === "main.rs" || fileName === "mod.rs"
+    ? directory
+    : context.pathOps.join(directory, fileName.replace(/\.rs$/u, ""));
+  const modulePath = context.pathOps.join(logicalRoot, ...qualifier);
+  const candidates = [`${modulePath}.rs`, context.pathOps.join(modulePath, "mod.rs")];
+  return candidates.find((candidate) => context.knownFiles.has(candidate)) ?? null;
+}
+
 export function analyzeQualifiedReferences(
   language: QualifiedReferenceLanguage,
   filePath: string,
@@ -73,8 +91,10 @@ export function analyzeQualifiedReferences(
     const binding = bindingCandidates
       .filter((candidate) =>
         candidate.name === parts.binding.text &&
-        (candidate.qualifiedPath ?? []).length === parts.qualifier.length &&
-        (candidate.qualifiedPath ?? []).every((segment, index) => segment === parts.qualifier[index]) &&
+        (language === "rust" || (
+          (candidate.qualifiedPath ?? []).length === parts.qualifier.length &&
+          (candidate.qualifiedPath ?? []).every((segment, index) => segment === parts.qualifier[index])
+        )) &&
         node.startIndex >= (candidate.scopeStartIndex ?? root.startIndex) &&
         node.startIndex < (candidate.scopeEndIndex ?? root.endIndex) &&
         importBindingAppliesAtIndex(language, candidate, node.startIndex)
@@ -129,7 +149,9 @@ export function analyzeQualifiedReferences(
     );
     const target = language === "go"
       ? context.go?.declarations.get(binding.packageDirectory ?? "")?.get(parts.member.text)
-      : binding.targetFilePath;
+      : language === "rust"
+        ? rustQualifiedTargetFilePath(binding.targetFilePath, parts.qualifier, context)
+        : binding.targetFilePath;
     if (target === null || target === undefined) {
       if (language === "go" && context.go !== undefined) {
         const packageDirectory = binding.packageDirectory ?? "";

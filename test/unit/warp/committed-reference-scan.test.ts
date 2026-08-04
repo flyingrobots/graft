@@ -75,6 +75,30 @@ describe("committed qualified-reference scan", { timeout: 20_000 }, () => {
     }
   });
 
+  it("counts callers through nested Rust module paths at the exact ref", async () => {
+    const cwd = createTestRepo("committed-rust-nested-module-");
+    try {
+      write(cwd, "Cargo.toml", "[package]\nname='qualified'\nversion='0.1.0'\n");
+      write(cwd, "src/api.rs", "pub mod nested;\n");
+      write(cwd, "src/api/nested.rs", "pub fn run() {}\n");
+      write(cwd, "src/caller.rs", "use crate::api; fn call() { api::nested::run(); }\n");
+      git(cwd, "add -A"); git(cwd, "commit -m rust-nested-module");
+
+      const result = await scanQualifiedReferencesAtRef({
+        cwd, git: nodeGit, pathOps: nodePathOps, ref: "HEAD",
+        symbolName: "run", filePath: "src/api/nested.rs",
+      });
+
+      expect(result).toMatchObject({
+        referenceCount: 1,
+        referencingFiles: ["src/caller.rs"],
+        confidence: "complete",
+      });
+    } finally {
+      cleanupTestRepo(cwd);
+    }
+  });
+
   it("counts callers through direct Rust module declarations", async () => {
     const cwd = createTestRepo("committed-rust-direct-module-");
     try {

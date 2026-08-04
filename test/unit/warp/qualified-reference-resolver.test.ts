@@ -777,6 +777,20 @@ describe("qualified reference language adapters", () => {
     ]);
   });
 
+  it("resolves members through nested Rust module paths", async () => {
+    const source = "use crate::api; fn call() { api::nested::run(); }";
+    const analysis = await analyze("rust", "src/caller.rs", source, new Map([
+      ["Cargo.toml", "[package]\nname='qualified'\n"],
+      ["src/caller.rs", source],
+      ["src/api.rs", "pub mod nested;\n"],
+      ["src/api/nested.rs", "pub fn run() {}\n"],
+    ]));
+
+    expect(analysis.accesses).toEqual([
+      expect.objectContaining({ member: "run", targetFilePath: "src/api/nested.rs", shadow: null }),
+    ]);
+  });
+
   it("resolves external Rust module declarations as qualified bindings", async () => {
     const source = [
       "mod api;",

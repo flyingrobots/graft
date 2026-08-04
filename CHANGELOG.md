@@ -68,6 +68,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   function names remaining value-only in TypeScript.
   Rust qualified type paths such as `api::Target` now produce the same
   declaring-symbol reference evidence as qualified value paths.
+  Nested Rust paths such as `api::nested::run()` now resolve through the
+  imported parent module to the child module's declaring file.
   Rust value parameters, locals, patterns, functions, constants, and statics
   no longer shadow module paths; type/module items and generic type parameters
   remain conservative type-namespace shadows.

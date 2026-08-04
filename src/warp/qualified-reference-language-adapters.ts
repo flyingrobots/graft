@@ -69,13 +69,28 @@ function javascriptAccessParts(node: TSNode): QualifiedAccessParts | null {
     : null;
 }
 
+function rustPathParts(node: TSNode): { readonly binding: TSNode; readonly qualifier: readonly string[] } | null {
+  if (node.type === "identifier") return { binding: node, qualifier: [] };
+  if (node.type !== "scoped_identifier" && node.type !== "scoped_type_identifier") return null;
+  const path = node.childForFieldName("path");
+  const name = node.childForFieldName("name");
+  if (path === null || name === null) return null;
+  const prefix = rustPathParts(path);
+  return prefix === null
+    ? null
+    : { binding: prefix.binding, qualifier: [...prefix.qualifier, name.text] };
+}
+
 function rustAccessParts(node: TSNode): QualifiedAccessParts | null {
   if (node.type !== "scoped_identifier" && node.type !== "scoped_type_identifier") return null;
-  const binding = node.childForFieldName("path");
+  const parentPath = node.parent?.childForFieldName("path");
+  if (parentPath?.startIndex === node.startIndex && parentPath.endIndex === node.endIndex) return null;
+  const path = node.childForFieldName("path");
   const member = node.childForFieldName("name");
   const expectedMemberType = node.type === "scoped_type_identifier" ? "type_identifier" : "identifier";
-  return binding?.type === "identifier" && member?.type === expectedMemberType
-    ? { binding, qualifier: [], member, namespace: "type" }
+  const parts = path === null ? null : rustPathParts(path);
+  return parts !== null && member?.type === expectedMemberType
+    ? { ...parts, member, namespace: "type" }
     : null;
 }
 
