@@ -28,10 +28,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   bindings before activating their imported module target. Declaration-only
   TypeScript modules participate in both qualified and static import
   resolution, and quoted Go module directives match their unquoted import
-  paths. Rust `self` and `super` imports include enclosing inline-module paths.
+  paths. Rust `self` and `super` imports include enclosing inline-module paths,
+  and inline-module import aliases remain within their declaration lists.
   Committed scans containing supported-language parse errors report partial
-  confidence rather than a false complete result. The expanded `graft_review` /
-  `struct_review` wire contract is versioned as `2.0.0`; unchanged output
+  confidence rather than a false complete result. The expanded `graft_review`
+  / `struct_review` wire contract is versioned as `2.0.0`; unchanged output
   contracts remain at `1.0.0`.
 
 - **CI test feedback**: pull request CI now keeps the release-grade

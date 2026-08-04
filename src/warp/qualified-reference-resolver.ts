@@ -364,7 +364,7 @@ function rustBindings(
   for (const statement of statements) {
     const argument = statement.childForFieldName("argument") ?? statement.namedChildren[0];
     if (argument === undefined) continue;
-    const scope = nearestAncestor(statement, RUST_BLOCK_TYPES);
+    const scope = nearestAncestor(statement, RUST_IMPORT_SCOPE_TYPES);
     const scopeStartIndex = scope?.startIndex ?? root.startIndex;
     const scopeEndIndex = scope?.endIndex ?? root.endIndex;
     for (const candidate of rustUseModuleCandidates(argument)) {
@@ -628,6 +628,7 @@ const TYPESCRIPT_DECLARATION_TYPES = new Set(["lexical_declaration", "variable_d
 const TYPESCRIPT_SCOPED_LOOP_TYPES = new Set(["for_in_statement", "for_of_statement"]);
 const RUST_FUNCTION_TYPES = new Set(["function_item", "closure_expression"]);
 const RUST_BLOCK_TYPES = new Set(["block"]);
+const RUST_IMPORT_SCOPE_TYPES = new Set(["block", "declaration_list"]);
 const RUST_LOOP_TYPES = new Set(["for_expression"]);
 const RUST_PATTERN_TYPES = new Set(["for_expression", "match_arm"]);
 const RUST_CONDITIONAL_TYPES = new Set(["if_expression", "while_expression"]);
@@ -871,7 +872,7 @@ function collectRustShadowRegions(collector: ShadowCollector): void {
     }
     if (node.type === "use_declaration") {
       if (resolvedImportDeclarationStarts.has(node.startIndex)) return;
-      const scope = nearestAncestor(node, RUST_BLOCK_TYPES);
+      const scope = nearestAncestor(node, RUST_IMPORT_SCOPE_TYPES);
       if (scope !== null) {
         const argument = node.childForFieldName("argument") ?? node.namedChildren[0];
         addAll(matchingRustUseBindingIdentifiers(argument, bindingNames), "import_declaration", scope.startIndex, scope.endIndex);

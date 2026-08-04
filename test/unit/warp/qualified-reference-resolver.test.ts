@@ -570,6 +570,31 @@ describe("qualified reference language adapters", () => {
     ]);
   });
 
+  it("confines Rust import bindings to their enclosing inline modules", async () => {
+    const source = [
+      "mod alpha {",
+      "    mod client;",
+      "    use self::client as api;",
+      "    fn call() { api::run(); }",
+      "}",
+      "mod beta {",
+      "    mod client;",
+      "    use self::client as api;",
+      "    fn call() { api::run(); }",
+      "}",
+    ].join("\n");
+    const analysis = await analyze("rust", "src/network.rs", source, new Map([
+      ["Cargo.toml", "[package]\nname='demo'"],
+      ["src/network.rs", source],
+      ["src/network/alpha/client.rs", "pub fn run() {}"],
+      ["src/network/beta/client.rs", "pub fn run() {}"],
+    ]));
+
+    expect(analysis.accesses.map((access) => access.targetFilePath)).toEqual([
+      "src/network/alpha/client.rs", "src/network/beta/client.rs",
+    ]);
+  });
+
   it("anchors Rust crate imports at Cargo auto-target roots", async () => {
     const source = "use crate::sources as src; fn call(){ src::pending(); }";
     const files = new Map([
