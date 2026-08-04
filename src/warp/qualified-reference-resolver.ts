@@ -307,6 +307,14 @@ function matchingIdentifier(node: TSNode | null | undefined, bindings: ReadonlyS
   return null;
 }
 
+function matchingPythonAssignmentIdentifier(
+  node: TSNode | null | undefined,
+  bindings: ReadonlySet<string>,
+): TSNode | null {
+  if (node?.type === "attribute" || node?.type === "subscript") return null;
+  return matchingIdentifier(node, bindings);
+}
+
 function diagnosticFor(
   language: QualifiedReferenceLanguage,
   filePath: string,
@@ -367,7 +375,7 @@ function collectShadowRegions(
       }
       if (["assignment", "augmented_assignment", "named_expression", "for_statement", "for_in_clause"].includes(node.type)) {
         const left = node.childForFieldName("left") ?? node.childForFieldName("target") ?? node.namedChildren[0];
-        const identifier = matchingIdentifier(left, bindingNames);
+        const identifier = matchingPythonAssignmentIdentifier(left, bindingNames);
         if (identifier !== null) {
           const comprehension = nearestAncestor(node, new Set(["list_comprehension", "set_comprehension", "dictionary_comprehension", "generator_expression"]));
           const scope = nearestAncestor(node, new Set(["function_definition", "lambda", "class_definition"]));

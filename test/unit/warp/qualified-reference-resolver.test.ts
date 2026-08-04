@@ -48,6 +48,9 @@ describe("qualified reference language adapters", () => {
       "def local_shadow():",
       "    sources.pending_ids()",
       "    sources = object()",
+      "def mutate_module():",
+      "    sources.cache = {}",
+      "    sources.pending_ids()",
       "def sibling():",
       "    sources.pending_ids()",
     ].join("\n");
@@ -58,7 +61,7 @@ describe("qualified reference language adapters", () => {
     ]));
 
     expect(analysis.accesses.map((access) => access.shadow?.shadowKind ?? "resolved")).toEqual([
-      "resolved", "parameter", "local_binding", "resolved",
+      "resolved", "parameter", "local_binding", "resolved", "resolved", "resolved",
     ]);
     expect(analysis.diagnostics.map((diagnostic) => diagnostic.binding)).toEqual(["sources", "sources"]);
   });
