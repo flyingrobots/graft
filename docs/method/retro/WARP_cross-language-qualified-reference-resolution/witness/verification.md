@@ -4,11 +4,11 @@ title: "Cross-language qualified reference verification witness"
 
 # Verification witness
 
-Cycle: `WARP_cross-language-qualified-reference-resolution`
-Date: `2026-08-04`
-Branch: `feature/python-import-resolution`
-Full-suite code head: `577a0140`
-Final acceptance code head: `577a0140`
+- Cycle: `WARP_cross-language-qualified-reference-resolution`
+- Date: `2026-08-04`
+- Branch: `feature/python-import-resolution`
+- Full-suite code head: `577a0140`
+- Final acceptance code head: `577a0140`
 
 ## Acceptance Coverage
 
