@@ -9,7 +9,9 @@ import {
   MCP_OUTPUT_SCHEMAS,
   attachCliSchemaMeta,
   getCliOutputJsonSchema,
+  getCliOutputSchemaMeta,
   getMcpOutputJsonSchema,
+  getMcpOutputSchemaMeta,
   validateCliOutput,
 } from "../../../src/contracts/output-schemas.js";
 import { runCli } from "../../../src/cli/main.js";
@@ -59,6 +61,13 @@ describe("contracts: output schemas", () => {
       const jsonSchema = getCliOutputJsonSchema(command);
       expect(jsonSchema).toBeDefined();
     }
+  });
+
+  it("versions the expanded review response independently", () => {
+    expect(getMcpOutputSchemaMeta("graft_review").version).toBe("2.0.0");
+    expect(getCliOutputSchemaMeta("struct_review").version).toBe("2.0.0");
+    expect(getMcpOutputSchemaMeta("graft_diff").version).toBe("1.0.0");
+    expect(getCliOutputSchemaMeta("struct_diff").version).toBe("1.0.0");
   });
 
   it("preserves concrete CLI output types through the helper stack", () => {
