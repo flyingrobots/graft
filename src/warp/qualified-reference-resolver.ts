@@ -432,16 +432,15 @@ export function analyzeDirectSymbolImportReferences(
     walk(root, (statement) => {
       if (statement.type !== "use_declaration") return;
       const argument = statement.childForFieldName("argument") ?? statement.namedChildren[0];
-      const imported = argument?.type === "use_as_clause"
-        ? argument.childForFieldName("path") ?? argument.namedChildren[0]
-        : argument;
-      if (imported?.type !== "scoped_identifier") return;
-      if (resolveRustModule(imported.text, filePath, context) !== null) return;
-      const segments = imported.text.split("::");
-      const importedName = segments.pop();
-      if (importedName === undefined || segments.length === 0) return;
-      const targetFilePath = resolveRustModule(segments.join("::"), filePath, context);
-      if (targetFilePath !== null) references.push({ importedName, targetFilePath });
+      if (argument === undefined) return;
+      for (const candidate of rustUseModuleCandidates(argument)) {
+        if (resolveRustModule(candidate.source, filePath, context) !== null) continue;
+        const segments = candidate.source.split("::");
+        const importedName = segments.pop();
+        if (importedName === undefined || segments.length === 0) continue;
+        const targetFilePath = resolveRustModule(segments.join("::"), filePath, context);
+        if (targetFilePath !== null) references.push({ importedName, targetFilePath });
+      }
     });
   }
   return references;
