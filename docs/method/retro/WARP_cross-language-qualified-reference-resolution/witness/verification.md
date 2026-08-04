@@ -7,8 +7,8 @@ title: "Cross-language qualified reference verification witness"
 - Cycle: `WARP_cross-language-qualified-reference-resolution`
 - Date: `2026-08-04`
 - Branch: `feature/python-import-resolution`
-- Full-suite code head: `cfeaa81a`
-- Final acceptance code head: `cfeaa81a`
+- Full-suite code head: `e8dd3011`
+- Final acceptance code head: `e8dd3011`
 
 ## Acceptance Coverage
 
@@ -56,7 +56,7 @@ pnpm exec vitest run \
   test/unit/echo/generated-model-parity.test.ts
 ```
 
-Result: `15` test files and `196` tests passed.
+Result: `15` test files and `200` tests passed.
 
 The cold-WARP Python review fixture changes the signature of
 `coqui/matcher/sources.py:pending_ids` and reports
@@ -87,7 +87,7 @@ Results:
 - the first isolated run found one stale generated backlog DAG after this
   cycle added a bad-code card. The owning generator repaired the DOT and SVG
   in `e3cc2006`.
-- final isolated full suite passed: `252` test files and `1964` tests.
+- final isolated full suite passed: `252` test files and `1968` tests.
 
 ## Post-Retro Acceptance Closure
 
@@ -183,6 +183,34 @@ acceptance set passed `15` files and `196` tests, and the Docker-isolated
 repository suite passed `252` files and `1964` tests. Lint, typecheck, build,
 structural-history artifact parity, agent-worktree hygiene, and whitespace
 validation also passed.
+
+The subsequent exact-head CodeRabbit review and final review-body audit closed
+another twelve repair items:
+
+- `d1bfa91d` preserves Python dotted dynamic-import segments that resemble
+  source-file extensions;
+- `5b4127b5` records unresolved inline Rust module paths as partial confidence;
+- `a1ed5539` asserts every language-adapter operation in the contract fixture;
+- `1fa58364` avoids unused ancestor walks in TypeScript and Go shadow passes;
+- `2f87c062` makes the adapter registry exhaustive at compile time;
+- `1565d0ff` reports pinned commits in incomplete-diagnostics failures;
+- `d6f1675f` shares Python import-clause decoding across binding and direct
+  reference analysis;
+- `e9c0c427` retains exact-scan failure reasons in fallback evidence;
+- `2b9fd230` anchors partial review confidence to structured result fields;
+- `d0ac4f38` deduplicates repeated unresolved Go selector uncertainty;
+- `7e638412` resolves Python loop iterables before non-function target
+  assignment while preserving function-local lexical shadowing; and
+- `e8dd3011` derives the public adapter-language list from the exhaustive
+  registry as its sole authority.
+
+The older lazy-WARP-query nit was already enforced by `9f99d2a2` and its
+no-acquisition regression, so it required no duplicate change. At `e8dd3011`,
+the full GraphQL audit reported `83` review threads and zero unresolved
+threads. The focused acceptance set passed `15` files and `200` tests, and the
+Docker-isolated repository suite passed `252` files and `1968` tests. Lint,
+typecheck, build, structural-history artifact parity, agent-worktree hygiene,
+and whitespace validation also passed.
 
 ## CLI Witness
 
