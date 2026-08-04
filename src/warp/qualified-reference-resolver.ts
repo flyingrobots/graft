@@ -212,22 +212,35 @@ function rustSourceRoot(filePath: string, knownFiles: ReadonlySet<string>): stri
   return srcIndex >= 0 ? parts.slice(0, srcIndex + 1).join("/") : "";
 }
 
+function parentDirectory(value: string): string {
+  return value.includes("/") ? value.slice(0, value.lastIndexOf("/")) : "";
+}
+
+function rustLogicalModuleDirectory(filePath: string): string {
+  const directory = parentDirectory(filePath);
+  const fileName = filePath.slice(directory.length === 0 ? 0 : directory.length + 1);
+  if (fileName === "lib.rs" || fileName === "main.rs" || fileName === "mod.rs") {
+    return directory;
+  }
+  const moduleName = fileName.endsWith(".rs") ? fileName.slice(0, -3) : fileName;
+  return directory === "" ? moduleName : `${directory}/${moduleName}`;
+}
+
 function resolveRustModule(
   source: string,
   filePath: string,
   context: QualifiedReferenceContext,
 ): string | null {
   const sourceRoot = rustSourceRoot(filePath, context.knownFiles);
-  const directory = filePath.includes("/") ? filePath.slice(0, filePath.lastIndexOf("/")) : "";
+  const moduleDirectory = rustLogicalModuleDirectory(filePath);
   const segments = source.split("::");
   const prefix = segments.shift();
   let base: string;
   if (prefix === "crate") base = sourceRoot;
-  else if (prefix === "self") base = directory;
+  else if (prefix === "self") base = moduleDirectory;
   else if (prefix === "super") {
-    const dirname = (value: string): string => value.includes("/") ? value.slice(0, value.lastIndexOf("/")) : "";
-    base = dirname(directory);
-    while (segments[0] === "super") { segments.shift(); base = dirname(base); }
+    base = parentDirectory(moduleDirectory);
+    while (segments[0] === "super") { segments.shift(); base = parentDirectory(base); }
   } else return null;
   const raw = context.pathOps.normalize(context.pathOps.join(base, ...segments));
   return [`${raw}.rs`, `${raw}/mod.rs`].find((candidate) => context.knownFiles.has(candidate)) ?? null;

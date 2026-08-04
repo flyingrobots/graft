@@ -170,6 +170,24 @@ describe("qualified reference language adapters", () => {
       expect.objectContaining({ name: "child", targetFilePath: "src/nested/local.rs" }),
       expect.objectContaining({ name: "parent", targetFilePath: "src/sources.rs" }),
     ]);
+
+    const siblingModule = "use self::client as child; fn call(){ child::run(); }";
+    const siblingAnalysis = await analyze("rust", "src/network.rs", siblingModule, new Map([
+      ["Cargo.toml", "[package]\nname='demo'"], ["src/network.rs", siblingModule],
+      ["src/network/client.rs", "pub fn run() {}"],
+    ]));
+    expect(siblingAnalysis.bindings).toEqual([
+      expect.objectContaining({ name: "child", targetFilePath: "src/network/client.rs" }),
+    ]);
+
+    const childModule = "use super::sources as parent; fn call(){ parent::pending_ids(); }";
+    const childAnalysis = await analyze("rust", "src/network/client.rs", childModule, new Map([
+      ["Cargo.toml", "[package]\nname='demo'"], ["src/network/client.rs", childModule],
+      ["src/network/sources.rs", "pub fn pending_ids() {}"],
+    ]));
+    expect(childAnalysis.bindings).toEqual([
+      expect.objectContaining({ name: "parent", targetFilePath: "src/network/sources.rs" }),
+    ]);
   });
 
   it("anchors Go imports in go.mod and requires one exported declaration", async () => {
