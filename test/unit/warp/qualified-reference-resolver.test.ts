@@ -347,6 +347,42 @@ describe("qualified reference language adapters", () => {
     ]);
   });
 
+  it("scopes named TypeScript and JavaScript expressions to their bodies", async () => {
+    const source = [
+      'import * as api from "./api";',
+      "const callable = function api() { api.run(); };",
+      "const constructable = class api { method() { api.run(); } };",
+      "api.run();",
+    ].join("\n");
+    const files = new Map([
+      ["src/api.ts", "export function run() {}\nexport interface Options {}"],
+      ["src/caller.ts", source],
+      ["src/caller.js", source],
+    ]);
+
+    const typescript = await analyze("ts", "src/caller.ts", source, files);
+    const javascript = await analyze("js", "src/caller.js", source, files);
+    expect(typescript.accesses.map((access) => access.shadow?.shadowKind ?? "resolved")).toEqual([
+      "function_declaration", "type_declaration", "resolved",
+    ]);
+    expect(javascript.accesses.map((access) => access.shadow?.shadowKind ?? "resolved")).toEqual([
+      "function_declaration", "type_declaration", "resolved",
+    ]);
+
+    const typedSource = [
+      'import * as api from "./api";',
+      "const callable = function api(): api.Options { api.run(); throw new Error(); };",
+    ].join("\n");
+    const typed = await analyze("ts", "src/typed.ts", typedSource, new Map([
+      ["src/typed.ts", typedSource],
+      ["src/api.ts", "export function run() {}\nexport interface Options {}"],
+    ]));
+    expect(typed.accesses.map((access) => [access.member, access.shadow?.shadowKind ?? "resolved"])).toEqual([
+      ["Options", "resolved"],
+      ["run", "function_declaration"],
+    ]);
+  });
+
   it("treats TypeScript enum declarations as lexical namespace shadows", async () => {
     const source = [
       'import * as api from "./api";',

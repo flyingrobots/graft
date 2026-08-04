@@ -973,6 +973,32 @@ function collectTypeScriptShadowRegions(
         );
       }
     }
+    if (node.type === "function_expression" || node.type === "generator_function") {
+      const name = node.childForFieldName("name") ?? node.namedChildren.find((child) => child.type === "identifier");
+      const body = node.childForFieldName("body") ?? node.namedChildren.at(-1);
+      if (body !== undefined) {
+        addAll(
+          matchingBindingIdentifiers(language, name, bindingNames),
+          "function_declaration",
+          body.startIndex,
+          body.endIndex,
+          valueNamespace,
+        );
+      }
+    }
+    if (node.type === "class") {
+      const name = node.childForFieldName("name") ?? node.namedChildren.find((child) => child.type === "type_identifier");
+      const body = node.childForFieldName("body") ?? node.namedChildren.find((child) => child.type === "class_body");
+      if (body !== undefined) {
+        addAll(
+          matchingBindingIdentifiers(language, name, bindingNames),
+          "type_declaration",
+          body.startIndex,
+          body.endIndex,
+          bothNamespaces,
+        );
+      }
+    }
     if (TYPESCRIPT_LOCAL_TYPES.has(node.type)) {
       const identifiers = matchingBindingIdentifiers(language, node.childForFieldName("pattern") ?? node.childForFieldName("name") ?? node.childForFieldName("left") ?? node.namedChildren[0], bindingNames);
       const enclosingLoop = nearestAncestor(node, TYPESCRIPT_LOOP_TYPES);
