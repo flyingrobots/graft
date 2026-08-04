@@ -9,7 +9,9 @@ lexically shadowed bindings never create confident symbol edges.
 ## Acceptance criteria
 
 - One language-adapter contract serves WARP indexing and the committed-ref
-  fallback for Python, TypeScript, TSX, JavaScript, Rust, and Go.
+  fallback for Python, TypeScript, TSX, JavaScript, Rust, and Go. The registry
+  composes focused binding, shadow, access, and orchestration modules rather
+  than branching through one cross-language resolver monolith.
 - Existing TypeScript named/default/namespace import output remains
   byte-identical; qualified member resolution is a supplementary pass.
 - Python module and package-child imports resolve `module.member`, including

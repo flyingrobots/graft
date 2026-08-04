@@ -79,6 +79,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   Import-diagnostic scans now fail closed when a supported source at the
   pinned ref contains parse errors, preserving the exhaustive meaning of a
   successful `{ ref, diagnostics, summary }` response.
+  Qualified-reference inference now uses a typed per-language adapter registry
+  over separate contract, binding, shadow, access, and orchestration modules;
+  the TypeScript import resolver remains an independent unchanged pass.
   Go shadow diagnostics fall back to a meaningful package directory when an
   imported first-party package has no tracked source file.
   Committed scans containing supported-language parse errors report partial
