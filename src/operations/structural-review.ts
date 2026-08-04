@@ -228,7 +228,7 @@ function renderSummary(
     parts.push(`    Impact: referenced by ${String(bc.impactedFiles)} files`);
     if (bc.referenceConfidence === "partial") {
       const reason = bc.referenceWarnings.length === 0
-        ? "unsupported dynamic reference semantics may hide callers"
+        ? "unresolved or unsupported reference analysis may hide callers"
         : `${String(bc.referenceWarnings.length)} excluded shadowed access${bc.referenceWarnings.length === 1 ? "" : "es"}`;
       parts.push(`    Confidence: partial (${reason})`);
     }
