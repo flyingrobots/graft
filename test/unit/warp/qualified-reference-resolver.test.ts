@@ -318,6 +318,31 @@ describe("qualified reference language adapters", () => {
     ]);
   });
 
+  it("hoists every Rust block item shadow across its containing block", async () => {
+    const source = [
+      "use crate::sources as src;",
+      "fn const_shadow() { src::pending(); const src: usize = 0; src::pending(); }",
+      "fn static_shadow() { src::pending(); static src: usize = 0; src::pending(); }",
+      "fn union_shadow() { src::pending(); union src { value: usize } src::pending(); }",
+      "fn trait_shadow() { src::pending(); trait src {} src::pending(); }",
+      "fn module_shadow() { src::pending(); mod src {} src::pending(); }",
+      "fn use_shadow() { src::pending(); use crate::other as src; src::pending(); }",
+    ].join("\n");
+    const analysis = await analyze("rust", "src/caller.rs", source, new Map([
+      ["Cargo.toml", "[package]\nname='x'"], ["src/caller.rs", source],
+      ["src/sources.rs", "pub fn pending() {}"], ["src/other.rs", "pub fn pending() {}"],
+    ]));
+
+    expect(analysis.accesses.map((access) => access.shadow?.shadowKind ?? "resolved")).toEqual([
+      "item_declaration", "item_declaration",
+      "item_declaration", "item_declaration",
+      "type_declaration", "type_declaration",
+      "type_declaration", "type_declaration",
+      "module_declaration", "module_declaration",
+      "import_declaration", "import_declaration",
+    ]);
+  });
+
   it("anchors Go imports in go.mod and requires one exported declaration", async () => {
     const source = [
       "package cli",

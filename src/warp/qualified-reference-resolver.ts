@@ -458,6 +458,24 @@ function matchingBindingIdentifiers(
   return [];
 }
 
+function matchingRustUseBindingIdentifiers(
+  node: TSNode | null | undefined,
+  bindings: ReadonlySet<string>,
+): readonly TSNode[] {
+  if (node === null || node === undefined) return [];
+  if (node.type === "use_as_clause") {
+    return directMatchingIdentifier(node.childForFieldName("alias") ?? node.namedChildren.at(-1), bindings);
+  }
+  if (node.type === "scoped_identifier") {
+    return directMatchingIdentifier(node.childForFieldName("name") ?? node.namedChildren.at(-1), bindings);
+  }
+  if (node.type === "identifier") return directMatchingIdentifier(node, bindings);
+  if (node.type === "use_list" || node.type === "scoped_use_list") {
+    return node.namedChildren.flatMap((child) => matchingRustUseBindingIdentifiers(child, bindings));
+  }
+  return [];
+}
+
 function diagnosticFor(
   language: QualifiedReferenceLanguage,
   filePath: string,
@@ -638,6 +656,14 @@ function collectShadowRegions(
       const body = node.childForFieldName("body") ?? node;
       addAll(identifiers, "pattern_binding", body.startIndex, body.endIndex);
     }
+    if (language === "rust" && node.type === "use_declaration") {
+      const scope = nearestAncestor(node, new Set(["block"]));
+      if (scope !== null) {
+        const argument = node.childForFieldName("argument") ?? node.namedChildren[0];
+        const identifiers = matchingRustUseBindingIdentifiers(argument, bindingNames);
+        addAll(identifiers, "import_declaration", scope.startIndex, scope.endIndex);
+      }
+    }
     if (language === "go" && node.type === "range_clause") {
       const identifiers = matchingBindingIdentifiers(language, node.childForFieldName("left") ?? node.namedChildren[0], bindingNames);
       const loop = nearestAncestor(node, new Set(["for_statement"]));
@@ -656,7 +682,7 @@ function collectShadowRegions(
     }
 
     const declarationTypes = language === "rust"
-      ? ["function_item", "struct_item", "enum_item", "type_item"]
+      ? ["function_item", "struct_item", "enum_item", "type_item", "const_item", "static_item", "union_item", "trait_item", "mod_item"]
       : language === "go"
         ? ["function_declaration", "type_spec"]
         : ["function_declaration", "class_declaration"];
@@ -664,7 +690,18 @@ function collectShadowRegions(
       const identifiers = matchingBindingIdentifiers(language, node.childForFieldName("name"), bindingNames);
       const scope = nearestAncestor(node, blockTypes) ?? root;
       const declarationPoint = language === "rust" ? scope.startIndex : node.startIndex;
-      addAll(identifiers, node.type.includes("class") || node.type.includes("struct") || node.type.includes("type") ? "type_declaration" : "function_declaration", declarationPoint, scope.endIndex);
+      const kind = language === "rust"
+        ? node.type === "const_item" || node.type === "static_item"
+          ? "item_declaration"
+          : node.type === "mod_item"
+            ? "module_declaration"
+            : node.type === "function_item"
+              ? "function_declaration"
+              : "type_declaration"
+        : node.type.includes("class") || node.type.includes("struct") || node.type.includes("type")
+          ? "type_declaration"
+          : "function_declaration";
+      addAll(identifiers, kind, declarationPoint, scope.endIndex);
     }
   });
 
