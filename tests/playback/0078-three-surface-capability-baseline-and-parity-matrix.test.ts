@@ -57,6 +57,7 @@ describe("0078 three-surface capability baseline and parity matrix", () => {
     const matrixIds = matrixCapabilityIds(content);
     expect(matrixIds).toHaveLength(CAPABILITY_REGISTRY.length);
     expect(new Set(matrixIds).size).toBe(CAPABILITY_REGISTRY.length);
+    expect([...matrixIds].sort()).toEqual(CAPABILITY_REGISTRY.map((capability) => capability.id).sort());
   });
 
   it("Does the capability registry explicitly model all three entry points?", () => {
