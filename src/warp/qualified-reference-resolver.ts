@@ -546,7 +546,6 @@ const PYTHON_COMPREHENSION_TYPES = new Set(["list_comprehension", "set_comprehen
 const PYTHON_ASSIGNMENT_TYPES = new Set(["assignment", "augmented_assignment", "named_expression", "for_statement", "for_in_clause"]);
 const TYPESCRIPT_FUNCTION_TYPES = new Set(["function_declaration", "function_expression", "arrow_function", "method_definition"]);
 const TYPESCRIPT_BLOCK_TYPES = new Set(["statement_block", "program"]);
-const TYPESCRIPT_PARAMETER_TYPES = new Set(["required_parameter", "optional_parameter", "rest_pattern"]);
 const TYPESCRIPT_LOCAL_TYPES = new Set(["variable_declarator", "assignment_expression"]);
 const TYPESCRIPT_LOOP_TYPES = new Set(["for_statement", "for_in_statement"]);
 const TYPESCRIPT_DECLARATION_TYPES = new Set(["lexical_declaration", "variable_declaration"]);
@@ -695,12 +694,12 @@ function collectTypeScriptShadowRegions(
   walk(root, (node) => {
     const functionNode = nearestAncestor(node, TYPESCRIPT_FUNCTION_TYPES);
     const functionBody = functionNode?.childForFieldName("body") ?? functionNode?.namedChildren.at(-1);
-    const plainJavaScriptParameter = language === "js" && node.type === "identifier" && (
-      node.parent?.type === "formal_parameters" ||
-      (node.parent?.type === "arrow_function" && node.parent.childForFieldName("parameter")?.startIndex === node.startIndex)
-    );
-    if ((TYPESCRIPT_PARAMETER_TYPES.has(node.type) || plainJavaScriptParameter) && functionBody !== undefined) {
-      addAll(matchingBindingIdentifiers(language, node, bindingNames), "parameter", functionBody.startIndex, functionBody.endIndex);
+    if (TYPESCRIPT_FUNCTION_TYPES.has(node.type)) {
+      const body = node.childForFieldName("body") ?? node.namedChildren.at(-1);
+      const parameters = node.childForFieldName("parameters") ?? node.childForFieldName("parameter");
+      if (body !== undefined) {
+        addAll(matchingBindingIdentifiers(language, parameters, bindingNames), "parameter", body.startIndex, body.endIndex);
+      }
     }
     if (TYPESCRIPT_LOCAL_TYPES.has(node.type)) {
       const identifiers = matchingBindingIdentifiers(language, node.childForFieldName("pattern") ?? node.childForFieldName("name") ?? node.childForFieldName("left") ?? node.namedChildren[0], bindingNames);

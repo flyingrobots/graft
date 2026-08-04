@@ -295,6 +295,27 @@ describe("qualified reference language adapters", () => {
     ]);
   });
 
+  it("extracts JavaScript parameter patterns without traversing default expressions", async () => {
+    const source = [
+      'import * as api from "./api.js";',
+      'import * as source from "./source.js";',
+      "function defaulted(api = fallback) { api.run(); }",
+      "function destructured({ api }) { api.run(); }",
+      "const parenthesized = (source = fallback) => source.run();",
+      "const single = api => api.run();",
+      "function defaultExpression(value = api.run()) { api.run(); }",
+    ].join("\n");
+    const analysis = await analyze("js", "src/caller.js", source, new Map([
+      ["src/caller.js", source],
+      ["src/api.js", "export function run() {}"],
+      ["src/source.js", "export function run() {}"],
+    ]));
+
+    expect(analysis.accesses.map((access) => access.shadow?.shadowKind ?? "resolved")).toEqual([
+      "parameter", "parameter", "parameter", "parameter", "resolved", "resolved",
+    ]);
+  });
+
   it("confines comprehension, loop, catch, range, and pattern bindings to their lexical regions", async () => {
     const python = [
       "import pkg.sources as src",
