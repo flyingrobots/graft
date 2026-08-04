@@ -236,6 +236,12 @@ function parentDirectory(filePath: string): string {
   return filePath.includes("/") ? filePath.slice(0, filePath.lastIndexOf("/")) : "";
 }
 
+function compareCodePoint(left: string, right: string): number {
+  if (left < right) return -1;
+  if (left > right) return 1;
+  return 0;
+}
+
 export async function analyzeCommittedReferencesAtRef(
   opts: ImportDiagnosticsOptions,
 ): Promise<CommittedReferenceAnalysis> {
@@ -255,7 +261,7 @@ export async function analyzeCommittedReferencesAtRef(
     diagnostics.push(...analysis.diagnostics);
   }
   diagnostics.sort((left, right) =>
-    left.filePath.localeCompare(right.filePath) ||
+    compareCodePoint(left.filePath, right.filePath) ||
     left.range.startLine - right.range.startLine ||
     left.range.startColumn - right.range.startColumn,
   );

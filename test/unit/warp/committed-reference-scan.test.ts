@@ -78,6 +78,25 @@ describe("committed qualified-reference scan", { timeout: 20_000 }, () => {
     }
   });
 
+  it("orders diagnostic paths by locale-free code points", async () => {
+    const cwd = createTestRepo("committed-diagnostic-order-");
+    try {
+      write(cwd, "pkg/sources.py", "def pending_ids(): return []\n");
+      const caller = "import pkg.sources as source\ndef shadow(source): source.pending_ids()\n";
+      write(cwd, "Z.py", caller);
+      write(cwd, "a.py", caller);
+      git(cwd, "add -A"); git(cwd, "commit -m diagnostic-order");
+
+      const result = await importDiagnosticsAtRef({
+        cwd, git: nodeGit, pathOps: nodePathOps, ref: "HEAD",
+      });
+
+      expect(result.diagnostics.map((diagnostic) => diagnostic.filePath)).toEqual(["Z.py", "a.py"]);
+    } finally {
+      cleanupTestRepo(cwd);
+    }
+  });
+
   it("builds Go reference context for each importing file", async () => {
     const cwd = createTestRepo("committed-go-context-scan-");
     try {
