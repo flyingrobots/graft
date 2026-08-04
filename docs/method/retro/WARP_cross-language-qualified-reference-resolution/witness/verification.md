@@ -7,7 +7,8 @@ title: "Cross-language qualified reference verification witness"
 Cycle: `WARP_cross-language-qualified-reference-resolution`
 Date: `2026-08-04`
 Branch: `feature/python-import-resolution`
-Verified code head: `e3cc2006`
+Full-suite code head: `e3cc2006`
+Final acceptance code head: `a134fbb2`
 
 ## Acceptance Coverage
 
@@ -83,8 +84,14 @@ Results:
   in `e3cc2006`.
 - final isolated full suite passed: `251` test files and `1918` tests.
 
-The full suite includes the existing byte-identical TypeScript import-resolver
-fixture.
+## Post-Retro Acceptance Closure
+
+The exact pre-feature serialized TypeScript import-resolver fixture was
+restored in `a134fbb2` after a final acceptance-contract audit found that an
+earlier review repair had weakened it to structural-only assertions. The
+restored byte-identical assertion passed alongside the structural assertions:
+`4` compatibility test files and `31` tests passed, followed by focused lint,
+full typecheck, and whitespace validation.
 
 ## CLI Witness
 
