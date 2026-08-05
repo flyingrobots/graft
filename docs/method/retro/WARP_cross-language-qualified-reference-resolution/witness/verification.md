@@ -7,8 +7,8 @@ title: "Cross-language qualified reference verification witness"
 - Cycle: `WARP_cross-language-qualified-reference-resolution`
 - Date: `2026-08-04`
 - Branch: `feature/python-import-resolution`
-- Full-suite code head: `3ced7293`
-- Final acceptance code head: `3ced7293`
+- Full-suite code head: `32a8a084`
+- Final acceptance code head: `32a8a084`
 
 ## Acceptance Coverage
 
@@ -33,6 +33,10 @@ title: "Cross-language qualified reference verification witness"
   ambiguous crate-root inline modules. TypeScript fixtures cover import-equals
   aliases, and TypeScript/TSX/JavaScript fixtures exclude namespace-member
   mutations while preserving language-correct extensionless module precedence.
+- Exact-ref Python fixtures treat first-party wildcard imports as
+  target-specific partial-confidence limitations without inventing callers.
+  TypeScript and JavaScript fixtures resolve leading-slash module specifiers
+  from the repository root.
 - MCP and CLI fixtures cover command parsing, schemas, capability registration,
   generated model parity, structured diagnostics, and human review rendering.
 - Exact-ref scans take precedence over stale WARP edges, reuse one repository
@@ -60,7 +64,7 @@ pnpm exec vitest run \
   test/unit/echo/generated-model-parity.test.ts
 ```
 
-Result: `15` test files and `206` tests passed.
+Result: `15` test files and `208` tests passed.
 
 The cold-WARP Python review fixture changes the signature of
 `coqui/matcher/sources.py:pending_ids` and reports
@@ -91,7 +95,7 @@ Results:
 - the first isolated run found one stale generated backlog DAG after this
   cycle added a bad-code card. The owning generator repaired the DOT and SVG
   in `e3cc2006`.
-- final isolated full suite passed: `252` test files and `1974` tests.
+- final isolated full suite passed: `252` test files and `1976` tests.
 
 ## Post-Retro Acceptance Closure
 
@@ -239,6 +243,24 @@ resolution defects. All six distinct issues were closed in focused commits:
 At `3ced7293`, the full GraphQL audit reported `89` review threads and zero
 unresolved threads. The focused acceptance set passed `15` files and `206`
 tests, and the Docker-isolated repository suite passed `252` files and `1974`
+tests. Lint, typecheck, build, structural-history artifact parity with Wesley
+`0.1.0`, agent-worktree hygiene, and whitespace validation also passed.
+
+A final review-race check added three Codex threads. One repeated the
+extensionless JavaScript precedence defect already fixed by `1b6cbc8b` and was
+resolved with current-head evidence. The two new defects were closed in
+separate focused commits:
+
+- `5bbbda28` records resolved first-party Python wildcard imports as
+  target-specific partial-confidence limitations without emitting speculative
+  caller edges; and
+- `32a8a084` resolves leading-slash TypeScript and JavaScript namespace imports
+  from the repository root while preserving caller-language extension
+  precedence.
+
+At `32a8a084`, the full GraphQL audit reported `92` review threads and zero
+unresolved threads. The focused acceptance set passed `15` files and `208`
+tests, and the Docker-isolated repository suite passed `252` files and `1976`
 tests. Lint, typecheck, build, structural-history artifact parity with Wesley
 `0.1.0`, agent-worktree hygiene, and whitespace validation also passed.
 
