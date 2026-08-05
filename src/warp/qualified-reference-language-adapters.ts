@@ -70,7 +70,9 @@ function javascriptAccessParts(node: TSNode): QualifiedAccessParts | null {
 }
 
 function rustPathParts(node: TSNode): { readonly binding: TSNode; readonly qualifier: readonly string[] } | null {
-  if (node.type === "identifier") return { binding: node, qualifier: [] };
+  if (["identifier", "crate", "self", "super"].includes(node.type)) {
+    return { binding: node, qualifier: [] };
+  }
   if (node.type !== "scoped_identifier" && node.type !== "scoped_type_identifier") return null;
   const path = node.childForFieldName("path");
   const name = node.childForFieldName("name");

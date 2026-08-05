@@ -77,6 +77,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   function names remaining value-only in TypeScript.
   Rust qualified type paths such as `api::Target` now produce the same
   declaring-symbol reference evidence as qualified value paths.
+  Direct Rust `crate::`, `self::`, and `super::` paths now resolve qualified
+  value and type references without requiring a local `use` binding.
   Nested Rust paths such as `api::nested::run()` now resolve through the
   imported parent module to the child module's declaring file.
   Nested Rust paths whose child module has no distinct source file now lower

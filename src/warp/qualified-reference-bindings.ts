@@ -346,6 +346,24 @@ function unresolvedRustModuleOwners(
   return [];
 }
 
+export function resolveRustQualifiedModule(
+  source: string,
+  filePath: string,
+  context: QualifiedReferenceContext,
+  sourceNode?: TSNode,
+): {
+  readonly targetFilePath: string | null;
+  readonly unresolvedTargetFilePaths: readonly string[];
+} {
+  const targetFilePath = resolveRustModule(source, filePath, context, sourceNode);
+  return {
+    targetFilePath,
+    unresolvedTargetFilePaths: targetFilePath === null
+      ? unresolvedRustModuleOwners(source, filePath, context, sourceNode)
+      : [],
+  };
+}
+
 interface RustUseModuleCandidate {
   readonly name: string;
   readonly source: string;
@@ -410,12 +428,12 @@ function rustBindings(
     const scopeStartIndex = scope?.startIndex ?? root.startIndex;
     const scopeEndIndex = scope?.endIndex ?? root.endIndex;
     for (const candidate of rustUseModuleCandidates(argument)) {
-      const targetFilePath = resolveRustModule(candidate.source, filePath, context, candidate.importNode);
+      const resolution = resolveRustQualifiedModule(candidate.source, filePath, context, candidate.importNode);
       bindings.push({
         name: candidate.name,
-        targetFilePath,
-        ...(targetFilePath === null
-          ? { unresolvedTargetFilePaths: unresolvedRustModuleOwners(candidate.source, filePath, context, candidate.importNode) }
+        targetFilePath: resolution.targetFilePath,
+        ...(resolution.targetFilePath === null
+          ? { unresolvedTargetFilePaths: resolution.unresolvedTargetFilePaths }
           : {}),
         scopeStartIndex,
         scopeEndIndex,

@@ -8,6 +8,7 @@ import { emitAstAnchor } from "./ast-emitter.js";
 import type { ImportBindingDiagnostic } from "./import-diagnostic.js";
 import {
   goTargetDirectoryPath,
+  resolveRustQualifiedModule,
 } from "./qualified-reference-bindings.js";
 import type {
   QualifiedReferenceAccess,
@@ -106,6 +107,34 @@ export function analyzeQualifiedReferences(
       )[0];
     if (binding === undefined) {
       if (language === "rust") {
+        if (["crate", "self", "super"].includes(parts.binding.type)) {
+          const resolution = resolveRustQualifiedModule(
+            [parts.binding.text, ...parts.qualifier].join("::"),
+            filePath,
+            context,
+            node,
+          );
+          if (resolution.targetFilePath !== null) {
+            accesses.push({
+              binding: parts.binding.text,
+              member: parts.member.text,
+              targetFilePath: resolution.targetFilePath,
+              node,
+              shadow: null,
+            });
+          } else {
+            for (const targetFilePath of resolution.unresolvedTargetFilePaths) {
+              unresolvedAccesses.push({
+                binding: parts.binding.text,
+                member: parts.member.text,
+                targetFilePath,
+                node,
+                shadow: null,
+              });
+            }
+          }
+          return;
+        }
         const unresolvedBinding = discoveredBindings
           .filter((candidate) =>
             candidate.name === parts.binding.text &&

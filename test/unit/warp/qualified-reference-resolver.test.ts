@@ -856,6 +856,30 @@ describe("qualified reference language adapters", () => {
     ]);
   });
 
+  it("resolves direct crate, self, and super Rust paths without import bindings", async () => {
+    const source = [
+      "fn call(_: crate::api::Target) {",
+      "    crate::api::run();",
+      "    self::local::run();",
+      "    super::shared::run();",
+      "}",
+    ].join("\n");
+    const analysis = await analyze("rust", "src/nested/caller.rs", source, new Map([
+      ["Cargo.toml", "[package]\nname='qualified'\n"],
+      ["src/nested/caller.rs", source],
+      ["src/api.rs", "pub struct Target; pub fn run() {}\n"],
+      ["src/nested/caller/local.rs", "pub fn run() {}\n"],
+      ["src/nested/shared.rs", "pub fn run() {}\n"],
+    ]));
+
+    expect(analysis.accesses.map((access) => [access.binding, access.member, access.targetFilePath])).toEqual([
+      ["crate", "Target", "src/api.rs"],
+      ["crate", "run", "src/api.rs"],
+      ["self", "run", "src/nested/caller/local.rs"],
+      ["super", "run", "src/nested/shared.rs"],
+    ]);
+  });
+
   it("resolves external Rust module declarations as qualified bindings", async () => {
     const source = [
       "mod api;",
