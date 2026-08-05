@@ -40,6 +40,7 @@ function compiledSpecifierSourceCandidates(raw: string): readonly string[] {
 }
 
 function resolveRelativeModule(
+  language: "ts" | "tsx" | "js",
   source: string,
   importingFilePath: string,
   context: QualifiedReferenceContext,
@@ -51,13 +52,15 @@ function resolveRelativeModule(
   const raw = directory === ""
     ? context.pathOps.normalize(source)
     : context.pathOps.join(directory, source);
+  const sourceExtensions = language === "js"
+    ? [".js", ".jsx", ".mjs", ".cjs", ".ts", ".tsx", ".mts", ".cts"]
+    : [".ts", ".tsx", ".js", ".jsx", ".mts", ".cts"];
   const candidates = [
     raw,
     ...compiledSpecifierSourceCandidates(raw),
-    `${raw}.ts`, `${raw}.tsx`, `${raw}.js`, `${raw}.jsx`, `${raw}.mts`, `${raw}.cts`,
+    ...sourceExtensions.map((extension) => `${raw}${extension}`),
     `${raw}.d.ts`, `${raw}.d.mts`, `${raw}.d.cts`,
-    `${raw}/index.ts`, `${raw}/index.tsx`, `${raw}/index.js`, `${raw}/index.jsx`,
-    `${raw}/index.mts`, `${raw}/index.cts`,
+    ...sourceExtensions.map((extension) => `${raw}/index${extension}`),
     `${raw}/index.d.ts`, `${raw}/index.d.mts`, `${raw}/index.d.cts`,
   ];
   return candidates.find((candidate) => context.knownFiles.has(candidate)) ?? null;
@@ -183,6 +186,7 @@ function pythonBindings(
 }
 
 function typescriptBindings(
+  language: "ts" | "tsx" | "js",
   root: TSNode,
   filePath: string,
   context: QualifiedReferenceContext,
@@ -200,7 +204,7 @@ function typescriptBindings(
     if (importRequire !== undefined && importRequireAlias !== undefined) {
       bindings.push({
         name: importRequireAlias.text,
-        targetFilePath: resolveRelativeModule(source, filePath, context),
+        targetFilePath: resolveRelativeModule(language, source, filePath, context),
         importNode: importRequire,
       });
       continue;
@@ -210,7 +214,11 @@ function typescriptBindings(
       ?.namedChildren.find((child) => child.type === "namespace_import");
     const alias = namespace?.namedChildren.find((child) => child.type === "identifier");
     if (namespace !== undefined && alias !== undefined) {
-      bindings.push({ name: alias.text, targetFilePath: resolveRelativeModule(source, filePath, context), importNode: namespace });
+      bindings.push({
+        name: alias.text,
+        targetFilePath: resolveRelativeModule(language, source, filePath, context),
+        importNode: namespace,
+      });
     }
   }
   return bindings;
@@ -498,7 +506,7 @@ export function resolveQualifiedImportBindings(
   if (language === "python") return pythonBindings(root, filePath, context);
   if (language === "rust") return rustBindings(root, filePath, context);
   if (language === "go") return goBindings(root, context);
-  return typescriptBindings(root, filePath, context);
+  return typescriptBindings(language, root, filePath, context);
 }
 
 export function analyzeDirectSymbolImportReferences(

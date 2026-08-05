@@ -538,6 +538,33 @@ describe("qualified reference language adapters", () => {
     ]);
   });
 
+  it("uses caller-language precedence for extensionless TypeScript and JavaScript imports", async () => {
+    const source = 'import * as api from "./api"; api.run();';
+    const files = new Map([
+      ["src/caller.ts", source],
+      ["src/caller.js", source],
+      ["src/api.ts", "export function run() {}"],
+      ["src/api.js", "export function run() {}"],
+    ]);
+
+    const typescript = await analyze("ts", "src/caller.ts", source, files);
+    const javascript = await analyze("js", "src/caller.js", source, files);
+    const compiledSource = 'import * as compiled from "./compiled.js"; compiled.run();';
+    const compiledTypescript = await analyze("ts", "src/compiled-caller.ts", compiledSource, new Map([
+      ["src/compiled-caller.ts", compiledSource],
+      ["src/compiled.ts", "export function run() {}"],
+    ]));
+    expect(typescript.accesses).toEqual([
+      expect.objectContaining({ targetFilePath: "src/api.ts", member: "run" }),
+    ]);
+    expect(javascript.accesses).toEqual([
+      expect.objectContaining({ targetFilePath: "src/api.js", member: "run" }),
+    ]);
+    expect(compiledTypescript.accesses).toEqual([
+      expect.objectContaining({ targetFilePath: "src/compiled.ts", member: "run" }),
+    ]);
+  });
+
   it("resolves TypeScript import-equals namespace aliases", async () => {
     const source = 'import api = require("./api"); api.run();';
     const analysis = await analyze("ts", "src/caller.ts", source, new Map([
