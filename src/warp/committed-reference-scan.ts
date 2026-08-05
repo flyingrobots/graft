@@ -8,6 +8,7 @@ import { createGoReferenceContextResolver } from "./go-reference-context.js";
 import {
   analyzeDirectSymbolImportReferences,
   analyzeQualifiedReferences,
+  analyzeUnsupportedWildcardImportTargets,
   isQualifiedReferenceLanguage,
 } from "./qualified-reference-resolver.js";
 import type { ImportBindingDiagnostic } from "./import-diagnostic.js";
@@ -136,21 +137,24 @@ async function analyzeFile(
   const go = language === "go" ? await refContext.goContext(filePath) : undefined;
   const parsed = await parseStructuredTreeAsync(language, source);
   try {
-    const qualified = analyzeQualifiedReferences(language, filePath, parsed.root, {
+    const qualifiedContext = {
       pathOps: opts.pathOps,
       knownFiles: refContext.knownFiles,
       ...(go !== undefined ? { go } : {}),
-    });
+    };
+    const qualified = analyzeQualifiedReferences(language, filePath, parsed.root, qualifiedContext);
     const staticReferences = language === "ts" || language === "tsx" || language === "js"
       ? analyzeStaticTypeScriptReferences(parsed.root, filePath, opts.pathOps, refContext.knownFiles)
-      : analyzeDirectSymbolImportReferences(language, filePath, parsed.root, {
-        pathOps: opts.pathOps,
-        knownFiles: refContext.knownFiles,
-        ...(go !== undefined ? { go } : {}),
-      });
+      : analyzeDirectSymbolImportReferences(language, filePath, parsed.root, qualifiedContext);
     return {
       ...qualified,
       staticReferences,
+      unsupportedWildcardTargetFilePaths: analyzeUnsupportedWildcardImportTargets(
+        language,
+        filePath,
+        parsed.root,
+        qualifiedContext,
+      ),
       dynamicReferences: analyzeDynamicReferenceFacts(language, parsed.root),
       hasParseErrors: parsed.root.hasError(),
     };
@@ -363,7 +367,7 @@ export async function analyzeCommittedReferencesAtRef(
     countReferences(symbolName, filePath) {
       const referencingFiles = new Set<string>();
       const warnings = new Map<string, ImportBindingDiagnostic>();
-      let unsupportedDynamicSemantics = false;
+      let unsupportedReferenceSemantics = false;
       let unresolvedQualifiedSemantics = false;
       for (const candidate of analyzed) {
         if (candidate.filePath === filePath) continue;
@@ -407,6 +411,9 @@ export async function analyzeCommittedReferencesAtRef(
             warnings.set(key, warning);
           }
         }
+        if (candidate.analysis.unsupportedWildcardTargetFilePaths.includes(filePath)) {
+          unsupportedReferenceSemantics = true;
+        }
         if (hasUnsupportedDynamicReference(
           candidate.analysis.dynamicReferences,
           candidate.filePath,
@@ -415,14 +422,14 @@ export async function analyzeCommittedReferencesAtRef(
           opts.pathOps,
           candidate.analysis.bindings,
         )) {
-          unsupportedDynamicSemantics = true;
+          unsupportedReferenceSemantics = true;
         }
       }
       return {
         referenceCount: referencingFiles.size,
         referencingFiles: [...referencingFiles].sort(),
         warnings: [...warnings.values()],
-        confidence: warnings.size === 0 && !unsupportedDynamicSemantics && !unresolvedQualifiedSemantics && !hasParseErrors
+        confidence: warnings.size === 0 && !unsupportedReferenceSemantics && !unresolvedQualifiedSemantics && !hasParseErrors
           ? "complete"
           : "partial",
       };

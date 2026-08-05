@@ -64,6 +64,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   Python qualified attribute writes and deletions no longer count as callers;
   matching exact-ref reviews report partial confidence for those unsupported
   monkey-patching semantics.
+  First-party Python wildcard imports likewise emit no speculative caller edge
+  while making exact-ref review counts for the imported module partial.
   TypeScript, TSX, and JavaScript namespace-member assignments, updates, and
   deletions receive the same precision-preserving partial-confidence posture.
   TypeScript value bindings now shadow value-qualified accesses without

@@ -648,6 +648,29 @@ describe("committed qualified-reference scan", { timeout: 20_000 }, () => {
     }
   });
 
+  it("marks first-party Python wildcard imports partial without inventing a caller", async () => {
+    const cwd = createTestRepo("committed-python-wildcard-scan-");
+    try {
+      write(cwd, "pkg/sources.py", "def pending_ids(): return []\n");
+      write(cwd, "pkg/caller.py", "from pkg.sources import *\npending_ids()\n");
+      git(cwd, "add -A"); git(cwd, "commit -m wildcard-scan");
+
+      const result = await scanQualifiedReferencesAtRef({
+        cwd, git: nodeGit, pathOps: nodePathOps, ref: "HEAD",
+        symbolName: "pending_ids", filePath: "pkg/sources.py",
+      });
+
+      expect(result).toMatchObject({
+        referenceCount: 0,
+        referencingFiles: [],
+        confidence: "partial",
+        warnings: [],
+      });
+    } finally {
+      cleanupTestRepo(cwd);
+    }
+  });
+
   it("marks getattr reflection on a static Python import partial", async () => {
     const cwd = createTestRepo("committed-static-getattr-scan-");
     try {

@@ -94,7 +94,13 @@ interface PythonFromImportClause extends PythonImportScope {
   readonly childPath: string | null;
 }
 
-type PythonImportClause = PythonModuleImportClause | PythonFromImportClause;
+interface PythonWildcardImportClause extends PythonImportScope {
+  readonly kind: "wildcard";
+  readonly specifier: TSNode;
+  readonly packagePath: string | null;
+}
+
+type PythonImportClause = PythonModuleImportClause | PythonFromImportClause | PythonWildcardImportClause;
 
 function* pythonImportClauses(
   root: TSNode,
@@ -132,7 +138,10 @@ function* pythonImportClauses(
     if (packageNode === undefined) continue;
     const packagePath = resolvePythonModulePath(packageNode.text, filePath, context.pathOps, context.knownFiles);
     for (const specifier of statement.namedChildren.slice(statement.namedChildren.indexOf(packageNode) + 1)) {
-      if (specifier.type === "wildcard_import") continue;
+      if (specifier.type === "wildcard_import") {
+        yield { kind: "wildcard", specifier, packagePath, ...scope };
+        continue;
+      }
       const imported = specifier.type === "aliased_import"
         ? specifier.childForFieldName("name") ?? specifier.namedChildren.find((child) => child.type === "dotted_name")
         : specifier;
@@ -174,6 +183,7 @@ function pythonBindings(
       });
       continue;
     }
+    if (clause.kind === "wildcard") continue;
     bindings.push({
       name: clause.alias?.text ?? clause.imported.text,
       targetFilePath: clause.childPath,
@@ -539,4 +549,18 @@ export function analyzeDirectSymbolImportReferences(
     });
   }
   return references;
+}
+
+export function analyzeUnsupportedWildcardImportTargets(
+  language: QualifiedReferenceLanguage,
+  filePath: string,
+  root: TSNode,
+  context: QualifiedReferenceContext,
+): readonly string[] {
+  if (language !== "python") return [];
+  const targets = new Set<string>();
+  for (const clause of pythonImportClauses(root, filePath, context)) {
+    if (clause.kind === "wildcard" && clause.packagePath !== null) targets.add(clause.packagePath);
+  }
+  return [...targets];
 }

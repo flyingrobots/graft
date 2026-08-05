@@ -40,6 +40,7 @@ export type {
 } from "./qualified-reference-contract.js";
 export {
   analyzeDirectSymbolImportReferences,
+  analyzeUnsupportedWildcardImportTargets,
   resolveQualifiedImportBindings,
 } from "./qualified-reference-bindings.js";
 
