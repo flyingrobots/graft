@@ -67,6 +67,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   TypeScript value bindings now shadow value-qualified accesses without
   suppressing independent type-namespace references; class and enum
   declarations continue to shadow both meanings.
+  TypeScript `import alias = require("./module")` bindings now resolve the same
+  first-party qualified member references as namespace imports.
   TypeScript and JavaScript parameter bindings now cover their full default-
   initializer environment, including self-references and references to later
   parameters.

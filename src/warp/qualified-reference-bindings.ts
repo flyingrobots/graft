@@ -190,9 +190,21 @@ function typescriptBindings(
   const bindings: ResolvedImportBinding[] = [];
   for (const statement of root.namedChildren) {
     if (statement.type !== "import_statement") continue;
-    const sourceNode = statement.childForFieldName("source") ?? statement.namedChildren.find((child) => child.type === "string");
+    const importRequire = statement.namedChildren.find((child) => child.type === "import_require_clause");
+    const sourceNode = statement.childForFieldName("source") ??
+      importRequire?.childForFieldName("source") ??
+      statement.namedChildren.find((child) => child.type === "string");
     const source = sourceNode === undefined ? null : stringValue(sourceNode);
     if (source === null) continue;
+    const importRequireAlias = importRequire?.namedChildren.find((child) => child.type === "identifier");
+    if (importRequire !== undefined && importRequireAlias !== undefined) {
+      bindings.push({
+        name: importRequireAlias.text,
+        targetFilePath: resolveRelativeModule(source, filePath, context),
+        importNode: importRequire,
+      });
+      continue;
+    }
     const namespace = statement.namedChildren
       .find((child) => child.type === "import_clause")
       ?.namedChildren.find((child) => child.type === "namespace_import");

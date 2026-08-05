@@ -515,6 +515,21 @@ describe("qualified reference language adapters", () => {
     ]);
   });
 
+  it("resolves TypeScript import-equals namespace aliases", async () => {
+    const source = 'import api = require("./api"); api.run();';
+    const analysis = await analyze("ts", "src/caller.ts", source, new Map([
+      ["src/caller.ts", source],
+      ["src/api.ts", "export function run() {}"],
+    ]));
+
+    expect(analysis.bindings).toEqual([
+      expect.objectContaining({ name: "api", targetFilePath: "src/api.ts" }),
+    ]);
+    expect(analysis.accesses).toEqual([
+      expect.objectContaining({ binding: "api", member: "run", targetFilePath: "src/api.ts" }),
+    ]);
+  });
+
   it("shares namespace resolution and lexical declaration scopes across TSX and JavaScript", async () => {
     const tsx = [
       'import * as view from "./view";',
