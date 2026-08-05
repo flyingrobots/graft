@@ -103,6 +103,29 @@ describe("qualified reference language adapters", () => {
     ]);
   });
 
+  it("excludes TypeScript and JavaScript namespace member mutations from caller references", async () => {
+    for (const [language, extension] of [["ts", "ts"], ["tsx", "tsx"], ["js", "js"]] as const) {
+      const filePath = `src/caller.${extension}`;
+      const source = [
+        `import * as api from "./api.${extension}";`,
+        "api.run = replacement;",
+        "api.run += replacement;",
+        "api.run++;",
+        "delete api.run;",
+        "api.run();",
+      ].join("\n");
+      const analysis = await analyze(language, filePath, source, new Map([
+        [`src/api.${extension}`, "export function run() {}"],
+        [filePath, source],
+      ]));
+      expect(analysis.accesses.map((access) => access.member)).toEqual(["run"]);
+      expect(analysis.unresolvedAccesses).toHaveLength(4);
+      expect(analysis.unresolvedAccesses).toEqual(expect.arrayContaining([
+        expect.objectContaining({ binding: "api", member: "run" }),
+      ]));
+    }
+  });
+
   it("honors Python global and nonlocal declarations before reassignment", async () => {
     const source = [
       "import pkg.sources as source",

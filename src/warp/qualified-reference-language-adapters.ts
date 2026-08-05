@@ -69,6 +69,29 @@ function javascriptAccessParts(node: TSNode): QualifiedAccessParts | null {
     : null;
 }
 
+function typescriptUnsupportedWrite(node: TSNode): boolean {
+  let cursor = node.parent;
+  while (cursor !== null) {
+    if (cursor.type === "assignment_expression" || cursor.type === "augmented_assignment_expression") {
+      const left = cursor.childForFieldName("left") ?? cursor.namedChildren[0];
+      return left !== undefined && containsIndex(left, node.startIndex);
+    }
+    if (cursor.type === "update_expression") {
+      const argument = cursor.childForFieldName("argument") ?? cursor.namedChildren[0];
+      return argument !== undefined && containsIndex(argument, node.startIndex);
+    }
+    if (cursor.type === "unary_expression" && cursor.firstChild?.type === "delete") {
+      const argument = cursor.childForFieldName("argument") ?? cursor.namedChildren[0];
+      return argument !== undefined && containsIndex(argument, node.startIndex);
+    }
+    if (cursor.type === "expression_statement" || cursor.type === "statement_block" || cursor.type === "program") {
+      return false;
+    }
+    cursor = cursor.parent;
+  }
+  return false;
+}
+
 function rustPathParts(node: TSNode): { readonly binding: TSNode; readonly qualifier: readonly string[] } | null {
   if (["identifier", "crate", "self", "super"].includes(node.type)) {
     return { binding: node, qualifier: [] };
@@ -125,9 +148,9 @@ function createAdapter(
 
 const adapters = {
   python: createAdapter("python", pythonAccessParts, pythonUnsupportedWrite),
-  ts: createAdapter("ts", typescriptAccessParts),
-  tsx: createAdapter("tsx", typescriptAccessParts),
-  js: createAdapter("js", javascriptAccessParts),
+  ts: createAdapter("ts", typescriptAccessParts, typescriptUnsupportedWrite),
+  tsx: createAdapter("tsx", typescriptAccessParts, typescriptUnsupportedWrite),
+  js: createAdapter("js", javascriptAccessParts, typescriptUnsupportedWrite),
   rust: createAdapter("rust", rustAccessParts),
   go: createAdapter("go", goAccessParts),
 } satisfies Record<QualifiedReferenceLanguage, QualifiedReferenceLanguageAdapter>;

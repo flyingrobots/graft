@@ -64,6 +64,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   Python qualified attribute writes and deletions no longer count as callers;
   matching exact-ref reviews report partial confidence for those unsupported
   monkey-patching semantics.
+  TypeScript, TSX, and JavaScript namespace-member assignments, updates, and
+  deletions receive the same precision-preserving partial-confidence posture.
   TypeScript value bindings now shadow value-qualified accesses without
   suppressing independent type-namespace references; class and enum
   declarations continue to shadow both meanings.
