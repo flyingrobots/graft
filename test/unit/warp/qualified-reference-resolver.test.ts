@@ -927,6 +927,50 @@ describe("qualified reference language adapters", () => {
     ]);
   });
 
+  it("marks crate-root inline Rust module aliases unresolved at every possible crate root", async () => {
+    const source = "use crate::nested as api; fn call() { api::pending(); }";
+    const library = await analyze("rust", "src/caller.rs", source, new Map([
+      ["Cargo.toml", "[package]\nname='demo'"],
+      ["src/lib.rs", "pub mod nested { pub fn pending() {} }"],
+      ["src/caller.rs", source],
+    ]));
+    const binary = await analyze("rust", "src/caller.rs", source, new Map([
+      ["Cargo.toml", "[package]\nname='demo'"],
+      ["src/main.rs", "mod nested { pub fn pending() {} }"],
+      ["src/caller.rs", source],
+    ]));
+    const ambiguous = await analyze("rust", "src/caller.rs", source, new Map([
+      ["Cargo.toml", "[package]\nname='demo'"],
+      ["src/lib.rs", "pub mod nested { pub fn pending() {} }"],
+      ["src/main.rs", "mod nested { pub fn pending() {} }"],
+      ["src/caller.rs", source],
+    ]));
+    const workspaceLibrary = await analyze("rust", "crates/demo/src/caller.rs", source, new Map([
+      ["crates/demo/Cargo.toml", "[package]\nname='demo'"],
+      ["crates/demo/src/lib.rs", "pub mod nested { pub fn pending() {} }"],
+      ["crates/demo/src/caller.rs", source],
+    ]));
+
+    expect(library.accesses).toEqual([]);
+    expect(library.unresolvedAccesses).toEqual([
+      expect.objectContaining({
+        binding: "api",
+        member: "pending",
+        targetFilePath: "src/lib.rs",
+      }),
+    ]);
+    expect(binary.unresolvedAccesses).toEqual([
+      expect.objectContaining({ targetFilePath: "src/main.rs" }),
+    ]);
+    expect(ambiguous.unresolvedAccesses.map((access) => access.targetFilePath)).toEqual([
+      "src/lib.rs",
+      "src/main.rs",
+    ]);
+    expect(workspaceLibrary.unresolvedAccesses).toEqual([
+      expect.objectContaining({ targetFilePath: "crates/demo/src/lib.rs" }),
+    ]);
+  });
+
   it("resolves Rust self and super through enclosing inline modules", async () => {
     const source = [
       "mod nested {",

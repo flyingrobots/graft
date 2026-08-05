@@ -24,7 +24,7 @@ export interface QualifiedReferenceContext {
 export interface ResolvedImportBinding {
   readonly name: string;
   readonly targetFilePath: string | null;
-  readonly unresolvedTargetFilePath?: string | undefined;
+  readonly unresolvedTargetFilePaths?: readonly string[] | undefined;
   readonly qualifiedPath?: readonly string[] | undefined;
   readonly scopeStartIndex?: number | undefined;
   readonly scopeEndIndex?: number | undefined;

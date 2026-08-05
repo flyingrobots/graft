@@ -298,21 +298,40 @@ function resolveRustModule(
   return [`${raw}.rs`, `${raw}/mod.rs`].find((candidate) => context.knownFiles.has(candidate)) ?? null;
 }
 
-function unresolvedRustModuleOwner(
+function rustCrateRootFiles(
+  filePath: string,
+  sourceRoot: string,
+  knownFiles: ReadonlySet<string>,
+): readonly string[] {
+  const directory = parentDirectory(filePath);
+  const fileName = filePath.slice(directory === "" ? 0 : directory.length + 1);
+  const isPackageSourceRoot = sourceRoot === "src" || sourceRoot.endsWith("/src");
+  if (directory === sourceRoot && fileName !== "lib.rs" && fileName !== "main.rs" && !isPackageSourceRoot) {
+    return [filePath];
+  }
+  return [`${sourceRoot}/lib.rs`, `${sourceRoot}/main.rs`]
+    .filter((candidate) => knownFiles.has(candidate));
+}
+
+function unresolvedRustModuleOwners(
   source: string,
   filePath: string,
   context: QualifiedReferenceContext,
   importNode?: TSNode,
-): string | null {
+): readonly string[] {
+  const sourceRoot = rustSourceRoot(filePath, context.knownFiles);
   let candidate = rustModuleCandidatePath(source, filePath, context, importNode);
-  if (candidate === null) return null;
+  if (candidate === null) return [];
   while (candidate !== "") {
     const owner = [`${candidate}.rs`, `${candidate}/mod.rs`]
       .find((file) => context.knownFiles.has(file));
-    if (owner !== undefined) return owner;
+    if (owner !== undefined) return [owner];
+    if (candidate === sourceRoot) {
+      return rustCrateRootFiles(filePath, sourceRoot, context.knownFiles);
+    }
     candidate = parentDirectory(candidate);
   }
-  return null;
+  return [];
 }
 
 interface RustUseModuleCandidate {
@@ -384,7 +403,7 @@ function rustBindings(
         name: candidate.name,
         targetFilePath,
         ...(targetFilePath === null
-          ? { unresolvedTargetFilePath: unresolvedRustModuleOwner(candidate.source, filePath, context, candidate.importNode) ?? undefined }
+          ? { unresolvedTargetFilePaths: unresolvedRustModuleOwners(candidate.source, filePath, context, candidate.importNode) }
           : {}),
         scopeStartIndex,
         scopeEndIndex,

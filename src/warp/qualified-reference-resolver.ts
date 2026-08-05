@@ -109,7 +109,8 @@ export function analyzeQualifiedReferences(
         const unresolvedBinding = discoveredBindings
           .filter((candidate) =>
             candidate.name === parts.binding.text &&
-            candidate.unresolvedTargetFilePath !== undefined &&
+            candidate.unresolvedTargetFilePaths !== undefined &&
+            candidate.unresolvedTargetFilePaths.length > 0 &&
             node.startIndex >= (candidate.scopeStartIndex ?? root.startIndex) &&
             node.startIndex < (candidate.scopeEndIndex ?? root.endIndex)
           )
@@ -117,14 +118,16 @@ export function analyzeQualifiedReferences(
             (right.scopeStartIndex ?? root.startIndex) - (left.scopeStartIndex ?? root.startIndex) ||
             right.importNode.startIndex - left.importNode.startIndex
           )[0];
-        if (unresolvedBinding?.unresolvedTargetFilePath !== undefined) {
-          unresolvedAccesses.push({
-            binding: unresolvedBinding.name,
-            member: parts.member.text,
-            targetFilePath: unresolvedBinding.unresolvedTargetFilePath,
-            node,
-            shadow: null,
-          });
+        if (unresolvedBinding?.unresolvedTargetFilePaths !== undefined) {
+          for (const targetFilePath of unresolvedBinding.unresolvedTargetFilePaths) {
+            unresolvedAccesses.push({
+              binding: unresolvedBinding.name,
+              member: parts.member.text,
+              targetFilePath,
+              node,
+              shadow: null,
+            });
+          }
         }
       }
       if (language === "go" && context.go !== undefined) {

@@ -79,6 +79,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   imported parent module to the child module's declaring file.
   Nested Rust paths whose child module has no distinct source file now lower
   matching owner-file confidence instead of disappearing from the analysis.
+  Possible crate-root inline modules conservatively lower confidence for every
+  applicable `lib.rs` or `main.rs` owner.
   Rust value parameters, locals, patterns, functions, constants, and statics
   no longer shadow module paths; type/module items and generic type parameters
   remain conservative type-namespace shadows.
