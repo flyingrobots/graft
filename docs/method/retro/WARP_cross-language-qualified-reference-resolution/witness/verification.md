@@ -7,8 +7,8 @@ title: "Cross-language qualified reference verification witness"
 - Cycle: `WARP_cross-language-qualified-reference-resolution`
 - Date: `2026-08-04`
 - Branch: `feature/python-import-resolution`
-- Full-suite code head: `e8dd3011`
-- Final acceptance code head: `e8dd3011`
+- Full-suite code head: `3ced7293`
+- Final acceptance code head: `3ced7293`
 
 ## Acceptance Coverage
 
@@ -29,6 +29,10 @@ title: "Cross-language qualified reference verification witness"
 - Rust fixtures cover grouped `use` trees and Cargo auto-target crate roots;
   computed TypeScript/JavaScript namespace access is excluded with
   symbol-specific partial confidence.
+- Rust fixtures also cover direct `crate`, `self`, and `super` paths plus
+  ambiguous crate-root inline modules. TypeScript fixtures cover import-equals
+  aliases, and TypeScript/TSX/JavaScript fixtures exclude namespace-member
+  mutations while preserving language-correct extensionless module precedence.
 - MCP and CLI fixtures cover command parsing, schemas, capability registration,
   generated model parity, structured diagnostics, and human review rendering.
 - Exact-ref scans take precedence over stale WARP edges, reuse one repository
@@ -56,7 +60,7 @@ pnpm exec vitest run \
   test/unit/echo/generated-model-parity.test.ts
 ```
 
-Result: `15` test files and `200` tests passed.
+Result: `15` test files and `206` tests passed.
 
 The cold-WARP Python review fixture changes the signature of
 `coqui/matcher/sources.py:pending_ids` and reports
@@ -87,7 +91,7 @@ Results:
 - the first isolated run found one stale generated backlog DAG after this
   cycle added a bad-code card. The owning generator repaired the DOT and SVG
   in `e3cc2006`.
-- final isolated full suite passed: `252` test files and `1968` tests.
+- final isolated full suite passed: `252` test files and `1974` tests.
 
 ## Post-Retro Acceptance Closure
 
@@ -213,6 +217,30 @@ and zero unresolved threads. The focused acceptance set passed `15` files and
 `200` tests, and the Docker-isolated repository suite passed `252` files and
 `1968` tests. Lint, typecheck, build, structural-history artifact parity,
 agent-worktree hygiene, and whitespace validation also passed.
+
+The next exact-head Codex review opened five threads representing four distinct
+correctness findings; two threads duplicated the same crate-root Rust defect.
+This Code Lawyer pass also found two additional registry and mixed-source
+resolution defects. All six distinct issues were closed in focused commits:
+
+- `fe40b98b` records unresolved crate-root inline Rust aliases against every
+  applicable `lib.rs` or `main.rs` owner;
+- `5d289827` resolves TypeScript import-equals aliases as first-party namespace
+  bindings;
+- `bf538f76` resolves direct Rust `crate`, `self`, and `super` value and type
+  paths without requiring a local `use` binding;
+- `3da6989e` excludes TypeScript, TSX, and JavaScript namespace-member
+  mutations from caller counts while retaining partial-confidence evidence;
+- `1b6cbc8b` uses caller-language precedence for extensionless JavaScript and
+  TypeScript imports while preserving compiled specifier resolution; and
+- `3ced7293` derives runtime language membership from the exhaustive adapter
+  registry.
+
+At `3ced7293`, the full GraphQL audit reported `89` review threads and zero
+unresolved threads. The focused acceptance set passed `15` files and `206`
+tests, and the Docker-isolated repository suite passed `252` files and `1974`
+tests. Lint, typecheck, build, structural-history artifact parity with Wesley
+`0.1.0`, agent-worktree hygiene, and whitespace validation also passed.
 
 ## CLI Witness
 
