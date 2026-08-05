@@ -13,8 +13,9 @@ import type {
 } from "../ports/structural-reading.js";
 import type { ReferenceCountResult } from "../operations/structural-review.js";
 import {
-  countNamedImportReferencesAtRef as defaultCountNamedImportReferencesAtRef,
-} from "../operations/import-reference-impact.js";
+  analyzeCommittedReferencesAtRef,
+  type CommittedReferenceAnalysis,
+} from "./committed-reference-scan.js";
 import {
   countSymbolReferencesFromGraph as defaultCountSymbolReferencesFromGraph,
 } from "./warp-reference-count.js";
@@ -34,13 +35,14 @@ export interface GitWarpStructuralReadingPortDeps {
     symbolName: string,
     filePath?: string,
   ) => Promise<{ readonly symbol: string; readonly referenceCount: number; readonly referencingFiles: readonly string[] }>;
-  readonly countNamedImportReferencesAtRef?: (opts: {
+  readonly countCommittedReferencesAtRef?: (opts: {
     readonly cwd: string;
     readonly git: GitClient;
     readonly pathOps: PathOps;
     readonly symbolName: string;
     readonly filePath: string;
     readonly ref: string;
+    readonly candidateTargetFilePaths?: readonly string[] | undefined;
   }) => Promise<ReferenceCountResult>;
   readonly findDeadSymbols?: (
     ctx: WarpContext,
@@ -73,15 +75,28 @@ function normalizeRefOrDefault(ref: string | undefined): string {
   return normalized === undefined || normalized.length === 0 ? "HEAD" : normalized;
 }
 
+function fallbackReason(error: unknown): string {
+  if (error instanceof Error) return error.message.trim() === "" ? error.name : error.message;
+  if (typeof error === "string" && error.trim() !== "") return error;
+  return "Unknown committed-reference scan failure";
+}
+
 function symbolReferencePayload(
   symbolName: string,
   result: ReferenceCountResult | { readonly symbol: string; readonly referenceCount: number; readonly referencingFiles: readonly string[] },
 ): SymbolReferenceReadingPayload {
-  return {
+  const payload = {
     symbol: "symbol" in result ? result.symbol : symbolName,
     referenceCount: result.referenceCount,
     referencingFiles: result.referencingFiles,
   };
+  return "symbol" in result
+    ? payload
+    : {
+        ...payload,
+        referenceWarnings: result.warnings ?? [],
+        referenceConfidence: result.confidence ?? "complete",
+      };
 }
 
 export function createGitWarpStructuralReadingPort(
@@ -89,44 +104,78 @@ export function createGitWarpStructuralReadingPort(
 ): StructuralReadingPort {
   const countSymbolReferencesFromGraph =
     deps.countSymbolReferencesFromGraph ?? defaultCountSymbolReferencesFromGraph;
-  const countNamedImportReferencesAtRef =
-    deps.countNamedImportReferencesAtRef ?? defaultCountNamedImportReferencesAtRef;
   const findDeadSymbols = deps.findDeadSymbols ?? defaultFindDeadSymbols;
+  const scopedAnalyses = new WeakMap<readonly string[], Map<string, Promise<CommittedReferenceAnalysis>>>();
+  const countCommittedReferencesAtRef = deps.countCommittedReferencesAtRef ?? (async (request) => {
+    const candidateTargetFilePaths = request.candidateTargetFilePaths ?? [request.filePath];
+    let analysis: Promise<CommittedReferenceAnalysis>;
+    if (request.candidateTargetFilePaths === undefined) {
+      analysis = analyzeCommittedReferencesAtRef({
+        cwd: request.cwd,
+        git: request.git,
+        pathOps: request.pathOps,
+        ref: request.ref,
+        candidateTargetFilePaths,
+      });
+    } else {
+      let byRef = scopedAnalyses.get(request.candidateTargetFilePaths);
+      if (byRef === undefined) {
+        byRef = new Map();
+        scopedAnalyses.set(request.candidateTargetFilePaths, byRef);
+      }
+      const existing = byRef.get(request.ref);
+      if (existing !== undefined) analysis = existing;
+      else {
+        analysis = analyzeCommittedReferencesAtRef({
+          cwd: request.cwd,
+          git: request.git,
+          pathOps: request.pathOps,
+          ref: request.ref,
+          candidateTargetFilePaths,
+        });
+        byRef.set(request.ref, analysis);
+      }
+    }
+    return (await analysis).countReferences(request.symbolName, request.filePath);
+  });
 
   return {
     async countSymbolReferences(
       request: SymbolReferenceReadingRequest,
     ): Promise<StructuralReadingResult<SymbolReferenceReadingPayload>> {
       const ref = normalizeRefOrDefault(request.ref);
-      const warp = await deps.getWarp();
-      const graphResult = await countSymbolReferencesFromGraph(
-        warp,
-        request.symbolName,
-        request.filePath,
-      );
 
-      let payload = symbolReferencePayload(request.symbolName, graphResult);
-      let source: "warp-graph" | "committed-import-scan" = "warp-graph";
-      let residualPosture: StructuralReadingResidualPosture = "complete";
+      let payload: SymbolReferenceReadingPayload;
+      let source: "warp-graph" | "committed-reference-scan";
+      let residualPosture: StructuralReadingResidualPosture;
+      let committedScanFailure: string | undefined;
 
-      if (graphResult.referenceCount === 0) {
-        try {
-          const fallbackResult = await countNamedImportReferencesAtRef({
-            cwd: deps.projectRoot,
-            git: deps.git,
-            pathOps: deps.pathOps,
-            symbolName: request.symbolName,
-            filePath: request.filePath,
-            ref,
-          });
-          if (fallbackResult.referenceCount > 0) {
-            payload = symbolReferencePayload(request.symbolName, fallbackResult);
-            source = "committed-import-scan";
-          }
-        } catch {
-          payload = symbolReferencePayload(request.symbolName, graphResult);
-          residualPosture = "partial";
-        }
+      try {
+        const committedResult = await countCommittedReferencesAtRef({
+          cwd: deps.projectRoot,
+          git: deps.git,
+          pathOps: deps.pathOps,
+          symbolName: request.symbolName,
+          filePath: request.filePath,
+          ref,
+          ...(request.candidateTargetFilePaths !== undefined
+            ? { candidateTargetFilePaths: request.candidateTargetFilePaths }
+            : {}),
+        });
+        payload = symbolReferencePayload(request.symbolName, committedResult);
+        source = "committed-reference-scan";
+        residualPosture = committedResult.confidence === "partial" ? "partial" : "complete";
+      } catch (error) {
+        committedScanFailure = fallbackReason(error);
+        const warp = await deps.getWarp();
+        const graphResult = await countSymbolReferencesFromGraph(
+          warp,
+          request.symbolName,
+          request.filePath,
+        );
+        payload = symbolReferencePayload(request.symbolName, graphResult);
+        source = "warp-graph";
+        residualPosture = "partial";
       }
 
       return {
@@ -142,6 +191,7 @@ export function createGitWarpStructuralReadingPort(
             source,
             symbolName: request.symbolName,
             filePath: request.filePath,
+            ...(committedScanFailure !== undefined ? { fallbackReason: committedScanFailure } : {}),
           },
         ),
       };

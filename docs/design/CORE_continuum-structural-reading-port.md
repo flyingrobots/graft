@@ -175,7 +175,7 @@ MCP / CLI / API use case
 It should call existing WARP helpers rather than rewriting structural logic:
 
 - `countSymbolReferencesFromGraph(...)` for review impact counts
-- `countNamedImportReferencesAtRef(...)` as the current committed-history
+- `scanQualifiedReferencesAtRef(...)` as the current committed-history
   fallback for review impact counts
 - `findDeadSymbols(...)` for dead-symbol readings
 

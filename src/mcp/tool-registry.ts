@@ -25,6 +25,7 @@ import { structuralBlameTool } from "./tools/structural-blame.js";
 import { refactorDifficultyTool } from "./tools/refactor-difficulty.js";
 import { structuralReviewTool } from "./tools/structural-review.js";
 import { structuralTestCoverageTool } from "./tools/structural-test-coverage.js";
+import { importDiagnosticsTool } from "./tools/import-diagnostics.js";
 import { daemonMonitorsTool } from "./tools/daemon-monitors.js";
 import { daemonReposTool } from "./tools/daemon-repos.js";
 import { daemonSessionsTool } from "./tools/daemon-sessions.js";
@@ -78,6 +79,7 @@ export const TOOL_REGISTRY: readonly ToolDefinition[] = [
   structuralBlameTool,
   refactorDifficultyTool,
   structuralReviewTool,
+  importDiagnosticsTool,
   structuralTestCoverageTool,
   deadSymbolsTool,
   knowledgeMapTool,

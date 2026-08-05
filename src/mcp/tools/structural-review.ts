@@ -1,24 +1,7 @@
 import { z } from "zod";
-import { structuralReview, type ReferenceCountResult } from "../../operations/structural-review.js";
+import { structuralReview } from "../../operations/structural-review.js";
 import { toJsonObject } from "../../operations/result-dto.js";
-import type { ToolContext, ToolDefinition, ToolHandler } from "../context.js";
-
-async function countReviewReferences(
-  ctx: ToolContext,
-  symbolName: string,
-  filePath: string,
-  headRef: string,
-): Promise<ReferenceCountResult> {
-  const reading = await ctx.getStructuralReadingPort().countSymbolReferences({
-    symbolName,
-    filePath,
-    ref: headRef,
-  });
-  return {
-    referenceCount: reading.payload.referenceCount,
-    referencingFiles: reading.payload.referencingFiles,
-  };
-}
+import type { ToolDefinition, ToolHandler } from "../context.js";
 
 export const structuralReviewTool: ToolDefinition = {
   name: "graft_review",
@@ -30,6 +13,8 @@ export const structuralReviewTool: ToolDefinition = {
   createHandler(): ToolHandler {
     return async (args, ctx) => {
       const head = args["head"] as string | undefined;
+      const headRef = head ?? "HEAD";
+      const structuralReadingPort = ctx.getStructuralReadingPort();
       const result = await structuralReview({
         cwd: ctx.projectRoot,
         fs: ctx.fs,
@@ -37,8 +22,20 @@ export const structuralReviewTool: ToolDefinition = {
         resolveWorkingTreePath: (filePath) => ctx.resolvePath(filePath),
         base: args["base"] as string | undefined,
         head,
-        countReferences: async (symbolName, filePath) => {
-          return countReviewReferences(ctx, symbolName, filePath, head ?? "HEAD");
+        countReferences: async (symbolName, filePath, candidateTargetFilePaths) => {
+          const reading = await structuralReadingPort.countSymbolReferences({
+            symbolName,
+            filePath,
+            ref: headRef,
+            candidateTargetFilePaths,
+          });
+          return {
+            referenceCount: reading.payload.referenceCount,
+            referencingFiles: reading.payload.referencingFiles,
+            warnings: reading.payload.referenceWarnings ?? [],
+            confidence: reading.payload.referenceConfidence ??
+              (reading.residualPosture === "complete" ? "complete" : "partial"),
+          };
         },
       });
       ctx.recordFootprint({

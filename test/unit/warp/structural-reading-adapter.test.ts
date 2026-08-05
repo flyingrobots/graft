@@ -18,7 +18,44 @@ const pathOps = {
 const warp = { app: {}, strandId: null } as unknown as WarpContext;
 
 describe("git-warp structural reading adapter", () => {
-  it("labels WARP graph reference counts as translated non-Continuum-native evidence", async () => {
+  it("does not acquire WARP when the exact-ref committed scan succeeds", async () => {
+    const getWarp = vi.fn(() => Promise.reject(new Error("cold graph unavailable")));
+    const graphCount = vi.fn();
+    const port = createGitWarpStructuralReadingPort({
+      projectRoot: "/repo",
+      git,
+      pathOps,
+      getWarp,
+      countSymbolReferencesFromGraph: graphCount,
+      countCommittedReferencesAtRef: vi.fn(() => Promise.resolve({
+        referenceCount: 1,
+        referencingFiles: ["src/consumer.ts"],
+        warnings: [],
+        confidence: "complete" as const,
+      })),
+      findDeadSymbols: vi.fn(),
+    });
+
+    const reading = await port.countSymbolReferences({
+      symbolName: "buildThing",
+      filePath: "src/api.ts",
+      ref: "review-head",
+    });
+
+    expect(reading.payload).toMatchObject({
+      referenceCount: 1,
+      referencingFiles: ["src/consumer.ts"],
+      referenceConfidence: "complete",
+    });
+    expect(reading.evidence).toMatchObject({
+      basis: { ref: "review-head" },
+      evidence: { source: "committed-reference-scan" },
+    });
+    expect(getWarp).not.toHaveBeenCalled();
+    expect(graphCount).not.toHaveBeenCalled();
+  });
+
+  it("retains WARP graph reference counts as partial evidence when the committed scan fails", async () => {
     const port = createGitWarpStructuralReadingPort({
       projectRoot: "/repo",
       git,
@@ -29,7 +66,7 @@ describe("git-warp structural reading adapter", () => {
         referenceCount: 2,
         referencingFiles: ["src/a.ts", "src/b.ts"],
       })),
-      countNamedImportReferencesAtRef: vi.fn(),
+      countCommittedReferencesAtRef: vi.fn(() => Promise.reject(new Error("scan unavailable"))),
       findDeadSymbols: vi.fn(),
     });
 
@@ -47,7 +84,7 @@ describe("git-warp structural reading adapter", () => {
     expect(reading).toMatchObject({
       kind: "symbol-reference-count",
       freshness: "current",
-      residualPosture: "complete",
+      residualPosture: "partial",
       evidence: {
         kind: "translated-substrate",
         evidenceLabel: "fallback-translated",
@@ -63,6 +100,7 @@ describe("git-warp structural reading adapter", () => {
           source: "warp-graph",
           symbolName: "buildThing",
           filePath: "src/api.ts",
+          fallbackReason: "scan unavailable",
         },
       },
     });
@@ -83,7 +121,7 @@ describe("git-warp structural reading adapter", () => {
         referenceCount: 0,
         referencingFiles: [],
       })),
-      countNamedImportReferencesAtRef: fallback,
+      countCommittedReferencesAtRef: fallback,
       findDeadSymbols: vi.fn(),
     });
 
@@ -101,7 +139,7 @@ describe("git-warp structural reading adapter", () => {
     });
   });
 
-  it("labels committed import-scan fallback counts as translated substrate evidence", async () => {
+  it("labels committed reference-scan fallback counts as translated substrate evidence", async () => {
     const port = createGitWarpStructuralReadingPort({
       projectRoot: "/repo",
       git,
@@ -112,7 +150,7 @@ describe("git-warp structural reading adapter", () => {
         referenceCount: 0,
         referencingFiles: [],
       })),
-      countNamedImportReferencesAtRef: vi.fn(() => Promise.resolve({
+      countCommittedReferencesAtRef: vi.fn(() => Promise.resolve({
         referenceCount: 1,
         referencingFiles: ["src/consumer.ts"],
       })),
@@ -129,6 +167,8 @@ describe("git-warp structural reading adapter", () => {
       symbol: "buildThing",
       referenceCount: 1,
       referencingFiles: ["src/consumer.ts"],
+      referenceWarnings: [],
+      referenceConfidence: "complete",
     });
     expect(reading.evidence).toMatchObject({
       kind: "translated-substrate",
@@ -137,10 +177,48 @@ describe("git-warp structural reading adapter", () => {
       nativeContinuumWitness: false,
       evidence: {
         kind: "symbol-reference-count",
-        source: "committed-import-scan",
+        source: "committed-reference-scan",
         symbolName: "buildThing",
         filePath: "src/api.ts",
       },
+    });
+  });
+
+  it("prefers a complete committed scan over a nonzero bounded graph count", async () => {
+    const committed = vi.fn(() => Promise.resolve({
+      referenceCount: 2,
+      referencingFiles: ["src/a.ts", "src/b.ts"],
+      warnings: [],
+      confidence: "complete" as const,
+    }));
+    const port = createGitWarpStructuralReadingPort({
+      projectRoot: "/repo",
+      git,
+      pathOps,
+      getWarp: () => Promise.resolve(warp),
+      countSymbolReferencesFromGraph: vi.fn(() => Promise.resolve({
+        symbol: "buildThing",
+        referenceCount: 1,
+        referencingFiles: ["src/a.ts"],
+      })),
+      countCommittedReferencesAtRef: committed,
+      findDeadSymbols: vi.fn(),
+    });
+
+    const reading = await port.countSymbolReferences({
+      symbolName: "buildThing",
+      filePath: "src/api.ts",
+      ref: "HEAD",
+    });
+
+    expect(committed).toHaveBeenCalledOnce();
+    expect(reading.payload).toMatchObject({
+      referenceCount: 2,
+      referencingFiles: ["src/a.ts", "src/b.ts"],
+      referenceConfidence: "complete",
+    });
+    expect(reading.evidence).toMatchObject({
+      evidence: { source: "committed-reference-scan" },
     });
   });
 
@@ -155,7 +233,7 @@ describe("git-warp structural reading adapter", () => {
         referenceCount: 0,
         referencingFiles: [],
       })),
-      countNamedImportReferencesAtRef: vi.fn(() => Promise.reject(new Error("git unavailable"))),
+      countCommittedReferencesAtRef: vi.fn(() => Promise.reject(new Error("git unavailable"))),
       findDeadSymbols: vi.fn(),
     });
 
@@ -192,7 +270,7 @@ describe("git-warp structural reading adapter", () => {
       pathOps,
       getWarp: () => Promise.resolve(warp),
       countSymbolReferencesFromGraph: vi.fn(),
-      countNamedImportReferencesAtRef: vi.fn(),
+      countCommittedReferencesAtRef: vi.fn(),
       findDeadSymbols: vi.fn(() => Promise.resolve([
         {
           name: "oldThing",

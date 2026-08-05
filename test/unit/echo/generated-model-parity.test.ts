@@ -103,9 +103,14 @@ function makePort(overrides: PortStubOverrides = {}): StructuralReadingPort {
       referenceCount,
       referencingFiles,
     })),
-    countNamedImportReferencesAtRef: overrides.fallbackThrows
+    countCommittedReferencesAtRef: overrides.fallbackThrows
       ? vi.fn(() => Promise.reject(new Error("scan failed")))
-      : vi.fn(() => Promise.resolve({ referenceCount: 0, referencingFiles: [] })),
+      : vi.fn(() => Promise.resolve({
+          referenceCount,
+          referencingFiles,
+          warnings: [],
+          confidence: "complete" as const,
+        })),
     findDeadSymbols: vi.fn(() => Promise.resolve([...(overrides.deadSymbols ?? deadSymbolFixtures)])),
   });
 }
@@ -153,7 +158,7 @@ const importedResult: StructuralReadingResult<SymbolReferenceReadingPayload> = {
     },
     evidence: {
       kind: "symbol-reference-count",
-      source: "committed-import-scan",
+        source: "committed-reference-scan",
       symbolName: "importedThing",
       filePath: "src/x.ts",
     },
@@ -361,7 +366,7 @@ describe("toGeneratedStructuralReading — forward obstruction errors", () => {
         ...importedEvidence,
         evidence: {
           kind: "symbol-reference-count",
-          source: "committed-import-scan",
+          source: "committed-reference-scan",
           symbolName: "x",
           filePath: "src/x.ts",
         },
@@ -426,7 +431,9 @@ describe("determinism", () => {
     const reordered = {
       ...base,
       payload: {
+        referenceConfidence: base.payload.referenceConfidence,
         referencingFiles: base.payload.referencingFiles,
+        referenceWarnings: base.payload.referenceWarnings,
         referenceCount: base.payload.referenceCount,
         symbol: base.payload.symbol,
       },
@@ -588,10 +595,30 @@ describe("public-surface parity through the generated model", () => {
       return {
         referenceCount: payload.referenceCount,
         referencingFiles: payload.referencingFiles,
+        referenceWarnings: payload.referenceWarnings,
+        referenceConfidence: payload.referenceConfidence,
       };
     };
 
-    const direct = await symbolReferenceResult();
+    const base = await symbolReferenceResult();
+    const direct: StructuralReadingResult<SymbolReferenceReadingPayload> = {
+      ...base,
+      payload: {
+        ...base.payload,
+        referenceWarnings: [{
+          code: "import_binding_shadowed",
+          severity: "warning",
+          language: "python",
+          filePath: "src/caller.py",
+          range: { startLine: 3, startColumn: 5, endLine: 3, endColumn: 8 },
+          binding: "api",
+          targetFilePath: "src/api.py",
+          shadowKind: "parameter",
+          message: "affected qualified accesses were excluded from reference inference",
+        }],
+        referenceConfidence: "partial",
+      },
+    };
     const { reading, evidence } = toGeneratedStructuralReading(direct, ctx);
     const roundTripped = fromGeneratedStructuralReading(reading, evidence);
 

@@ -2,21 +2,12 @@
 // AST Import Resolver — adds cross-file reference edges to the WARP graph
 // ---------------------------------------------------------------------------
 
-import { createHash } from "node:crypto";
 import type { PatchBuilderV2 } from "@git-stunts/git-warp";
 import type { PathOps } from "../ports/paths.js";
+import { astNodeId, emitAstAnchor } from "./ast-emitter.js";
 import { SymIdCodec } from "./sym-id-codec.js";
 
 type TSNode = import("web-tree-sitter").SyntaxNode;
-
-function hashId(input: string): string {
-  return createHash("sha1").update(input).digest("hex").slice(0, 12);
-}
-
-function astNodeId(filePath: string, node: TSNode): string {
-  const hash = hashId(`${filePath}:${node.type}:${String(node.startIndex)}:${String(node.endIndex)}`);
-  return `ast:${filePath}:${hash}`;
-}
 
 function resolveModulePath(
   importSource: string,
@@ -47,9 +38,20 @@ function resolveModulePath(
     `${raw}.tsx`,
     `${raw}.js`,
     `${raw}.jsx`,
+    `${raw}.mts`,
+    `${raw}.cts`,
+    `${raw}.d.ts`,
+    `${raw}.d.mts`,
+    `${raw}.d.cts`,
     `${raw}/index.ts`,
     `${raw}/index.tsx`,
     `${raw}/index.js`,
+    `${raw}/index.jsx`,
+    `${raw}/index.mts`,
+    `${raw}/index.cts`,
+    `${raw}/index.d.ts`,
+    `${raw}/index.d.mts`,
+    `${raw}/index.d.cts`,
   ];
 
   for (const candidate of candidates) {
@@ -88,19 +90,6 @@ interface ImportInfo {
   readonly node: TSNode;
   readonly importedName: string;
   readonly localName: string;
-}
-
-function emitAstAnchor(patch: PatchBuilderV2, filePath: string, node: TSNode): string {
-  const nodeId = astNodeId(filePath, node);
-  patch.addNode(nodeId);
-  patch.setProperty(nodeId, "type", node.type);
-  patch.setProperty(nodeId, "named", node.isNamed());
-  patch.setProperty(nodeId, "startRow", node.startPosition.row);
-  patch.setProperty(nodeId, "startCol", node.startPosition.column);
-  patch.setProperty(nodeId, "endRow", node.endPosition.row);
-  patch.setProperty(nodeId, "endCol", node.endPosition.column);
-  patch.setProperty(nodeId, "filePath", filePath);
-  return nodeId;
 }
 
 function extractImportSpecifiers(
@@ -191,6 +180,43 @@ function getModuleSource(node: TSNode): string | null {
   if (stringNode === undefined) return null;
   const fragment = stringNode.namedChildren.find((c) => c.type === "string_fragment");
   return fragment !== undefined ? fragment.text : null;
+}
+
+export interface StaticTypeScriptReference {
+  readonly importedName: string;
+  readonly localName: string;
+  readonly targetFilePath: string;
+}
+
+/** Analyze direct static imports/re-exports without emitting graph state. */
+export function analyzeStaticTypeScriptReferences(
+  root: TSNode,
+  filePath: string,
+  pathOps: PathOps,
+  knownFiles: ReadonlySet<string>,
+): readonly StaticTypeScriptReference[] {
+  const references: StaticTypeScriptReference[] = [];
+  for (const statement of root.namedChildren) {
+    const specifiers = statement.type === "import_statement"
+      ? extractImportSpecifiers(statement, filePath)
+      : statement.type === "export_statement"
+        ? extractExportSpecifiers(statement, filePath)
+        : [];
+    if (specifiers.length === 0) continue;
+    const source = getModuleSource(statement);
+    if (source === null) continue;
+    const targetFilePath = resolveModulePath(source, filePath, pathOps, knownFiles);
+    if (targetFilePath === null) continue;
+    for (const specifier of specifiers) {
+      if (specifier.importedName === "*") continue;
+      references.push({
+        importedName: specifier.importedName,
+        localName: specifier.localName,
+        targetFilePath,
+      });
+    }
+  }
+  return references;
 }
 
 /**

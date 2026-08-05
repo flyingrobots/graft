@@ -16,6 +16,7 @@ import type {
   DeadSymbolsReadingRequest,
   StructuralReadingFreshness,
   StructuralReadingPort,
+  StructuralReferenceWarning,
   StructuralReadingResidualPosture,
   StructuralReadingResult,
   SymbolReferenceReadingPayload,
@@ -116,6 +117,46 @@ function symbolReferencePayload(
 ): SymbolReferenceReadingPayload {
   const payload = asRecordValue(record?.payloadJson ?? null);
   const rawFiles = payload["referencingFiles"] ?? null;
+  const rawWarnings = payload["referenceWarnings"] ?? null;
+  const referenceWarnings: StructuralReferenceWarning[] = [];
+  if (isCborArray(rawWarnings)) {
+    for (const raw of rawWarnings) {
+      const warning = asRecordValue(raw);
+      const range = asRecordValue(warning["range"] ?? null);
+      if (
+        warning["severity"] === "warning" &&
+        typeof warning["code"] === "string" &&
+        typeof warning["language"] === "string" &&
+        typeof warning["filePath"] === "string" &&
+        typeof range["startLine"] === "number" &&
+        typeof range["startColumn"] === "number" &&
+        typeof range["endLine"] === "number" &&
+        typeof range["endColumn"] === "number" &&
+        typeof warning["binding"] === "string" &&
+        typeof warning["targetFilePath"] === "string" &&
+        typeof warning["shadowKind"] === "string" &&
+        typeof warning["message"] === "string"
+      ) {
+        referenceWarnings.push({
+          code: warning["code"],
+          severity: "warning",
+          language: warning["language"],
+          filePath: warning["filePath"],
+          range: {
+            startLine: range["startLine"],
+            startColumn: range["startColumn"],
+            endLine: range["endLine"],
+            endColumn: range["endColumn"],
+          },
+          binding: warning["binding"],
+          targetFilePath: warning["targetFilePath"],
+          shadowKind: warning["shadowKind"],
+          message: warning["message"],
+        });
+      }
+    }
+  }
+  const referenceConfidence = payload["referenceConfidence"];
   return {
     symbol: symbolName,
     referenceCount:
@@ -123,6 +164,10 @@ function symbolReferencePayload(
     referencingFiles: isCborArray(rawFiles)
       ? rawFiles.filter((file): file is string => typeof file === "string")
       : [],
+    ...(isCborArray(rawWarnings) ? { referenceWarnings } : {}),
+    ...(referenceConfidence === "complete" || referenceConfidence === "partial"
+      ? { referenceConfidence }
+      : {}),
   };
 }
 
