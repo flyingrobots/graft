@@ -49,9 +49,12 @@ function resolveRelativeModule(
   const directory = importingFilePath.includes("/")
     ? importingFilePath.slice(0, importingFilePath.lastIndexOf("/"))
     : "";
-  const raw = directory === ""
-    ? context.pathOps.normalize(source)
-    : context.pathOps.join(directory, source);
+  const raw = source.startsWith("/")
+    ? context.pathOps.normalize(source.slice(1))
+    : directory === ""
+      ? context.pathOps.normalize(source)
+      : context.pathOps.join(directory, source);
+  if (raw === "") return null;
   const sourceExtensions = language === "js"
     ? [".js", ".jsx", ".mjs", ".cjs", ".ts", ".tsx", ".mts", ".cts"]
     : [".ts", ".tsx", ".js", ".jsx", ".mts", ".cts"];

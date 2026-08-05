@@ -565,6 +565,26 @@ describe("qualified reference language adapters", () => {
     ]);
   });
 
+  it("resolves repository-root TypeScript and JavaScript namespace imports", async () => {
+    const source = 'import * as api from "/src/api"; api.run();';
+    const files = new Map([
+      ["src/components/caller.ts", source],
+      ["src/components/caller.js", source],
+      ["src/api.ts", "export function run() {}"],
+      ["src/api.js", "export function run() {}"],
+    ]);
+
+    const typescript = await analyze("ts", "src/components/caller.ts", source, files);
+    const javascript = await analyze("js", "src/components/caller.js", source, files);
+
+    expect(typescript.accesses).toEqual([
+      expect.objectContaining({ targetFilePath: "src/api.ts", member: "run" }),
+    ]);
+    expect(javascript.accesses).toEqual([
+      expect.objectContaining({ targetFilePath: "src/api.js", member: "run" }),
+    ]);
+  });
+
   it("resolves TypeScript import-equals namespace aliases", async () => {
     const source = 'import api = require("./api"); api.run();';
     const analysis = await analyze("ts", "src/caller.ts", source, new Map([

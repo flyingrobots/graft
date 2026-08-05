@@ -76,6 +76,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   Extensionless JavaScript namespace imports prefer JavaScript source files in
   mixed-source trees, while TypeScript callers retain TypeScript-first and
   compiled `.js`-specifier resolution.
+  Repository-root TypeScript and JavaScript namespace imports now resolve from
+  the repository root instead of the importing file's directory.
   TypeScript and JavaScript parameter bindings now cover their full default-
   initializer environment, including self-references and references to later
   parameters.
