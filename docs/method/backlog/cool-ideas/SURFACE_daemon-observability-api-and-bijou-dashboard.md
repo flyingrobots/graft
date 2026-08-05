@@ -12,13 +12,16 @@ acceptance_criteria:
   - "One daemon-owned snapshot reports semantic health, uptime, sessions, repositories, workspaces, monitors, scheduler pressure, worker pressure, and bounded recent failures"
   - "Health distinguishes healthy, degraded, and unhealthy service state from successful HTTP request handling"
   - "A versioned read-only HTTP API exposes the snapshot over the existing same-user local transport without enabling a TCP listener"
-  - "MCP, CLI, HTTP, and Bijou adapters consume shared application queries and contract schemas instead of calling one another"
+  - "MCP, CLI, and HTTP adapters consume shared application queries and contract schemas instead of calling one another"
+  - "One versioned Graft-owned dashboard artifact binds the exact observability snapshot digest, semantic identities, reading order, freshness, health, actions, and capability requirements"
+  - "Sibling Bijou and Geordi lowerers consume the same dashboard artifact and emit target maps and receipts without redefining Graft semantics"
+  - "Cross-target tests compare semantic identities, labels, actions, input digests, and capability residuals without claiming terminal and browser pixel parity"
   - "The first operator dashboard is a Bijou TUI backed by deterministic view models and bounded refresh"
   - "Metrics and failure samples have bounded cardinality and do not expose repository paths, arguments, or raw error text as labels"
-  - "Tests use a fake clock and deterministic snapshots instead of a live daemon, terminal loop, or browser"
+  - "Core and first-slice tests use a fake clock and deterministic snapshots instead of a live daemon, terminal loop, or browser"
 ---
 
-# Daemon observability API and Bijou operator dashboard
+# Daemon observability REST API and Bijou operator dashboard
 
 ## Why
 
@@ -52,7 +55,7 @@ liveness and semantic service health should be separate, explicit facts.
 - define application queries for status, repositories, sessions, monitors,
   metrics, and recent failures
 - validate their versioned response contracts at the adapter boundary
-- keep MCP, CLI, HTTP, and UI adapters as siblings over those queries; no
+- keep MCP, CLI, and HTTP adapters as siblings over those queries; no
   adapter should tunnel through another adapter
 - keep mutations on the existing workspace and monitor command paths instead
   of inventing REST-only control semantics
@@ -69,24 +72,68 @@ liveness and semantic service health should be separate, explicit facts.
 - make response ordering, pagination or bounds, timestamps, and empty-state
   behavior deterministic and documented
 
-### 4. Bijou operator surface
+### 4. Portable dashboard artifact
+
+- derive one versioned Graft-owned semantic dashboard artifact from an exact
+  observability snapshot rather than making an MCP, HTTP, terminal, or browser
+  response the render authority
+- carry stable panel, metric, status, failure, and action identities; reading
+  order; labels and value coordinates; freshness and health facts; capability
+  requirements; and the exact source snapshot digest
+- keep terminal geometry, pixel geometry, key handling, and browser transport
+  outside the shared artifact
+- require target-specific maps, capability residuals, output hashes, and
+  receipts to bind every target back to the same semantic artifact
+
+The target topology follows the completed Profunctor Page portability proof:
+
+```text
+Graft observability snapshot
+  -> Graft dashboard artifact
+    -> Bijou lowerer
+      -> ui-scene-ir/1
+        -> Surface and terminal receipt
+    -> Geordi lowerer
+      -> geordi-ir/1
+        -> browser canvas and render receipt
+```
+
+Bijou and Geordi are sibling target owners. Neither target adapter calls the
+other, and neither may redefine Graft health, freshness, metric, failure, or
+control-action semantics.
+
+### 5. Bijou operator surface
 
 - build the first dashboard as a Bijou TUI with bounded refresh, visible
   staleness, accessible labels, and deterministic single-frame rendering
 - keep the dashboard model independent from key handling and terminal effects
-- allow inspectable projections to use Bijou's shipped `ui-scene-ir/1`
-  contract where it fits, without claiming DOM, HTML, or browser parity
+- lower the shared dashboard artifact through Bijou's shipped
+  `ui-scene-ir/1` and `Surface` contracts with an inspectable target map and
+  receipt
 - leave confirmation-gated workspace and monitor mutations to the existing
   [Bijou daemon control-plane actions](./SURFACE_bijou-daemon-control-plane-actions.md)
   card
 
 ## Browser boundary
 
-Bijou currently ships terminal packages and a shared `ui-scene-ir/1`
-contract, but not a browser or DOM renderer. The first delivery therefore uses
-Bijou for the TUI and keeps the query/view model portable. A browser dashboard
-is a later adapter after Bijou's renderer and host-integration work is a shipped
-contract.
+The completed
+[Profunctor Page conformance corpus](https://github.com/flyingrobots/profunctor-optics-website/tree/main/test/fixtures/portable-targets/project-keep)
+and its sibling
+[Geordi](https://github.com/flyingrobots/geordi/tree/main/packages/profunctor-page)
+and
+[Bijou](https://github.com/flyingrobots/bijou/blob/main/packages/bijou/src/core/profunctor-page-target.ts)
+lowerers establish the ownership precedent: one repository-owned semantic
+artifact is consumed independently by both targets, and cross-target tests
+compare shared identities, actions, token references, capabilities, input
+digests, and residuals. Geordi owns the resulting pixel-oriented
+`geordi-ir/1`; Bijou owns the terminal-oriented `ui-scene-ir/1` and `Surface`
+path.
+
+Graft should follow that proven boundary. The first delivery uses Bijou for the
+TUI. A browser dashboard is a later Geordi target, gated on a bounded
+Graft-to-Geordi profile, target map, receipt, deterministic conformance corpus,
+and the browser security gateway. It does not wait for or require a Bijou DOM
+renderer, and Graft does not own pixel rendering.
 
 Any future browser adapter requires its own security design: an explicit
 loopback gateway, short-lived authentication, origin checks, and a narrow
@@ -110,15 +157,19 @@ exists.
 - no public or remotely reachable HTTP listener by default
 - no REST-only mutation model or duplicate control-plane authority
 - no MCP-inside-HTTP or HTTP-inside-MCP adapter coupling
+- no Bijou-inside-Geordi or Geordi-inside-Bijou adapter coupling
 - no unbounded event, label, repository, session, or failure history
 - no raw repository paths, command arguments, or error text in metric labels
-- no browser, DOM, HTML, or pixel-parity claim in the first slice
+- no target-specific terminal or pixel geometry in the shared dashboard
+  artifact
+- no browser, DOM, HTML, or cross-target pixel-parity claim in the first slice
 - no governed repository writes
 
 ## Effort rationale
 
 This is `L`, not `M`: the work spans daemon-owned state, public versioned
 contracts, multiple adapters, health semantics, cardinality and security
-limits, a Bijou TUI, deterministic tests, and operator documentation. The
-first implementation cycle should split the observability/query core from the
-TUI adapter and leave browser and mutation work outside that cycle.
+limits, a semantic dashboard artifact, a Bijou TUI, target receipts,
+deterministic tests, and operator documentation. The first implementation cycle
+should split the observability/query core from the Bijou adapter and leave the
+Geordi browser target and mutation work outside that cycle.
