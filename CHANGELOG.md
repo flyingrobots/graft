@@ -111,6 +111,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   Qualified-reference inference now uses a typed per-language adapter registry
   over separate contract, binding, shadow, access, and orchestration modules;
   the TypeScript import resolver remains an independent unchanged pass.
+  Runtime supported-language membership is derived from that exhaustive
+  adapter registry instead of repeating a second language list.
   Go shadow diagnostics fall back to a meaningful package directory when an
   imported first-party package has no tracked source file.
   Committed scans containing supported-language parse errors report partial

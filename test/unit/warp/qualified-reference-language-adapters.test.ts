@@ -1,10 +1,15 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   qualifiedReferenceAdapterFor,
   registeredQualifiedReferenceLanguages,
 } from "../../../src/warp/qualified-reference-language-adapters.js";
 
 describe("qualified reference language-adapter contract", () => {
+  afterEach(() => {
+    vi.doUnmock("../../../src/warp/qualified-reference-language-adapters.js");
+    vi.resetModules();
+  });
+
   it("registers one typed adapter for every supported code language", () => {
     expect(registeredQualifiedReferenceLanguages).toEqual([
       "python", "ts", "tsx", "js", "rust", "go",
@@ -19,5 +24,21 @@ describe("qualified reference language-adapter contract", () => {
         isUnsupportedWrite: expect.any(Function),
       });
     }
+  });
+
+  it("uses the adapter registry as the runtime language-membership authority", async () => {
+    vi.doMock("../../../src/warp/qualified-reference-language-adapters.js", async (importOriginal) => {
+      const actual = await importOriginal<typeof import("../../../src/warp/qualified-reference-language-adapters.js")>();
+      return {
+        ...actual,
+        registeredQualifiedReferenceLanguages: [
+          ...actual.registeredQualifiedReferenceLanguages,
+          "json",
+        ],
+      };
+    });
+
+    const { isQualifiedReferenceLanguage } = await import("../../../src/warp/qualified-reference-resolver.js");
+    expect(isQualifiedReferenceLanguage("json")).toBe(true);
   });
 });

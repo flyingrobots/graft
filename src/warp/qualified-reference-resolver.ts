@@ -18,7 +18,10 @@ import type {
   TSNode,
   UnresolvedQualifiedReferenceAccess,
 } from "./qualified-reference-contract.js";
-import { qualifiedReferenceAdapterFor } from "./qualified-reference-language-adapters.js";
+import {
+  qualifiedReferenceAdapterFor,
+  registeredQualifiedReferenceLanguages,
+} from "./qualified-reference-language-adapters.js";
 import {
   importBindingAppliesAtIndex,
   pythonClassNamespaceAppliesAtIndex,
@@ -286,5 +289,5 @@ export function resolveQualifiedReferenceEdges(
 }
 
 export function isQualifiedReferenceLanguage(language: SupportedLang): language is QualifiedReferenceLanguage {
-  return language === "python" || language === "ts" || language === "tsx" || language === "js" || language === "rust" || language === "go";
+  return registeredQualifiedReferenceLanguages.some((candidate) => candidate === language);
 }
