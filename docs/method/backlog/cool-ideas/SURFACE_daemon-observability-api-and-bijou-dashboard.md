@@ -78,8 +78,8 @@ liveness and semantic service health should be separate, explicit facts.
   observability snapshot rather than making an MCP, HTTP, terminal, or browser
   response the render authority
 - carry stable panel, metric, status, failure, and action identities; reading
-  order; labels and value coordinates; freshness and health facts; capability
-  requirements; and the exact source snapshot digest
+  order; semantic label/value associations; freshness and health facts;
+  capability requirements; and the exact source snapshot digest
 - keep terminal geometry, pixel geometry, key handling, and browser transport
   outside the shared artifact
 - require target-specific maps, capability residuals, output hashes, and
