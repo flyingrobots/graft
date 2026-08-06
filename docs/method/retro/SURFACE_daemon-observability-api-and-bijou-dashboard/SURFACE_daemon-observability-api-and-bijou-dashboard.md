@@ -55,18 +55,24 @@ git diff --check
 passed
 ```
 
-Read-only architecture verification also established the target boundary:
+Read-only architecture verification at immutable revisions also established
+the target boundary:
 
 - `npm run check:portable-target-specimen` passed in
-  `profunctoroptics/website`.
+  [`profunctoroptics/website` at `2cd7cc1e`](https://github.com/flyingrobots/profunctor-optics-website/tree/2cd7cc1e8af2504633d6ac16f7df4a6b110bdd2e).
 - `node --test test/unit/portable-target-specimen.test.mjs` passed 3/3 in
-  `profunctoroptics/website`.
+  that same tree.
 - The specimen uses sibling Bijou and Geordi lowerers over one domain-owned
   artifact; it does not lower Bijou UI IR through Geordi.
-- Bijou currently ships the terminal `ui-scene-ir/1` path, while Geordi ships
-  browser Canvas lowering for `geordi-ir/1`.
-- Wesley provides generator infrastructure and extension contracts, but no
-  existing Bijou-to-Geordi semantic bridge.
+- The inspected
+  [Bijou lowerer at `4412ec6d`](https://github.com/flyingrobots/bijou/blob/4412ec6dbce947887ed6ea2740ecbad0a66d122e/packages/bijou/src/core/profunctor-page-target.ts)
+  owns the terminal `ui-scene-ir/1` path, while the inspected
+  [Geordi lowerer at `f68160fc`](https://github.com/flyingrobots/geordi/tree/f68160fcbbada657b2465ae1a42e3fb7403f32ae/packages/profunctor-page)
+  owns browser Canvas lowering for `geordi-ir/1`.
+- Inspection of
+  [Wesley's extension-generation contract at `4891a631`](https://github.com/flyingrobots/wesley/blob/4891a631f888c5b2f70e117e3704538dd1362c2f/crates/wesley-core/src/domain/extension_generation.rs)
+  found generator infrastructure and extension contracts, but no
+  Bijou-to-Geordi semantic bridge in that tree.
 
 ## Drift Check
 

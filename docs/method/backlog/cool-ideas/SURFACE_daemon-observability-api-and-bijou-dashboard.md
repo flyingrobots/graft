@@ -117,11 +117,11 @@ control-action semantics.
 ## Browser boundary
 
 The completed
-[Profunctor Page conformance corpus](https://github.com/flyingrobots/profunctor-optics-website/tree/main/test/fixtures/portable-targets/project-keep)
+[Profunctor Page conformance corpus](https://github.com/flyingrobots/profunctor-optics-website/tree/2cd7cc1e8af2504633d6ac16f7df4a6b110bdd2e/test/fixtures/portable-targets/project-keep)
 and its sibling
-[Geordi](https://github.com/flyingrobots/geordi/tree/main/packages/profunctor-page)
+[Geordi](https://github.com/flyingrobots/geordi/tree/f68160fcbbada657b2465ae1a42e3fb7403f32ae/packages/profunctor-page)
 and
-[Bijou](https://github.com/flyingrobots/bijou/blob/main/packages/bijou/src/core/profunctor-page-target.ts)
+[Bijou](https://github.com/flyingrobots/bijou/blob/4412ec6dbce947887ed6ea2740ecbad0a66d122e/packages/bijou/src/core/profunctor-page-target.ts)
 lowerers establish the ownership precedent: one repository-owned semantic
 artifact is consumed independently by both targets, and cross-target tests
 compare shared identities, actions, token references, capabilities, input
