@@ -12,7 +12,7 @@ acceptance_criteria:
   - "One daemon-owned snapshot reports semantic health, uptime, sessions, repositories, workspaces, monitors, scheduler pressure, worker pressure, and bounded recent failures"
   - "Health distinguishes healthy, degraded, and unhealthy service state from successful HTTP request handling"
   - "A versioned read-only HTTP API exposes the snapshot over the existing same-user local transport without enabling a TCP listener"
-  - "MCP, CLI, and HTTP adapters consume shared application queries and contract schemas instead of calling one another"
+  - "The direct typed API, CLI, MCP, and local HTTP transport adapters consume shared application queries and contract schemas instead of calling one another; HTTP remains a daemon transport adapter rather than a fourth official entry point"
   - "One versioned Graft-owned dashboard artifact binds the exact observability snapshot digest, semantic identities, reading order, freshness, health, actions, and capability requirements"
   - "Sibling Bijou and Geordi lowerers consume the same dashboard artifact and emit target maps and receipts without redefining Graft semantics"
   - "Cross-target tests compare semantic identities, labels, actions, input digests, and capability residuals without claiming terminal and browser pixel parity"
@@ -54,9 +54,14 @@ liveness and semantic service health should be separate, explicit facts.
 
 - define application queries for status, repositories, sessions, monitors,
   metrics, and recent failures
+- expose the observability query set through the direct typed API; any omitted
+  query requires a narrow documented exception
 - validate their versioned response contracts at the adapter boundary
-- keep MCP, CLI, and HTTP adapters as siblings over those queries; no
-  adapter should tunnel through another adapter
+- keep API, CLI, and MCP primary adapters plus the local HTTP transport adapter
+  as siblings over those queries; no adapter should tunnel through another
+  adapter
+- keep HTTP beneath the daemon transport boundary rather than treating it as a
+  fourth official product entry point
 - keep mutations on the existing workspace and monitor command paths instead
   of inventing REST-only control semantics
 
