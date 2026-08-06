@@ -45,6 +45,19 @@ describe("cli: command parser", () => {
     });
   });
 
+  it("routes import diagnostics with HEAD as the tool-level default", () => {
+    expect(parseCommand(["struct", "import-diagnostics"])).toEqual({
+      command: "struct_import_diagnostics",
+      json: false,
+      args: {},
+    });
+    expect(parseCommand(["struct", "import-diagnostics", "--ref", "origin/main", "--json"])).toEqual({
+      command: "struct_import_diagnostics",
+      json: true,
+      args: { ref: "origin/main" },
+    });
+  });
+
   it("routes dead symbol detection into the peer command", () => {
     expect(parseCommand(["struct", "dead-symbols", "--limit", "12", "--json"])).toEqual({
       command: "struct_dead_symbols",

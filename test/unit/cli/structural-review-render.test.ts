@@ -33,6 +33,18 @@ describe("structural review renderer", () => {
         previousSignature: "legacy(): void",
         impactedFiles: 2,
         impactedFilePaths: ["src/a.ts", "src/b.ts"],
+        referenceConfidence: "partial",
+        referenceWarnings: [{
+          code: "import_binding_shadowed",
+          severity: "warning",
+          language: "typescript",
+          filePath: "src/shadow.ts",
+          range: { startLine: 4, startColumn: 10, endLine: 4, endColumn: 13 },
+          binding: "api",
+          targetFilePath: "src/api.ts",
+          shadowKind: "parameter",
+          message: "Import binding 'api' is shadowed; affected qualified accesses were excluded from reference inference.",
+        }],
       }],
       summary: "ignored by renderer",
     });
@@ -45,6 +57,8 @@ describe("structural review renderer", () => {
     expect(rendered).toContain("- src/format.ts: formatting");
     expect(rendered).toContain("Breaking changes");
     expect(rendered).toContain("- src/api.ts: legacy removed_export, impacted files: 2");
+    expect(rendered).toContain("confidence: partial");
+    expect(rendered).toContain("warning import_binding_shadowed: src/shadow.ts:4:10");
     expect(rendered).not.toContain("ignored by renderer");
   });
 });

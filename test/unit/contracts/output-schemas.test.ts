@@ -9,9 +9,19 @@ import {
   MCP_OUTPUT_SCHEMAS,
   attachCliSchemaMeta,
   getCliOutputJsonSchema,
+  getCliOutputSchemaMeta,
   getMcpOutputJsonSchema,
+  getMcpOutputSchemaMeta,
   validateCliOutput,
 } from "../../../src/contracts/output-schemas.js";
+import {
+  cliOutputSchemaMeta,
+  mcpOutputSchemaMeta,
+} from "../../../src/contracts/output-schema-meta.js";
+import {
+  importBindingDiagnosticSchema,
+  mcpOutputBodySchemas,
+} from "../../../src/contracts/output-schema-mcp.js";
 import { runCli } from "../../../src/cli/main.js";
 import { runInit } from "../../../src/cli/init.js";
 import { runIndex } from "../../../src/cli/index-cmd.js";
@@ -59,6 +69,20 @@ describe("contracts: output schemas", () => {
       const jsonSchema = getCliOutputJsonSchema(command);
       expect(jsonSchema).toBeDefined();
     }
+  });
+
+  it("versions the expanded review response independently", () => {
+    expect(getMcpOutputSchemaMeta("graft_review")).toBe(mcpOutputSchemaMeta.graft_review);
+    expect(getCliOutputSchemaMeta("struct_review")).toBe(cliOutputSchemaMeta.struct_review);
+    expect(getMcpOutputSchemaMeta("graft_review").version).toBe("2.0.0");
+    expect(getCliOutputSchemaMeta("struct_review").version).toBe("2.0.0");
+    expect(getMcpOutputSchemaMeta("graft_diff").version).toBe("1.0.0");
+    expect(getCliOutputSchemaMeta("struct_diff").version).toBe("1.0.0");
+  });
+
+  it("shares one import-binding diagnostic schema across diagnostics and review warnings", () => {
+    expect(mcpOutputBodySchemas.graft_import_diagnostics.shape.diagnostics.element).toBe(importBindingDiagnosticSchema);
+    expect(mcpOutputBodySchemas.graft_review.shape.breakingChanges.element.shape.referenceWarnings.element).toBe(importBindingDiagnosticSchema);
   });
 
   it("preserves concrete CLI output types through the helper stack", () => {
@@ -224,6 +248,7 @@ describe("contracts: output schemas", () => {
       graft_blame: parse(await server.callTool("graft_blame", { symbol: "greet" })),
       graft_difficulty: parse(await server.callTool("graft_difficulty", { symbol: "greet" })),
       graft_review: parse(await server.callTool("graft_review", { base, head })),
+      graft_import_diagnostics: parse(await server.callTool("graft_import_diagnostics", {})),
       graft_test_coverage: parse(await server.callTool("graft_test_coverage", { sourcePath: "src", testPath: "test" })),
       graft_dead_symbols: parse(await server.callTool("graft_dead_symbols", { maxCommits: 5 })),
       knowledge_map: parse(await server.callTool("knowledge_map", {})),
@@ -355,6 +380,7 @@ describe("contracts: output schemas", () => {
       struct_map: await runCliJson(repoDir, ["struct", "map", "--json"]),
       struct_log: await runCliJson(repoDir, ["struct", "log", "--json"]),
       struct_review: await runCliJson(repoDir, ["struct", "review", "--base", base, "--head", head, "--json"]),
+      struct_import_diagnostics: await runCliJson(repoDir, ["struct", "import-diagnostics", "--json"]),
       struct_test_coverage: await runCliJson(repoDir, ["struct", "test-coverage", "--src", "src", "--tests", "test", "--json"]),
       struct_dead_symbols: await runCliJson(repoDir, ["struct", "dead-symbols", "--limit", "5", "--json"]),
       struct_churn: await runCliJson(repoDir, ["struct", "churn", "--json"]),

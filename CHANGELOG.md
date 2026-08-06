@@ -7,7 +7,122 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Added
+
+- **Import binding diagnostics**: `graft_import_diagnostics` and
+  `graft struct import-diagnostics` report structured first-party import
+  shadows at an exact Git ref across Python, TypeScript/JavaScript, Rust, and
+  Go.
+
 ### Changed
+
+- **Qualified reference confidence**: WARP indexing and cold-graph structural
+  review now resolve first-party qualified module/package members across
+  Python, TypeScript/JavaScript, Rust, and Go. Shadowed accesses are excluded
+  from symbol edges and review counts, and breaking changes expose
+  `referenceConfidence` plus relevant `referenceWarnings` without forcing a
+  full WARP index. Absent or ambiguous Go declarations continue to emit no
+  inferred symbol edge and now make the matching review count explicitly
+  partial. Python assignment-expression targets inside comprehensions retain
+  their enclosing lexical scope, and function-local imports shadow outer
+  bindings before activating their imported module target. Declaration-only
+  TypeScript modules participate in both qualified and static import
+  resolution, and quoted Go module directives match their unquoted import
+  paths. Rust `self` and `super` imports include enclosing inline-module paths,
+  inline-module import aliases remain within their declaration lists, and
+  aliases that may name an inline module in another file conservatively make
+  matching owner-file counts partial instead of returning a complete zero.
+  Python class-body imports remain visible to the class body without leaking
+  into nested method, lambda, or class bodies, and bare `del` targets suppress
+  imported-module inference throughout their containing function. Local
+  TypeScript enum declarations suppress imported namespace inference in their
+  lexical scope.
+  Exact-ref committed scans now run before WARP acquisition, so a cold or
+  unavailable graph cannot prevent authoritative committed-reference counts.
+  When exact-ref scanning fails and bounded WARP evidence is used, the
+  translated evidence now retains the scan failure reason.
+  Incomplete import-diagnostics errors now identify the pinned commit that was
+  analyzed rather than the caller's potentially moving symbolic ref.
+  Each structural review now reuses one reading port across all breaking
+  symbols, preserving its repository-analysis cache.
+  Go package inference now stops at nested `go.mod` boundaries instead of
+  attributing nested-module declarations to an importing parent module.
+  Python exception aliases are now treated as function-wide locals and remain
+  unavailable after handler cleanup in their defining module or class scope.
+  Python `global` and `nonlocal` declarations preserve qualified import
+  references before reassignment and suppress them only from the reassignment
+  point onward.
+  A later function-local Python import now supersedes earlier same-name local
+  bindings for accesses after that import, while pre-import accesses remain
+  excluded.
+  Python class imports and class-local shadows now follow class-namespace
+  visibility: they do not leak into nested bodies or comprehension bodies,
+  while the outermost comprehension iterable still sees the class namespace.
+  Python loop iterables at module and class scope, and loops targeting a
+  `global` or `nonlocal` name, resolve before the loop target is assigned;
+  function-local loop targets remain lexical across the whole function.
+  Python qualified attribute writes and deletions no longer count as callers;
+  matching exact-ref reviews report partial confidence for those unsupported
+  monkey-patching semantics.
+  First-party Python wildcard imports likewise emit no speculative caller edge
+  while making exact-ref review counts for the imported module partial.
+  TypeScript, TSX, and JavaScript namespace-member assignments, updates, and
+  deletions receive the same precision-preserving partial-confidence posture.
+  TypeScript value bindings now shadow value-qualified accesses without
+  suppressing independent type-namespace references; class and enum
+  declarations continue to shadow both meanings.
+  TypeScript `import alias = require("./module")` bindings now resolve the same
+  first-party qualified member references as namespace imports.
+  Extensionless JavaScript namespace imports prefer JavaScript source files in
+  mixed-source trees, while TypeScript callers retain TypeScript-first and
+  compiled `.js`-specifier resolution.
+  Repository-root TypeScript and JavaScript namespace imports now resolve from
+  the repository root instead of the importing file's directory.
+  TypeScript and JavaScript parameter bindings now cover their full default-
+  initializer environment, including self-references and references to later
+  parameters.
+  Named TypeScript and JavaScript function and class expressions now shadow
+  matching imported namespaces only within their expression bodies, with
+  function names remaining value-only in TypeScript.
+  Rust qualified type paths such as `api::Target` now produce the same
+  declaring-symbol reference evidence as qualified value paths.
+  Direct Rust `crate::`, `self::`, and `super::` paths now resolve qualified
+  value and type references without requiring a local `use` binding.
+  Nested Rust paths such as `api::nested::run()` now resolve through the
+  imported parent module to the child module's declaring file.
+  Nested Rust paths whose child module has no distinct source file now lower
+  matching owner-file confidence instead of disappearing from the analysis.
+  Possible crate-root inline modules conservatively lower confidence for every
+  applicable `lib.rs` or `main.rs` owner.
+  Rust value parameters, locals, patterns, functions, constants, and statics
+  no longer shadow module paths; type/module items and generic type parameters
+  remain conservative type-namespace shadows.
+  Rust type/module item shadows are now confined to their nearest block or
+  inline-module declaration list instead of suppressing sibling modules.
+  Mixed Rust `use` declarations now retain resolved first-party leaves while
+  conservatively shadowing same-name unresolved or external leaves.
+  External Rust declarations such as `mod api;` now bind the corresponding
+  first-party module file for qualified value and type references, including
+  paths nested in inline modules.
+  Exact-ref scans now normalize relative Python `importlib` specifiers and
+  conservatively report partial confidence for nonliteral dynamic import
+  targets or member names that could affect the reviewed symbol.
+  Python dynamic module names preserve extension-like final segments such as
+  `pkg.go` instead of misclassifying them as source-file suffixes.
+  Import-diagnostic scans now fail closed when a supported source at the
+  pinned ref contains parse errors, preserving the exhaustive meaning of a
+  successful `{ ref, diagnostics, summary }` response.
+  Qualified-reference inference now uses a typed per-language adapter registry
+  over separate contract, binding, shadow, access, and orchestration modules;
+  the TypeScript import resolver remains an independent unchanged pass.
+  Runtime supported-language membership is derived from that exhaustive
+  adapter registry instead of repeating a second language list.
+  Go shadow diagnostics fall back to a meaningful package directory when an
+  imported first-party package has no tracked source file.
+  Committed scans containing supported-language parse errors report partial
+  confidence rather than a false complete result. The expanded `graft_review`
+  / `struct_review` wire contract is versioned as `2.0.0`; unchanged output
+  contracts remain at `1.0.0`.
 
 - **CI test feedback**: pull request CI now keeps the release-grade
   Docker-isolated full test suite on the Node 22 lane while making the Node 20

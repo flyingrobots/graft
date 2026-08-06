@@ -246,14 +246,16 @@ function parseTranslatedSubstrateFacts(summary: string): TranslatedSubstrateFact
         readonly source?: unknown;
         readonly symbolName?: unknown;
         readonly filePath?: unknown;
+        readonly fallbackReason?: unknown;
         readonly maxCommits?: unknown;
       }
     | undefined;
   const validEvidence =
     (evidence?.kind === "symbol-reference-count" &&
-      (evidence.source === "warp-graph" || evidence.source === "committed-import-scan") &&
+      (evidence.source === "warp-graph" || evidence.source === "committed-reference-scan") &&
       typeof evidence.symbolName === "string" &&
-      typeof evidence.filePath === "string") ||
+      typeof evidence.filePath === "string" &&
+      isOptionalString(evidence.fallbackReason)) ||
     (evidence?.kind === "dead-symbols" &&
       evidence.source === "warp-graph" &&
       isOptionalNumber(evidence.maxCommits));
@@ -283,12 +285,17 @@ function validatePayloadShape(kind: StructuralReadingKind, payload: unknown): vo
       readonly symbol?: unknown;
       readonly referenceCount?: unknown;
       readonly referencingFiles?: unknown;
+      readonly referenceWarnings?: unknown;
+      readonly referenceConfidence?: unknown;
     };
     if (
       typeof candidate.symbol !== "string" ||
       typeof candidate.referenceCount !== "number" ||
       !Array.isArray(candidate.referencingFiles) ||
-      !candidate.referencingFiles.every((file) => typeof file === "string")
+      !candidate.referencingFiles.every((file) => typeof file === "string") ||
+      (candidate.referenceWarnings !== undefined && !Array.isArray(candidate.referenceWarnings)) ||
+      (candidate.referenceConfidence !== undefined &&
+        candidate.referenceConfidence !== "complete" && candidate.referenceConfidence !== "partial")
     ) {
       throw malformed("expected { symbol, referenceCount, referencingFiles[] }");
     }

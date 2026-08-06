@@ -19,37 +19,24 @@ import {
   stagedTargetSchema,
 } from "./causal-ontology.js";
 import { causalSurfaceNextActionSchema } from "./causal-surface-next-action.js";
+import {
+  cliOutputSchemaMeta,
+  mcpOutputSchemaMeta,
+  OUTPUT_SCHEMA_VERSION,
+  REVIEW_OUTPUT_SCHEMA_VERSION,
+  schemaMetaLiteral,
+  type OutputSchemaMeta,
+  type OutputSchemaVersion,
+} from "./output-schema-meta.js";
+import {
+  importBindingDiagnosticSchema,
+  mcpOutputBodySchemas as splitMcpOutputBodySchemas,
+} from "./output-schema-mcp.js";
 
 export { CLI_COMMAND_NAMES, MCP_TOOL_NAMES };
 export type { CliCommandName, McpToolName } from "./capabilities.js";
-
-export const OUTPUT_SCHEMA_VERSION = "1.0.0" as const;
-
-export interface OutputSchemaMeta {
-  readonly id: string;
-  readonly version: typeof OUTPUT_SCHEMA_VERSION;
-}
-
-const mcpOutputSchemaMeta = Object.freeze(Object.fromEntries(
-  MCP_TOOL_NAMES.map((tool) => [tool, Object.freeze({
-    id: `graft.mcp.${tool}`,
-    version: OUTPUT_SCHEMA_VERSION,
-  })]),
-) as Record<McpToolName, OutputSchemaMeta>);
-
-const cliOutputSchemaMeta = Object.freeze(Object.fromEntries(
-  CLI_COMMAND_NAMES.map((command) => [command, Object.freeze({
-    id: `graft.cli.${command}`,
-    version: OUTPUT_SCHEMA_VERSION,
-  })]),
-) as Record<CliCommandName, OutputSchemaMeta>);
-
-function schemaMetaLiteral(meta: OutputSchemaMeta) {
-  return z.object({
-    id: z.literal(meta.id),
-    version: z.literal(meta.version),
-  }).strict();
-}
+export { OUTPUT_SCHEMA_VERSION, REVIEW_OUTPUT_SCHEMA_VERSION };
+export type { OutputSchemaMeta, OutputSchemaVersion };
 
 const sessionDepthSchema = z.enum(["early", "mid", "late", "unknown"]);
 const worldlineLayerSchema = z.enum(["commit_worldline", "ref_view", "workspace_overlay"]);
@@ -963,6 +950,7 @@ function withCliPeerCommon(
 }
 
 const mcpOutputBodySchemas: Record<McpToolName, z.ZodType> = {
+  graft_import_diagnostics: splitMcpOutputBodySchemas.graft_import_diagnostics,
   safe_read: z.object({
     path: z.string(),
     projection: z.enum(["content", "outline", "refused", "error", "cache_hit", "diff"]),
@@ -1358,6 +1346,8 @@ const mcpOutputBodySchemas: Record<McpToolName, z.ZodType> = {
       newSignature: z.string().optional(),
       impactedFiles: z.number().int().nonnegative(),
       impactedFilePaths: z.array(z.string()),
+      referenceWarnings: z.array(importBindingDiagnosticSchema),
+      referenceConfidence: z.enum(["complete", "partial"]),
     }).strict()),
     summary: z.string(),
   }).strict(),
@@ -1461,6 +1451,7 @@ export const MCP_OUTPUT_SCHEMAS: Record<McpToolName, z.ZodType> = {
   graft_blame: withMcpCommon("graft_blame", mcpOutputBodySchemas.graft_blame),
   graft_difficulty: withMcpCommon("graft_difficulty", mcpOutputBodySchemas.graft_difficulty),
   graft_review: withMcpCommon("graft_review", mcpOutputBodySchemas.graft_review),
+  graft_import_diagnostics: withMcpCommon("graft_import_diagnostics", mcpOutputBodySchemas.graft_import_diagnostics),
   graft_test_coverage: withMcpCommon("graft_test_coverage", mcpOutputBodySchemas.graft_test_coverage),
   graft_dead_symbols: withMcpCommon("graft_dead_symbols", mcpOutputBodySchemas.graft_dead_symbols),
   knowledge_map: withMcpCommon("knowledge_map", mcpOutputBodySchemas.knowledge_map),
@@ -1540,6 +1531,7 @@ export const CLI_OUTPUT_SCHEMAS: Record<CliCommandName, z.ZodType> = {
   symbol_blame: withCliPeerCommon("symbol_blame", mcpOutputBodySchemas.graft_blame),
   symbol_difficulty: withCliPeerCommon("symbol_difficulty", mcpOutputBodySchemas.graft_difficulty),
   struct_review: withCliPeerCommon("struct_review", mcpOutputBodySchemas.graft_review),
+  struct_import_diagnostics: withCliPeerCommon("struct_import_diagnostics", mcpOutputBodySchemas.graft_import_diagnostics),
   struct_test_coverage: withCliPeerCommon("struct_test_coverage", mcpOutputBodySchemas.graft_test_coverage),
   struct_dead_symbols: withCliPeerCommon("struct_dead_symbols", mcpOutputBodySchemas.graft_dead_symbols),
   diag_doctor: withCliPeerCommon("diag_doctor", mcpOutputBodySchemas.doctor),

@@ -32,6 +32,7 @@ flowchart LR
 - human-facing structural review summaries via `graft review`
 - review-loop readiness via `graft review cooldown`
 - structural/reference test coverage maps via `graft struct test-coverage`
+- import-shadow confidence diagnostics via `graft struct import-diagnostics`
 - dead-symbol cleanup candidates via `graft struct dead-symbols`
 - Git-facing structural review summaries via `git graft enhance`
 - local debugging and dogfooding of MCP peer commands
@@ -46,7 +47,7 @@ flowchart LR
 
 ## Core namespaces
 - `read` — bounded reads and change checks
-- `struct` — structural diff / since / map / review / test-coverage / dead-symbols
+- `struct` — structural diff / since / map / review / import-diagnostics / test-coverage / dead-symbols
 - `symbol` — precision show / find / blame / history / difficulty
 - `review` — structural review and review-loop readiness
 - `diag` — activity, local-history-dag, doctor, explain, stats, capture
@@ -71,6 +72,7 @@ graft symbol find 'create*' --json
 graft symbol history createUser --path src/users.ts
 graft symbol difficulty createUser --path src/users.ts --json
 graft struct diff --json
+graft struct import-diagnostics --ref HEAD --json
 graft struct test-coverage --src src --tests test
 graft struct test-coverage --src src --tests test --json
 graft struct dead-symbols --limit 20
@@ -116,6 +118,13 @@ JSON output keeps the schema-validated
 `graft.cli.struct_test_coverage` payload. This command does not run
 tests or claim line, branch, statement, or execution coverage; imports
 and mentions in test files can count as structural references.
+
+`graft struct import-diagnostics [--ref <ref>] [--json]` reports
+first-party import bindings shadowed by parameters, locals, assignments,
+declarations, catches, loops/ranges, comprehensions, or pattern bindings. The
+default ref is `HEAD`. These warnings explain which qualified accesses were
+excluded from structural reference inference; they are confidence evidence,
+not general-purpose lint findings.
 
 `graft struct dead-symbols [--limit <n>] [--json]` lists symbols removed
 from indexed WARP history and not subsequently re-added. Human output is

@@ -16,9 +16,24 @@ function hashId(input: string): string {
   return createHash("sha1").update(input).digest("hex").slice(0, 12);
 }
 
-function astNodeId(filePath: string, node: TSNode): string {
+/** Stable graph identity for a tree-sitter node; SHA-1 is used only as a compatibility hash. */
+export function astNodeId(filePath: string, node: TSNode): string {
   const hash = hashId(`${filePath}:${node.type}:${String(node.startIndex)}:${String(node.endIndex)}`);
   return `ast:${filePath}:${hash}`;
+}
+
+/** Emit the shared AST node properties used by every resolver edge anchor. */
+export function emitAstAnchor(patch: PatchBuilderV2, filePath: string, node: TSNode): string {
+  const nodeId = astNodeId(filePath, node);
+  patch.addNode(nodeId);
+  patch.setProperty(nodeId, "type", node.type);
+  patch.setProperty(nodeId, "named", node.isNamed());
+  patch.setProperty(nodeId, "startRow", node.startPosition.row);
+  patch.setProperty(nodeId, "startCol", node.startPosition.column);
+  patch.setProperty(nodeId, "endRow", node.endPosition.row);
+  patch.setProperty(nodeId, "endCol", node.endPosition.column);
+  patch.setProperty(nodeId, "filePath", filePath);
+  return nodeId;
 }
 
 interface AstSnapshotNode {
@@ -82,15 +97,7 @@ export function emitAstNodes(
 ): void {
   const fileId = `file:${filePath}`;
 
-  const rootId = astNodeId(filePath, root);
-  patch.addNode(rootId);
-  patch.setProperty(rootId, "type", root.type);
-  patch.setProperty(rootId, "named", root.isNamed());
-  patch.setProperty(rootId, "startRow", root.startPosition.row);
-  patch.setProperty(rootId, "startCol", root.startPosition.column);
-  patch.setProperty(rootId, "endRow", root.endPosition.row);
-  patch.setProperty(rootId, "endCol", root.endPosition.column);
-  patch.setProperty(rootId, "filePath", filePath);
+  const rootId = emitAstAnchor(patch, filePath, root);
   patch.setProperty(rootId, "summaryOnly", true);
 
   patch.addEdge(fileId, rootId, "contains_ast");

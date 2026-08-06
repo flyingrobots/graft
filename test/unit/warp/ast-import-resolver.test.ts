@@ -1,12 +1,21 @@
 import { describe, it, expect } from "vitest";
 import { openWarp } from "../../../src/warp/open.js";
 import { parseStructuredTree } from "../../../src/parser/runtime.js";
-import { emitAstNodes } from "../../../src/warp/ast-emitter.js";
+import { astNodeId, emitAstNodes } from "../../../src/warp/ast-emitter.js";
 import { resolveImportEdges } from "../../../src/warp/ast-import-resolver.js";
 import { nodePathOps } from "../../../src/adapters/node-paths.js";
 import { createTestRepo, cleanupTestRepo } from "../../helpers/git.js";
 
 describe("warp: AST import resolver", { timeout: 15000 }, () => {
+  it("preserves the canonical AST anchor ID contract", () => {
+    const parsed = parseStructuredTree("ts", "const x = 1;");
+    try {
+      expect(astNodeId("src/example.ts", parsed.root)).toBe("ast:src/example.ts:7ef53d7c4004");
+    } finally {
+      parsed.delete();
+    }
+  });
+
   function setup() {
     const tmpDir = createTestRepo("warp-import-");
     return tmpDir;
@@ -207,6 +216,44 @@ describe("warp: AST import resolver", { timeout: 15000 }, () => {
       const refs = await getEdgesLabeled(warp, "references");
       const fooRef = refs.find((e) => e.to === "sym:src/utils.ts:foo");
       expect(fooRef).toBeDefined();
+    } finally {
+      cleanupTestRepo(tmpDir);
+    }
+  });
+
+  it("resolves declaration-only TypeScript modules", async () => {
+    const tmpDir = setup();
+    try {
+      const warp = await openWarp({ cwd: tmpDir });
+      const knownFiles = new Set([
+        "src/api.d.ts", "src/module-api.d.mts", "src/common-api.d.cts", "src/consumer.ts",
+      ]);
+
+      await warp.patch((patch) => {
+        patch.addNode("file:src/api.d.ts");
+        patch.addNode("sym:src/api.d.ts:Options");
+        patch.addNode("file:src/module-api.d.mts");
+        patch.addNode("sym:src/module-api.d.mts:ModuleOptions");
+        patch.addNode("file:src/common-api.d.cts");
+        patch.addNode("sym:src/common-api.d.cts:CommonOptions");
+      });
+
+      await emitFile(warp, "src/consumer.ts", [
+        'import type { Options } from "./api";',
+        'import type { ModuleOptions } from "./module-api";',
+        'import type { CommonOptions } from "./common-api";',
+      ].join("\n"), knownFiles);
+
+      const resolves = await getEdgesLabeled(warp, "resolves_to");
+      expect(resolves.map((edge) => edge.to).sort()).toEqual([
+        "file:src/api.d.ts", "file:src/common-api.d.cts", "file:src/module-api.d.mts",
+      ]);
+      const references = await getEdgesLabeled(warp, "references");
+      expect(references.map((edge) => edge.to).sort()).toEqual([
+        "sym:src/api.d.ts:Options",
+        "sym:src/common-api.d.cts:CommonOptions",
+        "sym:src/module-api.d.mts:ModuleOptions",
+      ]);
     } finally {
       cleanupTestRepo(tmpDir);
     }

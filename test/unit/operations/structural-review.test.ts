@@ -192,6 +192,37 @@ describe("operations: structural review", () => {
     expect(result.summary).toContain("Structural:");
     expect(result.summary).toContain("Docs:");
   });
+
+  it("describes warning-free partial confidence without assuming a dynamic cause", async () => {
+    fs.writeFileSync(path.join(tmpDir, "lib.ts"), "export function removed(): void {}\n");
+    git(tmpDir, "add -A");
+    git(tmpDir, "commit -m base");
+    const baseSha = git(tmpDir, "rev-parse HEAD");
+    fs.writeFileSync(path.join(tmpDir, "lib.ts"), "");
+    git(tmpDir, "add -A");
+    git(tmpDir, "commit -m head");
+    const headSha = git(tmpDir, "rev-parse HEAD");
+
+    const result = await structuralReview(reviewOptions({
+      base: baseSha,
+      head: headSha,
+      countReferences: () => Promise.resolve({
+        referenceCount: 0,
+        referencingFiles: [],
+        warnings: [],
+        confidence: "partial",
+      }),
+    }));
+
+    expect(result.breakingChanges).toEqual([
+      expect.objectContaining({
+        symbol: "removed",
+        referenceConfidence: "partial",
+        referenceWarnings: [],
+      }),
+    ]);
+    expect(result.summary).toContain("unresolved or unsupported reference analysis may hide callers");
+  });
 });
 
 // --- Tests added for review-breaking-change-export-filter cycle ---
