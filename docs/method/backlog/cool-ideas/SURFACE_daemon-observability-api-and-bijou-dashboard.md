@@ -11,6 +11,7 @@ requirements:
 acceptance_criteria:
   - "One daemon-owned snapshot reports semantic health, uptime, sessions, repositories, workspaces, monitors, scheduler pressure, worker pressure, and bounded recent failures"
   - "Health distinguishes healthy, degraded, and unhealthy service state from successful HTTP request handling"
+  - "Until an explicitly versioned CLI migration, the CLI health projection maps canonical healthy to CLI ok and canonical degraded or unhealthy to CLI degraded while canonical reason codes preserve the richer distinction"
   - "A versioned read-only HTTP API exposes the snapshot over the existing same-user local transport without enabling a TCP listener"
   - "The direct typed API, CLI, MCP, and local HTTP transport adapters consume shared application queries and contract schemas instead of calling one another; HTTP remains a daemon transport adapter rather than a fourth official entry point"
   - "One versioned Graft-owned dashboard artifact binds the exact observability snapshot digest, semantic identities, reading order, freshness, health, actions, and capability requirements"
@@ -47,8 +48,13 @@ liveness and semantic service health should be separate, explicit facts.
   distributions, and a bounded recent-failure ring
 - preserve stable reason codes and timestamps for failures while keeping raw
   paths, tool arguments, and error text out of metric labels
-- define semantic health as `healthy`, `degraded`, or `unhealthy`, with the
-  reasons that produced that classification
+- define versioned canonical semantic health as `healthy`, `degraded`, or
+  `unhealthy`, with the reason codes that produced that classification
+- preserve the shipped CLI `ok | degraded` contract: the projection maps
+  canonical healthy to CLI ok and canonical degraded or unhealthy to CLI
+  degraded while the shared queries retain canonical state and reason codes
+- require an explicitly versioned CLI migration and deprecation plan before
+  rendering canonical health tokens directly in the CLI
 
 ### 2. Shared query and contract boundary
 
