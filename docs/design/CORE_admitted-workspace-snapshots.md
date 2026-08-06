@@ -99,21 +99,54 @@ Added during the cycle, not foreseen when it opened:
 
 ### Human
 
-- [ ] If I read this packet and then read the code, will I correctly believe
+- [x] If I read this packet and then read the code, will I correctly believe
       that production reads still hit the live disk?
-- [ ] Can a snapshot exist that claims a byte budget it exceeds?
-- [ ] When Graft refuses a path I am not allowed to read, does it tell me that,
+
+  Yes. Both production composition roots construct
+  `LiveWorkspaceReadSource`, and the snapshot type says explicitly that no
+  production settlement decoder exists.
+
+- [x] Can a snapshot exist that claims a byte budget it exceeds?
+
+  No. Construction sums every settled file and refuses totals above the
+  declared budget; the inclusive boundary is covered separately.
+
+- [x] When Graft refuses a path I am not allowed to read, does it tell me that,
       or does it tell me the file does not exist?
+
+  It preserves the authority refusal. An unadmitted path throws
+  `UnadmittedPathError`; actual absence remains a `NOT_FOUND` or
+  `file_not_found` result.
 
 ### Agent
 
-- [ ] Can I construct an `AdmittedWorkspaceSnapshot` that violates its own
+- [x] Can I construct an `AdmittedWorkspaceSnapshot` that violates its own
       declared fields?
-- [ ] Can I pass a live-filesystem view where admitted evidence is required and
+
+  No. The only constructor available in this cycle validates aperture
+  totality, duplicate paths, byte budget, and symlink refusal before applying
+  the test-only admission assertion.
+
+- [x] Can I pass a live-filesystem view where admitted evidence is required and
       have it compile?
-- [ ] Does any single operation observe the same path more than once?
-- [ ] Does any comment in `workspace-read-view.ts` describe behavior that does
+
+  No. `LiveWorkspaceReadSource` does not implement
+  `AdmittedWorkspaceReadView`; the compile-time regression proves the two are
+  not substitutable.
+
+- [x] Does any single operation observe the same path more than once?
+
+  No. `safeRead`, `fileOutline`, `readRange`, and `changedSince` each enter
+  through `RepoWorkspace.observe`; the three projecting read operations have
+  explicit one-observation regressions, including mutation-between-read
+  mutants.
+
+- [x] Does any comment in `workspace-read-view.ts` describe behavior that does
       not exist yet as though it exists?
+
+  No. The module distinguishes the landed single-authority seam from the
+  unconnected settled side and names the brand as compile-time friction rather
+  than runtime settlement evidence.
 
 ## Accessibility and Assistive Reading
 
@@ -158,9 +191,10 @@ Named here so they are not silently dropped:
   dirty workspace has no basis to declare. Resolving this is an Echo/Edict
   decision (propose-and-admit vs. unknown-basis observation), not a Graft one,
   and it gates the real-admission slice.
-- **hello-echo#26** — the observation host does not project basis/evidence
-  fields, so a settlement cannot yet be bound to observed bytes. Closure
-  condition for #228, not a blocker on this cycle.
+- **hello-echo#26 (closed 2026-08-04)** — the observation host did not project
+  basis/evidence fields, so a settlement could not be bound to observed bytes.
+  Its closure removes that external condition, but Graft still has no decoder
+  or first-basis protocol and #228 remains open.
 - **`intent` is a no-op.** Removed from the `safeRead` operation, which now
   takes only what it uses, but still declared on the MCP surface where removing
   it would be a breaking schema change. Filed as
