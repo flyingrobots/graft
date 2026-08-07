@@ -408,28 +408,26 @@ export class RepoWorkspace {
       return refusal;
     }
 
-    if (observed.utf8 === null) {
+    if (rawContent === null) {
       return this.invalidUtf8Refusal(filePath, observedActual(observed));
     }
 
-    if (rawContent !== null) {
-      const cacheResult = this.cache.check(filePath, rawContent);
-      if (cacheResult.hit) {
-        cacheResult.obs.touch(this.cache.now());
-        return {
-          path: filePath,
-          outline: [...cacheResult.obs.outline],
-          jumpTable: [...cacheResult.obs.jumpTable],
-          cacheHit: true,
-          actual: { ...cacheResult.obs.actual },
-        };
-      }
+    const cacheResult = this.cache.check(filePath, rawContent);
+    if (cacheResult.hit) {
+      cacheResult.obs.touch(this.cache.now());
+      return {
+        path: filePath,
+        outline: [...cacheResult.obs.outline],
+        jumpTable: [...cacheResult.obs.jumpTable],
+        cacheHit: true,
+        actual: { ...cacheResult.obs.actual },
+      };
     }
 
     const result = await fileOutline(observed, {
       proseProjector: this.proseProjector,
     });
-    if (rawContent !== null && result.reason !== "UNSUPPORTED_LANGUAGE") {
+    if (result.reason !== "UNSUPPORTED_LANGUAGE") {
       this.cache.record(
         filePath,
         hashContent(rawContent),
