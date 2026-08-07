@@ -199,8 +199,7 @@ describe("refusal fidelity across projections", () => {
       files: new Map([[".env", settled("TOKEN=abc\n")]]),
     }).safeRead({ path: ".env" });
 
-    expect(result).toMatchObject({ projection: "refused" });
-    expect(result.reason).not.toBe("INVALID_UTF8");
+    expect(result).toMatchObject({ projection: "refused", reason: "SECRET" });
   });
 
   it("refuses a binary banned path by policy rather than by encoding", async () => {
@@ -212,7 +211,6 @@ describe("refusal fidelity across projections", () => {
       files: new Map([["logo.png", settled(png)]]),
     }).safeRead({ path: "logo.png" });
 
-    expect(result).toMatchObject({ projection: "refused" });
-    expect(result.reason).not.toBe("INVALID_UTF8");
+    expect(result).toMatchObject({ projection: "refused", reason: "BINARY" });
   });
 });
