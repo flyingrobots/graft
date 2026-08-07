@@ -4,9 +4,9 @@ title: "Verification Witness for Admitted Workspace Snapshots"
 
 # Verification Witness for Admitted Workspace Snapshots
 
-The implementation was verified from merge-integrated branch commit
-`06986496ec0fe27627ce7048ea7990881e7485ce`. The Retro and playback answers
-change documentation only and are covered by the final documentation gate.
+The implementation and post-publication review repairs were verified from
+branch commit `37b491cd6f12d5cdbdc2040a4b241d6196725544`. This witness update changes
+documentation only and is covered by the final documentation gate.
 
 ## Source Truth
 
@@ -28,15 +28,30 @@ pnpm vitest run \
   test/unit/library/workspace-read-authority.test.ts \
   test/unit/library/single-observation.test.ts \
   test/unit/library/refusal-fidelity.test.ts \
+  test/unit/library/repo-workspace.test.ts \
+  test/unit/helpers/observed.test.ts \
   test/integration/safe-read.test.ts \
   test/unit/operations/safe-read.test.ts \
   test/unit/operations/file-outline.test.ts \
   test/unit/operations/read-range.test.ts \
-  test/unit/method/backlog-dependency-dag.test.ts
+  test/unit/mcp/tools.test.ts \
+  test/unit/contracts/output-schemas.test.ts
 
-Test Files  10 passed (10)
-Tests       81 passed (81)
+Test Files  13 passed (13)
+Tests       139 passed (139)
 ```
+
+## Review Repair Proof
+
+- Non-absence read failures propagate; only `ENOENT` becomes not-found.
+- Admitted snapshots expose no retained byte map and copy mutable source bytes.
+- UTF-8 BOM bytes participate in observation identity and cache comparison.
+- Refused range reads increment refusal metrics rather than successful reads.
+- Snapshot budgets must be non-negative safe integers before admission.
+- `file_outline.actual` uses the shared non-negative integer schema.
+- Invalid-UTF-8 test observations cannot be fabricated from valid text.
+- `SnapshotAdmissionError.code` identifies every admission contradiction
+  without coupling callers or tests to descriptive prose.
 
 ## Integrated Repository Gate
 
@@ -47,7 +62,7 @@ Tests       81 passed (81)
 | Build | `pnpm build` | passed |
 | Hermetic schema parity | `WESLEY_BIN=/Users/james/.cargo/bin/wesley pnpm schema:structural-history:check` | passed with Wesley 0.1.0; generated model, codec, registry hash, and Echo descriptor in sync |
 | Built CLI smoke | `node bin/graft.js --version` | `graft 0.11.1` |
-| Full isolated suite | `pnpm test` | 257 files passed; 2,014 tests passed |
+| Full isolated suite | `pnpm test` | 258 files passed; 2,027 tests passed |
 | Documentation integrity | `git diff --check` and `pnpm lint` | passed after Retro completion |
 
 The first schema-gate invocation intentionally failed closed because

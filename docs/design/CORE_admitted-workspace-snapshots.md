@@ -73,16 +73,22 @@ are the remaining slices.
 
 ### This cycle's acceptance
 
-- [x] a snapshot whose settled bytes exceed `byteBudget` is refused at construction, not at read time
+- [x] `byteBudget` must be a non-negative safe integer, and a snapshot whose
+      settled bytes exceed it is refused at construction, not at read time
 - [x] a path recorded as a symlink is refused, honouring `symlinkPolicy: "refuse"`
 - [x] aperture and settled-file key set must agree exactly; disagreement is refused at construction
+- [x] retained file collections and bytes are copied at admission and are not
+      exposed through the admitted snapshot descriptor
 - [x] `MissingSnapshotBytesError` becomes unreachable by construction
 - [x] the admitted read view and the live-filesystem ingress are not the same type and are not substitutable
 - [x] no `basisDigest` sentinel stands in for "this has no basis"
 - [x] each of `safeRead`, `fileOutline`, and `readRange` performs exactly one observation
 - [x] a mutation between policy evaluation and projection cannot change the returned bytes
 - [x] invalid UTF-8 never reaches a caller as replacement text
+- [x] a UTF-8 BOM remains part of byte identity and cannot create a false cache hit
 - [x] an authority refusal stays an authority refusal across every projection, never becoming not-found
+- [x] only genuine `ENOENT` absence becomes not-found; permission, resource,
+      and snapshot-integrity failures propagate
 - [x] no `as FileSystem` cast remains
 
 Added during the cycle, not foreseen when it opened:
@@ -94,6 +100,8 @@ Added during the cycle, not foreseen when it opened:
 - [x] policy is evaluated for every observation, not only decodable ones. The
       first version of the UTF-8 refusal shadowed `BINARY`, so a binary file
       was reported as an encoding problem instead of a banned one
+- [x] refused `read_range` calls increment refusal metrics rather than successful-read metrics
+- [x] observation sizes use the shared non-negative integer output contract
 
 ## Playback Questions
 

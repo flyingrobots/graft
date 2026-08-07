@@ -42,6 +42,12 @@ remain open.
 - Merging current `origin/main` changed only the generated backlog dependency
   artifacts. They were regenerated through their owning script; no manual
   generated-byte resolution was retained.
+- Third-party review found eight behavioral or contract gaps and four test or
+  maintainability gaps after publication. The repairs preserve non-absence
+  read errors, hide retained bytes, preserve BOM identity, classify refusal
+  metrics, reject unusable budgets, enforce observation-size schemas, and add
+  stable snapshot-admission error codes. All findings were repaired in
+  separate commits and revalidated as one integrated head.
 
 ## What surprised you?
 
