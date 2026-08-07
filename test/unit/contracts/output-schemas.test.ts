@@ -85,6 +85,22 @@ describe("contracts: output schemas", () => {
     expect(mcpOutputBodySchemas.graft_review.shape.breakingChanges.element.shape.referenceWarnings.element).toBe(importBindingDiagnosticSchema);
   });
 
+  it("rejects negative file_outline observation sizes", async () => {
+    const repoDir = createTestRepo("graft-file-outline-actual-schema-");
+    cleanups.push(repoDir);
+    fs.writeFileSync(path.join(repoDir, "app.ts"), "export function greet(): void {}\n");
+    const server = createServerInRepo(repoDir);
+    await server.callTool("file_outline", { path: "app.ts" });
+    const output = parse(await server.callTool("file_outline", { path: "app.ts" }));
+
+    expect(output["cacheHit"]).toBe(true);
+    expect(output["actual"]).toBeDefined();
+    expect(() => MCP_OUTPUT_SCHEMAS.file_outline.parse({
+      ...output,
+      actual: { lines: 1, bytes: -1 },
+    })).toThrow();
+  });
+
   it("preserves concrete CLI output types through the helper stack", () => {
     const payload = validateCliOutput("diag_local_history_dag", attachCliSchemaMeta("diag_local_history_dag", {
       cwd: "/tmp/example",
