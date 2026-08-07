@@ -5,6 +5,7 @@ import { describe, expect, it } from "vitest";
 import { RepoWorkspace } from "../../../src/operations/repo-workspace.js";
 import { CanonicalJsonCodec } from "../../../src/adapters/canonical-json.js";
 import {
+  MissingSnapshotBytesError,
   SnapshotWorkspaceReadView,
   unsafeAdmittedWorkspaceSnapshotForTest,
   type SettledFile,
@@ -53,8 +54,14 @@ function snapshotWorkspace(overrides: Partial<WorkspaceSnapshotFields> = {}): Re
 
 /** A view whose every path is absent, to separate absence from refusal. */
 const missingEverything: WorkspaceReadView = {
-  readBytes: () => Promise.reject(new Error("not found")),
+  readBytes: () => Promise.reject(Object.assign(new Error("not found"), { code: "ENOENT" })),
 };
+
+function readFailure(code: string): WorkspaceReadView {
+  return {
+    readBytes: () => Promise.reject(Object.assign(new Error(code), { code })),
+  };
+}
 
 /**
  * These keep four different answers from collapsing into one.
@@ -66,6 +73,15 @@ const missingEverything: WorkspaceReadView = {
  * true is that they were not allowed to see it.
  */
 describe("refusal fidelity across projections", () => {
+  it.each([
+    ["an unreadable file", readFailure("EACCES")],
+    ["a broken admitted snapshot", {
+      readBytes: (path: string) => Promise.reject(new MissingSnapshotBytesError(path)),
+    } satisfies WorkspaceReadView],
+  ])("propagates %s instead of reporting it as absent", async (_name, view) => {
+    await expect(workspaceOver(view).safeRead({ path: "app.ts" })).rejects.toThrow();
+  });
+
   describe("an unadmitted path stays an authority refusal", () => {
     // Not a returned result: the aperture did not grant this path, and a
     // projection-shaped answer would let a caller treat it as a cache miss and

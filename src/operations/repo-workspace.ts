@@ -19,7 +19,6 @@ import type { FileSystem } from "../ports/filesystem.js";
 import {
   observedActual,
   observeFile,
-  UnadmittedPathError,
   type ObservedFile,
   type WorkspaceReadView,
 } from "./workspace-read-view.js";
@@ -108,6 +107,10 @@ async function loadWorkspaceGraftignore(
   }
 }
 
+function isFileNotFoundError(error: unknown): boolean {
+  return typeof error === "object" && error !== null && "code" in error && error.code === "ENOENT";
+}
+
 export class RepoWorkspace {
   private readonly resolveWorkspacePath: (input: string) => string;
   private readonly policyPathForWorkspaceFile: (resolvedPath: string) => string;
@@ -187,10 +190,10 @@ export class RepoWorkspace {
     try {
       return await observeFile(this.readView, filePath);
     } catch (error) {
-      if (error instanceof UnadmittedPathError) {
-        throw error;
+      if (isFileNotFoundError(error)) {
+        return null;
       }
-      return null;
+      throw error;
     }
   }
 
