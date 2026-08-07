@@ -7,11 +7,12 @@ import {
 } from "./capabilities.js";
 
 export const OUTPUT_SCHEMA_VERSION = "1.0.0" as const;
-export const REVIEW_OUTPUT_SCHEMA_VERSION = "2.0.0" as const;
+export const OUTPUT_SCHEMA_V2_VERSION = "2.0.0" as const;
+export const REVIEW_OUTPUT_SCHEMA_VERSION = OUTPUT_SCHEMA_V2_VERSION;
 
 export type OutputSchemaVersion =
   | typeof OUTPUT_SCHEMA_VERSION
-  | typeof REVIEW_OUTPUT_SCHEMA_VERSION;
+  | typeof OUTPUT_SCHEMA_V2_VERSION;
 
 export interface OutputSchemaMeta {
   readonly id: string;
@@ -21,14 +22,18 @@ export interface OutputSchemaMeta {
 export const mcpOutputSchemaMeta = Object.freeze(Object.fromEntries(
   MCP_TOOL_NAMES.map((tool) => [tool, Object.freeze({
     id: `graft.mcp.${tool}`,
-    version: tool === "graft_review" ? REVIEW_OUTPUT_SCHEMA_VERSION : OUTPUT_SCHEMA_VERSION,
+    version: tool === "graft_review" || tool === "file_outline"
+      ? OUTPUT_SCHEMA_V2_VERSION
+      : OUTPUT_SCHEMA_VERSION,
   })]),
 ) as Record<McpToolName, OutputSchemaMeta>);
 
 export const cliOutputSchemaMeta = Object.freeze(Object.fromEntries(
   CLI_COMMAND_NAMES.map((command) => [command, Object.freeze({
     id: `graft.cli.${command}`,
-    version: command === "struct_review" ? REVIEW_OUTPUT_SCHEMA_VERSION : OUTPUT_SCHEMA_VERSION,
+    version: command === "struct_review" || command === "read_outline"
+      ? OUTPUT_SCHEMA_V2_VERSION
+      : OUTPUT_SCHEMA_VERSION,
   })]),
 ) as Record<CliCommandName, OutputSchemaMeta>);
 

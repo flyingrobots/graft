@@ -71,13 +71,17 @@ describe("contracts: output schemas", () => {
     }
   });
 
-  it("versions the expanded review response independently", () => {
+  it("versions expanded output contracts independently", () => {
     expect(getMcpOutputSchemaMeta("graft_review")).toBe(mcpOutputSchemaMeta.graft_review);
     expect(getCliOutputSchemaMeta("struct_review")).toBe(cliOutputSchemaMeta.struct_review);
     expect(getMcpOutputSchemaMeta("graft_review").version).toBe("2.0.0");
     expect(getCliOutputSchemaMeta("struct_review").version).toBe("2.0.0");
+    expect(getMcpOutputSchemaMeta("file_outline").version).toBe("2.0.0");
+    expect(getCliOutputSchemaMeta("read_outline").version).toBe("2.0.0");
     expect(getMcpOutputSchemaMeta("graft_diff").version).toBe("1.0.0");
     expect(getCliOutputSchemaMeta("struct_diff").version).toBe("1.0.0");
+    expect(getMcpOutputSchemaMeta("safe_read").version).toBe("1.0.0");
+    expect(getCliOutputSchemaMeta("read_safe").version).toBe("1.0.0");
   });
 
   it("shares one import-binding diagnostic schema across diagnostics and review warnings", () => {

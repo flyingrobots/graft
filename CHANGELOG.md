@@ -25,6 +25,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 - **Repo workspace compatibility**: the semver-public `RepoWorkspace`
   constructor continues to accept its existing `fs` option, normalizing it to
   one `LiveWorkspaceReadSource`; new callers may supply `readView` directly.
+- **Outline output schema**: MCP `file_outline` and CLI `read_outline` now
+  advertise schema version `2.0.0` for the cache-hit `actual` field; unrelated
+  output contracts remain on their existing versions.
 
 - **Qualified reference confidence**: WARP indexing and cold-graph structural
   review now resolve first-party qualified module/package members across

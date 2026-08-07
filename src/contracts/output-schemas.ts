@@ -23,6 +23,7 @@ import {
   cliOutputSchemaMeta,
   mcpOutputSchemaMeta,
   OUTPUT_SCHEMA_VERSION,
+  OUTPUT_SCHEMA_V2_VERSION,
   REVIEW_OUTPUT_SCHEMA_VERSION,
   schemaMetaLiteral,
   type OutputSchemaMeta,
@@ -35,7 +36,7 @@ import {
 
 export { CLI_COMMAND_NAMES, MCP_TOOL_NAMES };
 export type { CliCommandName, McpToolName } from "./capabilities.js";
-export { OUTPUT_SCHEMA_VERSION, REVIEW_OUTPUT_SCHEMA_VERSION };
+export { OUTPUT_SCHEMA_VERSION, OUTPUT_SCHEMA_V2_VERSION, REVIEW_OUTPUT_SCHEMA_VERSION };
 export type { OutputSchemaMeta, OutputSchemaVersion };
 
 const sessionDepthSchema = z.enum(["early", "mid", "late", "unknown"]);
