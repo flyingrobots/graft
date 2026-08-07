@@ -183,6 +183,30 @@ describe("graft analysis over an admitted workspace snapshot", () => {
     );
   });
 
+  it("does not let callers replace admitted read authority methods", async () => {
+    const workspace = workspaceOverSnapshot(admittedSnapshot());
+
+    try {
+      Object.assign(workspace.readView, {
+        readBytes: (path: string) => Promise.resolve(
+          new TextEncoder().encode(
+            path === "app.ts" ? "export const forged = true;\n" : "TOKEN=leaked\n",
+          ),
+        ),
+      });
+    } catch {
+      // A frozen admitted authority rejects method shadowing.
+    }
+
+    expect(await workspace.safeRead({ path: "app.ts" })).toMatchObject({
+      projection: "content",
+      content: SOURCE,
+    });
+    await expect(workspace.safeRead({ path: "secrets.env" })).rejects.toThrow(
+      /outside the admitted snapshot aperture/,
+    );
+  });
+
   it("cannot be rewritten through the bytes it returns", async () => {
     const view = new SnapshotWorkspaceReadView(admittedSnapshot());
 

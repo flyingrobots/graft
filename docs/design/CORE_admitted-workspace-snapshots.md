@@ -89,10 +89,13 @@ are the remaining slices.
 - [x] the copied snapshot descriptor, aperture, and exposed read-view evidence
       object and property are runtime-immutable, not only TypeScript-readonly;
       retained view bytes and aperture state are not instance properties that
-      reflection or property injection can mutate
+      reflection or property injection can mutate, and the completed view
+      cannot acquire own properties that shadow its authority methods
 - [x] `MissingSnapshotBytesError` becomes unreachable by construction
 - [x] the admitted read view and the live-filesystem ingress are not the same type and are not substitutable
-- [x] the normalized workspace read authority cannot be replaced after construction
+- [x] the normalized workspace read authority cannot be replaced after
+      construction, and admitted authority methods cannot be shadowed on the
+      retained view
 - [x] no `basisDigest` sentinel stands in for "this has no basis"
 - [x] each of `safeRead`, `fileOutline`, and `readRange` performs exactly one observation
 - [x] a mutation between policy evaluation and projection cannot change the returned bytes

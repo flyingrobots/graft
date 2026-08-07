@@ -395,6 +395,7 @@ export class SnapshotWorkspaceReadView implements AdmittedWorkspaceReadView {
       aperture: [...snapshot.aperture],
       admitted: new Set(snapshot.aperture),
     });
+    Object.freeze(this);
   }
 
   // Asynchronous because a filesystem-backed view cannot read lazily behind a
