@@ -24,5 +24,10 @@ export async function observe(
 
 /** An observation of bytes that are not valid UTF-8. */
 export function observedBytes(path: string, bytes: Uint8Array): ObservedFile {
-  return { path, bytes, utf8: null };
+  try {
+    new TextDecoder("utf-8", { fatal: true }).decode(bytes);
+  } catch {
+    return { path, bytes, utf8: null };
+  }
+  throw new Error("observedBytes requires bytes that are not valid UTF-8");
 }
