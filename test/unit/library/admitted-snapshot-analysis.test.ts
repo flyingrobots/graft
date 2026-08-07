@@ -86,6 +86,44 @@ describe("graft analysis over an admitted workspace snapshot", () => {
     }
   });
 
+  it("preserves POSIX backslashes when mapping absolute snapshot paths", async () => {
+    const workspaceRoot = "/tmp/repo\\name";
+    const workspace = workspaceOverSnapshot(admittedSnapshot({ workspaceRoot }));
+
+    await expect(workspace.safeRead({ path: "/tmp/repo/name/app.ts" })).rejects.toMatchObject({
+      code: "UNADMITTED_PATH",
+      path: "/tmp/repo/name/app.ts",
+    });
+    expect(await workspace.safeRead({ path: `${workspaceRoot}/app.ts` })).toMatchObject({
+      projection: "content",
+      content: SOURCE,
+    });
+  });
+
+  it("maps Windows drive and UNC snapshot paths through either separator", async () => {
+    const cases = [
+      {
+        workspaceRoot: "C:\\admitted\\workspace",
+        nativePath: "C:\\admitted\\workspace\\app.ts",
+        alternatePath: "C:/admitted/workspace/app.ts",
+      },
+      {
+        workspaceRoot: "\\\\server\\share\\workspace",
+        nativePath: "\\\\server\\share\\workspace\\app.ts",
+        alternatePath: "//server/share/workspace/app.ts",
+      },
+    ];
+
+    for (const { workspaceRoot, nativePath, alternatePath } of cases) {
+      const workspace = workspaceOverSnapshot(admittedSnapshot({ workspaceRoot }));
+
+      expect(await workspace.safeRead({ path: nativePath }))
+        .toMatchObject({ projection: "content", content: SOURCE });
+      expect(await workspace.safeRead({ path: alternatePath }))
+        .toMatchObject({ projection: "content", content: SOURCE });
+    }
+  });
+
   it("refuses an admitted view bound to a different workspace root", () => {
     const readView = new SnapshotWorkspaceReadView(admittedSnapshot());
     let thrown: unknown;

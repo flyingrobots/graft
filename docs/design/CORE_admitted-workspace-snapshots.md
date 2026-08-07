@@ -101,7 +101,9 @@ are the remaining slices.
       `WORKSPACE_ROOT_MISMATCH`
 - [x] an absolute resolved path beneath that exact root maps back to the
       workspace-relative aperture key; paths outside the evidence root remain
-      unadmitted
+      unadmitted. Mapping preserves POSIX backslashes as literal filename
+      characters while Windows drive and backslash-UNC roots accept either
+      separator
 - [x] the normalized workspace read authority cannot be replaced after
       construction, and admitted authority methods cannot be shadowed on the
       retained view or replaced through its exported prototype

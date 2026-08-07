@@ -356,9 +356,22 @@ function retainedReadState(view: SnapshotWorkspaceReadView): SnapshotWorkspaceRe
   return state;
 }
 
+/**
+ * Snapshot evidence has no platform tag yet. Drive roots and backslash-UNC
+ * roots are unambiguously Windows; slash-rooted paths remain POSIX so a legal
+ * backslash in a POSIX filename cannot become authority over another path.
+ */
+function usesWindowsPathSyntax(workspaceRoot: string): boolean {
+  return /^[A-Za-z]:[\\/]/u.test(workspaceRoot) || workspaceRoot.startsWith("\\\\");
+}
+
 function snapshotLookupPath(workspaceRoot: string, requestedPath: string): string {
-  const normalizedRoot = workspaceRoot.replaceAll("\\", "/").replace(/\/+$/u, "");
-  const normalizedRequest = requestedPath.replaceAll("\\", "/");
+  const windowsPathSyntax = usesWindowsPathSyntax(workspaceRoot);
+  const normalizedRoot = (windowsPathSyntax ? workspaceRoot.replaceAll("\\", "/") : workspaceRoot)
+    .replace(/\/+$/u, "");
+  const normalizedRequest = windowsPathSyntax
+    ? requestedPath.replaceAll("\\", "/")
+    : requestedPath;
   const rootPrefix = normalizedRoot.length === 0 ? "/" : `${normalizedRoot}/`;
   return normalizedRequest.startsWith(rootPrefix)
     ? normalizedRequest.slice(rootPrefix.length)

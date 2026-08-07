@@ -52,7 +52,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   path beneath their exact evidence root back to the workspace-relative key
   carried by the admitted aperture. Standard traversal-protecting repository
   resolvers therefore compose with settled reads without turning admitted
-  files into `UNADMITTED_PATH` refusals.
+  files into `UNADMITTED_PATH` refusals. Mapping follows the evidence root's
+  path syntax: POSIX backslashes remain literal filename characters, while
+  Windows drive and backslash-UNC roots accept either separator without
+  aliasing a distinct POSIX path into admitted authority.
 - **Outline output schema**: MCP `file_outline` and CLI `read_outline` now
   advertise schema version `2.0.0` for the cache-hit `actual` field. Wrapped
   and split body schema exports now share that contract; unrelated output
