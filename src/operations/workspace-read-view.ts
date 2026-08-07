@@ -338,6 +338,10 @@ export class SnapshotWorkspaceReadView implements AdmittedWorkspaceReadView {
       workspaceRoot: snapshot.workspaceRoot,
       basisDigest: snapshot.basisDigest,
     });
+    Object.defineProperty(this, "evidence", {
+      writable: false,
+      configurable: false,
+    });
     this.aperture = [...snapshot.aperture];
     this.admitted = new Set(snapshot.aperture);
     const retainedFiles = retainedFilesBySnapshot.get(snapshot);

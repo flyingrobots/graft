@@ -86,7 +86,7 @@ are the remaining slices.
 - [x] retained file collections and bytes are copied at admission and are not
       exposed through the admitted snapshot descriptor
 - [x] the copied snapshot descriptor, aperture, and exposed read-view evidence
-      are runtime-immutable, not only TypeScript-readonly
+      object and property are runtime-immutable, not only TypeScript-readonly
 - [x] `MissingSnapshotBytesError` becomes unreachable by construction
 - [x] the admitted read view and the live-filesystem ingress are not the same type and are not substitutable
 - [x] no `basisDigest` sentinel stands in for "this has no basis"

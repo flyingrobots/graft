@@ -20,8 +20,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   stable machine-readable code for each refused snapshot contradiction while
   retaining its descriptive message and detail.
 - **Admitted snapshot immutability**: admitted descriptors, their aperture,
-  and read-view evidence are frozen after defensive copying so runtime writes
-  cannot detach reported provenance from retained bytes.
+  read-view evidence, and the evidence property itself are frozen or locked
+  after defensive copying so runtime writes cannot detach reported provenance
+  from retained bytes.
 - **Repo workspace compatibility**: the semver-public `RepoWorkspace`
   constructor and `fs` member remain available to filesystem-backed callers.
   Analysis methods normalize that input to one `LiveWorkspaceReadSource`; new

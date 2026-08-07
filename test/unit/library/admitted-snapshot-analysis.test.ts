@@ -121,6 +121,9 @@ describe("graft analysis over an admitted workspace snapshot", () => {
 
     const view = new SnapshotWorkspaceReadView(snapshot);
     expect(() => Object.assign(view.evidence, { basisDigest: "forged" })).toThrow();
+    expect(() => Object.assign(view, {
+      evidence: { ...view.evidence, basisDigest: "forged" },
+    })).toThrow();
     expect(view.evidence.basisDigest).toBe(
       "b3:0000000000000000000000000000000000000000000000000000000000000001",
     );
