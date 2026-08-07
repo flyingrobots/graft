@@ -210,6 +210,12 @@ export class SnapshotAdmissionError extends Error {
  * having to decide what an absent admitted path means.
  */
 function checkSnapshotFields(fields: WorkspaceSnapshotFields): void {
+  if (!Number.isSafeInteger(fields.byteBudget) || fields.byteBudget < 0) {
+    throw new SnapshotAdmissionError(
+      `byte budget is not a non-negative safe integer: ${String(fields.byteBudget)}`,
+    );
+  }
+
   const admitted = new Set<string>();
   for (const path of fields.aperture) {
     if (admitted.has(path)) {

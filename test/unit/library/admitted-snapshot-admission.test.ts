@@ -68,6 +68,32 @@ describe("admitting a workspace snapshot", () => {
     expect(() => unsafeAdmittedWorkspaceSnapshotForTest(fields)).not.toThrow();
   });
 
+  it.each([
+    ["NaN", Number.NaN],
+    ["infinity", Number.POSITIVE_INFINITY],
+    ["negative", -1],
+    ["fractional", 1.5],
+    ["unsafe integer", Number.MAX_SAFE_INTEGER + 1],
+  ])("refuses a %s byte budget", (_name, byteBudget) => {
+    const fields = snapshotFields({
+      aperture: [],
+      files: new Map(),
+      byteBudget,
+    });
+
+    expect(() => unsafeAdmittedWorkspaceSnapshotForTest(fields)).toThrow();
+  });
+
+  it("admits an empty settlement with a zero byte budget", () => {
+    const fields = snapshotFields({
+      aperture: [],
+      files: new Map(),
+      byteBudget: 0,
+    });
+
+    expect(() => unsafeAdmittedWorkspaceSnapshotForTest(fields)).not.toThrow();
+  });
+
   it("sums the byte budget across every settled file", () => {
     // Catches a per-file check standing in for a total. Neither file exceeds
     // the budget alone; together they do.
