@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: Apache-2.0
 // © James Ross Ω FLYING•ROBOTS <https://github.com/flyingrobots>
 
+import type { FileSystem } from "../ports/filesystem.js";
+
 /**
  * The bytes Graft analysis is permitted to see, and nothing else.
  *
@@ -420,11 +422,32 @@ export class SnapshotWorkspaceReadView implements AdmittedWorkspaceReadView {
  */
 export class LiveWorkspaceReadSource implements WorkspaceReadView {
   constructor(
-    private readonly fs: { readFile(path: string): Promise<Uint8Array | Buffer> },
+    private readonly fs: Pick<FileSystem, "isFileNotFoundError" | "readFile">,
     readonly workspaceRoot: string,
   ) {}
 
   async readBytes(path: string): Promise<Uint8Array> {
-    return Uint8Array.from(await this.fs.readFile(path));
+    try {
+      return Uint8Array.from(await this.fs.readFile(path));
+    } catch (error) {
+      const isMissing = this.fs.isFileNotFoundError !== undefined
+        ? this.fs.isFileNotFoundError(error)
+        : isPortableFileNotFoundError(error);
+      if (isMissing) {
+        throw Object.assign(new Error(`Workspace file not found: ${path}`), {
+          code: "ENOENT" as const,
+          cause: error,
+        });
+      }
+      throw error;
+    }
   }
+}
+
+function isPortableFileNotFoundError(error: unknown): boolean {
+  if (typeof error === "object" && error !== null && "code" in error && error.code === "ENOENT") {
+    return true;
+  }
+  return error instanceof Error
+    && (error.name === "NotFoundError" || /^(?:file )?not found(?:\b|:)/i.test(error.message));
 }

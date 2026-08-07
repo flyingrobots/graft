@@ -2,6 +2,7 @@
 // © James Ross Ω FLYING•ROBOTS <https://github.com/flyingrobots>
 
 import { describe, expect, it } from "vitest";
+import { nodeFs } from "../../../src/adapters/node-fs.js";
 import {
   LiveWorkspaceReadSource,
   SnapshotWorkspaceReadView,
@@ -32,10 +33,7 @@ function snapshotFields(overrides: Partial<WorkspaceSnapshotFields> = {}): Works
 }
 
 function liveSource(): LiveWorkspaceReadSource {
-  return new LiveWorkspaceReadSource(
-    { readFile: () => Promise.resolve(new TextEncoder().encode(SOURCE)) },
-    "/live/workspace",
-  );
+  return new LiveWorkspaceReadSource(nodeFs, "/live/workspace");
 }
 
 /**

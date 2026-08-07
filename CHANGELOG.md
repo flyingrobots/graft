@@ -16,6 +16,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ### Changed
 
+- **Portable filesystem absence handling**: filesystem adapters may classify
+  custom missing-path errors explicitly, while the live workspace boundary
+  also recognizes standard portable missing-error shapes. Only confirmed
+  absences become `ENOENT`, preserving non-Node not-found projections without
+  swallowing permission or resource failures.
 - **Code-show observation consistency**: live symbol search now carries the
   exact matched content through policy evaluation and range projection, so
   `code_show` observes each matched file once instead of re-reading mutable

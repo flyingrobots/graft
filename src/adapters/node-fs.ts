@@ -7,6 +7,13 @@ import * as fsp from "node:fs/promises";
 import type { FileSystem } from "../ports/filesystem.js";
 
 class NodeFileSystem implements FileSystem {
+  isFileNotFoundError(error: unknown): boolean {
+    return typeof error === "object"
+      && error !== null
+      && "code" in error
+      && error.code === "ENOENT";
+  }
+
   readFile(path: string, encoding: "utf-8"): Promise<string>;
   readFile(path: string): Promise<Buffer>;
   readFile(path: string, encoding?: "utf-8"): Promise<string | Buffer> {

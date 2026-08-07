@@ -96,8 +96,9 @@ are the remaining slices.
 - [x] invalid UTF-8 never reaches a caller as replacement text
 - [x] a UTF-8 BOM remains part of byte identity and cannot create a false cache hit
 - [x] an authority refusal stays an authority refusal across every projection, never becoming not-found
-- [x] only genuine `ENOENT` absence becomes not-found; permission, resource,
-      and snapshot-integrity failures propagate
+- [x] only absence classified by the filesystem adapter or a standard portable
+      missing-error shape becomes normalized `ENOENT` and then not-found;
+      permission, resource, and snapshot-integrity failures propagate
 - [x] no `as FileSystem` cast remains
 
 Added during the cycle, not foreseen when it opened:

@@ -6,6 +6,7 @@ import {
   observeFile,
   type ObservedFile,
 } from "../../src/operations/workspace-read-view.js";
+import type { FileSystem } from "../../src/ports/filesystem.js";
 
 /**
  * Observes a path through the same seam production uses.
@@ -16,7 +17,7 @@ import {
  * pairs that no observation could produce.
  */
 export async function observe(
-  fs: { readFile(path: string): Promise<Uint8Array | Buffer> },
+  fs: Pick<FileSystem, "isFileNotFoundError" | "readFile">,
   path: string,
 ): Promise<ObservedFile> {
   return observeFile(new LiveWorkspaceReadSource(fs, "/virtual"), path);
