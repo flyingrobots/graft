@@ -54,6 +54,17 @@ remain open.
   descriptors remained runtime-mutable, and expanded outline output still
   advertised schema v1. Each received its own RED/GREEN repair before the
   closure gate was rerun.
+- The next exact-head Codex pass found six more defects: the public `fs` member
+  was still absent, invalid UTF-8 metrics were misclassified, split outline
+  schemas diverged, refused ranges overstated their runtime footprint, the
+  witness named a nonexistent commit, and snapshot read exceptions lacked the
+  codes the design promised. Each received a focused repair and the integrated
+  gate was rerun on `ac0e3287`.
+- A self-audit then found stale authority prose left behind by the compatibility
+  repair. Commit `51ec7be7` corrected the code comments, design, Retro, and
+  witness without changing behavior. One apparent duplicate type-union member
+  was checked against both the reviewed and current heads, proved to be a
+  duplicated terminal excerpt, and transparently withdrawn without code churn.
 
 ## What surprised you?
 

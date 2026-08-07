@@ -5,8 +5,10 @@ title: "Verification Witness for Admitted Workspace Snapshots"
 # Verification Witness for Admitted Workspace Snapshots
 
 The implementation and post-publication review repairs were verified from
-branch commit `bc1fdb837936a4096d38093d733da7b62cf1ccfc`. This witness update changes
-documentation only and is covered by the final documentation gate.
+branch commit `ac0e3287f6900f60375f22edde32fb9c8bc60c0a`. Commit
+`51ec7be7c5823bed498b99fb3d80dbd02211943e` corrected stale authority claims
+after that integrated gate. This witness update changes documentation only and
+is covered by the final documentation gate.
 
 ## Source Truth
 
@@ -25,7 +27,7 @@ documentation only and is covered by the final documentation gate.
 ## Focused Acceptance
 
 ```text
-pnpm vitest run \
+pnpm exec vitest run \
   test/unit/library/admitted-snapshot-admission.test.ts \
   test/unit/library/admitted-snapshot-analysis.test.ts \
   test/unit/library/workspace-read-authority.test.ts \
@@ -38,10 +40,11 @@ pnpm vitest run \
   test/unit/operations/file-outline.test.ts \
   test/unit/operations/read-range.test.ts \
   test/unit/mcp/tools.test.ts \
+  test/unit/mcp/runtime-observability.test.ts \
   test/unit/contracts/output-schemas.test.ts
 
-Test Files  13 passed (13)
-Tests       141 passed (141)
+Test Files  14 passed (14)
+Tests       159 passed (159)
 ```
 
 ## Review Repair Proof
@@ -55,12 +58,22 @@ Tests       141 passed (141)
 - Invalid-UTF-8 test observations cannot be fabricated from valid text.
 - `SnapshotAdmissionError.code` identifies every admission contradiction
   without coupling callers or tests to descriptive prose.
-- The public `RepoWorkspace({ fs })` constructor remains source- and
-  runtime-compatible while normalizing to one `LiveWorkspaceReadSource`.
+- The public `RepoWorkspace({ fs })` constructor and `fs` member remain source-
+  and runtime-compatible while analysis normalizes reads to one
+  `LiveWorkspaceReadSource`.
 - Admitted descriptors, apertures, and exposed evidence are frozen after
   defensive copying.
 - `file_outline` and `read_outline` advertise schema v2 for their expanded
   cache-hit payload while unrelated contracts remain on v1.
+- Split MCP `file_outline` and CLI `read_outline` body schemas accept the same
+  cache-hit `actual` evidence as their wrapped peers.
+- Invalid-UTF-8 outline and range results use the standard refusal projection,
+  so both tool metrics record refusals instead of successful reads.
+- Empty and refused ranges retain the considered path without recording a line
+  region that was never returned.
+- `UnadmittedPathError` and `MissingSnapshotBytesError` expose stable codes,
+  distinct from admission-time `MISSING_APERTURE_BYTES`.
+- Every SHA named as verification evidence resolves to its claimed Git commit.
 
 ## Integrated Repository Gate
 
@@ -71,7 +84,7 @@ Tests       141 passed (141)
 | Build | `pnpm build` | passed |
 | Hermetic schema parity | `WESLEY_BIN=/Users/james/.cargo/bin/wesley pnpm schema:structural-history:check` | passed with Wesley 0.1.0; generated model, codec, registry hash, and Echo descriptor in sync |
 | Built CLI smoke | `node bin/graft.js --version` | `graft 0.11.1` |
-| Full isolated suite | `pnpm test` | 258 files passed; 2,029 tests passed |
+| Full isolated suite | `pnpm test` | 258 files passed; 2,033 tests passed |
 | Documentation integrity | `git diff --check` and `pnpm lint` | passed after Retro completion |
 
 The first schema-gate invocation intentionally failed closed because

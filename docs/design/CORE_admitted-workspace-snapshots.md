@@ -109,11 +109,19 @@ Added during the cycle, not foreseen when it opened:
       first version of the UTF-8 refusal shadowed `BINARY`, so a binary file
       was reported as an encoding problem instead of a banned one
 - [x] refused `read_range` calls increment refusal metrics rather than successful-read metrics
+- [x] invalid-UTF-8 `file_outline` and `read_range` outcomes use the standard
+      refusal projection and increment refusal metrics
+- [x] refused or otherwise empty `read_range` outcomes do not claim a line
+      region was accessed in the runtime footprint
 - [x] observation sizes use the shared non-negative integer output contract
 - [x] the expanded `file_outline` and `read_outline` output contracts advertise
       schema version `2.0.0`
-- [x] the semver-public `RepoWorkspace({ fs })` constructor remains compatible
-      while normalizing immediately to one named read authority
+- [x] wrapped and split MCP/CLI outline schemas accept the same expanded
+      cache-hit payload
+- [x] the semver-public `RepoWorkspace({ fs })` constructor and `fs` member
+      remain compatible while analysis normalizes reads to one named view
+- [x] snapshot read exceptions expose stable `UNADMITTED_PATH` and
+      `MISSING_SETTLED_BYTES` codes
 
 ## Playback Questions
 
