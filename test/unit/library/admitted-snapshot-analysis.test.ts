@@ -207,6 +207,44 @@ describe("graft analysis over an admitted workspace snapshot", () => {
     );
   });
 
+  it("does not let callers replace admitted authority prototype methods", async () => {
+    const workspace = workspaceOverSnapshot(admittedSnapshot());
+    const prototype = SnapshotWorkspaceReadView.prototype;
+    const originalReadBytes = Object.getOwnPropertyDescriptor(prototype, "readBytes");
+    if (originalReadBytes === undefined) {
+      throw new Error("SnapshotWorkspaceReadView.readBytes descriptor is missing");
+    }
+    let replaced = false;
+
+    try {
+      try {
+        Object.assign(prototype, {
+          readBytes: (path: string) => Promise.resolve(
+            new TextEncoder().encode(
+              path === "app.ts" ? "export const forged = true;\n" : "TOKEN=leaked\n",
+            ),
+          ),
+        });
+        replaced = Object.getOwnPropertyDescriptor(prototype, "readBytes")?.value !==
+          originalReadBytes.value;
+      } catch {
+        // A frozen authority prototype rejects replacement.
+      }
+
+      expect(await workspace.safeRead({ path: "app.ts" })).toMatchObject({
+        projection: "content",
+        content: SOURCE,
+      });
+      await expect(workspace.safeRead({ path: "secrets.env" })).rejects.toThrow(
+        /outside the admitted snapshot aperture/,
+      );
+    } finally {
+      if (replaced) {
+        Object.defineProperty(prototype, "readBytes", originalReadBytes);
+      }
+    }
+  });
+
   it("cannot be rewritten through the bytes it returns", async () => {
     const view = new SnapshotWorkspaceReadView(admittedSnapshot());
 

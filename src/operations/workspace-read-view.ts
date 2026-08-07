@@ -426,6 +426,8 @@ export class SnapshotWorkspaceReadView implements AdmittedWorkspaceReadView {
   }
 }
 
+Object.freeze(SnapshotWorkspaceReadView.prototype);
+
 /**
  * Bytes read from the live filesystem at the moment of the call.
  *

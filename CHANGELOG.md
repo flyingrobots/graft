@@ -35,7 +35,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   provenance from retained bytes. Snapshot views keep retained bytes and
   aperture state in module-private storage so reflection or property injection
   cannot replace the content served under frozen evidence, and the completed
-  view is frozen so callers cannot shadow its authority methods.
+  view and exported authority prototype are frozen so callers cannot shadow or
+  globally replace its authority methods.
 - **Repo workspace compatibility**: the semver-public `RepoWorkspace`
   constructor and `fs` member remain available to filesystem-backed callers.
   Analysis methods normalize that input to one `LiveWorkspaceReadSource`; new
