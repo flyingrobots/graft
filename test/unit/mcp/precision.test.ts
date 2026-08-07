@@ -2,7 +2,11 @@ import { describe, it, expect } from "vitest";
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
-import { collectSymbols } from "../../../src/mcp/tools/precision.js";
+import {
+  collectSymbols,
+  PrecisionSearchRequest,
+  searchLiveSymbolsWithContent,
+} from "../../../src/mcp/tools/precision.js";
 import { git, createTestRepo, cleanupTestRepo, testGitClient } from "../../helpers/git.js";
 import { createServerInRepo, parse } from "../../helpers/mcp.js";
 import { openWarp } from "../../../src/warp/open.js";
@@ -226,6 +230,28 @@ describe("mcp: code_show", () => {
     await runCodeShow(ctx, { symbol: "greet", path: "app.ts" }, { allowWarp: false });
 
     expect(reads).toEqual(["/repo/app.ts"]);
+  });
+
+  it("does not retain matched source for match-only live scans", async () => {
+    const content = "export function greet(): string {\n  return 'hello';\n}\n";
+    const ctx = {
+      projectRoot: "/repo",
+      fs: {
+        readFile: () => Promise.resolve(content),
+      },
+      resolvePath: (filePath: string) => `/repo/${filePath}`,
+    } as unknown as ToolContext;
+
+    const result = await searchLiveSymbolsWithContent(
+      ctx,
+      ["app.ts"],
+      new PrecisionSearchRequest({ exactName: "greet" }),
+      undefined,
+      { retainMatchedContent: false },
+    );
+
+    expect(result.matches).toHaveLength(1);
+    expect(result.contentByPath.size).toBe(0);
   });
 });
 

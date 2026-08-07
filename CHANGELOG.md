@@ -24,7 +24,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 - **Code-show observation consistency**: live symbol search now carries the
   exact matched content through policy evaluation and range projection, so
   `code_show` observes each matched file once instead of re-reading mutable
-  working-tree content between those stages.
+  working-tree content between those stages. Match-only `code_find` and
+  precision searches discard source after extracting matches instead of
+  retaining every matched file through a repository-wide scan.
 - **Snapshot admission diagnostics**: `SnapshotAdmissionError` now exposes a
   stable machine-readable code for each refused snapshot contradiction while
   retaining its descriptive message and detail.

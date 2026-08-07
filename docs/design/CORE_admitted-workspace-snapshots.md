@@ -123,8 +123,9 @@ Added during the cycle, not foreseen when it opened:
       own reads from `ctx.fs`; `changed_since` also replacement-decoded invalid
       UTF-8. All three now delegate to `RepoWorkspace`. Live `code_show` keeps
       one search observation through policy evaluation and range projection,
-      but `code_show` and `graft_map` still enter through live `ctx.fs` and are
-      outside this checked criterion
+      while match-only search discards source after extracting its compact
+      matches. `code_show` and `graft_map` still enter through live `ctx.fs`
+      and are outside this checked criterion
 - [x] policy is evaluated for every observation, not only decodable ones. The
       first version of the UTF-8 refusal shadowed `BINARY`, so a binary file
       was reported as an encoding problem instead of a banned one

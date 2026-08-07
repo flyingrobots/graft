@@ -91,11 +91,16 @@ export interface LiveSymbolSearchResult {
   readonly contentByPath: ReadonlyMap<string, string>;
 }
 
+export interface LiveSymbolSearchOptions {
+  readonly retainMatchedContent?: boolean;
+}
+
 export async function searchLiveSymbolsWithContent(
   ctx: ToolContext,
   filePaths: readonly string[],
   request: PrecisionSearchRequest,
   ref?: string,
+  options: LiveSymbolSearchOptions = {},
 ): Promise<LiveSymbolSearchResult> {
   const matches: RankedPrecisionSymbolMatch[] = [];
   const contentByPath = new Map<string, string>();
@@ -119,7 +124,7 @@ export async function searchLiveSymbolsWithContent(
       }
     }
 
-    if (matched) {
+    if (matched && options.retainMatchedContent !== false) {
       contentByPath.set(filePath, content);
     }
   }
@@ -136,7 +141,13 @@ export async function searchLiveSymbols(
   request: PrecisionSearchRequest,
   ref?: string,
 ): Promise<PrecisionSymbolMatch[]> {
-  return (await searchLiveSymbolsWithContent(ctx, filePaths, request, ref)).matches;
+  return (await searchLiveSymbolsWithContent(
+    ctx,
+    filePaths,
+    request,
+    ref,
+    { retainMatchedContent: false },
+  )).matches;
 }
 
 export function readRangeFromContent(
