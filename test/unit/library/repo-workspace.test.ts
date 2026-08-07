@@ -1,7 +1,9 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
-import { createRepoWorkspace } from "../../../src/index.js";
+import { createRepoWorkspace, RepoWorkspace } from "../../../src/index.js";
+import { CanonicalJsonCodec } from "../../../src/adapters/canonical-json.js";
+import { nodeFs } from "../../../src/adapters/node-fs.js";
 import { cleanupTestRepo, createCommittedTestRepo } from "../../helpers/git.js";
 
 describe("repo workspace library API", () => {
@@ -37,6 +39,25 @@ describe("repo workspace library API", () => {
     if ("diff" in changed) {
       expect(changed.diff.changed.length).toBeGreaterThanOrEqual(0);
     }
+  });
+
+  it("preserves the public RepoWorkspace filesystem constructor", async () => {
+    repoDir = createCommittedTestRepo("graft-repo-workspace-constructor-", {
+      "app.ts": "export const direct = true;\n",
+    });
+    const workspace = new RepoWorkspace({
+      projectRoot: repoDir,
+      fs: nodeFs,
+      codec: new CanonicalJsonCodec(),
+      resolvePath: (input) => path.join(repoDir!, input),
+    });
+
+    const result = await workspace.safeRead({ path: "app.ts" });
+
+    expect(result).toMatchObject({
+      projection: "content",
+      content: "export const direct = true;\n",
+    });
   });
 
   it("applies graftignore policy on direct outline and range access", async () => {

@@ -17,6 +17,7 @@ import { RefusedResult } from "../policy/types.js";
 import { loadGraftignore } from "../policy/graftignore.js";
 import type { FileSystem } from "../ports/filesystem.js";
 import {
+  LiveWorkspaceReadSource,
   observedActual,
   observeFile,
   type ObservedFile,
@@ -75,18 +76,8 @@ export type RepoWorkspaceChangedSinceResult =
   | { readonly status: "no_previous_observation" }
   | { readonly diff: OutlineDiff; readonly consumed: boolean };
 
-export interface RepoWorkspaceOptions {
+interface RepoWorkspaceCommonOptions {
   readonly projectRoot: string;
-  /**
-   * The single read authority for this workspace.
-   *
-   * There is deliberately no filesystem parameter beside it. Two doors would
-   * leave correctness resting on every code path remembering which one is
-   * lawful; a workspace built over a settled observation must not be able to
-   * reach the live disk at all. Callers that still want live reads pass a
-   * `LiveWorkspaceReadSource` and are visible by name.
-   */
-  readonly readView: WorkspaceReadView;
   readonly codec: JsonCodec;
   readonly graftignorePatterns?: readonly string[] | undefined;
   readonly resolvePath?: ((input: string) => string) | undefined;
@@ -95,6 +86,32 @@ export interface RepoWorkspaceOptions {
   readonly cache?: ObservationCache | undefined;
   readonly proseProjector?: ProseProjectionProvider | undefined;
 }
+
+export type RepoWorkspaceOptions = RepoWorkspaceCommonOptions & (
+  | {
+      /**
+       * The single read authority for this workspace.
+       *
+       * There is deliberately no filesystem parameter beside it. Two doors
+       * would leave correctness resting on every code path remembering which
+       * one is lawful; a workspace built over a settled observation must not
+       * be able to reach the live disk at all. Callers that still want live
+       * reads pass a `LiveWorkspaceReadSource` and are visible by name.
+       */
+      readonly readView: WorkspaceReadView;
+      readonly fs?: never;
+    }
+  | {
+      /**
+       * Compatibility input for the semver-public constructor.
+       *
+       * Normalized immediately to one live read authority; the workspace does
+       * not retain a second filesystem door beside the view.
+       */
+      readonly fs: FileSystem;
+      readonly readView?: never;
+    }
+);
 
 async function loadWorkspaceGraftignore(
   fs: Pick<FileSystem, "readFile">,
@@ -124,7 +141,7 @@ export class RepoWorkspace {
 
   constructor(options: RepoWorkspaceOptions) {
     this.projectRoot = options.projectRoot;
-    this.readView = options.readView;
+    this.readView = options.readView ?? new LiveWorkspaceReadSource(options.fs, options.projectRoot);
     this.codec = options.codec;
     this.graftignorePatterns = options.graftignorePatterns ?? [];
     this.governor = options.governor ?? new GovernorTracker();
