@@ -5,7 +5,7 @@ title: "Verification Witness for Admitted Workspace Snapshots"
 # Verification Witness for Admitted Workspace Snapshots
 
 The implementation and post-publication review repairs were verified from
-branch commit `37b491cd6f12d5cdbdc2040a4b241d6196725544`. This witness update changes
+branch commit `bc1fdb837ac3a9424105838099b2cf02dc7e07ac`. This witness update changes
 documentation only and is covered by the final documentation gate.
 
 ## Source Truth
@@ -38,7 +38,7 @@ pnpm vitest run \
   test/unit/contracts/output-schemas.test.ts
 
 Test Files  13 passed (13)
-Tests       139 passed (139)
+Tests       141 passed (141)
 ```
 
 ## Review Repair Proof
@@ -52,6 +52,12 @@ Tests       139 passed (139)
 - Invalid-UTF-8 test observations cannot be fabricated from valid text.
 - `SnapshotAdmissionError.code` identifies every admission contradiction
   without coupling callers or tests to descriptive prose.
+- The public `RepoWorkspace({ fs })` constructor remains source- and
+  runtime-compatible while normalizing to one `LiveWorkspaceReadSource`.
+- Admitted descriptors, apertures, and exposed evidence are frozen after
+  defensive copying.
+- `file_outline` and `read_outline` advertise schema v2 for their expanded
+  cache-hit payload while unrelated contracts remain on v1.
 
 ## Integrated Repository Gate
 
@@ -62,7 +68,7 @@ Tests       139 passed (139)
 | Build | `pnpm build` | passed |
 | Hermetic schema parity | `WESLEY_BIN=/Users/james/.cargo/bin/wesley pnpm schema:structural-history:check` | passed with Wesley 0.1.0; generated model, codec, registry hash, and Echo descriptor in sync |
 | Built CLI smoke | `node bin/graft.js --version` | `graft 0.11.1` |
-| Full isolated suite | `pnpm test` | 258 files passed; 2,027 tests passed |
+| Full isolated suite | `pnpm test` | 258 files passed; 2,029 tests passed |
 | Documentation integrity | `git diff --check` and `pnpm lint` | passed after Retro completion |
 
 The first schema-gate invocation intentionally failed closed because

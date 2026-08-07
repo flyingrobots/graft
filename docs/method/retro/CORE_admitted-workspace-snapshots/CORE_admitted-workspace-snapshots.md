@@ -48,6 +48,11 @@ remain open.
   metrics, reject unusable budgets, enforce observation-size schemas, and add
   stable snapshot-admission error codes. All findings were repaired in
   separate commits and revalidated as one integrated head.
+- A final current-head Codex pass found three additional boundary defects: the
+  documented `RepoWorkspace({ fs })` constructor had broken, snapshot
+  descriptors remained runtime-mutable, and expanded outline output still
+  advertised schema v1. Each received its own RED/GREEN repair before the
+  closure gate was rerun.
 
 ## What surprised you?
 
