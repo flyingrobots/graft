@@ -36,7 +36,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   aperture state in module-private storage so reflection or property injection
   cannot replace the content served under frozen evidence, and the completed
   view and exported authority prototype are frozen so callers cannot shadow or
-  globally replace its authority methods.
+  globally replace its authority methods. The admitted view is runtime-final,
+  so a derived prototype cannot override those methods beneath valid evidence.
 - **Repo workspace compatibility**: the semver-public `RepoWorkspace`
   constructor and `fs` member remain available to filesystem-backed callers.
   Analysis methods normalize that input to one `LiveWorkspaceReadSource`; new

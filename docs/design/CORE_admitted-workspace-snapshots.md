@@ -91,8 +91,9 @@ are the remaining slices.
       retained view bytes and aperture state are not instance properties that
       reflection or property injection can mutate, and the completed view
       cannot acquire own properties that shadow its authority methods; the
-      exported prototype is also frozen so those methods cannot be replaced
-      for every admitted view at once
+      exported prototype is also frozen and subclass construction is rejected,
+      so those methods cannot be replaced globally or through a derived
+      prototype
 - [x] `MissingSnapshotBytesError` becomes unreachable by construction
 - [x] the admitted read view and the live-filesystem ingress are not the same type and are not substitutable
 - [x] an admitted read view's evidence `workspaceRoot` must exactly match the

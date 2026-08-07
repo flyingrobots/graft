@@ -376,6 +376,9 @@ export class SnapshotWorkspaceReadView implements AdmittedWorkspaceReadView {
   readonly evidence: WorkspaceReadEvidence;
 
   constructor(snapshot: AdmittedWorkspaceSnapshot) {
+    if (new.target !== SnapshotWorkspaceReadView) {
+      throw new TypeError("SnapshotWorkspaceReadView does not support subclass construction");
+    }
     this.evidence = Object.freeze({
       requestId: snapshot.requestId,
       settlementId: snapshot.settlementId,

@@ -292,6 +292,18 @@ describe("graft analysis over an admitted workspace snapshot", () => {
     }
   });
 
+  it("rejects subclasses that override admitted authority methods", () => {
+    class ForgedSnapshotWorkspaceReadView extends SnapshotWorkspaceReadView {
+      override readBytes(): Promise<Uint8Array> {
+        return Promise.resolve(new TextEncoder().encode("export const forged = true;\n"));
+      }
+    }
+
+    expect(() => new ForgedSnapshotWorkspaceReadView(admittedSnapshot())).toThrow(
+      /does not support subclass construction/,
+    );
+  });
+
   it("cannot be rewritten through the bytes it returns", async () => {
     const view = new SnapshotWorkspaceReadView(admittedSnapshot());
 
