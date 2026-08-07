@@ -983,28 +983,7 @@ const mcpOutputBodySchemas: Record<McpToolName, z.ZodType> = {
     actual: actualSchema.optional(),
     driftWarnings: z.array(graftEditDriftWarningSchema).optional(),
   }).strict(),
-  file_outline: z.union([
-    z.object({
-      path: z.string(),
-      outline: z.array(outlineEntrySchema),
-      jumpTable: z.array(jumpEntrySchema),
-      partial: z.boolean().optional(),
-      reason: z.string().optional(),
-      error: z.string().optional(),
-      cacheHit: z.boolean().optional(),
-      // The size of the observation the outline was taken from. Present on a
-      // cache hit so a caller can see what the retained outline describes.
-      actual: actualSchema.optional(),
-    }).strict(),
-    z.object({
-      path: z.string(),
-      projection: z.literal("refused"),
-      reason: z.string(),
-      reasonDetail: z.string().optional(),
-      next: z.array(z.string()).optional(),
-      actual: actualSchema.optional(),
-    }).strict(),
-  ]),
+  file_outline: splitMcpOutputBodySchemas.file_outline,
   read_range: z.object({
     path: z.string(),
     content: z.string().optional(),

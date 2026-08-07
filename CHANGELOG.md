@@ -27,8 +27,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   Analysis methods normalize that input to one `LiveWorkspaceReadSource`; new
   callers may supply `readView` directly.
 - **Outline output schema**: MCP `file_outline` and CLI `read_outline` now
-  advertise schema version `2.0.0` for the cache-hit `actual` field; unrelated
-  output contracts remain on their existing versions.
+  advertise schema version `2.0.0` for the cache-hit `actual` field. Wrapped
+  and split body schema exports now share that contract; unrelated output
+  contracts remain on their existing versions.
 - **Invalid UTF-8 refusal metrics**: governed outline and range reads now emit
   the standard refusal projection for undecodable text, so tool metrics count
   those outcomes as refusals instead of successful outlines or reads.

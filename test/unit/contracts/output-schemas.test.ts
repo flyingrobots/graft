@@ -22,6 +22,7 @@ import {
   importBindingDiagnosticSchema,
   mcpOutputBodySchemas,
 } from "../../../src/contracts/output-schema-mcp.js";
+import { cliOutputBodySchemas } from "../../../src/contracts/output-schema-cli.js";
 import { runCli } from "../../../src/cli/main.js";
 import { runInit } from "../../../src/cli/init.js";
 import { runIndex } from "../../../src/cli/index-cmd.js";
@@ -103,6 +104,25 @@ describe("contracts: output schemas", () => {
       ...output,
       actual: { lines: 1, bytes: -1 },
     })).toThrow();
+  });
+
+  it("accepts cache-hit outline bodies through every exported schema", async () => {
+    const repoDir = createTestRepo("graft-file-outline-split-schema-");
+    cleanups.push(repoDir);
+    const content = "export function greet(): void {}\n";
+    fs.writeFileSync(path.join(repoDir, "app.ts"), content);
+    const server = createServerInRepo(repoDir);
+    await server.callTool("file_outline", { path: "app.ts" });
+    const output = parse(await server.callTool("file_outline", { path: "app.ts" }));
+    const { _schema: _schema, _receipt: _receipt, tripwire: _tripwire, ...body } = output;
+
+    expect(output).toMatchObject({
+      cacheHit: true,
+      actual: { lines: 2, bytes: Buffer.byteLength(content) },
+    });
+    expect(() => MCP_OUTPUT_SCHEMAS.file_outline.parse(output)).not.toThrow();
+    expect(() => mcpOutputBodySchemas.file_outline.parse(body)).not.toThrow();
+    expect(() => cliOutputBodySchemas.read_outline.parse(body)).not.toThrow();
   });
 
   it("preserves concrete CLI output types through the helper stack", () => {
