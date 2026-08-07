@@ -84,6 +84,12 @@ remain open.
   `2b149cbf` and `2144b3ce` closed those defects in separate RED/GREEN loops;
   the final integrated gate then passed 18 focused files and 213 tests plus the
   258-file, 2,041-test isolated suite.
+- The exact-head Codex pass on `18edafc8` found two deeper authority bindings:
+  the exported admitted-view prototype remained mutable, and settled evidence
+  could be mounted beneath a different `RepoWorkspace.projectRoot`. Commits
+  `30a5509d` and `7f83c619` froze the prototype and enforced exact evidence-root
+  identity in separate RED/GREEN loops. The integrated gate then passed 18
+  focused files and 215 tests plus the 258-file, 2,043-test isolated suite.
 
 ## What surprised you?
 

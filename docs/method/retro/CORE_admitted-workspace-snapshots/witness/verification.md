@@ -5,7 +5,7 @@ title: "Verification Witness for Admitted Workspace Snapshots"
 # Verification Witness for Admitted Workspace Snapshots
 
 The implementation and post-publication review repairs were verified from
-branch commit `2144b3ce17711600fd5666445e968b2aa452667d`. This witness update
+branch commit `7f83c6193b4d68eb7522b261e7b917e1329a7ea4`. This witness update
 changes documentation only and is covered by the final documentation gate.
 
 ## Source Truth
@@ -46,7 +46,7 @@ pnpm exec vitest run \
   test/unit/contracts/output-schemas.test.ts
 
 Test Files  18 passed (18)
-Tests       213 passed (213)
+Tests       215 passed (215)
 ```
 
 ## Review Repair Proof
@@ -71,8 +71,13 @@ Tests       213 passed (213)
 - Admitted descriptors, apertures, and exposed evidence are frozen after
   defensive copying, callers cannot replace the evidence property, and the
   completed view rejects properties that would shadow its authority methods.
+  The exported snapshot-view prototype is also frozen, so callers cannot
+  replace those methods for every admitted view at once.
 - A normalized `RepoWorkspace.readView` cannot be replaced after construction,
   so every bounded analysis remains attached to its admitted authority.
+- An admitted view's evidence root must exactly match its
+  `RepoWorkspace.projectRoot`; a mismatch throws `WORKSPACE_ROOT_MISMATCH`
+  before any settled bytes can be presented under another workspace identity.
 - `file_outline` and `read_outline` advertise schema v2 for their expanded
   cache-hit payload while unrelated contracts remain on v1.
 - Split MCP `file_outline` and CLI `read_outline` body schemas accept the same
@@ -101,7 +106,7 @@ Tests       213 passed (213)
 | Build | `pnpm build` | passed |
 | Hermetic schema parity | `WESLEY_BIN=/Users/james/.cargo/bin/wesley pnpm schema:structural-history:check` | passed with Wesley 0.1.0; generated model, codec, registry hash, and Echo descriptor in sync |
 | Built CLI smoke | `node bin/graft.js --version` | `graft 0.11.1` |
-| Full isolated suite | `pnpm test` | 258 files passed; 2,041 tests passed |
+| Full isolated suite | `pnpm test` | 258 files passed; 2,043 tests passed |
 | Documentation integrity | `git diff --check` and `pnpm lint` | passed after Retro completion |
 
 The first schema-gate invocation intentionally failed closed because
