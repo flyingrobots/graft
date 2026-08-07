@@ -337,6 +337,25 @@ export class MissingSnapshotBytesError extends Error {
   }
 }
 
+interface SnapshotWorkspaceReadState {
+  readonly bytes: ReadonlyMap<string, Uint8Array>;
+  readonly aperture: readonly string[];
+  readonly admitted: ReadonlySet<string>;
+}
+
+const retainedReadStateByView = new WeakMap<
+  SnapshotWorkspaceReadView,
+  SnapshotWorkspaceReadState
+>();
+
+function retainedReadState(view: SnapshotWorkspaceReadView): SnapshotWorkspaceReadState {
+  const state = retainedReadStateByView.get(view);
+  if (state === undefined) {
+    throw new Error("SnapshotWorkspaceReadView has no retained read state");
+  }
+  return state;
+}
+
 /**
  * A read view over settled snapshot bytes.
  *
@@ -346,9 +365,6 @@ export class MissingSnapshotBytesError extends Error {
  */
 export class SnapshotWorkspaceReadView implements AdmittedWorkspaceReadView {
   readonly evidence: WorkspaceReadEvidence;
-  private readonly bytes: ReadonlyMap<string, Uint8Array>;
-  private readonly aperture: readonly string[];
-  private readonly admitted: ReadonlySet<string>;
 
   constructor(snapshot: AdmittedWorkspaceSnapshot) {
     this.evidence = Object.freeze({
@@ -361,8 +377,6 @@ export class SnapshotWorkspaceReadView implements AdmittedWorkspaceReadView {
       writable: false,
       configurable: false,
     });
-    this.aperture = [...snapshot.aperture];
-    this.admitted = new Set(snapshot.aperture);
     const retainedFiles = retainedFilesBySnapshot.get(snapshot);
     if (retainedFiles === undefined) {
       throw new SnapshotAdmissionError(
@@ -376,17 +390,22 @@ export class SnapshotWorkspaceReadView implements AdmittedWorkspaceReadView {
     for (const [path, file] of retainedFiles) {
       bytes.set(path, Uint8Array.from(file.bytes));
     }
-    this.bytes = bytes;
+    retainedReadStateByView.set(this, {
+      bytes,
+      aperture: [...snapshot.aperture],
+      admitted: new Set(snapshot.aperture),
+    });
   }
 
   // Asynchronous because a filesystem-backed view cannot read lazily behind a
   // synchronous signature, and both must satisfy one interface for
   // RepoWorkspace analysis methods to depend on exactly one read view.
   readBytes(path: string): Promise<Uint8Array> {
-    if (!this.admitted.has(path)) {
+    const state = retainedReadState(this);
+    if (!state.admitted.has(path)) {
       return Promise.reject(new UnadmittedPathError(path));
     }
-    const content = this.bytes.get(path);
+    const content = state.bytes.get(path);
     if (content === undefined) {
       // Unreachable: admission requires the aperture and the settled-file set
       // to agree exactly. Kept as a guard so a future decoder that skipped
@@ -402,7 +421,7 @@ export class SnapshotWorkspaceReadView implements AdmittedWorkspaceReadView {
     // From the aperture, which is what the request admitted — not from the
     // byte entries that happen to be present. Answering from the latter is how
     // a partial settlement would report itself as a complete one.
-    return [...this.aperture];
+    return [...retainedReadState(this).aperture];
   }
 }
 

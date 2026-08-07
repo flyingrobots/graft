@@ -87,7 +87,9 @@ are the remaining slices.
       validated from that defensive copy, and not exposed through the admitted
       snapshot descriptor
 - [x] the copied snapshot descriptor, aperture, and exposed read-view evidence
-      object and property are runtime-immutable, not only TypeScript-readonly
+      object and property are runtime-immutable, not only TypeScript-readonly;
+      retained view bytes and aperture state are not instance properties that
+      reflection or property injection can mutate
 - [x] `MissingSnapshotBytesError` becomes unreachable by construction
 - [x] the admitted read view and the live-filesystem ingress are not the same type and are not substitutable
 - [x] no `basisDigest` sentinel stands in for "this has no basis"

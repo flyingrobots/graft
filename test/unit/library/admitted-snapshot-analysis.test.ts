@@ -130,6 +130,34 @@ describe("graft analysis over an admitted workspace snapshot", () => {
     expect(view.admittedPaths()).toEqual(["app.ts"]);
   });
 
+  it("keeps retained view state out of runtime properties", async () => {
+    const view = new SnapshotWorkspaceReadView(admittedSnapshot());
+    const forgedBytes = new Map([
+      ["app.ts", new TextEncoder().encode("export const forged = true;\n")],
+      ["secrets.env", new TextEncoder().encode("TOKEN=leaked\n")],
+    ]);
+    const exposedBytes = Reflect.get(view, "bytes") as Map<string, Uint8Array> | undefined;
+    const exposedAdmitted = Reflect.get(view, "admitted") as Set<string> | undefined;
+
+    exposedBytes?.set("app.ts", forgedBytes.get("app.ts")!);
+    exposedAdmitted?.add("secrets.env");
+    try {
+      Object.assign(view, {
+        bytes: forgedBytes,
+        admitted: new Set(["app.ts", "secrets.env"]),
+        aperture: ["app.ts", "secrets.env"],
+      });
+    } catch {
+      // A frozen implementation rejects injection; retained behavior is the invariant.
+    }
+
+    expect(new TextDecoder().decode(await view.readBytes("app.ts"))).toBe(SOURCE);
+    await expect(view.readBytes("secrets.env")).rejects.toThrow(
+      /outside the admitted snapshot aperture/,
+    );
+    expect(view.admittedPaths()).toEqual(["app.ts"]);
+  });
+
   it("cannot be rewritten through the bytes it returns", async () => {
     const view = new SnapshotWorkspaceReadView(admittedSnapshot());
 

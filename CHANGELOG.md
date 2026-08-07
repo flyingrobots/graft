@@ -32,7 +32,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   read-view evidence, and the evidence property itself are frozen or locked
   after defensive copying. Admission validates that exact copy before retaining
   it, so mutable or effectful caller collections cannot detach reported
-  provenance from retained bytes.
+  provenance from retained bytes. Snapshot views keep retained bytes and
+  aperture state in module-private storage so reflection or property injection
+  cannot replace the content served under frozen evidence.
 - **Repo workspace compatibility**: the semver-public `RepoWorkspace`
   constructor and `fs` member remain available to filesystem-backed callers.
   Analysis methods normalize that input to one `LiveWorkspaceReadSource`; new
