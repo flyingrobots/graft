@@ -65,7 +65,11 @@ export function buildWorkspaceReadObservation(
     if (parsedResult === null) {
       return null;
     }
-    if (typeof parsedResult.error === "string" || parsedResult.reason === "UNSUPPORTED_LANGUAGE") {
+    if (
+      parsedResult.projection === "refused"
+      || typeof parsedResult.error === "string"
+      || parsedResult.reason === "UNSUPPORTED_LANGUAGE"
+    ) {
       return null;
     }
     return {

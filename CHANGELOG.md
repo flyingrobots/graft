@@ -47,7 +47,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   contracts remain on their existing versions.
 - **Invalid UTF-8 refusal metrics**: governed outline and range reads now emit
   the standard refusal projection for undecodable text, so tool metrics count
-  those outcomes as refusals instead of successful outlines or reads.
+  those outcomes as refusals instead of successful outlines or reads. Refused
+  outlines are also excluded from persisted successful-read attribution.
 - **Range provenance**: `read_range` records a requested line region only when
   it returns range content; refused and otherwise empty results retain the
   considered path without claiming that its region was accessed.

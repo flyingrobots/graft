@@ -116,7 +116,8 @@ Added during the cycle, not foreseen when it opened:
       was reported as an encoding problem instead of a banned one
 - [x] refused `read_range` calls increment refusal metrics rather than successful-read metrics
 - [x] invalid-UTF-8 `file_outline` and `read_range` outcomes use the standard
-      refusal projection and increment refusal metrics
+      refusal projection and increment refusal metrics; refused outlines are
+      not persisted as successful structural-read attribution
 - [x] refused or otherwise empty `read_range` outcomes do not claim a line
       region was accessed in the runtime footprint
 - [x] observation sizes use the shared non-negative integer output contract
