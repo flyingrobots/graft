@@ -72,6 +72,12 @@ remain open.
   errors escaping the public workspace projections. Each received a focused
   RED/GREEN repair. The integrated gate was rerun on `e7a9fd8d` with every
   review thread resolved.
+- The exact-head Codex pass on `de576936` found three more authority leaks:
+  retained snapshot state was still reachable through runtime properties, a
+  normalized workspace read view remained replaceable, and refused outlines
+  could be persisted as successful attribution. Commits `4c31769f`,
+  `9f754b0e`, and `9387d31e` closed those boundaries independently before the
+  integrated gate was rerun.
 
 ## What surprised you?
 

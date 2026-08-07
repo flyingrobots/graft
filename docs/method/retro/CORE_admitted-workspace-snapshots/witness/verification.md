@@ -5,7 +5,7 @@ title: "Verification Witness for Admitted Workspace Snapshots"
 # Verification Witness for Admitted Workspace Snapshots
 
 The implementation and post-publication review repairs were verified from
-branch commit `e7a9fd8d0ee96c8b28eb59e60e41cbc56bc3b69b`. This witness update
+branch commit `9387d31e835d891a8f85d283fa2b2cd1886e29c5`. This witness update
 changes documentation only and is covered by the final documentation gate.
 
 ## Source Truth
@@ -40,11 +40,12 @@ pnpm exec vitest run \
   test/unit/mcp/tools.test.ts \
   test/unit/mcp/runtime-observability.test.ts \
   test/unit/mcp/precision.test.ts \
+  test/unit/mcp/workspace-read-observation.test.ts \
   test/unit/ports/filesystem-contract.test.ts \
   test/unit/contracts/output-schemas.test.ts
 
-Test Files  16 passed (16)
-Tests       190 passed (190)
+Test Files  17 passed (17)
+Tests       197 passed (197)
 ```
 
 ## Review Repair Proof
@@ -52,7 +53,8 @@ Tests       190 passed (190)
 - Filesystem adapters may classify native missing errors, and standard
   portable missing shapes normalize to `ENOENT`; non-absence failures still
   propagate.
-- Admitted snapshots expose no retained byte map and copy mutable source bytes.
+- Admitted snapshots retain bytes, aperture, and admission state only in
+  module-private storage, expose no byte map, and copy mutable source bytes.
 - Admission validates the exact defensive copy it retains, so effectful caller
   collections cannot detach the validated fields from the stored bytes.
 - UTF-8 BOM bytes participate in observation identity and cache comparison.
@@ -67,12 +69,16 @@ Tests       190 passed (190)
   `LiveWorkspaceReadSource`.
 - Admitted descriptors, apertures, and exposed evidence are frozen after
   defensive copying, and callers cannot replace the evidence property.
+- A normalized `RepoWorkspace.readView` cannot be replaced after construction,
+  so every bounded analysis remains attached to its admitted authority.
 - `file_outline` and `read_outline` advertise schema v2 for their expanded
   cache-hit payload while unrelated contracts remain on v1.
 - Split MCP `file_outline` and CLI `read_outline` body schemas accept the same
   cache-hit `actual` evidence as their wrapped peers.
 - Invalid-UTF-8 outline and range results use the standard refusal projection,
   so both tool metrics record refusals instead of successful reads.
+- Refused outline observations are not persisted as successful outline
+  attribution.
 - Empty and refused ranges retain the considered path without recording a line
   region that was never returned.
 - `UnadmittedPathError` and `MissingSnapshotBytesError` expose stable codes,
@@ -90,7 +96,7 @@ Tests       190 passed (190)
 | Build | `pnpm build` | passed |
 | Hermetic schema parity | `WESLEY_BIN=/Users/james/.cargo/bin/wesley pnpm schema:structural-history:check` | passed with Wesley 0.1.0; generated model, codec, registry hash, and Echo descriptor in sync |
 | Built CLI smoke | `node bin/graft.js --version` | `graft 0.11.1` |
-| Full isolated suite | `pnpm test` | 258 files passed; 2,036 tests passed |
+| Full isolated suite | `pnpm test` | 258 files passed; 2,039 tests passed |
 | Documentation integrity | `git diff --check` and `pnpm lint` | passed after Retro completion |
 
 The first schema-gate invocation intentionally failed closed because
