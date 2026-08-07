@@ -118,12 +118,13 @@ are the remaining slices.
 
 Added during the cycle, not foreseen when it opened:
 
-- [x] every MCP read path goes through the single read authority. `read_range`,
-      `file_outline`, and `changed_since` built their own reads from `ctx.fs`;
-      `changed_since` also replacement-decoded invalid UTF-8. All three now
-      delegate to `RepoWorkspace`, while live `code_show` carries the exact
-      search content through policy evaluation and range projection instead of
-      re-reading the matched file
+- [x] the three MCP read paths migrated in this cycle use the single read
+      authority. `read_range`, `file_outline`, and `changed_since` built their
+      own reads from `ctx.fs`; `changed_since` also replacement-decoded invalid
+      UTF-8. All three now delegate to `RepoWorkspace`. Live `code_show` keeps
+      one search observation through policy evaluation and range projection,
+      but `code_show` and `graft_map` still enter through live `ctx.fs` and are
+      outside this checked criterion
 - [x] policy is evaluated for every observation, not only decodable ones. The
       first version of the UTF-8 refusal shadowed `BINARY`, so a binary file
       was reported as an encoding problem instead of a banned one
