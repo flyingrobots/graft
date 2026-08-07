@@ -23,8 +23,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   and read-view evidence are frozen after defensive copying so runtime writes
   cannot detach reported provenance from retained bytes.
 - **Repo workspace compatibility**: the semver-public `RepoWorkspace`
-  constructor continues to accept its existing `fs` option, normalizing it to
-  one `LiveWorkspaceReadSource`; new callers may supply `readView` directly.
+  constructor and `fs` member remain available to filesystem-backed callers.
+  Analysis methods normalize that input to one `LiveWorkspaceReadSource`; new
+  callers may supply `readView` directly.
 - **Outline output schema**: MCP `file_outline` and CLI `read_outline` now
   advertise schema version `2.0.0` for the cache-hit `actual` field; unrelated
   output contracts remain on their existing versions.

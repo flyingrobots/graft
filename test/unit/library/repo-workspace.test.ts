@@ -22,6 +22,7 @@ describe("repo workspace library API", () => {
     });
 
     const workspace = await createRepoWorkspace({ cwd: repoDir });
+    expect(workspace.fs).toBe(nodeFs);
 
     const first = await workspace.safeRead({ path: "app.ts" });
     expect(first.projection).toBe("content");
@@ -53,11 +54,14 @@ describe("repo workspace library API", () => {
     });
 
     const result = await workspace.safeRead({ path: "app.ts" });
+    const compatibilityContent = await workspace.fs.readFile(path.join(repoDir, "app.ts"), "utf-8");
 
     expect(result).toMatchObject({
       projection: "content",
       content: "export const direct = true;\n",
     });
+    expect(workspace.fs).toBe(nodeFs);
+    expect(compatibilityContent).toBe("export const direct = true;\n");
   });
 
   it("applies graftignore policy on direct outline and range access", async () => {

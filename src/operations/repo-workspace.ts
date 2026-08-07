@@ -131,6 +131,7 @@ function isFileNotFoundError(error: unknown): boolean {
 export class RepoWorkspace {
   private readonly resolveWorkspacePath: (input: string) => string;
   private readonly policyPathForWorkspaceFile: (resolvedPath: string) => string;
+  private readonly compatibilityFs: FileSystem | undefined;
   readonly projectRoot: string;
   readonly readView: WorkspaceReadView;
   readonly codec: JsonCodec;
@@ -141,6 +142,7 @@ export class RepoWorkspace {
 
   constructor(options: RepoWorkspaceOptions) {
     this.projectRoot = options.projectRoot;
+    this.compatibilityFs = options.fs;
     this.readView = options.readView ?? new LiveWorkspaceReadSource(options.fs, options.projectRoot);
     this.codec = options.codec;
     this.graftignorePatterns = options.graftignorePatterns ?? [];
@@ -149,6 +151,20 @@ export class RepoWorkspace {
     this.proseProjector = options.proseProjector;
     this.resolveWorkspacePath = options.resolvePath ?? ((input) => input);
     this.policyPathForWorkspaceFile = options.toPolicyPath ?? ((resolvedPath) => resolvedPath);
+  }
+
+  /**
+   * The filesystem supplied through the semver-public compatibility constructor.
+   *
+   * Analysis methods never use this member; they retain only `readView` as
+   * their read authority. Snapshot-backed workspaces have no live filesystem
+   * to expose and fail loudly if new code attempts to cross that boundary.
+   */
+  get fs(): FileSystem {
+    if (this.compatibilityFs === undefined) {
+      throw new Error("RepoWorkspace.fs is unavailable for a readView-backed workspace");
+    }
+    return this.compatibilityFs;
   }
 
   static async loadGraftignorePatterns(
