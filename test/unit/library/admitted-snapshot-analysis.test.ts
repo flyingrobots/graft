@@ -159,6 +159,11 @@ describe("graft analysis over an admitted workspace snapshot", () => {
     ]);
     const exposedBytes = Reflect.get(view, "bytes") as Map<string, Uint8Array> | undefined;
     const exposedAdmitted = Reflect.get(view, "admitted") as Set<string> | undefined;
+    const exposedAperture = Reflect.get(view, "aperture") as string[] | undefined;
+
+    expect(exposedBytes).toBeUndefined();
+    expect(exposedAdmitted).toBeUndefined();
+    expect(exposedAperture).toBeUndefined();
 
     exposedBytes?.set("app.ts", forgedBytes.get("app.ts")!);
     exposedAdmitted?.add("secrets.env");
