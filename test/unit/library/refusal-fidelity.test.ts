@@ -7,6 +7,7 @@ import { CanonicalJsonCodec } from "../../../src/adapters/canonical-json.js";
 import {
   MissingSnapshotBytesError,
   SnapshotWorkspaceReadView,
+  UnadmittedPathError,
   unsafeAdmittedWorkspaceSnapshotForTest,
   type SettledFile,
   type WorkspaceReadView,
@@ -73,6 +74,19 @@ function readFailure(code: string): WorkspaceReadView {
  * true is that they were not allowed to see it.
  */
 describe("refusal fidelity across projections", () => {
+  it("exposes stable snapshot read refusal codes", () => {
+    expect(new UnadmittedPathError("secrets.env")).toMatchObject({
+      name: "UnadmittedPathError",
+      code: "UNADMITTED_PATH",
+      path: "secrets.env",
+    });
+    expect(new MissingSnapshotBytesError("app.ts")).toMatchObject({
+      name: "MissingSnapshotBytesError",
+      code: "MISSING_SETTLED_BYTES",
+      path: "app.ts",
+    });
+  });
+
   it.each([
     ["an unreadable file", readFailure("EACCES")],
     ["a broken admitted snapshot", {

@@ -165,11 +165,14 @@ Added during the cycle, not foreseen when it opened:
 ## Accessibility and Assistive Reading
 
 - Linear truth / reduced-complexity posture: refusal reasons are distinct,
-  stable kinds (`UNADMITTED_PATH`, `MISSING_SETTLED_BYTES`, `INVALID_UTF8`,
-  `NOT_FOUND`) rather than one collapsed not-found, so a reader who cannot see
-  a stack trace can still tell an authority problem from an absence problem.
-- Non-visual or alternate-reading expectations: every refusal is structured
-  data with a reason code, not prose in a message string.
+  stable kinds rather than one collapsed not-found. Snapshot read errors expose
+  `UNADMITTED_PATH` and the defensive, admission-unreachable
+  `MISSING_SETTLED_BYTES` through their `code` field; projected outcomes expose
+  `INVALID_UTF8` and `NOT_FOUND` through `reason`. Admission rejects an aperture
+  with missing bytes earlier through `SnapshotAdmissionError.code` value
+  `MISSING_APERTURE_BYTES`.
+- Non-visual or alternate-reading expectations: every refusal exposes a
+  machine-readable `code` or `reason`, not only prose in a message string.
 
 ## Localization and Directionality
 

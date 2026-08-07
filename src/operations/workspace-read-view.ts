@@ -300,6 +300,8 @@ export function unsafeAdmittedWorkspaceSnapshotForTest(
 
 /** A path the snapshot does not admit. */
 export class UnadmittedPathError extends Error {
+  readonly code = "UNADMITTED_PATH" as const;
+
   constructor(readonly path: string) {
     super(`path is outside the admitted snapshot aperture: ${path}`);
     this.name = "UnadmittedPathError";
@@ -308,6 +310,8 @@ export class UnadmittedPathError extends Error {
 
 /** A path the snapshot admits but for which it carries no bytes. */
 export class MissingSnapshotBytesError extends Error {
+  readonly code = "MISSING_SETTLED_BYTES" as const;
+
   constructor(readonly path: string) {
     super(`admitted path carries no settled bytes: ${path}`);
     this.name = "MissingSnapshotBytesError";

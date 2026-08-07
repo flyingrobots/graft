@@ -36,6 +36,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 - **Range provenance**: `read_range` records a requested line region only when
   it returns range content; refused and otherwise empty results retain the
   considered path without claiming that its region was accessed.
+- **Snapshot read errors**: `UnadmittedPathError` and
+  `MissingSnapshotBytesError` expose stable `UNADMITTED_PATH` and
+  `MISSING_SETTLED_BYTES` codes alongside their descriptive messages.
 
 - **Qualified reference confidence**: WARP indexing and cold-graph structural
   review now resolve first-party qualified module/package members across
