@@ -62,17 +62,20 @@ describe("graft analysis over an admitted workspace snapshot", () => {
 
     const result = await workspace.safeRead({ path: "app.ts" });
 
-    expect(result.projection).toBe("content");
-    expect(JSON.stringify(result)).toContain("hello");
+    expect(result).toMatchObject({ projection: "content", content: SOURCE });
   });
 
   it("outlines and range-reads settled bytes", async () => {
     const workspace = workspaceOverSnapshot(admittedSnapshot());
+    const outline = await workspace.fileOutline({ path: "app.ts" });
+    const range = await workspace.readRange({ path: "app.ts", start: 1, end: 2 });
 
-    expect(JSON.stringify(await workspace.fileOutline({ path: "app.ts" }))).toContain("greet");
-    expect(
-      JSON.stringify(await workspace.readRange({ path: "app.ts", start: 1, end: 2 })),
-    ).toContain("greet");
+    expect(outline).toMatchObject({
+      outline: expect.arrayContaining([expect.objectContaining({ name: "greet" })]),
+    });
+    expect(range).toMatchObject({
+      content: SOURCE.split("\n").slice(0, 2).join("\n"),
+    });
   });
 
   it("retains the admitted bytes when the source collections are mutated", async () => {
