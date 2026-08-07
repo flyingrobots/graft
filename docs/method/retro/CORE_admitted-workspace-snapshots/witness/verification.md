@@ -5,7 +5,7 @@ title: "Verification Witness for Admitted Workspace Snapshots"
 # Verification Witness for Admitted Workspace Snapshots
 
 The implementation and post-publication review repairs were verified from
-branch commit `7f83c6193b4d68eb7522b261e7b917e1329a7ea4`. This witness update
+branch commit `f370a7a63c33f8441f944d94e57c8e06a497c127`. This witness update
 changes documentation only and is covered by the final documentation gate.
 
 ## Source Truth
@@ -86,6 +86,10 @@ Tests       215 passed (215)
   so both tool metrics record refusals instead of successful reads.
 - Refused outline observations are not persisted as successful outline
   attribution.
+- Decoded outline content is narrowed once before cache lookup and recording;
+  no redundant nullable branch can diverge from the UTF-8 refusal decision.
+- The retained-state regression test directly proves that bytes, aperture, and
+  admission membership remain absent from runtime properties.
 - MCP `changed_since` delegates to `RepoWorkspace.changedSince`, so it uses the
   same workspace authority and refuses invalid UTF-8 instead of replacement-
   decoding it through an independent filesystem path.

@@ -90,6 +90,13 @@ remain open.
   `30a5509d` and `7f83c619` froze the prototype and enforced exact evidence-root
   identity in separate RED/GREEN loops. The integrated gate then passed 18
   focused files and 215 tests plus the 258-file, 2,043-test isolated suite.
+- CodeRabbit's final body-level nit pass produced two valid polish findings and
+  two suggestions that conflicted with deliberate fail-closed invariants.
+  Commits `e47551c4` and `f370a7a6` made the outline-content narrowing explicit
+  and directly asserted that retained snapshot state has no runtime property.
+  Widening the outline projection parser and normalizing evidence roots were
+  rejected because they would weaken unknown-projection refusal and exact-root
+  identity, respectively. The complete integrated gate remained green.
 
 ## What surprised you?
 
