@@ -97,6 +97,19 @@ remain open.
   Widening the outline projection parser and normalizing evidence roots were
   rejected because they would weaken unknown-projection refusal and exact-root
   identity, respectively. The complete integrated gate remained green.
+- Codex's next exact-head pass found four final deltas: resolved repository
+  paths did not map back to relative snapshot keys, derived prototypes could
+  still override admitted authority methods, the design overclaimed all MCP
+  read paths, and match-only live searches retained full matched source.
+  Commits `a49588b5`, `d6ee2a82`, `f144daca`, and `4634beb3` repaired or
+  narrowed those findings independently. The final focused matrix passed 18
+  files and 218 tests; the isolated repository gate passed 258 files and 2,046
+  tests.
+- Host runs also exposed a coarse five-second integration-test timeout that
+  can obscure which WARP phase is slow under load. The isolated gate passed
+  the same tiny fixtures, so the production change was not blamed. The debt is
+  recorded in `CLEAN_host-integration-timeout-obscures-warp-stage.md` with
+  phase-timing acceptance criteria instead of a global timeout increase.
 
 ## What surprised you?
 
@@ -119,6 +132,7 @@ were especially effective and should remain part of that cycle.
 - [Duplicate bounded-read implementations](../../backlog/bad-code/CLEAN_duplicate-bounded-read-implementations.md)
 - [Evidence-grade naming overclaims](../../backlog/bad-code/CLEAN_evidence-grade-naming-overclaims.md)
 - [Decorative safe-read intent](../../backlog/bad-code/CLEAN_safe-read-intent-is-decorative.md)
+- [Host integration timeout obscures the slow WARP stage](../../backlog/bad-code/CLEAN_host-integration-timeout-obscures-warp-stage.md)
 
 ## Cool Ideas
 
