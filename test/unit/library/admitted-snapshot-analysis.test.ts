@@ -99,6 +99,17 @@ describe("graft analysis over an admitted workspace snapshot", () => {
     expect(view.admittedPaths()).toEqual(["app.ts"]);
   });
 
+  it("does not expose retained bytes for mutation after admission", async () => {
+    const snapshot = admittedSnapshot();
+    const exposed = Reflect.get(snapshot, "files") as ReadonlyMap<string, SettledFile> | undefined;
+    exposed?.get("app.ts")?.bytes.fill(0x41);
+
+    const view = new SnapshotWorkspaceReadView(snapshot);
+
+    expect(Reflect.has(snapshot, "files")).toBe(false);
+    expect(new TextDecoder().decode(await view.readBytes("app.ts"))).toBe(SOURCE);
+  });
+
   it("cannot be rewritten through the bytes it returns", async () => {
     const view = new SnapshotWorkspaceReadView(admittedSnapshot());
 

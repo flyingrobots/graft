@@ -146,8 +146,7 @@ declare const admittedSnapshotBrand: unique symbol;
  * settlement identity cannot be replayed, and cannot be told apart from bytes
  * someone assembled.
  */
-export interface AdmittedWorkspaceSnapshot {
-  readonly [admittedSnapshotBrand]: true;
+interface WorkspaceSnapshotDescriptor {
   readonly requestId: string;
   readonly settlementId: string;
   readonly workspaceRoot: string;
@@ -156,6 +155,13 @@ export interface AdmittedWorkspaceSnapshot {
   readonly aperture: readonly string[];
   readonly byteBudget: number;
   readonly symlinkPolicy: "refuse";
+}
+
+export interface AdmittedWorkspaceSnapshot extends WorkspaceSnapshotDescriptor {
+  readonly [admittedSnapshotBrand]: true;
+}
+
+export interface WorkspaceSnapshotFields extends WorkspaceSnapshotDescriptor {
   /** The settled files, keyed by workspace-relative path. */
   readonly files: ReadonlyMap<string, SettledFile>;
 }
@@ -174,11 +180,10 @@ export interface SettledFile {
   readonly entryKind: "regular" | "symlink";
 }
 
-/** The fields a snapshot carries, without the admission brand. */
-export type WorkspaceSnapshotFields = Omit<
+const retainedFilesBySnapshot = new WeakMap<
   AdmittedWorkspaceSnapshot,
-  typeof admittedSnapshotBrand
->;
+  ReadonlyMap<string, SettledFile>
+>();
 
 /** A snapshot that contradicts a field it declares. */
 export class SnapshotAdmissionError extends Error {
@@ -262,11 +267,17 @@ export function unsafeAdmittedWorkspaceSnapshotForTest(
   for (const [path, file] of fields.files) {
     files.set(path, { bytes: Uint8Array.from(file.bytes), entryKind: file.entryKind });
   }
-  return {
-    ...fields,
+  const snapshot = {
+    requestId: fields.requestId,
+    settlementId: fields.settlementId,
+    workspaceRoot: fields.workspaceRoot,
+    basisDigest: fields.basisDigest,
     aperture: [...fields.aperture],
-    files,
+    byteBudget: fields.byteBudget,
+    symlinkPolicy: fields.symlinkPolicy,
   } as unknown as AdmittedWorkspaceSnapshot;
+  retainedFilesBySnapshot.set(snapshot, files);
+  return snapshot;
 }
 
 /** A path the snapshot does not admit. */
@@ -307,10 +318,14 @@ export class SnapshotWorkspaceReadView implements AdmittedWorkspaceReadView {
     };
     this.aperture = [...snapshot.aperture];
     this.admitted = new Set(snapshot.aperture);
+    const retainedFiles = retainedFilesBySnapshot.get(snapshot);
+    if (retainedFiles === undefined) {
+      throw new SnapshotAdmissionError("snapshot has no retained settled bytes");
+    }
     // Copied on the way in, so a snapshot assembled from a caller's mutable
     // maps cannot change underneath the view once it exists.
     const bytes = new Map<string, Uint8Array>();
-    for (const [path, file] of snapshot.files) {
+    for (const [path, file] of retainedFiles) {
       bytes.set(path, Uint8Array.from(file.bytes));
     }
     this.bytes = bytes;
