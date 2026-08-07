@@ -5,7 +5,7 @@ title: "Verification Witness for Admitted Workspace Snapshots"
 # Verification Witness for Admitted Workspace Snapshots
 
 The implementation and post-publication review repairs were verified from
-branch commit `9387d31e835d891a8f85d283fa2b2cd1886e29c5`. This witness update
+branch commit `2144b3ce17711600fd5666445e968b2aa452667d`. This witness update
 changes documentation only and is covered by the final documentation gate.
 
 ## Source Truth
@@ -41,11 +41,12 @@ pnpm exec vitest run \
   test/unit/mcp/runtime-observability.test.ts \
   test/unit/mcp/precision.test.ts \
   test/unit/mcp/workspace-read-observation.test.ts \
+  test/unit/mcp/changed.test.ts \
   test/unit/ports/filesystem-contract.test.ts \
   test/unit/contracts/output-schemas.test.ts
 
-Test Files  17 passed (17)
-Tests       197 passed (197)
+Test Files  18 passed (18)
+Tests       213 passed (213)
 ```
 
 ## Review Repair Proof
@@ -68,7 +69,8 @@ Tests       197 passed (197)
   and runtime-compatible while analysis normalizes reads to one
   `LiveWorkspaceReadSource`.
 - Admitted descriptors, apertures, and exposed evidence are frozen after
-  defensive copying, and callers cannot replace the evidence property.
+  defensive copying, callers cannot replace the evidence property, and the
+  completed view rejects properties that would shadow its authority methods.
 - A normalized `RepoWorkspace.readView` cannot be replaced after construction,
   so every bounded analysis remains attached to its admitted authority.
 - `file_outline` and `read_outline` advertise schema v2 for their expanded
@@ -79,6 +81,9 @@ Tests       197 passed (197)
   so both tool metrics record refusals instead of successful reads.
 - Refused outline observations are not persisted as successful outline
   attribution.
+- MCP `changed_since` delegates to `RepoWorkspace.changedSince`, so it uses the
+  same workspace authority and refuses invalid UTF-8 instead of replacement-
+  decoding it through an independent filesystem path.
 - Empty and refused ranges retain the considered path without recording a line
   region that was never returned.
 - `UnadmittedPathError` and `MissingSnapshotBytesError` expose stable codes,
@@ -96,7 +101,7 @@ Tests       197 passed (197)
 | Build | `pnpm build` | passed |
 | Hermetic schema parity | `WESLEY_BIN=/Users/james/.cargo/bin/wesley pnpm schema:structural-history:check` | passed with Wesley 0.1.0; generated model, codec, registry hash, and Echo descriptor in sync |
 | Built CLI smoke | `node bin/graft.js --version` | `graft 0.11.1` |
-| Full isolated suite | `pnpm test` | 258 files passed; 2,039 tests passed |
+| Full isolated suite | `pnpm test` | 258 files passed; 2,041 tests passed |
 | Documentation integrity | `git diff --check` and `pnpm lint` | passed after Retro completion |
 
 The first schema-gate invocation intentionally failed closed because

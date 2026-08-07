@@ -78,6 +78,12 @@ remain open.
   could be persisted as successful attribution. Commits `4c31769f`,
   `9f754b0e`, and `9387d31e` closed those boundaries independently before the
   integrated gate was rerun.
+- The exact-head Codex pass on `444b6379` found two remaining bypasses: callers
+  could shadow methods on the admitted view itself, and MCP `changed_since`
+  still replacement-decoded bytes through a direct filesystem path. Commits
+  `2b149cbf` and `2144b3ce` closed those defects in separate RED/GREEN loops;
+  the final integrated gate then passed 18 focused files and 213 tests plus the
+  258-file, 2,041-test isolated suite.
 
 ## What surprised you?
 
