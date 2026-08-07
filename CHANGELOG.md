@@ -50,6 +50,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   the standard refusal projection for undecodable text, so tool metrics count
   those outcomes as refusals instead of successful outlines or reads. Refused
   outlines are also excluded from persisted successful-read attribution.
+  MCP `changed_since` now delegates to the same workspace authority instead of
+  replacement-decoding bytes through its own filesystem path, so invalid text
+  is reported as `INVALID_UTF8` there as well.
 - **Range provenance**: `read_range` records a requested line region only when
   it returns range content; refused and otherwise empty results retain the
   considered path without claiming that its region was accessed.

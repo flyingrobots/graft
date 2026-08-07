@@ -109,9 +109,10 @@ are the remaining slices.
 
 Added during the cycle, not foreseen when it opened:
 
-- [x] every MCP read path goes through the single read authority. `read_range`
-      and `file_outline` built their own reads from `ctx.fs` and never applied
-      workspace read policy at all; live `code_show` now carries the exact
+- [x] every MCP read path goes through the single read authority. `read_range`,
+      `file_outline`, and `changed_since` built their own reads from `ctx.fs`;
+      `changed_since` also replacement-decoded invalid UTF-8. All three now
+      delegate to `RepoWorkspace`, while live `code_show` carries the exact
       search content through policy evaluation and range projection instead of
       re-reading the matched file
 - [x] policy is evaluated for every observation, not only decodable ones. The

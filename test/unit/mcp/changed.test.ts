@@ -100,6 +100,15 @@ describe("mcp: changed-since-last-read", () => {
     expect(result["status"]).toBe("unchanged");
   });
 
+  it("changed_since refuses invalid UTF-8 instead of replacement-decoding it", async () => {
+    fs.writeFileSync(testFile, Uint8Array.from([0xff, 0xfe, 0x00, 0x80]));
+
+    const result = parse(await server.callTool("changed_since", { path: testFile }));
+
+    expect(result["status"]).toBe("refused");
+    expect(result["reason"]).toBe("INVALID_UTF8");
+  });
+
   it("changed_since without consume does not update cache (peek)", async () => {
     await server.callTool("safe_read", { path: testFile });
     fs.writeFileSync(testFile, 'export function hello(): string {\n  return "hi";\n}\nexport function peeked(): void {}\n');
