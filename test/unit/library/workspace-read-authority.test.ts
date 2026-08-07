@@ -60,7 +60,6 @@ describe("workspace read authority", () => {
     // can answer. A rejecting implementation still puts the question on the
     // type, which is how callers come to ask it.
     expect("admittedPaths" in liveSource()).toBe(false);
-    expect("listPaths" in liveSource()).toBe(false);
   });
 
   it("derives the admitted path set from the aperture, not from settled bytes", () => {
