@@ -65,6 +65,27 @@ describe("graft analysis over an admitted workspace snapshot", () => {
     expect(result).toMatchObject({ projection: "content", content: SOURCE });
   });
 
+  it("refuses an admitted view bound to a different workspace root", () => {
+    const readView = new SnapshotWorkspaceReadView(admittedSnapshot());
+    let thrown: unknown;
+
+    try {
+      new RepoWorkspace({
+        projectRoot: "/different/workspace",
+        codec: new CanonicalJsonCodec(),
+        readView,
+      });
+    } catch (error) {
+      thrown = error;
+    }
+
+    expect(thrown).toMatchObject({
+      code: "WORKSPACE_ROOT_MISMATCH",
+      projectRoot: "/different/workspace",
+      evidenceWorkspaceRoot: "/admitted/workspace",
+    });
+  });
+
   it("outlines and range-reads settled bytes", async () => {
     const workspace = workspaceOverSnapshot(admittedSnapshot());
     const outline = await workspace.fileOutline({ path: "app.ts" });

@@ -95,6 +95,9 @@ are the remaining slices.
       for every admitted view at once
 - [x] `MissingSnapshotBytesError` becomes unreachable by construction
 - [x] the admitted read view and the live-filesystem ingress are not the same type and are not substitutable
+- [x] an admitted read view's evidence `workspaceRoot` must exactly match the
+      `RepoWorkspace.projectRoot`; mismatched roots fail at construction with
+      `WORKSPACE_ROOT_MISMATCH`
 - [x] the normalized workspace read authority cannot be replaced after
       construction, and admitted authority methods cannot be shadowed on the
       retained view or replaced through its exported prototype

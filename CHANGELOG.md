@@ -42,7 +42,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   Analysis methods normalize that input to one `LiveWorkspaceReadSource`; new
   callers may supply `readView` directly. The normalized read authority is
   locked after construction so later property injection cannot redirect
-  snapshot-backed analysis to live or forged bytes.
+  snapshot-backed analysis to live or forged bytes. Admitted views must name
+  the same workspace root as their `RepoWorkspace`; mismatches throw the
+  exported `WorkspaceRootMismatchError` with code `WORKSPACE_ROOT_MISMATCH`.
 - **Outline output schema**: MCP `file_outline` and CLI `read_outline` now
   advertise schema version `2.0.0` for the cache-hit `actual` field. Wrapped
   and split body schema exports now share that contract; unrelated output

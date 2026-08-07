@@ -20,6 +20,7 @@ import {
   LiveWorkspaceReadSource,
   observedActual,
   observeFile,
+  type AdmittedWorkspaceReadView,
   type ObservedFile,
   type WorkspaceReadView,
 } from "./workspace-read-view.js";
@@ -129,6 +130,27 @@ function isFileNotFoundError(error: unknown): boolean {
   return typeof error === "object" && error !== null && "code" in error && error.code === "ENOENT";
 }
 
+function isAdmittedWorkspaceReadView(
+  view: WorkspaceReadView,
+): view is AdmittedWorkspaceReadView {
+  return "evidence" in view && "admittedPaths" in view;
+}
+
+/** An admitted read view whose evidence belongs to a different workspace. */
+export class WorkspaceRootMismatchError extends Error {
+  readonly code = "WORKSPACE_ROOT_MISMATCH" as const;
+
+  constructor(
+    readonly projectRoot: string,
+    readonly evidenceWorkspaceRoot: string,
+  ) {
+    super(
+      `workspace root ${projectRoot} does not match admitted evidence root ${evidenceWorkspaceRoot}`,
+    );
+    this.name = "WorkspaceRootMismatchError";
+  }
+}
+
 export class RepoWorkspace {
   private readonly resolveWorkspacePath: (input: string) => string;
   private readonly policyPathForWorkspaceFile: (resolvedPath: string) => string;
@@ -142,9 +164,19 @@ export class RepoWorkspace {
   readonly proseProjector: ProseProjectionProvider | undefined;
 
   constructor(options: RepoWorkspaceOptions) {
+    const readView = options.readView ?? new LiveWorkspaceReadSource(options.fs, options.projectRoot);
+    if (
+      isAdmittedWorkspaceReadView(readView) &&
+      readView.evidence.workspaceRoot !== options.projectRoot
+    ) {
+      throw new WorkspaceRootMismatchError(
+        options.projectRoot,
+        readView.evidence.workspaceRoot,
+      );
+    }
     this.projectRoot = options.projectRoot;
     this.compatibilityFs = options.fs;
-    this.readView = options.readView ?? new LiveWorkspaceReadSource(options.fs, options.projectRoot);
+    this.readView = readView;
     Object.defineProperty(this, "readView", {
       writable: false,
       configurable: false,
