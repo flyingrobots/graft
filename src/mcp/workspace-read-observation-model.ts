@@ -11,6 +11,7 @@ const safeReadObservationResultSchema = z.object({
 }).catchall(z.unknown());
 
 const fileOutlineObservationResultSchema = z.object({
+  projection: z.literal("refused").optional(),
   reason: z.string().optional(),
   error: z.string().optional(),
 }).catchall(z.unknown());

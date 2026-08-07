@@ -7,6 +7,8 @@
  * Node adapter implements it; tests can substitute a mock.
  */
 export interface FileSystem {
+  /** Classifies a native missing-path error when the adapter uses a custom representation. */
+  isFileNotFoundError?(error: unknown): boolean;
   readFile(path: string, encoding: "utf-8"): Promise<string>;
   readFile(path: string): Promise<Buffer>;
   readdir(path: string): Promise<string[]>;

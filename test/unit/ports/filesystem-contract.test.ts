@@ -84,8 +84,10 @@ describe("ports: FileSystem contract (nodeFs)", () => {
     expect(result.size).toBe(Buffer.byteLength(content, "utf-8"));
   });
 
-  it("readFile rejects for missing files", async () => {
-    await expect(nodeFs.readFile("/nonexistent/path.txt", "utf-8")).rejects.toThrow();
+  it("classifies readFile rejection for a missing path", async () => {
+    const error = await nodeFs.readFile("/nonexistent/path.txt", "utf-8").catch((reason: unknown) => reason);
+    expect(nodeFs.isFileNotFoundError?.(error)).toBe(true);
+    expect(nodeFs.isFileNotFoundError?.(new Error("permission denied"))).toBe(false);
   });
 
   it("stat rejects for missing files", async () => {

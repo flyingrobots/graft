@@ -86,13 +86,24 @@ export function evaluatePrecisionPolicy(
   return evaluateMcpRefusal(ctx, filePath, actual);
 }
 
-export async function searchLiveSymbols(
+export interface LiveSymbolSearchResult {
+  readonly matches: PrecisionSymbolMatch[];
+  readonly contentByPath: ReadonlyMap<string, string>;
+}
+
+export interface LiveSymbolSearchOptions {
+  readonly retainMatchedContent?: boolean;
+}
+
+export async function searchLiveSymbolsWithContent(
   ctx: ToolContext,
   filePaths: readonly string[],
   request: PrecisionSearchRequest,
   ref?: string,
-): Promise<PrecisionSymbolMatch[]> {
+  options: LiveSymbolSearchOptions = {},
+): Promise<LiveSymbolSearchResult> {
   const matches: RankedPrecisionSymbolMatch[] = [];
+  const contentByPath = new Map<string, string>();
 
   for (const filePath of filePaths) {
     const lang = detectLang(filePath);
@@ -103,14 +114,40 @@ export async function searchLiveSymbols(
 
     const result = extractOutline(content, lang);
     const symbols = collectSymbols(result.entries, filePath, result.jumpTable ?? []);
+    let matched = false;
 
     for (const symbol of symbols) {
       const ranked = request.rank(symbol);
-      if (ranked !== null) matches.push(ranked);
+      if (ranked !== null) {
+        matches.push(ranked);
+        matched = true;
+      }
+    }
+
+    if (matched && options.retainMatchedContent !== false) {
+      contentByPath.set(filePath, content);
     }
   }
 
-  return request.sort(matches);
+  return {
+    matches: request.sort(matches),
+    contentByPath,
+  };
+}
+
+export async function searchLiveSymbols(
+  ctx: ToolContext,
+  filePaths: readonly string[],
+  request: PrecisionSearchRequest,
+  ref?: string,
+): Promise<PrecisionSymbolMatch[]> {
+  return (await searchLiveSymbolsWithContent(
+    ctx,
+    filePaths,
+    request,
+    ref,
+    { retainMatchedContent: false },
+  )).matches;
 }
 
 export function readRangeFromContent(

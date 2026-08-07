@@ -1,8 +1,11 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
-import { createRepoWorkspace } from "../../../src/index.js";
+import { createRepoWorkspace, RepoWorkspace } from "../../../src/index.js";
+import { CanonicalJsonCodec } from "../../../src/adapters/canonical-json.js";
+import { nodeFs } from "../../../src/adapters/node-fs.js";
 import { cleanupTestRepo, createCommittedTestRepo } from "../../helpers/git.js";
+import { FakeFileSystem } from "../../helpers/fake-fs.js";
 
 describe("repo workspace library API", () => {
   let repoDir: string | null = null;
@@ -20,6 +23,7 @@ describe("repo workspace library API", () => {
     });
 
     const workspace = await createRepoWorkspace({ cwd: repoDir });
+    expect(workspace.fs).toBe(nodeFs);
 
     const first = await workspace.safeRead({ path: "app.ts" });
     expect(first.projection).toBe("content");
@@ -37,6 +41,50 @@ describe("repo workspace library API", () => {
     if ("diff" in changed) {
       expect(changed.diff.changed.length).toBeGreaterThanOrEqual(0);
     }
+  });
+
+  it("preserves the public RepoWorkspace filesystem constructor", async () => {
+    repoDir = createCommittedTestRepo("graft-repo-workspace-constructor-", {
+      "app.ts": "export const direct = true;\n",
+    });
+    const workspace = new RepoWorkspace({
+      projectRoot: repoDir,
+      fs: nodeFs,
+      codec: new CanonicalJsonCodec(),
+      resolvePath: (input) => path.join(repoDir!, input),
+    });
+
+    const result = await workspace.safeRead({ path: "app.ts" });
+    const compatibilityContent = await workspace.fs.readFile(path.join(repoDir, "app.ts"), "utf-8");
+
+    expect(result).toMatchObject({
+      projection: "content",
+      content: "export const direct = true;\n",
+    });
+    expect(workspace.fs).toBe(nodeFs);
+    expect(compatibilityContent).toBe("export const direct = true;\n");
+  });
+
+  it("normalizes portable filesystem absences across every read projection", async () => {
+    const workspace = new RepoWorkspace({
+      projectRoot: "/repo",
+      fs: new FakeFileSystem({}),
+      codec: new CanonicalJsonCodec(),
+    });
+
+    await expect(workspace.safeRead({ path: "gone.ts" })).resolves.toMatchObject({
+      projection: "error",
+      reason: "NOT_FOUND",
+    });
+    await expect(workspace.fileOutline({ path: "gone.ts" })).resolves.toMatchObject({
+      reason: "NOT_FOUND",
+    });
+    await expect(workspace.readRange({ path: "gone.ts", start: 1, end: 1 })).resolves.toMatchObject({
+      reason: "NOT_FOUND",
+    });
+    await expect(workspace.changedSince({ path: "gone.ts" })).resolves.toEqual({
+      status: "file_not_found",
+    });
   });
 
   it("applies graftignore policy on direct outline and range access", async () => {

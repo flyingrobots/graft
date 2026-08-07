@@ -148,6 +148,10 @@ export const mcpOutputBodySchemas = {
       reason: z.string().optional(),
       error: z.string().optional(),
       cacheHit: z.boolean().optional(),
+      // Present on cache hits: the retained outline describes this exact
+      // observed size. Keep the split body contract aligned with the wrapped
+      // MCP and CLI peer schemas that publish the same payload.
+      actual: actualSchema.optional(),
     }).strict(),
     z.object({
       path: z.string(),

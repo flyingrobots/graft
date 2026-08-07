@@ -23,6 +23,9 @@ export async function createRepoWorkspace(options: CreateRepoWorkspaceOptions = 
   const codec = options.codec ?? new CanonicalJsonCodec();
   return new RepoWorkspace({
     projectRoot: cwd,
+    // Preserve the public workspace.fs member for callers of this factory;
+    // RepoWorkspace immediately normalizes it to one named live read view for
+    // every analysis method.
     fs,
     codec,
     graftignorePatterns: options.graftignorePatterns ?? await RepoWorkspace.loadGraftignorePatterns(fs, cwd),

@@ -49,6 +49,21 @@ describe("workspace read observation", () => {
     expect(observation).toBeNull();
   });
 
+  it("does not attribute a refused file_outline as a successful outline read", () => {
+    const observation = buildWorkspaceReadObservation(
+      createExecution("overlay-1"),
+      "file_outline",
+      { path: "src/blob.bin" },
+      {
+        projection: "refused",
+        reason: "INVALID_UTF8",
+        actual: { lines: 1, bytes: 4 },
+      },
+    );
+
+    expect(observation).toBeNull();
+  });
+
   it("builds read_range observations only when the payload matches the expected model", () => {
     const observation = buildWorkspaceReadObservation(
       createExecution("overlay-1"),

@@ -23,6 +23,7 @@ import {
   cliOutputSchemaMeta,
   mcpOutputSchemaMeta,
   OUTPUT_SCHEMA_VERSION,
+  OUTPUT_SCHEMA_V2_VERSION,
   REVIEW_OUTPUT_SCHEMA_VERSION,
   schemaMetaLiteral,
   type OutputSchemaMeta,
@@ -35,7 +36,7 @@ import {
 
 export { CLI_COMMAND_NAMES, MCP_TOOL_NAMES };
 export type { CliCommandName, McpToolName } from "./capabilities.js";
-export { OUTPUT_SCHEMA_VERSION, REVIEW_OUTPUT_SCHEMA_VERSION };
+export { OUTPUT_SCHEMA_VERSION, OUTPUT_SCHEMA_V2_VERSION, REVIEW_OUTPUT_SCHEMA_VERSION };
 export type { OutputSchemaMeta, OutputSchemaVersion };
 
 const sessionDepthSchema = z.enum(["early", "mid", "late", "unknown"]);
@@ -982,25 +983,7 @@ const mcpOutputBodySchemas: Record<McpToolName, z.ZodType> = {
     actual: actualSchema.optional(),
     driftWarnings: z.array(graftEditDriftWarningSchema).optional(),
   }).strict(),
-  file_outline: z.union([
-    z.object({
-      path: z.string(),
-      outline: z.array(outlineEntrySchema),
-      jumpTable: z.array(jumpEntrySchema),
-      partial: z.boolean().optional(),
-      reason: z.string().optional(),
-      error: z.string().optional(),
-      cacheHit: z.boolean().optional(),
-    }).strict(),
-    z.object({
-      path: z.string(),
-      projection: z.literal("refused"),
-      reason: z.string(),
-      reasonDetail: z.string().optional(),
-      next: z.array(z.string()).optional(),
-      actual: actualSchema.optional(),
-    }).strict(),
-  ]),
+  file_outline: splitMcpOutputBodySchemas.file_outline,
   read_range: z.object({
     path: z.string(),
     content: z.string().optional(),

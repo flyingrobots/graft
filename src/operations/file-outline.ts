@@ -1,6 +1,6 @@
 import { extractOutlineForFileAsync } from "../parser/outline.js";
 import type { OutlineEntry, JumpEntry } from "../parser/types.js";
-import type { FileSystem } from "../ports/filesystem.js";
+import type { ObservedFile } from "./workspace-read-view.js";
 import type { ProseProjection, ProseProjectionProvider } from "./colorful-prose-projection.js";
 
 export interface FileOutlineResult {
@@ -9,7 +9,8 @@ export interface FileOutlineResult {
   jumpTable: JumpEntry[];
   partial?: boolean | undefined;
   cacheHit?: boolean | undefined;
-  reason?: "UNSUPPORTED_LANGUAGE" | undefined;
+  actual?: { lines: number; bytes: number } | undefined;
+  reason?: "UNSUPPORTED_LANGUAGE" | "INVALID_UTF8" | "UNADMITTED_PATH" | "NOT_FOUND" | undefined;
   error?: string | undefined;
 }
 
@@ -49,21 +50,27 @@ export async function extractOutlineProjectionForContent(
   };
 }
 
+/**
+ * Extracts an outline from bytes already observed.
+ *
+ * Takes the observation rather than a filesystem so the symbols returned are
+ * necessarily the symbols of the bytes the caller evaluated and cached.
+ */
 export async function fileOutline(
-  filePath: string,
-  opts: { fs: FileSystem; proseProjector?: ProseProjectionProvider | undefined },
+  file: ObservedFile,
+  opts: { proseProjector?: ProseProjectionProvider | undefined } = {},
 ): Promise<FileOutlineResult> {
-  let content: string;
-  try {
-    content = await opts.fs.readFile(filePath, "utf-8");
-  } catch {
+  const filePath = file.path;
+  if (file.utf8 === null) {
     return {
       path: filePath,
       outline: [],
       jumpTable: [],
-      error: "File not found",
+      reason: "INVALID_UTF8",
+      error: "File is not valid UTF-8",
     };
   }
+  const content = file.utf8;
 
   const result = await extractOutlineProjectionForContent(filePath, content, {
     proseProjector: opts.proseProjector,

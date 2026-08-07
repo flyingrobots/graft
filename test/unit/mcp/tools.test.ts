@@ -271,6 +271,30 @@ describe("mcp: tool handlers", () => {
     expect(parsed["reason"]).toBe("GRAFTIGNORE");
   });
 
+  it("records invalid UTF-8 outline and range outcomes as refusals", async () => {
+    const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "graft-mcp-tools-invalid-utf8-"));
+    cleanups.push(() => {
+      fs.rmSync(tmpDir, { recursive: true, force: true });
+    });
+    fs.writeFileSync(path.join(tmpDir, "invalid.ts"), Buffer.from([0xff]));
+
+    const server = createServerForProjectRoot(tmpDir);
+    const before = parse(await server.callTool("stats", {}));
+    const outline = parse(await server.callTool("file_outline", { path: "invalid.ts" }));
+    const range = parse(await server.callTool("read_range", {
+      path: "invalid.ts",
+      start: 1,
+      end: 1,
+    }));
+    const after = parse(await server.callTool("stats", {}));
+
+    expect(outline).toMatchObject({ projection: "refused", reason: "INVALID_UTF8" });
+    expect(range).toMatchObject({ projection: "refused", reason: "INVALID_UTF8" });
+    expect(after["totalRefusals"]).toBe((before["totalRefusals"] as number) + 2);
+    expect(after["totalOutlines"]).toBe(before["totalOutlines"]);
+    expect(after["totalReads"]).toBe(before["totalReads"]);
+  });
+
   it("read_range returns bounded content", async () => {
     const server = createServer();
     const result = await server.callTool("read_range", {
@@ -654,6 +678,7 @@ describe("mcp: context budget", () => {
 describe("mcp: policy check middleware", () => {
   it("read_range refuses banned files via middleware", async () => {
     const server = createServer();
+    const before = parse(await server.callTool("stats", {}));
     const result = await server.callTool("read_range", {
       path: BANNED_IMAGE,
       start: 1,
@@ -662,6 +687,9 @@ describe("mcp: policy check middleware", () => {
     const parsed = parse(result);
     expect(parsed["projection"]).toBe("refused");
     expect(parsed["reason"]).toBe("BINARY");
+    const after = parse(await server.callTool("stats", {}));
+    expect(after["totalRefusals"]).toBe((before["totalRefusals"] as number) + 1);
+    expect(after["totalReads"]).toBe(before["totalReads"]);
   });
 
   it("read_range refuses files matched by .graftignore via middleware", async () => {

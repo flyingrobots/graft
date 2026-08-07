@@ -22,6 +22,7 @@ import {
   importBindingDiagnosticSchema,
   mcpOutputBodySchemas,
 } from "../../../src/contracts/output-schema-mcp.js";
+import { cliOutputBodySchemas } from "../../../src/contracts/output-schema-cli.js";
 import { runCli } from "../../../src/cli/main.js";
 import { runInit } from "../../../src/cli/init.js";
 import { runIndex } from "../../../src/cli/index-cmd.js";
@@ -71,18 +72,57 @@ describe("contracts: output schemas", () => {
     }
   });
 
-  it("versions the expanded review response independently", () => {
+  it("versions expanded output contracts independently", () => {
     expect(getMcpOutputSchemaMeta("graft_review")).toBe(mcpOutputSchemaMeta.graft_review);
     expect(getCliOutputSchemaMeta("struct_review")).toBe(cliOutputSchemaMeta.struct_review);
     expect(getMcpOutputSchemaMeta("graft_review").version).toBe("2.0.0");
     expect(getCliOutputSchemaMeta("struct_review").version).toBe("2.0.0");
+    expect(getMcpOutputSchemaMeta("file_outline").version).toBe("2.0.0");
+    expect(getCliOutputSchemaMeta("read_outline").version).toBe("2.0.0");
     expect(getMcpOutputSchemaMeta("graft_diff").version).toBe("1.0.0");
     expect(getCliOutputSchemaMeta("struct_diff").version).toBe("1.0.0");
+    expect(getMcpOutputSchemaMeta("safe_read").version).toBe("1.0.0");
+    expect(getCliOutputSchemaMeta("read_safe").version).toBe("1.0.0");
   });
 
   it("shares one import-binding diagnostic schema across diagnostics and review warnings", () => {
     expect(mcpOutputBodySchemas.graft_import_diagnostics.shape.diagnostics.element).toBe(importBindingDiagnosticSchema);
     expect(mcpOutputBodySchemas.graft_review.shape.breakingChanges.element.shape.referenceWarnings.element).toBe(importBindingDiagnosticSchema);
+  });
+
+  it("rejects negative file_outline observation sizes", async () => {
+    const repoDir = createTestRepo("graft-file-outline-actual-schema-");
+    cleanups.push(repoDir);
+    fs.writeFileSync(path.join(repoDir, "app.ts"), "export function greet(): void {}\n");
+    const server = createServerInRepo(repoDir);
+    await server.callTool("file_outline", { path: "app.ts" });
+    const output = parse(await server.callTool("file_outline", { path: "app.ts" }));
+
+    expect(output["cacheHit"]).toBe(true);
+    expect(output["actual"]).toBeDefined();
+    expect(() => MCP_OUTPUT_SCHEMAS.file_outline.parse({
+      ...output,
+      actual: { lines: 1, bytes: -1 },
+    })).toThrow();
+  });
+
+  it("accepts cache-hit outline bodies through every exported schema", async () => {
+    const repoDir = createTestRepo("graft-file-outline-split-schema-");
+    cleanups.push(repoDir);
+    const content = "export function greet(): void {}\n";
+    fs.writeFileSync(path.join(repoDir, "app.ts"), content);
+    const server = createServerInRepo(repoDir);
+    await server.callTool("file_outline", { path: "app.ts" });
+    const output = parse(await server.callTool("file_outline", { path: "app.ts" }));
+    const { _schema: _schema, _receipt: _receipt, tripwire: _tripwire, ...body } = output;
+
+    expect(output).toMatchObject({
+      cacheHit: true,
+      actual: { lines: 2, bytes: Buffer.byteLength(content) },
+    });
+    expect(() => MCP_OUTPUT_SCHEMAS.file_outline.parse(output)).not.toThrow();
+    expect(() => mcpOutputBodySchemas.file_outline.parse(body)).not.toThrow();
+    expect(() => cliOutputBodySchemas.read_outline.parse(body)).not.toThrow();
   });
 
   it("preserves concrete CLI output types through the helper stack", () => {

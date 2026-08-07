@@ -16,6 +16,64 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ### Changed
 
+- **Portable filesystem absence handling**: filesystem adapters may classify
+  custom missing-path errors explicitly, while the live workspace boundary
+  also recognizes standard portable missing-error shapes. Only confirmed
+  absences become `ENOENT`, preserving non-Node not-found projections without
+  swallowing permission or resource failures.
+- **Code-show observation consistency**: live symbol search now carries the
+  exact matched content through policy evaluation and range projection, so
+  `code_show` observes each matched file once instead of re-reading mutable
+  working-tree content between those stages. Match-only `code_find` and
+  precision searches discard source after extracting matches instead of
+  retaining every matched file through a repository-wide scan.
+- **Snapshot admission diagnostics**: `SnapshotAdmissionError` now exposes a
+  stable machine-readable code for each refused snapshot contradiction while
+  retaining its descriptive message and detail.
+- **Admitted snapshot immutability**: admitted descriptors, their aperture,
+  read-view evidence, and the evidence property itself are frozen or locked
+  after defensive copying. Admission validates that exact copy before retaining
+  it, so mutable or effectful caller collections cannot detach reported
+  provenance from retained bytes. Snapshot views keep retained bytes and
+  aperture state in module-private storage so reflection or property injection
+  cannot replace the content served under frozen evidence, and the completed
+  view and exported authority prototype are frozen so callers cannot shadow or
+  globally replace its authority methods. The admitted view is runtime-final,
+  so a derived prototype cannot override those methods beneath valid evidence.
+- **Repo workspace compatibility**: the semver-public `RepoWorkspace`
+  constructor and `fs` member remain available to filesystem-backed callers.
+  Analysis methods normalize that input to one `LiveWorkspaceReadSource`; new
+  callers may supply `readView` directly. The normalized read authority is
+  locked after construction so later property injection cannot redirect
+  snapshot-backed analysis to live or forged bytes. Admitted views must name
+  the same workspace root as their `RepoWorkspace`; mismatches throw the
+  exported `WorkspaceRootMismatchError` with code `WORKSPACE_ROOT_MISMATCH`.
+- **Admitted snapshot path identity**: snapshot views translate an absolute
+  path beneath their exact evidence root back to the workspace-relative key
+  carried by the admitted aperture. Standard traversal-protecting repository
+  resolvers therefore compose with settled reads without turning admitted
+  files into `UNADMITTED_PATH` refusals. Mapping follows the evidence root's
+  path syntax: POSIX backslashes remain literal filename characters, while
+  Windows drive and backslash-UNC roots accept either separator without
+  aliasing a distinct POSIX path into admitted authority.
+- **Outline output schema**: MCP `file_outline` and CLI `read_outline` now
+  advertise schema version `2.0.0` for the cache-hit `actual` field. Wrapped
+  and split body schema exports now share that contract; unrelated output
+  contracts remain on their existing versions.
+- **Invalid UTF-8 refusal metrics**: governed outline and range reads now emit
+  the standard refusal projection for undecodable text, so tool metrics count
+  those outcomes as refusals instead of successful outlines or reads. Refused
+  outlines are also excluded from persisted successful-read attribution.
+  MCP `changed_since` now delegates to the same workspace authority instead of
+  replacement-decoding bytes through its own filesystem path, so invalid text
+  is reported as `INVALID_UTF8` there as well.
+- **Range provenance**: `read_range` records a requested line region only when
+  it returns range content; refused and otherwise empty results retain the
+  considered path without claiming that its region was accessed.
+- **Snapshot read errors**: `UnadmittedPathError` and
+  `MissingSnapshotBytesError` expose stable `UNADMITTED_PATH` and
+  `MISSING_SETTLED_BYTES` codes alongside their descriptive messages.
+
 - **Qualified reference confidence**: WARP indexing and cold-graph structural
   review now resolve first-party qualified module/package members across
   Python, TypeScript/JavaScript, Rust, and Go. Shadowed accesses are excluded

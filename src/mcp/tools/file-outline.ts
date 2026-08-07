@@ -1,9 +1,7 @@
 import { z } from "zod";
-import { createColorfulCliProseProjector } from "../../adapters/colorful-cli-prose-projector.js";
-import { fileOutline } from "../../operations/file-outline.js";
-import { hashContent } from "../cache.js";
 import type { ToolDefinition, ToolHandler } from "../context.js";
 import { toJsonObject } from "../../operations/result-dto.js";
+import { createRepoWorkspaceFromToolContext } from "../repo-workspace.js";
 
 export const fileOutlineTool: ToolDefinition = {
   name: "file_outline",
@@ -12,58 +10,32 @@ export const fileOutlineTool: ToolDefinition = {
     "exports. Includes a jump table mapping each symbol to its line range " +
     "for targeted read_range follow-ups.",
   schema: { path: z.string(), cwd: z.string().optional() },
-  policyCheck: true,
+  // No policyCheck wrapper. It read the file a third time purely to apply the
+  // policy RepoWorkspace already applies, which is why safe_read never carried
+  // it either. The workspace refuses with the same shape.
   createHandler(): ToolHandler {
     return async (args, ctx) => {
       const filePath = ctx.resolvePath(args["path"] as string);
       ctx.recordFootprint({ paths: [filePath] });
 
-      // Check cache
-      let rawContent: string | null = null;
-      try {
-        rawContent = await ctx.fs.readFile(filePath, "utf-8");
-      } catch {
-        // proceed to fileOutline for error handling
+      // Through the workspace rather than straight at ctx.fs. This handler
+      // reimplemented the cache-check and record dance around its own reads,
+      // so policy could be evaluated against one version of a file and the
+      // outline taken from another.
+      const workspace = createRepoWorkspaceFromToolContext(ctx);
+      const result = await workspace.fileOutline({ path: args["path"] as string });
+
+      if ("projection" in result) {
+        ctx.metrics.recordRefusal();
+        return ctx.respond("file_outline", toJsonObject(result));
       }
 
-      if (rawContent !== null) {
-        const cacheResult = ctx.cache.check(filePath, rawContent);
-        if (cacheResult.hit) {
-          cacheResult.obs.touch(ctx.cache.now());
-          ctx.metrics.recordCacheHit(cacheResult.obs.actual.bytes);
-          ctx.recordFootprint({
-            symbols: cacheResult.obs.outline.map((e) => e.name),
-          });
-          return ctx.respond("file_outline", {
-            path: filePath,
-            outline: cacheResult.obs.outline,
-            jumpTable: cacheResult.obs.jumpTable,
-            cacheHit: true,
-          });
-        }
-        // If stale, fall through to fresh parse (no diff for file_outline)
+      if (result.cacheHit === true) {
+        ctx.metrics.recordCacheHit(result.actual?.bytes ?? 0);
+      } else {
+        ctx.metrics.recordOutline();
       }
-
-      const result = await fileOutline(filePath, {
-        fs: ctx.fs,
-        proseProjector: createColorfulCliProseProjector({
-          processRunner: ctx.process,
-          cwd: ctx.projectRoot,
-        }),
-      });
-      ctx.metrics.recordOutline();
       ctx.recordFootprint({ symbols: result.outline.map((e) => e.name) });
-
-      // Record observation
-      if (rawContent !== null && result.reason !== "UNSUPPORTED_LANGUAGE") {
-        ctx.cache.record(
-          filePath,
-          hashContent(rawContent),
-          result.outline,
-          result.jumpTable,
-          { lines: rawContent.split("\n").length, bytes: Buffer.byteLength(rawContent) },
-        );
-      }
 
       return ctx.respond("file_outline", toJsonObject(result));
     };

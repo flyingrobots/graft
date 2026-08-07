@@ -3,7 +3,10 @@ import { MCP_TOOL_NAMES } from "../contracts/capabilities.js";
 import { createGraftServer } from "../mcp/server.js";
 import { startStdioServer } from "../mcp/stdio-server.js";
 import { ObservationCache } from "../operations/observation-cache.js";
-import { RepoWorkspace } from "../operations/repo-workspace.js";
+import {
+  RepoWorkspace,
+  WorkspaceRootMismatchError,
+} from "../operations/repo-workspace.js";
 import { StructuredBuffer } from "../operations/structured-buffer.js";
 import type { BufferRange, WarmProjectionBasis, WarmProjectionBundleResult } from "../operations/structured-buffer.js";
 import {
@@ -96,6 +99,7 @@ export {
   MCP_TOOL_NAMES,
   ObservationCache,
   RepoWorkspace,
+  WorkspaceRootMismatchError,
   StructuredBuffer,
   createColorfulCliProseProjector,
   createEdictCliProjectionProvider,

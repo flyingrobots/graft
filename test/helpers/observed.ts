@@ -1,0 +1,34 @@
+// SPDX-License-Identifier: Apache-2.0
+// © James Ross Ω FLYING•ROBOTS <https://github.com/flyingrobots>
+
+import {
+  LiveWorkspaceReadSource,
+  observeFile,
+  type ObservedFile,
+} from "../../src/operations/workspace-read-view.js";
+import type { FileSystem } from "../../src/ports/filesystem.js";
+
+/**
+ * Observes a path through the same seam production uses.
+ *
+ * The operation helpers take an observation rather than a filesystem, so a
+ * test that wants to exercise one has to observe first — which is the point.
+ * Building an ObservedFile by hand here would let tests describe byte/text
+ * pairs that no observation could produce.
+ */
+export async function observe(
+  fs: Pick<FileSystem, "isFileNotFoundError" | "readFile">,
+  path: string,
+): Promise<ObservedFile> {
+  return observeFile(new LiveWorkspaceReadSource(fs, "/virtual"), path);
+}
+
+/** An observation of bytes that are not valid UTF-8. */
+export function observedBytes(path: string, bytes: Uint8Array): ObservedFile {
+  try {
+    new TextDecoder("utf-8", { fatal: true }).decode(bytes);
+  } catch {
+    return { path, bytes, utf8: null };
+  }
+  throw new Error("observedBytes requires bytes that are not valid UTF-8");
+}
