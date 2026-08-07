@@ -58,20 +58,6 @@ export interface AdmittedWorkspaceReadView extends WorkspaceReadView {
 }
 
 /**
- * Decodes settled bytes as UTF-8, refusing anything that is not valid UTF-8.
- *
- * Decoding sits here rather than in the view because a basis identifies bytes.
- * A seam that decoded on the way through could not honour it: an undecodable
- * file would either throw at the boundary or arrive silently replaced, and
- * neither is the observed content.
- */
-export async function readUtf8(view: WorkspaceReadView, path: string): Promise<string> {
-  return new TextDecoder("utf-8", { fatal: true, ignoreBOM: true }).decode(
-    await view.readBytes(path),
-  );
-}
-
-/**
  * One file as a single observation saw it.
  *
  * Operations take this rather than a filesystem so that policy evaluation,
