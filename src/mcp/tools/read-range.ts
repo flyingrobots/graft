@@ -27,7 +27,11 @@ export const readRangeTool: ToolDefinition = {
         start: startLine,
         end: endLine,
       });
-      ctx.metrics.recordRead();
+      if ("projection" in result) {
+        ctx.metrics.recordRefusal();
+      } else {
+        ctx.metrics.recordRead();
+      }
       ctx.recordFootprint({
         paths: [filePath],
         regions: [{ path: filePath, startLine, endLine }],

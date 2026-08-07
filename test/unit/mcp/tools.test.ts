@@ -654,6 +654,7 @@ describe("mcp: context budget", () => {
 describe("mcp: policy check middleware", () => {
   it("read_range refuses banned files via middleware", async () => {
     const server = createServer();
+    const before = parse(await server.callTool("stats", {}));
     const result = await server.callTool("read_range", {
       path: BANNED_IMAGE,
       start: 1,
@@ -662,6 +663,9 @@ describe("mcp: policy check middleware", () => {
     const parsed = parse(result);
     expect(parsed["projection"]).toBe("refused");
     expect(parsed["reason"]).toBe("BINARY");
+    const after = parse(await server.callTool("stats", {}));
+    expect(after["totalRefusals"]).toBe((before["totalRefusals"] as number) + 1);
+    expect(after["totalReads"]).toBe(before["totalReads"]);
   });
 
   it("read_range refuses files matched by .graftignore via middleware", async () => {
