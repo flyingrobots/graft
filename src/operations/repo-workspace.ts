@@ -145,6 +145,10 @@ export class RepoWorkspace {
     this.projectRoot = options.projectRoot;
     this.compatibilityFs = options.fs;
     this.readView = options.readView ?? new LiveWorkspaceReadSource(options.fs, options.projectRoot);
+    Object.defineProperty(this, "readView", {
+      writable: false,
+      configurable: false,
+    });
     this.codec = options.codec;
     this.graftignorePatterns = options.graftignorePatterns ?? [];
     this.governor = options.governor ?? new GovernorTracker();

@@ -92,6 +92,7 @@ are the remaining slices.
       reflection or property injection can mutate
 - [x] `MissingSnapshotBytesError` becomes unreachable by construction
 - [x] the admitted read view and the live-filesystem ingress are not the same type and are not substitutable
+- [x] the normalized workspace read authority cannot be replaced after construction
 - [x] no `basisDigest` sentinel stands in for "this has no basis"
 - [x] each of `safeRead`, `fileOutline`, and `readRange` performs exactly one observation
 - [x] a mutation between policy evaluation and projection cannot change the returned bytes

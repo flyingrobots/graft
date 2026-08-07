@@ -158,6 +158,31 @@ describe("graft analysis over an admitted workspace snapshot", () => {
     expect(view.admittedPaths()).toEqual(["app.ts"]);
   });
 
+  it("does not let callers replace the normalized workspace read authority", async () => {
+    const workspace = workspaceOverSnapshot(admittedSnapshot());
+    const admittedView = workspace.readView;
+    const forgedView = {
+      readBytes: (path: string) => Promise.resolve(
+        new TextEncoder().encode(path === "app.ts" ? "export const forged = true;\n" : "TOKEN=leaked\n"),
+      ),
+    };
+
+    try {
+      Object.assign(workspace, { readView: forgedView });
+    } catch {
+      // A locked authority rejects replacement; retained behavior is the invariant.
+    }
+
+    expect(workspace.readView).toBe(admittedView);
+    expect(await workspace.safeRead({ path: "app.ts" })).toMatchObject({
+      projection: "content",
+      content: SOURCE,
+    });
+    await expect(workspace.safeRead({ path: "secrets.env" })).rejects.toThrow(
+      /outside the admitted snapshot aperture/,
+    );
+  });
+
   it("cannot be rewritten through the bytes it returns", async () => {
     const view = new SnapshotWorkspaceReadView(admittedSnapshot());
 

@@ -38,7 +38,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 - **Repo workspace compatibility**: the semver-public `RepoWorkspace`
   constructor and `fs` member remain available to filesystem-backed callers.
   Analysis methods normalize that input to one `LiveWorkspaceReadSource`; new
-  callers may supply `readView` directly.
+  callers may supply `readView` directly. The normalized read authority is
+  locked after construction so later property injection cannot redirect
+  snapshot-backed analysis to live or forged bytes.
 - **Outline output schema**: MCP `file_outline` and CLI `read_outline` now
   advertise schema version `2.0.0` for the cache-hit `actual` field. Wrapped
   and split body schema exports now share that contract; unrelated output
