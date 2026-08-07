@@ -86,4 +86,19 @@ describe("one observation per operation", () => {
 
     expect(JSON.stringify(result)).not.toContain("impostor");
   });
+
+  it("does not collapse a BOM-only byte change into a cache hit", async () => {
+    const withBom = `\uFEFF${SOURCE}`;
+    const view = new ScriptedReadView([SOURCE, withBom]);
+    const workspace = workspaceOver(view);
+
+    await workspace.safeRead({ path: "app.ts" });
+    const changed = await workspace.safeRead({ path: "app.ts" });
+
+    expect(changed).toMatchObject({
+      projection: "diff",
+      actual: { bytes: new TextEncoder().encode(withBom).byteLength },
+    });
+    expect(view.reads).toEqual(["app.ts", "app.ts"]);
+  });
 });

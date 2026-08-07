@@ -66,7 +66,9 @@ export interface AdmittedWorkspaceReadView extends WorkspaceReadView {
  * neither is the observed content.
  */
 export async function readUtf8(view: WorkspaceReadView, path: string): Promise<string> {
-  return new TextDecoder("utf-8", { fatal: true }).decode(await view.readBytes(path));
+  return new TextDecoder("utf-8", { fatal: true, ignoreBOM: true }).decode(
+    await view.readBytes(path),
+  );
 }
 
 /**
@@ -116,7 +118,7 @@ export async function observeFile(
   const bytes = await view.readBytes(path);
   let utf8: string | null;
   try {
-    utf8 = new TextDecoder("utf-8", { fatal: true }).decode(bytes);
+    utf8 = new TextDecoder("utf-8", { fatal: true, ignoreBOM: true }).decode(bytes);
   } catch {
     utf8 = null;
   }
