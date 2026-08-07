@@ -4,6 +4,7 @@
 import { describe, expect, it } from "vitest";
 import {
   SnapshotAdmissionError,
+  SnapshotWorkspaceReadView,
   unsafeAdmittedWorkspaceSnapshotForTest,
   type SettledFile,
   type WorkspaceSnapshotFields,
@@ -54,6 +55,25 @@ describe("admitting a workspace snapshot", () => {
     // The negative cases below are only meaningful if the positive one passes;
     // a constructor that refused everything would satisfy them all.
     expect(() => unsafeAdmittedWorkspaceSnapshotForTest(snapshotFields())).not.toThrow();
+  });
+
+  it("validates the same defensive file copy that it retains", async () => {
+    const files = new Map([["app.ts", regular(SOURCE)]]);
+    let traversal = 0;
+    Object.defineProperty(files, Symbol.iterator, {
+      value: () => {
+        traversal += 1;
+        const entry = traversal === 1
+          ? regular(SOURCE)
+          : { bytes: new TextEncoder().encode("unvalidated\n"), entryKind: "symlink" as const };
+        return new Map([["app.ts", entry]])[Symbol.iterator]();
+      },
+    });
+
+    const snapshot = unsafeAdmittedWorkspaceSnapshotForTest(snapshotFields({ files }));
+    const view = new SnapshotWorkspaceReadView(snapshot);
+
+    expect(new TextDecoder().decode(await view.readBytes("app.ts"))).toBe(SOURCE);
   });
 
   it("refuses settled bytes that exceed the declared byte budget", () => {

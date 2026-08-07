@@ -83,8 +83,9 @@ are the remaining slices.
       settled bytes exceed it is refused at construction, not at read time
 - [x] a path recorded as a symlink is refused, honouring `symlinkPolicy: "refuse"`
 - [x] aperture and settled-file key set must agree exactly; disagreement is refused at construction
-- [x] retained file collections and bytes are copied at admission and are not
-      exposed through the admitted snapshot descriptor
+- [x] retained file collections and bytes are copied once at admission,
+      validated from that defensive copy, and not exposed through the admitted
+      snapshot descriptor
 - [x] the copied snapshot descriptor, aperture, and exposed read-view evidence
       object and property are runtime-immutable, not only TypeScript-readonly
 - [x] `MissingSnapshotBytesError` becomes unreachable by construction

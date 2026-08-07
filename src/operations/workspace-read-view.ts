@@ -265,6 +265,26 @@ function checkSnapshotFields(fields: WorkspaceSnapshotFields): void {
   }
 }
 
+function copySnapshotFields(fields: WorkspaceSnapshotFields): WorkspaceSnapshotFields {
+  const files = new Map<string, SettledFile>();
+  for (const [path, file] of fields.files) {
+    files.set(path, {
+      bytes: Uint8Array.from(file.bytes),
+      entryKind: file.entryKind,
+    });
+  }
+  return {
+    requestId: fields.requestId,
+    settlementId: fields.settlementId,
+    workspaceRoot: fields.workspaceRoot,
+    basisDigest: fields.basisDigest,
+    aperture: [...fields.aperture],
+    byteBudget: fields.byteBudget,
+    symlinkPolicy: fields.symlinkPolicy,
+    files,
+  };
+}
+
 /**
  * Builds a snapshot that is admitted by assertion rather than by settlement.
  *
@@ -280,21 +300,18 @@ function checkSnapshotFields(fields: WorkspaceSnapshotFields): void {
 export function unsafeAdmittedWorkspaceSnapshotForTest(
   fields: WorkspaceSnapshotFields,
 ): AdmittedWorkspaceSnapshot {
-  checkSnapshotFields(fields);
-  const files = new Map<string, SettledFile>();
-  for (const [path, file] of fields.files) {
-    files.set(path, { bytes: Uint8Array.from(file.bytes), entryKind: file.entryKind });
-  }
+  const copiedFields = copySnapshotFields(fields);
+  checkSnapshotFields(copiedFields);
   const snapshot = Object.freeze({
-    requestId: fields.requestId,
-    settlementId: fields.settlementId,
-    workspaceRoot: fields.workspaceRoot,
-    basisDigest: fields.basisDigest,
-    aperture: Object.freeze([...fields.aperture]),
-    byteBudget: fields.byteBudget,
-    symlinkPolicy: fields.symlinkPolicy,
+    requestId: copiedFields.requestId,
+    settlementId: copiedFields.settlementId,
+    workspaceRoot: copiedFields.workspaceRoot,
+    basisDigest: copiedFields.basisDigest,
+    aperture: Object.freeze([...copiedFields.aperture]),
+    byteBudget: copiedFields.byteBudget,
+    symlinkPolicy: copiedFields.symlinkPolicy,
   }) as unknown as AdmittedWorkspaceSnapshot;
-  retainedFilesBySnapshot.set(snapshot, files);
+  retainedFilesBySnapshot.set(snapshot, copiedFields.files);
   return snapshot;
 }
 
