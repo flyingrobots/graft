@@ -24,8 +24,12 @@ that no reader — human or agent — mistakes the seam for the connection.
 
 ### What is actually true today
 
-`RepoWorkspace` holds exactly one read authority. It no longer takes a
-`FileSystem`; it takes a `WorkspaceReadView`. That is real and it is landed.
+Every bounded `RepoWorkspace` analysis method reads exclusively through one
+`WorkspaceReadView`. The semver-public `fs` constructor option and member
+remain available to legacy filesystem-backed callers; that input is wrapped
+as a `LiveWorkspaceReadSource` and is not consulted by analysis methods. The
+`readView` constructor branch forbids a filesystem beside it, so a
+snapshot-backed workspace cannot also reach the live disk.
 
 Everything below that line is not connected:
 
@@ -33,8 +37,10 @@ Everything below that line is not connected:
   `AdmittedWorkspaceSnapshot`. The only constructor is
   `unsafeAdmittedWorkspaceSnapshotForTest`.
 - **Both production composition roots** (`src/api/repo-workspace.ts`,
-  `src/mcp/repo-workspace.ts`) construct the live-filesystem view. Every real
-  Graft read today is a live disk read.
+  `src/mcp/repo-workspace.ts`) provide live-filesystem authority. The public
+  API uses the compatibility constructor that normalizes it to a live read
+  view; MCP constructs that view explicitly. Every real Graft read today is a
+  live disk read.
 - There is **no Graft-owned Edict source** declaring `ObserveWorkspaceSnapshot`,
   and therefore no request, claim, or settlement.
 
@@ -116,9 +122,10 @@ Added during the cycle, not foreseen when it opened:
 - [x] If I read this packet and then read the code, will I correctly believe
       that production reads still hit the live disk?
 
-  Yes. Both production composition roots construct
-  `LiveWorkspaceReadSource`, and the snapshot type says explicitly that no
-  production settlement decoder exists.
+  Yes. Both production composition roots provide live-filesystem authority:
+  the public API has `RepoWorkspace` normalize its compatibility `fs` input,
+  while MCP constructs `LiveWorkspaceReadSource` explicitly. The snapshot type
+  says that no production settlement decoder exists.
 
 - [x] Can a snapshot exist that claims a byte budget it exceeds?
 

@@ -10,14 +10,17 @@ documentation only and is covered by the final documentation gate.
 
 ## Source Truth
 
-- `src/api/repo-workspace.ts` and `src/mcp/repo-workspace.ts` both construct
-  `LiveWorkspaceReadSource`. Production still reads the live disk.
+- `src/api/repo-workspace.ts` supplies the compatibility `fs` input that
+  `RepoWorkspace` normalizes to `LiveWorkspaceReadSource`;
+  `src/mcp/repo-workspace.ts` constructs that view explicitly. Production
+  still reads the live disk.
 - `src/operations/workspace-read-view.ts` declares separate
   `WorkspaceReadView` and `AdmittedWorkspaceReadView` contracts, validates
   snapshot fields before applying the test-only admission assertion, and
   exposes no production settlement decoder.
-- `src/operations/repo-workspace.ts` gives `RepoWorkspace` one `readView` and
-  routes each bounded read operation through one observation.
+- `src/operations/repo-workspace.ts` routes every bounded analysis method
+  through one `readView` and one observation. Filesystem-backed workspaces keep
+  the legacy public `fs` member, but analysis methods never consult it.
 
 ## Focused Acceptance
 

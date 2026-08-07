@@ -42,11 +42,11 @@ function admittedSnapshot(
 }
 
 /**
- * A workspace holding exactly one read authority.
+ * A workspace whose analysis path holds exactly one read authority.
  *
- * No filesystem is supplied, because there is no longer a parameter for one.
- * That is the property under test: a workspace cannot hold a settled view and
- * a live disk at once and rely on every code path choosing the lawful door.
+ * No filesystem is supplied because the `readView` options branch forbids one
+ * beside a settled view. That is the property under test: snapshot-backed
+ * analysis cannot also reach the live disk and choose between two sources.
  */
 function workspaceOverSnapshot(snapshot: AdmittedWorkspaceSnapshot): RepoWorkspace {
   return new RepoWorkspace({

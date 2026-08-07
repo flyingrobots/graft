@@ -14,10 +14,11 @@ This cycle made the admitted-snapshot seam tell the truth before production
 settlement decoding is built on it. Snapshot construction now enforces the
 declared aperture, aggregate byte budget, and symlink refusal. A live
 filesystem source is no longer substitutable for a view carrying admitted
-evidence. `RepoWorkspace` holds one read authority, and its bounded read
-operations evaluate policy and project results from one physical observation
-while preserving the difference between authority refusal, absence, and
-invalid UTF-8.
+evidence. Every bounded `RepoWorkspace` analysis method uses one normalized
+read view, while the legacy `fs` constructor/member remains available only for
+public compatibility. The operations evaluate policy and project results from
+one physical observation while preserving the difference between authority
+refusal, absence, and invalid UTF-8.
 
 The whole #228 hill is not met. Both production composition roots still use
 `LiveWorkspaceReadSource`; Graft has no `ObserveWorkspaceSnapshot` Edict

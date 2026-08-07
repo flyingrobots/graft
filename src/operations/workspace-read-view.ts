@@ -358,7 +358,7 @@ export class SnapshotWorkspaceReadView implements AdmittedWorkspaceReadView {
 
   // Asynchronous because a filesystem-backed view cannot read lazily behind a
   // synchronous signature, and both must satisfy one interface for
-  // RepoWorkspace to hold exactly one read authority.
+  // RepoWorkspace analysis methods to depend on exactly one read view.
   readBytes(path: string): Promise<Uint8Array> {
     if (!this.admitted.has(path)) {
       return Promise.reject(new UnadmittedPathError(path));

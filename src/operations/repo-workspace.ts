@@ -105,8 +105,9 @@ export type RepoWorkspaceOptions = RepoWorkspaceCommonOptions & (
       /**
        * Compatibility input for the semver-public constructor.
        *
-       * Normalized immediately to one live read authority; the workspace does
-       * not retain a second filesystem door beside the view.
+       * Normalized immediately to one live read authority used by every
+       * analysis method. The same filesystem remains externally visible
+       * through the legacy `fs` member but is never consulted internally.
        */
       readonly fs: FileSystem;
       readonly readView?: never;
