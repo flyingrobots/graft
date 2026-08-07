@@ -356,6 +356,15 @@ function retainedReadState(view: SnapshotWorkspaceReadView): SnapshotWorkspaceRe
   return state;
 }
 
+function snapshotLookupPath(workspaceRoot: string, requestedPath: string): string {
+  const normalizedRoot = workspaceRoot.replaceAll("\\", "/").replace(/\/+$/u, "");
+  const normalizedRequest = requestedPath.replaceAll("\\", "/");
+  const rootPrefix = normalizedRoot.length === 0 ? "/" : `${normalizedRoot}/`;
+  return normalizedRequest.startsWith(rootPrefix)
+    ? normalizedRequest.slice(rootPrefix.length)
+    : requestedPath;
+}
+
 /**
  * A read view over settled snapshot bytes.
  *
@@ -403,10 +412,11 @@ export class SnapshotWorkspaceReadView implements AdmittedWorkspaceReadView {
   // RepoWorkspace analysis methods to depend on exactly one read view.
   readBytes(path: string): Promise<Uint8Array> {
     const state = retainedReadState(this);
-    if (!state.admitted.has(path)) {
+    const lookupPath = snapshotLookupPath(this.evidence.workspaceRoot, path);
+    if (!state.admitted.has(lookupPath)) {
       return Promise.reject(new UnadmittedPathError(path));
     }
-    const content = state.bytes.get(path);
+    const content = state.bytes.get(lookupPath);
     if (content === undefined) {
       // Unreachable: admission requires the aperture and the settled-file set
       // to agree exactly. Kept as a guard so a future decoder that skipped

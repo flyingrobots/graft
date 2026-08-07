@@ -98,6 +98,9 @@ are the remaining slices.
 - [x] an admitted read view's evidence `workspaceRoot` must exactly match the
       `RepoWorkspace.projectRoot`; mismatched roots fail at construction with
       `WORKSPACE_ROOT_MISMATCH`
+- [x] an absolute resolved path beneath that exact root maps back to the
+      workspace-relative aperture key; paths outside the evidence root remain
+      unadmitted
 - [x] the normalized workspace read authority cannot be replaced after
       construction, and admitted authority methods cannot be shadowed on the
       retained view or replaced through its exported prototype

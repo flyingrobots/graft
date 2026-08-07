@@ -11,6 +11,8 @@ import {
   type WorkspaceSnapshotFields,
 } from "../../../src/operations/workspace-read-view.js";
 import { CanonicalJsonCodec } from "../../../src/adapters/canonical-json.js";
+import { createRepoPathResolver } from "../../../src/adapters/repo-paths.js";
+import { createTestDir } from "../../helpers/temp.js";
 
 const SOURCE = "export function greet(name: string): string {\n  return `hello ${name}`;\n}\n";
 
@@ -63,6 +65,25 @@ describe("graft analysis over an admitted workspace snapshot", () => {
     const result = await workspace.safeRead({ path: "app.ts" });
 
     expect(result).toMatchObject({ projection: "content", content: SOURCE });
+  });
+
+  it("reads relative snapshot keys through the standard repo path resolver", async () => {
+    const tempDir = createTestDir("graft-admitted-resolver-");
+    try {
+      const snapshot = admittedSnapshot({ workspaceRoot: tempDir.path });
+      const workspace = new RepoWorkspace({
+        projectRoot: snapshot.workspaceRoot,
+        codec: new CanonicalJsonCodec(),
+        readView: new SnapshotWorkspaceReadView(snapshot),
+        resolvePath: createRepoPathResolver(snapshot.workspaceRoot),
+      });
+
+      const result = await workspace.safeRead({ path: "app.ts" });
+
+      expect(result).toMatchObject({ projection: "content", content: SOURCE });
+    } finally {
+      tempDir.cleanup();
+    }
   });
 
   it("refuses an admitted view bound to a different workspace root", () => {

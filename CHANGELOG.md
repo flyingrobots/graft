@@ -45,6 +45,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   snapshot-backed analysis to live or forged bytes. Admitted views must name
   the same workspace root as their `RepoWorkspace`; mismatches throw the
   exported `WorkspaceRootMismatchError` with code `WORKSPACE_ROOT_MISMATCH`.
+- **Admitted snapshot path identity**: snapshot views translate an absolute
+  path beneath their exact evidence root back to the workspace-relative key
+  carried by the admitted aperture. Standard traversal-protecting repository
+  resolvers therefore compose with settled reads without turning admitted
+  files into `UNADMITTED_PATH` refusals.
 - **Outline output schema**: MCP `file_outline` and CLI `read_outline` now
   advertise schema version `2.0.0` for the cache-hit `actual` field. Wrapped
   and split body schema exports now share that contract; unrelated output
