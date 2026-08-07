@@ -211,6 +211,20 @@ export class RepoWorkspace {
     };
   }
 
+  private invalidUtf8Refusal(
+    filePath: string,
+    actual: { readonly lines: number; readonly bytes: number },
+  ): RepoWorkspaceRefusedResult {
+    return {
+      path: filePath,
+      projection: "refused",
+      reason: "INVALID_UTF8",
+      reasonDetail: "This file is not valid UTF-8, so it has no faithful text projection.",
+      next: ["Read it as bytes if you need its contents."],
+      actual,
+    };
+  }
+
   /**
    * Observes a path exactly once, or reports that it could not be observed.
    *
@@ -357,6 +371,10 @@ export class RepoWorkspace {
       return refusal;
     }
 
+    if (observed.utf8 === null) {
+      return this.invalidUtf8Refusal(filePath, observedActual(observed));
+    }
+
     if (rawContent !== null) {
       const cacheResult = this.cache.check(filePath, rawContent);
       if (cacheResult.hit) {
@@ -396,6 +414,9 @@ export class RepoWorkspace {
     const refusal = this.evaluateRefusal(filePath, observedActual(observed));
     if (refusal !== null) {
       return refusal;
+    }
+    if (observed.utf8 === null) {
+      return this.invalidUtf8Refusal(filePath, observedActual(observed));
     }
     return readRange(observed, args.start, args.end);
   }
