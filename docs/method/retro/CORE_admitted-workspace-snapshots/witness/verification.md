@@ -5,7 +5,7 @@ title: "Verification Witness for Admitted Workspace Snapshots"
 # Verification Witness for Admitted Workspace Snapshots
 
 The implementation and post-publication review repairs were verified from
-branch commit `bc1fdb837ac3a9424105838099b2cf02dc7e07ac`. This witness update changes
+branch commit `bc1fdb837936a4096d38093d733da7b62cf1ccfc`. This witness update changes
 documentation only and is covered by the final documentation gate.
 
 ## Source Truth
