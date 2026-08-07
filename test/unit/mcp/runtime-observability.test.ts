@@ -22,6 +22,11 @@ interface RuntimeEvent {
   readonly errorName?: string;
   readonly logPath?: string;
   readonly logPolicy?: string;
+  readonly footprint?: {
+    readonly paths: readonly string[];
+    readonly symbols: readonly string[];
+    readonly regions: readonly { readonly path: string; readonly startLine: number; readonly endLine: number }[];
+  };
 }
 
 function readRuntimeLog(logPath: string): RuntimeEvent[] {
@@ -51,6 +56,36 @@ function writeHookEvent(repoDir: string, event: {
 }
 
 describe("mcp: runtime observability", () => {
+  it("does not claim a refused read_range region was accessed", async () => {
+    const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "graft-rt-refused-range-"));
+    const imagePath = path.join(tmpDir, "image.png");
+    fs.writeFileSync(imagePath, Buffer.from([0x89, 0x50, 0x4e, 0x47]));
+    const isolated = createIsolatedServer({ projectRoot: tmpDir });
+    try {
+      const result = parse(await isolated.server.callTool("read_range", {
+        path: imagePath,
+        start: 1,
+        end: 5,
+      }));
+      const receipt = result["_receipt"] as { traceId: string };
+      const doctor = parse(await isolated.server.callTool("doctor", {}));
+      const runtime = doctor["runtimeObservability"] as { logPath: string };
+      const completed = readRuntimeLog(runtime.logPath).find((event) =>
+        event.event === "tool_call_completed" && event.traceId === receipt.traceId
+      );
+
+      expect(result).toMatchObject({ projection: "refused", reason: "BINARY" });
+      expect(completed?.footprint).toEqual({
+        paths: [imagePath],
+        symbols: [],
+        regions: [],
+      });
+    } finally {
+      isolated.cleanup();
+      fs.rmSync(tmpDir, { recursive: true, force: true });
+    }
+  });
+
   it("writes correlated start and completion events for tool calls", async () => {
     const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "graft-rt-obs-"));
     const testFile = path.join(tmpDir, "small.ts");

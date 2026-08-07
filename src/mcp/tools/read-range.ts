@@ -32,10 +32,10 @@ export const readRangeTool: ToolDefinition = {
       } else {
         ctx.metrics.recordRead();
       }
-      ctx.recordFootprint({
-        paths: [filePath],
-        regions: [{ path: filePath, startLine, endLine }],
-      });
+      ctx.recordFootprint({ paths: [filePath] });
+      if ("content" in result && result.content !== undefined) {
+        ctx.recordFootprint({ regions: [{ path: filePath, startLine, endLine }] });
+      }
       return ctx.respond("read_range", toJsonObject(result));
     };
   },
