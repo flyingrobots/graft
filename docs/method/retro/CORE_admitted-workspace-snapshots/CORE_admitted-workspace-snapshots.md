@@ -65,6 +65,13 @@ remain open.
   witness without changing behavior. One apparent duplicate type-union member
   was checked against both the reviewed and current heads, proved to be a
   duplicated terminal excerpt, and transparently withdrawn without code churn.
+- The next Codex pass found five more review deltas. One stale compatibility
+  claim had already been corrected by `51ec7be7`; four behavioral findings
+  remained: replaceable evidence, validation detached from the retained
+  defensive copy, a second live `code_show` observation, and non-Node missing
+  errors escaping the public workspace projections. Each received a focused
+  RED/GREEN repair. The integrated gate was rerun on `e7a9fd8d` with every
+  review thread resolved.
 
 ## What surprised you?
 
