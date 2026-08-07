@@ -3,6 +3,7 @@
 
 import { describe, expect, it } from "vitest";
 import {
+  SnapshotAdmissionError,
   unsafeAdmittedWorkspaceSnapshotForTest,
   type SettledFile,
   type WorkspaceSnapshotFields,
@@ -26,6 +27,16 @@ function snapshotFields(overrides: Partial<WorkspaceSnapshotFields> = {}): Works
     files: new Map([["app.ts", regular(SOURCE)]]),
     ...overrides,
   };
+}
+
+function captureAdmissionError(fields: WorkspaceSnapshotFields): SnapshotAdmissionError {
+  try {
+    unsafeAdmittedWorkspaceSnapshotForTest(fields);
+  } catch (error) {
+    expect(error).toBeInstanceOf(SnapshotAdmissionError);
+    return error as SnapshotAdmissionError;
+  }
+  throw new Error("Expected snapshot admission to fail");
 }
 
 /**
@@ -54,7 +65,7 @@ describe("admitting a workspace snapshot", () => {
       files: new Map([["app.ts", regular("x".repeat(9))]]),
     });
 
-    expect(() => unsafeAdmittedWorkspaceSnapshotForTest(fields)).toThrow(/byte budget/i);
+    expect(captureAdmissionError(fields).code).toBe("BYTE_BUDGET_EXCEEDED");
   });
 
   it("admits settled bytes exactly at the declared byte budget", () => {
@@ -81,7 +92,7 @@ describe("admitting a workspace snapshot", () => {
       byteBudget,
     });
 
-    expect(() => unsafeAdmittedWorkspaceSnapshotForTest(fields)).toThrow();
+    expect(captureAdmissionError(fields).code).toBe("INVALID_BYTE_BUDGET");
   });
 
   it("admits an empty settlement with a zero byte budget", () => {
@@ -106,7 +117,7 @@ describe("admitting a workspace snapshot", () => {
       ]),
     });
 
-    expect(() => unsafeAdmittedWorkspaceSnapshotForTest(fields)).toThrow(/byte budget/i);
+    expect(captureAdmissionError(fields).code).toBe("BYTE_BUDGET_EXCEEDED");
   });
 
   it("refuses a path the observation recorded as a symlink", () => {
@@ -117,7 +128,7 @@ describe("admitting a workspace snapshot", () => {
       files: new Map([["app.ts", { bytes: new TextEncoder().encode(SOURCE), entryKind: "symlink" as const }]]),
     });
 
-    expect(() => unsafeAdmittedWorkspaceSnapshotForTest(fields)).toThrow(/symlink/i);
+    expect(captureAdmissionError(fields).code).toBe("SYMLINK_REFUSED");
   });
 
   it("refuses an aperture path carrying no settled bytes", () => {
@@ -130,7 +141,7 @@ describe("admitting a workspace snapshot", () => {
       files: new Map([["app.ts", regular(SOURCE)]]),
     });
 
-    expect(() => unsafeAdmittedWorkspaceSnapshotForTest(fields)).toThrow(/missing\.ts/);
+    expect(captureAdmissionError(fields).code).toBe("MISSING_APERTURE_BYTES");
   });
 
   it("refuses settled bytes for a path outside the aperture", () => {
@@ -145,7 +156,7 @@ describe("admitting a workspace snapshot", () => {
       ]),
     });
 
-    expect(() => unsafeAdmittedWorkspaceSnapshotForTest(fields)).toThrow(/secrets\.env/);
+    expect(captureAdmissionError(fields).code).toBe("OUTSIDE_APERTURE");
   });
 
   it("refuses an aperture that repeats a path", () => {
@@ -157,6 +168,6 @@ describe("admitting a workspace snapshot", () => {
       files: new Map([["app.ts", regular(SOURCE)]]),
     });
 
-    expect(() => unsafeAdmittedWorkspaceSnapshotForTest(fields)).toThrow(/duplicate/i);
+    expect(captureAdmissionError(fields).code).toBe("DUPLICATE_APERTURE_PATH");
   });
 });

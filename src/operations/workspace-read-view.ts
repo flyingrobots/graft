@@ -187,9 +187,21 @@ const retainedFilesBySnapshot = new WeakMap<
   ReadonlyMap<string, SettledFile>
 >();
 
+export type SnapshotAdmissionErrorCode =
+  | "INVALID_BYTE_BUDGET"
+  | "DUPLICATE_APERTURE_PATH"
+  | "MISSING_APERTURE_BYTES"
+  | "OUTSIDE_APERTURE"
+  | "SYMLINK_REFUSED"
+  | "BYTE_BUDGET_EXCEEDED"
+  | "MISSING_RETAINED_FILES";
+
 /** A snapshot that contradicts a field it declares. */
 export class SnapshotAdmissionError extends Error {
-  constructor(readonly detail: string) {
+  constructor(
+    readonly code: SnapshotAdmissionErrorCode,
+    readonly detail: string,
+  ) {
     super(`snapshot contradicts its own declaration: ${detail}`);
     this.name = "SnapshotAdmissionError";
   }
@@ -212,6 +224,7 @@ export class SnapshotAdmissionError extends Error {
 function checkSnapshotFields(fields: WorkspaceSnapshotFields): void {
   if (!Number.isSafeInteger(fields.byteBudget) || fields.byteBudget < 0) {
     throw new SnapshotAdmissionError(
+      "INVALID_BYTE_BUDGET",
       `byte budget is not a non-negative safe integer: ${String(fields.byteBudget)}`,
     );
   }
@@ -219,21 +232,30 @@ function checkSnapshotFields(fields: WorkspaceSnapshotFields): void {
   const admitted = new Set<string>();
   for (const path of fields.aperture) {
     if (admitted.has(path)) {
-      throw new SnapshotAdmissionError(`aperture lists a duplicate path: ${path}`);
+      throw new SnapshotAdmissionError(
+        "DUPLICATE_APERTURE_PATH",
+        `aperture lists a duplicate path: ${path}`,
+      );
     }
     admitted.add(path);
   }
 
   for (const path of admitted) {
     if (!fields.files.has(path)) {
-      throw new SnapshotAdmissionError(`aperture path carries no settled bytes: ${path}`);
+      throw new SnapshotAdmissionError(
+        "MISSING_APERTURE_BYTES",
+        `aperture path carries no settled bytes: ${path}`,
+      );
     }
   }
 
   let settledBytes = 0;
   for (const [path, file] of fields.files) {
     if (!admitted.has(path)) {
-      throw new SnapshotAdmissionError(`settled bytes for a path outside the aperture: ${path}`);
+      throw new SnapshotAdmissionError(
+        "OUTSIDE_APERTURE",
+        `settled bytes for a path outside the aperture: ${path}`,
+      );
     }
     // Unconditional because `symlinkPolicy` admits exactly one value today.
     // Branching on it would read as though a snapshot could permit symlinks,
@@ -241,6 +263,7 @@ function checkSnapshotFields(fields: WorkspaceSnapshotFields): void {
     // already written and assume it had been thought through.
     if (file.entryKind === "symlink") {
       throw new SnapshotAdmissionError(
+        "SYMLINK_REFUSED",
         `symlink recorded under a policy that refuses symlinks: ${path}`,
       );
     }
@@ -249,6 +272,7 @@ function checkSnapshotFields(fields: WorkspaceSnapshotFields): void {
 
   if (settledBytes > fields.byteBudget) {
     throw new SnapshotAdmissionError(
+      "BYTE_BUDGET_EXCEEDED",
       `settled bytes exceed the declared byte budget: ` +
         `${String(settledBytes)} > ${String(fields.byteBudget)}`,
     );
@@ -328,7 +352,10 @@ export class SnapshotWorkspaceReadView implements AdmittedWorkspaceReadView {
     this.admitted = new Set(snapshot.aperture);
     const retainedFiles = retainedFilesBySnapshot.get(snapshot);
     if (retainedFiles === undefined) {
-      throw new SnapshotAdmissionError("snapshot has no retained settled bytes");
+      throw new SnapshotAdmissionError(
+        "MISSING_RETAINED_FILES",
+        "snapshot has no retained settled bytes",
+      );
     }
     // Copied on the way in, so a snapshot assembled from a caller's mutable
     // maps cannot change underneath the view once it exists.

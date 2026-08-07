@@ -16,6 +16,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ### Changed
 
+- **Snapshot admission diagnostics**: `SnapshotAdmissionError` now exposes a
+  stable machine-readable code for each refused snapshot contradiction while
+  retaining its descriptive message and detail.
+
 - **Qualified reference confidence**: WARP indexing and cold-graph structural
   review now resolve first-party qualified module/package members across
   Python, TypeScript/JavaScript, Rust, and Go. Shadowed accesses are excluded
