@@ -19,6 +19,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 - **Snapshot admission diagnostics**: `SnapshotAdmissionError` now exposes a
   stable machine-readable code for each refused snapshot contradiction while
   retaining its descriptive message and detail.
+- **Admitted snapshot immutability**: admitted descriptors, their aperture,
+  and read-view evidence are frozen after defensive copying so runtime writes
+  cannot detach reported provenance from retained bytes.
 - **Repo workspace compatibility**: the semver-public `RepoWorkspace`
   constructor continues to accept its existing `fs` option, normalizing it to
   one `LiveWorkspaceReadSource`; new callers may supply `readView` directly.

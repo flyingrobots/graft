@@ -285,15 +285,15 @@ export function unsafeAdmittedWorkspaceSnapshotForTest(
   for (const [path, file] of fields.files) {
     files.set(path, { bytes: Uint8Array.from(file.bytes), entryKind: file.entryKind });
   }
-  const snapshot = {
+  const snapshot = Object.freeze({
     requestId: fields.requestId,
     settlementId: fields.settlementId,
     workspaceRoot: fields.workspaceRoot,
     basisDigest: fields.basisDigest,
-    aperture: [...fields.aperture],
+    aperture: Object.freeze([...fields.aperture]),
     byteBudget: fields.byteBudget,
     symlinkPolicy: fields.symlinkPolicy,
-  } as unknown as AdmittedWorkspaceSnapshot;
+  }) as unknown as AdmittedWorkspaceSnapshot;
   retainedFilesBySnapshot.set(snapshot, files);
   return snapshot;
 }
@@ -328,12 +328,12 @@ export class SnapshotWorkspaceReadView implements AdmittedWorkspaceReadView {
   private readonly admitted: ReadonlySet<string>;
 
   constructor(snapshot: AdmittedWorkspaceSnapshot) {
-    this.evidence = {
+    this.evidence = Object.freeze({
       requestId: snapshot.requestId,
       settlementId: snapshot.settlementId,
       workspaceRoot: snapshot.workspaceRoot,
       basisDigest: snapshot.basisDigest,
-    };
+    });
     this.aperture = [...snapshot.aperture];
     this.admitted = new Set(snapshot.aperture);
     const retainedFiles = retainedFilesBySnapshot.get(snapshot);

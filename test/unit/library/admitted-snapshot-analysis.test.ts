@@ -113,6 +113,20 @@ describe("graft analysis over an admitted workspace snapshot", () => {
     expect(new TextDecoder().decode(await view.readBytes("app.ts"))).toBe(SOURCE);
   });
 
+  it("does not let admitted descriptors or evidence be rewritten", () => {
+    const snapshot = admittedSnapshot();
+
+    expect(() => Object.assign(snapshot, { basisDigest: "forged", byteBudget: 0 })).toThrow();
+    expect(() => (snapshot.aperture as string[]).push("secrets.env")).toThrow();
+
+    const view = new SnapshotWorkspaceReadView(snapshot);
+    expect(() => Object.assign(view.evidence, { basisDigest: "forged" })).toThrow();
+    expect(view.evidence.basisDigest).toBe(
+      "b3:0000000000000000000000000000000000000000000000000000000000000001",
+    );
+    expect(view.admittedPaths()).toEqual(["app.ts"]);
+  });
+
   it("cannot be rewritten through the bytes it returns", async () => {
     const view = new SnapshotWorkspaceReadView(admittedSnapshot());
 
