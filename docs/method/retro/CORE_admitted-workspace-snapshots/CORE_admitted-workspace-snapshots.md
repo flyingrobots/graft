@@ -105,6 +105,12 @@ remain open.
   narrowed those findings independently. The final focused matrix passed 18
   files and 218 tests; the isolated repository gate passed 258 files and 2,046
   tests.
+- Codex's review of the resulting exact head found one final path-authority
+  defect: unconditional backslash normalization could alias distinct POSIX
+  roots. Commit `cfa25da8` preserved literal POSIX backslashes while retaining
+  Windows drive and backslash-UNC separator compatibility. The focused matrix
+  then passed 18 files and 220 tests; the isolated repository gate passed 258
+  files and 2,048 tests.
 - Host runs also exposed a coarse five-second integration-test timeout that
   can obscure which WARP phase is slow under load. The isolated gate passed
   the same tiny fixtures, so the production change was not blamed. The debt is

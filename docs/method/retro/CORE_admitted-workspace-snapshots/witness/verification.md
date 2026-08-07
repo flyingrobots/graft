@@ -5,7 +5,7 @@ title: "Verification Witness for Admitted Workspace Snapshots"
 # Verification Witness for Admitted Workspace Snapshots
 
 The implementation and post-publication review repairs were verified from
-branch commit `4634beb3d7fec87ab4aa6f560f2c75fe4a3790da`. This witness update
+branch commit `cfa25da8f937a6ba2b20a88dbf30e1546880854a`. This witness update
 changes documentation only and is covered by the final documentation gate.
 
 ## Source Truth
@@ -46,7 +46,7 @@ pnpm exec vitest run \
   test/unit/contracts/output-schemas.test.ts
 
 Test Files  18 passed (18)
-Tests       218 passed (218)
+Tests       220 passed (220)
 ```
 
 ## Review Repair Proof
@@ -80,7 +80,8 @@ Tests       218 passed (218)
   `RepoWorkspace.projectRoot`; a mismatch throws `WORKSPACE_ROOT_MISMATCH`
   before any settled bytes can be presented under another workspace identity.
   Absolute paths beneath that exact root map back to the workspace-relative
-  aperture key used by the settled bytes.
+  aperture key used by the settled bytes. POSIX backslashes remain literal,
+  while Windows drive and backslash-UNC roots accept either separator.
 - `file_outline` and `read_outline` advertise schema v2 for their expanded
   cache-hit payload while unrelated contracts remain on v1.
 - Split MCP `file_outline` and CLI `read_outline` body schemas accept the same
@@ -114,7 +115,7 @@ Tests       218 passed (218)
 | Build | `pnpm build` | passed |
 | Hermetic schema parity | `WESLEY_BIN=/Users/james/.cargo/bin/wesley pnpm schema:structural-history:check` | passed with Wesley 0.1.0; generated model, codec, registry hash, and Echo descriptor in sync |
 | Built CLI smoke | `node bin/graft.js --version` | `graft 0.11.1` |
-| Full isolated suite | `pnpm test` | 258 files passed; 2,046 tests passed |
+| Full isolated suite | `pnpm test` | 258 files passed; 2,048 tests passed |
 | Documentation integrity | `git diff --check` and `pnpm lint` | passed after Retro completion |
 
 The first schema-gate invocation intentionally failed closed because
