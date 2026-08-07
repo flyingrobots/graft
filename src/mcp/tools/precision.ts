@@ -6,6 +6,7 @@ export {
   loadFileContent,
   evaluatePrecisionPolicy,
   searchLiveSymbols,
+  searchLiveSymbolsWithContent,
   readRangeFromContent,
 } from "./precision-live.js";
 export {

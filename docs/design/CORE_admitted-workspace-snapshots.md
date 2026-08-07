@@ -104,8 +104,9 @@ Added during the cycle, not foreseen when it opened:
 
 - [x] every MCP read path goes through the single read authority. `read_range`
       and `file_outline` built their own reads from `ctx.fs` and never applied
-      workspace read policy at all; `code_show` re-read a file it had already
-      loaded
+      workspace read policy at all; live `code_show` now carries the exact
+      search content through policy evaluation and range projection instead of
+      re-reading the matched file
 - [x] policy is evaluated for every observation, not only decodable ones. The
       first version of the UTF-8 refusal shadowed `BINARY`, so a binary file
       was reported as an encoding problem instead of a banned one

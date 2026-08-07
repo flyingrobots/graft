@@ -14,7 +14,7 @@ import {
   readRangeFromContent,
   requireRepoPath,
   resolveGitRef,
-  searchLiveSymbols,
+  searchLiveSymbolsWithContent,
   searchWarpSymbols,
 } from "./precision.js";
 
@@ -75,6 +75,18 @@ export async function runCodeShow(
 
   let locations: PrecisionSymbolMatch[];
   let source: "warp" | "live" = "live";
+  const fileCache = new Map<string, string>();
+  const searchLive = async (
+    filePaths: readonly string[],
+    request: PrecisionSearchRequest,
+    searchRef?: string,
+  ): Promise<PrecisionSymbolMatch[]> => {
+    const result = await searchLiveSymbolsWithContent(ctx, filePaths, request, searchRef);
+    for (const [filePath, content] of result.contentByPath) {
+      fileCache.set(filePath, content);
+    }
+    return result.matches;
+  };
 
   if (resolvedRef !== undefined) {
     if (targetPath !== undefined) {
@@ -108,8 +120,7 @@ export async function runCodeShow(
           const filePaths = repoPath !== undefined
             ? [repoPath]
             : await listTrackedFilesAtRef("", ctx.git, ctx.projectRoot, resolvedRef);
-          locations = await searchLiveSymbols(
-            ctx,
+          locations = await searchLive(
             filePaths,
             new PrecisionSearchRequest({ exactName: symbolName }),
             resolvedRef,
@@ -119,8 +130,7 @@ export async function runCodeShow(
         const filePaths = repoPath !== undefined
           ? [repoPath]
           : await listTrackedFilesAtRef("", ctx.git, ctx.projectRoot, resolvedRef);
-        locations = await searchLiveSymbols(
-          ctx,
+        locations = await searchLive(
           filePaths,
           new PrecisionSearchRequest({ exactName: symbolName }),
           resolvedRef,
@@ -131,8 +141,7 @@ export async function runCodeShow(
       const filePaths = repoPath !== undefined
         ? [repoPath]
         : await listTrackedFilesAtRef("", ctx.git, ctx.projectRoot, resolvedRef);
-      locations = await searchLiveSymbols(
-        ctx,
+      locations = await searchLive(
         filePaths,
         new PrecisionSearchRequest({ exactName: symbolName }),
         resolvedRef,
@@ -143,15 +152,13 @@ export async function runCodeShow(
     const filePaths = targetPath !== undefined
       ? [targetPath]
       : await listProjectFiles("", ctx.projectRoot, ctx.git);
-    locations = await searchLiveSymbols(
-      ctx,
+    locations = await searchLive(
       filePaths,
       new PrecisionSearchRequest({ exactName: symbolName }),
     );
   }
 
   const visibleLocations: PrecisionSymbolMatch[] = [];
-  const fileCache = new Map<string, string>();
   let firstRefusal:
     | {
       path: string;
@@ -244,9 +251,8 @@ export async function runCodeShow(
     });
   }
 
-  // From the content already in hand on both branches. The live branch used to
-  // read the file a second time here, so the range could be cut from different
-  // bytes than the ones loaded and policy-checked just above.
+  // Search, policy evaluation, and range projection share one live observation.
+  // The WARP branch loads the matched file once for policy and range projection.
   const rangeResult = readRangeFromContent(loc.path, content, loc.startLine, loc.endLine);
 
   ctx.recordFootprint({

@@ -9,6 +9,8 @@ import { openWarp } from "../../../src/warp/open.js";
 import { indexHead } from "../../../src/warp/index-head.js";
 import { nodePathOps } from "../../../src/adapters/node-paths.js";
 import { JumpEntry, OutlineEntry } from "../../../src/parser/types.js";
+import type { ToolContext } from "../../../src/mcp/context.js";
+import { runCodeShow } from "../../../src/mcp/tools/code-show.js";
 
 describe("mcp: code_show", () => {
   it("returns working-tree source code for a known symbol", async () => {
@@ -197,6 +199,33 @@ describe("mcp: code_show", () => {
     } finally {
       cleanupTestRepo(tmpDir);
     }
+  });
+
+  it("uses one live file observation for search, policy, and range projection", async () => {
+    const content = "export function greet(): string {\n  return 'hello';\n}\n";
+    const reads: string[] = [];
+    const ctx = {
+      projectRoot: "/repo",
+      graftignorePatterns: [],
+      governor: {
+        getGovernorDepth: () => 0,
+        getBudget: () => undefined,
+      },
+      fs: {
+        readFile: (filePath: string) => {
+          reads.push(filePath);
+          return Promise.resolve(content);
+        },
+      },
+      resolvePath: (filePath: string) => `/repo/${filePath}`,
+      getRepoState: () => ({ dirty: true }),
+      recordFootprint: () => undefined,
+      respond: (_tool: string, data: Record<string, unknown>) => data,
+    } as unknown as ToolContext;
+
+    await runCodeShow(ctx, { symbol: "greet", path: "app.ts" }, { allowWarp: false });
+
+    expect(reads).toEqual(["/repo/app.ts"]);
   });
 });
 
