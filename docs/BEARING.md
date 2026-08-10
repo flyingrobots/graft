@@ -82,37 +82,35 @@ parsing.
 
 ## Next Target
 
-The immediate focus is **schema authority before substrate migration**. The
-near-term work is locked as a Graft-only pre-Echo execution plan with a hard
-Echo integration gate after generated-model parity and schema contract repair
-are proven.
+The immediate focus is **the first complete retained workspace observation**.
+The generated structural-history schema/model/codec contract, including
+`UNPINNED_COMMITTED`, is landed. PR #242 also established the
+`AdmittedWorkspaceReadView` authority seam. Production composition roots still
+construct `LiveWorkspaceReadSource`: Graft does not yet declare an observation
+through Edict, retain its request and settlement in Echo, or replay analysis
+after restart without filesystem reads.
 
-1. Keep `main` clean after the `v0.8.0` release.
-2. Treat the Wesley-backed structural-history generation gate as the active
-   quality invariant: generated TypeScript must be regenerated from GraphQL in
-   CI through the project-declared crates.io Wesley CLI and fail if
-   hand-edited.
-3. Pull the `asap/` cards that decompose
-   [CORE_structural-history-schema-and-echo-migration](./method/backlog/up-next/CORE_structural-history-schema-and-echo-migration.md)
-   into Graft-only pre-Echo slices.
-4. Define Graft's canonical structural-history facts in GraphQL before adapting
-   any additional git-warp model output.
-5. Use the existing Wesley toolchain to derive TypeScript/Zod/read-models,
-   Echo contracts, storage artifacts, and drift witnesses from that schema.
-6. Preserve current public command behavior while validating Echo-backed outputs
-   against current git-warp-backed outputs.
-7. Treat git-warp evidence as `git-warp-imported` or `fallback-translated`,
-   never as Continuum-native witnesshood.
-8. Stop opening git-warp during normal Graft operation once parity is proven.
-9. Do not add METHOD-specific backlog/status features to Graft. METHOD
-   backlog lanes, cards, retros, dependency DAGs, and release truth
-   surfaces belong in Method MCP / Method CLI.
-10. Keep `WARP_lsp-enrichment` and `CORE_migrate-to-slice-first-reads`
-   out of this slice. LSP enrichment remains valid optional scope;
-   slice-first reads remain externally blocked until git-warp observer
-   geometry APIs land.
-11. Treat daemon live refresh and daemon control-plane actions as a separate
-    daemon-operator lane, not part of this slice.
+Before that vertical, close one narrow authority preflight:
+
+1. Prove issue #238 against two dirty worktrees of the same repository in both
+   directions.
+2. Expose requested and canonical resolved roots plus workspace identity in
+   routed responses and receipts.
+3. Fail closed on missing, unauthorized, or identity-mismatched roots.
+4. Do not expand #238 into a routing rewrite or adjacent cleanup campaign.
+
+Then resume issue #228 as **First Retained Workspace Observation**:
+
+1. Declare Graft-owned Edict operation `ObserveWorkspaceSnapshot`.
+2. Use an unknown-basis request: the request authorizes an observation and the
+   settlement witnesses the bytes actually observed.
+3. Retain the admitted request before the first filesystem read.
+4. Retain the schema-bound settlement before the first Graft analysis read.
+5. Construct `AdmittedWorkspaceReadView` only from that retained settlement.
+6. Prove `file_outline` live output equals restarted replay output with zero
+   filesystem reads and zero git-warp opens during replay.
+7. Return a typed refusal or explicit incompleteness when a coherent snapshot
+   cannot be formed; never retain a temporally mixed observation as a snapshot.
 
 ## Locked Slice Plan (Execution)
 
@@ -143,24 +141,28 @@ are proven.
    map current `StructuralReadingPort` payloads to the generated model and
    preserve existing behavior while adding parity coverage.
 
-6. **Slice 5 — Unpinned committed-history basis kind** (active)
+6. **Slice 5 — Unpinned committed-history basis kind** (shipped)
    [`CORE_unpinned-basis-kind-for-structural-history`](./design/CORE_unpinned-basis-kind-for-structural-history.md):
    schema v0.2 names committed-history readings with no `ref` and no `head`
    as `UNPINNED_COMMITTED`, keeping `GIT_REF` reserved for bases with a
    present `refName`.
 
-7. **Echo integration gate**
-   Stop before claiming real `echo-native` evidence unless Echo exposes the
-   required TypeScript-facing runtime/client, retained-evidence posture, and
-   versioned package compatibility surface.
+7. **Requested-worktree authority preflight** (active; issue #238)
+   Prove explicit routed reads against two worktrees of one repository and make
+   requested/resolved identity inspectable and fail-closed.
 
-8. **Trust defect remediation**
-   Track `WARP_bijou-local-history-stale-after-branch-transition.md` as active
-   high-priority follow-up if and only if stale local history is observed in
-   dogfooding; otherwise it remains deferred behind the active schema-contract
-   repair.
+8. **First retained workspace observation** (next; issue #228)
+   Complete the Edict request -> Echo retention -> authorized observation ->
+   settlement retention -> admitted read -> restart -> zero-read replay
+   vertical using the unknown-basis request protocol.
 
-9. **Follow-on architecture debt**
-   Finish the remaining schema-facing debt:
-   `CLEAN_remaining-structural-warp-reads-bypass-structural-reading-port.md`,
-   then `CLEAN_technical-teardown-contract-ledger-can-stale-without-tests.md`.
+9. **One structural-history migration** (after restart proof)
+   Move one history/blame surface behind `StructuralReadingPort`, retaining
+   explicit `echo-native`, `git-warp-imported`, and `fallback-translated`
+   evidence postures until parity is executable proof.
+
+10. **Held work**
+    Keep PR #233 to a time-boxed landed/unique/research/obsolete inventory and
+    close or split it without making salvage a prerequisite for the Echo
+    vertical. Keep daemon dashboards, broader language analysis, live-frontier
+    work, git-warp import, and generic Continuum redesign outside these slices.
