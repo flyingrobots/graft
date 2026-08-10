@@ -192,6 +192,9 @@ export function createInvocationEngine(deps: InvocationEngineDeps): InvocationEn
       metrics: metrics.snapshot(),
       tripwires,
       budget: governor.getBudget(),
+      ...(execution?.workspaceRoute !== null && execution?.workspaceRoute !== undefined
+        ? { workspaceRoute: execution.workspaceRoute }
+        : {}),
     });
     invocation.response = {
       receipt,
@@ -354,6 +357,9 @@ export function createInvocationEngine(deps: InvocationEngineDeps): InvocationEn
       repoId: input.execution.repoId,
       worktreeId: input.execution.worktreeId,
       gitCommonDir: input.execution.gitCommonDir,
+      ...(input.execution.workspaceRoute !== null
+        ? { workspaceRoute: input.execution.workspaceRoute }
+        : {}),
       writerId: input.execution.warpWriterId,
       capabilityProfile: input.execution.capabilityProfile,
       repoState: input.execution.repoState.getState(),

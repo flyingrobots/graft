@@ -6,6 +6,7 @@ import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
 import type { MetricsSnapshot } from "./metrics.js";
 import type { Tripwire } from "../session/types.js";
 import type { JsonCodec } from "../ports/codec.js";
+import type { WorkspaceRouteEvidence } from "./workspace-router-model.js";
 import { attachMcpSchemaMeta, type McpToolName } from "../contracts/output-schemas.js";
 import {
   burdenKindForTool,
@@ -56,6 +57,7 @@ export interface McpToolReceipt {
   readonly cumulative: ReceiptCumulative;
   readonly budget?: ReceiptBudget;
   readonly compressionRatio?: number | null;
+  readonly workspace?: WorkspaceRouteEvidence | undefined;
 }
 
 export interface ReceiptDeps {
@@ -67,6 +69,7 @@ export interface ReceiptDeps {
   readonly tripwires: Tripwire[];
   readonly codec: JsonCodec;
   readonly budget?: ReceiptBudget | null;
+  readonly workspaceRoute?: WorkspaceRouteEvidence | undefined;
 }
 
 /** Mutable draft used internally during the size-stabilization loop. */
@@ -94,6 +97,7 @@ interface ReceiptDraft {
   };
   budget?: ReceiptBudget;
   compressionRatio?: number | null;
+  workspace?: WorkspaceRouteEvidence;
 }
 
 function extractProjection(data: Record<string, unknown>): string {
@@ -118,6 +122,7 @@ function extractFileBytes(data: Record<string, unknown>): number | null {
 function freezeReceipt(draft: ReceiptDraft): McpToolReceipt {
   Object.freeze(draft.burden);
   Object.freeze(draft.cumulative);
+  if (draft.workspace !== undefined) Object.freeze(draft.workspace);
   Object.freeze(draft);
   return draft as McpToolReceipt;
 }
@@ -159,6 +164,7 @@ export function buildReceiptResult(
       nonReadBytesReturned: totalNonReadBytesReturned(deps.metrics.burdenByKind),
       burdenByKind: deps.metrics.burdenByKind,
     },
+    ...(deps.workspaceRoute !== undefined ? { workspace: { ...deps.workspaceRoute } } : {}),
   };
 
   if (deps.budget != null) {
@@ -167,6 +173,7 @@ export function buildReceiptResult(
 
   const fullData: Record<string, unknown> & { tripwire?: Tripwire[] } = attachMcpSchemaMeta(tool, {
     ...data,
+    ...(deps.workspaceRoute !== undefined ? { _workspace: { ...deps.workspaceRoute } } : {}),
     _receipt: draft,
   });
   if (deps.tripwires.length > 0) {

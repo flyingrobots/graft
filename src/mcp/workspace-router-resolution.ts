@@ -62,10 +62,28 @@ export async function resolveWorkspaceRequest(
 
   const gitCommonDir = canonicalize(toAbsolutePath(worktreeRoot, rawGitCommonDir));
   const canonicalWorktreeRoot = canonicalize(worktreeRoot);
-  return {
+  const resolved = {
     repoId: stableWorkspaceId("repo", gitCommonDir),
     worktreeId: stableWorkspaceId("worktree", canonicalWorktreeRoot),
     worktreeRoot: canonicalWorktreeRoot,
     gitCommonDir,
   };
+  const mismatchedHints = [
+    request.repoId !== undefined && request.repoId !== resolved.repoId ? "repoId" : null,
+    request.worktreeRoot !== undefined
+      && canonicalize(toAbsolutePath(cwd, request.worktreeRoot)) !== resolved.worktreeRoot
+      ? "worktreeRoot"
+      : null,
+    request.gitCommonDir !== undefined
+      && canonicalize(toAbsolutePath(resolved.worktreeRoot, request.gitCommonDir)) !== resolved.gitCommonDir
+      ? "gitCommonDir"
+      : null,
+  ].filter((field): field is string => field !== null);
+  if (mismatchedHints.length > 0) {
+    return {
+      code: "WORKSPACE_IDENTITY_MISMATCH",
+      message: `Client workspace identity hints do not match the workspace resolved from cwd: ${mismatchedHints.join(", ")}`,
+    };
+  }
+  return resolved;
 }

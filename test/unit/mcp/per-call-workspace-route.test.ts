@@ -1,8 +1,9 @@
 import { afterEach, describe, expect, it } from "vitest";
 import * as fs from "node:fs";
 import * as path from "node:path";
+import { MCP_OUTPUT_SCHEMAS } from "../../../src/contracts/output-schemas.js";
 import { createInProcessDaemonHarness } from "../../helpers/daemon.js";
-import { cleanupTestRepo, createCommittedTestRepo } from "../../helpers/git.js";
+import { cleanupTestRepo, createCommittedTestRepo, git } from "../../helpers/git.js";
 import { createServerInRepo, parse } from "../../helpers/mcp.js";
 
 const cleanups: (() => Promise<void> | void)[] = [];
@@ -22,6 +23,19 @@ function createRepo(prefix: string, content: string): string {
     cleanupTestRepo(realRepoDir);
   });
   return realRepoDir;
+}
+
+function createSameRepoWorktrees(): { primary: string; secondary: string } {
+  const primary = createRepo(
+    "graft-route-same-repo-",
+    "export function baseline(): string { return 'baseline'; }\n",
+  );
+  const secondary = `${primary}-secondary`;
+  git(primary, `worktree add -b secondary ${secondary}`);
+  cleanups.push(() => {
+    fs.rmSync(secondary, { recursive: true, force: true });
+  });
+  return { primary, secondary: fs.realpathSync(secondary) };
 }
 
 describe("mcp: per-call workspace route", () => {
@@ -51,7 +65,10 @@ describe("mcp: per-call workspace route", () => {
     await expect(session.callToolJson("safe_read", {
       cwd: repoDir,
       path: "app.ts",
-    })).rejects.toThrow(/not authorized for routed daemon access/);
+    })).rejects.toMatchObject({
+      name: "WorkspaceRouteUnauthorizedError",
+      code: "WORKSPACE_NOT_AUTHORIZED",
+    });
 
     await expect(session.callToolJson("code_find", {
       cwd: repoDir,
@@ -221,5 +238,109 @@ describe("mcp: per-call workspace route", () => {
       query: "onlyInA",
     });
     expect(activeFind.total).toBe(0);
+  });
+
+  it("routes graft_since to either dirty worktree of one repository and witnesses the selected authority", {
+    timeout: 20_000,
+  }, async () => {
+    const { primary, secondary } = createSameRepoWorktrees();
+    const commonBase = git(primary, "rev-parse HEAD");
+    fs.writeFileSync(
+      path.join(primary, "app.ts"),
+      "export function onlyInPrimary(): string { return 'primary'; }\n",
+    );
+    git(primary, "add app.ts");
+    git(primary, "commit -m primary-change");
+    fs.writeFileSync(
+      path.join(secondary, "app.ts"),
+      "export function onlyInSecondary(): string { return 'secondary'; }\n",
+    );
+    git(secondary, "add app.ts");
+    git(secondary, "commit -m secondary-change");
+    fs.writeFileSync(path.join(primary, "dirty-primary.ts"), "export const dirtyPrimary = true;\n");
+    fs.writeFileSync(path.join(secondary, "dirty-secondary.ts"), "export const dirtySecondary = true;\n");
+
+    const harness = await createInProcessDaemonHarness();
+    cleanups.push(() => harness.close());
+    const session = harness.createSession();
+    await session.callToolJson("workspace_open", { cwd: primary, activate: true });
+    await session.callToolJson("workspace_open", { cwd: secondary, activate: true });
+
+    interface RoutedSince extends Record<string, unknown> {
+      files: { path: string; diff: { added: { name: string }[] } }[];
+      _workspace: {
+        route: "explicit_cwd";
+        requestedRoot: string;
+        resolvedRoot: string;
+        repoId: string;
+        worktreeId: string;
+      };
+      _receipt: {
+        workspace: RoutedSince["_workspace"];
+      };
+    }
+
+    const primaryResult = await session.callToolJson<RoutedSince>("graft_since", {
+      cwd: primary,
+      base: commonBase,
+      head: "HEAD",
+    });
+    expect(primaryResult.files).toHaveLength(1);
+    expect(primaryResult.files[0]).toEqual(expect.objectContaining({
+      path: "app.ts",
+      diff: expect.objectContaining({
+        added: [expect.objectContaining({ name: "onlyInPrimary" })],
+      }),
+    }));
+    expect(primaryResult._workspace).toEqual({
+      route: "explicit_cwd",
+      requestedRoot: primary,
+      resolvedRoot: primary,
+      repoId: expect.any(String),
+      worktreeId: expect.any(String),
+    });
+    expect(primaryResult._receipt.workspace).toEqual(primaryResult._workspace);
+    expect(() => MCP_OUTPUT_SCHEMAS.graft_since.parse(primaryResult)).not.toThrow();
+
+    const secondaryResult = await session.callToolJson<RoutedSince>("graft_since", {
+      cwd: secondary,
+      base: commonBase,
+      head: "HEAD",
+    });
+    expect(secondaryResult.files).toHaveLength(1);
+    expect(secondaryResult.files[0]).toEqual(expect.objectContaining({
+      path: "app.ts",
+      diff: expect.objectContaining({
+        added: [expect.objectContaining({ name: "onlyInSecondary" })],
+      }),
+    }));
+    expect(secondaryResult._workspace).toEqual({
+      route: "explicit_cwd",
+      requestedRoot: secondary,
+      resolvedRoot: secondary,
+      repoId: primaryResult._workspace.repoId,
+      worktreeId: expect.any(String),
+    });
+    expect(secondaryResult._workspace.worktreeId).not.toBe(primaryResult._workspace.worktreeId);
+    expect(secondaryResult._receipt.workspace).toEqual(secondaryResult._workspace);
+    expect(() => MCP_OUTPUT_SCHEMAS.graft_since.parse(secondaryResult)).not.toThrow();
+
+    const status = await session.callToolJson<{ worktreeRoot: string }>("workspace_status", {});
+    expect(status.worktreeRoot).toBe(secondary);
+  });
+
+  it("fails a routed structural read with typed resolution evidence when cwd is missing", async () => {
+    const repoDir = createRepo("graft-route-missing-", "export const repo = 'present';\n");
+    const harness = await createInProcessDaemonHarness();
+    cleanups.push(() => harness.close());
+    const session = harness.createSession();
+
+    await expect(session.callToolJson("graft_since", {
+      cwd: path.join(repoDir, "missing-worktree"),
+      base: "HEAD",
+    })).rejects.toMatchObject({
+      name: "WorkspaceResolutionError",
+      code: "NOT_A_GIT_REPO",
+    });
   });
 });

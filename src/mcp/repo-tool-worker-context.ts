@@ -106,6 +106,7 @@ export function buildRepoToolWorkerContext(
         metrics: metrics.snapshot(),
         tripwires,
         budget: governor.getBudget(),
+        ...(job.workspaceRoute !== undefined ? { workspaceRoute: job.workspaceRoute } : {}),
       });
       response = {
         result: built.result,

@@ -63,6 +63,7 @@ export type CliPeerCommandName =
 export interface McpCommonFields {
   readonly _schema: OutputSchemaMeta;
   readonly _receipt: Record<string, unknown>;
+  readonly _workspace?: Record<string, unknown> | undefined;
   readonly tripwire?: readonly Record<string, unknown>[] | undefined;
 }
 
@@ -72,6 +73,7 @@ export interface CliCommonFields {
 
 export interface CliPeerCommonFields extends CliCommonFields {
   readonly _receipt: Record<string, unknown>;
+  readonly _workspace?: Record<string, unknown> | undefined;
   readonly tripwire?: readonly Record<string, unknown>[] | undefined;
 }
 

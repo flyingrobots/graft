@@ -197,6 +197,14 @@ const sludgeReportSchema = z.object({
   summary: z.string(),
 }).strict();
 
+const workspaceRouteEvidenceSchema = z.object({
+  route: z.literal("explicit_cwd"),
+  requestedRoot: z.string(),
+  resolvedRoot: z.string(),
+  repoId: z.string(),
+  worktreeId: z.string(),
+}).strict();
+
 const receiptSchema = z.object({
   sessionId: z.string(),
   traceId: z.string(),
@@ -224,6 +232,7 @@ const receiptSchema = z.object({
   }).strict(),
   budget: budgetSchema.optional(),
   compressionRatio: z.number().nullable().optional(),
+  workspace: workspaceRouteEvidenceSchema.optional(),
 }).strict();
 
 const runtimeObservabilitySchema = z.object({
@@ -926,6 +935,7 @@ function withMcpCommon(
   return extendWithCommonFields(schema, {
     _schema: schemaMetaLiteral(mcpOutputSchemaMeta[tool]),
     _receipt: receiptSchema,
+    _workspace: workspaceRouteEvidenceSchema.optional(),
     tripwire: z.array(tripwireSchema).optional(),
   });
 }
@@ -946,6 +956,7 @@ function withCliPeerCommon(
   return extendWithCommonFields(schema, {
     _schema: schemaMetaLiteral(cliOutputSchemaMeta[command]),
     _receipt: receiptSchema,
+    _workspace: workspaceRouteEvidenceSchema.optional(),
     tripwire: z.array(tripwireSchema).optional(),
   });
 }

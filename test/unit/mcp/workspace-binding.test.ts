@@ -141,6 +141,28 @@ describe("mcp: daemon workspace binding", () => {
     expect(bind["errorCode"]).toBe("WORKSPACE_NOT_AUTHORIZED");
   });
 
+  it("fails closed when client identity hints contradict the resolved workspace", async () => {
+    const repoDir = createCommittedRepo();
+    const server = createManagedDaemonServer(cleanups);
+    await server.callTool("workspace_authorize", { cwd: repoDir });
+
+    const contradictoryHints = [
+      { repoId: "repo:contradictory-client-hint" },
+      { worktreeRoot: path.join(repoDir, "contradictory-worktree-root") },
+      { gitCommonDir: path.join(repoDir, "contradictory-git-common-dir") },
+    ];
+    for (const hints of contradictoryHints) {
+      const bind = parse(await server.callTool("workspace_bind", {
+        cwd: repoDir,
+        ...hints,
+      }));
+
+      expect(bind["ok"]).toBe(false);
+      expect(bind["errorCode"]).toBe("WORKSPACE_IDENTITY_MISMATCH");
+      expect(bind["bindState"]).toBe("unbound");
+    }
+  });
+
   it("binds a daemon session to a repo and enables repo-scoped tools", async () => {
     const repoDir = createCommittedRepo();
     const server = createManagedDaemonServer(cleanups);
