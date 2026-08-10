@@ -45,7 +45,7 @@ silently ignored.
    `WorkspaceRouter` execution-context route remains intact. This cycle added
    evidence propagation, identity-hint validation, and the missing proof.
 5. **Did existing behavior survive?** Yes. The complete isolated suite passes
-   258 files and 2,052 tests, including repo-local, daemon, worker, schema, and
+   258 files and 2,053 tests, including repo-local, daemon, worker, schema, and
    path-boundary surfaces.
 
 ## Review Repair
@@ -68,6 +68,13 @@ declared optional workspace evidence in their TypeScript interfaces but did not
 add it to their strict Zod schemas. The final repair promotes the existing
 workspace evidence schema into the shared metadata module and reuses it in the
 exported and product schema builders, with direct MCP and CLI helper coverage.
+
+The overlapping exact-head Codex pass found that active-binding reuse checked
+only the path-derived worktree identity and capability profile before attaching
+fresh route evidence. The final authority repair applies the existing full
+repository/common-directory matcher to the active binding too. A regression
+replaces the bound path with a linked worktree from another repository and
+proves execution identity now matches the newly resolved route evidence.
 
 ## Drift
 

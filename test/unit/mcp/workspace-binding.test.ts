@@ -288,6 +288,57 @@ describe("mcp: daemon workspace binding", () => {
     expect(secondContext.graftDir).toBe(firstContext.graftDir);
   });
 
+  it("rebuilds an active route binding when the same path resolves to a different repository", async () => {
+    const repoDir = createCommittedRepo();
+    const replacementSource = createCommittedRepo();
+    const graftDir = fs.mkdtempSync(path.join(os.tmpdir(), "graft-routed-replaced-repo-"));
+    cleanups.push(() => {
+      fs.rmSync(graftDir, { recursive: true, force: true });
+    });
+    const router = new WorkspaceRouter({
+      mode: "daemon",
+      fs: nodeFs,
+      git: nodeGit,
+      graftDir,
+      warpPool: {
+        getOrOpen(): Promise<never> {
+          return Promise.reject(new Error("unused in workspace replacement test"));
+        },
+        size(): number {
+          return 0;
+        },
+      },
+      transportSessionId: "transport:test",
+      authorizationPolicy: {
+        getCapabilityProfile() {
+          return Promise.resolve(DEFAULT_DAEMON_CAPABILITY_PROFILE);
+        },
+        noteBound(): Promise<void> {
+          return Promise.resolve();
+        },
+      },
+      persistedLocalHistory: new PersistedLocalHistoryStore({
+        fs: nodeFs,
+        codec: new CanonicalJsonCodec(),
+        graftDir,
+      }),
+    });
+
+    const bound = await router.bind({ cwd: repoDir }, "workspace_bind");
+    expect(bound.ok).toBe(true);
+    const original = router.captureExecutionContext();
+
+    fs.rmSync(repoDir, { recursive: true, force: true });
+    git(replacementSource, `worktree add -b replacement ${repoDir}`);
+
+    const routed = await router.captureExecutionContextForWorkspace({ cwd: repoDir });
+
+    expect(routed.workspaceRoute?.repoId).not.toBe(original.repoId);
+    expect(routed.workspaceRoute?.repoId).toBe(routed.repoId);
+    expect(routed.workspaceRoute?.resolvedRoot).toBe(routed.worktreeRoot);
+    expect(routed.gitCommonDir).not.toBe(original.gitCommonDir);
+  });
+
   it("Does workspace binding load graftignore without sync filesystem reads?", async () => {
     const repoDir = createCommittedRepo();
     fs.writeFileSync(path.join(repoDir, ".graftignore"), "ignored.ts\n");

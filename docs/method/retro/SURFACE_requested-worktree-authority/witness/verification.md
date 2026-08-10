@@ -33,7 +33,9 @@ The focused proof covers:
 - output-schema validation of routed results;
 - unchanged active session binding;
 - typed missing-root and unauthorized-root failures;
-- fail-closed `repoId`, `worktreeRoot`, and `gitCommonDir` mismatches; and
+- fail-closed `repoId`, `worktreeRoot`, and `gitCommonDir` mismatches;
+- active-path replacement with a different repository rebuilding the routed
+  execution context instead of reusing stale repository identity; and
 - evidence propagation through daemon worker execution.
 
 ## Exact-head Review Repair
@@ -67,11 +69,18 @@ evidence through both helpers and failed because `_workspace` was unrecognized.
 GREEN moved the exact workspace evidence schema into the shared metadata module
 and reused it in both exported helpers and the product schema builders.
 
+An overlapping exact-head Codex pass found that the active-binding fast path
+checked only `worktreeId` and capability profile. RED replaced the active path
+with a linked worktree from another repository: fresh route evidence named the
+replacement repository while the execution context retained the original
+`repoId`. GREEN applies the existing full routed-binding matcher to the active
+binding before reuse, aligning execution identity with route evidence.
+
 ## Full Validation
 
 | Gate | Command | Result |
 | :--- | :--- | :--- |
-| Full isolated suite | `pnpm test` | pass; 258 files, 2,052 tests |
+| Full isolated suite | `pnpm test` | pass; 258 files, 2,053 tests |
 | Build | `pnpm build` | pass |
 | Public surface | `pnpm release:surface-gate` | pass; 2 files, 10 tests |
 | Lint | `pnpm lint` | pass |

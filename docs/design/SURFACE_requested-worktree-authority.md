@@ -47,6 +47,9 @@ adds the missing proof, refusal fidelity, and inspectability contract.
   error.
 - A routed daemon read for an unauthorized worktree fails closed with
   `WorkspaceRouteUnauthorizedError`.
+- Reusing the active binding requires the resolved repository identity and Git
+  common directory to match; replacing the same worktree path with a worktree
+  from another repository constructs a fresh routed binding.
 - Optional `repoId`, `worktreeRoot`, and `gitCommonDir` hints, when supplied to
   a workspace request, must match the server-resolved identity or fail closed.
 - The active session workspace remains unchanged after every routed read.

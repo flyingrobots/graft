@@ -571,10 +571,10 @@ export class WorkspaceRouter {
     }
 
     if (
-      this.currentBinding?.worktreeId === resolved.worktreeId
-      && workspaceCapabilityProfilesEqual(this.currentBinding.capabilityProfile, capabilityProfile)
+      this.currentBinding !== null
+      && this.routedBindingMatches(this.currentBinding, resolved, capabilityProfile)
     ) {
-      return this.buildExecutionContext(this.requireBinding(), workspaceRoute);
+      return this.buildExecutionContext(this.currentBinding, workspaceRoute);
     }
 
     const existing = this.routedBindings.get(resolved.worktreeId);
