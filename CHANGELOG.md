@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.12.0] - 2026-08-09
+
 ### Added
 
 - **Import binding diagnostics**: `graft_import_diagnostics` and
