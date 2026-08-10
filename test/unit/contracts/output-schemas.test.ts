@@ -135,6 +135,36 @@ describe("contracts: output schemas", () => {
       _receipt: { seq: 1 },
       _workspace: workspace,
     })).not.toThrow();
+
+    expect(() => withMcpCommon("doctor", bodySchema, receiptSchema, tripwireSchema).parse({
+      ok: true,
+      _schema: mcpOutputSchemaMeta.doctor,
+      _receipt: { seq: 1, workspace },
+      _workspace: workspace,
+    })).toThrow();
+    expect(() => withCliPeerCommon("diag_doctor", bodySchema, receiptSchema, tripwireSchema).parse({
+      ok: true,
+      _schema: cliOutputSchemaMeta.diag_doctor,
+      _receipt: { seq: 1, workspace },
+      _workspace: workspace,
+    })).toThrow();
+  });
+
+  it("adds route evidence only to routed output contracts", () => {
+    interface JsonSchema {
+      properties?: Record<string, JsonSchema>;
+    }
+    const assertWorkspacePosture = (schema: JsonSchema, expected: boolean) => {
+      expect(schema.properties?.["_workspace"] !== undefined).toBe(expected);
+      expect(schema.properties?.["_receipt"]?.properties?.["workspace"] !== undefined).toBe(expected);
+    };
+
+    assertWorkspacePosture(getMcpOutputJsonSchema("safe_read") as JsonSchema, true);
+    assertWorkspacePosture(getCliOutputJsonSchema("read_safe") as JsonSchema, true);
+    assertWorkspacePosture(getMcpOutputJsonSchema("doctor") as JsonSchema, false);
+    assertWorkspacePosture(getCliOutputJsonSchema("diag_doctor") as JsonSchema, false);
+    assertWorkspacePosture(getMcpOutputJsonSchema("graft_review") as JsonSchema, false);
+    assertWorkspacePosture(getCliOutputJsonSchema("struct_review") as JsonSchema, false);
   });
 
   it("shares one import-binding diagnostic schema across diagnostics and review warnings", () => {

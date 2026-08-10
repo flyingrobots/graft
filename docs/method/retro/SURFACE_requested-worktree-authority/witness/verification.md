@@ -23,7 +23,7 @@ failed only on missing route evidence and the generic resolution error.
 npx vitest run test/unit/mcp/per-call-workspace-route.test.ts test/unit/mcp/workspace-binding.test.ts test/unit/contracts/output-schemas.test.ts test/unit/mcp/daemon-worker-pool.test.ts
 ```
 
-Result: 4 files and 41 tests passed.
+Result: 4 files and 45 tests passed.
 
 The focused proof covers:
 
@@ -34,8 +34,9 @@ The focused proof covers:
 - unchanged active session binding;
 - typed missing-root and unauthorized-root failures;
 - fail-closed `repoId`, `worktreeRoot`, and `gitCommonDir` mismatches;
-- active-path replacement with a different repository rebuilding the routed
-  execution context instead of reusing stale repository identity; and
+- active-path replacement with a different repository refusing stale
+  authorization instead of inheriting its capability profile;
+- workspace evidence appearing only in routed output contracts; and
 - evidence propagation through daemon worker execution.
 
 ## Exact-head Review Repair
@@ -76,11 +77,20 @@ replacement repository while the execution context retained the original
 `repoId`. GREEN applies the existing full routed-binding matcher to the active
 binding before reuse, aligning execution identity with route evidence.
 
+The next exact-head pass found that authorization lookup remained keyed only by
+the path-derived `worktreeId`, and that common product schemas admitted route
+evidence for non-routed tools. RED proved a replacement repository could read
+under stale authorization and proved `doctor`, `diag_doctor`, `graft_review`,
+and `struct_review` exposed undeclared route fields. GREEN revalidates the
+authorization record's repository id, root, and Git common directory, then
+uses the routed capability lists to add workspace evidence only to eligible
+top-level and receipt schemas.
+
 ## Full Validation
 
 | Gate | Command | Result |
 | :--- | :--- | :--- |
-| Full isolated suite | `pnpm test` | pass; 258 files, 2,053 tests |
+| Full isolated suite | `pnpm test` | pass; 258 files, 2,055 tests |
 | Build | `pnpm build` | pass |
 | Public surface | `pnpm release:surface-gate` | pass; 2 files, 10 tests |
 | Lint | `pnpm lint` | pass |

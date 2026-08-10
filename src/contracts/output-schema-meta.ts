@@ -121,10 +121,13 @@ export function withMcpCommon(
   receiptSchema: z.ZodType,
   tripwireSchema: z.ZodType,
 ): z.ZodType {
+  const routed = workspaceRoutedMcpTools.has(tool);
   return extendWithCommonFields(schema, {
     _schema: schemaMetaLiteral(mcpOutputSchemaMeta[tool]),
-    _receipt: receiptSchema,
-    _workspace: workspaceRouteEvidenceSchema.optional(),
+    _receipt: routed
+      ? extendWithCommonFields(receiptSchema, { workspace: workspaceRouteEvidenceSchema.optional() })
+      : receiptSchema,
+    ...(routed ? { _workspace: workspaceRouteEvidenceSchema.optional() } : {}),
     tripwire: z.array(tripwireSchema).optional(),
   });
 }
@@ -144,10 +147,13 @@ export function withCliPeerCommon(
   receiptSchema: z.ZodType,
   tripwireSchema: z.ZodType,
 ): z.ZodType {
+  const routed = workspaceRoutedCliCommands.has(command);
   return extendWithCommonFields(schema, {
     _schema: schemaMetaLiteral(cliOutputSchemaMeta[command]),
-    _receipt: receiptSchema,
-    _workspace: workspaceRouteEvidenceSchema.optional(),
+    _receipt: routed
+      ? extendWithCommonFields(receiptSchema, { workspace: workspaceRouteEvidenceSchema.optional() })
+      : receiptSchema,
+    ...(routed ? { _workspace: workspaceRouteEvidenceSchema.optional() } : {}),
     tripwire: z.array(tripwireSchema).optional(),
   });
 }

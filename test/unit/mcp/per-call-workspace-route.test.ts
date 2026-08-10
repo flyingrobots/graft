@@ -83,6 +83,31 @@ describe("mcp: per-call workspace route", () => {
     expect(status.worktreeRoot).toBeNull();
   });
 
+  it("does not transfer authorization when an authorized path becomes another repository", {
+    timeout: 20_000,
+  }, async () => {
+    const repoDir = createRepo("graft-route-authorized-original-", "export const original = true;\n");
+    const replacementSource = createRepo(
+      "graft-route-unauthorized-replacement-",
+      "export const replacement = true;\n",
+    );
+    const harness = await createInProcessDaemonHarness();
+    cleanups.push(() => harness.close());
+    const session = harness.createSession();
+
+    await session.callToolJson("workspace_open", { cwd: repoDir, activate: true });
+    fs.rmSync(repoDir, { recursive: true, force: true });
+    git(replacementSource, `worktree add -b replacement ${repoDir}`);
+
+    await expect(session.callToolJson("safe_read", {
+      cwd: repoDir,
+      path: "app.ts",
+    })).rejects.toMatchObject({
+      name: "WorkspaceRouteUnauthorizedError",
+      code: "WORKSPACE_NOT_AUTHORIZED",
+    });
+  });
+
   it("routes safe_read through cwd without binding the daemon session", { timeout: 15_000 }, async () => {
     const repoDir = createRepo("graft-route-unbound-", "export const repo = 'routed';\n");
     const harness = await createInProcessDaemonHarness();

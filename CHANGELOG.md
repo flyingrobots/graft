@@ -14,7 +14,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   resolved repository/worktree identities in both `_workspace` and
   `_receipt.workspace`. Routed resolution failures retain typed error codes,
   optional client identity hints fail closed when they contradict Git, active
-  binding reuse requires the full resolved repository identity, and a
+  binding reuse and authorization both require the full resolved repository
+  identity, path replacement cannot transfer authority between repositories, and a
   two-worktree `graft_since` regression proves that the active checkout cannot
   override an explicit `cwd`. The nine previously-version-1 routed MCP output
   contracts and their eight previously-version-1 direct CLI peers advertise

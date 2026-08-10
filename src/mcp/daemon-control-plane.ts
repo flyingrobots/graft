@@ -208,7 +208,14 @@ export class DaemonControlPlane {
   async getCapabilityProfile(resolved: ResolvedWorkspace): Promise<WorkspaceCapabilityProfile | null> {
     await this.ensureLoaded();
     const record = this.authorizedWorkspaces.get(resolved.worktreeId);
-    return record === undefined ? null : cloneCapabilityProfile(record.capabilityProfile);
+    if (
+      record?.repoId !== resolved.repoId
+      || record.worktreeRoot !== resolved.worktreeRoot
+      || record.gitCommonDir !== resolved.gitCommonDir
+    ) {
+      return null;
+    }
+    return cloneCapabilityProfile(record.capabilityProfile);
   }
 
   async noteBound(resolved: ResolvedWorkspace): Promise<void> {

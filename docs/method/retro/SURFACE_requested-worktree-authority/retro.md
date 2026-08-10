@@ -45,7 +45,7 @@ silently ignored.
    `WorkspaceRouter` execution-context route remains intact. This cycle added
    evidence propagation, identity-hint validation, and the missing proof.
 5. **Did existing behavior survive?** Yes. The complete isolated suite passes
-   258 files and 2,053 tests, including repo-local, daemon, worker, schema, and
+   258 files and 2,055 tests, including repo-local, daemon, worker, schema, and
    path-boundary surfaces.
 
 ## Review Repair
@@ -76,6 +76,15 @@ repository/common-directory matcher to the active binding too. A regression
 replaces the bound path with a linked worktree from another repository and
 proves execution identity now matches the newly resolved route evidence.
 
+The next exact-head Codex pass found two remaining boundary leaks. Authorization
+lookup still used only the path-derived worktree id, so a different repository
+installed at an authorized path could inherit the stale capability profile.
+Separately, workspace route evidence had been added to every strict product and
+exported common schema even though only the routed capability sets can emit it.
+The repair binds authorization to the full resolved identity, refuses a
+replacement until explicit authorization, and limits top-level and receipt
+workspace evidence to the authoritative routed MCP and CLI capability lists.
+
 ## Drift
 
 The implementation matches the design packet. Scope did not expand into
@@ -99,6 +108,8 @@ changing the command's semantics.
   tool handlers, or inline and worker-backed tools can drift apart.
 - The active-worktree branch of route reuse also needs explicit route evidence;
   reusing the binding must not erase the caller's authority declaration.
+- A path-derived worktree id is an index, not sufficient authorization
+  evidence; authority must be revalidated against the full resolved identity.
 
 ## Debt and Ideas
 
