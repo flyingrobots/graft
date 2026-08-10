@@ -45,7 +45,7 @@ silently ignored.
    `WorkspaceRouter` execution-context route remains intact. This cycle added
    evidence propagation, identity-hint validation, and the missing proof.
 5. **Did existing behavior survive?** Yes. The complete isolated suite passes
-   258 files and 2,055 tests, including repo-local, daemon, worker, schema, and
+   258 files and 2,056 tests, including repo-local, daemon, worker, schema, and
    path-boundary surfaces.
 
 ## Review Repair
@@ -84,6 +84,12 @@ exported common schema even though only the routed capability sets can emit it.
 The repair binds authorization to the full resolved identity, refuses a
 replacement until explicit authorization, and limits top-level and receipt
 workspace evidence to the authoritative routed MCP and CLI capability lists.
+
+CodeRabbit's resumed exact-head pass then found that the shared evidence schema
+accepted empty and relative requested/resolved roots despite the design's
+absolute-root contract. The repair adds a portable absolute-root pattern for
+POSIX, Windows drive, and UNC paths and a direct rejection regression without
+introducing platform adapters into the contracts layer.
 
 ## Drift
 

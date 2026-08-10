@@ -23,7 +23,7 @@ failed only on missing route evidence and the generic resolution error.
 npx vitest run test/unit/mcp/per-call-workspace-route.test.ts test/unit/mcp/workspace-binding.test.ts test/unit/contracts/output-schemas.test.ts test/unit/mcp/daemon-worker-pool.test.ts
 ```
 
-Result: 4 files and 45 tests passed.
+Result: 4 files and 46 tests passed.
 
 The focused proof covers:
 
@@ -37,6 +37,7 @@ The focused proof covers:
 - active-path replacement with a different repository refusing stale
   authorization instead of inheriting its capability profile;
 - workspace evidence appearing only in routed output contracts; and
+- empty or relative route-evidence roots failing schema validation; and
 - evidence propagation through daemon worker execution.
 
 ## Exact-head Review Repair
@@ -86,11 +87,17 @@ authorization record's repository id, root, and Git common directory, then
 uses the routed capability lists to add workspace evidence only to eligible
 top-level and receipt schemas.
 
+CodeRabbit resumed on that exact head and found the evidence schema still
+accepted empty and relative roots. RED passed an empty `requestedRoot` and a
+relative `resolvedRoot`; both were accepted. GREEN gives both fields a portable
+absolute-root pattern covering POSIX, Windows drive, and UNC roots, and the
+direct contract regression rejects both invalid forms.
+
 ## Full Validation
 
 | Gate | Command | Result |
 | :--- | :--- | :--- |
-| Full isolated suite | `pnpm test` | pass; 258 files, 2,055 tests |
+| Full isolated suite | `pnpm test` | pass; 258 files, 2,056 tests |
 | Build | `pnpm build` | pass |
 | Public surface | `pnpm release:surface-gate` | pass; 2 files, 10 tests |
 | Lint | `pnpm lint` | pass |

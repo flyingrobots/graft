@@ -15,10 +15,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   `_receipt.workspace`. Routed resolution failures retain typed error codes,
   optional client identity hints fail closed when they contradict Git, active
   binding reuse and authorization both require the full resolved repository
-  identity, path replacement cannot transfer authority between repositories, and a
-  two-worktree `graft_since` regression proves that the active checkout cannot
-  override an explicit `cwd`. The nine previously-version-1 routed MCP output
-  contracts and their eight previously-version-1 direct CLI peers advertise
+  identity, path replacement cannot transfer authority between repositories,
+  and a two-worktree `graft_since` regression proves that the active checkout cannot
+  override an explicit `cwd`. Workspace-route output contracts reject empty or
+  relative requested and resolved roots. The nine previously-version-1 routed
+  MCP output contracts and their eight previously-version-1 direct CLI peers advertise
   schema version `2.0.0` for the added workspace-route evidence. Because
   `file_outline` and `read_outline` already used version `2.0.0`, those two
   contracts advance to `3.0.0` instead of changing an existing strict shape in

@@ -24,10 +24,15 @@ export interface OutputSchemaMeta {
   readonly version: OutputSchemaVersion;
 }
 
+const absoluteWorkspaceRootSchema = z.string().regex(
+  /^(?:\/|[A-Za-z]:[\\/]|\\\\)/,
+  "Workspace root must be absolute",
+);
+
 export const workspaceRouteEvidenceSchema = z.object({
   route: z.literal("explicit_cwd"),
-  requestedRoot: z.string(),
-  resolvedRoot: z.string(),
+  requestedRoot: absoluteWorkspaceRootSchema,
+  resolvedRoot: absoluteWorkspaceRootSchema,
   repoId: z.string(),
   worktreeId: z.string(),
 }).strict();

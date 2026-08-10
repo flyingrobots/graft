@@ -18,6 +18,7 @@ import {
 import {
   cliOutputSchemaMeta,
   mcpOutputSchemaMeta,
+  workspaceRouteEvidenceSchema,
   withCliPeerCommon,
   withMcpCommon,
 } from "../../../src/contracts/output-schema-meta.js";
@@ -165,6 +166,31 @@ describe("contracts: output schemas", () => {
     assertWorkspacePosture(getCliOutputJsonSchema("diag_doctor") as JsonSchema, false);
     assertWorkspacePosture(getMcpOutputJsonSchema("graft_review") as JsonSchema, false);
     assertWorkspacePosture(getCliOutputJsonSchema("struct_review") as JsonSchema, false);
+  });
+
+  it("requires absolute roots in workspace route evidence", () => {
+    const evidence = {
+      route: "explicit_cwd",
+      requestedRoot: "/tmp/requested",
+      resolvedRoot: "/tmp/resolved",
+      repoId: "repo:1",
+      worktreeId: "worktree:1",
+    } as const;
+
+    expect(() => workspaceRouteEvidenceSchema.parse(evidence)).not.toThrow();
+    expect(() => workspaceRouteEvidenceSchema.parse({
+      ...evidence,
+      requestedRoot: "C:\\requested",
+      resolvedRoot: "\\\\server\\resolved",
+    })).not.toThrow();
+    expect(() => workspaceRouteEvidenceSchema.parse({
+      ...evidence,
+      requestedRoot: "",
+    })).toThrow();
+    expect(() => workspaceRouteEvidenceSchema.parse({
+      ...evidence,
+      resolvedRoot: "relative/worktree",
+    })).toThrow();
   });
 
   it("shares one import-binding diagnostic schema across diagnostics and review warnings", () => {
