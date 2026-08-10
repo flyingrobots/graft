@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Fixed
+
+- **Requested-worktree authority**: daemon-routed repository reads now expose
+  the absolute caller-requested root, canonical resolved worktree root, and
+  resolved repository/worktree identities in both `_workspace` and
+  `_receipt.workspace`. Routed resolution failures retain typed error codes,
+  optional client identity hints fail closed when they contradict Git, and a
+  two-worktree `graft_since` regression proves that the active checkout cannot
+  override an explicit `cwd`.
+
 ## [0.12.0] - 2026-08-09
 
 ### Added

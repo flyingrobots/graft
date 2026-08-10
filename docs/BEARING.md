@@ -147,7 +147,8 @@ Then resume issue #228 as **First Retained Workspace Observation**:
    as `UNPINNED_COMMITTED`, keeping `GIT_REF` reserved for bases with a
    present `refName`.
 
-7. **Requested-worktree authority preflight** (active; issue #238)
+7. **Requested-worktree authority preflight** (complete locally; pending review;
+   issue #238)
    Prove explicit routed reads against two worktrees of one repository and make
    requested/resolved identity inspectable and fail-closed.
 

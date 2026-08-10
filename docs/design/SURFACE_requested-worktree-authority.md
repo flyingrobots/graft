@@ -3,7 +3,7 @@ title: "Requested worktree authority"
 legend: "SURFACE"
 cycle: "SURFACE_requested-worktree-authority"
 source_issue: "https://github.com/flyingrobots/graft/issues/238"
-status: active
+status: completed
 ---
 
 # Requested worktree authority
@@ -51,20 +51,20 @@ adds the missing proof, refusal fidelity, and inspectability contract.
 
 ### Human
 
-- [ ] Can a review request name worktree A while the session is bound to B and
+- [x] Can a review request name worktree A while the session is bound to B and
   receive only A's changes?
-- [ ] Can the response be audited without inferring which checkout Graft used?
-- [ ] Does every missing, unauthorized, or contradictory workspace request
+- [x] Can the response be audited without inferring which checkout Graft used?
+- [x] Does every missing, unauthorized, or contradictory workspace request
   refuse instead of falling back to the active or daemon-default checkout?
 
 ### Agent
 
-- [ ] Does routing evidence survive the child-process worker boundary?
-- [ ] Do result and receipt carry identical requested/resolved roots and
+- [x] Does routing evidence survive the child-process worker boundary?
+- [x] Do result and receipt carry identical requested/resolved roots and
   workspace identities?
-- [ ] Does a reversed A/B request prove that routing is not accidentally tied
+- [x] Does a reversed A/B request prove that routing is not accidentally tied
   to test setup order?
-- [ ] Do existing repo-local calls and daemon calls without `cwd` retain their
+- [x] Do existing repo-local calls and daemon calls without `cwd` retain their
   current response shape?
 
 ## Authority Model
@@ -105,4 +105,3 @@ workspace. A daemon default is never a substitute for a failed explicit route.
 - No daemon dashboard work.
 - No PR #233 salvage beyond its separate time-boxed inventory.
 - No unrelated cleanup.
-
