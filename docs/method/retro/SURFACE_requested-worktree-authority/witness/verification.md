@@ -41,18 +41,24 @@ The focused proof covers:
 Codex review of `3798d94a` found that routed outputs could emit `_workspace`
 and `_receipt.workspace` while advertising strict schema version `1.0.0`.
 
-RED changed the contract test to require `2.0.0` for all ten routed MCP tools
-and their nine direct CLI peers. It failed on `safe_read` with:
+The first RED changed the contract test to require `2.0.0` for all ten routed
+MCP tools and their nine direct CLI peers. It failed on `safe_read` with:
 
 ```text
 safe_read: expected '1.0.0' to be '2.0.0'
 ```
 
-GREEN defines the routed MCP and CLI names once in the capability contract,
-uses the MCP list for daemon scheduling, and uses both lists for output-schema
-metadata. The focused version regression then passed, the routed
-`graft_since` proof observed `_schema.version == "2.0.0"`, and the complete
-isolated suite repeated green at 258 files and 2,051 tests.
+The first GREEN defines the routed MCP and CLI names once in the capability
+contract, uses the MCP list for daemon scheduling, and uses both lists for
+output-schema metadata. The focused version regression then passed, and the
+routed `graft_since` proof observed `_schema.version == "2.0.0"`.
+
+The exact-head follow-up found that `file_outline` and `read_outline` already
+used version `2.0.0`. A second RED changed those two expectations to `3.0.0`
+and failed with the existing `2.0.0` value. GREEN added output schema version
+`3.0.0`, assigned it only to the two outline contracts, and asserted the
+emitted `file_outline` metadata directly. The other nine routed MCP tools and
+eight direct CLI peers remain on the newly assigned version `2.0.0`.
 
 ## Full Validation
 

@@ -77,11 +77,10 @@ describe("contracts: output schemas", () => {
     expect(getCliOutputSchemaMeta("struct_review")).toBe(cliOutputSchemaMeta.struct_review);
     expect(getMcpOutputSchemaMeta("graft_review").version).toBe("2.0.0");
     expect(getCliOutputSchemaMeta("struct_review").version).toBe("2.0.0");
-    expect(getMcpOutputSchemaMeta("file_outline").version).toBe("2.0.0");
-    expect(getCliOutputSchemaMeta("read_outline").version).toBe("2.0.0");
+    expect(getMcpOutputSchemaMeta("file_outline").version).toBe("3.0.0");
+    expect(getCliOutputSchemaMeta("read_outline").version).toBe("3.0.0");
     for (const tool of [
       "safe_read",
-      "file_outline",
       "read_range",
       "changed_since",
       "graft_diff",
@@ -95,7 +94,6 @@ describe("contracts: output schemas", () => {
     }
     for (const command of [
       "read_safe",
-      "read_outline",
       "read_range",
       "read_changed",
       "struct_diff",
@@ -142,6 +140,10 @@ describe("contracts: output schemas", () => {
     const { _schema: _schema, _receipt: _receipt, tripwire: _tripwire, ...body } = output;
 
     expect(output).toMatchObject({
+      _schema: {
+        id: "graft.mcp.file_outline",
+        version: "3.0.0",
+      },
       cacheHit: true,
       actual: { lines: 2, bytes: Buffer.byteLength(content) },
     });

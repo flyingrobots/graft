@@ -52,11 +52,16 @@ silently ignored.
 
 Exact-head Codex review found one P1 contract-version error: the new optional
 workspace evidence expanded strict routed MCP and CLI peer outputs while most
-still advertised schema version `1.0.0`. The repair moved the routed-tool names
-into the capability contract, reused that authority for daemon scheduling and
-output metadata, and advanced every affected output to `2.0.0`. This avoids a
-second independently maintained version list and keeps unrelated contracts at
-their existing versions.
+still advertised schema version `1.0.0`. The first repair moved the routed-tool
+names into the capability contract, reused that authority for daemon scheduling
+and output metadata, and advanced those version-1 outputs to `2.0.0`.
+
+The exact-head follow-up found that `file_outline` and `read_outline` already
+used version `2.0.0` for a previous outline-contract expansion. The second
+repair therefore introduces output schema version `3.0.0` and assigns it only
+to those two routed outline contracts. This avoids both an independently
+maintained version list and reuse of an existing strict contract version;
+unrelated contracts retain their existing versions.
 
 ## Drift
 

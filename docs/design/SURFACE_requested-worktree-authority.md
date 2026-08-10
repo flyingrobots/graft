@@ -36,8 +36,10 @@ adds the missing proof, refusal fidelity, and inspectability contract.
   `_workspace.resolvedRoot`, `_workspace.repoId`, and
   `_workspace.worktreeId`.
 - Each routed receipt exposes the same workspace-route evidence.
-- Routed MCP tools and their direct CLI peers advertise schema version `2.0.0`
-  for the expanded strict output contract.
+- Previously-version-1 routed MCP tools and their direct CLI peers advertise
+  schema version `2.0.0` for the expanded strict output contract;
+  `file_outline` and `read_outline`, already on version `2.0.0`, advance to
+  `3.0.0`.
 - `requestedRoot` is the absolute caller path; `resolvedRoot` is the
   canonical Git worktree root.
 - The two worktrees share `repoId` and have distinct `worktreeId` values.
