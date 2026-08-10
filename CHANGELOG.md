@@ -16,6 +16,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ### Changed
 
+- **Release dependency security**: the release graph now resolves patched
+  transitive versions of `tar`, `brace-expansion`, `fast-uri`, `hono`,
+  `ip-address`, `postcss`, and `nanoid`, restoring the zero-high/critical
+  advisory release gate without changing Graft's direct dependency majors.
 - **Portable filesystem absence handling**: filesystem adapters may classify
   custom missing-path errors explicitly, while the live workspace boundary
   also recognizes standard portable missing-error shapes. Only confirmed
