@@ -134,6 +134,17 @@ explicit `cwd` routes for repo-specific tools that support routing:
 `code_refs`. The route resolves one call against the requested
 authorized workspace without changing the active workspace.
 
+An explicit route has strict precedence over the active session binding. If
+its `cwd` is missing, outside a Git worktree, unauthorized, or contradicted by
+supplied identity hints, the call fails instead of falling back. Successful
+routed responses expose `requestedRoot`, canonical `resolvedRoot`, `repoId`,
+and `worktreeId` under both `_workspace` and `_receipt.workspace`. Without an
+explicit `cwd`, repository tools continue to use the active session binding.
+Previously-version-1 routed MCP tools and their direct CLI peers advertise
+output schema version `2.0.0` for this expanded strict contract.
+`file_outline` and `read_outline`, which already used version `2.0.0`, advance
+to `3.0.0`.
+
 Use `workspace_authorize` plus `workspace_bind` when you need direct
 operator control over daemon authorization and binding state.
 

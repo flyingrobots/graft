@@ -1,0 +1,124 @@
+---
+title: "Requested worktree authority"
+cycle: "SURFACE_requested-worktree-authority"
+design_doc: "docs/design/SURFACE_requested-worktree-authority.md"
+source_issue: "https://github.com/flyingrobots/graft/issues/238"
+outcome: hill-met
+drift_check: manual
+---
+
+# Requested worktree authority Retro
+
+## Outcome
+
+Issue #238's remaining authority gap is closed locally. An explicit daemon
+route now carries one immutable `WorkspaceRouteEvidence` from resolution
+through the execution context and child-process worker boundary. Every routed
+result exposes that evidence as `_workspace`, and its receipt repeats the same
+facts as `_receipt.workspace`.
+
+The proof uses two worktrees of one repository with different branch commits
+and different dirty overlays. With the session active on the secondary
+worktree, `graft_since` against the primary reports only the primary symbol;
+the reversed request reports only the secondary symbol. Both results share a
+`repoId`, have distinct `worktreeId` values, and leave the active binding
+unchanged.
+
+Missing routed roots now throw `WorkspaceResolutionError` with the resolution
+code. Unauthorized roots retain `WorkspaceRouteUnauthorizedError`. Optional
+`repoId`, `worktreeRoot`, and `gitCommonDir` hints are checked against Git's
+resolved identity and return `WORKSPACE_IDENTITY_MISMATCH` instead of being
+silently ignored.
+
+## Playback
+
+1. **Can an explicit route select worktree A while B is active?** Yes. The
+   bidirectional regression reports `onlyInPrimary` and `onlyInSecondary` only
+   from their selected worktrees.
+2. **Is the selection inspectable?** Yes. Response and receipt expose identical
+   requested/resolved roots and repository/worktree identities, and the
+   declared output schema accepts them.
+3. **Does resolution fail closed?** Yes. Missing, unauthorized, and
+   contradictory requests retain typed machine-readable failures; none falls
+   back to the active binding.
+4. **Did the route architecture change?** No. The existing non-mutating
+   `WorkspaceRouter` execution-context route remains intact. This cycle added
+   evidence propagation, identity-hint validation, and the missing proof.
+5. **Did existing behavior survive?** Yes. The complete isolated suite passes
+   258 files and 2,056 tests, including repo-local, daemon, worker, schema, and
+   path-boundary surfaces.
+
+## Review Repair
+
+Exact-head Codex review found one P1 contract-version error: the new optional
+workspace evidence expanded strict routed MCP and CLI peer outputs while most
+still advertised schema version `1.0.0`. The first repair moved the routed-tool
+names into the capability contract, reused that authority for daemon scheduling
+and output metadata, and advanced those version-1 outputs to `2.0.0`.
+
+The exact-head follow-up found that `file_outline` and `read_outline` already
+used version `2.0.0` for a previous outline-contract expansion. The second
+repair therefore introduces output schema version `3.0.0` and assigns it only
+to those two routed outline contracts. This avoids both an independently
+maintained version list and reuse of an existing strict contract version;
+unrelated contracts retain their existing versions.
+
+Exact-head CodeRabbit review then found that the exported common-schema helpers
+declared optional workspace evidence in their TypeScript interfaces but did not
+add it to their strict Zod schemas. The final repair promotes the existing
+workspace evidence schema into the shared metadata module and reuses it in the
+exported and product schema builders, with direct MCP and CLI helper coverage.
+
+The overlapping exact-head Codex pass found that active-binding reuse checked
+only the path-derived worktree identity and capability profile before attaching
+fresh route evidence. The final authority repair applies the existing full
+repository/common-directory matcher to the active binding too. A regression
+replaces the bound path with a linked worktree from another repository and
+proves execution identity now matches the newly resolved route evidence.
+
+The next exact-head Codex pass found two remaining boundary leaks. Authorization
+lookup still used only the path-derived worktree id, so a different repository
+installed at an authorized path could inherit the stale capability profile.
+Separately, workspace route evidence had been added to every strict product and
+exported common schema even though only the routed capability sets can emit it.
+The repair binds authorization to the full resolved identity, refuses a
+replacement until explicit authorization, and limits top-level and receipt
+workspace evidence to the authoritative routed MCP and CLI capability lists.
+
+CodeRabbit's resumed exact-head pass then found that the shared evidence schema
+accepted empty and relative requested/resolved roots despite the design's
+absolute-root contract. The repair adds a portable absolute-root pattern for
+POSIX, Windows drive, and UNC paths and a direct rejection regression without
+introducing platform adapters into the contracts layer.
+
+## Drift
+
+The implementation matches the design packet. Scope did not expand into
+structural diff semantics, a routing rewrite, Echo integration,
+`StructuralReadingPort`, git-warp import, daemon dashboards, PR #233 salvage,
+or unrelated cleanup.
+
+The test design changed once during RED: `graft_since` compares Git refs and
+does not include the dirty workspace overlay. The final fixture therefore
+creates distinct branch commits from one common base and separately leaves
+both worktrees dirty. That preserves the intended routing proof without
+changing the command's semantics.
+
+## Findings
+
+- The existing per-call route was already structurally sound. The dangerous
+  remaining gaps were lack of same-repository/two-worktree proof, lack of
+  response/receipt evidence, generic resolution failures, and ignored identity
+  hints.
+- Evidence must be attached in the receipt builder, not individually in ten
+  tool handlers, or inline and worker-backed tools can drift apart.
+- The active-worktree branch of route reuse also needs explicit route evidence;
+  reusing the binding must not erase the caller's authority declaration.
+- A path-derived worktree id is an index, not sufficient authorization
+  evidence; authority must be revalidated against the full resolved identity.
+
+## Debt and Ideas
+
+No new backlog cards were filed. The next architectural work remains the
+already-planned issue #228 First Retained Workspace Observation vertical using
+an unknown-basis request.

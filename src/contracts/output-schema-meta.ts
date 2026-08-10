@@ -4,36 +4,61 @@ import {
   type CliCommandName,
   MCP_TOOL_NAMES,
   type McpToolName,
+  WORKSPACE_ROUTED_CLI_COMMAND_NAMES,
+  WORKSPACE_ROUTED_MCP_TOOL_NAMES,
 } from "./capabilities.js";
 
 export const OUTPUT_SCHEMA_VERSION = "1.0.0" as const;
 export const OUTPUT_SCHEMA_V2_VERSION = "2.0.0" as const;
+export const OUTPUT_SCHEMA_V3_VERSION = "3.0.0" as const;
 export const REVIEW_OUTPUT_SCHEMA_VERSION = OUTPUT_SCHEMA_V2_VERSION;
+export const OUTLINE_OUTPUT_SCHEMA_VERSION = OUTPUT_SCHEMA_V3_VERSION;
 
 export type OutputSchemaVersion =
   | typeof OUTPUT_SCHEMA_VERSION
-  | typeof OUTPUT_SCHEMA_V2_VERSION;
+  | typeof OUTPUT_SCHEMA_V2_VERSION
+  | typeof OUTPUT_SCHEMA_V3_VERSION;
 
 export interface OutputSchemaMeta {
   readonly id: string;
   readonly version: OutputSchemaVersion;
 }
 
+const absoluteWorkspaceRootSchema = z.string().regex(
+  /^(?:\/|[A-Za-z]:[\\/]|\\\\)/,
+  "Workspace root must be absolute",
+);
+
+export const workspaceRouteEvidenceSchema = z.object({
+  route: z.literal("explicit_cwd"),
+  requestedRoot: absoluteWorkspaceRootSchema,
+  resolvedRoot: absoluteWorkspaceRootSchema,
+  repoId: z.string(),
+  worktreeId: z.string(),
+}).strict();
+
+const workspaceRoutedMcpTools = new Set<McpToolName>(WORKSPACE_ROUTED_MCP_TOOL_NAMES);
+const workspaceRoutedCliCommands = new Set<CliCommandName>(WORKSPACE_ROUTED_CLI_COMMAND_NAMES);
+
 export const mcpOutputSchemaMeta = Object.freeze(Object.fromEntries(
   MCP_TOOL_NAMES.map((tool) => [tool, Object.freeze({
     id: `graft.mcp.${tool}`,
-    version: tool === "graft_review" || tool === "file_outline"
-      ? OUTPUT_SCHEMA_V2_VERSION
-      : OUTPUT_SCHEMA_VERSION,
+    version: tool === "file_outline"
+      ? OUTLINE_OUTPUT_SCHEMA_VERSION
+      : tool === "graft_review" || workspaceRoutedMcpTools.has(tool)
+        ? OUTPUT_SCHEMA_V2_VERSION
+        : OUTPUT_SCHEMA_VERSION,
   })]),
 ) as Record<McpToolName, OutputSchemaMeta>);
 
 export const cliOutputSchemaMeta = Object.freeze(Object.fromEntries(
   CLI_COMMAND_NAMES.map((command) => [command, Object.freeze({
     id: `graft.cli.${command}`,
-    version: command === "struct_review" || command === "read_outline"
-      ? OUTPUT_SCHEMA_V2_VERSION
-      : OUTPUT_SCHEMA_VERSION,
+    version: command === "read_outline"
+      ? OUTLINE_OUTPUT_SCHEMA_VERSION
+      : command === "struct_review" || workspaceRoutedCliCommands.has(command)
+        ? OUTPUT_SCHEMA_V2_VERSION
+        : OUTPUT_SCHEMA_VERSION,
   })]),
 ) as Record<CliCommandName, OutputSchemaMeta>);
 
@@ -63,6 +88,7 @@ export type CliPeerCommandName =
 export interface McpCommonFields {
   readonly _schema: OutputSchemaMeta;
   readonly _receipt: Record<string, unknown>;
+  readonly _workspace?: Record<string, unknown> | undefined;
   readonly tripwire?: readonly Record<string, unknown>[] | undefined;
 }
 
@@ -72,6 +98,7 @@ export interface CliCommonFields {
 
 export interface CliPeerCommonFields extends CliCommonFields {
   readonly _receipt: Record<string, unknown>;
+  readonly _workspace?: Record<string, unknown> | undefined;
   readonly tripwire?: readonly Record<string, unknown>[] | undefined;
 }
 
@@ -99,9 +126,13 @@ export function withMcpCommon(
   receiptSchema: z.ZodType,
   tripwireSchema: z.ZodType,
 ): z.ZodType {
+  const routed = workspaceRoutedMcpTools.has(tool);
   return extendWithCommonFields(schema, {
     _schema: schemaMetaLiteral(mcpOutputSchemaMeta[tool]),
-    _receipt: receiptSchema,
+    _receipt: routed
+      ? extendWithCommonFields(receiptSchema, { workspace: workspaceRouteEvidenceSchema.optional() })
+      : receiptSchema,
+    ...(routed ? { _workspace: workspaceRouteEvidenceSchema.optional() } : {}),
     tripwire: z.array(tripwireSchema).optional(),
   });
 }
@@ -121,9 +152,13 @@ export function withCliPeerCommon(
   receiptSchema: z.ZodType,
   tripwireSchema: z.ZodType,
 ): z.ZodType {
+  const routed = workspaceRoutedCliCommands.has(command);
   return extendWithCommonFields(schema, {
     _schema: schemaMetaLiteral(cliOutputSchemaMeta[command]),
-    _receipt: receiptSchema,
+    _receipt: routed
+      ? extendWithCommonFields(receiptSchema, { workspace: workspaceRouteEvidenceSchema.optional() })
+      : receiptSchema,
+    ...(routed ? { _workspace: workspaceRouteEvidenceSchema.optional() } : {}),
     tripwire: z.array(tripwireSchema).optional(),
   });
 }

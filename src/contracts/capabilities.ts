@@ -85,6 +85,36 @@ export const CLI_COMMAND_NAMES = [
 
 export type CliCommandName = typeof CLI_COMMAND_NAMES[number];
 
+/**
+ * Repository tools whose daemon form accepts an explicit per-call workspace
+ * route and therefore may emit workspace-route evidence in its output.
+ */
+export const WORKSPACE_ROUTED_MCP_TOOL_NAMES = [
+  "safe_read",
+  "file_outline",
+  "read_range",
+  "changed_since",
+  "graft_diff",
+  "graft_since",
+  "graft_map",
+  "code_show",
+  "code_find",
+  "code_refs",
+] as const satisfies readonly McpToolName[];
+
+/** CLI peers of the routed MCP tools; `code_refs` has no direct CLI peer. */
+export const WORKSPACE_ROUTED_CLI_COMMAND_NAMES = [
+  "read_safe",
+  "read_outline",
+  "read_range",
+  "read_changed",
+  "struct_diff",
+  "struct_since",
+  "struct_map",
+  "symbol_show",
+  "symbol_find",
+] as const satisfies readonly CliCommandName[];
+
 export const ENTRYPOINT_SURFACES = ["api", "cli", "mcp"] as const;
 
 export type EntrypointSurface = typeof ENTRYPOINT_SURFACES[number];

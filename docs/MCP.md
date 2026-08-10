@@ -68,6 +68,20 @@ repo tools that support routing also accept `cwd`: `safe_read`,
 That `cwd` is resolved server-side as a per-call route and does not
 mutate the active workspace.
 
+Workspace precedence is fail-closed: a non-empty explicit `cwd` is resolved
+first and must name an authorized Git worktree; Graft never substitutes the
+active session workspace or a daemon default when that resolution fails. When
+`cwd` is omitted, the active session binding remains the workspace authority.
+Routed responses expose the resulting evidence twice for auditability:
+`_workspace` on the response and `_receipt.workspace` in the receipt contain
+the absolute `requestedRoot`, canonical `resolvedRoot`, `repoId`, and
+`worktreeId`. Optional identity hints on bind/rebind are consistency checks;
+they must match the Git-resolved identity and never override it. Because those
+fields expand strict machine-readable outputs, previously-version-1 routed MCP
+tools and their direct CLI peers advertise output schema version `2.0.0`.
+`file_outline` and `read_outline`, which already used version `2.0.0`, advance
+to `3.0.0`.
+
 `workspace_authorize` and `workspace_bind` remain available as lower-level
 daemon control-plane tools.
 

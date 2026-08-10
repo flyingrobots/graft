@@ -5,6 +5,8 @@ import {
   CLI_COMMAND_TO_MCP_TOOL,
   MCP_TOOL_NAMES,
   type McpToolName,
+  WORKSPACE_ROUTED_CLI_COMMAND_NAMES,
+  WORKSPACE_ROUTED_MCP_TOOL_NAMES,
 } from "./capabilities.js";
 import {
   attributionSummarySchema,
@@ -26,6 +28,7 @@ import {
   OUTPUT_SCHEMA_V2_VERSION,
   REVIEW_OUTPUT_SCHEMA_VERSION,
   schemaMetaLiteral,
+  workspaceRouteEvidenceSchema,
   type OutputSchemaMeta,
   type OutputSchemaVersion,
 } from "./output-schema-meta.js";
@@ -38,6 +41,9 @@ export { CLI_COMMAND_NAMES, MCP_TOOL_NAMES };
 export type { CliCommandName, McpToolName } from "./capabilities.js";
 export { OUTPUT_SCHEMA_VERSION, OUTPUT_SCHEMA_V2_VERSION, REVIEW_OUTPUT_SCHEMA_VERSION };
 export type { OutputSchemaMeta, OutputSchemaVersion };
+
+const workspaceRoutedMcpTools = new Set<McpToolName>(WORKSPACE_ROUTED_MCP_TOOL_NAMES);
+const workspaceRoutedCliCommands = new Set<CliCommandName>(WORKSPACE_ROUTED_CLI_COMMAND_NAMES);
 
 const sessionDepthSchema = z.enum(["early", "mid", "late", "unknown"]);
 const worldlineLayerSchema = z.enum(["commit_worldline", "ref_view", "workspace_overlay"]);
@@ -224,6 +230,10 @@ const receiptSchema = z.object({
   }).strict(),
   budget: budgetSchema.optional(),
   compressionRatio: z.number().nullable().optional(),
+}).strict();
+
+const routedReceiptSchema = receiptSchema.extend({
+  workspace: workspaceRouteEvidenceSchema.optional(),
 }).strict();
 
 const runtimeObservabilitySchema = z.object({
@@ -923,9 +933,11 @@ function withMcpCommon(
   tool: McpToolName,
   schema: z.ZodType,
 ): z.ZodType {
+  const routed = workspaceRoutedMcpTools.has(tool);
   return extendWithCommonFields(schema, {
     _schema: schemaMetaLiteral(mcpOutputSchemaMeta[tool]),
-    _receipt: receiptSchema,
+    _receipt: routed ? routedReceiptSchema : receiptSchema,
+    ...(routed ? { _workspace: workspaceRouteEvidenceSchema.optional() } : {}),
     tripwire: z.array(tripwireSchema).optional(),
   });
 }
@@ -943,9 +955,11 @@ function withCliPeerCommon(
   command: CliCommandName,
   schema: z.ZodType,
 ): z.ZodType {
+  const routed = workspaceRoutedCliCommands.has(command);
   return extendWithCommonFields(schema, {
     _schema: schemaMetaLiteral(cliOutputSchemaMeta[command]),
-    _receipt: receiptSchema,
+    _receipt: routed ? routedReceiptSchema : receiptSchema,
+    ...(routed ? { _workspace: workspaceRouteEvidenceSchema.optional() } : {}),
     tripwire: z.array(tripwireSchema).optional(),
   });
 }

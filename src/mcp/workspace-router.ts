@@ -22,6 +22,7 @@ import { buildWorkspaceReadObservation, type AttributedReadToolName } from "./wo
 import {
   DEFAULT_REPO_LOCAL_CAPABILITY_PROFILE,
   WorkspaceBindingRequiredError,
+  WorkspaceResolutionError,
   WorkspaceRouteUnauthorizedError,
   type CausalAttachResult,
   type OpenedWorkspaceSource,
@@ -37,6 +38,7 @@ import {
   type WorkspaceMode,
   type WorkspaceOpenRequest,
   type WorkspaceOpenResult,
+  type WorkspaceRouteEvidence,
   type WorkspaceSharedAttachPolicy,
   type WorkspaceStatus,
 } from "./workspace-router-model.js";
@@ -67,6 +69,7 @@ export {
   DEFAULT_REPO_LOCAL_CAPABILITY_PROFILE,
   WorkspaceBindingRequiredError,
   WorkspaceCapabilityDeniedError,
+  WorkspaceResolutionError,
   WorkspaceRouteUnauthorizedError,
   type CausalAttachResult,
   type OpenedWorkspaceSource,
@@ -82,6 +85,7 @@ export {
   type WorkspaceMode,
   type WorkspaceOpenRequest,
   type WorkspaceOpenResult,
+  type WorkspaceRouteEvidence,
   type WorkspaceSharedAttachPolicy,
   type WorkspaceStatus,
 } from "./workspace-router-model.js";
@@ -547,8 +551,15 @@ export class WorkspaceRouter {
   async captureExecutionContextForWorkspace(request: WorkspaceBindRequest): Promise<WorkspaceExecutionContext> {
     const resolved = await resolveWorkspaceRequest(this.options.git, request);
     if ("code" in resolved) {
-      throw new Error(resolved.message);
+      throw new WorkspaceResolutionError(resolved.code, resolved.message);
     }
+    const workspaceRoute: WorkspaceRouteEvidence = Object.freeze({
+      route: "explicit_cwd",
+      requestedRoot: path.resolve(request.cwd),
+      resolvedRoot: resolved.worktreeRoot,
+      repoId: resolved.repoId,
+      worktreeId: resolved.worktreeId,
+    });
 
     const capabilityProfile = this.options.mode === "repo_local"
       ? DEFAULT_REPO_LOCAL_CAPABILITY_PROFILE
@@ -560,16 +571,16 @@ export class WorkspaceRouter {
     }
 
     if (
-      this.currentBinding?.worktreeId === resolved.worktreeId
-      && workspaceCapabilityProfilesEqual(this.currentBinding.capabilityProfile, capabilityProfile)
+      this.currentBinding !== null
+      && this.routedBindingMatches(this.currentBinding, resolved, capabilityProfile)
     ) {
-      return this.captureExecutionContext();
+      return this.buildExecutionContext(this.currentBinding, workspaceRoute);
     }
 
     const existing = this.routedBindings.get(resolved.worktreeId);
     if (existing !== undefined && this.routedBindingMatches(existing, resolved, capabilityProfile)) {
       this.noteRoutedBinding(existing);
-      return this.buildExecutionContext(existing);
+      return this.buildExecutionContext(existing, workspaceRoute);
     }
 
     const initializing = this.routedBindingInitializations.get(resolved.worktreeId);
@@ -577,7 +588,7 @@ export class WorkspaceRouter {
       const binding = await initializing;
       if (this.routedBindingMatches(binding, resolved, capabilityProfile)) {
         this.noteRoutedBinding(binding);
-        return this.buildExecutionContext(binding);
+        return this.buildExecutionContext(binding, workspaceRoute);
       }
     }
 
@@ -598,7 +609,7 @@ export class WorkspaceRouter {
       this.options.mode === "daemon" ? "daemon_authorized" : "session_opened",
       false,
     );
-    return this.buildExecutionContext(binding);
+    return this.buildExecutionContext(binding, workspaceRoute);
   }
 
   private async createRoutedBinding(
@@ -643,7 +654,10 @@ export class WorkspaceRouter {
     }
   }
 
-  private buildExecutionContext(binding: BoundWorkspace): WorkspaceExecutionContext {
+  private buildExecutionContext(
+    binding: BoundWorkspace,
+    workspaceRoute: WorkspaceRouteEvidence | null = null,
+  ): WorkspaceExecutionContext {
     const repoState = binding.slice.repoState;
     if (repoState === null) {
       throw new WorkspaceBindingRequiredError("workspace");
@@ -655,6 +669,7 @@ export class WorkspaceRouter {
       projectRoot: binding.worktreeRoot,
       worktreeRoot: binding.worktreeRoot,
       gitCommonDir: binding.gitCommonDir,
+      workspaceRoute,
       graftignorePatterns: binding.graftignorePatterns,
       resolvePath: binding.resolvePath,
       capabilityProfile: binding.capabilityProfile,

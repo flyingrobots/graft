@@ -6,7 +6,7 @@ import type { ToolDefinition, ToolHandler } from "./context.js";
 import type { MetricsDelta, MetricsSnapshot } from "./metrics.js";
 import type { ObservationSnapshot } from "./cache.js";
 import type { RepoObservation } from "./repo-state.js";
-import type { WorkspaceCapabilityProfile } from "./workspace-router.js";
+import type { WorkspaceCapabilityProfile, WorkspaceRouteEvidence } from "./workspace-router.js";
 import { graftDiffTool } from "./tools/graft-diff.js";
 import { sinceTool } from "./tools/since.js";
 import { mapTool } from "./tools/map.js";
@@ -64,6 +64,7 @@ export interface RepoToolWorkerJob {
   readonly repoId: string;
   readonly worktreeId: string;
   readonly gitCommonDir: string;
+  readonly workspaceRoute?: WorkspaceRouteEvidence | undefined;
   readonly writerId: string;
   readonly capabilityProfile: WorkspaceCapabilityProfile;
   readonly repoState: RepoObservation;

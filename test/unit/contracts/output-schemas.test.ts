@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, expectTypeOf, it } from "vitest";
 import * as fs from "node:fs";
 import * as path from "node:path";
+import { z } from "zod";
 import { ALL_TOOL_REGISTRY, createGraftServer } from "../../../src/mcp/server.js";
 import {
   CLI_COMMAND_NAMES,
@@ -17,6 +18,9 @@ import {
 import {
   cliOutputSchemaMeta,
   mcpOutputSchemaMeta,
+  workspaceRouteEvidenceSchema,
+  withCliPeerCommon,
+  withMcpCommon,
 } from "../../../src/contracts/output-schema-meta.js";
 import {
   importBindingDiagnosticSchema,
@@ -77,12 +81,116 @@ describe("contracts: output schemas", () => {
     expect(getCliOutputSchemaMeta("struct_review")).toBe(cliOutputSchemaMeta.struct_review);
     expect(getMcpOutputSchemaMeta("graft_review").version).toBe("2.0.0");
     expect(getCliOutputSchemaMeta("struct_review").version).toBe("2.0.0");
-    expect(getMcpOutputSchemaMeta("file_outline").version).toBe("2.0.0");
-    expect(getCliOutputSchemaMeta("read_outline").version).toBe("2.0.0");
-    expect(getMcpOutputSchemaMeta("graft_diff").version).toBe("1.0.0");
-    expect(getCliOutputSchemaMeta("struct_diff").version).toBe("1.0.0");
-    expect(getMcpOutputSchemaMeta("safe_read").version).toBe("1.0.0");
-    expect(getCliOutputSchemaMeta("read_safe").version).toBe("1.0.0");
+    expect(getMcpOutputSchemaMeta("file_outline").version).toBe("3.0.0");
+    expect(getCliOutputSchemaMeta("read_outline").version).toBe("3.0.0");
+    for (const tool of [
+      "safe_read",
+      "read_range",
+      "changed_since",
+      "graft_diff",
+      "graft_since",
+      "graft_map",
+      "code_show",
+      "code_find",
+      "code_refs",
+    ] as const) {
+      expect(getMcpOutputSchemaMeta(tool).version, tool).toBe("2.0.0");
+    }
+    for (const command of [
+      "read_safe",
+      "read_range",
+      "read_changed",
+      "struct_diff",
+      "struct_since",
+      "struct_map",
+      "symbol_show",
+      "symbol_find",
+    ] as const) {
+      expect(getCliOutputSchemaMeta(command).version, command).toBe("2.0.0");
+    }
+    expect(getMcpOutputSchemaMeta("doctor").version).toBe("1.0.0");
+    expect(getCliOutputSchemaMeta("diag_doctor").version).toBe("1.0.0");
+  });
+
+  it("keeps exported common-schema helpers aligned with workspace evidence", () => {
+    const bodySchema = z.object({ ok: z.literal(true) }).strict();
+    const receiptSchema = z.object({ seq: z.number().int().positive() }).strict();
+    const tripwireSchema = z.object({ code: z.string() }).strict();
+    const workspace = {
+      route: "explicit_cwd",
+      requestedRoot: "/tmp/requested",
+      resolvedRoot: "/tmp/resolved",
+      repoId: "repo:1",
+      worktreeId: "worktree:1",
+    } as const;
+
+    expect(() => withMcpCommon("safe_read", bodySchema, receiptSchema, tripwireSchema).parse({
+      ok: true,
+      _schema: mcpOutputSchemaMeta.safe_read,
+      _receipt: { seq: 1 },
+      _workspace: workspace,
+    })).not.toThrow();
+    expect(() => withCliPeerCommon("read_safe", bodySchema, receiptSchema, tripwireSchema).parse({
+      ok: true,
+      _schema: cliOutputSchemaMeta.read_safe,
+      _receipt: { seq: 1 },
+      _workspace: workspace,
+    })).not.toThrow();
+
+    expect(() => withMcpCommon("doctor", bodySchema, receiptSchema, tripwireSchema).parse({
+      ok: true,
+      _schema: mcpOutputSchemaMeta.doctor,
+      _receipt: { seq: 1, workspace },
+      _workspace: workspace,
+    })).toThrow();
+    expect(() => withCliPeerCommon("diag_doctor", bodySchema, receiptSchema, tripwireSchema).parse({
+      ok: true,
+      _schema: cliOutputSchemaMeta.diag_doctor,
+      _receipt: { seq: 1, workspace },
+      _workspace: workspace,
+    })).toThrow();
+  });
+
+  it("adds route evidence only to routed output contracts", () => {
+    interface JsonSchema {
+      properties?: Record<string, JsonSchema>;
+    }
+    const assertWorkspacePosture = (schema: JsonSchema, expected: boolean) => {
+      expect(schema.properties?.["_workspace"] !== undefined).toBe(expected);
+      expect(schema.properties?.["_receipt"]?.properties?.["workspace"] !== undefined).toBe(expected);
+    };
+
+    assertWorkspacePosture(getMcpOutputJsonSchema("safe_read") as JsonSchema, true);
+    assertWorkspacePosture(getCliOutputJsonSchema("read_safe") as JsonSchema, true);
+    assertWorkspacePosture(getMcpOutputJsonSchema("doctor") as JsonSchema, false);
+    assertWorkspacePosture(getCliOutputJsonSchema("diag_doctor") as JsonSchema, false);
+    assertWorkspacePosture(getMcpOutputJsonSchema("graft_review") as JsonSchema, false);
+    assertWorkspacePosture(getCliOutputJsonSchema("struct_review") as JsonSchema, false);
+  });
+
+  it("requires absolute roots in workspace route evidence", () => {
+    const evidence = {
+      route: "explicit_cwd",
+      requestedRoot: "/tmp/requested",
+      resolvedRoot: "/tmp/resolved",
+      repoId: "repo:1",
+      worktreeId: "worktree:1",
+    } as const;
+
+    expect(() => workspaceRouteEvidenceSchema.parse(evidence)).not.toThrow();
+    expect(() => workspaceRouteEvidenceSchema.parse({
+      ...evidence,
+      requestedRoot: "C:\\requested",
+      resolvedRoot: "\\\\server\\resolved",
+    })).not.toThrow();
+    expect(() => workspaceRouteEvidenceSchema.parse({
+      ...evidence,
+      requestedRoot: "",
+    })).toThrow();
+    expect(() => workspaceRouteEvidenceSchema.parse({
+      ...evidence,
+      resolvedRoot: "relative/worktree",
+    })).toThrow();
   });
 
   it("shares one import-binding diagnostic schema across diagnostics and review warnings", () => {
@@ -117,6 +225,10 @@ describe("contracts: output schemas", () => {
     const { _schema: _schema, _receipt: _receipt, tripwire: _tripwire, ...body } = output;
 
     expect(output).toMatchObject({
+      _schema: {
+        id: "graft.mcp.file_outline",
+        version: "3.0.0",
+      },
       cacheHit: true,
       actual: { lines: 2, bytes: Buffer.byteLength(content) },
     });

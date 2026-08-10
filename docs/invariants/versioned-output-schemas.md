@@ -12,6 +12,11 @@ This applies to:
 - CLI `--json` responses
 - shared machine-readable receipt structure
 
+Adding an optional field to a strict output object is still a contract change.
+Every surface that can emit the field must advertise a new schema version;
+conditional emission does not permit a version-1 response to carry a
+version-2 shape.
+
 ## If violated
 
 Agents and wrappers have to reverse-engineer output shapes from examples

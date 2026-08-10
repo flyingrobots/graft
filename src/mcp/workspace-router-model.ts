@@ -112,6 +112,24 @@ export class WorkspaceRouteUnauthorizedError extends Error {
   }
 }
 
+export class WorkspaceResolutionError extends Error {
+  constructor(
+    readonly code: string,
+    message: string,
+  ) {
+    super(message);
+    this.name = "WorkspaceResolutionError";
+  }
+}
+
+export interface WorkspaceRouteEvidence {
+  readonly route: "explicit_cwd";
+  readonly requestedRoot: string;
+  readonly resolvedRoot: string;
+  readonly repoId: string;
+  readonly worktreeId: string;
+}
+
 export interface WorkspaceExecutionContext {
   readonly sliceId: string;
   readonly repoId: string;
@@ -119,6 +137,7 @@ export interface WorkspaceExecutionContext {
   readonly projectRoot: string;
   readonly worktreeRoot: string;
   readonly gitCommonDir: string;
+  readonly workspaceRoute: WorkspaceRouteEvidence | null;
   readonly graftignorePatterns: readonly string[];
   readonly resolvePath: (input: string) => string;
   readonly capabilityProfile: WorkspaceCapabilityProfile;
