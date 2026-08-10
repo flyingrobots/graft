@@ -26,6 +26,7 @@ import {
   OUTPUT_SCHEMA_V2_VERSION,
   REVIEW_OUTPUT_SCHEMA_VERSION,
   schemaMetaLiteral,
+  workspaceRouteEvidenceSchema,
   type OutputSchemaMeta,
   type OutputSchemaVersion,
 } from "./output-schema-meta.js";
@@ -195,14 +196,6 @@ const sludgeReportSchema = z.object({
   score: z.number().int().nonnegative(),
   files: z.array(sludgeFileReportSchema),
   summary: z.string(),
-}).strict();
-
-const workspaceRouteEvidenceSchema = z.object({
-  route: z.literal("explicit_cwd"),
-  requestedRoot: z.string(),
-  resolvedRoot: z.string(),
-  repoId: z.string(),
-  worktreeId: z.string(),
 }).strict();
 
 const receiptSchema = z.object({

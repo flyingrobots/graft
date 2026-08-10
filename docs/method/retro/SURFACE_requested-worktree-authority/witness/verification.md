@@ -60,11 +60,18 @@ and failed with the existing `2.0.0` value. GREEN added output schema version
 emitted `file_outline` metadata directly. The other nine routed MCP tools and
 eight direct CLI peers remain on the newly assigned version `2.0.0`.
 
+Exact-head CodeRabbit review then found that the exported `withMcpCommon` and
+`withCliPeerCommon` helpers declared `_workspace` in their TypeScript
+interfaces but omitted it from their strict schemas. RED passed explicit route
+evidence through both helpers and failed because `_workspace` was unrecognized.
+GREEN moved the exact workspace evidence schema into the shared metadata module
+and reused it in both exported helpers and the product schema builders.
+
 ## Full Validation
 
 | Gate | Command | Result |
 | :--- | :--- | :--- |
-| Full isolated suite | `pnpm test` | pass; 258 files, 2,051 tests |
+| Full isolated suite | `pnpm test` | pass; 258 files, 2,052 tests |
 | Build | `pnpm build` | pass |
 | Public surface | `pnpm release:surface-gate` | pass; 2 files, 10 tests |
 | Lint | `pnpm lint` | pass |

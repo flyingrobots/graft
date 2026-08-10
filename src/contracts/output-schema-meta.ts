@@ -24,6 +24,14 @@ export interface OutputSchemaMeta {
   readonly version: OutputSchemaVersion;
 }
 
+export const workspaceRouteEvidenceSchema = z.object({
+  route: z.literal("explicit_cwd"),
+  requestedRoot: z.string(),
+  resolvedRoot: z.string(),
+  repoId: z.string(),
+  worktreeId: z.string(),
+}).strict();
+
 const workspaceRoutedMcpTools = new Set<McpToolName>(WORKSPACE_ROUTED_MCP_TOOL_NAMES);
 const workspaceRoutedCliCommands = new Set<CliCommandName>(WORKSPACE_ROUTED_CLI_COMMAND_NAMES);
 
@@ -116,6 +124,7 @@ export function withMcpCommon(
   return extendWithCommonFields(schema, {
     _schema: schemaMetaLiteral(mcpOutputSchemaMeta[tool]),
     _receipt: receiptSchema,
+    _workspace: workspaceRouteEvidenceSchema.optional(),
     tripwire: z.array(tripwireSchema).optional(),
   });
 }
@@ -138,6 +147,7 @@ export function withCliPeerCommon(
   return extendWithCommonFields(schema, {
     _schema: schemaMetaLiteral(cliOutputSchemaMeta[command]),
     _receipt: receiptSchema,
+    _workspace: workspaceRouteEvidenceSchema.optional(),
     tripwire: z.array(tripwireSchema).optional(),
   });
 }

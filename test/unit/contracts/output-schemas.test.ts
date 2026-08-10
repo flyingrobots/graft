@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, expectTypeOf, it } from "vitest";
 import * as fs from "node:fs";
 import * as path from "node:path";
+import { z } from "zod";
 import { ALL_TOOL_REGISTRY, createGraftServer } from "../../../src/mcp/server.js";
 import {
   CLI_COMMAND_NAMES,
@@ -17,6 +18,8 @@ import {
 import {
   cliOutputSchemaMeta,
   mcpOutputSchemaMeta,
+  withCliPeerCommon,
+  withMcpCommon,
 } from "../../../src/contracts/output-schema-meta.js";
 import {
   importBindingDiagnosticSchema,
@@ -106,6 +109,32 @@ describe("contracts: output schemas", () => {
     }
     expect(getMcpOutputSchemaMeta("doctor").version).toBe("1.0.0");
     expect(getCliOutputSchemaMeta("diag_doctor").version).toBe("1.0.0");
+  });
+
+  it("keeps exported common-schema helpers aligned with workspace evidence", () => {
+    const bodySchema = z.object({ ok: z.literal(true) }).strict();
+    const receiptSchema = z.object({ seq: z.number().int().positive() }).strict();
+    const tripwireSchema = z.object({ code: z.string() }).strict();
+    const workspace = {
+      route: "explicit_cwd",
+      requestedRoot: "/tmp/requested",
+      resolvedRoot: "/tmp/resolved",
+      repoId: "repo:1",
+      worktreeId: "worktree:1",
+    } as const;
+
+    expect(() => withMcpCommon("safe_read", bodySchema, receiptSchema, tripwireSchema).parse({
+      ok: true,
+      _schema: mcpOutputSchemaMeta.safe_read,
+      _receipt: { seq: 1 },
+      _workspace: workspace,
+    })).not.toThrow();
+    expect(() => withCliPeerCommon("read_safe", bodySchema, receiptSchema, tripwireSchema).parse({
+      ok: true,
+      _schema: cliOutputSchemaMeta.read_safe,
+      _receipt: { seq: 1 },
+      _workspace: workspace,
+    })).not.toThrow();
   });
 
   it("shares one import-binding diagnostic schema across diagnostics and review warnings", () => {
