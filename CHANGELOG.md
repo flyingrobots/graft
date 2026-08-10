@@ -15,7 +15,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   `_receipt.workspace`. Routed resolution failures retain typed error codes,
   optional client identity hints fail closed when they contradict Git, and a
   two-worktree `graft_since` regression proves that the active checkout cannot
-  override an explicit `cwd`.
+  override an explicit `cwd`. The ten routed MCP output contracts and their
+  nine direct CLI peers advertise schema version `2.0.0` for the added
+  workspace-route evidence instead of changing their strict version-1 shapes
+  in place.
 
 ## [0.12.0] - 2026-08-09
 

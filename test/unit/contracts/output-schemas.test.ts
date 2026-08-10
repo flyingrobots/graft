@@ -79,10 +79,35 @@ describe("contracts: output schemas", () => {
     expect(getCliOutputSchemaMeta("struct_review").version).toBe("2.0.0");
     expect(getMcpOutputSchemaMeta("file_outline").version).toBe("2.0.0");
     expect(getCliOutputSchemaMeta("read_outline").version).toBe("2.0.0");
-    expect(getMcpOutputSchemaMeta("graft_diff").version).toBe("1.0.0");
-    expect(getCliOutputSchemaMeta("struct_diff").version).toBe("1.0.0");
-    expect(getMcpOutputSchemaMeta("safe_read").version).toBe("1.0.0");
-    expect(getCliOutputSchemaMeta("read_safe").version).toBe("1.0.0");
+    for (const tool of [
+      "safe_read",
+      "file_outline",
+      "read_range",
+      "changed_since",
+      "graft_diff",
+      "graft_since",
+      "graft_map",
+      "code_show",
+      "code_find",
+      "code_refs",
+    ] as const) {
+      expect(getMcpOutputSchemaMeta(tool).version, tool).toBe("2.0.0");
+    }
+    for (const command of [
+      "read_safe",
+      "read_outline",
+      "read_range",
+      "read_changed",
+      "struct_diff",
+      "struct_since",
+      "struct_map",
+      "symbol_show",
+      "symbol_find",
+    ] as const) {
+      expect(getCliOutputSchemaMeta(command).version, command).toBe("2.0.0");
+    }
+    expect(getMcpOutputSchemaMeta("doctor").version).toBe("1.0.0");
+    expect(getCliOutputSchemaMeta("diag_doctor").version).toBe("1.0.0");
   });
 
   it("shares one import-binding diagnostic schema across diagnostics and review warnings", () => {

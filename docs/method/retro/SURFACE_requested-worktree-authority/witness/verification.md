@@ -36,6 +36,24 @@ The focused proof covers:
 - fail-closed `repoId`, `worktreeRoot`, and `gitCommonDir` mismatches; and
 - evidence propagation through daemon worker execution.
 
+## Exact-head Review Repair
+
+Codex review of `3798d94a` found that routed outputs could emit `_workspace`
+and `_receipt.workspace` while advertising strict schema version `1.0.0`.
+
+RED changed the contract test to require `2.0.0` for all ten routed MCP tools
+and their nine direct CLI peers. It failed on `safe_read` with:
+
+```text
+safe_read: expected '1.0.0' to be '2.0.0'
+```
+
+GREEN defines the routed MCP and CLI names once in the capability contract,
+uses the MCP list for daemon scheduling, and uses both lists for output-schema
+metadata. The focused version regression then passed, the routed
+`graft_since` proof observed `_schema.version == "2.0.0"`, and the complete
+isolated suite repeated green at 258 files and 2,051 tests.
+
 ## Full Validation
 
 | Gate | Command | Result |

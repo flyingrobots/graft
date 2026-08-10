@@ -48,6 +48,16 @@ silently ignored.
    258 files and 2,051 tests, including repo-local, daemon, worker, schema, and
    path-boundary surfaces.
 
+## Review Repair
+
+Exact-head Codex review found one P1 contract-version error: the new optional
+workspace evidence expanded strict routed MCP and CLI peer outputs while most
+still advertised schema version `1.0.0`. The repair moved the routed-tool names
+into the capability contract, reused that authority for daemon scheduling and
+output metadata, and advanced every affected output to `2.0.0`. This avoids a
+second independently maintained version list and keeps unrelated contracts at
+their existing versions.
+
 ## Drift
 
 The implementation matches the design packet. Scope did not expand into

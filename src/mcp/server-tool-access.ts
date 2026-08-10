@@ -1,5 +1,6 @@
 import type { McpToolResult } from "./receipt.js";
 import type { JsonObject } from "../contracts/json-object.js";
+import { WORKSPACE_ROUTED_MCP_TOOL_NAMES } from "../contracts/capabilities.js";
 import { parseJsonTextObject } from "../adapters/json-text-decoder.js";
 import { evaluateMcpPolicy } from "./policy.js";
 import { RefusedResult } from "../policy/types.js";
@@ -54,18 +55,7 @@ export const repoStateOptionalTools = new Set<string>([
   "explain",
 ]);
 
-export const daemonScheduledRepoTools = new Set<string>([
-  "safe_read",
-  "file_outline",
-  "read_range",
-  "changed_since",
-  "graft_diff",
-  "graft_since",
-  "graft_map",
-  "code_show",
-  "code_find",
-  "code_refs",
-]);
+export const daemonScheduledRepoTools = new Set<string>(WORKSPACE_ROUTED_MCP_TOOL_NAMES);
 
 export const attributedReadTools = new Set<string>([
   "safe_read",

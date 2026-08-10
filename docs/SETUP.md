@@ -140,6 +140,8 @@ supplied identity hints, the call fails instead of falling back. Successful
 routed responses expose `requestedRoot`, canonical `resolvedRoot`, `repoId`,
 and `worktreeId` under both `_workspace` and `_receipt.workspace`. Without an
 explicit `cwd`, repository tools continue to use the active session binding.
+The affected routed MCP tools and direct CLI peers advertise output schema
+version `2.0.0` for this expanded strict contract.
 
 Use `workspace_authorize` plus `workspace_bind` when you need direct
 operator control over daemon authorization and binding state.

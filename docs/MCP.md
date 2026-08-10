@@ -76,7 +76,9 @@ Routed responses expose the resulting evidence twice for auditability:
 `_workspace` on the response and `_receipt.workspace` in the receipt contain
 the absolute `requestedRoot`, canonical `resolvedRoot`, `repoId`, and
 `worktreeId`. Optional identity hints on bind/rebind are consistency checks;
-they must match the Git-resolved identity and never override it.
+they must match the Git-resolved identity and never override it. Because those
+fields expand strict machine-readable outputs, routed MCP tools and their
+direct CLI peers advertise output schema version `2.0.0`.
 
 `workspace_authorize` and `workspace_bind` remain available as lower-level
 daemon control-plane tools.

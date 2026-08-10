@@ -268,6 +268,10 @@ describe("mcp: per-call workspace route", () => {
 
     interface RoutedSince extends Record<string, unknown> {
       files: { path: string; diff: { added: { name: string }[] } }[];
+      _schema: {
+        id: "graft.mcp.graft_since";
+        version: "2.0.0";
+      };
       _workspace: {
         route: "explicit_cwd";
         requestedRoot: string;
@@ -298,6 +302,10 @@ describe("mcp: per-call workspace route", () => {
       resolvedRoot: primary,
       repoId: expect.any(String),
       worktreeId: expect.any(String),
+    });
+    expect(primaryResult._schema).toEqual({
+      id: "graft.mcp.graft_since",
+      version: "2.0.0",
     });
     expect(primaryResult._receipt.workspace).toEqual(primaryResult._workspace);
     expect(() => MCP_OUTPUT_SCHEMAS.graft_since.parse(primaryResult)).not.toThrow();
