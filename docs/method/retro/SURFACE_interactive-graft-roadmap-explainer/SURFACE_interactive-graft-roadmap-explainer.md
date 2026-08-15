@@ -24,7 +24,7 @@ inventing native blockers or a dependency between every numbered slice.
 
 The site includes keyboard node traversal, search, status filtering, pan/zoom,
 textual dependency fallbacks, a rendered Mermaid sequence, source provenance,
-claims-versus-evidence drift, a checked-in static build, a Cloudflare
+claims-versus-evidence drift, a reproducible static build, a Cloudflare
 Worker-compatible entrypoint, and a matching social-preview image.
 
 ## Playback Witness
