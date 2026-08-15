@@ -118,6 +118,25 @@ const distAssets = await readdir(resolve(siteRoot, "dist/assets"));
 invariant(distAssets.some((file) => file.endsWith(".js")), "static build must emit JavaScript");
 invariant(distAssets.some((file) => file.endsWith(".css")), "static build must emit CSS");
 
+const standalonePath = resolve(siteRoot, "Graft Two Roadmaps.html");
+await access(standalonePath);
+const standalone = await readFile(standalonePath, "utf8");
+invariant(
+  standalone.includes('name="offline-artifact" content="self-contained"'),
+  "offline artifact must identify itself as self-contained",
+);
+invariant(standalone.includes("data-standalone-styles"), "offline artifact must inline its stylesheet");
+invariant(standalone.includes("data-standalone-bundle"), "offline artifact must inline its JavaScript bundle");
+invariant(standalone.includes("data:image/svg+xml;base64,"), "offline artifact must inline the sequence diagram");
+invariant(!/<script\b[^>]*\bsrc=/u.test(standalone), "offline artifact must not load an external script");
+invariant(!/<link\b[^>]*\brel="stylesheet"/u.test(standalone), "offline artifact must not load a stylesheet");
+invariant(!/<img\b[^>]*\bsrc=(?!"data:)/u.test(standalone), "offline artifact images must use data URLs");
+invariant(!/\b(?:src|href)="\.?\.?\//u.test(standalone), "offline artifact must not retain local asset paths");
+invariant(
+  html.includes("data-local-standalone-redirect") && html.includes("Graft Two Roadmaps.html"),
+  "file protocol entrypoint must redirect to the offline artifact",
+);
+
 const workerUrl = new URL(`../dist/server/index.js?check=${Date.now()}`, import.meta.url);
 const { default: worker } = await import(workerUrl);
 const seenAssetPaths = [];
@@ -138,4 +157,4 @@ invariant(seenAssetPaths.join(",") === "/roadmaps/echo,/index.html", "worker mus
 const missingAsset = await worker.fetch(new Request("https://roadmap.test/missing.png"), env);
 invariant(missingAsset.status === 404, "worker must not rewrite missing assets to HTML");
 
-console.log("Roadmap explainer checks passed: 2 DAG families, 105 managed tasks, 6 closed tasks, 0 cycles, static worker fallback verified.");
+console.log("Roadmap explainer checks passed: self-contained offline artifact, 2 DAG families, 105 managed tasks, 6 closed tasks, 0 cycles.");

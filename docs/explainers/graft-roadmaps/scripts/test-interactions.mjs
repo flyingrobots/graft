@@ -6,9 +6,13 @@ import { Window } from "happy-dom";
 
 const scriptDir = dirname(fileURLToPath(import.meta.url));
 const siteRoot = resolve(scriptDir, "..");
-const window = new Window({ url: "http://roadmap.test/" });
-const html = await readFile(resolve(siteRoot, "index.html"), "utf8");
-window.document.write(html);
+const standalonePath = resolve(siteRoot, "Graft Two Roadmaps.html");
+const window = new Window({ url: pathToFileURL(standalonePath).href });
+const standalone = await readFile(standalonePath, "utf8");
+const standaloneBundle = standalone.match(/<script data-standalone-bundle>([\s\S]*?)<\/script>/u)?.[1];
+if (!standaloneBundle) throw new Error("offline artifact must contain its bundled JavaScript");
+const inertHtml = standalone.replace(/<script\b[^>]*>[\s\S]*?<\/script>/gu, "");
+window.document.write(inertHtml);
 
 Object.assign(globalThis, {
   window,
@@ -26,10 +30,15 @@ function invariant(condition, message) {
   if (!condition) throw new Error(message);
 }
 
-await import(pathToFileURL(resolve(siteRoot, "src/main.js")));
+window.eval(standaloneBundle);
 
 const echo = document.querySelector('[data-graph="echo"]');
 const managed = document.querySelector('[data-graph="managed"]');
+invariant(window.location.protocol === "file:", "offline artifact test must execute in a file URL context");
+invariant(
+  window.getComputedStyle(document.querySelector(".site-header")).display === "grid",
+  "inlined stylesheet must apply the designed header layout",
+);
 invariant(echo && managed, "both graph workbenches must initialize");
 invariant(echo.querySelectorAll(".graph-node").length === 12, "Echo campaign must render 12 context and task nodes");
 invariant(managed.querySelectorAll(".graph-node").length === 13, "managed goalpost view must render 13 nodes");
@@ -78,4 +87,4 @@ invariant(managed.querySelectorAll(".graph-node.is-match").length >= 1, "managed
 invariant(managed.querySelector("[data-edge-list] ol li"), "textual dependency fallback must remain populated");
 
 await window.happyDOM.abort();
-console.log("Roadmap interaction checks passed: view switches, 131-node expansion, selection, search, filters, zoom, and keyboard traversal.");
+console.log("Offline roadmap interaction checks passed: inlined bundle, view switches, 131-node expansion, selection, search, filters, zoom, and keyboard traversal.");

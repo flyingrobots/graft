@@ -14,6 +14,15 @@ related:
 
 # Graft's Two Roadmaps: Causal Proof and Managed Product
 
+## Open it offline
+
+Double-click [`Graft Two Roadmaps.html`](./Graft%20Two%20Roadmaps.html). It is
+the complete local deliverable: stylesheet, JavaScript, roadmap data, and the
+sequence diagram are embedded in that one file. It does not need a server or a
+network connection. The neighboring `index.html` is the authored Vite
+development entrypoint; when opened through `file://`, it redirects to the
+standalone artifact.
+
 ## The sixty-second orientation
 
 Graft has two roadmaps because it is solving two different-sized problems. The

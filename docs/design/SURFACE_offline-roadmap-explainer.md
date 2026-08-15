@@ -1,6 +1,6 @@
 ---
 title: "Offline roadmap explainer artifact"
-status: active
+status: landed
 cycle: "SURFACE_offline-roadmap-explainer"
 owner: "James Ross"
 ---
@@ -52,4 +52,3 @@ static local deliverable without distinguishing that entrypoint was incorrect.
 - No public hosting or hosting-access change.
 - No repair of the previously created private deployment in this cycle.
 - No second visual design or content rewrite.
-

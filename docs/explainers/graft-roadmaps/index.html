@@ -23,7 +23,15 @@
     />
     <meta name="twitter:image" content="./og.png" />
     <title>Graft's Two Roadmaps — an interactive architecture explainer</title>
-    <link rel="stylesheet" href="/src/styles.css" />
+    <script data-local-standalone-redirect>
+      if (
+        window.location.protocol === "file:" &&
+        !decodeURIComponent(window.location.pathname).endsWith("/Graft Two Roadmaps.html")
+      ) {
+        window.location.replace(new URL("./Graft Two Roadmaps.html", window.location.href));
+      }
+    </script>
+    <link rel="stylesheet" href="./src/styles.css" />
   </head>
   <body>
     <a class="skip-link" href="#main">Skip to the explanation</a>
@@ -546,6 +554,6 @@ graft read outline src/mcp/server.ts
       <a href="#top">Back to top ↑</a>
     </footer>
 
-    <script type="module" src="/src/main.js"></script>
+    <script type="module" src="./src/main.js"></script>
   </body>
 </html>
