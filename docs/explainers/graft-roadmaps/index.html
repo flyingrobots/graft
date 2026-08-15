@@ -1,0 +1,551 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#0c1821" />
+    <meta
+      name="description"
+      content="An evidence-backed, interactive explanation of Graft's Echo campaign and daemon-managed workspace roadmap."
+    />
+    <meta property="og:title" content="Graft has two roadmaps. Here is why." />
+    <meta
+      property="og:description"
+      content="Trace file_outline through today's architecture, issue #228, and the full G0-G12 product program."
+    />
+    <meta property="og:type" content="website" />
+    <meta property="og:image" content="./og.png" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="Graft has two roadmaps. Here is why." />
+    <meta
+      name="twitter:description"
+      content="Two interactive Sugiyama DAGs, one causal example, and an honest status ledger."
+    />
+    <meta name="twitter:image" content="./og.png" />
+    <title>Graft's Two Roadmaps — an interactive architecture explainer</title>
+    <link rel="stylesheet" href="/src/styles.css" />
+  </head>
+  <body>
+    <a class="skip-link" href="#main">Skip to the explanation</a>
+
+    <header class="site-header">
+      <a class="wordmark" href="#top" aria-label="Graft roadmap explainer home">
+        <span class="wordmark-mark" aria-hidden="true">G×E</span>
+        <span>Graft field guide</span>
+      </a>
+      <nav aria-label="Explainer sections">
+        <a href="#example">The example</a>
+        <a href="#roadmaps">Why two</a>
+        <a href="#dags">The DAGs</a>
+        <a href="#mature">Done</a>
+      </nav>
+      <span class="snapshot-pill">Snapshot · 2026-08-15</span>
+    </header>
+
+    <main id="main">
+      <section class="hero section-shell" id="top" aria-labelledby="hero-title">
+        <div class="hero-copy">
+          <p class="eyebrow">An architecture map, not a status memo</p>
+          <h1 id="hero-title">Graft has two roadmaps because it is solving two different-sized problems.</h1>
+          <p class="hero-lede">
+            The short road makes one real Graft operation causal through Edict and Echo. The long road
+            turns that substrate into a safe daemon-managed product across workspaces, caches, history,
+            policy, and rollout. They overlap, but neither can honestly stand in for the other.
+          </p>
+          <div class="hero-actions">
+            <a class="button button-primary" href="#dags">Explore both DAGs</a>
+            <a class="button button-secondary" href="#state">See where we are</a>
+          </div>
+        </div>
+
+        <div class="hero-map" aria-label="The two roadmap scales">
+          <article class="road-card echo-card">
+            <span class="road-number">Road 01</span>
+            <h2>Make one operation truly causal</h2>
+            <p>#228 → #229 → #236/#237 → #232, then migration and cutover.</p>
+            <div class="road-progress" aria-label="Issue 228 design complete, implementation not started">
+              <span class="pulse-dot"></span>
+              <strong>#228 is active</strong>
+              <small>Design recorded · RED proof next</small>
+            </div>
+          </article>
+          <article class="road-card managed-card">
+            <span class="road-number">Road 02</span>
+            <h2>Turn it into the managed product</h2>
+            <p>G0 → G1 → … → G8 → G12, with three parallel product branches.</p>
+            <div class="road-progress" aria-label="6 of 105 managed roadmap tasks closed">
+              <span class="check-dot">6</span>
+              <strong>6 / 105 tasks closed</strong>
+              <small>G0 task-complete · G1 in progress</small>
+            </div>
+          </article>
+          <div class="convergence-thread" aria-hidden="true">
+            <span>Echo proof</span><i></i><b>G6–G7</b><i></i><span>Managed history</span>
+          </div>
+        </div>
+
+        <div class="state-strip" id="state" aria-label="Current Graft roadmap state">
+          <div><span>Current branch</span><strong>cycle/228-first-retained…</strong></div>
+          <div><span>Immediate task</span><strong>Unknown-basis RED</strong></div>
+          <div><span>Managed floor</span><strong>G0 complete</strong></div>
+          <div><span>Product frontier</span><strong>G1 in progress</strong></div>
+        </div>
+      </section>
+
+      <section class="content-section section-shell" id="example" aria-labelledby="example-title">
+        <div class="section-kicker">01 · One request to carry through the whole story</div>
+        <h2 id="example-title">Start with <code>file_outline</code>, because the abstraction only matters if a real tool crosses it.</h2>
+        <p class="section-thesis">
+          A request for the outline of <code>src/mcp/server.ts</code> already returns useful, structured
+          data. The architectural gap is not the parser or the output; it is the authority and causal
+          history of the bytes being parsed. Following this one call exposes exactly what #228 changes
+          and why the larger managed roadmap still remains afterward.
+        </p>
+
+        <div class="example-grid">
+          <article class="terminal-card" aria-label="A real file_outline example">
+            <div class="terminal-bar"><span></span><span></span><span></span><b>actual checkout run</b></div>
+            <pre><code><span class="code-comment"># Input</span>
+graft read outline src/mcp/server.ts
+
+<span class="code-comment"># Selected output from the 416-line file</span>
+{
+  "outline": [
+    { "kind": "interface", "name": "GraftServer" },
+    { "kind": "function", "name": "createGraftServer" }
+  ],
+  "jumpTable": [
+    { "symbol": "GraftServer", "start": 44, "end": 51 },
+    { "symbol": "createGraftServer", "start": 312, "end": 416 }
+  ],
+  "partial": true,
+  "_schema": { "id": "graft.cli.read_outline", "version": "3.0.0" }
+}</code></pre>
+          </article>
+
+          <article class="authority-card">
+            <p class="mini-label">The load-bearing line today</p>
+            <pre><code>readView: new LiveWorkspaceReadSource(
+  ctx.fs,
+  ctx.projectRoot,
+)</code></pre>
+            <p>
+              The name is honest: the MCP composition root gives <code>RepoWorkspace</code> a live
+              filesystem-backed read source. The internal admitted-byte seam exists, but production
+              does not yet construct it from an Echo settlement.
+            </p>
+            <a
+              href="https://github.com/flyingrobots/graft/blob/68959cd63f1552b59cde1b8109a48793035f4dbc/src/mcp/repo-workspace.ts#L13-L18"
+              target="_blank"
+              rel="noreferrer"
+            >Inspect the source line <span aria-hidden="true">↗</span></a>
+          </article>
+        </div>
+
+        <p>
+          The sequence below puts today's live read beside the target #228 exchange. Everything above
+          the authority boundary—request shape, outline entries, jump table, and user-visible
+          operation—can stay stable while the byte source becomes retained and replayable.
+        </p>
+
+        <figure class="sequence-figure" aria-labelledby="figure-1-title">
+          <img
+            src="./diagrams/file-outline-retained-replay.svg"
+            alt="Sequence comparing today's live file_outline read with issue 228's retained Echo request, observation, settlement, analysis, restart, and zero-read replay."
+            width="1280"
+            height="840"
+          />
+        </figure>
+        <details class="figure-caption">
+          <summary id="figure-1-title">Figure 1 — The same <code>file_outline</code> call before and after #228</summary>
+          <p>
+            The orange band is production today: Graft reads current bytes from the filesystem. The
+            green band is the target: Echo retains authority before observation, retains evidence
+            before analysis, and later replays the same settled bytes without reopening the world.
+          </p>
+        </details>
+
+        <div class="table-wrap">
+          <table>
+            <caption>Figure 1 in words: what changes and what remains stable</caption>
+            <thead><tr><th>Turn</th><th>Today</th><th>After #228</th><th>Invariant</th></tr></thead>
+            <tbody>
+              <tr><td>1 · Request</td><td>Tool invocation reaches Graft.</td><td>Edict-derived request is admitted and retained.</td><td>Same bounded file aperture.</td></tr>
+              <tr><td>2 · Read</td><td>Graft holds live filesystem authority.</td><td>Observer receives only a durable claim and bounded capability.</td><td>No escaped path authority.</td></tr>
+              <tr><td>3 · Evidence</td><td>Current bytes are parsed in-process.</td><td>Schema-bound settlement is retained before parsing.</td><td>Bytes and digests agree.</td></tr>
+              <tr><td>4 · Analysis</td><td><code>file_outline</code> parses the live read.</td><td>It parses <code>AdmittedWorkspaceReadView</code>.</td><td>Same structured result.</td></tr>
+              <tr><td>5 · Restart</td><td>A future run must read again.</td><td>Echo history reconstructs the view.</td><td>Zero filesystem and git-warp reads.</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <aside class="intuition-callout">
+          <strong>Intuition to carry forward</strong>
+          <p>The request authorizes the effect; the settlement witnesses its result. A dirty workspace basis cannot be known honestly before the authorized observation.</p>
+        </aside>
+        <p class="section-summary">
+          In summary, <code>file_outline</code> already works; #228 changes why its bytes are lawful and
+          replayable. That narrow change is deep enough to deserve its own roadmap, but it is still
+          only one causal vertical inside a much larger product program.
+        </p>
+      </section>
+
+      <section class="content-section section-shell" id="cast" aria-labelledby="cast-title">
+        <div class="section-kicker">02 · The cast and the mental model</div>
+        <h2 id="cast-title">Five components play different roles; confusing their ownership created most of the roadmap ambiguity.</h2>
+        <p class="section-thesis">
+          Graft owns the user-facing code intelligence and its structural semantics. Edict declares
+          operations. Echo retains and replays causal execution. The daemon supplies product-level
+          authorization and workspace management. git-warp is the current legacy history provider.
+          Once those ownership lines are explicit, the two roadmaps stop looking redundant.
+        </p>
+
+        <div class="cast-grid">
+          <article><span class="cast-index">01</span><h3>Graft</h3><p>Context governor and structural-analysis application. It owns <code>file_outline</code>, receipts, policies, and the meaning of structural facts.</p></article>
+          <article><span class="cast-index">02</span><h3>Edict</h3><p>Source language and compiler path for declaring the operation. #228 requires Graft-owned <code>ObserveWorkspaceSnapshot</code> source, not a native callback.</p></article>
+          <article><span class="cast-index">03</span><h3>Echo</h3><p>Causal runtime and retained history. It admits request and settlement, writes durable order, recovers after restart, and supports closed-world replay.</p></article>
+          <article><span class="cast-index">04</span><h3>Managed daemon</h3><p>Long-lived product control plane for sessions, grants, workspace identities, caches, bindings, lifecycle, hooks, and rollout.</p></article>
+          <article><span class="cast-index">05</span><h3>git-warp</h3><p>Current committed-history substrate. The intended future posture is explicit import or fallback evidence, never silent semantic authority.</p></article>
+          <article class="cast-seam"><span class="cast-index">SEAM</span><h3><code>AdmittedWorkspaceReadView</code></h3><p>The landed inner boundary. It lets Graft parse immutable admitted bytes, but it does not itself observe, settle, retain, or recover those bytes.</p></article>
+        </div>
+
+        <p>
+          The authority seam is the most important foil. A type named “admitted” can make the
+          architecture look farther along than production composition is. The source explicitly says
+          the settled side is not yet produced in production and that #228 must build the decoder.
+        </p>
+        <blockquote>
+          The inner chamber is built. #228 installs the causal plumbing that can lawfully fill it.
+        </blockquote>
+        <p class="section-summary">
+          In summary, the components are not competing implementations of one thing. They form a
+          stack of semantic ownership, declared effects, causal retention, managed authority, and
+          legacy compatibility—and each roadmap cuts through that stack at a different altitude.
+        </p>
+      </section>
+
+      <section class="content-section section-shell" id="roadmaps" aria-labelledby="roadmaps-title">
+        <div class="section-kicker">03 · Why two roadmaps exist</div>
+        <h2 id="roadmaps-title">One roadmap proves the substrate transition; the other sequences the product that will depend on it.</h2>
+        <p class="section-thesis">
+          The Echo campaign asks, “Can one real Graft operation be requested, observed, settled,
+          analyzed, recovered, and replayed causally?” The managed-workspace roadmap asks, “How does a
+          daemon safely expose many workspaces and durable features to users?” Those questions share
+          a future history provider, but they have different acceptance gates and different sources
+          of dependency truth.
+        </p>
+
+        <div class="comparison-grid">
+          <article class="comparison-card echo-card">
+            <header><span>Road 01</span><h3>Echo-hosting campaign</h3></header>
+            <dl>
+              <div><dt>Altitude</dt><dd>One complete causal round trip</dd></div>
+              <div><dt>Now</dt><dd>#228 design complete; RED unstarted</dd></div>
+              <div><dt>Primary truth</dt><dd>BEARING, #228 packet, native issue blockers</dd></div>
+              <div><dt>Near gate</dt><dd>#232 real retained read/write vertical</dd></div>
+              <div><dt>Later gate</dt><dd>#231 Echo structural-history cutover</dd></div>
+            </dl>
+          </article>
+          <article class="comparison-card managed-card">
+            <header><span>Road 02</span><h3>Managed-workspace program</h3></header>
+            <dl>
+              <div><dt>Altitude</dt><dd>Full daemon-owned product lifecycle</dd></div>
+              <div><dt>Now</dt><dd>G0 tasks complete; G1 partially landed</dd></div>
+              <div><dt>Primary truth</dt><dd>G0-G12 roadmap and milestone task inventory</dd></div>
+              <div><dt>Near gate</dt><dd>G3 multi-workspace current-state alpha</dd></div>
+              <div><dt>Later gate</dt><dd>G6-G7 managed, truthful history</dd></div>
+            </dl>
+          </article>
+        </div>
+
+        <div class="convergence-panel">
+          <div><span>#228</span><small>retained observation</small></div>
+          <i aria-hidden="true">→</i>
+          <div><span>#229 / #232</span><small>real Echo-hosted Graft</small></div>
+          <i aria-hidden="true">→</i>
+          <div><span>#231</span><small>history-provider cutover gate</small></div>
+          <i class="convergence-dashed" aria-hidden="true">⇢</i>
+          <div><span>G6 / G7</span><small>managed bindings and truthful queries</small></div>
+        </div>
+        <p class="evidence-note">
+          The final dashed hop is architectural convergence documented by the roadmap, not a native
+          GitHub dependency. Graft has not yet made the two trackers one mechanically enforced DAG.
+        </p>
+
+        <aside class="intuition-callout">
+          <strong>Intuition to carry forward</strong>
+          <p>#228 can be the immediate priority while G1 remains the next managed-product goalpost. That is parallel planning at two altitudes, not two teams accidentally duplicating work.</p>
+        </aside>
+        <p class="section-summary">
+          In summary, Road 01 earns the causal substrate and Road 02 spends it safely. The plans meet
+          around Echo-backed structural-history bindings and queries, but the join is still
+          architectural rather than a single tracker-enforced queue.
+        </p>
+      </section>
+
+      <section class="content-section graph-section section-shell" id="dags" aria-labelledby="dags-title">
+        <div class="section-kicker">04 · The live dependency maps</div>
+        <h2 id="dags-title">The DAGs expose not just task order, but the evidence behind every arrow.</h2>
+        <p class="section-thesis">
+          A directed acyclic graph is useful only when an edge means something stable. These
+          interactive views separate live GitHub blockers, normative roadmap sequence, goalpost
+          membership, completed stale prerequisites, and documented-only relationships. Select any
+          node to inspect its source, then switch views to move between campaign scale and task scale.
+        </p>
+
+        <article class="graph-block" id="echo-graph" data-graph="echo">
+          <div class="graph-heading">
+            <div>
+              <span class="graph-road echo-label">Road 01 · Echo</span>
+              <h3>From authority preflight to retained replay and cutover</h3>
+              <p>The campaign view uses live native blockers. The #228 view expands the active issue into the exact proof chain.</p>
+            </div>
+            <div class="graph-metrics" aria-label="Echo campaign metrics">
+              <span><b>5</b> hosted issues open</span>
+              <span><b>1</b> current issue</span>
+              <span><b>0</b> implementation slices landed in #228</span>
+            </div>
+          </div>
+          <div class="graph-controls" role="group" aria-label="Echo graph controls">
+            <div class="segmented" data-view-control>
+              <button type="button" class="is-active" data-view="campaign">Campaign DAG</button>
+              <button type="button" data-view="proof">Expand #228</button>
+            </div>
+            <label class="search-control">Search nodes <input type="search" data-graph-search placeholder="#228, replay, cutover…" /></label>
+            <label class="filter-control">Status
+              <select data-status-filter>
+                <option value="all">All</option>
+                <option value="active">Active</option>
+                <option value="complete">Complete</option>
+                <option value="planned">Planned</option>
+                <option value="held">Held</option>
+              </select>
+            </label>
+            <div class="zoom-controls" aria-label="Graph zoom">
+              <button type="button" data-zoom="out" aria-label="Zoom out">−</button>
+              <button type="button" data-zoom="fit">Fit</button>
+              <button type="button" data-zoom="in" aria-label="Zoom in">+</button>
+            </div>
+          </div>
+          <div class="graph-workbench">
+            <div class="graph-canvas" data-graph-canvas>
+              <div class="layout-badge"><span></span>Sugiyama · longest path · two-layer · simplex</div>
+              <svg data-graph-svg role="img" aria-label="Interactive Echo campaign dependency graph"></svg>
+              <noscript><p>This interactive graph requires JavaScript. The dependency table below contains the same information.</p></noscript>
+            </div>
+            <aside class="node-inspector" data-node-inspector aria-live="polite">
+              <p class="mini-label">Selected node</p>
+              <h4>Choose a task</h4>
+              <p>Select a node by click, tap, or keyboard to see its evidence and direct dependencies.</p>
+            </aside>
+          </div>
+          <details class="edge-ledger">
+            <summary>Read the Echo dependency list without the graph</summary>
+            <div data-edge-list></div>
+          </details>
+        </article>
+
+        <article class="graph-block" id="managed-graph" data-graph="managed">
+          <div class="graph-heading">
+            <div>
+              <span class="graph-road managed-label">Road 02 · Managed workspaces</span>
+              <h3>From contract freeze to daemon-first GA</h3>
+              <p>The goalpost view shows product dependencies. The task view expands all 105 tracked issues without pretending membership edges are native blockers.</p>
+            </div>
+            <div class="graph-metrics" aria-label="Managed roadmap metrics">
+              <span><b>13</b> goalposts</span>
+              <span><b>105</b> task issues</span>
+              <span><b>6</b> closed</span>
+            </div>
+          </div>
+          <div class="graph-controls" role="group" aria-label="Managed roadmap graph controls">
+            <div class="segmented" data-view-control>
+              <button type="button" class="is-active" data-view="goalposts">Goalpost DAG</button>
+              <button type="button" data-view="tasks">All 105 tasks</button>
+            </div>
+            <label class="search-control">Search nodes <input type="search" data-graph-search placeholder="G6, cache, PDF…" /></label>
+            <label class="filter-control">Status
+              <select data-status-filter>
+                <option value="all">All</option>
+                <option value="active">Active</option>
+                <option value="complete">Complete</option>
+                <option value="planned">Planned</option>
+              </select>
+            </label>
+            <div class="zoom-controls" aria-label="Graph zoom">
+              <button type="button" data-zoom="out" aria-label="Zoom out">−</button>
+              <button type="button" data-zoom="fit">Fit</button>
+              <button type="button" data-zoom="in" aria-label="Zoom in">+</button>
+            </div>
+          </div>
+          <div class="graph-workbench">
+            <div class="graph-canvas" data-graph-canvas>
+              <div class="layout-badge"><span></span>Sugiyama · longest path · two-layer · simplex</div>
+              <svg data-graph-svg role="img" aria-label="Interactive managed workspace roadmap dependency graph"></svg>
+              <noscript><p>This interactive graph requires JavaScript. The dependency table below contains the same information.</p></noscript>
+            </div>
+            <aside class="node-inspector" data-node-inspector aria-live="polite">
+              <p class="mini-label">Selected node</p>
+              <h4>Choose a goalpost</h4>
+              <p>Select a node by click, tap, or keyboard to see its tracked tasks, release gate, and evidence.</p>
+            </aside>
+          </div>
+          <details class="edge-ledger">
+            <summary>Read the managed dependency list without the graph</summary>
+            <div data-edge-list></div>
+          </details>
+        </article>
+
+        <div class="legend" aria-label="Graph legend">
+          <span class="legend-title">Arrow evidence</span>
+          <span><i class="line-native"></i>Native blocker</span>
+          <span><i class="line-roadmap"></i>Roadmap sequence</span>
+          <span><i class="line-membership"></i>Goalpost membership</span>
+          <span><i class="line-documented"></i>Documented, not native</span>
+          <span><i class="line-stale"></i>Native edge; prerequisite closed</span>
+        </div>
+        <p class="section-summary">
+          In summary, the DAGs make the current choice visible: #228's RED proof is the active causal
+          frontier, while G1 is the partially landed product frontier. The graph does not force a
+          false linear order between them; it shows where their separately evidenced paths converge.
+        </p>
+      </section>
+
+      <section class="content-section section-shell" id="gaps" aria-labelledby="gaps-title">
+        <div class="section-kicker">05 · Where planning claims diverge from executable reality</div>
+        <h2 id="gaps-title">The architecture is clearer than the tracker, so status must be read from several evidence surfaces.</h2>
+        <p class="section-thesis">
+          Graft's documents, issues, milestones, and source code each answer a different question.
+          Drift appears when one is read as authority for another. The table keeps those gaps visible
+          instead of silently normalizing them into an overconfident percentage.
+        </p>
+
+        <div class="table-wrap claims-table">
+          <table>
+            <caption>Claim versus current evidence</caption>
+            <thead><tr><th>Surface claim</th><th>Executable or live evidence</th><th>How the site reads it</th></tr></thead>
+            <tbody>
+              <tr><td><code>AdmittedWorkspaceReadView</code> exists.</td><td>Both production composition roots still construct <code>LiveWorkspaceReadSource</code>; no settlement decoder exists.</td><td>Inner seam landed; production Echo observation unimplemented.</td></tr>
+              <tr><td>#228 binds an “expected basis.”</td><td>The newer active design forbids pre-reading dirty workspace bytes and requires <code>workspaceBasisPosture: UNKNOWN</code>.</td><td>Design packet wins; issue body is stale.</td></tr>
+              <tr><td>G0 milestone is open.</td><td>All six G0 task issues are closed and contract tests exist.</td><td>Task-complete, administratively open.</td></tr>
+              <tr><td>G1 is “in progress.”</td><td>The roadmap names a landed partial registry increment, but all eight G1 task issues remain open.</td><td>Partially implemented, no tracked slice closed.</td></tr>
+              <tr><td>Echo-native milestone has five open items.</td><td>Direct issue enumeration exposes #230 and #231.</td><td>Aggregate drift is disclosed; nodes use enumerated tasks.</td></tr>
+              <tr><td>#230 sounds like the Echo migration.</td><td>Its body says “intentionally shelved” until real Edict-on-Echo operation exists.</td><td>Held later project, not current #228 work.</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <p>
+          This is why the site never reports a single blended “Graft is 12% done” number. Six closed
+          managed tasks say nothing about whether #228's request precedes its first filesystem read;
+          conversely, landing that proof will not create secure state storage, resource routing, or a
+          public daemon rollout.
+        </p>
+        <p class="section-summary">
+          In summary, current state is a ledger, not a scalar: the internal read-authority seam and G0
+          contracts are real; #228 production composition and almost the entire G1-G12 product program
+          remain open.
+        </p>
+      </section>
+
+      <section class="content-section section-shell" id="audit" aria-labelledby="audit-title">
+        <div class="section-kicker">06 · How this map was audited</div>
+        <h2 id="audit-title">The graph was reconstructed from source, planning documents, and live dependency endpoints—and the dead ends changed the conclusion.</h2>
+        <p class="section-thesis">
+          The audit began with repository direction, then checked code and branch state, enumerated
+          milestones and issues, and finally queried native blocked-by and blocking relationships. Two
+          tempting shortcuts failed: milestone aggregates did not enumerate cleanly, and old issue
+          prose disagreed with the newer design. Keeping those failures is part of the evidence.
+        </p>
+
+        <ol class="audit-steps">
+          <li><span>01</span><div><h3>Recover execution gravity</h3><p>Read <code>BEARING.md</code>, METHOD, the #228 packet, and the G0-G12 roadmap before interpreting issue names.</p></div></li>
+          <li><span>02</span><div><h3>Inspect implemented composition</h3><p>Confirmed the admitted read seam and the production <code>LiveWorkspaceReadSource</code> construction in source.</p></div></li>
+          <li><span>03</span><div><h3>Enumerate the trackers</h3><p>Mapped 105 managed task issues (#97–#201), 15 formal milestones, and the seven Graft issues in the Echo transition.</p></div></li>
+          <li><span>04</span><div><h3>Query native edges directly</h3><p>Used GitHub's dependency endpoints for every Echo issue instead of inferring arrows from prose.</p></div></li>
+          <li><span>05</span><div><h3>Preserve drift</h3><p>Marked G0, G1, #228, and milestone-count discrepancies as claims gaps instead of “fixing” the graph to look tidy.</p></div></li>
+        </ol>
+
+        <div class="dead-end-grid">
+          <article><span>Dead end A</span><h3>Milestone aggregate ≠ issue enumeration</h3><p>The Echo-native milestone reports five open items, while direct enumeration yields #230 and #231. The site trusts enumerated nodes and displays the aggregate as drift.</p></article>
+          <article><span>Dead end B</span><h3>Issue body ≠ latest protocol</h3><p>#228's “expected basis” language would reintroduce a pre-observation read. The newer packet's unknown-basis decision takes precedence.</p></article>
+          <article><span>Boundary</span><h3>Documented edge ≠ native blocker</h3><p>The #231-to-G6 convergence is architecturally meaningful but not mechanically enforced in GitHub, so it stays dashed.</p></article>
+        </div>
+
+        <p class="section-summary">
+          In summary, the map is reproducible because each arrow has provenance and each discrepancy
+          remains visible. A future refresh can change status without rewriting the meaning of an edge.
+        </p>
+      </section>
+
+      <section class="content-section mature-section section-shell" id="mature" aria-labelledby="mature-title">
+        <div class="section-kicker">07 · What mature looks like</div>
+        <h2 id="mature-title">Maturity is reached when causal proof and product governance meet without a fallback-shaped hole between them.</h2>
+        <p class="section-thesis">
+          “Done” is not merely merging #228, nor is it closing 105 issues. The causal road must prove
+          retained request, settlement, recovery, and zero-read replay; the product road must then
+          expose safe multi-workspace reads, scoped derived state, managed history, truthful queries,
+          lifecycle controls, and a reversible daemon-first rollout.
+        </p>
+
+        <div class="maturity-ladder">
+          <article class="is-now"><span>Now</span><h3>#228 RED boundary</h3><p>Can the pinned Edict/Echo contract represent known causal basis plus unknown workspace-content basis?</p></article>
+          <article><span>First bell</span><h3>Retained observation</h3><p>Request before read; settlement before analysis; identical restarted <code>file_outline</code>; zero external rereads.</p></article>
+          <article><span>Real runtime</span><h3>#229 → #232</h3><p>Edict-produced Graft semantics execute through real Echo durability, recovery, receipts, and no production fake.</p></article>
+          <article><span>Product alpha</span><h3>G0 → G3</h3><p>One daemon session safely reads two authorized repositories without mutating either target.</p></article>
+          <article><span>Convergence</span><h3>#231 + G6/G7</h3><p>Echo becomes the gated primary structural-history provider behind managed bindings and honest coverage semantics.</p></article>
+          <article><span>Rollout</span><h3>G0–G8 + G10 + G12</h3><p>Daemon-first GA ships with governance, lifecycle, migration, compatibility notices, and rollback.</p></article>
+        </div>
+
+        <div class="done-checklist">
+          <h3>The next bell, stated as executable evidence</h3>
+          <ul>
+            <li><code>requestWalPosition &lt; firstFilesystemReadPosition</code></li>
+            <li><code>settlementWalPosition &lt; firstGraftAnalysisReadPosition</code></li>
+            <li><code>settlement.requestIdentity == request.requestIdentity</code></li>
+            <li><code>settlement.admittedAperture ⊆ request.aperture</code></li>
+            <li><code>liveFileOutlineResult == restartedFileOutlineResult</code></li>
+            <li><code>restartedFilesystemReads == 0</code></li>
+            <li><code>restartedGitWarpOpens == 0</code></li>
+          </ul>
+        </div>
+
+        <aside class="intuition-callout">
+          <strong>Intuition to carry forward</strong>
+          <p>The immediate move is small and deep: write the #228 RED proof. The long roadmap stays visible so the proof lands as a product foundation, not a beautiful isolated demo.</p>
+        </aside>
+        <p class="section-summary">
+          In summary, Graft is currently between a real inner authority seam and a real causal runtime.
+          The next milestone is one retained <code>file_outline</code> round trip; the mature destination
+          is a daemon-managed product whose history claims remain causal, scoped, and replayable.
+        </p>
+      </section>
+
+      <section class="sources-section section-shell" id="sources" aria-labelledby="sources-title">
+        <div>
+          <div class="section-kicker">Sources and snapshot boundary</div>
+          <h2 id="sources-title">Everything here is a dated reading, with links back to the evidence.</h2>
+          <p>
+            Snapshot: 2026-08-15. Main: <code>68959cd63f15</code>. Active #228 design:
+            <code>24f2a975365a</code>. Tracker state can change; graph semantics should not.
+          </p>
+        </div>
+        <ul>
+          <li><a href="https://github.com/flyingrobots/graft/blob/24f2a975365a940a23be41db575678b3c884a58b/docs/BEARING.md" target="_blank" rel="noreferrer">Current BEARING</a></li>
+          <li><a href="https://github.com/flyingrobots/graft/blob/24f2a975365a940a23be41db575678b3c884a58b/docs/design/CORE_first-retained-workspace-observation.md" target="_blank" rel="noreferrer">#228 design packet</a></li>
+          <li><a href="https://github.com/flyingrobots/graft/blob/68959cd63f1552b59cde1b8109a48793035f4dbc/docs/design/SURFACE_graft-managed-workspace-store-roadmap.md" target="_blank" rel="noreferrer">G0-G12 roadmap</a></li>
+          <li><a href="https://github.com/flyingrobots/graft/milestones" target="_blank" rel="noreferrer">Live milestones</a></li>
+          <li><a href="https://github.com/flyingrobots/graft/issues/228" target="_blank" rel="noreferrer">Issue #228</a></li>
+          <li><a href="https://github.com/flyingrobots/graft/pull/244" target="_blank" rel="noreferrer">PR #244 authority preflight</a></li>
+        </ul>
+      </section>
+    </main>
+
+    <footer>
+      <p>Built as an evidence-bearing architecture explainer for Graft.</p>
+      <a href="#top">Back to top ↑</a>
+    </footer>
+
+    <script type="module" src="/src/main.js"></script>
+  </body>
+</html>

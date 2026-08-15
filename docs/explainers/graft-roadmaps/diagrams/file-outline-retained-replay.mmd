@@ -1,0 +1,31 @@
+sequenceDiagram
+    participant A as Coding agent
+    participant G as Graft file_outline
+    participant E as Echo WAL
+    participant O as Workspace observer
+    participant V as Admitted read view
+    participant F as Live filesystem
+
+    A->>G: file_outline src/mcp/server.ts
+    rect rgb(255, 236, 219)
+        Note over G,F: Production today
+        G->>F: Read through LiveWorkspaceReadSource
+        F-->>G: Current bytes
+        G-->>A: Structured outline
+    end
+    rect rgb(220, 244, 239)
+        Note over G,V: Issue 228 target
+        G->>E: Retain UNKNOWN-workspace-basis request
+        E-->>O: Durable claim and bounded capability
+        O->>F: Observe admitted aperture
+        F-->>O: Bytes and evidence
+        O->>E: Retain schema-bound settlement
+        E-->>V: Settled bytes and receipt
+        V-->>G: AdmittedWorkspaceReadView
+        G-->>A: Structured outline
+        Note over G,E: Process terminates and reopens
+        G->>E: Recover retained settlement
+        E-->>V: Same settled bytes
+        V-->>G: Same admitted read view
+        G-->>A: Identical outline with zero external reads
+    end

@@ -120,9 +120,10 @@ unknown-basis contract
 ### Managed-workspace graph
 
 The goalpost view shows the normative G0-G12 critical path and three parallel
-branches. The task view expands all 105 GitHub issues. Edges inside a goalpost
-mean documented slice order, not native GitHub blockers; goalpost edges mean
-roadmap sequencing.
+branches. The task view expands all 105 GitHub issues between synthetic entry
+and exit gates. Edges inside a goalpost mean membership and contribution to the
+exit gate, not native GitHub blockers or an invented dependency between every
+numbered slice; goalpost edges mean roadmap sequencing.
 
 ### Edge evidence
 
@@ -130,7 +131,7 @@ roadmap sequencing.
 |---|---|---|
 | Native blocker | Live GitHub dependency | solid, strongest |
 | Roadmap sequence | Normative design-document order | solid, secondary |
-| Slice order | Ordered PR-sized slices within a goalpost | thin |
+| Goalpost membership | A tracked task contributes to its goalpost gate | thin |
 | Architectural convergence | Documented relationship without a native edge | dashed |
 | Stale or completed prerequisite | Retained for explanatory context | dotted |
 
@@ -210,4 +211,3 @@ roadmap sequencing.
 - replacing `BEARING.md` or the design packets as planning authority;
 - turning the explainer into a general roadmap-management product; and
 - making deployment access public without explicit approval.
-

@@ -246,6 +246,37 @@ export default tseslint.config(
     },
   },
   {
+    files: ["docs/explainers/graft-roadmaps/src/**/*.js"],
+    extends: [tseslint.configs.disableTypeChecked],
+    languageOptions: {
+      globals: {
+        ...globals.browser,
+      },
+    },
+  },
+  {
+    files: [
+      "docs/explainers/graft-roadmaps/scripts/**/*.mjs",
+      "docs/explainers/graft-roadmaps/vite.config.mjs",
+    ],
+    extends: [tseslint.configs.disableTypeChecked],
+    languageOptions: {
+      globals: {
+        ...globals.node,
+        ...globals.browser,
+      },
+    },
+  },
+  {
+    files: ["docs/explainers/graft-roadmaps/worker/**/*.js"],
+    extends: [tseslint.configs.disableTypeChecked],
+    languageOptions: {
+      globals: {
+        ...globals.serviceworker,
+      },
+    },
+  },
+  {
     ignores: [
       "bin/",
       "dist/",
@@ -257,6 +288,8 @@ export default tseslint.config(
       ".obsidian/",
       "test/fixtures/",
       "docs/study/infra/",
+      "docs/explainers/graft-roadmaps/dist/",
+      "docs/explainers/graft-roadmaps/src/generated-roadmap-data.js",
       "anti-sludge-policy-bundle/",
     ],
   },

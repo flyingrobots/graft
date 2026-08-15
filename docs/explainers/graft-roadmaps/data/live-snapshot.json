@@ -1,0 +1,191 @@
+{
+  "snapshotAt": "2026-08-15",
+  "repository": "flyingrobots/graft",
+  "mainSha": "68959cd63f1552b59cde1b8109a48793035f4dbc",
+  "echoDesignSha": "24f2a975365a940a23be41db575678b3c884a58b",
+  "managed": {
+    "issueStart": 97,
+    "issueEnd": 201,
+    "closedIssues": [97, 98, 99, 100, 101, 102],
+    "milestones": {
+      "G0": { "number": 1, "state": "open", "open": 0, "closed": 6 },
+      "G1": { "number": 2, "state": "open", "open": 8, "closed": 0 },
+      "G2": { "number": 3, "state": "open", "open": 10, "closed": 0 },
+      "G3": { "number": 4, "state": "open", "open": 9, "closed": 0 },
+      "G4": { "number": 5, "state": "open", "open": 9, "closed": 0 },
+      "G5": { "number": 6, "state": "open", "open": 7, "closed": 0 },
+      "G6": { "number": 7, "state": "open", "open": 9, "closed": 0 },
+      "G7": { "number": 8, "state": "open", "open": 8, "closed": 0 },
+      "G8": { "number": 9, "state": "open", "open": 9, "closed": 0 },
+      "G9": { "number": 10, "state": "open", "open": 8, "closed": 0 },
+      "G10": { "number": 11, "state": "open", "open": 7, "closed": 0 },
+      "G11": { "number": 12, "state": "open", "open": 7, "closed": 0 },
+      "G12": { "number": 13, "state": "open", "open": 8, "closed": 0 }
+    }
+  },
+  "echo": {
+    "hostedMilestone": { "number": 15, "state": "open", "open": 5, "closed": 0 },
+    "historyMilestone": { "number": 14, "state": "open", "open": 5, "closed": 0 },
+    "nodes": [
+      {
+        "id": "graft-238",
+        "short": "#238",
+        "title": "Honor the requested worktree in MCP structural reads",
+        "status": "complete",
+        "kind": "issue",
+        "milestone": "Authority preflight",
+        "summary": "Landed through PR #244. Requested root, canonical resolved root, and workspace identity now fail closed and remain observable.",
+        "url": "https://github.com/flyingrobots/graft/issues/238"
+      },
+      {
+        "id": "hello-10",
+        "short": "hello-echo #10",
+        "title": "Bounded workspace observation through durable settlement",
+        "status": "complete",
+        "kind": "external",
+        "milestone": "External proof",
+        "summary": "Closed upstream proof. GitHub still retains this completed blocker edge on #228.",
+        "url": "https://github.com/flyingrobots/hello-echo/issues/10"
+      },
+      {
+        "id": "graft-228",
+        "short": "#228 · NOW",
+        "title": "First retained workspace observation",
+        "status": "active",
+        "kind": "issue",
+        "milestone": "Graft Hosted by Echo",
+        "summary": "Design is complete; implementation has not started. The next action is the narrow unknown-basis substrate audit and RED proof.",
+        "url": "https://github.com/flyingrobots/graft/issues/228"
+      },
+      {
+        "id": "graft-229",
+        "short": "#229",
+        "title": "Graft Edict application and Echo runtime wiring",
+        "status": "planned",
+        "kind": "issue",
+        "milestone": "Graft Hosted by Echo",
+        "summary": "Run Graft semantics from real Edict source through Echo's compiler, verifier, scheduler, WAL, Tick, Receipt, and recovery path.",
+        "url": "https://github.com/flyingrobots/graft/issues/229"
+      },
+      {
+        "id": "graft-236",
+        "short": "#236",
+        "title": "Remove the fake Echo transport from production",
+        "status": "planned",
+        "kind": "issue",
+        "milestone": "Graft Hosted by Echo",
+        "summary": "Production must fail closed without real Echo integration; fakes remain test-only.",
+        "url": "https://github.com/flyingrobots/graft/issues/236"
+      },
+      {
+        "id": "hello-11",
+        "short": "hello-echo #11",
+        "title": "Basis-bound validated patch application",
+        "status": "complete",
+        "kind": "external",
+        "milestone": "External proof",
+        "summary": "Closed upstream patch proof and completed native prerequisite for #237.",
+        "url": "https://github.com/flyingrobots/hello-echo/issues/11"
+      },
+      {
+        "id": "graft-237",
+        "short": "#237",
+        "title": "Validated patch proposal and application",
+        "status": "planned",
+        "kind": "issue",
+        "milestone": "Graft Hosted by Echo",
+        "summary": "Validate a patch as data and apply it through Echo without granting write authority to the model or Edict program.",
+        "url": "https://github.com/flyingrobots/graft/issues/237"
+      },
+      {
+        "id": "graft-232",
+        "short": "#232 · GATE",
+        "title": "Graft hosted by Echo over admitted workspace effects",
+        "status": "planned",
+        "kind": "goalpost",
+        "milestone": "Graft Hosted by Echo",
+        "summary": "Integration checkpoint for retained reads, real runtime wiring, validated writes, recovery, replay, and removal of production fakes.",
+        "url": "https://github.com/flyingrobots/graft/issues/232"
+      },
+      {
+        "id": "hello-12",
+        "short": "hello-echo #12",
+        "title": "Track Graft hosted by Echo",
+        "status": "planned",
+        "kind": "external",
+        "milestone": "External tracking",
+        "summary": "Open downstream tracker blocked by the #232 goalpost.",
+        "url": "https://github.com/flyingrobots/hello-echo/issues/12"
+      },
+      {
+        "id": "edict-168",
+        "short": "edict #168",
+        "title": "Cross-runtime prerequisite for legacy import",
+        "status": "planned",
+        "kind": "external",
+        "milestone": "Later migration context",
+        "summary": "Named in #230's issue body, but not represented as a native GitHub blocker edge in Graft.",
+        "url": "https://github.com/flyingrobots/edict/issues/168"
+      },
+      {
+        "id": "graft-230",
+        "short": "#230 · HELD",
+        "title": "One-time git-warp to Echo migration",
+        "status": "held",
+        "kind": "issue",
+        "milestone": "Echo-native Structural History",
+        "summary": "Intentionally shelved until ordinary Graft operations work through real Edict output on Echo.",
+        "url": "https://github.com/flyingrobots/graft/issues/230"
+      },
+      {
+        "id": "graft-231",
+        "short": "#231 · CUTOVER",
+        "title": "Echo structural-history cutover gate",
+        "status": "held",
+        "kind": "goalpost",
+        "milestone": "Echo-native Structural History",
+        "summary": "Default provider changes only after retained-evidence posture and public-surface parity are executable release gates.",
+        "url": "https://github.com/flyingrobots/graft/issues/231"
+      }
+    ],
+    "edges": [
+      { "source": "graft-238", "target": "graft-228", "kind": "documented", "label": "completed preflight" },
+      { "source": "hello-10", "target": "graft-228", "kind": "native-stale", "label": "native · closed" },
+      { "source": "graft-228", "target": "graft-229", "kind": "native", "label": "blocks" },
+      { "source": "graft-228", "target": "graft-232", "kind": "native", "label": "blocks" },
+      { "source": "graft-229", "target": "graft-236", "kind": "native", "label": "blocks" },
+      { "source": "graft-229", "target": "graft-237", "kind": "native", "label": "blocks" },
+      { "source": "graft-229", "target": "graft-232", "kind": "native", "label": "blocks" },
+      { "source": "hello-11", "target": "graft-237", "kind": "native-stale", "label": "native · closed" },
+      { "source": "graft-236", "target": "graft-232", "kind": "native", "label": "blocks" },
+      { "source": "graft-237", "target": "graft-232", "kind": "native", "label": "blocks" },
+      { "source": "graft-232", "target": "hello-12", "kind": "native", "label": "blocks" },
+      { "source": "graft-229", "target": "graft-230", "kind": "native", "label": "blocks later" },
+      { "source": "edict-168", "target": "graft-230", "kind": "documented", "label": "issue-body prerequisite" },
+      { "source": "graft-230", "target": "graft-231", "kind": "native", "label": "blocks cutover" }
+    ],
+    "proofNodes": [
+      { "id": "p-design", "short": "DESIGN", "title": "Unknown-basis request decision", "status": "complete", "kind": "proof", "summary": "Known causal basis and unknown workspace-content basis are separate fields. No pre-read manufactures an expected digest." },
+      { "id": "p-red", "short": "NEXT · RED", "title": "Substrate audit and failing proof", "status": "active", "kind": "proof", "summary": "Prove the pinned Edict/Echo boundary can represent UNKNOWN workspace basis and expose ordering counters; stop upstream if it cannot." },
+      { "id": "p-contract", "short": "CONTRACT", "title": "Graft-owned Edict source and generated contracts", "status": "planned", "kind": "proof", "summary": "Declare ObserveWorkspaceSnapshot through the pinned compiler path; no handwritten executor or sentinel digest." },
+      { "id": "p-request", "short": "REQUEST", "title": "Retain request before effect", "status": "planned", "kind": "proof", "summary": "The request WAL position must precede the first metadata or content read." },
+      { "id": "p-observe", "short": "OBSERVE", "title": "Bounded authorized observation", "status": "planned", "kind": "proof", "summary": "Read only the admitted aperture through a capability-rooted observer and return typed incoherence when necessary." },
+      { "id": "p-settle", "short": "SETTLE", "title": "Retain schema-bound settlement", "status": "planned", "kind": "proof", "summary": "Correlate roots, identity, aperture, digests, posture, and content; retain before granting analysis authority." },
+      { "id": "p-decode", "short": "DECODE", "title": "Production settlement decoder", "status": "planned", "kind": "proof", "summary": "Only the decoder constructs AdmittedWorkspaceReadView. Non-success or malformed settlements yield no view." },
+      { "id": "p-outline", "short": "ANALYZE", "title": "Run file_outline from admitted bytes", "status": "planned", "kind": "proof", "summary": "The existing governed operation reads the retained view with no live fallback." },
+      { "id": "p-restart", "short": "RESTART", "title": "Recover from Echo history", "status": "planned", "kind": "proof", "summary": "Terminate the process, deny observer authority, and reconstruct the same admitted view from retained history." },
+      { "id": "p-zero", "short": "BELL", "title": "Identical replay with zero external reads", "status": "planned", "kind": "goalpost", "summary": "Live and restarted structured results match; restarted filesystem reads and git-warp opens are both zero." }
+    ],
+    "proofEdges": [
+      { "source": "p-design", "target": "p-red", "kind": "roadmap", "label": "design to RED" },
+      { "source": "p-red", "target": "p-contract", "kind": "roadmap", "label": "substrate supports" },
+      { "source": "p-contract", "target": "p-request", "kind": "roadmap", "label": "declare" },
+      { "source": "p-request", "target": "p-observe", "kind": "roadmap", "label": "request before read" },
+      { "source": "p-observe", "target": "p-settle", "kind": "roadmap", "label": "witness result" },
+      { "source": "p-settle", "target": "p-decode", "kind": "roadmap", "label": "settle before analysis" },
+      { "source": "p-decode", "target": "p-outline", "kind": "roadmap", "label": "grant read view" },
+      { "source": "p-outline", "target": "p-restart", "kind": "roadmap", "label": "close process" },
+      { "source": "p-restart", "target": "p-zero", "kind": "roadmap", "label": "closed-world replay" }
+    ]
+  }
+}
