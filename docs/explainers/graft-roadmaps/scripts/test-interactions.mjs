@@ -9,10 +9,19 @@ const siteRoot = resolve(scriptDir, "..");
 const standalonePath = resolve(siteRoot, "Graft Two Roadmaps.html");
 const window = new Window({ url: pathToFileURL(standalonePath).href });
 const standalone = await readFile(standalonePath, "utf8");
-const standaloneBundle = standalone.match(/<script data-standalone-bundle>([\s\S]*?)<\/script>/u)?.[1];
-if (!standaloneBundle) throw new Error("offline artifact must contain its bundled JavaScript");
-const inertHtml = standalone.replace(/<script\b[^>]*>[\s\S]*?<\/script>/gu, "");
-window.document.write(inertHtml);
+const bundleOpen = '<script data-standalone-bundle>';
+const bundleStart = standalone.indexOf(bundleOpen);
+const bundleEnd = standalone.indexOf("</script>", bundleStart);
+if (bundleStart < 0 || bundleEnd < 0) throw new Error("offline artifact must contain its bundled JavaScript");
+const beforeBundle = standalone.slice(0, bundleStart);
+const standaloneBundle = standalone.slice(bundleStart + bundleOpen.length, bundleEnd);
+const afterBundle = standalone.slice(bundleEnd + "</script>".length);
+
+window.document.open();
+window.document.write(beforeBundle);
+window.eval(standaloneBundle);
+window.document.write(afterBundle);
+window.document.close();
 
 Object.assign(globalThis, {
   window,
@@ -29,8 +38,6 @@ Object.assign(globalThis, {
 function invariant(condition, message) {
   if (!condition) throw new Error(message);
 }
-
-window.eval(standaloneBundle);
 
 const echo = document.querySelector('[data-graph="echo"]');
 const managed = document.querySelector('[data-graph="managed"]');

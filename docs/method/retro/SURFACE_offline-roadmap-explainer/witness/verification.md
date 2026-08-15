@@ -18,6 +18,7 @@ title: "Verification Witness for the Offline Roadmap Explainer"
 
 - identifies itself as the self-contained offline artifact;
 - contains inline stylesheet and JavaScript bundle markers;
+- places the JavaScript bundle after the graph containers at the end of body;
 - contains the sequence diagram as an SVG data URL;
 - contains no external or local script source;
 - contains no stylesheet link;
@@ -35,7 +36,8 @@ Roadmap explainer checks passed: self-contained offline artifact,
 ## File-URL Interaction Contract
 
 `pnpm site:roadmaps:test-interactions` loads the exact standalone HTML using a
-`file://` URL, evaluates its inlined production bundle, and proves:
+`file://` URL, constructs the document in source order, evaluates the inlined
+production bundle at its declared position, and proves:
 
 - the inlined stylesheet computes the designed header's grid layout;
 - the 12-node Echo campaign and 13-node managed goalpost views initialize;

@@ -127,6 +127,10 @@ invariant(
 );
 invariant(standalone.includes("data-standalone-styles"), "offline artifact must inline its stylesheet");
 invariant(standalone.includes("data-standalone-bundle"), "offline artifact must inline its JavaScript bundle");
+invariant(
+  standalone.indexOf("data-standalone-bundle") > standalone.indexOf("</footer>"),
+  "offline bundle must execute after the graph containers exist",
+);
 invariant(standalone.includes("data:image/svg+xml;base64,"), "offline artifact must inline the sequence diagram");
 invariant(!/<script\b[^>]*\bsrc=/u.test(standalone), "offline artifact must not load an external script");
 invariant(!/<link\b[^>]*\brel="stylesheet"/u.test(standalone), "offline artifact must not load a stylesheet");

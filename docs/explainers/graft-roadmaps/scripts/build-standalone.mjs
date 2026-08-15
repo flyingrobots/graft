@@ -28,12 +28,16 @@ const safeStylesheet = stylesheet.replaceAll("</style", "<\\\\/style");
 const diagramDataUrl = `data:image/svg+xml;base64,${diagram.toString("base64")}`;
 
 const standalone = builtHtml
-  .replace(scriptTag[0], () => `<script data-standalone-bundle>${safeJavaScript}</script>`)
+  .replace(`    ${scriptTag[0]}\n`, "")
   .replace(styleTag[0], () => `<style data-standalone-styles>${safeStylesheet}</style>`)
   .replace("./diagrams/file-outline-retained-replay.svg", diagramDataUrl)
   .replace(/\s*<meta property="og:image"[^>]*>/u, "")
   .replace(/\s*<meta name="twitter:image"[^>]*>/u, "")
-  .replace("<title>", '<meta name="offline-artifact" content="self-contained" />\n    <title>');
+  .replace("<title>", '<meta name="offline-artifact" content="self-contained" />\n    <title>')
+  .replace(
+    "</body>",
+    () => `    <script data-standalone-bundle>${safeJavaScript}</script>\n  </body>`,
+  );
 
 await writeFile(outputPath, standalone);
 console.log(`Generated offline artifact: ${outputPath}`);

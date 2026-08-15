@@ -20,6 +20,12 @@ The authored Vite `index.html` remains the development entrypoint. When opened
 from Finder it redirects to the standalone artifact, preventing recurrence of
 the browser-default rendering that exposed this gap.
 
+The first delivered standalone file placed the inlined production bundle in
+the document head where Vite had emitted its deferred module tag. A classic
+inline script is not deferred: Safari executed it before the graph containers
+existed, leaving both viewers empty. The generator now places the bundle at the
+end of the body, and the contract test fixes that ordering in place.
+
 ## Playback Witness
 
 - [verification.md](./witness/verification.md)
@@ -35,6 +41,9 @@ the browser-default rendering that exposed this gap.
 - The connected browser surface was unavailable. The cycle verifies file-URL
   execution, computed stylesheet application, and interactive behavior in a
   deterministic DOM, but does not claim screenshot-based visual inspection.
+- James's direct Safari playback caught the empty-viewer ordering defect that
+  the first deterministic harness concealed by constructing the DOM before it
+  evaluated the bundle.
 
 ## What surprised you?
 
