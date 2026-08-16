@@ -94,6 +94,8 @@ before repair and all answered on their own threads:
 | 2 | `b9caa721` | 7 (4×P1, 2×P2, 1×P3) |
 | 3 | `f5793e5c` | 6 (4×P1, 2×P2) |
 
+Totals: 16 findings — 11×P1, 4×P2, 1×P3.
+
 CI was green on every head. CodeRabbit reviewed none of it — `.coderabbit.yaml`
 excludes `**/*.md` and it posted a review-skipped notice. That gap is filed as
 `CLEAN_design-packets-receive-no-automated-review.md`.

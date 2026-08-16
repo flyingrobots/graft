@@ -26,7 +26,7 @@ determines what a cycle builds is the one artifact the review gate does not
 read.
 
 PR #245 was reviewed only by Codex. That review found sixteen defects across
-three rounds, ten of them P1, including a settlement contract that could not
+three rounds, eleven of them P1, including a settlement contract that could not
 encode the field its own symlink policy turns on, and a replay comparison rule
 that would have rejected every valid result it was meant to compare. None of
 these would have been caught by CI, which passes on documentation changes by
