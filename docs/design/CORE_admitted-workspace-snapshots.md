@@ -67,7 +67,8 @@ are the remaining slices.
 
 - [ ] exact Graft Edict source constructs a declared `ObserveWorkspaceSnapshot` request
 - [ ] Echo admits the request before an adapter reads the workspace
-- [ ] the request binds workspace root, path aperture, byte budget, symlink policy, and expected basis
+- [ ] the request binds workspace root, path aperture, byte budget, symlink
+      policy, known causal basis, and an unknown workspace-basis posture
 - [ ] the adapter returns schema-bound bytes or content references plus basis evidence
 - [ ] Echo admits the settlement before Graft analysis resumes
 - [ ] parsing, indexing, search, and diff analysis are deterministic over the admitted snapshot
@@ -237,20 +238,22 @@ and the type system should say so by name rather than by a sentinel digest.
   source, restart recovery, and zero-reread replay. Those are the following
   slices, and this packet must not be read as claiming them.
 
-## Deferred, with reasons
+## Follow-on decision and deferred work
 
 Named here so they are not silently dropped:
 
-- **The first-basis protocol question.** Hello Echo's request fixture computes
-  the expected basis *before* sending the request, so it is a verify-and-admit
-  protocol, not a first-observation protocol. Graft's first read of an unknown
-  dirty workspace has no basis to declare. Resolving this is an Echo/Edict
-  decision (propose-and-admit vs. unknown-basis observation), not a Graft one,
-  and it gates the real-admission slice.
+- **The first-basis protocol is resolved.** The follow-on
+  [First retained workspace observation](./CORE_first-retained-workspace-observation.md)
+  packet chooses an unknown workspace-basis request. Echo's generic causal
+  request basis remains exact, while the not-yet-observed workspace basis is a
+  typed `UNKNOWN` operation-input posture and becomes exact only in the
+  schema-bound settlement result. The Hello Echo fixture's precomputed
+  expected workspace basis remains a verify-and-admit example and cannot be
+  reused unchanged for Graft's first observation.
 - **hello-echo#26 (closed 2026-08-04)** — the observation host did not project
   basis/evidence fields, so a settlement could not be bound to observed bytes.
   Its closure removes that external condition, but Graft still has no decoder
-  or first-basis protocol and #228 remains open.
+  or retained request/settlement/replay composition and #228 remains open.
 - **`intent` is a no-op.** Removed from the `safeRead` operation, which now
   takes only what it uses, but still declared on the MCP surface where removing
   it would be a breaking schema change. Filed as

@@ -90,16 +90,13 @@ construct `LiveWorkspaceReadSource`: Graft does not yet declare an observation
 through Edict, retain its request and settlement in Echo, or replay analysis
 after restart without filesystem reads.
 
-Before that vertical, close one narrow authority preflight:
+The narrow authority preflight is complete: issue #238 landed through PR #244.
+It proved two dirty worktrees of the same repository in both directions,
+exposed requested and canonical resolved identity, and failed closed on invalid
+or mismatched roots without becoming a routing rewrite.
 
-1. Prove issue #238 against two dirty worktrees of the same repository in both
-   directions.
-2. Expose requested and canonical resolved roots plus workspace identity in
-   routed responses and receipts.
-3. Fail closed on missing, unauthorized, or identity-mismatched roots.
-4. Do not expand #238 into a routing rewrite or adjacent cleanup campaign.
-
-Then resume issue #228 as **First Retained Workspace Observation**:
+Issue #228 now resumes as
+[**First Retained Workspace Observation**](./design/CORE_first-retained-workspace-observation.md):
 
 1. Declare Graft-owned Edict operation `ObserveWorkspaceSnapshot`.
 2. Use an unknown-basis request: the request authorizes an observation and the
@@ -147,12 +144,13 @@ Then resume issue #228 as **First Retained Workspace Observation**:
    as `UNPINNED_COMMITTED`, keeping `GIT_REF` reserved for bases with a
    present `refName`.
 
-7. **Requested-worktree authority preflight** (complete locally; pending review;
-   issue #238)
+7. **Requested-worktree authority preflight** (shipped, PR #244; issue #238)
    Prove explicit routed reads against two worktrees of one repository and make
    requested/resolved identity inspectable and fail-closed.
 
-8. **First retained workspace observation** (next; issue #228)
+8. **First retained workspace observation** (active design; issue #228;
+   packet
+   [`CORE_first-retained-workspace-observation`](./design/CORE_first-retained-workspace-observation.md))
    Complete the Edict request -> Echo retention -> authorized observation ->
    settlement retention -> admitted read -> restart -> zero-read replay
    vertical using the unknown-basis request protocol.
