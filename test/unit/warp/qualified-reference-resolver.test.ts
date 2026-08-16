@@ -41,7 +41,7 @@ describe("qualified reference language adapters", () => {
 
   it("treats Python parameters and locals as whole-function shadows", async () => {
     const source = [
-      "from coqui.matcher import sources",
+      "from app.alpha import sources",
       "sources.pending_ids()",
       "def parameter_shadow(sources):",
       "    sources.pending_ids()",
@@ -54,10 +54,10 @@ describe("qualified reference language adapters", () => {
       "def sibling():",
       "    sources.pending_ids()",
     ].join("\n");
-    const analysis = await analyze("python", "coqui/matcher/cli.py", source, new Map([
-      ["coqui/matcher/cli.py", source],
-      ["coqui/matcher/__init__.py", ""],
-      ["coqui/matcher/sources.py", "def pending_ids(): return []"],
+    const analysis = await analyze("python", "app/alpha/cli.py", source, new Map([
+      ["app/alpha/cli.py", source],
+      ["app/alpha/__init__.py", ""],
+      ["app/alpha/sources.py", "def pending_ids(): return []"],
     ]));
 
     expect(analysis.accesses.map((access) => access.shadow?.shadowKind ?? "resolved")).toEqual([
