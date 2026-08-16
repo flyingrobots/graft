@@ -361,8 +361,8 @@ sequenceDiagram
       before observation, with the existing content-dependent refusals staying
       where they are, is in scope for this cycle.
 - [ ] Acceptance evidence shows denied content is never retained: for a denied
-      path, `retainedSettlementCount == 0` and no Echo record contains its
-      bytes or digest.
+      path, `deniedPathRetainedSettlements == 0` and no Echo record contains
+      its bytes or digest.
 - [ ] A successful settlement contains schema-admitted bytes or retained
       content references, per-file digests, and an exact observed workspace
       basis.
