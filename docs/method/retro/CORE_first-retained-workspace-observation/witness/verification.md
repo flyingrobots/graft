@@ -9,19 +9,30 @@ records what a documentation cycle can actually prove: that the packet's claims
 about the tree are true, that the packet does not contradict itself, and that
 nothing executable changed.
 
-Verified from branch commit `c61023f8`, with `dc619514` as the `main` baseline.
+The full gate below was last run at branch commit `e187963f`, with `dc619514`
+as the `main` baseline. Subsequent commits on this branch correct this witness
+and the retro only; they change no design, backlog, or generated file, and are
+covered by the documentation gate.
 
 ## Scope of change
 
 ```text
 git diff --name-only dc619514..HEAD
 docs/design/CORE_first-retained-workspace-observation.md
+docs/method/backlog/bad-code/CLEAN_design-packets-receive-no-automated-review.md
+docs/method/backlog/cool-ideas/CORE_design-packet-consistency-lint.md
+docs/method/backlog/dependency-dag.dot
+docs/method/backlog/dependency-dag.svg
+docs/method/retro/CORE_first-retained-workspace-observation/CORE_first-retained-workspace-observation.md
+docs/method/retro/CORE_first-retained-workspace-observation/witness/verification.md
 
 git diff --stat dc619514..HEAD -- src bin test tests
 (no output — no runtime or test file changed)
 ```
 
-The packet is 769 lines, declaring 15 invariants and 29 acceptance criteria.
+The two `dependency-dag.*` files are generated, not authored; see *Validation*.
+
+The packet is 786 lines, declaring 15 invariants and 29 acceptance criteria.
 
 ## Source Truth
 
