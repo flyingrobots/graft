@@ -162,17 +162,17 @@ describe("mcp: graft_review cold WARP", () => {
   it("finds a qualified Python caller and reports shadowed callers as partial", async () => {
     const repoDir = createTestRepo("graft-review-python-cold-");
     try {
-      fs.mkdirSync(path.join(repoDir, "coqui", "matcher"), { recursive: true });
-      fs.writeFileSync(path.join(repoDir, "coqui", "matcher", "sources.py"), "def pending_ids(items):\n    return []\n");
-      fs.writeFileSync(path.join(repoDir, "coqui", "matcher", "cli.py"), [
-        "from coqui.matcher import sources",
+      fs.mkdirSync(path.join(repoDir, "app", "alpha"), { recursive: true });
+      fs.writeFileSync(path.join(repoDir, "app", "alpha", "sources.py"), "def pending_ids(items):\n    return []\n");
+      fs.writeFileSync(path.join(repoDir, "app", "alpha", "cli.py"), [
+        "from app.alpha import sources",
         "sources.pending_ids([])",
         "def uncertain(sources):",
         "    return sources.pending_ids([])",
       ].join("\n"));
       git(repoDir, "add -A"); git(repoDir, "commit -m base");
       const base = git(repoDir, "rev-parse HEAD");
-      fs.writeFileSync(path.join(repoDir, "coqui", "matcher", "sources.py"), "def pending_ids(items, root):\n    return []\n");
+      fs.writeFileSync(path.join(repoDir, "app", "alpha", "sources.py"), "def pending_ids(items, root):\n    return []\n");
       git(repoDir, "add -A"); git(repoDir, "commit -m head");
       const head = git(repoDir, "rev-parse HEAD");
 
@@ -180,13 +180,13 @@ describe("mcp: graft_review cold WARP", () => {
       expect(result["breakingChanges"]).toContainEqual(expect.objectContaining({
         symbol: "pending_ids",
         impactedFiles: 1,
-        impactedFilePaths: ["coqui/matcher/cli.py"],
+        impactedFilePaths: ["app/alpha/cli.py"],
         referenceConfidence: "partial",
         referenceWarnings: [expect.objectContaining({
           code: "import_binding_shadowed",
-          filePath: "coqui/matcher/cli.py",
+          filePath: "app/alpha/cli.py",
           binding: "sources",
-          targetFilePath: "coqui/matcher/sources.py",
+          targetFilePath: "app/alpha/sources.py",
         })],
       }));
     } finally {

@@ -121,15 +121,15 @@ describe("warp: Python import resolver", { timeout: 15000 }, () => {
   it("resolves single and parent relative imports from the importing package", async () => {
     const result = await resolveEdges(
       "python",
-      "coqui/matcher/cli.py",
-      "from .sources import pending_ids\nfrom ..dev_profiler.cli import profile\n",
-      ["coqui/matcher/sources.py", "coqui/dev_profiler/cli.py"],
+      "app/alpha/cli.py",
+      "from .sources import pending_ids\nfrom ..beta.cli import profile\n",
+      ["app/alpha/sources.py", "app/beta/cli.py"],
       resolvePythonImportEdges,
     );
 
     expect(result.edges.filter((edge) => edge.label === "references").map((edge) => edge.to).sort()).toEqual([
-      "sym:coqui/dev_profiler/cli.py:profile",
-      "sym:coqui/matcher/sources.py:pending_ids",
+      "sym:app/alpha/sources.py:pending_ids",
+      "sym:app/beta/cli.py:profile",
     ]);
   });
 
@@ -192,10 +192,10 @@ describe("warp: Python import resolver", { timeout: 15000 }, () => {
   it("indexes Python caller edges for downstream reference counting", async () => {
     const cwd = createTestRepo("warp-python-index-");
     try {
-      fs.mkdirSync(path.join(cwd, "coqui", "matcher"), { recursive: true });
-      fs.mkdirSync(path.join(cwd, "coqui", "dev_profiler"), { recursive: true });
-      fs.writeFileSync(path.join(cwd, "coqui", "matcher", "sources.py"), "def pending_ids():\n    return []\n");
-      fs.writeFileSync(path.join(cwd, "coqui", "dev_profiler", "cli.py"), "from coqui.matcher.sources import pending_ids\npending_ids()\n");
+      fs.mkdirSync(path.join(cwd, "app", "alpha"), { recursive: true });
+      fs.mkdirSync(path.join(cwd, "app", "beta"), { recursive: true });
+      fs.writeFileSync(path.join(cwd, "app", "alpha", "sources.py"), "def pending_ids():\n    return []\n");
+      fs.writeFileSync(path.join(cwd, "app", "beta", "cli.py"), "from app.alpha.sources import pending_ids\npending_ids()\n");
       git(cwd, "add -A");
       git(cwd, "commit -m python-imports");
 
@@ -204,8 +204,8 @@ describe("warp: Python import resolver", { timeout: 15000 }, () => {
       await indexHead({ cwd, git: nodeGit, pathOps: nodePathOps, ctx });
       await warp.core().materialize();
 
-      const refs = await referencesForSymbol(ctx, "pending_ids", "coqui/matcher/sources.py");
-      expect(refs).toEqual([{ filePath: "coqui/dev_profiler/cli.py", importedName: "pending_ids", localName: "pending_ids" }]);
+      const refs = await referencesForSymbol(ctx, "pending_ids", "app/alpha/sources.py");
+      expect(refs).toEqual([{ filePath: "app/beta/cli.py", importedName: "pending_ids", localName: "pending_ids" }]);
     } finally {
       cleanupTestRepo(cwd);
     }
@@ -215,20 +215,20 @@ describe("warp: Python import resolver", { timeout: 15000 }, () => {
     const cwd = createTestRepo("warp-python-members-");
     try {
       const warp = await openWarp({ cwd });
-      const parsed = parseStructuredTree("python", "from coqui.matcher import sources\nsources.pending_ids([], root)\nvalue = sources.scan_survivors\n");
+      const parsed = parseStructuredTree("python", "from app.alpha import sources\nsources.pending_ids([], root)\nvalue = sources.scan_survivors\n");
       try {
         await warp.patch((patch) => {
-          patch.addNode("file:coqui/matcher/__init__.py");
-          patch.addNode("file:coqui/matcher/sources.py");
-          patch.addNode("sym:coqui/matcher/sources.py:pending_ids");
-          patch.addNode("sym:coqui/matcher/sources.py:scan_survivors");
-          resolvePythonImportEdges(patch, "coqui/matcher/cli.py", parsed.root, nodePathOps, new Set([
-            "coqui/matcher/__init__.py",
-            "coqui/matcher/sources.py",
+          patch.addNode("file:app/alpha/__init__.py");
+          patch.addNode("file:app/alpha/sources.py");
+          patch.addNode("sym:app/alpha/sources.py:pending_ids");
+          patch.addNode("sym:app/alpha/sources.py:scan_survivors");
+          resolvePythonImportEdges(patch, "app/alpha/cli.py", parsed.root, nodePathOps, new Set([
+            "app/alpha/__init__.py",
+            "app/alpha/sources.py",
           ]));
-          resolveQualifiedReferenceEdges(patch, "python", "coqui/matcher/cli.py", parsed.root, {
+          resolveQualifiedReferenceEdges(patch, "python", "app/alpha/cli.py", parsed.root, {
             pathOps: nodePathOps,
-            knownFiles: new Set(["coqui/matcher/__init__.py", "coqui/matcher/sources.py"]),
+            knownFiles: new Set(["app/alpha/__init__.py", "app/alpha/sources.py"]),
           }, false);
         });
       } finally {
@@ -238,9 +238,9 @@ describe("warp: Python import resolver", { timeout: 15000 }, () => {
       const observer = await warp.observer({ match: ["ast:*", "file:*", "sym:*"] });
       const edges = await observer.getEdges();
       expect(edges.filter((edge) => edge.label === "references").map((edge) => edge.to).sort()).toEqual([
-        "file:coqui/matcher/sources.py",
-        "sym:coqui/matcher/sources.py:pending_ids",
-        "sym:coqui/matcher/sources.py:scan_survivors",
+        "file:app/alpha/sources.py",
+        "sym:app/alpha/sources.py:pending_ids",
+        "sym:app/alpha/sources.py:scan_survivors",
       ]);
     } finally {
       cleanupTestRepo(cwd);
