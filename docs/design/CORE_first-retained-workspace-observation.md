@@ -199,9 +199,20 @@ ObserveWorkspaceSnapshotRequest
   observationAlgorithmVersion
   policyIdentity
   capabilityIdentity
+  settlementSchemaIdentity
+  reconciliationLawIdentity
   causalBasisDigest
   workspaceBasisPosture         # UNKNOWN
 ```
+
+`settlementSchemaIdentity` and `reconciliationLawIdentity` are listed
+explicitly because `policyIdentity` and `capabilityIdentity` identify neither
+the generated settlement schema nor the retry/reconciliation semantics, and
+invariant 4 requires those identities to agree through settlement. Without
+them, an implementation cannot prove the correlation holds across a version
+change — which is exactly when it matters. If the pinned compiler derives a
+single identity that transitively binds both, that identity may replace these
+two, but the binding must then be stated and verified rather than assumed.
 
 The contract has no optional field whose absence ambiguously means “unknown,”
 “not applicable,” or “forgotten.” The posture says `UNKNOWN`; the expected
@@ -226,7 +237,8 @@ ObserveWorkspaceSnapshotSettlement
   observedWorkspaceBasisDigest?
   admittedFiles[]
     path
-    bytes | retainedContentReference
+    entryKind                   # REGULAR | SYMLINK -- schema-bound, see below
+    bytes                       # inline only for this cycle; see below
     byteLength
     contentDigest
   apertureConformance
@@ -243,6 +255,25 @@ A successful settlement contains an exact observed workspace basis and the
 canonical path/byte evidence needed for replay. Its admitted paths are ordered,
 unique, normalized, and a subset of the requested aperture. For this cycle's
 one-file successful observation, the admitted set equals the requested set.
+
+**`entryKind` is schema-bound, not inferred.** The read view's `SettledFile`
+already carries `entryKind: "regular" | "symlink"` and enforces
+`symlinkPolicy: "refuse"` against it (`src/operations/workspace-read-view.ts`).
+Observer bytes are untrusted until admission, so if the entry kind is not in
+the settlement schema the decoder has to trust the observer about the one fact
+symlink policy turns on. It is therefore part of the canonical shape above, and
+the decoder validates it before constructing the read view.
+
+**Inline bytes only, this cycle.** An earlier draft allowed
+`bytes | retainedContentReference`. That second branch is removed rather than
+specified: the packet never said where a reference durably lives or which
+authority resolves it after restart, so a one-file proof using inline bytes
+could pass every counter while the other permitted production representation
+depended on a workspace file, a transient CAS, or another external store —
+violating invariant 10 while the evidence read clean. Content references are a
+real need for larger apertures and are deferred to the cycle that can specify
+their retention and digest verification. Narrowing the contract is the honest
+way to close this; leaving both branches with only one tested is not.
 
 Typed terminal outcomes use Echo's external-action postures:
 
@@ -394,6 +425,15 @@ fixture cannot distinguish a correct rule from no rule at all.
       retains bytes durably. Splitting refusal into a path-only gate that runs
       before observation, with the existing content-dependent refusals staying
       where they are, is in scope for this cycle.
+- [ ] **A path-only refusal variant exists that requires no observation.**
+      `RepoWorkspaceRefusedResult` currently requires
+      `actual: { lines, bytes }`, and `evaluateRefusal` sources those from the
+      observed file (`src/operations/repo-workspace.ts`). A gate that refuses
+      *before* observation therefore cannot populate them — leaving only three
+      bad options: read the denied file anyway, fabricate the sizes, or change
+      the public shape silently. The cycle adds an explicit refusal variant
+      with no `actual` field, updates the output contract, and asserts that no
+      fabricated observation metadata is ever returned for a denied path.
 - [ ] Acceptance evidence shows denied content is never retained: for a denied
       path, `deniedPathRetainedSettlements == 0` and no Echo record contains
       its bytes or digest.
@@ -417,9 +457,11 @@ fixture cannot distinguish a correct rule from no rule at all.
       observer can settle bytes reached through a symlink and the decoder has
       no fact with which to refuse them. The kind is admitted per entry and
       validated before the read view is constructed.
-- [ ] A successful settlement contains schema-admitted bytes or retained
-      content references, per-file digests, and an exact observed workspace
-      basis.
+- [ ] A successful settlement contains schema-admitted **inline** bytes,
+      per-file digests, per-entry kind, and an exact observed workspace basis.
+      Retained content references are out of scope for this cycle — see the
+      canonical settlement contract for why the branch was removed rather than
+      left permitted-but-untested.
 - [ ] A mutation race that prevents coherence produces a typed rejection or
       explicit outcome uncertainty, never a successful mixed snapshot.
 - [ ] Echo retains the admitted settlement before Graft receives analysis
@@ -478,6 +520,16 @@ fixture cannot distinguish a correct rule from no rule at all.
       it cannot distinguish a correct selection rule from no rule at all.
 - [ ] A replay key with no retained settlement yields `pending` or
       `outcome-unknown`, never a fallback to the most recent record.
+- [ ] **A recovery-state result exists at the product boundary.** Neither
+      `FileOutlineResult` nor the MCP `file_outline` output union has a
+      `pending` or `outcome-unknown` variant today — the available shapes are
+      an outline or a refusal reason such as `NOT_FOUND`. Without a new
+      variant, the required crash-recovery scenario has no valid structured
+      response and would be misreported as an ordinary refusal or a transport
+      failure, which is precisely the "invented outcome" invariant 12 forbids.
+      The cycle adds an explicit recovery-state result to both the operation
+      and MCP contracts, and covers **both** the request-only and claimed-only
+      states.
 
 ### Required acceptance evidence
 
@@ -539,8 +591,23 @@ and `next` (`src/mcp/tools/file-outline.ts`).
   complete live result.
 - **dropped — how *this* process reached the answer:** `cacheHit` and `actual`,
   which are structurally absent on a cold cache.
-- **dropped at the MCP boundary:** timestamp, trace, sequence, latency, and
-  cumulative receipt — per-call identity, not content.
+**The comparison is made on the decoded operation payload, before the MCP
+wrapper is attached.** Not at the MCP boundary. Every response carries
+`_schema` and `_receipt`, and routed responses can also carry `_workspace` and
+`tripwire` (`attachMcpSchemaMeta`/`buildReceiptResult` in `src/mcp/receipt.ts`,
+schemas in `src/contracts/output-schemas.ts`). Enumerating that wrapper here
+was tried and is the wrong shape: a hand-maintained list in a document cannot
+be type-checked, and a deny-by-default rule over a stale list rejects every
+valid response. Comparing before attachment removes the wrapper from the
+question entirely, so per-call identity never enters the comparison and no list
+has to be kept current.
+
+This is a correction of my own two previous drafts, recorded rather than
+quietly patched: the first under-enumerated the operation result union, and the
+second repeated the identical mistake one layer up at the MCP wrapper. Twice is
+a pattern, and the pattern says a deny-by-default projection specified as prose
+over an evolving type surface will keep generating defects. Hence the rule
+below.
 
 The projection is defined once and applied to both sides, and it is
 **deny-by-default**: a field in neither list fails the comparison rather than
@@ -549,12 +616,18 @@ turn this assertion into a tautology the first time the result shape grows,
 which is the failure mode that makes an assertion look alive while proving
 nothing.
 
-Deny-by-default and an under-specified field list are a trap together, and the
-first draft of this section walked into it: listing only
-`path`/`outline`/`jumpTable`/`reason` would have made every valid `partial`,
-unsupported, or refused result fail the projection as "unrecognized". The
-enumeration above is therefore part of the contract, and extending
-`FileOutlineResult` without extending it is a defect in this cycle's proof.
+Deny-by-default and an under-specified field list are a trap together, and two
+successive drafts of this section walked into it — first at the operation
+result union, then again at the MCP wrapper.
+
+**So the enumeration lives in code, not in this document.** The field list
+above is the intent; the authoritative projection is defined once in the
+implementation, and a test asserts it is total over `FileOutlineResult` by
+construction, so adding a field to the result type fails that test until the
+projection is updated deliberately. A list maintained by prose is checked by
+whoever remembers to look; a list maintained by the compiler is checked every
+build. Requiring deny-by-default without that machinery is how both earlier
+drafts produced a rule that would have rejected valid results.
 
 ## Test strategy
 
