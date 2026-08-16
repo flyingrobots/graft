@@ -369,7 +369,12 @@ fixture cannot distinguish a correct rule from no rule at all.
 ## Invariants
 
 1. **Request before effect.** Echo's durable request commit precedes the first
-   workspace metadata or content read through the observation authority.
+   workspace metadata or content read **by any component**, not only reads made
+   through the observation authority. Scoping this to the authority is the
+   loophole, not a simplification: `repo-paths.ts` resolves paths with
+   `realpathSync.native` and `lstatSync` outside it, so an implementation could
+   satisfy an authority-scoped invariant while performing exactly the ambient
+   pre-request read this invariant exists to forbid. Resolver reads count.
 2. **Claim before effect.** The adapter cannot observe without a durable claim
    correlated to the exact admitted request.
 3. **Settlement before analysis.** Echo's durable settlement commit precedes
@@ -710,8 +715,9 @@ The cycle owns only the pieces required to ring this bell:
 3. Production request/claim/settlement composition for one bounded read.
 4. Production settlement decoding into `AdmittedWorkspaceReadView`.
 5. `file_outline` live execution and restart replay proof, including the
-   `replayProjection` definition and the test asserting it is total over
-   `FileOutlineResult`.
+   `replayProjection` definition and the test asserting it is total over the
+   whole `RepoWorkspaceFileOutlineResult` union — success, refusal, and the two
+   variants item 7 adds — not over `FileOutlineResult` alone.
 6. Instrumented causal-order evidence and every counter the acceptance list
    requires: filesystem reads, git-warp opens, direct Git operations, process
    executions, pre-request workspace metadata reads, and denied-path retention.

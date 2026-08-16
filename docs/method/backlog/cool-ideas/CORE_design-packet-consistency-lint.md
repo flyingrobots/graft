@@ -48,10 +48,19 @@ rules, all cheap:
    defined in prose somewhere in the packet, and every counter mentioned in an
    acceptance criterion appears in the evidence block. On this packet the two
    sets disagreed twice, under two different names for the same count.
-3. **Vocabulary agreement.** A packet that defines a named comparison (here,
-   `replayProjection`) must not also assert raw equality — flag "identical",
-   "byte-identical", and "the same … result" wherever the named comparison
-   exists.
+3. **Unqualified equality claims.** A packet that defines a named comparison
+   (here, `replayProjection`) must not also assert equality *without naming
+   it*. The rule is scoped to **unqualified** claims — an equality word with no
+   reference to the named comparison in the same sentence or list item.
+
+   A first draft of this rule flagged "identical" / "byte-identical" / "the
+   same … result" wherever the named comparison existed anywhere in the
+   document. That version was wrong and would have fired on this very packet's
+   correct sentences: the Hill says byte identity is *deliberately not* the bar,
+   and the acceptance criterion says "identical to the live one **under the
+   comparison projection**". Both are right; a word-ban rejects both. Better
+   still, model the comparison mode structurally — one declared comparison per
+   claim — and check that rather than the prose around it.
 4. **Reference resolution.** "See below" resolves to something below; every
    `src/...` path cited exists in the tree. The path check alone would be worth
    it — a packet naming a file that has since moved is a packet describing a
@@ -74,9 +83,18 @@ one refactor.
 
 Not a prose-quality or style checker, and not a spellchecker for design
 documents. `AGENTS.md` is explicit that asserting on document wording is the
-wrong kind of check. Every rule above is structural — sets that must agree,
-references that must resolve — and none of them asserts what the packet should
-say.
+wrong kind of check. Every rule above must be structural — sets that must
+agree, references that must resolve — and none may assert what the packet
+should say.
+
+Rule 3 is the one that can drift across that line, and its first draft did:
+banning equality words wherever a named comparison exists is a wording
+assertion with immediate false positives, not a semantic invariant. It is kept
+because unqualified equality beside a defined comparison is a real defect, but
+it must be scoped to unqualified claims or replaced by a structural model of
+comparison mode. If it cannot be built without a word list, drop it rather than
+ship a brittle check — a lint nobody trusts gets disabled, taking the four
+sound rules with it.
 
 ## Prior art in this repo
 

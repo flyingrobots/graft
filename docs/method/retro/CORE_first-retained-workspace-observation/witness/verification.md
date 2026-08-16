@@ -19,7 +19,7 @@ covered by the documentation gate.
 ```text
 git diff --name-only dc619514..HEAD
 docs/design/CORE_first-retained-workspace-observation.md
-docs/method/backlog/bad-code/CLEAN_design-packets-receive-no-automated-review.md
+docs/method/backlog/bad-code/CLEAN_coderabbit-path-filters-skip-method-docs.md
 docs/method/backlog/cool-ideas/CORE_design-packet-consistency-lint.md
 docs/method/backlog/dependency-dag.dot
 docs/method/backlog/dependency-dag.svg
@@ -32,7 +32,11 @@ git diff --stat dc619514..HEAD -- src bin test tests
 
 The two `dependency-dag.*` files are generated, not authored; see *Validation*.
 
-The packet is 786 lines, declaring 15 invariants and 29 acceptance criteria.
+The packet declares 15 invariants and 29 acceptance criteria. Its line count is
+deliberately not recorded: it drifted three times during this cycle's repairs
+and carries no meaning that the invariant and criteria counts do not carry
+better. A witness number that has to be re-checked on every commit is a
+liability, not evidence.
 
 ## Source Truth
 
@@ -125,8 +129,10 @@ before repair and all answered on their own threads:
 Totals: 16 findings — 11×P1, 4×P2, 1×P3.
 
 CI was green on every head. CodeRabbit reviewed none of it — `.coderabbit.yaml`
-excludes `**/*.md` and it posted a review-skipped notice. That gap is filed as
-`CLEAN_design-packets-receive-no-automated-review.md`.
+excludes `**/*.md` and it posted a review-skipped notice. That gap was already
+tracked as `CLEAN_coderabbit-path-filters-skip-method-docs.md` (open since
+2026-06-01, issue #69); this cycle added the #245 recurrence to that card
+rather than opening a second one.
 
 A fourth round was not run before merge. It was performed after the fact as a
 self-audit; its eight findings are the `c61023f8` repair recorded above.

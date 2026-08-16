@@ -71,7 +71,16 @@ process failure and is recorded as such below rather than smoothed over.
   Commit `c61023f8` closed them.
 - **CodeRabbit reviewed none of it.** `.coderabbit.yaml` excludes `**/*.md`, so
   the review gate read zero lines of the artifact that defines what the next
-  cycle builds. Filed as `CLEAN_design-packets-receive-no-automated-review.md`.
+  cycle builds.
+- **I filed a duplicate card for it, and review caught that too.** The gap was
+  already tracked as `CLEAN_coderabbit-path-filters-skip-method-docs.md`, open
+  since 2026-06-01 against issue #69, with `docs/design/**/*.md` already in its
+  acceptance criteria. I wrote a second card without searching the backlog
+  first, which would have given one defect two identities, two priorities, and
+  two nodes in the generated dependency DAG. The duplicate was deleted and the
+  existing card updated with the #245 recurrence. **Search the backlog before
+  filing** is the correction, and it belongs in this retro rather than only in
+  a review thread.
 - **"Documentation-only" was wrong, and CI caught it.** This retro's own two
   backlog cards invalidated `docs/method/backlog/dependency-dag.dot`, a
   generated artifact pinned by `backlog-dependency-dag.test.ts`. I had applied
@@ -121,7 +130,10 @@ right fix — put it in code, assert totality — became obvious.
 
 ## New Debt
 
-- [Design packets receive no automated review](../../backlog/bad-code/CLEAN_design-packets-receive-no-automated-review.md)
+- None new. The CodeRabbit review gap this cycle hit was **already tracked**:
+  [CodeRabbit path filters skip Method docs PRs](../../backlog/bad-code/CLEAN_coderabbit-path-filters-skip-method-docs.md)
+  (open since 2026-06-01, issue #69). It has been updated with the PR #245
+  recurrence rather than duplicated.
 
 ## Cool Ideas
 

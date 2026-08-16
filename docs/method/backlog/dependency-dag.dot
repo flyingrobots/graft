@@ -48,7 +48,7 @@ digraph backlog {
   }
 
   subgraph cluster_bad_code {
-    label="bad-code (23)" labeljust=l fontsize=9 fontcolor="#555555"
+    label="bad-code (22)" labeljust=l fontsize=9 fontcolor="#555555"
     style=rounded color="#cccccc" bgcolor="#fafafa"
     bad_code_CLEAN_backlog_dag_unresolved_internal_dependencies [label="CLEAN-backlog-dag-unresolved-internal-dependencies - S" fillcolor="#F6B3B3" penwidth=2]
     bad_code_CLEAN_canonical_codec_seams_diverge [label="CLEAN-canonical-codec-seams-diverge - M" fillcolor="#F6B3B3" penwidth=2]
@@ -56,7 +56,6 @@ digraph backlog {
     bad_code_CLEAN_coderabbit_path_filters_skip_method_docs [label="CLEAN-coderabbit-path-filters-skip-method-docs - S" fillcolor="#F6B3B3" penwidth=2]
     bad_code_CLEAN_completed_backlog_card_retirement_is_manual [label="CLEAN-completed-backlog-card-retirement-is-manual - M" fillcolor="#F6B3B3" penwidth=2]
     bad_code_CLEAN_descriptor_checker_lacks_schema_validation [label="CLEAN-descriptor-checker-lacks-schema-validation - M" fillcolor="#F6B3B3" penwidth=2]
-    bad_code_CLEAN_design_packets_receive_no_automated_review [label="CLEAN-design-packets-receive-no-automated-review - S" fillcolor="#F6B3B3" penwidth=2]
     bad_code_CLEAN_duplicate_bounded_read_implementations [label="CLEAN-duplicate-bounded-read-implementations - S" fillcolor="#F6B3B3" penwidth=2]
     bad_code_CLEAN_echo_witness_test_fixture_duplication [label="CLEAN-echo-witness-test-fixture-duplication - S" fillcolor="#F6B3B3" penwidth=2]
     bad_code_CLEAN_evidence_grade_naming_overclaims [label="CLEAN-evidence-grade-naming-overclaims - M" fillcolor="#F6B3B3" penwidth=2]
