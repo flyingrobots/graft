@@ -72,6 +72,14 @@ process failure and is recorded as such below rather than smoothed over.
 - **CodeRabbit reviewed none of it.** `.coderabbit.yaml` excludes `**/*.md`, so
   the review gate read zero lines of the artifact that defines what the next
   cycle builds. Filed as `CLEAN_design-packets-receive-no-automated-review.md`.
+- **"Documentation-only" was wrong, and CI caught it.** This retro's own two
+  backlog cards invalidated `docs/method/backlog/dependency-dag.dot`, a
+  generated artifact pinned by `backlog-dependency-dag.test.ts`. I had applied
+  the reduced docs gate — `git diff --check` plus lint — on the reasoning that
+  no runtime file changed, and stated in the witness that the branch touched
+  nothing the suite loads. `test (22)` failed and disproved it. Backlog
+  frontmatter is a suite input; a cycle that files cards owes a regeneration
+  through the owning script and a full suite run.
 - **One finding was closed by narrowing rather than specifying.** The
   settlement contract permitted `bytes | retainedContentReference` while
   defining neither where a reference durably lives nor which authority resolves

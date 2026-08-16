@@ -158,8 +158,13 @@ before `RepoWorkspace` exists, so those reads never pass through the spy. An
 ordering assertion scoped to the authority would therefore read green against a
 workspace that had already been touched — the evidence looks clean exactly when
 it is wrong. Pre-request handling must be lexical, with realpath and symlink
-resolution moved inside the claimed authority or counted by
-`preRequestWorkspaceMetadataReads`.
+resolution moved inside the claimed authority or removed.
+
+**Counting is the detector, not the remedy.** `preRequestWorkspaceMetadataReads`
+is required to be `0`, so instrumenting the existing pre-request reads and
+leaving them in place cannot satisfy request-before-effect — it just makes the
+violation visible and the evidence red. The counter exists so that a future
+reintroduction fails loudly, not as a second way to pass.
 
 ### Observer authority
 
@@ -456,8 +461,11 @@ fixture cannot distinguish a correct rule from no rule at all.
       observation-authority spy — so both the request-ordering assertion and
       the restarted zero-read counter can pass while the workspace was already
       touched. Pre-request handling must be lexical only; realpath and symlink
-      resolution move inside the claimed observation authority, or are
-      instrumented and counted by `preRequestWorkspaceMetadataReads`.
+      resolution move inside the claimed observation authority or are removed.
+      Instrumenting them and leaving them in place is **not** an alternative:
+      `preRequestWorkspaceMetadataReads` is required to be `0`, so counting a
+      surviving pre-request read reports the violation rather than satisfying
+      the criterion.
 - [ ] **Each admitted entry carries its observed file kind.** The read view's
       `SettledFile` already requires `entryKind: "regular" | "symlink"` and
       enforces `symlinkPolicy: "refuse"` against it
@@ -632,9 +640,18 @@ result union, then again at the MCP wrapper.
 
 **So the enumeration lives in code, not in this document.** The field list
 above is the intent; the authoritative projection is defined once in the
-implementation, and a test asserts it is total over `FileOutlineResult` by
-construction, so adding a field to the result type fails that test until the
-projection is updated deliberately. A list maintained by prose is checked by
+implementation, and a test asserts it is total over the **whole operation
+result union** by construction, so adding a field or a variant fails that test
+until the projection is updated deliberately.
+
+The union is `RepoWorkspaceFileOutlineResult = FileOutlineResult |
+RepoWorkspaceRefusedResult` (`src/operations/repo-workspace.ts`), and item 7 of
+the implementation boundary adds two more variants to it — the path-only
+refusal and the recovery state. Totality over `FileOutlineResult` alone would
+leave every refusal shape unprojected, which is the same under-enumeration
+defect one level out: the deny-by-default rule would then drop or reject
+semantic fields on exactly the results this cycle adds, while the replay proof
+still reported green. A list maintained by prose is checked by
 whoever remembers to look; a list maintained by the compiler is checked every
 build. Requiring deny-by-default without that machinery is how both earlier
 drafts produced a rule that would have rejected valid results.
