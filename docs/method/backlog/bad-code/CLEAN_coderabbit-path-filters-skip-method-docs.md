@@ -39,9 +39,12 @@ documentation by construction.
 
 Codex was the only reviewer. It found **16 defects across three rounds, 11 of
 them P1**, including a settlement contract that could not encode the field its
-own symlink policy turns on, and a deny-by-default replay comparison that would
-have rejected every valid result it was meant to compare. Five of the sixteen
-were introduced by the previous round's repair.
+own symlink policy turns on, and a deny-by-default replay comparison whose
+keep-list omitted `partial`, `error`, and the refusal-only fields — so it would
+have rejected every result variant carrying them. (It accepted an ordinary
+success, which kept `path`, `outline`, `jumpTable`, and `reason`; the narrower
+claim is the accurate one and is the one worth recording.) Five of the sixteen
+findings were introduced by the previous round's repair.
 
 This raises the card's cost evidence but not its remedy — the acceptance
 criteria below already name `docs/design/**/*.md` and already require generated

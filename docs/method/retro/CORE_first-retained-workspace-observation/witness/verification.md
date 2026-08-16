@@ -9,10 +9,18 @@ records what a documentation cycle can actually prove: that the packet's claims
 about the tree are true, that the packet does not contradict itself, and that
 nothing executable changed.
 
-The full gate below was last run at branch commit `e187963f`, with `dc619514`
-as the `main` baseline. Subsequent commits on this branch correct this witness
-and the retro only; they change no design, backlog, or generated file, and are
-covered by the documentation gate.
+`dc619514` is the `main` baseline. The full gate — lint, `diff --check`, and
+the complete 258-file suite — is re-run on every commit of this branch that
+touches the design packet, a backlog card, or a generated artifact, because
+this cycle established that those are suite inputs. The last such run is
+recorded in that commit's message.
+
+An earlier draft of this line pinned the gate to `e187963f` and claimed later
+commits touched only the witness and retro. That was false —
+`git diff --name-only e187963f..302f8c42` includes the design packet, both
+backlog cards, and both DAG artifacts. Pinning a witness to a SHA that later
+commits move past is a provenance claim that decays on the next push, so the
+gate is described by *rule* here and by SHA in the commit that ran it.
 
 ## Scope of change
 

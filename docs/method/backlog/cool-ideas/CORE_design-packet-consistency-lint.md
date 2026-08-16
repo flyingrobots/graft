@@ -48,25 +48,36 @@ rules, all cheap:
    defined in prose somewhere in the packet, and every counter mentioned in an
    acceptance criterion appears in the evidence block. On this packet the two
    sets disagreed twice, under two different names for the same count.
-3. **Unqualified equality claims.** A packet that defines a named comparison
-   (here, `replayProjection`) must not also assert equality *without naming
-   it*. The rule is scoped to **unqualified** claims — an equality word with no
-   reference to the named comparison in the same sentence or list item.
-
-   A first draft of this rule flagged "identical" / "byte-identical" / "the
-   same … result" wherever the named comparison existed anywhere in the
-   document. That version was wrong and would have fired on this very packet's
-   correct sentences: the Hill says byte identity is *deliberately not* the bar,
-   and the acceptance criterion says "identical to the live one **under the
-   comparison projection**". Both are right; a word-ban rejects both. Better
-   still, model the comparison mode structurally — one declared comparison per
-   claim — and check that rather than the prose around it.
-4. **Reference resolution.** "See below" resolves to something below; every
+3. **Reference resolution.** "See below" resolves to something below; every
    `src/...` path cited exists in the tree. The path check alone would be worth
    it — a packet naming a file that has since moved is a packet describing a
    system that no longer exists.
-5. **Numbered-list integrity.** No holes, no repeats. A hole appeared in this
-   packet's invariant list during editing and had to be caught by eye.
+
+## Two rules were proposed and withdrawn
+
+Recorded so they are not re-proposed, and because *why* they failed is the more
+useful half of this card.
+
+**An equality-vocabulary rule.** Proposed as: a packet defining a named
+comparison must not also assert raw equality. Two drafts, both unsound. The
+first banned "identical" / "byte-identical" wherever the named comparison
+existed, which fires on this packet's *correct* sentences. The second narrowed
+it to equality words that do not name the comparison in the same sentence —
+which still fires on the Hill's `Byte-identical is deliberately not the bar`,
+because that sentence is **negating** raw equality and so never names the
+projection. Catching it needs claim polarity and comparison mode modelled
+structurally, at which point the word list is doing no work. Withdrawn: the
+real defect is real, but no prose-level predicate expresses it.
+
+**A numbered-list integrity rule.** Proposed as: no holes, no repeats. This is
+a Markdown formatting assertion, and `AGENTS.md` prohibits exactly that — tests
+and checks assert software invariants and user-visible contracts, never
+document structure. That a numbering hole did appear in this packet and had to
+be caught by eye does not license encoding formatting in CI. Withdrawn.
+
+Both withdrawals follow the non-goals below rather than overriding them. The
+three surviving rules are set-agreement and reference-resolution checks, which
+hold regardless of how the packet is worded.
 
 ## Why it is worth building
 
@@ -75,7 +86,7 @@ The design packet is the spec an implementation cycle is built from, and
 itself does not fail loudly — it produces a cycle that satisfies one half of
 the contradiction and calls the hill met.
 
-Rule 4's path check has a second life: it catches packets that have gone stale
+Rule 3's path check has a second life: it catches packets that have gone stale
 against the tree, which is the normal fate of a design document that outlives
 one refactor.
 
@@ -87,14 +98,14 @@ wrong kind of check. Every rule above must be structural — sets that must
 agree, references that must resolve — and none may assert what the packet
 should say.
 
-Rule 3 is the one that can drift across that line, and its first draft did:
-banning equality words wherever a named comparison exists is a wording
-assertion with immediate false positives, not a semantic invariant. It is kept
-because unqualified equality beside a defined comparison is a real defect, but
-it must be scoped to unqualified claims or replaced by a structural model of
-comparison mode. If it cannot be built without a word list, drop it rather than
-ship a brittle check — a lint nobody trusts gets disabled, taking the four
-sound rules with it.
+Two candidate rules drifted across that line and were withdrawn above — an
+equality-vocabulary check and a numbered-list formatting check. Both are
+recorded rather than deleted, because the instinct that produced them will
+recur: a real defect was observed, and the nearest available predicate was a
+text pattern.
+
+The standing rule for this card is that a lint nobody trusts gets disabled and
+takes the sound rules with it. Drop a rule rather than ship a brittle one.
 
 ## Prior art in this repo
 

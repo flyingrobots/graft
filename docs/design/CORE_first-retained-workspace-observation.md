@@ -368,13 +368,28 @@ fixture cannot distinguish a correct rule from no rule at all.
 
 ## Invariants
 
-1. **Request before effect.** Echo's durable request commit precedes the first
-   workspace metadata or content read **by any component**, not only reads made
-   through the observation authority. Scoping this to the authority is the
-   loophole, not a simplification: `repo-paths.ts` resolves paths with
-   `realpathSync.native` and `lstatSync` outside it, so an implementation could
-   satisfy an authority-scoped invariant while performing exactly the ambient
-   pre-request read this invariant exists to forbid. Resolver reads count.
+1. **Request before effect.** Echo's durable request commit precedes every
+   workspace metadata or content read **causally initiated for this
+   observation**, whatever component performs it — not only reads made through
+   the observation authority.
+
+   Both narrower and broader scopings are wrong, and the cycle needs the middle
+   one. *Authority-scoped* is a loophole: `repo-paths.ts` calls
+   `realpathSync.native` and `lstatSync` outside the authority, so an
+   implementation could satisfy the invariant while making exactly the ambient
+   pre-request read it exists to forbid. *Any read by any component* is
+   unsatisfiable: routing already loads `.graftignore` and constructs the path
+   resolver before an operation exists at all
+   (`src/mcp/workspace-router-runtime.ts`), so the first such read has always
+   happened before any request could.
+
+   The line is causal, not positional. Reads that establish the prerequisite
+   routing and policy context are outside this ordering claim; every read taken
+   *because of* this observation is inside it, including resolver reads
+   performed on the requested path. The cycle must enumerate the prerequisite
+   reads it is exempting and bound them, so the exemption cannot become a
+   laundering channel — an unbounded "prerequisite" is the same loophole with a
+   better name.
 2. **Claim before effect.** The adapter cannot observe without a durable claim
    correlated to the exact admitted request.
 3. **Settlement before analysis.** Echo's durable settlement commit precedes
@@ -471,6 +486,15 @@ fixture cannot distinguish a correct rule from no rule at all.
       `preRequestWorkspaceMetadataReads` is required to be `0`, so counting a
       surviving pre-request read reports the violation rather than satisfying
       the criterion.
+- [ ] **The prerequisite-read exemption is enumerated and bounded.** Invariant 1
+      orders reads causally initiated for this observation, so the routing and
+      policy reads that establish the authority context — loading
+      `.graftignore`, constructing the path resolver
+      (`src/mcp/workspace-router-runtime.ts`) — sit outside the claim. The
+      cycle lists exactly which reads it exempts and asserts the list is
+      closed. An unenumerated "prerequisite" category would let any read be
+      reclassified out of the invariant, which is the authority-scoped loophole
+      wearing a different name.
 - [ ] **Each admitted entry carries its observed file kind.** The read view's
       `SettledFile` already requires `entryKind: "regular" | "symlink"` and
       enforces `symlinkPolicy: "refuse"` against it
@@ -586,9 +610,17 @@ The direct-Git counter covers `GitClient` operations that do not pass through
 git-warp, including any invoked while reconstructing a causal basis. Without
 it, invariant 9 has no evidence: the two existing counters both miss that path.
 
-`preRequestWorkspaceMetadataReads` covers `lstat`, `realpath`, and equivalent
-metadata calls made before the request is retained — see the pre-request path
-resolution criterion above for why that count is not already zero today.
+`preRequestWorkspaceMetadataReads` counts `lstat`, `realpath`, and equivalent
+metadata calls made before the request is retained **and causally initiated for
+this observation** — principally resolution of the requested path. It does not
+count the prerequisite routing and policy reads that establish the authority
+context before any operation exists, such as loading `.graftignore` and
+constructing the path resolver (`src/mcp/workspace-router-runtime.ts`); those
+are exempt under invariant 1 and the cycle must enumerate them explicitly.
+
+Enumerating the exemption is what keeps the counter honest. A count that
+silently ignored "setup" reads would be zero by definition, which is the
+vacuous-evidence failure this packet is built to avoid.
 
 ### The replay comparison projection
 
