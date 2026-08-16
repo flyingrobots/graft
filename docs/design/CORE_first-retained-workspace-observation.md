@@ -151,6 +151,16 @@ request WAL commit must exist before the first metadata or content read made
 through that authority. Request construction, Edict evaluation, and Echo
 admission receive no workspace-read capability.
 
+**Instrumenting that authority is necessary and not sufficient**, and this is
+the sharpest trap in the cycle. Path resolution today calls
+`fs.realpathSync.native` and `fs.lstatSync` (`src/adapters/repo-paths.ts`)
+before `RepoWorkspace` exists, so those reads never pass through the spy. An
+ordering assertion scoped to the authority would therefore read green against a
+workspace that had already been touched — the evidence looks clean exactly when
+it is wrong. Pre-request handling must be lexical, with realpath and symlink
+resolution moved inside the claimed authority or counted by
+`preRequestWorkspaceMetadataReads`.
+
 ### Observer authority
 
 One capability-rooted external adapter is the only component in this vertical
@@ -638,13 +648,17 @@ existing fake transport or call Graft analysis as a native callback from an
 Edict executor.
 
 1. A narrow integration fixture contains one source file whose `file_outline`
-   result is stable and structured.
+   result is stable and structured, **and** one Colorful-supported prose input.
+   The second is not optional: a code-only fixture satisfies the zero-process
+   counter without ever exercising the projector branch that counter exists to
+   constrain.
 2. An observation-authority spy records every metadata/content operation and
    fails if no durable request commit is visible at the first operation.
 3. An analysis-read spy fails if no durable settlement commit is visible at
    the first Graft read.
 4. A restart test closes all live observer authority, reopens only Echo
-   history, reconstructs the view, and compares structured results.
+   history, reconstructs the view, and compares results under
+   `replayProjection` — not by raw structural equality, which cannot hold.
 5. Decoder tests reject malformed correlation, substituted roots, widened
    apertures, wrong digests, over-budget bytes, non-success posture, and
    mutable/aliased retained content.
@@ -653,6 +667,17 @@ Edict executor.
 7. Recovery tests cover request-only and claimed-without-settlement states.
 8. Retry tests prove exact-duplicate idempotence and conflicting-settlement
    obstruction.
+9. A denied-path test drives a `.graftignore` or banned path and asserts the
+   path-only refusal shape, that no observation occurred, and that Echo
+   retained nothing for it (invariant 13). It must fail if the refusal carries
+   fabricated `actual` sizes.
+10. A multi-settlement test retains more than one successful settlement for the
+    same workspace and aperture and asserts the replay key recovers the
+    intended one every time (invariant 14). A single-settlement fixture cannot
+    distinguish a correct selection rule from no rule and is not accepted.
+11. An entry-kind test settles a symlink-reached path and asserts the decoder
+    refuses it on schema-bound evidence rather than on observer cooperation
+    (invariant 15).
 
 Tests assert protocol state, structured results, receipts, positions, and
 authority counters. They do not assert design-document wording or incidental
@@ -667,8 +692,19 @@ The cycle owns only the pieces required to ring this bell:
    basis, if the pinned substrate cannot yet express it.
 3. Production request/claim/settlement composition for one bounded read.
 4. Production settlement decoding into `AdmittedWorkspaceReadView`.
-5. `file_outline` live execution and restart replay proof.
-6. Instrumented causal-order, filesystem-read, and git-warp-open evidence.
+5. `file_outline` live execution and restart replay proof, including the
+   `replayProjection` definition and the test asserting it is total over
+   `FileOutlineResult`.
+6. Instrumented causal-order evidence and every counter the acceptance list
+   requires: filesystem reads, git-warp opens, direct Git operations, process
+   executions, pre-request workspace metadata reads, and denied-path retention.
+   Listing them here rather than "and so on" is deliberate — an acceptance
+   criterion whose instrumentation is outside the implementation boundary
+   cannot be met by the cycle that owns it.
+7. The contract additions the acceptance list depends on: `entryKind` per
+   admitted entry, the two identity fields on the request, a path-only refusal
+   variant carrying no `actual`, and an explicit recovery-state result in both
+   the operation and MCP unions.
 
 Implementation should remain one causal-invariant campaign. If an upstream
 contract change needs its own repository PR, that dependency lands first; it
@@ -702,8 +738,8 @@ does not justify widening the Graft PR.
 3. Can I identify the durable settlement that existed before Graft analysis?
 4. If the workspace changes during observation, do I get a typed non-success
    outcome rather than a mixed snapshot?
-5. After restart, can I remove or deny the workspace and still obtain the same
-   structured `file_outline` result?
+5. After restart, can I remove or deny the workspace and still obtain a
+   `file_outline` result equal to the live one under `replayProjection`?
 
 ### Agent playback
 
@@ -714,7 +750,10 @@ does not justify widening the Graft PR.
    basis, and observed workspace basis?
 3. Are the WAL positions and authority counters machine-asserted?
 4. Can any production branch reach `LiveWorkspaceReadSource`, Git, git-warp,
-   or `unsafeAdmittedWorkspaceSnapshotForTest` during replay?
+   an external process, or `unsafeAdmittedWorkspaceSnapshotForTest` during
+   replay? Process execution is listed explicitly because the production prose
+   projector shells out (`src/adapters/colorful-cli-prose-projector.ts`), so a
+   replay that closes only the workspace observer is still open.
 5. Does recovery distinguish requested, claimed, settled-success,
    settled-non-success, and outcome-unknown states without inventing evidence?
 
