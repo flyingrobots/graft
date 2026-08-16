@@ -676,6 +676,13 @@ Edict executor.
    constrain.
 2. An observation-authority spy records every metadata/content operation and
    fails if no durable request commit is visible at the first operation.
+   **This spy alone cannot prove invariant 1**, which orders reads by *any*
+   component: a read made outside the authority — `repo-paths.ts` resolving a
+   path before `RepoWorkspace` exists — is invisible to it, so the spy reports
+   green on an already-touched workspace. The proof therefore also instruments
+   the filesystem at a level the resolver cannot bypass and asserts
+   `preRequestWorkspaceMetadataReads == 0`. An authority-scoped spy is a
+   necessary component of the evidence, never the whole of it.
 3. An analysis-read spy fails if no durable settlement commit is visible at
    the first Graft read.
 4. A restart test closes all live observer authority, reopens only Echo
