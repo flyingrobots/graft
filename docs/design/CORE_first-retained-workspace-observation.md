@@ -36,8 +36,16 @@ A real `file_outline` call causes a Graft-owned Edict operation to authorize a
 bounded workspace observation. Echo retains that request before the observer
 reads the workspace and retains the schema-admitted settlement before Graft
 reads the settled bytes. After process termination and recovery, the same
-settlement produces byte-identical `file_outline` output with zero filesystem
-reads and zero git-warp opens.
+settlement produces `file_outline` output equal to the live result under the
+deny-by-default replay projection defined in *Required acceptance evidence*,
+with zero filesystem reads, zero git-warp opens, zero direct Git operations,
+and zero process executions.
+
+"Byte-identical" is deliberately not the bar, and saying so here rather than
+only in the acceptance list is the point: the live result carries `cacheHit`
+and `actual` that a cold post-restart call cannot, and the MCP boundary stamps
+per-call identity on every response. A hill that demands raw equality would be
+unreachable for reasons that have nothing to do with whether retention works.
 
 This cycle proves one complete causal round trip:
 
@@ -50,7 +58,7 @@ Graft-owned ObserveWorkspaceSnapshot Edict source
   -> AdmittedWorkspaceReadView
   -> file_outline
   -> process termination and Echo recovery
-  -> identical file_outline result with no external reread
+  -> file_outline result equal under replayProjection, with no external reread
 ```
 
 ## Decision: the request has an unknown workspace basis
@@ -285,11 +293,32 @@ sequenceDiagram
     R-->>G: file_outline result
 
     Note over G,E: Process terminates and reopens from Echo history
-    G->>E: Recover admitted settlement
+    G->>E: Recover settlement selected by the replay key
     E-->>V: Same retained result bytes and receipt
     V-->>R: Same AdmittedWorkspaceReadView
-    R-->>G: Identical result; no observer or git-warp access
+    R-->>G: Equal under replayProjection; no observer or git-warp access
 ```
+
+## Decision: a restarted call selects its settlement by an explicit replay key
+
+The diagram above says "recover admitted settlement" as though one exists. Once
+the same workspace and path have been observed more than once — the normal case
+after any edit — a fresh `file_outline(path)` has several retained settlements
+to choose from, and nothing above tells it which. A one-record fixture would
+pass while production returned stale or nondeterministically selected bytes.
+
+The replay path therefore resolves a **durable replay key**, not "the
+settlement for this path". The key binds workspace identity, canonical resolved
+root, the requested aperture entry, and the causal position being replayed, so
+selection is a lookup rather than a search. Recovery that finds no settlement
+for the key is `pending` or `outcome-unknown` per invariant 12 — it never falls
+back to the newest record, because "newest" is exactly the nondeterminism this
+decision exists to remove.
+
+Choosing the concrete key shape is implementation work for this cycle. What the
+packet fixes is that the choice must be explicit, deterministic, and proven
+against **more than one settlement for the same aperture** — a single-record
+fixture cannot distinguish a correct rule from no rule at all.
 
 ## Invariants
 
@@ -324,6 +353,11 @@ sequenceDiagram
     observation authority is granted, so denied bytes never reach a request
     aperture, a settlement, or Echo. Retention makes ordering that was
     previously cosmetic load-bearing.
+14. **Selection is deterministic.** A restarted call recovers its settlement by
+    an explicit replay key, never by recency or by scanning for a path match.
+15. **Admitted bytes carry their kind.** Every settled entry records the
+    observed file kind, so symlink policy is enforced against schema-bound
+    evidence rather than trust in the observer.
 
 ## Acceptance
 
@@ -363,6 +397,26 @@ sequenceDiagram
 - [ ] Acceptance evidence shows denied content is never retained: for a denied
       path, `deniedPathRetainedSettlements == 0` and no Echo record contains
       its bytes or digest.
+- [ ] **Pre-request path handling is lexical.** Today the MCP flow resolves the
+      requested path in `file-outline.ts` before `RepoWorkspace` is
+      constructed, and `RepoWorkspace.fileOutline` resolves it again; the
+      resolver performs `fs.realpathSync.native` and `fs.lstatSync`
+      (`src/adapters/repo-paths.ts`). Those are ambient workspace metadata
+      reads that happen **before** the request exists and bypass the injected
+      observation-authority spy — so both the request-ordering assertion and
+      the restarted zero-read counter can pass while the workspace was already
+      touched. Pre-request handling must be lexical only; realpath and symlink
+      resolution move inside the claimed observation authority, or are
+      instrumented and counted by `preRequestWorkspaceMetadataReads`.
+- [ ] **Each admitted entry carries its observed file kind.** The read view's
+      `SettledFile` already requires `entryKind: "regular" | "symlink"` and
+      enforces `symlinkPolicy: "refuse"` against it
+      (`src/operations/workspace-read-view.ts`), but the settlement record
+      defined here has no such field. Observer bytes are untrusted until
+      admission, so without a schema-bound entry kind a buggy or hostile
+      observer can settle bytes reached through a symlink and the decoder has
+      no fact with which to refuse them. The kind is admitted per entry and
+      validated before the read view is constructed.
 - [ ] A successful settlement contains schema-admitted bytes or retained
       content references, per-file digests, and an exact observed workspace
       basis.
@@ -395,13 +449,35 @@ sequenceDiagram
       projection shells out to `colorful --version` and `colorful ir -` through
       `processRunner.run` (`src/adapters/colorful-cli-prose-projector.ts`). A
       replay that still holds that projector is not closed-world: a missing or
-      upgraded binary changes the result from identical retained bytes. Replay
-      must either exclude the process-backed projector or treat its projection
-      as retained, versioned settlement content.
-- [ ] Restarted replay performs zero filesystem reads, zero git-warp opens, and
-      zero process executions.
+      upgraded binary changes the result from identical retained bytes.
+- [ ] **Removing process authority may not change the answer.** The resolution
+      above is *not* "drop the projector during replay only". For a
+      Colorful-supported input such as `.txt`, the live path can return a prose
+      outline while a projector-less replay returns `UNSUPPORTED_LANGUAGE` —
+      replay would then silently change a user-visible result and still satisfy
+      a zero-process counter. Exactly one of:
+      (a) the projection is retained and versioned as settlement content and
+      replayed from it; or
+      (b) the projector is removed **symmetrically from both executions**, so
+      live and replayed results agree by construction.
+- [ ] The proof covers a **Colorful-supported prose input**, not only a
+      TypeScript fixture. A TS-only fixture satisfies the zero-process counter
+      without ever exercising the branch this criterion exists to constrain,
+      which would make the counter look green and prove nothing.
+- [ ] Restarted replay performs zero filesystem reads, zero git-warp opens,
+      zero process executions, and zero direct Git operations. The last is
+      separate on purpose: a direct `GitClient` call increments neither the
+      filesystem-observer counter nor `restartedGitWarpOpens`, so without its
+      own counter this evidence can pass while invariant 9 is violated.
 - [ ] Recovery after request or claim retention but before settlement does not
       invent success or reread without an explicit reconciliation decision.
+- [ ] **The replay key selects deterministically among several settlements.**
+      The proof retains more than one successful settlement for the same
+      workspace and aperture and shows the restarted call recovers the intended
+      one every time. A single-settlement fixture is not accepted as evidence:
+      it cannot distinguish a correct selection rule from no rule at all.
+- [ ] A replay key with no retained settlement yields `pending` or
+      `outcome-unknown`, never a fallback to the most recent record.
 
 ### Required acceptance evidence
 
@@ -420,6 +496,8 @@ replayProjection(liveFileOutlineResult) == replayProjection(restartedFileOutline
 restartedFilesystemReads == 0
 restartedGitWarpOpens == 0
 restartedProcessExecutions == 0
+restartedDirectGitOperations == 0
+preRequestWorkspaceMetadataReads == 0
 deniedPathRetainedSettlements == 0
 ```
 
@@ -429,24 +507,54 @@ the external observation authority, not only calls named `readFile`.
 The process counter covers every `processRunner.run` invocation reachable from
 the replayed call, including prose projection.
 
+The direct-Git counter covers `GitClient` operations that do not pass through
+git-warp, including any invoked while reconstructing a causal basis. Without
+it, invariant 9 has no evidence: the two existing counters both miss that path.
+
+`preRequestWorkspaceMetadataReads` covers `lstat`, `realpath`, and equivalent
+metadata calls made before the request is retained — see the pre-request path
+resolution criterion above for why that count is not already zero today.
+
 ### The replay comparison projection
 
 `replayProjection` is the stable semantic boundary the equality above is
-asserted at. It keeps exactly the fields that retained bytes determine:
+asserted at. It must be defined over **every variant of the current result
+union**, not only the success shape. `FileOutlineResult`
+(`src/operations/file-outline.ts`) is today:
 
-- **kept:** `path`, `outline`, `jumpTable`, and `reason` when present.
-- **dropped:** `cacheHit` and `actual`, which record how *this* process reached
-  the answer rather than what the answer is, and which are structurally absent
-  on a cold cache.
+```ts
+path, outline, jumpTable,
+partial?, cacheHit?, actual?,
+reason?: "UNSUPPORTED_LANGUAGE" | "INVALID_UTF8" | "UNADMITTED_PATH" | "NOT_FOUND",
+error?
+```
+
+and the MCP refusal variant additionally carries `projection`, `reasonDetail`,
+and `next` (`src/mcp/tools/file-outline.ts`).
+
+- **kept — semantic, determined by the retained bytes:** `path`, `outline`,
+  `jumpTable`, `partial`, `reason`, `error`, and the refusal fields
+  `projection`, `reasonDetail`, `next`. `partial` in particular is a fact about
+  the answer; dropping it would let a truncated replay compare equal to a
+  complete live result.
+- **dropped — how *this* process reached the answer:** `cacheHit` and `actual`,
+  which are structurally absent on a cold cache.
 - **dropped at the MCP boundary:** timestamp, trace, sequence, latency, and
   cumulative receipt — per-call identity, not content.
 
-The projection must be defined once and applied to both sides, and it must be
-**deny-by-default**: an unrecognized field fails the comparison rather than
+The projection is defined once and applied to both sides, and it is
+**deny-by-default**: a field in neither list fails the comparison rather than
 being dropped silently. A projection that quietly discards new fields would
 turn this assertion into a tautology the first time the result shape grows,
 which is the failure mode that makes an assertion look alive while proving
 nothing.
+
+Deny-by-default and an under-specified field list are a trap together, and the
+first draft of this section walked into it: listing only
+`path`/`outline`/`jumpTable`/`reason` would have made every valid `partial`,
+unsupported, or refused result fail the projection as "unrecognized". The
+enumeration above is therefore part of the contract, and extending
+`FileOutlineResult` without extending it is a defect in this cycle's proof.
 
 ## Test strategy
 
