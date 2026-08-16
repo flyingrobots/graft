@@ -151,6 +151,21 @@ request WAL commit must exist before the first metadata or content read made
 through that authority. Request construction, Edict evaluation, and Echo
 admission receive no workspace-read capability.
 
+**Instrumenting that authority is necessary and not sufficient**, and this is
+the sharpest trap in the cycle. Path resolution today calls
+`fs.realpathSync.native` and `fs.lstatSync` (`src/adapters/repo-paths.ts`)
+before `RepoWorkspace` exists, so those reads never pass through the spy. An
+ordering assertion scoped to the authority would therefore read green against a
+workspace that had already been touched — the evidence looks clean exactly when
+it is wrong. Pre-request handling must be lexical, with realpath and symlink
+resolution moved inside the claimed authority or removed.
+
+**Counting is the detector, not the remedy.** `preRequestWorkspaceMetadataReads`
+is required to be `0`, so instrumenting the existing pre-request reads and
+leaving them in place cannot satisfy request-before-effect — it just makes the
+violation visible and the evidence red. The counter exists so that a future
+reintroduction fails loudly, not as a second way to pass.
+
 ### Observer authority
 
 One capability-rooted external adapter is the only component in this vertical
@@ -353,8 +368,28 @@ fixture cannot distinguish a correct rule from no rule at all.
 
 ## Invariants
 
-1. **Request before effect.** Echo's durable request commit precedes the first
-   workspace metadata or content read through the observation authority.
+1. **Request before effect.** Echo's durable request commit precedes every
+   workspace metadata or content read **causally initiated for this
+   observation**, whatever component performs it — not only reads made through
+   the observation authority.
+
+   Both narrower and broader scopings are wrong, and the cycle needs the middle
+   one. *Authority-scoped* is a loophole: `repo-paths.ts` calls
+   `realpathSync.native` and `lstatSync` outside the authority, so an
+   implementation could satisfy the invariant while making exactly the ambient
+   pre-request read it exists to forbid. *Any read by any component* is
+   unsatisfiable: routing already loads `.graftignore` and constructs the path
+   resolver before an operation exists at all
+   (`src/mcp/workspace-router-runtime.ts`), so the first such read has always
+   happened before any request could.
+
+   The line is causal, not positional. Reads that establish the prerequisite
+   routing and policy context are outside this ordering claim; every read taken
+   *because of* this observation is inside it, including resolver reads
+   performed on the requested path. The cycle must enumerate the prerequisite
+   reads it is exempting and bound them, so the exemption cannot become a
+   laundering channel — an unbounded "prerequisite" is the same loophole with a
+   better name.
 2. **Claim before effect.** The adapter cannot observe without a durable claim
    correlated to the exact admitted request.
 3. **Settlement before analysis.** Echo's durable settlement commit precedes
@@ -446,8 +481,20 @@ fixture cannot distinguish a correct rule from no rule at all.
       observation-authority spy — so both the request-ordering assertion and
       the restarted zero-read counter can pass while the workspace was already
       touched. Pre-request handling must be lexical only; realpath and symlink
-      resolution move inside the claimed observation authority, or are
-      instrumented and counted by `preRequestWorkspaceMetadataReads`.
+      resolution move inside the claimed observation authority or are removed.
+      Instrumenting them and leaving them in place is **not** an alternative:
+      `preRequestWorkspaceMetadataReads` is required to be `0`, so counting a
+      surviving pre-request read reports the violation rather than satisfying
+      the criterion.
+- [ ] **The prerequisite-read exemption is enumerated and bounded.** Invariant 1
+      orders reads causally initiated for this observation, so the routing and
+      policy reads that establish the authority context — loading
+      `.graftignore`, constructing the path resolver
+      (`src/mcp/workspace-router-runtime.ts`) — sit outside the claim. The
+      cycle lists exactly which reads it exempts and asserts the list is
+      closed. An unenumerated "prerequisite" category would let any read be
+      reclassified out of the invariant, which is the authority-scoped loophole
+      wearing a different name.
 - [ ] **Each admitted entry carries its observed file kind.** The read view's
       `SettledFile` already requires `entryKind: "regular" | "symlink"` and
       enforces `symlinkPolicy: "refuse"` against it
@@ -563,9 +610,17 @@ The direct-Git counter covers `GitClient` operations that do not pass through
 git-warp, including any invoked while reconstructing a causal basis. Without
 it, invariant 9 has no evidence: the two existing counters both miss that path.
 
-`preRequestWorkspaceMetadataReads` covers `lstat`, `realpath`, and equivalent
-metadata calls made before the request is retained — see the pre-request path
-resolution criterion above for why that count is not already zero today.
+`preRequestWorkspaceMetadataReads` counts `lstat`, `realpath`, and equivalent
+metadata calls made before the request is retained **and causally initiated for
+this observation** — principally resolution of the requested path. It does not
+count the prerequisite routing and policy reads that establish the authority
+context before any operation exists, such as loading `.graftignore` and
+constructing the path resolver (`src/mcp/workspace-router-runtime.ts`); those
+are exempt under invariant 1 and the cycle must enumerate them explicitly.
+
+Enumerating the exemption is what keeps the counter honest. A count that
+silently ignored "setup" reads would be zero by definition, which is the
+vacuous-evidence failure this packet is built to avoid.
 
 ### The replay comparison projection
 
@@ -622,9 +677,18 @@ result union, then again at the MCP wrapper.
 
 **So the enumeration lives in code, not in this document.** The field list
 above is the intent; the authoritative projection is defined once in the
-implementation, and a test asserts it is total over `FileOutlineResult` by
-construction, so adding a field to the result type fails that test until the
-projection is updated deliberately. A list maintained by prose is checked by
+implementation, and a test asserts it is total over the **whole operation
+result union** by construction, so adding a field or a variant fails that test
+until the projection is updated deliberately.
+
+The union is `RepoWorkspaceFileOutlineResult = FileOutlineResult |
+RepoWorkspaceRefusedResult` (`src/operations/repo-workspace.ts`), and item 7 of
+the implementation boundary adds two more variants to it — the path-only
+refusal and the recovery state. Totality over `FileOutlineResult` alone would
+leave every refusal shape unprojected, which is the same under-enumeration
+defect one level out: the deny-by-default rule would then drop or reject
+semantic fields on exactly the results this cycle adds, while the replay proof
+still reported green. A list maintained by prose is checked by
 whoever remembers to look; a list maintained by the compiler is checked every
 build. Requiring deny-by-default without that machinery is how both earlier
 drafts produced a rule that would have rejected valid results.
@@ -638,13 +702,24 @@ existing fake transport or call Graft analysis as a native callback from an
 Edict executor.
 
 1. A narrow integration fixture contains one source file whose `file_outline`
-   result is stable and structured.
+   result is stable and structured, **and** one Colorful-supported prose input.
+   The second is not optional: a code-only fixture satisfies the zero-process
+   counter without ever exercising the projector branch that counter exists to
+   constrain.
 2. An observation-authority spy records every metadata/content operation and
    fails if no durable request commit is visible at the first operation.
+   **This spy alone cannot prove invariant 1**, which orders reads by *any*
+   component: a read made outside the authority — `repo-paths.ts` resolving a
+   path before `RepoWorkspace` exists — is invisible to it, so the spy reports
+   green on an already-touched workspace. The proof therefore also instruments
+   the filesystem at a level the resolver cannot bypass and asserts
+   `preRequestWorkspaceMetadataReads == 0`. An authority-scoped spy is a
+   necessary component of the evidence, never the whole of it.
 3. An analysis-read spy fails if no durable settlement commit is visible at
    the first Graft read.
 4. A restart test closes all live observer authority, reopens only Echo
-   history, reconstructs the view, and compares structured results.
+   history, reconstructs the view, and compares results under
+   `replayProjection` — not by raw structural equality, which cannot hold.
 5. Decoder tests reject malformed correlation, substituted roots, widened
    apertures, wrong digests, over-budget bytes, non-success posture, and
    mutable/aliased retained content.
@@ -653,6 +728,17 @@ Edict executor.
 7. Recovery tests cover request-only and claimed-without-settlement states.
 8. Retry tests prove exact-duplicate idempotence and conflicting-settlement
    obstruction.
+9. A denied-path test drives a `.graftignore` or banned path and asserts the
+   path-only refusal shape, that no observation occurred, and that Echo
+   retained nothing for it (invariant 13). It must fail if the refusal carries
+   fabricated `actual` sizes.
+10. A multi-settlement test retains more than one successful settlement for the
+    same workspace and aperture and asserts the replay key recovers the
+    intended one every time (invariant 14). A single-settlement fixture cannot
+    distinguish a correct selection rule from no rule and is not accepted.
+11. An entry-kind test settles a symlink-reached path and asserts the decoder
+    refuses it on schema-bound evidence rather than on observer cooperation
+    (invariant 15).
 
 Tests assert protocol state, structured results, receipts, positions, and
 authority counters. They do not assert design-document wording or incidental
@@ -667,8 +753,20 @@ The cycle owns only the pieces required to ring this bell:
    basis, if the pinned substrate cannot yet express it.
 3. Production request/claim/settlement composition for one bounded read.
 4. Production settlement decoding into `AdmittedWorkspaceReadView`.
-5. `file_outline` live execution and restart replay proof.
-6. Instrumented causal-order, filesystem-read, and git-warp-open evidence.
+5. `file_outline` live execution and restart replay proof, including the
+   `replayProjection` definition and the test asserting it is total over the
+   whole `RepoWorkspaceFileOutlineResult` union — success, refusal, and the two
+   variants item 7 adds — not over `FileOutlineResult` alone.
+6. Instrumented causal-order evidence and every counter the acceptance list
+   requires: filesystem reads, git-warp opens, direct Git operations, process
+   executions, pre-request workspace metadata reads, and denied-path retention.
+   Listing them here rather than "and so on" is deliberate — an acceptance
+   criterion whose instrumentation is outside the implementation boundary
+   cannot be met by the cycle that owns it.
+7. The contract additions the acceptance list depends on: `entryKind` per
+   admitted entry, the two identity fields on the request, a path-only refusal
+   variant carrying no `actual`, and an explicit recovery-state result in both
+   the operation and MCP unions.
 
 Implementation should remain one causal-invariant campaign. If an upstream
 contract change needs its own repository PR, that dependency lands first; it
@@ -702,8 +800,8 @@ does not justify widening the Graft PR.
 3. Can I identify the durable settlement that existed before Graft analysis?
 4. If the workspace changes during observation, do I get a typed non-success
    outcome rather than a mixed snapshot?
-5. After restart, can I remove or deny the workspace and still obtain the same
-   structured `file_outline` result?
+5. After restart, can I remove or deny the workspace and still obtain a
+   `file_outline` result equal to the live one under `replayProjection`?
 
 ### Agent playback
 
@@ -714,7 +812,10 @@ does not justify widening the Graft PR.
    basis, and observed workspace basis?
 3. Are the WAL positions and authority counters machine-asserted?
 4. Can any production branch reach `LiveWorkspaceReadSource`, Git, git-warp,
-   or `unsafeAdmittedWorkspaceSnapshotForTest` during replay?
+   an external process, or `unsafeAdmittedWorkspaceSnapshotForTest` during
+   replay? Process execution is listed explicitly because the production prose
+   projector shells out (`src/adapters/colorful-cli-prose-projector.ts`), so a
+   replay that closes only the workspace observer is still open.
 5. Does recovery distinguish requested, claimed, settled-success,
    settled-non-success, and outcome-unknown states without inventing evidence?
 
