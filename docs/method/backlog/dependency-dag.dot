@@ -75,7 +75,7 @@ digraph backlog {
   }
 
   subgraph cluster_cool_ideas {
-    label="Cool Ideas (92)" labeljust=l fontsize=9 fontcolor="#555555"
+    label="Cool Ideas (93)" labeljust=l fontsize=9 fontcolor="#555555"
     style=rounded color="#cccccc" bgcolor="#fafafa"
     cool_ideas_bounded_neighborhood_for_references [label="bounded-neighborhood-for-references - S" fillcolor="#D4E8F7" penwidth=1]
     cool_ideas_CI_001_causal_collapse_visualizer [label="CI-001-causal-collapse-visualizer - L" fillcolor="#D4E8F7" penwidth=1]
@@ -107,6 +107,7 @@ digraph backlog {
     cool_ideas_CORE_multi_agent_conflict_detection [label="CORE-multi-agent-conflict-detection - L" fillcolor="#D4E8F7" penwidth=1]
     cool_ideas_CORE_policy_playground [label="CORE-policy-playground - S" fillcolor="#D4E8F7" penwidth=1]
     cool_ideas_CORE_policy_profiles [label="CORE-policy-profiles - M" fillcolor="#D4E8F7" penwidth=1]
+    cool_ideas_CORE_repository_claim_intelligence [label="CORE-repository-claim-intelligence - XL" fillcolor="#D4E8F7" penwidth=1]
     cool_ideas_CORE_self_tuning_governor [label="CORE-self-tuning-governor - M" fillcolor="#D4E8F7" penwidth=1]
     cool_ideas_CORE_session_knowledge_map [label="CORE-session-knowledge-map - S" fillcolor="#D4E8F7" penwidth=1]
     cool_ideas_CORE_speculative_read_cost [label="CORE-speculative-read-cost - S" fillcolor="#D4E8F7" penwidth=1]
@@ -175,6 +176,7 @@ digraph backlog {
     label="External blockers" labeljust=l fontsize=9 fontcolor="#555555"
     style=rounded color="#cccccc" bgcolor="#f8fbff"
     external_git_warp_observer_geometry_ladder__Rung_2_4_ [label="git-warp observer geometry ladder (Rung 2-4)" fillcolor="#E8F2FF" penwidth=1]
+    external_Reusable_contextual_claims_package [label="Reusable contextual-claims package" fillcolor="#E8F2FF" penwidth=1]
   }
 
   subgraph cluster_unresolved {
@@ -195,6 +197,7 @@ digraph backlog {
   cool_ideas_WARP_provenance_dag -> cool_ideas_WARP_reasoning_trace_replay [label="blocked_by/blocking"]
   cool_ideas_WARP_stale_docs_checker -> cool_ideas_WARP_drift_sentinel [label="blocked_by/blocking"]
   external_git_warp_observer_geometry_ladder__Rung_2_4_ -> cool_ideas_CORE_migrate_to_slice_first_reads [label="blocked_by_external" style=dashed color="#4477AA"]
+  external_Reusable_contextual_claims_package -> cool_ideas_CORE_repository_claim_intelligence [label="blocked_by_external" style=dashed color="#4477AA"]
   unresolved_CLEAN_CODE_export_diff_semver_signature_as_patch -> cool_ideas_WARP_auto_breaking_change_detection [label="blocked_by" style=dashed color="#CC3333"]
   unresolved_CLEAN_CODE_export_diff_semver_signature_as_patch -> cool_ideas_WARP_semantic_merge_conflict_prediction [label="blocked_by" style=dashed color="#CC3333"]
   v0_8_0_WARP_symbol_history_timeline -> cool_ideas_WARP_temporal_structural_search [label="blocked_by/blocking"]
