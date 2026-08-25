@@ -1,112 +1,135 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
+import ts from "typescript";
 import { describe, expect, it } from "vitest";
 
 const SRC = path.resolve(import.meta.dirname, "../../src");
-const WARP_CONTEXT = path.resolve(SRC, "warp/context.ts");
+const WARP_PORT = path.resolve(SRC, "ports/warp.ts");
 const OPEN_WARP = path.resolve(SRC, "warp/open.ts");
-const WARP_POOL = path.resolve(SRC, "mcp/warp-pool.ts");
-const MCP_CONTEXT = path.resolve(SRC, "mcp/context.ts");
-const OLD_PORT = path.resolve(SRC, "ports/warp.ts");
+const PLUMBING_DECLARATION = path.resolve(SRC, "warp/plumbing.d.ts");
+const GIT_WARP_PACKAGE = "@git-stunts/git-warp";
 
-const PLAYBACK_TEST = path.resolve(
-  import.meta.dirname,
-  "./0080-warp-port-and-adapter-boundary.test.ts",
-);
+const ALLOWED_GIT_WARP_IMPORTERS = new Set([
+  OPEN_WARP,
+  PLUMBING_DECLARATION,
+]);
 
-function read(pathname: string): string {
-  return fs.readFileSync(pathname, "utf-8");
-}
-
-/**
- * Recursively collect all .ts files under a directory.
- */
-function collectTsFiles(dir: string): string[] {
+function collectTypeScriptFiles(dir: string): string[] {
   const results: string[] = [];
   for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
     const full = path.join(dir, entry.name);
     if (entry.isDirectory()) {
-      results.push(...collectTsFiles(full));
-    } else if (entry.name.endsWith(".ts") && !entry.name.endsWith(".d.ts")) {
+      results.push(...collectTypeScriptFiles(full));
+    } else if (entry.name.endsWith(".ts")) {
       results.push(full);
     }
   }
   return results;
 }
 
-describe("0080 warp boundary — git-warp as domain infrastructure", () => {
-  it("Has the old WarpHandle port been removed?", () => {
-    expect(
-      fs.existsSync(OLD_PORT),
-      "src/ports/warp.ts should no longer exist",
-    ).toBe(false);
-  });
+function stringLiteralText(node: ts.Node | undefined): string | null {
+  if (node !== undefined && (ts.isStringLiteral(node) || ts.isNoSubstitutionTemplateLiteral(node))) {
+    return node.text;
+  }
+  return null;
+}
 
-  it("Does WarpContext exist as the session-scoped DI bag with strandId routing?", () => {
-    const content = read(WARP_CONTEXT);
+function importedModules(sourceText: string, fileName = "boundary.ts"): string[] {
+  const source = ts.createSourceFile(
+    fileName,
+    sourceText,
+    ts.ScriptTarget.Latest,
+    true,
+    ts.ScriptKind.TS,
+  );
+  const modules: string[] = [];
 
-    expect(content).toContain("export interface WarpContext");
-    expect(content).toContain("strandId");
-    expect(content).toContain("export async function patchGraph");
-    expect(content).toContain("export async function observeGraph");
-    expect(content).toContain("export async function materializeGraph");
-  });
+  function record(node: ts.Node | undefined): void {
+    const moduleName = stringLiteralText(node);
+    if (moduleName !== null) modules.push(moduleName);
+  }
 
-  it("Do strand routing helpers fail-closed when strandId is set?", () => {
-    const content = read(WARP_CONTEXT);
-
-    // All three helpers must guard against non-null strandId
-    expect(content).toContain("assertNoStrand");
-    expect(content).toMatch(/strand.*not yet supported/i);
-  });
-
-  it("Is openWarp() the sole construction adapter — the only file that wires GitGraphAdapter + GitPlumbing?", () => {
-    const content = read(OPEN_WARP);
-
-    expect(content).toContain('from "@git-stunts/git-warp"');
-    expect(content).toContain("GitGraphAdapter");
-    expect(content).toContain("@git-stunts/plumbing");
-
-    // No other source file should import these construction-only types
-    const allFiles = collectTsFiles(SRC);
-    for (const file of allFiles) {
-      if (file === OPEN_WARP) continue;
-      // plumbing.d.ts is a type declaration, not app code
-      if (file.endsWith("plumbing.d.ts")) continue;
-      const source = read(file);
-      expect(source).not.toContain(
-        "GitGraphAdapter",
-        // intentionally no message — vitest shows the file path in the diff
-      );
+  function visit(node: ts.Node): void {
+    if (ts.isImportDeclaration(node) || ts.isExportDeclaration(node)) {
+      record(node.moduleSpecifier);
+    } else if (
+      ts.isImportEqualsDeclaration(node) &&
+      ts.isExternalModuleReference(node.moduleReference)
+    ) {
+      record(node.moduleReference.expression);
+    } else if (ts.isImportTypeNode(node) && ts.isLiteralTypeNode(node.argument)) {
+      record(node.argument.literal);
+    } else if (ts.isCallExpression(node)) {
+      const isDynamicImport = node.expression.kind === ts.SyntaxKind.ImportKeyword;
+      const isRequire = ts.isIdentifier(node.expression) && node.expression.text === "require";
+      if (isDynamicImport || isRequire) record(node.arguments[0]);
     }
+    ts.forEachChild(node, visit);
+  }
+
+  visit(source);
+  return modules;
+}
+
+function gitWarpImports(file: string): string[] {
+  return importedModules(fs.readFileSync(file, "utf8"), file)
+    .filter((moduleName) => moduleName === GIT_WARP_PACKAGE);
+}
+
+function exportedInterfaceNames(file: string): string[] {
+  const source = ts.createSourceFile(
+    file,
+    fs.readFileSync(file, "utf8"),
+    ts.ScriptTarget.Latest,
+    true,
+    ts.ScriptKind.TS,
+  );
+
+  return source.statements.flatMap((statement) => {
+    if (!ts.isInterfaceDeclaration(statement)) return [];
+    const exported = statement.modifiers?.some((modifier) =>
+      modifier.kind === ts.SyntaxKind.ExportKeyword
+    ) ?? false;
+    return exported ? [statement.name.text] : [];
+  });
+}
+
+describe("0080 warp boundary — git-warp behind a Graft port and adapter", () => {
+  it("recognizes real module dependencies without treating package-name prose as an import", () => {
+    const source = [
+      'const explanation = "@git-stunts/git-warp";',
+      'import type { Observer } from "@git-stunts/git-warp";',
+      'export { QueryBuilder } from "@git-stunts/git-warp";',
+      'type Patch = import("@git-stunts/git-warp").PatchV2;',
+      'const lazy = import("@git-stunts/git-warp");',
+      'const legacy = require("@git-stunts/git-warp");',
+    ].join("\n");
+
+    expect(importedModules(source)).toEqual([
+      GIT_WARP_PACKAGE,
+      GIT_WARP_PACKAGE,
+      GIT_WARP_PACKAGE,
+      GIT_WARP_PACKAGE,
+      GIT_WARP_PACKAGE,
+    ]);
   });
 
-  it("Does no source file import from the old ports/warp.ts path?", () => {
-    const allFiles = collectTsFiles(SRC);
-    for (const file of allFiles) {
-      const source = read(file);
-      expect(source).not.toMatch(
-        /from\s+["'].*ports\/warp/,
-        // intentionally no message — vitest shows the file path in the diff
-      );
-    }
+  it("provides one Graft-owned graph port contract", () => {
+    expect(fs.existsSync(WARP_PORT), "src/ports/warp.ts must define the Graft boundary").toBe(true);
+    expect(exportedInterfaceNames(WARP_PORT)).toContain("WarpGraphPort");
   });
 
-  it("Does the WarpPool vend WarpApp, not WarpHandle?", () => {
-    const content = read(WARP_POOL);
+  it("confines every production git-warp import to the secondary adapter", () => {
+    const violations = collectTypeScriptFiles(SRC)
+      .filter((file) => !ALLOWED_GIT_WARP_IMPORTERS.has(file))
+      .filter((file) => gitWarpImports(file).length > 0)
+      .map((file) => path.relative(SRC, file))
+      .sort();
 
-    expect(content).not.toContain("WarpHandle");
-    expect(content).toContain("WarpApp");
+    expect(violations).toEqual([]);
   });
 
-  it("Does the MCP context expose WarpContext, not WarpHandle?", () => {
-    const content = read(MCP_CONTEXT);
-
-    expect(content).not.toContain("WarpHandle");
-    expect(content).toContain("WarpContext");
-  });
-
-  it("Is there a playback witness that mechanically proves the boundary?", () => {
-    expect(fs.existsSync(PLAYBACK_TEST)).toBe(true);
+  it("keeps openWarp as the concrete package adapter", () => {
+    expect(gitWarpImports(OPEN_WARP)).toEqual([GIT_WARP_PACKAGE]);
   });
 });
