@@ -39,6 +39,7 @@
   "scripts": {
     "graft": "node ./bin/graft.js",
     "git-warp:migrate:v17": "tsx ./scripts/upgrade-git-warp-v16-to-v17.ts",
+    "git-warp:migrate:v18": "tsx ./scripts/upgrade-git-warp-v17-to-v18.ts",
     "build": "tsc -p tsconfig.build.json",
     "prepack": "pnpm build",
     "prepublishOnly": "pnpm release:check",

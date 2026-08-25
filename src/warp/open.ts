@@ -5,6 +5,12 @@
  * git-warp runtime objects. Callers receive only the Graft-owned graph port.
  */
 
+/* eslint-disable @typescript-eslint/no-deprecated --
+ * Exact git-warp 18.0.0 is a migration-only compatibility bridge. Its
+ * supported graph facade is deliberately isolated in this adapter while the
+ * retained graph is checkpointed for the v19 public Runtime/Lane cutover.
+ */
+
 import RawWarpApp, { GitGraphAdapter } from "@git-stunts/git-warp";
 import GitPlumbing from "@git-stunts/plumbing";
 import { Buffer } from "node:buffer";
