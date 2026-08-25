@@ -69,12 +69,14 @@ describe("mcp: re-read suppression", () => {
   let cleanupServer: () => void;
   let tmpDir: string;
   let testFile: string;
+  let processRunner: FakeColorfulRunner;
 
   beforeEach(() => {
     tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "graft-cache-"));
     testFile = path.join(tmpDir, "example.ts");
     fs.writeFileSync(testFile, 'export function hello(): string {\n  return "hi";\n}\n');
-    const isolated = createIsolatedServer({ projectRoot: tmpDir });
+    processRunner = new FakeColorfulRunner();
+    const isolated = createIsolatedServer({ projectRoot: tmpDir, processRunner });
     server = isolated.server;
     cleanupServer = () => {
       isolated.cleanup();
@@ -161,13 +163,6 @@ describe("mcp: re-read suppression", () => {
   });
 
   it("file_outline caches Colorful prose outlines for text files", async () => {
-    cleanupServer();
-    const processRunner = new FakeColorfulRunner();
-    const isolated = createIsolatedServer({ projectRoot: tmpDir, processRunner });
-    server = isolated.server;
-    cleanupServer = () => {
-      isolated.cleanup();
-    };
     const proseFile = path.join(tmpDir, "notes.txt");
     fs.writeFileSync(proseFile, "ship the prose path\n");
 
@@ -256,13 +251,6 @@ describe("mcp: re-read suppression", () => {
   });
 
   it("changed_since reports structural diffs for observed Colorful prose text", async () => {
-    cleanupServer();
-    const processRunner = new FakeColorfulRunner();
-    const isolated = createIsolatedServer({ projectRoot: tmpDir, processRunner });
-    server = isolated.server;
-    cleanupServer = () => {
-      isolated.cleanup();
-    };
     const proseFile = path.join(tmpDir, "notes.txt");
     fs.writeFileSync(proseFile, "ship the prose path\n".repeat(180));
 

@@ -35,7 +35,12 @@ import { createBufferWriter } from "../../helpers/init.js";
 import { writeLegacyLocalHistoryArtifact } from "../../helpers/legacy-local-history.js";
 import { createServerInRepo, parse } from "../../helpers/mcp.js";
 
-const CLI_PEER_SCHEMA_TIMEOUT_MS = 120_000;
+// This witness runs 26 real CLI commands sequentially against one Git/WARP
+// repository. The v18 compatibility bridge establishes an explicit reading
+// basis per short-lived CLI runtime, so keep a bounded aggregate budget that
+// covers the measured transitional startup cost without changing global test
+// timeouts.
+const CLI_PEER_SCHEMA_TIMEOUT_MS = 240_000;
 
 function createDaemonServer(graftDir: string) {
   return createGraftServer({
