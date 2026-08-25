@@ -1,0 +1,97 @@
+import { spawnSync } from "node:child_process";
+import { mkdtempSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
+import { afterEach, describe, expect, it } from "vitest";
+
+const repoRoot = fileURLToPath(new URL("../../..", import.meta.url));
+const migrationCommand = join(repoRoot, "scripts", "upgrade-git-warp-v16-to-v17.mjs");
+
+const tempDirs: string[] = [];
+
+function makeGitRepo(): string {
+  const repo = mkdtempSync(join(tmpdir(), "graft-git-warp-v17-migration-"));
+  tempDirs.push(repo);
+
+  const result = spawnSync("git", ["init", "--quiet", repo], {
+    cwd: dirname(repo),
+    encoding: "utf8",
+  });
+  if (result.status !== 0) {
+    throw new Error(result.stderr || "git init failed");
+  }
+
+  return repo;
+}
+
+afterEach(() => {
+  for (const tempDir of tempDirs.splice(0)) {
+    rmSync(tempDir, { recursive: true, force: true });
+  }
+});
+
+describe("git-warp v16 to v17 migration command", () => {
+  it("delegates a structured dry run to the installed package upgrader", () => {
+    const repo = makeGitRepo();
+    const result = spawnSync(
+      process.execPath,
+      [
+        migrationCommand,
+        "--repo",
+        repo,
+        "--graph",
+        "migration-contract",
+        "--dry-run",
+        "--json",
+      ],
+      { cwd: repoRoot, encoding: "utf8" },
+    );
+
+    expect(result.status, result.stderr).toBe(0);
+    expect(result.stderr).toBe("");
+
+    const receipt = JSON.parse(result.stdout) as {
+      readonly dryRun: boolean;
+      readonly graphCount: number;
+      readonly graphs: readonly ({
+        readonly graphName: string;
+        readonly checkpoint: {
+          readonly status: string;
+          readonly checkpointRef: string;
+          readonly currentSchema: number;
+        };
+        readonly cacheRefs: readonly ({
+          readonly ref: string;
+          readonly action: string;
+          readonly previousOid: string | null;
+        })[];
+      })[];
+    };
+
+    expect(receipt.dryRun).toBe(true);
+    expect(receipt.graphCount).toBe(1);
+    expect(receipt.graphs).toEqual([
+      expect.objectContaining({
+        graphName: "migration-contract",
+        checkpoint: expect.objectContaining({
+          status: "missing-checkpoint",
+          checkpointRef: "refs/warp/migration-contract/checkpoints/head",
+          currentSchema: 5,
+        }),
+        cacheRefs: [
+          {
+            ref: "refs/warp/migration-contract/coverage/head",
+            action: "absent",
+            previousOid: null,
+          },
+          {
+            ref: "refs/warp/migration-contract/seek-cache",
+            action: "absent",
+            previousOid: null,
+          },
+        ],
+      }),
+    ]);
+  });
+});
