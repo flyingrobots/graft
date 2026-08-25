@@ -2,7 +2,7 @@
 // Symbol reference queries — find what depends on a symbol via the WARP graph
 // ---------------------------------------------------------------------------
 
-import type { QueryResultV1 } from "@git-stunts/git-warp";
+import type { WarpQueryResult } from "../ports/warp.js";
 import type { WarpContext } from "./context.js";
 import { observeGraph } from "./context.js";
 import { SymIdCodec } from "./sym-id-codec.js";
@@ -57,7 +57,7 @@ export async function referencesForSymbol(
   const propsResult = await obs.query()
     .match(astReferrerIds)
     .select(["id", "props"])
-    .run() as QueryResultV1;
+    .run() as WarpQueryResult;
 
   const results: SymbolReference[] = [];
 

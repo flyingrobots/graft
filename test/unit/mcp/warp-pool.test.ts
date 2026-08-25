@@ -1,8 +1,8 @@
 import { describe, expect, it, vi } from "vitest";
-import type WarpApp from "@git-stunts/git-warp";
+import type { WarpGraphPort } from "../../../src/ports/warp.js";
 import { InMemoryWarpPool } from "../../../src/mcp/warp-pool.js";
 
-function fakeWarpApp(): WarpApp {
+function fakeWarpApp(): WarpGraphPort {
   return {
     core: vi.fn(() => ({
       hasNode: vi.fn(() => Promise.resolve(false)),
@@ -14,7 +14,7 @@ function fakeWarpApp(): WarpApp {
       getEdges: () => Promise.resolve([]),
     })),
     patch: vi.fn(() => Promise.resolve("patch:test")),
-  } as unknown as WarpApp;
+  } as unknown as WarpGraphPort;
 }
 
 describe("mcp: warp pool", () => {

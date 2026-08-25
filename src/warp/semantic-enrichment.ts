@@ -1,4 +1,4 @@
-import type { PatchBuilderV2 } from "@git-stunts/git-warp";
+import type { WarpPatchPort } from "../ports/warp.js";
 import type {
   SemanticEnrichmentAvailableResult,
   SemanticEnrichmentFact,
@@ -40,7 +40,7 @@ export function prepareSemanticFacts(input: {
 }
 
 export function emitSemanticFacts(
-  patch: PatchBuilderV2,
+  patch: WarpPatchPort,
   facts: readonly SemanticEnrichmentFact[],
 ): void {
   for (const fact of facts) {

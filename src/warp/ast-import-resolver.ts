@@ -2,7 +2,7 @@
 // AST Import Resolver — adds cross-file reference edges to the WARP graph
 // ---------------------------------------------------------------------------
 
-import type { PatchBuilderV2 } from "@git-stunts/git-warp";
+import type { WarpPatchPort } from "../ports/warp.js";
 import type { PathOps } from "../ports/paths.js";
 import { astNodeId, emitAstAnchor } from "./ast-emitter.js";
 import { SymIdCodec } from "./sym-id-codec.js";
@@ -227,7 +227,7 @@ export function analyzeStaticTypeScriptReferences(
  * re-exports, and dynamic imports.
  */
 export function resolveImportEdges(
-  patch: PatchBuilderV2,
+  patch: WarpPatchPort,
   filePath: string,
   root: TSNode,
   pathOps: PathOps,
@@ -246,7 +246,7 @@ export function resolveImportEdges(
 }
 
 function handleImportStatement(
-  patch: PatchBuilderV2,
+  patch: WarpPatchPort,
   filePath: string,
   node: TSNode,
   pathOps: PathOps,
@@ -285,7 +285,7 @@ function handleImportStatement(
 }
 
 function handleExportStatement(
-  patch: PatchBuilderV2,
+  patch: WarpPatchPort,
   filePath: string,
   node: TSNode,
   pathOps: PathOps,
@@ -326,7 +326,7 @@ function handleExportStatement(
 }
 
 function walkForDynamicImports(
-  patch: PatchBuilderV2,
+  patch: WarpPatchPort,
   filePath: string,
   node: TSNode,
   pathOps: PathOps,

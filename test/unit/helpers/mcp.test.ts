@@ -1,7 +1,7 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
 import { describe, expect, it } from "vitest";
-import type WarpApp from "@git-stunts/git-warp";
+import type { WarpGraphPort } from "../../../src/ports/warp.js";
 import type { WarpPool } from "../../../src/mcp/warp-pool.js";
 import { cleanupTestRepo, createTestRepo, git } from "../../helpers/git.js";
 import { createServerInRepo, parse } from "../../helpers/mcp.js";
@@ -43,7 +43,7 @@ describe("test helper: MCP server isolation", () => {
   it("does not eagerly open WARP local-history graph for createServerInRepo", async () => {
     const repoDir = createTestRepo("graft-mcp-helper-no-eager-warp-");
     const warpPool: WarpPool = {
-      getOrOpen(): Promise<WarpApp> {
+      getOrOpen(): Promise<WarpGraphPort> {
         throw new Error("unexpected eager WARP open");
       },
       size(): number {

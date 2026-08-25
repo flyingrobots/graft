@@ -2,7 +2,11 @@
 // WARP-based Structural Churn — aggregate-backed graph query
 // ---------------------------------------------------------------------------
 
-import type { AggregateResult, QueryResultV1, TickReceipt } from "@git-stunts/git-warp";
+import type {
+  WarpAggregateResult,
+  WarpQueryResult,
+  WarpTickReceipt,
+} from "../ports/warp.js";
 import type { WarpContext } from "./context.js";
 import { observeGraph } from "./context.js";
 import { SymIdCodec } from "./sym-id-codec.js";
@@ -41,7 +45,7 @@ interface ChurnCandidate {
 
 interface ChurnDiscovery {
   readonly candidates: readonly ChurnCandidate[];
-  readonly receipts: readonly TickReceipt[];
+  readonly receipts: readonly WarpTickReceipt[];
 }
 
 /**
@@ -110,7 +114,7 @@ async function countCommits(
   const result = await obs.query()
     .match("commit:*")
     .aggregate({ count: true })
-    .run() as AggregateResult;
+    .run() as WarpAggregateResult;
   return result.count ?? 0;
 }
 
@@ -124,7 +128,7 @@ async function discoverChurnCandidates(
   const current = await obs.query()
     .match("sym:*")
     .select(["id", "props"])
-    .run() as QueryResultV1;
+    .run() as WarpQueryResult;
 
   for (const node of current.nodes) {
     if (node.id === undefined) continue;
@@ -159,7 +163,7 @@ async function discoverChurnCandidates(
   return { candidates, receipts };
 }
 
-function removedSymIds(receipts: readonly TickReceipt[]): string[] {
+function removedSymIds(receipts: readonly WarpTickReceipt[]): string[] {
   const ids: string[] = [];
   for (const receipt of receipts) {
     for (const op of receipt.ops) {
@@ -177,7 +181,7 @@ function removedSymIds(receipts: readonly TickReceipt[]): string[] {
 async function removedSymbolKind(
   ctx: WarpContext,
   symId: string,
-  receipts: readonly TickReceipt[],
+  receipts: readonly WarpTickReceipt[],
 ): Promise<string> {
   const removalTicks = receipts
     .filter((receipt) => receipt.ops.some((op) =>
@@ -203,7 +207,7 @@ async function removedSymbolKind(
 async function aggregateTouchesForSymbol(
   obs: Awaited<ReturnType<typeof observeGraph>>,
   symId: string,
-  receipts: readonly TickReceipt[],
+  receipts: readonly WarpTickReceipt[],
 ): Promise<{ changeCount: number; lastChangedTick: number | null }> {
   const aggregates = await Promise.all(
     CHANGE_EDGE_LABELS.map((label) => aggregateTouchesForLabel(obs, symId, label)),
@@ -236,7 +240,7 @@ async function aggregateTouchesForLabel(
     .match("commit:*")
     .where((node) => node.edgesOut.some((edge) => edge.label === label && edge.to === symId))
     .aggregate({ count: true, max: "tick" })
-    .run() as AggregateResult;
+    .run() as WarpAggregateResult;
 
   return {
     count: result.count ?? 0,
@@ -252,7 +256,7 @@ async function shaForTick(
     .match("commit:*")
     .where({ tick })
     .select(["id", "props"])
-    .run() as QueryResultV1;
+    .run() as WarpQueryResult;
 
   const commit = result.nodes[0];
   if (commit === undefined) return "";
@@ -273,7 +277,7 @@ function matchesPathFilter(filePath: string, pathFilter: string | undefined): bo
 
 function receiptTouchesForSymbol(
   symId: string,
-  receipts: readonly TickReceipt[],
+  receipts: readonly WarpTickReceipt[],
 ): { changeCount: number; lastChangedTick: number | null } {
   let changeCount = 0;
   let lastChangedTick: number | null = null;

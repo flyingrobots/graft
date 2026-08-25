@@ -6,7 +6,7 @@
  * and batch prop reads. No getEdges() — filtering stays substrate-side.
  */
 
-import type { Lens, QueryResultV1 } from "@git-stunts/git-warp";
+import type { WarpLens, WarpQueryResult } from "../ports/warp.js";
 import type { WarpContext } from "./context.js";
 import { observeGraph } from "./context.js";
 import { SymIdCodec } from "./sym-id-codec.js";
@@ -58,7 +58,7 @@ export interface SymbolHistory {
  * Lens that spans both commit and symbol nodes so the observer
  * can see the edges between them.
  */
-function commitSymbolLens(): Lens {
+function commitSymbolLens(): WarpLens {
   return {
     match: ["commit:*", "sym:*"],
     expose: ["sha", "name", "kind", "signature", "exported"],
@@ -113,7 +113,7 @@ export async function symbolsForCommit(
     const propsResult = await obs.query()
       .match(allSymIds)
       .select(["id", "props"])
-      .run() as QueryResultV1;
+      .run() as WarpQueryResult;
     for (const node of propsResult.nodes) {
       if (node.id !== undefined && node.props !== undefined) {
         symPropsMap.set(node.id, node.props);
@@ -206,7 +206,7 @@ async function detectRemovals(
   if (removed.size === 0) return [];
 
   // Read props from the pre-removal observer (nodes are gone at current tick).
-  const symLens: Lens = {
+  const symLens: WarpLens = {
     match: "sym:*",
     expose: ["name", "kind", "signature", "exported"],
   };

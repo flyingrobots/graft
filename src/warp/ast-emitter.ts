@@ -4,7 +4,7 @@
 
 import { createHash } from "node:crypto";
 import { Buffer } from "node:buffer";
-import type { PatchBuilderV2 } from "@git-stunts/git-warp";
+import type { WarpPatchPort } from "../ports/warp.js";
 import type { WarpContext } from "./context.js";
 import { patchGraph } from "./context.js";
 
@@ -23,7 +23,7 @@ export function astNodeId(filePath: string, node: TSNode): string {
 }
 
 /** Emit the shared AST node properties used by every resolver edge anchor. */
-export function emitAstAnchor(patch: PatchBuilderV2, filePath: string, node: TSNode): string {
+export function emitAstAnchor(patch: WarpPatchPort, filePath: string, node: TSNode): string {
   const nodeId = astNodeId(filePath, node);
   patch.addNode(nodeId);
   patch.setProperty(nodeId, "type", node.type);
@@ -91,7 +91,7 @@ function astSnapshot(filePath: string, root: TSNode): AstSnapshot {
  * with other graph operations in the same atomic commit.
  */
 export function emitAstNodes(
-  patch: PatchBuilderV2,
+  patch: WarpPatchPort,
   filePath: string,
   root: TSNode,
 ): void {
@@ -110,7 +110,7 @@ export function emitAstNodes(
  * materialized graph only carries the `_content` OID and metadata.
  */
 export async function attachAstSnapshot(
-  patch: PatchBuilderV2,
+  patch: WarpPatchPort,
   filePath: string,
   root: TSNode,
 ): Promise<void> {

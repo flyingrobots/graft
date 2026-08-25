@@ -10,7 +10,7 @@
  * diff, then filters out any symbol that reappears later.
  */
 
-import type { Lens } from "@git-stunts/git-warp";
+import type { WarpLens } from "../ports/warp.js";
 import { observeGraph, type WarpContext } from "./context.js";
 import { SymIdCodec } from "./sym-id-codec.js";
 
@@ -46,7 +46,7 @@ function filePathFromSymId(symId: string): string | null {
   return SymIdCodec.filePath(symId);
 }
 
-const SYM_LENS: Lens = {
+const SYM_LENS: WarpLens = {
   match: "sym:*",
   expose: ["name", "kind", "signature", "exported"],
 };
@@ -68,7 +68,7 @@ export async function findDeadSymbols(
   options?: DeadSymbolOptions,
 ): Promise<DeadSymbol[]> {
   // Discover all commit nodes and read their ticks.
-  const commitLens: Lens = {
+  const commitLens: WarpLens = {
     match: "commit:*",
     expose: ["sha", "tick"],
   };

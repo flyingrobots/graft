@@ -2,7 +2,7 @@
 // Qualified reference resolver — shared language-adapter contract
 // ---------------------------------------------------------------------------
 
-import type { PatchBuilderV2 } from "@git-stunts/git-warp";
+import type { WarpPatchPort } from "../ports/warp.js";
 import type { SupportedLang } from "../parser/lang.js";
 import { emitAstAnchor } from "./ast-emitter.js";
 import type { ImportBindingDiagnostic } from "./import-diagnostic.js";
@@ -249,7 +249,7 @@ export function analyzeQualifiedReferences(
 
 /** Emit import-level file edges and precision-preserving qualified symbol edges. */
 export function resolveQualifiedReferenceEdges(
-  patch: PatchBuilderV2,
+  patch: WarpPatchPort,
   language: QualifiedReferenceLanguage,
   filePath: string,
   root: TSNode,

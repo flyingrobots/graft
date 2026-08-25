@@ -1,7 +1,6 @@
-import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
+import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import * as fs from "node:fs";
 import * as path from "node:path";
-import { QueryBuilder } from "@git-stunts/git-warp";
 import { nodeGit } from "../../../src/adapters/node-git.js";
 import { nodePathOps } from "../../../src/adapters/node-paths.js";
 import { git, createTestRepo, cleanupTestRepo } from "../../helpers/git.js";
@@ -88,24 +87,23 @@ describe("warp: structural-churn-from-graph", { timeout: 15000 }, () => {
     expect(goneEntry!.lastChangedSha).toBe(git(tmpDir, "rev-parse HEAD"));
   });
 
-  it("computes change counts through QueryBuilder.aggregate", async () => {
-    const aggregateSpy = vi.spyOn(QueryBuilder.prototype, "aggregate");
+  it("computes change counts through the graph port", async () => {
+    fs.writeFileSync(path.join(tmpDir, "app.ts"), "export function main(): void {}\n");
+    git(tmpDir, "add -A");
+    git(tmpDir, "commit -m 'init'");
+    const ctx = await openCtx();
+    await index(ctx);
 
-    try {
-      fs.writeFileSync(path.join(tmpDir, "app.ts"), "export function main(): void {}\n");
-      git(tmpDir, "add -A");
-      git(tmpDir, "commit -m 'init'");
-      const ctx = await openCtx();
-      await index(ctx);
+    const result = await structuralChurnFromGraph(ctx, { limit: 10 });
 
-      const result = await structuralChurnFromGraph(ctx, { limit: 10 });
-
-      expect(result.entries.length).toBeGreaterThan(0);
-      expect(aggregateSpy).toHaveBeenCalledWith({ count: true });
-      expect(aggregateSpy).toHaveBeenCalledWith({ count: true, max: "tick" });
-    } finally {
-      aggregateSpy.mockRestore();
-    }
+    expect(result.totalCommitsAnalyzed).toBe(1);
+    expect(result.entries).toEqual([
+      expect.objectContaining({
+        symbol: "main",
+        filePath: "app.ts",
+        changeCount: 1,
+      }),
+    ]);
   });
 
   it("returns empty result for repo with no indexed commits", async () => {

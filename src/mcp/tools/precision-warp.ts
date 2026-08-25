@@ -1,4 +1,4 @@
-import type { QueryResultV1 } from "@git-stunts/git-warp";
+import type { WarpQueryResult } from "../../ports/warp.js";
 import type { WarpContext } from "../../warp/context.js";
 import { observeGraph } from "../../warp/context.js";
 import { allSymbolsLens, commitsLens, fileSymbolsLens, symbolByNameLens } from "../../warp/observers.js";
@@ -42,7 +42,7 @@ export async function getIndexedCommitCeilings(ctx: WarpContext): Promise<Readon
   const result = await observer.query()
     .match("commit:*")
     .select(["id", "props"])
-    .run() as QueryResultV1;
+    .run() as WarpQueryResult;
 
   for (const node of result.nodes) {
     const props = node.props ?? {};
@@ -84,7 +84,7 @@ export async function searchWarpSymbols(
   const queryResult = await observer.query()
     .match("*")
     .select(["id", "props"])
-    .run() as QueryResultV1;
+    .run() as WarpQueryResult;
 
   const matches = queryResult.nodes.map((node) => {
     const props = node.props ?? {};

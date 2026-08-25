@@ -9,18 +9,18 @@
  * The lens determines the aperture — what the observer can see.
  */
 
-import type { Lens, Observer } from "@git-stunts/git-warp";
+import type { WarpLens, WarpObserverPort } from "../ports/warp.js";
 import type { WarpContext } from "./context.js";
 import { observeGraph } from "./context.js";
 import { SymIdCodec } from "./sym-id-codec.js";
 
-export type { Lens };
+export type { WarpLens };
 
 /**
  * Observe all symbols in a specific file.
  * Aperture: sym:<path>:*
  */
-export function fileSymbolsLens(filePath: string): Lens {
+export function fileSymbolsLens(filePath: string): WarpLens {
   return {
     match: SymIdCodec.filePattern(filePath),
     expose: ["name", "kind", "signature", "exported", "startLine", "endLine", "symbolPath", "identityId"],
@@ -31,7 +31,7 @@ export function fileSymbolsLens(filePath: string): Lens {
  * Observe all symbols in the project.
  * Aperture: sym:*
  */
-export function allSymbolsLens(): Lens {
+export function allSymbolsLens(): WarpLens {
   return {
     match: "sym:*",
     expose: ["name", "kind", "signature", "exported", "startLine", "endLine", "symbolPath", "identityId"],
@@ -42,7 +42,7 @@ export function allSymbolsLens(): Lens {
  * Observe all files in the project.
  * Aperture: file:*
  */
-export function allFilesLens(): Lens {
+export function allFilesLens(): WarpLens {
   return {
     match: "file:*",
     expose: ["path", "lang"],
@@ -53,7 +53,7 @@ export function allFilesLens(): Lens {
  * Observe a single symbol by name across all files.
  * Aperture: sym:*:<name>
  */
-export function symbolByNameLens(symbolName: string): Lens {
+export function symbolByNameLens(symbolName: string): WarpLens {
   return {
     match: SymIdCodec.symbolNamePattern(symbolName),
     expose: ["name", "kind", "signature", "exported", "startLine", "endLine", "symbolPath", "identityId"],
@@ -64,7 +64,7 @@ export function symbolByNameLens(symbolName: string): Lens {
  * Observe a directory subtree.
  * Aperture: dir:<path>*
  */
-export function directoryLens(dirPath: string): Lens {
+export function directoryLens(dirPath: string): WarpLens {
   return {
     match: `dir:${dirPath}*`,
     expose: ["path"],
@@ -75,7 +75,7 @@ export function directoryLens(dirPath: string): Lens {
  * Observe all files under a directory.
  * Aperture: file:<path>/*
  */
-export function directoryFilesLens(dirPath: string): Lens {
+export function directoryFilesLens(dirPath: string): WarpLens {
   return {
     match: `file:${dirPath}/*`,
     expose: ["path", "lang"],
@@ -86,7 +86,7 @@ export function directoryFilesLens(dirPath: string): Lens {
  * Observe commit metadata.
  * Aperture: commit:*
  */
-export function commitsLens(): Lens {
+export function commitsLens(): WarpLens {
   return {
     match: "commit:*",
     expose: ["sha", "message", "timestamp", "author", "email", "tick"],
@@ -97,6 +97,6 @@ export function commitsLens(): Lens {
  * Create an observer on the current frontier with a given lens.
  * Observers are static snapshots — create a new one after writes.
  */
-export function observe(ctx: WarpContext, lens: Lens): Promise<Observer> {
+export function observe(ctx: WarpContext, lens: WarpLens): Promise<WarpObserverPort> {
   return observeGraph(ctx, lens);
 }

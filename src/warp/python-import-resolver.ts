@@ -2,7 +2,7 @@
 // Python AST import resolver — adds first-party reference edges to WARP
 // ---------------------------------------------------------------------------
 
-import type { PatchBuilderV2 } from "@git-stunts/git-warp";
+import type { WarpPatchPort } from "../ports/warp.js";
 import type { PathOps } from "../ports/paths.js";
 import { emitAstAnchor } from "./ast-emitter.js";
 import { SymIdCodec } from "./sym-id-codec.js";
@@ -58,7 +58,7 @@ function importInfo(node: TSNode, fromImport: boolean): ImportInfo | null {
   return { node, importedName: fromImport ? imported.text : "*", localName: local.text };
 }
 
-function emitReference(patch: PatchBuilderV2, filePath: string, info: ImportInfo, target: string | null): void {
+function emitReference(patch: WarpPatchPort, filePath: string, info: ImportInfo, target: string | null): void {
   const specifierId = emitAstAnchor(patch, filePath, info.node);
   patch.setProperty(specifierId, "importedName", info.importedName);
   patch.setProperty(specifierId, "localName", info.localName);
@@ -66,7 +66,7 @@ function emitReference(patch: PatchBuilderV2, filePath: string, info: ImportInfo
   if (target !== null) patch.addEdge(specifierId, target, "references");
 }
 
-function handleImportStatement(patch: PatchBuilderV2, filePath: string, node: TSNode, pathOps: PathOps, knownFiles: ReadonlySet<string>): void {
+function handleImportStatement(patch: WarpPatchPort, filePath: string, node: TSNode, pathOps: PathOps, knownFiles: ReadonlySet<string>): void {
   for (const child of node.namedChildren) {
     const info = importInfo(child, false);
     if (info === null) continue;
@@ -78,7 +78,7 @@ function handleImportStatement(patch: PatchBuilderV2, filePath: string, node: TS
   }
 }
 
-function handleFromImportStatement(patch: PatchBuilderV2, filePath: string, node: TSNode, pathOps: PathOps, knownFiles: ReadonlySet<string>): void {
+function handleFromImportStatement(patch: WarpPatchPort, filePath: string, node: TSNode, pathOps: PathOps, knownFiles: ReadonlySet<string>): void {
   const moduleNode = node.namedChildren.find((child) => child.type === "dotted_name" || child.type === "relative_import");
   if (moduleNode === undefined) return;
   const resolvedPath = resolvePythonModulePath(moduleNode.text, filePath, pathOps, knownFiles);
@@ -99,7 +99,7 @@ function handleFromImportStatement(patch: PatchBuilderV2, filePath: string, node
 
 /** Resolve first-party Python imports without sharing TypeScript resolver shapes. */
 export function resolvePythonImportEdges(
-  patch: PatchBuilderV2,
+  patch: WarpPatchPort,
   filePath: string,
   root: TSNode,
   pathOps: PathOps,

@@ -2,7 +2,7 @@
 // Traverse + Query Batch Hydration Helper
 // ---------------------------------------------------------------------------
 
-import type { Observer, QueryResultV1 } from "@git-stunts/git-warp";
+import type { WarpObserverPort, WarpQueryResult } from "../ports/warp.js";
 
 /** A hydrated node with its ID and properties. */
 export interface HydratedNode {
@@ -27,7 +27,7 @@ export interface TraverseOptions {
  * Returns hydrated nodes with both IDs and properties.
  */
 export async function traverseAndHydrate(
-  observer: Observer,
+  observer: WarpObserverPort,
   startId: string,
   options: TraverseOptions,
 ): Promise<readonly HydratedNode[]> {
@@ -50,7 +50,7 @@ export async function traverseAndHydrate(
   const result = await observer.query()
     .match(ids)
     .select(["id", "props"])
-    .run() as QueryResultV1;
+    .run() as WarpQueryResult;
 
   return result.nodes
     .filter((n): n is { id: string; props?: Record<string, unknown> } => n.id !== undefined)

@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import * as fs from "node:fs";
 import * as path from "node:path";
-import type { PatchV2 } from "@git-stunts/git-warp";
+import type { WarpProvenancePatch } from "../../../src/ports/warp.js";
 import { nodePathOps } from "../../../src/adapters/node-paths.js";
 import { git, createTestRepo, cleanupTestRepo, testGitClient } from "../../helpers/git.js";
 import { openWarp } from "../../../src/warp/open.js";
@@ -17,12 +17,13 @@ interface FakeWorldline {
   seek(options?: { source?: { ceiling?: number | null } }): Promise<FakeWorldlineSnapshot>;
 }
 
-function provenancePatch(sha: string, lamport: number, label: "adds" | "changes" | "removes"): PatchV2 {
+function provenancePatch(
+  sha: string,
+  lamport: number,
+  label: "adds" | "changes" | "removes",
+): WarpProvenancePatch {
   return {
-    schema: 2,
-    writer: "test-writer",
     lamport,
-    context: {},
     ops: [
       {
         type: "EdgeAdd",
@@ -101,7 +102,7 @@ describe("warp: symbol-timeline", { timeout: 15000 }, () => {
   });
 
   it("hydrates touched symbol versions from a worldline pinned at provenance ticks", async () => {
-    const patches = new Map<string, PatchV2>([
+    const patches = new Map<string, WarpProvenancePatch>([
       ["patch-add", provenancePatch("sha-add", 7, "adds")],
       ["patch-change", provenancePatch("sha-change", 9, "changes")],
     ]);

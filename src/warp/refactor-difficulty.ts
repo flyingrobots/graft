@@ -2,7 +2,7 @@
 // Refactor Difficulty — curvature x friction over WARP facts
 // ---------------------------------------------------------------------------
 
-import type { AggregateResult, QueryResultV1 } from "@git-stunts/git-warp";
+import type { WarpAggregateResult, WarpQueryResult } from "../ports/warp.js";
 import type { WarpContext } from "./context.js";
 import { observeGraph } from "./context.js";
 import { SymIdCodec } from "./sym-id-codec.js";
@@ -116,7 +116,7 @@ async function findSymbolCandidates(
       return parsed.symbol === symbol || propName === symbol;
     })
     .select(["id", "props"])
-    .run() as QueryResultV1;
+    .run() as WarpQueryResult;
 
   const candidates: SymbolCandidate[] = [];
   for (const node of result.nodes) {
@@ -183,7 +183,7 @@ async function countSymbolTouches(
       .match("commit:*")
       .where((node) => node.edgesOut.some((edge) => edge.label === label && edge.to === symId))
       .aggregate({ count: true })
-      .run() as AggregateResult;
+      .run() as WarpAggregateResult;
     return result.count ?? 0;
   }));
 

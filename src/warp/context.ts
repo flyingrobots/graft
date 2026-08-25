@@ -6,11 +6,16 @@
 // invisible from live reads, so routing must be uniform.
 // ---------------------------------------------------------------------------
 
-import type WarpApp from "@git-stunts/git-warp";
-import type { Lens, Observer, ObserverOptions, PatchBuilderV2 } from "@git-stunts/git-warp";
+import type {
+  WarpGraphPort,
+  WarpLens,
+  WarpObserverOptions,
+  WarpObserverPort,
+  WarpPatchPort,
+} from "../ports/warp.js";
 
 export interface WarpContext {
-  readonly app: WarpApp;
+  readonly app: WarpGraphPort;
   readonly strandId: string | null;
 }
 
@@ -25,7 +30,7 @@ function assertNoStrand(ctx: WarpContext): void {
 
 export async function patchGraph(
   ctx: WarpContext,
-  build: (patch: PatchBuilderV2) => void | Promise<void>,
+  build: (patch: WarpPatchPort) => void | Promise<void>,
 ): Promise<string> {
   assertNoStrand(ctx);
   return ctx.app.patch(build);
@@ -33,9 +38,9 @@ export async function patchGraph(
 
 export async function observeGraph(
   ctx: WarpContext,
-  lens: Lens,
-  options?: ObserverOptions,
-): Promise<Observer> {
+  lens: WarpLens,
+  options?: WarpObserverOptions,
+): Promise<WarpObserverPort> {
   assertNoStrand(ctx);
   return ctx.app.observer(lens, options);
 }

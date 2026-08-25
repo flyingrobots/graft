@@ -8,8 +8,8 @@
 import { Buffer } from "node:buffer";
 import type { GitClient } from "../ports/git.js";
 import type { PathOps } from "../ports/paths.js";
+import type { WarpPatchPort } from "../ports/warp.js";
 import type { WarpContext } from "./context.js";
-import type { PatchBuilderV2 } from "@git-stunts/git-warp";
 import { patchGraph, observeGraph, materializeGraph } from "./context.js";
 import { detectLang } from "../parser/lang.js";
 import { parseStructuredTreeAsync } from "../parser/runtime.js";
@@ -44,7 +44,7 @@ export const DEFAULT_INDEX_MAX_PATCH_JSON_BYTES = 2 * 1024 * 1024;
 // ---------------------------------------------------------------------------
 
 function emitOutlineSyms(
-  patch: PatchBuilderV2,
+  patch: WarpPatchPort,
   filePath: string,
   entries: readonly OutlineEntry[],
   jumpLookup: ReadonlyMap<string, { start: number; end: number }>,
@@ -88,7 +88,7 @@ function emitOutlineSyms(
 // the legacy indexer module).
 // ---------------------------------------------------------------------------
 
-function emitDirectoryChain(patch: PatchBuilderV2, filePath: string): void {
+function emitDirectoryChain(patch: WarpPatchPort, filePath: string): void {
   const parts = filePath.split("/");
   if (parts.length <= 1) return;
 
@@ -389,7 +389,7 @@ async function readPriorSemanticFactsForFile(
 }
 
 function emitStaleSemanticFactInvalidations(
-  patch: PatchBuilderV2,
+  patch: WarpPatchPort,
   priorFacts: PriorSemanticFacts,
   currentFacts: readonly SemanticEnrichmentFact[],
 ): void {

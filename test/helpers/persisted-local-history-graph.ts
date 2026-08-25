@@ -1,4 +1,4 @@
-import type WarpApp from "@git-stunts/git-warp";
+import type { WarpGraphPort } from "../../src/ports/warp.js";
 import type { PersistedLocalHistoryContext } from "../../src/mcp/persisted-local-history.js";
 import type {
   PersistedLocalHistoryGraphContext,
@@ -10,8 +10,8 @@ export class FakePersistedLocalHistoryWarp implements PersistedLocalHistoryGraph
   readonly edges = new Map<string, { from: string; to: string; label: string }>();
   readonly strandId = null;
 
-  get app(): WarpApp {
-    // Expose a fake WarpApp whose patch/observer/core delegate to this fake
+  get app(): WarpGraphPort {
+    // Expose a fake graph port whose patch/observer/core delegate to this fake.
     return {
       patch: (build: (patch: unknown) => void | Promise<void>) => this.patch(build as never),
       observer: (lens: unknown) => this.observer(lens as never),
@@ -19,7 +19,7 @@ export class FakePersistedLocalHistoryWarp implements PersistedLocalHistoryGraph
         hasNode: (id: string) => this.hasNode(id),
         materialize: () => Promise.resolve(),
       }),
-    } as unknown as WarpApp;
+    } as unknown as WarpGraphPort;
   }
 
   hasNode(nodeId: string): Promise<boolean> {
