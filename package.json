@@ -91,8 +91,8 @@
   "dependencies": {
     "@flyingrobots/bijou": "^4.4.1",
     "@flyingrobots/bijou-node": "^4.4.1",
-    "@git-stunts/git-warp": "^17.0.0",
-    "@git-stunts/plumbing": "^3.3.0",
+    "@git-stunts/git-warp": "17.0.0",
+    "@git-stunts/plumbing": "3.0.3",
     "@modelcontextprotocol/sdk": "^1.29.0",
     "picomatch": "^4.0.4",
     "tree-sitter-graphql-grammar-wasm": "1.0.1",
@@ -116,6 +116,8 @@
   "pnpm": {
     "onlyBuiltDependencies": [],
     "overrides": {
+      "@git-stunts/git-cas": "6.0.0",
+      "@git-stunts/plumbing": "3.0.3",
       "vite": "8.0.16",
       "body-parser": "2.3.0",
       "brace-expansion": "5.0.9",

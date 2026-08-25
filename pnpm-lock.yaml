@@ -5,6 +5,8 @@ settings:
   excludeLinksFromLockfile: false
 
 overrides:
+  '@git-stunts/git-cas': 6.0.0
+  '@git-stunts/plumbing': 3.0.3
   vite: 8.0.16
   body-parser: 2.3.0
   brace-expansion: 5.0.9
@@ -29,11 +31,11 @@ importers:
         specifier: ^4.4.1
         version: 4.4.1(@flyingrobots/bijou@4.4.1)
       '@git-stunts/git-warp':
-        specifier: ^17.0.0
+        specifier: 17.0.0
         version: 17.0.0
       '@git-stunts/plumbing':
-        specifier: ^3.3.0
-        version: 3.3.0
+        specifier: 3.0.3
+        version: 3.0.3
       '@modelcontextprotocol/sdk':
         specifier: ^1.29.0
         version: 1.29.0(zod@4.3.6)
@@ -331,8 +333,8 @@ packages:
     resolution: {integrity: sha512-oiPgJOevYiWaB78nGB+OpCq65SMu3G0g8tTMKduvPfQPeUBeKaDITGocLRFCBsoJzpXOq5YeRTW9OBfH4eLZ8w==}
     engines: {node: '>=18'}
 
-  '@flyingrobots/bijou-i18n@7.2.0':
-    resolution: {integrity: sha512-1c2DPftoSxBRfp7EDpNknRpoQsODbjyy3SMY1soRSU4C61lEX/FM3P1mtbO5HmYRkYuzBolgWZhLZ7e1BMP5KA==}
+  '@flyingrobots/bijou-i18n@5.0.0':
+    resolution: {integrity: sha512-S3HUHBBLh7fZlijcyuJvtrcJYa+rlhmfW5AAaMZmvIS1P9yd38t7P3JaPGsmKPJjCIVsVgiH3zrjWY15TKB6xA==}
     engines: {node: '>=18'}
 
   '@flyingrobots/bijou-node@4.4.1':
@@ -341,14 +343,14 @@ packages:
     peerDependencies:
       '@flyingrobots/bijou': 4.4.1
 
-  '@flyingrobots/bijou-node@7.2.0':
-    resolution: {integrity: sha512-8PCWqr3WsBclZAnTqtnNd5xi85VFiCpbVjVrJ+jbb3UhC6QShz0meREUjSaSdfdguol9tribuy4a7hZaiqsvRw==}
+  '@flyingrobots/bijou-node@5.0.0':
+    resolution: {integrity: sha512-Ano8ydJKF/M8MGPeQDMjOuLouKFEOnEaTwYOKAHHMWxDh03G0Yt9HqZPPu364puzJuyFkY1APxtsxUCbru+5IA==}
     engines: {node: '>=18'}
     peerDependencies:
-      '@flyingrobots/bijou': 7.2.0
+      '@flyingrobots/bijou': 5.0.0
 
-  '@flyingrobots/bijou-tui-app@7.2.0':
-    resolution: {integrity: sha512-WKE+4qURIdO6yh6yufzLuRApLOp6GiwFmh9aNoCJ1mJNHY4AOVAo8uYxAcTGXpO3NcQWYRmP5new+jCNaRnZ2Q==}
+  '@flyingrobots/bijou-tui-app@5.0.0':
+    resolution: {integrity: sha512-NrmTalkI1uIEBosE4tzSF04pMbP+Rs32NNlCRY6njDawDYr8mDBLErziyomio/zhHVVKvnrLuo6g4aLsDPKqHw==}
     engines: {node: '>=18'}
 
   '@flyingrobots/bijou-tui@4.4.1':
@@ -357,18 +359,18 @@ packages:
     peerDependencies:
       '@flyingrobots/bijou': 4.4.1
 
-  '@flyingrobots/bijou-tui@7.2.0':
-    resolution: {integrity: sha512-cwr4Lh38toZCt+DDCAkaxcJn7DLST0fZDVfbTL8CRmtO9611SxvDqmw8Ij18reEmY63G72qVXlBsyfza7QhKdg==}
+  '@flyingrobots/bijou-tui@5.0.0':
+    resolution: {integrity: sha512-dJAWBIZ8osXIM5y6Mc2KsawHPYR/3JxQEO78yVzzdsQiAx9PZLTQvB8fY6oUQRf+/n3sU9l2Ep0UUsJIbhAmpA==}
     engines: {node: '>=18'}
     peerDependencies:
-      '@flyingrobots/bijou': 7.2.0
+      '@flyingrobots/bijou': 5.0.0
 
   '@flyingrobots/bijou@4.4.1':
     resolution: {integrity: sha512-vYwFB5lNwp6Lql+WuxHkIzopN11xCLHND0/wPjIlML0J28DZHgvzcpHky9QwSE1NZpTFYAtyBZidwPLYzfVO+Q==}
     engines: {node: '>=18'}
 
-  '@flyingrobots/bijou@7.2.0':
-    resolution: {integrity: sha512-f7Ik7Wx/DBgaVoplt5QmrFiH84ri1p1DIfyYpxkcCAEwbhf3i+IU3bd3rohWaHWXtC7J5FINOmW8Cgbo9SVSuw==}
+  '@flyingrobots/bijou@5.0.0':
+    resolution: {integrity: sha512-Vmcs1jZYIxwb2NOn+LCDMK8ZmIKz64eTQI+gEk11Odn32s4ipIrzawrfrrAWZ4UTsdD5c9xWwwJH6SYgo5klBg==}
     engines: {node: '>=18'}
 
   '@gar/promise-retry@1.0.3':
@@ -379,8 +381,8 @@ packages:
     resolution: {integrity: sha512-dvy7Ej9Jyv9gPh4PtQuMfsZnUa7ycIwoFFnXLrQutRdoTTY4F4OOD2kcSJOs3w8UZhwOyLsHO7PcetaKB9g32w==}
     engines: {node: '>=20.0.0'}
 
-  '@git-stunts/git-cas@6.5.10':
-    resolution: {integrity: sha512-JemWVMtuzqArMyxnIMBBQFMOIQ3CsvhXKfza9aIjNPxQ3MBt7J/Hm2ePr3k7Z+wtM+MO38BTGA7gzCZ/Hpld4w==}
+  '@git-stunts/git-cas@6.0.0':
+    resolution: {integrity: sha512-NyTOaCHq6VBGCbL6HKR0bmX3uarumLAR+s2R8pofMGC3WX3YaS1pNdwTJOOzpvcZGWu3FKWAUVU9U0rdEyRoaw==}
     engines: {node: '>=22.0.0'}
     hasBin: true
 
@@ -389,8 +391,8 @@ packages:
     engines: {node: '>=22.0.0'}
     hasBin: true
 
-  '@git-stunts/plumbing@3.3.0':
-    resolution: {integrity: sha512-v/AT3hKgmFKSQ3M+n7n9VgC5Ri7C+NDtZS11Bj1JmT0Xv523hNdjCIaRHSXjAaCpiuXuDKFlj+E8PcBI1+FxbA==}
+  '@git-stunts/plumbing@3.0.3':
+    resolution: {integrity: sha512-LmPaq9c51bYA1Ta0KJrmewFTlAwueQv4EdguiI4/TNK9LOeJkkchC2RaOX09WXubauvUeEk8Z32rG8zxdk491g==}
     engines: {bun: '>=1.3.5', deno: '>=2.0.0', node: '>=20.0.0'}
 
   '@git-stunts/trailer-codec@2.1.1':
@@ -1999,7 +2001,7 @@ snapshots:
 
   '@flyingrobots/bijou-i18n@4.4.1': {}
 
-  '@flyingrobots/bijou-i18n@7.2.0': {}
+  '@flyingrobots/bijou-i18n@5.0.0': {}
 
   '@flyingrobots/bijou-node@4.4.1(@flyingrobots/bijou@4.4.1)':
     dependencies:
@@ -2009,46 +2011,46 @@ snapshots:
       gifenc: 1.0.3
       oled-font-5x7: 1.0.3
 
-  '@flyingrobots/bijou-node@7.2.0(@flyingrobots/bijou@7.2.0)':
+  '@flyingrobots/bijou-node@5.0.0(@flyingrobots/bijou@5.0.0)':
     dependencies:
-      '@flyingrobots/bijou': 7.2.0
-      '@flyingrobots/bijou-tui': 7.2.0(@flyingrobots/bijou@7.2.0)
+      '@flyingrobots/bijou': 5.0.0
+      '@flyingrobots/bijou-tui': 5.0.0(@flyingrobots/bijou@5.0.0)
       chalk: 5.6.2
       gifenc: 1.0.3
       oled-font-5x7: 1.0.3
 
-  '@flyingrobots/bijou-tui-app@7.2.0':
+  '@flyingrobots/bijou-tui-app@5.0.0':
     dependencies:
-      '@flyingrobots/bijou': 7.2.0
-      '@flyingrobots/bijou-tui': 7.2.0(@flyingrobots/bijou@7.2.0)
+      '@flyingrobots/bijou': 5.0.0
+      '@flyingrobots/bijou-tui': 5.0.0(@flyingrobots/bijou@5.0.0)
 
   '@flyingrobots/bijou-tui@4.4.1(@flyingrobots/bijou@4.4.1)':
     dependencies:
       '@flyingrobots/bijou': 4.4.1
       '@flyingrobots/bijou-i18n': 4.4.1
 
-  '@flyingrobots/bijou-tui@7.2.0(@flyingrobots/bijou@7.2.0)':
+  '@flyingrobots/bijou-tui@5.0.0(@flyingrobots/bijou@5.0.0)':
     dependencies:
-      '@flyingrobots/bijou': 7.2.0
-      '@flyingrobots/bijou-i18n': 7.2.0
+      '@flyingrobots/bijou': 5.0.0
+      '@flyingrobots/bijou-i18n': 5.0.0
 
   '@flyingrobots/bijou@4.4.1': {}
 
-  '@flyingrobots/bijou@7.2.0': {}
+  '@flyingrobots/bijou@5.0.0': {}
 
   '@gar/promise-retry@1.0.3':
     optional: true
 
   '@git-stunts/alfred@0.10.3': {}
 
-  '@git-stunts/git-cas@6.5.10':
+  '@git-stunts/git-cas@6.0.0':
     dependencies:
-      '@flyingrobots/bijou': 7.2.0
-      '@flyingrobots/bijou-node': 7.2.0(@flyingrobots/bijou@7.2.0)
-      '@flyingrobots/bijou-tui': 7.2.0(@flyingrobots/bijou@7.2.0)
-      '@flyingrobots/bijou-tui-app': 7.2.0
+      '@flyingrobots/bijou': 5.0.0
+      '@flyingrobots/bijou-node': 5.0.0(@flyingrobots/bijou@5.0.0)
+      '@flyingrobots/bijou-tui': 5.0.0(@flyingrobots/bijou@5.0.0)
+      '@flyingrobots/bijou-tui-app': 5.0.0
       '@git-stunts/alfred': 0.10.3
-      '@git-stunts/plumbing': 3.3.0
+      '@git-stunts/plumbing': 3.0.3
       '@git-stunts/vault': 1.0.1
       cbor-x: 1.6.4
       commander: 14.0.3
@@ -2057,8 +2059,8 @@ snapshots:
   '@git-stunts/git-warp@17.0.0':
     dependencies:
       '@git-stunts/alfred': 0.10.3
-      '@git-stunts/git-cas': 6.5.10
-      '@git-stunts/plumbing': 3.3.0
+      '@git-stunts/git-cas': 6.0.0
+      '@git-stunts/plumbing': 3.0.3
       '@git-stunts/trailer-codec': 2.1.1
       '@noble/hashes': 2.3.0
       boxen: 7.1.1
@@ -2077,7 +2079,7 @@ snapshots:
       - encoding
       - supports-color
 
-  '@git-stunts/plumbing@3.3.0':
+  '@git-stunts/plumbing@3.0.3':
     dependencies:
       zod: 3.24.1
 

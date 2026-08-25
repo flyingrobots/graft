@@ -91,6 +91,13 @@ contract; if plumbing 3.x is adopted directly, `src/warp/open.ts` and
 `src/adapters/node-git.ts` must await initialization without leaking package
 types through the port.
 
+The v17.0.0 release lock resolves `@git-stunts/git-cas` 6.0.0 and
+`@git-stunts/plumbing` 3.0.3. The published package declares caret ranges, and
+the current registry resolution advances those dependencies to versions whose
+duplex-session requirement is not wired by v17's migration launcher. Graft
+must pin the release-tested substrate for this migration cycle; a green dry
+run alone does not exercise the affected write path.
+
 ## Migration command boundary
 
 Graft will expose a repository-owned command that delegates to the migration
@@ -112,6 +119,8 @@ The command must:
       `@git-stunts/git-warp` 17.0.0, not v16, v18, or v19.
 - [ ] Direct plumbing dependencies and initialization sites are compatible
       with the substrate used by git-warp 17.0.0.
+- [ ] The lockfile pins the v17 release-tested git-cas 6.0.0 and plumbing
+      3.0.3 substrate so the real migration write path is reproducible.
 - [ ] `package.json`, CI, and current architecture documentation agree on the
       required Node.js 22 runtime floor.
 - [ ] The repository-owned migration command delegates to the installed
