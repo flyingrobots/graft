@@ -100,6 +100,32 @@ the golden-fixture graph-model command. If executable equivalence shows that
 claim to be false, this cycle must design and prove a Graft-specific mapping
 before continuing.
 
+### v18.2.1 application compatibility
+
+The full Graft gate exposed two v18.2.1 reading-basis changes after the data
+bridge itself was green. Direct core reads no longer establish hidden state,
+and the new durable state cache can restore visible state without reconstructing
+the entity-to-patch provenance index. Graft's adapter consequently establishes
+and reuses one live reading basis for core node/content reads and performs one
+receipt-producing replay when a provenance caller first needs the full index.
+
+The state cache also has a bounded-history incompatibility in 18.2.1. Its
+coordinate compatibility rule treats a live snapshot with `ceiling: null` as a
+valid predecessor of an older finite Lamport ceiling. A historical observer can
+therefore receive latest properties after a live snapshot has been cached. The
+secondary adapter keeps the fast state cache for live reads, but answers finite
+ceiling observers and worldlines through an isolated raw runtime with
+`stateCache: null`, materializes exactly that ceiling, and snapshots the
+already-materialized state. Regression tests prove that a cached latest value
+does not leak into the older observation and that reopened provenance still
+returns the patch that touched an entity.
+
+The first cumulative isolated run found six failures in historical `since`,
+symbol timeline, and structural-blame behavior. After the adapter repair, the
+second isolated run passed 261 test files and 2,060 tests with two intentional
+exact-version migration skips. This v18 compatibility logic remains confined
+to `src/warp/open.ts`; no consumer reacquired a package-owned type.
+
 ## The v18 to v19 retained-substrate boundary
 
 git-warp 19.1.0 ships the supported `git-warp-v18-to-v19` executable. It
@@ -376,7 +402,10 @@ application cannot safely read and extend.
 The cycle reached its defined stop boundary at exact git-warp 18.2.1. Graft's
 package and lockfile remain on the last green compatibility state, all
 production git-warp runtime access remains isolated in `src/warp/open.ts`, and
-the adapter's atomic write/content/restart contract is executable. The
+the adapter's atomic write/content/restart, live-reading, provenance, and
+historical-ceiling contracts are executable. The final Docker-isolated gate
+passes 261 files and 2,060 tests with only the exact-17.0.0 and exact-18.0.0
+migration bodies skipped under the installed 18.2.1 package. The
 authoritative shared graph remains on its original pre-v17 refs because active
 daemons were never stopped and no maintenance window was authorized.
 
