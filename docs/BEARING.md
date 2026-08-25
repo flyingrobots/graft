@@ -20,6 +20,9 @@ timeline
   history after parity is proven.
 - git-warp is demoted to provenance-preserving legacy import and temporary
   fallback compatibility.
+- Until that migration is complete, git-warp graph access crosses the
+  Graft-owned `WarpGraphPort`; package-owned runtime objects remain inside
+  `src/warp/open.ts`.
 - Evidence labels distinguish `echo-native`, `git-warp-imported`, and
   `fallback-translated` facts.
 - The landed `StructuralReadingPort` remains the Graft-facing read boundary,
@@ -57,6 +60,10 @@ timeline
   git-warp through Git performance limits; Graft should move normal operation
   to Echo after schema-backed parity rather than hand-translating git-warp's
   graph model into Echo.
+- **git-warp Upgrade Sequence**: The installed dependency remains 16.0.0.
+  Package migrations must run at every major boundary in order: v16 to v17,
+  v17 to v18, then v18 to v19. The v19 public-API cutover belongs in the
+  `src/warp/open.ts` adapter, not in graph consumers.
 - **Session Semantic Drift**: The term `session` remains too transport-scoped in the code; it needs to move toward a strand-scoped causal envelope.
 - **Warp Level 1 Debt**: Some WARP follow-on work is implemented ahead
   of the release bookkeeping that describes it. Release and METHOD

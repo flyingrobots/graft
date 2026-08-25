@@ -7,7 +7,8 @@ Repo truth today is narrower than a finished strict-hex claim:
 - explicit ports and adapters exist
 - foundational dependency guardrails are mechanically enforced
 - primary adapters and composition roots are still mid-migration
-- WARP is still becoming a first-class port boundary rather than an ambient capability
+- WARP graph reads and writes cross a Graft-owned port; git-warp remains
+  inside its secondary adapter
 
 ## Official Entry Points
 
@@ -76,6 +77,7 @@ The Graft core is TypeScript. Platform-specific concerns are intended to enter t
 | **`JsonCodec`** | Canonical JSON shaping and serialization | `CanonicalJsonCodec` |
 | **`GitClient`** | Git history enumeration and status observation | `nodeGit` |
 | **`ProcessRunner`** | Shell execution and diagnostic capture | `nodeProcessRunner` |
+| **`WarpGraphPort`** | Structural graph reads, writes, worldlines, and provenance | git-warp adapter in `src/warp/open.ts` |
 
 Primary adapters should sit above that core boundary:
 
@@ -121,6 +123,14 @@ Graft models repository state through three distinct layers:
 3. **`workspace_overlay`**: The current dirty working tree and reactive edit signals.
 
 ## WARP: Structural Worldline Memory
+
+### Boundary
+
+Graft owns the graph capability contract in `src/ports/warp.ts`. Production
+code outside `src/warp/open.ts` does not construct or call package-owned
+git-warp objects. The adapter wraps observers, queries, traversal, patches,
+materialization, worldline reads, provenance reads, and attached content so a
+git-warp public-API change remains local to one integration point.
 
 ### Write Path (Indexer)
 The write path turns Git history into structural worldline facts by extracting AST outlines and writing them into the WARP graph.

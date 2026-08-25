@@ -76,43 +76,43 @@ The existing fail-closed behavior for non-null strands remains unchanged.
 
 ## Acceptance criteria
 
-- [ ] `src/ports/warp.ts` defines the complete Graft-owned graph capability
+- [x] `src/ports/warp.ts` defines the complete Graft-owned graph capability
       used by current production code.
-- [ ] `openWarp()` returns `WarpGraphPort` and wraps every package-owned object
+- [x] `openWarp()` returns `WarpGraphPort` and wraps every package-owned object
       that can perform a graph read or write.
-- [ ] Every production import of `@git-stunts/git-warp` is confined to
+- [x] Every production import of `@git-stunts/git-warp` is confined to
       `src/warp/open.ts` or the declaration-only `src/warp/plumbing.d.ts`.
-- [ ] MCP, CLI, local-history, indexing, structural query, churn, timeline,
+- [x] MCP, CLI, local-history, indexing, structural query, churn, timeline,
       and precision paths use only the port.
-- [ ] Existing graph behavior remains green, including patching,
+- [x] Existing graph behavior remains green, including patching,
       materialization, bounded observation, traversal, aggregation,
       point-in-time reads, provenance, and attached content.
-- [ ] An executable import-boundary witness rejects static, type-only,
+- [x] An executable import-boundary witness rejects static, type-only,
       `require()`, and dynamic imports from a production module outside the
       adapter allowance.
-- [ ] The dependency declaration and lockfile still resolve git-warp 16.0.0;
+- [x] The dependency declaration and lockfile still resolve git-warp 16.0.0;
       no package migration script runs in this cycle.
 
 ## Playback questions
 
 ### Human
 
-- [ ] Can a reader find one Graft-owned contract for every graph capability
+- [x] Can a reader find one Graft-owned contract for every graph capability
       used outside the adapter?
-- [ ] Can a reader verify that the later v19 API change has one production
+- [x] Can a reader verify that the later v19 API change has one production
       integration point?
-- [ ] Did the refactor preserve behavior rather than beginning a data or
+- [x] Did the refactor preserve behavior rather than beginning a data or
       dependency migration early?
 
 ### Agent
 
-- [ ] Does a production-source import census find no unauthorized
+- [x] Does a production-source import census find no unauthorized
       `@git-stunts/git-warp` dependency?
-- [ ] Can a fake `WarpGraphPort` exercise `WarpContext` without constructing a
+- [x] Can a fake `WarpGraphPort` exercise `WarpContext` without constructing a
       git-warp object?
-- [ ] Do focused WARP, MCP local-history, and precision tests pass through the
+- [x] Do focused WARP, MCP local-history, and precision tests pass through the
       adapter-backed port?
-- [ ] Do lint, typecheck, build, and the relevant repository test gate pass?
+- [x] Do lint, typecheck, build, and the relevant repository test gate pass?
 
 ## RED strategy
 
@@ -135,14 +135,14 @@ The existing fail-closed behavior for non-null strands remains unchanged.
 
 ## Non-goals
 
-- [ ] Changing `@git-stunts/git-warp` from 16.0.0.
-- [ ] Running any v16-to-v17, v17-to-v18, or v18-to-v19 migration.
-- [ ] Designing the migration-script rehearsal, backup, or live-data rollout.
-- [ ] Adopting the v19 public API in this cycle.
-- [ ] Expanding `StructuralReadingPort` or translating git-warp facts into
+- [x] Changing `@git-stunts/git-warp` from 16.0.0.
+- [x] Running any v16-to-v17, v17-to-v18, or v18-to-v19 migration.
+- [x] Designing the migration-script rehearsal, backup, or live-data rollout.
+- [x] Adopting the v19 public API in this cycle.
+- [x] Expanding `StructuralReadingPort` or translating git-warp facts into
       Echo.
-- [ ] Reintroducing the old lossy five-method `WarpHandle` unchanged.
-- [ ] Changing public CLI, API, MCP, graph schema, or evidence semantics.
+- [x] Reintroducing the old lossy five-method `WarpHandle` unchanged.
+- [x] Changing public CLI, API, MCP, graph schema, or evidence semantics.
 
 ## Completion boundary
 
