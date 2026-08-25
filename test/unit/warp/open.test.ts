@@ -42,7 +42,24 @@ describe("warp: open", { timeout: 15000 }, () => {
     }
   });
 
-  it("auto-checkpoints after enough patches are materialized", async () => {
+  it("keeps core live reads available after reopening", async () => {
+    const tmpDir = createTestRepo("graft-warp-reopened-core-reading-");
+
+    try {
+      const warp = await openWarp({ cwd: tmpDir });
+      await warp.patch((patch) => {
+        patch.addNode("node:reopened");
+      });
+      await warp.core().materialize();
+
+      const reopened = await openWarp({ cwd: tmpDir });
+      expect(await reopened.core().hasNode("node:reopened")).toBe(true);
+    } finally {
+      cleanupTestRepo(tmpDir);
+    }
+  });
+
+  it("auto-retains a state-cache checkpoint after enough patches", async () => {
     const tmpDir = createTestRepo("graft-warp-checkpoint-");
 
     try {
@@ -55,12 +72,12 @@ describe("warp: open", { timeout: 15000 }, () => {
         patch.addNode("node:second");
       });
 
-      const before = git(tmpDir, "show-ref --verify refs/warp/graft-ast/checkpoints/head || true");
+      const before = git(tmpDir, "show-ref --verify refs/warp/graft-ast/state-cache || true");
       expect(before).toBe("");
 
       await warp.core().materialize();
 
-      const checkpointSha = git(tmpDir, "rev-parse --verify refs/warp/graft-ast/checkpoints/head");
+      const checkpointSha = git(tmpDir, "rev-parse --verify refs/warp/graft-ast/state-cache");
       expect(checkpointSha).toMatch(/^[a-f0-9]{40}$/);
     } finally {
       cleanupTestRepo(tmpDir);

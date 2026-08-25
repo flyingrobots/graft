@@ -307,10 +307,28 @@ class GitWarpPatchAdapter implements WarpPatchPort {
 
 class GitWarpCoreAdapter implements WarpCorePort {
   private readonly provenance: ProvenanceTimelinePort;
+  private readingBasis: Promise<void> | null = null;
 
   constructor(private readonly raw: RawCore) {
     assertProvenanceTimelinePort(raw);
     this.provenance = raw;
+  }
+
+  private async ensureReadingBasis(): Promise<void> {
+    if (this.readingBasis === null) {
+      const pending = this.raw.materialize().then(() => undefined);
+      this.readingBasis = pending;
+      try {
+        await pending;
+      } catch (error) {
+        if (this.readingBasis === pending) {
+          this.readingBasis = null;
+        }
+        throw error;
+      }
+      return;
+    }
+    await this.readingBasis;
   }
 
   async materialize(options: { readonly receipts: true }): Promise<{
@@ -322,20 +340,25 @@ class GitWarpCoreAdapter implements WarpCorePort {
   > {
     if (options?.receipts === true) {
       const result = await this.raw.materialize({ receipts: true });
+      this.readingBasis = Promise.resolve();
       return { receipts: result.receipts.map(toWarpTickReceipt) };
     }
     await this.raw.materialize();
+    this.readingBasis = Promise.resolve();
   }
 
   async hasNode(nodeId: string): Promise<boolean> {
+    await this.ensureReadingBasis();
     return await this.raw.hasNode(nodeId);
   }
 
   async getContentMeta(nodeId: string): Promise<WarpContentMeta | null> {
+    await this.ensureReadingBasis();
     return await this.raw.getContentMeta(nodeId);
   }
 
   async getContent(nodeId: string): Promise<Uint8Array | null> {
+    await this.ensureReadingBasis();
     return await this.raw.getContent(nodeId);
   }
 
@@ -407,7 +430,6 @@ export async function openWarp(options: OpenWarpOptions): Promise<WarpGraphPort>
     graphName: GRAPH_NAME,
     writerId: options.writerId ?? DEFAULT_WARP_WRITER_ID,
     checkpointPolicy: { every: options.checkpointEvery ?? DEFAULT_WARP_CHECKPOINT_EVERY },
-    stateCache: null,
     onDeleteWithData: "cascade",
   });
 
