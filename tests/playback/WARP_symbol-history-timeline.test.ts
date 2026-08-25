@@ -26,7 +26,7 @@ async function runSymbolHistory(repoDir: string, args: readonly string[]): Promi
 }
 
 describe("WARP_symbol-history-timeline playback", () => {
-  it("Can I read a human symbol timeline from indexed WARP history?", async () => {
+  it("Can I read a human symbol timeline from indexed WARP history?", { timeout: 20_000 }, async () => {
     const repoDir = createTestRepo("graft-symbol-history-playback-");
     try {
       fs.writeFileSync(

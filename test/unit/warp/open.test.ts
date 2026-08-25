@@ -47,13 +47,42 @@ describe("warp: open", { timeout: 15000 }, () => {
 
     try {
       const warp = await openWarp({ cwd: tmpDir });
-      await warp.patch((patch) => {
+      const patchSha = await warp.patch((patch) => {
         patch.addNode("node:reopened");
       });
       await warp.core().materialize();
 
       const reopened = await openWarp({ cwd: tmpDir });
       expect(await reopened.core().hasNode("node:reopened")).toBe(true);
+      expect(await reopened.core().patchesFor("node:reopened")).toContain(patchSha);
+    } finally {
+      cleanupTestRepo(tmpDir);
+    }
+  });
+
+  it("keeps bounded historical reads older than the live state cache", async () => {
+    const tmpDir = createTestRepo("graft-warp-historical-reading-");
+
+    try {
+      const warp = await openWarp({ cwd: tmpDir });
+      let firstTick = 0;
+      await warp.patch((patch) => {
+        firstTick = patch.build().lamport;
+        patch.addNode("node:historical");
+        patch.setProperty("node:historical", "status", "first");
+      });
+      await warp.patch((patch) => {
+        patch.setProperty("node:historical", "status", "latest");
+      });
+      await warp.core().materialize();
+
+      const historical = await warp.observer(
+        { match: "node:historical", expose: ["status"] },
+        { source: { kind: "live", ceiling: firstTick } },
+      );
+      expect(await historical.getNodeProps("node:historical")).toMatchObject({
+        status: "first",
+      });
     } finally {
       cleanupTestRepo(tmpDir);
     }

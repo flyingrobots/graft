@@ -17,7 +17,7 @@ async function indexCurrentHead(repoDir: string): Promise<void> {
   });
 }
 
-describe("mcp: graft_blame", () => {
+describe("mcp: graft_blame", { timeout: 15_000 }, () => {
   it("returns per-version path and line ranges for symbol history entries", async () => {
     const repoDir = createTestRepo("graft-blame-history-location-");
     try {

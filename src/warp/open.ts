@@ -51,6 +51,11 @@ type RawQuery = ReturnType<RawObserver["query"]>;
 type RawPatch = Parameters<Parameters<RawWarpApp["patch"]>[0]>[0];
 type RawCore = ReturnType<RawWarpApp["core"]>;
 type RawWorldline = ReturnType<RawWarpApp["worldline"]>;
+type RawNodePropsReader = Pick<RawObserver, "getNodeProps">;
+type RawHistoricalObserverFactory = (
+  lens: WarpLens,
+  ceiling: number,
+) => Promise<RawObserver>;
 type RawGitPlumbing = ConstructorParameters<typeof GitGraphAdapter>[0]["plumbing"];
 
 interface GitExecuteOptions {
@@ -161,6 +166,11 @@ function toRawObserverOptions(options: WarpObserverOptions | undefined): {
       ...(options.source.ceiling !== undefined ? { ceiling: options.source.ceiling } : {}),
     },
   };
+}
+
+function historicalCeiling(options: WarpObserverOptions | undefined): number | null {
+  const ceiling = options?.source?.ceiling;
+  return typeof ceiling === "number" ? ceiling : null;
 }
 
 function toRawTraversalOptions(options: WarpTraversalOptions | undefined): {
@@ -308,6 +318,7 @@ class GitWarpPatchAdapter implements WarpPatchPort {
 class GitWarpCoreAdapter implements WarpCorePort {
   private readonly provenance: ProvenanceTimelinePort;
   private readingBasis: Promise<void> | null = null;
+  private provenanceBasis: Promise<void> | null = null;
 
   constructor(private readonly raw: RawCore) {
     assertProvenanceTimelinePort(raw);
@@ -331,6 +342,24 @@ class GitWarpCoreAdapter implements WarpCorePort {
     await this.readingBasis;
   }
 
+  private async ensureProvenanceBasis(): Promise<void> {
+    if (this.provenanceBasis === null) {
+      const pending = this.raw.materialize({ receipts: true }).then(() => undefined);
+      this.provenanceBasis = pending;
+      try {
+        await pending;
+      } catch (error) {
+        if (this.provenanceBasis === pending) {
+          this.provenanceBasis = null;
+        }
+        throw error;
+      }
+      this.readingBasis = Promise.resolve();
+      return;
+    }
+    await this.provenanceBasis;
+  }
+
   async materialize(options: { readonly receipts: true }): Promise<{
     readonly receipts: readonly WarpTickReceipt[];
   }>;
@@ -341,10 +370,12 @@ class GitWarpCoreAdapter implements WarpCorePort {
     if (options?.receipts === true) {
       const result = await this.raw.materialize({ receipts: true });
       this.readingBasis = Promise.resolve();
+      this.provenanceBasis = Promise.resolve();
       return { receipts: result.receipts.map(toWarpTickReceipt) };
     }
     await this.raw.materialize();
     this.readingBasis = Promise.resolve();
+    this.provenanceBasis = null;
   }
 
   async hasNode(nodeId: string): Promise<boolean> {
@@ -363,6 +394,7 @@ class GitWarpCoreAdapter implements WarpCorePort {
   }
 
   async patchesFor(entityId: string): Promise<readonly string[]> {
+    await this.ensureProvenanceBasis();
     return await this.provenance.patchesFor(entityId);
   }
 
@@ -372,11 +404,26 @@ class GitWarpCoreAdapter implements WarpCorePort {
 }
 
 class GitWarpWorldlineAdapter implements WarpWorldlinePort {
-  constructor(private readonly raw: RawWorldline) {}
+  constructor(
+    private readonly raw: RawNodePropsReader,
+    private readonly live: RawWorldline,
+    private readonly openHistoricalObserver: RawHistoricalObserverFactory,
+  ) {}
 
   async seek(options?: WarpObserverOptions): Promise<WarpWorldlinePort> {
+    const ceiling = historicalCeiling(options);
+    if (ceiling !== null) {
+      return new GitWarpWorldlineAdapter(
+        await this.openHistoricalObserver({ match: "*" }, ceiling),
+        this.live,
+        this.openHistoricalObserver,
+      );
+    }
+    const live = await this.live.seek(toRawObserverOptions(options));
     return new GitWarpWorldlineAdapter(
-      await this.raw.seek(toRawObserverOptions(options)),
+      live,
+      live,
+      this.openHistoricalObserver,
     );
   }
 
@@ -388,7 +435,10 @@ class GitWarpWorldlineAdapter implements WarpWorldlinePort {
 class GitWarpGraphAdapter implements WarpGraphPort {
   private readonly coreAdapter: WarpCorePort;
 
-  constructor(private readonly raw: RawWarpApp) {
+  constructor(
+    private readonly raw: RawWarpApp,
+    private readonly openHistoricalObserver: RawHistoricalObserverFactory,
+  ) {
     this.coreAdapter = new GitWarpCoreAdapter(raw.core());
   }
 
@@ -399,10 +449,10 @@ class GitWarpGraphAdapter implements WarpGraphPort {
   }
 
   async observer(lens: WarpLens, options?: WarpObserverOptions): Promise<WarpObserverPort> {
-    const rawObserver = await this.raw.observer(
-      toRawLens(lens),
-      toRawObserverOptions(options),
-    );
+    const ceiling = historicalCeiling(options);
+    const rawObserver = ceiling === null
+      ? await this.raw.observer(toRawLens(lens), toRawObserverOptions(options))
+      : await this.openHistoricalObserver(lens, ceiling);
     return new GitWarpObserverAdapter(rawObserver);
   }
 
@@ -411,7 +461,8 @@ class GitWarpGraphAdapter implements WarpGraphPort {
   }
 
   worldline(): WarpWorldlinePort {
-    return new GitWarpWorldlineAdapter(this.raw.worldline());
+    const live = this.raw.worldline();
+    return new GitWarpWorldlineAdapter(live, live, this.openHistoricalObserver);
   }
 }
 
@@ -424,14 +475,23 @@ export interface OpenWarpOptions {
 export async function openWarp(options: OpenWarpOptions): Promise<WarpGraphPort> {
   const plumbing = await GitPlumbing.createDefault({ cwd: options.cwd });
   const persistence = new GitGraphAdapter({ plumbing: adaptWarpGitPlumbing(plumbing) });
-
-  const app = await RawWarpApp.open({
+  const openOptions = {
     persistence,
     graphName: GRAPH_NAME,
     writerId: options.writerId ?? DEFAULT_WARP_WRITER_ID,
     checkpointPolicy: { every: options.checkpointEvery ?? DEFAULT_WARP_CHECKPOINT_EVERY },
     onDeleteWithData: "cascade",
-  });
+  } as const;
+  const app = await RawWarpApp.open(openOptions);
 
-  return new GitWarpGraphAdapter(app);
+  const openHistoricalObserver: RawHistoricalObserverFactory = async (lens, ceiling) => {
+    // git-warp 18.2.1 considers a live null-ceiling state-cache snapshot a
+    // compatible predecessor of an older bounded ceiling. Replay the exact
+    // ceiling without that cache, then snapshot the already-materialized state.
+    const historical = await RawWarpApp.open({ ...openOptions, stateCache: null });
+    await historical.core().materialize({ ceiling });
+    return await historical.observer(toRawLens(lens));
+  };
+
+  return new GitWarpGraphAdapter(app, openHistoricalObserver);
 }
