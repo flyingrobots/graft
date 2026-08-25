@@ -31,8 +31,8 @@ importers:
         specifier: ^4.4.1
         version: 4.4.1(@flyingrobots/bijou@4.4.1)
       '@git-stunts/git-warp':
-        specifier: 17.0.0
-        version: 17.0.0
+        specifier: 18.0.0
+        version: 18.0.0
       '@git-stunts/plumbing':
         specifier: 3.0.3
         version: 3.0.3
@@ -386,8 +386,8 @@ packages:
     engines: {node: '>=22.0.0'}
     hasBin: true
 
-  '@git-stunts/git-warp@17.0.0':
-    resolution: {integrity: sha512-cQS9epBFQC+10ezK7oGlc2pK1YnOYv5xOI2WUSbr8KBGWApwrO0i3ttJynBw3S5j2k29yvF7biLhwC6BHbPXpA==}
+  '@git-stunts/git-warp@18.0.0':
+    resolution: {integrity: sha512-tMj6RCeGwSnhpBzXD8i+CRh81wJLxol13tfffnMrvX9STSU0+fZCAopFkrZZfrFj+B1zqivK6V3zEC9c5+0OKg==}
     engines: {node: '>=22.0.0'}
     hasBin: true
 
@@ -2056,7 +2056,7 @@ snapshots:
       commander: 14.0.3
       zod: 3.24.1
 
-  '@git-stunts/git-warp@17.0.0':
+  '@git-stunts/git-warp@18.0.0':
     dependencies:
       '@git-stunts/alfred': 0.10.3
       '@git-stunts/git-cas': 6.0.0
