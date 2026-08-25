@@ -92,7 +92,7 @@
   "dependencies": {
     "@flyingrobots/bijou": "^4.4.1",
     "@flyingrobots/bijou-node": "^4.4.1",
-    "@git-stunts/git-warp": "18.0.0",
+    "@git-stunts/git-warp": "18.2.1",
     "@git-stunts/plumbing": "3.0.3",
     "@modelcontextprotocol/sdk": "^1.29.0",
     "picomatch": "^4.0.4",

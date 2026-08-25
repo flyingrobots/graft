@@ -407,6 +407,7 @@ export async function openWarp(options: OpenWarpOptions): Promise<WarpGraphPort>
     graphName: GRAPH_NAME,
     writerId: options.writerId ?? DEFAULT_WARP_WRITER_ID,
     checkpointPolicy: { every: options.checkpointEvery ?? DEFAULT_WARP_CHECKPOINT_EVERY },
+    stateCache: null,
     onDeleteWithData: "cascade",
   });
 

@@ -1,4 +1,5 @@
 import { spawnSync } from "node:child_process";
+import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { afterEach, describe, expect, it } from "vitest";
@@ -13,6 +14,18 @@ import { openWarp } from "../../../src/warp/open.js";
 const repoRoot = fileURLToPath(new URL("../../..", import.meta.url));
 const migrationCommand = join(repoRoot, "scripts", "upgrade-git-warp-v17-to-v18.ts");
 const tsxCommand = join(repoRoot, "node_modules", ".bin", "tsx");
+const warpPackage: unknown = JSON.parse(readFileSync(
+  fileURLToPath(import.meta.resolve("@git-stunts/git-warp/package.json")),
+  "utf8",
+));
+const installedWarpVersion = warpPackage !== null
+  && typeof warpPackage === "object"
+  && "version" in warpPackage
+  && typeof warpPackage.version === "string"
+  ? warpPackage.version
+  : "unknown";
+const bridgeIt = installedWarpVersion === "18.0.0" ? it : it.skip;
+const postBridgeIt = installedWarpVersion === "18.0.0" ? it.skip : it;
 const graph = "graft-ast";
 const checkpointRef = `refs/warp/${graph}/checkpoints/head`;
 const writerRef = `refs/warp/${graph}/writers/graft`;
@@ -68,7 +81,7 @@ afterEach(() => {
 });
 
 describe("git-warp v17 to v18 checkpoint bridge", () => {
-  it("archives the v17 checkpoint and publishes a writer-anchored v18 checkpoint", async () => {
+  bridgeIt("archives the v17 checkpoint and publishes a writer-anchored v18 checkpoint", async () => {
     const repo = createTestRepo("graft-git-warp-v18-migration-");
     tempDirs.push(repo);
     const warp = await openWarp({ cwd: repo, checkpointEvery: 1 });
@@ -130,5 +143,20 @@ describe("git-warp v17 to v18 checkpoint bridge", () => {
     expect(rerunReceipt.checkpoint).toBe(migratedReceipt.checkpoint);
     expect(git(repo, `rev-parse --verify ${archiveRef}`)).toBe(retiredCheckpoint);
     expect(git(repo, `rev-parse --verify ${checkpointRef}`)).toBe(migratedReceipt.checkpoint);
+  });
+
+  postBridgeIt("refuses to replay the bridge through another git-warp version", () => {
+    const repo = createTestRepo("graft-git-warp-v18-version-guard-");
+    tempDirs.push(repo);
+
+    const result = runMigration(repo, "--dry-run");
+    expect(result.status).toBe(1);
+    expect(result.stderr).toContain(
+      `Expected @git-stunts/git-warp 18.0.0, found ${installedWarpVersion}`,
+    );
+    expect(runIsolatedGit({
+      args: ["for-each-ref", "--format=%(refname)", "refs/warp/", "refs/graft/"],
+      cwd: repo,
+    }).stdout).toBe("");
   });
 });
