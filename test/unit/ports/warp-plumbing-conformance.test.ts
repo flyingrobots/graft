@@ -37,8 +37,8 @@ describe("ports: @git-stunts/plumbing declaration conformance", () => {
     expect(descriptor).toBeDefined();
   });
 
-  it("createDefault produces an instance with the expected methods", () => {
-    const instance = GitPlumbing.createDefault({ cwd: process.cwd() });
+  it("createDefault asynchronously produces an instance with the expected methods", async () => {
+    const instance = await GitPlumbing.createDefault({ cwd: process.cwd() });
     expect(typeof instance.execute).toBe("function");
     expect(typeof instance.executeStream).toBe("function");
     expect(typeof instance.emptyTree).toBe("string");

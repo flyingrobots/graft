@@ -6,19 +6,24 @@ import GitPlumbing from "@git-stunts/plumbing";
 import type { GitClient, GitRunRequest } from "../ports/git.js";
 
 class NodeGitClient implements GitClient {
-  private readonly clients = new Map<string, GitPlumbing>();
+  private readonly clients = new Map<string, Promise<GitPlumbing>>();
 
-  private resolveClient(cwd: string): GitPlumbing {
+  private async resolveClient(cwd: string): Promise<GitPlumbing> {
     const cached = this.clients.get(cwd);
-    if (cached !== undefined) return cached;
+    if (cached !== undefined) return await cached;
     const created = GitPlumbing.createDefault({ cwd });
     this.clients.set(cwd, created);
-    return created;
+    try {
+      return await created;
+    } catch (error: unknown) {
+      if (this.clients.get(cwd) === created) this.clients.delete(cwd);
+      throw error;
+    }
   }
 
   async run(request: GitRunRequest) {
     try {
-      const plumbing = this.resolveClient(request.cwd);
+      const plumbing = await this.resolveClient(request.cwd);
       const stream = await plumbing.executeStream({ args: [...request.args] });
       const stdout = await stream.collect({
         asString: true,

@@ -1620,7 +1620,7 @@ graph TD
 
     subgraph "Operating System / Runtime"
         Git["git CLI<br />(must be >= 2.39.0)"]
-        NodeJS["Node.js >= 20.11.0<br />(libuv event loop)"]
+        NodeJS["Node.js >= 22.0.0<br />(libuv event loop)"]
         FS_OS["Filesystem (node:fs)"]
         Sockets["Unix sockets / Named pipes"]
     end

@@ -7,6 +7,7 @@
 
 import RawWarpApp, { GitGraphAdapter } from "@git-stunts/git-warp";
 import GitPlumbing from "@git-stunts/plumbing";
+import { Buffer } from "node:buffer";
 import type {
   WarpAggregateResult,
   WarpAggregateSpec,
@@ -23,6 +24,8 @@ import type {
   WarpQueryPort,
   WarpQueryResult,
   WarpTickReceipt,
+  WarpTickReceiptOp,
+  WarpTickReceiptResult,
   WarpTraversalOptions,
   WarpTraversalPort,
   WarpWorldlinePort,
@@ -42,6 +45,7 @@ type RawQuery = ReturnType<RawObserver["query"]>;
 type RawPatch = Parameters<Parameters<RawWarpApp["patch"]>[0]>[0];
 type RawCore = ReturnType<RawWarpApp["core"]>;
 type RawWorldline = ReturnType<RawWarpApp["worldline"]>;
+type RawGitPlumbing = ConstructorParameters<typeof GitGraphAdapter>[0]["plumbing"];
 
 interface GitExecuteOptions {
   readonly args: string[];
@@ -50,31 +54,83 @@ interface GitExecuteOptions {
   readonly maxBytes?: number;
 }
 
-interface GitStreamLike {
-  readonly finished: Promise<{ code: number; stderr: string; error?: Error | undefined }>;
-  collect(opts?: { maxBytes?: number; asString?: boolean; encoding?: string }): Promise<Uint8Array | string>;
-  [Symbol.asyncIterator](): AsyncIterator<Uint8Array>;
+function adaptWarpGitPlumbing(plumbing: GitPlumbing): RawGitPlumbing {
+  return {
+    emptyTree: plumbing.emptyTree,
+    async execute(options: GitExecuteOptions): Promise<string> {
+      return await plumbing.execute({
+        ...options,
+        maxBytes: options.maxBytes ?? WARP_GIT_MAX_BUFFER_BYTES,
+      });
+    },
+    async executeStream(options: { args: string[] }) {
+      const stream = await plumbing.executeStream(options);
+      return {
+        [Symbol.asyncIterator](): AsyncIterator<Uint8Array> {
+          return stream[Symbol.asyncIterator]();
+        },
+        async collect(collectOptions: { asString?: boolean; maxBytes?: number } = {}) {
+          const result = await stream.collect({
+            ...collectOptions,
+            maxBytes: collectOptions.maxBytes ?? WARP_GIT_MAX_BUFFER_BYTES,
+          });
+          return typeof result === "string" ? result : Buffer.from(result);
+        },
+      };
+    },
+  };
 }
 
-function raiseWarpGitBufferLimit(plumbing: GitPlumbing): GitPlumbing {
-  const execute = plumbing.execute.bind(plumbing);
-  plumbing.execute = ((options: GitExecuteOptions) => execute({
-    ...options,
-    maxBytes: options.maxBytes ?? WARP_GIT_MAX_BUFFER_BYTES,
-  })) as GitPlumbing["execute"];
+function isWarpTickReceiptOp(value: string): value is WarpTickReceiptOp {
+  switch (value) {
+    case "NodeAdd":
+    case "NodeTombstone":
+    case "EdgeAdd":
+    case "EdgeTombstone":
+    case "PropSet":
+    case "NodePropSet":
+    case "EdgePropSet":
+    case "BlobValue":
+      return true;
+    default:
+      return false;
+  }
+}
 
-  const executeStream = plumbing.executeStream.bind(plumbing);
-  plumbing.executeStream = (async (options: { args: string[]; input?: string | Uint8Array; env?: Record<string, string> }) => {
-    const stream = await executeStream(options);
-    const collect = stream.collect.bind(stream);
-    stream.collect = (opts = {}) => collect({
-      ...opts,
-      maxBytes: opts.maxBytes ?? WARP_GIT_MAX_BUFFER_BYTES,
-    });
-    return stream as GitStreamLike;
-  }) as GitPlumbing["executeStream"];
+function isWarpTickReceiptResult(value: string): value is WarpTickReceiptResult {
+  return value === "applied" || value === "superseded" || value === "redundant";
+}
 
-  return plumbing;
+function toWarpTickReceipt(receipt: {
+  readonly patchSha: string;
+  readonly writer: string;
+  readonly lamport: number;
+  readonly ops: readonly {
+    readonly op: string;
+    readonly target: string;
+    readonly result: string;
+    readonly reason?: string | undefined;
+  }[];
+}): WarpTickReceipt {
+  return {
+    patchSha: receipt.patchSha,
+    writer: receipt.writer,
+    lamport: receipt.lamport,
+    ops: receipt.ops.map((outcome) => {
+      if (!isWarpTickReceiptOp(outcome.op)) {
+        throw new TypeError(`Unsupported git-warp receipt operation: ${outcome.op}`);
+      }
+      if (!isWarpTickReceiptResult(outcome.result)) {
+        throw new TypeError(`Unsupported git-warp receipt result: ${outcome.result}`);
+      }
+      return {
+        op: outcome.op,
+        target: outcome.target,
+        result: outcome.result,
+        ...(outcome.reason !== undefined ? { reason: outcome.reason } : {}),
+      };
+    }),
+  };
 }
 
 function toRawLens(lens: WarpLens): {
@@ -92,8 +148,7 @@ function toRawLens(lens: WarpLens): {
 function toRawObserverOptions(options: WarpObserverOptions | undefined): {
   source?: { kind: "live"; ceiling?: number | null };
 } | undefined {
-  if (options === undefined) return undefined;
-  if (options.source === undefined) return {};
+  if (options?.source === undefined) return { source: { kind: "live" } };
   return {
     source: {
       kind: "live",
@@ -261,7 +316,7 @@ class GitWarpCoreAdapter implements WarpCorePort {
   > {
     if (options?.receipts === true) {
       const result = await this.raw.materialize({ receipts: true });
-      return { receipts: result.receipts };
+      return { receipts: result.receipts.map(toWarpTickReceipt) };
     }
     await this.raw.materialize();
   }
@@ -338,8 +393,8 @@ export interface OpenWarpOptions {
 }
 
 export async function openWarp(options: OpenWarpOptions): Promise<WarpGraphPort> {
-  const plumbing = raiseWarpGitBufferLimit(GitPlumbing.createDefault({ cwd: options.cwd }));
-  const persistence = new GitGraphAdapter({ plumbing });
+  const plumbing = await GitPlumbing.createDefault({ cwd: options.cwd });
+  const persistence = new GitGraphAdapter({ plumbing: adaptWarpGitPlumbing(plumbing) });
 
   const app = await RawWarpApp.open({
     persistence,

@@ -29,7 +29,8 @@ The published `@git-stunts/git-warp@17.0.0` package contains the dedicated
 operator entrypoint `dist/scripts/upgrade-v16-to-v17.js` and the checkpoint
 implementation under
 `dist/scripts/migrations/v17.0.0/checkpoint-schema-upgrade.js`. The package's
-own migration guide requires a dry run before the real upgrade.
+own migration guide requires a dry run before the real upgrade. The package
+also raises the consumer runtime floor to Node.js 22.
 
 The upgrader performs two graph-level operations:
 
@@ -111,6 +112,8 @@ The command must:
       `@git-stunts/git-warp` 17.0.0, not v16, v18, or v19.
 - [ ] Direct plumbing dependencies and initialization sites are compatible
       with the substrate used by git-warp 17.0.0.
+- [ ] `package.json`, CI, and current architecture documentation agree on the
+      required Node.js 22 runtime floor.
 - [ ] The repository-owned migration command delegates to the installed
       package-owned v16-to-v17 upgrader and has an executable command-boundary
       test.

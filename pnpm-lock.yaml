@@ -29,11 +29,11 @@ importers:
         specifier: ^4.4.1
         version: 4.4.1(@flyingrobots/bijou@4.4.1)
       '@git-stunts/git-warp':
-        specifier: ^16.0.0
-        version: 16.0.0
+        specifier: ^17.0.0
+        version: 17.0.0
       '@git-stunts/plumbing':
-        specifier: ^2.8.0
-        version: 2.8.0
+        specifier: ^3.3.0
+        version: 3.3.0
       '@modelcontextprotocol/sdk':
         specifier: ^1.29.0
         version: 1.29.0(zod@4.3.6)
@@ -331,8 +331,8 @@ packages:
     resolution: {integrity: sha512-oiPgJOevYiWaB78nGB+OpCq65SMu3G0g8tTMKduvPfQPeUBeKaDITGocLRFCBsoJzpXOq5YeRTW9OBfH4eLZ8w==}
     engines: {node: '>=18'}
 
-  '@flyingrobots/bijou-node@0.2.0':
-    resolution: {integrity: sha512-QaIaoBF0OMRHGtLsga1knplfFEmAeC6Lt4SxWkCKIJahMdNqXatCWM3RdzXcbjfcXqRIXyeEpm1agmmwi4gneQ==}
+  '@flyingrobots/bijou-i18n@7.2.0':
+    resolution: {integrity: sha512-1c2DPftoSxBRfp7EDpNknRpoQsODbjyy3SMY1soRSU4C61lEX/FM3P1mtbO5HmYRkYuzBolgWZhLZ7e1BMP5KA==}
     engines: {node: '>=18'}
 
   '@flyingrobots/bijou-node@4.4.1':
@@ -341,8 +341,14 @@ packages:
     peerDependencies:
       '@flyingrobots/bijou': 4.4.1
 
-  '@flyingrobots/bijou-tui@0.2.0':
-    resolution: {integrity: sha512-pXEo/Am6svRIKvez7926avdGUbfVndlSOpidBPc42YjCQHU5ZQrEuJpjI7niJb63N0ruxu0VXHci8N0wzBYSow==}
+  '@flyingrobots/bijou-node@7.2.0':
+    resolution: {integrity: sha512-8PCWqr3WsBclZAnTqtnNd5xi85VFiCpbVjVrJ+jbb3UhC6QShz0meREUjSaSdfdguol9tribuy4a7hZaiqsvRw==}
+    engines: {node: '>=18'}
+    peerDependencies:
+      '@flyingrobots/bijou': 7.2.0
+
+  '@flyingrobots/bijou-tui-app@7.2.0':
+    resolution: {integrity: sha512-WKE+4qURIdO6yh6yufzLuRApLOp6GiwFmh9aNoCJ1mJNHY4AOVAo8uYxAcTGXpO3NcQWYRmP5new+jCNaRnZ2Q==}
     engines: {node: '>=18'}
 
   '@flyingrobots/bijou-tui@4.4.1':
@@ -351,12 +357,18 @@ packages:
     peerDependencies:
       '@flyingrobots/bijou': 4.4.1
 
-  '@flyingrobots/bijou@0.2.0':
-    resolution: {integrity: sha512-Oix2Kqq4w87KCkyK2W+8u4E4aGVQiraUy8BF3Bk/NRtT+UlUI0ETs+E7GwpwOyOvHvt0cIOjcMmVPxzKa52P4A==}
+  '@flyingrobots/bijou-tui@7.2.0':
+    resolution: {integrity: sha512-cwr4Lh38toZCt+DDCAkaxcJn7DLST0fZDVfbTL8CRmtO9611SxvDqmw8Ij18reEmY63G72qVXlBsyfza7QhKdg==}
     engines: {node: '>=18'}
+    peerDependencies:
+      '@flyingrobots/bijou': 7.2.0
 
   '@flyingrobots/bijou@4.4.1':
     resolution: {integrity: sha512-vYwFB5lNwp6Lql+WuxHkIzopN11xCLHND0/wPjIlML0J28DZHgvzcpHky9QwSE1NZpTFYAtyBZidwPLYzfVO+Q==}
+    engines: {node: '>=18'}
+
+  '@flyingrobots/bijou@7.2.0':
+    resolution: {integrity: sha512-f7Ik7Wx/DBgaVoplt5QmrFiH84ri1p1DIfyYpxkcCAEwbhf3i+IU3bd3rohWaHWXtC7J5FINOmW8Cgbo9SVSuw==}
     engines: {node: '>=18'}
 
   '@gar/promise-retry@1.0.3':
@@ -367,27 +379,27 @@ packages:
     resolution: {integrity: sha512-dvy7Ej9Jyv9gPh4PtQuMfsZnUa7ycIwoFFnXLrQutRdoTTY4F4OOD2kcSJOs3w8UZhwOyLsHO7PcetaKB9g32w==}
     engines: {node: '>=20.0.0'}
 
-  '@git-stunts/alfred@0.4.0':
-    resolution: {integrity: sha512-80/W7x4pZYRyJB/AQs89aDbi+BcA7/N8G67zdJbKU7lbdrbbtglnY15/iSU66xvLD7/nFTTk9nGNhpw30h6QEQ==}
-    engines: {node: '>=20.0.0'}
-
-  '@git-stunts/git-cas@5.3.2':
-    resolution: {integrity: sha512-DLh5fBxTTJTHOUjH0VifSZSHSmffrrdt5cLnFUxMZ/+dcfbnqdQLW0/7prNnDAT05qRXPWGNW27dCZNI/5eN0g==}
+  '@git-stunts/git-cas@6.5.10':
+    resolution: {integrity: sha512-JemWVMtuzqArMyxnIMBBQFMOIQ3CsvhXKfza9aIjNPxQ3MBt7J/Hm2ePr3k7Z+wtM+MO38BTGA7gzCZ/Hpld4w==}
     engines: {node: '>=22.0.0'}
     hasBin: true
 
-  '@git-stunts/git-warp@16.0.0':
-    resolution: {integrity: sha512-DfsQfD+tY2QtK/UD9lS3f5eH0QYogTLFJ1yNSUIMupT5H4fpXoL24WAY5NMKPiG5nUXu2cFXwUJtJe9WQPU2qg==}
+  '@git-stunts/git-warp@17.0.0':
+    resolution: {integrity: sha512-cQS9epBFQC+10ezK7oGlc2pK1YnOYv5xOI2WUSbr8KBGWApwrO0i3ttJynBw3S5j2k29yvF7biLhwC6BHbPXpA==}
     engines: {node: '>=22.0.0'}
     hasBin: true
 
-  '@git-stunts/plumbing@2.8.0':
-    resolution: {integrity: sha512-wHZQAgPCG8MlcjrgwQx8OoFSxcKGqxCULxxE3XOZk5xiWW3AgSeZgiQ2Z6XCMz1fbaGVOWQOhIvCsyyzlRFbfw==}
+  '@git-stunts/plumbing@3.3.0':
+    resolution: {integrity: sha512-v/AT3hKgmFKSQ3M+n7n9VgC5Ri7C+NDtZS11Bj1JmT0Xv523hNdjCIaRHSXjAaCpiuXuDKFlj+E8PcBI1+FxbA==}
     engines: {bun: '>=1.3.5', deno: '>=2.0.0', node: '>=20.0.0'}
 
   '@git-stunts/trailer-codec@2.1.1':
     resolution: {integrity: sha512-lktQm8fAv59cUi+SQN4XD0InmwG8/mePzcMhS1s5lFmwUCMxCyqXHxAUqH+QhzeLdKHeguYl4XiNcXgHwkuDyQ==}
     engines: {node: '>=20.0.0'}
+
+  '@git-stunts/vault@1.0.1':
+    resolution: {integrity: sha512-oJSoqTUzNEF9QXJghene9Ia/T1tA8l3DZY4KQ2sQiZK1U8Qveqn+IhRDUhZeWcutTiCaI3BauZxhGr0UH53+gQ==}
+    engines: {bun: '>=1.3.5', deno: '>=2.0.0', node: '>=20.0.0'}
 
   '@hono/node-server@1.19.15':
     resolution: {integrity: sha512-Za2ai6TLdKjUvnur+eenO6nuYYipVAEhyCAdaV8IRvmU9kK8crOZUSYvIXn72E4f8fJqyAbpcJuTsYYmZp9Deg==}
@@ -438,6 +450,10 @@ packages:
     peerDependencies:
       '@emnapi/core': ^1.7.1
       '@emnapi/runtime': ^1.7.1
+
+  '@noble/hashes@2.3.0':
+    resolution: {integrity: sha512-oN+QwyX7VSHotibwubG3kpzbwKrfnyR6OOO+3Nk/53ADL7FmgHHz4TgrbaYKvvOw09u6QTx0oiH1cNCIOuN0CQ==}
+    engines: {node: '>= 20.19.0'}
 
   '@npmcli/agent@4.0.0':
     resolution: {integrity: sha512-kAQTcEN9E8ERLVg5AsGwLNoFb+oEG6engbqAU2P43gD4JEIkNGMHdVQ096FsOAAYpZPB0RSt0zgInKIAS1l5QA==}
@@ -1983,10 +1999,7 @@ snapshots:
 
   '@flyingrobots/bijou-i18n@4.4.1': {}
 
-  '@flyingrobots/bijou-node@0.2.0':
-    dependencies:
-      '@flyingrobots/bijou': 0.2.0
-      chalk: 5.6.2
+  '@flyingrobots/bijou-i18n@7.2.0': {}
 
   '@flyingrobots/bijou-node@4.4.1(@flyingrobots/bijou@4.4.1)':
     dependencies:
@@ -1996,63 +2009,83 @@ snapshots:
       gifenc: 1.0.3
       oled-font-5x7: 1.0.3
 
-  '@flyingrobots/bijou-tui@0.2.0':
+  '@flyingrobots/bijou-node@7.2.0(@flyingrobots/bijou@7.2.0)':
     dependencies:
-      '@flyingrobots/bijou': 0.2.0
+      '@flyingrobots/bijou': 7.2.0
+      '@flyingrobots/bijou-tui': 7.2.0(@flyingrobots/bijou@7.2.0)
+      chalk: 5.6.2
+      gifenc: 1.0.3
+      oled-font-5x7: 1.0.3
+
+  '@flyingrobots/bijou-tui-app@7.2.0':
+    dependencies:
+      '@flyingrobots/bijou': 7.2.0
+      '@flyingrobots/bijou-tui': 7.2.0(@flyingrobots/bijou@7.2.0)
 
   '@flyingrobots/bijou-tui@4.4.1(@flyingrobots/bijou@4.4.1)':
     dependencies:
       '@flyingrobots/bijou': 4.4.1
       '@flyingrobots/bijou-i18n': 4.4.1
 
-  '@flyingrobots/bijou@0.2.0': {}
+  '@flyingrobots/bijou-tui@7.2.0(@flyingrobots/bijou@7.2.0)':
+    dependencies:
+      '@flyingrobots/bijou': 7.2.0
+      '@flyingrobots/bijou-i18n': 7.2.0
 
   '@flyingrobots/bijou@4.4.1': {}
+
+  '@flyingrobots/bijou@7.2.0': {}
 
   '@gar/promise-retry@1.0.3':
     optional: true
 
   '@git-stunts/alfred@0.10.3': {}
 
-  '@git-stunts/alfred@0.4.0': {}
-
-  '@git-stunts/git-cas@5.3.2':
+  '@git-stunts/git-cas@6.5.10':
     dependencies:
-      '@flyingrobots/bijou': 0.2.0
-      '@flyingrobots/bijou-node': 0.2.0
-      '@flyingrobots/bijou-tui': 0.2.0
+      '@flyingrobots/bijou': 7.2.0
+      '@flyingrobots/bijou-node': 7.2.0(@flyingrobots/bijou@7.2.0)
+      '@flyingrobots/bijou-tui': 7.2.0(@flyingrobots/bijou@7.2.0)
+      '@flyingrobots/bijou-tui-app': 7.2.0
       '@git-stunts/alfred': 0.10.3
-      '@git-stunts/plumbing': 2.8.0
+      '@git-stunts/plumbing': 3.3.0
+      '@git-stunts/vault': 1.0.1
       cbor-x: 1.6.4
       commander: 14.0.3
       zod: 3.24.1
 
-  '@git-stunts/git-warp@16.0.0':
+  '@git-stunts/git-warp@17.0.0':
     dependencies:
-      '@git-stunts/alfred': 0.4.0
-      '@git-stunts/git-cas': 5.3.2
-      '@git-stunts/plumbing': 2.8.0
+      '@git-stunts/alfred': 0.10.3
+      '@git-stunts/git-cas': 6.5.10
+      '@git-stunts/plumbing': 3.3.0
       '@git-stunts/trailer-codec': 2.1.1
+      '@noble/hashes': 2.3.0
       boxen: 7.1.1
       cbor-x: 1.6.4
       chalk: 5.6.2
       cli-table3: 0.6.5
       elkjs: 0.11.1
       figures: 6.1.0
-      roaring: 2.7.0
       roaring-wasm: 1.1.0
       string-width: 7.2.0
       wrap-ansi: 9.0.2
       zod: 3.24.1
+    optionalDependencies:
+      roaring: 2.7.0
     transitivePeerDependencies:
       - encoding
       - supports-color
 
-  '@git-stunts/plumbing@2.8.0':
+  '@git-stunts/plumbing@3.3.0':
     dependencies:
       zod: 3.24.1
 
   '@git-stunts/trailer-codec@2.1.1':
+    dependencies:
+      zod: 4.3.6
+
+  '@git-stunts/vault@1.0.1':
     dependencies:
       zod: 4.3.6
 
@@ -2074,6 +2107,7 @@ snapshots:
   '@isaacs/fs-minipass@4.0.1':
     dependencies:
       minipass: 7.1.3
+    optional: true
 
   '@jridgewell/sourcemap-codec@1.5.5': {}
 
@@ -2089,6 +2123,7 @@ snapshots:
     transitivePeerDependencies:
       - encoding
       - supports-color
+    optional: true
 
   '@modelcontextprotocol/sdk@1.29.0(zod@4.3.6)':
     dependencies:
@@ -2118,6 +2153,8 @@ snapshots:
       '@emnapi/runtime': 1.10.0
       '@tybys/wasm-util': 0.10.3
     optional: true
+
+  '@noble/hashes@2.3.0': {}
 
   '@npmcli/agent@4.0.0':
     dependencies:
@@ -2349,7 +2386,8 @@ snapshots:
       convert-source-map: 2.0.0
       tinyrainbow: 3.1.0
 
-  abbrev@3.0.1: {}
+  abbrev@3.0.1:
+    optional: true
 
   abbrev@4.0.0:
     optional: true
@@ -2365,7 +2403,8 @@ snapshots:
 
   acorn@8.16.0: {}
 
-  agent-base@7.1.4: {}
+  agent-base@7.1.4:
+    optional: true
 
   ajv-formats@3.0.1(ajv@8.18.0):
     optionalDependencies:
@@ -2476,7 +2515,8 @@ snapshots:
 
   chalk@5.6.2: {}
 
-  chownr@3.0.0: {}
+  chownr@3.0.0:
+    optional: true
 
   cli-boxes@3.0.0: {}
 
@@ -2488,7 +2528,8 @@ snapshots:
 
   commander@14.0.3: {}
 
-  consola@3.4.2: {}
+  consola@3.4.2:
+    optional: true
 
   content-disposition@1.0.1: {}
 
@@ -2842,6 +2883,7 @@ snapshots:
       debug: 4.4.3
     transitivePeerDependencies:
       - supports-color
+    optional: true
 
   iconv-lite@0.7.2:
     dependencies:
@@ -3025,11 +3067,13 @@ snapshots:
       yallist: 4.0.0
     optional: true
 
-  minipass@7.1.3: {}
+  minipass@7.1.3:
+    optional: true
 
   minizlib@3.1.0:
     dependencies:
       minipass: 7.1.3
+    optional: true
 
   ms@2.1.3: {}
 
@@ -3042,6 +3086,7 @@ snapshots:
   node-fetch@2.7.0:
     dependencies:
       whatwg-url: 5.0.0
+    optional: true
 
   node-gyp-build-optional-packages@5.1.1:
     dependencies:
@@ -3058,7 +3103,7 @@ snapshots:
       proc-log: 6.1.0
       semver: 7.7.4
       tar: 7.5.22
-      tinyglobby: 0.2.15
+      tinyglobby: 0.2.17
       which: 6.0.1
     transitivePeerDependencies:
       - supports-color
@@ -3067,6 +3112,7 @@ snapshots:
   nopt@8.1.0:
     dependencies:
       abbrev: 3.0.1
+    optional: true
 
   nopt@9.0.0:
     dependencies:
@@ -3176,6 +3222,7 @@ snapshots:
     transitivePeerDependencies:
       - encoding
       - supports-color
+    optional: true
 
   rolldown@1.0.3:
     dependencies:
@@ -3339,6 +3386,7 @@ snapshots:
       minipass: 7.1.3
       minizlib: 3.1.0
       yallist: 5.0.0
+    optional: true
 
   tinybench@2.9.0: {}
 
@@ -3358,7 +3406,8 @@ snapshots:
 
   toidentifier@1.0.1: {}
 
-  tr46@0.0.3: {}
+  tr46@0.0.3:
+    optional: true
 
   tree-sitter-graphql-grammar-wasm@1.0.1: {}
 
@@ -3461,12 +3510,14 @@ snapshots:
 
   web-tree-sitter@0.20.8: {}
 
-  webidl-conversions@3.0.1: {}
+  webidl-conversions@3.0.1:
+    optional: true
 
   whatwg-url@5.0.0:
     dependencies:
       tr46: 0.0.3
       webidl-conversions: 3.0.1
+    optional: true
 
   which@2.0.2:
     dependencies:
@@ -3505,7 +3556,8 @@ snapshots:
   yallist@4.0.0:
     optional: true
 
-  yallist@5.0.0: {}
+  yallist@5.0.0:
+    optional: true
 
   yocto-queue@0.1.0: {}
 

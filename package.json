@@ -38,6 +38,7 @@
   ],
   "scripts": {
     "graft": "node ./bin/graft.js",
+    "git-warp:migrate:v17": "tsx ./scripts/upgrade-git-warp-v16-to-v17.ts",
     "build": "tsc -p tsconfig.build.json",
     "prepack": "pnpm build",
     "prepublishOnly": "pnpm release:check",
@@ -57,7 +58,7 @@
     "gh-issues:check": "bash scripts/gh-issues-check.sh"
   },
   "engines": {
-    "node": ">=20.11.0"
+    "node": ">=22.0.0"
   },
   "publishConfig": {
     "access": "public",
@@ -90,8 +91,8 @@
   "dependencies": {
     "@flyingrobots/bijou": "^4.4.1",
     "@flyingrobots/bijou-node": "^4.4.1",
-    "@git-stunts/git-warp": "^16.0.0",
-    "@git-stunts/plumbing": "^2.8.0",
+    "@git-stunts/git-warp": "^17.0.0",
+    "@git-stunts/plumbing": "^3.3.0",
     "@modelcontextprotocol/sdk": "^1.29.0",
     "picomatch": "^4.0.4",
     "tree-sitter-graphql-grammar-wasm": "1.0.1",

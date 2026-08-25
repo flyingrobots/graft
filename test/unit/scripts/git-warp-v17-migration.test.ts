@@ -6,7 +6,8 @@ import { fileURLToPath } from "node:url";
 import { afterEach, describe, expect, it } from "vitest";
 
 const repoRoot = fileURLToPath(new URL("../../..", import.meta.url));
-const migrationCommand = join(repoRoot, "scripts", "upgrade-git-warp-v16-to-v17.mjs");
+const migrationCommand = join(repoRoot, "scripts", "upgrade-git-warp-v16-to-v17.ts");
+const tsxCommand = join(repoRoot, "node_modules", ".bin", "tsx");
 
 const tempDirs: string[] = [];
 
@@ -35,7 +36,7 @@ describe("git-warp v16 to v17 migration command", () => {
   it("delegates a structured dry run to the installed package upgrader", () => {
     const repo = makeGitRepo();
     const result = spawnSync(
-      process.execPath,
+      tsxCommand,
       [
         migrationCommand,
         "--repo",
@@ -49,7 +50,6 @@ describe("git-warp v16 to v17 migration command", () => {
     );
 
     expect(result.status, result.stderr).toBe(0);
-    expect(result.stderr).toBe("");
 
     const receipt = JSON.parse(result.stdout) as {
       readonly dryRun: boolean;

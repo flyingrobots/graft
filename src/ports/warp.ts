@@ -114,6 +114,8 @@ export type WarpTickReceiptOp =
   | "EdgeAdd"
   | "EdgeTombstone"
   | "PropSet"
+  | "NodePropSet"
+  | "EdgePropSet"
   | "BlobValue";
 
 export type WarpTickReceiptResult = "applied" | "superseded" | "redundant";
