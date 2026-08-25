@@ -1,5 +1,5 @@
 import { spawnSync } from "node:child_process";
-import { mkdtempSync, rmSync } from "node:fs";
+import { mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -8,6 +8,18 @@ import { afterEach, describe, expect, it } from "vitest";
 const repoRoot = fileURLToPath(new URL("../../..", import.meta.url));
 const migrationCommand = join(repoRoot, "scripts", "upgrade-git-warp-v16-to-v17.ts");
 const tsxCommand = join(repoRoot, "node_modules", ".bin", "tsx");
+const warpPackage: unknown = JSON.parse(readFileSync(
+  fileURLToPath(import.meta.resolve("@git-stunts/git-warp/package.json")),
+  "utf8",
+));
+const installedWarpVersion = warpPackage !== null
+  && typeof warpPackage === "object"
+  && "version" in warpPackage
+  && typeof warpPackage.version === "string"
+  ? warpPackage.version
+  : "unknown";
+const bridgeIt = installedWarpVersion === "17.0.0" ? it : it.skip;
+const postBridgeIt = installedWarpVersion === "17.0.0" ? it.skip : it;
 
 const tempDirs: string[] = [];
 
@@ -33,7 +45,7 @@ afterEach(() => {
 });
 
 describe("git-warp v16 to v17 migration command", () => {
-  it("delegates a structured dry run to the installed package upgrader", () => {
+  bridgeIt("delegates a structured dry run to the installed package upgrader", () => {
     const repo = makeGitRepo();
     const result = spawnSync(
       tsxCommand,
@@ -93,5 +105,35 @@ describe("git-warp v16 to v17 migration command", () => {
         ],
       }),
     ]);
+  });
+
+  postBridgeIt("refuses to replay the migration through another git-warp version", () => {
+    const repo = makeGitRepo();
+    const result = spawnSync(
+      tsxCommand,
+      [
+        migrationCommand,
+        "--repo",
+        repo,
+        "--graph",
+        "migration-contract",
+        "--dry-run",
+        "--json",
+      ],
+      { cwd: repoRoot, encoding: "utf8" },
+    );
+
+    expect(result.status).toBe(1);
+    expect(result.stderr).toContain(
+      `Expected @git-stunts/git-warp 17.0.0, found ${installedWarpVersion}`,
+    );
+
+    const refs = spawnSync(
+      "git",
+      ["for-each-ref", "--format=%(refname)", "refs/warp/", "refs/graft/"],
+      { cwd: repo, encoding: "utf8" },
+    );
+    expect(refs.status, refs.stderr).toBe(0);
+    expect(refs.stdout).toBe("");
   });
 });
