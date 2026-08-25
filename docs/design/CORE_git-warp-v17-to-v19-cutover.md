@@ -134,10 +134,46 @@ but then failed while publishing the full-replay checkpoint with
 fallback selection, not an accepted migration route for Graft.
 
 The intended route is the writer-anchored, git-cas-backed checkpoint created by
-exact 18.0.0 and reopened by 18.2.1. A full 19.1.0 `--dry-run` against that
-disposable result must finish before the application cutover or any live
-promotion. A later normal run must use 19.1.0 or newer within v19, never the
-retired 19.0.0 migrator.
+exact 18.0.0 and reopened by 18.2.1. That checkpoint has now been proven on a
+disposable copy:
+
+- checkpoint `33294a8a...` is parented by writer frontier `b7dec8e7...`;
+- it retains 8,101 nodes, 23,652 edges, 73,194 properties, and all 2,563
+  writer patches;
+- its state hash is the same `1ac66436...` observed before the bridge; and
+- the archived v17 checkpoint remains reachable at the additive Graft
+  migration ref.
+
+The full published 19.1.0 `--dry-run` nevertheless fails after translating all
+2,563 writer commits. The failure occurs while the migrator builds bounded
+checkpoint indexes in its disposable scratch repository:
+
+```text
+Workspace staged a batch but could not establish retention
+```
+
+A checkpoint-seed-only reproduction on another no-hardlink disposable mirror
+exposed the nested dependency error without repeating the writer rewrite:
+
+```text
+WORKSPACE_RETENTION_FAILED
+  ROOT_SET_TARGET_UNREADABLE
+    A cat-file batch may contain at most 1000 objects
+    details: { count: 1026, maxObjects: 1000 }
+```
+
+The released git-cas 6.5.10 root-set validator sends all 1,026 retained
+workspace targets to plumbing 3.3.0's `GitCatFileSession.infoMany()` call;
+plumbing correctly rejects a batch larger than its documented 1,000-object
+bound. npm currently publishes no git-warp release newer than 19.1.0, no
+git-cas release newer than 6.5.10, and no plumbing release newer than 3.3.0.
+There is no supported migrator or runtime option that disables this path.
+
+Both official dry-run failures occurred entirely in disposable scratch state.
+The source checkpoint, writer, and Graft archive refs remained byte-for-byte
+unchanged. A later normal run must use a v19.1.0-or-newer release containing a
+bounded root-set inspection repair, never a private package edit or the retired
+19.0.0 migrator.
 
 ## The v19 application API boundary
 
@@ -171,6 +207,27 @@ shape, but it may not silently weaken them. In particular:
 4. private `dist/` imports or package-export-map bypasses are not adoption of
    the new public API.
 
+The public strand settlement surface does not close the transaction gap.
+`Runtime.strand()` can stage several single-Intent writes and
+`Runtime.settle()` can classify their promotion, but v19.1.0 promotes those
+intents to the parent lane one at a time. Its implementation explicitly
+retains partial-commit recovery evidence when a later promotion fails. That is
+useful settlement behavior, but it is not the all-or-nothing publication
+required by `WarpGraphPort.patch()`.
+
+The other gaps are also executable contract gaps rather than naming changes:
+
+- the widest public Intent, `entity.add`, atomically creates one node plus its
+  initial properties, but cannot also create an edge, remove an entity, or
+  attach content;
+- no public Intent or Observer attaches or retrieves git-warp content bytes
+  and metadata;
+- public readings address exact node/property subjects or bounded one-hop
+  neighborhoods, and do not enumerate a wildcard lens over the retained
+  graph; and
+- public receipts can expose their own substrate object IDs, but do not
+  replace Graft's entity-to-patch provenance and decoded-patch reads.
+
 If the published API cannot implement the port honestly, the safe outcome is
 a clean, validated v18.2.1 compatibility checkpoint plus an executable v19
 RED and a precise upstream/application-design blocker. The authoritative graph
@@ -200,17 +257,17 @@ ref may move while the v19 application contract is RED.
 
 ## Acceptance criteria
 
-- [ ] `package.json` and `pnpm-lock.yaml` first resolve exactly git-warp
+- [x] `package.json` and `pnpm-lock.yaml` first resolve exactly git-warp
       18.0.0 with its release-tested git-cas 6.0.0 and plumbing 3.0.3.
-- [ ] Exact 18.0.0 reopens a disposable schema-5 copy, preserves its visible
+- [x] Exact 18.0.0 reopens a disposable schema-5 copy, preserves its visible
       state and content, archives the v17 checkpoint, and publishes a current
       git-cas checkpoint parented by the writer frontier.
-- [ ] The dependency then resolves exactly git-warp 18.2.1 with git-cas 6.0.0
+- [x] The dependency then resolves exactly git-warp 18.2.1 with git-cas 6.0.0
       and plumbing 3.0.3.
-- [ ] Graft reopens the migrated copy through 18.2.1, preserves its visible
+- [x] Graft reopens the migrated copy through 18.2.1, preserves its visible
       state, performs a representative atomic append including content,
       reopens again, and returns inspectable receipts.
-- [ ] The v18 graph-model tooling is either proven unnecessary for Graft's
+- [x] The v18 graph-model tooling is either proven unnecessary for Graft's
       retained ref families or invoked only through a reviewed Graft-specific
       mapping and equivalence witness.
 - [ ] The official 19.1.0 migrator completes a dry run against the disposable
@@ -313,3 +370,23 @@ with the branch clean and pushed at the last green compatibility checkpoint.
 Record the behavioral RED, the missing public capability, and the narrowest
 honest resolution. Do not promote the live graph into a format that the
 application cannot safely read and extend.
+
+## Playback result
+
+The cycle reached its defined stop boundary at exact git-warp 18.2.1. Graft's
+package and lockfile remain on the last green compatibility state, all
+production git-warp runtime access remains isolated in `src/warp/open.ts`, and
+the adapter's atomic write/content/restart contract is executable. The
+authoritative shared graph remains on its original pre-v17 refs because active
+daemons were never stopped and no maintenance window was authorized.
+
+The v19 hill remains open on two independently necessary repairs:
+
+1. a released migrator whose root-set inspection respects plumbing's bounded
+   `cat-file` batch size; and
+2. either a public atomic composite/content/discovery surface or a separately
+   designed Graft representation that preserves every existing port invariant
+   under concurrency, failure, restart, and retained-data migration.
+
+Until both repairs exist, changing only the dependency declaration to 19.1.0
+would make the branch less correct than the validated 18.2.1 checkpoint.
