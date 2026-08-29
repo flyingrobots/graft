@@ -48,7 +48,7 @@ digraph backlog {
   }
 
   subgraph cluster_bad_code {
-    label="bad-code (22)" labeljust=l fontsize=9 fontcolor="#555555"
+    label="bad-code (23)" labeljust=l fontsize=9 fontcolor="#555555"
     style=rounded color="#cccccc" bgcolor="#fafafa"
     bad_code_CLEAN_backlog_dag_unresolved_internal_dependencies [label="CLEAN-backlog-dag-unresolved-internal-dependencies - S" fillcolor="#F6B3B3" penwidth=2]
     bad_code_CLEAN_canonical_codec_seams_diverge [label="CLEAN-canonical-codec-seams-diverge - M" fillcolor="#F6B3B3" penwidth=2]
@@ -72,6 +72,7 @@ digraph backlog {
     bad_code_committed_reference_scan_repeats_repository_analysis [label="committed-reference-scan-repeats-repository-analysis" fillcolor="#F6B3B3" penwidth=2]
     bad_code_SURFACE_session_global_workspace_activation_races [label="SURFACE-session-global-workspace-activation-races" fillcolor="#F6B3B3" penwidth=2]
     bad_code_WARP_bijou_local_history_stale_after_branch_transition [label="WARP-bijou-local-history-stale-after-branch-transition - M" fillcolor="#F6B3B3" penwidth=2]
+    bad_code_WARP_sidecar_retention_and_pruning [label="WARP-sidecar-retention-and-pruning - M" fillcolor="#F6B3B3" penwidth=2]
   }
 
   subgraph cluster_cool_ideas {
