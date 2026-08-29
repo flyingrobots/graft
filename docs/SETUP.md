@@ -79,8 +79,9 @@ The daemon is available as an explicit opt-in MCP bootstrap runtime. It
 is not the default because it uses a stricter contract:
 
 - daemon sessions start unbound
-- workspace binding requires prior authorization through the daemon
-  control plane
+- explicit workspace binding requires prior authorization through the daemon
+  control plane, while a routed repo-tool call with `cwd` opens that exact
+  resolved worktree automatically
 - canonical repo identity, live worktree identity, and session-local
   state remain separate
 - `run_capture` stays default-denied unless an authorized workspace
@@ -122,23 +123,27 @@ Practical daemon-backed MCP first-use sequence:
 
 1. configure your MCP client with `graft serve --runtime daemon`
 2. let the bridge auto-start the daemon, or start `npx @flyingrobots/graft daemon`
-3. call `workspace_open` with the target `cwd`
-4. optionally call `workspace_list_opened` to inspect opened paths and the
-   active workspace
-5. then use repository-scoped tools such as `safe_read` or `graft_map`
+3. call a routed repository tool such as `safe_read` with an explicit `cwd`
+   anywhere inside the target Git worktree
+4. Graft opens the canonical containing worktree with the default capability
+   profile and runs the tool without changing the active workspace
+5. optionally call `workspace_list_opened` to inspect opened paths
 
 If concurrent agents share one daemon-backed MCP session, prefer
 explicit `cwd` routes for repo-specific tools that support routing:
 `safe_read`, `file_outline`, `read_range`, `changed_since`,
 `graft_diff`, `graft_since`, `graft_map`, `code_show`, `code_find`, and
-`code_refs`. The route resolves one call against the requested
-authorized workspace without changing the active workspace.
+`code_refs`. The route opens the exact resolved worktree when necessary and
+resolves one call against it without changing the active workspace.
 
 An explicit route has strict precedence over the active session binding. If
-its `cwd` is missing, outside a Git worktree, unauthorized, or contradicted by
-supplied identity hints, the call fails instead of falling back. Successful
-routed responses expose `requestedRoot`, canonical `resolvedRoot`, `repoId`,
-and `worktreeId` under both `_workspace` and `_receipt.workspace`. Without an
+its `cwd` is missing, outside a Git worktree, or contradicted by supplied
+identity hints, the call fails instead of falling back. A valid explicit `cwd`
+is bounded opening intent: Graft authorizes only Git's canonical containing
+worktree, records it in the session's opened-workspace list with the default
+capability profile, and leaves the active binding unchanged. Successful routed
+responses expose `requestedRoot`, canonical `resolvedRoot`, `repoId`, and
+`worktreeId` under both `_workspace` and `_receipt.workspace`. Without an
 explicit `cwd`, repository tools continue to use the active session binding.
 Previously-version-1 routed MCP tools and their direct CLI peers advertise
 output schema version `2.0.0` for this expanded strict contract.
@@ -180,8 +185,10 @@ runtime:
 Use repo-local stdio when you want one MCP server bound directly to the
 current checkout. Use daemon-backed stdio when you want daemon-only
 capabilities such as shared worker pools, persistent monitors, and
-daemon control-plane inspection. Daemon-backed sessions start unbound;
-repository-scoped tools normally begin with `workspace_open`.
+daemon control-plane inspection. Daemon-backed sessions start unbound, but an
+explicitly routed repo-tool call opens its containing worktree automatically.
+Use `workspace_open` when you also want activation or a non-default capability
+profile.
 
 ### One-step bootstrap
 
@@ -262,8 +269,9 @@ npx @flyingrobots/graft serve --runtime daemon
 When the daemon-backed bridge cannot reach a daemon, it attempts to
 start one and waits for `/healthz`. Use `--no-autostart` when you want
 startup to fail instead of launching the daemon. Once connected,
-daemon sessions remain unbound until authorized and bound through the
-daemon workspace tools.
+daemon sessions remain unbound until explicitly activated through the daemon
+workspace tools. Routed repo-tool calls with `cwd` can open and use a worktree
+without activating it.
 
 ### Claude Code
 
@@ -421,10 +429,11 @@ If your client doesn't support `npx`, install globally and use:
 - **Args**: `["serve"]`
 
 This section shows the repo-local stdio path. If you connect through
-`graft daemon` instead, the MCP session starts `unbound` and needs
-`workspace_open` before repository-scoped tool calls. The lower-level
-`workspace_authorize` and `workspace_bind` tools remain available for
-operator control-plane workflows.
+`graft daemon` instead, the MCP session starts `unbound`. Pass `cwd` to a
+routed repository tool to open its containing worktree on that first call, or
+use `workspace_open` when you want to make a worktree active. The lower-level
+`workspace_authorize` and `workspace_bind` tools remain available for operator
+control-plane workflows.
 
 ## Claude Code Hooks
 
@@ -624,6 +633,14 @@ Both tools work on the current working tree. Persistent structural indexing is
 lazy: use `graft index --path <path>` from the CLI to refresh one tracked source
 file at `HEAD`, or let read/search surfaces opportunistically refresh the files
 they touch. Unbounded whole-repo eager indexing is guarded.
+
+WARP graph persistence never uses the source repository as its Git object or
+ref store. Graft creates a private bare sidecar repository under
+`~/.graft/graphs/<project>/<worktree>/<actor>/warp.git`; the readable
+directories include deterministic identity suffixes. Linked worktrees and
+independent MCP sessions use distinct sidecars, so one agent cannot read
+another agent's working graph through a shared handle. Existing legacy
+`refs/warp/*` in a source repository are neither imported nor removed.
 
 ### Structural navigation
 

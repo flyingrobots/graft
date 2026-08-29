@@ -9,6 +9,13 @@ retro: "docs/method/retro/SURFACE_per-call-workspace-route-for-repo-tools/SURFAC
 
 # Per-call workspace route for repo tools
 
+> Follow-on, 2026-08-29: [Automatic workspace admission and isolated WARP
+> sidecars](./WARP_automatic-isolated-workspace-sidecars.md) supersedes this
+> packet's prior-authorization requirement. An explicit routed `cwd` now opens
+> its exact resolved worktree with the default capability profile while still
+> leaving the active binding unchanged. The remainder records the original
+> cycle.
+
 Source backlog item:
 `docs/method/backlog/bad-code/SURFACE_session-global-workspace-activation-races.md`
 

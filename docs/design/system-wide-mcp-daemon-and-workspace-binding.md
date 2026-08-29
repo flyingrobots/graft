@@ -4,6 +4,12 @@ title: "System-wide MCP daemon and workspace binding"
 
 # System-wide MCP daemon and workspace binding
 
+> Follow-on, 2026-08-29: [Automatic workspace admission and isolated WARP
+> sidecars](./WARP_automatic-isolated-workspace-sidecars.md) supersedes this
+> packet's prior-authorization and shared-repo WARP defaults. An explicit
+> routed `cwd` now opens its exact worktree, and working graphs are isolated by
+> repository, worktree, and actor. The remainder records the original cycle.
+
 Source backlog item: `docs/method/backlog/up-next/SURFACE_system-wide-mcp-daemon-and-workspace-binding.md`
 Legend: SURFACE
 

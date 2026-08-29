@@ -125,6 +125,22 @@ Graft models repository state through three distinct layers:
 ### Write Path (Indexer)
 The write path turns Git history into structural worldline facts by extracting AST outlines and writing them into the WARP graph.
 
+The source repository is evidence, not graph storage. Production composition
+roots persist WARP refs and objects in private bare sidecar repositories under
+`~/.graft/graphs`. One locator derives the sidecar path from canonical
+repository identity, canonical worktree identity, and the logical actor or
+session identity:
+
+```text
+~/.graft/graphs/<project--repo-id>/<worktree--worktree-id>/<actor--actor-id>/warp.git
+```
+
+This complete identity drives both in-memory handle reuse and persistent
+storage. Linked worktrees never share a working graph, independent sessions in
+one worktree never share a working graph, and no production WARP adapter opens
+the source Git directory for persistence. Each sidecar is bare, private, and
+configured with a deterministic repository-local Git identity.
+
 ### Read Path (Observers)
 The read path uses the **Observer Law**: projections are read through lenses (e.g., `graft_diff`, `code_show`) rather than traversing graph internals directly.
 
@@ -134,6 +150,13 @@ The Daemon is the system-wide authority for multi-repo coordination. It manages:
 - **Authorization**: Workspace and session binding.
 - **Scheduling**: Job queueing and fairness.
 - **Resources**: Shared worker pools for heavy indexing and parsing tasks.
+
+An explicit `cwd` on a routed repository tool is narrowly bounded opening
+intent. The daemon resolves its containing Git worktree, ensures the exact
+default authorization, records the worktree as opened for that session, and
+runs the call without changing the active binding. `workspace_open` remains
+the explicit activation and capability-configuration surface; calls without a
+route continue to require an active binding.
 
 ---
 **The goal is to move the repository from a collection of bytes to a provenance-aware professional bedrock.**

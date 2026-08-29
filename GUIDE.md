@@ -18,7 +18,7 @@ Manually enforce policies or inspect structural history from your terminal.
 ### 3. Shared Daemon Mode
 Run the central execution authority for multi-repo work and persistent monitors.
 - **Run**: `npx @flyingrobots/graft daemon`
-- **Read**: [docs/SETUP.md](./docs/SETUP.md) (Daemon bootstrap and `workspace_open`)
+- **Read**: [docs/SETUP.md](./docs/SETUP.md) (Daemon bootstrap and automatic workspace opening)
 - **Read**: [Architecture](./ARCHITECTURE.md) (Daemon section)
 
 ## Big Picture: System Orchestration
@@ -33,7 +33,7 @@ Graft is a tiered governor. It manages the context burden across three layers:
 
 - [ ] **I am setting up a new project**: Start with `README.md` Quick Start.
 - [ ] **I am configuring Claude Code**: Use `npx graft init --write-claude-hooks`.
-- [ ] **I am using daemon mode in a generic MCP client**: Read [docs/SETUP.md](./docs/SETUP.md) and expect `workspace_open` as the normal agent-facing path.
+- [ ] **I am using daemon mode in a generic MCP client**: Read [docs/SETUP.md](./docs/SETUP.md), pass an explicit `cwd` on the first routed repo-tool call, and reserve `workspace_open` for activation or capability configuration.
 - [ ] **I am debugging a structural diff**: Use `npx graft struct diff --json`.
 - [ ] **I am contributing to Graft**: Read `CONTRIBUTING.md`, `METHOD.md`, and [docs/github-issues-mirroring.md](./docs/github-issues-mirroring.md).
 

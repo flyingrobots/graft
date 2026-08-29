@@ -7,6 +7,12 @@ source_backlog: "docs/method/backlog/up-next/WARP_same-repo-concurrent-agent-mod
 
 # Same-repo concurrent agent model
 
+> Follow-on, 2026-08-29: [Automatic workspace admission and isolated WARP
+> sidecars](./WARP_automatic-isolated-workspace-sidecars.md) supersedes this
+> packet's shared working-graph assumption. Canonical Git history remains
+> shared evidence, but WARP working graphs are isolated by repository,
+> worktree, and actor. The remainder records the original cycle.
+
 Source backlog item: `docs/method/backlog/up-next/WARP_same-repo-concurrent-agent-model.md`
 Legend: WARP
 
