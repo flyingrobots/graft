@@ -20,19 +20,23 @@ RUN corepack enable && \
 COPY package.json pnpm-lock.yaml ./
 RUN pnpm install --frozen-lockfile --prod=false
 
-FROM deps AS build
+FROM deps AS source
 
 WORKDIR /app
 COPY . .
+RUN sh scripts/strip-copied-git-remotes.sh /app
+
+FROM source AS build
+
+WORKDIR /app
 RUN pnpm build
 
 FROM build AS test
 
 ENV CI=1
-ENV GRAFT_TEST_CONTAINER=1
 ENV NO_COLOR=1
 
-CMD ["pnpm", "test"]
+CMD ["pnpm", "exec", "vitest", "run", "--maxWorkers", "2"]
 
 FROM deps AS runtime
 

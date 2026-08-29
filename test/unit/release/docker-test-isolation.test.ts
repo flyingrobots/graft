@@ -21,8 +21,8 @@ function dockerignoreLines(): string[] {
 describe("Docker-isolated test validation", () => {
   it("routes the default test command through the Docker isolation harness", () => {
     expect(packageJson.scripts.test).toBe("tsx scripts/run-isolated-tests.ts");
-    expect(packageJson.scripts["test:local"]).toBeUndefined();
-    expect(packageJson.scripts["test:watch"]).toBeUndefined();
+    expect("test:local" in packageJson.scripts).toBe(false);
+    expect("test:watch" in packageJson.scripts).toBe(false);
     expect(packageJson.scripts["release:surface-gate"]).not.toContain("vitest");
     expect(packageJson.scripts["release:surface-gate"]).toContain("pnpm test");
   });

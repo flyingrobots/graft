@@ -91,10 +91,12 @@ Abort on the first hard failure. Do not claim success from queued or
 in-progress CI state.
 
 `pnpm test` is the canonical release validation path. It must not be
-replaced by a host-side `vitest run` unless the release is explicitly
-halted for test harness debugging. The Docker test image copies the
-repository without `.git`, so validation cannot inherit the operator's
-live checkout hooks or Git worktree environment.
+replaced by a host-side `vitest run`, including for focused feedback or test
+harness debugging. The Docker test image copies the repository without
+`.git`, scrubs remotes and linked-worktree pointers from any nested Git
+metadata after the copy, and runs without network or host mounts. Validation
+therefore cannot inherit or mutate the operator's live checkout, hooks,
+remotes, refs, objects, or Git worktree environment.
 
 `pnpm security:check` is the release-time dependency/security gate.
 Current policy:

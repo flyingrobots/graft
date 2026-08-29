@@ -11,7 +11,6 @@ import {
   normalizeVitestArgs,
 } from "./isolated-test-args.js";
 
-const CONTAINER_ENV = "GRAFT_TEST_CONTAINER";
 const DEFAULT_IMAGE = "graft-test:local";
 const DEFAULT_DOCKER_BUILD_RETRIES = 1;
 const DEFAULT_DOCKER_BUILD_RETRY_DELAY_MS = 1_000;
@@ -85,10 +84,7 @@ function exitFrom(
     if (result.error.code === "ENOENT") {
       if (command === "docker") {
         error(
-          [
-            "Docker is required for `pnpm test`.",
-            "Use `pnpm test:local` only for explicit host-side debugging.",
-          ].join(" "),
+          "Docker is required for all Graft test execution; no host-side fallback is supported.",
         );
       } else {
         error(`Executable \`${command}\` was not found on PATH. Install it or fix PATH.`);
@@ -208,10 +204,6 @@ export async function runIsolatedTests(options: IsolatedTestRunnerOptions): Prom
   };
   const testArgs = applyIsolatedVitestDefaults(normalizeVitestArgs(runnerOptions.argv));
 
-  if (runnerOptions.env[CONTAINER_ENV] === "1") {
-    run("pnpm", ["exec", "vitest", "run", ...testArgs], runnerOptions);
-  }
-
   const image = runnerOptions.env["GRAFT_TEST_IMAGE"] ?? DEFAULT_IMAGE;
   const dockerAvailability = await runnerOptions.checkDocker();
   if (!dockerAvailability.ok) {
@@ -225,8 +217,10 @@ export async function runIsolatedTests(options: IsolatedTestRunnerOptions): Prom
     "--rm",
     "--network",
     "none",
-    "-e",
-    `${CONTAINER_ENV}=1`,
+    "--cap-drop",
+    "ALL",
+    "--security-opt",
+    "no-new-privileges",
     image,
     "pnpm",
     "exec",
