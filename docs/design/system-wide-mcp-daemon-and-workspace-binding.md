@@ -128,9 +128,9 @@ Deliverables:
 
 Related:
 
-- `docs/method/backlog/up-next/SURFACE_system-wide-multi-repo-agent-coordination.md`
-- `docs/method/backlog/up-next/WARP_same-repo-concurrent-agent-model.md`
-- `docs/method/backlog/up-next/SURFACE_system-wide-control-plane-for-persistent-monitors.md`
+- `docs/design/system-wide-multi-repo-agent-coordination.md`
+- `docs/design/WARP_same-repo-concurrent-agent-model.md`
+- `docs/design/system-wide-control-plane-for-persistent-monitors.md`
 
 Why separate cycle:
 
@@ -329,8 +329,8 @@ daemon evolve as a separate contract.
 
 This cycle splits the implementation path into:
 
-- [SURFACE_workspace-bind-and-routing-surface.md](../../method/backlog/up-next/SURFACE_workspace-bind-and-routing-surface.md)
-- [SURFACE_local-daemon-transport-and-session-lifecycle.md](../../method/backlog/up-next/SURFACE_local-daemon-transport-and-session-lifecycle.md)
-- [WARP_same-repo-concurrent-agent-model.md](../../method/backlog/up-next/WARP_same-repo-concurrent-agent-model.md)
-- [SURFACE_system-wide-control-plane-for-persistent-monitors.md](../../method/backlog/up-next/SURFACE_system-wide-control-plane-for-persistent-monitors.md)
-- [SURFACE_system-wide-multi-repo-agent-coordination.md](../../method/backlog/up-next/SURFACE_system-wide-multi-repo-agent-coordination.md)
+- [workspace-bind-and-routing-surface.md](workspace-bind-and-routing-surface.md)
+- [local-daemon-transport-and-session-lifecycle.md](local-daemon-transport-and-session-lifecycle.md)
+- [WARP_same-repo-concurrent-agent-model.md](WARP_same-repo-concurrent-agent-model.md)
+- [system-wide-control-plane-for-persistent-monitors.md](system-wide-control-plane-for-persistent-monitors.md)
+- [system-wide-multi-repo-agent-coordination.md](system-wide-multi-repo-agent-coordination.md)

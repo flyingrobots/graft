@@ -119,9 +119,9 @@ Desired end state:
 
 Related:
 
-- `docs/design/0051-system-wide-mcp-daemon-and-workspace-binding/system-wide-mcp-daemon-and-workspace-binding.md`
-- `docs/method/backlog/up-next/SURFACE_local-daemon-transport-and-session-lifecycle.md`
-- `docs/method/backlog/up-next/WARP_same-repo-concurrent-agent-model.md`
+- `docs/design/system-wide-mcp-daemon-and-workspace-binding.md`
+- `docs/design/local-daemon-transport-and-session-lifecycle.md`
+- `docs/design/WARP_same-repo-concurrent-agent-model.md`
 
 Effort: L
 
