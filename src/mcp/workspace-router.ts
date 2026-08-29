@@ -178,8 +178,8 @@ export class WorkspaceRouter {
           }
         : {
             repoId: resolved.repoId,
-            worktreeId: stableWorkspaceId("worktree", projectRoot),
-            worktreeRoot: projectRoot,
+            worktreeId: resolved.worktreeId,
+            worktreeRoot: resolved.worktreeRoot,
             gitCommonDir: resolved.gitCommonDir,
           };
       const currentBinding = await this.createBoundWorkspace(

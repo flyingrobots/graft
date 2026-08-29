@@ -1,7 +1,12 @@
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import * as fs from "node:fs";
+import * as os from "node:os";
 import * as path from "node:path";
-import { resolveEntrypointArgs, runCli } from "../../../src/cli/main.js";
+import {
+  resolveEntrypointArgs,
+  runCli as runCliCommand,
+  type RunCliOptions,
+} from "../../../src/cli/main.js";
 import type { DaemonStatusReadSnapshot } from "../../../src/cli/daemon-status-model.js";
 import { GRAFT_VERSION } from "../../../src/version.js";
 import { cleanupTestRepo, createTestRepo, git } from "../../helpers/git.js";
@@ -67,14 +72,24 @@ function daemonStatusSnapshot(socketPath: string): DaemonStatusReadSnapshot {
 
 describe("cli: graft grouped surface", () => {
   let previousExitCode: typeof process.exitCode;
+  let graphRoot: string;
+
+  function runCli(options: RunCliOptions = {}): Promise<void> {
+    return runCliCommand({
+      ...options,
+      graphRoot: options.graphRoot ?? graphRoot,
+    });
+  }
 
   beforeEach(() => {
     previousExitCode = process.exitCode;
     process.exitCode = undefined;
+    graphRoot = fs.mkdtempSync(path.join(os.tmpdir(), "graft-cli-main-graphs-"));
   });
 
   afterEach(() => {
     process.exitCode = previousExitCode;
+    fs.rmSync(graphRoot, { recursive: true, force: true });
   });
 
   it("renders grouped help", async () => {

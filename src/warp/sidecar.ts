@@ -9,6 +9,8 @@ import { openWarp } from "./open.js";
 const PRIVATE_DIRECTORY_MODE = 0o700;
 const DISPLAY_SLUG_MAX_LENGTH = 48;
 const IDENTITY_SUFFIX_LENGTH = 12;
+const SIDECAR_GIT_USER_NAME = "Graft WARP";
+const SIDECAR_GIT_USER_EMAIL = "graft-warp@localhost";
 
 export interface WarpSidecarWorkspaceIdentity {
   readonly repoId: string;
@@ -168,6 +170,15 @@ async function ensureBareRepository(graphRoot: string, repoPath: string): Promis
   if (!await isBareRepository(resolvedRepo)) {
     throw new Error(`Refusing WARP sidecar that is not a bare Git repository: ${resolvedRepo}`);
   }
+  const plumbing = GitPlumbing.createDefault({ cwd: resolvedRepo });
+  await plumbing.execute({
+    args: ["config", "--local", "user.name", SIDECAR_GIT_USER_NAME],
+    env: sidecarGitEnvironment(),
+  });
+  await plumbing.execute({
+    args: ["config", "--local", "user.email", SIDECAR_GIT_USER_EMAIL],
+    env: sidecarGitEnvironment(),
+  });
 }
 
 export function defaultWarpGraphRoot(homeDirectory = os.homedir()): string {

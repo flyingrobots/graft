@@ -17,6 +17,7 @@ interface Writer {
 
 export interface RunLocalHistoryDagOptions {
   readonly cwd: string;
+  readonly graphRoot?: string | undefined;
   readonly limit: number;
   readonly json: boolean;
   readonly stdout?: Writer | undefined;
@@ -83,6 +84,7 @@ export async function runLocalHistoryDag(options: RunLocalHistoryDagOptions): Pr
     const payload = toPayload(await loadLocalHistoryDagModel({
       cwd: options.cwd,
       limit,
+      ...(options.graphRoot !== undefined ? { graphRoot: options.graphRoot } : {}),
     }));
 
     if (options.json) {

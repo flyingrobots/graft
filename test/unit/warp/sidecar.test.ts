@@ -105,6 +105,8 @@ describe("warp: isolated sidecar persistence", { timeout: 20_000 }, () => {
 
     expect(git(firstLocation.repoPath, "rev-parse --is-bare-repository")).toBe("true");
     expect(git(secondLocation.repoPath, "rev-parse --is-bare-repository")).toBe("true");
+    expect(git(firstLocation.repoPath, "config --local user.name")).toBe("Graft WARP");
+    expect(git(firstLocation.repoPath, "config --local user.email")).toBe("graft-warp@localhost");
     expect(await (await first.observer({ match: "node:*" })).getNodes()).toEqual(["node:first-agent"]);
     expect(await (await second.observer({ match: "node:*" })).getNodes()).toEqual(["node:second-agent"]);
     expect(git(source, "for-each-ref --format='%(refname) %(objectname)' refs/warp")).toBe(sourceRefsBefore);
