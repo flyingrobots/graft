@@ -7,6 +7,13 @@ source_backlog: "docs/method/backlog/up-next/WARP_logical-writer-lanes.md"
 
 # Logical WARP writer lanes
 
+> Storage-model update, 2026-08-29: [Automatic workspace admission and
+> isolated WARP sidecars](./WARP_automatic-isolated-workspace-sidecars.md)
+> supersedes the shared-source-ref premise below. Logical lanes now select
+> distinct actor sidecars keyed by repository and worktree identity; no
+> cross-actor merge semantics are implied. The remainder records this packet's
+> original not-met state.
+
 Source backlog item: `docs/method/backlog/up-next/WARP_logical-writer-lanes.md`
 Legend: WARP
 

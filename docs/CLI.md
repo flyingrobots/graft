@@ -23,6 +23,7 @@ flowchart LR
 ```
 
 ## What it is for
+
 - bootstrap and setup via `graft init`
 - repo-local stdio MCP via `graft serve`
 - daemon-backed stdio MCP via `graft serve --runtime daemon`
@@ -46,6 +47,7 @@ flowchart LR
   - `graft symbol difficulty`
 
 ## Core namespaces
+
 - `read` — bounded reads and change checks
 - `struct` — structural diff / since / map / review / import-diagnostics / test-coverage / dead-symbols
 - `symbol` — precision show / find / blame / history / difficulty
@@ -53,6 +55,7 @@ flowchart LR
 - `diag` — activity, local-history-dag, doctor, explain, stats, capture
 
 ## Release-facing commands
+
 ```bash
 graft serve
 graft serve --runtime daemon
@@ -83,6 +86,7 @@ git-graft enhance --since HEAD~1 --json
 ```
 
 ## Repo-local invocation
+
 When working from this checkout, use one of these forms:
 
 ```bash
@@ -151,7 +155,14 @@ reference traversal or write-tool behavior.
 
 `graft diag activity` is the current human-facing between-commit surface. It reports bounded local `artifact_history`, not canonical provenance, and now renders a textual operator summary by default. Use `--json` when you want the structured machine-readable form.
 
-`graft diag local-history-dag` is a CLI-only debug surface over the repo-local WARP graph. It renders a bounded event-centric DAG for local history through Bijou's `dag()` component. In interactive terminals that means the Bijou DAG layout; in pipes or non-TTY contexts it degrades to Bijou's truthful pipe-mode graph listing.
+`graft diag local-history-dag` is a CLI-only debug surface over the stable CLI
+WARP sidecar for the selected worktree. It renders a bounded event-centric DAG
+for local history through Bijou's `dag()` component. In interactive terminals
+that means the Bijou DAG layout; in pipes or non-TTY contexts it degrades to
+Bijou's truthful pipe-mode graph listing. The CLI process exits after each
+command, but graph-backed CLI commands reuse their private actor lane under
+`~/.graft/graphs/<project>/<worktree>/<actor>/warp.git`; they never persist
+WARP data in the source repository.
 
 `graft daemon status` is the read-only daemon status surface. It connects
 to an already-running daemon, builds a deterministic status model from
@@ -189,8 +200,9 @@ The second emits
 `args = ["-y", "@flyingrobots/graft", "serve", "--runtime", "daemon"]`.
 
 ## Related docs
+
 - [README](../README.md)
 - [Setup Guide](./SETUP.md)
 - [MCP Guide](./MCP.md)
-- [Advanced Guide](./ADVANCED_GUIDE.md)
+- [Advanced Guide](../ADVANCED_GUIDE.md)
 - [Architecture](../ARCHITECTURE.md)

@@ -4,6 +4,12 @@ title: "System-wide resource pressure and fairness"
 
 # System-wide resource pressure and fairness
 
+> Storage-model update, 2026-08-29: [Automatic workspace admission and
+> isolated WARP sidecars](./WARP_automatic-isolated-workspace-sidecars.md)
+> supersedes this packet's assumption that linked worktrees share one
+> `refs/warp/*` namespace. Fair scheduling remains relevant, but production
+> WARP working graphs are now isolated by repository, worktree, and actor.
+
 Source backlog item: `docs/method/backlog/up-next/SURFACE_system-wide-resource-pressure-and-fairness.md`
 Legend: SURFACE
 

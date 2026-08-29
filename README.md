@@ -74,7 +74,10 @@ npx @flyingrobots/graft review --base HEAD~1
 npx @flyingrobots/graft review cooldown --pr 48
 ```
 
-Stateless. Print and exit. Good for scripting, spot-checking policy decisions, and inspecting structural history.
+Each CLI process prints and exits, which keeps scripting predictable. Commands
+that use WARP structural history persist their graph in a stable private CLI
+sidecar, so later invocations can reuse that history without writing to the
+source repository.
 
 ### 2. MCP — Agent Sessions
 
@@ -137,6 +140,7 @@ See [docs/SETUP.md](./docs/SETUP.md) for client-specific bootstrap and daemon co
 Embed Graft directly when you want structural reads or syntax data without spawning a subprocess or going through MCP transport.
 
 **Governed repo reads** (same policy enforcement as MCP, no receipts):
+
 ```ts
 import { createRepoWorkspace } from "@flyingrobots/graft";
 
@@ -146,6 +150,7 @@ const result = await workspace.safeRead({ path: "src/app.ts" });
 ```
 
 **In-process tool calls with receipts** (full MCP behavior, no subprocess):
+
 ```ts
 import { createRepoLocalGraft, callGraftTool } from "@flyingrobots/graft";
 
@@ -154,6 +159,7 @@ const outline = await callGraftTool(graft, "file_outline", { path: "src/app.ts" 
 ```
 
 **Editor-native syntax highlighting** (Tree-Sitter WASM, no I/O, viewport-aware):
+
 ```ts
 import { createProjectionBundle, ensureParserReady } from "@flyingrobots/graft";
 
@@ -172,6 +178,7 @@ const bundle = createProjectionBundle("src/app.tsx", liveEditorText, {
 `createProjectionBundle` owns the WASM buffer lifecycle internally. Use `createStructuredBuffer` directly if you need to hold a buffer across multiple operations and manage `dispose()` yourself.
 
 **Edict projection bridge** (dirty `.edict` buffer to syntax/Core/Target IR):
+
 ```ts
 import {
   createEdictCliProjectionProvider,
@@ -239,7 +246,7 @@ That queue is the public view for priorities and discussion. Internal execution 
 |----------|---------------|
 | [Technical Teardown](./docs/TECHNICAL_TEARDOWN.md) | Zero-to-hero deep dive: entry points, golden paths, data schemas, policy engine, WARP, session governance, trade-offs |
 | [Guide](./GUIDE.md) | Orientation, the fast path, and agent bootstrap |
-| [Setup Guide](./docs/SETUP.md) | Client-specific MCP setup, daemon posture, and workspace binding |
+| [Setup Guide](./docs/SETUP.md) | Client-specific MCP setup, first-call workspace opening, and daemon control-plane posture |
 | [Advanced Guide](./ADVANCED_GUIDE.md) | Pipeline internals, worldlines, and daemon mechanics |
 | [Architecture](./ARCHITECTURE.md) | Authoritative structural reference: Ports, Adapters, WARP |
 | [Public API Contract](./docs/public-api.md) | Semver-public root import surface and stability policy |

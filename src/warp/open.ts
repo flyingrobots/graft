@@ -1,6 +1,7 @@
 /**
- * WARP graph initialization — opens the graft-ast graph backed by
- * the repo's own .git directory.
+ * WARP graph initialization — opens the graft-ast graph in the Git
+ * persistence repository supplied by the composition root. Production
+ * callers supply a Graft-owned bare sidecar, never a source repository.
  *
  * Sole construction adapter. After this, git-warp types flow directly.
  */

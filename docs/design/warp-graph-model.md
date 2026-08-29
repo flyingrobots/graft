@@ -4,6 +4,13 @@ title: "Cycle 0023 — WARP Graph Model"
 
 # Cycle 0023 — WARP Graph Model
 
+> Storage-model update, 2026-08-29: [Automatic workspace admission and
+> isolated WARP sidecars](./WARP_automatic-isolated-workspace-sidecars.md)
+> supersedes this packet's source-repository persistence and global `graft`
+> writer assumptions. Production WARP state now lives in private bare
+> repository/worktree/actor sidecars. The remainder is the original historical
+> design record.
+
 **Sponsor human:** Repository Operator
 **Sponsor agent:** Implementation Agent
 

@@ -15,9 +15,15 @@ contributors who need more than setup instructions.
 
 ### Daemon posture
 
-`graft daemon` is a same-user local runtime with explicit workspace
-authorization, session binding, monitor control, and bounded daemon
-inspection surfaces.
+`graft daemon` is a same-user local runtime with bounded workspace opening,
+explicit activation and capability controls, monitor control, and daemon
+inspection surfaces. An explicit `cwd` on a routed repository tool opens its
+canonical containing worktree with the default profile without changing the
+active binding; calls without a route still require a bound workspace.
+
+WARP persistence lives in private bare sidecars under `~/.graft/graphs`, keyed
+by repository, worktree, and actor identity. The source Git repository remains
+evidence only and receives no WARP refs, objects, config, or hooks.
 
 ### Reactive footing
 

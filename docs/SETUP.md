@@ -19,6 +19,7 @@ npx @flyingrobots/graft init
 ```
 
 Scaffolds your project for graft in one command:
+
 - Creates `.graftignore` (template with examples)
 - Adds `.graft/` to `.gitignore`
 - Generates a `CLAUDE.md` snippet instructing agents to prefer graft tools
@@ -517,7 +518,7 @@ After a Read completes, the PostToolUse hook evaluates what
 `safe_read` would have done for large JS/TS files and tells the agent
 the cost:
 
-```
+```text
 [graft] This large code read bypassed graft's governed path for src/mcp/server.ts.
 safe_read would have returned a structural outline (2048 bytes) instead of 450 lines (18.0KB),
 saving 16.0KB of context. Threshold: 150 lines / 12KB.
@@ -575,24 +576,17 @@ add to `.claude/settings.local.json`:
 | `stats` | Decision metrics for the current server session, including burden by tool kind. |
 | `explain` | Human-readable meaning and recommended action for a reason code. |
 | `run_capture` | Execute a shell command and return the last N lines of output (default 60). This tool is outside graft's bounded-read policy contract, responses include an explicit `policyBoundary` marker, log persistence can be disabled, and persisted output is redacted for obvious secrets by default. |
+| `set_budget` | Declare a session byte budget. Graft tightens read thresholds as the budget drains; no single read may consume more than 5% of the remaining budget. |
 | `state_save` | Save session working state (max 8 KB). Use for session bookmarks: current task, files modified, next planned actions. |
 | `state_load` | Load previously saved session state. Returns null if no state has been saved. |
 
-MCP responses include versioned `_schema` metadata and `_receipt`
-fields. CLI peer commands also return versioned `_schema` metadata;
-the declared contracts live in `src/contracts/output-schemas.ts`.
-| `doctor` | Runtime health check. Shows project root, parser status, active thresholds, session depth, message count, and a compact burden summary. With `sludge: true`, reports parser-backed structural smell signals. |
-| `set_budget` | Declare a session byte budget. Graft tightens read thresholds as the budget drains — no single read may consume more than 5% of remaining budget. Call once at session start. |
-| `explain` | Explain a graft reason code. Returns human-readable meaning and recommended next action for any code (e.g., `BINARY`, `BUDGET_CAP`). Case-insensitive. |
-| `stats` | Decision metrics for the current session. Total reads, outlines, refusals, cache hits, bytes avoided, and returned-byte burden by tool kind. |
-
 Every MCP tool response includes:
+
 - `_receipt` — runtime decision metadata
 - `_schema` — versioned output contract metadata
 
-Declared output contracts live in `src/contracts/output-schemas.ts`.
-| `graft_since` | Structural changes since a git ref. Shows symbols added, removed, and changed per file — not line hunks. Includes per-file summary lines. Policy-denied files are omitted from `files` and surfaced in `refused`. |
-| `graft_map` | Structural map of a directory — all files and their symbols (function signatures, class shapes, exports) in one call. Uses tree-sitter to parse the working tree directly. Policy-denied files are omitted from `files` and surfaced in `refused`. |
+CLI peer commands also return versioned `_schema` metadata. Declared output
+contracts live in `src/contracts/output-schemas.ts`.
 
 ## What the agent sees
 
@@ -664,6 +658,7 @@ budget drains. No single read may consume more than 5% of remaining
 budget. When the budget is exhausted, all reads return outlines.
 
 Budget status appears in every receipt:
+
 ```json
 "budget": { "total": 500000, "consumed": 14345, "remaining": 485655, "fraction": 0.029 }
 ```
@@ -787,6 +782,7 @@ The agent should use the jump table from the outline to
 ### Agent can't read a file (refused)
 
 Check the reason code in the response:
+
 - `BINARY` — binary file, use `ls -lh` or `file` for metadata
 - `LOCKFILE` — read `package.json` instead
 - `SECRET` — `.env` files are banned for safety
@@ -816,7 +812,7 @@ with a jump table. That's graft working.
 
 You can also ask the agent to call `doctor` to verify:
 
-```
+```text
 Use the doctor tool to check graft's health.
 ```
 
