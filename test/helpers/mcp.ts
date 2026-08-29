@@ -1,13 +1,19 @@
+import * as crypto from "node:crypto";
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
+import { nodePathOps } from "../../src/adapters/node-paths.js";
 import { createGraftServer } from "../../src/mcp/server.js";
 import type { CreateGraftServerOptions, GraftServer } from "../../src/mcp/server.js";
 import type { RunCaptureConfig } from "../../src/mcp/run-capture-config.js";
 import type { RuntimeObservabilityState } from "../../src/mcp/runtime-observability.js";
+import { resolveWorkspaceRequest } from "../../src/mcp/workspace-router-resolution.js";
 import type { WorkspaceMode } from "../../src/mcp/workspace-router.js";
+import { InMemoryWarpPool } from "../../src/mcp/warp-pool.js";
 import type { GitClient } from "../../src/ports/git.js";
 import type { ProcessRunner } from "../../src/ports/process-runner.js";
+import { indexHead } from "../../src/warp/index-head.js";
+import { buildSessionWarpWriterId } from "../../src/warp/writer-id.js";
 import { ensureGitRepo, testGitClient } from "./git.js";
 import { harnessPath } from "./fixtures.js";
 export { createFixtureWorkspace, fixturePath, harnessPath } from "./fixtures.js";
@@ -63,6 +69,50 @@ export function createServerInRepo(
     persistedLocalHistoryGraph: false,
     ...options,
   });
+}
+
+export interface IndexableServerInRepo {
+  readonly server: GraftServer;
+  indexCurrentHead(): Promise<void>;
+}
+
+/**
+ * Builds a repo-local server and an indexer that writes into that exact
+ * server session's sidecar lane. Tests using this helper cannot accidentally
+ * seed the source repository or a different actor's graph.
+ */
+export function createIndexableServerInRepo(
+  repoDir: string,
+  options: CreateServerInRepoOptions = {},
+): IndexableServerInRepo {
+  const sessionId = options.sessionId ?? crypto.randomUUID();
+  const graphRoot = options.graphRoot ?? path.join(repoDir, ".graft", "graphs");
+  const warpPool = options.warpPool ?? new InMemoryWarpPool({ graphRoot });
+  const gitClient = options.git ?? testGitClient;
+  const server = createServerInRepo(repoDir, {
+    ...options,
+    sessionId,
+    graphRoot,
+    git: gitClient,
+    warpPool,
+  });
+
+  return {
+    server,
+    async indexCurrentHead(): Promise<void> {
+      const workspace = await resolveWorkspaceRequest(gitClient, { cwd: repoDir });
+      if ("code" in workspace) {
+        throw new Error(workspace.message);
+      }
+      const app = await warpPool.getOrOpen(workspace, buildSessionWarpWriterId(sessionId));
+      await indexHead({
+        cwd: workspace.worktreeRoot,
+        git: gitClient,
+        pathOps: nodePathOps,
+        ctx: { app, strandId: null },
+      });
+    },
+  };
 }
 
 export function createIsolatedServer(options: CreateIsolatedServerOptions = {}): IsolatedServer {

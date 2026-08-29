@@ -1,21 +1,18 @@
 import { describe, expect, it } from "vitest";
 import * as fs from "node:fs";
 import * as path from "node:path";
-import { nodePathOps } from "../../src/adapters/node-paths.js";
 import { runCli } from "../../src/cli/main.js";
-import { openWarp } from "../../src/warp/open.js";
-import { indexHead } from "../../src/warp/index-head.js";
-import { cleanupTestRepo, createTestRepo, git, testGitClient } from "../../test/helpers/git.js";
+import { cleanupTestRepo, createTestRepo, git } from "../../test/helpers/git.js";
 import { createBufferWriter } from "../../test/helpers/init.js";
 
 async function indexCurrentHead(repoDir: string): Promise<void> {
-  const app = await openWarp({ cwd: repoDir });
-  await indexHead({
-    cwd: repoDir,
-    git: testGitClient,
-    pathOps: nodePathOps,
-    ctx: { app, strandId: null },
-  });
+  const stdout = createBufferWriter();
+  const stderr = createBufferWriter();
+  await runCli({ cwd: repoDir, args: ["index", "--json"], stdout, stderr });
+  const result = JSON.parse(stdout.text()) as { ok: boolean; error?: string };
+  if (!result.ok) {
+    throw new Error(result.error ?? stderr.text());
+  }
 }
 
 async function runDeadSymbols(repoDir: string, args: readonly string[]): Promise<{ stdout: string; stderr: string }> {

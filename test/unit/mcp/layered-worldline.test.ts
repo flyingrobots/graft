@@ -1,11 +1,8 @@
 import { describe, it, expect } from "vitest";
 import * as fs from "node:fs";
 import * as path from "node:path";
-import { nodePathOps } from "../../../src/adapters/node-paths.js";
-import { git, createTestRepo, cleanupTestRepo, testGitClient } from "../../helpers/git.js";
-import { createServerInRepo, parse } from "../../helpers/mcp.js";
-import { openWarp } from "../../../src/warp/open.js";
-import { indexHead } from "../../../src/warp/index-head.js";
+import { git, createTestRepo, cleanupTestRepo } from "../../helpers/git.js";
+import { createIndexableServerInRepo, createServerInRepo, parse } from "../../helpers/mcp.js";
 
 // These RED tests intentionally mirror the 0025 playback questions while
 // spanning golden path, failure modes, edge cases, and stress behavior.
@@ -22,9 +19,8 @@ describe("mcp: layered worldline model", { timeout: 15000 }, () => {
         git(tmpDir, "commit -m v1");
         const c1 = git(tmpDir, "rev-parse HEAD");
 
-        const warp = await openWarp({ cwd: tmpDir });
-        const ctx = { app: warp, strandId: null };
-        await indexHead({ cwd: tmpDir, git: testGitClient, pathOps: nodePathOps, ctx });
+        const indexed = createIndexableServerInRepo(tmpDir);
+        await indexed.indexCurrentHead();
 
         fs.writeFileSync(
           path.join(tmpDir, "app.ts"),
@@ -33,9 +29,9 @@ describe("mcp: layered worldline model", { timeout: 15000 }, () => {
         git(tmpDir, "add -A");
         git(tmpDir, "commit -m v2");
 
-        await indexHead({ cwd: tmpDir, git: testGitClient, pathOps: nodePathOps, ctx });
+        await indexed.indexCurrentHead();
 
-        const server = createServerInRepo(tmpDir);
+        const server = indexed.server;
         const result = parse(await server.callTool("code_show", {
           symbol: "greet",
           ref: c1,
@@ -85,16 +81,15 @@ describe("mcp: layered worldline model", { timeout: 15000 }, () => {
         git(tmpDir, "add -A");
         git(tmpDir, "commit -m init");
 
-        const warp = await openWarp({ cwd: tmpDir });
-        const ctx = { app: warp, strandId: null };
-        await indexHead({ cwd: tmpDir, git: testGitClient, pathOps: nodePathOps, ctx });
+        const indexed = createIndexableServerInRepo(tmpDir);
+        await indexed.indexCurrentHead();
 
         fs.writeFileSync(
           path.join(tmpDir, "src", "draft.ts"),
           'export function draftHelper(): string {\n  return "draft";\n}\n',
         );
 
-        const server = createServerInRepo(tmpDir);
+        const server = indexed.server;
         const result = parse(await server.callTool("code_find", {
           query: "draft*",
         }));
