@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
@@ -36,6 +36,7 @@ function committedRepo(prefix: string): string {
 
 class OverlapDetectingFileSystem implements FileSystem {
   activeAuthorizationWrites = 0;
+  authorizationWriteDelayMs = 50;
   authorizationWritesToFail = 0;
   maxAuthorizationWrites = 0;
 
@@ -62,7 +63,7 @@ class OverlapDetectingFileSystem implements FileSystem {
       this.activeAuthorizationWrites,
     );
     try {
-      await new Promise((resolve) => setTimeout(resolve, 50));
+      await new Promise((resolve) => setTimeout(resolve, this.authorizationWriteDelayMs));
       if (this.authorizationWritesToFail > 0) {
         this.authorizationWritesToFail -= 1;
         throw new Error("injected authorization persistence failure");
@@ -117,6 +118,27 @@ describe("mcp: daemon control plane", () => {
 
     expect(observedFs.maxAuthorizationWrites).toBe(1);
     await expect(controlPlane.listAuthorizedWorkspaceRecords()).resolves.toHaveLength(2);
+  });
+
+  it("does not publish auto-admission before persistence succeeds", async () => {
+    const graftDir = tempDir("graft-control-plane-commit-visibility-");
+    const observedFs = new OverlapDetectingFileSystem();
+    observedFs.authorizationWriteDelayMs = 250;
+    const controlPlane = new DaemonControlPlane({
+      fs: observedFs,
+      codec: new CanonicalJsonCodec(),
+      git: nodeGit,
+      graftDir,
+    });
+
+    const admission = controlPlane.ensureCapabilityProfile(resolvedWorkspace("pending"));
+    await vi.waitFor(() => {
+      expect(observedFs.activeAuthorizationWrites).toBe(1);
+    }, { interval: 5, timeout: 1_000 });
+
+    await expect(controlPlane.listAuthorizedWorkspaceRecords()).resolves.toEqual([]);
+    await expect(admission).resolves.toMatchObject({ runCapture: false });
+    await expect(controlPlane.listAuthorizedWorkspaceRecords()).resolves.toHaveLength(1);
   });
 
   it("rolls back in-memory auto-admission when persistence fails", async () => {

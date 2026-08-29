@@ -188,17 +188,10 @@ export class DaemonControlPlane {
           || stored.gitCommonDir !== next.gitCommonDir
           || !capabilityProfilesEqual(stored.capabilityProfile, next.capabilityProfile);
 
+      const committed = new Map(this.authorizedWorkspaces);
+      committed.set(next.worktreeId, next);
+      await this.persist(committed);
       this.authorizedWorkspaces.set(next.worktreeId, next);
-      try {
-        await this.persist();
-      } catch (error: unknown) {
-        if (stored === undefined) {
-          this.authorizedWorkspaces.delete(next.worktreeId);
-        } else {
-          this.authorizedWorkspaces.set(stored.worktreeId, stored);
-        }
-        throw error;
-      }
       return { record: next, changed };
     });
     const registryObservation = await this.observeAuthorizedWorkspace(authorized.record);
@@ -225,13 +218,10 @@ export class DaemonControlPlane {
       if (!authorizationMatches(stored, resolved)) {
         return null;
       }
+      const committed = new Map(this.authorizedWorkspaces);
+      committed.delete(resolved.worktreeId);
+      await this.persist(committed);
       this.authorizedWorkspaces.delete(resolved.worktreeId);
-      try {
-        await this.persist();
-      } catch (error: unknown) {
-        this.authorizedWorkspaces.set(stored.worktreeId, stored);
-        throw error;
-      }
       return stored;
     });
     if (current === null) {
@@ -283,13 +273,10 @@ export class DaemonControlPlane {
         ...current,
         lastBoundAt: new Date().toISOString(),
       };
+      const committed = new Map(this.authorizedWorkspaces);
+      committed.set(resolved.worktreeId, next);
+      await this.persist(committed);
       this.authorizedWorkspaces.set(resolved.worktreeId, next);
-      try {
-        await this.persist();
-      } catch (error: unknown) {
-        this.authorizedWorkspaces.set(current.worktreeId, current);
-        throw error;
-      }
     });
   }
 
@@ -384,8 +371,10 @@ export class DaemonControlPlane {
     await this.loadPromise;
   }
 
-  private async persist(): Promise<void> {
-    await persistState(this.statePath, this.options.fs, this.options.codec, this.authorizedWorkspaces);
+  private async persist(
+    workspaces: ReadonlyMap<string, AuthorizedWorkspaceRecord> = this.authorizedWorkspaces,
+  ): Promise<void> {
+    await persistState(this.statePath, this.options.fs, this.options.codec, workspaces);
   }
 
   private runStateMutation<T>(operation: () => Promise<T>): Promise<T> {
