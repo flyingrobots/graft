@@ -44,7 +44,7 @@ describe("test helper: MCP server isolation", () => {
     const repoDir = createTestRepo("graft-mcp-helper-no-eager-warp-");
     const warpPool: WarpPool = {
       locationFor() {
-        const repoPath = path.join(repoDir, ".graft", "graphs", "warp.git");
+        const repoPath = path.join(`${repoDir}.graft-graphs`, "warp.git");
         return {
           graphRoot: path.dirname(repoPath),
           projectDir: path.dirname(repoPath),

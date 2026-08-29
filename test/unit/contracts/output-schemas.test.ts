@@ -47,11 +47,11 @@ function cliGraphRoot(cwd: string): string {
   return created;
 }
 
-function createDaemonServer(graftDir: string) {
+function createDaemonServer(graftDir: string, graphRoot: string) {
   return createGraftServer({
     mode: "daemon",
     graftDir,
-    graphRoot: path.join(graftDir, "graphs"),
+    graphRoot,
   });
 }
 
@@ -336,7 +336,10 @@ describe("contracts: output schemas", () => {
     fs.writeFileSync(path.join(repoDir, "edit-target.ts"), "export const editTarget = \"before\";\n");
 
     const server = createServerInRepo(repoDir);
-    const daemonServer = createDaemonServer(path.join(repoDir, ".graft-daemon"));
+    const daemonServer = createDaemonServer(
+      path.join(repoDir, ".graft-daemon"),
+      cliGraphRoot(repoDir),
+    );
     const daemonAuthorize = parse(await daemonServer.callTool("workspace_authorize", { cwd: repoDir }));
     const daemonStatusSnapshot = parse(await daemonServer.callTool("daemon_status", {}));
     const daemonSessionsSnapshot = parse(await daemonServer.callTool("daemon_sessions", {}));

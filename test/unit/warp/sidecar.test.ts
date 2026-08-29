@@ -134,6 +134,45 @@ describe("warp: isolated sidecar persistence", { timeout: 20_000 }, () => {
     })).rejects.toThrow(/non-empty sidecar repository path/u);
   });
 
+  it("rejects graph storage that overlaps source worktree or Git metadata", () => {
+    const source = sourceRepo();
+    const externalCommonDir = tempDir("graft-sidecar-common-dir-");
+    const aliasParent = tempDir("graft-sidecar-source-alias-");
+    const sourceAlias = path.join(aliasParent, "source");
+    const workspaceIdentity = identity(source, "graft_session_overlap");
+    fs.symlinkSync(source, sourceAlias, "dir");
+
+    expect(() => resolveWarpSidecarLocation(
+      path.join(source, ".graft", "graphs"),
+      workspaceIdentity,
+    )).toThrow(/overlaps source worktree/u);
+    expect(() => resolveWarpSidecarLocation(
+      path.dirname(source),
+      workspaceIdentity,
+    )).toThrow(/overlaps source worktree/u);
+    expect(() => resolveWarpSidecarLocation(
+      path.join(externalCommonDir, "graphs"),
+      { ...workspaceIdentity, gitCommonDir: externalCommonDir },
+    )).toThrow(/overlaps common Git directory/u);
+    expect(() => resolveWarpSidecarLocation(
+      path.join(sourceAlias, ".graft", "graphs"),
+      workspaceIdentity,
+    )).toThrow(/overlaps source worktree/u);
+  });
+
+  it("rejects a graph root reached through a symlink alias", () => {
+    const source = sourceRepo();
+    const graphTarget = tempDir("graft-sidecar-graph-target-");
+    const aliasParent = tempDir("graft-sidecar-graph-alias-");
+    const graphAlias = path.join(aliasParent, "graphs");
+    fs.symlinkSync(graphTarget, graphAlias, "dir");
+
+    expect(() => resolveWarpSidecarLocation(
+      graphAlias,
+      identity(source, "graft_session_graph_alias"),
+    )).toThrow(/symlinked Graft graph storage path/u);
+  });
+
   it("keys readable contained locations by repo, worktree, and actor without exposing the raw token", () => {
     const source = sourceRepo();
     const graphRoot = tempDir("graft-sidecar-root-");

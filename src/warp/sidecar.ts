@@ -1,4 +1,5 @@
 import * as crypto from "node:crypto";
+import * as fsSync from "node:fs";
 import * as fs from "node:fs/promises";
 import * as os from "node:os";
 import * as path from "node:path";
@@ -44,6 +45,26 @@ function hasErrorCode(error: unknown, code: string): boolean {
   return error instanceof Error && "code" in error && error.code === code;
 }
 
+function canonicalizeProspectivePath(input: string): string {
+  let current = path.resolve(input);
+  const missingSegments: string[] = [];
+
+  while (true) {
+    try {
+      const canonicalPrefix = fsSync.realpathSync.native(current);
+      return path.join(canonicalPrefix, ...missingSegments.reverse());
+    } catch (error: unknown) {
+      if (!hasErrorCode(error, "ENOENT") && !hasErrorCode(error, "ENOTDIR")) {
+        throw error;
+      }
+      const parent = path.dirname(current);
+      if (parent === current) throw error;
+      missingSegments.push(path.basename(current));
+      current = parent;
+    }
+  }
+}
+
 function resolveRequiredStoragePath(input: string, label: string): string {
   if (input.trim().length === 0) {
     throw new Error(`Graft WARP requires a non-empty ${label}`);
@@ -82,12 +103,53 @@ function projectDisplayName(identity: WarpSidecarWorkspaceIdentity): string {
     : path.basename(identity.worktreeRoot);
 }
 
-function assertContained(root: string, target: string): void {
+function isWithin(root: string, target: string): boolean {
   const relative = path.relative(root, target);
-  if (relative === "" || (!relative.startsWith("..") && !path.isAbsolute(relative))) {
-    return;
-  }
+  return relative === ""
+    || (
+      !path.isAbsolute(relative)
+      && relative !== ".."
+      && !relative.startsWith(`..${path.sep}`)
+    );
+}
+
+function assertContained(root: string, target: string): void {
+  if (isWithin(root, target)) return;
   throw new Error(`Refusing to use WARP sidecar outside Graft graph storage: ${target}`);
+}
+
+function assertGraphStorageDisjoint(
+  graphRoot: string,
+  identity: WarpSidecarWorkspaceIdentity,
+): void {
+  const canonicalGraphRoot = canonicalizeProspectivePath(graphRoot);
+  const worktreeRoot = canonicalizeProspectivePath(
+    resolveRequiredStoragePath(identity.worktreeRoot, "source worktree root"),
+  );
+  if (
+    isWithin(worktreeRoot, canonicalGraphRoot)
+    || isWithin(canonicalGraphRoot, worktreeRoot)
+  ) {
+    throw new Error(
+      `Refusing Graft WARP graph root that overlaps source worktree: ${graphRoot}`,
+    );
+  }
+
+  const gitCommonDir = canonicalizeProspectivePath(
+    resolveRequiredStoragePath(identity.gitCommonDir, "common Git directory"),
+  );
+  if (
+    isWithin(gitCommonDir, canonicalGraphRoot)
+    || isWithin(canonicalGraphRoot, gitCommonDir)
+  ) {
+    throw new Error(
+      `Refusing Graft WARP graph root that overlaps common Git directory: ${graphRoot}`,
+    );
+  }
+
+  if (canonicalGraphRoot !== graphRoot) {
+    throw new Error(`Refusing symlinked Graft graph storage path: ${graphRoot}`);
+  }
 }
 
 async function assertPrivateDirectory(directory: string): Promise<void> {
@@ -254,6 +316,7 @@ export function resolveWarpSidecarLocation(
   identity: WarpSidecarIdentity,
 ): WarpSidecarLocation {
   const resolvedRoot = resolveWarpGraphRoot(graphRoot);
+  assertGraphStorageDisjoint(resolvedRoot, identity);
   const projectDir = path.join(
     resolvedRoot,
     keyedDirectory(projectDisplayName(identity), "project", identity.repoId),

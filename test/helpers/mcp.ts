@@ -14,7 +14,7 @@ import type { GitClient } from "../../src/ports/git.js";
 import type { ProcessRunner } from "../../src/ports/process-runner.js";
 import { indexHead } from "../../src/warp/index-head.js";
 import { buildSessionWarpWriterId } from "../../src/warp/writer-id.js";
-import { ensureGitRepo, testGitClient } from "./git.js";
+import { ensureGitRepo, testGitClient, testGraphRootForRepo } from "./git.js";
 import { harnessPath } from "./fixtures.js";
 export { createFixtureWorkspace, fixturePath, harnessPath } from "./fixtures.js";
 
@@ -64,7 +64,7 @@ export function createServerInRepo(
   return createGraftServer({
     projectRoot: repoDir,
     graftDir: path.join(repoDir, ".graft"),
-    graphRoot: path.join(repoDir, ".graft", "graphs"),
+    graphRoot: testGraphRootForRepo(repoDir),
     git: testGitClient,
     persistedLocalHistoryGraph: false,
     ...options,
@@ -86,7 +86,7 @@ export function createIndexableServerInRepo(
   options: CreateServerInRepoOptions = {},
 ): IndexableServerInRepo {
   const sessionId = options.sessionId ?? crypto.randomUUID();
-  const graphRoot = options.graphRoot ?? path.join(repoDir, ".graft", "graphs");
+  const graphRoot = options.graphRoot ?? testGraphRootForRepo(repoDir);
   const warpPool = options.warpPool ?? new InMemoryWarpPool({ graphRoot });
   const gitClient = options.git ?? testGitClient;
   const server = createServerInRepo(repoDir, {
@@ -129,6 +129,7 @@ export function createIsolatedServer(options: CreateIsolatedServerOptions = {}):
         ? path.join(projectRoot, ".graft")
         : fs.mkdtempSync(path.join(os.tmpdir(), "graft-mcp-state-"))
     );
+  const graphRoot = fs.mkdtempSync(path.join(os.tmpdir(), "graft-mcp-graphs-"));
 
   return {
     server: createGraftServer({
@@ -136,7 +137,7 @@ export function createIsolatedServer(options: CreateIsolatedServerOptions = {}):
       git: options.git ?? testGitClient,
       ...(mode === "repo_local" ? { projectRoot } : {}),
       graftDir,
-      graphRoot: path.join(graftDir, "graphs"),
+      graphRoot,
       ...(options.runCapture !== undefined ? { runCapture: options.runCapture } : {}),
       ...(options.runtimeObservability !== undefined ? { runtimeObservability: options.runtimeObservability } : {}),
       ...(options.processRunner !== undefined ? { processRunner: options.processRunner } : {}),
@@ -145,9 +146,9 @@ export function createIsolatedServer(options: CreateIsolatedServerOptions = {}):
     projectRoot,
     graftDir,
     cleanup(): void {
+      fs.rmSync(graphRoot, { recursive: true, force: true });
       if (ownsProjectRoot) {
         fs.rmSync(projectRoot, { recursive: true, force: true });
-        return;
       }
       if (ownsGraftDir) {
         fs.rmSync(graftDir, { recursive: true, force: true });
