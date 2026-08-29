@@ -184,6 +184,12 @@ rather than call repo-local or buffer-local services directly.
 checking that the installed Git supports the plumbing features Graft
 runtimes require.
 
+`CreateGraftServerOptions` and `StartDaemonServerOptions` accept an optional
+`graphRoot`. It selects the parent directory for Graft-owned WARP sidecars and
+defaults to `~/.graft/graphs`. This is an advanced storage-location override,
+not permission to place WARP state in a source repository. The field is an
+additive public option in v0.13.0; no root export was removed or renamed.
+
 ### 5. Metadata
 
 - `GRAFT_VERSION`

@@ -7,7 +7,39 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.13.0] - 2026-08-29
+
+### Added
+
+- **First-call daemon workspace opening**: routed repository tools now treat a
+  non-empty explicit `cwd` as bounded opening intent. Graft resolves its exact
+  containing Git worktree, persists the default authorization when needed,
+  records it in the session's opened-workspace list, and runs the call without
+  changing the active binding. `workspace_open` remains the activation and
+  capability-configuration surface.
+- **Configurable WARP graph root**: the semver-public
+  `CreateGraftServerOptions` and `StartDaemonServerOptions` accept an additive
+  `graphRoot` field. The default remains `~/.graft/graphs`.
+
+### Changed
+
+- **Actor-isolated WARP sidecars**: production MCP, daemon worker, persistent
+  monitor, API, and graph-backed CLI paths persist WARP state in private bare
+  repositories keyed by canonical repository, worktree, and actor identity.
+  Source repositories receive no WARP refs, objects, config, or hooks. Existing
+  source-repository `refs/warp/*` are left untouched and are not imported.
+- **Copy-in-only Docker tests**: every supported Vitest path builds a pinned
+  Docker image from a source copy that excludes the live `.git`, scrubs remotes
+  and linked-worktree pointers after copying, and executes without network,
+  host mounts, Linux capabilities, or a host-side fallback. The runner rejects
+  unsafe image overrides before invoking Docker.
+
 ### Fixed
+
+- **Concurrent sidecar opening**: exact simultaneous opens coalesce within one
+  process, while first-time bare-repository installation is atomic across
+  processes. Callers can no longer observe a partial sidecar or race its Git
+  configuration.
 
 - **Requested-worktree authority**: daemon-routed repository reads now expose
   the absolute caller-requested root, canonical resolved worktree root, and
