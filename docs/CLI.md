@@ -162,7 +162,9 @@ that means the Bijou DAG layout; in pipes or non-TTY contexts it degrades to
 Bijou's truthful pipe-mode graph listing. The CLI process exits after each
 command, but graph-backed CLI commands reuse their private actor lane under
 `~/.graft/graphs/<project>/<worktree>/<actor>/warp.git`; they never persist
-WARP data in the source repository.
+WARP data in the source repository. This is one stable operator lane per
+worktree, not one lane per CLI process. Concurrent agents that require separate
+working histories should use independent MCP sessions.
 
 `graft daemon status` is the read-only daemon status surface. It connects
 to an already-running daemon, builds a deterministic status model from

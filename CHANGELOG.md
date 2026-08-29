@@ -19,7 +19,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   capability-configuration surface.
 - **Configurable WARP graph root**: the semver-public
   `CreateGraftServerOptions` and `StartDaemonServerOptions` accept an additive
-  `graphRoot` field. The default remains `~/.graft/graphs`.
+  `graphRoot` field. The default remains `~/.graft/graphs`; blank,
+  symlink-aliased, and source-overlapping roots fail before storage mutation.
 
 ### Changed
 
@@ -28,10 +29,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   repositories keyed by canonical repository, worktree, and actor identity.
   Source repositories receive no WARP refs, objects, config, or hooks. Existing
   source-repository `refs/warp/*` are left untouched and are not imported.
+  Separate one-shot CLI processes in one worktree intentionally share the
+  stable CLI actor lane; independent MCP sessions remain actor-isolated.
 - **Copy-in-only Docker tests**: every supported Vitest path builds a pinned
   Docker image from a source copy that excludes the live `.git`, scrubs remotes
-  and linked-worktree pointers after copying, and executes without network,
-  host mounts, Linux capabilities, or a host-side fallback. The runner rejects
+  and linked-worktree pointers after copying, disables network for every
+  post-copy build step, and executes without network, host mounts, Linux
+  capabilities, or a host-side fallback. The base digest and Git package are
+  exact, each invocation uses a unique image reference, and the runner rejects
   unsafe image overrides before invoking Docker.
 
 ### Fixed

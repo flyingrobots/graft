@@ -117,8 +117,9 @@ The actor namespace is the terminal WARP-store identity.
 - Repo-local MCP/API: the server-minted session writer identity, not the old
   process-global `graft` default.
 - Persistent monitor: its stable logical monitor writer identity.
-- One-shot CLI: a stable CLI namespace unless an explicit caller namespace is
-  supplied; it still uses a sidecar and never the source repository.
+- One-shot CLI: one stable operator namespace per worktree. Separate CLI
+  processes intentionally reuse that lane; there is no CLI actor override.
+  Parallel agents that require isolated histories use separate MCP sessions.
 
 The pool key is therefore:
 
@@ -142,6 +143,9 @@ locator rather than independently reconstructing paths.
 
 Sidecar initialization must:
 
+- reject a blank graph root, any graph root reached through a symlink alias,
+  and any root that contains or is contained by the source worktree or common
+  Git directory before touching storage;
 - create Graft-owned directories with private permissions;
 - refuse symlinked or non-directory managed path components;
 - initialize an absent terminal repository as bare;
@@ -168,12 +172,18 @@ The isolation boundary is defense in depth:
    remote from any Git repository that was nevertheless copied in, removes
    linked-worktree `.git` pointer files, and fails if a copied repository still
    advertises a remote.
-4. Test execution uses `--network none` and an ephemeral `--rm` container.
-5. Public package scripts do not expose a host-side Vitest fallback or a
+4. Every Docker `RUN` step after project-source copy uses `--network=none`.
+5. Test execution uses `--network none` and an ephemeral `--rm` container with
+   all Linux capabilities dropped and `no-new-privileges` enabled.
+6. Every invocation receives a unique image reference, so concurrent test
+   runners cannot overwrite or remove one another's image.
+7. Public package scripts do not expose a host-side Vitest fallback or a
    spoofable environment-only escape from Docker isolation.
 
 The image may create disposable Git repositories inside its own filesystem for
-behavior tests. Those repositories have no host mount and no configured remote.
+behavior tests. A test may configure an inert `example.invalid` remote solely
+to prove the post-copy scrub removes it. Network access remains unavailable,
+and the assertion requires every copied repository to end with no remotes.
 Their refs and objects disappear with the test container.
 
 ## Identity Matrix
@@ -185,6 +195,7 @@ Their refs and objects disappear with the test container.
 | Different sessions, same worktree | shared | shared | separate sidecars |
 | Different sessions, different worktrees | shared when linked | separate | separate sidecars |
 | Persistent monitor and agent | shared | selected worktree | separate logical sidecars |
+| Different CLI processes, same worktree | shared | shared | one stable CLI sidecar |
 
 Separate graph stores do not claim separate ownership of the underlying live
 files. Same-worktree overlap remains provenance-uncertain unless stronger
@@ -200,7 +211,8 @@ handoff or actor evidence exists.
   while `workspace_status` remains unbound when I did not request activation?
 - [x] Can two agents point at two linked worktrees and get only their own
   structural graph state?
-- [x] Does the source repository remain free of new WARP refs and objects?
+- [x] Does the source repository retain the same WARP refs, objects, local Git
+  configuration, and hooks tree?
 - [x] Can I recognize the project and worktree in `~/.graft/graphs` without
   relying on those names as identity?
 
@@ -218,6 +230,8 @@ handoff or actor evidence exists.
   the git-warp persistence adapter?
 - [x] Does a malformed or non-bare sidecar fail without falling back to the
   source repository?
+- [x] Do blank, symlink-aliased, and source-overlapping graph roots fail before
+  any storage path is created or permission mode changed?
 
 ## Acceptance Criteria
 
@@ -231,7 +245,8 @@ handoff or actor evidence exists.
 - Independent MCP sessions never share a WARP sidecar, including when they use
   the same worktree.
 - A graph write creates refs and objects only in the expected bare sidecar.
-  The source repository's WARP refs and object count remain unchanged.
+  The source repository's WARP refs, object count, local configuration, and
+  hooks tree remain unchanged.
 - Production MCP, daemon-worker, monitor, API, and CLI composition roots do not
   open git-warp persistence against a source worktree.
 - Existing behavioral, path-boundary, capability, output-schema, typecheck,
@@ -239,8 +254,12 @@ handoff or actor evidence exists.
 - Every package-script path that executes Vitest routes through the copy-in
   Docker harness; no supported `test:local`, watch, release, or environment
   bypass can execute tests against the host checkout.
-- The Docker build visibly performs post-copy Git-remote scrubbing and fails
+- The Docker build visibly performs post-copy Git-remote scrubbing across
+  ordinary repositories and arbitrarily named bare repositories, then fails
   closed if any copied repository retains a remote.
+- The base image digest and Alpine Git package revision are exact, every
+  post-copy build step has no network, and concurrent invocations use distinct
+  image references.
 - The test container has no host checkout mount and no network.
 
 ## Test Strategy
@@ -257,7 +276,8 @@ Tests assert behavior and Git state, not this document's formatting.
    names, collision-resistant suffixes, and path containment.
 4. Unit-test pool reuse on the full identity and retry after an open failure.
 5. Open two real bare sidecars, write distinct nodes, and prove each observer
-   sees only its own node while the source repo has no WARP refs or new objects.
+   sees only its own node while the source repo retains the same WARP refs,
+   objects, local configuration, and hooks tree.
 6. Exercise routed work through the in-process daemon worker path and verify
    its exact sidecar receives the graph refs.
 7. Run focused workspace-routing, daemon-session, WARP-open, pool, worker,
@@ -266,9 +286,10 @@ Tests assert behavior and Git state, not this document's formatting.
 8. Exercise the test-runner model to prove all Vitest package scripts select
    Docker, the run command has no volume flags, and the environment variable
    formerly used for host bypass no longer changes execution.
-9. Build the test target from a copied context, inspect the post-copy scrub
-   witness, then run focused and full validation only through ephemeral,
-   network-disabled containers with no mounts.
+9. Build the test target from a copied context with an exact base image and Git
+   package, inspect the post-copy scrub witness, prove post-copy build steps
+   have no network, then run focused and full validation only through unique,
+   ephemeral, network-disabled containers with no mounts.
 
 ## Accessibility and Assistive Reading
 

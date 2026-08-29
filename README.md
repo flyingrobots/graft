@@ -77,7 +77,9 @@ npx @flyingrobots/graft review cooldown --pr 48
 Each CLI process prints and exits, which keeps scripting predictable. Commands
 that use WARP structural history persist their graph in a stable private CLI
 sidecar, so later invocations can reuse that history without writing to the
-source repository.
+source repository. That stability is one operator lane per worktree: separate
+one-shot CLI processes in the same worktree intentionally share it. Parallel
+agents that need isolated working histories should use separate MCP sessions.
 
 ### 2. MCP — Agent Sessions
 
@@ -131,7 +133,8 @@ WARP persistence is private sidecar state, not source-repository state. By
 default, Graft creates bare repositories under
 `~/.graft/graphs/<project>/<worktree>/<actor>/warp.git`. The readable path
 names carry identity suffixes, and separate worktrees and MCP sessions receive
-separate graph stores.
+separate graph stores. Advanced `graphRoot` overrides fail closed when blank,
+symlink-aliased, or overlapping the source worktree or common Git directory.
 
 See [docs/SETUP.md](./docs/SETUP.md) for client-specific bootstrap and daemon control-plane configuration.
 

@@ -94,7 +94,10 @@ in-progress CI state.
 replaced by a host-side `vitest run`, including for focused feedback or test
 harness debugging. The Docker test image copies the repository without
 `.git`, scrubs remotes and linked-worktree pointers from any nested Git
-metadata after the copy, and runs without network or host mounts. Validation
+metadata after the copy, pins both the base image digest and Git package
+revision, disables network access for every post-copy build step, assigns a
+unique image reference to each invocation, and runs the test container without
+network, mounts, Linux capabilities, or privilege escalation. Validation
 therefore cannot inherit or mutate the operator's live checkout, hooks,
 remotes, refs, objects, or Git worktree environment.
 

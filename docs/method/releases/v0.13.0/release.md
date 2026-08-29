@@ -11,10 +11,12 @@
 - Publish concurrency-safe sidecar installation and exact in-process open
   coalescing.
 - Publish the copy-in-only Docker test boundary with a pinned base digest,
-  copied-repository remote scrubbing, no network, no host mounts, and no
-  host-side Vitest fallback.
+  exact Git package revision, copied-repository remote scrubbing, no post-copy
+  build network, unique per-invocation image references, no test network or
+  host mounts, and no host-side Vitest fallback.
 - Add the public optional `graphRoot` field to `CreateGraftServerOptions` and
-  `StartDaemonServerOptions`.
+  `StartDaemonServerOptions`, rejecting blank, symlink-aliased, or
+  source-overlapping locations before storage mutation.
 - Move the package and structural-history descriptor versions to `0.13.0`.
 
 ## Deferred Work
@@ -22,6 +24,8 @@
 - No legacy source-repository WARP ref import, merge, or deletion is included.
 - No sidecar retention, quota, discovery UI, or pruning policy is included.
 - No cross-actor graph merge or causal ownership inference is claimed.
+- No per-process CLI actor override is added; one-shot CLI processes in one
+  worktree intentionally share the stable operator lane.
 - No remote multi-user daemon or operating-system privilege boundary is added.
 - No merge, tag, npm publication, or daemon cutover is authorized by this
   packet alone.
@@ -45,6 +49,8 @@
   `StartDaemonServerOptions`.
 - Classification: additive.
 - Migration: optional; existing hosts keep the default `~/.graft/graphs` root.
+  Custom roots must be non-symlinked and disjoint from the source worktree and
+  common Git directory.
 
 ## Version Justification
 

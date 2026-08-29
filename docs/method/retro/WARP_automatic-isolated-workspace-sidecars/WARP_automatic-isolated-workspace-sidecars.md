@@ -27,10 +27,14 @@ What shipped:
   repo-local MCP, and CLI use their own logical actor lanes
 - sidecars carry deterministic repository-local Git identity and never depend
   on host-global Git configuration
+- sidecar location rejects blank, symlink-aliased, or source-overlapping graph
+  roots before any directory creation or permission change
 - all supported Vitest package paths run through a copy-in Docker image whose
   post-copy build step removes Git remotes and linked-worktree pointers
 - test containers run with no network, no mounts, no Linux capabilities, and
   `no-new-privileges`
+- project-source scrub and build layers also run without network, and each test
+  invocation owns a unique Docker image reference
 
 Existing source-repository `refs/warp/*` remain untouched by design. This
 cycle neither migrates nor deletes legacy graph state.
@@ -51,6 +55,10 @@ Verification witness: [verification.md](witness/verification.md)
 - The same full suite exposed three maintained contracts: the path-boundary
   allowlist, Docker-routed release command, and generated backlog DAG. All were
   updated before cycle closure.
+- Strict self-review found durability visibility, stale repository identity,
+  unsafe storage-root, concurrent image, and post-copy network boundaries that
+  the first implementation did not close. Each received executable regression
+  coverage and a focused repair before publication.
 - An intermediate Think capture hit a host dynamic-library mismatch. The final
   full-GREEN capture succeeded as
   `entry:1788037370369-30cac2a6-76c0-4874-b773-04e6b8b84512`.

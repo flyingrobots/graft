@@ -209,7 +209,7 @@ graph TD
 | **Repo-local stdio** | Single-repo agent sessions | Session-scoped | In-process `GraftServer` |
 | **Daemon-backed stdio** | Multi-repo, long-running agents | Across sessions | Persistent daemon process and stdio bridge |
 
-**Trade-off**: The daemon-backed runtime is more powerful (multi-repo routing, persistent monitors, warm current git-warp contexts) but requires a local background process or bridge auto-start. The repo-local server is zero-setup but cold-starts on every session. Each CLI process prints and exits, while graph-backed commands deliberately reuse a stable private CLI sidecar across invocations.
+**Trade-off**: The daemon-backed runtime is more powerful (multi-repo routing, persistent monitors, warm current git-warp contexts) but requires a local background process or bridge auto-start. The repo-local server is zero-setup but cold-starts on every session. Each CLI process prints and exits, while graph-backed commands deliberately reuse one stable private CLI sidecar per worktree across invocations. Separate CLI processes therefore share that operator lane; parallel agents that require isolated histories use independent MCP sessions.
 
 ---
 
