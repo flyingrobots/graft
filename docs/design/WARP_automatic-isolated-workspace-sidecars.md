@@ -3,7 +3,7 @@ title: "Automatic workspace admission and isolated WARP sidecars"
 legend: "WARP"
 cycle: "WARP_automatic-isolated-workspace-sidecars"
 source_backlog: "operator direction 2026-08-29"
-status: active
+status: completed
 retro: "docs/method/retro/WARP_automatic-isolated-workspace-sidecars/WARP_automatic-isolated-workspace-sidecars.md"
 ---
 
@@ -194,29 +194,29 @@ handoff or actor evidence exists.
 
 ### Human
 
-- [ ] Can I call `safe_read` with a nested `cwd` in a never-opened repo and
+- [x] Can I call `safe_read` with a nested `cwd` in a never-opened repo and
   get the file on the first call?
-- [ ] Does `workspace_list_opened` then show the canonical parent worktree
+- [x] Does `workspace_list_opened` then show the canonical parent worktree
   while `workspace_status` remains unbound when I did not request activation?
-- [ ] Can two agents point at two linked worktrees and get only their own
+- [x] Can two agents point at two linked worktrees and get only their own
   structural graph state?
-- [ ] Does the source repository remain free of new WARP refs and objects?
-- [ ] Can I recognize the project and worktree in `~/.graft/graphs` without
+- [x] Does the source repository remain free of new WARP refs and objects?
+- [x] Can I recognize the project and worktree in `~/.graft/graphs` without
   relying on those names as identity?
 
 ### Agent
 
-- [ ] Does a routed daemon invocation atomically ensure the exact resolved
+- [x] Does a routed daemon invocation atomically ensure the exact resolved
   authorization instead of repeating path resolution through a second API?
-- [ ] Do two worktrees with one `repoId` resolve to different sidecar paths?
-- [ ] Do two session writers in one worktree resolve to different sidecars?
-- [ ] Does one complete sidecar identity drive both pool reuse and persistence
+- [x] Do two worktrees with one `repoId` resolve to different sidecar paths?
+- [x] Do two session writers in one worktree resolve to different sidecars?
+- [x] Does one complete sidecar identity drive both pool reuse and persistence
   location?
-- [ ] Do daemon child workers receive the resolved sidecar path rather than
+- [x] Do daemon child workers receive the resolved sidecar path rather than
   rebuilding it from the source cwd?
-- [ ] Do monitor and CLI production call sites stop passing source worktrees to
+- [x] Do monitor and CLI production call sites stop passing source worktrees to
   the git-warp persistence adapter?
-- [ ] Does a malformed or non-bare sidecar fail without falling back to the
+- [x] Does a malformed or non-bare sidecar fail without falling back to the
   source repository?
 
 ## Acceptance Criteria
