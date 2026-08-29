@@ -87,7 +87,7 @@ describe("Docker-isolated test validation", () => {
       "docker build --target test -t graft-test:local .",
       [
         "docker run --rm --network none --cap-drop ALL",
-        "--security-opt no-new-privileges",
+        "--security-opt no-new-privileges --",
         "graft-test:local pnpm exec vitest run --maxWorkers 2",
       ].join(" "),
     ]);
@@ -132,7 +132,7 @@ describe("Docker-isolated test validation", () => {
       "docker build --target test -t graft-test:local .",
       [
         "docker run --rm --network none --cap-drop ALL",
-        "--security-opt no-new-privileges",
+        "--security-opt no-new-privileges --",
         "graft-test:local pnpm exec vitest run --maxWorkers 2",
       ].join(" "),
     ]);
@@ -207,9 +207,42 @@ describe("Docker-isolated test validation", () => {
       "docker build --target test -t graft-test:local .",
       [
         "docker run --rm --network none --cap-drop ALL",
-        "--security-opt no-new-privileges",
+        "--security-opt no-new-privileges --",
         "graft-test:local pnpm exec vitest run --maxWorkers 2",
       ].join(" "),
+    ]);
+    expect(exits).toEqual([1]);
+  });
+
+  it("rejects option-shaped Docker image references before invoking Docker", async () => {
+    const calls: string[] = [];
+    const errors: string[] = [];
+    const exits: number[] = [];
+    const exit = (code = 0): never => {
+      exits.push(code);
+      throw new Error(`exit ${String(code)}`);
+    };
+
+    await expect(runIsolatedTests({
+      argv: [],
+      env: { GRAFT_TEST_IMAGE: "--volume=/host/checkout:/app" },
+      checkDocker: () => {
+        calls.push("docker preflight");
+        return { ok: true };
+      },
+      error: (message) => {
+        errors.push(message);
+      },
+      exit,
+      spawn: (command, args) => {
+        calls.push([command, ...args].join(" "));
+        return { status: 0 };
+      },
+    })).rejects.toThrow("exit 1");
+
+    expect(calls).toEqual([]);
+    expect(errors).toEqual([
+      "Invalid GRAFT_TEST_IMAGE: Docker image references must not be empty, contain whitespace, or begin with '-'.",
     ]);
     expect(exits).toEqual([1]);
   });
@@ -253,7 +286,7 @@ describe("Docker-isolated test validation", () => {
       "docker build --target test -t graft-test:local .",
       [
         "docker run --rm --network none --cap-drop ALL",
-        "--security-opt no-new-privileges",
+        "--security-opt no-new-privileges --",
         "graft-test:local pnpm exec vitest run --maxWorkers 2",
       ].join(" "),
     ]);

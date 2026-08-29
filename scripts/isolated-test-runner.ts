@@ -12,6 +12,8 @@ import {
 } from "./isolated-test-args.js";
 
 const DEFAULT_IMAGE = "graft-test:local";
+const INVALID_DOCKER_IMAGE_MESSAGE =
+  "Invalid GRAFT_TEST_IMAGE: Docker image references must not be empty, contain whitespace, or begin with '-'.";
 const DEFAULT_DOCKER_BUILD_RETRIES = 1;
 const DEFAULT_DOCKER_BUILD_RETRY_DELAY_MS = 1_000;
 const TRANSIENT_SPAWN_ERROR_CODES = new Set([
@@ -205,6 +207,10 @@ export async function runIsolatedTests(options: IsolatedTestRunnerOptions): Prom
   const testArgs = applyIsolatedVitestDefaults(normalizeVitestArgs(runnerOptions.argv));
 
   const image = runnerOptions.env["GRAFT_TEST_IMAGE"] ?? DEFAULT_IMAGE;
+  if (image.length === 0 || image.startsWith("-") || /\s/u.test(image)) {
+    runnerOptions.error(INVALID_DOCKER_IMAGE_MESSAGE);
+    runnerOptions.exit(1);
+  }
   const dockerAvailability = await runnerOptions.checkDocker();
   if (!dockerAvailability.ok) {
     runnerOptions.error(formatDockerUnavailableMessage(dockerAvailability));
@@ -221,6 +227,7 @@ export async function runIsolatedTests(options: IsolatedTestRunnerOptions): Prom
     "ALL",
     "--security-opt",
     "no-new-privileges",
+    "--",
     image,
     "pnpm",
     "exec",
