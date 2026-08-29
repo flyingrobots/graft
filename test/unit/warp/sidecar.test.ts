@@ -216,6 +216,37 @@ describe("warp: isolated sidecar persistence", { timeout: 20_000 }, () => {
     expect(git(source, "count-objects -v")).toBe(sourceObjectsBefore);
   });
 
+  it("ignores inherited global Git configuration for Graft-owned sidecars", async () => {
+    const source = sourceRepo();
+    const graphRoot = tempDir("graft-sidecar-global-config-root-");
+    const hostileConfigRoot = tempDir("graft-sidecar-global-config-");
+    const hostileGlobalConfig = path.join(hostileConfigRoot, "gitconfig");
+    const location = resolveWarpSidecarLocation(
+      graphRoot,
+      identity(source, "graft_session_hostile_global_config"),
+    );
+    fs.writeFileSync(hostileGlobalConfig, "this is not valid Git configuration\n");
+    const previousGlobalConfig = process.env["GIT_CONFIG_GLOBAL"];
+
+    try {
+      process.env["GIT_CONFIG_GLOBAL"] = hostileGlobalConfig;
+      const warp = await openWarpSidecar({
+        sidecarRepo: location.repoPath,
+        graphRoot,
+        writerId: "graft_session_hostile_global_config",
+      });
+      await warp.patch((patch) => {
+        patch.addNode("node:sidecar-ignores-global-config");
+      });
+    } finally {
+      if (previousGlobalConfig === undefined) delete process.env["GIT_CONFIG_GLOBAL"];
+      else process.env["GIT_CONFIG_GLOBAL"] = previousGlobalConfig;
+    }
+
+    expect(git(location.repoPath, "rev-parse --is-bare-repository")).toBe("true");
+    expect(git(location.repoPath, "for-each-ref refs/warp")).not.toBe("");
+  });
+
   it("refuses a symlinked managed component", async () => {
     const source = sourceRepo();
     const graphRoot = tempDir("graft-sidecar-symlink-root-");
