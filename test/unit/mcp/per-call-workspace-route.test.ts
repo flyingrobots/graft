@@ -128,6 +128,7 @@ describe("mcp: per-call workspace route", () => {
     }>("workspace_open", {
       cwd: repoDir,
       activate: false,
+      runCapture: true,
     });
     fs.rmSync(repoDir, { recursive: true, force: true });
     git(replacementSource, `worktree add -b replacement ${repoDir}`);
@@ -139,11 +140,16 @@ describe("mcp: per-call workspace route", () => {
     expect(read.content).toBe("export const replacement = true;\n");
 
     const opened = await session.callToolJson<{
-      workspaces: { repoId: string; worktreeRoot: string }[];
+      workspaces: {
+        repoId: string;
+        worktreeRoot: string;
+        capabilityProfile: { runCapture: boolean };
+      }[];
     }>("workspace_list_opened", {});
     expect(opened.workspaces).toHaveLength(1);
     expect(opened.workspaces[0]?.worktreeRoot).toBe(repoDir);
     expect(opened.workspaces[0]?.repoId).not.toBe(original.openedWorkspace.repoId);
+    expect(opened.workspaces[0]?.capabilityProfile.runCapture).toBe(false);
   });
 
   it("routes safe_read through cwd without binding the daemon session", { timeout: 15_000 }, async () => {
