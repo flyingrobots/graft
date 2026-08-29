@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it } from "vitest";
 import { spawn } from "node:child_process";
+import * as crypto from "node:crypto";
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
@@ -35,6 +36,39 @@ function sourceRepo(): string {
     cleanupTestRepo(directory);
   });
   return fs.realpathSync(directory);
+}
+
+function treeFingerprint(root: string): readonly string[] {
+  if (!fs.existsSync(root)) return [];
+  const fingerprint: string[] = [];
+  const visit = (directory: string, relativeRoot: string): void => {
+    for (const name of fs.readdirSync(directory).sort()) {
+      const absolutePath = path.join(directory, name);
+      const relativePath = path.join(relativeRoot, name).split(path.sep).join("/");
+      const stat = fs.lstatSync(absolutePath);
+      if (stat.isDirectory()) {
+        fingerprint.push(`directory ${relativePath} ${String(stat.mode & 0o777)}`);
+        visit(absolutePath, relativePath);
+      } else if (stat.isSymbolicLink()) {
+        fingerprint.push(`symlink ${relativePath} ${fs.readlinkSync(absolutePath)}`);
+      } else {
+        const digest = crypto.createHash("sha256").update(fs.readFileSync(absolutePath)).digest("hex");
+        fingerprint.push(`file ${relativePath} ${String(stat.mode & 0o777)} ${digest}`);
+      }
+    }
+  };
+  visit(root, "");
+  return fingerprint;
+}
+
+function sourceGitMutationSurface(source: string) {
+  const gitDir = path.join(source, ".git");
+  return {
+    warpRefs: git(source, "for-each-ref --format='%(refname) %(objectname)' refs/warp"),
+    objects: git(source, "count-objects -v"),
+    config: fs.readFileSync(path.join(gitDir, "config"), "utf8"),
+    hooks: treeFingerprint(path.join(gitDir, "hooks")),
+  };
 }
 
 function openSidecarInChild(
@@ -119,8 +153,7 @@ describe("warp: isolated sidecar persistence", { timeout: 20_000 }, () => {
     const graphRoot = tempDir("graft-sidecar-graphs-");
     const firstLocation = resolveWarpSidecarLocation(graphRoot, identity(source, "graft_session_a"));
     const secondLocation = resolveWarpSidecarLocation(graphRoot, identity(source, "graft_session_b"));
-    const sourceRefsBefore = git(source, "for-each-ref --format='%(refname) %(objectname)' refs/warp");
-    const sourceObjectsBefore = git(source, "count-objects -v");
+    const sourceGitBefore = sourceGitMutationSurface(source);
 
     const first = await openWarpSidecar({
       sidecarRepo: firstLocation.repoPath,
@@ -145,8 +178,7 @@ describe("warp: isolated sidecar persistence", { timeout: 20_000 }, () => {
     expect(git(firstLocation.repoPath, "config --local user.email")).toBe("graft-warp@localhost");
     expect(await (await first.observer({ match: "node:*" })).getNodes()).toEqual(["node:first-agent"]);
     expect(await (await second.observer({ match: "node:*" })).getNodes()).toEqual(["node:second-agent"]);
-    expect(git(source, "for-each-ref --format='%(refname) %(objectname)' refs/warp")).toBe(sourceRefsBefore);
-    expect(git(source, "count-objects -v")).toBe(sourceObjectsBefore);
+    expect(sourceGitMutationSurface(source)).toEqual(sourceGitBefore);
   });
 
   it("coalesces concurrent opens for one exact sidecar identity", async () => {
