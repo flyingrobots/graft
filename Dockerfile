@@ -25,12 +25,12 @@ FROM deps AS source
 
 WORKDIR /app
 COPY . .
-RUN sh scripts/strip-copied-git-remotes.sh /app
+RUN --network=none sh scripts/strip-copied-git-remotes.sh /app
 
 FROM source AS build
 
 WORKDIR /app
-RUN pnpm build
+RUN --network=none pnpm build
 
 FROM build AS test
 

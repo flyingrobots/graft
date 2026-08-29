@@ -42,9 +42,11 @@ describe("Docker-isolated test validation", () => {
     const runner = readRepoFile("scripts/isolated-test-runner.ts");
 
     expect(dockerfile).toContain("FROM deps AS source");
-    expect(dockerfile).toContain("RUN sh scripts/strip-copied-git-remotes.sh /app");
+    expect(dockerfile).toContain(
+      "RUN --network=none sh scripts/strip-copied-git-remotes.sh /app",
+    );
     expect(dockerfile).toContain("FROM source AS build");
-    expect(dockerfile).toContain("RUN pnpm build");
+    expect(dockerfile).toContain("RUN --network=none pnpm build");
     expect(dockerfile).toContain("FROM build AS test");
     expect(dockerfile).toContain("COPY . .");
     expect(dockerfile).toContain("ENV NO_COLOR=1");
