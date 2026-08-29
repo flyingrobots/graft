@@ -152,6 +152,30 @@ Sidecar initialization must:
 Existing `refs/warp/...` in a source repository are left untouched. They are
 not read, deleted, copied, or silently merged into a new session sidecar.
 
+### 5. Test execution is copy-in Docker only
+
+All Vitest execution for this cycle uses the Docker test image. The host-side
+launcher may invoke the Docker CLI, but it must never invoke Vitest, Node test
+workers, or repository test helpers against the live checkout.
+
+The isolation boundary is defense in depth:
+
+1. `.dockerignore` excludes the source checkout's `.git`, `.graft`, host
+   dependencies, build output, and coverage state from the build context.
+2. The Dockerfile copies the remaining source snapshot into an image layer;
+   tests do not bind-mount or volume-mount the host checkout.
+3. Immediately after the copy, a Docker build step removes every configured
+   remote from any Git repository that was nevertheless copied in, removes
+   linked-worktree `.git` pointer files, and fails if a copied repository still
+   advertises a remote.
+4. Test execution uses `--network none` and an ephemeral `--rm` container.
+5. Public package scripts do not expose a host-side Vitest fallback or a
+   spoofable environment-only escape from Docker isolation.
+
+The image may create disposable Git repositories inside its own filesystem for
+behavior tests. Those repositories have no host mount and no configured remote.
+Their refs and objects disappear with the test container.
+
 ## Identity Matrix
 
 | Scenario | Git evidence | Live files | WARP working graph |
@@ -212,6 +236,12 @@ handoff or actor evidence exists.
   open git-warp persistence against a source worktree.
 - Existing behavioral, path-boundary, capability, output-schema, typecheck,
   lint, and build gates pass.
+- Every package-script path that executes Vitest routes through the copy-in
+  Docker harness; no supported `test:local`, watch, release, or environment
+  bypass can execute tests against the host checkout.
+- The Docker build visibly performs post-copy Git-remote scrubbing and fails
+  closed if any copied repository retains a remote.
+- The test container has no host checkout mount and no network.
 
 ## Test Strategy
 
@@ -233,6 +263,12 @@ Tests assert behavior and Git state, not this document's formatting.
 7. Run focused workspace-routing, daemon-session, WARP-open, pool, worker,
    monitor, CLI, output-schema, and architectural-boundary suites before the
    repository minimum gates.
+8. Exercise the test-runner model to prove all Vitest package scripts select
+   Docker, the run command has no volume flags, and the environment variable
+   formerly used for host bypass no longer changes execution.
+9. Build the test target from a copied context, inspect the post-copy scrub
+   witness, then run focused and full validation only through ephemeral,
+   network-disabled containers with no mounts.
 
 ## Accessibility and Assistive Reading
 
