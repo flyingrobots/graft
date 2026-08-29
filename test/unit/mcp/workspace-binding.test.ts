@@ -213,6 +213,9 @@ describe("mcp: daemon workspace binding", () => {
         getCapabilityProfile() {
           return Promise.resolve(capabilityProfile);
         },
+        ensureCapabilityProfile() {
+          return Promise.resolve(capabilityProfile);
+        },
         noteBound(): Promise<void> {
           return Promise.resolve();
         },
@@ -259,6 +262,9 @@ describe("mcp: daemon workspace binding", () => {
       transportSessionId: "transport:test",
       authorizationPolicy: {
         getCapabilityProfile() {
+          return Promise.resolve(DEFAULT_DAEMON_CAPABILITY_PROFILE);
+        },
+        ensureCapabilityProfile() {
           return Promise.resolve(DEFAULT_DAEMON_CAPABILITY_PROFILE);
         },
         noteBound(): Promise<void> {
@@ -313,6 +319,9 @@ describe("mcp: daemon workspace binding", () => {
         getCapabilityProfile() {
           return Promise.resolve(DEFAULT_DAEMON_CAPABILITY_PROFILE);
         },
+        ensureCapabilityProfile() {
+          return Promise.resolve(DEFAULT_DAEMON_CAPABILITY_PROFILE);
+        },
         noteBound(): Promise<void> {
           return Promise.resolve();
         },
@@ -363,6 +372,9 @@ describe("mcp: daemon workspace binding", () => {
       transportSessionId: "transport:test",
       authorizationPolicy: {
         getCapabilityProfile() {
+          return Promise.resolve(DEFAULT_DAEMON_CAPABILITY_PROFILE);
+        },
+        ensureCapabilityProfile() {
           return Promise.resolve(DEFAULT_DAEMON_CAPABILITY_PROFILE);
         },
         noteBound(): Promise<void> {

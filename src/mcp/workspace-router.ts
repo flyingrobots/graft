@@ -303,9 +303,12 @@ export class WorkspaceRouter {
       };
     }
 
-    const capabilityProfile = this.options.mode === "repo_local"
+    let capabilityProfile = this.options.mode === "repo_local"
       ? DEFAULT_REPO_LOCAL_CAPABILITY_PROFILE
       : (await this.options.authorizationPolicy?.getCapabilityProfile(resolved)) ?? null;
+    if (capabilityProfile === null && this.options.mode === "daemon") {
+      capabilityProfile = (await this.options.authorizationPolicy?.ensureCapabilityProfile(resolved)) ?? null;
+    }
     if (capabilityProfile === null) {
       return {
         ok: false,
@@ -561,9 +564,12 @@ export class WorkspaceRouter {
       worktreeId: resolved.worktreeId,
     });
 
-    const capabilityProfile = this.options.mode === "repo_local"
+    let capabilityProfile = this.options.mode === "repo_local"
       ? DEFAULT_REPO_LOCAL_CAPABILITY_PROFILE
       : (await this.options.authorizationPolicy?.getCapabilityProfile(resolved)) ?? null;
+    if (capabilityProfile === null && this.options.mode === "daemon") {
+      capabilityProfile = (await this.options.authorizationPolicy?.ensureCapabilityProfile(resolved)) ?? null;
+    }
     if (capabilityProfile === null) {
       this.routedBindings.delete(resolved.worktreeId);
       this.routedBindingInitializations.delete(resolved.worktreeId);

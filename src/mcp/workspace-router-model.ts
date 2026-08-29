@@ -161,6 +161,7 @@ export interface ResolvedWorkspace {
 
 export interface WorkspaceAuthorizationPolicy {
   getCapabilityProfile(resolved: ResolvedWorkspace): Promise<WorkspaceCapabilityProfile | null>;
+  ensureCapabilityProfile(resolved: ResolvedWorkspace): Promise<WorkspaceCapabilityProfile>;
   noteBound(resolved: ResolvedWorkspace): Promise<void>;
 }
 

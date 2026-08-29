@@ -78,6 +78,15 @@ import type {
 
 const REMOTE_LIST_MAX_BUFFER_BYTES = 64 * 1024;
 
+function authorizationMatches(
+  record: AuthorizedWorkspaceRecord | undefined,
+  resolved: ResolvedWorkspace,
+): record is AuthorizedWorkspaceRecord {
+  return record?.repoId === resolved.repoId
+    && record.worktreeRoot === resolved.worktreeRoot
+    && record.gitCommonDir === resolved.gitCommonDir;
+}
+
 export class DaemonControlPlane {
   private readonly statePath: string;
   private readonly authorizedWorkspaces = new Map<string, AuthorizedWorkspaceRecord>();
@@ -136,12 +145,33 @@ export class DaemonControlPlane {
       };
     }
 
+    const authorized = await this.authorizeResolvedWorkspace(resolved, request.runCapture);
+    return {
+      ok: true,
+      changed: authorized.changed,
+      authorization: toAuthorizedWorkspaceView(
+        authorized.record,
+        this.activeTransportsFor(authorized.record.worktreeId),
+      ),
+      registryObservation: authorized.registryObservation,
+    };
+  }
+
+  private async authorizeResolvedWorkspace(
+    resolved: ResolvedWorkspace,
+    runCapture: boolean | undefined,
+  ): Promise<{
+    readonly record: AuthorizedWorkspaceRecord;
+    readonly changed: boolean;
+    readonly registryObservation: WorkspaceRegistryObservationResult;
+  }> {
     await this.ensureLoaded();
-    const current = this.authorizedWorkspaces.get(resolved.worktreeId);
+    const stored = this.authorizedWorkspaces.get(resolved.worktreeId);
+    const current = authorizationMatches(stored, resolved) ? stored : undefined;
     const nextCapabilityProfile = resolveCapabilityProfile(
       current?.capabilityProfile,
       DEFAULT_DAEMON_CAPABILITY_PROFILE,
-      request.runCapture,
+      runCapture,
     );
     const next: AuthorizedWorkspaceRecord = {
       ...resolved,
@@ -149,20 +179,19 @@ export class DaemonControlPlane {
       authorizedAt: current?.authorizedAt ?? new Date().toISOString(),
       lastBoundAt: current?.lastBoundAt ?? null,
     };
-    const changed = current === undefined
+    const changed = stored === undefined
       ? true
-      : current.repoId !== next.repoId
-        || current.worktreeRoot !== next.worktreeRoot
-        || current.gitCommonDir !== next.gitCommonDir
-        || !capabilityProfilesEqual(current.capabilityProfile, next.capabilityProfile);
+      : stored.repoId !== next.repoId
+        || stored.worktreeRoot !== next.worktreeRoot
+        || stored.gitCommonDir !== next.gitCommonDir
+        || !capabilityProfilesEqual(stored.capabilityProfile, next.capabilityProfile);
 
     this.authorizedWorkspaces.set(next.worktreeId, next);
     await this.persist();
     const registryObservation = await this.observeAuthorizedWorkspace(next);
     return {
-      ok: true,
+      record: next,
       changed,
-      authorization: toAuthorizedWorkspaceView(next, this.activeTransportsFor(next.worktreeId)),
       registryObservation,
     };
   }
@@ -208,14 +237,19 @@ export class DaemonControlPlane {
   async getCapabilityProfile(resolved: ResolvedWorkspace): Promise<WorkspaceCapabilityProfile | null> {
     await this.ensureLoaded();
     const record = this.authorizedWorkspaces.get(resolved.worktreeId);
-    if (
-      record?.repoId !== resolved.repoId
-      || record.worktreeRoot !== resolved.worktreeRoot
-      || record.gitCommonDir !== resolved.gitCommonDir
-    ) {
+    if (!authorizationMatches(record, resolved)) {
       return null;
     }
     return cloneCapabilityProfile(record.capabilityProfile);
+  }
+
+  async ensureCapabilityProfile(resolved: ResolvedWorkspace): Promise<WorkspaceCapabilityProfile> {
+    const current = await this.getCapabilityProfile(resolved);
+    if (current !== null) {
+      return current;
+    }
+    const authorized = await this.authorizeResolvedWorkspace(resolved, undefined);
+    return cloneCapabilityProfile(authorized.record.capabilityProfile);
   }
 
   async noteBound(resolved: ResolvedWorkspace): Promise<void> {
