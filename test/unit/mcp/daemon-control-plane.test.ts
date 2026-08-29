@@ -125,13 +125,18 @@ describe("mcp: daemon control plane", () => {
       graftDir,
     });
 
-    await expect(controlPlane.authorizeWorkspace({ cwd: original })).resolves.toMatchObject({
+    const authorization = await controlPlane.authorizeWorkspace({ cwd: original });
+    expect(authorization).toMatchObject({
       ok: true,
     });
+    const originalRepoId = authorization.authorization?.repoId;
+    expect(originalRepoId).toBeDefined();
     fs.rmSync(original, { recursive: true, force: true });
     git(replacementSource, `worktree add -b replacement ${original}`);
 
     await expect(controlPlane.getAuthorizedWorkspace({ cwd: original })).resolves.toBeNull();
+    await expect(controlPlane.getAuthorizedWorkspaceForRepo(originalRepoId!, original))
+      .resolves.toBeNull();
     await expect(controlPlane.revokeWorkspace({ cwd: original })).resolves.toMatchObject({
       ok: false,
       revoked: false,

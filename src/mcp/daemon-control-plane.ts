@@ -298,7 +298,12 @@ export class DaemonControlPlane {
     preferredWorktreeRoot?: string,
   ): Promise<AuthorizedWorkspaceRecord | null> {
     await this.ensureLoaded();
-    const matches = [...this.authorizedWorkspaces.values()].filter((record) => record.repoId === repoId);
+    const candidates = [...this.authorizedWorkspaces.values()].filter((record) => record.repoId === repoId);
+    const validity = await Promise.all(candidates.map(async (record) => {
+      const resolved = await resolveWorkspaceRequest(this.options.git, { cwd: record.worktreeRoot });
+      return !("code" in resolved) && authorizationMatches(record, resolved);
+    }));
+    const matches = candidates.filter((_record, index) => validity[index] === true);
     if (matches.length === 0) return null;
     if (preferredWorktreeRoot !== undefined) {
       const preferred = matches.find((record) => record.worktreeRoot === preferredWorktreeRoot);
