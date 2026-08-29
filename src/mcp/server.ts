@@ -30,7 +30,7 @@ import {
 } from "./runtime-observability.js";
 import { InMemoryWarpPool, type WarpPool } from "./warp-pool.js";
 import { buildSessionWarpWriterId } from "../warp/writer-id.js";
-import { defaultWarpGraphRoot } from "../warp/sidecar.js";
+import { resolveWarpGraphRoot } from "../warp/sidecar.js";
 import { PersistedLocalHistoryStore } from "./persisted-local-history.js";
 import { GRAFT_VERSION } from "../version.js";
 import { ALL_TOOL_REGISTRY, TOOL_REGISTRY } from "./tool-registry.js";
@@ -122,7 +122,7 @@ function resolveGraftServerConfig(
     env,
     projectRoot,
     graftDir,
-    graphRoot: path.resolve(options.graphRoot ?? defaultWarpGraphRoot()),
+    graphRoot: resolveWarpGraphRoot(options.graphRoot),
     sessionWarpWriterId,
   };
 }

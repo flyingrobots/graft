@@ -1,11 +1,10 @@
-import * as path from "node:path";
 import type WarpApp from "@git-stunts/git-warp";
 import { nodeGit } from "../adapters/node-git.js";
 import type { ResolvedWorkspace } from "../mcp/workspace-router-model.js";
 import { resolveWorkspaceRequest } from "../mcp/workspace-router-resolution.js";
 import {
-  defaultWarpGraphRoot,
   openWarpSidecar,
+  resolveWarpGraphRoot,
   resolveWarpSidecarLocation,
   type WarpSidecarLocation,
 } from "../warp/sidecar.js";
@@ -30,7 +29,7 @@ export async function openCliWarp(options: OpenCliWarpOptions): Promise<OpenedCl
   if ("code" in workspace) {
     throw new Error(workspace.message);
   }
-  const graphRoot = path.resolve(options.graphRoot ?? defaultWarpGraphRoot());
+  const graphRoot = resolveWarpGraphRoot(options.graphRoot);
   const location = resolveWarpSidecarLocation(graphRoot, {
     ...workspace,
     writerId: CLI_WARP_WRITER_ID,

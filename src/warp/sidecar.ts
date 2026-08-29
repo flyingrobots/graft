@@ -44,6 +44,13 @@ function hasErrorCode(error: unknown, code: string): boolean {
   return error instanceof Error && "code" in error && error.code === code;
 }
 
+function resolveRequiredStoragePath(input: string, label: string): string {
+  if (input.trim().length === 0) {
+    throw new Error(`Graft WARP requires a non-empty ${label}`);
+  }
+  return path.resolve(input);
+}
+
 function identitySuffix(input: string): string {
   return crypto.createHash("sha256").update(input).digest("hex").slice(0, IDENTITY_SUFFIX_LENGTH);
 }
@@ -212,6 +219,13 @@ export function defaultWarpGraphRoot(homeDirectory = os.homedir()): string {
   return path.join(homeDirectory, ".graft", "graphs");
 }
 
+export function resolveWarpGraphRoot(configuredRoot?: string | undefined): string {
+  return resolveRequiredStoragePath(
+    configuredRoot ?? defaultWarpGraphRoot(),
+    "graph root",
+  );
+}
+
 function sidecarGitEnvironment(): Record<string, string> {
   return {
     GIT_CONFIG_NOSYSTEM: "1",
@@ -239,7 +253,7 @@ export function resolveWarpSidecarLocation(
   graphRoot: string,
   identity: WarpSidecarIdentity,
 ): WarpSidecarLocation {
-  const resolvedRoot = path.resolve(graphRoot);
+  const resolvedRoot = resolveWarpGraphRoot(graphRoot);
   const projectDir = path.join(
     resolvedRoot,
     keyedDirectory(projectDisplayName(identity), "project", identity.repoId),
@@ -264,10 +278,19 @@ export function resolveWarpSidecarLocation(
 }
 
 export function openWarpSidecar(options: WarpSidecarOpenOptions): Promise<WarpApp> {
-  const sidecarRepo = path.resolve(options.sidecarRepo);
-  const graphRoot = options.graphRoot === undefined
-    ? path.resolve(sidecarRepo, "../../../..")
-    : path.resolve(options.graphRoot);
+  let sidecarRepo: string;
+  let graphRoot: string;
+  try {
+    sidecarRepo = resolveRequiredStoragePath(
+      options.sidecarRepo,
+      "sidecar repository path",
+    );
+    graphRoot = options.graphRoot === undefined
+      ? path.resolve(sidecarRepo, "../../../..")
+      : resolveWarpGraphRoot(options.graphRoot);
+  } catch (error: unknown) {
+    return Promise.reject(error);
+  }
   const key = sidecarOpenKey(graphRoot, sidecarRepo, options);
   const inFlight = inFlightSidecarOpens.get(key);
   if (inFlight !== undefined) return inFlight;

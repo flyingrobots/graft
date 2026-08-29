@@ -121,6 +121,19 @@ function identity(
 }
 
 describe("warp: isolated sidecar persistence", { timeout: 20_000 }, () => {
+  it("rejects blank graph and sidecar paths before touching storage", async () => {
+    const source = sourceRepo();
+    const graphRoot = tempDir("graft-sidecar-blank-path-root-");
+
+    expect(() => resolveWarpSidecarLocation("   ", identity(source, "graft_session_blank")))
+      .toThrow(/non-empty graph root/u);
+    await expect(openWarpSidecar({
+      sidecarRepo: "",
+      graphRoot,
+      writerId: "graft_session_blank",
+    })).rejects.toThrow(/non-empty sidecar repository path/u);
+  });
+
   it("keys readable contained locations by repo, worktree, and actor without exposing the raw token", () => {
     const source = sourceRepo();
     const graphRoot = tempDir("graft-sidecar-root-");

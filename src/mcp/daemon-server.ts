@@ -10,7 +10,7 @@ import { DaemonJobScheduler } from "./daemon-job-scheduler.js";
 import { ChildProcessDaemonWorkerPool } from "./daemon-worker-pool.js";
 import { PersistentMonitorRuntime } from "./persistent-monitor-runtime.js";
 import { InMemoryWarpPool } from "./warp-pool.js";
-import { defaultWarpGraphRoot } from "../warp/sidecar.js";
+import { resolveWarpGraphRoot } from "../warp/sidecar.js";
 import type { RunCaptureConfig } from "./run-capture-config.js";
 import type { RuntimeObservabilityState } from "./runtime-observability.js";
 import {
@@ -51,7 +51,7 @@ export interface GraftDaemonServer {
 export async function startDaemonServer(options: StartDaemonServerOptions = {}): Promise<GraftDaemonServer> {
   await ensureGitVersionSupportsGraft();
   const graftDir = path.resolve(options.graftDir ?? defaultDaemonRoot());
-  const graphRoot = path.resolve(options.graphRoot ?? defaultWarpGraphRoot());
+  const graphRoot = resolveWarpGraphRoot(options.graphRoot);
   const socketPath = resolveSocketPath(options.socketPath, graftDir);
   const warpPool = new InMemoryWarpPool({ graphRoot });
   const controlPlane = new DaemonControlPlane({
