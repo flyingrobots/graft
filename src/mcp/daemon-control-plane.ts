@@ -189,7 +189,16 @@ export class DaemonControlPlane {
           || !capabilityProfilesEqual(stored.capabilityProfile, next.capabilityProfile);
 
       this.authorizedWorkspaces.set(next.worktreeId, next);
-      await this.persist();
+      try {
+        await this.persist();
+      } catch (error: unknown) {
+        if (stored === undefined) {
+          this.authorizedWorkspaces.delete(next.worktreeId);
+        } else {
+          this.authorizedWorkspaces.set(stored.worktreeId, stored);
+        }
+        throw error;
+      }
       return { record: next, changed };
     });
     const registryObservation = await this.observeAuthorizedWorkspace(authorized.record);
@@ -217,7 +226,12 @@ export class DaemonControlPlane {
         return null;
       }
       this.authorizedWorkspaces.delete(resolved.worktreeId);
-      await this.persist();
+      try {
+        await this.persist();
+      } catch (error: unknown) {
+        this.authorizedWorkspaces.set(stored.worktreeId, stored);
+        throw error;
+      }
       return stored;
     });
     if (current === null) {
@@ -265,11 +279,17 @@ export class DaemonControlPlane {
       await this.ensureLoaded();
       const current = this.authorizedWorkspaces.get(resolved.worktreeId);
       if (!authorizationMatches(current, resolved)) return;
-      this.authorizedWorkspaces.set(resolved.worktreeId, {
+      const next = {
         ...current,
         lastBoundAt: new Date().toISOString(),
-      });
-      await this.persist();
+      };
+      this.authorizedWorkspaces.set(resolved.worktreeId, next);
+      try {
+        await this.persist();
+      } catch (error: unknown) {
+        this.authorizedWorkspaces.set(current.worktreeId, current);
+        throw error;
+      }
     });
   }
 

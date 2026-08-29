@@ -36,6 +36,7 @@ function committedRepo(prefix: string): string {
 
 class OverlapDetectingFileSystem implements FileSystem {
   activeAuthorizationWrites = 0;
+  authorizationWritesToFail = 0;
   maxAuthorizationWrites = 0;
 
   readFile(filePath: string, encoding: "utf-8"): Promise<string>;
@@ -62,6 +63,10 @@ class OverlapDetectingFileSystem implements FileSystem {
     );
     try {
       await new Promise((resolve) => setTimeout(resolve, 50));
+      if (this.authorizationWritesToFail > 0) {
+        this.authorizationWritesToFail -= 1;
+        throw new Error("injected authorization persistence failure");
+      }
       await nodeFs.writeFile(filePath, data, encoding);
     } finally {
       this.activeAuthorizationWrites -= 1;
@@ -112,6 +117,26 @@ describe("mcp: daemon control plane", () => {
 
     expect(observedFs.maxAuthorizationWrites).toBe(1);
     await expect(controlPlane.listAuthorizedWorkspaceRecords()).resolves.toHaveLength(2);
+  });
+
+  it("rolls back in-memory auto-admission when persistence fails", async () => {
+    const graftDir = tempDir("graft-control-plane-rollback-");
+    const observedFs = new OverlapDetectingFileSystem();
+    const controlPlane = new DaemonControlPlane({
+      fs: observedFs,
+      codec: new CanonicalJsonCodec(),
+      git: nodeGit,
+      graftDir,
+    });
+    observedFs.authorizationWritesToFail = 1;
+
+    await expect(controlPlane.ensureCapabilityProfile(resolvedWorkspace("rollback")))
+      .rejects.toThrow("injected authorization persistence failure");
+    await expect(controlPlane.listAuthorizedWorkspaceRecords()).resolves.toEqual([]);
+
+    await expect(controlPlane.ensureCapabilityProfile(resolvedWorkspace("rollback")))
+      .resolves.toMatchObject({ runCapture: false });
+    await expect(controlPlane.listAuthorizedWorkspaceRecords()).resolves.toHaveLength(1);
   });
 
   it("does not transfer stale authorization when a path becomes another repository", async () => {
