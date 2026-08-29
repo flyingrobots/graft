@@ -272,4 +272,3 @@ Tests assert behavior and Git state, not this document's formatting.
 - [ ] Do not add sidecar pruning or retention policy in this cycle; record it
   as explicit debt if the Retro confirms it is needed.
 - [ ] Do not merge or release as part of this cycle without separate authority.
-
