@@ -1,7 +1,9 @@
 import { afterEach, describe, expect, it } from "vitest";
+import { spawn } from "node:child_process";
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
+import { fileURLToPath, pathToFileURL } from "node:url";
 import {
   openWarpSidecar,
   resolveWarpSidecarLocation,
@@ -11,6 +13,7 @@ import { stableWorkspaceId } from "../../../src/mcp/workspace-router-resolution.
 import { cleanupTestRepo, createCommittedTestRepo, git } from "../../helpers/git.js";
 
 const cleanups: (() => void)[] = [];
+const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../../..");
 
 afterEach(() => {
   while (cleanups.length > 0) {
@@ -32,6 +35,39 @@ function sourceRepo(): string {
     cleanupTestRepo(directory);
   });
   return fs.realpathSync(directory);
+}
+
+function openSidecarInChild(
+  sidecarRepo: string,
+  graphRoot: string,
+  writerId: string,
+): Promise<void> {
+  const sidecarModule = pathToFileURL(path.join(ROOT, "dist/warp/sidecar.js")).href;
+  const program = [
+    `import { openWarpSidecar } from ${JSON.stringify(sidecarModule)};`,
+    `await openWarpSidecar(${JSON.stringify({ sidecarRepo, graphRoot, writerId })});`,
+  ].join("\n");
+
+  return new Promise((resolve, reject) => {
+    const child = spawn(process.execPath, ["--input-type=module", "--eval", program], {
+      stdio: ["ignore", "ignore", "pipe"],
+    });
+    let stderr = "";
+    child.stderr.setEncoding("utf8");
+    child.stderr.on("data", (chunk: string) => {
+      stderr += chunk;
+    });
+    child.once("error", reject);
+    child.once("exit", (code, signal) => {
+      if (code === 0) {
+        resolve();
+        return;
+      }
+      reject(new Error(
+        `Sidecar child failed with ${signal ?? `exit ${String(code)}`}: ${stderr.trim()}`,
+      ));
+    });
+  });
 }
 
 function identity(
@@ -111,6 +147,42 @@ describe("warp: isolated sidecar persistence", { timeout: 20_000 }, () => {
     expect(await (await second.observer({ match: "node:*" })).getNodes()).toEqual(["node:second-agent"]);
     expect(git(source, "for-each-ref --format='%(refname) %(objectname)' refs/warp")).toBe(sourceRefsBefore);
     expect(git(source, "count-objects -v")).toBe(sourceObjectsBefore);
+  });
+
+  it("coalesces concurrent opens for one exact sidecar identity", async () => {
+    const source = sourceRepo();
+    const graphRoot = tempDir("graft-sidecar-concurrent-root-");
+    const location = resolveWarpSidecarLocation(
+      graphRoot,
+      identity(source, "graft_session_concurrent"),
+    );
+
+    const apps = await Promise.all(Array.from({ length: 16 }, () => openWarpSidecar({
+      sidecarRepo: location.repoPath,
+      graphRoot,
+      writerId: "graft_session_concurrent",
+    })));
+
+    expect(new Set(apps)).toHaveLength(1);
+    expect(git(location.repoPath, "rev-parse --is-bare-repository")).toBe("true");
+  });
+
+  it("installs the first complete sidecar atomically across processes", async () => {
+    const source = sourceRepo();
+    const graphRoot = tempDir("graft-sidecar-process-root-");
+    const writerId = "graft_session_process_race";
+    const location = resolveWarpSidecarLocation(graphRoot, identity(source, writerId));
+
+    await Promise.all(Array.from({ length: 8 }, () => openSidecarInChild(
+      location.repoPath,
+      graphRoot,
+      writerId,
+    )));
+
+    expect(git(location.repoPath, "rev-parse --is-bare-repository")).toBe("true");
+    expect(git(location.repoPath, "config --local user.name")).toBe("Graft WARP");
+    expect(fs.readdirSync(location.actorDir).filter((name) => name.startsWith(".warp-init-")))
+      .toEqual([]);
   });
 
   it("cannot be redirected into the source repository by inherited Git location variables", async () => {

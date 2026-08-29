@@ -11,6 +11,8 @@ const DISPLAY_SLUG_MAX_LENGTH = 48;
 const IDENTITY_SUFFIX_LENGTH = 12;
 const SIDECAR_GIT_USER_NAME = "Graft WARP";
 const SIDECAR_GIT_USER_EMAIL = "graft-warp@localhost";
+const SIDECAR_INIT_PREFIX = ".warp-init-";
+const inFlightSidecarOpens = new Map<string, Promise<WarpApp>>();
 
 export interface WarpSidecarWorkspaceIdentity {
   readonly repoId: string;
@@ -135,6 +137,45 @@ async function isBareRepository(repoPath: string): Promise<boolean> {
   }
 }
 
+async function configureBareRepository(repoPath: string): Promise<void> {
+  const plumbing = GitPlumbing.createDefault({ cwd: repoPath });
+  await plumbing.execute({
+    args: ["config", "--local", "user.name", SIDECAR_GIT_USER_NAME],
+    env: sidecarGitEnvironment(),
+  });
+  await plumbing.execute({
+    args: ["config", "--local", "user.email", SIDECAR_GIT_USER_EMAIL],
+    env: sidecarGitEnvironment(),
+  });
+}
+
+async function initializeBareRepository(parent: string, repoPath: string): Promise<void> {
+  const candidate = await fs.mkdtemp(path.join(parent, SIDECAR_INIT_PREFIX));
+  let moved = false;
+  try {
+    await assertPrivateDirectory(candidate);
+    const plumbing = GitPlumbing.createDefault({ cwd: candidate });
+    await plumbing.execute({
+      args: ["init", "--bare", "--quiet"],
+      env: sidecarGitEnvironment(),
+    });
+    await configureBareRepository(candidate);
+
+    try {
+      await fs.rename(candidate, repoPath);
+      moved = true;
+    } catch (error: unknown) {
+      // A concurrent process may have installed its complete candidate first.
+      // The atomic rename keeps incomplete repositories out of the final path.
+      if (!await isBareRepository(repoPath)) throw error;
+    }
+  } finally {
+    if (!moved) {
+      await fs.rm(candidate, { recursive: true, force: true });
+    }
+  }
+}
+
 async function ensureBareRepository(graphRoot: string, repoPath: string): Promise<void> {
   const resolvedRoot = path.resolve(graphRoot);
   const resolvedRepo = path.resolve(repoPath);
@@ -158,27 +199,13 @@ async function ensureBareRepository(graphRoot: string, repoPath: string): Promis
   }
 
   if (existing === null) {
-    await ensureManagedDirectory(resolvedRoot, resolvedRepo);
-    const plumbing = GitPlumbing.createDefault({ cwd: resolvedRepo });
-    await plumbing.execute({
-      args: ["init", "--bare", "--quiet"],
-      env: sidecarGitEnvironment(),
-    });
+    await initializeBareRepository(parent, resolvedRepo);
   }
 
   await assertPrivateDirectory(resolvedRepo);
   if (!await isBareRepository(resolvedRepo)) {
     throw new Error(`Refusing WARP sidecar that is not a bare Git repository: ${resolvedRepo}`);
   }
-  const plumbing = GitPlumbing.createDefault({ cwd: resolvedRepo });
-  await plumbing.execute({
-    args: ["config", "--local", "user.name", SIDECAR_GIT_USER_NAME],
-    env: sidecarGitEnvironment(),
-  });
-  await plumbing.execute({
-    args: ["config", "--local", "user.email", SIDECAR_GIT_USER_EMAIL],
-    env: sidecarGitEnvironment(),
-  });
 }
 
 export function defaultWarpGraphRoot(homeDirectory = os.homedir()): string {
@@ -188,7 +215,24 @@ export function defaultWarpGraphRoot(homeDirectory = os.homedir()): string {
 function sidecarGitEnvironment(): Record<string, string> {
   return {
     GIT_CONFIG_NOSYSTEM: "1",
+    GIT_AUTHOR_NAME: SIDECAR_GIT_USER_NAME,
+    GIT_AUTHOR_EMAIL: SIDECAR_GIT_USER_EMAIL,
+    GIT_COMMITTER_NAME: SIDECAR_GIT_USER_NAME,
+    GIT_COMMITTER_EMAIL: SIDECAR_GIT_USER_EMAIL,
   };
+}
+
+function sidecarOpenKey(
+  graphRoot: string,
+  sidecarRepo: string,
+  options: WarpSidecarOpenOptions,
+): string {
+  return JSON.stringify([
+    graphRoot,
+    sidecarRepo,
+    options.writerId,
+    options.checkpointEvery ?? null,
+  ]);
 }
 
 export function resolveWarpSidecarLocation(
@@ -219,16 +263,31 @@ export function resolveWarpSidecarLocation(
   };
 }
 
-export async function openWarpSidecar(options: WarpSidecarOpenOptions): Promise<WarpApp> {
+export function openWarpSidecar(options: WarpSidecarOpenOptions): Promise<WarpApp> {
   const sidecarRepo = path.resolve(options.sidecarRepo);
   const graphRoot = options.graphRoot === undefined
     ? path.resolve(sidecarRepo, "../../../..")
     : path.resolve(options.graphRoot);
-  await ensureBareRepository(graphRoot, sidecarRepo);
-  return openWarp({
-    cwd: sidecarRepo,
-    writerId: options.writerId,
-    gitEnv: sidecarGitEnvironment(),
-    ...(options.checkpointEvery !== undefined ? { checkpointEvery: options.checkpointEvery } : {}),
-  });
+  const key = sidecarOpenKey(graphRoot, sidecarRepo, options);
+  const inFlight = inFlightSidecarOpens.get(key);
+  if (inFlight !== undefined) return inFlight;
+
+  const opened = (async () => {
+    await ensureBareRepository(graphRoot, sidecarRepo);
+    return openWarp({
+      cwd: sidecarRepo,
+      writerId: options.writerId,
+      gitEnv: sidecarGitEnvironment(),
+      ...(options.checkpointEvery !== undefined ? { checkpointEvery: options.checkpointEvery } : {}),
+    });
+  })();
+  inFlightSidecarOpens.set(key, opened);
+
+  const clear = (): void => {
+    if (inFlightSidecarOpens.get(key) === opened) {
+      inFlightSidecarOpens.delete(key);
+    }
+  };
+  void opened.then(clear, clear);
+  return opened;
 }
