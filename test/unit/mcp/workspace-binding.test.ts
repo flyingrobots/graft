@@ -17,6 +17,17 @@ import { cleanupTestRepo, createCommittedTestRepo, git } from "../../helpers/git
 
 const cleanups: (() => void)[] = [];
 
+function fakeWarpLocation(graftDir: string) {
+  const repoPath = path.join(graftDir, "graphs", "warp.git");
+  return {
+    graphRoot: path.dirname(repoPath),
+    projectDir: path.dirname(repoPath),
+    worktreeDir: path.dirname(repoPath),
+    actorDir: path.dirname(repoPath),
+    repoPath,
+  };
+}
+
 afterEach(() => {
   while (cleanups.length > 0) {
     cleanups.pop()!();
@@ -201,6 +212,9 @@ describe("mcp: daemon workspace binding", () => {
       git: nodeGit,
       graftDir,
       warpPool: {
+        locationFor() {
+          return fakeWarpLocation(graftDir);
+        },
         getOrOpen(): Promise<never> {
           return Promise.reject(new Error("unused in workspace binding test"));
         },
@@ -252,6 +266,9 @@ describe("mcp: daemon workspace binding", () => {
       git: nodeGit,
       graftDir,
       warpPool: {
+        locationFor() {
+          return fakeWarpLocation(graftDir);
+        },
         getOrOpen(): Promise<never> {
           return Promise.reject(new Error("unused in workspace routed race test"));
         },
@@ -307,6 +324,9 @@ describe("mcp: daemon workspace binding", () => {
       git: nodeGit,
       graftDir,
       warpPool: {
+        locationFor() {
+          return fakeWarpLocation(graftDir);
+        },
         getOrOpen(): Promise<never> {
           return Promise.reject(new Error("unused in workspace replacement test"));
         },
@@ -362,6 +382,9 @@ describe("mcp: daemon workspace binding", () => {
       git: nodeGit,
       graftDir,
       warpPool: {
+        locationFor() {
+          return fakeWarpLocation(graftDir);
+        },
         getOrOpen(): Promise<never> {
           return Promise.reject(new Error("unused in workspace binding test"));
         },

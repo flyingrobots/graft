@@ -680,6 +680,7 @@ export class WorkspaceRouter {
       resolvePath: binding.resolvePath,
       capabilityProfile: binding.capabilityProfile,
       warpWriterId: binding.warpWriterId,
+      warpSidecarRepo: binding.warpSidecarRepo,
       getCausalContext: () => this.buildCausalContext(binding, repoState.getState()),
       status: boundWorkspaceStatus(this.options.mode, binding),
       governor: binding.slice.governor,

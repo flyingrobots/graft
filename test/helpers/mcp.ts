@@ -58,6 +58,7 @@ export function createServerInRepo(
   return createGraftServer({
     projectRoot: repoDir,
     graftDir: path.join(repoDir, ".graft"),
+    graphRoot: path.join(repoDir, ".graft", "graphs"),
     git: testGitClient,
     persistedLocalHistoryGraph: false,
     ...options,
@@ -85,6 +86,7 @@ export function createIsolatedServer(options: CreateIsolatedServerOptions = {}):
       git: options.git ?? testGitClient,
       ...(mode === "repo_local" ? { projectRoot } : {}),
       graftDir,
+      graphRoot: path.join(graftDir, "graphs"),
       ...(options.runCapture !== undefined ? { runCapture: options.runCapture } : {}),
       ...(options.runtimeObservability !== undefined ? { runtimeObservability: options.runtimeObservability } : {}),
       ...(options.processRunner !== undefined ? { processRunner: options.processRunner } : {}),

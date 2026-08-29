@@ -142,6 +142,7 @@ export interface WorkspaceExecutionContext {
   readonly resolvePath: (input: string) => string;
   readonly capabilityProfile: WorkspaceCapabilityProfile;
   readonly warpWriterId: string;
+  readonly warpSidecarRepo: string;
   getCausalContext(): RuntimeCausalContext;
   readonly status: WorkspaceStatus;
   readonly governor: GovernorTracker;

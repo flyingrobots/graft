@@ -10,7 +10,7 @@ import { DaemonJobScheduler } from "./daemon-job-scheduler.js";
 import { ChildProcessDaemonWorkerPool } from "./daemon-worker-pool.js";
 import { PersistentMonitorRuntime } from "./persistent-monitor-runtime.js";
 import { InMemoryWarpPool } from "./warp-pool.js";
-import { openWarp } from "../warp/open.js";
+import { defaultWarpGraphRoot } from "../warp/sidecar.js";
 import type { RunCaptureConfig } from "./run-capture-config.js";
 import type { RuntimeObservabilityState } from "./runtime-observability.js";
 import {
@@ -32,6 +32,7 @@ export type DaemonHealthStatus = DaemonStatusView;
 export interface StartDaemonServerOptions {
   readonly socketPath?: string | undefined;
   readonly graftDir?: string | undefined;
+  readonly graphRoot?: string | undefined;
   readonly env?: Readonly<Record<string, string | undefined>> | undefined;
   readonly runCapture?: Partial<RunCaptureConfig> | undefined;
   readonly runtimeObservability?: Partial<RuntimeObservabilityState> | undefined;
@@ -50,8 +51,9 @@ export interface GraftDaemonServer {
 export async function startDaemonServer(options: StartDaemonServerOptions = {}): Promise<GraftDaemonServer> {
   await ensureGitVersionSupportsGraft();
   const graftDir = path.resolve(options.graftDir ?? defaultDaemonRoot());
+  const graphRoot = path.resolve(options.graphRoot ?? defaultWarpGraphRoot());
   const socketPath = resolveSocketPath(options.socketPath, graftDir);
-  const warpPool = new InMemoryWarpPool((cwd) => openWarp({ cwd }));
+  const warpPool = new InMemoryWarpPool({ graphRoot });
   const controlPlane = new DaemonControlPlane({
     fs: nodeFs,
     codec: new CanonicalJsonCodec(),
@@ -67,6 +69,7 @@ export async function startDaemonServer(options: StartDaemonServerOptions = {}):
     codec: new CanonicalJsonCodec(),
     git: nodeGit,
     graftDir,
+    graphRoot,
     controlPlane,
     scheduler: daemonScheduler,
     workerPool: daemonWorkerPool,

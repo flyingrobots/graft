@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { observe } from "../../test/helpers/observed.js";
 import * as fs from "node:fs";
+import * as os from "node:os";
 import * as path from "node:path";
 import { CanonicalJsonCodec } from "../../src/adapters/canonical-json.js";
 import { nodeGit } from "../../src/adapters/node-git.js";
@@ -71,6 +72,14 @@ class AsyncOnlyFileSystem implements FileSystem {
 }
 
 const cleanups: (() => Promise<void> | void)[] = [];
+
+function createWorkerSidecarRepo(): string {
+  const graphRoot = fs.mkdtempSync(path.join(os.tmpdir(), "graft-playback-worker-sidecar-"));
+  cleanups.push(() => {
+    fs.rmSync(graphRoot, { recursive: true, force: true });
+  });
+  return path.join(graphRoot, "project", "worktree", "actor", "warp.git");
+}
 const codec = new CanonicalJsonCodec();
 
 afterEach(async () => {
@@ -263,6 +272,7 @@ describe("0058 playback: system-wide resource pressure and fairness", () => {
       worktreeId: "worktree:test",
       gitCommonDir: path.join(repoDir, ".git"),
       writerId: buildSessionWarpWriterId("session:test"),
+      warpSidecarRepo: createWorkerSidecarRepo(),
       capabilityProfile: DEFAULT_DAEMON_CAPABILITY_PROFILE,
       repoState: {
         checkoutEpoch: 1,

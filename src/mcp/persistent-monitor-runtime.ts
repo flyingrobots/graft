@@ -5,6 +5,7 @@ import {
   type WorkspaceBindRequest,
 } from "./workspace-router.js";
 import { buildMonitorWarpWriterId } from "../warp/writer-id.js";
+import { resolveWarpSidecarLocation } from "../warp/sidecar.js";
 
 import {
   CONTROL_PLANE_DIR,
@@ -136,6 +137,8 @@ export class PersistentMonitorRuntime {
       request.pollIntervalMs,
       current?.pollIntervalMs ?? this.defaultPollIntervalMs,
     );
+    const sameAnchor = current?.anchorWorktreeRoot === authorizedWorkspace.worktreeRoot
+      && current.gitCommonDir === authorizedWorkspace.gitCommonDir;
     const next: PersistedMonitorRecord = {
       repoId: authorizedWorkspace.repoId,
       gitCommonDir: authorizedWorkspace.gitCommonDir,
@@ -145,14 +148,14 @@ export class PersistentMonitorRuntime {
       health: "lagging",
       pollIntervalMs,
       lastStartedAt: new Date().toISOString(),
-      lastTickAt: current?.lastTickAt ?? null,
-      lastSuccessAt: current?.lastSuccessAt ?? null,
-      lastError: current?.lastError ?? null,
-      lastIndexedCommit: current?.lastIndexedCommit ?? null,
-      lastHeadCommit: current?.lastHeadCommit ?? null,
-      backlogCommits: current?.backlogCommits ?? 0,
-      lastRunCommitsIndexed: current?.lastRunCommitsIndexed ?? 0,
-      lastRunPatchesWritten: current?.lastRunPatchesWritten ?? 0,
+      lastTickAt: sameAnchor ? current.lastTickAt : null,
+      lastSuccessAt: sameAnchor ? current.lastSuccessAt : null,
+      lastError: sameAnchor ? current.lastError : null,
+      lastIndexedCommit: sameAnchor ? current.lastIndexedCommit : null,
+      lastHeadCommit: sameAnchor ? current.lastHeadCommit : null,
+      backlogCommits: sameAnchor ? current.backlogCommits : 0,
+      lastRunCommitsIndexed: sameAnchor ? current.lastRunCommitsIndexed : 0,
+      lastRunPatchesWritten: sameAnchor ? current.lastRunPatchesWritten : 0,
     };
     const created = current === undefined;
     const changed = created
@@ -329,10 +332,19 @@ export class PersistentMonitorRuntime {
       }
 
       try {
+        const writerId = buildMonitorWarpWriterId(repoId);
+        const warpSidecarRepo = resolveWarpSidecarLocation(this.options.graphRoot, {
+          repoId: anchor.repoId,
+          worktreeId: anchor.worktreeId,
+          worktreeRoot: anchor.worktreeRoot,
+          gitCommonDir: anchor.gitCommonDir,
+          writerId,
+        }).repoPath;
         const result = await this.options.workerPool.runMonitorTick({
           repoId,
           worktreeRoot: anchor.worktreeRoot,
-          writerId: buildMonitorWarpWriterId(repoId),
+          writerId,
+          warpSidecarRepo,
           lastIndexedCommit: record.lastIndexedCommit,
         });
         const latest = this.records.get(repoId) ?? record;

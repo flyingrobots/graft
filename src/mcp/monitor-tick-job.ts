@@ -1,12 +1,13 @@
 import { DEFAULT_INDEX_MAX_FILES_PER_CALL, indexHead } from "../warp/index-head.js";
 import { nodeGit } from "../adapters/node-git.js";
 import { nodePathOps } from "../adapters/node-paths.js";
-import { openWarp } from "../warp/open.js";
+import { openWarpSidecar } from "../warp/sidecar.js";
 
 export interface MonitorTickWorkerJob {
   readonly repoId: string;
   readonly worktreeRoot: string;
   readonly writerId: string;
+  readonly warpSidecarRepo: string;
   readonly lastIndexedCommit: string | null;
   readonly maxFilesPerBatch?: number | undefined;
 }
@@ -106,8 +107,8 @@ export async function runMonitorTickJob(job: MonitorTickWorkerJob): Promise<Moni
   }
 
   try {
-    const app = await openWarp({
-      cwd: job.worktreeRoot,
+    const app = await openWarpSidecar({
+      sidecarRepo: job.warpSidecarRepo,
       writerId: job.writerId,
     });
     const ctx = { app, strandId: null };

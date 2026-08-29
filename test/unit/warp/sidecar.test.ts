@@ -71,7 +71,7 @@ describe("warp: isolated sidecar persistence", { timeout: 20_000 }, () => {
 
     expect(first).toEqual(repeated);
     expect(path.relative(graphRoot, first.repoPath)).not.toMatch(/^\.\.(?:[/\\]|$)/u);
-    expect(first.repoPath).toContain(path.basename(source));
+    expect(first.repoPath).toContain(path.basename(source).toLowerCase());
     expect(first.repoPath).toContain("warp.git");
     expect(first.repoPath).not.toContain("super-secret");
     expect(worktreeIsolated.repoPath).not.toBe(first.repoPath);
@@ -107,6 +107,37 @@ describe("warp: isolated sidecar persistence", { timeout: 20_000 }, () => {
     expect(git(secondLocation.repoPath, "rev-parse --is-bare-repository")).toBe("true");
     expect(await (await first.observer({ match: "node:*" })).getNodes()).toEqual(["node:first-agent"]);
     expect(await (await second.observer({ match: "node:*" })).getNodes()).toEqual(["node:second-agent"]);
+    expect(git(source, "for-each-ref --format='%(refname) %(objectname)' refs/warp")).toBe(sourceRefsBefore);
+    expect(git(source, "count-objects -v")).toBe(sourceObjectsBefore);
+  });
+
+  it("cannot be redirected into the source repository by inherited Git location variables", async () => {
+    const source = sourceRepo();
+    const graphRoot = tempDir("graft-sidecar-hostile-env-");
+    const location = resolveWarpSidecarLocation(graphRoot, identity(source, "graft_session_hostile_env"));
+    const sourceRefsBefore = git(source, "for-each-ref --format='%(refname) %(objectname)' refs/warp");
+    const sourceObjectsBefore = git(source, "count-objects -v");
+    const previousGitDir = process.env["GIT_DIR"];
+    const previousGitWorkTree = process.env["GIT_WORK_TREE"];
+
+    try {
+      process.env["GIT_DIR"] = path.join(source, ".git");
+      process.env["GIT_WORK_TREE"] = source;
+      const warp = await openWarpSidecar({
+        sidecarRepo: location.repoPath,
+        writerId: "graft_session_hostile_env",
+      });
+      await warp.patch((patch) => {
+        patch.addNode("node:sidecar-only");
+      });
+    } finally {
+      if (previousGitDir === undefined) delete process.env["GIT_DIR"];
+      else process.env["GIT_DIR"] = previousGitDir;
+      if (previousGitWorkTree === undefined) delete process.env["GIT_WORK_TREE"];
+      else process.env["GIT_WORK_TREE"] = previousGitWorkTree;
+    }
+
+    expect(git(location.repoPath, "rev-parse --is-bare-repository")).toBe("true");
     expect(git(source, "for-each-ref --format='%(refname) %(objectname)' refs/warp")).toBe(sourceRefsBefore);
     expect(git(source, "count-objects -v")).toBe(sourceObjectsBefore);
   });
