@@ -76,14 +76,14 @@ storage.
 
 ## GREEN Evidence
 
-The latest complete product-tree gate before these witness-only edits ran from
-the copied tree at `220c7e4ac6ac07c4ffbd5250a47fb07cee1744e7`:
+The final complete branch gate ran from the clean, pushed tree at
+`e5fe5947625febdf338c7a694c3eec4f32fb2120`:
 
 ```text
 Full repository gate
 Test Files  262 passed (262)
 Tests       2081 passed (2081)
-Duration    114.14s
+Duration    110.87s
 
 Focused strict-review gate
 Test Files  3 passed (3)
@@ -130,18 +130,24 @@ release witness without treating them as current navigational links.
 
 ## Source Repository Immutability
 
-Immediately before and after the complete container run at `220c7e4a`, the
+Immediately before and after the complete container run at `e5fe5947`, the
 live source checkout reported identical WARP refs, Git object accounting,
 local-config digest, hook-file digests, and status. The pre-run snapshot was:
 
 ```text
+HEAD
+e5fe5947625febdf338c7a694c3eec4f32fb2120
+
+status --porcelain
+<empty>
+
 source WARP refs
 refs/warp/graft-ast/checkpoints/head 714da101e689215e064d20f837b7d65be0fde9df
 refs/warp/graft-ast/writers/graft edf21a7a8b91533ff27b0a101f7e5c80582482a1
 
 count-objects -v
-count: 6698
-size: 45000
+count: 6738
+size: 45196
 in-pack: 25704
 packs: 4
 size-pack: 18338
@@ -151,6 +157,9 @@ size-garbage: 0
 
 source Git config SHA-256
 21be0848f1f179351f3a2c4e4ffd5c7cae01604b0d190c613d8dff0c75d1de3e
+
+source hooks
+14 files; every individual SHA-256 identical before and after
 ```
 
 Both snapshots emitted the same pre-existing warning about
@@ -158,6 +167,10 @@ Both snapshots emitted the same pre-existing warning about
 introduced nor removed that host metadata. The source repository could not be
 mutated by the test process: Docker received copied bytes, no mount, no
 network, no Linux capabilities, and `no-new-privileges`.
+
+The runner used
+`graft-test:local-45888-68b0ea4d-2c98-4071-98ea-021d4927d12c` and deleted it
+after the green run. A post-run image query returned no match.
 
 ## Strict Review
 
@@ -209,6 +222,7 @@ ea09712c fix(warp): reject source-overlapping graph roots
 9a27d673 fix(test): satisfy strict runner type boundaries
 cf1ad05e docs: satisfy strict Markdown style
 88ae127e docs: repair stale design references
+e5fe5947 docs(retro): record strict pre-publication review
 ```
 
 ## Bounded Non-goals
