@@ -88,6 +88,7 @@ describe("Docker-isolated test validation", () => {
       error: (message) => {
         throw new Error(`unexpected stderr: ${message}`);
       },
+      createImageReference: () => "graft-test:local",
       exit,
       spawn,
     })).rejects.toThrow("exit 0");
@@ -100,6 +101,7 @@ describe("Docker-isolated test validation", () => {
         "--security-opt no-new-privileges --",
         "graft-test:local pnpm exec vitest run --maxWorkers 2",
       ].join(" "),
+      "docker image rm graft-test:local",
     ]);
     expect(exits).toEqual([0]);
   });
@@ -132,6 +134,7 @@ describe("Docker-isolated test validation", () => {
         return { ok: true };
       },
       error: () => undefined,
+      createImageReference: () => "graft-test:local",
       exit,
       spawn,
     })).rejects.toThrow("exit 0");
@@ -145,6 +148,7 @@ describe("Docker-isolated test validation", () => {
         "--security-opt no-new-privileges --",
         "graft-test:local pnpm exec vitest run --maxWorkers 2",
       ].join(" "),
+      "docker image rm graft-test:local",
     ]);
     expect(exits).toEqual([0]);
   });
@@ -172,6 +176,7 @@ describe("Docker-isolated test validation", () => {
         return { ok: true };
       },
       error: () => undefined,
+      createImageReference: () => "graft-test:local",
       exit,
       spawn,
     })).rejects.toThrow("exit 1");
@@ -208,6 +213,7 @@ describe("Docker-isolated test validation", () => {
         return { ok: true };
       },
       error: () => undefined,
+      createImageReference: () => "graft-test:local",
       exit,
       spawn,
     })).rejects.toThrow("exit 1");
@@ -220,6 +226,7 @@ describe("Docker-isolated test validation", () => {
         "--security-opt no-new-privileges --",
         "graft-test:local pnpm exec vitest run --maxWorkers 2",
       ].join(" "),
+      "docker image rm graft-test:local",
     ]);
     expect(exits).toEqual([1]);
   });
@@ -252,7 +259,7 @@ describe("Docker-isolated test validation", () => {
 
     expect(calls).toEqual([]);
     expect(errors).toEqual([
-      "Invalid GRAFT_TEST_IMAGE: Docker image references must not be empty, contain whitespace, or begin with '-'.",
+      "Invalid GRAFT_TEST_IMAGE: use a non-empty tag prefix without whitespace, '@', or a leading '-'.",
     ]);
     expect(exits).toEqual([1]);
   });
@@ -284,6 +291,7 @@ describe("Docker-isolated test validation", () => {
         return { ok: true };
       },
       error: (message) => { throw new Error(`unexpected stderr: ${message}`); },
+      createImageReference: () => "graft-test:local",
       exit,
       spawn: (command, args) => {
         calls.push([command, ...args].join(" "));
@@ -299,7 +307,43 @@ describe("Docker-isolated test validation", () => {
         "--security-opt no-new-privileges --",
         "graft-test:local pnpm exec vitest run --maxWorkers 2",
       ].join(" "),
+      "docker image rm graft-test:local",
     ]);
     expect(exits).toEqual([0]);
+  });
+
+  it("uses a distinct image reference for each isolated test invocation", async () => {
+    async function captureImageReference(): Promise<string> {
+      const calls: { command: string; args: string[] }[] = [];
+      const exit = (code = 0): never => {
+        throw new Error(`exit ${String(code)}`);
+      };
+
+      await expect(runIsolatedTests({
+        argv: [],
+        env: {},
+        checkDocker: () => ({ ok: true }),
+        error: (message) => { throw new Error(`unexpected stderr: ${message}`); },
+        exit,
+        spawn: (command, args) => {
+          calls.push({ command, args: [...args] });
+          return { status: 0 };
+        },
+      })).rejects.toThrow("exit 0");
+
+      const build = calls.find((call) => call.command === "docker" && call.args[0] === "build");
+      const run = calls.find((call) => call.command === "docker" && call.args[0] === "run");
+      const cleanup = calls.find((call) => call.command === "docker" && call.args[0] === "image");
+      const image = build?.args[4];
+      expect(image).toBeDefined();
+      expect(run?.args).toContain(image);
+      expect(cleanup?.args).toEqual(["image", "rm", image]);
+      return image!;
+    }
+
+    const first = await captureImageReference();
+    const second = await captureImageReference();
+
+    expect(first).not.toBe(second);
   });
 });

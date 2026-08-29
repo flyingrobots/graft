@@ -1,4 +1,5 @@
 import { spawnSync } from "node:child_process";
+import * as crypto from "node:crypto";
 import process from "node:process";
 import { retry } from "@git-stunts/alfred";
 import {
@@ -13,7 +14,7 @@ import {
 
 const DEFAULT_IMAGE = "graft-test:local";
 const INVALID_DOCKER_IMAGE_MESSAGE =
-  "Invalid GRAFT_TEST_IMAGE: Docker image references must not be empty, contain whitespace, or begin with '-'.";
+  "Invalid GRAFT_TEST_IMAGE: use a non-empty tag prefix without whitespace, '@', or a leading '-'.";
 const DEFAULT_DOCKER_BUILD_RETRIES = 1;
 const DEFAULT_DOCKER_BUILD_RETRY_DELAY_MS = 1_000;
 const TRANSIENT_SPAWN_ERROR_CODES = new Set([
@@ -54,6 +55,7 @@ export interface IsolatedTestRunnerOptions {
   argv: string[];
   env: NodeJS.ProcessEnv;
   checkDocker?: () => DockerAvailability | Promise<DockerAvailability>;
+  createImageReference?: ((base: string) => string) | undefined;
   error?: (message: string) => void;
   exit?: (code?: number) => never;
   spawn?: RunnerSpawn;
@@ -142,12 +144,26 @@ function retryableDockerBuildError(error: Error): boolean {
   return typeof code === "string" && TRANSIENT_SPAWN_ERROR_CODES.has(code);
 }
 
-function run(command: string, args: string[], options: Required<IsolatedTestRunnerOptions>): never {
-  const result = options.spawn(command, args, {
+function uniqueImageReference(base: string): string {
+  const suffix = `${String(process.pid)}-${crypto.randomUUID()}`;
+  const lastSlash = base.lastIndexOf("/");
+  const lastColon = base.lastIndexOf(":");
+  return lastColon > lastSlash ? `${base}-${suffix}` : `${base}:${suffix}`;
+}
+
+function spawn(
+  command: string,
+  args: string[],
+  options: Required<IsolatedTestRunnerOptions>,
+): RunnerSpawnResult {
+  return options.spawn(command, args, {
     stdio: "inherit",
     env: options.env,
   });
-  exitFrom(result, command, options.error, options.exit);
+}
+
+function succeeded(result: RunnerSpawnResult): boolean {
+  return result.error === undefined && result.status === 0;
 }
 
 async function runRetriedDockerBuild(
@@ -198,6 +214,7 @@ async function runRetriedDockerBuild(
 export async function runIsolatedTests(options: IsolatedTestRunnerOptions): Promise<never> {
   const runnerOptions: Required<IsolatedTestRunnerOptions> = {
     checkDocker: options.checkDocker ?? ensureDockerAvailability,
+    createImageReference: options.createImageReference ?? uniqueImageReference,
     error: options.error ?? console.error,
     exit: options.exit ?? ((code) => process.exit(code)),
     spawn: options.spawn ?? defaultSpawn,
@@ -206,8 +223,13 @@ export async function runIsolatedTests(options: IsolatedTestRunnerOptions): Prom
   };
   const testArgs = applyIsolatedVitestDefaults(normalizeVitestArgs(runnerOptions.argv));
 
-  const image = runnerOptions.env["GRAFT_TEST_IMAGE"] ?? DEFAULT_IMAGE;
-  if (image.length === 0 || image.startsWith("-") || /\s/u.test(image)) {
+  const imageBase = runnerOptions.env["GRAFT_TEST_IMAGE"] ?? DEFAULT_IMAGE;
+  if (imageBase.length === 0 || imageBase.startsWith("-") || imageBase.includes("@") || /\s/u.test(imageBase)) {
+    runnerOptions.error(INVALID_DOCKER_IMAGE_MESSAGE);
+    runnerOptions.exit(1);
+  }
+  const image = runnerOptions.createImageReference(imageBase);
+  if (image.length === 0 || image.startsWith("-") || image.includes("@") || /\s/u.test(image)) {
     runnerOptions.error(INVALID_DOCKER_IMAGE_MESSAGE);
     runnerOptions.exit(1);
   }
@@ -218,7 +240,7 @@ export async function runIsolatedTests(options: IsolatedTestRunnerOptions): Prom
   }
 
   await runRetriedDockerBuild(["build", "--target", "test", "-t", image, "."], runnerOptions);
-  return run("docker", [
+  const testResult = spawn("docker", [
     "run",
     "--rm",
     "--network",
@@ -235,4 +257,13 @@ export async function runIsolatedTests(options: IsolatedTestRunnerOptions): Prom
     "run",
     ...testArgs,
   ], runnerOptions);
+  const cleanupResult = spawn("docker", ["image", "rm", image], runnerOptions);
+  if (!succeeded(testResult)) {
+    return exitFrom(testResult, "docker", runnerOptions.error, runnerOptions.exit);
+  }
+  if (!succeeded(cleanupResult)) {
+    runnerOptions.error(`Failed to remove isolated Docker image reference ${image}.`);
+    return exitFrom(cleanupResult, "docker", runnerOptions.error, runnerOptions.exit);
+  }
+  return runnerOptions.exit(0);
 }
