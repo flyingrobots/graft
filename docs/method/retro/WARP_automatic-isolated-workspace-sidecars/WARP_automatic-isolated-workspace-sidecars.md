@@ -43,6 +43,8 @@ cycle neither migrates nor deletes legacy graph state.
 
 Verification witness: [verification.md](witness/verification.md)
 
+Strict review witness: [self-code-review.md](witness/self-code-review.md)
+
 ## Drift
 
 - The operator halted host test execution during the cycle and required a
