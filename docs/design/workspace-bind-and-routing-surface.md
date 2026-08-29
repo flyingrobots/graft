@@ -94,6 +94,7 @@ Now that the daemon trust model and workspace-binding contract are
 explicit, implement the daemon-only bind/routing surface itself.
 
 Why this matters:
+
 - repo-scoped tools need one active workspace binding per daemon session
 - authorization should happen when the daemon resolves and binds a
   workspace, not when arbitrary tool args mention paths
@@ -101,6 +102,7 @@ Why this matters:
   a session rebinds
 
 Desired end state:
+
 - daemon-only `workspace_bind`, `workspace_status`, and
   `workspace_rebind` surfaces
 - server-side resolution of `cwd` / worktree hints into canonical repo
@@ -116,6 +118,7 @@ Desired end state:
   `run_capture`
 
 Related:
+
 - `docs/design/0051-system-wide-mcp-daemon-and-workspace-binding/system-wide-mcp-daemon-and-workspace-binding.md`
 - `docs/method/backlog/up-next/SURFACE_local-daemon-transport-and-session-lifecycle.md`
 - `docs/method/backlog/up-next/WARP_same-repo-concurrent-agent-model.md`

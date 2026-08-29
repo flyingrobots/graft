@@ -123,6 +123,7 @@ Graft models repository state through three distinct layers:
 ## WARP: Structural Worldline Memory
 
 ### Write Path (Indexer)
+
 The write path turns Git history into structural worldline facts by extracting AST outlines and writing them into the WARP graph.
 
 The source repository is evidence, not graph storage. Production composition
@@ -142,11 +143,13 @@ the source Git directory for persistence. Each sidecar is bare, private, and
 configured with a deterministic repository-local Git identity.
 
 ### Read Path (Observers)
+
 The read path uses the **Observer Law**: projections are read through lenses (e.g., `graft_diff`, `code_show`) rather than traversing graph internals directly.
 
 ## Execution Authority: The Daemon
 
 The Daemon is the system-wide authority for multi-repo coordination. It manages:
+
 - **Authorization**: Workspace and session binding.
 - **Scheduling**: Job queueing and fairness.
 - **Resources**: Shared worker pools for heavy indexing and parsing tasks.

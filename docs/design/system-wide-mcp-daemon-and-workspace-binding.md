@@ -85,12 +85,14 @@ by multiple agents at the same time, without assuming one fixed cwd or
 one repo root per process.
 
 Core problem:
+
 - the current stdio server captures one `projectRoot`, one session,
   one cache, and one repo-state tracker at process start
 - that is fine for repo-local dogfooding, but it is not the right
   contract for a shared system service
 
 Questions:
+
 - what transport should a system-wide shared service use instead of
   repo-scoped stdio?
 - should clients bind workspace context at session start, per call, or
@@ -115,6 +117,7 @@ Questions:
   surface is introduced?
 
 Deliverables:
+
 - explicit daemon/session/workspace routing model
 - explicit bind/rebind and capability-attachment model
 - proposed MCP/CLI context-binding surface
@@ -124,15 +127,18 @@ Deliverables:
   implementation
 
 Related:
+
 - `docs/method/backlog/up-next/SURFACE_system-wide-multi-repo-agent-coordination.md`
 - `docs/method/backlog/up-next/WARP_same-repo-concurrent-agent-model.md`
 - `docs/method/backlog/up-next/SURFACE_system-wide-control-plane-for-persistent-monitors.md`
 
 Why separate cycle:
+
 - this is the architectural bridge between today's single-root stdio
   MCP server and the desired system-wide multi-agent service
 
 Trust-model constraint from cycle 0050:
+
 - shared daemon is same-user and local-machine only by default
 - client-supplied repo/worktree ids are hints, not authority
 - authorization happens when the daemon resolves and binds a workspace

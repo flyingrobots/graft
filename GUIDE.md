@@ -7,16 +7,22 @@ For deep-track doctrine, worldline internals, and repository-wide engineering st
 ## Choose Your Lane
 
 ### 1. Initialize a Repository
+
 Bootstrap a new repo with read policies, git hooks, and agent instructions.
+
 - **Run**: `npx @flyingrobots/graft init`
 - **Read**: [Setup Guide](./docs/SETUP.md) (Detailed per-editor steps)
 
 ### 2. Standalone CLI Usage
+
 Manually enforce policies or inspect structural history from your terminal.
+
 - **Read**: [CLI Signpost](./docs/CLI.md)
 
 ### 3. Shared Daemon Mode
+
 Run the central execution authority for multi-repo work and persistent monitors.
+
 - **Run**: `npx @flyingrobots/graft daemon`
 - **Read**: [docs/SETUP.md](./docs/SETUP.md) (Daemon bootstrap and automatic workspace opening)
 - **Read**: [Architecture](./ARCHITECTURE.md) (Daemon section)

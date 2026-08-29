@@ -135,6 +135,7 @@ This needs to be explicit because the current Level 1 contract is still
 single-writer-honest.
 
 Questions:
+
 - what is the difference between:
   - two agents in the same worktree
   - two agents in different worktrees of the same repo
@@ -157,6 +158,7 @@ Questions:
   future higher-level WARP model?
 
 Deliverables:
+
 - explicit same-repo concurrency model
 - clear statement of supported versus unsupported concurrent scenarios
 - explicit split between canonical repo history, worktree-local live
@@ -165,6 +167,7 @@ Deliverables:
   state, or multi-writer evolution if needed
 
 Current design leaning:
+
 - same repo in different worktrees should share canonical history but
   not be collapsed into one live workspace
 - same worktree with multiple agents should be supported
@@ -174,10 +177,12 @@ Current design leaning:
   level
 
 Related:
+
 - `docs/invariants/single-writer-honest.md`
 - `docs/method/backlog/cool-ideas/CORE_multi-agent-conflict-detection.md`
 
 Why separate cycle:
+
 - this is deeper than conflict detection; it is a contract question
   about repo truth, writers, and concurrent observation
 
@@ -299,16 +304,19 @@ Lower layers must not be used to fake clean ownership.
 ### Shared-state rules
 
 What may be shared across sessions in the same repo:
+
 - canonical repo identity
 - future shared WARP canonical history
 - common-dir-level repo posture
 
 What must remain worktree-local:
+
 - live overlay footing
 - staged target snapshots
 - hook-observed checkout-boundary state
 
 What must remain actor-local unless explicitly attached:
+
 - causal session / strand family
 - attributed local artifact history
 - attach / handoff intent
@@ -319,12 +327,14 @@ Same-repo concurrency does not upgrade Level 1 into lawful
 multi-writer semantics.
 
 This cycle is allowed to say:
+
 - multiple actors share this repo
 - multiple actors share this worktree
 - these actors likely overlap on the same footprint
 - provenance confidence must downgrade
 
 This cycle is not allowed to say:
+
 - overlapping actors are safely merged into one truth-preserving writer
 - actor ownership is clean when overlap evidence says otherwise
 - shared repo identity implies shared causal intent
