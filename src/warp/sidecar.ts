@@ -49,7 +49,7 @@ function canonicalizeProspectivePath(input: string): string {
   let current = path.resolve(input);
   const missingSegments: string[] = [];
 
-  while (true) {
+  for (;;) {
     try {
       const canonicalPrefix = fsSync.realpathSync.native(current);
       return path.join(canonicalPrefix, ...missingSegments.reverse());
@@ -281,7 +281,7 @@ export function defaultWarpGraphRoot(homeDirectory = os.homedir()): string {
   return path.join(homeDirectory, ".graft", "graphs");
 }
 
-export function resolveWarpGraphRoot(configuredRoot?: string | undefined): string {
+export function resolveWarpGraphRoot(configuredRoot?: string): string {
   return resolveRequiredStoragePath(
     configuredRoot ?? defaultWarpGraphRoot(),
     "graph root",
@@ -352,7 +352,8 @@ export function openWarpSidecar(options: WarpSidecarOpenOptions): Promise<WarpAp
       ? path.resolve(sidecarRepo, "../../../..")
       : resolveWarpGraphRoot(options.graphRoot);
   } catch (error: unknown) {
-    return Promise.reject(error);
+    const rejection = error instanceof Error ? error : new Error(String(error));
+    return Promise.reject(rejection);
   }
   const key = sidecarOpenKey(graphRoot, sidecarRepo, options);
   const inFlight = inFlightSidecarOpens.get(key);

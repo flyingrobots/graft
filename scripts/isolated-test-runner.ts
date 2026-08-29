@@ -55,7 +55,7 @@ export interface IsolatedTestRunnerOptions {
   argv: string[];
   env: NodeJS.ProcessEnv;
   checkDocker?: () => DockerAvailability | Promise<DockerAvailability>;
-  createImageReference?: ((base: string) => string) | undefined;
+  createImageReference?: (base: string) => string;
   error?: (message: string) => void;
   exit?: (code?: number) => never;
   spawn?: RunnerSpawn;

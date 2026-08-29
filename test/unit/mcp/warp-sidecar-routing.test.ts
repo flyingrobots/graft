@@ -86,7 +86,9 @@ describe("mcp: WARP sidecar routing", { timeout: 30_000 }, () => {
         "beta.ts": "export const beta = true;\n",
       },
     ));
-    cleanups.push(() => cleanupTestRepo(worktree));
+    cleanups.push(() => {
+      cleanupTestRepo(worktree);
+    });
     const harness = await createInProcessDaemonHarness();
     cleanups.push(() => harness.close());
     const alphaSession = harness.createSession();
