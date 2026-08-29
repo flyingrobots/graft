@@ -56,6 +56,14 @@ describe("Docker-isolated test validation", () => {
     expect(runner).not.toContain("GRAFT_TEST_CONTAINER");
   });
 
+  it("pins the Docker test base image to an immutable digest", () => {
+    const [baseImage] = readRepoFile("Dockerfile").split(/\r?\n/u);
+
+    expect(baseImage).toMatch(
+      /^FROM node:22-alpine@sha256:[0-9a-f]{64} AS deps$/u,
+    );
+  });
+
   it("preflights Docker availability before building the isolated image", async () => {
     const calls: string[] = [];
     const exits: number[] = [];
