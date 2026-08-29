@@ -2,8 +2,9 @@ FROM node:22-alpine@sha256:c610fcdfb1d5b4740dd70c284ed3cb16bb857e0f7166196e36a55
 
 WORKDIR /app
 
-# Git is required by Graft tests and runtime repo inspection.
-RUN apk add --no-cache git
+# Git is required by Graft tests and runtime repo inspection. Pin the package
+# revision as well as the base image so the test toolchain cannot drift.
+RUN apk add --no-cache git=2.54.0-r0
 
 # Install the package-manager version declared by package.json. Corepack fetches
 # over the network here, before project dependencies exist, so keep this retry

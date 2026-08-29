@@ -17,11 +17,14 @@ fi
 # Git directories.
 find "$copied_root" -name .git \( -type f -o -type l \) -exec rm -f -- {} +
 
-# Scrub ordinary .git directories and copied bare repositories. The root
-# checkout's .git is already excluded by .dockerignore; this covers nested
-# repositories that may be added to the build context later.
-find "$copied_root" -type d \( -name .git -o -name '*.git' \) -exec sh -eu -c '
-  for git_dir do
+# Every Git directory, including an arbitrarily named bare repository, has a
+# HEAD file at its root. Validate each candidate with Git before scrubbing it;
+# false positives such as logs/HEAD are ignored. The root checkout's .git is
+# already excluded by .dockerignore, while this covers nested repositories and
+# custom Git-directory names that may be added to the build context later.
+find "$copied_root" -type f -name HEAD -exec sh -eu -c '
+  for head_file do
+    git_dir=${head_file%/HEAD}
     if ! GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_NOSYSTEM=1 \
       git --git-dir="$git_dir" rev-parse --git-dir >/dev/null 2>&1
     then
