@@ -97,6 +97,10 @@ Transport `onclose`/`onerror` callbacks may trigger this operation, but they do
 not implement their own cleanup. Host shutdown awaits every termination promise.
 The design does not claim that `GraftServer` itself has a `close()` method; the
 connected MCP protocol owns and closes its transport.
+When a transport callback initiates the transition and no synchronous caller can
+receive its result, one observer emits structured cleanup failures or a rejected
+termination. Callbacks caused by an existing idle/shutdown transition do not add
+another observer or duplicate its diagnostics.
 
 A terminating session ID remains reserved from orphan discovery until its shared
 termination promise settles. Removing the session from request authority must

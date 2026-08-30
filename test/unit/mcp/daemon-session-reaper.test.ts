@@ -1094,6 +1094,74 @@ describe("mcp: daemon session reaper", () => {
     expect(protectedDuringTermination).toBe(true);
   });
 
+  it("reports cleanup failures from transport-triggered termination", async () => {
+    const rootDir = fs.mkdtempSync(path.join(os.tmpdir(), "graft-session-callback-failure-"));
+    const socketPath = path.join(rootDir, "daemon.sock");
+    cleanups.push(() => {
+      fs.rmSync(rootDir, { recursive: true, force: true });
+    });
+    let markRemovalAttempted!: () => void;
+    const removalAttempted = new Promise<void>((resolve) => {
+      markRemovalAttempted = resolve;
+    });
+    const sessionStorage = {
+      writeSessionOwnershipMarker,
+      removeSessionOrphanDirectories,
+      removeSessionDirectory(): Promise<boolean> {
+        markRemovalAttempted();
+        return Promise.reject(Object.assign(new Error("injected busy directory"), { code: "EBUSY" }));
+      },
+    };
+    const daemon = await startDaemonServer({
+      graftDir: rootDir,
+      socketPath,
+      sessionReaperIntervalMs: 0,
+      sessionStorage,
+    });
+    cleanups.push(() => daemon.close());
+    const consoleError = vi.spyOn(console, "error").mockImplementation(() => undefined);
+    cleanups.push(() => {
+      consoleError.mockRestore();
+    });
+    const initialize = await requestUnixJson(socketPath, "POST", "/mcp", {
+      jsonrpc: "2.0",
+      id: 1,
+      method: "initialize",
+      params: {
+        protocolVersion: "2025-03-26",
+        capabilities: {},
+        clientInfo: { name: "vitest", version: "0.0.0" },
+      },
+    });
+    const sessionIdHeader = initialize.headers["mcp-session-id"];
+    const sessionId = Array.isArray(sessionIdHeader) ? sessionIdHeader[0] : sessionIdHeader;
+    expect(sessionId).toBeDefined();
+
+    await requestUnixJson(socketPath, "DELETE", "/mcp", undefined, {
+      "mcp-session-id": sessionId!,
+    });
+    await removalAttempted;
+    await new Promise<void>((resolve) => {
+      setImmediate(resolve);
+    });
+
+    const prefix = "[graft] daemon session termination cleanup failures: ";
+    const diagnostic = consoleError.mock.calls.find(([message]) => {
+      return typeof message === "string" && message.startsWith(prefix);
+    });
+    expect(diagnostic).toBeDefined();
+    const report = JSON.parse((diagnostic?.[0] as string).slice(prefix.length)) as unknown;
+    expect(report).toMatchObject({
+      reason: "transport_close",
+      sessionId,
+      cleanupFailures: [{
+        code: "SESSION_DIRECTORY_REMOVE_FAILED",
+        sessionId,
+        retryable: true,
+      }],
+    });
+  });
+
   it("reports failed cleanup and retries the resulting orphan on the next sweep", async () => {
     const rootDir = fs.mkdtempSync(path.join(os.tmpdir(), "graft-session-reaper-retry-"));
     const socketPath = path.join(rootDir, "daemon.sock");

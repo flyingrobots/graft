@@ -258,19 +258,45 @@ async function createDaemonSession(
       activeRequests: 0,
     };
     const createdSession = session;
+    const terminateFromTransport = (reason: "transport_close" | "transport_error"): void => {
+      const initiatedTermination = createdSession.termination === null;
+      const termination = terminateSession(createdSession, reason);
+      if (!initiatedTermination) return;
+      void termination.then(
+        (result) => {
+          if (result.cleanupFailures.length === 0) return;
+          console.error(
+            `[graft] daemon session termination cleanup failures: ${JSON.stringify({
+              reason,
+              sessionId: createdSession.id,
+              cleanupFailures: result.cleanupFailures,
+            })}`,
+          );
+        },
+        (error: unknown) => {
+          console.error(
+            `[graft] daemon session termination error: ${JSON.stringify({
+              reason,
+              sessionId: createdSession.id,
+              message: error instanceof Error ? error.message : String(error),
+            })}`,
+          );
+        },
+      );
+    };
     createdTransport.onclose = () => {
       if (!construction.committed) {
         construction.closedBeforeCommit = true;
         return;
       }
-      void terminateSession(createdSession, "transport_close");
+      terminateFromTransport("transport_close");
     };
     createdTransport.onerror = () => {
       if (!construction.committed) {
         construction.closedBeforeCommit = true;
         return;
       }
-      void terminateSession(createdSession, "transport_error");
+      terminateFromTransport("transport_error");
     };
 
     protocolConnectionAttempted = true;

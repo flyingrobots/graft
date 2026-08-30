@@ -45,6 +45,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   path and releases that claim if later startup work fails.
   Failed session construction closes a transport acquired before MCP connection
   directly instead of assuming an unconnected protocol server owns it.
+  Transport-triggered session termination emits its otherwise-unclaimed cleanup
+  failures once instead of discarding the structured terminal result.
 
 ### Fixed
 
