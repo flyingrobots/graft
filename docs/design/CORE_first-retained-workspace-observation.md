@@ -137,6 +137,7 @@ The request binds only facts Graft is entitled to know before observation:
 - maximum retained settlement bytes;
 - symlink policy (`refuse` for this cycle);
 - observation algorithm and version;
+- retained-analysis projection policy and projection schema identity;
 - policy, capability, schema, and reconciliation-law identities;
 - workspace-basis posture `UNKNOWN`; and
 - the known Echo causal basis.
@@ -145,6 +146,14 @@ The requested-worktree routing layer resolves and authorizes the workspace
 before this operation is constructed. It must pass one immutable authority
 context into the request path. The observer receives no ambient permission to
 choose or rediscover another root.
+
+For `RETAIN_COLORFUL_PROSE_V1`, `capabilityIdentity` also binds the exact
+Colorful producer protocol admitted by the projection policy: the version probe
+and stdin-fed IR invocation used by `createColorfulCliProseProjector`. It does
+not authorize an ambient shell or arbitrary executable. The request's
+projection schema identity fixes the output shape that may enter settlement;
+the settlement's producer contract version and vocabulary hash must agree with
+that policy.
 
 The ordering proof instruments the external observation authority itself: the
 request WAL commit must exist before the first metadata or content read made
@@ -174,7 +183,9 @@ allowed to read workspace paths. It receives:
 - the durable Echo claim for the exact request;
 - the canonical resolved root capability;
 - the requested aperture and budget; and
-- the declared observation policy.
+- the declared observation and retained-analysis projection policies; and
+- when that projection policy requires it, a process capability restricted to
+  the exact Colorful producer protocol bound by `capabilityIdentity`.
 
 It may return evidence only for paths within the requested aperture. Relative
 path normalization, root confinement, symlink refusal, file-type checks, and
@@ -183,6 +194,12 @@ budget enforcement happen before bytes become a successful settlement.
 Opening the adapter is not settlement. Observed bytes remain untrusted until
 the settlement schema, request correlation, authority bounds, evidence
 digests, and canonical basis digest have all been admitted.
+
+The claimed observer may invoke the Colorful producer only after the durable
+request and claim exist, only for an admitted Colorful-supported entry, and
+only before settlement. A missing, mismatched, or failed producer yields a
+typed non-success settlement; it never hands process authority to Graft
+analysis or triggers a post-settlement live fallback.
 
 ### Analysis authority
 
@@ -398,9 +415,9 @@ fixture cannot distinguish a correct rule from no rule at all.
 ## Invariants
 
 1. **Request before effect.** Echo's durable request commit precedes every
-   workspace metadata or content read **causally initiated for this
-   observation**, whatever component performs it — not only reads made through
-   the observation authority.
+   workspace metadata or content read and retained-projection process execution
+   **causally initiated for this observation**, whatever component performs it
+   — not only effects made through the observation authority.
 
    Both narrower and broader scopings are wrong, and the cycle needs the middle
    one. *Authority-scoped* is a loophole: `repo-paths.ts` calls
@@ -419,7 +436,8 @@ fixture cannot distinguish a correct rule from no rule at all.
    performed on the requested path. The cycle must enumerate the prerequisite
    reads it is exempting and bound them, so the exemption cannot become a
    laundering channel — an unbounded "prerequisite" is the same loophole with a
-   better name.
+   better name. No projection-process probe is prerequisite routing: even a
+   `colorful --version` call belongs after the durable request and claim.
 2. **Claim before effect.** The adapter cannot observe without a durable claim
    correlated to the exact admitted request.
 3. **Settlement before analysis.** Echo's durable settlement commit precedes
@@ -466,7 +484,8 @@ fixture cannot distinguish a correct rule from no rule at all.
       present.
 - [ ] The request binds the authorized workspace identity, requested and
       resolved roots, ordered aperture, byte budget, symlink policy,
-      algorithm/version, policy/lawpack identities, and known causal basis.
+      algorithm/version, retained-analysis projection policy/schema,
+      policy/lawpack/capability identities, and known causal basis.
 - [ ] Echo independently admits the exact compiler-derived request and retains
       it durably before granting observation authority.
 - [ ] Any required Edict/Echo substrate change is versioned and tested at its
@@ -475,9 +494,10 @@ fixture cannot distinguish a correct rule from no rule at all.
 ### Observation and settlement
 
 - [ ] The adapter can read only through the exact durable claim and
-      capability-rooted resolved workspace.
-- [ ] The first adapter metadata/content read occurs after the request WAL
-      commit.
+      capability-rooted resolved workspace, and can invoke only the exact
+      projection producer protocol bound by that claim.
+- [ ] The first adapter metadata/content read and first projection-process
+      execution both occur after the request WAL commit and durable claim.
 - [ ] Escaped, absolute, duplicate, symlinked, unauthorized, non-file, and
       over-budget observations produce typed non-success settlements.
 - [ ] **Path-only policy is evaluated before observation authority is granted.**
@@ -621,6 +641,7 @@ from log prose:
 
 ```text
 requestWalPosition < firstFilesystemReadPosition
+requestWalPosition < firstProjectionProcessExecutionPosition
 settlementWalPosition < firstGraftAnalysisReadPosition
 settlement.requestIdentity == request.requestIdentity
 settlement.requestedRoot == request.requestedRoot
@@ -639,8 +660,10 @@ deniedPathRetainedSettlements == 0
 The filesystem counter covers all metadata and content operations performed by
 the external observation authority, not only calls named `readFile`.
 
-The process counter covers every `processRunner.run` invocation reachable from
-the replayed call, including prose projection.
+`firstProjectionProcessExecutionPosition` covers every `processRunner.run`
+invocation used to produce retained analysis, including the Colorful version
+probe. The replay process counter covers every `processRunner.run` invocation
+reachable from the replayed call, including prose projection.
 
 The direct-Git counter covers `GitClient` operations that do not pass through
 git-warp, including any invoked while reconstructing a causal basis. Without
@@ -751,6 +774,9 @@ Edict executor.
    the filesystem at a level the resolver cannot bypass and asserts
    `preRequestWorkspaceMetadataReads == 0`. An authority-scoped spy is a
    necessary component of the evidence, never the whole of it.
+   The same fixture injects the projection process capability, rejects any
+   invocation outside the policy-bound Colorful protocol, and records its first
+   position so an eager version probe before request/claim retention fails.
 3. An analysis-read spy fails if no durable settlement commit is visible at
    the first Graft read.
 4. A restart test closes all live observer authority, reopens only Echo
@@ -800,10 +826,11 @@ The cycle owns only the pieces required to ring this bell:
    variants item 7 adds — not over `FileOutlineResult` alone.
 6. Instrumented causal-order evidence and every counter the acceptance list
    requires: filesystem reads, git-warp opens, direct Git operations, process
-   executions, pre-request workspace metadata reads, and denied-path retention.
-   Listing them here rather than "and so on" is deliberate — an acceptance
-   criterion whose instrumentation is outside the implementation boundary
-   cannot be met by the cycle that owns it.
+   executions (including the first projection-process position), pre-request
+   workspace metadata reads, and denied-path retention. Listing them here
+   rather than "and so on" is deliberate — an acceptance criterion whose
+   instrumentation is outside the implementation boundary cannot be met by the
+   cycle that owns it.
 7. The contract additions the acceptance list depends on: `entryKind` and the
    discriminated retained-analysis projection per admitted entry;
    `settlementSchemaIdentity`, `reconciliationLawIdentity`,
