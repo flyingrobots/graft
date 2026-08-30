@@ -173,6 +173,21 @@ export function createDaemonSessionHost(options: CreateDaemonSessionHostOptions)
   const sessionTtlMs = options.sessionInactivityTtlMs ?? DEFAULT_SESSION_INACTIVITY_TTL_MS;
   const reaperIntervalMs = options.sessionReaperIntervalMs ?? DEFAULT_SESSION_REAPER_INTERVAL_MS;
 
+  async function handleActiveSessionRequest(
+    session: DaemonSession,
+    handle: () => Promise<void>,
+  ): Promise<void> {
+    session.lastActivityAtMs = nowMs();
+    session.activeRequests++;
+    options.controlPlane.touchTransport(session.id);
+    try {
+      await handle();
+    } finally {
+      session.activeRequests = Math.max(0, session.activeRequests - 1);
+      session.lastActivityAtMs = nowMs();
+    }
+  }
+
   async function reapExpiredSessions(): Promise<number> {
     const current = nowMs();
     let reapedCount = 0;
@@ -215,29 +230,28 @@ export function createDaemonSessionHost(options: CreateDaemonSessionHostOptions)
         const sessionId = getHeader(req, "mcp-session-id");
 
         if (req.method === "POST") {
-          const parsedBody = await readJsonBody(req);
-          let session = sessionId !== undefined ? sessions.get(sessionId) : undefined;
-          if (session === undefined) {
-            if (sessionId !== undefined) {
+          if (sessionId !== undefined) {
+            const session = sessions.get(sessionId);
+            if (session === undefined) {
               sendJsonRpcError(res, -32000, `Unknown MCP session: ${sessionId}`);
               return;
             }
-            if (!isInitializeRequest(parsedBody)) {
-              sendJsonRpcError(res, -32000, "Initialization requests must start a daemon session");
-              return;
-            }
-            session = await createDaemonSession(crypto.randomUUID(), options, sessions);
+            await handleActiveSessionRequest(session, async () => {
+              const parsedBody = await readJsonBody(req);
+              await session.transport.handleRequest(req, res, parsedBody);
+            });
+            return;
           }
 
-          session.lastActivityAtMs = nowMs();
-          session.activeRequests++;
-          options.controlPlane.touchTransport(session.id);
-          try {
-            await session.transport.handleRequest(req, res, parsedBody);
-          } finally {
-            session.activeRequests = Math.max(0, session.activeRequests - 1);
-            session.lastActivityAtMs = nowMs();
+          const parsedBody = await readJsonBody(req);
+          if (!isInitializeRequest(parsedBody)) {
+            sendJsonRpcError(res, -32000, "Initialization requests must start a daemon session");
+            return;
           }
+          const session = await createDaemonSession(crypto.randomUUID(), options, sessions);
+          await handleActiveSessionRequest(session, async () => {
+            await session.transport.handleRequest(req, res, parsedBody);
+          });
           return;
         }
 
@@ -251,15 +265,9 @@ export function createDaemonSessionHost(options: CreateDaemonSessionHostOptions)
             sendJson(res, 404, { error: `Unknown MCP session: ${sessionId}` });
             return;
           }
-          session.lastActivityAtMs = nowMs();
-          session.activeRequests++;
-          options.controlPlane.touchTransport(session.id);
-          try {
+          await handleActiveSessionRequest(session, async () => {
             await session.transport.handleRequest(req, res);
-          } finally {
-            session.activeRequests = Math.max(0, session.activeRequests - 1);
-            session.lastActivityAtMs = nowMs();
-          }
+          });
           return;
         }
 

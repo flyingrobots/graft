@@ -26,6 +26,10 @@ interface OpenEventStream {
   close(): Promise<void>;
 }
 
+interface HeldJsonRequest {
+  release(): Promise<JsonResponse>;
+}
+
 async function requestUnixJson(
   socketPath: string,
   method: "GET" | "POST" | "DELETE",
@@ -107,6 +111,75 @@ async function openUnixEventStream(
       });
     });
     req.end();
+  });
+}
+
+async function holdUnixJsonRequestBody(
+  socketPath: string,
+  requestPath: string,
+  sessionId: string,
+  body: unknown,
+): Promise<HeldJsonRequest> {
+  const payload = JSON.stringify(body);
+  const splitAt = Math.max(1, Math.floor(payload.length / 2));
+  const prefix = payload.slice(0, splitAt);
+  const suffix = payload.slice(splitAt);
+
+  return new Promise<HeldJsonRequest>((resolveHeld, rejectHeld) => {
+    let held = false;
+    let resolveResponse!: (response: JsonResponse) => void;
+    let rejectResponse!: (error: Error) => void;
+    const response = new Promise<JsonResponse>((resolve, reject) => {
+      resolveResponse = resolve;
+      rejectResponse = reject;
+    });
+    const req = http.request({
+      socketPath,
+      path: requestPath,
+      method: "POST",
+      headers: {
+        accept: "application/json, text/event-stream",
+        "content-type": "application/json",
+        "content-length": Buffer.byteLength(payload),
+        expect: "100-continue",
+        "mcp-session-id": sessionId,
+      },
+    }, (res) => {
+      const chunks: Buffer[] = [];
+      res.on("data", (chunk) => {
+        chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk));
+      });
+      res.on("end", () => {
+        resolveResponse({
+          statusCode: res.statusCode ?? 0,
+          headers: res.headers,
+          text: Buffer.concat(chunks).toString("utf-8"),
+        });
+      });
+    });
+    req.once("error", (error) => {
+      if (held) {
+        rejectResponse(error);
+      } else {
+        rejectHeld(error);
+      }
+    });
+    req.once("continue", () => {
+      req.write(prefix, () => {
+        held = true;
+        let released = false;
+        resolveHeld({
+          release(): Promise<JsonResponse> {
+            if (!released) {
+              released = true;
+              req.end(suffix);
+            }
+            return response;
+          },
+        });
+      });
+    });
+    req.flushHeaders();
   });
 }
 
@@ -229,5 +302,59 @@ describe("mcp: daemon session reaper", () => {
     expect(fs.existsSync(sessionDir)).toBe(true);
 
     await eventStream.close();
+  });
+
+  it("counts an existing-session request before its body finishes arriving", async () => {
+    const rootDir = fs.mkdtempSync(path.join(os.tmpdir(), "graft-session-reaper-body-"));
+    const socketPath = path.join(rootDir, "daemon.sock");
+    cleanups.push(() => {
+      fs.rmSync(rootDir, { recursive: true, force: true });
+    });
+
+    let currentTimeMs = 1_000_000;
+    const sessionInactivityTtlMs = 10_000;
+    const daemon = await startDaemonServer({
+      graftDir: rootDir,
+      socketPath,
+      sessionInactivityTtlMs,
+      sessionReaperIntervalMs: 0,
+      nowMs: () => currentTimeMs,
+    });
+    cleanups.push(() => daemon.close());
+
+    const initialize = await requestUnixJson(socketPath, "POST", "/mcp", {
+      jsonrpc: "2.0",
+      id: 1,
+      method: "initialize",
+      params: {
+        protocolVersion: "2025-03-26",
+        capabilities: {},
+        clientInfo: { name: "vitest", version: "0.0.0" },
+      },
+    });
+    const sessionIdHeader = initialize.headers["mcp-session-id"];
+    const sessionId = Array.isArray(sessionIdHeader) ? sessionIdHeader[0] : sessionIdHeader;
+    expect(sessionId).toBeDefined();
+
+    const sessionDir = path.join(rootDir, "sessions", sessionId!);
+    const heldRequest = await holdUnixJsonRequestBody(socketPath, "/mcp", sessionId!, {
+      jsonrpc: "2.0",
+      id: 2,
+      method: "ping",
+      params: {},
+    });
+
+    currentTimeMs += sessionInactivityTtlMs + 1;
+    const reapedWhileBodyPending = await daemon.reapExpiredSessions?.();
+    const remainedResident = fs.existsSync(sessionDir);
+    const response = await heldRequest.release();
+
+    expect(reapedWhileBodyPending).toBe(0);
+    expect(remainedResident).toBe(true);
+    expect(response.statusCode).toBe(200);
+
+    currentTimeMs += sessionInactivityTtlMs + 1;
+    expect(await daemon.reapExpiredSessions?.()).toBe(1);
+    expect(fs.existsSync(sessionDir)).toBe(false);
   });
 });
