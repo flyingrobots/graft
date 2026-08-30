@@ -440,8 +440,10 @@ fixture cannot distinguish a correct rule from no rule at all.
    `colorful --version` call belongs after the durable request and claim.
 2. **Claim before effect.** The adapter cannot observe without a durable claim
    correlated to the exact admitted request.
-3. **Settlement before analysis.** Echo's durable settlement commit precedes
-   the first `WorkspaceReadView` read performed by Graft analysis.
+3. **Settlement is the terminal authority boundary.** The last workspace read
+   and retained-projection process execution precede Echo's durable settlement
+   commit, which in turn precedes the first `WorkspaceReadView` read performed
+   by Graft analysis. No observer capability survives settlement.
 4. **Exact correlation.** Request, claim, attempt, adapter, settlement, schema,
    law, authority scope, and causal basis identities agree.
 5. **Exact root authority.** Requested root, canonical resolved root, and
@@ -567,6 +569,9 @@ fixture cannot distinguish a correct rule from no rule at all.
       left permitted-but-untested.
 - [ ] A mutation race that prevents coherence produces a typed rejection or
       explicit outcome uncertainty, never a successful mixed snapshot.
+- [ ] Every adapter metadata/content read and projection-process execution
+      finishes before the settlement WAL commit; no observer capability can be
+      invoked after settlement.
 - [ ] Echo retains the admitted settlement before Graft receives analysis
       authority.
 - [ ] Exact duplicate settlement retry is idempotent and a conflicting retry
@@ -645,6 +650,8 @@ requestWalPosition < firstFilesystemReadPosition
 requestWalPosition < firstProjectionProcessExecutionPosition
 claimWalPosition < firstFilesystemReadPosition
 claimWalPosition < firstProjectionProcessExecutionPosition
+lastFilesystemReadPosition < settlementWalPosition
+lastProjectionProcessExecutionPosition < settlementWalPosition
 settlementWalPosition < firstGraftAnalysisReadPosition
 claim.requestIdentity == request.requestIdentity
 claim.causalBasisDigest == request.causalBasisDigest
@@ -674,6 +681,11 @@ durability proof.
 invocation used to produce retained analysis, including the Colorful version
 probe. The replay process counter covers every `processRunner.run` invocation
 reachable from the replayed call, including prose projection.
+
+The two last-effect positions make settlement terminal rather than merely
+early. The observation fixture includes a Colorful-supported entry, so both
+positions exist; any filesystem or projection-process invocation after the
+settlement commit fails the proof immediately.
 
 The direct-Git counter covers `GitClient` operations that do not pass through
 git-warp, including any invoked while reconstructing a causal basis. Without
@@ -789,7 +801,9 @@ Edict executor.
    invocation outside the policy-bound Colorful protocol, and records its first
    position so an eager version probe before request/claim retention fails. It
    asserts the claim's request identity and causal basis against the request,
-   rather than treating any retained claim as sufficient authority.
+   rather than treating any retained claim as sufficient authority. The spy
+   also records both last-effect positions and fails on any invocation after
+   settlement.
 3. An analysis-read spy fails if no durable settlement commit is visible at
    the first Graft read.
 4. A restart test closes all live observer authority, reopens only Echo
@@ -838,8 +852,8 @@ The cycle owns only the pieces required to ring this bell:
    whole `RepoWorkspaceFileOutlineResult` union — success, refusal, and the two
    variants item 7 adds — not over `FileOutlineResult` alone.
 6. Instrumented causal-order evidence and every counter the acceptance list
-   requires: request, claim, settlement, first-read, first-process, and
-   first-analysis positions; filesystem reads, git-warp opens, direct Git
+   requires: request, claim, settlement, first/last-read, first/last-process,
+   and first-analysis positions; filesystem reads, git-warp opens, direct Git
    operations, process executions, pre-request workspace metadata reads, and
    denied-path retention. Listing them here rather than "and so on" is
    deliberate — an acceptance criterion whose instrumentation is outside the
