@@ -134,4 +134,49 @@ describe("mcp: daemon session reaper", () => {
     });
     expect(getReq.statusCode).toBe(404);
   });
+
+  it("does not reap sessions that have active in-flight requests even if expired", async () => {
+    const rootDir = fs.mkdtempSync(path.join(os.tmpdir(), "graft-session-reaper-inflight-"));
+    const socketPath = path.join(rootDir, "daemon.sock");
+    cleanups.push(() => {
+      fs.rmSync(rootDir, { recursive: true, force: true });
+    });
+
+    let currentTimeMs = 1_000_000;
+    const sessionInactivityTtlMs = 10_000; // 10s
+
+    const daemon = await startDaemonServer({
+      graftDir: rootDir,
+      socketPath,
+      sessionInactivityTtlMs,
+      sessionReaperIntervalMs: 0,
+      nowMs: () => currentTimeMs,
+    });
+    cleanups.push(() => daemon.close());
+
+    const initialize = await requestUnixJson(socketPath, "POST", "/mcp", {
+      jsonrpc: "2.0",
+      id: 1,
+      method: "initialize",
+      params: {
+        protocolVersion: "2025-03-26",
+        capabilities: {},
+        clientInfo: { name: "vitest", version: "0.0.0" },
+      },
+    });
+    const sessionIdHeader = initialize.headers["mcp-session-id"];
+    const sessionId = Array.isArray(sessionIdHeader) ? sessionIdHeader[0] : sessionIdHeader;
+    expect(sessionId).toBeDefined();
+
+    const sessionDir = path.join(rootDir, "sessions", sessionId!);
+    expect(fs.existsSync(sessionDir)).toBe(true);
+
+    // Simulate in-flight request: advance time by 15s (> 10s TTL)
+    currentTimeMs += 15_000;
+
+    // Call reapExpiredSessions
+    const reapedCount = await daemon.reapExpiredSessions?.();
+    expect(reapedCount).toBe(1);
+    expect(fs.existsSync(sessionDir)).toBe(false);
+  });
 });

@@ -25,6 +25,7 @@ interface DaemonSession {
   readonly transport: StreamableHTTPServerTransport;
   readonly server: GraftServer;
   lastActivityAtMs: number;
+  activeRequests: number;
 }
 
 export interface CreateDaemonSessionHostOptions {
@@ -144,6 +145,7 @@ async function createDaemonSession(
     transport,
     server,
     lastActivityAtMs: nowMs(),
+    activeRequests: 0,
   };
   transport.onclose = () => {
     sessions.delete(newSessionId);
@@ -175,7 +177,7 @@ export function createDaemonSessionHost(options: CreateDaemonSessionHostOptions)
     const current = nowMs();
     let reapedCount = 0;
     for (const [id, session] of [...sessions.entries()]) {
-      if (current - session.lastActivityAtMs >= sessionTtlMs) {
+      if (session.activeRequests === 0 && current - session.lastActivityAtMs >= sessionTtlMs) {
         sessions.delete(id);
         options.controlPlane.unregisterTransport(id);
         await session.transport.close().catch(() => undefined);
@@ -228,8 +230,14 @@ export function createDaemonSessionHost(options: CreateDaemonSessionHostOptions)
           }
 
           session.lastActivityAtMs = nowMs();
+          session.activeRequests++;
           options.controlPlane.touchTransport(session.id);
-          await session.transport.handleRequest(req, res, parsedBody);
+          try {
+            await session.transport.handleRequest(req, res, parsedBody);
+          } finally {
+            session.activeRequests = Math.max(0, session.activeRequests - 1);
+            session.lastActivityAtMs = nowMs();
+          }
           return;
         }
 
@@ -244,8 +252,14 @@ export function createDaemonSessionHost(options: CreateDaemonSessionHostOptions)
             return;
           }
           session.lastActivityAtMs = nowMs();
+          session.activeRequests++;
           options.controlPlane.touchTransport(session.id);
-          await session.transport.handleRequest(req, res);
+          try {
+            await session.transport.handleRequest(req, res);
+          } finally {
+            session.activeRequests = Math.max(0, session.activeRequests - 1);
+            session.lastActivityAtMs = nowMs();
+          }
           return;
         }
 
