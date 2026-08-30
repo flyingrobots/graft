@@ -67,6 +67,7 @@ Daemon MCP sessions are tracked by `DaemonSessionHost` and protected against aba
 
 - **Idle Session Reaping**: Inactive sessions exceeding the inactivity TTL (default: 30 minutes) are automatically reaped by a background sweep running every 60 seconds.
 - **Resource Cleanup**: When a session is reaped or closed, its HTTP transport is terminated, its `GraftServer` is closed, its registration in `DaemonControlPlane` is revoked, and its on-disk scratch directory at `~/.graft/sessions/<sessionId>` is removed.
+- **Crash Recovery**: Before accepting requests, a daemon claims exclusive ownership of its configured daemon root and removes eligible UUID-named scratch directories left by prior daemon processes. Unknown files, links, and malformed ownership records are preserved.
 - **Explicit Disconnect**: Clients may also explicitly terminate sessions via `DELETE /mcp` with their `mcp-session-id`.
 
 For concurrent multi-repo use inside one daemon-backed MCP session,

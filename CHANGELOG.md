@@ -12,7 +12,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 - **Daemon session reaper**: `DaemonSessionHost` tracks inactivity on MCP sessions
   and reaps idle sessions exceeding `sessionInactivityTtlMs` (default 30 min) on a
   background sweep, closing HTTP transports, revoking registrations in
-  `DaemonControlPlane`, and purging session scratch directories.
+  `DaemonControlPlane`, and purging session scratch directories. Daemon startup
+  now claims exclusive ownership of its daemon root and removes eligible
+  prior-process session directories before accepting requests.
 
 ### Fixed
 

@@ -15,6 +15,7 @@ import type { RunCaptureConfig } from "./run-capture-config.js";
 import type { RuntimeObservabilityState } from "./runtime-observability.js";
 import type { WarpPool } from "./warp-pool.js";
 import { ensurePrivateDirectory } from "./daemon-bootstrap.js";
+import { writeSessionOwnershipMarker } from "./daemon-storage-ownership.js";
 
 const MAX_BODY_BYTES = 1024 * 1024;
 export const DEFAULT_SESSION_INACTIVITY_TTL_MS = 30 * 60 * 1000;
@@ -54,6 +55,7 @@ interface DaemonSession {
 
 export interface CreateDaemonSessionHostOptions {
   readonly graftDir: string;
+  readonly daemonInstanceId: string;
   readonly socketPath: string;
   readonly transportKind: "unix_socket" | "named_pipe";
   readonly healthPath: string;
@@ -132,6 +134,12 @@ async function createDaemonSession(
 ): Promise<DaemonSession> {
   const sessionGraftDir = path.join(options.graftDir, "sessions", newSessionId);
   await ensurePrivateDirectory(sessionGraftDir);
+  try {
+    await writeSessionOwnershipMarker(sessionGraftDir, options.daemonInstanceId, newSessionId);
+  } catch (error) {
+    await removeSessionDirectory(sessionGraftDir);
+    throw error;
+  }
   const transport = new StreamableHTTPServerTransport({
     sessionIdGenerator: () => newSessionId,
   });

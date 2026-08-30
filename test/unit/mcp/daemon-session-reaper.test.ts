@@ -272,6 +272,92 @@ describe("mcp: daemon session reaper", () => {
     expect(fs.existsSync(path.join(rootDir, "sessions", sessionId!))).toBe(true);
   });
 
+  it("removes prior-process session directories before accepting requests", async () => {
+    const rootDir = fs.mkdtempSync(path.join(os.tmpdir(), "graft-session-reaper-restart-"));
+    const socketPath = path.join(rootDir, "daemon.sock");
+    const sessionsRoot = path.join(rootDir, "sessions");
+    const orphanDir = path.join(sessionsRoot, "00000000-0000-4000-8000-000000000001");
+    const malformedDir = path.join(sessionsRoot, "00000000-0000-4000-8000-000000000002");
+    const uuidFile = path.join(sessionsRoot, "00000000-0000-4000-8000-000000000003");
+    const uuidLink = path.join(sessionsRoot, "00000000-0000-4000-8000-000000000004");
+    const unrelatedDir = path.join(sessionsRoot, "operator-owned");
+    const linkTarget = path.join(rootDir, "link-target");
+    fs.mkdirSync(orphanDir, { recursive: true });
+    fs.writeFileSync(path.join(orphanDir, "scratch.txt"), "abandoned\n");
+    fs.mkdirSync(malformedDir, { recursive: true });
+    fs.writeFileSync(path.join(malformedDir, ".graft-session-owner.json"), "not-json\n");
+    fs.writeFileSync(uuidFile, "not-a-directory\n");
+    fs.mkdirSync(unrelatedDir, { recursive: true });
+    fs.mkdirSync(linkTarget, { recursive: true });
+    fs.writeFileSync(path.join(linkTarget, "keep.txt"), "preserved\n");
+    if (process.platform !== "win32") {
+      fs.symlinkSync(linkTarget, uuidLink, "dir");
+    }
+    cleanups.push(() => {
+      fs.rmSync(rootDir, { recursive: true, force: true });
+    });
+
+    const daemon = await startDaemonServer({
+      graftDir: rootDir,
+      socketPath,
+      sessionReaperIntervalMs: 0,
+    });
+    cleanups.push(() => daemon.close());
+
+    expect(fs.existsSync(orphanDir)).toBe(false);
+    expect(fs.existsSync(malformedDir)).toBe(true);
+    expect(fs.readFileSync(uuidFile, "utf-8")).toBe("not-a-directory\n");
+    expect(fs.existsSync(unrelatedDir)).toBe(true);
+    expect(fs.readFileSync(path.join(linkTarget, "keep.txt"), "utf-8")).toBe("preserved\n");
+    if (process.platform !== "win32") {
+      expect(fs.lstatSync(uuidLink).isSymbolicLink()).toBe(true);
+    }
+    expect((await requestUnixJson(socketPath, "GET", "/healthz")).statusCode).toBe(200);
+  });
+
+  it("refuses a second live owner without touching its session directory", async () => {
+    const rootDir = fs.mkdtempSync(path.join(os.tmpdir(), "graft-session-reaper-owner-"));
+    const socketPathA = path.join(rootDir, "daemon-a.sock");
+    const socketPathB = path.join(rootDir, "daemon-b.sock");
+    cleanups.push(() => {
+      fs.rmSync(rootDir, { recursive: true, force: true });
+    });
+
+    const daemonA = await startDaemonServer({
+      graftDir: rootDir,
+      socketPath: socketPathA,
+      sessionReaperIntervalMs: 0,
+    });
+    cleanups.push(() => daemonA.close());
+    const initialize = await requestUnixJson(socketPathA, "POST", "/mcp", {
+      jsonrpc: "2.0",
+      id: 1,
+      method: "initialize",
+      params: {
+        protocolVersion: "2025-03-26",
+        capabilities: {},
+        clientInfo: { name: "vitest", version: "0.0.0" },
+      },
+    });
+    const sessionIdHeader = initialize.headers["mcp-session-id"];
+    const sessionId = Array.isArray(sessionIdHeader) ? sessionIdHeader[0] : sessionIdHeader;
+    expect(sessionId).toBeDefined();
+    const sessionDir = path.join(rootDir, "sessions", sessionId!);
+
+    await expect((async () => {
+      const daemonB = await startDaemonServer({
+        graftDir: rootDir,
+        socketPath: socketPathB,
+        sessionReaperIntervalMs: 0,
+      });
+      await daemonB.close();
+    })()).rejects.toMatchObject({ code: "DAEMON_ROOT_ALREADY_OWNED" });
+
+    expect(fs.existsSync(sessionDir)).toBe(true);
+    expect(fs.existsSync(socketPathB)).toBe(false);
+    expect((await requestUnixJson(socketPathA, "GET", "/healthz")).statusCode).toBe(200);
+  });
+
   it("reaps idle sessions exceeding sessionInactivityTtlMs and scrubs session directory", async () => {
     const rootDir = fs.mkdtempSync(path.join(os.tmpdir(), "graft-session-reaper-test-"));
     const socketPath = path.join(rootDir, "daemon.sock");
