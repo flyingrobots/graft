@@ -47,6 +47,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   directly instead of assuming an unconnected protocol server owns it.
   Transport-triggered session termination emits its otherwise-unclaimed cleanup
   failures once instead of discarding the structured terminal result.
+  Daemon shutdown tracks and awaits transport-triggered termination already in
+  flight before advancing to resource teardown or releasing root ownership.
 
 ### Fixed
 

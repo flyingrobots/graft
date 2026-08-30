@@ -364,7 +364,9 @@ export function createDaemonSessionHost(options: CreateDaemonSessionHostOptions)
   const sessions = new Map<string, DaemonSession>();
   const pendingSessionIds = new Set<string>();
   const terminatingSessionIds = new Set<string>();
+  const terminationsInFlight = new Set<Promise<SessionTerminationResult>>();
   const pendingSessionConstructions = new Set<Promise<DaemonSession>>();
+  let shutdownTerminationCollector: Set<Promise<SessionTerminationResult>> | null = null;
   let hostState: "open" | "closing" | "closed" = "open";
   const hostIsOpen = (): boolean => hostState === "open";
   const clock = new MonotonicClock(options.nowMs ?? monotonicNowMs);
@@ -437,8 +439,11 @@ export function createDaemonSessionHost(options: CreateDaemonSessionHostOptions)
     });
     const termination = operation.finally(() => {
       terminatingSessionIds.delete(session.id);
+      terminationsInFlight.delete(termination);
     });
     session.termination = termination;
+    terminationsInFlight.add(termination);
+    shutdownTerminationCollector?.add(termination);
     return termination;
   }
 
@@ -641,6 +646,8 @@ export function createDaemonSessionHost(options: CreateDaemonSessionHostOptions)
     }
     const constructionsAtClose = [...pendingSessionConstructions];
     const sweepAtClose = sweepInFlight;
+    const terminationsAtClose = new Set(terminationsInFlight);
+    shutdownTerminationCollector = terminationsAtClose;
     const operation = (async () => {
       const errors: unknown[] = [];
       const [constructionResults, sweepResults] = await Promise.all([
@@ -662,9 +669,10 @@ export function createDaemonSessionHost(options: CreateDaemonSessionHostOptions)
         ));
       }
 
-      const terminationResults = await Promise.allSettled(
-        [...sessions.values()].map((session) => terminateSession(session, "shutdown")),
-      );
+      for (const session of [...sessions.values()]) {
+        terminationsAtClose.add(terminateSession(session, "shutdown"));
+      }
+      const terminationResults = await Promise.allSettled([...terminationsAtClose]);
       for (const result of terminationResults) {
         if (result.status === "rejected") {
           errors.push(result.reason);
@@ -679,6 +687,7 @@ export function createDaemonSessionHost(options: CreateDaemonSessionHostOptions)
       }
     })();
     closeInFlight = operation.finally(() => {
+      shutdownTerminationCollector = null;
       hostState = "closed";
     });
     return closeInFlight;

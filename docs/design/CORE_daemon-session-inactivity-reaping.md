@@ -108,9 +108,11 @@ not make its scratch tree concurrently eligible for a second cleanup path.
 
 The host itself has an explicit `OPEN -> CLOSING -> CLOSED` lifecycle. Entering
 `CLOSING` synchronously rejects new construction commits and new sweeps. Shutdown
-awaits every construction already admitted and the one serialized sweep, then
-terminates all committed sessions. Once closed, the public sweep capability is
-revoked; no session-root mutation may outlive daemon-root ownership.
+awaits every construction already admitted, the one serialized sweep, every
+termination already in flight, and every termination initiated while that fence
+is closing; it then terminates all remaining committed sessions. Once closed,
+the public sweep capability is revoked; no session-root mutation may outlive
+daemon-root ownership.
 
 ## Request activity boundary
 
