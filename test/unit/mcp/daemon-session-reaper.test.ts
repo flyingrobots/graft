@@ -5,6 +5,7 @@ import * as os from "node:os";
 import * as path from "node:path";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { DaemonControlPlane } from "../../../src/mcp/daemon-control-plane.js";
+import * as graftServerModule from "../../../src/mcp/server.js";
 import {
   startDaemonServer,
 } from "../../../src/mcp/daemon-server.js";
@@ -590,6 +591,45 @@ describe("mcp: daemon session reaper", () => {
       .mockRejectedValueOnce(new Error("injected transport connection failure"));
     cleanups.push(() => {
       connect.mockRestore();
+    });
+
+    const daemon = await startDaemonServer({
+      graftDir: rootDir,
+      socketPath,
+      sessionReaperIntervalMs: 0,
+    });
+    cleanups.push(() => daemon.close());
+
+    const initialize = await requestUnixJson(socketPath, "POST", "/mcp", {
+      jsonrpc: "2.0",
+      id: 1,
+      method: "initialize",
+      params: {
+        protocolVersion: "2025-03-26",
+        capabilities: {},
+        clientInfo: { name: "vitest", version: "0.0.0" },
+      },
+    });
+
+    const parsed = JSON.parse(initialize.text) as { error: { code: number } };
+    expect(initialize.statusCode).toBe(500);
+    expect(parsed.error.code).toBe(-32603);
+    expect(daemon.getHealthStatus().activeSessions).toBe(0);
+    expect(fs.readdirSync(path.join(rootDir, "sessions"))).toEqual([]);
+  });
+
+  it("rolls back a session when server construction fails", async () => {
+    const rootDir = fs.mkdtempSync(path.join(os.tmpdir(), "graft-session-reaper-server-"));
+    const socketPath = path.join(rootDir, "daemon.sock");
+    cleanups.push(() => {
+      fs.rmSync(rootDir, { recursive: true, force: true });
+    });
+    const createServer = vi.spyOn(graftServerModule, "createGraftServer")
+      .mockImplementationOnce(() => {
+        throw new Error("injected server construction failure");
+      });
+    cleanups.push(() => {
+      createServer.mockRestore();
     });
 
     const daemon = await startDaemonServer({

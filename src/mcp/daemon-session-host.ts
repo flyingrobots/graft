@@ -133,77 +133,101 @@ async function createDaemonSession(
   sessions: Map<string, DaemonSession>,
 ): Promise<DaemonSession> {
   const sessionGraftDir = path.join(options.graftDir, "sessions", newSessionId);
-  await ensurePrivateDirectory(sessionGraftDir);
+  let directoryReady = false;
+  let transport: StreamableHTTPServerTransport | undefined;
+  let server: GraftServer | undefined;
+  let session: DaemonSession | undefined;
+  const construction = {
+    committed: false,
+    closedBeforeCommit: false,
+  };
   try {
+    await ensurePrivateDirectory(sessionGraftDir);
+    directoryReady = true;
     await writeSessionOwnershipMarker(sessionGraftDir, options.daemonInstanceId, newSessionId);
-  } catch (error) {
-    await removeSessionDirectory(sessionGraftDir);
-    throw error;
-  }
-  const transport = new StreamableHTTPServerTransport({
-    sessionIdGenerator: () => newSessionId,
-  });
-  const server = createGraftServer({
-    mode: "daemon",
-    sessionId: newSessionId,
-    graftDir: sessionGraftDir,
-    warpPool: options.warpPool,
-    daemonControlPlane: options.controlPlane,
-    daemonScheduler: options.daemonScheduler,
-    daemonWorkerPool: options.daemonWorkerPool,
-    daemonRuntime: () => ({
-      transport: options.transportKind,
-      sameUserOnly: true,
-      socketPath: options.socketPath,
-      mcpPath: options.mcpPath,
-      healthPath: options.healthPath,
-      activeWarpRepos: options.warpPool.size(),
-      startedAt: options.startedAt,
-    }),
-    monitorRuntime: options.monitorRuntime,
-    ...(options.env !== undefined ? { env: options.env } : {}),
-    ...(options.runCapture !== undefined ? { runCapture: options.runCapture } : {}),
-    ...(options.runtimeObservability !== undefined
-      ? { runtimeObservability: options.runtimeObservability }
-      : {}),
-    ...(options.persistedLocalHistoryGraph !== undefined
-      ? { persistedLocalHistoryGraph: options.persistedLocalHistoryGraph }
-      : {}),
-  });
-  const nowMs = options.nowMs ?? monotonicNowMs;
-  const session: DaemonSession = {
-    id: newSessionId,
-    graftDir: sessionGraftDir,
-    transport,
-    server,
-    lastActivityAtMs: nowMs(),
-    activeRequests: 0,
-  };
-  transport.onclose = () => {
-    sessions.delete(newSessionId);
-    options.controlPlane.unregisterTransport(newSessionId);
-    void removeSessionDirectory(sessionGraftDir);
-  };
-  transport.onerror = () => {
-    sessions.delete(newSessionId);
-    options.controlPlane.unregisterTransport(newSessionId);
-    void removeSessionDirectory(sessionGraftDir);
-  };
-  try {
-    sessions.set(newSessionId, session);
+    const createdTransport = new StreamableHTTPServerTransport({
+      sessionIdGenerator: () => newSessionId,
+    });
+    transport = createdTransport;
+    const createdServer = createGraftServer({
+      mode: "daemon",
+      sessionId: newSessionId,
+      graftDir: sessionGraftDir,
+      warpPool: options.warpPool,
+      daemonControlPlane: options.controlPlane,
+      daemonScheduler: options.daemonScheduler,
+      daemonWorkerPool: options.daemonWorkerPool,
+      daemonRuntime: () => ({
+        transport: options.transportKind,
+        sameUserOnly: true,
+        socketPath: options.socketPath,
+        mcpPath: options.mcpPath,
+        healthPath: options.healthPath,
+        activeWarpRepos: options.warpPool.size(),
+        startedAt: options.startedAt,
+      }),
+      monitorRuntime: options.monitorRuntime,
+      ...(options.env !== undefined ? { env: options.env } : {}),
+      ...(options.runCapture !== undefined ? { runCapture: options.runCapture } : {}),
+      ...(options.runtimeObservability !== undefined
+        ? { runtimeObservability: options.runtimeObservability }
+        : {}),
+      ...(options.persistedLocalHistoryGraph !== undefined
+        ? { persistedLocalHistoryGraph: options.persistedLocalHistoryGraph }
+        : {}),
+    });
+    server = createdServer;
+    const nowMs = options.nowMs ?? monotonicNowMs;
+    session = {
+      id: newSessionId,
+      graftDir: sessionGraftDir,
+      transport: createdTransport,
+      server: createdServer,
+      lastActivityAtMs: nowMs(),
+      activeRequests: 0,
+    };
+    const createdSession = session;
+    createdTransport.onclose = () => {
+      if (!construction.committed) {
+        construction.closedBeforeCommit = true;
+        return;
+      }
+      if (sessions.get(newSessionId) !== createdSession) return;
+      sessions.delete(newSessionId);
+      options.controlPlane.unregisterTransport(newSessionId);
+      void removeSessionDirectory(sessionGraftDir);
+    };
+    createdTransport.onerror = () => {
+      if (!construction.committed) {
+        construction.closedBeforeCommit = true;
+        return;
+      }
+      if (sessions.get(newSessionId) !== createdSession) return;
+      sessions.delete(newSessionId);
+      options.controlPlane.unregisterTransport(newSessionId);
+      void removeSessionDirectory(sessionGraftDir);
+    };
+
+    await createdServer.getMcpServer().connect(createdTransport as Transport);
+    if (construction.closedBeforeCommit) {
+      throw new Error("MCP transport closed before daemon session construction committed");
+    }
     options.controlPlane.registerTransport(
       newSessionId,
-      () => server.getWorkspaceStatus(),
-      () => server.getRuntimeCausalContext(),
+      () => createdServer.getWorkspaceStatus(),
+      () => createdServer.getRuntimeCausalContext(),
     );
-    await server.getMcpServer().connect(transport as Transport);
+    sessions.set(newSessionId, session);
+    construction.committed = true;
     return session;
   } catch (error) {
-    sessions.delete(newSessionId);
+    if (session !== undefined && sessions.get(newSessionId) === session) {
+      sessions.delete(newSessionId);
+    }
     options.controlPlane.unregisterTransport(newSessionId);
-    await server.getMcpServer().close().catch(() => undefined);
-    await transport.close().catch(() => undefined);
-    await removeSessionDirectory(sessionGraftDir);
+    await server?.getMcpServer().close().catch(() => undefined);
+    await transport?.close().catch(() => undefined);
+    if (directoryReady) await removeSessionDirectory(sessionGraftDir);
     throw error;
   }
 }
