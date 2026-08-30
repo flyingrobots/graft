@@ -19,6 +19,14 @@ const MAX_BODY_BYTES = 1024 * 1024;
 export const DEFAULT_SESSION_INACTIVITY_TTL_MS = 30 * 60 * 1000;
 export const DEFAULT_SESSION_REAPER_INTERVAL_MS = 60 * 1000;
 
+export function resolveSessionInactivityTtlMs(value: number | undefined): number {
+  const resolved = value ?? DEFAULT_SESSION_INACTIVITY_TTL_MS;
+  if (!Number.isSafeInteger(resolved) || resolved <= 0) {
+    throw new RangeError("sessionInactivityTtlMs must be a positive safe integer");
+  }
+  return resolved;
+}
+
 interface DaemonSession {
   readonly id: string;
   readonly graftDir: string;
@@ -179,7 +187,7 @@ async function createDaemonSession(
 export function createDaemonSessionHost(options: CreateDaemonSessionHostOptions): DaemonSessionHost {
   const sessions = new Map<string, DaemonSession>();
   const nowMs = options.nowMs ?? Date.now;
-  const sessionTtlMs = options.sessionInactivityTtlMs ?? DEFAULT_SESSION_INACTIVITY_TTL_MS;
+  const sessionTtlMs = resolveSessionInactivityTtlMs(options.sessionInactivityTtlMs);
   const reaperIntervalMs = options.sessionReaperIntervalMs ?? DEFAULT_SESSION_REAPER_INTERVAL_MS;
 
   async function handleActiveSessionRequest(
