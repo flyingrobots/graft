@@ -264,6 +264,15 @@ ObserveWorkspaceSnapshotSettlement
   attemptIdentity
   observerIdentity
   observerVersion
+  observationAlgorithm
+  observationAlgorithmVersion
+  analysisProjectionPolicy
+  proseProjectionSchemaIdentity
+  policyIdentity
+  capabilityIdentity
+  settlementSchemaIdentity
+  reconciliationLawIdentity
+  causalBasisDigest
   posture                       # SUCCEEDED | REJECTED | FAILED | OUTCOME_UNKNOWN
   requestedRoot
   resolvedRoot
@@ -302,6 +311,15 @@ A successful settlement contains an exact observed workspace basis and the
 canonical path/byte evidence needed for replay. Its admitted paths are ordered,
 unique, normalized, and a subset of the requested aperture. For this cycle's
 one-file successful observation, the admitted set equals the requested set.
+
+**Correlation identities are settlement data, not decoder configuration.** The
+observer/attempt, observation algorithm, projection profile, policy,
+capability, settlement schema, reconciliation law, and causal basis fields are
+admitted into the retained settlement and compared with the durable request and
+claim. A decoder cannot prove correlation by injecting the identities it
+expected to see or by treating `requestIdentity` as a substitute for fields the
+settlement never carried. Final generated wire spelling may differ, but every
+semantic identity above must be recoverable and independently validated.
 
 **Prose analysis is retained settlement content, not replay authority.** The
 request fixes `RETAIN_COLORFUL_PROSE_V1` and its schema identity before the
@@ -661,7 +679,20 @@ lastProjectionProcessExecutionPosition < settlementWalPosition
 settlementWalPosition < firstGraftAnalysisReadPosition
 claim.requestIdentity == request.requestIdentity
 claim.causalBasisDigest == request.causalBasisDigest
+claim.capabilityIdentity == request.capabilityIdentity
+settlement.attemptIdentity == claim.attemptIdentity
+settlement.observerIdentity == claim.adapterIdentity
+settlement.observerVersion == claim.adapterVersion
 settlement.requestIdentity == request.requestIdentity
+settlement.observationAlgorithm == request.observationAlgorithm
+settlement.observationAlgorithmVersion == request.observationAlgorithmVersion
+settlement.analysisProjectionPolicy == request.analysisProjectionPolicy
+settlement.proseProjectionSchemaIdentity == request.proseProjectionSchemaIdentity
+settlement.policyIdentity == request.policyIdentity
+settlement.capabilityIdentity == request.capabilityIdentity
+settlement.settlementSchemaIdentity == request.settlementSchemaIdentity
+settlement.reconciliationLawIdentity == request.reconciliationLawIdentity
+settlement.causalBasisDigest == request.causalBasisDigest
 settlement.requestedRoot == request.requestedRoot
 settlement.resolvedRoot == request.resolvedRoot
 settlement.workspaceIdentity == request.workspaceIdentity
@@ -681,7 +712,9 @@ the external observation authority, not only calls named `readFile`.
 `claimWalPosition` is the durable WAL position of the exact claim handed to the
 observer. Its ordering and correlation assertions are the executable evidence
 for claim-before-effect; possession of an in-memory claim object is not a
-durability proof.
+durability proof. `adapterIdentity`/`adapterVersion` above name the claim-side
+semantics corresponding to the settlement's observer identity/version; the
+generated Echo contract controls their final wire spelling.
 
 `firstProjectionProcessExecutionPosition` covers every `processRunner.run`
 invocation used to produce retained analysis, including the Colorful version
@@ -817,6 +850,8 @@ Edict executor.
    `replayProjection` — not by raw structural equality, which cannot hold.
 5. Decoder tests reject malformed correlation, substituted roots, widened
    apertures, wrong digests, over-budget bytes, non-success posture,
+   substituted attempt/observer, algorithm, policy, capability, schema, law or
+   causal-basis identities,
    missing/contradictory projection discriminants, wrong projection source,
    schema, producer or payload digests, and mutable/aliased retained content.
 6. A mutation fixture forces the coherence algorithm to observe change and
@@ -869,8 +904,11 @@ The cycle owns only the pieces required to ring this bell:
    discriminated retained-analysis projection per admitted entry;
    `settlementSchemaIdentity`, `reconciliationLawIdentity`,
    `analysisProjectionPolicy`, and `proseProjectionSchemaIdentity` on the
-   request; a path-only refusal variant carrying no `actual`; and an explicit
-   recovery-state result in both the operation and MCP unions.
+   request; the corresponding observation algorithm/version, projection,
+   policy, capability, settlement-schema, reconciliation-law, and causal-basis
+   correlation identities on the settlement; a path-only refusal variant
+   carrying no `actual`; and an explicit recovery-state result in both the
+   operation and MCP unions.
 
 Implementation should remain one causal-invariant campaign. If an upstream
 contract change needs its own repository PR, that dependency lands first; it

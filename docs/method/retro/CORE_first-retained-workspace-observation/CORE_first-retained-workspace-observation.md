@@ -148,9 +148,12 @@ right fix — put it in code, assert totality — became obvious.
   met — `entryKind` and the discriminated retained-analysis projection per
   admitted entry; `settlementSchemaIdentity`, `reconciliationLawIdentity`,
   `analysisProjectionPolicy`, and `proseProjectionSchemaIdentity` on the
-  request; a path-only refusal variant carrying no `actual`; and a
-  recovery-state variant in both the operation and MCP unions. These are named
-  in the implementation boundary and are not optional extras.
+  request; the corresponding observation algorithm/version, projection,
+  policy, capability, settlement-schema, reconciliation-law, and causal-basis
+  correlation identities on the settlement; a path-only refusal variant
+  carrying no `actual`; and a recovery-state variant in both the operation and
+  MCP unions. These are named in the implementation boundary and are not
+  optional extras.
 - Keep #228 open. This cycle recorded a decision; it did not meet the hill.
 
 ## Backlog Maintenance
