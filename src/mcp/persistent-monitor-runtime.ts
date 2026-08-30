@@ -46,6 +46,30 @@ export type {
   PersistentMonitorRuntimeOptions,
 } from "./monitor-types.js";
 
+function reanchorMonitorRecord(
+  record: PersistedMonitorRecord,
+  anchor: { readonly worktreeRoot: string; readonly gitCommonDir: string },
+): PersistedMonitorRecord {
+  if (
+    record.anchorWorktreeRoot === anchor.worktreeRoot
+    && record.gitCommonDir === anchor.gitCommonDir
+  ) {
+    return record;
+  }
+  return {
+    ...record,
+    anchorWorktreeRoot: anchor.worktreeRoot,
+    gitCommonDir: anchor.gitCommonDir,
+    lastSuccessAt: null,
+    lastError: null,
+    lastIndexedCommit: null,
+    lastHeadCommit: null,
+    backlogCommits: 0,
+    lastRunCommitsIndexed: 0,
+    lastRunPatchesWritten: 0,
+  };
+}
+
 // ── Runtime class ──────────────────────────────────────────────────
 
 export class PersistentMonitorRuntime {
@@ -332,6 +356,7 @@ export class PersistentMonitorRuntime {
       }
 
       try {
+        const anchoredRecord = reanchorMonitorRecord(record, anchor);
         const writerId = buildMonitorWarpWriterId(repoId);
         const warpSidecarRepo = resolveWarpSidecarLocation(this.options.graphRoot, {
           repoId: anchor.repoId,
@@ -346,9 +371,9 @@ export class PersistentMonitorRuntime {
           writerId,
           warpGraphRoot: this.options.graphRoot,
           warpSidecarRepo,
-          lastIndexedCommit: record.lastIndexedCommit,
+          lastIndexedCommit: anchoredRecord.lastIndexedCommit,
         });
-        const latest = this.records.get(repoId) ?? record;
+        const latest = reanchorMonitorRecord(this.records.get(repoId) ?? record, anchor);
         if (result.ok) {
           const activeHealth = result.backlogCommits > 0 ? "lagging" : "ok";
           this.records.set(repoId, {

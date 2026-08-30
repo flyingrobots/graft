@@ -162,6 +162,11 @@ Sidecar initialization must:
 Existing `refs/warp/...` in a source repository are left untouched. They are
 not read, deleted, copied, or silently merged into a new session sidecar.
 
+A persistent monitor checkpoint is valid only for the worktree-keyed sidecar
+that produced it. If authorization fallback changes the monitor anchor, the
+runtime clears that checkpoint and performs a full initial index even when the
+new worktree has the same `HEAD` commit.
+
 ### 5. Test execution is copy-in Docker only
 
 All Vitest execution for this cycle uses the Docker test image. The host-side

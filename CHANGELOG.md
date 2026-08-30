@@ -44,6 +44,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ### Fixed
 
+- **Monitor fallback re-anchoring**: when a persistent monitor falls back to a
+  different authorized worktree, it clears the prior sidecar's checkpoint and
+  fully seeds the new worktree-keyed sidecar even when both anchors have the
+  same `HEAD`.
+
 - **Non-mutating graph-root admission**: sidecar opening no longer changes the
   mode of a pre-existing graph root or managed path component. Existing storage
   must already be a private directory; unsafe paths fail closed unchanged.
