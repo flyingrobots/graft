@@ -152,6 +152,9 @@ The injected test clock obeys the same contract. Every sample must be finite,
 non-negative, and greater than or equal to the previous sample. A bad sample or
 clock regression fails closed: the sweep reaps nothing and returns a structured
 clock failure. It must not clamp, reinterpret wall time, or expire a session.
+If request settlement encounters a bad sample, the session retains that failure.
+The next valid sweep reports it, retires nothing, and rebases the idle epoch to
+that trusted sample; eligibility requires a full TTL after the rebase.
 
 Persisted orphan discovery does not compare monotonic timestamps from different
 processes. Process-local clock values are never written as restart authority.

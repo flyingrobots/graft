@@ -349,6 +349,75 @@ describe("mcp: daemon session reaper", () => {
     expect(fs.existsSync(sessionDir)).toBe(false);
   });
 
+  it("rebases idleness after an invalid request-settlement clock sample", async () => {
+    const rootDir = fs.mkdtempSync(path.join(os.tmpdir(), "graft-clk-settle-"));
+    const socketPath = path.join(rootDir, "daemon.sock");
+    cleanups.push(() => {
+      fs.rmSync(rootDir, { recursive: true, force: true });
+    });
+    let currentTimeMs = 1_000;
+    let markInvalidSampleObserved!: () => void;
+    const invalidSampleObserved = new Promise<void>((resolve) => {
+      markInvalidSampleObserved = resolve;
+    });
+    const daemon = await startDaemonServer({
+      graftDir: rootDir,
+      socketPath,
+      sessionInactivityTtlMs: 10_000,
+      sessionReaperIntervalMs: 0,
+      nowMs: () => {
+        if (!Number.isFinite(currentTimeMs)) markInvalidSampleObserved();
+        return currentTimeMs;
+      },
+    });
+    cleanups.push(() => daemon.close());
+
+    const initialize = await requestUnixJson(socketPath, "POST", "/mcp", {
+      jsonrpc: "2.0",
+      id: 1,
+      method: "initialize",
+      params: {
+        protocolVersion: "2025-03-26",
+        capabilities: {},
+        clientInfo: { name: "vitest", version: "0.0.0" },
+      },
+    });
+    const sessionIdHeader = initialize.headers["mcp-session-id"];
+    const sessionId = Array.isArray(sessionIdHeader) ? sessionIdHeader[0] : sessionIdHeader;
+    expect(sessionId).toBeDefined();
+    const sessionDir = path.join(rootDir, "sessions", sessionId!);
+    const heldRequest = await holdUnixJsonRequestBody(socketPath, "/mcp", sessionId!, {
+      jsonrpc: "2.0",
+      id: 2,
+      method: "ping",
+      params: {},
+    });
+
+    currentTimeMs = Number.NaN;
+    const response = heldRequest.release();
+    await invalidSampleObserved;
+    expect((await response).statusCode).toBe(200);
+
+    currentTimeMs = 11_001;
+    expect(await daemon.reapExpiredSessions()).toMatchObject({
+      sessionsRetired: 0,
+      sweepFailure: {
+        code: "MONOTONIC_CLOCK_INVALID",
+        reason: "NON_FINITE",
+        received: "NaN",
+        previousAcceptedMs: 1_000,
+      },
+    });
+    expect(fs.existsSync(sessionDir)).toBe(true);
+
+    currentTimeMs = 21_002;
+    expect(await daemon.reapExpiredSessions()).toMatchObject({
+      sessionsRetired: 1,
+      sweepFailure: null,
+    });
+    expect(fs.existsSync(sessionDir)).toBe(false);
+  });
+
   it("removes prior-process session directories before accepting requests", async () => {
     const rootDir = fs.mkdtempSync(path.join(os.tmpdir(), "graft-session-reaper-restart-"));
     const socketPath = path.join(rootDir, "daemon.sock");

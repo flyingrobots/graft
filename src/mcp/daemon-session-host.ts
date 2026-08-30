@@ -20,6 +20,7 @@ import type {
 } from "./daemon-storage-ownership.js";
 import {
   MonotonicClock,
+  MonotonicClockSampleError,
   type MonotonicClockFailure,
 } from "./daemon-monotonic-clock.js";
 
@@ -104,6 +105,7 @@ interface DaemonSession {
   state: "open" | "terminating" | "terminated";
   termination: Promise<SessionTerminationResult> | null;
   lastActivityAtMs: number;
+  settlementClockFailure: MonotonicClockFailure | null;
   activeRequests: number;
 }
 
@@ -251,6 +253,7 @@ async function createDaemonSession(
       state: "open",
       termination: null,
       lastActivityAtMs: clock.read(),
+      settlementClockFailure: null,
       activeRequests: 0,
     };
     const createdSession = session;
@@ -412,6 +415,7 @@ export function createDaemonSessionHost(options: CreateDaemonSessionHostOptions)
     handle: () => Promise<void>,
   ): Promise<void> {
     session.lastActivityAtMs = clock.read();
+    session.settlementClockFailure = null;
     session.activeRequests++;
     options.controlPlane.touchTransport(session.id);
     let requestFailure: { readonly error: unknown } | null = null;
@@ -426,7 +430,15 @@ export function createDaemonSessionHost(options: CreateDaemonSessionHostOptions)
         throw new Error(`Daemon session request reference underflow: ${session.id}`);
       }
       session.activeRequests--;
-      session.lastActivityAtMs = clock.read();
+      try {
+        session.lastActivityAtMs = clock.read();
+        session.settlementClockFailure = null;
+      } catch (error) {
+        if (error instanceof MonotonicClockSampleError) {
+          session.settlementClockFailure = error.failure;
+        }
+        throw error;
+      }
       options.controlPlane.touchTransport(session.id);
     } catch (error) {
       settlementFailure = { error };
@@ -455,6 +467,29 @@ export function createDaemonSessionHost(options: CreateDaemonSessionHostOptions)
       };
     }
     const current = clockSample.value;
+    const sessionsNeedingClockRebase = [...sessions.values()].filter((session) => {
+      return session.state === "open"
+        && session.activeRequests === 0
+        && session.settlementClockFailure !== null;
+    });
+    if (sessionsNeedingClockRebase.length > 0) {
+      const sweepFailure = sessionsNeedingClockRebase[0]?.settlementClockFailure;
+      if (sweepFailure === undefined || sweepFailure === null) {
+        throw new Error("Daemon session clock rebase invariant violated");
+      }
+      for (const session of sessionsNeedingClockRebase) {
+        session.lastActivityAtMs = current;
+        session.settlementClockFailure = null;
+      }
+      return {
+        sessionsRetired: 0,
+        liveDirectoriesRemoved: 0,
+        orphanDirectoriesRemoved: 0,
+        cleanupFailures: [],
+        preservedEntries: [],
+        sweepFailure,
+      };
+    }
     const retiredSessionIds = new Set<string>();
     let sessionsRetired = 0;
     let liveDirectoriesRemoved = 0;
