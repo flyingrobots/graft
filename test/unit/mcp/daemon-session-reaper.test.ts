@@ -1,11 +1,16 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import * as fs from "node:fs";
+import * as fsPromises from "node:fs/promises";
 import * as http from "node:http";
 import * as os from "node:os";
 import * as path from "node:path";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { DaemonControlPlane } from "../../../src/mcp/daemon-control-plane.js";
 import * as graftServerModule from "../../../src/mcp/server.js";
+import {
+  removeSessionOrphanDirectories,
+  writeSessionOwnershipMarker,
+} from "../../../src/mcp/daemon-storage-ownership.js";
 import {
   startDaemonServer,
 } from "../../../src/mcp/daemon-server.js";
@@ -270,7 +275,7 @@ describe("mcp: daemon session reaper", () => {
 
     wallClock.mockReturnValue(1_000_000 + sessionInactivityTtlMs + 1);
 
-    expect(await daemon.reapExpiredSessions?.()).toBe(0);
+    expect(await daemon.reapExpiredSessions?.()).toMatchObject({ sessionsRetired: 0 });
     expect(fs.existsSync(path.join(rootDir, "sessions", sessionId!))).toBe(true);
   });
 
@@ -401,13 +406,18 @@ describe("mcp: daemon session reaper", () => {
     // 2. Advance time by 5 seconds (within TTL) and sweep
     currentTimeMs += 5_000;
     const reapedMid = await daemon.reapExpiredSessions?.();
-    expect(reapedMid).toBe(0);
+    expect(reapedMid).toMatchObject({ sessionsRetired: 0 });
     expect(fs.existsSync(sessionDir)).toBe(true);
 
     // 3. Advance time by another 6 seconds (total 11s > 10s TTL) and sweep
     currentTimeMs += 6_000;
     const reapedAfter = await daemon.reapExpiredSessions?.();
-    expect(reapedAfter).toBe(1);
+    expect(reapedAfter).toMatchObject({
+      sessionsRetired: 1,
+      liveDirectoriesRemoved: 1,
+      orphanDirectoriesRemoved: 0,
+      cleanupFailures: [],
+    });
 
     // Verify session directory was scrubbed
     expect(fs.existsSync(sessionDir)).toBe(false);
@@ -472,9 +482,112 @@ describe("mcp: daemon session reaper", () => {
     const reaping = daemon.reapExpiredSessions?.();
     const [, reaped] = await Promise.all([closing, reaping]);
 
-    expect(reaped).toBe(0);
+    expect(reaped).toMatchObject({ sessionsRetired: 0 });
     expect(unregisterTransport).toHaveBeenCalledTimes(1);
     expect(unregisterTransport).toHaveBeenCalledWith(sessionId);
+  });
+
+  it("reports failed cleanup and retries the resulting orphan on the next sweep", async () => {
+    const rootDir = fs.mkdtempSync(path.join(os.tmpdir(), "graft-session-reaper-retry-"));
+    const socketPath = path.join(rootDir, "daemon.sock");
+    cleanups.push(() => {
+      fs.rmSync(rootDir, { recursive: true, force: true });
+    });
+    let currentTimeMs = 1_000_000;
+    let failNextRemoval = true;
+    const sessionStorage = {
+      writeSessionOwnershipMarker,
+      removeSessionOrphanDirectories,
+      async removeSessionDirectory(directoryPath: string): Promise<boolean> {
+        if (failNextRemoval) {
+          failNextRemoval = false;
+          throw Object.assign(new Error("injected busy directory"), { code: "EBUSY" });
+        }
+        await fsPromises.rm(directoryPath, { recursive: true, force: true });
+        return true;
+      },
+    };
+
+    const daemon = await startDaemonServer({
+      graftDir: rootDir,
+      socketPath,
+      sessionInactivityTtlMs: 10_000,
+      sessionReaperIntervalMs: 0,
+      nowMs: () => currentTimeMs,
+      sessionStorage,
+    });
+    cleanups.push(() => daemon.close());
+    const initialize = await requestUnixJson(socketPath, "POST", "/mcp", {
+      jsonrpc: "2.0",
+      id: 1,
+      method: "initialize",
+      params: {
+        protocolVersion: "2025-03-26",
+        capabilities: {},
+        clientInfo: { name: "vitest", version: "0.0.0" },
+      },
+    });
+    const sessionIdHeader = initialize.headers["mcp-session-id"];
+    const sessionId = Array.isArray(sessionIdHeader) ? sessionIdHeader[0] : sessionIdHeader;
+    expect(sessionId).toBeDefined();
+    const sessionDir = path.join(rootDir, "sessions", sessionId!);
+
+    currentTimeMs += 10_001;
+    expect(await daemon.reapExpiredSessions?.()).toMatchObject({
+      sessionsRetired: 1,
+      liveDirectoriesRemoved: 0,
+      orphanDirectoriesRemoved: 0,
+      cleanupFailures: [{
+        code: "SESSION_DIRECTORY_REMOVE_FAILED",
+        sessionId,
+        path: sessionDir,
+        retryable: true,
+      }],
+    });
+    expect(fs.existsSync(sessionDir)).toBe(true);
+
+    expect(await daemon.reapExpiredSessions?.()).toMatchObject({
+      sessionsRetired: 0,
+      liveDirectoriesRemoved: 0,
+      orphanDirectoriesRemoved: 1,
+      cleanupFailures: [],
+    });
+    expect(fs.existsSync(sessionDir)).toBe(false);
+  });
+
+  it("rejects daemon shutdown when session cleanup fails", async () => {
+    const rootDir = fs.mkdtempSync(path.join(os.tmpdir(), "graft-session-shutdown-failure-"));
+    const socketPath = path.join(rootDir, "daemon.sock");
+    cleanups.push(() => {
+      fs.rmSync(rootDir, { recursive: true, force: true });
+    });
+    const sessionStorage = {
+      writeSessionOwnershipMarker,
+      removeSessionOrphanDirectories,
+      removeSessionDirectory(): Promise<boolean> {
+        return Promise.reject(Object.assign(new Error("injected busy directory"), { code: "EBUSY" }));
+      },
+    };
+
+    const daemon = await startDaemonServer({
+      graftDir: rootDir,
+      socketPath,
+      sessionInactivityTtlMs: 10_000,
+      sessionReaperIntervalMs: 0,
+      sessionStorage,
+    });
+    await requestUnixJson(socketPath, "POST", "/mcp", {
+      jsonrpc: "2.0",
+      id: 1,
+      method: "initialize",
+      params: {
+        protocolVersion: "2025-03-26",
+        capabilities: {},
+        clientInfo: { name: "vitest", version: "0.0.0" },
+      },
+    });
+
+    await expect(daemon.close()).rejects.toThrow("Failed to close the Graft daemon cleanly");
   });
 
   it("does not reap sessions that have active in-flight requests even if expired", async () => {
@@ -520,7 +633,7 @@ describe("mcp: daemon session reaper", () => {
     currentTimeMs += 15_000;
 
     const reapedWhileActive = await daemon.reapExpiredSessions?.();
-    expect(reapedWhileActive).toBe(0);
+    expect(reapedWhileActive).toMatchObject({ sessionsRetired: 0 });
     expect(fs.existsSync(sessionDir)).toBe(true);
 
     await eventStream.close();
@@ -571,12 +684,12 @@ describe("mcp: daemon session reaper", () => {
     const remainedResident = fs.existsSync(sessionDir);
     const response = await heldRequest.release();
 
-    expect(reapedWhileBodyPending).toBe(0);
+    expect(reapedWhileBodyPending).toMatchObject({ sessionsRetired: 0 });
     expect(remainedResident).toBe(true);
     expect(response.statusCode).toBe(200);
 
     currentTimeMs += sessionInactivityTtlMs + 1;
-    expect(await daemon.reapExpiredSessions?.()).toBe(1);
+    expect(await daemon.reapExpiredSessions?.()).toMatchObject({ sessionsRetired: 1 });
     expect(fs.existsSync(sessionDir)).toBe(false);
   });
 

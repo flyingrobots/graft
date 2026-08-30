@@ -26,6 +26,30 @@ export interface DaemonRootOwnership {
   release(): Promise<void>;
 }
 
+export interface SessionOrphanRemovalFailure {
+  readonly sessionId: string;
+  readonly path: string;
+  readonly error: unknown;
+}
+
+export interface SessionOrphanRemovalResult {
+  readonly removed: number;
+  readonly failures: readonly SessionOrphanRemovalFailure[];
+}
+
+export interface DaemonSessionStorage {
+  writeSessionOwnershipMarker(
+    sessionDir: string,
+    daemonInstanceId: string,
+    sessionId: string,
+  ): Promise<void>;
+  removeSessionDirectory(sessionDir: string): Promise<boolean>;
+  removeSessionOrphanDirectories(
+    sessionsRoot: string,
+    liveSessionIds: ReadonlySet<string>,
+  ): Promise<SessionOrphanRemovalResult>;
+}
+
 export class DaemonRootOwnershipError extends Error {
   readonly code = "DAEMON_ROOT_ALREADY_OWNED";
 
@@ -174,6 +198,19 @@ export async function writeSessionOwnershipMarker(
   }
 }
 
+export async function removeSessionDirectory(sessionDir: string): Promise<boolean> {
+  const stat = await fs.lstat(sessionDir).catch((error: unknown) => {
+    if (errorCode(error) === "ENOENT") return null;
+    throw error;
+  });
+  if (stat === null) return false;
+  if (!stat.isDirectory() || stat.isSymbolicLink()) {
+    throw new Error(`Refusing unsafe daemon session directory: ${sessionDir}`);
+  }
+  await fs.rm(sessionDir, { recursive: true, force: false });
+  return true;
+}
+
 async function isEligibleSessionDirectory(sessionsRoot: string, sessionId: string): Promise<boolean> {
   const sessionDir = path.join(sessionsRoot, sessionId);
   const stat = await fs.lstat(sessionDir).catch((error: unknown) => {
@@ -201,15 +238,27 @@ async function isEligibleSessionDirectory(sessionsRoot: string, sessionId: strin
 export async function removeSessionOrphanDirectories(
   sessionsRoot: string,
   liveSessionIds: ReadonlySet<string>,
-): Promise<number> {
+): Promise<SessionOrphanRemovalResult> {
   const entries = await fs.readdir(sessionsRoot, { withFileTypes: true });
   let removed = 0;
+  const failures: SessionOrphanRemovalFailure[] = [];
   for (const entry of entries) {
     const sessionId = entry.name;
     if (!UUID_PATTERN.test(sessionId) || liveSessionIds.has(sessionId)) continue;
     if (!await isEligibleSessionDirectory(sessionsRoot, sessionId)) continue;
-    await fs.rm(path.join(sessionsRoot, sessionId), { recursive: true, force: false });
-    removed++;
+    const sessionPath = path.join(sessionsRoot, sessionId);
+    try {
+      await fs.rm(sessionPath, { recursive: true, force: false });
+      removed++;
+    } catch (error) {
+      failures.push({ sessionId, path: sessionPath, error });
+    }
   }
-  return removed;
+  return { removed, failures };
 }
+
+export const nodeDaemonSessionStorage: DaemonSessionStorage = Object.freeze({
+  writeSessionOwnershipMarker,
+  removeSessionDirectory,
+  removeSessionOrphanDirectories,
+});

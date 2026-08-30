@@ -1,5 +1,4 @@
 import * as crypto from "node:crypto";
-import * as fs from "node:fs/promises";
 import * as http from "node:http";
 import * as path from "node:path";
 import { performance } from "node:perf_hooks";
@@ -15,15 +14,57 @@ import type { RunCaptureConfig } from "./run-capture-config.js";
 import type { RuntimeObservabilityState } from "./runtime-observability.js";
 import type { WarpPool } from "./warp-pool.js";
 import { ensurePrivateDirectory } from "./daemon-bootstrap.js";
-import { writeSessionOwnershipMarker } from "./daemon-storage-ownership.js";
+import type { DaemonSessionStorage } from "./daemon-storage-ownership.js";
 
 const MAX_BODY_BYTES = 1024 * 1024;
 export const DEFAULT_SESSION_INACTIVITY_TTL_MS = 30 * 60 * 1000;
 export const DEFAULT_SESSION_REAPER_INTERVAL_MS = 60 * 1000;
 const MAX_NODE_TIMER_DELAY_MS = 2_147_483_647;
 
+export type SessionCleanupFailureCode =
+  | "SESSION_TRANSPORT_CLOSE_FAILED"
+  | "SESSION_DIRECTORY_REMOVE_FAILED"
+  | "ORPHAN_DIRECTORY_REMOVE_FAILED"
+  | "ORPHAN_SCAN_FAILED";
+
+export interface SessionCleanupFailure {
+  readonly code: SessionCleanupFailureCode;
+  readonly sessionId: string | null;
+  readonly path: string | null;
+  readonly retryable: boolean;
+  readonly message: string;
+}
+
+export interface SessionSweepResult {
+  readonly sessionsRetired: number;
+  readonly liveDirectoriesRemoved: number;
+  readonly orphanDirectoriesRemoved: number;
+  readonly cleanupFailures: readonly SessionCleanupFailure[];
+}
+
+interface SessionTerminationResult {
+  readonly sessionRetired: boolean;
+  readonly liveDirectoryRemoved: boolean;
+  readonly cleanupFailures: readonly SessionCleanupFailure[];
+}
+
 function monotonicNowMs(): number {
   return performance.now();
+}
+
+function cleanupFailure(
+  code: SessionCleanupFailureCode,
+  sessionId: string | null,
+  failurePath: string | null,
+  error: unknown,
+): SessionCleanupFailure {
+  return {
+    code,
+    sessionId,
+    path: failurePath,
+    retryable: true,
+    message: error instanceof Error ? error.message : String(error),
+  };
 }
 
 export function resolveSessionInactivityTtlMs(value: number | undefined): number {
@@ -50,7 +91,7 @@ interface DaemonSession {
   readonly transport: StreamableHTTPServerTransport;
   readonly server: GraftServer;
   state: "open" | "terminating" | "terminated";
-  termination: Promise<void> | null;
+  termination: Promise<SessionTerminationResult> | null;
   lastActivityAtMs: number;
   activeRequests: number;
 }
@@ -59,7 +100,7 @@ type SessionTerminationReason = "idle" | "shutdown" | "transport_close" | "trans
 type TerminateDaemonSession = (
   session: DaemonSession,
   reason: SessionTerminationReason,
-) => Promise<void>;
+) => Promise<SessionTerminationResult>;
 
 export interface CreateDaemonSessionHostOptions {
   readonly graftDir: string;
@@ -69,6 +110,7 @@ export interface CreateDaemonSessionHostOptions {
   readonly healthPath: string;
   readonly mcpPath: string;
   readonly startedAt: string;
+  readonly sessionStorage: DaemonSessionStorage;
   readonly warpPool: WarpPool;
   readonly controlPlane: DaemonControlPlane;
   readonly daemonScheduler: DaemonJobScheduler;
@@ -86,7 +128,7 @@ export interface CreateDaemonSessionHostOptions {
 
 export interface DaemonSessionHost {
   handleRequest(req: http.IncomingMessage, res: http.ServerResponse): Promise<void>;
-  reapExpiredSessions(): Promise<number>;
+  reapExpiredSessions(): Promise<SessionSweepResult>;
   close(): Promise<void>;
 }
 
@@ -124,17 +166,6 @@ function sendJsonRpcError(res: http.ServerResponse, code: number, message: strin
   });
 }
 
-async function removeSessionDirectory(sessionGraftDir: string): Promise<void> {
-  try {
-    await fs.rm(sessionGraftDir, { recursive: true, force: true });
-  } catch (error: unknown) {
-    const code = error instanceof Error && "code" in error ? (error as NodeJS.ErrnoException).code : undefined;
-    if (code !== "ENOENT") {
-      console.error(`[graft] failed to remove session directory ${sessionGraftDir}: ${String(error)}`);
-    }
-  }
-}
-
 async function createDaemonSession(
   newSessionId: string,
   options: CreateDaemonSessionHostOptions,
@@ -153,7 +184,11 @@ async function createDaemonSession(
   try {
     await ensurePrivateDirectory(sessionGraftDir);
     directoryReady = true;
-    await writeSessionOwnershipMarker(sessionGraftDir, options.daemonInstanceId, newSessionId);
+    await options.sessionStorage.writeSessionOwnershipMarker(
+      sessionGraftDir,
+      options.daemonInstanceId,
+      newSessionId,
+    );
     const createdTransport = new StreamableHTTPServerTransport({
       sessionIdGenerator: () => newSessionId,
     });
@@ -232,7 +267,21 @@ async function createDaemonSession(
     options.controlPlane.unregisterTransport(newSessionId);
     await server?.getMcpServer().close().catch(() => undefined);
     await transport?.close().catch(() => undefined);
-    if (directoryReady) await removeSessionDirectory(sessionGraftDir);
+    const rollbackErrors: unknown[] = [];
+    if (directoryReady) {
+      try {
+        await options.sessionStorage.removeSessionDirectory(sessionGraftDir);
+      } catch (cleanupError) {
+        rollbackErrors.push(cleanupError);
+      }
+    }
+    if (rollbackErrors.length > 0) {
+      throw new AggregateError(
+        [error, ...rollbackErrors],
+        "Daemon session construction and scratch rollback both failed",
+        { cause: error },
+      );
+    }
     throw error;
   }
 }
@@ -246,25 +295,53 @@ export function createDaemonSessionHost(options: CreateDaemonSessionHostOptions)
   function terminateSession(
     session: DaemonSession,
     reason: SessionTerminationReason,
-  ): Promise<void> {
+  ): Promise<SessionTerminationResult> {
     if (session.termination !== null) return session.termination;
     if (sessions.get(session.id) !== session) {
       session.state = "terminated";
-      session.termination = Promise.resolve();
+      session.termination = Promise.resolve({
+        sessionRetired: false,
+        liveDirectoryRemoved: false,
+        cleanupFailures: [],
+      });
       return session.termination;
     }
 
     session.state = "terminating";
     sessions.delete(session.id);
     const termination = Promise.resolve().then(async () => {
+      const cleanupFailures: SessionCleanupFailure[] = [];
       options.controlPlane.unregisterTransport(session.id);
       if (reason !== "transport_close") {
-        await session.server.getMcpServer().close().catch(async () => {
+        try {
+          await session.server.getMcpServer().close();
+        } catch (error) {
+          cleanupFailures.push(cleanupFailure(
+            "SESSION_TRANSPORT_CLOSE_FAILED",
+            session.id,
+            null,
+            error,
+          ));
           await session.transport.close().catch(() => undefined);
-        });
+        }
       }
-      await removeSessionDirectory(session.graftDir);
+      let liveDirectoryRemoved = false;
+      try {
+        liveDirectoryRemoved = await options.sessionStorage.removeSessionDirectory(session.graftDir);
+      } catch (error) {
+        cleanupFailures.push(cleanupFailure(
+          "SESSION_DIRECTORY_REMOVE_FAILED",
+          session.id,
+          session.graftDir,
+          error,
+        ));
+      }
       session.state = "terminated";
+      return {
+        sessionRetired: true,
+        liveDirectoryRemoved,
+        cleanupFailures,
+      };
     });
     session.termination = termination;
     return termination;
@@ -286,28 +363,68 @@ export function createDaemonSessionHost(options: CreateDaemonSessionHostOptions)
     }
   }
 
-  async function reapExpiredSessions(): Promise<number> {
+  async function reapExpiredSessions(): Promise<SessionSweepResult> {
     const current = nowMs();
-    let reapedCount = 0;
+    const retiredSessionIds = new Set<string>();
+    let sessionsRetired = 0;
+    let liveDirectoriesRemoved = 0;
+    const cleanupFailures: SessionCleanupFailure[] = [];
     for (const session of [...sessions.values()]) {
       if (
         session.state === "open"
         && session.activeRequests === 0
         && current - session.lastActivityAtMs >= sessionTtlMs
       ) {
-        await terminateSession(session, "idle");
-        reapedCount++;
+        retiredSessionIds.add(session.id);
+        const result = await terminateSession(session, "idle");
+        if (result.sessionRetired) sessionsRetired++;
+        if (result.liveDirectoryRemoved) liveDirectoriesRemoved++;
+        cleanupFailures.push(...result.cleanupFailures);
       }
     }
-    return reapedCount;
+
+    let orphanDirectoriesRemoved = 0;
+    try {
+      const orphanResult = await options.sessionStorage.removeSessionOrphanDirectories(
+        path.join(options.graftDir, "sessions"),
+        new Set([...sessions.keys(), ...retiredSessionIds]),
+      );
+      orphanDirectoriesRemoved = orphanResult.removed;
+      cleanupFailures.push(...orphanResult.failures.map((failure) => cleanupFailure(
+        "ORPHAN_DIRECTORY_REMOVE_FAILED",
+        failure.sessionId,
+        failure.path,
+        failure.error,
+      )));
+    } catch (error) {
+      cleanupFailures.push(cleanupFailure(
+        "ORPHAN_SCAN_FAILED",
+        null,
+        path.join(options.graftDir, "sessions"),
+        error,
+      ));
+    }
+
+    return {
+      sessionsRetired,
+      liveDirectoriesRemoved,
+      orphanDirectoriesRemoved,
+      cleanupFailures,
+    };
   }
 
   let reaperTimer: NodeJS.Timeout | null = null;
   if (reaperIntervalMs > 0) {
     reaperTimer = setInterval(() => {
-      void reapExpiredSessions().catch((error: unknown) => {
-        console.error(`[graft] session reaper error: ${String(error)}`);
-      });
+      void reapExpiredSessions()
+        .then((result) => {
+          if (result.cleanupFailures.length > 0) {
+            console.error(`[graft] session reaper cleanup failures: ${JSON.stringify(result.cleanupFailures)}`);
+          }
+        })
+        .catch((error: unknown) => {
+          console.error(`[graft] session reaper error: ${String(error)}`);
+        });
     }, reaperIntervalMs);
     reaperTimer.unref();
   }
@@ -387,7 +504,16 @@ export function createDaemonSessionHost(options: CreateDaemonSessionHostOptions)
         clearInterval(reaperTimer);
         reaperTimer = null;
       }
-      await Promise.all([...sessions.values()].map((session) => terminateSession(session, "shutdown")));
+      const terminationResults = await Promise.all(
+        [...sessions.values()].map((session) => terminateSession(session, "shutdown")),
+      );
+      const cleanupFailures = terminationResults.flatMap((result) => result.cleanupFailures);
+      if (cleanupFailures.length > 0) {
+        throw new AggregateError(
+          cleanupFailures.map((failure) => Object.assign(new Error(failure.message), failure)),
+          "Failed to clean up every daemon session during shutdown",
+        );
+      }
     },
   };
 }

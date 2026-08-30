@@ -14,7 +14,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   background sweep, closing HTTP transports, revoking registrations in
   `DaemonControlPlane`, and purging session scratch directories. Daemon startup
   now claims exclusive ownership of its daemon root and removes eligible
-  prior-process session directories before accepting requests.
+  prior-process session directories before accepting requests. Manual sweeps
+  report retired sessions, live-directory removals, orphan removals, and cleanup
+  failures separately; failed current-process directory cleanup remains
+  discoverable and retryable by later sweeps.
 
 ### Fixed
 

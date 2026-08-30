@@ -25,12 +25,14 @@ import {
 import {
   createDaemonSessionHost,
   type DaemonSessionHost,
+  type SessionSweepResult,
   resolveSessionInactivityTtlMs,
   resolveSessionReaperIntervalMs,
 } from "./daemon-session-host.js";
 import {
   acquireDaemonRootOwnership,
-  removeSessionOrphanDirectories,
+  type DaemonSessionStorage,
+  nodeDaemonSessionStorage,
 } from "./daemon-storage-ownership.js";
 
 const HEALTH_PATH = "/healthz";
@@ -48,6 +50,7 @@ export interface StartDaemonServerOptions {
   readonly persistedLocalHistoryGraph?: boolean | undefined;
   readonly sessionInactivityTtlMs?: number | undefined;
   readonly sessionReaperIntervalMs?: number | undefined;
+  readonly sessionStorage?: DaemonSessionStorage | undefined;
   readonly nowMs?: (() => number) | undefined;
 }
 
@@ -55,7 +58,7 @@ export interface GraftDaemonServer {
   readonly socketPath: string;
   readonly healthPath: typeof HEALTH_PATH;
   readonly mcpPath: typeof MCP_PATH;
-  reapExpiredSessions?(): Promise<number>;
+  reapExpiredSessions?(): Promise<SessionSweepResult>;
   close(): Promise<void>;
   getHealthStatus(): DaemonHealthStatus;
 }
@@ -75,6 +78,7 @@ async function runCleanupSteps(steps: readonly (() => Promise<void>)[]): Promise
 export async function startDaemonServer(options: StartDaemonServerOptions = {}): Promise<GraftDaemonServer> {
   const sessionInactivityTtlMs = resolveSessionInactivityTtlMs(options.sessionInactivityTtlMs);
   const sessionReaperIntervalMs = resolveSessionReaperIntervalMs(options.sessionReaperIntervalMs);
+  const sessionStorage = options.sessionStorage ?? nodeDaemonSessionStorage;
   await ensureGitVersionSupportsGraft();
   const graftDir = path.resolve(options.graftDir ?? defaultDaemonRoot());
   const socketPath = resolveSocketPath(options.socketPath, graftDir);
@@ -132,7 +136,13 @@ export async function startDaemonServer(options: StartDaemonServerOptions = {}):
 
     await controlPlane.initialize();
     await activeMonitorRuntime.initialize();
-    await removeSessionOrphanDirectories(sessionsRoot, new Set());
+    const startupOrphans = await sessionStorage.removeSessionOrphanDirectories(sessionsRoot, new Set());
+    if (startupOrphans.failures.length > 0) {
+      throw new AggregateError(
+        startupOrphans.failures.map((failure) => failure.error),
+        "Failed to remove prior-process daemon session directories",
+      );
+    }
 
     const activeSessionHost = createDaemonSessionHost({
       graftDir,
@@ -142,6 +152,7 @@ export async function startDaemonServer(options: StartDaemonServerOptions = {}):
       healthPath: HEALTH_PATH,
       mcpPath: MCP_PATH,
       startedAt,
+      sessionStorage,
       warpPool,
       controlPlane,
       daemonScheduler,
@@ -197,7 +208,7 @@ export async function startDaemonServer(options: StartDaemonServerOptions = {}):
       socketPath,
       healthPath: HEALTH_PATH,
       mcpPath: MCP_PATH,
-      reapExpiredSessions(): Promise<number> {
+      reapExpiredSessions(): Promise<SessionSweepResult> {
         return activeSessionHost.reapExpiredSessions();
       },
       getHealthStatus(): DaemonHealthStatus {
