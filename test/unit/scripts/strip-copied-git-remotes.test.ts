@@ -22,7 +22,7 @@ function tempDir(prefix: string): string {
 }
 
 describe("copy-in Git scrub", () => {
-  it("removes ordinary and bare remotes and severs copied worktree pointer files", () => {
+  it("removes remotes and worktree pointers even when Git emits diagnostics", () => {
     const copiedRoot = tempDir("graft-copy-scrub-");
     const ordinary = path.join(copiedRoot, "ordinary");
     const bare = path.join(copiedRoot, "nested-bare.git");
@@ -42,11 +42,11 @@ describe("copy-in Git scrub", () => {
 
     const result = spawnSync("sh", [SCRUB_SCRIPT, copiedRoot], {
       encoding: "utf8",
+      env: { ...process.env, GIT_TRACE: "1" },
       stdio: ["ignore", "pipe", "pipe"],
     });
 
     expect(result.status).toBe(0);
-    expect(result.stderr).toBe("");
     expect(git(ordinary, "remote")).toBe("");
     expect(git(bare, "remote")).toBe("");
     expect(git(arbitrarilyNamedBare, "remote")).toBe("");
