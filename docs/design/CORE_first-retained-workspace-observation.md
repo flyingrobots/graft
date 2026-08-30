@@ -486,8 +486,10 @@ fixture cannot distinguish a correct rule from no rule at all.
       present.
 - [ ] The request binds the authorized workspace identity, requested and
       resolved roots, ordered aperture, byte budget, symlink policy,
-      algorithm/version, retained-analysis projection policy/schema,
-      policy/lawpack/capability identities, and known causal basis.
+      algorithm/version, `analysisProjectionPolicy`,
+      `proseProjectionSchemaIdentity`, `policyIdentity`, `capabilityIdentity`,
+      `settlementSchemaIdentity`, `reconciliationLawIdentity`, and the known
+      causal basis.
 - [ ] Echo independently admits the exact compiler-derived request and retains
       it durably before granting observation authority.
 - [ ] Any required Edict/Echo substrate change is versioned and tested at its
@@ -563,10 +565,13 @@ fixture cannot distinguish a correct rule from no rule at all.
       no fact with which to refuse them. The kind is admitted per entry and
       validated before the read view is constructed.
 - [ ] A successful settlement contains schema-admitted **inline** bytes,
-      per-file digests, per-entry kind, and an exact observed workspace basis.
-      Retained content references are out of scope for this cycle — see the
-      canonical settlement contract for why the branch was removed rather than
-      left permitted-but-untested.
+      per-file digests, per-entry kind, the discriminated retained-analysis
+      projection for every entry, and an exact observed workspace basis. A
+      Colorful-supported entry requires the complete digest- and
+      producer-bound `RETAINED_PROSE` payload; another path requires the
+      explicit `NOT_APPLICABLE` posture. Retained content references are out of
+      scope for this cycle — see the canonical settlement contract for why the
+      branch was removed rather than left permitted-but-untested.
 - [ ] A mutation race that prevents coherence produces a typed rejection or
       explicit outcome uncertainty, never a successful mixed snapshot.
 - [ ] Every adapter metadata/content read and projection-process execution
@@ -580,8 +585,9 @@ fixture cannot distinguish a correct rule from no rule at all.
 ### Graft analysis and replay
 
 - [ ] A production decoder validates settlement posture, correlation, roots,
-      identity, aperture, budgets, evidence, and content before constructing
-      `AdmittedWorkspaceReadView`.
+      identity, aperture, budgets, evidence, content, and retained-analysis
+      projection posture/bindings before constructing
+      `AdmittedWorkspaceReadView` or the retained prose provider.
 - [ ] The production path for the proof cannot import
       `unsafeAdmittedWorkspaceSnapshotForTest` or construct
       `LiveWorkspaceReadSource` as a fallback.
@@ -810,8 +816,9 @@ Edict executor.
    history, reconstructs the view, and compares results under
    `replayProjection` — not by raw structural equality, which cannot hold.
 5. Decoder tests reject malformed correlation, substituted roots, widened
-   apertures, wrong digests, over-budget bytes, non-success posture, and
-   mutable/aliased retained content.
+   apertures, wrong digests, over-budget bytes, non-success posture,
+   missing/contradictory projection discriminants, wrong projection source,
+   schema, producer or payload digests, and mutable/aliased retained content.
 6. A mutation fixture forces the coherence algorithm to observe change and
    asserts a typed non-success settlement.
 7. Recovery tests cover request-only and claimed-without-settlement states.
