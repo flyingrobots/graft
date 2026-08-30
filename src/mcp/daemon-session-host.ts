@@ -226,6 +226,7 @@ export function createDaemonSessionHost(options: CreateDaemonSessionHostOptions)
     } finally {
       session.activeRequests = Math.max(0, session.activeRequests - 1);
       session.lastActivityAtMs = nowMs();
+      options.controlPlane.touchTransport(session.id);
     }
   }
 

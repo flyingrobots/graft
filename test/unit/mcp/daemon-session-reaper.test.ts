@@ -4,6 +4,7 @@ import * as http from "node:http";
 import * as os from "node:os";
 import * as path from "node:path";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
+import { DaemonControlPlane } from "../../../src/mcp/daemon-control-plane.js";
 import {
   startDaemonServer,
 } from "../../../src/mcp/daemon-server.js";
@@ -531,6 +532,52 @@ describe("mcp: daemon session reaper", () => {
     currentTimeMs += sessionInactivityTtlMs + 1;
     expect(await daemon.reapExpiredSessions?.()).toBe(1);
     expect(fs.existsSync(sessionDir)).toBe(false);
+  });
+
+  it("refreshes public session activity when a request settles", async () => {
+    const rootDir = fs.mkdtempSync(path.join(os.tmpdir(), "graft-session-reaper-touch-"));
+    const socketPath = path.join(rootDir, "daemon.sock");
+    cleanups.push(() => {
+      fs.rmSync(rootDir, { recursive: true, force: true });
+    });
+    const touchTransport = vi.spyOn(DaemonControlPlane.prototype, "touchTransport");
+    cleanups.push(() => {
+      touchTransport.mockRestore();
+    });
+
+    const daemon = await startDaemonServer({
+      graftDir: rootDir,
+      socketPath,
+      sessionReaperIntervalMs: 0,
+    });
+    cleanups.push(() => daemon.close());
+    const initialize = await requestUnixJson(socketPath, "POST", "/mcp", {
+      jsonrpc: "2.0",
+      id: 1,
+      method: "initialize",
+      params: {
+        protocolVersion: "2025-03-26",
+        capabilities: {},
+        clientInfo: { name: "vitest", version: "0.0.0" },
+      },
+    });
+    const sessionIdHeader = initialize.headers["mcp-session-id"];
+    const sessionId = Array.isArray(sessionIdHeader) ? sessionIdHeader[0] : sessionIdHeader;
+    expect(sessionId).toBeDefined();
+    touchTransport.mockClear();
+
+    const heldRequest = await holdUnixJsonRequestBody(socketPath, "/mcp", sessionId!, {
+      jsonrpc: "2.0",
+      id: 2,
+      method: "ping",
+      params: {},
+    });
+    expect(touchTransport).toHaveBeenCalledTimes(1);
+
+    expect((await heldRequest.release()).statusCode).toBe(200);
+    expect(touchTransport).toHaveBeenCalledTimes(2);
+    expect(touchTransport).toHaveBeenNthCalledWith(1, sessionId);
+    expect(touchTransport).toHaveBeenNthCalledWith(2, sessionId);
   });
 
   it("rolls back a session when transport connection fails", async () => {
