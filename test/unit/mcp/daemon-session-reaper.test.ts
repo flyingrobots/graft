@@ -21,6 +21,11 @@ interface JsonResponse {
   readonly text: string;
 }
 
+interface OpenEventStream {
+  readonly statusCode: number;
+  close(): Promise<void>;
+}
+
 async function requestUnixJson(
   socketPath: string,
   method: "GET" | "POST" | "DELETE",
@@ -59,6 +64,48 @@ async function requestUnixJson(
     });
     req.once("error", reject);
     if (payload !== undefined) req.write(payload);
+    req.end();
+  });
+}
+
+async function openUnixEventStream(
+  socketPath: string,
+  requestPath: string,
+  sessionId: string,
+): Promise<OpenEventStream> {
+  return new Promise<OpenEventStream>((resolve, reject) => {
+    const req = http.request({
+      socketPath,
+      path: requestPath,
+      method: "GET",
+      headers: {
+        accept: "text/event-stream",
+        "mcp-session-id": sessionId,
+      },
+    });
+    let opened = false;
+    req.once("error", (error) => {
+      if (!opened) reject(error);
+    });
+    req.once("response", (res) => {
+      opened = true;
+      res.resume();
+      resolve({
+        statusCode: res.statusCode ?? 0,
+        async close(): Promise<void> {
+          if (!res.destroyed) {
+            await new Promise<void>((resolveClose) => {
+              res.once("close", resolveClose);
+              res.destroy();
+              req.destroy();
+            });
+          }
+          await new Promise<void>((resolveTurn) => {
+            setImmediate(resolveTurn);
+          });
+        },
+      });
+    });
     req.end();
   });
 }
@@ -171,12 +218,16 @@ describe("mcp: daemon session reaper", () => {
     const sessionDir = path.join(rootDir, "sessions", sessionId!);
     expect(fs.existsSync(sessionDir)).toBe(true);
 
-    // Simulate in-flight request: advance time by 15s (> 10s TTL)
+    const eventStream = await openUnixEventStream(socketPath, "/mcp", sessionId!);
+    expect(eventStream.statusCode).toBe(200);
+
+    // The stream is still open while monotonic elapsed time exceeds the TTL.
     currentTimeMs += 15_000;
 
-    // Call reapExpiredSessions
-    const reapedCount = await daemon.reapExpiredSessions?.();
-    expect(reapedCount).toBe(1);
-    expect(fs.existsSync(sessionDir)).toBe(false);
+    const reapedWhileActive = await daemon.reapExpiredSessions?.();
+    expect(reapedWhileActive).toBe(0);
+    expect(fs.existsSync(sessionDir)).toBe(true);
+
+    await eventStream.close();
   });
 });
