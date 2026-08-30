@@ -145,10 +145,12 @@ right fix — put it in code, assert totality — became obvious.
   RED should pin are the decisions this packet deliberately left open: the
   concrete replay-key shape, and the recovery-state result schema.
 - The packet requires contract additions before its acceptance list can be
-  met — `entryKind` per admitted entry, two identity fields on the request, a
-  path-only refusal variant carrying no `actual`, and a recovery-state variant
-  in both the operation and MCP unions. These are named in the implementation
-  boundary and are not optional extras.
+  met — `entryKind` and the discriminated retained-analysis projection per
+  admitted entry; `settlementSchemaIdentity`, `reconciliationLawIdentity`,
+  `analysisProjectionPolicy`, and `proseProjectionSchemaIdentity` on the
+  request; a path-only refusal variant carrying no `actual`; and a
+  recovery-state variant in both the operation and MCP unions. These are named
+  in the implementation boundary and are not optional extras.
 - Keep #228 open. This cycle recorded a decision; it did not meet the hill.
 
 ## Backlog Maintenance
