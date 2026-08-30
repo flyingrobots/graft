@@ -378,9 +378,10 @@ fixture cannot distinguish a correct rule from no rule at all.
    `realpathSync.native` and `lstatSync` outside the authority, so an
    implementation could satisfy the invariant while making exactly the ambient
    pre-request read it exists to forbid. *Any read by any component* is
-   unsatisfiable: routing already loads `.graftignore` and constructs the path
-   resolver before an operation exists at all
-   (`src/mcp/workspace-router-runtime.ts`), so the first such read has always
+   unsatisfiable: routing first resolves canonical Git identity, then loads
+   `.graftignore` and constructs the path resolver before an operation exists
+   at all (`src/mcp/workspace-router-resolution.ts` and
+   `src/mcp/workspace-router-runtime.ts`), so the first such read has always
    happened before any request could.
 
    The line is causal, not positional. Reads that establish the prerequisite
@@ -488,13 +489,19 @@ fixture cannot distinguish a correct rule from no rule at all.
       the criterion.
 - [ ] **The prerequisite-read exemption is enumerated and bounded.** Invariant 1
       orders reads causally initiated for this observation, so the routing and
-      policy reads that establish the authority context — loading
-      `.graftignore`, constructing the path resolver
-      (`src/mcp/workspace-router-runtime.ts`) — sit outside the claim. The
-      cycle lists exactly which reads it exempts and asserts the list is
-      closed. An unenumerated "prerequisite" category would let any read be
-      reclassified out of the invariant, which is the authority-scoped loophole
-      wearing a different name.
+      policy reads that establish the authority context sit outside the claim.
+      The closed exemption is: exactly two `GitClient` `rev-parse` calls for
+      worktree and common-Git roots; `realpathSync` of those two roots plus one
+      per supplied `worktreeRoot` or `gitCommonDir` identity hint; one injected
+      filesystem read attempt for `.graftignore`; and one worktree-root
+      `realpathSync.native` while constructing the path resolver
+      (`src/mcp/workspace-router-resolution.ts` and
+      `src/mcp/workspace-router-runtime.ts`). The implementation may remove an
+      exempted read but may not add a category without changing this contract,
+      and the test asserts that no read is left unclassified. An unenumerated
+      "prerequisite" category would let any read be reclassified out of the
+      invariant, which is the authority-scoped loophole wearing a different
+      name.
 - [ ] **Each admitted entry carries its observed file kind.** The read view's
       `SettledFile` already requires `entryKind: "regular" | "symlink"` and
       enforces `symlinkPolicy: "refuse"` against it
@@ -614,9 +621,9 @@ it, invariant 9 has no evidence: the two existing counters both miss that path.
 metadata calls made before the request is retained **and causally initiated for
 this observation** — principally resolution of the requested path. It does not
 count the prerequisite routing and policy reads that establish the authority
-context before any operation exists, such as loading `.graftignore` and
-constructing the path resolver (`src/mcp/workspace-router-runtime.ts`); those
-are exempt under invariant 1 and the cycle must enumerate them explicitly.
+context before any operation exists; only the exact Git identity, root
+canonicalization, `.graftignore`, and resolver-construction reads enumerated in
+the acceptance criteria are exempt under invariant 1.
 
 Enumerating the exemption is what keeps the counter honest. A count that
 silently ignored "setup" reads would be zero by definition, which is the
