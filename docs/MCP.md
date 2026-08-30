@@ -61,14 +61,56 @@ agent-facing flow:
 3. then call repository-scoped tools such as `safe_read`, `graft_since`,
    or `code_show`
 
-### Session Lifecycle & Memory Management
+### Session lifecycle and abandoned-session cleanup
 
-Daemon MCP sessions are tracked by `DaemonSessionHost` and protected against abandoned client leaks:
+`DaemonSessionHost` bounds state retained by abandoned MCP sessions. This
+lifecycle does not claim to bound every daemon cache or working set.
 
-- **Idle Session Reaping**: Inactive sessions exceeding the inactivity TTL (default: 30 minutes) are automatically reaped by a background sweep running every 60 seconds.
-- **Resource Cleanup**: When a session is reaped or closed, its HTTP transport is terminated, its `GraftServer` is closed, its registration in `DaemonControlPlane` is revoked, and its on-disk scratch directory at `~/.graft/sessions/<sessionId>` is removed.
-- **Crash Recovery**: Before accepting requests, a daemon claims exclusive ownership of its configured daemon root and removes eligible UUID-named scratch directories left by prior daemon processes. Unknown files, links, and malformed ownership records are preserved.
-- **Explicit Disconnect**: Clients may also explicitly terminate sessions via `DELETE /mcp` with their `mcp-session-id`.
+- **Idle eligibility** uses process-local monotonic elapsed time, never civil
+  wall time. The default inactivity TTL is 30 minutes and the default scheduled
+  sweep interval is 60 seconds.
+- **Active request ownership** starts for an existing session before POST body
+  parsing and lasts through handler settlement. Concurrent requests hold
+  independent references; a session with any active reference is not idle.
+- **Terminal cleanup** is one idempotent transition shared by idle expiry,
+  transport close/error, explicit disconnect, and daemon shutdown. It revokes
+  the session's map and `DaemonControlPlane` registration, asks the connected
+  MCP protocol server to close, falls back to closing the HTTP transport when
+  protocol close fails, and removes `<graftDir>/sessions/<sessionId>`. There is
+  no separate `GraftServer.close()` operation.
+- **Explicit disconnect** is available through `DELETE /mcp` with the exact
+  `mcp-session-id`.
+- **Crash and cleanup recovery** begins only after the daemon has exclusive
+  ownership of its configured root. Startup removes eligible prior-process
+  session directories; every later sweep also retries eligible current-process
+  orphans. Unknown files, links, malformed ownership records, and unsafe paths
+  are preserved.
+
+The required programmatic sweep method,
+`GraftDaemonServer.reapExpiredSessions()`, returns separate facts:
+
+```text
+SessionSweepResult
+  sessionsRetired
+  liveDirectoriesRemoved
+  orphanDirectoriesRemoved
+  cleanupFailures[]
+    code
+    sessionId | null
+    path | null
+    retryable
+    message
+  sweepFailure | null
+```
+
+Retiring a session does not imply that its directory was removed. Filesystem
+and orphan-scan failures are marked retryable only when a later sweep executes
+that operation again. Protocol and fallback transport-close failures are
+reported separately as non-retryable. An invalid or regressing injected clock
+refuses the whole sweep with `MONOTONIC_CLOCK_INVALID`, reports zero retired
+sessions, and leaves the previous accepted elapsed-time sample unchanged.
+Scheduled sweeps emit structured diagnostics for refused sweeps and cleanup
+failures.
 
 For concurrent multi-repo use inside one daemon-backed MCP session,
 repo tools that support routing also accept `cwd`: `safe_read`,
