@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Added
+
+- **WarpPool lease tracking and eviction**: `InMemoryWarpPool` tracks active leaseholders
+  per repository and supports `ejectUnreferenced()` to unmap repositories with zero
+  active leases, integrated with `WorkspaceRouter` LRU binding eviction.
+
 ### Fixed
 
 - **Requested-worktree authority**: daemon-routed repository reads now expose
