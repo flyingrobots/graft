@@ -244,6 +244,11 @@ failure separately from cleanup debt and retires nothing. Scheduled sweeps emit
 structured refusal and cleanup diagnostics rather than silently discarding the
 outcome.
 
+`retryable` is factual, not aspirational. Directory-removal and orphan-scan
+failures are retryable because later sweeps execute those operations again.
+Protocol and fallback transport-close failures are non-retryable after session
+authority has been retired, and each failed close layer is reported separately.
+
 ## Invariants
 
 1. **No active-session reaping.** Every admitted request owns one activity

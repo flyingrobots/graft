@@ -14,8 +14,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   background sweep. Each concurrent request holds an independent activity
   reference until settlement, preventing one completed request from exposing a
   still-active session to eviction. Reaping closes HTTP transports, revokes
-  registrations in `DaemonControlPlane`, and purges session scratch directories. Daemon startup
-  now claims exclusive ownership of its daemon root and removes eligible
+  registrations in `DaemonControlPlane`, and purges session scratch directories.
+  Daemon startup now claims exclusive ownership of its daemon root and removes eligible
   prior-process session directories before accepting requests. Manual sweeps
   report retired sessions, live-directory removals, orphan removals, and cleanup
   failures separately; failed current-process directory cleanup remains
@@ -23,7 +23,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   clock rejects non-finite, negative, and regressing samples with a structured
   failed-sweep result instead of expiring sessions or silently doing no work.
   The manual sweep method is a required daemon capability rather than an
-  optional interface member.
+  optional interface member. Structured cleanup failures mark only operations
+  that a later sweep actually retries; protocol and fallback transport-close
+  failures are reported separately as non-retryable.
 
 ### Fixed
 

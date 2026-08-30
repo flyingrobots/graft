@@ -5,6 +5,7 @@ import * as http from "node:http";
 import * as os from "node:os";
 import * as path from "node:path";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
+import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
 import { DaemonControlPlane } from "../../../src/mcp/daemon-control-plane.js";
 import * as graftServerModule from "../../../src/mcp/server.js";
 import {
@@ -616,6 +617,63 @@ describe("mcp: daemon session reaper", () => {
       cleanupFailures: [],
     });
     expect(fs.existsSync(sessionDir)).toBe(false);
+  });
+
+  it("reports protocol and fallback transport close failures as non-retryable", async () => {
+    const rootDir = fs.mkdtempSync(path.join(os.tmpdir(), "graft-session-close-failures-"));
+    const socketPath = path.join(rootDir, "daemon.sock");
+    cleanups.push(() => {
+      fs.rmSync(rootDir, { recursive: true, force: true });
+    });
+    let currentTimeMs = 1_000_000;
+    const daemon = await startDaemonServer({
+      graftDir: rootDir,
+      socketPath,
+      sessionInactivityTtlMs: 10_000,
+      sessionReaperIntervalMs: 0,
+      nowMs: () => currentTimeMs,
+    });
+    cleanups.push(() => daemon.close());
+    const initialize = await requestUnixJson(socketPath, "POST", "/mcp", {
+      jsonrpc: "2.0",
+      id: 1,
+      method: "initialize",
+      params: {
+        protocolVersion: "2025-03-26",
+        capabilities: {},
+        clientInfo: { name: "vitest", version: "0.0.0" },
+      },
+    });
+    const sessionIdHeader = initialize.headers["mcp-session-id"];
+    const sessionId = Array.isArray(sessionIdHeader) ? sessionIdHeader[0] : sessionIdHeader;
+    expect(sessionId).toBeDefined();
+
+    const protocolClose = vi.spyOn(McpServer.prototype, "close")
+      .mockRejectedValueOnce(new Error("injected protocol close failure"));
+    const transportClose = vi.spyOn(StreamableHTTPServerTransport.prototype, "close")
+      .mockRejectedValueOnce(new Error("injected fallback transport close failure"));
+    cleanups.push(() => {
+      protocolClose.mockRestore();
+      transportClose.mockRestore();
+    });
+
+    currentTimeMs += 10_001;
+    expect(await daemon.reapExpiredSessions()).toMatchObject({
+      sessionsRetired: 1,
+      liveDirectoriesRemoved: 1,
+      cleanupFailures: [
+        {
+          code: "SESSION_PROTOCOL_CLOSE_FAILED",
+          sessionId,
+          retryable: false,
+        },
+        {
+          code: "SESSION_TRANSPORT_CLOSE_FAILED",
+          sessionId,
+          retryable: false,
+        },
+      ],
+    });
   });
 
   it("rejects daemon shutdown when session cleanup fails", async () => {

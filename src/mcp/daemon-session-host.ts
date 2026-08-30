@@ -26,6 +26,7 @@ export const DEFAULT_SESSION_REAPER_INTERVAL_MS = 60 * 1000;
 const MAX_NODE_TIMER_DELAY_MS = 2_147_483_647;
 
 export type SessionCleanupFailureCode =
+  | "SESSION_PROTOCOL_CLOSE_FAILED"
   | "SESSION_TRANSPORT_CLOSE_FAILED"
   | "SESSION_DIRECTORY_REMOVE_FAILED"
   | "ORPHAN_DIRECTORY_REMOVE_FAILED"
@@ -57,18 +58,19 @@ function monotonicNowMs(): number {
   return performance.now();
 }
 
-function cleanupFailure(
-  code: SessionCleanupFailureCode,
-  sessionId: string | null,
-  failurePath: string | null,
-  error: unknown,
-): SessionCleanupFailure {
+function cleanupFailure(input: {
+  readonly code: SessionCleanupFailureCode;
+  readonly sessionId: string | null;
+  readonly path: string | null;
+  readonly retryable: boolean;
+  readonly error: unknown;
+}): SessionCleanupFailure {
   return {
-    code,
-    sessionId,
-    path: failurePath,
-    retryable: true,
-    message: error instanceof Error ? error.message : String(error),
+    code: input.code,
+    sessionId: input.sessionId,
+    path: input.path,
+    retryable: input.retryable,
+    message: input.error instanceof Error ? input.error.message : String(input.error),
   };
 }
 
@@ -320,26 +322,38 @@ export function createDaemonSessionHost(options: CreateDaemonSessionHostOptions)
       if (reason !== "transport_close") {
         try {
           await session.server.getMcpServer().close();
-        } catch (error) {
-          cleanupFailures.push(cleanupFailure(
-            "SESSION_TRANSPORT_CLOSE_FAILED",
-            session.id,
-            null,
-            error,
-          ));
-          await session.transport.close().catch(() => undefined);
+        } catch (protocolError) {
+          cleanupFailures.push(cleanupFailure({
+            code: "SESSION_PROTOCOL_CLOSE_FAILED",
+            sessionId: session.id,
+            path: null,
+            retryable: false,
+            error: protocolError,
+          }));
+          try {
+            await session.transport.close();
+          } catch (transportError) {
+            cleanupFailures.push(cleanupFailure({
+              code: "SESSION_TRANSPORT_CLOSE_FAILED",
+              sessionId: session.id,
+              path: null,
+              retryable: false,
+              error: transportError,
+            }));
+          }
         }
       }
       let liveDirectoryRemoved = false;
       try {
         liveDirectoryRemoved = await options.sessionStorage.removeSessionDirectory(session.graftDir);
       } catch (error) {
-        cleanupFailures.push(cleanupFailure(
-          "SESSION_DIRECTORY_REMOVE_FAILED",
-          session.id,
-          session.graftDir,
+        cleanupFailures.push(cleanupFailure({
+          code: "SESSION_DIRECTORY_REMOVE_FAILED",
+          sessionId: session.id,
+          path: session.graftDir,
+          retryable: true,
           error,
-        ));
+        }));
       }
       session.state = "terminated";
       return {
@@ -424,19 +438,21 @@ export function createDaemonSessionHost(options: CreateDaemonSessionHostOptions)
         new Set([...sessions.keys(), ...retiredSessionIds]),
       );
       orphanDirectoriesRemoved = orphanResult.removed;
-      cleanupFailures.push(...orphanResult.failures.map((failure) => cleanupFailure(
-        "ORPHAN_DIRECTORY_REMOVE_FAILED",
-        failure.sessionId,
-        failure.path,
-        failure.error,
-      )));
+      cleanupFailures.push(...orphanResult.failures.map((failure) => cleanupFailure({
+        code: "ORPHAN_DIRECTORY_REMOVE_FAILED",
+        sessionId: failure.sessionId,
+        path: failure.path,
+        retryable: true,
+        error: failure.error,
+      })));
     } catch (error) {
-      cleanupFailures.push(cleanupFailure(
-        "ORPHAN_SCAN_FAILED",
-        null,
-        path.join(options.graftDir, "sessions"),
+      cleanupFailures.push(cleanupFailure({
+        code: "ORPHAN_SCAN_FAILED",
+        sessionId: null,
+        path: path.join(options.graftDir, "sessions"),
+        retryable: true,
         error,
-      ));
+      }));
     }
 
     return {
