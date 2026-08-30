@@ -424,10 +424,12 @@ pass while production returned stale or nondeterministically selected bytes.
 The replay path therefore resolves a **durable replay key**, not "the
 settlement for this path". The key binds workspace identity, canonical resolved
 root, the requested aperture entry, and the causal position being replayed, so
-selection is a lookup rather than a search. Recovery that finds no settlement
-for the key is `pending` or `outcome-unknown` per invariant 12 — it never falls
-back to the newest record, because "newest" is exactly the nondeterminism this
-decision exists to remove.
+selection is a lookup rather than a search. After authenticating the caller
+binding, recovery of an admitted key whose retained protocol state is requested
+or claimed is `pending` or `outcome-unknown` per invariant 12. A malformed,
+unknown, or unauthorized key is the same structured refusal without revealing
+whether another caller owns it. Neither case falls back to the newest record,
+because "newest" is exactly the nondeterminism this decision exists to remove.
 
 Choosing the concrete key shape is implementation work for this cycle. What the
 packet fixes is that the choice must be explicit, deterministic, and proven
@@ -710,8 +712,10 @@ the corresponding recovery-state result. No case falls back to
       workspace and aperture and shows the restarted call recovers the intended
       one every time. A single-settlement fixture is not accepted as evidence:
       it cannot distinguish a correct selection rule from no rule at all.
-- [ ] A replay key with no retained settlement yields `pending` or
-      `outcome-unknown`, never a fallback to the most recent record.
+- [ ] An authenticated, admitted observation key in requested or claimed state
+      yields `pending` or `outcome-unknown`, never a fallback to the most recent
+      record. Malformed, unknown, and unauthorized keys produce one
+      indistinguishable structured refusal and disclose no retained state.
 - [ ] **A recovery-state result exists at the product boundary.** Neither
       `FileOutlineResult` nor the MCP `file_outline` output union has a
       `pending` or `outcome-unknown` variant today — the available shapes are
