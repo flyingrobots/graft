@@ -246,8 +246,9 @@ describe("mcp: daemon session reaper", () => {
     }, {
       "mcp-session-id": sessionId!,
     });
-    const parsed = JSON.parse(postReq.text) as { error: { message: string; code: number } };
-    expect(parsed.error.message).toContain("Unknown MCP session");
+    const parsed = JSON.parse(postReq.text) as { error: { code: number } };
+    expect(postReq.statusCode).toBe(500);
+    expect(parsed.error.code).toBe(-32000);
 
     // 5. GET on stream with expired sessionId returns 404
     const getReq = await requestUnixJson(socketPath, "GET", "/mcp", undefined, {
