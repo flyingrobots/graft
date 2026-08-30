@@ -646,11 +646,15 @@ export class WorkspaceRouter {
     this.routedBindings.delete(binding.worktreeId);
     this.routedBindings.set(binding.worktreeId, binding);
     while (this.routedBindings.size > MAX_ROUTED_BINDINGS) {
-      const oldest = this.routedBindings.keys().next().value;
-      if (oldest === undefined) {
+      const oldestKey = this.routedBindings.keys().next().value;
+      if (oldestKey === undefined) {
         return;
       }
-      this.routedBindings.delete(oldest);
+      const evicted = this.routedBindings.get(oldestKey);
+      if (evicted !== undefined) {
+        this.options.warpPool.releaseLease?.(evicted.repoId, evicted.transportSessionId);
+      }
+      this.routedBindings.delete(oldestKey);
     }
   }
 

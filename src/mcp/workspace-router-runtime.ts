@@ -99,6 +99,7 @@ export async function createBoundWorkspace(input: {
         input.resolved.repoId,
         input.resolved.worktreeRoot,
         input.warpWriterId ?? DEFAULT_WARP_WRITER_ID,
+        input.transportSessionId,
       ),
       strandId: null,
     }),

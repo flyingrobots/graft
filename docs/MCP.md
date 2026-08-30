@@ -61,6 +61,13 @@ agent-facing flow:
 3. then call repository-scoped tools such as `safe_read`, `graft_since`,
    or `code_show`
 
+### Warp Graph Lease Management
+
+To prevent monotonic memory growth across multi-repository workflows, `InMemoryWarpPool` tracks active session leases:
+
+- **Lease Accounting**: When sessions open or bind workspaces, active leases are recorded per repository.
+- **Unreferenced Eviction**: Repositories with zero active session leases can be evicted via `ejectUnreferenced()`, ensuring unreferenced Git plumbing handles, AST indices, and graph caches do not pin process memory indefinitely.
+
 For concurrent multi-repo use inside one daemon-backed MCP session,
 repo tools that support routing also accept `cwd`: `safe_read`,
 `file_outline`, `read_range`, `changed_since`, `graft_diff`,
