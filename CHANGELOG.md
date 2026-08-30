@@ -17,7 +17,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   prior-process session directories before accepting requests. Manual sweeps
   report retired sessions, live-directory removals, orphan removals, and cleanup
   failures separately; failed current-process directory cleanup remains
-  discoverable and retryable by later sweeps.
+  discoverable and retryable by later sweeps. The process-local elapsed-time
+  clock rejects non-finite, negative, and regressing samples with a structured
+  failed-sweep result instead of expiring sessions or silently doing no work.
 
 ### Fixed
 

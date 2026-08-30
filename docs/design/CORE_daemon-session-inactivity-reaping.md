@@ -231,12 +231,18 @@ SessionSweepResult
     sessionId?
     path
     code
+  sweepFailure?
+    code
+    reason
+    received
+    previousAcceptedMs
 ```
 
 `sessionsRetired` means authority was revoked and terminal transition committed.
-It does not imply directory removal. Scheduled sweeps emit the same structured
-outcome through runtime observability; a cleanup failure is not reduced to an
-incidental console string.
+It does not imply directory removal. A refused sweep reports its machine-readable
+failure separately from cleanup debt and retires nothing. Scheduled sweeps emit
+structured refusal and cleanup diagnostics rather than silently discarding the
+outcome.
 
 ## Invariants
 

@@ -15,6 +15,10 @@ import type { RuntimeObservabilityState } from "./runtime-observability.js";
 import type { WarpPool } from "./warp-pool.js";
 import { ensurePrivateDirectory } from "./daemon-bootstrap.js";
 import type { DaemonSessionStorage } from "./daemon-storage-ownership.js";
+import {
+  MonotonicClock,
+  type MonotonicClockFailure,
+} from "./daemon-monotonic-clock.js";
 
 const MAX_BODY_BYTES = 1024 * 1024;
 export const DEFAULT_SESSION_INACTIVITY_TTL_MS = 30 * 60 * 1000;
@@ -40,6 +44,7 @@ export interface SessionSweepResult {
   readonly liveDirectoriesRemoved: number;
   readonly orphanDirectoriesRemoved: number;
   readonly cleanupFailures: readonly SessionCleanupFailure[];
+  readonly sweepFailure: MonotonicClockFailure | null;
 }
 
 interface SessionTerminationResult {
@@ -171,6 +176,7 @@ async function createDaemonSession(
   options: CreateDaemonSessionHostOptions,
   sessions: Map<string, DaemonSession>,
   terminateSession: TerminateDaemonSession,
+  clock: MonotonicClock,
 ): Promise<DaemonSession> {
   const sessionGraftDir = path.join(options.graftDir, "sessions", newSessionId);
   let directoryReady = false;
@@ -221,7 +227,6 @@ async function createDaemonSession(
         : {}),
     });
     server = createdServer;
-    const nowMs = options.nowMs ?? monotonicNowMs;
     session = {
       id: newSessionId,
       graftDir: sessionGraftDir,
@@ -229,7 +234,7 @@ async function createDaemonSession(
       server: createdServer,
       state: "open",
       termination: null,
-      lastActivityAtMs: nowMs(),
+      lastActivityAtMs: clock.read(),
       activeRequests: 0,
     };
     const createdSession = session;
@@ -288,7 +293,7 @@ async function createDaemonSession(
 
 export function createDaemonSessionHost(options: CreateDaemonSessionHostOptions): DaemonSessionHost {
   const sessions = new Map<string, DaemonSession>();
-  const nowMs = options.nowMs ?? monotonicNowMs;
+  const clock = new MonotonicClock(options.nowMs ?? monotonicNowMs);
   const sessionTtlMs = resolveSessionInactivityTtlMs(options.sessionInactivityTtlMs);
   const reaperIntervalMs = resolveSessionReaperIntervalMs(options.sessionReaperIntervalMs);
 
@@ -351,20 +356,30 @@ export function createDaemonSessionHost(options: CreateDaemonSessionHostOptions)
     session: DaemonSession,
     handle: () => Promise<void>,
   ): Promise<void> {
-    session.lastActivityAtMs = nowMs();
+    session.lastActivityAtMs = clock.read();
     session.activeRequests++;
     options.controlPlane.touchTransport(session.id);
     try {
       await handle();
     } finally {
       session.activeRequests = Math.max(0, session.activeRequests - 1);
-      session.lastActivityAtMs = nowMs();
+      session.lastActivityAtMs = clock.read();
       options.controlPlane.touchTransport(session.id);
     }
   }
 
   async function reapExpiredSessions(): Promise<SessionSweepResult> {
-    const current = nowMs();
+    const clockSample = clock.sample();
+    if (!clockSample.ok) {
+      return {
+        sessionsRetired: 0,
+        liveDirectoriesRemoved: 0,
+        orphanDirectoriesRemoved: 0,
+        cleanupFailures: [],
+        sweepFailure: clockSample.failure,
+      };
+    }
+    const current = clockSample.value;
     const retiredSessionIds = new Set<string>();
     let sessionsRetired = 0;
     let liveDirectoriesRemoved = 0;
@@ -410,6 +425,7 @@ export function createDaemonSessionHost(options: CreateDaemonSessionHostOptions)
       liveDirectoriesRemoved,
       orphanDirectoriesRemoved,
       cleanupFailures,
+      sweepFailure: null,
     };
   }
 
@@ -418,6 +434,9 @@ export function createDaemonSessionHost(options: CreateDaemonSessionHostOptions)
     reaperTimer = setInterval(() => {
       void reapExpiredSessions()
         .then((result) => {
+          if (result.sweepFailure !== null) {
+            console.error(`[graft] session reaper refused: ${JSON.stringify(result.sweepFailure)}`);
+          }
           if (result.cleanupFailures.length > 0) {
             console.error(`[graft] session reaper cleanup failures: ${JSON.stringify(result.cleanupFailures)}`);
           }
@@ -464,7 +483,13 @@ export function createDaemonSessionHost(options: CreateDaemonSessionHostOptions)
             sendJsonRpcError(res, -32000, "Initialization requests must start a daemon session");
             return;
           }
-          const session = await createDaemonSession(crypto.randomUUID(), options, sessions, terminateSession);
+          const session = await createDaemonSession(
+            crypto.randomUUID(),
+            options,
+            sessions,
+            terminateSession,
+            clock,
+          );
           await handleActiveSessionRequest(session, async () => {
             await session.transport.handleRequest(req, res, parsedBody);
           });
