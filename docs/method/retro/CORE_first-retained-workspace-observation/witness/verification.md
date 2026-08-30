@@ -41,11 +41,10 @@ git diff --stat dc619514..HEAD -- src bin test tests
 
 The two `dependency-dag.*` files are generated, not authored; see *Validation*.
 
-The packet declares 15 invariants and 29 acceptance criteria. Its line count is
-deliberately not recorded: it drifted three times during this cycle's repairs
-and carries no meaning that the invariant and criteria counts do not carry
-better. A witness number that has to be re-checked on every commit is a
-liability, not evidence.
+The packet's invariant, acceptance-criterion, and line counts are deliberately
+not copied into this witness. They are derived properties of the packet and
+already drifted during review; duplicating them here created a second source of
+truth without adding evidence.
 
 ## Source Truth
 
@@ -127,8 +126,8 @@ The round-four self-audit checked the packet against itself and repaired eight
 defects in `c61023f8`. Re-checked after repair:
 
 - every `src/**` citation resolves to an existing file;
-- invariants are numbered 1–15 with no hole or repeat;
-- every invariant reference in prose (4, 9, 10, 12) names a defined invariant;
+- invariant numbers have no hole or repeat;
+- every explicit invariant-number reference in prose names a defined invariant;
 - every cross-reference ("see below", "defined below") resolves in the stated
   direction;
 - no section asserts raw result equality while the named projection exists;
