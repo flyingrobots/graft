@@ -208,11 +208,15 @@ independent live endpoints is invalid.
 Startup order is:
 
 1. validate configuration;
-2. acquire/bind exclusive daemon-root and transport ownership;
+2. acquire exclusive daemon-root ownership before preparing or binding its
+   transport path;
 3. keep MCP request admission closed;
 4. initialize control-plane state;
 5. scan and clean session-owned orphans; and
 6. open request admission and report healthy.
+
+If transport-path preparation or any later startup step fails, startup rollback
+releases the acquired root claim after cleaning every resource it created.
 
 Every new session directory contains an atomically written ownership marker
 binding the daemon instance and session UUID. For migration, a direct child

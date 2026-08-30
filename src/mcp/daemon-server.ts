@@ -85,7 +85,6 @@ export async function startDaemonServer(options: StartDaemonServerOptions = {}):
   await ensurePrivateDirectory(graftDir);
   const sessionsRoot = path.join(graftDir, "sessions");
   await ensurePrivateDirectory(sessionsRoot);
-  await prepareSocketPath(socketPath);
   const rootOwnership = await acquireDaemonRootOwnership({
     graftDir,
     socketPath,
@@ -97,6 +96,7 @@ export async function startDaemonServer(options: StartDaemonServerOptions = {}):
   let httpServer: http.Server | undefined;
 
   try {
+    await prepareSocketPath(socketPath);
     const warpPool = new InMemoryWarpPool((cwd) => openWarp({ cwd }));
     const controlPlane = new DaemonControlPlane({
       fs: nodeFs,

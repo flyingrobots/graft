@@ -838,6 +838,28 @@ describe("mcp: daemon session reaper", () => {
     expect(fs.existsSync(eligibleDir)).toBe(true);
   });
 
+  it("checks live root ownership before touching the candidate socket path", async () => {
+    const rootDir = fs.mkdtempSync(path.join(os.tmpdir(), "graft-session-owner-order-"));
+    const socketPath = path.join(rootDir, "candidate.sock");
+    fs.writeFileSync(socketPath, "operator-owned\n");
+    fs.writeFileSync(path.join(rootDir, "daemon-owner.json"), `${JSON.stringify({
+      schemaVersion: 1,
+      instanceId: "00000000-0000-4000-8000-000000000099",
+      pid: process.pid,
+      socketPath: path.join(rootDir, "owned.sock"),
+    })}\n`);
+    cleanups.push(() => {
+      fs.rmSync(rootDir, { recursive: true, force: true });
+    });
+
+    await expect(startDaemonServer({
+      graftDir: rootDir,
+      socketPath,
+      sessionReaperIntervalMs: 0,
+    })).rejects.toMatchObject({ code: "DAEMON_ROOT_ALREADY_OWNED" });
+    expect(fs.readFileSync(socketPath, "utf-8")).toBe("operator-owned\n");
+  });
+
   it("refuses a second live owner without touching its session directory", async () => {
     const rootDir = fs.mkdtempSync(path.join(os.tmpdir(), "graft-session-reaper-owner-"));
     const socketPathA = path.join(rootDir, "daemon-a.sock");
