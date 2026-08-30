@@ -152,9 +152,9 @@ right fix — put it in code, assert totality — became obvious.
   policy, capability, settlement-schema, reconciliation-law, and causal-basis
   correlation identities on the settlement; a path-only refusal variant
   carrying no `actual`; the discriminated live/replay `file_outline` input and
-  retained observation key on successful output; and a recovery-state variant
-  in both the operation and MCP unions. These are named in the implementation
-  boundary and are not optional extras.
+  caller-known observation key on request, settlement, and successful output;
+  and a recovery-state variant in both the operation and MCP unions. These are
+  named in the implementation boundary and are not optional extras.
 - Keep #228 open. This cycle recorded a decision; it did not meet the hill.
 
 ## Backlog Maintenance

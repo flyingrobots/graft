@@ -128,6 +128,7 @@ workspace digest or add a Graft-native executor to bypass Edict.
 The request binds only facts Graft is entitled to know before observation:
 
 - request identity derived from the admitted Edict operation;
+- a caller-known observation key bound to the authenticated caller namespace;
 - requested workspace identity;
 - requested root;
 - canonical resolved root from the already-authorized routing context;
@@ -220,6 +221,7 @@ is authoritative for final wire spelling.
 ```text
 ObserveWorkspaceSnapshotRequest
   requestIdentity
+  observationKey
   workspaceIdentity
   requestedRoot
   resolvedRoot
@@ -261,6 +263,7 @@ are outside this cycle.
 ```text
 ObserveWorkspaceSnapshotSettlement
   requestIdentity
+  observationKey
   attemptIdentity
   observerIdentity
   observerVersion
@@ -313,13 +316,14 @@ unique, normalized, and a subset of the requested aperture. For this cycle's
 one-file successful observation, the admitted set equals the requested set.
 
 **Correlation identities are settlement data, not decoder configuration.** The
-observer/attempt, observation algorithm, projection profile, policy,
-capability, settlement schema, reconciliation law, and causal basis fields are
-admitted into the retained settlement and compared with the durable request and
-claim. A decoder cannot prove correlation by injecting the identities it
-expected to see or by treating `requestIdentity` as a substitute for fields the
-settlement never carried. Final generated wire spelling may differ, but every
-semantic identity above must be recoverable and independently validated.
+observation key, observer/attempt, observation algorithm, projection profile,
+policy, capability, settlement schema, reconciliation law, and causal basis
+fields are admitted into the retained settlement and compared with the durable
+request and claim. A decoder cannot prove correlation by injecting the
+identities it expected to see or by treating `requestIdentity` as a substitute
+for fields the settlement never carried. Final generated wire spelling may
+differ, but every semantic identity above must be recoverable and independently
+validated.
 
 **Prose analysis is retained settlement content, not replay authority.** The
 request fixes `RETAIN_COLORFUL_PROSE_V1` and its schema identity before the
@@ -443,26 +447,36 @@ This cycle therefore changes `file_outline` input to a discriminated union:
 ```text
 FileOutlineInvocation
   LIVE
+    observationKey
     path
     cwd?
   REPLAY
-    retainedObservationKey
+    observationKey
 ```
 
-Existing `{ path, cwd? }` calls normalize to `LIVE` for compatibility. A
-successful live retained observation returns an opaque, integrity-protected
-`retainedObservationKey` bound to the exact request identity, settlement
-receipt, aperture, causal position, and authenticated caller namespace. The
-key is a capability, not a path index and not a caller-asserted identity.
+`observationKey` is a canonically encoded token with at least 128 bits of
+caller-generated entropy that the authenticated caller knows before the live
+invocation. Request admission binds it to that caller namespace and the exact
+request identity, aperture, and causal basis before granting the claim. Exact
+reuse is idempotent; reuse for another caller or request shape is obstructed.
+The token is not bearer authority and is never trusted as a caller-asserted
+identity. A successful live result echoes the admitted key, and settlement
+extends its retained binding to the receipt and causal position.
+
+Requiring the key is an intentional input-contract change: silently generating
+it server-side would make request-only and claim-only crashes unrecoverable
+because no response delivered the value. The implementation versions the MCP
+input schema, updates in-repository callers, and records the public change in
+`CHANGELOG.md`; it does not retain a legacy no-key production branch.
 
 `REPLAY` is recognized before workspace authorization or execution-context
 planning. It accepts neither `cwd` nor `path`; both come from the retained
-request/settlement selected by the key. The recovery composition validates the
-authenticated caller binding and reconstructs the authority context only from
-Echo history. A malformed or unauthorized key is a typed refusal. A valid key
-whose protocol state has no settlement yields the recovery-state result. No
-case falls back to `WorkspaceRouter`, Git, `.graftignore`, a path resolver, or
-live observation.
+request/settlement selected by the caller-known key. The recovery composition
+validates the authenticated caller binding and reconstructs the authority
+context only from Echo history. A malformed, unknown, or cross-caller key is a
+typed refusal. A known key whose protocol state is requested or claimed yields
+the corresponding recovery-state result. No case falls back to
+`WorkspaceRouter`, Git, `.graftignore`, a path resolver, or live observation.
 
 ## Invariants
 
@@ -497,7 +511,7 @@ live observation.
    commit, which in turn precedes the first `WorkspaceReadView` read performed
    by Graft analysis. No observer capability survives settlement.
 4. **Exact correlation.** Request, claim, attempt, adapter, settlement, schema,
-   law, authority scope, and causal basis identities agree.
+   law, observation key, authority scope, and causal basis identities agree.
 5. **Exact root authority.** Requested root, canonical resolved root, and
    workspace identity agree with the authorized routing context.
 6. **Bounded aperture.** Every settled path is normalized, root-confined, and
@@ -537,7 +551,8 @@ live observation.
       pre-observation workspace digest, sentinel digest, or proposal read is
       present.
 - [ ] The request binds the authorized workspace identity, requested and
-      resolved roots, ordered aperture, byte budget, symlink policy,
+      caller-known observation key, requested and resolved roots, ordered
+      aperture, byte budget, symlink policy,
       algorithm/version, `analysisProjectionPolicy`,
       `proseProjectionSchemaIdentity`, `policyIdentity`, `capabilityIdentity`,
       `settlementSchemaIdentity`, `reconciliationLawIdentity`, and the known
@@ -646,12 +661,16 @@ live observation.
 - [ ] One existing governed operation, `file_outline`, completes against the
       retained admitted view.
 - [ ] `file_outline` exposes the discriminated `LIVE`/`REPLAY` input above. A
-      successful live retained result returns the opaque replay key, while
-      replay rejects `cwd`/`path` and dispatches before workspace routing.
-- [ ] The replay key is integrity-protected and bound to the authenticated
-      caller namespace, request identity, settlement receipt, aperture, and
-      causal position. Forged, cross-caller, and aperture-substitution keys are
-      typed refusals rather than lookup misses.
+      live invocation requires a caller-known `observationKey` and successful
+      output echoes it, while replay requires the same key, rejects `cwd`/`path`,
+      and dispatches before workspace routing. No no-key production branch
+      remains after the versioned input migration.
+- [ ] Request admission validates canonical encoding and at least 128 bits of
+      caller-generated entropy, then binds `observationKey` to the authenticated
+      caller namespace, request identity, aperture, and causal basis. Settlement
+      extends that binding to its receipt and causal position. Exact retry is
+      idempotent; malformed, unknown, cross-caller, conflicting, and
+      aperture-substitution keys are typed refusals, not lookup misses.
 - [ ] The process terminates, reopens from Echo history, and produces a
       `file_outline` result identical to the live one **under the comparison
       projection defined below**. Raw structural equality is the wrong bar and
@@ -719,12 +738,15 @@ lastFilesystemReadPosition < settlementWalPosition
 lastProjectionProcessExecutionPosition < settlementWalPosition
 settlementWalPosition < firstGraftAnalysisReadPosition
 claim.requestIdentity == request.requestIdentity
+claim.observationKey == request.observationKey
 claim.causalBasisDigest == request.causalBasisDigest
 claim.capabilityIdentity == request.capabilityIdentity
+request.observationKey == liveInvocation.observationKey
 settlement.attemptIdentity == claim.attemptIdentity
 settlement.observerIdentity == claim.adapterIdentity
 settlement.observerVersion == claim.adapterVersion
 settlement.requestIdentity == request.requestIdentity
+settlement.observationKey == request.observationKey
 settlement.observationAlgorithm == request.observationAlgorithm
 settlement.observationAlgorithmVersion == request.observationAlgorithmVersion
 settlement.analysisProjectionPolicy == request.analysisProjectionPolicy
@@ -739,7 +761,9 @@ settlement.resolvedRoot == request.resolvedRoot
 settlement.workspaceIdentity == request.workspaceIdentity
 settlement.admittedAperture subsetOf request.aperture
 replayProjection(liveFileOutlineResult) == replayProjection(restartedFileOutlineResult)
-replayInvocation.retainedObservationKey == liveFileOutlineResult.retainedObservationKey
+replayInvocation.observationKey == request.observationKey
+liveFileOutlineResult.observationKey == request.observationKey
+restartedFileOutlineResult.observationKey == request.observationKey
 restartedFilesystemReads == 0
 restartedGitWarpOpens == 0
 restartedProcessExecutions == 0
@@ -809,7 +833,8 @@ and the MCP refusal variant additionally carries `projection`, `reasonDetail`,
 and `next` (`src/mcp/tools/file-outline.ts`).
 
 - **kept — semantic, determined by retained evidence:** `path`, `outline`,
-  `jumpTable`, `partial`, `reason`, `error`, `retainedObservationKey`, and the refusal fields
+  `jumpTable`, `partial`, `reason`, `error`, `observationKey`, and the refusal
+  fields
   `projection`, `reasonDetail`, `next`. `partial` in particular is a fact about
   the answer; dropping it would let a truncated replay compare equal to a
   complete live result.
@@ -901,8 +926,8 @@ Edict executor.
    fails if workspace authorization or execution-context planning is entered.
 5. Decoder tests reject malformed correlation, substituted roots, widened
    apertures, wrong digests, over-budget bytes, non-success posture,
-   substituted attempt/observer, algorithm, policy, capability, schema, law or
-   causal-basis identities,
+   substituted observation keys, attempt/observer, algorithm, policy,
+   capability, schema, law or causal-basis identities,
    missing/contradictory projection discriminants, wrong projection source,
    schema, producer or payload digests, and mutable/aliased retained content.
 6. A mutation fixture forces the coherence algorithm to observe change and
@@ -921,10 +946,11 @@ Edict executor.
 11. An entry-kind test settles a symlink-reached path and asserts the decoder
     refuses it on schema-bound evidence rather than on observer cooperation
     (invariant 15).
-12. Replay-key tests reject malformed, forged, cross-caller, and
-    aperture-substitution capabilities; reject `cwd` or `path` in replay mode;
-    and return recovery state rather than live-routing fallback for a valid key
-    whose request is only requested or claimed.
+12. Observation-key tests start from a caller-known key, prove it was admitted
+    before the claim, reject malformed, unknown, cross-caller, conflicting, and
+    aperture-substitution uses, reject `cwd` or `path` in replay mode, and
+    return requested/claimed recovery state without live-routing fallback after
+    a crash that delivered no live response.
 
 Tests assert protocol state, structured results, receipts, positions, and
 authority counters. They do not assert design-document wording or incidental
@@ -964,8 +990,8 @@ The cycle owns only the pieces required to ring this bell:
    policy, capability, settlement-schema, reconciliation-law, and causal-basis
    correlation identities on the settlement; a path-only refusal variant
    carrying no `actual`; the discriminated live/replay `file_outline` input and
-   retained observation key on successful output; and an explicit
-   recovery-state result in both the operation and MCP unions.
+   caller-known observation key on request, settlement, and successful output;
+   and an explicit recovery-state result in both the operation and MCP unions.
 
 Implementation should remain one causal-invariant campaign. If an upstream
 contract change needs its own repository PR, that dependency lands first; it
