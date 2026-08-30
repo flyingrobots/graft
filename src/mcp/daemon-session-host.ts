@@ -139,6 +139,15 @@ export interface DaemonSessionHost {
   close(): Promise<void>;
 }
 
+export class DaemonSessionHostClosedError extends Error {
+  readonly code = "DAEMON_SESSION_HOST_CLOSED";
+
+  constructor() {
+    super("Daemon session host is closing or closed");
+    this.name = "DaemonSessionHostClosedError";
+  }
+}
+
 function getHeader(req: http.IncomingMessage, name: string): string | undefined {
   const value = req.headers[name];
   return Array.isArray(value) ? value[0] : value;
@@ -179,6 +188,7 @@ async function createDaemonSession(
   sessions: Map<string, DaemonSession>,
   terminateSession: TerminateDaemonSession,
   clock: MonotonicClock,
+  canCommit: () => boolean,
 ): Promise<DaemonSession> {
   const sessionGraftDir = path.join(options.graftDir, "sessions", newSessionId);
   let directoryReady = false;
@@ -259,6 +269,7 @@ async function createDaemonSession(
     if (construction.closedBeforeCommit) {
       throw new Error("MCP transport closed before daemon session construction committed");
     }
+    if (!canCommit()) throw new DaemonSessionHostClosedError();
     options.controlPlane.registerTransport(
       newSessionId,
       () => createdServer.getWorkspaceStatus(),
@@ -296,6 +307,9 @@ async function createDaemonSession(
 export function createDaemonSessionHost(options: CreateDaemonSessionHostOptions): DaemonSessionHost {
   const sessions = new Map<string, DaemonSession>();
   const pendingSessionIds = new Set<string>();
+  const pendingSessionConstructions = new Set<Promise<DaemonSession>>();
+  let hostState: "open" | "closing" | "closed" = "open";
+  const hostIsOpen = (): boolean => hostState === "open";
   const clock = new MonotonicClock(options.nowMs ?? monotonicNowMs);
   const sessionTtlMs = resolveSessionInactivityTtlMs(options.sessionInactivityTtlMs);
   const reaperIntervalMs = resolveSessionReaperIntervalMs(options.sessionReaperIntervalMs);
@@ -402,7 +416,7 @@ export function createDaemonSessionHost(options: CreateDaemonSessionHostOptions)
     if (settlementFailure !== null) throw settlementFailure.error;
   }
 
-  async function reapExpiredSessions(): Promise<SessionSweepResult> {
+  async function runSessionSweep(): Promise<SessionSweepResult> {
     const clockSample = clock.sample();
     if (!clockSample.ok) {
       return {
@@ -465,6 +479,21 @@ export function createDaemonSessionHost(options: CreateDaemonSessionHostOptions)
     };
   }
 
+  let sweepInFlight: Promise<SessionSweepResult> | null = null;
+  function reapExpiredSessions(): Promise<SessionSweepResult> {
+    if (!hostIsOpen()) {
+      return Promise.reject(new DaemonSessionHostClosedError());
+    }
+    if (sweepInFlight !== null) return sweepInFlight;
+
+    const operation = runSessionSweep();
+    const tracked = operation.finally(() => {
+      if (sweepInFlight === tracked) sweepInFlight = null;
+    });
+    sweepInFlight = tracked;
+    return tracked;
+  }
+
   let reaperTimer: NodeJS.Timeout | null = null;
   if (reaperIntervalMs > 0) {
     reaperTimer = setInterval(() => {
@@ -484,9 +513,66 @@ export function createDaemonSessionHost(options: CreateDaemonSessionHostOptions)
     reaperTimer.unref();
   }
 
+  let closeInFlight: Promise<void> | null = null;
+  function closeHost(): Promise<void> {
+    if (closeInFlight !== null) return closeInFlight;
+    hostState = "closing";
+    if (reaperTimer !== null) {
+      clearInterval(reaperTimer);
+      reaperTimer = null;
+    }
+    const constructionsAtClose = [...pendingSessionConstructions];
+    const sweepAtClose = sweepInFlight;
+    const operation = (async () => {
+      const errors: unknown[] = [];
+      const [constructionResults, sweepResults] = await Promise.all([
+        Promise.allSettled(constructionsAtClose),
+        sweepAtClose === null ? Promise.resolve([]) : Promise.allSettled([sweepAtClose]),
+      ]);
+      for (const result of constructionResults) {
+        if (result.status === "rejected" && !(result.reason instanceof DaemonSessionHostClosedError)) {
+          errors.push(result.reason);
+        }
+      }
+      for (const result of sweepResults) {
+        if (result.status === "rejected") {
+          errors.push(result.reason);
+          continue;
+        }
+        errors.push(...result.value.cleanupFailures.map(
+          (failure) => Object.assign(new Error(failure.message), failure),
+        ));
+      }
+
+      const terminationResults = await Promise.allSettled(
+        [...sessions.values()].map((session) => terminateSession(session, "shutdown")),
+      );
+      for (const result of terminationResults) {
+        if (result.status === "rejected") {
+          errors.push(result.reason);
+          continue;
+        }
+        errors.push(...result.value.cleanupFailures.map(
+          (failure) => Object.assign(new Error(failure.message), failure),
+        ));
+      }
+      if (errors.length > 0) {
+        throw new AggregateError(errors, "Failed to clean up every daemon session during shutdown");
+      }
+    })();
+    closeInFlight = operation.finally(() => {
+      hostState = "closed";
+    });
+    return closeInFlight;
+  }
+
   return {
     async handleRequest(req, res): Promise<void> {
       try {
+        if (!hostIsOpen()) {
+          sendJson(res, 503, { error: "Daemon session host is closing" });
+          return;
+        }
         const url = new URL(req.url ?? "/", "http://localhost");
         if (req.method === "GET" && url.pathname === options.healthPath) {
           sendJson(res, 200, { ...options.getHealthStatus() });
@@ -519,18 +605,23 @@ export function createDaemonSessionHost(options: CreateDaemonSessionHostOptions)
             sendJsonRpcError(res, -32000, "Initialization requests must start a daemon session");
             return;
           }
+          if (!hostIsOpen()) throw new DaemonSessionHostClosedError();
           const newSessionId = crypto.randomUUID();
           pendingSessionIds.add(newSessionId);
+          const construction = createDaemonSession(
+            newSessionId,
+            options,
+            sessions,
+            terminateSession,
+            clock,
+            hostIsOpen,
+          );
+          pendingSessionConstructions.add(construction);
           let session: DaemonSession;
           try {
-            session = await createDaemonSession(
-              newSessionId,
-              options,
-              sessions,
-              terminateSession,
-              clock,
-            );
+            session = await construction;
           } finally {
+            pendingSessionConstructions.delete(construction);
             pendingSessionIds.delete(newSessionId);
           }
           await handleActiveSessionRequest(session, async () => {
@@ -566,22 +657,6 @@ export function createDaemonSessionHost(options: CreateDaemonSessionHostOptions)
     },
 
     reapExpiredSessions,
-
-    async close(): Promise<void> {
-      if (reaperTimer !== null) {
-        clearInterval(reaperTimer);
-        reaperTimer = null;
-      }
-      const terminationResults = await Promise.all(
-        [...sessions.values()].map((session) => terminateSession(session, "shutdown")),
-      );
-      const cleanupFailures = terminationResults.flatMap((result) => result.cleanupFailures);
-      if (cleanupFailures.length > 0) {
-        throw new AggregateError(
-          cleanupFailures.map((failure) => Object.assign(new Error(failure.message), failure)),
-          "Failed to clean up every daemon session during shutdown",
-        );
-      }
-    },
+    close: closeHost,
   };
 }

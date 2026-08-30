@@ -98,6 +98,12 @@ not implement their own cleanup. Host shutdown awaits every termination promise.
 The design does not claim that `GraftServer` itself has a `close()` method; the
 connected MCP protocol owns and closes its transport.
 
+The host itself has an explicit `OPEN -> CLOSING -> CLOSED` lifecycle. Entering
+`CLOSING` synchronously rejects new construction commits and new sweeps. Shutdown
+awaits every construction already admitted and the one serialized sweep, then
+terminates all committed sessions. Once closed, the public sweep capability is
+revoked; no session-root mutation may outlive daemon-root ownership.
+
 ## Request activity boundary
 
 For an existing `mcp-session-id`, request protection begins after header/session
@@ -220,6 +226,10 @@ An initialization UUID is reserved before its first construction await and
 remains protected from orphan discovery until either publication commits or
 rollback finishes.
 
+Only one sweep may execute storage discovery at a time. Concurrent scheduled
+or manual callers share the same in-flight result, and shutdown awaits that
+operation before relinquishing root ownership.
+
 ## Sweep result and observability
 
 The sweep API is required, not optional, and returns facts rather than one
@@ -274,6 +284,9 @@ authority has been retired, and each failed close layer is reported separately.
    settles, including error paths; request start alone cannot begin the next TTL.
 10. **No teardown ABA.** A late callback for an old session cannot remove or
     mutate a newer map entry.
+11. **Authority-fenced shutdown.** Pending construction, sweep execution, and
+    session termination settle before root ownership is released; post-close
+    sweeps are rejected.
 
 ## Acceptance criteria
 

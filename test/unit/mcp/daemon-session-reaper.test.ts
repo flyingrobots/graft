@@ -9,6 +9,7 @@ import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/
 import { DaemonControlPlane } from "../../../src/mcp/daemon-control-plane.js";
 import * as graftServerModule from "../../../src/mcp/server.js";
 import {
+  removeSessionDirectory,
   removeSessionOrphanDirectories,
   writeSessionOwnershipMarker,
 } from "../../../src/mcp/daemon-storage-ownership.js";
@@ -449,6 +450,137 @@ describe("mcp: daemon session reaper", () => {
     expect(fs.readdirSync(sessionsRoot)).toEqual([]);
   });
 
+  it("prevents pending session construction from publishing after shutdown begins", async () => {
+    const rootDir = fs.mkdtempSync(path.join(os.tmpdir(), "graft-session-pending-shutdown-"));
+    const socketPath = path.join(rootDir, "daemon.sock");
+    cleanups.push(() => {
+      fs.rmSync(rootDir, { recursive: true, force: true });
+    });
+    let releaseConnect!: () => void;
+    let markConnectEntered!: () => void;
+    const connectEntered = new Promise<void>((resolve) => {
+      markConnectEntered = resolve;
+    });
+    const connectGate = new Promise<void>((resolve) => {
+      releaseConnect = resolve;
+    });
+    type ConnectTransport = Parameters<McpServer["connect"]>[0];
+    const originalConnect = Reflect.get(McpServer.prototype, "connect") as (
+      this: McpServer,
+      transport: ConnectTransport,
+    ) => Promise<void>;
+    const connect = vi.spyOn(McpServer.prototype, "connect")
+      .mockImplementationOnce(async function(this: McpServer, transport: ConnectTransport) {
+        markConnectEntered();
+        await connectGate;
+        await Reflect.apply(originalConnect, this, [transport]);
+      });
+    cleanups.push(() => {
+      connect.mockRestore();
+    });
+
+    const daemon = await startDaemonServer({
+      graftDir: rootDir,
+      socketPath,
+      sessionReaperIntervalMs: 0,
+    });
+    cleanups.push(() => daemon.close());
+    cleanups.push(() => {
+      releaseConnect();
+    });
+    const initializing = requestUnixJson(socketPath, "POST", "/mcp", {
+      jsonrpc: "2.0",
+      id: 1,
+      method: "initialize",
+      params: {
+        protocolVersion: "2025-03-26",
+        capabilities: {},
+        clientInfo: { name: "vitest", version: "0.0.0" },
+      },
+    });
+    await connectEntered;
+
+    const closing = daemon.close();
+    releaseConnect();
+    await Promise.all([initializing, closing]);
+
+    expect(daemon.getHealthStatus().activeSessions).toBe(0);
+    expect(fs.readdirSync(path.join(rootDir, "sessions"))).toEqual([]);
+  });
+
+  it("serializes overlapping manual session sweeps", async () => {
+    const rootDir = fs.mkdtempSync(path.join(os.tmpdir(), "graft-session-sweep-single-flight-"));
+    const socketPath = path.join(rootDir, "daemon.sock");
+    cleanups.push(() => {
+      fs.rmSync(rootDir, { recursive: true, force: true });
+    });
+    let scanCalls = 0;
+    let releaseScan!: () => void;
+    let markScanEntered!: () => void;
+    const scanEntered = new Promise<void>((resolve) => {
+      markScanEntered = resolve;
+    });
+    const scanGate = new Promise<void>((resolve) => {
+      releaseScan = resolve;
+    });
+    const sessionStorage = {
+      writeSessionOwnershipMarker,
+      removeSessionDirectory,
+      async removeSessionOrphanDirectories(
+        sessionsRoot: string,
+        liveSessionIds: ReadonlySet<string>,
+      ) {
+        scanCalls++;
+        if (scanCalls > 1) {
+          markScanEntered();
+          await scanGate;
+        }
+        return removeSessionOrphanDirectories(sessionsRoot, liveSessionIds);
+      },
+    };
+
+    const daemon = await startDaemonServer({
+      graftDir: rootDir,
+      socketPath,
+      sessionReaperIntervalMs: 0,
+      sessionStorage,
+    });
+    cleanups.push(() => daemon.close());
+    cleanups.push(() => {
+      releaseScan();
+    });
+
+    const firstSweep = daemon.reapExpiredSessions();
+    await scanEntered;
+    const secondSweep = daemon.reapExpiredSessions();
+    releaseScan();
+    const [firstResult, secondResult] = await Promise.all([firstSweep, secondSweep]);
+
+    expect(scanCalls).toBe(2);
+    expect(secondResult).toEqual(firstResult);
+  });
+
+  it("rejects session sweeps after daemon root ownership is released", async () => {
+    const rootDir = fs.mkdtempSync(path.join(os.tmpdir(), "graft-session-post-close-sweep-"));
+    const socketPath = path.join(rootDir, "daemon.sock");
+    cleanups.push(() => {
+      fs.rmSync(rootDir, { recursive: true, force: true });
+    });
+    const daemon = await startDaemonServer({
+      graftDir: rootDir,
+      socketPath,
+      sessionReaperIntervalMs: 0,
+    });
+    await daemon.close();
+
+    const eligibleDir = path.join(rootDir, "sessions", "00000000-0000-4000-8000-000000000005");
+    fs.mkdirSync(eligibleDir, { recursive: true });
+    await expect(daemon.reapExpiredSessions()).rejects.toMatchObject({
+      code: "DAEMON_SESSION_HOST_CLOSED",
+    });
+    expect(fs.existsSync(eligibleDir)).toBe(true);
+  });
+
   it("refuses a second live owner without touching its session directory", async () => {
     const rootDir = fs.mkdtempSync(path.join(os.tmpdir(), "graft-session-reaper-owner-"));
     const socketPathA = path.join(rootDir, "daemon-a.sock");
@@ -605,11 +737,11 @@ describe("mcp: daemon session reaper", () => {
     unregisterTransport.mockClear();
 
     currentTimeMs += 10_001;
-    const closing = daemon.close();
     const reaping = daemon.reapExpiredSessions();
-    const [, reaped] = await Promise.all([closing, reaping]);
+    const closing = daemon.close();
+    const [reaped] = await Promise.all([reaping, closing]);
 
-    expect(reaped).toMatchObject({ sessionsRetired: 0 });
+    expect(reaped).toMatchObject({ sessionsRetired: 1 });
     expect(unregisterTransport).toHaveBeenCalledTimes(1);
     expect(unregisterTransport).toHaveBeenCalledWith(sessionId);
   });
