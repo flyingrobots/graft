@@ -3,6 +3,8 @@ import * as path from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 import packageJson from "../../../package.json";
+import { ensureDockerAvailability } from "../../../scripts/docker-autostart.js";
+import { formatDockerUnavailableMessage } from "../../../scripts/docker-availability.js";
 import { runIsolatedTests, type RunnerSpawn } from "../../../scripts/isolated-test-runner.js";
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../../..");
@@ -266,15 +268,36 @@ describe("Docker-isolated test validation", () => {
     expect(exits).toEqual([1]);
   });
 
-  it("offers no host-side test fallback when Docker is unavailable", () => {
-    const preflight = readRepoFile("scripts/docker-availability.ts");
-    const autostart = readRepoFile("scripts/docker-autostart.ts");
+  it("offers no host fallback and launches Docker Desktop through the exported behavior", async () => {
+    const message = formatDockerUnavailableMessage({
+      ok: false,
+      detail: "daemon not running",
+    });
+    expect(message).toContain("Docker is unavailable");
+    expect(message).toContain("All Graft tests require the copy-in Docker runner");
+    expect(message).not.toContain("test:local");
 
-    expect(preflight).toContain("Docker is unavailable");
-    expect(preflight).toContain("All Graft tests require the copy-in Docker runner");
-    expect(preflight).not.toContain("test:local");
-    expect(autostart).toContain("open");
-    expect(autostart).toContain("Docker");
+    const launchCalls: string[] = [];
+    let probeCount = 0;
+    const availability = await ensureDockerAvailability({
+      runProbe: () => {
+        probeCount++;
+        return probeCount === 1
+          ? { status: 1, signal: null, stdout: "", stderr: "daemon not running" }
+          : { status: 0, signal: null, stdout: "\"25.0.0\"", stderr: "" };
+      },
+      runLaunch: (command, args) => {
+        launchCalls.push([command, ...args].join(" "));
+        return { status: 0, signal: null, stdout: "", stderr: "" };
+      },
+      platform: "darwin",
+      pollIntervalMs: 1,
+      timeoutMs: 1,
+      sleep: () => undefined,
+    });
+
+    expect(availability).toEqual({ ok: true });
+    expect(launchCalls).toEqual(["open -a Docker"]);
   });
 
   it("does not let a host environment variable bypass Docker isolation", async () => {
