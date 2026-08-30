@@ -160,5 +160,5 @@ self-audit; its eight findings are the `c61023f8` repair recorded above.
 
 The #228 hill is not met. No Edict source, settlement decoder, retained
 composition, or replay path exists. No acceptance criterion in the packet is
-executable yet — all 29 are unchecked by design, and the packet's own status
+executable yet — they remain unchecked by design, and the packet's own status
 line reads "Implementation has not started."
