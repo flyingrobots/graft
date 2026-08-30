@@ -234,6 +234,7 @@ describe("cli: graft grouped surface", () => {
             liveDirectoriesRemoved: 0,
             orphanDirectoriesRemoved: 0,
             cleanupFailures: [],
+            preservedEntries: [],
             sweepFailure: null,
           }),
           close: () => Promise.resolve(),

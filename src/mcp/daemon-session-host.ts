@@ -14,7 +14,10 @@ import type { RunCaptureConfig } from "./run-capture-config.js";
 import type { RuntimeObservabilityState } from "./runtime-observability.js";
 import type { WarpPool } from "./warp-pool.js";
 import { ensurePrivateDirectory } from "./daemon-bootstrap.js";
-import type { DaemonSessionStorage } from "./daemon-storage-ownership.js";
+import type {
+  DaemonSessionStorage,
+  SessionOrphanPreservedEntry,
+} from "./daemon-storage-ownership.js";
 import {
   MonotonicClock,
   type MonotonicClockFailure,
@@ -45,6 +48,7 @@ export interface SessionSweepResult {
   readonly liveDirectoriesRemoved: number;
   readonly orphanDirectoriesRemoved: number;
   readonly cleanupFailures: readonly SessionCleanupFailure[];
+  readonly preservedEntries: readonly SessionOrphanPreservedEntry[];
   readonly sweepFailure: MonotonicClockFailure | null;
 }
 
@@ -446,6 +450,7 @@ export function createDaemonSessionHost(options: CreateDaemonSessionHostOptions)
         liveDirectoriesRemoved: 0,
         orphanDirectoriesRemoved: 0,
         cleanupFailures: [],
+        preservedEntries: [],
         sweepFailure: clockSample.failure,
       };
     }
@@ -469,12 +474,14 @@ export function createDaemonSessionHost(options: CreateDaemonSessionHostOptions)
     }
 
     let orphanDirectoriesRemoved = 0;
+    let preservedEntries: readonly SessionOrphanPreservedEntry[] = [];
     try {
       const orphanResult = await options.sessionStorage.removeSessionOrphanDirectories(
         path.join(options.graftDir, "sessions"),
         new Set([...sessions.keys(), ...pendingSessionIds, ...retiredSessionIds]),
       );
       orphanDirectoriesRemoved = orphanResult.removed;
+      preservedEntries = orphanResult.preservedEntries;
       cleanupFailures.push(...orphanResult.failures.map((failure) => cleanupFailure({
         code: "ORPHAN_DIRECTORY_REMOVE_FAILED",
         sessionId: failure.sessionId,
@@ -497,6 +504,7 @@ export function createDaemonSessionHost(options: CreateDaemonSessionHostOptions)
       liveDirectoriesRemoved,
       orphanDirectoriesRemoved,
       cleanupFailures,
+      preservedEntries,
       sweepFailure: null,
     };
   }
@@ -526,6 +534,9 @@ export function createDaemonSessionHost(options: CreateDaemonSessionHostOptions)
           }
           if (result.cleanupFailures.length > 0) {
             console.error(`[graft] session reaper cleanup failures: ${JSON.stringify(result.cleanupFailures)}`);
+          }
+          if (result.preservedEntries.length > 0) {
+            console.error(`[graft] session reaper preserved entries: ${JSON.stringify(result.preservedEntries)}`);
           }
         })
         .catch((error: unknown) => {

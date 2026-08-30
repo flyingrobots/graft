@@ -217,8 +217,8 @@ The scanner:
 - uses `lstat` and never follows a symlink;
 - deletes only a valid owned marker or exact legacy UUID directory;
 - excludes the exact canonical directories of current live session objects;
-- leaves unknown files, links, malformed markers, and nested surprises intact
-  and reports them; and
+- leaves and reports unknown direct children, links, non-directories, and
+  malformed, unreadable, or unsafe ownership markers; and
 - uses explicit canonical targets, never a recursive glob or unresolved path.
 
 Startup removes prior-process orphans. Each periodic sweep also discovers
@@ -247,6 +247,10 @@ SessionSweepResult
     sessionId?
     path
     code
+  preservedEntries[]
+    entryName
+    path
+    reason
   sweepFailure?
     code
     reason

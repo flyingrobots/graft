@@ -357,6 +357,7 @@ describe("mcp: daemon session reaper", () => {
     const malformedDir = path.join(sessionsRoot, "00000000-0000-4000-8000-000000000002");
     const uuidFile = path.join(sessionsRoot, "00000000-0000-4000-8000-000000000003");
     const uuidLink = path.join(sessionsRoot, "00000000-0000-4000-8000-000000000004");
+    const unsafeMarkerDir = path.join(sessionsRoot, "00000000-0000-4000-8000-000000000006");
     const unrelatedDir = path.join(sessionsRoot, "operator-owned");
     const linkTarget = path.join(rootDir, "link-target");
     fs.mkdirSync(orphanDir, { recursive: true });
@@ -364,6 +365,7 @@ describe("mcp: daemon session reaper", () => {
     fs.mkdirSync(malformedDir, { recursive: true });
     fs.writeFileSync(path.join(malformedDir, ".graft-session-owner.json"), "not-json\n");
     fs.writeFileSync(uuidFile, "not-a-directory\n");
+    fs.mkdirSync(path.join(unsafeMarkerDir, ".graft-session-owner.json"), { recursive: true });
     fs.mkdirSync(unrelatedDir, { recursive: true });
     fs.mkdirSync(linkTarget, { recursive: true });
     fs.writeFileSync(path.join(linkTarget, "keep.txt"), "preserved\n");
@@ -372,6 +374,10 @@ describe("mcp: daemon session reaper", () => {
     }
     cleanups.push(() => {
       fs.rmSync(rootDir, { recursive: true, force: true });
+    });
+    const consoleError = vi.spyOn(console, "error").mockImplementation(() => undefined);
+    cleanups.push(() => {
+      consoleError.mockRestore();
     });
 
     const daemon = await startDaemonServer({
@@ -389,6 +395,38 @@ describe("mcp: daemon session reaper", () => {
     if (process.platform !== "win32") {
       expect(fs.lstatSync(uuidLink).isSymbolicLink()).toBe(true);
     }
+    const expectedPreservedEntries = [
+      {
+        entryName: path.basename(malformedDir),
+        path: malformedDir,
+        reason: "MALFORMED_OWNERSHIP_MARKER",
+      },
+      {
+        entryName: path.basename(uuidFile),
+        path: uuidFile,
+        reason: "NOT_DIRECTORY",
+      },
+      {
+        entryName: path.basename(unrelatedDir),
+        path: unrelatedDir,
+        reason: "UNKNOWN_ENTRY_NAME",
+      },
+      {
+        entryName: path.basename(unsafeMarkerDir),
+        path: unsafeMarkerDir,
+        reason: "UNSAFE_OWNERSHIP_MARKER",
+      },
+      ...(process.platform === "win32"
+        ? []
+        : [{
+            entryName: path.basename(uuidLink),
+            path: uuidLink,
+            reason: "SYMBOLIC_LINK",
+          }]),
+    ];
+    const sweep = await daemon.reapExpiredSessions();
+    expect(sweep.preservedEntries).toHaveLength(expectedPreservedEntries.length);
+    expect(sweep.preservedEntries).toEqual(expect.arrayContaining(expectedPreservedEntries));
     expect((await requestUnixJson(socketPath, "GET", "/healthz")).statusCode).toBe(200);
   });
 

@@ -100,6 +100,10 @@ SessionSweepResult
     path | null
     retryable
     message
+  preservedEntries[]
+    entryName
+    path
+    reason
   sweepFailure | null
 ```
 
@@ -110,7 +114,8 @@ reported separately as non-retryable. An invalid or regressing injected clock
 refuses the whole sweep with `MONOTONIC_CLOCK_INVALID`, reports zero retired
 sessions, and leaves the previous accepted elapsed-time sample unchanged.
 Scheduled sweeps emit structured diagnostics for refused sweeps and cleanup
-failures.
+failures. Preserved unknown, malformed, non-directory, or link entries are also
+reported with stable reason codes without touching their targets.
 
 For concurrent multi-repo use inside one daemon-backed MCP session,
 repo tools that support routing also accept `cwd`: `safe_read`,

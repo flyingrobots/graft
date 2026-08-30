@@ -137,6 +137,11 @@ export async function startDaemonServer(options: StartDaemonServerOptions = {}):
     await controlPlane.initialize();
     await activeMonitorRuntime.initialize();
     const startupOrphans = await sessionStorage.removeSessionOrphanDirectories(sessionsRoot, new Set());
+    if (startupOrphans.preservedEntries.length > 0) {
+      console.error(
+        `[graft] preserved session storage entries: ${JSON.stringify(startupOrphans.preservedEntries)}`,
+      );
+    }
     if (startupOrphans.failures.length > 0) {
       throw new AggregateError(
         startupOrphans.failures.map((failure) => failure.error),

@@ -32,6 +32,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   sweep capability rejects calls after daemon-root ownership is released.
   Failed construction rollback preserves every control-plane, protocol,
   fallback transport, and directory-cleanup error with the primary failure.
+  Orphan scans report preserved unknown, malformed, non-directory, and link
+  entries with stable reason codes instead of silently treating them as clean.
 
 ### Fixed
 

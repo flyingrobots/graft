@@ -32,9 +32,24 @@ export interface SessionOrphanRemovalFailure {
   readonly error: unknown;
 }
 
+export type SessionOrphanPreservationReason =
+  | "UNKNOWN_ENTRY_NAME"
+  | "NOT_DIRECTORY"
+  | "SYMBOLIC_LINK"
+  | "UNSAFE_OWNERSHIP_MARKER"
+  | "UNREADABLE_OWNERSHIP_MARKER"
+  | "MALFORMED_OWNERSHIP_MARKER";
+
+export interface SessionOrphanPreservedEntry {
+  readonly entryName: string;
+  readonly path: string;
+  readonly reason: SessionOrphanPreservationReason;
+}
+
 export interface SessionOrphanRemovalResult {
   readonly removed: number;
   readonly failures: readonly SessionOrphanRemovalFailure[];
+  readonly preservedEntries: readonly SessionOrphanPreservedEntry[];
 }
 
 export interface DaemonSessionStorage {
@@ -211,27 +226,47 @@ export async function removeSessionDirectory(sessionDir: string): Promise<boolea
   return true;
 }
 
-async function isEligibleSessionDirectory(sessionsRoot: string, sessionId: string): Promise<boolean> {
+type SessionDirectoryInspection =
+  | { readonly status: "eligible" }
+  | { readonly status: "missing" }
+  | { readonly status: "preserved"; readonly reason: SessionOrphanPreservationReason };
+
+async function inspectSessionDirectory(
+  sessionsRoot: string,
+  sessionId: string,
+): Promise<SessionDirectoryInspection> {
   const sessionDir = path.join(sessionsRoot, sessionId);
   const stat = await fs.lstat(sessionDir).catch((error: unknown) => {
     if (errorCode(error) === "ENOENT") return null;
     throw error;
   });
-  if (stat === null || !stat.isDirectory() || stat.isSymbolicLink()) return false;
+  if (stat === null) return { status: "missing" };
+  if (stat.isSymbolicLink()) return { status: "preserved", reason: "SYMBOLIC_LINK" };
+  if (!stat.isDirectory()) return { status: "preserved", reason: "NOT_DIRECTORY" };
 
   const markerPath = path.join(sessionDir, SESSION_OWNER_FILE);
   const markerStat = await fs.lstat(markerPath).catch((error: unknown) => {
     if (errorCode(error) === "ENOENT") return null;
     throw error;
   });
-  if (markerStat === null) return true;
-  if (!markerStat.isFile() || markerStat.isSymbolicLink()) return false;
+  if (markerStat === null) return { status: "eligible" };
+  if (!markerStat.isFile() || markerStat.isSymbolicLink()) {
+    return { status: "preserved", reason: "UNSAFE_OWNERSHIP_MARKER" };
+  }
 
+  let markerSource: string;
   try {
-    const parsed = JSON.parse(await fs.readFile(markerPath, "utf-8")) as unknown;
-    return isSessionOwnerRecord(parsed, sessionId);
+    markerSource = await fs.readFile(markerPath, "utf-8");
   } catch {
-    return false;
+    return { status: "preserved", reason: "UNREADABLE_OWNERSHIP_MARKER" };
+  }
+  try {
+    const parsed = JSON.parse(markerSource) as unknown;
+    return isSessionOwnerRecord(parsed, sessionId)
+      ? { status: "eligible" }
+      : { status: "preserved", reason: "MALFORMED_OWNERSHIP_MARKER" };
+  } catch {
+    return { status: "preserved", reason: "MALFORMED_OWNERSHIP_MARKER" };
   }
 }
 
@@ -242,11 +277,29 @@ export async function removeSessionOrphanDirectories(
   const entries = await fs.readdir(sessionsRoot, { withFileTypes: true });
   let removed = 0;
   const failures: SessionOrphanRemovalFailure[] = [];
+  const preservedEntries: SessionOrphanPreservedEntry[] = [];
   for (const entry of entries) {
     const sessionId = entry.name;
-    if (!UUID_PATTERN.test(sessionId) || liveSessionIds.has(sessionId)) continue;
-    if (!await isEligibleSessionDirectory(sessionsRoot, sessionId)) continue;
     const sessionPath = path.join(sessionsRoot, sessionId);
+    if (!UUID_PATTERN.test(sessionId)) {
+      preservedEntries.push({
+        entryName: sessionId,
+        path: sessionPath,
+        reason: "UNKNOWN_ENTRY_NAME",
+      });
+      continue;
+    }
+    if (liveSessionIds.has(sessionId)) continue;
+    const inspection = await inspectSessionDirectory(sessionsRoot, sessionId);
+    if (inspection.status === "missing") continue;
+    if (inspection.status === "preserved") {
+      preservedEntries.push({
+        entryName: sessionId,
+        path: sessionPath,
+        reason: inspection.reason,
+      });
+      continue;
+    }
     try {
       await fs.rm(sessionPath, { recursive: true, force: false });
       removed++;
@@ -254,7 +307,7 @@ export async function removeSessionOrphanDirectories(
       failures.push({ sessionId, path: sessionPath, error });
     }
   }
-  return { removed, failures };
+  return { removed, failures, preservedEntries };
 }
 
 export const nodeDaemonSessionStorage: DaemonSessionStorage = Object.freeze({
