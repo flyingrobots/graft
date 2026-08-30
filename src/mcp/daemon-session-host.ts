@@ -49,9 +49,17 @@ interface DaemonSession {
   readonly graftDir: string;
   readonly transport: StreamableHTTPServerTransport;
   readonly server: GraftServer;
+  state: "open" | "terminating" | "terminated";
+  termination: Promise<void> | null;
   lastActivityAtMs: number;
   activeRequests: number;
 }
+
+type SessionTerminationReason = "idle" | "shutdown" | "transport_close" | "transport_error";
+type TerminateDaemonSession = (
+  session: DaemonSession,
+  reason: SessionTerminationReason,
+) => Promise<void>;
 
 export interface CreateDaemonSessionHostOptions {
   readonly graftDir: string;
@@ -131,6 +139,7 @@ async function createDaemonSession(
   newSessionId: string,
   options: CreateDaemonSessionHostOptions,
   sessions: Map<string, DaemonSession>,
+  terminateSession: TerminateDaemonSession,
 ): Promise<DaemonSession> {
   const sessionGraftDir = path.join(options.graftDir, "sessions", newSessionId);
   let directoryReady = false;
@@ -183,6 +192,8 @@ async function createDaemonSession(
       graftDir: sessionGraftDir,
       transport: createdTransport,
       server: createdServer,
+      state: "open",
+      termination: null,
       lastActivityAtMs: nowMs(),
       activeRequests: 0,
     };
@@ -192,20 +203,14 @@ async function createDaemonSession(
         construction.closedBeforeCommit = true;
         return;
       }
-      if (sessions.get(newSessionId) !== createdSession) return;
-      sessions.delete(newSessionId);
-      options.controlPlane.unregisterTransport(newSessionId);
-      void removeSessionDirectory(sessionGraftDir);
+      void terminateSession(createdSession, "transport_close");
     };
     createdTransport.onerror = () => {
       if (!construction.committed) {
         construction.closedBeforeCommit = true;
         return;
       }
-      if (sessions.get(newSessionId) !== createdSession) return;
-      sessions.delete(newSessionId);
-      options.controlPlane.unregisterTransport(newSessionId);
-      void removeSessionDirectory(sessionGraftDir);
+      void terminateSession(createdSession, "transport_error");
     };
 
     await createdServer.getMcpServer().connect(createdTransport as Transport);
@@ -238,6 +243,33 @@ export function createDaemonSessionHost(options: CreateDaemonSessionHostOptions)
   const sessionTtlMs = resolveSessionInactivityTtlMs(options.sessionInactivityTtlMs);
   const reaperIntervalMs = resolveSessionReaperIntervalMs(options.sessionReaperIntervalMs);
 
+  function terminateSession(
+    session: DaemonSession,
+    reason: SessionTerminationReason,
+  ): Promise<void> {
+    if (session.termination !== null) return session.termination;
+    if (sessions.get(session.id) !== session) {
+      session.state = "terminated";
+      session.termination = Promise.resolve();
+      return session.termination;
+    }
+
+    session.state = "terminating";
+    sessions.delete(session.id);
+    const termination = Promise.resolve().then(async () => {
+      options.controlPlane.unregisterTransport(session.id);
+      if (reason !== "transport_close") {
+        await session.server.getMcpServer().close().catch(async () => {
+          await session.transport.close().catch(() => undefined);
+        });
+      }
+      await removeSessionDirectory(session.graftDir);
+      session.state = "terminated";
+    });
+    session.termination = termination;
+    return termination;
+  }
+
   async function handleActiveSessionRequest(
     session: DaemonSession,
     handle: () => Promise<void>,
@@ -257,12 +289,13 @@ export function createDaemonSessionHost(options: CreateDaemonSessionHostOptions)
   async function reapExpiredSessions(): Promise<number> {
     const current = nowMs();
     let reapedCount = 0;
-    for (const [id, session] of [...sessions.entries()]) {
-      if (session.activeRequests === 0 && current - session.lastActivityAtMs >= sessionTtlMs) {
-        sessions.delete(id);
-        options.controlPlane.unregisterTransport(id);
-        await session.transport.close().catch(() => undefined);
-        await removeSessionDirectory(session.graftDir);
+    for (const session of [...sessions.values()]) {
+      if (
+        session.state === "open"
+        && session.activeRequests === 0
+        && current - session.lastActivityAtMs >= sessionTtlMs
+      ) {
+        await terminateSession(session, "idle");
         reapedCount++;
       }
     }
@@ -314,7 +347,7 @@ export function createDaemonSessionHost(options: CreateDaemonSessionHostOptions)
             sendJsonRpcError(res, -32000, "Initialization requests must start a daemon session");
             return;
           }
-          const session = await createDaemonSession(crypto.randomUUID(), options, sessions);
+          const session = await createDaemonSession(crypto.randomUUID(), options, sessions, terminateSession);
           await handleActiveSessionRequest(session, async () => {
             await session.transport.handleRequest(req, res, parsedBody);
           });
@@ -354,14 +387,7 @@ export function createDaemonSessionHost(options: CreateDaemonSessionHostOptions)
         clearInterval(reaperTimer);
         reaperTimer = null;
       }
-      for (const session of [...sessions.values()]) {
-        options.controlPlane.unregisterTransport(session.id);
-        await session.transport.close().catch(() => {
-          return undefined;
-        });
-        await removeSessionDirectory(session.graftDir);
-      }
-      sessions.clear();
+      await Promise.all([...sessions.values()].map((session) => terminateSession(session, "shutdown")));
     },
   };
 }

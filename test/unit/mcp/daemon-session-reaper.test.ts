@@ -432,6 +432,51 @@ describe("mcp: daemon session reaper", () => {
     expect(getReq.statusCode).toBe(404);
   });
 
+  it("runs terminal side effects once when shutdown races an idle sweep", async () => {
+    const rootDir = fs.mkdtempSync(path.join(os.tmpdir(), "graft-session-reaper-terminal-"));
+    const socketPath = path.join(rootDir, "daemon.sock");
+    cleanups.push(() => {
+      fs.rmSync(rootDir, { recursive: true, force: true });
+    });
+    const unregisterTransport = vi.spyOn(DaemonControlPlane.prototype, "unregisterTransport");
+    cleanups.push(() => {
+      unregisterTransport.mockRestore();
+    });
+
+    let currentTimeMs = 1_000_000;
+    const daemon = await startDaemonServer({
+      graftDir: rootDir,
+      socketPath,
+      sessionInactivityTtlMs: 10_000,
+      sessionReaperIntervalMs: 0,
+      nowMs: () => currentTimeMs,
+    });
+    cleanups.push(() => daemon.close());
+    const initialize = await requestUnixJson(socketPath, "POST", "/mcp", {
+      jsonrpc: "2.0",
+      id: 1,
+      method: "initialize",
+      params: {
+        protocolVersion: "2025-03-26",
+        capabilities: {},
+        clientInfo: { name: "vitest", version: "0.0.0" },
+      },
+    });
+    const sessionIdHeader = initialize.headers["mcp-session-id"];
+    const sessionId = Array.isArray(sessionIdHeader) ? sessionIdHeader[0] : sessionIdHeader;
+    expect(sessionId).toBeDefined();
+    unregisterTransport.mockClear();
+
+    currentTimeMs += 10_001;
+    const closing = daemon.close();
+    const reaping = daemon.reapExpiredSessions?.();
+    const [, reaped] = await Promise.all([closing, reaping]);
+
+    expect(reaped).toBe(0);
+    expect(unregisterTransport).toHaveBeenCalledTimes(1);
+    expect(unregisterTransport).toHaveBeenCalledWith(sessionId);
+  });
+
   it("does not reap sessions that have active in-flight requests even if expired", async () => {
     const rootDir = fs.mkdtempSync(path.join(os.tmpdir(), "graft-session-reaper-inflight-"));
     const socketPath = path.join(rootDir, "daemon.sock");
