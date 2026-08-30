@@ -295,6 +295,7 @@ async function createDaemonSession(
 
 export function createDaemonSessionHost(options: CreateDaemonSessionHostOptions): DaemonSessionHost {
   const sessions = new Map<string, DaemonSession>();
+  const pendingSessionIds = new Set<string>();
   const clock = new MonotonicClock(options.nowMs ?? monotonicNowMs);
   const sessionTtlMs = resolveSessionInactivityTtlMs(options.sessionInactivityTtlMs);
   const reaperIntervalMs = resolveSessionReaperIntervalMs(options.sessionReaperIntervalMs);
@@ -435,7 +436,7 @@ export function createDaemonSessionHost(options: CreateDaemonSessionHostOptions)
     try {
       const orphanResult = await options.sessionStorage.removeSessionOrphanDirectories(
         path.join(options.graftDir, "sessions"),
-        new Set([...sessions.keys(), ...retiredSessionIds]),
+        new Set([...sessions.keys(), ...pendingSessionIds, ...retiredSessionIds]),
       );
       orphanDirectoriesRemoved = orphanResult.removed;
       cleanupFailures.push(...orphanResult.failures.map((failure) => cleanupFailure({
@@ -518,13 +519,20 @@ export function createDaemonSessionHost(options: CreateDaemonSessionHostOptions)
             sendJsonRpcError(res, -32000, "Initialization requests must start a daemon session");
             return;
           }
-          const session = await createDaemonSession(
-            crypto.randomUUID(),
-            options,
-            sessions,
-            terminateSession,
-            clock,
-          );
+          const newSessionId = crypto.randomUUID();
+          pendingSessionIds.add(newSessionId);
+          let session: DaemonSession;
+          try {
+            session = await createDaemonSession(
+              newSessionId,
+              options,
+              sessions,
+              terminateSession,
+              clock,
+            );
+          } finally {
+            pendingSessionIds.delete(newSessionId);
+          }
           await handleActiveSessionRequest(session, async () => {
             await session.transport.handleRequest(req, res, parsedBody);
           });

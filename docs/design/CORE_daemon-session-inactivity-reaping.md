@@ -216,6 +216,9 @@ Startup removes prior-process orphans. Each periodic sweep also discovers
 current-process owned directories absent from the session map, covering a hard
 failure between directory creation and rollback. Cleanup failures remain debt
 for a later sweep and are never represented as successful deletion.
+An initialization UUID is reserved before its first construction await and
+remains protected from orphan discovery until either publication commits or
+rollback finishes.
 
 ## Sweep result and observability
 

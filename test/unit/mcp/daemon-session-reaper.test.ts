@@ -386,6 +386,69 @@ describe("mcp: daemon session reaper", () => {
     expect((await requestUnixJson(socketPath, "GET", "/healthz")).statusCode).toBe(200);
   });
 
+  it("protects a pending session construction from orphan discovery", async () => {
+    const rootDir = fs.mkdtempSync(path.join(os.tmpdir(), "graft-session-pending-orphan-"));
+    const socketPath = path.join(rootDir, "daemon.sock");
+    cleanups.push(() => {
+      fs.rmSync(rootDir, { recursive: true, force: true });
+    });
+    let releaseConnect!: () => void;
+    let markConnectEntered!: () => void;
+    const connectEntered = new Promise<void>((resolve) => {
+      markConnectEntered = resolve;
+    });
+    const connectGate = new Promise<void>((resolve) => {
+      releaseConnect = resolve;
+    });
+    const connect = vi.spyOn(McpServer.prototype, "connect")
+      .mockImplementationOnce(async () => {
+        markConnectEntered();
+        await connectGate;
+        throw new Error("injected connection failure after pending sweep");
+      });
+    cleanups.push(() => {
+      connect.mockRestore();
+    });
+
+    const daemon = await startDaemonServer({
+      graftDir: rootDir,
+      socketPath,
+      sessionReaperIntervalMs: 0,
+    });
+    cleanups.push(() => daemon.close());
+    cleanups.push(() => {
+      releaseConnect();
+    });
+    const initializing = requestUnixJson(socketPath, "POST", "/mcp", {
+      jsonrpc: "2.0",
+      id: 1,
+      method: "initialize",
+      params: {
+        protocolVersion: "2025-03-26",
+        capabilities: {},
+        clientInfo: { name: "vitest", version: "0.0.0" },
+      },
+    });
+    await connectEntered;
+
+    const sessionsRoot = path.join(rootDir, "sessions");
+    const pendingEntries = fs.readdirSync(sessionsRoot);
+    expect(pendingEntries).toHaveLength(1);
+    const pendingDir = path.join(sessionsRoot, pendingEntries[0]!);
+    expect(fs.existsSync(path.join(pendingDir, ".graft-session-owner.json"))).toBe(true);
+
+    expect(await daemon.reapExpiredSessions()).toMatchObject({
+      sessionsRetired: 0,
+      orphanDirectoriesRemoved: 0,
+      cleanupFailures: [],
+    });
+    expect(fs.existsSync(pendingDir)).toBe(true);
+
+    releaseConnect();
+    expect((await initializing).statusCode).toBe(500);
+    expect(fs.readdirSync(sessionsRoot)).toEqual([]);
+  });
+
   it("refuses a second live owner without touching its session directory", async () => {
     const rootDir = fs.mkdtempSync(path.join(os.tmpdir(), "graft-session-reaper-owner-"));
     const socketPathA = path.join(rootDir, "daemon-a.sock");
