@@ -49,7 +49,7 @@ liability, not evidence.
 ## Source Truth
 
 Every claim the packet makes about the current tree was checked against the
-tree, not against memory. All eight cited paths resolve:
+tree, not against memory. All eleven cited source paths resolve:
 
 - `src/operations/repo-workspace.ts` — `fileOutline` calls `observe()` before
   `evaluateRefusal()`, which is why invariant 13 exists; the cache-hit branch
@@ -64,19 +64,26 @@ tree, not against memory. All eight cited paths resolve:
 - `src/adapters/colorful-cli-prose-projector.ts` — the projection calls
   `processRunner.run`, so replay that closes only the workspace observer is not
   closed-world.
+- `src/operations/colorful-prose-projection.ts` — `ProseProjection` contains
+  `format`, `partial`, `syntaxSpans`, `outline`, and `jumpTable`, and the
+  Colorful consumer fixes both a contract version and vocabulary hash; these
+  are the fields and producer identities retained by the settlement contract.
 - `src/adapters/repo-paths.ts` — `fs.realpathSync.native` and `fs.lstatSync`
   run during path resolution that precedes `RepoWorkspace` construction, which
   is why pre-request handling must be lexical and separately counted.
-- `src/mcp/receipt.ts` and `src/contracts/output-schemas.ts` — responses carry
-  `_schema`, `_receipt`, and optionally `_workspace` and `tripwire`, which is
-  why the replay comparison is taken on the decoded payload before the wrapper
-  is attached.
+- `src/mcp/workspace-router-resolution.ts` — routing performs two `rev-parse`
+  calls and canonicalizes the returned roots, which bounds the identity reads
+  exempted from the request-before-effect invariant.
+- `src/mcp/workspace-router-runtime.ts` — runtime setup reads `.graftignore`
+  and constructs the worktree-root path resolver before an operation exists,
+  which completes that closed prerequisite-read exemption.
+- `src/mcp/receipt.ts` — the MCP boundary attaches per-call receipt metadata,
+  which is why replay comparison occurs before the wrapper is attached.
+- `src/contracts/output-schemas.ts` — the output schemas admit `_schema`,
+  `_receipt`, and optional `_workspace` and `tripwire` wrapper fields rather
+  than making them part of the retained operation payload.
 - `src/mcp/tools/file-outline.ts` — the refusal variant carries `projection`,
   `reasonDetail`, and `next`.
-
-Policy names the packet relies on also exist: `graftignorePatterns` is loaded
-per workspace (`src/mcp/workspace-router-runtime.ts`) and `evaluateRefusal` is
-the refusal path in `src/operations/repo-workspace.ts`.
 
 ## Validation
 
