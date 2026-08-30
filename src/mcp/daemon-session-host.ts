@@ -157,14 +157,23 @@ async function createDaemonSession(
     options.controlPlane.unregisterTransport(newSessionId);
     void removeSessionDirectory(sessionGraftDir);
   };
-  sessions.set(newSessionId, session);
-  options.controlPlane.registerTransport(
-    newSessionId,
-    () => server.getWorkspaceStatus(),
-    () => server.getRuntimeCausalContext(),
-  );
-  await server.getMcpServer().connect(transport as Transport);
-  return session;
+  try {
+    sessions.set(newSessionId, session);
+    options.controlPlane.registerTransport(
+      newSessionId,
+      () => server.getWorkspaceStatus(),
+      () => server.getRuntimeCausalContext(),
+    );
+    await server.getMcpServer().connect(transport as Transport);
+    return session;
+  } catch (error) {
+    sessions.delete(newSessionId);
+    options.controlPlane.unregisterTransport(newSessionId);
+    await server.getMcpServer().close().catch(() => undefined);
+    await transport.close().catch(() => undefined);
+    await removeSessionDirectory(sessionGraftDir);
+    throw error;
+  }
 }
 
 export function createDaemonSessionHost(options: CreateDaemonSessionHostOptions): DaemonSessionHost {
