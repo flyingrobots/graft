@@ -2,6 +2,7 @@ import * as crypto from "node:crypto";
 import * as fs from "node:fs/promises";
 import * as http from "node:http";
 import * as path from "node:path";
+import { performance } from "node:perf_hooks";
 import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
 import type { Transport } from "@modelcontextprotocol/sdk/shared/transport.js";
 import { isInitializeRequest } from "@modelcontextprotocol/sdk/types.js";
@@ -19,6 +20,10 @@ const MAX_BODY_BYTES = 1024 * 1024;
 export const DEFAULT_SESSION_INACTIVITY_TTL_MS = 30 * 60 * 1000;
 export const DEFAULT_SESSION_REAPER_INTERVAL_MS = 60 * 1000;
 const MAX_NODE_TIMER_DELAY_MS = 2_147_483_647;
+
+function monotonicNowMs(): number {
+  return performance.now();
+}
 
 export function resolveSessionInactivityTtlMs(value: number | undefined): number {
   const resolved = value ?? DEFAULT_SESSION_INACTIVITY_TTL_MS;
@@ -157,7 +162,7 @@ async function createDaemonSession(
       ? { persistedLocalHistoryGraph: options.persistedLocalHistoryGraph }
       : {}),
   });
-  const nowMs = options.nowMs ?? Date.now;
+  const nowMs = options.nowMs ?? monotonicNowMs;
   const session: DaemonSession = {
     id: newSessionId,
     graftDir: sessionGraftDir,
@@ -197,7 +202,7 @@ async function createDaemonSession(
 
 export function createDaemonSessionHost(options: CreateDaemonSessionHostOptions): DaemonSessionHost {
   const sessions = new Map<string, DaemonSession>();
-  const nowMs = options.nowMs ?? Date.now;
+  const nowMs = options.nowMs ?? monotonicNowMs;
   const sessionTtlMs = resolveSessionInactivityTtlMs(options.sessionInactivityTtlMs);
   const reaperIntervalMs = resolveSessionReaperIntervalMs(options.sessionReaperIntervalMs);
 

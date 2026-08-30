@@ -232,6 +232,46 @@ describe("mcp: daemon session reaper", () => {
     }
   });
 
+  it("does not expire sessions when the wall clock jumps forward", async () => {
+    const rootDir = fs.mkdtempSync(path.join(os.tmpdir(), "graft-session-reaper-clock-"));
+    const socketPath = path.join(rootDir, "daemon.sock");
+    cleanups.push(() => {
+      fs.rmSync(rootDir, { recursive: true, force: true });
+    });
+    const wallClock = vi.spyOn(Date, "now").mockReturnValue(1_000_000);
+    cleanups.push(() => {
+      wallClock.mockRestore();
+    });
+
+    const sessionInactivityTtlMs = 10_000;
+    const daemon = await startDaemonServer({
+      graftDir: rootDir,
+      socketPath,
+      sessionInactivityTtlMs,
+      sessionReaperIntervalMs: 0,
+    });
+    cleanups.push(() => daemon.close());
+
+    const initialize = await requestUnixJson(socketPath, "POST", "/mcp", {
+      jsonrpc: "2.0",
+      id: 1,
+      method: "initialize",
+      params: {
+        protocolVersion: "2025-03-26",
+        capabilities: {},
+        clientInfo: { name: "vitest", version: "0.0.0" },
+      },
+    });
+    const sessionIdHeader = initialize.headers["mcp-session-id"];
+    const sessionId = Array.isArray(sessionIdHeader) ? sessionIdHeader[0] : sessionIdHeader;
+    expect(sessionId).toBeDefined();
+
+    wallClock.mockReturnValue(1_000_000 + sessionInactivityTtlMs + 1);
+
+    expect(await daemon.reapExpiredSessions?.()).toBe(0);
+    expect(fs.existsSync(path.join(rootDir, "sessions", sessionId!))).toBe(true);
+  });
+
   it("reaps idle sessions exceeding sessionInactivityTtlMs and scrubs session directory", async () => {
     const rootDir = fs.mkdtempSync(path.join(os.tmpdir(), "graft-session-reaper-test-"));
     const socketPath = path.join(rootDir, "daemon.sock");
