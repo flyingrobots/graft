@@ -336,6 +336,7 @@ async function createDaemonSession(
 export function createDaemonSessionHost(options: CreateDaemonSessionHostOptions): DaemonSessionHost {
   const sessions = new Map<string, DaemonSession>();
   const pendingSessionIds = new Set<string>();
+  const terminatingSessionIds = new Set<string>();
   const pendingSessionConstructions = new Set<Promise<DaemonSession>>();
   let hostState: "open" | "closing" | "closed" = "open";
   const hostIsOpen = (): boolean => hostState === "open";
@@ -360,7 +361,8 @@ export function createDaemonSessionHost(options: CreateDaemonSessionHostOptions)
 
     session.state = "terminating";
     sessions.delete(session.id);
-    const termination = Promise.resolve().then(async () => {
+    terminatingSessionIds.add(session.id);
+    const operation = Promise.resolve().then(async () => {
       const cleanupFailures: SessionCleanupFailure[] = [];
       options.controlPlane.unregisterTransport(session.id);
       if (reason !== "transport_close") {
@@ -405,6 +407,9 @@ export function createDaemonSessionHost(options: CreateDaemonSessionHostOptions)
         liveDirectoryRemoved,
         cleanupFailures,
       };
+    });
+    const termination = operation.finally(() => {
+      terminatingSessionIds.delete(session.id);
     });
     session.termination = termination;
     return termination;
@@ -520,7 +525,12 @@ export function createDaemonSessionHost(options: CreateDaemonSessionHostOptions)
     try {
       const orphanResult = await options.sessionStorage.removeSessionOrphanDirectories(
         path.join(options.graftDir, "sessions"),
-        new Set([...sessions.keys(), ...pendingSessionIds, ...retiredSessionIds]),
+        new Set([
+          ...sessions.keys(),
+          ...pendingSessionIds,
+          ...terminatingSessionIds,
+          ...retiredSessionIds,
+        ]),
       );
       orphanDirectoriesRemoved = orphanResult.removed;
       preservedEntries = orphanResult.preservedEntries;

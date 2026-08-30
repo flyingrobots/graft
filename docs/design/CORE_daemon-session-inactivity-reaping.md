@@ -98,6 +98,10 @@ not implement their own cleanup. Host shutdown awaits every termination promise.
 The design does not claim that `GraftServer` itself has a `close()` method; the
 connected MCP protocol owns and closes its transport.
 
+A terminating session ID remains reserved from orphan discovery until its shared
+termination promise settles. Removing the session from request authority must
+not make its scratch tree concurrently eligible for a second cleanup path.
+
 The host itself has an explicit `OPEN -> CLOSING -> CLOSED` lifecycle. Entering
 `CLOSING` synchronously rejects new construction commits and new sweeps. Shutdown
 awaits every construction already admitted and the one serialized sweep, then
@@ -298,6 +302,8 @@ authority has been retired, and each failed close layer is reported separately.
 11. **Authority-fenced shutdown.** Pending construction, sweep execution, and
     session termination settle before root ownership is released; post-close
     sweeps are rejected.
+12. **Single cleanup owner.** Pending construction and terminating session IDs
+    remain excluded from orphan discovery until their owning operation settles.
 
 ## Acceptance criteria
 

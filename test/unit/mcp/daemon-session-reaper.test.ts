@@ -918,6 +918,75 @@ describe("mcp: daemon session reaper", () => {
     expect(unregisterTransport).toHaveBeenCalledWith(sessionId);
   });
 
+  it("protects terminating session directories from orphan discovery", async () => {
+    const rootDir = fs.mkdtempSync(path.join(os.tmpdir(), "graft-session-terminating-"));
+    const socketPath = path.join(rootDir, "daemon.sock");
+    cleanups.push(() => {
+      fs.rmSync(rootDir, { recursive: true, force: true });
+    });
+    let releaseRemoval!: () => void;
+    let markRemovalStarted!: () => void;
+    const removalStarted = new Promise<void>((resolve) => {
+      markRemovalStarted = resolve;
+    });
+    const removalGate = new Promise<void>((resolve) => {
+      releaseRemoval = resolve;
+    });
+    let scanCalls = 0;
+    const sweepLiveSessionIds: ReadonlySet<string>[] = [];
+    const sessionStorage = {
+      writeSessionOwnershipMarker,
+      async removeSessionDirectory(sessionDir: string): Promise<boolean> {
+        markRemovalStarted();
+        await removalGate;
+        return removeSessionDirectory(sessionDir);
+      },
+      removeSessionOrphanDirectories(
+        _sessionsRoot: string,
+        liveSessionIds: ReadonlySet<string>,
+      ) {
+        scanCalls++;
+        if (scanCalls > 1) sweepLiveSessionIds.push(new Set(liveSessionIds));
+        return Promise.resolve({ removed: 0, failures: [], preservedEntries: [] });
+      },
+    };
+
+    const daemon = await startDaemonServer({
+      graftDir: rootDir,
+      socketPath,
+      sessionReaperIntervalMs: 0,
+      sessionStorage,
+    });
+    cleanups.push(() => daemon.close());
+    cleanups.push(() => {
+      releaseRemoval();
+    });
+    const initialize = await requestUnixJson(socketPath, "POST", "/mcp", {
+      jsonrpc: "2.0",
+      id: 1,
+      method: "initialize",
+      params: {
+        protocolVersion: "2025-03-26",
+        capabilities: {},
+        clientInfo: { name: "vitest", version: "0.0.0" },
+      },
+    });
+    const sessionIdHeader = initialize.headers["mcp-session-id"];
+    const sessionId = Array.isArray(sessionIdHeader) ? sessionIdHeader[0] : sessionIdHeader;
+    expect(sessionId).toBeDefined();
+
+    const deleting = requestUnixJson(socketPath, "DELETE", "/mcp", undefined, {
+      "mcp-session-id": sessionId!,
+    });
+    await removalStarted;
+    await daemon.reapExpiredSessions();
+    const protectedDuringTermination = sweepLiveSessionIds.some((ids) => ids.has(sessionId!));
+    releaseRemoval();
+    await deleting;
+
+    expect(protectedDuringTermination).toBe(true);
+  });
+
   it("reports failed cleanup and retries the resulting orphan on the next sweep", async () => {
     const rootDir = fs.mkdtempSync(path.join(os.tmpdir(), "graft-session-reaper-retry-"));
     const socketPath = path.join(rootDir, "daemon.sock");

@@ -37,6 +37,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   A rejected request-start or request-settlement clock sample is retained until
   trusted activity supersedes it, forcing a valid sweep to report and rebase it
   before any affected session can become eligible.
+  Session IDs remain reserved from orphan discovery while their shared terminal
+  cleanup promise is still settling, preventing concurrent scratch deletion.
 
 ### Fixed
 
