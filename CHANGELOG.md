@@ -34,8 +34,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   fallback transport, and directory-cleanup error with the primary failure.
   Orphan scans report preserved unknown, malformed, non-directory, and link
   entries with stable reason codes instead of silently treating them as clean.
-  A rejected request-settlement clock sample is retained and forces the next
-  valid sweep to report and rebase it before any session can become eligible.
+  A rejected request-start or request-settlement clock sample is retained until
+  trusted activity supersedes it, forcing a valid sweep to report and rebase it
+  before any affected session can become eligible.
 
 ### Fixed
 
