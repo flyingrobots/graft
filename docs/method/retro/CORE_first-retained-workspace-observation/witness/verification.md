@@ -9,18 +9,19 @@ records what a documentation cycle can actually prove: that the packet's claims
 about the tree are true, that the packet does not contradict itself, and that
 nothing executable changed.
 
-`dc619514` is the `main` baseline. The full gate — lint, `diff --check`, and
-the complete 258-file suite — is re-run on every commit of this branch that
-touches the design packet, a backlog card, or a generated artifact, because
-this cycle established that those are suite inputs. The last such run is
-recorded in that commit's message.
+`dc619514` is the `main` baseline. This witness does not infer final-head
+validation from commit messages. Current pull-request eligibility is attached
+to an immutable head by GitHub checks and the PR activity summary; the durable
+claims below are limited to commands actually evidenced for this documentation
+cycle.
 
 An earlier draft of this line pinned the gate to `e187963f` and claimed later
 commits touched only the witness and retro. That was false —
 `git diff --name-only e187963f..302f8c42` includes the design packet, both
 backlog cards, and both DAG artifacts. Pinning a witness to a SHA that later
-commits move past is a provenance claim that decays on the next push, so the
-gate is described by *rule* here and by SHA in the commit that ran it.
+commits move past is a provenance claim that decays on the next push. A prose
+rule asserting that every relevant commit was tested has the same defect, so
+this witness makes neither claim.
 
 ## Scope of change
 
@@ -94,8 +95,12 @@ not an executable one.
 ```text
 git diff --check dc619514..HEAD     clean
 pnpm lint                           clean (eslint .)
-pnpm test                           258 files, 2056 tests, all passing
 ```
+
+The 258-file, 2,056-test result recorded earlier in this cycle is historical,
+not final-head evidence. A current full-suite run belongs to the exact PR head
+reported by CI and the activity summary; it is not promoted to a timeless fact
+inside a file that can itself change afterwards.
 
 **An earlier draft of this witness claimed the branch changed no file the suite
 loads. That was false, and CI proved it.** Adding two backlog cards invalidated
