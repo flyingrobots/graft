@@ -43,6 +43,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   pending callbacks and emitting each structured sweep diagnostic once.
   Startup verifies exclusive daemon-root authority before preparing the socket
   path and releases that claim if later startup work fails.
+  Failed session construction closes a transport acquired before MCP connection
+  directly instead of assuming an unconnected protocol server owns it.
 
 ### Fixed
 

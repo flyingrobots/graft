@@ -201,6 +201,7 @@ async function createDaemonSession(
   let transport: StreamableHTTPServerTransport | undefined;
   let server: GraftServer | undefined;
   let session: DaemonSession | undefined;
+  let protocolConnectionAttempted = false;
   const construction = {
     committed: false,
     closedBeforeCommit: false,
@@ -272,6 +273,7 @@ async function createDaemonSession(
       void terminateSession(createdSession, "transport_error");
     };
 
+    protocolConnectionAttempted = true;
     await createdServer.getMcpServer().connect(createdTransport as Transport);
     if (construction.closedBeforeCommit) {
       throw new Error("MCP transport closed before daemon session construction committed");
@@ -295,20 +297,19 @@ async function createDaemonSession(
     } catch (cleanupError) {
       rollbackErrors.push(cleanupError);
     }
+    let protocolCloseFailed = false;
     if (server !== undefined) {
       try {
         await server.getMcpServer().close();
       } catch (protocolCloseError) {
+        protocolCloseFailed = true;
         rollbackErrors.push(protocolCloseError);
-        if (transport !== undefined) {
-          try {
-            await transport.close();
-          } catch (transportCloseError) {
-            rollbackErrors.push(transportCloseError);
-          }
-        }
       }
-    } else if (transport !== undefined) {
+    }
+    if (
+      transport !== undefined
+      && (!protocolConnectionAttempted || protocolCloseFailed)
+    ) {
       try {
         await transport.close();
       } catch (transportCloseError) {

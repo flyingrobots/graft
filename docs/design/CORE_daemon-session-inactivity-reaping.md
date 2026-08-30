@@ -192,6 +192,9 @@ step fails, the partial protocol/transport is closed when present and the exact
 scratch directory is removed. If cleanup itself fails, the failure is returned
 and the directory remains discoverable by the orphan sweep; no phantom map or
 control-plane entry survives.
+Before a protocol connection is attempted, the transport remains a separately
+owned resource and rollback closes it directly; after that ownership transfer,
+protocol close owns transport close with direct close reserved as its fallback.
 Rollback preserves the primary construction error plus every failed
 control-plane, protocol-close, fallback transport-close, and directory-cleanup
 operation in one aggregate error.
