@@ -279,13 +279,35 @@ async function createDaemonSession(
     construction.committed = true;
     return session;
   } catch (error) {
+    const rollbackErrors: unknown[] = [];
     if (session !== undefined && sessions.get(newSessionId) === session) {
       sessions.delete(newSessionId);
     }
-    options.controlPlane.unregisterTransport(newSessionId);
-    await server?.getMcpServer().close().catch(() => undefined);
-    await transport?.close().catch(() => undefined);
-    const rollbackErrors: unknown[] = [];
+    try {
+      options.controlPlane.unregisterTransport(newSessionId);
+    } catch (cleanupError) {
+      rollbackErrors.push(cleanupError);
+    }
+    if (server !== undefined) {
+      try {
+        await server.getMcpServer().close();
+      } catch (protocolCloseError) {
+        rollbackErrors.push(protocolCloseError);
+        if (transport !== undefined) {
+          try {
+            await transport.close();
+          } catch (transportCloseError) {
+            rollbackErrors.push(transportCloseError);
+          }
+        }
+      }
+    } else if (transport !== undefined) {
+      try {
+        await transport.close();
+      } catch (transportCloseError) {
+        rollbackErrors.push(transportCloseError);
+      }
+    }
     if (directoryReady) {
       try {
         await options.sessionStorage.removeSessionDirectory(sessionGraftDir);

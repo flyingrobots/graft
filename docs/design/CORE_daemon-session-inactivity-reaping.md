@@ -184,6 +184,9 @@ step fails, the partial protocol/transport is closed when present and the exact
 scratch directory is removed. If cleanup itself fails, the failure is returned
 and the directory remains discoverable by the orphan sweep; no phantom map or
 control-plane entry survives.
+Rollback preserves the primary construction error plus every failed
+control-plane, protocol-close, fallback transport-close, and directory-cleanup
+operation in one aggregate error.
 
 ## Crash-orphan ownership and discovery
 

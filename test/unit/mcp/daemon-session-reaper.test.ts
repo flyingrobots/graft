@@ -40,6 +40,11 @@ interface HeldJsonRequest {
   release(): Promise<JsonResponse>;
 }
 
+function flattenErrors(error: unknown): unknown[] {
+  if (!(error instanceof AggregateError)) return [error];
+  return [error, ...error.errors.flatMap((nested) => flattenErrors(nested))];
+}
+
 async function requestUnixJson(
   socketPath: string,
   method: "GET" | "POST" | "DELETE",
@@ -1155,6 +1160,73 @@ describe("mcp: daemon session reaper", () => {
     expect(initialize.statusCode).toBe(500);
     expect(parsed.error.code).toBe(-32603);
     expect(daemon.getHealthStatus().activeSessions).toBe(0);
+    expect(fs.readdirSync(path.join(rootDir, "sessions"))).toEqual([]);
+  });
+
+  it("retains every construction and rollback failure during shutdown", async () => {
+    const rootDir = fs.mkdtempSync(path.join(os.tmpdir(), "graft-session-rollback-errors-"));
+    const socketPath = path.join(rootDir, "daemon.sock");
+    cleanups.push(() => {
+      fs.rmSync(rootDir, { recursive: true, force: true });
+    });
+    const connectFailure = new Error("injected connect failure");
+    const protocolCloseFailure = new Error("injected protocol rollback failure");
+    const transportCloseFailure = new Error("injected transport rollback failure");
+    let releaseConnect!: () => void;
+    let markConnectEntered!: () => void;
+    const connectEntered = new Promise<void>((resolve) => {
+      markConnectEntered = resolve;
+    });
+    const connectGate = new Promise<void>((resolve) => {
+      releaseConnect = resolve;
+    });
+    const connect = vi.spyOn(McpServer.prototype, "connect")
+      .mockImplementationOnce(async () => {
+        markConnectEntered();
+        await connectGate;
+        throw connectFailure;
+      });
+    const protocolClose = vi.spyOn(McpServer.prototype, "close")
+      .mockRejectedValueOnce(protocolCloseFailure);
+    const transportClose = vi.spyOn(StreamableHTTPServerTransport.prototype, "close")
+      .mockRejectedValueOnce(transportCloseFailure);
+    cleanups.push(() => {
+      connect.mockRestore();
+      protocolClose.mockRestore();
+      transportClose.mockRestore();
+    });
+
+    const daemon = await startDaemonServer({
+      graftDir: rootDir,
+      socketPath,
+      sessionReaperIntervalMs: 0,
+    });
+    cleanups.push(() => {
+      releaseConnect();
+    });
+    const initializing = requestUnixJson(socketPath, "POST", "/mcp", {
+      jsonrpc: "2.0",
+      id: 1,
+      method: "initialize",
+      params: {
+        protocolVersion: "2025-03-26",
+        capabilities: {},
+        clientInfo: { name: "vitest", version: "0.0.0" },
+      },
+    });
+    await connectEntered;
+
+    const closing = daemon.close();
+    releaseConnect();
+    const [, closeError] = await Promise.all([
+      initializing,
+      closing.then(() => null, (error: unknown) => error),
+    ]);
+    const errors = flattenErrors(closeError);
+
+    expect(errors).toContain(connectFailure);
+    expect(errors).toContain(protocolCloseFailure);
+    expect(errors).toContain(transportCloseFailure);
     expect(fs.readdirSync(path.join(rootDir, "sessions"))).toEqual([]);
   });
 
