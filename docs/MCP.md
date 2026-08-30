@@ -61,6 +61,14 @@ agent-facing flow:
 3. then call repository-scoped tools such as `safe_read`, `graft_since`,
    or `code_show`
 
+### Session Lifecycle & Memory Management
+
+Daemon MCP sessions are tracked by `DaemonSessionHost` and protected against abandoned client leaks:
+
+- **Idle Session Reaping**: Inactive sessions exceeding the inactivity TTL (default: 30 minutes) are automatically reaped by a background sweep running every 60 seconds.
+- **Resource Cleanup**: When a session is reaped or closed, its HTTP transport is terminated, its `GraftServer` is closed, its registration in `DaemonControlPlane` is revoked, and its on-disk scratch directory at `~/.graft/sessions/<sessionId>` is removed.
+- **Explicit Disconnect**: Clients may also explicitly terminate sessions via `DELETE /mcp` with their `mcp-session-id`.
+
 For concurrent multi-repo use inside one daemon-backed MCP session,
 repo tools that support routing also accept `cwd`: `safe_read`,
 `file_outline`, `read_range`, `changed_since`, `graft_diff`,

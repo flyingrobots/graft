@@ -37,12 +37,16 @@ export interface StartDaemonServerOptions {
   readonly runtimeObservability?: Partial<RuntimeObservabilityState> | undefined;
   readonly workerPoolSize?: number | undefined;
   readonly persistedLocalHistoryGraph?: boolean | undefined;
+  readonly sessionInactivityTtlMs?: number | undefined;
+  readonly sessionReaperIntervalMs?: number | undefined;
+  readonly nowMs?: (() => number) | undefined;
 }
 
 export interface GraftDaemonServer {
   readonly socketPath: string;
   readonly healthPath: typeof HEALTH_PATH;
   readonly mcpPath: typeof MCP_PATH;
+  reapExpiredSessions?(): Promise<number>;
   close(): Promise<void>;
   getHealthStatus(): DaemonHealthStatus;
 }
@@ -104,6 +108,9 @@ export async function startDaemonServer(options: StartDaemonServerOptions = {}):
     daemonWorkerPool,
     monitorRuntime,
     getHealthStatus,
+    ...(options.sessionInactivityTtlMs !== undefined ? { sessionInactivityTtlMs: options.sessionInactivityTtlMs } : {}),
+    ...(options.sessionReaperIntervalMs !== undefined ? { sessionReaperIntervalMs: options.sessionReaperIntervalMs } : {}),
+    ...(options.nowMs !== undefined ? { nowMs: options.nowMs } : {}),
     ...(options.env !== undefined ? { env: options.env } : {}),
     ...(options.runCapture !== undefined ? { runCapture: options.runCapture } : {}),
     ...(options.runtimeObservability !== undefined
@@ -148,6 +155,9 @@ export async function startDaemonServer(options: StartDaemonServerOptions = {}):
     socketPath,
     healthPath: HEALTH_PATH,
     mcpPath: MCP_PATH,
+    reapExpiredSessions(): Promise<number> {
+      return sessionHost.reapExpiredSessions();
+    },
     getHealthStatus(): DaemonHealthStatus {
       return getHealthStatus();
     },

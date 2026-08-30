@@ -16,12 +16,15 @@ import type { WarpPool } from "./warp-pool.js";
 import { ensurePrivateDirectory } from "./daemon-bootstrap.js";
 
 const MAX_BODY_BYTES = 1024 * 1024;
+export const DEFAULT_SESSION_INACTIVITY_TTL_MS = 30 * 60 * 1000;
+export const DEFAULT_SESSION_REAPER_INTERVAL_MS = 60 * 1000;
 
 interface DaemonSession {
   readonly id: string;
   readonly graftDir: string;
   readonly transport: StreamableHTTPServerTransport;
   readonly server: GraftServer;
+  lastActivityAtMs: number;
 }
 
 export interface CreateDaemonSessionHostOptions {
@@ -37,6 +40,9 @@ export interface CreateDaemonSessionHostOptions {
   readonly daemonWorkerPool: ChildProcessDaemonWorkerPool;
   readonly monitorRuntime: PersistentMonitorRuntime;
   readonly getHealthStatus: () => DaemonStatusView;
+  readonly sessionInactivityTtlMs?: number | undefined;
+  readonly sessionReaperIntervalMs?: number | undefined;
+  readonly nowMs?: (() => number) | undefined;
   readonly env?: Readonly<Record<string, string | undefined>> | undefined;
   readonly runCapture?: Partial<RunCaptureConfig> | undefined;
   readonly runtimeObservability?: Partial<RuntimeObservabilityState> | undefined;
@@ -45,6 +51,7 @@ export interface CreateDaemonSessionHostOptions {
 
 export interface DaemonSessionHost {
   handleRequest(req: http.IncomingMessage, res: http.ServerResponse): Promise<void>;
+  reapExpiredSessions(): Promise<number>;
   close(): Promise<void>;
 }
 
@@ -130,11 +137,13 @@ async function createDaemonSession(
       ? { persistedLocalHistoryGraph: options.persistedLocalHistoryGraph }
       : {}),
   });
+  const nowMs = options.nowMs ?? Date.now;
   const session: DaemonSession = {
     id: newSessionId,
     graftDir: sessionGraftDir,
     transport,
     server,
+    lastActivityAtMs: nowMs(),
   };
   transport.onclose = () => {
     sessions.delete(newSessionId);
@@ -158,6 +167,34 @@ async function createDaemonSession(
 
 export function createDaemonSessionHost(options: CreateDaemonSessionHostOptions): DaemonSessionHost {
   const sessions = new Map<string, DaemonSession>();
+  const nowMs = options.nowMs ?? Date.now;
+  const sessionTtlMs = options.sessionInactivityTtlMs ?? DEFAULT_SESSION_INACTIVITY_TTL_MS;
+  const reaperIntervalMs = options.sessionReaperIntervalMs ?? DEFAULT_SESSION_REAPER_INTERVAL_MS;
+
+  async function reapExpiredSessions(): Promise<number> {
+    const current = nowMs();
+    let reapedCount = 0;
+    for (const [id, session] of [...sessions.entries()]) {
+      if (current - session.lastActivityAtMs >= sessionTtlMs) {
+        sessions.delete(id);
+        options.controlPlane.unregisterTransport(id);
+        await session.transport.close().catch(() => undefined);
+        await removeSessionDirectory(session.graftDir);
+        reapedCount++;
+      }
+    }
+    return reapedCount;
+  }
+
+  let reaperTimer: NodeJS.Timeout | null = null;
+  if (reaperIntervalMs > 0) {
+    reaperTimer = setInterval(() => {
+      void reapExpiredSessions().catch((error: unknown) => {
+        console.error(`[graft] session reaper error: ${String(error)}`);
+      });
+    }, reaperIntervalMs);
+    reaperTimer.unref();
+  }
 
   return {
     async handleRequest(req, res): Promise<void> {
@@ -190,6 +227,7 @@ export function createDaemonSessionHost(options: CreateDaemonSessionHostOptions)
             session = await createDaemonSession(crypto.randomUUID(), options, sessions);
           }
 
+          session.lastActivityAtMs = nowMs();
           options.controlPlane.touchTransport(session.id);
           await session.transport.handleRequest(req, res, parsedBody);
           return;
@@ -205,6 +243,7 @@ export function createDaemonSessionHost(options: CreateDaemonSessionHostOptions)
             sendJson(res, 404, { error: `Unknown MCP session: ${sessionId}` });
             return;
           }
+          session.lastActivityAtMs = nowMs();
           options.controlPlane.touchTransport(session.id);
           await session.transport.handleRequest(req, res);
           return;
@@ -220,7 +259,13 @@ export function createDaemonSessionHost(options: CreateDaemonSessionHostOptions)
       }
     },
 
+    reapExpiredSessions,
+
     async close(): Promise<void> {
+      if (reaperTimer !== null) {
+        clearInterval(reaperTimer);
+        reaperTimer = null;
+      }
       for (const session of [...sessions.values()]) {
         options.controlPlane.unregisterTransport(session.id);
         await session.transport.close().catch(() => {

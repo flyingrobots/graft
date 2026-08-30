@@ -1,0 +1,137 @@
+import { afterEach, describe, expect, it } from "vitest";
+import * as fs from "node:fs";
+import * as http from "node:http";
+import * as os from "node:os";
+import * as path from "node:path";
+import {
+  startDaemonServer,
+} from "../../../src/mcp/daemon-server.js";
+
+const cleanups: (() => Promise<void> | void)[] = [];
+
+afterEach(async () => {
+  while (cleanups.length > 0) {
+    await cleanups.pop()!();
+  }
+});
+
+interface JsonResponse {
+  readonly statusCode: number;
+  readonly headers: http.IncomingHttpHeaders;
+  readonly text: string;
+}
+
+async function requestUnixJson(
+  socketPath: string,
+  method: "GET" | "POST" | "DELETE",
+  requestPath: string,
+  body?: unknown,
+  headers: http.OutgoingHttpHeaders = {},
+): Promise<JsonResponse> {
+  return new Promise<JsonResponse>((resolve, reject) => {
+    const payload = body === undefined ? undefined : JSON.stringify(body);
+    const req = http.request({
+      socketPath,
+      path: requestPath,
+      method,
+      headers: {
+        accept: "application/json, text/event-stream",
+        ...(payload !== undefined
+          ? {
+              "content-type": "application/json",
+              "content-length": Buffer.byteLength(payload),
+            }
+          : {}),
+        ...headers,
+      },
+    }, (res) => {
+      const chunks: Buffer[] = [];
+      res.on("data", (chunk) => {
+        chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk));
+      });
+      res.on("end", () => {
+        resolve({
+          statusCode: res.statusCode ?? 0,
+          headers: res.headers,
+          text: Buffer.concat(chunks).toString("utf-8"),
+        });
+      });
+    });
+    req.once("error", reject);
+    if (payload !== undefined) req.write(payload);
+    req.end();
+  });
+}
+
+describe("mcp: daemon session reaper", () => {
+  it("reaps idle sessions exceeding sessionInactivityTtlMs and scrubs session directory", async () => {
+    const rootDir = fs.mkdtempSync(path.join(os.tmpdir(), "graft-session-reaper-test-"));
+    const socketPath = path.join(rootDir, "daemon.sock");
+    cleanups.push(() => {
+      fs.rmSync(rootDir, { recursive: true, force: true });
+    });
+
+    let currentTimeMs = 1_000_000;
+    const sessionInactivityTtlMs = 10_000; // 10s
+
+    const daemon = await startDaemonServer({
+      graftDir: rootDir,
+      socketPath,
+      sessionInactivityTtlMs,
+      sessionReaperIntervalMs: 0, // manual stepping in test
+      nowMs: () => currentTimeMs,
+    });
+    cleanups.push(() => daemon.close());
+
+    // 1. Initialize a new session
+    const initialize = await requestUnixJson(socketPath, "POST", "/mcp", {
+      jsonrpc: "2.0",
+      id: 1,
+      method: "initialize",
+      params: {
+        protocolVersion: "2025-03-26",
+        capabilities: {},
+        clientInfo: { name: "vitest", version: "0.0.0" },
+      },
+    });
+    expect(initialize.statusCode).toBe(200);
+    const sessionIdHeader = initialize.headers["mcp-session-id"];
+    const sessionId = Array.isArray(sessionIdHeader) ? sessionIdHeader[0] : sessionIdHeader;
+    expect(sessionId).toBeDefined();
+
+    const sessionDir = path.join(rootDir, "sessions", sessionId!);
+    expect(fs.existsSync(sessionDir)).toBe(true);
+
+    // 2. Advance time by 5 seconds (within TTL) and sweep
+    currentTimeMs += 5_000;
+    const reapedMid = await daemon.reapExpiredSessions?.();
+    expect(reapedMid).toBe(0);
+    expect(fs.existsSync(sessionDir)).toBe(true);
+
+    // 3. Advance time by another 6 seconds (total 11s > 10s TTL) and sweep
+    currentTimeMs += 6_000;
+    const reapedAfter = await daemon.reapExpiredSessions?.();
+    expect(reapedAfter).toBe(1);
+
+    // Verify session directory was scrubbed
+    expect(fs.existsSync(sessionDir)).toBe(false);
+
+    // 4. Request with expired sessionId should now fail with unknown session error
+    const postReq = await requestUnixJson(socketPath, "POST", "/mcp", {
+      jsonrpc: "2.0",
+      id: 2,
+      method: "ping",
+      params: {},
+    }, {
+      "mcp-session-id": sessionId!,
+    });
+    const parsed = JSON.parse(postReq.text) as { error: { message: string; code: number } };
+    expect(parsed.error.message).toContain("Unknown MCP session");
+
+    // 5. GET on stream with expired sessionId returns 404
+    const getReq = await requestUnixJson(socketPath, "GET", "/mcp", undefined, {
+      "mcp-session-id": sessionId!,
+    });
+    expect(getReq.statusCode).toBe(404);
+  });
+});
