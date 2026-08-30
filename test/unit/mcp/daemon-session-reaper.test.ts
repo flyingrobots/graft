@@ -185,6 +185,29 @@ async function holdUnixJsonRequestBody(
 }
 
 describe("mcp: daemon session reaper", () => {
+  it("rejects reaper intervals outside Node's supported timer domain", async () => {
+    const invalidIntervals = [-1, Number.NaN, Number.POSITIVE_INFINITY, Number.NEGATIVE_INFINITY, 1.5,
+      2_147_483_648, Number.MAX_SAFE_INTEGER + 1];
+
+    for (const [index, sessionReaperIntervalMs] of invalidIntervals.entries()) {
+      const rootDir = fs.mkdtempSync(path.join(os.tmpdir(), `graft-session-reaper-interval-${String(index)}-`));
+      const socketPath = path.join(rootDir, "daemon.sock");
+      try {
+        await expect((async () => {
+          const daemon = await startDaemonServer({
+            graftDir: rootDir,
+            socketPath,
+            sessionReaperIntervalMs,
+          });
+          await daemon.close();
+        })()).rejects.toBeInstanceOf(RangeError);
+        expect(fs.existsSync(socketPath)).toBe(false);
+      } finally {
+        fs.rmSync(rootDir, { recursive: true, force: true });
+      }
+    }
+  });
+
   it("rejects inactivity TTL values outside the positive safe-integer domain", async () => {
     const invalidTtls = [0, -1, Number.NaN, Number.POSITIVE_INFINITY, Number.NEGATIVE_INFINITY, 1.5,
       Number.MAX_SAFE_INTEGER + 1];

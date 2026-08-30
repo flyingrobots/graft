@@ -22,7 +22,11 @@ import {
   resolveSocketPath,
   tightenSocketPermissions,
 } from "./daemon-bootstrap.js";
-import { createDaemonSessionHost, resolveSessionInactivityTtlMs } from "./daemon-session-host.js";
+import {
+  createDaemonSessionHost,
+  resolveSessionInactivityTtlMs,
+  resolveSessionReaperIntervalMs,
+} from "./daemon-session-host.js";
 
 const HEALTH_PATH = "/healthz";
 const MCP_PATH = "/mcp";
@@ -53,6 +57,7 @@ export interface GraftDaemonServer {
 
 export async function startDaemonServer(options: StartDaemonServerOptions = {}): Promise<GraftDaemonServer> {
   const sessionInactivityTtlMs = resolveSessionInactivityTtlMs(options.sessionInactivityTtlMs);
+  const sessionReaperIntervalMs = resolveSessionReaperIntervalMs(options.sessionReaperIntervalMs);
   await ensureGitVersionSupportsGraft();
   const graftDir = path.resolve(options.graftDir ?? defaultDaemonRoot());
   const socketPath = resolveSocketPath(options.socketPath, graftDir);
@@ -110,7 +115,7 @@ export async function startDaemonServer(options: StartDaemonServerOptions = {}):
     monitorRuntime,
     getHealthStatus,
     sessionInactivityTtlMs,
-    ...(options.sessionReaperIntervalMs !== undefined ? { sessionReaperIntervalMs: options.sessionReaperIntervalMs } : {}),
+    sessionReaperIntervalMs,
     ...(options.nowMs !== undefined ? { nowMs: options.nowMs } : {}),
     ...(options.env !== undefined ? { env: options.env } : {}),
     ...(options.runCapture !== undefined ? { runCapture: options.runCapture } : {}),

@@ -18,11 +18,22 @@ import { ensurePrivateDirectory } from "./daemon-bootstrap.js";
 const MAX_BODY_BYTES = 1024 * 1024;
 export const DEFAULT_SESSION_INACTIVITY_TTL_MS = 30 * 60 * 1000;
 export const DEFAULT_SESSION_REAPER_INTERVAL_MS = 60 * 1000;
+const MAX_NODE_TIMER_DELAY_MS = 2_147_483_647;
 
 export function resolveSessionInactivityTtlMs(value: number | undefined): number {
   const resolved = value ?? DEFAULT_SESSION_INACTIVITY_TTL_MS;
   if (!Number.isSafeInteger(resolved) || resolved <= 0) {
     throw new RangeError("sessionInactivityTtlMs must be a positive safe integer");
+  }
+  return resolved;
+}
+
+export function resolveSessionReaperIntervalMs(value: number | undefined): number {
+  const resolved = value ?? DEFAULT_SESSION_REAPER_INTERVAL_MS;
+  if (!Number.isInteger(resolved) || resolved < 0 || resolved > MAX_NODE_TIMER_DELAY_MS) {
+    throw new RangeError(
+      `sessionReaperIntervalMs must be zero or an integer no greater than ${String(MAX_NODE_TIMER_DELAY_MS)}`,
+    );
   }
   return resolved;
 }
@@ -188,7 +199,7 @@ export function createDaemonSessionHost(options: CreateDaemonSessionHostOptions)
   const sessions = new Map<string, DaemonSession>();
   const nowMs = options.nowMs ?? Date.now;
   const sessionTtlMs = resolveSessionInactivityTtlMs(options.sessionInactivityTtlMs);
-  const reaperIntervalMs = options.sessionReaperIntervalMs ?? DEFAULT_SESSION_REAPER_INTERVAL_MS;
+  const reaperIntervalMs = resolveSessionReaperIntervalMs(options.sessionReaperIntervalMs);
 
   async function handleActiveSessionRequest(
     session: DaemonSession,
