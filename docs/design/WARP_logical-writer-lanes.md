@@ -7,6 +7,13 @@ source_backlog: "docs/method/backlog/up-next/WARP_logical-writer-lanes.md"
 
 # Logical WARP writer lanes
 
+> Storage-model update, 2026-08-29: [Automatic workspace admission and
+> isolated WARP sidecars](./WARP_automatic-isolated-workspace-sidecars.md)
+> supersedes the shared-source-ref premise below. Logical lanes now select
+> distinct actor sidecars keyed by repository and worktree identity; no
+> cross-actor merge semantics are implied. The remainder records this packet's
+> original not-met state.
+
 Source backlog item: `docs/method/backlog/up-next/WARP_logical-writer-lanes.md`
 Legend: WARP
 
@@ -27,7 +34,8 @@ and monitor execution model becoming concrete first so writer-lane
 identity maps to real logical job classes instead of hypothetical ones.
 
 Live plan:
-- `docs/method/backlog/up-next/WARP_logical-warp-writer-lanes.md`
+
+- `docs/design/WARP_logical-warp-writer-lanes.md`
 - Keep behind `0068 daemon-job-scheduler-and-worker-pool`
 - Keep behind `0070 monitors-run-through-scheduler`
 
@@ -62,6 +70,7 @@ Stop treating WARP writer identity as a single hard-coded global writer
 or as an incidental executor identity.
 
 Why:
+
 - `git-warp` supports multiple writers per graph
 - worktrees of the same repo share `refs/warp/...` through the common
   Git dir
@@ -69,6 +78,7 @@ Why:
   worker threads or processes
 
 Design leaning:
+
 - assign stable writer IDs to logical lanes such as:
   - monitor indexing for a repo
   - repo-scoped maintenance
@@ -77,12 +87,14 @@ Design leaning:
 - make same-repo multi-writer behavior explicit rather than accidental
 
 Questions:
+
 - which job classes truly need distinct writer lanes
 - how should writer-lane identity appear in receipts or observability
 - how should this feed the same-repo concurrent-agent model
 
 Related:
-- `docs/design/0058-system-wide-resource-pressure-and-fairness/system-wide-resource-pressure-and-fairness.md`
-- `docs/method/backlog/up-next/WARP_same-repo-concurrent-agent-model.md`
+
+- `docs/design/system-wide-resource-pressure-and-fairness.md`
+- `docs/design/WARP_same-repo-concurrent-agent-model.md`
 
 Effort: M

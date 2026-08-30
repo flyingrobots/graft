@@ -19,6 +19,7 @@ npx @flyingrobots/graft init
 ```
 
 Scaffolds your project for graft in one command:
+
 - Creates `.graftignore` (template with examples)
 - Adds `.graft/` to `.gitignore`
 - Generates a `CLAUDE.md` snippet instructing agents to prefer graft tools
@@ -79,8 +80,9 @@ The daemon is available as an explicit opt-in MCP bootstrap runtime. It
 is not the default because it uses a stricter contract:
 
 - daemon sessions start unbound
-- workspace binding requires prior authorization through the daemon
-  control plane
+- explicit workspace binding requires prior authorization through the daemon
+  control plane, while a routed repo-tool call with `cwd` opens that exact
+  resolved worktree automatically
 - canonical repo identity, live worktree identity, and session-local
   state remain separate
 - `run_capture` stays default-denied unless an authorized workspace
@@ -122,23 +124,27 @@ Practical daemon-backed MCP first-use sequence:
 
 1. configure your MCP client with `graft serve --runtime daemon`
 2. let the bridge auto-start the daemon, or start `npx @flyingrobots/graft daemon`
-3. call `workspace_open` with the target `cwd`
-4. optionally call `workspace_list_opened` to inspect opened paths and the
-   active workspace
-5. then use repository-scoped tools such as `safe_read` or `graft_map`
+3. call a routed repository tool such as `safe_read` with an explicit `cwd`
+   anywhere inside the target Git worktree
+4. Graft opens the canonical containing worktree with the default capability
+   profile and runs the tool without changing the active workspace
+5. optionally call `workspace_list_opened` to inspect opened paths
 
 If concurrent agents share one daemon-backed MCP session, prefer
 explicit `cwd` routes for repo-specific tools that support routing:
 `safe_read`, `file_outline`, `read_range`, `changed_since`,
 `graft_diff`, `graft_since`, `graft_map`, `code_show`, `code_find`, and
-`code_refs`. The route resolves one call against the requested
-authorized workspace without changing the active workspace.
+`code_refs`. The route opens the exact resolved worktree when necessary and
+resolves one call against it without changing the active workspace.
 
 An explicit route has strict precedence over the active session binding. If
-its `cwd` is missing, outside a Git worktree, unauthorized, or contradicted by
-supplied identity hints, the call fails instead of falling back. Successful
-routed responses expose `requestedRoot`, canonical `resolvedRoot`, `repoId`,
-and `worktreeId` under both `_workspace` and `_receipt.workspace`. Without an
+its `cwd` is missing, outside a Git worktree, or contradicted by supplied
+identity hints, the call fails instead of falling back. A valid explicit `cwd`
+is bounded opening intent: Graft authorizes only Git's canonical containing
+worktree, records it in the session's opened-workspace list with the default
+capability profile, and leaves the active binding unchanged. Successful routed
+responses expose `requestedRoot`, canonical `resolvedRoot`, `repoId`, and
+`worktreeId` under both `_workspace` and `_receipt.workspace`. Without an
 explicit `cwd`, repository tools continue to use the active session binding.
 Previously-version-1 routed MCP tools and their direct CLI peers advertise
 output schema version `2.0.0` for this expanded strict contract.
@@ -180,8 +186,10 @@ runtime:
 Use repo-local stdio when you want one MCP server bound directly to the
 current checkout. Use daemon-backed stdio when you want daemon-only
 capabilities such as shared worker pools, persistent monitors, and
-daemon control-plane inspection. Daemon-backed sessions start unbound;
-repository-scoped tools normally begin with `workspace_open`.
+daemon control-plane inspection. Daemon-backed sessions start unbound, but an
+explicitly routed repo-tool call opens its containing worktree automatically.
+Use `workspace_open` when you also want activation or a non-default capability
+profile.
 
 ### One-step bootstrap
 
@@ -262,8 +270,9 @@ npx @flyingrobots/graft serve --runtime daemon
 When the daemon-backed bridge cannot reach a daemon, it attempts to
 start one and waits for `/healthz`. Use `--no-autostart` when you want
 startup to fail instead of launching the daemon. Once connected,
-daemon sessions remain unbound until authorized and bound through the
-daemon workspace tools.
+daemon sessions remain unbound until explicitly activated through the daemon
+workspace tools. Routed repo-tool calls with `cwd` can open and use a worktree
+without activating it.
 
 ### Claude Code
 
@@ -421,10 +430,11 @@ If your client doesn't support `npx`, install globally and use:
 - **Args**: `["serve"]`
 
 This section shows the repo-local stdio path. If you connect through
-`graft daemon` instead, the MCP session starts `unbound` and needs
-`workspace_open` before repository-scoped tool calls. The lower-level
-`workspace_authorize` and `workspace_bind` tools remain available for
-operator control-plane workflows.
+`graft daemon` instead, the MCP session starts `unbound`. Pass `cwd` to a
+routed repository tool to open its containing worktree on that first call, or
+use `workspace_open` when you want to make a worktree active. The lower-level
+`workspace_authorize` and `workspace_bind` tools remain available for operator
+control-plane workflows.
 
 ## Claude Code Hooks
 
@@ -508,7 +518,7 @@ After a Read completes, the PostToolUse hook evaluates what
 `safe_read` would have done for large JS/TS files and tells the agent
 the cost:
 
-```
+```text
 [graft] This large code read bypassed graft's governed path for src/mcp/server.ts.
 safe_read would have returned a structural outline (2048 bytes) instead of 450 lines (18.0KB),
 saving 16.0KB of context. Threshold: 150 lines / 12KB.
@@ -566,24 +576,17 @@ add to `.claude/settings.local.json`:
 | `stats` | Decision metrics for the current server session, including burden by tool kind. |
 | `explain` | Human-readable meaning and recommended action for a reason code. |
 | `run_capture` | Execute a shell command and return the last N lines of output (default 60). This tool is outside graft's bounded-read policy contract, responses include an explicit `policyBoundary` marker, log persistence can be disabled, and persisted output is redacted for obvious secrets by default. |
+| `set_budget` | Declare a session byte budget. Graft tightens read thresholds as the budget drains; no single read may consume more than 5% of the remaining budget. |
 | `state_save` | Save session working state (max 8 KB). Use for session bookmarks: current task, files modified, next planned actions. |
 | `state_load` | Load previously saved session state. Returns null if no state has been saved. |
 
-MCP responses include versioned `_schema` metadata and `_receipt`
-fields. CLI peer commands also return versioned `_schema` metadata;
-the declared contracts live in `src/contracts/output-schemas.ts`.
-| `doctor` | Runtime health check. Shows project root, parser status, active thresholds, session depth, message count, and a compact burden summary. With `sludge: true`, reports parser-backed structural smell signals. |
-| `set_budget` | Declare a session byte budget. Graft tightens read thresholds as the budget drains — no single read may consume more than 5% of remaining budget. Call once at session start. |
-| `explain` | Explain a graft reason code. Returns human-readable meaning and recommended next action for any code (e.g., `BINARY`, `BUDGET_CAP`). Case-insensitive. |
-| `stats` | Decision metrics for the current session. Total reads, outlines, refusals, cache hits, bytes avoided, and returned-byte burden by tool kind. |
-
 Every MCP tool response includes:
+
 - `_receipt` — runtime decision metadata
 - `_schema` — versioned output contract metadata
 
-Declared output contracts live in `src/contracts/output-schemas.ts`.
-| `graft_since` | Structural changes since a git ref. Shows symbols added, removed, and changed per file — not line hunks. Includes per-file summary lines. Policy-denied files are omitted from `files` and surfaced in `refused`. |
-| `graft_map` | Structural map of a directory — all files and their symbols (function signatures, class shapes, exports) in one call. Uses tree-sitter to parse the working tree directly. Policy-denied files are omitted from `files` and surfaced in `refused`. |
+CLI peer commands also return versioned `_schema` metadata. Declared output
+contracts live in `src/contracts/output-schemas.ts`.
 
 ## What the agent sees
 
@@ -625,6 +628,14 @@ lazy: use `graft index --path <path>` from the CLI to refresh one tracked source
 file at `HEAD`, or let read/search surfaces opportunistically refresh the files
 they touch. Unbounded whole-repo eager indexing is guarded.
 
+WARP graph persistence never uses the source repository as its Git object or
+ref store. Graft creates a private bare sidecar repository under
+`~/.graft/graphs/<project>/<worktree>/<actor>/warp.git`; the readable
+directories include deterministic identity suffixes. Linked worktrees and
+independent MCP sessions use distinct sidecars, so one agent cannot read
+another agent's working graph through a shared handle. Existing legacy
+`refs/warp/*` in a source repository are neither imported nor removed.
+
 ### Structural navigation
 
 `file_outline` returns the structural skeleton of any file —
@@ -647,6 +658,7 @@ budget drains. No single read may consume more than 5% of remaining
 budget. When the budget is exhausted, all reads return outlines.
 
 Budget status appears in every receipt:
+
 ```json
 "budget": { "total": 500000, "consumed": 14345, "remaining": 485655, "fraction": 0.029 }
 ```
@@ -770,6 +782,7 @@ The agent should use the jump table from the outline to
 ### Agent can't read a file (refused)
 
 Check the reason code in the response:
+
 - `BINARY` — binary file, use `ls -lh` or `file` for metadata
 - `LOCKFILE` — read `package.json` instead
 - `SECRET` — `.env` files are banned for safety
@@ -799,7 +812,7 @@ with a jump table. That's graft working.
 
 You can also ask the agent to call `doctor` to verify:
 
-```
+```text
 Use the doctor tool to check graft's health.
 ```
 

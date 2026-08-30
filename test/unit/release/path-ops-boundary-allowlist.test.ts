@@ -20,6 +20,8 @@ const ALLOWED_NODE_PATH_IMPORTS = new Set([
   "src/cli/json-document.ts",
   "src/cli/migrate-local-history.ts",
   "src/cli/peer-command.ts",
+  "src/cli/index-cmd.ts",
+  "src/cli/warp-sidecar.ts",
   "src/git/target-git-hook-bootstrap.ts",
   "src/hooks/read-governor.ts",
   "src/hooks/shared.ts",
@@ -46,6 +48,7 @@ const ALLOWED_NODE_PATH_IMPORTS = new Set([
   "src/mcp/workspace-router-resolution.ts",
   "src/mcp/workspace-router-runtime.ts",
   "src/mcp/workspace-router.ts",
+  "src/warp/sidecar.ts",
 ]);
 
 function readRepoFile(relativePath: string): string {

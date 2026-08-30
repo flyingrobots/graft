@@ -4,6 +4,12 @@ title: "System-wide MCP daemon and workspace binding"
 
 # System-wide MCP daemon and workspace binding
 
+> Follow-on, 2026-08-29: [Automatic workspace admission and isolated WARP
+> sidecars](./WARP_automatic-isolated-workspace-sidecars.md) supersedes this
+> packet's prior-authorization and shared-repo WARP defaults. An explicit
+> routed `cwd` now opens its exact worktree, and working graphs are isolated by
+> repository, worktree, and actor. The remainder records the original cycle.
+
 Source backlog item: `docs/method/backlog/up-next/SURFACE_system-wide-mcp-daemon-and-workspace-binding.md`
 Legend: SURFACE
 
@@ -79,12 +85,14 @@ by multiple agents at the same time, without assuming one fixed cwd or
 one repo root per process.
 
 Core problem:
+
 - the current stdio server captures one `projectRoot`, one session,
   one cache, and one repo-state tracker at process start
 - that is fine for repo-local dogfooding, but it is not the right
   contract for a shared system service
 
 Questions:
+
 - what transport should a system-wide shared service use instead of
   repo-scoped stdio?
 - should clients bind workspace context at session start, per call, or
@@ -109,6 +117,7 @@ Questions:
   surface is introduced?
 
 Deliverables:
+
 - explicit daemon/session/workspace routing model
 - explicit bind/rebind and capability-attachment model
 - proposed MCP/CLI context-binding surface
@@ -118,15 +127,18 @@ Deliverables:
   implementation
 
 Related:
-- `docs/method/backlog/up-next/SURFACE_system-wide-multi-repo-agent-coordination.md`
-- `docs/method/backlog/up-next/WARP_same-repo-concurrent-agent-model.md`
-- `docs/method/backlog/up-next/SURFACE_system-wide-control-plane-for-persistent-monitors.md`
+
+- `docs/design/system-wide-multi-repo-agent-coordination.md`
+- `docs/design/WARP_same-repo-concurrent-agent-model.md`
+- `docs/design/system-wide-control-plane-for-persistent-monitors.md`
 
 Why separate cycle:
+
 - this is the architectural bridge between today's single-root stdio
   MCP server and the desired system-wide multi-agent service
 
 Trust-model constraint from cycle 0050:
+
 - shared daemon is same-user and local-machine only by default
 - client-supplied repo/worktree ids are hints, not authority
 - authorization happens when the daemon resolves and binds a workspace
@@ -317,8 +329,8 @@ daemon evolve as a separate contract.
 
 This cycle splits the implementation path into:
 
-- [SURFACE_workspace-bind-and-routing-surface.md](../../method/backlog/up-next/SURFACE_workspace-bind-and-routing-surface.md)
-- [SURFACE_local-daemon-transport-and-session-lifecycle.md](../../method/backlog/up-next/SURFACE_local-daemon-transport-and-session-lifecycle.md)
-- [WARP_same-repo-concurrent-agent-model.md](../../method/backlog/up-next/WARP_same-repo-concurrent-agent-model.md)
-- [SURFACE_system-wide-control-plane-for-persistent-monitors.md](../../method/backlog/up-next/SURFACE_system-wide-control-plane-for-persistent-monitors.md)
-- [SURFACE_system-wide-multi-repo-agent-coordination.md](../../method/backlog/up-next/SURFACE_system-wide-multi-repo-agent-coordination.md)
+- [workspace-bind-and-routing-surface.md](workspace-bind-and-routing-surface.md)
+- [local-daemon-transport-and-session-lifecycle.md](local-daemon-transport-and-session-lifecycle.md)
+- [WARP_same-repo-concurrent-agent-model.md](WARP_same-repo-concurrent-agent-model.md)
+- [system-wide-control-plane-for-persistent-monitors.md](system-wide-control-plane-for-persistent-monitors.md)
+- [system-wide-multi-repo-agent-coordination.md](system-wide-multi-repo-agent-coordination.md)

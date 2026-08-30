@@ -7,6 +7,13 @@ source_backlog: "docs/method/backlog/bad-code/CORE_test-runner-docker-daemon-har
 
 # Default test runner hard-fails when Docker is unavailable
 
+> Test-policy update, 2026-08-29: [Automatic workspace admission and isolated
+> WARP sidecars](./WARP_automatic-isolated-workspace-sidecars.md) supersedes
+> this packet's host-side `pnpm test:local` fallback. Every supported Vitest
+> path now uses the copy-in Docker runner, which strips copied Git remotes and
+> runs without host mounts or network. The remainder is the original
+> historical design record.
+
 Source backlog item: `docs/method/backlog/bad-code/CORE_test-runner-docker-daemon-hard-failure.md`
 Legend: CORE
 

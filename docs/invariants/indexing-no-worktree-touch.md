@@ -5,15 +5,14 @@
 
 ## What must remain true
 
-WARP indexing must never mutate the working tree.
+WARP indexing must never mutate the source worktree or its Git database.
 
 ## Why it matters
 
-WARP data lives under `refs/warp/graft-ast/` — git objects, not
-working tree files. If indexing dirties the repo (creates tracked
-files, modifies existing files, leaves untracked spill), the
-operator's `git status` changes, uncommitted work is at risk, and
-the magic dies instantly.
+WARP refs and objects live in a private bare sidecar under
+`~/.graft/graphs/<project>/<worktree>/<actor>/warp.git`. The source repository
+is read as evidence only. If indexing changes its worktree, refs, objects,
+config, or hooks, operator state and repository integrity are at risk.
 
 Lazy indexing should be invisible. The operator runs a structural
 query, graft backfills the worldline from git history, and `git
@@ -21,8 +20,9 @@ status` remains unchanged.
 
 ## How to check
 
-- `git status` is unchanged after lazy indexing
-- No tracked file modifications during indexing
-- No untracked file creation except approved internal git objects
-  under `.git/`
-- Test: snapshot `git status` before and after indexing, assert equal
+- source `git status` is unchanged after lazy indexing
+- source `refs/warp/*`, object counts, config, and hooks are unchanged
+- no tracked or untracked source-worktree files are created or modified
+- the expected private bare sidecar contains the WARP refs and objects
+- test: snapshot source worktree and Git-database evidence before and after
+  indexing, then assert that only the sidecar changed

@@ -53,7 +53,7 @@ describe("release: three-surface capability posture", () => {
     const publicApiDoc = readRepoFile("docs/public-api.md");
 
     expect(packageJson.scripts["release:surface-gate"]).toBe(
-      "vitest run --run test/unit/release/package-library-surface.test.ts test/unit/release/three-surface-capability-posture.test.ts",
+      "pnpm test -- test/unit/release/package-library-surface.test.ts test/unit/release/three-surface-capability-posture.test.ts",
     );
     expect(packageJson.scripts["release:check"]).toContain("pnpm release:surface-gate");
     expect(releaseDoc).toContain("## Three-surface posture gate");

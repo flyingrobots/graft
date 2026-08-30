@@ -1,9 +1,10 @@
-FROM node:22-alpine AS deps
+FROM node:22-alpine@sha256:c610fcdfb1d5b4740dd70c284ed3cb16bb857e0f7166196e36a5501df7a3aa32 AS deps
 
 WORKDIR /app
 
-# Git is required by Graft tests and runtime repo inspection.
-RUN apk add --no-cache git
+# Git is required by Graft tests and runtime repo inspection. Pin the package
+# revision as well as the base image so the test toolchain cannot drift.
+RUN apk add --no-cache git=2.54.0-r0
 
 # Install the package-manager version declared by package.json. Corepack fetches
 # over the network here, before project dependencies exist, so keep this retry
@@ -20,19 +21,23 @@ RUN corepack enable && \
 COPY package.json pnpm-lock.yaml ./
 RUN pnpm install --frozen-lockfile --prod=false
 
-FROM deps AS build
+FROM deps AS source
 
 WORKDIR /app
 COPY . .
-RUN pnpm build
+RUN --network=none sh scripts/strip-copied-git-remotes.sh /app
+
+FROM source AS build
+
+WORKDIR /app
+RUN --network=none pnpm build
 
 FROM build AS test
 
 ENV CI=1
-ENV GRAFT_TEST_CONTAINER=1
 ENV NO_COLOR=1
 
-CMD ["pnpm", "test"]
+CMD ["pnpm", "exec", "vitest", "run", "--maxWorkers", "2"]
 
 FROM deps AS runtime
 

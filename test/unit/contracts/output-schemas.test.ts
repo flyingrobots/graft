@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, expectTypeOf, it } from "vitest";
 import * as fs from "node:fs";
+import * as os from "node:os";
 import * as path from "node:path";
 import { z } from "zod";
 import { ALL_TOOL_REGISTRY, createGraftServer } from "../../../src/mcp/server.js";
@@ -36,18 +37,28 @@ import { writeLegacyLocalHistoryArtifact } from "../../helpers/legacy-local-hist
 import { createServerInRepo, parse } from "../../helpers/mcp.js";
 
 const CLI_PEER_SCHEMA_TIMEOUT_MS = 120_000;
+const cliGraphRoots = new Map<string, string>();
 
-function createDaemonServer(graftDir: string) {
+function cliGraphRoot(cwd: string): string {
+  const existing = cliGraphRoots.get(cwd);
+  if (existing !== undefined) return existing;
+  const created = fs.mkdtempSync(path.join(os.tmpdir(), "graft-output-schema-graphs-"));
+  cliGraphRoots.set(cwd, created);
+  return created;
+}
+
+function createDaemonServer(graftDir: string, graphRoot: string) {
   return createGraftServer({
     mode: "daemon",
     graftDir,
+    graphRoot,
   });
 }
 
 async function runCliJson(cwd: string, args: readonly string[]): Promise<Record<string, unknown>> {
   const stdout = createBufferWriter();
   const stderr = createBufferWriter();
-  await runCli({ cwd, args, stdout, stderr });
+  await runCli({ cwd, args, stdout, stderr, graphRoot: cliGraphRoot(cwd) });
   expect(stderr.text()).toBe("");
   return JSON.parse(stdout.text()) as Record<string, unknown>;
 }
@@ -59,6 +70,10 @@ describe("contracts: output schemas", () => {
     while (cleanups.length > 0) {
       cleanupTestRepo(cleanups.pop()!);
     }
+    for (const graphRoot of cliGraphRoots.values()) {
+      fs.rmSync(graphRoot, { recursive: true, force: true });
+    }
+    cliGraphRoots.clear();
   });
 
   it("declares an MCP output schema for every registered tool", () => {
@@ -321,7 +336,10 @@ describe("contracts: output schemas", () => {
     fs.writeFileSync(path.join(repoDir, "edit-target.ts"), "export const editTarget = \"before\";\n");
 
     const server = createServerInRepo(repoDir);
-    const daemonServer = createDaemonServer(path.join(repoDir, ".graft-daemon"));
+    const daemonServer = createDaemonServer(
+      path.join(repoDir, ".graft-daemon"),
+      cliGraphRoot(repoDir),
+    );
     const daemonAuthorize = parse(await daemonServer.callTool("workspace_authorize", { cwd: repoDir }));
     const daemonStatusSnapshot = parse(await daemonServer.callTool("daemon_status", {}));
     const daemonSessionsSnapshot = parse(await daemonServer.callTool("daemon_sessions", {}));
@@ -443,6 +461,7 @@ describe("contracts: output schemas", () => {
 
     await runIndex({
       cwd: repoDir,
+      graphRoot: cliGraphRoot(repoDir),
       args: ["--json"],
       stdout,
       stderr,

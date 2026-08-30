@@ -1,10 +1,12 @@
+import * as fs from "node:fs";
+import * as path from "node:path";
 import { CanonicalJsonCodec } from "../adapters/canonical-json.js";
 import { nodeGit } from "../adapters/node-git.js";
 import { nodePathOps } from "../adapters/node-paths.js";
 import { attachCliSchemaMeta, validateCliOutput } from "../contracts/output-schemas.js";
 import { indexHead } from "../warp/index-head.js";
-import { openWarp } from "../warp/open.js";
 import { writeCliError } from "./cli-error.js";
+import { openCliWarp } from "./warp-sidecar.js";
 import {
   buildIndexCliFailure,
   buildIndexCliSuccess,
@@ -20,6 +22,7 @@ interface Writer {
 
 export interface RunIndexOptions {
   cwd?: string | undefined;
+  graphRoot?: string | undefined;
   args?: readonly string[] | undefined;
   stdout?: Writer | undefined;
   stderr?: Writer | undefined;
@@ -34,6 +37,21 @@ function emitIndexJson(result: IndexCliResult, writer: Writer): void {
   writer.write(`${codec.encode(validateCliOutput("index", attachCliSchemaMeta("index", result)))}\n`);
 }
 
+function resolveIndexPaths(
+  requestedCwd: string,
+  worktreeRoot: string,
+  requestedPaths: readonly string[],
+): readonly string[] {
+  const canonicalCwd = fs.realpathSync.native(requestedCwd);
+  return requestedPaths.map((requestedPath) => {
+    const relative = path.relative(worktreeRoot, path.resolve(canonicalCwd, requestedPath));
+    if (relative === "" || relative === ".." || relative.startsWith(`..${path.sep}`) || path.isAbsolute(relative)) {
+      throw new Error(`Index path is outside the resolved Git worktree: ${requestedPath}`);
+    }
+    return relative.split(path.sep).join("/");
+  });
+}
+
 export async function runIndex(options: RunIndexOptions = {}): Promise<void> {
   const cwd = options.cwd ?? process.cwd();
   const args = options.args ?? process.argv.slice(3);
@@ -43,14 +61,20 @@ export async function runIndex(options: RunIndexOptions = {}): Promise<void> {
 
   try {
     const { json, paths } = parseIndexCommandArgs(args);
-    const app = await openWarp({ cwd });
+    const opened = await openCliWarp({
+      cwd,
+      ...(options.graphRoot !== undefined ? { graphRoot: options.graphRoot } : {}),
+    });
+    const { app } = opened;
+    const worktreeRoot = opened.workspace.worktreeRoot;
+    const resolvedPaths = resolveIndexPaths(cwd, worktreeRoot, paths);
     const ctx = { app, strandId: null };
     const result = await indexHead({
-      cwd,
+      cwd: worktreeRoot,
       git: nodeGit,
       pathOps: nodePathOps,
       ctx,
-      ...(paths.length > 0 ? { paths } : {}),
+      ...(resolvedPaths.length > 0 ? { paths: resolvedPaths } : {}),
     });
 
     if (json) {

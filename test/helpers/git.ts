@@ -124,7 +124,12 @@ export function createCommittedTestRepo(
   return tmpDir;
 }
 
+export function testGraphRootForRepo(repoDir: string): string {
+  return `${repoDir}.graft-graphs`;
+}
+
 /** Remove a temp directory created by createTestRepo. */
 export function cleanupTestRepo(tmpDir: string): void {
+  fs.rmSync(testGraphRootForRepo(tmpDir), { recursive: true, force: true });
   fs.rmSync(tmpDir, { recursive: true, force: true });
 }

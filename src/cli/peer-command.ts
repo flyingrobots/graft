@@ -14,6 +14,7 @@ import { renderDoctorPosture } from "./doctor-render.js";
 import { renderStructuralBlame } from "./structural-blame-render.js";
 import { renderStructuralReview } from "./structural-review-render.js";
 import { renderStructuralTestCoverageMap } from "./structural-test-coverage-render.js";
+import { CLI_WARP_SESSION_ID } from "./warp-sidecar.js";
 
 const codec = new CanonicalJsonCodec();
 
@@ -76,10 +77,13 @@ export async function invokePeerCommand(
   cwd: string,
   tool: McpToolName,
   args: JsonObject,
+  options: { readonly graphRoot?: string | undefined } = {},
 ): Promise<JsonObject> {
   const server = createGraftServer({
+    sessionId: CLI_WARP_SESSION_ID,
     projectRoot: cwd,
     graftDir: path.join(cwd, ".graft"),
+    ...(options.graphRoot !== undefined ? { graphRoot: options.graphRoot } : {}),
   });
   return parseToolResult(await server.callTool(tool, args));
 }

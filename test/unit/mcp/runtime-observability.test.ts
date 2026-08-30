@@ -1,6 +1,7 @@
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
+import { buildSessionWarpWriterId } from "../../../src/warp/writer-id.js";
 import { describe, expect, it } from "vitest";
 import { runInit } from "../../../src/cli/init.js";
 import { createIsolatedServer, fixturePath, parse } from "../../helpers/mcp.js";
@@ -271,7 +272,7 @@ describe("mcp: runtime observability", () => {
       expect(causal.causalSessionId).toMatch(/^causal:[a-f0-9]{16}$/);
       expect(causal.strandId).toMatch(/^strand:[a-f0-9]{16}$/);
       expect(causal.checkoutEpochId).toMatch(/^epoch:[a-f0-9]{16}$/);
-      expect(causal.warpWriterId).toBe("graft");
+      expect(causal.warpWriterId).toBe(buildSessionWarpWriterId(causal.transportSessionId));
       expect(causal.stability).toBe("runtime_local");
       expect(causal.provenanceLevel).toBe("artifact_history");
       expect(workspaceOverlayFooting.observationMode).toBe("inferred_between_tool_calls");

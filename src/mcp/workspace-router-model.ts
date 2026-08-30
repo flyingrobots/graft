@@ -142,6 +142,8 @@ export interface WorkspaceExecutionContext {
   readonly resolvePath: (input: string) => string;
   readonly capabilityProfile: WorkspaceCapabilityProfile;
   readonly warpWriterId: string;
+  readonly warpGraphRoot: string;
+  readonly warpSidecarRepo: string;
   getCausalContext(): RuntimeCausalContext;
   readonly status: WorkspaceStatus;
   readonly governor: GovernorTracker;
@@ -161,6 +163,7 @@ export interface ResolvedWorkspace {
 
 export interface WorkspaceAuthorizationPolicy {
   getCapabilityProfile(resolved: ResolvedWorkspace): Promise<WorkspaceCapabilityProfile | null>;
+  ensureCapabilityProfile(resolved: ResolvedWorkspace): Promise<WorkspaceCapabilityProfile>;
   noteBound(resolved: ResolvedWorkspace): Promise<void>;
 }
 

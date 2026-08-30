@@ -56,24 +56,52 @@ describe("mcp: per-call workspace route", () => {
     }));
   });
 
-  it("rejects routed calls to unauthorized daemon workspaces", { timeout: 15_000 }, async () => {
-    const repoDir = createRepo("graft-route-unauthorized-", "export const repo = 'unauthorized';\n");
+  it("auto-opens the containing worktree on the first routed daemon call", { timeout: 15_000 }, async () => {
+    const repoDir = createRepo("graft-route-auto-open-", "export const repo = 'auto-opened';\n");
+    const nestedDir = path.join(repoDir, "src", "nested");
+    fs.mkdirSync(nestedDir, { recursive: true });
     const harness = await createInProcessDaemonHarness();
     cleanups.push(() => harness.close());
     const session = harness.createSession();
 
-    await expect(session.callToolJson("safe_read", {
-      cwd: repoDir,
+    const read = await session.callToolJson<{
+      content: string;
+      path: string;
+    }>("safe_read", {
+      cwd: nestedDir,
       path: "app.ts",
-    })).rejects.toMatchObject({
-      name: "WorkspaceRouteUnauthorizedError",
-      code: "WORKSPACE_NOT_AUTHORIZED",
     });
+    expect(read.content).toBe("export const repo = 'auto-opened';\n");
+    expect(read.path).toBe(path.join(repoDir, "app.ts"));
 
-    await expect(session.callToolJson("code_find", {
-      cwd: repoDir,
-      query: "repo",
-    })).rejects.toThrow(/not authorized for routed daemon access/);
+    const opened = await session.callToolJson<{
+      activeWorktreeId: string | null;
+      workspaces: {
+        worktreeRoot: string;
+        active: boolean;
+        source: string;
+        capabilityProfile: { runCapture: boolean };
+      }[];
+    }>("workspace_list_opened", {});
+    expect(opened.activeWorktreeId).toBeNull();
+    expect(opened.workspaces).toEqual([
+      expect.objectContaining({
+        worktreeRoot: repoDir,
+        active: false,
+        source: "daemon_authorized",
+        capabilityProfile: expect.objectContaining({ runCapture: false }),
+      }),
+    ]);
+
+    const authorizations = await session.callToolJson<{
+      workspaces: { worktreeRoot: string; capabilityProfile: { runCapture: boolean } }[];
+    }>("workspace_authorizations", {});
+    expect(authorizations.workspaces).toEqual([
+      expect.objectContaining({
+        worktreeRoot: repoDir,
+        capabilityProfile: expect.objectContaining({ runCapture: false }),
+      }),
+    ]);
 
     const status = await session.callToolJson<{
       bindState: string;
@@ -83,7 +111,7 @@ describe("mcp: per-call workspace route", () => {
     expect(status.worktreeRoot).toBeNull();
   });
 
-  it("does not transfer authorization when an authorized path becomes another repository", {
+  it("auto-opens a replacement repository as a new resolved identity", {
     timeout: 20_000,
   }, async () => {
     const repoDir = createRepo("graft-route-authorized-original-", "export const original = true;\n");
@@ -95,17 +123,33 @@ describe("mcp: per-call workspace route", () => {
     cleanups.push(() => harness.close());
     const session = harness.createSession();
 
-    await session.callToolJson("workspace_open", { cwd: repoDir, activate: true });
+    const original = await session.callToolJson<{
+      openedWorkspace: { repoId: string };
+    }>("workspace_open", {
+      cwd: repoDir,
+      activate: false,
+      runCapture: true,
+    });
     fs.rmSync(repoDir, { recursive: true, force: true });
     git(replacementSource, `worktree add -b replacement ${repoDir}`);
 
-    await expect(session.callToolJson("safe_read", {
+    const read = await session.callToolJson<{ content: string }>("safe_read", {
       cwd: repoDir,
       path: "app.ts",
-    })).rejects.toMatchObject({
-      name: "WorkspaceRouteUnauthorizedError",
-      code: "WORKSPACE_NOT_AUTHORIZED",
     });
+    expect(read.content).toBe("export const replacement = true;\n");
+
+    const opened = await session.callToolJson<{
+      workspaces: {
+        repoId: string;
+        worktreeRoot: string;
+        capabilityProfile: { runCapture: boolean };
+      }[];
+    }>("workspace_list_opened", {});
+    expect(opened.workspaces).toHaveLength(1);
+    expect(opened.workspaces[0]?.worktreeRoot).toBe(repoDir);
+    expect(opened.workspaces[0]?.repoId).not.toBe(original.openedWorkspace.repoId);
+    expect(opened.workspaces[0]?.capabilityProfile.runCapture).toBe(false);
   });
 
   it("routes safe_read through cwd without binding the daemon session", { timeout: 15_000 }, async () => {

@@ -68,6 +68,6 @@ export function formatDockerUnavailableMessage(
     "Cannot run isolated test suite because Docker is unavailable.",
     `Docker preflight: ${availability.detail}`,
     "`pnpm test` is the release-grade isolated runner and still requires Docker.",
-    "Use `pnpm test:local` for non-isolated local feedback while Docker is unavailable.",
+    "All Graft tests require the copy-in Docker runner; no host-side fallback is supported.",
   ].join("\n");
 }

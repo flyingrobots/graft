@@ -55,7 +55,7 @@ Tool responses carry receipts: bytes consumed, bytes avoided, session depth, pol
 
 - **Session governance.** The `GovernorTracker` watches for anti-patterns: runaway tool loops, late-session large reads, edit/bash thrash. Tripwire signals surface in receipts so agents and operators can act before context is exhausted.
 
-- **Industrial-grade daemon.** A same-user local runtime manages multi-repo authorization, persistent monitors, and shared worker pools. Current git-warp contexts stay warm in memory across sessions, while the public contract is moving behind substrate-neutral structural-history ports.
+- **Industrial-grade daemon.** A same-user local runtime manages multi-repo authorization, persistent monitors, and shared worker pools. WARP contexts stay warm within their exact repository, worktree, and actor lanes, while bare sidecar repositories keep one agent's working graph out of both the source repository and every other agent's lane.
 
 ---
 
@@ -74,7 +74,12 @@ npx @flyingrobots/graft review --base HEAD~1
 npx @flyingrobots/graft review cooldown --pr 48
 ```
 
-Stateless. Print and exit. Good for scripting, spot-checking policy decisions, and inspecting structural history.
+Each CLI process prints and exits, which keeps scripting predictable. Commands
+that use WARP structural history persist their graph in a stable private CLI
+sidecar, so later invocations can reuse that history without writing to the
+source repository. That stability is one operator lane per worktree: separate
+one-shot CLI processes in the same worktree intentionally share it. Parallel
+agents that need isolated working histories should use separate MCP sessions.
 
 ### 2. MCP — Agent Sessions
 
@@ -90,7 +95,10 @@ Point your MCP client at this process. Graft speaks JSON-RPC over stdin/stdout. 
 
 #### Daemon-Backed Stdio
 
-A persistent same-user runtime for long-running or multi-repo agent work. Current git-warp contexts stay warm between sessions and persistent monitors can keep structural history current.
+A persistent same-user runtime for long-running or multi-repo agent work. Exact
+repository/worktree/actor WARP contexts stay warm within the daemon, and
+persistent monitors can keep structural history current without storing WARP
+refs or objects in the source repository.
 
 ```bash
 # Start the daemon explicitly
@@ -100,20 +108,33 @@ npx @flyingrobots/graft daemon
 npx @flyingrobots/graft serve --runtime daemon
 ```
 
-Daemon sessions start unbound. The normal agent flow is:
+Daemon sessions start unbound. The shortest agent flow is:
 
-1. `workspace_open` with the target repo's `cwd`; in daemon mode this authorizes the workspace before opening it.
-2. Optionally `workspace_list_opened` to inspect active workspaces
-3. Use repository-scoped tools: `safe_read`, `file_outline`, `graft_diff`, etc.
+1. Call a routed repository tool such as `safe_read` with an explicit `cwd`
+   anywhere inside the target Git worktree.
+2. Graft resolves and opens the canonical containing worktree with the default
+   daemon capability profile, then runs the call without changing the active
+   workspace binding.
+3. Optionally call `workspace_list_opened` to inspect the opened worktrees.
 
 When several agents share one daemon-backed MCP session, repo tools can
 carry their own explicit route: pass `cwd` to `safe_read`,
 `file_outline`, `read_range`, `changed_since`, `graft_diff`,
 `graft_since`, `graft_map`, `code_show`, `code_find`, or `code_refs` to
-resolve that call against the requested authorized workspace without
-changing the active workspace.
+open and resolve that call against the requested worktree without changing
+the active workspace. A missing `cwd` still uses the active binding, so an
+unbound session needs either an explicit route or an explicit open/bind first.
 
-For explicit control-plane posture, use `workspace_authorize` followed by `workspace_bind`.
+Use `workspace_open` when you want to activate a worktree or configure its
+capabilities. For lower-level control-plane posture, use
+`workspace_authorize` followed by `workspace_bind`.
+
+WARP persistence is private sidecar state, not source-repository state. By
+default, Graft creates bare repositories under
+`~/.graft/graphs/<project>/<worktree>/<actor>/warp.git`. The readable path
+names carry identity suffixes, and separate worktrees and MCP sessions receive
+separate graph stores. Advanced `graphRoot` overrides fail closed when blank,
+symlink-aliased, or overlapping the source worktree or common Git directory.
 
 See [docs/SETUP.md](./docs/SETUP.md) for client-specific bootstrap and daemon control-plane configuration.
 
@@ -122,6 +143,7 @@ See [docs/SETUP.md](./docs/SETUP.md) for client-specific bootstrap and daemon co
 Embed Graft directly when you want structural reads or syntax data without spawning a subprocess or going through MCP transport.
 
 **Governed repo reads** (same policy enforcement as MCP, no receipts):
+
 ```ts
 import { createRepoWorkspace } from "@flyingrobots/graft";
 
@@ -131,6 +153,7 @@ const result = await workspace.safeRead({ path: "src/app.ts" });
 ```
 
 **In-process tool calls with receipts** (full MCP behavior, no subprocess):
+
 ```ts
 import { createRepoLocalGraft, callGraftTool } from "@flyingrobots/graft";
 
@@ -139,6 +162,7 @@ const outline = await callGraftTool(graft, "file_outline", { path: "src/app.ts" 
 ```
 
 **Editor-native syntax highlighting** (Tree-Sitter WASM, no I/O, viewport-aware):
+
 ```ts
 import { createProjectionBundle, ensureParserReady } from "@flyingrobots/graft";
 
@@ -157,6 +181,7 @@ const bundle = createProjectionBundle("src/app.tsx", liveEditorText, {
 `createProjectionBundle` owns the WASM buffer lifecycle internally. Use `createStructuredBuffer` directly if you need to hold a buffer across multiple operations and manage `dispose()` yourself.
 
 **Edict projection bridge** (dirty `.edict` buffer to syntax/Core/Target IR):
+
 ```ts
 import {
   createEdictCliProjectionProvider,
@@ -224,7 +249,7 @@ That queue is the public view for priorities and discussion. Internal execution 
 |----------|---------------|
 | [Technical Teardown](./docs/TECHNICAL_TEARDOWN.md) | Zero-to-hero deep dive: entry points, golden paths, data schemas, policy engine, WARP, session governance, trade-offs |
 | [Guide](./GUIDE.md) | Orientation, the fast path, and agent bootstrap |
-| [Setup Guide](./docs/SETUP.md) | Client-specific MCP setup, daemon posture, and workspace binding |
+| [Setup Guide](./docs/SETUP.md) | Client-specific MCP setup, first-call workspace opening, and daemon control-plane posture |
 | [Advanced Guide](./ADVANCED_GUIDE.md) | Pipeline internals, worldlines, and daemon mechanics |
 | [Architecture](./ARCHITECTURE.md) | Authoritative structural reference: Ports, Adapters, WARP |
 | [Public API Contract](./docs/public-api.md) | Semver-public root import surface and stability policy |

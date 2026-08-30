@@ -6,16 +6,31 @@ import { CanonicalJsonCodec } from "../../../src/adapters/canonical-json.js";
 import { nodeFs } from "../../../src/adapters/node-fs.js";
 import { nodeGit } from "../../../src/adapters/node-git.js";
 import { PersistedLocalHistoryStore } from "../../../src/mcp/persisted-local-history.js";
+import { createGraftServer } from "../../../src/mcp/server.js";
 import {
   DEFAULT_DAEMON_CAPABILITY_PROFILE,
+  resolveWorkspaceRequest,
   type WorkspaceCapabilityProfile,
   WorkspaceRouter,
 } from "../../../src/mcp/workspace-router.js";
 import type { FileSystem } from "../../../src/ports/filesystem.js";
+import { resolveWarpSidecarLocation } from "../../../src/warp/sidecar.js";
+import { buildSessionWarpWriterId } from "../../../src/warp/writer-id.js";
 import { createManagedDaemonServer, parse } from "../../helpers/mcp.js";
 import { cleanupTestRepo, createCommittedTestRepo, git } from "../../helpers/git.js";
 
 const cleanups: (() => void)[] = [];
+
+function fakeWarpLocation(graftDir: string) {
+  const repoPath = path.join(graftDir, "graphs", "warp.git");
+  return {
+    graphRoot: path.dirname(repoPath),
+    projectDir: path.dirname(repoPath),
+    worktreeDir: path.dirname(repoPath),
+    actorDir: path.dirname(repoPath),
+    repoPath,
+  };
+}
 
 afterEach(() => {
   while (cleanups.length > 0) {
@@ -115,6 +130,42 @@ class GatedRouteDirectoryFileSystem extends AsyncNoSyncFileSystem {
 }
 
 describe("mcp: daemon workspace binding", () => {
+  it("canonicalizes a repo-local startup alias into the same worktree identity and sidecar", async () => {
+    const repoDir = createCommittedRepo();
+    const aliasRoot = fs.mkdtempSync(path.join(os.tmpdir(), "graft-workspace-alias-"));
+    const stateRoot = fs.mkdtempSync(path.join(os.tmpdir(), "graft-workspace-alias-state-"));
+    cleanups.push(() => {
+      fs.rmSync(aliasRoot, { recursive: true, force: true });
+      fs.rmSync(stateRoot, { recursive: true, force: true });
+    });
+    const alias = path.join(aliasRoot, "repo-alias");
+    fs.symlinkSync(repoDir, alias, "dir");
+    const sessionId = "canonical-alias-session";
+    const graphRoot = path.join(stateRoot, "graphs");
+    const server = createGraftServer({
+      sessionId,
+      projectRoot: alias,
+      graftDir: path.join(stateRoot, "state"),
+      graphRoot,
+    });
+
+    await server.callTool("safe_read", { path: "app.ts" });
+    await server.callTool("safe_read", { cwd: repoDir, path: "app.ts" });
+
+    const resolved = await resolveWorkspaceRequest(nodeGit, { cwd: alias });
+    if ("code" in resolved) throw new Error(resolved.message);
+    expect(server.getWorkspaceStatus()).toEqual(expect.objectContaining({
+      repoId: resolved.repoId,
+      worktreeId: resolved.worktreeId,
+      worktreeRoot: resolved.worktreeRoot,
+    }));
+    const location = resolveWarpSidecarLocation(graphRoot, {
+      ...resolved,
+      writerId: buildSessionWarpWriterId(sessionId),
+    });
+    expect(fs.readdirSync(location.projectDir)).toEqual([path.basename(location.worktreeDir)]);
+  });
+
   it("starts unbound and reports daemon workspace status", async () => {
     const server = createManagedDaemonServer(cleanups);
     const status = parse(await server.callTool("workspace_status", {}));
@@ -201,6 +252,9 @@ describe("mcp: daemon workspace binding", () => {
       git: nodeGit,
       graftDir,
       warpPool: {
+        locationFor() {
+          return fakeWarpLocation(graftDir);
+        },
         getOrOpen(): Promise<never> {
           return Promise.reject(new Error("unused in workspace binding test"));
         },
@@ -211,6 +265,9 @@ describe("mcp: daemon workspace binding", () => {
       transportSessionId: "transport:test",
       authorizationPolicy: {
         getCapabilityProfile() {
+          return Promise.resolve(capabilityProfile);
+        },
+        ensureCapabilityProfile() {
           return Promise.resolve(capabilityProfile);
         },
         noteBound(): Promise<void> {
@@ -249,6 +306,9 @@ describe("mcp: daemon workspace binding", () => {
       git: nodeGit,
       graftDir,
       warpPool: {
+        locationFor() {
+          return fakeWarpLocation(graftDir);
+        },
         getOrOpen(): Promise<never> {
           return Promise.reject(new Error("unused in workspace routed race test"));
         },
@@ -259,6 +319,9 @@ describe("mcp: daemon workspace binding", () => {
       transportSessionId: "transport:test",
       authorizationPolicy: {
         getCapabilityProfile() {
+          return Promise.resolve(DEFAULT_DAEMON_CAPABILITY_PROFILE);
+        },
+        ensureCapabilityProfile() {
           return Promise.resolve(DEFAULT_DAEMON_CAPABILITY_PROFILE);
         },
         noteBound(): Promise<void> {
@@ -301,6 +364,9 @@ describe("mcp: daemon workspace binding", () => {
       git: nodeGit,
       graftDir,
       warpPool: {
+        locationFor() {
+          return fakeWarpLocation(graftDir);
+        },
         getOrOpen(): Promise<never> {
           return Promise.reject(new Error("unused in workspace replacement test"));
         },
@@ -311,6 +377,9 @@ describe("mcp: daemon workspace binding", () => {
       transportSessionId: "transport:test",
       authorizationPolicy: {
         getCapabilityProfile() {
+          return Promise.resolve(DEFAULT_DAEMON_CAPABILITY_PROFILE);
+        },
+        ensureCapabilityProfile() {
           return Promise.resolve(DEFAULT_DAEMON_CAPABILITY_PROFILE);
         },
         noteBound(): Promise<void> {
@@ -353,6 +422,9 @@ describe("mcp: daemon workspace binding", () => {
       git: nodeGit,
       graftDir,
       warpPool: {
+        locationFor() {
+          return fakeWarpLocation(graftDir);
+        },
         getOrOpen(): Promise<never> {
           return Promise.reject(new Error("unused in workspace binding test"));
         },
@@ -363,6 +435,9 @@ describe("mcp: daemon workspace binding", () => {
       transportSessionId: "transport:test",
       authorizationPolicy: {
         getCapabilityProfile() {
+          return Promise.resolve(DEFAULT_DAEMON_CAPABILITY_PROFILE);
+        },
+        ensureCapabilityProfile() {
           return Promise.resolve(DEFAULT_DAEMON_CAPABILITY_PROFILE);
         },
         noteBound(): Promise<void> {

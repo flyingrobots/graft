@@ -29,7 +29,7 @@ describe("CORE_test-runner-docker-daemon-hard-failure", () => {
     }
   });
 
-  it("Does the failure message name `pnpm test:local` as the non-isolated local feedback fallback?", () => {
+  it("Does the failure message refuse a host-side fallback?", () => {
     const availability = checkDockerAvailability(() => ({
       status: 1,
       signal: null,
@@ -40,8 +40,9 @@ describe("CORE_test-runner-docker-daemon-hard-failure", () => {
     expect(availability.ok).toBe(false);
     if (!availability.ok) {
       expect(formatDockerUnavailableMessage(availability)).toContain(
-        "Use `pnpm test:local` for non-isolated local feedback while Docker is unavailable.",
+        "All Graft tests require the copy-in Docker runner; no host-side fallback is supported.",
       );
+      expect(formatDockerUnavailableMessage(availability)).not.toContain("test:local");
     }
   });
 
@@ -94,7 +95,7 @@ describe("CORE_test-runner-docker-daemon-hard-failure", () => {
           "at unix:///var/run/docker.sock.",
         ].join(" "),
         "`pnpm test` is the release-grade isolated runner and still requires Docker.",
-        "Use `pnpm test:local` for non-isolated local feedback while Docker is unavailable.",
+        "All Graft tests require the copy-in Docker runner; no host-side fallback is supported.",
       ].join("\n"));
     }
   });
@@ -125,7 +126,7 @@ describe("CORE_test-runner-docker-daemon-hard-failure", () => {
         "Cannot run isolated test suite because Docker is unavailable.",
         "Docker preflight: Docker CLI was not found on PATH.",
         "`pnpm test` is the release-grade isolated runner and still requires Docker.",
-        "Use `pnpm test:local` for non-isolated local feedback while Docker is unavailable.",
+        "All Graft tests require the copy-in Docker runner; no host-side fallback is supported.",
       ].join("\n"));
     }
   });
@@ -145,7 +146,7 @@ describe("CORE_test-runner-docker-daemon-hard-failure", () => {
         "Docker preflight: Docker preflight command failed to start: permission denied",
       );
       expect(formatDockerUnavailableMessage(availability)).toContain(
-        "Use `pnpm test:local` for non-isolated local feedback while Docker is unavailable.",
+        "All Graft tests require the copy-in Docker runner; no host-side fallback is supported.",
       );
     }
   });

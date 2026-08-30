@@ -46,6 +46,8 @@ export interface BoundWorkspace {
   readonly resolvePath: (input: string) => string;
   readonly capabilityProfile: WorkspaceCapabilityProfile;
   readonly warpWriterId: string;
+  readonly warpGraphRoot: string;
+  readonly warpSidecarRepo: string;
   readonly transportSessionId: string;
   readonly slice: WorkspaceSlice;
   readonly getWarp: () => Promise<WarpContext>;
@@ -86,20 +88,20 @@ export async function createBoundWorkspace(input: {
     input.slice.governor.recordToolCall(input.actionName);
   }
 
+  const warpWriterId = input.warpWriterId ?? DEFAULT_WARP_WRITER_ID;
+  const warpLocation = input.warpPool.locationFor(input.resolved, warpWriterId);
   return {
     ...input.resolved,
     graftignorePatterns: await loadProjectGraftignore(input.fs, input.resolved.worktreeRoot),
     resolvePath: createRepoPathResolver(input.resolved.worktreeRoot),
     capabilityProfile: input.capabilityProfile,
     transportSessionId: input.transportSessionId,
-    warpWriterId: input.warpWriterId ?? DEFAULT_WARP_WRITER_ID,
+    warpWriterId,
+    warpGraphRoot: warpLocation.graphRoot,
+    warpSidecarRepo: warpLocation.repoPath,
     slice: input.slice,
     getWarp: async () => ({
-      app: await input.warpPool.getOrOpen(
-        input.resolved.repoId,
-        input.resolved.worktreeRoot,
-        input.warpWriterId ?? DEFAULT_WARP_WRITER_ID,
-      ),
+      app: await input.warpPool.getOrOpen(input.resolved, warpWriterId),
       strandId: null,
     }),
   };

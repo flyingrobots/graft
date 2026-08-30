@@ -1,4 +1,7 @@
 import { afterEach, describe, expect, it } from "vitest";
+import * as fs from "node:fs";
+import * as os from "node:os";
+import * as path from "node:path";
 import { runMonitorTickJob, type MonitorTickWorkerJob } from "../../../src/mcp/monitor-tick-job.js";
 import { cleanupTestRepo, createCommittedTestRepo, createTestRepo, git } from "../../helpers/git.js";
 
@@ -36,6 +39,15 @@ function headSha(cwd: string): string {
   return git(cwd, "rev-parse HEAD");
 }
 
+function sidecarLocation(): Pick<MonitorTickWorkerJob, "warpGraphRoot" | "warpSidecarRepo"> {
+  const graphRoot = fs.mkdtempSync(path.join(os.tmpdir(), "graft-monitor-sidecar-"));
+  cleanups.push(() => { fs.rmSync(graphRoot, { recursive: true, force: true }); });
+  return {
+    warpGraphRoot: graphRoot,
+    warpSidecarRepo: path.join(graphRoot, "project", "worktree", "monitor", "warp.git"),
+  };
+}
+
 function makeJob(
   cwd: string,
   lastIndexedCommit: string | null,
@@ -45,6 +57,7 @@ function makeJob(
     repoId: "test",
     worktreeRoot: cwd,
     writerId: "test-writer",
+    ...sidecarLocation(),
     lastIndexedCommit,
     ...overrides,
   };
@@ -89,6 +102,21 @@ describe("monitor tick ceiling tracking", () => {
     expect(result.ok).toBe(true);
     if (!result.ok) return;
     expect(result.commitsIndexed).toBeGreaterThan(0);
+  });
+
+  it("persists monitor graph state in its sidecar without changing source Git refs or objects", { timeout: 15_000 }, async () => {
+    const dir = committedRepo();
+    const sidecar = sidecarLocation();
+    const sourceRefsBefore = git(dir, "for-each-ref --format='%(refname) %(objectname)' refs/warp");
+    const sourceObjectsBefore = git(dir, "count-objects -v");
+
+    const result = await runMonitorTickJob(makeJob(dir, null, sidecar));
+
+    expect(result.ok).toBe(true);
+    expect(git(sidecar.warpSidecarRepo, "rev-parse --is-bare-repository")).toBe("true");
+    expect(git(sidecar.warpSidecarRepo, "for-each-ref --format='%(refname)' refs/warp")).not.toBe("");
+    expect(git(dir, "for-each-ref --format='%(refname) %(objectname)' refs/warp")).toBe(sourceRefsBefore);
+    expect(git(dir, "count-objects -v")).toBe(sourceObjectsBefore);
   });
 
   it("does not hard-fail monitor ticks when a repo has more parseable files than the indexHead per-call cap", { timeout: 15_000 }, async () => {

@@ -131,10 +131,21 @@ describe("mcp: persistent monitors", { timeout: 15000 }, () => {
 
     await server.callTool("workspace_authorize", { cwd: repoDir });
     await server.callTool("workspace_authorize", { cwd: worktreeDir });
+    const sourceWarpRefsBeforeFirstStart = git(repoDir, "for-each-ref --format='%(refname) %(objectname)' refs/warp");
+    const sourceObjectsBeforeFirstStart = git(repoDir, "count-objects -v");
     const firstStart = parse(await server.callTool("monitor_start", {
       cwd: repoDir,
       pollIntervalMs: 60_000,
     }));
+    expect(git(repoDir, "for-each-ref --format='%(refname) %(objectname)' refs/warp")).toBe(sourceWarpRefsBeforeFirstStart);
+    expect(git(repoDir, "count-objects -v")).toBe(sourceObjectsBeforeFirstStart);
+
+    fs.writeFileSync(path.join(worktreeDir, "secondary-a.ts"), "export const secondaryA = true;\n");
+    fs.writeFileSync(path.join(worktreeDir, "secondary-b.ts"), "export const secondaryB = true;\n");
+    git(worktreeDir, "add -A");
+    git(worktreeDir, "commit -m 'diverge secondary worktree'");
+    const sourceWarpRefsBeforeSecondStart = git(repoDir, "for-each-ref --format='%(refname) %(objectname)' refs/warp");
+    const sourceObjectsBeforeSecondStart = git(repoDir, "count-objects -v");
     const secondStart = parse(await server.callTool("monitor_start", {
       cwd: worktreeDir,
       pollIntervalMs: 60_000,
@@ -142,6 +153,12 @@ describe("mcp: persistent monitors", { timeout: 15000 }, () => {
 
     expect(firstStart["ok"]).toBe(true);
     expect(secondStart["ok"]).toBe(true);
+    expect(secondStart["status"]).toEqual(expect.objectContaining({
+      anchorWorktreeRoot: fs.realpathSync(worktreeDir),
+      lastRunCommitsIndexed: 3,
+    }));
+    expect(git(repoDir, "for-each-ref --format='%(refname) %(objectname)' refs/warp")).toBe(sourceWarpRefsBeforeSecondStart);
+    expect(git(repoDir, "count-objects -v")).toBe(sourceObjectsBeforeSecondStart);
 
     const listed = parse(await server.callTool("daemon_monitors", {}));
     expect(listed["monitors"]).toEqual([
@@ -152,5 +169,39 @@ describe("mcp: persistent monitors", { timeout: 15000 }, () => {
     ]);
 
     await server.callTool("monitor_stop", { cwd: repoDir });
+  });
+
+  it("fully indexes a fallback worktree when the monitor anchor changes at the same HEAD", async () => {
+    const repoDir = createCommittedRepo();
+    const worktreeDir = fs.mkdtempSync(path.join(os.tmpdir(), "graft-monitor-fallback-"));
+    git(repoDir, `worktree add -b fallback-anchor ${worktreeDir}`);
+    cleanups.push(() => {
+      fs.rmSync(worktreeDir, { recursive: true, force: true });
+    });
+    expect(git(worktreeDir, "rev-parse HEAD")).toBe(git(repoDir, "rev-parse HEAD"));
+
+    const server = createManagedDaemonServer(cleanups);
+    await server.callTool("workspace_authorize", { cwd: repoDir });
+    await server.callTool("workspace_authorize", { cwd: worktreeDir });
+    const started = parse(await server.callTool("monitor_start", {
+      cwd: repoDir,
+      pollIntervalMs: 60_000,
+    }));
+    expect(started["status"]).toEqual(expect.objectContaining({
+      anchorWorktreeRoot: fs.realpathSync(repoDir),
+      lastRunCommitsIndexed: expect.any(Number),
+    }));
+
+    const revoked = parse(await server.callTool("workspace_revoke", { cwd: repoDir }));
+    expect(revoked).toEqual(expect.objectContaining({ ok: true, revoked: true }));
+    const nudged = parse(await server.callTool("monitor_nudge", { cwd: worktreeDir }));
+
+    expect(nudged["status"]).toEqual(expect.objectContaining({
+      anchorWorktreeRoot: fs.realpathSync(worktreeDir),
+    }));
+    expect((nudged["status"] as { lastRunCommitsIndexed: number }).lastRunCommitsIndexed)
+      .toBeGreaterThan(0);
+
+    await server.callTool("monitor_stop", { cwd: worktreeDir });
   });
 });

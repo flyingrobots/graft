@@ -7,8 +7,8 @@ bounded around that deployment model.
 ## Threat model
 
 Graft is designed to protect against accidental over-read, ambiguous
-workspace routing, and unauthorized daemon access across repos owned by
-the same local user.
+workspace routing, and unintended ambient daemon access across repositories
+owned by the same local user.
 
 It is not designed to safely host untrusted remote users or provide a
 hardened privilege boundary across operating-system accounts.
@@ -25,10 +25,16 @@ hardened privilege boundary across operating-system accounts.
 
 - one daemon host per user
 - sessions start `unbound`
-- repository access requires explicit `workspace_authorize`
-- repository-scoped tools require explicit `workspace_bind`
+- a non-empty explicit `cwd` on a routed repository tool is same-user opening
+  intent for its exact server-resolved Git worktree
+- routed opening uses the default capability profile and does not activate the
+  worktree; an omitted route still requires an active binding
+- explicit `workspace_bind` requires prior authorization, while
+  `workspace_open` owns activation and capability configuration
 - authorization, active binding, and causal workspace identity stay
   separate on purpose
+- the source repository is observation evidence, never WARP persistence;
+  private sidecars are keyed by repository, worktree, and actor identity
 
 ## Read and execution posture
 
@@ -37,6 +43,8 @@ hardened privilege boundary across operating-system accounts.
 - structural and precision tools run through the same policy seam
 - `run_capture` is an explicit shell-output escape hatch and remains
   default-denied in daemon mode unless an authorized workspace enables it
+- an explicit route opens only its containing Git worktree; Graft does not scan
+  siblings, inherit the daemon process directory, or trust client identity hints
 
 ## Observability and logs
 

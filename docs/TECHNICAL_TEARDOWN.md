@@ -21,6 +21,7 @@ For quick onboarding and project positioning, start at `README.md`.
 
 - [Source of Truth Alignment](#source-of-truth-alignment)
 - [Scope and Non-Goals](#scope-and-non-goals)
+
 1. [Domain Dictionary](#1-domain-dictionary)
 2. [What Graft Is and Why It Exists](#2-what-graft-is-and-why-it-exists)
 3. [The Three Official Entry Points](#3-the-three-official-entry-points)
@@ -97,6 +98,7 @@ Use these file-level anchors as the documentary authority when validating claims
 This teardown focuses on runtime behavior that materially changes safety, cost, and signal quality for agent sessions.
 
 Primary scope:
+
 - policy input and projection selection
 - safe read and symbol lookup contracts (`safe_read`, `code_show`)
 - daemon session routing and authorization
@@ -104,6 +106,7 @@ Primary scope:
 - receipt/tripwire telemetry on tool responses
 
 Out of scope:
+
 - pure developer ergonomics changes (argument descriptions, error wording, command wording)
 - infra/platform-specific deployment mechanics and CI policy
 - future optimization experiments that do not alter wire-visible behavior
@@ -198,7 +201,7 @@ graph TD
 | Entry Point | Use Case | Persistence | Backed By |
 |---------|----------|-------------|-----------|
 | **API** | In-process integrations and tests | Caller-owned | Direct package imports |
-| **CLI** | Human inspection, scripting | None (stateless) | Direct node process |
+| **CLI** | Human inspection, scripting | Process-local execution; stable WARP sidecar | Direct node process |
 | **MCP** | Agent sessions over tool calls | Runtime-dependent | Repo-local or daemon-backed server |
 
 | MCP Runtime | Use Case | Persistence | Backed By |
@@ -206,7 +209,7 @@ graph TD
 | **Repo-local stdio** | Single-repo agent sessions | Session-scoped | In-process `GraftServer` |
 | **Daemon-backed stdio** | Multi-repo, long-running agents | Across sessions | Persistent daemon process and stdio bridge |
 
-**Trade-off**: The daemon-backed runtime is more powerful (multi-repo routing, persistent monitors, warm current git-warp contexts) but requires a local background process or bridge auto-start. The repo-local server is zero-setup but cold-starts on every session. The CLI is stateless by design — it prints and exits.
+**Trade-off**: The daemon-backed runtime is more powerful (multi-repo routing, persistent monitors, warm current git-warp contexts) but requires a local background process or bridge auto-start. The repo-local server is zero-setup but cold-starts on every session. Each CLI process prints and exits, while graph-backed commands deliberately reuse one stable private CLI sidecar per worktree across invocations. Separate CLI processes therefore share that operator lane; parallel agents that require isolated histories use independent MCP sessions.
 
 ---
 
@@ -247,7 +250,9 @@ sequenceDiagram
 ```
 
 In daemon mode, bootstrapping also includes:
-- Creating the **WARP pool** (one WARP graph per repo, loaded lazily)
+
+- Creating the **WARP pool** (one handle per exact repository, worktree, and
+  actor identity, loaded lazily)
 - Initializing the **DaemonJobScheduler** (work queue)
 - Spawning the **DaemonWorkerPool** (child processes for CPU-bound work)
 - Starting the **PersistentMonitorRuntime** (polls authorized monitor records for new commits)
@@ -266,7 +271,7 @@ Graft's equivalent of `int main()` lives in two places depending on how it is in
 
 ### CLI Entry: `bin/graft.js` → `src/cli/entrypoint.ts`
 
-```
+```text
 bin/graft.js          (thin shell shim, just imports)
     └── src/cli/entrypoint.ts   runCliEntrypoint()
             └── src/cli/main.ts  runCli()
@@ -398,12 +403,14 @@ sequenceDiagram
 
 ### The Data: What `src/app.ts` Looks Like at Each Stage
 
-**Stage 1: Raw file bytes (never returned to agent)**
-```
+#### Stage 1: Raw file bytes (never returned to agent)
+
+```text
 2,400 bytes  |  87 lines  |  TypeScript
 ```
 
-**Stage 2: Policy evaluation input**
+#### Stage 2: Policy evaluation input
+
 ```typescript
 // PolicyInput — what the policy engine receives
 {
@@ -416,7 +423,7 @@ sequenceDiagram
 }
 ```
 
-**Stage 3: Policy decision**
+#### Stage 3: Policy decision
 
 Since 87 lines < 150 (the threshold), and the file is not banned:
 
@@ -430,7 +437,8 @@ Since 87 lines < 150 (the threshold), and the file is not banned:
 }
 ```
 
-**Stage 4: Tool result (what the agent actually receives)**
+#### Stage 4: Tool result (what the agent actually receives)
+
 ```json
 {
   "path": "src/app.ts",
@@ -547,7 +555,7 @@ The following outputs are directly supported by current implementation branches:
 
 Evidence: [policy returns content](../src/policy/evaluate.ts#L152-L160), [safe-read returns content payload](../src/operations/safe-read.ts#L79-L81), [tool handler](../src/mcp/tools/safe-read.ts#L33-L44).
 
-2. Outline contract
+1. Outline contract
 
 ```json
 {
@@ -562,7 +570,7 @@ Evidence: [policy returns content](../src/policy/evaluate.ts#L152-L160), [safe-r
 
 Evidence: [outline reason path](../src/policy/evaluate.ts#L164-L177), [outline extraction branch](../src/operations/safe-read.ts#L91-L117), [safe-read result type](../src/operations/safe-read.ts#L11-L21).
 
-3. Refusal contract
+1. Refusal contract
 
 ```json
 {
@@ -576,7 +584,7 @@ Evidence: [outline reason path](../src/policy/evaluate.ts#L164-L177), [outline e
 
 Evidence: [ban and reason generation](../src/policy/evaluate.ts#L45-L93), [RefusedResult constructor usage](../src/policy/types.ts#L66-L83), [refusal return path](../src/operations/repo-workspace.ts#L125-L152).
 
-4. Cache-hit contract
+1. Cache-hit contract
 
 ```json
 {
@@ -591,7 +599,7 @@ Evidence: [ban and reason generation](../src/policy/evaluate.ts#L45-L93), [Refus
 
 Evidence: [cache checks + hit response](../src/operations/observation-cache.ts#L133-L138), [cache-hit return](../src/operations/repo-workspace.ts#L166-L183), [cache metric wiring](../src/mcp/tools/safe-read.ts#L8-L17).
 
-5. Diff contract (changed content + cached outline)
+1. Diff contract (changed content + cached outline)
 
 ```json
 {
@@ -699,7 +707,7 @@ sequenceDiagram
 
 Evidence: [single location branch](../src/mcp/tools/code-show.ts#L221-L271), [layer selection](../src/mcp/tools/code-show.ts#L56-L63), [search path with exact symbol](../src/mcp/tools/code-show.ts#L46-L74).
 
-2. Ambiguous-match contract
+1. Ambiguous-match contract
 
 ```json
 {
@@ -716,7 +724,7 @@ Evidence: [single location branch](../src/mcp/tools/code-show.ts#L221-L271), [la
 
 Evidence: [ambiguous branch](../src/mcp/tools/code-show.ts#L206-L219), [multiple match accumulation](../src/mcp/tools/code-show.ts#L166-L182).
 
-3. Refusal contract
+1. Refusal contract
 
 ```json
 {
@@ -733,7 +741,7 @@ Evidence: [ambiguous branch](../src/mcp/tools/code-show.ts#L206-L219), [multiple
 
 Evidence: [policy refuse in code_show](../src/mcp/tools/code-show.ts#L175-L179), [refusal response](../src/mcp/tools/code-show.ts#L184-L195), [reason catalogue](../src/policy/evaluate.ts#L45-L93).
 
-4. Not-found contract
+1. Not-found contract
 
 ```json
 {
@@ -809,31 +817,34 @@ sequenceDiagram
     Bridge-->>Shell: stdio MCP bridge established
 ```
 
-### Multi-Repo Authorization Flow
+### Multi-Repo Opening and Binding Flow
 
-The daemon's control plane enforces an explicit workspace authorization and binding model to prevent one repo's agent session from silently operating on another repo. The current implementation does not use nonce round-tripping; `workspace_open` authorizes before opening in daemon mode, while explicit control-plane flows use `workspace_authorize` followed by `workspace_bind`.
+The daemon treats an explicit `cwd` on a routed repository tool as bounded
+same-user opening intent. Git resolves the exact containing worktree, Graft
+persists its default authorization if needed, and the call runs without
+changing the session's active binding. Calls without `cwd` still require a
+binding; `workspace_open` remains the explicit activation and capability
+surface.
 
 ```mermaid
 sequenceDiagram
-    participant Agent as AI Agent (Repo A session)
+    participant Agent as AI Agent
     participant CP as DaemonControlPlane
     participant WARP as InMemoryWarpPool
 
-    Agent->>CP: workspace_authorize({ cwd: "/repos/project-a" })
-    Note right of CP: Resolves repo identity<br />Persists authorization in daemon control plane
-    CP-->>Agent: { ok: true, workspace: "/repos/project-a" }
+    Agent->>CP: safe_read({ cwd: "/repos/project-a/pkg", path: "src/app.ts" })
+    CP->>CP: Git-resolve canonical repo and worktree
+    alt exact worktree not opened in this session
+        CP->>CP: ensure default authorization and opened record
+    end
+    CP->>WARP: getOrOpen(repo, worktree, session actor)
+    WARP-->>CP: WarpContext from private bare sidecar
+    CP-->>Agent: content + requested/resolved route receipt
 
-    Agent->>CP: workspace_bind({ cwd: "/repos/project-a" })
-    CP->>CP: verify workspace is authorized for binding
-    CP->>WARP: loadOrCreate("/repos/project-a")
-    WARP-->>CP: WarpContext (loaded from .git)
-    CP-->>Agent: { ok: true, status: "bound" }
+    Note over Agent,CP: Active binding remains unchanged
 
-    Note over Agent,CP: Session is now bound to /repos/project-a only
-
-    Agent->>CP: safe_read({ path: "/repos/project-b/secret.ts" })
-    CP->>CP: path is outside authorized workspace
-    CP-->>Agent: RefusedResult { reason: "UNAUTHORIZED" }
+    Agent->>CP: safe_read({ path: "src/other.ts" })
+    CP-->>Agent: error: active workspace required
 ```
 
 ---
@@ -1086,6 +1097,7 @@ WARP is Graft's current structural-history adapter. Today it uses `@git-stunts/g
 ### The Problem WARP Solves
 
 "What functions existed in this file three months ago?" Naively, you'd have to:
+
 1. `git checkout <old-commit>`
 2. Read the file
 3. Parse it with Tree-Sitter
@@ -1127,7 +1139,7 @@ sequenceDiagram
     participant Worker as DaemonWorkerPool (child process)
     participant Git as Git CLI
     participant Parser as Tree-Sitter
-    participant Graph as WARP Git Graph
+    participant Graph as WARP Sidecar Graph
 
     Monitor->>Monitor: Detects new commits on watched branch
     Monitor->>Sched: queue(IndexCommitJob { repo, commitSha })
@@ -1137,7 +1149,7 @@ sequenceDiagram
     Worker->>Parser: extractOutline(content, lang)
     Parser-->>Worker: OutlineEntry[]
     Worker->>Graph: writeNode(commitSha, filePath, outline)
-    Graph-->>Worker: ✅ node persisted in .git objects
+    Graph-->>Worker: ✅ node persisted in private warp.git objects
     Worker-->>Sched: job complete
 ```
 
@@ -1459,7 +1471,7 @@ function writeCliError(writer, message, details) {
 
 A user running `graft read safe` (missing path) sees:
 
-```
+```text
 ❌ Missing required argument: path
 Usage: graft read safe <path>
 Example: graft read safe src/app.ts
@@ -1744,33 +1756,35 @@ flowchart TD
 
 The `.env.example` exception is deliberate — example env files are safe to read (they contain no real credentials) and are often useful for understanding config structure.
 
-### Daemon Authorization Model
+### Daemon Route Authority
 
-Daemon sessions start without an active workspace. A session must authorize and open or bind a workspace before repository-scoped tools can operate. Possession of a path string is not enough; daemon routing checks that the requested path belongs to the active authorized workspace.
+Daemon sessions start without an active workspace. A routed repository tool can
+nevertheless operate on its first call when it supplies a non-empty explicit
+`cwd`: Graft resolves that path with Git and opens only the exact containing
+worktree under the default capability profile. Client-supplied repository or
+worktree identity hints cannot override the server-resolved identity. An
+omitted `cwd` still requires an active binding.
 
 ```mermaid
 sequenceDiagram
     participant Agent
     participant CP as DaemonControlPlane
 
-    Agent->>CP: workspace_authorize({ cwd: "/repos/myapp" })
-    Note right of CP: Resolve repo identity and store authorization
-    CP-->>Agent: { ok: true, workspace: "/repos/myapp" }
-
-    Agent->>CP: workspace_open({ cwd: "/repos/myapp", activate: true })
-    Note right of CP: In daemon mode, workspace_open also authorizes first
-    CP-->>Agent: { ok: true, status: "opened" }
-
-    alt explicit bind flow
-        Agent->>CP: workspace_bind({ cwd: "/repos/myapp" })
-        CP->>CP: verify workspace was authorized
-        CP-->>Agent: { ok: true, status: "bound" }
+    Agent->>CP: safe_read({ cwd: "/repos/myapp/packages/api", path: "src/app.ts" })
+    CP->>CP: Git-resolve requested path
+    alt exact Git worktree resolved
+        CP->>CP: ensure default authorization and opened record
+        CP-->>Agent: content + immutable route evidence
+    else non-Git path or contradictory identity hint
+        CP-->>Agent: typed resolution error
     end
 
-    Agent->>CP: safe_read({ path: "src/app.ts" })
-    Note right of CP: Checks: is path inside active workspace root?
-    CP-->>Agent: { projection: "content", ... }
+    Note over Agent,CP: No sibling scan and no active rebind
 ```
+
+Use `workspace_open` to activate a worktree or change capabilities. The
+lower-level `workspace_authorize` and `workspace_bind` tools remain available
+for explicit operator control-plane workflows.
 
 ### No Credentials in Code
 
@@ -1807,6 +1821,7 @@ const STATIC_THRESHOLDS = {
 ```
 
 **Impact of tweaking `lines: 150`**:
+
 - Lower (e.g., 80): More files are outlined, agents see less raw code, context window is preserved more aggressively. Risk: agents lose implementation detail they might need.
 - Higher (e.g., 300): More files are returned as full content. Agents see more code but burn context faster.
 
@@ -1824,12 +1839,13 @@ const THRESHOLDS = {
 ```
 
 **Impact of tweaking `RUNAWAY_TOOLS: 80`**:
+
 - Lower: More sensitive; fires earlier in normal agentic loops (could generate false positives for complex tasks)
 - Higher: More permissive; could allow genuine runaway tool loops to continue longer before detection
 
 ### `.graftignore` (Per-Repo Configuration)
 
-```
+```gitignore
 # .graftignore — picomatch format
 dist/**
 build/**
