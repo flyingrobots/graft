@@ -50,12 +50,18 @@ function repoObservation(repoDir: string, options?: { dirty?: boolean }): RepoOb
   };
 }
 
-function createWorkerSidecarRepo(): string {
+function createWorkerSidecarLocation(): {
+  readonly warpGraphRoot: string;
+  readonly warpSidecarRepo: string;
+} {
   const graphRoot = fs.mkdtempSync(path.join(os.tmpdir(), "graft-worker-sidecar-"));
   cleanups.push(() => {
     fs.rmSync(graphRoot, { recursive: true, force: true });
   });
-  return path.join(graphRoot, "project", "worktree", "actor", "warp.git");
+  return {
+    warpGraphRoot: graphRoot,
+    warpSidecarRepo: path.join(graphRoot, "project", "worktree", "actor", "warp.git"),
+  };
 }
 
 describe("mcp: daemon worker pool", () => {
@@ -92,7 +98,7 @@ describe("mcp: daemon worker pool", () => {
       repoId: "repo:test",
       worktreeRoot: repoDir,
       writerId: "graft_test_worker",
-      warpSidecarRepo: createWorkerSidecarRepo(),
+      ...createWorkerSidecarLocation(),
       lastIndexedCommit: null,
     });
 
@@ -147,7 +153,7 @@ describe("mcp: daemon worker pool", () => {
       worktreeId: "worktree:test",
       gitCommonDir: path.join(repoDir, ".git"),
       writerId: "graft_session_test",
-      warpSidecarRepo: createWorkerSidecarRepo(),
+      ...createWorkerSidecarLocation(),
       capabilityProfile: DEFAULT_DAEMON_CAPABILITY_PROFILE,
       repoState: repoObservation(repoDir),
       governorSnapshot: new GovernorTracker().snapshot(),
@@ -212,7 +218,7 @@ describe("mcp: daemon worker pool", () => {
       worktreeId: "worktree:test",
       gitCommonDir: path.join(repoDir, ".git"),
       writerId: "graft_session_test",
-      warpSidecarRepo: createWorkerSidecarRepo(),
+      ...createWorkerSidecarLocation(),
       capabilityProfile: DEFAULT_DAEMON_CAPABILITY_PROFILE,
       repoState: repoObservation(repoDir),
       governorSnapshot,
@@ -291,7 +297,7 @@ describe("mcp: daemon worker pool", () => {
       worktreeId: "worktree:test",
       gitCommonDir: path.join(repoDir, ".git"),
       writerId: "graft_session_test",
-      warpSidecarRepo: createWorkerSidecarRepo(),
+      ...createWorkerSidecarLocation(),
       capabilityProfile: DEFAULT_DAEMON_CAPABILITY_PROFILE,
       repoState: repoObservation(repoDir),
       governorSnapshot: new GovernorTracker().snapshot(),
@@ -341,7 +347,7 @@ describe("mcp: daemon worker pool", () => {
       worktreeId: "worktree:test",
       gitCommonDir: path.join(repoDir, ".git"),
       writerId: "graft_session_test",
-      warpSidecarRepo: createWorkerSidecarRepo(),
+      ...createWorkerSidecarLocation(),
       capabilityProfile: DEFAULT_DAEMON_CAPABILITY_PROFILE,
       repoState: repoObservation(repoDir, { dirty: true }),
       governorSnapshot: new GovernorTracker().snapshot(),

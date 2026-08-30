@@ -46,6 +46,7 @@ export interface BoundWorkspace {
   readonly resolvePath: (input: string) => string;
   readonly capabilityProfile: WorkspaceCapabilityProfile;
   readonly warpWriterId: string;
+  readonly warpGraphRoot: string;
   readonly warpSidecarRepo: string;
   readonly transportSessionId: string;
   readonly slice: WorkspaceSlice;
@@ -96,6 +97,7 @@ export async function createBoundWorkspace(input: {
     capabilityProfile: input.capabilityProfile,
     transportSessionId: input.transportSessionId,
     warpWriterId,
+    warpGraphRoot: warpLocation.graphRoot,
     warpSidecarRepo: warpLocation.repoPath,
     slice: input.slice,
     getWarp: async () => ({

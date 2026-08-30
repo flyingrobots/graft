@@ -37,7 +37,7 @@ export interface WarpSidecarLocation {
 export interface WarpSidecarOpenOptions {
   readonly sidecarRepo: string;
   readonly writerId: string;
-  readonly graphRoot?: string | undefined;
+  readonly graphRoot: string;
   readonly checkpointEvery?: number | undefined;
 }
 
@@ -65,8 +65,8 @@ function canonicalizeProspectivePath(input: string): string {
   }
 }
 
-function resolveRequiredStoragePath(input: string, label: string): string {
-  if (input.trim().length === 0) {
+function resolveRequiredStoragePath(input: string | undefined, label: string): string {
+  if (input === undefined || input.trim().length === 0) {
     throw new Error(`Graft WARP requires a non-empty ${label}`);
   }
   return path.resolve(input);
@@ -348,9 +348,7 @@ export function openWarpSidecar(options: WarpSidecarOpenOptions): Promise<WarpAp
       options.sidecarRepo,
       "sidecar repository path",
     );
-    graphRoot = options.graphRoot === undefined
-      ? path.resolve(sidecarRepo, "../../../..")
-      : resolveWarpGraphRoot(options.graphRoot);
+    graphRoot = resolveRequiredStoragePath(options.graphRoot, "graph root");
   } catch (error: unknown) {
     const rejection = error instanceof Error ? error : new Error(String(error));
     return Promise.reject(rejection);

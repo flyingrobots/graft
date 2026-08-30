@@ -66,6 +66,7 @@ export interface RepoToolWorkerJob {
   readonly gitCommonDir: string;
   readonly workspaceRoute?: WorkspaceRouteEvidence | undefined;
   readonly writerId: string;
+  readonly warpGraphRoot: string;
   readonly warpSidecarRepo: string;
   readonly capabilityProfile: WorkspaceCapabilityProfile;
   readonly repoState: RepoObservation;

@@ -175,8 +175,8 @@ after the green run. A post-run image query returned no match.
 ## Strict Review
 
 The complete evidence ledger is
-[self-code-review.md](self-code-review.md). The review found 3 critical, 9
-high, 5 medium, and 59 low issues. All 76 were repaired; zero findings remain
+[self-code-review.md](self-code-review.md). The review found 4 critical, 9
+high, 5 medium, and 59 low issues. All 77 were repaired; zero findings remain
 open.
 
 The review was performed before a PR existed. Consequently there was no PR

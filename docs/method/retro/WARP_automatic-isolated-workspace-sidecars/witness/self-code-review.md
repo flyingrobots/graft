@@ -25,11 +25,11 @@ an executable regression or another inspectable proof for every repair.
 
 | Severity | Found | Fixed | Remaining |
 | --- | ---: | ---: | ---: |
-| Critical | 3 | 3 | 0 |
+| Critical | 4 | 4 | 0 |
 | High | 9 | 9 | 0 |
 | Medium | 5 | 5 | 0 |
 | Low | 59 | 59 | 0 |
-| Total | 76 | 76 | 0 |
+| Total | 77 | 77 | 0 |
 
 No finding was waived. The low-severity count comprises 39 individual
 Markdown lint errors and 20 stale current-reference paths.
@@ -156,6 +156,23 @@ Markdown lint errors and 20 stale current-reference paths.
   before chmod or creation.”
 - Resolution: `ea09712c`; path-overlap regressions live in
   `test/unit/warp/sidecar.test.ts`.
+
+#### SCR-20: Omitted graph authority could be inferred as a broad host path — Critical
+
+- Evidence: the published PR head allowed `openWarpSidecar` callers to omit
+  `graphRoot` and reconstructed it by walking four parents above
+  `sidecarRepo`. For a shallow path such as `/tmp/project`, that calculation
+  could resolve to `/`, after which storage setup would inspect or change a
+  host-wide path instead of the configured Graft graph root.
+- Type: authority-boundary violation and destructive path derivation.
+- Consequence: a malformed internal call could expand Graft's filesystem
+  authority far beyond the locator-owned graph root.
+- Mitigation prompt: “Make the canonical locator root mandatory at the type
+  and runtime boundaries, propagate it through daemon and monitor jobs, and
+  reject omission before creating any storage.”
+- Resolution: the post-publication P0 repair recorded by the commit containing
+  this entry; the omitted-root regression and all direct call sites are in
+  `test/unit/warp/sidecar.test.ts` and the worker-routing suites.
 
 ### `src/mcp/daemon-control-plane.ts`
 
@@ -346,7 +363,7 @@ Markdown lint errors and 20 stale current-reference paths.
 
 ## Final Review State
 
-All 76 findings were repaired before PR creation. The final publication
-preflight repeats a clean-status check, fetches `origin`, and reviews the full
-`origin/main...HEAD` diff so these repair commits are reviewed together with
-the original implementation.
+The 76 pre-publication findings and one post-publication critical finding were
+repaired without waiver. The final publication preflight repeats a clean-status
+check, fetches `origin`, and reviews the full `origin/main...HEAD` diff so these
+repair commits are reviewed together with the original implementation.

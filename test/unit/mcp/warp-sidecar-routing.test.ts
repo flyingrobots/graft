@@ -61,8 +61,12 @@ async function resolvedWorkspace(cwd: string) {
   return resolved;
 }
 
-async function readEventSessionIds(sidecarRepo: string, writerId: string): Promise<Set<string>> {
-  const app = await openWarpSidecar({ sidecarRepo, writerId });
+async function readEventSessionIds(
+  graphRoot: string,
+  sidecarRepo: string,
+  writerId: string,
+): Promise<Set<string>> {
+  const app = await openWarpSidecar({ graphRoot, sidecarRepo, writerId });
   const observer = await app.observer({
     match: "lh:*",
     expose: ["eventKind", "transportSessionId"],
@@ -113,9 +117,9 @@ describe("mcp: WARP sidecar routing", { timeout: 30_000 }, () => {
     });
 
     expect(alphaLocation.repoPath).not.toBe(betaLocation.repoPath);
-    await expect(readEventSessionIds(alphaLocation.repoPath, alphaWriterId))
+    await expect(readEventSessionIds(graphRoot, alphaLocation.repoPath, alphaWriterId))
       .resolves.toEqual(new Set([alphaSession.sessionId]));
-    await expect(readEventSessionIds(betaLocation.repoPath, betaWriterId))
+    await expect(readEventSessionIds(graphRoot, betaLocation.repoPath, betaWriterId))
       .resolves.toEqual(new Set([betaSession.sessionId]));
   });
 

@@ -73,12 +73,18 @@ class AsyncOnlyFileSystem implements FileSystem {
 
 const cleanups: (() => Promise<void> | void)[] = [];
 
-function createWorkerSidecarRepo(): string {
+function createWorkerSidecarLocation(): {
+  readonly warpGraphRoot: string;
+  readonly warpSidecarRepo: string;
+} {
   const graphRoot = fs.mkdtempSync(path.join(os.tmpdir(), "graft-playback-worker-sidecar-"));
   cleanups.push(() => {
     fs.rmSync(graphRoot, { recursive: true, force: true });
   });
-  return path.join(graphRoot, "project", "worktree", "actor", "warp.git");
+  return {
+    warpGraphRoot: graphRoot,
+    warpSidecarRepo: path.join(graphRoot, "project", "worktree", "actor", "warp.git"),
+  };
 }
 const codec = new CanonicalJsonCodec();
 
@@ -272,7 +278,7 @@ describe("0058 playback: system-wide resource pressure and fairness", () => {
       worktreeId: "worktree:test",
       gitCommonDir: path.join(repoDir, ".git"),
       writerId: buildSessionWarpWriterId("session:test"),
-      warpSidecarRepo: createWorkerSidecarRepo(),
+      ...createWorkerSidecarLocation(),
       capabilityProfile: DEFAULT_DAEMON_CAPABILITY_PROFILE,
       repoState: {
         checkoutEpoch: 1,

@@ -344,6 +344,7 @@ export class PersistentMonitorRuntime {
           repoId,
           worktreeRoot: anchor.worktreeRoot,
           writerId,
+          warpGraphRoot: this.options.graphRoot,
           warpSidecarRepo,
           lastIndexedCommit: record.lastIndexedCommit,
         });

@@ -82,6 +82,7 @@ export function buildRepoToolWorkerContext(
   }
   let response: Omit<RepoToolWorkerResult, "metricsDelta" | "cacheUpdates"> | null = null;
   const warp = () => openWarpSidecar({
+    graphRoot: job.warpGraphRoot,
     sidecarRepo: job.warpSidecarRepo,
     writerId: job.writerId,
   });

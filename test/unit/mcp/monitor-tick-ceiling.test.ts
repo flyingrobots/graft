@@ -39,10 +39,13 @@ function headSha(cwd: string): string {
   return git(cwd, "rev-parse HEAD");
 }
 
-function sidecarRepo(): string {
+function sidecarLocation(): Pick<MonitorTickWorkerJob, "warpGraphRoot" | "warpSidecarRepo"> {
   const graphRoot = fs.mkdtempSync(path.join(os.tmpdir(), "graft-monitor-sidecar-"));
   cleanups.push(() => { fs.rmSync(graphRoot, { recursive: true, force: true }); });
-  return path.join(graphRoot, "project", "worktree", "monitor", "warp.git");
+  return {
+    warpGraphRoot: graphRoot,
+    warpSidecarRepo: path.join(graphRoot, "project", "worktree", "monitor", "warp.git"),
+  };
 }
 
 function makeJob(
@@ -54,7 +57,7 @@ function makeJob(
     repoId: "test",
     worktreeRoot: cwd,
     writerId: "test-writer",
-    warpSidecarRepo: sidecarRepo(),
+    ...sidecarLocation(),
     lastIndexedCommit,
     ...overrides,
   };
@@ -103,15 +106,15 @@ describe("monitor tick ceiling tracking", () => {
 
   it("persists monitor graph state in its sidecar without changing source Git refs or objects", { timeout: 15_000 }, async () => {
     const dir = committedRepo();
-    const warpSidecarRepo = sidecarRepo();
+    const sidecar = sidecarLocation();
     const sourceRefsBefore = git(dir, "for-each-ref --format='%(refname) %(objectname)' refs/warp");
     const sourceObjectsBefore = git(dir, "count-objects -v");
 
-    const result = await runMonitorTickJob(makeJob(dir, null, { warpSidecarRepo }));
+    const result = await runMonitorTickJob(makeJob(dir, null, sidecar));
 
     expect(result.ok).toBe(true);
-    expect(git(warpSidecarRepo, "rev-parse --is-bare-repository")).toBe("true");
-    expect(git(warpSidecarRepo, "for-each-ref --format='%(refname)' refs/warp")).not.toBe("");
+    expect(git(sidecar.warpSidecarRepo, "rev-parse --is-bare-repository")).toBe("true");
+    expect(git(sidecar.warpSidecarRepo, "for-each-ref --format='%(refname)' refs/warp")).not.toBe("");
     expect(git(dir, "for-each-ref --format='%(refname) %(objectname)' refs/warp")).toBe(sourceRefsBefore);
     expect(git(dir, "count-objects -v")).toBe(sourceObjectsBefore);
   });

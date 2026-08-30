@@ -141,6 +141,11 @@ workspace identity, and actor namespace. It returns the exact bare-repository
 path. `WarpPool`, daemon workers, monitors, and CLI composition roots use that
 locator rather than independently reconstructing paths.
 
+The locator's canonical graph root is part of that authority result. Every
+worker boundary that carries the terminal repository path must carry the same
+root explicitly, and the sidecar opener must reject an omitted root. It must
+never reconstruct storage authority by walking upward from a terminal path.
+
 Sidecar initialization must:
 
 - reject a blank graph root, any graph root reached through a symlink alias,

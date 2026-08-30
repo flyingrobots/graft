@@ -9,6 +9,7 @@ import {
   openWarpSidecar,
   resolveWarpSidecarLocation,
   type WarpSidecarIdentity,
+  type WarpSidecarOpenOptions,
 } from "../../../src/warp/sidecar.js";
 import { stableWorkspaceId } from "../../../src/mcp/workspace-router-resolution.js";
 import { cleanupTestRepo, createCommittedTestRepo, git } from "../../helpers/git.js";
@@ -121,6 +122,25 @@ function identity(
 }
 
 describe("warp: isolated sidecar persistence", { timeout: 20_000 }, () => {
+  it("rejects an omitted graph root before creating sidecar storage", async () => {
+    const storageRoot = tempDir("graft-sidecar-required-root-");
+    const sidecarRepo = path.join(
+      storageRoot,
+      "project",
+      "worktree",
+      "actor",
+      "warp.git",
+    );
+    const missingGraphRoot = {
+      sidecarRepo,
+      writerId: "graft_session_missing_root",
+    } as unknown as WarpSidecarOpenOptions;
+
+    await expect(openWarpSidecar(missingGraphRoot))
+      .rejects.toThrow(/requires a non-empty graph root/u);
+    expect(fs.existsSync(sidecarRepo)).toBe(false);
+  });
+
   it("rejects blank graph and sidecar paths before touching storage", async () => {
     const source = sourceRepo();
     const graphRoot = tempDir("graft-sidecar-blank-path-root-");
@@ -208,10 +228,12 @@ describe("warp: isolated sidecar persistence", { timeout: 20_000 }, () => {
     const sourceGitBefore = sourceGitMutationSurface(source);
 
     const first = await openWarpSidecar({
+      graphRoot,
       sidecarRepo: firstLocation.repoPath,
       writerId: "graft_session_a",
     });
     const second = await openWarpSidecar({
+      graphRoot,
       sidecarRepo: secondLocation.repoPath,
       writerId: "graft_session_b",
     });
@@ -282,6 +304,7 @@ describe("warp: isolated sidecar persistence", { timeout: 20_000 }, () => {
       process.env["GIT_DIR"] = path.join(source, ".git");
       process.env["GIT_WORK_TREE"] = source;
       const warp = await openWarpSidecar({
+        graphRoot,
         sidecarRepo: location.repoPath,
         writerId: "graft_session_hostile_env",
       });
@@ -339,6 +362,7 @@ describe("warp: isolated sidecar persistence", { timeout: 20_000 }, () => {
     fs.symlinkSync(outside, location.projectDir, "dir");
 
     await expect(openWarpSidecar({
+      graphRoot,
       sidecarRepo: location.repoPath,
       writerId: "graft_session_a",
     })).rejects.toThrow(/symlinked Graft graph storage directory/u);
@@ -352,6 +376,7 @@ describe("warp: isolated sidecar persistence", { timeout: 20_000 }, () => {
     git(location.repoPath, "init --initial-branch main");
 
     await expect(openWarpSidecar({
+      graphRoot,
       sidecarRepo: location.repoPath,
       writerId: "graft_session_a",
     })).rejects.toThrow(/not a bare Git repository/u);

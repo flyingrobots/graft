@@ -27,6 +27,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 - **Actor-isolated WARP sidecars**: production MCP, daemon worker, persistent
   monitor, API, and graph-backed CLI paths persist WARP state in private bare
   repositories keyed by canonical repository, worktree, and actor identity.
+  Worker boundaries carry the locator's canonical graph root together with the
+  terminal repository path; sidecar opening rejects an omitted root instead of
+  inferring storage authority from path ancestry.
   Source repositories receive no WARP refs, objects, config, or hooks. Existing
   source-repository `refs/warp/*` are left untouched and are not imported.
   Separate one-shot CLI processes in one worktree intentionally share the

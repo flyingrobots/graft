@@ -7,6 +7,7 @@ export interface MonitorTickWorkerJob {
   readonly repoId: string;
   readonly worktreeRoot: string;
   readonly writerId: string;
+  readonly warpGraphRoot: string;
   readonly warpSidecarRepo: string;
   readonly lastIndexedCommit: string | null;
   readonly maxFilesPerBatch?: number | undefined;
@@ -108,6 +109,7 @@ export async function runMonitorTickJob(job: MonitorTickWorkerJob): Promise<Moni
 
   try {
     const app = await openWarpSidecar({
+      graphRoot: job.warpGraphRoot,
       sidecarRepo: job.warpSidecarRepo,
       writerId: job.writerId,
     });
