@@ -702,6 +702,72 @@ describe("mcp: daemon session reaper", () => {
     await eventStream.close();
   });
 
+  it("keeps a session resident until both concurrent request references settle", async () => {
+    const rootDir = fs.mkdtempSync(path.join(os.tmpdir(), "graft-session-reaper-refcount-"));
+    const socketPath = path.join(rootDir, "daemon.sock");
+    cleanups.push(() => {
+      fs.rmSync(rootDir, { recursive: true, force: true });
+    });
+    let currentTimeMs = 1_000_000;
+    const sessionInactivityTtlMs = 10_000;
+    const touchTransport = vi.spyOn(DaemonControlPlane.prototype, "touchTransport");
+    cleanups.push(() => {
+      touchTransport.mockRestore();
+    });
+    const daemon = await startDaemonServer({
+      graftDir: rootDir,
+      socketPath,
+      sessionInactivityTtlMs,
+      sessionReaperIntervalMs: 0,
+      nowMs: () => currentTimeMs,
+    });
+    cleanups.push(() => daemon.close());
+
+    const initialize = await requestUnixJson(socketPath, "POST", "/mcp", {
+      jsonrpc: "2.0",
+      id: 1,
+      method: "initialize",
+      params: {
+        protocolVersion: "2025-03-26",
+        capabilities: {},
+        clientInfo: { name: "vitest", version: "0.0.0" },
+      },
+    });
+    const sessionIdHeader = initialize.headers["mcp-session-id"];
+    const sessionId = Array.isArray(sessionIdHeader) ? sessionIdHeader[0] : sessionIdHeader;
+    expect(sessionId).toBeDefined();
+    expect(touchTransport).toHaveBeenCalledTimes(2);
+    const sessionDir = path.join(rootDir, "sessions", sessionId!);
+
+    const eventStream = await openUnixEventStream(socketPath, "/mcp", sessionId!);
+    cleanups.push(() => eventStream.close());
+    const heldRequest = await holdUnixJsonRequestBody(socketPath, "/mcp", sessionId!, {
+      jsonrpc: "2.0",
+      id: 2,
+      method: "ping",
+      params: {},
+    });
+    cleanups.push(async () => {
+      await heldRequest.release().catch(() => undefined);
+    });
+
+    currentTimeMs += sessionInactivityTtlMs + 1;
+    const response = await heldRequest.release();
+    expect(response.statusCode).toBe(200);
+
+    currentTimeMs += sessionInactivityTtlMs + 1;
+    expect(await daemon.reapExpiredSessions?.()).toMatchObject({ sessionsRetired: 0 });
+    expect(fs.existsSync(sessionDir)).toBe(true);
+
+    await eventStream.close();
+    await vi.waitFor(() => {
+      expect(touchTransport).toHaveBeenCalledTimes(6);
+    });
+    currentTimeMs += sessionInactivityTtlMs + 1;
+    expect(await daemon.reapExpiredSessions?.()).toMatchObject({ sessionsRetired: 1 });
+    expect(fs.existsSync(sessionDir)).toBe(false);
+  });
+
   it("counts an existing-session request before its body finishes arriving", async () => {
     const rootDir = fs.mkdtempSync(path.join(os.tmpdir(), "graft-session-reaper-body-"));
     const socketPath = path.join(rootDir, "daemon.sock");

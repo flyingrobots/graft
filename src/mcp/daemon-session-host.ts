@@ -359,13 +359,32 @@ export function createDaemonSessionHost(options: CreateDaemonSessionHostOptions)
     session.lastActivityAtMs = clock.read();
     session.activeRequests++;
     options.controlPlane.touchTransport(session.id);
+    let requestFailure: { readonly error: unknown } | null = null;
     try {
       await handle();
-    } finally {
-      session.activeRequests = Math.max(0, session.activeRequests - 1);
+    } catch (error) {
+      requestFailure = { error };
+    }
+    let settlementFailure: { readonly error: unknown } | null = null;
+    try {
+      if (session.activeRequests <= 0) {
+        throw new Error(`Daemon session request reference underflow: ${session.id}`);
+      }
+      session.activeRequests--;
       session.lastActivityAtMs = clock.read();
       options.controlPlane.touchTransport(session.id);
+    } catch (error) {
+      settlementFailure = { error };
     }
+    if (requestFailure !== null && settlementFailure !== null) {
+      throw new AggregateError(
+        [requestFailure.error, settlementFailure.error],
+        "Daemon session request and settlement both failed",
+        { cause: requestFailure.error },
+      );
+    }
+    if (requestFailure !== null) throw requestFailure.error;
+    if (settlementFailure !== null) throw settlementFailure.error;
   }
 
   async function reapExpiredSessions(): Promise<SessionSweepResult> {
