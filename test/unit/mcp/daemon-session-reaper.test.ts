@@ -275,7 +275,7 @@ describe("mcp: daemon session reaper", () => {
 
     wallClock.mockReturnValue(1_000_000 + sessionInactivityTtlMs + 1);
 
-    expect(await daemon.reapExpiredSessions?.()).toMatchObject({ sessionsRetired: 0 });
+    expect(await daemon.reapExpiredSessions()).toMatchObject({ sessionsRetired: 0 });
     expect(fs.existsSync(path.join(rootDir, "sessions", sessionId!))).toBe(true);
   });
 
@@ -320,7 +320,7 @@ describe("mcp: daemon session reaper", () => {
     const sessionDir = path.join(rootDir, "sessions", sessionId!);
 
     currentTimeMs = invalidSample;
-    expect(await daemon.reapExpiredSessions?.()).toMatchObject({
+    expect(await daemon.reapExpiredSessions()).toMatchObject({
       sessionsRetired: 0,
       liveDirectoriesRemoved: 0,
       orphanDirectoriesRemoved: 0,
@@ -335,7 +335,7 @@ describe("mcp: daemon session reaper", () => {
     expect(fs.existsSync(sessionDir)).toBe(true);
 
     currentTimeMs = 11_001;
-    expect(await daemon.reapExpiredSessions?.()).toMatchObject({
+    expect(await daemon.reapExpiredSessions()).toMatchObject({
       sessionsRetired: 1,
       sweepFailure: null,
     });
@@ -468,13 +468,13 @@ describe("mcp: daemon session reaper", () => {
 
     // 2. Advance time by 5 seconds (within TTL) and sweep
     currentTimeMs += 5_000;
-    const reapedMid = await daemon.reapExpiredSessions?.();
+    const reapedMid = await daemon.reapExpiredSessions();
     expect(reapedMid).toMatchObject({ sessionsRetired: 0 });
     expect(fs.existsSync(sessionDir)).toBe(true);
 
     // 3. Advance time by another 6 seconds (total 11s > 10s TTL) and sweep
     currentTimeMs += 6_000;
-    const reapedAfter = await daemon.reapExpiredSessions?.();
+    const reapedAfter = await daemon.reapExpiredSessions();
     expect(reapedAfter).toMatchObject({
       sessionsRetired: 1,
       liveDirectoriesRemoved: 1,
@@ -542,7 +542,7 @@ describe("mcp: daemon session reaper", () => {
 
     currentTimeMs += 10_001;
     const closing = daemon.close();
-    const reaping = daemon.reapExpiredSessions?.();
+    const reaping = daemon.reapExpiredSessions();
     const [, reaped] = await Promise.all([closing, reaping]);
 
     expect(reaped).toMatchObject({ sessionsRetired: 0 });
@@ -596,7 +596,7 @@ describe("mcp: daemon session reaper", () => {
     const sessionDir = path.join(rootDir, "sessions", sessionId!);
 
     currentTimeMs += 10_001;
-    expect(await daemon.reapExpiredSessions?.()).toMatchObject({
+    expect(await daemon.reapExpiredSessions()).toMatchObject({
       sessionsRetired: 1,
       liveDirectoriesRemoved: 0,
       orphanDirectoriesRemoved: 0,
@@ -609,7 +609,7 @@ describe("mcp: daemon session reaper", () => {
     });
     expect(fs.existsSync(sessionDir)).toBe(true);
 
-    expect(await daemon.reapExpiredSessions?.()).toMatchObject({
+    expect(await daemon.reapExpiredSessions()).toMatchObject({
       sessionsRetired: 0,
       liveDirectoriesRemoved: 0,
       orphanDirectoriesRemoved: 1,
@@ -695,7 +695,7 @@ describe("mcp: daemon session reaper", () => {
     // The stream is still open while monotonic elapsed time exceeds the TTL.
     currentTimeMs += 15_000;
 
-    const reapedWhileActive = await daemon.reapExpiredSessions?.();
+    const reapedWhileActive = await daemon.reapExpiredSessions();
     expect(reapedWhileActive).toMatchObject({ sessionsRetired: 0 });
     expect(fs.existsSync(sessionDir)).toBe(true);
 
@@ -756,7 +756,7 @@ describe("mcp: daemon session reaper", () => {
     expect(response.statusCode).toBe(200);
 
     currentTimeMs += sessionInactivityTtlMs + 1;
-    expect(await daemon.reapExpiredSessions?.()).toMatchObject({ sessionsRetired: 0 });
+    expect(await daemon.reapExpiredSessions()).toMatchObject({ sessionsRetired: 0 });
     expect(fs.existsSync(sessionDir)).toBe(true);
 
     await eventStream.close();
@@ -764,7 +764,7 @@ describe("mcp: daemon session reaper", () => {
       expect(touchTransport).toHaveBeenCalledTimes(6);
     });
     currentTimeMs += sessionInactivityTtlMs + 1;
-    expect(await daemon.reapExpiredSessions?.()).toMatchObject({ sessionsRetired: 1 });
+    expect(await daemon.reapExpiredSessions()).toMatchObject({ sessionsRetired: 1 });
     expect(fs.existsSync(sessionDir)).toBe(false);
   });
 
@@ -809,7 +809,7 @@ describe("mcp: daemon session reaper", () => {
     });
 
     currentTimeMs += sessionInactivityTtlMs + 1;
-    const reapedWhileBodyPending = await daemon.reapExpiredSessions?.();
+    const reapedWhileBodyPending = await daemon.reapExpiredSessions();
     const remainedResident = fs.existsSync(sessionDir);
     const response = await heldRequest.release();
 
@@ -818,7 +818,7 @@ describe("mcp: daemon session reaper", () => {
     expect(response.statusCode).toBe(200);
 
     currentTimeMs += sessionInactivityTtlMs + 1;
-    expect(await daemon.reapExpiredSessions?.()).toMatchObject({ sessionsRetired: 1 });
+    expect(await daemon.reapExpiredSessions()).toMatchObject({ sessionsRetired: 1 });
     expect(fs.existsSync(sessionDir)).toBe(false);
   });
 

@@ -58,7 +58,7 @@ export interface GraftDaemonServer {
   readonly socketPath: string;
   readonly healthPath: typeof HEALTH_PATH;
   readonly mcpPath: typeof MCP_PATH;
-  reapExpiredSessions?(): Promise<SessionSweepResult>;
+  reapExpiredSessions(): Promise<SessionSweepResult>;
   close(): Promise<void>;
   getHealthStatus(): DaemonHealthStatus;
 }

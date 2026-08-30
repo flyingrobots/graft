@@ -22,6 +22,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   discoverable and retryable by later sweeps. The process-local elapsed-time
   clock rejects non-finite, negative, and regressing samples with a structured
   failed-sweep result instead of expiring sessions or silently doing no work.
+  The manual sweep method is a required daemon capability rather than an
+  optional interface member.
 
 ### Fixed
 
