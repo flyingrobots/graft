@@ -184,6 +184,47 @@ thread on which to post the requested interim `@codex` summary. The ready PR
 is created only after this review witness and Retro are committed and
 validated.
 
+## Post-publication Code Lawyer Closure
+
+The complete PR audit added six accepted repairs after publication:
+
+- required the locator's canonical graph root at every sidecar-opening and
+  worker boundary instead of deriving authority from a terminal path;
+- refused unsafe pre-existing graph directories without changing their modes;
+- reset a persistent monitor's sidecar-scoped checkpoint when authorization
+  fallback changes its worktree anchor;
+- canonicalized an existing CLI index `cwd` before path containment checks;
+- proved copied-Git scrubbing from resulting state even when Git emits benign
+  diagnostics; and
+- replaced source-substring Docker fallback checks with exported behavior.
+
+The suggestion to weaken the exact Alpine Git revision assertion to a generic
+version pattern was rejected: exact package revision locking is the hermeticity
+invariant recorded by `SCR-02`, not incidental wording.
+
+Each behavioral repair had a focused RED and GREEN receipt. The test-quality
+source-inspection repair used mutation sensitivity rather than manufacturing a
+product defect. All originating inline review threads were answered with their
+repair commits and resolved.
+
+The final implementation gate ran from the clean, pushed tree at
+`048cd804506c5a38a561cc408197c4739472f763`:
+
+```text
+Test Files  262 passed (262)
+Tests       2085 passed (2085)
+Duration    137.49s
+
+pnpm lint       passed
+pnpm typecheck  passed
+pnpm build      passed
+git diff --check origin/main...HEAD  passed
+```
+
+The runner used
+`graft-test:local-60293-cf0d6f15-81e4-4596-a17f-1f32ed442b8e` and deleted it
+after the green run.
+
 ## Commit Ledger
 
 ```text
@@ -223,6 +264,12 @@ ea09712c fix(warp): reject source-overlapping graph roots
 cf1ad05e docs: satisfy strict Markdown style
 88ae127e docs: repair stale design references
 e5fe5947 docs(retro): record strict pre-publication review
+1b66de09 Fix: require explicit WARP graph authority roots
+66b8aa68 Fix: refuse unsafe pre-existing WARP directories
+b8cd85fb Fix: reset monitor checkpoints on anchor changes
+8dac6d78 Fix: canonicalize CLI index working directories
+47152e84 Fix: test scrubber behavior independent of diagnostics
+048cd804 Fix: test Docker fallback behavior through exports
 ```
 
 ## Bounded Non-goals
