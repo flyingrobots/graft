@@ -39,6 +39,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   before any affected session can become eligible.
   Session IDs remain reserved from orphan discovery while their shared terminal
   cleanup promise is still settling, preventing concurrent scratch deletion.
+  Scheduled reaping coalesces timer ticks while a sweep is in flight, bounding
+  pending callbacks and emitting each structured sweep diagnostic once.
 
 ### Fixed
 

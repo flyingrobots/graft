@@ -239,7 +239,9 @@ rollback finishes.
 
 Only one sweep may execute storage discovery at a time. Concurrent scheduled
 or manual callers share the same in-flight result, and shutdown awaits that
-operation before relinquishing root ownership.
+operation before relinquishing root ownership. The interval scheduler also
+admits at most one pending observer, so a blocked sweep cannot accumulate one
+promise continuation or duplicate diagnostic per timer tick.
 
 ## Sweep result and observability
 

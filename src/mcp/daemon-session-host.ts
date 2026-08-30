@@ -576,9 +576,12 @@ export function createDaemonSessionHost(options: CreateDaemonSessionHostOptions)
     return tracked;
   }
 
+  let scheduledSweepPending = false;
   let reaperTimer: NodeJS.Timeout | null = null;
   if (reaperIntervalMs > 0) {
     reaperTimer = setInterval(() => {
+      if (scheduledSweepPending) return;
+      scheduledSweepPending = true;
       void reapExpiredSessions()
         .then((result) => {
           if (result.sweepFailure !== null) {
@@ -593,6 +596,9 @@ export function createDaemonSessionHost(options: CreateDaemonSessionHostOptions)
         })
         .catch((error: unknown) => {
           console.error(`[graft] session reaper error: ${String(error)}`);
+        })
+        .finally(() => {
+          scheduledSweepPending = false;
         });
     }, reaperIntervalMs);
     reaperTimer.unref();
