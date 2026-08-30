@@ -212,6 +212,8 @@ ObserveWorkspaceSnapshotRequest
   symlinkPolicy                 # REFUSE
   observationAlgorithm
   observationAlgorithmVersion
+  analysisProjectionPolicy      # RETAIN_COLORFUL_PROSE_V1
+  proseProjectionSchemaIdentity
   policyIdentity
   capabilityIdentity
   settlementSchemaIdentity
@@ -256,6 +258,19 @@ ObserveWorkspaceSnapshotSettlement
     bytes                       # inline only for this cycle; see below
     byteLength
     contentDigest
+    analysisProjection
+      posture                   # NOT_APPLICABLE | RETAINED_PROSE
+      retainedProse?            # present iff posture == RETAINED_PROSE
+        schemaIdentity          # graft.prose-projection/v1
+        producerContractVersion # colorful.syntax/v1
+        producerVocabularyHash
+        sourceContentDigest     # must equal the containing file digest
+        format                  # PROSE
+        partial                 # false in v1
+        syntaxSpans[]
+        outline[]
+        jumpTable[]
+        projectionDigest
   apertureConformance
   consistencyPosture
   obstruction?
@@ -270,6 +285,20 @@ A successful settlement contains an exact observed workspace basis and the
 canonical path/byte evidence needed for replay. Its admitted paths are ordered,
 unique, normalized, and a subset of the requested aperture. For this cycle's
 one-file successful observation, the admitted set equals the requested set.
+
+**Prose analysis is retained settlement content, not replay authority.** The
+request fixes `RETAIN_COLORFUL_PROSE_V1` and its schema identity before the
+observer runs. For a Colorful-supported path, a successful settlement must
+carry `RETAINED_PROSE`; `NOT_APPLICABLE` is valid only for a path outside that
+profile. The retained payload is the complete `ProseProjection` product
+surface (`format`, `partial`, `syntaxSpans`, `outline`, and `jumpTable`) from
+`src/operations/colorful-prose-projection.ts`, not raw CLI output. It is bound
+to the containing entry by `sourceContentDigest`, bound to the producer by the
+Colorful contract version and vocabulary hash, and self-bound by
+`projectionDigest`. The production decoder validates those bindings and the
+projection schema before constructing a process-free retained projection
+provider. Both the first post-settlement `file_outline` execution and restarted
+replay receive that same provider; neither can call the Colorful CLI.
 
 **`entryKind` is schema-bound, not inferred.** The read view's `SettledFile`
 already carries `entryKind: "regular" | "symlink"` and enforces
@@ -548,14 +577,14 @@ fixture cannot distinguish a correct rule from no rule at all.
       upgraded binary changes the result from identical retained bytes.
 - [ ] **Removing process authority may not change the answer.** The resolution
       above is *not* "drop the projector during replay only". For a
-      Colorful-supported input such as `.txt`, the live path can return a prose
-      outline while a projector-less replay returns `UNSUPPORTED_LANGUAGE` —
-      replay would then silently change a user-visible result and still satisfy
-      a zero-process counter. Exactly one of:
-      (a) the projection is retained and versioned as settlement content and
-      replayed from it; or
-      (b) the projector is removed **symmetrically from both executions**, so
-      live and replayed results agree by construction.
+      Colorful-supported input such as `.txt`, the observer runs the versioned
+      Colorful producer before settlement and retains the schema-admitted prose
+      projection described by the canonical contract. The production decoder
+      validates its source digest, producer identities, schema identity, and
+      projection digest, then supplies a process-free retained projection
+      provider to **both** the first post-settlement execution and replay.
+      Neither analysis path may receive `createColorfulCliProseProjector` or
+      silently fall back to `UNSUPPORTED_LANGUAGE`.
 - [ ] The proof covers a **Colorful-supported prose input**, not only a
       TypeScript fixture. A TS-only fixture satisfies the zero-process counter
       without ever exercising the branch this criterion exists to constrain,
@@ -759,7 +788,12 @@ The cycle owns only the pieces required to ring this bell:
 2. The minimum versioned Edict/Echo contract support for unknown workspace
    basis, if the pinned substrate cannot yet express it.
 3. Production request/claim/settlement composition for one bounded read.
-4. Production settlement decoding into `AdmittedWorkspaceReadView`.
+4. Production settlement decoding into `AdmittedWorkspaceReadView` plus a
+   process-free retained prose projection provider. The decoder validates the
+   per-file projection posture, source-content binding, projection schema,
+   Colorful producer contract/vocabulary identities, and projection digest;
+   both live post-settlement analysis and replay consume this provider rather
+   than `createColorfulCliProseProjector`.
 5. `file_outline` live execution and restart replay proof, including the
    `replayProjection` definition and the test asserting it is total over the
    whole `RepoWorkspaceFileOutlineResult` union — success, refusal, and the two
@@ -770,10 +804,11 @@ The cycle owns only the pieces required to ring this bell:
    Listing them here rather than "and so on" is deliberate — an acceptance
    criterion whose instrumentation is outside the implementation boundary
    cannot be met by the cycle that owns it.
-7. The contract additions the acceptance list depends on: `entryKind` per
-   admitted entry, the two identity fields on the request, a path-only refusal
-   variant carrying no `actual`, and an explicit recovery-state result in both
-   the operation and MCP unions.
+7. The contract additions the acceptance list depends on: `entryKind` and the
+   discriminated retained-analysis projection per admitted entry, the request's
+   root and projection-policy identities, a path-only refusal variant carrying
+   no `actual`, and an explicit recovery-state result in both the operation and
+   MCP unions.
 
 Implementation should remain one causal-invariant campaign. If an upstream
 contract change needs its own repository PR, that dependency lands first; it
