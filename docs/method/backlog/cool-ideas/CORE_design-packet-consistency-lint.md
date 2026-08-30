@@ -35,9 +35,9 @@ of how the packet is worded:
 2. **Counter closure** — the identifiers in the required-evidence block and the
    counters named in acceptance criteria are the same set. On this packet the
    two sets disagreed twice, once under two names for the same count.
-3. **Reference resolution** — "see below" resolves in the stated direction, and
-   every `src/...` path cited exists in the tree. The path check alone catches a
-   packet that has gone stale against the tree.
+3. **Reference resolution** — every `src/...` path cited exists in the tree,
+   catching a packet that has gone stale against the implementation without
+   constraining how the packet phrases its cross-references.
 
 ## Scope note
 
