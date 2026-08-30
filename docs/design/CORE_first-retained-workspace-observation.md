@@ -805,10 +805,11 @@ The cycle owns only the pieces required to ring this bell:
    criterion whose instrumentation is outside the implementation boundary
    cannot be met by the cycle that owns it.
 7. The contract additions the acceptance list depends on: `entryKind` and the
-   discriminated retained-analysis projection per admitted entry, the request's
-   root and projection-policy identities, a path-only refusal variant carrying
-   no `actual`, and an explicit recovery-state result in both the operation and
-   MCP unions.
+   discriminated retained-analysis projection per admitted entry;
+   `settlementSchemaIdentity`, `reconciliationLawIdentity`,
+   `analysisProjectionPolicy`, and `proseProjectionSchemaIdentity` on the
+   request; a path-only refusal variant carrying no `actual`; and an explicit
+   recovery-state result in both the operation and MCP unions.
 
 Implementation should remain one causal-invariant campaign. If an upstream
 contract change needs its own repository PR, that dependency lands first; it
