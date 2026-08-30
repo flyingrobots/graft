@@ -640,9 +640,14 @@ The executable proof must expose positions and counters, not infer ordering
 from log prose:
 
 ```text
+requestWalPosition < claimWalPosition
 requestWalPosition < firstFilesystemReadPosition
 requestWalPosition < firstProjectionProcessExecutionPosition
+claimWalPosition < firstFilesystemReadPosition
+claimWalPosition < firstProjectionProcessExecutionPosition
 settlementWalPosition < firstGraftAnalysisReadPosition
+claim.requestIdentity == request.requestIdentity
+claim.causalBasisDigest == request.causalBasisDigest
 settlement.requestIdentity == request.requestIdentity
 settlement.requestedRoot == request.requestedRoot
 settlement.resolvedRoot == request.resolvedRoot
@@ -659,6 +664,11 @@ deniedPathRetainedSettlements == 0
 
 The filesystem counter covers all metadata and content operations performed by
 the external observation authority, not only calls named `readFile`.
+
+`claimWalPosition` is the durable WAL position of the exact claim handed to the
+observer. Its ordering and correlation assertions are the executable evidence
+for claim-before-effect; possession of an in-memory claim object is not a
+durability proof.
 
 `firstProjectionProcessExecutionPosition` covers every `processRunner.run`
 invocation used to produce retained analysis, including the Colorful version
@@ -766,7 +776,8 @@ Edict executor.
    counter without ever exercising the projector branch that counter exists to
    constrain.
 2. An observation-authority spy records every metadata/content operation and
-   fails if no durable request commit is visible at the first operation.
+   fails unless the exact durable request and correlated claim commits are both
+   visible at the first operation.
    **This spy alone cannot prove invariant 1**, which orders reads by *any*
    component: a read made outside the authority — `repo-paths.ts` resolving a
    path before `RepoWorkspace` exists — is invisible to it, so the spy reports
@@ -776,7 +787,9 @@ Edict executor.
    necessary component of the evidence, never the whole of it.
    The same fixture injects the projection process capability, rejects any
    invocation outside the policy-bound Colorful protocol, and records its first
-   position so an eager version probe before request/claim retention fails.
+   position so an eager version probe before request/claim retention fails. It
+   asserts the claim's request identity and causal basis against the request,
+   rather than treating any retained claim as sufficient authority.
 3. An analysis-read spy fails if no durable settlement commit is visible at
    the first Graft read.
 4. A restart test closes all live observer authority, reopens only Echo
@@ -825,12 +838,12 @@ The cycle owns only the pieces required to ring this bell:
    whole `RepoWorkspaceFileOutlineResult` union — success, refusal, and the two
    variants item 7 adds — not over `FileOutlineResult` alone.
 6. Instrumented causal-order evidence and every counter the acceptance list
-   requires: filesystem reads, git-warp opens, direct Git operations, process
-   executions (including the first projection-process position), pre-request
-   workspace metadata reads, and denied-path retention. Listing them here
-   rather than "and so on" is deliberate — an acceptance criterion whose
-   instrumentation is outside the implementation boundary cannot be met by the
-   cycle that owns it.
+   requires: request, claim, settlement, first-read, first-process, and
+   first-analysis positions; filesystem reads, git-warp opens, direct Git
+   operations, process executions, pre-request workspace metadata reads, and
+   denied-path retention. Listing them here rather than "and so on" is
+   deliberate — an acceptance criterion whose instrumentation is outside the
+   implementation boundary cannot be met by the cycle that owns it.
 7. The contract additions the acceptance list depends on: `entryKind` and the
    discriminated retained-analysis projection per admitted entry;
    `settlementSchemaIdentity`, `reconciliationLawIdentity`,
