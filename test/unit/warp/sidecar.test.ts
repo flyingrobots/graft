@@ -141,6 +141,21 @@ describe("warp: isolated sidecar persistence", { timeout: 20_000 }, () => {
     expect(fs.existsSync(sidecarRepo)).toBe(false);
   });
 
+  it("refuses an unsafe pre-existing graph root without changing its mode", async () => {
+    const graphRoot = tempDir("graft-sidecar-preexisting-root-");
+    const sidecarRepo = path.join(graphRoot, "project", "worktree", "actor", "warp.git");
+    if (process.platform === "win32") return;
+    fs.chmodSync(graphRoot, 0o755);
+
+    await expect(openWarpSidecar({
+      graphRoot,
+      sidecarRepo,
+      writerId: "graft_session_preexisting_root",
+    })).rejects.toThrow(/non-private Graft graph storage directory/u);
+    expect(fs.statSync(graphRoot).mode & 0o777).toBe(0o755);
+    expect(fs.existsSync(sidecarRepo)).toBe(false);
+  });
+
   it("rejects blank graph and sidecar paths before touching storage", async () => {
     const source = sourceRepo();
     const graphRoot = tempDir("graft-sidecar-blank-path-root-");
@@ -372,7 +387,7 @@ describe("warp: isolated sidecar persistence", { timeout: 20_000 }, () => {
     const source = sourceRepo();
     const graphRoot = tempDir("graft-sidecar-non-bare-root-");
     const location = resolveWarpSidecarLocation(graphRoot, identity(source, "graft_session_a"));
-    fs.mkdirSync(location.repoPath, { recursive: true });
+    fs.mkdirSync(location.repoPath, { recursive: true, mode: 0o700 });
     git(location.repoPath, "init --initial-branch main");
 
     await expect(openWarpSidecar({

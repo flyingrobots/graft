@@ -153,21 +153,14 @@ function assertGraphStorageDisjoint(
 }
 
 async function assertPrivateDirectory(directory: string): Promise<void> {
-  const before = await fs.lstat(directory);
-  if (before.isSymbolicLink()) {
+  const entry = await fs.lstat(directory);
+  if (entry.isSymbolicLink()) {
     throw new Error(`Refusing to use symlinked Graft graph storage directory: ${directory}`);
   }
-  if (!before.isDirectory()) {
+  if (!entry.isDirectory()) {
     throw new Error(`Refusing to use non-directory Graft graph storage path: ${directory}`);
   }
-  if (process.platform !== "win32") {
-    await fs.chmod(directory, PRIVATE_DIRECTORY_MODE);
-  }
-  const after = await fs.lstat(directory);
-  if (after.isSymbolicLink() || !after.isDirectory()) {
-    throw new Error(`Refusing to use unsafe Graft graph storage directory: ${directory}`);
-  }
-  if (process.platform !== "win32" && (after.mode & 0o077) !== 0) {
+  if (process.platform !== "win32" && (entry.mode & 0o077) !== 0) {
     throw new Error(`Refusing to use non-private Graft graph storage directory: ${directory}`);
   }
 }

@@ -44,6 +44,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ### Fixed
 
+- **Non-mutating graph-root admission**: sidecar opening no longer changes the
+  mode of a pre-existing graph root or managed path component. Existing storage
+  must already be a private directory; unsafe paths fail closed unchanged.
+
 - **Concurrent sidecar opening**: exact simultaneous opens coalesce within one
   process, while first-time bare-repository installation is atomic across
   processes. Callers can no longer observe a partial sidecar or race its Git

@@ -151,7 +151,8 @@ Sidecar initialization must:
 - reject a blank graph root, any graph root reached through a symlink alias,
   and any root that contains or is contained by the source worktree or common
   Git directory before touching storage;
-- create Graft-owned directories with private permissions;
+- create absent Graft-owned directories with private permissions, refuse an
+  unsafe pre-existing directory, and never repair one by changing its mode;
 - refuse symlinked or non-directory managed path components;
 - initialize an absent terminal repository as bare;
 - accept an existing terminal repository only if Git confirms it is bare;
