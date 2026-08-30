@@ -49,7 +49,7 @@ truth without adding evidence.
 ## Source Truth
 
 Every claim the packet makes about the current tree was checked against the
-tree, not against memory. All eleven cited source paths resolve:
+tree, not against memory. Every cited source path resolves:
 
 - `src/operations/repo-workspace.ts` — `fileOutline` calls `observe()` before
   `evaluateRefusal()`, which is why invariant 13 exists; the cache-hit branch
@@ -77,6 +77,9 @@ tree, not against memory. All eleven cited source paths resolve:
 - `src/mcp/workspace-router-runtime.ts` — runtime setup reads `.graftignore`
   and constructs the worktree-root path resolver before an operation exists,
   which completes that closed prerequisite-read exemption.
+- `src/mcp/server-invocation.ts` — an explicit `cwd` is routed through
+  workspace authorization and execution-context planning before the tool
+  handler runs, which is why replay needs a pre-routing input posture.
 - `src/mcp/receipt.ts` — the MCP boundary attaches per-call receipt metadata,
   which is why replay comparison occurs before the wrapper is attached.
 - `src/contracts/output-schemas.ts` — the output schemas admit `_schema`,

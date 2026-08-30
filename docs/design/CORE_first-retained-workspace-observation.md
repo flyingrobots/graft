@@ -403,7 +403,7 @@ sequenceDiagram
     R-->>G: file_outline result
 
     Note over G,E: Process terminates and reopens from Echo history
-    G->>E: Recover settlement selected by the replay key
+    G->>E: Replay mode supplies retained observation key
     E-->>V: Same retained result bytes and receipt
     V-->>R: Same AdmittedWorkspaceReadView
     R-->>G: Equal under replayProjection; no observer or git-warp access
@@ -429,6 +429,40 @@ Choosing the concrete key shape is implementation work for this cycle. What the
 packet fixes is that the choice must be explicit, deterministic, and proven
 against **more than one settlement for the same aperture** — a single-record
 fixture cannot distinguish a correct rule from no rule at all.
+
+### Replay entry is receipt-addressed, not workspace-routed
+
+The current MCP input is `{ path, cwd? }`, and daemon dispatch resolves an
+explicit `cwd` through `WorkspaceRouter` before the tool handler runs
+(`src/mcp/server-invocation.ts`). That live route performs exactly the Git and
+filesystem prerequisites enumerated above. Reusing it after restart would make
+the zero-I/O replay claim false before Echo recovery began.
+
+This cycle therefore changes `file_outline` input to a discriminated union:
+
+```text
+FileOutlineInvocation
+  LIVE
+    path
+    cwd?
+  REPLAY
+    retainedObservationKey
+```
+
+Existing `{ path, cwd? }` calls normalize to `LIVE` for compatibility. A
+successful live retained observation returns an opaque, integrity-protected
+`retainedObservationKey` bound to the exact request identity, settlement
+receipt, aperture, causal position, and authenticated caller namespace. The
+key is a capability, not a path index and not a caller-asserted identity.
+
+`REPLAY` is recognized before workspace authorization or execution-context
+planning. It accepts neither `cwd` nor `path`; both come from the retained
+request/settlement selected by the key. The recovery composition validates the
+authenticated caller binding and reconstructs the authority context only from
+Echo history. A malformed or unauthorized key is a typed refusal. A valid key
+whose protocol state has no settlement yields the recovery-state result. No
+case falls back to `WorkspaceRouter`, Git, `.graftignore`, a path resolver, or
+live observation.
 
 ## Invariants
 
@@ -611,6 +645,13 @@ fixture cannot distinguish a correct rule from no rule at all.
       `LiveWorkspaceReadSource` as a fallback.
 - [ ] One existing governed operation, `file_outline`, completes against the
       retained admitted view.
+- [ ] `file_outline` exposes the discriminated `LIVE`/`REPLAY` input above. A
+      successful live retained result returns the opaque replay key, while
+      replay rejects `cwd`/`path` and dispatches before workspace routing.
+- [ ] The replay key is integrity-protected and bound to the authenticated
+      caller namespace, request identity, settlement receipt, aperture, and
+      causal position. Forged, cross-caller, and aperture-substitution keys are
+      typed refusals rather than lookup misses.
 - [ ] The process terminates, reopens from Echo history, and produces a
       `file_outline` result identical to the live one **under the comparison
       projection defined below**. Raw structural equality is the wrong bar and
@@ -698,10 +739,12 @@ settlement.resolvedRoot == request.resolvedRoot
 settlement.workspaceIdentity == request.workspaceIdentity
 settlement.admittedAperture subsetOf request.aperture
 replayProjection(liveFileOutlineResult) == replayProjection(restartedFileOutlineResult)
+replayInvocation.retainedObservationKey == liveFileOutlineResult.retainedObservationKey
 restartedFilesystemReads == 0
 restartedGitWarpOpens == 0
 restartedProcessExecutions == 0
 restartedDirectGitOperations == 0
+restartedWorkspaceRouteResolutions == 0
 preRequestWorkspaceMetadataReads == 0
 deniedPathRetainedSettlements == 0
 ```
@@ -729,6 +772,12 @@ settlement commit fails the proof immediately.
 The direct-Git counter covers `GitClient` operations that do not pass through
 git-warp, including any invoked while reconstructing a causal basis. Without
 it, invariant 9 has no evidence: the two existing counters both miss that path.
+
+`restartedWorkspaceRouteResolutions` counts calls that authorize or construct a
+live workspace execution context. It must remain zero because a replay routed
+through `cwd` could perform prerequisite filesystem/Git reads before the other
+replay counters were installed and would make Echo recovery depend on a live
+worktree.
 
 `preRequestWorkspaceMetadataReads` counts `lstat`, `realpath`, and equivalent
 metadata calls made before the request is retained **and causally initiated for
@@ -759,8 +808,8 @@ error?
 and the MCP refusal variant additionally carries `projection`, `reasonDetail`,
 and `next` (`src/mcp/tools/file-outline.ts`).
 
-- **kept — semantic, determined by the retained bytes:** `path`, `outline`,
-  `jumpTable`, `partial`, `reason`, `error`, and the refusal fields
+- **kept — semantic, determined by retained evidence:** `path`, `outline`,
+  `jumpTable`, `partial`, `reason`, `error`, `retainedObservationKey`, and the refusal fields
   `projection`, `reasonDetail`, `next`. `partial` in particular is a fact about
   the answer; dropping it would let a truncated replay compare equal to a
   complete live result.
@@ -845,9 +894,11 @@ Edict executor.
    settlement.
 3. An analysis-read spy fails if no durable settlement commit is visible at
    the first Graft read.
-4. A restart test closes all live observer authority, reopens only Echo
-   history, reconstructs the view, and compares results under
-   `replayProjection` — not by raw structural equality, which cannot hold.
+4. A restart test closes the observer and `WorkspaceRouter`, reopens only Echo
+   history, invokes `file_outline` in `REPLAY` mode with the key returned by the
+   live call, reconstructs the view, and compares results under
+   `replayProjection` — not by raw structural equality, which cannot hold. It
+   fails if workspace authorization or execution-context planning is entered.
 5. Decoder tests reject malformed correlation, substituted roots, widened
    apertures, wrong digests, over-budget bytes, non-success posture,
    substituted attempt/observer, algorithm, policy, capability, schema, law or
@@ -870,6 +921,10 @@ Edict executor.
 11. An entry-kind test settles a symlink-reached path and asserts the decoder
     refuses it on schema-bound evidence rather than on observer cooperation
     (invariant 15).
+12. Replay-key tests reject malformed, forged, cross-caller, and
+    aperture-substitution capabilities; reject `cwd` or `path` in replay mode;
+    and return recovery state rather than live-routing fallback for a valid key
+    whose request is only requested or claimed.
 
 Tests assert protocol state, structured results, receipts, positions, and
 authority counters. They do not assert design-document wording or incidental
@@ -896,10 +951,11 @@ The cycle owns only the pieces required to ring this bell:
 6. Instrumented causal-order evidence and every counter the acceptance list
    requires: request, claim, settlement, first/last-read, first/last-process,
    and first-analysis positions; filesystem reads, git-warp opens, direct Git
-   operations, process executions, pre-request workspace metadata reads, and
-   denied-path retention. Listing them here rather than "and so on" is
-   deliberate — an acceptance criterion whose instrumentation is outside the
-   implementation boundary cannot be met by the cycle that owns it.
+   operations, process executions, workspace-route resolutions, pre-request
+   workspace metadata reads, and denied-path retention. Listing them here
+   rather than "and so on" is deliberate — an acceptance criterion whose
+   instrumentation is outside the implementation boundary cannot be met by the
+   cycle that owns it.
 7. The contract additions the acceptance list depends on: `entryKind` and the
    discriminated retained-analysis projection per admitted entry;
    `settlementSchemaIdentity`, `reconciliationLawIdentity`,
@@ -907,8 +963,9 @@ The cycle owns only the pieces required to ring this bell:
    request; the corresponding observation algorithm/version, projection,
    policy, capability, settlement-schema, reconciliation-law, and causal-basis
    correlation identities on the settlement; a path-only refusal variant
-   carrying no `actual`; and an explicit recovery-state result in both the
-   operation and MCP unions.
+   carrying no `actual`; the discriminated live/replay `file_outline` input and
+   retained observation key on successful output; and an explicit
+   recovery-state result in both the operation and MCP unions.
 
 Implementation should remain one causal-invariant campaign. If an upstream
 contract change needs its own repository PR, that dependency lands first; it
