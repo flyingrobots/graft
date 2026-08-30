@@ -34,8 +34,11 @@ ignored by path filters, and produced no findings at all.
 `METHOD.md` makes the packet the artifact implementation is built from — it
 names the hill, the acceptance criteria, and the test strategy before any code
 exists. So the document that determines what a cycle builds is the one document
-the review gate does not read, and CI cannot compensate: it passes on
-documentation by construction.
+the review gate does not read. CI can catch document inputs that have been
+encoded as executable contracts — this cycle's generated-DAG failure proves
+that — but it cannot validate design semantics or agreement between prose
+sections until a specific invariant is encoded. Green CI therefore cannot
+substitute for review of the packet itself.
 
 Codex was the only reviewer. It found **16 defects across three rounds, 11 of
 them P1**, including a settlement contract that could not encode the field its
