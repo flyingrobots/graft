@@ -44,6 +44,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ### Fixed
 
+- **CLI index path aliases**: `graft index --path` canonicalizes an existing
+  requested working directory before worktree containment checks, so symlink
+  aliases no longer misclassify in-worktree paths as escapes.
+
 - **Monitor fallback re-anchoring**: when a persistent monitor falls back to a
   different authorized worktree, it clears the prior sidecar's checkpoint and
   fully seeds the new worktree-keyed sidecar even when both anchors have the

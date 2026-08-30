@@ -260,6 +260,9 @@ handoff or actor evidence exists.
   hooks tree remain unchanged.
 - Production MCP, daemon-worker, monitor, API, and CLI composition roots do not
   open git-warp persistence against a source worktree.
+- CLI path-scoped indexing canonicalizes an existing requested `cwd`, so an
+  in-worktree path remains admissible through a symlink alias while lexical
+  escapes remain outside the resolved worktree.
 - Existing behavioral, path-boundary, capability, output-schema, typecheck,
   lint, and build gates pass.
 - Every package-script path that executes Vitest routes through the copy-in

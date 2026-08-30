@@ -1,3 +1,4 @@
+import * as fs from "node:fs";
 import * as path from "node:path";
 import { CanonicalJsonCodec } from "../adapters/canonical-json.js";
 import { nodeGit } from "../adapters/node-git.js";
@@ -41,8 +42,9 @@ function resolveIndexPaths(
   worktreeRoot: string,
   requestedPaths: readonly string[],
 ): readonly string[] {
+  const canonicalCwd = fs.realpathSync.native(requestedCwd);
   return requestedPaths.map((requestedPath) => {
-    const relative = path.relative(worktreeRoot, path.resolve(requestedCwd, requestedPath));
+    const relative = path.relative(worktreeRoot, path.resolve(canonicalCwd, requestedPath));
     if (relative === "" || relative === ".." || relative.startsWith(`..${path.sep}`) || path.isAbsolute(relative)) {
       throw new Error(`Index path is outside the resolved Git worktree: ${requestedPath}`);
     }

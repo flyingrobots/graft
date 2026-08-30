@@ -106,4 +106,39 @@ describe("cli: graft index", () => {
     expect(git(repoDir, "for-each-ref --format='%(refname) %(objectname)' refs/warp")).toBe(sourceRefsBefore);
     expect(git(repoDir, "count-objects -v")).toBe(sourceObjectsBefore);
   });
+
+  it("indexes a path from a symlinked cwd alias inside the resolved worktree", async () => {
+    const repoDir = createTestRepo("graft-index-alias-source-");
+    cleanups.push(repoDir);
+    fs.writeFileSync(path.join(repoDir, "app.ts"), "export const aliased = true;\n");
+    git(repoDir, "add -A");
+    git(repoDir, "commit -m init");
+    const aliasParent = fs.mkdtempSync(path.join(path.dirname(repoDir), "graft-index-alias-"));
+    cleanups.push(aliasParent);
+    const cwdAlias = path.join(aliasParent, "repo");
+    fs.symlinkSync(repoDir, cwdAlias, "dir");
+    const graphRoot = fs.mkdtempSync(path.join(path.dirname(repoDir), "graft-index-graphs-"));
+    cleanups.push(graphRoot);
+    const sourceRefsBefore = git(repoDir, "for-each-ref --format='%(refname) %(objectname)' refs/warp");
+    const sourceObjectsBefore = git(repoDir, "count-objects -v");
+    const stdout = createBufferWriter();
+    const stderr = createBufferWriter();
+
+    await runIndex({
+      cwd: cwdAlias,
+      graphRoot,
+      args: ["--path", "app.ts", "--json"],
+      stdout,
+      stderr,
+    });
+
+    expect(stderr.text()).toBe("");
+    expect(JSON.parse(stdout.text())).toMatchObject({
+      ok: true,
+      filesIndexed: 1,
+    });
+    expect(git(repoDir, "for-each-ref --format='%(refname) %(objectname)' refs/warp"))
+      .toBe(sourceRefsBefore);
+    expect(git(repoDir, "count-objects -v")).toBe(sourceObjectsBefore);
+  });
 });
