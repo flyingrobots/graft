@@ -10,6 +10,7 @@ import { DaemonControlPlane } from "../../../src/mcp/daemon-control-plane.js";
 import { PersistentMonitorRuntime } from "../../../src/mcp/persistent-monitor-runtime.js";
 import * as graftServerModule from "../../../src/mcp/server.js";
 import {
+  quarantineDaemonRootOwner,
   removeSessionDirectory,
   removeSessionOrphanDirectories,
   writeSessionOwnershipMarker,
@@ -1106,6 +1107,35 @@ describe("mcp: daemon session reaper", () => {
       .toBe("live-legacy-session\n");
     expect(fs.existsSync(path.join(rootDir, "daemon-owner.json"))).toBe(false);
     expect(fs.existsSync(customSocketPath)).toBe(false);
+  });
+
+  it("restores a newer owner displaced by a delayed stale takeover", async () => {
+    const rootDir = fs.mkdtempSync(path.join(os.tmpdir(), "graft-session-owner-race-"));
+    const ownerPath = path.join(rootDir, "daemon-owner.json");
+    const staleOwner = {
+      schemaVersion: 1 as const,
+      instanceId: "00000000-0000-4000-8000-000000000001",
+      pid: 1,
+      socketPath: path.join(rootDir, "stale.sock"),
+    };
+    const newerOwner = {
+      schemaVersion: 1 as const,
+      instanceId: "00000000-0000-4000-8000-000000000002",
+      pid: process.pid,
+      socketPath: path.join(rootDir, "newer.sock"),
+    };
+    fs.writeFileSync(ownerPath, `${JSON.stringify(newerOwner)}\n`);
+    cleanups.push(() => {
+      fs.rmSync(rootDir, { recursive: true, force: true });
+    });
+
+    await expect(quarantineDaemonRootOwner(ownerPath, staleOwner, "stale"))
+      .rejects.toMatchObject({
+        code: "DAEMON_ROOT_ALREADY_OWNED",
+      });
+
+    expect(JSON.parse(fs.readFileSync(ownerPath, "utf-8"))).toEqual(newerOwner);
+    expect(fs.readdirSync(rootDir)).toEqual(["daemon-owner.json"]);
   });
 
   it("refuses a second live owner without touching its session directory", async () => {

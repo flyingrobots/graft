@@ -9,7 +9,7 @@ const PRIVATE_DIRECTORY_MODE = 0o700;
 const PRIVATE_FILE_MODE = 0o600;
 const GENERATED_UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/u;
 
-interface DaemonRootOwnerRecord {
+export interface DaemonRootOwnerRecord {
   readonly schemaVersion: 1;
   readonly instanceId: string;
   readonly pid: number;
@@ -161,6 +161,73 @@ async function readRootOwner(ownerPath: string): Promise<DaemonRootOwnerRecord |
   return parsed;
 }
 
+function rootOwnerRecordsEqual(
+  left: DaemonRootOwnerRecord,
+  right: DaemonRootOwnerRecord,
+): boolean {
+  return left.instanceId === right.instanceId
+    && left.pid === right.pid
+    && left.socketPath === right.socketPath;
+}
+
+async function restoreQuarantinedRootOwner(
+  ownerPath: string,
+  quarantinedPath: string,
+): Promise<void> {
+  await fs.link(quarantinedPath, ownerPath);
+  await fs.unlink(quarantinedPath);
+}
+
+export async function quarantineDaemonRootOwner(
+  ownerPath: string,
+  expected: DaemonRootOwnerRecord,
+  disposition: "released" | "stale",
+): Promise<string | null> {
+  const quarantinedPath = `${ownerPath}.${disposition}-${crypto.randomUUID()}`;
+  try {
+    await fs.rename(ownerPath, quarantinedPath);
+  } catch (error: unknown) {
+    if (errorCode(error) === "ENOENT") return null;
+    throw error;
+  }
+
+  let displaced: DaemonRootOwnerRecord;
+  try {
+    const inspected = await readRootOwner(quarantinedPath);
+    if (inspected === null) {
+      throw new Error(`Quarantined daemon root owner disappeared: ${quarantinedPath}`);
+    }
+    displaced = inspected;
+  } catch (inspectionError) {
+    try {
+      await restoreQuarantinedRootOwner(ownerPath, quarantinedPath);
+    } catch (restoreError) {
+      throw new AggregateError(
+        [inspectionError, restoreError],
+        "Failed to inspect or restore a quarantined daemon root owner",
+        { cause: restoreError },
+      );
+    }
+    throw inspectionError;
+  }
+
+  if (!rootOwnerRecordsEqual(displaced, expected)) {
+    const ownershipError = new DaemonRootOwnershipError(displaced.instanceId);
+    try {
+      await restoreQuarantinedRootOwner(ownerPath, quarantinedPath);
+    } catch (restoreError) {
+      throw new AggregateError(
+        [ownershipError, restoreError],
+        "A newer daemon root owner was displaced and could not be restored",
+        { cause: restoreError },
+      );
+    }
+    throw ownershipError;
+  }
+
+  return quarantinedPath;
+}
+
 export async function acquireDaemonRootOwnership(input: {
   readonly graftDir: string;
   readonly socketPath: string;
@@ -199,13 +266,8 @@ export async function acquireDaemonRootOwnership(input: {
       throw new DaemonRootOwnershipError(current.instanceId);
     }
 
-    const stalePath = `${ownerPath}.stale-${crypto.randomUUID()}`;
-    try {
-      await fs.rename(ownerPath, stalePath);
-    } catch (error: unknown) {
-      if (errorCode(error) === "ENOENT") continue;
-      throw error;
-    }
+    const stalePath = await quarantineDaemonRootOwner(ownerPath, current, "stale");
+    if (stalePath === null) continue;
     await fs.unlink(stalePath);
   }
 
@@ -222,8 +284,11 @@ export async function acquireDaemonRootOwnership(input: {
       if (current.instanceId !== instanceId) {
         throw new Error(`Refusing to release daemon root owned by ${current.instanceId}`);
       }
-      const releasedPath = `${ownerPath}.released-${instanceId}`;
-      await fs.rename(ownerPath, releasedPath);
+      const releasedPath = await quarantineDaemonRootOwner(ownerPath, current, "released");
+      if (releasedPath === null) {
+        released = true;
+        return;
+      }
       await fs.unlink(releasedPath);
       released = true;
     },

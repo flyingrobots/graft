@@ -214,6 +214,11 @@ its endpoint. A live owner causes startup refusal; a stale owner is replaced
 only after its endpoint is proven inactive. Sharing one daemon root across
 independent live endpoints is invalid.
 
+Stale takeover and release quarantine the canonical owner entry, reread the
+moved record, and delete it only when every identity field still matches the
+record that authorized the move. If another owner replaced it in the interim,
+the moved inode is linked back to the canonical path and takeover refuses.
+
 Startup creates the direct `sessions` child when absent and rejects it when an
 existing path is a symbolic link or is not a directory. It does not chmod or
 scan through an unsafe sessions-root path.
