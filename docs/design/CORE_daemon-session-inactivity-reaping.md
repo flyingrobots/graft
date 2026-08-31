@@ -472,6 +472,9 @@ authority has been retired, and each failed close layer is reported separately.
       remove the orphan.
 - [x] A live session path replaced by a link or non-directory is refused as
       non-retryable and later reported as a preserved orphan entry.
+- [x] A live cleanup refused because the sessions root changed is reported as
+      retryable; restoring the exact parked root lets the next sweep remove the
+      marker-owned orphan.
 
 ### Public truth
 

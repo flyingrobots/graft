@@ -2663,6 +2663,70 @@ describe("mcp: daemon session reaper", () => {
     expect(fs.existsSync(sessionDir)).toBe(false);
   });
 
+  it("retries live cleanup after the exact sessions root is restored", async () => {
+    if (process.platform === "win32") return;
+    const rootDir = fs.mkdtempSync(path.join(os.tmpdir(), "graft-session-root-retry-"));
+    const externalRoot = fs.mkdtempSync(path.join(os.tmpdir(), "graft-session-root-retry-target-"));
+    const socketPath = path.join(rootDir, "daemon.sock");
+    const sessionsRoot = path.join(rootDir, "sessions");
+    const parkedSessionsRoot = path.join(rootDir, "sessions-parked");
+    cleanups.push(() => {
+      fs.rmSync(rootDir, { recursive: true, force: true });
+      fs.rmSync(externalRoot, { recursive: true, force: true });
+    });
+    let currentTimeMs = 1_000_000;
+    const daemon = await startDaemonServer({
+      graftDir: rootDir,
+      socketPath,
+      sessionInactivityTtlMs: 10_000,
+      sessionReaperIntervalMs: 0,
+      nowMs: () => currentTimeMs,
+    });
+    cleanups.push(() => daemon.close());
+    const initialize = await requestUnixJson(socketPath, "POST", "/mcp", {
+      jsonrpc: "2.0",
+      id: 1,
+      method: "initialize",
+      params: {
+        protocolVersion: "2025-03-26",
+        capabilities: {},
+        clientInfo: { name: "vitest", version: "0.0.0" },
+      },
+    });
+    const sessionIdHeader = initialize.headers["mcp-session-id"];
+    const sessionId = Array.isArray(sessionIdHeader) ? sessionIdHeader[0] : sessionIdHeader;
+    expect(sessionId).toBeDefined();
+    const sessionDir = path.join(sessionsRoot, sessionId!);
+    fs.renameSync(sessionsRoot, parkedSessionsRoot);
+    fs.symlinkSync(externalRoot, sessionsRoot, "dir");
+
+    currentTimeMs += 10_001;
+    const refusedSweep = await daemon.reapExpiredSessions();
+    expect(refusedSweep).toMatchObject({
+      sessionsRetired: 1,
+      liveDirectoriesRemoved: 0,
+      orphanDirectoriesRemoved: 0,
+    });
+    expect(refusedSweep.cleanupFailures).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        code: "SESSION_DIRECTORY_REMOVE_FAILED",
+        sessionId,
+        path: sessionDir,
+        retryable: true,
+      }),
+    ]));
+
+    fs.unlinkSync(sessionsRoot);
+    fs.renameSync(parkedSessionsRoot, sessionsRoot);
+    expect(await daemon.reapExpiredSessions()).toMatchObject({
+      sessionsRetired: 0,
+      liveDirectoriesRemoved: 0,
+      orphanDirectoriesRemoved: 1,
+      cleanupFailures: [],
+    });
+    expect(fs.existsSync(sessionDir)).toBe(false);
+  });
+
   it("marks an unsafe live-session path refusal as non-retryable", async () => {
     if (process.platform === "win32") return;
     const rootDir = fs.mkdtempSync(path.join(os.tmpdir(), "graft-session-unsafe-live-path-"));

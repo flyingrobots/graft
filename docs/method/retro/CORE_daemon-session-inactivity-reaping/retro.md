@@ -172,7 +172,7 @@ orphan scans but not terminal cleanup of a live session. Replacing `sessions`
 with a link immediately before DELETE redirected the stored session pathname
 to an external same-ID directory. Live removal now derives and pins the direct
 parent root, revalidates its device/inode identity before removal, and reports
-root replacement as non-retryable cleanup debt.
+root replacement as retryable cleanup debt.
 
 The same review found that a valid sweep could block while terminating one
 expired session, then retire a later session after that session recorded an
@@ -204,6 +204,13 @@ open handle with the validated device/inode identity, and restores then refuses
 any mismatch. The deterministic regression swaps in an external directory only
 after the quarantine rename and proves both the replacement and original
 contents survive.
+
+The paired Codex review found that the live-cleanup result taxonomy still
+classified that transient sessions-root refusal with permanently unsafe child
+paths. A restored exact root makes its marker-owned directory discoverable on
+the next sweep, so root-identity failures now remain retryable while symbolic
+links and non-directory children remain non-retryable. The regression restores
+the parked root and proves the next sweep removes the orphan.
 
 ## Drift
 
