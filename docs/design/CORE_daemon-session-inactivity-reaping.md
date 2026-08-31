@@ -321,6 +321,9 @@ The scanner:
 - retains each eligible candidate's inspected device/inode identity, moves the
   current UUID entry to an unpredictable quarantine sibling, and recursively
   removes it only when the quarantined entry still has that exact identity;
+- if the root path changes after quarantine, locates the exact pinned root by
+  device/inode among the owned daemon root's direct children and restores the
+  UUID child there before propagating the refusal;
 - excludes the exact canonical directories of current live session objects;
 - leaves and reports unknown direct children, links, non-directories, and
   malformed, unreadable, or unsafe ownership markers; and
@@ -477,6 +480,8 @@ authority has been retired, and each failed close layer is reported separately.
 - [x] Replacing a live-session child before terminal cleanup begins is refused
       against its retained creation-time identity; the replacement and displaced
       original directory contents both survive.
+- [x] Renaming the sessions root after a child enters quarantine restores that
+      child under its UUID inside the exact pinned root before reporting failure.
 - [x] Replacing an eligible orphan after ownership-marker inspection is
       detected after quarantine; the replacement and inspected directory
       contents both survive the refusal.

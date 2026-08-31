@@ -251,6 +251,17 @@ observed an empty failure list and a recreated root. GREEN reports both the
 live-directory and orphan-scan failures, leaves the canonical path absent, and
 preserves the parked bytes.
 
+The final thread moved the root one await later: after the UUID child had already
+been renamed to `.graft-removing-*`. The root assertion then threw outside every
+restoration block, so restoring the parked root exposed only an unknown child
+that later scans would preserve forever. Node does not provide descriptor-relative
+rename operations here, and `/dev/fd/<fd>/child` returned `ENOENT` on the target
+macOS runtime. The repair therefore uses the retained root device/inode to search
+only the owned daemon root's direct children, identifies the exact parked root,
+and restores the quarantine there before propagating the original refusal. The
+RED observed only the quarantine name in the parked root; GREEN observes only
+the original session UUID and its unchanged bytes.
+
 ## Drift
 
 The largest drift was procedural: implementation and PR publication preceded

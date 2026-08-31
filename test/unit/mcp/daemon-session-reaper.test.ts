@@ -1089,6 +1089,38 @@ describe("mcp: daemon session reaper", () => {
       .toBe("original\n");
   });
 
+  it("restores a quarantined live session inside a root renamed after quarantine", async () => {
+    if (process.platform === "win32") return;
+    const rootDir = fs.mkdtempSync(path.join(os.tmpdir(), "graft-live-root-post-quarantine-"));
+    const sessionsRoot = path.join(rootDir, "sessions");
+    const parkedSessionsRoot = path.join(rootDir, "sessions-parked");
+    const sessionId = "00000000-0000-4000-8000-000000000001";
+    const sessionDir = path.join(sessionsRoot, sessionId);
+    fs.mkdirSync(sessionDir, { recursive: true });
+    fs.writeFileSync(path.join(sessionDir, "original.txt"), "original\n");
+    cleanups.push(() => {
+      fs.rmSync(rootDir, { recursive: true, force: true });
+    });
+    let swapped = false;
+    renameObserver.mockImplementation((oldPath, _newPath, error) => {
+      if (error !== null || swapped || path.resolve(String(oldPath)) !== sessionDir) return;
+      swapped = true;
+      fs.renameSync(sessionsRoot, parkedSessionsRoot);
+      fs.mkdirSync(sessionsRoot);
+    });
+    const expectedIdentity = await captureSessionDirectoryIdentity(sessionDir);
+
+    await expect(removeSessionDirectory(sessionDir, expectedIdentity))
+      .rejects
+      .toMatchObject({ code: "UNSAFE_DAEMON_SESSIONS_ROOT" });
+
+    expect(swapped).toBe(true);
+    expect(fs.readdirSync(parkedSessionsRoot)).toEqual([sessionId]);
+    expect(fs.readFileSync(path.join(parkedSessionsRoot, sessionId, "original.txt"), "utf-8"))
+      .toBe("original\n");
+    expect(fs.readdirSync(sessionsRoot)).toEqual([]);
+  });
+
   it("preserves an orphan replacement made after eligibility inspection", async () => {
     const rootDir = fs.mkdtempSync(path.join(os.tmpdir(), "graft-orphan-child-swap-"));
     const externalRoot = fs.mkdtempSync(path.join(os.tmpdir(), "graft-orphan-child-target-"));

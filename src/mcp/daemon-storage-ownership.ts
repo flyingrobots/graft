@@ -944,6 +944,47 @@ async function restoreQuarantinedSessionDirectory(
   throw error;
 }
 
+async function findPinnedDaemonSessionsRootPath(
+  root: PinnedDaemonSessionsRoot,
+): Promise<string> {
+  const parent = path.dirname(root.path);
+  const entries = await fs.readdir(parent, { withFileTypes: true });
+  for (const entry of entries) {
+    const candidatePath = path.join(parent, entry.name);
+    const candidate = await fs.lstat(candidatePath).catch((error: unknown) => {
+      if (errorCode(error) === "ENOENT") return null;
+      throw error;
+    });
+    if (candidate !== null && daemonSessionsRootIdentityMatches(root, candidate)) {
+      return candidatePath;
+    }
+  }
+  throw new UnsafeDaemonSessionsRootError(root.path);
+}
+
+async function restoreQuarantinedSessionDirectoryInPinnedRoot(
+  root: PinnedDaemonSessionsRoot,
+  quarantineName: string,
+  sessionId: string,
+  error: unknown,
+): Promise<never> {
+  let pinnedRootPath: string;
+  try {
+    pinnedRootPath = await findPinnedDaemonSessionsRootPath(root);
+  } catch (rootError) {
+    throw new AggregateError(
+      [error, rootError],
+      `Failed to locate pinned daemon sessions root while restoring ${sessionId}`,
+      { cause: rootError },
+    );
+  }
+  return restoreQuarantinedSessionDirectory(
+    path.join(pinnedRootPath, quarantineName),
+    path.join(pinnedRootPath, sessionId),
+    error,
+  );
+}
+
 export async function removeSessionDirectory(
   sessionDir: string,
   expectedIdentity: DaemonSessionDirectoryIdentity,
@@ -996,17 +1037,24 @@ export async function removeSessionDirectory(
       throw new UnsafeDaemonSessionDirectoryError(sessionDir);
     }
 
-    const quarantinePath = path.join(
-      sessionsRoot,
-      `.graft-removing-${sessionId}-${crypto.randomUUID()}`,
-    );
+    const quarantineName = `.graft-removing-${sessionId}-${crypto.randomUUID()}`;
+    const quarantinePath = path.join(sessionsRoot, quarantineName);
     try {
       await fs.rename(resolvedSessionDir, quarantinePath);
     } catch (error: unknown) {
       if (errorCode(error) === "ENOENT") return false;
       throw error;
     }
-    await assertPinnedDaemonSessionsRoot(root);
+    try {
+      await assertPinnedDaemonSessionsRoot(root);
+    } catch (error) {
+      await restoreQuarantinedSessionDirectoryInPinnedRoot(
+        root,
+        quarantineName,
+        sessionId,
+        error,
+      );
+    }
     const quarantined = await fs.lstat(quarantinePath).catch((error: unknown) => {
       if (errorCode(error) === "ENOENT") return null;
       throw error;
@@ -1017,16 +1065,23 @@ export async function removeSessionDirectory(
       || !daemonSessionDirectoryIdentityMatches(expectedIdentity, anchored)
       || !daemonSessionDirectoryIdentityMatches(expectedIdentity, quarantined)
     ) {
-      await restoreQuarantinedSessionDirectory(
-        quarantinePath,
-        resolvedSessionDir,
+      await restoreQuarantinedSessionDirectoryInPinnedRoot(
+        root,
+        quarantineName,
+        sessionId,
         new UnsafeDaemonSessionDirectoryError(sessionDir),
       );
     }
     try {
+      await assertPinnedDaemonSessionsRoot(root);
       await fs.rm(quarantinePath, { recursive: true, force: false });
     } catch (error) {
-      await restoreQuarantinedSessionDirectory(quarantinePath, resolvedSessionDir, error);
+      await restoreQuarantinedSessionDirectoryInPinnedRoot(
+        root,
+        quarantineName,
+        sessionId,
+        error,
+      );
     }
     return true;
   } finally {
@@ -1129,17 +1184,24 @@ export async function removeSessionOrphanDirectories(
         continue;
       }
       try {
-        const quarantinePath = path.join(
-          sessionsRoot,
-          `.graft-removing-${sessionId}-${crypto.randomUUID()}`,
-        );
+        const quarantineName = `.graft-removing-${sessionId}-${crypto.randomUUID()}`;
+        const quarantinePath = path.join(sessionsRoot, quarantineName);
         try {
           await fs.rename(sessionPath, quarantinePath);
         } catch (error: unknown) {
           if (errorCode(error) === "ENOENT") continue;
           throw error;
         }
-        await assertPinnedDaemonSessionsRoot(root);
+        try {
+          await assertPinnedDaemonSessionsRoot(root);
+        } catch (error) {
+          await restoreQuarantinedSessionDirectoryInPinnedRoot(
+            root,
+            quarantineName,
+            sessionId,
+            error,
+          );
+        }
         const quarantined = await fs.lstat(quarantinePath).catch((error: unknown) => {
           if (errorCode(error) === "ENOENT") return null;
           throw error;
@@ -1148,16 +1210,23 @@ export async function removeSessionOrphanDirectories(
           quarantined === null
           || !daemonSessionDirectoryIdentityMatches(inspection.identity, quarantined)
         ) {
-          await restoreQuarantinedSessionDirectory(
-            quarantinePath,
-            sessionPath,
+          await restoreQuarantinedSessionDirectoryInPinnedRoot(
+            root,
+            quarantineName,
+            sessionId,
             new UnsafeDaemonSessionDirectoryError(sessionPath),
           );
         }
         try {
+          await assertPinnedDaemonSessionsRoot(root);
           await fs.rm(quarantinePath, { recursive: true, force: false });
         } catch (error) {
-          await restoreQuarantinedSessionDirectory(quarantinePath, sessionPath, error);
+          await restoreQuarantinedSessionDirectoryInPinnedRoot(
+            root,
+            quarantineName,
+            sessionId,
+            error,
+          );
         }
         removed++;
       } catch (error) {

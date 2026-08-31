@@ -56,6 +56,7 @@ mutation of the exact guard under test. Representative receipts:
 | Post-inspection orphan replacement | Replacing an eligible UUID child after its ownership marker was read made the scanner delete the unrelated replacement at that pathname | post-Retro review repair |
 | Pre-cleanup live-child replacement | Replacing an initialized live-session directory before terminal cleanup made cleanup derive authority from and delete the unrelated replacement inode | post-Retro review repair |
 | Missing runtime sessions root | Renaming away the established root before expiry made cleanup recreate an empty root and strand the live scratch without a failure | post-Retro review repair |
+| Post-quarantine root rename | Renaming the sessions root after child quarantine left only an unknown `.graft-removing-*` entry that later scans could not retry | post-Retro review repair |
 
 ## Focused GREEN
 
@@ -63,7 +64,7 @@ mutation of the exact guard under test. Representative receipts:
 pnpm exec vitest run test/unit/mcp/daemon-session-reaper.test.ts
 ```
 
-Result: pass; 1 file, 65 tests.
+Result: pass; 1 file, 66 tests.
 
 The focused suite includes exact-value configuration defaults, invalid option
 tables, monotonic/refusal/rebase behavior, streaming and pre-body barriers,
@@ -97,7 +98,7 @@ tests.
 
 | Gate | Command | Result |
 | :--- | :--- | :--- |
-| Focused lifecycle | `pnpm exec vitest run test/unit/mcp/daemon-session-reaper.test.ts` | pass; 1 file, 65 tests |
+| Focused lifecycle | `pnpm exec vitest run test/unit/mcp/daemon-session-reaper.test.ts` | pass; 1 file, 66 tests |
 | Full isolated suite | `pnpm test` | behavior tree at `a81a3f1e` passed 259 files, 2,118 tests in 96.00 seconds |
 | Lint | `pnpm lint` | pass |
 | Types | `pnpm typecheck` | pass |

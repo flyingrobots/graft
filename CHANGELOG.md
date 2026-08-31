@@ -77,6 +77,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   name under that pinned root and its device/inode identity is rechecked against
   the open validated directory before recursive removal; a post-validation
   replacement is restored and refused rather than deleted.
+  If the sessions root itself is renamed after a live or orphan child enters
+  quarantine, cleanup locates the exact pinned root by device/inode among the
+  daemon root's direct children and restores the UUID child before reporting the
+  root-identity refusal, leaving no undiscoverable quarantine residue.
   Session construction also captures the live directory's device/inode identity
   before publishing the session and retains that witness until terminal cleanup.
   A different real directory installed at the UUID path before cleanup begins is
