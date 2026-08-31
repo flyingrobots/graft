@@ -26,7 +26,10 @@ import type {
   WorkspaceMode,
   WorkspaceStatus,
 } from "./workspace-router-model.js";
-import type { LeaseAwareWarpPool } from "./warp-pool.js";
+import type {
+  WarpResidentLease,
+  WarpResidentPool,
+} from "./warp-pool.js";
 
 export interface WorkspaceSlice {
   readonly sliceId: string;
@@ -35,6 +38,11 @@ export interface WorkspaceSlice {
   readonly metrics: Metrics;
   readonly graftDir: string;
   readonly repoState: RepoStateTracker | null;
+}
+
+export interface WorkspaceWarpLease {
+  getWarp(): Promise<WarpContext>;
+  release(): Promise<void>;
 }
 
 export interface BoundWorkspace {
@@ -46,10 +54,59 @@ export interface BoundWorkspace {
   readonly resolvePath: (input: string) => string;
   readonly capabilityProfile: WorkspaceCapabilityProfile;
   readonly warpWriterId: string;
-  readonly warpLeaseHolderId: string;
+  readonly warpLease: WorkspaceWarpLease;
   readonly transportSessionId: string;
   readonly slice: WorkspaceSlice;
   readonly getWarp: () => Promise<WarpContext>;
+}
+
+export function createWorkspaceWarpLease(input: {
+  readonly repoId: string;
+  readonly worktreeRoot: string;
+  readonly writerId: string;
+  readonly ownerId: string;
+  readonly warpPool: WarpResidentPool;
+}): WorkspaceWarpLease {
+  let leasePromise: Promise<WarpResidentLease> | null = null;
+  let releasePromise: Promise<void> | null = null;
+  const releaseHasStarted = (): boolean => releasePromise !== null;
+
+  return {
+    async getWarp(): Promise<WarpContext> {
+      if (releaseHasStarted()) {
+        throw new Error("workspace WARP lease has already been released");
+      }
+      const currentLease = leasePromise ?? input.warpPool.acquire({
+        key: { repoId: input.repoId, writerId: input.writerId },
+        worktreeRoot: input.worktreeRoot,
+        ownerId: input.ownerId,
+      });
+      leasePromise = currentLease;
+      try {
+        const lease = await currentLease;
+        if (releaseHasStarted()) {
+          await lease.release();
+          throw new Error("workspace WARP lease was released while opening");
+        }
+        return { app: lease.app, strandId: null };
+      } catch (error) {
+        if (leasePromise === currentLease) {
+          leasePromise = null;
+        }
+        throw error;
+      }
+    },
+    release(): Promise<void> {
+      if (releasePromise !== null) return releasePromise;
+      releasePromise = (async () => {
+        const currentLease = leasePromise;
+        if (currentLease === null) return;
+        const lease = await currentLease.catch(() => null);
+        await lease?.release();
+      })();
+      return releasePromise;
+    },
+  };
 }
 
 export function createWorkspaceSlice(input: {
@@ -80,32 +137,33 @@ export async function createBoundWorkspace(input: {
   readonly fs: FileSystem;
   readonly transportSessionId: string;
   readonly warpWriterId?: string | undefined;
-  readonly warpLeaseHolderId: string;
-  readonly warpPool: LeaseAwareWarpPool;
+  readonly warpLeaseOwnerId: string;
+  readonly warpLease?: WorkspaceWarpLease | undefined;
+  readonly warpPool: WarpResidentPool;
 }): Promise<BoundWorkspace> {
   if (input.actionName !== undefined) {
     input.slice.governor.recordMessage();
     input.slice.governor.recordToolCall(input.actionName);
   }
 
+  const warpWriterId = input.warpWriterId ?? DEFAULT_WARP_WRITER_ID;
+  const warpLease = input.warpLease ?? createWorkspaceWarpLease({
+    repoId: input.resolved.repoId,
+    worktreeRoot: input.resolved.worktreeRoot,
+    writerId: warpWriterId,
+    ownerId: input.warpLeaseOwnerId,
+    warpPool: input.warpPool,
+  });
   return {
     ...input.resolved,
     graftignorePatterns: await loadProjectGraftignore(input.fs, input.resolved.worktreeRoot),
     resolvePath: createRepoPathResolver(input.resolved.worktreeRoot),
     capabilityProfile: input.capabilityProfile,
     transportSessionId: input.transportSessionId,
-    warpWriterId: input.warpWriterId ?? DEFAULT_WARP_WRITER_ID,
-    warpLeaseHolderId: input.warpLeaseHolderId,
+    warpWriterId,
+    warpLease,
     slice: input.slice,
-    getWarp: async () => ({
-      app: await input.warpPool.getOrOpen(
-        input.resolved.repoId,
-        input.resolved.worktreeRoot,
-        input.warpWriterId ?? DEFAULT_WARP_WRITER_ID,
-        input.warpLeaseHolderId,
-      ),
-      strandId: null,
-    }),
+    getWarp: () => warpLease.getWarp(),
   };
 }
 

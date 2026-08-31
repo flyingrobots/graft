@@ -150,7 +150,7 @@ export interface WorkspaceExecutionContext {
   readonly graftDir: string;
   readonly repoState: RepoStateTracker;
   readonly getWarp: () => Promise<WarpContext>;
-  releaseWarpLease(): void;
+  releaseWarpLease(): Promise<void>;
 }
 
 export interface ResolvedWorkspace {

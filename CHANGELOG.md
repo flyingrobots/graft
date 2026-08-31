@@ -9,25 +9,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ### Added
 
-- **WarpPool lease tracking and eviction**: `InMemoryWarpPool` tracks active
-  leaseholders per logical `(repoId, writerId)` resident and supports
+- **WarpPool lease tracking and eviction**: the required application pool port
+  returns a unique, idempotently releasable capability for every acquisition,
+  including repeated acquisitions by the same owner. `InMemoryWarpPool` tracks
+  those capabilities per logical `(repoId, writerId)` resident and supports
   `ejectUnreferenced()` to unmap zero-lease writer lanes independently, integrated
   with `WorkspaceRouter` LRU binding eviction. Releasing a resident's last lease
   now drops its in-process strong reference immediately; production cleanup does
-  not depend on a test-only sweep. Daemon routing requires a lease-aware pool
-  with non-optional cleanup; minimal non-routing consumers use a separate pool
-  interface, and test fakes must implement cleanup explicitly. Daemon transport
+  not depend on a test-only sweep. Raw pooled lookup and holder-ID release are
+  private implementation details rather than callable application operations,
+  and test fakes implement owned acquisition explicitly. Daemon transport
   close/error and daemon shutdown release every active or routed binding lease
   owned by the session.
   A successful cross-resident rebind releases the previous binding only after
-  the replacement commits, while same-resident rebinds transfer their holder.
-  Current and routed bindings in one transport session use distinct holder
-  identities, so evicting one cannot release another binding's resident.
+  the replacement commits, while same-resident rebinds transfer the exact
+  capability. Current and routed bindings in one transport session own distinct
+  capabilities, so evicting one cannot release another binding's resident.
   If history or authorization setup rejects after opening a replacement,
-  binding rollback releases only the uncommitted holder and preserves the
+  binding rollback releases only the uncommitted capability and preserves the
   previous active binding.
-  Failed opens roll back only lease-holder registrations introduced by the
-  failed caller, preserve leases for sibling writer lanes, and cannot delete a
+  Failed opens roll back only the unique capability token introduced by the
+  failed acquisition, preserve leases for sibling writer lanes, and cannot delete a
   newer replacement resident when an older open rejects late.
   Routed tool executions hold independent invocation leases through handler,
   attribution, and failure settlement, so binding LRU eviction cannot remove an

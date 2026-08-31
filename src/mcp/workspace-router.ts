@@ -47,18 +47,20 @@ import type { FileSystem } from "../ports/filesystem.js";
 import type { GitClient } from "../ports/git.js";
 import type { WarpContext } from "../warp/context.js";
 import type { JsonObject } from "../contracts/json-object.js";
-import type { LeaseAwareWarpPool } from "./warp-pool.js";
+import type { WarpResidentPool } from "./warp-pool.js";
 import { DEFAULT_WARP_WRITER_ID } from "../warp/writer-id.js";
 import { GovernorTracker } from "../session/tracker.js";
 import {
   type BoundWorkspace,
   type WorkspaceSlice,
+  type WorkspaceWarpLease,
   boundWorkspaceStatus,
   buildPersistedLocalHistoryContext,
   buildPersistedLocalHistoryContextFromExecution,
   buildPersistedLocalHistoryGraphContext,
   buildWorkspaceCausalContext,
   createBoundWorkspace,
+  createWorkspaceWarpLease,
   createWorkspaceSlice,
   nextBindingSliceDir,
   resolveCheckoutBoundaryHookEvent,
@@ -99,7 +101,7 @@ interface WorkspaceRouterOptions {
   readonly git: GitClient;
   readonly graftDir: string;
   readonly projectRoot?: string | undefined;
-  readonly warpPool: LeaseAwareWarpPool;
+  readonly warpPool: WarpResidentPool;
   readonly transportSessionId: string;
   readonly warpWriterId?: string | undefined;
   readonly authorizationPolicy?: WorkspaceAuthorizationPolicy | undefined;
@@ -140,7 +142,8 @@ export class WorkspaceRouter {
   private readonly openedWorkspaces = new Map<string, OpenedWorkspaceRecord>();
   private readonly routedBindings = new Map<string, BoundWorkspace>();
   private readonly routedBindingInitializations = new Map<string, Promise<BoundWorkspace>>();
-  private warpLeasesReleased = false;
+  private readonly bindingWarpLeases = new Set<WorkspaceWarpLease>();
+  private warpLeaseRelease: Promise<void> | null = null;
 
   constructor(private readonly options: WorkspaceRouterOptions) {
     const initialProjectRoot = options.mode === "repo_local" ? options.projectRoot : undefined;
@@ -248,22 +251,25 @@ export class WorkspaceRouter {
     return this.requireBinding().getWarp();
   }
 
-  releaseWarpLeases(): void {
-    if (this.warpLeasesReleased) {
-      return;
-    }
-    this.warpLeasesReleased = true;
-    const bindings = new Set<BoundWorkspace>([
-      ...(this.currentBinding === null ? [] : [this.currentBinding]),
-      ...this.routedBindings.values(),
-    ]);
-    for (const binding of bindings) {
-      this.options.warpPool.releaseLease(
-        binding.repoId,
-        binding.warpWriterId,
-        binding.warpLeaseHolderId,
-      );
-    }
+  releaseWarpLeases(): Promise<void> {
+    if (this.warpLeaseRelease !== null) return this.warpLeaseRelease;
+
+    const initialization = this.initialization;
+    const routedInitializations = [...this.routedBindingInitializations.values()];
+    this.warpLeaseRelease = (async () => {
+      await initialization?.catch(() => undefined);
+      const routedResults = await Promise.allSettled(routedInitializations);
+      for (const result of routedResults) {
+        if (result.status === "fulfilled") {
+          this.bindingWarpLeases.add(result.value.warpLease);
+        }
+      }
+      const leases = new Set<WorkspaceWarpLease>([
+        ...this.bindingWarpLeases,
+      ]);
+      await Promise.all([...leases].map((lease) => this.releaseBindingWarpLease(lease)));
+    })();
+    return this.warpLeaseRelease;
   }
 
   async observeRepoState(): Promise<void> {
@@ -600,7 +606,7 @@ export class WorkspaceRouter {
 
     const existing = this.routedBindings.get(resolved.worktreeId);
     if (existing !== undefined && this.routedBindingMatches(existing, resolved, capabilityProfile)) {
-      this.noteRoutedBinding(existing);
+      await this.noteRoutedBinding(existing);
       return this.buildExecutionContext(existing, workspaceRoute);
     }
 
@@ -608,7 +614,7 @@ export class WorkspaceRouter {
     if (initializing !== undefined) {
       const binding = await initializing;
       if (this.routedBindingMatches(binding, resolved, capabilityProfile)) {
-        this.noteRoutedBinding(binding);
+        await this.noteRoutedBinding(binding);
         return this.buildExecutionContext(binding, workspaceRoute);
       }
     }
@@ -623,7 +629,7 @@ export class WorkspaceRouter {
         this.routedBindingInitializations.delete(resolved.worktreeId);
       }
     }
-    this.noteRoutedBinding(binding);
+    await this.noteRoutedBinding(binding);
     this.noteOpenedWorkspace(
       resolved,
       capabilityProfile,
@@ -663,7 +669,7 @@ export class WorkspaceRouter {
       && workspaceCapabilityProfilesEqual(binding.capabilityProfile, capabilityProfile);
   }
 
-  private noteRoutedBinding(binding: BoundWorkspace): void {
+  private async noteRoutedBinding(binding: BoundWorkspace): Promise<void> {
     this.routedBindings.delete(binding.worktreeId);
     this.routedBindings.set(binding.worktreeId, binding);
     while (this.routedBindings.size > MAX_ROUTED_BINDINGS) {
@@ -673,11 +679,7 @@ export class WorkspaceRouter {
       }
       const evicted = this.routedBindings.get(oldestKey);
       if (evicted !== undefined) {
-        this.options.warpPool.releaseLease(
-          evicted.repoId,
-          evicted.warpWriterId,
-          evicted.warpLeaseHolderId,
-        );
+        await this.releaseBindingWarpLease(evicted.warpLease);
       }
       this.routedBindings.delete(oldestKey);
     }
@@ -687,17 +689,24 @@ export class WorkspaceRouter {
     binding: BoundWorkspace,
     workspaceRoute: WorkspaceRouteEvidence | null = null,
   ): WorkspaceExecutionContext {
+    if (this.warpLeaseRelease !== null) {
+      throw new Error("workspace WARP leases have already been released");
+    }
     const repoState = binding.slice.repoState;
     if (repoState === null) {
       throw new WorkspaceBindingRequiredError("workspace");
     }
-    const leaseHolderId = [
-      binding.transportSessionId,
-      "execution",
-      String(++this.executionCounter).padStart(6, "0"),
-    ].join(":");
-    let leaseClaimed = false;
-    let leaseReleased = false;
+    const warpLease = createWorkspaceWarpLease({
+      repoId: binding.repoId,
+      worktreeRoot: binding.worktreeRoot,
+      writerId: binding.warpWriterId,
+      ownerId: [
+        binding.transportSessionId,
+        "execution",
+        String(++this.executionCounter).padStart(6, "0"),
+      ].join(":"),
+      warpPool: this.options.warpPool,
+    });
     return {
       sliceId: binding.slice.sliceId,
       repoId: binding.repoId,
@@ -717,35 +726,8 @@ export class WorkspaceRouter {
       metrics: binding.slice.metrics,
       graftDir: binding.slice.graftDir,
       repoState,
-      getWarp: async () => {
-        if (leaseReleased) {
-          throw new Error("workspace execution context has already been released");
-        }
-        leaseClaimed = true;
-        return {
-          app: await this.options.warpPool.getOrOpen(
-            binding.repoId,
-            binding.worktreeRoot,
-            binding.warpWriterId,
-            leaseHolderId,
-          ),
-          strandId: null,
-        };
-      },
-      releaseWarpLease: () => {
-        if (leaseReleased) {
-          return;
-        }
-        leaseReleased = true;
-        if (!leaseClaimed) {
-          return;
-        }
-        this.options.warpPool.releaseLease(
-          binding.repoId,
-          binding.warpWriterId,
-          leaseHolderId,
-        );
-      },
+      getWarp: () => warpLease.getWarp(),
+      releaseWarpLease: () => warpLease.release(),
     };
   }
 
@@ -866,9 +848,9 @@ export class WorkspaceRouter {
 
     const previousBinding = this.currentBinding;
     const nextWriterId = this.options.warpWriterId ?? DEFAULT_WARP_WRITER_ID;
-    const transferredLeaseHolderId = previousBinding?.repoId === resolved.repoId
+    const transferredWarpLease = previousBinding?.repoId === resolved.repoId
       && previousBinding.warpWriterId === nextWriterId
-      ? previousBinding.warpLeaseHolderId
+      ? previousBinding.warpLease
       : undefined;
     const nextBinding = await this.createBoundWorkspace(
       resolved,
@@ -876,7 +858,7 @@ export class WorkspaceRouter {
       capabilityProfile,
       actionName,
       undefined,
-      transferredLeaseHolderId,
+      transferredWarpLease,
     );
     const nextRepoState = nextBinding.slice.repoState;
     if (nextRepoState === null) {
@@ -899,13 +881,9 @@ export class WorkspaceRouter {
         await this.options.authorizationPolicy?.noteBound(resolved);
       }
     } catch (error) {
-      if (nextBinding.warpLeaseHolderId !== previousBinding?.warpLeaseHolderId) {
+      if (nextBinding.warpLease !== previousBinding?.warpLease) {
         try {
-          this.options.warpPool.releaseLease(
-            nextBinding.repoId,
-            nextBinding.warpWriterId,
-            nextBinding.warpLeaseHolderId,
-          );
+          await this.releaseBindingWarpLease(nextBinding.warpLease);
         } catch (cleanupError) {
           throw new AggregateError(
             [error, cleanupError],
@@ -926,16 +904,9 @@ export class WorkspaceRouter {
     );
     if (
       previousBinding !== null
-      && (
-        previousBinding.repoId !== nextBinding.repoId
-        || previousBinding.warpWriterId !== nextBinding.warpWriterId
-      )
+      && previousBinding.warpLease !== nextBinding.warpLease
     ) {
-      this.options.warpPool.releaseLease(
-        previousBinding.repoId,
-        previousBinding.warpWriterId,
-        previousBinding.warpLeaseHolderId,
-      );
+      await this.releaseBindingWarpLease(previousBinding.warpLease);
     }
 
     return {
@@ -952,7 +923,7 @@ export class WorkspaceRouter {
     capabilityProfile: WorkspaceCapabilityProfile,
     actionName: string | undefined,
     sliceOverride?: WorkspaceSlice,
-    warpLeaseHolderId?: string,
+    warpLease?: WorkspaceWarpLease,
   ): Promise<BoundWorkspace> {
     const slice = sliceOverride ?? createWorkspaceSlice({
       graftDir,
@@ -961,7 +932,7 @@ export class WorkspaceRouter {
       git: this.options.git,
       nextSliceId: `slice-${String(++this.sliceIdCounter).padStart(4, "0")}`,
     });
-    return createBoundWorkspace({
+    const binding = await createBoundWorkspace({
       resolved,
       graftDir,
       capabilityProfile,
@@ -970,13 +941,25 @@ export class WorkspaceRouter {
       fs: this.options.fs,
       transportSessionId: this.options.transportSessionId,
       warpWriterId: this.options.warpWriterId ?? DEFAULT_WARP_WRITER_ID,
-      warpLeaseHolderId: warpLeaseHolderId ?? [
+      warpLeaseOwnerId: [
         this.options.transportSessionId,
         "binding",
         String(++this.bindingLeaseCounter).padStart(6, "0"),
       ].join(":"),
+      ...(warpLease !== undefined ? { warpLease } : {}),
       warpPool: this.options.warpPool,
     });
+    this.bindingWarpLeases.add(binding.warpLease);
+    if (this.warpLeaseRelease !== null) {
+      await this.releaseBindingWarpLease(binding.warpLease);
+      throw new Error("workspace WARP leases have already been released");
+    }
+    return binding;
+  }
+
+  private async releaseBindingWarpLease(lease: WorkspaceWarpLease): Promise<void> {
+    await lease.release();
+    this.bindingWarpLeases.delete(lease);
   }
 
   private requireBinding(): BoundWorkspace {

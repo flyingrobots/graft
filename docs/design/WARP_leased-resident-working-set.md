@@ -188,7 +188,7 @@ capacity and deterministic policy before replacing eager eviction.
 - [x] Resident identity is exactly `(repoId, writerId)`, and production
       `openWarp` receives both the canonical worktree root and requested writer
       ID.
-- [ ] Two same-owner acquisitions of one resident remain valid until both
+- [x] Two same-owner acquisitions of one resident remain valid until both
       unique leases release.
 - [x] A failed open leaves zero references and cannot remove a newer
       replacement entry.

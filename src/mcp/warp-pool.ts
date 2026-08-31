@@ -1,17 +1,28 @@
 import type WarpApp from "@git-stunts/git-warp";
-import { DEFAULT_WARP_WRITER_ID } from "../warp/writer-id.js";
 
-export interface WarpPool {
-  getOrOpen(repoId: string, worktreeRoot: string, writerId?: string, leaseHolderId?: string): Promise<WarpApp>;
+export interface WarpResidentKey {
+  readonly repoId: string;
+  readonly writerId: string;
+}
+
+export interface WarpResidentLease {
+  readonly key: WarpResidentKey;
+  readonly app: WarpApp;
+  release(): Promise<void>;
+}
+
+export interface WarpResidentAcquireInput {
+  readonly key: WarpResidentKey;
+  readonly worktreeRoot: string;
+  readonly ownerId: string;
+}
+
+export interface WarpResidentPool {
+  acquire(input: WarpResidentAcquireInput): Promise<WarpResidentLease>;
   size(): number;
 }
 
-export interface LeaseAwareWarpPool extends WarpPool {
-  releaseLease(repoId: string, writerId: string, leaseHolderId: string): void;
-}
-
-export interface EvictableWarpPool extends LeaseAwareWarpPool {
-  acquireLease(repoId: string, writerId: string, leaseHolderId: string): void;
+export interface EvictableWarpPool extends WarpResidentPool {
   leaseCount(repoId: string, writerId: string): number;
   has(repoId: string, writerId?: string): boolean;
   eject(repoId: string, writerId: string, force?: boolean): Promise<boolean>;
@@ -20,30 +31,46 @@ export interface EvictableWarpPool extends LeaseAwareWarpPool {
 
 export class InMemoryWarpPool implements EvictableWarpPool {
   private readonly opened = new Map<string, Map<string, Promise<WarpApp>>>();
-  private readonly leases = new Map<string, Map<string, Set<string>>>();
+  private readonly leases = new Map<string, Map<string, Map<symbol, string>>>();
 
   constructor(private readonly openWarp: (worktreeRoot: string, writerId: string) => Promise<WarpApp>) {}
 
-  getOrOpen(
+  async acquire(input: WarpResidentAcquireInput): Promise<WarpResidentLease> {
+    const repoId = input.key.repoId;
+    const writerId = input.key.writerId;
+    const key: WarpResidentKey = Object.freeze({ repoId, writerId });
+    const token = Symbol(input.ownerId);
+    this.addLease(repoId, writerId, token, input.ownerId);
+
+    let app: WarpApp;
+    try {
+      app = await this.getOrOpen(repoId, input.worktreeRoot, writerId);
+    } catch (error) {
+      this.releaseToken(repoId, writerId, token);
+      throw error;
+    }
+
+    let released = false;
+    return {
+      key,
+      app,
+      release: (): Promise<void> => {
+        if (released) return Promise.resolve();
+        released = true;
+        this.releaseToken(repoId, writerId, token);
+        return Promise.resolve();
+      },
+    };
+  }
+
+  private getOrOpen(
     repoId: string,
     worktreeRoot: string,
-    writerId: string = DEFAULT_WARP_WRITER_ID,
-    leaseHolderId?: string,
+    writerId: string,
   ): Promise<WarpApp> {
-    const leaseAcquired = leaseHolderId === undefined
-      ? false
-      : this.addLease(repoId, writerId, leaseHolderId);
     const repoHandles = this.opened.get(repoId);
     const cached = repoHandles?.get(writerId);
-    if (cached !== undefined) {
-      return this.rollbackLeaseAfterFailure(
-        cached,
-        repoId,
-        writerId,
-        leaseHolderId,
-        leaseAcquired,
-      );
-    }
+    if (cached !== undefined) return cached;
 
     const nextRepoHandles = repoHandles ?? new Map<string, Promise<WarpApp>>();
     const opened = this.openWarp(worktreeRoot, writerId).catch((error: unknown) => {
@@ -58,54 +85,32 @@ export class InMemoryWarpPool implements EvictableWarpPool {
     });
     nextRepoHandles.set(writerId, opened);
     this.opened.set(repoId, nextRepoHandles);
-    return this.rollbackLeaseAfterFailure(
-      opened,
-      repoId,
-      writerId,
-      leaseHolderId,
-      leaseAcquired,
-    );
+    return opened;
   }
 
-  acquireLease(repoId: string, writerId: string, leaseHolderId: string): void {
-    this.addLease(repoId, writerId, leaseHolderId);
-  }
-
-  private addLease(repoId: string, writerId: string, leaseHolderId: string): boolean {
+  private addLease(
+    repoId: string,
+    writerId: string,
+    token: symbol,
+    ownerId: string,
+  ): void {
     let repoLeases = this.leases.get(repoId);
     if (repoLeases === undefined) {
-      repoLeases = new Map<string, Set<string>>();
+      repoLeases = new Map<string, Map<symbol, string>>();
       this.leases.set(repoId, repoLeases);
     }
     let holders = repoLeases.get(writerId);
     if (holders === undefined) {
-      holders = new Set<string>();
+      holders = new Map<symbol, string>();
       repoLeases.set(writerId, holders);
     }
-    const previousSize = holders.size;
-    holders.add(leaseHolderId);
-    return holders.size !== previousSize;
+    holders.set(token, ownerId);
   }
 
-  private rollbackLeaseAfterFailure(
-    opening: Promise<WarpApp>,
-    repoId: string,
-    writerId: string,
-    leaseHolderId: string | undefined,
-    leaseAcquired: boolean,
-  ): Promise<WarpApp> {
-    if (!leaseAcquired || leaseHolderId === undefined) return opening;
-    return opening.catch((error: unknown) => {
-      this.releaseLease(repoId, writerId, leaseHolderId);
-      throw error;
-    });
-  }
-
-  releaseLease(repoId: string, writerId: string, leaseHolderId: string): void {
+  private releaseToken(repoId: string, writerId: string, token: symbol): void {
     const repoLeases = this.leases.get(repoId);
     const holders = repoLeases?.get(writerId);
-    if (holders === undefined) return;
-    holders.delete(leaseHolderId);
+    if (!holders?.delete(token)) return;
     if (holders.size === 0) {
       repoLeases?.delete(writerId);
       const repoHandles = this.opened.get(repoId);

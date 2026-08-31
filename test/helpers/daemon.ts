@@ -11,7 +11,7 @@ import { InlineDaemonWorkerPool } from "../../src/mcp/daemon-worker-pool.js";
 import { PersistentMonitorRuntime } from "../../src/mcp/persistent-monitor-runtime.js";
 import { createGraftServer, type GraftServer } from "../../src/mcp/server.js";
 import { InMemoryWarpPool } from "../../src/mcp/warp-pool.js";
-import type { LeaseAwareWarpPool } from "../../src/mcp/warp-pool.js";
+import type { WarpResidentPool } from "../../src/mcp/warp-pool.js";
 import { openWarp } from "../../src/warp/open.js";
 import { parse } from "./mcp.js";
 
@@ -23,7 +23,7 @@ export interface InProcessDaemonSession {
     name: string,
     args: Record<string, unknown>,
   ): Promise<T>;
-  close(): void;
+  close(): Promise<void>;
 }
 
 export interface InProcessDaemonHarness {
@@ -33,7 +33,7 @@ export interface InProcessDaemonHarness {
 }
 
 export async function createInProcessDaemonHarness(options: {
-  readonly warpPool?: LeaseAwareWarpPool | undefined;
+  readonly warpPool?: WarpResidentPool | undefined;
 } = {}): Promise<InProcessDaemonHarness> {
   const rootDir = fs.mkdtempSync(path.join(os.tmpdir(), "graft-daemon-in-process-"));
   const codec = new CanonicalJsonCodec();
@@ -101,10 +101,14 @@ export async function createInProcessDaemonHarness(options: {
         controlPlane.touchTransport(sessionId);
         return parse(await server.callTool(name, args)) as T;
       },
-      close(): void {
+      async close(): Promise<void> {
         controlPlane.unregisterTransport(sessionId);
         sessions.delete(sessionId);
-        fs.rmSync(graftDir, { recursive: true, force: true });
+        try {
+          await server.releaseWarpLeases();
+        } finally {
+          fs.rmSync(graftDir, { recursive: true, force: true });
+        }
       },
     };
 
@@ -122,7 +126,7 @@ export async function createInProcessDaemonHarness(options: {
     createSession,
     async close(): Promise<void> {
       for (const session of [...sessions.values()]) {
-        session.close();
+        await session.close();
       }
       await monitorRuntime.close();
       await workerPool.close();

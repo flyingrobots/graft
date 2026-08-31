@@ -63,10 +63,10 @@ agent-facing flow:
 
 ### Warp Graph Lease Management
 
-`InMemoryWarpPool` tracks active session leases for logical WARP writer-lane residents:
+`InMemoryWarpPool` exposes owned acquisitions for logical WARP writer-lane residents:
 
-- **Lease Accounting**: When sessions open or bind workspaces, active leases are recorded per `(repoId, writerId)` resident.
-- **Last-Release Eviction**: Releasing the final lease immediately drops that writer lane's in-process resident without disturbing leased sibling lanes in the same repository. `ejectUnreferenced()` also removes lanes opened without a lease.
+- **Lease Accounting**: Every successful acquisition returns a unique, idempotently releasable capability and records its token per `(repoId, writerId)` resident, even when two acquisitions name the same owner.
+- **Last-Release Eviction**: Releasing the final lease immediately drops that writer lane's in-process resident without disturbing leased sibling lanes in the same repository; production cleanup does not require a separate sweep.
 - **Session Teardown**: Daemon transport close/error and daemon shutdown release the session's active and routed binding leases through one idempotent server hook.
 - **Execution Lifetime**: Each routed tool execution owns a distinct lazy lease through handler work, read attribution, failure reporting, and settlement. Binding-cache eviction cannot revoke a resident still owned by an admitted invocation, and invocation cleanup releases in `finally`.
 

@@ -12,7 +12,7 @@ import type { ChildProcessDaemonWorkerPool } from "./daemon-worker-pool.js";
 import type { PersistentMonitorRuntime } from "./persistent-monitor-runtime.js";
 import type { RunCaptureConfig } from "./run-capture-config.js";
 import type { RuntimeObservabilityState } from "./runtime-observability.js";
-import type { LeaseAwareWarpPool } from "./warp-pool.js";
+import type { WarpResidentPool } from "./warp-pool.js";
 import { ensurePrivateDirectory } from "./daemon-bootstrap.js";
 
 const MAX_BODY_BYTES = 1024 * 1024;
@@ -31,7 +31,7 @@ export interface CreateDaemonSessionHostOptions {
   readonly healthPath: string;
   readonly mcpPath: string;
   readonly startedAt: string;
-  readonly warpPool: LeaseAwareWarpPool;
+  readonly warpPool: WarpResidentPool;
   readonly controlPlane: DaemonControlPlane;
   readonly daemonScheduler: DaemonJobScheduler;
   readonly daemonWorkerPool: ChildProcessDaemonWorkerPool;
@@ -136,17 +136,26 @@ async function createDaemonSession(
     transport,
     server,
   };
+  let retirement: Promise<void> | null = null;
+  const retireSession = (): Promise<void> => {
+    if (retirement !== null) return retirement;
+    retirement = (async () => {
+      sessions.delete(newSessionId);
+      options.controlPlane.unregisterTransport(newSessionId);
+      try {
+        await server.releaseWarpLeases();
+      } catch (error) {
+        console.error(`[graft] failed to release WARP leases for session ${newSessionId}: ${String(error)}`);
+      }
+      await removeSessionDirectory(sessionGraftDir);
+    })();
+    return retirement;
+  };
   transport.onclose = () => {
-    sessions.delete(newSessionId);
-    options.controlPlane.unregisterTransport(newSessionId);
-    server.releaseWarpLeases();
-    void removeSessionDirectory(sessionGraftDir);
+    void retireSession();
   };
   transport.onerror = () => {
-    sessions.delete(newSessionId);
-    options.controlPlane.unregisterTransport(newSessionId);
-    server.releaseWarpLeases();
-    void removeSessionDirectory(sessionGraftDir);
+    void retireSession();
   };
   sessions.set(newSessionId, session);
   options.controlPlane.registerTransport(
@@ -223,15 +232,23 @@ export function createDaemonSessionHost(options: CreateDaemonSessionHostOptions)
     },
 
     async close(): Promise<void> {
+      const releaseErrors: unknown[] = [];
       for (const session of [...sessions.values()]) {
         options.controlPlane.unregisterTransport(session.id);
-        session.server.releaseWarpLeases();
+        try {
+          await session.server.releaseWarpLeases();
+        } catch (error) {
+          releaseErrors.push(error);
+        }
         await session.transport.close().catch(() => {
           return undefined;
         });
         await removeSessionDirectory(session.graftDir);
       }
       sessions.clear();
+      if (releaseErrors.length > 0) {
+        throw new AggregateError(releaseErrors, "Failed to release daemon-session WARP leases");
+      }
     },
   };
 }

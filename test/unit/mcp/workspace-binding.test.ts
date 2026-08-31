@@ -203,11 +203,8 @@ describe("mcp: daemon workspace binding", () => {
       git: nodeGit,
       graftDir,
       warpPool: {
-        getOrOpen(): Promise<never> {
+        acquire(): Promise<never> {
           return Promise.reject(new Error("unused in workspace binding test"));
-        },
-        releaseLease(): void {
-          return;
         },
         size(): number {
           return 0;
@@ -254,11 +251,8 @@ describe("mcp: daemon workspace binding", () => {
       git: nodeGit,
       graftDir,
       warpPool: {
-        getOrOpen(): Promise<never> {
+        acquire(): Promise<never> {
           return Promise.reject(new Error("unused in workspace routed race test"));
-        },
-        releaseLease(): void {
-          return;
         },
         size(): number {
           return 0;
@@ -309,11 +303,8 @@ describe("mcp: daemon workspace binding", () => {
       git: nodeGit,
       graftDir,
       warpPool: {
-        getOrOpen(): Promise<never> {
+        acquire(): Promise<never> {
           return Promise.reject(new Error("unused in workspace replacement test"));
-        },
-        releaseLease(): void {
-          return;
         },
         size(): number {
           return 0;
@@ -364,11 +355,8 @@ describe("mcp: daemon workspace binding", () => {
       git: nodeGit,
       graftDir,
       warpPool: {
-        getOrOpen(): Promise<never> {
+        acquire(): Promise<never> {
           return Promise.reject(new Error("unused in workspace binding test"));
-        },
-        releaseLease(): void {
-          return;
         },
         size(): number {
           return 0;
@@ -515,6 +503,56 @@ describe("mcp: daemon workspace binding", () => {
     expect((await router.getWarp()).app).toBe(secondResident);
   });
 
+  it("keeps an admitted invocation resident while session bindings release", async () => {
+    const repoDir = createCommittedRepo();
+    const graftDir = fs.mkdtempSync(path.join(os.tmpdir(), "graft-binding-invocation-lease-"));
+    cleanups.push(() => {
+      fs.rmSync(graftDir, { recursive: true, force: true });
+    });
+    const pool = new InMemoryWarpPool((_worktreeRoot, writerId) => {
+      return Promise.resolve({ writerId } as unknown as WarpApp);
+    });
+    const router = new WorkspaceRouter({
+      mode: "daemon",
+      fs: nodeFs,
+      git: nodeGit,
+      graftDir,
+      warpPool: pool,
+      transportSessionId: "transport:test",
+      warpWriterId: "writer:test",
+      authorizationPolicy: {
+        getCapabilityProfile() {
+          return Promise.resolve(DEFAULT_DAEMON_CAPABILITY_PROFILE);
+        },
+        noteBound(): Promise<void> {
+          return Promise.resolve();
+        },
+      },
+      persistedLocalHistory: new PersistedLocalHistoryStore({
+        fs: nodeFs,
+        codec: new CanonicalJsonCodec(),
+        graftDir,
+      }),
+      persistedLocalHistoryGraph: false,
+    });
+
+    const bound = await router.bind({ cwd: repoDir }, "workspace_bind");
+    expect(bound.ok).toBe(true);
+    await router.getWarp();
+    const invocation = router.captureExecutionContext();
+    await invocation.getWarp();
+    expect(pool.leaseCount(bound.repoId!, "writer:test")).toBe(2);
+
+    await router.releaseWarpLeases();
+
+    expect(pool.leaseCount(bound.repoId!, "writer:test")).toBe(1);
+    expect(pool.has(bound.repoId!, "writer:test")).toBe(true);
+
+    await invocation.releaseWarpLease();
+    expect(pool.leaseCount(bound.repoId!, "writer:test")).toBe(0);
+    expect(pool.has(bound.repoId!, "writer:test")).toBe(false);
+  });
+
   it("keeps the current binding leased when a same-repo routed binding is evicted", {
     timeout: 20_000,
   }, async () => {
@@ -561,10 +599,10 @@ describe("mcp: daemon workspace binding", () => {
     expect(current.ok).toBe(true);
     await router.getWarp();
     const routed = await router.captureExecutionContextForWorkspace({ cwd: routedWorktree });
-    routed.releaseWarpLease();
+    await routed.releaseWarpLease();
     for (const cwd of churnRepos) {
       const context = await router.captureExecutionContextForWorkspace({ cwd });
-      context.releaseWarpLease();
+      await context.releaseWarpLease();
     }
 
     expect(pool.leaseCount(current.repoId!, "writer:test")).toBe(1);

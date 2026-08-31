@@ -23,12 +23,19 @@ describe("mcp: warp pool", () => {
     const openWarp = vi.fn(() => Promise.resolve(sharedApp));
     const pool = new InMemoryWarpPool(openWarp);
 
-    const first = await pool.getOrOpen("repo:a", "/tmp/repo-a", "graft_monitor_deadbeef");
-    const second = await pool.getOrOpen("repo:a", "/tmp/repo-a", "graft_monitor_deadbeef");
+    const input = {
+      key: { repoId: "repo:a", writerId: "graft_monitor_deadbeef" },
+      worktreeRoot: "/tmp/repo-a",
+      ownerId: "session:a",
+    };
+    const first = await pool.acquire(input);
+    const second = await pool.acquire(input);
 
-    expect(first).toBe(second);
+    expect(first.app).toBe(second.app);
     expect(openWarp).toHaveBeenCalledTimes(1);
     expect(pool.size()).toBe(1);
+    await first.release();
+    await second.release();
   });
 
   it("opens distinct handles for different writer lanes in the same repo", async () => {
@@ -39,46 +46,78 @@ describe("mcp: warp pool", () => {
       .mockResolvedValueOnce(monitorApp);
     const pool = new InMemoryWarpPool(openWarp);
 
-    const sessionResult = await pool.getOrOpen("repo:a", "/tmp/repo-a", "graft");
-    const monitorResult = await pool.getOrOpen("repo:a", "/tmp/repo-a", "graft_monitor_deadbeef");
+    const sessionResult = await pool.acquire({
+      key: { repoId: "repo:a", writerId: "graft" },
+      worktreeRoot: "/tmp/repo-a",
+      ownerId: "session:a",
+    });
+    const monitorResult = await pool.acquire({
+      key: { repoId: "repo:a", writerId: "graft_monitor_deadbeef" },
+      worktreeRoot: "/tmp/repo-a",
+      ownerId: "monitor:a",
+    });
 
-    expect(sessionResult).toBe(sessionApp);
-    expect(monitorResult).toBe(monitorApp);
-    expect(sessionResult).not.toBe(monitorResult);
+    expect(sessionResult.app).toBe(sessionApp);
+    expect(monitorResult.app).toBe(monitorApp);
+    expect(sessionResult.app).not.toBe(monitorResult.app);
     expect(openWarp).toHaveBeenCalledTimes(2);
     expect(openWarp).toHaveBeenNthCalledWith(1, "/tmp/repo-a", "graft");
     expect(openWarp).toHaveBeenNthCalledWith(2, "/tmp/repo-a", "graft_monitor_deadbeef");
     expect(pool.size()).toBe(1);
+    await sessionResult.release();
+    await monitorResult.release();
   });
 
   it("tracks unique repos instead of open handles in size()", async () => {
     const openWarp = vi.fn(() => Promise.resolve(fakeWarpApp()));
     const pool = new InMemoryWarpPool(openWarp);
 
-    await pool.getOrOpen("repo:a", "/tmp/repo-a", "graft");
-    await pool.getOrOpen("repo:a", "/tmp/repo-a", "graft_monitor_deadbeef");
-    await pool.getOrOpen("repo:b", "/tmp/repo-b", "graft");
+    const leases = await Promise.all([
+      pool.acquire({
+        key: { repoId: "repo:a", writerId: "graft" },
+        worktreeRoot: "/tmp/repo-a",
+        ownerId: "session:a",
+      }),
+      pool.acquire({
+        key: { repoId: "repo:a", writerId: "graft_monitor_deadbeef" },
+        worktreeRoot: "/tmp/repo-a",
+        ownerId: "monitor:a",
+      }),
+      pool.acquire({
+        key: { repoId: "repo:b", writerId: "graft" },
+        worktreeRoot: "/tmp/repo-b",
+        ownerId: "session:b",
+      }),
+    ]);
 
     expect(pool.size()).toBe(2);
     expect(openWarp).toHaveBeenNthCalledWith(1, "/tmp/repo-a", "graft");
     expect(openWarp).toHaveBeenNthCalledWith(2, "/tmp/repo-a", "graft_monitor_deadbeef");
     expect(openWarp).toHaveBeenNthCalledWith(3, "/tmp/repo-b", "graft");
+    await Promise.all(leases.map((lease) => lease.release()));
   });
 
   it("preserves a sibling writer lease when another writer fails to open", async () => {
     const openError = new Error("injected writer open failure");
-    const pool = new InMemoryWarpPool(() => Promise.reject(openError));
-    pool.acquireLease("repo:a", "writer-live", "session:live");
+    const liveApp = fakeWarpApp();
+    const pool = new InMemoryWarpPool((_worktreeRoot, writerId) => {
+      return writerId === "writer-live" ? Promise.resolve(liveApp) : Promise.reject(openError);
+    });
+    const live = await pool.acquire({
+      key: { repoId: "repo:a", writerId: "writer-live" },
+      worktreeRoot: "/tmp/repo-a",
+      ownerId: "session:live",
+    });
 
-    await expect(pool.getOrOpen(
-      "repo:a",
-      "/tmp/repo-a",
-      "writer-fail",
-      "session:fail",
-    )).rejects.toBe(openError);
+    await expect(pool.acquire({
+      key: { repoId: "repo:a", writerId: "writer-fail" },
+      worktreeRoot: "/tmp/repo-a",
+      ownerId: "session:fail",
+    })).rejects.toBe(openError);
 
     expect(pool.leaseCount("repo:a", "writer-live")).toBe(1);
     expect(pool.leaseCount("repo:a", "writer-fail")).toBe(0);
+    await live.release();
   });
 
   it("removes every failed caller lease when a sibling handle keeps the repo open", async () => {
@@ -88,20 +127,22 @@ describe("mcp: warp pool", () => {
       return writerId === "writer-live" ? Promise.resolve(liveApp) : Promise.reject(openError);
     });
     const pool = new InMemoryWarpPool(openWarp);
-    await pool.getOrOpen("repo:a", "/tmp/repo-a", "writer-live", "session:live");
+    const live = await pool.acquire({
+      key: { repoId: "repo:a", writerId: "writer-live" },
+      worktreeRoot: "/tmp/repo-a",
+      ownerId: "session:live",
+    });
 
-    const firstFailure = pool.getOrOpen(
-      "repo:a",
-      "/tmp/repo-a",
-      "writer-fail",
-      "session:fail-a",
-    );
-    const secondFailure = pool.getOrOpen(
-      "repo:a",
-      "/tmp/repo-a",
-      "writer-fail",
-      "session:fail-b",
-    );
+    const firstFailure = pool.acquire({
+      key: { repoId: "repo:a", writerId: "writer-fail" },
+      worktreeRoot: "/tmp/repo-a",
+      ownerId: "session:fail-a",
+    });
+    const secondFailure = pool.acquire({
+      key: { repoId: "repo:a", writerId: "writer-fail" },
+      worktreeRoot: "/tmp/repo-a",
+      ownerId: "session:fail-b",
+    });
 
     await expect(firstFailure).rejects.toBe(openError);
     await expect(secondFailure).rejects.toBe(openError);
@@ -110,5 +151,6 @@ describe("mcp: warp pool", () => {
     expect(pool.leaseCount("repo:a", "writer-live")).toBe(1);
     expect(pool.leaseCount("repo:a", "writer-fail")).toBe(0);
     expect(openWarp).toHaveBeenCalledTimes(2);
+    await live.release();
   });
 });
