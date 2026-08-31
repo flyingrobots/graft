@@ -143,6 +143,7 @@ export class WorkspaceRouter {
   private readonly routedBindings = new Map<string, BoundWorkspace>();
   private readonly routedBindingInitializations = new Map<string, Promise<BoundWorkspace>>();
   private readonly bindingWarpLeases = new Set<WorkspaceWarpLease>();
+  private bindingCommitTail: Promise<void> = Promise.resolve();
   private warpLeaseRelease: Promise<void> | null = null;
 
   constructor(private readonly options: WorkspaceRouterOptions) {
@@ -846,6 +847,33 @@ export class WorkspaceRouter {
       };
     }
 
+    return this.enqueueBindingCommit(() => this.commitBinding(
+      action,
+      resolved,
+      sliceDir,
+      capabilityProfile,
+      actionName,
+      options,
+    ));
+  }
+
+  private enqueueBindingCommit<T>(operation: () => Promise<T>): Promise<T> {
+    const result = this.bindingCommitTail.then(operation);
+    this.bindingCommitTail = result.then(
+      () => undefined,
+      () => undefined,
+    );
+    return result;
+  }
+
+  private async commitBinding(
+    action: WorkspaceBindAction,
+    resolved: ResolvedWorkspace,
+    sliceDir: string,
+    capabilityProfile: WorkspaceCapabilityProfile,
+    actionName: string,
+    options: { readonly openedSource?: OpenedWorkspaceSource | undefined },
+  ): Promise<WorkspaceActionResult> {
     const previousBinding = this.currentBinding;
     const nextWriterId = this.options.warpWriterId ?? DEFAULT_WARP_WRITER_ID;
     const transferredWarpLease = previousBinding?.repoId === resolved.repoId

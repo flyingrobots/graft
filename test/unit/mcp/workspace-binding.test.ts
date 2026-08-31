@@ -503,6 +503,75 @@ describe("mcp: daemon workspace binding", () => {
     expect((await router.getWarp()).app).toBe(secondResident);
   });
 
+  it("releases every displaced resident after concurrent cross-repository rebinds", async () => {
+    const firstRepoDir = createCommittedRepo();
+    const secondRepoDir = createCommittedRepo();
+    const thirdRepoDir = createCommittedRepo();
+    const graftDir = fs.mkdtempSync(path.join(os.tmpdir(), "graft-concurrent-rebind-"));
+    cleanups.push(() => {
+      fs.rmSync(graftDir, { recursive: true, force: true });
+    });
+    const pool = new InMemoryWarpPool((_worktreeRoot, writerId) => {
+      return Promise.resolve({ writerId } as unknown as WarpApp);
+    });
+    const history = new PersistedLocalHistoryStore({
+      fs: nodeFs,
+      codec: new CanonicalJsonCodec(),
+      graftDir,
+    });
+    history.noteBinding = () => Promise.resolve();
+    let capabilityRequests = 0;
+    let releaseConcurrentProfiles!: () => void;
+    const concurrentProfiles = new Promise<void>((resolve) => {
+      releaseConcurrentProfiles = resolve;
+    });
+    let markConcurrentProfilesRequested!: () => void;
+    const concurrentProfilesRequested = new Promise<void>((resolve) => {
+      markConcurrentProfilesRequested = resolve;
+    });
+    const router = new WorkspaceRouter({
+      mode: "daemon",
+      fs: nodeFs,
+      git: nodeGit,
+      graftDir,
+      warpPool: pool,
+      transportSessionId: "transport:test",
+      warpWriterId: "writer:test",
+      authorizationPolicy: {
+        getCapabilityProfile() {
+          capabilityRequests += 1;
+          if (capabilityRequests === 1) {
+            return Promise.resolve(DEFAULT_DAEMON_CAPABILITY_PROFILE);
+          }
+          if (capabilityRequests === 3) {
+            markConcurrentProfilesRequested();
+          }
+          return concurrentProfiles.then(() => DEFAULT_DAEMON_CAPABILITY_PROFILE);
+        },
+        noteBound(): Promise<void> {
+          return Promise.resolve();
+        },
+      },
+      persistedLocalHistory: history,
+    });
+
+    const first = await router.bind({ cwd: firstRepoDir }, "workspace_bind");
+    expect(first.ok).toBe(true);
+    const secondRebind = router.rebind({ cwd: secondRepoDir }, "workspace_rebind");
+    const thirdRebind = router.rebind({ cwd: thirdRepoDir }, "workspace_rebind");
+    await concurrentProfilesRequested;
+    releaseConcurrentProfiles();
+    const [second, third] = await Promise.all([secondRebind, thirdRebind]);
+
+    expect(second.ok).toBe(true);
+    expect(third.ok).toBe(true);
+    const currentRepoId = router.getStatus().repoId;
+    expect(currentRepoId).not.toBeNull();
+    expect(pool.leaseCount(first.repoId!, "writer:test")).toBe(0);
+    expect(pool.leaseCount(currentRepoId!, "writer:test")).toBe(1);
+    expect(pool.size()).toBe(1);
+  });
+
   it("keeps an admitted invocation resident while session bindings release", async () => {
     const repoDir = createCommittedRepo();
     const graftDir = fs.mkdtempSync(path.join(os.tmpdir(), "graft-binding-invocation-lease-"));

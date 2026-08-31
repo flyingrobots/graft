@@ -126,6 +126,12 @@ That lease ends when the binding becomes unreachable through any terminal path:
 - daemon-session termination releases the current binding and every routed
   binding.
 
+Current-binding commits are serialized from predecessor capture through
+history and authorization publication, pointer replacement, and release of the
+exact displaced capability. Concurrent rebind preparation may overlap, but
+each commit observes the binding installed by the prior successful commit; a
+later winner therefore cannot strand the earlier winner's lease.
+
 An in-flight execution cannot borrow the binding's lease. Capturing a
 `WorkspaceExecutionContext` creates or lazily acquires a distinct invocation
 lease, and the invocation engine releases it in `finally`. Therefore removing
@@ -198,6 +204,8 @@ capacity and deterministic policy before replacing eager eviction.
       same repository.
 - [x] Successful A-to-B rebind releases A only after B commits, while a
       same-resident rebind transfers the existing holder.
+- [x] Concurrent cross-resident rebind commits each observe and release their
+      actual predecessor; only the final binding remains resident.
 - [x] Failed rebind retains A and releases any uncommitted B lease.
 - [ ] Routed authorization rejection and LRU removal release their binding
       leases.
