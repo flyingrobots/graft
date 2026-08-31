@@ -11,6 +11,7 @@ import { PersistentMonitorRuntime } from "../../../src/mcp/persistent-monitor-ru
 import * as graftServerModule from "../../../src/mcp/server.js";
 import {
   quarantineDaemonRootOwner,
+  publishDaemonRootOwner,
   removeSessionDirectory,
   removeSessionOrphanDirectories,
   writeSessionOwnershipMarker,
@@ -1135,6 +1136,32 @@ describe("mcp: daemon session reaper", () => {
       });
 
     expect(JSON.parse(fs.readFileSync(ownerPath, "utf-8"))).toEqual(newerOwner);
+    expect(fs.readdirSync(rootDir)).toEqual(["daemon-owner.json"]);
+  });
+
+  it("publishes a complete root owner without replacing an incumbent", async () => {
+    const rootDir = fs.mkdtempSync(path.join(os.tmpdir(), "graft-session-owner-publish-"));
+    const ownerPath = path.join(rootDir, "daemon-owner.json");
+    const firstOwner = {
+      schemaVersion: 1 as const,
+      instanceId: "00000000-0000-4000-8000-000000000001",
+      pid: process.pid,
+      socketPath: path.join(rootDir, "first.sock"),
+    };
+    const secondOwner = {
+      schemaVersion: 1 as const,
+      instanceId: "00000000-0000-4000-8000-000000000002",
+      pid: process.pid,
+      socketPath: path.join(rootDir, "second.sock"),
+    };
+    cleanups.push(() => {
+      fs.rmSync(rootDir, { recursive: true, force: true });
+    });
+
+    expect(await publishDaemonRootOwner(ownerPath, firstOwner)).toBe(true);
+    expect(await publishDaemonRootOwner(ownerPath, secondOwner)).toBe(false);
+
+    expect(JSON.parse(fs.readFileSync(ownerPath, "utf-8"))).toEqual(firstOwner);
     expect(fs.readdirSync(rootDir)).toEqual(["daemon-owner.json"]);
   });
 

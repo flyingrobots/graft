@@ -218,6 +218,9 @@ Stale takeover and release quarantine the canonical owner entry, reread the
 moved record, and delete it only when every identity field still matches the
 record that authorized the move. If another owner replaced it in the interim,
 the moved inode is linked back to the canonical path and takeover refuses.
+New claims are written, flushed, and closed under a unique same-directory
+candidate name. An exclusive hard link publishes that complete inode as
+`daemon-owner.json`; an incumbent causes refusal without replacement.
 
 Startup creates the direct `sessions` child when absent and rejects it when an
 existing path is a symbolic link or is not a directory. It does not chmod or

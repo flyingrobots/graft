@@ -61,6 +61,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   restore a concurrently published successor before refusing ownership.
   Signal-triggered shutdown now consumes and reports aggregate cleanup failure
   and selects a nonzero exit status instead of leaking an unhandled rejection.
+  Daemon-root claims now publish a flushed, complete candidate inode through an
+  exclusive hard link, preventing crash-truncated canonical owner records.
 
 ### Fixed
 

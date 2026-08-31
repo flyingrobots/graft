@@ -228,6 +228,60 @@ export async function quarantineDaemonRootOwner(
   return quarantinedPath;
 }
 
+export async function publishDaemonRootOwner(
+  ownerPath: string,
+  record: DaemonRootOwnerRecord,
+): Promise<boolean> {
+  const candidatePath = `${ownerPath}.candidate-${record.instanceId}-${crypto.randomUUID()}`;
+  let published = false;
+  try {
+    const candidate = await fs.open(candidatePath, "wx", PRIVATE_FILE_MODE);
+    try {
+      await candidate.writeFile(`${JSON.stringify(record)}\n`, { encoding: "utf-8" });
+      await candidate.sync();
+    } finally {
+      await candidate.close();
+    }
+
+    try {
+      await fs.link(candidatePath, ownerPath);
+    } catch (error: unknown) {
+      if (errorCode(error) !== "EEXIST") throw error;
+      await fs.unlink(candidatePath);
+      return false;
+    }
+    published = true;
+    await fs.unlink(candidatePath);
+    return true;
+  } catch (error) {
+    const rollbackErrors: unknown[] = [];
+    if (published) {
+      try {
+        const releasedPath = await quarantineDaemonRootOwner(ownerPath, record, "released");
+        if (releasedPath === null) {
+          throw new Error("Published daemon root owner disappeared during rollback", { cause: error });
+        }
+        await fs.unlink(releasedPath);
+      } catch (rollbackError) {
+        rollbackErrors.push(rollbackError);
+      }
+    }
+    try {
+      await fs.unlink(candidatePath);
+    } catch (cleanupError: unknown) {
+      if (errorCode(cleanupError) !== "ENOENT") rollbackErrors.push(cleanupError);
+    }
+    if (rollbackErrors.length > 0) {
+      throw new AggregateError(
+        [error, ...rollbackErrors],
+        "Daemon root owner publication and rollback both failed",
+        { cause: error },
+      );
+    }
+    throw error;
+  }
+}
+
 export async function acquireDaemonRootOwnership(input: {
   readonly graftDir: string;
   readonly socketPath: string;
@@ -249,16 +303,7 @@ export async function acquireDaemonRootOwnership(input: {
   };
 
   for (;;) {
-    try {
-      await fs.writeFile(ownerPath, `${JSON.stringify(record)}\n`, {
-        encoding: "utf-8",
-        flag: "wx",
-        mode: PRIVATE_FILE_MODE,
-      });
-      break;
-    } catch (error: unknown) {
-      if (errorCode(error) !== "EEXIST") throw error;
-    }
+    if (await publishDaemonRootOwner(ownerPath, record)) break;
 
     const current = await readRootOwner(ownerPath);
     if (current === null) continue;
