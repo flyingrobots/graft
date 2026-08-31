@@ -190,7 +190,7 @@ capacity and deterministic policy before replacing eager eviction.
       ID.
 - [ ] Two same-owner acquisitions of one resident remain valid until both
       unique leases release.
-- [ ] A failed open leaves zero references and cannot remove a newer
+- [x] A failed open leaves zero references and cannot remove a newer
       replacement entry.
 - [x] The last release automatically removes that writer-lane resident from
       production pool state.

@@ -42,9 +42,11 @@ export class InMemoryWarpPool implements WarpPool {
     const nextRepoHandles = repoHandles ?? new Map<string, Promise<WarpApp>>();
     const opened = this.openWarp(worktreeRoot, writerId).catch((error: unknown) => {
       const current = this.opened.get(repoId);
-      current?.delete(writerId);
-      if (current?.size === 0) {
-        this.opened.delete(repoId);
+      if (current?.get(writerId) === opened) {
+        current.delete(writerId);
+        if (current.size === 0) {
+          this.opened.delete(repoId);
+        }
       }
       throw error;
     });

@@ -57,6 +57,40 @@ describe("mcp: warp pool lease eviction", () => {
     expect(openCount).toBe(3);
   });
 
+  it("keeps a replacement resident when an evicted pending open rejects late", async () => {
+    const staleError = new Error("injected stale open failure");
+    const replacementApp = { generation: "replacement" } as unknown as WarpApp;
+    let rejectStale!: (error: Error) => void;
+    let resolveReplacement!: (app: WarpApp) => void;
+    const staleOpen = new Promise<WarpApp>((_resolve, reject) => {
+      rejectStale = reject;
+    });
+    const replacementOpen = new Promise<WarpApp>((resolve) => {
+      resolveReplacement = resolve;
+    });
+    let openCount = 0;
+    const pool = new InMemoryWarpPool(() => {
+      openCount++;
+      return openCount === 1 ? staleOpen : replacementOpen;
+    });
+
+    const staleOpening = pool.getOrOpen("repo-a", "/path/to/a", "writer-a");
+    const staleFailure = expect(staleOpening).rejects.toBe(staleError);
+    expect(await pool.ejectUnreferenced()).toBe(1);
+
+    const replacementOpening = pool.getOrOpen("repo-a", "/path/to/a", "writer-a");
+    resolveReplacement(replacementApp);
+    await expect(replacementOpening).resolves.toBe(replacementApp);
+
+    rejectStale(staleError);
+    await staleFailure;
+
+    expect(pool.has("repo-a", "writer-a")).toBe(true);
+    await expect(pool.getOrOpen("repo-a", "/path/to/a", "writer-a"))
+      .resolves.toBe(replacementApp);
+    expect(openCount).toBe(2);
+  });
+
   it("tracks leases and ejects unreferenced WarpApp instances", async () => {
     let openCount = 0;
     const fakeOpen = (worktreeRoot: string, writerId: string) => {
