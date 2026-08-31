@@ -20,7 +20,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   close/error and daemon shutdown release every active or routed binding lease
   owned by the session.
   A successful cross-resident rebind releases the previous binding only after
-  the replacement commits, while same-resident rebinds retain the shared holder.
+  the replacement commits, while same-resident rebinds transfer their holder.
+  Current and routed bindings in one transport session use distinct holder
+  identities, so evicting one cannot release another binding's resident.
   Failed opens roll back only lease-holder registrations introduced by the
   failed caller, preserve leases for sibling writer lanes, and cannot delete a
   newer replacement resident when an older open rejects late.

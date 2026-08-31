@@ -46,6 +46,7 @@ export interface BoundWorkspace {
   readonly resolvePath: (input: string) => string;
   readonly capabilityProfile: WorkspaceCapabilityProfile;
   readonly warpWriterId: string;
+  readonly warpLeaseHolderId: string;
   readonly transportSessionId: string;
   readonly slice: WorkspaceSlice;
   readonly getWarp: () => Promise<WarpContext>;
@@ -79,6 +80,7 @@ export async function createBoundWorkspace(input: {
   readonly fs: FileSystem;
   readonly transportSessionId: string;
   readonly warpWriterId?: string | undefined;
+  readonly warpLeaseHolderId: string;
   readonly warpPool: LeaseAwareWarpPool;
 }): Promise<BoundWorkspace> {
   if (input.actionName !== undefined) {
@@ -93,13 +95,14 @@ export async function createBoundWorkspace(input: {
     capabilityProfile: input.capabilityProfile,
     transportSessionId: input.transportSessionId,
     warpWriterId: input.warpWriterId ?? DEFAULT_WARP_WRITER_ID,
+    warpLeaseHolderId: input.warpLeaseHolderId,
     slice: input.slice,
     getWarp: async () => ({
       app: await input.warpPool.getOrOpen(
         input.resolved.repoId,
         input.resolved.worktreeRoot,
         input.warpWriterId ?? DEFAULT_WARP_WRITER_ID,
-        input.transportSessionId,
+        input.warpLeaseHolderId,
       ),
       strandId: null,
     }),

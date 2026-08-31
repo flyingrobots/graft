@@ -131,6 +131,7 @@ function workspaceCapabilityProfilesEqual(
 
 export class WorkspaceRouter {
   private bindingCounter = 0;
+  private bindingLeaseCounter = 0;
   private executionCounter = 0;
   private sliceIdCounter = 0;
   private currentSlice: WorkspaceSlice;
@@ -260,7 +261,7 @@ export class WorkspaceRouter {
       this.options.warpPool.releaseLease(
         binding.repoId,
         binding.warpWriterId,
-        binding.transportSessionId,
+        binding.warpLeaseHolderId,
       );
     }
   }
@@ -675,7 +676,7 @@ export class WorkspaceRouter {
         this.options.warpPool.releaseLease(
           evicted.repoId,
           evicted.warpWriterId,
-          evicted.transportSessionId,
+          evicted.warpLeaseHolderId,
         );
       }
       this.routedBindings.delete(oldestKey);
@@ -863,7 +864,19 @@ export class WorkspaceRouter {
       };
     }
 
-    const nextBinding = await this.createBoundWorkspace(resolved, sliceDir, capabilityProfile, actionName);
+    const nextWriterId = this.options.warpWriterId ?? DEFAULT_WARP_WRITER_ID;
+    const transferredLeaseHolderId = this.currentBinding?.repoId === resolved.repoId
+      && this.currentBinding.warpWriterId === nextWriterId
+      ? this.currentBinding.warpLeaseHolderId
+      : undefined;
+    const nextBinding = await this.createBoundWorkspace(
+      resolved,
+      sliceDir,
+      capabilityProfile,
+      actionName,
+      undefined,
+      transferredLeaseHolderId,
+    );
     const nextRepoState = nextBinding.slice.repoState;
     if (nextRepoState === null) {
       throw new WorkspaceBindingRequiredError("workspace");
@@ -902,7 +915,7 @@ export class WorkspaceRouter {
       this.options.warpPool.releaseLease(
         previousBinding.repoId,
         previousBinding.warpWriterId,
-        previousBinding.transportSessionId,
+        previousBinding.warpLeaseHolderId,
       );
     }
 
@@ -920,6 +933,7 @@ export class WorkspaceRouter {
     capabilityProfile: WorkspaceCapabilityProfile,
     actionName: string | undefined,
     sliceOverride?: WorkspaceSlice,
+    warpLeaseHolderId?: string,
   ): Promise<BoundWorkspace> {
     const slice = sliceOverride ?? createWorkspaceSlice({
       graftDir,
@@ -937,6 +951,11 @@ export class WorkspaceRouter {
       fs: this.options.fs,
       transportSessionId: this.options.transportSessionId,
       warpWriterId: this.options.warpWriterId ?? DEFAULT_WARP_WRITER_ID,
+      warpLeaseHolderId: warpLeaseHolderId ?? [
+        this.options.transportSessionId,
+        "binding",
+        String(++this.bindingLeaseCounter).padStart(6, "0"),
+      ].join(":"),
       warpPool: this.options.warpPool,
     });
   }

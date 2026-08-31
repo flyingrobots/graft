@@ -515,6 +515,62 @@ describe("mcp: daemon workspace binding", () => {
     expect((await router.getWarp()).app).toBe(secondResident);
   });
 
+  it("keeps the current binding leased when a same-repo routed binding is evicted", {
+    timeout: 20_000,
+  }, async () => {
+    const repoDir = createCommittedRepo();
+    git(repoDir, "branch routed-sibling");
+    const routedWorktree = path.join(os.tmpdir(), `graft-routed-sibling-${String(Date.now())}`);
+    git(repoDir, `worktree add ${routedWorktree} routed-sibling`);
+    cleanups.push(() => {
+      fs.rmSync(routedWorktree, { recursive: true, force: true });
+    });
+    const churnRepos = Array.from({ length: 8 }, () => createCommittedRepo());
+    const graftDir = fs.mkdtempSync(path.join(os.tmpdir(), "graft-binding-lease-lru-"));
+    cleanups.push(() => {
+      fs.rmSync(graftDir, { recursive: true, force: true });
+    });
+    const pool = new InMemoryWarpPool((_worktreeRoot, writerId) => {
+      return Promise.resolve({ writerId } as unknown as WarpApp);
+    });
+    const router = new WorkspaceRouter({
+      mode: "daemon",
+      fs: nodeFs,
+      git: nodeGit,
+      graftDir,
+      warpPool: pool,
+      transportSessionId: "transport:test",
+      warpWriterId: "writer:test",
+      authorizationPolicy: {
+        getCapabilityProfile() {
+          return Promise.resolve(DEFAULT_DAEMON_CAPABILITY_PROFILE);
+        },
+        noteBound(): Promise<void> {
+          return Promise.resolve();
+        },
+      },
+      persistedLocalHistory: new PersistedLocalHistoryStore({
+        fs: nodeFs,
+        codec: new CanonicalJsonCodec(),
+        graftDir,
+      }),
+      persistedLocalHistoryGraph: false,
+    });
+
+    const current = await router.bind({ cwd: repoDir }, "workspace_bind");
+    expect(current.ok).toBe(true);
+    await router.getWarp();
+    const routed = await router.captureExecutionContextForWorkspace({ cwd: routedWorktree });
+    routed.releaseWarpLease();
+    for (const cwd of churnRepos) {
+      const context = await router.captureExecutionContextForWorkspace({ cwd });
+      context.releaseWarpLease();
+    }
+
+    expect(pool.leaseCount(current.repoId!, "writer:test")).toBe(1);
+    expect(pool.has(current.repoId!, "writer:test")).toBe(true);
+  });
+
   it("denies run_capture in daemon mode after bind", async () => {
     const repoDir = createCommittedRepo();
     const server = createManagedDaemonServer(cleanups);
