@@ -1473,6 +1473,42 @@ describe("mcp: daemon session reaper", () => {
     expect(fs.existsSync(eligibleDir)).toBe(true);
   });
 
+  it("distinguishes generic-Unix process witnesses within one start second", async () => {
+    if (process.platform === "win32") return;
+    const originalPlatform = Object.getOwnPropertyDescriptor(process, "platform");
+    const originalTitle = process.title;
+    if (originalPlatform === undefined) {
+      throw new Error("Expected process.platform descriptor");
+    }
+
+    try {
+      Object.defineProperty(process, "platform", {
+        ...originalPlatform,
+        value: "darwin",
+      });
+      process.title = `graft-daemon:${"a".repeat(32)}`;
+      const firstIdentity = await readProcessStartIdentity(process.pid);
+      process.title = `graft-daemon:${"b".repeat(32)}`;
+      const secondIdentity = await readProcessStartIdentity(process.pid);
+
+      expect(firstIdentity).not.toBeNull();
+      expect(secondIdentity).not.toBeNull();
+      expect(firstIdentity).not.toBe(secondIdentity);
+
+      process.title = "node graft daemon";
+      const installedIdentity = await readProcessStartIdentity(process.pid);
+      const installedWitness = process.title;
+      const repeatedIdentity = await readProcessStartIdentity(process.pid);
+      expect(installedWitness).toMatch(/^graft-daemon:[0-9a-f]{32}$/u);
+      expect(installedIdentity).toMatch(/^darwin:sha256:[0-9a-f]{64}$/u);
+      expect(installedIdentity).not.toContain(installedWitness);
+      expect(repeatedIdentity).toBe(installedIdentity);
+    } finally {
+      process.title = originalTitle;
+      Object.defineProperty(process, "platform", originalPlatform);
+    }
+  });
+
   it("checks live root ownership before touching the candidate socket path", async () => {
     const rootDir = fs.mkdtempSync(path.join(os.tmpdir(), "graft-session-owner-order-"));
     const socketPath = path.join(rootDir, "candidate.sock");

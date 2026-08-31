@@ -14,6 +14,8 @@ const PRIVATE_FILE_MODE = 0o600;
 const ROOT_OWNER_CLAIM_RETRY_MS = 5;
 const ROOT_OWNER_CLAIM_TIMEOUT_MS = 5_000;
 const GENERATED_UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/u;
+const GENERIC_UNIX_PROCESS_WITNESS_PREFIX = "graft-daemon:";
+const GENERIC_UNIX_PROCESS_WITNESS_PATTERN = /^graft-daemon:[0-9a-f]{32}$/u;
 
 export interface DaemonRootOwnerRecord {
   readonly schemaVersion: 2;
@@ -312,6 +314,35 @@ async function readLinuxProcessStartIdentity(pid: number): Promise<string> {
   return `linux:${bootId}:${startTicks}`;
 }
 
+function ensureGenericUnixProcessWitness(pid: number): void {
+  if (
+    pid !== process.pid
+    || GENERIC_UNIX_PROCESS_WITNESS_PATTERN.test(process.title)
+  ) {
+    return;
+  }
+  process.title = `${GENERIC_UNIX_PROCESS_WITNESS_PREFIX}${crypto.randomBytes(16).toString("hex")}`;
+  if (!GENERIC_UNIX_PROCESS_WITNESS_PATTERN.test(process.title)) {
+    throw new Error("Unable to install generic-Unix process identity witness");
+  }
+}
+
+async function readGenericUnixProcessStartIdentity(pid: number): Promise<string | null> {
+  ensureGenericUnixProcessWitness(pid);
+  const snapshot = (await execFileText("ps", [
+    "-ww",
+    "-o",
+    "lstart=",
+    "-o",
+    "command=",
+    "-p",
+    String(pid),
+  ])).trim().replace(/\s+/gu, " ");
+  if (snapshot.length === 0) return null;
+  const digest = crypto.createHash("sha256").update(snapshot, "utf-8").digest("hex");
+  return `${process.platform}:sha256:${digest}`;
+}
+
 export async function readProcessStartIdentity(pid: number): Promise<string | null> {
   if (!processIsAlive(pid)) return null;
   try {
@@ -330,11 +361,7 @@ export async function readProcessStartIdentity(pid: number): Promise<string | nu
       }
       return `win32:${ticks}`;
     }
-    const startedAt = (await execFileText("ps", ["-o", "lstart=", "-p", String(pid)]))
-      .trim()
-      .replace(/\s+/gu, " ");
-    if (startedAt.length === 0) return null;
-    return `${process.platform}:${startedAt}`;
+    return await readGenericUnixProcessStartIdentity(pid);
   } catch (error) {
     if (!processIsAlive(pid)) return null;
     throw new Error(`Unable to read process start identity for pid ${String(pid)}`, { cause: error });

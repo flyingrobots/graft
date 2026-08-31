@@ -228,6 +228,12 @@ birth witness exactly matches the persisted witness; a recycled PID does not
 count as the original daemon. Sharing one daemon root across independent live
 endpoints is invalid.
 
+On generic Unix platforms where `ps` exposes a start value only to the second,
+Graft installs a random 128-bit token in its stable process title and hashes
+that token together with the start value from one process snapshot. Only the
+digest is persisted, so rapid same-second PID reuse cannot collide and process
+arguments do not enter the owner record.
+
 Every owner-record publication, validation, quarantine, restoration, and
 release runs under one filesystem claim. The claim is published only after its
 record is complete, and its holder is identified by PID plus process-birth
@@ -451,6 +457,9 @@ authority has been retired, and each failed close layer is reported separately.
       removal and preserves an external same-ID directory.
 - [x] A temporary-claim release failure after root-owner publication rolls back
       the exact owner and claim residue; immediate reacquisition succeeds.
+- [x] Generic-Unix identities differ for two process witnesses sharing one
+      second-granularity start value, remain stable on repeated reads, and
+      persist only a digest of the process snapshot.
 - [x] Custom-endpoint startup and sweeps preserve unmarked legacy UUID
       directories while still removing eligible marker-owned orphans.
 - [x] Default-endpoint startup binds before legacy orphan cleanup and returns

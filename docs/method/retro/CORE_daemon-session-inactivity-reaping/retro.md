@@ -181,6 +181,13 @@ failure state immediately before every terminal transition, rebases one newly
 failed session, and returns the partial retirement counts instead of using the
 stale idle epoch.
 
+The final exact-head review found that the generic-Unix process-birth fallback
+used only `ps lstart`, whose finest field is seconds. The owner process now
+installs a random 128-bit token in its stable process title. Generic-Unix
+liveness hashes that token and the start value from one process snapshot, so a
+rapidly recycled PID cannot inherit the old daemon's identity and the record
+does not disclose process arguments.
+
 ## Drift
 
 The largest drift was procedural: implementation and PR publication preceded

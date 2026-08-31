@@ -43,6 +43,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   A sweep rechecks that retained-failure state immediately before each terminal
   transition, so a bad request sample arriving while earlier cleanup awaits
   cannot retire the affected session from a stale idle epoch.
+  Generic-Unix daemon ownership now combines the kernel-reported start second
+  with a random 128-bit process-title witness in one process snapshot, then
+  persists only its SHA-256 digest. Rapid PID reuse within the same second can
+  no longer make an unrelated replacement process look like the recorded owner.
   Session IDs remain reserved from orphan discovery while their shared terminal
   cleanup promise is still settling, preventing concurrent scratch deletion.
   Scheduled reaping coalesces timer ticks while a sweep is in flight, bounding
