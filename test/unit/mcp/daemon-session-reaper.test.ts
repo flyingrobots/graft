@@ -1629,8 +1629,10 @@ describe("mcp: daemon session reaper", () => {
       sessionStorage,
     });
     cleanups.push(() => daemon.close());
+    const protocolClose = vi.spyOn(McpServer.prototype, "close");
     const consoleError = vi.spyOn(console, "error").mockImplementation(() => undefined);
     cleanups.push(() => {
+      protocolClose.mockRestore();
       consoleError.mockRestore();
     });
     const initialize = await requestUnixJson(socketPath, "POST", "/mcp", {
@@ -1670,6 +1672,7 @@ describe("mcp: daemon session reaper", () => {
         retryable: true,
       }],
     });
+    expect(protocolClose).not.toHaveBeenCalled();
   });
 
   it("converges transport errors on the shared session termination operation", async () => {

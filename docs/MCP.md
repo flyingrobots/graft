@@ -73,11 +73,14 @@ lifecycle does not claim to bound every daemon cache or working set.
   parsing and lasts through handler settlement. Concurrent requests hold
   independent references; a session with any active reference is not idle.
 - **Terminal cleanup** is one idempotent transition shared by idle expiry,
-  transport close/error, explicit disconnect, and daemon shutdown. It revokes
-  the session's map and `DaemonControlPlane` registration, asks the connected
-  MCP protocol server to close, falls back to closing the HTTP transport when
-  protocol close fails, and removes `<graftDir>/sessions/<sessionId>`. There is
-  no separate `GraftServer.close()` operation.
+  transport close/error, explicit disconnect, and daemon shutdown. Every cause
+  revokes the session's map and `DaemonControlPlane` registration and removes
+  `<graftDir>/sessions/<sessionId>`. Idle expiry, transport error, and daemon
+  shutdown ask the connected MCP protocol server to close and fall back to the
+  HTTP transport when protocol close fails. When the transport's own close
+  callback initiates termination, including explicit DELETE, the transport is
+  already closed, so the transition skips duplicate protocol/transport close.
+  There is no separate `GraftServer.close()` operation.
 - **Explicit disconnect** is available through `DELETE /mcp` with the exact
   `mcp-session-id`.
 - **Crash and cleanup recovery** begins only after the daemon has exclusive

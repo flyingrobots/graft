@@ -36,6 +36,7 @@ mutation of the exact guard under test. Representative receipts:
 | Marker rollback | Moving scratch ownership after marker publication left one UUID directory | `0e43ec29` |
 | Registration rollback | Skipping rollback unregistration left one active control-plane transport | `0e43ec29` |
 | Terminal idempotence | Removing promise reuse plus map-identity fences produced two unregister calls | `b5134bec` |
+| Already-closed transport | Forcing transport-close termination through protocol close produced one unexpected `McpServer.close()` call | post-Retro review repair |
 
 ## Focused GREEN
 
@@ -58,7 +59,8 @@ structured public errors.
 pnpm test
 ```
 
-Result: pass; 259 files and 2,101 tests in 96.34 seconds.
+Result: pass; 259 files and 2,101 tests in 98.09 seconds on the final
+post-review repair tree.
 
 The command uses the repository's Docker-isolated test runner. The earlier
 exact-tree run at `83b50a70` passed 258 files and 2,095 tests and failed one of
@@ -95,6 +97,12 @@ genuinely reentrant-termination threads matched repairs `0e43ec29` and
 `b5134bec` and were resolved through GraphQL. The sole remaining thread requires
 this local Retro and must be resolved only after the artifact, canonical suite,
 and commit exist.
+
+The exact-head post-Retro Codex pass increased the fully paginated surface to
+40 threads, 26 global comments, and 22 reviews. It opened one documentation-
+truth thread for the already-closed transport distinction; that thread is
+resolved only after the behavioral assertion, corrected prose, validation, and
+published repair commit exist.
 
 ## Scope witness
 

@@ -98,6 +98,13 @@ idempotence findings; `0e43ec29` and `b5134bec` closed them. The Retro-policy
 thread remained deliberately unresolved until this artifact and its exact-tree
 verification existed.
 
+The post-Retro exact-head Codex pass found one final documentation distinction:
+transport-close termination deliberately skips protocol and fallback transport
+closure because the transport is already closed, while idle, error, and
+shutdown causes still own those operations. The repair adds a behavioral
+assertion that transport close invokes no protocol close and updates `docs/MCP.md`
+without testing prose.
+
 ## Drift
 
 The largest drift was procedural: implementation and PR publication preceded
