@@ -47,6 +47,24 @@ export interface GraftDaemonServer {
   getHealthStatus(): DaemonHealthStatus;
 }
 
+export interface DaemonShutdownStage {
+  close(): Promise<void>;
+}
+
+export async function closeDaemonResources(stages: readonly DaemonShutdownStage[]): Promise<void> {
+  const errors: unknown[] = [];
+  for (const stage of stages) {
+    try {
+      await stage.close();
+    } catch (error) {
+      errors.push(error);
+    }
+  }
+  if (errors.length > 0) {
+    throw new AggregateError(errors, "Failed to close daemon resources");
+  }
+}
+
 export async function startDaemonServer(options: StartDaemonServerOptions = {}): Promise<GraftDaemonServer> {
   await ensureGitVersionSupportsGraft();
   const graftDir = path.resolve(options.graftDir ?? defaultDaemonRoot());
@@ -157,15 +175,21 @@ export async function startDaemonServer(options: StartDaemonServerOptions = {}):
       closing = (async () => {
         process.off("SIGINT", shutdown);
         process.off("SIGTERM", shutdown);
-        await sessionHost.close();
-        await monitorRuntime.close();
-        await daemonWorkerPool.close();
-        await closeHttpServer(httpServer);
-        if (!isNamedPipePath(socketPath)) {
-          await fs.unlink(socketPath).catch(() => {
-            return undefined;
-          });
-        }
+        await closeDaemonResources([
+          { close: () => sessionHost.close() },
+          { close: () => monitorRuntime.close() },
+          { close: () => daemonWorkerPool.close() },
+          { close: () => closeHttpServer(httpServer) },
+          {
+            close: async () => {
+              if (!isNamedPipePath(socketPath)) {
+                await fs.unlink(socketPath).catch(() => {
+                  return undefined;
+                });
+              }
+            },
+          },
+        ]);
       })();
       return closing;
     },

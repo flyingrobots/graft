@@ -25,7 +25,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   snapshotting sessions for transport, lease, and directory cleanup. If MCP
   transport connection fails after a session is published, the same retirement
   owner removes its control-plane record, releases its leases, and removes its
-  directory before the initialize error returns.
+  directory before the initialize error returns. Outer daemon shutdown now
+  attempts session, monitor, worker, HTTP, and socket cleanup in order before
+  reporting any aggregate cleanup failure, so one failed stage cannot leave the
+  listener alive by skipping the remaining stages.
   A successful cross-resident rebind releases the previous binding only after
   the replacement commits. Same-resident rebinds transfer an already acquired
   capability, while an unacquired lazy lease is recreated with the replacement

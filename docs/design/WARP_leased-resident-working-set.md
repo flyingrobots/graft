@@ -218,6 +218,9 @@ capacity and deterministic policy before replacing eager eviction.
 - A session published before MCP transport connection settles rolls back
   through the same memoized retirement owner if connection fails; the failure
   is not returned while its control-plane record, leases, or directory remain.
+- Outer daemon shutdown attempts session, monitor, worker, HTTP, and socket
+  cleanup in order even when an earlier stage fails, then reports every failure
+  as one aggregate.
 - Cleanup may release binding leases while admitted invocations remain active;
   their independent invocation leases keep the resident alive.
 - The daemon's shared pool opener must preserve the requested logical writer
@@ -263,6 +266,8 @@ capacity and deterministic policy before replacing eager eviction.
       drains earlier initialization before cleanup snapshots the session set.
 - [x] Failed MCP transport connection rolls back an already published daemon
       session before returning the initialization failure.
+- [x] A session cleanup failure cannot prevent monitor, worker, HTTP, or socket
+      shutdown; all stage failures are reported after every stage is attempted.
 - [x] Reopening an evicted resident reconstructs an equivalent bounded WARP
       projection from durable Git-backed state.
 - [x] Health and documentation distinguish resident writer-lane count from
