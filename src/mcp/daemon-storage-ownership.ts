@@ -531,8 +531,19 @@ async function acquireDaemonRootOwnerClaim(
     processStartIdentity,
   };
   const deadline = performance.now() + ROOT_OWNER_CLAIM_TIMEOUT_MS;
+  let firstAttempt = true;
 
   for (;;) {
+    if (!firstAttempt) {
+      if (performance.now() >= deadline) {
+        throw new DaemonRootOwnerClaimTimeoutError(ownerPath);
+      }
+      await delay(ROOT_OWNER_CLAIM_RETRY_MS);
+    }
+    firstAttempt = false;
+    if (performance.now() >= deadline) {
+      throw new DaemonRootOwnerClaimTimeoutError(ownerPath);
+    }
     if (await publishDaemonRootOwnerClaim(claimPath, record)) {
       let released = false;
       let releasedPath: string | null = null;
@@ -550,10 +561,6 @@ async function acquireDaemonRootOwnerClaim(
     if (current === null) continue;
     const currentProcessIdentity = await liveness.readProcessStartIdentity(current.pid);
     if (currentProcessIdentity === current.processStartIdentity) {
-      if (performance.now() >= deadline) {
-        throw new DaemonRootOwnerClaimTimeoutError(ownerPath);
-      }
-      await delay(ROOT_OWNER_CLAIM_RETRY_MS);
       continue;
     }
 

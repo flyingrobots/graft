@@ -256,6 +256,11 @@ then retries the same exact released-claim tombstone cleanup before
 propagating the original error. The failed caller never loses the only handle
 capable of removing its published authority.
 
+Claim acquisition applies one monotonic deadline and one retry delay at the
+loop boundary. Every attempt after the first waits and rechecks that deadline,
+regardless of whether the prior claim vanished, a stale-claim rename lost a
+race, or an existing tombstone prevented reclamation.
+
 Startup creates the direct `sessions` child when absent and rejects it when an
 existing path is a symbolic link or is not a directory. The shared orphan-scan
 boundary opens and retains the original root handle, anchors its device/inode
@@ -460,6 +465,8 @@ authority has been retired, and each failed close layer is reported separately.
       directory contents both survive the refusal.
 - [x] A temporary-claim release failure after root-owner publication rolls back
       the exact owner and claim residue; immediate reacquisition succeeds.
+- [x] Every daemon-root claim retry branch observes one deadline and delay;
+      claim disappearance or tombstone churn cannot spin past the timeout.
 - [x] Generic-Unix identities differ for two process witnesses sharing one
       second-granularity start value, remain stable on repeated reads, and
       persist only a digest of the process snapshot.

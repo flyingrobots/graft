@@ -212,6 +212,14 @@ the next sweep, so root-identity failures now remain retryable while symbolic
 links and non-directory children remain non-retryable. The regression restores
 the parked root and proves the next sweep removes the orphan.
 
+The same CodeRabbit review carried one global-review finding with no inline
+thread: claim-acquisition churn used immediate `continue` branches outside the
+only deadline and delay check. The retry policy now lives at the loop boundary,
+so every second and later attempt waits and checks the same deadline regardless
+of why the prior attempt failed. The deterministic regression advances the
+injected process clock after a stale claim disappears and proves reacquisition
+is refused with the typed timeout.
+
 ## Drift
 
 The largest drift was procedural: implementation and PR publication preceded

@@ -94,6 +94,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   rolls back the exact owner record and retries cleanup of the same released
   claim tombstone before propagating the failure, so an immediate retry is not
   blocked by unreachable authority.
+  Every claim-acquisition retry path now shares the same deadline and retry
+  delay, so vanished claims, stale-rename races, and existing tombstones cannot
+  bypass the timeout in a CPU spin.
   Signal-triggered shutdown now consumes and reports aggregate cleanup failure
   and selects a nonzero exit status instead of leaking an unhandled rejection.
   Daemon-root claims now publish a flushed, complete candidate inode through an

@@ -4,6 +4,7 @@ import * as fsPromises from "node:fs/promises";
 import * as http from "node:http";
 import * as os from "node:os";
 import * as path from "node:path";
+import { performance } from "node:perf_hooks";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
 import { DaemonControlPlane } from "../../../src/mcp/daemon-control-plane.js";
@@ -11,6 +12,7 @@ import { PersistentMonitorRuntime } from "../../../src/mcp/persistent-monitor-ru
 import * as graftServerModule from "../../../src/mcp/server.js";
 import {
   acquireDaemonRootOwnership,
+  DaemonRootOwnerClaimTimeoutError,
   daemonRootOwnerIsLive,
   deriveGenericUnixProcessStartIdentity,
   type LegacyUnmarkedSessionPolicy,
@@ -1972,6 +1974,49 @@ describe("mcp: daemon session reaper", () => {
     expect(JSON.parse(fs.readFileSync(path.join(stalePath, "claim.json"), "utf-8")))
       .toEqual(staleClaim);
     expect(JSON.parse(fs.readFileSync(ownerPath, "utf-8"))).toEqual(owner);
+  });
+
+  it("enforces the owner-claim deadline when a stale claim vanishes during recovery", async () => {
+    const rootDir = fs.mkdtempSync(path.join(os.tmpdir(), "graft-session-owner-claim-deadline-"));
+    const ownerPath = path.join(rootDir, "daemon-owner.json");
+    const claimPath = `${ownerPath}.claim`;
+    const claimRecordPath = path.join(claimPath, "claim.json");
+    const staleClaim = {
+      schemaVersion: 1 as const,
+      claimId: "00000000-0000-4000-8000-000000000001",
+      pid: 2_147_483_647,
+      processStartIdentity: "dead-process:100",
+    };
+    fs.mkdirSync(claimPath, { recursive: true });
+    fs.writeFileSync(claimRecordPath, `${JSON.stringify(staleClaim)}\n`);
+    cleanups.push(() => {
+      fs.rmSync(rootDir, { recursive: true, force: true });
+    });
+    let nowMs = 0;
+    const performanceNow = vi.spyOn(performance, "now").mockImplementation(() => nowMs);
+    cleanups.push(() => {
+      performanceNow.mockRestore();
+    });
+    let staleClaimRemoved = false;
+    readFileObserver.mockImplementation((filePath) => {
+      if (staleClaimRemoved || path.resolve(String(filePath)) !== claimRecordPath) return;
+      staleClaimRemoved = true;
+      nowMs = 10_000;
+      fs.rmSync(claimPath, { recursive: true, force: true });
+    });
+    const liveness = {
+      socketHasActiveListener(): Promise<boolean> {
+        return Promise.resolve(false);
+      },
+      readProcessStartIdentity(pid: number): Promise<string | null> {
+        return Promise.resolve(pid === staleClaim.pid ? "replacement-process:200" : "live-process:200");
+      },
+    };
+
+    await expect(acquireDaemonRootOwnership({
+      graftDir: rootDir,
+      socketPath: path.join(rootDir, "daemon.sock"),
+    }, liveness)).rejects.toBeInstanceOf(DaemonRootOwnerClaimTimeoutError);
   });
 
   it("publishes a complete root owner without replacing an incumbent", async () => {
