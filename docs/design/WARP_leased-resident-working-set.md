@@ -103,11 +103,10 @@ interface WarpResidentPool {
     readonly worktreeRoot: string;
     readonly ownerId: string;
   }): Promise<WarpResidentLease>;
+  size(): number;
   residentCount(): number;
 }
 ```
-
-The exact names may change during GREEN, but these semantics may not:
 
 - acquisition and release are required port operations;
 - each successful acquisition returns a unique lease token, including two
@@ -283,13 +282,13 @@ capacity and deterministic policy before replacing eager eviction.
 
 ### Agent
 
-- [ ] Is it impossible to obtain a pooled `WarpApp` without a releasable
+- [x] Is it impossible to obtain a pooled `WarpApp` without a releasable
       capability?
-- [ ] Can two bindings or invocations with the same session and repository be
+- [x] Can two bindings or invocations with the same session and repository be
       released independently?
-- [ ] Can cache churn, authorization revocation, or session termination race an
+- [x] Can cache churn, authorization revocation, or session termination race an
       in-flight invocation without premature eviction?
-- [ ] Do mutation tests fail when writer propagation, exact-entry fences,
+- [x] Do mutation tests fail when writer propagation, exact-entry fences,
       unique reference accounting, or terminal release is removed?
 
 ## Test strategy

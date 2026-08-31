@@ -61,15 +61,40 @@ agent-facing flow:
 3. then call repository-scoped tools such as `safe_read`, `graft_since`,
    or `code_show`
 
-### Warp Graph Lease Management
+### WARP resident ownership
 
-`InMemoryWarpPool` exposes owned acquisitions for logical WARP writer-lane residents:
+The daemon's `WarpResidentPool` application port exposes only owned
+acquisition of logical `(repoId, writerId)` residents. Every successful
+acquisition returns a unique, idempotently releasable capability, including
+two acquisitions with the same owner metadata. The port has no ordinary raw
+lookup, holder-ID release, sweep, or force-eviction operation.
 
-- **Lease Accounting**: Every successful acquisition returns a unique, idempotently releasable capability and records its token per `(repoId, writerId)` resident, even when two acquisitions name the same owner.
-- **Last-Release Eviction**: Releasing the final lease immediately drops that writer lane's in-process resident without disturbing leased sibling lanes in the same repository; production cleanup does not require a separate sweep.
-- **Session Teardown**: Daemon transport close/error and daemon shutdown release the session's active and routed binding leases through one idempotent server hook.
-- **Execution Lifetime**: Each routed tool execution owns a distinct lazy lease through handler work, read attribution, failure reporting, and settlement. Binding-cache eviction cannot revoke a resident still owned by an admitted invocation, and invocation cleanup releases in `finally`.
-- **Resident Visibility**: `/healthz` and `daemon_status` report `activeWarpRepos` as the unique repository count and `activeWarpResidents` as the logical `(repoId, writerId)` resident count. These fields describe only the shared WARP pool; they are not total daemon-memory measurements.
+Releasing a resident's final capability immediately drops that writer lane's
+in-process strong reference. A leased sibling writer lane in the same
+repository remains independent. A later acquisition reconstructs the dropped
+resident from durable Git-backed WARP state.
+
+Ownership follows the work that can still use the resident:
+
+- current and routed workspace bindings own separate lazy capabilities after
+  their first WARP-backed use;
+- every bound daemon repository invocation owns a distinct capability until
+  settlement, whether or not that tool enters the daemon scheduler; and
+- internally captured read-attribution contexts release their own capability
+  locally.
+
+Rebind, routed-cache replacement, authorization rejection, session
+close/error, and daemon shutdown dispose only their exact binding
+capabilities. An admitted invocation therefore keeps its resident alive even
+when the binding that admitted it is removed. Failed opens and failed binding
+initialization roll back their unpublished capabilities. Shutdown fences new
+session admission, drains already admitted initialization, and retires every
+published session through the same idempotent owner.
+
+`/healthz` and `daemon_status` report `activeWarpRepos` as the unique
+repository count and `activeWarpResidents` as the logical writer-lane resident
+count. These are aggregate shared-pool counts, not a resident-owner inventory
+and not measurements of unrelated daemon memory.
 
 For concurrent multi-repo use inside one daemon-backed MCP session,
 repo tools that support routing also accept `cwd`: `safe_read`,
