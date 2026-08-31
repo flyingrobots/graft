@@ -198,7 +198,7 @@ capacity and deterministic policy before replacing eager eviction.
       same repository.
 - [x] Successful A-to-B rebind releases A only after B commits, while a
       same-resident rebind transfers the existing holder.
-- [ ] Failed rebind retains A and releases any uncommitted B lease.
+- [x] Failed rebind retains A and releases any uncommitted B lease.
 - [ ] Routed authorization rejection and LRU removal release their binding
       leases.
 - [x] An in-flight routed invocation survives binding LRU removal without

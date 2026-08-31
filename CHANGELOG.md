@@ -23,6 +23,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   the replacement commits, while same-resident rebinds transfer their holder.
   Current and routed bindings in one transport session use distinct holder
   identities, so evicting one cannot release another binding's resident.
+  If history or authorization setup rejects after opening a replacement,
+  binding rollback releases only the uncommitted holder and preserves the
+  previous active binding.
   Failed opens roll back only lease-holder registrations introduced by the
   failed caller, preserve leases for sibling writer lanes, and cannot delete a
   newer replacement resident when an older open rejects late.

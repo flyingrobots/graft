@@ -571,6 +571,60 @@ describe("mcp: daemon workspace binding", () => {
     expect(pool.has(current.repoId!, "writer:test")).toBe(true);
   });
 
+  it("rolls back an uncommitted rebind lease without releasing the previous binding", async () => {
+    const firstRepoDir = createCommittedRepo();
+    const secondRepoDir = createCommittedRepo();
+    const graftDir = fs.mkdtempSync(path.join(os.tmpdir(), "graft-binding-rollback-"));
+    cleanups.push(() => {
+      fs.rmSync(graftDir, { recursive: true, force: true });
+    });
+    const bindError = new Error("injected binding history failure");
+    const history = new PersistedLocalHistoryStore({
+      fs: nodeFs,
+      codec: new CanonicalJsonCodec(),
+      graftDir,
+    });
+    let historyBindings = 0;
+    history.noteBinding = () => {
+      historyBindings++;
+      return historyBindings === 1 ? Promise.resolve() : Promise.reject(bindError);
+    };
+    let openCount = 0;
+    const pool = new InMemoryWarpPool((_worktreeRoot, writerId) => {
+      openCount++;
+      return Promise.resolve({ writerId, openCount } as unknown as WarpApp);
+    });
+    const router = new WorkspaceRouter({
+      mode: "daemon",
+      fs: nodeFs,
+      git: nodeGit,
+      graftDir,
+      warpPool: pool,
+      transportSessionId: "transport:test",
+      warpWriterId: "writer:test",
+      authorizationPolicy: {
+        getCapabilityProfile() {
+          return Promise.resolve(DEFAULT_DAEMON_CAPABILITY_PROFILE);
+        },
+        noteBound(): Promise<void> {
+          return Promise.resolve();
+        },
+      },
+      persistedLocalHistory: history,
+    });
+
+    const first = await router.bind({ cwd: firstRepoDir }, "workspace_bind");
+    expect(first.ok).toBe(true);
+    expect(pool.size()).toBe(1);
+
+    await expect(router.rebind({ cwd: secondRepoDir }, "workspace_rebind")).rejects.toBe(bindError);
+
+    expect(router.getStatus().repoId).toBe(first.repoId);
+    expect(pool.size()).toBe(1);
+    expect(pool.leaseCount(first.repoId!, "writer:test")).toBe(1);
+    expect(openCount).toBe(2);
+  });
+
   it("denies run_capture in daemon mode after bind", async () => {
     const repoDir = createCommittedRepo();
     const server = createManagedDaemonServer(cleanups);

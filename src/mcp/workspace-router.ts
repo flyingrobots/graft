@@ -864,10 +864,11 @@ export class WorkspaceRouter {
       };
     }
 
+    const previousBinding = this.currentBinding;
     const nextWriterId = this.options.warpWriterId ?? DEFAULT_WARP_WRITER_ID;
-    const transferredLeaseHolderId = this.currentBinding?.repoId === resolved.repoId
-      && this.currentBinding.warpWriterId === nextWriterId
-      ? this.currentBinding.warpLeaseHolderId
+    const transferredLeaseHolderId = previousBinding?.repoId === resolved.repoId
+      && previousBinding.warpWriterId === nextWriterId
+      ? previousBinding.warpLeaseHolderId
       : undefined;
     const nextBinding = await this.createBoundWorkspace(
       resolved,
@@ -881,21 +882,39 @@ export class WorkspaceRouter {
     if (nextRepoState === null) {
       throw new WorkspaceBindingRequiredError("workspace");
     }
-    await nextRepoState.initialize();
-    const previousBinding = this.currentBinding;
-    const previousRepoState = previousBinding?.slice.repoState;
-    await this.options.persistedLocalHistory.noteBinding({
-      current: this.buildPersistedLocalHistoryContext(nextBinding, nextRepoState.getState()),
-      previous: previousBinding === null || previousRepoState == null
-        ? null
-        : this.buildPersistedLocalHistoryContext(previousBinding, previousRepoState.getState()),
-      currentGraph: await this.buildPersistedLocalHistoryGraphContext(nextBinding),
-      previousGraph: previousBinding === null
-        ? null
-        : await this.buildPersistedLocalHistoryGraphContext(previousBinding),
-    });
-    if (this.options.mode === "daemon") {
-      await this.options.authorizationPolicy?.noteBound(resolved);
+    try {
+      await nextRepoState.initialize();
+      const previousRepoState = previousBinding?.slice.repoState;
+      await this.options.persistedLocalHistory.noteBinding({
+        current: this.buildPersistedLocalHistoryContext(nextBinding, nextRepoState.getState()),
+        previous: previousBinding === null || previousRepoState == null
+          ? null
+          : this.buildPersistedLocalHistoryContext(previousBinding, previousRepoState.getState()),
+        currentGraph: await this.buildPersistedLocalHistoryGraphContext(nextBinding),
+        previousGraph: previousBinding === null
+          ? null
+          : await this.buildPersistedLocalHistoryGraphContext(previousBinding),
+      });
+      if (this.options.mode === "daemon") {
+        await this.options.authorizationPolicy?.noteBound(resolved);
+      }
+    } catch (error) {
+      if (nextBinding.warpLeaseHolderId !== previousBinding?.warpLeaseHolderId) {
+        try {
+          this.options.warpPool.releaseLease(
+            nextBinding.repoId,
+            nextBinding.warpWriterId,
+            nextBinding.warpLeaseHolderId,
+          );
+        } catch (cleanupError) {
+          throw new AggregateError(
+            [error, cleanupError],
+            "Failed to roll back an uncommitted WARP binding lease",
+            { cause: cleanupError },
+          );
+        }
+      }
+      throw error;
     }
     this.currentBinding = nextBinding;
     this.currentSlice = nextBinding.slice;
