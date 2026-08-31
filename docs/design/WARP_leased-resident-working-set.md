@@ -72,6 +72,12 @@ same repository, graph name, and logical writer ID. A playback test must show
 that a bounded structural query before release and after reconstruction is
 semantically identical.
 
+The reconstruction witness uses the real Git graph adapter: it indexes a
+committed symbol, captures a bounded structural log, releases the final lane
+capability, verifies the resident is absent, reopens through `openWarp`, and
+compares the reconstructed log value-for-value. A mutation retaining the old
+resident fails before reopen, proving the witness cannot pass on cache reuse.
+
 This cycle does not claim that every daemon cache or workspace slice is paged.
 It bounds only the shared WARP resident pool.
 
@@ -258,7 +264,7 @@ capacity and deterministic policy before replacing eager eviction.
       drains earlier initialization before cleanup snapshots the session set.
 - [x] Failed MCP transport connection rolls back an already published daemon
       session before returning the initialization failure.
-- [ ] Reopening an evicted resident reconstructs an equivalent bounded WARP
+- [x] Reopening an evicted resident reconstructs an equivalent bounded WARP
       projection from durable Git-backed state.
 - [ ] Health and documentation distinguish resident writer-lane count from
       repository count and do not claim to bound unrelated daemon memory.
@@ -270,7 +276,7 @@ capacity and deterministic policy before replacing eager eviction.
 - [ ] Can I see exactly which `(repoId, writerId)` residents are held and why?
 - [ ] Does a closed or rebound session stop retaining every lane it no longer
       uses?
-- [ ] If all residents disappear between calls, does the next call reconstruct
+- [x] If all residents disappear between calls, does the next call reconstruct
       the same structural answer?
 - [ ] Is the documented memory claim limited to the WARP pool actually bounded
       by this cycle?

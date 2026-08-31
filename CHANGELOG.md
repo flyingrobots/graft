@@ -45,6 +45,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   Failed opens roll back only the unique capability token introduced by the
   failed acquisition, preserve leases for sibling writer lanes, and cannot
   delete a newer replacement resident when an older open rejects late.
+  A real Git-backed reconstruction witness now indexes a bounded structural
+  projection, releases the lane's last resident capability, reopens the same
+  `(repoId, writerId)` through `openWarp`, and proves the projection is
+  semantically identical.
   Routed tool executions hold independent invocation leases through handler,
   attribution, and failure settlement, so binding LRU eviction cannot remove an
   admitted call's resident; the invocation lease releases in `finally`.

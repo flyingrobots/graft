@@ -1,6 +1,14 @@
 import { describe, expect, it } from "vitest";
 import type WarpApp from "@git-stunts/git-warp";
+import * as fs from "node:fs";
+import * as path from "node:path";
+import { nodeGit } from "../../../src/adapters/node-git.js";
+import { nodePathOps } from "../../../src/adapters/node-paths.js";
 import { InMemoryWarpPool } from "../../../src/mcp/warp-pool.js";
+import { indexHead } from "../../../src/warp/index-head.js";
+import { openWarp } from "../../../src/warp/open.js";
+import { structuralLogFromGraph } from "../../../src/warp/warp-structural-log.js";
+import { cleanupTestRepo, createTestRepo, git } from "../../helpers/git.js";
 
 describe("mcp: warp pool lease eviction", () => {
   it("exposes no force-eviction escape hatch for an owned resident", async () => {
@@ -111,6 +119,65 @@ describe("mcp: warp pool lease eviction", () => {
     await live.release();
     await liveAgain.release();
     await deadAgain.release();
+  });
+
+  it("reconstructs the same bounded structural projection after last-release eviction", {
+    timeout: 15_000,
+  }, async () => {
+    const repoDir = createTestRepo("graft-warp-resident-reconstruction-");
+    fs.writeFileSync(
+      path.join(repoDir, "app.ts"),
+      "export function reconstructible(): string { return 'durable'; }\n",
+    );
+    git(repoDir, "add -A");
+    git(repoDir, "commit -m 'add reconstructible symbol'");
+    const writerId = "graft_reconstruction_test";
+    let openCount = 0;
+    const pool = new InMemoryWarpPool(async (worktreeRoot, requestedWriterId) => {
+      openCount++;
+      return openWarp({ cwd: worktreeRoot, writerId: requestedWriterId });
+    });
+    let first: Awaited<ReturnType<typeof pool.acquire>> | null = null;
+    let second: Awaited<ReturnType<typeof pool.acquire>> | null = null;
+
+    try {
+      first = await pool.acquire({
+        key: { repoId: "repo:reconstruction", writerId },
+        worktreeRoot: repoDir,
+        ownerId: "session:first",
+      });
+      const firstContext = { app: first.app, strandId: null };
+      await indexHead({
+        cwd: repoDir,
+        git: nodeGit,
+        pathOps: nodePathOps,
+        ctx: firstContext,
+      });
+      const beforeEviction = await structuralLogFromGraph(firstContext, { limit: 5 });
+      expect(beforeEviction).toHaveLength(1);
+
+      await first.release();
+      first = null;
+      expect(pool.has("repo:reconstruction", writerId)).toBe(false);
+
+      second = await pool.acquire({
+        key: { repoId: "repo:reconstruction", writerId },
+        worktreeRoot: repoDir,
+        ownerId: "session:second",
+      });
+      const afterEviction = await structuralLogFromGraph(
+        { app: second.app, strandId: null },
+        { limit: 5 },
+      );
+
+      expect(openCount).toBe(2);
+      expect(second.app).not.toBe(firstContext.app);
+      expect(afterEviction).toEqual(beforeEviction);
+    } finally {
+      await first?.release();
+      await second?.release();
+      cleanupTestRepo(repoDir);
+    }
   });
 
   it("reopens after a pending open rejects without retaining a phantom lease", async () => {
