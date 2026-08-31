@@ -19,6 +19,12 @@ import {
   writeSessionOwnershipMarker,
 } from "../../../src/mcp/daemon-storage-ownership.js";
 import {
+  DEFAULT_SESSION_INACTIVITY_TTL_MS,
+  DEFAULT_SESSION_REAPER_INTERVAL_MS,
+  resolveSessionInactivityTtlMs,
+  resolveSessionReaperIntervalMs,
+} from "../../../src/mcp/daemon-session-host.js";
+import {
   startDaemonServer,
 } from "../../../src/mcp/daemon-server.js";
 
@@ -272,6 +278,13 @@ async function holdUnixJsonRequestBody(
 }
 
 describe("mcp: daemon session reaper", () => {
+  it("resolves the documented daemon session lifecycle defaults", () => {
+    expect(DEFAULT_SESSION_INACTIVITY_TTL_MS).toBe(30 * 60 * 1000);
+    expect(DEFAULT_SESSION_REAPER_INTERVAL_MS).toBe(60 * 1000);
+    expect(resolveSessionInactivityTtlMs(undefined)).toBe(DEFAULT_SESSION_INACTIVITY_TTL_MS);
+    expect(resolveSessionReaperIntervalMs(undefined)).toBe(DEFAULT_SESSION_REAPER_INTERVAL_MS);
+  });
+
   it("rejects reaper intervals outside Node's supported timer domain", async () => {
     const invalidIntervals = [-1, Number.NaN, Number.POSITIVE_INFINITY, Number.NEGATIVE_INFINITY, 1.5,
       2_147_483_648, Number.MAX_SAFE_INTEGER + 1];
