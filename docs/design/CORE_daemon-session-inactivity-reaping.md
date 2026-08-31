@@ -248,7 +248,9 @@ failure between directory creation and rollback. Cleanup failures remain debt
 for a later sweep and are never represented as successful deletion.
 An initialization UUID is reserved before its first construction await and
 remains protected from orphan discovery until either publication commits or
-rollback finishes.
+rollback finishes. If construction is admitted after an orphan scan has already
+captured its initial live IDs, that UUID is synchronously added to the active
+scan's reservation set before construction performs its first filesystem await.
 
 Only one sweep may execute storage discovery at a time. Concurrent scheduled
 or manual callers share the same in-flight result, and shutdown awaits that

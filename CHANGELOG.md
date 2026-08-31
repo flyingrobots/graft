@@ -49,6 +49,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   failures once instead of discarding the structured terminal result.
   Daemon shutdown tracks and awaits transport-triggered termination already in
   flight before advancing to resource teardown or releasing root ownership.
+  Session construction admitted after an orphan scan starts extends that scan's
+  protected-ID set before creating scratch state, closing the inverse-order race.
 
 ### Fixed
 

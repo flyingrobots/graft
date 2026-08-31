@@ -623,6 +623,98 @@ describe("mcp: daemon session reaper", () => {
     expect(fs.readdirSync(sessionsRoot)).toEqual([]);
   });
 
+  it("protects construction admitted after an orphan scan begins", async () => {
+    const rootDir = fs.mkdtempSync(path.join(os.tmpdir(), "graft-session-scan-before-open-"));
+    const socketPath = path.join(rootDir, "daemon.sock");
+    cleanups.push(() => {
+      fs.rmSync(rootDir, { recursive: true, force: true });
+    });
+    let scanCalls = 0;
+    let releaseScan!: () => void;
+    let markScanEntered!: () => void;
+    const scanEntered = new Promise<void>((resolve) => {
+      markScanEntered = resolve;
+    });
+    const scanGate = new Promise<void>((resolve) => {
+      releaseScan = resolve;
+    });
+    const sessionStorage = {
+      writeSessionOwnershipMarker,
+      removeSessionDirectory,
+      async removeSessionOrphanDirectories(
+        sessionsRoot: string,
+        liveSessionIds: ReadonlySet<string>,
+      ) {
+        scanCalls++;
+        if (scanCalls > 1) {
+          markScanEntered();
+          await scanGate;
+        }
+        return removeSessionOrphanDirectories(sessionsRoot, liveSessionIds);
+      },
+    };
+    let releaseConnect!: () => void;
+    let markConnectEntered!: () => void;
+    const connectEntered = new Promise<void>((resolve) => {
+      markConnectEntered = resolve;
+    });
+    const connectGate = new Promise<void>((resolve) => {
+      releaseConnect = resolve;
+    });
+    type ConnectTransport = Parameters<McpServer["connect"]>[0];
+    const originalConnect = Reflect.get(McpServer.prototype, "connect") as (
+      this: McpServer,
+      transport: ConnectTransport,
+    ) => Promise<void>;
+    const connect = vi.spyOn(McpServer.prototype, "connect")
+      .mockImplementationOnce(async function(this: McpServer, transport: ConnectTransport) {
+        markConnectEntered();
+        await connectGate;
+        await Reflect.apply(originalConnect, this, [transport]);
+      });
+    cleanups.push(() => {
+      connect.mockRestore();
+    });
+
+    const daemon = await startDaemonServer({
+      graftDir: rootDir,
+      socketPath,
+      sessionReaperIntervalMs: 0,
+      sessionStorage,
+    });
+    cleanups.push(() => daemon.close());
+    cleanups.push(() => {
+      releaseScan();
+      releaseConnect();
+    });
+    const sweeping = daemon.reapExpiredSessions();
+    await scanEntered;
+    const initializing = requestUnixJson(socketPath, "POST", "/mcp", {
+      jsonrpc: "2.0",
+      id: 1,
+      method: "initialize",
+      params: {
+        protocolVersion: "2025-03-26",
+        capabilities: {},
+        clientInfo: { name: "vitest", version: "0.0.0" },
+      },
+    });
+    await connectEntered;
+    const sessionsRoot = path.join(rootDir, "sessions");
+    const pendingEntries = fs.readdirSync(sessionsRoot);
+    expect(pendingEntries).toHaveLength(1);
+    const pendingDir = path.join(sessionsRoot, pendingEntries[0]!);
+
+    releaseScan();
+    const sweepResult = await sweeping;
+    const pendingDirectorySurvived = fs.existsSync(pendingDir);
+    releaseConnect();
+    await initializing;
+
+    expect(sweepResult.orphanDirectoriesRemoved).toBe(0);
+    expect(pendingDirectorySurvived).toBe(true);
+  });
+
   it("prevents pending session construction from publishing after shutdown begins", async () => {
     const rootDir = fs.mkdtempSync(path.join(os.tmpdir(), "graft-session-pending-shutdown-"));
     const socketPath = path.join(rootDir, "daemon.sock");

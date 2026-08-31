@@ -366,6 +366,7 @@ export function createDaemonSessionHost(options: CreateDaemonSessionHostOptions)
   const terminatingSessionIds = new Set<string>();
   const terminationsInFlight = new Set<Promise<SessionTerminationResult>>();
   const pendingSessionConstructions = new Set<Promise<DaemonSession>>();
+  let orphanScanProtectedSessionIds: Set<string> | null = null;
   let shutdownTerminationCollector: Set<Promise<SessionTerminationResult>> | null = null;
   let hostState: "open" | "closing" | "closed" = "open";
   const hostIsOpen = (): boolean => hostState === "open";
@@ -554,15 +555,17 @@ export function createDaemonSessionHost(options: CreateDaemonSessionHostOptions)
 
     let orphanDirectoriesRemoved = 0;
     let preservedEntries: readonly SessionOrphanPreservedEntry[] = [];
+    const protectedSessionIds = new Set([
+      ...sessions.keys(),
+      ...pendingSessionIds,
+      ...terminatingSessionIds,
+      ...retiredSessionIds,
+    ]);
+    orphanScanProtectedSessionIds = protectedSessionIds;
     try {
       const orphanResult = await options.sessionStorage.removeSessionOrphanDirectories(
         path.join(options.graftDir, "sessions"),
-        new Set([
-          ...sessions.keys(),
-          ...pendingSessionIds,
-          ...terminatingSessionIds,
-          ...retiredSessionIds,
-        ]),
+        protectedSessionIds,
       );
       orphanDirectoriesRemoved = orphanResult.removed;
       preservedEntries = orphanResult.preservedEntries;
@@ -581,6 +584,10 @@ export function createDaemonSessionHost(options: CreateDaemonSessionHostOptions)
         retryable: true,
         error,
       }));
+    } finally {
+      if (orphanScanProtectedSessionIds === protectedSessionIds) {
+        orphanScanProtectedSessionIds = null;
+      }
     }
 
     return {
@@ -735,6 +742,7 @@ export function createDaemonSessionHost(options: CreateDaemonSessionHostOptions)
           if (!hostIsOpen()) throw new DaemonSessionHostClosedError();
           const newSessionId = crypto.randomUUID();
           pendingSessionIds.add(newSessionId);
+          orphanScanProtectedSessionIds?.add(newSessionId);
           const construction = createDaemonSession(
             newSessionId,
             options,
