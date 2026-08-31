@@ -849,16 +849,32 @@ export async function writeSessionOwnershipMarker(
 }
 
 export async function removeSessionDirectory(sessionDir: string): Promise<boolean> {
-  const stat = await fs.lstat(sessionDir).catch((error: unknown) => {
-    if (errorCode(error) === "ENOENT") return null;
-    throw error;
-  });
-  if (stat === null) return false;
-  if (!stat.isDirectory() || stat.isSymbolicLink()) {
+  const resolvedSessionDir = path.resolve(sessionDir);
+  const sessionId = path.basename(resolvedSessionDir);
+  const sessionsRoot = path.dirname(resolvedSessionDir);
+  if (
+    !GENERATED_UUID_PATTERN.test(sessionId)
+    || path.join(sessionsRoot, sessionId) !== resolvedSessionDir
+  ) {
     throw new UnsafeDaemonSessionDirectoryError(sessionDir);
   }
-  await fs.rm(sessionDir, { recursive: true, force: false });
-  return true;
+  const root = await pinDaemonSessionsRoot(sessionsRoot);
+  try {
+    await assertPinnedDaemonSessionsRoot(root);
+    const stat = await fs.lstat(resolvedSessionDir).catch((error: unknown) => {
+      if (errorCode(error) === "ENOENT") return null;
+      throw error;
+    });
+    await assertPinnedDaemonSessionsRoot(root);
+    if (stat === null) return false;
+    if (!stat.isDirectory() || stat.isSymbolicLink()) {
+      throw new UnsafeDaemonSessionDirectoryError(sessionDir);
+    }
+    await fs.rm(resolvedSessionDir, { recursive: true, force: false });
+    return true;
+  } finally {
+    await root.handle?.close();
+  }
 }
 
 type SessionDirectoryInspection =

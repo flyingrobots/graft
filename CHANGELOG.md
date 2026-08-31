@@ -61,6 +61,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   touch its target. Each scan retains the original root handle and revalidates
   its exact device/inode identity after enumeration and immediately before
   candidate inspection and removal, refusing mid-scan path replacement.
+  Live-session terminal cleanup uses the same pinned root identity boundary, so
+  a replaced `sessions` path cannot redirect deletion to an external same-ID
+  directory.
   Legacy orphan discovery now accepts only the exact version-4 UUID form Graft
   generated; other UUID-shaped names are preserved and reported as unknown.
   A custom-endpoint daemon now refuses startup while the legacy default

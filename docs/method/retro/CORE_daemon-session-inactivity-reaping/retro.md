@@ -167,6 +167,13 @@ mutation by waiting on scan completion, asserting single-flight execution, and
 proving that failed transport cleanup becomes an orphan removed by the next
 structured sweep.
 
+The next exact-head review found that the pinned sessions-root boundary covered
+orphan scans but not terminal cleanup of a live session. Replacing `sessions`
+with a link immediately before DELETE redirected the stored session pathname
+to an external same-ID directory. Live removal now derives and pins the direct
+parent root, revalidates its device/inode identity before removal, and reports
+root replacement as non-retryable cleanup debt.
+
 ## Drift
 
 The largest drift was procedural: implementation and PR publication preceded

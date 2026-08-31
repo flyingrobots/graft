@@ -873,6 +873,78 @@ describe("mcp: daemon session reaper", () => {
     expect(fs.readFileSync(path.join(externalSession, "keep.txt"), "utf-8")).toBe("external\n");
   });
 
+  it("refuses live-session cleanup after the sessions root becomes a symlink", async () => {
+    if (process.platform === "win32") return;
+    const rootDir = fs.mkdtempSync(path.join(os.tmpdir(), "graft-live-session-root-swap-"));
+    const externalRoot = fs.mkdtempSync(path.join(os.tmpdir(), "graft-live-session-swap-target-"));
+    const socketPath = path.join(rootDir, "daemon.sock");
+    const sessionsRoot = path.join(rootDir, "sessions");
+    const parkedSessionsRoot = path.join(rootDir, "sessions-before-swap");
+    cleanups.push(() => {
+      fs.rmSync(rootDir, { recursive: true, force: true });
+      fs.rmSync(externalRoot, { recursive: true, force: true });
+    });
+    let markRemovalFinished!: () => void;
+    const removalFinished = new Promise<void>((resolve) => {
+      markRemovalFinished = resolve;
+    });
+    let swapped = false;
+    const sessionStorage = {
+      writeSessionOwnershipMarker,
+      removeSessionOrphanDirectories,
+      async removeSessionDirectory(sessionDir: string): Promise<boolean> {
+        if (!swapped) {
+          fs.renameSync(sessionsRoot, parkedSessionsRoot);
+          fs.symlinkSync(externalRoot, sessionsRoot, "dir");
+          swapped = true;
+        }
+        try {
+          return await removeSessionDirectory(sessionDir);
+        } finally {
+          markRemovalFinished();
+        }
+      },
+    };
+    const daemon = await startDaemonServer({
+      graftDir: rootDir,
+      socketPath,
+      sessionReaperIntervalMs: 0,
+      sessionStorage,
+    });
+    cleanups.push(() => daemon.close());
+    cleanups.push(() => {
+      const stat = fs.lstatSync(sessionsRoot, { throwIfNoEntry: false });
+      if (stat?.isSymbolicLink() === true) fs.unlinkSync(sessionsRoot);
+      if (fs.existsSync(parkedSessionsRoot) && !fs.existsSync(sessionsRoot)) {
+        fs.renameSync(parkedSessionsRoot, sessionsRoot);
+      }
+    });
+    const initialize = await requestUnixJson(socketPath, "POST", "/mcp", {
+      jsonrpc: "2.0",
+      id: 1,
+      method: "initialize",
+      params: {
+        protocolVersion: "2025-03-26",
+        capabilities: {},
+        clientInfo: { name: "vitest", version: "0.0.0" },
+      },
+    });
+    const sessionIdHeader = initialize.headers["mcp-session-id"];
+    const sessionId = Array.isArray(sessionIdHeader) ? sessionIdHeader[0] : sessionIdHeader;
+    expect(sessionId).toBeDefined();
+    const externalSession = path.join(externalRoot, sessionId!);
+    fs.mkdirSync(externalSession, { recursive: true });
+    fs.writeFileSync(path.join(externalSession, "keep.txt"), "external\n");
+
+    await requestUnixJson(socketPath, "DELETE", "/mcp", undefined, {
+      "mcp-session-id": sessionId!,
+    });
+    await removalFinished;
+
+    expect(fs.readFileSync(path.join(externalSession, "keep.txt"), "utf-8")).toBe("external\n");
+    expect(fs.existsSync(path.join(parkedSessionsRoot, sessionId!))).toBe(true);
+  });
+
   it.each([
     { phase: "enumeration", observer: "readdir" },
     { phase: "removal", observer: "readFile" },

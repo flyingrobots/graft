@@ -254,7 +254,9 @@ identity, and revalidates the path after enumeration and before and after each
 candidate inspection. Recursive removal begins only immediately after that
 exact identity check, so a root replaced after startup or during a scan is
 refused before cleanup. Permission repair targets the retained handle rather
-than a separately resolved pathname.
+than a separately resolved pathname. Live-session terminal cleanup derives the
+exact direct-child root from the generated session UUID, pins that root, and
+revalidates the same identity immediately before its recursive removal.
 
 When a daemon uses a non-default endpoint, root acquisition first probes the
 legacy `<graftDir>/mcp.sock` endpoint and refuses ownership while a
@@ -439,6 +441,8 @@ authority has been retired, and each failed close layer is reported separately.
       preserved and reported without touching their targets.
 - [x] Replacing the sessions root after initial validation, during enumeration,
       or after candidate inspection refuses the scan before recursive removal.
+- [x] Replacing the sessions root before live-session terminal cleanup refuses
+      removal and preserves an external same-ID directory.
 - [x] A temporary-claim release failure after root-owner publication rolls back
       the exact owner and claim residue; immediate reacquisition succeeds.
 - [x] Custom-endpoint startup and sweeps preserve unmarked legacy UUID

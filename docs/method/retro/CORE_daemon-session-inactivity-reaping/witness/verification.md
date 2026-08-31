@@ -47,6 +47,7 @@ mutation of the exact guard under test. Representative receipts:
 | Unsafe live-session cleanup | A symlink refusal was labeled retryable even though the next sweep preserved it permanently | post-Retro review repair |
 | Sweep/shutdown diagnostic ownership | One gated removal failure appeared twice in the shutdown aggregate through the sweep and termination registry | post-Retro review repair |
 | Diagnostic-independent lifecycle proof | Suppressing the scheduled-preservation and transport-cleanup log emissions caused one timeout and one missing-diagnostic assertion | post-Retro review repair |
+| Live-cleanup sessions-root swap | Replacing `sessions` with an external link immediately before DELETE removed the external same-ID directory | post-Retro review repair |
 
 ## Focused GREEN
 
@@ -54,7 +55,7 @@ mutation of the exact guard under test. Representative receipts:
 pnpm exec vitest run test/unit/mcp/daemon-session-reaper.test.ts
 ```
 
-Result: pass; 1 file, 56 tests.
+Result: pass; 1 file, 57 tests.
 
 The focused suite includes exact-value configuration defaults, invalid option
 tables, monotonic/refusal/rebase behavior, streaming and pre-body barriers,
@@ -83,7 +84,7 @@ tests.
 
 | Gate | Command | Result |
 | :--- | :--- | :--- |
-| Focused lifecycle | `pnpm exec vitest run test/unit/mcp/daemon-session-reaper.test.ts` | pass; 1 file, 56 tests |
+| Focused lifecycle | `pnpm exec vitest run test/unit/mcp/daemon-session-reaper.test.ts` | pass; 1 file, 57 tests |
 | Full isolated suite | `pnpm test` | issue-63 candidate over `553f2860` passed 259 files, 2,112 tests in 94.08 seconds |
 | Lint | `pnpm lint` | pass |
 | Types | `pnpm typecheck` | pass |
