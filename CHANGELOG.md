@@ -58,7 +58,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   protected-ID set before creating scratch state, closing the inverse-order race.
   Startup and every orphan scan reject a symbolic-link or non-directory
   sessions root before permission repair, enumeration, or recursive cleanup can
-  touch its target.
+  touch its target. Each scan retains the original root handle and revalidates
+  its exact device/inode identity after enumeration and immediately before
+  candidate inspection and removal, refusing mid-scan path replacement.
   Legacy orphan discovery now accepts only the exact version-4 UUID form Graft
   generated; other UUID-shaped names are preserved and reported as unknown.
   A custom-endpoint daemon now refuses startup while the legacy default

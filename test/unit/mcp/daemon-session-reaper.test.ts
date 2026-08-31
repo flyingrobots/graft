@@ -29,10 +29,18 @@ import {
   startDaemonServer,
 } from "../../../src/mcp/daemon-server.js";
 
-const { randomUUIDMock, renameObserver, linkObserver } = vi.hoisted(() => ({
+const {
+  randomUUIDMock,
+  renameObserver,
+  linkObserver,
+  readdirObserver,
+  readFileObserver,
+} = vi.hoisted(() => ({
   randomUUIDMock: vi.fn(),
   renameObserver: vi.fn(),
   linkObserver: vi.fn(),
+  readdirObserver: vi.fn(),
+  readFileObserver: vi.fn(),
 }));
 
 vi.mock("node:crypto", async (importOriginal) => {
@@ -63,6 +71,18 @@ vi.mock("node:fs/promises", async (importOriginal) => {
         throw error;
       }
     },
+    async readdir(
+      directoryPath: fs.PathLike,
+      options: { withFileTypes: true },
+    ): Promise<fs.Dirent[]> {
+      await readdirObserver(directoryPath, options);
+      return actual.readdir(directoryPath, options);
+    },
+    async readFile(filePath: fs.PathLike, encoding: BufferEncoding): Promise<string> {
+      const source = await actual.readFile(filePath, encoding);
+      await readFileObserver(filePath, encoding, source);
+      return source;
+    },
   };
 });
 
@@ -71,6 +91,8 @@ const cleanups: (() => Promise<void> | void)[] = [];
 afterEach(async () => {
   renameObserver.mockReset();
   linkObserver.mockReset();
+  readdirObserver.mockReset();
+  readFileObserver.mockReset();
   while (cleanups.length > 0) {
     await cleanups.pop()!();
   }
@@ -848,6 +870,75 @@ describe("mcp: daemon session reaper", () => {
       path: sessionsRoot,
     });
     expect(fs.readFileSync(path.join(externalSession, "keep.txt"), "utf-8")).toBe("external\n");
+  });
+
+  it.each([
+    { phase: "enumeration", observer: "readdir" },
+    { phase: "removal", observer: "readFile" },
+  ] as const)("refuses an orphan scan when the sessions root changes during $phase", async ({ observer }) => {
+    if (process.platform === "win32") return;
+    const rootDir = fs.mkdtempSync(path.join(os.tmpdir(), "graft-session-root-mid-scan-"));
+    const externalRoot = fs.mkdtempSync(path.join(os.tmpdir(), "graft-session-root-mid-scan-target-"));
+    const sessionsRoot = path.join(rootDir, "sessions");
+    const parkedSessionsRoot = path.join(rootDir, "sessions-before-swap");
+    const sessionId = "00000000-0000-4000-8000-000000000001";
+    const originalSession = path.join(sessionsRoot, sessionId);
+    const externalSession = path.join(externalRoot, sessionId);
+    fs.mkdirSync(originalSession, { recursive: true });
+    fs.mkdirSync(externalSession, { recursive: true });
+    fs.writeFileSync(path.join(originalSession, "original.txt"), "original\n");
+    fs.writeFileSync(path.join(externalSession, "external.txt"), "external\n");
+    await writeSessionOwnershipMarker(
+      originalSession,
+      "00000000-0000-4000-8000-000000000098",
+      sessionId,
+    );
+    await writeSessionOwnershipMarker(
+      externalSession,
+      "00000000-0000-4000-8000-000000000099",
+      sessionId,
+    );
+    let swapped = false;
+    const swapSessionsRoot = (): void => {
+      if (swapped) return;
+      fs.renameSync(sessionsRoot, parkedSessionsRoot);
+      fs.symlinkSync(externalRoot, sessionsRoot, "dir");
+      swapped = true;
+    };
+    if (observer === "readdir") {
+      readdirObserver.mockImplementationOnce((directoryPath: fs.PathLike) => {
+        if (directoryPath.toString() === sessionsRoot) swapSessionsRoot();
+      });
+    } else {
+      const originalMarker = path.join(originalSession, ".graft-session-owner.json");
+      readFileObserver.mockImplementationOnce((filePath: fs.PathLike) => {
+        if (filePath.toString() === originalMarker) swapSessionsRoot();
+      });
+    }
+    cleanups.push(() => {
+      const stat = fs.lstatSync(sessionsRoot, { throwIfNoEntry: false });
+      if (stat?.isSymbolicLink() === true) fs.unlinkSync(sessionsRoot);
+      if (fs.existsSync(parkedSessionsRoot) && !fs.existsSync(sessionsRoot)) {
+        fs.renameSync(parkedSessionsRoot, sessionsRoot);
+      }
+      fs.rmSync(rootDir, { recursive: true, force: true });
+      fs.rmSync(externalRoot, { recursive: true, force: true });
+    });
+
+    const scanError = await removeSessionOrphanDirectories(
+      sessionsRoot,
+      new Set(),
+      "preserve",
+    ).then(() => null, (error: unknown) => error);
+    const externalSurvived = fs.existsSync(externalSession);
+
+    expect(scanError).toMatchObject({ code: "UNSAFE_DAEMON_SESSIONS_ROOT" });
+    expect(externalSurvived).toBe(true);
+    expect(fs.readFileSync(path.join(externalSession, "external.txt"), "utf-8")).toBe("external\n");
+    expect(fs.readFileSync(
+      path.join(parkedSessionsRoot, sessionId, "original.txt"),
+      "utf-8",
+    )).toBe("original\n");
   });
 
   it("protects a pending session construction from orphan discovery", async () => {

@@ -127,6 +127,13 @@ the scanner recursively delete an externally targeted owned-session fixture.
 The repair moves the same unsafe-root refusal into the shared orphan-scan
 boundary, before every enumeration.
 
+The next exact-head review proved that a second pathname race remained inside
+the scan: the root could change after that validation but before enumeration or
+recursive removal. The repair now retains the original directory handle,
+anchors its device/inode identity, and refuses any mismatch after enumeration
+or immediately before candidate inspection and removal. Deterministic fixtures
+swap the root in both windows and preserve the external target.
+
 That pass also found a default-endpoint check-to-scan race: a legacy daemon
 could bind after socket preparation, create an unmarked live session, and lose
 it to migration cleanup before the new daemon discovered `EADDRINUSE`. The

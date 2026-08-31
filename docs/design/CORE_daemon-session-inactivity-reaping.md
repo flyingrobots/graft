@@ -244,9 +244,12 @@ candidate name. An exclusive hard link publishes that complete inode as
 
 Startup creates the direct `sessions` child when absent and rejects it when an
 existing path is a symbolic link or is not a directory. The shared orphan-scan
-boundary repeats that validation immediately before every enumeration, so a
-root replaced after startup is refused before cleanup. It does not chmod or scan
-through an unsafe sessions-root path.
+boundary opens and retains the original root handle, anchors its device/inode
+identity, and revalidates the path after enumeration and before and after each
+candidate inspection. Recursive removal begins only immediately after that
+exact identity check, so a root replaced after startup or during a scan is
+refused before cleanup. Permission repair targets the retained handle rather
+than a separately resolved pathname.
 
 When a daemon uses a non-default endpoint, root acquisition first probes the
 legacy `<graftDir>/mcp.sock` endpoint and refuses ownership while a
@@ -279,7 +282,10 @@ ownership is established.
 
 The scanner:
 
-- revalidates the sessions root before every enumeration;
+- pins the sessions-root handle and exact device/inode identity for the full
+  scan;
+- revalidates that identity after enumeration and immediately before candidate
+  inspection and removal;
 - enumerates only direct children of the canonical sessions root;
 - uses `lstat` and never follows a symlink;
 - deletes only a valid owned marker or an exact lowercase RFC 4122 version-4
@@ -426,6 +432,8 @@ authority has been retired, and each failed close layer is reported separately.
 - [x] Live current-session directories are never selected as orphans.
 - [x] Symlinks, files, malformed markers, path escapes, and unknown children are
       preserved and reported without touching their targets.
+- [x] Replacing the sessions root after initial validation, during enumeration,
+      or after candidate inspection refuses the scan before recursive removal.
 - [x] Custom-endpoint startup and sweeps preserve unmarked legacy UUID
       directories while still removing eligible marker-owned orphans.
 - [x] Default-endpoint startup binds before legacy orphan cleanup and returns

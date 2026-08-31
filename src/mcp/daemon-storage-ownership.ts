@@ -148,19 +148,88 @@ function asError(error: unknown): Error {
   return error instanceof Error ? error : new Error(String(error), { cause: error });
 }
 
-export async function ensureDaemonSessionsRoot(sessionsRoot: string): Promise<void> {
+interface PinnedDaemonSessionsRoot {
+  readonly path: string;
+  readonly device: number;
+  readonly inode: number;
+  readonly handle: fs.FileHandle | null;
+}
+
+function daemonSessionsRootIdentityMatches(
+  root: PinnedDaemonSessionsRoot,
+  stat: Awaited<ReturnType<typeof fs.lstat>>,
+): boolean {
+  return stat.isDirectory()
+    && !stat.isSymbolicLink()
+    && stat.dev === root.device
+    && stat.ino === root.inode;
+}
+
+async function assertPinnedDaemonSessionsRoot(root: PinnedDaemonSessionsRoot): Promise<void> {
+  const current = await fs.lstat(root.path).catch((error: unknown) => {
+    if (errorCode(error) === "ENOENT") return null;
+    throw error;
+  });
+  if (current === null || !daemonSessionsRootIdentityMatches(root, current)) {
+    throw new UnsafeDaemonSessionsRootError(root.path);
+  }
+}
+
+async function pinDaemonSessionsRoot(sessionsRoot: string): Promise<PinnedDaemonSessionsRoot> {
   try {
     await fs.mkdir(sessionsRoot, { mode: PRIVATE_DIRECTORY_MODE });
   } catch (error: unknown) {
     if (errorCode(error) !== "EEXIST") throw error;
   }
 
-  const stat = await fs.lstat(sessionsRoot);
-  if (!stat.isDirectory() || stat.isSymbolicLink()) {
+  const initial = await fs.lstat(sessionsRoot);
+  if (!initial.isDirectory() || initial.isSymbolicLink()) {
     throw new UnsafeDaemonSessionsRootError(sessionsRoot);
   }
-  if (process.platform !== "win32") {
-    await fs.chmod(sessionsRoot, PRIVATE_DIRECTORY_MODE);
+
+  let handle: fs.FileHandle | null = null;
+  try {
+    if (process.platform !== "win32") {
+      try {
+        handle = await fs.open(sessionsRoot, "r");
+      } catch (error: unknown) {
+        if (["ELOOP", "ENOENT", "ENOTDIR"].includes(errorCode(error) ?? "")) {
+          throw new UnsafeDaemonSessionsRootError(sessionsRoot);
+        }
+        throw error;
+      }
+    }
+    const anchored = handle === null ? initial : await handle.stat();
+    const root: PinnedDaemonSessionsRoot = {
+      path: sessionsRoot,
+      device: anchored.dev,
+      inode: anchored.ino,
+      handle,
+    };
+    if (
+      anchored.dev !== initial.dev
+      || anchored.ino !== initial.ino
+      || !anchored.isDirectory()
+    ) {
+      throw new UnsafeDaemonSessionsRootError(sessionsRoot);
+    }
+    if (handle !== null) {
+      await handle.chmod(PRIVATE_DIRECTORY_MODE);
+    }
+    await assertPinnedDaemonSessionsRoot(root);
+    return root;
+  } catch (error) {
+    await handle?.close().catch(() => undefined);
+    throw error;
+  }
+}
+
+export async function ensureDaemonSessionsRoot(sessionsRoot: string): Promise<void> {
+  const root = await pinDaemonSessionsRoot(sessionsRoot);
+  try {
+    await assertPinnedDaemonSessionsRoot(root);
+  } finally {
+    await root.handle?.close();
   }
 }
 
@@ -797,45 +866,52 @@ export async function removeSessionOrphanDirectories(
   liveSessionIds: ReadonlySet<string>,
   legacyUnmarkedPolicy: LegacyUnmarkedSessionPolicy,
 ): Promise<SessionOrphanRemovalResult> {
-  await ensureDaemonSessionsRoot(sessionsRoot);
-  const entries = await fs.readdir(sessionsRoot, { withFileTypes: true });
-  let removed = 0;
-  const failures: SessionOrphanRemovalFailure[] = [];
-  const preservedEntries: SessionOrphanPreservedEntry[] = [];
-  for (const entry of entries) {
-    const sessionId = entry.name;
-    const sessionPath = path.join(sessionsRoot, sessionId);
-    if (!GENERATED_UUID_PATTERN.test(sessionId)) {
-      preservedEntries.push({
-        entryName: sessionId,
-        path: sessionPath,
-        reason: "UNKNOWN_ENTRY_NAME",
-      });
-      continue;
+  const root = await pinDaemonSessionsRoot(sessionsRoot);
+  try {
+    const entries = await fs.readdir(sessionsRoot, { withFileTypes: true });
+    await assertPinnedDaemonSessionsRoot(root);
+    let removed = 0;
+    const failures: SessionOrphanRemovalFailure[] = [];
+    const preservedEntries: SessionOrphanPreservedEntry[] = [];
+    for (const entry of entries) {
+      const sessionId = entry.name;
+      const sessionPath = path.join(sessionsRoot, sessionId);
+      if (!GENERATED_UUID_PATTERN.test(sessionId)) {
+        preservedEntries.push({
+          entryName: sessionId,
+          path: sessionPath,
+          reason: "UNKNOWN_ENTRY_NAME",
+        });
+        continue;
+      }
+      if (liveSessionIds.has(sessionId)) continue;
+      await assertPinnedDaemonSessionsRoot(root);
+      const inspection = await inspectSessionDirectory(
+        sessionsRoot,
+        sessionId,
+        legacyUnmarkedPolicy,
+      );
+      await assertPinnedDaemonSessionsRoot(root);
+      if (inspection.status === "missing") continue;
+      if (inspection.status === "preserved") {
+        preservedEntries.push({
+          entryName: sessionId,
+          path: sessionPath,
+          reason: inspection.reason,
+        });
+        continue;
+      }
+      try {
+        await fs.rm(sessionPath, { recursive: true, force: false });
+        removed++;
+      } catch (error) {
+        failures.push({ sessionId, path: sessionPath, error });
+      }
     }
-    if (liveSessionIds.has(sessionId)) continue;
-    const inspection = await inspectSessionDirectory(
-      sessionsRoot,
-      sessionId,
-      legacyUnmarkedPolicy,
-    );
-    if (inspection.status === "missing") continue;
-    if (inspection.status === "preserved") {
-      preservedEntries.push({
-        entryName: sessionId,
-        path: sessionPath,
-        reason: inspection.reason,
-      });
-      continue;
-    }
-    try {
-      await fs.rm(sessionPath, { recursive: true, force: false });
-      removed++;
-    } catch (error) {
-      failures.push({ sessionId, path: sessionPath, error });
-    }
+    return { removed, failures, preservedEntries };
+  } finally {
+    await root.handle?.close();
   }
-  return { removed, failures, preservedEntries };
 }
 
 export const nodeDaemonSessionStorage: DaemonSessionStorage = Object.freeze({

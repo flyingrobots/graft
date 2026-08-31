@@ -93,7 +93,9 @@ lifecycle does not claim to bound every daemon cache or working set.
   legacy UUID directory; only the default endpoint may perform that migration
   cleanup. The default endpoint is already bound, but returns HTTP 503, before
   that cleanup starts, so a legacy daemon cannot create live scratch inside the
-  startup scan window.
+  startup scan window. Orphan discovery pins the original sessions-root handle
+  and refuses the scan if the root's device/inode identity changes during
+  enumeration, candidate inspection, or removal.
 
 The required programmatic sweep method,
 `GraftDaemonServer.reapExpiredSessions()`, returns separate facts:
