@@ -75,6 +75,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   name under that pinned root and its device/inode identity is rechecked against
   the open validated directory before recursive removal; a post-validation
   replacement is restored and refused rather than deleted.
+  Orphan discovery carries the inspected child device/inode identity through an
+  unpredictable quarantine rename before recursive removal. If the UUID path
+  was replaced after marker inspection, cleanup restores and refuses the moved
+  replacement while preserving the originally inspected directory at its
+  displaced location.
   Legacy orphan discovery now accepts only the exact version-4 UUID form Graft
   generated; other UUID-shaped names are preserved and reported as unknown.
   A custom-endpoint daemon now refuses startup while the legacy default

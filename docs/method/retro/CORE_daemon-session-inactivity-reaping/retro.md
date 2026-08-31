@@ -220,6 +220,16 @@ of why the prior attempt failed. The deterministic regression advances the
 injected process clock after a stale claim disappears and proves reacquisition
 is refused with the typed timeout.
 
+A subsequent current-head Codex review found the orphan scanner still removed
+the mutable UUID pathname after completing ownership-marker inspection. An
+attacker could displace the eligible directory and install unrelated contents
+at that name before recursive removal. Orphan cleanup now retains the inspected
+device/inode identity, quarantines the current child under an unpredictable
+sibling name, compares the moved entry with that identity, and restores then
+refuses a mismatch. The deterministic regression performs the swap from the
+marker-read observer and proves both the replacement and inspected contents
+survive.
+
 ## Drift
 
 The largest drift was procedural: implementation and PR publication preceded

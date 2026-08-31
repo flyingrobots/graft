@@ -312,6 +312,9 @@ The scanner:
 - deletes only a valid owned marker or an exact lowercase RFC 4122 version-4
   legacy UUID with generated variant bits when default-endpoint migration
   cleanup is enabled;
+- retains each eligible candidate's inspected device/inode identity, moves the
+  current UUID entry to an unpredictable quarantine sibling, and recursively
+  removes it only when the quarantined entry still has that exact identity;
 - excludes the exact canonical directories of current live session objects;
 - leaves and reports unknown direct children, links, non-directories, and
   malformed, unreadable, or unsafe ownership markers; and
@@ -463,6 +466,9 @@ authority has been retired, and each failed close layer is reported separately.
 - [x] Replacing a validated live-session child before recursive removal is
       detected by exact device/inode identity; the replacement and original
       directory contents both survive the refusal.
+- [x] Replacing an eligible orphan after ownership-marker inspection is
+      detected after quarantine; the replacement and inspected directory
+      contents both survive the refusal.
 - [x] A temporary-claim release failure after root-owner publication rolls back
       the exact owner and claim residue; immediate reacquisition succeeds.
 - [x] Every daemon-root claim retry branch observes one deadline and delay;

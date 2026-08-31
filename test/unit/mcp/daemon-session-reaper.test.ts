@@ -1077,6 +1077,51 @@ describe("mcp: daemon session reaper", () => {
       .toBe("original\n");
   });
 
+  it("preserves an orphan replacement made after eligibility inspection", async () => {
+    const rootDir = fs.mkdtempSync(path.join(os.tmpdir(), "graft-orphan-child-swap-"));
+    const externalRoot = fs.mkdtempSync(path.join(os.tmpdir(), "graft-orphan-child-target-"));
+    const sessionsRoot = path.join(rootDir, "sessions");
+    const sessionId = "00000000-0000-4000-8000-000000000001";
+    const sessionDir = path.join(sessionsRoot, sessionId);
+    const displacedSession = path.join(rootDir, "inspected-orphan");
+    const markerPath = path.join(sessionDir, ".graft-session-owner.json");
+    fs.mkdirSync(sessionDir, { recursive: true });
+    fs.writeFileSync(path.join(sessionDir, "original.txt"), "original\n");
+    await writeSessionOwnershipMarker(
+      sessionDir,
+      "00000000-0000-4000-8000-000000000099",
+      sessionId,
+    );
+    fs.writeFileSync(path.join(externalRoot, "keep.txt"), "external\n");
+    cleanups.push(() => {
+      fs.rmSync(rootDir, { recursive: true, force: true });
+      fs.rmSync(externalRoot, { recursive: true, force: true });
+    });
+    let swapped = false;
+    readFileObserver.mockImplementationOnce((filePath) => {
+      if (path.resolve(String(filePath)) !== markerPath) return;
+      fs.renameSync(sessionDir, displacedSession);
+      fs.renameSync(externalRoot, sessionDir);
+      swapped = true;
+    });
+
+    const result = await removeSessionOrphanDirectories(
+      sessionsRoot,
+      new Set(),
+      "preserve",
+    );
+
+    expect(swapped).toBe(true);
+    expect(result).toMatchObject({
+      removed: 0,
+      failures: [{ sessionId, path: sessionDir }],
+    });
+    expect(result.failures[0]?.error).toBeInstanceOf(UnsafeDaemonSessionDirectoryError);
+    expect(fs.readFileSync(path.join(sessionDir, "keep.txt"), "utf-8")).toBe("external\n");
+    expect(fs.readFileSync(path.join(displacedSession, "original.txt"), "utf-8"))
+      .toBe("original\n");
+  });
+
   it.each([
     { phase: "enumeration", observer: "readdir" },
     { phase: "removal", observer: "readFile" },

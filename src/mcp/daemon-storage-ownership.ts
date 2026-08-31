@@ -1008,7 +1008,10 @@ export async function removeSessionDirectory(sessionDir: string): Promise<boolea
 }
 
 type SessionDirectoryInspection =
-  | { readonly status: "eligible" }
+  | {
+    readonly status: "eligible";
+    readonly identity: { readonly device: number; readonly inode: number };
+  }
   | { readonly status: "missing" }
   | { readonly status: "preserved"; readonly reason: SessionOrphanPreservationReason };
 
@@ -1025,6 +1028,7 @@ async function inspectSessionDirectory(
   if (stat === null) return { status: "missing" };
   if (stat.isSymbolicLink()) return { status: "preserved", reason: "SYMBOLIC_LINK" };
   if (!stat.isDirectory()) return { status: "preserved", reason: "NOT_DIRECTORY" };
+  const identity = { device: stat.dev, inode: stat.ino };
 
   const markerPath = path.join(sessionDir, SESSION_OWNER_FILE);
   const markerStat = await fs.lstat(markerPath).catch((error: unknown) => {
@@ -1033,7 +1037,7 @@ async function inspectSessionDirectory(
   });
   if (markerStat === null) {
     return legacyUnmarkedPolicy === "remove"
-      ? { status: "eligible" }
+      ? { status: "eligible", identity }
       : { status: "preserved", reason: "LEGACY_SESSION_UNMARKED" };
   }
   if (!markerStat.isFile() || markerStat.isSymbolicLink()) {
@@ -1049,7 +1053,7 @@ async function inspectSessionDirectory(
   try {
     const parsed = JSON.parse(markerSource) as unknown;
     return isSessionOwnerRecord(parsed, sessionId)
-      ? { status: "eligible" }
+      ? { status: "eligible", identity }
       : { status: "preserved", reason: "MALFORMED_OWNERSHIP_MARKER" };
   } catch {
     return { status: "preserved", reason: "MALFORMED_OWNERSHIP_MARKER" };
@@ -1097,7 +1101,36 @@ export async function removeSessionOrphanDirectories(
         continue;
       }
       try {
-        await fs.rm(sessionPath, { recursive: true, force: false });
+        const quarantinePath = path.join(
+          sessionsRoot,
+          `.graft-removing-${sessionId}-${crypto.randomUUID()}`,
+        );
+        try {
+          await fs.rename(sessionPath, quarantinePath);
+        } catch (error: unknown) {
+          if (errorCode(error) === "ENOENT") continue;
+          throw error;
+        }
+        await assertPinnedDaemonSessionsRoot(root);
+        const quarantined = await fs.lstat(quarantinePath).catch((error: unknown) => {
+          if (errorCode(error) === "ENOENT") return null;
+          throw error;
+        });
+        if (
+          quarantined === null
+          || !daemonSessionDirectoryIdentityMatches(inspection.identity, quarantined)
+        ) {
+          await restoreQuarantinedSessionDirectory(
+            quarantinePath,
+            sessionPath,
+            new UnsafeDaemonSessionDirectoryError(sessionPath),
+          );
+        }
+        try {
+          await fs.rm(quarantinePath, { recursive: true, force: false });
+        } catch (error) {
+          await restoreQuarantinedSessionDirectory(quarantinePath, sessionPath, error);
+        }
         removed++;
       } catch (error) {
         failures.push({ sessionId, path: sessionPath, error });
