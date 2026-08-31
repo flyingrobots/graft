@@ -514,20 +514,18 @@ export function createDaemonSessionHost(options: CreateDaemonSessionHostOptions)
       };
     }
     const current = clockSample.value;
-    const sessionsNeedingClockRebase = [...sessions.values()].filter((session) => {
+    const sessionNeedingClockRebase = [...sessions.values()].find((session) => {
       return session.state === "open"
         && session.activeRequests === 0
         && session.activityClockFailure !== null;
     });
-    if (sessionsNeedingClockRebase.length > 0) {
-      const sweepFailure = sessionsNeedingClockRebase[0]?.activityClockFailure;
-      if (sweepFailure === undefined || sweepFailure === null) {
+    if (sessionNeedingClockRebase !== undefined) {
+      const sweepFailure = sessionNeedingClockRebase.activityClockFailure;
+      if (sweepFailure === null) {
         throw new Error("Daemon session clock rebase invariant violated");
       }
-      for (const session of sessionsNeedingClockRebase) {
-        session.lastActivityAtMs = current;
-        session.activityClockFailure = null;
-      }
+      sessionNeedingClockRebase.lastActivityAtMs = current;
+      sessionNeedingClockRebase.activityClockFailure = null;
       return {
         sessionsRetired: 0,
         liveDirectoriesRemoved: 0,

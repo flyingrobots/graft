@@ -39,6 +39,7 @@ mutation of the exact guard under test. Representative receipts:
 | Already-closed transport | Forcing transport-close termination through protocol close produced one unexpected `McpServer.close()` call | post-Retro review repair |
 | Three-claimant root-owner ABA | Pausing displaced-owner restoration let a third publisher succeed: expected `false`, received `true` | post-Retro review repair |
 | Late legacy endpoint | A custom-endpoint sweep deleted one unmarked live legacy directory: expected 0, received 1 | post-Retro review repair |
+| Multiple retained clock failures | The first valid sweep reported one rejected sample but silently cleared the second: expected `NEGATIVE`, received `null` | post-Retro review repair |
 
 ## Focused GREEN
 
@@ -46,7 +47,7 @@ mutation of the exact guard under test. Representative receipts:
 pnpm exec vitest run test/unit/mcp/daemon-session-reaper.test.ts
 ```
 
-Result: pass; 1 file, 48 tests.
+Result: pass; 1 file, 49 tests.
 
 The focused suite includes exact-value configuration defaults, invalid option
 tables, monotonic/refusal/rebase behavior, streaming and pre-body barriers,
@@ -61,8 +62,7 @@ structured public errors.
 pnpm test
 ```
 
-Latest exact pre-review result: pass; 259 files and 2,101 tests in 98.09
-seconds. The exact tree is rerun after the new exact-head review queue closes.
+Latest exact-tree result: pass; 259 files and 2,105 tests in 112.97 seconds.
 
 The command uses the repository's Docker-isolated test runner. The earlier
 exact-tree run at `83b50a70` passed 258 files and 2,095 tests and failed one of
@@ -75,8 +75,8 @@ tests.
 
 | Gate | Command | Result |
 | :--- | :--- | :--- |
-| Focused lifecycle | `pnpm exec vitest run test/unit/mcp/daemon-session-reaper.test.ts` | pass; 1 file, 48 tests |
-| Full isolated suite | `pnpm test` | last exact pre-review tree passed 259 files, 2,101 tests; rerun pending |
+| Focused lifecycle | `pnpm exec vitest run test/unit/mcp/daemon-session-reaper.test.ts` | pass; 1 file, 49 tests |
+| Full isolated suite | `pnpm test` | pass; 259 files, 2,105 tests, 112.97 seconds |
 | Lint | `pnpm lint` | pass |
 | Types | `pnpm typecheck` | pass |
 | Build | `pnpm build` | pass |

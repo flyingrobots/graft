@@ -56,7 +56,7 @@ recorded daemon.
    injects a real transport error, begins shutdown, and observes one unregister,
    one protocol close, and one directory removal.
 7. **Did existing behavior survive?** Yes. Focused daemon lifecycle validation
-   passes 45 tests. The exact-tree isolated-suite receipt is recorded in
+   passes 49 tests. The exact-tree isolated-suite receipt is recorded in
    [verification.md](./witness/verification.md).
 
 ## Review Repair
@@ -115,6 +115,11 @@ The same pass found that a one-time legacy-endpoint probe could not authorize
 later unmarked-directory deletion safely. The repair makes legacy cleanup an
 explicit storage policy: custom endpoints always preserve unmarked legacy UUID
 directories, while marker-owned orphan cleanup continues.
+
+The final issue in that queue found that a valid sweep reported only the first
+retained session clock failure while clearing every affected session. The
+repair reports and rebases one session per sweep, leaving every other rejected
+sample intact for its own later structured result.
 
 ## Drift
 

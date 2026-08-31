@@ -17,7 +17,7 @@ Legend: CORE
 
 Hill met locally on the repaired PR #250 branch. Every acceptance criterion
 below has executable evidence, the local Retro records the cycle, and the
-exact-tree isolated suite passes 259 files and 2,101 tests. Current-head CI and
+exact-tree isolated suite passes 259 files and 2,105 tests. Current-head CI and
 third-party review remain separate Ship gates.
 
 Writing the contract after implementation is a process failure, not a precedent.
@@ -171,7 +171,10 @@ clock failure. It must not clamp, reinterpret wall time, or expire a session.
 If request start or settlement encounters a bad sample, the session retains that
 failure until later trusted request activity supersedes it or a valid sweep
 reports it. That sweep retires nothing and rebases the idle epoch to its trusted
-sample; eligibility requires a full TTL after the rebase.
+sample; eligibility requires a full TTL after the rebase. A sweep reports and
+rebases exactly one retained session failure. Other sessions keep their failures
+for later sweeps, ensuring every rejected sample remains observable rather than
+being cleared behind the first report.
 
 Persisted orphan discovery does not compare monotonic timestamps from different
 processes. Process-local clock values are never written as restart authority.
@@ -380,6 +383,8 @@ authority has been retired, and each failed close layer is reported separately.
       no session inactivity calculation uses `Date.now()`.
 - [x] A regressing or non-finite injected clock causes a structured failed sweep
       with zero retired sessions.
+- [x] Concurrent retained session clock failures are reported and rebased one
+      per valid sweep; reporting the first never clears the rest.
 
 ### Request and teardown lifecycle
 

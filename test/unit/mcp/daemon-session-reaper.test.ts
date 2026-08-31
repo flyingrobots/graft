@@ -604,6 +604,83 @@ describe("mcp: daemon session reaper", () => {
     expect(fs.existsSync(sessionDir)).toBe(false);
   });
 
+  it("reports each retained session clock failure before clearing it", async () => {
+    const rootDir = fs.mkdtempSync(path.join(os.tmpdir(), "graft-clk-multiple-retained-"));
+    const socketPath = path.join(rootDir, "daemon.sock");
+    cleanups.push(() => {
+      fs.rmSync(rootDir, { recursive: true, force: true });
+    });
+    let currentTimeMs = 1_000;
+    const daemon = await startDaemonServer({
+      graftDir: rootDir,
+      socketPath,
+      sessionInactivityTtlMs: 10_000,
+      sessionReaperIntervalMs: 0,
+      nowMs: () => currentTimeMs,
+    });
+    cleanups.push(() => daemon.close());
+
+    const initializeSession = async (id: number): Promise<string> => {
+      const initialize = await requestUnixJson(socketPath, "POST", "/mcp", {
+        jsonrpc: "2.0",
+        id,
+        method: "initialize",
+        params: {
+          protocolVersion: "2025-03-26",
+          capabilities: {},
+          clientInfo: { name: "vitest", version: "0.0.0" },
+        },
+      });
+      const header = initialize.headers["mcp-session-id"];
+      const sessionId = Array.isArray(header) ? header[0] : header;
+      if (sessionId === undefined) throw new Error("Expected MCP session ID");
+      return sessionId;
+    };
+    const firstSessionId = await initializeSession(1);
+    const secondSessionId = await initializeSession(2);
+
+    currentTimeMs = Number.NaN;
+    expect((await requestUnixJson(socketPath, "POST", "/mcp", {
+      jsonrpc: "2.0",
+      id: 3,
+      method: "ping",
+      params: {},
+    }, { "mcp-session-id": firstSessionId })).statusCode).toBe(500);
+    currentTimeMs = -1;
+    expect((await requestUnixJson(socketPath, "POST", "/mcp", {
+      jsonrpc: "2.0",
+      id: 4,
+      method: "ping",
+      params: {},
+    }, { "mcp-session-id": secondSessionId })).statusCode).toBe(500);
+
+    currentTimeMs = 2_000;
+    expect(await daemon.reapExpiredSessions()).toMatchObject({
+      sessionsRetired: 0,
+      sweepFailure: {
+        code: "MONOTONIC_CLOCK_INVALID",
+        reason: "NON_FINITE",
+        received: "NaN",
+        previousAcceptedMs: 1_000,
+      },
+    });
+    currentTimeMs = 2_001;
+    expect(await daemon.reapExpiredSessions()).toMatchObject({
+      sessionsRetired: 0,
+      sweepFailure: {
+        code: "MONOTONIC_CLOCK_INVALID",
+        reason: "NEGATIVE",
+        received: "-1",
+        previousAcceptedMs: 1_000,
+      },
+    });
+    currentTimeMs = 2_002;
+    expect(await daemon.reapExpiredSessions()).toMatchObject({
+      sessionsRetired: 0,
+      sweepFailure: null,
+    });
+  });
+
   it("removes prior-process session directories before accepting requests", async () => {
     const rootDir = fs.mkdtempSync(path.join(os.tmpdir(), "graft-session-reaper-restart-"));
     const socketPath = path.join(rootDir, "mcp.sock");

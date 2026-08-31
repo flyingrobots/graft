@@ -36,7 +36,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   entries with stable reason codes instead of silently treating them as clean.
   A rejected request-start or request-settlement clock sample is retained until
   trusted activity supersedes it, forcing a valid sweep to report and rebase it
-  before any affected session can become eligible.
+  before any affected session can become eligible. Each valid sweep reports and
+  rebases at most one retained clock failure, so concurrent failures remain
+  individually observable on later sweeps instead of being silently cleared.
   Session IDs remain reserved from orphan discovery while their shared terminal
   cleanup promise is still settling, preventing concurrent scratch deletion.
   Scheduled reaping coalesces timer ticks while a sweep is in flight, bounding
