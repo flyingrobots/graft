@@ -20,6 +20,7 @@ export interface WarpResidentAcquireInput {
 export interface WarpResidentPool {
   acquire(input: WarpResidentAcquireInput): Promise<WarpResidentLease>;
   size(): number;
+  residentCount(): number;
 }
 
 export class InMemoryWarpPool implements WarpResidentPool {
@@ -128,5 +129,13 @@ export class InMemoryWarpPool implements WarpResidentPool {
 
   size(): number {
     return this.opened.size;
+  }
+
+  residentCount(): number {
+    let count = 0;
+    for (const repoHandles of this.opened.values()) {
+      count += repoHandles.size;
+    }
+    return count;
   }
 }

@@ -60,7 +60,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   Internal read-attribution execution contexts now release their owned lease in
   the same operation, including early returns and failures. Runtime causal-status
   projection reads the bound state directly and does not manufacture an
-  unowned execution lease.
+  unowned execution lease. Daemon health and status now expose unique repository
+  count separately from logical `(repoId, writerId)` resident count, without
+  presenting either as a measurement of unrelated daemon memory.
 
 ### Fixed
 

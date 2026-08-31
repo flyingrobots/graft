@@ -64,8 +64,13 @@ describe("mcp: warp pool", () => {
     expect(openWarp).toHaveBeenNthCalledWith(1, "/tmp/repo-a", "graft");
     expect(openWarp).toHaveBeenNthCalledWith(2, "/tmp/repo-a", "graft_monitor_deadbeef");
     expect(pool.size()).toBe(1);
+    expect(pool.residentCount()).toBe(2);
     await sessionResult.release();
+    expect(pool.size()).toBe(1);
+    expect(pool.residentCount()).toBe(1);
     await monitorResult.release();
+    expect(pool.size()).toBe(0);
+    expect(pool.residentCount()).toBe(0);
   });
 
   it("tracks unique repos instead of open handles in size()", async () => {
@@ -91,6 +96,7 @@ describe("mcp: warp pool", () => {
     ]);
 
     expect(pool.size()).toBe(2);
+    expect(pool.residentCount()).toBe(3);
     expect(openWarp).toHaveBeenNthCalledWith(1, "/tmp/repo-a", "graft");
     expect(openWarp).toHaveBeenNthCalledWith(2, "/tmp/repo-a", "graft_monitor_deadbeef");
     expect(openWarp).toHaveBeenNthCalledWith(3, "/tmp/repo-b", "graft");

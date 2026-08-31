@@ -70,6 +70,7 @@ export async function createInProcessDaemonHarness(options: {
       mcpPath: "/mcp",
       healthPath: "/healthz",
       activeWarpRepos: warpPool.size(),
+      activeWarpResidents: warpPool.residentCount(),
       startedAt,
     };
   };

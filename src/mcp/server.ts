@@ -172,6 +172,7 @@ function createDaemonRuntimeParts(input: {
       mcpPath: "/mcp",
       healthPath: "/healthz",
       activeWarpRepos: warpPool.size(),
+      activeWarpResidents: warpPool.residentCount(),
       startedAt: daemonStartedAt,
     };
   });

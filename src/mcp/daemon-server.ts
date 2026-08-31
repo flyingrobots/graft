@@ -82,6 +82,7 @@ export async function startDaemonServer(options: StartDaemonServerOptions = {}):
       mcpPath: MCP_PATH,
       healthPath: HEALTH_PATH,
       activeWarpRepos: warpPool.size(),
+      activeWarpResidents: warpPool.residentCount(),
       startedAt,
     }, monitorRuntime.getCounts(), daemonScheduler.getCounts(), daemonWorkerPool.getCounts());
   };

@@ -239,7 +239,7 @@ capacity and deterministic policy before replacing eager eviction.
       replacement entry.
 - [x] The last release automatically removes that writer-lane resident from
       production pool state.
-- [ ] One live writer lane does not retain an unreferenced sibling lane in the
+- [x] One live writer lane does not retain an unreferenced sibling lane in the
       same repository.
 - [x] Successful A-to-B rebind releases A only after B commits, while a
       same-resident rebind transfers the existing holder.
@@ -266,7 +266,7 @@ capacity and deterministic policy before replacing eager eviction.
       session before returning the initialization failure.
 - [x] Reopening an evicted resident reconstructs an equivalent bounded WARP
       projection from durable Git-backed state.
-- [ ] Health and documentation distinguish resident writer-lane count from
+- [x] Health and documentation distinguish resident writer-lane count from
       repository count and do not claim to bound unrelated daemon memory.
 
 ## Playback questions
@@ -274,11 +274,11 @@ capacity and deterministic policy before replacing eager eviction.
 ### Human
 
 - [ ] Can I see exactly which `(repoId, writerId)` residents are held and why?
-- [ ] Does a closed or rebound session stop retaining every lane it no longer
+- [x] Does a closed or rebound session stop retaining every lane it no longer
       uses?
 - [x] If all residents disappear between calls, does the next call reconstruct
       the same structural answer?
-- [ ] Is the documented memory claim limited to the WARP pool actually bounded
+- [x] Is the documented memory claim limited to the WARP pool actually bounded
       by this cycle?
 
 ### Agent

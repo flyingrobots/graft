@@ -212,6 +212,9 @@ describe("mcp: daemon workspace binding", () => {
         size(): number {
           return 0;
         },
+        residentCount(): number {
+          return 0;
+        },
       },
       transportSessionId: "transport:test",
       authorizationPolicy: {
@@ -258,6 +261,9 @@ describe("mcp: daemon workspace binding", () => {
           return Promise.reject(new Error("unused in workspace routed race test"));
         },
         size(): number {
+          return 0;
+        },
+        residentCount(): number {
           return 0;
         },
       },
@@ -310,6 +316,9 @@ describe("mcp: daemon workspace binding", () => {
           return Promise.reject(new Error("unused in workspace replacement test"));
         },
         size(): number {
+          return 0;
+        },
+        residentCount(): number {
           return 0;
         },
       },
@@ -513,6 +522,9 @@ describe("mcp: daemon workspace binding", () => {
           return Promise.reject(new Error("unused in workspace binding test"));
         },
         size(): number {
+          return 0;
+        },
+        residentCount(): number {
           return 0;
         },
       },

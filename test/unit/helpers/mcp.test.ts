@@ -48,6 +48,9 @@ describe("test helper: MCP server isolation", () => {
       size(): number {
         return 0;
       },
+      residentCount(): number {
+        return 0;
+      },
     };
     try {
       fs.writeFileSync(path.join(repoDir, "app.ts"), "export const ready = true;\n");

@@ -286,6 +286,7 @@ describe("mcp: daemon transport and lifecycle", () => {
       boundSessions: number;
       unboundSessions: number;
       activeWarpRepos: number;
+      activeWarpResidents: number;
       authorizedWorkspaces: number;
       transport: string;
       socketPath: string;
@@ -299,6 +300,7 @@ describe("mcp: daemon transport and lifecycle", () => {
     expect(initialStatus.boundSessions).toBe(0);
     expect(initialStatus.unboundSessions).toBe(0);
     expect(initialStatus.activeWarpRepos).toBe(0);
+    expect(initialStatus.activeWarpResidents).toBe(0);
     expect(initialStatus.authorizedWorkspaces).toBe(0);
     expect(initialStatus.transport).toBe("unix_socket");
     expect(initialStatus.socketPath).toBe(socketPath);
@@ -414,6 +416,7 @@ describe("mcp: daemon transport and lifecycle", () => {
     const failedHealth = parseJson(await requestUnixJson(socketPath, "GET", "/healthz")) as {
       activeSessions: number;
       activeWarpRepos: number;
+      activeWarpResidents: number;
     };
 
     expect(response.statusCode).toBe(500);
@@ -422,6 +425,7 @@ describe("mcp: daemon transport and lifecycle", () => {
     }));
     expect(failedHealth.activeSessions).toBe(0);
     expect(failedHealth.activeWarpRepos).toBe(0);
+    expect(failedHealth.activeWarpResidents).toBe(0);
     expect(fs.readdirSync(path.join(rootDir, "sessions"))).toEqual([]);
   });
 
@@ -475,6 +479,12 @@ describe("mcp: daemon transport and lifecycle", () => {
       `refs/warp/graft-ast/writers/${buildSessionWarpWriterId(sessionA)}`,
       `refs/warp/graft-ast/writers/${buildSessionWarpWriterId(sessionB)}`,
     ]));
+    const residentHealth = parseJson(await requestUnixJson(socketPath, "GET", "/healthz")) as {
+      activeWarpRepos: number;
+      activeWarpResidents: number;
+    };
+    expect(residentHealth.activeWarpRepos).toBe(1);
+    expect(residentHealth.activeWarpResidents).toBe(2);
   });
 
   it("releases a session's WARP residents when its daemon transport closes", async () => {
@@ -511,15 +521,28 @@ describe("mcp: daemon transport and lifecycle", () => {
     )).ok).toBe(true);
     expect((parseJson(await requestUnixJson(socketPath, "GET", "/healthz")) as {
       activeWarpRepos: number;
+      activeWarpResidents: number;
     }).activeWarpRepos).toBe(1);
+    expect((parseJson(await requestUnixJson(socketPath, "GET", "/healthz")) as {
+      activeWarpResidents: number;
+    }).activeWarpResidents).toBe(1);
 
     await deleteSession(socketPath, sessionId);
 
     const closedHealth = await waitFor(
       () => requestUnixJson(socketPath, "GET", "/healthz"),
-      (response) => (parseJson(response) as { activeWarpRepos: number }).activeWarpRepos === 0,
+      (response) => {
+        const health = parseJson(response) as {
+          activeWarpRepos: number;
+          activeWarpResidents: number;
+        };
+        return health.activeWarpRepos === 0 && health.activeWarpResidents === 0;
+      },
     );
-    expect((parseJson(closedHealth) as { activeWarpRepos: number }).activeWarpRepos).toBe(0);
+    expect(parseJson(closedHealth)).toEqual(expect.objectContaining({
+      activeWarpRepos: 0,
+      activeWarpResidents: 0,
+    }));
   });
 
 

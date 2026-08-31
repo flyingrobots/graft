@@ -118,6 +118,7 @@ async function createDaemonSession(
       mcpPath: options.mcpPath,
       healthPath: options.healthPath,
       activeWarpRepos: options.warpPool.size(),
+      activeWarpResidents: options.warpPool.residentCount(),
       startedAt: options.startedAt,
     }),
     monitorRuntime: options.monitorRuntime,

@@ -69,6 +69,7 @@ agent-facing flow:
 - **Last-Release Eviction**: Releasing the final lease immediately drops that writer lane's in-process resident without disturbing leased sibling lanes in the same repository; production cleanup does not require a separate sweep.
 - **Session Teardown**: Daemon transport close/error and daemon shutdown release the session's active and routed binding leases through one idempotent server hook.
 - **Execution Lifetime**: Each routed tool execution owns a distinct lazy lease through handler work, read attribution, failure reporting, and settlement. Binding-cache eviction cannot revoke a resident still owned by an admitted invocation, and invocation cleanup releases in `finally`.
+- **Resident Visibility**: `/healthz` and `daemon_status` report `activeWarpRepos` as the unique repository count and `activeWarpResidents` as the logical `(repoId, writerId)` resident count. These fields describe only the shared WARP pool; they are not total daemon-memory measurements.
 
 For concurrent multi-repo use inside one daemon-backed MCP session,
 repo tools that support routing also accept `cwd`: `safe_read`,
