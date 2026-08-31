@@ -17,7 +17,7 @@ Legend: CORE
 
 Hill met locally on the repaired PR #250 branch. Every acceptance criterion
 below has executable evidence, the local Retro records the cycle, and the
-exact-tree isolated suite passes 259 files and 2,109 tests. Current-head CI and
+exact-tree isolated suite passes 259 files and 2,112 tests. Current-head CI and
 third-party review remain separate Ship gates.
 
 Writing the contract after implementation is a process failure, not a precedent.
