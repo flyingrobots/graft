@@ -88,6 +88,74 @@ async function requestUnixJson(
   });
 }
 
+function parseMcpResponse(response: JsonResponse): unknown {
+  const trimmed = response.text.trim();
+  if (trimmed.startsWith("{")) {
+    return JSON.parse(trimmed) as unknown;
+  }
+  const payloads = trimmed
+    .split("\n")
+    .filter((line) => line.startsWith("data:"))
+    .map((line) => line.slice("data:".length).trim());
+  if (payloads.length === 0) {
+    throw new Error(`Unable to parse MCP response: ${response.text}`);
+  }
+  return JSON.parse(payloads[payloads.length - 1]!) as unknown;
+}
+
+async function initializeDaemonSession(socketPath: string, requestId: number): Promise<string> {
+  const initialize = await requestUnixJson(socketPath, "POST", "/mcp", {
+    jsonrpc: "2.0",
+    id: requestId,
+    method: "initialize",
+    params: {
+      protocolVersion: "2025-03-26",
+      capabilities: {},
+      clientInfo: { name: "vitest", version: "0.0.0" },
+    },
+  });
+  expect(initialize.statusCode).toBe(200);
+  const sessionIdHeader = initialize.headers["mcp-session-id"];
+  const sessionId = Array.isArray(sessionIdHeader) ? sessionIdHeader[0] : sessionIdHeader;
+  if (sessionId === undefined) throw new Error("Missing mcp-session-id response header");
+
+  const initialized = await requestUnixJson(socketPath, "POST", "/mcp", {
+    jsonrpc: "2.0",
+    method: "notifications/initialized",
+    params: {},
+  }, {
+    "mcp-session-id": sessionId,
+  });
+  expect([200, 202]).toContain(initialized.statusCode);
+  return sessionId;
+}
+
+async function listDaemonSessionActivity(
+  socketPath: string,
+  observerSessionId: string,
+  requestId: number,
+): Promise<readonly { readonly sessionId: string; readonly lastActivityAt: string }[]> {
+  const response = await requestUnixJson(socketPath, "POST", "/mcp", {
+    jsonrpc: "2.0",
+    id: requestId,
+    method: "tools/call",
+    params: {
+      name: "daemon_sessions",
+      arguments: {},
+    },
+  }, {
+    "mcp-session-id": observerSessionId,
+  });
+  expect(response.statusCode).toBe(200);
+  const payload = parseMcpResponse(response) as {
+    result: { content: readonly { readonly type: string; readonly text: string }[] };
+  };
+  const result = JSON.parse(payload.result.content[0]!.text) as {
+    sessions: readonly { readonly sessionId: string; readonly lastActivityAt: string }[];
+  };
+  return result.sessions;
+}
+
 async function openUnixEventStream(
   socketPath: string,
   requestPath: string,
@@ -1566,12 +1634,13 @@ describe("mcp: daemon session reaper", () => {
     cleanups.push(() => {
       fs.rmSync(rootDir, { recursive: true, force: true });
     });
+    vi.useFakeTimers({ toFake: ["Date"] });
+    cleanups.push(() => {
+      vi.useRealTimers();
+    });
+    vi.setSystemTime(new Date("2026-01-01T00:00:00.000Z"));
     let currentTimeMs = 1_000_000;
     const sessionInactivityTtlMs = 10_000;
-    const touchTransport = vi.spyOn(DaemonControlPlane.prototype, "touchTransport");
-    cleanups.push(() => {
-      touchTransport.mockRestore();
-    });
     const daemon = await startDaemonServer({
       graftDir: rootDir,
       socketPath,
@@ -1581,25 +1650,15 @@ describe("mcp: daemon session reaper", () => {
     });
     cleanups.push(() => daemon.close());
 
-    const initialize = await requestUnixJson(socketPath, "POST", "/mcp", {
-      jsonrpc: "2.0",
-      id: 1,
-      method: "initialize",
-      params: {
-        protocolVersion: "2025-03-26",
-        capabilities: {},
-        clientInfo: { name: "vitest", version: "0.0.0" },
-      },
-    });
-    const sessionIdHeader = initialize.headers["mcp-session-id"];
-    const sessionId = Array.isArray(sessionIdHeader) ? sessionIdHeader[0] : sessionIdHeader;
-    expect(sessionId).toBeDefined();
-    expect(touchTransport).toHaveBeenCalledTimes(2);
-    const sessionDir = path.join(rootDir, "sessions", sessionId!);
+    const sessionId = await initializeDaemonSession(socketPath, 1);
+    const observerSessionId = await initializeDaemonSession(socketPath, 100);
+    const observerStream = await openUnixEventStream(socketPath, "/mcp", observerSessionId);
+    cleanups.push(() => observerStream.close());
+    const sessionDir = path.join(rootDir, "sessions", sessionId);
 
-    const eventStream = await openUnixEventStream(socketPath, "/mcp", sessionId!);
+    const eventStream = await openUnixEventStream(socketPath, "/mcp", sessionId);
     cleanups.push(() => eventStream.close());
-    const heldRequest = await holdUnixJsonRequestBody(socketPath, "/mcp", sessionId!, {
+    const heldRequest = await holdUnixJsonRequestBody(socketPath, "/mcp", sessionId, {
       jsonrpc: "2.0",
       id: 2,
       method: "ping",
@@ -1617,10 +1676,20 @@ describe("mcp: daemon session reaper", () => {
     expect(await daemon.reapExpiredSessions()).toMatchObject({ sessionsRetired: 0 });
     expect(fs.existsSync(sessionDir)).toBe(true);
 
+    const terminalActivityAt = new Date("2026-01-01T00:00:03.000Z");
+    vi.setSystemTime(terminalActivityAt);
     await eventStream.close();
-    await vi.waitFor(() => {
-      expect(touchTransport).toHaveBeenCalledTimes(6);
-    });
+    let observedTerminalActivity: string | undefined;
+    for (let attempt = 0; attempt < 20 && observedTerminalActivity !== terminalActivityAt.toISOString(); attempt++) {
+      const sessions = await listDaemonSessionActivity(socketPath, observerSessionId, 101 + attempt);
+      observedTerminalActivity = sessions.find((session) => session.sessionId === sessionId)?.lastActivityAt;
+      if (observedTerminalActivity !== terminalActivityAt.toISOString()) {
+        await new Promise<void>((resolve) => {
+          setImmediate(resolve);
+        });
+      }
+    }
+    expect(observedTerminalActivity).toBe(terminalActivityAt.toISOString());
     currentTimeMs += sessionInactivityTtlMs + 1;
     expect(await daemon.reapExpiredSessions()).toMatchObject({ sessionsRetired: 1 });
     expect(fs.existsSync(sessionDir)).toBe(false);
@@ -1686,10 +1755,11 @@ describe("mcp: daemon session reaper", () => {
     cleanups.push(() => {
       fs.rmSync(rootDir, { recursive: true, force: true });
     });
-    const touchTransport = vi.spyOn(DaemonControlPlane.prototype, "touchTransport");
+    vi.useFakeTimers({ toFake: ["Date"] });
     cleanups.push(() => {
-      touchTransport.mockRestore();
+      vi.useRealTimers();
     });
+    vi.setSystemTime(new Date("2026-01-01T00:00:00.000Z"));
 
     const daemon = await startDaemonServer({
       graftDir: rootDir,
@@ -1697,33 +1767,27 @@ describe("mcp: daemon session reaper", () => {
       sessionReaperIntervalMs: 0,
     });
     cleanups.push(() => daemon.close());
-    const initialize = await requestUnixJson(socketPath, "POST", "/mcp", {
-      jsonrpc: "2.0",
-      id: 1,
-      method: "initialize",
-      params: {
-        protocolVersion: "2025-03-26",
-        capabilities: {},
-        clientInfo: { name: "vitest", version: "0.0.0" },
-      },
-    });
-    const sessionIdHeader = initialize.headers["mcp-session-id"];
-    const sessionId = Array.isArray(sessionIdHeader) ? sessionIdHeader[0] : sessionIdHeader;
-    expect(sessionId).toBeDefined();
-    touchTransport.mockClear();
+    const sessionId = await initializeDaemonSession(socketPath, 1);
+    const observerSessionId = await initializeDaemonSession(socketPath, 100);
 
-    const heldRequest = await holdUnixJsonRequestBody(socketPath, "/mcp", sessionId!, {
+    const admittedAt = new Date("2026-01-01T00:00:01.000Z");
+    vi.setSystemTime(admittedAt);
+    const heldRequest = await holdUnixJsonRequestBody(socketPath, "/mcp", sessionId, {
       jsonrpc: "2.0",
       id: 2,
       method: "ping",
       params: {},
     });
-    expect(touchTransport).toHaveBeenCalledTimes(1);
+    const activeSessions = await listDaemonSessionActivity(socketPath, observerSessionId, 101);
+    expect(activeSessions.find((session) => session.sessionId === sessionId)?.lastActivityAt)
+      .toBe(admittedAt.toISOString());
 
+    const settledAt = new Date("2026-01-01T00:00:02.000Z");
+    vi.setSystemTime(settledAt);
     expect((await heldRequest.release()).statusCode).toBe(200);
-    expect(touchTransport).toHaveBeenCalledTimes(2);
-    expect(touchTransport).toHaveBeenNthCalledWith(1, sessionId);
-    expect(touchTransport).toHaveBeenNthCalledWith(2, sessionId);
+    const settledSessions = await listDaemonSessionActivity(socketPath, observerSessionId, 102);
+    expect(settledSessions.find((session) => session.sessionId === sessionId)?.lastActivityAt)
+      .toBe(settledAt.toISOString());
   });
 
   it("closes an unconnected transport when session clock initialization fails", async () => {
