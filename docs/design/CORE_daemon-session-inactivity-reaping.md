@@ -15,8 +15,10 @@ Legend: CORE
 
 ## Status
 
-Repair contract recorded. The implementation on PR #250 predates this packet
-and remains held until every criterion below is proved.
+Hill met locally on the repaired PR #250 branch. Every acceptance criterion
+below has executable evidence, the local Retro records the cycle, and the
+exact-tree isolated suite passes 259 files and 2,101 tests. Current-head CI and
+third-party review remain separate Ship gates.
 
 Writing the contract after implementation is a process failure, not a precedent.
 The cycle retro must record that the PR was published before its design and
@@ -82,6 +84,10 @@ Only `OPEN` sessions accept work. `TERMINATING` is entered synchronously before
 the first cleanup `await`, and the map entry is removed only if it still points
 to the same session object. That identity check prevents an old callback from
 deleting a newer replacement with the same logical key.
+Generated session IDs are also reserved across creating, open, and terminating
+states, so concurrent construction cannot create that replacement while the
+prior session still owns its scratch directory. Reuse becomes legal only after
+the terminal operation releases the identity.
 
 Every terminal cause calls one `terminateSession(session, cause)` operation:
 
@@ -350,59 +356,59 @@ authority has been retired, and each failed close layer is reported separately.
 
 ### Configuration and clock
 
-- [ ] Defaults resolve to a 30-minute positive safe-integer TTL and 60-second
+- [x] Defaults resolve to a 30-minute positive safe-integer TTL and 60-second
       timer interval.
-- [ ] Table-driven tests reject every invalid TTL class independently.
-- [ ] Table-driven tests admit interval `0`, reject every other invalid interval
+- [x] Table-driven tests reject every invalid TTL class independently.
+- [x] Table-driven tests admit interval `0`, reject every other invalid interval
       class, and prove no value above Node's timer maximum reaches `setInterval`.
-- [ ] Production composition uses `performance.now()` through `MonotonicClock`;
+- [x] Production composition uses `performance.now()` through `MonotonicClock`;
       no session inactivity calculation uses `Date.now()`.
-- [ ] A regressing or non-finite injected clock causes a structured failed sweep
+- [x] A regressing or non-finite injected clock causes a structured failed sweep
       with zero retired sessions.
 
 ### Request and teardown lifecycle
 
-- [ ] A real streaming MCP request is held behind a deterministic barrier; a
+- [x] A real streaming MCP request is held behind a deterministic barrier; a
       sweep after TTL reaps zero sessions, release refreshes the idle epoch, and
       a later sweep reaps exactly one.
-- [ ] A valid existing-session POST is held while its body is still streaming;
+- [x] A valid existing-session POST is held while its body is still streaming;
       the same zero-reap assertion proves protection starts before body parsing.
-- [ ] Two concurrent requests produce a reference count of two, and releasing
+- [x] Two concurrent requests produce a reference count of two, and releasing
       only one never makes the session eligible.
-- [ ] Removing the active-reference predicate makes the focused regression fail
+- [x] Removing the active-reference predicate makes the focused regression fail
       for the intended reason.
-- [ ] Explicit DELETE, transport close, transport error, idle expiry, and daemon
+- [x] Explicit DELETE, transport close, transport error, idle expiry, and daemon
       shutdown all converge on the same termination operation.
-- [ ] Repeated/concurrent terminal signals close/unregister/remove at most once
+- [x] Repeated/concurrent terminal signals close/unregister/remove at most once
       and all callers observe the same terminal outcome.
-- [ ] A late old-session callback cannot delete a replacement map entry.
-- [ ] Unknown-session behavior is asserted by stable JSON-RPC/HTTP codes, not
+- [x] A late old-session callback cannot delete a replacement map entry.
+- [x] Unknown-session behavior is asserted by stable JSON-RPC/HTTP codes, not
       human-readable diagnostic wording.
 
 ### Construction and orphans
 
-- [ ] Forced failure at each construction boundary leaves no map entry or
+- [x] Forced failure at each construction boundary leaves no map entry or
       control-plane registration and closes/removes every resource already
       acquired.
-- [ ] A restart fixture leaves valid prior-process session directories behind,
+- [x] A restart fixture leaves valid prior-process session directories behind,
       starts a new exclusive daemon owner, and proves they are removed before
       health/request admission opens.
-- [ ] Periodic discovery removes a current-owner directory absent from the map.
-- [ ] Live current-session directories are never selected as orphans.
-- [ ] Symlinks, files, malformed markers, path escapes, and unknown children are
+- [x] Periodic discovery removes a current-owner directory absent from the map.
+- [x] Live current-session directories are never selected as orphans.
+- [x] Symlinks, files, malformed markers, path escapes, and unknown children are
       preserved and reported without touching their targets.
-- [ ] A forced directory-removal failure reports one retired session, zero
+- [x] A forced directory-removal failure reports one retired session, zero
       removed directories, and one retryable cleanup failure; a later sweep can
       remove the orphan.
 
 ### Public truth
 
-- [ ] `GraftDaemonServer.reapExpiredSessions()` is required and returns
+- [x] `GraftDaemonServer.reapExpiredSessions()` is required and returns
       `SessionSweepResult`; no optional chaining can erase the contract.
-- [ ] `docs/MCP.md` describes monotonic inactivity, active-request protection,
+- [x] `docs/MCP.md` describes monotonic inactivity, active-request protection,
       explicit close, crash-orphan cleanup, and failure reporting without
       claiming a nonexistent `GraftServer.close()` operation.
-- [ ] `CHANGELOG.md` records the user-visible lifecycle and configuration
+- [x] `CHANGELOG.md` records the user-visible lifecycle and configuration
       invariant once implementation matches this packet.
 
 ## RED / GREEN strategy
