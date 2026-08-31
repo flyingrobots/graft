@@ -142,7 +142,7 @@ export interface WorkspaceExecutionContext {
   readonly resolvePath: (input: string) => string;
   readonly capabilityProfile: WorkspaceCapabilityProfile;
   readonly warpWriterId: string;
-  getCausalContext(): RuntimeCausalContext;
+  getCausalContext(observation?: { readonly checkoutEpoch: number }): RuntimeCausalContext;
   readonly status: WorkspaceStatus;
   readonly governor: GovernorTracker;
   readonly cache: ObservationCache;
@@ -150,6 +150,7 @@ export interface WorkspaceExecutionContext {
   readonly graftDir: string;
   readonly repoState: RepoStateTracker;
   readonly getWarp: () => Promise<WarpContext>;
+  releaseWarpLease(): Promise<void>;
 }
 
 export interface ResolvedWorkspace {

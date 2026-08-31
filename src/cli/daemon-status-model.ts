@@ -37,6 +37,7 @@ export interface DaemonStatusModel {
     readonly startedAt: string;
     readonly sameUserOnly: true;
     readonly activeWarpRepos: number;
+    readonly activeWarpResidents: number;
   };
   readonly sessions: {
     readonly total: number;
@@ -185,6 +186,7 @@ export function buildDaemonStatusModel(input: {
       startedAt: status.startedAt,
       sameUserOnly: status.sameUserOnly,
       activeWarpRepos: status.activeWarpRepos,
+      activeWarpResidents: status.activeWarpResidents,
     },
     sessions: {
       total: status.activeSessions,

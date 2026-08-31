@@ -110,28 +110,40 @@ export function buildToolContext(deps: ToolContextDeps): ToolContext {
       return getActiveExecutionContext()?.repoState.getState() ?? workspaceRouter.getRepoState();
     },
     getCausalContext() {
-      return getActiveExecutionContext()?.getCausalContext() ?? workspaceRouter.captureExecutionContext().getCausalContext();
+      const execution = getActiveExecutionContext();
+      if (execution !== null) {
+        return execution.getCausalContext();
+      }
+      const causalContext = workspaceRouter.getRuntimeCausalContext();
+      if (causalContext === null) {
+        throw new Error("runtime causal context unavailable without a bound workspace");
+      }
+      return causalContext;
     },
     getWorkspaceOverlayFooting() {
-      return workspaceRouter.getWorkspaceOverlayFooting();
+      return workspaceRouter.getWorkspaceOverlayFooting(getActiveExecutionContext());
     },
     getPersistedLocalHistorySummary() {
-      return workspaceRouter.getPersistedLocalHistorySummary();
+      return workspaceRouter.getPersistedLocalHistorySummary(getActiveExecutionContext());
     },
     getPersistedLocalActivityWindow(limit) {
-      return workspaceRouter.getPersistedLocalActivityWindow(limit);
+      return workspaceRouter.getPersistedLocalActivityWindow(limit, getActiveExecutionContext());
     },
     getRepoConcurrencySummary() {
       return (async () => {
-        const summary = await workspaceRouter.getRepoConcurrencySummary();
+        const execution = getActiveExecutionContext();
+        const summary = await workspaceRouter.getRepoConcurrencySummary(execution);
         if (summary === null || daemonControlPlane === null) {
           return summary;
         }
-        const status = workspaceRouter.getStatus();
+        const status = execution?.status ?? workspaceRouter.getStatus();
         if (status.bindState !== "bound" || status.repoId === null || status.worktreeId === null) {
           return summary;
         }
-        const causalContext = workspaceRouter.captureExecutionContext().getCausalContext();
+        const causalContext = execution?.getCausalContext() ?? workspaceRouter.getRuntimeCausalContext();
+        if (causalContext === null) {
+          return summary;
+        }
         return mergeRepoConcurrencySummaryWithLiveSessions({
           currentSummary: summary,
           currentRepoId: status.repoId,
@@ -142,7 +154,7 @@ export function buildToolContext(deps: ToolContextDeps): ToolContext {
       })();
     },
     declareCausalAttach(request) {
-      return workspaceRouter.declareAttach(request);
+      return workspaceRouter.declareAttach(request, getActiveExecutionContext());
     },
     getWorkspaceStatus() {
       return getActiveExecutionContext()?.status ?? workspaceRouter.getStatus();

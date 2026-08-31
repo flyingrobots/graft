@@ -2,6 +2,8 @@ import { afterEach, describe, expect, it } from "vitest";
 import * as fs from "node:fs";
 import * as path from "node:path";
 import { MCP_OUTPUT_SCHEMAS } from "../../../src/contracts/output-schemas.js";
+import { InMemoryWarpPool } from "../../../src/mcp/warp-pool.js";
+import { openWarp } from "../../../src/warp/open.js";
 import { createInProcessDaemonHarness } from "../../helpers/daemon.js";
 import { cleanupTestRepo, createCommittedTestRepo, git } from "../../helpers/git.js";
 import { createServerInRepo, parse } from "../../helpers/mcp.js";
@@ -263,6 +265,240 @@ describe("mcp: per-call workspace route", () => {
       query: "onlyInA",
     });
     expect(activeFind.total).toBe(0);
+  });
+
+  it("keeps an in-flight routed WARP resident through LRU eviction and releases it at settlement", {
+    timeout: 30_000,
+  }, async () => {
+    const routedRepo = createRepo(
+      "graft-route-in-flight-warp-",
+      "export function retainedDuringCall(): string { return 'retained'; }\n",
+    );
+    const churnRepos = Array.from({ length: 8 }, (_unused, index) => {
+      return createRepo(
+        `graft-route-lru-churn-${String(index)}-`,
+        `export const churn${String(index)} = true;\n`,
+      );
+    });
+    let markOpenStarted!: () => void;
+    let releaseOpen!: () => void;
+    const openStarted = new Promise<void>((resolve) => {
+      markOpenStarted = resolve;
+    });
+    const openGate = new Promise<void>((resolve) => {
+      releaseOpen = resolve;
+    });
+    cleanups.push(() => {
+      releaseOpen();
+    });
+    let routedWriterId: string | null = null;
+    const pool = new InMemoryWarpPool(async (cwd, writerId) => {
+      const app = await openWarp({ cwd, writerId });
+      if (cwd === routedRepo) {
+        routedWriterId = writerId;
+        markOpenStarted();
+        await openGate;
+      }
+      return app;
+    });
+    const harness = await createInProcessDaemonHarness({ warpPool: pool });
+    cleanups.push(() => harness.close());
+    const session = harness.createSession();
+    const opened = await session.callToolJson<{
+      openedWorkspace: { repoId: string };
+    }>("workspace_open", {
+      cwd: routedRepo,
+      activate: false,
+    });
+    for (const cwd of churnRepos) {
+      await session.callToolJson("workspace_open", { cwd, activate: false });
+    }
+
+    const inFlight = session.callToolJson<{ total: number }>("code_find", {
+      cwd: routedRepo,
+      query: "retainedDuringCall",
+    });
+    await openStarted;
+    for (const cwd of churnRepos) {
+      await session.callToolJson("safe_read", { cwd, path: "app.ts" });
+    }
+    expect(routedWriterId).toEqual(expect.any(String));
+    const routedRepoId = opened.openedWorkspace.repoId;
+    const residentDuringCall = pool.has(routedRepoId, routedWriterId!);
+    const leasesDuringCall = pool.leaseCount(routedRepoId, routedWriterId!);
+
+    releaseOpen();
+    const result = await inFlight;
+
+    expect(residentDuringCall).toBe(true);
+    expect(leasesDuringCall).toBe(1);
+    expect(result.total).toBe(1);
+    expect(pool.has(routedRepoId, routedWriterId!)).toBe(false);
+    expect(pool.leaseCount(routedRepoId, routedWriterId!)).toBe(0);
+  });
+
+  it.each([
+    { toolName: "graft_churn", args: {} },
+    { toolName: "causal_status", args: {} },
+    { toolName: "causal_attach", args: { actor_kind: "agent" } },
+  ] as const)("keeps a bound WARP resident leased while unscheduled $toolName survives rebind", {
+    timeout: 30_000,
+  }, async ({ toolName, args }) => {
+    const originalRepo = createRepo(
+      "graft-bound-in-flight-warp-",
+      "export function retainedDuringRebind(): string { return 'retained'; }\n",
+    );
+    const replacementRepo = createRepo(
+      "graft-bound-replacement-warp-",
+      "export const replacement = true;\n",
+    );
+    let markObserverStarted!: () => void;
+    let releaseObserver!: () => void;
+    const observerStarted = new Promise<void>((resolve) => {
+      markObserverStarted = resolve;
+    });
+    const observerGate = new Promise<void>((resolve) => {
+      releaseObserver = resolve;
+    });
+    cleanups.push(() => {
+      releaseObserver();
+    });
+    let holdNextObserver = false;
+    let originalWriterId: string | null = null;
+    const pool = new InMemoryWarpPool(async (cwd, writerId) => {
+      const app = await openWarp({ cwd, writerId });
+      if (cwd !== originalRepo) {
+        return app;
+      }
+      originalWriterId = writerId;
+      return new Proxy(app, {
+        get(target, property) {
+          if (property === "observer") {
+            return async (...args: Parameters<typeof app.observer>) => {
+              if (holdNextObserver) {
+                holdNextObserver = false;
+                markObserverStarted();
+                await observerGate;
+              }
+              return app.observer(...args);
+            };
+          }
+          const value: unknown = Reflect.get(target, property, target);
+          return typeof value === "function" ? value.bind(target) : value;
+        },
+      });
+    });
+    const harness = await createInProcessDaemonHarness({ warpPool: pool });
+    cleanups.push(() => harness.close());
+    const session = harness.createSession();
+    const opened = await session.callToolJson<{
+      openedWorkspace: { repoId: string };
+    }>("workspace_open", {
+      cwd: originalRepo,
+      activate: true,
+    });
+
+    holdNextObserver = true;
+    const inFlight = session.callToolJson(toolName, args);
+    await observerStarted;
+    expect(originalWriterId).toEqual(expect.any(String));
+    await session.callToolJson("workspace_open", {
+      cwd: replacementRepo,
+      activate: true,
+    });
+    const residentDuringRebind = pool.has(opened.openedWorkspace.repoId, originalWriterId!);
+    const leasesDuringRebind = pool.leaseCount(opened.openedWorkspace.repoId, originalWriterId!);
+
+    releaseObserver();
+    const result = await inFlight;
+
+    expect(residentDuringRebind).toBe(true);
+    expect(leasesDuringRebind).toBe(1);
+    if (toolName === "graft_churn") {
+      expect(result["totalCommitsAnalyzed"]).toEqual(expect.any(Number));
+    } else {
+      expect(result).toEqual(expect.objectContaining({
+        bindState: "bound",
+        repoId: opened.openedWorkspace.repoId,
+      }));
+    }
+    expect(pool.has(opened.openedWorkspace.repoId, originalWriterId!)).toBe(false);
+    expect(pool.leaseCount(opened.openedWorkspace.repoId, originalWriterId!)).toBe(0);
+  });
+
+  it("keeps a repo-local WARP invocation resident across workspace activation", {
+    timeout: 30_000,
+  }, async () => {
+    const originalRepo = createRepo(
+      "graft-repo-local-in-flight-warp-",
+      "export function retainedDuringActivation(): string { return 'retained'; }\n",
+    );
+    const replacementRepo = createRepo(
+      "graft-repo-local-replacement-warp-",
+      "export const replacement = true;\n",
+    );
+    let markObserverStarted!: () => void;
+    let releaseObserver!: () => void;
+    const observerStarted = new Promise<void>((resolve) => {
+      markObserverStarted = resolve;
+    });
+    const observerGate = new Promise<void>((resolve) => {
+      releaseObserver = resolve;
+    });
+    cleanups.push(() => {
+      releaseObserver();
+    });
+    let holdNextObserver = true;
+    let originalWriterId: string | null = null;
+    let originalOpenCount = 0;
+    const pool = new InMemoryWarpPool(async (cwd, writerId) => {
+      const app = await openWarp({ cwd, writerId });
+      if (cwd !== originalRepo) {
+        return app;
+      }
+      originalWriterId = writerId;
+      originalOpenCount++;
+      return new Proxy(app, {
+        get(target, property) {
+          if (property === "observer") {
+            return async (...args: Parameters<typeof app.observer>) => {
+              if (holdNextObserver) {
+                holdNextObserver = false;
+                markObserverStarted();
+                await observerGate;
+              }
+              return app.observer(...args);
+            };
+          }
+          const value: unknown = Reflect.get(target, property, target);
+          return typeof value === "function" ? value.bind(target) : value;
+        },
+      });
+    });
+    const server = createServerInRepo(originalRepo, { warpPool: pool });
+    cleanups.push(() => server.releaseWarpLeases());
+    await server.callTool("workspace_status", {});
+    const originalRepoId = server.getWorkspaceStatus().repoId;
+    expect(originalRepoId).not.toBeNull();
+
+    const inFlight = server.callTool("graft_churn", {});
+    await observerStarted;
+    expect(originalWriterId).toEqual(expect.any(String));
+    await server.callTool("workspace_open", { cwd: replacementRepo, activate: true });
+    const residentDuringActivation = pool.has(originalRepoId!, originalWriterId!);
+    const leasesDuringActivation = pool.leaseCount(originalRepoId!, originalWriterId!);
+
+    await server.callTool("workspace_open", { cwd: originalRepo, activate: true });
+    await server.callTool("graft_churn", {});
+    const opensBeforeSettlement = originalOpenCount;
+    releaseObserver();
+    await inFlight;
+
+    expect(residentDuringActivation).toBe(true);
+    expect(leasesDuringActivation).toBe(1);
+    expect(opensBeforeSettlement).toBe(1);
+    expect(pool.has(originalRepoId!, originalWriterId!)).toBe(false);
+    expect(pool.leaseCount(originalRepoId!, originalWriterId!)).toBe(0);
   });
 
   it("routes graft_since to either dirty worktree of one repository and witnesses the selected authority", {

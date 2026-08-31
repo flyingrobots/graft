@@ -20,7 +20,7 @@ describe("0092 daemon session directory cleanup", () => {
 
     expect(fs.existsSync(sessionDir)).toBe(true);
 
-    session.close();
+    await session.close();
 
     expect(fs.existsSync(sessionDir)).toBe(false);
   });
@@ -49,7 +49,7 @@ describe("0092 daemon session directory cleanup", () => {
     const session = harness.createSession();
     const sessionsParent = path.dirname(session.graftDir);
 
-    session.close();
+    await session.close();
 
     // The parent `sessions/` directory should still exist even after session removal
     expect(fs.existsSync(sessionsParent)).toBe(true);

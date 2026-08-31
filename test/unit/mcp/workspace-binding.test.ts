@@ -1,4 +1,5 @@
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
+import type WarpApp from "@git-stunts/git-warp";
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
@@ -6,9 +7,12 @@ import { CanonicalJsonCodec } from "../../../src/adapters/canonical-json.js";
 import { nodeFs } from "../../../src/adapters/node-fs.js";
 import { nodeGit } from "../../../src/adapters/node-git.js";
 import { PersistedLocalHistoryStore } from "../../../src/mcp/persisted-local-history.js";
+import { RepoStateTracker } from "../../../src/mcp/repo-state.js";
+import { InMemoryWarpPool } from "../../../src/mcp/warp-pool.js";
 import {
   DEFAULT_DAEMON_CAPABILITY_PROFILE,
   type WorkspaceCapabilityProfile,
+  WorkspaceRouteUnauthorizedError,
   WorkspaceRouter,
 } from "../../../src/mcp/workspace-router.js";
 import type { FileSystem } from "../../../src/ports/filesystem.js";
@@ -21,6 +25,7 @@ afterEach(() => {
   while (cleanups.length > 0) {
     cleanups.pop()!();
   }
+  vi.restoreAllMocks();
 });
 
 function createCommittedRepo(): string {
@@ -201,10 +206,13 @@ describe("mcp: daemon workspace binding", () => {
       git: nodeGit,
       graftDir,
       warpPool: {
-        getOrOpen(): Promise<never> {
+        acquire(): Promise<never> {
           return Promise.reject(new Error("unused in workspace binding test"));
         },
         size(): number {
+          return 0;
+        },
+        residentCount(): number {
           return 0;
         },
       },
@@ -249,10 +257,13 @@ describe("mcp: daemon workspace binding", () => {
       git: nodeGit,
       graftDir,
       warpPool: {
-        getOrOpen(): Promise<never> {
+        acquire(): Promise<never> {
           return Promise.reject(new Error("unused in workspace routed race test"));
         },
         size(): number {
+          return 0;
+        },
+        residentCount(): number {
           return 0;
         },
       },
@@ -301,10 +312,13 @@ describe("mcp: daemon workspace binding", () => {
       git: nodeGit,
       graftDir,
       warpPool: {
-        getOrOpen(): Promise<never> {
+        acquire(): Promise<never> {
           return Promise.reject(new Error("unused in workspace replacement test"));
         },
         size(): number {
+          return 0;
+        },
+        residentCount(): number {
           return 0;
         },
       },
@@ -339,6 +353,198 @@ describe("mcp: daemon workspace binding", () => {
     expect(routed.gitCommonDir).not.toBe(original.gitCommonDir);
   });
 
+  it("releases a cached route replaced by a different repository at the same path", async () => {
+    const repoDir = createCommittedRepo();
+    const replacementSource = createCommittedRepo();
+    const graftDir = fs.mkdtempSync(path.join(os.tmpdir(), "graft-routed-replacement-lease-"));
+    cleanups.push(() => {
+      fs.rmSync(graftDir, { recursive: true, force: true });
+    });
+    const pool = new InMemoryWarpPool((_worktreeRoot, writerId) => {
+      return Promise.resolve({ writerId } as unknown as WarpApp);
+    });
+    const router = new WorkspaceRouter({
+      mode: "daemon",
+      fs: nodeFs,
+      git: nodeGit,
+      graftDir,
+      warpPool: pool,
+      transportSessionId: "transport:test",
+      warpWriterId: "writer:test",
+      authorizationPolicy: {
+        getCapabilityProfile() {
+          return Promise.resolve(DEFAULT_DAEMON_CAPABILITY_PROFILE);
+        },
+        noteBound(): Promise<void> {
+          return Promise.resolve();
+        },
+      },
+      persistedLocalHistory: new PersistedLocalHistoryStore({
+        fs: nodeFs,
+        codec: new CanonicalJsonCodec(),
+        graftDir,
+      }),
+    });
+
+    const original = await router.captureExecutionContextForWorkspace({ cwd: repoDir });
+    const cachedBindings = (router as unknown as {
+      routedBindings: Map<string, { getWarp(): Promise<unknown> }>;
+    }).routedBindings;
+    await cachedBindings.get(original.worktreeId)?.getWarp();
+    await original.releaseWarpLease();
+    expect(pool.leaseCount(original.repoId, "writer:test")).toBe(1);
+
+    fs.rmSync(repoDir, { recursive: true, force: true });
+    git(replacementSource, `worktree add -b replacement-lease ${repoDir}`);
+    const replacement = await router.captureExecutionContextForWorkspace({ cwd: repoDir });
+
+    expect(replacement.repoId).not.toBe(original.repoId);
+    expect(replacement.worktreeId).toBe(original.worktreeId);
+    expect(pool.leaseCount(original.repoId, "writer:test")).toBe(0);
+    await replacement.releaseWarpLease();
+  });
+
+  it("releases a cached routed binding when authorization is rejected", async () => {
+    const repoDir = createCommittedRepo();
+    const graftDir = fs.mkdtempSync(path.join(os.tmpdir(), "graft-routed-revocation-"));
+    cleanups.push(() => {
+      fs.rmSync(graftDir, { recursive: true, force: true });
+    });
+    const pool = new InMemoryWarpPool((_worktreeRoot, writerId) => {
+      return Promise.resolve({ writerId } as unknown as WarpApp);
+    });
+    let authorized = true;
+    const router = new WorkspaceRouter({
+      mode: "daemon",
+      fs: nodeFs,
+      git: nodeGit,
+      graftDir,
+      warpPool: pool,
+      transportSessionId: "transport:test",
+      warpWriterId: "writer:test",
+      authorizationPolicy: {
+        getCapabilityProfile() {
+          return Promise.resolve(authorized ? DEFAULT_DAEMON_CAPABILITY_PROFILE : null);
+        },
+        noteBound(): Promise<void> {
+          return Promise.resolve();
+        },
+      },
+      persistedLocalHistory: new PersistedLocalHistoryStore({
+        fs: nodeFs,
+        codec: new CanonicalJsonCodec(),
+        graftDir,
+      }),
+    });
+
+    const routed = await router.captureExecutionContextForWorkspace({ cwd: repoDir });
+    const cachedBindings = (router as unknown as {
+      routedBindings: Map<string, { getWarp(): Promise<unknown> }>;
+    }).routedBindings;
+    await cachedBindings.get(routed.worktreeId)?.getWarp();
+    await routed.releaseWarpLease();
+    expect(pool.leaseCount(routed.repoId, "writer:test")).toBe(1);
+
+    authorized = false;
+    await expect(router.captureExecutionContextForWorkspace({ cwd: repoDir }))
+      .rejects
+      .toBeInstanceOf(WorkspaceRouteUnauthorizedError);
+
+    expect(pool.leaseCount(routed.repoId, "writer:test")).toBe(0);
+    expect(pool.size()).toBe(0);
+  });
+
+  it("unregisters a routed binding lease when repo-state initialization fails", async () => {
+    const repoDir = createCommittedRepo();
+    const graftDir = fs.mkdtempSync(path.join(os.tmpdir(), "graft-routed-init-failure-"));
+    cleanups.push(() => {
+      fs.rmSync(graftDir, { recursive: true, force: true });
+    });
+    const initializationError = new Error("injected routed repo-state initialization failure");
+    vi.spyOn(RepoStateTracker.prototype, "initialize").mockRejectedValue(initializationError);
+    const pool = new InMemoryWarpPool((_worktreeRoot, writerId) => {
+      return Promise.resolve({ writerId } as unknown as WarpApp);
+    });
+    const router = new WorkspaceRouter({
+      mode: "daemon",
+      fs: nodeFs,
+      git: nodeGit,
+      graftDir,
+      warpPool: pool,
+      transportSessionId: "transport:test",
+      warpWriterId: "writer:test",
+      authorizationPolicy: {
+        getCapabilityProfile() {
+          return Promise.resolve(DEFAULT_DAEMON_CAPABILITY_PROFILE);
+        },
+        noteBound(): Promise<void> {
+          return Promise.resolve();
+        },
+      },
+      persistedLocalHistory: new PersistedLocalHistoryStore({
+        fs: nodeFs,
+        codec: new CanonicalJsonCodec(),
+        graftDir,
+      }),
+    });
+
+    await expect(router.captureExecutionContextForWorkspace({ cwd: repoDir }))
+      .rejects
+      .toBe(initializationError);
+
+    const lifecycleState = router as unknown as {
+      bindingWarpLeases: Set<unknown>;
+      routedBindings: Map<string, unknown>;
+      routedBindingInitializations: Map<string, unknown>;
+    };
+    expect(router.getStatus().bindState).toBe("unbound");
+    expect(lifecycleState.bindingWarpLeases.size).toBe(0);
+    expect(lifecycleState.routedBindings.size).toBe(0);
+    expect(lifecycleState.routedBindingInitializations.size).toBe(0);
+    expect(pool.size()).toBe(0);
+  });
+
+  it("unregisters a repo-local startup binding when persisted history rejects", async () => {
+    const repoDir = createCommittedRepo();
+    const graftDir = fs.mkdtempSync(path.join(os.tmpdir(), "graft-repo-local-init-failure-"));
+    cleanups.push(() => {
+      fs.rmSync(graftDir, { recursive: true, force: true });
+    });
+    const initializationError = new Error("injected repo-local binding history failure");
+    const history = new PersistedLocalHistoryStore({
+      fs: nodeFs,
+      codec: new CanonicalJsonCodec(),
+      graftDir,
+    });
+    history.noteBinding = () => Promise.reject(initializationError);
+    const openWarp = vi.fn((_worktreeRoot: string, writerId: string) => {
+      return Promise.resolve({ writerId } as unknown as WarpApp);
+    });
+    const pool = new InMemoryWarpPool(openWarp);
+    const router = new WorkspaceRouter({
+      mode: "repo_local",
+      projectRoot: repoDir,
+      fs: nodeFs,
+      git: nodeGit,
+      graftDir,
+      warpPool: pool,
+      transportSessionId: "transport:test",
+      warpWriterId: "writer:test",
+      persistedLocalHistory: history,
+    });
+
+    await expect(router.initialize()).rejects.toBe(initializationError);
+
+    const lifecycleState = router as unknown as {
+      bindingWarpLeases: Set<unknown>;
+    };
+    expect(openWarp).toHaveBeenCalledOnce();
+    expect(router.getStatus().bindState).toBe("unbound");
+    expect(lifecycleState.bindingWarpLeases.size).toBe(0);
+    expect(pool.size()).toBe(0);
+    expect(pool.residentCount()).toBe(0);
+  });
+
   it("Does workspace binding load graftignore without sync filesystem reads?", async () => {
     const repoDir = createCommittedRepo();
     fs.writeFileSync(path.join(repoDir, ".graftignore"), "ignored.ts\n");
@@ -353,10 +559,13 @@ describe("mcp: daemon workspace binding", () => {
       git: nodeGit,
       graftDir,
       warpPool: {
-        getOrOpen(): Promise<never> {
+        acquire(): Promise<never> {
           return Promise.reject(new Error("unused in workspace binding test"));
         },
         size(): number {
+          return 0;
+        },
+        residentCount(): number {
           return 0;
         },
       },
@@ -441,6 +650,404 @@ describe("mcp: daemon workspace binding", () => {
 
     const loadedAfterRebind = parse(await server.callTool("state_load", {}));
     expect(loadedAfterRebind["content"]).toBeNull();
+  });
+
+  it("releases only the displaced resident after a cross-repository rebind commits", async () => {
+    const firstRepoDir = createCommittedRepo();
+    const secondRepoDir = createCommittedRepo();
+    const graftDir = fs.mkdtempSync(path.join(os.tmpdir(), "graft-cross-repo-rebind-"));
+    cleanups.push(() => {
+      fs.rmSync(graftDir, { recursive: true, force: true });
+    });
+    const pool = new InMemoryWarpPool((_worktreeRoot, writerId) => {
+      return Promise.resolve({ writerId } as unknown as WarpApp);
+    });
+    const router = new WorkspaceRouter({
+      mode: "daemon",
+      fs: nodeFs,
+      git: nodeGit,
+      graftDir,
+      warpPool: pool,
+      transportSessionId: "transport:test",
+      warpWriterId: "writer:test",
+      authorizationPolicy: {
+        getCapabilityProfile() {
+          return Promise.resolve(DEFAULT_DAEMON_CAPABILITY_PROFILE);
+        },
+        noteBound(): Promise<void> {
+          return Promise.resolve();
+        },
+      },
+      persistedLocalHistory: new PersistedLocalHistoryStore({
+        fs: nodeFs,
+        codec: new CanonicalJsonCodec(),
+        graftDir,
+      }),
+      persistedLocalHistoryGraph: false,
+    });
+
+    const first = await router.bind({ cwd: firstRepoDir }, "workspace_bind");
+    expect(first.ok).toBe(true);
+    expect(first.repoId).toEqual(expect.any(String));
+    await router.getWarp();
+    expect(pool.leaseCount(first.repoId!, "writer:test")).toBe(1);
+
+    const second = await router.rebind({ cwd: secondRepoDir }, "workspace_rebind");
+
+    expect(second.ok).toBe(true);
+    expect(second.repoId).toEqual(expect.any(String));
+    expect(second.repoId).not.toBe(first.repoId);
+    expect(pool.leaseCount(first.repoId!, "writer:test")).toBe(0);
+    expect(pool.has(first.repoId!, "writer:test")).toBe(false);
+    const secondResident = (await router.getWarp()).app;
+    expect(pool.leaseCount(second.repoId!, "writer:test")).toBe(1);
+
+    const sameResident = await router.rebind({ cwd: secondRepoDir }, "workspace_rebind");
+
+    expect(sameResident.ok).toBe(true);
+    expect(sameResident.repoId).toBe(second.repoId);
+    expect(pool.leaseCount(second.repoId!, "writer:test")).toBe(1);
+    expect((await router.getWarp()).app).toBe(secondResident);
+  });
+
+  it("opens an unacquired same-repository lease from the rebound worktree", async () => {
+    const repoDir = createCommittedRepo();
+    git(repoDir, "branch lazy-lease-source");
+    const previousWorktree = path.join(os.tmpdir(), `graft-lazy-lease-source-${String(Date.now())}`);
+    git(repoDir, `worktree add ${previousWorktree} lazy-lease-source`);
+    cleanups.push(() => {
+      fs.rmSync(previousWorktree, { recursive: true, force: true });
+    });
+    const graftDir = fs.mkdtempSync(path.join(os.tmpdir(), "graft-lazy-lease-rebind-"));
+    cleanups.push(() => {
+      fs.rmSync(graftDir, { recursive: true, force: true });
+    });
+    const openedRoots: string[] = [];
+    const pool = new InMemoryWarpPool((worktreeRoot, writerId) => {
+      openedRoots.push(worktreeRoot);
+      if (!fs.existsSync(worktreeRoot)) {
+        return Promise.reject(new Error(`missing WARP worktree root: ${worktreeRoot}`));
+      }
+      return Promise.resolve({ worktreeRoot, writerId } as unknown as WarpApp);
+    });
+    const router = new WorkspaceRouter({
+      mode: "daemon",
+      fs: nodeFs,
+      git: nodeGit,
+      graftDir,
+      warpPool: pool,
+      transportSessionId: "transport:test",
+      warpWriterId: "writer:test",
+      authorizationPolicy: {
+        getCapabilityProfile() {
+          return Promise.resolve(DEFAULT_DAEMON_CAPABILITY_PROFILE);
+        },
+        noteBound(): Promise<void> {
+          return Promise.resolve();
+        },
+      },
+      persistedLocalHistory: new PersistedLocalHistoryStore({
+        fs: nodeFs,
+        codec: new CanonicalJsonCodec(),
+        graftDir,
+      }),
+      persistedLocalHistoryGraph: false,
+    });
+
+    const first = await router.bind({ cwd: previousWorktree }, "workspace_bind");
+    const rebound = await router.rebind({ cwd: repoDir }, "workspace_rebind");
+    expect(rebound.ok).toBe(true);
+    expect(rebound.repoId).toBe(first.repoId);
+    fs.rmSync(previousWorktree, { recursive: true, force: true });
+
+    const warp = await router.getWarp();
+
+    expect(warp.app).toEqual(expect.objectContaining({
+      worktreeRoot: fs.realpathSync(repoDir),
+      writerId: "writer:test",
+    }));
+    expect(openedRoots).toEqual([fs.realpathSync(repoDir)]);
+  });
+
+  it("releases every displaced resident after concurrent cross-repository rebinds", async () => {
+    const firstRepoDir = createCommittedRepo();
+    const secondRepoDir = createCommittedRepo();
+    const thirdRepoDir = createCommittedRepo();
+    const graftDir = fs.mkdtempSync(path.join(os.tmpdir(), "graft-concurrent-rebind-"));
+    cleanups.push(() => {
+      fs.rmSync(graftDir, { recursive: true, force: true });
+    });
+    const pool = new InMemoryWarpPool((_worktreeRoot, writerId) => {
+      return Promise.resolve({ writerId } as unknown as WarpApp);
+    });
+    const history = new PersistedLocalHistoryStore({
+      fs: nodeFs,
+      codec: new CanonicalJsonCodec(),
+      graftDir,
+    });
+    history.noteBinding = () => Promise.resolve();
+    let capabilityRequests = 0;
+    let releaseConcurrentProfiles!: () => void;
+    const concurrentProfiles = new Promise<void>((resolve) => {
+      releaseConcurrentProfiles = resolve;
+    });
+    let markConcurrentProfilesRequested!: () => void;
+    const concurrentProfilesRequested = new Promise<void>((resolve) => {
+      markConcurrentProfilesRequested = resolve;
+    });
+    const router = new WorkspaceRouter({
+      mode: "daemon",
+      fs: nodeFs,
+      git: nodeGit,
+      graftDir,
+      warpPool: pool,
+      transportSessionId: "transport:test",
+      warpWriterId: "writer:test",
+      authorizationPolicy: {
+        getCapabilityProfile() {
+          capabilityRequests += 1;
+          if (capabilityRequests === 1) {
+            return Promise.resolve(DEFAULT_DAEMON_CAPABILITY_PROFILE);
+          }
+          if (capabilityRequests === 3) {
+            markConcurrentProfilesRequested();
+          }
+          return concurrentProfiles.then(() => DEFAULT_DAEMON_CAPABILITY_PROFILE);
+        },
+        noteBound(): Promise<void> {
+          return Promise.resolve();
+        },
+      },
+      persistedLocalHistory: history,
+    });
+
+    const first = await router.bind({ cwd: firstRepoDir }, "workspace_bind");
+    expect(first.ok).toBe(true);
+    const secondRebind = router.rebind({ cwd: secondRepoDir }, "workspace_rebind");
+    const thirdRebind = router.rebind({ cwd: thirdRepoDir }, "workspace_rebind");
+    await concurrentProfilesRequested;
+    releaseConcurrentProfiles();
+    const [second, third] = await Promise.all([secondRebind, thirdRebind]);
+
+    expect(second.ok).toBe(true);
+    expect(third.ok).toBe(true);
+    const currentRepoId = router.getStatus().repoId;
+    expect(currentRepoId).not.toBeNull();
+    expect(pool.leaseCount(first.repoId!, "writer:test")).toBe(0);
+    expect(pool.leaseCount(currentRepoId!, "writer:test")).toBe(1);
+    expect(pool.size()).toBe(1);
+  });
+
+  it("keeps an admitted invocation resident while session bindings release", async () => {
+    const repoDir = createCommittedRepo();
+    const graftDir = fs.mkdtempSync(path.join(os.tmpdir(), "graft-binding-invocation-lease-"));
+    cleanups.push(() => {
+      fs.rmSync(graftDir, { recursive: true, force: true });
+    });
+    const pool = new InMemoryWarpPool((_worktreeRoot, writerId) => {
+      return Promise.resolve({ writerId } as unknown as WarpApp);
+    });
+    const router = new WorkspaceRouter({
+      mode: "daemon",
+      fs: nodeFs,
+      git: nodeGit,
+      graftDir,
+      warpPool: pool,
+      transportSessionId: "transport:test",
+      warpWriterId: "writer:test",
+      authorizationPolicy: {
+        getCapabilityProfile() {
+          return Promise.resolve(DEFAULT_DAEMON_CAPABILITY_PROFILE);
+        },
+        noteBound(): Promise<void> {
+          return Promise.resolve();
+        },
+      },
+      persistedLocalHistory: new PersistedLocalHistoryStore({
+        fs: nodeFs,
+        codec: new CanonicalJsonCodec(),
+        graftDir,
+      }),
+      persistedLocalHistoryGraph: false,
+    });
+
+    const bound = await router.bind({ cwd: repoDir }, "workspace_bind");
+    expect(bound.ok).toBe(true);
+    await router.getWarp();
+    const invocation = router.captureExecutionContext();
+    await invocation.getWarp();
+    expect(pool.leaseCount(bound.repoId!, "writer:test")).toBe(2);
+
+    await router.releaseWarpLeases();
+
+    expect(pool.leaseCount(bound.repoId!, "writer:test")).toBe(1);
+    expect(pool.has(bound.repoId!, "writer:test")).toBe(true);
+
+    await invocation.releaseWarpLease();
+    expect(pool.leaseCount(bound.repoId!, "writer:test")).toBe(0);
+    expect(pool.has(bound.repoId!, "writer:test")).toBe(false);
+  });
+
+  it("releases an internally owned read-attribution execution lease", async () => {
+    const repoDir = createCommittedRepo();
+    const graftDir = fs.mkdtempSync(path.join(os.tmpdir(), "graft-read-attribution-lease-"));
+    cleanups.push(() => {
+      fs.rmSync(graftDir, { recursive: true, force: true });
+    });
+    const pool = new InMemoryWarpPool((_worktreeRoot, writerId) => {
+      return Promise.resolve({ writerId } as unknown as WarpApp);
+    });
+    const history = new PersistedLocalHistoryStore({
+      fs: nodeFs,
+      codec: new CanonicalJsonCodec(),
+      graftDir,
+    });
+    const summarizeWithoutGraph = history.summarize.bind(history);
+    history.summarize = (status, causalContext) => {
+      return summarizeWithoutGraph(status, causalContext, null);
+    };
+    const noteReadWithoutGraph = history.noteReadObservation.bind(history);
+    history.noteReadObservation = (input) => {
+      return noteReadWithoutGraph({ ...input, graph: null });
+    };
+    history.noteBinding = () => Promise.resolve();
+    const router = new WorkspaceRouter({
+      mode: "repo_local",
+      projectRoot: repoDir,
+      fs: nodeFs,
+      git: nodeGit,
+      graftDir,
+      warpPool: pool,
+      transportSessionId: "transport:test",
+      warpWriterId: "writer:test",
+      persistedLocalHistory: history,
+    });
+
+    await router.initialize();
+    const repoId = router.getStatus().repoId;
+    expect(repoId).not.toBeNull();
+    expect(pool.leaseCount(repoId!, "writer:test")).toBe(1);
+
+    await router.noteReadObservation(
+      "safe_read",
+      { path: "app.ts" },
+      { projection: "content" },
+    );
+
+    expect(pool.leaseCount(repoId!, "writer:test")).toBe(1);
+    await router.releaseWarpLeases();
+    expect(pool.leaseCount(repoId!, "writer:test")).toBe(0);
+    expect(pool.has(repoId!, "writer:test")).toBe(false);
+  });
+
+  it("keeps the current binding leased when a same-repo routed binding is evicted", {
+    timeout: 20_000,
+  }, async () => {
+    const repoDir = createCommittedRepo();
+    git(repoDir, "branch routed-sibling");
+    const routedWorktree = path.join(os.tmpdir(), `graft-routed-sibling-${String(Date.now())}`);
+    git(repoDir, `worktree add ${routedWorktree} routed-sibling`);
+    cleanups.push(() => {
+      fs.rmSync(routedWorktree, { recursive: true, force: true });
+    });
+    const churnRepos = Array.from({ length: 8 }, () => createCommittedRepo());
+    const graftDir = fs.mkdtempSync(path.join(os.tmpdir(), "graft-binding-lease-lru-"));
+    cleanups.push(() => {
+      fs.rmSync(graftDir, { recursive: true, force: true });
+    });
+    const pool = new InMemoryWarpPool((_worktreeRoot, writerId) => {
+      return Promise.resolve({ writerId } as unknown as WarpApp);
+    });
+    const router = new WorkspaceRouter({
+      mode: "daemon",
+      fs: nodeFs,
+      git: nodeGit,
+      graftDir,
+      warpPool: pool,
+      transportSessionId: "transport:test",
+      warpWriterId: "writer:test",
+      authorizationPolicy: {
+        getCapabilityProfile() {
+          return Promise.resolve(DEFAULT_DAEMON_CAPABILITY_PROFILE);
+        },
+        noteBound(): Promise<void> {
+          return Promise.resolve();
+        },
+      },
+      persistedLocalHistory: new PersistedLocalHistoryStore({
+        fs: nodeFs,
+        codec: new CanonicalJsonCodec(),
+        graftDir,
+      }),
+      persistedLocalHistoryGraph: false,
+    });
+
+    const current = await router.bind({ cwd: repoDir }, "workspace_bind");
+    expect(current.ok).toBe(true);
+    await router.getWarp();
+    const routed = await router.captureExecutionContextForWorkspace({ cwd: routedWorktree });
+    await routed.releaseWarpLease();
+    for (const cwd of churnRepos) {
+      const context = await router.captureExecutionContextForWorkspace({ cwd });
+      await context.releaseWarpLease();
+    }
+
+    expect(pool.leaseCount(current.repoId!, "writer:test")).toBe(1);
+    expect(pool.has(current.repoId!, "writer:test")).toBe(true);
+  });
+
+  it("rolls back an uncommitted rebind lease without releasing the previous binding", async () => {
+    const firstRepoDir = createCommittedRepo();
+    const secondRepoDir = createCommittedRepo();
+    const graftDir = fs.mkdtempSync(path.join(os.tmpdir(), "graft-binding-rollback-"));
+    cleanups.push(() => {
+      fs.rmSync(graftDir, { recursive: true, force: true });
+    });
+    const bindError = new Error("injected binding history failure");
+    const history = new PersistedLocalHistoryStore({
+      fs: nodeFs,
+      codec: new CanonicalJsonCodec(),
+      graftDir,
+    });
+    let historyBindings = 0;
+    history.noteBinding = () => {
+      historyBindings++;
+      return historyBindings === 1 ? Promise.resolve() : Promise.reject(bindError);
+    };
+    let openCount = 0;
+    const pool = new InMemoryWarpPool((_worktreeRoot, writerId) => {
+      openCount++;
+      return Promise.resolve({ writerId, openCount } as unknown as WarpApp);
+    });
+    const router = new WorkspaceRouter({
+      mode: "daemon",
+      fs: nodeFs,
+      git: nodeGit,
+      graftDir,
+      warpPool: pool,
+      transportSessionId: "transport:test",
+      warpWriterId: "writer:test",
+      authorizationPolicy: {
+        getCapabilityProfile() {
+          return Promise.resolve(DEFAULT_DAEMON_CAPABILITY_PROFILE);
+        },
+        noteBound(): Promise<void> {
+          return Promise.resolve();
+        },
+      },
+      persistedLocalHistory: history,
+    });
+
+    const first = await router.bind({ cwd: firstRepoDir }, "workspace_bind");
+    expect(first.ok).toBe(true);
+    expect(pool.size()).toBe(1);
+
+    await expect(router.rebind({ cwd: secondRepoDir }, "workspace_rebind")).rejects.toBe(bindError);
+
+    expect(router.getStatus().repoId).toBe(first.repoId);
+    expect(pool.size()).toBe(1);
+    expect(pool.leaseCount(first.repoId!, "writer:test")).toBe(1);
+    expect(openCount).toBe(2);
   });
 
   it("denies run_capture in daemon mode after bind", async () => {

@@ -12,7 +12,7 @@ import type { ChildProcessDaemonWorkerPool } from "./daemon-worker-pool.js";
 import type { PersistentMonitorRuntime } from "./persistent-monitor-runtime.js";
 import type { RunCaptureConfig } from "./run-capture-config.js";
 import type { RuntimeObservabilityState } from "./runtime-observability.js";
-import type { WarpPool } from "./warp-pool.js";
+import type { WarpResidentPool } from "./warp-pool.js";
 import { ensurePrivateDirectory } from "./daemon-bootstrap.js";
 
 const MAX_BODY_BYTES = 1024 * 1024;
@@ -31,7 +31,7 @@ export interface CreateDaemonSessionHostOptions {
   readonly healthPath: string;
   readonly mcpPath: string;
   readonly startedAt: string;
-  readonly warpPool: WarpPool;
+  readonly warpPool: WarpResidentPool;
   readonly controlPlane: DaemonControlPlane;
   readonly daemonScheduler: DaemonJobScheduler;
   readonly daemonWorkerPool: ChildProcessDaemonWorkerPool;
@@ -118,6 +118,7 @@ async function createDaemonSession(
       mcpPath: options.mcpPath,
       healthPath: options.healthPath,
       activeWarpRepos: options.warpPool.size(),
+      activeWarpResidents: options.warpPool.residentCount(),
       startedAt: options.startedAt,
     }),
     monitorRuntime: options.monitorRuntime,
@@ -136,28 +137,51 @@ async function createDaemonSession(
     transport,
     server,
   };
+  let retirement: Promise<void> | null = null;
+  const retireSession = (): Promise<void> => {
+    if (retirement !== null) return retirement;
+    retirement = (async () => {
+      sessions.delete(newSessionId);
+      options.controlPlane.unregisterTransport(newSessionId);
+      try {
+        await server.releaseWarpLeases();
+      } catch (error) {
+        console.error(`[graft] failed to release WARP leases for session ${newSessionId}: ${String(error)}`);
+      }
+      await removeSessionDirectory(sessionGraftDir);
+    })();
+    return retirement;
+  };
   transport.onclose = () => {
-    sessions.delete(newSessionId);
-    options.controlPlane.unregisterTransport(newSessionId);
-    void removeSessionDirectory(sessionGraftDir);
+    void retireSession();
   };
   transport.onerror = () => {
-    sessions.delete(newSessionId);
-    options.controlPlane.unregisterTransport(newSessionId);
-    void removeSessionDirectory(sessionGraftDir);
+    void retireSession();
   };
-  sessions.set(newSessionId, session);
-  options.controlPlane.registerTransport(
-    newSessionId,
-    () => server.getWorkspaceStatus(),
-    () => server.getRuntimeCausalContext(),
-  );
-  await server.getMcpServer().connect(transport as Transport);
-  return session;
+  try {
+    sessions.set(newSessionId, session);
+    options.controlPlane.registerTransport(
+      newSessionId,
+      () => server.getWorkspaceStatus(),
+      () => server.getRuntimeCausalContext(),
+    );
+    await server.getMcpServer().connect(transport as Transport);
+    return session;
+  } catch (error) {
+    await transport.close().catch(() => {
+      return undefined;
+    });
+    await retireSession();
+    throw error;
+  }
 }
 
 export function createDaemonSessionHost(options: CreateDaemonSessionHostOptions): DaemonSessionHost {
   const sessions = new Map<string, DaemonSession>();
+  const pendingInitializations = new Set<Promise<DaemonSession>>();
+  let acceptingSessions = true;
+  let closePromise: Promise<void> | null = null;
+  const isAcceptingSessions = (): boolean => acceptingSessions;
 
   return {
     async handleRequest(req, res): Promise<void> {
@@ -173,10 +197,19 @@ export function createDaemonSessionHost(options: CreateDaemonSessionHostOptions)
           return;
         }
 
+        if (!isAcceptingSessions()) {
+          sendJsonRpcError(res, -32000, "Daemon session host is shutting down");
+          return;
+        }
+
         const sessionId = getHeader(req, "mcp-session-id");
 
         if (req.method === "POST") {
           const parsedBody = await readJsonBody(req);
+          if (!isAcceptingSessions()) {
+            sendJsonRpcError(res, -32000, "Daemon session host is shutting down");
+            return;
+          }
           let session = sessionId !== undefined ? sessions.get(sessionId) : undefined;
           if (session === undefined) {
             if (sessionId !== undefined) {
@@ -187,7 +220,13 @@ export function createDaemonSessionHost(options: CreateDaemonSessionHostOptions)
               sendJsonRpcError(res, -32000, "Initialization requests must start a daemon session");
               return;
             }
-            session = await createDaemonSession(crypto.randomUUID(), options, sessions);
+            const initialization = createDaemonSession(crypto.randomUUID(), options, sessions);
+            pendingInitializations.add(initialization);
+            try {
+              session = await initialization;
+            } finally {
+              pendingInitializations.delete(initialization);
+            }
           }
 
           options.controlPlane.touchTransport(session.id);
@@ -221,14 +260,29 @@ export function createDaemonSessionHost(options: CreateDaemonSessionHostOptions)
     },
 
     async close(): Promise<void> {
-      for (const session of [...sessions.values()]) {
-        options.controlPlane.unregisterTransport(session.id);
-        await session.transport.close().catch(() => {
-          return undefined;
-        });
-        await removeSessionDirectory(session.graftDir);
-      }
-      sessions.clear();
+      if (closePromise !== null) return closePromise;
+      acceptingSessions = false;
+      closePromise = (async () => {
+        await Promise.allSettled([...pendingInitializations]);
+        const releaseErrors: unknown[] = [];
+        for (const session of [...sessions.values()]) {
+          options.controlPlane.unregisterTransport(session.id);
+          try {
+            await session.server.releaseWarpLeases();
+          } catch (error) {
+            releaseErrors.push(error);
+          }
+          await session.transport.close().catch(() => {
+            return undefined;
+          });
+          await removeSessionDirectory(session.graftDir);
+        }
+        sessions.clear();
+        if (releaseErrors.length > 0) {
+          throw new AggregateError(releaseErrors, "Failed to release daemon-session WARP leases");
+        }
+      })();
+      return closePromise;
     },
   };
 }

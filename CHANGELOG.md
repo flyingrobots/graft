@@ -7,8 +7,77 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Added
+
+- **WarpPool lease tracking and eviction**: the required application pool port
+  returns a unique, idempotently releasable capability for every acquisition,
+  including repeated acquisitions by the same owner. `InMemoryWarpPool` tracks
+  those capabilities per logical `(repoId, writerId)` resident. Releasing a
+  resident's last lease now drops its in-process strong reference immediately;
+  production cleanup does not depend on a test-only sweep, and the pool exposes
+  no manual or forced eviction path that can revoke another capability's
+  resident. Raw pooled lookup and holder-ID release are private implementation
+  details rather than callable application operations, and test fakes implement
+  owned acquisition explicitly. Daemon transport close/error and daemon shutdown
+  release every active or routed binding lease owned by the session. Shutdown
+  closes session admission synchronously, rejects initialize requests whose
+  bodies cross that boundary, and drains already admitted initialization before
+  snapshotting sessions for transport, lease, and directory cleanup. If MCP
+  transport connection fails after a session is published, the same retirement
+  owner removes its control-plane record, releases its leases, and removes its
+  directory before the initialize error returns. Outer daemon shutdown now
+  attempts session, monitor, worker, HTTP, and socket cleanup in order before
+  reporting any aggregate cleanup failure, so one failed stage cannot leave the
+  listener alive by skipping the remaining stages.
+  A successful cross-resident rebind releases the previous binding only after
+  the replacement commits. Same-resident rebinds transfer an already acquired
+  capability, while an unacquired lazy lease is recreated with the replacement
+  worktree root so later opening cannot depend on a removed checkout.
+  Concurrent binding commits serialize from current-binding capture through
+  displaced-capability release, so one winner cannot be orphaned by a later
+  commit. Current and routed bindings in one transport session own distinct
+  capabilities, so evicting one cannot release another binding's resident.
+  Routed authorization rejection, same-worktree replacement, and LRU overflow
+  all dispose the exact displaced binding; cleanup of an older entry cannot
+  delete a newer cache replacement.
+  If history or authorization setup rejects after opening a replacement,
+  binding rollback releases only the uncommitted capability and preserves the
+  previous active binding. Routed repo-state initialization failure likewise
+  unregisters its never-cached binding capability before propagating the
+  original error. Repo-local startup now applies the same rollback before
+  publishing its initial binding, so rejected repo-state or persisted-history
+  setup cannot pin an unreachable resident for the server lifetime.
+  Failed opens roll back only the unique capability token introduced by the
+  failed acquisition, preserve leases for sibling writer lanes, and cannot
+  delete a newer replacement resident when an older open rejects late.
+  A real Git-backed reconstruction witness now indexes a bounded structural
+  projection, releases the lane's last resident capability, reopens the same
+  `(repoId, writerId)` through `openWarp`, and proves the projection is
+  semantically identical.
+  Routed tool executions hold independent invocation leases through handler,
+  attribution, and failure settlement, so binding LRU eviction cannot remove an
+  admitted call's resident; the invocation lease releases in `finally`.
+  Bound daemon repository calls outside the scheduled/routed tool set now own
+  the same invocation capability without entering the scheduler. Direct graph
+  tools, persisted-history/status reads, overlay reads, and causal attach writes
+  all use the captured execution scope, so a concurrent rebind cannot revoke or
+  redirect their WARP resident before settlement. Repo-local bound calls now
+  capture the same invocation capability without scheduler admission, so
+  `workspace_open` activation cannot evict or duplicate a resident still used
+  by an admitted call.
+  Internal read-attribution execution contexts now release their owned lease in
+  the same operation, including early returns and failures. Runtime causal-status
+  projection reads the bound state directly and does not manufacture an
+  unowned execution lease. Daemon health and status now expose unique repository
+  count separately from logical `(repoId, writerId)` resident count, without
+  presenting either as a measurement of unrelated daemon memory.
+
 ### Fixed
 
+- **Daemon WARP writer identity**: the production daemon now forwards each
+  requested logical writer ID into `openWarp`, so distinct transport sessions
+  use their derived session lanes instead of silently sharing the default
+  `graft` writer.
 - **Requested-worktree authority**: daemon-routed repository reads now expose
   the absolute caller-requested root, canonical resolved worktree root, and
   resolved repository/worktree identities in both `_workspace` and

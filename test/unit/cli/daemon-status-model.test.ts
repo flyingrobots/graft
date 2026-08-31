@@ -15,6 +15,7 @@ function snapshot(overrides: Partial<DaemonStatusReadSnapshot> = {}): DaemonStat
       boundSessions: 2,
       unboundSessions: 1,
       activeWarpRepos: 2,
+      activeWarpResidents: 3,
       authorizedWorkspaces: 2,
       authorizedRepos: 1,
       workspaceBindRequiresAuthorization: true,
@@ -171,6 +172,7 @@ describe("daemon status model", () => {
 
     expect(model.daemon.health).toBe("degraded");
     expect(model.daemon.socketPath).toBe("/tmp/graft.sock");
+    expect(model.daemon).toMatchObject({ activeWarpRepos: 2, activeWarpResidents: 3 });
     expect(model.sessions).toMatchObject({ total: 3, bound: 2, unbound: 1, listed: 1 });
     expect(model.workspaces).toMatchObject({
       authorized: 2,

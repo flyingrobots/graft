@@ -26,6 +26,7 @@ function snapshot(): DaemonStatusReadSnapshot {
       boundSessions: 0,
       unboundSessions: 1,
       activeWarpRepos: 0,
+      activeWarpResidents: 0,
       authorizedWorkspaces: 0,
       authorizedRepos: 0,
       workspaceBindRequiresAuthorization: true,
