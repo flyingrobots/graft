@@ -76,7 +76,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   Owner publication, validation, quarantine, and restoration now share one
   process-birth-checked filesystem claim. Deterministic stale-claim tombstones
   prevent a delayed reclaimer from moving a newer claim through the same ABA
-  window.
+  window. If temporary claim release fails after owner publication, acquisition
+  rolls back the exact owner record and retries cleanup of the same released
+  claim tombstone before propagating the failure, so an immediate retry is not
+  blocked by unreachable authority.
   Signal-triggered shutdown now consumes and reports aggregate cleanup failure
   and selects a nonzero exit status instead of leaking an unhandled rejection.
   Daemon-root claims now publish a flushed, complete candidate inode through an

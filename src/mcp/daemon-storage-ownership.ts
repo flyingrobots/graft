@@ -451,18 +451,24 @@ async function publishDaemonRootOwnerClaim(
 
 async function releaseDaemonRootOwnerClaim(
   claimPath: string,
+  releasedPath: string,
   expected: DaemonRootOwnerClaimRecord,
 ): Promise<void> {
   const current = await readRootOwnerClaim(claimPath);
-  if (current === null) {
-    throw new Error(`Daemon root owner claim disappeared before release: ${claimPath}`);
+  if (current !== null) {
+    if (!rootOwnerClaimRecordsEqual(current, expected)) {
+      throw new Error(`Refusing to release daemon root owner claim held by ${current.claimId}`);
+    }
+    await fs.rename(claimPath, releasedPath);
+  } else {
+    const released = await readRootOwnerClaim(releasedPath);
+    if (released === null) {
+      throw new Error(`Daemon root owner claim disappeared before release: ${claimPath}`);
+    }
+    if (!rootOwnerClaimRecordsEqual(released, expected)) {
+      throw new Error(`Refusing to clean released daemon root owner claim held by ${released.claimId}`);
+    }
   }
-  if (!rootOwnerClaimRecordsEqual(current, expected)) {
-    throw new Error(`Refusing to release daemon root owner claim held by ${current.claimId}`);
-  }
-
-  const releasedPath = `${claimPath}.released-${expected.claimId}-${crypto.randomUUID()}`;
-  await fs.rename(claimPath, releasedPath);
   await fs.rm(releasedPath, { recursive: true, force: true });
 }
 
@@ -483,10 +489,12 @@ async function acquireDaemonRootOwnerClaim(
   for (;;) {
     if (await publishDaemonRootOwnerClaim(claimPath, record)) {
       let released = false;
+      let releasedPath: string | null = null;
       return {
         async release(): Promise<void> {
           if (released) return;
-          await releaseDaemonRootOwnerClaim(claimPath, record);
+          releasedPath ??= `${claimPath}.released-${record.claimId}-${crypto.randomUUID()}`;
+          await releaseDaemonRootOwnerClaim(claimPath, releasedPath, record);
           released = true;
         },
       };
@@ -523,6 +531,7 @@ async function withDaemonRootOwnerClaim<T>(
   processStartIdentity: string,
   liveness: DaemonRootOwnerLiveness,
   operation: () => Promise<T>,
+  rollbackAfterReleaseFailure?: (result: T) => Promise<void>,
 ): Promise<T> {
   const claim = await acquireDaemonRootOwnerClaim(ownerPath, processStartIdentity, liveness);
   let operationResult: T | undefined;
@@ -538,6 +547,31 @@ async function withDaemonRootOwnerClaim<T>(
     await claim.release();
   } catch (error) {
     releaseError = asError(error);
+  }
+
+  if (
+    operationError === undefined
+    && releaseError !== undefined
+    && rollbackAfterReleaseFailure !== undefined
+  ) {
+    const recoveryErrors: Error[] = [];
+    try {
+      await rollbackAfterReleaseFailure(operationResult as T);
+    } catch (error) {
+      recoveryErrors.push(asError(error));
+    }
+    try {
+      await claim.release();
+    } catch (error) {
+      recoveryErrors.push(asError(error));
+    }
+    if (recoveryErrors.length > 0) {
+      throw new AggregateError(
+        [releaseError, ...recoveryErrors],
+        "Daemon root owner claim release failed and operation rollback was incomplete",
+        { cause: releaseError },
+      );
+    }
   }
 
   if (operationError !== undefined && releaseError !== undefined) {
@@ -732,21 +766,36 @@ export async function acquireDaemonRootOwnership(input: {
     socketPath,
   };
 
-  await withDaemonRootOwnerClaim(ownerPath, processStartIdentity, liveness, async () => {
-    for (;;) {
-      if (await publishDaemonRootOwnerWhileClaimed(ownerPath, record)) break;
+  await withDaemonRootOwnerClaim(
+    ownerPath,
+    processStartIdentity,
+    liveness,
+    async () => {
+      for (;;) {
+        if (await publishDaemonRootOwnerWhileClaimed(ownerPath, record)) break;
 
-      const current = await readRootOwner(ownerPath);
-      if (current === null) continue;
-      if (await daemonRootOwnerIsLive(current, liveness)) {
-        throw new DaemonRootOwnershipError(current.instanceId);
+        const current = await readRootOwner(ownerPath);
+        if (current === null) continue;
+        if (await daemonRootOwnerIsLive(current, liveness)) {
+          throw new DaemonRootOwnershipError(current.instanceId);
+        }
+
+        const stalePath = await quarantineDaemonRootOwnerWhileClaimed(ownerPath, current, "stale");
+        if (stalePath === null) continue;
+        await fs.unlink(stalePath);
       }
-
-      const stalePath = await quarantineDaemonRootOwnerWhileClaimed(ownerPath, current, "stale");
-      if (stalePath === null) continue;
-      await fs.unlink(stalePath);
-    }
-  });
+    },
+    async () => {
+      const releasedPath = await quarantineDaemonRootOwnerWhileClaimed(
+        ownerPath,
+        record,
+        "released",
+      );
+      if (releasedPath !== null) {
+        await fs.unlink(releasedPath);
+      }
+    },
+  );
 
   let released = false;
   return {

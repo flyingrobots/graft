@@ -134,6 +134,13 @@ anchors its device/inode identity, and refuses any mismatch after enumeration
 or immediately before candidate inspection and removal. Deterministic fixtures
 swap the root in both windows and preserve the external target.
 
+That review also found an owner-publication transaction gap: a temporary claim
+release error could reject acquisition after `daemon-owner.json` was already
+live, leaving no returned release handle. Claim release now remembers and can
+resume cleanup of its exact released tombstone. Acquisition rolls back the
+published owner before propagating the release error, retries claim cleanup,
+and proves that immediate reacquisition succeeds.
+
 That pass also found a default-endpoint check-to-scan race: a legacy daemon
 could bind after socket preparation, create an unmarked live session, and lose
 it to migration cleanup before the new daemon discovered `EADDRINUSE`. The

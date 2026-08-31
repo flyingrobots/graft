@@ -42,6 +42,7 @@ mutation of the exact guard under test. Representative receipts:
 | Multiple retained clock failures | The first valid sweep reported one rejected sample but silently cleared the second: expected `NEGATIVE`, received `null` | post-Retro review repair |
 | Post-start sessions-root swap | A periodic sweep followed a replacement root symlink and removed one externally targeted session directory | post-Retro review repair |
 | Mid-scan sessions-root swap | Swaps before enumeration and after marker inspection both redirected recursive removal into an external owned-session fixture | post-Retro review repair |
+| Claim-release rollback | An injected post-rename claim-release error stranded a live owner and made immediate reacquisition fail | post-Retro review repair |
 | Default-endpoint bind order | A competing legacy listener bound during the gated cleanup window and the new daemon discovered the collision only after scanning | post-Retro review repair |
 | Unsafe live-session cleanup | A symlink refusal was labeled retryable even though the next sweep preserved it permanently | post-Retro review repair |
 | Sweep/shutdown diagnostic ownership | One gated removal failure appeared twice in the shutdown aggregate through the sweep and termination registry | post-Retro review repair |
@@ -52,7 +53,7 @@ mutation of the exact guard under test. Representative receipts:
 pnpm exec vitest run test/unit/mcp/daemon-session-reaper.test.ts
 ```
 
-Result: pass; 1 file, 55 tests.
+Result: pass; 1 file, 56 tests.
 
 The focused suite includes exact-value configuration defaults, invalid option
 tables, monotonic/refusal/rebase behavior, streaming and pre-body barriers,
@@ -81,7 +82,7 @@ tests.
 
 | Gate | Command | Result |
 | :--- | :--- | :--- |
-| Focused lifecycle | `pnpm exec vitest run test/unit/mcp/daemon-session-reaper.test.ts` | pass; 1 file, 55 tests |
+| Focused lifecycle | `pnpm exec vitest run test/unit/mcp/daemon-session-reaper.test.ts` | pass; 1 file, 56 tests |
 | Full isolated suite | `pnpm test` | issue-57 candidate over `2795804c` passed 259 files, 2,109 tests in 91.88 seconds |
 | Lint | `pnpm lint` | pass |
 | Types | `pnpm typecheck` | pass |

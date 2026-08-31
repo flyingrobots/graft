@@ -241,6 +241,11 @@ the moved inode is linked back to the canonical path and takeover refuses.
 New claims are written, flushed, and closed under a unique same-directory
 candidate name. An exclusive hard link publishes that complete inode as
 `daemon-owner.json`; an incumbent causes refusal without replacement.
+Acquisition commits only after its temporary claim releases. A release failure
+rolls back the exact published owner while the operation still owns the claim,
+then retries the same exact released-claim tombstone cleanup before
+propagating the original error. The failed caller never loses the only handle
+capable of removing its published authority.
 
 Startup creates the direct `sessions` child when absent and rejects it when an
 existing path is a symbolic link or is not a directory. The shared orphan-scan
@@ -434,6 +439,8 @@ authority has been retired, and each failed close layer is reported separately.
       preserved and reported without touching their targets.
 - [x] Replacing the sessions root after initial validation, during enumeration,
       or after candidate inspection refuses the scan before recursive removal.
+- [x] A temporary-claim release failure after root-owner publication rolls back
+      the exact owner and claim residue; immediate reacquisition succeeds.
 - [x] Custom-endpoint startup and sweeps preserve unmarked legacy UUID
       directories while still removing eligible marker-owned orphans.
 - [x] Default-endpoint startup binds before legacy orphan cleanup and returns

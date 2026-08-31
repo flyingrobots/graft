@@ -10,6 +10,7 @@ import { DaemonControlPlane } from "../../../src/mcp/daemon-control-plane.js";
 import { PersistentMonitorRuntime } from "../../../src/mcp/persistent-monitor-runtime.js";
 import * as graftServerModule from "../../../src/mcp/server.js";
 import {
+  acquireDaemonRootOwnership,
   daemonRootOwnerIsLive,
   type LegacyUnmarkedSessionPolicy,
   quarantineDaemonRootOwner,
@@ -1540,6 +1541,65 @@ describe("mcp: daemon session reaper", () => {
     });
     expect(fs.readFileSync(path.join(legacySessionDir, "keep.txt"), "utf-8"))
       .toBe("live-legacy-session\n");
+  });
+
+  it("rolls back a published owner when temporary claim release fails", async () => {
+    const rootDir = fs.mkdtempSync(path.join(os.tmpdir(), "graft-session-owner-claim-release-"));
+    const ownerPath = path.join(rootDir, "daemon-owner.json");
+    const socketPath = path.join(rootDir, "daemon.sock");
+    const processStartIdentity = `test-process:${String(process.pid)}`;
+    const liveness = {
+      socketHasActiveListener(): Promise<boolean> {
+        return Promise.resolve(false);
+      },
+      readProcessStartIdentity(pid: number): Promise<string | null> {
+        return Promise.resolve(pid === process.pid ? processStartIdentity : null);
+      },
+    };
+    cleanups.push(() => {
+      fs.rmSync(rootDir, { recursive: true, force: true });
+    });
+    const releaseFailure = Object.assign(new Error("injected claim release failure"), {
+      code: "EIO",
+    });
+    let failureInjected = false;
+    renameObserver.mockImplementation((oldPath, newPath, renameError) => {
+      if (
+        !failureInjected
+        && renameError === null
+        && oldPath.toString() === `${ownerPath}.claim`
+        && newPath.toString().startsWith(`${ownerPath}.claim.released-`)
+      ) {
+        failureInjected = true;
+        throw releaseFailure;
+      }
+    });
+
+    const firstError = await acquireDaemonRootOwnership({
+      graftDir: rootDir,
+      socketPath,
+    }, liveness).then(async (ownership) => {
+      await ownership.release();
+      return null;
+    }, (error: unknown) => error);
+    const ownerSurvivedFailure = fs.existsSync(ownerPath);
+    const claimArtifactsAfterFailure = fs.readdirSync(rootDir)
+      .filter((entry) => entry.startsWith("daemon-owner.json.claim"));
+    const retry = await acquireDaemonRootOwnership({
+      graftDir: rootDir,
+      socketPath,
+    }, liveness).then(
+      (ownership) => ({ ownership, error: null }),
+      (error: unknown) => ({ ownership: null, error }),
+    );
+    await retry.ownership?.release();
+
+    expect(firstError).toMatchObject({ code: "EIO" });
+    expect(ownerSurvivedFailure).toBe(false);
+    expect(claimArtifactsAfterFailure).toEqual([]);
+    expect(retry.error).toBeNull();
+    expect(retry.ownership).not.toBeNull();
+    expect(fs.readdirSync(rootDir)).toEqual([]);
   });
 
   it("restores a newer owner displaced by a delayed stale takeover", async () => {
