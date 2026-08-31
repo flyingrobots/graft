@@ -148,6 +148,12 @@ Binding disposal and invocation disposal must both be idempotent. A binding is
 not a lease, a transport session is not a lease, and an LRU entry is not a
 lease; each can own one or more explicit lease capabilities.
 
+Every routed-cache removal goes through one exact-entry disposer. Authorization
+rejection, same-worktree identity replacement, and LRU overflow remove and
+release the displaced binding, while an older asynchronous disposal may not
+delete a newer cache entry installed at the same worktree key. A rejected route
+also awaits and disposes an initialization already admitted for that key.
+
 ## Pool state machine
 
 For each resident key, the pool owns one identity-stable entry:
@@ -215,8 +221,8 @@ capacity and deterministic policy before replacing eager eviction.
 - [x] Concurrent cross-resident rebind commits each observe and release their
       actual predecessor; only the final binding remains resident.
 - [x] Failed rebind retains A and releases any uncommitted B lease.
-- [ ] Routed authorization rejection and LRU removal release their binding
-      leases.
+- [x] Routed authorization rejection, same-key replacement, and LRU removal
+      release only their exact displaced binding leases.
 - [x] An in-flight routed invocation survives binding LRU removal without
       eviction or duplicate opening, then releases at settlement.
 - [x] Normal session termination releases every binding owned by that session.

@@ -28,6 +28,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   displaced-capability release, so one winner cannot be orphaned by a later
   commit. Current and routed bindings in one transport session own distinct
   capabilities, so evicting one cannot release another binding's resident.
+  Routed authorization rejection, same-worktree replacement, and LRU overflow
+  all dispose the exact displaced binding; cleanup of an older entry cannot
+  delete a newer cache replacement.
   If history or authorization setup rejects after opening a replacement,
   binding rollback releases only the uncommitted capability and preserves the
   previous active binding.

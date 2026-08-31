@@ -593,8 +593,20 @@ export class WorkspaceRouter {
       ? DEFAULT_REPO_LOCAL_CAPABILITY_PROFILE
       : (await this.options.authorizationPolicy?.getCapabilityProfile(resolved)) ?? null;
     if (capabilityProfile === null) {
-      this.routedBindings.delete(resolved.worktreeId);
-      this.routedBindingInitializations.delete(resolved.worktreeId);
+      const cached = this.routedBindings.get(resolved.worktreeId);
+      if (cached !== undefined) {
+        await this.disposeRoutedBinding(cached);
+      }
+      const initializing = this.routedBindingInitializations.get(resolved.worktreeId);
+      if (initializing !== undefined) {
+        if (this.routedBindingInitializations.get(resolved.worktreeId) === initializing) {
+          this.routedBindingInitializations.delete(resolved.worktreeId);
+        }
+        const initialized = await initializing.catch(() => null);
+        if (initialized !== null && initialized !== cached) {
+          await this.disposeRoutedBinding(initialized);
+        }
+      }
       throw new WorkspaceRouteUnauthorizedError(resolved.worktreeRoot);
     }
 
@@ -671,8 +683,12 @@ export class WorkspaceRouter {
   }
 
   private async noteRoutedBinding(binding: BoundWorkspace): Promise<void> {
+    const replaced = this.routedBindings.get(binding.worktreeId);
     this.routedBindings.delete(binding.worktreeId);
     this.routedBindings.set(binding.worktreeId, binding);
+    if (replaced !== undefined && replaced !== binding) {
+      await this.disposeRoutedBinding(replaced);
+    }
     while (this.routedBindings.size > MAX_ROUTED_BINDINGS) {
       const oldestKey = this.routedBindings.keys().next().value;
       if (oldestKey === undefined) {
@@ -680,10 +696,18 @@ export class WorkspaceRouter {
       }
       const evicted = this.routedBindings.get(oldestKey);
       if (evicted !== undefined) {
-        await this.releaseBindingWarpLease(evicted.warpLease);
+        await this.disposeRoutedBinding(evicted);
+      } else {
+        this.routedBindings.delete(oldestKey);
       }
-      this.routedBindings.delete(oldestKey);
     }
+  }
+
+  private async disposeRoutedBinding(binding: BoundWorkspace): Promise<void> {
+    if (this.routedBindings.get(binding.worktreeId) === binding) {
+      this.routedBindings.delete(binding.worktreeId);
+    }
+    await this.releaseBindingWarpLease(binding.warpLease);
   }
 
   private buildExecutionContext(
