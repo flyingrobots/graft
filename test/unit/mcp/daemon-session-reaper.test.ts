@@ -28,7 +28,11 @@ import {
   startDaemonServer,
 } from "../../../src/mcp/daemon-server.js";
 
-const { randomUUIDMock } = vi.hoisted(() => ({ randomUUIDMock: vi.fn() }));
+const { randomUUIDMock, renameObserver, linkObserver } = vi.hoisted(() => ({
+  randomUUIDMock: vi.fn(),
+  renameObserver: vi.fn(),
+  linkObserver: vi.fn(),
+}));
 
 vi.mock("node:crypto", async (importOriginal) => {
   const actual = await importOriginal<typeof import("node:crypto")>();
@@ -36,9 +40,36 @@ vi.mock("node:crypto", async (importOriginal) => {
   return { ...actual, randomUUID: randomUUIDMock };
 });
 
+vi.mock("node:fs/promises", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("node:fs/promises")>();
+  return {
+    ...actual,
+    async rename(oldPath: fs.PathLike, newPath: fs.PathLike): Promise<void> {
+      try {
+        await actual.rename(oldPath, newPath);
+        await renameObserver(oldPath, newPath, null);
+      } catch (error) {
+        await renameObserver(oldPath, newPath, error);
+        throw error;
+      }
+    },
+    async link(existingPath: fs.PathLike, newPath: fs.PathLike): Promise<void> {
+      try {
+        await actual.link(existingPath, newPath);
+        await linkObserver(existingPath, newPath, null);
+      } catch (error) {
+        await linkObserver(existingPath, newPath, error);
+        throw error;
+      }
+    },
+  };
+});
+
 const cleanups: (() => Promise<void> | void)[] = [];
 
 afterEach(async () => {
+  renameObserver.mockReset();
+  linkObserver.mockReset();
   while (cleanups.length > 0) {
     await cleanups.pop()!();
   }
@@ -1165,6 +1196,128 @@ describe("mcp: daemon session reaper", () => {
 
     expect(JSON.parse(fs.readFileSync(ownerPath, "utf-8"))).toEqual(newerOwner);
     expect(fs.readdirSync(rootDir)).toEqual(["daemon-owner.json"]);
+  });
+
+  it("holds the root owner claim through displaced-owner restoration", async () => {
+    const rootDir = fs.mkdtempSync(path.join(os.tmpdir(), "graft-session-owner-three-way-race-"));
+    const ownerPath = path.join(rootDir, "daemon-owner.json");
+    const staleOwner = {
+      schemaVersion: 2 as const,
+      instanceId: "00000000-0000-4000-8000-000000000001",
+      pid: 1,
+      processStartIdentity: "boot-a:100",
+      socketPath: path.join(rootDir, "stale.sock"),
+    };
+    const newerOwner = {
+      schemaVersion: 2 as const,
+      instanceId: "00000000-0000-4000-8000-000000000002",
+      pid: process.pid,
+      processStartIdentity: "boot-a:200",
+      socketPath: path.join(rootDir, "newer.sock"),
+    };
+    const thirdOwner = {
+      schemaVersion: 2 as const,
+      instanceId: "00000000-0000-4000-8000-000000000003",
+      pid: process.pid,
+      processStartIdentity: "boot-a:300",
+      socketPath: path.join(rootDir, "third.sock"),
+    };
+    fs.writeFileSync(ownerPath, `${JSON.stringify(newerOwner)}\n`);
+    cleanups.push(() => {
+      fs.rmSync(rootDir, { recursive: true, force: true });
+    });
+
+    let observeOwnerRename!: () => void;
+    const ownerRenamed = new Promise<void>((resolve) => {
+      observeOwnerRename = resolve;
+    });
+    let releaseOwnerRename!: () => void;
+    const ownerRenameRelease = new Promise<void>((resolve) => {
+      releaseOwnerRename = resolve;
+    });
+    let observeCompetingMutation!: () => void;
+    const competingMutationObserved = new Promise<void>((resolve) => {
+      observeCompetingMutation = resolve;
+    });
+    let ownerRenameHeld = false;
+    let competingMutationSeen = false;
+    const noteCompetingMutation = (): void => {
+      if (competingMutationSeen) return;
+      competingMutationSeen = true;
+      observeCompetingMutation();
+    };
+
+    renameObserver.mockImplementation(async (oldPath, newPath, error) => {
+      const oldName = String(oldPath);
+      const newName = String(newPath);
+      if (error === null && oldName === ownerPath && newName.startsWith(`${ownerPath}.stale-`)) {
+        ownerRenameHeld = true;
+        observeOwnerRename();
+        await ownerRenameRelease;
+        return;
+      }
+      if (ownerRenameHeld && newName === `${ownerPath}.claim`) {
+        noteCompetingMutation();
+      }
+    });
+    linkObserver.mockImplementation((existingPath, newPath) => {
+      if (
+        ownerRenameHeld
+        && String(newPath) === ownerPath
+        && String(existingPath).startsWith(`${ownerPath}.candidate-${thirdOwner.instanceId}-`)
+      ) {
+        noteCompetingMutation();
+      }
+    });
+
+    const displacedOwner = quarantineDaemonRootOwner(ownerPath, staleOwner, "stale")
+      .then(() => null, (error: unknown) => error);
+    await ownerRenamed;
+    const thirdPublished = publishDaemonRootOwner(ownerPath, thirdOwner);
+    await competingMutationObserved;
+    releaseOwnerRename();
+
+    const [displacedOwnerError, didPublishThird] = await Promise.all([
+      displacedOwner,
+      thirdPublished,
+    ]);
+    expect(flattenErrors(displacedOwnerError)).toEqual(expect.arrayContaining([
+      expect.objectContaining({ code: "DAEMON_ROOT_ALREADY_OWNED" }),
+    ]));
+    expect(didPublishThird).toBe(false);
+    expect(JSON.parse(fs.readFileSync(ownerPath, "utf-8"))).toEqual(newerOwner);
+  });
+
+  it("retains a deterministic tombstone when recovering a dead owner claim", async () => {
+    const rootDir = fs.mkdtempSync(path.join(os.tmpdir(), "graft-session-owner-stale-claim-"));
+    const ownerPath = path.join(rootDir, "daemon-owner.json");
+    const staleClaim = {
+      schemaVersion: 1 as const,
+      claimId: "00000000-0000-4000-8000-000000000001",
+      pid: 2_147_483_647,
+      processStartIdentity: "dead-process:100",
+    };
+    const claimPath = `${ownerPath}.claim`;
+    fs.mkdirSync(claimPath, { recursive: true });
+    fs.writeFileSync(path.join(claimPath, "claim.json"), `${JSON.stringify(staleClaim)}\n`);
+    const owner = {
+      schemaVersion: 2 as const,
+      instanceId: "00000000-0000-4000-8000-000000000002",
+      pid: process.pid,
+      processStartIdentity: "live-process:200",
+      socketPath: path.join(rootDir, "daemon.sock"),
+    };
+    cleanups.push(() => {
+      fs.rmSync(rootDir, { recursive: true, force: true });
+    });
+
+    expect(await publishDaemonRootOwner(ownerPath, owner)).toBe(true);
+
+    const stalePath = `${claimPath}.stale-${staleClaim.claimId}`;
+    expect(fs.existsSync(claimPath)).toBe(false);
+    expect(JSON.parse(fs.readFileSync(path.join(stalePath, "claim.json"), "utf-8")))
+      .toEqual(staleClaim);
+    expect(JSON.parse(fs.readFileSync(ownerPath, "utf-8"))).toEqual(owner);
   });
 
   it("publishes a complete root owner without replacing an incumbent", async () => {

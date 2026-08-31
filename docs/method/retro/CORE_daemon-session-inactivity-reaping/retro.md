@@ -105,6 +105,12 @@ shutdown causes still own those operations. The repair adds a behavioral
 assertion that transport close invokes no protocol close and updates `docs/MCP.md`
 without testing prose.
 
+The next exact-head pass found that displaced-owner restoration still exposed a
+three-claimant ABA gap. The repair now holds a process-birth-checked filesystem
+claim across owner publication, validation, quarantine, and restoration. Its
+deterministic race test pauses the exact rename and proves a third publisher is
+refused after the newer incumbent is restored.
+
 ## Drift
 
 The largest drift was procedural: implementation and PR publication preceded

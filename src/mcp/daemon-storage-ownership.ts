@@ -2,12 +2,17 @@ import * as crypto from "node:crypto";
 import { execFile } from "node:child_process";
 import * as fs from "node:fs/promises";
 import * as path from "node:path";
+import { performance } from "node:perf_hooks";
 import { resolveSocketPath, socketHasActiveListener } from "./daemon-bootstrap.js";
 
 const ROOT_OWNER_FILE = "daemon-owner.json";
+const ROOT_OWNER_CLAIM_SUFFIX = ".claim";
+const ROOT_OWNER_CLAIM_RECORD_FILE = "claim.json";
 const SESSION_OWNER_FILE = ".graft-session-owner.json";
 const PRIVATE_DIRECTORY_MODE = 0o700;
 const PRIVATE_FILE_MODE = 0o600;
+const ROOT_OWNER_CLAIM_RETRY_MS = 5;
+const ROOT_OWNER_CLAIM_TIMEOUT_MS = 5_000;
 const GENERATED_UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/u;
 
 export interface DaemonRootOwnerRecord {
@@ -27,6 +32,17 @@ interface SessionOwnerRecord {
   readonly schemaVersion: 1;
   readonly daemonInstanceId: string;
   readonly sessionId: string;
+}
+
+interface DaemonRootOwnerClaimRecord {
+  readonly schemaVersion: 1;
+  readonly claimId: string;
+  readonly pid: number;
+  readonly processStartIdentity: string;
+}
+
+interface DaemonRootOwnerClaim {
+  release(): Promise<void>;
 }
 
 export interface DaemonRootOwnership {
@@ -100,10 +116,23 @@ export class UnsafeDaemonSessionsRootError extends Error {
   }
 }
 
+export class DaemonRootOwnerClaimTimeoutError extends Error {
+  readonly code = "DAEMON_ROOT_OWNER_CLAIM_TIMEOUT";
+
+  constructor(ownerPath: string) {
+    super(`Timed out waiting to claim daemon root owner path: ${ownerPath}`);
+    this.name = "DaemonRootOwnerClaimTimeoutError";
+  }
+}
+
 function errorCode(error: unknown): string | undefined {
   return error instanceof Error && "code" in error
     ? (error as NodeJS.ErrnoException).code
     : undefined;
+}
+
+function asError(error: unknown): Error {
+  return error instanceof Error ? error : new Error(String(error), { cause: error });
 }
 
 export async function ensureDaemonSessionsRoot(sessionsRoot: string): Promise<void> {
@@ -134,6 +163,18 @@ function isDaemonRootOwnerRecord(value: unknown): value is DaemonRootOwnerRecord
     && candidate.processStartIdentity.length > 0
     && typeof candidate.socketPath === "string"
     && candidate.socketPath.length > 0;
+}
+
+function isDaemonRootOwnerClaimRecord(value: unknown): value is DaemonRootOwnerClaimRecord {
+  if (typeof value !== "object" || value === null) return false;
+  const candidate = value as Partial<DaemonRootOwnerClaimRecord>;
+  return candidate.schemaVersion === 1
+    && typeof candidate.claimId === "string"
+    && GENERATED_UUID_PATTERN.test(candidate.claimId)
+    && Number.isSafeInteger(candidate.pid)
+    && (candidate.pid ?? 0) > 0
+    && typeof candidate.processStartIdentity === "string"
+    && candidate.processStartIdentity.length > 0;
 }
 
 function isSessionOwnerRecord(value: unknown, sessionId: string): value is SessionOwnerRecord {
@@ -247,6 +288,188 @@ async function readRootOwner(ownerPath: string): Promise<DaemonRootOwnerRecord |
   return parsed;
 }
 
+function delay(milliseconds: number): Promise<void> {
+  return new Promise<void>((resolve) => {
+    setTimeout(resolve, milliseconds);
+  });
+}
+
+async function readRootOwnerClaim(claimPath: string): Promise<DaemonRootOwnerClaimRecord | null> {
+  const claimStat = await fs.lstat(claimPath).catch((error: unknown) => {
+    if (errorCode(error) === "ENOENT") return null;
+    throw error;
+  });
+  if (claimStat === null) return null;
+  if (!claimStat.isDirectory() || claimStat.isSymbolicLink()) {
+    throw new Error(`Refusing unsafe daemon root owner claim path: ${claimPath}`);
+  }
+
+  const recordPath = path.join(claimPath, ROOT_OWNER_CLAIM_RECORD_FILE);
+  const recordStat = await fs.lstat(recordPath).catch((error: unknown) => {
+    if (errorCode(error) === "ENOENT") {
+      throw new Error(`Refusing incomplete daemon root owner claim: ${claimPath}`);
+    }
+    throw error;
+  });
+  if (!recordStat.isFile() || recordStat.isSymbolicLink()) {
+    throw new Error(`Refusing unsafe daemon root owner claim record: ${recordPath}`);
+  }
+  const parsed = JSON.parse(await fs.readFile(recordPath, "utf-8")) as unknown;
+  if (!isDaemonRootOwnerClaimRecord(parsed)) {
+    throw new Error(`Refusing malformed daemon root owner claim: ${recordPath}`);
+  }
+  return parsed;
+}
+
+function rootOwnerClaimRecordsEqual(
+  left: DaemonRootOwnerClaimRecord,
+  right: DaemonRootOwnerClaimRecord,
+): boolean {
+  return left.claimId === right.claimId
+    && left.pid === right.pid
+    && left.processStartIdentity === right.processStartIdentity;
+}
+
+async function publishDaemonRootOwnerClaim(
+  claimPath: string,
+  record: DaemonRootOwnerClaimRecord,
+): Promise<boolean> {
+  const candidatePath = `${claimPath}.candidate-${record.claimId}`;
+  let candidateCreated = false;
+  try {
+    await fs.mkdir(candidatePath, { mode: PRIVATE_DIRECTORY_MODE });
+    candidateCreated = true;
+    const recordPath = path.join(candidatePath, ROOT_OWNER_CLAIM_RECORD_FILE);
+    const candidate = await fs.open(recordPath, "wx", PRIVATE_FILE_MODE);
+    try {
+      await candidate.writeFile(`${JSON.stringify(record)}\n`, { encoding: "utf-8" });
+      await candidate.sync();
+    } finally {
+      await candidate.close();
+    }
+
+    try {
+      await fs.rename(candidatePath, claimPath);
+    } catch (error: unknown) {
+      const incumbent = await fs.lstat(claimPath).catch((statError: unknown) => {
+        if (errorCode(statError) === "ENOENT") return null;
+        throw statError;
+      });
+      if (incumbent !== null) return false;
+      throw error;
+    }
+    candidateCreated = false;
+    return true;
+  } finally {
+    if (candidateCreated) {
+      await fs.rm(candidatePath, { recursive: true, force: true });
+    }
+  }
+}
+
+async function releaseDaemonRootOwnerClaim(
+  claimPath: string,
+  expected: DaemonRootOwnerClaimRecord,
+): Promise<void> {
+  const current = await readRootOwnerClaim(claimPath);
+  if (current === null) {
+    throw new Error(`Daemon root owner claim disappeared before release: ${claimPath}`);
+  }
+  if (!rootOwnerClaimRecordsEqual(current, expected)) {
+    throw new Error(`Refusing to release daemon root owner claim held by ${current.claimId}`);
+  }
+
+  const releasedPath = `${claimPath}.released-${expected.claimId}-${crypto.randomUUID()}`;
+  await fs.rename(claimPath, releasedPath);
+  await fs.rm(releasedPath, { recursive: true, force: true });
+}
+
+async function acquireDaemonRootOwnerClaim(
+  ownerPath: string,
+  processStartIdentity: string,
+  liveness: DaemonRootOwnerLiveness,
+): Promise<DaemonRootOwnerClaim> {
+  const claimPath = `${ownerPath}${ROOT_OWNER_CLAIM_SUFFIX}`;
+  const record: DaemonRootOwnerClaimRecord = {
+    schemaVersion: 1,
+    claimId: crypto.randomUUID(),
+    pid: process.pid,
+    processStartIdentity,
+  };
+  const deadline = performance.now() + ROOT_OWNER_CLAIM_TIMEOUT_MS;
+
+  for (;;) {
+    if (await publishDaemonRootOwnerClaim(claimPath, record)) {
+      let released = false;
+      return {
+        async release(): Promise<void> {
+          if (released) return;
+          await releaseDaemonRootOwnerClaim(claimPath, record);
+          released = true;
+        },
+      };
+    }
+
+    const current = await readRootOwnerClaim(claimPath);
+    if (current === null) continue;
+    const currentProcessIdentity = await liveness.readProcessStartIdentity(current.pid);
+    if (currentProcessIdentity === current.processStartIdentity) {
+      if (performance.now() >= deadline) {
+        throw new DaemonRootOwnerClaimTimeoutError(ownerPath);
+      }
+      await delay(ROOT_OWNER_CLAIM_RETRY_MS);
+      continue;
+    }
+
+    const stalePath = `${claimPath}.stale-${current.claimId}`;
+    try {
+      await fs.rename(claimPath, stalePath);
+    } catch (error: unknown) {
+      if (errorCode(error) === "ENOENT") continue;
+      const tombstone = await fs.lstat(stalePath).catch((statError: unknown) => {
+        if (errorCode(statError) === "ENOENT") return null;
+        throw statError;
+      });
+      if (tombstone !== null) continue;
+      throw error;
+    }
+  }
+}
+
+async function withDaemonRootOwnerClaim<T>(
+  ownerPath: string,
+  processStartIdentity: string,
+  liveness: DaemonRootOwnerLiveness,
+  operation: () => Promise<T>,
+): Promise<T> {
+  const claim = await acquireDaemonRootOwnerClaim(ownerPath, processStartIdentity, liveness);
+  let operationResult: T | undefined;
+  let operationError: Error | undefined;
+  try {
+    operationResult = await operation();
+  } catch (error) {
+    operationError = asError(error);
+  }
+
+  let releaseError: Error | undefined;
+  try {
+    await claim.release();
+  } catch (error) {
+    releaseError = asError(error);
+  }
+
+  if (operationError !== undefined && releaseError !== undefined) {
+    throw new AggregateError(
+      [operationError, releaseError],
+      "Daemon root owner operation and claim release both failed",
+      { cause: operationError },
+    );
+  }
+  if (operationError !== undefined) throw operationError;
+  if (releaseError !== undefined) throw releaseError;
+  return operationResult as T;
+}
+
 function rootOwnerRecordsEqual(
   left: DaemonRootOwnerRecord,
   right: DaemonRootOwnerRecord,
@@ -265,7 +488,7 @@ async function restoreQuarantinedRootOwner(
   await fs.unlink(quarantinedPath);
 }
 
-export async function quarantineDaemonRootOwner(
+async function quarantineDaemonRootOwnerWhileClaimed(
   ownerPath: string,
   expected: DaemonRootOwnerRecord,
   disposition: "released" | "stale",
@@ -315,7 +538,24 @@ export async function quarantineDaemonRootOwner(
   return quarantinedPath;
 }
 
-export async function publishDaemonRootOwner(
+export async function quarantineDaemonRootOwner(
+  ownerPath: string,
+  expected: DaemonRootOwnerRecord,
+  disposition: "released" | "stale",
+): Promise<string | null> {
+  const processStartIdentity = await nodeDaemonRootOwnerLiveness.readProcessStartIdentity(process.pid);
+  if (processStartIdentity === null) {
+    throw new Error(`Unable to establish daemon process identity for pid ${String(process.pid)}`);
+  }
+  return withDaemonRootOwnerClaim(
+    ownerPath,
+    processStartIdentity,
+    nodeDaemonRootOwnerLiveness,
+    () => quarantineDaemonRootOwnerWhileClaimed(ownerPath, expected, disposition),
+  );
+}
+
+async function publishDaemonRootOwnerWhileClaimed(
   ownerPath: string,
   record: DaemonRootOwnerRecord,
 ): Promise<boolean> {
@@ -344,7 +584,7 @@ export async function publishDaemonRootOwner(
     const rollbackErrors: unknown[] = [];
     if (published) {
       try {
-        const releasedPath = await quarantineDaemonRootOwner(ownerPath, record, "released");
+        const releasedPath = await quarantineDaemonRootOwnerWhileClaimed(ownerPath, record, "released");
         if (releasedPath === null) {
           throw new Error("Published daemon root owner disappeared during rollback", { cause: error });
         }
@@ -367,6 +607,22 @@ export async function publishDaemonRootOwner(
     }
     throw error;
   }
+}
+
+export async function publishDaemonRootOwner(
+  ownerPath: string,
+  record: DaemonRootOwnerRecord,
+): Promise<boolean> {
+  const processStartIdentity = await nodeDaemonRootOwnerLiveness.readProcessStartIdentity(process.pid);
+  if (processStartIdentity === null) {
+    throw new Error(`Unable to establish daemon process identity for pid ${String(process.pid)}`);
+  }
+  return withDaemonRootOwnerClaim(
+    ownerPath,
+    processStartIdentity,
+    nodeDaemonRootOwnerLiveness,
+    () => publishDaemonRootOwnerWhileClaimed(ownerPath, record),
+  );
 }
 
 export async function acquireDaemonRootOwnership(input: {
@@ -394,39 +650,43 @@ export async function acquireDaemonRootOwnership(input: {
     socketPath,
   };
 
-  for (;;) {
-    if (await publishDaemonRootOwner(ownerPath, record)) break;
+  await withDaemonRootOwnerClaim(ownerPath, processStartIdentity, liveness, async () => {
+    for (;;) {
+      if (await publishDaemonRootOwnerWhileClaimed(ownerPath, record)) break;
 
-    const current = await readRootOwner(ownerPath);
-    if (current === null) continue;
-    if (await daemonRootOwnerIsLive(current, liveness)) {
-      throw new DaemonRootOwnershipError(current.instanceId);
+      const current = await readRootOwner(ownerPath);
+      if (current === null) continue;
+      if (await daemonRootOwnerIsLive(current, liveness)) {
+        throw new DaemonRootOwnershipError(current.instanceId);
+      }
+
+      const stalePath = await quarantineDaemonRootOwnerWhileClaimed(ownerPath, current, "stale");
+      if (stalePath === null) continue;
+      await fs.unlink(stalePath);
     }
-
-    const stalePath = await quarantineDaemonRootOwner(ownerPath, current, "stale");
-    if (stalePath === null) continue;
-    await fs.unlink(stalePath);
-  }
+  });
 
   let released = false;
   return {
     instanceId,
     async release(): Promise<void> {
       if (released) return;
-      const current = await readRootOwner(ownerPath);
-      if (current === null) {
-        released = true;
-        return;
-      }
-      if (current.instanceId !== instanceId) {
-        throw new Error(`Refusing to release daemon root owned by ${current.instanceId}`);
-      }
-      const releasedPath = await quarantineDaemonRootOwner(ownerPath, current, "released");
-      if (releasedPath === null) {
-        released = true;
-        return;
-      }
-      await fs.unlink(releasedPath);
+      await withDaemonRootOwnerClaim(ownerPath, processStartIdentity, liveness, async () => {
+        const current = await readRootOwner(ownerPath);
+        if (current === null) {
+          released = true;
+          return;
+        }
+        if (current.instanceId !== instanceId) {
+          throw new Error(`Refusing to release daemon root owned by ${current.instanceId}`);
+        }
+        const releasedPath = await quarantineDaemonRootOwnerWhileClaimed(ownerPath, current, "released");
+        if (releasedPath === null) {
+          released = true;
+          return;
+        }
+        await fs.unlink(releasedPath);
+      });
       released = true;
     },
   };

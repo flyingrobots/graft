@@ -59,6 +59,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   endpoint is live, before claiming ownership or scanning legacy session state.
   Stale-owner takeover and release now validate the exact record they moved and
   restore a concurrently published successor before refusing ownership.
+  Owner publication, validation, quarantine, and restoration now share one
+  process-birth-checked filesystem claim. Deterministic stale-claim tombstones
+  prevent a delayed reclaimer from moving a newer claim through the same ABA
+  window.
   Signal-triggered shutdown now consumes and reports aggregate cleanup failure
   and selects a nonzero exit status instead of leaking an unhandled rejection.
   Daemon-root claims now publish a flushed, complete candidate inode through an

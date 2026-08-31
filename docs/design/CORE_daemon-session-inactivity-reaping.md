@@ -222,6 +222,15 @@ birth witness exactly matches the persisted witness; a recycled PID does not
 count as the original daemon. Sharing one daemon root across independent live
 endpoints is invalid.
 
+Every owner-record publication, validation, quarantine, restoration, and
+release runs under one filesystem claim. The claim is published only after its
+record is complete, and its holder is identified by PID plus process-birth
+witness. A dead claim is moved to a deterministic claim-ID tombstone that is
+retained as an ABA fence: a delayed stale reclaimer cannot rename a newer claim
+over the same non-empty tombstone. The live claim remains held across displaced-
+owner inspection and restoration, so a third publisher cannot occupy the
+canonical owner path during that gap.
+
 Stale takeover and release quarantine the canonical owner entry, reread the
 moved record, and delete it only when every identity field still matches the
 record that authorized the move. If another owner replaced it in the interim,
