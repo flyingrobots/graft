@@ -65,7 +65,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   exclusive hard link, preventing crash-truncated canonical owner records.
   Root-owner liveness now records and verifies a process-birth witness, so PID
   reuse cannot indefinitely pin a dead daemon while concurrent startup remains
-  protected before its endpoint binds.
+  protected before its endpoint binds. Open, pending, and terminating session
+  identities are reserved against reuse, and a late callback from a retired
+  transport cannot revoke a newer session that legitimately reuses its ID.
 
 ### Fixed
 

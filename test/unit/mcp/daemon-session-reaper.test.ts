@@ -28,6 +28,14 @@ import {
   startDaemonServer,
 } from "../../../src/mcp/daemon-server.js";
 
+const { randomUUIDMock } = vi.hoisted(() => ({ randomUUIDMock: vi.fn() }));
+
+vi.mock("node:crypto", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("node:crypto")>();
+  randomUUIDMock.mockImplementation(actual.randomUUID);
+  return { ...actual, randomUUID: randomUUIDMock };
+});
+
 const cleanups: (() => Promise<void> | void)[] = [];
 
 afterEach(async () => {
@@ -1371,6 +1379,115 @@ describe("mcp: daemon session reaper", () => {
     expect(reaped).toMatchObject({ sessionsRetired: 1 });
     expect(unregisterTransport).toHaveBeenCalledTimes(1);
     expect(unregisterTransport).toHaveBeenCalledWith(sessionId);
+  });
+
+  it("reserves a terminating identity and ignores its late callback after reuse", async () => {
+    const rootDir = fs.mkdtempSync(path.join(os.tmpdir(), "graft-session-reaper-aba-"));
+    const socketPath = path.join(rootDir, "daemon.sock");
+    cleanups.push(() => {
+      fs.rmSync(rootDir, { recursive: true, force: true });
+    });
+    let releaseRemoval!: () => void;
+    let markRemovalStarted!: () => void;
+    let markRemovalFinished!: () => void;
+    const removalStarted = new Promise<void>((resolve) => {
+      markRemovalStarted = resolve;
+    });
+    const removalFinished = new Promise<void>((resolve) => {
+      markRemovalFinished = resolve;
+    });
+    const removalGate = new Promise<void>((resolve) => {
+      releaseRemoval = resolve;
+    });
+    let removalCalls = 0;
+    const sessionStorage = {
+      writeSessionOwnershipMarker,
+      removeSessionOrphanDirectories,
+      async removeSessionDirectory(sessionDir: string): Promise<boolean> {
+        removalCalls++;
+        if (removalCalls === 1) {
+          markRemovalStarted();
+          await removalGate;
+        }
+        const removed = await removeSessionDirectory(sessionDir);
+        if (removalCalls === 1) markRemovalFinished();
+        return removed;
+      },
+    };
+    type ConnectTransport = Parameters<McpServer["connect"]>[0];
+    const originalConnect = Reflect.get(McpServer.prototype, "connect") as (
+      this: McpServer,
+      transport: ConnectTransport,
+    ) => Promise<void>;
+    const connectedTransports: ConnectTransport[] = [];
+    const connect = vi.spyOn(McpServer.prototype, "connect")
+      .mockImplementation(async function(this: McpServer, transport: ConnectTransport) {
+        connectedTransports.push(transport);
+        await Reflect.apply(originalConnect, this, [transport]);
+      });
+    cleanups.push(() => {
+      connect.mockRestore();
+    });
+
+    const daemon = await startDaemonServer({
+      graftDir: rootDir,
+      socketPath,
+      sessionReaperIntervalMs: 0,
+      sessionStorage,
+    });
+    cleanups.push(() => daemon.close());
+    cleanups.push(() => {
+      releaseRemoval();
+    });
+    const repeatedSessionId = "00000000-0000-4000-8000-000000000001";
+    randomUUIDMock.mockImplementationOnce(() => repeatedSessionId);
+    expect(await initializeDaemonSession(socketPath, 1)).toBe(repeatedSessionId);
+    const firstTransport = connectedTransports[0];
+    if (firstTransport === undefined) throw new Error("First MCP transport was not captured");
+
+    const deleting = requestUnixJson(socketPath, "DELETE", "/mcp", undefined, {
+      "mcp-session-id": repeatedSessionId,
+    });
+    await removalStarted;
+    randomUUIDMock.mockImplementationOnce(() => repeatedSessionId);
+    const collision = await requestUnixJson(socketPath, "POST", "/mcp", {
+      jsonrpc: "2.0",
+      id: 2,
+      method: "initialize",
+      params: {
+        protocolVersion: "2025-03-26",
+        capabilities: {},
+        clientInfo: { name: "vitest", version: "0.0.0" },
+      },
+    });
+    releaseRemoval();
+    await deleting;
+    await removalFinished;
+    await new Promise<void>((resolve) => {
+      setImmediate(resolve);
+    });
+
+    expect(collision.statusCode).toBe(500);
+    expect((JSON.parse(collision.text) as { error: { code: number } }).error.code).toBe(-32603);
+
+    randomUUIDMock.mockImplementationOnce(() => repeatedSessionId);
+    expect(await initializeDaemonSession(socketPath, 3)).toBe(repeatedSessionId);
+    firstTransport.onerror?.(new Error("late error from prior transport"));
+    await new Promise<void>((resolve) => {
+      setImmediate(resolve);
+    });
+
+    expect(daemon.getHealthStatus().activeSessions).toBe(1);
+    expect(fs.existsSync(path.join(rootDir, "sessions", repeatedSessionId))).toBe(true);
+    const ping = await requestUnixJson(socketPath, "POST", "/mcp", {
+      jsonrpc: "2.0",
+      id: 4,
+      method: "ping",
+      params: {},
+    }, {
+      "mcp-session-id": repeatedSessionId,
+    });
+    expect(ping.statusCode).toBe(200);
   });
 
   it("protects terminating session directories from orphan discovery", async () => {

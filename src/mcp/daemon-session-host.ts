@@ -741,6 +741,13 @@ export function createDaemonSessionHost(options: CreateDaemonSessionHostOptions)
           }
           if (!hostIsOpen()) throw new DaemonSessionHostClosedError();
           const newSessionId = crypto.randomUUID();
+          if (
+            sessions.has(newSessionId)
+            || pendingSessionIds.has(newSessionId)
+            || terminatingSessionIds.has(newSessionId)
+          ) {
+            throw new Error(`Generated MCP session identity is already reserved: ${newSessionId}`);
+          }
           pendingSessionIds.add(newSessionId);
           orphanScanProtectedSessionIds?.add(newSessionId);
           const construction = createDaemonSession(
