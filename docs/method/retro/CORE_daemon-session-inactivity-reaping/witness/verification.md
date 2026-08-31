@@ -40,6 +40,7 @@ mutation of the exact guard under test. Representative receipts:
 | Three-claimant root-owner ABA | Pausing displaced-owner restoration let a third publisher succeed: expected `false`, received `true` | post-Retro review repair |
 | Late legacy endpoint | A custom-endpoint sweep deleted one unmarked live legacy directory: expected 0, received 1 | post-Retro review repair |
 | Multiple retained clock failures | The first valid sweep reported one rejected sample but silently cleared the second: expected `NEGATIVE`, received `null` | post-Retro review repair |
+| Post-start sessions-root swap | A periodic sweep followed a replacement root symlink and removed one externally targeted session directory | post-Retro review repair |
 
 ## Focused GREEN
 
@@ -47,7 +48,7 @@ mutation of the exact guard under test. Representative receipts:
 pnpm exec vitest run test/unit/mcp/daemon-session-reaper.test.ts
 ```
 
-Result: pass; 1 file, 49 tests.
+Result: pass; 1 file, 50 tests.
 
 The focused suite includes exact-value configuration defaults, invalid option
 tables, monotonic/refusal/rebase behavior, streaming and pre-body barriers,
@@ -62,7 +63,8 @@ structured public errors.
 pnpm test
 ```
 
-Latest exact-tree result: pass; 259 files and 2,105 tests in 112.97 seconds.
+Latest completed exact-tree result at `2e22a603`: pass; 259 files and 2,105
+tests in 112.97 seconds. The current exact-head review queue requires a rerun.
 
 The command uses the repository's Docker-isolated test runner. The earlier
 exact-tree run at `83b50a70` passed 258 files and 2,095 tests and failed one of
@@ -75,8 +77,8 @@ tests.
 
 | Gate | Command | Result |
 | :--- | :--- | :--- |
-| Focused lifecycle | `pnpm exec vitest run test/unit/mcp/daemon-session-reaper.test.ts` | pass; 1 file, 49 tests |
-| Full isolated suite | `pnpm test` | pass; 259 files, 2,105 tests, 112.97 seconds |
+| Focused lifecycle | `pnpm exec vitest run test/unit/mcp/daemon-session-reaper.test.ts` | pass; 1 file, 50 tests |
+| Full isolated suite | `pnpm test` | `2e22a603` passed 259 files, 2,105 tests; current queue rerun pending |
 | Lint | `pnpm lint` | pass |
 | Types | `pnpm typecheck` | pass |
 | Build | `pnpm build` | pass |

@@ -788,6 +788,7 @@ export async function removeSessionOrphanDirectories(
   liveSessionIds: ReadonlySet<string>,
   legacyUnmarkedPolicy: LegacyUnmarkedSessionPolicy,
 ): Promise<SessionOrphanRemovalResult> {
+  await ensureDaemonSessionsRoot(sessionsRoot);
   const entries = await fs.readdir(sessionsRoot, { withFileTypes: true });
   let removed = 0;
   const failures: SessionOrphanRemovalFailure[] = [];

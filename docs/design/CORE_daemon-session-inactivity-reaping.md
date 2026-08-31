@@ -243,8 +243,10 @@ candidate name. An exclusive hard link publishes that complete inode as
 `daemon-owner.json`; an incumbent causes refusal without replacement.
 
 Startup creates the direct `sessions` child when absent and rejects it when an
-existing path is a symbolic link or is not a directory. It does not chmod or
-scan through an unsafe sessions-root path.
+existing path is a symbolic link or is not a directory. The shared orphan-scan
+boundary repeats that validation immediately before every enumeration, so a
+root replaced after startup is refused before cleanup. It does not chmod or scan
+through an unsafe sessions-root path.
 
 When a daemon uses a non-default endpoint, root acquisition first probes the
 legacy `<graftDir>/mcp.sock` endpoint and refuses ownership while a
@@ -276,6 +278,7 @@ ownership is established.
 
 The scanner:
 
+- revalidates the sessions root before every enumeration;
 - enumerates only direct children of the canonical sessions root;
 - uses `lstat` and never follows a symlink;
 - deletes only a valid owned marker or an exact lowercase RFC 4122 version-4

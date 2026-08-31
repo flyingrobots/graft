@@ -121,6 +121,12 @@ retained session clock failure while clearing every affected session. The
 repair reports and rebases one session per sweep, leaving every other rejected
 sample intact for its own later structured result.
 
+The following exact-head pass found that sessions-root validation still existed
+only at startup. Replacing the root with a symlink before a periodic sweep let
+the scanner recursively delete an externally targeted owned-session fixture.
+The repair moves the same unsafe-root refusal into the shared orphan-scan
+boundary, before every enumeration.
+
 ## Drift
 
 The largest drift was procedural: implementation and PR publication preceded

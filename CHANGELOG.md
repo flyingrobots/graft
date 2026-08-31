@@ -53,8 +53,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   flight before advancing to resource teardown or releasing root ownership.
   Session construction admitted after an orphan scan starts extends that scan's
   protected-ID set before creating scratch state, closing the inverse-order race.
-  Startup rejects a symbolic-link or non-directory sessions root before
-  permission repair or orphan discovery can touch its target.
+  Startup and every orphan scan reject a symbolic-link or non-directory
+  sessions root before permission repair, enumeration, or recursive cleanup can
+  touch its target.
   Legacy orphan discovery now accepts only the exact version-4 UUID form Graft
   generated; other UUID-shaped names are preserved and reported as unknown.
   A custom-endpoint daemon now refuses startup while the legacy default

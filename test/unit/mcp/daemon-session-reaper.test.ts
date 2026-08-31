@@ -801,6 +801,55 @@ describe("mcp: daemon session reaper", () => {
     expect(fs.readFileSync(path.join(externalSession, "keep.txt"), "utf-8")).toBe("external\n");
   });
 
+  it("refuses a periodic orphan scan after the sessions root becomes a symlink", async () => {
+    if (process.platform === "win32") return;
+    const rootDir = fs.mkdtempSync(path.join(os.tmpdir(), "graft-session-root-swap-"));
+    const externalRoot = fs.mkdtempSync(path.join(os.tmpdir(), "graft-session-swap-target-"));
+    const socketPath = path.join(rootDir, "daemon.sock");
+    const sessionId = "00000000-0000-4000-8000-000000000001";
+    const externalSession = path.join(externalRoot, sessionId);
+    fs.mkdirSync(externalSession, { recursive: true });
+    fs.writeFileSync(path.join(externalSession, "keep.txt"), "external\n");
+    await writeSessionOwnershipMarker(
+      externalSession,
+      "00000000-0000-4000-8000-000000000099",
+      sessionId,
+    );
+    cleanups.push(() => {
+      fs.rmSync(rootDir, { recursive: true, force: true });
+      fs.rmSync(externalRoot, { recursive: true, force: true });
+    });
+
+    const daemon = await startDaemonServer({
+      graftDir: rootDir,
+      socketPath,
+      sessionReaperIntervalMs: 0,
+    });
+    cleanups.push(() => daemon.close());
+
+    const sessionsRoot = path.join(rootDir, "sessions");
+    const parkedSessionsRoot = path.join(rootDir, "sessions-before-swap");
+    fs.renameSync(sessionsRoot, parkedSessionsRoot);
+    fs.symlinkSync(externalRoot, sessionsRoot, "dir");
+    cleanups.push(() => {
+      const stat = fs.lstatSync(sessionsRoot, { throwIfNoEntry: false });
+      if (stat?.isSymbolicLink() === true) fs.unlinkSync(sessionsRoot);
+      if (fs.existsSync(parkedSessionsRoot) && !fs.existsSync(sessionsRoot)) {
+        fs.renameSync(parkedSessionsRoot, sessionsRoot);
+      }
+    });
+
+    const sweep = await daemon.reapExpiredSessions();
+
+    expect(sweep.orphanDirectoriesRemoved).toBe(0);
+    expect(sweep.cleanupFailures).toHaveLength(1);
+    expect(sweep.cleanupFailures[0]).toMatchObject({
+      code: "ORPHAN_SCAN_FAILED",
+      path: sessionsRoot,
+    });
+    expect(fs.readFileSync(path.join(externalSession, "keep.txt"), "utf-8")).toBe("external\n");
+  });
+
   it("protects a pending session construction from orphan discovery", async () => {
     const rootDir = fs.mkdtempSync(path.join(os.tmpdir(), "graft-session-pending-orphan-"));
     const socketPath = path.join(rootDir, "daemon.sock");
