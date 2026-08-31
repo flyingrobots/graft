@@ -19,7 +19,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   resident. Raw pooled lookup and holder-ID release are private implementation
   details rather than callable application operations, and test fakes implement
   owned acquisition explicitly. Daemon transport close/error and daemon shutdown
-  release every active or routed binding lease owned by the session.
+  release every active or routed binding lease owned by the session. Shutdown
+  closes session admission synchronously, rejects initialize requests whose
+  bodies cross that boundary, and drains already admitted initialization before
+  snapshotting sessions for transport, lease, and directory cleanup.
   A successful cross-resident rebind releases the previous binding only after
   the replacement commits. Same-resident rebinds transfer an already acquired
   capability, while an unacquired lazy lease is recreated with the replacement

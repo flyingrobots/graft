@@ -169,6 +169,10 @@ async function createDaemonSession(
 
 export function createDaemonSessionHost(options: CreateDaemonSessionHostOptions): DaemonSessionHost {
   const sessions = new Map<string, DaemonSession>();
+  const pendingInitializations = new Set<Promise<DaemonSession>>();
+  let acceptingSessions = true;
+  let closePromise: Promise<void> | null = null;
+  const isAcceptingSessions = (): boolean => acceptingSessions;
 
   return {
     async handleRequest(req, res): Promise<void> {
@@ -184,10 +188,19 @@ export function createDaemonSessionHost(options: CreateDaemonSessionHostOptions)
           return;
         }
 
+        if (!isAcceptingSessions()) {
+          sendJsonRpcError(res, -32000, "Daemon session host is shutting down");
+          return;
+        }
+
         const sessionId = getHeader(req, "mcp-session-id");
 
         if (req.method === "POST") {
           const parsedBody = await readJsonBody(req);
+          if (!isAcceptingSessions()) {
+            sendJsonRpcError(res, -32000, "Daemon session host is shutting down");
+            return;
+          }
           let session = sessionId !== undefined ? sessions.get(sessionId) : undefined;
           if (session === undefined) {
             if (sessionId !== undefined) {
@@ -198,7 +211,13 @@ export function createDaemonSessionHost(options: CreateDaemonSessionHostOptions)
               sendJsonRpcError(res, -32000, "Initialization requests must start a daemon session");
               return;
             }
-            session = await createDaemonSession(crypto.randomUUID(), options, sessions);
+            const initialization = createDaemonSession(crypto.randomUUID(), options, sessions);
+            pendingInitializations.add(initialization);
+            try {
+              session = await initialization;
+            } finally {
+              pendingInitializations.delete(initialization);
+            }
           }
 
           options.controlPlane.touchTransport(session.id);
@@ -232,23 +251,29 @@ export function createDaemonSessionHost(options: CreateDaemonSessionHostOptions)
     },
 
     async close(): Promise<void> {
-      const releaseErrors: unknown[] = [];
-      for (const session of [...sessions.values()]) {
-        options.controlPlane.unregisterTransport(session.id);
-        try {
-          await session.server.releaseWarpLeases();
-        } catch (error) {
-          releaseErrors.push(error);
+      if (closePromise !== null) return closePromise;
+      acceptingSessions = false;
+      closePromise = (async () => {
+        await Promise.allSettled([...pendingInitializations]);
+        const releaseErrors: unknown[] = [];
+        for (const session of [...sessions.values()]) {
+          options.controlPlane.unregisterTransport(session.id);
+          try {
+            await session.server.releaseWarpLeases();
+          } catch (error) {
+            releaseErrors.push(error);
+          }
+          await session.transport.close().catch(() => {
+            return undefined;
+          });
+          await removeSessionDirectory(session.graftDir);
         }
-        await session.transport.close().catch(() => {
-          return undefined;
-        });
-        await removeSessionDirectory(session.graftDir);
-      }
-      sessions.clear();
-      if (releaseErrors.length > 0) {
-        throw new AggregateError(releaseErrors, "Failed to release daemon-session WARP leases");
-      }
+        sessions.clear();
+        if (releaseErrors.length > 0) {
+          throw new AggregateError(releaseErrors, "Failed to release daemon-session WARP leases");
+        }
+      })();
+      return closePromise;
     },
   };
 }

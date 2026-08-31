@@ -17,6 +17,12 @@ interface JsonResponse {
   readonly text: string;
 }
 
+interface PausedJsonRequest {
+  readonly accepted: Promise<void>;
+  readonly response: Promise<JsonResponse>;
+  finish(): void;
+}
+
 async function requestUnixJson(
   socketPath: string,
   method: "GET" | "POST" | "DELETE",
@@ -57,6 +63,90 @@ async function requestUnixJson(
     if (payload !== undefined) req.write(payload);
     req.end();
   });
+}
+
+function beginPausedInitializeRequest(socketPath: string): PausedJsonRequest {
+  const payload = JSON.stringify({
+    jsonrpc: "2.0",
+    id: 1,
+    method: "initialize",
+    params: {
+      protocolVersion: "2025-03-26",
+      capabilities: {},
+      clientInfo: { name: "vitest", version: "0.0.0" },
+    },
+  });
+  const splitAt = Math.floor(payload.length / 2);
+  let resolveAccepted!: () => void;
+  let rejectAccepted!: (error: Error) => void;
+  const accepted = new Promise<void>((resolve, reject) => {
+    resolveAccepted = resolve;
+    rejectAccepted = reject;
+  });
+  let request!: http.ClientRequest;
+  let sentBytes = 0;
+  let finished = false;
+  const response = new Promise<JsonResponse>((resolve, reject) => {
+    request = http.request({
+      socketPath,
+      path: "/mcp",
+      method: "POST",
+      headers: {
+        accept: "application/json, text/event-stream",
+        "content-type": "application/json",
+        "content-length": Buffer.byteLength(payload),
+        expect: "100-continue",
+        connection: "close",
+      },
+    }, (res) => {
+      const chunks: Buffer[] = [];
+      res.on("data", (chunk) => {
+        chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk));
+      });
+      res.on("end", () => {
+        resolve({
+          statusCode: res.statusCode ?? 0,
+          headers: res.headers,
+          text: Buffer.concat(chunks).toString("utf-8"),
+        });
+      });
+    });
+    request.once("continue", () => {
+      const prefix = payload.slice(0, splitAt);
+      request.write(prefix, () => {
+        sentBytes = prefix.length;
+        resolveAccepted();
+      });
+    });
+    request.once("error", (error) => {
+      rejectAccepted(error);
+      reject(error);
+    });
+    request.flushHeaders();
+  });
+
+  return {
+    accepted,
+    response,
+    finish(): void {
+      if (finished) return;
+      finished = true;
+      request.end(payload.slice(sentBytes));
+    },
+  };
+}
+
+async function waitForServerToStopAccepting(socketPath: string, timeoutMs = 3_000): Promise<void> {
+  const deadline = Date.now() + timeoutMs;
+  while (Date.now() <= deadline) {
+    try {
+      await requestUnixJson(socketPath, "GET", "/healthz");
+    } catch {
+      return;
+    }
+    await new Promise((resolve) => setTimeout(resolve, 10));
+  }
+  throw new Error("Timed out waiting for daemon HTTP server to stop accepting connections");
 }
 
 function parseJson(response: JsonResponse): unknown {
@@ -240,6 +330,34 @@ describe("mcp: daemon transport and lifecycle", () => {
 
     const closedHealth = await requestUnixJson(socketPath, "GET", "/healthz");
     expect((parseJson(closedHealth) as { activeSessions: number }).activeSessions).toBe(0);
+  });
+
+  it("rejects an initialize request that finishes after shutdown stops session admission", {
+    timeout: 15_000,
+  }, async () => {
+    const rootDir = fs.mkdtempSync(path.join(os.tmpdir(), "graft-daemon-root-"));
+    roots.push(rootDir);
+    const socketPath = path.join(rootDir, "daemon.sock");
+    const daemon = await startTestDaemonServer({
+      graftDir: rootDir,
+      socketPath,
+    });
+    daemons.push(daemon);
+    const pausedInitialize = beginPausedInitializeRequest(socketPath);
+
+    await pausedInitialize.accepted;
+    const shutdown = daemon.close();
+    await waitForServerToStopAccepting(socketPath);
+    pausedInitialize.finish();
+    const response = await pausedInitialize.response;
+    await shutdown;
+    daemons.pop();
+
+    expect(response.statusCode).toBe(500);
+    expect(parseJson(response)).toEqual(expect.objectContaining({
+      error: expect.objectContaining({ code: -32000 }),
+    }));
+    expect(fs.readdirSync(path.join(rootDir, "sessions"))).toEqual([]);
   });
 
   it("opens persisted daemon graphs on each transport session's logical writer lane", async () => {
