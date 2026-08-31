@@ -196,8 +196,9 @@ capacity and deterministic policy before replacing eager eviction.
       production pool state.
 - [ ] One live writer lane does not retain an unreferenced sibling lane in the
       same repository.
-- [ ] Successful A-to-B rebind releases A only after B commits; failed rebind
-      retains A and releases any uncommitted B lease.
+- [x] Successful A-to-B rebind releases A only after B commits, while a
+      same-resident rebind transfers the existing holder.
+- [ ] Failed rebind retains A and releases any uncommitted B lease.
 - [ ] Routed authorization rejection and LRU removal release their binding
       leases.
 - [ ] An in-flight routed invocation survives binding LRU removal without

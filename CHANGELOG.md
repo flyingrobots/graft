@@ -16,6 +16,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   now drops its in-process strong reference immediately; production cleanup does
   not depend on a test-only sweep. Daemon transport close/error and daemon
   shutdown release every active or routed binding lease owned by the session.
+  A successful cross-resident rebind releases the previous binding only after
+  the replacement commits, while same-resident rebinds retain the shared holder.
 
 ### Fixed
 

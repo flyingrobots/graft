@@ -1,4 +1,5 @@
 import { afterEach, describe, expect, it } from "vitest";
+import type WarpApp from "@git-stunts/git-warp";
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
@@ -6,6 +7,7 @@ import { CanonicalJsonCodec } from "../../../src/adapters/canonical-json.js";
 import { nodeFs } from "../../../src/adapters/node-fs.js";
 import { nodeGit } from "../../../src/adapters/node-git.js";
 import { PersistedLocalHistoryStore } from "../../../src/mcp/persisted-local-history.js";
+import { InMemoryWarpPool } from "../../../src/mcp/warp-pool.js";
 import {
   DEFAULT_DAEMON_CAPABILITY_PROFILE,
   type WorkspaceCapabilityProfile,
@@ -441,6 +443,64 @@ describe("mcp: daemon workspace binding", () => {
 
     const loadedAfterRebind = parse(await server.callTool("state_load", {}));
     expect(loadedAfterRebind["content"]).toBeNull();
+  });
+
+  it("releases only the displaced resident after a cross-repository rebind commits", async () => {
+    const firstRepoDir = createCommittedRepo();
+    const secondRepoDir = createCommittedRepo();
+    const graftDir = fs.mkdtempSync(path.join(os.tmpdir(), "graft-cross-repo-rebind-"));
+    cleanups.push(() => {
+      fs.rmSync(graftDir, { recursive: true, force: true });
+    });
+    const pool = new InMemoryWarpPool((_worktreeRoot, writerId) => {
+      return Promise.resolve({ writerId } as unknown as WarpApp);
+    });
+    const router = new WorkspaceRouter({
+      mode: "daemon",
+      fs: nodeFs,
+      git: nodeGit,
+      graftDir,
+      warpPool: pool,
+      transportSessionId: "transport:test",
+      warpWriterId: "writer:test",
+      authorizationPolicy: {
+        getCapabilityProfile() {
+          return Promise.resolve(DEFAULT_DAEMON_CAPABILITY_PROFILE);
+        },
+        noteBound(): Promise<void> {
+          return Promise.resolve();
+        },
+      },
+      persistedLocalHistory: new PersistedLocalHistoryStore({
+        fs: nodeFs,
+        codec: new CanonicalJsonCodec(),
+        graftDir,
+      }),
+      persistedLocalHistoryGraph: false,
+    });
+
+    const first = await router.bind({ cwd: firstRepoDir }, "workspace_bind");
+    expect(first.ok).toBe(true);
+    expect(first.repoId).toEqual(expect.any(String));
+    await router.getWarp();
+    expect(pool.leaseCount(first.repoId!, "writer:test")).toBe(1);
+
+    const second = await router.rebind({ cwd: secondRepoDir }, "workspace_rebind");
+
+    expect(second.ok).toBe(true);
+    expect(second.repoId).toEqual(expect.any(String));
+    expect(second.repoId).not.toBe(first.repoId);
+    expect(pool.leaseCount(first.repoId!, "writer:test")).toBe(0);
+    expect(pool.has(first.repoId!, "writer:test")).toBe(false);
+    const secondResident = (await router.getWarp()).app;
+    expect(pool.leaseCount(second.repoId!, "writer:test")).toBe(1);
+
+    const sameResident = await router.rebind({ cwd: secondRepoDir }, "workspace_rebind");
+
+    expect(sameResident.ok).toBe(true);
+    expect(sameResident.repoId).toBe(second.repoId);
+    expect(pool.leaseCount(second.repoId!, "writer:test")).toBe(1);
+    expect((await router.getWarp()).app).toBe(secondResident);
   });
 
   it("denies run_capture in daemon mode after bind", async () => {

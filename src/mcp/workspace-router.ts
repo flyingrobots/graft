@@ -856,6 +856,19 @@ export class WorkspaceRouter {
       options.openedSource ?? (this.options.mode === "daemon" ? "daemon_authorized" : "session_opened"),
       true,
     );
+    if (
+      previousBinding !== null
+      && (
+        previousBinding.repoId !== nextBinding.repoId
+        || previousBinding.warpWriterId !== nextBinding.warpWriterId
+      )
+    ) {
+      this.options.warpPool.releaseLease?.(
+        previousBinding.repoId,
+        previousBinding.warpWriterId,
+        previousBinding.transportSessionId,
+      );
+    }
 
     return {
       ok: true,
