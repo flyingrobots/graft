@@ -151,6 +151,14 @@ separate RED/GREEN commits and resolved through GraphQL; zero inline threads
 remain unresolved. No reviewer has yet completed a substantive pass against
 this exact behavior head.
 
+The later exact-head audit at `3d03aead` supersedes that closure posture. The
+fully paginated refresh found 70 review threads, 42 global comments, and 31
+reviews, with no remaining connection pages, but 12 current-head inline threads
+remain unresolved. Together with six additional self-review findings, the
+authoritative repair queue contains 18 items: four P1, seven P2, five P3, one
+P4, and one P5. The 66-test focused receipt and 2,122-test Docker receipt above
+are pre-repair baselines; neither is final evidence for the repaired head.
+
 ## Scope witness
 
 The branch changes daemon session timing, state/termination, transactional

@@ -15,10 +15,17 @@ Legend: CORE
 
 ## Status
 
-Hill met locally on the repaired PR #250 branch. Every acceptance criterion
-below has executable evidence, the local Retro records the cycle, and the
-exact-tree isolated suite passes 259 files and 2,112 tests. Current-head CI and
-third-party review remain separate Ship gates.
+**HOLD.** The latest exact-head review found four P1 lifecycle/path-authority
+defects, seven P2 correctness/retention defects, and seven lower-severity
+quality or truth defects. Twelve inline review threads remain unresolved. The
+latest completed Docker-isolated receipt (259 files and 2,122 tests at behavior
+head `35aa63d4`) predates these findings and is therefore historical evidence,
+not current closure evidence.
+
+The repair cycle must satisfy the unchecked current-review criteria below,
+refresh every validation receipt on the resulting behavior head, resolve every
+originating thread, and obtain substantive third-party review before this
+packet can claim that the hill is met.
 
 Writing the contract after implementation is a process failure, not a precedent.
 The cycle retro must record that the PR was published before its design and
@@ -514,6 +521,34 @@ authority has been retired, and each failed close layer is reported separately.
       claiming a nonexistent `GraftServer.close()` operation.
 - [x] `CHANGELOG.md` records the user-visible lifecycle and configuration
       invariant once implementation matches this packet.
+
+### Current-review repair hold
+
+- [ ] Recursive deletion remains tied to the validated quarantine inode through
+      the destructive operation for both live and orphan cleanup; a pathname
+      replacement after validation cannot redirect deletion.
+- [ ] Session construction, every sweep, and terminal cleanup retain and verify
+      one daemon-lifetime sessions-root identity established at startup.
+- [ ] The initialize request settles successfully before the new session is
+      published, and every failure boundary rolls back map, control-plane,
+      transport, marker, and scratch ownership.
+- [ ] A refused competing startup performs no session-storage mutation before
+      daemon-root authority is acquired.
+- [ ] Construction cannot publish a canonical UUID directory that lacks enough
+      durable ownership evidence for safe crash recovery or rollback.
+- [ ] Orphan cleanup reports factual retryability, recovers owned quarantine
+      residue after crashes, isolates inspection failures per candidate, and
+      continues processing later eligible candidates.
+- [ ] Root and child identities use lossless device/inode values.
+- [ ] Root-claim crash recovery has a bounded retention protocol rather than
+      accumulating one permanent tombstone per recovery.
+- [ ] Scheduled preservation diagnostics are deduplicated or rate-limited while
+      manual sweeps retain complete structured results.
+- [ ] Lifecycle tests assert stable structured failures, and storage/process
+      responsibilities are separated into reviewable modules.
+- [ ] The verification witness names exact GREEN commits, and current PR text,
+      GraphQL counts, validation receipts, Markdown, and prose match the final
+      repaired head.
 
 ## RED / GREEN strategy
 
