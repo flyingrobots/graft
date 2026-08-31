@@ -199,14 +199,11 @@ async function assertPinnedDaemonSessionsRoot(root: PinnedDaemonSessionsRoot): P
 }
 
 async function pinDaemonSessionsRoot(sessionsRoot: string): Promise<PinnedDaemonSessionsRoot> {
-  try {
-    await fs.mkdir(sessionsRoot, { mode: PRIVATE_DIRECTORY_MODE });
-  } catch (error: unknown) {
-    if (errorCode(error) !== "EEXIST") throw error;
-  }
-
-  const initial = await fs.lstat(sessionsRoot);
-  if (!initial.isDirectory() || initial.isSymbolicLink()) {
+  const initial = await fs.lstat(sessionsRoot).catch((error: unknown) => {
+    if (errorCode(error) === "ENOENT") return null;
+    throw error;
+  });
+  if (initial === null || !initial.isDirectory() || initial.isSymbolicLink()) {
     throw new UnsafeDaemonSessionsRootError(sessionsRoot);
   }
 
@@ -248,6 +245,11 @@ async function pinDaemonSessionsRoot(sessionsRoot: string): Promise<PinnedDaemon
 }
 
 export async function ensureDaemonSessionsRoot(sessionsRoot: string): Promise<void> {
+  try {
+    await fs.mkdir(sessionsRoot, { mode: PRIVATE_DIRECTORY_MODE });
+  } catch (error: unknown) {
+    if (errorCode(error) !== "EEXIST") throw error;
+  }
   const root = await pinDaemonSessionsRoot(sessionsRoot);
   try {
     await assertPinnedDaemonSessionsRoot(root);

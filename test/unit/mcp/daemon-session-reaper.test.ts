@@ -2787,6 +2787,55 @@ describe("mcp: daemon session reaper", () => {
     expect(fs.existsSync(sessionDir)).toBe(false);
   });
 
+  it("refuses to recreate a missing established sessions root during live cleanup", async () => {
+    const rootDir = fs.mkdtempSync(path.join(os.tmpdir(), "graft-session-root-missing-"));
+    const socketPath = path.join(rootDir, "daemon.sock");
+    const sessionsRoot = path.join(rootDir, "sessions");
+    const parkedSessionsRoot = path.join(rootDir, "sessions-parked");
+    cleanups.push(() => {
+      fs.rmSync(rootDir, { recursive: true, force: true });
+    });
+    let currentTimeMs = 1_000_000;
+    const daemon = await startDaemonServer({
+      graftDir: rootDir,
+      socketPath,
+      sessionInactivityTtlMs: 10_000,
+      sessionReaperIntervalMs: 0,
+      nowMs: () => currentTimeMs,
+    });
+    cleanups.push(() => daemon.close());
+    const sessionId = await initializeDaemonSession(socketPath, 1);
+    const sessionDir = path.join(sessionsRoot, sessionId);
+    fs.writeFileSync(path.join(sessionDir, "original.txt"), "original\n");
+    fs.renameSync(sessionsRoot, parkedSessionsRoot);
+
+    currentTimeMs += 10_001;
+    const sweep = await daemon.reapExpiredSessions();
+
+    expect(sweep).toMatchObject({
+      sessionsRetired: 1,
+      liveDirectoriesRemoved: 0,
+      orphanDirectoriesRemoved: 0,
+    });
+    expect(sweep.cleanupFailures).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        code: "SESSION_DIRECTORY_REMOVE_FAILED",
+        sessionId,
+        path: sessionDir,
+        retryable: true,
+      }),
+      expect.objectContaining({
+        code: "ORPHAN_SCAN_FAILED",
+        sessionId: null,
+        path: sessionsRoot,
+        retryable: true,
+      }),
+    ]));
+    expect(fs.existsSync(sessionsRoot)).toBe(false);
+    expect(fs.readFileSync(path.join(parkedSessionsRoot, sessionId, "original.txt"), "utf-8"))
+      .toBe("original\n");
+  });
+
   it("retries live cleanup after the exact sessions root is restored", async () => {
     if (process.platform === "win32") return;
     const rootDir = fs.mkdtempSync(path.join(os.tmpdir(), "graft-session-root-retry-"));

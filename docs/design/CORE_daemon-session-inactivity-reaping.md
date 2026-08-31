@@ -261,9 +261,11 @@ loop boundary. Every attempt after the first waits and rechecks that deadline,
 regardless of whether the prior claim vanished, a stale-claim rename lost a
 race, or an existing tombstone prevented reclamation.
 
-Startup creates the direct `sessions` child when absent and rejects it when an
-existing path is a symbolic link or is not a directory. The shared orphan-scan
-boundary opens and retains the original root handle, anchors its device/inode
+Startup alone creates the direct `sessions` child when absent and rejects it when
+an existing path is a symbolic link or is not a directory. Runtime cleanup never
+creates that path: a missing established root is an unsafe-root failure, not a
+new empty authority boundary. The shared orphan-scan boundary opens and retains
+the original root handle, anchors its device/inode
 identity, and revalidates the path after enumeration and before and after each
 candidate inspection. Recursive removal begins only immediately after that
 exact identity check, so a root replaced after startup or during a scan is
@@ -465,6 +467,8 @@ authority has been retired, and each failed close layer is reported separately.
       preserved and reported without touching their targets.
 - [x] Replacing the sessions root after initial validation, during enumeration,
       or after candidate inspection refuses the scan before recursive removal.
+- [x] Renaming away the established sessions root before runtime cleanup reports
+      live-cleanup and orphan-scan failures without creating a replacement root.
 - [x] Replacing the sessions root before live-session terminal cleanup refuses
       removal and preserves an external same-ID directory.
 - [x] Replacing a validated live-session child before recursive removal is

@@ -241,6 +241,16 @@ contents at the same UUID path, and observed `liveDirectoriesRemoved: 1` with
 no failure. GREEN reports the typed non-retryable refusal and preserves both
 directories byte-for-byte.
 
+The remaining root-lifecycle finding showed that the same helper both created
+the root at startup and pinned it during runtime. Renaming away the established
+root immediately before expiry therefore made cleanup create a new empty root,
+return `false`, and strand the marker-owned scratch under the parked path with
+no diagnostic. Root creation now belongs only to explicit startup preparation;
+runtime pins treat absence as `UNSAFE_DAEMON_SESSIONS_ROOT`. The integration RED
+observed an empty failure list and a recreated root. GREEN reports both the
+live-directory and orphan-scan failures, leaves the canonical path absent, and
+preserves the parked bytes.
+
 ## Drift
 
 The largest drift was procedural: implementation and PR publication preceded

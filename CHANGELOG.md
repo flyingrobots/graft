@@ -66,7 +66,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   protected-ID set before creating scratch state, closing the inverse-order race.
   Startup and every orphan scan reject a symbolic-link or non-directory
   sessions root before permission repair, enumeration, or recursive cleanup can
-  touch its target. Each scan retains the original root handle and revalidates
+  touch its target. Only startup may create a missing sessions root; runtime
+  scans and live cleanup report a lost root instead of silently replacing it
+  with a new empty directory. Each scan retains the original root handle and revalidates
   its exact device/inode identity after enumeration and immediately before
   candidate inspection and removal, refusing mid-scan path replacement.
   Live-session terminal cleanup uses the same pinned root identity boundary, so
