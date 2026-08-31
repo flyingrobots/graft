@@ -188,6 +188,13 @@ liveness hashes that token and the start value from one process snapshot, so a
 rapidly recycled PID cannot inherit the old daemon's identity and the record
 does not disclose process arguments.
 
+The first regression test forced `process.platform` to Darwin and therefore
+passed locally but sent Darwin `ps` flags to Alpine BusyBox in the canonical
+container. The failed 258/259-file run kept the review thread open. The repair
+extracted the digest derivation as a platform-neutral seam tested everywhere
+and retained process-title installation as a real generic-Unix integration;
+the following full isolated run passed all 259 files and 2,115 tests.
+
 ## Drift
 
 The largest drift was procedural: implementation and PR publication preceded
