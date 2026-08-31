@@ -652,7 +652,11 @@ export class WorkspaceRouter {
       }
       const evicted = this.routedBindings.get(oldestKey);
       if (evicted !== undefined) {
-        this.options.warpPool.releaseLease?.(evicted.repoId, evicted.transportSessionId);
+        this.options.warpPool.releaseLease?.(
+          evicted.repoId,
+          evicted.warpWriterId,
+          evicted.transportSessionId,
+        );
       }
       this.routedBindings.delete(oldestKey);
     }

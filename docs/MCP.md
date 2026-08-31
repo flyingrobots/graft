@@ -63,10 +63,10 @@ agent-facing flow:
 
 ### Warp Graph Lease Management
 
-To prevent monotonic memory growth across multi-repository workflows, `InMemoryWarpPool` tracks active session leases:
+`InMemoryWarpPool` tracks active session leases for logical WARP writer-lane residents:
 
-- **Lease Accounting**: When sessions open or bind workspaces, active leases are recorded per repository.
-- **Unreferenced Eviction**: Repositories with zero active session leases can be evicted via `ejectUnreferenced()`, ensuring unreferenced Git plumbing handles, AST indices, and graph caches do not pin process memory indefinitely.
+- **Lease Accounting**: When sessions open or bind workspaces, active leases are recorded per `(repoId, writerId)` resident.
+- **Unreferenced Eviction**: `ejectUnreferenced()` can evict a zero-lease writer lane without disturbing leased sibling lanes in the same repository. Production lifecycle wiring remains required before this bounds daemon residency end to end.
 
 For concurrent multi-repo use inside one daemon-backed MCP session,
 repo tools that support routing also accept `cwd`: `safe_read`,

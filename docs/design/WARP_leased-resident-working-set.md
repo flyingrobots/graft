@@ -185,7 +185,7 @@ capacity and deterministic policy before replacing eager eviction.
 
 - [ ] The required application port returns an owned lease and has no optional
       lease lifecycle or ordinary force-eviction method.
-- [ ] Resident identity is exactly `(repoId, writerId)`, and production
+- [x] Resident identity is exactly `(repoId, writerId)`, and production
       `openWarp` receives both the canonical worktree root and requested writer
       ID.
 - [ ] Two same-owner acquisitions of one resident remain valid until both
@@ -265,4 +265,3 @@ map layout.
 - `docs/design/local-daemon-transport-and-session-lifecycle.md`
 - `docs/design/system-wide-resource-pressure-and-fairness.md`
 - `ARCHITECTURE.md`
-

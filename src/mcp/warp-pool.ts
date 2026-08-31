@@ -3,18 +3,18 @@ import { DEFAULT_WARP_WRITER_ID } from "../warp/writer-id.js";
 
 export interface WarpPool {
   getOrOpen(repoId: string, worktreeRoot: string, writerId?: string, leaseHolderId?: string): Promise<WarpApp>;
-  acquireLease?(repoId: string, leaseHolderId: string): void;
-  releaseLease?(repoId: string, leaseHolderId: string): void;
-  leaseCount?(repoId: string): number;
-  has?(repoId: string): boolean;
-  eject?(repoId: string, force?: boolean): Promise<boolean>;
+  acquireLease?(repoId: string, writerId: string, leaseHolderId: string): void;
+  releaseLease?(repoId: string, writerId: string, leaseHolderId: string): void;
+  leaseCount?(repoId: string, writerId: string): number;
+  has?(repoId: string, writerId?: string): boolean;
+  eject?(repoId: string, writerId: string, force?: boolean): Promise<boolean>;
   ejectUnreferenced?(): Promise<number>;
   size(): number;
 }
 
 export class InMemoryWarpPool implements WarpPool {
   private readonly opened = new Map<string, Map<string, Promise<WarpApp>>>();
-  private readonly leases = new Map<string, Set<string>>();
+  private readonly leases = new Map<string, Map<string, Set<string>>>();
 
   constructor(private readonly openWarp: (worktreeRoot: string, writerId: string) => Promise<WarpApp>) {}
 
@@ -25,7 +25,7 @@ export class InMemoryWarpPool implements WarpPool {
     leaseHolderId?: string,
   ): Promise<WarpApp> {
     if (leaseHolderId !== undefined) {
-      this.acquireLease(repoId, leaseHolderId);
+      this.acquireLease(repoId, writerId, leaseHolderId);
     }
     const repoHandles = this.opened.get(repoId);
     const cached = repoHandles?.get(writerId);
@@ -46,50 +46,67 @@ export class InMemoryWarpPool implements WarpPool {
     return opened;
   }
 
-  acquireLease(repoId: string, leaseHolderId: string): void {
-    let holders = this.leases.get(repoId);
+  acquireLease(repoId: string, writerId: string, leaseHolderId: string): void {
+    let repoLeases = this.leases.get(repoId);
+    if (repoLeases === undefined) {
+      repoLeases = new Map<string, Set<string>>();
+      this.leases.set(repoId, repoLeases);
+    }
+    let holders = repoLeases.get(writerId);
     if (holders === undefined) {
       holders = new Set<string>();
-      this.leases.set(repoId, holders);
+      repoLeases.set(writerId, holders);
     }
     holders.add(leaseHolderId);
   }
 
-  releaseLease(repoId: string, leaseHolderId: string): void {
-    const holders = this.leases.get(repoId);
+  releaseLease(repoId: string, writerId: string, leaseHolderId: string): void {
+    const repoLeases = this.leases.get(repoId);
+    const holders = repoLeases?.get(writerId);
     if (holders === undefined) return;
     holders.delete(leaseHolderId);
     if (holders.size === 0) {
+      repoLeases?.delete(writerId);
+    }
+    if (repoLeases?.size === 0) {
       this.leases.delete(repoId);
     }
   }
 
-  leaseCount(repoId: string): number {
-    return this.leases.get(repoId)?.size ?? 0;
+  leaseCount(repoId: string, writerId: string): number {
+    return this.leases.get(repoId)?.get(writerId)?.size ?? 0;
   }
 
-  has(repoId: string): boolean {
-    return this.opened.has(repoId);
+  has(repoId: string, writerId?: string): boolean {
+    const repoHandles = this.opened.get(repoId);
+    return writerId === undefined ? repoHandles !== undefined : repoHandles?.has(writerId) === true;
   }
 
-  eject(repoId: string, force = false): Promise<boolean> {
-    if (!force && this.leaseCount(repoId) > 0) {
+  eject(repoId: string, writerId: string, force = false): Promise<boolean> {
+    if (!force && this.leaseCount(repoId, writerId) > 0) {
       return Promise.resolve(false);
     }
     const repoHandles = this.opened.get(repoId);
-    if (repoHandles === undefined) {
+    if (repoHandles?.has(writerId) !== true) {
       return Promise.resolve(false);
     }
-    this.opened.delete(repoId);
-    this.leases.delete(repoId);
+    repoHandles.delete(writerId);
+    const repoLeases = this.leases.get(repoId);
+    repoLeases?.delete(writerId);
+    if (repoHandles.size === 0) {
+      this.opened.delete(repoId);
+    }
+    if (repoLeases?.size === 0) {
+      this.leases.delete(repoId);
+    }
     return Promise.resolve(true);
   }
 
   async ejectUnreferenced(): Promise<number> {
     let count = 0;
-    for (const repoId of [...this.opened.keys()]) {
-      if (this.leaseCount(repoId) === 0) {
-        if (await this.eject(repoId)) {
+    for (const [repoId, repoHandles] of [...this.opened.entries()]) {
+      for (const writerId of [...repoHandles.keys()]) {
+        if (this.leaseCount(repoId, writerId) === 0 && await this.eject(repoId, writerId)) {
           count++;
         }
       }
