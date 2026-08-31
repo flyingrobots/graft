@@ -1510,6 +1510,56 @@ describe("mcp: daemon session reaper", () => {
     });
   });
 
+  it("converges transport errors on the shared session termination operation", async () => {
+    const rootDir = fs.mkdtempSync(path.join(os.tmpdir(), "graft-session-transport-error-"));
+    const socketPath = path.join(rootDir, "daemon.sock");
+    cleanups.push(() => {
+      fs.rmSync(rootDir, { recursive: true, force: true });
+    });
+    type ConnectTransport = Parameters<McpServer["connect"]>[0];
+    const originalConnect = Reflect.get(McpServer.prototype, "connect") as (
+      this: McpServer,
+      transport: ConnectTransport,
+    ) => Promise<void>;
+    let connectedTransport: ConnectTransport | undefined;
+    const connect = vi.spyOn(McpServer.prototype, "connect")
+      .mockImplementationOnce(async function(this: McpServer, transport: ConnectTransport) {
+        connectedTransport = transport;
+        await Reflect.apply(originalConnect, this, [transport]);
+      });
+    cleanups.push(() => {
+      connect.mockRestore();
+    });
+
+    const daemon = await startDaemonServer({
+      graftDir: rootDir,
+      socketPath,
+      sessionReaperIntervalMs: 0,
+    });
+    cleanups.push(() => daemon.close());
+    const sessionId = await initializeDaemonSession(socketPath, 1);
+    const sessionDir = path.join(rootDir, "sessions", sessionId);
+    const capturedTransport = connectedTransport;
+    if (capturedTransport === undefined) throw new Error("MCP transport was not captured");
+
+    capturedTransport.onerror?.(new Error("injected transport error"));
+    await vi.waitFor(() => {
+      expect(daemon.getHealthStatus().activeSessions).toBe(0);
+    });
+
+    expect(fs.existsSync(sessionDir)).toBe(false);
+    const response = await requestUnixJson(socketPath, "POST", "/mcp", {
+      jsonrpc: "2.0",
+      id: 2,
+      method: "ping",
+      params: {},
+    }, {
+      "mcp-session-id": sessionId,
+    });
+    expect(response.statusCode).toBe(500);
+    expect((JSON.parse(response.text) as { error: { code: number } }).error.code).toBe(-32000);
+  });
+
   it("waits for transport-triggered termination before closing daemon resources", async () => {
     const rootDir = fs.mkdtempSync(path.join(os.tmpdir(), "graft-session-close-fence-"));
     const socketPath = path.join(rootDir, "daemon.sock");
