@@ -67,6 +67,11 @@ export class InMemoryWarpPool implements WarpPool {
     holders.delete(leaseHolderId);
     if (holders.size === 0) {
       repoLeases?.delete(writerId);
+      const repoHandles = this.opened.get(repoId);
+      repoHandles?.delete(writerId);
+      if (repoHandles?.size === 0) {
+        this.opened.delete(repoId);
+      }
     }
     if (repoLeases?.size === 0) {
       this.leases.delete(repoId);

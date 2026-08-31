@@ -12,7 +12,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 - **WarpPool lease tracking and eviction**: `InMemoryWarpPool` tracks active
   leaseholders per logical `(repoId, writerId)` resident and supports
   `ejectUnreferenced()` to unmap zero-lease writer lanes independently, integrated
-  with `WorkspaceRouter` LRU binding eviction.
+  with `WorkspaceRouter` LRU binding eviction. Releasing a resident's last lease
+  now drops its in-process strong reference immediately; production cleanup does
+  not depend on a test-only sweep.
 
 ### Fixed
 

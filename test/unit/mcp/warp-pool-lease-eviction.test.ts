@@ -3,6 +3,33 @@ import type WarpApp from "@git-stunts/git-warp";
 import { InMemoryWarpPool } from "../../../src/mcp/warp-pool.js";
 
 describe("mcp: warp pool lease eviction", () => {
+  it("drops the resident automatically when its last lease releases", async () => {
+    let openCount = 0;
+    const pool = new InMemoryWarpPool((_worktreeRoot, writerId) => {
+      openCount++;
+      return Promise.resolve({ writerId, openCount } as unknown as WarpApp);
+    });
+
+    const first = await pool.getOrOpen(
+      "repo-a",
+      "/path/to/a",
+      "writer-a",
+      "session-a",
+    );
+    expect(pool.has("repo-a", "writer-a")).toBe(true);
+
+    pool.releaseLease("repo-a", "writer-a", "session-a");
+
+    expect(pool.has("repo-a", "writer-a")).toBe(false);
+    expect(await pool.getOrOpen(
+      "repo-a",
+      "/path/to/a",
+      "writer-a",
+      "session-b",
+    )).not.toBe(first);
+    expect(openCount).toBe(2);
+  });
+
   it("ejects an unreferenced writer lane without disturbing a leased sibling lane", async () => {
     let openCount = 0;
     const fakeOpen = (_worktreeRoot: string, writerId: string) => {
@@ -75,10 +102,12 @@ describe("mcp: warp pool lease eviction", () => {
     // 5. Release lease on repoA
     pool.releaseLease("repo-a", "writer-1", "session-1");
     expect(pool.leaseCount("repo-a", "writer-1")).toBe(0);
+    expect(pool.has("repo-a")).toBe(false);
+    expect(pool.size()).toBe(0);
 
-    // 6. Eject unreferenced now ejects repoA
+    // 6. No explicit sweep remains necessary after the last release
     const count2 = await pool.ejectUnreferenced();
-    expect(count2).toBe(1);
+    expect(count2).toBe(0);
     expect(pool.has("repo-a")).toBe(false);
     expect(pool.size()).toBe(0);
 

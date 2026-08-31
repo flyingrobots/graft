@@ -192,7 +192,7 @@ capacity and deterministic policy before replacing eager eviction.
       unique leases release.
 - [ ] A failed open leaves zero references and cannot remove a newer
       replacement entry.
-- [ ] The last release automatically removes that writer-lane resident from
+- [x] The last release automatically removes that writer-lane resident from
       production pool state.
 - [ ] One live writer lane does not retain an unreferenced sibling lane in the
       same repository.
