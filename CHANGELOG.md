@@ -7,6 +7,121 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Added
+
+- **Daemon session reaper**: `DaemonSessionHost` tracks inactivity on MCP sessions
+  and reaps idle sessions exceeding `sessionInactivityTtlMs` (default 30 min) on a
+  background sweep. Each concurrent request holds an independent activity
+  reference until settlement, preventing one completed request from exposing a
+  still-active session to eviction. Reaping closes HTTP transports, revokes
+  registrations in `DaemonControlPlane`, and purges session scratch directories.
+  Daemon startup now claims exclusive ownership of its daemon root and removes eligible
+  prior-process session directories before accepting requests. Manual sweeps
+  report retired sessions, live-directory removals, orphan removals, and cleanup
+  failures separately; failed current-process directory cleanup remains
+  discoverable and retryable by later sweeps. The process-local elapsed-time
+  clock rejects non-finite, negative, and regressing samples with a structured
+  failed-sweep result instead of expiring sessions or silently doing no work.
+  The manual sweep method is a required daemon capability rather than an
+  optional interface member. Structured cleanup failures mark only operations
+  that a later sweep actually retries. Protocol and fallback transport-close
+  failures plus permanently unsafe live-session child paths are reported as
+  non-retryable, while a transient sessions-root identity refusal remains
+  retryable after the exact parked root is restored. Pending initialization
+  directories are reserved from orphan discovery until their construction
+  commits or finishes rolling back. Sweeps are single-flight, shutdown fences
+  new commits and waits admitted construction plus any active sweep, and the
+  sweep capability rejects calls after daemon-root ownership is released.
+  Failed construction rollback preserves every control-plane, protocol,
+  fallback transport, and directory-cleanup error with the primary failure.
+  Orphan scans report preserved unknown, malformed, non-directory, and link
+  entries with stable reason codes instead of silently treating them as clean.
+  A rejected request-start or request-settlement clock sample is retained until
+  trusted activity supersedes it, forcing a valid sweep to report and rebase it
+  before any affected session can become eligible. Each valid sweep reports and
+  rebases at most one retained clock failure, so concurrent failures remain
+  individually observable on later sweeps instead of being silently cleared.
+  A sweep rechecks that retained-failure state immediately before each terminal
+  transition, so a bad request sample arriving while earlier cleanup awaits
+  cannot retire the affected session from a stale idle epoch.
+  Generic-Unix daemon ownership now combines the kernel-reported start second
+  with a random 128-bit process-title witness in one process snapshot, then
+  persists only its SHA-256 digest. Rapid PID reuse within the same second can
+  no longer make an unrelated replacement process look like the recorded owner.
+  Session IDs remain reserved from orphan discovery while their shared terminal
+  cleanup promise is still settling, preventing concurrent scratch deletion.
+  Scheduled reaping coalesces timer ticks while a sweep is in flight, bounding
+  pending callbacks and emitting each structured sweep diagnostic once.
+  Startup verifies exclusive daemon-root authority before preparing the socket
+  path and releases that claim if later startup work fails.
+  Failed session construction closes a transport acquired before MCP connection
+  directly instead of assuming an unconnected protocol server owns it.
+  Transport-triggered session termination emits its otherwise-unclaimed cleanup
+  failures once instead of discarding the structured terminal result.
+  Daemon shutdown tracks and awaits transport-triggered termination already in
+  flight before advancing to resource teardown or releasing root ownership.
+  A termination already owned by an in-flight sweep contributes its cleanup
+  failures through that sweep only, preventing duplicate shutdown diagnostics.
+  Session construction admitted after an orphan scan starts extends that scan's
+  protected-ID set before creating scratch state, closing the inverse-order race.
+  Startup and every orphan scan reject a symbolic-link or non-directory
+  sessions root before permission repair, enumeration, or recursive cleanup can
+  touch its target. Only startup may create a missing sessions root; runtime
+  scans and live cleanup report a lost root instead of silently replacing it
+  with a new empty directory. Each scan retains the original root handle and revalidates
+  its exact device/inode identity after enumeration and immediately before
+  candidate inspection and removal, refusing mid-scan path replacement.
+  Live-session terminal cleanup uses the same pinned root identity boundary, so
+  a replaced `sessions` path cannot redirect deletion to an external same-ID
+  directory. Each validated live-session child is moved to a private quarantine
+  name under that pinned root and its device/inode identity is rechecked against
+  the open validated directory before recursive removal; a post-validation
+  replacement is restored and refused rather than deleted.
+  If the sessions root itself is renamed after a live or orphan child enters
+  quarantine, cleanup locates the exact pinned root by device/inode among the
+  daemon root's direct children and restores the UUID child before reporting the
+  root-identity refusal, leaving no undiscoverable quarantine residue.
+  Session construction also captures the live directory's device/inode identity
+  before publishing the session and retains that witness until terminal cleanup.
+  A different real directory installed at the UUID path before cleanup begins is
+  refused rather than adopted and deleted as the live session's scratch state.
+  Orphan discovery carries the inspected child device/inode identity through an
+  unpredictable quarantine rename before recursive removal. If the UUID path
+  was replaced after marker inspection, cleanup restores and refuses the moved
+  replacement while preserving the originally inspected directory at its
+  displaced location.
+  Legacy orphan discovery now accepts only the exact version-4 UUID form Graft
+  generated; other UUID-shaped names are preserved and reported as unknown.
+  A custom-endpoint daemon now refuses startup while the legacy default
+  endpoint is live, before claiming ownership or scanning legacy session state.
+  Default-endpoint startup binds its socket before legacy orphan cleanup and
+  returns HTTP 503 until initialization completes, preventing a late legacy
+  daemon from creating live state inside the cleanup window.
+  Custom-endpoint startup and periodic sweeps also preserve unmarked legacy
+  UUID directories unconditionally, closing the later-listener race while
+  retaining cleanup of marker-owned orphan state.
+  Stale-owner takeover and release now validate the exact record they moved and
+  restore a concurrently published successor before refusing ownership.
+  Owner publication, validation, quarantine, and restoration now share one
+  process-birth-checked filesystem claim. Deterministic stale-claim tombstones
+  prevent a delayed reclaimer from moving a newer claim through the same ABA
+  window. If temporary claim release fails after owner publication, acquisition
+  rolls back the exact owner record and retries cleanup of the same released
+  claim tombstone before propagating the failure, so an immediate retry is not
+  blocked by unreachable authority.
+  Every claim-acquisition retry path now shares the same deadline and retry
+  delay, so vanished claims, stale-rename races, and existing tombstones cannot
+  bypass the timeout in a CPU spin.
+  Signal-triggered shutdown now consumes and reports aggregate cleanup failure
+  and selects a nonzero exit status instead of leaking an unhandled rejection.
+  Daemon-root claims now publish a flushed, complete candidate inode through an
+  exclusive hard link, preventing crash-truncated canonical owner records.
+  Root-owner liveness now records and verifies a process-birth witness, so PID
+  reuse cannot indefinitely pin a dead daemon while concurrent startup remains
+  protected before its endpoint binds. Open, pending, and terminating session
+  identities are reserved against reuse, and a late callback from a retired
+  transport cannot revoke a newer session that legitimately reuses its ID.
+
 ### Fixed
 
 - **Requested-worktree authority**: daemon-routed repository reads now expose

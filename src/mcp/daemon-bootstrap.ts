@@ -39,7 +39,7 @@ export async function ensurePrivateDirectory(dirPath: string): Promise<void> {
   }
 }
 
-async function socketHasActiveListener(socketPath: string): Promise<boolean> {
+export async function socketHasActiveListener(socketPath: string): Promise<boolean> {
   return new Promise<boolean>((resolve) => {
     const socket = net.createConnection({ path: socketPath });
     let settled = false;

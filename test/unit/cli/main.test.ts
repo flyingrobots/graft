@@ -229,6 +229,14 @@ describe("cli: graft grouped surface", () => {
           socketPath: options.socketPath ?? "default",
           healthPath: "/healthz",
           mcpPath: "/mcp",
+          reapExpiredSessions: () => Promise.resolve({
+            sessionsRetired: 0,
+            liveDirectoriesRemoved: 0,
+            orphanDirectoriesRemoved: 0,
+            cleanupFailures: [],
+            preservedEntries: [],
+            sweepFailure: null,
+          }),
           close: () => Promise.resolve(),
           getHealthStatus: () => ({
             ok: true,

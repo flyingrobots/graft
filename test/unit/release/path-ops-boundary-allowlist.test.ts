@@ -27,6 +27,7 @@ const ALLOWED_NODE_PATH_IMPORTS = new Set([
   "src/mcp/daemon-bootstrap.ts",
   "src/mcp/daemon-server.ts",
   "src/mcp/daemon-session-host.ts",
+  "src/mcp/daemon-storage-ownership.ts",
   "src/mcp/daemon-stdio-bridge.ts",
   "src/mcp/monitor-persistence.ts",
   "src/mcp/persisted-local-history.ts",

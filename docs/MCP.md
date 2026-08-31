@@ -61,6 +61,74 @@ agent-facing flow:
 3. then call repository-scoped tools such as `safe_read`, `graft_since`,
    or `code_show`
 
+### Session lifecycle and abandoned-session cleanup
+
+`DaemonSessionHost` bounds state retained by abandoned MCP sessions. This
+lifecycle does not claim to bound every daemon cache or working set.
+
+- **Idle eligibility** uses process-local monotonic elapsed time, never civil
+  wall time. The default inactivity TTL is 30 minutes and the default scheduled
+  sweep interval is 60 seconds.
+- **Active request ownership** starts for an existing session before POST body
+  parsing and lasts through handler settlement. Concurrent requests hold
+  independent references; a session with any active reference is not idle.
+- **Terminal cleanup** is one idempotent transition shared by idle expiry,
+  transport close/error, explicit disconnect, and daemon shutdown. Every cause
+  revokes the session's map and `DaemonControlPlane` registration and removes
+  `<graftDir>/sessions/<sessionId>`. Idle expiry, transport error, and daemon
+  shutdown ask the connected MCP protocol server to close and fall back to the
+  HTTP transport when protocol close fails. When the transport's own close
+  callback initiates termination, including explicit DELETE, the transport is
+  already closed, so the transition skips duplicate protocol/transport close.
+  Shutdown awaits active sweeps and transport-triggered terminations, but a
+  sweep-owned termination contributes its cleanup result only through that
+  sweep. There is no separate `GraftServer.close()` operation.
+- **Explicit disconnect** is available through `DELETE /mcp` with the exact
+  `mcp-session-id`.
+- **Crash and cleanup recovery** begins only after the daemon has exclusive
+  ownership of its configured root. Startup removes eligible prior-process
+  session directories; every later sweep also retries eligible current-process
+  orphans. Unknown files, links, malformed ownership records, and unsafe paths
+  are preserved. A daemon using a custom endpoint never deletes an unmarked
+  legacy UUID directory; only the default endpoint may perform that migration
+  cleanup. The default endpoint is already bound, but returns HTTP 503, before
+  that cleanup starts, so a legacy daemon cannot create live scratch inside the
+  startup scan window. Orphan discovery pins the original sessions-root handle
+  and refuses the scan if the root's device/inode identity changes during
+  enumeration, candidate inspection, or removal.
+
+The required programmatic sweep method,
+`GraftDaemonServer.reapExpiredSessions()`, returns separate facts:
+
+```text
+SessionSweepResult
+  sessionsRetired
+  liveDirectoriesRemoved
+  orphanDirectoriesRemoved
+  cleanupFailures[]
+    code
+    sessionId | null
+    path | null
+    retryable
+    message
+  preservedEntries[]
+    entryName
+    path
+    reason
+  sweepFailure | null
+```
+
+Retiring a session does not imply that its directory was removed. Filesystem
+and orphan-scan failures are marked retryable only when a later sweep executes
+that operation again. Protocol and fallback transport-close failures are
+reported separately as non-retryable, as are live-session cleanup refusals for
+links or non-directories that orphan discovery intentionally preserves. An invalid or regressing injected clock
+refuses the whole sweep with `MONOTONIC_CLOCK_INVALID`, reports zero retired
+sessions, and leaves the previous accepted elapsed-time sample unchanged.
+Scheduled sweeps emit structured diagnostics for refused sweeps and cleanup
+failures. Preserved unknown, malformed, non-directory, or link entries are also
+reported with stable reason codes without touching their targets.
+
 For concurrent multi-repo use inside one daemon-backed MCP session,
 repo tools that support routing also accept `cwd`: `safe_read`,
 `file_outline`, `read_range`, `changed_since`, `graft_diff`,
