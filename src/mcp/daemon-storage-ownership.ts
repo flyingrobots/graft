@@ -1,7 +1,7 @@
 import * as crypto from "node:crypto";
 import * as fs from "node:fs/promises";
 import * as path from "node:path";
-import { socketHasActiveListener } from "./daemon-bootstrap.js";
+import { resolveSocketPath, socketHasActiveListener } from "./daemon-bootstrap.js";
 
 const ROOT_OWNER_FILE = "daemon-owner.json";
 const SESSION_OWNER_FILE = ".graft-session-owner.json";
@@ -72,6 +72,15 @@ export class DaemonRootOwnershipError extends Error {
   constructor(instanceId: string) {
     super(`Graft daemon root is already owned by ${instanceId}`);
     this.name = "DaemonRootOwnershipError";
+  }
+}
+
+export class DaemonLegacyEndpointActiveError extends Error {
+  readonly code = "DAEMON_LEGACY_ENDPOINT_ACTIVE";
+
+  constructor(socketPath: string) {
+    super(`A pre-ownership Graft daemon is already listening on ${socketPath}`);
+    this.name = "DaemonLegacyEndpointActiveError";
   }
 }
 
@@ -156,13 +165,20 @@ export async function acquireDaemonRootOwnership(input: {
   readonly graftDir: string;
   readonly socketPath: string;
 }): Promise<DaemonRootOwnership> {
-  const ownerPath = path.join(path.resolve(input.graftDir), ROOT_OWNER_FILE);
+  const graftDir = path.resolve(input.graftDir);
+  const socketPath = resolveSocketPath(input.socketPath, graftDir);
+  const legacySocketPath = resolveSocketPath(undefined, graftDir);
+  if (socketPath !== legacySocketPath && await socketHasActiveListener(legacySocketPath)) {
+    throw new DaemonLegacyEndpointActiveError(legacySocketPath);
+  }
+
+  const ownerPath = path.join(graftDir, ROOT_OWNER_FILE);
   const instanceId = crypto.randomUUID();
   const record: DaemonRootOwnerRecord = {
     schemaVersion: 1,
     instanceId,
     pid: process.pid,
-    socketPath: input.socketPath,
+    socketPath,
   };
 
   for (;;) {

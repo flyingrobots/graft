@@ -55,6 +55,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   permission repair or orphan discovery can touch its target.
   Legacy orphan discovery now accepts only the exact version-4 UUID form Graft
   generated; other UUID-shaped names are preserved and reported as unknown.
+  A custom-endpoint daemon now refuses startup while the legacy default
+  endpoint is live, before claiming ownership or scanning legacy session state.
 
 ### Fixed
 

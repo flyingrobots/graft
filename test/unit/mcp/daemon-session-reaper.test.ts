@@ -1060,6 +1060,54 @@ describe("mcp: daemon session reaper", () => {
     expect(fs.readFileSync(socketPath, "utf-8")).toBe("operator-owned\n");
   });
 
+  it("refuses custom-endpoint startup while a legacy daemon endpoint is live", async () => {
+    if (process.platform === "win32") return;
+    const rootDir = fs.mkdtempSync(path.join(os.tmpdir(), "graft-session-legacy-live-"));
+    const legacySocketPath = path.join(rootDir, "mcp.sock");
+    const customSocketPath = path.join(rootDir, "custom.sock");
+    const legacySessionDir = path.join(
+      rootDir,
+      "sessions",
+      "00000000-0000-4000-8000-000000000001",
+    );
+    fs.mkdirSync(legacySessionDir, { recursive: true });
+    fs.writeFileSync(path.join(legacySessionDir, "keep.txt"), "live-legacy-session\n");
+    cleanups.push(() => {
+      fs.rmSync(rootDir, { recursive: true, force: true });
+    });
+
+    const legacyServer = http.createServer((_request, response) => {
+      response.end();
+    });
+    await new Promise<void>((resolve, reject) => {
+      legacyServer.once("error", reject);
+      legacyServer.listen(legacySocketPath, resolve);
+    });
+    cleanups.push(() => {
+      return new Promise<void>((resolve, reject) => {
+        legacyServer.close((error) => {
+          if (error) reject(error);
+          else resolve();
+        });
+      });
+    });
+
+    const startupError = await startDaemonServer({
+      graftDir: rootDir,
+      socketPath: customSocketPath,
+      sessionReaperIntervalMs: 0,
+    }).then(async (daemon) => {
+      await daemon.close();
+      return null;
+    }, (error: unknown) => error);
+
+    expect(startupError).toMatchObject({ code: "DAEMON_LEGACY_ENDPOINT_ACTIVE" });
+    expect(fs.readFileSync(path.join(legacySessionDir, "keep.txt"), "utf-8"))
+      .toBe("live-legacy-session\n");
+    expect(fs.existsSync(path.join(rootDir, "daemon-owner.json"))).toBe(false);
+    expect(fs.existsSync(customSocketPath)).toBe(false);
+  });
+
   it("refuses a second live owner without touching its session directory", async () => {
     const rootDir = fs.mkdtempSync(path.join(os.tmpdir(), "graft-session-reaper-owner-"));
     const socketPathA = path.join(rootDir, "daemon-a.sock");
