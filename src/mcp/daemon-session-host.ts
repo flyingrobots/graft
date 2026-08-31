@@ -509,6 +509,23 @@ export function createDaemonSessionHost(options: CreateDaemonSessionHostOptions)
     if (settlementFailure !== null) throw settlementFailure.error;
   }
 
+  function rebaseRetainedClockFailure(
+    session: DaemonSession,
+    current: number,
+  ): MonotonicClockFailure | null {
+    if (
+      session.state !== "open"
+      || session.activeRequests !== 0
+      || session.activityClockFailure === null
+    ) {
+      return null;
+    }
+    const failure = session.activityClockFailure;
+    session.lastActivityAtMs = current;
+    session.activityClockFailure = null;
+    return failure;
+  }
+
   async function runSessionSweep(): Promise<SessionSweepResult> {
     const clockSample = clock.sample();
     if (!clockSample.ok) {
@@ -522,32 +539,35 @@ export function createDaemonSessionHost(options: CreateDaemonSessionHostOptions)
       };
     }
     const current = clockSample.value;
-    const sessionNeedingClockRebase = [...sessions.values()].find((session) => {
-      return session.state === "open"
-        && session.activeRequests === 0
-        && session.activityClockFailure !== null;
-    });
-    if (sessionNeedingClockRebase !== undefined) {
-      const sweepFailure = sessionNeedingClockRebase.activityClockFailure;
-      if (sweepFailure === null) {
-        throw new Error("Daemon session clock rebase invariant violated");
+    for (const session of sessions.values()) {
+      const sweepFailure = rebaseRetainedClockFailure(session, current);
+      if (sweepFailure !== null) {
+        return {
+          sessionsRetired: 0,
+          liveDirectoriesRemoved: 0,
+          orphanDirectoriesRemoved: 0,
+          cleanupFailures: [],
+          preservedEntries: [],
+          sweepFailure,
+        };
       }
-      sessionNeedingClockRebase.lastActivityAtMs = current;
-      sessionNeedingClockRebase.activityClockFailure = null;
-      return {
-        sessionsRetired: 0,
-        liveDirectoriesRemoved: 0,
-        orphanDirectoriesRemoved: 0,
-        cleanupFailures: [],
-        preservedEntries: [],
-        sweepFailure,
-      };
     }
     const retiredSessionIds = new Set<string>();
     let sessionsRetired = 0;
     let liveDirectoriesRemoved = 0;
     const cleanupFailures: SessionCleanupFailure[] = [];
     for (const session of [...sessions.values()]) {
+      const sweepFailure = rebaseRetainedClockFailure(session, current);
+      if (sweepFailure !== null) {
+        return {
+          sessionsRetired,
+          liveDirectoriesRemoved,
+          orphanDirectoriesRemoved: 0,
+          cleanupFailures,
+          preservedEntries: [],
+          sweepFailure,
+        };
+      }
       if (
         session.state === "open"
         && session.activeRequests === 0

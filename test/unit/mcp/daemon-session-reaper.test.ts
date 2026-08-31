@@ -704,6 +704,101 @@ describe("mcp: daemon session reaper", () => {
     });
   });
 
+  it("rechecks retained clock failures before each mid-sweep retirement", async () => {
+    const rootDir = fs.mkdtempSync(path.join(os.tmpdir(), "graft-clk-mid-sweep-"));
+    const socketPath = path.join(rootDir, "daemon.sock");
+    cleanups.push(() => {
+      fs.rmSync(rootDir, { recursive: true, force: true });
+    });
+    let currentTimeMs = 1_000;
+    let gatedSessionId: string | null = null;
+    let firstRemovalGated = false;
+    let markFirstRemovalEntered!: () => void;
+    let releaseFirstRemoval!: () => void;
+    const firstRemovalEntered = new Promise<void>((resolve) => {
+      markFirstRemovalEntered = resolve;
+    });
+    const firstRemovalGate = new Promise<void>((resolve) => {
+      releaseFirstRemoval = resolve;
+    });
+    cleanups.push(() => {
+      releaseFirstRemoval();
+    });
+    const sessionStorage = {
+      writeSessionOwnershipMarker,
+      removeSessionOrphanDirectories,
+      async removeSessionDirectory(sessionDir: string): Promise<boolean> {
+        if (!firstRemovalGated && path.basename(sessionDir) === gatedSessionId) {
+          firstRemovalGated = true;
+          markFirstRemovalEntered();
+          await firstRemovalGate;
+        }
+        return removeSessionDirectory(sessionDir);
+      },
+    };
+    const daemon = await startDaemonServer({
+      graftDir: rootDir,
+      socketPath,
+      sessionInactivityTtlMs: 10_000,
+      sessionReaperIntervalMs: 0,
+      nowMs: () => currentTimeMs,
+      sessionStorage,
+    });
+    cleanups.push(() => daemon.close());
+    const initializeSession = async (id: number): Promise<string> => {
+      const initialize = await requestUnixJson(socketPath, "POST", "/mcp", {
+        jsonrpc: "2.0",
+        id,
+        method: "initialize",
+        params: {
+          protocolVersion: "2025-03-26",
+          capabilities: {},
+          clientInfo: { name: "vitest", version: "0.0.0" },
+        },
+      });
+      const header = initialize.headers["mcp-session-id"];
+      const sessionId = Array.isArray(header) ? header[0] : header;
+      if (sessionId === undefined) throw new Error("Expected MCP session ID");
+      return sessionId;
+    };
+    const firstSessionId = await initializeSession(1);
+    const secondSessionId = await initializeSession(2);
+    gatedSessionId = firstSessionId;
+    const secondSessionDir = path.join(rootDir, "sessions", secondSessionId);
+
+    currentTimeMs = 11_001;
+    const sweeping = daemon.reapExpiredSessions();
+    await firstRemovalEntered;
+    currentTimeMs = Number.NaN;
+    expect((await requestUnixJson(socketPath, "POST", "/mcp", {
+      jsonrpc: "2.0",
+      id: 3,
+      method: "ping",
+      params: {},
+    }, { "mcp-session-id": secondSessionId })).statusCode).toBe(500);
+    currentTimeMs = 11_002;
+    releaseFirstRemoval();
+
+    await expect(sweeping).resolves.toMatchObject({
+      sessionsRetired: 1,
+      liveDirectoriesRemoved: 1,
+      sweepFailure: {
+        code: "MONOTONIC_CLOCK_INVALID",
+        reason: "NON_FINITE",
+        received: "NaN",
+        previousAcceptedMs: 11_001,
+      },
+    });
+    expect(fs.existsSync(secondSessionDir)).toBe(true);
+
+    currentTimeMs = 21_002;
+    await expect(daemon.reapExpiredSessions()).resolves.toMatchObject({
+      sessionsRetired: 1,
+      sweepFailure: null,
+    });
+    expect(fs.existsSync(secondSessionDir)).toBe(false);
+  });
+
   it("removes prior-process session directories before accepting requests", async () => {
     const rootDir = fs.mkdtempSync(path.join(os.tmpdir(), "graft-session-reaper-restart-"));
     const socketPath = path.join(rootDir, "mcp.sock");

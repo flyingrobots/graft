@@ -174,7 +174,10 @@ reports it. That sweep retires nothing and rebases the idle epoch to its trusted
 sample; eligibility requires a full TTL after the rebase. A sweep reports and
 rebases exactly one retained session failure. Other sessions keep their failures
 for later sweeps, ensuring every rejected sample remains observable rather than
-being cleared behind the first report.
+being cleared behind the first report. Because one session's terminal cleanup
+may await while the sweep still holds its original trusted sample, the sweep
+rechecks retained failure state immediately before every later terminal
+transition and returns its partial counts if a new failure must be rebased.
 
 Persisted orphan discovery does not compare monotonic timestamps from different
 processes. Process-local clock values are never written as restart authority.
@@ -405,6 +408,9 @@ authority has been retired, and each failed close layer is reported separately.
       with zero retired sessions.
 - [x] Concurrent retained session clock failures are reported and rebased one
       per valid sweep; reporting the first never clears the rest.
+- [x] A retained request clock failure arriving while an earlier session's
+      cleanup is blocked is rechecked and rebased before that session can be
+      retired from the sweep's stale eligibility snapshot.
 
 ### Request and teardown lifecycle
 

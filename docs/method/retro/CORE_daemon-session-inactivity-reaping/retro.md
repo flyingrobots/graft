@@ -174,6 +174,13 @@ to an external same-ID directory. Live removal now derives and pins the direct
 parent root, revalidates its device/inode identity before removal, and reports
 root replacement as non-retryable cleanup debt.
 
+The same review found that a valid sweep could block while terminating one
+expired session, then retire a later session after that session recorded an
+invalid request clock sample. The eligibility loop now rechecks retained clock
+failure state immediately before every terminal transition, rebases one newly
+failed session, and returns the partial retirement counts instead of using the
+stale idle epoch.
+
 ## Drift
 
 The largest drift was procedural: implementation and PR publication preceded
