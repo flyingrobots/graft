@@ -15,6 +15,7 @@ import type { RuntimeObservabilityState } from "./runtime-observability.js";
 import type { WarpPool } from "./warp-pool.js";
 import { ensurePrivateDirectory } from "./daemon-bootstrap.js";
 import type {
+  DaemonSessionDirectoryIdentity,
   DaemonSessionStorage,
   LegacyUnmarkedSessionPolicy,
   SessionOrphanPreservedEntry,
@@ -102,6 +103,7 @@ export function resolveSessionReaperIntervalMs(value: number | undefined): numbe
 interface DaemonSession {
   readonly id: string;
   readonly graftDir: string;
+  readonly directoryIdentity: DaemonSessionDirectoryIdentity;
   readonly transport: StreamableHTTPServerTransport;
   readonly server: GraftServer;
   state: "open" | "terminating" | "terminated";
@@ -201,6 +203,7 @@ async function createDaemonSession(
 ): Promise<DaemonSession> {
   const sessionGraftDir = path.join(options.graftDir, "sessions", newSessionId);
   let directoryReady = false;
+  let directoryIdentity: DaemonSessionDirectoryIdentity | undefined;
   let transport: StreamableHTTPServerTransport | undefined;
   let server: GraftServer | undefined;
   let session: DaemonSession | undefined;
@@ -212,6 +215,9 @@ async function createDaemonSession(
   try {
     await ensurePrivateDirectory(sessionGraftDir);
     directoryReady = true;
+    directoryIdentity = await options.sessionStorage.captureSessionDirectoryIdentity(
+      sessionGraftDir,
+    );
     await options.sessionStorage.writeSessionOwnershipMarker(
       sessionGraftDir,
       options.daemonInstanceId,
@@ -252,6 +258,7 @@ async function createDaemonSession(
     session = {
       id: newSessionId,
       graftDir: sessionGraftDir,
+      directoryIdentity,
       transport: createdTransport,
       server: createdServer,
       state: "open",
@@ -345,9 +352,9 @@ async function createDaemonSession(
         rollbackErrors.push(transportCloseError);
       }
     }
-    if (directoryReady) {
+    if (directoryReady && directoryIdentity !== undefined) {
       try {
-        await options.sessionStorage.removeSessionDirectory(sessionGraftDir);
+        await options.sessionStorage.removeSessionDirectory(sessionGraftDir, directoryIdentity);
       } catch (cleanupError) {
         rollbackErrors.push(cleanupError);
       }
@@ -425,7 +432,10 @@ export function createDaemonSessionHost(options: CreateDaemonSessionHostOptions)
       }
       let liveDirectoryRemoved = false;
       try {
-        liveDirectoryRemoved = await options.sessionStorage.removeSessionDirectory(session.graftDir);
+        liveDirectoryRemoved = await options.sessionStorage.removeSessionDirectory(
+          session.graftDir,
+          session.directoryIdentity,
+        );
       } catch (error) {
         cleanupFailures.push(cleanupFailure({
           code: "SESSION_DIRECTORY_REMOVE_FAILED",

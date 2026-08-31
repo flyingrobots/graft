@@ -81,13 +81,24 @@ export interface SessionOrphanRemovalResult {
 
 export type LegacyUnmarkedSessionPolicy = "remove" | "preserve";
 
+export interface DaemonSessionDirectoryIdentity {
+  readonly device: number;
+  readonly inode: number;
+}
+
 export interface DaemonSessionStorage {
+  captureSessionDirectoryIdentity(
+    sessionDir: string,
+  ): Promise<DaemonSessionDirectoryIdentity>;
   writeSessionOwnershipMarker(
     sessionDir: string,
     daemonInstanceId: string,
     sessionId: string,
   ): Promise<void>;
-  removeSessionDirectory(sessionDir: string): Promise<boolean>;
+  removeSessionDirectory(
+    sessionDir: string,
+    expectedIdentity: DaemonSessionDirectoryIdentity,
+  ): Promise<boolean>;
   removeSessionOrphanDirectories(
     sessionsRoot: string,
     liveSessionIds: ReadonlySet<string>,
@@ -168,7 +179,7 @@ function daemonSessionsRootIdentityMatches(
 }
 
 function daemonSessionDirectoryIdentityMatches(
-  expected: { readonly device: number; readonly inode: number },
+  expected: DaemonSessionDirectoryIdentity,
   stat: Awaited<ReturnType<typeof fs.lstat>>,
 ): boolean {
   return stat.isDirectory()
@@ -901,6 +912,19 @@ export async function writeSessionOwnershipMarker(
   }
 }
 
+export async function captureSessionDirectoryIdentity(
+  sessionDir: string,
+): Promise<DaemonSessionDirectoryIdentity> {
+  const stat = await fs.lstat(sessionDir).catch((error: unknown) => {
+    if (errorCode(error) === "ENOENT") return null;
+    throw error;
+  });
+  if (stat === null || !stat.isDirectory() || stat.isSymbolicLink()) {
+    throw new UnsafeDaemonSessionDirectoryError(sessionDir);
+  }
+  return { device: stat.dev, inode: stat.ino };
+}
+
 async function restoreQuarantinedSessionDirectory(
   quarantinePath: string,
   sessionDir: string,
@@ -918,7 +942,10 @@ async function restoreQuarantinedSessionDirectory(
   throw error;
 }
 
-export async function removeSessionDirectory(sessionDir: string): Promise<boolean> {
+export async function removeSessionDirectory(
+  sessionDir: string,
+  expectedIdentity: DaemonSessionDirectoryIdentity,
+): Promise<boolean> {
   const resolvedSessionDir = path.resolve(sessionDir);
   const sessionId = path.basename(resolvedSessionDir);
   const sessionsRoot = path.dirname(resolvedSessionDir);
@@ -938,10 +965,9 @@ export async function removeSessionDirectory(sessionDir: string): Promise<boolea
     });
     await assertPinnedDaemonSessionsRoot(root);
     if (stat === null) return false;
-    if (!stat.isDirectory() || stat.isSymbolicLink()) {
+    if (!daemonSessionDirectoryIdentityMatches(expectedIdentity, stat)) {
       throw new UnsafeDaemonSessionDirectoryError(sessionDir);
     }
-    const expectedIdentity = { device: stat.dev, inode: stat.ino };
     if (process.platform !== "win32") {
       try {
         sessionHandle = await fs.open(resolvedSessionDir, "r");
@@ -1143,6 +1169,7 @@ export async function removeSessionOrphanDirectories(
 }
 
 export const nodeDaemonSessionStorage: DaemonSessionStorage = Object.freeze({
+  captureSessionDirectoryIdentity,
   writeSessionOwnershipMarker,
   removeSessionDirectory,
   removeSessionOrphanDirectories,

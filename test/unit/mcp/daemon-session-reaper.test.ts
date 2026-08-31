@@ -12,7 +12,9 @@ import { PersistentMonitorRuntime } from "../../../src/mcp/persistent-monitor-ru
 import * as graftServerModule from "../../../src/mcp/server.js";
 import {
   acquireDaemonRootOwnership,
+  captureSessionDirectoryIdentity,
   DaemonRootOwnerClaimTimeoutError,
+  type DaemonSessionDirectoryIdentity,
   daemonRootOwnerIsLive,
   deriveGenericUnixProcessStartIdentity,
   type LegacyUnmarkedSessionPolicy,
@@ -729,15 +731,19 @@ describe("mcp: daemon session reaper", () => {
       releaseFirstRemoval();
     });
     const sessionStorage = {
+      captureSessionDirectoryIdentity,
       writeSessionOwnershipMarker,
       removeSessionOrphanDirectories,
-      async removeSessionDirectory(sessionDir: string): Promise<boolean> {
+      async removeSessionDirectory(
+        sessionDir: string,
+        expectedIdentity: DaemonSessionDirectoryIdentity,
+      ): Promise<boolean> {
         if (!firstRemovalGated && path.basename(sessionDir) === gatedSessionId) {
           firstRemovalGated = true;
           markFirstRemovalEntered();
           await firstRemovalGate;
         }
-        return removeSessionDirectory(sessionDir);
+        return removeSessionDirectory(sessionDir, expectedIdentity);
       },
     };
     const daemon = await startDaemonServer({
@@ -989,16 +995,20 @@ describe("mcp: daemon session reaper", () => {
     });
     let swapped = false;
     const sessionStorage = {
+      captureSessionDirectoryIdentity,
       writeSessionOwnershipMarker,
       removeSessionOrphanDirectories,
-      async removeSessionDirectory(sessionDir: string): Promise<boolean> {
+      async removeSessionDirectory(
+        sessionDir: string,
+        expectedIdentity: DaemonSessionDirectoryIdentity,
+      ): Promise<boolean> {
         if (!swapped) {
           fs.renameSync(sessionsRoot, parkedSessionsRoot);
           fs.symlinkSync(externalRoot, sessionsRoot, "dir");
           swapped = true;
         }
         try {
-          return await removeSessionDirectory(sessionDir);
+          return await removeSessionDirectory(sessionDir, expectedIdentity);
         } finally {
           markRemovalFinished();
         }
@@ -1067,7 +1077,9 @@ describe("mcp: daemon session reaper", () => {
       fs.renameSync(externalRoot, String(newPath));
     });
 
-    await expect(removeSessionDirectory(sessionDir))
+    const expectedIdentity = await captureSessionDirectoryIdentity(sessionDir);
+
+    await expect(removeSessionDirectory(sessionDir, expectedIdentity))
       .rejects
       .toBeInstanceOf(UnsafeDaemonSessionDirectoryError);
 
@@ -1270,6 +1282,7 @@ describe("mcp: daemon session reaper", () => {
       releaseScan = resolve;
     });
     const sessionStorage = {
+      captureSessionDirectoryIdentity,
       writeSessionOwnershipMarker,
       removeSessionDirectory,
       async removeSessionOrphanDirectories(
@@ -1425,6 +1438,7 @@ describe("mcp: daemon session reaper", () => {
       releaseScan = resolve;
     });
     const sessionStorage = {
+      captureSessionDirectoryIdentity,
       writeSessionOwnershipMarker,
       removeSessionDirectory,
       async removeSessionOrphanDirectories(
@@ -1490,6 +1504,7 @@ describe("mcp: daemon session reaper", () => {
       markScanFinished = resolve;
     });
     const sessionStorage = {
+      captureSessionDirectoryIdentity,
       writeSessionOwnershipMarker,
       removeSessionDirectory,
       async removeSessionOrphanDirectories(
@@ -1642,6 +1657,7 @@ describe("mcp: daemon session reaper", () => {
       releaseScan();
     });
     const sessionStorage = {
+      captureSessionDirectoryIdentity,
       writeSessionOwnershipMarker,
       removeSessionDirectory,
       async removeSessionOrphanDirectories(
@@ -2241,12 +2257,16 @@ describe("mcp: daemon session reaper", () => {
     });
     let removalCalls = 0;
     const sessionStorage = {
+      captureSessionDirectoryIdentity,
       writeSessionOwnershipMarker,
       removeSessionOrphanDirectories,
-      async removeSessionDirectory(sessionDir: string): Promise<boolean> {
+      async removeSessionDirectory(
+        sessionDir: string,
+        expectedIdentity: DaemonSessionDirectoryIdentity,
+      ): Promise<boolean> {
         removalCalls++;
         if (removalCalls > 1) return false;
-        return removeSessionDirectory(sessionDir);
+        return removeSessionDirectory(sessionDir, expectedIdentity);
       },
     };
     const unregisterTransport = vi.spyOn(DaemonControlPlane.prototype, "unregisterTransport");
@@ -2343,15 +2363,19 @@ describe("mcp: daemon session reaper", () => {
     });
     let removalCalls = 0;
     const sessionStorage = {
+      captureSessionDirectoryIdentity,
       writeSessionOwnershipMarker,
       removeSessionOrphanDirectories,
-      async removeSessionDirectory(sessionDir: string): Promise<boolean> {
+      async removeSessionDirectory(
+        sessionDir: string,
+        expectedIdentity: DaemonSessionDirectoryIdentity,
+      ): Promise<boolean> {
         removalCalls++;
         if (removalCalls === 1) {
           markRemovalStarted();
           await removalGate;
         }
-        const removed = await removeSessionDirectory(sessionDir);
+        const removed = await removeSessionDirectory(sessionDir, expectedIdentity);
         if (removalCalls === 1) markRemovalFinished();
         return removed;
       },
@@ -2449,11 +2473,15 @@ describe("mcp: daemon session reaper", () => {
     let scanCalls = 0;
     const sweepLiveSessionIds: ReadonlySet<string>[] = [];
     const sessionStorage = {
+      captureSessionDirectoryIdentity,
       writeSessionOwnershipMarker,
-      async removeSessionDirectory(sessionDir: string): Promise<boolean> {
+      async removeSessionDirectory(
+        sessionDir: string,
+        expectedIdentity: DaemonSessionDirectoryIdentity,
+      ): Promise<boolean> {
         markRemovalStarted();
         await removalGate;
-        return removeSessionDirectory(sessionDir);
+        return removeSessionDirectory(sessionDir, expectedIdentity);
       },
       removeSessionOrphanDirectories(
         _sessionsRoot: string,
@@ -2513,6 +2541,7 @@ describe("mcp: daemon session reaper", () => {
       markRemovalAttempted = resolve;
     });
     const sessionStorage = {
+      captureSessionDirectoryIdentity,
       writeSessionOwnershipMarker,
       removeSessionOrphanDirectories,
       removeSessionDirectory(): Promise<boolean> {
@@ -2633,12 +2662,16 @@ describe("mcp: daemon session reaper", () => {
       releaseRemoval = resolve;
     });
     const sessionStorage = {
+      captureSessionDirectoryIdentity,
       writeSessionOwnershipMarker,
       removeSessionOrphanDirectories,
-      async removeSessionDirectory(sessionDir: string): Promise<boolean> {
+      async removeSessionDirectory(
+        sessionDir: string,
+        expectedIdentity: DaemonSessionDirectoryIdentity,
+      ): Promise<boolean> {
         markRemovalStarted();
         await removalGate;
-        return removeSessionDirectory(sessionDir);
+        return removeSessionDirectory(sessionDir, expectedIdentity);
       },
     };
     const daemon = await startDaemonServer({
@@ -2694,6 +2727,7 @@ describe("mcp: daemon session reaper", () => {
     let currentTimeMs = 1_000_000;
     let failNextRemoval = true;
     const sessionStorage = {
+      captureSessionDirectoryIdentity,
       writeSessionOwnershipMarker,
       removeSessionOrphanDirectories,
       async removeSessionDirectory(directoryPath: string): Promise<boolean> {
@@ -2878,6 +2912,68 @@ describe("mcp: daemon session reaper", () => {
     expect(fs.readFileSync(path.join(externalRoot, "keep.txt"), "utf-8")).toBe("external\n");
   });
 
+  it("preserves a live-session directory replacement made before cleanup starts", async () => {
+    const rootDir = fs.mkdtempSync(path.join(os.tmpdir(), "graft-live-session-child-swap-"));
+    const externalRoot = fs.mkdtempSync(path.join(os.tmpdir(), "graft-live-session-child-target-"));
+    const socketPath = path.join(rootDir, "daemon.sock");
+    const displacedSession = path.join(rootDir, "displaced-session");
+    fs.writeFileSync(path.join(externalRoot, "keep.txt"), "external\n");
+    fs.writeFileSync(
+      path.join(externalRoot, ".graft-session-owner.json"),
+      `${JSON.stringify({
+        schemaVersion: 1,
+        daemonInstanceId: "00000000-0000-4000-8000-000000000099",
+        sessionId: "00000000-0000-4000-8000-000000000099",
+      })}\n`,
+    );
+    cleanups.push(() => {
+      fs.rmSync(rootDir, { recursive: true, force: true });
+      fs.rmSync(externalRoot, { recursive: true, force: true });
+    });
+    let currentTimeMs = 1_000_000;
+    const daemon = await startDaemonServer({
+      graftDir: rootDir,
+      socketPath,
+      sessionInactivityTtlMs: 10_000,
+      sessionReaperIntervalMs: 0,
+      nowMs: () => currentTimeMs,
+    });
+    cleanups.push(() => daemon.close());
+    const initialize = await requestUnixJson(socketPath, "POST", "/mcp", {
+      jsonrpc: "2.0",
+      id: 1,
+      method: "initialize",
+      params: {
+        protocolVersion: "2025-03-26",
+        capabilities: {},
+        clientInfo: { name: "vitest", version: "0.0.0" },
+      },
+    });
+    const sessionIdHeader = initialize.headers["mcp-session-id"];
+    const sessionId = Array.isArray(sessionIdHeader) ? sessionIdHeader[0] : sessionIdHeader;
+    expect(sessionId).toBeDefined();
+    const sessionDir = path.join(rootDir, "sessions", sessionId!);
+    fs.writeFileSync(path.join(sessionDir, "original.txt"), "original\n");
+    fs.renameSync(sessionDir, displacedSession);
+    fs.renameSync(externalRoot, sessionDir);
+
+    currentTimeMs += 10_001;
+    expect(await daemon.reapExpiredSessions()).toMatchObject({
+      sessionsRetired: 1,
+      liveDirectoriesRemoved: 0,
+      orphanDirectoriesRemoved: 0,
+      cleanupFailures: [{
+        code: "SESSION_DIRECTORY_REMOVE_FAILED",
+        sessionId,
+        path: sessionDir,
+        retryable: false,
+      }],
+    });
+    expect(fs.readFileSync(path.join(sessionDir, "keep.txt"), "utf-8")).toBe("external\n");
+    expect(fs.readFileSync(path.join(displacedSession, "original.txt"), "utf-8"))
+      .toBe("original\n");
+  });
+
   it("reports protocol and fallback transport close failures as non-retryable", async () => {
     const rootDir = fs.mkdtempSync(path.join(os.tmpdir(), "graft-session-close-failures-"));
     const socketPath = path.join(rootDir, "daemon.sock");
@@ -2942,6 +3038,7 @@ describe("mcp: daemon session reaper", () => {
       fs.rmSync(rootDir, { recursive: true, force: true });
     });
     const sessionStorage = {
+      captureSessionDirectoryIdentity,
       writeSessionOwnershipMarker,
       removeSessionOrphanDirectories,
       removeSessionDirectory(): Promise<boolean> {
@@ -2989,6 +3086,7 @@ describe("mcp: daemon session reaper", () => {
       releaseRemoval();
     });
     const sessionStorage = {
+      captureSessionDirectoryIdentity,
       writeSessionOwnershipMarker,
       removeSessionOrphanDirectories,
       async removeSessionDirectory(): Promise<boolean> {
@@ -3070,6 +3168,7 @@ describe("mcp: daemon session reaper", () => {
       process.off("unhandledRejection", onUnhandledRejection);
     });
     const sessionStorage = {
+      captureSessionDirectoryIdentity,
       writeSessionOwnershipMarker,
       removeSessionOrphanDirectories,
       removeSessionDirectory(): Promise<boolean> {
@@ -3369,6 +3468,7 @@ describe("mcp: daemon session reaper", () => {
     });
     const markerFailure = new Error("injected session ownership marker failure");
     const sessionStorage = {
+      captureSessionDirectoryIdentity,
       writeSessionOwnershipMarker(): Promise<void> {
         return Promise.reject(markerFailure);
       },

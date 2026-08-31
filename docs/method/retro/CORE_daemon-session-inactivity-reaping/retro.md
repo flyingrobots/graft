@@ -230,6 +230,17 @@ refuses a mismatch. The deterministic regression performs the swap from the
 marker-read observer and proves both the replacement and inspected contents
 survive.
 
+That Codex review also found the live-session path was first identified only
+after terminal cleanup started. A real-directory replacement installed before
+that point therefore became the cleanup function's own expected inode and was
+deleted. The storage contract now requires a creation-time directory identity;
+the session retains that witness through its lifetime, and both construction
+rollback and terminal cleanup must present it before deletion. The end-to-end
+RED displaced the initialized directory, installed unrelated marker-bearing
+contents at the same UUID path, and observed `liveDirectoriesRemoved: 1` with
+no failure. GREEN reports the typed non-retryable refusal and preserves both
+directories byte-for-byte.
+
 ## Drift
 
 The largest drift was procedural: implementation and PR publication preceded

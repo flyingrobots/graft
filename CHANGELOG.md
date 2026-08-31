@@ -75,6 +75,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   name under that pinned root and its device/inode identity is rechecked against
   the open validated directory before recursive removal; a post-validation
   replacement is restored and refused rather than deleted.
+  Session construction also captures the live directory's device/inode identity
+  before publishing the session and retains that witness until terminal cleanup.
+  A different real directory installed at the UUID path before cleanup begins is
+  refused rather than adopted and deleted as the live session's scratch state.
   Orphan discovery carries the inspected child device/inode identity through an
   unpredictable quarantine rename before recursive removal. If the UUID path
   was replaced after marker inspection, cleanup restores and refuses the moved

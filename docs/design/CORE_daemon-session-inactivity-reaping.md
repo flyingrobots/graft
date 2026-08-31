@@ -270,7 +270,11 @@ exact identity check, so a root replaced after startup or during a scan is
 refused before cleanup. Permission repair targets the retained handle rather
 than a separately resolved pathname. Live-session terminal cleanup derives the
 exact direct-child root from the generated session UUID, pins that root, and
-revalidates the same identity immediately before its recursive removal.
+revalidates the same identity immediately before its recursive removal. Session
+construction captures the new child directory's device/inode identity before
+publication and retains it as part of the live session. Terminal cleanup accepts
+only that creation-time identity; it never derives deletion authority from the
+entry occupying the UUID pathname when cleanup begins.
 
 When a daemon uses a non-default endpoint, root acquisition first probes the
 legacy `<graftDir>/mcp.sock` endpoint and refuses ownership while a
@@ -466,6 +470,9 @@ authority has been retired, and each failed close layer is reported separately.
 - [x] Replacing a validated live-session child before recursive removal is
       detected by exact device/inode identity; the replacement and original
       directory contents both survive the refusal.
+- [x] Replacing a live-session child before terminal cleanup begins is refused
+      against its retained creation-time identity; the replacement and displaced
+      original directory contents both survive.
 - [x] Replacing an eligible orphan after ownership-marker inspection is
       detected after quarantine; the replacement and inspected directory
       contents both survive the refusal.
