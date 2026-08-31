@@ -42,6 +42,7 @@ export interface WorkspaceSlice {
 
 export interface WorkspaceWarpLease {
   getWarp(): Promise<WarpContext>;
+  hasAcquiredResident(): boolean;
   release(): Promise<void>;
 }
 
@@ -69,6 +70,7 @@ export function createWorkspaceWarpLease(input: {
 }): WorkspaceWarpLease {
   let leasePromise: Promise<WarpResidentLease> | null = null;
   let releasePromise: Promise<void> | null = null;
+  let acquiredResident = false;
   const releaseHasStarted = (): boolean => releasePromise !== null;
 
   return {
@@ -88,13 +90,18 @@ export function createWorkspaceWarpLease(input: {
           await lease.release();
           throw new Error("workspace WARP lease was released while opening");
         }
+        acquiredResident = true;
         return { app: lease.app, strandId: null };
       } catch (error) {
         if (leasePromise === currentLease) {
           leasePromise = null;
+          acquiredResident = false;
         }
         throw error;
       }
+    },
+    hasAcquiredResident(): boolean {
+      return acquiredResident && !releaseHasStarted();
     },
     release(): Promise<void> {
       if (releasePromise !== null) return releasePromise;

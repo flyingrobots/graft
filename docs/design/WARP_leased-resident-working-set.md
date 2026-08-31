@@ -132,6 +132,12 @@ exact displaced capability. Concurrent rebind preparation may overlap, but
 each commit observes the binding installed by the prior successful commit; a
 later winner therefore cannot strand the earlier winner's lease.
 
+A same-resident rebind transfers only a successfully acquired, unreleased
+resident capability. A lazy or still-opening binding wrapper is not path-
+neutral: its opener retains the worktree root captured at construction. The
+replacement binding therefore receives a new lazy wrapper rooted at its own
+canonical worktree, and the predecessor is released after commit.
+
 An in-flight execution cannot borrow the binding's lease. Capturing a
 `WorkspaceExecutionContext` creates or lazily acquires a distinct invocation
 lease, and the invocation engine releases it in `finally`. Therefore removing
@@ -204,6 +210,8 @@ capacity and deterministic policy before replacing eager eviction.
       same repository.
 - [x] Successful A-to-B rebind releases A only after B commits, while a
       same-resident rebind transfers the existing holder.
+- [x] An unacquired same-resident rebind opens from the replacement worktree
+      even if the prior linked worktree is removed after commit.
 - [x] Concurrent cross-resident rebind commits each observe and release their
       actual predecessor; only the final binding remains resident.
 - [x] Failed rebind retains A and releases any uncommitted B lease.

@@ -503,6 +503,65 @@ describe("mcp: daemon workspace binding", () => {
     expect((await router.getWarp()).app).toBe(secondResident);
   });
 
+  it("opens an unacquired same-repository lease from the rebound worktree", async () => {
+    const repoDir = createCommittedRepo();
+    git(repoDir, "branch lazy-lease-source");
+    const previousWorktree = path.join(os.tmpdir(), `graft-lazy-lease-source-${String(Date.now())}`);
+    git(repoDir, `worktree add ${previousWorktree} lazy-lease-source`);
+    cleanups.push(() => {
+      fs.rmSync(previousWorktree, { recursive: true, force: true });
+    });
+    const graftDir = fs.mkdtempSync(path.join(os.tmpdir(), "graft-lazy-lease-rebind-"));
+    cleanups.push(() => {
+      fs.rmSync(graftDir, { recursive: true, force: true });
+    });
+    const openedRoots: string[] = [];
+    const pool = new InMemoryWarpPool((worktreeRoot, writerId) => {
+      openedRoots.push(worktreeRoot);
+      if (!fs.existsSync(worktreeRoot)) {
+        return Promise.reject(new Error(`missing WARP worktree root: ${worktreeRoot}`));
+      }
+      return Promise.resolve({ worktreeRoot, writerId } as unknown as WarpApp);
+    });
+    const router = new WorkspaceRouter({
+      mode: "daemon",
+      fs: nodeFs,
+      git: nodeGit,
+      graftDir,
+      warpPool: pool,
+      transportSessionId: "transport:test",
+      warpWriterId: "writer:test",
+      authorizationPolicy: {
+        getCapabilityProfile() {
+          return Promise.resolve(DEFAULT_DAEMON_CAPABILITY_PROFILE);
+        },
+        noteBound(): Promise<void> {
+          return Promise.resolve();
+        },
+      },
+      persistedLocalHistory: new PersistedLocalHistoryStore({
+        fs: nodeFs,
+        codec: new CanonicalJsonCodec(),
+        graftDir,
+      }),
+      persistedLocalHistoryGraph: false,
+    });
+
+    const first = await router.bind({ cwd: previousWorktree }, "workspace_bind");
+    const rebound = await router.rebind({ cwd: repoDir }, "workspace_rebind");
+    expect(rebound.ok).toBe(true);
+    expect(rebound.repoId).toBe(first.repoId);
+    fs.rmSync(previousWorktree, { recursive: true, force: true });
+
+    const warp = await router.getWarp();
+
+    expect(warp.app).toEqual(expect.objectContaining({
+      worktreeRoot: fs.realpathSync(repoDir),
+      writerId: "writer:test",
+    }));
+    expect(openedRoots).toEqual([fs.realpathSync(repoDir)]);
+  });
+
   it("releases every displaced resident after concurrent cross-repository rebinds", async () => {
     const firstRepoDir = createCommittedRepo();
     const secondRepoDir = createCommittedRepo();

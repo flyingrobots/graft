@@ -878,6 +878,7 @@ export class WorkspaceRouter {
     const nextWriterId = this.options.warpWriterId ?? DEFAULT_WARP_WRITER_ID;
     const transferredWarpLease = previousBinding?.repoId === resolved.repoId
       && previousBinding.warpWriterId === nextWriterId
+      && previousBinding.warpLease.hasAcquiredResident()
       ? previousBinding.warpLease
       : undefined;
     const nextBinding = await this.createBoundWorkspace(

@@ -21,12 +21,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   owned acquisition explicitly. Daemon transport close/error and daemon shutdown
   release every active or routed binding lease owned by the session.
   A successful cross-resident rebind releases the previous binding only after
-  the replacement commits, while same-resident rebinds transfer the exact
-  capability. Concurrent binding commits serialize from current-binding
-  capture through displaced-capability release, so one winner cannot be
-  orphaned by a later commit. Current and routed bindings in one transport
-  session own distinct capabilities, so evicting one cannot release another
-  binding's resident.
+  the replacement commits. Same-resident rebinds transfer an already acquired
+  capability, while an unacquired lazy lease is recreated with the replacement
+  worktree root so later opening cannot depend on a removed checkout.
+  Concurrent binding commits serialize from current-binding capture through
+  displaced-capability release, so one winner cannot be orphaned by a later
+  commit. Current and routed bindings in one transport session own distinct
+  capabilities, so evicting one cannot release another binding's resident.
   If history or authorization setup rejects after opening a replacement,
   binding rollback releases only the uncommitted capability and preserves the
   previous active binding.
