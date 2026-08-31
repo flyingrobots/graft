@@ -102,6 +102,32 @@ export async function startDaemonServer(options: StartDaemonServerOptions = {}):
 
   try {
     await prepareSocketPath(socketPath);
+    const activeHttpServer = http.createServer((req, res) => {
+      const readySessionHost = sessionHost;
+      if (readySessionHost === undefined) {
+        res.writeHead(503, { "content-type": "application/json" });
+        res.end(JSON.stringify({ error: "Daemon startup in progress" }));
+        return;
+      }
+      void readySessionHost.handleRequest(req, res);
+    });
+    httpServer = activeHttpServer;
+
+    await new Promise<void>((resolve, reject) => {
+      const onError = (error: Error): void => {
+        activeHttpServer.off("listening", onListening);
+        reject(error);
+      };
+      const onListening = (): void => {
+        activeHttpServer.off("error", onError);
+        resolve();
+      };
+      activeHttpServer.once("error", onError);
+      activeHttpServer.once("listening", onListening);
+      activeHttpServer.listen(socketPath);
+    });
+    await tightenSocketPermissions(socketPath);
+
     const warpPool = new InMemoryWarpPool((cwd) => openWarp({ cwd }));
     const controlPlane = new DaemonControlPlane({
       fs: nodeFs,
@@ -187,26 +213,6 @@ export async function startDaemonServer(options: StartDaemonServerOptions = {}):
         : {}),
     });
     sessionHost = activeSessionHost;
-
-    const activeHttpServer = http.createServer((req, res) => {
-      void activeSessionHost.handleRequest(req, res);
-    });
-    httpServer = activeHttpServer;
-
-    await new Promise<void>((resolve, reject) => {
-      const onError = (error: Error): void => {
-        activeHttpServer.off("listening", onListening);
-        reject(error);
-      };
-      const onListening = (): void => {
-        activeHttpServer.off("error", onError);
-        resolve();
-      };
-      activeHttpServer.once("error", onError);
-      activeHttpServer.once("listening", onListening);
-      activeHttpServer.listen(socketPath);
-    });
-    await tightenSocketPermissions(socketPath);
 
     let closing: Promise<void> | null = null;
 

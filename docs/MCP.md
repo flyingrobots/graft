@@ -89,7 +89,9 @@ lifecycle does not claim to bound every daemon cache or working set.
   orphans. Unknown files, links, malformed ownership records, and unsafe paths
   are preserved. A daemon using a custom endpoint never deletes an unmarked
   legacy UUID directory; only the default endpoint may perform that migration
-  cleanup, so a legacy daemon that appears later cannot lose live scratch.
+  cleanup. The default endpoint is already bound, but returns HTTP 503, before
+  that cleanup starts, so a legacy daemon cannot create live scratch inside the
+  startup scan window.
 
 The required programmatic sweep method,
 `GraftDaemonServer.reapExpiredSessions()`, returns separate facts:

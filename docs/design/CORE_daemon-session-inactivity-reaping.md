@@ -262,7 +262,8 @@ Startup order is:
 1. validate configuration;
 2. acquire exclusive daemon-root ownership before preparing or binding its
    transport path;
-3. keep MCP request admission closed;
+3. prepare and bind the transport path while returning HTTP 503 to keep MCP
+   request admission closed;
 4. initialize control-plane state;
 5. scan and clean session-owned orphans; and
 6. open request admission and report healthy.
@@ -422,6 +423,8 @@ authority has been retired, and each failed close layer is reported separately.
       preserved and reported without touching their targets.
 - [x] Custom-endpoint startup and sweeps preserve unmarked legacy UUID
       directories while still removing eligible marker-owned orphans.
+- [x] Default-endpoint startup binds before legacy orphan cleanup and returns
+      HTTP 503 until request admission opens.
 - [x] A forced directory-removal failure reports one retired session, zero
       removed directories, and one retryable cleanup failure; a later sweep can
       remove the orphan.

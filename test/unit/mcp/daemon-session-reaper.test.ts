@@ -1260,6 +1260,98 @@ describe("mcp: daemon session reaper", () => {
     expect(fs.readFileSync(socketPath, "utf-8")).toBe("operator-owned\n");
   });
 
+  it("binds the default endpoint with admission closed before legacy orphan cleanup", async () => {
+    if (process.platform === "win32") return;
+    const rootDir = fs.mkdtempSync(path.join(os.tmpdir(), "graft-session-default-bind-first-"));
+    const socketPath = path.join(rootDir, "mcp.sock");
+    const legacySessionDir = path.join(
+      rootDir,
+      "sessions",
+      "00000000-0000-4000-8000-000000000001",
+    );
+    cleanups.push(() => {
+      fs.rmSync(rootDir, { recursive: true, force: true });
+    });
+    let markScanEntered!: () => void;
+    let releaseScan!: () => void;
+    const scanEntered = new Promise<void>((resolve) => {
+      markScanEntered = resolve;
+    });
+    const scanGate = new Promise<void>((resolve) => {
+      releaseScan = resolve;
+    });
+    cleanups.push(() => {
+      releaseScan();
+    });
+    const sessionStorage = {
+      writeSessionOwnershipMarker,
+      removeSessionDirectory,
+      async removeSessionOrphanDirectories(
+        sessionsRoot: string,
+        liveSessionIds: ReadonlySet<string>,
+        legacyUnmarkedPolicy: LegacyUnmarkedSessionPolicy,
+      ) {
+        markScanEntered();
+        await scanGate;
+        return removeSessionOrphanDirectories(
+          sessionsRoot,
+          liveSessionIds,
+          legacyUnmarkedPolicy,
+        );
+      },
+    };
+
+    const starting = startDaemonServer({
+      graftDir: rootDir,
+      socketPath,
+      sessionReaperIntervalMs: 0,
+      sessionStorage,
+    });
+    await scanEntered;
+
+    const competingServer = http.createServer((_request, response) => {
+      response.writeHead(200);
+      response.end();
+    });
+    const competingError = await new Promise<(Error & { code?: string }) | null>((resolve) => {
+      competingServer.once("error", (error: Error & { code?: string }) => {
+        resolve(error);
+      });
+      competingServer.listen(socketPath, () => {
+        resolve(null);
+      });
+    });
+    if (competingError === null) {
+      cleanups.push(() => {
+        return new Promise<void>((resolve, reject) => {
+          competingServer.close((error) => {
+            if (error) reject(error);
+            else resolve();
+          });
+        });
+      });
+      fs.mkdirSync(legacySessionDir, { recursive: true });
+      fs.writeFileSync(path.join(legacySessionDir, "keep.txt"), "live-legacy-session\n");
+    }
+
+    const admissionStatus = (await requestUnixJson(socketPath, "GET", "/healthz")).statusCode;
+    releaseScan();
+    const startup = await starting.then(
+      (daemon) => ({ daemon, error: null }),
+      (error: unknown) => ({ daemon: null, error }),
+    );
+    if (startup.daemon !== null) {
+      const startedDaemon = startup.daemon;
+      cleanups.push(() => startedDaemon.close());
+    }
+
+    expect(competingError).toMatchObject({ code: "EADDRINUSE" });
+    expect(admissionStatus).toBe(503);
+    expect(startup.error).toBeNull();
+    expect(startup.daemon).not.toBeNull();
+    expect(fs.existsSync(legacySessionDir)).toBe(competingError === null);
+  });
+
   it("refuses custom-endpoint startup while a legacy daemon endpoint is live", async () => {
     if (process.platform === "win32") return;
     const rootDir = fs.mkdtempSync(path.join(os.tmpdir(), "graft-session-legacy-live-"));

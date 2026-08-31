@@ -60,6 +60,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   generated; other UUID-shaped names are preserved and reported as unknown.
   A custom-endpoint daemon now refuses startup while the legacy default
   endpoint is live, before claiming ownership or scanning legacy session state.
+  Default-endpoint startup binds its socket before legacy orphan cleanup and
+  returns HTTP 503 until initialization completes, preventing a late legacy
+  daemon from creating live state inside the cleanup window.
   Custom-endpoint startup and periodic sweeps also preserve unmarked legacy
   UUID directories unconditionally, closing the later-listener race while
   retaining cleanup of marker-owned orphan state.

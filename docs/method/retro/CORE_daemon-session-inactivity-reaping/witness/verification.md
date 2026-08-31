@@ -41,6 +41,7 @@ mutation of the exact guard under test. Representative receipts:
 | Late legacy endpoint | A custom-endpoint sweep deleted one unmarked live legacy directory: expected 0, received 1 | post-Retro review repair |
 | Multiple retained clock failures | The first valid sweep reported one rejected sample but silently cleared the second: expected `NEGATIVE`, received `null` | post-Retro review repair |
 | Post-start sessions-root swap | A periodic sweep followed a replacement root symlink and removed one externally targeted session directory | post-Retro review repair |
+| Default-endpoint bind order | A competing legacy listener bound during the gated cleanup window and the new daemon discovered the collision only after scanning | post-Retro review repair |
 
 ## Focused GREEN
 
@@ -48,7 +49,7 @@ mutation of the exact guard under test. Representative receipts:
 pnpm exec vitest run test/unit/mcp/daemon-session-reaper.test.ts
 ```
 
-Result: pass; 1 file, 50 tests.
+Result: pass; 1 file, 51 tests.
 
 The focused suite includes exact-value configuration defaults, invalid option
 tables, monotonic/refusal/rebase behavior, streaming and pre-body barriers,
@@ -77,7 +78,7 @@ tests.
 
 | Gate | Command | Result |
 | :--- | :--- | :--- |
-| Focused lifecycle | `pnpm exec vitest run test/unit/mcp/daemon-session-reaper.test.ts` | pass; 1 file, 50 tests |
+| Focused lifecycle | `pnpm exec vitest run test/unit/mcp/daemon-session-reaper.test.ts` | pass; 1 file, 51 tests |
 | Full isolated suite | `pnpm test` | `2e22a603` passed 259 files, 2,105 tests; current queue rerun pending |
 | Lint | `pnpm lint` | pass |
 | Types | `pnpm typecheck` | pass |

@@ -127,6 +127,12 @@ the scanner recursively delete an externally targeted owned-session fixture.
 The repair moves the same unsafe-root refusal into the shared orphan-scan
 boundary, before every enumeration.
 
+That pass also found a default-endpoint check-to-scan race: a legacy daemon
+could bind after socket preparation, create an unmarked live session, and lose
+it to migration cleanup before the new daemon discovered `EADDRINUSE`. The
+repair binds the endpoint first and serves only HTTP 503 until control-plane
+initialization and orphan cleanup finish.
+
 ## Drift
 
 The largest drift was procedural: implementation and PR publication preceded
