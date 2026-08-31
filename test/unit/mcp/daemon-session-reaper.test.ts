@@ -2218,6 +2218,97 @@ describe("mcp: daemon session reaper", () => {
     expect(fs.readdirSync(path.join(rootDir, "sessions"))).toEqual([]);
   });
 
+  it("removes session scratch when ownership marker publication fails", async () => {
+    const rootDir = fs.mkdtempSync(path.join(os.tmpdir(), "graft-session-marker-failure-"));
+    const socketPath = path.join(rootDir, "daemon.sock");
+    cleanups.push(() => {
+      fs.rmSync(rootDir, { recursive: true, force: true });
+    });
+    const markerFailure = new Error("injected session ownership marker failure");
+    const sessionStorage = {
+      writeSessionOwnershipMarker(): Promise<void> {
+        return Promise.reject(markerFailure);
+      },
+      removeSessionOrphanDirectories,
+      removeSessionDirectory,
+    };
+    const daemon = await startDaemonServer({
+      graftDir: rootDir,
+      socketPath,
+      sessionReaperIntervalMs: 0,
+      sessionStorage,
+    });
+    cleanups.push(() => daemon.close());
+
+    const initialize = await requestUnixJson(socketPath, "POST", "/mcp", {
+      jsonrpc: "2.0",
+      id: 1,
+      method: "initialize",
+      params: {
+        protocolVersion: "2025-03-26",
+        capabilities: {},
+        clientInfo: { name: "vitest", version: "0.0.0" },
+      },
+    });
+
+    expect(initialize.statusCode).toBe(500);
+    expect((JSON.parse(initialize.text) as { error: { code: number } }).error.code).toBe(-32603);
+    expect(daemon.getHealthStatus().activeSessions).toBe(0);
+    expect(fs.readdirSync(path.join(rootDir, "sessions"))).toEqual([]);
+  });
+
+  it("rolls back partial control-plane publication after protocol connection", async () => {
+    const rootDir = fs.mkdtempSync(path.join(os.tmpdir(), "graft-session-register-failure-"));
+    const socketPath = path.join(rootDir, "daemon.sock");
+    cleanups.push(() => {
+      fs.rmSync(rootDir, { recursive: true, force: true });
+    });
+    type RegisterTransportArgs = Parameters<DaemonControlPlane["registerTransport"]>;
+    const originalRegisterTransport = Reflect.get(DaemonControlPlane.prototype, "registerTransport") as (
+      this: DaemonControlPlane,
+      ...args: RegisterTransportArgs
+    ) => void;
+    const registerTransport = vi.spyOn(DaemonControlPlane.prototype, "registerTransport")
+      .mockImplementationOnce(function(this: DaemonControlPlane, ...args: RegisterTransportArgs) {
+        Reflect.apply(originalRegisterTransport, this, args);
+        throw new Error("injected failure after control-plane publication");
+      });
+    const unregisterTransport = vi.spyOn(DaemonControlPlane.prototype, "unregisterTransport");
+    const protocolClose = vi.spyOn(McpServer.prototype, "close");
+    const transportClose = vi.spyOn(StreamableHTTPServerTransport.prototype, "close");
+    cleanups.push(() => {
+      registerTransport.mockRestore();
+      unregisterTransport.mockRestore();
+      protocolClose.mockRestore();
+      transportClose.mockRestore();
+    });
+    const daemon = await startDaemonServer({
+      graftDir: rootDir,
+      socketPath,
+      sessionReaperIntervalMs: 0,
+    });
+    cleanups.push(() => daemon.close());
+
+    const initialize = await requestUnixJson(socketPath, "POST", "/mcp", {
+      jsonrpc: "2.0",
+      id: 1,
+      method: "initialize",
+      params: {
+        protocolVersion: "2025-03-26",
+        capabilities: {},
+        clientInfo: { name: "vitest", version: "0.0.0" },
+      },
+    });
+
+    expect(initialize.statusCode).toBe(500);
+    expect((JSON.parse(initialize.text) as { error: { code: number } }).error.code).toBe(-32603);
+    expect(daemon.getHealthStatus().activeSessions).toBe(0);
+    expect(unregisterTransport).toHaveBeenCalledTimes(1);
+    expect(protocolClose).toHaveBeenCalledTimes(1);
+    expect(transportClose).toHaveBeenCalledTimes(1);
+    expect(fs.readdirSync(path.join(rootDir, "sessions"))).toEqual([]);
+  });
+
   it("rolls back a session when transport connection fails", async () => {
     const rootDir = fs.mkdtempSync(path.join(os.tmpdir(), "graft-session-reaper-connect-"));
     const socketPath = path.join(rootDir, "daemon.sock");
