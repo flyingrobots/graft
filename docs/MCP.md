@@ -67,6 +67,7 @@ agent-facing flow:
 
 - **Lease Accounting**: When sessions open or bind workspaces, active leases are recorded per `(repoId, writerId)` resident.
 - **Last-Release Eviction**: Releasing the final lease immediately drops that writer lane's in-process resident without disturbing leased sibling lanes in the same repository. `ejectUnreferenced()` also removes lanes opened without a lease.
+- **Session Teardown**: Daemon transport close/error and daemon shutdown release the session's active and routed binding leases through one idempotent server hook.
 
 For concurrent multi-repo use inside one daemon-backed MCP session,
 repo tools that support routing also accept `cwd`: `safe_read`,

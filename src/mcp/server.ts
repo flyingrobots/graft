@@ -47,6 +47,7 @@ export interface GraftServer {
   injectSessionMessages(count: number): void;
   getWorkspaceStatus(): import("./workspace-router.js").WorkspaceStatus;
   getRuntimeCausalContext(): import("./runtime-causal-context.js").RuntimeCausalContext | null;
+  releaseWarpLeases(): void;
   getMcpServer(): McpServer;
 }
 
@@ -302,6 +303,9 @@ function createGraftServerSurface(input: {
         return null;
       }
       return input.workspaceRouter.captureExecutionContext().getCausalContext();
+    },
+    releaseWarpLeases(): void {
+      input.workspaceRouter.releaseWarpLeases();
     },
     getMcpServer(): McpServer {
       return input.mcpServer;

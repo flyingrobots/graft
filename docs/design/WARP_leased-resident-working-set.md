@@ -202,7 +202,7 @@ capacity and deterministic policy before replacing eager eviction.
       leases.
 - [ ] An in-flight routed invocation survives binding LRU removal without
       eviction or duplicate opening, then releases at settlement.
-- [ ] Normal session termination releases every binding owned by that session.
+- [x] Normal session termination releases every binding owned by that session.
 - [ ] Reopening an evicted resident reconstructs an equivalent bounded WARP
       projection from durable Git-backed state.
 - [ ] Health and documentation distinguish resident writer-lane count from

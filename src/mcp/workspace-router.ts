@@ -138,6 +138,7 @@ export class WorkspaceRouter {
   private readonly openedWorkspaces = new Map<string, OpenedWorkspaceRecord>();
   private readonly routedBindings = new Map<string, BoundWorkspace>();
   private readonly routedBindingInitializations = new Map<string, Promise<BoundWorkspace>>();
+  private warpLeasesReleased = false;
 
   constructor(private readonly options: WorkspaceRouterOptions) {
     const initialProjectRoot = options.mode === "repo_local" ? options.projectRoot : undefined;
@@ -243,6 +244,24 @@ export class WorkspaceRouter {
 
   getWarp(): Promise<WarpContext> {
     return this.requireBinding().getWarp();
+  }
+
+  releaseWarpLeases(): void {
+    if (this.warpLeasesReleased) {
+      return;
+    }
+    this.warpLeasesReleased = true;
+    const bindings = new Set<BoundWorkspace>([
+      ...(this.currentBinding === null ? [] : [this.currentBinding]),
+      ...this.routedBindings.values(),
+    ]);
+    for (const binding of bindings) {
+      this.options.warpPool.releaseLease?.(
+        binding.repoId,
+        binding.warpWriterId,
+        binding.transportSessionId,
+      );
+    }
   }
 
   async observeRepoState(): Promise<void> {

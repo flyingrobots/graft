@@ -14,7 +14,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   `ejectUnreferenced()` to unmap zero-lease writer lanes independently, integrated
   with `WorkspaceRouter` LRU binding eviction. Releasing a resident's last lease
   now drops its in-process strong reference immediately; production cleanup does
-  not depend on a test-only sweep.
+  not depend on a test-only sweep. Daemon transport close/error and daemon
+  shutdown release every active or routed binding lease owned by the session.
 
 ### Fixed
 

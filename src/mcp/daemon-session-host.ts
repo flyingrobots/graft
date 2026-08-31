@@ -139,11 +139,13 @@ async function createDaemonSession(
   transport.onclose = () => {
     sessions.delete(newSessionId);
     options.controlPlane.unregisterTransport(newSessionId);
+    server.releaseWarpLeases();
     void removeSessionDirectory(sessionGraftDir);
   };
   transport.onerror = () => {
     sessions.delete(newSessionId);
     options.controlPlane.unregisterTransport(newSessionId);
+    server.releaseWarpLeases();
     void removeSessionDirectory(sessionGraftDir);
   };
   sessions.set(newSessionId, session);
@@ -223,6 +225,7 @@ export function createDaemonSessionHost(options: CreateDaemonSessionHostOptions)
     async close(): Promise<void> {
       for (const session of [...sessions.values()]) {
         options.controlPlane.unregisterTransport(session.id);
+        session.server.releaseWarpLeases();
         await session.transport.close().catch(() => {
           return undefined;
         });

@@ -294,6 +294,51 @@ describe("mcp: daemon transport and lifecycle", () => {
     ]));
   });
 
+  it("releases a session's WARP residents when its daemon transport closes", async () => {
+    const repoDir = createTestRepo("graft-daemon-release-warp-");
+    repos.push(repoDir);
+    fs.writeFileSync(path.join(repoDir, "app.ts"), "export const ready = true;\n");
+    git(repoDir, "add -A");
+    git(repoDir, "commit -m init");
+
+    const rootDir = fs.mkdtempSync(path.join(os.tmpdir(), "graft-daemon-root-"));
+    roots.push(rootDir);
+    const socketPath = path.join(rootDir, "daemon.sock");
+    const daemon = await startTestDaemonServer({
+      graftDir: rootDir,
+      socketPath,
+      persistedLocalHistoryGraph: true,
+    });
+    daemons.push(daemon);
+
+    const sessionId = await initializeSession(socketPath);
+    expect((await callTool<{ ok: boolean }>(
+      socketPath,
+      sessionId,
+      "workspace_authorize",
+      { cwd: repoDir },
+      20,
+    )).ok).toBe(true);
+    expect((await callTool<{ ok: boolean }>(
+      socketPath,
+      sessionId,
+      "workspace_bind",
+      { cwd: repoDir },
+      21,
+    )).ok).toBe(true);
+    expect((parseJson(await requestUnixJson(socketPath, "GET", "/healthz")) as {
+      activeWarpRepos: number;
+    }).activeWarpRepos).toBe(1);
+
+    await deleteSession(socketPath, sessionId);
+
+    const closedHealth = await waitFor(
+      () => requestUnixJson(socketPath, "GET", "/healthz"),
+      (response) => (parseJson(response) as { activeWarpRepos: number }).activeWarpRepos === 0,
+    );
+    expect((parseJson(closedHealth) as { activeWarpRepos: number }).activeWarpRepos).toBe(0);
+  });
+
 
   it("preserves safe_read cache behavior across off-process daemon execution", async () => {
     const repoDir = createTestRepo("graft-daemon-safe-read-");
