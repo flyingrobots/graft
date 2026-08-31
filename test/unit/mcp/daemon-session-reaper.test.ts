@@ -2331,7 +2331,7 @@ describe("mcp: daemon session reaper", () => {
     const sessionId = Array.isArray(sessionIdHeader) ? sessionIdHeader[0] : sessionIdHeader;
     expect(sessionId).toBeDefined();
     const sessionDir = path.join(rootDir, "sessions", sessionId!);
-    fs.rmSync(sessionDir, { recursive: true, force: true });
+    fs.renameSync(sessionDir, path.join(rootDir, "displaced-session"));
     fs.symlinkSync(externalRoot, sessionDir, "dir");
 
     currentTimeMs += 10_001;
