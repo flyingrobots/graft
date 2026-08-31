@@ -547,28 +547,43 @@ export class WorkspaceRouter {
     result: JsonObject,
     execution?: WorkspaceExecutionContext | null,
   ): Promise<void> {
-    const active = execution ?? this.captureCurrentExecutionContext();
+    const ownedExecution = execution === null || execution === undefined
+      ? this.captureCurrentExecutionContext()
+      : null;
+    const active = execution ?? ownedExecution;
     if (active === null) {
       return;
     }
+    try {
+      const readObservation = buildWorkspaceReadObservation(active, toolName, args, result);
+      if (readObservation === null) {
+        return;
+      }
 
-    const readObservation = buildWorkspaceReadObservation(active, toolName, args, result);
-    if (readObservation === null) {
-      return;
+      const summary = await this.options.persistedLocalHistory.summarize(
+        active.status,
+        active.getCausalContext(),
+        await this.buildPersistedLocalHistoryGraphContextFromExecution(active),
+      );
+
+      await this.options.persistedLocalHistory.noteReadObservation({
+        current: this.buildPersistedLocalHistoryContextFromExecution(active, active.repoState.getState()),
+        attribution: summary.attribution,
+        graph: await this.buildPersistedLocalHistoryGraphContextFromExecution(active),
+        ...readObservation,
+      });
+    } finally {
+      await ownedExecution?.releaseWarpLease();
     }
+  }
 
-    const summary = await this.options.persistedLocalHistory.summarize(
-      active.status,
-      active.getCausalContext(),
-      await this.buildPersistedLocalHistoryGraphContextFromExecution(active),
-    );
-
-    await this.options.persistedLocalHistory.noteReadObservation({
-      current: this.buildPersistedLocalHistoryContextFromExecution(active, active.repoState.getState()),
-      attribution: summary.attribution,
-      graph: await this.buildPersistedLocalHistoryGraphContextFromExecution(active),
-      ...readObservation,
-    });
+  getRuntimeCausalContext(): RuntimeCausalContext | null {
+    const binding = this.currentBinding;
+    const repoState = binding?.slice.repoState;
+    if (binding === null || repoState === null || repoState === undefined) {
+      return null;
+    }
+    return this.buildCausalContext(binding, repoState.getState());
   }
 
   captureExecutionContext(): WorkspaceExecutionContext {

@@ -40,6 +40,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   Routed tool executions hold independent invocation leases through handler,
   attribution, and failure settlement, so binding LRU eviction cannot remove an
   admitted call's resident; the invocation lease releases in `finally`.
+  Internal read-attribution execution contexts now release their owned lease in
+  the same operation, including early returns and failures. Runtime causal-status
+  projection reads the bound state directly and does not manufacture an
+  unowned execution lease.
 
 ### Fixed
 

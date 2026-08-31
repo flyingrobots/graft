@@ -144,6 +144,11 @@ lease, and the invocation engine releases it in `finally`. Therefore removing
 the cache entry or closing the session cannot invalidate an app still used by
 an admitted invocation.
 
+Any execution context created outside the invocation engine owns the same
+obligation locally. Read-attribution fallback releases its internally captured
+context in `finally`, while status-only causal projection reads the current
+binding directly and creates no execution lease.
+
 Binding disposal and invocation disposal must both be idempotent. A binding is
 not a lease, a transport session is not a lease, and an LRU entry is not a
 lease; each can own one or more explicit lease capabilities.
@@ -225,6 +230,8 @@ capacity and deterministic policy before replacing eager eviction.
       release only their exact displaced binding leases.
 - [x] An in-flight routed invocation survives binding LRU removal without
       eviction or duplicate opening, then releases at settlement.
+- [x] Internal read attribution releases its materialized execution lease, and
+      status-only causal projection creates no execution capability.
 - [x] Normal session termination releases every binding owned by that session.
 - [ ] Reopening an evicted resident reconstructs an equivalent bounded WARP
       projection from durable Git-backed state.

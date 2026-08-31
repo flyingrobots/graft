@@ -300,10 +300,7 @@ function createGraftServerSurface(input: {
       return input.workspaceRouter.getStatus();
     },
     getRuntimeCausalContext() {
-      if (input.workspaceRouter.getStatus().bindState !== "bound") {
-        return null;
-      }
-      return input.workspaceRouter.captureExecutionContext().getCausalContext();
+      return input.workspaceRouter.getRuntimeCausalContext();
     },
     releaseWarpLeases(): Promise<void> {
       return Promise.all([

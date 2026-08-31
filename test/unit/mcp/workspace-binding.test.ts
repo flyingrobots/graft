@@ -783,6 +783,58 @@ describe("mcp: daemon workspace binding", () => {
     expect(pool.has(bound.repoId!, "writer:test")).toBe(false);
   });
 
+  it("releases an internally owned read-attribution execution lease", async () => {
+    const repoDir = createCommittedRepo();
+    const graftDir = fs.mkdtempSync(path.join(os.tmpdir(), "graft-read-attribution-lease-"));
+    cleanups.push(() => {
+      fs.rmSync(graftDir, { recursive: true, force: true });
+    });
+    const pool = new InMemoryWarpPool((_worktreeRoot, writerId) => {
+      return Promise.resolve({ writerId } as unknown as WarpApp);
+    });
+    const history = new PersistedLocalHistoryStore({
+      fs: nodeFs,
+      codec: new CanonicalJsonCodec(),
+      graftDir,
+    });
+    const summarizeWithoutGraph = history.summarize.bind(history);
+    history.summarize = (status, causalContext) => {
+      return summarizeWithoutGraph(status, causalContext, null);
+    };
+    const noteReadWithoutGraph = history.noteReadObservation.bind(history);
+    history.noteReadObservation = (input) => {
+      return noteReadWithoutGraph({ ...input, graph: null });
+    };
+    history.noteBinding = () => Promise.resolve();
+    const router = new WorkspaceRouter({
+      mode: "repo_local",
+      projectRoot: repoDir,
+      fs: nodeFs,
+      git: nodeGit,
+      graftDir,
+      warpPool: pool,
+      transportSessionId: "transport:test",
+      warpWriterId: "writer:test",
+      persistedLocalHistory: history,
+    });
+
+    await router.initialize();
+    const repoId = router.getStatus().repoId;
+    expect(repoId).not.toBeNull();
+    expect(pool.leaseCount(repoId!, "writer:test")).toBe(1);
+
+    await router.noteReadObservation(
+      "safe_read",
+      { path: "app.ts" },
+      { projection: "content" },
+    );
+
+    expect(pool.leaseCount(repoId!, "writer:test")).toBe(1);
+    await router.releaseWarpLeases();
+    expect(pool.leaseCount(repoId!, "writer:test")).toBe(0);
+    expect(pool.has(repoId!, "writer:test")).toBe(false);
+  });
+
   it("keeps the current binding leased when a same-repo routed binding is evicted", {
     timeout: 20_000,
   }, async () => {
