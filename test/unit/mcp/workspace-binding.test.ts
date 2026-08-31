@@ -504,6 +504,47 @@ describe("mcp: daemon workspace binding", () => {
     expect(pool.size()).toBe(0);
   });
 
+  it("unregisters a repo-local startup binding when persisted history rejects", async () => {
+    const repoDir = createCommittedRepo();
+    const graftDir = fs.mkdtempSync(path.join(os.tmpdir(), "graft-repo-local-init-failure-"));
+    cleanups.push(() => {
+      fs.rmSync(graftDir, { recursive: true, force: true });
+    });
+    const initializationError = new Error("injected repo-local binding history failure");
+    const history = new PersistedLocalHistoryStore({
+      fs: nodeFs,
+      codec: new CanonicalJsonCodec(),
+      graftDir,
+    });
+    history.noteBinding = () => Promise.reject(initializationError);
+    const openWarp = vi.fn((_worktreeRoot: string, writerId: string) => {
+      return Promise.resolve({ writerId } as unknown as WarpApp);
+    });
+    const pool = new InMemoryWarpPool(openWarp);
+    const router = new WorkspaceRouter({
+      mode: "repo_local",
+      projectRoot: repoDir,
+      fs: nodeFs,
+      git: nodeGit,
+      graftDir,
+      warpPool: pool,
+      transportSessionId: "transport:test",
+      warpWriterId: "writer:test",
+      persistedLocalHistory: history,
+    });
+
+    await expect(router.initialize()).rejects.toBe(initializationError);
+
+    const lifecycleState = router as unknown as {
+      bindingWarpLeases: Set<unknown>;
+    };
+    expect(openWarp).toHaveBeenCalledOnce();
+    expect(router.getStatus().bindState).toBe("unbound");
+    expect(lifecycleState.bindingWarpLeases.size).toBe(0);
+    expect(pool.size()).toBe(0);
+    expect(pool.residentCount()).toBe(0);
+  });
+
   it("Does workspace binding load graftignore without sync filesystem reads?", async () => {
     const repoDir = createCommittedRepo();
     fs.writeFileSync(path.join(repoDir, ".graftignore"), "ignored.ts\n");

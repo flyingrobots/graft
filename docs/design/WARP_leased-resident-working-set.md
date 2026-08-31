@@ -206,6 +206,9 @@ capacity and deterministic policy before replacing eager eviction.
 - If opening fails, acquisition fails and no lease is published.
 - If binding setup fails after acquisition, rollback awaits release and
   preserves both the primary failure and any cleanup failure.
+- Repo-local startup applies the same rollback before publishing its initial
+  binding; failed repo-state or persisted-history setup cannot pin an
+  unreachable resident for the server lifetime.
 - Routed binding setup failure unregisters its never-published binding
   capability; a failed route cannot accumulate unreachable session-owned lease
   wrappers.
@@ -252,6 +255,8 @@ capacity and deterministic policy before replacing eager eviction.
 - [x] Failed rebind retains A and releases any uncommitted B lease.
 - [x] Failed routed repo-state initialization releases and unregisters the
       never-cached binding capability without disturbing current bindings.
+- [x] Failed repo-local startup initialization releases and unregisters its
+      unpublished binding capability before rejecting server readiness.
 - [x] Routed authorization rejection, same-key replacement, and LRU removal
       release only their exact displaced binding leases.
 - [x] An in-flight routed invocation survives binding LRU removal without

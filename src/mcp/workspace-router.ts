@@ -208,15 +208,28 @@ export class WorkspaceRouter {
         undefined,
         this.currentSlice,
       );
-      const currentRepoState = currentBinding.slice.repoState;
-      if (currentRepoState === null) {
-        throw new WorkspaceBindingRequiredError("workspace");
+      try {
+        const currentRepoState = currentBinding.slice.repoState;
+        if (currentRepoState === null) {
+          throw new WorkspaceBindingRequiredError("workspace");
+        }
+        await currentRepoState.initialize();
+        await this.options.persistedLocalHistory.noteBinding({
+          current: this.buildPersistedLocalHistoryContext(currentBinding, currentRepoState.getState()),
+          currentGraph: await this.buildPersistedLocalHistoryGraphContext(currentBinding),
+        });
+      } catch (error) {
+        try {
+          await this.releaseBindingWarpLease(currentBinding.warpLease);
+        } catch (cleanupError) {
+          throw new AggregateError(
+            [error, cleanupError],
+            "Failed to roll back a repo-local startup WARP binding lease",
+            { cause: cleanupError },
+          );
+        }
+        throw error;
       }
-      await currentRepoState.initialize();
-      await this.options.persistedLocalHistory.noteBinding({
-        current: this.buildPersistedLocalHistoryContext(currentBinding, currentRepoState.getState()),
-        currentGraph: await this.buildPersistedLocalHistoryGraphContext(currentBinding),
-      });
       this.currentBinding = currentBinding;
       this.noteOpenedWorkspace(initialWorkspace, DEFAULT_REPO_LOCAL_CAPABILITY_PROFILE, "startup", true);
     })();
