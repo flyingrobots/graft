@@ -209,10 +209,12 @@ operation in one aggregate error.
 
 The sessions root is daemon-owned state. A daemon must establish exclusive
 ownership of its configured daemon root before deleting anything under
-`<graftDir>/sessions`. The ownership record binds a daemon instance identity to
-its endpoint. A live owner causes startup refusal; a stale owner is replaced
-only after its endpoint is proven inactive. Sharing one daemon root across
-independent live endpoints is invalid.
+`<graftDir>/sessions`. The ownership record binds a daemon instance identity,
+process-birth witness, and endpoint. A live endpoint causes startup refusal.
+Before the endpoint is bound, a process blocks takeover only while its observed
+birth witness exactly matches the persisted witness; a recycled PID does not
+count as the original daemon. Sharing one daemon root across independent live
+endpoints is invalid.
 
 Stale takeover and release quarantine the canonical owner entry, reread the
 moved record, and delete it only when every identity field still matches the

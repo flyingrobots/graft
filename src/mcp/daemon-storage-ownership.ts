@@ -1,4 +1,5 @@
 import * as crypto from "node:crypto";
+import { execFile } from "node:child_process";
 import * as fs from "node:fs/promises";
 import * as path from "node:path";
 import { resolveSocketPath, socketHasActiveListener } from "./daemon-bootstrap.js";
@@ -10,10 +11,16 @@ const PRIVATE_FILE_MODE = 0o600;
 const GENERATED_UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/u;
 
 export interface DaemonRootOwnerRecord {
-  readonly schemaVersion: 1;
+  readonly schemaVersion: 2;
   readonly instanceId: string;
   readonly pid: number;
+  readonly processStartIdentity: string;
   readonly socketPath: string;
+}
+
+export interface DaemonRootOwnerLiveness {
+  socketHasActiveListener(socketPath: string): Promise<boolean>;
+  readProcessStartIdentity(pid: number): Promise<string | null>;
 }
 
 interface SessionOwnerRecord {
@@ -118,11 +125,13 @@ export async function ensureDaemonSessionsRoot(sessionsRoot: string): Promise<vo
 function isDaemonRootOwnerRecord(value: unknown): value is DaemonRootOwnerRecord {
   if (typeof value !== "object" || value === null) return false;
   const candidate = value as Partial<DaemonRootOwnerRecord>;
-  return candidate.schemaVersion === 1
+  return candidate.schemaVersion === 2
     && typeof candidate.instanceId === "string"
     && GENERATED_UUID_PATTERN.test(candidate.instanceId)
     && Number.isSafeInteger(candidate.pid)
     && (candidate.pid ?? 0) > 0
+    && typeof candidate.processStartIdentity === "string"
+    && candidate.processStartIdentity.length > 0
     && typeof candidate.socketPath === "string"
     && candidate.socketPath.length > 0;
 }
@@ -143,6 +152,83 @@ function processIsAlive(pid: number): boolean {
   } catch (error: unknown) {
     return errorCode(error) !== "ESRCH";
   }
+}
+
+function execFileText(command: string, args: readonly string[]): Promise<string> {
+  return new Promise<string>((resolve, reject) => {
+    execFile(command, args, {
+      encoding: "utf-8",
+      env: { ...process.env, LANG: "C", LC_ALL: "C" },
+      timeout: 1_000,
+      windowsHide: true,
+    }, (error, stdout) => {
+      if (error) {
+        reject(new Error(`Failed to execute ${command}`, { cause: error }));
+        return;
+      }
+      resolve(stdout);
+    });
+  });
+}
+
+async function readLinuxProcessStartIdentity(pid: number): Promise<string> {
+  const [statSource, bootIdSource] = await Promise.all([
+    fs.readFile(`/proc/${String(pid)}/stat`, "utf-8"),
+    fs.readFile("/proc/sys/kernel/random/boot_id", "utf-8"),
+  ]);
+  const commandEnd = statSource.lastIndexOf(")");
+  if (commandEnd < 0) {
+    throw new Error(`Malformed Linux process stat for pid ${String(pid)}`);
+  }
+  const fieldsAfterCommand = statSource.slice(commandEnd + 1).trim().split(/\s+/u);
+  const startTicks = fieldsAfterCommand[19];
+  const bootId = bootIdSource.trim();
+  if (startTicks === undefined || !/^\d+$/u.test(startTicks) || bootId.length === 0) {
+    throw new Error(`Incomplete Linux process identity for pid ${String(pid)}`);
+  }
+  return `linux:${bootId}:${startTicks}`;
+}
+
+export async function readProcessStartIdentity(pid: number): Promise<string | null> {
+  if (!processIsAlive(pid)) return null;
+  try {
+    if (process.platform === "linux") {
+      return await readLinuxProcessStartIdentity(pid);
+    }
+    if (process.platform === "win32") {
+      const ticks = (await execFileText("powershell.exe", [
+        "-NoProfile",
+        "-NonInteractive",
+        "-Command",
+        `(Get-Process -Id ${String(pid)} -ErrorAction Stop).StartTime.ToUniversalTime().Ticks`,
+      ])).trim();
+      if (!/^\d+$/u.test(ticks)) {
+        throw new Error(`Incomplete Windows process identity for pid ${String(pid)}`);
+      }
+      return `win32:${ticks}`;
+    }
+    const startedAt = (await execFileText("ps", ["-o", "lstart=", "-p", String(pid)]))
+      .trim()
+      .replace(/\s+/gu, " ");
+    if (startedAt.length === 0) return null;
+    return `${process.platform}:${startedAt}`;
+  } catch (error) {
+    if (!processIsAlive(pid)) return null;
+    throw new Error(`Unable to read process start identity for pid ${String(pid)}`, { cause: error });
+  }
+}
+
+const nodeDaemonRootOwnerLiveness: DaemonRootOwnerLiveness = {
+  socketHasActiveListener,
+  readProcessStartIdentity,
+};
+
+export async function daemonRootOwnerIsLive(
+  owner: DaemonRootOwnerRecord,
+  liveness: DaemonRootOwnerLiveness = nodeDaemonRootOwnerLiveness,
+): Promise<boolean> {
+  if (await liveness.socketHasActiveListener(owner.socketPath)) return true;
+  return await liveness.readProcessStartIdentity(owner.pid) === owner.processStartIdentity;
 }
 
 async function readRootOwner(ownerPath: string): Promise<DaemonRootOwnerRecord | null> {
@@ -167,6 +253,7 @@ function rootOwnerRecordsEqual(
 ): boolean {
   return left.instanceId === right.instanceId
     && left.pid === right.pid
+    && left.processStartIdentity === right.processStartIdentity
     && left.socketPath === right.socketPath;
 }
 
@@ -285,20 +372,25 @@ export async function publishDaemonRootOwner(
 export async function acquireDaemonRootOwnership(input: {
   readonly graftDir: string;
   readonly socketPath: string;
-}): Promise<DaemonRootOwnership> {
+}, liveness: DaemonRootOwnerLiveness = nodeDaemonRootOwnerLiveness): Promise<DaemonRootOwnership> {
   const graftDir = path.resolve(input.graftDir);
   const socketPath = resolveSocketPath(input.socketPath, graftDir);
   const legacySocketPath = resolveSocketPath(undefined, graftDir);
-  if (socketPath !== legacySocketPath && await socketHasActiveListener(legacySocketPath)) {
+  if (socketPath !== legacySocketPath && await liveness.socketHasActiveListener(legacySocketPath)) {
     throw new DaemonLegacyEndpointActiveError(legacySocketPath);
   }
 
   const ownerPath = path.join(graftDir, ROOT_OWNER_FILE);
   const instanceId = crypto.randomUUID();
+  const processStartIdentity = await liveness.readProcessStartIdentity(process.pid);
+  if (processStartIdentity === null) {
+    throw new Error(`Unable to establish daemon process identity for pid ${String(process.pid)}`);
+  }
   const record: DaemonRootOwnerRecord = {
-    schemaVersion: 1,
+    schemaVersion: 2,
     instanceId,
     pid: process.pid,
+    processStartIdentity,
     socketPath,
   };
 
@@ -307,7 +399,7 @@ export async function acquireDaemonRootOwnership(input: {
 
     const current = await readRootOwner(ownerPath);
     if (current === null) continue;
-    if (processIsAlive(current.pid) || await socketHasActiveListener(current.socketPath)) {
+    if (await daemonRootOwnerIsLive(current, liveness)) {
       throw new DaemonRootOwnershipError(current.instanceId);
     }
 

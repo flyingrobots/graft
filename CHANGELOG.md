@@ -63,6 +63,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   and selects a nonzero exit status instead of leaking an unhandled rejection.
   Daemon-root claims now publish a flushed, complete candidate inode through an
   exclusive hard link, preventing crash-truncated canonical owner records.
+  Root-owner liveness now records and verifies a process-birth witness, so PID
+  reuse cannot indefinitely pin a dead daemon while concurrent startup remains
+  protected before its endpoint binds.
 
 ### Fixed
 

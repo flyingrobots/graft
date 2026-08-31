@@ -10,8 +10,10 @@ import { DaemonControlPlane } from "../../../src/mcp/daemon-control-plane.js";
 import { PersistentMonitorRuntime } from "../../../src/mcp/persistent-monitor-runtime.js";
 import * as graftServerModule from "../../../src/mcp/server.js";
 import {
+  daemonRootOwnerIsLive,
   quarantineDaemonRootOwner,
   publishDaemonRootOwner,
+  readProcessStartIdentity,
   removeSessionDirectory,
   removeSessionOrphanDirectories,
   writeSessionOwnershipMarker,
@@ -1043,11 +1045,14 @@ describe("mcp: daemon session reaper", () => {
   it("checks live root ownership before touching the candidate socket path", async () => {
     const rootDir = fs.mkdtempSync(path.join(os.tmpdir(), "graft-session-owner-order-"));
     const socketPath = path.join(rootDir, "candidate.sock");
+    const processStartIdentity = await readProcessStartIdentity(process.pid);
+    expect(processStartIdentity).not.toBeNull();
     fs.writeFileSync(socketPath, "operator-owned\n");
     fs.writeFileSync(path.join(rootDir, "daemon-owner.json"), `${JSON.stringify({
-      schemaVersion: 1,
+      schemaVersion: 2,
       instanceId: "00000000-0000-4000-8000-000000000099",
       pid: process.pid,
+      processStartIdentity,
       socketPath: path.join(rootDir, "owned.sock"),
     })}\n`);
     cleanups.push(() => {
@@ -1114,15 +1119,17 @@ describe("mcp: daemon session reaper", () => {
     const rootDir = fs.mkdtempSync(path.join(os.tmpdir(), "graft-session-owner-race-"));
     const ownerPath = path.join(rootDir, "daemon-owner.json");
     const staleOwner = {
-      schemaVersion: 1 as const,
+      schemaVersion: 2 as const,
       instanceId: "00000000-0000-4000-8000-000000000001",
       pid: 1,
+      processStartIdentity: "boot-a:100",
       socketPath: path.join(rootDir, "stale.sock"),
     };
     const newerOwner = {
-      schemaVersion: 1 as const,
+      schemaVersion: 2 as const,
       instanceId: "00000000-0000-4000-8000-000000000002",
       pid: process.pid,
+      processStartIdentity: "boot-a:200",
       socketPath: path.join(rootDir, "newer.sock"),
     };
     fs.writeFileSync(ownerPath, `${JSON.stringify(newerOwner)}\n`);
@@ -1143,15 +1150,17 @@ describe("mcp: daemon session reaper", () => {
     const rootDir = fs.mkdtempSync(path.join(os.tmpdir(), "graft-session-owner-publish-"));
     const ownerPath = path.join(rootDir, "daemon-owner.json");
     const firstOwner = {
-      schemaVersion: 1 as const,
+      schemaVersion: 2 as const,
       instanceId: "00000000-0000-4000-8000-000000000001",
       pid: process.pid,
+      processStartIdentity: "boot-a:100",
       socketPath: path.join(rootDir, "first.sock"),
     };
     const secondOwner = {
-      schemaVersion: 1 as const,
+      schemaVersion: 2 as const,
       instanceId: "00000000-0000-4000-8000-000000000002",
       pid: process.pid,
+      processStartIdentity: "boot-a:100",
       socketPath: path.join(rootDir, "second.sock"),
     };
     cleanups.push(() => {
@@ -1163,6 +1172,27 @@ describe("mcp: daemon session reaper", () => {
 
     expect(JSON.parse(fs.readFileSync(ownerPath, "utf-8"))).toEqual(firstOwner);
     expect(fs.readdirSync(rootDir)).toEqual(["daemon-owner.json"]);
+  });
+
+  it("distinguishes a recycled owner pid from the original daemon process", async () => {
+    const owner = {
+      schemaVersion: 2 as const,
+      instanceId: "00000000-0000-4000-8000-000000000001",
+      pid: 4242,
+      processStartIdentity: "boot-a:100",
+      socketPath: "/inactive/graft.sock",
+    };
+    const inactiveRecycledProcess = {
+      socketHasActiveListener: () => Promise.resolve(false),
+      readProcessStartIdentity: () => Promise.resolve("boot-a:200"),
+    };
+    const concurrentOriginalProcess = {
+      socketHasActiveListener: () => Promise.resolve(false),
+      readProcessStartIdentity: () => Promise.resolve("boot-a:100"),
+    };
+
+    expect(await daemonRootOwnerIsLive(owner, inactiveRecycledProcess)).toBe(false);
+    expect(await daemonRootOwnerIsLive(owner, concurrentOriginalProcess)).toBe(true);
   });
 
   it("refuses a second live owner without touching its session directory", async () => {
