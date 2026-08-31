@@ -61,7 +61,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   the same invocation capability without entering the scheduler. Direct graph
   tools, persisted-history/status reads, overlay reads, and causal attach writes
   all use the captured execution scope, so a concurrent rebind cannot revoke or
-  redirect their WARP resident before settlement.
+  redirect their WARP resident before settlement. Repo-local bound calls now
+  capture the same invocation capability without scheduler admission, so
+  `workspace_open` activation cannot evict or duplicate a resident still used
+  by an admitted call.
   Internal read-attribution execution contexts now release their owned lease in
   the same operation, including early returns and failures. Runtime causal-status
   projection reads the bound state directly and does not manufacture an

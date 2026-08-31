@@ -16,6 +16,7 @@ import type { RuntimeCausalContext } from "./runtime-causal-context.js";
 import { buildRuntimeStagedTarget } from "./runtime-staged-target.js";
 import {
   buildRuntimeWorkspaceOverlayFooting,
+  type GitTransitionHookEvent,
   type RuntimeWorkspaceOverlayFooting,
 } from "./runtime-workspace-overlay.js";
 import { buildWorkspaceReadObservation, type AttributedReadToolName } from "./workspace-read-observation.js";
@@ -118,7 +119,10 @@ interface WorkspaceHistoryScope {
   readonly gitCommonDir: string;
   readonly repoState: RepoStateTracker;
   getCausalContext(): RuntimeCausalContext;
-  buildHistoryContext(observation: RepoObservation): PersistedLocalHistoryContext;
+  buildHistoryContext(
+    observation: RepoObservation,
+    hookEvent?: GitTransitionHookEvent | null,
+  ): PersistedLocalHistoryContext;
   buildGraphContext(): Promise<PersistedLocalHistoryGraphContext | null>;
 }
 
@@ -298,17 +302,18 @@ export class WorkspaceRouter {
     return this.warpLeaseRelease;
   }
 
-  async observeRepoState(): Promise<void> {
-    const binding = this.requireBinding();
-    const repoState = this.requireRepoState();
-    const previousObservation = repoState.getState();
-    const nextObservation = await repoState.observe();
+  async observeRepoState(execution: WorkspaceExecutionContext | null = null): Promise<void> {
+    const scope = this.resolveWorkspaceHistoryScope(execution);
+    if (scope === null) {
+      throw new WorkspaceBindingRequiredError("workspace");
+    }
+    const previousObservation = scope.repoState.getState();
+    const nextObservation = await scope.repoState.observe();
     const checkoutBoundaryHookEvent = previousObservation.checkoutEpoch !== nextObservation.checkoutEpoch
-      ? await this.resolveCheckoutBoundaryHookEvent(binding, previousObservation.observedAt, nextObservation)
+      ? await this.resolveCheckoutBoundaryHookEvent(scope, previousObservation.observedAt, nextObservation)
       : null;
-    const previousContext = this.buildPersistedLocalHistoryContext(binding, previousObservation);
-    const nextContext = this.buildPersistedLocalHistoryContext(
-      binding,
+    const previousContext = scope.buildHistoryContext(previousObservation);
+    const nextContext = scope.buildHistoryContext(
       nextObservation,
       checkoutBoundaryHookEvent,
     );
@@ -316,7 +321,7 @@ export class WorkspaceRouter {
       await this.options.persistedLocalHistory.noteCheckoutBoundary({
         previous: previousContext,
         current: nextContext,
-        graph: await this.buildPersistedLocalHistoryGraphContext(binding),
+        graph: await scope.buildGraphContext(),
       });
     }
   }
@@ -808,7 +813,9 @@ export class WorkspaceRouter {
       resolvePath: binding.resolvePath,
       capabilityProfile: binding.capabilityProfile,
       warpWriterId: binding.warpWriterId,
-      getCausalContext: () => this.buildCausalContext(binding, repoState.getState()),
+      getCausalContext: (observation) => {
+        return this.buildCausalContext(binding, observation ?? repoState.getState());
+      },
       status: boundWorkspaceStatus(this.options.mode, binding),
       governor: binding.slice.governor,
       cache: binding.slice.cache,
@@ -1165,7 +1172,7 @@ export class WorkspaceRouter {
   private buildPersistedLocalHistoryContext(
     binding: BoundWorkspace,
     observation: RepoObservation,
-    hookEvent: import("./runtime-workspace-overlay.js").GitTransitionHookEvent | null = null,
+    hookEvent: GitTransitionHookEvent | null = null,
   ): PersistedLocalHistoryContext {
     return buildPersistedLocalHistoryContext({
       persistedLocalHistory: this.options.persistedLocalHistory,
@@ -1179,19 +1186,21 @@ export class WorkspaceRouter {
   private buildPersistedLocalHistoryContextFromExecution(
     execution: WorkspaceExecutionContext,
     observation: RepoObservation,
+    hookEvent: GitTransitionHookEvent | null = null,
   ): PersistedLocalHistoryContext {
     return buildPersistedLocalHistoryContextFromExecution({
       persistedLocalHistory: this.options.persistedLocalHistory,
       execution,
       observation,
+      hookEvent,
     });
   }
 
   private async resolveCheckoutBoundaryHookEvent(
-    binding: BoundWorkspace,
+    binding: Pick<BoundWorkspace, "worktreeRoot" | "gitCommonDir">,
     previousObservedAt: string,
     observation: RepoObservation,
-  ): Promise<import("./runtime-workspace-overlay.js").GitTransitionHookEvent | null> {
+  ): Promise<GitTransitionHookEvent | null> {
     return resolveCheckoutBoundaryHookEvent({
       fs: this.options.fs,
       git: this.options.git,
@@ -1220,8 +1229,8 @@ export class WorkspaceRouter {
         gitCommonDir: execution.gitCommonDir,
         repoState: execution.repoState,
         getCausalContext: () => execution.getCausalContext(),
-        buildHistoryContext: (observation) => {
-          return this.buildPersistedLocalHistoryContextFromExecution(execution, observation);
+        buildHistoryContext: (observation, hookEvent) => {
+          return this.buildPersistedLocalHistoryContextFromExecution(execution, observation, hookEvent);
         },
         buildGraphContext: () => this.buildPersistedLocalHistoryGraphContextFromExecution(execution),
       };
@@ -1240,8 +1249,8 @@ export class WorkspaceRouter {
       gitCommonDir: binding.gitCommonDir,
       repoState,
       getCausalContext: () => this.buildCausalContext(binding, repoState.getState()),
-      buildHistoryContext: (observation) => {
-        return this.buildPersistedLocalHistoryContext(binding, observation);
+      buildHistoryContext: (observation, hookEvent) => {
+        return this.buildPersistedLocalHistoryContext(binding, observation, hookEvent);
       },
       buildGraphContext: () => this.buildPersistedLocalHistoryGraphContext(binding),
     };

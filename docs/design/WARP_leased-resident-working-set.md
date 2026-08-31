@@ -156,6 +156,11 @@ set enters the daemon scheduler. All workspace/history projections inside that
 call use the captured execution scope rather than consulting a binding that may
 be replaced concurrently.
 
+Repo-local bound calls own the same execution capability without entering the
+daemon scheduler. A concurrent `workspace_open` activation may replace their
+binding, but cannot evict or redirect the resident still used by the admitted
+call.
+
 Any execution context created outside the invocation engine owns the same
 obligation locally. Read-attribution fallback releases its internally captured
 context in `finally`, while status-only causal projection reads the current
@@ -264,6 +269,8 @@ capacity and deterministic policy before replacing eager eviction.
 - [x] Bound unscheduled graph, history/status, and causal-attach invocations
       retain their captured resident through concurrent rebind and release it
       at settlement without changing scheduler admission.
+- [x] Repo-local WARP-backed invocations retain their captured resident through
+      concurrent workspace activation without duplicate opening.
 - [x] Internal read attribution releases its materialized execution lease, and
       status-only causal projection creates no execution capability.
 - [x] Normal session termination releases every binding owned by that session.

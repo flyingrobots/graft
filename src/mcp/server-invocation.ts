@@ -274,8 +274,7 @@ export function createInvocationEngine(deps: InvocationEngineDeps): InvocationEn
       };
     }
 
-    const execution = mode === "daemon"
-      && workspaceRouter.isBound()
+    const execution = workspaceRouter.isBound()
       && !repoStateOptionalTools.has(name)
       ? workspaceRouter.captureExecutionContext()
       : null;
@@ -298,7 +297,7 @@ export function createInvocationEngine(deps: InvocationEngineDeps): InvocationEn
         const activeExecution = input.execution;
         return executionContextStorage.run(activeExecution, async () => {
           if (!repoStateOptionalTools.has(input.name)) {
-            await activeExecution.repoState.observe();
+            await workspaceRouter.observeRepoState(activeExecution);
           }
           return input.handler(input.parsed, input.ctx);
         });

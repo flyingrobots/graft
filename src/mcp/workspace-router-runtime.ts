@@ -220,11 +220,13 @@ export function buildPersistedLocalHistoryContextFromExecution(input: {
   readonly persistedLocalHistory: PersistedLocalHistoryStore;
   readonly execution: WorkspaceExecutionContext;
   readonly observation: RepoObservation;
+  readonly hookEvent?: GitTransitionHookEvent | null;
 }): PersistedLocalHistoryContext {
   const context = input.persistedLocalHistory.buildContext(
     input.execution.status,
-    input.execution.getCausalContext(),
+    input.execution.getCausalContext(input.observation),
     input.observation,
+    input.hookEvent ?? null,
   );
   if (context === null) {
     throw new Error("persisted local history context unavailable for execution");
@@ -235,7 +237,7 @@ export function buildPersistedLocalHistoryContextFromExecution(input: {
 export async function resolveCheckoutBoundaryHookEvent(input: {
   readonly fs: FileSystem;
   readonly git: GitClient;
-  readonly binding: BoundWorkspace;
+  readonly binding: Pick<BoundWorkspace, "worktreeRoot" | "gitCommonDir">;
   readonly previousObservedAt: string;
   readonly observation: RepoObservation;
 }): Promise<GitTransitionHookEvent | null> {

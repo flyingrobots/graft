@@ -78,8 +78,9 @@ Ownership follows the work that can still use the resident:
 
 - current and routed workspace bindings own separate lazy capabilities after
   their first WARP-backed use;
-- every bound daemon repository invocation owns a distinct capability until
-  settlement, whether or not that tool enters the daemon scheduler; and
+- every bound repository invocation owns a distinct capability until
+  settlement in both repo-local and daemon mode, while scheduler admission
+  remains daemon-only; and
 - internally captured read-attribution contexts release their own capability
   locally.
 
