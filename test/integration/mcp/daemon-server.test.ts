@@ -8,6 +8,7 @@ import {
   type GraftDaemonServer,
   type StartDaemonServerOptions,
 } from "../../../src/mcp/daemon-server.js";
+import { buildSessionWarpWriterId } from "../../../src/warp/writer-id.js";
 import { cleanupTestRepo, createTestRepo, git } from "../../helpers/git.js";
 
 interface JsonResponse {
@@ -239,6 +240,58 @@ describe("mcp: daemon transport and lifecycle", () => {
 
     const closedHealth = await requestUnixJson(socketPath, "GET", "/healthz");
     expect((parseJson(closedHealth) as { activeSessions: number }).activeSessions).toBe(0);
+  });
+
+  it("opens persisted daemon graphs on each transport session's logical writer lane", async () => {
+    const repoDir = createTestRepo("graft-daemon-writer-lanes-");
+    repos.push(repoDir);
+    fs.writeFileSync(path.join(repoDir, "app.ts"), "export const ready = true;\n");
+    git(repoDir, "add -A");
+    git(repoDir, "commit -m init");
+
+    const rootDir = fs.mkdtempSync(path.join(os.tmpdir(), "graft-daemon-root-"));
+    roots.push(rootDir);
+    const socketPath = path.join(rootDir, "daemon.sock");
+    const daemon = await startTestDaemonServer({
+      graftDir: rootDir,
+      socketPath,
+      persistedLocalHistoryGraph: true,
+    });
+    daemons.push(daemon);
+
+    const sessionA = await initializeSession(socketPath);
+    const sessionB = await initializeSession(socketPath);
+    const authorization = await callTool<{ ok: boolean }>(
+      socketPath,
+      sessionA,
+      "workspace_authorize",
+      { cwd: repoDir },
+      10,
+    );
+    expect(authorization.ok).toBe(true);
+    expect((await callTool<{ ok: boolean }>(
+      socketPath,
+      sessionA,
+      "workspace_bind",
+      { cwd: repoDir },
+      11,
+    )).ok).toBe(true);
+    expect((await callTool<{ ok: boolean }>(
+      socketPath,
+      sessionB,
+      "workspace_bind",
+      { cwd: repoDir },
+      12,
+    )).ok).toBe(true);
+
+    const writerRefs = git(
+      repoDir,
+      "for-each-ref --format='%(refname)' refs/warp/graft-ast/writers",
+    ).split("\n").filter((ref) => ref.length > 0);
+    expect(writerRefs).toEqual(expect.arrayContaining([
+      `refs/warp/graft-ast/writers/${buildSessionWarpWriterId(sessionA)}`,
+      `refs/warp/graft-ast/writers/${buildSessionWarpWriterId(sessionB)}`,
+    ]));
   });
 
 

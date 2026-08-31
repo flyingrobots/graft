@@ -15,6 +15,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ### Fixed
 
+- **Daemon WARP writer identity**: the production daemon now forwards each
+  requested logical writer ID into `openWarp`, so distinct transport sessions
+  use their derived session lanes instead of silently sharing the default
+  `graft` writer.
 - **Requested-worktree authority**: daemon-routed repository reads now expose
   the absolute caller-requested root, canonical resolved worktree root, and
   resolved repository/worktree identities in both `_workspace` and

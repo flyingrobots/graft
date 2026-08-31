@@ -51,7 +51,7 @@ export async function startDaemonServer(options: StartDaemonServerOptions = {}):
   await ensureGitVersionSupportsGraft();
   const graftDir = path.resolve(options.graftDir ?? defaultDaemonRoot());
   const socketPath = resolveSocketPath(options.socketPath, graftDir);
-  const warpPool = new InMemoryWarpPool((cwd) => openWarp({ cwd }));
+  const warpPool = new InMemoryWarpPool((cwd, writerId) => openWarp({ cwd, writerId }));
   const controlPlane = new DaemonControlPlane({
     fs: nodeFs,
     codec: new CanonicalJsonCodec(),
