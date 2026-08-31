@@ -283,7 +283,7 @@ function execFileText(command: string, args: readonly string[]): Promise<string>
   return new Promise<string>((resolve, reject) => {
     execFile(command, args, {
       encoding: "utf-8",
-      env: { ...process.env, LANG: "C", LC_ALL: "C" },
+      env: { ...process.env, COLUMNS: "4096", LANG: "C", LC_ALL: "C" },
       timeout: 1_000,
       windowsHide: true,
     }, (error, stdout) => {
@@ -330,17 +330,26 @@ function ensureGenericUnixProcessWitness(pid: number): void {
 async function readGenericUnixProcessStartIdentity(pid: number): Promise<string | null> {
   ensureGenericUnixProcessWitness(pid);
   const snapshot = (await execFileText("ps", [
-    "-ww",
     "-o",
     "lstart=",
     "-o",
     "command=",
     "-p",
     String(pid),
-  ])).trim().replace(/\s+/gu, " ");
-  if (snapshot.length === 0) return null;
-  const digest = crypto.createHash("sha256").update(snapshot, "utf-8").digest("hex");
-  return `${process.platform}:sha256:${digest}`;
+  ]));
+  return deriveGenericUnixProcessStartIdentity(process.platform, snapshot);
+}
+
+export function deriveGenericUnixProcessStartIdentity(
+  platform: string,
+  snapshot: string,
+): string | null {
+  const normalizedSnapshot = snapshot.trim().replace(/\s+/gu, " ");
+  if (normalizedSnapshot.length === 0) return null;
+  const digest = crypto.createHash("sha256")
+    .update(normalizedSnapshot, "utf-8")
+    .digest("hex");
+  return `${platform}:sha256:${digest}`;
 }
 
 export async function readProcessStartIdentity(pid: number): Promise<string | null> {
