@@ -32,6 +32,7 @@ import {
 import {
   acquireDaemonRootOwnership,
   type DaemonSessionStorage,
+  ensureDaemonSessionsRoot,
   nodeDaemonSessionStorage,
 } from "./daemon-storage-ownership.js";
 
@@ -84,7 +85,7 @@ export async function startDaemonServer(options: StartDaemonServerOptions = {}):
   const socketPath = resolveSocketPath(options.socketPath, graftDir);
   await ensurePrivateDirectory(graftDir);
   const sessionsRoot = path.join(graftDir, "sessions");
-  await ensurePrivateDirectory(sessionsRoot);
+  await ensureDaemonSessionsRoot(sessionsRoot);
   const rootOwnership = await acquireDaemonRootOwnership({
     graftDir,
     socketPath,

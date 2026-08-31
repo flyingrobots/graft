@@ -560,6 +560,35 @@ describe("mcp: daemon session reaper", () => {
     expect((await requestUnixJson(socketPath, "GET", "/healthz")).statusCode).toBe(200);
   });
 
+  it("rejects a symlinked sessions root without touching its target", async () => {
+    if (process.platform === "win32") return;
+    const rootDir = fs.mkdtempSync(path.join(os.tmpdir(), "graft-session-root-link-"));
+    const externalRoot = fs.mkdtempSync(path.join(os.tmpdir(), "graft-session-root-target-"));
+    const socketPath = path.join(rootDir, "daemon.sock");
+    const externalSession = path.join(externalRoot, "00000000-0000-4000-8000-000000000001");
+    fs.mkdirSync(externalSession, { recursive: true });
+    fs.writeFileSync(path.join(externalSession, "keep.txt"), "external\n");
+    fs.symlinkSync(externalRoot, path.join(rootDir, "sessions"), "dir");
+    cleanups.push(() => {
+      fs.rmSync(rootDir, { recursive: true, force: true });
+      fs.rmSync(externalRoot, { recursive: true, force: true });
+    });
+
+    const startupError = await startDaemonServer({
+      graftDir: rootDir,
+      socketPath,
+      sessionReaperIntervalMs: 0,
+    }).then(async (daemon) => {
+      await daemon.close();
+      return null;
+    }, (error: unknown) => error);
+    const externalSessionSurvived = fs.existsSync(externalSession);
+
+    expect(startupError).toMatchObject({ code: "UNSAFE_DAEMON_SESSIONS_ROOT" });
+    expect(externalSessionSurvived).toBe(true);
+    expect(fs.readFileSync(path.join(externalSession, "keep.txt"), "utf-8")).toBe("external\n");
+  });
+
   it("protects a pending session construction from orphan discovery", async () => {
     const rootDir = fs.mkdtempSync(path.join(os.tmpdir(), "graft-session-pending-orphan-"));
     const socketPath = path.join(rootDir, "daemon.sock");

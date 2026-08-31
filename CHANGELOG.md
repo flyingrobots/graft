@@ -51,6 +51,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   flight before advancing to resource teardown or releasing root ownership.
   Session construction admitted after an orphan scan starts extends that scan's
   protected-ID set before creating scratch state, closing the inverse-order race.
+  Startup rejects a symbolic-link or non-directory sessions root before
+  permission repair or orphan discovery can touch its target.
 
 ### Fixed
 

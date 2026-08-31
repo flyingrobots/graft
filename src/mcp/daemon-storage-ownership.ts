@@ -5,6 +5,7 @@ import { socketHasActiveListener } from "./daemon-bootstrap.js";
 
 const ROOT_OWNER_FILE = "daemon-owner.json";
 const SESSION_OWNER_FILE = ".graft-session-owner.json";
+const PRIVATE_DIRECTORY_MODE = 0o700;
 const PRIVATE_FILE_MODE = 0o600;
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/u;
 
@@ -74,10 +75,35 @@ export class DaemonRootOwnershipError extends Error {
   }
 }
 
+export class UnsafeDaemonSessionsRootError extends Error {
+  readonly code = "UNSAFE_DAEMON_SESSIONS_ROOT";
+
+  constructor(sessionsRoot: string) {
+    super(`Refusing unsafe daemon sessions root: ${sessionsRoot}`);
+    this.name = "UnsafeDaemonSessionsRootError";
+  }
+}
+
 function errorCode(error: unknown): string | undefined {
   return error instanceof Error && "code" in error
     ? (error as NodeJS.ErrnoException).code
     : undefined;
+}
+
+export async function ensureDaemonSessionsRoot(sessionsRoot: string): Promise<void> {
+  try {
+    await fs.mkdir(sessionsRoot, { mode: PRIVATE_DIRECTORY_MODE });
+  } catch (error: unknown) {
+    if (errorCode(error) !== "EEXIST") throw error;
+  }
+
+  const stat = await fs.lstat(sessionsRoot);
+  if (!stat.isDirectory() || stat.isSymbolicLink()) {
+    throw new UnsafeDaemonSessionsRootError(sessionsRoot);
+  }
+  if (process.platform !== "win32") {
+    await fs.chmod(sessionsRoot, PRIVATE_DIRECTORY_MODE);
+  }
 }
 
 function isDaemonRootOwnerRecord(value: unknown): value is DaemonRootOwnerRecord {

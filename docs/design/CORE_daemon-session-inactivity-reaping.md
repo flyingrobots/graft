@@ -214,6 +214,10 @@ its endpoint. A live owner causes startup refusal; a stale owner is replaced
 only after its endpoint is proven inactive. Sharing one daemon root across
 independent live endpoints is invalid.
 
+Startup creates the direct `sessions` child when absent and rejects it when an
+existing path is a symbolic link or is not a directory. It does not chmod or
+scan through an unsafe sessions-root path.
+
 Startup order is:
 
 1. validate configuration;
