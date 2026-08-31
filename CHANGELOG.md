@@ -25,7 +25,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   The manual sweep method is a required daemon capability rather than an
   optional interface member. Structured cleanup failures mark only operations
   that a later sweep actually retries; protocol and fallback transport-close
-  failures are reported separately as non-retryable. Pending initialization
+  failures and unsafe live-session path refusals are reported separately as
+  non-retryable. Pending initialization
   directories are reserved from orphan discovery until their construction
   commits or finishes rolling back. Sweeps are single-flight, shutdown fences
   new commits and waits admitted construction plus any active sweep, and the

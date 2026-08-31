@@ -428,6 +428,8 @@ authority has been retired, and each failed close layer is reported separately.
 - [x] A forced directory-removal failure reports one retired session, zero
       removed directories, and one retryable cleanup failure; a later sweep can
       remove the orphan.
+- [x] A live session path replaced by a link or non-directory is refused as
+      non-retryable and later reported as a preserved orphan entry.
 
 ### Public truth
 

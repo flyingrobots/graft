@@ -133,6 +133,12 @@ it to migration cleanup before the new daemon discovered `EADDRINUSE`. The
 repair binds the endpoint first and serves only HTTP 503 until control-plane
 initialization and orphan cleanup finish.
 
+The same review found that an unsafe live-session path refusal claimed to be
+retryable even though later orphan scans deliberately preserve links and
+non-directories. The storage boundary now raises a typed unsafe-path refusal,
+and termination reports that specific debt as non-retryable while preserving
+ordinary retryable filesystem failures.
+
 ## Drift
 
 The largest drift was procedural: implementation and PR publication preceded

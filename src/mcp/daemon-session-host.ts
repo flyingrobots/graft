@@ -19,6 +19,7 @@ import type {
   LegacyUnmarkedSessionPolicy,
   SessionOrphanPreservedEntry,
 } from "./daemon-storage-ownership.js";
+import { UnsafeDaemonSessionDirectoryError } from "./daemon-storage-ownership.js";
 import {
   MonotonicClock,
   MonotonicClockSampleError,
@@ -429,7 +430,7 @@ export function createDaemonSessionHost(options: CreateDaemonSessionHostOptions)
           code: "SESSION_DIRECTORY_REMOVE_FAILED",
           sessionId: session.id,
           path: session.graftDir,
-          retryable: true,
+          retryable: !(error instanceof UnsafeDaemonSessionDirectoryError),
           error,
         }));
       }

@@ -120,6 +120,15 @@ export class UnsafeDaemonSessionsRootError extends Error {
   }
 }
 
+export class UnsafeDaemonSessionDirectoryError extends Error {
+  readonly code = "UNSAFE_DAEMON_SESSION_DIRECTORY";
+
+  constructor(sessionDir: string) {
+    super(`Refusing unsafe daemon session directory: ${sessionDir}`);
+    this.name = "UnsafeDaemonSessionDirectoryError";
+  }
+}
+
 export class DaemonRootOwnerClaimTimeoutError extends Error {
   readonly code = "DAEMON_ROOT_OWNER_CLAIM_TIMEOUT";
 
@@ -728,7 +737,7 @@ export async function removeSessionDirectory(sessionDir: string): Promise<boolea
   });
   if (stat === null) return false;
   if (!stat.isDirectory() || stat.isSymbolicLink()) {
-    throw new Error(`Refusing unsafe daemon session directory: ${sessionDir}`);
+    throw new UnsafeDaemonSessionDirectoryError(sessionDir);
   }
   await fs.rm(sessionDir, { recursive: true, force: false });
   return true;

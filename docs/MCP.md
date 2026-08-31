@@ -117,7 +117,8 @@ SessionSweepResult
 Retiring a session does not imply that its directory was removed. Filesystem
 and orphan-scan failures are marked retryable only when a later sweep executes
 that operation again. Protocol and fallback transport-close failures are
-reported separately as non-retryable. An invalid or regressing injected clock
+reported separately as non-retryable, as are live-session cleanup refusals for
+links or non-directories that orphan discovery intentionally preserves. An invalid or regressing injected clock
 refuses the whole sweep with `MONOTONIC_CLOCK_INVALID`, reports zero retired
 sessions, and leaves the previous accepted elapsed-time sample unchanged.
 Scheduled sweeps emit structured diagnostics for refused sweeps and cleanup
