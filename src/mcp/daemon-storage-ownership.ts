@@ -167,6 +167,16 @@ function daemonSessionsRootIdentityMatches(
     && stat.ino === root.inode;
 }
 
+function daemonSessionDirectoryIdentityMatches(
+  expected: { readonly device: number; readonly inode: number },
+  stat: Awaited<ReturnType<typeof fs.lstat>>,
+): boolean {
+  return stat.isDirectory()
+    && !stat.isSymbolicLink()
+    && stat.dev === expected.device
+    && stat.ino === expected.inode;
+}
+
 async function assertPinnedDaemonSessionsRoot(root: PinnedDaemonSessionsRoot): Promise<void> {
   const current = await fs.lstat(root.path).catch((error: unknown) => {
     if (errorCode(error) === "ENOENT") return null;
@@ -884,6 +894,23 @@ export async function writeSessionOwnershipMarker(
   }
 }
 
+async function restoreQuarantinedSessionDirectory(
+  quarantinePath: string,
+  sessionDir: string,
+  error: unknown,
+): Promise<never> {
+  try {
+    await fs.rename(quarantinePath, sessionDir);
+  } catch (restoreError) {
+    throw new AggregateError(
+      [error, restoreError],
+      `Failed to restore refused daemon session directory: ${sessionDir}`,
+      { cause: restoreError },
+    );
+  }
+  throw error;
+}
+
 export async function removeSessionDirectory(sessionDir: string): Promise<boolean> {
   const resolvedSessionDir = path.resolve(sessionDir);
   const sessionId = path.basename(resolvedSessionDir);
@@ -895,6 +922,7 @@ export async function removeSessionDirectory(sessionDir: string): Promise<boolea
     throw new UnsafeDaemonSessionDirectoryError(sessionDir);
   }
   const root = await pinDaemonSessionsRoot(sessionsRoot);
+  let sessionHandle: fs.FileHandle | null = null;
   try {
     await assertPinnedDaemonSessionsRoot(root);
     const stat = await fs.lstat(resolvedSessionDir).catch((error: unknown) => {
@@ -906,9 +934,68 @@ export async function removeSessionDirectory(sessionDir: string): Promise<boolea
     if (!stat.isDirectory() || stat.isSymbolicLink()) {
       throw new UnsafeDaemonSessionDirectoryError(sessionDir);
     }
-    await fs.rm(resolvedSessionDir, { recursive: true, force: false });
+    const expectedIdentity = { device: stat.dev, inode: stat.ino };
+    if (process.platform !== "win32") {
+      try {
+        sessionHandle = await fs.open(resolvedSessionDir, "r");
+      } catch (error: unknown) {
+        if (["ELOOP", "ENOENT", "ENOTDIR"].includes(errorCode(error) ?? "")) {
+          throw new UnsafeDaemonSessionDirectoryError(sessionDir);
+        }
+        throw error;
+      }
+      const anchored = await sessionHandle.stat();
+      if (!daemonSessionDirectoryIdentityMatches(expectedIdentity, anchored)) {
+        throw new UnsafeDaemonSessionDirectoryError(sessionDir);
+      }
+    }
+    await assertPinnedDaemonSessionsRoot(root);
+    const current = await fs.lstat(resolvedSessionDir).catch((error: unknown) => {
+      if (errorCode(error) === "ENOENT") return null;
+      throw error;
+    });
+    if (
+      current === null
+      || !daemonSessionDirectoryIdentityMatches(expectedIdentity, current)
+    ) {
+      throw new UnsafeDaemonSessionDirectoryError(sessionDir);
+    }
+
+    const quarantinePath = path.join(
+      sessionsRoot,
+      `.graft-removing-${sessionId}-${crypto.randomUUID()}`,
+    );
+    try {
+      await fs.rename(resolvedSessionDir, quarantinePath);
+    } catch (error: unknown) {
+      if (errorCode(error) === "ENOENT") return false;
+      throw error;
+    }
+    await assertPinnedDaemonSessionsRoot(root);
+    const quarantined = await fs.lstat(quarantinePath).catch((error: unknown) => {
+      if (errorCode(error) === "ENOENT") return null;
+      throw error;
+    });
+    const anchored = sessionHandle === null ? stat : await sessionHandle.stat();
+    if (
+      quarantined === null
+      || !daemonSessionDirectoryIdentityMatches(expectedIdentity, anchored)
+      || !daemonSessionDirectoryIdentityMatches(expectedIdentity, quarantined)
+    ) {
+      await restoreQuarantinedSessionDirectory(
+        quarantinePath,
+        resolvedSessionDir,
+        new UnsafeDaemonSessionDirectoryError(sessionDir),
+      );
+    }
+    try {
+      await fs.rm(quarantinePath, { recursive: true, force: false });
+    } catch (error) {
+      await restoreQuarantinedSessionDirectory(quarantinePath, resolvedSessionDir, error);
+    }
     return true;
   } finally {
+    await sessionHandle?.close();
     await root.handle?.close();
   }
 }

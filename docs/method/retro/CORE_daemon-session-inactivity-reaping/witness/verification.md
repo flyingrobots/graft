@@ -50,6 +50,7 @@ mutation of the exact guard under test. Representative receipts:
 | Live-cleanup sessions-root swap | Replacing `sessions` with an external link immediately before DELETE removed the external same-ID directory | post-Retro review repair |
 | Mid-sweep retained clock failure | While the first expired session's deletion was gated, an invalid request sample on the second still let the sweep retire both with no failure | post-Retro review repair |
 | Generic-Unix same-second PID reuse | Two distinct process witnesses under one `ps lstart` second produced the same persisted owner identity | post-Retro review repair |
+| Post-validation live-child replacement | Cleanup returned `true` without reaching the replacement hook, leaving the validated pathname vulnerable to recursive deletion | post-Retro review repair |
 
 ## Focused GREEN
 
@@ -57,7 +58,7 @@ mutation of the exact guard under test. Representative receipts:
 pnpm exec vitest run test/unit/mcp/daemon-session-reaper.test.ts
 ```
 
-Result: pass; 1 file, 59 tests.
+Result: pass; 1 file, 60 tests.
 
 The focused suite includes exact-value configuration defaults, invalid option
 tables, monotonic/refusal/rebase behavior, streaming and pre-body barriers,
@@ -89,7 +90,7 @@ tests.
 
 | Gate | Command | Result |
 | :--- | :--- | :--- |
-| Focused lifecycle | `pnpm exec vitest run test/unit/mcp/daemon-session-reaper.test.ts` | pass; 1 file, 59 tests |
+| Focused lifecycle | `pnpm exec vitest run test/unit/mcp/daemon-session-reaper.test.ts` | pass; 1 file, 60 tests |
 | Full isolated suite | `pnpm test` | behavior tree at `9fa00e5c` passed 259 files, 2,115 tests in 87.27 seconds |
 | Lint | `pnpm lint` | pass |
 | Types | `pnpm typecheck` | pass |

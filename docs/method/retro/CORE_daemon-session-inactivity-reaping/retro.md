@@ -195,6 +195,16 @@ extracted the digest derivation as a platform-neutral seam tested everywhere
 and retained process-title installation as a real generic-Unix integration;
 the following full isolated run passed all 259 files and 2,115 tests.
 
+A later current-head CodeRabbit review found a remaining child-path race inside
+live-session cleanup: the sessions root and child were validated, but recursive
+removal still targeted the original pathname after an attacker could replace
+that child with another real directory. Cleanup now moves the candidate to an
+unpredictable quarantine name under the pinned root, compares that entry and an
+open handle with the validated device/inode identity, and restores then refuses
+any mismatch. The deterministic regression swaps in an external directory only
+after the quarantine rename and proves both the replacement and original
+contents survive.
+
 ## Drift
 
 The largest drift was procedural: implementation and PR publication preceded

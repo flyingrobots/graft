@@ -19,6 +19,7 @@ import {
   readProcessStartIdentity,
   removeSessionDirectory,
   removeSessionOrphanDirectories,
+  UnsafeDaemonSessionDirectoryError,
   writeSessionOwnershipMarker,
 } from "../../../src/mcp/daemon-storage-ownership.js";
 import {
@@ -1039,6 +1040,39 @@ describe("mcp: daemon session reaper", () => {
 
     expect(fs.readFileSync(path.join(externalSession, "keep.txt"), "utf-8")).toBe("external\n");
     expect(fs.existsSync(path.join(parkedSessionsRoot, sessionId!))).toBe(true);
+  });
+
+  it("preserves a directory replacement made after live-session validation", async () => {
+    if (process.platform === "win32") return;
+    const rootDir = fs.mkdtempSync(path.join(os.tmpdir(), "graft-live-session-child-swap-"));
+    const externalRoot = fs.mkdtempSync(path.join(os.tmpdir(), "graft-live-session-child-target-"));
+    const sessionsRoot = path.join(rootDir, "sessions");
+    const sessionId = "00000000-0000-4000-8000-000000000001";
+    const sessionDir = path.join(sessionsRoot, sessionId);
+    const displacedSession = path.join(rootDir, "validated-session");
+    fs.mkdirSync(sessionDir, { recursive: true });
+    fs.writeFileSync(path.join(sessionDir, "original.txt"), "original\n");
+    fs.writeFileSync(path.join(externalRoot, "keep.txt"), "external\n");
+    cleanups.push(() => {
+      fs.rmSync(rootDir, { recursive: true, force: true });
+      fs.rmSync(externalRoot, { recursive: true, force: true });
+    });
+    let swapped = false;
+    renameObserver.mockImplementation((oldPath, newPath, error) => {
+      if (error !== null || swapped || path.resolve(String(oldPath)) !== sessionDir) return;
+      swapped = true;
+      fs.renameSync(String(newPath), displacedSession);
+      fs.renameSync(externalRoot, String(newPath));
+    });
+
+    await expect(removeSessionDirectory(sessionDir))
+      .rejects
+      .toBeInstanceOf(UnsafeDaemonSessionDirectoryError);
+
+    expect(swapped).toBe(true);
+    expect(fs.readFileSync(path.join(sessionDir, "keep.txt"), "utf-8")).toBe("external\n");
+    expect(fs.readFileSync(path.join(displacedSession, "original.txt"), "utf-8"))
+      .toBe("original\n");
   });
 
   it.each([

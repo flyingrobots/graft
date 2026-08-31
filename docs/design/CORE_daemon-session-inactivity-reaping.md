@@ -455,6 +455,9 @@ authority has been retired, and each failed close layer is reported separately.
       or after candidate inspection refuses the scan before recursive removal.
 - [x] Replacing the sessions root before live-session terminal cleanup refuses
       removal and preserves an external same-ID directory.
+- [x] Replacing a validated live-session child before recursive removal is
+      detected by exact device/inode identity; the replacement and original
+      directory contents both survive the refusal.
 - [x] A temporary-claim release failure after root-owner publication rolls back
       the exact owner and claim residue; immediate reacquisition succeeds.
 - [x] Generic-Unix identities differ for two process witnesses sharing one

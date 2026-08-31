@@ -70,7 +70,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   candidate inspection and removal, refusing mid-scan path replacement.
   Live-session terminal cleanup uses the same pinned root identity boundary, so
   a replaced `sessions` path cannot redirect deletion to an external same-ID
-  directory.
+  directory. Each validated live-session child is moved to a private quarantine
+  name under that pinned root and its device/inode identity is rechecked against
+  the open validated directory before recursive removal; a post-validation
+  replacement is restored and refused rather than deleted.
   Legacy orphan discovery now accepts only the exact version-4 UUID form Graft
   generated; other UUID-shaped names are preserved and reported as unknown.
   A custom-endpoint daemon now refuses startup while the legacy default
