@@ -18,6 +18,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   shutdown release every active or routed binding lease owned by the session.
   A successful cross-resident rebind releases the previous binding only after
   the replacement commits, while same-resident rebinds retain the shared holder.
+  Failed opens roll back only lease-holder registrations introduced by the
+  failed caller and preserve leases for sibling writer lanes.
   Routed tool executions hold independent invocation leases through handler,
   attribution, and failure settlement, so binding LRU eviction cannot remove an
   admitted call's resident; the invocation lease releases in `finally`.

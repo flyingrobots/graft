@@ -24,12 +24,20 @@ export class InMemoryWarpPool implements WarpPool {
     writerId: string = DEFAULT_WARP_WRITER_ID,
     leaseHolderId?: string,
   ): Promise<WarpApp> {
-    if (leaseHolderId !== undefined) {
-      this.acquireLease(repoId, writerId, leaseHolderId);
-    }
+    const leaseAcquired = leaseHolderId === undefined
+      ? false
+      : this.addLease(repoId, writerId, leaseHolderId);
     const repoHandles = this.opened.get(repoId);
     const cached = repoHandles?.get(writerId);
-    if (cached !== undefined) return cached;
+    if (cached !== undefined) {
+      return this.rollbackLeaseAfterFailure(
+        cached,
+        repoId,
+        writerId,
+        leaseHolderId,
+        leaseAcquired,
+      );
+    }
 
     const nextRepoHandles = repoHandles ?? new Map<string, Promise<WarpApp>>();
     const opened = this.openWarp(worktreeRoot, writerId).catch((error: unknown) => {
@@ -37,16 +45,25 @@ export class InMemoryWarpPool implements WarpPool {
       current?.delete(writerId);
       if (current?.size === 0) {
         this.opened.delete(repoId);
-        this.leases.delete(repoId);
       }
       throw error;
     });
     nextRepoHandles.set(writerId, opened);
     this.opened.set(repoId, nextRepoHandles);
-    return opened;
+    return this.rollbackLeaseAfterFailure(
+      opened,
+      repoId,
+      writerId,
+      leaseHolderId,
+      leaseAcquired,
+    );
   }
 
   acquireLease(repoId: string, writerId: string, leaseHolderId: string): void {
+    this.addLease(repoId, writerId, leaseHolderId);
+  }
+
+  private addLease(repoId: string, writerId: string, leaseHolderId: string): boolean {
     let repoLeases = this.leases.get(repoId);
     if (repoLeases === undefined) {
       repoLeases = new Map<string, Set<string>>();
@@ -57,7 +74,23 @@ export class InMemoryWarpPool implements WarpPool {
       holders = new Set<string>();
       repoLeases.set(writerId, holders);
     }
+    const previousSize = holders.size;
     holders.add(leaseHolderId);
+    return holders.size !== previousSize;
+  }
+
+  private rollbackLeaseAfterFailure(
+    opening: Promise<WarpApp>,
+    repoId: string,
+    writerId: string,
+    leaseHolderId: string | undefined,
+    leaseAcquired: boolean,
+  ): Promise<WarpApp> {
+    if (!leaseAcquired || leaseHolderId === undefined) return opening;
+    return opening.catch((error: unknown) => {
+      this.releaseLease(repoId, writerId, leaseHolderId);
+      throw error;
+    });
   }
 
   releaseLease(repoId: string, writerId: string, leaseHolderId: string): void {
