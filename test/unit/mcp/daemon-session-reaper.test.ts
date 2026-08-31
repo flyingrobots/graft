@@ -1336,15 +1336,51 @@ describe("mcp: daemon session reaper", () => {
     expect(getReq.statusCode).toBe(404);
   });
 
-  it("runs terminal side effects once when shutdown races an idle sweep", async () => {
+  it("runs shared terminal side effects once across idle, transport, and shutdown signals", async () => {
     const rootDir = fs.mkdtempSync(path.join(os.tmpdir(), "graft-session-reaper-terminal-"));
     const socketPath = path.join(rootDir, "daemon.sock");
     cleanups.push(() => {
       fs.rmSync(rootDir, { recursive: true, force: true });
     });
+    let removalCalls = 0;
+    const sessionStorage = {
+      writeSessionOwnershipMarker,
+      removeSessionOrphanDirectories,
+      async removeSessionDirectory(sessionDir: string): Promise<boolean> {
+        removalCalls++;
+        if (removalCalls > 1) return false;
+        return removeSessionDirectory(sessionDir);
+      },
+    };
     const unregisterTransport = vi.spyOn(DaemonControlPlane.prototype, "unregisterTransport");
+    type ConnectTransport = Parameters<McpServer["connect"]>[0];
+    const originalConnect = Reflect.get(McpServer.prototype, "connect") as (
+      this: McpServer,
+      transport: ConnectTransport,
+    ) => Promise<void>;
+    let connectedTransport: ConnectTransport | undefined;
+    const connect = vi.spyOn(McpServer.prototype, "connect")
+      .mockImplementationOnce(async function(this: McpServer, transport: ConnectTransport) {
+        connectedTransport = transport;
+        await Reflect.apply(originalConnect, this, [transport]);
+      });
+    let releaseProtocolClose!: () => void;
+    let markProtocolCloseStarted!: () => void;
+    const protocolCloseStarted = new Promise<void>((resolve) => {
+      markProtocolCloseStarted = resolve;
+    });
+    const protocolCloseGate = new Promise<void>((resolve) => {
+      releaseProtocolClose = resolve;
+    });
+    const protocolClose = vi.spyOn(McpServer.prototype, "close")
+      .mockImplementation(async () => {
+        markProtocolCloseStarted();
+        await protocolCloseGate;
+      });
     cleanups.push(() => {
       unregisterTransport.mockRestore();
+      connect.mockRestore();
+      protocolClose.mockRestore();
     });
 
     let currentTimeMs = 1_000_000;
@@ -1354,31 +1390,40 @@ describe("mcp: daemon session reaper", () => {
       sessionInactivityTtlMs: 10_000,
       sessionReaperIntervalMs: 0,
       nowMs: () => currentTimeMs,
+      sessionStorage,
     });
     cleanups.push(() => daemon.close());
-    const initialize = await requestUnixJson(socketPath, "POST", "/mcp", {
-      jsonrpc: "2.0",
-      id: 1,
-      method: "initialize",
-      params: {
-        protocolVersion: "2025-03-26",
-        capabilities: {},
-        clientInfo: { name: "vitest", version: "0.0.0" },
-      },
+    cleanups.push(() => {
+      releaseProtocolClose();
     });
-    const sessionIdHeader = initialize.headers["mcp-session-id"];
-    const sessionId = Array.isArray(sessionIdHeader) ? sessionIdHeader[0] : sessionIdHeader;
-    expect(sessionId).toBeDefined();
+    const sessionId = await initializeDaemonSession(socketPath, 1);
+    const sessionDir = path.join(rootDir, "sessions", sessionId);
+    const capturedTransport = connectedTransport;
+    if (capturedTransport === undefined) throw new Error("MCP transport was not captured");
     unregisterTransport.mockClear();
 
     currentTimeMs += 10_001;
     const reaping = daemon.reapExpiredSessions();
+    await protocolCloseStarted;
+    capturedTransport.onerror?.(new Error("concurrent transport failure"));
     const closing = daemon.close();
+    let closeSettled = false;
+    void closing.then(() => {
+      closeSettled = true;
+    });
+    await new Promise<void>((resolve) => {
+      setImmediate(resolve);
+    });
+    expect(closeSettled).toBe(false);
+    releaseProtocolClose();
     const [reaped] = await Promise.all([reaping, closing]);
 
-    expect(reaped).toMatchObject({ sessionsRetired: 1 });
+    expect(reaped).toMatchObject({ sessionsRetired: 1, cleanupFailures: [] });
     expect(unregisterTransport).toHaveBeenCalledTimes(1);
     expect(unregisterTransport).toHaveBeenCalledWith(sessionId);
+    expect(protocolClose).toHaveBeenCalledTimes(1);
+    expect(removalCalls).toBe(1);
+    expect(fs.existsSync(sessionDir)).toBe(false);
   });
 
   it("reserves a terminating identity and ignores its late callback after reuse", async () => {
