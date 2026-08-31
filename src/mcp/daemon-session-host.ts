@@ -368,6 +368,7 @@ export function createDaemonSessionHost(options: CreateDaemonSessionHostOptions)
   const pendingSessionIds = new Set<string>();
   const terminatingSessionIds = new Set<string>();
   const terminationsInFlight = new Set<Promise<SessionTerminationResult>>();
+  const sweepOwnedTerminations = new Set<Promise<SessionTerminationResult>>();
   const pendingSessionConstructions = new Set<Promise<DaemonSession>>();
   let orphanScanProtectedSessionIds: Set<string> | null = null;
   let shutdownTerminationCollector: Set<Promise<SessionTerminationResult>> | null = null;
@@ -547,7 +548,15 @@ export function createDaemonSessionHost(options: CreateDaemonSessionHostOptions)
         && current - session.lastActivityAtMs >= sessionTtlMs
       ) {
         retiredSessionIds.add(session.id);
-        const result = await terminateSession(session, "idle");
+        const termination = terminateSession(session, "idle");
+        sweepOwnedTerminations.add(termination);
+        shutdownTerminationCollector?.delete(termination);
+        let result: SessionTerminationResult;
+        try {
+          result = await termination;
+        } finally {
+          sweepOwnedTerminations.delete(termination);
+        }
         if (result.sessionRetired) sessionsRetired++;
         if (result.liveDirectoryRemoved) liveDirectoriesRemoved++;
         cleanupFailures.push(...result.cleanupFailures);
@@ -655,7 +664,9 @@ export function createDaemonSessionHost(options: CreateDaemonSessionHostOptions)
     }
     const constructionsAtClose = [...pendingSessionConstructions];
     const sweepAtClose = sweepInFlight;
-    const terminationsAtClose = new Set(terminationsInFlight);
+    const terminationsAtClose = new Set(
+      [...terminationsInFlight].filter((termination) => !sweepOwnedTerminations.has(termination)),
+    );
     shutdownTerminationCollector = terminationsAtClose;
     const operation = (async () => {
       const errors: unknown[] = [];

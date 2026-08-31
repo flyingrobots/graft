@@ -56,7 +56,7 @@ recorded daemon.
    injects a real transport error, begins shutdown, and observes one unregister,
    one protocol close, and one directory removal.
 7. **Did existing behavior survive?** Yes. Focused daemon lifecycle validation
-   passes 49 tests. The exact-tree isolated-suite receipt is recorded in
+   passes 53 tests. The exact-tree isolated-suite receipt is recorded in
    [verification.md](./witness/verification.md).
 
 ## Review Repair
@@ -138,6 +138,12 @@ retryable even though later orphan scans deliberately preserve links and
 non-directories. The storage boundary now raises a typed unsafe-path refusal,
 and termination reports that specific debt as non-retryable while preserving
 ordinary retryable filesystem failures.
+
+The final finding in this pass showed shutdown aggregating one cleanup failure
+twice when an in-flight sweep owned the same termination promise also captured
+by the termination registry. Shutdown now excludes sweep-owned promises from
+its independent collector and receives their outcome only through the awaited
+sweep result.
 
 ## Drift
 

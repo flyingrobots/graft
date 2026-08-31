@@ -2451,6 +2451,83 @@ describe("mcp: daemon session reaper", () => {
     await expect(daemon.close()).rejects.toThrow("Failed to close the Graft daemon cleanly");
   });
 
+  it("reports one cleanup failure when shutdown overlaps its owning sweep", async () => {
+    const rootDir = fs.mkdtempSync(path.join(os.tmpdir(), "graft-session-shutdown-sweep-failure-"));
+    const socketPath = path.join(rootDir, "daemon.sock");
+    cleanups.push(() => {
+      fs.rmSync(rootDir, { recursive: true, force: true });
+    });
+    let currentTimeMs = 1_000_000;
+    let markRemovalStarted!: () => void;
+    let releaseRemoval!: () => void;
+    const removalStarted = new Promise<void>((resolve) => {
+      markRemovalStarted = resolve;
+    });
+    const removalGate = new Promise<void>((resolve) => {
+      releaseRemoval = resolve;
+    });
+    cleanups.push(() => {
+      releaseRemoval();
+    });
+    const sessionStorage = {
+      writeSessionOwnershipMarker,
+      removeSessionOrphanDirectories,
+      async removeSessionDirectory(): Promise<boolean> {
+        markRemovalStarted();
+        await removalGate;
+        throw Object.assign(new Error("injected busy directory"), { code: "EBUSY" });
+      },
+    };
+    const daemon = await startDaemonServer({
+      graftDir: rootDir,
+      socketPath,
+      sessionInactivityTtlMs: 10_000,
+      sessionReaperIntervalMs: 0,
+      nowMs: () => currentTimeMs,
+      sessionStorage,
+    });
+    const initialize = await requestUnixJson(socketPath, "POST", "/mcp", {
+      jsonrpc: "2.0",
+      id: 1,
+      method: "initialize",
+      params: {
+        protocolVersion: "2025-03-26",
+        capabilities: {},
+        clientInfo: { name: "vitest", version: "0.0.0" },
+      },
+    });
+    const sessionIdHeader = initialize.headers["mcp-session-id"];
+    const sessionId = Array.isArray(sessionIdHeader) ? sessionIdHeader[0] : sessionIdHeader;
+    expect(sessionId).toBeDefined();
+
+    currentTimeMs += 10_001;
+    const sweeping = daemon.reapExpiredSessions();
+    await removalStarted;
+    const closing = daemon.close().then(
+      () => null,
+      (error: unknown) => error,
+    );
+    releaseRemoval();
+
+    expect(await sweeping).toMatchObject({
+      sessionsRetired: 1,
+      cleanupFailures: [{
+        code: "SESSION_DIRECTORY_REMOVE_FAILED",
+        sessionId,
+      }],
+    });
+    const closeError = await closing;
+    expect(closeError).toBeInstanceOf(AggregateError);
+    const matchingFailures = flattenErrors(closeError).filter((error) => {
+      return error instanceof Error
+        && "code" in error
+        && error.code === "SESSION_DIRECTORY_REMOVE_FAILED"
+        && "sessionId" in error
+        && error.sessionId === sessionId;
+    });
+    expect(matchingFailures).toHaveLength(1);
+  });
+
   it("reports and consumes signal-triggered shutdown failures", async () => {
     const rootDir = fs.mkdtempSync(path.join(os.tmpdir(), "graft-session-signal-failure-"));
     const socketPath = path.join(rootDir, "daemon.sock");

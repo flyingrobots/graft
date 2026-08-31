@@ -80,7 +80,9 @@ lifecycle does not claim to bound every daemon cache or working set.
   HTTP transport when protocol close fails. When the transport's own close
   callback initiates termination, including explicit DELETE, the transport is
   already closed, so the transition skips duplicate protocol/transport close.
-  There is no separate `GraftServer.close()` operation.
+  Shutdown awaits active sweeps and transport-triggered terminations, but a
+  sweep-owned termination contributes its cleanup result only through that
+  sweep. There is no separate `GraftServer.close()` operation.
 - **Explicit disconnect** is available through `DELETE /mcp` with the exact
   `mcp-session-id`.
 - **Crash and cleanup recovery** begins only after the daemon has exclusive

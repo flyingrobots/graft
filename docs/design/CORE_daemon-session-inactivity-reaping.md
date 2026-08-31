@@ -17,7 +17,7 @@ Legend: CORE
 
 Hill met locally on the repaired PR #250 branch. Every acceptance criterion
 below has executable evidence, the local Retro records the cycle, and the
-exact-tree isolated suite passes 259 files and 2,105 tests. Current-head CI and
+exact-tree isolated suite passes 259 files and 2,109 tests. Current-head CI and
 third-party review remain separate Ship gates.
 
 Writing the contract after implementation is a process failure, not a precedent.
@@ -304,7 +304,10 @@ Only one sweep may execute storage discovery at a time. Concurrent scheduled
 or manual callers share the same in-flight result, and shutdown awaits that
 operation before relinquishing root ownership. The interval scheduler also
 admits at most one pending observer, so a blocked sweep cannot accumulate one
-promise continuation or duplicate diagnostic per timer tick.
+promise continuation or duplicate diagnostic per timer tick. A termination
+owned by the captured sweep is excluded from shutdown's independent termination
+collector, so its cleanup failures are aggregated exactly once through the
+sweep result.
 
 Signal-triggered shutdown consumes the close result. Cleanup rejection emits a
 structured `DAEMON_SIGNAL_SHUTDOWN_FAILED` diagnostic and selects a nonzero
@@ -405,6 +408,8 @@ authority has been retired, and each failed close layer is reported separately.
       shutdown all converge on the same termination operation.
 - [x] Repeated/concurrent terminal signals close/unregister/remove at most once
       and all callers observe the same terminal outcome.
+- [x] Shutdown overlapping an in-flight sweep reports each sweep-owned terminal
+      cleanup failure exactly once.
 - [x] A late old-session callback cannot delete a replacement map entry.
 - [x] Unknown-session behavior is asserted by stable JSON-RPC/HTTP codes, not
       human-readable diagnostic wording.

@@ -52,6 +52,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   failures once instead of discarding the structured terminal result.
   Daemon shutdown tracks and awaits transport-triggered termination already in
   flight before advancing to resource teardown or releasing root ownership.
+  A termination already owned by an in-flight sweep contributes its cleanup
+  failures through that sweep only, preventing duplicate shutdown diagnostics.
   Session construction admitted after an orphan scan starts extends that scan's
   protected-ID set before creating scratch state, closing the inverse-order race.
   Startup and every orphan scan reject a symbolic-link or non-directory
