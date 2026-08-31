@@ -11,6 +11,7 @@ import { InlineDaemonWorkerPool } from "../../src/mcp/daemon-worker-pool.js";
 import { PersistentMonitorRuntime } from "../../src/mcp/persistent-monitor-runtime.js";
 import { createGraftServer, type GraftServer } from "../../src/mcp/server.js";
 import { InMemoryWarpPool } from "../../src/mcp/warp-pool.js";
+import type { WarpPool } from "../../src/mcp/warp-pool.js";
 import { openWarp } from "../../src/warp/open.js";
 import { parse } from "./mcp.js";
 
@@ -31,7 +32,9 @@ export interface InProcessDaemonHarness {
   close(): Promise<void>;
 }
 
-export async function createInProcessDaemonHarness(): Promise<InProcessDaemonHarness> {
+export async function createInProcessDaemonHarness(options: {
+  readonly warpPool?: WarpPool | undefined;
+} = {}): Promise<InProcessDaemonHarness> {
   const rootDir = fs.mkdtempSync(path.join(os.tmpdir(), "graft-daemon-in-process-"));
   const codec = new CanonicalJsonCodec();
   const controlPlane = new DaemonControlPlane({
@@ -51,7 +54,8 @@ export async function createInProcessDaemonHarness(): Promise<InProcessDaemonHar
     scheduler,
     workerPool,
   });
-  const warpPool = new InMemoryWarpPool((cwd, writerId) => openWarp({ cwd, writerId }));
+  const warpPool = options.warpPool
+    ?? new InMemoryWarpPool((cwd, writerId) => openWarp({ cwd, writerId }));
   const startedAt = new Date().toISOString();
   const sessions = new Map<string, InProcessDaemonSession>();
 

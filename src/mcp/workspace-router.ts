@@ -131,6 +131,7 @@ function workspaceCapabilityProfilesEqual(
 
 export class WorkspaceRouter {
   private bindingCounter = 0;
+  private executionCounter = 0;
   private sliceIdCounter = 0;
   private currentSlice: WorkspaceSlice;
   private currentBinding: BoundWorkspace | null = null;
@@ -689,6 +690,13 @@ export class WorkspaceRouter {
     if (repoState === null) {
       throw new WorkspaceBindingRequiredError("workspace");
     }
+    const leaseHolderId = [
+      binding.transportSessionId,
+      "execution",
+      String(++this.executionCounter).padStart(6, "0"),
+    ].join(":");
+    let leaseClaimed = false;
+    let leaseReleased = false;
     return {
       sliceId: binding.slice.sliceId,
       repoId: binding.repoId,
@@ -708,7 +716,35 @@ export class WorkspaceRouter {
       metrics: binding.slice.metrics,
       graftDir: binding.slice.graftDir,
       repoState,
-      getWarp: binding.getWarp,
+      getWarp: async () => {
+        if (leaseReleased) {
+          throw new Error("workspace execution context has already been released");
+        }
+        leaseClaimed = true;
+        return {
+          app: await this.options.warpPool.getOrOpen(
+            binding.repoId,
+            binding.worktreeRoot,
+            binding.warpWriterId,
+            leaseHolderId,
+          ),
+          strandId: null,
+        };
+      },
+      releaseWarpLease: () => {
+        if (leaseReleased) {
+          return;
+        }
+        leaseReleased = true;
+        if (!leaseClaimed) {
+          return;
+        }
+        this.options.warpPool.releaseLease?.(
+          binding.repoId,
+          binding.warpWriterId,
+          leaseHolderId,
+        );
+      },
     };
   }
 

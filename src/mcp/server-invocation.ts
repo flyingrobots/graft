@@ -547,6 +547,8 @@ export function createInvocationEngine(deps: InvocationEngineDeps): InvocationEn
       await emitInvocationStartedOnce();
       await emitInvocationFailed({ name, error, envelope, execution });
       throw error;
+    } finally {
+      execution?.releaseWarpLease();
     }
   }
 

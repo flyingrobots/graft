@@ -2,6 +2,8 @@ import { afterEach, describe, expect, it } from "vitest";
 import * as fs from "node:fs";
 import * as path from "node:path";
 import { MCP_OUTPUT_SCHEMAS } from "../../../src/contracts/output-schemas.js";
+import { InMemoryWarpPool } from "../../../src/mcp/warp-pool.js";
+import { openWarp } from "../../../src/warp/open.js";
 import { createInProcessDaemonHarness } from "../../helpers/daemon.js";
 import { cleanupTestRepo, createCommittedTestRepo, git } from "../../helpers/git.js";
 import { createServerInRepo, parse } from "../../helpers/mcp.js";
@@ -263,6 +265,76 @@ describe("mcp: per-call workspace route", () => {
       query: "onlyInA",
     });
     expect(activeFind.total).toBe(0);
+  });
+
+  it("keeps an in-flight routed WARP resident through LRU eviction and releases it at settlement", {
+    timeout: 30_000,
+  }, async () => {
+    const routedRepo = createRepo(
+      "graft-route-in-flight-warp-",
+      "export function retainedDuringCall(): string { return 'retained'; }\n",
+    );
+    const churnRepos = Array.from({ length: 8 }, (_unused, index) => {
+      return createRepo(
+        `graft-route-lru-churn-${String(index)}-`,
+        `export const churn${String(index)} = true;\n`,
+      );
+    });
+    let markOpenStarted!: () => void;
+    let releaseOpen!: () => void;
+    const openStarted = new Promise<void>((resolve) => {
+      markOpenStarted = resolve;
+    });
+    const openGate = new Promise<void>((resolve) => {
+      releaseOpen = resolve;
+    });
+    cleanups.push(() => {
+      releaseOpen();
+    });
+    let routedWriterId: string | null = null;
+    const pool = new InMemoryWarpPool(async (cwd, writerId) => {
+      const app = await openWarp({ cwd, writerId });
+      if (cwd === routedRepo) {
+        routedWriterId = writerId;
+        markOpenStarted();
+        await openGate;
+      }
+      return app;
+    });
+    const harness = await createInProcessDaemonHarness({ warpPool: pool });
+    cleanups.push(() => harness.close());
+    const session = harness.createSession();
+    const opened = await session.callToolJson<{
+      openedWorkspace: { repoId: string };
+    }>("workspace_open", {
+      cwd: routedRepo,
+      activate: false,
+    });
+    for (const cwd of churnRepos) {
+      await session.callToolJson("workspace_open", { cwd, activate: false });
+    }
+
+    const inFlight = session.callToolJson<{ total: number }>("code_find", {
+      cwd: routedRepo,
+      query: "retainedDuringCall",
+    });
+    await openStarted;
+    for (const cwd of churnRepos) {
+      await session.callToolJson("safe_read", { cwd, path: "app.ts" });
+    }
+    expect(routedWriterId).toEqual(expect.any(String));
+    const routedRepoId = opened.openedWorkspace.repoId;
+    const residentDuringCall = pool.has(routedRepoId, routedWriterId!);
+    const leasesDuringCall = pool.leaseCount(routedRepoId, routedWriterId!);
+
+    releaseOpen();
+    const result = await inFlight;
+
+    expect(residentDuringCall).toBe(true);
+    expect(leasesDuringCall).toBe(1);
+    expect(result.total).toBe(1);
+    expect(pool.has(routedRepoId, routedWriterId!)).toBe(false);
+    expect(pool.leaseCount(routedRepoId, routedWriterId!)).toBe(0);
   });
 
   it("routes graft_since to either dirty worktree of one repository and witnesses the selected authority", {

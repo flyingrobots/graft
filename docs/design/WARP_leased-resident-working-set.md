@@ -201,7 +201,7 @@ capacity and deterministic policy before replacing eager eviction.
 - [ ] Failed rebind retains A and releases any uncommitted B lease.
 - [ ] Routed authorization rejection and LRU removal release their binding
       leases.
-- [ ] An in-flight routed invocation survives binding LRU removal without
+- [x] An in-flight routed invocation survives binding LRU removal without
       eviction or duplicate opening, then releases at settlement.
 - [x] Normal session termination releases every binding owned by that session.
 - [ ] Reopening an evicted resident reconstructs an equivalent bounded WARP
