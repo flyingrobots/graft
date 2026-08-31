@@ -86,6 +86,12 @@ export interface DaemonSessionDirectoryIdentity {
   readonly inode: number;
 }
 
+export interface DaemonSessionsRootAuthority {
+  readonly path: string;
+  assertCurrent(): Promise<void>;
+  close(): Promise<void>;
+}
+
 export interface DaemonSessionStorage {
   captureSessionDirectoryIdentity(
     sessionDir: string,
@@ -242,6 +248,25 @@ async function pinDaemonSessionsRoot(sessionsRoot: string): Promise<PinnedDaemon
     await handle?.close().catch(() => undefined);
     throw error;
   }
+}
+
+export async function retainDaemonSessionsRoot(
+  sessionsRoot: string,
+): Promise<DaemonSessionsRootAuthority> {
+  const root = await pinDaemonSessionsRoot(sessionsRoot);
+  let closed = false;
+  return Object.freeze({
+    path: root.path,
+    async assertCurrent(): Promise<void> {
+      if (closed) throw new UnsafeDaemonSessionsRootError(root.path);
+      await assertPinnedDaemonSessionsRoot(root);
+    },
+    async close(): Promise<void> {
+      if (closed) return;
+      closed = true;
+      await root.handle?.close();
+    },
+  });
 }
 
 export async function ensureDaemonSessionsRoot(sessionsRoot: string): Promise<void> {

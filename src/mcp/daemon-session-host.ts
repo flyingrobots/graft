@@ -17,6 +17,7 @@ import { ensurePrivateDirectory } from "./daemon-bootstrap.js";
 import type {
   DaemonSessionDirectoryIdentity,
   DaemonSessionStorage,
+  DaemonSessionsRootAuthority,
   LegacyUnmarkedSessionPolicy,
   SessionOrphanPreservedEntry,
 } from "./daemon-storage-ownership.js";
@@ -128,6 +129,7 @@ export interface CreateDaemonSessionHostOptions {
   readonly mcpPath: string;
   readonly startedAt: string;
   readonly sessionStorage: DaemonSessionStorage;
+  readonly sessionsRootAuthority: DaemonSessionsRootAuthority;
   readonly legacyUnmarkedSessionPolicy: LegacyUnmarkedSessionPolicy;
   readonly warpPool: WarpPool;
   readonly controlPlane: DaemonControlPlane;
@@ -201,7 +203,7 @@ async function createDaemonSession(
   clock: MonotonicClock,
   canCommit: () => boolean,
 ): Promise<DaemonSession> {
-  const sessionGraftDir = path.join(options.graftDir, "sessions", newSessionId);
+  const sessionGraftDir = path.join(options.sessionsRootAuthority.path, newSessionId);
   let directoryReady = false;
   let directoryIdentity: DaemonSessionDirectoryIdentity | undefined;
   let transport: StreamableHTTPServerTransport | undefined;
@@ -213,16 +215,20 @@ async function createDaemonSession(
     closedBeforeCommit: false,
   };
   try {
+    await options.sessionsRootAuthority.assertCurrent();
     await ensurePrivateDirectory(sessionGraftDir);
     directoryReady = true;
+    await options.sessionsRootAuthority.assertCurrent();
     directoryIdentity = await options.sessionStorage.captureSessionDirectoryIdentity(
       sessionGraftDir,
     );
+    await options.sessionsRootAuthority.assertCurrent();
     await options.sessionStorage.writeSessionOwnershipMarker(
       sessionGraftDir,
       options.daemonInstanceId,
       newSessionId,
     );
+    await options.sessionsRootAuthority.assertCurrent();
     const createdTransport = new StreamableHTTPServerTransport({
       sessionIdGenerator: () => newSessionId,
     });

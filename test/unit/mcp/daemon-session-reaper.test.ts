@@ -929,6 +929,52 @@ describe("mcp: daemon session reaper", () => {
     expect(fs.readFileSync(path.join(externalSession, "keep.txt"), "utf-8")).toBe("external\n");
   });
 
+  it("refuses session construction after the established sessions root is replaced", async () => {
+    if (process.platform === "win32") return;
+    const rootDir = fs.mkdtempSync(path.join(os.tmpdir(), "graft-session-create-root-swap-"));
+    const externalRoot = fs.mkdtempSync(path.join(os.tmpdir(), "graft-session-create-target-"));
+    const socketPath = path.join(rootDir, "daemon.sock");
+    const sessionsRoot = path.join(rootDir, "sessions");
+    const parkedSessionsRoot = path.join(rootDir, "sessions-before-swap");
+    cleanups.push(() => {
+      fs.rmSync(rootDir, { recursive: true, force: true });
+      fs.rmSync(externalRoot, { recursive: true, force: true });
+    });
+
+    const daemon = await startDaemonServer({
+      graftDir: rootDir,
+      socketPath,
+      sessionReaperIntervalMs: 0,
+    });
+    cleanups.push(() => daemon.close());
+
+    fs.renameSync(sessionsRoot, parkedSessionsRoot);
+    fs.symlinkSync(externalRoot, sessionsRoot, "dir");
+    cleanups.push(() => {
+      const stat = fs.lstatSync(sessionsRoot, { throwIfNoEntry: false });
+      if (stat?.isSymbolicLink() === true) fs.unlinkSync(sessionsRoot);
+      if (fs.existsSync(parkedSessionsRoot) && !fs.existsSync(sessionsRoot)) {
+        fs.renameSync(parkedSessionsRoot, sessionsRoot);
+      }
+    });
+
+    const initialize = await requestUnixJson(socketPath, "POST", "/mcp", {
+      jsonrpc: "2.0",
+      id: 1,
+      method: "initialize",
+      params: {
+        protocolVersion: "2025-03-26",
+        capabilities: {},
+        clientInfo: { name: "vitest", version: "0.0.0" },
+      },
+    });
+    const health = await requestUnixJson(socketPath, "GET", "/healthz");
+
+    expect(initialize.statusCode).toBe(500);
+    expect(JSON.parse(health.text)).toMatchObject({ activeSessions: 0 });
+    expect(fs.readdirSync(externalRoot)).toEqual([]);
+  });
+
   it("refuses a periodic orphan scan after the sessions root becomes a symlink", async () => {
     if (process.platform === "win32") return;
     const rootDir = fs.mkdtempSync(path.join(os.tmpdir(), "graft-session-root-swap-"));

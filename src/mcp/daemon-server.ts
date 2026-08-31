@@ -35,6 +35,7 @@ import {
   ensureDaemonSessionsRoot,
   type LegacyUnmarkedSessionPolicy,
   nodeDaemonSessionStorage,
+  retainDaemonSessionsRoot,
 } from "./daemon-storage-ownership.js";
 
 const HEALTH_PATH = "/healthz";
@@ -90,9 +91,13 @@ export async function startDaemonServer(options: StartDaemonServerOptions = {}):
   await ensurePrivateDirectory(graftDir);
   const sessionsRoot = path.join(graftDir, "sessions");
   await ensureDaemonSessionsRoot(sessionsRoot);
+  const sessionsRootAuthority = await retainDaemonSessionsRoot(sessionsRoot);
   const rootOwnership = await acquireDaemonRootOwnership({
     graftDir,
     socketPath,
+  }).catch(async (error: unknown) => {
+    await sessionsRootAuthority.close();
+    throw error;
   });
 
   let daemonWorkerPool: ChildProcessDaemonWorkerPool | undefined;
@@ -193,6 +198,7 @@ export async function startDaemonServer(options: StartDaemonServerOptions = {}):
       mcpPath: MCP_PATH,
       startedAt,
       sessionStorage,
+      sessionsRootAuthority,
       legacyUnmarkedSessionPolicy,
       warpPool,
       controlPlane,
@@ -261,6 +267,7 @@ export async function startDaemonServer(options: StartDaemonServerOptions = {}):
                 });
               }
             },
+            () => sessionsRootAuthority.close(),
             () => rootOwnership.release(),
           ]);
           if (errors.length > 0) {
@@ -291,6 +298,7 @@ export async function startDaemonServer(options: StartDaemonServerOptions = {}):
         });
       });
     }
+    cleanupSteps.push(() => sessionsRootAuthority.close());
     cleanupSteps.push(() => rootOwnership.release());
     const cleanupErrors = await runCleanupSteps(cleanupSteps);
     if (cleanupErrors.length > 0) {
