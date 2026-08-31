@@ -79,12 +79,13 @@ structured public errors.
 pnpm test
 ```
 
-Latest completed behavior-tree result at `a81a3f1e`: pass; 259 files and 2,118
-tests in 96.00 seconds. The earlier `50e8aa77` candidate passed 258 files and
+Latest completed behavior-tree result at `35aa63d4`: pass; 259 files and 2,122
+tests in 90.74 seconds. The earlier `50e8aa77` candidate passed 258 files and
 failed only the new generic-Unix identity test because that test forced Darwin
 `ps` flags inside Alpine. The forward repair first passed the isolated
-regression in Alpine, then passed the complete suite. The latest result also
-includes the three current-head review repairs for live-child replacement,
+regression in Alpine, then passed the complete suite. The latest result includes
+all subsequent current-head review repairs: live-child identity fencing, orphan
+quarantine fencing, startup-only root creation, post-quarantine restoration,
 sessions-root retry classification, and bounded claim churn.
 
 The command uses the repository's Docker-isolated test runner. The earlier
@@ -99,7 +100,7 @@ tests.
 | Gate | Command | Result |
 | :--- | :--- | :--- |
 | Focused lifecycle | `pnpm exec vitest run test/unit/mcp/daemon-session-reaper.test.ts` | pass; 1 file, 66 tests |
-| Full isolated suite | `pnpm test` | behavior tree at `a81a3f1e` passed 259 files, 2,118 tests in 96.00 seconds |
+| Full isolated suite | `pnpm test` | behavior tree at `35aa63d4` passed 259 files, 2,122 tests in 90.74 seconds |
 | Lint | `pnpm lint` | pass |
 | Types | `pnpm typecheck` | pass |
 | Build | `pnpm build` | pass |
@@ -142,6 +143,13 @@ connection. No inline thread remained unresolved. The latest CodeRabbit global
 review-body finding is closed by the loop-boundary deadline regression, but a
 substantive third-party review has not yet completed against this repaired
 behavior head.
+
+The behavior-closure refresh at `35aa63d4` exhausted all pages across 58 review
+threads, 38 global comments, 29 reviews, and every nested thread-comment
+connection. All four findings from the preceding Codex pass were repaired in
+separate RED/GREEN commits and resolved through GraphQL; zero inline threads
+remain unresolved. No reviewer has yet completed a substantive pass against
+this exact behavior head.
 
 ## Scope witness
 
