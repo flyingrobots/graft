@@ -59,6 +59,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   endpoint is live, before claiming ownership or scanning legacy session state.
   Stale-owner takeover and release now validate the exact record they moved and
   restore a concurrently published successor before refusing ownership.
+  Signal-triggered shutdown now consumes and reports aggregate cleanup failure
+  and selects a nonzero exit status instead of leaking an unhandled rejection.
 
 ### Fixed
 

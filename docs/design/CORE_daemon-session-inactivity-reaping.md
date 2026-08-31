@@ -273,6 +273,10 @@ operation before relinquishing root ownership. The interval scheduler also
 admits at most one pending observer, so a blocked sweep cannot accumulate one
 promise continuation or duplicate diagnostic per timer tick.
 
+Signal-triggered shutdown consumes the close result. Cleanup rejection emits a
+structured `DAEMON_SIGNAL_SHUTDOWN_FAILED` diagnostic and selects a nonzero
+process exit status without replacing an existing nonzero status.
+
 ## Sweep result and observability
 
 The sweep API is required, not optional, and returns facts rather than one

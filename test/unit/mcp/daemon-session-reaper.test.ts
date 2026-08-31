@@ -1667,6 +1667,70 @@ describe("mcp: daemon session reaper", () => {
     await expect(daemon.close()).rejects.toThrow("Failed to close the Graft daemon cleanly");
   });
 
+  it("reports and consumes signal-triggered shutdown failures", async () => {
+    const rootDir = fs.mkdtempSync(path.join(os.tmpdir(), "graft-session-signal-failure-"));
+    const socketPath = path.join(rootDir, "daemon.sock");
+    const signalListenersBefore = new Set(process.listeners("SIGTERM"));
+    const previousExitCode = process.exitCode;
+    process.exitCode = undefined;
+    cleanups.push(() => {
+      process.exitCode = previousExitCode;
+      fs.rmSync(rootDir, { recursive: true, force: true });
+    });
+    const consoleError = vi.spyOn(console, "error").mockImplementation(() => undefined);
+    cleanups.push(() => {
+      consoleError.mockRestore();
+    });
+    const unhandledRejections: unknown[] = [];
+    const onUnhandledRejection = (error: unknown): void => {
+      unhandledRejections.push(error);
+    };
+    process.on("unhandledRejection", onUnhandledRejection);
+    cleanups.push(() => {
+      process.off("unhandledRejection", onUnhandledRejection);
+    });
+    const sessionStorage = {
+      writeSessionOwnershipMarker,
+      removeSessionOrphanDirectories,
+      removeSessionDirectory(): Promise<boolean> {
+        return Promise.reject(Object.assign(new Error("injected busy directory"), { code: "EBUSY" }));
+      },
+    };
+
+    await startDaemonServer({
+      graftDir: rootDir,
+      socketPath,
+      sessionReaperIntervalMs: 0,
+      sessionStorage,
+    });
+    await requestUnixJson(socketPath, "POST", "/mcp", {
+      jsonrpc: "2.0",
+      id: 1,
+      method: "initialize",
+      params: {
+        protocolVersion: "2025-03-26",
+        capabilities: {},
+        clientInfo: { name: "vitest", version: "0.0.0" },
+      },
+    });
+    const shutdown = process.listeners("SIGTERM")
+      .find((listener) => !signalListenersBefore.has(listener));
+    expect(shutdown).toBeDefined();
+
+    shutdown!("SIGTERM");
+    await vi.waitFor(() => {
+      expect(consoleError).toHaveBeenCalledWith(expect.objectContaining({
+        code: "DAEMON_SIGNAL_SHUTDOWN_FAILED",
+        error: expect.any(AggregateError),
+      }));
+      expect(process.exitCode).toBe(1);
+    });
+    await new Promise<void>((resolve) => {
+      setImmediate(resolve);
+    });
+    expect(unhandledRejections).toEqual([]);
+  });
+
   it("does not reap sessions that have active in-flight requests even if expired", async () => {
     const rootDir = fs.mkdtempSync(path.join(os.tmpdir(), "graft-session-reaper-inflight-"));
     const socketPath = path.join(rootDir, "daemon.sock");
