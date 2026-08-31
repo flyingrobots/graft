@@ -75,11 +75,13 @@ structured public errors.
 pnpm test
 ```
 
-Latest completed behavior-tree result at `9fa00e5c`: pass; 259 files and 2,115
-tests in 87.27 seconds. The preceding `50e8aa77` candidate passed 258 files and
+Latest completed behavior-tree result at `a81a3f1e`: pass; 259 files and 2,118
+tests in 96.00 seconds. The earlier `50e8aa77` candidate passed 258 files and
 failed only the new generic-Unix identity test because that test forced Darwin
 `ps` flags inside Alpine. The forward repair first passed the isolated
-regression in Alpine, then passed the complete suite above.
+regression in Alpine, then passed the complete suite. The latest result also
+includes the three current-head review repairs for live-child replacement,
+sessions-root retry classification, and bounded claim churn.
 
 The command uses the repository's Docker-isolated test runner. The earlier
 exact-tree run at `83b50a70` passed 258 files and 2,095 tests and failed one of
@@ -93,7 +95,7 @@ tests.
 | Gate | Command | Result |
 | :--- | :--- | :--- |
 | Focused lifecycle | `pnpm exec vitest run test/unit/mcp/daemon-session-reaper.test.ts` | pass; 1 file, 62 tests |
-| Full isolated suite | `pnpm test` | behavior tree at `9fa00e5c` passed 259 files, 2,115 tests in 87.27 seconds |
+| Full isolated suite | `pnpm test` | behavior tree at `a81a3f1e` passed 259 files, 2,118 tests in 96.00 seconds |
 | Lint | `pnpm lint` | pass |
 | Types | `pnpm typecheck` | pass |
 | Build | `pnpm build` | pass |
@@ -129,6 +131,13 @@ inline thread remained unresolved. One actionable CodeRabbit review-body note
 still identified diagnostic-string coupling in two lifecycle tests; the final
 repair replaces those assertions with scan-completion/single-flight evidence
 and failed-cleanup orphan convergence.
+
+The post-repair refresh at `a81a3f1e` exhausted all pages across 54 review
+threads, 37 global comments, 28 reviews, and every nested thread-comment
+connection. No inline thread remained unresolved. The latest CodeRabbit global
+review-body finding is closed by the loop-boundary deadline regression, but a
+substantive third-party review has not yet completed against this repaired
+behavior head.
 
 ## Scope witness
 
