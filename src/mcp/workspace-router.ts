@@ -701,12 +701,25 @@ export class WorkspaceRouter {
     );
     await this.options.fs.mkdir(routeDir, { recursive: true });
     const binding = await this.createBoundWorkspace(resolved, routeDir, capabilityProfile, undefined);
-    const repoState = binding.slice.repoState;
-    if (repoState === null) {
-      throw new WorkspaceBindingRequiredError("workspace");
+    try {
+      const repoState = binding.slice.repoState;
+      if (repoState === null) {
+        throw new WorkspaceBindingRequiredError("workspace");
+      }
+      await repoState.initialize();
+      return binding;
+    } catch (error) {
+      try {
+        await this.releaseBindingWarpLease(binding.warpLease);
+      } catch (cleanupError) {
+        throw new AggregateError(
+          [error, cleanupError],
+          "Failed to roll back a routed WARP binding lease",
+          { cause: cleanupError },
+        );
+      }
+      throw error;
     }
-    await repoState.initialize();
-    return binding;
   }
 
   private routedBindingMatches(

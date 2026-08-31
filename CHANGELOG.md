@@ -39,7 +39,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   delete a newer cache replacement.
   If history or authorization setup rejects after opening a replacement,
   binding rollback releases only the uncommitted capability and preserves the
-  previous active binding.
+  previous active binding. Routed repo-state initialization failure likewise
+  unregisters its never-cached binding capability before propagating the
+  original error.
   Failed opens roll back only the unique capability token introduced by the
   failed acquisition, preserve leases for sibling writer lanes, and cannot
   delete a newer replacement resident when an older open rejects late.

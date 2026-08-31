@@ -201,6 +201,9 @@ capacity and deterministic policy before replacing eager eviction.
 - If opening fails, acquisition fails and no lease is published.
 - If binding setup fails after acquisition, rollback awaits release and
   preserves both the primary failure and any cleanup failure.
+- Routed binding setup failure unregisters its never-published binding
+  capability; a failed route cannot accumulate unreachable session-owned lease
+  wrappers.
 - Session termination invokes the server/router residency disposer exactly
   once for transport close, transport error, idle expiry, explicit disconnect,
   and daemon shutdown.
@@ -239,6 +242,8 @@ capacity and deterministic policy before replacing eager eviction.
 - [x] Concurrent cross-resident rebind commits each observe and release their
       actual predecessor; only the final binding remains resident.
 - [x] Failed rebind retains A and releases any uncommitted B lease.
+- [x] Failed routed repo-state initialization releases and unregisters the
+      never-cached binding capability without disturbing current bindings.
 - [x] Routed authorization rejection, same-key replacement, and LRU removal
       release only their exact displaced binding leases.
 - [x] An in-flight routed invocation survives binding LRU removal without

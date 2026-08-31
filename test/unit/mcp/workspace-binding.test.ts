@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import type WarpApp from "@git-stunts/git-warp";
 import * as fs from "node:fs";
 import * as os from "node:os";
@@ -7,6 +7,7 @@ import { CanonicalJsonCodec } from "../../../src/adapters/canonical-json.js";
 import { nodeFs } from "../../../src/adapters/node-fs.js";
 import { nodeGit } from "../../../src/adapters/node-git.js";
 import { PersistedLocalHistoryStore } from "../../../src/mcp/persisted-local-history.js";
+import { RepoStateTracker } from "../../../src/mcp/repo-state.js";
 import { InMemoryWarpPool } from "../../../src/mcp/warp-pool.js";
 import {
   DEFAULT_DAEMON_CAPABILITY_PROFILE,
@@ -24,6 +25,7 @@ afterEach(() => {
   while (cleanups.length > 0) {
     cleanups.pop()!();
   }
+  vi.restoreAllMocks();
 });
 
 function createCommittedRepo(): string {
@@ -440,6 +442,56 @@ describe("mcp: daemon workspace binding", () => {
       .toBeInstanceOf(WorkspaceRouteUnauthorizedError);
 
     expect(pool.leaseCount(routed.repoId, "writer:test")).toBe(0);
+    expect(pool.size()).toBe(0);
+  });
+
+  it("unregisters a routed binding lease when repo-state initialization fails", async () => {
+    const repoDir = createCommittedRepo();
+    const graftDir = fs.mkdtempSync(path.join(os.tmpdir(), "graft-routed-init-failure-"));
+    cleanups.push(() => {
+      fs.rmSync(graftDir, { recursive: true, force: true });
+    });
+    const initializationError = new Error("injected routed repo-state initialization failure");
+    vi.spyOn(RepoStateTracker.prototype, "initialize").mockRejectedValue(initializationError);
+    const pool = new InMemoryWarpPool((_worktreeRoot, writerId) => {
+      return Promise.resolve({ writerId } as unknown as WarpApp);
+    });
+    const router = new WorkspaceRouter({
+      mode: "daemon",
+      fs: nodeFs,
+      git: nodeGit,
+      graftDir,
+      warpPool: pool,
+      transportSessionId: "transport:test",
+      warpWriterId: "writer:test",
+      authorizationPolicy: {
+        getCapabilityProfile() {
+          return Promise.resolve(DEFAULT_DAEMON_CAPABILITY_PROFILE);
+        },
+        noteBound(): Promise<void> {
+          return Promise.resolve();
+        },
+      },
+      persistedLocalHistory: new PersistedLocalHistoryStore({
+        fs: nodeFs,
+        codec: new CanonicalJsonCodec(),
+        graftDir,
+      }),
+    });
+
+    await expect(router.captureExecutionContextForWorkspace({ cwd: repoDir }))
+      .rejects
+      .toBe(initializationError);
+
+    const lifecycleState = router as unknown as {
+      bindingWarpLeases: Set<unknown>;
+      routedBindings: Map<string, unknown>;
+      routedBindingInitializations: Map<string, unknown>;
+    };
+    expect(router.getStatus().bindState).toBe("unbound");
+    expect(lifecycleState.bindingWarpLeases.size).toBe(0);
+    expect(lifecycleState.routedBindings.size).toBe(0);
+    expect(lifecycleState.routedBindingInitializations.size).toBe(0);
     expect(pool.size()).toBe(0);
   });
 
