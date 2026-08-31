@@ -87,7 +87,9 @@ lifecycle does not claim to bound every daemon cache or working set.
   ownership of its configured root. Startup removes eligible prior-process
   session directories; every later sweep also retries eligible current-process
   orphans. Unknown files, links, malformed ownership records, and unsafe paths
-  are preserved.
+  are preserved. A daemon using a custom endpoint never deletes an unmarked
+  legacy UUID directory; only the default endpoint may perform that migration
+  cleanup, so a legacy daemon that appears later cannot lose live scratch.
 
 The required programmatic sweep method,
 `GraftDaemonServer.reapExpiredSessions()`, returns separate facts:

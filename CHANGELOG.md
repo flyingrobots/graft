@@ -57,6 +57,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   generated; other UUID-shaped names are preserved and reported as unknown.
   A custom-endpoint daemon now refuses startup while the legacy default
   endpoint is live, before claiming ownership or scanning legacy session state.
+  Custom-endpoint startup and periodic sweeps also preserve unmarked legacy
+  UUID directories unconditionally, closing the later-listener race while
+  retaining cleanup of marker-owned orphan state.
   Stale-owner takeover and release now validate the exact record they moved and
   restore a concurrently published successor before refusing ownership.
   Owner publication, validation, quarantine, and restoration now share one

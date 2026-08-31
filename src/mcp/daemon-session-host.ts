@@ -16,6 +16,7 @@ import type { WarpPool } from "./warp-pool.js";
 import { ensurePrivateDirectory } from "./daemon-bootstrap.js";
 import type {
   DaemonSessionStorage,
+  LegacyUnmarkedSessionPolicy,
   SessionOrphanPreservedEntry,
 } from "./daemon-storage-ownership.js";
 import {
@@ -124,6 +125,7 @@ export interface CreateDaemonSessionHostOptions {
   readonly mcpPath: string;
   readonly startedAt: string;
   readonly sessionStorage: DaemonSessionStorage;
+  readonly legacyUnmarkedSessionPolicy: LegacyUnmarkedSessionPolicy;
   readonly warpPool: WarpPool;
   readonly controlPlane: DaemonControlPlane;
   readonly daemonScheduler: DaemonJobScheduler;
@@ -566,6 +568,7 @@ export function createDaemonSessionHost(options: CreateDaemonSessionHostOptions)
       const orphanResult = await options.sessionStorage.removeSessionOrphanDirectories(
         path.join(options.graftDir, "sessions"),
         protectedSessionIds,
+        options.legacyUnmarkedSessionPolicy,
       );
       orphanDirectoriesRemoved = orphanResult.removed;
       preservedEntries = orphanResult.preservedEntries;

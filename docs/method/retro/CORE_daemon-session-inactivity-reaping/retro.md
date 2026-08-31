@@ -111,6 +111,11 @@ claim across owner publication, validation, quarantine, and restoration. Its
 deterministic race test pauses the exact rename and proves a third publisher is
 refused after the newer incumbent is restored.
 
+The same pass found that a one-time legacy-endpoint probe could not authorize
+later unmarked-directory deletion safely. The repair makes legacy cleanup an
+explicit storage policy: custom endpoints always preserve unmarked legacy UUID
+directories, while marker-owned orphan cleanup continues.
+
 ## Drift
 
 The largest drift was procedural: implementation and PR publication preceded

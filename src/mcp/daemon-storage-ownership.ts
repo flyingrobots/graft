@@ -58,6 +58,7 @@ export interface SessionOrphanRemovalFailure {
 
 export type SessionOrphanPreservationReason =
   | "UNKNOWN_ENTRY_NAME"
+  | "LEGACY_SESSION_UNMARKED"
   | "NOT_DIRECTORY"
   | "SYMBOLIC_LINK"
   | "UNSAFE_OWNERSHIP_MARKER"
@@ -76,6 +77,8 @@ export interface SessionOrphanRemovalResult {
   readonly preservedEntries: readonly SessionOrphanPreservedEntry[];
 }
 
+export type LegacyUnmarkedSessionPolicy = "remove" | "preserve";
+
 export interface DaemonSessionStorage {
   writeSessionOwnershipMarker(
     sessionDir: string,
@@ -86,6 +89,7 @@ export interface DaemonSessionStorage {
   removeSessionOrphanDirectories(
     sessionsRoot: string,
     liveSessionIds: ReadonlySet<string>,
+    legacyUnmarkedPolicy: LegacyUnmarkedSessionPolicy,
   ): Promise<SessionOrphanRemovalResult>;
 }
 
@@ -738,6 +742,7 @@ type SessionDirectoryInspection =
 async function inspectSessionDirectory(
   sessionsRoot: string,
   sessionId: string,
+  legacyUnmarkedPolicy: LegacyUnmarkedSessionPolicy,
 ): Promise<SessionDirectoryInspection> {
   const sessionDir = path.join(sessionsRoot, sessionId);
   const stat = await fs.lstat(sessionDir).catch((error: unknown) => {
@@ -753,7 +758,11 @@ async function inspectSessionDirectory(
     if (errorCode(error) === "ENOENT") return null;
     throw error;
   });
-  if (markerStat === null) return { status: "eligible" };
+  if (markerStat === null) {
+    return legacyUnmarkedPolicy === "remove"
+      ? { status: "eligible" }
+      : { status: "preserved", reason: "LEGACY_SESSION_UNMARKED" };
+  }
   if (!markerStat.isFile() || markerStat.isSymbolicLink()) {
     return { status: "preserved", reason: "UNSAFE_OWNERSHIP_MARKER" };
   }
@@ -777,6 +786,7 @@ async function inspectSessionDirectory(
 export async function removeSessionOrphanDirectories(
   sessionsRoot: string,
   liveSessionIds: ReadonlySet<string>,
+  legacyUnmarkedPolicy: LegacyUnmarkedSessionPolicy,
 ): Promise<SessionOrphanRemovalResult> {
   const entries = await fs.readdir(sessionsRoot, { withFileTypes: true });
   let removed = 0;
@@ -794,7 +804,11 @@ export async function removeSessionOrphanDirectories(
       continue;
     }
     if (liveSessionIds.has(sessionId)) continue;
-    const inspection = await inspectSessionDirectory(sessionsRoot, sessionId);
+    const inspection = await inspectSessionDirectory(
+      sessionsRoot,
+      sessionId,
+      legacyUnmarkedPolicy,
+    );
     if (inspection.status === "missing") continue;
     if (inspection.status === "preserved") {
       preservedEntries.push({

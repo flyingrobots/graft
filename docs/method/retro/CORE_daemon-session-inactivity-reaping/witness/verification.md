@@ -38,6 +38,7 @@ mutation of the exact guard under test. Representative receipts:
 | Terminal idempotence | Removing promise reuse plus map-identity fences produced two unregister calls | `b5134bec` |
 | Already-closed transport | Forcing transport-close termination through protocol close produced one unexpected `McpServer.close()` call | post-Retro review repair |
 | Three-claimant root-owner ABA | Pausing displaced-owner restoration let a third publisher succeed: expected `false`, received `true` | post-Retro review repair |
+| Late legacy endpoint | A custom-endpoint sweep deleted one unmarked live legacy directory: expected 0, received 1 | post-Retro review repair |
 
 ## Focused GREEN
 
@@ -45,7 +46,7 @@ mutation of the exact guard under test. Representative receipts:
 pnpm exec vitest run test/unit/mcp/daemon-session-reaper.test.ts
 ```
 
-Result: pass; 1 file, 47 tests.
+Result: pass; 1 file, 48 tests.
 
 The focused suite includes exact-value configuration defaults, invalid option
 tables, monotonic/refusal/rebase behavior, streaming and pre-body barriers,
@@ -74,7 +75,7 @@ tests.
 
 | Gate | Command | Result |
 | :--- | :--- | :--- |
-| Focused lifecycle | `pnpm exec vitest run test/unit/mcp/daemon-session-reaper.test.ts` | pass; 1 file, 47 tests |
+| Focused lifecycle | `pnpm exec vitest run test/unit/mcp/daemon-session-reaper.test.ts` | pass; 1 file, 48 tests |
 | Full isolated suite | `pnpm test` | last exact pre-review tree passed 259 files, 2,101 tests; rerun pending |
 | Lint | `pnpm lint` | pass |
 | Types | `pnpm typecheck` | pass |

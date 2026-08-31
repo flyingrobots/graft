@@ -33,6 +33,7 @@ import {
   acquireDaemonRootOwnership,
   type DaemonSessionStorage,
   ensureDaemonSessionsRoot,
+  type LegacyUnmarkedSessionPolicy,
   nodeDaemonSessionStorage,
 } from "./daemon-storage-ownership.js";
 
@@ -83,6 +84,9 @@ export async function startDaemonServer(options: StartDaemonServerOptions = {}):
   await ensureGitVersionSupportsGraft();
   const graftDir = path.resolve(options.graftDir ?? defaultDaemonRoot());
   const socketPath = resolveSocketPath(options.socketPath, graftDir);
+  const legacyUnmarkedSessionPolicy: LegacyUnmarkedSessionPolicy = socketPath === resolveSocketPath(undefined, graftDir)
+    ? "remove"
+    : "preserve";
   await ensurePrivateDirectory(graftDir);
   const sessionsRoot = path.join(graftDir, "sessions");
   await ensureDaemonSessionsRoot(sessionsRoot);
@@ -137,7 +141,11 @@ export async function startDaemonServer(options: StartDaemonServerOptions = {}):
 
     await controlPlane.initialize();
     await activeMonitorRuntime.initialize();
-    const startupOrphans = await sessionStorage.removeSessionOrphanDirectories(sessionsRoot, new Set());
+    const startupOrphans = await sessionStorage.removeSessionOrphanDirectories(
+      sessionsRoot,
+      new Set(),
+      legacyUnmarkedSessionPolicy,
+    );
     if (startupOrphans.preservedEntries.length > 0) {
       console.error(
         `[graft] preserved session storage entries: ${JSON.stringify(startupOrphans.preservedEntries)}`,
@@ -159,6 +167,7 @@ export async function startDaemonServer(options: StartDaemonServerOptions = {}):
       mcpPath: MCP_PATH,
       startedAt,
       sessionStorage,
+      legacyUnmarkedSessionPolicy,
       warpPool,
       controlPlane,
       daemonScheduler,

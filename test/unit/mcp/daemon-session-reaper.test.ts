@@ -11,6 +11,7 @@ import { PersistentMonitorRuntime } from "../../../src/mcp/persistent-monitor-ru
 import * as graftServerModule from "../../../src/mcp/server.js";
 import {
   daemonRootOwnerIsLive,
+  type LegacyUnmarkedSessionPolicy,
   quarantineDaemonRootOwner,
   publishDaemonRootOwner,
   readProcessStartIdentity,
@@ -605,7 +606,7 @@ describe("mcp: daemon session reaper", () => {
 
   it("removes prior-process session directories before accepting requests", async () => {
     const rootDir = fs.mkdtempSync(path.join(os.tmpdir(), "graft-session-reaper-restart-"));
-    const socketPath = path.join(rootDir, "daemon.sock");
+    const socketPath = path.join(rootDir, "mcp.sock");
     const sessionsRoot = path.join(rootDir, "sessions");
     const orphanDir = path.join(sessionsRoot, "00000000-0000-4000-8000-000000000001");
     const malformedDir = path.join(sessionsRoot, "00000000-0000-4000-8000-000000000002");
@@ -807,13 +808,18 @@ describe("mcp: daemon session reaper", () => {
       async removeSessionOrphanDirectories(
         sessionsRoot: string,
         liveSessionIds: ReadonlySet<string>,
+        legacyUnmarkedPolicy: LegacyUnmarkedSessionPolicy,
       ) {
         scanCalls++;
         if (scanCalls > 1) {
           markScanEntered();
           await scanGate;
         }
-        return removeSessionOrphanDirectories(sessionsRoot, liveSessionIds);
+        return removeSessionOrphanDirectories(
+          sessionsRoot,
+          liveSessionIds,
+          legacyUnmarkedPolicy,
+        );
       },
     };
     let releaseConnect!: () => void;
@@ -957,13 +963,18 @@ describe("mcp: daemon session reaper", () => {
       async removeSessionOrphanDirectories(
         sessionsRoot: string,
         liveSessionIds: ReadonlySet<string>,
+        legacyUnmarkedPolicy: LegacyUnmarkedSessionPolicy,
       ) {
         scanCalls++;
         if (scanCalls > 1) {
           markScanEntered();
           await scanGate;
         }
-        return removeSessionOrphanDirectories(sessionsRoot, liveSessionIds);
+        return removeSessionOrphanDirectories(
+          sessionsRoot,
+          liveSessionIds,
+          legacyUnmarkedPolicy,
+        );
       },
     };
 
@@ -1029,7 +1040,11 @@ describe("mcp: daemon session reaper", () => {
     const sessionStorage = {
       writeSessionOwnershipMarker,
       removeSessionDirectory,
-      async removeSessionOrphanDirectories(sessionsRoot: string) {
+      async removeSessionOrphanDirectories(
+        sessionsRoot: string,
+        _liveSessionIds: ReadonlySet<string>,
+        _legacyUnmarkedPolicy: LegacyUnmarkedSessionPolicy,
+      ) {
         scanCalls++;
         if (scanCalls === 1) return { removed: 0, failures: [], preservedEntries: [] };
         markScanEntered();
@@ -1165,6 +1180,57 @@ describe("mcp: daemon session reaper", () => {
       .toBe("live-legacy-session\n");
     expect(fs.existsSync(path.join(rootDir, "daemon-owner.json"))).toBe(false);
     expect(fs.existsSync(customSocketPath)).toBe(false);
+  });
+
+  it("preserves unmarked legacy sessions during custom-endpoint sweeps", async () => {
+    if (process.platform === "win32") return;
+    const rootDir = fs.mkdtempSync(path.join(os.tmpdir(), "graft-session-legacy-late-live-"));
+    const legacySocketPath = path.join(rootDir, "mcp.sock");
+    const customSocketPath = path.join(rootDir, "custom.sock");
+    cleanups.push(() => {
+      fs.rmSync(rootDir, { recursive: true, force: true });
+    });
+
+    const daemon = await startDaemonServer({
+      graftDir: rootDir,
+      socketPath: customSocketPath,
+      sessionReaperIntervalMs: 0,
+    });
+    cleanups.push(() => daemon.close());
+
+    const legacySessionDir = path.join(
+      rootDir,
+      "sessions",
+      "00000000-0000-4000-8000-000000000001",
+    );
+    fs.mkdirSync(legacySessionDir, { recursive: true });
+    fs.writeFileSync(path.join(legacySessionDir, "keep.txt"), "live-legacy-session\n");
+    const legacyServer = http.createServer((_request, response) => {
+      response.end();
+    });
+    await new Promise<void>((resolve, reject) => {
+      legacyServer.once("error", reject);
+      legacyServer.listen(legacySocketPath, resolve);
+    });
+    cleanups.push(() => {
+      return new Promise<void>((resolve, reject) => {
+        legacyServer.close((error) => {
+          if (error) reject(error);
+          else resolve();
+        });
+      });
+    });
+
+    const sweep = await daemon.reapExpiredSessions();
+
+    expect(sweep.orphanDirectoriesRemoved).toBe(0);
+    expect(sweep.preservedEntries).toContainEqual({
+      entryName: path.basename(legacySessionDir),
+      path: legacySessionDir,
+      reason: "LEGACY_SESSION_UNMARKED",
+    });
+    expect(fs.readFileSync(path.join(legacySessionDir, "keep.txt"), "utf-8"))
+      .toBe("live-legacy-session\n");
   });
 
   it("restores a newer owner displaced by a delayed stale takeover", async () => {
@@ -1714,6 +1780,7 @@ describe("mcp: daemon session reaper", () => {
       removeSessionOrphanDirectories(
         _sessionsRoot: string,
         liveSessionIds: ReadonlySet<string>,
+        _legacyUnmarkedPolicy: LegacyUnmarkedSessionPolicy,
       ) {
         scanCalls++;
         if (scanCalls > 1) sweepLiveSessionIds.push(new Set(liveSessionIds));
