@@ -144,6 +144,13 @@ lease, and the invocation engine releases it in `finally`. Therefore removing
 the cache entry or closing the session cannot invalidate an app still used by
 an admitted invocation.
 
+Invocation ownership is independent of scheduler admission. Every bound daemon
+repository call captures an execution capability, including unscheduled graph,
+history, status, and attach operations, while only the established routed tool
+set enters the daemon scheduler. All workspace/history projections inside that
+call use the captured execution scope rather than consulting a binding that may
+be replaced concurrently.
+
 Any execution context created outside the invocation engine owns the same
 obligation locally. Read-attribution fallback releases its internally captured
 context in `finally`, while status-only causal projection reads the current
@@ -230,6 +237,9 @@ capacity and deterministic policy before replacing eager eviction.
       release only their exact displaced binding leases.
 - [x] An in-flight routed invocation survives binding LRU removal without
       eviction or duplicate opening, then releases at settlement.
+- [x] Bound unscheduled graph, history/status, and causal-attach invocations
+      retain their captured resident through concurrent rebind and release it
+      at settlement without changing scheduler admission.
 - [x] Internal read attribution releases its materialized execution lease, and
       status-only causal projection creates no execution capability.
 - [x] Normal session termination releases every binding owned by that session.

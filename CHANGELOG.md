@@ -40,6 +40,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   Routed tool executions hold independent invocation leases through handler,
   attribution, and failure settlement, so binding LRU eviction cannot remove an
   admitted call's resident; the invocation lease releases in `finally`.
+  Bound daemon repository calls outside the scheduled/routed tool set now own
+  the same invocation capability without entering the scheduler. Direct graph
+  tools, persisted-history/status reads, overlay reads, and causal attach writes
+  all use the captured execution scope, so a concurrent rebind cannot revoke or
+  redirect their WARP resident before settlement.
   Internal read-attribution execution contexts now release their owned lease in
   the same operation, including early returns and failures. Runtime causal-status
   projection reads the bound state directly and does not manufacture an
