@@ -53,6 +53,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   protected-ID set before creating scratch state, closing the inverse-order race.
   Startup rejects a symbolic-link or non-directory sessions root before
   permission repair or orphan discovery can touch its target.
+  Legacy orphan discovery now accepts only the exact version-4 UUID form Graft
+  generated; other UUID-shaped names are preserved and reported as unknown.
 
 ### Fixed
 

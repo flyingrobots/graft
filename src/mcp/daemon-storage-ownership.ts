@@ -7,7 +7,7 @@ const ROOT_OWNER_FILE = "daemon-owner.json";
 const SESSION_OWNER_FILE = ".graft-session-owner.json";
 const PRIVATE_DIRECTORY_MODE = 0o700;
 const PRIVATE_FILE_MODE = 0o600;
-const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/u;
+const GENERATED_UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/u;
 
 interface DaemonRootOwnerRecord {
   readonly schemaVersion: 1;
@@ -111,7 +111,7 @@ function isDaemonRootOwnerRecord(value: unknown): value is DaemonRootOwnerRecord
   const candidate = value as Partial<DaemonRootOwnerRecord>;
   return candidate.schemaVersion === 1
     && typeof candidate.instanceId === "string"
-    && UUID_PATTERN.test(candidate.instanceId)
+    && GENERATED_UUID_PATTERN.test(candidate.instanceId)
     && Number.isSafeInteger(candidate.pid)
     && (candidate.pid ?? 0) > 0
     && typeof candidate.socketPath === "string"
@@ -123,7 +123,7 @@ function isSessionOwnerRecord(value: unknown, sessionId: string): value is Sessi
   const candidate = value as Partial<SessionOwnerRecord>;
   return candidate.schemaVersion === 1
     && typeof candidate.daemonInstanceId === "string"
-    && UUID_PATTERN.test(candidate.daemonInstanceId)
+    && GENERATED_UUID_PATTERN.test(candidate.daemonInstanceId)
     && candidate.sessionId === sessionId;
 }
 
@@ -307,7 +307,7 @@ export async function removeSessionOrphanDirectories(
   for (const entry of entries) {
     const sessionId = entry.name;
     const sessionPath = path.join(sessionsRoot, sessionId);
-    if (!UUID_PATTERN.test(sessionId)) {
+    if (!GENERATED_UUID_PATTERN.test(sessionId)) {
       preservedEntries.push({
         entryName: sessionId,
         path: sessionPath,

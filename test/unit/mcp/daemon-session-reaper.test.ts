@@ -556,6 +556,7 @@ describe("mcp: daemon session reaper", () => {
     const uuidFile = path.join(sessionsRoot, "00000000-0000-4000-8000-000000000003");
     const uuidLink = path.join(sessionsRoot, "00000000-0000-4000-8000-000000000004");
     const unsafeMarkerDir = path.join(sessionsRoot, "00000000-0000-4000-8000-000000000006");
+    const impossibleLegacyDir = path.join(sessionsRoot, "00000000-0000-0000-0000-000000000000");
     const unrelatedDir = path.join(sessionsRoot, "operator-owned");
     const linkTarget = path.join(rootDir, "link-target");
     fs.mkdirSync(orphanDir, { recursive: true });
@@ -564,6 +565,8 @@ describe("mcp: daemon session reaper", () => {
     fs.writeFileSync(path.join(malformedDir, ".graft-session-owner.json"), "not-json\n");
     fs.writeFileSync(uuidFile, "not-a-directory\n");
     fs.mkdirSync(path.join(unsafeMarkerDir, ".graft-session-owner.json"), { recursive: true });
+    fs.mkdirSync(impossibleLegacyDir, { recursive: true });
+    fs.writeFileSync(path.join(impossibleLegacyDir, "keep.txt"), "not-graft-owned\n");
     fs.mkdirSync(unrelatedDir, { recursive: true });
     fs.mkdirSync(linkTarget, { recursive: true });
     fs.writeFileSync(path.join(linkTarget, "keep.txt"), "preserved\n");
@@ -588,6 +591,8 @@ describe("mcp: daemon session reaper", () => {
     expect(fs.existsSync(orphanDir)).toBe(false);
     expect(fs.existsSync(malformedDir)).toBe(true);
     expect(fs.readFileSync(uuidFile, "utf-8")).toBe("not-a-directory\n");
+    expect(fs.readFileSync(path.join(impossibleLegacyDir, "keep.txt"), "utf-8"))
+      .toBe("not-graft-owned\n");
     expect(fs.existsSync(unrelatedDir)).toBe(true);
     expect(fs.readFileSync(path.join(linkTarget, "keep.txt"), "utf-8")).toBe("preserved\n");
     if (process.platform !== "win32") {
@@ -603,6 +608,11 @@ describe("mcp: daemon session reaper", () => {
         entryName: path.basename(uuidFile),
         path: uuidFile,
         reason: "NOT_DIRECTORY",
+      },
+      {
+        entryName: path.basename(impossibleLegacyDir),
+        path: impossibleLegacyDir,
+        reason: "UNKNOWN_ENTRY_NAME",
       },
       {
         entryName: path.basename(unrelatedDir),

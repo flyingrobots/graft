@@ -240,7 +240,8 @@ The scanner:
 
 - enumerates only direct children of the canonical sessions root;
 - uses `lstat` and never follows a symlink;
-- deletes only a valid owned marker or exact legacy UUID directory;
+- deletes only a valid owned marker or an exact lowercase RFC 4122 version-4
+  legacy UUID with generated variant bits;
 - excludes the exact canonical directories of current live session objects;
 - leaves and reports unknown direct children, links, non-directories, and
   malformed, unreadable, or unsafe ownership markers; and
