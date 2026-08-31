@@ -183,7 +183,7 @@ capacity and deterministic policy before replacing eager eviction.
 
 ## Acceptance criteria
 
-- [ ] The required application port returns an owned lease and has no optional
+- [x] The required application port returns an owned lease and has no optional
       lease lifecycle or ordinary force-eviction method.
 - [x] Resident identity is exactly `(repoId, writerId)`, and production
       `openWarp` receives both the canonical worktree root and requested writer

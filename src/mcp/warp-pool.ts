@@ -22,14 +22,7 @@ export interface WarpResidentPool {
   size(): number;
 }
 
-export interface EvictableWarpPool extends WarpResidentPool {
-  leaseCount(repoId: string, writerId: string): number;
-  has(repoId: string, writerId?: string): boolean;
-  eject(repoId: string, writerId: string, force?: boolean): Promise<boolean>;
-  ejectUnreferenced(): Promise<number>;
-}
-
-export class InMemoryWarpPool implements EvictableWarpPool {
+export class InMemoryWarpPool implements WarpResidentPool {
   private readonly opened = new Map<string, Map<string, Promise<WarpApp>>>();
   private readonly leases = new Map<string, Map<string, Map<symbol, string>>>();
 
@@ -131,38 +124,6 @@ export class InMemoryWarpPool implements EvictableWarpPool {
   has(repoId: string, writerId?: string): boolean {
     const repoHandles = this.opened.get(repoId);
     return writerId === undefined ? repoHandles !== undefined : repoHandles?.has(writerId) === true;
-  }
-
-  eject(repoId: string, writerId: string, force = false): Promise<boolean> {
-    if (!force && this.leaseCount(repoId, writerId) > 0) {
-      return Promise.resolve(false);
-    }
-    const repoHandles = this.opened.get(repoId);
-    if (repoHandles?.has(writerId) !== true) {
-      return Promise.resolve(false);
-    }
-    repoHandles.delete(writerId);
-    const repoLeases = this.leases.get(repoId);
-    repoLeases?.delete(writerId);
-    if (repoHandles.size === 0) {
-      this.opened.delete(repoId);
-    }
-    if (repoLeases?.size === 0) {
-      this.leases.delete(repoId);
-    }
-    return Promise.resolve(true);
-  }
-
-  async ejectUnreferenced(): Promise<number> {
-    let count = 0;
-    for (const [repoId, repoHandles] of [...this.opened.entries()]) {
-      for (const writerId of [...repoHandles.keys()]) {
-        if (this.leaseCount(repoId, writerId) === 0 && await this.eject(repoId, writerId)) {
-          count++;
-        }
-      }
-    }
-    return count;
   }
 
   size(): number {

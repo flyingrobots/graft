@@ -3,6 +3,23 @@ import type WarpApp from "@git-stunts/git-warp";
 import { InMemoryWarpPool } from "../../../src/mcp/warp-pool.js";
 
 describe("mcp: warp pool lease eviction", () => {
+  it("exposes no force-eviction escape hatch for an owned resident", async () => {
+    const pool = new InMemoryWarpPool(() => {
+      return Promise.resolve({ writerId: "writer-a" } as unknown as WarpApp);
+    });
+    const lease = await pool.acquire({
+      key: { repoId: "repo-a", writerId: "writer-a" },
+      worktreeRoot: "/path/to/a",
+      ownerId: "session-a",
+    });
+
+    expect("eject" in pool).toBe(false);
+    expect("ejectUnreferenced" in pool).toBe(false);
+    expect(pool.has("repo-a", "writer-a")).toBe(true);
+
+    await lease.release();
+  });
+
   it("owns same-owner acquisitions with independent lease capabilities", async () => {
     const app = { writerId: "writer-a" } as unknown as WarpApp;
     const pool = new InMemoryWarpPool(() => Promise.resolve(app));
@@ -58,7 +75,7 @@ describe("mcp: warp pool lease eviction", () => {
     await second.release();
   });
 
-  it("ejects an unreferenced writer lane without disturbing a leased sibling lane", async () => {
+  it("releases one writer lane without disturbing a leased sibling lane", async () => {
     let openCount = 0;
     const fakeOpen = (_worktreeRoot: string, writerId: string) => {
       openCount++;
@@ -96,21 +113,17 @@ describe("mcp: warp pool lease eviction", () => {
     await deadAgain.release();
   });
 
-  it("keeps a replacement resident when an evicted pending open rejects late", async () => {
+  it("reopens after a pending open rejects without retaining a phantom lease", async () => {
     const staleError = new Error("injected stale open failure");
     const replacementApp = { generation: "replacement" } as unknown as WarpApp;
     let rejectStale!: (error: Error) => void;
-    let resolveReplacement!: (app: WarpApp) => void;
     const staleOpen = new Promise<WarpApp>((_resolve, reject) => {
       rejectStale = reject;
-    });
-    const replacementOpen = new Promise<WarpApp>((resolve) => {
-      resolveReplacement = resolve;
     });
     let openCount = 0;
     const pool = new InMemoryWarpPool(() => {
       openCount++;
-      return openCount === 1 ? staleOpen : replacementOpen;
+      return openCount === 1 ? staleOpen : Promise.resolve(replacementApp);
     });
 
     const input = {
@@ -120,25 +133,19 @@ describe("mcp: warp pool lease eviction", () => {
     };
     const staleOpening = pool.acquire(input);
     const staleFailure = expect(staleOpening).rejects.toBe(staleError);
-    expect(await pool.eject("repo-a", "writer-a", true)).toBe(true);
-
-    const replacementOpening = pool.acquire({ ...input, ownerId: "session-b" });
-    resolveReplacement(replacementApp);
-    const replacement = await replacementOpening;
-    expect(replacement.app).toBe(replacementApp);
 
     rejectStale(staleError);
     await staleFailure;
+    expect(pool.leaseCount("repo-a", "writer-a")).toBe(0);
+    expect(pool.has("repo-a", "writer-a")).toBe(false);
 
-    expect(pool.has("repo-a", "writer-a")).toBe(true);
-    const observed = await pool.acquire({ ...input, ownerId: "session-c" });
-    expect(observed.app).toBe(replacementApp);
+    const replacement = await pool.acquire({ ...input, ownerId: "session-b" });
+    expect(replacement.app).toBe(replacementApp);
     expect(openCount).toBe(2);
     await replacement.release();
-    await observed.release();
   });
 
-  it("tracks leases and ejects unreferenced WarpApp instances", async () => {
+  it("tracks owned leases and evicts residents on last release", async () => {
     let openCount = 0;
     const fakeOpen = (worktreeRoot: string, writerId: string) => {
       openCount++;
@@ -179,18 +186,13 @@ describe("mcp: warp pool lease eviction", () => {
     expect(pool.leaseCount("repo-a", "writer-1")).toBe(2);
     expect(pool.leaseCount("repo-b", "writer-1")).toBe(1);
 
-    // 3. Ejecting repoA while it has an active lease should be rejected
-    const ejectedA = await pool.eject("repo-a", "writer-1");
-    expect(ejectedA).toBe(false);
-    expect(pool.has("repo-a")).toBe(true);
-
-    // 4. Releasing repoB's last lease evicts it and keeps repoA
+    // 3. Releasing repoB's last lease evicts it and keeps repoA
     await leaseB.release();
     expect(pool.has("repo-b")).toBe(false);
     expect(pool.has("repo-a")).toBe(true);
     expect(pool.size()).toBe(1);
 
-    // 5. Releasing one repoA capability retains the other owner
+    // 4. Releasing one repoA capability retains the other owner
     await leaseA.release();
     expect(pool.leaseCount("repo-a", "writer-1")).toBe(1);
     expect(pool.has("repo-a")).toBe(true);
@@ -199,13 +201,7 @@ describe("mcp: warp pool lease eviction", () => {
     expect(pool.has("repo-a")).toBe(false);
     expect(pool.size()).toBe(0);
 
-    // 6. No explicit sweep remains necessary after the last release
-    const count2 = await pool.ejectUnreferenced();
-    expect(count2).toBe(0);
-    expect(pool.has("repo-a")).toBe(false);
-    expect(pool.size()).toBe(0);
-
-    // 7. Subsequent acquisition re-opens fresh
+    // 5. Subsequent acquisition re-opens fresh
     const leaseA3 = await pool.acquire({
       key: { repoId: "repo-a", writerId: "writer-1" },
       worktreeRoot: "/path/to/a",
