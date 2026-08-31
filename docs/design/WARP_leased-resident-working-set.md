@@ -207,6 +207,9 @@ capacity and deterministic policy before replacing eager eviction.
 - Daemon shutdown closes session admission before its first await, drains every
   initialization already admitted, and only then snapshots sessions for
   transport, lease, and directory cleanup.
+- A session published before MCP transport connection settles rolls back
+  through the same memoized retirement owner if connection fails; the failure
+  is not returned while its control-plane record, leases, or directory remain.
 - Cleanup may release binding leases while admitted invocations remain active;
   their independent invocation leases keep the resident alive.
 - The daemon's shared pool opener must preserve the requested logical writer
@@ -248,6 +251,8 @@ capacity and deterministic policy before replacing eager eviction.
 - [x] Normal session termination releases every binding owned by that session.
 - [x] Shutdown rejects initialization crossing the admission boundary and
       drains earlier initialization before cleanup snapshots the session set.
+- [x] Failed MCP transport connection rolls back an already published daemon
+      session before returning the initialization failure.
 - [ ] Reopening an evicted resident reconstructs an equivalent bounded WARP
       projection from durable Git-backed state.
 - [ ] Health and documentation distinguish resident writer-lane count from

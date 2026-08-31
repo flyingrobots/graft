@@ -1,8 +1,9 @@
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import * as fs from "node:fs";
 import * as http from "node:http";
 import * as os from "node:os";
 import * as path from "node:path";
+import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import {
   startDaemonServer,
   type GraftDaemonServer,
@@ -265,6 +266,7 @@ describe("mcp: daemon transport and lifecycle", () => {
     while (repos.length > 0) {
       cleanupTestRepo(repos.pop()!);
     }
+    vi.restoreAllMocks();
   });
 
   it("starts on a local socket, reports health, and closes sessions", async () => {
@@ -357,6 +359,69 @@ describe("mcp: daemon transport and lifecycle", () => {
     expect(parseJson(response)).toEqual(expect.objectContaining({
       error: expect.objectContaining({ code: -32000 }),
     }));
+    expect(fs.readdirSync(path.join(rootDir, "sessions"))).toEqual([]);
+  });
+
+  it("rolls back a session whose MCP transport connection rejects after publication", {
+    timeout: 15_000,
+  }, async () => {
+    const connectionError = new Error("injected MCP transport connection failure");
+    let markConnectStarted!: () => void;
+    let rejectConnect!: () => void;
+    const connectStarted = new Promise<void>((resolve) => {
+      markConnectStarted = resolve;
+    });
+    const connectGate = new Promise<void>((_resolve, reject) => {
+      rejectConnect = () => {
+        reject(connectionError);
+      };
+    });
+    vi.spyOn(McpServer.prototype, "connect").mockImplementation(async () => {
+      markConnectStarted();
+      await connectGate;
+    });
+    const rootDir = fs.mkdtempSync(path.join(os.tmpdir(), "graft-daemon-root-"));
+    roots.push(rootDir);
+    const socketPath = path.join(rootDir, "daemon.sock");
+    const daemon = await startTestDaemonServer({
+      graftDir: rootDir,
+      socketPath,
+    });
+    daemons.push(daemon);
+    const initialize = requestUnixJson(socketPath, "POST", "/mcp", {
+      jsonrpc: "2.0",
+      id: 1,
+      method: "initialize",
+      params: {
+        protocolVersion: "2025-03-26",
+        capabilities: {},
+        clientInfo: { name: "vitest", version: "0.0.0" },
+      },
+    });
+
+    try {
+      await connectStarted;
+      const pendingHealth = parseJson(await requestUnixJson(socketPath, "GET", "/healthz")) as {
+        activeSessions: number;
+      };
+      expect(pendingHealth.activeSessions).toBe(1);
+      expect(fs.readdirSync(path.join(rootDir, "sessions"))).toHaveLength(1);
+    } finally {
+      rejectConnect();
+    }
+
+    const response = await initialize;
+    const failedHealth = parseJson(await requestUnixJson(socketPath, "GET", "/healthz")) as {
+      activeSessions: number;
+      activeWarpRepos: number;
+    };
+
+    expect(response.statusCode).toBe(500);
+    expect(parseJson(response)).toEqual(expect.objectContaining({
+      error: expect.objectContaining({ code: -32603 }),
+    }));
+    expect(failedHealth.activeSessions).toBe(0);
+    expect(failedHealth.activeWarpRepos).toBe(0);
     expect(fs.readdirSync(path.join(rootDir, "sessions"))).toEqual([]);
   });
 

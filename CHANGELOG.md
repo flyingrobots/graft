@@ -22,7 +22,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   release every active or routed binding lease owned by the session. Shutdown
   closes session admission synchronously, rejects initialize requests whose
   bodies cross that boundary, and drains already admitted initialization before
-  snapshotting sessions for transport, lease, and directory cleanup.
+  snapshotting sessions for transport, lease, and directory cleanup. If MCP
+  transport connection fails after a session is published, the same retirement
+  owner removes its control-plane record, releases its leases, and removes its
+  directory before the initialize error returns.
   A successful cross-resident rebind releases the previous binding only after
   the replacement commits. Same-resident rebinds transfer an already acquired
   capability, while an unacquired lazy lease is recreated with the replacement

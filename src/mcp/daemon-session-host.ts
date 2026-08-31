@@ -157,14 +157,22 @@ async function createDaemonSession(
   transport.onerror = () => {
     void retireSession();
   };
-  sessions.set(newSessionId, session);
-  options.controlPlane.registerTransport(
-    newSessionId,
-    () => server.getWorkspaceStatus(),
-    () => server.getRuntimeCausalContext(),
-  );
-  await server.getMcpServer().connect(transport as Transport);
-  return session;
+  try {
+    sessions.set(newSessionId, session);
+    options.controlPlane.registerTransport(
+      newSessionId,
+      () => server.getWorkspaceStatus(),
+      () => server.getRuntimeCausalContext(),
+    );
+    await server.getMcpServer().connect(transport as Transport);
+    return session;
+  } catch (error) {
+    await transport.close().catch(() => {
+      return undefined;
+    });
+    await retireSession();
+    throw error;
+  }
 }
 
 export function createDaemonSessionHost(options: CreateDaemonSessionHostOptions): DaemonSessionHost {
