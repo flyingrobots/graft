@@ -12,7 +12,7 @@ import type { ChildProcessDaemonWorkerPool } from "./daemon-worker-pool.js";
 import type { PersistentMonitorRuntime } from "./persistent-monitor-runtime.js";
 import type { RunCaptureConfig } from "./run-capture-config.js";
 import type { RuntimeObservabilityState } from "./runtime-observability.js";
-import type { WarpPool } from "./warp-pool.js";
+import type { LeaseAwareWarpPool } from "./warp-pool.js";
 import { ensurePrivateDirectory } from "./daemon-bootstrap.js";
 
 const MAX_BODY_BYTES = 1024 * 1024;
@@ -31,7 +31,7 @@ export interface CreateDaemonSessionHostOptions {
   readonly healthPath: string;
   readonly mcpPath: string;
   readonly startedAt: string;
-  readonly warpPool: WarpPool;
+  readonly warpPool: LeaseAwareWarpPool;
   readonly controlPlane: DaemonControlPlane;
   readonly daemonScheduler: DaemonJobScheduler;
   readonly daemonWorkerPool: ChildProcessDaemonWorkerPool;

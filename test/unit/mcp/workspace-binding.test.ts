@@ -206,6 +206,9 @@ describe("mcp: daemon workspace binding", () => {
         getOrOpen(): Promise<never> {
           return Promise.reject(new Error("unused in workspace binding test"));
         },
+        releaseLease(): void {
+          return;
+        },
         size(): number {
           return 0;
         },
@@ -253,6 +256,9 @@ describe("mcp: daemon workspace binding", () => {
       warpPool: {
         getOrOpen(): Promise<never> {
           return Promise.reject(new Error("unused in workspace routed race test"));
+        },
+        releaseLease(): void {
+          return;
         },
         size(): number {
           return 0;
@@ -306,6 +312,9 @@ describe("mcp: daemon workspace binding", () => {
         getOrOpen(): Promise<never> {
           return Promise.reject(new Error("unused in workspace replacement test"));
         },
+        releaseLease(): void {
+          return;
+        },
         size(): number {
           return 0;
         },
@@ -357,6 +366,9 @@ describe("mcp: daemon workspace binding", () => {
       warpPool: {
         getOrOpen(): Promise<never> {
           return Promise.reject(new Error("unused in workspace binding test"));
+        },
+        releaseLease(): void {
+          return;
         },
         size(): number {
           return 0;

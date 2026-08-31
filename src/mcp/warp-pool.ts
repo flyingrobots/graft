@@ -3,16 +3,22 @@ import { DEFAULT_WARP_WRITER_ID } from "../warp/writer-id.js";
 
 export interface WarpPool {
   getOrOpen(repoId: string, worktreeRoot: string, writerId?: string, leaseHolderId?: string): Promise<WarpApp>;
-  acquireLease?(repoId: string, writerId: string, leaseHolderId: string): void;
-  releaseLease?(repoId: string, writerId: string, leaseHolderId: string): void;
-  leaseCount?(repoId: string, writerId: string): number;
-  has?(repoId: string, writerId?: string): boolean;
-  eject?(repoId: string, writerId: string, force?: boolean): Promise<boolean>;
-  ejectUnreferenced?(): Promise<number>;
   size(): number;
 }
 
-export class InMemoryWarpPool implements WarpPool {
+export interface LeaseAwareWarpPool extends WarpPool {
+  releaseLease(repoId: string, writerId: string, leaseHolderId: string): void;
+}
+
+export interface EvictableWarpPool extends LeaseAwareWarpPool {
+  acquireLease(repoId: string, writerId: string, leaseHolderId: string): void;
+  leaseCount(repoId: string, writerId: string): number;
+  has(repoId: string, writerId?: string): boolean;
+  eject(repoId: string, writerId: string, force?: boolean): Promise<boolean>;
+  ejectUnreferenced(): Promise<number>;
+}
+
+export class InMemoryWarpPool implements EvictableWarpPool {
   private readonly opened = new Map<string, Map<string, Promise<WarpApp>>>();
   private readonly leases = new Map<string, Map<string, Set<string>>>();
 

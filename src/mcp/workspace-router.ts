@@ -47,7 +47,7 @@ import type { FileSystem } from "../ports/filesystem.js";
 import type { GitClient } from "../ports/git.js";
 import type { WarpContext } from "../warp/context.js";
 import type { JsonObject } from "../contracts/json-object.js";
-import type { WarpPool } from "./warp-pool.js";
+import type { LeaseAwareWarpPool } from "./warp-pool.js";
 import { DEFAULT_WARP_WRITER_ID } from "../warp/writer-id.js";
 import { GovernorTracker } from "../session/tracker.js";
 import {
@@ -99,7 +99,7 @@ interface WorkspaceRouterOptions {
   readonly git: GitClient;
   readonly graftDir: string;
   readonly projectRoot?: string | undefined;
-  readonly warpPool: WarpPool;
+  readonly warpPool: LeaseAwareWarpPool;
   readonly transportSessionId: string;
   readonly warpWriterId?: string | undefined;
   readonly authorizationPolicy?: WorkspaceAuthorizationPolicy | undefined;
@@ -257,7 +257,7 @@ export class WorkspaceRouter {
       ...this.routedBindings.values(),
     ]);
     for (const binding of bindings) {
-      this.options.warpPool.releaseLease?.(
+      this.options.warpPool.releaseLease(
         binding.repoId,
         binding.warpWriterId,
         binding.transportSessionId,
@@ -672,7 +672,7 @@ export class WorkspaceRouter {
       }
       const evicted = this.routedBindings.get(oldestKey);
       if (evicted !== undefined) {
-        this.options.warpPool.releaseLease?.(
+        this.options.warpPool.releaseLease(
           evicted.repoId,
           evicted.warpWriterId,
           evicted.transportSessionId,
@@ -739,7 +739,7 @@ export class WorkspaceRouter {
         if (!leaseClaimed) {
           return;
         }
-        this.options.warpPool.releaseLease?.(
+        this.options.warpPool.releaseLease(
           binding.repoId,
           binding.warpWriterId,
           leaseHolderId,
@@ -899,7 +899,7 @@ export class WorkspaceRouter {
         || previousBinding.warpWriterId !== nextBinding.warpWriterId
       )
     ) {
-      this.options.warpPool.releaseLease?.(
+      this.options.warpPool.releaseLease(
         previousBinding.repoId,
         previousBinding.warpWriterId,
         previousBinding.transportSessionId,

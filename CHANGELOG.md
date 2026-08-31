@@ -14,8 +14,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   `ejectUnreferenced()` to unmap zero-lease writer lanes independently, integrated
   with `WorkspaceRouter` LRU binding eviction. Releasing a resident's last lease
   now drops its in-process strong reference immediately; production cleanup does
-  not depend on a test-only sweep. Daemon transport close/error and daemon
-  shutdown release every active or routed binding lease owned by the session.
+  not depend on a test-only sweep. Daemon routing requires a lease-aware pool
+  with non-optional cleanup; minimal non-routing consumers use a separate pool
+  interface, and test fakes must implement cleanup explicitly. Daemon transport
+  close/error and daemon shutdown release every active or routed binding lease
+  owned by the session.
   A successful cross-resident rebind releases the previous binding only after
   the replacement commits, while same-resident rebinds retain the shared holder.
   Failed opens roll back only lease-holder registrations introduced by the

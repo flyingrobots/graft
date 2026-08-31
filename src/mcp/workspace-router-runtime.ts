@@ -26,7 +26,7 @@ import type {
   WorkspaceMode,
   WorkspaceStatus,
 } from "./workspace-router-model.js";
-import type { WarpPool } from "./warp-pool.js";
+import type { LeaseAwareWarpPool } from "./warp-pool.js";
 
 export interface WorkspaceSlice {
   readonly sliceId: string;
@@ -79,7 +79,7 @@ export async function createBoundWorkspace(input: {
   readonly fs: FileSystem;
   readonly transportSessionId: string;
   readonly warpWriterId?: string | undefined;
-  readonly warpPool: WarpPool;
+  readonly warpPool: LeaseAwareWarpPool;
 }): Promise<BoundWorkspace> {
   if (input.actionName !== undefined) {
     input.slice.governor.recordMessage();

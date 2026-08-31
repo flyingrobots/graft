@@ -29,7 +29,7 @@ import {
   resolveRuntimeObservabilityState,
   type RuntimeObservabilityState,
 } from "./runtime-observability.js";
-import { InMemoryWarpPool, type WarpPool } from "./warp-pool.js";
+import { InMemoryWarpPool, type LeaseAwareWarpPool } from "./warp-pool.js";
 import { buildSessionWarpWriterId } from "../warp/writer-id.js";
 import { PersistedLocalHistoryStore } from "./persisted-local-history.js";
 import { GRAFT_VERSION } from "../version.js";
@@ -59,7 +59,7 @@ export interface CreateGraftServerOptions {
   env?: Readonly<Record<string, string | undefined>>;
   runCapture?: Partial<RunCaptureConfig>;
   runtimeObservability?: Partial<RuntimeObservabilityState>;
-  warpPool?: WarpPool;
+  warpPool?: LeaseAwareWarpPool;
   daemonControlPlane?: DaemonControlPlane;
   monitorRuntime?: PersistentMonitorRuntime;
   daemonScheduler?: DaemonJobScheduler;
@@ -132,7 +132,7 @@ function createDaemonRuntimeParts(input: {
   readonly options: CreateGraftServerOptions;
   readonly codec: CanonicalJsonCodec;
   readonly gitClient: GitClient;
-  readonly warpPool: WarpPool;
+  readonly warpPool: LeaseAwareWarpPool;
 }): DaemonRuntimeParts {
   const { config, options, codec, gitClient, warpPool } = input;
   const scheduler = config.mode === "daemon"
@@ -190,7 +190,7 @@ function initWorkspaceRouter(input: {
   readonly config: ResolvedGraftServerConfig;
   readonly options: CreateGraftServerOptions;
   readonly gitClient: GitClient;
-  readonly warpPool: WarpPool;
+  readonly warpPool: LeaseAwareWarpPool;
   readonly persistedLocalHistory: PersistedLocalHistoryStore;
   readonly daemon: DaemonRuntimeParts;
 }): WorkspaceRouter {
