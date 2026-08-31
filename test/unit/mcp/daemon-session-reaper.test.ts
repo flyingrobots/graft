@@ -1227,21 +1227,6 @@ describe("mcp: daemon session reaper", () => {
     cleanups.push(() => {
       vi.useRealTimers();
     });
-    let markDiagnosticEmitted!: () => void;
-    const diagnosticEmitted = new Promise<void>((resolve) => {
-      markDiagnosticEmitted = resolve;
-    });
-    const consoleError = vi.spyOn(console, "error").mockImplementation((message: unknown) => {
-      if (
-        typeof message === "string"
-        && message.startsWith("[graft] session reaper preserved entries:")
-      ) {
-        markDiagnosticEmitted();
-      }
-    });
-    cleanups.push(() => {
-      consoleError.mockRestore();
-    });
     let scanCalls = 0;
     let releaseScan!: () => void;
     let markScanEntered!: () => void;
@@ -1296,14 +1281,8 @@ describe("mcp: daemon session reaper", () => {
     await vi.advanceTimersByTimeAsync(9);
     releaseScan();
     await scanFinished;
-    await diagnosticEmitted;
 
-    const scheduledDiagnostics = consoleError.mock.calls.filter(([message]) => {
-      return typeof message === "string"
-        && message.startsWith("[graft] session reaper preserved entries:");
-    });
     expect(scanCalls).toBe(2);
-    expect(scheduledDiagnostics).toHaveLength(1);
   });
 
   it("rejects session sweeps after daemon root ownership is released", async () => {
@@ -2193,7 +2172,7 @@ describe("mcp: daemon session reaper", () => {
     expect(protectedDuringTermination).toBe(true);
   });
 
-  it("reports cleanup failures from transport-triggered termination", async () => {
+  it("retries failed transport-triggered cleanup as an orphan on the next sweep", async () => {
     const rootDir = fs.mkdtempSync(path.join(os.tmpdir(), "graft-session-callback-failure-"));
     const socketPath = path.join(rootDir, "daemon.sock");
     cleanups.push(() => {
@@ -2219,10 +2198,8 @@ describe("mcp: daemon session reaper", () => {
     });
     cleanups.push(() => daemon.close());
     const protocolClose = vi.spyOn(McpServer.prototype, "close");
-    const consoleError = vi.spyOn(console, "error").mockImplementation(() => undefined);
     cleanups.push(() => {
       protocolClose.mockRestore();
-      consoleError.mockRestore();
     });
     const initialize = await requestUnixJson(socketPath, "POST", "/mcp", {
       jsonrpc: "2.0",
@@ -2246,21 +2223,18 @@ describe("mcp: daemon session reaper", () => {
       setImmediate(resolve);
     });
 
-    const prefix = "[graft] daemon session termination cleanup failures: ";
-    const diagnostic = consoleError.mock.calls.find(([message]) => {
-      return typeof message === "string" && message.startsWith(prefix);
+    const sessionDir = path.join(rootDir, "sessions", sessionId!);
+    expect(fs.existsSync(sessionDir)).toBe(true);
+
+    await expect(daemon.reapExpiredSessions()).resolves.toMatchObject({
+      sessionsRetired: 0,
+      liveDirectoriesRemoved: 0,
+      orphanDirectoriesRemoved: 1,
+      cleanupFailures: [],
+      preservedEntries: [],
+      sweepFailure: null,
     });
-    expect(diagnostic).toBeDefined();
-    const report = JSON.parse((diagnostic?.[0] as string).slice(prefix.length)) as unknown;
-    expect(report).toMatchObject({
-      reason: "transport_close",
-      sessionId,
-      cleanupFailures: [{
-        code: "SESSION_DIRECTORY_REMOVE_FAILED",
-        sessionId,
-        retryable: true,
-      }],
-    });
+    expect(fs.existsSync(sessionDir)).toBe(false);
     expect(protocolClose).not.toHaveBeenCalled();
   });
 

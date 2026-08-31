@@ -46,6 +46,7 @@ mutation of the exact guard under test. Representative receipts:
 | Default-endpoint bind order | A competing legacy listener bound during the gated cleanup window and the new daemon discovered the collision only after scanning | post-Retro review repair |
 | Unsafe live-session cleanup | A symlink refusal was labeled retryable even though the next sweep preserved it permanently | post-Retro review repair |
 | Sweep/shutdown diagnostic ownership | One gated removal failure appeared twice in the shutdown aggregate through the sweep and termination registry | post-Retro review repair |
+| Diagnostic-independent lifecycle proof | Suppressing the scheduled-preservation and transport-cleanup log emissions caused one timeout and one missing-diagnostic assertion | post-Retro review repair |
 
 ## Focused GREEN
 
@@ -68,8 +69,8 @@ structured public errors.
 pnpm test
 ```
 
-Latest completed exact-tree result at `5c613486`: pass; 259 files and 2,112
-tests in 93.73 seconds.
+Latest completed exact-tree result on the issue-63 candidate over `553f2860`:
+pass; 259 files and 2,112 tests in 94.08 seconds.
 
 The command uses the repository's Docker-isolated test runner. The earlier
 exact-tree run at `83b50a70` passed 258 files and 2,095 tests and failed one of
@@ -83,7 +84,7 @@ tests.
 | Gate | Command | Result |
 | :--- | :--- | :--- |
 | Focused lifecycle | `pnpm exec vitest run test/unit/mcp/daemon-session-reaper.test.ts` | pass; 1 file, 56 tests |
-| Full isolated suite | `pnpm test` | `5c613486` passed 259 files, 2,112 tests in 93.73 seconds |
+| Full isolated suite | `pnpm test` | issue-63 candidate over `553f2860` passed 259 files, 2,112 tests in 94.08 seconds |
 | Lint | `pnpm lint` | pass |
 | Types | `pnpm typecheck` | pass |
 | Build | `pnpm build` | pass |
@@ -112,6 +113,13 @@ The exact-head post-Retro Codex pass increased the fully paginated surface to
 truth thread for the already-closed transport distinction; that thread is
 resolved only after the behavioral assertion, corrected prose, validation, and
 published repair commit exist.
+
+The closure refresh at `553f2860` exhausted all pages across 49 review threads,
+32 global comments, 25 reviews, and every nested thread-comment connection. No
+inline thread remained unresolved. One actionable CodeRabbit review-body note
+still identified diagnostic-string coupling in two lifecycle tests; the final
+repair replaces those assertions with scan-completion/single-flight evidence
+and failed-cleanup orphan convergence.
 
 ## Scope witness
 

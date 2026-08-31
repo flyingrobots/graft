@@ -159,6 +159,14 @@ by the termination registry. Shutdown now excludes sweep-owned promises from
 its independent collector and receives their outcome only through the awaited
 sweep result.
 
+The closure refresh then exposed a CodeRabbit review-body note that two tests
+still used human-readable diagnostics as their causal barrier or result. A
+controlled mutation suppressing only those emissions produced one timeout and
+one missing-diagnostic failure. The repaired tests remain green under that
+mutation by waiting on scan completion, asserting single-flight execution, and
+proving that failed transport cleanup becomes an orphan removed by the next
+structured sweep.
+
 ## Drift
 
 The largest drift was procedural: implementation and PR publication preceded
