@@ -1,19 +1,27 @@
+import * as os from "node:os";
+
 /**
- * How many daemon jobs may run at once, and where that number comes from.
+ * How many daemon jobs may run at once — a fact about the machine.
  *
  * The scheduler has always accepted `maxConcurrentJobs`; nothing ever supplied
- * it, so both construction sites took the conservative built-in default of 2
- * and there was no way to change it short of editing an installed package.
- * That default is right for a laptop running one assistant against one repo,
- * and wrong the moment several sessions share a daemon: with a cap of two,
- * a fan-out of agents queues behind itself and every session waits on the
- * slowest, including the one that started the fan-out.
+ * one, so both construction sites took a hardcoded default of 2 and there was
+ * no way to change it short of editing an installed package. Two is right for
+ * one session against one repo and wrong as soon as several share a daemon: a
+ * fan-out of agents then queues behind itself and every session waits on the
+ * slowest, including the one that started the fan-out. Measured on a ten-core
+ * machine with five sessions bound: `longestQueuedWaitMs` at 20s, and an
+ * interactive `code_find` taking 154s behind four sibling sessions.
  *
- * The knob is deliberately an environment variable rather than a stored
- * setting. Concurrency is a property of the machine the daemon happens to be
- * running on -- cores, memory, how many sessions the operator keeps open --
- * not of any repository, so it does not belong in a repo's configuration
- * where it would travel to machines it was never measured for.
+ * **Derived, not configured.** Concurrency is a property of the hardware the
+ * daemon happens to be running on, so the daemon reads it off the hardware
+ * rather than asking an operator to know it. There is deliberately no
+ * environment variable and no stored setting: a number in a shell profile
+ * outlives the machine it was measured for, and a number in repository
+ * configuration travels to machines it was never measured for at all.
+ *
+ * `daemon-worker-child-pool.ts` already sizes its process pool this way
+ * (`Math.max(1, Math.min(4, parallelism - 1))`), so this follows a shape the
+ * daemon already uses rather than inventing a second convention.
  */
 
 export interface DaemonSchedulerConfig {
@@ -21,42 +29,44 @@ export interface DaemonSchedulerConfig {
 }
 
 export interface ResolveDaemonSchedulerConfigOptions {
-  readonly env?: Readonly<Record<string, string | undefined>>;
+  /**
+   * How much parallelism the machine reports. A seam for tests, not a knob:
+   * production always reads `os.availableParallelism()`, which respects
+   * container CPU limits where `os.cpus().length` does not.
+   */
+  readonly availableParallelism?: () => number;
   readonly overrides?: Partial<DaemonSchedulerConfig>;
 }
 
-/** The built-in ceiling, unchanged: what an operator gets by saying nothing. */
-export const DEFAULT_MAX_CONCURRENT_JOBS = 2;
+/** What a machine that reports no useful parallelism falls back to. */
+export const MINIMUM_MAX_CONCURRENT_JOBS = 2;
 
 /**
- * A positive integer, or the fallback.
+ * One lane fewer than the machine reports, floored at the old default.
  *
- * Malformed input falls back rather than throwing. This value is read while
- * the daemon is starting, and a typo in a shell profile should not leave a
- * machine with no daemon at all -- an operator who writes
- * `GRAFT_MAX_CONCURRENT_JOBS=ten` gets the default and a working daemon,
- * which is the failure they can diagnose from `daemon_status`.
+ * Minus one leaves a lane for whatever the operator is actually doing — the
+ * daemon is background work on a machine someone is using. The floor means no
+ * machine is ever worse off than before this was derived: a one- or two-core
+ * box still gets 2, exactly what it had when the number was hardcoded.
+ *
+ * There is no upper cap, unlike the worker pool's four. A worker there is a
+ * child process and costs memory; a job here is a promise waiting on one, so
+ * the ceiling that matters is the pool's, and capping twice would only hide
+ * which limit is binding when someone reads `daemon_status`.
  */
-function parsePositiveInteger(value: string | undefined, fallback: number): number {
-  if (value === undefined) return fallback;
-  const trimmed = value.trim();
-  if (trimmed === "") return fallback;
-  const parsed = Number(trimmed);
-  if (!Number.isFinite(parsed)) return fallback;
-  const normalized = Math.trunc(parsed);
-  if (normalized <= 0) return fallback;
-  return normalized;
+export function deriveMaxConcurrentJobs(parallelism: number): number {
+  if (!Number.isFinite(parallelism) || parallelism <= 0) {
+    return MINIMUM_MAX_CONCURRENT_JOBS;
+  }
+  return Math.max(MINIMUM_MAX_CONCURRENT_JOBS, Math.trunc(parallelism) - 1);
 }
 
 export function resolveDaemonSchedulerConfig(
   options: ResolveDaemonSchedulerConfigOptions = {},
 ): DaemonSchedulerConfig {
-  const env = options.env ?? process.env;
+  const parallelism = options.availableParallelism ?? (() => os.availableParallelism());
   const base: DaemonSchedulerConfig = {
-    maxConcurrentJobs: parsePositiveInteger(
-      env["GRAFT_MAX_CONCURRENT_JOBS"],
-      DEFAULT_MAX_CONCURRENT_JOBS,
-    ),
+    maxConcurrentJobs: deriveMaxConcurrentJobs(parallelism()),
   };
   return {
     ...base,

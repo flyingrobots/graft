@@ -9,17 +9,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ### Added
 
-- **Daemon job concurrency is configurable**: `GRAFT_MAX_CONCURRENT_JOBS`
-  sets how many daemon jobs may run at once, defaulting to `2` exactly as
-  before. `DaemonJobScheduler` has always accepted `maxConcurrentJobs` and
+- **Daemon job concurrency is derived from the machine**: the scheduler now
+  sizes itself from `os.availableParallelism()` — one lane fewer than the
+  machine reports, floored at the previous hardcoded `2` so no small machine
+  regresses. `DaemonJobScheduler` has always accepted `maxConcurrentJobs` and
   validated it; neither construction site ever supplied one, so the built-in
-  default was unreachable from outside the package. A cap of two is right for
-  one session against one repo and wrong as soon as several share a daemon —
-  a fan-out of agents then queues behind itself, and every session waits on
-  the slowest, including the one that started the fan-out. Malformed values
-  fall back to the default rather than throwing, because this is read while
-  the daemon is starting and a typo in a shell profile should not leave a
-  machine with no daemon at all.
+  default was unreachable and a cap of two applied to a ten-core workstation
+  and a laptop alike. Two is right for one session against one repo and wrong
+  as soon as several share a daemon: a fan-out of agents queues behind itself
+  and every session waits on the slowest, including the one that started the
+  fan-out. Deliberately not an environment variable and not stored
+  configuration — a number in a shell profile outlives the machine it was
+  measured for, and one in repository config travels to machines it was never
+  measured for at all. `daemon-worker-child-pool.ts` already sized its process
+  pool this way; the scheduler was the one place still holding a constant.
 
 ### Fixed
 
