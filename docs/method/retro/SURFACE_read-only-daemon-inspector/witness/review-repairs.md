@@ -29,3 +29,13 @@ packet and public API documentation explicitly state that contract.
 
 GREEN/VERIFY: the four-file inspection suite passed 27 tests, including all four
 regressions; typecheck and lint passed.
+
+## Empty query delimiter — P5
+
+The compatibility test required the incidental trailing `?`, although its
+contract is one request to `/inspect/v1` without an MCP/health fallback.
+Temporarily omitting an empty delimiter in the client made the old test fail:
+expected `/inspect/v1?`, received `/inspect/v1`. The revised test checks request
+cardinality and the parsed pathname. It passed with the delimiter omitted; the
+temporary client change was then restored and the revised test passed with the
+original client too. No runtime behavior changed for this repair.

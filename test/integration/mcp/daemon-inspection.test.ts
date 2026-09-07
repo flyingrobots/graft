@@ -161,7 +161,8 @@ describe("dedicated daemon inspection transport", () => {
     const requests: string[] = [];
     const socketPath = await stub((req, res) => { requests.push(req.url ?? ""); res.writeHead(404); res.end("not supported"); });
     expect(await inspectLocalDaemon({ socketPath })).toMatchObject({ status: "unsupported", reason: "DAEMON_INSPECTION_UNSUPPORTED" });
-    expect(requests).toEqual(["/inspect/v1?"]);
+    expect(requests).toHaveLength(1);
+    expect(new URL(requests[0]!, "http://graft").pathname).toBe("/inspect/v1");
   });
 
   it.each([
