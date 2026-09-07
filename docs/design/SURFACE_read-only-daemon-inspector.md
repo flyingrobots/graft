@@ -1,7 +1,8 @@
 # Read-only daemon inspector — slice 1
 
-Status: approved scope; implementation in progress.
+Status: slice 1 implemented and locally validated; publication/review pending.
 Parent: [daemon observability program](../method/backlog/cool-ideas/SURFACE_daemon-observability-api-and-bijou-dashboard.md).
+Local closure: [Retro and validation](../method/retro/SURFACE_read-only-daemon-inspector/SURFACE_read-only-daemon-inspector.md).
 
 ## Hill
 

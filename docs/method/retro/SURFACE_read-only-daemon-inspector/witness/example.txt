@@ -1,0 +1,45 @@
+Graft daemon inspection — single capture (no live refresh)
+Daemon: PID 42; loaded version example-build; client example-client; schema 1.0.0
+Incarnation: incarnation:example; started 2026-09-07T10:00:00.000Z
+Loaded module: /example/graft/dist/mcp/daemon-server.js
+Executable: /example/node; socket: /example/daemon.sock
+Capture: 1 at 2026-09-07T10:00:00.000Z; capture age 800ms
+Consistency: synchronous parent state; workers are parent last-known assignments
+Capture age does not establish source currency. Current service assessment: unsupported (no current-health rule).
+Scope: same-user operator; daemon
+
+Jobs (scheduler-owned; not all requests): returned 1; matching total 1; available; complete
+  job:a running file_outline | session session:one (registered) | workspace worktree:a | repo repo:example | queued 2026-09-07T10:00:00.000Z; started 2026-09-07T10:00:00.000Z | wait reason not exposed; worker correlation not retained
+
+Sessions (currently registered): returned 2; matching total 2; available; complete
+  session:one | active worktree:b | last activity 2026-09-07T10:00:00.000Z
+    Reported client (unverified): reported-client example
+    Currently opened workspaces: returned 2; matching total 2; available; complete
+      worktree:a | /example/project-a | repo repo:example
+      worktree:b | /example/project-b | repo repo:example | active default
+  session:two | active worktree:a | last activity 2026-09-07T10:00:00.000Z
+    Reported client (unverified): not retained
+    Currently opened workspaces: returned 1; matching total 1; available; complete
+      worktree:a | /example/project-a | repo repo:example | active default
+
+Authorized workspace records: returned 2; matching total 2; available; complete
+  worktree:a | /example/project-a | repo repo:example | authorized
+    Index evidence: not_retained; entry count unknown; count scope unknown; completeness unknown
+    Source observations: unknown; basis unknown; current-source validation unavailable
+    Storage association and workspace residency: not retained
+  worktree:b | /example/project-b | repo repo:example | authorized
+    Index evidence: not_retained; entry count unknown; count scope unknown; completeness unknown
+    Source observations: unknown; basis unknown; current-source validation unavailable
+    Storage association and workspace residency: not retained
+
+Workers (daemon-wide, parent last-known): returned 1; matching total 1; available; complete
+  worker:one | PID 43 | assigned | worker request worker-request:a | session session:one | workspace worktree:a
+
+Repository monitors: returned 0; matching total 0; available; complete
+
+Daemon-wide WARP pool repository keys (including pending opens): 1; not workspace coverage or index residency
+Daemon-wide historical outcomes accumulated since 2026-09-07T10:00:00.000Z in incarnation incarnation:example:
+  Scheduler jobs: 4 completed; 2 failed
+  Worker tasks: 4 completed; 2 failed
+Layer counters are not summed or correlated. Recent failures: not retained.
+Missing rows in partial inventories do not establish absence.

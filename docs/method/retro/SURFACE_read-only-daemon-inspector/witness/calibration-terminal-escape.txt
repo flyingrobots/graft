@@ -1,0 +1,26 @@
+ FAIL  test/unit/cli/daemon-inspect.test.ts > single-frame inspection CLI > never lets hostile text escape as terminal control sequences
+AssertionError: expected 'Graft daemon inspection: unsupported\…' not to contain '\u001b'
+
+- Expected
++ Received
+
+- \u001b
++ Graft daemon inspection: unsupported
++ Client: evil\u001b[2J
++ Reason: [detail redacted]
+
+ ❯ test/unit/cli/daemon-inspect.test.ts:27:23
+     25|   it("never lets hostile text escape as terminal control sequences", (…
+     26|     const frame = renderDaemonInspection({ status: "unsupported", clie…
+     27|     expect(frame).not.toContain("\u001b");
+       |                       ^
+     28|     expect(frame).not.toContain("password=secret");
+     29|   });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  1 failed | 2 skipped (3)
+   Start at  11:16:45
+   Duration  7.34s (transform 4.88s, setup 99ms, import 6.81s, tests 102ms, environment 0ms)

@@ -1,0 +1,24 @@
+ FAIL  test/unit/operations/daemon-inspection.test.ts > bounded daemon observation > keeps opened membership, default route, and each job's admitted route distinct
+AssertionError: expected null to be 'worktree:a' // Object.is equality
+
+- Expected:
+"worktree:a"
+
++ Received:
+null
+
+ ❯ test/unit/operations/daemon-inspection.test.ts:48:44
+     46|     expect(first.sessions.rows[0]?.openedWorkspaces.rows.map(w => w.wo…
+     47|     expect(first.sessions.rows[0]?.activeWorkspace?.worktreeId).toBe(b…
+     48|     expect(first.jobs.rows[0]?.worktreeId).toBe(a.worktreeId);
+       |                                            ^
+     49|     state.sessions = [];
+     50|     const ended = query.capture({ sessionId: "s" });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  1 failed | 8 skipped (9)
+   Start at  11:16:23
+   Duration  1.32s (transform 504ms, setup 210ms, import 596ms, tests 61ms, environment 0ms)
