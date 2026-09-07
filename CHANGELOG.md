@@ -7,7 +7,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.13.0] - 2026-09-06
+
 ### Added
+
+- **Echo integration is fenced off from the published package**: a release gate
+  (`test/unit/release/echo-independence.test.ts`) walks the import closure of
+  both published entrypoints and fails if any unfinished Echo module, or the
+  Echo kernel transport seam, becomes reachable. Only the two pure encoders,
+  `src/echo/canonical-cbor.ts` and `src/echo/codec-runtime.ts`, are permitted.
+  The gate also rejects any dependency named for Echo and any dependency
+  resolved from a local path or git checkout, so installing
+  `@flyingrobots/graft` can never require an Echo checkout or crate. The four
+  Echo surfaces now carry an explicit work-in-progress header: the transport
+  that would reach a real kernel speaks `graft.echo-kernel-command.v1`, a
+  protocol no Echo build implements, and it remains unmerged on
+  `cycle/real-echo-structural-history-provider`. The Echo shapes those headers
+  cite were read at `echo@2048da5c` (2026-06-01) and nothing pins that sha, so
+  they are labelled historical. Two of those headers previously claimed tests
+  enforced non-wiring; nothing did, and now something does.
 
 - **Daemon job concurrency is derived from the machine**: the scheduler now
   sizes itself from `os.availableParallelism()` — one lane fewer than the
@@ -23,6 +41,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   measured for, and one in repository config travels to machines it was never
   measured for at all. `daemon-worker-child-pool.ts` already sized its process
   pool this way; the scheduler was the one place still holding a constant.
+
+### Security
+
+- **`fast-uri` raised to 3.1.6**: the `pnpm.overrides` block pinned `fast-uri`
+  to `3.1.5`, which carries four HIGH advisories reachable through
+  `@modelcontextprotocol/sdk > ajv > fast-uri` — host confusion via skipped IDN
+  canonicalization (GHSA-5jgf-p345-68v8) and via percent-encoded scheme
+  normalization (GHSA-fph4-wmhf-6fwf), and server-side request forgery via
+  malformed IPv6 normalization (GHSA-f65p-4m7j-42xc) and via repeated hostname
+  percent-decoding (GHSA-jqff-g426-hqxp). A pin intended to hold a dependency
+  steady had frozen it on the vulnerable release. `pnpm security:check` now
+  reports `critical=0 high=0`.
 
 ### Fixed
 
