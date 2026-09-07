@@ -197,4 +197,39 @@ describe("mcp: daemon job scheduler", () => {
     writerA.resolve("done-a");
     writerB.resolve("done-b");
   });
+
+  it("Does a raised ceiling actually let a third job start, not just report a bigger number?", async () => {
+    // The counter and the behaviour are asserted together on purpose. A
+    // scheduler that reported `maxConcurrentJobs: 10` and still ran two would
+    // satisfy a status check and starve exactly the sessions this option
+    // exists for.
+    const scheduler = new DaemonJobScheduler({ maxConcurrentJobs: 3 });
+    const gates = [ deferredPromise<string>(), deferredPromise<string>(), deferredPromise<string>() ];
+    const started: number[] = [];
+
+    gates.forEach((gate, index) => {
+      void scheduler.enqueue({
+        sessionId: `session-${String(index)}`,
+        sliceId: `slice-${String(index)}`,
+        repoId: `repo-${String(index)}`,
+        worktreeId: `worktree-${String(index)}`,
+        tool: "safe_read",
+        kind: "repo_tool",
+        priority: "interactive",
+        writerId: `graft_session_${String(index)}`,
+      }, () => {
+        started.push(index);
+        return gate.promise;
+      });
+    });
+
+    await Promise.resolve();
+    await Promise.resolve();
+
+    expect(scheduler.getCounts().maxConcurrentJobs).toBe(3);
+    expect(started).toHaveLength(3);
+    expect(scheduler.getCounts().queuedJobs).toBe(0);
+
+    gates.forEach((gate) => { gate.resolve("done"); });
+  });
 });

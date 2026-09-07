@@ -21,6 +21,7 @@ import {
 import { DaemonControlPlane, type DaemonRuntimeDescriptor } from "./daemon-control-plane.js";
 import { DaemonRepoOverview } from "./daemon-repos.js";
 import { DaemonJobScheduler } from "./daemon-job-scheduler.js";
+import { resolveDaemonSchedulerConfig } from "./daemon-scheduler-config.js";
 import { InlineDaemonWorkerPool, type DaemonWorkerPool } from "./daemon-worker-pool.js";
 import { PersistentMonitorRuntime } from "./persistent-monitor-runtime.js";
 import {
@@ -135,7 +136,8 @@ function createDaemonRuntimeParts(input: {
 }): DaemonRuntimeParts {
   const { config, options, codec, gitClient, warpPool } = input;
   const scheduler = config.mode === "daemon"
-    ? (options.daemonScheduler ?? new DaemonJobScheduler())
+    ? (options.daemonScheduler
+      ?? new DaemonJobScheduler(resolveDaemonSchedulerConfig()))
     : null;
   const workerPool = config.mode === "daemon"
     ? (options.daemonWorkerPool ?? new InlineDaemonWorkerPool())

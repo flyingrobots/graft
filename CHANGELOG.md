@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Added
+
+- **Daemon job concurrency is configurable**: `GRAFT_MAX_CONCURRENT_JOBS`
+  sets how many daemon jobs may run at once, defaulting to `2` exactly as
+  before. `DaemonJobScheduler` has always accepted `maxConcurrentJobs` and
+  validated it; neither construction site ever supplied one, so the built-in
+  default was unreachable from outside the package. A cap of two is right for
+  one session against one repo and wrong as soon as several share a daemon —
+  a fan-out of agents then queues behind itself, and every session waits on
+  the slowest, including the one that started the fan-out. Malformed values
+  fall back to the default rather than throwing, because this is read while
+  the daemon is starting and a typo in a shell profile should not leave a
+  machine with no daemon at all.
+
 ### Fixed
 
 - **Requested-worktree authority**: daemon-routed repository reads now expose
