@@ -7,6 +7,18 @@ import {
 } from "../../../src/contracts/capabilities.js";
 
 describe("capability registry", () => {
+  it("registers daemon inspection as a local operator capability", () => {
+    const inspection = CAPABILITY_REGISTRY.find(capability => capability.id === "daemon_inspect");
+    expect(inspection).toMatchObject({
+      id: "daemon_inspect",
+      apiExposure: "daemon_inspection",
+      cliPath: ["daemon", "inspect"],
+      cliMcpParity: "operator_query",
+      surfaces: ["api", "cli"],
+    });
+    expect(inspection?.mcpTool).toBeUndefined();
+  });
+
   it("treats API, CLI, and MCP as explicit entrypoint surfaces", () => {
     const byId = new Map(CAPABILITY_REGISTRY.map((capability) => [capability.id, capability]));
 
@@ -55,6 +67,12 @@ describe("capability registry", () => {
         expect(capability.mcpTool).toBeDefined();
         expect(capability.cliPath).toBeUndefined();
       }
+      if (capability.cliMcpParity === "operator_query") {
+        expect(capability.cliCommand).toBeUndefined();
+        expect(capability.cliPath).toBeDefined();
+        expect(capability.mcpTool).toBeUndefined();
+        expect(capability.surfaces).toEqual(["api", "cli"]);
+      }
       if (capability.cliMcpParity === "not_applicable") {
         expect(capability.surfaces).toEqual(["api"]);
       }
@@ -73,6 +91,7 @@ describe("capability registry", () => {
     expect(baseline).toEqual({
       cliOnly: 6,
       apiCliMcp: 24,
+      apiCli: 1,
       apiMcp: 24,
       apiOnly: 1,
       directCliMcpPeers: 23,

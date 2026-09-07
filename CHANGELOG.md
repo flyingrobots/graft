@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Added
+
+- **Read-only daemon inspection**: `graft daemon inspect` and the typed
+  `inspectDaemon` API capture bounded current session/workspace relationships,
+  admitted job routes, parent-known workers, monitor records, loaded process
+  identity, and separate lifetime counters. A dedicated same-user socket route
+  performs no MCP initialization, workspace discovery, graph opens, indexing,
+  workload touches, or work admission. Exact ID filters and text/JSON output
+  preserve partial/unavailable evidence; capture age never claims source
+  freshness. Older daemons return unsupported without startup or fallback.
+  The existing `daemon status` contract is unchanged. Navigation, polling,
+  retained failure history, and index-coverage measurement remain separate work.
+
 ## [0.13.0] - 2026-09-06
 
 ### Added

@@ -290,6 +290,14 @@ export class WorkspaceRouter {
     };
   }
 
+  /** Iterate owned membership records only; do not resolve or activate roots. */
+  *inspectionOpenedWorkspaces(): Iterable<import("../contracts/daemon-inspection.js").InspectionOpenedWorkspace> {
+    for (const record of this.openedWorkspaces.values()) {
+      yield { repoId: record.repoId, worktreeId: record.worktreeId, worktreeRoot: record.worktreeRoot,
+        openedAt: record.openedAt, lastActivatedAt: record.lastActivatedAt };
+    }
+  }
+
   async openWorkspace(request: WorkspaceOpenRequest): Promise<WorkspaceOpenResult> {
     const resolved = await resolveWorkspaceRequest(this.options.git, request);
     if ("code" in resolved) {

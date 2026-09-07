@@ -174,6 +174,26 @@ export class DaemonJobScheduler {
     return [...runningJobs, ...queuedJobs];
   }
 
+  *inspectionJobs(): Iterable<import("../ports/daemon-inspection.js").InspectionJob | null> {
+    const copy = (job: ScheduledJob, state: DaemonJobState) => ({
+      jobId: job.jobId, sessionId: job.sessionId, sliceId: job.sliceId, repoId: job.repoId,
+      worktreeId: job.worktreeId, tool: job.tool, kind: job.kind, priority: job.priority,
+      writerId: job.writerId, state, enqueuedAt: job.enqueuedAt, startedAt: job.startedAt,
+    });
+    for (const job of this.running.values()) yield copy(job, "running");
+    for (const queues of [this.interactiveQueues, this.backgroundQueues]) {
+      for (const queue of queues.values()) {
+        // Charge the query budget for each bucket, even an empty one.
+        yield null;
+        for (const job of queue) yield copy(job, "queued");
+      }
+    }
+  }
+
+  inspectionCounters(): { completed: number; failed: number } {
+    return { completed: this.completedJobs, failed: this.failedJobs };
+  }
+
   private enqueueJob(job: ScheduledJob): void {
     const queues = this.getQueues(job.priority);
     const laneKey = buildWriterLaneKey(job);

@@ -17,6 +17,11 @@ export interface RegisteredTransport {
   readonly getWorkspaceStatus: () => WorkspaceStatus;
   readonly getRuntimeCausalContext: () => RuntimeCausalContext | null;
   lastActivityAt: string;
+  readonly inspectWorkspace?: (() => {
+    readonly activeWorkspace: import("../../contracts/daemon-inspection.js").InspectionWorkspaceIdentity | null;
+    readonly reportedClient: { readonly name: string; readonly version: string } | null;
+    openedWorkspaces(): Iterable<import("../../contracts/daemon-inspection.js").InspectionOpenedWorkspace>;
+  }) | undefined;
 }
 
 // ---------------------------------------------------------------------------

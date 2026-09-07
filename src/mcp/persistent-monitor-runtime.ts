@@ -108,6 +108,16 @@ export class PersistentMonitorRuntime {
     };
   }
 
+  *inspectionMonitors(): Iterable<import("../ports/daemon-inspection.js").InspectionMonitor> {
+    for (const record of this.records.values()) {
+      yield { repoId: record.repoId, anchorWorktreeRoot: record.anchorWorktreeRoot,
+        lifecycleState: record.lifecycleState, recordedHealth: record.health,
+        lastTickAt: record.lastTickAt, lastSuccessAt: record.lastSuccessAt,
+        lastIndexedCommit: record.lastIndexedCommit, lastHeadCommit: record.lastHeadCommit,
+        backlogCommits: record.backlogCommits, sourceCurrency: "not_validated", errorDetail: "not_exported" };
+    }
+  }
+
   async listStatuses(): Promise<readonly MonitorStatusView[]> {
     await this.ensureLoaded();
     const authorized = await this.options.controlPlane.listAuthorizedWorkspaceRecords();

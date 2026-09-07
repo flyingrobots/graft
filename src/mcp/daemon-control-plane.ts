@@ -96,6 +96,7 @@ export class DaemonControlPlane {
     sessionId: string,
     getWorkspaceStatus: () => WorkspaceStatus,
     getRuntimeCausalContext: () => RuntimeCausalContext | null,
+    inspectWorkspace?: RegisteredTransport["inspectWorkspace"],
   ): void {
     const now = new Date().toISOString();
     this.transports.set(sessionId, {
@@ -104,6 +105,7 @@ export class DaemonControlPlane {
       lastActivityAt: now,
       getWorkspaceStatus,
       getRuntimeCausalContext,
+      inspectWorkspace,
     });
   }
 
@@ -115,6 +117,29 @@ export class DaemonControlPlane {
 
   unregisterTransport(sessionId: string): void {
     this.transports.delete(sessionId);
+  }
+
+  /** Dedicated inspection readers never call the causal/execution getters. */
+  *inspectionSessions(sessionId?: string): Iterable<import("../ports/daemon-inspection.js").InspectionSession> {
+    const selected = sessionId === undefined ? this.transports.values() : [this.transports.get(sessionId)];
+    for (const session of selected) {
+      if (session === undefined) continue;
+      if (session.inspectWorkspace === undefined) throw new Error("INSPECTION_NOT_AVAILABLE");
+      const workspace = session.inspectWorkspace();
+      yield {
+        sessionId: session.sessionId, startedAt: session.startedAt, lastActivityAt: session.lastActivityAt,
+        activeWorkspace: workspace.activeWorkspace, reportedClient: workspace.reportedClient,
+        openedWorkspaces: () => workspace.openedWorkspaces(),
+      };
+    }
+  }
+
+  inspectionHasSession(sessionId: string): boolean { return this.transports.has(sessionId); }
+
+  *inspectionWorkspaces(): Iterable<import("../ports/daemon-inspection.js").InspectionWorkspace> {
+    for (const record of this.authorizedWorkspaces.values()) {
+      yield { repoId: record.repoId, worktreeId: record.worktreeId, worktreeRoot: record.worktreeRoot, authorizedAt: record.authorizedAt };
+    }
   }
 
   resolveSharedAttachSource(input: {
