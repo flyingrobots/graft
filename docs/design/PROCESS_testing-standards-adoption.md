@@ -1,8 +1,8 @@
 # Testing Standards adoption
 
-Status: Accepted design; policy-only delivery
-Date: 2026-09-07
-Change kind: deliberate policy behavior change; no runtime behavior change
+- Status: Accepted design; policy-only delivery
+- Date: 2026-09-07
+- Change kind: deliberate policy behavior change; no runtime behavior change
 
 ## Hill
 

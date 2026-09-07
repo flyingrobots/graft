@@ -1,9 +1,10 @@
 # Graft testing policy adoption and enforcement
 
-Policy: [graft.testing/1.0.3](../../TESTING_STANDARDS.md)
-Approved and effective: 2026-09-07, by the repository operator
-Accountable maintainer: @flyingrobots
-First enforcement review: 2026-10-07; covered subsystem risk maps at least quarterly
+- Policy: [graft.testing/1.0.3](../../TESTING_STANDARDS.md)
+- Approved and effective: 2026-09-07, by the repository operator
+- Accountable maintainer: @flyingrobots
+- First enforcement review: 2026-10-07; covered subsystem risk maps at least
+  quarterly
 
 ## Authority and effective scope
 

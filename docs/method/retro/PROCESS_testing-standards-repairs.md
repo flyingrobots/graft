@@ -83,11 +83,31 @@ Manual semantic playback:
 
 These are policy counterexamples reviewed across the full rules, checklist,
 and compression, not newly executed compiler or fault-injection tests. The
-repair changes no runtime behavior or test harness. Whitespace validation
-accompanies this docs-only commit; final lint remains required for closeout.
+repair changes no runtime behavior or test harness. `git diff --cached --check`
+passed. Published commit: `8fa2722b`; its matching external review thread is
+resolved. Final lint remains required for closeout.
+
+## R5 — metadata in the repository file view
+
+The adoption record, design, and original retro formerly used bare source
+newlines for parallel metadata fields. Their repository-file rendering folded
+these into a paragraph. The fields are now explicit Markdown lists, retaining
+the policy versions, dates, branch, base, owner, and scope descriptions.
+The original retro's 1.0.0 remains its historical basis; the adoption record
+continues to identify effective version 1.0.3.
+
+Validation uses GitHub's Markdown API in document (`markdown`) mode before
+publication, followed by the published Contents API's HTML representation.
+PR-comment (`gfm`) mode is not the file-view oracle because its soft-break
+behavior differs. This is a one-off presentation check, not a new automated
+repository assertion. The final link repair records the published result.
+
+Document-mode rendering returned lists with 4, 3, and 5 fields respectively.
+Source comparison against `8fa2722b` preserved all 12 field values after folding
+the intentional wrapped list item. `git diff --check` passed.
 
 ## Remaining review repairs
 
-R5 (metadata) and R4 (published links) remain to be implemented in that
-dependency order. R5 precedes R4 so the
-immutable linked documents include the corrected metadata presentation.
+R4 (published links) remains to be implemented after validating R5's published
+file rendering. The immutable linked documents will include these metadata
+corrections.

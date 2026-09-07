@@ -1,10 +1,10 @@
 # Testing Standards adoption — local retro
 
-Date: 2026-09-07
-Branch: `cycle/testing-standards`
-Base: `e1d34c18fc359b4f7d7f9ba08500421ac0fa9ad5`
-Policy: `graft.testing/1.0.0`
-Change kind: deliberate policy behavior change; runtime behavior unchanged
+- Date: 2026-09-07
+- Branch: `cycle/testing-standards`
+- Base: `e1d34c18fc359b4f7d7f9ba08500421ac0fa9ad5`
+- Policy: `graft.testing/1.0.0`
+- Change kind: deliberate policy behavior change; runtime behavior unchanged
 
 ## Outcome and evidence boundary
 
