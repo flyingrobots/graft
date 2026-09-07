@@ -81,6 +81,21 @@ export class ChildProcessDaemonWorkerPool implements DaemonWorkerPool {
     };
   }
 
+  *inspectionWorkers(): Iterable<import("../ports/daemon-inspection.js").InspectionWorker> {
+    for (const worker of this.workers.values()) {
+      const task = worker.task;
+      yield { workerId: worker.workerId, pid: worker.child.pid ?? null,
+        requestId: task?.requestId ?? null, state: task === null ? "idle" : "assigned",
+        sessionId: task?.kind === "repo_tool" ? task.job.sessionId : null,
+        repoId: task?.job.repoId ?? null,
+        worktreeId: task?.kind === "repo_tool" ? task.job.worktreeId : null };
+    }
+  }
+
+  inspectionCounters(): { completed: number; failed: number } {
+    return { completed: this.completedTasks, failed: this.failedTasks };
+  }
+
   runMonitorTick(job: MonitorTickWorkerJob): Promise<MonitorTickWorkerResult> {
     if (this.closing) {
       return Promise.reject(new Error("daemon worker pool is closing"));

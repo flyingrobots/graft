@@ -49,6 +49,11 @@ export interface GraftServer {
   getWorkspaceStatus(): import("./workspace-router.js").WorkspaceStatus;
   getRuntimeCausalContext(): import("./runtime-causal-context.js").RuntimeCausalContext | null;
   getMcpServer(): McpServer;
+  inspectWorkspace(): {
+    readonly activeWorkspace: import("../contracts/daemon-inspection.js").InspectionWorkspaceIdentity | null;
+    readonly reportedClient: { readonly name: string; readonly version: string } | null;
+    openedWorkspaces(): Iterable<import("../contracts/daemon-inspection.js").InspectionOpenedWorkspace>;
+  };
 }
 
 export interface CreateGraftServerOptions {
@@ -307,6 +312,17 @@ function createGraftServerSurface(input: {
     },
     getMcpServer(): McpServer {
       return input.mcpServer;
+    },
+    inspectWorkspace() {
+      const status = input.workspaceRouter.getStatus();
+      const client = input.mcpServer.server.getClientVersion();
+      return {
+        activeWorkspace: status.repoId === null || status.worktreeId === null || status.worktreeRoot === null ? null : {
+          repoId: status.repoId, worktreeId: status.worktreeId, worktreeRoot: status.worktreeRoot,
+        },
+        reportedClient: client === undefined ? null : { name: client.name, version: client.version },
+        openedWorkspaces: () => input.workspaceRouter.inspectionOpenedWorkspaces(),
+      };
     },
   };
 }

@@ -1,6 +1,11 @@
 import * as fs from "node:fs/promises";
 import * as http from "node:http";
 import * as path from "node:path";
+import { randomUUID } from "node:crypto";
+import { fileURLToPath } from "node:url";
+import { DaemonInspectionQuery } from "../operations/daemon-inspection.js";
+import { GRAFT_VERSION } from "../version.js";
+import { createDaemonInspectionRoute } from "./daemon-inspection-route.js";
 import { CanonicalJsonCodec } from "../adapters/canonical-json.js";
 import { nodeFs } from "../adapters/node-fs.js";
 import { nodeGit } from "../adapters/node-git.js";
@@ -52,6 +57,8 @@ export async function startDaemonServer(options: StartDaemonServerOptions = {}):
   await ensureGitVersionSupportsGraft();
   const graftDir = path.resolve(options.graftDir ?? defaultDaemonRoot());
   const socketPath = resolveSocketPath(options.socketPath, graftDir);
+  const startedAt = new Date().toISOString();
+  const incarnationId = randomUUID();
   const warpPool = new InMemoryWarpPool((cwd) => openWarp({ cwd }));
   const controlPlane = new DaemonControlPlane({
     fs: nodeFs,
@@ -72,7 +79,6 @@ export async function startDaemonServer(options: StartDaemonServerOptions = {}):
     scheduler: daemonScheduler,
     workerPool: daemonWorkerPool,
   });
-  const startedAt = new Date().toISOString();
   const transportKind = isNamedPipePath(socketPath) ? "named_pipe" : "unix_socket";
 
   const getHealthStatus = (): DaemonHealthStatus => {
@@ -115,7 +121,24 @@ export async function startDaemonServer(options: StartDaemonServerOptions = {}):
       : {}),
   });
 
+  const inspection = new DaemonInspectionQuery({
+    runtime: { incarnationId, startedAt, pid: process.pid, version: GRAFT_VERSION,
+      modulePath: fileURLToPath(import.meta.url), executablePath: process.execPath, socketPath },
+    now: () => new Date().toISOString(),
+    source: {
+      sessions: (id) => controlPlane.inspectionSessions(id),
+      workspaces: () => controlPlane.inspectionWorkspaces(),
+      jobs: () => daemonScheduler.inspectionJobs(),
+      workers: () => daemonWorkerPool.inspectionWorkers(),
+      monitors: () => monitorRuntime.inspectionMonitors(),
+      hasSession: (id) => controlPlane.inspectionHasSession(id),
+      counters: () => ({ scheduler: daemonScheduler.inspectionCounters(), workers: daemonWorkerPool.inspectionCounters() }),
+      pool: () => ({ repositoryKeys: warpPool.size() }),
+    },
+  });
+  const inspectionRoute = createDaemonInspectionRoute(request => inspection.capture(request));
   const httpServer = http.createServer((req, res) => {
+    if (inspectionRoute.handle(req, res)) return;
     void sessionHost.handleRequest(req, res);
   });
 
@@ -157,6 +180,7 @@ export async function startDaemonServer(options: StartDaemonServerOptions = {}):
       closing = (async () => {
         process.off("SIGINT", shutdown);
         process.off("SIGTERM", shutdown);
+        inspectionRoute.close();
         await sessionHost.close();
         await monitorRuntime.close();
         await daemonWorkerPool.close();

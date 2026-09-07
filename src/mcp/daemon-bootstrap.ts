@@ -24,10 +24,10 @@ function defaultSocketPath(graftDir: string): string {
   return path.join(graftDir, "mcp.sock");
 }
 
-export function resolveSocketPath(socketPath: string | undefined, graftDir: string): string {
+export function resolveSocketPath(socketPath: string | undefined, graftDir: string, cwd?: string): string {
   if (socketPath === undefined) return defaultSocketPath(graftDir);
   if (isNamedPipePath(socketPath)) return socketPath;
-  return path.resolve(socketPath);
+  return cwd === undefined ? path.resolve(socketPath) : path.resolve(cwd, socketPath);
 }
 
 export async function ensurePrivateDirectory(dirPath: string): Promise<void> {

@@ -36,6 +36,9 @@ export { ensureParserReady, isParserReady } from "../parser/runtime.js";
 export { createRepoLocalGraft, type CreateRepoLocalGraftOptions } from "./repo-local-graft.js";
 export { createRepoWorkspace, type CreateRepoWorkspaceOptions } from "./repo-workspace.js";
 export { callGraftTool, parseGraftToolPayload } from "./tool-bridge.js";
+export { inspectLocalDaemon as inspectDaemon, type InspectDaemonOptions } from "../adapters/local-daemon-inspection-client.js";
+export { inspectionObservationSchema, inspectionRequestSchema, inspectionResultSchema,
+  type InspectionRequest, type InspectionObservation, type InspectionResult } from "../contracts/daemon-inspection.js";
 export type { GitVersion, GitVersionGuardOptions } from "../git/version-guard.js";
 
 export interface CreateStructuredBufferOptions {

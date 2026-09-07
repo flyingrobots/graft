@@ -17,7 +17,34 @@ into implementation churn.
 
 ## Public Surface Families
 
-The root package exposes four public families plus metadata.
+The root package exposes five public families plus metadata.
+
+### Read-only Daemon Inspection
+
+`inspectDaemon({ socketPath, request? })` reads `GET /inspect/v1` over the
+explicit local Unix socket or Windows named pipe. `request` accepts one exact
+`sessionId`, `workspaceId` (worktree ID), or `repoId`, plus `limit: 1..100`.
+No workspace lookup, MCP connection, or daemon startup is performed. Empty or
+non-local socket addresses are refused. The function returns
+`Promise<InspectionResult>` with `status: ok | no_daemon | unsupported |
+observation_failed`, the invoking `clientVersion`, and either an `observation`
+or stable `reason`. It is intentionally an operator API, not an expansion of
+workspace-scoped MCP authority.
+
+The public `InspectionRequest`, `InspectionObservation`, `InspectionResult`,
+and `InspectDaemonOptions` types and `inspectionRequestSchema`,
+`inspectionObservationSchema`, and `inspectionResultSchema` validators expose
+the versioned contract. The loaded daemon version and incarnation are inside
+the observation; they are independent of the client version and schema version.
+See [CLI inspection semantics and bounds](./CLI.md) for collection scope,
+consistency, unavailable index evidence, and historical counter interpretation.
+
+This API requires no parser initialization and has a bounded five-second read
+deadline and 512 KiB response limit. Unknown endpoint/schema, disconnect,
+invalid/unsafe response, and no daemon are explicit results. There is no
+weaker fallback or mutation surface. An `ok` observation can contain partial or
+unavailable sections; consumers must inspect completeness before making a
+negative claim. Capture age never establishes source currency.
 
 ### 1. Direct Repo-Local Integration
 

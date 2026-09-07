@@ -55,6 +55,12 @@ describe("capability registry", () => {
         expect(capability.mcpTool).toBeDefined();
         expect(capability.cliPath).toBeUndefined();
       }
+      if (capability.cliMcpParity === "operator_query") {
+        expect(capability.cliCommand).toBeUndefined();
+        expect(capability.cliPath).toBeDefined();
+        expect(capability.mcpTool).toBeUndefined();
+        expect(capability.surfaces).toEqual(["api", "cli"]);
+      }
       if (capability.cliMcpParity === "not_applicable") {
         expect(capability.surfaces).toEqual(["api"]);
       }
@@ -73,6 +79,7 @@ describe("capability registry", () => {
     expect(baseline).toEqual({
       cliOnly: 6,
       apiCliMcp: 24,
+      apiCli: 1,
       apiMcp: 24,
       apiOnly: 1,
       directCliMcpPeers: 23,

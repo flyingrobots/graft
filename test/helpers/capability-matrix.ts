@@ -25,6 +25,7 @@ export function parseDocumentedCapabilityBaseline(
   return {
     cliOnly: countFor(/CLI\s*-\s*only capabilit(?:y|ies)/iu),
     apiCliMcp: countFor(/API\s*\+\s*CLI\s*\+\s*MCP capabilit(?:y|ies)/iu),
+    apiCli: countFor(/API\s*\+\s*CLI capabilit(?:y|ies)/iu),
     apiMcp: countFor(/API\s*\+\s*MCP capabilit(?:y|ies)/iu),
     apiOnly: countFor(/API\s*-\s*only capabilit(?:y|ies)/iu),
     directCliMcpPeers: countFor(/direct CLI\s*\/\s*MCP peer capabilit(?:y|ies)/iu),

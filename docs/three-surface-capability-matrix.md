@@ -18,6 +18,7 @@ changes, this matrix must be refreshed before release.
 
 - `6` CLI-only capabilities
 - `24` API + CLI + MCP capabilities
+- `1` API + CLI capability
 - `24` API + MCP capabilities
 - `1` API-only capability
 - `23` direct CLI/MCP peer capabilities
@@ -30,6 +31,7 @@ API exposure kinds:
 - `tool_bridge`: available through the direct package surface by using
   `createRepoLocalGraft(...)` plus `callGraftTool(...)`
 - `structured_buffer`: direct dirty-buffer editor API
+- `daemon_inspection`: typed same-user local inspection client; no MCP bridge
 
 CLI/MCP posture values:
 
@@ -41,6 +43,7 @@ CLI/MCP posture values:
   direct CLI peer
 - `mcp_only`: intentionally API + MCP-only agent/control-plane tool by
   current product decision
+- `operator_query`: direct typed API and CLI over an operator query; no MCP tool
 - `not_applicable`: direct API-only capability, so CLI/MCP parity does
   not apply
 
@@ -54,9 +57,14 @@ composing existing tools, it belongs in this matrix as
 
 ## Matrix
 
+`daemon_inspect` intentionally has no MCP tool: the dedicated local read route
+does not create a workload session or widen workspace-scoped tool visibility.
+Its text/JSON and direct API consume the same versioned daemon query contract.
+
 | Capability | API | CLI | MCP | API exposure | CLI/MCP posture | CLI path | MCP tool |
 |---|---|---|---|---|---|---|---|
 | `init` | No | Yes | No | `-` | `cli_only` | `init` | `-` |
+| `daemon_inspect` | Yes | Yes | No | `daemon_inspection` | `operator_query` | `daemon inspect` | `-` |
 | `index` | No | Yes | No | `-` | `cli_only` | `index` | `-` |
 | `migrate_local_history` | No | Yes | No | `-` | `cli_only` | `migrate local-history` | `-` |
 | `safe_read` | Yes | Yes | Yes | `repo_workspace` | `peer` | `read safe` | `safe_read` |
