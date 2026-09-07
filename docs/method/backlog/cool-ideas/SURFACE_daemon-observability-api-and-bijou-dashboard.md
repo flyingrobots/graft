@@ -154,6 +154,14 @@ exists.
 
 ## Relationship to existing cards
 
+- [Read-only daemon inspector, slice 1](../../../design/SURFACE_read-only-daemon-inspector.md)
+  is the approved focused child: bounded coherent parent-state inspection,
+  dedicated same-user read transport, and single-frame text/JSON. It inherits
+  observational, evidence, trust, and compatibility obligations. Navigation,
+  polling, event history, general metrics, portable dashboard artifacts, and
+  browser targets remain separate; delivering the inspector does not complete
+  this parent card.
+
 - [Bijou daemon status live refresh](./SURFACE_bijou-daemon-status-live-refresh.md)
   owns bounded refresh behavior for the existing status slice.
 - [Bijou daemon control-plane actions](./SURFACE_bijou-daemon-control-plane-actions.md)
