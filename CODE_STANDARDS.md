@@ -4,6 +4,22 @@ These standards define the required review and repair posture for Graft.
 They are operational doctrine, not suggestions. When these rules conflict
 with convenience, convenience loses.
 
+## Testing policy
+
+[TESTING_STANDARDS.md](TESTING_STANDARDS.md) is the adopted testing policy
+`graft.testing/1.0.0`, effective 2026-09-07 for new and materially changed tests
+and subsequent failure/review decisions. Read its
+[adoption record](docs/testing/adoption.md) for scope and actual enforcement.
+Calibration of consequential claims, retained counterexamples, first-failure
+evidence, and explicit risk decisions bind even when their bookkeeping is
+manual. A failing oracle establishes disagreement requiring diagnosis; it
+does not by itself locate the defect in production code.
+
+This policy complements the RED/GREEN repair and merge gates below. It does
+not waive them or require an unrelated legacy-test retrofit. For policy/docs
+changes, use semantic review, `git diff --check`, and `pnpm lint`; do not
+manufacture runtime regressions or tests for incidental Markdown structure.
+
 ## Code Lawyer Mandate
 
 Code Lawyer is the repository's strict audit posture:
