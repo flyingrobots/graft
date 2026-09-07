@@ -786,6 +786,22 @@ the server was started with shell capture turned off.
   `GRAFT_ENABLE_RUN_CAPTURE=0`
 - shared or harder security postures should generally leave it disabled
 
+### The daemon feels slow when several sessions share it
+
+`daemon_status` reports `scheduler.maxConcurrentJobs`, `queuedJobs` and
+`longestQueuedWaitMs`, alongside `workers.totalWorkers`.
+
+Both numbers are derived from the machine, not configured — the scheduler
+runs one job fewer than `os.availableParallelism()` reports (floored at 2),
+and the worker pool sizes itself the same way (capped at 4, because each
+worker is a child process). There is nothing to set: a ten-core machine gets
+nine job lanes and four workers without anyone choosing those numbers.
+
+If jobs are queuing and `maxConcurrentJobs` already matches your core count,
+the daemon is not misconfigured — it is saturated, and the fix is fewer
+concurrent sessions rather than a bigger number. Check `queuedJobs` against
+`workers.totalWorkers` to see which limit is binding.
+
 ### graft is slow on first call
 
 Tree-sitter WASM grammars load on first parse (~200ms). Subsequent
