@@ -1,6 +1,6 @@
 # Graft testing policy adoption and enforcement
 
-Policy: [graft.testing/1.0.0](../../TESTING_STANDARDS.md)
+Policy: [graft.testing/1.0.1](../../TESTING_STANDARDS.md)
 Approved and effective: 2026-09-07, by the repository operator
 Accountable maintainer: @flyingrobots
 First enforcement review: 2026-10-07; covered subsystem risk maps at least quarterly
@@ -9,9 +9,10 @@ First enforcement review: 2026-10-07; covered subsystem risk maps at least quart
 
 The operator approved a separate policy-only adoption of the supplied Testing
 Standards with the semantic corrections recorded in the
-[design packet](../design/PROCESS_testing-standards-adoption.md). Version 1.0.0
-is the corrected Graft edition, not an assertion that the originally supplied
-Accepted/Binding frontmatter had already installed repository policy.
+[design packet](../design/PROCESS_testing-standards-adoption.md). The initial
+Graft edition was 1.0.0; the effective version is identified above and its
+authorized amendments below. The originally supplied Accepted/Binding
+frontmatter had not itself installed repository policy.
 
 The 19 rules bind new and materially changed tests immediately under that
 approval, and govern review, failure handling, quarantine, and exception
@@ -19,7 +20,9 @@ decisions made from this date. Material changes affect claims, expectations,
 covered cases, oracles, dependencies, nondeterminism, resource use, calibration,
 or retained evidence. Mechanical moves or import maintenance do not by
 themselves require unrelated legacy-test conversion. Deletion is an evidence
-change and requires Rule 18 accounting.
+change and requires Rule 18 accounting. A shared fixture or harness change
+brings into scope tests whose behavior or evidence it actually affects; suite
+membership alone does not pull unrelated unchanged tests into scope.
 
 Existing open work applies the policy to subsequent in-scope changes; this
 adoption does not authorize rewriting another delivery or its history. The
@@ -33,6 +36,21 @@ commit and PR to determine whether it has reached `main`. It makes no claim
 about an unobserved remote branch, a completed suite audit, or future tooling.
 Future normative changes require a version increment and an explicit adoption
 record describing the changed obligations and scope.
+
+## Authorized amendments
+
+On 2026-09-07 the operator authorized resolution of the
+[five review findings](https://github.com/flyingrobots/graft/pull/255#issuecomment-5575909666).
+The [repair retro](../method/retro/PROCESS_testing-standards-repairs.md) records
+the evidence and publication boundaries. Normative amendments are:
+
+| Effective version | Date | Change and scope |
+| --- | --- | --- |
+| 1.0.1 | 2026-09-07 | R1: clarify affected-test scope, including actual shared-fixture/harness effects, while excluding unrelated unchanged tests. |
+
+The initial 1.0.0 approval remains historical. These amendments neither certify
+legacy tests nor authorize a merge, an unrelated legacy retrofit, or deferred
+automation.
 
 ## What is enforced now
 
@@ -65,7 +83,7 @@ test. One record may cover an atomic claim with several assertions. Identify
 independent claims separately and state which failure calibrates each one.
 
 ```text
-Policy: graft.testing/1.0.0
+Policy: graft.testing/1.0.1
 Change kind / surface:
 Claim and contract boundary:
 Oracle source:

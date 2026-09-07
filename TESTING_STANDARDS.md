@@ -1,7 +1,7 @@
 ---
 Title: Graft Testing Standards
 Policy: graft.testing
-Version: 1.0.0
+Version: 1.0.1
 Status: Accepted
 Binding: true
 Adopted: 2026-09-07
@@ -16,6 +16,11 @@ approved its corrected adoption on 2026-09-07. The [adoption record](docs/testin
 defines applicability, evidence, exceptions, and actual enforcement state.
 Acceptance does not certify unchanged legacy tests, completed automation, or
 publication to `main`; Git and the PR establish publication state.
+
+Material changes bring the changed tests and claims into scope. A shared
+fixture or harness change also brings tests whose behavior or evidence it
+actually affects into scope. Unrelated unchanged tests remain outside the
+retrofit boundary; membership in the same suite alone does not bring them in.
 
 The numbered rules are binding within that scope. “Must” expresses an
 obligation; “prefer” expresses a default whose alternative needs a reason.

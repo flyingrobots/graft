@@ -10,7 +10,7 @@
 
 ## Testing evidence
 
-Apply [graft.testing/1.0.0](../TESTING_STANDARDS.md) and its
+Apply [graft.testing/1.0.1](../TESTING_STANDARDS.md) and its
 [adoption scope](../docs/testing/adoption.md) to new/materially changed tests.
 Link a concise design/retro receipt; use N/A with a reason for inapplicable items.
 

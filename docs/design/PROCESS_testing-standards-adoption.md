@@ -11,7 +11,7 @@ apply its corrected obligations to new and materially changed tests, and tell
 which evidence is reviewed manually and which checks are actually automated.
 
 The operator approved the supplied 2026-08-16 Testing Standards with explicit
-semantic corrections on 2026-09-07. This cycle installs a Graft edition as
+semantic corrections on 2026-09-07. This cycle initially installed the Graft edition
 `graft.testing/1.0.0`. The supplied document's Accepted/Binding frontmatter was
 not, by itself, a prior Graft adoption record.
 
@@ -51,8 +51,11 @@ not, by itself, a prior Graft adoption record.
 The binding core takes effect under the operator's approval for new and
 materially changed tests, and failure/waiver decisions made from adoption
 onward. This does not certify unchanged legacy tests or require their wholesale
-retrofit. Mechanically moving an unchanged test does not pull the entire suite
-into scope; changing its oracle, coverage, environment, or calibration does.
+retrofit. Mechanical moves do not bring unrelated tests into scope. Changing
+a test's oracle, coverage, environment, or calibration brings that changed test
+and its affected claims into scope. A shared fixture or harness change also
+brings tests whose behavior or evidence it actually affects into scope.
+Unrelated unchanged tests remain outside that boundary even in the same suite.
 
 No test runner changes, test rewrites, new runtime dependencies, policy-format
 tests, mutation service, simulation platform, coverage target, observability
@@ -74,3 +77,31 @@ commit the local retro before opening the non-draft PR.
 One independently reviewable policy adoption commit and PR. A separate adoption
 record distinguishes approval/effect from branch publication and merge; Git and
 the PR remain the authority for whether the policy has reached `main`.
+
+## Authorized review repair plan
+
+The operator authorized resolution of R1–R5 from the
+[self-review](https://github.com/flyingrobots/graft/pull/255#issuecomment-5575909666).
+External Codex review also raised R1–R4. Each concern gets a separate focused
+commit and its own validation entry in the
+[repair retro](../method/retro/PROCESS_testing-standards-repairs.md).
+
+1. R1: make the affected-test scope explicit, including genuinely affected
+   consumers of a changed shared fixture or harness.
+2. R2: use one binding strength for cohesive behavioral promises in the rule,
+   checklist, and compression while preserving multiple supporting assertions.
+3. R3: admit intentionally checked compiler/deadline/resource/crash outcomes;
+   reject incidental failures that prevent or bypass the intended oracle.
+4. R5: render metadata as lists in the adoption record, original design, and
+   original retro, preserving their values.
+5. R4: replace relative PR-template links with immutable GitHub blob URLs to
+   the published documents after R1–R3 and R5. R5 precedes this final link step
+   so the pinned adoption record includes its corrected presentation.
+
+The three normative corrections receive patch versions 1.0.1, 1.0.2, and 1.0.3
+with explicit amendment records. R4 and R5 change presentation, not policy
+meaning. Historical adoption/validation records retain their original basis.
+No runtime tests or policy-format assertions are added. Use manual semantic
+counterexamples for R1–R3, GitHub file rendering for R5, and rendered PR hrefs
+plus HTTP delivery for R4, with lint and whitespace checks. Required PR CI and
+current-head third-party review remain separate from local correction receipts.

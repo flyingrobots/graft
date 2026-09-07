@@ -7,7 +7,7 @@ with convenience, convenience loses.
 ## Testing policy
 
 [TESTING_STANDARDS.md](TESTING_STANDARDS.md) is the adopted testing policy
-`graft.testing/1.0.0`, effective 2026-09-07 for new and materially changed tests
+`graft.testing/1.0.1`, effective 2026-09-07 for new and materially changed tests
 and subsequent failure/review decisions. Read its
 [adoption record](docs/testing/adoption.md) for scope and actual enforcement.
 Calibration of consequential claims, retained counterexamples, first-failure
