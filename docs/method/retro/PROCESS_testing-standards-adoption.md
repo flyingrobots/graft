@@ -14,6 +14,10 @@ points and the PR template direct future in-scope work to it. Approval is
 effective 2026-09-07; this local retro does not claim a merge, completed
 automation, universal legacy conformance, or third-party review.
 
+Subsequent review corrections and their validation are recorded in the
+[repair retro](PROCESS_testing-standards-repairs.md). This document preserves
+the initial adoption and review history, including conclusions later corrected.
+
 The [design](../../design/PROCESS_testing-standards-adoption.md) preceded policy
 editing. The [adoption record](../../testing/adoption.md) identifies manual and
 automated enforcement, missing mechanisms, and explicit exception authority.

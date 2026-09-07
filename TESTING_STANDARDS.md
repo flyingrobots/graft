@@ -1,7 +1,7 @@
 ---
 Title: Graft Testing Standards
 Policy: graft.testing
-Version: 1.0.1
+Version: 1.0.2
 Status: Accepted
 Binding: true
 Adopted: 2026-09-07
@@ -109,12 +109,16 @@ corrections to an erroneous oracle are legitimate maintenance when explained.
 An oracle correction is not evidence that the old expectation was preserved.
 Do not change goldens to conceal an unintended behavior change.
 
-Prefer one atomic promise per test, not one test per function or assertion.
-Several checks may establish one promise: rejection preserves balance and
-ledger. A name such as `rejection_preserves_balance_and_ledger` is valid.
+Each test must express one cohesive behavioral promise, not mirror a function
+or be limited to one assertion. Several checks may establish one atomic
+promise: rejection preserves balance and ledger. A name such as
+`rejection_preserves_balance_and_ledger` is valid.
 “And” is a review clue about cohesion, never a banned token. Short protocol
-exchanges and parameterized cases are valid; label the behavior and each case
-so a failure is identifiable. Keep incidental setup out of the assertion story.
+exchanges and generated or parameterized cases are valid when they establish
+that cohesive promise; label the behavior and each case so a failure is
+identifiable. Split independent behaviors into separate tests unless a scoped
+exception is approved under the adoption record; a reason alone does not waive
+the obligation. Keep incidental setup out of the assertion story.
 
 **Prevents:** method-shaped suites, concealed behavior changes, fragmented
 evidence, and syntax rules that obstruct legitimate test maintenance.
@@ -620,7 +624,8 @@ outside the change's scope is N/A with a reason, not silently satisfied.
    required existentials checked, and unknown protected shapes rejected?
 8. **Cohesion (3, 18):** Does the test express one atomic promise clearly?
    Multiple assertions, “and” names, traversal, and protocol sequences are
-   allowed when they serve that promise.
+   allowed when they serve that promise. Are independent behaviors separated,
+   or covered by an approved scoped exception?
 9. **Isolation (8):** Are state/network/ports owned and bounded? What did alone,
    shuffled, parallel, and repeated runs establish within this test's size?
 10. **Replay (7):** Which time, randomness, scheduling, environment, and identity
@@ -673,8 +678,10 @@ unperformed audit of unchanged legacy tests.
    avoid incidental structure and unnecessary public APIs.
 2. Assert outcomes and contractual effects; traverse universals with witness
    counts, check existence, and verify doubles against the relevant contract.
-3. Organize by atomic behavior and classify changes; preserve expectations
-   during refactoring while explaining legitimate test maintenance.
+3. Require one cohesive behavioral promise per test, with multiple supporting
+   assertions/cases allowed; separate independent behaviors or obtain a scoped
+   exception. Classify changes and preserve expectations during refactoring
+   while explaining legitimate test maintenance.
 4. Calibrate every new/materially changed consequential claim with recorded
    relevant failure and restored success; automate selectively, never score-gate.
 5. Use generated or exhaustive evidence for scoped quantified claims; record

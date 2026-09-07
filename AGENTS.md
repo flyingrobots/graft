@@ -18,7 +18,7 @@ This guide is for AI agents and human operators recovering context in the Graft 
 
 ## Test Rules
 
-Read [TESTING_STANDARDS.md](TESTING_STANDARDS.md) (`graft.testing/1.0.1`)
+Read [TESTING_STANDARDS.md](TESTING_STANDARDS.md) (`graft.testing/1.0.2`)
 before adding or materially changing tests. Its corrected obligations are
 binding from 2026-09-07; the [adoption record](docs/testing/adoption.md) defines
 scope, manual evidence, actual automated controls, and scoped exceptions.

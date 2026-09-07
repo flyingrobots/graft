@@ -34,11 +34,34 @@ Manual semantic playback:
 | Mechanically move a test without changing its semantics/evidence | No new scope solely because of the move | Other suite members |
 
 The three authoritative scope statements were read against these examples;
-none uses suite membership alone to expand adoption. Whitespace and lint
-validation accompany the commit. No legacy tests were changed.
+none uses suite membership alone to expand adoption. `git diff --cached --check`
+and `pnpm lint` passed. Published commit: `c401abe7`; its matching external
+review thread is resolved. No legacy tests were changed.
+
+## R2 — one binding strength for cohesive behavior
+
+Rule 3 previously used the defined preference mechanism while checklist item 8
+required the atomic promise or an exception. Amendment 1.0.2 makes the full
+rule, checklist item, and compressed rule require one cohesive promise.
+Independent behaviors require separate tests or an approved scoped exception;
+multiple supporting assertions, generated/parameterized cases, “and” names,
+and cohesive protocol sequences remain valid.
+
+Manual semantic playback across all three formulations:
+
+| Test organization | Required result |
+| --- | --- |
+| Rejection preserves balance and ledger, checked by several assertions | Allowed as one atomic promise; calibration still required |
+| Many generated inputs check the same normalization invariant | Allowed as cases of the same promise |
+| A short request/reply exchange checks one protocol guarantee | Allowed as a cohesive sequence |
+| One test checks independent authorization and formatting behaviors | Split the behaviors or obtain an approved scoped exception; a convenience reason alone is insufficient |
+
+The original retro now points to this corrective record without rewriting its
+historical validation claims. Whitespace validation accompanies this docs-only
+commit; the previously passed lint surface is unchanged.
 
 ## Remaining review repairs
 
-R2 (binding behavior), R3 (intended oracles), R5 (metadata), and R4 (published
-links) remain to be implemented in that dependency order. R5 precedes R4 so the
+R3 (intended oracles), R5 (metadata), and R4 (published links) remain to be
+implemented in that dependency order. R5 precedes R4 so the
 immutable linked documents include the corrected metadata presentation.
