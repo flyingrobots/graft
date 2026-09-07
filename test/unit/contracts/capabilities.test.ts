@@ -7,6 +7,18 @@ import {
 } from "../../../src/contracts/capabilities.js";
 
 describe("capability registry", () => {
+  it("registers daemon inspection as a local operator capability", () => {
+    const inspection = CAPABILITY_REGISTRY.find(capability => capability.id === "daemon_inspect");
+    expect(inspection).toMatchObject({
+      id: "daemon_inspect",
+      apiExposure: "daemon_inspection",
+      cliPath: ["daemon", "inspect"],
+      cliMcpParity: "operator_query",
+      surfaces: ["api", "cli"],
+    });
+    expect(inspection?.mcpTool).toBeUndefined();
+  });
+
   it("treats API, CLI, and MCP as explicit entrypoint surfaces", () => {
     const byId = new Map(CAPABILITY_REGISTRY.map((capability) => [capability.id, capability]));
 

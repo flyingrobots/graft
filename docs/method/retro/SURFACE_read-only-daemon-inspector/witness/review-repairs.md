@@ -39,3 +39,23 @@ expected `/inspect/v1?`, received `/inspect/v1`. The revised test checks request
 cardinality and the parsed pathname. It passed with the delimiter omitted; the
 temporary client change was then restored and the revised test passed with the
 original client too. No runtime behavior changed for this repair.
+
+## Named capability registration — P3
+
+Aggregate API/CLI counts and the generic `operator_query` assertions did not
+prove that `daemon_inspect` itself remained registered. A focused contract test
+now requires that exact capability ID, API exposure, CLI path, parity, and
+API/CLI surfaces, with no MCP tool.
+
+Calibration renamed only the production registry ID to `other_operator`.
+The new assertion failed because `daemon_inspect` was absent. Production source
+was restored byte for byte. GREEN/VERIFY: the registry and public-surface suites
+passed 15 tests across three files. No runtime behavior changed for this repair.
+
+## Combined repair verification
+
+The nine-file combined inspection, old-status compatibility, registry,
+public-surface, and path-boundary suite passed 45 tests. Typecheck, lint, build,
+and whitespace checks passed. All temporary calibration mutations were restored.
+CI and fresh third-party review are required on the published repair head before
+calling the PR merge-ready.
