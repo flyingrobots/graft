@@ -6,8 +6,8 @@ The Graft work doctrine: A backlog, a loop, and honest bookkeeping.
 
 - **The agent and the human sit at the same table.** Both matter. Both are named in every design. Default to the agent surface first.
 - **The filesystem is the coordination layer.** Directories are priorities; filenames are identities; moves are decisions.
-- **Tests are the executable spec.** Design names the problem; tests prove the answer.
-- **Reproducibility is the definition of done.** Results must be re-runnable proof, not static artifacts.
+- **Tests encode contractual expectations.** Design names the problem; tests provide executable evidence within stated limits under [TESTING_STANDARDS.md](TESTING_STANDARDS.md).
+- **Reproducibility is part of done.** Results must retain the inputs, environment, and oracle needed to rerun and assess the evidence.
 - **Design packets come first.** Every implementation cycle starts by making
   the design packet explicit before RED/GREEN work begins.
 
@@ -22,6 +22,7 @@ The Graft work doctrine: A backlog, a loop, and honest bookkeeping.
 | **`ARCHITECTURE.md`** | Authoritative structural reference. |
 | **`AGENTS.md`** | Context recovery protocol for AI and humans. |
 | **`METHOD.md`** | Repo work doctrine (this document). |
+| **`TESTING_STANDARDS.md`** | Binding testing policy; scope and actual enforcement in `docs/testing/adoption.md`. |
 
 ## Backlog Lanes
 
