@@ -10,8 +10,11 @@
 
 ## Testing evidence
 
-Apply [graft.testing/1.0.3](../TESTING_STANDARDS.md) and its
-[adoption scope](../docs/testing/adoption.md) to new/materially changed tests.
+<!-- These permalinks identify the adopted policy, including its amendments.
+When adopting a new version, publish its corrected documents and update both
+commit URLs and the version label together. -->
+Apply [graft.testing/1.0.3](https://github.com/flyingrobots/graft/blob/1067c371374e9234de47bf89fd65cbef6c1cb6ac/TESTING_STANDARDS.md) and its
+[adoption scope](https://github.com/flyingrobots/graft/blob/1067c371374e9234de47bf89fd65cbef6c1cb6ac/docs/testing/adoption.md) to new/materially changed tests.
 Link a concise design/retro receipt; use N/A with a reason for inapplicable items.
 
 - Claims, boundaries, oracle sources, and calibration receipts (intended red and restored green):

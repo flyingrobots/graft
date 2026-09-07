@@ -3,11 +3,13 @@
 - Date: 2026-09-07
 - Branch: `cycle/testing-standards`
 - Reviewed baseline: `02faaf22b6902d2e0e1af43521733ba54061ce94`
+- Effective policy: `graft.testing/1.0.3`
 - Change kind: normative policy corrections and document presentation repairs;
   runtime behavior unchanged
 - Authorization: operator request to resolve all discovered issues following
   [R1–R5](https://github.com/flyingrobots/graft/pull/255#issuecomment-5575909666)
-- Status: repairs in progress; no merge or current-head review completion claimed
+- Status: R1–R5 corrected and locally validated; publication and current-head
+  review/CI gates are checked separately
 
 ## Scope and validation boundary
 
@@ -85,7 +87,7 @@ These are policy counterexamples reviewed across the full rules, checklist,
 and compression, not newly executed compiler or fault-injection tests. The
 repair changes no runtime behavior or test harness. `git diff --cached --check`
 passed. Published commit: `8fa2722b`; its matching external review thread is
-resolved. Final lint remains required for closeout.
+resolved. The closeout below records the final lint result.
 
 ## R5 — metadata in the repository file view
 
@@ -100,14 +102,54 @@ Validation uses GitHub's Markdown API in document (`markdown`) mode before
 publication, followed by the published Contents API's HTML representation.
 PR-comment (`gfm`) mode is not the file-view oracle because its soft-break
 behavior differs. This is a one-off presentation check, not a new automated
-repository assertion. The final link repair records the published result.
+repository assertion.
 
 Document-mode rendering returned lists with 4, 3, and 5 fields respectively.
 Source comparison against `8fa2722b` preserved all 12 field values after folding
 the intentional wrapped list item. `git diff --check` passed.
 
-## Remaining review repairs
+After publishing `1067c371374e9234de47bf89fd65cbef6c1cb6ac`, the GitHub Contents
+API with `Accept: application/vnd.github.html+json` returned explicit metadata
+lists of 4, 3, and 5 items in those same three files. This verifies the published
+repository-file rendering, not just the local source or comment rendering.
 
-R4 (published links) remains to be implemented after validating R5's published
-file rendering. The immutable linked documents will include these metadata
-corrections.
+## R4 — stable links in the consuming PR surface
+
+The original `../TESTING_STANDARDS.md` and `../docs/testing/adoption.md` hrefs
+survived PR Markdown rendering and resolved to invalid repository routes;
+both returned HTTP 404 during the self-review. The template now uses absolute
+permalinks to published commit `1067c371374e9234de47bf89fd65cbef6c1cb6ac`, which
+contains effective policy 1.0.3 and the corrected adoption metadata:
+
+- [Pinned Testing Standards](https://github.com/flyingrobots/graft/blob/1067c371374e9234de47bf89fd65cbef6c1cb6ac/TESTING_STANDARDS.md).
+- [Pinned adoption record](https://github.com/flyingrobots/graft/blob/1067c371374e9234de47bf89fd65cbef6c1cb6ac/docs/testing/adoption.md).
+
+GitHub's Markdown API (`mode=gfm`, `context=flyingrobots/graft`) rendered the
+complete revised template. Both hrefs remained the exact absolute permalinks
+when resolved from `https://github.com/flyingrobots/graft/pull/255`; both
+destinations returned HTTP 200. These links do not depend on the working branch
+surviving or on a future merge to become available. The template tells future
+policy adopters to update the two pinned URLs and version label together.
+
+## Closeout and remaining gates
+
+- All five findings have corrections and issue-specific evidence above. The
+  final link repair is the commit carrying this closeout; Git history and the
+  PR activity summary identify its commit SHA after publication.
+- Final `pnpm lint`: passed after the template edit. No linted source changed
+  during these policy-only repairs.
+- Whitespace checks passed for each repair; the final staged check is repeated
+  before committing this closeout. Local link inspection resolved all 31 local
+  file targets, separately from the two PR-surface HTTP checks.
+- No runtime/test/dependency/CI code or backlog cards changed during repair.
+  No new policy-format tests, full local runtime suite, or debt/idea cards were
+  needed; the three existing automation follow-ups remain open.
+- Original adoption and validation receipts keep their historical versions and
+  evidence limits. No complete legacy-test audit or new automation is claimed.
+- The final published head still needs fresh CI and substantive third-party
+  review. Resolving an addressed thread is not a completed review of a later
+  head. No merge or release is authorized by this repair record.
+
+No local review finding remains open. Any new external finding must be
+evaluated against the exact head rather than inferred from earlier CI or
+acknowledgements.
