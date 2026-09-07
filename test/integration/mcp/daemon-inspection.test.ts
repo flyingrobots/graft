@@ -164,6 +164,22 @@ describe("dedicated daemon inspection transport", () => {
     expect(requests).toEqual(["/inspect/v1?"]);
   });
 
+  it.each([
+    { field: "sessionId", request: { sessionId: undefined, limit: 7 }, expected: { limit: "7" } },
+    { field: "workspaceId", request: { workspaceId: undefined, sessionId: "session:valid", limit: 4 }, expected: { sessionId: "session:valid", limit: "4" } },
+    { field: "repoId", request: { repoId: undefined, limit: 7 }, expected: { limit: "7" } },
+    { field: "limit", request: { limit: undefined, repoId: "repo:valid" }, expected: { repoId: "repo:valid" } },
+  ])("omits an undefined $field from the wire filter", async ({ request, expected }) => {
+    // Oracle: an optional undefined field is absence; defined selectors and limits survive unchanged.
+    const received: Record<string, string>[] = [];
+    const socketPath = await stub((req, res) => {
+      received.push(Object.fromEntries(new URL(req.url ?? "/", "http://graft").searchParams));
+      res.writeHead(404); res.end();
+    });
+    expect((await inspectLocalDaemon({ socketPath, request })).status).toBe("unsupported");
+    expect(received).toEqual([expected]);
+  });
+
   it("refuses an empty or remote address instead of falling through to a TCP request", async () => {
     const request = vi.mocked(http.request);
     request.mockClear();

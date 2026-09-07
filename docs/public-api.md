@@ -24,6 +24,8 @@ The root package exposes five public families plus metadata.
 `inspectDaemon({ socketPath, request? })` reads `GET /inspect/v1` over the
 explicit local Unix socket or Windows named pipe. `request` accepts one exact
 `sessionId`, `workspaceId` (worktree ID), or `repoId`, plus `limit: 1..100`.
+Optional fields explicitly set to `undefined` are omitted from the wire request;
+they do not select an identity named `undefined` or override the default limit.
 No workspace lookup, MCP connection, or daemon startup is performed. Empty or
 non-local socket addresses are refused. The function returns
 `Promise<InspectionResult>` with `status: ok | no_daemon | unsupported |

@@ -82,6 +82,8 @@ the production adapter must not manufacture such counts from a pool size.
 `GET /inspect/v1` accepts at most one of `sessionId`, `workspaceId`, or `repoId`,
 plus `limit` (default/max 100; minimum 1). Selectors are exact authoritative IDs,
 not paths requiring discovery. A repo selector aggregates its worktrees.
+In the library request, an explicitly `undefined` optional field is absent on
+the wire. It must never become a literal identity or limit value.
 
 - At most 4,096 iterator steps per capture, including opened memberships.
 - At most 100 rows per collection and 500 rows across a capture, including

@@ -20,7 +20,10 @@ export async function inspectLocalDaemon(options: InspectDaemonOptions): Promise
   const parsed = inspectionRequestSchema.safeParse(options.request ?? {});
   if (!parsed.success) return { status: "observation_failed", clientVersion: GRAFT_VERSION, reason: "INVALID_INSPECTION_FILTER" };
   const params = new URLSearchParams();
-  for (const [key, value] of Object.entries(parsed.data)) params.set(key, String(value));
+  for (const [key, value] of Object.entries(parsed.data)) {
+    if (value === undefined) continue;
+    params.set(key, String(value));
+  }
   return new Promise(resolve => {
     let settled = false;
     const finish = (result: InspectionResult) => {
