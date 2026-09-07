@@ -1,6 +1,6 @@
 # Graft testing policy adoption and enforcement
 
-Policy: [graft.testing/1.0.2](../../TESTING_STANDARDS.md)
+Policy: [graft.testing/1.0.3](../../TESTING_STANDARDS.md)
 Approved and effective: 2026-09-07, by the repository operator
 Accountable maintainer: @flyingrobots
 First enforcement review: 2026-10-07; covered subsystem risk maps at least quarterly
@@ -48,6 +48,7 @@ the evidence and publication boundaries. Normative amendments are:
 | --- | --- | --- |
 | 1.0.1 | 2026-09-07 | R1: clarify affected-test scope, including actual shared-fixture/harness effects, while excluding unrelated unchanged tests. |
 | 1.0.2 | 2026-09-07 | R2: make one cohesive behavioral promise binding in the full rule, checklist, and compression; independent behaviors require separation or an approved scoped exception. |
+| 1.0.3 | 2026-09-07 | R3: distinguish intended compiler/deadline/resource/SUT-crash oracle outcomes from incidental or unclassified harness failures; preserve exact XFAIL classification and release-risk decisions. |
 
 The initial 1.0.0 approval remains historical. These amendments neither certify
 legacy tests nor authorize a merge, an unrelated legacy retrofit, or deferred
@@ -84,7 +85,7 @@ test. One record may cover an atomic claim with several assertions. Identify
 independent claims separately and state which failure calibrates each one.
 
 ```text
-Policy: graft.testing/1.0.2
+Policy: graft.testing/1.0.3
 Change kind / surface:
 Claim and contract boundary:
 Oracle source:

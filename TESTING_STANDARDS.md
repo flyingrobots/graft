@@ -1,7 +1,7 @@
 ---
 Title: Graft Testing Standards
 Policy: graft.testing
-Version: 1.0.2
+Version: 1.0.3
 Status: Accepted
 Binding: true
 Adopted: 2026-09-07
@@ -142,13 +142,21 @@ artifact; “would fail” and an unrecorded recollection are insufficient. Manu
 execution is acceptable and mandatory evidence remains practical without a
 mutation service.
 
-The violation must reach the intended check. Compilation, setup, timeout, or
-unrelated earlier failures do not establish its sensitivity. A behavioral
-mutation changes the protected behavior while preserving the path to that
-check; a behavior-preserving mutation cannot demonstrate detection of a
-behavioral violation. Invalidate relevant caches and verify the mutated build
-actually ran. Detect skipped callbacks and unexecuted checks; a test required
-to make an assertion must not silently execute zero assertions.
+The violation must reach the intended oracle. An incidental compilation,
+setup, timeout, or crash failure that prevents or bypasses that oracle does
+not establish its sensitivity. A specific compiler diagnostic, enforced
+deadline/resource result, or failure of the system under test (SUT) can be the
+intended checked outcome when the contract explicitly identifies it. Record
+the controlled violation, the exact observed outcome, and how the oracle
+distinguishes it from unrelated failures. A nonzero exit or missing process
+alone is insufficient. The observing harness must still produce a verdict;
+its own unclassified failure cannot substitute for one.
+
+A behavioral mutation changes the protected behavior while preserving the
+path to that oracle; a behavior-preserving mutation cannot demonstrate
+detection of a behavioral violation. Invalidate relevant caches and verify
+the mutated build actually ran. Detect skipped callbacks and unexecuted checks;
+a test required to make an assertion must not silently execute zero assertions.
 
 Use continuous diff-scoped mutation where risk justifies it, with bounded work,
 arid-line filtering, and survivor triage. Equivalent mutants and changes solely
@@ -397,7 +405,8 @@ corruption checks when those promises exist. Schema validation does not make a
 custom decoder's trust-boundary risk disappear.
 
 Crash, corruption, and sanitizer findings are release-relevant failures needing
-repair or an explicit risk decision under Rule 19. Scope targets by the actual
+repair or an explicit risk decision under Rule 19, even when precisely recorded
+as XFAIL under Rule 17. Scope targets by the actual
 input surface; do not build an unrelated fuzz platform for each CRUD handler.
 Missing campaign infrastructure must be recorded with the manual/local evidence
 and any necessary exception, not described as continuous fuzzing. Manage corpus
@@ -502,8 +511,12 @@ diagnose, not automatic proof of a product bug.
 
 Known deterministic failures may be pinned as XFAIL with the correct desired
 expectation, owner, issue, expiry, and narrowly identified expected failure.
-An unexpected pass must fail the expectation check and trigger promotion. An
-unrelated failure, setup failure, or crash must not count as the expected bug.
+An unexpected pass must fail the expectation check and trigger promotion.
+The harness must observe and match the narrowly identified SUT failure; that
+outcome may include a specific compiler diagnostic, deadline/resource result,
+or SUT crash when it is the known defect. An unrelated outcome or a setup or
+harness failure that prevents this classification must not count as the
+expected bug. A missing harness verdict is not an expected failure.
 Expiry requires remediation or an explicit risk decision under Rule 10.
 Quarantine is for an untrusted verdict; XFAIL records a trusted known failure.
 Both stay visible and neither resolves the underlying product risk.
@@ -609,6 +622,8 @@ outside the change's scope is N/A with a reason, not silently satisfied.
 1. **Calibration (4):** Which new/materially changed consequential claims were
    demonstrated sensitive to relevant violations? Did the intended checks run
    and fail, and does the receipt distinguish independent checks?
+   Is any compiler/deadline/resource/crash result the identified oracle outcome
+   rather than an incidental failure that bypassed it?
 2. **Oracle (6, 17):** Is the expectation's source clear? Is characterization
    labeled and reviewed? Does a failure trigger diagnosis rather than assume
    the implementation is guilty?
@@ -636,6 +651,8 @@ outside the change's scope is N/A with a reason, not silently satisfied.
     behavior? Is any missing verification an explicit scoped exception?
 13. **Flakes (10):** Is first-failure evidence preserved? Are owner, risk,
     compensating checks, and expiry present? Expiry is not deletion authority.
+    For XFAIL (17), did the harness classify the exact known SUT failure rather
+    than accept an unrelated result or lose its own verdict?
 14. **Coverage (11):** Is coverage used to inspect relevant gaps without claiming
     oracle quality or imposing a repository percentage target?
 15. **Generation (5, 13):** Are domain, budget, external seed record when random,
@@ -682,8 +699,10 @@ unperformed audit of unchanged legacy tests.
    assertions/cases allowed; separate independent behaviors or obtain a scoped
    exception. Classify changes and preserve expectations during refactoring
    while explaining legitimate test maintenance.
-4. Calibrate every new/materially changed consequential claim with recorded
-   relevant failure and restored success; automate selectively, never score-gate.
+4. Calibrate every new/materially changed consequential claim with a recorded
+   failure at its intended oracle and restored success; distinguish identified
+   compiler/deadline/resource/SUT-crash outcomes from incidental failures.
+   Automate selectively, never score-gate.
 5. Use generated or exhaustive evidence for scoped quantified claims; record
    exploration limits, reduce failures, and guarantee known-counterexample replay.
 6. Name the oracle; a failing specified expectation establishes disagreement
@@ -708,8 +727,9 @@ unperformed audit of unchanged legacy tests.
     enumerated, or seeded schedules with explicit fault models and initial state.
 16. Use calibrated controlled performance experiments for comparative regressions
     and absolute promises; record distributions, uncertainty, and workload.
-17. Minimize and review golden changes; pin only identified XFAIL outcomes, with
-    unexpected passes and unrelated failures requiring action.
+17. Minimize and review golden changes; the harness must classify the exact
+    known SUT outcome for XFAIL. Unexpected passes, unrelated failures, and
+    missing harness verdicts require action.
 18. Keep tests clear and failures actionable; justify deletion with preserved
     evidence or explicit residual risk, and curate suite cost and credibility.
 19. Gate on trustworthy evidence and approved scoped exceptions; manual

@@ -57,11 +57,37 @@ Manual semantic playback across all three formulations:
 | One test checks independent authorization and formatting behaviors | Split the behaviors or obtain an approved scoped exception; a convenience reason alone is insufficient |
 
 The original retro now points to this corrective record without rewriting its
-historical validation claims. Whitespace validation accompanies this docs-only
-commit; the previously passed lint surface is unchanged.
+historical validation claims. `git diff --cached --check` passed; the previously
+passed lint surface is unchanged. Published commit: `3fdf6fe3`; its matching
+external review thread is resolved.
+
+## R3 — intended outcomes and incidental failures
+
+Rule 4 formerly rejected compilation/timeouts by category, and Rule 17 rejected
+crashes without distinguishing the observer from the SUT. Amendment 1.0.3
+requires the observing oracle to identify the exact outcome and produce a
+verdict. Incidental failures that bypass the oracle remain invalid evidence.
+Rules 4 and 17, their checklist items, and their compressed rules now make
+that distinction. Rule 13 retains release-risk decisions for crash findings
+even when a precise XFAIL record exists.
+
+Manual semantic playback:
+
+| Controlled observation | Evidence accepted? | Boundary |
+| --- | --- | --- |
+| Break an API type contract; its compiler oracle reports the identified diagnostic | Yes, with the violated contract, exact diagnostic, and restored success recorded | Compiler result is the intended check |
+| An unrelated import error prevents a runtime behavioral assertion from executing | No | Intended oracle was bypassed |
+| Exceed a declared deadline/resource limit; its observing harness records the identified limit failure | Yes, with controlled conditions and a restored successful run | A generic runner hang is insufficient |
+| A known SUT crash is observed and precisely matched by an independent XFAIL harness | May match the pin, subject to its owned risk decision | A different crash/result must fail classification |
+| The XFAIL harness itself crashes before classifying the SUT | No | Missing observer verdict cannot satisfy the pin |
+
+These are policy counterexamples reviewed across the full rules, checklist,
+and compression, not newly executed compiler or fault-injection tests. The
+repair changes no runtime behavior or test harness. Whitespace validation
+accompanies this docs-only commit; final lint remains required for closeout.
 
 ## Remaining review repairs
 
-R3 (intended oracles), R5 (metadata), and R4 (published links) remain to be
-implemented in that dependency order. R5 precedes R4 so the
+R5 (metadata) and R4 (published links) remain to be implemented in that
+dependency order. R5 precedes R4 so the
 immutable linked documents include the corrected metadata presentation.
