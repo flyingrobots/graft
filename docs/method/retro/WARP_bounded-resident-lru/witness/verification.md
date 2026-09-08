@@ -118,3 +118,14 @@ idempotent retirement boundary as connection; it closes a constructed
 transport, releases a returned server, and removes the scratch directory.
 The construction, initial-request, and connection regressions passed 3/3.
 Logs: `/tmp/graft-review-construction-{red,green}.log`.
+
+## Review repair: socket cleanup reporting
+
+Injecting `EACCES` at the real daemon socket-unlink boundary caused shutdown
+to resolve on `4b525707`. After restricting suppression to `ENOENT`, the same
+failure reaches the aggregate and the listener is closed. Normal socket
+shutdown and the all-stage cleanup case also passed (3/3). An initial attempt
+to spy on an immutable ESM namespace failed in the harness; it is not RED
+evidence. The corrected harness uses the mutable builtin export and restores
+its ESM bindings after the test. Logs: `/tmp/graft-review-unlink-red-2.log`
+and `/tmp/graft-review-unlink-green.log`.

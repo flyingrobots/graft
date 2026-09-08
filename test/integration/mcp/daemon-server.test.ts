@@ -1,5 +1,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import * as fs from "node:fs";
+import fsPromises from "node:fs/promises";
+import { syncBuiltinESMExports } from "node:module";
 import * as http from "node:http";
 import * as os from "node:os";
 import * as path from "node:path";
@@ -268,6 +270,7 @@ describe("mcp: daemon transport and lifecycle", () => {
       cleanupTestRepo(repos.pop()!);
     }
     vi.restoreAllMocks();
+    syncBuiltinESMExports();
   });
 
   it("starts on a local socket, reports health, and closes sessions", async () => {
@@ -471,6 +474,23 @@ describe("mcp: daemon transport and lifecycle", () => {
     expect(daemon.getHealthStatus().activeSessions).toBe(0);
     expect(fs.readdirSync(path.join(rootDir, "sessions"))).toEqual([]);
     expect(closeTransport).toHaveBeenCalledOnce();
+  });
+
+  it("reports socket cleanup errors after closing the daemon listener", async () => {
+    const rootDir = fs.mkdtempSync(path.join(os.tmpdir(), "graft-daemon-root-"));
+    roots.push(rootDir);
+    const socketPath = path.join(rootDir, "daemon.sock");
+    const daemon = await startTestDaemonServer({ graftDir: rootDir, socketPath });
+    const failure = Object.assign(new Error("injected socket removal failure"), { code: "EACCES" });
+    const unlink = fsPromises.unlink;
+    vi.spyOn(fsPromises, "unlink").mockImplementation(async (target) => {
+      if (target === socketPath) throw failure;
+      await unlink(target);
+    });
+
+    syncBuiltinESMExports();
+    await expect(daemon.close()).rejects.toMatchObject({ errors: [failure] });
+    await expect(requestUnixJson(socketPath, "GET", "/healthz")).rejects.toMatchObject({ code: "ENOENT" });
   });
 
   it("opens persisted daemon graphs on each transport session's logical writer lane", async () => {

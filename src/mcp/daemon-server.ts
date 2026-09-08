@@ -187,8 +187,8 @@ export async function startDaemonServer(options: StartDaemonServerOptions = {}):
           {
             close: async () => {
               if (!isNamedPipePath(socketPath)) {
-                await fs.unlink(socketPath).catch(() => {
-                  return undefined;
+                await fs.unlink(socketPath).catch((error: unknown) => {
+                  if (!(error instanceof Error && "code" in error && error.code === "ENOENT")) throw error;
                 });
               }
             },
