@@ -30,6 +30,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   initialization, and attempts session, monitor, worker, HTTP, and socket
   cleanup before reporting aggregate failures. Failed MCP connection after
   session publication retires the control-plane record and scratch directory.
+  Construction and initial-request failures use the same retirement boundary.
+  Socket removal suppresses only absence, signal shutdown reports errors with
+  a nonzero exit status, and session release settles all cleanup obligations
+  before aggregating failures.
 
 ### Fixed
 

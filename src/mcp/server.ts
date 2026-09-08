@@ -306,10 +306,14 @@ function createGraftServerSurface(input: {
       return input.workspaceRouter.getRuntimeCausalContext();
     },
     releaseWarpLeases(): Promise<void> {
-      return Promise.all([
+      return Promise.allSettled([
         input.workspaceRouter.releaseWarpLeases(),
         input.sessionStarted,
-      ]).then(() => undefined);
+      ]).then((results) => {
+        const errors: unknown[] = [];
+        for (const result of results) if (result.status === "rejected") errors.push(result.reason);
+        if (errors.length > 0) throw new AggregateError(errors, "Failed to settle Graft session shutdown");
+      });
     },
     getMcpServer(): McpServer {
       return input.mcpServer;

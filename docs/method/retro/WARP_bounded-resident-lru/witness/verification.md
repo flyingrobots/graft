@@ -96,7 +96,7 @@ python3 /tmp/graft-memory-probe.bIuo8Y/run-lru.py leased 0 12 /tmp/graft-memory-
 
 ## Remaining merge gates
 
-Existing PR cleanup review findings require independent repairs. Detailed owner
+At the initial LRU commit, PR cleanup findings still required independent repairs. Detailed owner
 inventory is explicitly filed as debt. Current-head CI, final full-suite
 posture, and substantive review must be reconciled before merge readiness;
 this witness does not waive any of those gates.
@@ -139,3 +139,27 @@ and sets exit status one. The transport and shutdown files passed 13/13 with
 no unhandled errors. The test invokes only its own newly registered callback;
 it does not send an OS signal to another process. Logs:
 `/tmp/graft-review-signal-red.log`, `/tmp/graft-review-transport-green.log`.
+
+## Review repair: settlement barrier
+
+The originally suggested log-write failure is already caught by
+`emitRuntimeEvent` in `server-invocation.ts`; it cannot reject `sessionStarted`.
+A controlled logger failure test confirms that best-effort behavior and that
+release still awaits pending router cleanup.
+
+The converse fault exposed an early-settlement defect: inject rejection at the
+router cleanup boundary while holding startup logging behind a promise gate.
+On `beced76b`, release reported failure before logging settled. The surface
+now awaits all settled obligations and then aggregates errors. Both new
+settlement tests pass. The broader host observability run reported 16 passed
+and one existing correlated-events test timeout; that first failure is retained
+at `/tmp/graft-review-settlement-green.log`, despite the file's provisional name.
+RED is `/tmp/graft-review-settlement-red.log` (one failed, one passed).
+
+Final typecheck also caught a missing signal argument in the earlier signal
+witness. `4c6f36fd` supplies `SIGTERM`; typecheck then passed. The failing CI
+head must not be described as green or silently substituted with a later run.
+
+The five inherited cleanup concerns are now repaired with the qualification
+above. Detailed owner inventory is committed debt, as explicitly permitted by
+its review finding. Final current-head validation and review remain required.
