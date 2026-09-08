@@ -196,3 +196,24 @@ CI run `34189530172` independently produced the same result on `d92f1bc1`:
 Node 20 passed; Node 22 passed all runtime tests and failed only the stale DOT
 contract (2,367 passed, one failed). The generated-artifact commit repairs that
 specific failure. Final docs-only lint and whitespace validation passed.
+
+## Outside-diff review: harness teardown
+
+CodeRabbit's review body on `0a3b8ad2` also contained two findings outside
+inline threads. The router/server settlement finding is covered by removing
+binding-owned leases in `c31c0eeb` and settling the server obligations in
+`d92f1bc1`. Router retirement now waits for pending initialization; running
+invocations settle their own capabilities.
+
+The harness finding remained actionable: an injected first-session release
+failure left the harness root and later resources live. The existing
+`closeDaemonResources` stage runner now closes every session, monitor, worker,
+and root directory before aggregating errors. The new resource regression and
+routed-workspace file passed 15/15; lint, typecheck, and whitespace checks
+passed. Logs: `/tmp/graft-review-harness-{red,green}.log`.
+
+Before this harness-only change, exact-head CI on `346a487f` passed both jobs:
+run `34190011523`, Node 20 job `101945968625`, Node 22 job `101945968441`.
+That Node 22 run included the full corrected isolated suite. This is historical
+validation of that head; the final harness commit requires its own CI result
+and substantive review before merge readiness.

@@ -6,6 +6,7 @@ import { CanonicalJsonCodec } from "../../src/adapters/canonical-json.js";
 import { nodeFs } from "../../src/adapters/node-fs.js";
 import { nodeGit } from "../../src/adapters/node-git.js";
 import { DaemonControlPlane } from "../../src/mcp/daemon-control-plane.js";
+import { closeDaemonResources } from "../../src/mcp/daemon-server.js";
 import { DaemonJobScheduler } from "../../src/mcp/daemon-job-scheduler.js";
 import { InlineDaemonWorkerPool } from "../../src/mcp/daemon-worker-pool.js";
 import { PersistentMonitorRuntime } from "../../src/mcp/persistent-monitor-runtime.js";
@@ -126,12 +127,17 @@ export async function createInProcessDaemonHarness(options: {
     rootDir,
     createSession,
     async close(): Promise<void> {
-      for (const session of [...sessions.values()]) {
-        await session.close();
-      }
-      await monitorRuntime.close();
-      await workerPool.close();
-      fs.rmSync(rootDir, { recursive: true, force: true });
+      await closeDaemonResources([
+        ...sessions.values(),
+        monitorRuntime,
+        workerPool,
+        {
+          close: () => {
+            fs.rmSync(rootDir, { recursive: true, force: true });
+            return Promise.resolve();
+          },
+        },
+      ]);
     },
   };
 }

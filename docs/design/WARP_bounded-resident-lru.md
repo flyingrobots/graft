@@ -155,3 +155,8 @@ Use actual local transport/registry observations for session rollback and
 controlled promise barriers for settlement. Fault injection targets resource
 boundaries; assertions concern remaining resources, error identities, and exit
 posture. These repairs do not add workload controls or a new observer surface.
+
+The in-process daemon test harness inherits the same all-stage cleanup rule:
+a failed session close must not skip later sessions, monitor/worker shutdown,
+or scratch removal. Verify this with a controlled session-release failure and
+actual scratch ownership, so a failing test does not contaminate later tests.
