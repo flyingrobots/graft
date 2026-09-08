@@ -100,3 +100,12 @@ Existing PR cleanup review findings require independent repairs. Detailed owner
 inventory is explicitly filed as debt. Current-head CI, final full-suite
 posture, and substantive review must be reconciled before merge readiness;
 this witness does not waive any of those gates.
+
+## Review repair: initial transport failure
+
+`retires only the new session when its initial transport request rejects`
+failed on `c31c0eeb`: expected one registered session, observed two. The repair
+retires the new session through its existing idempotent owner before returning
+`-32603`. The regression and existing connection-rollback test passed 2/2;
+the existing session directory remains present and the failed one is removed.
+Logs: `/tmp/graft-review-initial-{red,green}.log`.

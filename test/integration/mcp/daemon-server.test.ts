@@ -3,6 +3,7 @@ import * as fs from "node:fs";
 import * as http from "node:http";
 import * as os from "node:os";
 import * as path from "node:path";
+import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import {
   startDaemonServer,
@@ -427,6 +428,27 @@ describe("mcp: daemon transport and lifecycle", () => {
     expect(failedHealth.activeWarpRepos).toBe(0);
     expect(failedHealth.activeWarpResidents).toBe(0);
     expect(fs.readdirSync(path.join(rootDir, "sessions"))).toEqual([]);
+  });
+
+  it("retires only the new session when its initial transport request rejects", async () => {
+    const rootDir = fs.mkdtempSync(path.join(os.tmpdir(), "graft-daemon-root-"));
+    roots.push(rootDir);
+    const socketPath = path.join(rootDir, "daemon.sock");
+    const daemon = await startTestDaemonServer({ graftDir: rootDir, socketPath });
+    daemons.push(daemon);
+    const existing = await initializeSession(socketPath);
+    vi.spyOn(StreamableHTTPServerTransport.prototype, "handleRequest")
+      .mockRejectedValueOnce(new Error("injected initial request failure"));
+
+    const response = await requestUnixJson(socketPath, "POST", "/mcp", {
+      jsonrpc: "2.0", id: 1, method: "initialize",
+      params: { protocolVersion: "2025-03-26", capabilities: {}, clientInfo: { name: "vitest", version: "0" } },
+    });
+
+    expect(parseJson(response)).toMatchObject({ error: { code: -32603 } });
+    expect(daemon.getHealthStatus().activeSessions).toBe(1);
+    expect(fs.readdirSync(path.join(rootDir, "sessions"))).toEqual([existing]);
+    await deleteSession(socketPath, existing);
   });
 
   it("opens persisted daemon graphs on each transport session's logical writer lane", async () => {

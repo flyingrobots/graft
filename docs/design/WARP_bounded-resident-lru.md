@@ -134,3 +134,24 @@ authority. Record actual validation and remaining gates in the local retro.
 - Existing [local-history currency debt](../method/backlog/bad-code/WARP_bijou-local-history-stale-after-branch-transition.md)
   remains open. Warm handle reuse is not validation against another writer or
   current source; this cache policy supplies no new freshness guarantee.
+
+## Inherited cleanup review repairs
+
+The following remaining PR findings have independent RED/GREEN obligations:
+
+1. A rejected initial transport request retires only the newly allocated
+   session before returning the error; existing sessions remain registered.
+2. Synchronous transport/server construction failure removes its scratch
+   directory and closes any successfully constructed resources.
+3. Unix socket cleanup suppresses only `ENOENT`; other failures reach the
+   shutdown aggregate after remaining stages settle.
+4. Signal-triggered shutdown catches and reports failure once, selects a
+   nonzero exit status, and produces no unhandled rejection.
+5. Session release waits for both router cleanup and startup-event settlement,
+   then reports aggregate failures. A startup failure cannot short-circuit
+   pending cleanup.
+
+Use actual local transport/registry observations for session rollback and
+controlled promise barriers for settlement. Fault injection targets resource
+boundaries; assertions concern remaining resources, error identities, and exit
+posture. These repairs do not add workload controls or a new observer surface.

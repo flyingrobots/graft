@@ -22,6 +22,7 @@ interface DaemonSession {
   readonly graftDir: string;
   readonly transport: StreamableHTTPServerTransport;
   readonly server: GraftServer;
+  retire(): Promise<void>;
 }
 
 export interface CreateDaemonSessionHostOptions {
@@ -136,6 +137,7 @@ async function createDaemonSession(
     graftDir: sessionGraftDir,
     transport,
     server,
+    retire: () => retireSession(),
   };
   let retirement: Promise<void> | null = null;
   const retireSession = (): Promise<void> => {
@@ -211,6 +213,7 @@ export function createDaemonSessionHost(options: CreateDaemonSessionHostOptions)
             return;
           }
           let session = sessionId !== undefined ? sessions.get(sessionId) : undefined;
+          let createdSession = false;
           if (session === undefined) {
             if (sessionId !== undefined) {
               sendJsonRpcError(res, -32000, `Unknown MCP session: ${sessionId}`);
@@ -224,13 +227,22 @@ export function createDaemonSessionHost(options: CreateDaemonSessionHostOptions)
             pendingInitializations.add(initialization);
             try {
               session = await initialization;
+              createdSession = true;
             } finally {
               pendingInitializations.delete(initialization);
             }
           }
 
           options.controlPlane.touchTransport(session.id);
-          await session.transport.handleRequest(req, res, parsedBody);
+          try {
+            await session.transport.handleRequest(req, res, parsedBody);
+          } catch (error) {
+            if (createdSession) {
+              await session.transport.close().catch(() => undefined);
+              await session.retire();
+            }
+            throw error;
+          }
           return;
         }
 
