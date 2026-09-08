@@ -508,7 +508,7 @@ describe("mcp: daemon transport and lifecycle", () => {
     const previousExitCode = process.exitCode;
     try {
       process.exitCode = 0;
-      signalHandlers[0]!();
+      signalHandlers[0]!("SIGTERM");
       await expect(daemon.close()).rejects.toMatchObject({ errors: [failure] });
       expect(process.exitCode).toBe(1);
       expect(report.mock.calls).toEqual([[expect.any(String), expect.objectContaining({ errors: [failure] })]]);
