@@ -159,8 +159,11 @@ export async function startDaemonServer(options: StartDaemonServerOptions = {}):
   let closing: Promise<void> | null = null;
 
   const shutdown = (): void => {
-    void daemon.close().finally(() => {
+    void daemon.close().then(() => {
       process.exitCode = process.exitCode ?? 0;
+    }, (error: unknown) => {
+      console.error("[graft] daemon shutdown failed", error);
+      process.exitCode = 1;
     });
   };
 

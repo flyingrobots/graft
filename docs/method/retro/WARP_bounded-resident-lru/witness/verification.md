@@ -129,3 +129,13 @@ to spy on an immutable ESM namespace failed in the harness; it is not RED
 evidence. The corrected harness uses the mutable builtin export and restores
 its ESM bindings after the test. Logs: `/tmp/graft-review-unlink-red-2.log`
 and `/tmp/graft-review-unlink-green.log`.
+
+## Review repair: signal shutdown
+
+The actual daemon-registered SIGTERM callback was invoked with an injected
+socket I/O failure on `424a8c59`. RED showed exit status zero and one unhandled
+aggregate rejection. The handler now consumes the rejection, reports it once,
+and sets exit status one. The transport and shutdown files passed 13/13 with
+no unhandled errors. The test invokes only its own newly registered callback;
+it does not send an OS signal to another process. Logs:
+`/tmp/graft-review-signal-red.log`, `/tmp/graft-review-transport-green.log`.

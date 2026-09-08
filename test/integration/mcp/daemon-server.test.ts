@@ -493,6 +493,30 @@ describe("mcp: daemon transport and lifecycle", () => {
     await expect(requestUnixJson(socketPath, "GET", "/healthz")).rejects.toMatchObject({ code: "ENOENT" });
   });
 
+  it("reports signal shutdown failure once with a nonzero exit status", async () => {
+    const rootDir = fs.mkdtempSync(path.join(os.tmpdir(), "graft-daemon-root-"));
+    roots.push(rootDir);
+    const socketPath = path.join(rootDir, "daemon.sock");
+    const previousListeners = new Set(process.listeners("SIGTERM"));
+    const daemon = await startTestDaemonServer({ graftDir: rootDir, socketPath });
+    const signalHandlers = process.listeners("SIGTERM").filter((handler) => !previousListeners.has(handler));
+    expect(signalHandlers).toHaveLength(1);
+    const failure = Object.assign(new Error("injected shutdown failure"), { code: "EIO" });
+    vi.spyOn(fsPromises, "unlink").mockRejectedValueOnce(failure);
+    syncBuiltinESMExports();
+    const report = vi.spyOn(console, "error").mockImplementation(() => undefined);
+    const previousExitCode = process.exitCode;
+    try {
+      process.exitCode = 0;
+      signalHandlers[0]!();
+      await expect(daemon.close()).rejects.toMatchObject({ errors: [failure] });
+      expect(process.exitCode).toBe(1);
+      expect(report.mock.calls).toEqual([[expect.any(String), expect.objectContaining({ errors: [failure] })]]);
+    } finally {
+      process.exitCode = previousExitCode;
+    }
+  });
+
   it("opens persisted daemon graphs on each transport session's logical writer lane", async () => {
     const repoDir = createTestRepo("graft-daemon-writer-lanes-");
     repos.push(repoDir);
