@@ -5,6 +5,18 @@
 // authority enforcement: the reserved control op id fails with ABI error 19
 // FORBIDDEN_CONTROL_INTENT [echo crates/echo-wasm-abi/src/kernel_port.rs#320
 // @2048da5c]. No durability claim: everything lives in process memory.
+//
+// STATUS: WORK IN PROGRESS — NOT WIRED, NOT SHIPPED.
+// Graft has no Echo dependency and needs none: no package dependency, no
+// local path, no crate, no spawned Echo process. This module is contract
+// scaffolding for an integration that is not finished. The transport that
+// would reach a real kernel speaks `graft.echo-kernel-command.v1`, a
+// protocol no Echo build implements, and it lives unmerged on
+// cycle/real-echo-structural-history-provider. Echo shapes cited below were
+// read at echo@2048da5c (2026-06-01); Echo has moved on by hundreds of
+// commits since, and nothing pins that sha, so treat the citations as
+// historical rather than current. Do not wire this into a published
+// entrypoint: test/unit/release/echo-independence.test.ts enforces it.
 // ---------------------------------------------------------------------------
 
 import { createHash } from "node:crypto";

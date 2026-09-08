@@ -7,6 +7,7 @@ import { nodeGit } from "../adapters/node-git.js";
 import { ensureGitVersionSupportsGraft } from "../git/version-guard.js";
 import { DaemonControlPlane, type DaemonStatusView } from "./daemon-control-plane.js";
 import { DaemonJobScheduler } from "./daemon-job-scheduler.js";
+import { resolveDaemonSchedulerConfig } from "./daemon-scheduler-config.js";
 import { ChildProcessDaemonWorkerPool } from "./daemon-worker-pool.js";
 import { PersistentMonitorRuntime } from "./persistent-monitor-runtime.js";
 import { InMemoryWarpPool } from "./warp-pool.js";
@@ -76,7 +77,7 @@ export async function startDaemonServer(options: StartDaemonServerOptions = {}):
     git: nodeGit,
     graftDir,
   });
-  const daemonScheduler = new DaemonJobScheduler();
+  const daemonScheduler = new DaemonJobScheduler(resolveDaemonSchedulerConfig());
   const daemonWorkerPool = new ChildProcessDaemonWorkerPool({
     ...(options.workerPoolSize !== undefined ? { size: options.workerPoolSize } : {}),
   });

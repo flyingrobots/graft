@@ -5,8 +5,19 @@
 // Maps Echo contract obstructions into Graft freshness/residual posture per
 // the witness design packet's mapping table. The taxonomy is Echo's
 // ContractObstructionKind [echo crates/warp-core/src/contract_obstruction.rs
-// #17@2048da5c] plus ABI-level observation rights. Not wired into any
-// production context in this slice; tests enforce that.
+// #17@2048da5c] plus ABI-level observation rights.
+//
+// STATUS: WORK IN PROGRESS — NOT WIRED, NOT SHIPPED.
+// Graft has no Echo dependency and needs none: no package dependency, no
+// local path, no crate, no spawned Echo process. This module is contract
+// scaffolding for an integration that is not finished. The transport that
+// would reach a real kernel speaks `graft.echo-kernel-command.v1`, a
+// protocol no Echo build implements, and it lives unmerged on
+// cycle/real-echo-structural-history-provider. Echo shapes cited below were
+// read at echo@2048da5c (2026-06-01); Echo has moved on by hundreds of
+// commits since, and nothing pins that sha, so treat the citations as
+// historical rather than current. Do not wire this into a published
+// entrypoint: test/unit/release/echo-independence.test.ts enforces it.
 // ---------------------------------------------------------------------------
 
 import type {
