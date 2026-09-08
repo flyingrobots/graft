@@ -163,3 +163,36 @@ head must not be described as green or silently substituted with a later run.
 The five inherited cleanup concerns are now repaired with the qualification
 above. Detailed owner inventory is committed debt, as explicitly permitted by
 its review finding. Final current-head validation and review remain required.
+
+## Final source validation and generated-artifact repair
+
+`pnpm test --maxWorkers=1` on `d92f1bc1` completed in 204.34 seconds:
+**264 files passed, one failed; 2,367 tests passed, one failed**. Every runtime
+case passed, including the earlier timeout cases and all new lifecycle tests.
+The sole failure was the checked-in backlog DOT omitting the two new debt
+cards. No runtime test or global timeout budget changed to obtain this result.
+First-failure records above remain valid evidence of test-run variability.
+
+Regenerated both DOT and SVG with:
+
+```sh
+pnpm exec tsx scripts/generate-backlog-dependency-dag.ts
+pnpm test:local test/unit/method/backlog-dependency-dag.test.ts --maxWorkers=1
+```
+
+The DOT diff adds exactly the two WARP cards and changes the bad-code count
+from 25 to 27. Its existing two-test artifact/relationship contract passes.
+The generated SVG layout changes alongside it. This artifact-only correction
+does not require another local full runtime campaign; CI validates the final
+published tree. Source state is still `d92f1bc1`.
+
+Logs: `/tmp/graft-lru-final-isolated.log`,
+`/tmp/graft-lru-backlog-generation.log`, `/tmp/graft-lru-backlog-verify.log`.
+Final lint and typecheck passed; Node 20 CI typecheck/build/runtime smoke passed
+on `d92f1bc1`. Current-head full CI and reviewer completion remain publication
+gates, to be checked live rather than inferred from this historical record.
+
+CI run `34189530172` independently produced the same result on `d92f1bc1`:
+Node 20 passed; Node 22 passed all runtime tests and failed only the stale DOT
+contract (2,367 passed, one failed). The generated-artifact commit repairs that
+specific failure. Final docs-only lint and whitespace validation passed.
