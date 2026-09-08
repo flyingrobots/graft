@@ -30,7 +30,7 @@ import {
   resolveRuntimeObservabilityState,
   type RuntimeObservabilityState,
 } from "./runtime-observability.js";
-import { InMemoryWarpPool, type WarpResidentPool } from "./warp-pool.js";
+import { InMemoryWarpPool, resolveWarpPoolOptions, type WarpResidentPool } from "./warp-pool.js";
 import { buildSessionWarpWriterId } from "../warp/writer-id.js";
 import { PersistedLocalHistoryStore } from "./persisted-local-history.js";
 import { GRAFT_VERSION } from "../version.js";
@@ -337,7 +337,10 @@ export function createGraftServer(options: CreateGraftServerOptions = {}): Graft
     logPath: observability.logPath,
     maxBytes: observability.maxBytes,
   });
-  const warpPool = options.warpPool ?? new InMemoryWarpPool((cwd, writerId) => openWarp({ cwd, writerId }));
+  const warpPool = options.warpPool ?? new InMemoryWarpPool(
+    (cwd, writerId) => openWarp({ cwd, writerId }),
+    resolveWarpPoolOptions(options.env ?? process.env),
+  );
   const processRunner = options.processRunner ?? nodeProcessRunner;
   const persistedLocalHistory = new PersistedLocalHistoryStore({
     fs: nodeFs,

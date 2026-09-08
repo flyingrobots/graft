@@ -95,15 +95,18 @@ export function buildToolContext(deps: ToolContextDeps): ToolContext {
     runCapture: deps.runCapture,
     observability: deps.observability,
     getWarp(): Promise<WarpContext> {
-      return getActiveExecutionContext()?.getWarp() ?? workspaceRouter.getWarp();
+      const execution = getActiveExecutionContext();
+      if (execution === null) throw new Error("WARP access requires an active workspace execution");
+      return execution.getWarp();
     },
     getStructuralReadingPort() {
       const execution = getActiveExecutionContext();
+      if (execution === null) throw new Error("structural reads require an active workspace execution");
       return createGitWarpStructuralReadingPort({
-        projectRoot: execution?.projectRoot ?? workspaceRouter.getProjectRoot(),
+        projectRoot: execution.projectRoot,
         git: deps.git,
         pathOps: nodePathOps,
-        getWarp: () => execution?.getWarp() ?? workspaceRouter.getWarp(),
+        getWarp: () => execution.getWarp(),
       });
     },
     getRepoState() {

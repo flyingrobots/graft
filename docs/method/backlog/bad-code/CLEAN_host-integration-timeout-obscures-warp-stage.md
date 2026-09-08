@@ -64,3 +64,12 @@ latency without weakening the full-suite hang detector.
   that tolerates normal startup variance while still failing a deliberate
   stalled-open, stalled-index, or stalled-query regression.
 - No repository-wide timeout increase is used as the sole repair.
+
+## Additional LRU-cycle evidence (2026-09-07)
+
+The WARP resident LRU continuation saw five canonical-container timeouts across
+worker `safe_read`/precision, banned-file cache, receipt, and architecture-lint
+cases. The updated affected files passed 53/53 in isolation with no global
+budget increase. This expands the timing-instrumentation concern beyond the
+original host precision witness; it does not identify the cause or waive the
+failed full run. See the [LRU verification record](../../retro/WARP_bounded-resident-lru/witness/verification.md).

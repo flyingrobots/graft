@@ -7,6 +7,11 @@ source_pr: 251
 
 # Leased WARP resident working set
 
+> Historical policy: [Bounded WARP resident LRU](WARP_bounded-resident-lru.md)
+> supersedes binding-lifetime pins and unconditional last-release eviction.
+> The remaining ownership, reconstruction, and shutdown obligations carry
+> forward. Read the new packet for the implementation being delivered.
+
 Source repair: PR #251 review. No backlog item or design packet preceded the
 implementation; the local Retro must record that process drift.
 

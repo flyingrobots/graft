@@ -21,7 +21,7 @@ describe("mcp: warp pool", () => {
   it("reuses the same handle for the same repo and writer lane", async () => {
     const sharedApp = fakeWarpApp();
     const openWarp = vi.fn(() => Promise.resolve(sharedApp));
-    const pool = new InMemoryWarpPool(openWarp);
+    const pool = new InMemoryWarpPool(openWarp, { maxIdleResidents: 0, maxResidents: 64 });
 
     const input = {
       key: { repoId: "repo:a", writerId: "graft_monitor_deadbeef" },
@@ -44,7 +44,7 @@ describe("mcp: warp pool", () => {
     const openWarp = vi.fn()
       .mockResolvedValueOnce(sessionApp)
       .mockResolvedValueOnce(monitorApp);
-    const pool = new InMemoryWarpPool(openWarp);
+    const pool = new InMemoryWarpPool(openWarp, { maxIdleResidents: 0, maxResidents: 64 });
 
     const sessionResult = await pool.acquire({
       key: { repoId: "repo:a", writerId: "graft" },
@@ -75,7 +75,7 @@ describe("mcp: warp pool", () => {
 
   it("tracks unique repos instead of open handles in size()", async () => {
     const openWarp = vi.fn(() => Promise.resolve(fakeWarpApp()));
-    const pool = new InMemoryWarpPool(openWarp);
+    const pool = new InMemoryWarpPool(openWarp, { maxIdleResidents: 0, maxResidents: 64 });
 
     const leases = await Promise.all([
       pool.acquire({
@@ -108,7 +108,7 @@ describe("mcp: warp pool", () => {
     const liveApp = fakeWarpApp();
     const pool = new InMemoryWarpPool((_worktreeRoot, writerId) => {
       return writerId === "writer-live" ? Promise.resolve(liveApp) : Promise.reject(openError);
-    });
+    }, { maxIdleResidents: 0, maxResidents: 64 });
     const live = await pool.acquire({
       key: { repoId: "repo:a", writerId: "writer-live" },
       worktreeRoot: "/tmp/repo-a",
@@ -132,7 +132,7 @@ describe("mcp: warp pool", () => {
     const openWarp = vi.fn((_worktreeRoot: string, writerId: string) => {
       return writerId === "writer-live" ? Promise.resolve(liveApp) : Promise.reject(openError);
     });
-    const pool = new InMemoryWarpPool(openWarp);
+    const pool = new InMemoryWarpPool(openWarp, { maxIdleResidents: 0, maxResidents: 64 });
     const live = await pool.acquire({
       key: { repoId: "repo:a", writerId: "writer-live" },
       worktreeRoot: "/tmp/repo-a",

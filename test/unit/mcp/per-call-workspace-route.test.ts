@@ -300,7 +300,7 @@ describe("mcp: per-call workspace route", () => {
         await openGate;
       }
       return app;
-    });
+    }, { maxIdleResidents: 0, maxResidents: 64 });
     const harness = await createInProcessDaemonHarness({ warpPool: pool });
     cleanups.push(() => harness.close());
     const session = harness.createSession();
@@ -387,7 +387,7 @@ describe("mcp: per-call workspace route", () => {
           return typeof value === "function" ? value.bind(target) : value;
         },
       });
-    });
+    }, { maxIdleResidents: 0, maxResidents: 64 });
     const harness = await createInProcessDaemonHarness({ warpPool: pool });
     cleanups.push(() => harness.close());
     const session = harness.createSession();
@@ -474,7 +474,7 @@ describe("mcp: per-call workspace route", () => {
           return typeof value === "function" ? value.bind(target) : value;
         },
       });
-    });
+    }, { maxIdleResidents: 0, maxResidents: 64 });
     const server = createServerInRepo(originalRepo, { warpPool: pool });
     cleanups.push(() => server.releaseWarpLeases());
     await server.callTool("workspace_status", {});

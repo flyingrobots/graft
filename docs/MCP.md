@@ -69,33 +69,41 @@ acquisition returns a unique, idempotently releasable capability, including
 two acquisitions with the same owner metadata. The port has no ordinary raw
 lookup, holder-ID release, sweep, or force-eviction operation.
 
-Releasing a resident's final capability immediately drops that writer lane's
-in-process strong reference. A leased sibling writer lane in the same
-repository remains independent. A later acquisition reconstructs the dropped
-resident from durable Git-backed WARP state.
+The shared daemon pool retains at most **four handles** by default, including
+opens in progress. Set `GRAFT_WARP_MAX_RESIDENTS` to an integer from 1 through
+64 in the daemon's launch environment to change that limit. Invalid explicit
+values reject construction before workers start. Repo-local MCP servers apply
+the same default to their own pool. This is a handle bound for each pool, not
+a byte budget for the whole daemon or its worker processes.
 
-Ownership follows the work that can still use the resident:
+Operations in flight pin handles. Final release makes an entry idle and updates
+its recency. A miss evicts the least recently used idle entry; if all slots are
+pinned, the acquisition fails with `WarpResidentCapacityError` (internal code
+`WARP_RESIDENT_CAPACITY`) without opening another graph. The existing tool
+error surface reports the failure. Retry after another operation settles.
+An optional graph-backed history observation can retain its existing
+unavailable-evidence fallback. Pool consumers can select `maxIdleResidents: 0`
+for eager eviction instead of warm reuse.
 
-- current and routed workspace bindings own separate lazy capabilities after
-  their first WARP-backed use;
-- every bound repository invocation owns a distinct capability until
-  settlement in both repo-local and daemon mode, while scheduler admission
-  remains daemon-only; and
-- internally captured read-attribution contexts release their own capability
-  locally.
+Current and opened workspace bindings retain routing metadata without graph
+leases. Bound repository invocations own their captured route's capability
+through handler, attribution, and failure settlement; scheduler admission
+remains daemon-only. Binding setup and history operations outside an invocation
+use temporary capabilities released in `finally`. Session retirement and
+rebind cannot revoke a capability still owned by an admitted invocation.
 
-Rebind, routed-cache replacement, authorization rejection, session
-close/error, and daemon shutdown dispose only their exact binding
-capabilities. An admitted invocation therefore keeps its resident alive even
-when the binding that admitted it is removed. Failed opens and failed binding
-initialization roll back their unpublished capabilities. Shutdown fences new
-session admission, drains already admitted initialization, and retires every
-published session through the same idempotent owner.
+Eviction removes reconstructible process state without deleting source files,
+Git objects, index records, authorization, or workspace membership. The next
+acquisition reconstructs the graph through its resolved worktree root. An idle
+entry whose construction root has changed is reopened through that new root.
+Release makes memory eligible for collection; it does not promise an immediate
+RSS decrease. Recency describes handle use, not current-source validation.
 
-`/healthz` and `daemon_status` report `activeWarpRepos` as the unique
-repository count and `activeWarpResidents` as the logical writer-lane resident
-count. These are aggregate shared-pool counts, not a resident-owner inventory
-and not measurements of unrelated daemon memory.
+`/healthz` and `daemon_status` retain `activeWarpRepos` for unique repositories
+and `activeWarpResidents` for logical writer-lane slots. Despite the existing
+`active` field names, these counts include idle entries and opening
+reservations. Inspecting these counts does not refresh cache recency. Detailed
+owner inventory and source freshness evidence are separate capabilities.
 
 For concurrent multi-repo use inside one daemon-backed MCP session,
 repo tools that support routing also accept `cwd`: `safe_read`,

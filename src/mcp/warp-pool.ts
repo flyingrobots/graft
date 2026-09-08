@@ -7,6 +7,7 @@ export interface WarpResidentKey {
 
 export interface WarpResidentLease {
   readonly key: WarpResidentKey;
+  /** Valid only until this capability is released. */
   readonly app: WarpApp;
   release(): Promise<void>;
 }
@@ -23,119 +24,158 @@ export interface WarpResidentPool {
   residentCount(): number;
 }
 
-export class InMemoryWarpPool implements WarpResidentPool {
-  private readonly opened = new Map<string, Map<string, Promise<WarpApp>>>();
-  private readonly leases = new Map<string, Map<string, Map<symbol, string>>>();
+export const DEFAULT_MAX_WARP_RESIDENTS = 4;
+const MAX_CONFIGURED_WARP_RESIDENTS = 64;
 
-  constructor(private readonly openWarp: (worktreeRoot: string, writerId: string) => Promise<WarpApp>) {}
+export interface WarpPoolOptions {
+  readonly maxResidents?: number;
+  /** Zero opts into eager release; otherwise idle entries compete by recency. */
+  readonly maxIdleResidents?: number;
+}
+
+export function resolveWarpPoolOptions(env: Readonly<Record<string, string | undefined>>): WarpPoolOptions {
+  const configured = env["GRAFT_WARP_MAX_RESIDENTS"];
+  if (configured === undefined) return {};
+  const value = configured.trim();
+  const maxResidents = /^\d+$/.test(value) ? Number(value) : NaN;
+  validateCapacity(maxResidents);
+  return { maxResidents };
+}
+
+function validateCapacity(capacity: number): void {
+  if (!Number.isInteger(capacity) || capacity < 1 || capacity > MAX_CONFIGURED_WARP_RESIDENTS) {
+    throw new RangeError("GRAFT_WARP_MAX_RESIDENTS must be an integer from 1 through 64");
+  }
+}
+
+export class WarpResidentCapacityError extends Error {
+  readonly code = "WARP_RESIDENT_CAPACITY";
+
+  constructor(readonly maxResidents: number) {
+    super("All " + String(maxResidents) + " WARP resident slots are in use; retry after an operation settles");
+    this.name = "WarpResidentCapacityError";
+  }
+}
+
+interface Resident {
+  readonly key: WarpResidentKey;
+  readonly worktreeRoot: string;
+  readonly pins: Map<symbol, string>;
+  readonly opening: Promise<WarpApp>;
+}
+
+/** A finite working set. Map order records actual use, never observation. */
+export class InMemoryWarpPool implements WarpResidentPool {
+  private readonly residents = new Map<string, Resident>();
+  private readonly maxResidents: number;
+  private readonly maxIdleResidents: number;
+
+  constructor(
+    private readonly openWarp: (worktreeRoot: string, writerId: string) => Promise<WarpApp>,
+    options: WarpPoolOptions = {},
+  ) {
+    this.maxResidents = options.maxResidents ?? DEFAULT_MAX_WARP_RESIDENTS;
+    validateCapacity(this.maxResidents);
+    this.maxIdleResidents = options.maxIdleResidents ?? this.maxResidents;
+    if (!Number.isInteger(this.maxIdleResidents) || this.maxIdleResidents < 0 || this.maxIdleResidents > this.maxResidents) {
+      throw new RangeError("maxIdleResidents must be an integer between zero and maxResidents");
+    }
+  }
 
   async acquire(input: WarpResidentAcquireInput): Promise<WarpResidentLease> {
-    const repoId = input.key.repoId;
-    const writerId = input.key.writerId;
-    const key: WarpResidentKey = Object.freeze({ repoId, writerId });
+    const worktreeRoot = input.worktreeRoot;
+    const id = this.id(input.key.repoId, input.key.writerId);
+    let resident = this.residents.get(id);
+    if (resident?.pins.size === 0 && resident.worktreeRoot !== worktreeRoot) {
+      this.residents.delete(id);
+      resident = undefined;
+    }
+    if (resident === undefined) {
+      if (this.residents.size >= this.maxResidents && !this.evictOldestIdle()) {
+        throw new WarpResidentCapacityError(this.maxResidents);
+      }
+      const key = Object.freeze({ repoId: input.key.repoId, writerId: input.key.writerId });
+      // Reserve before calling even a synchronously throwing/reentrant opener.
+      const opening = Promise.resolve().then(() => this.openWarp(worktreeRoot, key.writerId));
+      resident = { key, worktreeRoot, pins: new Map(), opening };
+      this.residents.set(id, resident);
+    }
     const token = Symbol(input.ownerId);
-    this.addLease(repoId, writerId, token, input.ownerId);
+    resident.pins.set(token, input.ownerId);
+    this.touch(id, resident);
 
-    let app: WarpApp;
+    let app: WarpApp | null;
     try {
-      app = await this.getOrOpen(repoId, input.worktreeRoot, writerId);
+      app = await resident.opening;
     } catch (error) {
-      this.releaseToken(repoId, writerId, token);
+      resident.pins.delete(token);
+      if (this.residents.get(id) === resident) this.residents.delete(id);
       throw error;
     }
-
-    let released = false;
+    let owned: Resident | null = resident;
+    const key = resident.key;
     return {
       key,
-      app,
+      get app(): WarpApp {
+        if (app === null) throw new Error("WARP resident lease has been released");
+        return app;
+      },
       release: (): Promise<void> => {
-        if (released) return Promise.resolve();
-        released = true;
-        this.releaseToken(repoId, writerId, token);
+        const current = owned;
+        if (current === null) return Promise.resolve();
+        owned = null;
+        app = null;
+        current.pins.delete(token);
+        if (current.pins.size === 0 && this.residents.get(id) === current) {
+          this.touch(id, current);
+          this.trimIdle();
+        }
         return Promise.resolve();
       },
     };
   }
 
-  private getOrOpen(
-    repoId: string,
-    worktreeRoot: string,
-    writerId: string,
-  ): Promise<WarpApp> {
-    const repoHandles = this.opened.get(repoId);
-    const cached = repoHandles?.get(writerId);
-    if (cached !== undefined) return cached;
-
-    const nextRepoHandles = repoHandles ?? new Map<string, Promise<WarpApp>>();
-    const opened = this.openWarp(worktreeRoot, writerId).catch((error: unknown) => {
-      const current = this.opened.get(repoId);
-      if (current?.get(writerId) === opened) {
-        current.delete(writerId);
-        if (current.size === 0) {
-          this.opened.delete(repoId);
-        }
-      }
-      throw error;
-    });
-    nextRepoHandles.set(writerId, opened);
-    this.opened.set(repoId, nextRepoHandles);
-    return opened;
+  private id(repoId: string, writerId: string): string {
+    return JSON.stringify([repoId, writerId]);
   }
 
-  private addLease(
-    repoId: string,
-    writerId: string,
-    token: symbol,
-    ownerId: string,
-  ): void {
-    let repoLeases = this.leases.get(repoId);
-    if (repoLeases === undefined) {
-      repoLeases = new Map<string, Map<symbol, string>>();
-      this.leases.set(repoId, repoLeases);
-    }
-    let holders = repoLeases.get(writerId);
-    if (holders === undefined) {
-      holders = new Map<symbol, string>();
-      repoLeases.set(writerId, holders);
-    }
-    holders.set(token, ownerId);
+  private touch(id: string, resident: Resident): void {
+    this.residents.delete(id);
+    this.residents.set(id, resident);
   }
 
-  private releaseToken(repoId: string, writerId: string, token: symbol): void {
-    const repoLeases = this.leases.get(repoId);
-    const holders = repoLeases?.get(writerId);
-    if (!holders?.delete(token)) return;
-    if (holders.size === 0) {
-      repoLeases?.delete(writerId);
-      const repoHandles = this.opened.get(repoId);
-      repoHandles?.delete(writerId);
-      if (repoHandles?.size === 0) {
-        this.opened.delete(repoId);
+  private evictOldestIdle(): boolean {
+    for (const [id, resident] of this.residents) {
+      if (resident.pins.size === 0) {
+        this.residents.delete(id);
+        return true;
       }
     }
-    if (repoLeases?.size === 0) {
-      this.leases.delete(repoId);
-    }
+    return false;
+  }
+
+  private trimIdle(): void {
+    let idle = 0;
+    for (const resident of this.residents.values()) if (resident.pins.size === 0) idle++;
+    while (idle > this.maxIdleResidents && this.evictOldestIdle()) idle--;
   }
 
   leaseCount(repoId: string, writerId: string): number {
-    return this.leases.get(repoId)?.get(writerId)?.size ?? 0;
+    return this.residents.get(this.id(repoId, writerId))?.pins.size ?? 0;
   }
 
   has(repoId: string, writerId?: string): boolean {
-    const repoHandles = this.opened.get(repoId);
-    return writerId === undefined ? repoHandles !== undefined : repoHandles?.has(writerId) === true;
+    if (writerId !== undefined) return this.residents.has(this.id(repoId, writerId));
+    for (const resident of this.residents.values()) if (resident.key.repoId === repoId) return true;
+    return false;
   }
 
   size(): number {
-    return this.opened.size;
+    return new Set([...this.residents.values()].map((resident) => resident.key.repoId)).size;
   }
 
+  /** Includes opening reservations as well as pinned and idle loaded handles. */
   residentCount(): number {
-    let count = 0;
-    for (const repoHandles of this.opened.values()) {
-      count += repoHandles.size;
-    }
-    return count;
+    return this.residents.size;
   }
 }

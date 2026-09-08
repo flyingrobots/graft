@@ -3,7 +3,6 @@ import { createRepoPathResolver } from "../adapters/repo-paths.js";
 import type { FileSystem } from "../ports/filesystem.js";
 import type { GitClient } from "../ports/git.js";
 import type { WarpContext } from "../warp/context.js";
-import { DEFAULT_WARP_WRITER_ID } from "../warp/writer-id.js";
 import { GovernorTracker } from "../session/tracker.js";
 import { ObservationCache } from "./cache.js";
 import { Metrics } from "./metrics.js";
@@ -42,7 +41,6 @@ export interface WorkspaceSlice {
 
 export interface WorkspaceWarpLease {
   getWarp(): Promise<WarpContext>;
-  hasAcquiredResident(): boolean;
   release(): Promise<void>;
 }
 
@@ -55,10 +53,8 @@ export interface BoundWorkspace {
   readonly resolvePath: (input: string) => string;
   readonly capabilityProfile: WorkspaceCapabilityProfile;
   readonly warpWriterId: string;
-  readonly warpLease: WorkspaceWarpLease;
   readonly transportSessionId: string;
   readonly slice: WorkspaceSlice;
-  readonly getWarp: () => Promise<WarpContext>;
 }
 
 export function createWorkspaceWarpLease(input: {
@@ -70,7 +66,6 @@ export function createWorkspaceWarpLease(input: {
 }): WorkspaceWarpLease {
   let leasePromise: Promise<WarpResidentLease> | null = null;
   let releasePromise: Promise<void> | null = null;
-  let acquiredResident = false;
   const releaseHasStarted = (): boolean => releasePromise !== null;
 
   return {
@@ -90,23 +85,19 @@ export function createWorkspaceWarpLease(input: {
           await lease.release();
           throw new Error("workspace WARP lease was released while opening");
         }
-        acquiredResident = true;
         return { app: lease.app, strandId: null };
       } catch (error) {
         if (leasePromise === currentLease) {
           leasePromise = null;
-          acquiredResident = false;
         }
         throw error;
       }
-    },
-    hasAcquiredResident(): boolean {
-      return acquiredResident && !releaseHasStarted();
     },
     release(): Promise<void> {
       if (releasePromise !== null) return releasePromise;
       releasePromise = (async () => {
         const currentLease = leasePromise;
+        leasePromise = null;
         if (currentLease === null) return;
         const lease = await currentLease.catch(() => null);
         await lease?.release();
@@ -143,34 +134,21 @@ export async function createBoundWorkspace(input: {
   readonly slice: WorkspaceSlice;
   readonly fs: FileSystem;
   readonly transportSessionId: string;
-  readonly warpWriterId?: string | undefined;
-  readonly warpLeaseOwnerId: string;
-  readonly warpLease?: WorkspaceWarpLease | undefined;
-  readonly warpPool: WarpResidentPool;
+  readonly warpWriterId: string;
 }): Promise<BoundWorkspace> {
   if (input.actionName !== undefined) {
     input.slice.governor.recordMessage();
     input.slice.governor.recordToolCall(input.actionName);
   }
 
-  const warpWriterId = input.warpWriterId ?? DEFAULT_WARP_WRITER_ID;
-  const warpLease = input.warpLease ?? createWorkspaceWarpLease({
-    repoId: input.resolved.repoId,
-    worktreeRoot: input.resolved.worktreeRoot,
-    writerId: warpWriterId,
-    ownerId: input.warpLeaseOwnerId,
-    warpPool: input.warpPool,
-  });
   return {
     ...input.resolved,
     graftignorePatterns: await loadProjectGraftignore(input.fs, input.resolved.worktreeRoot),
     resolvePath: createRepoPathResolver(input.resolved.worktreeRoot),
     capabilityProfile: input.capabilityProfile,
     transportSessionId: input.transportSessionId,
-    warpWriterId,
-    warpLease,
+    warpWriterId: input.warpWriterId,
     slice: input.slice,
-    getWarp: () => warpLease.getWarp(),
   };
 }
 

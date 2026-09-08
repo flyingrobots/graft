@@ -362,7 +362,7 @@ describe("mcp: daemon workspace binding", () => {
     });
     const pool = new InMemoryWarpPool((_worktreeRoot, writerId) => {
       return Promise.resolve({ writerId } as unknown as WarpApp);
-    });
+    }, { maxIdleResidents: 0, maxResidents: 64 });
     const router = new WorkspaceRouter({
       mode: "daemon",
       fs: nodeFs,
@@ -387,12 +387,9 @@ describe("mcp: daemon workspace binding", () => {
     });
 
     const original = await router.captureExecutionContextForWorkspace({ cwd: repoDir });
-    const cachedBindings = (router as unknown as {
-      routedBindings: Map<string, { getWarp(): Promise<unknown> }>;
-    }).routedBindings;
-    await cachedBindings.get(original.worktreeId)?.getWarp();
+    await original.getWarp();
     await original.releaseWarpLease();
-    expect(pool.leaseCount(original.repoId, "writer:test")).toBe(1);
+    expect(pool.leaseCount(original.repoId, "writer:test")).toBe(0);
 
     fs.rmSync(repoDir, { recursive: true, force: true });
     git(replacementSource, `worktree add -b replacement-lease ${repoDir}`);
@@ -412,7 +409,7 @@ describe("mcp: daemon workspace binding", () => {
     });
     const pool = new InMemoryWarpPool((_worktreeRoot, writerId) => {
       return Promise.resolve({ writerId } as unknown as WarpApp);
-    });
+    }, { maxIdleResidents: 0, maxResidents: 64 });
     let authorized = true;
     const router = new WorkspaceRouter({
       mode: "daemon",
@@ -438,12 +435,9 @@ describe("mcp: daemon workspace binding", () => {
     });
 
     const routed = await router.captureExecutionContextForWorkspace({ cwd: repoDir });
-    const cachedBindings = (router as unknown as {
-      routedBindings: Map<string, { getWarp(): Promise<unknown> }>;
-    }).routedBindings;
-    await cachedBindings.get(routed.worktreeId)?.getWarp();
+    await routed.getWarp();
     await routed.releaseWarpLease();
-    expect(pool.leaseCount(routed.repoId, "writer:test")).toBe(1);
+    expect(pool.leaseCount(routed.repoId, "writer:test")).toBe(0);
 
     authorized = false;
     await expect(router.captureExecutionContextForWorkspace({ cwd: repoDir }))
@@ -454,7 +448,7 @@ describe("mcp: daemon workspace binding", () => {
     expect(pool.size()).toBe(0);
   });
 
-  it("unregisters a routed binding lease when repo-state initialization fails", async () => {
+  it("leaves no resident when routed repo-state initialization fails", async () => {
     const repoDir = createCommittedRepo();
     const graftDir = fs.mkdtempSync(path.join(os.tmpdir(), "graft-routed-init-failure-"));
     cleanups.push(() => {
@@ -464,7 +458,7 @@ describe("mcp: daemon workspace binding", () => {
     vi.spyOn(RepoStateTracker.prototype, "initialize").mockRejectedValue(initializationError);
     const pool = new InMemoryWarpPool((_worktreeRoot, writerId) => {
       return Promise.resolve({ writerId } as unknown as WarpApp);
-    });
+    }, { maxIdleResidents: 0, maxResidents: 64 });
     const router = new WorkspaceRouter({
       mode: "daemon",
       fs: nodeFs,
@@ -492,15 +486,7 @@ describe("mcp: daemon workspace binding", () => {
       .rejects
       .toBe(initializationError);
 
-    const lifecycleState = router as unknown as {
-      bindingWarpLeases: Set<unknown>;
-      routedBindings: Map<string, unknown>;
-      routedBindingInitializations: Map<string, unknown>;
-    };
     expect(router.getStatus().bindState).toBe("unbound");
-    expect(lifecycleState.bindingWarpLeases.size).toBe(0);
-    expect(lifecycleState.routedBindings.size).toBe(0);
-    expect(lifecycleState.routedBindingInitializations.size).toBe(0);
     expect(pool.size()).toBe(0);
   });
 
@@ -520,7 +506,7 @@ describe("mcp: daemon workspace binding", () => {
     const openWarp = vi.fn((_worktreeRoot: string, writerId: string) => {
       return Promise.resolve({ writerId } as unknown as WarpApp);
     });
-    const pool = new InMemoryWarpPool(openWarp);
+    const pool = new InMemoryWarpPool(openWarp, { maxIdleResidents: 0, maxResidents: 64 });
     const router = new WorkspaceRouter({
       mode: "repo_local",
       projectRoot: repoDir,
@@ -535,12 +521,7 @@ describe("mcp: daemon workspace binding", () => {
 
     await expect(router.initialize()).rejects.toBe(initializationError);
 
-    const lifecycleState = router as unknown as {
-      bindingWarpLeases: Set<unknown>;
-    };
-    expect(openWarp).toHaveBeenCalledOnce();
     expect(router.getStatus().bindState).toBe("unbound");
-    expect(lifecycleState.bindingWarpLeases.size).toBe(0);
     expect(pool.size()).toBe(0);
     expect(pool.residentCount()).toBe(0);
   });
@@ -652,7 +633,7 @@ describe("mcp: daemon workspace binding", () => {
     expect(loadedAfterRebind["content"]).toBeNull();
   });
 
-  it("releases only the displaced resident after a cross-repository rebind commits", async () => {
+  it("preserves a running operation across cross-repository and same-lane rebinds", async () => {
     const firstRepoDir = createCommittedRepo();
     const secondRepoDir = createCommittedRepo();
     const graftDir = fs.mkdtempSync(path.join(os.tmpdir(), "graft-cross-repo-rebind-"));
@@ -661,7 +642,7 @@ describe("mcp: daemon workspace binding", () => {
     });
     const pool = new InMemoryWarpPool((_worktreeRoot, writerId) => {
       return Promise.resolve({ writerId } as unknown as WarpApp);
-    });
+    }, { maxIdleResidents: 0, maxResidents: 64 });
     const router = new WorkspaceRouter({
       mode: "daemon",
       fs: nodeFs,
@@ -689,25 +670,27 @@ describe("mcp: daemon workspace binding", () => {
     const first = await router.bind({ cwd: firstRepoDir }, "workspace_bind");
     expect(first.ok).toBe(true);
     expect(first.repoId).toEqual(expect.any(String));
-    await router.getWarp();
-    expect(pool.leaseCount(first.repoId!, "writer:test")).toBe(1);
-
+    const firstExecution = router.captureExecutionContext();
+    await firstExecution.getWarp();
     const second = await router.rebind({ cwd: secondRepoDir }, "workspace_rebind");
-
     expect(second.ok).toBe(true);
-    expect(second.repoId).toEqual(expect.any(String));
     expect(second.repoId).not.toBe(first.repoId);
-    expect(pool.leaseCount(first.repoId!, "writer:test")).toBe(0);
+    expect(pool.leaseCount(first.repoId!, "writer:test")).toBe(1);
+    await firstExecution.releaseWarpLease();
     expect(pool.has(first.repoId!, "writer:test")).toBe(false);
-    const secondResident = (await router.getWarp()).app;
-    expect(pool.leaseCount(second.repoId!, "writer:test")).toBe(1);
 
+    const secondExecution = router.captureExecutionContext();
+    const secondResident = (await secondExecution.getWarp()).app;
     const sameResident = await router.rebind({ cwd: secondRepoDir }, "workspace_rebind");
-
     expect(sameResident.ok).toBe(true);
     expect(sameResident.repoId).toBe(second.repoId);
+    await router.withWarp((warp) => {
+      expect(warp.app).toBe(secondResident);
+      return Promise.resolve();
+    });
     expect(pool.leaseCount(second.repoId!, "writer:test")).toBe(1);
-    expect((await router.getWarp()).app).toBe(secondResident);
+    await secondExecution.releaseWarpLease();
+    expect(pool.residentCount()).toBe(0);
   });
 
   it("opens an unacquired same-repository lease from the rebound worktree", async () => {
@@ -729,7 +712,7 @@ describe("mcp: daemon workspace binding", () => {
         return Promise.reject(new Error(`missing WARP worktree root: ${worktreeRoot}`));
       }
       return Promise.resolve({ worktreeRoot, writerId } as unknown as WarpApp);
-    });
+    }, { maxIdleResidents: 0, maxResidents: 64 });
     const router = new WorkspaceRouter({
       mode: "daemon",
       fs: nodeFs,
@@ -760,12 +743,14 @@ describe("mcp: daemon workspace binding", () => {
     expect(rebound.repoId).toBe(first.repoId);
     fs.rmSync(previousWorktree, { recursive: true, force: true });
 
-    const warp = await router.getWarp();
+    await router.withWarp((warp) => {
+      expect(warp.app).toEqual(expect.objectContaining({
+        worktreeRoot: fs.realpathSync(repoDir),
+        writerId: "writer:test",
+      }));
+      return Promise.resolve();
+    });
 
-    expect(warp.app).toEqual(expect.objectContaining({
-      worktreeRoot: fs.realpathSync(repoDir),
-      writerId: "writer:test",
-    }));
     expect(openedRoots).toEqual([fs.realpathSync(repoDir)]);
   });
 
@@ -779,7 +764,7 @@ describe("mcp: daemon workspace binding", () => {
     });
     const pool = new InMemoryWarpPool((_worktreeRoot, writerId) => {
       return Promise.resolve({ writerId } as unknown as WarpApp);
-    });
+    }, { maxIdleResidents: 0, maxResidents: 64 });
     const history = new PersistedLocalHistoryStore({
       fs: nodeFs,
       codec: new CanonicalJsonCodec(),
@@ -834,8 +819,8 @@ describe("mcp: daemon workspace binding", () => {
     const currentRepoId = router.getStatus().repoId;
     expect(currentRepoId).not.toBeNull();
     expect(pool.leaseCount(first.repoId!, "writer:test")).toBe(0);
-    expect(pool.leaseCount(currentRepoId!, "writer:test")).toBe(1);
-    expect(pool.size()).toBe(1);
+    expect(pool.leaseCount(currentRepoId!, "writer:test")).toBe(0);
+    expect(pool.size()).toBe(0);
   });
 
   it("keeps an admitted invocation resident while session bindings release", async () => {
@@ -846,7 +831,7 @@ describe("mcp: daemon workspace binding", () => {
     });
     const pool = new InMemoryWarpPool((_worktreeRoot, writerId) => {
       return Promise.resolve({ writerId } as unknown as WarpApp);
-    });
+    }, { maxIdleResidents: 0, maxResidents: 64 });
     const router = new WorkspaceRouter({
       mode: "daemon",
       fs: nodeFs,
@@ -873,10 +858,9 @@ describe("mcp: daemon workspace binding", () => {
 
     const bound = await router.bind({ cwd: repoDir }, "workspace_bind");
     expect(bound.ok).toBe(true);
-    await router.getWarp();
     const invocation = router.captureExecutionContext();
     await invocation.getWarp();
-    expect(pool.leaseCount(bound.repoId!, "writer:test")).toBe(2);
+    expect(pool.leaseCount(bound.repoId!, "writer:test")).toBe(1);
 
     await router.releaseWarpLeases();
 
@@ -896,7 +880,7 @@ describe("mcp: daemon workspace binding", () => {
     });
     const pool = new InMemoryWarpPool((_worktreeRoot, writerId) => {
       return Promise.resolve({ writerId } as unknown as WarpApp);
-    });
+    }, { maxIdleResidents: 0, maxResidents: 64 });
     const history = new PersistedLocalHistoryStore({
       fs: nodeFs,
       codec: new CanonicalJsonCodec(),
@@ -926,7 +910,7 @@ describe("mcp: daemon workspace binding", () => {
     await router.initialize();
     const repoId = router.getStatus().repoId;
     expect(repoId).not.toBeNull();
-    expect(pool.leaseCount(repoId!, "writer:test")).toBe(1);
+    expect(pool.leaseCount(repoId!, "writer:test")).toBe(0);
 
     await router.noteReadObservation(
       "safe_read",
@@ -934,13 +918,13 @@ describe("mcp: daemon workspace binding", () => {
       { projection: "content" },
     );
 
-    expect(pool.leaseCount(repoId!, "writer:test")).toBe(1);
+    expect(pool.leaseCount(repoId!, "writer:test")).toBe(0);
     await router.releaseWarpLeases();
     expect(pool.leaseCount(repoId!, "writer:test")).toBe(0);
     expect(pool.has(repoId!, "writer:test")).toBe(false);
   });
 
-  it("keeps the current binding leased when a same-repo routed binding is evicted", {
+  it("keeps the current invocation leased when a same-repo routed binding is evicted", {
     timeout: 20_000,
   }, async () => {
     const repoDir = createCommittedRepo();
@@ -957,7 +941,7 @@ describe("mcp: daemon workspace binding", () => {
     });
     const pool = new InMemoryWarpPool((_worktreeRoot, writerId) => {
       return Promise.resolve({ writerId } as unknown as WarpApp);
-    });
+    }, { maxIdleResidents: 0, maxResidents: 64 });
     const router = new WorkspaceRouter({
       mode: "daemon",
       fs: nodeFs,
@@ -984,7 +968,8 @@ describe("mcp: daemon workspace binding", () => {
 
     const current = await router.bind({ cwd: repoDir }, "workspace_bind");
     expect(current.ok).toBe(true);
-    await router.getWarp();
+    const active = router.captureExecutionContext();
+    await active.getWarp();
     const routed = await router.captureExecutionContextForWorkspace({ cwd: routedWorktree });
     await routed.releaseWarpLease();
     for (const cwd of churnRepos) {
@@ -994,9 +979,11 @@ describe("mcp: daemon workspace binding", () => {
 
     expect(pool.leaseCount(current.repoId!, "writer:test")).toBe(1);
     expect(pool.has(current.repoId!, "writer:test")).toBe(true);
+    await active.releaseWarpLease();
+    expect(pool.residentCount()).toBe(0);
   });
 
-  it("rolls back an uncommitted rebind lease without releasing the previous binding", async () => {
+  it("releases rebind history pins and preserves the previous binding on failure", async () => {
     const firstRepoDir = createCommittedRepo();
     const secondRepoDir = createCommittedRepo();
     const graftDir = fs.mkdtempSync(path.join(os.tmpdir(), "graft-binding-rollback-"));
@@ -1018,7 +1005,7 @@ describe("mcp: daemon workspace binding", () => {
     const pool = new InMemoryWarpPool((_worktreeRoot, writerId) => {
       openCount++;
       return Promise.resolve({ writerId, openCount } as unknown as WarpApp);
-    });
+    }, { maxIdleResidents: 0, maxResidents: 64 });
     const router = new WorkspaceRouter({
       mode: "daemon",
       fs: nodeFs,
@@ -1040,14 +1027,14 @@ describe("mcp: daemon workspace binding", () => {
 
     const first = await router.bind({ cwd: firstRepoDir }, "workspace_bind");
     expect(first.ok).toBe(true);
-    expect(pool.size()).toBe(1);
+    expect(pool.size()).toBe(0);
 
     await expect(router.rebind({ cwd: secondRepoDir }, "workspace_rebind")).rejects.toBe(bindError);
 
     expect(router.getStatus().repoId).toBe(first.repoId);
-    expect(pool.size()).toBe(1);
-    expect(pool.leaseCount(first.repoId!, "writer:test")).toBe(1);
-    expect(openCount).toBe(2);
+    expect(pool.size()).toBe(0);
+    expect(pool.leaseCount(first.repoId!, "writer:test")).toBe(0);
+    expect(openCount).toBe(3);
   });
 
   it("denies run_capture in daemon mode after bind", async () => {

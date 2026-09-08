@@ -487,7 +487,9 @@ describe("mcp: daemon transport and lifecycle", () => {
     expect(residentHealth.activeWarpResidents).toBe(2);
   });
 
-  it("releases a session's WARP residents when its daemon transport closes", async () => {
+  it("retires a session while its idle graph remains bounded and evictable", {
+    timeout: 15_000,
+  }, async () => {
     const repoDir = createTestRepo("graft-daemon-release-warp-");
     repos.push(repoDir);
     fs.writeFileSync(path.join(repoDir, "app.ts"), "export const ready = true;\n");
@@ -501,6 +503,7 @@ describe("mcp: daemon transport and lifecycle", () => {
       graftDir: rootDir,
       socketPath,
       persistedLocalHistoryGraph: true,
+      env: { GRAFT_WARP_MAX_RESIDENTS: "1" },
     });
     daemons.push(daemon);
 
@@ -531,20 +534,24 @@ describe("mcp: daemon transport and lifecycle", () => {
 
     const closedHealth = await waitFor(
       () => requestUnixJson(socketPath, "GET", "/healthz"),
-      (response) => {
-        const health = parseJson(response) as {
-          activeWarpRepos: number;
-          activeWarpResidents: number;
-        };
-        return health.activeWarpRepos === 0 && health.activeWarpResidents === 0;
-      },
+      (response) => (parseJson(response) as { activeSessions: number }).activeSessions === 0,
     );
     expect(parseJson(closedHealth)).toEqual(expect.objectContaining({
-      activeWarpRepos: 0,
-      activeWarpResidents: 0,
+      activeSessions: 0,
+      activeWarpRepos: 1,
+      activeWarpResidents: 1,
     }));
+    const replacement = await initializeSession(socketPath);
+    expect((await callTool<{ ok: boolean }>(
+      socketPath, replacement, "workspace_bind", { cwd: repoDir }, 22,
+    )).ok).toBe(true);
+    expect(parseJson(await requestUnixJson(socketPath, "GET", "/healthz"))).toEqual(expect.objectContaining({
+      activeSessions: 1,
+      activeWarpResidents: 1,
+    }));
+    expect(git(repoDir, "for-each-ref --format='%(refname)' refs/warp/graft-ast/writers").split("\n"))
+      .toContain(`refs/warp/graft-ast/writers/${buildSessionWarpWriterId(replacement)}`);
   });
-
 
   it("preserves safe_read cache behavior across off-process daemon execution", async () => {
     const repoDir = createTestRepo("graft-daemon-safe-read-");

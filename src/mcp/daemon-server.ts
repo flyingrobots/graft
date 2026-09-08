@@ -10,7 +10,7 @@ import { DaemonJobScheduler } from "./daemon-job-scheduler.js";
 import { resolveDaemonSchedulerConfig } from "./daemon-scheduler-config.js";
 import { ChildProcessDaemonWorkerPool } from "./daemon-worker-pool.js";
 import { PersistentMonitorRuntime } from "./persistent-monitor-runtime.js";
-import { InMemoryWarpPool } from "./warp-pool.js";
+import { InMemoryWarpPool, resolveWarpPoolOptions } from "./warp-pool.js";
 import { openWarp } from "../warp/open.js";
 import type { RunCaptureConfig } from "./run-capture-config.js";
 import type { RuntimeObservabilityState } from "./runtime-observability.js";
@@ -70,7 +70,10 @@ export async function startDaemonServer(options: StartDaemonServerOptions = {}):
   await ensureGitVersionSupportsGraft();
   const graftDir = path.resolve(options.graftDir ?? defaultDaemonRoot());
   const socketPath = resolveSocketPath(options.socketPath, graftDir);
-  const warpPool = new InMemoryWarpPool((cwd, writerId) => openWarp({ cwd, writerId }));
+  const warpPool = new InMemoryWarpPool(
+    (cwd, writerId) => openWarp({ cwd, writerId }),
+    resolveWarpPoolOptions(options.env ?? process.env),
+  );
   const controlPlane = new DaemonControlPlane({
     fs: nodeFs,
     codec: new CanonicalJsonCodec(),

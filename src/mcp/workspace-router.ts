@@ -54,7 +54,6 @@ import { GovernorTracker } from "../session/tracker.js";
 import {
   type BoundWorkspace,
   type WorkspaceSlice,
-  type WorkspaceWarpLease,
   boundWorkspaceStatus,
   buildPersistedLocalHistoryContext,
   buildPersistedLocalHistoryContextFromExecution,
@@ -123,7 +122,7 @@ interface WorkspaceHistoryScope {
     observation: RepoObservation,
     hookEvent?: GitTransitionHookEvent | null,
   ): PersistedLocalHistoryContext;
-  buildGraphContext(): Promise<PersistedLocalHistoryGraphContext | null>;
+  withGraph<T>(operation: (graph: PersistedLocalHistoryGraphContext | null) => Promise<T>): Promise<T>;
 }
 
 interface OpenedWorkspaceRecord extends ResolvedWorkspace {
@@ -149,7 +148,6 @@ function workspaceCapabilityProfilesEqual(
 
 export class WorkspaceRouter {
   private bindingCounter = 0;
-  private bindingLeaseCounter = 0;
   private executionCounter = 0;
   private sliceIdCounter = 0;
   private currentSlice: WorkspaceSlice;
@@ -158,7 +156,6 @@ export class WorkspaceRouter {
   private readonly openedWorkspaces = new Map<string, OpenedWorkspaceRecord>();
   private readonly routedBindings = new Map<string, BoundWorkspace>();
   private readonly routedBindingInitializations = new Map<string, Promise<BoundWorkspace>>();
-  private readonly bindingWarpLeases = new Set<WorkspaceWarpLease>();
   private bindingCommitTail: Promise<void> = Promise.resolve();
   private warpLeaseRelease: Promise<void> | null = null;
 
@@ -212,28 +209,13 @@ export class WorkspaceRouter {
         undefined,
         this.currentSlice,
       );
-      try {
-        const currentRepoState = currentBinding.slice.repoState;
-        if (currentRepoState === null) {
-          throw new WorkspaceBindingRequiredError("workspace");
-        }
-        await currentRepoState.initialize();
-        await this.options.persistedLocalHistory.noteBinding({
-          current: this.buildPersistedLocalHistoryContext(currentBinding, currentRepoState.getState()),
-          currentGraph: await this.buildPersistedLocalHistoryGraphContext(currentBinding),
-        });
-      } catch (error) {
-        try {
-          await this.releaseBindingWarpLease(currentBinding.warpLease);
-        } catch (cleanupError) {
-          throw new AggregateError(
-            [error, cleanupError],
-            "Failed to roll back a repo-local startup WARP binding lease",
-            { cause: cleanupError },
-          );
-        }
-        throw error;
-      }
+      const currentRepoState = currentBinding.slice.repoState;
+      if (currentRepoState === null) throw new WorkspaceBindingRequiredError("workspace");
+      await currentRepoState.initialize();
+      await this.withBindingGraph(currentBinding, (currentGraph) => this.options.persistedLocalHistory.noteBinding({
+        current: this.buildPersistedLocalHistoryContext(currentBinding, currentRepoState.getState()),
+        currentGraph,
+      }));
       this.currentBinding = currentBinding;
       this.noteOpenedWorkspace(initialWorkspace, DEFAULT_REPO_LOCAL_CAPABILITY_PROFILE, "startup", true);
     })();
@@ -277,28 +259,18 @@ export class WorkspaceRouter {
     return this.requireBinding().resolvePath;
   }
 
-  getWarp(): Promise<WarpContext> {
-    return this.requireBinding().getWarp();
+  async withWarp<T>(operation: (warp: WarpContext) => Promise<T>): Promise<T> {
+    const execution = this.captureExecutionContext();
+    try { return await operation(await execution.getWarp()); }
+    finally { await execution.releaseWarpLease(); }
   }
 
   releaseWarpLeases(): Promise<void> {
     if (this.warpLeaseRelease !== null) return this.warpLeaseRelease;
-
-    const initialization = this.initialization;
-    const routedInitializations = [...this.routedBindingInitializations.values()];
-    this.warpLeaseRelease = (async () => {
-      await initialization?.catch(() => undefined);
-      const routedResults = await Promise.allSettled(routedInitializations);
-      for (const result of routedResults) {
-        if (result.status === "fulfilled") {
-          this.bindingWarpLeases.add(result.value.warpLease);
-        }
-      }
-      const leases = new Set<WorkspaceWarpLease>([
-        ...this.bindingWarpLeases,
-      ]);
-      await Promise.all([...leases].map((lease) => this.releaseBindingWarpLease(lease)));
-    })();
+    // Bindings own metadata only. Already admitted operations release their
+    // own capabilities; retirement must not revoke those capabilities.
+    const pending = [this.initialization ?? Promise.resolve(), this.bindingCommitTail, ...this.routedBindingInitializations.values()];
+    this.warpLeaseRelease = Promise.allSettled(pending).then(() => undefined);
     return this.warpLeaseRelease;
   }
 
@@ -318,11 +290,11 @@ export class WorkspaceRouter {
       checkoutBoundaryHookEvent,
     );
     if (previousContext.checkoutEpochId !== nextContext.checkoutEpochId) {
-      await this.options.persistedLocalHistory.noteCheckoutBoundary({
+      await scope.withGraph((graph) => this.options.persistedLocalHistory.noteCheckoutBoundary({
         previous: previousContext,
         current: nextContext,
-        graph: await scope.buildGraphContext(),
-      });
+        graph,
+      }));
     }
   }
 
@@ -492,38 +464,31 @@ export class WorkspaceRouter {
     }
     const repoState = scope.repoState.getState();
     const causalContext = scope.getCausalContext();
-    const graph = await scope.buildGraphContext();
-    let summary = await this.options.persistedLocalHistory.summarize(scope.status, causalContext, graph);
+    return scope.withGraph(async (graph) => {
+      let summary = await this.options.persistedLocalHistory.summarize(scope.status, causalContext, graph);
+      if (repoState.semanticTransition !== null) {
+        await this.options.persistedLocalHistory.noteSemanticTransitionObservation({
+          current: scope.buildHistoryContext(repoState),
+          semanticTransition: repoState.semanticTransition,
+          transition: repoState.lastTransition,
+          attribution: summary.attribution,
+          graph,
+        });
+        summary = await this.options.persistedLocalHistory.summarize(scope.status, causalContext, graph);
+      }
 
-    if (repoState.semanticTransition !== null) {
-      await this.options.persistedLocalHistory.noteSemanticTransitionObservation({
-        current: scope.buildHistoryContext(repoState),
-        semanticTransition: repoState.semanticTransition,
-        transition: repoState.lastTransition,
-        attribution: summary.attribution,
-        graph,
-      });
-      summary = await this.options.persistedLocalHistory.summarize(scope.status, causalContext, graph);
-    }
-
-    const stagedTarget = buildRuntimeStagedTarget(
-      scope.status,
-      causalContext,
-      repoState,
-      summary.attribution,
-    );
-
-    if (stagedTarget.availability === "full_file") {
-      await this.options.persistedLocalHistory.noteStageObservation({
-        current: scope.buildHistoryContext(repoState),
-        stagedTarget,
-        attribution: summary.attribution,
-        graph,
-      });
-      return this.options.persistedLocalHistory.summarize(scope.status, causalContext, graph);
-    }
-
-    return summary;
+      const stagedTarget = buildRuntimeStagedTarget(scope.status, causalContext, repoState, summary.attribution);
+      if (stagedTarget.availability === "full_file") {
+        await this.options.persistedLocalHistory.noteStageObservation({
+          current: scope.buildHistoryContext(repoState),
+          stagedTarget,
+          attribution: summary.attribution,
+          graph,
+        });
+        return this.options.persistedLocalHistory.summarize(scope.status, causalContext, graph);
+      }
+      return summary;
+    });
   }
 
   async getRepoConcurrencySummary(
@@ -533,10 +498,10 @@ export class WorkspaceRouter {
     if (scope === null) {
       return null;
     }
-    return this.options.persistedLocalHistory.summarizeRepoConcurrency(
+    return scope.withGraph((graph) => this.options.persistedLocalHistory.summarizeRepoConcurrency(
       scope.status,
-      await scope.buildGraphContext(),
-    );
+      graph,
+    ));
   }
 
   async getPersistedLocalActivityWindow(
@@ -557,13 +522,12 @@ export class WorkspaceRouter {
     await this.getPersistedLocalHistorySummary(execution);
 
     const causalContext = scope.getCausalContext();
-    const graph = await scope.buildGraphContext();
-    return this.options.persistedLocalHistory.listRecentActivity(
+    return scope.withGraph((graph) => this.options.persistedLocalHistory.listRecentActivity(
       scope.status,
       causalContext,
       limit,
       graph,
-    );
+    ));
   }
 
   getWorkspaceOverlayFooting(
@@ -651,7 +615,7 @@ export class WorkspaceRouter {
     if (capabilityProfile === null) {
       const cached = this.routedBindings.get(resolved.worktreeId);
       if (cached !== undefined) {
-        await this.disposeRoutedBinding(cached);
+        this.disposeRoutedBinding(cached);
       }
       const initializing = this.routedBindingInitializations.get(resolved.worktreeId);
       if (initializing !== undefined) {
@@ -660,7 +624,7 @@ export class WorkspaceRouter {
         }
         const initialized = await initializing.catch(() => null);
         if (initialized !== null && initialized !== cached) {
-          await this.disposeRoutedBinding(initialized);
+          this.disposeRoutedBinding(initialized);
         }
       }
       throw new WorkspaceRouteUnauthorizedError(resolved.worktreeRoot);
@@ -675,7 +639,7 @@ export class WorkspaceRouter {
 
     const existing = this.routedBindings.get(resolved.worktreeId);
     if (existing !== undefined && this.routedBindingMatches(existing, resolved, capabilityProfile)) {
-      await this.noteRoutedBinding(existing);
+      this.noteRoutedBinding(existing);
       return this.buildExecutionContext(existing, workspaceRoute);
     }
 
@@ -683,7 +647,7 @@ export class WorkspaceRouter {
     if (initializing !== undefined) {
       const binding = await initializing;
       if (this.routedBindingMatches(binding, resolved, capabilityProfile)) {
-        await this.noteRoutedBinding(binding);
+        this.noteRoutedBinding(binding);
         return this.buildExecutionContext(binding, workspaceRoute);
       }
     }
@@ -698,7 +662,7 @@ export class WorkspaceRouter {
         this.routedBindingInitializations.delete(resolved.worktreeId);
       }
     }
-    await this.noteRoutedBinding(binding);
+    this.noteRoutedBinding(binding);
     this.noteOpenedWorkspace(
       resolved,
       capabilityProfile,
@@ -719,25 +683,10 @@ export class WorkspaceRouter {
     );
     await this.options.fs.mkdir(routeDir, { recursive: true });
     const binding = await this.createBoundWorkspace(resolved, routeDir, capabilityProfile, undefined);
-    try {
-      const repoState = binding.slice.repoState;
-      if (repoState === null) {
-        throw new WorkspaceBindingRequiredError("workspace");
-      }
-      await repoState.initialize();
-      return binding;
-    } catch (error) {
-      try {
-        await this.releaseBindingWarpLease(binding.warpLease);
-      } catch (cleanupError) {
-        throw new AggregateError(
-          [error, cleanupError],
-          "Failed to roll back a routed WARP binding lease",
-          { cause: cleanupError },
-        );
-      }
-      throw error;
-    }
+    const repoState = binding.slice.repoState;
+    if (repoState === null) throw new WorkspaceBindingRequiredError("workspace");
+    await repoState.initialize();
+    return binding;
   }
 
   private routedBindingMatches(
@@ -751,12 +700,12 @@ export class WorkspaceRouter {
       && workspaceCapabilityProfilesEqual(binding.capabilityProfile, capabilityProfile);
   }
 
-  private async noteRoutedBinding(binding: BoundWorkspace): Promise<void> {
+  private noteRoutedBinding(binding: BoundWorkspace): void {
     const replaced = this.routedBindings.get(binding.worktreeId);
     this.routedBindings.delete(binding.worktreeId);
     this.routedBindings.set(binding.worktreeId, binding);
     if (replaced !== undefined && replaced !== binding) {
-      await this.disposeRoutedBinding(replaced);
+      this.disposeRoutedBinding(replaced);
     }
     while (this.routedBindings.size > MAX_ROUTED_BINDINGS) {
       const oldestKey = this.routedBindings.keys().next().value;
@@ -765,18 +714,17 @@ export class WorkspaceRouter {
       }
       const evicted = this.routedBindings.get(oldestKey);
       if (evicted !== undefined) {
-        await this.disposeRoutedBinding(evicted);
+        this.disposeRoutedBinding(evicted);
       } else {
         this.routedBindings.delete(oldestKey);
       }
     }
   }
 
-  private async disposeRoutedBinding(binding: BoundWorkspace): Promise<void> {
+  private disposeRoutedBinding(binding: BoundWorkspace): void {
     if (this.routedBindings.get(binding.worktreeId) === binding) {
       this.routedBindings.delete(binding.worktreeId);
     }
-    await this.releaseBindingWarpLease(binding.warpLease);
   }
 
   private buildExecutionContext(
@@ -862,11 +810,11 @@ export class WorkspaceRouter {
     }
 
     try {
-      await this.options.persistedLocalHistory.declareAttach({
+      await scope.withGraph((graph) => this.options.persistedLocalHistory.declareAttach({
         current: scope.buildHistoryContext(scope.repoState.getState()),
         declaration,
-        graph: await scope.buildGraphContext(),
-      });
+        graph,
+      }));
     } catch (error) {
       if (error instanceof PersistedLocalHistoryAttachUnavailableError) {
         const sharedAttachSource = this.options.sharedAttachPolicy?.resolveSharedAttachSource({
@@ -875,12 +823,12 @@ export class WorkspaceRouter {
           worktreeId: scope.worktreeId,
         }) ?? null;
         if (sharedAttachSource !== null) {
-          await this.options.persistedLocalHistory.declareSharedAttach({
+          await scope.withGraph((graph) => this.options.persistedLocalHistory.declareSharedAttach({
             current: scope.buildHistoryContext(scope.repoState.getState()),
             declaration,
             source: sharedAttachSource,
-            graph: await scope.buildGraphContext(),
-          });
+            graph,
+          }));
           return {
             ok: true,
             action: "attach",
@@ -971,54 +919,22 @@ export class WorkspaceRouter {
     options: { readonly openedSource?: OpenedWorkspaceSource | undefined },
   ): Promise<WorkspaceActionResult> {
     const previousBinding = this.currentBinding;
-    const nextWriterId = this.options.warpWriterId ?? DEFAULT_WARP_WRITER_ID;
-    const transferredWarpLease = previousBinding?.repoId === resolved.repoId
-      && previousBinding.warpWriterId === nextWriterId
-      && previousBinding.warpLease.hasAcquiredResident()
-      ? previousBinding.warpLease
-      : undefined;
-    const nextBinding = await this.createBoundWorkspace(
-      resolved,
-      sliceDir,
-      capabilityProfile,
-      actionName,
-      undefined,
-      transferredWarpLease,
-    );
+    const nextBinding = await this.createBoundWorkspace(resolved, sliceDir, capabilityProfile, actionName);
     const nextRepoState = nextBinding.slice.repoState;
-    if (nextRepoState === null) {
-      throw new WorkspaceBindingRequiredError("workspace");
-    }
-    try {
-      await nextRepoState.initialize();
-      const previousRepoState = previousBinding?.slice.repoState;
-      await this.options.persistedLocalHistory.noteBinding({
+    if (nextRepoState === null) throw new WorkspaceBindingRequiredError("workspace");
+    await nextRepoState.initialize();
+    const previousRepoState = previousBinding?.slice.repoState;
+    await this.withBindingGraph(nextBinding, (currentGraph) =>
+      this.withBindingGraph(previousBinding, (previousGraph) => this.options.persistedLocalHistory.noteBinding({
         current: this.buildPersistedLocalHistoryContext(nextBinding, nextRepoState.getState()),
         previous: previousBinding === null || previousRepoState == null
           ? null
           : this.buildPersistedLocalHistoryContext(previousBinding, previousRepoState.getState()),
-        currentGraph: await this.buildPersistedLocalHistoryGraphContext(nextBinding),
-        previousGraph: previousBinding === null
-          ? null
-          : await this.buildPersistedLocalHistoryGraphContext(previousBinding),
-      });
-      if (this.options.mode === "daemon") {
-        await this.options.authorizationPolicy?.noteBound(resolved);
-      }
-    } catch (error) {
-      if (nextBinding.warpLease !== previousBinding?.warpLease) {
-        try {
-          await this.releaseBindingWarpLease(nextBinding.warpLease);
-        } catch (cleanupError) {
-          throw new AggregateError(
-            [error, cleanupError],
-            "Failed to roll back an uncommitted WARP binding lease",
-            { cause: cleanupError },
-          );
-        }
-      }
-      throw error;
-    }
+        currentGraph,
+        previousGraph,
+      })),
+    );
+    if (this.options.mode === "daemon") await this.options.authorizationPolicy?.noteBound(resolved);
     this.currentBinding = nextBinding;
     this.currentSlice = nextBinding.slice;
     this.noteOpenedWorkspace(
@@ -1027,12 +943,6 @@ export class WorkspaceRouter {
       options.openedSource ?? (this.options.mode === "daemon" ? "daemon_authorized" : "session_opened"),
       true,
     );
-    if (
-      previousBinding !== null
-      && previousBinding.warpLease !== nextBinding.warpLease
-    ) {
-      await this.releaseBindingWarpLease(previousBinding.warpLease);
-    }
 
     return {
       ok: true,
@@ -1048,7 +958,6 @@ export class WorkspaceRouter {
     capabilityProfile: WorkspaceCapabilityProfile,
     actionName: string | undefined,
     sliceOverride?: WorkspaceSlice,
-    warpLease?: WorkspaceWarpLease,
   ): Promise<BoundWorkspace> {
     const slice = sliceOverride ?? createWorkspaceSlice({
       graftDir,
@@ -1057,7 +966,8 @@ export class WorkspaceRouter {
       git: this.options.git,
       nextSliceId: `slice-${String(++this.sliceIdCounter).padStart(4, "0")}`,
     });
-    const binding = await createBoundWorkspace({
+    if (this.warpLeaseRelease !== null) throw new Error("workspace graph admission has closed");
+    return createBoundWorkspace({
       resolved,
       graftDir,
       capabilityProfile,
@@ -1066,25 +976,7 @@ export class WorkspaceRouter {
       fs: this.options.fs,
       transportSessionId: this.options.transportSessionId,
       warpWriterId: this.options.warpWriterId ?? DEFAULT_WARP_WRITER_ID,
-      warpLeaseOwnerId: [
-        this.options.transportSessionId,
-        "binding",
-        String(++this.bindingLeaseCounter).padStart(6, "0"),
-      ].join(":"),
-      ...(warpLease !== undefined ? { warpLease } : {}),
-      warpPool: this.options.warpPool,
     });
-    this.bindingWarpLeases.add(binding.warpLease);
-    if (this.warpLeaseRelease !== null) {
-      await this.releaseBindingWarpLease(binding.warpLease);
-      throw new Error("workspace WARP leases have already been released");
-    }
-    return binding;
-  }
-
-  private async releaseBindingWarpLease(lease: WorkspaceWarpLease): Promise<void> {
-    await lease.release();
-    this.bindingWarpLeases.delete(lease);
   }
 
   private requireBinding(): BoundWorkspace {
@@ -1232,7 +1124,7 @@ export class WorkspaceRouter {
         buildHistoryContext: (observation, hookEvent) => {
           return this.buildPersistedLocalHistoryContextFromExecution(execution, observation, hookEvent);
         },
-        buildGraphContext: () => this.buildPersistedLocalHistoryGraphContextFromExecution(execution),
+        withGraph: async (operation) => operation(await this.buildPersistedLocalHistoryGraphContextFromExecution(execution)),
       };
     }
 
@@ -1252,17 +1144,28 @@ export class WorkspaceRouter {
       buildHistoryContext: (observation, hookEvent) => {
         return this.buildPersistedLocalHistoryContext(binding, observation, hookEvent);
       },
-      buildGraphContext: () => this.buildPersistedLocalHistoryGraphContext(binding),
+      withGraph: (operation) => this.withBindingGraph(binding, operation),
     };
   }
 
-  private async buildPersistedLocalHistoryGraphContext(
-    binding: BoundWorkspace,
-  ): Promise<PersistedLocalHistoryGraphContext | null> {
-    if (this.options.persistedLocalHistoryGraph === false) {
-      return null;
+  private async withBindingGraph<T>(
+    binding: BoundWorkspace | null,
+    operation: (graph: PersistedLocalHistoryGraphContext | null) => Promise<T>,
+  ): Promise<T> {
+    if (this.warpLeaseRelease !== null) throw new Error("workspace graph admission has closed");
+    if (binding === null || this.options.persistedLocalHistoryGraph === false) return operation(null);
+    const lease = createWorkspaceWarpLease({
+      repoId: binding.repoId,
+      worktreeRoot: binding.worktreeRoot,
+      writerId: binding.warpWriterId,
+      ownerId: binding.transportSessionId + ":history:" + String(++this.executionCounter),
+      warpPool: this.options.warpPool,
+    });
+    try {
+      return await operation(await buildPersistedLocalHistoryGraphContext(binding.worktreeRoot, () => lease.getWarp()));
+    } finally {
+      await lease.release();
     }
-    return buildPersistedLocalHistoryGraphContext(binding.worktreeRoot, binding.getWarp);
   }
 
   private async buildPersistedLocalHistoryGraphContextFromExecution(
