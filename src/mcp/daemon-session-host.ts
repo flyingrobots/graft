@@ -101,44 +101,8 @@ async function createDaemonSession(
 ): Promise<DaemonSession> {
   const sessionGraftDir = path.join(options.graftDir, "sessions", newSessionId);
   await ensurePrivateDirectory(sessionGraftDir);
-  const transport = new StreamableHTTPServerTransport({
-    sessionIdGenerator: () => newSessionId,
-  });
-  const server = createGraftServer({
-    mode: "daemon",
-    sessionId: newSessionId,
-    graftDir: sessionGraftDir,
-    warpPool: options.warpPool,
-    daemonControlPlane: options.controlPlane,
-    daemonScheduler: options.daemonScheduler,
-    daemonWorkerPool: options.daemonWorkerPool,
-    daemonRuntime: () => ({
-      transport: options.transportKind,
-      sameUserOnly: true,
-      socketPath: options.socketPath,
-      mcpPath: options.mcpPath,
-      healthPath: options.healthPath,
-      activeWarpRepos: options.warpPool.size(),
-      activeWarpResidents: options.warpPool.residentCount(),
-      startedAt: options.startedAt,
-    }),
-    monitorRuntime: options.monitorRuntime,
-    ...(options.env !== undefined ? { env: options.env } : {}),
-    ...(options.runCapture !== undefined ? { runCapture: options.runCapture } : {}),
-    ...(options.runtimeObservability !== undefined
-      ? { runtimeObservability: options.runtimeObservability }
-      : {}),
-    ...(options.persistedLocalHistoryGraph !== undefined
-      ? { persistedLocalHistoryGraph: options.persistedLocalHistoryGraph }
-      : {}),
-  });
-  const session: DaemonSession = {
-    id: newSessionId,
-    graftDir: sessionGraftDir,
-    transport,
-    server,
-    retire: () => retireSession(),
-  };
+  let transport: StreamableHTTPServerTransport | null = null;
+  let server: GraftServer | null = null;
   let retirement: Promise<void> | null = null;
   const retireSession = (): Promise<void> => {
     if (retirement !== null) return retirement;
@@ -146,7 +110,7 @@ async function createDaemonSession(
       sessions.delete(newSessionId);
       options.controlPlane.unregisterTransport(newSessionId);
       try {
-        await server.releaseWarpLeases();
+        await server?.releaseWarpLeases();
       } catch (error) {
         console.error(`[graft] failed to release WARP leases for session ${newSessionId}: ${String(error)}`);
       }
@@ -154,25 +118,61 @@ async function createDaemonSession(
     })();
     return retirement;
   };
-  transport.onclose = () => {
-    void retireSession();
-  };
-  transport.onerror = () => {
-    void retireSession();
-  };
   try {
+    transport = new StreamableHTTPServerTransport({
+      sessionIdGenerator: () => newSessionId,
+    });
+    server = createGraftServer({
+      mode: "daemon",
+      sessionId: newSessionId,
+      graftDir: sessionGraftDir,
+      warpPool: options.warpPool,
+      daemonControlPlane: options.controlPlane,
+      daemonScheduler: options.daemonScheduler,
+      daemonWorkerPool: options.daemonWorkerPool,
+      daemonRuntime: () => ({
+        transport: options.transportKind,
+        sameUserOnly: true,
+        socketPath: options.socketPath,
+        mcpPath: options.mcpPath,
+        healthPath: options.healthPath,
+        activeWarpRepos: options.warpPool.size(),
+        activeWarpResidents: options.warpPool.residentCount(),
+        startedAt: options.startedAt,
+      }),
+      monitorRuntime: options.monitorRuntime,
+      ...(options.env !== undefined ? { env: options.env } : {}),
+      ...(options.runCapture !== undefined ? { runCapture: options.runCapture } : {}),
+      ...(options.runtimeObservability !== undefined
+        ? { runtimeObservability: options.runtimeObservability }
+        : {}),
+      ...(options.persistedLocalHistoryGraph !== undefined
+        ? { persistedLocalHistoryGraph: options.persistedLocalHistoryGraph }
+        : {}),
+    });
+    const session: DaemonSession = {
+      id: newSessionId,
+      graftDir: sessionGraftDir,
+      transport,
+      server,
+      retire: () => retireSession(),
+    };
+    transport.onclose = () => {
+      void retireSession();
+    };
+    transport.onerror = () => {
+      void retireSession();
+    };
     sessions.set(newSessionId, session);
     options.controlPlane.registerTransport(
       newSessionId,
-      () => server.getWorkspaceStatus(),
-      () => server.getRuntimeCausalContext(),
+      () => session.server.getWorkspaceStatus(),
+      () => session.server.getRuntimeCausalContext(),
     );
     await server.getMcpServer().connect(transport as Transport);
     return session;
   } catch (error) {
-    await transport.close().catch(() => {
-      return undefined;
-    });
+    await transport?.close().catch(() => undefined);
     await retireSession();
     throw error;
   }

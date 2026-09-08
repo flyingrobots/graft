@@ -109,3 +109,12 @@ retires the new session through its existing idempotent owner before returning
 `-32603`. The regression and existing connection-rollback test passed 2/2;
 the existing session directory remains present and the failed one is removed.
 Logs: `/tmp/graft-review-initial-{red,green}.log`.
+
+## Review repair: partial construction
+
+The injected synchronous `registerTool` failure during server construction
+left one scratch directory on `3390fc96`. Construction now shares the same
+idempotent retirement boundary as connection; it closes a constructed
+transport, releases a returned server, and removes the scratch directory.
+The construction, initial-request, and connection regressions passed 3/3.
+Logs: `/tmp/graft-review-construction-{red,green}.log`.

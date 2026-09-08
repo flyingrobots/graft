@@ -451,6 +451,28 @@ describe("mcp: daemon transport and lifecycle", () => {
     await deleteSession(socketPath, existing);
   });
 
+  it("removes scratch allocation when server construction throws", async () => {
+    const rootDir = fs.mkdtempSync(path.join(os.tmpdir(), "graft-daemon-root-"));
+    roots.push(rootDir);
+    const socketPath = path.join(rootDir, "daemon.sock");
+    const daemon = await startTestDaemonServer({ graftDir: rootDir, socketPath });
+    daemons.push(daemon);
+    vi.spyOn(McpServer.prototype, "registerTool").mockImplementationOnce(() => {
+      throw new Error("injected synchronous server construction failure");
+    });
+    const closeTransport = vi.spyOn(StreamableHTTPServerTransport.prototype, "close");
+
+    const response = await requestUnixJson(socketPath, "POST", "/mcp", {
+      jsonrpc: "2.0", id: 1, method: "initialize",
+      params: { protocolVersion: "2025-03-26", capabilities: {}, clientInfo: { name: "vitest", version: "0" } },
+    });
+
+    expect(parseJson(response)).toMatchObject({ error: { code: -32603 } });
+    expect(daemon.getHealthStatus().activeSessions).toBe(0);
+    expect(fs.readdirSync(path.join(rootDir, "sessions"))).toEqual([]);
+    expect(closeTransport).toHaveBeenCalledOnce();
+  });
+
   it("opens persisted daemon graphs on each transport session's logical writer lane", async () => {
     const repoDir = createTestRepo("graft-daemon-writer-lanes-");
     repos.push(repoDir);
