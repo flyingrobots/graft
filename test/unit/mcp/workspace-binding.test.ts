@@ -1005,10 +1005,10 @@ describe("mcp: daemon workspace binding", () => {
       historyBindings++;
       return historyBindings === 1 ? Promise.resolve() : Promise.reject(bindError);
     };
-    let openCount = 0;
-    const pool = new InMemoryWarpPool((_worktreeRoot, writerId) => {
-      openCount++;
-      return Promise.resolve({ writerId, openCount } as unknown as WarpApp);
+    const openedWorktreeRoots: string[] = [];
+    const pool = new InMemoryWarpPool((worktreeRoot, writerId) => {
+      openedWorktreeRoots.push(worktreeRoot);
+      return Promise.resolve({ writerId } as unknown as WarpApp);
     }, { maxIdleResidents: 0, maxResidents: 64 });
     const router = new WorkspaceRouter({
       mode: "daemon",
@@ -1038,7 +1038,7 @@ describe("mcp: daemon workspace binding", () => {
     expect(router.getStatus().repoId).toBe(first.repoId);
     expect(pool.size()).toBe(0);
     expect(pool.leaseCount(first.repoId!, "writer:test")).toBe(0);
-    expect(openCount).toBe(3);
+    expect(openedWorktreeRoots).toContain(fs.realpathSync(secondRepoDir));
   });
 
   it("denies run_capture in daemon mode after bind", async () => {

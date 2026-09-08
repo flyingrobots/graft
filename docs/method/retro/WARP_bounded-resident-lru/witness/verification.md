@@ -236,3 +236,13 @@ pool handles intentionally do not emulate graph storage. Lint and typecheck
 passed. Logs: `/tmp/graft-review-rebind-red.log`,
 `/tmp/graft-review-rebind-verify.log`. No capacity override or test timeout
 increase was needed to pass the new witness.
+
+## Review maintenance: rollback oracle
+
+The rollback test now records opened worktree roots and requires the replacement
+repository to have been opened. It still requires the original binding identity,
+zero resident pins under its explicit cold policy, and the injected history
+failure. The exact count of opener calls is removed because it was incidental
+to lease granularity. The targeted test, relevant-file ESLint, and typecheck
+passed. This preserves the existing consequential rollback claim rather than
+adding a new behavior. Log: `/tmp/graft-review-rollback-oracle.log`.
