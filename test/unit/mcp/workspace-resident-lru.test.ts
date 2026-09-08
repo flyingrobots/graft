@@ -6,6 +6,7 @@ import * as path from "node:path";
 import { CanonicalJsonCodec } from "../../../src/adapters/canonical-json.js";
 import { nodeFs } from "../../../src/adapters/node-fs.js";
 import { nodeGit } from "../../../src/adapters/node-git.js";
+import { openWarp } from "../../../src/warp/open.js";
 import { InMemoryWarpPool } from "../../../src/mcp/warp-pool.js";
 import { WorkspaceRouter } from "../../../src/mcp/workspace-router.js";
 import { PersistedLocalHistoryStore } from "../../../src/mcp/persisted-local-history.js";
@@ -16,6 +17,36 @@ afterEach(async () => { for (const cleanup of cleanups.splice(0).reverse()) awai
 
 // Oracle: workspace membership survives LRU pressure; only an operation owns pins.
 describe("workspace residency under LRU pressure", () => {
+  it("preserves both repositories' continuity when rebinding with one resident slot", {
+    timeout: 15_000,
+  }, async () => {
+    const first = createCommittedTestRepo("graft-one-slot-first-");
+    const second = createCommittedTestRepo("graft-one-slot-second-");
+    cleanups.push(() => { cleanupTestRepo(first); cleanupTestRepo(second); });
+    const graftDir = fs.mkdtempSync(path.join(os.tmpdir(), "graft-one-slot-session-"));
+    cleanups.push(() => { fs.rmSync(graftDir, { recursive: true, force: true }); });
+    const pool = new InMemoryWarpPool((cwd, writerId) => openWarp({ cwd, writerId }), { maxResidents: 1 });
+    const history = new PersistedLocalHistoryStore({ fs: nodeFs, codec: new CanonicalJsonCodec(), graftDir });
+    const router = new WorkspaceRouter({
+      mode: "repo_local", projectRoot: first, graftDir, fs: nodeFs, git: nodeGit,
+      warpPool: pool, transportSessionId: "one-slot-session", warpWriterId: "one-slot-writer",
+      persistedLocalHistory: history,
+    });
+    cleanups.push(() => router.releaseWarpLeases());
+    await router.initialize();
+    expect(await router.getPersistedLocalHistorySummary()).toMatchObject({ availability: "present", lastOperation: "start" });
+    const previous = router.captureExecutionContext();
+    try {
+      expect((await router.openWorkspace({ cwd: second })).ok).toBe(true);
+      expect(await router.getPersistedLocalHistorySummary()).toMatchObject({ availability: "present", lastOperation: "start" });
+      expect(await router.getPersistedLocalHistorySummary(previous)).toMatchObject({
+        availability: "present", lastOperation: "park", totalContinuityRecords: 2,
+      });
+      expect(pool.residentCount()).toBe(1);
+      expect(router.listOpenedWorkspaces().workspaces).toHaveLength(2);
+    } finally { await previous.releaseWarpLease(); }
+  });
+
   it("allows more bound sessions than resident slots without pinning idle graphs", async () => {
     const repo = createCommittedTestRepo("graft-workspace-resident-lru-");
     cleanups.push(() => { cleanupTestRepo(repo); });

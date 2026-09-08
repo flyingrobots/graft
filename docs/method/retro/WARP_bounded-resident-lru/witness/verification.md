@@ -217,3 +217,22 @@ run `34190011523`, Node 20 job `101945968625`, Node 22 job `101945968441`.
 That Node 22 run included the full corrected isolated suite. This is historical
 validation of that head; the final harness commit requires its own CI result
 and substantive review before merge readiness.
+
+## Current review repair: single-slot rebind continuity
+
+CodeRabbit thread `PRRT_kwDOR3kM9M6gGu2N` identified self-inflicted pressure:
+the rebind nested previous/current graph scopes, so capacity one suppressed the
+previous graph and skipped its park record. The new real Git witness on
+`85f81d94` observed `start`/one record for the old workspace instead of
+`park`/two records. The store now exposes the existing departure write as a
+separate operation. The router leases the previous graph for that write,
+releases it, then leases the current graph for arrival; existing
+previous-before-current ordering is unchanged. Same-workspace rebinds skip the
+separate departure scope. This does not introduce a durable transaction.
+
+The new witness and binding/history files pass 47/47. Existing tests that stub
+history writes now stub the separate departure operation as well; their opaque
+pool handles intentionally do not emulate graph storage. Lint and typecheck
+passed. Logs: `/tmp/graft-review-rebind-red.log`,
+`/tmp/graft-review-rebind-verify.log`. No capacity override or test timeout
+increase was needed to pass the new witness.

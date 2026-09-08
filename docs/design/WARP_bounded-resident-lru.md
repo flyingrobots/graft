@@ -57,10 +57,13 @@ context owns any lazily acquired resident through handler and attribution
 settlement, then releases it in `finally`.
 
 Binding initialization, rebind history, and router history operations outside
-an invocation use explicit operation-scoped leases. A rebind can temporarily
-need both previous and next graphs. If capacity prevents optional graph-backed
-history, the existing unavailable-history path must remain explicit; it may
-not open past the bound or rewrite binding identity. A graph request requiring
+an invocation use explicit operation-scoped leases. Rebind history parks the
+previous workspace under one lease, releases it, then writes current-workspace
+continuity under another. It must not create its own capacity pressure by
+holding both graphs, so capacity one preserves both records when no other
+operation pins the pool. If unrelated work prevents optional graph-backed
+history, the existing unavailable-history path remains; it must not open past
+the bound or rewrite binding identity. A graph request requiring
 WARP propagates the typed capacity error through the existing error surface.
 
 Direct tool-context graph access requires a captured execution capability.
@@ -160,3 +163,12 @@ The in-process daemon test harness inherits the same all-stage cleanup rule:
 a failed session close must not skip later sessions, monitor/worker shutdown,
 or scratch removal. Verify this with a controlled session-release failure and
 actual scratch ownership, so a failing test does not contaminate later tests.
+
+## Single-slot rebind review witness
+
+With a real Git-backed pool of capacity one, initialize workspace A, activate
+repository B, and query A through its captured execution identity. A must have
+its `park` continuity record and B its `start` record. Neither workspace
+membership nor graph residency may grow past its declared scope. Preserve the
+existing previous-before-current history write order; this is not a new
+cross-repository transaction or a rollback guarantee for durable history.

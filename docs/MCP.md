@@ -89,7 +89,10 @@ Current and opened workspace bindings retain routing metadata without graph
 leases. Bound repository invocations own their captured route's capability
 through handler, attribution, and failure settlement; scheduler admission
 remains daemon-only. Binding setup and history operations outside an invocation
-use temporary capabilities released in `finally`. Session retirement and
+use temporary capabilities released in `finally`. A cross-repository rebind
+parks the previous workspace and releases its lease before acquiring the
+current graph, so its own lease scopes work with a single slot.
+Session retirement and
 rebind cannot revoke a capability still owned by an admitted invocation.
 
 Eviction removes reconstructible process state without deleting source files,

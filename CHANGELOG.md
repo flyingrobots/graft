@@ -17,6 +17,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   A miss evicts the least recently used idle entry. Pinned entries remain
   protected, and an all-pinned pool rejects a new lane with a capacity error
   instead of growing. Eviction leaves durable Git-backed index data intact.
+  Cross-repository rebind history uses one graph lease at a time, preserving
+  previous and current continuity with a single resident slot.
   Recently released entries remain reusable; pool callers can select an idle
   limit of zero for eager release. The bound covers this pool's handles, not
   total daemon/worker memory or the size of an individual graph.

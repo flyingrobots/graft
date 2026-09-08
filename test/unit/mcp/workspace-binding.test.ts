@@ -502,6 +502,7 @@ describe("mcp: daemon workspace binding", () => {
       codec: new CanonicalJsonCodec(),
       graftDir,
     });
+    history.noteBindingDeparture = () => Promise.resolve();
     history.noteBinding = () => Promise.reject(initializationError);
     const openWarp = vi.fn((_worktreeRoot: string, writerId: string) => {
       return Promise.resolve({ writerId } as unknown as WarpApp);
@@ -770,6 +771,7 @@ describe("mcp: daemon workspace binding", () => {
       codec: new CanonicalJsonCodec(),
       graftDir,
     });
+    history.noteBindingDeparture = () => Promise.resolve();
     history.noteBinding = () => Promise.resolve();
     let capabilityRequests = 0;
     let releaseConcurrentProfiles!: () => void;
@@ -894,6 +896,7 @@ describe("mcp: daemon workspace binding", () => {
     history.noteReadObservation = (input) => {
       return noteReadWithoutGraph({ ...input, graph: null });
     };
+    history.noteBindingDeparture = () => Promise.resolve();
     history.noteBinding = () => Promise.resolve();
     const router = new WorkspaceRouter({
       mode: "repo_local",
@@ -997,6 +1000,7 @@ describe("mcp: daemon workspace binding", () => {
       graftDir,
     });
     let historyBindings = 0;
+    history.noteBindingDeparture = () => Promise.resolve();
     history.noteBinding = () => {
       historyBindings++;
       return historyBindings === 1 ? Promise.resolve() : Promise.reject(bindError);

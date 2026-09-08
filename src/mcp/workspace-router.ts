@@ -924,15 +924,17 @@ export class WorkspaceRouter {
     if (nextRepoState === null) throw new WorkspaceBindingRequiredError("workspace");
     await nextRepoState.initialize();
     const previousRepoState = previousBinding?.slice.repoState;
+    const current = this.buildPersistedLocalHistoryContext(nextBinding, nextRepoState.getState());
+    const previous = previousBinding === null || previousRepoState == null
+      ? null
+      : this.buildPersistedLocalHistoryContext(previousBinding, previousRepoState.getState());
+    if (previous !== null && (previous.repoId !== current.repoId || previous.worktreeId !== current.worktreeId)) {
+      await this.withBindingGraph(previousBinding, (previousGraph) =>
+        this.options.persistedLocalHistory.noteBindingDeparture({ current, previous, previousGraph }),
+      );
+    }
     await this.withBindingGraph(nextBinding, (currentGraph) =>
-      this.withBindingGraph(previousBinding, (previousGraph) => this.options.persistedLocalHistory.noteBinding({
-        current: this.buildPersistedLocalHistoryContext(nextBinding, nextRepoState.getState()),
-        previous: previousBinding === null || previousRepoState == null
-          ? null
-          : this.buildPersistedLocalHistoryContext(previousBinding, previousRepoState.getState()),
-        currentGraph,
-        previousGraph,
-      })),
+      this.options.persistedLocalHistory.noteBinding({ current, previous, currentGraph }),
     );
     if (this.options.mode === "daemon") await this.options.authorizationPolicy?.noteBound(resolved);
     this.currentBinding = nextBinding;
