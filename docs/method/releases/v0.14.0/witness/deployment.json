@@ -1,0 +1,102 @@
+{
+  "version": "0.14.0",
+  "oldPid": 56911,
+  "newPid": 97570,
+  "launcherSwitchedAt": "2026-09-11T10:19:33.089380+00:00",
+  "verifiedAt": "2026-09-11T10:19:33.825014+00:00",
+  "before": {
+    "ok": true,
+    "startedAt": "2026-09-08T01:34:29.840Z",
+    "activeSessions": 16,
+    "boundSessions": 1,
+    "unboundSessions": 15,
+    "authorizedWorkspaces": 68,
+    "authorizedRepos": 30,
+    "activeWarpRepos": 5,
+    "scheduler": {
+      "maxConcurrentJobs": 2,
+      "activeJobs": 0,
+      "queuedJobs": 0,
+      "interactiveQueuedJobs": 0,
+      "backgroundQueuedJobs": 0,
+      "activeWriterLanes": 0,
+      "queuedWriterLanes": 0,
+      "completedJobs": 160,
+      "failedJobs": 5,
+      "longestQueuedWaitMs": 0
+    },
+    "workers": {
+      "mode": "child_processes",
+      "totalWorkers": 4,
+      "busyWorkers": 0,
+      "idleWorkers": 4,
+      "queuedTasks": 0,
+      "completedTasks": 60,
+      "failedTasks": 0
+    }
+  },
+  "after": {
+    "ok": true,
+    "startedAt": "2026-09-11T10:19:33.758Z",
+    "activeSessions": 0,
+    "boundSessions": 0,
+    "unboundSessions": 0,
+    "authorizedWorkspaces": 68,
+    "authorizedRepos": 30,
+    "activeWarpRepos": 0,
+    "activeWarpResidents": 0,
+    "scheduler": {
+      "maxConcurrentJobs": 9,
+      "activeJobs": 0,
+      "queuedJobs": 0,
+      "interactiveQueuedJobs": 0,
+      "backgroundQueuedJobs": 0,
+      "activeWriterLanes": 0,
+      "queuedWriterLanes": 0,
+      "completedJobs": 0,
+      "failedJobs": 0,
+      "longestQueuedWaitMs": 0
+    },
+    "workers": {
+      "mode": "child_processes",
+      "totalWorkers": 4,
+      "busyWorkers": 0,
+      "idleWorkers": 4,
+      "queuedTasks": 0,
+      "completedTasks": 0,
+      "failedTasks": 0
+    }
+  },
+  "oldResidentHandlesAvailability": "not exposed",
+  "residencyConfiguration": {
+    "overridePresent": false,
+    "defaultFromInstalledModule": 4
+  },
+  "verificationScope": "local process identity, readiness and bounded health samples; no continuity or memory-plateau claim",
+  "processIdentity": {
+    "old": {
+      "pid": 56911,
+      "observedCommand": "/opt/homebrew/Cellar/node/26.0.0/bin/node /Users/james/.graft/installs/0.12.0/node_modules/@flyingrobots/graft/bin/graft.js daemon --socket /Users/james/.graft/daemon/mcp.sock",
+      "exactSampleTimeAvailability": "not retained",
+      "observedNoLaterThan": "2026-09-11T10:19:33.089380+00:00"
+    },
+    "newAtCutover": {
+      "pid": 97570,
+      "observedCommand": "/opt/homebrew/Cellar/node/26.0.0/bin/node /Users/james/.graft/installs/0.14.0/node_modules/@flyingrobots/graft/bin/graft.js daemon --socket /Users/james/.graft/daemon/mcp.sock",
+      "exactSampleTimeAvailability": "not retained",
+      "observedNoLaterThan": "2026-09-11T10:19:33.825014+00:00"
+    },
+    "followup": {
+      "startedAt": "2026-09-11T10:34:58.295791+00:00",
+      "completedAt": "2026-09-11T10:34:58.299119+00:00",
+      "pid": 97570,
+      "observedCommand": "/opt/homebrew/Cellar/node/26.0.0/bin/node /Users/james/.graft/installs/0.14.0/node_modules/@flyingrobots/graft/bin/graft.js daemon --socket /Users/james/.graft/daemon/mcp.sock",
+      "nodeBinary": "/opt/homebrew/Cellar/node/26.0.0/bin/node",
+      "nodeVersion": "v26.0.0",
+      "nodeVersionCheckedAt": "2026-09-11T10:34:58.322517+00:00",
+      "observedLauncherTarget": "../installs/0.14.0/bin/graft",
+      "socketPath": "/Users/james/.graft/daemon/mcp.sock"
+    },
+    "basis": "observed ps command lines and separately checked Node executable version; not an in-process build attestation"
+  }
+}

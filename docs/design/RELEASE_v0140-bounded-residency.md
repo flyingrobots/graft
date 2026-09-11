@@ -53,5 +53,18 @@ regression must fail on the old metadata and pass after version selection is
 corrected. Existing output-contract tests then verify complete tool responses.
 
 Retain the MCP dogfood runner and a bounded result record under the release
-witness. The runner must resolve the checkout from its own path, use temporary
+witness. The runner must identify its source checkout, use temporary
 Git state, and preserve the request sequence and assertions for replay.
+
+## Post-publication receipt
+
+Retain the local installation's package manifest and complete integrity-bearing
+lockfile with its smoke command. Replay must use `npm ci` in a new temporary
+prefix and read fixture source from the release tag, so a later dependency
+range resolution or checkout edit cannot silently change the recorded input.
+The replay must leave the running version directory untouched.
+
+Retain observed daemon commands, executable and Node paths, the checked Node
+version, socket path, and a timestamped follow-up process sample. A historical
+PID alone does not identify an executable after process exit or PID reuse.
+Keep unavailable exact sample times explicit rather than reconstructing them.

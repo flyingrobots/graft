@@ -1,0 +1,14 @@
+{
+  "version": "0.14.0",
+  "registryIntegrity": "sha512-qrCCsyn+ySnCyaU3jxV0YIAc2z1jIp6MiHXhEwkC//gsDaL34MGyLNIt9n7COmPpDZGR45lvFS2uRZpGgAqK9w==",
+  "githubArtifactNonManifestFilesCompared": 1268,
+  "nonManifestFileContentsMatched": true,
+  "manifestDifferences": [
+    "packageManager",
+    "pnpm",
+    "scripts.prepack",
+    "scripts.prepublishOnly"
+  ],
+  "node": "26.0.0",
+  "dependencyScripts": "disabled"
+}
