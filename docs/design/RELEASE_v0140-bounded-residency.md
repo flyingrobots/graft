@@ -1,0 +1,42 @@
+# Release v0.14.0: bounded graph residency
+
+## Hill
+
+Publish the reviewed LRU implementation from PR #251 as an immutable npm
+artifact and replace the local daemon with that artifact. The running process
+must expose the new resident accounting and use the default four-handle limit.
+
+The release baseline is `c08d427e`, following `v0.13.0`. The only intervening
+merges are PR #251 and the testing-policy adoption in PR #255.
+
+## Acceptance
+
+- Package version and structural-history source-package metadata agree on
+  `0.14.0`; no graph schema or dependency changes are included.
+- The sequential release preflight and isolated MCP dogfood pass.
+- A reviewed release-preparation PR merges through the normal gates.
+- Signed tag `v0.14.0` points to the merged `main` commit.
+- Actions sanity, GitHub Release, and npm publish each succeed; registry
+  version and integrity metadata identify the delivered package.
+- Install into a new version directory and verify the executable before
+  replacing the launcher symlink.
+- Recheck the old daemon's jobs and workers before graceful termination.
+  Start the new daemon on the existing same-user socket and verify its PID,
+  loaded package path, readiness, and resident accounting.
+
+## Playback questions
+
+- Does the published package carry the reviewed four-handle LRU?
+- Can an operator distinguish package publication from daemon replacement?
+- What happens when all slots are pinned, or existing MCP clients reconnect?
+- Which evidence proves the new process started from the published artifact?
+
+## Non-goals
+
+No byte/RSS budget, HTTP removal, package split, broader inspector, source
+freshness claim, or attribution of the earlier 7 GB process is included.
+Daemon restart ends transport sessions. Existing clients may need to reconnect;
+session continuity across process replacement is not promised.
+
+The version justification, migration guidance, and release gates are in the
+[release packet](../method/releases/v0.14.0/release.md).
