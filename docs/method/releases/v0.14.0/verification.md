@@ -175,7 +175,12 @@ The launcher was atomically replaced to point to `../installs/0.14.0/bin/graft`.
 PID 56911 then exited after SIGTERM, without a forced kill. The new detached
 process, PID 97570, launched from the immutable version-directory executable
 using Node 26.0.0 and the existing same-user Unix socket. Its process command
-was verified after startup and again in a subsequent sample.
+was verified after startup and again in a retained sample at
+`2026-09-11T10:34:58Z`. The deployment record contains both observed commands,
+the Node executable/version check, launcher target, and socket path. Exact
+times for the first command samples were not retained; their recorded upper
+time bounds are labeled accordingly. This is process-command evidence, not
+an in-process build attestation.
 
 | Observation | Before cutover | After startup |
 | :--- | :--- | :--- |

@@ -82,3 +82,14 @@ manifest and lockfile unchanged. An initial `npm ci --prefix` attempt failed
 root-package validation on npm 11.12.1; running `npm ci` from inside the
 owned prefix succeeded. Those setup failures are not product regression
 failures. Local lint and the whitespace check passed.
+
+## Receipt review: process identity
+
+Codex identified that the first bounded JSON projection dropped the command
+observations behind the process-identity claim. Restored both observed command
+lines from the original deployment record and retained a fresh follow-up
+sample with start/completion times, Node path/version, launcher target, and
+socket path. PID 97570 still matched the original command. The original exact
+command-sampling times are unavailable, so the receipt retains only their
+known upper bounds. These observations do not masquerade as in-process build
+attestation. Local lint and whitespace validation passed.

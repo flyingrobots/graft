@@ -72,5 +72,31 @@
     "overridePresent": false,
     "defaultFromInstalledModule": 4
   },
-  "verificationScope": "local process identity, readiness and bounded health samples; no continuity or memory-plateau claim"
+  "verificationScope": "local process identity, readiness and bounded health samples; no continuity or memory-plateau claim",
+  "processIdentity": {
+    "old": {
+      "pid": 56911,
+      "observedCommand": "/opt/homebrew/Cellar/node/26.0.0/bin/node /Users/james/.graft/installs/0.12.0/node_modules/@flyingrobots/graft/bin/graft.js daemon --socket /Users/james/.graft/daemon/mcp.sock",
+      "exactSampleTimeAvailability": "not retained",
+      "observedNoLaterThan": "2026-09-11T10:19:33.089380+00:00"
+    },
+    "newAtCutover": {
+      "pid": 97570,
+      "observedCommand": "/opt/homebrew/Cellar/node/26.0.0/bin/node /Users/james/.graft/installs/0.14.0/node_modules/@flyingrobots/graft/bin/graft.js daemon --socket /Users/james/.graft/daemon/mcp.sock",
+      "exactSampleTimeAvailability": "not retained",
+      "observedNoLaterThan": "2026-09-11T10:19:33.825014+00:00"
+    },
+    "followup": {
+      "startedAt": "2026-09-11T10:34:58.295791+00:00",
+      "completedAt": "2026-09-11T10:34:58.299119+00:00",
+      "pid": 97570,
+      "observedCommand": "/opt/homebrew/Cellar/node/26.0.0/bin/node /Users/james/.graft/installs/0.14.0/node_modules/@flyingrobots/graft/bin/graft.js daemon --socket /Users/james/.graft/daemon/mcp.sock",
+      "nodeBinary": "/opt/homebrew/Cellar/node/26.0.0/bin/node",
+      "nodeVersion": "v26.0.0",
+      "nodeVersionCheckedAt": "2026-09-11T10:34:58.322517+00:00",
+      "observedLauncherTarget": "../installs/0.14.0/bin/graft",
+      "socketPath": "/Users/james/.graft/daemon/mcp.sock"
+    },
+    "basis": "observed ps command lines and separately checked Node executable version; not an in-process build attestation"
+  }
 }
