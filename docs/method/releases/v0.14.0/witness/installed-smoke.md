@@ -1,14 +1,26 @@
 # Installed v0.14.0 smoke witness
 
-Run from a checkout of tag `v0.14.0` after installing the registry package
-into `~/.graft/installs/0.14.0` as described in the release witness. The
-command uses the installed package and SDK, copied source in a temporary
-repository, and 30-second MCP request deadlines. It closes the MCP client
-and disposes the bitmap objects. It does not connect to the live daemon.
+Run from a checkout containing this receipt, with tag `v0.14.0` available
+locally. The command restores the retained installation lockfile into a new
+temporary prefix using `npm ci`; it never changes the running installation.
+All 193 dependency entries in the retained lockfile carry registry URLs and
+SHA-512 integrity values. npm still needs access to those recorded artifacts.
+
+Fixture source comes from the release tag, independently of the checkout's
+current source files. The command checks the installed package and SDK,
+uses 30-second tool-request deadlines, closes the MCP client, and disposes
+the bitmap objects. It does not connect to the live daemon. Node 26.0.0 on
+Darwin ARM64 with npm 11.12.1 reproduces the recorded platform; other environments constitute
+new portability observations.
 
 ```sh
+set -eu
 export GRAFT_RELEASE_CHECKOUT="$(git rev-parse --show-toplevel)"
-cd "$HOME/.graft/installs/0.14.0"
+export GRAFT_RELEASE_INSTALL="$(mktemp -d "${TMPDIR:-/tmp}/graft-v0140-install-replay.XXXXXX")"
+cp "$GRAFT_RELEASE_CHECKOUT/docs/method/releases/v0.14.0/witness/install/package.json" "$GRAFT_RELEASE_INSTALL/"
+cp "$GRAFT_RELEASE_CHECKOUT/docs/method/releases/v0.14.0/witness/install/package-lock.json" "$GRAFT_RELEASE_INSTALL/"
+cd "$GRAFT_RELEASE_INSTALL"
+npm ci --omit=dev --ignore-scripts
 node --max-old-space-size=512 --input-type=module <<'GRAFT_DOGFOOD'
 import fs from "node:fs/promises";
 import os from "node:os";
@@ -31,9 +43,10 @@ const root = await fs.mkdtemp(path.join(os.tmpdir(), "graft-v0140-dogfood-"));
 const source = process.env["GRAFT_RELEASE_CHECKOUT"];
 assert(source,"Set GRAFT_RELEASE_CHECKOUT to the release checkout");
 const installed = path.join(process.cwd(),"node_modules/@flyingrobots/graft");
+assert.equal(execFileSync("git",["rev-parse","v0.14.0^{commit}"],{cwd:source,encoding:"utf8"}).trim(),"8d02bcf84463ac853f8346d2c7e563ecef9a3589");
 for (const file of ["src/parser/lang.ts", "src/mcp/server.ts"]) {
   await fs.mkdir(path.dirname(path.join(root,file)),{recursive:true});
-  await fs.copyFile(path.join(source,file),path.join(root,file));
+  await fs.writeFile(path.join(root,file),execFileSync("git",["show","v0.14.0:"+file],{cwd:source,stdio:"pipe"}));
 }
 const git = args => execFileSync("git",args,{cwd:root,stdio:"pipe",env:{...process.env,GIT_CONFIG_GLOBAL:"/dev/null",GIT_CONFIG_NOSYSTEM:"1"}});
 git(["init","--quiet"]); git(["add","src/parser/lang.ts","src/mcp/server.ts"]);

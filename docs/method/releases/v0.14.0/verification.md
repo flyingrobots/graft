@@ -143,7 +143,12 @@ npm install --prefix "$HOME/.graft/installs/0.14.0" \
   --omit=dev --save-exact --ignore-scripts @flyingrobots/graft@0.14.0
 ```
 
-That install succeeded. The package-lock entry's version and integrity match
+That install succeeded. The complete [installation package manifest](witness/install/package.json)
+and [npm lockfile](witness/install/package-lock.json) are retained. They record
+193 integrity-bearing dependency entries, rather than relying on a future
+resolution of the top-level package's ranges. The replay command restores
+these files with `npm ci` in an owned temporary prefix and reads fixture source
+from the release tag. The package-lock entry's version and integrity match
 the registry response. All 1,268 non-manifest files match the checked GitHub
 tarball byte for byte. The only manifest differences are npm retaining
 `packageManager`, `pnpm`, and the `prepack` / `prepublishOnly` scripts that

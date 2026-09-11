@@ -66,3 +66,19 @@ No test or lint configuration changed to retain this evidence. The first
 standalone `.mjs` placement failed typed-project lint and was replaced with
 the complete shell command in Markdown. A trailing blank line in the retained
 RED excerpt was removed in this documentation follow-up.
+
+## Receipt review: dependency replay
+
+Codex identified that the first installed smoke receipt retained only the
+Graft package integrity, while future npm range resolution could change its
+WARP, SDK, or bitmap dependencies. Retained the actual install manifest and
+complete npm lockfile: all 193 dependency entries contain public registry URLs
+and SHA-512 integrity values. The revised replay uses `npm ci` in a new
+prefix and takes fixture source from the immutable release tag. It preserves
+the running installation and does not claim platform-independent reproduction.
+
+The retained-lock replay passed bitmap and MCP checks with the original
+manifest and lockfile unchanged. An initial `npm ci --prefix` attempt failed
+root-package validation on npm 11.12.1; running `npm ci` from inside the
+owned prefix succeeded. Those setup failures are not product regression
+failures. Local lint and the whitespace check passed.
