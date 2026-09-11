@@ -29,5 +29,3 @@ AssertionError: expected { …(6) } to match object { properties: { _schema: { �
     120|         _schema: {
 
 ⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
-
-

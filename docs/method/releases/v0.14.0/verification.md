@@ -43,8 +43,14 @@ The MCP client verified parser health and the 150-line threshold, content for
 entries for `lang.ts`, and session counters of one read and one outline.
 The client closed afterward. No live repository or daemon was used.
 
-Executable: `/tmp/graft-v0140-dogfood.mjs`; outputs:
-`/tmp/graft-v0140-dogfood.log` and `/tmp/graft-v0140-dogfood-results.json`.
+The [complete runnable command](witness/dogfood.md) and [bounded result](witness/dogfood-result.json)
+are committed. Replay the command from the repository root at the v0.14.0
+release commit, with Node, pnpm, and Git installed.
+
+Each MCP request has a 30-second deadline. The runner creates a temporary
+repository, prints the result location, and preserves full output there for
+local diagnosis. The committed result omits the machine-specific temp path.
+The script is a release smoke witness, not exhaustive parser coverage.
 
 ## Non-blocking findings
 
@@ -64,3 +70,24 @@ prevent the build, parser smoke, or isolated tests from passing.
 
 Pending. Record actual PR, commit, tag, run, registry, and process evidence as
 these steps complete. Local preflight is not evidence of publication.
+
+
+## Review repair: strict status schema identity
+
+The review correctly found the changed strict MCP status shape still advertised
+`1.0.0`. The claimed `graft.cli.daemon_status` schema does not exist in
+`CLI_COMMAND_NAMES` or `CLI_OUTPUT_SCHEMAS`; the text CLI uses its own model.
+The first attempted two-case reproducer reached the MCP mismatch but the CLI
+case failed at an unsupported lookup. That CLI failure is not product evidence.
+
+The narrowed public JSON Schema test was RED on `2cf5146a`: expected version
+constant `2.0.0`, received `1.0.0`. It now selects v2 for MCP `daemon_status`
+only. The test owns one contract claim, uses the release contract as its literal
+oracle, and has a one-second per-case budget with no test-body I/O. Existing
+output-contract integration checks cover complete tool responses. The first
+failure is retained in [schema-version-red.txt](witness/schema-version-red.txt).
+
+The corrected output-contract file passes 16/16; build and typecheck pass.
+The retained dogfood command passes with the same observations. Its initial
+standalone `.mjs` placement failed typed lint project discovery, so the witness
+retains the full runnable shell command without changing lint configuration.
