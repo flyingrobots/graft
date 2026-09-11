@@ -40,3 +40,18 @@ session continuity across process replacement is not promised.
 
 The version justification, migration guidance, and release gates are in the
 [release packet](../method/releases/v0.14.0/release.md).
+
+## Release review repairs
+
+The required `activeWarpResidents` field changed strict daemon-status schemas
+while its MCP metadata still selected version `1.0.0`. Before publishing,
+`graft.mcp.daemon_status` must advertise `2.0.0`. There is no registered
+`graft.cli.daemon_status` JSON contract: the CLI renders a human status model.
+Its existing `ok | degraded` projection is preserved. Other output contracts
+retain their current versions. A narrow public-schema
+regression must fail on the old metadata and pass after version selection is
+corrected. Existing output-contract tests then verify complete tool responses.
+
+Retain the MCP dogfood runner and a bounded result record under the release
+witness. The runner must resolve the checkout from its own path, use temporary
+Git state, and preserve the request sequence and assertions for replay.

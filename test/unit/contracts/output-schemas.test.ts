@@ -112,6 +112,20 @@ describe("contracts: output schemas", () => {
     expect(getCliOutputSchemaMeta("diag_doctor").version).toBe("1.0.0");
   });
 
+  // Oracle: the release contract assigns the expanded strict status shape v2.
+  // Small: pure schema exports, no I/O, one-second budget per case.
+  it("publishes MCP resident status with the v2 validator identity", () => {
+    expect(getMcpOutputJsonSchema("daemon_status")).toMatchObject({
+      properties: {
+        _schema: {
+          properties: {
+            version: { const: "2.0.0" },
+          },
+        },
+      },
+    });
+  }, 1_000);
+
   it("keeps exported common-schema helpers aligned with workspace evidence", () => {
     const bodySchema = z.object({ ok: z.literal(true) }).strict();
     const receiptSchema = z.object({ seq: z.number().int().positive() }).strict();

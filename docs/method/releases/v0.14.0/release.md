@@ -22,8 +22,10 @@ Pin `0.14.0` when reproducibility matters. Restart the daemon after installation
 replacing files does not change a process that already loaded the old package.
 Reconnect MCP clients after restart. Configure a limit from 1 through 64 only
 when needed. Full pinned capacity returns an error; retry after work settles.
-Status consumers must accept the added `activeWarpResidents` count and keep it
-distinct from unique repositories, memory bytes, or index freshness.
+MCP status consumers must select `graft.mcp.daemon_status` schema `2.0.0` for
+the added required `activeWarpResidents` count. Keep that count distinct from
+unique repositories, memory bytes, or index freshness. The text CLI has no
+registered JSON status schema and retains its `ok | degraded` projection.
 
 ## Gates
 
