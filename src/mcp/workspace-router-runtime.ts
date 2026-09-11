@@ -3,7 +3,6 @@ import { createRepoPathResolver } from "../adapters/repo-paths.js";
 import type { FileSystem } from "../ports/filesystem.js";
 import type { GitClient } from "../ports/git.js";
 import type { WarpContext } from "../warp/context.js";
-import { DEFAULT_WARP_WRITER_ID } from "../warp/writer-id.js";
 import { GovernorTracker } from "../session/tracker.js";
 import { ObservationCache } from "./cache.js";
 import { Metrics } from "./metrics.js";
@@ -26,7 +25,10 @@ import type {
   WorkspaceMode,
   WorkspaceStatus,
 } from "./workspace-router-model.js";
-import type { WarpPool } from "./warp-pool.js";
+import type {
+  WarpResidentLease,
+  WarpResidentPool,
+} from "./warp-pool.js";
 
 export interface WorkspaceSlice {
   readonly sliceId: string;
@@ -35,6 +37,11 @@ export interface WorkspaceSlice {
   readonly metrics: Metrics;
   readonly graftDir: string;
   readonly repoState: RepoStateTracker | null;
+}
+
+export interface WorkspaceWarpLease {
+  getWarp(): Promise<WarpContext>;
+  release(): Promise<void>;
 }
 
 export interface BoundWorkspace {
@@ -48,7 +55,56 @@ export interface BoundWorkspace {
   readonly warpWriterId: string;
   readonly transportSessionId: string;
   readonly slice: WorkspaceSlice;
-  readonly getWarp: () => Promise<WarpContext>;
+}
+
+export function createWorkspaceWarpLease(input: {
+  readonly repoId: string;
+  readonly worktreeRoot: string;
+  readonly writerId: string;
+  readonly ownerId: string;
+  readonly warpPool: WarpResidentPool;
+}): WorkspaceWarpLease {
+  let leasePromise: Promise<WarpResidentLease> | null = null;
+  let releasePromise: Promise<void> | null = null;
+  const releaseHasStarted = (): boolean => releasePromise !== null;
+
+  return {
+    async getWarp(): Promise<WarpContext> {
+      if (releaseHasStarted()) {
+        throw new Error("workspace WARP lease has already been released");
+      }
+      const currentLease = leasePromise ?? input.warpPool.acquire({
+        key: { repoId: input.repoId, writerId: input.writerId },
+        worktreeRoot: input.worktreeRoot,
+        ownerId: input.ownerId,
+      });
+      leasePromise = currentLease;
+      try {
+        const lease = await currentLease;
+        if (releaseHasStarted()) {
+          await lease.release();
+          throw new Error("workspace WARP lease was released while opening");
+        }
+        return { app: lease.app, strandId: null };
+      } catch (error) {
+        if (leasePromise === currentLease) {
+          leasePromise = null;
+        }
+        throw error;
+      }
+    },
+    release(): Promise<void> {
+      if (releasePromise !== null) return releasePromise;
+      releasePromise = (async () => {
+        const currentLease = leasePromise;
+        leasePromise = null;
+        if (currentLease === null) return;
+        const lease = await currentLease.catch(() => null);
+        await lease?.release();
+      })();
+      return releasePromise;
+    },
+  };
 }
 
 export function createWorkspaceSlice(input: {
@@ -78,8 +134,7 @@ export async function createBoundWorkspace(input: {
   readonly slice: WorkspaceSlice;
   readonly fs: FileSystem;
   readonly transportSessionId: string;
-  readonly warpWriterId?: string | undefined;
-  readonly warpPool: WarpPool;
+  readonly warpWriterId: string;
 }): Promise<BoundWorkspace> {
   if (input.actionName !== undefined) {
     input.slice.governor.recordMessage();
@@ -92,16 +147,8 @@ export async function createBoundWorkspace(input: {
     resolvePath: createRepoPathResolver(input.resolved.worktreeRoot),
     capabilityProfile: input.capabilityProfile,
     transportSessionId: input.transportSessionId,
-    warpWriterId: input.warpWriterId ?? DEFAULT_WARP_WRITER_ID,
+    warpWriterId: input.warpWriterId,
     slice: input.slice,
-    getWarp: async () => ({
-      app: await input.warpPool.getOrOpen(
-        input.resolved.repoId,
-        input.resolved.worktreeRoot,
-        input.warpWriterId ?? DEFAULT_WARP_WRITER_ID,
-      ),
-      strandId: null,
-    }),
   };
 }
 
@@ -151,11 +198,13 @@ export function buildPersistedLocalHistoryContextFromExecution(input: {
   readonly persistedLocalHistory: PersistedLocalHistoryStore;
   readonly execution: WorkspaceExecutionContext;
   readonly observation: RepoObservation;
+  readonly hookEvent?: GitTransitionHookEvent | null;
 }): PersistedLocalHistoryContext {
   const context = input.persistedLocalHistory.buildContext(
     input.execution.status,
-    input.execution.getCausalContext(),
+    input.execution.getCausalContext(input.observation),
     input.observation,
+    input.hookEvent ?? null,
   );
   if (context === null) {
     throw new Error("persisted local history context unavailable for execution");
@@ -166,7 +215,7 @@ export function buildPersistedLocalHistoryContextFromExecution(input: {
 export async function resolveCheckoutBoundaryHookEvent(input: {
   readonly fs: FileSystem;
   readonly git: GitClient;
-  readonly binding: BoundWorkspace;
+  readonly binding: Pick<BoundWorkspace, "worktreeRoot" | "gitCommonDir">;
   readonly previousObservedAt: string;
   readonly observation: RepoObservation;
 }): Promise<GitTransitionHookEvent | null> {

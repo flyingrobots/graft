@@ -7,6 +7,41 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Added
+
+- **Bounded WARP resident LRU**: the daemon's shared pool retains at most four
+  logical `(repoId, writerId)` graph handles by default, including opens in
+  progress. `GRAFT_WARP_MAX_RESIDENTS` selects a limit from 1 through 64.
+  Operations own independent, idempotently releasable capabilities; workspace
+  bindings retain routing metadata without pinning graphs between calls.
+  A miss evicts the least recently used idle entry. Pinned entries remain
+  protected, and an all-pinned pool rejects a new lane with a capacity error
+  instead of growing. Eviction leaves durable Git-backed index data intact.
+  Cross-repository rebind history uses one graph lease at a time, preserving
+  previous and current continuity with a single resident slot.
+  Recently released entries remain reusable; pool callers can select an idle
+  limit of zero for eager release. The bound covers this pool's handles, not
+  total daemon/worker memory or the size of an individual graph.
+- **Resident lifecycle accounting**: failed opens release their reservations;
+  rebind, history, attribution, and tool settlement release their operation
+  capabilities without revoking a running invocation's captured route.
+  Released leases refuse further app access. Status distinguishes unique
+  repositories from resident writer lanes, including idle/opening entries;
+  neither count measures process memory or verifies index freshness.
+- **Daemon shutdown ownership**: shutdown closes admission, drains admitted
+  initialization, and attempts session, monitor, worker, HTTP, and socket
+  cleanup before reporting aggregate failures. Failed MCP connection after
+  session publication retires the control-plane record and scratch directory.
+  Construction and initial-request failures use the same retirement boundary.
+  Socket removal suppresses only absence, signal shutdown reports errors with
+  a nonzero exit status, and session release settles all cleanup obligations
+  before aggregating failures.
+
+### Fixed
+
+- **Daemon WARP writer identity**: the production daemon forwards each requested
+  logical writer ID into `openWarp`, preserving distinct session lanes.
+
 ## [0.13.0] - 2026-09-06
 
 ### Added

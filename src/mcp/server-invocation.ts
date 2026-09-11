@@ -57,6 +57,7 @@ interface InvocationEnvelope {
 
 interface InvocationExecutionPlan {
   readonly execution: WorkspaceExecutionContext | null;
+  readonly scheduled: boolean;
 }
 
 /** Dependencies injected by the composition root to build the invocation engine. */
@@ -269,15 +270,18 @@ export function createInvocationEngine(deps: InvocationEngineDeps): InvocationEn
     if (routedCwd !== null) {
       return {
         execution: await workspaceRouter.captureExecutionContextForWorkspace({ cwd: routedCwd }),
+        scheduled: true,
       };
     }
 
-    const execution = daemonScheduler !== null
-      && workspaceRouter.isBound()
-      && daemonScheduledRepoTools.has(name)
+    const execution = workspaceRouter.isBound()
+      && !repoStateOptionalTools.has(name)
       ? workspaceRouter.captureExecutionContext()
       : null;
-    return { execution };
+    return {
+      execution,
+      scheduled: daemonScheduledRepoTools.has(name),
+    };
   }
 
   async function executeHandlerInScope(input: {
@@ -293,7 +297,7 @@ export function createInvocationEngine(deps: InvocationEngineDeps): InvocationEn
         const activeExecution = input.execution;
         return executionContextStorage.run(activeExecution, async () => {
           if (!repoStateOptionalTools.has(input.name)) {
-            await activeExecution.repoState.observe();
+            await workspaceRouter.observeRepoState(activeExecution);
           }
           return input.handler(input.parsed, input.ctx);
         });
@@ -391,11 +395,12 @@ export function createInvocationEngine(deps: InvocationEngineDeps): InvocationEn
     readonly ctx: ToolContext;
     readonly invocation: InvocationStore;
     readonly execution: WorkspaceExecutionContext | null;
+    readonly scheduled: boolean;
     readonly envelope: InvocationEnvelope;
   }): Promise<McpToolResult> {
     const executeHandler = async (): Promise<McpToolResult> => executeHandlerInScope(input);
 
-    if (input.execution === null || daemonScheduler === null) {
+    if (input.execution === null || daemonScheduler === null || !input.scheduled) {
       return executeHandler();
     }
 
@@ -526,7 +531,8 @@ export function createInvocationEngine(deps: InvocationEngineDeps): InvocationEn
     try {
       const parsed = decodeInvocationArgs(args, schema);
       authorizeInvocation(name, parsed);
-      execution = (await planInvocationExecution(name, parsed)).execution;
+      const executionPlan = await planInvocationExecution(name, parsed);
+      execution = executionPlan.execution;
       recordInvocation();
       await emitInvocationStartedOnce();
       const result = await dispatchInvocation({
@@ -536,6 +542,7 @@ export function createInvocationEngine(deps: InvocationEngineDeps): InvocationEn
         ctx,
         invocation,
         execution,
+        scheduled: executionPlan.scheduled,
         envelope,
       });
       await emitInvocationCompleted({ name, invocation, execution, envelope });
@@ -547,6 +554,8 @@ export function createInvocationEngine(deps: InvocationEngineDeps): InvocationEn
       await emitInvocationStartedOnce();
       await emitInvocationFailed({ name, error, envelope, execution });
       throw error;
+    } finally {
+      await execution?.releaseWarpLease();
     }
   }
 

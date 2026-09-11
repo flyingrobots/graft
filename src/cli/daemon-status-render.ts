@@ -21,6 +21,7 @@ export function renderDaemonStatus(model: DaemonStatusModel): string {
         `transport ${model.daemon.transport}`,
         `started ${model.daemon.startedAt}`,
         `warp repos ${String(model.daemon.activeWarpRepos)}`,
+        `warp residents ${String(model.daemon.activeWarpResidents)}`,
       ].join("; "),
     ],
     [
