@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.14.0] - 2026-09-11
+
 ### Added
 
 - **Bounded WARP resident LRU**: the daemon's shared pool retains at most four
@@ -39,6 +41,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ### Fixed
 
+- **Daemon status schema identity**: `graft.mcp.daemon_status` advances to
+  `2.0.0` for the required `activeWarpResidents` field. Strict clients must
+  select the v2 validator. The CLI text status projection is unchanged.
 - **Daemon WARP writer identity**: the production daemon forwards each requested
   logical writer ID into `openWarp`, preserving distinct session lanes.
 

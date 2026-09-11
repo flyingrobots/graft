@@ -159,3 +159,10 @@ daemon control-plane tools.
 - [Architecture](../ARCHITECTURE.md)
 - [Security Model](./strategy/security-model.md)
 - [Causal Provenance](./strategy/causal-provenance.md)
+
+### Daemon status schema in v0.14.0
+
+`graft.mcp.daemon_status` advertises schema `2.0.0` for its strict output shape,
+including required `activeWarpResidents`. Consumers selecting validators by
+`_schema.version` must use v2. The text `graft daemon status` command has no
+separately registered JSON schema and retains its `ok | degraded` projection.
