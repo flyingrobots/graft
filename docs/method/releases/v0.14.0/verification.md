@@ -68,9 +68,133 @@ prevent the build, parser smoke, or isolated tests from passing.
 
 ## Merge, tag, publication, and deployment
 
-Pending. Record actual PR, commit, tag, run, registry, and process evidence as
-these steps complete. Local preflight is not evidence of publication.
+- Preparation PR: [#258](https://github.com/flyingrobots/graft/pull/258).
+- Final reviewed head: `2f5da73c323974e013521d22b1d2fe9e556dd496`.
+- Final local `release:check`: exit 0, including 2,371 Docker tests in 266
+  files, ten public-contract tests, schema checks, lint, typecheck, security
+  policy, and package build. The extra test is the MCP status-version
+  regression described below.
+- [PR CI run 34586438646](https://github.com/flyingrobots/graft/actions/runs/34586438646)
+  passed the Node 20 and Node 22 jobs on that head.
+- [Codex's final review](https://github.com/flyingrobots/graft/pull/258#issuecomment-5632744087)
+  reported no major issues on that head. Both actionable review threads were
+  resolved; the final paginated review audit found no unresolved threads or
+  changes-requested reviews. CodeRabbit was rate-limited; the completed Codex
+  review satisfied the documented fallback gate.
+- Merged at `2026-09-11T09:58:07Z` as
+  `8d02bcf84463ac853f8346d2c7e563ecef9a3589`. The merge tree exactly matched
+  the reviewed head.
+- Signed annotated tag `v0.14.0` points to that merged `main` commit.
+  `git verify-tag v0.14.0` reported a good signature from James Ross, key
+  `01A63D8E9DBEEDE32918AF9C39560E0406CA9135`. The tag was pushed normally.
 
+[Release run 34586892333](https://github.com/flyingrobots/graft/actions/runs/34586892333)
+ran on the tagged merge commit. Publication and local process replacement
+are recorded separately below.
+
+| Job | Job ID | Outcome |
+| :--- | :--- | :--- |
+| Sanity | `103223071497` | Success |
+| GitHub release and assets | `103224258057` | Success |
+| npm publish with OIDC provenance | `103224396465` | Success |
+
+### Publication
+
+The [GitHub Release](https://github.com/flyingrobots/graft/releases/tag/v0.14.0)
+was published at `2026-09-11T10:03:27Z`. Its tarball and `SHA256SUMS` were
+downloaded, and `shasum -a 256 -c SHA256SUMS` passed. Tarball SHA-256:
+
+```text
+0322579bb8e9d3e26840eabdeec2fcb7a3c795f1424c3514e49eacefcbb1ef02
+```
+
+The publish log recorded npm accepting `@flyingrobots/graft@0.14.0` at
+`2026-09-11T10:07:43Z` and warned that registry processing could take a few
+minutes. Initial registry queries returned E404 after the workflow succeeded.
+That intermediate state was not treated as installable delivery. Provenance
+was recorded in the [Sigstore transparency log](https://search.sigstore.dev/?logIndex=2792386780).
+
+The registry subsequently reported version `0.14.0`, `latest: 0.14.0`, and
+publication time `2026-09-11T10:14:53.421Z`. The registry response identifies
+1,269 files and 5,049,150 unpacked bytes. The npm tarball is
+[`graft-0.14.0.tgz`](https://registry.npmjs.org/@flyingrobots/graft/-/graft-0.14.0.tgz).
+Its SHA-512 integrity is:
+
+```text
+sha512-qrCCsyn+ySnCyaU3jxV0YIAc2z1jIp6MiHXhEwkC//gsDaL34MGyLNIt9n7COmPpDZGR45lvFS2uRZpGgAqK9w==
+```
+
+The successful Actions publish job and the registry observation establish
+delivery separately from the GitHub Release asset upload. No manual publish,
+tag replacement, or release rerun was used during propagation.
+
+### Installed artifact and portability check
+
+Installed the exact registry version into `~/.graft/installs/0.14.0`, preserving
+`~/.graft/installs/0.12.0` for rollback. The initial normal npm install failed:
+`roaring@2.7.0` has no downloaded binary for Node 26's Darwin ARM64 ABI, and
+its fallback compilation failed against V8. The launcher still pointed to
+0.12.0 during this failure.
+
+Retried with the repository's existing no-dependency-build-scripts policy:
+
+```sh
+npm install --prefix "$HOME/.graft/installs/0.14.0" \
+  --omit=dev --save-exact --ignore-scripts @flyingrobots/graft@0.14.0
+```
+
+That install succeeded. The package-lock entry's version and integrity match
+the registry response. All 1,268 non-manifest files match the checked GitHub
+tarball byte for byte. The only manifest differences are npm retaining
+`packageManager`, `pnpm`, and the `prepack` / `prepublishOnly` scripts that
+pnpm's GitHub tarball omits. After accounting for those fields, the manifests
+are equal. The [artifact result](witness/installed-artifact.json) retains these
+checks without claiming that the two tarball byte streams are identical.
+
+The installed executable reports `graft 0.14.0`. An isolated installed-package
+smoke check passed parser health, content and outline projections, a bitmap
+serialization round trip of `[1, 3, 42]`, and the default four-resident setting.
+WARP reported its WASM bitmap backend (`nativeRoaring: false`). The complete
+[installed smoke command and result](witness/installed-smoke.md) are retained.
+No live workspace was opened for these checks. The unresolved installer
+problem is recorded in
+[Node 26 native installation](../../backlog/bad-code/CLEAN_node26-native-roaring-install.md).
+
+### Local daemon replacement
+
+Immediately before cutover, the old process reported zero active/queued jobs
+and zero busy/queued worker tasks. Those counters are a scheduler/worker
+sample, not proof that every ordinary RPC had drained.
+
+The launcher was atomically replaced to point to `../installs/0.14.0/bin/graft`.
+PID 56911 then exited after SIGTERM, without a forced kill. The new detached
+process, PID 97570, launched from the immutable version-directory executable
+using Node 26.0.0 and the existing same-user Unix socket. Its process command
+was verified after startup and again in a subsequent sample.
+
+| Observation | Before cutover | After startup |
+| :--- | :--- | :--- |
+| Daemon start | `2026-09-08T01:34:29.840Z` | `2026-09-11T10:19:33.758Z` |
+| Health response `ok` | `true` | `true` |
+| Sessions | 16 | 0 |
+| Authorized workspaces / repositories | 68 / 30 | 68 / 30 |
+| Active / queued jobs | 0 / 0 | 0 / 0 |
+| Busy / queued worker tasks | 0 / 0 | 0 / 0 |
+| Resident repositories | 5 | 0 |
+| Resident handles | Not exposed by 0.12.0 | 0 |
+
+The [bounded deployment record](witness/deployment.json) preserves the actual
+cutover and verification times and counts. The new daemon inherited no
+`GRAFT_WARP_MAX_RESIDENTS` override and uses the verified default of four.
+Session transport continuity is not retained across replacement; existing
+clients may need to reconnect. Authorization counts agree in these samples;
+that is not a claim about historical session membership or current indexing.
+
+Historical job and worker counters reset with the new process. They are not
+summed across layers or compared as one accumulation epoch. Zero resident
+handles immediately after restart is a startup observation, not sustained
+memory evidence. This release does not establish a byte/RSS ceiling or explain
+the earlier 7 GB incident.
 
 ## Review repair: strict status schema identity
 

@@ -1,0 +1,76 @@
+{
+  "version": "0.14.0",
+  "oldPid": 56911,
+  "newPid": 97570,
+  "launcherSwitchedAt": "2026-09-11T10:19:33.089380+00:00",
+  "verifiedAt": "2026-09-11T10:19:33.825014+00:00",
+  "before": {
+    "ok": true,
+    "startedAt": "2026-09-08T01:34:29.840Z",
+    "activeSessions": 16,
+    "boundSessions": 1,
+    "unboundSessions": 15,
+    "authorizedWorkspaces": 68,
+    "authorizedRepos": 30,
+    "activeWarpRepos": 5,
+    "scheduler": {
+      "maxConcurrentJobs": 2,
+      "activeJobs": 0,
+      "queuedJobs": 0,
+      "interactiveQueuedJobs": 0,
+      "backgroundQueuedJobs": 0,
+      "activeWriterLanes": 0,
+      "queuedWriterLanes": 0,
+      "completedJobs": 160,
+      "failedJobs": 5,
+      "longestQueuedWaitMs": 0
+    },
+    "workers": {
+      "mode": "child_processes",
+      "totalWorkers": 4,
+      "busyWorkers": 0,
+      "idleWorkers": 4,
+      "queuedTasks": 0,
+      "completedTasks": 60,
+      "failedTasks": 0
+    }
+  },
+  "after": {
+    "ok": true,
+    "startedAt": "2026-09-11T10:19:33.758Z",
+    "activeSessions": 0,
+    "boundSessions": 0,
+    "unboundSessions": 0,
+    "authorizedWorkspaces": 68,
+    "authorizedRepos": 30,
+    "activeWarpRepos": 0,
+    "activeWarpResidents": 0,
+    "scheduler": {
+      "maxConcurrentJobs": 9,
+      "activeJobs": 0,
+      "queuedJobs": 0,
+      "interactiveQueuedJobs": 0,
+      "backgroundQueuedJobs": 0,
+      "activeWriterLanes": 0,
+      "queuedWriterLanes": 0,
+      "completedJobs": 0,
+      "failedJobs": 0,
+      "longestQueuedWaitMs": 0
+    },
+    "workers": {
+      "mode": "child_processes",
+      "totalWorkers": 4,
+      "busyWorkers": 0,
+      "idleWorkers": 4,
+      "queuedTasks": 0,
+      "completedTasks": 0,
+      "failedTasks": 0
+    }
+  },
+  "oldResidentHandlesAvailability": "not exposed",
+  "residencyConfiguration": {
+    "overridePresent": false,
+    "defaultFromInstalledModule": 4
+  },
+  "verificationScope": "local process identity, readiness and bounded health samples; no continuity or memory-plateau claim"
+}
