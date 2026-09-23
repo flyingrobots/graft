@@ -74,6 +74,9 @@ export async function startDaemonServer(options: StartDaemonServerOptions = {}):
     (cwd, writerId) => openWarp({ cwd, writerId }),
     resolveWarpPoolOptions(options.env ?? process.env),
   );
+  // A graph nobody is using should not outlive the work that opened it just
+  // because no other repository needs the slot.
+  const stopIdleSweeper = warpPool.startIdleSweeper();
   const controlPlane = new DaemonControlPlane({
     fs: nodeFs,
     codec: new CanonicalJsonCodec(),
@@ -183,6 +186,7 @@ export async function startDaemonServer(options: StartDaemonServerOptions = {}):
         process.off("SIGINT", shutdown);
         process.off("SIGTERM", shutdown);
         await closeDaemonResources([
+          { close: () => { stopIdleSweeper(); return Promise.resolve(); } },
           { close: () => sessionHost.close() },
           { close: () => monitorRuntime.close() },
           { close: () => daemonWorkerPool.close() },
