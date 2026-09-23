@@ -153,15 +153,42 @@ export interface ParsedTree {
   delete(): void;
 }
 
+/**
+ * One parser per language, reused for every parse of it.
+ *
+ * `WebAssembly.Memory` grows its linear pages on demand and never returns
+ * them to the OS, so constructing a parser per parse ratchets the WASM heap
+ * under the indexer's churn even though each parser's C structs are freed.
+ * A parser is a reusable cursor over a grammar, not per-parse state: the
+ * `Tree` it produces owns its own nodes and stays valid across later parses.
+ */
+const parsersByFormat = new Map<SupportedLang, Parser>();
+
+/** Number of live cached parsers. Test seam for the reuse invariant. */
+export function parserInstanceCount(): number {
+  return parsersByFormat.size;
+}
+
+function parserFor(runtime: ParserRuntime, format: SupportedLang): Parser {
+  const cached = parsersByFormat.get(format);
+  if (cached !== undefined) {
+    return cached;
+  }
+  const parser = new Parser();
+  parser.setLanguage(languageFor(runtime, format));
+  parsersByFormat.set(format, parser);
+  return parser;
+}
+
 function parseStructuredTreeWithRuntime(
   runtime: ParserRuntime,
   format: SupportedLang,
   source: string,
 ): ParsedTree {
-  const parser = new Parser();
-  parser.setLanguage(languageFor(runtime, format));
+  const parser = parserFor(runtime, format);
   const tree = parser.parse(source);
   const root = tree.rootNode;
+  let deleted = false;
 
   return {
     format,
@@ -169,9 +196,12 @@ function parseStructuredTreeWithRuntime(
     tree,
     root,
     source,
+    // Deletes the tree only. The parser is shared with every later parse of
+    // this language, so deleting it here would corrupt them.
     delete() {
+      if (deleted) return;
+      deleted = true;
       tree.delete();
-      parser.delete();
     },
   };
 }
