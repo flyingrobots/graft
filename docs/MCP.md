@@ -81,6 +81,22 @@ its recency. A miss evicts the least recently used idle entry; if all slots are
 pinned, the acquisition fails with `WarpResidentCapacityError` (internal code
 `WARP_RESIDENT_CAPACITY`) without opening another graph. The existing tool
 error surface reports the failure. Retry after another operation settles.
+
+Idle entries also age out. A resident untouched for longer than the idle TTL is
+released and its graph disposed, whether or not anything needs the slot — a
+graph nobody is using should not outlive the work that opened it. The daemon
+sweeps on that interval and stops sweeping at shutdown.
+
+| Variable | Default | Meaning |
+| --- | --- | --- |
+| `GRAFT_WARP_MAX_RESIDENTS` | `4` | Handles retained per pool, 1 through 64. |
+| `GRAFT_WARP_IDLE_TTL_MS` | `600000` | Idle age at which a resident is released. `0` disables ageing. |
+| `GRAFT_WARP_MAX_IDLE_RESIDENTS` | resident capacity | Warm slots kept for reuse. `0` opts into eager release. |
+
+Invalid explicit values reject construction before workers start, rather than
+silently falling back to a default. These bound handles and their lifetime, not
+bytes: neither the size of one graph nor total daemon and worker memory is
+capped here.
 An optional graph-backed history observation can retain its existing
 unavailable-evidence fallback. Pool consumers can select `maxIdleResidents: 0`
 for eager eviction instead of warm reuse.

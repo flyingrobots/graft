@@ -7,6 +7,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Fixed
+
+- **Daemon heap no longer ratchets under indexing churn**: a daemon left
+  running against a repository under active editing held steady memory
+  instead of growing without bound. Four compounding causes are closed.
+  Idle graph residents now age out on a TTL instead of staying warm for the
+  life of the process, and eviction disposes the resident rather than only
+  unlinking it; `GRAFT_WARP_IDLE_TTL_MS` sets the idle age (default ten
+  minutes) and `GRAFT_WARP_MAX_IDLE_RESIDENTS` the warm-slot count (default
+  one, previously the full resident capacity, which meant idle graphs were
+  never trimmed). The tree-sitter runtime keeps one parser per language
+  instead of constructing one per parse, so the WebAssembly heap — whose
+  linear pages only ever grow and are never returned to the OS — plateaus;
+  `ParsedTree.delete()` now deletes the tree only and is idempotent. The AST
+  graph opens with WARP compaction enabled and thresholds tuned for anchor
+  churn, where before it inherited git-warp's disabled-by-default policy and
+  never compacted at all.
+
+  This bounds the growth; it is not a byte ceiling. Bounding a single graph's
+  materialized size and worker-process memory remain open in
+  `docs/method/backlog/bad-code/WARP_resident-count-is-not-a-memory-budget.md`.
+
 ## [0.14.0] - 2026-09-11
 
 ### Added
