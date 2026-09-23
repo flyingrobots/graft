@@ -15,19 +15,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   Idle graph residents now age out on a TTL instead of staying warm for the
   life of the process, and eviction disposes the resident rather than only
   unlinking it; `GRAFT_WARP_IDLE_TTL_MS` sets the idle age (default ten
-  minutes) and `GRAFT_WARP_MAX_IDLE_RESIDENTS` the warm-slot count (default
-  one, previously the full resident capacity, which meant idle graphs were
-  never trimmed). The tree-sitter runtime keeps one parser per language
-  instead of constructing one per parse, so the WebAssembly heap — whose
-  linear pages only ever grow and are never returned to the OS — plateaus;
-  `ParsedTree.delete()` now deletes the tree only and is idempotent. The AST
-  graph opens with WARP compaction enabled and thresholds tuned for anchor
-  churn, where before it inherited git-warp's disabled-by-default policy and
-  never compacted at all.
+  minutes) and `GRAFT_WARP_MAX_IDLE_RESIDENTS` the warm-slot count, which
+  keeps defaulting to the full resident capacity — recency-based reuse is the
+  pool's intended behavior, and the TTL is what bounds lifetime. The AST graph
+  opens with WARP compaction enabled and thresholds tuned for anchor churn,
+  where before it inherited git-warp's disabled-by-default policy and never
+  compacted at all.
 
   This bounds the growth; it is not a byte ceiling. Bounding a single graph's
   materialized size and worker-process memory remain open in
   `docs/method/backlog/bad-code/WARP_resident-count-is-not-a-memory-budget.md`.
+
+### Changed
+
+- **The tree-sitter runtime keeps one parser per language** instead of
+  constructing one per parse, and `ParsedTree.delete()` now deletes the tree
+  only and is idempotent. This is an efficiency change, not a leak fix: a soak
+  measured `new Parser()`-per-parse and parser reuse as indistinguishable
+  (25.0 MiB versus 24.9 MiB of RSS drift over 2000 parses). web-tree-sitter
+  shares one WebAssembly module across every `Parser`, so deleting a parser
+  returns its structs to that allocator's free list.
 
 ## [0.14.0] - 2026-09-11
 
