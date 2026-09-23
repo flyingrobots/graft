@@ -13,6 +13,28 @@ export const GRAPH_NAME = "graft-ast";
 export const DEFAULT_WARP_CHECKPOINT_EVERY = 128;
 const WARP_GIT_MAX_BUFFER_BYTES = 128 * 1024 * 1024;
 
+/**
+ * Compaction settings for the AST graph.
+ *
+ * git-warp ships auto-GC disabled, so a graph opened with defaults never
+ * compacts at all. Re-indexing retires a generation of AST anchors on every
+ * edit, which makes this graph unusually tombstone-heavy: thresholds well
+ * below the library defaults keep compaction tracking that churn rather than
+ * waiting for a backlog to accumulate.
+ *
+ * Field names follow git-warp 16's `gcPolicy`; 17+ renames
+ * `maxTimeSinceCompaction` to a tick-based bound, so this object must be
+ * revisited with any major upgrade.
+ */
+export const WARP_GC_POLICY = {
+  enabled: true,
+  compactOnCheckpoint: true,
+  tombstoneRatioThreshold: 0.2,
+  entryCountThreshold: 10_000,
+  minPatchesSinceCompaction: 256,
+  maxTimeSinceCompaction: 300_000,
+} as const;
+
 interface GitExecuteOptions {
   readonly args: string[];
   readonly input?: string | Uint8Array;
@@ -62,6 +84,7 @@ export async function openWarp(options: OpenWarpOptions): Promise<WarpApp> {
     graphName: GRAPH_NAME,
     writerId: options.writerId ?? DEFAULT_WARP_WRITER_ID,
     checkpointPolicy: { every: options.checkpointEvery ?? DEFAULT_WARP_CHECKPOINT_EVERY },
+    gcPolicy: { ...WARP_GC_POLICY },
     onDeleteWithData: "cascade",
   });
 }
