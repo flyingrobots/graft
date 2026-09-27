@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Added
+
+- **Claims source files**: a JSON document shaped like a contextual-claims
+  result (an artifact id and candidates carrying claim terms) is recognised by
+  content and outlined as one: the artifact, each candidate, and every term
+  node by canonical path, with its constructor, frame and source-relative
+  holder or predicate in the signature, and jump entries covering each node.
+  The outline is administrative and carries no support or truth judgment. A
+  malformed term outlines as partial instead of throwing. The claim model
+  comes from `@flyingrobots/contextual-claims`, currently a local `link:`
+  dependency; this change cannot ship until that package is published.
+
 ## [0.14.0] - 2026-09-11
 
 ### Added

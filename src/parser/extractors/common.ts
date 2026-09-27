@@ -33,6 +33,8 @@ export function buildJumpEntry(
 export interface ExtractorResult {
   entries: OutlineEntry[];
   jumpTable: JumpEntry[];
+  /** Set when the extractor could only outline part of a well-formed file. */
+  partial?: boolean;
 }
 
 export interface LanguageExtractor {

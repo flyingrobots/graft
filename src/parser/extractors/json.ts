@@ -6,11 +6,16 @@ import {
   boundSignature,
   buildJumpEntry,
 } from "./common.js";
+import { extractClaimsOutline } from "./claims.js";
 
 const MAX_JSON_CHILDREN = 32;
 
 export class JsonExtractor implements LanguageExtractor {
   extract(root: TSNode): ExtractorResult {
+    // A contextual-claims result is outlined as claims, recognised by content.
+    const claims = extractClaimsOutline(root, parseJsonText(root.text));
+    if (claims !== null) return claims;
+
     const entries: OutlineEntry[] = [];
     const jumpTable: JumpEntry[] = [];
     const value = root.namedChildren[0];
@@ -84,5 +89,13 @@ export class JsonExtractor implements LanguageExtractor {
       default:
         return node.type;
     }
+  }
+}
+
+function parseJsonText(text: string): unknown {
+  try {
+    return JSON.parse(text) as unknown;
+  } catch {
+    return undefined;
   }
 }

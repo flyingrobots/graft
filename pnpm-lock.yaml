@@ -28,6 +28,9 @@ importers:
       '@flyingrobots/bijou-node':
         specifier: ^4.4.1
         version: 4.4.1(@flyingrobots/bijou@4.4.1)
+      '@flyingrobots/contextual-claims':
+        specifier: link:../contextual-claims
+        version: link:../contextual-claims
       '@git-stunts/git-warp':
         specifier: ^16.0.0
         version: 16.0.0
