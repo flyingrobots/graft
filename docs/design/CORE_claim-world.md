@@ -54,6 +54,13 @@ exactly one). Otherwise the reading is `unselected` with the candidate count.
   world split across two ingests.
 - No reading selects a candidate by position.
 
+## Where the code lives
+
+The world codec is in `@flyingrobots/contextual-claims` (its specification
+§10), with admitted artifact files as node attachments. Graft's
+`src/claims/claim-warp-git.ts` writes one ingest and its files as one WARP
+patch and reads them back.
+
 ## Non-goals
 
 - Support or evidence queries: the global index stays administrative.

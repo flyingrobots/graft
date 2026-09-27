@@ -36,9 +36,9 @@ term, `JSON.stringify(decode(encode(t))) === JSON.stringify(t)`.
 
 ## Backend boundary
 
-The codec depends on two ports, `ClaimGraphWriter` (git-warp's
-`PatchBuilderV2` satisfies it) and `ClaimGraphReader`. `claim-warp-git.ts` is
-the only file where ClaimWarp meets git-warp, so an Echo WARP backend replaces
+The codec lives in `@flyingrobots/contextual-claims` (its specification §9) and
+depends on two ports, `ClaimGraphWriter` (git-warp's `PatchBuilderV2` satisfies
+it) and `ClaimGraphReader`. Graft's `src/claims/claim-warp-git.ts` is the only file where ClaimWarp meets git-warp, so an Echo WARP backend replaces
 that file and nothing else.
 
 ## Acceptance criteria
@@ -58,6 +58,8 @@ that file and nothing else.
 
 ## Test strategy
 
-- `test/unit/claims/claim-warp.test.ts` over invented fixtures.
+- In-memory round trips over invented fixtures, in the package's own tests.
+- `test/unit/claims/claim-warp-git.test.ts`: the git-warp adapter, through
+  committed patches reopened from disk.
 - A local-only round trip over a real corpus is run outside this repository;
   its results are recorded with that corpus, not here.
