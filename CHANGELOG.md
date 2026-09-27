@@ -18,6 +18,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   malformed term outlines as partial instead of throwing. The claim model
   comes from `@flyingrobots/contextual-claims`, currently a local `link:`
   dependency; this change cannot ship until that package is published.
+- **ClaimWarp**: `encodeClaimTerm`, `assertValidClaimWarp` and
+  `decodeClaimWarp` store a claim term as a typed WARP subgraph, one node per
+  term node and one `claim_child` edge per link with `role` and `ordinal` as
+  edge properties, and read it back byte for byte. The codec talks to two
+  small graph ports; `claim-warp-git.ts` is the only git-warp adapter.
 
 ## [0.14.0] - 2026-09-11
 
