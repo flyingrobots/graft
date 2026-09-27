@@ -23,6 +23,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   term node and one `claim_child` edge per link with `role` and `ordinal` as
   edge properties, and read it back byte for byte. The codec talks to two
   small graph ports; `claim-warp-git.ts` is the only git-warp adapter.
+- **ClaimWorld**: extraction attempts, candidates, relation proposals,
+  decisions, candidate selections and ingest receipts as an outer WARP graph
+  around ClaimWarp terms. `extractionsAsOf`, `resolveInWorld` and
+  `currentReading` answer as-of, supersession and current-reading questions
+  from the graph, with the same answers as the JSON. Candidate order never
+  selects: a recorded selection or a named policy does.
 
 ## [0.14.0] - 2026-09-11
 
