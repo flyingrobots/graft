@@ -145,6 +145,16 @@ export interface DaemonSessionStorage {
     daemonInstanceId: string,
     sessionId: string,
   ): Promise<void>;
+  publishStagedSessionDirectory(
+    stagingDir: string,
+    sessionDir: string,
+    expectedIdentity: DaemonSessionDirectoryIdentity,
+    sessionsRootAuthority: DaemonSessionsRootAuthority,
+  ): Promise<void>;
+  removeSessionStagingDirectory(
+    stagingDir: string,
+    sessionsRootAuthority: DaemonSessionsRootAuthority,
+  ): Promise<void>;
   removeSessionDirectory(
     sessionDir: string,
     expectedIdentity: DaemonSessionDirectoryIdentity,
@@ -1775,6 +1785,8 @@ export async function removeSessionOrphanDirectories(
 export const nodeDaemonSessionStorage: DaemonSessionStorage = Object.freeze({
   captureSessionDirectoryIdentity,
   writeSessionOwnershipMarker,
+  publishStagedSessionDirectory,
+  removeSessionStagingDirectory,
   removeSessionDirectory,
   removeSessionOrphanDirectories,
 });

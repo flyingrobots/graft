@@ -23,8 +23,6 @@ import type {
   SessionOrphanRemovalFailure,
 } from "./daemon-storage-ownership.js";
 import {
-  publishStagedSessionDirectory,
-  removeSessionStagingDirectory,
   sessionStagingName,
   UnsafeDaemonSessionDirectoryError,
 } from "./daemon-storage-ownership.js";
@@ -291,7 +289,7 @@ async function createDaemonSession(
       options.daemonInstanceId,
       newSessionId,
     );
-    await publishStagedSessionDirectory(
+    await options.sessionStorage.publishStagedSessionDirectory(
       stagingDir,
       sessionGraftDir,
       directoryIdentity,
@@ -454,7 +452,7 @@ async function createDaemonSession(
       }
     } else if (stagingReady) {
       try {
-        await removeSessionStagingDirectory(
+        await options.sessionStorage.removeSessionStagingDirectory(
           stagingDir,
           options.sessionsRootAuthority,
         );

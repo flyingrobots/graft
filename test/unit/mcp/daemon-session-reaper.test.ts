@@ -24,6 +24,7 @@ import {
   deriveGenericUnixProcessStartIdentity,
   guardedEntryMatches,
   type LegacyUnmarkedSessionPolicy,
+  nodeDaemonSessionStorage,
   quarantineDaemonRootOwner,
   publishDaemonRootOwner,
   readProcessStartIdentity,
@@ -811,6 +812,7 @@ describe("mcp: daemon session reaper", () => {
       releaseFirstRemoval();
     });
     const sessionStorage = {
+      ...nodeDaemonSessionStorage,
       captureSessionDirectoryIdentity,
       writeSessionOwnershipMarker,
       removeSessionOrphanDirectories,
@@ -1356,6 +1358,7 @@ describe("mcp: daemon session reaper", () => {
     });
     let scanCalls = 0;
     const sessionStorage = {
+      ...nodeDaemonSessionStorage,
       captureSessionDirectoryIdentity,
       writeSessionOwnershipMarker,
       removeSessionDirectory,
@@ -1416,6 +1419,7 @@ describe("mcp: daemon session reaper", () => {
     const canonicalEntries = (): string[] => fs.readdirSync(sessionsRoot)
       .filter((name) => uuidName.test(name));
     const sessionStorage = {
+      ...nodeDaemonSessionStorage,
       removeSessionDirectory,
       removeSessionOrphanDirectories,
       captureSessionDirectoryIdentity(sessionDir: string) {
@@ -1524,6 +1528,7 @@ describe("mcp: daemon session reaper", () => {
     });
     let swapped = false;
     const sessionStorage = {
+      ...nodeDaemonSessionStorage,
       captureSessionDirectoryIdentity,
       writeSessionOwnershipMarker,
       removeSessionOrphanDirectories,
@@ -2117,6 +2122,7 @@ describe("mcp: daemon session reaper", () => {
       releaseScan = resolve;
     });
     const sessionStorage = {
+      ...nodeDaemonSessionStorage,
       captureSessionDirectoryIdentity,
       writeSessionOwnershipMarker,
       removeSessionDirectory,
@@ -2275,6 +2281,7 @@ describe("mcp: daemon session reaper", () => {
       releaseScan = resolve;
     });
     const sessionStorage = {
+      ...nodeDaemonSessionStorage,
       captureSessionDirectoryIdentity,
       writeSessionOwnershipMarker,
       removeSessionDirectory,
@@ -2343,6 +2350,7 @@ describe("mcp: daemon session reaper", () => {
       markScanFinished = resolve;
     });
     const sessionStorage = {
+      ...nodeDaemonSessionStorage,
       captureSessionDirectoryIdentity,
       writeSessionOwnershipMarker,
       removeSessionDirectory,
@@ -2405,6 +2413,7 @@ describe("mcp: daemon session reaper", () => {
     let scanCalls = 0;
     let reason: "UNKNOWN_ENTRY_NAME" | "NOT_DIRECTORY" = "UNKNOWN_ENTRY_NAME";
     const sessionStorage = {
+      ...nodeDaemonSessionStorage,
       captureSessionDirectoryIdentity,
       writeSessionOwnershipMarker,
       removeSessionDirectory,
@@ -2592,6 +2601,7 @@ describe("mcp: daemon session reaper", () => {
       releaseScan();
     });
     const sessionStorage = {
+      ...nodeDaemonSessionStorage,
       captureSessionDirectoryIdentity,
       writeSessionOwnershipMarker,
       removeSessionDirectory,
@@ -3422,6 +3432,7 @@ describe("mcp: daemon session reaper", () => {
     });
     let removalCalls = 0;
     const sessionStorage = {
+      ...nodeDaemonSessionStorage,
       captureSessionDirectoryIdentity,
       writeSessionOwnershipMarker,
       removeSessionOrphanDirectories,
@@ -3529,6 +3540,7 @@ describe("mcp: daemon session reaper", () => {
     });
     let removalCalls = 0;
     const sessionStorage = {
+      ...nodeDaemonSessionStorage,
       captureSessionDirectoryIdentity,
       writeSessionOwnershipMarker,
       removeSessionOrphanDirectories,
@@ -3640,6 +3652,7 @@ describe("mcp: daemon session reaper", () => {
     let scanCalls = 0;
     const sweepLiveSessionIds: ReadonlySet<string>[] = [];
     const sessionStorage = {
+      ...nodeDaemonSessionStorage,
       captureSessionDirectoryIdentity,
       writeSessionOwnershipMarker,
       async removeSessionDirectory(
@@ -3709,6 +3722,7 @@ describe("mcp: daemon session reaper", () => {
       markRemovalAttempted = resolve;
     });
     const sessionStorage = {
+      ...nodeDaemonSessionStorage,
       captureSessionDirectoryIdentity,
       writeSessionOwnershipMarker,
       removeSessionOrphanDirectories,
@@ -3830,6 +3844,7 @@ describe("mcp: daemon session reaper", () => {
       releaseRemoval = resolve;
     });
     const sessionStorage = {
+      ...nodeDaemonSessionStorage,
       captureSessionDirectoryIdentity,
       writeSessionOwnershipMarker,
       removeSessionOrphanDirectories,
@@ -3896,6 +3911,7 @@ describe("mcp: daemon session reaper", () => {
     let currentTimeMs = 1_000_000;
     let failNextRemoval = true;
     const sessionStorage = {
+      ...nodeDaemonSessionStorage,
       captureSessionDirectoryIdentity,
       writeSessionOwnershipMarker,
       removeSessionOrphanDirectories,
@@ -4175,6 +4191,7 @@ describe("mcp: daemon session reaper", () => {
     const busyPath = path.join(rootDir, "sessions", busySessionId);
     let injectOrphanFailures = false;
     const sessionStorage = {
+      ...nodeDaemonSessionStorage,
       captureSessionDirectoryIdentity,
       writeSessionOwnershipMarker,
       removeSessionDirectory,
@@ -4246,6 +4263,7 @@ describe("mcp: daemon session reaper", () => {
     );
     let injectFailures = false;
     const sessionStorage = {
+      ...nodeDaemonSessionStorage,
       captureSessionDirectoryIdentity,
       writeSessionOwnershipMarker,
       async removeSessionDirectory(
@@ -4478,6 +4496,7 @@ describe("mcp: daemon session reaper", () => {
       fs.rmSync(rootDir, { recursive: true, force: true });
     });
     const sessionStorage = {
+      ...nodeDaemonSessionStorage,
       captureSessionDirectoryIdentity,
       writeSessionOwnershipMarker,
       removeSessionOrphanDirectories,
@@ -4526,6 +4545,7 @@ describe("mcp: daemon session reaper", () => {
       releaseRemoval();
     });
     const sessionStorage = {
+      ...nodeDaemonSessionStorage,
       captureSessionDirectoryIdentity,
       writeSessionOwnershipMarker,
       removeSessionOrphanDirectories,
@@ -4608,6 +4628,7 @@ describe("mcp: daemon session reaper", () => {
       process.off("unhandledRejection", onUnhandledRejection);
     });
     const sessionStorage = {
+      ...nodeDaemonSessionStorage,
       captureSessionDirectoryIdentity,
       writeSessionOwnershipMarker,
       removeSessionOrphanDirectories,
@@ -4908,6 +4929,7 @@ describe("mcp: daemon session reaper", () => {
     });
     const markerFailure = new Error("injected session ownership marker failure");
     const sessionStorage = {
+      ...nodeDaemonSessionStorage,
       captureSessionDirectoryIdentity,
       writeSessionOwnershipMarker(): Promise<void> {
         return Promise.reject(markerFailure);
@@ -5000,6 +5022,7 @@ describe("mcp: daemon session reaper", () => {
     });
     let failNextCapture = true;
     const sessionStorage = {
+      ...nodeDaemonSessionStorage,
       async captureSessionDirectoryIdentity(
         sessionDir: string,
       ): Promise<DaemonSessionDirectoryIdentity> {
@@ -5037,6 +5060,64 @@ describe("mcp: daemon session reaper", () => {
     expect(daemon.getHealthStatus().activeSessions).toBe(0);
     expect(fs.readdirSync(path.join(rootDir, "sessions"))).toEqual([]);
     expect((await daemon.reapExpiredSessions()).preservedEntries).toEqual([]);
+  });
+
+  it("rolls back an unpublished staging directory through the injected session storage", async () => {
+    const rootDir = fs.mkdtempSync(path.join(os.tmpdir(), "gs-staging-rollback-"));
+    const socketPath = path.join(rootDir, "custom.sock");
+    const sessionsRoot = path.join(rootDir, "sessions");
+    cleanups.push(() => {
+      fs.rmSync(rootDir, { recursive: true, force: true });
+    });
+    let failNextCapture = true;
+    const stagingRemovals: string[] = [];
+    const sessionStorage = {
+      ...nodeDaemonSessionStorage,
+      async captureSessionDirectoryIdentity(
+        sessionDir: string,
+      ): Promise<DaemonSessionDirectoryIdentity> {
+        if (failNextCapture) {
+          failNextCapture = false;
+          throw Object.assign(new Error("injected identity capture failure"), { code: "EIO" });
+        }
+        return captureSessionDirectoryIdentity(sessionDir);
+      },
+      writeSessionOwnershipMarker,
+      removeSessionDirectory,
+      removeSessionOrphanDirectories,
+      removeSessionStagingDirectory(stagingDir: string): Promise<void> {
+        stagingRemovals.push(stagingDir);
+        return Promise.reject(Object.assign(new Error("injected staging rmdir failure"), { code: "EBUSY" }));
+      },
+    };
+    const daemon = await startDaemonServer({
+      graftDir: rootDir,
+      socketPath,
+      sessionReaperIntervalMs: 0,
+      sessionStorage,
+    });
+    cleanups.push(() => daemon.close());
+
+    const initialize = await requestUnixJson(socketPath, "POST", "/mcp", {
+      jsonrpc: "2.0",
+      id: 1,
+      method: "initialize",
+      params: {
+        protocolVersion: "2025-03-26",
+        capabilities: {},
+        clientInfo: { name: "vitest", version: "0.0.0" },
+      },
+    });
+
+    expect(initialize.statusCode).toBe(500);
+    expect(failNextCapture).toBe(false);
+    // The injected rollback ran and its failure took effect: the staging
+    // directory it refused to remove is still there.
+    expect(stagingRemovals).toHaveLength(1);
+    expect(path.dirname(stagingRemovals[0]!)).toBe(sessionsRoot);
+    expect(path.basename(stagingRemovals[0]!)).toMatch(/^\.graft-staging-[0-9a-f-]{36}$/u);
+    expect(fs.readdirSync(sessionsRoot)).toEqual([path.basename(stagingRemovals[0]!)]);
+    expect(daemon.getHealthStatus().activeSessions).toBe(0);
   });
 
   it("rolls back a session when transport connection fails", async () => {
