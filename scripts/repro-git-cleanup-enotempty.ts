@@ -13,7 +13,8 @@ import process from "node:process";
 // before c9b6ccd1, commit, delete a file, commit), then removes the repo at once with fs.rmSync, as
 // cleanupTestRepo did before 7871b506, and counts the outcome. Variant "default" is the test's own
 // sequence. Variant "forced" also starts an explicit `git maintenance run --task=gc --detach` just
-// before the removal, so a background git is certainly writing under .git while it is removed.
+// before the removal. Nothing waits for that writer to start, so an iteration may remove the repo
+// before it writes; a forced run shows the collision can happen, never how often.
 //
 // This is evidence for triage, not a gate: a zero count is bounded evidence, never proof. Run several
 // copies at once to approximate full-suite load. Everything is written under a fresh directory in the
