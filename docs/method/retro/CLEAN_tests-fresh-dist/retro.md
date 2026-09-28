@@ -157,6 +157,19 @@ before it, on the helper suite, unless stated.
   `11 failed | 17 passed (28)` on 3 of 3 runs, with `ENOENT` inside other cases' roots. GREEN:
   28 of 28 on 5 concurrent runs, 5 shuffled runs (seeds 1 to 5) and 3 concurrent shuffled runs
   (seeds 11 to 13), and no `graft-fresh-dist-*` directory left in the temp directory afterwards.
+- **Pid-only lock liveness, and the first version's directory lock (finding 8).** A lock or claim
+  now records its creation time and is presumed dead past two minutes; an owner whose lock was taken
+  over fails after its build without touching `dist/` or the marker; a timeout names the holder; the
+  first version's lock directory is taken over when its owner is dead or it is past the bound, and
+  otherwise waited on. RED, four new cases on the previous helper: an hour-old lock held by a live
+  pid, `promise rejected "Error: Timed out after 200 ms ..." instead of resolving`; a dead owner's
+  lock directory, `promise rejected "Error: EISDIR: illegal operation on a directory, read" instead
+  of resolving`; a live owner's young lock directory, `expected [Function] to throw error matching
+  /Timed out/u but got 'EISDIR: ...'`; a lock taken over mid-build, `promise resolved "'built'"
+  instead of rejecting`. Residual: a build that genuinely runs past two minutes loses its lock to a
+  waiter, and the two can both be writing `dist/` until the first one fails; a process still running
+  the first version could recreate its lock directory while a new-version waiter is removing a dead
+  one.
 
 ## Non-Goals Held
 

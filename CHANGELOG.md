@@ -101,10 +101,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   saved while that build runs is not accepted as built: the setup rebuilds,
   and fails with `dist/` still marked stale if sources change under three
   builds in a row. A source dated in the future fails the setup, naming the
-  file, before `dist/` is removed or rebuilt. Two Vitest
-  processes in one checkout build once, and one no longer fails with
-  `ENOENT` when it checks `dist/` while the other is deleting it; a lock left by a dead process is taken
-  over only if it is still the lock that was seen dead.
+  file, before `dist/` is removed or rebuilt. Two Vitest processes in one
+  checkout build once, and one checking `dist/` while the other deletes it
+  treats it as stale instead of failing. A build lock is taken over when its
+  process has exited or it is more than two minutes old, and only if it is
+  still the lock that was seen dead; a lock directory left by an earlier
+  revision of this setup is handled the same way.
 
 - **Refused automatic authorization**: when a routed daemon call cannot
   persist the default authorization for its workspace, Graft now discards that

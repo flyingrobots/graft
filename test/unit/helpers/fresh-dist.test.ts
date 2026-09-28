@@ -436,6 +436,68 @@ describe("test support: ensureFreshDist", { timeout: CASE_TIMEOUT_MS }, () => {
     expect(build.calls).toBe(0);
     expect(buildLockHolder(root)).toBe(livePeer);
   });
+
+  it("takes over a lock older than the maximum lock age even though its pid names a live process", async ({ onTestFinished }) => {
+    const root = packageRoot(onTestFinished);
+    // A crashed owner whose pid now belongs to an unrelated live process (the Vitest parent).
+    expect(writeBuildLock(root, process.ppid, Date.now() - 60 * 60_000)).toBe(true);
+    const build = fakeBuild();
+
+    await expect(ensureFreshDist({ root, build: build.build, lockPollMs: LOCK_POLL_MS, lockTimeoutMs: 200 }))
+      .resolves.toBe("built");
+
+    expect(build.calls).toBe(1);
+    expect(buildLockHolder(root)).toBeUndefined();
+  });
+
+  it("takes over a lock directory left by the earlier version of this setup when its owner has exited", async ({ onTestFinished }) => {
+    const root = packageRoot(onTestFinished);
+    const lock = buildLockPath(root);
+    // The first version's lock: a directory holding the owner's pid in a file named `pid`.
+    fs.mkdirSync(lock, { recursive: true });
+    fs.writeFileSync(path.join(lock, "pid"), String(exitedPid()));
+    const build = fakeBuild();
+
+    await expect(ensureFreshDist({ root, build: build.build, lockPollMs: LOCK_POLL_MS, lockTimeoutMs: 200 }))
+      .resolves.toBe("built");
+
+    expect(build.calls).toBe(1);
+    expect(fs.existsSync(lock)).toBe(false);
+  });
+
+  it("waits on, and leaves alone, a young lock directory from the earlier version whose owner is alive", async ({ onTestFinished }) => {
+    const root = packageRoot(onTestFinished);
+    const lock = buildLockPath(root);
+    fs.mkdirSync(lock, { recursive: true });
+    fs.writeFileSync(path.join(lock, "pid"), String(process.ppid));
+    const build = fakeBuild();
+
+    await expect(ensureFreshDist({ root, build: build.build, lockPollMs: LOCK_POLL_MS, lockTimeoutMs: 50 }))
+      .rejects.toThrow(/Timed out/u);
+
+    expect(build.calls).toBe(0);
+    expect(fs.readFileSync(path.join(lock, "pid"), "utf8")).toBe(String(process.ppid));
+  });
+
+  it("fails, leaving dist marked stale, when its lock was taken over while it was building", async ({ onTestFinished }) => {
+    const root = packageRoot(onTestFinished);
+    const lock = buildLockPath(root);
+    const inner = fakeBuild();
+    const overtaken = async (target: string): Promise<DistBuildResult> => {
+      // Another process judged this build's lock too old, took it over, and holds it now.
+      fs.rmSync(lock, { force: true });
+      expect(writeBuildLock(target, process.ppid)).toBe(true);
+      return inner.build(target);
+    };
+
+    await expect(ensureFreshDist({ root, build: overtaken })).rejects.toThrow(/taken over/u);
+
+    expect(buildLockHolder(root)).toBe(process.ppid);
+    fs.rmSync(lock, { force: true });
+    const build = fakeBuild();
+    await expect(ensureFreshDist({ root, build: build.build })).resolves.toBe("built");
+    expect(build.calls).toBe(1);
+  });
 });
 
 describe("test support: keepDistFresh", { timeout: CASE_TIMEOUT_MS }, () => {

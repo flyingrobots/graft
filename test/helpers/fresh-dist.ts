@@ -33,6 +33,12 @@ export const DIST_CONFIG_INPUTS = ["tsconfig.json", "tsconfig.build.json", "pack
 const TSC_DIAGNOSTICS_WITH_OUTPUT = 2;
 const DEFAULT_LOCK_POLL_MS = 100;
 const DEFAULT_LOCK_TIMEOUT_MS = 5 * 60_000;
+/**
+ * A lock or retirement claim older than this is presumed abandoned whatever its pid says. A real
+ * build holds the lock for about 3.5 s on the reference machine; a build still running past this age
+ * loses the lock and fails rather than accept output another process may have overwritten.
+ */
+const LOCK_MAX_AGE_MS = 2 * 60_000;
 /** Builds in one call before giving up on inputs that change under every build. */
 const MAX_BUILD_ATTEMPTS = 3;
 
@@ -179,33 +185,96 @@ function processIsAlive(pid: number): boolean {
   }
 }
 
-/** One lock instance: the owning pid and a token no other instance ever carries. */
+/**
+ * One lock instance: the owning pid, a token no other instance ever carries, and when it was created.
+ * A `legacy` record is the first version's lock, a directory holding only the owner's pid.
+ */
 interface LockRecord {
-  readonly pid: number;
-  readonly token: string;
+  readonly pid: number | undefined;
+  readonly token: string | undefined;
+  readonly createdAtMs: number;
+  readonly legacy: boolean;
 }
 
 function readText(file: string): string | undefined {
   try {
     return fs.readFileSync(file, "utf8");
   } catch (error: unknown) {
-    if ((error as NodeJS.ErrnoException).code === "ENOENT") return undefined;
+    if (isMissing(error)) return undefined;
     throw error;
   }
 }
 
-function parsePid(text: string | undefined): number | undefined {
+function parsePositiveInteger(text: string | undefined): number | undefined {
   if (text === undefined) return undefined;
-  const pid = Number.parseInt(text, 10);
-  return Number.isSafeInteger(pid) && pid > 0 ? pid : undefined;
+  const value = Number.parseInt(text, 10);
+  return Number.isSafeInteger(value) && value > 0 ? value : undefined;
 }
 
+function mtimeMs(file: string): number | undefined {
+  try {
+    return fs.statSync(file).mtimeMs;
+  } catch (error: unknown) {
+    if (isMissing(error)) return undefined;
+    throw error;
+  }
+}
+
+/**
+ * Reads `pid token createdAtMs`. A record without a readable creation time (written by an earlier
+ * revision as `pid token`) is dated by the file's mtime, which the hard link sets at creation.
+ */
 function readLock(lock: string): LockRecord | undefined {
-  const text = readText(lock);
+  let text: string | undefined;
+  try {
+    text = readText(lock);
+  } catch (error: unknown) {
+    if ((error as NodeJS.ErrnoException).code !== "EISDIR") throw error;
+    const createdAtMs = mtimeMs(lock);
+    if (createdAtMs === undefined) return undefined;
+    return { pid: parsePositiveInteger(readText(path.join(lock, "pid"))), token: undefined, createdAtMs, legacy: true };
+  }
   if (text === undefined) return undefined;
-  const [pidText, token] = text.split(" ");
-  const pid = parsePid(pidText);
-  return pid === undefined || token === undefined || token === "" ? undefined : { pid, token };
+  const [pidText, tokenText, createdText] = text.split(" ");
+  const createdAtMs = parsePositiveInteger(createdText) ?? mtimeMs(lock);
+  if (createdAtMs === undefined) return undefined;
+  const token = tokenText === undefined || tokenText === "" ? undefined : tokenText;
+  return { pid: parsePositiveInteger(pidText), token, createdAtMs, legacy: false };
+}
+
+/**
+ * A holder is presumed dead once its record is older than LOCK_MAX_AGE_MS, whatever its pid says:
+ * a crashed owner's pid can be reused by an unrelated live process, which would otherwise wedge the
+ * lock for good. Younger, it is dead only when its pid no longer names a live process; this process's
+ * own pid counts as live, so two calls in one process wait for each other.
+ */
+function holderIsDead(pid: number | undefined, createdAtMs: number): boolean {
+  if (Date.now() - createdAtMs > LOCK_MAX_AGE_MS) return true;
+  if (pid === undefined) return false;
+  return pid !== process.pid && !processIsAlive(pid);
+}
+
+/**
+ * Removes the first version's lock directory: its `pid` file, then the directory. rmdir cannot remove
+ * a file, so a current lock created at that path in the meantime is never touched.
+ */
+function removeLegacyLock(lock: string): void {
+  const ignorable = new Set(["ENOENT", "ENOTDIR", "ENOTEMPTY", "EEXIST"]);
+  const steps = [
+    (): void => {
+      fs.rmSync(path.join(lock, "pid"));
+    },
+    (): void => {
+      fs.rmdirSync(lock);
+    },
+  ];
+  for (const remove of steps) {
+    try {
+      remove();
+    } catch (error: unknown) {
+      if (!ignorable.has((error as NodeJS.ErrnoException).code ?? "")) throw error;
+    }
+  }
 }
 
 /**
@@ -227,9 +296,9 @@ function createExclusive(target: string, content: string): boolean {
 }
 
 /** Creates a new lock instance owned by `pid`; undefined when a lock is present. */
-function tryCreateLock(lock: string, pid: number = process.pid): string | undefined {
+function tryCreateLock(lock: string, pid: number = process.pid, createdAtMs: number = Date.now()): string | undefined {
   const token = crypto.randomUUID();
-  return createExclusive(lock, `${String(pid)} ${token}`) ? token : undefined;
+  return createExclusive(lock, `${String(pid)} ${token} ${String(Math.trunc(createdAtMs))}`) ? token : undefined;
 }
 
 /**
@@ -244,7 +313,7 @@ function tryCreateLock(lock: string, pid: number = process.pid): string | undefi
 function retireLock(lock: string, token: string): boolean {
   for (let n = 1; ; n += 1) {
     const claim = `${lock}.retire.${token}.${String(n)}`;
-    if (createExclusive(claim, String(process.pid))) {
+    if (createExclusive(claim, `${String(process.pid)} ${String(Date.now())}`)) {
       try {
         if (readLock(lock)?.token === token) fs.rmSync(lock, { force: true });
         return true;
@@ -252,10 +321,15 @@ function retireLock(lock: string, token: string): boolean {
         for (let k = 1; k <= n; k += 1) fs.rmSync(`${lock}.retire.${token}.${String(k)}`, { force: true });
       }
     }
-    const holder = parsePid(readText(claim));
+    const text = readText(claim);
     // A claim is removed only after its instance is gone, so a vanished claim means it is retired.
-    if (holder === undefined) return true;
-    if (holder !== process.pid && processIsAlive(holder)) return false;
+    if (text === undefined) return true;
+    const [holderText, createdText] = text.split(" ");
+    const createdAtMs = parsePositiveInteger(createdText) ?? mtimeMs(claim) ?? 0;
+    const holder = parsePositiveInteger(holderText);
+    // Retiring never yields to the event loop, so a claim carrying this process's pid was left by an
+    // earlier process that had the same pid, and is dead.
+    if (holder !== process.pid && !holderIsDead(holder, createdAtMs)) return false;
   }
 }
 
@@ -264,10 +338,13 @@ export function buildLockPath(root: string): string {
   return path.join(buildCacheDir(root), "dist-build.lock");
 }
 
-/** Creates the build lock on behalf of `pid` (tests plant dead or foreign owners). False when held. */
-export function writeBuildLock(root: string, pid: number): boolean {
+/**
+ * Creates the build lock on behalf of `pid`, dated `createdAtMs` (tests plant dead, foreign or old
+ * owners). False when held.
+ */
+export function writeBuildLock(root: string, pid: number, createdAtMs: number = Date.now()): boolean {
   fs.mkdirSync(buildCacheDir(root), { recursive: true });
-  return tryCreateLock(buildLockPath(root), pid) !== undefined;
+  return tryCreateLock(buildLockPath(root), pid, createdAtMs) !== undefined;
 }
 
 /** The pid recorded in the build lock, or undefined when there is no lock. */
@@ -288,13 +365,23 @@ async function acquireLock(
     const token = tryCreateLock(lock);
     if (token !== undefined) return token;
     const seen = readLock(lock);
-    if (seen !== undefined && seen.pid !== process.pid && !processIsAlive(seen.pid)) {
+    if (seen !== undefined && holderIsDead(seen.pid, seen.createdAtMs)) {
       beforeTakeover?.();
-      // Retire exactly the instance seen dead; a lock created since then is left alone.
-      if (retireLock(lock, seen.token)) continue;
+      if (seen.legacy) {
+        removeLegacyLock(lock);
+        continue;
+      }
+      // Retire exactly the instance seen dead; a lock created since then is left alone. A record with
+      // no token cannot be told apart from a later one, so it is left to time out.
+      if (seen.token !== undefined && retireLock(lock, seen.token)) continue;
     }
     if (Date.now() >= deadline) {
-      throw new Error(`Timed out after ${String(timeoutMs)} ms waiting for the dist/ build lock at ${lock}.`);
+      const holder = seen?.pid === undefined ? "an unknown process" : `pid ${String(seen.pid)}`;
+      throw new Error(
+        `Timed out after ${String(timeoutMs)} ms waiting for the dist/ build lock at ${lock}, held by ${holder}. `
+        + `It is taken over once that process has exited or the lock is older than ${String(LOCK_MAX_AGE_MS / 60_000)} `
+        + "minutes; if no test run is building dist/, delete the lock and rerun.",
+      );
     }
     await new Promise((resolve) => setTimeout(resolve, pollMs));
   }
@@ -334,6 +421,14 @@ export async function ensureFreshDist(options: FreshDistOptions): Promise<FreshD
       fs.writeFileSync(pending, `${String(process.pid)} ${String(readFrom)}`);
       fs.rmSync(dist, { recursive: true, force: true });
       const result = await options.build(root);
+      if (readLock(lock)?.token !== token) {
+        // Held past LOCK_MAX_AGE_MS and taken over: another process may be rebuilding dist/ now, so
+        // touch neither dist/ nor the pending marker, and do not vouch for what is there.
+        throw new Error(
+          "The dist/ build lock was taken over while this process was building (the build ran past the "
+          + "maximum lock age); dist/ may be incomplete. Rerun once the other build has finished.",
+        );
+      }
       if (result.status === TSC_DIAGNOSTICS_WITH_OUTPUT) {
         (options.warn ?? console.warn)(
           "[graft test setup] tsc reported diagnostics while rebuilding dist/. It still emitted every file, "

@@ -143,6 +143,18 @@ so the tested output is the shipped output, not a look-alike.
   owner cannot both acquire: one wins the claim, and the other either loses
   it or finds a newer lock and leaves it alone. A claim whose holder died is
   superseded by claim n+1, so a crash while retiring does not wedge the lock.
+  Liveness by pid alone let a crashed owner's pid, reused by any live process,
+  wedge the lock for good, so (second review) each lock and claim also records
+  when it was created, and one older than two minutes is presumed dead
+  whatever its pid says. A build normally holds the lock for about 3.5 s. A
+  build that outlives the bound finds after it returns that its lock is no
+  longer its own instance, and fails without touching `dist/` or the pending
+  marker, so a slow build loses its lock but cannot vouch for output another
+  process may be rewriting. A timeout names the holder's pid and says how to
+  clear the lock. The first version of this setup locked with a directory
+  holding a `pid` file; such a directory is waited on while its owner is alive
+  and younger than the bound, and otherwise removed file by file with `rmdir`,
+  which cannot remove a current (file) lock created at that path meanwhile.
 - **Docker harness.** The image's `build` stage runs `pnpm build` after
   `COPY . .`, so inside the container every `dist/` file is newer than every
   input and the setup does nothing. `.dockerignore` already keeps the host's
