@@ -31,8 +31,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   or `EACCES`, so consumers never match message text. Structured cleanup
   failures mark only operations
   that a later sweep actually retries. Protocol and fallback transport-close
-  failures plus permanently unsafe live-session child paths are reported as
-  non-retryable, while a transient sessions-root identity refusal remains
+  failures plus permanently unsafe live-session and orphan paths are reported
+  as non-retryable, even when a failed restore from quarantine wraps the
+  refusal in an AggregateError, while a transient sessions-root identity refusal remains
   retryable after the exact parked root is restored. Pending initialization
   directories are reserved from orphan discovery until their construction
   commits or finishes rolling back. Sweeps are single-flight, shutdown fences

@@ -4189,6 +4189,70 @@ describe("mcp: daemon session reaper", () => {
     ]);
   });
 
+  it("keeps an unsafe-path refusal non-retryable when a failed restore wraps it", async () => {
+    const rootDir = fs.mkdtempSync(path.join(os.tmpdir(), "gs-unsafe-wrapped-"));
+    const socketPath = path.join(rootDir, "daemon.sock");
+    cleanups.push(() => {
+      fs.rmSync(rootDir, { recursive: true, force: true });
+    });
+    const orphanSessionId = "33333333-3333-4333-8333-333333333333";
+    const orphanPath = path.join(rootDir, "sessions", orphanSessionId);
+    // The shape storage throws when it refuses a replaced directory and the
+    // rename that would restore it from quarantine then fails too.
+    const restoreFailed = (refusedPath: string): AggregateError => new AggregateError(
+      [
+        new UnsafeDaemonSessionDirectoryError(refusedPath),
+        Object.assign(new Error("injected restore rename failure"), { code: "EBUSY" }),
+      ],
+      `Failed to restore refused daemon session directory: ${refusedPath}`,
+    );
+    let injectFailures = false;
+    const sessionStorage = {
+      captureSessionDirectoryIdentity,
+      writeSessionOwnershipMarker,
+      async removeSessionDirectory(
+        ...args: Parameters<typeof removeSessionDirectory>
+      ): ReturnType<typeof removeSessionDirectory> {
+        if (!injectFailures) return removeSessionDirectory(...args);
+        throw restoreFailed(args[0]);
+      },
+      async removeSessionOrphanDirectories(
+        ...args: Parameters<typeof removeSessionOrphanDirectories>
+      ): ReturnType<typeof removeSessionOrphanDirectories> {
+        if (!injectFailures) return removeSessionOrphanDirectories(...args);
+        return {
+          removed: 0,
+          failures: [{ sessionId: orphanSessionId, path: orphanPath, error: restoreFailed(orphanPath) }],
+          preservedEntries: [],
+        };
+      },
+    };
+    let currentTimeMs = 1_000_000;
+    const daemon = await startDaemonServer({
+      graftDir: rootDir,
+      socketPath,
+      sessionInactivityTtlMs: 10_000,
+      sessionReaperIntervalMs: 0,
+      sessionStorage,
+      nowMs: () => currentTimeMs,
+    });
+    cleanups.push(() => daemon.close());
+    const liveSessionId = await initializeDaemonSession(socketPath, 1);
+    currentTimeMs += 10_000;
+    injectFailures = true;
+
+    const sweep = await daemon.reapExpiredSessions();
+
+    expect(sweep.cleanupFailures.map((failure) => ({
+      code: failure.code,
+      sessionId: failure.sessionId,
+      retryable: failure.retryable,
+    }))).toEqual([
+      { code: "SESSION_DIRECTORY_REMOVE_FAILED", sessionId: liveSessionId, retryable: false },
+      { code: "ORPHAN_DIRECTORY_REMOVE_FAILED", sessionId: orphanSessionId, retryable: false },
+    ]);
+  });
+
   it("marks an unsafe live-session path refusal as non-retryable", async () => {
     if (process.platform === "win32") return;
     const rootDir = fs.mkdtempSync(path.join(os.tmpdir(), "gs-unsafe-live-path-"));

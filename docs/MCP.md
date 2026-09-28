@@ -166,7 +166,8 @@ release (`SESSION_WARP_RELEASE_FAILED`) failures are reported separately as
 non-retryable, as are live-session cleanup refusals for links or
 non-directories that orphan discovery intentionally preserves and orphan
 removals refused because the inspected directory was replaced
-(`UNSAFE_DAEMON_SESSION_DIRECTORY`). An invalid or regressing injected clock
+(`UNSAFE_DAEMON_SESSION_DIRECTORY`), including when a failed restore from
+quarantine wraps that refusal. An invalid or regressing injected clock
 refuses the whole sweep with `MONOTONIC_CLOCK_INVALID`, reports zero retired
 sessions, and leaves the previous accepted elapsed-time sample unchanged.
 Scheduled sweeps emit structured diagnostics for refused sweeps and cleanup

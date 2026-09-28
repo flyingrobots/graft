@@ -105,6 +105,20 @@ function cleanupFailure(input: {
 }
 
 /**
+ * Whether an unsafe-path refusal is anywhere in the error, including inside
+ * the AggregateError storage throws when the restore after a refusal also
+ * fails. No retry can clear such a refusal.
+ */
+function containsUnsafeSessionDirectoryRefusal(error: unknown, seen = new Set<unknown>()): boolean {
+  if (error instanceof UnsafeDaemonSessionDirectoryError) return true;
+  if (!(error instanceof Error) || seen.has(error)) return false;
+  seen.add(error);
+  const nested = error instanceof AggregateError ? [...(error.errors as unknown[])] : [];
+  if (error.cause !== undefined) nested.push(error.cause);
+  return nested.some((inner) => containsUnsafeSessionDirectoryRefusal(inner, seen));
+}
+
+/**
  * Maps orphan-removal failures to structured cleanup failures. Startup and
  * every sweep report them the same way: as retryable debt for a later sweep,
  * except an unsafe-path refusal, which no retry can clear.
@@ -116,7 +130,7 @@ export function orphanRemovalCleanupFailures(
     code: "ORPHAN_DIRECTORY_REMOVE_FAILED",
     sessionId: failure.sessionId,
     path: failure.path,
-    retryable: !(failure.error instanceof UnsafeDaemonSessionDirectoryError),
+    retryable: !containsUnsafeSessionDirectoryRefusal(failure.error),
     error: failure.error,
   }));
 }
@@ -542,7 +556,7 @@ export function createDaemonSessionHost(options: CreateDaemonSessionHostOptions)
           code: "SESSION_DIRECTORY_REMOVE_FAILED",
           sessionId: session.id,
           path: session.graftDir,
-          retryable: !(error instanceof UnsafeDaemonSessionDirectoryError),
+          retryable: !containsUnsafeSessionDirectoryRefusal(error),
           error,
         }));
       }
