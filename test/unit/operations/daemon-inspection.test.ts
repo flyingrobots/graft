@@ -154,4 +154,20 @@ describe("bounded daemon observation", () => {
     state.sessions[0] = session("s".repeat(1000));
     expect(query.capture({}).sessions.availability).toBe("unavailable");
   });
+
+  it("rejects a reported client whose payload contradicts its declared availability", () => {
+    const { state, query } = fixture();
+    const retained = query.capture({});
+    expect(retained.sessions.rows[0]).toMatchObject({ reportedClient: null, reportedClientAvailability: "not_retained" });
+    expect(inspectionObservationSchema.safeParse(retained).success).toBe(true);
+    const missingClient = structuredClone(retained);
+    missingClient.sessions.rows[0]!.reportedClientAvailability = "available";
+    expect(inspectionObservationSchema.safeParse(missingClient).success).toBe(false);
+    state.sessions[0] = { ...session(), reportedClient: { name: "agent", version: "1" } };
+    const reported = query.capture({});
+    expect(inspectionObservationSchema.safeParse(reported).success).toBe(true);
+    const unretainedClient = structuredClone(reported);
+    unretainedClient.sessions.rows[0]!.reportedClientAvailability = "not_retained";
+    expect(inspectionObservationSchema.safeParse(unretainedClient).success).toBe(false);
+  });
 });

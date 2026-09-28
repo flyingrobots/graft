@@ -19,6 +19,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   freshness. Older daemons return unsupported without startup or fallback.
   The existing `daemon status` contract is unchanged. Navigation, polling,
   retained failure history, and index-coverage measurement remain separate work.
+- **Inspection validator invariants**: the observation schema rejects a session
+  whose `reportedClient` payload contradicts `reportedClientAvailability`
+  (`null` with `available`, or a client object with `not_retained`).
 
 ## [0.14.0] - 2026-09-11
 

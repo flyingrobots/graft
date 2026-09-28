@@ -66,7 +66,8 @@ const sessionRow = z.object({
   reportedClient: z.object({ name: text, version: text, verification: z.literal("client_reported") }).strict().nullable(),
   reportedClientAvailability: z.enum(["available", "not_retained"]),
   openedWorkspaces: inspectionCollectionSchema(inspectionOpenedWorkspaceSchema),
-}).strict();
+}).strict().refine(value => (value.reportedClient === null) === (value.reportedClientAvailability === "not_retained"),
+  "Reported client payload must match its declared availability");
 export type InspectionSessionRow = z.infer<typeof sessionRow>;
 const workspaceRow = inspectionWorkspaceIdentitySchema.extend({
   authorizedAt: timestamp, authorization: z.literal("authorized"),
