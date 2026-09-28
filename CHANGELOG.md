@@ -25,6 +25,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   `truncated` collection whose known `matchingTotal` does not exceed `returned`.
   It also rejects a job whose `startedAt` contradicts its `state`: a `queued`
   job with a start time, or a `running` job without one.
+- **Inspection scope check**: the inspection client returns
+  `observation_failed` with reason `INSPECTION_SCOPE_MISMATCH` when a
+  well-formed observation's `scope.filter` does not echo the requested
+  `sessionId`, `workspaceId`, `repoId` and `limit` exactly, so rows captured
+  under another selector are never reported as the answer to this one.
 
 ### Documentation
 

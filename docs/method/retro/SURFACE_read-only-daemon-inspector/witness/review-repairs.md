@@ -116,3 +116,19 @@ regression test's monitor-assigned row read `... | session unavailable |
 workspace unavailable` with no repository. `example.txt` was re-rendered from
 `example.json` with the same clock; only its worker line changed. JSON output
 already carried `repoId` and is unchanged.
+
+### Returned scope not checked against the request — P2 (review thread)
+
+The client validated the observation but not that its `scope.filter` was the
+filter it sent, so a daemon that ignored or substituted a selector or limit got
+`ok` for rows captured under a different scope, including a complete empty
+collection read as "none match". The producer echoes the parsed request
+verbatim (`scope: { ..., filter }` in `DaemonInspectionQuery.capture`). The
+client now compares `sessionId`, `workspaceId`, `repoId` and `limit` with its
+parsed request and otherwise returns `observation_failed` with reason
+`INSPECTION_SCOPE_MISMATCH`. `unsupported` was not used: it means the daemon
+lacks the route or the schema version, and a daemon that speaks this schema but
+answers a different question is a failed observation, not a missing feature.
+Before the fix, a stub serving a valid daemon-wide capture returned `ok` for
+each of the four single-field requests; the unfiltered control request passed
+both before and after.

@@ -14,6 +14,7 @@ import { ChildProcessDaemonWorkerPool } from "../../../src/mcp/daemon-worker-poo
 import { InMemoryWarpPool } from "../../../src/mcp/warp-pool.js";
 import { WorkspaceRouter } from "../../../src/mcp/workspace-router.js";
 import { ObservationCache } from "../../../src/operations/observation-cache.js";
+import { DaemonInspectionQuery } from "../../../src/operations/daemon-inspection.js";
 import { nodeGit } from "../../../src/adapters/node-git.js";
 import { nodeFs } from "../../../src/adapters/node-fs.js";
 import { cleanupTestRepo, createTestRepo, git } from "../../helpers/git.js";
@@ -197,6 +198,29 @@ describe("dedicated daemon inspection transport", () => {
     }
     const broken = await stub((_req, res) => { res.writeHead(200, { "content-length": "100" }); res.write("{"); res.destroy(); });
     expect((await inspectLocalDaemon({ socketPath: broken })).status).toBe("observation_failed");
+  });
+
+  it.each([
+    { field: "none (control)", request: {}, status: "ok" },
+    { field: "sessionId", request: { sessionId: "session:asked" }, status: "observation_failed" },
+    { field: "workspaceId", request: { workspaceId: "worktree:asked" }, status: "observation_failed" },
+    { field: "repoId", request: { repoId: "repo:asked" }, status: "observation_failed" },
+    { field: "limit", request: { limit: 3 }, status: "observation_failed" },
+  ])("refuses a valid observation whose echoed filter differs from the requested $field", async ({ request, status }) => {
+    // Oracle: the stub answers every request with a well-formed daemon-wide capture (filter {}).
+    const at = "2026-09-07T10:00:00.000Z";
+    const observation = new DaemonInspectionQuery({
+      now: () => at,
+      runtime: { incarnationId: "incarnation:stub", startedAt: at, pid: 1, version: "stub", modulePath: "/m", executablePath: "/n", socketPath: "/s" },
+      source: {
+        sessions: () => [], workspaces: () => [], jobs: () => [], workers: () => [], monitors: () => [], hasSession: () => false,
+        counters: () => ({ scheduler: { completed: 0, failed: 0 }, workers: { completed: 0, failed: 0 } }), pool: () => ({ repositoryKeys: 0 }),
+      },
+    }).capture({});
+    const socketPath = await stub((_req, res) => { res.end(JSON.stringify(observation)); });
+    const result = await inspectLocalDaemon({ socketPath, request });
+    expect(result.status).toBe(status);
+    if (result.status === "observation_failed") expect(result.reason).toBe("INSPECTION_SCOPE_MISMATCH");
   });
 
   it("rejects mutation methods and malformed filters without touching a workload session", async () => {

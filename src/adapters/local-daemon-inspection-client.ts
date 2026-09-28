@@ -59,6 +59,10 @@ export async function inspectLocalDaemon(options: InspectDaemonOptions): Promise
           }
           const observation = inspectionObservationSchema.safeParse(body);
           if (!observation.success) { fail("INVALID_INSPECTION_OBSERVATION"); return; }
+          const echoed = observation.data.scope.filter;
+          if ((["sessionId", "workspaceId", "repoId", "limit"] as const).some(key => echoed[key] !== parsed.data[key])) {
+            fail("INSPECTION_SCOPE_MISMATCH"); return;
+          }
           finish({ status: "ok", clientVersion: GRAFT_VERSION, observation: observation.data });
         } catch { fail("INVALID_INSPECTION_OBSERVATION"); }
       });
