@@ -3,8 +3,9 @@
 ## Status
 
 Met locally on host Vitest. CI ran this branch at `6123a249`: `test (20)` and `test (22)` passed,
-and `test (22)` runs the Docker-isolated `pnpm test` (277 files, 2485 tests passed). CI has not run
-the later commits, which are not pushed, and the Docker-isolated run has not been done locally:
+and `test (22)` runs the Docker-isolated `pnpm test` (277 files, 2485 tests passed). The latest CI
+run recorded here is at `6c7b6a83` (GitHub Actions run 36426014584): both jobs passed, and
+`test (22)` passed 277 files and 2,499 tests. The Docker-isolated run has not been done locally:
 the Docker daemon on the development host did not answer on three attempts (see the witness).
 
 ## What Shipped
