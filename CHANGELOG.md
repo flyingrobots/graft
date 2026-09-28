@@ -15,7 +15,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   and it is the only place Graft reads the home directory. A
   relative value is refused, and so on Windows is one without a drive or UNC
   share, such as `\graft`. The test suite sets it to a temporary directory,
-  and a test fails if any per-user default resolves inside the real home.
+  and a test fails if the per-user defaults resolve anywhere else.
 - **Read-only daemon inspection**: `graft daemon inspect` and the typed
   `inspectDaemon` API capture bounded current session/workspace relationships,
   admitted job routes, parent-known workers, monitor records, loaded process

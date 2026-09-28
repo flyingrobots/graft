@@ -1,12 +1,11 @@
 import * as fs from "node:fs";
 import { syncBuiltinESMExports } from "node:module";
-import * as os from "node:os";
 import nodeOs from "node:os";
 import * as path from "node:path";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { graftRootPath, graftRootPipeKey, InvalidGraftRootPathError } from "../../../src/adapters/graft-root.js";
 import { defaultDaemonRoot, resolveSocketPath } from "../../../src/mcp/daemon-bootstrap.js";
-import { homeBeforeSetup } from "../../setup-graft-root.js";
+import { graftTestRoot, homeBeforeSetup } from "../../setup-graft-root.js";
 
 // Promise: Graft finds its per-user root from GRAFT_ROOT_PATH, and only falls
 // back to <home>/.graft when the variable is unset. Nothing else in Graft reads
@@ -97,14 +96,6 @@ describe("default Windows daemon pipe", () => {
 });
 
 describe("test harness: Graft root isolation", () => {
-  // Oracle: the account database names the real home independently of any
-  // environment variable; no test may default into it.
-  const realHome = os.userInfo().homedir;
-  const within = (root: string, target: string): boolean => {
-    const relative = path.relative(root, target);
-    return relative === "" || (!relative.startsWith("..") && !path.isAbsolute(relative));
-  };
-
   it("leaves HOME as the process received it", () => {
     // Oracle: HOME recorded by the setup file before it did anything. HOME may
     // legitimately differ from the account database's home (a sandbox, a
@@ -112,9 +103,13 @@ describe("test harness: Graft root isolation", () => {
     expect(process.env["HOME"]).toBe(homeBeforeSetup);
   });
 
-  it("points every per-user default outside the real home", () => {
-    expect(within(realHome, graftRootPath())).toBe(false);
-    expect(within(realHome, defaultDaemonRoot())).toBe(false);
+  it("puts every per-user default in the setup's private temporary root", () => {
+    // Oracle: the directory the setup file created for this test file. A fresh
+    // mkdtemp directory cannot be the developer's real ~/.graft, and exact
+    // equality holds on Windows too, where the temp directory itself lies
+    // inside the user profile.
+    expect(graftRootPath()).toBe(graftTestRoot);
+    expect(defaultDaemonRoot()).toBe(path.join(graftTestRoot, "daemon"));
   });
 });
 

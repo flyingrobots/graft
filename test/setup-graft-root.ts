@@ -11,9 +11,10 @@ import { afterAll } from "vitest";
 /** HOME as this test process received it, recorded before anything below runs. */
 export const homeBeforeSetup = process.env["HOME"];
 
-const testRoot = fs.mkdtempSync(path.join(os.tmpdir(), "graft-test-root-"));
-process.env["GRAFT_ROOT_PATH"] = testRoot;
+/** The private Graft root this test file runs under. */
+export const graftTestRoot = fs.mkdtempSync(path.join(os.tmpdir(), "graft-test-root-"));
+process.env["GRAFT_ROOT_PATH"] = graftTestRoot;
 
 afterAll(() => {
-  fs.rmSync(testRoot, { recursive: true, force: true });
+  fs.rmSync(graftTestRoot, { recursive: true, force: true });
 });

@@ -70,3 +70,10 @@ tests, lint and typecheck green after it.
   against that. RED: with `HOME` pointed at a scratch directory for the run, the
   old assertion failed; the new one passed there and failed when the setup was
   mutated to reassign `HOME` (reverted byte for byte, never committed).
+- Windows temp directory: "outside the real home" is false on Windows, where
+  `os.tmpdir()` sits inside the user profile. The test now requires the root
+  and daemon root to equal the setup's own temporary directory exactly, a
+  stronger oracle on every platform. RED (modelled on macOS, nothing written
+  under the home): with the old test's home set to the temp directory's parent,
+  it failed. Calibration: a resolver that ignored the setup's root failed the
+  new test.

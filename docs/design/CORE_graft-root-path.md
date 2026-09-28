@@ -38,8 +38,8 @@ itself should use its own root variable, in the product as well as in tests.
 - No production source reads the home directory outside the resolver
   (`src/adapters/graft-root.ts`).
 - The test suite sets `GRAFT_ROOT_PATH` to a private temporary directory and
-  leaves `HOME` alone. A test fails if any per-user default resolves inside the
-  real home, as named by the account database rather than by `HOME`.
+  leaves `HOME` alone. A test fails if the per-user defaults resolve anywhere
+  but that directory, or if `HOME` differs from the value the process received.
 
 ## Playback questions
 
