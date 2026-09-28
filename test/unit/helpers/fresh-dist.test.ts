@@ -21,8 +21,8 @@ import { ensureFreshDist, keepDistFresh, type DistBuildResult } from "../../help
 // no network. `node:fs` is mocked as a pass-through whose readdirSync and renameSync can run hooks
 // registered by a case (another process deleting or publishing dist/ at that moment). Time: mtimes
 // are set with utimes; no case waits on a timer; the helper's clock is injected through its `now`
-// option where a case depends on it, and no case fakes or spies on the global Date. Ceiling: CASE_TIMEOUT_MS per case, enforced by the describe timeout; suite budget 2 s
-// for the file. Isolation checked alone, shuffled and with --sequence.concurrent.
+// option where a case depends on it, and no case fakes or spies on the global Date. Ceiling:
+// CASE_TIMEOUT_MS per case, enforced by the describe timeout; suite budget 2 s for the file. Isolation checked alone, shuffled and with --sequence.concurrent.
 // CI stage: pre-merge. The CI workflow's `test` job (Node 22 leg, step "Tests") runs `pnpm test`,
 // the Docker-isolated full Vitest run, on every pull request to main and every push to main.
 // Deletion criterion (Rule 18): delete with test/helpers/fresh-dist.ts when no test executes dist/

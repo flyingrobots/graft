@@ -186,14 +186,20 @@ async function removeTree(target: string, options: CleanupTestRepoOptions): Prom
  * ENOTEMPTY or EBUSY is retried a few times with a warning each time, so a recurrence is visible;
  * any other error, or the last retry's error, rejects. Both removals are attempted even when one
  * fails, so a failure leaves as little behind as it can; the first failure, in the order graph root
- * then repo, is the rejection.
+ * then repo, is the rejection, and a repo failure behind it is reported through `warn`.
  */
 export async function cleanupTestRepo(tmpDir: string, options: CleanupTestRepoOptions = {}): Promise<void> {
-  const results = await Promise.allSettled([
+  const [graphRoot, repo] = await Promise.allSettled([
     removeTree(testGraphRootForRepo(tmpDir), options),
     removeTree(tmpDir, options),
   ]);
-  for (const result of results) {
-    if (result.status === "rejected") throw result.reason;
+  if (graphRoot.status === "rejected") {
+    if (repo.status === "rejected") {
+      const reason: unknown = repo.reason;
+      const detail = reason instanceof Error ? reason.message : String(reason);
+      (options.warn ?? console.warn)(`[graft test cleanup] could not remove ${tmpDir} either: ${detail}`);
+    }
+    throw graphRoot.reason;
   }
+  if (repo.status === "rejected") throw repo.reason;
 }

@@ -103,8 +103,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   it as it was. A source saved while that build runs is not accepted as
   built: the setup rebuilds, and fails leaving `dist/` as it was if sources
   change under three builds in a row, or if three builds in a row produce
-  output no newer than their inputs, naming the stale output. A source dated in the future fails the
-  setup, naming the file, before anything is built. Two Vitest processes in
+  output no newer than their inputs, naming the stale output. A source
+  dated in the future fails the setup, naming the file, before anything is
+  built. Two Vitest processes in
   one checkout need no lock: each builds privately and publishes a complete
   build, and one checking `dist/` while the other replaces it treats it as
   stale instead of failing.

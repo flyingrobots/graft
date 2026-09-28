@@ -299,8 +299,9 @@ so the tested output is the shipped output, not a look-alike.
   The slow-build case also passes the helper a clock three minutes forward
   (its `now` option; until the fourth review it faked the global `Date`,
   a change concurrent cases could see), past the age
-  at which the removed lock presumed a build dead, so an age-based design
-  cannot return unnoticed. Two processes run the same filesystem path, but
+  at which the removed lock presumed a build dead. That clock reaches only
+  the future-date check, so it would not catch an age-based design that read
+  `Date.now` directly. Two processes run the same filesystem path, but
   cross-process schedules are not separately exercised (model limit).
 - Races with another process are staged without production hooks: a
   pass-through `node:fs` mock runs a callback before `readdirSync` of a

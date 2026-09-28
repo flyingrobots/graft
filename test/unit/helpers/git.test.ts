@@ -203,6 +203,24 @@ describe("test helper: cleanupTestRepo retries transient removal errors", { time
     expect(remover.calls).toEqual([`${repo}.graft-graphs`, repo]);
   });
 
+  it("warns about the repo's failure when both removals fail and it rejects with the graph root's", async () => {
+    const rootDenied = fsError("EACCES");
+    const repoDenied = fsError("EPERM");
+    const calls: string[] = [];
+    const remove = (entry: string): Promise<void> => {
+      calls.push(entry);
+      return Promise.reject(entry === repo ? repoDenied : rootDenied);
+    };
+    const warnings: string[] = [];
+
+    await expect(
+      cleanupTestRepo(repo, { remove, warn: (message) => warnings.push(message), retryDelayMs: 0 }),
+    ).rejects.toBe(rootDenied);
+
+    expect(calls).toEqual([`${repo}.graft-graphs`, repo]);
+    expect(warnings).toEqual([`[graft test cleanup] could not remove ${repo} either: EPERM: planned failure`]);
+  });
+
   it("rejects with the remover's own error once ENOTEMPTY outlasts every retry", async () => {
     const persistent = fsError("ENOTEMPTY");
     const remover = plannedRemover(repo, Array.from({ length: 20 }, () => persistent));
