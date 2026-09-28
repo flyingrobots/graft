@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Added
+
+- **`GRAFT_ROOT_PATH`**: Graft's per-user root, `~/.graft` by default, can be set
+  to any absolute path. The daemon's default root and its Windows pipe name
+  derive from it, and it is the only place Graft reads the home directory. A
+  relative value is refused. The test suite sets it to a temporary directory,
+  and a test fails if any per-user default resolves inside the real home.
+
 ### Documentation
 
 - **Modular Graft design packet** (`docs/design/CORE_modular-graft-runtime-and-library.md`):

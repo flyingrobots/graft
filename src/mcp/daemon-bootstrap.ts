@@ -2,8 +2,8 @@ import * as crypto from "node:crypto";
 import * as fs from "node:fs/promises";
 import * as http from "node:http";
 import * as net from "node:net";
-import * as os from "node:os";
 import * as path from "node:path";
+import { graftRootPath, graftRootPipeKey } from "../adapters/graft-root.js";
 
 const DIRECTORY_MODE = 0o700;
 const SOCKET_MODE = 0o600;
@@ -12,13 +12,13 @@ export function isNamedPipePath(socketPath: string): boolean {
   return process.platform === "win32" && socketPath.startsWith("\\\\.\\pipe\\");
 }
 
-export function defaultDaemonRoot(): string {
-  return path.join(os.homedir(), ".graft", "daemon");
+export function defaultDaemonRoot(graftRoot: string = graftRootPath()): string {
+  return path.join(graftRoot, "daemon");
 }
 
 function defaultSocketPath(graftDir: string): string {
   if (process.platform === "win32") {
-    const digest = crypto.createHash("sha256").update(os.homedir()).digest("hex").slice(0, 12);
+    const digest = crypto.createHash("sha256").update(graftRootPipeKey()).digest("hex").slice(0, 12);
     return `\\\\.\\pipe\\graft-daemon-${digest}`;
   }
   return path.join(graftDir, "mcp.sock");
