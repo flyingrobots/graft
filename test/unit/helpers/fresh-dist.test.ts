@@ -171,6 +171,50 @@ describe("test support: ensureFreshDist", { timeout: CASE_TIMEOUT_MS }, () => {
     expect(build.calls).toBe(0);
   });
 
+  it("rebuilds when a source is saved after the build read it but before the build wrote any output", async () => {
+    const root = packageRoot();
+    const source = path.join(root, "src", "a.ts");
+    let calls = 0;
+    // Like tsc: reads every input first, then emits. The first build sees the edit land in between,
+    // with an mtime older than anything it is about to write.
+    const build = async (target: string): Promise<DistBuildResult> => {
+      calls += 1;
+      const read = fs.readFileSync(source, "utf8");
+      if (calls === 1) {
+        fs.writeFileSync(source, "export const a = 2;\n");
+        setTime(source, EDIT_TIME);
+      }
+      await fakeBuild().build(target);
+      fs.writeFileSync(path.join(target, "dist", "a.js"), read);
+      return { status: 0, output: "" };
+    };
+
+    await expect(ensureFreshDist({ root, build })).resolves.toBe("built");
+
+    expect(distText(root, "a.js")).toBe("export const a = 2;\n");
+    expect(calls).toBe(2);
+  });
+
+  it("gives up, leaving dist marked stale, when a source changes during every build", async () => {
+    const root = packageRoot();
+    const source = path.join(root, "src", "a.ts");
+    let edits = 0;
+    const churning = async (target: string): Promise<DistBuildResult> => {
+      edits += 1;
+      fs.writeFileSync(source, `export const a = ${String(edits + 1)};\n`);
+      setTime(source, new Date(EDIT_TIME.getTime() + edits * 1_000));
+      return fakeBuild().build(target);
+    };
+
+    await expect(ensureFreshDist({ root, build: churning })).rejects.toThrow(/kept changing while dist\/ was being built/u);
+    expect(edits).toBe(3);
+    const build = fakeBuild();
+
+    await expect(ensureFreshDist({ root, build: build.build })).resolves.toBe("built");
+
+    expect(build.calls).toBe(1);
+  });
+
   it("rebuilds from a clean dist when a source file was deleted, dropping its orphaned output", async () => {
     const root = await builtRoot();
     fs.rmSync(path.join(root, "src", "nested", "b.ts"));

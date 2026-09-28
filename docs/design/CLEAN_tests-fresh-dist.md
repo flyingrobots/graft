@@ -81,10 +81,22 @@ before any worker starts.
     dies in between, or the build function throws, the marker survives and
     the next run rebuilds. `dist/` produced by `pnpm build` alone (Docker, CI)
     has no marker, so it is judged by the other rules and is not rebuilt.
+  - **Inputs must not change under the build** (added in the second
+    review). `tsc` reads every input before it writes anything, so a source
+    saved during a build gets an mtime older than every output and would pass
+    the time rule from then on while `dist/` holds the output from before the
+    edit. Before each build the setup records the newest input mtime, the
+    moment the build reads its inputs from, in the pending marker; after the
+    build it rescans, and if any input is now newer than that snapshot it
+    rebuilds. The marker is removed only after a build whose inputs did not
+    change under it. After three builds that each saw a change it fails the
+    run and leaves the marker, so the next run rebuilds.
 
   Residual: a `pnpm build` that is itself killed after emitting every `.js`
   but before its declaration files leaves no marker and passes both checks.
-  Tests execute only the `.js`.
+  Tests execute only the `.js`. Likewise a source saved during a `pnpm build`
+  run outside the setup is not caught, because only the setup's own builds
+  take the snapshot.
 
 When stale it removes `dist/` and runs the repository's own build,
 `tsc -p tsconfig.build.json` (what `pnpm build`, CI and the Docker image run),
@@ -157,6 +169,9 @@ so the tested output is the shipped output, not a look-alike.
   compiler.
 - A `dist/` missing the `.js` of any `src/` module, or left by a build that did
   not finish, is rebuilt even when every file it holds is new.
+- An input saved while the setup's build is running is never accepted as
+  built: the setup rebuilds, and fails leaving `dist/` marked stale if the
+  inputs change under three builds in a row.
 - A compiler exit of 2 (diagnostics, output emitted) warns and continues; any
   other failure aborts the run and leaves no `dist/`.
 - Two concurrent `ensureFreshDist` calls on one checkout build once.

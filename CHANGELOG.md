@@ -96,7 +96,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   the run continues; `pnpm typecheck` stays the type gate. If `src/` or one
   of those config files is missing, the setup fails and names it instead of
   accepting the old build. A `dist/` that lacks the `.js` of any `src/`
-  module, or that a test-run build left unfinished, is rebuilt. Two Vitest
+  module, or that a test-run build left unfinished, is rebuilt. A source
+  saved while that build runs is not accepted as built: the setup rebuilds,
+  and fails with `dist/` still marked stale if sources change under three
+  builds in a row. Two Vitest
   processes in one checkout build once; a lock left by a dead process is taken
   over only if it is still the lock that was seen dead.
 

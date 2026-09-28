@@ -34,8 +34,11 @@ Met locally on host Vitest. The Docker-isolated `pnpm test` and CI have not run 
 - **Location.** The packet first named `test/support/`. It was changed to the existing
   `test/helpers/` before the packet was committed.
 - **Post-build check.** Added during GREEN: if `dist/` is still stale after a successful build,
-  the setup throws, naming the input that is not older than the oldest output. This covers an input
-  edited during the build, or an input dated in the future.
+  the setup throws, naming the input that is not older than the oldest output. As first written this
+  claimed to cover an input edited during the build. It covered only an edit made after the build's
+  first write: `tsc` reads every input before writing, so an edit saved in between is older than
+  every output and passed (second review, finding 1). The setup now snapshots the newest input mtime
+  before each build and rebuilds when any input is newer afterwards; see "Second review" below.
 - **Docker not exercised.** The claim that the image's `dist/` is fresh rests on the Dockerfile
   running `pnpm build` after `COPY . .`. No container run in this cycle confirmed it.
 - **Partial `dist/`.** A `dist/` whose surviving files were all new passed the time rule even when
@@ -106,6 +109,18 @@ One more full run of this branch after the review fixes (`1d318219`, `dist/` mad
   they fall to the repository maintainer, @flyingrobots, for triage. No quarantine is claimed: that
   needs his explicit decision, a defect link, compensating checks and an expiry, and none has been
   given. Until then neither is evidence against this change, and neither is cleared.
+
+## Second review
+
+A self-audit of `6123a249` raised eleven findings. Each fix below was shown RED against the code
+before it, on the helper suite, unless stated.
+
+- **Edit saved during a build (finding 1).** Before each build the setup records the newest input
+  mtime in the pending marker; after the build, an input newer than that snapshot means the build
+  may have read the old text, so it rebuilds, and after three such builds it fails and leaves the
+  marker. RED on the previous helper: the new case failed with
+  `expected 'export const a = 1;\n' to be 'export const a = 2;\n'` (the edit was accepted), and the
+  repeated-edit case with `promise resolved "'built'" instead of rejecting`.
 
 ## Non-Goals Held
 

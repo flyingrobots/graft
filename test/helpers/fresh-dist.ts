@@ -33,6 +33,8 @@ export const DIST_CONFIG_INPUTS = ["tsconfig.json", "tsconfig.build.json", "pack
 const TSC_DIAGNOSTICS_WITH_OUTPUT = 2;
 const DEFAULT_LOCK_POLL_MS = 100;
 const DEFAULT_LOCK_TIMEOUT_MS = 5 * 60_000;
+/** Builds in one call before giving up on inputs that change under every build. */
+const MAX_BUILD_ATTEMPTS = 3;
 
 interface Extreme {
   readonly path: string;
@@ -288,21 +290,36 @@ export async function ensureFreshDist(options: FreshDistOptions): Promise<FreshD
 
     const dist = path.join(root, "dist");
     const pending = pendingBuildMarker(root);
-    // Written before dist/ is touched and removed only once the build has finished, so a process that
-    // dies in between (or a build that throws) leaves a marker the next run reads as stale.
-    fs.writeFileSync(pending, String(process.pid));
-    fs.rmSync(dist, { recursive: true, force: true });
-    const result = await options.build(root);
-    if (result.status === TSC_DIAGNOSTICS_WITH_OUTPUT) {
-      (options.warn ?? console.warn)(
-        "[graft test setup] tsc reported diagnostics while rebuilding dist/. It still emitted every file, "
-        + "so tests run against current source; run `pnpm typecheck` to see the errors.\n"
-        + result.output,
-      );
-    } else if (result.status !== 0) {
+    for (let attempt = 1; ; attempt += 1) {
+      // The newest input as the build is about to read it. tsc reads every input before it writes
+      // anything, so an input saved during the build can carry an mtime older than every output and
+      // pass the time rule later; comparing against this snapshot is what catches it.
+      const readFrom = newestInput(root)?.mtimeMs ?? Number.NEGATIVE_INFINITY;
+      // Written before dist/ is touched and removed only once the build has finished from inputs that
+      // did not change under it, so a process that dies in between (or a build that throws, or inputs
+      // that keep changing) leaves a marker the next run reads as stale.
+      fs.writeFileSync(pending, `${String(process.pid)} ${String(readFrom)}`);
       fs.rmSync(dist, { recursive: true, force: true });
-      fs.rmSync(pending, { force: true });
-      throw new Error(`Building dist/ for the test run failed with exit ${String(result.status)}:\n${result.output}`);
+      const result = await options.build(root);
+      if (result.status === TSC_DIAGNOSTICS_WITH_OUTPUT) {
+        (options.warn ?? console.warn)(
+          "[graft test setup] tsc reported diagnostics while rebuilding dist/. It still emitted every file, "
+          + "so tests run against current source; run `pnpm typecheck` to see the errors.\n"
+          + result.output,
+        );
+      } else if (result.status !== 0) {
+        fs.rmSync(dist, { recursive: true, force: true });
+        fs.rmSync(pending, { force: true });
+        throw new Error(`Building dist/ for the test run failed with exit ${String(result.status)}:\n${result.output}`);
+      }
+      const changed = newestInput(root);
+      if (changed === undefined || changed.mtimeMs <= readFrom) break;
+      if (attempt >= MAX_BUILD_ATTEMPTS) {
+        throw new Error(
+          `Build inputs kept changing while dist/ was being built (${path.relative(root, changed.path)} changed `
+          + `during attempt ${String(attempt)}); dist/ is left marked stale. Rerun once edits have stopped.`,
+        );
+      }
     }
     fs.rmSync(pending, { force: true });
 
