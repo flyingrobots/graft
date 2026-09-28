@@ -227,7 +227,7 @@ must be non-empty and is resolved to its real path when the server or pool is
 built, so a root reached through a symlink alias works. It must be disjoint
 from both the source worktree and its common Git directory. Sidecar
 location resolution fails before creating storage when those conditions are
-not met. The field is an additive public option in v0.13.0; no root export was
+not met. The field is an additive public option, not yet released; no root export was
 removed or renamed.
 
 ### 5. Metadata
