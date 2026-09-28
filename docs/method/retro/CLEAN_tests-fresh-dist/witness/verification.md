@@ -87,6 +87,25 @@ the dist-executing and package-metadata tests, 7 files, 60 of 60; `pnpm lint` ex
 2481 passed, 4 failed (the four known local timeouts), 146.7 s. Afterwards
 `node_modules/.cache/graft/` held no lock, retirement claim or pending marker.
 
+## Second review gates
+
+One commit per finding, from `6123a249` to `119a0c15`. After each code commit: the helper
+directory's six files (the fresh-dist suite plus five unrelated helper suites), the two
+dist-executing suites (`sidecar`, enhance CLI; 20 of 20 each time), `pnpm lint` exit 0,
+`pnpm typecheck` exit 0, `git diff --check` clean, and `node_modules/.cache/graft/` empty afterwards.
+The fresh-dist suite ended at 33 of 33, and also passed 33 of 33 on three runs with
+`--sequence.concurrent --sequence.shuffle` (seeds 1 to 3).
+
+Full host run after the last commit, `src/index.ts` touched first
+(`NPM_CONFIG_USERCONFIG=/dev/null pnpm exec vitest run`, macOS, Node 26.0.0): 277 files, 2496 tests,
+2493 passed, 3 failed, 137.4 s. All three failures are 5000 ms timeouts on the known local-timeout
+list (`SURFACE_opened-workspace-paths`, `WARP_dead-symbol-detection`,
+`WARP_symbol-history-timeline`). `test/unit/git/diff.test.ts` and
+`test/unit/mcp/structural-blame.test.ts` passed. The setup rebuilt `dist/` (`dist/index.js` 4 s
+newer than the touched `src/index.ts`), and `node_modules/.cache/graft/` was empty afterwards.
+
+The Docker-isolated run was not attempted: `docker info` did not return within 20 s.
+
 ## Cost
 
 `ensureFreshDist` timed directly with the real build, three runs each:

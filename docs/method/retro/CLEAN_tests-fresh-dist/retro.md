@@ -153,7 +153,7 @@ Affected claim, tests, revision or delivery scope: test/unit/git/diff.test.ts "l
   behaviour (getChangedFiles listing a deleted file). The branch changes neither diff.test.ts nor
   test/helpers/git.ts; it adds a global setup that finishes before any test starts.
 Missing evidence/control and attempts made: root cause unconfirmed. Attempts: 3 parent-revision
-  full runs (0 failures of this test), 1 later branch full run (0), a standalone loop (0 of 600),
+  full runs (0 failures of this test), 2 later branch full runs (0), a standalone loop (0 of 600),
   the committed harness's default variant (0 of 1400). Its forced variant reproduces ENOTEMPTY
   (3 of 2400 under 8-way load).
 Residual product and test risk: product risk none identified (the failing step is test-only temp
