@@ -168,6 +168,7 @@ async function createDaemonSession(
       newSessionId,
       () => session.server.getWorkspaceStatus(),
       () => session.server.getRuntimeCausalContext(),
+      () => session.server.inspectWorkspace(),
     );
     await server.getMcpServer().connect(transport as Transport);
     return session;
