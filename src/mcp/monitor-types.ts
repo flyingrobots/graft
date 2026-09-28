@@ -96,6 +96,7 @@ export interface PersistentMonitorRuntimeOptions {
   readonly codec: JsonCodec;
   readonly git: GitClient;
   readonly graftDir: string;
+  readonly graphRoot: string;
   readonly controlPlane: DaemonControlPlane;
   readonly scheduler: DaemonJobScheduler;
   readonly workerPool: DaemonWorkerPool;

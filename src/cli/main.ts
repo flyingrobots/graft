@@ -28,11 +28,16 @@ import { runMigrateLocalHistory } from "./migrate-local-history.js";
 import { emitPeerCommand, invokePeerCommand, writeLine, type Writer } from "./peer-command.js";
 import { runReviewCooldown } from "./review-cooldown.js";
 import { GRAFT_VERSION } from "../version.js";
+import { inspectLocalDaemon, type InspectDaemonOptions } from "../adapters/local-daemon-inspection-client.js";
+import type { InspectionResult } from "../contracts/daemon-inspection.js";
+import { parseDaemonInspect } from "./daemon-inspect.js";
+import { renderDaemonInspection } from "./daemon-inspect-render.js";
 
 export { resolveEntrypointArgs } from "./command-parser.js";
 
 export interface RunCliOptions {
   cwd?: string | undefined;
+  graphRoot?: string | undefined;
   args?: readonly string[] | undefined;
   stdout?: Writer | undefined;
   stderr?: Writer | undefined;
@@ -40,6 +45,7 @@ export interface RunCliOptions {
   startDaemonBridge?: ((options: StartDaemonBackedStdioBridgeOptions) => Promise<void>) | undefined;
   startDaemon?: ((options: { socketPath?: string | undefined }) => Promise<GraftDaemonServer>) | undefined;
   readDaemonStatus?: ((options: ReadDaemonStatusOptions) => Promise<DaemonStatusReadSnapshot>) | undefined;
+  inspectDaemon?: ((options: InspectDaemonOptions) => Promise<InspectionResult>) | undefined;
   invokeGitGraftEnhancePeer?: GitGraftEnhancePeerInvoker | undefined;
   ensureGitVersion?: (() => Promise<void>) | undefined;
   exit?: ((code?: number) => never) | undefined;
@@ -59,6 +65,7 @@ function renderHelp(writer: Writer): void {
   writeLine(writer, "                  Start stdio bridge to the local graft daemon");
   writeLine(writer, "  daemon          Start the local MCP daemon");
   writeLine(writer, "  daemon status   Show read-only daemon status");
+  writeLine(writer, "  daemon inspect  Capture bounded read-only daemon relationships (--json; --session/--workspace/--repo <id>)");
   writeLine(writer, "  review          Show a structural review summary for a ref range");
   writeLine(writer);
 
@@ -113,6 +120,21 @@ export async function runCli(options: RunCliOptions = {}): Promise<void> {
     return;
   }
 
+  // Inspection is independent of local Git, repo discovery and daemon startup.
+  if (argv[0] === "daemon" && argv[1] === "inspect") {
+    const json = argv.includes("--json");
+    let result: InspectionResult;
+    try {
+      const parsed = parseDaemonInspect(cwd, argv.slice(2));
+      result = await (options.inspectDaemon ?? inspectLocalDaemon)(parsed);
+    } catch {
+      result = { status: "observation_failed", clientVersion: GRAFT_VERSION, reason: "INVALID_INSPECTION_ARGUMENTS" };
+    }
+    writeLine(stdout, json ? JSON.stringify(result) : renderDaemonInspection(result, new Date().toISOString()));
+    if (result.status !== "ok") process.exitCode = 1;
+    return;
+  }
+
   try {
     await (options.ensureGitVersion ?? (() => ensureGitVersionSupportsGraft()))();
   } catch (err: unknown) {
@@ -127,7 +149,14 @@ export async function runCli(options: RunCliOptions = {}): Promise<void> {
   }
 
   if (argv[0] === "index") {
-    await runIndex({ cwd, args: argv.slice(1), stdout, stderr, exit: options.exit });
+    await runIndex({
+      cwd,
+      args: argv.slice(1),
+      stdout,
+      stderr,
+      exit: options.exit,
+      ...(options.graphRoot !== undefined ? { graphRoot: options.graphRoot } : {}),
+    });
     return;
   }
 
@@ -179,6 +208,7 @@ export async function runCli(options: RunCliOptions = {}): Promise<void> {
         json: parsed.json,
         stdout,
         stderr,
+        ...(options.graphRoot !== undefined ? { graphRoot: options.graphRoot } : {}),
       });
       return;
     }
@@ -189,6 +219,7 @@ export async function runCli(options: RunCliOptions = {}): Promise<void> {
         json: parsed.json,
         stdout,
         stderr,
+        ...(options.graphRoot !== undefined ? { graphRoot: options.graphRoot } : {}),
       });
       return;
     }
@@ -223,7 +254,9 @@ export async function runCli(options: RunCliOptions = {}): Promise<void> {
     if (tool === null) {
       throw new Error(`Command ${cliCommandKey(cliCommandPath(parsed.command))} has no MCP peer`);
     }
-    const result = await invokePeerCommand(cwd, tool, parsed.args);
+    const result = await invokePeerCommand(cwd, tool, parsed.args, {
+      ...(options.graphRoot !== undefined ? { graphRoot: options.graphRoot } : {}),
+    });
     emitPeerCommand(parsed.command, result, parsed.json, stdout);
   } catch (err: unknown) {
     process.exitCode = 1;

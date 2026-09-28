@@ -132,6 +132,8 @@ type TerminateDaemonSession = (
 export interface CreateDaemonSessionHostOptions {
   readonly graftDir: string;
   readonly daemonInstanceId: string;
+  /** The daemon's resolved WARP graph root; sessions use it rather than re-deriving a default. */
+  readonly graphRoot: string;
   readonly socketPath: string;
   readonly transportKind: "unix_socket" | "named_pipe";
   readonly healthPath: string;
@@ -246,6 +248,7 @@ async function createDaemonSession(
       mode: "daemon",
       sessionId: newSessionId,
       graftDir: sessionGraftDir,
+      graphRoot: options.graphRoot,
       warpPool: options.warpPool,
       daemonControlPlane: options.controlPlane,
       daemonScheduler: options.daemonScheduler,
@@ -329,6 +332,7 @@ async function createDaemonSession(
       newSessionId,
       () => createdServer.getWorkspaceStatus(),
       () => createdServer.getRuntimeCausalContext(),
+      () => createdServer.inspectWorkspace(),
     );
     protocolConnectionAttempted = true;
     await createdServer.getMcpServer().connect(createdTransport as Transport);

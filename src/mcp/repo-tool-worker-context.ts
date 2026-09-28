@@ -4,7 +4,7 @@ import { nodeGit } from "../adapters/node-git.js";
 import { nodePathOps } from "../adapters/node-paths.js";
 import { nodeProcessRunner } from "../adapters/node-process-runner.js";
 import { createRepoPathResolver } from "../adapters/repo-paths.js";
-import { openWarp } from "../warp/open.js";
+import { openWarpSidecar } from "../warp/sidecar.js";
 import { createGitWarpStructuralReadingPort } from "../warp/structural-reading-adapter.js";
 import { GovernorTracker } from "../session/tracker.js";
 import { RefusedResult } from "../policy/types.js";
@@ -81,6 +81,11 @@ export function buildRepoToolWorkerContext(
     trackedCachePaths.add(createRepoPathResolver(job.projectRoot)(job.args["path"]));
   }
   let response: Omit<RepoToolWorkerResult, "metricsDelta" | "cacheUpdates"> | null = null;
+  const warp = () => openWarpSidecar({
+    graphRoot: job.warpGraphRoot,
+    sidecarRepo: job.warpSidecarRepo,
+    writerId: job.writerId,
+  });
 
   const ctx: ToolContext = {
     projectRoot: job.projectRoot,
@@ -122,7 +127,7 @@ export function buildRepoToolWorkerContext(
     },
     resolvePath: createRepoPathResolver(job.projectRoot),
     async getWarp() {
-      return { app: await openWarp({ cwd: job.projectRoot, writerId: job.writerId }), strandId: null };
+      return { app: await warp(), strandId: null };
     },
     getStructuralReadingPort() {
       return createGitWarpStructuralReadingPort({
@@ -130,7 +135,7 @@ export function buildRepoToolWorkerContext(
         git: nodeGit,
         pathOps: nodePathOps,
         getWarp: async () => ({
-          app: await openWarp({ cwd: job.projectRoot, writerId: job.writerId }),
+          app: await warp(),
           strandId: null,
         }),
       });

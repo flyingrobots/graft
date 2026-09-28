@@ -3,7 +3,7 @@ import { CanonicalJsonCodec } from "../adapters/canonical-json.js";
 import { nodeFs } from "../adapters/node-fs.js";
 import { attachCliSchemaMeta, validateCliOutput } from "../contracts/output-schemas.js";
 import { migrateLegacyPersistedLocalHistoryToGraph } from "../mcp/persisted-local-history.js";
-import { openWarp } from "../warp/open.js";
+import { openCliWarp } from "./warp-sidecar.js";
 
 const codec = new CanonicalJsonCodec();
 
@@ -13,6 +13,7 @@ interface Writer {
 
 export interface RunMigrateLocalHistoryOptions {
   readonly cwd: string;
+  readonly graphRoot?: string | undefined;
   readonly json: boolean;
   readonly stdout?: Writer | undefined;
   readonly stderr?: Writer | undefined;
@@ -67,20 +68,25 @@ function renderHuman(payload: MigrateLocalHistoryPayload): string {
 export async function runMigrateLocalHistory(options: RunMigrateLocalHistoryOptions): Promise<void> {
   const stdout = options.stdout ?? process.stdout;
   const stderr = options.stderr ?? process.stderr;
-  const graftDir = path.join(options.cwd, ".graft");
+  let graftDir = path.join(options.cwd, ".graft");
 
   try {
-    const app = await openWarp({ cwd: options.cwd });
+    const opened = await openCliWarp({
+      cwd: options.cwd,
+      ...(options.graphRoot !== undefined ? { graphRoot: options.graphRoot } : {}),
+    });
+    const { app } = opened;
+    graftDir = path.join(opened.workspace.worktreeRoot, ".graft");
     const warpCtx = { app, strandId: null };
     const payload: MigrateLocalHistoryPayload = {
-      cwd: options.cwd,
+      cwd: opened.workspace.worktreeRoot,
       ...await migrateLegacyPersistedLocalHistoryToGraph({
         fs: nodeFs,
         codec,
         graftDir,
         graph: {
           warp: warpCtx,
-          worktreeRoot: options.cwd,
+          worktreeRoot: opened.workspace.worktreeRoot,
         },
       }),
     };

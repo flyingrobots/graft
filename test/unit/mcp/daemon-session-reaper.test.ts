@@ -370,7 +370,7 @@ describe("mcp: daemon session reaper", () => {
       2_147_483_648, Number.MAX_SAFE_INTEGER + 1];
 
     for (const [index, sessionReaperIntervalMs] of invalidIntervals.entries()) {
-      const rootDir = fs.mkdtempSync(path.join(os.tmpdir(), `graft-session-reaper-interval-${String(index)}-`));
+      const rootDir = fs.mkdtempSync(path.join(os.tmpdir(), `gsr-interval-${String(index)}-`));
       const socketPath = path.join(rootDir, "daemon.sock");
       try {
         await expect((async () => {
@@ -389,7 +389,7 @@ describe("mcp: daemon session reaper", () => {
   });
 
   it("rejects an invalid WARP resident limit before touching daemon-root storage", async () => {
-    const parentDir = fs.mkdtempSync(path.join(os.tmpdir(), "graft-session-reaper-warp-limit-"));
+    const parentDir = fs.mkdtempSync(path.join(os.tmpdir(), "gsr-warp-limit-"));
     const graftDir = path.join(parentDir, "graft");
     const socketPath = path.join(parentDir, "daemon.sock");
     cleanups.push(() => {
@@ -414,7 +414,7 @@ describe("mcp: daemon session reaper", () => {
       Number.MAX_SAFE_INTEGER + 1];
 
     for (const [index, sessionInactivityTtlMs] of invalidTtls.entries()) {
-      const rootDir = fs.mkdtempSync(path.join(os.tmpdir(), `graft-session-reaper-ttl-${String(index)}-`));
+      const rootDir = fs.mkdtempSync(path.join(os.tmpdir(), `gsr-ttl-${String(index)}-`));
       const socketPath = path.join(rootDir, "daemon.sock");
       try {
         await expect((async () => {
@@ -434,7 +434,7 @@ describe("mcp: daemon session reaper", () => {
   });
 
   it("does not expire sessions when the wall clock jumps forward", async () => {
-    const rootDir = fs.mkdtempSync(path.join(os.tmpdir(), "graft-session-reaper-clock-"));
+    const rootDir = fs.mkdtempSync(path.join(os.tmpdir(), "gsr-clock-"));
     const socketPath = path.join(rootDir, "daemon.sock");
     cleanups.push(() => {
       fs.rmSync(rootDir, { recursive: true, force: true });
@@ -483,7 +483,7 @@ describe("mcp: daemon session reaper", () => {
     invalidSample,
     reason,
   ) => {
-    const rootDir = fs.mkdtempSync(path.join(os.tmpdir(), "graft-session-reaper-invalid-clock-"));
+    const rootDir = fs.mkdtempSync(path.join(os.tmpdir(), "gsr-invalid-clock-"));
     const socketPath = path.join(rootDir, "daemon.sock");
     cleanups.push(() => {
       fs.rmSync(rootDir, { recursive: true, force: true });
@@ -843,7 +843,7 @@ describe("mcp: daemon session reaper", () => {
   });
 
   it("removes prior-process session directories before accepting requests", async () => {
-    const rootDir = fs.mkdtempSync(path.join(os.tmpdir(), "graft-session-reaper-restart-"));
+    const rootDir = fs.mkdtempSync(path.join(os.tmpdir(), "gsr-restart-"));
     const socketPath = path.join(rootDir, "mcp.sock");
     const sessionsRoot = path.join(rootDir, "sessions");
     const orphanDir = path.join(sessionsRoot, "00000000-0000-4000-8000-000000000001");
@@ -935,8 +935,8 @@ describe("mcp: daemon session reaper", () => {
 
   it("rejects a symlinked sessions root without touching its target", async () => {
     if (process.platform === "win32") return;
-    const rootDir = fs.mkdtempSync(path.join(os.tmpdir(), "graft-session-root-link-"));
-    const externalRoot = fs.mkdtempSync(path.join(os.tmpdir(), "graft-session-root-target-"));
+    const rootDir = fs.mkdtempSync(path.join(os.tmpdir(), "gs-root-link-"));
+    const externalRoot = fs.mkdtempSync(path.join(os.tmpdir(), "gs-root-target-"));
     const socketPath = path.join(rootDir, "daemon.sock");
     const externalSession = path.join(externalRoot, "00000000-0000-4000-8000-000000000001");
     fs.mkdirSync(externalSession, { recursive: true });
@@ -964,8 +964,8 @@ describe("mcp: daemon session reaper", () => {
 
   it("refuses session construction after the established sessions root is replaced", async () => {
     if (process.platform === "win32") return;
-    const rootDir = fs.mkdtempSync(path.join(os.tmpdir(), "graft-session-create-root-swap-"));
-    const externalRoot = fs.mkdtempSync(path.join(os.tmpdir(), "graft-session-create-target-"));
+    const rootDir = fs.mkdtempSync(path.join(os.tmpdir(), "gs-create-root-swap-"));
+    const externalRoot = fs.mkdtempSync(path.join(os.tmpdir(), "gs-create-target-"));
     const socketPath = path.join(rootDir, "daemon.sock");
     const sessionsRoot = path.join(rootDir, "sessions");
     const parkedSessionsRoot = path.join(rootDir, "sessions-before-swap");
@@ -1010,8 +1010,8 @@ describe("mcp: daemon session reaper", () => {
 
   it("refuses a periodic orphan scan after the sessions root becomes a symlink", async () => {
     if (process.platform === "win32") return;
-    const rootDir = fs.mkdtempSync(path.join(os.tmpdir(), "graft-session-root-swap-"));
-    const externalRoot = fs.mkdtempSync(path.join(os.tmpdir(), "graft-session-swap-target-"));
+    const rootDir = fs.mkdtempSync(path.join(os.tmpdir(), "gs-root-swap-"));
+    const externalRoot = fs.mkdtempSync(path.join(os.tmpdir(), "gs-swap-target-"));
     const socketPath = path.join(rootDir, "daemon.sock");
     const sessionId = "00000000-0000-4000-8000-000000000001";
     const externalSession = path.join(externalRoot, sessionId);
@@ -1058,7 +1058,7 @@ describe("mcp: daemon session reaper", () => {
   });
 
   it("refuses a real sessions-root replacement between periodic sweeps", async () => {
-    const rootDir = fs.mkdtempSync(path.join(os.tmpdir(), "graft-session-root-generation-"));
+    const rootDir = fs.mkdtempSync(path.join(os.tmpdir(), "gs-root-generation-"));
     const socketPath = path.join(rootDir, "daemon.sock");
     const sessionsRoot = path.join(rootDir, "sessions");
     const parkedSessionsRoot = path.join(rootDir, "sessions-before-replacement");
@@ -1177,7 +1177,7 @@ describe("mcp: daemon session reaper", () => {
 
   it("isolates an orphan inspection failure to its own candidate", async () => {
     if (process.platform === "win32" || process.getuid?.() === 0) return;
-    const rootDir = fs.mkdtempSync(path.join(os.tmpdir(), "graft-orphan-inspection-isolation-"));
+    const rootDir = fs.mkdtempSync(path.join(os.tmpdir(), "go-inspection-isolation-"));
     const sessionsRoot = path.join(rootDir, "sessions");
     const unreadableId = "00000000-0000-4000-8000-000000000001";
     const removableId = "00000000-0000-4000-8000-000000000002";
@@ -1215,8 +1215,8 @@ describe("mcp: daemon session reaper", () => {
 
   it("refuses live-session cleanup after the sessions root becomes a symlink", async () => {
     if (process.platform === "win32") return;
-    const rootDir = fs.mkdtempSync(path.join(os.tmpdir(), "graft-live-session-root-swap-"));
-    const externalRoot = fs.mkdtempSync(path.join(os.tmpdir(), "graft-live-session-swap-target-"));
+    const rootDir = fs.mkdtempSync(path.join(os.tmpdir(), "gls-root-swap-"));
+    const externalRoot = fs.mkdtempSync(path.join(os.tmpdir(), "gls-swap-target-"));
     const socketPath = path.join(rootDir, "daemon.sock");
     const sessionsRoot = path.join(rootDir, "sessions");
     const parkedSessionsRoot = path.join(rootDir, "sessions-before-swap");
@@ -1292,8 +1292,8 @@ describe("mcp: daemon session reaper", () => {
 
   it("preserves a directory replacement made after live-session validation", async () => {
     if (process.platform === "win32") return;
-    const rootDir = fs.mkdtempSync(path.join(os.tmpdir(), "graft-live-session-child-swap-"));
-    const externalRoot = fs.mkdtempSync(path.join(os.tmpdir(), "graft-live-session-child-target-"));
+    const rootDir = fs.mkdtempSync(path.join(os.tmpdir(), "gls-child-swap-"));
+    const externalRoot = fs.mkdtempSync(path.join(os.tmpdir(), "gls-child-target-"));
     const sessionsRoot = path.join(rootDir, "sessions");
     const sessionId = "00000000-0000-4000-8000-000000000001";
     const sessionDir = path.join(sessionsRoot, sessionId);
@@ -1329,7 +1329,7 @@ describe("mcp: daemon session reaper", () => {
 
   it("restores a quarantined live session inside a root renamed after quarantine", async () => {
     if (process.platform === "win32") return;
-    const rootDir = fs.mkdtempSync(path.join(os.tmpdir(), "graft-live-root-post-quarantine-"));
+    const rootDir = fs.mkdtempSync(path.join(os.tmpdir(), "glr-post-quarantine-"));
     const sessionsRoot = path.join(rootDir, "sessions");
     const parkedSessionsRoot = path.join(rootDir, "sessions-parked");
     const sessionId = "00000000-0000-4000-8000-000000000001";
@@ -1362,8 +1362,8 @@ describe("mcp: daemon session reaper", () => {
   });
 
   it("preserves an orphan replacement made after eligibility inspection", async () => {
-    const rootDir = fs.mkdtempSync(path.join(os.tmpdir(), "graft-orphan-child-swap-"));
-    const externalRoot = fs.mkdtempSync(path.join(os.tmpdir(), "graft-orphan-child-target-"));
+    const rootDir = fs.mkdtempSync(path.join(os.tmpdir(), "go-child-swap-"));
+    const externalRoot = fs.mkdtempSync(path.join(os.tmpdir(), "go-child-target-"));
     const sessionsRoot = path.join(rootDir, "sessions");
     const sessionId = "00000000-0000-4000-8000-000000000001";
     const sessionDir = path.join(sessionsRoot, sessionId);
@@ -1414,8 +1414,8 @@ describe("mcp: daemon session reaper", () => {
     { phase: "removal", observer: "readFile" },
   ] as const)("refuses an orphan scan when the sessions root changes during $phase", async ({ observer }) => {
     if (process.platform === "win32") return;
-    const rootDir = fs.mkdtempSync(path.join(os.tmpdir(), "graft-session-root-mid-scan-"));
-    const externalRoot = fs.mkdtempSync(path.join(os.tmpdir(), "graft-session-root-mid-scan-target-"));
+    const rootDir = fs.mkdtempSync(path.join(os.tmpdir(), "gs-root-mid-scan-"));
+    const externalRoot = fs.mkdtempSync(path.join(os.tmpdir(), "gs-root-mid-scan-target-"));
     const sessionsRoot = path.join(rootDir, "sessions");
     const parkedSessionsRoot = path.join(rootDir, "sessions-before-swap");
     const sessionId = "00000000-0000-4000-8000-000000000001";
@@ -1482,7 +1482,7 @@ describe("mcp: daemon session reaper", () => {
   });
 
   it("protects a pending session construction from orphan discovery", async () => {
-    const rootDir = fs.mkdtempSync(path.join(os.tmpdir(), "graft-session-pending-orphan-"));
+    const rootDir = fs.mkdtempSync(path.join(os.tmpdir(), "gs-pending-orphan-"));
     const socketPath = path.join(rootDir, "daemon.sock");
     cleanups.push(() => {
       fs.rmSync(rootDir, { recursive: true, force: true });
@@ -1545,7 +1545,7 @@ describe("mcp: daemon session reaper", () => {
   });
 
   it("protects construction admitted after an orphan scan begins", async () => {
-    const rootDir = fs.mkdtempSync(path.join(os.tmpdir(), "graft-session-scan-before-open-"));
+    const rootDir = fs.mkdtempSync(path.join(os.tmpdir(), "gs-scan-before-open-"));
     const socketPath = path.join(rootDir, "daemon.sock");
     cleanups.push(() => {
       fs.rmSync(rootDir, { recursive: true, force: true });
@@ -1645,7 +1645,7 @@ describe("mcp: daemon session reaper", () => {
   });
 
   it("prevents pending session construction from publishing after shutdown begins", async () => {
-    const rootDir = fs.mkdtempSync(path.join(os.tmpdir(), "graft-session-pending-shutdown-"));
+    const rootDir = fs.mkdtempSync(path.join(os.tmpdir(), "gs-pending-shutdown-"));
     const socketPath = path.join(rootDir, "daemon.sock");
     cleanups.push(() => {
       fs.rmSync(rootDir, { recursive: true, force: true });
@@ -1703,7 +1703,7 @@ describe("mcp: daemon session reaper", () => {
   });
 
   it("serializes overlapping manual session sweeps", async () => {
-    const rootDir = fs.mkdtempSync(path.join(os.tmpdir(), "graft-session-sweep-single-flight-"));
+    const rootDir = fs.mkdtempSync(path.join(os.tmpdir(), "gs-sweep-single-flight-"));
     const socketPath = path.join(rootDir, "daemon.sock");
     cleanups.push(() => {
       fs.rmSync(rootDir, { recursive: true, force: true });
@@ -1763,7 +1763,7 @@ describe("mcp: daemon session reaper", () => {
   });
 
   it("coalesces scheduled sweep waiters while a scan is active", async () => {
-    const rootDir = fs.mkdtempSync(path.join(os.tmpdir(), "graft-session-scheduled-sweep-"));
+    const rootDir = fs.mkdtempSync(path.join(os.tmpdir(), "gs-scheduled-sweep-"));
     const socketPath = path.join(rootDir, "daemon.sock");
     cleanups.push(() => {
       fs.rmSync(rootDir, { recursive: true, force: true });
@@ -1832,7 +1832,7 @@ describe("mcp: daemon session reaper", () => {
   });
 
   it("logs unchanged scheduled preservation diagnostics once and again only when they change", async () => {
-    const rootDir = fs.mkdtempSync(path.join(os.tmpdir(), "graft-session-preserved-dedupe-"));
+    const rootDir = fs.mkdtempSync(path.join(os.tmpdir(), "gs-preserved-dedupe-"));
     const socketPath = path.join(rootDir, "daemon.sock");
     cleanups.push(() => {
       fs.rmSync(rootDir, { recursive: true, force: true });
@@ -1904,7 +1904,7 @@ describe("mcp: daemon session reaper", () => {
   });
 
   it("rejects session sweeps after daemon root ownership is released", async () => {
-    const rootDir = fs.mkdtempSync(path.join(os.tmpdir(), "graft-session-post-close-sweep-"));
+    const rootDir = fs.mkdtempSync(path.join(os.tmpdir(), "gs-post-close-sweep-"));
     const socketPath = path.join(rootDir, "daemon.sock");
     cleanups.push(() => {
       fs.rmSync(rootDir, { recursive: true, force: true });
@@ -1963,7 +1963,7 @@ describe("mcp: daemon session reaper", () => {
   });
 
   it("checks live root ownership before touching the candidate socket path", async () => {
-    const rootDir = fs.mkdtempSync(path.join(os.tmpdir(), "graft-session-owner-order-"));
+    const rootDir = fs.mkdtempSync(path.join(os.tmpdir(), "gs-owner-order-"));
     const socketPath = path.join(rootDir, "candidate.sock");
     const processStartIdentity = await readProcessStartIdentity(process.pid);
     expect(processStartIdentity).not.toBeNull();
@@ -1988,7 +1988,7 @@ describe("mcp: daemon session reaper", () => {
   });
 
   it("checks live root ownership before creating the sessions root", async () => {
-    const rootDir = fs.mkdtempSync(path.join(os.tmpdir(), "graft-session-owner-sessions-order-"));
+    const rootDir = fs.mkdtempSync(path.join(os.tmpdir(), "gs-owner-sessions-order-"));
     const socketPath = path.join(rootDir, "candidate.sock");
     const processStartIdentity = await readProcessStartIdentity(process.pid);
     expect(processStartIdentity).not.toBeNull();
@@ -2013,7 +2013,7 @@ describe("mcp: daemon session reaper", () => {
 
   it("binds the default endpoint with admission closed before legacy orphan cleanup", async () => {
     if (process.platform === "win32") return;
-    const rootDir = fs.mkdtempSync(path.join(os.tmpdir(), "graft-session-default-bind-first-"));
+    const rootDir = fs.mkdtempSync(path.join(os.tmpdir(), "gs-default-bind-first-"));
     const socketPath = path.join(rootDir, "mcp.sock");
     const legacySessionDir = path.join(
       rootDir,
@@ -2108,7 +2108,7 @@ describe("mcp: daemon session reaper", () => {
 
   it("refuses custom-endpoint startup while a legacy daemon endpoint is live", async () => {
     if (process.platform === "win32") return;
-    const rootDir = fs.mkdtempSync(path.join(os.tmpdir(), "graft-session-legacy-live-"));
+    const rootDir = fs.mkdtempSync(path.join(os.tmpdir(), "gs-legacy-live-"));
     const legacySocketPath = path.join(rootDir, "mcp.sock");
     const customSocketPath = path.join(rootDir, "custom.sock");
     const legacySessionDir = path.join(
@@ -2156,7 +2156,7 @@ describe("mcp: daemon session reaper", () => {
 
   it("preserves unmarked legacy sessions during custom-endpoint sweeps", async () => {
     if (process.platform === "win32") return;
-    const rootDir = fs.mkdtempSync(path.join(os.tmpdir(), "graft-session-legacy-late-live-"));
+    const rootDir = fs.mkdtempSync(path.join(os.tmpdir(), "gs-legacy-late-live-"));
     const legacySocketPath = path.join(rootDir, "mcp.sock");
     const customSocketPath = path.join(rootDir, "custom.sock");
     cleanups.push(() => {
@@ -2206,7 +2206,7 @@ describe("mcp: daemon session reaper", () => {
   });
 
   it("rolls back a published owner when temporary claim release fails", async () => {
-    const rootDir = fs.mkdtempSync(path.join(os.tmpdir(), "graft-session-owner-claim-release-"));
+    const rootDir = fs.mkdtempSync(path.join(os.tmpdir(), "gs-owner-claim-release-"));
     const ownerPath = path.join(rootDir, "daemon-owner.json");
     const socketPath = path.join(rootDir, "daemon.sock");
     const processStartIdentity = `test-process:${String(process.pid)}`;
@@ -2265,7 +2265,7 @@ describe("mcp: daemon session reaper", () => {
   });
 
   it("restores a newer owner displaced by a delayed stale takeover", async () => {
-    const rootDir = fs.mkdtempSync(path.join(os.tmpdir(), "graft-session-owner-race-"));
+    const rootDir = fs.mkdtempSync(path.join(os.tmpdir(), "gs-owner-race-"));
     const ownerPath = path.join(rootDir, "daemon-owner.json");
     const staleOwner = {
       schemaVersion: 2 as const,
@@ -2296,7 +2296,7 @@ describe("mcp: daemon session reaper", () => {
   });
 
   it("holds the root owner claim through displaced-owner restoration", async () => {
-    const rootDir = fs.mkdtempSync(path.join(os.tmpdir(), "graft-session-owner-three-way-race-"));
+    const rootDir = fs.mkdtempSync(path.join(os.tmpdir(), "gs-owner-three-way-race-"));
     const ownerPath = path.join(rootDir, "daemon-owner.json");
     const staleOwner = {
       schemaVersion: 2 as const,
@@ -2386,7 +2386,7 @@ describe("mcp: daemon session reaper", () => {
   });
 
   it("retains a deterministic tombstone when recovering a dead owner claim", async () => {
-    const rootDir = fs.mkdtempSync(path.join(os.tmpdir(), "graft-session-owner-stale-claim-"));
+    const rootDir = fs.mkdtempSync(path.join(os.tmpdir(), "gs-owner-stale-claim-"));
     const ownerPath = path.join(rootDir, "daemon-owner.json");
     const staleClaim = {
       schemaVersion: 1 as const,
@@ -2418,7 +2418,7 @@ describe("mcp: daemon session reaper", () => {
   });
 
   it("enforces the owner-claim deadline when a stale claim vanishes during recovery", async () => {
-    const rootDir = fs.mkdtempSync(path.join(os.tmpdir(), "graft-session-owner-claim-deadline-"));
+    const rootDir = fs.mkdtempSync(path.join(os.tmpdir(), "gs-owner-claim-deadline-"));
     const ownerPath = path.join(rootDir, "daemon-owner.json");
     const claimPath = `${ownerPath}.claim`;
     const claimRecordPath = path.join(claimPath, "claim.json");
@@ -2461,7 +2461,7 @@ describe("mcp: daemon session reaper", () => {
   });
 
   it("publishes a complete root owner without replacing an incumbent", async () => {
-    const rootDir = fs.mkdtempSync(path.join(os.tmpdir(), "graft-session-owner-publish-"));
+    const rootDir = fs.mkdtempSync(path.join(os.tmpdir(), "gs-owner-publish-"));
     const ownerPath = path.join(rootDir, "daemon-owner.json");
     const firstOwner = {
       schemaVersion: 2 as const,
@@ -2510,7 +2510,7 @@ describe("mcp: daemon session reaper", () => {
   });
 
   it("refuses a second live owner without touching its session directory", async () => {
-    const rootDir = fs.mkdtempSync(path.join(os.tmpdir(), "graft-session-reaper-owner-"));
+    const rootDir = fs.mkdtempSync(path.join(os.tmpdir(), "gsr-owner-"));
     const socketPathA = path.join(rootDir, "daemon-a.sock");
     const socketPathB = path.join(rootDir, "daemon-b.sock");
     cleanups.push(() => {
@@ -2553,7 +2553,7 @@ describe("mcp: daemon session reaper", () => {
   });
 
   it("reaps idle sessions exceeding sessionInactivityTtlMs and scrubs session directory", async () => {
-    const rootDir = fs.mkdtempSync(path.join(os.tmpdir(), "graft-session-reaper-test-"));
+    const rootDir = fs.mkdtempSync(path.join(os.tmpdir(), "gsr-test-"));
     const socketPath = path.join(rootDir, "daemon.sock");
     cleanups.push(() => {
       fs.rmSync(rootDir, { recursive: true, force: true });
@@ -2630,7 +2630,7 @@ describe("mcp: daemon session reaper", () => {
   });
 
   it("runs shared terminal side effects once across idle, transport, and shutdown signals", async () => {
-    const rootDir = fs.mkdtempSync(path.join(os.tmpdir(), "graft-session-reaper-terminal-"));
+    const rootDir = fs.mkdtempSync(path.join(os.tmpdir(), "gsr-terminal-"));
     const socketPath = path.join(rootDir, "daemon.sock");
     cleanups.push(() => {
       fs.rmSync(rootDir, { recursive: true, force: true });
@@ -2725,7 +2725,7 @@ describe("mcp: daemon session reaper", () => {
   });
 
   it("reserves a terminating identity and ignores its late callback after reuse", async () => {
-    const rootDir = fs.mkdtempSync(path.join(os.tmpdir(), "graft-session-reaper-aba-"));
+    const rootDir = fs.mkdtempSync(path.join(os.tmpdir(), "gsr-aba-"));
     const socketPath = path.join(rootDir, "daemon.sock");
     cleanups.push(() => {
       fs.rmSync(rootDir, { recursive: true, force: true });
@@ -2839,7 +2839,7 @@ describe("mcp: daemon session reaper", () => {
   });
 
   it("protects terminating session directories from orphan discovery", async () => {
-    const rootDir = fs.mkdtempSync(path.join(os.tmpdir(), "graft-session-terminating-"));
+    const rootDir = fs.mkdtempSync(path.join(os.tmpdir(), "gs-terminating-"));
     const socketPath = path.join(rootDir, "daemon.sock");
     cleanups.push(() => {
       fs.rmSync(rootDir, { recursive: true, force: true });
@@ -2914,7 +2914,7 @@ describe("mcp: daemon session reaper", () => {
   });
 
   it("retries failed transport-triggered cleanup as an orphan on the next sweep", async () => {
-    const rootDir = fs.mkdtempSync(path.join(os.tmpdir(), "graft-session-callback-failure-"));
+    const rootDir = fs.mkdtempSync(path.join(os.tmpdir(), "gs-callback-failure-"));
     const socketPath = path.join(rootDir, "daemon.sock");
     cleanups.push(() => {
       fs.rmSync(rootDir, { recursive: true, force: true });
@@ -2981,7 +2981,7 @@ describe("mcp: daemon session reaper", () => {
   });
 
   it("converges transport errors on the shared session termination operation", async () => {
-    const rootDir = fs.mkdtempSync(path.join(os.tmpdir(), "graft-session-transport-error-"));
+    const rootDir = fs.mkdtempSync(path.join(os.tmpdir(), "gs-transport-error-"));
     const socketPath = path.join(rootDir, "daemon.sock");
     cleanups.push(() => {
       fs.rmSync(rootDir, { recursive: true, force: true });
@@ -3031,7 +3031,7 @@ describe("mcp: daemon session reaper", () => {
   });
 
   it("waits for transport-triggered termination before closing daemon resources", async () => {
-    const rootDir = fs.mkdtempSync(path.join(os.tmpdir(), "graft-session-close-fence-"));
+    const rootDir = fs.mkdtempSync(path.join(os.tmpdir(), "gs-close-fence-"));
     const socketPath = path.join(rootDir, "daemon.sock");
     cleanups.push(() => {
       fs.rmSync(rootDir, { recursive: true, force: true });
@@ -3103,7 +3103,7 @@ describe("mcp: daemon session reaper", () => {
   });
 
   it("reports failed cleanup and retries the resulting orphan on the next sweep", async () => {
-    const rootDir = fs.mkdtempSync(path.join(os.tmpdir(), "graft-session-reaper-retry-"));
+    const rootDir = fs.mkdtempSync(path.join(os.tmpdir(), "gsr-retry-"));
     const socketPath = path.join(rootDir, "daemon.sock");
     cleanups.push(() => {
       fs.rmSync(rootDir, { recursive: true, force: true });
@@ -3172,7 +3172,7 @@ describe("mcp: daemon session reaper", () => {
   });
 
   it("refuses to recreate a missing established sessions root during live cleanup", async () => {
-    const rootDir = fs.mkdtempSync(path.join(os.tmpdir(), "graft-session-root-missing-"));
+    const rootDir = fs.mkdtempSync(path.join(os.tmpdir(), "gs-root-missing-"));
     const socketPath = path.join(rootDir, "daemon.sock");
     const sessionsRoot = path.join(rootDir, "sessions");
     const parkedSessionsRoot = path.join(rootDir, "sessions-parked");
@@ -3221,7 +3221,7 @@ describe("mcp: daemon session reaper", () => {
   });
 
   it("settles the session-start runtime log write before initialize returns", async () => {
-    const rootDir = fs.mkdtempSync(path.join(os.tmpdir(), "graft-session-start-log-settled-"));
+    const rootDir = fs.mkdtempSync(path.join(os.tmpdir(), "gs-start-log-settled-"));
     const socketPath = path.join(rootDir, "daemon.sock");
     const sessionsRoot = path.join(rootDir, "sessions");
     const parkedSessionsRoot = path.join(rootDir, "sessions-parked");
@@ -3275,8 +3275,8 @@ describe("mcp: daemon session reaper", () => {
 
   it("retries live cleanup after the exact sessions root is restored", async () => {
     if (process.platform === "win32") return;
-    const rootDir = fs.mkdtempSync(path.join(os.tmpdir(), "graft-session-root-retry-"));
-    const externalRoot = fs.mkdtempSync(path.join(os.tmpdir(), "graft-session-root-retry-target-"));
+    const rootDir = fs.mkdtempSync(path.join(os.tmpdir(), "gs-root-retry-"));
+    const externalRoot = fs.mkdtempSync(path.join(os.tmpdir(), "gs-root-retry-target-"));
     const socketPath = path.join(rootDir, "daemon.sock");
     const sessionsRoot = path.join(rootDir, "sessions");
     const parkedSessionsRoot = path.join(rootDir, "sessions-parked");
@@ -3338,7 +3338,7 @@ describe("mcp: daemon session reaper", () => {
   });
 
   it("marks an unsafe orphan-path refusal as non-retryable and other orphan failures as retryable", async () => {
-    const rootDir = fs.mkdtempSync(path.join(os.tmpdir(), "graft-session-unsafe-orphan-path-"));
+    const rootDir = fs.mkdtempSync(path.join(os.tmpdir(), "gs-unsafe-orphan-path-"));
     const socketPath = path.join(rootDir, "daemon.sock");
     cleanups.push(() => {
       fs.rmSync(rootDir, { recursive: true, force: true });
@@ -3403,8 +3403,8 @@ describe("mcp: daemon session reaper", () => {
 
   it("marks an unsafe live-session path refusal as non-retryable", async () => {
     if (process.platform === "win32") return;
-    const rootDir = fs.mkdtempSync(path.join(os.tmpdir(), "graft-session-unsafe-live-path-"));
-    const externalRoot = fs.mkdtempSync(path.join(os.tmpdir(), "graft-session-unsafe-target-"));
+    const rootDir = fs.mkdtempSync(path.join(os.tmpdir(), "gs-unsafe-live-path-"));
+    const externalRoot = fs.mkdtempSync(path.join(os.tmpdir(), "gs-unsafe-target-"));
     const socketPath = path.join(rootDir, "daemon.sock");
     fs.writeFileSync(path.join(externalRoot, "keep.txt"), "external\n");
     cleanups.push(() => {
@@ -3463,8 +3463,8 @@ describe("mcp: daemon session reaper", () => {
   });
 
   it("preserves a live-session directory replacement made before cleanup starts", async () => {
-    const rootDir = fs.mkdtempSync(path.join(os.tmpdir(), "graft-live-session-child-swap-"));
-    const externalRoot = fs.mkdtempSync(path.join(os.tmpdir(), "graft-live-session-child-target-"));
+    const rootDir = fs.mkdtempSync(path.join(os.tmpdir(), "gls-child-swap-"));
+    const externalRoot = fs.mkdtempSync(path.join(os.tmpdir(), "gls-child-target-"));
     const socketPath = path.join(rootDir, "daemon.sock");
     const displacedSession = path.join(rootDir, "displaced-session");
     fs.writeFileSync(path.join(externalRoot, "keep.txt"), "external\n");
@@ -3525,7 +3525,7 @@ describe("mcp: daemon session reaper", () => {
   });
 
   it("reports protocol and fallback transport close failures as non-retryable", async () => {
-    const rootDir = fs.mkdtempSync(path.join(os.tmpdir(), "graft-session-close-failures-"));
+    const rootDir = fs.mkdtempSync(path.join(os.tmpdir(), "gs-close-failures-"));
     const socketPath = path.join(rootDir, "daemon.sock");
     cleanups.push(() => {
       fs.rmSync(rootDir, { recursive: true, force: true });
@@ -3582,7 +3582,7 @@ describe("mcp: daemon session reaper", () => {
   });
 
   it("rejects daemon shutdown when session cleanup fails", async () => {
-    const rootDir = fs.mkdtempSync(path.join(os.tmpdir(), "graft-session-shutdown-failure-"));
+    const rootDir = fs.mkdtempSync(path.join(os.tmpdir(), "gs-shutdown-failure-"));
     const socketPath = path.join(rootDir, "daemon.sock");
     cleanups.push(() => {
       fs.rmSync(rootDir, { recursive: true, force: true });
@@ -3618,7 +3618,7 @@ describe("mcp: daemon session reaper", () => {
   });
 
   it("reports one cleanup failure when shutdown overlaps its owning sweep", async () => {
-    const rootDir = fs.mkdtempSync(path.join(os.tmpdir(), "graft-session-shutdown-sweep-failure-"));
+    const rootDir = fs.mkdtempSync(path.join(os.tmpdir(), "gs-shutdown-sweep-failure-"));
     const socketPath = path.join(rootDir, "daemon.sock");
     cleanups.push(() => {
       fs.rmSync(rootDir, { recursive: true, force: true });
@@ -3696,7 +3696,7 @@ describe("mcp: daemon session reaper", () => {
   });
 
   it("reports and consumes signal-triggered shutdown failures", async () => {
-    const rootDir = fs.mkdtempSync(path.join(os.tmpdir(), "graft-session-signal-failure-"));
+    const rootDir = fs.mkdtempSync(path.join(os.tmpdir(), "gs-signal-failure-"));
     const socketPath = path.join(rootDir, "daemon.sock");
     const signalListenersBefore = new Set(process.listeners("SIGTERM"));
     const previousExitCode = process.exitCode;
@@ -3761,7 +3761,7 @@ describe("mcp: daemon session reaper", () => {
   });
 
   it("does not reap sessions that have active in-flight requests even if expired", async () => {
-    const rootDir = fs.mkdtempSync(path.join(os.tmpdir(), "graft-session-reaper-inflight-"));
+    const rootDir = fs.mkdtempSync(path.join(os.tmpdir(), "gsr-inflight-"));
     const socketPath = path.join(rootDir, "daemon.sock");
     cleanups.push(() => {
       fs.rmSync(rootDir, { recursive: true, force: true });
@@ -3810,7 +3810,7 @@ describe("mcp: daemon session reaper", () => {
   });
 
   it("keeps a session resident until both concurrent request references settle", async () => {
-    const rootDir = fs.mkdtempSync(path.join(os.tmpdir(), "graft-session-reaper-refcount-"));
+    const rootDir = fs.mkdtempSync(path.join(os.tmpdir(), "gsr-refcount-"));
     const socketPath = path.join(rootDir, "daemon.sock");
     cleanups.push(() => {
       fs.rmSync(rootDir, { recursive: true, force: true });
@@ -3877,7 +3877,7 @@ describe("mcp: daemon session reaper", () => {
   });
 
   it("counts an existing-session request before its body finishes arriving", async () => {
-    const rootDir = fs.mkdtempSync(path.join(os.tmpdir(), "graft-session-reaper-body-"));
+    const rootDir = fs.mkdtempSync(path.join(os.tmpdir(), "gsr-body-"));
     const socketPath = path.join(rootDir, "daemon.sock");
     cleanups.push(() => {
       fs.rmSync(rootDir, { recursive: true, force: true });
@@ -3931,7 +3931,7 @@ describe("mcp: daemon session reaper", () => {
   });
 
   it("refreshes public session activity when a request settles", async () => {
-    const rootDir = fs.mkdtempSync(path.join(os.tmpdir(), "graft-session-reaper-touch-"));
+    const rootDir = fs.mkdtempSync(path.join(os.tmpdir(), "gsr-touch-"));
     const socketPath = path.join(rootDir, "daemon.sock");
     cleanups.push(() => {
       fs.rmSync(rootDir, { recursive: true, force: true });
@@ -3972,7 +3972,7 @@ describe("mcp: daemon session reaper", () => {
   });
 
   it("closes an unconnected transport when session clock initialization fails", async () => {
-    const rootDir = fs.mkdtempSync(path.join(os.tmpdir(), "graft-session-preconnect-"));
+    const rootDir = fs.mkdtempSync(path.join(os.tmpdir(), "gs-preconnect-"));
     const socketPath = path.join(rootDir, "daemon.sock");
     cleanups.push(() => {
       fs.rmSync(rootDir, { recursive: true, force: true });
@@ -4011,7 +4011,7 @@ describe("mcp: daemon session reaper", () => {
   });
 
   it("removes session scratch when ownership marker publication fails", async () => {
-    const rootDir = fs.mkdtempSync(path.join(os.tmpdir(), "graft-session-marker-failure-"));
+    const rootDir = fs.mkdtempSync(path.join(os.tmpdir(), "gs-marker-failure-"));
     const socketPath = path.join(rootDir, "daemon.sock");
     cleanups.push(() => {
       fs.rmSync(rootDir, { recursive: true, force: true });
@@ -4051,7 +4051,7 @@ describe("mcp: daemon session reaper", () => {
   });
 
   it("rolls back partial control-plane publication during session construction", async () => {
-    const rootDir = fs.mkdtempSync(path.join(os.tmpdir(), "graft-session-register-failure-"));
+    const rootDir = fs.mkdtempSync(path.join(os.tmpdir(), "gs-register-failure-"));
     const socketPath = path.join(rootDir, "daemon.sock");
     cleanups.push(() => {
       fs.rmSync(rootDir, { recursive: true, force: true });
@@ -4103,7 +4103,7 @@ describe("mcp: daemon session reaper", () => {
   });
 
   it("removes the unmarked session directory when identity capture fails on a custom endpoint", async () => {
-    const rootDir = fs.mkdtempSync(path.join(os.tmpdir(), "graft-session-identity-capture-"));
+    const rootDir = fs.mkdtempSync(path.join(os.tmpdir(), "gs-identity-capture-"));
     const socketPath = path.join(rootDir, "custom.sock");
     cleanups.push(() => {
       fs.rmSync(rootDir, { recursive: true, force: true });
@@ -4150,7 +4150,7 @@ describe("mcp: daemon session reaper", () => {
   });
 
   it("rolls back a session when transport connection fails", async () => {
-    const rootDir = fs.mkdtempSync(path.join(os.tmpdir(), "graft-session-reaper-connect-"));
+    const rootDir = fs.mkdtempSync(path.join(os.tmpdir(), "gsr-connect-"));
     const socketPath = path.join(rootDir, "daemon.sock");
     cleanups.push(() => {
       fs.rmSync(rootDir, { recursive: true, force: true });
@@ -4187,7 +4187,7 @@ describe("mcp: daemon session reaper", () => {
   });
 
   it("retains every construction and rollback failure during shutdown", async () => {
-    const rootDir = fs.mkdtempSync(path.join(os.tmpdir(), "graft-session-rollback-errors-"));
+    const rootDir = fs.mkdtempSync(path.join(os.tmpdir(), "gs-rollback-errors-"));
     const socketPath = path.join(rootDir, "daemon.sock");
     cleanups.push(() => {
       fs.rmSync(rootDir, { recursive: true, force: true });
@@ -4254,7 +4254,7 @@ describe("mcp: daemon session reaper", () => {
   });
 
   it("rolls back a session when server construction fails", async () => {
-    const rootDir = fs.mkdtempSync(path.join(os.tmpdir(), "graft-session-reaper-server-"));
+    const rootDir = fs.mkdtempSync(path.join(os.tmpdir(), "gsr-server-"));
     const socketPath = path.join(rootDir, "daemon.sock");
     cleanups.push(() => {
       fs.rmSync(rootDir, { recursive: true, force: true });

@@ -17,7 +17,36 @@ into implementation churn.
 
 ## Public Surface Families
 
-The root package exposes four public families plus metadata.
+The root package exposes five public families plus metadata.
+
+### Read-only Daemon Inspection
+
+`inspectDaemon({ socketPath, request? })` reads `GET /inspect/v1` over the
+explicit local Unix socket or Windows named pipe. `request` accepts one exact
+`sessionId`, `workspaceId` (worktree ID), or `repoId`, plus `limit: 1..100`.
+Optional fields explicitly set to `undefined` are omitted from the wire request;
+they do not select an identity named `undefined` or override the default limit.
+No workspace lookup, MCP connection, or daemon startup is performed. Empty or
+non-local socket addresses are refused. The function returns
+`Promise<InspectionResult>` with `status: ok | no_daemon | unsupported |
+observation_failed`, the invoking `clientVersion`, and either an `observation`
+or stable `reason`. It is intentionally an operator API, not an expansion of
+workspace-scoped MCP authority.
+
+The public `InspectionRequest`, `InspectionObservation`, `InspectionResult`,
+and `InspectDaemonOptions` types and `inspectionRequestSchema`,
+`inspectionObservationSchema`, and `inspectionResultSchema` validators expose
+the versioned contract. The loaded daemon version and incarnation are inside
+the observation; they are independent of the client version and schema version.
+See [CLI inspection semantics and bounds](./CLI.md) for collection scope,
+consistency, unavailable index evidence, and historical counter interpretation.
+
+This API requires no parser initialization and has a bounded five-second read
+deadline and 512 KiB response limit. Unknown endpoint/schema, disconnect,
+invalid/unsafe response, and no daemon are explicit results. There is no
+weaker fallback or mutation surface. An `ok` observation can contain partial or
+unavailable sections; consumers must inspect completeness before making a
+negative claim. Capture age never establishes source currency.
 
 ### 1. Direct Repo-Local Integration
 
@@ -183,6 +212,23 @@ rather than call repo-local or buffer-local services directly.
 `ensureGitVersionSupportsGraft(...)` is an additive host guard for
 checking that the installed Git supports the plumbing features Graft
 runtimes require.
+When `startDaemonServer(...)` is given an `env`, that environment's
+`GRAFT_ROOT_PATH` decides its default state directory and, on Windows, its
+default pipe name; the host process's own environment is not consulted for
+either.
+
+`CreateGraftServerOptions` and `StartDaemonServerOptions` accept an optional
+`graphRoot`. It selects the parent directory for Graft-owned WARP sidecars and
+defaults to `<graft root>/graphs`: `GRAFT_ROOT_PATH/graphs`, or
+`~/.graft/graphs` while that is unset. When the options also carry an `env`,
+that environment's `GRAFT_ROOT_PATH` decides the default. This is an advanced storage-location override,
+not permission to place WARP state in a source repository. The effective root
+must be non-empty and is resolved to its real path when the server or pool is
+built, so a root reached through a symlink alias works. It must be disjoint
+from both the source worktree and its common Git directory. Sidecar
+location resolution fails before creating storage when those conditions are
+not met. The field is an additive public option, not yet released; no root export was
+removed or renamed.
 
 ### 5. Metadata
 

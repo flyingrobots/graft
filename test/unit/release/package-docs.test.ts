@@ -77,4 +77,18 @@ describe("release package docs", () => {
       rmSync(workspace, { recursive: true, force: true });
     }
   });
+
+  // Oracle: package.json is the authority for runnable scripts; pnpm also runs
+  // its own `install` and any binary in node_modules/.bin (for example `tsc`).
+  it("names only runnable pnpm commands in contributor instructions", () => {
+    const scripts = new Set(Object.keys(packageJson.scripts));
+    const binaries = new Set(readdirSync(join(repoRoot, "node_modules", ".bin")));
+    const contributing = readFileSync(join(repoRoot, "CONTRIBUTING.md"), "utf8");
+    const commands = [...contributing.matchAll(/`pnpm ([a-z][a-z0-9:_-]*)/gu)].map((match) => match[1] ?? "");
+
+    expect(commands.length).toBeGreaterThan(0);
+    expect(commands.filter((command) => {
+      return command !== "install" && !scripts.has(command) && !binaries.has(command);
+    })).toEqual([]);
+  });
 });

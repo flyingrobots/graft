@@ -30,6 +30,9 @@ four `(repoId, writerId)` handles by default (`DEFAULT_MAX_WARP_RESIDENTS` in
 `src/mcp/warp-pool.ts`), hands out releasable leases, evicts the least recently
 used idle entry, supports eager release with an idle limit of zero, and
 releases the reservation of a failed open. Do not implement these again.
+[PR #249](https://github.com/flyingrobots/graft/pull/249) keeps that bound but
+keys each resident by `(repoId, worktreeId, writerId)`, so linked worktrees of
+one repository occupy separate slots.
 
 ## What remains
 

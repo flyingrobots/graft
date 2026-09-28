@@ -11,6 +11,19 @@ Repo truth today is narrower than a finished strict-hex claim:
 
 ## Official Entry Points
 
+Daemon inspection uses the same application-query boundary across the typed
+API and CLI. `src/operations/daemon-inspection.ts` owns the bounded synchronous
+observation over `InspectionSource`; the runtime supplies passive iterators of
+its authoritative maps. The query cannot open a graph, execute a repository
+operation, or register/touch a workload session through that port.
+`src/mcp/daemon-inspection-route.ts` exposes the shared contract on the existing
+same-user socket as `GET /inspect/v1`, before MCP session routing.
+`src/adapters/local-daemon-inspection-client.ts` is the bounded local transport
+client used independently by the API and CLI. HTTP remains a daemon adapter;
+no new TCP listener or MCP tool is introduced. The inspector reports coherent
+parent-owned memory, not atomic source/worker observations, and leaves unavailable
+index evidence explicit. See the [focused design](./docs/design/SURFACE_read-only-daemon-inspector.md).
+
 Graft now has three official product entry points:
 
 1. **API** — the direct package/library surface exported from the root
@@ -123,17 +136,44 @@ Graft models repository state through three distinct layers:
 ## WARP: Structural Worldline Memory
 
 ### Write Path (Indexer)
+
 The write path turns Git history into structural worldline facts by extracting AST outlines and writing them into the WARP graph.
 
+The source repository is evidence, not graph storage. Production composition
+roots persist WARP refs and objects in private bare sidecar repositories under
+`<graft root>/graphs`, where the Graft root is `graftRootPath()`:
+`GRAFT_ROOT_PATH`, or `~/.graft` while it is unset. One locator derives the sidecar path from canonical
+repository identity, canonical worktree identity, and the logical actor or
+session identity:
+
+```text
+<graft root>/graphs/<project--repo-id>/<worktree--worktree-id>/<actor--actor-id>/warp.git
+```
+
+This complete identity drives both in-memory handle reuse and persistent
+storage. Linked worktrees never share a working graph, independent sessions in
+one worktree never share a working graph, and no production WARP adapter opens
+the source Git directory for persistence. Each sidecar is bare, private, and
+configured with a deterministic repository-local Git identity.
+
 ### Read Path (Observers)
+
 The read path uses the **Observer Law**: projections are read through lenses (e.g., `graft_diff`, `code_show`) rather than traversing graph internals directly.
 
 ## Execution Authority: The Daemon
 
 The Daemon is the system-wide authority for multi-repo coordination. It manages:
+
 - **Authorization**: Workspace and session binding.
 - **Scheduling**: Job queueing and fairness.
 - **Resources**: Shared worker pools for heavy indexing and parsing tasks.
+
+An explicit `cwd` on a routed repository tool is narrowly bounded opening
+intent. The daemon resolves its containing Git worktree, ensures the exact
+default authorization, records the worktree as opened for that session, and
+runs the call without changing the active binding. `workspace_open` remains
+the explicit activation and capability-configuration surface; calls without a
+route continue to require an active binding.
 
 ---
 **The goal is to move the repository from a collection of bytes to a provenance-aware professional bedrock.**

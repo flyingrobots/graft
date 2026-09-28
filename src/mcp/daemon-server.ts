@@ -1,7 +1,13 @@
 import * as fs from "node:fs/promises";
 import * as http from "node:http";
 import * as path from "node:path";
+import { randomUUID } from "node:crypto";
+import { fileURLToPath } from "node:url";
+import { DaemonInspectionQuery } from "../operations/daemon-inspection.js";
+import { GRAFT_VERSION } from "../version.js";
+import { createDaemonInspectionRoute } from "./daemon-inspection-route.js";
 import { CanonicalJsonCodec } from "../adapters/canonical-json.js";
+import { graftRootPath } from "../adapters/graft-root.js";
 import { nodeFs } from "../adapters/node-fs.js";
 import { nodeGit } from "../adapters/node-git.js";
 import { ensureGitVersionSupportsGraft } from "../git/version-guard.js";
@@ -11,7 +17,7 @@ import { resolveDaemonSchedulerConfig } from "./daemon-scheduler-config.js";
 import { ChildProcessDaemonWorkerPool } from "./daemon-worker-pool.js";
 import { PersistentMonitorRuntime } from "./persistent-monitor-runtime.js";
 import { InMemoryWarpPool, resolveWarpPoolOptions } from "./warp-pool.js";
-import { openWarp } from "../warp/open.js";
+import { resolveWarpGraphRoot } from "../warp/sidecar.js";
 import type { RunCaptureConfig } from "./run-capture-config.js";
 import type { RuntimeObservabilityState } from "./runtime-observability.js";
 import {
@@ -47,6 +53,7 @@ export type DaemonHealthStatus = DaemonStatusView;
 export interface StartDaemonServerOptions {
   readonly socketPath?: string | undefined;
   readonly graftDir?: string | undefined;
+  readonly graphRoot?: string | undefined;
   readonly env?: Readonly<Record<string, string | undefined>> | undefined;
   readonly runCapture?: Partial<RunCaptureConfig> | undefined;
   readonly runtimeObservability?: Partial<RuntimeObservabilityState> | undefined;
@@ -93,14 +100,19 @@ export async function closeDaemonResources(stages: readonly DaemonShutdownStage[
 export async function startDaemonServer(options: StartDaemonServerOptions = {}): Promise<GraftDaemonServer> {
   const sessionInactivityTtlMs = resolveSessionInactivityTtlMs(options.sessionInactivityTtlMs);
   const sessionReaperIntervalMs = resolveSessionReaperIntervalMs(options.sessionReaperIntervalMs);
-  const warpPoolOptions = resolveWarpPoolOptions(options.env ?? process.env);
+  const env = options.env ?? process.env;
+  const warpPoolOptions = resolveWarpPoolOptions(env);
   const sessionStorage = options.sessionStorage ?? nodeDaemonSessionStorage;
   await ensureGitVersionSupportsGraft();
-  const graftDir = path.resolve(options.graftDir ?? defaultDaemonRoot());
-  const socketPath = resolveSocketPath(options.socketPath, graftDir);
-  const legacyUnmarkedSessionPolicy: LegacyUnmarkedSessionPolicy = socketPath === resolveSocketPath(undefined, graftDir)
-    ? "remove"
-    : "preserve";
+  const graftDir = path.resolve(options.graftDir ?? defaultDaemonRoot(graftRootPath(env)));
+  const graphRoot = resolveWarpGraphRoot(options.graphRoot, env);
+  const socketPath = resolveSocketPath(options.socketPath, graftDir, undefined, { env });
+  const legacyUnmarkedSessionPolicy: LegacyUnmarkedSessionPolicy =
+    socketPath === resolveSocketPath(undefined, graftDir, undefined, { env })
+      ? "remove"
+      : "preserve";
+  const startedAt = new Date().toISOString();
+  const incarnationId = randomUUID();
   await ensurePrivateDirectory(graftDir);
   const sessionsRoot = path.join(graftDir, "sessions");
   const rootOwnership = await acquireDaemonRootOwnership({
@@ -122,10 +134,12 @@ export async function startDaemonServer(options: StartDaemonServerOptions = {}):
   let monitorRuntime: PersistentMonitorRuntime | undefined;
   let sessionHost: DaemonSessionHost | undefined;
   let httpServer: http.Server | undefined;
+  let inspectionRoute: ReturnType<typeof createDaemonInspectionRoute> | undefined;
 
   try {
     await prepareSocketPath(socketPath);
     const activeHttpServer = http.createServer((req, res) => {
+      if (inspectionRoute?.handle(req, res) === true) return;
       const readySessionHost = sessionHost;
       if (readySessionHost === undefined) {
         res.writeHead(503, { "content-type": "application/json" });
@@ -151,10 +165,10 @@ export async function startDaemonServer(options: StartDaemonServerOptions = {}):
     });
     await tightenSocketPermissions(socketPath);
 
-    const warpPool = new InMemoryWarpPool(
-      (cwd, writerId) => openWarp({ cwd, writerId }),
-      warpPoolOptions,
-    );
+    const warpPool = new InMemoryWarpPool({
+      graphRoot,
+      ...warpPoolOptions,
+    });
     const controlPlane = new DaemonControlPlane({
       fs: nodeFs,
       codec: new CanonicalJsonCodec(),
@@ -171,12 +185,12 @@ export async function startDaemonServer(options: StartDaemonServerOptions = {}):
       codec: new CanonicalJsonCodec(),
       git: nodeGit,
       graftDir,
+      graphRoot,
       controlPlane,
       scheduler: daemonScheduler,
       workerPool: activeDaemonWorkerPool,
     });
     monitorRuntime = activeMonitorRuntime;
-    const startedAt = new Date().toISOString();
     const transportKind = isNamedPipePath(socketPath) ? "named_pipe" : "unix_socket";
 
     const getHealthStatus = (): DaemonHealthStatus => {
@@ -214,6 +228,7 @@ export async function startDaemonServer(options: StartDaemonServerOptions = {}):
 
     const activeSessionHost = createDaemonSessionHost({
       graftDir,
+      graphRoot,
       daemonInstanceId: rootOwnership.instanceId,
       socketPath,
       transportKind,
@@ -242,6 +257,27 @@ export async function startDaemonServer(options: StartDaemonServerOptions = {}):
         : {}),
     });
     sessionHost = activeSessionHost;
+
+    const inspection = new DaemonInspectionQuery({
+      runtime: { incarnationId, startedAt, pid: process.pid, version: GRAFT_VERSION,
+        modulePath: fileURLToPath(import.meta.url), executablePath: process.execPath, socketPath },
+      now: () => new Date().toISOString(),
+      source: {
+        sessions: (id) => controlPlane.inspectionSessions(id),
+        workspaces: () => controlPlane.inspectionWorkspaces(),
+        jobs: () => daemonScheduler.inspectionJobs(),
+        workers: () => activeDaemonWorkerPool.inspectionWorkers(),
+        monitors: () => activeMonitorRuntime.inspectionMonitors(),
+        hasSession: (id) => controlPlane.inspectionHasSession(id),
+        counters: () => ({
+          scheduler: daemonScheduler.inspectionCounters(),
+          workers: activeDaemonWorkerPool.inspectionCounters(),
+        }),
+        pool: () => ({ repositoryKeys: warpPool.size() }),
+      },
+    });
+    const activeInspectionRoute = createDaemonInspectionRoute(request => inspection.capture(request));
+    inspectionRoute = activeInspectionRoute;
 
     let closing: Promise<void> | null = null;
 
@@ -275,6 +311,10 @@ export async function startDaemonServer(options: StartDaemonServerOptions = {}):
           process.off("SIGINT", shutdown);
           process.off("SIGTERM", shutdown);
           const errors = await runCleanupSteps([
+            () => {
+              activeInspectionRoute.close();
+              return Promise.resolve();
+            },
             () => activeSessionHost.close(),
             () => activeMonitorRuntime.close(),
             () => activeDaemonWorkerPool.close(),
@@ -305,6 +345,7 @@ export async function startDaemonServer(options: StartDaemonServerOptions = {}):
     const monitorRuntimeToClose = monitorRuntime;
     const workerPoolToClose = daemonWorkerPool;
     const httpServerToClose = httpServer;
+    inspectionRoute?.close();
     const ownsSocket = httpServerToClose?.listening === true;
     if (sessionHostToClose !== undefined) cleanupSteps.push(() => sessionHostToClose.close());
     if (monitorRuntimeToClose !== undefined) cleanupSteps.push(() => monitorRuntimeToClose.close());

@@ -5,6 +5,7 @@ import {
   type WorkspaceBindRequest,
 } from "./workspace-router.js";
 import { buildMonitorWarpWriterId } from "../warp/writer-id.js";
+import { resolveWarpGraphRoot, resolveWarpSidecarLocation } from "../warp/sidecar.js";
 
 import {
   CONTROL_PLANE_DIR,
@@ -45,6 +46,30 @@ export type {
   PersistentMonitorRuntimeOptions,
 } from "./monitor-types.js";
 
+function reanchorMonitorRecord(
+  record: PersistedMonitorRecord,
+  anchor: { readonly worktreeRoot: string; readonly gitCommonDir: string },
+): PersistedMonitorRecord {
+  if (
+    record.anchorWorktreeRoot === anchor.worktreeRoot
+    && record.gitCommonDir === anchor.gitCommonDir
+  ) {
+    return record;
+  }
+  return {
+    ...record,
+    anchorWorktreeRoot: anchor.worktreeRoot,
+    gitCommonDir: anchor.gitCommonDir,
+    lastSuccessAt: null,
+    lastError: null,
+    lastIndexedCommit: null,
+    lastHeadCommit: null,
+    backlogCommits: 0,
+    lastRunCommitsIndexed: 0,
+    lastRunPatchesWritten: 0,
+  };
+}
+
 // ── Runtime class ──────────────────────────────────────────────────
 
 export class PersistentMonitorRuntime {
@@ -56,7 +81,11 @@ export class PersistentMonitorRuntime {
   private loadPromise: Promise<void> | null = null;
   private closing = false;
 
-  constructor(private readonly options: PersistentMonitorRuntimeOptions) {
+  private readonly options: PersistentMonitorRuntimeOptions;
+
+  constructor(options: PersistentMonitorRuntimeOptions) {
+    // Resolve the graph root once, here, to its real path; later steps require it real.
+    this.options = { ...options, graphRoot: resolveWarpGraphRoot(options.graphRoot) };
     this.statePath = path.join(
       path.resolve(options.graftDir),
       CONTROL_PLANE_DIR,
@@ -108,6 +137,16 @@ export class PersistentMonitorRuntime {
     };
   }
 
+  *inspectionMonitors(): Iterable<import("../ports/daemon-inspection.js").InspectionMonitor> {
+    for (const record of this.records.values()) {
+      yield { repoId: record.repoId, anchorWorktreeRoot: record.anchorWorktreeRoot,
+        lifecycleState: record.lifecycleState, recordedHealth: record.health,
+        lastTickAt: record.lastTickAt, lastSuccessAt: record.lastSuccessAt,
+        lastIndexedCommit: record.lastIndexedCommit, lastHeadCommit: record.lastHeadCommit,
+        backlogCommits: record.backlogCommits, sourceCurrency: "not_validated", errorDetail: "not_exported" };
+    }
+  }
+
   async listStatuses(): Promise<readonly MonitorStatusView[]> {
     await this.ensureLoaded();
     const authorized = await this.options.controlPlane.listAuthorizedWorkspaceRecords();
@@ -136,6 +175,8 @@ export class PersistentMonitorRuntime {
       request.pollIntervalMs,
       current?.pollIntervalMs ?? this.defaultPollIntervalMs,
     );
+    const sameAnchor = current?.anchorWorktreeRoot === authorizedWorkspace.worktreeRoot
+      && current.gitCommonDir === authorizedWorkspace.gitCommonDir;
     const next: PersistedMonitorRecord = {
       repoId: authorizedWorkspace.repoId,
       gitCommonDir: authorizedWorkspace.gitCommonDir,
@@ -145,14 +186,14 @@ export class PersistentMonitorRuntime {
       health: "lagging",
       pollIntervalMs,
       lastStartedAt: new Date().toISOString(),
-      lastTickAt: current?.lastTickAt ?? null,
-      lastSuccessAt: current?.lastSuccessAt ?? null,
-      lastError: current?.lastError ?? null,
-      lastIndexedCommit: current?.lastIndexedCommit ?? null,
-      lastHeadCommit: current?.lastHeadCommit ?? null,
-      backlogCommits: current?.backlogCommits ?? 0,
-      lastRunCommitsIndexed: current?.lastRunCommitsIndexed ?? 0,
-      lastRunPatchesWritten: current?.lastRunPatchesWritten ?? 0,
+      lastTickAt: sameAnchor ? current.lastTickAt : null,
+      lastSuccessAt: sameAnchor ? current.lastSuccessAt : null,
+      lastError: sameAnchor ? current.lastError : null,
+      lastIndexedCommit: sameAnchor ? current.lastIndexedCommit : null,
+      lastHeadCommit: sameAnchor ? current.lastHeadCommit : null,
+      backlogCommits: sameAnchor ? current.backlogCommits : 0,
+      lastRunCommitsIndexed: sameAnchor ? current.lastRunCommitsIndexed : 0,
+      lastRunPatchesWritten: sameAnchor ? current.lastRunPatchesWritten : 0,
     };
     const created = current === undefined;
     const changed = created
@@ -329,13 +370,24 @@ export class PersistentMonitorRuntime {
       }
 
       try {
+        const anchoredRecord = reanchorMonitorRecord(record, anchor);
+        const writerId = buildMonitorWarpWriterId(repoId);
+        const warpSidecarRepo = resolveWarpSidecarLocation(this.options.graphRoot, {
+          repoId: anchor.repoId,
+          worktreeId: anchor.worktreeId,
+          worktreeRoot: anchor.worktreeRoot,
+          gitCommonDir: anchor.gitCommonDir,
+          writerId,
+        }).repoPath;
         const result = await this.options.workerPool.runMonitorTick({
           repoId,
           worktreeRoot: anchor.worktreeRoot,
-          writerId: buildMonitorWarpWriterId(repoId),
-          lastIndexedCommit: record.lastIndexedCommit,
+          writerId,
+          warpGraphRoot: this.options.graphRoot,
+          warpSidecarRepo,
+          lastIndexedCommit: anchoredRecord.lastIndexedCommit,
         });
-        const latest = this.records.get(repoId) ?? record;
+        const latest = reanchorMonitorRecord(this.records.get(repoId) ?? record, anchor);
         if (result.ok) {
           const activeHealth = result.backlogCommits > 0 ? "lagging" : "ok";
           this.records.set(repoId, {

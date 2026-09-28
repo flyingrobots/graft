@@ -13,7 +13,6 @@ import { PersistentMonitorRuntime } from "../../src/mcp/persistent-monitor-runti
 import { createGraftServer, type GraftServer } from "../../src/mcp/server.js";
 import { InMemoryWarpPool } from "../../src/mcp/warp-pool.js";
 import type { WarpResidentPool } from "../../src/mcp/warp-pool.js";
-import { openWarp } from "../../src/warp/open.js";
 import { parse } from "./mcp.js";
 
 export interface InProcessDaemonSession {
@@ -46,17 +45,18 @@ export async function createInProcessDaemonHarness(options: {
   });
   const scheduler = new DaemonJobScheduler();
   const workerPool = new InlineDaemonWorkerPool();
+  const graphRoot = path.join(rootDir, "graphs");
   const monitorRuntime = new PersistentMonitorRuntime({
     fs: nodeFs,
     codec,
     git: nodeGit,
     graftDir: rootDir,
+    graphRoot,
     controlPlane,
     scheduler,
     workerPool,
   });
-  const warpPool = options.warpPool
-    ?? new InMemoryWarpPool((cwd, writerId) => openWarp({ cwd, writerId }));
+  const warpPool = options.warpPool ?? new InMemoryWarpPool({ graphRoot });
   const startedAt = new Date().toISOString();
   const sessions = new Map<string, InProcessDaemonSession>();
 
@@ -84,6 +84,7 @@ export async function createInProcessDaemonHarness(options: {
       mode: "daemon",
       sessionId,
       graftDir,
+      graphRoot,
       warpPool,
       daemonControlPlane: controlPlane,
       daemonScheduler: scheduler,

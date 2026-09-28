@@ -154,6 +154,104 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   for the session-start runtime log write (new `GraftServer.whenSessionStarted()`,
   which never rejects), so that write can no longer land after initialize
   returns and recreate a moved sessions root through its recursive `mkdir`.
+- **First-call daemon workspace opening**: routed repository tools now treat a
+  non-empty explicit `cwd` as bounded opening intent. Graft resolves its exact
+  containing Git worktree, persists the default authorization when needed,
+  records it in the session's opened-workspace list, and runs the call without
+  changing the active binding. `workspace_open` remains the activation and
+  capability-configuration surface.
+- **Configurable WARP graph root**: the semver-public
+  `CreateGraftServerOptions` and `StartDaemonServerOptions` accept an additive
+  `graphRoot` field. The default is `<graft root>/graphs`, derived from
+  `GRAFT_ROOT_PATH` (from the options' `env` when one is passed) and so still
+  `~/.graft/graphs` while that is unset; Graft does not read `HOME` for it.
+  A root reached through a symlink is resolved to its real path where it is
+  first read (server, daemon, pool, monitor runtime, CLI); later steps refuse a
+  root that is not already real, and a symlink anywhere inside storage. Blank
+  and source-overlapping roots fail before storage mutation.
+- **`GRAFT_ROOT_PATH`**: Graft's per-user root, `~/.graft` by default, can be set
+  to any absolute path. The daemon's default root and its Windows pipe name
+  derive from it (from the `env` passed to `startDaemonServer`, when one is),
+  and it is the only place Graft reads the home directory. A
+  relative value is refused, and so on Windows is one without a drive or UNC
+  share, such as `\graft`. The test suite sets it to a temporary directory,
+  and a test fails if the per-user defaults resolve anywhere else.
+- **Read-only daemon inspection**: `graft daemon inspect` and the typed
+  `inspectDaemon` API capture bounded current session/workspace relationships,
+  admitted job routes, parent-known workers, monitor records, loaded process
+  identity, and separate lifetime counters. A dedicated same-user socket route
+  performs no MCP initialization, workspace discovery, graph opens, indexing,
+  workload touches, or work admission. Exact ID filters and text/JSON output
+  preserve partial/unavailable evidence; capture age never claims source
+  freshness. Older daemons return unsupported without startup or fallback.
+  The existing `daemon status` contract is unchanged. Navigation, polling,
+  retained failure history, and index-coverage measurement remain separate work.
+- **Inspection validator invariants**: the observation schema rejects a session
+  whose `reportedClient` payload contradicts `reportedClientAvailability`
+  (`null` with `available`, or a client object with `not_retained`), and a
+  `truncated` collection whose known `matchingTotal` does not exceed `returned`.
+  It also rejects a job whose `startedAt` contradicts its `state`: a `queued`
+  job with a start time, or a `running` job without one.
+- **Inspection scope check**: the inspection client returns
+  `observation_failed` with reason `INSPECTION_SCOPE_MISMATCH` when a
+  well-formed observation's `scope.filter` does not echo the requested
+  `sessionId`, `workspaceId`, `repoId` and `limit` exactly, so rows captured
+  under another selector are never reported as the answer to this one.
+
+### Changed
+
+- **Actor-isolated WARP sidecars**: production MCP, daemon worker, persistent
+  monitor, API, and graph-backed CLI paths persist WARP state in private bare
+  repositories keyed by canonical repository, worktree, and actor identity.
+  Worker boundaries carry the locator's canonical graph root together with the
+  terminal repository path; sidecar opening rejects an omitted root instead of
+  inferring storage authority from path ancestry.
+  Source repositories receive no WARP refs, objects, config, or hooks. Existing
+  source-repository `refs/warp/*` are left untouched and are not imported.
+  Separate one-shot CLI processes in one worktree intentionally share the
+  stable CLI actor lane; independent MCP sessions remain actor-isolated.
+- **Copy-in-only Docker tests**: every supported Vitest path builds a pinned
+  Docker image from a source copy that excludes the live `.git`, scrubs remotes
+  and linked-worktree pointers after copying, disables network for every
+  post-copy build step, and executes without network, host mounts, Linux
+  capabilities, or a host-side fallback. The base digest and Git package are
+  exact, each invocation uses a unique image reference, and the runner rejects
+  unsafe image overrides before invoking Docker.
+
+- **Sidecar-keyed WARP residency**: the bounded resident pool from 0.14.0 now
+  keys each resident by `(repoId, worktreeId, writerId)` and opens it as that
+  identity's isolated sidecar under the configured graph root. Linked worktrees
+  of one repository therefore occupy separate resident slots and can never
+  share a pinned handle. `InMemoryWarpPool` takes an options object carrying
+  `graphRoot`, an optional sidecar opener, and the existing capacity options,
+  and `WarpResidentPool.acquire` takes the full workspace identity plus writer
+  lane instead of a `(repoId, writerId)` key and worktree root.
+
+### Fixed
+
+- **Refused automatic authorization**: when a routed daemon call cannot
+  persist the default authorization for its workspace, Graft now discards that
+  worktree's cached routed binding, as an unauthorized route already did. The
+  next admitted call starts a fresh workspace slice instead of reviving the
+  refused one's governor and cache state.
+
+- **CLI index path aliases**: `graft index --path` canonicalizes an existing
+  requested working directory before worktree containment checks, so symlink
+  aliases no longer misclassify in-worktree paths as escapes.
+
+- **Monitor fallback re-anchoring**: when a persistent monitor falls back to a
+  different authorized worktree, it clears the prior sidecar's checkpoint and
+  fully seeds the new worktree-keyed sidecar even when both anchors have the
+  same `HEAD`.
+
+- **Non-mutating graph-root admission**: sidecar opening no longer changes the
+  mode of a pre-existing graph root or managed path component. Existing storage
+  must already be a private directory; unsafe paths fail closed unchanged.
+
+- **Concurrent sidecar opening**: exact simultaneous opens coalesce within one
+  process, while first-time bare-repository installation is atomic across
+  processes. Callers can no longer observe a partial sidecar or race its Git
+  configuration.
 
 ### Documentation
 

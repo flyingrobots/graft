@@ -6,20 +6,17 @@ import { nodeGit } from "../../../src/adapters/node-git.js";
 import { nodePathOps } from "../../../src/adapters/node-paths.js";
 import { InMemoryWarpPool } from "../../../src/mcp/warp-pool.js";
 import { indexHead } from "../../../src/warp/index-head.js";
-import { openWarp } from "../../../src/warp/open.js";
+import { openWarpSidecar, type WarpSidecarOpenOptions } from "../../../src/warp/sidecar.js";
 import { structuralLogFromGraph } from "../../../src/warp/warp-structural-log.js";
 import { cleanupTestRepo, createTestRepo, git } from "../../helpers/git.js";
+import { fakeSidecarWarpPool, fixtureAcquireInput } from "../../helpers/warp-pool.js";
 
 describe("mcp: warp pool lease eviction", () => {
   it("exposes no force-eviction escape hatch for an owned resident", async () => {
-    const pool = new InMemoryWarpPool(() => {
+    const pool = fakeSidecarWarpPool(() => {
       return Promise.resolve({ writerId: "writer-a" } as unknown as WarpApp);
     }, { maxIdleResidents: 0, maxResidents: 64 });
-    const lease = await pool.acquire({
-      key: { repoId: "repo-a", writerId: "writer-a" },
-      worktreeRoot: "/path/to/a",
-      ownerId: "session-a",
-    });
+    const lease = await pool.acquire(fixtureAcquireInput({ repoId: "repo-a", writerId: "writer-a", worktreeRoot: "/path/to/a", ownerId: "session-a" }));
 
     expect("eject" in pool).toBe(false);
     expect("ejectUnreferenced" in pool).toBe(false);
@@ -30,12 +27,8 @@ describe("mcp: warp pool lease eviction", () => {
 
   it("owns same-owner acquisitions with independent lease capabilities", async () => {
     const app = { writerId: "writer-a" } as unknown as WarpApp;
-    const pool = new InMemoryWarpPool(() => Promise.resolve(app), { maxIdleResidents: 0, maxResidents: 64 });
-    const input = {
-      key: { repoId: "repo-a", writerId: "writer-a" },
-      worktreeRoot: "/path/to/a",
-      ownerId: "session-a",
-    };
+    const pool = fakeSidecarWarpPool(() => Promise.resolve(app), { maxIdleResidents: 0, maxResidents: 64 });
+    const input = fixtureAcquireInput({ repoId: "repo-a", writerId: "writer-a", worktreeRoot: "/path/to/a", ownerId: "session-a" });
 
     const first = await pool.acquire(input);
     const second = await pool.acquire(input);
@@ -58,27 +51,19 @@ describe("mcp: warp pool lease eviction", () => {
 
   it("drops the resident automatically when its last lease releases", async () => {
     let openCount = 0;
-    const pool = new InMemoryWarpPool((_worktreeRoot, writerId) => {
+    const pool = fakeSidecarWarpPool(({ writerId }) => {
       openCount++;
       return Promise.resolve({ writerId, openCount } as unknown as WarpApp);
     }, { maxIdleResidents: 0, maxResidents: 64 });
 
-    const first = await pool.acquire({
-      key: { repoId: "repo-a", writerId: "writer-a" },
-      worktreeRoot: "/path/to/a",
-      ownerId: "session-a",
-    });
+    const first = await pool.acquire(fixtureAcquireInput({ repoId: "repo-a", writerId: "writer-a", worktreeRoot: "/path/to/a", ownerId: "session-a" }));
     expect(pool.has("repo-a", "writer-a")).toBe(true);
 
     const originalApp = first.app;
     await first.release();
 
     expect(pool.has("repo-a", "writer-a")).toBe(false);
-    const second = await pool.acquire({
-      key: { repoId: "repo-a", writerId: "writer-a" },
-      worktreeRoot: "/path/to/a",
-      ownerId: "session-b",
-    });
+    const second = await pool.acquire(fixtureAcquireInput({ repoId: "repo-a", writerId: "writer-a", worktreeRoot: "/path/to/a", ownerId: "session-b" }));
     expect(second.app).not.toBe(originalApp);
     expect(openCount).toBe(2);
     await second.release();
@@ -86,35 +71,19 @@ describe("mcp: warp pool lease eviction", () => {
 
   it("releases one writer lane without disturbing a leased sibling lane", async () => {
     let openCount = 0;
-    const fakeOpen = (_worktreeRoot: string, writerId: string) => {
+    const fakeOpen = ({ writerId }: WarpSidecarOpenOptions) => {
       openCount++;
       return Promise.resolve({ writerId, openCount } as unknown as WarpApp);
     };
-    const pool = new InMemoryWarpPool(fakeOpen, { maxIdleResidents: 0, maxResidents: 64 });
+    const pool = fakeSidecarWarpPool(fakeOpen, { maxIdleResidents: 0, maxResidents: 64 });
 
-    const live = await pool.acquire({
-      key: { repoId: "repo-a", writerId: "writer-live" },
-      worktreeRoot: "/path/to/a",
-      ownerId: "session-live",
-    });
-    const dead = await pool.acquire({
-      key: { repoId: "repo-a", writerId: "writer-dead" },
-      worktreeRoot: "/path/to/a",
-      ownerId: "session-dead",
-    });
+    const live = await pool.acquire(fixtureAcquireInput({ repoId: "repo-a", writerId: "writer-live", worktreeRoot: "/path/to/a", ownerId: "session-live" }));
+    const dead = await pool.acquire(fixtureAcquireInput({ repoId: "repo-a", writerId: "writer-dead", worktreeRoot: "/path/to/a", ownerId: "session-dead" }));
 
     const deadApp = dead.app;
     await dead.release();
-    const liveAgain = await pool.acquire({
-      key: { repoId: "repo-a", writerId: "writer-live" },
-      worktreeRoot: "/path/to/a",
-      ownerId: "session-live-again",
-    });
-    const deadAgain = await pool.acquire({
-      key: { repoId: "repo-a", writerId: "writer-dead" },
-      worktreeRoot: "/path/to/a",
-      ownerId: "session-dead-again",
-    });
+    const liveAgain = await pool.acquire(fixtureAcquireInput({ repoId: "repo-a", writerId: "writer-live", worktreeRoot: "/path/to/a", ownerId: "session-live-again" }));
+    const deadAgain = await pool.acquire(fixtureAcquireInput({ repoId: "repo-a", writerId: "writer-dead", worktreeRoot: "/path/to/a", ownerId: "session-dead-again" }));
     expect(liveAgain.app).toBe(live.app);
     expect(deadAgain.app).not.toBe(deadApp);
     expect(openCount).toBe(3);
@@ -135,19 +104,20 @@ describe("mcp: warp pool lease eviction", () => {
     git(repoDir, "commit -m 'add reconstructible symbol'");
     const writerId = "graft_reconstruction_test";
     let openCount = 0;
-    const pool = new InMemoryWarpPool(async (worktreeRoot, requestedWriterId) => {
-      openCount++;
-      return openWarp({ cwd: worktreeRoot, writerId: requestedWriterId });
-    }, { maxResidents: 1, maxIdleResidents: policy === "last-release" ? 0 : 1 });
+    const pool = new InMemoryWarpPool({
+      graphRoot: path.join(fs.realpathSync.native(path.dirname(repoDir)), `${path.basename(repoDir)}.graft-graphs`),
+      openSidecar: (options) => {
+        openCount++;
+        return openWarpSidecar(options);
+      },
+      maxResidents: 1,
+      maxIdleResidents: policy === "last-release" ? 0 : 1,
+    });
     let first: Awaited<ReturnType<typeof pool.acquire>> | null = null;
     let second: Awaited<ReturnType<typeof pool.acquire>> | null = null;
 
     try {
-      first = await pool.acquire({
-        key: { repoId: "repo:reconstruction", writerId },
-        worktreeRoot: repoDir,
-        ownerId: "session:first",
-      });
+      first = await pool.acquire(fixtureAcquireInput({ repoId: "repo:reconstruction", writerId, worktreeRoot: repoDir, ownerId: "session:first" }));
       const firstContext = { app: first.app, strandId: null };
       await indexHead({
         cwd: repoDir,
@@ -162,20 +132,12 @@ describe("mcp: warp pool lease eviction", () => {
       first = null;
       if (policy === "LRU pressure") {
         expect(pool.has("repo:reconstruction", writerId)).toBe(true);
-        const pressure = await pool.acquire({
-          key: { repoId: "repo:reconstruction", writerId: "graft_pressure_test" },
-          worktreeRoot: repoDir,
-          ownerId: "session:pressure",
-        });
+        const pressure = await pool.acquire(fixtureAcquireInput({ repoId: "repo:reconstruction", writerId: "graft_pressure_test", worktreeRoot: repoDir, ownerId: "session:pressure" }));
         await pressure.release();
       }
       expect(pool.has("repo:reconstruction", writerId)).toBe(false);
 
-      second = await pool.acquire({
-        key: { repoId: "repo:reconstruction", writerId },
-        worktreeRoot: repoDir,
-        ownerId: "session:second",
-      });
+      second = await pool.acquire(fixtureAcquireInput({ repoId: "repo:reconstruction", writerId, worktreeRoot: repoDir, ownerId: "session:second" }));
       const afterEviction = await structuralLogFromGraph(
         { app: second.app, strandId: null },
         { limit: 5 },
@@ -199,16 +161,12 @@ describe("mcp: warp pool lease eviction", () => {
       rejectStale = reject;
     });
     let openCount = 0;
-    const pool = new InMemoryWarpPool(() => {
+    const pool = fakeSidecarWarpPool(() => {
       openCount++;
       return openCount === 1 ? staleOpen : Promise.resolve(replacementApp);
     }, { maxIdleResidents: 0, maxResidents: 64 });
 
-    const input = {
-      key: { repoId: "repo-a", writerId: "writer-a" },
-      worktreeRoot: "/path/to/a",
-      ownerId: "session-a",
-    };
+    const input = fixtureAcquireInput({ repoId: "repo-a", writerId: "writer-a", worktreeRoot: "/path/to/a", ownerId: "session-a" });
     const staleOpening = pool.acquire(input);
     const staleFailure = expect(staleOpening).rejects.toBe(staleError);
 
@@ -225,38 +183,26 @@ describe("mcp: warp pool lease eviction", () => {
 
   it("tracks owned leases and evicts residents on last release", async () => {
     let openCount = 0;
-    const fakeOpen = (worktreeRoot: string, writerId: string) => {
+    const fakeOpen = ({ writerId, sidecarRepo }: WarpSidecarOpenOptions) => {
       openCount++;
       return Promise.resolve({
         graphName: "graft-ast",
         writerId,
-        worktreeRoot,
+        sidecarRepo,
       } as unknown as WarpApp);
     };
 
-    const pool = new InMemoryWarpPool(fakeOpen, { maxIdleResidents: 0, maxResidents: 64 });
+    const pool = fakeSidecarWarpPool(fakeOpen, { maxIdleResidents: 0, maxResidents: 64 });
 
     // 1. Acquire repoA and repoB
-    const leaseA = await pool.acquire({
-      key: { repoId: "repo-a", writerId: "writer-1" },
-      worktreeRoot: "/path/to/a",
-      ownerId: "session-1",
-    });
-    const leaseB = await pool.acquire({
-      key: { repoId: "repo-b", writerId: "writer-1" },
-      worktreeRoot: "/path/to/b",
-      ownerId: "session-2",
-    });
+    const leaseA = await pool.acquire(fixtureAcquireInput({ repoId: "repo-a", writerId: "writer-1", worktreeRoot: "/path/to/a", ownerId: "session-1" }));
+    const leaseB = await pool.acquire(fixtureAcquireInput({ repoId: "repo-b", writerId: "writer-1", worktreeRoot: "/path/to/b", ownerId: "session-2" }));
     expect(leaseB.app.writerId).toBe("writer-1");
     expect(pool.size()).toBe(2);
     expect(openCount).toBe(2);
 
     // Verify cache hit through a separately owned capability
-    const leaseA2 = await pool.acquire({
-      key: { repoId: "repo-a", writerId: "writer-1" },
-      worktreeRoot: "/path/to/a",
-      ownerId: "session-3",
-    });
+    const leaseA2 = await pool.acquire(fixtureAcquireInput({ repoId: "repo-a", writerId: "writer-1", worktreeRoot: "/path/to/a", ownerId: "session-3" }));
     expect(leaseA2.app).toBe(leaseA.app);
     expect(openCount).toBe(2);
 
@@ -280,11 +226,7 @@ describe("mcp: warp pool lease eviction", () => {
     expect(pool.size()).toBe(0);
 
     // 5. Subsequent acquisition re-opens fresh
-    const leaseA3 = await pool.acquire({
-      key: { repoId: "repo-a", writerId: "writer-1" },
-      worktreeRoot: "/path/to/a",
-      ownerId: "session-4",
-    });
+    const leaseA3 = await pool.acquire(fixtureAcquireInput({ repoId: "repo-a", writerId: "writer-1", worktreeRoot: "/path/to/a", ownerId: "session-4" }));
     expect(leaseA3.app.graphName).toBe("graft-ast");
     expect(openCount).toBe(3);
     expect(pool.size()).toBe(1);

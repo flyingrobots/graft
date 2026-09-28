@@ -4,8 +4,14 @@ import * as os from "node:os";
 import * as path from "node:path";
 import { createGraftServer } from "../../../src/mcp/server.js";
 import { parse } from "../../helpers/mcp.js";
+import { graftTestRoot } from "../../setup-graft-root.js";
 
 const cleanups: (() => void)[] = [];
+
+// An injected env replaces process.env for the server, including the suite's
+// GRAFT_ROOT_PATH, so each one carries it; otherwise the server's default WARP
+// graph root would be the developer's real ~/.graft/graphs.
+const GRAFT_ROOT = { GRAFT_ROOT_PATH: graftTestRoot };
 
 afterEach(() => {
   while (cleanups.length > 0) {
@@ -29,7 +35,7 @@ describe("project root resolution", () => {
     const server = createGraftServer({
       projectRoot: explicit,
       graftDir: path.join(explicit, ".graft"),
-      env: { GRAFT_PROJECT_ROOT: envRoot },
+      env: { ...GRAFT_ROOT, GRAFT_PROJECT_ROOT: envRoot },
     });
 
     const result = await server.callTool("doctor", {});
@@ -41,7 +47,7 @@ describe("project root resolution", () => {
 
     const server = createGraftServer({
       graftDir: path.join(envRoot, ".graft"),
-      env: { GRAFT_PROJECT_ROOT: envRoot },
+      env: { ...GRAFT_ROOT, GRAFT_PROJECT_ROOT: envRoot },
     });
 
     const result = await server.callTool("doctor", {});
@@ -52,7 +58,7 @@ describe("project root resolution", () => {
     // Verify the resolution logic directly without starting a full server
     // (full server init in a non-git tmp dir times out)
     const server = createGraftServer({
-      env: {},
+      env: { ...GRAFT_ROOT },
     });
     const result = server.callTool("doctor", {});
     // The server was created — projectRoot resolved without throwing.

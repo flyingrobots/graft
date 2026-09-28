@@ -1,7 +1,20 @@
 import type WarpApp from "@git-stunts/git-warp";
+import { DEFAULT_WARP_WRITER_ID } from "../warp/writer-id.js";
+import {
+  openWarpSidecar,
+  resolveWarpGraphRoot,
+  resolveWarpSidecarLocation,
+  type WarpSidecarLocation,
+  type WarpSidecarOpenOptions,
+  type WarpSidecarWorkspaceIdentity,
+} from "../warp/sidecar.js";
 
+export type WarpPoolWorkspace = WarpSidecarWorkspaceIdentity;
+
+/** One isolated sidecar graph: a source repo, one of its worktrees, and one writer lane. */
 export interface WarpResidentKey {
   readonly repoId: string;
+  readonly worktreeId: string;
   readonly writerId: string;
 }
 
@@ -13,13 +26,14 @@ export interface WarpResidentLease {
 }
 
 export interface WarpResidentAcquireInput {
-  readonly key: WarpResidentKey;
-  readonly worktreeRoot: string;
+  readonly workspace: WarpPoolWorkspace;
+  readonly writerId: string;
   readonly ownerId: string;
 }
 
 export interface WarpResidentPool {
   acquire(input: WarpResidentAcquireInput): Promise<WarpResidentLease>;
+  locationFor(workspace: WarpPoolWorkspace, writerId?: string): WarpSidecarLocation;
   size(): number;
   residentCount(): number;
 }
@@ -31,6 +45,11 @@ export interface WarpPoolOptions {
   readonly maxResidents?: number;
   /** Zero opts into eager release; otherwise idle entries compete by recency. */
   readonly maxIdleResidents?: number;
+}
+
+export interface InMemoryWarpPoolOptions extends WarpPoolOptions {
+  readonly graphRoot: string;
+  readonly openSidecar?: ((options: WarpSidecarOpenOptions) => Promise<WarpApp>) | undefined;
 }
 
 export function resolveWarpPoolOptions(env: Readonly<Record<string, string | undefined>>): WarpPoolOptions {
@@ -59,7 +78,7 @@ export class WarpResidentCapacityError extends Error {
 
 interface Resident {
   readonly key: WarpResidentKey;
-  readonly worktreeRoot: string;
+  readonly sidecarRepo: string;
   readonly pins: Map<symbol, string>;
   readonly opening: Promise<WarpApp>;
 }
@@ -67,13 +86,15 @@ interface Resident {
 /** A finite working set. Map order records actual use, never observation. */
 export class InMemoryWarpPool implements WarpResidentPool {
   private readonly residents = new Map<string, Resident>();
+  private readonly graphRoot: string;
+  private readonly openSidecar: (options: WarpSidecarOpenOptions) => Promise<WarpApp>;
   private readonly maxResidents: number;
   private readonly maxIdleResidents: number;
 
-  constructor(
-    private readonly openWarp: (worktreeRoot: string, writerId: string) => Promise<WarpApp>,
-    options: WarpPoolOptions = {},
-  ) {
+  constructor(options: InMemoryWarpPoolOptions) {
+    // A pool is where a library host hands Graft a root: resolve it once to its real path.
+    this.graphRoot = resolveWarpGraphRoot(options.graphRoot);
+    this.openSidecar = options.openSidecar ?? openWarpSidecar;
     this.maxResidents = options.maxResidents ?? DEFAULT_MAX_WARP_RESIDENTS;
     validateCapacity(this.maxResidents);
     this.maxIdleResidents = options.maxIdleResidents ?? this.maxResidents;
@@ -82,11 +103,18 @@ export class InMemoryWarpPool implements WarpResidentPool {
     }
   }
 
+  locationFor(
+    workspace: WarpPoolWorkspace,
+    writerId: string = DEFAULT_WARP_WRITER_ID,
+  ): WarpSidecarLocation {
+    return resolveWarpSidecarLocation(this.graphRoot, { ...workspace, writerId });
+  }
+
   async acquire(input: WarpResidentAcquireInput): Promise<WarpResidentLease> {
-    const worktreeRoot = input.worktreeRoot;
-    const id = this.id(input.key.repoId, input.key.writerId);
+    const location = this.locationFor(input.workspace, input.writerId);
+    const id = this.id(input.workspace.repoId, input.workspace.worktreeId, input.writerId);
     let resident = this.residents.get(id);
-    if (resident?.pins.size === 0 && resident.worktreeRoot !== worktreeRoot) {
+    if (resident?.pins.size === 0 && resident.sidecarRepo !== location.repoPath) {
       this.residents.delete(id);
       resident = undefined;
     }
@@ -94,10 +122,19 @@ export class InMemoryWarpPool implements WarpResidentPool {
       if (this.residents.size >= this.maxResidents && !this.evictOldestIdle()) {
         throw new WarpResidentCapacityError(this.maxResidents);
       }
-      const key = Object.freeze({ repoId: input.key.repoId, writerId: input.key.writerId });
+      const key = Object.freeze({
+        repoId: input.workspace.repoId,
+        worktreeId: input.workspace.worktreeId,
+        writerId: input.writerId,
+      });
+      const openOptions: WarpSidecarOpenOptions = {
+        graphRoot: location.graphRoot,
+        sidecarRepo: location.repoPath,
+        writerId: key.writerId,
+      };
       // Reserve before calling even a synchronously throwing/reentrant opener.
-      const opening = Promise.resolve().then(() => this.openWarp(worktreeRoot, key.writerId));
-      resident = { key, worktreeRoot, pins: new Map(), opening };
+      const opening = Promise.resolve().then(() => this.openSidecar(openOptions));
+      resident = { key, sidecarRepo: location.repoPath, pins: new Map(), opening };
       this.residents.set(id, resident);
     }
     const token = Symbol(input.ownerId);
@@ -135,8 +172,8 @@ export class InMemoryWarpPool implements WarpResidentPool {
     };
   }
 
-  private id(repoId: string, writerId: string): string {
-    return JSON.stringify([repoId, writerId]);
+  private id(repoId: string, worktreeId: string, writerId: string): string {
+    return JSON.stringify([repoId, worktreeId, writerId]);
   }
 
   private touch(id: string, resident: Resident): void {
@@ -160,13 +197,20 @@ export class InMemoryWarpPool implements WarpResidentPool {
     while (idle > this.maxIdleResidents && this.evictOldestIdle()) idle--;
   }
 
+  /** Live leases on one repo writer lane, summed across that repo's worktree sidecars. */
   leaseCount(repoId: string, writerId: string): number {
-    return this.residents.get(this.id(repoId, writerId))?.pins.size ?? 0;
+    let count = 0;
+    for (const resident of this.residents.values()) {
+      if (resident.key.repoId === repoId && resident.key.writerId === writerId) count += resident.pins.size;
+    }
+    return count;
   }
 
+  /** Whether any worktree sidecar of the repo (optionally one writer lane) is resident. */
   has(repoId: string, writerId?: string): boolean {
-    if (writerId !== undefined) return this.residents.has(this.id(repoId, writerId));
-    for (const resident of this.residents.values()) if (resident.key.repoId === repoId) return true;
+    for (const resident of this.residents.values()) {
+      if (resident.key.repoId === repoId && (writerId === undefined || resident.key.writerId === writerId)) return true;
+    }
     return false;
   }
 
@@ -178,4 +222,14 @@ export class InMemoryWarpPool implements WarpResidentPool {
   residentCount(): number {
     return this.residents.size;
   }
+}
+
+/** Narrows a richer workspace record to the identity that addresses its sidecar. */
+export function warpPoolWorkspace(source: WarpPoolWorkspace): WarpPoolWorkspace {
+  return {
+    repoId: source.repoId,
+    worktreeId: source.worktreeId,
+    worktreeRoot: source.worktreeRoot,
+    gitCommonDir: source.gitCommonDir,
+  };
 }

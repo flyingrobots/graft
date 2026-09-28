@@ -365,6 +365,8 @@ export function createInvocationEngine(deps: InvocationEngineDeps): InvocationEn
         ? { workspaceRoute: input.execution.workspaceRoute }
         : {}),
       writerId: input.execution.warpWriterId,
+      warpGraphRoot: input.execution.warpGraphRoot,
+      warpSidecarRepo: input.execution.warpSidecarRepo,
       capabilityProfile: input.execution.capabilityProfile,
       repoState: input.execution.repoState.getState(),
       governorSnapshot: input.execution.governor.snapshot(),

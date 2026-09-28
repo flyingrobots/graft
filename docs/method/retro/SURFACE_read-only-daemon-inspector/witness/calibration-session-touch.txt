@@ -1,0 +1,11 @@
+ FAIL  test/integration/mcp/daemon-inspection.test.ts > dedicated daemon inspection transport > inspects registered/opened sessions repeatedly without workload, cache, graph, discovery or scheduling effects
+AssertionError: expected { …(12) } to deeply equal { …(12) }
++ Received
++     "availability": "unavailable",
++     "completeness": "unknown",
++     "matchingTotal": null,
++     "reason": "PROJECTION_UNAVAILABLE",
++     "returned": 0,
++     "rows": [],
+ Test Files  1 failed (1)
+      Tests  1 failed | 6 skipped (7)
