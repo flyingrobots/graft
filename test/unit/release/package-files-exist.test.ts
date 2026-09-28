@@ -12,8 +12,8 @@ describe("release: package.json files array", () => {
     const files = pkg.files ?? [];
     expect(files.length).toBeGreaterThan(0);
 
-    // dist/ is a build artifact created by `pnpm build` / `prepack`.
-    // It won't exist during CI test runs but is present at publish time.
+    // dist/ is a build artifact created by `pnpm build` / `prepack`, and by the test global setup
+    // (test/global-setup-fresh-dist.ts); it is not part of the checkout, so it is skipped here.
     const BUILD_ARTIFACTS = new Set(["dist/", "dist"]);
 
     const missing: string[] = [];

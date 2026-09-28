@@ -44,21 +44,6 @@ function scrubbedEnvWithPath(binDir: string): NodeJS.ProcessEnv {
   return env;
 }
 
-let packageBinBuilt = false;
-
-function ensurePackageBinBuild(): void {
-  if (packageBinBuilt) return;
-  if (fs.existsSync(path.join(ROOT, "dist", "cli", "entrypoint.js"))) {
-    packageBinBuilt = true;
-    return;
-  }
-  execFileSync("pnpm", ["build"], {
-    cwd: ROOT,
-    stdio: "inherit",
-  });
-  packageBinBuilt = true;
-}
-
 describe("cli: git graft enhance integration", { timeout: 30_000 }, () => {
   it("renders a human review summary for enhance --since in a temp repo", async () => {
     const repoDir = createTestRepo("graft-enhance-cli-");
@@ -120,8 +105,8 @@ describe("cli: git graft enhance integration", { timeout: 30_000 }, () => {
     const binDir = fs.mkdtempSync(path.join(os.tmpdir(), "graft-enhance-bin-"));
     try {
       writeScenario(repoDir);
-      ensurePackageBinBuild();
-      fs.symlinkSync(path.resolve(import.meta.dirname, "../../../bin/graft.js"), path.join(binDir, "git-graft"));
+      // bin/graft.js loads dist/, which the global setup has rebuilt if it was missing or stale.
+      fs.symlinkSync(path.join(ROOT, "bin", "graft.js"), path.join(binDir, "git-graft"));
 
       const output = execFileSync("git", ["graft", "enhance", "--since", "HEAD~1"], {
         cwd: repoDir,
