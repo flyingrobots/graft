@@ -95,7 +95,7 @@ faulty daemons.
 
 ## Third review round
 
-### Job start time contradicting its state — P2 (review thread)
+### Job start time contradicting its state: P2 (review thread)
 
 The job row schema accepted a `queued` job with a non-null `startedAt` and a
 `running` job with `startedAt: null`. The producer never emits either: `enqueue`
@@ -105,7 +105,7 @@ on the job row now requires `startedAt` to be null exactly when the state is
 `queued`. Before the refine, the regression test failed on its first
 contradiction: a queued job with a start time parsed successfully.
 
-### Worker repository missing from the text frame — P2 (review thread)
+### Worker repository missing from the text frame: P2 (review thread)
 
 The worker projection keeps `repoId` for every assigned task, but the text
 renderer printed only session and workspace, which are both null for a
@@ -117,7 +117,7 @@ workspace unavailable` with no repository. `example.txt` was re-rendered from
 `example.json` with the same clock; only its worker line changed. JSON output
 already carried `repoId` and is unchanged.
 
-### Returned scope not checked against the request — P2 (review thread)
+### Returned scope not checked against the request: P2 (review thread)
 
 The client validated the observation but not that its `scope.filter` was the
 filter it sent, so a daemon that ignored or substituted a selector or limit got
