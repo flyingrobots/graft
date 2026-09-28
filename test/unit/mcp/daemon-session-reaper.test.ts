@@ -3774,28 +3774,59 @@ describe("mcp: daemon session reaper", () => {
     cleanups.push(() => {
       fs.rmSync(rootDir, { recursive: true, force: true });
     });
+    // The session-start write is held until one of two events: construction
+    // asking to wait for it (a correct host), or the initialize response
+    // arriving (a host that hands the session out first). The oracle is the
+    // order of the write settling and the response arriving; no timer decides it.
     let releaseStartWrite!: () => void;
     const startWriteGate = new Promise<void>((resolve) => {
       releaseStartWrite = resolve;
     });
-    // Fallback so a fixed host, which waits for this write inside
-    // initialize, is not deadlocked by the gate below.
-    const fallback = setTimeout(releaseStartWrite, 200);
     cleanups.push(() => {
-      clearTimeout(fallback);
       releaseStartWrite();
     });
+    let markStartWriteSettled!: () => void;
+    const startWriteSettled = new Promise<void>((resolve) => {
+      markStartWriteSettled = resolve;
+    });
+    let responseReceived = false;
+    let responseReceivedBeforeStartWriteSettled: boolean | null = null;
     const originalAppend = Reflect.get(RotatingNdjsonLog.prototype, "append") as (
       this: RotatingNdjsonLog,
       entry: object,
     ) => Promise<void>;
     const append = vi.spyOn(RotatingNdjsonLog.prototype, "append")
       .mockImplementation(async function(this: RotatingNdjsonLog, entry: object) {
-        if ((entry as { event?: unknown }).event === "session_started") await startWriteGate;
-        await Reflect.apply(originalAppend, this, [entry]);
+        if ((entry as { event?: unknown }).event !== "session_started") {
+          await Reflect.apply(originalAppend, this, [entry]);
+          return;
+        }
+        await startWriteGate;
+        try {
+          await Reflect.apply(originalAppend, this, [entry]);
+        } finally {
+          responseReceivedBeforeStartWriteSettled = responseReceived;
+          markStartWriteSettled();
+        }
       });
     cleanups.push(() => {
       append.mockRestore();
+    });
+    const originalCreateGraftServer = graftServerModule.createGraftServer;
+    const createServer = vi.spyOn(graftServerModule, "createGraftServer")
+      .mockImplementation((...args: Parameters<typeof originalCreateGraftServer>) => {
+        const server = originalCreateGraftServer(...args);
+        const whenSessionStarted = server.whenSessionStarted.bind(server);
+        return {
+          ...server,
+          whenSessionStarted(): Promise<void> {
+            releaseStartWrite();
+            return whenSessionStarted();
+          },
+        };
+      });
+    cleanups.push(() => {
+      createServer.mockRestore();
     });
     const daemon = await startDaemonServer({
       graftDir: rootDir,
@@ -3809,13 +3840,23 @@ describe("mcp: daemon session reaper", () => {
       await daemon.close().catch(() => undefined);
     });
 
-    await initializeDaemonSession(socketPath, 1);
-    fs.renameSync(sessionsRoot, parkedSessionsRoot);
-    releaseStartWrite();
-    await new Promise<void>((resolve) => {
-      setTimeout(resolve, 50);
+    const initialize = await requestUnixJson(socketPath, "POST", "/mcp", {
+      jsonrpc: "2.0",
+      id: 1,
+      method: "initialize",
+      params: {
+        protocolVersion: "2025-03-26",
+        capabilities: {},
+        clientInfo: { name: "vitest", version: "0.0.0" },
+      },
     });
+    responseReceived = true;
+    releaseStartWrite();
+    expect(initialize.statusCode).toBe(200);
+    fs.renameSync(sessionsRoot, parkedSessionsRoot);
+    await startWriteSettled;
 
+    expect(responseReceivedBeforeStartWriteSettled).toBe(false);
     expect(fs.existsSync(sessionsRoot)).toBe(false);
   });
 
