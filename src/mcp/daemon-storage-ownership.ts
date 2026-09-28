@@ -153,6 +153,23 @@ export class UnsafeDaemonSessionDirectoryError extends Error {
   }
 }
 
+/**
+ * The guarded quarantine walk found an entry that is no longer the one it
+ * enumerated: a different inode, a changed type, or content added after
+ * enumeration. The walk stops at that entry and leaves everything not yet
+ * removed, including the ownership marker, inside the quarantine.
+ */
+export class DaemonQuarantineEntryChangedError extends Error {
+  readonly code = "DAEMON_QUARANTINE_ENTRY_CHANGED";
+  readonly entryPath: string;
+
+  constructor(entryPath: string) {
+    super(`Refusing to remove a daemon quarantine entry that changed after enumeration: ${entryPath}`);
+    this.name = "DaemonQuarantineEntryChangedError";
+    this.entryPath = entryPath;
+  }
+}
+
 export class DaemonRootOwnerClaimTimeoutError extends Error {
   readonly code = "DAEMON_ROOT_OWNER_CLAIM_TIMEOUT";
 
@@ -989,6 +1006,145 @@ export async function removeEmptyUncapturedSessionDirectory(
   });
 }
 
+/*
+ * Quarantine deletion threat model.
+ *
+ * Node exposes no delete-by-inode and no directory-relative (unlinkat/openat)
+ * API, so every deletion names a path that the kernel resolves again when the
+ * call runs. The guarded walk narrows the gap between an identity check and
+ * the deletion that follows it; it cannot close it. Using the remaining window
+ * requires a process running as the same user that acts inside the private
+ * (0700) sessions root between the last identity check and a given unlink or
+ * rmdir. Such a process can already delete this user's files directly, so the
+ * window gives it no capability it lacks. What the walk guarantees is that the
+ * daemon itself never removes an entry that changed after it was enumerated:
+ * before each removal it re-checks the pinned sessions root, every ancestor
+ * inside the quarantine, and the entry by lstat device/inode and type; it never
+ * follows a symbolic link (a link is unlinked, its target untouched); it
+ * removes directories bottom-up with rmdir after their contents; and it stops
+ * at the first mismatch, leaving everything not yet removed in the quarantine.
+ * The session ownership marker is removed last, so a quarantine left behind by
+ * a refusal or a crash still carries it.
+ */
+interface GuardedQuarantineEntry {
+  readonly path: string;
+  readonly device: bigint;
+  readonly inode: bigint;
+  readonly directory: boolean;
+}
+
+function guardedEntryMatches(expected: GuardedQuarantineEntry, stat: BigIntStats): boolean {
+  const directory = stat.isDirectory() && !stat.isSymbolicLink();
+  return directory === expected.directory
+    && stat.dev === expected.device
+    && stat.ino === expected.inode;
+}
+
+function compareEntryNames(left: string, right: string): number {
+  if (left < right) return -1;
+  return left > right ? 1 : 0;
+}
+
+async function lstatIfPresent(entryPath: string): Promise<BigIntStats | null> {
+  return fs.lstat(entryPath, { bigint: true }).catch((error: unknown) => {
+    if (errorCode(error) === "ENOENT") return null;
+    throw error;
+  });
+}
+
+async function assertGuardedChain(
+  chain: readonly GuardedQuarantineEntry[],
+  assertRootCurrent: () => Promise<void>,
+): Promise<void> {
+  await assertRootCurrent();
+  for (const entry of chain) {
+    const current = await lstatIfPresent(entry.path);
+    if (current === null || !guardedEntryMatches(entry, current)) {
+      throw new DaemonQuarantineEntryChangedError(entry.path);
+    }
+  }
+}
+
+async function enumerateGuardedEntries(
+  directory: GuardedQuarantineEntry,
+): Promise<GuardedQuarantineEntry[]> {
+  const names = (await fs.readdir(directory.path, { withFileTypes: true }))
+    .map((entry) => entry.name)
+    .sort(compareEntryNames);
+  const entries: GuardedQuarantineEntry[] = [];
+  for (const name of names) {
+    const entryPath = path.join(directory.path, name);
+    const stat = await lstatIfPresent(entryPath);
+    if (stat === null) continue;
+    entries.push({
+      path: entryPath,
+      device: stat.dev,
+      inode: stat.ino,
+      directory: stat.isDirectory() && !stat.isSymbolicLink(),
+    });
+  }
+  return entries;
+}
+
+async function removeGuardedDirectory(
+  directory: GuardedQuarantineEntry,
+  ancestors: readonly GuardedQuarantineEntry[],
+  assertRootCurrent: () => Promise<void>,
+  deferredName: string | null,
+): Promise<void> {
+  const chain = [...ancestors, directory];
+  await assertGuardedChain(chain, assertRootCurrent);
+  const entries = await enumerateGuardedEntries(directory);
+  await assertGuardedChain(chain, assertRootCurrent);
+  const ordered = deferredName === null
+    ? entries
+    : [
+      ...entries.filter((entry) => path.basename(entry.path) !== deferredName),
+      ...entries.filter((entry) => path.basename(entry.path) === deferredName),
+    ];
+  for (const entry of ordered) {
+    if (entry.directory) {
+      await removeGuardedDirectory(entry, chain, assertRootCurrent, null);
+      continue;
+    }
+    await assertGuardedChain([...chain, entry], assertRootCurrent);
+    await fs.unlink(entry.path).catch((error: unknown) => {
+      if (errorCode(error) === "ENOENT") return;
+      throw error;
+    });
+  }
+  await assertGuardedChain(chain, assertRootCurrent);
+  try {
+    await fs.rmdir(directory.path);
+  } catch (error: unknown) {
+    const code = errorCode(error);
+    if (code === "ENOENT") return;
+    if (code === "ENOTEMPTY" || code === "EEXIST") {
+      throw new DaemonQuarantineEntryChangedError(directory.path);
+    }
+    throw error;
+  }
+}
+
+/**
+ * Removes a quarantined session directory child by child under the threat
+ * model above. Both live-session removal and orphan cleanup delete through
+ * this one walk. A refusal or I/O failure propagates and leaves the remaining
+ * entries in the quarantine.
+ */
+async function removeQuarantinedSessionTree(
+  quarantinePath: string,
+  identity: DaemonSessionDirectoryIdentity,
+  assertRootCurrent: () => Promise<void>,
+): Promise<void> {
+  await removeGuardedDirectory(
+    { path: quarantinePath, device: identity.device, inode: identity.inode, directory: true },
+    [],
+    assertRootCurrent,
+    SESSION_OWNER_FILE,
+  );
+}
+
 async function restoreQuarantinedSessionDirectory(
   quarantinePath: string,
   sessionDir: string,
@@ -1138,7 +1294,6 @@ export async function removeSessionDirectory(
     }
     try {
       await assertPinnedDaemonSessionsRoot(root);
-      await fs.rm(quarantinePath, { recursive: true, force: false });
     } catch (error) {
       await restoreQuarantinedSessionDirectoryInPinnedRoot(
         root,
@@ -1147,6 +1302,13 @@ export async function removeSessionDirectory(
         error,
       );
     }
+    // Deletion has begun: a refusal or failure from here leaves the remainder
+    // in quarantine rather than restoring a partly removed session directory.
+    await removeQuarantinedSessionTree(
+      quarantinePath,
+      expectedIdentity,
+      () => assertPinnedDaemonSessionsRoot(root),
+    );
     return true;
   } finally {
     await sessionHandle?.close();
@@ -1291,7 +1453,6 @@ export async function removeSessionOrphanDirectories(
         }
         try {
           await assertPinnedDaemonSessionsRoot(root);
-          await fs.rm(quarantinePath, { recursive: true, force: false });
         } catch (error) {
           await restoreQuarantinedSessionDirectoryInPinnedRoot(
             root,
@@ -1300,6 +1461,11 @@ export async function removeSessionOrphanDirectories(
             error,
           );
         }
+        await removeQuarantinedSessionTree(
+          quarantinePath,
+          inspection.identity,
+          () => assertPinnedDaemonSessionsRoot(root),
+        );
         removed++;
       } catch (error) {
         failures.push({ sessionId, path: sessionPath, error });

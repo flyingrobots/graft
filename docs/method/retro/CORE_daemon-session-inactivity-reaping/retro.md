@@ -262,6 +262,29 @@ and restores the quarantine there before propagating the original refusal. The
 RED observed only the quarantine name in the parked root; GREEN observes only
 the original session UUID and its unchanged bytes.
 
+### Operator decisions of 2026-09-28
+
+Three Codex threads remained open after the final repair round. The operator
+decided each one; the repairs below implement those decisions.
+
+**Deletion after quarantine (P1).** Both cleanup paths still ended in
+`fs.rm(quarantinePath, { recursive: true })`, which resolves the pathname again
+and deletes whatever occupies it. Node cannot delete by inode, so the decision
+was to state the threat model and replace the single recursive call with a
+shared guarded walk. The walk records each entry's lstat identity at
+enumeration and re-checks the pinned root, every ancestor, and the entry before
+each `unlink` or `rmdir`, never follows links, removes directories bottom-up,
+removes the ownership marker last, and stops at the first mismatch with the
+remainder left in quarantine. The regression installs an unrelated directory
+over a not-yet-removed quarantine subtree at the first deletion call inside the
+quarantine, which is `fs.rm` itself for the old code and the first entry unlink
+for the walk. RED, on the unmodified code, failed at the first survival
+assertion for both call sites: the unrelated `keep.txt` was gone. GREEN refuses
+with `DAEMON_QUARANTINE_ENTRY_CHANGED`, leaves the replacement and the marker in
+quarantine, and preserves the displaced original. Nested-tree and
+link-inside-quarantine tests pass on both implementations; they guard the
+walk's ordinary behavior and are not regressions.
+
 ## Drift
 
 The largest drift was procedural: implementation and PR publication preceded

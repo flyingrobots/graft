@@ -45,12 +45,18 @@ const {
   linkObserver,
   readdirObserver,
   readFileObserver,
+  rmObserver,
+  unlinkObserver,
+  rmdirObserver,
 } = vi.hoisted(() => ({
   randomUUIDMock: vi.fn(),
   renameObserver: vi.fn(),
   linkObserver: vi.fn(),
   readdirObserver: vi.fn(),
   readFileObserver: vi.fn(),
+  rmObserver: vi.fn(),
+  unlinkObserver: vi.fn(),
+  rmdirObserver: vi.fn(),
 }));
 
 vi.mock("node:crypto", async (importOriginal) => {
@@ -93,6 +99,18 @@ vi.mock("node:fs/promises", async (importOriginal) => {
       await readFileObserver(filePath, encoding, source);
       return source;
     },
+    async rm(target: fs.PathLike, options?: fs.RmOptions): Promise<void> {
+      await rmObserver(target, options);
+      return actual.rm(target, options);
+    },
+    async unlink(target: fs.PathLike): Promise<void> {
+      await unlinkObserver(target);
+      return actual.unlink(target);
+    },
+    async rmdir(target: fs.PathLike): Promise<void> {
+      await rmdirObserver(target);
+      return actual.rmdir(target);
+    },
   };
 });
 
@@ -111,6 +129,9 @@ afterEach(async () => {
   linkObserver.mockReset();
   readdirObserver.mockReset();
   readFileObserver.mockReset();
+  rmObserver.mockReset();
+  unlinkObserver.mockReset();
+  rmdirObserver.mockReset();
   while (cleanups.length > 0) {
     await cleanups.pop()!();
   }
@@ -1408,6 +1429,119 @@ describe("mcp: daemon session reaper", () => {
     expect(fs.readFileSync(path.join(displacedSession, "original.txt"), "utf-8"))
       .toBe("original\n");
   });
+
+  const quarantineCallSites = [
+    { callSite: "live-session removal" },
+    { callSite: "orphan removal" },
+  ] as const;
+
+  async function removeThroughCallSite(
+    callSite: (typeof quarantineCallSites)[number]["callSite"],
+    sessionsRoot: string,
+    sessionDir: string,
+  ): Promise<{ readonly removed: boolean; readonly error: unknown }> {
+    const sessionsRootAuthority = await retainTestSessionsRoot(sessionsRoot);
+    if (callSite === "live-session removal") {
+      const identity = await captureSessionDirectoryIdentity(sessionDir);
+      return removeSessionDirectory(sessionDir, identity, sessionsRootAuthority)
+        .then((removed) => ({ removed, error: null }), (error: unknown) => ({ removed: false, error }));
+    }
+    const result = await removeSessionOrphanDirectories(
+      sessionsRoot,
+      new Set(),
+      "preserve",
+      sessionsRootAuthority,
+    );
+    return { removed: result.removed === 1, error: result.failures[0]?.error ?? null };
+  }
+
+  function findQuarantine(sessionsRoot: string): string | null {
+    const name = fs.readdirSync(sessionsRoot).find((entry) => entry.startsWith(".graft-removing-"));
+    return name === undefined ? null : path.join(sessionsRoot, name);
+  }
+
+  it.each(quarantineCallSites)(
+    "refuses a quarantine entry replaced after deletion begins during $callSite",
+    async ({ callSite }) => {
+      if (process.platform === "win32") return;
+      const rootDir = fs.mkdtempSync(path.join(os.tmpdir(), "gq-swap-"));
+      const externalRoot = fs.mkdtempSync(path.join(os.tmpdir(), "gq-target-"));
+      const sessionsRoot = path.join(rootDir, "sessions");
+      const sessionId = "00000000-0000-4000-8000-000000000001";
+      const sessionDir = path.join(sessionsRoot, sessionId);
+      const displacedLate = path.join(rootDir, "displaced-z-late");
+      fs.mkdirSync(path.join(sessionDir, "z-late", "nested"), { recursive: true });
+      fs.writeFileSync(path.join(sessionDir, "a-early.txt"), "early\n");
+      fs.writeFileSync(path.join(sessionDir, "z-late", "nested", "original.txt"), "original\n");
+      await writeSessionOwnershipMarker(sessionDir, "00000000-0000-4000-8000-000000000099", sessionId);
+      fs.writeFileSync(path.join(externalRoot, "keep.txt"), "external\n");
+      cleanups.push(() => {
+        fs.rmSync(rootDir, { recursive: true, force: true });
+        fs.rmSync(externalRoot, { recursive: true, force: true });
+      });
+      // The first deletion call inside the quarantine is the latest point both
+      // implementations expose after every identity check: `fs.rm` on the
+      // quarantine root for a single recursive removal, or the first entry
+      // unlink for a guarded walk. A same-user process swaps a not-yet-removed
+      // subtree for unrelated content there.
+      let replacement: string | null = null;
+      const swapInsideQuarantine = (target: fs.PathLike): void => {
+        if (replacement !== null) return;
+        const quarantine = findQuarantine(sessionsRoot);
+        if (quarantine === null) return;
+        const resolved = path.resolve(String(target));
+        if (resolved !== quarantine && !resolved.startsWith(`${quarantine}${path.sep}`)) return;
+        replacement = path.join(quarantine, "z-late");
+        fs.renameSync(replacement, displacedLate);
+        fs.renameSync(externalRoot, replacement);
+      };
+      rmObserver.mockImplementation(swapInsideQuarantine);
+      unlinkObserver.mockImplementation(swapInsideQuarantine);
+
+      const outcome = await removeThroughCallSite(callSite, sessionsRoot, sessionDir);
+
+      expect(replacement).not.toBeNull();
+      expect(fs.existsSync(path.join(replacement!, "keep.txt"))).toBe(true);
+      expect(fs.readFileSync(path.join(replacement!, "keep.txt"), "utf-8")).toBe("external\n");
+      expect(outcome.removed).toBe(false);
+      expect(outcome.error).toMatchObject({ code: "DAEMON_QUARANTINE_ENTRY_CHANGED" });
+      expect(fs.existsSync(path.join(path.dirname(replacement!), ".graft-session-owner.json"))).toBe(true);
+      expect(fs.readFileSync(path.join(displacedLate, "nested", "original.txt"), "utf-8"))
+        .toBe("original\n");
+    },
+  );
+
+  it.each(quarantineCallSites)(
+    "removes a nested quarantined tree and unlinks its symlinks without touching their targets during $callSite",
+    async ({ callSite }) => {
+      if (process.platform === "win32") return;
+      const rootDir = fs.mkdtempSync(path.join(os.tmpdir(), "gq-nested-"));
+      const externalRoot = fs.mkdtempSync(path.join(os.tmpdir(), "gq-link-target-"));
+      const sessionsRoot = path.join(rootDir, "sessions");
+      const sessionId = "00000000-0000-4000-8000-000000000001";
+      const sessionDir = path.join(sessionsRoot, sessionId);
+      fs.mkdirSync(path.join(sessionDir, "a", "b", "c"), { recursive: true });
+      fs.writeFileSync(path.join(sessionDir, "top.txt"), "top\n");
+      fs.writeFileSync(path.join(sessionDir, "a", "b", "c", "deep.txt"), "deep\n");
+      fs.mkdirSync(path.join(externalRoot, "child"));
+      fs.writeFileSync(path.join(externalRoot, "keep.txt"), "external\n");
+      fs.writeFileSync(path.join(externalRoot, "child", "inner.txt"), "inner\n");
+      fs.symlinkSync(externalRoot, path.join(sessionDir, "link-dir"), "dir");
+      fs.symlinkSync(path.join(externalRoot, "keep.txt"), path.join(sessionDir, "a", "link-file"));
+      await writeSessionOwnershipMarker(sessionDir, "00000000-0000-4000-8000-000000000099", sessionId);
+      cleanups.push(() => {
+        fs.rmSync(rootDir, { recursive: true, force: true });
+        fs.rmSync(externalRoot, { recursive: true, force: true });
+      });
+
+      const outcome = await removeThroughCallSite(callSite, sessionsRoot, sessionDir);
+
+      expect(outcome).toEqual({ removed: true, error: null });
+      expect(fs.readdirSync(sessionsRoot)).toEqual([]);
+      expect(fs.readFileSync(path.join(externalRoot, "keep.txt"), "utf-8")).toBe("external\n");
+      expect(fs.readFileSync(path.join(externalRoot, "child", "inner.txt"), "utf-8")).toBe("inner\n");
+    },
+  );
 
   it.each([
     { phase: "enumeration", observer: "readdir" },

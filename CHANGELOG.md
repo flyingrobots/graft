@@ -154,6 +154,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   for the session-start runtime log write (new `GraftServer.whenSessionStarted()`,
   which never rejects), so that write can no longer land after initialize
   returns and recreate a moved sessions root through its recursive `mkdir`.
+  Quarantined session directories are no longer deleted with one recursive
+  `fs.rm` by path. Live-session removal and orphan cleanup share a guarded walk
+  that lstat-checks the pinned sessions root, every ancestor, and each entry by
+  device/inode and type before removing it, unlinks symbolic links without
+  following them, removes directories bottom-up with `rmdir`, and removes the
+  ownership marker last. An entry replaced after enumeration is refused with
+  `DAEMON_QUARANTINE_ENTRY_CHANGED` and the rest stays in quarantine. Node has
+  no delete-by-inode API, so a window remains between each check and its
+  deletion; using it needs a same-user process acting inside the private 0700
+  sessions root, which can already delete that user's files.
 - **First-call daemon workspace opening**: routed repository tools now treat a
   non-empty explicit `cwd` as bounded opening intent. Graft resolves its exact
   containing Git worktree, persists the default authorization when needed,

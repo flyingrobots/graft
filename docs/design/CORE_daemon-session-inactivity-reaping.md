@@ -277,12 +277,12 @@ creates that path: a missing established root is an unsafe-root failure, not a
 new empty authority boundary. The shared orphan-scan boundary opens and retains
 the original root handle, anchors its device/inode
 identity, and revalidates the path after enumeration and before and after each
-candidate inspection. Recursive removal begins only immediately after that
+candidate inspection. Guarded quarantine removal begins only immediately after that
 exact identity check, so a root replaced after startup or during a scan is
 refused before cleanup. Permission repair targets the retained handle rather
 than a separately resolved pathname. Live-session terminal cleanup derives the
 exact direct-child root from the generated session UUID, pins that root, and
-revalidates the same identity immediately before its recursive removal. Session
+revalidates the same identity immediately before its guarded removal. Session
 construction captures the new child directory's device/inode identity before
 publication and retains it as part of the live session. Terminal cleanup accepts
 only that creation-time identity; it never derives deletion authority from the
@@ -329,8 +329,9 @@ The scanner:
   legacy UUID with generated variant bits when default-endpoint migration
   cleanup is enabled;
 - retains each eligible candidate's inspected device/inode identity, moves the
-  current UUID entry to an unpredictable quarantine sibling, and recursively
-  removes it only when the quarantined entry still has that exact identity;
+  current UUID entry to an unpredictable quarantine sibling, and removes it
+  with the guarded quarantine walk (below) only when the quarantined entry
+  still has that exact identity;
 - if the root path changes after quarantine, locates the exact pinned root by
   device/inode among the owned daemon root's direct children and restores the
   UUID child there before propagating the refusal;
@@ -338,6 +339,32 @@ The scanner:
 - leaves and reports unknown direct children, links, non-directories, and
   malformed, unreadable, or unsafe ownership markers; and
 - uses explicit canonical targets, never a recursive glob or unresolved path.
+
+### Guarded quarantine deletion and its threat model
+
+Live-session removal and orphan cleanup delete a quarantined session
+directory through one shared guarded walk, never a single recursive `fs.rm`.
+The walk enumerates each directory, records every entry's lstat device/inode
+and type, and then, before removing each entry, re-checks the pinned sessions
+root, every ancestor inside the quarantine, and the entry itself against what
+was enumerated. Symbolic links are unlinked, never followed, so a link's target
+is untouched. Directories are removed bottom-up with `rmdir` after their
+contents, so content added after enumeration fails the `rmdir` instead of being
+deleted. Entries are processed in a deterministic name order, and the session
+ownership marker is removed last. The first mismatch stops the walk with
+`DAEMON_QUARANTINE_ENTRY_CHANGED`; nothing not yet removed is touched, and the
+partly removed tree stays in quarantine, still carrying its marker, rather than
+being restored under its UUID name.
+
+Threat model. Node exposes no delete-by-inode or directory-relative
+(`unlinkat`/`openat`) operation, so each deletion names a path that the kernel
+resolves again when the call runs. The walk narrows the gap between an identity
+check and its deletion but cannot close it. Using the remaining window requires
+a process running as the same user that acts inside the private 0700 sessions
+root between the last identity check and a given `unlink` or `rmdir`. Such a
+process can already delete that user's files directly, so the window grants it
+nothing it lacks. The walk's guarantee is narrower and holds: the daemon never
+removes an entry that it can observe changed after enumeration.
 
 Startup removes prior-process orphans. Each periodic sweep also discovers
 current-process owned directories absent from the session map, covering a hard
@@ -527,9 +554,11 @@ authority has been retired, and each failed close layer is reported separately.
 
 ### Current-review repair hold
 
-- [ ] Recursive deletion remains tied to the validated quarantine inode through
-      the destructive operation for both live and orphan cleanup; a pathname
-      replacement after validation cannot redirect deletion.
+- [x] Quarantine deletion for both live and orphan cleanup uses the shared
+      guarded walk: an entry replaced after enumeration is refused, not
+      deleted. Node cannot delete by inode, so the residual check-to-delete
+      window is stated in the threat model above rather than claimed closed
+      (operator decision, 2026-09-28).
 - [ ] Session construction, every sweep, and terminal cleanup retain and verify
       one daemon-lifetime sessions-root identity established at startup.
 - [ ] The initialize request settles successfully before the new session is
