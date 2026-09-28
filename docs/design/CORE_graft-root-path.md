@@ -14,9 +14,9 @@ derives from that root, and the home directory is read nowhere else. Moving the
 root, for a test suite, a second install or a service account, means setting
 `GRAFT_ROOT_PATH`, never changing `HOME`, which git, ssh and gh also read.
 
-The trigger: a test run on another branch wrote about a hundred graph folders
-into a developer's real `~/.graft`, and the first repair redirected `HOME` for
-the whole suite. James rejected that: resetting `HOME` is dangerous, and Graft
+The trigger: a test run on another branch wrote graph folders into a
+developer's real `~/.graft`, and the first repair redirected `HOME` for
+the whole suite. That was rejected: resetting `HOME` is dangerous, and Graft
 itself should use its own root variable, in the product as well as in tests.
 
 ## Acceptance criteria
@@ -49,4 +49,4 @@ itself should use its own root variable, in the product as well as in tests.
 - Where installers put `~/.graft/bin` and `~/.graft/installs`; that is outside
   this repository.
 - The per-worktree WARP graph root proposed in PR #249. When it lands it should
-  derive from `graftRootPath()` and drop that branch's `HOME` override.
+  derive from `graftRootPath()` rather than from `HOME`.

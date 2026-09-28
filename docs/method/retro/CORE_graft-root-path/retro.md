@@ -20,8 +20,7 @@ temporary directory through `test/setup-graft-root.ts` and does not touch
 
 The design packet was written after the implementation, from a decision made in
 conversation, which the design-packets-first rule does not allow. The packet
-records that decision as made; nothing in the implementation was changed to fit
-the packet afterwards.
+records that decision as made.
 
 ## Evidence
 
@@ -34,6 +33,6 @@ the packet afterwards.
   into the resolver.
 - `test/unit/release/path-ops-boundary-allowlist.test.ts` now lists the new
   adapter as an allowed `node:path` importer.
-- A full local run passed apart from 7 five-second timeouts while another suite
-  ran on the same machine; the two failing files outside the four playback
+- A full local run passed apart from 7 timeouts (six at five seconds, one at
+  thirty) while another suite ran on the same machine; the two failing files outside the four playback
   tests known to time out locally passed 36 of 36 when rerun alone.
