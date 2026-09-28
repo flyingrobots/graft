@@ -146,7 +146,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   sessions-root identities (`DaemonSessionDirectoryIdentity`,
   `DaemonSessionsRootAuthority`) now carry `device` and `inode` as `bigint`
   read from bigint stats, so identifiers beyond the safe-integer range cannot
-  round into a false identity match.
+  round into a false identity match. Scheduled sweeps log preserved entries
+  only when the preserved set changes, instead of repeating an unchanged set
+  every interval.
 
 ### Documentation
 

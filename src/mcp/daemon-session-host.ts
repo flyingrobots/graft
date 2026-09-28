@@ -706,6 +706,9 @@ export function createDaemonSessionHost(options: CreateDaemonSessionHostOptions)
   }
 
   let scheduledSweepPending = false;
+  // Preserved entries are stable by design; scheduled sweeps log the set only
+  // when it changes. Manual sweeps still return every entry.
+  let lastScheduledPreservedEntriesDiagnostic = "[]";
   let reaperTimer: NodeJS.Timeout | null = null;
   if (reaperIntervalMs > 0) {
     reaperTimer = setInterval(() => {
@@ -719,8 +722,15 @@ export function createDaemonSessionHost(options: CreateDaemonSessionHostOptions)
           if (result.cleanupFailures.length > 0) {
             console.error(`[graft] session reaper cleanup failures: ${JSON.stringify(result.cleanupFailures)}`);
           }
-          if (result.preservedEntries.length > 0) {
-            console.error(`[graft] session reaper preserved entries: ${JSON.stringify(result.preservedEntries)}`);
+          const preservedEntriesDiagnostic = JSON.stringify(result.preservedEntries);
+          if (
+            result.sweepFailure === null
+            && preservedEntriesDiagnostic !== lastScheduledPreservedEntriesDiagnostic
+          ) {
+            lastScheduledPreservedEntriesDiagnostic = preservedEntriesDiagnostic;
+            if (result.preservedEntries.length > 0) {
+              console.error(`[graft] session reaper preserved entries: ${preservedEntriesDiagnostic}`);
+            }
           }
         })
         .catch((error: unknown) => {

@@ -1830,6 +1830,78 @@ describe("mcp: daemon session reaper", () => {
     expect(scanCalls).toBe(2);
   });
 
+  it("logs unchanged scheduled preservation diagnostics once and again only when they change", async () => {
+    const rootDir = fs.mkdtempSync(path.join(os.tmpdir(), "graft-session-preserved-dedupe-"));
+    const socketPath = path.join(rootDir, "daemon.sock");
+    cleanups.push(() => {
+      fs.rmSync(rootDir, { recursive: true, force: true });
+    });
+    vi.useFakeTimers({ toFake: ["setInterval", "clearInterval"] });
+    cleanups.push(() => {
+      vi.useRealTimers();
+    });
+    const consoleError = vi.spyOn(console, "error").mockImplementation(() => undefined);
+    cleanups.push(() => {
+      consoleError.mockRestore();
+    });
+    let scanCalls = 0;
+    let reason: "UNKNOWN_ENTRY_NAME" | "NOT_DIRECTORY" = "UNKNOWN_ENTRY_NAME";
+    const sessionStorage = {
+      captureSessionDirectoryIdentity,
+      writeSessionOwnershipMarker,
+      removeSessionDirectory,
+      removeSessionOrphanDirectories(sessionsRoot: string) {
+        scanCalls++;
+        if (scanCalls === 1) return Promise.resolve({ removed: 0, failures: [], preservedEntries: [] });
+        return Promise.resolve({
+          removed: 0,
+          failures: [],
+          preservedEntries: [{
+            entryName: "operator-owned",
+            path: path.join(sessionsRoot, "operator-owned"),
+            reason,
+          }],
+        });
+      },
+    };
+    const daemon = await startDaemonServer({
+      graftDir: rootDir,
+      socketPath,
+      sessionReaperIntervalMs: 1,
+      sessionStorage,
+    });
+    cleanups.push(() => daemon.close());
+    const preservedLogCount = (): number => consoleError.mock.calls.filter(
+      (call) => String(call[0]).startsWith("[graft] session reaper preserved entries:"),
+    ).length;
+    const runScheduledSweep = async (): Promise<void> => {
+      const expectedCalls = scanCalls + 1;
+      await vi.advanceTimersByTimeAsync(1);
+      for (let turn = 0; turn < 100 && scanCalls < expectedCalls; turn++) {
+        await new Promise<void>((resolve) => {
+          setImmediate(resolve);
+        });
+      }
+      expect(scanCalls).toBe(expectedCalls);
+      await new Promise<void>((resolve) => {
+        setImmediate(resolve);
+      });
+    };
+
+    await runScheduledSweep();
+    await runScheduledSweep();
+    await runScheduledSweep();
+    expect(preservedLogCount()).toBe(1);
+
+    reason = "NOT_DIRECTORY";
+    await runScheduledSweep();
+    await runScheduledSweep();
+    expect(preservedLogCount()).toBe(2);
+    expect((await daemon.reapExpiredSessions()).preservedEntries).toEqual([
+      expect.objectContaining({ entryName: "operator-owned", reason: "NOT_DIRECTORY" }),
+    ]);
+  });
+
   it("rejects session sweeps after daemon root ownership is released", async () => {
     const rootDir = fs.mkdtempSync(path.join(os.tmpdir(), "graft-session-post-close-sweep-"));
     const socketPath = path.join(rootDir, "daemon.sock");

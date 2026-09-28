@@ -132,7 +132,9 @@ refuses the whole sweep with `MONOTONIC_CLOCK_INVALID`, reports zero retired
 sessions, and leaves the previous accepted elapsed-time sample unchanged.
 Scheduled sweeps emit structured diagnostics for refused sweeps and cleanup
 failures. Preserved unknown, malformed, non-directory, or link entries are also
-reported with stable reason codes without touching their targets.
+reported with stable reason codes without touching their targets. Scheduled
+sweeps log the preserved set only when it changes; `reapExpiredSessions()`
+always returns the full set.
 
 ### WARP resident ownership
 
