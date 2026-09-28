@@ -142,7 +142,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   `LEGACY_SESSION_UNMARKED`. A crash in that window still leaves residue.
   An orphan candidate that cannot be inspected, for example because its
   ownership marker cannot be read, is reported as that candidate's failure
-  and the scan continues with the remaining candidates.
+  and the scan continues with the remaining candidates. Session-directory and
+  sessions-root identities (`DaemonSessionDirectoryIdentity`,
+  `DaemonSessionsRootAuthority`) now carry `device` and `inode` as `bigint`
+  read from bigint stats, so identifiers beyond the safe-integer range cannot
+  round into a false identity match.
 
 ### Documentation
 

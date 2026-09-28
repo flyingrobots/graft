@@ -1155,6 +1155,25 @@ describe("mcp: daemon session reaper", () => {
     expect(fs.readFileSync(path.join(orphanDir, "keep.txt"), "utf-8")).toBe("look-alike\n");
   });
 
+  it("records session and sessions-root identities without numeric rounding", async () => {
+    const rootDir = fs.mkdtempSync(path.join(os.tmpdir(), "graft-lossless-identity-"));
+    const sessionsRoot = path.join(rootDir, "sessions");
+    const sessionDir = path.join(sessionsRoot, "00000000-0000-4000-8000-000000000001");
+    fs.mkdirSync(sessionDir, { recursive: true });
+    cleanups.push(() => {
+      fs.rmSync(rootDir, { recursive: true, force: true });
+    });
+    const sessionsRootAuthority = await retainTestSessionsRoot(sessionsRoot);
+    const expectedSession = fs.lstatSync(sessionDir, { bigint: true });
+    const expectedRoot = fs.lstatSync(sessionsRoot, { bigint: true });
+
+    const identity = await captureSessionDirectoryIdentity(sessionDir);
+
+    expect(identity).toEqual({ device: expectedSession.dev, inode: expectedSession.ino });
+    expect({ device: sessionsRootAuthority.device, inode: sessionsRootAuthority.inode })
+      .toEqual({ device: expectedRoot.dev, inode: expectedRoot.ino });
+  });
+
   it("isolates an orphan inspection failure to its own candidate", async () => {
     if (process.platform === "win32" || process.getuid?.() === 0) return;
     const rootDir = fs.mkdtempSync(path.join(os.tmpdir(), "graft-orphan-inspection-isolation-"));

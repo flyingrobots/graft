@@ -1,5 +1,6 @@
 import * as crypto from "node:crypto";
 import { execFile } from "node:child_process";
+import type { BigIntStats } from "node:fs";
 import * as fs from "node:fs/promises";
 import * as path from "node:path";
 import { performance } from "node:perf_hooks";
@@ -82,14 +83,14 @@ export interface SessionOrphanRemovalResult {
 export type LegacyUnmarkedSessionPolicy = "remove" | "preserve";
 
 export interface DaemonSessionDirectoryIdentity {
-  readonly device: number;
-  readonly inode: number;
+  readonly device: bigint;
+  readonly inode: bigint;
 }
 
 export interface DaemonSessionsRootAuthority {
   readonly path: string;
-  readonly device: number;
-  readonly inode: number;
+  readonly device: bigint;
+  readonly inode: bigint;
   assertCurrent(): Promise<void>;
   close(): Promise<void>;
 }
@@ -173,14 +174,14 @@ function asError(error: unknown): Error {
 
 interface PinnedDaemonSessionsRoot {
   readonly path: string;
-  readonly device: number;
-  readonly inode: number;
+  readonly device: bigint;
+  readonly inode: bigint;
   readonly handle: fs.FileHandle | null;
 }
 
 function daemonSessionsRootIdentityMatches(
   root: PinnedDaemonSessionsRoot,
-  stat: Awaited<ReturnType<typeof fs.lstat>>,
+  stat: BigIntStats,
 ): boolean {
   return stat.isDirectory()
     && !stat.isSymbolicLink()
@@ -190,7 +191,7 @@ function daemonSessionsRootIdentityMatches(
 
 function daemonSessionDirectoryIdentityMatches(
   expected: DaemonSessionDirectoryIdentity,
-  stat: Awaited<ReturnType<typeof fs.lstat>>,
+  stat: BigIntStats,
 ): boolean {
   return stat.isDirectory()
     && !stat.isSymbolicLink()
@@ -212,7 +213,7 @@ function assertPinnedRootMatchesAuthority(
 }
 
 async function assertPinnedDaemonSessionsRoot(root: PinnedDaemonSessionsRoot): Promise<void> {
-  const current = await fs.lstat(root.path).catch((error: unknown) => {
+  const current = await fs.lstat(root.path, { bigint: true }).catch((error: unknown) => {
     if (errorCode(error) === "ENOENT") return null;
     throw error;
   });
@@ -222,7 +223,7 @@ async function assertPinnedDaemonSessionsRoot(root: PinnedDaemonSessionsRoot): P
 }
 
 async function pinDaemonSessionsRoot(sessionsRoot: string): Promise<PinnedDaemonSessionsRoot> {
-  const initial = await fs.lstat(sessionsRoot).catch((error: unknown) => {
+  const initial = await fs.lstat(sessionsRoot, { bigint: true }).catch((error: unknown) => {
     if (errorCode(error) === "ENOENT") return null;
     throw error;
   });
@@ -242,7 +243,7 @@ async function pinDaemonSessionsRoot(sessionsRoot: string): Promise<PinnedDaemon
         throw error;
       }
     }
-    const anchored = handle === null ? initial : await handle.stat();
+    const anchored = handle === null ? initial : await handle.stat({ bigint: true });
     const root: PinnedDaemonSessionsRoot = {
       path: sessionsRoot,
       device: anchored.dev,
@@ -961,7 +962,7 @@ export async function writeSessionOwnershipMarker(
 export async function captureSessionDirectoryIdentity(
   sessionDir: string,
 ): Promise<DaemonSessionDirectoryIdentity> {
-  const stat = await fs.lstat(sessionDir).catch((error: unknown) => {
+  const stat = await fs.lstat(sessionDir, { bigint: true }).catch((error: unknown) => {
     if (errorCode(error) === "ENOENT") return null;
     throw error;
   });
@@ -1012,7 +1013,7 @@ async function findPinnedDaemonSessionsRootPath(
   const entries = await fs.readdir(parent, { withFileTypes: true });
   for (const entry of entries) {
     const candidatePath = path.join(parent, entry.name);
-    const candidate = await fs.lstat(candidatePath).catch((error: unknown) => {
+    const candidate = await fs.lstat(candidatePath, { bigint: true }).catch((error: unknown) => {
       if (errorCode(error) === "ENOENT") return null;
       throw error;
     });
@@ -1065,7 +1066,7 @@ export async function removeSessionDirectory(
   try {
     assertPinnedRootMatchesAuthority(root, sessionsRootAuthority);
     await assertPinnedDaemonSessionsRoot(root);
-    const stat = await fs.lstat(resolvedSessionDir).catch((error: unknown) => {
+    const stat = await fs.lstat(resolvedSessionDir, { bigint: true }).catch((error: unknown) => {
       if (errorCode(error) === "ENOENT") return null;
       throw error;
     });
@@ -1083,13 +1084,13 @@ export async function removeSessionDirectory(
         }
         throw error;
       }
-      const anchored = await sessionHandle.stat();
+      const anchored = await sessionHandle.stat({ bigint: true });
       if (!daemonSessionDirectoryIdentityMatches(expectedIdentity, anchored)) {
         throw new UnsafeDaemonSessionDirectoryError(sessionDir);
       }
     }
     await assertPinnedDaemonSessionsRoot(root);
-    const current = await fs.lstat(resolvedSessionDir).catch((error: unknown) => {
+    const current = await fs.lstat(resolvedSessionDir, { bigint: true }).catch((error: unknown) => {
       if (errorCode(error) === "ENOENT") return null;
       throw error;
     });
@@ -1118,11 +1119,11 @@ export async function removeSessionDirectory(
         error,
       );
     }
-    const quarantined = await fs.lstat(quarantinePath).catch((error: unknown) => {
+    const quarantined = await fs.lstat(quarantinePath, { bigint: true }).catch((error: unknown) => {
       if (errorCode(error) === "ENOENT") return null;
       throw error;
     });
-    const anchored = sessionHandle === null ? stat : await sessionHandle.stat();
+    const anchored = sessionHandle === null ? stat : await sessionHandle.stat({ bigint: true });
     if (
       quarantined === null
       || !daemonSessionDirectoryIdentityMatches(expectedIdentity, anchored)
@@ -1156,7 +1157,7 @@ export async function removeSessionDirectory(
 type SessionDirectoryInspection =
   | {
     readonly status: "eligible";
-    readonly identity: { readonly device: number; readonly inode: number };
+    readonly identity: DaemonSessionDirectoryIdentity;
   }
   | { readonly status: "missing" }
   | { readonly status: "preserved"; readonly reason: SessionOrphanPreservationReason };
@@ -1167,7 +1168,7 @@ async function inspectSessionDirectory(
   legacyUnmarkedPolicy: LegacyUnmarkedSessionPolicy,
 ): Promise<SessionDirectoryInspection> {
   const sessionDir = path.join(sessionsRoot, sessionId);
-  const stat = await fs.lstat(sessionDir).catch((error: unknown) => {
+  const stat = await fs.lstat(sessionDir, { bigint: true }).catch((error: unknown) => {
     if (errorCode(error) === "ENOENT") return null;
     throw error;
   });
@@ -1273,7 +1274,7 @@ export async function removeSessionOrphanDirectories(
             error,
           );
         }
-        const quarantined = await fs.lstat(quarantinePath).catch((error: unknown) => {
+        const quarantined = await fs.lstat(quarantinePath, { bigint: true }).catch((error: unknown) => {
           if (errorCode(error) === "ENOENT") return null;
           throw error;
         });
