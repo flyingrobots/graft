@@ -3996,7 +3996,7 @@ describe("mcp: daemon session reaper", () => {
     expect(fs.readdirSync(path.join(rootDir, "sessions"))).toEqual([]);
   });
 
-  it("rolls back partial control-plane publication after protocol connection", async () => {
+  it("rolls back partial control-plane publication during session construction", async () => {
     const rootDir = fs.mkdtempSync(path.join(os.tmpdir(), "graft-session-register-failure-"));
     const socketPath = path.join(rootDir, "daemon.sock");
     cleanups.push(() => {

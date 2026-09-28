@@ -145,8 +145,11 @@ finally
 ```
 
 Initialization has no prior session to reap. Its newly constructed session is
-not published to the map or control plane until connection succeeds, and the
-initialize request enters the same protected region before transport handling.
+registered with the control plane before MCP connection, so health counts a
+session under construction, but it is not published to the session map until
+connection succeeds. The initialize request enters the same protected region
+before transport handling, and a rejection from that first request retires the
+new session through the terminal transition.
 
 `activeRequests` is an exact reference count, not a boolean and not a `Set` of
 session IDs. Concurrent POST and streaming GET requests each own one count.
@@ -212,8 +215,8 @@ Session creation owns a rollback stack. Scratch directory creation, server and
 transport construction, MCP connection, map publication, and control-plane
 registration either all commit or all unwind.
 
-The session is published only after its MCP connection succeeds. If any prior
-step fails, the partial protocol/transport is closed when present and the exact
+Control-plane registration precedes the MCP connection; map publication
+follows it. If any step fails, the partial protocol/transport is closed when present and the exact
 scratch directory is removed. If cleanup itself fails, the failure is returned
 and the directory remains discoverable by the orphan sweep; no phantom map or
 control-plane entry survives.

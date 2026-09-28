@@ -148,7 +148,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   read from bigint stats, so identifiers beyond the safe-integer range cannot
   round into a false identity match. Scheduled sweeps log preserved entries
   only when the preserved set changes, instead of repeating an unchanged set
-  every interval.
+  every interval. A session under construction is registered with the control
+  plane, and so counted by health, before its MCP connection; it joins the
+  session map only after connection succeeds.
 
 ### Documentation
 
