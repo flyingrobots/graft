@@ -4,7 +4,28 @@ import * as path from "node:path";
 import { describe, expect, it } from "vitest";
 import { assertIsolatedGitTestDir, cleanupTestRepo, createTestRepo, git, testGitClient } from "../../helpers/git.js";
 
-describe("test helper: git isolation", () => {
+// Suite metadata (TESTING_STANDARDS.md Rule 9). Owner: @flyingrobots.
+// "git isolation": size medium. Resources: temp directories under os.tmpdir(), each removed by the
+// case that made it; `git` child processes run one at a time in those directories; no network.
+// Two cases set process.env GIT_DIR and GIT_WORK_TREE and restore them in finally, so this describe
+// must not run concurrently with itself. Ceiling: GIT_CASE_TIMEOUT_MS per case, enforced by the
+// describe timeout (the slowest case measured about 220 ms locally).
+// "cleanupTestRepo retries": size small. Resources: none; the remover is an in-memory stub and the
+// retry wait is 0 ms or an injected sleep, so no case touches the filesystem or waits on a timer.
+// Ceiling: CLEANUP_CASE_TIMEOUT_MS per case, enforced by the describe timeout (each case measured
+// under 5 ms locally).
+// Suite budget: 2 s for the file (about 1 s measured locally). Isolation checked alone and shuffled.
+// CI stage: pre-merge. The CI workflow's `test` job (Node 22 leg, step "Tests") runs `pnpm test`,
+// the Docker-isolated full Vitest run, on every pull request to main and every push to main.
+// Deletion criterion (Rule 18): delete a describe with the helper it tests (test/helpers/git.ts's
+// isolation functions, or cleanupTestRepo), or when a stronger test that covers the same claims
+// replaces it. Displaced risk if deleted without either: test git commands reaching the live
+// repository, or temp repositories left behind, or retried cleanup failures going unseen.
+
+const GIT_CASE_TIMEOUT_MS = 5_000;
+const CLEANUP_CASE_TIMEOUT_MS = 1_000;
+
+describe("test helper: git isolation", { timeout: GIT_CASE_TIMEOUT_MS }, () => {
   it("allows temp sandbox directories", () => {
     const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "graft-git-helper-"));
     try {
@@ -115,8 +136,8 @@ describe("test helper: git isolation", () => {
 // last retry the removal rejects with the error the remover threw. Deterministic: the remover is a
 // stub that throws planned errors, and the retry delay is 0 or the wait is an injected sleep that
 // records its argument, so no case touches the filesystem or waits on a timer.
-// Size: small.
-describe("test helper: cleanupTestRepo retries transient removal errors", () => {
+// Size: small; resources, ceiling, CI stage and deletion criterion are in the suite metadata above.
+describe("test helper: cleanupTestRepo retries transient removal errors", { timeout: CLEANUP_CASE_TIMEOUT_MS }, () => {
   function fsError(code: string): NodeJS.ErrnoException {
     return Object.assign(new Error(`${code}: planned failure`), { code });
   }
