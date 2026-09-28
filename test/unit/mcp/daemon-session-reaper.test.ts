@@ -3130,6 +3130,70 @@ describe("mcp: daemon session reaper", () => {
     expect(fs.existsSync(sessionDir)).toBe(false);
   });
 
+  it("marks an unsafe orphan-path refusal as non-retryable and other orphan failures as retryable", async () => {
+    const rootDir = fs.mkdtempSync(path.join(os.tmpdir(), "graft-session-unsafe-orphan-path-"));
+    const socketPath = path.join(rootDir, "daemon.sock");
+    cleanups.push(() => {
+      fs.rmSync(rootDir, { recursive: true, force: true });
+    });
+    const unsafeSessionId = "11111111-1111-4111-8111-111111111111";
+    const busySessionId = "22222222-2222-4222-8222-222222222222";
+    const unsafePath = path.join(rootDir, "sessions", unsafeSessionId);
+    const busyPath = path.join(rootDir, "sessions", busySessionId);
+    let injectOrphanFailures = false;
+    const sessionStorage = {
+      captureSessionDirectoryIdentity,
+      writeSessionOwnershipMarker,
+      removeSessionDirectory,
+      async removeSessionOrphanDirectories(
+        ...args: Parameters<typeof removeSessionOrphanDirectories>
+      ): ReturnType<typeof removeSessionOrphanDirectories> {
+        if (!injectOrphanFailures) return removeSessionOrphanDirectories(...args);
+        return {
+          removed: 0,
+          failures: [
+            {
+              sessionId: unsafeSessionId,
+              path: unsafePath,
+              error: new UnsafeDaemonSessionDirectoryError(unsafePath),
+            },
+            {
+              sessionId: busySessionId,
+              path: busyPath,
+              error: Object.assign(new Error("injected busy orphan"), { code: "EBUSY" }),
+            },
+          ],
+          preservedEntries: [],
+        };
+      },
+    };
+    const daemon = await startDaemonServer({
+      graftDir: rootDir,
+      socketPath,
+      sessionReaperIntervalMs: 0,
+      sessionStorage,
+    });
+    cleanups.push(() => daemon.close());
+    injectOrphanFailures = true;
+
+    const sweep = await daemon.reapExpiredSessions();
+
+    expect(sweep.cleanupFailures).toEqual([
+      expect.objectContaining({
+        code: "ORPHAN_DIRECTORY_REMOVE_FAILED",
+        sessionId: unsafeSessionId,
+        path: unsafePath,
+        retryable: false,
+      }),
+      expect.objectContaining({
+        code: "ORPHAN_DIRECTORY_REMOVE_FAILED",
+        sessionId: busySessionId,
+        path: busyPath,
+        retryable: true,
+      }),
+    ]);
+  });
+
   it("marks an unsafe live-session path refusal as non-retryable", async () => {
     if (process.platform === "win32") return;
     const rootDir = fs.mkdtempSync(path.join(os.tmpdir(), "graft-session-unsafe-live-path-"));

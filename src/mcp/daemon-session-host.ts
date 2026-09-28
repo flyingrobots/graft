@@ -651,7 +651,7 @@ export function createDaemonSessionHost(options: CreateDaemonSessionHostOptions)
         code: "ORPHAN_DIRECTORY_REMOVE_FAILED",
         sessionId: failure.sessionId,
         path: failure.path,
-        retryable: true,
+        retryable: !(failure.error instanceof UnsafeDaemonSessionDirectoryError),
         error: failure.error,
       })));
     } catch (error) {

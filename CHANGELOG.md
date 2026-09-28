@@ -131,7 +131,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   An initialize request that finishes after shutdown stops admission receives
   JSON-RPC error `-32000`. An invalid `GRAFT_WARP_MAX_RESIDENTS` rejects
   daemon startup before it creates the daemon root, claims ownership, or binds
-  the socket.
+  the socket. An orphan removal refused because the inspected directory was
+  replaced is reported with `retryable: false`, because no later sweep retries
+  deletion of the displaced inode.
 
 ### Documentation
 
