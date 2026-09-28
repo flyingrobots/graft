@@ -1,0 +1,82 @@
+[
+  {
+    "claim": "job-route",
+    "file": "src/operations/daemon-inspection.ts",
+    "source_sha256": "f81b79fd274ef8d758dc98f1ec4f085b1d97e5b23024408e051515c6ef30d38a",
+    "command": [
+      "pnpm",
+      "exec",
+      "vitest",
+      "run",
+      "test/unit/operations/daemon-inspection.test.ts",
+      "-t",
+      "keeps opened membership",
+      "--testTimeout=20000",
+      "--reporter=verbose"
+    ],
+    "exit": 1,
+    "restored": true,
+    "log": "calibration-job-route.txt",
+    "mutation": "Replace the admitted job worktree ID with null."
+  },
+  {
+    "claim": "unavailable-is-not-empty",
+    "file": "src/operations/daemon-inspection.ts",
+    "source_sha256": "f81b79fd274ef8d758dc98f1ec4f085b1d97e5b23024408e051515c6ef30d38a",
+    "command": [
+      "pnpm",
+      "exec",
+      "vitest",
+      "run",
+      "test/unit/operations/daemon-inspection.test.ts",
+      "-t",
+      "does not replace failed evidence",
+      "--testTimeout=20000",
+      "--reporter=verbose"
+    ],
+    "exit": 1,
+    "restored": true,
+    "log": "calibration-unavailable-is-not-empty.txt",
+    "mutation": "Return complete empty evidence after a projection throws."
+  },
+  {
+    "claim": "session-touch",
+    "file": "src/mcp/daemon-control-plane.ts",
+    "source_sha256": "a3127306b140e2704016ef35888b33dae371eaa558e86bd1770860915ac3a051",
+    "command": [
+      "pnpm",
+      "exec",
+      "vitest",
+      "run",
+      "test/integration/mcp/daemon-inspection.test.ts",
+      "-t",
+      "inspects registered/opened sessions repeatedly",
+      "--testTimeout=20000",
+      "--reporter=verbose"
+    ],
+    "exit": 1,
+    "restored": true,
+    "log": "calibration-session-touch.txt",
+    "mutation": "Call touchTransport from the passive session projection."
+  },
+  {
+    "claim": "terminal-escape",
+    "file": "src/cli/daemon-inspect-render.ts",
+    "source_sha256": "6b0f0a17a90859c5e43a3cb7a4eb6c2607f6022778f2e195b3db5bd7fd82acbf",
+    "command": [
+      "pnpm",
+      "exec",
+      "vitest",
+      "run",
+      "test/unit/cli/daemon-inspect.test.ts",
+      "-t",
+      "never lets hostile text",
+      "--testTimeout=20000",
+      "--reporter=verbose"
+    ],
+    "exit": 1,
+    "restored": true,
+    "log": "calibration-terminal-escape.txt",
+    "mutation": "Render clientVersion without terminal encoding."
+  }
+]

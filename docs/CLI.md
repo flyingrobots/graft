@@ -161,6 +161,78 @@ Use `--socket <path>` to inspect a non-default daemon socket. This first
 slice does not authorize, revoke, bind, rebind, pause, resume, start, or
 stop daemon resources.
 
+`graft daemon inspect` captures bounded daemon relationships through the
+dedicated same-user local read route. It does not register an MCP/workload
+session, start a daemon, discover a workspace, open a graph, index, rebind,
+renew a lease, touch workload cache recency, or enqueue work.
+
+```bash
+graft daemon inspect
+graft daemon inspect --json
+graft daemon inspect --session <session-id>
+graft daemon inspect --workspace <worktree-id>
+graft daemon inspect --repo <repo-id> --limit 25
+graft daemon inspect --socket /path/to/mcp.sock
+```
+
+Use IDs printed by the inspector. Selectors are exact IDs, not filesystem
+paths; inspection never resolves an unfamiliar path. Choose one selector.
+A repository selector aggregates its worktrees. Session filtering includes
+scheduled jobs attributed to an ended session. The opened list means
+**currently opened membership**, not a complete historical usage record.
+Workers, pool keys, and historical counters remain explicitly daemon-wide.
+Monitors are repo-owned; a session/workspace filter reports their unresolved
+scope as unavailable instead of claiming an empty monitor inventory.
+
+The schema `graft.daemon.inspection` version `1.0.0` separates loaded daemon
+version, invoking client version, daemon incarnation, capture sequence/time,
+and source/index evidence. The query synchronously copies parent-owned memory.
+It can observe an asynchronous operation between that operation's transitions;
+it does not assert transactional workflow completion or simultaneous observation
+inside workers. Worker rows are the parent's last-known assignments. Job
+workspace IDs were captured when those jobs were admitted, not joined from
+the session's current active binding. Current authorization records describe
+the resident control-plane map, not proof of persistence on disk.
+
+Every collection reports availability, completeness, returned count, and a
+matching total when known. Filters run before output limits. A scan bound can
+still prevent discovering a matching row; `bounded` never establishes absence.
+Only a successful complete empty list proves no matching records within that
+collection's scope and capture. The jobs collection covers scheduler-owned
+jobs, not all transport requests. A complete empty jobs list does not establish
+that no other kind of operation is in flight.
+
+Index entries, coverage, storage associations, workspace residency, and
+current-source validation are not retained by the bounded runtime projections
+available in this slice. They are explicitly unavailable, never manufactured
+from an authorization, binding, pool key count, or monitor result. Monitor
+commit IDs describe recorded monitor observations; a fresh inspector capture
+does not validate current source content or dirty working-tree bytes.
+
+The single-frame text output displays capture time/age and never claims to be
+live. `--json` returns `status: ok` with `observation`, or an explicit
+`no_daemon`, `unsupported`, or `observation_failed` result and reason. `ok`
+means the observation was obtained; inspect section availability/completeness.
+It does not declare service health. Failures exit with code 1. An older daemon
+returns `unsupported`; there is no fallback, upgrade, restart, or autostart.
+The existing `daemon status` output and its `ok | degraded` health contract
+remain unchanged.
+
+Bounds: default/max 100 rows per collection (`--limit 1..100`), 500 total rows
+including nested memberships, 4,096 iterator steps, 512 characters per detail
+field, 512 KiB encoded response, four concurrent observer responses and a
+five-second response deadline. Observer accounting is separate from workload
+sessions. No snapshots are retained after response completion; polling and
+pagination are not part of this slice. Oversized, secret-pattern, or terminal
+control-containing details are omitted/redacted/encoded. Join IDs remain exact
+or cause an unavailable projection. Raw error messages, arguments, environment
+variables, and credentials are not collected for inspection.
+
+Failure counts are separate scheduler/worker lifetime outcomes with their
+accumulation start and daemon incarnation. They are not summed, correlated,
+converted to rates across epochs, or used to diagnose present health.
+Recent failures are `not_retained`, which does not mean none occurred.
+
 `graft index` follows the lazy-index policy. Use `--path <path>` to refresh a
 specific tracked source file at `HEAD`; read/search surfaces also opportunistically
 refresh the files they touch. Unbounded whole-repo indexing is guarded and returns
