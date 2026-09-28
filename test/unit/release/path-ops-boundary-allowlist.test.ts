@@ -6,6 +6,7 @@ import { describe, expect, it } from "vitest";
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../../..");
 
 const ALLOWED_NODE_PATH_IMPORTS = new Set([
+  "src/adapters/graft-root.ts",
   "src/adapters/node-paths.ts",
   "src/adapters/repo-paths.ts",
   "src/adapters/rotating-ndjson-log.ts",

@@ -7,6 +7,7 @@ import { DaemonInspectionQuery } from "../operations/daemon-inspection.js";
 import { GRAFT_VERSION } from "../version.js";
 import { createDaemonInspectionRoute } from "./daemon-inspection-route.js";
 import { CanonicalJsonCodec } from "../adapters/canonical-json.js";
+import { graftRootPath } from "../adapters/graft-root.js";
 import { nodeFs } from "../adapters/node-fs.js";
 import { nodeGit } from "../adapters/node-git.js";
 import { ensureGitVersionSupportsGraft } from "../git/version-guard.js";
@@ -73,13 +74,14 @@ export async function closeDaemonResources(stages: readonly DaemonShutdownStage[
 
 export async function startDaemonServer(options: StartDaemonServerOptions = {}): Promise<GraftDaemonServer> {
   await ensureGitVersionSupportsGraft();
-  const graftDir = path.resolve(options.graftDir ?? defaultDaemonRoot());
-  const socketPath = resolveSocketPath(options.socketPath, graftDir);
+  const env = options.env ?? process.env;
+  const graftDir = path.resolve(options.graftDir ?? defaultDaemonRoot(graftRootPath(env)));
+  const socketPath = resolveSocketPath(options.socketPath, graftDir, undefined, { env });
   const startedAt = new Date().toISOString();
   const incarnationId = randomUUID();
   const warpPool = new InMemoryWarpPool(
     (cwd, writerId) => openWarp({ cwd, writerId }),
-    resolveWarpPoolOptions(options.env ?? process.env),
+    resolveWarpPoolOptions(env),
   );
   const controlPlane = new DaemonControlPlane({
     fs: nodeFs,

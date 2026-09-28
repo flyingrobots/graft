@@ -51,6 +51,17 @@ plane.
 npx @flyingrobots/graft daemon
 ```
 
+The daemon keeps its per-user state under the Graft root, `~/.graft` by
+default, in `daemon/` (on Unix its socket is `daemon/mcp.sock`). Set
+`GRAFT_ROOT_PATH` to an absolute path to move the Graft root; a relative value
+is refused. On Windows the value must start with a drive (`C:\`) or a UNC share
+(`\\server\share`); `\graft` is refused, because its drive depends on the
+process that reads it. Graft reads the home directory only to find that default, so
+changing `GRAFT_ROOT_PATH` never requires changing `HOME`. On Windows the named
+pipe keeps its previous name while `GRAFT_ROOT_PATH` is unset, and each
+configured root gets its own pipe; spellings of one root that differ only in
+ASCII letter case or separators share it.
+
 Daemon sessions start `unbound`. Once a client is connected to the
 daemon MCP surface, repository-scoped work normally follows this
 agent-facing flow:
