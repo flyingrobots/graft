@@ -93,7 +93,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   old build could run in place of current source. A run after a source edit
   now spends a few seconds rebuilding; a run with a current `dist/` only scans
   file times. Compiler diagnostics that still emit output print a warning and
-  the run continues; `pnpm typecheck` stays the type gate.
+  the run continues; `pnpm typecheck` stays the type gate. If `src/` or one
+  of those config files is missing, the setup fails and names it instead of
+  accepting the old build.
 
 - **Refused automatic authorization**: when a routed daemon call cannot
   persist the default authorization for its workspace, Graft now discards that

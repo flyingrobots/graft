@@ -60,7 +60,10 @@ before any worker starts.
 - **Inputs**: every file and directory under `src/`, plus `tsconfig.json`,
   `tsconfig.build.json`, `package.json`, and `pnpm-lock.yaml`. Directories are
   inputs so that deleting a source file (which updates its directory's mtime)
-  makes the build stale.
+  makes the build stale. `src/` and each listed config file are required: if
+  one is missing the setup fails and names it, without building, because a
+  missing input would otherwise drop out of the comparison and leave an old
+  `dist/` looking fresh (added in review).
 - **Outputs**: every file under `dist/`.
 - `dist/` is fresh only when it contains at least one file and its **oldest**
   file is strictly newer than the **newest** input. Using the oldest output
@@ -123,6 +126,8 @@ so the tested output is the shipped output, not a look-alike.
 - A Vitest run whose `dist/` is older than any `src/` file, any `src/`
   directory, or any listed build-config file rebuilds it from a clean
   directory, so orphaned outputs disappear.
+- A Vitest run with `src/` or a listed build-config file missing fails before
+  any test starts, names the missing input, and does not invoke the compiler.
 - A Vitest run whose `dist/` is newer than every input does not invoke the
   compiler.
 - A compiler exit of 2 (diagnostics, output emitted) warns and continues; any

@@ -9,7 +9,7 @@ import { ensureFreshDist, type DistBuildResult } from "../../helpers/fresh-dist.
 // file and its oldest file is newer than the newest build input (every file and directory under
 // src/, plus tsconfig.json, tsconfig.build.json, package.json, pnpm-lock.yaml). A stale dist/ is
 // removed and rebuilt; tsc's exit 2 (diagnostics, output emitted) warns; any other failure throws
-// and leaves no dist/.
+// and leaves no dist/. src/ and each config file are required; a missing one fails setup unbuilt.
 // Size: medium (TESTING_STANDARDS.md Rule 9). Owner: @flyingrobots. Resources: files only under a
 // private mkdtemp root per case, removed in afterEach; at most one child process at a time (the
 // dead-lock-owner cases spawn `node -e ""` to obtain a pid that has exited); no network. Time:
@@ -143,6 +143,18 @@ describe("test support: ensureFreshDist", { timeout: CASE_TIMEOUT_MS }, () => {
     await expect(ensureFreshDist({ root, build: build.build })).resolves.toBe("built");
 
     expect(build.calls).toBe(1);
+  });
+
+  it.each(["src", ...CONFIG_FILES])("fails without building when the required input %s is missing", async (input) => {
+    const root = await builtRoot();
+    fs.rmSync(path.join(root, input), { recursive: true });
+    const build = fakeBuild();
+
+    await expect(ensureFreshDist({ root, build: build.build })).rejects.toThrow(
+      `required build input ${input} is missing`,
+    );
+
+    expect(build.calls).toBe(0);
   });
 
   it("rebuilds from a clean dist when a source file was deleted, dropping its orphaned output", async () => {

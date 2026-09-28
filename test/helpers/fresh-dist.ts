@@ -73,8 +73,21 @@ function oldestOutput(root: string): Extreme | undefined {
   return oldest;
 }
 
+/**
+ * src/ and every config input must exist. A missing one would otherwise drop out of the comparison and
+ * leave an old dist/ looking fresh although the checkout can no longer produce it.
+ */
+function assertRequiredInputs(root: string): void {
+  for (const input of ["src", ...DIST_CONFIG_INPUTS]) {
+    if (!fs.existsSync(path.join(root, input))) {
+      throw new Error(`Cannot decide whether dist/ is current: required build input ${input} is missing.`);
+    }
+  }
+}
+
 /** dist/ is fresh when it holds a file and its oldest file is strictly newer than the newest input. */
 export function distStaleness(root: string): Staleness {
+  assertRequiredInputs(root);
   const oldest = oldestOutput(root);
   if (oldest === undefined) return { fresh: false, reason: "dist/ is missing or empty" };
   const newest = newestInput(root);

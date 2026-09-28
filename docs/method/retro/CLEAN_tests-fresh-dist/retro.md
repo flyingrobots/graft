@@ -38,6 +38,9 @@ Met locally on host Vitest. The Docker-isolated `pnpm test` and CI have not run 
   edited during the build, or an input dated in the future.
 - **Docker not exercised.** The claim that the image's `dist/` is fresh rests on the Dockerfile
   running `pnpm build` after `COPY . .`. No container run in this cycle confirmed it.
+- **Missing inputs.** A deleted `src/` or config file was skipped by the input scan, so an old
+  `dist/` stayed fresh. Review made each one required: the setup now fails naming it, without
+  building. RED: the five new cases failed with `promise resolved "'fresh'" instead of rejecting`.
 - **Test size.** The helper suite was first declared small although every case does filesystem
   I/O, one case spawns a child process, and the race case waited on a 50 ms timer. Review
   corrected it to medium with an owner and a 2000 ms per-case ceiling enforced by the `describe`
