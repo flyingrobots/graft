@@ -7,6 +7,10 @@ import { afterAll } from "vitest";
 // Point it at a private per-file directory so no test, or process it spawns,
 // writes into the developer's real ~/.graft. HOME is left alone: git, ssh and gh
 // read it too.
+
+/** HOME as this test process received it, recorded before anything below runs. */
+export const homeBeforeSetup = process.env["HOME"];
+
 const testRoot = fs.mkdtempSync(path.join(os.tmpdir(), "graft-test-root-"));
 process.env["GRAFT_ROOT_PATH"] = testRoot;
 

@@ -64,3 +64,9 @@ tests, lint and typecheck green after it.
   canonicalized on win32 (separators, trailing separator, ASCII case); the
   unset key is still the raw home directory. RED: four spellings gave four
   pipes.
+- HOME check: the harness test asserted `HOME` equals the account database's
+  home, which is false in a sandbox or container where the setup is still
+  correct. The setup now records `HOME` before it runs, and the test compares
+  against that. RED: with `HOME` pointed at a scratch directory for the run, the
+  old assertion failed; the new one passed there and failed when the setup was
+  mutated to reassign `HOME` (reverted byte for byte, never committed).
