@@ -1152,7 +1152,17 @@ export async function captureSessionDirectoryIdentity(
 /**
  * Publishes a staged session directory under its canonical UUID name by rename,
  * after its ownership marker is durable. It refuses when the staged directory
- * is not the one construction captured or when the canonical name is taken.
+ * is not the one construction captured, when the canonical name is taken at
+ * the check before the rename, or when the canonical name does not hold the
+ * captured directory after the rename.
+ *
+ * The taken-name check and the rename are separate calls. Node exposes no
+ * rename that refuses an existing target (RENAME_NOREPLACE), and POSIX rename
+ * replaces an empty directory at the target. So an empty directory created at
+ * the canonical name between the check and the rename is replaced; a non-empty
+ * one makes the rename fail. Creating one needs a same-user process that acts
+ * inside the private 0700 sessions root and names the fresh random UUID within
+ * that window, and such a process can already delete this user's files.
  */
 export async function publishStagedSessionDirectory(
   stagingDir: string,

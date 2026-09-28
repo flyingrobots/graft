@@ -128,9 +128,12 @@ lifecycle does not claim to bound every daemon cache or working set.
   UUID directory; startup and every sweep remove an abandoned staging directory
   that holds nothing but the marker or its temporary files, and preserve any
   other with a `STAGING_*` reason. Node cannot delete by
-  inode, so a window remains between each check and its deletion; using it
-  needs a same-user process acting inside the private 0700 sessions root, which
-  can already delete that user's files.
+  inode, so a window remains between each check and its deletion. Node also
+  has no rename that refuses an existing target, so publication checks that the
+  UUID name is free and then renames: an empty directory created at that name
+  between the check and the rename is replaced, and a non-empty one fails the
+  construction. Using either window needs a same-user process acting inside the
+  private 0700 sessions root, which can already delete that user's files.
 
 The required programmatic sweep method,
 `GraftDaemonServer.reapExpiredSessions()`, returns separate facts:
