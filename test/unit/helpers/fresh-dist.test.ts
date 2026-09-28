@@ -198,7 +198,7 @@ describe("test support: ensureFreshDist publishes whole builds", { timeout: CASE
     expect(distText(root, "a.js")).toBe("export const a = 2;\n");
 
     release();
-    await first.catch(() => undefined);
+    await expect(first).resolves.toBe("built");
 
     expect(distText(root, "a.js")).toBe("export const a = 2;\n");
     const build = fakeBuild();
@@ -250,6 +250,35 @@ describe("test support: ensureFreshDist publishes whole builds", { timeout: CASE
 
     expect(peerPublished).toBe(true);
     expect(fs.existsSync(path.join(dist, "peer-marker.js"))).toBe(true);
+    expect(buildDirectoriesBesideDist(root)).toEqual([]);
+  });
+
+  it("gives up, advising a rerun, when another process publishes a stale dist between this build's renames every time", async ({ onTestFinished }) => {
+    const root = packageRoot(onTestFinished);
+    const dist = path.join(root, "dist");
+    let peerPublishes = 0;
+    // Before each attempt's second rename, a peer publishes a complete dist whose outputs are no
+    // newer than the inputs, so this build is refused and the peer's dist is not current either.
+    const publishStalePeer = (): void => {
+      peerPublishes += 1;
+      fs.mkdirSync(path.join(dist, "nested"), { recursive: true });
+      fs.writeFileSync(path.join(dist, "a.js"), "export const a = 1;\n");
+      fs.writeFileSync(path.join(dist, "nested", "b.js"), "export const b = 1;\n");
+      for (const entry of walk(dist)) setTime(entry, INPUT_TIME);
+      beforeRenameTo.set(dist, publishStalePeer);
+    };
+    beforeRenameTo.set(dist, publishStalePeer);
+    onTestFinished(() => {
+      beforeRenameTo.delete(dist);
+    });
+    const build = fakeBuild();
+
+    await expect(ensureFreshDist({ root, build: build.build })).rejects.toThrow(
+      /could not be built from unchanging inputs in 3 attempts \(another process kept replacing dist\/\); dist\/ is left as it was\. Rerun once edits have stopped\.$/u,
+    );
+
+    expect(build.calls).toBe(3);
+    expect(peerPublishes).toBe(3);
     expect(buildDirectoriesBesideDist(root)).toEqual([]);
   });
 
