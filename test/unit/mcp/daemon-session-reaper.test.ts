@@ -14,6 +14,7 @@ import * as graftServerModule from "../../../src/mcp/server.js";
 import {
   acquireDaemonRootOwnership,
   captureSessionDirectoryIdentity,
+  DaemonQuarantineEntryChangedError,
   DaemonRootOwnerClaimTimeoutError,
   type DaemonSessionDirectoryIdentity,
   type DaemonSessionsRootAuthority,
@@ -1305,6 +1306,62 @@ describe("mcp: daemon session reaper", () => {
     const sweep = await daemon.reapExpiredSessions();
     expect(sweep.cleanupFailures).toEqual([expectedDebt]);
     expect((await requestUnixJson(socketPath, "GET", "/healthz")).statusCode).toBe(200);
+  });
+
+  it("reports the stable code of each orphan cleanup failure as a structured field", async () => {
+    const rootDir = fs.mkdtempSync(path.join(os.tmpdir(), "go-failure-code-"));
+    const socketPath = path.join(rootDir, "daemon.sock");
+    const changedId = "00000000-0000-4000-8000-000000000801";
+    const deniedId = "00000000-0000-4000-8000-000000000802";
+    cleanups.push(() => {
+      fs.rmSync(rootDir, { recursive: true, force: true });
+    });
+    let scanCalls = 0;
+    const sessionStorage = {
+      captureSessionDirectoryIdentity,
+      writeSessionOwnershipMarker,
+      removeSessionDirectory,
+      removeSessionOrphanDirectories(sessionsRoot: string) {
+        scanCalls++;
+        if (scanCalls === 1) return Promise.resolve({ removed: 0, failures: [], preservedEntries: [] });
+        const changedPath = path.join(sessionsRoot, changedId);
+        const deniedPath = path.join(sessionsRoot, deniedId);
+        return Promise.resolve({
+          removed: 0,
+          failures: [
+            {
+              sessionId: changedId,
+              path: changedPath,
+              error: new DaemonQuarantineEntryChangedError(path.join(changedPath, "scratch.txt")),
+            },
+            {
+              sessionId: deniedId,
+              path: deniedPath,
+              error: Object.assign(new Error("EACCES: permission denied"), { code: "EACCES" }),
+            },
+          ],
+          preservedEntries: [],
+        });
+      },
+    };
+    const daemon = await startDaemonServer({
+      graftDir: rootDir,
+      socketPath,
+      sessionReaperIntervalMs: 0,
+      sessionStorage,
+    });
+    cleanups.push(() => daemon.close());
+
+    const sweep = await daemon.reapExpiredSessions();
+
+    expect(sweep.cleanupFailures.map((failure) => ({
+      code: failure.code,
+      sessionId: failure.sessionId,
+      causeCode: failure.causeCode,
+    }))).toEqual([
+      { code: "ORPHAN_DIRECTORY_REMOVE_FAILED", sessionId: changedId, causeCode: "DAEMON_QUARANTINE_ENTRY_CHANGED" },
+      { code: "ORPHAN_DIRECTORY_REMOVE_FAILED", sessionId: deniedId, causeCode: "EACCES" },
+    ]);
   });
 
   it("refuses live-session cleanup after the sessions root becomes a symlink", async () => {

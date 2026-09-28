@@ -26,7 +26,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   clock rejects non-finite, negative, and regressing samples with a structured
   failed-sweep result instead of expiring sessions or silently doing no work.
   The manual sweep method is a required daemon capability rather than an
-  optional interface member. Structured cleanup failures mark only operations
+  optional interface member. Each structured cleanup failure carries the stable
+  `causeCode` of its underlying error, such as `DAEMON_QUARANTINE_ENTRY_CHANGED`
+  or `EACCES`, so consumers never match message text. Structured cleanup
+  failures mark only operations
   that a later sweep actually retries. Protocol and fallback transport-close
   failures plus permanently unsafe live-session child paths are reported as
   non-retryable, while a transient sessions-root identity refusal remains

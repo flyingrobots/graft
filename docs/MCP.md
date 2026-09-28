@@ -106,7 +106,8 @@ lifecycle does not claim to bound every daemon cache or working set.
   session directories; every later sweep also retries eligible current-process
   orphans. A prior-process directory that startup cannot inspect or remove does
   not refuse startup: it is logged as `DAEMON_STARTUP_SESSION_CLEANUP_DEFERRED`
-  with structured cleanup failures and remains debt for the next sweep. Unknown files, links, malformed ownership records, and unsafe paths
+  with structured cleanup failures and remains debt for the next sweep.
+  Unknown files, links, malformed ownership records, and unsafe paths
   are preserved. A daemon using a custom endpoint never deletes an unmarked
   legacy UUID directory; only the default endpoint may perform that migration
   cleanup. The default endpoint is already bound, but returns HTTP 503, before
@@ -116,7 +117,8 @@ lifecycle does not claim to bound every daemon cache or working set.
   enumeration, candidate inspection, or removal. Quarantined directories are
   deleted child by child: each entry is re-checked by device/inode before it is
   removed, links are unlinked without following them, and an entry replaced
-  after enumeration stops the removal with `DAEMON_QUARANTINE_ENTRY_CHANGED`,
+  after enumeration stops the removal with the `causeCode`
+  `DAEMON_QUARANTINE_ENTRY_CHANGED`,
   leaving the rest in quarantine. Startup and every sweep finish a
   `.graft-removing-<session>-<uuid>` quarantine left by a crash or refusal when
   it is a real directory with a valid ownership marker for that session;
@@ -138,6 +140,7 @@ SessionSweepResult
     sessionId | null
     path | null
     retryable
+    causeCode | null
     message
   preservedEntries[]
     entryName
@@ -145,6 +148,11 @@ SessionSweepResult
     reason
   sweepFailure | null
 ```
+
+`causeCode` is the stable code of the underlying error, such as
+`DAEMON_QUARANTINE_ENTRY_CHANGED`, `UNSAFE_DAEMON_SESSIONS_ROOT`, or an errno
+code like `EACCES`, and is null when that error carries none. Match on it, not
+on `message`.
 
 Retiring a session does not imply that its directory was removed. Filesystem
 and orphan-scan failures are marked retryable only when a later sweep executes

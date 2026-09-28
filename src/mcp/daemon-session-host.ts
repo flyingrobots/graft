@@ -50,7 +50,20 @@ export interface SessionCleanupFailure {
   readonly sessionId: string | null;
   readonly path: string | null;
   readonly retryable: boolean;
+  /**
+   * The stable code of the underlying error, such as
+   * `DAEMON_QUARANTINE_ENTRY_CHANGED`, `UNSAFE_DAEMON_SESSIONS_ROOT` or an errno
+   * code like `EACCES`; null when the error carries none. Consumers match on
+   * this field, never on `message`.
+   */
+  readonly causeCode: string | null;
   readonly message: string;
+}
+
+function errorCauseCode(error: unknown): string | null {
+  if (typeof error !== "object" || error === null || !("code" in error)) return null;
+  const code = (error as { readonly code: unknown }).code;
+  return typeof code === "string" ? code : null;
 }
 
 export interface SessionSweepResult {
@@ -84,6 +97,7 @@ function cleanupFailure(input: {
     sessionId: input.sessionId,
     path: input.path,
     retryable: input.retryable,
+    causeCode: errorCauseCode(input.error),
     message: input.error instanceof Error ? input.error.message : String(input.error),
   };
 }
