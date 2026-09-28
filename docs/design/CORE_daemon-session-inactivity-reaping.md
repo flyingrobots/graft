@@ -227,6 +227,15 @@ Rollback preserves the primary construction error plus every failed
 control-plane, protocol-close, fallback transport-close, and directory-cleanup
 operation in one aggregate error.
 
+The scratch directory is built under `.graft-staging-<session>`. Its identity
+is captured and its ownership marker is written and synced there, and only then
+is it renamed to the canonical UUID name. A crash before that rename leaves
+only staging residue, which startup and every sweep remove when it holds
+nothing but marker files (anything else is preserved with a `STAGING_*`
+reason); a crash after it leaves a marked directory that orphan cleanup
+removes. Rollback before publication removes the staging directory through the
+injected session storage.
+
 ## Crash-orphan ownership and discovery
 
 The sessions root is daemon-owned state. A daemon must establish exclusive
@@ -591,30 +600,40 @@ authority has been retired, and each failed close layer is reported separately.
       deleted. Node cannot delete by inode, so the residual check-to-delete
       window is stated in the threat model above rather than claimed closed
       (operator decision, 2026-09-28).
-- [ ] Session construction, every sweep, and terminal cleanup retain and verify
-      one daemon-lifetime sessions-root identity established at startup.
-- [ ] The initialize request settles successfully before the new session is
-      published, and every failure boundary rolls back map, control-plane,
-      transport, marker, and scratch ownership.
-- [ ] A refused competing startup performs no session-storage mutation before
-      daemon-root authority is acquired.
-- [ ] Construction cannot publish a canonical UUID directory that lacks enough
-      durable ownership evidence for safe crash recovery or rollback.
-- [ ] Orphan cleanup reports factual retryability, recovers owned quarantine
-      residue after crashes, isolates inspection failures per candidate, and
-      continues processing later eligible candidates.
-      Crash-stranded quarantine recovery was added on 2026-09-28 (operator
-      decision); the remaining clauses were not re-audited in that pass.
-- [ ] Root and child identities use lossless device/inode values.
+- [x] Session construction, every sweep, and terminal cleanup retain and verify
+      one daemon-lifetime sessions-root identity established at startup
+      (80bb385d).
+- [x] Every failure boundary of the first request rolls back map,
+      control-plane, transport, marker, and scratch ownership. The code does
+      not settle initialize before publication; instead a rejected initial
+      request retires the new session through the shared termination path
+      (3390fc96).
+- [x] A refused competing startup performs no session-storage mutation before
+      daemon-root authority is acquired (4e6271d5).
+- [x] Construction cannot publish a canonical UUID directory that lacks enough
+      durable ownership evidence for safe crash recovery or rollback: the
+      directory is built under `.graft-staging-<session>`, its marker is
+      synced, and only then is it renamed to its UUID; startup and every sweep
+      remove abandoned staging (63dcf306, 2b527410).
+- [x] Orphan cleanup reports factual retryability (c8917d1c, 9a1915db),
+      recovers owned quarantine residue after crashes (303b030f), isolates
+      inspection failures per candidate and continues processing later
+      eligible candidates (ff61c970, 6d7b8862), and records startup cleanup
+      failures as debt for the next sweep instead of refusing startup
+      (fc7ffdaa).
+- [x] Root and child identities use lossless device/inode values (c2db595c,
+      1fd02ae3).
 - [x] Root-claim crash recovery has a bounded retention protocol rather than
       accumulating one permanent tombstone per recovery: tombstones are
       collected after a grace period longer than the acquisition deadline, and
       dead `.released-*` claims at the next claim (operator decision,
       2026-09-28, with the grace period in place of removal at publication).
-- [ ] Scheduled preservation diagnostics are deduplicated or rate-limited while
-      manual sweeps retain complete structured results.
-- [ ] Lifecycle tests assert stable structured failures, and storage/process
-      responsibilities are separated into reviewable modules.
+- [x] Scheduled preservation diagnostics are deduplicated or rate-limited while
+      manual sweeps retain complete structured results (80b72be4).
+- [x] Lifecycle tests assert stable structured failures: each cleanup failure
+      carries its underlying error's `causeCode` (dfc14a9e).
+- [ ] Storage/process responsibilities are separated into reviewable modules.
+      Not re-audited in this pass.
 - [ ] The verification witness names exact GREEN commits, and current PR text,
       GraphQL counts, validation receipts, Markdown, and prose match the final
       repaired head.

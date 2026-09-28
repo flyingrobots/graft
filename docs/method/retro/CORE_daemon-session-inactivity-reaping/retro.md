@@ -299,7 +299,9 @@ because that rename succeeded. The implementation therefore bounds retention in
 time instead: a reclaimer now checks its acquisition deadline immediately
 before the takeover rename, the recovery stamps the tombstone, and each later
 claim removes tombstones older than 60 seconds and dead `.released-*` claims.
-This departs from the letter of the decision and is raised for the operator.
+This departs from the letter of the decision; the operator accepted the
+60-second grace period in its place (recorded in the design packet's repair
+hold, 2026-09-28).
 RED, on the unmodified code, observed tombstone and released-claim counts of
 1 through 5 over five crash-and-recover cycles; GREEN holds one fresh tombstone
 and no released residue after every cycle. The existing deterministic-tombstone
