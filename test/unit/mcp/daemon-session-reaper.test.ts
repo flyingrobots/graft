@@ -19,7 +19,10 @@ import {
   type DaemonSessionDirectoryIdentity,
   type DaemonSessionsRootAuthority,
   daemonRootOwnerIsLive,
+  daemonSessionDirectoryIdentityMatches,
+  daemonSessionsRootIdentityMatches,
   deriveGenericUnixProcessStartIdentity,
+  guardedEntryMatches,
   type LegacyUnmarkedSessionPolicy,
   quarantineDaemonRootOwner,
   publishDaemonRootOwner,
@@ -1218,6 +1221,41 @@ describe("mcp: daemon session reaper", () => {
     expect(identity).toEqual({ device: expectedSession.dev, inode: expectedSession.ino });
     expect({ device: sessionsRootAuthority.device, inode: sessionsRootAuthority.inode })
       .toEqual({ device: expectedRoot.dev, inode: expectedRoot.ino });
+  });
+
+  it("tells apart identities that differ only above 2^53", () => {
+    // Oracle: two inode numbers one apart above 2^53 are different directories,
+    // and Number() maps them to the same value, so only a lossless bigint
+    // comparison can refuse the second.
+    const inode = 2n ** 60n;
+    const device = 2n ** 60n + 3n;
+    expect(Number(inode)).toBe(Number(inode + 1n));
+    const directoryStat = (statDevice: bigint, statInode: bigint): fs.BigIntStats => ({
+      dev: statDevice,
+      ino: statInode,
+      isDirectory: () => true,
+      isSymbolicLink: () => false,
+    }) as unknown as fs.BigIntStats;
+    const expected = { device, inode };
+    const cases = [
+      ["session directory", (stat: fs.BigIntStats) => daemonSessionDirectoryIdentityMatches(expected, stat)],
+      ["sessions root", (stat: fs.BigIntStats) => daemonSessionsRootIdentityMatches(expected, stat)],
+      ["quarantine entry", (stat: fs.BigIntStats) => guardedEntryMatches({ ...expected, directory: true }, stat)],
+    ] as const;
+
+    const outcomes = cases.map(([name, matches]) => ({
+      name,
+      same: matches(directoryStat(device, inode)),
+      otherInode: matches(directoryStat(device, inode + 1n)),
+      otherDevice: matches(directoryStat(device + 1n, inode)),
+    }));
+
+    expect(outcomes).toEqual(cases.map(([name]) => ({
+      name,
+      same: true,
+      otherInode: false,
+      otherDevice: false,
+    })));
   });
 
   it("isolates an orphan inspection failure to its own candidate", async () => {

@@ -237,8 +237,14 @@ interface PinnedDaemonSessionsRoot {
   readonly handle: fs.FileHandle | null;
 }
 
-function daemonSessionsRootIdentityMatches(
-  root: PinnedDaemonSessionsRoot,
+/*
+ * The identity matchers below compare device and inode as bigint. A number
+ * cannot hold every inode losslessly, so a comparison narrowed through Number()
+ * could treat two different directories above 2^53 as the same one. They are
+ * exported so that invariant is tested directly.
+ */
+export function daemonSessionsRootIdentityMatches(
+  root: Pick<PinnedDaemonSessionsRoot, "device" | "inode">,
   stat: BigIntStats,
 ): boolean {
   return stat.isDirectory()
@@ -247,7 +253,7 @@ function daemonSessionsRootIdentityMatches(
     && stat.ino === root.inode;
 }
 
-function daemonSessionDirectoryIdentityMatches(
+export function daemonSessionDirectoryIdentityMatches(
   expected: DaemonSessionDirectoryIdentity,
   stat: BigIntStats,
 ): boolean {
@@ -1230,7 +1236,10 @@ interface GuardedQuarantineEntry {
   readonly directory: boolean;
 }
 
-function guardedEntryMatches(expected: GuardedQuarantineEntry, stat: BigIntStats): boolean {
+export function guardedEntryMatches(
+  expected: Pick<GuardedQuarantineEntry, "device" | "inode" | "directory">,
+  stat: BigIntStats,
+): boolean {
   const directory = stat.isDirectory() && !stat.isSymbolicLink();
   return directory === expected.directory
     && stat.dev === expected.device
