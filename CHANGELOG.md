@@ -133,7 +133,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   daemon startup before it creates the daemon root, claims ownership, or binds
   the socket. An orphan removal refused because the inspected directory was
   replaced is reported with `retryable: false`, because no later sweep retries
-  deletion of the displaced inode.
+  deletion of the displaced inode. A startup refused because another live
+  daemon owns the root no longer creates or re-permissions that root's
+  `sessions` directory; the sessions root is prepared only after the exclusive
+  claim.
 
 ### Documentation
 

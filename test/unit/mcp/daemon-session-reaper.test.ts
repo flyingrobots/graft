@@ -1857,6 +1857,30 @@ describe("mcp: daemon session reaper", () => {
     expect(fs.readFileSync(socketPath, "utf-8")).toBe("operator-owned\n");
   });
 
+  it("checks live root ownership before creating the sessions root", async () => {
+    const rootDir = fs.mkdtempSync(path.join(os.tmpdir(), "graft-session-owner-sessions-order-"));
+    const socketPath = path.join(rootDir, "candidate.sock");
+    const processStartIdentity = await readProcessStartIdentity(process.pid);
+    expect(processStartIdentity).not.toBeNull();
+    fs.writeFileSync(path.join(rootDir, "daemon-owner.json"), `${JSON.stringify({
+      schemaVersion: 2,
+      instanceId: "00000000-0000-4000-8000-000000000098",
+      pid: process.pid,
+      processStartIdentity,
+      socketPath: path.join(rootDir, "owned.sock"),
+    })}\n`);
+    cleanups.push(() => {
+      fs.rmSync(rootDir, { recursive: true, force: true });
+    });
+
+    await expect(startDaemonServer({
+      graftDir: rootDir,
+      socketPath,
+      sessionReaperIntervalMs: 0,
+    })).rejects.toMatchObject({ code: "DAEMON_ROOT_ALREADY_OWNED" });
+    expect(fs.existsSync(path.join(rootDir, "sessions"))).toBe(false);
+  });
+
   it("binds the default endpoint with admission closed before legacy orphan cleanup", async () => {
     if (process.platform === "win32") return;
     const rootDir = fs.mkdtempSync(path.join(os.tmpdir(), "graft-session-default-bind-first-"));

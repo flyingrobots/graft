@@ -103,13 +103,18 @@ export async function startDaemonServer(options: StartDaemonServerOptions = {}):
     : "preserve";
   await ensurePrivateDirectory(graftDir);
   const sessionsRoot = path.join(graftDir, "sessions");
-  await ensureDaemonSessionsRoot(sessionsRoot);
-  const sessionsRootAuthority = await retainDaemonSessionsRoot(sessionsRoot);
   const rootOwnership = await acquireDaemonRootOwnership({
     graftDir,
     socketPath,
-  }).catch(async (error: unknown) => {
-    await sessionsRootAuthority.close();
+  });
+  const sessionsRootAuthority = await (async () => {
+    await ensureDaemonSessionsRoot(sessionsRoot);
+    return retainDaemonSessionsRoot(sessionsRoot);
+  })().catch(async (error: unknown) => {
+    const releaseErrors = await runCleanupSteps([() => rootOwnership.release()]);
+    if (releaseErrors.length > 0) {
+      throw new AggregateError(releaseErrors, "Daemon startup and rollback both failed", { cause: error });
+    }
     throw error;
   });
 
