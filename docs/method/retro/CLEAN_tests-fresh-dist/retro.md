@@ -301,7 +301,7 @@ before it, on the helper suite, unless stated.
 - **A build past the lock age could leave its output in a vouched-for `dist/` (major).** The
   second review's lock presumed a two-minute-old build dead; the taker built and published, but
   the slow build's compiler, which the lock could not stop, kept writing `dist/` and the next check
-  returned `fresh` with the pre-edit output (reproduced by the Reviewer: third call `fresh`, `src`
+  returned `fresh` with the pre-edit output (reproduced in review: third call `fresh`, `src`
   `a = 2`, `dist` `a = 1`). Fixed by removing the cause rather than the symptom: every build writes
   a private `dist.staging.<pid>.<uuid>/` beside `dist/`, and publishes it only when its inputs did
   not change under it and its output passes the freshness rules, by renaming `dist/` aside and the
@@ -310,14 +310,14 @@ before it, on the helper suite, unless stated.
   directory handling and the pending marker were deleted as redundant (design packet,
   "Concurrency: no lock"). Given up: two concurrent calls now build twice. RED, five new cases on
   the previous helper: the slow-build case `expected 'export const a = 1;\n' to be 'export const a
-  = 2;\n'` at the check after the slow build finished (the Reviewer's defect); a build that throws
+  = 2;\n'` at the check after the slow build finished (the defect found in review); a build that throws
   after emitting `expected 'export const a = 2;\n' to be 'export const a = 1;\n'` (it had removed
   the previous `dist/`); the peer-publishes-between-renames case `expected false to be true` (no
   rename existed); the two-calls case `expected [ 'built', 'fresh' ] to deeply equal [ 'built',
   'built' ]` (the old contract); the abandoned-directory case `expected [ …(3) ] to deeply equal [
   Array(1) ]`. Calibration: with the input-change recheck disabled (one line, restored byte for
   byte, run under a scratch config with no global setup), the slow-build case fails again at the
-  same check, with two older cases. The Reviewer's reproduction, adapted only to write into the
+  same check, with two older cases. The review's reproduction, adapted only to write into the
   directory it is given, now ends `third call: fresh`, `src` and `dist` both `a = 2`. The setup's
   staged build is byte-identical to `pnpm build` (1304 files, `diff -r`), because the staging
   directory sits at `dist/`'s depth and source maps stay `../src/...`.
@@ -335,7 +335,5 @@ See `witness/verification.md`.
 ## Follow-Ons
 
 - Run `pnpm test` (Docker) on this branch before merge to confirm the setup reports `fresh` there.
-- @flyingrobots to triage both failures above: `structural-blame.test.ts` (reproduced on main, a
-  5000 ms ceiling under load) and `diff.test.ts` (not reproduced by its own sequence; a forced
-  variant of the candidate mechanism reproduces it), and decide remediation or an owned quarantine
-  with an expiry. For `diff.test.ts` a draft decision is above, marked PENDING DECISION.
+- @flyingrobots to triage `structural-blame.test.ts` (reproduced on main, a 5000 ms ceiling under
+  load) and decide remediation or an owned quarantine with an expiry.

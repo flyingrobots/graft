@@ -9,9 +9,9 @@ import process from "node:process";
 // Candidate mechanism: `git commit` starts `git maintenance run --auto --detach`, a background git
 // that can write under .git while fs.rmSync is removing it.
 //
-// Each iteration replays that test's git sequence (init and config as test/helpers/git.ts, commit,
-// delete a file, commit), then removes the repo at once with fs.rmSync, as cleanupTestRepo does, and
-// counts the outcome. Variant "default" is the test's own sequence. Variant "forced" also starts an
+// Each iteration replays that test's git sequence (init and config as test/helpers/git.ts did
+// before c9b6ccd1, commit, delete a file, commit), then removes the repo at once with fs.rmSync, as
+// cleanupTestRepo did before 7871b506, and counts the outcome. Variant "default" is the test's own sequence. Variant "forced" also starts an
 // explicit `git maintenance run --task=gc --detach` just before the removal, so a background git is
 // certainly writing under .git while it is removed.
 //

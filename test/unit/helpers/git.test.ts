@@ -145,6 +145,17 @@ describe("test helper: cleanupTestRepo retries transient removal errors", () => 
     expect(warnings[0]).toContain("ENOTEMPTY");
   });
 
+  it("retries a transient EBUSY and warns about it", async () => {
+    const remover = plannedRemover(repo, [fsError("EBUSY")]);
+    const warnings: string[] = [];
+
+    await cleanupTestRepo(repo, { remove: remover.remove, warn: (message) => warnings.push(message), retryDelayMs: 0 });
+
+    expect(remover.calls).toEqual([`${repo}.graft-graphs`, repo, repo]);
+    expect(warnings).toHaveLength(1);
+    expect(warnings[0]).toContain("EBUSY");
+  });
+
   it("rejects at once, without retrying or warning, on an error that is not transient", async () => {
     const denied = fsError("EACCES");
     const remover = plannedRemover(repo, [denied]);

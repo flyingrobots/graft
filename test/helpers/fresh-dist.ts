@@ -150,7 +150,8 @@ function staleness(root: string, out: string): Staleness {
  */
 function assertNotInFuture(root: string, newest: Extreme | undefined): void {
   const now = Date.now();
-  if (newest === undefined || newest.mtimeMs <= now) return;
+  // File times carry fractions of a millisecond and Date.now() does not: compare whole milliseconds.
+  if (newest === undefined || Math.floor(newest.mtimeMs) <= now) return;
   throw new Error(
     `Cannot rebuild dist/: ${path.relative(root, newest.path)} has a modification time in the future `
     + `(${new Date(newest.mtimeMs).toISOString()}; now ${new Date(now).toISOString()}), so no build could `
@@ -245,13 +246,22 @@ export async function ensureFreshDist(options: FreshDistOptions): Promise<FreshD
       const changed = newestInput(root);
       if (changed === undefined || changed.mtimeMs <= readFrom) {
         const built = staleness(root, staging);
-        if (!built.fresh) throw new Error(`The dist/ build finished but its output is not current: ${built.reason}.`);
-        // Published, or another process published a build between our renames and it is current.
-        if (publish(root, staging) || staleness(root, dist).fresh) return "built";
+        if (built.fresh) {
+          // Published, or another process published a build between our renames and it is current.
+          if (publish(root, staging) || staleness(root, dist).fresh) return "built";
+        } else {
+          // An input saved after the recheck above also makes the output look stale: build again.
+          // With inputs unchanged since the build read them, stale output is a build defect.
+          const later = newestInput(root);
+          if (later === undefined || later.mtimeMs <= readFrom) {
+            throw new Error(`The dist/ build finished but its output is not current: ${built.reason}.`);
+          }
+        }
       }
       if (attempt >= MAX_BUILD_ATTEMPTS) {
-        const cause = changed !== undefined && changed.mtimeMs > readFrom
-          ? `${path.relative(root, changed.path)} changed during attempt ${String(attempt)}`
+        const latest = newestInput(root);
+        const cause = latest !== undefined && latest.mtimeMs > readFrom
+          ? `${path.relative(root, latest.path)} changed during attempt ${String(attempt)}`
           : "another process kept replacing dist/";
         throw new Error(
           `dist/ could not be built from unchanging inputs in ${String(attempt)} attempts (${cause}); dist/ is `

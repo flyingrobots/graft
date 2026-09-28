@@ -117,6 +117,7 @@ function fakeBuild(
   result: DistBuildResult = { status: 0, output: "" },
   gate?: Promise<void>,
   onStart?: () => void,
+  onFinish?: () => void,
 ): FakeBuild {
   let calls = 0;
   return {
@@ -136,6 +137,7 @@ function fakeBuild(
         fs.mkdirSync(path.dirname(target), { recursive: true });
         fs.writeFileSync(target, text);
       }
+      onFinish?.();
       return result;
     },
   };
@@ -461,6 +463,47 @@ describe("test support: ensureFreshDist", { timeout: CASE_TIMEOUT_MS }, () => {
 
     expect(build.calls).toBe(1);
     expect(distText(root, "nested/b.js")).toBe("export const b = 1;\n");
+  });
+
+  // File times carry fractions of a millisecond and Date.now() does not, so an input saved in the
+  // same millisecond as the check reads as later than "now" unless the comparison allows for that.
+  it("does not treat an input saved in the same millisecond as the check as dated in the future", async ({ onTestFinished }) => {
+    const root = await builtRoot(onTestFinished);
+    const now = EDIT_TIME.getTime();
+    fs.writeFileSync(path.join(root, "src", "a.ts"), "export const a = 2;\n");
+    fs.utimesSync(path.join(root, "src", "a.ts"), now / 1000 + 0.0004, now / 1000 + 0.0004);
+    const clock = vi.spyOn(Date, "now").mockReturnValue(now);
+    onTestFinished(() => { clock.mockRestore(); });
+    const build = fakeBuild();
+
+    await expect(ensureFreshDist({ root, build: build.build })).resolves.toBe("built");
+    expect(build.calls).toBe(1);
+  });
+
+  it("rebuilds, instead of failing, when a source is saved after the post-build recheck but before the output check", async ({ onTestFinished }) => {
+    const root = await builtRoot(onTestFinished);
+    const source = path.join(root, "src", "a.ts");
+    fs.writeFileSync(source, "export const a = 2;\n");
+    setTime(source, EDIT_TIME);
+    const src = path.join(root, "src");
+    let edited = false;
+    // The first build's completion arms two readdir hooks on src/: the first src/ walk after the
+    // build is the post-build recheck, the second is the output check, and the edit lands between.
+    const build = fakeBuild(undefined, undefined, undefined, () => {
+      if (edited) return;
+      beforeReaddir.set(src, () => {
+        beforeReaddir.set(src, () => {
+          edited = true;
+          fs.writeFileSync(source, "export const a = 3;\n");
+        });
+      });
+    });
+
+    await expect(ensureFreshDist({ root, build: build.build })).resolves.toBe("built");
+
+    expect(edited).toBe(true);
+    expect(build.calls).toBe(2);
+    expect(distText(root, "a.js")).toBe("export const a = 3;\n");
   });
 
   it("fails without building or removing dist, naming the file, when an input's mtime is in the future", async ({ onTestFinished }) => {
