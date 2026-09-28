@@ -276,14 +276,14 @@ export async function ensureFreshDist(options: FreshDistOptions): Promise<FreshD
       }
       if (attempt >= MAX_BUILD_ATTEMPTS) {
         const latest = newestInput(root);
-        const cause = latest !== undefined && latest.mtimeMs > readFrom
+        const inputChanged = latest !== undefined && latest.mtimeMs > readFrom;
+        const cause = inputChanged
           ? `${path.relative(root, latest.path)} changed during attempt ${String(attempt)}`
           : staleOutput === undefined
             ? "another process kept replacing dist/"
             : `its output was not current: ${staleOutput}`;
-        const advice = staleOutput === undefined || cause !== `its output was not current: ${staleOutput}`
-          ? " Rerun once edits have stopped."
-          : "";
+        // Waiting for edits to stop cannot help a build whose own output keeps coming out stale.
+        const advice = !inputChanged && staleOutput !== undefined ? "" : " Rerun once edits have stopped.";
         throw new Error(
           `dist/ could not be built from unchanging inputs in ${String(attempt)} attempts (${cause}); dist/ is `
           + `left as it was.${advice}`,

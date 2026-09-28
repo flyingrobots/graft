@@ -418,7 +418,7 @@ describe("test support: ensureFreshDist", { timeout: CASE_TIMEOUT_MS }, () => {
       return fakeBuild().build(target, outDir);
     };
 
-    await expect(ensureFreshDist({ root, build: churning })).rejects.toThrow(/could not be built from unchanging inputs in 3 attempts \(src\/a\.ts changed/u);
+    await expect(ensureFreshDist({ root, build: churning })).rejects.toThrow(/could not be built from unchanging inputs in 3 attempts \(src\/a\.ts changed.* Rerun once edits have stopped\.$/u);
     expect(edits).toBe(3);
     expect(fs.existsSync(path.join(root, "dist"))).toBe(false);
     expect(buildDirectoriesBesideDist(root)).toEqual([]);
@@ -561,7 +561,7 @@ describe("test support: ensureFreshDist", { timeout: CASE_TIMEOUT_MS }, () => {
     };
 
     await expect(ensureFreshDist({ root, build })).rejects.toThrow(
-      /could not be built from unchanging inputs in 3 attempts \(its output was not current: .* is not older than /u,
+      /could not be built from unchanging inputs in 3 attempts \(its output was not current: .* is not older than .*left as it was\.$/u,
     );
 
     expect(inner.calls).toBe(3);
