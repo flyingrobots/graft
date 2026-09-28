@@ -3919,6 +3919,53 @@ describe("mcp: daemon session reaper", () => {
     expect(fs.readdirSync(path.join(rootDir, "sessions"))).toEqual([]);
   });
 
+  it("removes the unmarked session directory when identity capture fails on a custom endpoint", async () => {
+    const rootDir = fs.mkdtempSync(path.join(os.tmpdir(), "graft-session-identity-capture-"));
+    const socketPath = path.join(rootDir, "custom.sock");
+    cleanups.push(() => {
+      fs.rmSync(rootDir, { recursive: true, force: true });
+    });
+    let failNextCapture = true;
+    const sessionStorage = {
+      async captureSessionDirectoryIdentity(
+        sessionDir: string,
+      ): Promise<DaemonSessionDirectoryIdentity> {
+        if (failNextCapture) {
+          failNextCapture = false;
+          throw Object.assign(new Error("injected identity capture failure"), { code: "EIO" });
+        }
+        return captureSessionDirectoryIdentity(sessionDir);
+      },
+      writeSessionOwnershipMarker,
+      removeSessionDirectory,
+      removeSessionOrphanDirectories,
+    };
+    const daemon = await startDaemonServer({
+      graftDir: rootDir,
+      socketPath,
+      sessionReaperIntervalMs: 0,
+      sessionStorage,
+    });
+    cleanups.push(() => daemon.close());
+
+    const initialize = await requestUnixJson(socketPath, "POST", "/mcp", {
+      jsonrpc: "2.0",
+      id: 1,
+      method: "initialize",
+      params: {
+        protocolVersion: "2025-03-26",
+        capabilities: {},
+        clientInfo: { name: "vitest", version: "0.0.0" },
+      },
+    });
+
+    expect(initialize.statusCode).toBe(500);
+    expect(failNextCapture).toBe(false);
+    expect(daemon.getHealthStatus().activeSessions).toBe(0);
+    expect(fs.readdirSync(path.join(rootDir, "sessions"))).toEqual([]);
+    expect((await daemon.reapExpiredSessions()).preservedEntries).toEqual([]);
+  });
+
   it("rolls back a session when transport connection fails", async () => {
     const rootDir = fs.mkdtempSync(path.join(os.tmpdir(), "graft-session-reaper-connect-"));
     const socketPath = path.join(rootDir, "daemon.sock");

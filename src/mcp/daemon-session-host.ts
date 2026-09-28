@@ -21,7 +21,10 @@ import type {
   LegacyUnmarkedSessionPolicy,
   SessionOrphanPreservedEntry,
 } from "./daemon-storage-ownership.js";
-import { UnsafeDaemonSessionDirectoryError } from "./daemon-storage-ownership.js";
+import {
+  removeEmptyUncapturedSessionDirectory,
+  UnsafeDaemonSessionDirectoryError,
+} from "./daemon-storage-ownership.js";
 import {
   MonotonicClock,
   MonotonicClockSampleError,
@@ -377,6 +380,15 @@ async function createDaemonSession(
         await options.sessionStorage.removeSessionDirectory(
           sessionGraftDir,
           directoryIdentity,
+          options.sessionsRootAuthority,
+        );
+      } catch (cleanupError) {
+        rollbackErrors.push(cleanupError);
+      }
+    } else if (directoryReady) {
+      try {
+        await removeEmptyUncapturedSessionDirectory(
+          sessionGraftDir,
           options.sessionsRootAuthority,
         );
       } catch (cleanupError) {

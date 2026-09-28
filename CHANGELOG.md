@@ -136,7 +136,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   deletion of the displaced inode. A startup refused because another live
   daemon owns the root no longer creates or re-permissions that root's
   `sessions` directory; the sessions root is prepared only after the exclusive
-  claim.
+  claim. When session construction fails after creating its directory but
+  before capturing that directory's identity, rollback removes the directory
+  if it is still empty, so a custom endpoint no longer preserves it forever as
+  `LEGACY_SESSION_UNMARKED`. A crash in that window still leaves residue.
 
 ### Documentation
 

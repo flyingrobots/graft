@@ -971,6 +971,23 @@ export async function captureSessionDirectoryIdentity(
   return { device: stat.dev, inode: stat.ino };
 }
 
+/**
+ * Rolls back a freshly created session directory whose identity was never
+ * captured. Removal is non-recursive, so it can only delete an empty directory:
+ * anything that gained content, or was replaced by a link or file, fails and
+ * is left for the caller to report.
+ */
+export async function removeEmptyUncapturedSessionDirectory(
+  sessionDir: string,
+  sessionsRootAuthority: DaemonSessionsRootAuthority,
+): Promise<void> {
+  await sessionsRootAuthority.assertCurrent();
+  await fs.rmdir(sessionDir).catch((error: unknown) => {
+    if (errorCode(error) === "ENOENT") return;
+    throw error;
+  });
+}
+
 async function restoreQuarantinedSessionDirectory(
   quarantinePath: string,
   sessionDir: string,
