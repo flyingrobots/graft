@@ -116,3 +116,15 @@ The Docker-isolated run was not attempted: `docker info` did not return within 2
 | fresh | 9.8, 8.9, 15.8 ms |
 
 For comparison, `tsc -p tsconfig.build.json` alone took 3.5 s wall clock, and `--noCheck` 2.4 s.
+
+## Third review: Docker path
+
+- Local: `timeout 20 docker info` at 2026-09-28T11:54:23Z exited 124; the client section printed
+  and the server section stopped at its heading, so the Docker daemon on the development host did
+  not answer and the Docker-isolated run was not attempted here (third attempt this cycle).
+- CI: on `6123a249` the CI workflow's `test (22)` job, whose step "Tests" runs `pnpm test` (the
+  Docker-isolated full Vitest run), succeeded at 2026-09-28T10:59:40Z: 277 files passed, 2485 tests
+  passed, `test/unit/helpers/fresh-dist.test.ts` 22 of 22 (run 36412440364, job 108895576573).
+  `test (20)` also succeeded. That is Docker-path evidence for `6123a249`, not for the staging
+  design that replaced the lock after it; the setup prints nothing when it finds `dist/` fresh, so
+  the log does not show whether it built inside the container.
