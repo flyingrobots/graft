@@ -14,7 +14,7 @@ This document is release-gated against the capability registry and the
 documented public API posture. If the registry or semver-public surface
 changes, this matrix must be refreshed before release.
 
-v0.13.0 adds the optional `graphRoot` field to the public host/runtime options.
+An unreleased change adds the optional `graphRoot` field to the public host/runtime options.
 That changes runtime composition rather than the capability registry, so it
 does not add a matrix row or change the counts below.
 
