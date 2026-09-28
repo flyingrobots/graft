@@ -55,6 +55,14 @@ A Vitest `globalSetup` module, `test/global-setup-fresh-dist.ts`, calls
 `ensureFreshDist` from `test/helpers/fresh-dist.ts` once per Vitest process,
 before any worker starts.
 
+In watch mode Vitest runs a global setup once for the project's lifetime, not
+once per rerun, so the first version kept executing the `dist/` it found at
+start-up after `src/` changed. The setup now goes through `keepDistFresh`,
+which also registers `ensureFreshDist` with the project's `onTestsRerun` hook
+(Vitest 5.0.0: `TestProject.onTestsRerun`, awaited before a rerun's tests
+start), so every rerun rechecks and rebuilds when needed (changed in the
+second review).
+
 `ensureFreshDist` decides freshness the way `make` does, by modification time:
 
 - **Inputs**: every file and directory under `src/`, plus `tsconfig.json`,

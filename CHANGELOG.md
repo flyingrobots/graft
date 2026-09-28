@@ -85,7 +85,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 ### Fixed
 
 - **Tests never run a stale `dist/`**: a Vitest global setup rebuilds `dist/`
-  with the repository's own build before any test starts whenever it is
+  with the repository's own build before any test starts, and before each
+  watch-mode rerun, whenever it is
   missing or any of its files is not newer than every file and directory under
   `src/`, `tsconfig.json`, `tsconfig.build.json`, `package.json` and
   `pnpm-lock.yaml`. Before this, the CLI integration test built only when

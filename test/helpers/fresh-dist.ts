@@ -349,6 +349,23 @@ export async function ensureFreshDist(options: FreshDistOptions): Promise<FreshD
   }
 }
 
+/** The part of Vitest's `TestProject` the global setup needs. */
+export interface TestRerunSource {
+  onTestsRerun(handler: () => Promise<void> | void): void;
+}
+
+/**
+ * Global-setup entry: ensures dist/ is fresh now and again before every watch-mode rerun. Vitest runs
+ * a global setup once per project lifetime, not per rerun, so without the rerun hook a watcher would
+ * keep executing the dist/ it built at start-up after src/ changes.
+ */
+export async function keepDistFresh(project: TestRerunSource, options: FreshDistOptions): Promise<void> {
+  await ensureFreshDist(options);
+  project.onTestsRerun(async () => {
+    await ensureFreshDist(options);
+  });
+}
+
 /** The repository's own build (`pnpm build`), run without pnpm so it works offline and in Docker. */
 export function tscBuild(root: string): Promise<DistBuildResult> {
   const tsc = path.join(root, "node_modules", "typescript", "bin", "tsc");

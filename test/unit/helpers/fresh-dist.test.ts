@@ -7,6 +7,7 @@ import {
   buildLockHolder,
   buildLockPath,
   ensureFreshDist,
+  keepDistFresh,
   writeBuildLock,
   type DistBuildResult,
 } from "../../helpers/fresh-dist.js";
@@ -423,5 +424,30 @@ describe("test support: ensureFreshDist", { timeout: CASE_TIMEOUT_MS }, () => {
     expect(sawDeadOwner).toBe(1);
     expect(build.calls).toBe(0);
     expect(buildLockHolder(root)).toBe(livePeer);
+  });
+});
+
+describe("test support: keepDistFresh", { timeout: CASE_TIMEOUT_MS }, () => {
+  it("rechecks dist before each watch-mode rerun, rebuilding after a source edit", async () => {
+    const root = await builtRoot();
+    const reruns: (() => Promise<void> | void)[] = [];
+    const project = { onTestsRerun: (handler: () => Promise<void> | void) => { reruns.push(handler); } };
+    const build = fakeBuild();
+
+    await keepDistFresh(project, { root, build: build.build });
+    expect(build.calls).toBe(0);
+    expect(reruns).toHaveLength(1);
+
+    // What Vitest does on a watch rerun: fire the registered handlers, then run the tests.
+    fs.writeFileSync(path.join(root, "src", "a.ts"), "export const a = 2;\n");
+    setTime(path.join(root, "src", "a.ts"), EDIT_TIME);
+    await reruns[0]?.();
+
+    expect(build.calls).toBe(1);
+    expect(distText(root, "a.js")).toBe("export const a = 2;\n");
+
+    await reruns[0]?.();
+
+    expect(build.calls).toBe(1);
   });
 });

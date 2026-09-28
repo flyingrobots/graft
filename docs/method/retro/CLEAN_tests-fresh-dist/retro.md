@@ -12,7 +12,7 @@ Met locally on host Vitest. The Docker-isolated `pnpm test` and CI have not run 
   `dist/` and runs the repository's own build, under a lock in `node_modules/.cache/graft/` that
   serializes Vitest processes sharing one checkout.
 - `test/global-setup-fresh-dist.ts`, registered as Vitest `globalSetup`, runs it once per Vitest
-  process before any worker starts.
+  process before any worker starts, and (second review) again before every watch-mode rerun.
 - The enhance CLI test's own build step, which checked for one file, is deleted.
 - `test/unit/helpers/fresh-dist.test.ts`: 13 cases on a temporary fake package with mtimes set
   explicitly.
@@ -134,6 +134,16 @@ before it, on the helper suite, unless stated.
   a scratch config with no global setup so the mutant could not touch the real `dist/`):
   `dist/ is still stale after rebuilding it: dist/nested/types.d.js is missing for
   src/nested/types.d.ts`. The real checkout depends on this: `src/warp/plumbing.d.ts`.
+- **Watch mode (finding 4).** Vitest 5.0.0 runs a global setup once per project lifetime
+  (`_initializeGlobalSetup` returns early once loaded), so watch reruns executed the start-up
+  `dist/`. The setup now calls `keepDistFresh`, which registers `ensureFreshDist` with
+  `project.onTestsRerun`; Vitest awaits those handlers in `rerunTestSpecifications` before the
+  rerun's tests start. Unit case with a fake project: RED against a `keepDistFresh` that did what the
+  old setup did (check once, register nothing): `expected [] to have a length of 1 but got +0`. Live
+  probe (a scratch script, not committed): `startVitest` in watch mode on this checkout, then
+  `src/index.ts` touched and `rerunTestSpecifications` called. With the new setup `dist/index.js` was
+  rewritten after the touch (`rebuiltOnRerun: true`); with the old setup file restored for one run,
+  it was not (`false`), and the new file was then restored byte for byte.
 
 ## Non-Goals Held
 
