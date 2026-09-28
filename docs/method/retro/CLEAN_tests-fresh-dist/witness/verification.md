@@ -76,7 +76,16 @@ warning with `error TS2322`, returned `built`, and `dist/index.js` contained the
   - Not on that list: `test/unit/git/diff.test.ts` "lists deleted files" (`ENOTEMPTY` in
     `cleanupTestRepo` removing its temp repo) and `test/unit/mcp/structural-blame.test.ts`
     (5000 ms timeout). Neither loads `dist/`. Both files passed 19 of 19 twice when run on their own.
-    Whether they also fail on main under full-suite load was not checked.
+    Whether they also fail on main under full-suite load was not checked. (Checked in review:
+    see the retro's "Rule 10 follow-up" for three parent-revision runs.)
+
+## Review follow-up gates
+
+After the review fixes (`1d318219`): the fresh-dist helper suite 22 of 22; the helper suite with
+the dist-executing and package-metadata tests, 7 files, 60 of 60; `pnpm lint` exit 0;
+`pnpm typecheck` exit 0. Full host run with `src/index.ts` touched first: 277 files, 2485 tests,
+2481 passed, 4 failed (the four known local timeouts), 146.7 s. Afterwards
+`node_modules/.cache/graft/` held no lock, retirement claim or pending marker.
 
 ## Cost
 

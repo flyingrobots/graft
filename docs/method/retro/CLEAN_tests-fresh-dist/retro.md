@@ -75,6 +75,38 @@ passed twice in isolation, and the global setup finished before any of them star
 recorded as full-suite nondeterminism, not dismissed. Whether main shows them under the same load
 has not been checked.
 
+### Rule 10 follow-up (review)
+
+The first-failure record above stands; nothing below turns it green. To separate "introduced here"
+from "already on main", the parent revision `origin/main` `19d84524` was checked out in a separate
+worktree outside this checkout, with `dist/` built by `pnpm build`, and run with the same command
+(`pnpm exec vitest run`, host, macOS, Node 26.0.0, 10 cores) three times:
+
+| Parent run | Load beside it | Result | `mcp/structural-blame.test.ts` | `git/diff.test.ts` |
+| :--- | :--- | :--- | :--- | :--- |
+| 1 | a git create/commit/remove loop | 46 failed / 2463, 277 s | both cases, 5000 ms timeout | passed |
+| 2 | a few one-file Vitest runs | 11 failed / 2463, 195 s | passed (file 9.7 s) | passed |
+| 3 | a few one-file Vitest runs | 11 failed / 2463, 188 s | 1 case, 5000 ms timeout | passed |
+
+One more full run of this branch after the review fixes (`1d318219`, `dist/` made stale first):
+4 failed / 2485, 147 s, all four on the known-timeout list; both files passed.
+
+- **`test/unit/mcp/structural-blame.test.ts`: reproduced on the parent, 2 of 3 runs.** Not
+  introduced by this change. Each case runs two WARP index passes and a tool call under Vitest's
+  default 5000 ms per-test timeout, and in the passing parent run the file took 9.7 s for its two
+  cases, so it sits at its ceiling under full-suite load (the timeout is on the ceiling, not a
+  hang; inferred from these durations, not from a profile).
+- **`test/unit/git/diff.test.ts` "lists deleted files" (`ENOTEMPTY`): not reproduced.** 0 of 3
+  parent runs, 0 in the branch run above, and 0 of 600 iterations of a standalone loop that
+  creates a repo, commits twice and removes it immediately. A candidate mechanism was observed but
+  not confirmed: `GIT_TRACE` shows `git commit` (git 2.54.0) starting
+  `git maintenance run --auto --quiet --detach`, a background process that could write under
+  `.git` while the test removes it. Unexplained.
+- **Owner and decision.** Both are unowned full-suite failures outside `dist/`, so under Rule 10
+  they fall to the repository maintainer, @flyingrobots, for triage. No quarantine is claimed: that
+  needs his explicit decision, a defect link, compensating checks and an expiry, and none has been
+  given. Until then neither is evidence against this change, and neither is cleared.
+
 ## Non-Goals Held
 
 - `pnpm build`, the Dockerfile, CI and the isolated runner are unchanged.
@@ -88,5 +120,6 @@ See `witness/verification.md`.
 ## Follow-Ons
 
 - Run `pnpm test` (Docker) on this branch before merge to confirm the setup reports `fresh` there.
-- If `diff.test.ts` or `structural-blame.test.ts` fail again under full-suite load, file them against
-  the full-suite nondeterminism work with the first-failure output above.
+- @flyingrobots to triage both failures above: `structural-blame.test.ts` (reproduced on main, a
+  5000 ms ceiling under load) and `diff.test.ts` (unexplained, not reproduced), and decide
+  remediation or an owned quarantine with an expiry.
