@@ -983,8 +983,7 @@ describe("mcp: daemon session reaper", () => {
     expect((await requestUnixJson(socketPath, "GET", "/healthz")).statusCode).toBe(200);
   });
 
-  it("rejects a symlinked sessions root without touching its target", async () => {
-    if (process.platform === "win32") return;
+  it.skipIf(process.platform === "win32")("rejects a symlinked sessions root without touching its target", async () => {
     const rootDir = fs.mkdtempSync(path.join(os.tmpdir(), "gs-root-link-"));
     const externalRoot = fs.mkdtempSync(path.join(os.tmpdir(), "gs-root-target-"));
     const socketPath = path.join(rootDir, "daemon.sock");
@@ -1012,8 +1011,7 @@ describe("mcp: daemon session reaper", () => {
     expect(fs.readFileSync(path.join(externalSession, "keep.txt"), "utf-8")).toBe("external\n");
   });
 
-  it("refuses session construction after the established sessions root is replaced", async () => {
-    if (process.platform === "win32") return;
+  it.skipIf(process.platform === "win32")("refuses session construction after the established sessions root is replaced", async () => {
     const rootDir = fs.mkdtempSync(path.join(os.tmpdir(), "gs-create-root-swap-"));
     const externalRoot = fs.mkdtempSync(path.join(os.tmpdir(), "gs-create-target-"));
     const socketPath = path.join(rootDir, "daemon.sock");
@@ -1058,8 +1056,7 @@ describe("mcp: daemon session reaper", () => {
     expect(fs.readdirSync(externalRoot)).toEqual([]);
   });
 
-  it("refuses a periodic orphan scan after the sessions root becomes a symlink", async () => {
-    if (process.platform === "win32") return;
+  it.skipIf(process.platform === "win32")("refuses a periodic orphan scan after the sessions root becomes a symlink", async () => {
     const rootDir = fs.mkdtempSync(path.join(os.tmpdir(), "gs-root-swap-"));
     const externalRoot = fs.mkdtempSync(path.join(os.tmpdir(), "gs-swap-target-"));
     const socketPath = path.join(rootDir, "daemon.sock");
@@ -1150,8 +1147,7 @@ describe("mcp: daemon session reaper", () => {
       .toBe("replacement\n");
   });
 
-  it("refuses session removal when the sessions root is not the retained root", async () => {
-    if (process.platform === "win32") return;
+  it.skipIf(process.platform === "win32")("refuses session removal when the sessions root is not the retained root", async () => {
     const rootDir = fs.mkdtempSync(path.join(os.tmpdir(), "graft-retained-root-session-"));
     const sessionsRoot = path.join(rootDir, "sessions");
     const retainedRoot = path.join(rootDir, "sessions-retained");
@@ -1177,8 +1173,7 @@ describe("mcp: daemon session reaper", () => {
     expect(fs.readFileSync(path.join(sessionDir, "keep.txt"), "utf-8")).toBe("look-alike\n");
   });
 
-  it("refuses an orphan sweep when the sessions root is not the retained root", async () => {
-    if (process.platform === "win32") return;
+  it.skipIf(process.platform === "win32")("refuses an orphan sweep when the sessions root is not the retained root", async () => {
     const rootDir = fs.mkdtempSync(path.join(os.tmpdir(), "graft-retained-root-orphan-"));
     const sessionsRoot = path.join(rootDir, "sessions");
     const retainedRoot = path.join(rootDir, "sessions-retained");
@@ -1511,8 +1506,7 @@ describe("mcp: daemon session reaper", () => {
     expect(fs.readFileSync(path.join(staging, "keep.txt"), "utf-8")).toBe("not construction residue\n");
   });
 
-  it("refuses live-session cleanup after the sessions root becomes a symlink", async () => {
-    if (process.platform === "win32") return;
+  it.skipIf(process.platform === "win32")("refuses live-session cleanup after the sessions root becomes a symlink", async () => {
     const rootDir = fs.mkdtempSync(path.join(os.tmpdir(), "gls-root-swap-"));
     const externalRoot = fs.mkdtempSync(path.join(os.tmpdir(), "gls-swap-target-"));
     const socketPath = path.join(rootDir, "daemon.sock");
@@ -1589,8 +1583,7 @@ describe("mcp: daemon session reaper", () => {
     expect(fs.existsSync(path.join(parkedSessionsRoot, sessionId!))).toBe(true);
   });
 
-  it("preserves a directory replacement made after live-session validation", async () => {
-    if (process.platform === "win32") return;
+  it.skipIf(process.platform === "win32")("preserves a directory replacement made after live-session validation", async () => {
     const rootDir = fs.mkdtempSync(path.join(os.tmpdir(), "gls-child-swap-"));
     const externalRoot = fs.mkdtempSync(path.join(os.tmpdir(), "gls-child-target-"));
     const sessionsRoot = path.join(rootDir, "sessions");
@@ -1626,8 +1619,7 @@ describe("mcp: daemon session reaper", () => {
       .toBe("original\n");
   });
 
-  it("restores a quarantined live session inside a root renamed after quarantine", async () => {
-    if (process.platform === "win32") return;
+  it.skipIf(process.platform === "win32")("restores a quarantined live session inside a root renamed after quarantine", async () => {
     const rootDir = fs.mkdtempSync(path.join(os.tmpdir(), "glr-post-quarantine-"));
     const sessionsRoot = path.join(rootDir, "sessions");
     const parkedSessionsRoot = path.join(rootDir, "sessions-parked");
@@ -1738,10 +1730,9 @@ describe("mcp: daemon session reaper", () => {
     return name === undefined ? null : path.join(sessionsRoot, name);
   }
 
-  it.each(quarantineCallSites)(
+  it.skipIf(process.platform === "win32").each(quarantineCallSites)(
     "refuses a quarantine entry replaced after deletion begins during $callSite",
     async ({ callSite }) => {
-      if (process.platform === "win32") return;
       const rootDir = fs.mkdtempSync(path.join(os.tmpdir(), "gq-swap-"));
       const externalRoot = fs.mkdtempSync(path.join(os.tmpdir(), "gq-target-"));
       const sessionsRoot = path.join(rootDir, "sessions");
@@ -1789,10 +1780,9 @@ describe("mcp: daemon session reaper", () => {
     },
   );
 
-  it.each(quarantineCallSites)(
+  it.skipIf(process.platform === "win32").each(quarantineCallSites)(
     "removes a nested quarantined tree and unlinks its symlinks without touching their targets during $callSite",
     async ({ callSite }) => {
-      if (process.platform === "win32") return;
       const rootDir = fs.mkdtempSync(path.join(os.tmpdir(), "gq-nested-"));
       const externalRoot = fs.mkdtempSync(path.join(os.tmpdir(), "gq-link-target-"));
       const sessionsRoot = path.join(rootDir, "sessions");
@@ -1907,8 +1897,7 @@ describe("mcp: daemon session reaper", () => {
     }
   });
 
-  it("preserves a link named like a quarantine without touching its target", async () => {
-    if (process.platform === "win32") return;
+  it.skipIf(process.platform === "win32")("preserves a link named like a quarantine without touching its target", async () => {
     const rootDir = fs.mkdtempSync(path.join(os.tmpdir(), "gq-link-"));
     const externalRoot = fs.mkdtempSync(path.join(os.tmpdir(), "gq-link-ext-"));
     const sessionsRoot = path.join(rootDir, "sessions");
@@ -1971,11 +1960,10 @@ describe("mcp: daemon session reaper", () => {
     expect(fs.existsSync(quarantine)).toBe(false);
   });
 
-  it.each([
+  it.skipIf(process.platform === "win32").each([
     { phase: "enumeration", observer: "readdir" },
     { phase: "removal", observer: "readFile" },
   ] as const)("refuses an orphan scan when the sessions root changes during $phase", async ({ observer }) => {
-    if (process.platform === "win32") return;
     const rootDir = fs.mkdtempSync(path.join(os.tmpdir(), "gs-root-mid-scan-"));
     const externalRoot = fs.mkdtempSync(path.join(os.tmpdir(), "gs-root-mid-scan-target-"));
     const sessionsRoot = path.join(rootDir, "sessions");
@@ -2577,8 +2565,7 @@ describe("mcp: daemon session reaper", () => {
     expect(fs.existsSync(path.join(rootDir, "sessions"))).toBe(false);
   });
 
-  it("binds the default endpoint with admission closed before legacy orphan cleanup", async () => {
-    if (process.platform === "win32") return;
+  it.skipIf(process.platform === "win32")("binds the default endpoint with admission closed before legacy orphan cleanup", async () => {
     const rootDir = fs.mkdtempSync(path.join(os.tmpdir(), "gs-default-bind-first-"));
     const socketPath = path.join(rootDir, "mcp.sock");
     const legacySessionDir = path.join(
@@ -2673,8 +2660,7 @@ describe("mcp: daemon session reaper", () => {
     expect(fs.existsSync(legacySessionDir)).toBe(competingError === null);
   });
 
-  it("refuses custom-endpoint startup while a legacy daemon endpoint is live", async () => {
-    if (process.platform === "win32") return;
+  it.skipIf(process.platform === "win32")("refuses custom-endpoint startup while a legacy daemon endpoint is live", async () => {
     const rootDir = fs.mkdtempSync(path.join(os.tmpdir(), "gs-legacy-live-"));
     const legacySocketPath = path.join(rootDir, "mcp.sock");
     const customSocketPath = path.join(rootDir, "custom.sock");
@@ -2721,8 +2707,7 @@ describe("mcp: daemon session reaper", () => {
     expect(fs.existsSync(customSocketPath)).toBe(false);
   });
 
-  it("preserves unmarked legacy sessions during custom-endpoint sweeps", async () => {
-    if (process.platform === "win32") return;
+  it.skipIf(process.platform === "win32")("preserves unmarked legacy sessions during custom-endpoint sweeps", async () => {
     const rootDir = fs.mkdtempSync(path.join(os.tmpdir(), "gs-legacy-late-live-"));
     const legacySocketPath = path.join(rootDir, "mcp.sock");
     const customSocketPath = path.join(rootDir, "custom.sock");
@@ -3092,8 +3077,7 @@ describe("mcp: daemon session reaper", () => {
     expect(fs.lstatSync(stalePath).mtimeMs).toBe(wallClockMs);
   });
 
-  it("collects claim residue only from exact tombstone names, never through a link", async () => {
-    if (process.platform === "win32") return;
+  it.skipIf(process.platform === "win32")("collects claim residue only from exact tombstone names, never through a link", async () => {
     const rootDir = fs.mkdtempSync(path.join(os.tmpdir(), "gs-claim-gc-safety-"));
     const externalRoot = fs.mkdtempSync(path.join(os.tmpdir(), "gs-claim-gc-target-"));
     const claimPath = path.join(rootDir, "daemon-owner.json.claim");
@@ -4115,8 +4099,7 @@ describe("mcp: daemon session reaper", () => {
     expect(fs.existsSync(sessionsRoot)).toBe(false);
   });
 
-  it("retries live cleanup after the exact sessions root is restored", async () => {
-    if (process.platform === "win32") return;
+  it.skipIf(process.platform === "win32")("retries live cleanup after the exact sessions root is restored", async () => {
     const rootDir = fs.mkdtempSync(path.join(os.tmpdir(), "gs-root-retry-"));
     const externalRoot = fs.mkdtempSync(path.join(os.tmpdir(), "gs-root-retry-target-"));
     const socketPath = path.join(rootDir, "daemon.sock");
@@ -4309,8 +4292,7 @@ describe("mcp: daemon session reaper", () => {
     ]);
   });
 
-  it("marks an unsafe live-session path refusal as non-retryable", async () => {
-    if (process.platform === "win32") return;
+  it.skipIf(process.platform === "win32")("marks an unsafe live-session path refusal as non-retryable", async () => {
     const rootDir = fs.mkdtempSync(path.join(os.tmpdir(), "gs-unsafe-live-path-"));
     const externalRoot = fs.mkdtempSync(path.join(os.tmpdir(), "gs-unsafe-target-"));
     const socketPath = path.join(rootDir, "daemon.sock");
