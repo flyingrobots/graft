@@ -12,7 +12,7 @@ import type { ChildProcessDaemonWorkerPool } from "./daemon-worker-pool.js";
 import type { PersistentMonitorRuntime } from "./persistent-monitor-runtime.js";
 import type { RunCaptureConfig } from "./run-capture-config.js";
 import type { RuntimeObservabilityState } from "./runtime-observability.js";
-import type { WarpPool } from "./warp-pool.js";
+import type { WarpResidentPool } from "./warp-pool.js";
 import { ensurePrivateDirectory } from "./daemon-bootstrap.js";
 
 const MAX_BODY_BYTES = 1024 * 1024;
@@ -22,6 +22,7 @@ interface DaemonSession {
   readonly graftDir: string;
   readonly transport: StreamableHTTPServerTransport;
   readonly server: GraftServer;
+  retire(): Promise<void>;
 }
 
 export interface CreateDaemonSessionHostOptions {
@@ -31,7 +32,7 @@ export interface CreateDaemonSessionHostOptions {
   readonly healthPath: string;
   readonly mcpPath: string;
   readonly startedAt: string;
-  readonly warpPool: WarpPool;
+  readonly warpPool: WarpResidentPool;
   readonly controlPlane: DaemonControlPlane;
   readonly daemonScheduler: DaemonJobScheduler;
   readonly daemonWorkerPool: ChildProcessDaemonWorkerPool;
@@ -100,64 +101,89 @@ async function createDaemonSession(
 ): Promise<DaemonSession> {
   const sessionGraftDir = path.join(options.graftDir, "sessions", newSessionId);
   await ensurePrivateDirectory(sessionGraftDir);
-  const transport = new StreamableHTTPServerTransport({
-    sessionIdGenerator: () => newSessionId,
-  });
-  const server = createGraftServer({
-    mode: "daemon",
-    sessionId: newSessionId,
-    graftDir: sessionGraftDir,
-    warpPool: options.warpPool,
-    daemonControlPlane: options.controlPlane,
-    daemonScheduler: options.daemonScheduler,
-    daemonWorkerPool: options.daemonWorkerPool,
-    daemonRuntime: () => ({
-      transport: options.transportKind,
-      sameUserOnly: true,
-      socketPath: options.socketPath,
-      mcpPath: options.mcpPath,
-      healthPath: options.healthPath,
-      activeWarpRepos: options.warpPool.size(),
-      startedAt: options.startedAt,
-    }),
-    monitorRuntime: options.monitorRuntime,
-    ...(options.env !== undefined ? { env: options.env } : {}),
-    ...(options.runCapture !== undefined ? { runCapture: options.runCapture } : {}),
-    ...(options.runtimeObservability !== undefined
-      ? { runtimeObservability: options.runtimeObservability }
-      : {}),
-    ...(options.persistedLocalHistoryGraph !== undefined
-      ? { persistedLocalHistoryGraph: options.persistedLocalHistoryGraph }
-      : {}),
-  });
-  const session: DaemonSession = {
-    id: newSessionId,
-    graftDir: sessionGraftDir,
-    transport,
-    server,
+  let transport: StreamableHTTPServerTransport | null = null;
+  let server: GraftServer | null = null;
+  let retirement: Promise<void> | null = null;
+  const retireSession = (): Promise<void> => {
+    if (retirement !== null) return retirement;
+    retirement = (async () => {
+      sessions.delete(newSessionId);
+      options.controlPlane.unregisterTransport(newSessionId);
+      try {
+        await server?.releaseWarpLeases();
+      } catch (error) {
+        console.error(`[graft] failed to release WARP leases for session ${newSessionId}: ${String(error)}`);
+      }
+      await removeSessionDirectory(sessionGraftDir);
+    })();
+    return retirement;
   };
-  transport.onclose = () => {
-    sessions.delete(newSessionId);
-    options.controlPlane.unregisterTransport(newSessionId);
-    void removeSessionDirectory(sessionGraftDir);
-  };
-  transport.onerror = () => {
-    sessions.delete(newSessionId);
-    options.controlPlane.unregisterTransport(newSessionId);
-    void removeSessionDirectory(sessionGraftDir);
-  };
-  sessions.set(newSessionId, session);
-  options.controlPlane.registerTransport(
-    newSessionId,
-    () => server.getWorkspaceStatus(),
-    () => server.getRuntimeCausalContext(),
-  );
-  await server.getMcpServer().connect(transport as Transport);
-  return session;
+  try {
+    transport = new StreamableHTTPServerTransport({
+      sessionIdGenerator: () => newSessionId,
+    });
+    server = createGraftServer({
+      mode: "daemon",
+      sessionId: newSessionId,
+      graftDir: sessionGraftDir,
+      warpPool: options.warpPool,
+      daemonControlPlane: options.controlPlane,
+      daemonScheduler: options.daemonScheduler,
+      daemonWorkerPool: options.daemonWorkerPool,
+      daemonRuntime: () => ({
+        transport: options.transportKind,
+        sameUserOnly: true,
+        socketPath: options.socketPath,
+        mcpPath: options.mcpPath,
+        healthPath: options.healthPath,
+        activeWarpRepos: options.warpPool.size(),
+        activeWarpResidents: options.warpPool.residentCount(),
+        startedAt: options.startedAt,
+      }),
+      monitorRuntime: options.monitorRuntime,
+      ...(options.env !== undefined ? { env: options.env } : {}),
+      ...(options.runCapture !== undefined ? { runCapture: options.runCapture } : {}),
+      ...(options.runtimeObservability !== undefined
+        ? { runtimeObservability: options.runtimeObservability }
+        : {}),
+      ...(options.persistedLocalHistoryGraph !== undefined
+        ? { persistedLocalHistoryGraph: options.persistedLocalHistoryGraph }
+        : {}),
+    });
+    const session: DaemonSession = {
+      id: newSessionId,
+      graftDir: sessionGraftDir,
+      transport,
+      server,
+      retire: () => retireSession(),
+    };
+    transport.onclose = () => {
+      void retireSession();
+    };
+    transport.onerror = () => {
+      void retireSession();
+    };
+    sessions.set(newSessionId, session);
+    options.controlPlane.registerTransport(
+      newSessionId,
+      () => session.server.getWorkspaceStatus(),
+      () => session.server.getRuntimeCausalContext(),
+    );
+    await server.getMcpServer().connect(transport as Transport);
+    return session;
+  } catch (error) {
+    await transport?.close().catch(() => undefined);
+    await retireSession();
+    throw error;
+  }
 }
 
 export function createDaemonSessionHost(options: CreateDaemonSessionHostOptions): DaemonSessionHost {
   const sessions = new Map<string, DaemonSession>();
+  const pendingInitializations = new Set<Promise<DaemonSession>>();
+  let acceptingSessions = true;
+  let closePromise: Promise<void> | null = null;
+  const isAcceptingSessions = (): boolean => acceptingSessions;
 
   return {
     async handleRequest(req, res): Promise<void> {
@@ -173,11 +199,21 @@ export function createDaemonSessionHost(options: CreateDaemonSessionHostOptions)
           return;
         }
 
+        if (!isAcceptingSessions()) {
+          sendJsonRpcError(res, -32000, "Daemon session host is shutting down");
+          return;
+        }
+
         const sessionId = getHeader(req, "mcp-session-id");
 
         if (req.method === "POST") {
           const parsedBody = await readJsonBody(req);
+          if (!isAcceptingSessions()) {
+            sendJsonRpcError(res, -32000, "Daemon session host is shutting down");
+            return;
+          }
           let session = sessionId !== undefined ? sessions.get(sessionId) : undefined;
+          let createdSession = false;
           if (session === undefined) {
             if (sessionId !== undefined) {
               sendJsonRpcError(res, -32000, `Unknown MCP session: ${sessionId}`);
@@ -187,11 +223,26 @@ export function createDaemonSessionHost(options: CreateDaemonSessionHostOptions)
               sendJsonRpcError(res, -32000, "Initialization requests must start a daemon session");
               return;
             }
-            session = await createDaemonSession(crypto.randomUUID(), options, sessions);
+            const initialization = createDaemonSession(crypto.randomUUID(), options, sessions);
+            pendingInitializations.add(initialization);
+            try {
+              session = await initialization;
+              createdSession = true;
+            } finally {
+              pendingInitializations.delete(initialization);
+            }
           }
 
           options.controlPlane.touchTransport(session.id);
-          await session.transport.handleRequest(req, res, parsedBody);
+          try {
+            await session.transport.handleRequest(req, res, parsedBody);
+          } catch (error) {
+            if (createdSession) {
+              await session.transport.close().catch(() => undefined);
+              await session.retire();
+            }
+            throw error;
+          }
           return;
         }
 
@@ -221,14 +272,29 @@ export function createDaemonSessionHost(options: CreateDaemonSessionHostOptions)
     },
 
     async close(): Promise<void> {
-      for (const session of [...sessions.values()]) {
-        options.controlPlane.unregisterTransport(session.id);
-        await session.transport.close().catch(() => {
-          return undefined;
-        });
-        await removeSessionDirectory(session.graftDir);
-      }
-      sessions.clear();
+      if (closePromise !== null) return closePromise;
+      acceptingSessions = false;
+      closePromise = (async () => {
+        await Promise.allSettled([...pendingInitializations]);
+        const releaseErrors: unknown[] = [];
+        for (const session of [...sessions.values()]) {
+          options.controlPlane.unregisterTransport(session.id);
+          try {
+            await session.server.releaseWarpLeases();
+          } catch (error) {
+            releaseErrors.push(error);
+          }
+          await session.transport.close().catch(() => {
+            return undefined;
+          });
+          await removeSessionDirectory(session.graftDir);
+        }
+        sessions.clear();
+        if (releaseErrors.length > 0) {
+          throw new AggregateError(releaseErrors, "Failed to release daemon-session WARP leases");
+        }
+      })();
+      return closePromise;
     },
   };
 }
