@@ -141,12 +141,13 @@ The write path turns Git history into structural worldline facts by extracting A
 
 The source repository is evidence, not graph storage. Production composition
 roots persist WARP refs and objects in private bare sidecar repositories under
-`~/.graft/graphs`. One locator derives the sidecar path from canonical
+`<graft root>/graphs`, where the Graft root is `graftRootPath()`:
+`GRAFT_ROOT_PATH`, or `~/.graft` while it is unset. One locator derives the sidecar path from canonical
 repository identity, canonical worktree identity, and the logical actor or
 session identity:
 
 ```text
-~/.graft/graphs/<project--repo-id>/<worktree--worktree-id>/<actor--actor-id>/warp.git
+<graft root>/graphs/<project--repo-id>/<worktree--worktree-id>/<actor--actor-id>/warp.git
 ```
 
 This complete identity drives both in-memory handle reuse and persistent

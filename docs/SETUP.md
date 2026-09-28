@@ -630,7 +630,8 @@ they touch. Unbounded whole-repo eager indexing is guarded.
 
 WARP graph persistence never uses the source repository as its Git object or
 ref store. Graft creates a private bare sidecar repository under
-`~/.graft/graphs/<project>/<worktree>/<actor>/warp.git`; the readable
+`<graft root>/graphs/<project>/<worktree>/<actor>/warp.git`, where the Graft
+root is `GRAFT_ROOT_PATH`, or `~/.graft` while it is unset; the readable
 directories include deterministic identity suffixes. Linked worktrees and
 independent MCP sessions use distinct sidecars, so one agent cannot read
 another agent's working graph through a shared handle. Existing legacy

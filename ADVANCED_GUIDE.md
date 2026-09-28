@@ -21,7 +21,8 @@ inspection surfaces. An explicit `cwd` on a routed repository tool opens its
 canonical containing worktree with the default profile without changing the
 active binding; calls without a route still require a bound workspace.
 
-WARP persistence lives in private bare sidecars under `~/.graft/graphs`, keyed
+WARP persistence lives in private bare sidecars under `<graft root>/graphs`
+(`~/.graft/graphs` unless `GRAFT_ROOT_PATH` moves the Graft root), keyed
 by repository, worktree, and actor identity. The source Git repository remains
 evidence only and receives no WARP refs, objects, config, or hooks.
 

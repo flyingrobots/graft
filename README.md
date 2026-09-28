@@ -131,7 +131,8 @@ capabilities. For lower-level control-plane posture, use
 
 WARP persistence is private sidecar state, not source-repository state. By
 default, Graft creates bare repositories under
-`~/.graft/graphs/<project>/<worktree>/<actor>/warp.git`. The readable path
+`~/.graft/graphs/<project>/<worktree>/<actor>/warp.git`, or under
+`$GRAFT_ROOT_PATH/graphs` when that variable is set. The readable path
 names carry identity suffixes, and separate worktrees and MCP sessions receive
 separate graph stores. Advanced `graphRoot` overrides fail closed when blank,
 symlink-aliased, or overlapping the source worktree or common Git directory.

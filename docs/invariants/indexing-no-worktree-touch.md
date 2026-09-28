@@ -10,7 +10,8 @@ WARP indexing must never mutate the source worktree or its Git database.
 ## Why it matters
 
 WARP refs and objects live in a private bare sidecar under
-`~/.graft/graphs/<project>/<worktree>/<actor>/warp.git`. The source repository
+`<graft root>/graphs/<project>/<worktree>/<actor>/warp.git` (`~/.graft/graphs`
+unless `GRAFT_ROOT_PATH` is set). The source repository
 is read as evidence only. If indexing changes its worktree, refs, objects,
 config, or hooks, operator state and repository integrity are at risk.
 
