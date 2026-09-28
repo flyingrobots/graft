@@ -11,6 +11,19 @@ Repo truth today is narrower than a finished strict-hex claim:
 
 ## Official Entry Points
 
+Daemon inspection uses the same application-query boundary across the typed
+API and CLI. `src/operations/daemon-inspection.ts` owns the bounded synchronous
+observation over `InspectionSource`; the runtime supplies passive iterators of
+its authoritative maps. The query cannot open a graph, execute a repository
+operation, or register/touch a workload session through that port.
+`src/mcp/daemon-inspection-route.ts` exposes the shared contract on the existing
+same-user socket as `GET /inspect/v1`, before MCP session routing.
+`src/adapters/local-daemon-inspection-client.ts` is the bounded local transport
+client used independently by the API and CLI. HTTP remains a daemon adapter;
+no new TCP listener or MCP tool is introduced. The inspector reports coherent
+parent-owned memory, not atomic source/worker observations, and leaves unavailable
+index evidence explicit. See the [focused design](./docs/design/SURFACE_read-only-daemon-inspector.md).
+
 Graft now has three official product entry points:
 
 1. **API** — the direct package/library surface exported from the root

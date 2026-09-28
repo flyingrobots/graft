@@ -1,0 +1,228 @@
+{
+  "status": "ok",
+  "clientVersion": "example-client",
+  "observation": {
+    "schemaId": "graft.daemon.inspection",
+    "schemaVersion": "1.0.0",
+    "runtime": {
+      "incarnationId": "incarnation:example",
+      "startedAt": "2026-09-07T10:00:00.000Z",
+      "pid": 42,
+      "version": "example-build",
+      "modulePath": "/example/graft/dist/mcp/daemon-server.js",
+      "executablePath": "/example/node",
+      "socketPath": "/example/daemon.sock"
+    },
+    "capture": {
+      "sequence": 1,
+      "observedAt": "2026-09-07T10:00:00.000Z",
+      "consistency": "synchronous_parent_state",
+      "componentGenerations": "not_retained",
+      "workUnits": 16,
+      "workerEvidence": "parent_last_known_assignments"
+    },
+    "scope": {
+      "authority": "same_user_operator",
+      "filter": {},
+      "jobs": "scheduler_jobs_only",
+      "workers": "daemon_wide",
+      "pool": "daemon_wide",
+      "history": "daemon_lifetime_all_workspaces"
+    },
+    "sessions": {
+      "availability": "available",
+      "completeness": "complete",
+      "returned": 2,
+      "matchingTotal": 2,
+      "reason": null,
+      "rows": [
+        {
+          "sessionId": "session:one",
+          "startedAt": "2026-09-07T10:00:00.000Z",
+          "lastActivityAt": "2026-09-07T10:00:00.000Z",
+          "activeWorkspace": {
+            "repoId": "repo:example",
+            "worktreeId": "worktree:b",
+            "worktreeRoot": "/example/project-b"
+          },
+          "reportedClient": {
+            "name": "reported-client",
+            "version": "example",
+            "verification": "client_reported"
+          },
+          "reportedClientAvailability": "available",
+          "openedWorkspaces": {
+            "availability": "available",
+            "completeness": "complete",
+            "returned": 2,
+            "matchingTotal": 2,
+            "reason": null,
+            "rows": [
+              {
+                "repoId": "repo:example",
+                "worktreeId": "worktree:a",
+                "worktreeRoot": "/example/project-a",
+                "openedAt": "2026-09-07T10:00:00.000Z",
+                "lastActivatedAt": "2026-09-07T10:00:00.000Z"
+              },
+              {
+                "repoId": "repo:example",
+                "worktreeId": "worktree:b",
+                "worktreeRoot": "/example/project-b",
+                "openedAt": "2026-09-07T10:00:00.000Z",
+                "lastActivatedAt": "2026-09-07T10:00:00.000Z"
+              }
+            ]
+          }
+        },
+        {
+          "sessionId": "session:two",
+          "startedAt": "2026-09-07T10:00:00.000Z",
+          "lastActivityAt": "2026-09-07T10:00:00.000Z",
+          "activeWorkspace": {
+            "repoId": "repo:example",
+            "worktreeId": "worktree:a",
+            "worktreeRoot": "/example/project-a"
+          },
+          "reportedClient": null,
+          "reportedClientAvailability": "not_retained",
+          "openedWorkspaces": {
+            "availability": "available",
+            "completeness": "complete",
+            "returned": 1,
+            "matchingTotal": 1,
+            "reason": null,
+            "rows": [
+              {
+                "repoId": "repo:example",
+                "worktreeId": "worktree:a",
+                "worktreeRoot": "/example/project-a",
+                "openedAt": "2026-09-07T10:00:00.000Z",
+                "lastActivatedAt": "2026-09-07T10:00:00.000Z"
+              }
+            ]
+          }
+        }
+      ]
+    },
+    "workspaces": {
+      "availability": "available",
+      "completeness": "complete",
+      "returned": 2,
+      "matchingTotal": 2,
+      "reason": null,
+      "rows": [
+        {
+          "repoId": "repo:example",
+          "worktreeId": "worktree:a",
+          "worktreeRoot": "/example/project-a",
+          "authorizedAt": "2026-09-07T10:00:00.000Z",
+          "authorization": "authorized",
+          "indexEvidence": {
+            "availability": "not_retained",
+            "entryCount": null,
+            "countScope": null,
+            "completeness": "unknown",
+            "sourceObservations": "unknown",
+            "basis": null,
+            "currentSourceValidation": "unavailable"
+          },
+          "storageAssociation": "not_retained",
+          "residency": "not_retained"
+        },
+        {
+          "repoId": "repo:example",
+          "worktreeId": "worktree:b",
+          "worktreeRoot": "/example/project-b",
+          "authorizedAt": "2026-09-07T10:00:00.000Z",
+          "authorization": "authorized",
+          "indexEvidence": {
+            "availability": "not_retained",
+            "entryCount": null,
+            "countScope": null,
+            "completeness": "unknown",
+            "sourceObservations": "unknown",
+            "basis": null,
+            "currentSourceValidation": "unavailable"
+          },
+          "storageAssociation": "not_retained",
+          "residency": "not_retained"
+        }
+      ]
+    },
+    "jobs": {
+      "availability": "available",
+      "completeness": "complete",
+      "returned": 1,
+      "matchingTotal": 1,
+      "reason": null,
+      "rows": [
+        {
+          "jobId": "job:a",
+          "sessionId": "session:one",
+          "repoId": "repo:example",
+          "worktreeId": "worktree:a",
+          "sliceId": "slice:a",
+          "writerId": "writer:one",
+          "tool": "file_outline",
+          "kind": "repo_tool",
+          "priority": "interactive",
+          "state": "running",
+          "enqueuedAt": "2026-09-07T10:00:00.000Z",
+          "startedAt": "2026-09-07T10:00:00.000Z",
+          "originatingSession": "registered",
+          "waitReason": "not_exposed",
+          "workerCorrelation": "not_retained"
+        }
+      ]
+    },
+    "workers": {
+      "availability": "available",
+      "completeness": "complete",
+      "returned": 1,
+      "matchingTotal": 1,
+      "reason": null,
+      "rows": [
+        {
+          "workerId": "worker:one",
+          "pid": 43,
+          "requestId": "worker-request:a",
+          "state": "assigned",
+          "sessionId": "session:one",
+          "repoId": "repo:example",
+          "worktreeId": "worktree:a"
+        }
+      ]
+    },
+    "monitors": {
+      "availability": "available",
+      "completeness": "complete",
+      "returned": 0,
+      "matchingTotal": 0,
+      "reason": null,
+      "rows": []
+    },
+    "pool": {
+      "repositoryKeys": 1,
+      "meaning": "pool_keys_including_pending_opens",
+      "workspaceAssociations": "not_retained"
+    },
+    "history": {
+      "incarnationId": "incarnation:example",
+      "accumulationStartedAt": "2026-09-07T10:00:00.000Z",
+      "scheduler": {
+        "completed": 4,
+        "failed": 2
+      },
+      "workers": {
+        "completed": 4,
+        "failed": 2
+      },
+      "recentFailures": "not_retained"
+    },
+    "serviceAssessment": {
+      "availability": "unsupported",
+      "reason": "NO_CURRENT_HEALTH_RULE"
+    }
+  }
+}

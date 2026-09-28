@@ -1,7 +1,13 @@
 import * as fs from "node:fs/promises";
 import * as http from "node:http";
 import * as path from "node:path";
+import { randomUUID } from "node:crypto";
+import { fileURLToPath } from "node:url";
+import { DaemonInspectionQuery } from "../operations/daemon-inspection.js";
+import { GRAFT_VERSION } from "../version.js";
+import { createDaemonInspectionRoute } from "./daemon-inspection-route.js";
 import { CanonicalJsonCodec } from "../adapters/canonical-json.js";
+import { graftRootPath } from "../adapters/graft-root.js";
 import { nodeFs } from "../adapters/node-fs.js";
 import { nodeGit } from "../adapters/node-git.js";
 import { ensureGitVersionSupportsGraft } from "../git/version-guard.js";
@@ -69,12 +75,15 @@ export async function closeDaemonResources(stages: readonly DaemonShutdownStage[
 
 export async function startDaemonServer(options: StartDaemonServerOptions = {}): Promise<GraftDaemonServer> {
   await ensureGitVersionSupportsGraft();
-  const graftDir = path.resolve(options.graftDir ?? defaultDaemonRoot());
+  const env = options.env ?? process.env;
+  const graftDir = path.resolve(options.graftDir ?? defaultDaemonRoot(graftRootPath(env)));
   const graphRoot = resolveWarpGraphRoot(options.graphRoot);
-  const socketPath = resolveSocketPath(options.socketPath, graftDir);
+  const socketPath = resolveSocketPath(options.socketPath, graftDir, undefined, { env });
+  const startedAt = new Date().toISOString();
+  const incarnationId = randomUUID();
   const warpPool = new InMemoryWarpPool({
     graphRoot,
-    ...resolveWarpPoolOptions(options.env ?? process.env),
+    ...resolveWarpPoolOptions(env),
   });
   const controlPlane = new DaemonControlPlane({
     fs: nodeFs,
@@ -96,7 +105,6 @@ export async function startDaemonServer(options: StartDaemonServerOptions = {}):
     scheduler: daemonScheduler,
     workerPool: daemonWorkerPool,
   });
-  const startedAt = new Date().toISOString();
   const transportKind = isNamedPipePath(socketPath) ? "named_pipe" : "unix_socket";
 
   const getHealthStatus = (): DaemonHealthStatus => {
@@ -140,7 +148,24 @@ export async function startDaemonServer(options: StartDaemonServerOptions = {}):
       : {}),
   });
 
+  const inspection = new DaemonInspectionQuery({
+    runtime: { incarnationId, startedAt, pid: process.pid, version: GRAFT_VERSION,
+      modulePath: fileURLToPath(import.meta.url), executablePath: process.execPath, socketPath },
+    now: () => new Date().toISOString(),
+    source: {
+      sessions: (id) => controlPlane.inspectionSessions(id),
+      workspaces: () => controlPlane.inspectionWorkspaces(),
+      jobs: () => daemonScheduler.inspectionJobs(),
+      workers: () => daemonWorkerPool.inspectionWorkers(),
+      monitors: () => monitorRuntime.inspectionMonitors(),
+      hasSession: (id) => controlPlane.inspectionHasSession(id),
+      counters: () => ({ scheduler: daemonScheduler.inspectionCounters(), workers: daemonWorkerPool.inspectionCounters() }),
+      pool: () => ({ repositoryKeys: warpPool.size() }),
+    },
+  });
+  const inspectionRoute = createDaemonInspectionRoute(request => inspection.capture(request));
   const httpServer = http.createServer((req, res) => {
+    if (inspectionRoute.handle(req, res)) return;
     void sessionHost.handleRequest(req, res);
   });
 
@@ -186,6 +211,7 @@ export async function startDaemonServer(options: StartDaemonServerOptions = {}):
         process.off("SIGINT", shutdown);
         process.off("SIGTERM", shutdown);
         await closeDaemonResources([
+          { close: () => { inspectionRoute.close(); return Promise.resolve(); } },
           { close: () => sessionHost.close() },
           { close: () => monitorRuntime.close() },
           { close: () => daemonWorkerPool.close() },

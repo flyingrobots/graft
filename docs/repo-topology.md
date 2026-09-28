@@ -87,3 +87,11 @@ should not absorb product flow that belongs in the application layer.
   details, it probably belongs in a secondary adapter or behind a port.
 - Lint guardrails must treat `src/api/` the same way they already treat
   `src/cli/` and `src/mcp/` as primary-adapter boundaries.
+
+## Proposed package extraction
+
+The [modular runtime and library design](design/CORE_modular-graft-runtime-and-library.md)
+maps the complete pinned production/build inventory into an embeddable library
+and a combined CLI/daemon operator package, with an optional later TUI. It also
+records resource ownership gaps and independent containment work. This is a
+proposal; the source topology described above remains the implemented baseline.

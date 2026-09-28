@@ -353,6 +353,25 @@ describe("mcp: daemon transport and lifecycle", () => {
     expect((parseJson(closedHealth) as { activeSessions: number }).activeSessions).toBe(0);
   });
 
+  it("keeps its default state under the injected environment's GRAFT_ROOT_PATH, not the process's", async () => {
+    // Oracle: the documented layout, <graft root>/daemon, with the socket at
+    // daemon/mcp.sock outside Windows. The ambient GRAFT_ROOT_PATH is the test
+    // setup's root, so a daemon that ignored the injected env would land there.
+    const rootDir = fs.mkdtempSync(path.join(os.tmpdir(), "graft-daemon-root-"));
+    roots.push(rootDir);
+    const ambientDaemonRoot = path.join(process.env["GRAFT_ROOT_PATH"]!, "daemon");
+    const daemon = await startTestDaemonServer({
+      env: { ...process.env, GRAFT_ROOT_PATH: rootDir },
+    });
+    daemons.push(daemon);
+
+    expect(fs.existsSync(path.join(rootDir, "daemon", "sessions"))).toBe(true);
+    expect(fs.existsSync(ambientDaemonRoot)).toBe(false);
+    if (process.platform !== "win32") {
+      expect(daemon.socketPath).toBe(path.join(rootDir, "daemon", "mcp.sock"));
+    }
+  });
+
   it("rejects an initialize request that finishes after shutdown stops session admission", {
     timeout: 15_000,
   }, async () => {

@@ -119,9 +119,9 @@ export const ENTRYPOINT_SURFACES = ["api", "cli", "mcp"] as const;
 
 export type EntrypointSurface = typeof ENTRYPOINT_SURFACES[number];
 
-export type ApiExposure = "tool_bridge" | "repo_workspace" | "structured_buffer";
+export type ApiExposure = "tool_bridge" | "repo_workspace" | "structured_buffer" | "daemon_inspection";
 
-export type CliMcpParity = "peer" | "cli_only" | "composed_cli_operator" | "mcp_only" | "not_applicable";
+export type CliMcpParity = "peer" | "cli_only" | "composed_cli_operator" | "operator_query" | "mcp_only" | "not_applicable";
 
 export interface CapabilityMatrixRow {
   readonly id: string;
@@ -137,6 +137,7 @@ export interface CapabilityMatrixRow {
 export interface ThreeSurfaceCapabilityBaseline {
   readonly cliOnly: number;
   readonly apiCliMcp: number;
+  readonly apiCli: number;
   readonly apiMcp: number;
   readonly apiOnly: number;
   readonly directCliMcpPeers: number;
@@ -173,7 +174,7 @@ function defineCapability(seed: CapabilitySeed): CapabilityDefinition {
   }
   if (seed.cliCommand !== undefined) {
     surfaces.push("cli");
-  } else if (seed.cliMcpParity === "composed_cli_operator") {
+  } else if (seed.cliMcpParity === "composed_cli_operator" || seed.cliMcpParity === "operator_query") {
     surfaces.push("cli");
   }
   if (seed.mcpTool !== undefined) {
@@ -308,6 +309,13 @@ export const CAPABILITY_REGISTRY: readonly CapabilityDefinition[] = [
     mcpTool: "daemon_status",
     cliPath: ["daemon", "status"],
     cliMcpParity: "composed_cli_operator",
+  }),
+  defineCapability({
+    id: "daemon_inspect",
+    description: "Observe bounded daemon relationships through the same-user inspection query",
+    apiExposure: "daemon_inspection",
+    cliPath: ["daemon", "inspect"],
+    cliMcpParity: "operator_query",
   }),
   defineCapability({
     id: "daemon_sessions",
@@ -622,6 +630,7 @@ export function buildThreeSurfaceCapabilityBaseline(): ThreeSurfaceCapabilityBas
   return {
     cliOnly: CAPABILITY_REGISTRY.filter((capability) => capability.surfaces.join(",") === "cli").length,
     apiCliMcp: CAPABILITY_REGISTRY.filter((capability) => capability.surfaces.join(",") === "api,cli,mcp").length,
+    apiCli: CAPABILITY_REGISTRY.filter((capability) => capability.surfaces.join(",") === "api,cli").length,
     apiMcp: CAPABILITY_REGISTRY.filter((capability) => capability.surfaces.join(",") === "api,mcp").length,
     apiOnly: CAPABILITY_REGISTRY.filter((capability) => capability.surfaces.join(",") === "api").length,
     directCliMcpPeers: CAPABILITY_REGISTRY.filter((capability) => capability.cliMcpParity === "peer").length,

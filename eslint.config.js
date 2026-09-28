@@ -218,6 +218,27 @@ export default tseslint.config(
     ],
   ),
   {
+    // Only the Graft root resolver reads the home directory. Every other
+    // per-user default derives from graftRootPath(), so GRAFT_ROOT_PATH moves
+    // it (docs/design/CORE_graft-root-path.md).
+    files: ["src/**/*.ts"],
+    ignores: ["src/adapters/graft-root.ts"],
+    rules: {
+      "no-restricted-properties": [
+        "error",
+        { property: "homedir", message: "Derive per-user paths from graftRootPath() in src/adapters/graft-root.ts." },
+        { property: "HOME", message: "Derive per-user paths from graftRootPath() in src/adapters/graft-root.ts." },
+      ],
+      "no-restricted-syntax": [
+        "error",
+        {
+          selector: "ImportSpecifier[imported.name='homedir']",
+          message: "Derive per-user paths from graftRootPath() in src/adapters/graft-root.ts.",
+        },
+      ],
+    },
+  },
+  {
     // parser/runtime.ts is an application module that loads WASM
     // binaries via node:module — this is the only permitted host
     // library import in the parser layer.

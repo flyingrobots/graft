@@ -19,6 +19,34 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   `CreateGraftServerOptions` and `StartDaemonServerOptions` accept an additive
   `graphRoot` field. The default remains `~/.graft/graphs`; blank,
   symlink-aliased, and source-overlapping roots fail before storage mutation.
+- **`GRAFT_ROOT_PATH`**: Graft's per-user root, `~/.graft` by default, can be set
+  to any absolute path. The daemon's default root and its Windows pipe name
+  derive from it (from the `env` passed to `startDaemonServer`, when one is),
+  and it is the only place Graft reads the home directory. A
+  relative value is refused, and so on Windows is one without a drive or UNC
+  share, such as `\graft`. The test suite sets it to a temporary directory,
+  and a test fails if the per-user defaults resolve anywhere else.
+- **Read-only daemon inspection**: `graft daemon inspect` and the typed
+  `inspectDaemon` API capture bounded current session/workspace relationships,
+  admitted job routes, parent-known workers, monitor records, loaded process
+  identity, and separate lifetime counters. A dedicated same-user socket route
+  performs no MCP initialization, workspace discovery, graph opens, indexing,
+  workload touches, or work admission. Exact ID filters and text/JSON output
+  preserve partial/unavailable evidence; capture age never claims source
+  freshness. Older daemons return unsupported without startup or fallback.
+  The existing `daemon status` contract is unchanged. Navigation, polling,
+  retained failure history, and index-coverage measurement remain separate work.
+- **Inspection validator invariants**: the observation schema rejects a session
+  whose `reportedClient` payload contradicts `reportedClientAvailability`
+  (`null` with `available`, or a client object with `not_retained`), and a
+  `truncated` collection whose known `matchingTotal` does not exceed `returned`.
+  It also rejects a job whose `startedAt` contradicts its `state`: a `queued`
+  job with a start time, or a `running` job without one.
+- **Inspection scope check**: the inspection client returns
+  `observation_failed` with reason `INSPECTION_SCOPE_MISMATCH` when a
+  well-formed observation's `scope.filter` does not echo the requested
+  `sessionId`, `workspaceId`, `repoId` and `limit` exactly, so rows captured
+  under another selector are never reported as the answer to this one.
 
 ### Changed
 
@@ -74,6 +102,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   process, while first-time bare-repository installation is atomic across
   processes. Callers can no longer observe a partial sidecar or race its Git
   configuration.
+
+### Documentation
+
+- **Modular Graft design packet** (`docs/design/CORE_modular-graft-runtime-and-library.md`):
+  separates embeddable Graft from its operator runtime, with a source ownership
+  inventory. `src/api/tool-bridge.ts` stays with the operator compatibility facade, because
+  its signatures carry MCP SDK types.
+  `src/git/target-git-hook-bootstrap.ts` is split: its pure hook contract moves
+  to the library, and building the hook script stays with the operator.
 
 ## [0.14.0] - 2026-09-11
 

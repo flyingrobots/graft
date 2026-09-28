@@ -1,0 +1,25 @@
+ FAIL  test/unit/operations/daemon-inspection.test.ts > bounded daemon observation > does not replace failed evidence with a zero or a complete empty list
+AssertionError: expected { availability: 'available', …(5) } to match object { availability: 'unavailable', …(2) }
+(3 matching properties omitted from actual)
+
+- Expected
++ Received
+
+  {
+-   "availability": "unavailable",
+-   "completeness": "unknown",
+-   "matchingTotal": null,
++   "availability": "available",
++   "completeness": "complete",
++   "matchingTotal": 0,
+  }
+
+ ❯ test/unit/operations/daemon-inspection.test.ts:90:25
+     88|     source.jobs = () => { throw new Error("password=do-not-export"); };
+     89|     const result = query.capture({ sessionId: "s" });
+     90|     expect(result.jobs).toMatchObject({ availability: "unavailable", m…
+       |                         ^
+     91|     expect(result.workspaces.completeness).not.toBe("complete");
+     92|     expect(JSON.stringify(result)).not.toContain("do-not-export");
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
