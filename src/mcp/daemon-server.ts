@@ -33,6 +33,7 @@ import {
   createDaemonSessionHost,
   type DaemonSessionHost,
   type SessionSweepResult,
+  orphanRemovalCleanupFailures,
   resolveSessionInactivityTtlMs,
   resolveSessionReaperIntervalMs,
 } from "./daemon-session-host.js";
@@ -219,11 +220,13 @@ export async function startDaemonServer(options: StartDaemonServerOptions = {}):
         `[graft] preserved session storage entries: ${JSON.stringify(startupOrphans.preservedEntries)}`,
       );
     }
+    // A prior-process directory startup cannot inspect or remove is debt for a
+    // later sweep, which retries it; it never refuses startup.
     if (startupOrphans.failures.length > 0) {
-      throw new AggregateError(
-        startupOrphans.failures.map((failure) => failure.error),
-        "Failed to remove prior-process daemon session directories",
-      );
+      console.error({
+        code: "DAEMON_STARTUP_SESSION_CLEANUP_DEFERRED",
+        cleanupFailures: orphanRemovalCleanupFailures(startupOrphans.failures),
+      });
     }
 
     const activeSessionHost = createDaemonSessionHost({

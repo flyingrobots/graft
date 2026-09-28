@@ -104,7 +104,9 @@ lifecycle does not claim to bound every daemon cache or working set.
 - **Crash and cleanup recovery** begins only after the daemon has exclusive
   ownership of its configured root. Startup removes eligible prior-process
   session directories; every later sweep also retries eligible current-process
-  orphans. Unknown files, links, malformed ownership records, and unsafe paths
+  orphans. A prior-process directory that startup cannot inspect or remove does
+  not refuse startup: it is logged as `DAEMON_STARTUP_SESSION_CLEANUP_DEFERRED`
+  with structured cleanup failures and remains debt for the next sweep. Unknown files, links, malformed ownership records, and unsafe paths
   are preserved. A daemon using a custom endpoint never deletes an unmarked
   legacy UUID directory; only the default endpoint may perform that migration
   cleanup. The default endpoint is already bound, but returns HTTP 503, before

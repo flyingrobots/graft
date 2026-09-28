@@ -16,7 +16,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   still-active session to eviction. Reaping closes HTTP transports, revokes
   registrations in `DaemonControlPlane`, and purges session scratch directories.
   Daemon startup now claims exclusive ownership of its daemon root and removes eligible
-  prior-process session directories before accepting requests. Manual sweeps
+  prior-process session directories before accepting requests. A prior-process
+  directory that startup cannot inspect or remove does not refuse startup: it is
+  logged once as `DAEMON_STARTUP_SESSION_CLEANUP_DEFERRED` with structured
+  cleanup failures and retried by every later sweep. Manual sweeps
   report retired sessions, live-directory removals, orphan removals, and cleanup
   failures separately; failed current-process directory cleanup remains
   discoverable and retryable by later sweeps. The process-local elapsed-time

@@ -1261,6 +1261,52 @@ describe("mcp: daemon session reaper", () => {
     expect(fs.existsSync(unreadableDir)).toBe(true);
   });
 
+  it("starts with a prior-process orphan it cannot clean and records it as debt for the next sweep", async () => {
+    const rootDir = fs.mkdtempSync(path.join(os.tmpdir(), "go-startup-debt-"));
+    const sessionsRoot = path.join(rootDir, "sessions");
+    const socketPath = path.join(rootDir, "daemon.sock");
+    const unreadableId = "00000000-0000-4000-8000-000000000001";
+    const removableId = "00000000-0000-4000-8000-000000000002";
+    const unreadableDir = path.join(sessionsRoot, unreadableId);
+    const removableDir = path.join(sessionsRoot, removableId);
+    fs.mkdirSync(unreadableDir, { recursive: true, mode: 0o700 });
+    fs.mkdirSync(removableDir, { recursive: true, mode: 0o700 });
+    fs.chmodSync(sessionsRoot, 0o700);
+    await writeSessionOwnershipMarker(unreadableDir, "00000000-0000-4000-8000-000000000799", unreadableId);
+    await writeSessionOwnershipMarker(removableDir, "00000000-0000-4000-8000-000000000799", removableId);
+    cleanups.push(() => {
+      fs.rmSync(rootDir, { recursive: true, force: true });
+    });
+    const consoleError = vi.spyOn(console, "error").mockImplementation(() => undefined);
+    cleanups.push(() => {
+      consoleError.mockRestore();
+    });
+    injectOwnershipMarkerLstatFailure(unreadableDir);
+
+    const daemon = await startDaemonServer({
+      graftDir: rootDir,
+      socketPath,
+      sessionReaperIntervalMs: 0,
+    });
+    cleanups.push(() => daemon.close());
+
+    expect(fs.existsSync(removableDir)).toBe(false);
+    expect(fs.existsSync(unreadableDir)).toBe(true);
+    const expectedDebt = expect.objectContaining({
+      code: "ORPHAN_DIRECTORY_REMOVE_FAILED",
+      sessionId: unreadableId,
+      path: unreadableDir,
+      retryable: true,
+    });
+    expect(consoleError).toHaveBeenCalledWith({
+      code: "DAEMON_STARTUP_SESSION_CLEANUP_DEFERRED",
+      cleanupFailures: [expectedDebt],
+    });
+    const sweep = await daemon.reapExpiredSessions();
+    expect(sweep.cleanupFailures).toEqual([expectedDebt]);
+    expect((await requestUnixJson(socketPath, "GET", "/healthz")).statusCode).toBe(200);
+  });
+
   it("refuses live-session cleanup after the sessions root becomes a symlink", async () => {
     if (process.platform === "win32") return;
     const rootDir = fs.mkdtempSync(path.join(os.tmpdir(), "gls-root-swap-"));

@@ -20,6 +20,7 @@ import type {
   DaemonSessionsRootAuthority,
   LegacyUnmarkedSessionPolicy,
   SessionOrphanPreservedEntry,
+  SessionOrphanRemovalFailure,
 } from "./daemon-storage-ownership.js";
 import {
   removeEmptyUncapturedSessionDirectory,
@@ -85,6 +86,23 @@ function cleanupFailure(input: {
     retryable: input.retryable,
     message: input.error instanceof Error ? input.error.message : String(input.error),
   };
+}
+
+/**
+ * Maps orphan-removal failures to structured cleanup failures. Startup and
+ * every sweep report them the same way: as retryable debt for a later sweep,
+ * except an unsafe-path refusal, which no retry can clear.
+ */
+export function orphanRemovalCleanupFailures(
+  failures: readonly SessionOrphanRemovalFailure[],
+): SessionCleanupFailure[] {
+  return failures.map((failure) => cleanupFailure({
+    code: "ORPHAN_DIRECTORY_REMOVE_FAILED",
+    sessionId: failure.sessionId,
+    path: failure.path,
+    retryable: !(failure.error instanceof UnsafeDaemonSessionDirectoryError),
+    error: failure.error,
+  }));
 }
 
 export function resolveSessionInactivityTtlMs(value: number | undefined): number {
@@ -667,13 +685,7 @@ export function createDaemonSessionHost(options: CreateDaemonSessionHostOptions)
       );
       orphanDirectoriesRemoved = orphanResult.removed;
       preservedEntries = orphanResult.preservedEntries;
-      cleanupFailures.push(...orphanResult.failures.map((failure) => cleanupFailure({
-        code: "ORPHAN_DIRECTORY_REMOVE_FAILED",
-        sessionId: failure.sessionId,
-        path: failure.path,
-        retryable: !(failure.error instanceof UnsafeDaemonSessionDirectoryError),
-        error: failure.error,
-      })));
+      cleanupFailures.push(...orphanRemovalCleanupFailures(orphanResult.failures));
     } catch (error) {
       cleanupFailures.push(cleanupFailure({
         code: "ORPHAN_SCAN_FAILED",
