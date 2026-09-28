@@ -109,7 +109,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   Owner publication, validation, quarantine, and restoration now share one
   process-birth-checked filesystem claim. Deterministic stale-claim tombstones
   prevent a delayed reclaimer from moving a newer claim through the same ABA
-  window. If temporary claim release fails after owner publication, acquisition
+  window. Tombstones no longer accumulate: each later claim removes
+  tombstones older than a 60-second grace period, which exceeds the 5-second
+  acquisition deadline a reclaimer now checks immediately before its takeover
+  rename, and removes `.released-*` claim directories left by a holder that
+  died mid-release. Only exact generated names are considered, links are never
+  followed, and anything other than a lone claim record is left in place. If temporary claim release fails after owner publication, acquisition
   rolls back the exact owner record and retries cleanup of the same released
   claim tombstone before propagating the failure, so an immediate retry is not
   blocked by unreachable authority.

@@ -249,7 +249,20 @@ release runs under one filesystem claim. The claim is published only after its
 record is complete, and its holder is identified by PID plus process-birth
 witness. A dead claim is moved to a deterministic claim-ID tombstone that is
 retained as an ABA fence: a delayed stale reclaimer cannot rename a newer claim
-over the same non-empty tombstone. The live claim remains held across displaced-
+over the same non-empty tombstone. A reclaimer acts on a dead-claim read only
+before its own acquisition deadline, checked immediately before the takeover
+rename, so a tombstone need outlive its recovery only by more than that
+deadline. The recovery stamps the tombstone's mtime, and each later successful
+claim collects tombstones older than a 60-second grace period (twelve times the
+five-second deadline), plus `.released-*` claim directories whose recorded
+holder process is no longer the one recorded. Collection runs while holding the
+claim, matches only exact generated names, uses `lstat`, never follows a link,
+removes only a real directory holding nothing but a regular claim record, and
+never blocks acquisition. The tombstone is not removed the moment the new claim
+is published: a mutation that did so let a delayed reclaimer rename the live
+claim away. The residual risk is a reclaimer suspended for longer than the grace
+period between its deadline check and its rename, or a forward wall-clock jump
+of that size. The live claim remains held across displaced-
 owner inspection and restoration, so a third publisher cannot occupy the
 canonical owner path during that gap.
 
@@ -572,8 +585,11 @@ authority has been retired, and each failed close layer is reported separately.
       residue after crashes, isolates inspection failures per candidate, and
       continues processing later eligible candidates.
 - [ ] Root and child identities use lossless device/inode values.
-- [ ] Root-claim crash recovery has a bounded retention protocol rather than
-      accumulating one permanent tombstone per recovery.
+- [x] Root-claim crash recovery has a bounded retention protocol rather than
+      accumulating one permanent tombstone per recovery: tombstones are
+      collected after a grace period longer than the acquisition deadline, and
+      dead `.released-*` claims at the next claim (operator decision,
+      2026-09-28, with the grace period in place of removal at publication).
 - [ ] Scheduled preservation diagnostics are deduplicated or rate-limited while
       manual sweeps retain complete structured results.
 - [ ] Lifecycle tests assert stable structured failures, and storage/process

@@ -2551,6 +2551,195 @@ describe("mcp: daemon session reaper", () => {
     expect(JSON.parse(fs.readFileSync(ownerPath, "utf-8"))).toEqual(owner);
   });
 
+  function plantRootOwnerClaim(directoryPath: string, claimId: string, pid: number): void {
+    fs.mkdirSync(directoryPath, { recursive: true });
+    fs.writeFileSync(path.join(directoryPath, "claim.json"), `${JSON.stringify({
+      schemaVersion: 1,
+      claimId,
+      pid,
+      processStartIdentity: `dead-process:${claimId}`,
+    })}\n`);
+  }
+
+  function claimResidue(rootDir: string): { stale: string[]; released: string[] } {
+    const names = fs.readdirSync(rootDir).sort();
+    return {
+      stale: names.filter((name) => name.startsWith("daemon-owner.json.claim.stale-")),
+      released: names.filter((name) => name.startsWith("daemon-owner.json.claim.released-")),
+    };
+  }
+
+  const deadPid = 2_147_483_647;
+  const liveOnlyLiveness = {
+    socketHasActiveListener(): Promise<boolean> {
+      return Promise.resolve(false);
+    },
+    readProcessStartIdentity(pid: number): Promise<string | null> {
+      return Promise.resolve(pid === process.pid ? "live-process:200" : null);
+    },
+  };
+
+  it("does not accumulate root-claim tombstones across repeated crash-and-recover cycles", async () => {
+    const rootDir = fs.mkdtempSync(path.join(os.tmpdir(), "gs-claim-cycles-"));
+    const claimPath = path.join(rootDir, "daemon-owner.json.claim");
+    cleanups.push(() => {
+      fs.rmSync(rootDir, { recursive: true, force: true });
+    });
+    let wallClockMs = Date.parse("2026-09-28T00:00:00.000Z");
+    const dateNow = vi.spyOn(Date, "now").mockImplementation(() => wallClockMs);
+    cleanups.push(() => {
+      dateNow.mockRestore();
+    });
+    const cycles = 5;
+    const observed: { stale: number; released: number }[] = [];
+    for (let cycle = 0; cycle < cycles; cycle++) {
+      // A holder that crashed while holding the claim, and one that crashed
+      // between renaming its released claim aside and removing it.
+      const crashedClaimId = `00000000-0000-4000-8000-00000000010${String(cycle)}`;
+      plantRootOwnerClaim(claimPath, crashedClaimId, deadPid);
+      const releasedClaimId = `00000000-0000-4000-8000-00000000020${String(cycle)}`;
+      plantRootOwnerClaim(
+        `${claimPath}.released-${releasedClaimId}-00000000-0000-4000-8000-00000000030${String(cycle)}`,
+        releasedClaimId,
+        deadPid,
+      );
+
+      const ownership = await acquireDaemonRootOwnership({
+        graftDir: rootDir,
+        socketPath: path.join(rootDir, "daemon.sock"),
+      }, liveOnlyLiveness);
+      await ownership.release();
+
+      const residue = claimResidue(rootDir);
+      observed.push({ stale: residue.stale.length, released: residue.released.length });
+      wallClockMs += 10 * 60_000;
+    }
+
+    // Each recovery leaves exactly its own fresh tombstone; every older one and
+    // every dead released claim is collected.
+    expect(observed).toEqual(Array.from({ length: cycles }, () => ({ stale: 1, released: 0 })));
+  });
+
+  it("collects claim residue only from exact tombstone names, never through a link", async () => {
+    if (process.platform === "win32") return;
+    const rootDir = fs.mkdtempSync(path.join(os.tmpdir(), "gs-claim-gc-safety-"));
+    const externalRoot = fs.mkdtempSync(path.join(os.tmpdir(), "gs-claim-gc-target-"));
+    const claimPath = path.join(rootDir, "daemon-owner.json.claim");
+    cleanups.push(() => {
+      fs.rmSync(rootDir, { recursive: true, force: true });
+      fs.rmSync(externalRoot, { recursive: true, force: true });
+    });
+    let wallClockMs = Date.parse("2026-09-28T00:00:00.000Z");
+    const dateNow = vi.spyOn(Date, "now").mockImplementation(() => wallClockMs);
+    cleanups.push(() => {
+      dateNow.mockRestore();
+    });
+    plantRootOwnerClaim(externalRoot, "00000000-0000-4000-8000-000000000401", deadPid);
+    const linkedTombstone = `${claimPath}.stale-00000000-0000-4000-8000-000000000401`;
+    fs.symlinkSync(externalRoot, linkedTombstone, "dir");
+    const lookAlike = `${claimPath}.stale-not-a-generated-uuid`;
+    plantRootOwnerClaim(lookAlike, "00000000-0000-4000-8000-000000000402", deadPid);
+    const extraContent = `${claimPath}.stale-00000000-0000-4000-8000-000000000403`;
+    plantRootOwnerClaim(extraContent, "00000000-0000-4000-8000-000000000403", deadPid);
+    fs.writeFileSync(path.join(extraContent, "unexpected.txt"), "keep\n");
+    const oldSeconds = (wallClockMs - 60 * 60_000) / 1_000;
+    for (const entry of [lookAlike, extraContent]) fs.utimesSync(entry, oldSeconds, oldSeconds);
+    wallClockMs += 10 * 60_000;
+
+    const ownership = await acquireDaemonRootOwnership({
+      graftDir: rootDir,
+      socketPath: path.join(rootDir, "daemon.sock"),
+    }, liveOnlyLiveness);
+    await ownership.release();
+
+    expect(fs.lstatSync(linkedTombstone).isSymbolicLink()).toBe(true);
+    expect(fs.existsSync(path.join(externalRoot, "claim.json"))).toBe(true);
+    expect(fs.existsSync(path.join(lookAlike, "claim.json"))).toBe(true);
+    expect(fs.readFileSync(path.join(extraContent, "unexpected.txt"), "utf-8")).toBe("keep\n");
+  });
+
+  it("keeps a delayed stale reclaimer from displacing the claim that recovered it", async () => {
+    const rootDir = fs.mkdtempSync(path.join(os.tmpdir(), "gs-claim-aba-"));
+    const ownerPath = path.join(rootDir, "daemon-owner.json");
+    const claimPath = `${ownerPath}.claim`;
+    const claimRecordPath = path.join(claimPath, "claim.json");
+    const deadClaimId = "00000000-0000-4000-8000-000000000501";
+    plantRootOwnerClaim(claimPath, deadClaimId, deadPid);
+    cleanups.push(() => {
+      fs.rmSync(rootDir, { recursive: true, force: true });
+    });
+    const ownerFor = (instance: number): Parameters<typeof publishDaemonRootOwner>[1] => ({
+      schemaVersion: 2,
+      instanceId: `00000000-0000-4000-8000-00000000060${String(instance)}`,
+      pid: process.pid,
+      processStartIdentity: `live-process:${String(instance)}`,
+      socketPath: path.join(rootDir, `owner-${String(instance)}.sock`),
+    });
+
+    // Both contenders read the dead claim before either acts on it. The second
+    // reader is then held with that read in hand until the first has recovered
+    // the claim and holds a new one.
+    let deadClaimReads = 0;
+    let observeSecondRead!: () => void;
+    const secondRead = new Promise<void>((resolve) => {
+      observeSecondRead = resolve;
+    });
+    let releaseDelayedReclaimer!: () => void;
+    const delayedReclaimerReleased = new Promise<void>((resolve) => {
+      releaseDelayedReclaimer = resolve;
+    });
+    readFileObserver.mockImplementation(async (filePath, _encoding, source: string) => {
+      if (path.resolve(String(filePath)) !== claimRecordPath || !source.includes(deadClaimId)) return;
+      deadClaimReads++;
+      if (deadClaimReads === 1) {
+        await secondRead;
+        return;
+      }
+      if (deadClaimReads === 2) {
+        observeSecondRead();
+        await delayedReclaimerReleased;
+      }
+    });
+    let observeDelayedRename!: (error: unknown) => void;
+    const delayedRename = new Promise<unknown>((resolve) => {
+      observeDelayedRename = resolve;
+    });
+    let takeoverRenames = 0;
+    renameObserver.mockImplementation((oldPath, newPath, error) => {
+      if (String(oldPath) !== claimPath || String(newPath) !== `${claimPath}.stale-${deadClaimId}`) return;
+      takeoverRenames++;
+      if (takeoverRenames === 2) observeDelayedRename(error);
+    });
+    let claimDuringHold: string | null = null;
+    linkObserver.mockImplementation(async (existingPath, newPath, error) => {
+      if (
+        claimDuringHold !== null
+        || error !== null
+        || String(newPath) !== ownerPath
+        || !String(existingPath).startsWith(`${ownerPath}.candidate-`)
+      ) {
+        return;
+      }
+      releaseDelayedReclaimer();
+      const delayedRenameError = await delayedRename;
+      expect(delayedRenameError).not.toBeNull();
+      claimDuringHold = fs.readFileSync(claimRecordPath, "utf-8");
+    });
+
+    const outcomes = await Promise.all([
+      publishDaemonRootOwner(ownerPath, ownerFor(1)),
+      publishDaemonRootOwner(ownerPath, ownerFor(2)),
+    ]);
+
+    expect(deadClaimReads).toBe(2);
+    expect(takeoverRenames).toBe(2);
+    expect(claimDuringHold).not.toBeNull();
+    expect(claimDuringHold).not.toContain(deadClaimId);
+    expect(outcomes.filter(Boolean)).toHaveLength(1);
+    const winner = outcomes[0] ? ownerFor(1) : ownerFor(2);
+    expect(JSON.parse(fs.readFileSync(ownerPath, "utf-8"))).toEqual(winner);
+  });
+
   it("enforces the owner-claim deadline when a stale claim vanishes during recovery", async () => {
     const rootDir = fs.mkdtempSync(path.join(os.tmpdir(), "gs-owner-claim-deadline-"));
     const ownerPath = path.join(rootDir, "daemon-owner.json");

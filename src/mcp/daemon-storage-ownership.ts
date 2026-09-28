@@ -14,9 +14,18 @@ const PRIVATE_DIRECTORY_MODE = 0o700;
 const PRIVATE_FILE_MODE = 0o600;
 const ROOT_OWNER_CLAIM_RETRY_MS = 5;
 const ROOT_OWNER_CLAIM_TIMEOUT_MS = 5_000;
+/**
+ * How long a stale-claim tombstone stays in place after the recovery that
+ * created it. It must exceed ROOT_OWNER_CLAIM_TIMEOUT_MS: a contender acts on a
+ * dead-claim read only before its own acquisition deadline, so once this long
+ * has passed no contender can still hold a read of the claim the tombstone
+ * fences (see acquireDaemonRootOwnerClaim).
+ */
+const ROOT_OWNER_CLAIM_TOMBSTONE_GRACE_MS = 60_000;
 const GENERATED_UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/u;
 const GENERIC_UNIX_PROCESS_WITNESS_PREFIX = "graft-daemon:";
 const GENERIC_UNIX_PROCESS_WITNESS_PATTERN = /^graft-daemon:[0-9a-f]{32}$/u;
+const UUID_SOURCE = "[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}";
 
 export interface DaemonRootOwnerRecord {
   readonly schemaVersion: 2;
@@ -593,6 +602,77 @@ async function releaseDaemonRootOwnerClaim(
   await fs.rm(releasedPath, { recursive: true, force: true });
 }
 
+/**
+ * Removes a claim-residue directory only when it is a real directory holding
+ * nothing but a regular claim record. Anything else is left in place.
+ */
+async function removeClaimResidueDirectory(residuePath: string): Promise<void> {
+  const entries = await fs.readdir(residuePath, { withFileTypes: true });
+  if (entries.length > 1 || entries.some((entry) => entry.name !== ROOT_OWNER_CLAIM_RECORD_FILE)) return;
+  const recordPath = path.join(residuePath, ROOT_OWNER_CLAIM_RECORD_FILE);
+  const record = await fs.lstat(recordPath).catch((error: unknown) => {
+    if (errorCode(error) === "ENOENT") return null;
+    throw error;
+  });
+  if (record !== null) {
+    if (!record.isFile() || record.isSymbolicLink()) return;
+    await fs.unlink(recordPath);
+  }
+  await fs.rmdir(residuePath);
+}
+
+/**
+ * Collects claim residue left by earlier recoveries and crashed releases. It
+ * runs while this process holds the claim, so no other claimer is publishing,
+ * releasing, or recovering. It considers only exact generated names beside the
+ * claim path, uses lstat, and never follows a link:
+ *
+ * - `<claim>.stale-<claimId>` tombstones are removed once older than
+ *   ROOT_OWNER_CLAIM_TOMBSTONE_GRACE_MS, measured from the recovery that
+ *   stamped them. A younger tombstone is still an ABA fence and stays.
+ * - `<claim>.released-<claimId>-<uuid>` directories are removed when their
+ *   record names that claim ID and its holder process is no longer the one
+ *   recorded. A live holder may still be finishing its own release.
+ *
+ * Collection is best-effort: a failure leaves the residue for a later claim
+ * and never blocks acquisition.
+ */
+async function collectRootOwnerClaimResidue(
+  claimPath: string,
+  liveness: DaemonRootOwnerLiveness,
+): Promise<void> {
+  const claimName = path.basename(claimPath);
+  const escapedClaimName = claimName.replace(/[.*+?^${}()|[\]\\]/gu, "\\$&");
+  const stalePattern = new RegExp(`^${escapedClaimName}\\.stale-(${UUID_SOURCE})$`, "u");
+  const releasedPattern = new RegExp(`^${escapedClaimName}\\.released-(${UUID_SOURCE})-${UUID_SOURCE}$`, "u");
+  let names: string[];
+  try {
+    names = (await fs.readdir(path.dirname(claimPath), { withFileTypes: true })).map((entry) => entry.name);
+  } catch {
+    return;
+  }
+  for (const name of names) {
+    const residuePath = path.join(path.dirname(claimPath), name);
+    try {
+      const stale = stalePattern.exec(name);
+      const released = stale === null ? releasedPattern.exec(name) : null;
+      if (stale === null && released === null) continue;
+      const stat = await fs.lstat(residuePath);
+      if (!stat.isDirectory() || stat.isSymbolicLink()) continue;
+      if (stale !== null) {
+        if (Date.now() - stat.mtimeMs < ROOT_OWNER_CLAIM_TOMBSTONE_GRACE_MS) continue;
+      } else {
+        const record = await readRootOwnerClaim(residuePath);
+        if (record === null || record.claimId !== released?.[1]) continue;
+        if (await liveness.readProcessStartIdentity(record.pid) === record.processStartIdentity) continue;
+      }
+      await removeClaimResidueDirectory(residuePath);
+    } catch {
+      continue;
+    }
+  }
+}
+
 async function acquireDaemonRootOwnerClaim(
   ownerPath: string,
   processStartIdentity: string,
@@ -620,6 +700,7 @@ async function acquireDaemonRootOwnerClaim(
       throw new DaemonRootOwnerClaimTimeoutError(ownerPath);
     }
     if (await publishDaemonRootOwnerClaim(claimPath, record)) {
+      await collectRootOwnerClaimResidue(claimPath, liveness);
       let released = false;
       let releasedPath: string | null = null;
       return {
@@ -639,6 +720,14 @@ async function acquireDaemonRootOwnerClaim(
       continue;
     }
 
+    // The tombstone name is deterministic per dead claim: a delayed contender
+    // holding the same dead-claim read cannot rename a newer claim over it
+    // while it exists. That read is acted on only before this deadline, which
+    // is what bounds how long a tombstone must survive (see
+    // ROOT_OWNER_CLAIM_TOMBSTONE_GRACE_MS and collectRootOwnerClaimResidue).
+    if (performance.now() >= deadline) {
+      throw new DaemonRootOwnerClaimTimeoutError(ownerPath);
+    }
     const stalePath = `${claimPath}.stale-${current.claimId}`;
     try {
       await fs.rename(claimPath, stalePath);
@@ -651,6 +740,9 @@ async function acquireDaemonRootOwnerClaim(
       if (tombstone !== null) continue;
       throw error;
     }
+    // Stamp the recovery time; the grace period is measured from it.
+    const recoveredAt = new Date(Date.now());
+    await fs.utimes(stalePath, recoveredAt, recoveredAt);
   }
 }
 

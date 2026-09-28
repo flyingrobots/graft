@@ -285,6 +285,26 @@ quarantine, and preserves the displaced original. Nested-tree and
 link-inside-quarantine tests pass on both implementations; they guard the
 walk's ordinary behavior and are not regressions.
 
+**Stale claim tombstones (P2).** Every dead-claim recovery left a permanent
+`.claim.stale-<claimId>` directory, and a holder that died between renaming its
+claim aside and removing it left a permanent `.claim.released-*` directory. The
+decision kept the rename-based takeover as the ABA protection and asked for the
+tombstone to be removed once the new claim is published, with older residue
+collected at claim time. Implementing the first half literally reopens the
+window the tombstone closes: a second contender that read the same dead claim
+and is delayed can rename the new live claim over the vanished tombstone name.
+A mutation that collected tombstones immediately (grace 0; one edit, restored
+byte for byte, SHA-256 checked) made the new delayed-reclaimer regression fail
+because that rename succeeded. The implementation therefore bounds retention in
+time instead: a reclaimer now checks its acquisition deadline immediately
+before the takeover rename, the recovery stamps the tombstone, and each later
+claim removes tombstones older than 60 seconds and dead `.released-*` claims.
+This departs from the letter of the decision and is raised for the operator.
+RED, on the unmodified code, observed tombstone and released-claim counts of
+1 through 5 over five crash-and-recover cycles; GREEN holds one fresh tombstone
+and no released residue after every cycle. The existing deterministic-tombstone
+test and the new delayed-reclaimer and name-safety tests stay green.
+
 ## Drift
 
 The largest drift was procedural: implementation and PR publication preceded
