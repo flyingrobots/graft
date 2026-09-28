@@ -1,10 +1,11 @@
-import * as fs from "node:fs";
 import { syncBuiltinESMExports } from "node:module";
 import nodeOs from "node:os";
 import * as path from "node:path";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { graftRootPath, graftRootPipeKey, InvalidGraftRootPathError } from "../../../src/adapters/graft-root.js";
+import { parseDaemonInspect } from "../../../src/cli/daemon-inspect.js";
 import { defaultDaemonRoot, resolveSocketPath } from "../../../src/mcp/daemon-bootstrap.js";
+import { ensureDaemonReady } from "../../../src/mcp/daemon-stdio-bridge.js";
 import { graftTestRoot, homeBeforeSetup } from "../../setup-graft-root.js";
 
 // Promise: Graft finds its per-user root from GRAFT_ROOT_PATH, and only falls
@@ -113,21 +114,46 @@ describe("test harness: Graft root isolation", () => {
   });
 });
 
-describe("home directory reads", () => {
-  // The home directory decides only the default Graft root. Any other read would
-  // put a per-user default outside GRAFT_ROOT_PATH's control.
-  const root = path.resolve(import.meta.dirname, "../../..");
-  const sources = (dir: string): string[] =>
-    fs.readdirSync(dir, { withFileTypes: true }).flatMap((entry) => {
-      const full = path.join(dir, entry.name);
-      if (entry.isDirectory()) return sources(full);
-      return entry.name.endsWith(".ts") ? [full] : [];
+describe("per-user defaults with GRAFT_ROOT_PATH set", () => {
+  // Promise: once GRAFT_ROOT_PATH is set, no per-user default consults the home
+  // directory. Size: small (one process; no filesystem, network or subprocess;
+  // the daemon health check is stubbed). Ceiling: vitest's 5 s per-test
+  // timeout in the unit gate. Owner: the repository maintainer.
+  //
+  // The entry points below are every production function that computes a
+  // per-user default today; a new one must be added here. Discovery of a home
+  // read anywhere in src is the lint rule's job (eslint.config.js,
+  // "Only the Graft root resolver reads the home directory").
+  afterEach(() => {
+    vi.restoreAllMocks();
+    syncBuiltinESMExports();
+  });
+
+  it("never read the home directory, and resolve under the configured root", async () => {
+    const homedir = vi.spyOn(nodeOs, "homedir").mockReturnValue("/home-sentinel");
+    const userInfo = vi.spyOn(nodeOs, "userInfo");
+    syncBuiltinESMExports();
+    const cwd = path.join(graftTestRoot, "cwd");
+
+    const underRoot: Record<string, string> = {
+      graftRootPath: graftRootPath(),
+      defaultDaemonRoot: defaultDaemonRoot(),
+      "resolveSocketPath (unix)": resolveSocketPath(undefined, defaultDaemonRoot(), undefined, { platform: "linux" }),
+      "graft daemon inspect": parseDaemonInspect(cwd, []).socketPath,
+      ensureDaemonReady: await ensureDaemonReady({ spawnIfMissing: false, healthCheck: () => Promise.resolve(true) }),
+    };
+    const windowsPipe = resolveSocketPath(undefined, "unused", undefined, {
+      platform: "win32",
+      env: { GRAFT_ROOT_PATH: "C:\\srv\\graft" },
     });
 
-  it("happen only in the Graft root resolver", () => {
-    const readers = sources(path.join(root, "src"))
-      .filter((file) => /\bhomedir\b|env\[\s*["']HOME["']\s*\]|env\.HOME\b/.test(fs.readFileSync(file, "utf8")))
-      .map((file) => path.relative(root, file));
-    expect(readers).toEqual(["src/adapters/graft-root.ts"]);
+    expect(homedir).not.toHaveBeenCalled();
+    expect(userInfo).not.toHaveBeenCalled();
+    expect(windowsPipe).toMatch(/^\\\\\.\\pipe\\graft-daemon-[0-9a-f]{12}$/u);
+    for (const [entryPoint, value] of Object.entries(underRoot)) {
+      const relative = path.relative(graftTestRoot, value);
+      expect(relative.startsWith("..") || path.isAbsolute(relative), `${entryPoint}: ${value}`).toBe(false);
+    }
+    expect(Object.keys(underRoot)).toHaveLength(5);
   });
 });

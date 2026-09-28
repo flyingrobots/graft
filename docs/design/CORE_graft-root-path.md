@@ -36,7 +36,11 @@ itself should use its own root variable, in the product as well as in tests.
   keyed on the root with case, separators and any trailing separator
   canonicalized, so two spellings of one directory share it.
 - No production source reads the home directory outside the resolver
-  (`src/adapters/graft-root.ts`).
+  (`src/adapters/graft-root.ts`). `pnpm lint` enforces it on the syntax tree
+  (`homedir` and `HOME` property reads and `homedir` imports anywhere else in
+  `src`), and a unit test exercises every function that computes a per-user
+  default with `GRAFT_ROOT_PATH` set and `os.homedir` spied, requiring no home
+  read and a result under the configured root.
 - The test suite sets `GRAFT_ROOT_PATH` to a private temporary directory and
   leaves `HOME` alone. A test fails if the per-user defaults resolve anywhere
   but that directory, or if `HOME` differs from the value the process received.

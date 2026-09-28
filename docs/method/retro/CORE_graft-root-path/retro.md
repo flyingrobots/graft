@@ -25,8 +25,10 @@ records that decision as made.
 ## Evidence
 
 - `test/unit/adapters/graft-root.test.ts`: the resolver cases, the daemon root,
-  the unchanged pipe key, the suite's isolation, and the rule that only the
-  resolver reads the home directory.
+  the unchanged pipe key, the suite's isolation, and (after review) a
+  behavioural check that no per-user default reads the home directory once
+  `GRAFT_ROOT_PATH` is set. Until review round 1 this item was a source-text
+  scan; see below.
 - RED was observed three ways: the module missing; the isolation test failing
   with the setup file removed; the home-read rule catching a leftover
   `os.homedir` default in `src/mcp/daemon-bootstrap.ts`, which was then moved
@@ -77,3 +79,25 @@ tests, lint and typecheck green after it.
   under the home): with the old test's home set to the temp directory's parent,
   it failed. Calibration: a resolver that ignored the setup's root failed the
   new test.
+- Home-read guard (two threads, one design, one commit): the guard was a
+  regex over the text of every file in `src`, run in the test suite. It
+  asserted implementation text, which TESTING_STANDARDS.md rule 2 and
+  AGENTS.md rule out; a comment naming `homedir` failed it while an aliased
+  or computed read could pass; and it was an unbudgeted recursive scan in the
+  test gate (rule 9). It is replaced by two checks. `pnpm lint` now carries the
+  boundary on the syntax tree, following the repository's existing
+  import-boundary rules in `eslint.config.js`; comments cannot trip it and it
+  adds no traversal of its own. A small unit test exercises every function
+  that computes a per-user default with `GRAFT_ROOT_PATH` set and
+  `os.homedir` and `os.userInfo` spied, and requires no call and a result
+  under the configured root. Calibration: the lint rule rejected nine read
+  forms (namespace, alias, computed literal, named import, destructured
+  import, `env.HOME`, `env["HOME"]`, destructured `HOME`,
+  `userInfo().homedir`) and passed a comment naming them; the unit test failed
+  (4 calls) with `defaultDaemonRoot` reverted to its original `os.homedir()`
+  default. Deletion criterion for the scan: every non-comment match of its
+  regex is a form the lint rule rejects. Blind spots: a computed property
+  name (`os["home" + "dir"]`), `Reflect.get`, or a variable key on
+  `process.env`; and a new per-user default must be added to the unit test's
+  list by hand. `test/unit/release/path-ops-boundary-allowlist.test.ts`
+  remains a source scan; this PR only added one allowlist entry to it.
