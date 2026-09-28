@@ -48,7 +48,7 @@ digraph backlog {
   }
 
   subgraph cluster_bad_code {
-    label="bad-code (35)" labeljust=l fontsize=9 fontcolor="#555555"
+    label="bad-code (36)" labeljust=l fontsize=9 fontcolor="#555555"
     style=rounded color="#cccccc" bgcolor="#fafafa"
     bad_code_CLEAN_backlog_dag_unresolved_internal_dependencies [label="CLEAN-backlog-dag-unresolved-internal-dependencies - S" fillcolor="#F6B3B3" penwidth=2]
     bad_code_CLEAN_canonical_codec_seams_diverge [label="CLEAN-canonical-codec-seams-diverge - M" fillcolor="#F6B3B3" penwidth=2]
@@ -71,6 +71,7 @@ digraph backlog {
     bad_code_CLEAN_safe_read_intent_is_decorative [label="CLEAN-safe-read-intent-is-decorative - S" fillcolor="#F6B3B3" penwidth=2]
     bad_code_CLEAN_sha256_stable_id_helper_duplication [label="CLEAN-sha256-stable-id-helper-duplication - S" fillcolor="#F6B3B3" penwidth=2]
     bad_code_CLEAN_technical_teardown_contract_ledger_can_stale_without_tests [label="CLEAN-technical-teardown-contract-ledger-can-stale-without-tests - M" fillcolor="#F6B3B3" penwidth=2]
+    bad_code_CLEAN_test_cleanup_rejection_skips_caller_cleanup [label="CLEAN-test-cleanup-rejection-skips-caller-cleanup - S" fillcolor="#F6B3B3" penwidth=2]
     bad_code_committed_reference_scan_repeats_repository_analysis [label="committed-reference-scan-repeats-repository-analysis" fillcolor="#F6B3B3" penwidth=2]
     bad_code_CORE_daemon_partial_startup_resource_cleanup [label="CORE-daemon-partial-startup-resource-cleanup - M" fillcolor="#F6B3B3" penwidth=2]
     bad_code_CORE_daemon_queue_admission_needs_byte_limits [label="CORE-daemon-queue-admission-needs-byte-limits - M" fillcolor="#F6B3B3" penwidth=2]
