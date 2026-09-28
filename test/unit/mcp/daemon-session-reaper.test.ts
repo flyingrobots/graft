@@ -5102,6 +5102,125 @@ describe("mcp: daemon session reaper", () => {
     expect(daemon.getHealthStatus().activeSessions).toBe(0);
   });
 
+  it("removes a published session directory when publication fails after its rename", async () => {
+    const rootDir = fs.mkdtempSync(path.join(os.tmpdir(), "gs-publish-rollback-"));
+    const socketPath = path.join(rootDir, "custom.sock");
+    const sessionsRoot = path.join(rootDir, "sessions");
+    cleanups.push(() => {
+      fs.rmSync(rootDir, { recursive: true, force: true });
+    });
+    const removedSessionDirectories: string[] = [];
+    const sessionStorage = {
+      ...nodeDaemonSessionStorage,
+      async publishStagedSessionDirectory(
+        stagingDir: string,
+        sessionDir: string,
+        expectedIdentity: DaemonSessionDirectoryIdentity,
+        authority: DaemonSessionsRootAuthority,
+      ): Promise<void> {
+        await nodeDaemonSessionStorage.publishStagedSessionDirectory(
+          stagingDir,
+          sessionDir,
+          expectedIdentity,
+          authority,
+        );
+        throw Object.assign(new Error("injected post-rename failure"), { code: "EIO" });
+      },
+      removeSessionDirectory(
+        sessionDir: string,
+        expectedIdentity: DaemonSessionDirectoryIdentity,
+        authority: DaemonSessionsRootAuthority,
+      ): Promise<boolean> {
+        removedSessionDirectories.push(sessionDir);
+        return removeSessionDirectory(sessionDir, expectedIdentity, authority);
+      },
+    };
+    const daemon = await startDaemonServer({
+      graftDir: rootDir,
+      socketPath,
+      sessionReaperIntervalMs: 0,
+      sessionStorage,
+    });
+    cleanups.push(() => daemon.close());
+
+    const initialize = await requestUnixJson(socketPath, "POST", "/mcp", {
+      jsonrpc: "2.0",
+      id: 1,
+      method: "initialize",
+      params: {
+        protocolVersion: "2025-03-26",
+        capabilities: {},
+        clientInfo: { name: "vitest", version: "0.0.0" },
+      },
+    });
+
+    expect(initialize.statusCode).toBe(500);
+    expect((JSON.parse(initialize.text) as { error: { message: string } }).error.message)
+      .toBe("injected post-rename failure");
+    // Checked before any sweep: rollback itself removed the published
+    // directory, through the injected session storage.
+    expect(fs.readdirSync(sessionsRoot)).toEqual([]);
+    expect(removedSessionDirectories).toHaveLength(1);
+    expect(path.dirname(removedSessionDirectories[0]!)).toBe(sessionsRoot);
+    expect(daemon.getHealthStatus().activeSessions).toBe(0);
+  });
+
+  it("reports a failed removal of a published session directory as a rollback failure", async () => {
+    const rootDir = fs.mkdtempSync(path.join(os.tmpdir(), "gs-publish-rollback-fail-"));
+    const socketPath = path.join(rootDir, "custom.sock");
+    const sessionsRoot = path.join(rootDir, "sessions");
+    cleanups.push(() => {
+      fs.rmSync(rootDir, { recursive: true, force: true });
+    });
+    const removedSessionDirectories: string[] = [];
+    const sessionStorage = {
+      ...nodeDaemonSessionStorage,
+      async publishStagedSessionDirectory(
+        stagingDir: string,
+        sessionDir: string,
+        expectedIdentity: DaemonSessionDirectoryIdentity,
+        authority: DaemonSessionsRootAuthority,
+      ): Promise<void> {
+        await nodeDaemonSessionStorage.publishStagedSessionDirectory(
+          stagingDir,
+          sessionDir,
+          expectedIdentity,
+          authority,
+        );
+        throw Object.assign(new Error("injected post-rename failure"), { code: "EIO" });
+      },
+      removeSessionDirectory(sessionDir: string): Promise<boolean> {
+        removedSessionDirectories.push(sessionDir);
+        return Promise.reject(Object.assign(new Error("injected session rmdir failure"), { code: "EBUSY" }));
+      },
+    };
+    const daemon = await startDaemonServer({
+      graftDir: rootDir,
+      socketPath,
+      sessionReaperIntervalMs: 0,
+      sessionStorage,
+    });
+    cleanups.push(() => daemon.close());
+
+    const initialize = await requestUnixJson(socketPath, "POST", "/mcp", {
+      jsonrpc: "2.0",
+      id: 1,
+      method: "initialize",
+      params: {
+        protocolVersion: "2025-03-26",
+        capabilities: {},
+        clientInfo: { name: "vitest", version: "0.0.0" },
+      },
+    });
+
+    expect(initialize.statusCode).toBe(500);
+    expect((JSON.parse(initialize.text) as { error: { message: string } }).error.message)
+      .toBe("Daemon session construction and scratch rollback both failed");
+    expect(removedSessionDirectories).toHaveLength(1);
+    expect(fs.readdirSync(sessionsRoot)).toEqual([path.basename(removedSessionDirectories[0]!)]);
+    expect(daemon.getHealthStatus().activeSessions).toBe(0);
+  });
+
   it("rolls back a session when transport connection fails", async () => {
     const rootDir = fs.mkdtempSync(path.join(os.tmpdir(), "gsr-connect-"));
     const socketPath = path.join(rootDir, "daemon.sock");

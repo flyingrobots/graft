@@ -252,6 +252,29 @@ function sendJsonRpcError(res: http.ServerResponse, code: number, message: strin
   });
 }
 
+/**
+ * Removes the canonical session directory left by a publication that failed
+ * after its rename, but only when that name holds the directory construction
+ * staged. An absent name, a non-directory, or a directory with another
+ * identity is not this construction's to remove.
+ */
+async function removeRenamedSessionDirectory(
+  sessionStorage: DaemonSessionStorage,
+  sessionDir: string,
+  stagedIdentity: DaemonSessionDirectoryIdentity,
+  sessionsRootAuthority: DaemonSessionsRootAuthority,
+): Promise<void> {
+  let current: DaemonSessionDirectoryIdentity;
+  try {
+    current = await sessionStorage.captureSessionDirectoryIdentity(sessionDir);
+  } catch (error) {
+    if (error instanceof UnsafeDaemonSessionDirectoryError) return;
+    throw error;
+  }
+  if (current.device !== stagedIdentity.device || current.inode !== stagedIdentity.inode) return;
+  await sessionStorage.removeSessionDirectory(sessionDir, stagedIdentity, sessionsRootAuthority);
+}
+
 async function createDaemonSession(
   newSessionId: string,
   options: CreateDaemonSessionHostOptions,
@@ -263,6 +286,7 @@ async function createDaemonSession(
   const sessionGraftDir = path.join(options.sessionsRootAuthority.path, newSessionId);
   const stagingDir = path.join(options.sessionsRootAuthority.path, sessionStagingName(newSessionId));
   let stagingReady = false;
+  let publishAttempted = false;
   let directoryPublished = false;
   let directoryIdentity: DaemonSessionDirectoryIdentity | undefined;
   let transport: StreamableHTTPServerTransport | undefined;
@@ -289,6 +313,7 @@ async function createDaemonSession(
       options.daemonInstanceId,
       newSessionId,
     );
+    publishAttempted = true;
     await options.sessionStorage.publishStagedSessionDirectory(
       stagingDir,
       sessionGraftDir,
@@ -458,6 +483,21 @@ async function createDaemonSession(
         );
       } catch (cleanupError) {
         rollbackErrors.push(cleanupError);
+      }
+      if (publishAttempted && directoryIdentity !== undefined) {
+        // Publication can fail after its rename landed. The canonical name then
+        // holds this construction's directory, recognised by the identity
+        // captured while it was staged; any other occupant is left alone.
+        try {
+          await removeRenamedSessionDirectory(
+            options.sessionStorage,
+            sessionGraftDir,
+            directoryIdentity,
+            options.sessionsRootAuthority,
+          );
+        } catch (cleanupError) {
+          rollbackErrors.push(cleanupError);
+        }
       }
     }
     if (rollbackErrors.length > 0) {
