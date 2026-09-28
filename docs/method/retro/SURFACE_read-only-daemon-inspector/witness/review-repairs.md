@@ -59,3 +59,36 @@ public-surface, and path-boundary suite passed 45 tests. Typecheck, lint, build,
 and whitespace checks passed. All temporary calibration mutations were restored.
 CI and fresh third-party review are required on the published repair head before
 calling the PR merge-ready.
+
+## Merge with main and second review round
+
+`origin/main` was merged twice: at `3770af23`, 58 commits behind, with conflicts
+in `CHANGELOG.md`, `src/mcp/daemon-server.ts` and
+`src/mcp/daemon-session-host.ts`, and at `13b582b3` for PRs #260 and #256, with
+a `CHANGELOG.md` conflict only. The first merge also moved the integration
+test's no-graph-open trap from the removed `InMemoryWarpPool.getOrOpen` to
+main's `acquire`, so it still watches the path that opens graphs.
+
+### Contradictory reported-client state — P2 (review thread)
+
+The observation schema accepted `reportedClient: null` with
+`reportedClientAvailability: "available"`, and a client object with
+`"not_retained"`. A refine now requires the payload to be null exactly when the
+availability is `not_retained` (`0b1e858c`). The regression test failed before
+the refine and passes after it.
+
+### Nested rows charged to a dropped parent — P3 (self-audit)
+
+Opened-workspace rows were charged to the 500-row capture budget even when
+their session row was then dropped or filtered out, so later collections came
+back truncated with fewer than 500 rows emitted, against the budget stated in
+the design packet. The charge is now refunded when the parent row is dropped
+(`f7e0bb98`). With 5 sessions of 100 memberships, the test saw 404 rows emitted
+and a truncated, empty job collection before the fix.
+
+### Truncated collection with no omitted rows — P4 (self-audit)
+
+The collection validator accepted `truncated` with a known `matchingTotal` no
+greater than `returned`. A refine now rejects it (`1cc92489`). The producer
+never emits this state; the validator is the public contract for older or
+faulty daemons.
