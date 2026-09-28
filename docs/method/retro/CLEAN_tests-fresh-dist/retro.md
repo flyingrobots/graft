@@ -77,7 +77,8 @@ the Docker daemon on the development host did not answer on three attempts (see 
   a `node_modules/.cache/graft/dist-build.pending` marker, written before `dist/` is removed and
   deleted only after the build finishes, marks an unfinished build as stale. RED: both new cases
   failed with `expected 'fresh' to be 'built'`. Calibration: disabling either check fails exactly
-  its own case.
+  its own case. (Superseded in the third review: staging and rename replaced the marker; see
+  "Third review". The `.js` check remains.)
 - **Missing inputs.** A deleted `src/` or config file was skipped by the input scan, so an old
   `dist/` stayed fresh. Review made each one required: the setup now fails naming it, without
   building. RED: the five new cases failed with `promise resolved "'fresh'" instead of rejecting`.
@@ -97,7 +98,8 @@ the Docker daemon on the development host did not answer on three attempts (see 
   token. RED, with a seam that replaces the dead lock by a live one between observation and
   takeover: `promise resolved "'built'" instead of rejecting`. Calibration: dropping the token
   check fails that case the same way; treating a dead claim holder as live makes the
-  dead-claim case exceed its 2000 ms ceiling.
+  dead-claim case exceed its 2000 ms ceiling. (Superseded in the third review: staging and rename
+  replaced the lock and its takeover; see "Third review".)
 
 ## Full-Suite Findings
 
