@@ -100,7 +100,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   module, or that a test-run build left unfinished, is rebuilt. A source
   saved while that build runs is not accepted as built: the setup rebuilds,
   and fails with `dist/` still marked stale if sources change under three
-  builds in a row. Two Vitest
+  builds in a row. A source dated in the future fails the setup, naming the
+  file, before `dist/` is removed or rebuilt. Two Vitest
   processes in one checkout build once, and one no longer fails with
   `ENOENT` when it checks `dist/` while the other is deleting it; a lock left by a dead process is taken
   over only if it is still the lock that was seen dead.

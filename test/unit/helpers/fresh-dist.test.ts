@@ -293,6 +293,21 @@ describe("test support: ensureFreshDist", { timeout: CASE_TIMEOUT_MS }, () => {
     expect(distText(root, "nested/b.js")).toBe("export const b = 1;\n");
   });
 
+  it("fails without building or removing dist, naming the file, when an input's mtime is in the future", async () => {
+    const root = await builtRoot();
+    const future = new Date("2099-01-01T00:00:00Z");
+    setTime(path.join(root, "src", "a.ts"), future);
+    const build = fakeBuild();
+
+    await expect(ensureFreshDist({ root, build: build.build })).rejects.toThrow(
+      /src\/a\.ts has a modification time in the future/u,
+    );
+    await expect(ensureFreshDist({ root, build: build.build })).rejects.toThrow(/in the future/u);
+
+    expect(build.calls).toBe(0);
+    expect(distText(root, "a.js")).toBe("export const a = 1;\n");
+  });
+
   it("does not require an emitted .js for a declaration file under src", async () => {
     const root = packageRoot();
     const declaration = path.join(root, "src", "nested", "types.d.ts");

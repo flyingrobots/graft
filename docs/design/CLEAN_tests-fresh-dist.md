@@ -110,6 +110,12 @@ When stale it removes `dist/` and runs the repository's own build,
 `tsc -p tsconfig.build.json` (what `pnpm build`, CI and the Docker image run),
 so the tested output is the shipped output, not a look-alike.
 
+- **An input dated in the future fails the run before anything is
+  removed** (added in the second review). No build can write outputs newer
+  than it, so rebuilding would delete a usable `dist/` and fail the same way on
+  every run until the clock caught up. The setup names the file and its time
+  and says to fix the clock or reset the file's time. It is checked only when
+  `dist/` is already stale.
 - **Type errors do not block the run.** `tsc` exits 2 when it reports
   diagnostics but still emits every file; JavaScript emit does not depend on
   type checking, so that output is current. The setup prints the diagnostics
@@ -181,6 +187,8 @@ so the tested output is the shipped output, not a look-alike.
   compiler.
 - A `dist/` missing the `.js` of any `src/` module, or left by a build that did
   not finish, is rebuilt even when every file it holds is new.
+- A stale `dist/` with an input dated in the future fails the run, names the
+  file, and neither removes `dist/` nor invokes the compiler.
 - An input saved while the setup's build is running is never accepted as
   built: the setup rebuilds, and fails leaving `dist/` marked stale if the
   inputs change under three builds in a row.

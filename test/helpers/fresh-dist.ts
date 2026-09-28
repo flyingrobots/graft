@@ -155,6 +155,21 @@ export function distStaleness(root: string): Staleness {
   };
 }
 
+/**
+ * No build can produce outputs newer than an input dated in the future (clock skew between a host and
+ * a VM or container, an extracted archive, `touch -d`), so rebuilding would only delete a usable dist/
+ * and fail the same way on every run until the clock passes that time. Fail first, naming the file.
+ */
+function assertNotInFuture(root: string, newest: Extreme | undefined): void {
+  const now = Date.now();
+  if (newest === undefined || newest.mtimeMs <= now) return;
+  throw new Error(
+    `Cannot rebuild dist/: ${path.relative(root, newest.path)} has a modification time in the future `
+    + `(${new Date(newest.mtimeMs).toISOString()}; now ${new Date(now).toISOString()}), so no build could `
+    + "be newer than it. Fix the clock or reset the file's time (for example `touch` it), then rerun.",
+  );
+}
+
 function processIsAlive(pid: number): boolean {
   try {
     process.kill(pid, 0);
@@ -310,7 +325,9 @@ export async function ensureFreshDist(options: FreshDistOptions): Promise<FreshD
       // The newest input as the build is about to read it. tsc reads every input before it writes
       // anything, so an input saved during the build can carry an mtime older than every output and
       // pass the time rule later; comparing against this snapshot is what catches it.
-      const readFrom = newestInput(root)?.mtimeMs ?? Number.NEGATIVE_INFINITY;
+      const newest = newestInput(root);
+      assertNotInFuture(root, newest);
+      const readFrom = newest?.mtimeMs ?? Number.NEGATIVE_INFINITY;
       // Written before dist/ is touched and removed only once the build has finished from inputs that
       // did not change under it, so a process that dies in between (or a build that throws, or inputs
       // that keep changing) leaves a marker the next run reads as stale.

@@ -144,6 +144,11 @@ before it, on the helper suite, unless stated.
   `src/index.ts` touched and `rerunTestSpecifications` called. With the new setup `dist/index.js` was
   rewritten after the touch (`rebuiltOnRerun: true`); with the old setup file restored for one run,
   it was not (`false`), and the new file was then restored byte for byte.
+- **Input dated in the future (finding 5).** The first version's post-build check named this case
+  but only after deleting `dist/` and paying the build, on every run. The setup now checks the newest
+  input against the clock before removing anything and fails naming the file. RED on the previous
+  helper: `expected [Function] to throw error matching /.../a\.ts has a modification time in the
+  future but got 'dist/ is still stale after rebuilding...'`.
 
 ## Non-Goals Held
 
