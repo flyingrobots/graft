@@ -3,7 +3,7 @@ import { defineConfig } from "vitest/config";
 export default defineConfig({
   test: {
     include: ["test/**/*.test.ts", "tests/**/*.test.ts"],
-    setupFiles: ["test/setup-hermetic-env.ts", "test/setup-graft-root.ts", "test/setup-parser.ts"],
+    setupFiles: ["test/setup-canonical-tmpdir.ts", "test/setup-graft-root.ts", "test/setup-parser.ts"],
     coverage: {
       provider: "v8",
       include: ["src/**"],
