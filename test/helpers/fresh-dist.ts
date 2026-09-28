@@ -19,6 +19,8 @@ export interface FreshDistOptions {
    */
   readonly build: (root: string, outDir: string) => Promise<DistBuildResult>;
   readonly warn?: (message: string) => void;
+  /** The current time in epoch milliseconds, for the future-dated input check; `Date.now` by default. */
+  readonly now?: () => number;
 }
 
 export type FreshDistOutcome = "fresh" | "built";
@@ -148,9 +150,9 @@ function staleness(root: string, out: string): Staleness {
  * a VM or container, an extracted archive, `touch -d`), so building would only fail the same way on
  * every run until the clock passes that time. Fail first, naming the file.
  */
-function assertNotInFuture(root: string, newest: Extreme | undefined): void {
-  const now = Date.now();
-  // File times carry fractions of a millisecond and Date.now() does not: compare whole milliseconds.
+function assertNotInFuture(root: string, newest: Extreme | undefined, clock: () => number): void {
+  const now = clock();
+  // File times carry fractions of a millisecond and the clock does not: compare whole milliseconds.
   if (newest === undefined || Math.floor(newest.mtimeMs) <= now) return;
   throw new Error(
     `Cannot rebuild dist/: ${path.relative(root, newest.path)} has a modification time in the future `
@@ -240,7 +242,7 @@ export async function ensureFreshDist(options: FreshDistOptions): Promise<FreshD
     // anything, so an input saved during the build can carry an mtime older than every output and
     // pass the time rule later; comparing against this snapshot is what catches it.
     const newest = newestInput(root);
-    assertNotInFuture(root, newest);
+    assertNotInFuture(root, newest, options.now ?? Date.now);
     const readFrom = newest?.mtimeMs ?? Number.NEGATIVE_INFINITY;
     const staging = buildDirectoryPath(root, "staging");
     try {

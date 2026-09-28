@@ -20,8 +20,8 @@ import { ensureFreshDist, keepDistFresh, type DistBuildResult } from "../../help
 // at a time (the abandoned-build-directory case spawns `node -e ""` to obtain a pid that has exited);
 // no network. `node:fs` is mocked as a pass-through whose readdirSync and renameSync can run hooks
 // registered by a case (another process deleting or publishing dist/ at that moment). Time: mtimes
-// are set with utimes; no case waits on a timer; one case fakes Date to move the wall clock three
-// minutes on. Ceiling: CASE_TIMEOUT_MS per case, enforced by the describe timeout; suite budget 2 s
+// are set with utimes; no case waits on a timer; the helper's clock is injected through its `now`
+// option where a case depends on it, and no case fakes or spies on the global Date. Ceiling: CASE_TIMEOUT_MS per case, enforced by the describe timeout; suite budget 2 s
 // for the file. Isolation checked alone, shuffled and with --sequence.concurrent.
 // CI stage: pre-merge. The CI workflow's `test` job (Node 22 leg, step "Tests") runs `pnpm test`,
 // the Docker-isolated full Vitest run, on every pull request to main and every push to main.
@@ -190,14 +190,11 @@ describe("test support: ensureFreshDist publishes whole builds", { timeout: CASE
     await slowStarted;
     fs.writeFileSync(source, "export const a = 2;\n");
     setTime(source, EDIT_TIME);
-    // Three minutes on, past the age at which the earlier lock-based design presumed a build dead
-    // and let a second build run beside it; kept so that design cannot quietly come back.
-    vi.useFakeTimers({ toFake: ["Date"] });
-    onTestFinished(() => {
-      vi.useRealTimers();
-    });
-    vi.setSystemTime(Date.now() + 3 * 60_000);
-    await expect(ensureFreshDist({ root, build: fakeBuild().build })).resolves.toBe("built");
+    // The second call's clock reads three minutes on, past the age at which the earlier lock-based
+    // design presumed a build dead and let a second build run beside it; kept so that design cannot
+    // quietly come back. The clock is injected, so no other case running concurrently sees it.
+    const threeMinutesOn = Date.now() + 3 * 60_000;
+    await expect(ensureFreshDist({ root, build: fakeBuild().build, now: () => threeMinutesOn })).resolves.toBe("built");
     expect(distText(root, "a.js")).toBe("export const a = 2;\n");
 
     release();
@@ -491,11 +488,10 @@ describe("test support: ensureFreshDist", { timeout: CASE_TIMEOUT_MS }, () => {
     const now = EDIT_TIME.getTime();
     fs.writeFileSync(path.join(root, "src", "a.ts"), "export const a = 2;\n");
     fs.utimesSync(path.join(root, "src", "a.ts"), now / 1000 + 0.0004, now / 1000 + 0.0004);
-    const clock = vi.spyOn(Date, "now").mockReturnValue(now);
-    onTestFinished(() => { clock.mockRestore(); });
     const build = fakeBuild();
 
-    await expect(ensureFreshDist({ root, build: build.build })).resolves.toBe("built");
+    // The helper's clock is injected, so no other case running concurrently sees this time.
+    await expect(ensureFreshDist({ root, build: build.build, now: () => now })).resolves.toBe("built");
     expect(build.calls).toBe(1);
   });
 
