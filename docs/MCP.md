@@ -171,8 +171,12 @@ non-directories that orphan discovery intentionally preserves and orphan
 removals refused because the inspected directory was replaced
 (`UNSAFE_DAEMON_SESSION_DIRECTORY`), including when a failed restore from
 quarantine wraps that refusal. An invalid or regressing injected clock
-refuses the whole sweep with `MONOTONIC_CLOCK_INVALID`, reports zero retired
-sessions, and leaves the previous accepted elapsed-time sample unchanged.
+stops the sweep with `MONOTONIC_CLOCK_INVALID` and leaves the previous accepted
+elapsed-time sample unchanged. When the sweep's own starting sample, or a
+failure retained by a session before any retirement, is invalid, the sweep
+reports zero retired sessions. A retained failure found mid-sweep, while the
+sweep walks the sessions, stops the sweep there and reports the sessions it had
+already retired and their cleanup failures.
 Scheduled sweeps emit structured diagnostics for refused sweeps and cleanup
 failures. Preserved unknown, malformed, non-directory, or link entries are also
 reported with stable reason codes without touching their targets. Scheduled
