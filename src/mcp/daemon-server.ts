@@ -29,7 +29,22 @@ import {
   resolveSocketPath,
   tightenSocketPermissions,
 } from "./daemon-bootstrap.js";
-import { createDaemonSessionHost } from "./daemon-session-host.js";
+import {
+  createDaemonSessionHost,
+  type DaemonSessionHost,
+  type SessionSweepResult,
+  orphanRemovalCleanupFailures,
+  resolveSessionInactivityTtlMs,
+  resolveSessionReaperIntervalMs,
+} from "./daemon-session-host.js";
+import {
+  acquireDaemonRootOwnership,
+  type DaemonSessionStorage,
+  ensureDaemonSessionsRoot,
+  type LegacyUnmarkedSessionPolicy,
+  nodeDaemonSessionStorage,
+  retainDaemonSessionsRoot,
+} from "./daemon-storage-ownership.js";
 
 const HEALTH_PATH = "/healthz";
 const MCP_PATH = "/mcp";
@@ -45,14 +60,31 @@ export interface StartDaemonServerOptions {
   readonly runtimeObservability?: Partial<RuntimeObservabilityState> | undefined;
   readonly workerPoolSize?: number | undefined;
   readonly persistedLocalHistoryGraph?: boolean | undefined;
+  readonly sessionInactivityTtlMs?: number | undefined;
+  readonly sessionReaperIntervalMs?: number | undefined;
+  readonly sessionStorage?: DaemonSessionStorage | undefined;
+  readonly nowMs?: (() => number) | undefined;
 }
 
 export interface GraftDaemonServer {
   readonly socketPath: string;
   readonly healthPath: typeof HEALTH_PATH;
   readonly mcpPath: typeof MCP_PATH;
+  reapExpiredSessions(): Promise<SessionSweepResult>;
   close(): Promise<void>;
   getHealthStatus(): DaemonHealthStatus;
+}
+
+async function runCleanupSteps(steps: readonly (() => Promise<void>)[]): Promise<unknown[]> {
+  const errors: unknown[] = [];
+  for (const step of steps) {
+    try {
+      await step();
+    } catch (error) {
+      errors.push(error);
+    }
+  }
+  return errors;
 }
 
 export interface DaemonShutdownStage {
@@ -60,177 +92,282 @@ export interface DaemonShutdownStage {
 }
 
 export async function closeDaemonResources(stages: readonly DaemonShutdownStage[]): Promise<void> {
-  const errors: unknown[] = [];
-  for (const stage of stages) {
-    try {
-      await stage.close();
-    } catch (error) {
-      errors.push(error);
-    }
-  }
+  const errors = await runCleanupSteps(stages.map((stage) => () => stage.close()));
   if (errors.length > 0) {
     throw new AggregateError(errors, "Failed to close daemon resources");
   }
 }
 
 export async function startDaemonServer(options: StartDaemonServerOptions = {}): Promise<GraftDaemonServer> {
-  await ensureGitVersionSupportsGraft();
+  const sessionInactivityTtlMs = resolveSessionInactivityTtlMs(options.sessionInactivityTtlMs);
+  const sessionReaperIntervalMs = resolveSessionReaperIntervalMs(options.sessionReaperIntervalMs);
   const env = options.env ?? process.env;
+  const warpPoolOptions = resolveWarpPoolOptions(env);
+  const sessionStorage = options.sessionStorage ?? nodeDaemonSessionStorage;
+  await ensureGitVersionSupportsGraft();
   const graftDir = path.resolve(options.graftDir ?? defaultDaemonRoot(graftRootPath(env)));
   const graphRoot = resolveWarpGraphRoot(options.graphRoot, env);
   const socketPath = resolveSocketPath(options.socketPath, graftDir, undefined, { env });
+  const legacyUnmarkedSessionPolicy: LegacyUnmarkedSessionPolicy =
+    socketPath === resolveSocketPath(undefined, graftDir, undefined, { env })
+      ? "remove"
+      : "preserve";
   const startedAt = new Date().toISOString();
   const incarnationId = randomUUID();
-  const warpPool = new InMemoryWarpPool({
-    graphRoot,
-    ...resolveWarpPoolOptions(env),
-  });
-  const controlPlane = new DaemonControlPlane({
-    fs: nodeFs,
-    codec: new CanonicalJsonCodec(),
-    git: nodeGit,
-    graftDir,
-  });
-  const daemonScheduler = new DaemonJobScheduler(resolveDaemonSchedulerConfig());
-  const daemonWorkerPool = new ChildProcessDaemonWorkerPool({
-    ...(options.workerPoolSize !== undefined ? { size: options.workerPoolSize } : {}),
-  });
-  const monitorRuntime = new PersistentMonitorRuntime({
-    fs: nodeFs,
-    codec: new CanonicalJsonCodec(),
-    git: nodeGit,
-    graftDir,
-    graphRoot,
-    controlPlane,
-    scheduler: daemonScheduler,
-    workerPool: daemonWorkerPool,
-  });
-  const transportKind = isNamedPipePath(socketPath) ? "named_pipe" : "unix_socket";
-
-  const getHealthStatus = (): DaemonHealthStatus => {
-    return controlPlane.getStatus({
-      transport: transportKind,
-      sameUserOnly: true,
-      socketPath,
-      mcpPath: MCP_PATH,
-      healthPath: HEALTH_PATH,
-      activeWarpRepos: warpPool.size(),
-      activeWarpResidents: warpPool.residentCount(),
-      startedAt,
-    }, monitorRuntime.getCounts(), daemonScheduler.getCounts(), daemonWorkerPool.getCounts());
-  };
-
   await ensurePrivateDirectory(graftDir);
-  await ensurePrivateDirectory(path.join(graftDir, "sessions"));
-  await controlPlane.initialize();
-  await monitorRuntime.initialize();
-  await prepareSocketPath(socketPath);
-  const sessionHost = createDaemonSessionHost({
+  const sessionsRoot = path.join(graftDir, "sessions");
+  const rootOwnership = await acquireDaemonRootOwnership({
     graftDir,
-    graphRoot,
     socketPath,
-    transportKind,
-    healthPath: HEALTH_PATH,
-    mcpPath: MCP_PATH,
-    startedAt,
-    warpPool,
-    controlPlane,
-    daemonScheduler,
-    daemonWorkerPool,
-    monitorRuntime,
-    getHealthStatus,
-    ...(options.env !== undefined ? { env: options.env } : {}),
-    ...(options.runCapture !== undefined ? { runCapture: options.runCapture } : {}),
-    ...(options.runtimeObservability !== undefined
-      ? { runtimeObservability: options.runtimeObservability }
-      : {}),
-    ...(options.persistedLocalHistoryGraph !== undefined
-      ? { persistedLocalHistoryGraph: options.persistedLocalHistoryGraph }
-      : {}),
+  });
+  const sessionsRootAuthority = await (async () => {
+    await ensureDaemonSessionsRoot(sessionsRoot);
+    return retainDaemonSessionsRoot(sessionsRoot);
+  })().catch(async (error: unknown) => {
+    const releaseErrors = await runCleanupSteps([() => rootOwnership.release()]);
+    if (releaseErrors.length > 0) {
+      throw new AggregateError(releaseErrors, "Daemon startup and rollback both failed", { cause: error });
+    }
+    throw error;
   });
 
-  const inspection = new DaemonInspectionQuery({
-    runtime: { incarnationId, startedAt, pid: process.pid, version: GRAFT_VERSION,
-      modulePath: fileURLToPath(import.meta.url), executablePath: process.execPath, socketPath },
-    now: () => new Date().toISOString(),
-    source: {
-      sessions: (id) => controlPlane.inspectionSessions(id),
-      workspaces: () => controlPlane.inspectionWorkspaces(),
-      jobs: () => daemonScheduler.inspectionJobs(),
-      workers: () => daemonWorkerPool.inspectionWorkers(),
-      monitors: () => monitorRuntime.inspectionMonitors(),
-      hasSession: (id) => controlPlane.inspectionHasSession(id),
-      counters: () => ({ scheduler: daemonScheduler.inspectionCounters(), workers: daemonWorkerPool.inspectionCounters() }),
-      pool: () => ({ repositoryKeys: warpPool.size() }),
-    },
-  });
-  const inspectionRoute = createDaemonInspectionRoute(request => inspection.capture(request));
-  const httpServer = http.createServer((req, res) => {
-    if (inspectionRoute.handle(req, res)) return;
-    void sessionHost.handleRequest(req, res);
-  });
+  let daemonWorkerPool: ChildProcessDaemonWorkerPool | undefined;
+  let monitorRuntime: PersistentMonitorRuntime | undefined;
+  let sessionHost: DaemonSessionHost | undefined;
+  let httpServer: http.Server | undefined;
+  let inspectionRoute: ReturnType<typeof createDaemonInspectionRoute> | undefined;
 
-  await new Promise<void>((resolve, reject) => {
-    const onError = (error: Error): void => {
-      httpServer.off("listening", onListening);
-      reject(error);
-    };
-    const onListening = (): void => {
-      httpServer.off("error", onError);
-      resolve();
-    };
-    httpServer.once("error", onError);
-    httpServer.once("listening", onListening);
-    httpServer.listen(socketPath);
-  });
-  await tightenSocketPermissions(socketPath);
-
-  let closing: Promise<void> | null = null;
-
-  const shutdown = (): void => {
-    void daemon.close().then(() => {
-      process.exitCode = process.exitCode ?? 0;
-    }, (error: unknown) => {
-      console.error("[graft] daemon shutdown failed", error);
-      process.exitCode = 1;
+  try {
+    await prepareSocketPath(socketPath);
+    const activeHttpServer = http.createServer((req, res) => {
+      if (inspectionRoute?.handle(req, res) === true) return;
+      const readySessionHost = sessionHost;
+      if (readySessionHost === undefined) {
+        res.writeHead(503, { "content-type": "application/json" });
+        res.end(JSON.stringify({ error: "Daemon startup in progress" }));
+        return;
+      }
+      void readySessionHost.handleRequest(req, res);
     });
-  };
+    httpServer = activeHttpServer;
 
-  process.once("SIGINT", shutdown);
-  process.once("SIGTERM", shutdown);
+    await new Promise<void>((resolve, reject) => {
+      const onError = (error: Error): void => {
+        activeHttpServer.off("listening", onListening);
+        reject(error);
+      };
+      const onListening = (): void => {
+        activeHttpServer.off("error", onError);
+        resolve();
+      };
+      activeHttpServer.once("error", onError);
+      activeHttpServer.once("listening", onListening);
+      activeHttpServer.listen(socketPath);
+    });
+    await tightenSocketPermissions(socketPath);
 
-  const daemon: GraftDaemonServer = {
-    socketPath,
-    healthPath: HEALTH_PATH,
-    mcpPath: MCP_PATH,
-    getHealthStatus(): DaemonHealthStatus {
-      return getHealthStatus();
-    },
-    async close(): Promise<void> {
-      if (closing !== null) return closing;
-      closing = (async () => {
-        process.off("SIGINT", shutdown);
-        process.off("SIGTERM", shutdown);
-        await closeDaemonResources([
-          { close: () => { inspectionRoute.close(); return Promise.resolve(); } },
-          { close: () => sessionHost.close() },
-          { close: () => monitorRuntime.close() },
-          { close: () => daemonWorkerPool.close() },
-          { close: () => closeHttpServer(httpServer) },
-          {
-            close: async () => {
+    const warpPool = new InMemoryWarpPool({
+      graphRoot,
+      ...warpPoolOptions,
+    });
+    const controlPlane = new DaemonControlPlane({
+      fs: nodeFs,
+      codec: new CanonicalJsonCodec(),
+      git: nodeGit,
+      graftDir,
+    });
+    const daemonScheduler = new DaemonJobScheduler(resolveDaemonSchedulerConfig());
+    const activeDaemonWorkerPool = new ChildProcessDaemonWorkerPool({
+      ...(options.workerPoolSize !== undefined ? { size: options.workerPoolSize } : {}),
+    });
+    daemonWorkerPool = activeDaemonWorkerPool;
+    const activeMonitorRuntime = new PersistentMonitorRuntime({
+      fs: nodeFs,
+      codec: new CanonicalJsonCodec(),
+      git: nodeGit,
+      graftDir,
+      graphRoot,
+      controlPlane,
+      scheduler: daemonScheduler,
+      workerPool: activeDaemonWorkerPool,
+    });
+    monitorRuntime = activeMonitorRuntime;
+    const transportKind = isNamedPipePath(socketPath) ? "named_pipe" : "unix_socket";
+
+    const getHealthStatus = (): DaemonHealthStatus => {
+      return controlPlane.getStatus({
+        transport: transportKind,
+        sameUserOnly: true,
+        socketPath,
+        mcpPath: MCP_PATH,
+        healthPath: HEALTH_PATH,
+        activeWarpRepos: warpPool.size(),
+        activeWarpResidents: warpPool.residentCount(),
+        startedAt,
+      }, activeMonitorRuntime.getCounts(), daemonScheduler.getCounts(), activeDaemonWorkerPool.getCounts());
+    };
+
+    await controlPlane.initialize();
+    await activeMonitorRuntime.initialize();
+    const startupOrphans = await sessionStorage.removeSessionOrphanDirectories(
+      sessionsRoot,
+      new Set(),
+      legacyUnmarkedSessionPolicy,
+      sessionsRootAuthority,
+    );
+    if (startupOrphans.preservedEntries.length > 0) {
+      console.error(
+        `[graft] preserved session storage entries: ${JSON.stringify(startupOrphans.preservedEntries)}`,
+      );
+    }
+    // A prior-process directory startup cannot inspect or remove is debt for a
+    // later sweep, which retries it; it never refuses startup.
+    if (startupOrphans.failures.length > 0) {
+      console.error({
+        code: "DAEMON_STARTUP_SESSION_CLEANUP_DEFERRED",
+        cleanupFailures: orphanRemovalCleanupFailures(startupOrphans.failures),
+      });
+    }
+
+    const activeSessionHost = createDaemonSessionHost({
+      graftDir,
+      graphRoot,
+      daemonInstanceId: rootOwnership.instanceId,
+      socketPath,
+      transportKind,
+      healthPath: HEALTH_PATH,
+      mcpPath: MCP_PATH,
+      startedAt,
+      sessionStorage,
+      sessionsRootAuthority,
+      legacyUnmarkedSessionPolicy,
+      warpPool,
+      controlPlane,
+      daemonScheduler,
+      daemonWorkerPool: activeDaemonWorkerPool,
+      monitorRuntime: activeMonitorRuntime,
+      getHealthStatus,
+      sessionInactivityTtlMs,
+      sessionReaperIntervalMs,
+      ...(options.nowMs !== undefined ? { nowMs: options.nowMs } : {}),
+      ...(options.env !== undefined ? { env: options.env } : {}),
+      ...(options.runCapture !== undefined ? { runCapture: options.runCapture } : {}),
+      ...(options.runtimeObservability !== undefined
+        ? { runtimeObservability: options.runtimeObservability }
+        : {}),
+      ...(options.persistedLocalHistoryGraph !== undefined
+        ? { persistedLocalHistoryGraph: options.persistedLocalHistoryGraph }
+        : {}),
+    });
+    sessionHost = activeSessionHost;
+
+    const inspection = new DaemonInspectionQuery({
+      runtime: { incarnationId, startedAt, pid: process.pid, version: GRAFT_VERSION,
+        modulePath: fileURLToPath(import.meta.url), executablePath: process.execPath, socketPath },
+      now: () => new Date().toISOString(),
+      source: {
+        sessions: (id) => controlPlane.inspectionSessions(id),
+        workspaces: () => controlPlane.inspectionWorkspaces(),
+        jobs: () => daemonScheduler.inspectionJobs(),
+        workers: () => activeDaemonWorkerPool.inspectionWorkers(),
+        monitors: () => activeMonitorRuntime.inspectionMonitors(),
+        hasSession: (id) => controlPlane.inspectionHasSession(id),
+        counters: () => ({
+          scheduler: daemonScheduler.inspectionCounters(),
+          workers: activeDaemonWorkerPool.inspectionCounters(),
+        }),
+        pool: () => ({ repositoryKeys: warpPool.size() }),
+      },
+    });
+    const activeInspectionRoute = createDaemonInspectionRoute(request => inspection.capture(request));
+    inspectionRoute = activeInspectionRoute;
+
+    let closing: Promise<void> | null = null;
+
+    const shutdown = (): void => {
+      void daemon.close().then(() => {
+        process.exitCode = process.exitCode ?? 0;
+      }).catch((error: unknown) => {
+        console.error({ code: "DAEMON_SIGNAL_SHUTDOWN_FAILED", error });
+        if (process.exitCode === undefined || process.exitCode === 0) {
+          process.exitCode = 1;
+        }
+      });
+    };
+
+    process.once("SIGINT", shutdown);
+    process.once("SIGTERM", shutdown);
+
+    const daemon: GraftDaemonServer = {
+      socketPath,
+      healthPath: HEALTH_PATH,
+      mcpPath: MCP_PATH,
+      reapExpiredSessions(): Promise<SessionSweepResult> {
+        return activeSessionHost.reapExpiredSessions();
+      },
+      getHealthStatus(): DaemonHealthStatus {
+        return getHealthStatus();
+      },
+      async close(): Promise<void> {
+        if (closing !== null) return closing;
+        closing = (async () => {
+          process.off("SIGINT", shutdown);
+          process.off("SIGTERM", shutdown);
+          const errors = await runCleanupSteps([
+            () => {
+              activeInspectionRoute.close();
+              return Promise.resolve();
+            },
+            () => activeSessionHost.close(),
+            () => activeMonitorRuntime.close(),
+            () => activeDaemonWorkerPool.close(),
+            () => closeHttpServer(activeHttpServer),
+            async () => {
               if (!isNamedPipePath(socketPath)) {
                 await fs.unlink(socketPath).catch((error: unknown) => {
-                  if (!(error instanceof Error && "code" in error && error.code === "ENOENT")) throw error;
+                  if (error instanceof Error && "code" in error && error.code === "ENOENT") return;
+                  throw error;
                 });
               }
             },
-          },
-        ]);
-      })();
-      return closing;
-    },
-  };
+            () => sessionsRootAuthority.close(),
+            () => rootOwnership.release(),
+          ]);
+          if (errors.length > 0) {
+            throw new AggregateError(errors, "Failed to close the Graft daemon cleanly");
+          }
+        })();
+        return closing;
+      },
+    };
 
-  return daemon;
+    return daemon;
+  } catch (error) {
+    const cleanupSteps: (() => Promise<void>)[] = [];
+    const sessionHostToClose = sessionHost;
+    const monitorRuntimeToClose = monitorRuntime;
+    const workerPoolToClose = daemonWorkerPool;
+    const httpServerToClose = httpServer;
+    inspectionRoute?.close();
+    const ownsSocket = httpServerToClose?.listening === true;
+    if (sessionHostToClose !== undefined) cleanupSteps.push(() => sessionHostToClose.close());
+    if (monitorRuntimeToClose !== undefined) cleanupSteps.push(() => monitorRuntimeToClose.close());
+    if (workerPoolToClose !== undefined) cleanupSteps.push(() => workerPoolToClose.close());
+    if (ownsSocket) cleanupSteps.push(() => closeHttpServer(httpServerToClose));
+    if (ownsSocket && !isNamedPipePath(socketPath)) {
+      cleanupSteps.push(async () => {
+        await fs.unlink(socketPath).catch((unlinkError: unknown) => {
+          if (unlinkError instanceof Error && "code" in unlinkError && unlinkError.code === "ENOENT") return;
+          throw unlinkError;
+        });
+      });
+    }
+    cleanupSteps.push(() => sessionsRootAuthority.close());
+    cleanupSteps.push(() => rootOwnership.release());
+    const cleanupErrors = await runCleanupSteps(cleanupSteps);
+    if (cleanupErrors.length > 0) {
+      throw new AggregateError(cleanupErrors, "Daemon startup and rollback both failed", { cause: error });
+    }
+    throw error;
+  }
 }

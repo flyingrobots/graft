@@ -75,6 +75,114 @@ surface, the shortest agent-facing flow is:
 3. optionally call `workspace_list_opened` to inspect the opened paths; the
    routed call does not activate or rebind the session
 
+### Session lifecycle and abandoned-session cleanup
+
+`DaemonSessionHost` bounds state retained by abandoned MCP sessions. This
+lifecycle does not claim to bound every daemon cache or working set.
+
+- **Idle eligibility** uses process-local monotonic elapsed time, never civil
+  wall time. The default inactivity TTL is 30 minutes and the default scheduled
+  sweep interval is 60 seconds.
+- **Active request ownership** starts for an existing session before POST body
+  parsing and lasts through handler settlement. Concurrent requests hold
+  independent references; a session with any active reference is not idle.
+- **Terminal cleanup** is one idempotent transition shared by idle expiry,
+  transport close/error, explicit disconnect, and daemon shutdown. Every cause
+  revokes the session's map and `DaemonControlPlane` registration, releases the
+  session's WARP resident leases, and removes
+  `<graftDir>/sessions/<sessionId>`. A new session whose initial request
+  handling rejects is retired through the same transition. Idle expiry, transport error, and daemon
+  shutdown ask the connected MCP protocol server to close and fall back to the
+  HTTP transport when protocol close fails. When the transport's own close
+  callback initiates termination, including explicit DELETE, the transport is
+  already closed, so the transition skips duplicate protocol/transport close.
+  Shutdown awaits active sweeps and transport-triggered terminations, but a
+  sweep-owned termination contributes its cleanup result only through that
+  sweep. There is no separate `GraftServer.close()` operation.
+- **Explicit disconnect** is available through `DELETE /mcp` with the exact
+  `mcp-session-id`.
+- **Crash and cleanup recovery** begins only after the daemon has exclusive
+  ownership of its configured root. Startup removes eligible prior-process
+  session directories; every later sweep also retries eligible current-process
+  orphans. A prior-process directory that startup cannot inspect or remove does
+  not refuse startup: it is logged as `DAEMON_STARTUP_SESSION_CLEANUP_DEFERRED`
+  with structured cleanup failures and remains debt for the next sweep.
+  Unknown files, links, malformed ownership records, and unsafe paths
+  are preserved. A daemon using a custom endpoint never deletes an unmarked
+  legacy UUID directory; only the default endpoint may perform that migration
+  cleanup. The default endpoint is already bound, but returns HTTP 503, before
+  that cleanup starts, so a legacy daemon cannot create live scratch inside the
+  startup scan window. Orphan discovery pins the original sessions-root handle
+  and refuses the scan if the root's device/inode identity changes during
+  enumeration, candidate inspection, or removal. Quarantined directories are
+  deleted child by child: each entry is re-checked by device/inode before it is
+  removed, links are unlinked without following them, and an entry replaced
+  after enumeration stops the removal with the `causeCode`
+  `DAEMON_QUARANTINE_ENTRY_CHANGED`,
+  leaving the rest in quarantine. Startup and every sweep finish a
+  `.graft-removing-<session>-<uuid>` quarantine left by a crash or refusal when
+  it is a real directory with a valid ownership marker for that session;
+  otherwise it is preserved with a `QUARANTINE_*` reason. A new session
+  directory is built as `.graft-staging-<session>` and renamed to its UUID only
+  after its ownership marker is durable, so a crash never leaves an unmarked
+  UUID directory; startup and every sweep remove an abandoned staging directory
+  that holds nothing but the marker or its temporary files, and preserve any
+  other with a `STAGING_*` reason. Node cannot delete by
+  inode, so a window remains between each check and its deletion. Node also
+  has no rename that refuses an existing target, so publication checks that the
+  UUID name is free and then renames: an empty directory created at that name
+  between the check and the rename is replaced, and a non-empty one fails the
+  construction. Using either window needs a same-user process acting inside the
+  private 0700 sessions root, which can already delete that user's files.
+
+The required programmatic sweep method,
+`GraftDaemonServer.reapExpiredSessions()`, returns separate facts:
+
+```text
+SessionSweepResult
+  sessionsRetired
+  liveDirectoriesRemoved
+  orphanDirectoriesRemoved
+  cleanupFailures[]
+    code
+    sessionId | null
+    path | null
+    retryable
+    causeCode | null
+    message
+  preservedEntries[]
+    entryName
+    path
+    reason
+  sweepFailure | null
+```
+
+`causeCode` is the stable code of the underlying error, such as
+`DAEMON_QUARANTINE_ENTRY_CHANGED`, `UNSAFE_DAEMON_SESSIONS_ROOT`, or an errno
+code like `EACCES`, and is null when that error carries none. Match on it, not
+on `message`.
+
+Retiring a session does not imply that its directory was removed. Filesystem
+and orphan-scan failures are marked retryable only when a later sweep executes
+that operation again. Protocol close, fallback transport close, and WARP lease
+release (`SESSION_WARP_RELEASE_FAILED`) failures are reported separately as
+non-retryable, as are live-session cleanup refusals for links or
+non-directories that orphan discovery intentionally preserves and orphan
+removals refused because the inspected directory was replaced
+(`UNSAFE_DAEMON_SESSION_DIRECTORY`), including when a failed restore from
+quarantine wraps that refusal. An invalid or regressing injected clock
+stops the sweep with `MONOTONIC_CLOCK_INVALID` and leaves the previous accepted
+elapsed-time sample unchanged. When the sweep's own starting sample, or a
+failure retained by a session before any retirement, is invalid, the sweep
+reports zero retired sessions. A retained failure found mid-sweep, while the
+sweep walks the sessions, stops the sweep there and reports the sessions it had
+already retired and their cleanup failures.
+Scheduled sweeps emit structured diagnostics for refused sweeps and cleanup
+failures. Preserved unknown, malformed, non-directory, or link entries are also
+reported with stable reason codes without touching their targets. Scheduled
+sweeps log the preserved set only when it changes; `reapExpiredSessions()`
+always returns the full set.
+
 ### WARP resident ownership
 
 The daemon's `WarpResidentPool` application port exposes only owned
