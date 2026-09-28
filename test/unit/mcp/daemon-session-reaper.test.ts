@@ -3748,10 +3748,10 @@ describe("mcp: daemon session reaper", () => {
 
     shutdown!("SIGTERM");
     await vi.waitFor(() => {
-      expect(consoleError).toHaveBeenCalledWith(
-        "[graft] daemon shutdown failed",
-        expect.any(AggregateError),
-      );
+      expect(consoleError).toHaveBeenCalledWith({
+        code: "DAEMON_SIGNAL_SHUTDOWN_FAILED",
+        error: expect.any(AggregateError),
+      });
       expect(process.exitCode).toBe(1);
     });
     await new Promise<void>((resolve) => {

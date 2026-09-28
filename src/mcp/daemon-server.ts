@@ -249,7 +249,7 @@ export async function startDaemonServer(options: StartDaemonServerOptions = {}):
       void daemon.close().then(() => {
         process.exitCode = process.exitCode ?? 0;
       }).catch((error: unknown) => {
-        console.error("[graft] daemon shutdown failed", error);
+        console.error({ code: "DAEMON_SIGNAL_SHUTDOWN_FAILED", error });
         if (process.exitCode === undefined || process.exitCode === 0) {
           process.exitCode = 1;
         }
