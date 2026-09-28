@@ -25,6 +25,7 @@ export function inspectionCollectionSchema<T extends z.ZodType>(row: T) {
   }).strict().superRefine((value, ctx) => {
     if (value.returned !== value.rows.length
       || (value.matchingTotal !== null && value.matchingTotal < value.returned)
+      || (value.completeness === "truncated" && value.matchingTotal !== null && value.matchingTotal <= value.returned)
       || (value.completeness === "complete" && (value.availability !== "available" || value.matchingTotal !== value.returned))
       || (value.availability === "unavailable" && (value.completeness !== "unknown" || value.matchingTotal !== null || value.returned !== 0))) {
       ctx.addIssue({ code: "custom", message: "Inconsistent inventory evidence" });

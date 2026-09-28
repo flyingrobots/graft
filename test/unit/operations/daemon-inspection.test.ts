@@ -165,6 +165,17 @@ describe("bounded daemon observation", () => {
     expect(result.jobs).toMatchObject({ returned: 1, completeness: "complete" });
   });
 
+  it("rejects a truncated collection whose known matching total omits nothing", () => {
+    const { state, query } = fixture();
+    state.sessions = [session("first"), session("last")];
+    const bounded = query.capture({ limit: 1 });
+    expect(bounded.sessions).toMatchObject({ returned: 1, matchingTotal: 2, completeness: "truncated" });
+    expect(inspectionObservationSchema.safeParse(bounded).success).toBe(true);
+    const contradictory = structuredClone(bounded);
+    contradictory.sessions.matchingTotal = 1;
+    expect(inspectionObservationSchema.safeParse(contradictory).success).toBe(false);
+  });
+
   it("rejects a reported client whose payload contradicts its declared availability", () => {
     const { state, query } = fixture();
     const retained = query.capture({});

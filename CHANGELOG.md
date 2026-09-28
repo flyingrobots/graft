@@ -21,7 +21,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   retained failure history, and index-coverage measurement remain separate work.
 - **Inspection validator invariants**: the observation schema rejects a session
   whose `reportedClient` payload contradicts `reportedClientAvailability`
-  (`null` with `available`, or a client object with `not_retained`).
+  (`null` with `available`, or a client object with `not_retained`), and a
+  `truncated` collection whose known `matchingTotal` does not exceed `returned`.
 
 ## [0.14.0] - 2026-09-11
 
