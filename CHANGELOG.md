@@ -129,7 +129,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   rejects, releases the session's WARP resident leases; a release failure is
   reported as the non-retryable cleanup failure `SESSION_WARP_RELEASE_FAILED`.
   An initialize request that finishes after shutdown stops admission receives
-  JSON-RPC error `-32000`.
+  JSON-RPC error `-32000`. An invalid `GRAFT_WARP_MAX_RESIDENTS` rejects
+  daemon startup before it creates the daemon root, claims ownership, or binds
+  the socket.
 
 ### Documentation
 

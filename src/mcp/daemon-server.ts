@@ -93,6 +93,7 @@ export async function closeDaemonResources(stages: readonly DaemonShutdownStage[
 export async function startDaemonServer(options: StartDaemonServerOptions = {}): Promise<GraftDaemonServer> {
   const sessionInactivityTtlMs = resolveSessionInactivityTtlMs(options.sessionInactivityTtlMs);
   const sessionReaperIntervalMs = resolveSessionReaperIntervalMs(options.sessionReaperIntervalMs);
+  const warpPoolOptions = resolveWarpPoolOptions(options.env ?? process.env);
   const sessionStorage = options.sessionStorage ?? nodeDaemonSessionStorage;
   await ensureGitVersionSupportsGraft();
   const graftDir = path.resolve(options.graftDir ?? defaultDaemonRoot());
@@ -147,7 +148,7 @@ export async function startDaemonServer(options: StartDaemonServerOptions = {}):
 
     const warpPool = new InMemoryWarpPool(
       (cwd, writerId) => openWarp({ cwd, writerId }),
-      resolveWarpPoolOptions(options.env ?? process.env),
+      warpPoolOptions,
     );
     const controlPlane = new DaemonControlPlane({
       fs: nodeFs,

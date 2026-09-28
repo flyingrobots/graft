@@ -387,6 +387,27 @@ describe("mcp: daemon session reaper", () => {
     }
   });
 
+  it("rejects an invalid WARP resident limit before touching daemon-root storage", async () => {
+    const parentDir = fs.mkdtempSync(path.join(os.tmpdir(), "graft-session-reaper-warp-limit-"));
+    const graftDir = path.join(parentDir, "graft");
+    const socketPath = path.join(parentDir, "daemon.sock");
+    cleanups.push(() => {
+      fs.rmSync(parentDir, { recursive: true, force: true });
+    });
+
+    await expect((async () => {
+      const daemon = await startDaemonServer({
+        graftDir,
+        socketPath,
+        env: { GRAFT_WARP_MAX_RESIDENTS: "0" },
+        sessionReaperIntervalMs: 0,
+      });
+      await daemon.close();
+    })()).rejects.toBeInstanceOf(RangeError);
+    expect(fs.existsSync(graftDir)).toBe(false);
+    expect(fs.existsSync(socketPath)).toBe(false);
+  });
+
   it("rejects inactivity TTL values outside the positive safe-integer domain", async () => {
     const invalidTtls = [0, -1, Number.NaN, Number.POSITIVE_INFINITY, Number.NEGATIVE_INFINITY, 1.5,
       Number.MAX_SAFE_INTEGER + 1];
