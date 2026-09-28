@@ -155,6 +155,16 @@ describe("bounded daemon observation", () => {
     expect(query.capture({}).sessions.availability).toBe("unavailable");
   });
 
+  it("charges the capture row limit only for rows it returns, not nested rows of an omitted session", () => {
+    const { state, query } = fixture();
+    const many = Array.from({ length: 100 }, (_, n) => opened({ repoId: "repo:r", worktreeId: `worktree:${String(n)}`, worktreeRoot: `/r/${String(n)}` }));
+    state.sessions = Array.from({ length: 5 }, (_, n) => ({ ...session(`s${String(n)}`), openedWorkspaces: () => many }));
+    const result = query.capture({});
+    // Four sessions with 100 memberships each fit (404 rows); the fifth cannot.
+    expect(result.sessions.returned).toBe(4);
+    expect(result.jobs).toMatchObject({ returned: 1, completeness: "complete" });
+  });
+
   it("rejects a reported client whose payload contradicts its declared availability", () => {
     const { state, query } = fixture();
     const retained = query.capture({});

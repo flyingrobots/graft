@@ -42,13 +42,16 @@ class CaptureBudget {
         const next = iterator.next();
         if (next.done === true) break;
         if (next.value === null) continue;
+        // Nested collections charge rows while projecting; an omitted row returns them.
+        const charged = this.rows;
         const row = project(next.value);
-        if (row === null) continue;
+        if (row === null) { this.rows = charged; continue; }
         result.matchingTotal = (result.matchingTotal ?? 0) + 1;
         if (result.rows.length < this.limit && this.rows < INSPECTION_LIMITS.totalRows) {
           result.rows.push(row);
           this.rows++;
         } else {
+          this.rows = charged;
           result.completeness = "truncated";
           result.reason = "RESULT_LIMIT";
         }
