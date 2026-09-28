@@ -3038,6 +3038,43 @@ describe("mcp: daemon session reaper", () => {
     expect(observed).toEqual(Array.from({ length: cycles }, () => ({ stale: 1, released: 0 })));
   });
 
+  it("keeps a root-claim tombstone for 60 seconds after its recovery and collects it at 60 seconds", async () => {
+    const rootDir = fs.mkdtempSync(path.join(os.tmpdir(), "gs-claim-grace-"));
+    const claimPath = path.join(rootDir, "daemon-owner.json.claim");
+    cleanups.push(() => {
+      fs.rmSync(rootDir, { recursive: true, force: true });
+    });
+    const tombstoneClaimId = "00000000-0000-4000-8000-000000000801";
+    const tombstonePath = `${claimPath}.stale-${tombstoneClaimId}`;
+    plantRootOwnerClaim(tombstonePath, tombstoneClaimId, deadPid);
+    // The recovery stamped the tombstone on a whole second, so the mtime is
+    // exact and the only moving input is the injected wall clock.
+    const stampedMs = Date.parse("2026-09-28T00:00:00.000Z");
+    fs.utimesSync(tombstonePath, stampedMs / 1_000, stampedMs / 1_000);
+    expect(fs.lstatSync(tombstonePath).mtimeMs).toBe(stampedMs);
+    let wallClockMs = stampedMs + 59_999;
+    const dateNow = vi.spyOn(Date, "now").mockImplementation(() => wallClockMs);
+    cleanups.push(() => {
+      dateNow.mockRestore();
+    });
+    const claimAndRelease = async (): Promise<void> => {
+      const ownership = await acquireDaemonRootOwnership({
+        graftDir: rootDir,
+        socketPath: path.join(rootDir, "daemon.sock"),
+      }, liveOnlyLiveness);
+      await ownership.release();
+    };
+
+    await claimAndRelease();
+    const residueJustInsideGrace = claimResidue(rootDir).stale;
+    wallClockMs = stampedMs + 60_000;
+    await claimAndRelease();
+    const residueAtGrace = claimResidue(rootDir).stale;
+
+    expect(residueJustInsideGrace).toEqual([path.basename(tombstonePath)]);
+    expect(residueAtGrace).toEqual([]);
+  });
+
   it("keeps a fresh tombstone when the recovery stops between the takeover rename and anything after it", async () => {
     const rootDir = fs.mkdtempSync(path.join(os.tmpdir(), "gs-claim-stamp-"));
     const claimPath = path.join(rootDir, "daemon-owner.json.claim");
