@@ -158,6 +158,9 @@ so the tested output is the shipped output, not a look-alike.
   holding a `pid` file; such a directory is waited on while its owner is alive
   and younger than the bound, and otherwise removed file by file with `rmdir`,
   which cannot remove a current (file) lock created at that path meanwhile.
+  A process that dies between writing a staging file and removing it leaves a
+  `*.tmp` file beside the lock; whoever next acquires the lock removes those
+  whose writer is dead or which are past the age bound.
 - **Docker harness.** The image's `build` stage runs `pnpm build` after
   `COPY . .`, so inside the container every `dist/` file is newer than every
   input and the setup does nothing. `.dockerignore` already keeps the host's
@@ -279,5 +282,13 @@ so the tested output is the shipped output, not a look-alike.
   the second call starts only once the first holds the lock and is building.
   Cross-process locking is the same code path through the filesystem but is
   not separately exercised (model limit).
+- Races with another process are staged without production hooks: a
+  pass-through `node:fs` mock runs a one-shot callback before `readdirSync`
+  of a registered directory (a directory deleted mid-scan), and a
+  `process.kill` spy acts inside the helper's liveness probe (a dead lock
+  replaced between being read and being taken over). The helper exports
+  three `@internal` seams, `buildLockPath`, `writeBuildLock` and
+  `buildLockHolder`, so the tests plant and read locks without copying the
+  record format.
 - Run the two executing consumers from a checkout with no `dist/`, then lint,
   typecheck, and one full host Vitest run.

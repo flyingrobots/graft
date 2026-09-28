@@ -20,14 +20,12 @@ export interface FreshDistOptions {
   readonly lockPollMs?: number;
   /** How long to wait for another live process's build before giving up. */
   readonly lockTimeoutMs?: number;
-  /** Test seam: runs after a dead lock owner is seen and before this process acts on it. */
-  readonly beforeDeadLockTakeover?: () => void;
 }
 
 export type FreshDistOutcome = "fresh" | "built";
 
 /** Build-config files whose change can change the emitted output. */
-export const DIST_CONFIG_INPUTS = ["tsconfig.json", "tsconfig.build.json", "package.json", "pnpm-lock.yaml"] as const;
+const DIST_CONFIG_INPUTS = ["tsconfig.json", "tsconfig.build.json", "package.json", "pnpm-lock.yaml"] as const;
 
 /** tsc's ExitStatus.DiagnosticsPresent_OutputsGenerated: errors were reported, every file was emitted. */
 const TSC_DIAGNOSTICS_WITH_OUTPUT = 2;
@@ -139,7 +137,7 @@ function assertRequiredInputs(root: string): void {
  * dist/ is fresh when no build was left unfinished, every src/ module has its emitted .js, and the
  * oldest dist/ file is strictly newer than the newest input.
  */
-export function distStaleness(root: string): Staleness {
+function distStaleness(root: string): Staleness {
   assertRequiredInputs(root);
   if (fs.existsSync(pendingBuildMarker(root))) {
     return { fresh: false, reason: "an earlier dist/ build did not finish" };
@@ -295,6 +293,33 @@ function createExclusive(target: string, content: string): boolean {
   }
 }
 
+/** `createExclusive`'s staging name for the lock or a retirement claim, capturing the writer's pid. */
+const STAGING_FILE = /^dist-build\.lock(?:\.retire\.[0-9a-f-]+\.\d+)?\.(\d+)\.[0-9a-f-]{36}\.tmp$/u;
+
+/**
+ * Removes staging files left by processes that died between writing one and removing it. A staging
+ * file lives for microseconds, so one whose writer is alive and young is left alone: removing it
+ * would make that writer's link fail.
+ */
+function removeDeadStagingFiles(cacheDir: string): void {
+  let names: string[];
+  try {
+    names = fs.readdirSync(cacheDir);
+  } catch (error: unknown) {
+    if (isMissing(error)) return;
+    throw error;
+  }
+  for (const name of names) {
+    const writer = STAGING_FILE.exec(name)?.[1];
+    if (writer === undefined) continue;
+    const file = path.join(cacheDir, name);
+    const createdAtMs = mtimeMs(file);
+    if (createdAtMs !== undefined && holderIsDead(parsePositiveInteger(writer), createdAtMs)) {
+      fs.rmSync(file, { force: true });
+    }
+  }
+}
+
 /** Creates a new lock instance owned by `pid`; undefined when a lock is present. */
 function tryCreateLock(lock: string, pid: number = process.pid, createdAtMs: number = Date.now()): string | undefined {
   const token = crypto.randomUUID();
@@ -333,32 +358,28 @@ function retireLock(lock: string, token: string): boolean {
   }
 }
 
-/** The lock that serializes dist/ builds across processes sharing one checkout. */
+// The three exports below are test seams, used only by test/unit/helpers/fresh-dist.test.ts to plant
+// and inspect locks (dead, foreign, old or replaced owners) without copying the record format there.
+// Nothing else should call them; the setup's surface is keepDistFresh, ensureFreshDist and tscBuild.
+
+/** @internal Test seam. The lock that serializes dist/ builds across processes sharing one checkout. */
 export function buildLockPath(root: string): string {
   return path.join(buildCacheDir(root), "dist-build.lock");
 }
 
-/**
- * Creates the build lock on behalf of `pid`, dated `createdAtMs` (tests plant dead, foreign or old
- * owners). False when held.
- */
+/** @internal Test seam. Creates the build lock on behalf of `pid`, dated `createdAtMs`. False when held. */
 export function writeBuildLock(root: string, pid: number, createdAtMs: number = Date.now()): boolean {
   fs.mkdirSync(buildCacheDir(root), { recursive: true });
   return tryCreateLock(buildLockPath(root), pid, createdAtMs) !== undefined;
 }
 
-/** The pid recorded in the build lock, or undefined when there is no lock. */
+/** @internal Test seam. The pid recorded in the build lock, or undefined when there is none. */
 export function buildLockHolder(root: string): number | undefined {
   return readLock(buildLockPath(root))?.pid;
 }
 
 /** Waits for the lock and returns the token of the instance this process now owns. */
-async function acquireLock(
-  lock: string,
-  pollMs: number,
-  timeoutMs: number,
-  beforeTakeover?: () => void,
-): Promise<string> {
+async function acquireLock(lock: string, pollMs: number, timeoutMs: number): Promise<string> {
   fs.mkdirSync(path.dirname(lock), { recursive: true });
   const deadline = Date.now() + timeoutMs;
   for (;;) {
@@ -366,7 +387,6 @@ async function acquireLock(
     if (token !== undefined) return token;
     const seen = readLock(lock);
     if (seen !== undefined && holderIsDead(seen.pid, seen.createdAtMs)) {
-      beforeTakeover?.();
       if (seen.legacy) {
         removeLegacyLock(lock);
         continue;
@@ -401,9 +421,9 @@ export async function ensureFreshDist(options: FreshDistOptions): Promise<FreshD
     lock,
     options.lockPollMs ?? DEFAULT_LOCK_POLL_MS,
     options.lockTimeoutMs ?? DEFAULT_LOCK_TIMEOUT_MS,
-    options.beforeDeadLockTakeover,
   );
   try {
+    removeDeadStagingFiles(path.dirname(lock));
     if (distStaleness(root).fresh) return "fresh";
 
     const dist = path.join(root, "dist");

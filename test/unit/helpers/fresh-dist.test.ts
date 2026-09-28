@@ -1,4 +1,5 @@
 import { spawnSync } from "node:child_process";
+import * as crypto from "node:crypto";
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
@@ -424,30 +425,52 @@ describe("test support: ensureFreshDist", { timeout: CASE_TIMEOUT_MS }, () => {
 
   it("leaves alone a live lock that replaced the dead one it saw, instead of taking it over", async ({ onTestFinished }) => {
     const root = packageRoot(onTestFinished);
-    expect(writeBuildLock(root, exitedPid())).toBe(true);
+    const deadOwner = exitedPid();
+    expect(writeBuildLock(root, deadOwner)).toBe(true);
     // A live process other than this one: the Vitest parent outlives this case.
     const livePeer = process.ppid;
     let sawDeadOwner = 0;
-    const build = fakeBuild();
-
-    const attempt = ensureFreshDist({
-      root,
-      build: build.build,
-      lockPollMs: LOCK_POLL_MS,
-      lockTimeoutMs: 0,
-      beforeDeadLockTakeover: () => {
+    const realKill = process.kill.bind(process);
+    // The helper probes liveness with process.kill(pid, 0) after reading the lock and before acting
+    // on it; that probe is the window in which another process can replace the dead lock.
+    const kill = vi.spyOn(process, "kill").mockImplementation((pid, signal) => {
+      if (pid === deadOwner && sawDeadOwner === 0) {
         sawDeadOwner += 1;
-        // Between this process seeing the dead owner and acting on it, another process takes the
-        // dead lock over and now holds a live one of its own.
         fs.rmSync(buildLockPath(root), { recursive: true, force: true });
         expect(writeBuildLock(root, livePeer)).toBe(true);
-      },
+      }
+      return realKill(pid, signal);
     });
+    onTestFinished(() => {
+      kill.mockRestore();
+    });
+    const build = fakeBuild();
+
+    const attempt = ensureFreshDist({ root, build: build.build, lockPollMs: LOCK_POLL_MS, lockTimeoutMs: 0 });
 
     await expect(attempt).rejects.toThrow(/Timed out/u);
     expect(sawDeadOwner).toBe(1);
     expect(build.calls).toBe(0);
     expect(buildLockHolder(root)).toBe(livePeer);
+  });
+
+  it("removes lock staging files left by processes that died, and keeps a live process's", async ({ onTestFinished }) => {
+    const root = packageRoot(onTestFinished);
+    const lock = buildLockPath(root);
+    fs.mkdirSync(path.dirname(lock), { recursive: true });
+    const dead = exitedPid();
+    const leftovers = [
+      `${lock}.${String(dead)}.${crypto.randomUUID()}.tmp`,
+      `${lock}.retire.${crypto.randomUUID()}.1.${String(dead)}.${crypto.randomUUID()}.tmp`,
+    ];
+    const inFlight = `${lock}.${String(process.ppid)}.${crypto.randomUUID()}.tmp`;
+    for (const file of [...leftovers, inFlight]) fs.writeFileSync(file, "staged");
+    const build = fakeBuild();
+
+    await expect(ensureFreshDist({ root, build: build.build })).resolves.toBe("built");
+
+    expect(leftovers.filter((file) => fs.existsSync(file))).toEqual([]);
+    expect(fs.existsSync(inFlight)).toBe(true);
   });
 
   it("takes over a lock older than the maximum lock age even though its pid names a live process", async ({ onTestFinished }) => {

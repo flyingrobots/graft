@@ -181,6 +181,17 @@ before it, on the helper suite, unless stated.
   and a bullet in the design packet's test strategy, with the criterion also recorded here. CI stage: pre-merge, the `test`
   job's `pnpm test` step. Deletion criterion: when no test executes `dist/`, or a replacement
   mechanism's tests cover these claims. Documentation only; no RED applies.
+- **Test-only surface and staging leftovers (finding 11).** `distStaleness` and
+  `DIST_CONFIG_INPUTS` are no longer exported (nothing outside the helper used them; typecheck
+  confirms). The `beforeDeadLockTakeover` option is gone: the replaced-lock case now makes the
+  replacement inside a `process.kill` spy, which is the liveness probe the helper runs between
+  reading the lock and acting on it. Calibration: with the token check removed from `retireLock`
+  that case fails with `promise resolved "'built'" instead of rejecting`, as it did with the old
+  option. `buildLockPath`, `writeBuildLock` and `buildLockHolder` stay, marked `@internal` test
+  seams, so tests do not copy the lock format. The owner of a newly acquired lock now removes
+  staging files (`*.tmp`) whose writer is dead or which are past the lock age bound, and leaves a
+  live, young writer's alone. RED: `expected [ ...(2) ] to deeply equal []`, both dead writers' files
+  still present.
 
 ## Non-Goals Held
 
