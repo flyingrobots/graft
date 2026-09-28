@@ -75,8 +75,11 @@ second review).
 - **Outputs**: every file under `dist/`.
 - `dist/` is fresh only when it contains at least one file and its **oldest**
   file is strictly newer than the **newest** input. Using the oldest output
-  means an orphan left by a deleted source file, or a file left by an
-  interrupted build, counts as stale.
+  means an orphan left by a deleted source file counts as stale. It does not
+  catch a `dist/` left by an interrupted rebuild: every file such a build
+  writes lands after `dist/` was removed and is newer than the inputs. Only
+  the pending marker below catches that (corrected in the second review; the
+  first version of this packet credited the oldest-output rule with it).
 - Two completeness checks, added in review, because a partial `dist/` whose
   surviving files are all new passes the time rule:
   - **Every module has its output.** Each `src/**/*.ts` other than a `.d.ts`
@@ -248,8 +251,10 @@ so the tested output is the shipped output, not a look-alike.
   owns its root and removes it through its own context's `onTestFinished`, so
   the file passes alone, shuffled and with `--sequence.concurrent` (changed in
   the second review: a shared cleanup list broke concurrent runs). The oracle
-  is the rule above: build exactly when an input is not older than the oldest
-  output. RED first: with today's policy (build only when `dist/` is absent),
+  is the Decision above: build exactly when an input is not older than the
+  oldest output, a module's `.js` is missing, or the pending marker is
+  present; never accept a build whose inputs changed under it; fail without
+  building on a missing or future-dated input. RED first: with today's policy (build only when `dist/` is absent),
   the stale-dist case must fail because the stale output is kept.
 - Size: medium (Rule 9), owner @flyingrobots. Every case does application
   filesystem I/O in its own temp directory, and the dead-owner cases spawn one

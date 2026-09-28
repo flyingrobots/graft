@@ -14,8 +14,9 @@ Met locally on host Vitest. The Docker-isolated `pnpm test` and CI have not run 
 - `test/global-setup-fresh-dist.ts`, registered as Vitest `globalSetup`, runs it once per Vitest
   process before any worker starts, and (second review) again before every watch-mode rerun.
 - The enhance CLI test's own build step, which checked for one file, is deleted.
-- `test/unit/helpers/fresh-dist.test.ts`: 13 cases on a temporary fake package with mtimes set
-  explicitly.
+- `test/unit/helpers/fresh-dist.test.ts`: 13 cases when this retro was first written, 22 after the
+  first review, 32 after the second (31 for `ensureFreshDist`, 1 for the watch-mode hook), on a
+  temporary fake package with mtimes set explicitly.
 
 ## Outcome Against the Packet
 

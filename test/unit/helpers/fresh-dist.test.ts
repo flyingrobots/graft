@@ -17,7 +17,10 @@ import {
 // src/, plus tsconfig.json, tsconfig.build.json, package.json, pnpm-lock.yaml). A stale dist/ is
 // removed and rebuilt; tsc's exit 2 (diagnostics, output emitted) warns; any other failure throws
 // and leaves no dist/. src/ and each config file are required; a missing one fails setup unbuilt.
-// A dist/ lacking any src module's .js, or left by a build that did not finish, is stale.
+// A dist/ lacking any src module's .js, or left by a build that did not finish, is stale. A build
+// whose inputs changed under it is rebuilt, and a future-dated input fails setup unbuilt. Locks are
+// taken over when their owner has exited or they are over two minutes old. keepDistFresh rechecks
+// before every watch-mode rerun.
 // Size: medium (TESTING_STANDARDS.md Rule 9). Owner: @flyingrobots. Resources: files only under a
 // private mkdtemp root per case, removed by that case (onTestFinished); at most one child process at a time (the
 // dead-lock-owner cases spawn `node -e ""` to obtain a pid that has exited); no network. Time:
