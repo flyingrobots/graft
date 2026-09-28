@@ -64,7 +64,8 @@ mutation of the exact guard under test. Representative receipts:
 pnpm exec vitest run test/unit/mcp/daemon-session-reaper.test.ts
 ```
 
-Result: pass; 1 file, 66 tests.
+Result at `a8e05c9c`: pass; 1 file, 104 tests (run on the host with the
+repository's pinned vitest, not in the isolated container).
 
 The focused suite includes exact-value configuration defaults, invalid option
 tables, monotonic/refusal/rebase behavior, streaming and pre-body barriers,
@@ -95,11 +96,15 @@ explicit PathOps boundary. `1af06bc3` repaired that one classified boundary.
 The final exact-tree run passed without failed, flaky, retried, or unexplained
 tests.
 
+That isolated-suite result covers the tree at `35aa63d4` only. The isolated
+suite was not rerun locally for the later commits on this branch, so this
+witness records no isolated-suite count for them.
+
 ## Static gates
 
 | Gate | Command | Result |
 | :--- | :--- | :--- |
-| Focused lifecycle | `pnpm exec vitest run test/unit/mcp/daemon-session-reaper.test.ts` | pass; 1 file, 66 tests |
+| Focused lifecycle | `pnpm exec vitest run test/unit/mcp/daemon-session-reaper.test.ts` | at `a8e05c9c`: pass; 1 file, 104 tests |
 | Full isolated suite | `pnpm test` | behavior tree at `35aa63d4` passed 259 files, 2,122 tests in 90.74 seconds |
 | Lint | `pnpm lint` | pass |
 | Types | `pnpm typecheck` | pass |

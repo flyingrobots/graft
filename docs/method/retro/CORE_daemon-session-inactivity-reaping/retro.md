@@ -55,8 +55,9 @@ recorded daemon.
    session object owns one shared promise. The regression gates idle cleanup,
    injects a real transport error, begins shutdown, and observes one unregister,
    one protocol close, and one directory removal.
-7. **Did existing behavior survive?** Yes. Focused daemon lifecycle validation
-   passes 53 tests. The exact-tree isolated-suite receipt is recorded in
+7. **Did existing behavior survive?** Yes. The focused daemon lifecycle file
+   passed 104 tests at `a8e05c9c`. The focused and isolated-suite receipts,
+   each with the commit it was measured at, are recorded in
    [verification.md](./witness/verification.md).
 
 ## Review Repair
