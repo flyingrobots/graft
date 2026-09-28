@@ -1155,6 +1155,44 @@ describe("mcp: daemon session reaper", () => {
     expect(fs.readFileSync(path.join(orphanDir, "keep.txt"), "utf-8")).toBe("look-alike\n");
   });
 
+  it("isolates an orphan inspection failure to its own candidate", async () => {
+    if (process.platform === "win32" || process.getuid?.() === 0) return;
+    const rootDir = fs.mkdtempSync(path.join(os.tmpdir(), "graft-orphan-inspection-isolation-"));
+    const sessionsRoot = path.join(rootDir, "sessions");
+    const unreadableId = "00000000-0000-4000-8000-000000000001";
+    const removableId = "00000000-0000-4000-8000-000000000002";
+    const unreadableDir = path.join(sessionsRoot, unreadableId);
+    const removableDir = path.join(sessionsRoot, removableId);
+    fs.mkdirSync(unreadableDir, { recursive: true });
+    fs.mkdirSync(removableDir, { recursive: true });
+    cleanups.push(() => {
+      fs.chmodSync(unreadableDir, 0o700);
+      fs.rmSync(rootDir, { recursive: true, force: true });
+    });
+    const sessionsRootAuthority = await retainTestSessionsRoot(sessionsRoot);
+    // Without search permission, the ownership-marker lstat inside this
+    // candidate fails with EACCES.
+    fs.chmodSync(unreadableDir, 0o000);
+
+    const result = await removeSessionOrphanDirectories(
+      sessionsRoot,
+      new Set(),
+      "remove",
+      sessionsRootAuthority,
+    );
+
+    expect(result.removed).toBe(1);
+    expect(fs.existsSync(removableDir)).toBe(false);
+    expect(result.failures).toEqual([
+      expect.objectContaining({
+        sessionId: unreadableId,
+        path: unreadableDir,
+        error: expect.objectContaining({ code: "EACCES" }),
+      }),
+    ]);
+    expect(fs.existsSync(unreadableDir)).toBe(true);
+  });
+
   it("refuses live-session cleanup after the sessions root becomes a symlink", async () => {
     if (process.platform === "win32") return;
     const rootDir = fs.mkdtempSync(path.join(os.tmpdir(), "graft-live-session-root-swap-"));

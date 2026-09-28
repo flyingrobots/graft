@@ -140,6 +140,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   before capturing that directory's identity, rollback removes the directory
   if it is still empty, so a custom endpoint no longer preserves it forever as
   `LEGACY_SESSION_UNMARKED`. A crash in that window still leaves residue.
+  An orphan candidate that cannot be inspected, for example because its
+  ownership marker cannot be read, is reported as that candidate's failure
+  and the scan continues with the remaining candidates.
 
 ### Documentation
 

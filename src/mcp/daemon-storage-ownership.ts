@@ -1233,11 +1233,17 @@ export async function removeSessionOrphanDirectories(
       }
       if (liveSessionIds.has(sessionId)) continue;
       await assertPinnedDaemonSessionsRoot(root);
-      const inspection = await inspectSessionDirectory(
-        sessionsRoot,
-        sessionId,
-        legacyUnmarkedPolicy,
-      );
+      let inspection: SessionDirectoryInspection;
+      try {
+        inspection = await inspectSessionDirectory(
+          sessionsRoot,
+          sessionId,
+          legacyUnmarkedPolicy,
+        );
+      } catch (error) {
+        failures.push({ sessionId, path: sessionPath, error });
+        continue;
+      }
       await assertPinnedDaemonSessionsRoot(root);
       if (inspection.status === "missing") continue;
       if (inspection.status === "preserved") {
