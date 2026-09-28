@@ -2,7 +2,7 @@ import { spawnSync } from "node:child_process";
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { describe, expect, it, vi, type TestContext } from "vitest";
 import {
   buildLockHolder,
   buildLockPath,
@@ -19,7 +19,7 @@ import {
 // and leaves no dist/. src/ and each config file are required; a missing one fails setup unbuilt.
 // A dist/ lacking any src module's .js, or left by a build that did not finish, is stale.
 // Size: medium (TESTING_STANDARDS.md Rule 9). Owner: @flyingrobots. Resources: files only under a
-// private mkdtemp root per case, removed in afterEach; at most one child process at a time (the
+// private mkdtemp root per case, removed by that case (onTestFinished); at most one child process at a time (the
 // dead-lock-owner cases spawn `node -e ""` to obtain a pid that has exited); no network. Time:
 // mtimes are set with utimes; no case waits on a test timer. The helper's own lock poll is real
 // time, set to LOCK_POLL_MS. Ceiling: CASE_TIMEOUT_MS per case, enforced by the describe timeout.
@@ -51,14 +51,6 @@ vi.mock("node:fs", async (importOriginal) => {
   return { ...actual, readdirSync: readdirSync as typeof actual.readdirSync };
 });
 
-const roots: string[] = [];
-
-afterEach(() => {
-  while (roots.length > 0) {
-    fs.rmSync(roots.pop()!, { recursive: true, force: true });
-  }
-});
-
 function setTime(target: string, time: Date): void {
   fs.utimesSync(target, time, time);
 }
@@ -73,10 +65,14 @@ function walk(directory: string): string[] {
   return entries;
 }
 
-/** A fake package root whose inputs all carry INPUT_TIME. */
-function packageRoot(): string {
+/** A fake package root whose inputs all carry INPUT_TIME, removed when the calling case finishes. */
+function packageRoot(onTestFinished: TestContext["onTestFinished"]): string {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "graft-fresh-dist-"));
-  roots.push(root);
+  // The case's own hook from its context, so each case removes only its own root and cases may run
+  // concurrently (the module-level onTestFinished cannot tell concurrent cases apart).
+  onTestFinished(() => {
+    fs.rmSync(root, { recursive: true, force: true });
+  });
   fs.mkdirSync(path.join(root, "src", "nested"), { recursive: true });
   fs.writeFileSync(path.join(root, "src", "a.ts"), "export const a = 1;\n");
   fs.writeFileSync(path.join(root, "src", "nested", "b.ts"), "export const b = 1;\n");
@@ -122,8 +118,8 @@ function fakeBuild(
 }
 
 /** Builds dist/ with the fake build and stamps every output with BUILD_TIME. */
-async function builtRoot(): Promise<string> {
-  const root = packageRoot();
+async function builtRoot(onTestFinished: TestContext["onTestFinished"]): Promise<string> {
+  const root = packageRoot(onTestFinished);
   await fakeBuild().build(root);
   for (const entry of walk(path.join(root, "dist"))) setTime(entry, BUILD_TIME);
   return root;
@@ -141,8 +137,8 @@ function distText(root: string, relative: string): string {
 }
 
 describe("test support: ensureFreshDist", { timeout: CASE_TIMEOUT_MS }, () => {
-  it("builds dist when it is missing", async () => {
-    const root = packageRoot();
+  it("builds dist when it is missing", async ({ onTestFinished }) => {
+    const root = packageRoot(onTestFinished);
     const build = fakeBuild();
 
     await expect(ensureFreshDist({ root, build: build.build })).resolves.toBe("built");
@@ -151,8 +147,8 @@ describe("test support: ensureFreshDist", { timeout: CASE_TIMEOUT_MS }, () => {
     expect(distText(root, "a.js")).toBe("export const a = 1;\n");
   });
 
-  it("does not build when every output is newer than every input", async () => {
-    const root = await builtRoot();
+  it("does not build when every output is newer than every input", async ({ onTestFinished }) => {
+    const root = await builtRoot(onTestFinished);
     const build = fakeBuild();
 
     await expect(ensureFreshDist({ root, build: build.build })).resolves.toBe("fresh");
@@ -160,8 +156,8 @@ describe("test support: ensureFreshDist", { timeout: CASE_TIMEOUT_MS }, () => {
     expect(build.calls).toBe(0);
   });
 
-  it("rebuilds when a source file is newer than the build", async () => {
-    const root = await builtRoot();
+  it("rebuilds when a source file is newer than the build", async ({ onTestFinished }) => {
+    const root = await builtRoot(onTestFinished);
     fs.writeFileSync(path.join(root, "src", "a.ts"), "export const a = 2;\n");
     setTime(path.join(root, "src", "a.ts"), EDIT_TIME);
     const build = fakeBuild();
@@ -172,8 +168,8 @@ describe("test support: ensureFreshDist", { timeout: CASE_TIMEOUT_MS }, () => {
     expect(distText(root, "a.js")).toBe("export const a = 2;\n");
   });
 
-  it.each(CONFIG_FILES)("rebuilds when %s is newer than the build", async (file) => {
-    const root = await builtRoot();
+  it.for(CONFIG_FILES)("rebuilds when %s is newer than the build", async (file, { onTestFinished }) => {
+    const root = await builtRoot(onTestFinished);
     setTime(path.join(root, file), EDIT_TIME);
     const build = fakeBuild();
 
@@ -182,8 +178,8 @@ describe("test support: ensureFreshDist", { timeout: CASE_TIMEOUT_MS }, () => {
     expect(build.calls).toBe(1);
   });
 
-  it.each(["src", ...CONFIG_FILES])("fails without building when the required input %s is missing", async (input) => {
-    const root = await builtRoot();
+  it.for(["src", ...CONFIG_FILES])("fails without building when the required input %s is missing", async (input, { onTestFinished }) => {
+    const root = await builtRoot(onTestFinished);
     fs.rmSync(path.join(root, input), { recursive: true });
     const build = fakeBuild();
 
@@ -194,8 +190,8 @@ describe("test support: ensureFreshDist", { timeout: CASE_TIMEOUT_MS }, () => {
     expect(build.calls).toBe(0);
   });
 
-  it("rebuilds when a source is saved after the build read it but before the build wrote any output", async () => {
-    const root = packageRoot();
+  it("rebuilds when a source is saved after the build read it but before the build wrote any output", async ({ onTestFinished }) => {
+    const root = packageRoot(onTestFinished);
     const source = path.join(root, "src", "a.ts");
     let calls = 0;
     // Like tsc: reads every input first, then emits. The first build sees the edit land in between,
@@ -218,8 +214,8 @@ describe("test support: ensureFreshDist", { timeout: CASE_TIMEOUT_MS }, () => {
     expect(calls).toBe(2);
   });
 
-  it("gives up, leaving dist marked stale, when a source changes during every build", async () => {
-    const root = packageRoot();
+  it("gives up, leaving dist marked stale, when a source changes during every build", async ({ onTestFinished }) => {
+    const root = packageRoot(onTestFinished);
     const source = path.join(root, "src", "a.ts");
     let edits = 0;
     const churning = async (target: string): Promise<DistBuildResult> => {
@@ -238,8 +234,8 @@ describe("test support: ensureFreshDist", { timeout: CASE_TIMEOUT_MS }, () => {
     expect(build.calls).toBe(1);
   });
 
-  it("treats dist as stale, and rebuilds, when another process deletes part of it during the check", async () => {
-    const root = await builtRoot();
+  it("treats dist as stale, and rebuilds, when another process deletes part of it during the check", async ({ onTestFinished }) => {
+    const root = await builtRoot(onTestFinished);
     const nested = path.join(root, "dist", "nested");
     // The check has already lstat'ed dist/nested as a directory when it disappears.
     beforeReaddir.set(nested, () => {
@@ -254,8 +250,8 @@ describe("test support: ensureFreshDist", { timeout: CASE_TIMEOUT_MS }, () => {
     expect(distText(root, "nested/b.js")).toBe("export const b = 1;\n");
   });
 
-  it("rebuilds from a clean dist when a source file was deleted, dropping its orphaned output", async () => {
-    const root = await builtRoot();
+  it("rebuilds from a clean dist when a source file was deleted, dropping its orphaned output", async ({ onTestFinished }) => {
+    const root = await builtRoot(onTestFinished);
     fs.rmSync(path.join(root, "src", "nested", "b.ts"));
     setTime(path.join(root, "src", "nested"), EDIT_TIME);
     const build = fakeBuild();
@@ -267,8 +263,8 @@ describe("test support: ensureFreshDist", { timeout: CASE_TIMEOUT_MS }, () => {
     expect(fs.existsSync(path.join(root, "dist", "a.js"))).toBe(true);
   });
 
-  it("rebuilds when one output predates an input even though the rest are newer", async () => {
-    const root = await builtRoot();
+  it("rebuilds when one output predates an input even though the rest are newer", async ({ onTestFinished }) => {
+    const root = await builtRoot(onTestFinished);
     for (const entry of walk(path.join(root, "dist"))) setTime(entry, EDIT_TIME);
     const leftover = path.join(root, "dist", "leftover.js");
     fs.writeFileSync(leftover, "export const stale = true;\n");
@@ -282,8 +278,8 @@ describe("test support: ensureFreshDist", { timeout: CASE_TIMEOUT_MS }, () => {
     expect(fs.existsSync(leftover)).toBe(false);
   });
 
-  it("rebuilds when a source file has no emitted output, even though every output is newer", async () => {
-    const root = await builtRoot();
+  it("rebuilds when a source file has no emitted output, even though every output is newer", async ({ onTestFinished }) => {
+    const root = await builtRoot(onTestFinished);
     fs.rmSync(path.join(root, "dist", "nested", "b.js"));
     const build = fakeBuild();
 
@@ -293,8 +289,8 @@ describe("test support: ensureFreshDist", { timeout: CASE_TIMEOUT_MS }, () => {
     expect(distText(root, "nested/b.js")).toBe("export const b = 1;\n");
   });
 
-  it("fails without building or removing dist, naming the file, when an input's mtime is in the future", async () => {
-    const root = await builtRoot();
+  it("fails without building or removing dist, naming the file, when an input's mtime is in the future", async ({ onTestFinished }) => {
+    const root = await builtRoot(onTestFinished);
     const future = new Date("2099-01-01T00:00:00Z");
     setTime(path.join(root, "src", "a.ts"), future);
     const build = fakeBuild();
@@ -308,8 +304,8 @@ describe("test support: ensureFreshDist", { timeout: CASE_TIMEOUT_MS }, () => {
     expect(distText(root, "a.js")).toBe("export const a = 1;\n");
   });
 
-  it("does not require an emitted .js for a declaration file under src", async () => {
-    const root = packageRoot();
+  it("does not require an emitted .js for a declaration file under src", async ({ onTestFinished }) => {
+    const root = packageRoot(onTestFinished);
     const declaration = path.join(root, "src", "nested", "types.d.ts");
     fs.writeFileSync(declaration, "export type T = number;\n");
     for (const entry of [declaration, path.join(root, "src", "nested")]) setTime(entry, INPUT_TIME);
@@ -323,8 +319,8 @@ describe("test support: ensureFreshDist", { timeout: CASE_TIMEOUT_MS }, () => {
     expect(build.calls).toBe(0);
   });
 
-  it("rebuilds after an earlier build ended before finishing, even though it had emitted every file", async () => {
-    const root = packageRoot();
+  it("rebuilds after an earlier build ended before finishing, even though it had emitted every file", async ({ onTestFinished }) => {
+    const root = packageRoot(onTestFinished);
     const interrupted = fakeBuild();
     const dies = async (target: string): Promise<DistBuildResult> => {
       await interrupted.build(target);
@@ -340,8 +336,8 @@ describe("test support: ensureFreshDist", { timeout: CASE_TIMEOUT_MS }, () => {
     expect(build.calls).toBe(1);
   });
 
-  it("keeps the emitted output and warns when tsc reports diagnostics with exit 2", async () => {
-    const root = packageRoot();
+  it("keeps the emitted output and warns when tsc reports diagnostics with exit 2", async ({ onTestFinished }) => {
+    const root = packageRoot(onTestFinished);
     const build = fakeBuild({ status: 2, output: "src/a.ts(1,1): error TS2322: example" });
     const warnings: string[] = [];
 
@@ -353,8 +349,8 @@ describe("test support: ensureFreshDist", { timeout: CASE_TIMEOUT_MS }, () => {
     expect(warnings[0]).toContain("error TS2322: example");
   });
 
-  it("fails and leaves no dist when the build fails without emitting", async () => {
-    const root = packageRoot();
+  it("fails and leaves no dist when the build fails without emitting", async ({ onTestFinished }) => {
+    const root = packageRoot(onTestFinished);
     const build = fakeBuild({ status: 1, output: "error TS5083: Cannot read file" });
 
     await expect(ensureFreshDist({ root, build: build.build })).rejects.toThrow(/error TS5083/u);
@@ -362,8 +358,8 @@ describe("test support: ensureFreshDist", { timeout: CASE_TIMEOUT_MS }, () => {
     expect(fs.existsSync(path.join(root, "dist"))).toBe(false);
   });
 
-  it("builds once when two calls race on the same stale checkout", async () => {
-    const root = packageRoot();
+  it("builds once when two calls race on the same stale checkout", async ({ onTestFinished }) => {
+    const root = packageRoot(onTestFinished);
     let release!: () => void;
     const gate = new Promise<void>((resolve) => {
       release = resolve;
@@ -386,8 +382,8 @@ describe("test support: ensureFreshDist", { timeout: CASE_TIMEOUT_MS }, () => {
     expect(build.calls).toBe(1);
   });
 
-  it("takes over a build lock whose owning process has exited", async () => {
-    const root = packageRoot();
+  it("takes over a build lock whose owning process has exited", async ({ onTestFinished }) => {
+    const root = packageRoot(onTestFinished);
     expect(writeBuildLock(root, exitedPid())).toBe(true);
     const build = fakeBuild();
 
@@ -397,8 +393,8 @@ describe("test support: ensureFreshDist", { timeout: CASE_TIMEOUT_MS }, () => {
     expect(buildLockHolder(root)).toBeUndefined();
   });
 
-  it("takes over a dead owner's lock even when an earlier taker died while retiring it", async () => {
-    const root = packageRoot();
+  it("takes over a dead owner's lock even when an earlier taker died while retiring it", async ({ onTestFinished }) => {
+    const root = packageRoot(onTestFinished);
     expect(writeBuildLock(root, exitedPid())).toBe(true);
     const lock = buildLockPath(root);
     const [, token] = fs.readFileSync(lock, "utf8").split(" ");
@@ -413,8 +409,8 @@ describe("test support: ensureFreshDist", { timeout: CASE_TIMEOUT_MS }, () => {
     expect(fs.readdirSync(path.dirname(lock)).filter((name) => name.includes(".retire."))).toEqual([]);
   });
 
-  it("leaves alone a live lock that replaced the dead one it saw, instead of taking it over", async () => {
-    const root = packageRoot();
+  it("leaves alone a live lock that replaced the dead one it saw, instead of taking it over", async ({ onTestFinished }) => {
+    const root = packageRoot(onTestFinished);
     expect(writeBuildLock(root, exitedPid())).toBe(true);
     // A live process other than this one: the Vitest parent outlives this case.
     const livePeer = process.ppid;
@@ -443,8 +439,8 @@ describe("test support: ensureFreshDist", { timeout: CASE_TIMEOUT_MS }, () => {
 });
 
 describe("test support: keepDistFresh", { timeout: CASE_TIMEOUT_MS }, () => {
-  it("rechecks dist before each watch-mode rerun, rebuilding after a source edit", async () => {
-    const root = await builtRoot();
+  it("rechecks dist before each watch-mode rerun, rebuilding after a source edit", async ({ onTestFinished }) => {
+    const root = await builtRoot(onTestFinished);
     const reruns: (() => Promise<void> | void)[] = [];
     const project = { onTestsRerun: (handler: () => Promise<void> | void) => { reruns.push(handler); } };
     const build = fakeBuild();

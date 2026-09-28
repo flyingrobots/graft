@@ -149,6 +149,14 @@ before it, on the helper suite, unless stated.
   input against the clock before removing anything and fails naming the file. RED on the previous
   helper: `expected [Function] to throw error matching /.../a\.ts has a modification time in the
   future but got 'dist/ is still stale after rebuilding...'`.
+- **Shared cleanup list (finding 7).** `afterEach` removed every root in a module-level list, so
+  under `--sequence.concurrent` one case deleted another's live root. Each case now registers the
+  removal of its own root through its context's `onTestFinished` (the module-level hook cannot tell
+  concurrent cases apart: using it failed 5 cases with `Hook onTestFinished() can only be called
+  inside a test`). RED on the previous file (28 cases by then): `--sequence.concurrent` failed
+  `11 failed | 17 passed (28)` on 3 of 3 runs, with `ENOENT` inside other cases' roots. GREEN:
+  28 of 28 on 5 concurrent runs, 5 shuffled runs (seeds 1 to 5) and 3 concurrent shuffled runs
+  (seeds 11 to 13), and no `graft-fresh-dist-*` directory left in the temp directory afterwards.
 
 ## Non-Goals Held
 

@@ -232,7 +232,10 @@ so the tested output is the shipped output, not a look-alike.
 
 - Unit tests for `ensureFreshDist` in `test/unit/helpers/fresh-dist.test.ts`
   against a temporary fake package root, with mtimes set by `fs.utimesSync`
-  (no sleeps) and an injected build function standing in for `tsc`. The oracle
+  (no sleeps) and an injected build function standing in for `tsc`. Each case
+  owns its root and removes it through its own context's `onTestFinished`, so
+  the file passes alone, shuffled and with `--sequence.concurrent` (changed in
+  the second review: a shared cleanup list broke concurrent runs). The oracle
   is the rule above: build exactly when an input is not older than the oldest
   output. RED first: with today's policy (build only when `dist/` is absent),
   the stale-dist case must fail because the stale output is kept.
