@@ -34,6 +34,22 @@ function sessionQuarantineName(sessionId: string): string {
   return `${SESSION_QUARANTINE_PREFIX}${sessionId}-${crypto.randomUUID()}`;
 }
 
+const SESSION_STAGING_PREFIX = ".graft-staging-";
+/** Exactly the names sessionStagingName() generates: `.graft-staging-<sessionId>`. */
+const SESSION_STAGING_PATTERN = new RegExp(`^${SESSION_STAGING_PREFIX.replaceAll(".", "\\.")}(${UUID_SOURCE})$`, "u");
+/** The ownership marker and the temporary files its atomic write leaves behind. */
+const SESSION_OWNER_TEMPORARY_PATTERN = new RegExp(`^${SESSION_OWNER_FILE.replaceAll(".", "\\.")}\\.${UUID_SOURCE}\\.tmp$`, "u");
+
+/**
+ * The name a session directory is built under before it is published. Its
+ * generated name marks it as daemon construction residue, so a staging
+ * directory abandoned by a crash is removed by the next scan whether or not
+ * its ownership marker was written.
+ */
+export function sessionStagingName(sessionId: string): string {
+  return `${SESSION_STAGING_PREFIX}${sessionId}`;
+}
+
 export interface DaemonRootOwnerRecord {
   readonly schemaVersion: 2;
   readonly instanceId: string;
@@ -88,7 +104,10 @@ export type SessionOrphanPreservationReason =
   | "QUARANTINE_UNMARKED"
   | "QUARANTINE_UNSAFE_OWNERSHIP_MARKER"
   | "QUARANTINE_UNREADABLE_OWNERSHIP_MARKER"
-  | "QUARANTINE_MALFORMED_OWNERSHIP_MARKER";
+  | "QUARANTINE_MALFORMED_OWNERSHIP_MARKER"
+  | "STAGING_SYMBOLIC_LINK"
+  | "STAGING_NOT_DIRECTORY"
+  | "STAGING_UNEXPECTED_CONTENT";
 
 export interface SessionOrphanPreservedEntry {
   readonly entryName: string;
@@ -1077,12 +1096,24 @@ export async function writeSessionOwnershipMarker(
     sessionId,
   };
   try {
-    await fs.writeFile(temporaryPath, `${JSON.stringify(record)}\n`, {
-      encoding: "utf-8",
-      flag: "wx",
-      mode: PRIVATE_FILE_MODE,
-    });
+    const temporary = await fs.open(temporaryPath, "wx", PRIVATE_FILE_MODE);
+    try {
+      await temporary.writeFile(`${JSON.stringify(record)}\n`, { encoding: "utf-8" });
+      await temporary.sync();
+    } finally {
+      await temporary.close();
+    }
     await fs.rename(temporaryPath, markerPath);
+    // Make the marker's directory entry durable before the caller publishes
+    // the directory under its canonical name.
+    if (process.platform !== "win32") {
+      const directory = await fs.open(sessionDir, "r");
+      try {
+        await directory.sync();
+      } finally {
+        await directory.close();
+      }
+    }
   } catch (error) {
     await fs.unlink(temporaryPath).catch(() => undefined);
     throw error;
@@ -1103,20 +1134,73 @@ export async function captureSessionDirectoryIdentity(
 }
 
 /**
- * Rolls back a freshly created session directory whose identity was never
- * captured. Removal is non-recursive, so it can only delete an empty directory:
- * anything that gained content, or was replaced by a link or file, fails and
- * is left for the caller to report.
+ * Publishes a staged session directory under its canonical UUID name by rename,
+ * after its ownership marker is durable. It refuses when the staged directory
+ * is not the one construction captured or when the canonical name is taken.
  */
-export async function removeEmptyUncapturedSessionDirectory(
+export async function publishStagedSessionDirectory(
+  stagingDir: string,
   sessionDir: string,
+  expectedIdentity: DaemonSessionDirectoryIdentity,
   sessionsRootAuthority: DaemonSessionsRootAuthority,
 ): Promise<void> {
   await sessionsRootAuthority.assertCurrent();
-  await fs.rmdir(sessionDir).catch((error: unknown) => {
-    if (errorCode(error) === "ENOENT") return;
-    throw error;
-  });
+  const staged = await lstatIfPresent(stagingDir);
+  if (staged === null || !daemonSessionDirectoryIdentityMatches(expectedIdentity, staged)) {
+    throw new UnsafeDaemonSessionDirectoryError(stagingDir);
+  }
+  if (await lstatIfPresent(sessionDir) !== null) {
+    throw new UnsafeDaemonSessionDirectoryError(sessionDir);
+  }
+  await fs.rename(stagingDir, sessionDir);
+  await sessionsRootAuthority.assertCurrent();
+  const published = await lstatIfPresent(sessionDir);
+  if (published === null || !daemonSessionDirectoryIdentityMatches(expectedIdentity, published)) {
+    throw new UnsafeDaemonSessionDirectoryError(sessionDir);
+  }
+}
+
+/**
+ * Removes a staging directory that was never published: construction rolling
+ * back, or residue a crash left. Only a real directory holding nothing but the
+ * ownership marker and its temporary files is removed, through the guarded
+ * walk; anything else is preserved with a staging reason.
+ */
+async function removeAbandonedSessionStaging(
+  root: PinnedDaemonSessionsRoot,
+  stagingDir: string,
+): Promise<StrandedQuarantineOutcome> {
+  const stat = await lstatIfPresent(stagingDir);
+  await assertPinnedDaemonSessionsRoot(root);
+  if (stat === null) return { status: "missing" };
+  if (stat.isSymbolicLink()) return { status: "preserved", reason: "STAGING_SYMBOLIC_LINK" };
+  if (!stat.isDirectory()) return { status: "preserved", reason: "STAGING_NOT_DIRECTORY" };
+  const entries = await fs.readdir(stagingDir, { withFileTypes: true });
+  if (entries.some((entry) => !entry.isFile()
+    || (entry.name !== SESSION_OWNER_FILE && !SESSION_OWNER_TEMPORARY_PATTERN.test(entry.name)))) {
+    return { status: "preserved", reason: "STAGING_UNEXPECTED_CONTENT" };
+  }
+  await removeQuarantinedSessionTree(
+    stagingDir,
+    { device: stat.dev, inode: stat.ino },
+    () => assertPinnedDaemonSessionsRoot(root),
+  );
+  return { status: "removed" };
+}
+
+/** Rolls back an unpublished staging directory; a missing one is already gone. */
+export async function removeSessionStagingDirectory(
+  stagingDir: string,
+  sessionsRootAuthority: DaemonSessionsRootAuthority,
+): Promise<void> {
+  const root = await pinDaemonSessionsRoot(path.dirname(path.resolve(stagingDir)));
+  try {
+    assertPinnedRootMatchesAuthority(root, sessionsRootAuthority);
+    const outcome = await removeAbandonedSessionStaging(root, stagingDir);
+    if (outcome.status === "preserved") throw new UnsafeDaemonSessionDirectoryError(stagingDir);
+  } finally {
+    await root.handle?.close();
+  }
 }
 
 /*
@@ -1497,6 +1581,9 @@ const QUARANTINE_PRESERVATION_REASONS: Readonly<
   QUARANTINE_UNSAFE_OWNERSHIP_MARKER: "QUARANTINE_UNSAFE_OWNERSHIP_MARKER",
   QUARANTINE_UNREADABLE_OWNERSHIP_MARKER: "QUARANTINE_UNREADABLE_OWNERSHIP_MARKER",
   QUARANTINE_MALFORMED_OWNERSHIP_MARKER: "QUARANTINE_MALFORMED_OWNERSHIP_MARKER",
+  STAGING_SYMBOLIC_LINK: "STAGING_SYMBOLIC_LINK",
+  STAGING_NOT_DIRECTORY: "STAGING_NOT_DIRECTORY",
+  STAGING_UNEXPECTED_CONTENT: "STAGING_UNEXPECTED_CONTENT",
 };
 
 type StrandedQuarantineOutcome =
@@ -1550,6 +1637,22 @@ export async function removeSessionOrphanDirectories(
     for (const entry of entries) {
       const sessionId = entry.name;
       const sessionPath = path.join(sessionsRoot, sessionId);
+      const stagedSessionId = SESSION_STAGING_PATTERN.exec(entry.name)?.[1];
+      if (stagedSessionId !== undefined) {
+        // A protected session may still be under construction in this process.
+        if (liveSessionIds.has(stagedSessionId)) continue;
+        await assertPinnedDaemonSessionsRoot(root);
+        const outcome = await removeAbandonedSessionStaging(root, sessionPath)
+          .catch((error: unknown) => ({ status: "failed" as const, error }));
+        if (outcome.status === "removed") {
+          removed++;
+        } else if (outcome.status === "preserved") {
+          preservedEntries.push({ entryName: entry.name, path: sessionPath, reason: outcome.reason });
+        } else if (outcome.status === "failed") {
+          failures.push({ sessionId: stagedSessionId, path: sessionPath, error: outcome.error });
+        }
+        continue;
+      }
       const quarantinedSessionId = SESSION_QUARANTINE_PATTERN.exec(entry.name)?.[1];
       if (quarantinedSessionId !== undefined) {
         // A protected session may own a removal still in flight in this process.

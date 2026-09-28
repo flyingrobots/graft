@@ -23,7 +23,9 @@ import type {
   SessionOrphanRemovalFailure,
 } from "./daemon-storage-ownership.js";
 import {
-  removeEmptyUncapturedSessionDirectory,
+  publishStagedSessionDirectory,
+  removeSessionStagingDirectory,
+  sessionStagingName,
   UnsafeDaemonSessionDirectoryError,
 } from "./daemon-storage-ownership.js";
 import {
@@ -247,7 +249,9 @@ async function createDaemonSession(
   canCommit: () => boolean,
 ): Promise<DaemonSession> {
   const sessionGraftDir = path.join(options.sessionsRootAuthority.path, newSessionId);
-  let directoryReady = false;
+  const stagingDir = path.join(options.sessionsRootAuthority.path, sessionStagingName(newSessionId));
+  let stagingReady = false;
+  let directoryPublished = false;
   let directoryIdentity: DaemonSessionDirectoryIdentity | undefined;
   let transport: StreamableHTTPServerTransport | undefined;
   let server: GraftServer | undefined;
@@ -258,19 +262,28 @@ async function createDaemonSession(
     closedBeforeCommit: false,
   };
   try {
+    // The directory is built under a staging name and published under its
+    // canonical UUID only once its ownership marker is durable, so a crash at
+    // any step leaves either staging residue the next scan removes or a marked
+    // session directory, never an unmarked canonical one.
     await options.sessionsRootAuthority.assertCurrent();
-    await ensurePrivateDirectory(sessionGraftDir);
-    directoryReady = true;
+    await ensurePrivateDirectory(stagingDir);
+    stagingReady = true;
     await options.sessionsRootAuthority.assertCurrent();
-    directoryIdentity = await options.sessionStorage.captureSessionDirectoryIdentity(
-      sessionGraftDir,
-    );
+    directoryIdentity = await options.sessionStorage.captureSessionDirectoryIdentity(stagingDir);
     await options.sessionsRootAuthority.assertCurrent();
     await options.sessionStorage.writeSessionOwnershipMarker(
-      sessionGraftDir,
+      stagingDir,
       options.daemonInstanceId,
       newSessionId,
     );
+    await publishStagedSessionDirectory(
+      stagingDir,
+      sessionGraftDir,
+      directoryIdentity,
+      options.sessionsRootAuthority,
+    );
+    directoryPublished = true;
     await options.sessionsRootAuthority.assertCurrent();
     const createdTransport = new StreamableHTTPServerTransport({
       sessionIdGenerator: () => newSessionId,
@@ -415,7 +428,7 @@ async function createDaemonSession(
         rollbackErrors.push(releaseError);
       }
     }
-    if (directoryReady && directoryIdentity !== undefined) {
+    if (directoryPublished && directoryIdentity !== undefined) {
       try {
         await options.sessionStorage.removeSessionDirectory(
           sessionGraftDir,
@@ -425,10 +438,10 @@ async function createDaemonSession(
       } catch (cleanupError) {
         rollbackErrors.push(cleanupError);
       }
-    } else if (directoryReady) {
+    } else if (stagingReady) {
       try {
-        await removeEmptyUncapturedSessionDirectory(
-          sessionGraftDir,
+        await removeSessionStagingDirectory(
+          stagingDir,
           options.sessionsRootAuthority,
         );
       } catch (cleanupError) {

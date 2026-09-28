@@ -72,6 +72,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   flight before advancing to resource teardown or releasing root ownership.
   A termination already owned by an in-flight sweep contributes its cleanup
   failures through that sweep only, preventing duplicate shutdown diagnostics.
+  Session construction builds each directory under `.graft-staging-<session>`
+  and publishes it under its UUID by rename only after its ownership marker is
+  written and synced, so a crash can no longer leave an unmarked UUID directory
+  that a custom endpoint preserves forever. Startup and every sweep remove an
+  abandoned staging directory holding only marker files and preserve any other
+  with a `STAGING_*` reason.
   Session construction admitted after an orphan scan starts extends that scan's
   protected-ID set before creating scratch state, closing the inverse-order race.
   Startup and every orphan scan reject a symbolic-link or non-directory

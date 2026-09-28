@@ -122,7 +122,12 @@ lifecycle does not claim to bound every daemon cache or working set.
   leaving the rest in quarantine. Startup and every sweep finish a
   `.graft-removing-<session>-<uuid>` quarantine left by a crash or refusal when
   it is a real directory with a valid ownership marker for that session;
-  otherwise it is preserved with a `QUARANTINE_*` reason. Node cannot delete by
+  otherwise it is preserved with a `QUARANTINE_*` reason. A new session
+  directory is built as `.graft-staging-<session>` and renamed to its UUID only
+  after its ownership marker is durable, so a crash never leaves an unmarked
+  UUID directory; startup and every sweep remove an abandoned staging directory
+  that holds nothing but the marker or its temporary files, and preserve any
+  other with a `STAGING_*` reason. Node cannot delete by
   inode, so a window remains between each check and its deletion; using it
   needs a same-user process acting inside the private 0700 sessions root, which
   can already delete that user's files.

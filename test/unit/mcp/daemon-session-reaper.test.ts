@@ -1364,6 +1364,111 @@ describe("mcp: daemon session reaper", () => {
     ]);
   });
 
+  it("publishes no canonical session directory until its ownership marker is in place", async () => {
+    const rootDir = fs.mkdtempSync(path.join(os.tmpdir(), "gs-staged-publish-"));
+    const socketPath = path.join(rootDir, "daemon.sock");
+    const sessionsRoot = path.join(rootDir, "sessions");
+    cleanups.push(() => {
+      fs.rmSync(rootDir, { recursive: true, force: true });
+    });
+    const uuidName = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/u;
+    // What a crash at each construction step would leave: the canonical UUID
+    // entries present when identity capture and the marker write begin.
+    const canonicalEntriesAtStep: Record<string, string[]> = {};
+    const canonicalEntries = (): string[] => fs.readdirSync(sessionsRoot)
+      .filter((name) => uuidName.test(name));
+    const sessionStorage = {
+      removeSessionDirectory,
+      removeSessionOrphanDirectories,
+      captureSessionDirectoryIdentity(sessionDir: string) {
+        canonicalEntriesAtStep["capture"] = canonicalEntries();
+        return captureSessionDirectoryIdentity(sessionDir);
+      },
+      writeSessionOwnershipMarker(sessionDir: string, daemonInstanceId: string, sessionId: string) {
+        canonicalEntriesAtStep["marker"] = canonicalEntries();
+        return writeSessionOwnershipMarker(sessionDir, daemonInstanceId, sessionId);
+      },
+    };
+    const daemon = await startDaemonServer({
+      graftDir: rootDir,
+      socketPath,
+      sessionReaperIntervalMs: 0,
+      sessionStorage,
+    });
+    cleanups.push(() => daemon.close());
+
+    const sessionId = await initializeDaemonSession(socketPath, 1);
+
+    expect(canonicalEntriesAtStep).toEqual({ capture: [], marker: [] });
+    expect(fs.readdirSync(sessionsRoot)).toEqual([sessionId]);
+    expect(JSON.parse(fs.readFileSync(path.join(sessionsRoot, sessionId, ".graft-session-owner.json"), "utf-8")))
+      .toMatchObject({ sessionId });
+  });
+
+  it("removes a session staging directory abandoned by a crash on the next startup of a custom endpoint", async () => {
+    const rootDir = fs.mkdtempSync(path.join(os.tmpdir(), "gs-staged-abandoned-"));
+    const socketPath = path.join(rootDir, "custom-daemon.sock");
+    const sessionsRoot = path.join(rootDir, "sessions");
+    const unmarkedStaging = path.join(sessionsRoot, ".graft-staging-00000000-0000-4000-8000-000000000901");
+    const markedStaging = path.join(sessionsRoot, ".graft-staging-00000000-0000-4000-8000-000000000902");
+    fs.mkdirSync(unmarkedStaging, { recursive: true, mode: 0o700 });
+    fs.mkdirSync(markedStaging, { recursive: true, mode: 0o700 });
+    fs.chmodSync(sessionsRoot, 0o700);
+    await writeSessionOwnershipMarker(
+      markedStaging,
+      "00000000-0000-4000-8000-000000000799",
+      "00000000-0000-4000-8000-000000000902",
+    );
+    cleanups.push(() => {
+      fs.rmSync(rootDir, { recursive: true, force: true });
+    });
+    const consoleError = vi.spyOn(console, "error").mockImplementation(() => undefined);
+    cleanups.push(() => {
+      consoleError.mockRestore();
+    });
+
+    const daemon = await startDaemonServer({
+      graftDir: rootDir,
+      socketPath,
+      sessionReaperIntervalMs: 0,
+    });
+    cleanups.push(() => daemon.close());
+
+    expect(fs.readdirSync(sessionsRoot)).toEqual([]);
+    expect(consoleError).not.toHaveBeenCalled();
+  });
+
+  it("preserves a staging-named directory holding anything besides an ownership marker", async () => {
+    const rootDir = fs.mkdtempSync(path.join(os.tmpdir(), "gs-staged-unexpected-"));
+    const sessionsRoot = path.join(rootDir, "sessions");
+    const staging = path.join(sessionsRoot, ".graft-staging-00000000-0000-4000-8000-000000000903");
+    fs.mkdirSync(staging, { recursive: true, mode: 0o700 });
+    fs.chmodSync(sessionsRoot, 0o700);
+    fs.writeFileSync(path.join(staging, "keep.txt"), "not construction residue\n");
+    cleanups.push(() => {
+      fs.rmSync(rootDir, { recursive: true, force: true });
+    });
+    const sessionsRootAuthority = await retainTestSessionsRoot(sessionsRoot);
+
+    const result = await removeSessionOrphanDirectories(
+      sessionsRoot,
+      new Set(),
+      "preserve",
+      sessionsRootAuthority,
+    );
+
+    expect(result).toEqual({
+      removed: 0,
+      failures: [],
+      preservedEntries: [{
+        entryName: path.basename(staging),
+        path: staging,
+        reason: "STAGING_UNEXPECTED_CONTENT",
+      }],
+    });
+    expect(fs.readFileSync(path.join(staging, "keep.txt"), "utf-8")).toBe("not construction residue\n");
+  });
+
   it("refuses live-session cleanup after the sessions root becomes a symlink", async () => {
     if (process.platform === "win32") return;
     const rootDir = fs.mkdtempSync(path.join(os.tmpdir(), "gls-root-swap-"));
