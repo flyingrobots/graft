@@ -48,6 +48,7 @@ const {
   rmObserver,
   unlinkObserver,
   rmdirObserver,
+  lstatObserver,
 } = vi.hoisted(() => ({
   randomUUIDMock: vi.fn(),
   renameObserver: vi.fn(),
@@ -57,6 +58,7 @@ const {
   rmObserver: vi.fn(),
   unlinkObserver: vi.fn(),
   rmdirObserver: vi.fn(),
+  lstatObserver: vi.fn(),
 }));
 
 vi.mock("node:crypto", async (importOriginal) => {
@@ -111,6 +113,10 @@ vi.mock("node:fs/promises", async (importOriginal) => {
       await rmdirObserver(target);
       return actual.rmdir(target);
     },
+    async lstat(target: fs.PathLike, options?: fs.StatOptions): Promise<fs.Stats | fs.BigIntStats> {
+      await lstatObserver(target, options);
+      return actual.lstat(target, options);
+    },
   };
 });
 
@@ -124,6 +130,22 @@ async function retainTestSessionsRoot(
   return authority;
 }
 
+/**
+ * Makes the ownership-marker lstat inside one session directory fail with
+ * EACCES, the error a candidate without search permission produces for a
+ * non-root user. Injected at the storage boundary so it applies under any uid.
+ */
+function injectOwnershipMarkerLstatFailure(sessionDir: string): void {
+  const markerPath = path.join(sessionDir, ".graft-session-owner.json");
+  lstatObserver.mockImplementation((target: fs.PathLike) => {
+    if (String(target) === markerPath) {
+      throw Object.assign(new Error(`EACCES: permission denied, lstat '${markerPath}'`), {
+        code: "EACCES",
+      });
+    }
+  });
+}
+
 afterEach(async () => {
   renameObserver.mockReset();
   linkObserver.mockReset();
@@ -132,6 +154,7 @@ afterEach(async () => {
   rmObserver.mockReset();
   unlinkObserver.mockReset();
   rmdirObserver.mockReset();
+  lstatObserver.mockReset();
   while (cleanups.length > 0) {
     await cleanups.pop()!();
   }
@@ -1197,7 +1220,14 @@ describe("mcp: daemon session reaper", () => {
   });
 
   it("isolates an orphan inspection failure to its own candidate", async () => {
-    if (process.platform === "win32" || process.getuid?.() === 0) return;
+    // The fault is injected at the storage boundary rather than produced with
+    // file modes, so the test asserts under any uid, including root in the
+    // container test stage. getuid reports root to prove no uid gate remains.
+    expect.hasAssertions();
+    const getuid = vi.spyOn(process, "getuid").mockReturnValue(0);
+    cleanups.push(() => {
+      getuid.mockRestore();
+    });
     const rootDir = fs.mkdtempSync(path.join(os.tmpdir(), "go-inspection-isolation-"));
     const sessionsRoot = path.join(rootDir, "sessions");
     const unreadableId = "00000000-0000-4000-8000-000000000001";
@@ -1207,13 +1237,10 @@ describe("mcp: daemon session reaper", () => {
     fs.mkdirSync(unreadableDir, { recursive: true });
     fs.mkdirSync(removableDir, { recursive: true });
     cleanups.push(() => {
-      fs.chmodSync(unreadableDir, 0o700);
       fs.rmSync(rootDir, { recursive: true, force: true });
     });
     const sessionsRootAuthority = await retainTestSessionsRoot(sessionsRoot);
-    // Without search permission, the ownership-marker lstat inside this
-    // candidate fails with EACCES.
-    fs.chmodSync(unreadableDir, 0o000);
+    injectOwnershipMarkerLstatFailure(unreadableDir);
 
     const result = await removeSessionOrphanDirectories(
       sessionsRoot,
