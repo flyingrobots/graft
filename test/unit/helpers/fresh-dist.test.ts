@@ -514,6 +514,9 @@ describe("test support: ensureFreshDist", { timeout: CASE_TIMEOUT_MS }, () => {
         beforeReaddir.set(src, () => {
           edited = true;
           fs.writeFileSync(source, "export const a = 3;\n");
+          // A fixed mtime, newer than the build read and older than any real-clock output, so a
+          // coarse file system clock cannot give the edit and the next build's output one tick.
+          setTime(source, new Date(EDIT_TIME.getTime() + 1_000));
         });
       });
     });

@@ -50,10 +50,14 @@ the Docker daemon on the development host did not answer on three attempts (see 
   before each build and rebuilds when any input is newer afterwards; see "Second review" below.
   After the third review the throw is gone: CI's `test (22)` on `b528260e` failed "rebuilds,
   instead of failing, when a source is saved after the post-build recheck but before the output
-  check" with "The dist/ build finished but its output is not current", because the edit and the
-  newest input it was compared with carried the same mtime (inferred: Linux stamps file times from
-  a coarse clock). Stale staged output now always rebuilds, and three stale builds in a row give up
-  naming the stale output.
+  check" with "The dist/ build finished but its output is not current". The test's edit used the
+  real clock, and the second build's output most likely shared its mtime (inferred: Linux stamps
+  file times from a coarse clock; the log shows the error, not the mtimes), which the setup then
+  treated as a build defect. Stale staged output now always rebuilds, three stale builds in a row
+  give up naming the stale output, and the test stamps its edit at a fixed time. Stamping it showed
+  one more gap: an input saved during the output check with an mtime older than the outputs passed
+  that check, so the setup now rechecks the inputs once more just before publishing ("expected 1
+  to be 2" build calls on the stamped test before the recheck).
 - **Docker not exercised locally.** The claim that the image's `dist/` is fresh rests on the Dockerfile
   running `pnpm build` after `COPY . .`. No run observed whether the setup found it fresh. Second
   review: attempted and not run. On 2026-09-28 `docker info` on the development host did not

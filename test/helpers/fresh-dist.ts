@@ -258,9 +258,15 @@ export async function ensureFreshDist(options: FreshDistOptions): Promise<FreshD
       const changed = newestInput(root);
       if (changed === undefined || changed.mtimeMs <= readFrom) {
         const built = staleness(root, staging);
+        const unchanged = (): boolean => {
+          const latest = newestInput(root);
+          return latest === undefined || latest.mtimeMs <= readFrom;
+        };
         if (built.fresh) {
-          // Published, or another process published a build between our renames and it is current.
-          if (publish(root, staging) || staleness(root, dist).fresh) return "built";
+          // Recheck the inputs once more: one saved during the output check with an mtime older than
+          // the outputs would otherwise pass it. Then publish, or keep a current build another
+          // process published between our renames.
+          if (unchanged() && (publish(root, staging) || staleness(root, dist).fresh)) return "built";
         } else {
           // Stale output means an input was saved after the recheck above, or the file system clock
           // gave an output the same mtime as an input (coarse ticks). Neither can be told from the
@@ -275,9 +281,12 @@ export async function ensureFreshDist(options: FreshDistOptions): Promise<FreshD
           : staleOutput === undefined
             ? "another process kept replacing dist/"
             : `its output was not current: ${staleOutput}`;
+        const advice = staleOutput === undefined || cause !== `its output was not current: ${staleOutput}`
+          ? " Rerun once edits have stopped."
+          : "";
         throw new Error(
           `dist/ could not be built from unchanging inputs in ${String(attempt)} attempts (${cause}); dist/ is `
-          + "left as it was. Rerun once edits have stopped.",
+          + `left as it was.${advice}`,
         );
       }
     } finally {
