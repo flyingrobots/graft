@@ -128,3 +128,24 @@ For comparison, `tsc -p tsconfig.build.json` alone took 3.5 s wall clock, and `-
   `test (20)` also succeeded. That is Docker-path evidence for `6123a249`, not for the staging
   design that replaced the lock after it; the setup prints nothing when it finds `dist/` fresh, so
   the log does not show whether it built inside the container.
+
+## Third review gates
+
+One commit per item from `c9b6ccd1`: `a0ff5500` (staging and rename publication; lock removed),
+`bed5bc0c` (Docker evidence), `7871b506` (cleanup retry), `b2c70f69` (retro corrections). After
+each code commit: the helper directory's suites plus the two dist-executing suites (`sidecar`,
+enhance CLI), 8 files, 62 of 62 after `a0ff5500` and 65 of 65 after `7871b506`; `pnpm lint` exit 0;
+`pnpm typecheck` exit 0; `git diff --check` clean. The fresh-dist suite is 28 of 28, and 28 of 28 on
+three runs with `--sequence.concurrent --sequence.shuffle` (seeds 1 to 3), with no
+`graft-fresh-dist-*` directory left in the temp directory.
+
+Full host run on `b2c70f69`, `src/index.ts` touched first
+(`NPM_CONFIG_USERCONFIG=/dev/null pnpm exec vitest run`, macOS, Node 26.0.0): 277 files, 2495 tests,
+2492 passed, 3 failed, 141.1 s. All three failures are 5000 ms timeouts on the known local-timeout
+list (`SURFACE_opened-workspace-paths`, `WARP_dead-symbol-detection`,
+`WARP_symbol-history-timeline`), the same three as the second review's full run.
+`test/unit/git/diff.test.ts` and `test/unit/mcp/structural-blame.test.ts` passed. The setup
+rebuilt `dist/` through a staging directory (`dist/index.js` 3 s newer than the touched
+`src/index.ts`), no `dist.staging.*` or `dist.retired.*` directory was left beside it, and the run
+printed no `[graft test cleanup]` retry warning. The same run on `7871b506` (before the retro-only
+commit) gave the same counts and the same three timeouts.
