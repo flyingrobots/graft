@@ -212,6 +212,10 @@ rather than call repo-local or buffer-local services directly.
 `ensureGitVersionSupportsGraft(...)` is an additive host guard for
 checking that the installed Git supports the plumbing features Graft
 runtimes require.
+When `startDaemonServer(...)` is given an `env`, that environment's
+`GRAFT_ROOT_PATH` decides its default state directory and, on Windows, its
+default pipe name; the host process's own environment is not consulted for
+either.
 
 ### 5. Metadata
 

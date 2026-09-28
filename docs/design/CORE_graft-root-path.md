@@ -27,7 +27,10 @@ itself should use its own root variable, in the product as well as in tests.
   same reason, on Windows only a drive path (`C:\...`) or a UNC share
   (`\\server\share\...`) is accepted; a rooted path such as `\graft` lands on
   whichever drive is current and is refused.
-- The daemon's default root is `<graft root>/daemon`.
+- The daemon's default root is `<graft root>/daemon`. When a host passes
+  `startDaemonServer({ env })`, the Graft root and the Windows pipe key come
+  from that `env`, like the daemon's other settings, never from the host's
+  `process.env`.
 - The Windows daemon pipe name is unchanged while `GRAFT_ROOT_PATH` is unset,
   so an installed daemon is still found; each configured root gets its own pipe.
 - No production source reads the home directory outside the resolver

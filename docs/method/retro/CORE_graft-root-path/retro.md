@@ -47,3 +47,15 @@ tests, lint and typecheck green after it.
   drive depends on the process. The resolver now takes the platform, and on
   win32 accepts only a drive or UNC root. RED: with the platform seam in place
   but the old `isAbsolute` check, the test accepted `\graft`.
+- Legacy Windows pipe name: the test checked only the intermediate key. It now
+  asserts the full pipe name for an unset root against a vector produced by
+  running origin/main's resolver (c2a297a4) with platform win32 and a fixture
+  home. `resolveSocketPath` takes an optional platform so the win32 branch runs
+  on any host. Calibration: making the unset key `<home>\.graft`, and
+  truncating the digest to 16 characters, each failed it.
+- Injected environment: `startDaemonServer({ env })` resolved its root and
+  Windows pipe key from `process.env`. It now resolves both from the injected
+  `env`. RED: the integration test found no `daemon/sessions` under the
+  injected root, and the pipe for an injected root changed with the ambient
+  variable. `ensureDaemonReady` and `graft daemon inspect` take no injected
+  environment and spawn or run with `process.env`, so they are unchanged.

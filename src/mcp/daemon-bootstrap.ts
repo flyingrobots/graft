@@ -18,13 +18,17 @@ export function defaultDaemonRoot(graftRoot: string = graftRootPath()): string {
 
 /** What the default socket path depends on besides the daemon root. */
 export interface DefaultSocketContext {
+  /** The environment whose GRAFT_ROOT_PATH keys the Windows pipe; process.env by default. */
+  readonly env?: Readonly<Record<string, string | undefined>> | undefined;
   /** The platform whose socket convention applies; the running one by default. */
   readonly platform?: NodeJS.Platform | undefined;
 }
 
 function defaultSocketPath(graftDir: string, context: DefaultSocketContext): string {
-  if ((context.platform ?? process.platform) === "win32") {
-    const digest = crypto.createHash("sha256").update(graftRootPipeKey()).digest("hex").slice(0, 12);
+  const platform = context.platform ?? process.platform;
+  if (platform === "win32") {
+    const pipeKey = graftRootPipeKey(context.env ?? process.env, undefined, platform);
+    const digest = crypto.createHash("sha256").update(pipeKey).digest("hex").slice(0, 12);
     return `\\\\.\\pipe\\graft-daemon-${digest}`;
   }
   return path.join(graftDir, "mcp.sock");

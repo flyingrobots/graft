@@ -70,6 +70,17 @@ describe("default Windows daemon pipe", () => {
 
     expect(resolveSocketPath(undefined, "C:\\Users\\fixture\\.graft\\daemon", undefined, { platform: "win32" })).toBe(legacyPipe);
   });
+
+  it("follows an injected environment's GRAFT_ROOT_PATH, whatever the process's own says", () => {
+    // Oracle: a relation, not a digest. The pipe for an injected root must not
+    // move when only the ambient variable changes, and must move with the root.
+    const pipe = (injectedRoot: string, ambientRoot: string): string => {
+      vi.stubEnv("GRAFT_ROOT_PATH", ambientRoot);
+      return resolveSocketPath(undefined, "unused", undefined, { platform: "win32", env: { GRAFT_ROOT_PATH: injectedRoot } });
+    };
+    expect(pipe("C:\\srv\\graft", "/ambient/one")).toBe(pipe("C:\\srv\\graft", "/ambient/two"));
+    expect(pipe("C:\\srv\\graft", "/ambient/one")).not.toBe(pipe("C:\\srv\\other", "/ambient/one"));
+  });
 });
 
 describe("test harness: Graft root isolation", () => {
