@@ -81,6 +81,18 @@ describe("default Windows daemon pipe", () => {
     expect(pipe("C:\\srv\\graft", "/ambient/one")).toBe(pipe("C:\\srv\\graft", "/ambient/two"));
     expect(pipe("C:\\srv\\graft", "/ambient/one")).not.toBe(pipe("C:\\srv\\other", "/ambient/one"));
   });
+
+  it("is the same for every spelling of one configured Windows root", () => {
+    // Oracle: Windows path equivalence. Drive letters and ASCII names compare
+    // without case, `/` and `\` are both separators, and a trailing separator
+    // names the same directory, so a client and a daemon given differently
+    // spelled roots share the state directory and must share its pipe.
+    const pipe = (root: string): string =>
+      resolveSocketPath(undefined, "unused", undefined, { platform: "win32", env: { GRAFT_ROOT_PATH: root } });
+    const spellings = ["C:\\Graft", "c:\\graft", "C:/GRAFT/", "c:\\Graft\\\\"];
+    expect(new Set(spellings.map(pipe)).size).toBe(1);
+    expect(pipe("C:\\Graft")).not.toBe(pipe("C:\\Graft2"));
+  });
 });
 
 describe("test harness: Graft root isolation", () => {

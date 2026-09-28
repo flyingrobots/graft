@@ -59,3 +59,8 @@ tests, lint and typecheck green after it.
   injected root, and the pipe for an injected root changed with the ambient
   variable. `ensureDaemonReady` and `graft daemon inspect` take no injected
   environment and spawn or run with `process.env`, so they are unchanged.
+- Windows root spellings: `C:\Graft`, `c:\graft` and `C:/GRAFT/` name one
+  directory but hashed to different pipes. A configured root's pipe key is now
+  canonicalized on win32 (separators, trailing separator, ASCII case); the
+  unset key is still the raw home directory. RED: four spellings gave four
+  pipes.

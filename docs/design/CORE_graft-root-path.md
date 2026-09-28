@@ -32,7 +32,9 @@ itself should use its own root variable, in the product as well as in tests.
   from that `env`, like the daemon's other settings, never from the host's
   `process.env`.
 - The Windows daemon pipe name is unchanged while `GRAFT_ROOT_PATH` is unset,
-  so an installed daemon is still found; each configured root gets its own pipe.
+  so an installed daemon is still found; each configured root gets its own pipe,
+  keyed on the root with case, separators and any trailing separator
+  canonicalized, so two spellings of one directory share it.
 - No production source reads the home directory outside the resolver
   (`src/adapters/graft-root.ts`).
 - The test suite sets `GRAFT_ROOT_PATH` to a private temporary directory and

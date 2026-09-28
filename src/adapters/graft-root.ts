@@ -51,6 +51,8 @@ export function graftRootPath(
  * What the Windows daemon pipe name is derived from. With GRAFT_ROOT_PATH unset
  * it is the home directory, as before the variable existed, so an existing
  * daemon's pipe keeps its name; with it set, each Graft root gets its own pipe.
+ * On Windows a configured root is canonicalized first (separators, trailing
+ * separator, ASCII case), so spellings of one directory share one pipe.
  */
 export function graftRootPipeKey(
   env: Readonly<Record<string, string | undefined>> = process.env,
@@ -58,5 +60,8 @@ export function graftRootPipeKey(
   platform: NodeJS.Platform = process.platform,
 ): string {
   const configured = env[GRAFT_ROOT_PATH_ENV];
-  return configured === undefined || configured === "" ? homeDirectory() : graftRootPath(env, homeDirectory, platform);
+  if (configured === undefined || configured === "") return homeDirectory();
+  const root = graftRootPath(env, homeDirectory, platform);
+  if (platform !== "win32") return root;
+  return path.win32.resolve(root).replace(/[A-Z]/gu, (letter) => letter.toLowerCase());
 }
