@@ -1404,7 +1404,7 @@ line by line.
 | [src/api/index.ts](../../src/api/index.ts) | Split: clean library API and operator compatibility exports |
 | [src/api/repo-local-graft.ts](../../src/api/repo-local-graft.ts) | Split: library application factory and operator legacy facade |
 | [src/api/repo-workspace.ts](../../src/api/repo-workspace.ts) | Library / API |
-| [src/api/tool-bridge.ts](../../src/api/tool-bridge.ts) | Library / transport-free result compatibility |
+| [src/api/tool-bridge.ts](../../src/api/tool-bridge.ts) | Operator / compatibility facade: `callGraftTool` takes `GraftServer` and returns `McpToolResult` from `src/mcp/server.ts`, which carry MCP SDK types, so it stays with the operator until transport-independent contracts replace those signatures |
 
 </details>
 
