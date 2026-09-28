@@ -15,7 +15,7 @@ Met locally on host Vitest. The Docker-isolated `pnpm test` and CI have not run 
   process before any worker starts, and (second review) again before every watch-mode rerun.
 - The enhance CLI test's own build step, which checked for one file, is deleted.
 - `test/unit/helpers/fresh-dist.test.ts`: 13 cases when this retro was first written, 22 after the
-  first review, 32 after the second (31 for `ensureFreshDist`, 1 for the watch-mode hook), on a
+  first review, 33 after the second (32 for `ensureFreshDist`, 1 for the watch-mode hook), on a
   temporary fake package with mtimes set explicitly.
 
 ## Outcome Against the Packet
@@ -41,7 +41,11 @@ Met locally on host Vitest. The Docker-isolated `pnpm test` and CI have not run 
   every output and passed (second review, finding 1). The setup now snapshots the newest input mtime
   before each build and rebuilds when any input is newer afterwards; see "Second review" below.
 - **Docker not exercised.** The claim that the image's `dist/` is fresh rests on the Dockerfile
-  running `pnpm build` after `COPY . .`. No container run in this cycle confirmed it.
+  running `pnpm build` after `COPY . .`. No container run in this cycle confirmed it. Second
+  review: attempted and not run. On 2026-09-28 `docker info` on the development host did not
+  return within 20 s (`timeout 20 docker info` exit 124; the client section printed, the server
+  section never did), so the Docker daemon was not reachable and the Docker-isolated helper-suite
+  run was not attempted.
 - **Partial `dist/`.** A `dist/` whose surviving files were all new passed the time rule even when
   modules were missing (for example `dist/cli/entrypoint.js`) or when the build that wrote it never
   finished. Review added two checks: every non-declaration `src/` module must have its `.js`, and
@@ -110,6 +114,66 @@ One more full run of this branch after the review fixes (`1d318219`, `dist/` mad
   they fall to the repository maintainer, @flyingrobots, for triage. No quarantine is claimed: that
   needs his explicit decision, a defect link, compensating checks and an expiry, and none has been
   given. Until then neither is evidence against this change, and neither is cleared.
+
+### Rule 10 decision for `diff.test.ts`: PENDING DECISION
+
+Second review, finding 6. No maintainer decision has been given, and none is recorded or implied
+here. What follows is a draft for @flyingrobots to approve, amend or reject; until he does, the
+record above stands and the failure is neither quarantined nor cleared.
+
+New evidence (second review). A targeted repro harness is committed at
+`scripts/repro-git-cleanup-enotempty.ts`. It replays the test's git sequence and removes the repo at
+once, as `cleanupTestRepo` does. Results on this host (macOS, git 2.54.0, Node 26.0.0, 10 cores):
+
+| Variant | Load | Iterations | `ENOTEMPTY` |
+| :--- | :--- | :--- | :--- |
+| `default` (the test's own sequence) | none | 200 | 0 |
+| `default` | 8 copies at once | 1200 | 0 |
+| `forced` (adds a detached `git maintenance run --task=gc --detach` before removal) | none | 200 | 0 |
+| `forced` | 8 copies at once | 1200 | 1 |
+| `forced`, committed harness | 8 copies at once | 1200 | 2 |
+
+The first four rows ran from a scratch copy of the harness with the same steps; the last row ran the
+committed file. So a background git writing under `.git` can make `fs.rmSync` fail with `ENOTEMPTY`
+under load, and each directory left behind held only an empty `.git`, consistent with a writer that
+finished after the removal gave up. The test's own sequence has not reproduced it (0 of 1400 here,
+plus the earlier 0 of 600). The mechanism is therefore plausible and shown possible, not confirmed as
+the cause of the recorded failure (inferred; what would settle it is a failing run of the `default`
+variant or of the test itself with `GIT_TRACE` output showing a detached maintenance process alive
+during the removal).
+
+Draft decision text, in the fields `docs/testing/adoption.md` requires:
+
+```text
+Status: PENDING DECISION (drafted 2026-09-28, not approved)
+Exception ID / policy version / rule: CLEAN_tests-fresh-dist-R10-1 / graft.testing/1.0.3 / Rule 10
+Affected claim, tests, revision or delivery scope: test/unit/git/diff.test.ts "lists deleted files";
+  its cleanup (cleanupTestRepo, test/helpers/git.ts) failed once with ENOTEMPTY in the first full
+  host run of branch cycle/tests-fresh-dist. The failure is in test cleanup, not in the asserted
+  behaviour (getChangedFiles listing a deleted file). The branch changes neither diff.test.ts nor
+  test/helpers/git.ts; it adds a global setup that finishes before any test starts.
+Missing evidence/control and attempts made: root cause unconfirmed. Attempts: 3 parent-revision
+  full runs (0 failures of this test), 1 later branch full run (0), a standalone loop (0 of 600),
+  the committed harness's default variant (0 of 1400). Its forced variant reproduces ENOTEMPTY
+  (3 of 2400 under 8-way load).
+Residual product and test risk: product risk none identified (the failing step is test-only temp
+  cleanup). Test risk: an intermittent red full run that is not a product defect, which invites
+  retry-to-green.
+Compensating checks and available evidence: the test stays in the normal gate, unquarantined and
+  visible, in every local and CI full run; any recurrence is recorded as a new first failure with
+  the run's command and log. scripts/repro-git-cleanup-enotempty.ts replays the candidate mechanism
+  on demand (default and forced variants).
+Owner and remediation backlog path: @flyingrobots. Remediation candidates for his choice: disable
+  automatic maintenance in test repos (maintenance.auto false, gc.auto 0 in ensureGitRepo), or
+  retry the removal (fs.rmSync maxRetries); backlog path to be filed with the decision.
+Explicit approver and approval reference: @flyingrobots; reference: ______ (none yet)
+Expiry date and review trigger: proposed 2026-10-12, or at once on any recurrence of this failure
+  in any run, whichever comes first.
+Resolution or newly approved decision: ______ (none yet)
+```
+
+`test/unit/mcp/structural-blame.test.ts` is not part of this draft: it reproduced on the parent
+revision (above) and its triage decision is also still his.
 
 ## Second review
 
@@ -181,6 +245,10 @@ before it, on the helper suite, unless stated.
   and a bullet in the design packet's test strategy, with the criterion also recorded here. CI stage: pre-merge, the `test`
   job's `pnpm test` step. Deletion criterion: when no test executes `dist/`, or a replacement
   mechanism's tests cover these claims. Documentation only; no RED applies.
+- **Rule 10 and Docker (finding 6).** A draft decision for `diff.test.ts`, marked PENDING
+  DECISION, and a committed repro harness are under "Rule 10 decision" above; nothing is quarantined
+  or cleared. The Docker-isolated run was attempted and not run: the daemon did not answer within
+  20 s (see Drift).
 - **Test-only surface and staging leftovers (finding 11).** `distStaleness` and
   `DIST_CONFIG_INPUTS` are no longer exported (nothing outside the helper used them; typecheck
   confirms). The `beforeDeadLockTakeover` option is gone: the replaced-lock case now makes the
@@ -207,5 +275,6 @@ See `witness/verification.md`.
 
 - Run `pnpm test` (Docker) on this branch before merge to confirm the setup reports `fresh` there.
 - @flyingrobots to triage both failures above: `structural-blame.test.ts` (reproduced on main, a
-  5000 ms ceiling under load) and `diff.test.ts` (unexplained, not reproduced), and decide
-  remediation or an owned quarantine with an expiry.
+  5000 ms ceiling under load) and `diff.test.ts` (not reproduced by its own sequence; a forced
+  variant of the candidate mechanism reproduces it), and decide remediation or an owned quarantine
+  with an expiry. For `diff.test.ts` a draft decision is above, marked PENDING DECISION.
