@@ -1,9 +1,11 @@
 import * as fs from "node:fs";
+import { syncBuiltinESMExports } from "node:module";
 import * as os from "node:os";
+import nodeOs from "node:os";
 import * as path from "node:path";
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { graftRootPath, graftRootPipeKey, InvalidGraftRootPathError } from "../../../src/adapters/graft-root.js";
-import { defaultDaemonRoot } from "../../../src/mcp/daemon-bootstrap.js";
+import { defaultDaemonRoot, resolveSocketPath } from "../../../src/mcp/daemon-bootstrap.js";
 
 // Promise: Graft finds its per-user root from GRAFT_ROOT_PATH, and only falls
 // back to <home>/.graft when the variable is unset. Nothing else in Graft reads
@@ -33,6 +35,27 @@ describe("Graft root path", () => {
   it("keeps the Windows pipe name of an unset root, so existing daemons are still found", () => {
     expect(graftRootPipeKey({}, () => HOME)).toBe(HOME);
     expect(graftRootPipeKey({ GRAFT_ROOT_PATH: "/srv/graft" }, () => HOME)).toBe("/srv/graft");
+  });
+});
+
+describe("default Windows daemon pipe", () => {
+  afterEach(() => {
+    vi.unstubAllEnvs();
+    vi.restoreAllMocks();
+    syncBuiltinESMExports();
+  });
+
+  it("is byte-identical to the name Graft used before GRAFT_ROOT_PATH existed when the variable is unset", () => {
+    // Oracle: a reference vector, produced by running origin/main's
+    // resolveSocketPath (c2a297a4, before GRAFT_ROOT_PATH) with platform win32
+    // and os.homedir() returning C:\Users\fixture. A client built from this
+    // branch must find a daemon started by that release.
+    const legacyPipe = "\\\\.\\pipe\\graft-daemon-594fc3122879";
+    vi.stubEnv("GRAFT_ROOT_PATH", undefined);
+    vi.spyOn(nodeOs, "homedir").mockReturnValue("C:\\Users\\fixture");
+    syncBuiltinESMExports();
+
+    expect(resolveSocketPath(undefined, "C:\\Users\\fixture\\.graft\\daemon", undefined, { platform: "win32" })).toBe(legacyPipe);
   });
 });
 

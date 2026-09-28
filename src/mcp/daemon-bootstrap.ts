@@ -16,16 +16,27 @@ export function defaultDaemonRoot(graftRoot: string = graftRootPath()): string {
   return path.join(graftRoot, "daemon");
 }
 
-function defaultSocketPath(graftDir: string): string {
-  if (process.platform === "win32") {
+/** What the default socket path depends on besides the daemon root. */
+export interface DefaultSocketContext {
+  /** The platform whose socket convention applies; the running one by default. */
+  readonly platform?: NodeJS.Platform | undefined;
+}
+
+function defaultSocketPath(graftDir: string, context: DefaultSocketContext): string {
+  if ((context.platform ?? process.platform) === "win32") {
     const digest = crypto.createHash("sha256").update(graftRootPipeKey()).digest("hex").slice(0, 12);
     return `\\\\.\\pipe\\graft-daemon-${digest}`;
   }
   return path.join(graftDir, "mcp.sock");
 }
 
-export function resolveSocketPath(socketPath: string | undefined, graftDir: string, cwd?: string): string {
-  if (socketPath === undefined) return defaultSocketPath(graftDir);
+export function resolveSocketPath(
+  socketPath: string | undefined,
+  graftDir: string,
+  cwd?: string,
+  context: DefaultSocketContext = {},
+): string {
+  if (socketPath === undefined) return defaultSocketPath(graftDir, context);
   if (isNamedPipePath(socketPath)) return socketPath;
   return cwd === undefined ? path.resolve(socketPath) : path.resolve(cwd, socketPath);
 }
