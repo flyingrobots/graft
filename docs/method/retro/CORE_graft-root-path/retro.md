@@ -41,9 +41,11 @@ records that decision as made.
 
 ## Review round 1
 
-Codex left eight threads on PR #261. Each repair below has its own commit, a
-regression observed failing before the fix, and the graft-root and allowlist
-tests, lint and typecheck green after it.
+Codex left eight threads on PR #261. Each repair below has its own commit and a
+test shown to fail when the behavior it covers is broken: for a defect, before
+the fix; for coverage of code that was already correct, under a deliberate
+fault (marked Calibration). The graft-root and allowlist tests, lint and
+typecheck were green after each.
 
 - Windows rooted paths: `\graft` passed `path.isAbsolute` on Windows while its
   drive depends on the process. The resolver now takes the platform, and on
