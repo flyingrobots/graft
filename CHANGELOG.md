@@ -156,10 +156,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   deletion of the displaced inode. A startup refused because another live
   daemon owns the root no longer creates or re-permissions that root's
   `sessions` directory; the sessions root is prepared only after the exclusive
-  claim. When session construction fails after creating its directory but
-  before capturing that directory's identity, rollback removes the directory
-  if it is still empty, so a custom endpoint no longer preserves it forever as
-  `LEGACY_SESSION_UNMARKED`. A crash in that window still leaves residue.
+  claim. When session construction fails before its staged directory is
+  published, rollback removes the `.graft-staging-<session>` directory if it
+  holds nothing but ownership-marker files; a crash in that window leaves only
+  staging residue that the next scan removes, never an unmarked UUID directory.
+  When publication fails after its rename has landed, rollback removes the
+  UUID directory if it is still the one construction staged, and reports a
+  failed removal as a rollback failure.
   An orphan candidate that cannot be inspected, for example because its
   ownership marker cannot be read, is reported as that candidate's failure
   and the scan continues with the remaining candidates. Session-directory and
