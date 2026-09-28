@@ -3,7 +3,13 @@ import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
-import { ensureFreshDist, type DistBuildResult } from "../../helpers/fresh-dist.js";
+import {
+  buildLockHolder,
+  buildLockPath,
+  ensureFreshDist,
+  writeBuildLock,
+  type DistBuildResult,
+} from "../../helpers/fresh-dist.js";
 
 // Oracle: docs/design/CLEAN_tests-fresh-dist.md. dist/ is fresh only when it holds at least one
 // file and its oldest file is newer than the newest build input (every file and directory under
@@ -98,6 +104,13 @@ async function builtRoot(): Promise<string> {
   await fakeBuild().build(root);
   for (const entry of walk(path.join(root, "dist"))) setTime(entry, BUILD_TIME);
   return root;
+}
+
+/** The pid of a node child that has already exited. */
+function exitedPid(): number {
+  const exited = spawnSync(process.execPath, ["-e", ""]);
+  if (exited.status !== 0) throw new Error("could not obtain an exited pid");
+  return exited.pid;
 }
 
 function distText(root: string, relative: string): string {
@@ -262,15 +275,56 @@ describe("test support: ensureFreshDist", { timeout: CASE_TIMEOUT_MS }, () => {
 
   it("takes over a build lock whose owning process has exited", async () => {
     const root = packageRoot();
-    const exited = spawnSync(process.execPath, ["-e", ""]);
-    const lock = path.join(root, "node_modules", ".cache", "graft", "dist-build.lock");
-    fs.mkdirSync(lock, { recursive: true });
-    fs.writeFileSync(path.join(lock, "pid"), String(exited.pid));
+    expect(writeBuildLock(root, exitedPid())).toBe(true);
     const build = fakeBuild();
 
-    await expect(ensureFreshDist({ root, build: build.build })).resolves.toBe("built");
+    await expect(ensureFreshDist({ root, build: build.build, lockPollMs: LOCK_POLL_MS })).resolves.toBe("built");
 
     expect(build.calls).toBe(1);
-    expect(fs.existsSync(lock)).toBe(false);
+    expect(buildLockHolder(root)).toBeUndefined();
+  });
+
+  it("takes over a dead owner's lock even when an earlier taker died while retiring it", async () => {
+    const root = packageRoot();
+    expect(writeBuildLock(root, exitedPid())).toBe(true);
+    const lock = buildLockPath(root);
+    const [, token] = fs.readFileSync(lock, "utf8").split(" ");
+    // The first retirement claim on this instance, left by a process that died holding it.
+    fs.writeFileSync(`${lock}.retire.${String(token)}.1`, String(exitedPid()));
+    const build = fakeBuild();
+
+    await expect(ensureFreshDist({ root, build: build.build, lockPollMs: LOCK_POLL_MS })).resolves.toBe("built");
+
+    expect(build.calls).toBe(1);
+    expect(buildLockHolder(root)).toBeUndefined();
+    expect(fs.readdirSync(path.dirname(lock)).filter((name) => name.includes(".retire."))).toEqual([]);
+  });
+
+  it("leaves alone a live lock that replaced the dead one it saw, instead of taking it over", async () => {
+    const root = packageRoot();
+    expect(writeBuildLock(root, exitedPid())).toBe(true);
+    // A live process other than this one: the Vitest parent outlives this case.
+    const livePeer = process.ppid;
+    let sawDeadOwner = 0;
+    const build = fakeBuild();
+
+    const attempt = ensureFreshDist({
+      root,
+      build: build.build,
+      lockPollMs: LOCK_POLL_MS,
+      lockTimeoutMs: 0,
+      beforeDeadLockTakeover: () => {
+        sawDeadOwner += 1;
+        // Between this process seeing the dead owner and acting on it, another process takes the
+        // dead lock over and now holds a live one of its own.
+        fs.rmSync(buildLockPath(root), { recursive: true, force: true });
+        expect(writeBuildLock(root, livePeer)).toBe(true);
+      },
+    });
+
+    await expect(attempt).rejects.toThrow(/Timed out/u);
+    expect(sawDeadOwner).toBe(1);
+    expect(build.calls).toBe(0);
+    expect(buildLockHolder(root)).toBe(livePeer);
   });
 });

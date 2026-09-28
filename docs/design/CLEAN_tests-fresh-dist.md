@@ -100,10 +100,19 @@ so the tested output is the shipped output, not a look-alike.
 - **Concurrency.** Workers are separate processes, but `globalSetup` runs once
   in the parent before they start, so workers never race each other. Two
   Vitest processes in one checkout (two agents, or a watcher plus a run) are
-  serialized by a directory lock, `node_modules/.cache/graft/dist-build.lock`,
-  holding the owner's pid. A waiter re-checks freshness after acquiring the
-  lock, so the second process does not rebuild. A lock whose pid is no longer
-  alive is taken over.
+  serialized by a lock file, `node_modules/.cache/graft/dist-build.lock`,
+  holding the owner's pid and a random token that names this lock instance.
+  It is created by hard-linking a fully written staging file into place, so
+  it never exists without its content and one of several racing creators
+  wins. A waiter re-checks freshness after acquiring the lock, so the second
+  process does not rebuild. A lock whose pid is no longer alive is taken over,
+  but only the instance the waiter saw (changed in review): whoever removes an
+  instance, its owner releasing it or a waiter taking it over, first creates
+  `dist-build.lock.retire.<token>.<n>` exclusively, then removes the lock only
+  if it still carries that token. So two waiters that both saw the same dead
+  owner cannot both acquire: one wins the claim, and the other either loses
+  it or finds a newer lock and leaves it alone. A claim whose holder died is
+  superseded by claim n+1, so a crash while retiring does not wedge the lock.
 - **Docker harness.** The image's `build` stage runs `pnpm build` after
   `COPY . .`, so inside the container every `dist/` file is newer than every
   input and the setup does nothing. `.dockerignore` already keeps the host's

@@ -20,6 +20,8 @@ export interface FreshDistOptions {
   readonly lockPollMs?: number;
   /** How long to wait for another live process's build before giving up. */
   readonly lockTimeoutMs?: number;
+  /** Test seam: runs after a dead lock owner is seen and before this process acts on it. */
+  readonly beforeDeadLockTakeover?: () => void;
 }
 
 export type FreshDistOutcome = "fresh" | "built";
@@ -144,55 +146,119 @@ function processIsAlive(pid: number): boolean {
   }
 }
 
-function lockOwner(lock: string): number | undefined {
+/** One lock instance: the owning pid and a token no other instance ever carries. */
+interface LockRecord {
+  readonly pid: number;
+  readonly token: string;
+}
+
+function readText(file: string): string | undefined {
   try {
-    const pid = Number.parseInt(fs.readFileSync(path.join(lock, "pid"), "utf8"), 10);
-    return Number.isSafeInteger(pid) && pid > 0 ? pid : undefined;
-  } catch {
-    return undefined;
+    return fs.readFileSync(file, "utf8");
+  } catch (error: unknown) {
+    if ((error as NodeJS.ErrnoException).code === "ENOENT") return undefined;
+    throw error;
   }
+}
+
+function parsePid(text: string | undefined): number | undefined {
+  if (text === undefined) return undefined;
+  const pid = Number.parseInt(text, 10);
+  return Number.isSafeInteger(pid) && pid > 0 ? pid : undefined;
+}
+
+function readLock(lock: string): LockRecord | undefined {
+  const text = readText(lock);
+  if (text === undefined) return undefined;
+  const [pidText, token] = text.split(" ");
+  const pid = parsePid(pidText);
+  return pid === undefined || token === undefined || token === "" ? undefined : { pid, token };
 }
 
 /**
- * Creates the lock directory with its pid already inside, by renaming a private staging directory
- * into place, so a lock never exists without an owner. Returns false when another lock is present.
+ * Creates `target` holding `content` only if nothing is there, by hard-linking a private staging file
+ * into place: the file never exists without its content, and exactly one of several racing callers wins.
  */
-function tryCreateLock(lock: string): boolean {
-  const staging = `${lock}.${String(process.pid)}.${crypto.randomUUID()}`;
-  fs.mkdirSync(staging, { recursive: true });
-  fs.writeFileSync(path.join(staging, "pid"), String(process.pid));
+function createExclusive(target: string, content: string): boolean {
+  const staging = `${target}.${String(process.pid)}.${crypto.randomUUID()}.tmp`;
+  fs.writeFileSync(staging, content);
   try {
-    fs.renameSync(staging, lock);
+    fs.linkSync(staging, target);
     return true;
   } catch (error: unknown) {
-    fs.rmSync(staging, { recursive: true, force: true });
-    const code = (error as NodeJS.ErrnoException).code;
-    if (code === "EEXIST" || code === "ENOTEMPTY") return false;
+    if ((error as NodeJS.ErrnoException).code === "EEXIST") return false;
     throw error;
+  } finally {
+    fs.rmSync(staging, { force: true });
   }
 }
 
-/** Moves a dead owner's lock aside atomically, so only one waiter removes it. */
-function removeDeadLock(lock: string): void {
-  const tombstone = `${lock}.dead.${String(process.pid)}.${crypto.randomUUID()}`;
-  try {
-    fs.renameSync(lock, tombstone);
-  } catch (error: unknown) {
-    if ((error as NodeJS.ErrnoException).code === "ENOENT") return;
-    throw error;
-  }
-  fs.rmSync(tombstone, { recursive: true, force: true });
+/** Creates a new lock instance owned by `pid`; undefined when a lock is present. */
+function tryCreateLock(lock: string, pid: number = process.pid): string | undefined {
+  const token = crypto.randomUUID();
+  return createExclusive(lock, `${String(pid)} ${token}`) ? token : undefined;
 }
 
-async function acquireLock(lock: string, pollMs: number, timeoutMs: number): Promise<void> {
+/**
+ * Removes the lock only while it is still the instance `token`, for its owner releasing it or for a
+ * waiter taking over a dead owner's. Everyone retiring that instance must first create
+ * `<lock>.retire.<token>.<n>` exclusively, so at most one live process is ever between reading the
+ * lock and removing it; a claim whose holder died is superseded by claim n+1. A waiter acting on a
+ * stale observation therefore either loses the claim or finds the lock is no longer that instance,
+ * and never removes a lock created after the one it saw. Returns false while another live process
+ * holds the claim.
+ */
+function retireLock(lock: string, token: string): boolean {
+  for (let n = 1; ; n += 1) {
+    const claim = `${lock}.retire.${token}.${String(n)}`;
+    if (createExclusive(claim, String(process.pid))) {
+      try {
+        if (readLock(lock)?.token === token) fs.rmSync(lock, { force: true });
+        return true;
+      } finally {
+        for (let k = 1; k <= n; k += 1) fs.rmSync(`${lock}.retire.${token}.${String(k)}`, { force: true });
+      }
+    }
+    const holder = parsePid(readText(claim));
+    // A claim is removed only after its instance is gone, so a vanished claim means it is retired.
+    if (holder === undefined) return true;
+    if (holder !== process.pid && processIsAlive(holder)) return false;
+  }
+}
+
+/** The lock that serializes dist/ builds across processes sharing one checkout. */
+export function buildLockPath(root: string): string {
+  return path.join(buildCacheDir(root), "dist-build.lock");
+}
+
+/** Creates the build lock on behalf of `pid` (tests plant dead or foreign owners). False when held. */
+export function writeBuildLock(root: string, pid: number): boolean {
+  fs.mkdirSync(buildCacheDir(root), { recursive: true });
+  return tryCreateLock(buildLockPath(root), pid) !== undefined;
+}
+
+/** The pid recorded in the build lock, or undefined when there is no lock. */
+export function buildLockHolder(root: string): number | undefined {
+  return readLock(buildLockPath(root))?.pid;
+}
+
+/** Waits for the lock and returns the token of the instance this process now owns. */
+async function acquireLock(
+  lock: string,
+  pollMs: number,
+  timeoutMs: number,
+  beforeTakeover?: () => void,
+): Promise<string> {
   fs.mkdirSync(path.dirname(lock), { recursive: true });
   const deadline = Date.now() + timeoutMs;
   for (;;) {
-    if (tryCreateLock(lock)) return;
-    const owner = lockOwner(lock);
-    if (owner !== undefined && owner !== process.pid && !processIsAlive(owner)) {
-      removeDeadLock(lock);
-      continue;
+    const token = tryCreateLock(lock);
+    if (token !== undefined) return token;
+    const seen = readLock(lock);
+    if (seen !== undefined && seen.pid !== process.pid && !processIsAlive(seen.pid)) {
+      beforeTakeover?.();
+      // Retire exactly the instance seen dead; a lock created since then is left alone.
+      if (retireLock(lock, seen.token)) continue;
     }
     if (Date.now() >= deadline) {
       throw new Error(`Timed out after ${String(timeoutMs)} ms waiting for the dist/ build lock at ${lock}.`);
@@ -210,8 +276,13 @@ export async function ensureFreshDist(options: FreshDistOptions): Promise<FreshD
   const { root } = options;
   if (distStaleness(root).fresh) return "fresh";
 
-  const lock = path.join(buildCacheDir(root), "dist-build.lock");
-  await acquireLock(lock, options.lockPollMs ?? DEFAULT_LOCK_POLL_MS, options.lockTimeoutMs ?? DEFAULT_LOCK_TIMEOUT_MS);
+  const lock = buildLockPath(root);
+  const token = await acquireLock(
+    lock,
+    options.lockPollMs ?? DEFAULT_LOCK_POLL_MS,
+    options.lockTimeoutMs ?? DEFAULT_LOCK_TIMEOUT_MS,
+    options.beforeDeadLockTakeover,
+  );
   try {
     if (distStaleness(root).fresh) return "fresh";
 
@@ -241,7 +312,7 @@ export async function ensureFreshDist(options: FreshDistOptions): Promise<FreshD
     }
     return "built";
   } finally {
-    fs.rmSync(lock, { recursive: true, force: true });
+    retireLock(lock, token);
   }
 }
 

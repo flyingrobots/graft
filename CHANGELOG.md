@@ -96,7 +96,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   the run continues; `pnpm typecheck` stays the type gate. If `src/` or one
   of those config files is missing, the setup fails and names it instead of
   accepting the old build. A `dist/` that lacks the `.js` of any `src/`
-  module, or that a test-run build left unfinished, is rebuilt.
+  module, or that a test-run build left unfinished, is rebuilt. Two Vitest
+  processes in one checkout build once; a lock left by a dead process is taken
+  over only if it is still the lock that was seen dead.
 
 - **Refused automatic authorization**: when a routed daemon call cannot
   persist the default authorization for its workspace, Graft now discards that

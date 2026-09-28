@@ -55,9 +55,16 @@ Met locally on host Vitest. The Docker-isolated `pnpm test` and CI have not run 
   Calibration: with lock creation forced to succeed, that case fails with
   `[ 'built', 'built' ]`.
 - **Cross-process locking** runs the same filesystem path as the in-process race case, but only
-  the in-process race was tested. Residual race, not tested: two waiters both see a dead owner.
-  The rename-to-tombstone lets only one of them remove it, but the second can then take over a lock
-  that the first has just created.
+  in-process schedules were tested. The first version's stale-lock takeover renamed whatever lock
+  was at the path, so a waiter acting on an old observation of a dead owner could move aside a live
+  lock another waiter had just created, and both would build. Review made takeover conditional on
+  the observed instance: the lock is a file carrying the owner's pid and a random token, and
+  removal (release or takeover) goes through an exclusively created
+  `dist-build.lock.retire.<token>.<n>` claim and removes the lock only if it still carries that
+  token. RED, with a seam that replaces the dead lock by a live one between observation and
+  takeover: `promise resolved "'built'" instead of rejecting`. Calibration: dropping the token
+  check fails that case the same way; treating a dead claim holder as live makes the
+  dead-claim case exceed its 2000 ms ceiling.
 
 ## Full-Suite Findings
 
