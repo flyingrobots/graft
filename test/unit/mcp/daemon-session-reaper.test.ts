@@ -2843,6 +2843,45 @@ describe("mcp: daemon session reaper", () => {
     expect(observed).toEqual(Array.from({ length: cycles }, () => ({ stale: 1, released: 0 })));
   });
 
+  it("keeps a fresh tombstone when the recovery stops between the takeover rename and anything after it", async () => {
+    const rootDir = fs.mkdtempSync(path.join(os.tmpdir(), "gs-claim-stamp-"));
+    const claimPath = path.join(rootDir, "daemon-owner.json.claim");
+    const deadClaimId = "00000000-0000-4000-8000-000000000701";
+    cleanups.push(() => {
+      fs.rmSync(rootDir, { recursive: true, force: true });
+    });
+    const wallClockMs = Date.parse("2026-09-28T00:00:00.000Z");
+    const dateNow = vi.spyOn(Date, "now").mockImplementation(() => wallClockMs);
+    cleanups.push(() => {
+      dateNow.mockRestore();
+    });
+    // The dead claim was last written long before this recovery.
+    plantRootOwnerClaim(claimPath, deadClaimId, deadPid);
+    const oldSeconds = (wallClockMs - 60 * 60_000) / 1_000;
+    fs.utimesSync(claimPath, oldSeconds, oldSeconds);
+    const stalePath = `${claimPath}.stale-${deadClaimId}`;
+    // The takeover rename lands, but the recovery does not get past it: this is
+    // the observable state a crash immediately after the rename leaves.
+    let interrupted = false;
+    renameObserver.mockImplementation((oldPath, newPath, error) => {
+      if (interrupted || error !== null || String(oldPath) !== claimPath || String(newPath) !== stalePath) return;
+      interrupted = true;
+      throw new Error("injected interruption after the takeover rename");
+    });
+
+    const ownership = await acquireDaemonRootOwnership({
+      graftDir: rootDir,
+      socketPath: path.join(rootDir, "daemon.sock"),
+    }, liveOnlyLiveness);
+    await ownership.release();
+
+    expect(interrupted).toBe(true);
+    // The tombstone is the ABA fence for this recovery, so the grace period is
+    // measured from the recovery, not from the dead claim's last write.
+    expect(claimResidue(rootDir).stale).toEqual([path.basename(stalePath)]);
+    expect(fs.lstatSync(stalePath).mtimeMs).toBe(wallClockMs);
+  });
+
   it("collects claim residue only from exact tombstone names, never through a link", async () => {
     if (process.platform === "win32") return;
     const rootDir = fs.mkdtempSync(path.join(os.tmpdir(), "gs-claim-gc-safety-"));

@@ -252,8 +252,10 @@ retained as an ABA fence: a delayed stale reclaimer cannot rename a newer claim
 over the same non-empty tombstone. A reclaimer acts on a dead-claim read only
 before its own acquisition deadline, checked immediately before the takeover
 rename, so a tombstone need outlive its recovery only by more than that
-deadline. The recovery stamps the tombstone's mtime, and each later successful
-claim collects tombstones older than a 60-second grace period (twelve times the
+deadline. The recovery stamps the dead claim's mtime before the takeover
+rename, so the tombstone carries its recovery time from the moment it exists
+and a crash after the rename cannot leave it collectable at once. Each later
+successful claim collects tombstones older than a 60-second grace period (twelve times the
 five-second deadline), plus `.released-*` claim directories whose recorded
 holder process is no longer the one recorded. Collection runs while holding the
 claim, matches only exact generated names, uses `lstat`, never follows a link,

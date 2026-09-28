@@ -115,7 +115,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   window. Tombstones no longer accumulate: each later claim removes
   tombstones older than a 60-second grace period, which exceeds the 5-second
   acquisition deadline a reclaimer now checks immediately before its takeover
-  rename, and removes `.released-*` claim directories left by a holder that
+  rename. The recovery time is stamped before that rename, so a crash right
+  after it cannot leave a tombstone that is collected at once. Each claim also
+  removes `.released-*` claim directories left by a holder that
   died mid-release. Only exact generated names are considered, links are never
   followed, and anything other than a lone claim record is left in place. If temporary claim release fails after owner publication, acquisition
   rolls back the exact owner record and retries cleanup of the same released

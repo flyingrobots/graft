@@ -742,6 +742,17 @@ async function acquireDaemonRootOwnerClaim(
       throw new DaemonRootOwnerClaimTimeoutError(ownerPath);
     }
     const stalePath = `${claimPath}.stale-${current.claimId}`;
+    // Stamp the recovery time before the rename, so the tombstone carries it
+    // from the moment it exists; the grace period is measured from it. A crash
+    // or failure after the rename cannot leave the dead claim's older time on
+    // the tombstone and let it be collected at once.
+    const recoveredAt = new Date(Date.now());
+    try {
+      await fs.utimes(claimPath, recoveredAt, recoveredAt);
+    } catch (error: unknown) {
+      if (errorCode(error) === "ENOENT") continue;
+      throw error;
+    }
     try {
       await fs.rename(claimPath, stalePath);
     } catch (error: unknown) {
@@ -753,9 +764,6 @@ async function acquireDaemonRootOwnerClaim(
       if (tombstone !== null) continue;
       throw error;
     }
-    // Stamp the recovery time; the grace period is measured from it.
-    const recoveredAt = new Date(Date.now());
-    await fs.utimes(stalePath, recoveredAt, recoveredAt);
   }
 }
 
