@@ -127,6 +127,7 @@ export async function startDaemonServer(options: StartDaemonServerOptions = {}):
   await prepareSocketPath(socketPath);
   const sessionHost = createDaemonSessionHost({
     graftDir,
+    graphRoot,
     socketPath,
     transportKind,
     healthPath: HEALTH_PATH,

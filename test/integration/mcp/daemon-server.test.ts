@@ -407,6 +407,26 @@ describe("mcp: daemon transport and lifecycle", () => {
     expect(fs.existsSync(resolveWarpSidecarLocation(ambientGraphRoot, { ...resolved, writerId }).repoPath)).toBe(false);
   });
 
+  it("gives its sessions the daemon's explicit graph root instead of re-deriving a default", async () => {
+    // Oracle: a daemon started with every location explicit never needs the
+    // Graft root, so an unusable GRAFT_ROOT_PATH in its env must not stop a
+    // session from opening. A session that re-derived the default graph root
+    // from that env would refuse the relative value.
+    const rootDir = fs.realpathSync.native(fs.mkdtempSync(path.join(os.tmpdir(), "graft-daemon-root-")));
+    roots.push(rootDir);
+    const socketPath = path.join(rootDir, "daemon.sock");
+    const daemon = await startTestDaemonServer({
+      graftDir: rootDir,
+      socketPath,
+      graphRoot: path.join(rootDir, "graphs"),
+      env: { ...process.env, GRAFT_ROOT_PATH: "relative-graft-root" },
+    });
+    daemons.push(daemon);
+
+    const sessionId = await initializeSession(socketPath);
+    expect(sessionId.length).toBeGreaterThan(0);
+  });
+
   it("rejects an initialize request that finishes after shutdown stops session admission", {
     timeout: 15_000,
   }, async () => {
