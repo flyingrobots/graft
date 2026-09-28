@@ -110,10 +110,11 @@ describe("test helper: git isolation", () => {
 });
 
 // Oracle: cleanupTestRepo removes the graph root, then the repo, each through the injected remover.
-// Only ENOTEMPTY and EBUSY are retried, a few times with a short backoff; every retry prints one
-// warning naming the path and the code; any other error rejects at once; after the last retry the
-// removal rejects with the error the remover threw. Deterministic: the remover is a stub that throws
-// planned errors, and the retry delay is 0, so no case touches the filesystem or waits on a timer.
+// Only ENOTEMPTY and EBUSY are retried, four times, after 25, 50, 100 and 200 ms by default; every
+// retry prints one warning naming the path and the code; any other error rejects at once; after the
+// last retry the removal rejects with the error the remover threw. Deterministic: the remover is a
+// stub that throws planned errors, and the retry delay is 0 or the wait is an injected sleep that
+// records its argument, so no case touches the filesystem or waits on a timer.
 // Size: small.
 describe("test helper: cleanupTestRepo retries transient removal errors", () => {
   function fsError(code: string): NodeJS.ErrnoException {
@@ -179,7 +180,26 @@ describe("test helper: cleanupTestRepo retries transient removal errors", () => 
     ).rejects.toBe(persistent);
 
     const attempts = remover.calls.filter((entry) => entry === repo).length;
-    expect(attempts).toBeGreaterThan(1);
-    expect(warnings).toHaveLength(attempts - 1);
+    expect(attempts).toBe(5);
+    expect(warnings).toHaveLength(4);
+  });
+
+  it("waits 25, 50, 100 and 200 ms before its four retries by default", async () => {
+    const persistent = fsError("ENOTEMPTY");
+    const remover = plannedRemover(repo, Array.from({ length: 20 }, () => persistent));
+    const waits: number[] = [];
+
+    await expect(
+      cleanupTestRepo(repo, {
+        remove: remover.remove,
+        warn: () => undefined,
+        sleep: (ms) => {
+          waits.push(ms);
+          return Promise.resolve();
+        },
+      }),
+    ).rejects.toBe(persistent);
+
+    expect(waits).toEqual([25, 50, 100, 200]);
   });
 });

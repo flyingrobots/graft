@@ -149,6 +149,8 @@ export interface CleanupTestRepoOptions {
   readonly warn?: (message: string) => void;
   /** Delay before the first retry, doubling for each later one. */
   readonly retryDelayMs?: number;
+  /** Waits the given milliseconds before a retry; a real timer by default. */
+  readonly sleep?: (ms: number) => Promise<void>;
 }
 
 function removalCode(error: Error): string | undefined {
@@ -164,6 +166,7 @@ async function removeTree(target: string, options: CleanupTestRepoOptions): Prom
       delay: options.retryDelayMs ?? REMOVAL_RETRY_DELAY_MS,
       backoff: "exponential",
       jitter: "none",
+      ...(options.sleep !== undefined ? { clock: { now: () => Date.now(), sleep: options.sleep } } : {}),
       shouldRetry: (error) => TRANSIENT_REMOVAL_CODES.has(removalCode(error) ?? ""),
       onRetry: (error, attempt, delay) => {
         warn(
