@@ -60,7 +60,7 @@ process that reads it. Graft reads the home directory only to find that default,
 changing `GRAFT_ROOT_PATH` never requires changing `HOME`. On Windows the named
 pipe keeps its previous name while `GRAFT_ROOT_PATH` is unset, and each
 configured root gets its own pipe; spellings of one root that differ only in
-letter case or separators share it.
+ASCII letter case or separators share it.
 
 Daemon sessions start `unbound`. Once a client is connected to the
 daemon MCP surface, repository-scoped work normally follows this
