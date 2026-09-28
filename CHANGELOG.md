@@ -125,6 +125,107 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   protected before its endpoint binds. Open, pending, and terminating session
   identities are reserved against reuse, and a late callback from a retired
   transport cannot revoke a newer session that legitimately reuses its ID.
+  Every retirement cause, including a new session whose initial request
+  rejects, releases the session's WARP resident leases; a release failure is
+  reported as the non-retryable cleanup failure `SESSION_WARP_RELEASE_FAILED`.
+  An initialize request that finishes after shutdown stops admission receives
+  JSON-RPC error `-32000`.
+
+### Documentation
+
+- **Modular Graft design packet** (`docs/design/CORE_modular-graft-runtime-and-library.md`):
+  separates embeddable Graft from its operator runtime, with a source ownership
+  inventory. `src/api/tool-bridge.ts` stays with the operator compatibility facade, because
+  its signatures carry MCP SDK types.
+  `src/git/target-git-hook-bootstrap.ts` is split: its pure hook contract moves
+  to the library, and building the hook script stays with the operator.
+
+## [0.14.0] - 2026-09-11
+
+### Added
+
+- **Bounded WARP resident LRU**: the daemon's shared pool retains at most four
+  logical `(repoId, writerId)` graph handles by default, including opens in
+  progress. `GRAFT_WARP_MAX_RESIDENTS` selects a limit from 1 through 64.
+  Operations own independent, idempotently releasable capabilities; workspace
+  bindings retain routing metadata without pinning graphs between calls.
+  A miss evicts the least recently used idle entry. Pinned entries remain
+  protected, and an all-pinned pool rejects a new lane with a capacity error
+  instead of growing. Eviction leaves durable Git-backed index data intact.
+  Cross-repository rebind history uses one graph lease at a time, preserving
+  previous and current continuity with a single resident slot.
+  Recently released entries remain reusable; pool callers can select an idle
+  limit of zero for eager release. The bound covers this pool's handles, not
+  total daemon/worker memory or the size of an individual graph.
+- **Resident lifecycle accounting**: failed opens release their reservations;
+  rebind, history, attribution, and tool settlement release their operation
+  capabilities without revoking a running invocation's captured route.
+  Released leases refuse further app access. Status distinguishes unique
+  repositories from resident writer lanes, including idle/opening entries;
+  neither count measures process memory or verifies index freshness.
+- **Daemon shutdown ownership**: shutdown closes admission, drains admitted
+  initialization, and attempts session, monitor, worker, HTTP, and socket
+  cleanup before reporting aggregate failures. Failed MCP connection after
+  session publication retires the control-plane record and scratch directory.
+  Construction and initial-request failures use the same retirement boundary.
+  Socket removal suppresses only absence, signal shutdown reports errors with
+  a nonzero exit status, and session release settles all cleanup obligations
+  before aggregating failures.
+
+### Fixed
+
+- **Daemon status schema identity**: `graft.mcp.daemon_status` advances to
+  `2.0.0` for the required `activeWarpResidents` field. Strict clients must
+  select the v2 validator. The CLI text status projection is unchanged.
+- **Daemon WARP writer identity**: the production daemon forwards each requested
+  logical writer ID into `openWarp`, preserving distinct session lanes.
+
+## [0.13.0] - 2026-09-06
+
+### Added
+
+- **Echo integration is fenced off from the published package**: a release gate
+  (`test/unit/release/echo-independence.test.ts`) walks the import closure of
+  both published entrypoints and fails if any unfinished Echo module, or the
+  Echo kernel transport seam, becomes reachable. Only the two pure encoders,
+  `src/echo/canonical-cbor.ts` and `src/echo/codec-runtime.ts`, are permitted.
+  The gate also rejects any dependency named for Echo and any dependency
+  resolved from a local path or git checkout, so installing
+  `@flyingrobots/graft` can never require an Echo checkout or crate. The four
+  Echo surfaces now carry an explicit work-in-progress header: the transport
+  that would reach a real kernel speaks `graft.echo-kernel-command.v1`, a
+  protocol no Echo build implements, and it remains unmerged on
+  `cycle/real-echo-structural-history-provider`. The Echo shapes those headers
+  cite were read at `echo@2048da5c` (2026-06-01) and nothing pins that sha, so
+  they are labelled historical. Two of those headers previously claimed tests
+  enforced non-wiring; nothing did, and now something does.
+
+- **Daemon job concurrency is derived from the machine**: the scheduler now
+  sizes itself from `os.availableParallelism()` — one lane fewer than the
+  machine reports, floored at the previous hardcoded `2` so no small machine
+  regresses. `DaemonJobScheduler` has always accepted `maxConcurrentJobs` and
+  validated it; neither construction site ever supplied one, so the built-in
+  default was unreachable and a cap of two applied to a ten-core workstation
+  and a laptop alike. Two is right for one session against one repo and wrong
+  as soon as several share a daemon: a fan-out of agents queues behind itself
+  and every session waits on the slowest, including the one that started the
+  fan-out. Deliberately not an environment variable and not stored
+  configuration — a number in a shell profile outlives the machine it was
+  measured for, and one in repository config travels to machines it was never
+  measured for at all. `daemon-worker-child-pool.ts` already sized its process
+  pool this way; the scheduler was the one place still holding a constant.
+
+### Security
+
+- **`fast-uri` raised to 3.1.6**: the `pnpm.overrides` block pinned `fast-uri`
+  to `3.1.5`, which carries four HIGH advisories reachable through
+  `@modelcontextprotocol/sdk > ajv > fast-uri` — host confusion via skipped IDN
+  canonicalization (GHSA-5jgf-p345-68v8) and via percent-encoded scheme
+  normalization (GHSA-fph4-wmhf-6fwf), and server-side request forgery via
+  malformed IPv6 normalization (GHSA-f65p-4m7j-42xc) and via repeated hostname
+  percent-decoding (GHSA-jqff-g426-hqxp). A pin intended to hold a dependency
+  steady had frozen it on the vulnerable release. `pnpm security:check` now
+  reports `critical=0 high=0`.
 
 ### Fixed
 

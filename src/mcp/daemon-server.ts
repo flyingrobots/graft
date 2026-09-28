@@ -7,9 +7,10 @@ import { nodeGit } from "../adapters/node-git.js";
 import { ensureGitVersionSupportsGraft } from "../git/version-guard.js";
 import { DaemonControlPlane, type DaemonStatusView } from "./daemon-control-plane.js";
 import { DaemonJobScheduler } from "./daemon-job-scheduler.js";
+import { resolveDaemonSchedulerConfig } from "./daemon-scheduler-config.js";
 import { ChildProcessDaemonWorkerPool } from "./daemon-worker-pool.js";
 import { PersistentMonitorRuntime } from "./persistent-monitor-runtime.js";
-import { InMemoryWarpPool } from "./warp-pool.js";
+import { InMemoryWarpPool, resolveWarpPoolOptions } from "./warp-pool.js";
 import { openWarp } from "../warp/open.js";
 import type { RunCaptureConfig } from "./run-capture-config.js";
 import type { RuntimeObservabilityState } from "./runtime-observability.js";
@@ -78,6 +79,17 @@ async function runCleanupSteps(steps: readonly (() => Promise<void>)[]): Promise
   return errors;
 }
 
+export interface DaemonShutdownStage {
+  close(): Promise<void>;
+}
+
+export async function closeDaemonResources(stages: readonly DaemonShutdownStage[]): Promise<void> {
+  const errors = await runCleanupSteps(stages.map((stage) => () => stage.close()));
+  if (errors.length > 0) {
+    throw new AggregateError(errors, "Failed to close daemon resources");
+  }
+}
+
 export async function startDaemonServer(options: StartDaemonServerOptions = {}): Promise<GraftDaemonServer> {
   const sessionInactivityTtlMs = resolveSessionInactivityTtlMs(options.sessionInactivityTtlMs);
   const sessionReaperIntervalMs = resolveSessionReaperIntervalMs(options.sessionReaperIntervalMs);
@@ -133,14 +145,17 @@ export async function startDaemonServer(options: StartDaemonServerOptions = {}):
     });
     await tightenSocketPermissions(socketPath);
 
-    const warpPool = new InMemoryWarpPool((cwd) => openWarp({ cwd }));
+    const warpPool = new InMemoryWarpPool(
+      (cwd, writerId) => openWarp({ cwd, writerId }),
+      resolveWarpPoolOptions(options.env ?? process.env),
+    );
     const controlPlane = new DaemonControlPlane({
       fs: nodeFs,
       codec: new CanonicalJsonCodec(),
       git: nodeGit,
       graftDir,
     });
-    const daemonScheduler = new DaemonJobScheduler();
+    const daemonScheduler = new DaemonJobScheduler(resolveDaemonSchedulerConfig());
     const activeDaemonWorkerPool = new ChildProcessDaemonWorkerPool({
       ...(options.workerPoolSize !== undefined ? { size: options.workerPoolSize } : {}),
     });
@@ -166,6 +181,7 @@ export async function startDaemonServer(options: StartDaemonServerOptions = {}):
         mcpPath: MCP_PATH,
         healthPath: HEALTH_PATH,
         activeWarpRepos: warpPool.size(),
+        activeWarpResidents: warpPool.residentCount(),
         startedAt,
       }, activeMonitorRuntime.getCounts(), daemonScheduler.getCounts(), activeDaemonWorkerPool.getCounts());
     };
@@ -227,10 +243,7 @@ export async function startDaemonServer(options: StartDaemonServerOptions = {}):
       void daemon.close().then(() => {
         process.exitCode = process.exitCode ?? 0;
       }).catch((error: unknown) => {
-        console.error({
-          code: "DAEMON_SIGNAL_SHUTDOWN_FAILED",
-          error,
-        });
+        console.error("[graft] daemon shutdown failed", error);
         if (process.exitCode === undefined || process.exitCode === 0) {
           process.exitCode = 1;
         }

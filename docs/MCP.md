@@ -74,8 +74,10 @@ lifecycle does not claim to bound every daemon cache or working set.
   independent references; a session with any active reference is not idle.
 - **Terminal cleanup** is one idempotent transition shared by idle expiry,
   transport close/error, explicit disconnect, and daemon shutdown. Every cause
-  revokes the session's map and `DaemonControlPlane` registration and removes
-  `<graftDir>/sessions/<sessionId>`. Idle expiry, transport error, and daemon
+  revokes the session's map and `DaemonControlPlane` registration, releases the
+  session's WARP resident leases, and removes
+  `<graftDir>/sessions/<sessionId>`. A new session whose initial request
+  handling rejects is retired through the same transition. Idle expiry, transport error, and daemon
   shutdown ask the connected MCP protocol server to close and fall back to the
   HTTP transport when protocol close fails. When the transport's own close
   callback initiates termination, including explicit DELETE, the transport is
@@ -120,7 +122,8 @@ SessionSweepResult
 
 Retiring a session does not imply that its directory was removed. Filesystem
 and orphan-scan failures are marked retryable only when a later sweep executes
-that operation again. Protocol and fallback transport-close failures are
+that operation again. Protocol close, fallback transport close, and WARP lease
+release (`SESSION_WARP_RELEASE_FAILED`) failures are
 reported separately as non-retryable, as are live-session cleanup refusals for
 links or non-directories that orphan discovery intentionally preserves. An invalid or regressing injected clock
 refuses the whole sweep with `MONOTONIC_CLOCK_INVALID`, reports zero retired
@@ -128,6 +131,53 @@ sessions, and leaves the previous accepted elapsed-time sample unchanged.
 Scheduled sweeps emit structured diagnostics for refused sweeps and cleanup
 failures. Preserved unknown, malformed, non-directory, or link entries are also
 reported with stable reason codes without touching their targets.
+
+### WARP resident ownership
+
+The daemon's `WarpResidentPool` application port exposes only owned
+acquisition of logical `(repoId, writerId)` residents. Every successful
+acquisition returns a unique, idempotently releasable capability, including
+two acquisitions with the same owner metadata. The port has no ordinary raw
+lookup, holder-ID release, sweep, or force-eviction operation.
+
+The shared daemon pool retains at most **four handles** by default, including
+opens in progress. Set `GRAFT_WARP_MAX_RESIDENTS` to an integer from 1 through
+64 in the daemon's launch environment to change that limit. Invalid explicit
+values reject construction before workers start. Repo-local MCP servers apply
+the same default to their own pool. This is a handle bound for each pool, not
+a byte budget for the whole daemon or its worker processes.
+
+Operations in flight pin handles. Final release makes an entry idle and updates
+its recency. A miss evicts the least recently used idle entry; if all slots are
+pinned, the acquisition fails with `WarpResidentCapacityError` (internal code
+`WARP_RESIDENT_CAPACITY`) without opening another graph. The existing tool
+error surface reports the failure. Retry after another operation settles.
+An optional graph-backed history observation can retain its existing
+unavailable-evidence fallback. Pool consumers can select `maxIdleResidents: 0`
+for eager eviction instead of warm reuse.
+
+Current and opened workspace bindings retain routing metadata without graph
+leases. Bound repository invocations own their captured route's capability
+through handler, attribution, and failure settlement; scheduler admission
+remains daemon-only. Binding setup and history operations outside an invocation
+use temporary capabilities released in `finally`. A cross-repository rebind
+parks the previous workspace and releases its lease before acquiring the
+current graph, so its own lease scopes work with a single slot.
+Session retirement and
+rebind cannot revoke a capability still owned by an admitted invocation.
+
+Eviction removes reconstructible process state without deleting source files,
+Git objects, index records, authorization, or workspace membership. The next
+acquisition reconstructs the graph through its resolved worktree root. An idle
+entry whose construction root has changed is reopened through that new root.
+Release makes memory eligible for collection; it does not promise an immediate
+RSS decrease. Recency describes handle use, not current-source validation.
+
+`/healthz` and `daemon_status` retain `activeWarpRepos` for unique repositories
+and `activeWarpResidents` for logical writer-lane slots. Despite the existing
+`active` field names, these counts include idle entries and opening
+reservations. Inspecting these counts does not refresh cache recency. Detailed
+owner inventory and source freshness evidence are separate capabilities.
 
 For concurrent multi-repo use inside one daemon-backed MCP session,
 repo tools that support routing also accept `cwd`: `safe_read`,
@@ -180,3 +230,10 @@ daemon control-plane tools.
 - [Architecture](../ARCHITECTURE.md)
 - [Security Model](./strategy/security-model.md)
 - [Causal Provenance](./strategy/causal-provenance.md)
+
+### Daemon status schema in v0.14.0
+
+`graft.mcp.daemon_status` advertises schema `2.0.0` for its strict output shape,
+including required `activeWarpResidents`. Consumers selecting validators by
+`_schema.version` must use v2. The text `graft daemon status` command has no
+separately registered JSON schema and retains its `ok | degraded` projection.

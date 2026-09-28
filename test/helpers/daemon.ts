@@ -6,11 +6,13 @@ import { CanonicalJsonCodec } from "../../src/adapters/canonical-json.js";
 import { nodeFs } from "../../src/adapters/node-fs.js";
 import { nodeGit } from "../../src/adapters/node-git.js";
 import { DaemonControlPlane } from "../../src/mcp/daemon-control-plane.js";
+import { closeDaemonResources } from "../../src/mcp/daemon-server.js";
 import { DaemonJobScheduler } from "../../src/mcp/daemon-job-scheduler.js";
 import { InlineDaemonWorkerPool } from "../../src/mcp/daemon-worker-pool.js";
 import { PersistentMonitorRuntime } from "../../src/mcp/persistent-monitor-runtime.js";
 import { createGraftServer, type GraftServer } from "../../src/mcp/server.js";
 import { InMemoryWarpPool } from "../../src/mcp/warp-pool.js";
+import type { WarpResidentPool } from "../../src/mcp/warp-pool.js";
 import { openWarp } from "../../src/warp/open.js";
 import { parse } from "./mcp.js";
 
@@ -22,7 +24,7 @@ export interface InProcessDaemonSession {
     name: string,
     args: Record<string, unknown>,
   ): Promise<T>;
-  close(): void;
+  close(): Promise<void>;
 }
 
 export interface InProcessDaemonHarness {
@@ -31,7 +33,9 @@ export interface InProcessDaemonHarness {
   close(): Promise<void>;
 }
 
-export async function createInProcessDaemonHarness(): Promise<InProcessDaemonHarness> {
+export async function createInProcessDaemonHarness(options: {
+  readonly warpPool?: WarpResidentPool | undefined;
+} = {}): Promise<InProcessDaemonHarness> {
   const rootDir = fs.mkdtempSync(path.join(os.tmpdir(), "graft-daemon-in-process-"));
   const codec = new CanonicalJsonCodec();
   const controlPlane = new DaemonControlPlane({
@@ -51,7 +55,8 @@ export async function createInProcessDaemonHarness(): Promise<InProcessDaemonHar
     scheduler,
     workerPool,
   });
-  const warpPool = new InMemoryWarpPool((cwd, writerId) => openWarp({ cwd, writerId }));
+  const warpPool = options.warpPool
+    ?? new InMemoryWarpPool((cwd, writerId) => openWarp({ cwd, writerId }));
   const startedAt = new Date().toISOString();
   const sessions = new Map<string, InProcessDaemonSession>();
 
@@ -66,6 +71,7 @@ export async function createInProcessDaemonHarness(): Promise<InProcessDaemonHar
       mcpPath: "/mcp",
       healthPath: "/healthz",
       activeWarpRepos: warpPool.size(),
+      activeWarpResidents: warpPool.residentCount(),
       startedAt,
     };
   };
@@ -97,10 +103,14 @@ export async function createInProcessDaemonHarness(): Promise<InProcessDaemonHar
         controlPlane.touchTransport(sessionId);
         return parse(await server.callTool(name, args)) as T;
       },
-      close(): void {
+      async close(): Promise<void> {
         controlPlane.unregisterTransport(sessionId);
         sessions.delete(sessionId);
-        fs.rmSync(graftDir, { recursive: true, force: true });
+        try {
+          await server.releaseWarpLeases();
+        } finally {
+          fs.rmSync(graftDir, { recursive: true, force: true });
+        }
       },
     };
 
@@ -117,12 +127,17 @@ export async function createInProcessDaemonHarness(): Promise<InProcessDaemonHar
     rootDir,
     createSession,
     async close(): Promise<void> {
-      for (const session of [...sessions.values()]) {
-        session.close();
-      }
-      await monitorRuntime.close();
-      await workerPool.close();
-      fs.rmSync(rootDir, { recursive: true, force: true });
+      await closeDaemonResources([
+        ...sessions.values(),
+        monitorRuntime,
+        workerPool,
+        {
+          close: () => {
+            fs.rmSync(rootDir, { recursive: true, force: true });
+            return Promise.resolve();
+          },
+        },
+      ]);
     },
   };
 }

@@ -45,7 +45,7 @@ export const mcpOutputSchemaMeta = Object.freeze(Object.fromEntries(
     id: `graft.mcp.${tool}`,
     version: tool === "file_outline"
       ? OUTLINE_OUTPUT_SCHEMA_VERSION
-      : tool === "graft_review" || workspaceRoutedMcpTools.has(tool)
+      : tool === "graft_review" || tool === "daemon_status" || workspaceRoutedMcpTools.has(tool)
         ? OUTPUT_SCHEMA_V2_VERSION
         : OUTPUT_SCHEMA_VERSION,
   })]),

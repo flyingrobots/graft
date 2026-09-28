@@ -1076,10 +1076,9 @@ export class PersistedLocalHistoryStore {
     },
   ) {}
 
-  async noteBinding(input: {
+  async noteBindingDeparture(input: {
     readonly current: PersistedLocalHistoryContext;
     readonly previous?: PersistedLocalHistoryContext | null;
-    readonly currentGraph?: PersistedLocalHistoryGraphContext | null;
     readonly previousGraph?: PersistedLocalHistoryGraphContext | null;
   }): Promise<void> {
     const previous = input.previous ?? null;
@@ -1115,6 +1114,17 @@ export class PersistedLocalHistoryStore {
         }
       }
     }
+
+  }
+
+  async noteBinding(input: {
+    readonly current: PersistedLocalHistoryContext;
+    readonly previous?: PersistedLocalHistoryContext | null;
+    readonly currentGraph?: PersistedLocalHistoryGraphContext | null;
+    readonly previousGraph?: PersistedLocalHistoryGraphContext | null;
+  }): Promise<void> {
+    await this.noteBindingDeparture(input);
+    const currentKey = buildContinuityKey(input.current.repoId, input.current.worktreeId);
 
     const currentState = await this.loadWritableState(
       input.currentGraph,

@@ -42,6 +42,9 @@ timeline
   local-history and newer structural-metric reads remain tracked.
 
 ### 4. Multi-Repo Coordination
+- PR #251 landed a bounded graph pool with four resident handles by default.
+  Operations own pins; idle handles are evicted by recency. Single-graph and
+  worker byte limits remain separate work, as does resident-owner inspection.
 - Refinement of the Shared Daemon trust boundaries.
 - System-wide resource pressure and fairness summaries across multiple repos.
 - Authorization-filtered multi-repo overview surfaces.

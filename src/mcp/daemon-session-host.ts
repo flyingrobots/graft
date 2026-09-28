@@ -12,7 +12,7 @@ import type { ChildProcessDaemonWorkerPool } from "./daemon-worker-pool.js";
 import type { PersistentMonitorRuntime } from "./persistent-monitor-runtime.js";
 import type { RunCaptureConfig } from "./run-capture-config.js";
 import type { RuntimeObservabilityState } from "./runtime-observability.js";
-import type { WarpPool } from "./warp-pool.js";
+import type { WarpResidentPool } from "./warp-pool.js";
 import { ensurePrivateDirectory } from "./daemon-bootstrap.js";
 import type {
   DaemonSessionDirectoryIdentity,
@@ -36,6 +36,7 @@ const MAX_NODE_TIMER_DELAY_MS = 2_147_483_647;
 export type SessionCleanupFailureCode =
   | "SESSION_PROTOCOL_CLOSE_FAILED"
   | "SESSION_TRANSPORT_CLOSE_FAILED"
+  | "SESSION_WARP_RELEASE_FAILED"
   | "SESSION_DIRECTORY_REMOVE_FAILED"
   | "ORPHAN_DIRECTORY_REMOVE_FAILED"
   | "ORPHAN_SCAN_FAILED";
@@ -114,7 +115,12 @@ interface DaemonSession {
   activeRequests: number;
 }
 
-type SessionTerminationReason = "idle" | "shutdown" | "transport_close" | "transport_error";
+type SessionTerminationReason =
+  | "idle"
+  | "shutdown"
+  | "transport_close"
+  | "transport_error"
+  | "initial_request_failed";
 type TerminateDaemonSession = (
   session: DaemonSession,
   reason: SessionTerminationReason,
@@ -131,7 +137,7 @@ export interface CreateDaemonSessionHostOptions {
   readonly sessionStorage: DaemonSessionStorage;
   readonly sessionsRootAuthority: DaemonSessionsRootAuthority;
   readonly legacyUnmarkedSessionPolicy: LegacyUnmarkedSessionPolicy;
-  readonly warpPool: WarpPool;
+  readonly warpPool: WarpResidentPool;
   readonly controlPlane: DaemonControlPlane;
   readonly daemonScheduler: DaemonJobScheduler;
   readonly daemonWorkerPool: ChildProcessDaemonWorkerPool;
@@ -248,6 +254,7 @@ async function createDaemonSession(
         mcpPath: options.mcpPath,
         healthPath: options.healthPath,
         activeWarpRepos: options.warpPool.size(),
+        activeWarpResidents: options.warpPool.residentCount(),
         startedAt: options.startedAt,
       }),
       monitorRuntime: options.monitorRuntime,
@@ -315,17 +322,17 @@ async function createDaemonSession(
       terminateFromTransport("transport_error");
     };
 
+    options.controlPlane.registerTransport(
+      newSessionId,
+      () => createdServer.getWorkspaceStatus(),
+      () => createdServer.getRuntimeCausalContext(),
+    );
     protocolConnectionAttempted = true;
     await createdServer.getMcpServer().connect(createdTransport as Transport);
     if (construction.closedBeforeCommit) {
       throw new Error("MCP transport closed before daemon session construction committed");
     }
     if (!canCommit()) throw new DaemonSessionHostClosedError();
-    options.controlPlane.registerTransport(
-      newSessionId,
-      () => createdServer.getWorkspaceStatus(),
-      () => createdServer.getRuntimeCausalContext(),
-    );
     sessions.set(newSessionId, session);
     construction.committed = true;
     return session;
@@ -356,6 +363,13 @@ async function createDaemonSession(
         await transport.close();
       } catch (transportCloseError) {
         rollbackErrors.push(transportCloseError);
+      }
+    }
+    if (server !== undefined) {
+      try {
+        await server.releaseWarpLeases();
+      } catch (releaseError) {
+        rollbackErrors.push(releaseError);
       }
     }
     if (directoryReady && directoryIdentity !== undefined) {
@@ -439,6 +453,17 @@ export function createDaemonSessionHost(options: CreateDaemonSessionHostOptions)
             }));
           }
         }
+      }
+      try {
+        await session.server.releaseWarpLeases();
+      } catch (releaseError) {
+        cleanupFailures.push(cleanupFailure({
+          code: "SESSION_WARP_RELEASE_FAILED",
+          sessionId: session.id,
+          path: null,
+          retryable: false,
+          error: releaseError,
+        }));
       }
       let liveDirectoryRemoved = false;
       try {
@@ -821,9 +846,26 @@ export function createDaemonSessionHost(options: CreateDaemonSessionHostOptions)
             pendingSessionConstructions.delete(construction);
             pendingSessionIds.delete(newSessionId);
           }
-          await handleActiveSessionRequest(session, async () => {
-            await session.transport.handleRequest(req, res, parsedBody);
-          });
+          try {
+            await handleActiveSessionRequest(session, async () => {
+              await session.transport.handleRequest(req, res, parsedBody);
+            });
+          } catch (error) {
+            const retirement = await terminateSession(session, "initial_request_failed");
+            if (retirement.cleanupFailures.length > 0) {
+              throw new AggregateError(
+                [
+                  error,
+                  ...retirement.cleanupFailures.map(
+                    (failure) => Object.assign(new Error(failure.message), failure),
+                  ),
+                ],
+                "Daemon session initial request and retirement both failed",
+                { cause: error },
+              );
+            }
+            throw error;
+          }
           return;
         }
 
@@ -847,6 +889,10 @@ export function createDaemonSessionHost(options: CreateDaemonSessionHostOptions)
       } catch (error) {
         if (error instanceof SyntaxError) {
           sendJsonRpcError(res, -32700, "Invalid JSON");
+          return;
+        }
+        if (error instanceof DaemonSessionHostClosedError) {
+          sendJsonRpcError(res, -32000, "Daemon session host is shutting down");
           return;
         }
         sendJsonRpcError(res, -32603, error instanceof Error ? error.message : String(error));

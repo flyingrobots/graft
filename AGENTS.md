@@ -18,6 +18,13 @@ This guide is for AI agents and human operators recovering context in the Graft 
 
 ## Test Rules
 
+Read [TESTING_STANDARDS.md](TESTING_STANDARDS.md) (`graft.testing/1.0.3`)
+before adding or materially changing tests. Its corrected obligations are
+binding from 2026-09-07; the [adoption record](docs/testing/adoption.md) defines
+scope, manual evidence, actual automated controls, and scoped exceptions.
+Deferred tooling is not permission to omit practical evidence. Unchanged
+legacy tests are not certified or subject to an unrelated wholesale retrofit.
+
 Only write tests that assert actual Graft software invariants, behavior, and
 acceptance criteria. Do not write tests that merely assert design document
 formatting, markdown structure, incidental wording, or brittle strings in
@@ -103,6 +110,7 @@ from that packet, not from an unrecorded chat plan.
 - **`docs/VISION.md`**: Core tenets and the provenance-aware mission.
 - **`METHOD.md`**: Repo work doctrine (Backlog lanes, Cycle loop).
 - **`CODE_STANDARDS.md`**: Code Lawyer audit standards, Red-Green repair loop, and merge-gate doctrine.
+- **`TESTING_STANDARDS.md`**: Versioned testing obligations, checklist, and evidence boundaries; `docs/testing/adoption.md` records scope and enforcement.
 
 ### 3. The Direction
 - **`docs/BEARING.md`**: Current execution gravity and active tensions.
