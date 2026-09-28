@@ -65,6 +65,30 @@ function newestInput(root: string): Extreme | undefined {
   return newest;
 }
 
+/** The dist/ file each src/ module compiles to; declaration-only sources emit nothing. */
+function firstMissingOutput(root: string): { readonly source: string; readonly output: string } | undefined {
+  let missing: { readonly source: string; readonly output: string } | undefined;
+  const src = path.join(root, "src");
+  visit(src, false, (entry) => {
+    if (missing !== undefined || !entry.endsWith(".ts") || entry.endsWith(".d.ts")) return;
+    const output = path.join(root, "dist", path.relative(src, entry).replace(/\.ts$/u, ".js"));
+    if (!fs.existsSync(output)) missing = { source: entry, output };
+  });
+  return missing;
+}
+
+function buildCacheDir(root: string): string {
+  return path.join(root, "node_modules", ".cache", "graft");
+}
+
+/**
+ * Present from just before dist/ is removed until a build has finished. Kept outside dist/ so it never
+ * ships. If it survives, the process that wrote it ended mid-build and dist/ may be partial.
+ */
+function pendingBuildMarker(root: string): string {
+  return path.join(buildCacheDir(root), "dist-build.pending");
+}
+
 function oldestOutput(root: string): Extreme | undefined {
   let oldest: Extreme | undefined;
   visit(path.join(root, "dist"), false, (entry, mtimeMs) => {
@@ -85,11 +109,24 @@ function assertRequiredInputs(root: string): void {
   }
 }
 
-/** dist/ is fresh when it holds a file and its oldest file is strictly newer than the newest input. */
+/**
+ * dist/ is fresh when no build was left unfinished, every src/ module has its emitted .js, and the
+ * oldest dist/ file is strictly newer than the newest input.
+ */
 export function distStaleness(root: string): Staleness {
   assertRequiredInputs(root);
+  if (fs.existsSync(pendingBuildMarker(root))) {
+    return { fresh: false, reason: "an earlier dist/ build did not finish" };
+  }
   const oldest = oldestOutput(root);
   if (oldest === undefined) return { fresh: false, reason: "dist/ is missing or empty" };
+  const missing = firstMissingOutput(root);
+  if (missing !== undefined) {
+    return {
+      fresh: false,
+      reason: `${path.relative(root, missing.output)} is missing for ${path.relative(root, missing.source)}`,
+    };
+  }
   const newest = newestInput(root);
   if (newest === undefined || newest.mtimeMs < oldest.mtimeMs) return { fresh: true };
   return {
@@ -173,12 +210,16 @@ export async function ensureFreshDist(options: FreshDistOptions): Promise<FreshD
   const { root } = options;
   if (distStaleness(root).fresh) return "fresh";
 
-  const lock = path.join(root, "node_modules", ".cache", "graft", "dist-build.lock");
+  const lock = path.join(buildCacheDir(root), "dist-build.lock");
   await acquireLock(lock, options.lockPollMs ?? DEFAULT_LOCK_POLL_MS, options.lockTimeoutMs ?? DEFAULT_LOCK_TIMEOUT_MS);
   try {
     if (distStaleness(root).fresh) return "fresh";
 
     const dist = path.join(root, "dist");
+    const pending = pendingBuildMarker(root);
+    // Written before dist/ is touched and removed only once the build has finished, so a process that
+    // dies in between (or a build that throws) leaves a marker the next run reads as stale.
+    fs.writeFileSync(pending, String(process.pid));
     fs.rmSync(dist, { recursive: true, force: true });
     const result = await options.build(root);
     if (result.status === TSC_DIAGNOSTICS_WITH_OUTPUT) {
@@ -189,8 +230,10 @@ export async function ensureFreshDist(options: FreshDistOptions): Promise<FreshD
       );
     } else if (result.status !== 0) {
       fs.rmSync(dist, { recursive: true, force: true });
+      fs.rmSync(pending, { force: true });
       throw new Error(`Building dist/ for the test run failed with exit ${String(result.status)}:\n${result.output}`);
     }
+    fs.rmSync(pending, { force: true });
 
     const after = distStaleness(root);
     if (!after.fresh) {

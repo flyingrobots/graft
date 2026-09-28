@@ -69,6 +69,22 @@ before any worker starts.
   file is strictly newer than the **newest** input. Using the oldest output
   means an orphan left by a deleted source file, or a file left by an
   interrupted build, counts as stale.
+- Two completeness checks, added in review, because a partial `dist/` whose
+  surviving files are all new passes the time rule:
+  - **Every module has its output.** Each `src/**/*.ts` other than a `.d.ts`
+    must have its `dist/**/*.js`. A missing one (for example
+    `dist/cli/entrypoint.js`, which `bin/graft.js` loads) is stale. This needs
+    no list of required outputs to maintain.
+  - **An unfinished build is stale.** Before removing `dist/` the setup writes
+    `node_modules/.cache/graft/dist-build.pending`, outside the published
+    package, and removes it only after the build has finished. If the process
+    dies in between, or the build function throws, the marker survives and
+    the next run rebuilds. `dist/` produced by `pnpm build` alone (Docker, CI)
+    has no marker, so it is judged by the other rules and is not rebuilt.
+
+  Residual: a `pnpm build` that is itself killed after emitting every `.js`
+  but before its declaration files leaves no marker and passes both checks.
+  Tests execute only the `.js`.
 
 When stale it removes `dist/` and runs the repository's own build,
 `tsc -p tsconfig.build.json` (what `pnpm build`, CI and the Docker image run),
@@ -130,6 +146,8 @@ so the tested output is the shipped output, not a look-alike.
   any test starts, names the missing input, and does not invoke the compiler.
 - A Vitest run whose `dist/` is newer than every input does not invoke the
   compiler.
+- A `dist/` missing the `.js` of any `src/` module, or left by a build that did
+  not finish, is rebuilt even when every file it holds is new.
 - A compiler exit of 2 (diagnostics, output emitted) warns and continues; any
   other failure aborts the run and leaves no `dist/`.
 - Two concurrent `ensureFreshDist` calls on one checkout build once.

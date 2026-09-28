@@ -38,6 +38,13 @@ Met locally on host Vitest. The Docker-isolated `pnpm test` and CI have not run 
   edited during the build, or an input dated in the future.
 - **Docker not exercised.** The claim that the image's `dist/` is fresh rests on the Dockerfile
   running `pnpm build` after `COPY . .`. No container run in this cycle confirmed it.
+- **Partial `dist/`.** A `dist/` whose surviving files were all new passed the time rule even when
+  modules were missing (for example `dist/cli/entrypoint.js`) or when the build that wrote it never
+  finished. Review added two checks: every non-declaration `src/` module must have its `.js`, and
+  a `node_modules/.cache/graft/dist-build.pending` marker, written before `dist/` is removed and
+  deleted only after the build finishes, marks an unfinished build as stale. RED: both new cases
+  failed with `expected 'fresh' to be 'built'`. Calibration: disabling either check fails exactly
+  its own case.
 - **Missing inputs.** A deleted `src/` or config file was skipped by the input scan, so an old
   `dist/` stayed fresh. Review made each one required: the setup now fails naming it, without
   building. RED: the five new cases failed with `promise resolved "'fresh'" instead of rejecting`.

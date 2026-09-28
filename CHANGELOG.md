@@ -95,7 +95,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   file times. Compiler diagnostics that still emit output print a warning and
   the run continues; `pnpm typecheck` stays the type gate. If `src/` or one
   of those config files is missing, the setup fails and names it instead of
-  accepting the old build.
+  accepting the old build. A `dist/` that lacks the `.js` of any `src/`
+  module, or that a test-run build left unfinished, is rebuilt.
 
 - **Refused automatic authorization**: when a routed daemon call cannot
   persist the default authorization for its workspace, Graft now discards that
