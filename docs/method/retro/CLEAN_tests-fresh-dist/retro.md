@@ -2,7 +2,10 @@
 
 ## Status
 
-Met locally on host Vitest. The Docker-isolated `pnpm test` and CI have not run this branch.
+Met locally on host Vitest. CI ran this branch at `6123a249`: `test (20)` and `test (22)` passed,
+and `test (22)` runs the Docker-isolated `pnpm test` (277 files, 2485 tests passed). CI has not run
+the later commits, which are not pushed, and the Docker-isolated run has not been done locally:
+the Docker daemon on the development host did not answer on three attempts (see the witness).
 
 ## What Shipped
 
@@ -124,7 +127,11 @@ One more full run of this branch after the review fixes (`1d318219`, `dist/` mad
 Decided by @flyingrobots on 2026-09-28: remove the plausible cause rather than grant an exception.
 `test/helpers/git.ts` now sets `maintenance.auto false` and `gc.auto 0` in every temp repo it
 creates, so no detached `git maintenance` is started to write under `.git` while cleanup deletes
-the repo, and `test/unit/helpers/git.test.ts` checks both settings (both failed before the change).
+the repo, and `test/unit/helpers/git.test.ts` checks both settings. On the parent `git.ts` the case
+failed at its first assertion (`maintenance.auto`), so the `gc.auto` assertion was not evaluated
+then; in the third review it was shown separately, by removing only the `gc.auto 0` line from the
+helper (one line, restored byte for byte): the case then failed at the `gc.auto` assertion
+(`git config --get gc.auto failed`, the key being unset).
 The cause stays unconfirmed: the harness below reproduced ENOTEMPTY only when a background
 maintenance run was forced. The test stays in the normal gate, unquarantined. The draft below is
 kept as the record of what was considered.
