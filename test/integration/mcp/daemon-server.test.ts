@@ -598,7 +598,10 @@ describe("mcp: daemon transport and lifecycle", () => {
       signalHandlers[0]!("SIGTERM");
       await expect(daemon.close()).rejects.toMatchObject({ errors: [failure] });
       expect(process.exitCode).toBe(1);
-      expect(report.mock.calls).toEqual([[expect.any(String), expect.objectContaining({ errors: [failure] })]]);
+      expect(report.mock.calls).toEqual([[{
+        code: "DAEMON_SIGNAL_SHUTDOWN_FAILED",
+        error: expect.objectContaining({ errors: [failure] }),
+      }]]);
     } finally {
       process.exitCode = previousExitCode;
     }
