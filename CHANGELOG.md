@@ -12,7 +12,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 - **`GRAFT_ROOT_PATH`**: Graft's per-user root, `~/.graft` by default, can be set
   to any absolute path. The daemon's default root and its Windows pipe name
   derive from it, and it is the only place Graft reads the home directory. A
-  relative value is refused. The test suite sets it to a temporary directory,
+  relative value is refused, and so on Windows is one without a drive or UNC
+  share, such as `\graft`. The test suite sets it to a temporary directory,
   and a test fails if any per-user default resolves inside the real home.
 - **Read-only daemon inspection**: `graft daemon inspect` and the typed
   `inspectDaemon` API capture bounded current session/workspace relationships,

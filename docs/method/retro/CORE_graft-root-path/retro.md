@@ -36,3 +36,14 @@ records that decision as made.
 - A full local run passed apart from 7 timeouts (six at five seconds, one at
   thirty) while another suite ran on the same machine; the two failing files outside the four playback
   tests known to time out locally passed 36 of 36 when rerun alone.
+
+## Review round 1
+
+Codex left eight threads on PR #261. Each repair below has its own commit, a
+regression observed failing before the fix, and the graft-root and allowlist
+tests, lint and typecheck green after it.
+
+- Windows rooted paths: `\graft` passed `path.isAbsolute` on Windows while its
+  drive depends on the process. The resolver now takes the platform, and on
+  win32 accepts only a drive or UNC root. RED: with the platform seam in place
+  but the old `isAbsolute` check, the test accepted `\graft`.

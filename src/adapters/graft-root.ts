@@ -12,6 +12,21 @@ export class InvalidGraftRootPathError extends Error {
   }
 }
 
+function pathsFor(platform: NodeJS.Platform): typeof path.posix {
+  return platform === "win32" ? path.win32 : path.posix;
+}
+
+/**
+ * Whether a path names the same place for every process. On Windows,
+ * `path.isAbsolute` also accepts `\graft`, which is rooted on whichever drive
+ * is current, so only a drive root (`C:\`) or a UNC share (`\\server\share`)
+ * qualifies there.
+ */
+function isFullyQualified(value: string, platform: NodeJS.Platform): boolean {
+  if (platform !== "win32") return path.posix.isAbsolute(value);
+  return /^[A-Za-z]:[\\/]/u.test(value) || /^[\\/]{2}[^\\/]/u.test(value);
+}
+
 /**
  * The per-user Graft root: GRAFT_ROOT_PATH when set, otherwise `<home>/.graft`.
  * This is the only place Graft reads the home directory, so every per-user
@@ -23,11 +38,13 @@ export class InvalidGraftRootPathError extends Error {
 export function graftRootPath(
   env: Readonly<Record<string, string | undefined>> = process.env,
   homeDirectory: () => string = os.homedir,
+  platform: NodeJS.Platform = process.platform,
 ): string {
+  const paths = pathsFor(platform);
   const configured = env[GRAFT_ROOT_PATH_ENV];
-  if (configured === undefined || configured === "") return path.join(homeDirectory(), ".graft");
-  if (!path.isAbsolute(configured)) throw new InvalidGraftRootPathError(configured);
-  return path.normalize(configured);
+  if (configured === undefined || configured === "") return paths.join(homeDirectory(), ".graft");
+  if (!isFullyQualified(configured, platform)) throw new InvalidGraftRootPathError(configured);
+  return paths.normalize(configured);
 }
 
 /**
@@ -38,7 +55,8 @@ export function graftRootPath(
 export function graftRootPipeKey(
   env: Readonly<Record<string, string | undefined>> = process.env,
   homeDirectory: () => string = os.homedir,
+  platform: NodeJS.Platform = process.platform,
 ): string {
   const configured = env[GRAFT_ROOT_PATH_ENV];
-  return configured === undefined || configured === "" ? homeDirectory() : graftRootPath(env, homeDirectory);
+  return configured === undefined || configured === "" ? homeDirectory() : graftRootPath(env, homeDirectory, platform);
 }

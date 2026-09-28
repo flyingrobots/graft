@@ -27,6 +27,19 @@ describe("Graft root path", () => {
     expect(() => graftRootPath({ GRAFT_ROOT_PATH: "graft-state" }, () => HOME)).toThrow(InvalidGraftRootPathError);
   });
 
+  it("on Windows, accepts only a drive or UNC root, since a rooted path's drive depends on the process", () => {
+    // Oracle: Windows path semantics. `\graft` and `/graft` are rooted on the
+    // current drive and `C:graft` is relative to that drive's working
+    // directory, so two processes can resolve any of them differently.
+    const onWindows = (value: string): string => graftRootPath({ GRAFT_ROOT_PATH: value }, () => "C:\\Users\\fixture", "win32");
+    for (const driveDependent of ["\\graft", "/graft", "C:graft"]) {
+      expect(() => onWindows(driveDependent), driveDependent).toThrow(InvalidGraftRootPathError);
+    }
+    expect(onWindows("C:\\srv\\graft")).toBe("C:\\srv\\graft");
+    expect(onWindows("d:/srv/graft")).toBe("d:\\srv\\graft");
+    expect(onWindows("\\\\server\\share\\graft")).toBe("\\\\server\\share\\graft");
+  });
+
   it("derives the default daemon root from the Graft root", () => {
     expect(defaultDaemonRoot(graftRootPath({ GRAFT_ROOT_PATH: "/srv/graft" }, () => HOME))).toBe(path.join("/srv/graft", "daemon"));
     expect(defaultDaemonRoot(graftRootPath({}, () => HOME))).toBe(path.join(HOME, ".graft", "daemon"));

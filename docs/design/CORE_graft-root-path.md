@@ -23,7 +23,10 @@ itself should use its own root variable, in the product as well as in tests.
 
 - `graftRootPath()` returns `GRAFT_ROOT_PATH` when set, and `<home>/.graft`
   when it is unset or empty. A relative value is refused, because a daemon and
-  its clients could resolve it from different working directories.
+  its clients could resolve it from different working directories. For the
+  same reason, on Windows only a drive path (`C:\...`) or a UNC share
+  (`\\server\share\...`) is accepted; a rooted path such as `\graft` lands on
+  whichever drive is current and is refused.
 - The daemon's default root is `<graft root>/daemon`.
 - The Windows daemon pipe name is unchanged while `GRAFT_ROOT_PATH` is unset,
   so an installed daemon is still found; each configured root gets its own pipe.
