@@ -77,7 +77,7 @@ describe("dedicated daemon inspection transport", () => {
       vi.spyOn(DaemonControlPlane.prototype, "touchTransport").mockImplementation(trap),
       vi.spyOn(DaemonControlPlane.prototype, "noteBound").mockImplementation(trap),
       vi.spyOn(DaemonJobScheduler.prototype, "enqueue").mockImplementation(trap),
-      vi.spyOn(InMemoryWarpPool.prototype, "getOrOpen").mockImplementation(trap),
+      vi.spyOn(InMemoryWarpPool.prototype, "acquire").mockImplementation(trap),
       vi.spyOn(WorkspaceRouter.prototype, "captureExecutionContext").mockImplementation(trap),
       vi.spyOn(WorkspaceRouter.prototype, "captureExecutionContextForWorkspace").mockImplementation(trap),
       vi.spyOn(ObservationCache.prototype, "get").mockImplementation(trap),

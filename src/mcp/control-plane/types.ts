@@ -105,6 +105,7 @@ export interface DaemonRuntimeDescriptor {
   readonly mcpPath: string;
   readonly healthPath: string;
   readonly activeWarpRepos: number;
+  readonly activeWarpResidents: number;
   readonly startedAt: string;
 }
 

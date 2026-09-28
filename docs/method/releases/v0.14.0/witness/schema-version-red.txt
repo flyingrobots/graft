@@ -1,0 +1,31 @@
+Unfixed revision: 2cf5146a64b1832d8f4751c7765d3029996edaa7
+Command: pnpm test:local test/unit/contracts/output-schemas.test.ts -t "resident status with the v2"
+ FAIL  test/unit/contracts/output-schemas.test.ts > contracts: output schemas > publishes MCP resident status with the v2 validator identity
+AssertionError: expected { …(6) } to match object { properties: { _schema: { …(1) } } }
+(109 matching properties omitted from actual)
+
+- Expected
++ Received
+
+  {
+    "properties": {
+      "_schema": {
+        "properties": {
+          "version": {
+-           "const": "2.0.0",
++           "const": "1.0.0",
+          },
+        },
+      },
+    },
+  }
+
+ ❯ test/unit/contracts/output-schemas.test.ts:118:53
+    116|   // Small: pure schema exports, no I/O, one-second budget per case.
+    117|   it("publishes MCP resident status with the v2 validator identity", (…
+    118|     expect(getMcpOutputJsonSchema("daemon_status")).toMatchObject({
+       |                                                     ^
+    119|       properties: {
+    120|         _schema: {
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯

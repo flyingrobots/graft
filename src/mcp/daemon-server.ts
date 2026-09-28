@@ -15,7 +15,7 @@ import { DaemonJobScheduler } from "./daemon-job-scheduler.js";
 import { resolveDaemonSchedulerConfig } from "./daemon-scheduler-config.js";
 import { ChildProcessDaemonWorkerPool } from "./daemon-worker-pool.js";
 import { PersistentMonitorRuntime } from "./persistent-monitor-runtime.js";
-import { InMemoryWarpPool } from "./warp-pool.js";
+import { InMemoryWarpPool, resolveWarpPoolOptions } from "./warp-pool.js";
 import { openWarp } from "../warp/open.js";
 import type { RunCaptureConfig } from "./run-capture-config.js";
 import type { RuntimeObservabilityState } from "./runtime-observability.js";
@@ -53,13 +53,34 @@ export interface GraftDaemonServer {
   getHealthStatus(): DaemonHealthStatus;
 }
 
+export interface DaemonShutdownStage {
+  close(): Promise<void>;
+}
+
+export async function closeDaemonResources(stages: readonly DaemonShutdownStage[]): Promise<void> {
+  const errors: unknown[] = [];
+  for (const stage of stages) {
+    try {
+      await stage.close();
+    } catch (error) {
+      errors.push(error);
+    }
+  }
+  if (errors.length > 0) {
+    throw new AggregateError(errors, "Failed to close daemon resources");
+  }
+}
+
 export async function startDaemonServer(options: StartDaemonServerOptions = {}): Promise<GraftDaemonServer> {
   await ensureGitVersionSupportsGraft();
   const graftDir = path.resolve(options.graftDir ?? defaultDaemonRoot());
   const socketPath = resolveSocketPath(options.socketPath, graftDir);
   const startedAt = new Date().toISOString();
   const incarnationId = randomUUID();
-  const warpPool = new InMemoryWarpPool((cwd) => openWarp({ cwd }));
+  const warpPool = new InMemoryWarpPool(
+    (cwd, writerId) => openWarp({ cwd, writerId }),
+    resolveWarpPoolOptions(options.env ?? process.env),
+  );
   const controlPlane = new DaemonControlPlane({
     fs: nodeFs,
     codec: new CanonicalJsonCodec(),
@@ -89,6 +110,7 @@ export async function startDaemonServer(options: StartDaemonServerOptions = {}):
       mcpPath: MCP_PATH,
       healthPath: HEALTH_PATH,
       activeWarpRepos: warpPool.size(),
+      activeWarpResidents: warpPool.residentCount(),
       startedAt,
     }, monitorRuntime.getCounts(), daemonScheduler.getCounts(), daemonWorkerPool.getCounts());
   };
@@ -160,8 +182,11 @@ export async function startDaemonServer(options: StartDaemonServerOptions = {}):
   let closing: Promise<void> | null = null;
 
   const shutdown = (): void => {
-    void daemon.close().finally(() => {
+    void daemon.close().then(() => {
       process.exitCode = process.exitCode ?? 0;
+    }, (error: unknown) => {
+      console.error("[graft] daemon shutdown failed", error);
+      process.exitCode = 1;
     });
   };
 
@@ -180,16 +205,22 @@ export async function startDaemonServer(options: StartDaemonServerOptions = {}):
       closing = (async () => {
         process.off("SIGINT", shutdown);
         process.off("SIGTERM", shutdown);
-        inspectionRoute.close();
-        await sessionHost.close();
-        await monitorRuntime.close();
-        await daemonWorkerPool.close();
-        await closeHttpServer(httpServer);
-        if (!isNamedPipePath(socketPath)) {
-          await fs.unlink(socketPath).catch(() => {
-            return undefined;
-          });
-        }
+        await closeDaemonResources([
+          { close: () => { inspectionRoute.close(); return Promise.resolve(); } },
+          { close: () => sessionHost.close() },
+          { close: () => monitorRuntime.close() },
+          { close: () => daemonWorkerPool.close() },
+          { close: () => closeHttpServer(httpServer) },
+          {
+            close: async () => {
+              if (!isNamedPipePath(socketPath)) {
+                await fs.unlink(socketPath).catch((error: unknown) => {
+                  if (!(error instanceof Error && "code" in error && error.code === "ENOENT")) throw error;
+                });
+              }
+            },
+          },
+        ]);
       })();
       return closing;
     },

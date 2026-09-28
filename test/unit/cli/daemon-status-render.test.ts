@@ -14,6 +14,7 @@ const model: DaemonStatusModel = {
     startedAt: "2026-04-26T12:00:00.000Z",
     sameUserOnly: true,
     activeWarpRepos: 2,
+    activeWarpResidents: 3,
   },
   sessions: {
     total: 3,
@@ -75,6 +76,7 @@ describe("daemon status renderer", () => {
     expect(rendered).toContain("monitors");
     expect(rendered).toContain("scheduler");
     expect(rendered).toContain("workers");
+    expect(rendered).toContain("warp repos 2; warp residents 3");
     expect(rendered).toContain("degraded: failing_monitors, monitor_backlog, scheduler_queue, worker_queue");
   });
 
