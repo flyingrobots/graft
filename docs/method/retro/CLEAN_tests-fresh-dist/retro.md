@@ -5,7 +5,9 @@
 Met locally on host Vitest. CI ran this branch at `6123a249`: `test (20)` and `test (22)` passed,
 and `test (22)` runs the Docker-isolated `pnpm test` (277 files, 2485 tests passed). The latest CI
 run recorded here is at `6c7b6a83` (GitHub Actions run 36426014584): both jobs passed, and
-`test (22)` passed 277 files and 2,499 tests. The Docker-isolated run has not been done locally:
+`test (22)` passed 277 files and 2,499 tests. CI then passed on `d61f014e` (GitHub Actions run
+36436746759): `test (20)` and `test (22)` both succeeded. The fourth review's fixes (`b79a6926` to
+`5cdc9ed9`) have not been through CI yet. The Docker-isolated run has not been done locally:
 the Docker daemon on the development host did not answer on three attempts (see the witness).
 
 ## What Shipped
@@ -21,8 +23,10 @@ the Docker daemon on the development host did not answer on three attempts (see 
 - The enhance CLI test's own build step, which checked for one file, is deleted.
 - `test/unit/helpers/fresh-dist.test.ts`: 13 cases when this retro was first written, 22 after the
   first review, 33 after the second (32 for `ensureFreshDist`, 1 for the watch-mode hook), 28 after
-  the third (10 lock and marker cases deleted with the lock, 5 publication cases added), on a
-  temporary fake package with mtimes set explicitly.
+  the third (10 lock and marker cases deleted with the lock, 5 publication cases added), 33 at
+  `d61f014e`, and 34 after the fourth review (one give-up case added), on a temporary fake package
+  with mtimes set explicitly. `vitest list` shows 27 entries at `5cdc9ed9`, because it lists each of
+  the two `it.for` tables once; they run as 4 and 5 cases.
 - `test/helpers/git.ts`: temp repos turn off automatic maintenance and gc, and `cleanupTestRepo`
   retries a removal that fails with `ENOTEMPTY` or `EBUSY`, warning on every retry (third review).
 
@@ -335,6 +339,27 @@ before it, on the helper suite, unless stated.
   directory it is given, now ends `third call: fresh`, `src` and `dist` both `a = 2`. The setup's
   staged build is byte-identical to `pnpm build` (1304 files, `diff -r`), because the staging
   directory sits at `dist/`'s depth and source maps stay `../src/...`.
+
+## Fourth review
+
+An audit of `d61f014e` raised eight findings, fixed one commit each from `b79a6926`.
+
+- **Concurrent isolation (P2).** The same-millisecond case replaced the global `Date.now`, and under
+  `--sequence.concurrent` the mock reached the mid-check edit case, which then failed as a
+  future-dated input. `ensureFreshDist` now takes an optional `now()` clock (`Date.now` by
+  default), and that case and the slow-build case pass it instead of changing the global `Date`.
+  RED on `d61f014e`: `Tests  1 failed | 32 passed (33)` under `--sequence.concurrent`.
+- **Cleanup retry contract.** The exhausted-retry case now asserts five attempts and four warnings,
+  and `cleanupTestRepo` takes an optional `sleep` so a case can assert the default waits of 25, 50,
+  100 and 200 ms.
+- **Git helper test metadata.** `test/unit/helpers/git.test.ts` now declares size, resources,
+  owner, per-case ceilings enforced by `describe` timeouts, CI stage and deletion criterion.
+- **Untested give-up cause.** A case now reaches "another process kept replacing dist/" and its
+  rerun advice, and the slow-build case asserts that its first call resolves to `built`.
+- **Cleanup after a failed graph-root removal.** `cleanupTestRepo` attempts both removals and then
+  rejects with the first failure, so a failed graph-root removal no longer leaves the repo behind.
+- **Documentation.** Case counts, the CI status, the witness gates, two Drift items and the
+  CHANGELOG entry are brought up to date in the three documentation commits that close this review.
 
 ## Non-Goals Held
 

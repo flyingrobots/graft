@@ -279,9 +279,10 @@ so the tested output is the shipped output, not a look-alike.
   not small.
   Ceiling: 2000 ms per case, enforced by the `describe` timeout; at most one
   child process at a time; no network; suite budget 2 s for the file.
-  Measured on a macOS host, Node 26.0.0, 10 cores: 2 to 64 ms per case,
-  about 0.39 s for the file over three runs at 28 cases (third review;
-  2 to 120 ms and about 0.5 s at 33 cases in the second; 4 to 141 ms at 22).
+  Measured on a macOS host, Node 26.0.0, 10 cores: 2 to 70 ms per case and
+  about 0.47 s for the file over three runs at 34 cases (fourth review; 2 to
+  64 ms and about 0.39 s at 28 cases in the third; 2 to 120 ms and about
+  0.5 s at 33 cases in the second; 4 to 141 ms at 22).
   (Corrected in review: the first version declared the suite small.)
 - CI stage: pre-merge, as Rule 9 places medium tests. The CI workflow's
   `test` job runs `pnpm test` (the Docker-isolated full Vitest run, whose
@@ -295,7 +296,9 @@ so the tested output is the shipped output, not a look-alike.
   the failure this cycle exists to prevent. Added in the second review.
 - The concurrency cases are calls in one process against builds the test
   holds open. They synchronize on a build having started, not on a timer.
-  The slow-build case also fakes `Date` three minutes forward, past the age
+  The slow-build case also passes the helper a clock three minutes forward
+  (its `now` option; until the fourth review it faked the global `Date`,
+  a change concurrent cases could see), past the age
   at which the removed lock presumed a build dead, so an age-based design
   cannot return unnoticed. Two processes run the same filesystem path, but
   cross-process schedules are not separately exercised (model limit).

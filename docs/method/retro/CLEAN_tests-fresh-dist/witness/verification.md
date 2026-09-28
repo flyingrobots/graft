@@ -149,3 +149,19 @@ rebuilt `dist/` through a staging directory (`dist/index.js` 3 s newer than the 
 `src/index.ts`), no `dist.staging.*` or `dist.retired.*` directory was left beside it, and the run
 printed no `[graft test cleanup]` retry warning. The same run on `7871b506` (before the retro-only
 commit) gave the same counts and the same three timeouts.
+
+## Fourth review gates
+
+One commit per finding from `d61f014e`: `b79a6926` (injected clock), `f960fa07` (retry contract),
+`fe74fcff` (git helper test metadata), `1e8adad1` (replaced-dist give-up case), `5cdc9ed9`
+(cleanup attempts both removals), then the documentation commits. RED for the clock finding, on
+`d61f014e`: `npx vitest run test/unit/helpers/fresh-dist.test.ts --sequence.concurrent` gave
+`Tests  1 failed | 32 passed (33)`, the mid-check edit case failing with `src/a.ts has a
+modification time in the future (2026-03-01T00:00:01.000Z; now 2026-03-01T00:00:00.000Z)`.
+
+Gates on `5cdc9ed9` (macOS host, Node 26.0.0): `pnpm lint` exit 0; `npx tsc --noEmit -p .` exit 0;
+`npx vitest run test/unit/helpers test/unit/git`, 9 files, 79 of 79. The fresh-dist suite passed
+34 of 34 on three runs with `--sequence.concurrent`, and the fresh-dist and git helper suites
+together passed 47 of 47 on three runs with `--sequence.shuffle` (seeds 1 to 3). No
+`graft-fresh-dist-*` directory was left in the temp directory. The full suite and the
+Docker-isolated run were not run for this review.
