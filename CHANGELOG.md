@@ -100,7 +100,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   saved while that build runs is not accepted as built: the setup rebuilds,
   and fails with `dist/` still marked stale if sources change under three
   builds in a row. Two Vitest
-  processes in one checkout build once; a lock left by a dead process is taken
+  processes in one checkout build once, and one no longer fails with
+  `ENOENT` when it checks `dist/` while the other is deleting it; a lock left by a dead process is taken
   over only if it is still the lock that was seen dead.
 
 - **Refused automatic authorization**: when a routed daemon call cannot

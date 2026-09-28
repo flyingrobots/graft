@@ -117,7 +117,11 @@ so the tested output is the shipped output, not a look-alike.
   It is created by hard-linking a fully written staging file into place, so
   it never exists without its content and one of several racing creators
   wins. A waiter re-checks freshness after acquiring the lock, so the second
-  process does not rebuild. A lock whose pid is no longer alive is taken over,
+  process does not rebuild. The first check runs without the lock, so it can
+  scan `dist/` while another process is deleting it; a file or directory that
+  vanishes mid-scan counts as absent, which makes `dist/` stale, and the
+  process then takes the lock and checks again (changed in the second
+  review: it used to throw `ENOENT` and fail the run). A lock whose pid is no longer alive is taken over,
   but only the instance the waiter saw (changed in review): whoever removes an
   instance, its owner releasing it or a waiter taking it over, first creates
   `dist-build.lock.retire.<token>.<n>` exclusively, then removes the lock only

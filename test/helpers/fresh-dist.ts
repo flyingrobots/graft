@@ -43,17 +43,33 @@ interface Extreme {
 
 type Staleness = { readonly fresh: true } | { readonly fresh: false; readonly reason: string };
 
+function isMissing(error: unknown): boolean {
+  return (error as NodeJS.ErrnoException).code === "ENOENT";
+}
+
+/**
+ * Visits `entry` and everything under it. An entry removed while the walk runs (another process
+ * clearing dist/ for its own rebuild) is skipped as absent, at the lstat or at the readdir; the
+ * caller then sees a missing output and treats dist/ as stale, and rechecks under the lock.
+ */
 function visit(entry: string, includeDirectories: boolean, onEntry: (entry: string, mtimeMs: number) => void): void {
   let stat: fs.Stats;
   try {
     stat = fs.lstatSync(entry);
   } catch (error: unknown) {
-    if ((error as NodeJS.ErrnoException).code === "ENOENT") return;
+    if (isMissing(error)) return;
     throw error;
   }
   if (stat.isDirectory()) {
+    let names: string[];
+    try {
+      names = fs.readdirSync(entry);
+    } catch (error: unknown) {
+      if (isMissing(error)) return;
+      throw error;
+    }
     if (includeDirectories) onEntry(entry, stat.mtimeMs);
-    for (const name of fs.readdirSync(entry)) visit(path.join(entry, name), includeDirectories, onEntry);
+    for (const name of names) visit(path.join(entry, name), includeDirectories, onEntry);
     return;
   }
   onEntry(entry, stat.mtimeMs);

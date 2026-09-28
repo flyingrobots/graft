@@ -121,6 +121,13 @@ before it, on the helper suite, unless stated.
   marker. RED on the previous helper: the new case failed with
   `expected 'export const a = 1;\n' to be 'export const a = 2;\n'` (the edit was accepted), and the
   repeated-edit case with `promise resolved "'built'" instead of rejecting`.
+- **`dist/` deleted during the unlocked check (finding 2).** The scan now treats `ENOENT` from
+  `readdir` as absent, as it already did from `lstat`. The case uses a pass-through `node:fs` mock
+  that removes `dist/nested` after its lstat and before its readdir. RED: `promise rejected
+  "Error: ENOENT: ... scandir '.../dist/nested'" instead of resolving`. The audit's probe (a child
+  process repeatedly creating and removing `dist/` while the parent loops over the check) went from
+  52 `ENOENT scandir` errors in 3821 iterations to 0 in 3754, run on a scratch copy of the fixed
+  helper.
 
 ## Non-Goals Held
 

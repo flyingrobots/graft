@@ -2,7 +2,7 @@ import { spawnSync } from "node:child_process";
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   buildLockHolder,
   buildLockPath,
@@ -30,6 +30,25 @@ const EDIT_TIME = new Date("2026-03-01T00:00:00Z");
 const CONFIG_FILES = ["tsconfig.json", "tsconfig.build.json", "package.json", "pnpm-lock.yaml"] as const;
 const CASE_TIMEOUT_MS = 2_000;
 const LOCK_POLL_MS = 5;
+
+/**
+ * Runs just before `fs.readdirSync(directory)` for a directory registered here, once. Stands in for
+ * another process changing the tree between the helper's lstat of a directory and its readdir; the
+ * `node:fs` mock below passes every call through to the real module.
+ */
+const beforeReaddir = vi.hoisted(() => new Map<string, () => void>());
+
+vi.mock("node:fs", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("node:fs")>();
+  const readdirSync = (...args: Parameters<typeof actual.readdirSync>): ReturnType<typeof actual.readdirSync> => {
+    const directory = String(args[0]);
+    const hook = beforeReaddir.get(directory);
+    beforeReaddir.delete(directory);
+    hook?.();
+    return actual.readdirSync(...args);
+  };
+  return { ...actual, readdirSync: readdirSync as typeof actual.readdirSync };
+});
 
 const roots: string[] = [];
 
@@ -213,6 +232,22 @@ describe("test support: ensureFreshDist", { timeout: CASE_TIMEOUT_MS }, () => {
     await expect(ensureFreshDist({ root, build: build.build })).resolves.toBe("built");
 
     expect(build.calls).toBe(1);
+  });
+
+  it("treats dist as stale, and rebuilds, when another process deletes part of it during the check", async () => {
+    const root = await builtRoot();
+    const nested = path.join(root, "dist", "nested");
+    // The check has already lstat'ed dist/nested as a directory when it disappears.
+    beforeReaddir.set(nested, () => {
+      fs.rmSync(nested, { recursive: true, force: true });
+    });
+    const build = fakeBuild();
+
+    await expect(ensureFreshDist({ root, build: build.build })).resolves.toBe("built");
+
+    expect(beforeReaddir.has(nested)).toBe(false);
+    expect(build.calls).toBe(1);
+    expect(distText(root, "nested/b.js")).toBe("export const b = 1;\n");
   });
 
   it("rebuilds from a clean dist when a source file was deleted, dropping its orphaned output", async () => {
