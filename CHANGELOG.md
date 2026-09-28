@@ -150,7 +150,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   only when the preserved set changes, instead of repeating an unchanged set
   every interval. A session under construction is registered with the control
   plane, and so counted by health, before its MCP connection; it joins the
-  session map only after connection succeeds.
+  session map only after connection succeeds. Session construction now waits
+  for the session-start runtime log write (new `GraftServer.whenSessionStarted()`,
+  which never rejects), so that write can no longer land after initialize
+  returns and recreate a moved sessions root through its recursive `mkdir`.
 
 ### Documentation
 

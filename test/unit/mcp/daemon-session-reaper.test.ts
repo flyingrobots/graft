@@ -7,6 +7,7 @@ import * as path from "node:path";
 import { performance } from "node:perf_hooks";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
+import { RotatingNdjsonLog } from "../../../src/adapters/rotating-ndjson-log.js";
 import { DaemonControlPlane } from "../../../src/mcp/daemon-control-plane.js";
 import { PersistentMonitorRuntime } from "../../../src/mcp/persistent-monitor-runtime.js";
 import * as graftServerModule from "../../../src/mcp/server.js";
@@ -3217,6 +3218,59 @@ describe("mcp: daemon session reaper", () => {
     expect(fs.existsSync(sessionsRoot)).toBe(false);
     expect(fs.readFileSync(path.join(parkedSessionsRoot, sessionId, "original.txt"), "utf-8"))
       .toBe("original\n");
+  });
+
+  it("settles the session-start runtime log write before initialize returns", async () => {
+    const rootDir = fs.mkdtempSync(path.join(os.tmpdir(), "graft-session-start-log-settled-"));
+    const socketPath = path.join(rootDir, "daemon.sock");
+    const sessionsRoot = path.join(rootDir, "sessions");
+    const parkedSessionsRoot = path.join(rootDir, "sessions-parked");
+    cleanups.push(() => {
+      fs.rmSync(rootDir, { recursive: true, force: true });
+    });
+    let releaseStartWrite!: () => void;
+    const startWriteGate = new Promise<void>((resolve) => {
+      releaseStartWrite = resolve;
+    });
+    // Fallback so a fixed host, which waits for this write inside
+    // initialize, is not deadlocked by the gate below.
+    const fallback = setTimeout(releaseStartWrite, 200);
+    cleanups.push(() => {
+      clearTimeout(fallback);
+      releaseStartWrite();
+    });
+    const originalAppend = Reflect.get(RotatingNdjsonLog.prototype, "append") as (
+      this: RotatingNdjsonLog,
+      entry: object,
+    ) => Promise<void>;
+    const append = vi.spyOn(RotatingNdjsonLog.prototype, "append")
+      .mockImplementation(async function(this: RotatingNdjsonLog, entry: object) {
+        if ((entry as { event?: unknown }).event === "session_started") await startWriteGate;
+        await Reflect.apply(originalAppend, this, [entry]);
+      });
+    cleanups.push(() => {
+      append.mockRestore();
+    });
+    const daemon = await startDaemonServer({
+      graftDir: rootDir,
+      socketPath,
+      sessionReaperIntervalMs: 0,
+    });
+    cleanups.push(async () => {
+      if (fs.existsSync(parkedSessionsRoot) && !fs.existsSync(sessionsRoot)) {
+        fs.renameSync(parkedSessionsRoot, sessionsRoot);
+      }
+      await daemon.close().catch(() => undefined);
+    });
+
+    await initializeDaemonSession(socketPath, 1);
+    fs.renameSync(sessionsRoot, parkedSessionsRoot);
+    releaseStartWrite();
+    await new Promise<void>((resolve) => {
+      setTimeout(resolve, 50);
+    });
+
+    expect(fs.existsSync(sessionsRoot)).toBe(false);
   });
 
   it("retries live cleanup after the exact sessions root is restored", async () => {

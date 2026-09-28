@@ -332,6 +332,10 @@ async function createDaemonSession(
     );
     protocolConnectionAttempted = true;
     await createdServer.getMcpServer().connect(createdTransport as Transport);
+    // The session-start runtime event writes beneath the session directory with
+    // recursive mkdir; settle it inside construction so it cannot land after
+    // the session is handed out and recreate a moved or retired scratch path.
+    await createdServer.whenSessionStarted();
     if (construction.closedBeforeCommit) {
       throw new Error("MCP transport closed before daemon session construction committed");
     }

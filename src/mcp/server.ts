@@ -49,6 +49,8 @@ export interface GraftServer {
   getWorkspaceStatus(): import("./workspace-router.js").WorkspaceStatus;
   getRuntimeCausalContext(): import("./runtime-causal-context.js").RuntimeCausalContext | null;
   releaseWarpLeases(): Promise<void>;
+  /** Settles when the session-start runtime event has been written or dropped; never rejects. */
+  whenSessionStarted(): Promise<void>;
   getMcpServer(): McpServer;
 }
 
@@ -314,6 +316,9 @@ function createGraftServerSurface(input: {
         for (const result of results) if (result.status === "rejected") errors.push(result.reason);
         if (errors.length > 0) throw new AggregateError(errors, "Failed to settle Graft session shutdown");
       });
+    },
+    whenSessionStarted(): Promise<void> {
+      return input.sessionStarted.then(() => undefined, () => undefined);
     },
     getMcpServer(): McpServer {
       return input.mcpServer;
