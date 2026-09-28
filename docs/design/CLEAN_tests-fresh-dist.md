@@ -169,9 +169,16 @@ so the tested output is the shipped output, not a look-alike.
   is the rule above: build exactly when an input is not older than the oldest
   output. RED first: with today's policy (build only when `dist/` is absent),
   the stale-dist case must fail because the stale output is kept.
-- Size: small. Each case runs in a private temp directory, no network, no
-  child processes. The concurrency case is two calls in one process against a
-  build the test holds open; cross-process locking is the same code path
-  through the filesystem but is not separately exercised (model limit).
+- Size: medium (Rule 9), owner @flyingrobots. Every case does application
+  filesystem I/O in its own temp directory, and the dead-owner cases spawn one
+  short `node` child to obtain an exited pid, so the suite is not small.
+  Ceiling: 2000 ms per case, enforced by the `describe` timeout; at most one
+  child process at a time; no network. Measured at 4 to 141 ms per case.
+  (Corrected in review: the first version declared the suite small.)
+- The concurrency case is two calls in one process against a build the test
+  holds open. It synchronizes on the build having started, not on a timer:
+  the second call starts only once the first holds the lock and is building.
+  Cross-process locking is the same code path through the filesystem but is
+  not separately exercised (model limit).
 - Run the two executing consumers from a checkout with no `dist/`, then lint,
   typecheck, and one full host Vitest run.

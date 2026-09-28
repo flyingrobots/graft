@@ -10,13 +10,19 @@ import { ensureFreshDist, type DistBuildResult } from "../../helpers/fresh-dist.
 // src/, plus tsconfig.json, tsconfig.build.json, package.json, pnpm-lock.yaml). A stale dist/ is
 // removed and rebuilt; tsc's exit 2 (diagnostics, output emitted) warns; any other failure throws
 // and leaves no dist/.
-// Size: small. Private temp roots, mtimes set with utimes (no sleeps), an injected build in place
-// of tsc. The dead-lock-owner case spawns one short node child to obtain a pid that has exited.
+// Size: medium (TESTING_STANDARDS.md Rule 9). Owner: @flyingrobots. Resources: files only under a
+// private mkdtemp root per case, removed in afterEach; at most one child process at a time (the
+// dead-lock-owner cases spawn `node -e ""` to obtain a pid that has exited); no network. Time:
+// mtimes are set with utimes; no case waits on a test timer. The helper's own lock poll is real
+// time, set to LOCK_POLL_MS. Ceiling: CASE_TIMEOUT_MS per case, enforced by the describe timeout.
+// Measured on a macOS host, Node 26: 4 to 141 ms per case, under 1 s for the file.
 
 const INPUT_TIME = new Date("2026-01-01T00:00:00Z");
 const BUILD_TIME = new Date("2026-02-01T00:00:00Z");
 const EDIT_TIME = new Date("2026-03-01T00:00:00Z");
 const CONFIG_FILES = ["tsconfig.json", "tsconfig.build.json", "package.json", "pnpm-lock.yaml"] as const;
+const CASE_TIMEOUT_MS = 2_000;
+const LOCK_POLL_MS = 5;
 
 const roots: string[] = [];
 
@@ -59,7 +65,11 @@ interface FakeBuild {
 }
 
 /** Stands in for tsc: writes dist/<source>.js carrying the source text, then reports `result`. */
-function fakeBuild(result: DistBuildResult = { status: 0, output: "" }, gate?: Promise<void>): FakeBuild {
+function fakeBuild(
+  result: DistBuildResult = { status: 0, output: "" },
+  gate?: Promise<void>,
+  onStart?: () => void,
+): FakeBuild {
   let calls = 0;
   return {
     get calls() {
@@ -67,6 +77,7 @@ function fakeBuild(result: DistBuildResult = { status: 0, output: "" }, gate?: P
     },
     build: async (root: string): Promise<DistBuildResult> => {
       calls += 1;
+      onStart?.();
       if (gate !== undefined) await gate;
       const src = path.join(root, "src");
       for (const entry of walk(src)) {
@@ -92,7 +103,7 @@ function distText(root: string, relative: string): string {
   return fs.readFileSync(path.join(root, "dist", relative), "utf8");
 }
 
-describe("test support: ensureFreshDist", () => {
+describe("test support: ensureFreshDist", { timeout: CASE_TIMEOUT_MS }, () => {
   it("builds dist when it is missing", async () => {
     const root = packageRoot();
     const build = fakeBuild();
@@ -190,11 +201,18 @@ describe("test support: ensureFreshDist", () => {
     const gate = new Promise<void>((resolve) => {
       release = resolve;
     });
-    const build = fakeBuild({ status: 0, output: "" }, gate);
+    let started!: () => void;
+    const buildStarted = new Promise<void>((resolve) => {
+      started = resolve;
+    });
+    const build = fakeBuild({ status: 0, output: "" }, gate, started);
 
-    const first = ensureFreshDist({ root, build: build.build });
-    const second = ensureFreshDist({ root, build: build.build });
-    await new Promise((resolve) => setTimeout(resolve, 50));
+    // The first call holds the lock from before its build starts until after it returns. Starting
+    // the second call only once that build has started means the second call's synchronous part
+    // (the staleness check and its first lock attempt) runs while the lock is held.
+    const first = ensureFreshDist({ root, build: build.build, lockPollMs: LOCK_POLL_MS });
+    await buildStarted;
+    const second = ensureFreshDist({ root, build: build.build, lockPollMs: LOCK_POLL_MS });
     release();
 
     expect((await Promise.all([first, second])).sort()).toEqual(["built", "fresh"]);

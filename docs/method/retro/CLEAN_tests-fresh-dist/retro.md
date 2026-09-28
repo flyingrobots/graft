@@ -38,6 +38,12 @@ Met locally on host Vitest. The Docker-isolated `pnpm test` and CI have not run 
   edited during the build, or an input dated in the future.
 - **Docker not exercised.** The claim that the image's `dist/` is fresh rests on the Dockerfile
   running `pnpm build` after `COPY . .`. No container run in this cycle confirmed it.
+- **Test size.** The helper suite was first declared small although every case does filesystem
+  I/O, one case spawns a child process, and the race case waited on a 50 ms timer. Review
+  corrected it to medium with an owner and a 2000 ms per-case ceiling enforced by the `describe`
+  timeout, and the race case now starts its second call once the first call's build has started.
+  Calibration: with lock creation forced to succeed, that case fails with
+  `[ 'built', 'built' ]`.
 - **Cross-process locking** runs the same filesystem path as the in-process race case, but only
   the in-process race was tested. Residual race, not tested: two waiters both see a dead owner.
   The rename-to-tombstone lets only one of them remove it, but the second can then take over a lock
