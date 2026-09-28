@@ -104,3 +104,15 @@ the job in the running map; `queued` and `running` are the only states. A refine
 on the job row now requires `startedAt` to be null exactly when the state is
 `queued`. Before the refine, the regression test failed on its first
 contradiction: a queued job with a start time parsed successfully.
+
+### Worker repository missing from the text frame — P2 (review thread)
+
+The worker projection keeps `repoId` for every assigned task, but the text
+renderer printed only session and workspace, which are both null for a
+persistent-monitor task (`daemon-worker-child-pool.ts`). Such a row showed two
+unavailable values and no repository. Worker rows now end with
+`repo <repoId>`, or `repo unavailable` for an idle worker. Before the fix the
+regression test's monitor-assigned row read `... | session unavailable |
+workspace unavailable` with no repository. `example.txt` was re-rendered from
+`example.json` with the same clock; only its worker line changed. JSON output
+already carried `repoId` and is unchanged.

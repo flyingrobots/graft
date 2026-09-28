@@ -33,7 +33,7 @@ Authorized workspace records: returned 2; matching total 2; available; complete
     Storage association and workspace residency: not retained
 
 Workers (daemon-wide, parent last-known): returned 1; matching total 1; available; complete
-  worker:one | PID 43 | assigned | worker request worker-request:a | session session:one | workspace worktree:a
+  worker:one | PID 43 | assigned | worker request worker-request:a | session session:one | workspace worktree:a | repo repo:example
 
 Repository monitors: returned 0; matching total 0; available; complete
 

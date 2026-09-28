@@ -42,7 +42,7 @@ export function renderDaemonInspection(result: InspectionResult, now: string): s
     lines.push("    Storage association and workspace residency: not retained");
   }
   lines.push("", inventory("Workers (daemon-wide, parent last-known)", o.workers));
-  for (const w of o.workers.rows) lines.push(`  ${safe(w.workerId)} | PID ${String(w.pid ?? "unavailable")} | ${w.state} | worker request ${safe(w.requestId ?? "none")} | session ${safe(w.sessionId ?? "unavailable")} | workspace ${safe(w.worktreeId ?? "unavailable")}`);
+  for (const w of o.workers.rows) lines.push(`  ${safe(w.workerId)} | PID ${String(w.pid ?? "unavailable")} | ${w.state} | worker request ${safe(w.requestId ?? "none")} | session ${safe(w.sessionId ?? "unavailable")} | workspace ${safe(w.worktreeId ?? "unavailable")} | repo ${safe(w.repoId ?? "unavailable")}`);
   lines.push("", inventory("Repository monitors", o.monitors));
   for (const m of o.monitors.rows) lines.push(`  ${safe(m.repoId)} | ${m.lifecycleState} | recorded health ${m.recordedHealth} | last tick ${safe(m.lastTickAt ?? "not recorded")} | last indexed commit ${safe(m.lastIndexedCommit ?? "not recorded")} | source currency not validated`);
   lines.push("", `Daemon-wide WARP pool repository keys (including pending opens): ${o.pool === null ? "unavailable" : String(o.pool.repositoryKeys)}; not workspace coverage or index residency`,
