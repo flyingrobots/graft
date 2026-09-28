@@ -107,6 +107,10 @@ export function ensureGitRepo(cwd: string): void {
   git(cwd, "config commit.gpgsign false");
   git(cwd, "config tag.gpgSign false");
   git(cwd, "config core.fsmonitor false");
+  // No background maintenance or gc: a detached `git maintenance` started by a commit could still be
+  // writing under .git while cleanupTestRepo deletes the repo.
+  git(cwd, "config maintenance.auto false");
+  git(cwd, "config gc.auto 0");
 }
 
 export function createCommittedTestRepo(

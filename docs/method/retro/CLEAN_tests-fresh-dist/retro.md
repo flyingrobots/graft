@@ -115,7 +115,18 @@ One more full run of this branch after the review fixes (`1d318219`, `dist/` mad
   needs his explicit decision, a defect link, compensating checks and an expiry, and none has been
   given. Until then neither is evidence against this change, and neither is cleared.
 
-### Rule 10 decision for `diff.test.ts`: PENDING DECISION
+### Rule 10 decision for `diff.test.ts`: resolved by a change
+
+Decided by @flyingrobots on 2026-09-28: remove the plausible cause rather than grant an exception.
+`test/helpers/git.ts` now sets `maintenance.auto false` and `gc.auto 0` in every temp repo it
+creates, so no detached `git maintenance` is started to write under `.git` while cleanup deletes
+the repo, and `test/unit/helpers/git.test.ts` checks both settings (both failed before the change).
+The cause stays unconfirmed: the harness below reproduced ENOTEMPTY only when a background
+maintenance run was forced. The test stays in the normal gate, unquarantined; cleanup has no
+retry, so any recurrence fails visibly and is recorded as a new first failure, which would mean the
+cause was something else. The draft below is kept as the record of what was considered.
+
+#### Draft considered (superseded by the decision above)
 
 Second review, finding 6. No maintainer decision has been given, and none is recorded or implied
 here. What follows is a draft for @flyingrobots to approve, amend or reject; until he does, the

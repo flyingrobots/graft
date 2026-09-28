@@ -94,4 +94,17 @@ describe("test helper: git isolation", () => {
       cleanupTestRepo(repoDir);
     }
   });
+
+  // A background `git maintenance` that `git commit` may start can still be writing under `.git`
+  // while cleanup deletes the repo, a plausible (not confirmed) cause of one ENOTEMPTY cleanup
+  // failure recorded in docs/method/retro/CLEAN_tests-fresh-dist/retro.md.
+  it("turns off automatic git maintenance and gc in temp repos", () => {
+    const repo = createTestRepo("graft-helper-maintenance-");
+    try {
+      expect(git(repo, "config --get maintenance.auto").trim()).toBe("false");
+      expect(git(repo, "config --get gc.auto").trim()).toBe("0");
+    } finally {
+      cleanupTestRepo(repo);
+    }
+  });
 });
