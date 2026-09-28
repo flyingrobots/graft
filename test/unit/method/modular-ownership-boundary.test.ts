@@ -45,4 +45,16 @@ describe("modular Graft ownership inventory", () => {
     );
     expect(leaks).toEqual([]);
   });
+
+  it("assigns no library file an import of a file the inventory gives wholly to the operator", () => {
+    const owner = inventory();
+    const backEdges = libraryFiles(owner).flatMap((file) =>
+      importsOf(file)
+        .filter((s) => s.startsWith("."))
+        .map((s) => resolveRelative(file, s))
+        .filter((target) => owner.get(target) === "Operator")
+        .map((target) => `${file} -> ${target}`),
+    );
+    expect(backEdges).toEqual([]);
+  });
 });

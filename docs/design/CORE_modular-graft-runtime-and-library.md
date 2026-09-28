@@ -1496,7 +1496,7 @@ line by line.
 | Current file | Target owner / extraction action |
 | :--- | :--- |
 | [src/git/diff.ts](../../src/git/diff.ts) | Library / Git application and compatibility guard |
-| [src/git/target-git-hook-bootstrap.ts](../../src/git/target-git-hook-bootstrap.ts) | Operator / Git hook integration |
+| [src/git/target-git-hook-bootstrap.ts](../../src/git/target-git-hook-bootstrap.ts) | Split / the pure hook contract (`TARGET_GIT_TRANSITION_HOOKS`, `TARGET_GIT_HOOK_MARKER`, `resolveGitHooksPath`, `isRecognizedTargetGitHook`, `isTargetGitTransitionHookName`) moves to the library, which `runtime-workspace-overlay.ts` reads; `buildTargetGitHookScript` stays with the operator for `init-target-hooks.ts` to install |
 | [src/git/version-guard.ts](../../src/git/version-guard.ts) | Library / Git application and compatibility guard |
 
 </details>

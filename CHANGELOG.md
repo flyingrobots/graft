@@ -15,6 +15,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   assigns to the library imports the MCP transport or an operator-owned file.
   `src/api/tool-bridge.ts` stays with the operator compatibility facade, because
   its signatures carry MCP SDK types.
+  `src/git/target-git-hook-bootstrap.ts` is split: its pure hook contract moves
+  to the library, and building the hook script stays with the operator.
 
 ## [0.14.0] - 2026-09-11
 
