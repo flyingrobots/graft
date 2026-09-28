@@ -158,6 +158,12 @@ identity suffixes on the readable path components. Repository, worktree, and
 actor identity all participate in the key, so linked worktrees and independent
 sessions cannot receive the same working graph.
 
+The graph root must be the directory's canonical path: sidecar storage refuses
+a graph root reached through a symlink, and that includes the default under a
+`GRAFT_ROOT_PATH` spelled through one (on macOS `/tmp` and `/var` are symlinks
+to `/private/tmp` and `/private/var`). Give `GRAFT_ROOT_PATH` its resolved
+path.
+
 ## Key Tool Groups
 
 - **Bounded Reads**: `safe_read`, `file_outline`, `read_range`, `changed_since`
