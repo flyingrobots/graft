@@ -28,8 +28,8 @@ describe("operations: structural blame", { timeout: 15000 }, () => {
     tmpDir = createTestRepo("graft-structural-blame-");
   });
 
-  afterEach(() => {
-    cleanupTestRepo(tmpDir);
+  afterEach(async () => {
+    await cleanupTestRepo(tmpDir);
   });
 
   async function indexRepo(): Promise<WarpContext> {

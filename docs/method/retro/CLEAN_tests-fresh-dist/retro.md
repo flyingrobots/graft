@@ -19,6 +19,8 @@ Met locally on host Vitest. The Docker-isolated `pnpm test` and CI have not run 
   first review, 33 after the second (32 for `ensureFreshDist`, 1 for the watch-mode hook), 28 after
   the third (10 lock and marker cases deleted with the lock, 5 publication cases added), on a
   temporary fake package with mtimes set explicitly.
+- `test/helpers/git.ts`: temp repos turn off automatic maintenance and gc, and `cleanupTestRepo`
+  retries a removal that fails with `ENOTEMPTY` or `EBUSY`, warning on every retry (third review).
 
 ## Outcome Against the Packet
 
@@ -124,9 +126,20 @@ Decided by @flyingrobots on 2026-09-28: remove the plausible cause rather than g
 creates, so no detached `git maintenance` is started to write under `.git` while cleanup deletes
 the repo, and `test/unit/helpers/git.test.ts` checks both settings (both failed before the change).
 The cause stays unconfirmed: the harness below reproduced ENOTEMPTY only when a background
-maintenance run was forced. The test stays in the normal gate, unquarantined; cleanup has no
-retry, so any recurrence fails visibly and is recorded as a new first failure, which would mean the
-cause was something else. The draft below is kept as the record of what was considered.
+maintenance run was forced. The test stays in the normal gate, unquarantined. The draft below is
+kept as the record of what was considered.
+
+Cleanup retry (third review, asked for by @flyingrobots on 2026-09-28). `cleanupTestRepo` is now
+async and removes the graph root and the repo with `fs.promises.rm` inside `@git-stunts/alfred`'s
+`retry`: only `ENOTEMPTY` and `EBUSY` are retried, up to 4 times after 25, 50, 100 and 200 ms, and
+every retry prints a `[graft test cleanup]` warning naming the path and the code, so a recurrence
+is visible in the run's output instead of silent. Any other error rejects at once, and a removal
+that still fails after the last retry rejects with the error it threw. A recurrence therefore
+shows up as a warning when a retry clears it and as a failed test when none does; either is a new
+first observation under Rule 10, and a warning means the maintenance change did not remove the
+cause. All 255 existing call sites under `test/` and `tests/` await it; the lint configuration's
+`@typescript-eslint/no-floating-promises` reports a call site that does not (it reported all 254
+flagged sites before the change and reports one again if an `await` is removed).
 
 #### Draft considered (superseded by the decision above)
 

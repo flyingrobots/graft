@@ -108,6 +108,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   build, and one checking `dist/` while the other replaces it treats it as
   stale instead of failing.
 
+- **Test repo cleanup**: temp Git repos created by the test helpers turn off
+  automatic maintenance and gc, and `cleanupTestRepo` (now async) retries a
+  removal that fails with `ENOTEMPTY` or `EBUSY` a few times with a short
+  backoff, printing a warning on every retry; any other error, or the last
+  retry's error, fails the test.
+
 - **Refused automatic authorization**: when a routed daemon call cannot
   persist the default authorization for its workspace, Graft now discards that
   worktree's cached routed binding, as an unauthorized route already did. The

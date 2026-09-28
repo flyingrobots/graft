@@ -46,9 +46,9 @@ function createDivergedWorktrees(): { primary: string; secondary: string } {
   git(secondary, "add secondary-only.ts");
   git(secondary, "commit -m secondary-only");
 
-  cleanups.push(() => {
+  cleanups.push(async () => {
     fs.rmSync(secondary, { recursive: true, force: true });
-    cleanupTestRepo(primary);
+    await cleanupTestRepo(primary);
   });
   return { primary, secondary };
 }
@@ -90,8 +90,8 @@ describe("mcp: WARP sidecar routing", { timeout: 30_000 }, () => {
         "beta.ts": "export const beta = true;\n",
       },
     ));
-    cleanups.push(() => {
-      cleanupTestRepo(worktree);
+    cleanups.push(async () => {
+      await cleanupTestRepo(worktree);
     });
     const harness = await createInProcessDaemonHarness();
     cleanups.push(() => harness.close());

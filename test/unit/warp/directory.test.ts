@@ -15,8 +15,8 @@ describe("warp: directory tree modeling", { timeout: 15000 }, () => {
     tmpDir = createTestRepo("graft-dir-");
   });
 
-  afterEach(() => {
-    cleanupTestRepo(tmpDir);
+  afterEach(async () => {
+    await cleanupTestRepo(tmpDir);
   });
 
   it("creates directory nodes from file paths", async () => {

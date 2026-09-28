@@ -22,7 +22,7 @@ describe("workspace residency under LRU pressure", () => {
   }, async () => {
     const first = createCommittedTestRepo("graft-one-slot-first-");
     const second = createCommittedTestRepo("graft-one-slot-second-");
-    cleanups.push(() => { cleanupTestRepo(first); cleanupTestRepo(second); });
+    cleanups.push(async () => { await cleanupTestRepo(first); await cleanupTestRepo(second); });
     const graftDir = fs.mkdtempSync(path.join(os.tmpdir(), "graft-one-slot-session-"));
     cleanups.push(() => { fs.rmSync(graftDir, { recursive: true, force: true }); });
     const graphRoot = createTestWarpGraphRoot();
@@ -51,7 +51,7 @@ describe("workspace residency under LRU pressure", () => {
 
   it("allows more bound sessions than resident slots without pinning idle graphs", async () => {
     const repo = createCommittedTestRepo("graft-workspace-resident-lru-");
-    cleanups.push(() => { cleanupTestRepo(repo); });
+    cleanups.push(async () => { await cleanupTestRepo(repo); });
     const scratch = fs.mkdtempSync(path.join(os.tmpdir(), "graft-resident-sessions-"));
     cleanups.push(() => { fs.rmSync(scratch, { recursive: true, force: true }); });
     let opens = 0;

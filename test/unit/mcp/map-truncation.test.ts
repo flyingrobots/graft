@@ -41,7 +41,7 @@ describe("graft_map truncation", () => {
       expect(result["summary"]).toContain(String(fileCount));
       expect(result["summary"]).toContain("symbols");
     } finally {
-      cleanupTestRepo(tmpDir);
+      await cleanupTestRepo(tmpDir);
     }
   });
 
@@ -77,7 +77,7 @@ describe("graft_map truncation", () => {
         expect.stringContaining("Narrow the path"),
       ]));
     } finally {
-      cleanupTestRepo(tmpDir);
+      await cleanupTestRepo(tmpDir);
     }
   });
 
@@ -106,7 +106,7 @@ describe("graft_map truncation", () => {
       expect(result["files"]).toEqual([]);
       expect(result["summary"]).toContain("budget exhausted");
     } finally {
-      cleanupTestRepo(tmpDir);
+      await cleanupTestRepo(tmpDir);
     }
   });
 
@@ -128,7 +128,7 @@ describe("graft_map truncation", () => {
       expect(result["truncatedReason"]).toBeUndefined();
       expect(result["files"]).toHaveLength(1);
     } finally {
-      cleanupTestRepo(tmpDir);
+      await cleanupTestRepo(tmpDir);
     }
   });
 
@@ -163,7 +163,7 @@ describe("graft_map truncation", () => {
       expect(result["files"]).toHaveLength(1);
       expect(calls).toContain("ls-files --cached --others --exclude-standard -- src");
     } finally {
-      cleanupTestRepo(tmpDir);
+      await cleanupTestRepo(tmpDir);
     }
   });
 });

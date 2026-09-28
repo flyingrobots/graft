@@ -134,7 +134,7 @@ describe("integration: MCP server over stdio", { timeout: 60_000 }, () => {
 
   afterAll(async () => {
     await client.close();
-    cleanupTestRepo(projectRoot);
+    await cleanupTestRepo(projectRoot);
   });
 
   it("lists all registered tools", async () => {

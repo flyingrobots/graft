@@ -81,8 +81,8 @@ describe("mcp: daemon worker pool", () => {
 
   it("runs monitor tick work on a child-process worker and reports worker counts", { timeout: 15_000 }, async () => {
     const repoDir = createTestRepo("graft-daemon-worker-");
-    cleanups.push(() => {
-      cleanupTestRepo(repoDir);
+    cleanups.push(async () => {
+      await cleanupTestRepo(repoDir);
     });
 
     fs.writeFileSync(path.join(repoDir, "app.ts"), "export const ready = true;\n");
@@ -120,8 +120,8 @@ describe("mcp: daemon worker pool", () => {
 
   it("runs an offloaded repo tool on a child-process worker", async () => {
     const repoDir = createTestRepo("graft-daemon-repo-tool-");
-    cleanups.push(() => {
-      cleanupTestRepo(repoDir);
+    cleanups.push(async () => {
+      await cleanupTestRepo(repoDir);
     });
 
     fs.writeFileSync(path.join(repoDir, "app.ts"), [
@@ -182,8 +182,8 @@ describe("mcp: daemon worker pool", () => {
 
   it("Does the daemon keep session state authoritative in-process while workers execute against immutable snapshots and return deltas?", async () => {
     const repoDir = createTestRepo("graft-daemon-safe-read-worker-");
-    cleanups.push(() => {
-      cleanupTestRepo(repoDir);
+    cleanups.push(async () => {
+      await cleanupTestRepo(repoDir);
     });
 
     fs.writeFileSync(path.join(repoDir, "app.ts"), [
@@ -262,8 +262,8 @@ describe("mcp: daemon worker pool", () => {
 
   it("refuses absolute paths outside the repo in the offloaded read worker context", async () => {
     const repoDir = createTestRepo("graft-daemon-safe-read-worker-boundary-");
-    cleanups.push(() => {
-      cleanupTestRepo(repoDir);
+    cleanups.push(async () => {
+      await cleanupTestRepo(repoDir);
     });
 
     fs.writeFileSync(path.join(repoDir, "app.ts"), "export const ok = true;\n");
@@ -307,8 +307,8 @@ describe("mcp: daemon worker pool", () => {
 
   it("runs dirty code_find through the live worker path", async () => {
     const repoDir = createTestRepo("graft-daemon-code-find-worker-");
-    cleanups.push(() => {
-      cleanupTestRepo(repoDir);
+    cleanups.push(async () => {
+      await cleanupTestRepo(repoDir);
     });
 
     fs.writeFileSync(path.join(repoDir, "app.ts"), [

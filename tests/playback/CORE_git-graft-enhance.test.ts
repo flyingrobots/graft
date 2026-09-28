@@ -59,7 +59,7 @@ describe("CORE_git-graft-enhance playback", () => {
         expect(result.stdout).toContain("symbols: +1 -0 ~1");
         expect(result.stdout).toContain("semver impact: minor");
       } finally {
-        cleanupTestRepo(repoDir);
+        await cleanupTestRepo(repoDir);
       }
     },
     GIT_GRAFT_ENHANCE_PLAYBACK_TIMEOUT_MS,
@@ -84,7 +84,7 @@ describe("CORE_git-graft-enhance playback", () => {
         expect(parsed.structural).toMatchObject({ addedSymbols: 1, changedSymbols: 1 });
         expect(parsed.exports.semverImpact).toBe("minor");
       } finally {
-        cleanupTestRepo(repoDir);
+        await cleanupTestRepo(repoDir);
       }
     },
     GIT_GRAFT_ENHANCE_PLAYBACK_TIMEOUT_MS,

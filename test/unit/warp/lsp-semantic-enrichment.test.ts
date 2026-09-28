@@ -22,8 +22,8 @@ describe("warp: bounded LSP semantic enrichment", { timeout: 15000 }, () => {
     tmpDir = createTestRepo("warp-lsp-enrichment-");
   });
 
-  afterEach(() => {
-    cleanupTestRepo(tmpDir);
+  afterEach(async () => {
+    await cleanupTestRepo(tmpDir);
   });
 
   function writeAndCommit(files: Record<string, string>): string {

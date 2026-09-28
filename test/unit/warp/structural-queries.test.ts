@@ -21,8 +21,8 @@ describe("warp: structural-queries", { timeout: 15000 }, () => {
     tmpDir = createTestRepo("graft-structural-queries-");
   });
 
-  afterEach(() => {
-    cleanupTestRepo(tmpDir);
+  afterEach(async () => {
+    await cleanupTestRepo(tmpDir);
   });
 
   async function openCtx(): Promise<WarpContext> {

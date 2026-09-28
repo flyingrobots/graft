@@ -66,7 +66,7 @@ describe("cli: git graft enhance integration", { timeout: 30_000 }, () => {
       expect(stdout.text()).toContain("symbols: +1 -0 ~1");
       expect(stdout.text()).toContain("semver impact: minor");
     } finally {
-      cleanupTestRepo(repoDir);
+      await cleanupTestRepo(repoDir);
     }
   });
 
@@ -96,11 +96,11 @@ describe("cli: git graft enhance integration", { timeout: 30_000 }, () => {
       expect(parsed.structural).toMatchObject({ changedFiles: 1, addedSymbols: 1, changedSymbols: 1 });
       expect(parsed.exports).toMatchObject({ changed: true, semverImpact: "minor" });
     } finally {
-      cleanupTestRepo(repoDir);
+      await cleanupTestRepo(repoDir);
     }
   });
 
-  it("supports Git external-command invocation through git graft in a temp repo", () => {
+  it("supports Git external-command invocation through git graft in a temp repo", async () => {
     const repoDir = createTestRepo("graft-enhance-git-external-");
     const binDir = fs.mkdtempSync(path.join(os.tmpdir(), "graft-enhance-bin-"));
     try {
@@ -117,7 +117,7 @@ describe("cli: git graft enhance integration", { timeout: 30_000 }, () => {
       expect(output).toContain("Git Graft Enhance");
       expect(output).toContain("range: HEAD~1..HEAD");
     } finally {
-      cleanupTestRepo(repoDir);
+      await cleanupTestRepo(repoDir);
       fs.rmSync(binDir, { recursive: true, force: true });
     }
   });

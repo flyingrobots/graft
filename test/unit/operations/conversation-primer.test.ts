@@ -14,8 +14,8 @@ describe("operations: conversation-primer", () => {
     tmpDir = createTestRepo("graft-primer-");
   });
 
-  afterEach(() => {
-    cleanupTestRepo(tmpDir);
+  afterEach(async () => {
+    await cleanupTestRepo(tmpDir);
   });
 
   it("generates a primer with directory structure for a repo", async () => {

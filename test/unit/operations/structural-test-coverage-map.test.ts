@@ -99,7 +99,7 @@ describe("operations: structural test coverage map", () => {
         }),
       ]);
     } finally {
-      cleanupTestRepo(repoDir);
+      await cleanupTestRepo(repoDir);
     }
   });
 
@@ -141,7 +141,7 @@ describe("operations: structural test coverage map", () => {
         }),
       ]);
     } finally {
-      cleanupTestRepo(repoDir);
+      await cleanupTestRepo(repoDir);
     }
   });
 
@@ -182,7 +182,7 @@ describe("operations: structural test coverage map", () => {
         uncoveredSymbols: 1,
       });
     } finally {
-      cleanupTestRepo(repoDir);
+      await cleanupTestRepo(repoDir);
     }
   });
 
@@ -250,7 +250,7 @@ describe("operations: structural test coverage map", () => {
         }),
       ]);
     } finally {
-      cleanupTestRepo(repoDir);
+      await cleanupTestRepo(repoDir);
     }
   });
 
@@ -319,7 +319,7 @@ describe("operations: structural test coverage map", () => {
         }),
       ]);
     } finally {
-      cleanupTestRepo(repoDir);
+      await cleanupTestRepo(repoDir);
     }
   });
 });

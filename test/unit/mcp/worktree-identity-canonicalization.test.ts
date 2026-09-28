@@ -32,9 +32,9 @@ describe("stableWorkspaceId", () => {
 describe("worktree identity: path canonicalization", () => {
   let repoDir: string | null = null;
 
-  afterEach(() => {
+  afterEach(async () => {
     if (repoDir !== null) {
-      cleanupTestRepo(repoDir);
+      await cleanupTestRepo(repoDir);
       repoDir = null;
     }
   });

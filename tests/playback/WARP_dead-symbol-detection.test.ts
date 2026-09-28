@@ -57,7 +57,7 @@ describe("WARP_dead-symbol-detection playback", () => {
         expect.objectContaining({ name: "legacyUser", filePath: "legacy.ts" }),
       ]);
     } finally {
-      cleanupTestRepo(repoDir);
+      await cleanupTestRepo(repoDir);
     }
   });
 });

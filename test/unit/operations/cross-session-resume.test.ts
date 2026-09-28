@@ -12,8 +12,8 @@ describe("operations: cross-session-resume", () => {
     tmpDir = createTestRepo("graft-resume-");
   });
 
-  afterEach(() => {
-    cleanupTestRepo(tmpDir);
+  afterEach(async () => {
+    await cleanupTestRepo(tmpDir);
   });
 
   it("reports structural diff between saved HEAD and current HEAD", async () => {

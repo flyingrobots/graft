@@ -51,7 +51,7 @@ describe("integration: daemon-backed MCP bridge over stdio", () => {
     await client.close();
     await daemon.close();
     fs.rmSync(daemonRoot, { recursive: true, force: true });
-    cleanupTestRepo(repoDir);
+    await cleanupTestRepo(repoDir);
   });
 
   it("proxies daemon-only workspace binding flow through stdio", async () => {

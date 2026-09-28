@@ -16,8 +16,8 @@ describe("precision-warp: slice-first reads", { timeout: 15000 }, () => {
     tmpDir = createTestRepo("graft-precision-slice-");
   });
 
-  afterEach(() => {
-    cleanupTestRepo(tmpDir);
+  afterEach(async () => {
+    await cleanupTestRepo(tmpDir);
   });
 
   async function openCtx(): Promise<WarpContext> {

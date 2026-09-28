@@ -7,11 +7,11 @@ import { runInit } from "../../src/cli/init.js";
 import { cleanupTestRepo, createTestRepo, git } from "../../test/helpers/git.js";
 import { createIsolatedServer, parse } from "../../test/helpers/mcp.js";
 
-const cleanups: (() => void)[] = [];
+const cleanups: (() => void | Promise<void>)[] = [];
 
-afterEach(() => {
+afterEach(async () => {
   while (cleanups.length > 0) {
-    cleanups.pop()!();
+    await cleanups.pop()!();
   }
 });
 
@@ -34,8 +34,8 @@ function createBufferWriter() {
 
 function createCommittedRepo(prefix: string): string {
   const repoDir = createTestRepo(prefix);
-  cleanups.push(() => {
-    cleanupTestRepo(repoDir);
+  cleanups.push(async () => {
+    await cleanupTestRepo(repoDir);
   });
   fs.writeFileSync(path.join(repoDir, "app.ts"), "export const ready = true;\n");
   git(repoDir, "add -A");

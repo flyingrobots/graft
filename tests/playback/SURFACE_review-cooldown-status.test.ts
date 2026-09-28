@@ -49,7 +49,7 @@ describe("SURFACE_review-cooldown-status playback", () => {
       expect(result.stdout).toContain("remaining: 20m");
       expect(result.stdout.trimStart().startsWith("{")).toBe(false);
     } finally {
-      cleanupTestRepo(repoDir);
+      await cleanupTestRepo(repoDir);
     }
   });
 
@@ -82,7 +82,7 @@ describe("SURFACE_review-cooldown-status playback", () => {
       expect(parsed.cooldownExpiresAt).toBe("2026-05-05T15:30:00.000Z");
       expect(parsed.remainingMs).toBe(1_200_000);
     } finally {
-      cleanupTestRepo(repoDir);
+      await cleanupTestRepo(repoDir);
     }
   });
 });

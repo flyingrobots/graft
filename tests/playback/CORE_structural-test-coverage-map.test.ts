@@ -55,7 +55,7 @@ describe("CORE_structural-test-coverage-map playback", () => {
       expect(result.stdout).toContain("- src/api.ts: uncoveredApi uncovered");
       expect(result.stdout.trimStart().startsWith("{")).toBe(false);
     } finally {
-      cleanupTestRepo(repoDir);
+      await cleanupTestRepo(repoDir);
     }
   });
 
@@ -89,7 +89,7 @@ describe("CORE_structural-test-coverage-map playback", () => {
         expect.objectContaining({ name: "uncoveredApi", status: "uncovered" }),
       ]);
     } finally {
-      cleanupTestRepo(repoDir);
+      await cleanupTestRepo(repoDir);
     }
   });
 });

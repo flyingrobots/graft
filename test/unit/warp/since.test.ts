@@ -23,8 +23,8 @@ describe("warp: graft_since (observer comparison)", { timeout: 15000 }, () => {
     tmpDir = createTestRepo("graft-since-");
   });
 
-  afterEach(() => {
-    cleanupTestRepo(tmpDir);
+  afterEach(async () => {
+    await cleanupTestRepo(tmpDir);
   });
 
   it("detects added symbols between two commits", async () => {

@@ -31,7 +31,7 @@ describe("warp: open", { timeout: 15000 }, () => {
       const checkpointSha = git(tmpDir, "rev-parse --verify refs/warp/graft-ast/checkpoints/head");
       expect(checkpointSha).toMatch(/^[a-f0-9]{40}$/);
     } finally {
-      cleanupTestRepo(tmpDir);
+      await cleanupTestRepo(tmpDir);
     }
   });
 });

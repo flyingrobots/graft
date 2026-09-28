@@ -27,9 +27,9 @@ import { cleanupTestRepo, createCommittedTestRepo } from "../../helpers/git.js";
 describe("public library API", () => {
   let repoDir: string | null = null;
 
-  afterEach(() => {
+  afterEach(async () => {
     if (repoDir !== null) {
-      cleanupTestRepo(repoDir);
+      await cleanupTestRepo(repoDir);
       repoDir = null;
     }
   });

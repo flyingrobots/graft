@@ -60,8 +60,8 @@ describe("warp: stale-docs-checker", { timeout: 15000 }, () => {
       tmpDir = createTestRepo("graft-stale-docs-");
     });
 
-    afterEach(() => {
-      cleanupTestRepo(tmpDir);
+    afterEach(async () => {
+      await cleanupTestRepo(tmpDir);
     });
 
     async function openCtx(): Promise<WarpContext> {

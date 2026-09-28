@@ -411,7 +411,7 @@ describe("cli: graft grouped surface", () => {
       expect(parsed.sludge?.filesWithSignals).toBe(1);
       expect(parsed.sludge?.files[0]?.signals.map((signal) => signal.kind)).toContain("homeless_constructor");
     } finally {
-      cleanupTestRepo(repoDir);
+      await cleanupTestRepo(repoDir);
     }
   });
 
@@ -448,7 +448,7 @@ describe("cli: graft grouped surface", () => {
       expect(parsed._schema.id).toBe("graft.cli.symbol_find");
       expect(parsed.matches?.length).toBe(1);
     } finally {
-      cleanupTestRepo(repoDir);
+      await cleanupTestRepo(repoDir);
     }
   });
 
@@ -495,7 +495,7 @@ describe("cli: graft grouped surface", () => {
       expect(parsed.entries?.[0]?.filePath).toBe("app.ts");
       expect(parsed.entries?.[0]?.friction.referenceCount).toBe(1);
     } finally {
-      cleanupTestRepo(repoDir);
+      await cleanupTestRepo(repoDir);
     }
   });
 
@@ -531,7 +531,7 @@ describe("cli: graft grouped surface", () => {
       expect(parsed.truthClass).toBe("artifact_history");
       expect(parsed.activityWindow.returned).toBeGreaterThanOrEqual(0);
     } finally {
-      cleanupTestRepo(repoDir);
+      await cleanupTestRepo(repoDir);
     }
   });
 
@@ -569,7 +569,7 @@ describe("cli: graft grouped surface", () => {
       expect(parsed.migratedArtifacts).toBeGreaterThanOrEqual(1);
       expect(parsed.importedContinuityRecords).toBeGreaterThanOrEqual(0);
     } finally {
-      cleanupTestRepo(repoDir);
+      await cleanupTestRepo(repoDir);
     }
   });
 
@@ -609,7 +609,7 @@ describe("cli: graft grouped surface", () => {
       expect(stdout.text()).toContain("read activity");
       expect(stdout.text().trimStart().startsWith("{")).toBe(false);
     } finally {
-      cleanupTestRepo(repoDir);
+      await cleanupTestRepo(repoDir);
     }
   });
 
@@ -661,7 +661,7 @@ describe("cli: graft grouped surface", () => {
       expect(parsed.nodes.some((node) => node.entityKind === "local_history_event")).toBe(true);
       expect(parsed.edges.some((edge) => edge.label === "in_session")).toBe(true);
     } finally {
-      cleanupTestRepo(repoDir);
+      await cleanupTestRepo(repoDir);
     }
   });
 

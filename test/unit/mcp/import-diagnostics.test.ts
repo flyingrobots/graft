@@ -26,7 +26,7 @@ describe("mcp: graft_import_diagnostics", () => {
         code: "import_diagnostics_incomplete",
       });
     } finally {
-      cleanupTestRepo(cwd);
+      await cleanupTestRepo(cwd);
     }
   });
 
@@ -59,7 +59,7 @@ describe("mcp: graft_import_diagnostics", () => {
         message: "Import binding 'source' is shadowed; affected qualified accesses were excluded from reference inference.",
       }]);
     } finally {
-      cleanupTestRepo(cwd);
+      await cleanupTestRepo(cwd);
     }
   });
 
@@ -93,7 +93,7 @@ describe("mcp: graft_import_diagnostics", () => {
         symbols: ["source"],
       }]);
     } finally {
-      cleanupTestRepo(cwd);
+      await cleanupTestRepo(cwd);
     }
   });
 });

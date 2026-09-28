@@ -447,7 +447,7 @@ describe("mcp: runtime observability", () => {
         isolated.cleanup();
       }
     } finally {
-      cleanupTestRepo(repoDir);
+      await cleanupTestRepo(repoDir);
     }
   });
 
@@ -488,7 +488,7 @@ describe("mcp: runtime observability", () => {
         isolated.cleanup();
       }
     } finally {
-      cleanupTestRepo(repoDir);
+      await cleanupTestRepo(repoDir);
     }
   });
 
@@ -553,7 +553,7 @@ describe("mcp: runtime observability", () => {
         isolated.cleanup();
       }
     } finally {
-      cleanupTestRepo(repoDir);
+      await cleanupTestRepo(repoDir);
     }
   });
 
@@ -595,7 +595,7 @@ describe("mcp: runtime observability", () => {
         isolated.cleanup();
       }
     } finally {
-      cleanupTestRepo(repoDir);
+      await cleanupTestRepo(repoDir);
     }
   });
 
@@ -641,7 +641,7 @@ describe("mcp: runtime observability", () => {
         isolated.cleanup();
       }
     } finally {
-      cleanupTestRepo(repoDir);
+      await cleanupTestRepo(repoDir);
     }
   });
 
@@ -689,7 +689,7 @@ describe("mcp: runtime observability", () => {
         isolated.cleanup();
       }
     } finally {
-      cleanupTestRepo(repoDir);
+      await cleanupTestRepo(repoDir);
     }
   });
 
@@ -776,7 +776,7 @@ describe("mcp: runtime observability", () => {
         isolated.cleanup();
       }
     } finally {
-      cleanupTestRepo(repoDir);
+      await cleanupTestRepo(repoDir);
     }
   });
 
@@ -846,7 +846,7 @@ describe("mcp: runtime observability", () => {
         isolated.cleanup();
       }
     } finally {
-      cleanupTestRepo(repoDir);
+      await cleanupTestRepo(repoDir);
     }
   });
 
@@ -875,7 +875,7 @@ describe("mcp: runtime observability", () => {
         isolated.cleanup();
       }
     } finally {
-      cleanupTestRepo(repoDir);
+      await cleanupTestRepo(repoDir);
     }
   });
 
@@ -935,7 +935,7 @@ describe("mcp: runtime observability", () => {
         isolated.cleanup();
       }
     } finally {
-      cleanupTestRepo(repoDir);
+      await cleanupTestRepo(repoDir);
     }
   });
 
@@ -999,7 +999,7 @@ describe("mcp: runtime observability", () => {
         isolated.cleanup();
       }
     } finally {
-      cleanupTestRepo(repoDir);
+      await cleanupTestRepo(repoDir);
     }
   });
 });

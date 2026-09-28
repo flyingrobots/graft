@@ -18,10 +18,10 @@ describe("cli: graft index", () => {
     process.exitCode = undefined;
   });
 
-  afterEach(() => {
+  afterEach(async () => {
     process.exitCode = previousExitCode;
     while (cleanups.length > 0) {
-      cleanupTestRepo(cleanups.pop()!);
+      await cleanupTestRepo(cleanups.pop()!);
     }
   });
 

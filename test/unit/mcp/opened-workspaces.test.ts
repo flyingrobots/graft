@@ -3,11 +3,11 @@ import * as fs from "node:fs";
 import { createServerInRepo, parse } from "../../helpers/mcp.js";
 import { cleanupTestRepo, createCommittedTestRepo } from "../../helpers/git.js";
 
-const cleanups: (() => void)[] = [];
+const cleanups: (() => void | Promise<void>)[] = [];
 
-afterEach(() => {
+afterEach(async () => {
   while (cleanups.length > 0) {
-    cleanups.pop()!();
+    await cleanups.pop()!();
   }
 });
 
@@ -16,8 +16,8 @@ function createRepo(prefix: string, content: string): string {
     "app.ts": content,
   });
   const realRepoDir = fs.realpathSync(repoDir);
-  cleanups.push(() => {
-    cleanupTestRepo(realRepoDir);
+  cleanups.push(async () => {
+    await cleanupTestRepo(realRepoDir);
   });
   return realRepoDir;
 }

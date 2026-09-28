@@ -72,7 +72,7 @@ describe("WARP_symbol-history-timeline playback", () => {
         endLine: 1,
       }));
     } finally {
-      cleanupTestRepo(repoDir);
+      await cleanupTestRepo(repoDir);
     }
   });
 });

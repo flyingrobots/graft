@@ -16,8 +16,8 @@ describe("warp: traverse-hydrate helper", { timeout: 15000 }, () => {
     tmpDir = createTestRepo("graft-traverse-hydrate-");
   });
 
-  afterEach(() => {
-    cleanupTestRepo(tmpDir);
+  afterEach(async () => {
+    await cleanupTestRepo(tmpDir);
   });
 
   async function openCtx(): Promise<WarpContext> {

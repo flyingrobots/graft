@@ -15,8 +15,8 @@ describe("warp: index HEAD", { timeout: 15000 }, () => {
     tmpDir = createTestRepo("warp-index-head-");
   });
 
-  afterEach(() => {
-    cleanupTestRepo(tmpDir);
+  afterEach(async () => {
+    await cleanupTestRepo(tmpDir);
   });
 
   it("indexes a multi-file repo and resolves import references", async () => {

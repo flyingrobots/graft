@@ -12,8 +12,8 @@ describe("operations: export-surface-diff", { timeout: 15000 }, () => {
     tmpDir = createTestRepo("graft-export-surface-diff-");
   });
 
-  afterEach(() => {
-    cleanupTestRepo(tmpDir);
+  afterEach(async () => {
+    await cleanupTestRepo(tmpDir);
   });
 
   it("detects added exported function as minor semver impact", async () => {
@@ -343,8 +343,8 @@ describe("operations: export-surface-diff — new/deleted file handling", { time
     tmpDir = createTestRepo("graft-export-newdel-");
   });
 
-  afterEach(() => {
-    cleanupTestRepo(tmpDir);
+  afterEach(async () => {
+    await cleanupTestRepo(tmpDir);
   });
 
   it("new file (not at base) produces added exports without throwing", async () => {

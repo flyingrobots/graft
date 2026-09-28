@@ -60,7 +60,7 @@ describe("mcp: graft_review cold WARP", () => {
       expect(countSymbolReferences).toHaveBeenCalledTimes(2);
       expect(getStructuralReadingPort).toHaveBeenCalledOnce();
     } finally {
-      cleanupTestRepo(repoDir);
+      await cleanupTestRepo(repoDir);
     }
   });
 
@@ -105,7 +105,7 @@ describe("mcp: graft_review cold WARP", () => {
       }));
       expect(result["breakingChanges"]).toContainEqual(expect.objectContaining({ impactedFiles: 7 }));
     } finally {
-      cleanupTestRepo(repoDir);
+      await cleanupTestRepo(repoDir);
     }
   });
 
@@ -155,7 +155,7 @@ describe("mcp: graft_review cold WARP", () => {
         impactedFilePaths: ["src/consumer.ts"],
       }));
     } finally {
-      cleanupTestRepo(repoDir);
+      await cleanupTestRepo(repoDir);
     }
   });
 
@@ -190,7 +190,7 @@ describe("mcp: graft_review cold WARP", () => {
         })],
       }));
     } finally {
-      cleanupTestRepo(repoDir);
+      await cleanupTestRepo(repoDir);
     }
   });
 
@@ -217,7 +217,7 @@ describe("mcp: graft_review cold WARP", () => {
         referenceConfidence: "complete",
       }));
     } finally {
-      cleanupTestRepo(repoDir);
+      await cleanupTestRepo(repoDir);
     }
   });
 });

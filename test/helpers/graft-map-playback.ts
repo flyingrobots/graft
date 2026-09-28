@@ -32,7 +32,7 @@ export async function expectGraftMapDepthOverviewPlayback(): Promise<Record<stri
 
     return result;
   } finally {
-    cleanupTestRepo(tmpDir);
+    await cleanupTestRepo(tmpDir);
   }
 }
 
@@ -67,6 +67,6 @@ export async function expectGraftMapSummaryPlayback(): Promise<Record<string, un
 
     return result;
   } finally {
-    cleanupTestRepo(tmpDir);
+    await cleanupTestRepo(tmpDir);
   }
 }

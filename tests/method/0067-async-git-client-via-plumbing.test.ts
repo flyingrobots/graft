@@ -25,7 +25,7 @@ describe("0067 async git client via plumbing playback", () => {
       expect(result.repoId.startsWith("repo:")).toBe(true);
       expect(result.worktreeId.startsWith("worktree:")).toBe(true);
     } finally {
-      cleanupTestRepo(repoDir);
+      await cleanupTestRepo(repoDir);
     }
   });
 
@@ -45,7 +45,7 @@ describe("0067 async git client via plumbing playback", () => {
       expect(changedFiles).toContain("app.ts");
       expect(headContent).toContain("version = 1");
     } finally {
-      cleanupTestRepo(repoDir);
+      await cleanupTestRepo(repoDir);
     }
   });
 });

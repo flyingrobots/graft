@@ -22,7 +22,7 @@ describe("CORE_graft-doctor playback", () => {
       expect(result.stderr).toBe("");
       expectRepoGenericDoctorPosture(result.stdout);
     } finally {
-      cleanupTestRepo(repoDir);
+      await cleanupTestRepo(repoDir);
     }
   });
 
@@ -37,7 +37,7 @@ describe("CORE_graft-doctor playback", () => {
       expect(result.stdout).not.toContain("mandatory");
       expect(result.stdout).not.toContain("lint gate");
     } finally {
-      cleanupTestRepo(repoDir);
+      await cleanupTestRepo(repoDir);
     }
   });
 
@@ -49,7 +49,7 @@ describe("CORE_graft-doctor playback", () => {
       expect(result.stderr).toBe("");
       expectRepoGenericDoctorPosture(result.stdout);
     } finally {
-      cleanupTestRepo(repoDir);
+      await cleanupTestRepo(repoDir);
     }
   });
 
@@ -72,7 +72,7 @@ describe("CORE_graft-doctor playback", () => {
       expect(parsed.repoConcurrency).toBeDefined();
       expect(parsed.integrityChecks).toBeUndefined();
     } finally {
-      cleanupTestRepo(repoDir);
+      await cleanupTestRepo(repoDir);
     }
   });
 
@@ -88,7 +88,7 @@ describe("CORE_graft-doctor playback", () => {
       expectRepoGenericDoctorPosture(grouped.stdout);
       expect(grouped.stdout.trimStart().startsWith("{")).toBe(false);
     } finally {
-      cleanupTestRepo(repoDir);
+      await cleanupTestRepo(repoDir);
     }
   });
 
@@ -100,7 +100,7 @@ describe("CORE_graft-doctor playback", () => {
       expect(result.stderr).toBe("");
       expectRepoGenericDoctorPosture(result.stdout);
     } finally {
-      cleanupTestRepo(repoDir);
+      await cleanupTestRepo(repoDir);
     }
   });
 });

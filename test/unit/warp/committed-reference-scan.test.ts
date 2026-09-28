@@ -48,7 +48,7 @@ describe("committed qualified-reference scan", { timeout: 20_000 }, () => {
       await expect(scanQualifiedReferencesAtRef({ ...base, symbolName: "PendingIDs", filePath: "go/sources/pending.go" }))
         .resolves.toMatchObject({ referenceCount: 1, referencingFiles: ["go/caller.go"] });
     } finally {
-      cleanupTestRepo(cwd);
+      await cleanupTestRepo(cwd);
     }
   });
 
@@ -71,7 +71,7 @@ describe("committed qualified-reference scan", { timeout: 20_000 }, () => {
         confidence: "complete",
       });
     } finally {
-      cleanupTestRepo(cwd);
+      await cleanupTestRepo(cwd);
     }
   });
 
@@ -95,7 +95,7 @@ describe("committed qualified-reference scan", { timeout: 20_000 }, () => {
         confidence: "complete",
       });
     } finally {
-      cleanupTestRepo(cwd);
+      await cleanupTestRepo(cwd);
     }
   });
 
@@ -119,7 +119,7 @@ describe("committed qualified-reference scan", { timeout: 20_000 }, () => {
         warnings: [],
       });
     } finally {
-      cleanupTestRepo(cwd);
+      await cleanupTestRepo(cwd);
     }
   });
 
@@ -142,7 +142,7 @@ describe("committed qualified-reference scan", { timeout: 20_000 }, () => {
         confidence: "complete",
       });
     } finally {
-      cleanupTestRepo(cwd);
+      await cleanupTestRepo(cwd);
     }
   });
 
@@ -168,7 +168,7 @@ describe("committed qualified-reference scan", { timeout: 20_000 }, () => {
       expect(diagnostics.diagnostics).toEqual([expect.objectContaining({ binding: "source", targetFilePath: "pkg/sources.py" })]);
       expect(diagnostics.diagnostics.some((diagnostic) => diagnostic.binding === "json")).toBe(false);
     } finally {
-      cleanupTestRepo(cwd);
+      await cleanupTestRepo(cwd);
     }
   });
 
@@ -195,7 +195,7 @@ describe("committed qualified-reference scan", { timeout: 20_000 }, () => {
         warnings: [],
       });
     } finally {
-      cleanupTestRepo(cwd);
+      await cleanupTestRepo(cwd);
     }
   });
 
@@ -214,7 +214,7 @@ describe("committed qualified-reference scan", { timeout: 20_000 }, () => {
 
       expect(result.diagnostics.map((diagnostic) => diagnostic.filePath)).toEqual(["Z.py", "a.py"]);
     } finally {
-      cleanupTestRepo(cwd);
+      await cleanupTestRepo(cwd);
     }
   });
 
@@ -233,7 +233,7 @@ describe("committed qualified-reference scan", { timeout: 20_000 }, () => {
         expect.objectContaining({ filePath: "ä.py", targetFilePath: "pkg/sources.py" }),
       ]);
     } finally {
-      cleanupTestRepo(cwd);
+      await cleanupTestRepo(cwd);
     }
   });
 
@@ -265,7 +265,7 @@ describe("committed qualified-reference scan", { timeout: 20_000 }, () => {
         referencingFiles: ["go/z_caller.go"],
       });
     } finally {
-      cleanupTestRepo(cwd);
+      await cleanupTestRepo(cwd);
     }
   });
 
@@ -293,7 +293,7 @@ describe("committed qualified-reference scan", { timeout: 20_000 }, () => {
         confidence: "complete",
       });
     } finally {
-      cleanupTestRepo(cwd);
+      await cleanupTestRepo(cwd);
     }
   });
 
@@ -323,7 +323,7 @@ describe("committed qualified-reference scan", { timeout: 20_000 }, () => {
         referencingFiles: ["src/valid.ts"],
       });
     } finally {
-      cleanupTestRepo(cwd);
+      await cleanupTestRepo(cwd);
     }
   });
 
@@ -353,7 +353,7 @@ describe("committed qualified-reference scan", { timeout: 20_000 }, () => {
       expect(analysis.countReferences("survivors", "pkg/sources.py")).toMatchObject({ referenceCount: 1 });
       expect(blobReads).toBe(readsAfterAnalysis);
     } finally {
-      cleanupTestRepo(cwd);
+      await cleanupTestRepo(cwd);
     }
   });
 
@@ -380,7 +380,7 @@ describe("committed qualified-reference scan", { timeout: 20_000 }, () => {
       expect(requests.find((args) => args[0] === "ls-tree")?.at(-1)).toBe(commitId);
       expect(requests.filter((args) => args[0] === "show").every((args) => args[1]?.startsWith(`${commitId}:`))).toBe(true);
     } finally {
-      cleanupTestRepo(cwd);
+      await cleanupTestRepo(cwd);
     }
   });
 
@@ -416,7 +416,7 @@ describe("committed qualified-reference scan", { timeout: 20_000 }, () => {
       expect(showRequests.length).toBeGreaterThan(0);
       expect(showRequests.every((args) => args[1]?.startsWith(`${commitId}:`))).toBe(true);
     } finally {
-      cleanupTestRepo(cwd);
+      await cleanupTestRepo(cwd);
     }
   });
 
@@ -437,7 +437,7 @@ describe("committed qualified-reference scan", { timeout: 20_000 }, () => {
         message: `Import diagnostics at ${commitId} are incomplete because at least one supported source file contains parse errors.`,
       });
     } finally {
-      cleanupTestRepo(cwd);
+      await cleanupTestRepo(cwd);
     }
   });
 
@@ -461,7 +461,7 @@ describe("committed qualified-reference scan", { timeout: 20_000 }, () => {
         confidence: "complete",
       });
     } finally {
-      cleanupTestRepo(cwd);
+      await cleanupTestRepo(cwd);
     }
   });
 
@@ -507,7 +507,7 @@ describe("committed qualified-reference scan", { timeout: 20_000 }, () => {
         warnings: [],
       });
     } finally {
-      cleanupTestRepo(cwd);
+      await cleanupTestRepo(cwd);
     }
   });
 
@@ -537,7 +537,7 @@ describe("committed qualified-reference scan", { timeout: 20_000 }, () => {
         warnings: [],
       });
     } finally {
-      cleanupTestRepo(cwd);
+      await cleanupTestRepo(cwd);
     }
   });
 
@@ -557,7 +557,7 @@ describe("committed qualified-reference scan", { timeout: 20_000 }, () => {
       await expect(scanQualifiedReferencesAtRef({ ...base, filePath: "src/sources.rs" }))
         .resolves.toMatchObject({ referenceCount: 1, referencingFiles: ["src/caller.rs"] });
     } finally {
-      cleanupTestRepo(cwd);
+      await cleanupTestRepo(cwd);
     }
   });
 
@@ -582,7 +582,7 @@ describe("committed qualified-reference scan", { timeout: 20_000 }, () => {
         confidence: "complete",
       });
     } finally {
-      cleanupTestRepo(cwd);
+      await cleanupTestRepo(cwd);
     }
   });
 
@@ -604,7 +604,7 @@ describe("committed qualified-reference scan", { timeout: 20_000 }, () => {
         warnings: [],
       });
     } finally {
-      cleanupTestRepo(cwd);
+      await cleanupTestRepo(cwd);
     }
   });
 
@@ -628,7 +628,7 @@ describe("committed qualified-reference scan", { timeout: 20_000 }, () => {
         confidence: "complete",
       });
     } finally {
-      cleanupTestRepo(cwd);
+      await cleanupTestRepo(cwd);
     }
   });
 
@@ -644,7 +644,7 @@ describe("committed qualified-reference scan", { timeout: 20_000 }, () => {
       });
       expect(result).toMatchObject({ referenceCount: 0, referencingFiles: [], confidence: "partial", warnings: [] });
     } finally {
-      cleanupTestRepo(cwd);
+      await cleanupTestRepo(cwd);
     }
   });
 
@@ -667,7 +667,7 @@ describe("committed qualified-reference scan", { timeout: 20_000 }, () => {
         warnings: [],
       });
     } finally {
-      cleanupTestRepo(cwd);
+      await cleanupTestRepo(cwd);
     }
   });
 
@@ -693,7 +693,7 @@ describe("committed qualified-reference scan", { timeout: 20_000 }, () => {
         warnings: [],
       });
     } finally {
-      cleanupTestRepo(cwd);
+      await cleanupTestRepo(cwd);
     }
   });
 
@@ -720,7 +720,7 @@ describe("committed qualified-reference scan", { timeout: 20_000 }, () => {
         warnings: [],
       });
     } finally {
-      cleanupTestRepo(cwd);
+      await cleanupTestRepo(cwd);
     }
   });
 
@@ -747,7 +747,7 @@ describe("committed qualified-reference scan", { timeout: 20_000 }, () => {
         warnings: [],
       });
     } finally {
-      cleanupTestRepo(cwd);
+      await cleanupTestRepo(cwd);
     }
   });
 
@@ -779,7 +779,7 @@ describe("committed qualified-reference scan", { timeout: 20_000 }, () => {
         warnings: [],
       });
     } finally {
-      cleanupTestRepo(cwd);
+      await cleanupTestRepo(cwd);
     }
   });
 
@@ -813,7 +813,7 @@ describe("committed qualified-reference scan", { timeout: 20_000 }, () => {
         warnings: [],
       });
     } finally {
-      cleanupTestRepo(cwd);
+      await cleanupTestRepo(cwd);
     }
   });
 
@@ -836,7 +836,7 @@ describe("committed qualified-reference scan", { timeout: 20_000 }, () => {
         referenceCount: 0, referencingFiles: [], confidence: "complete", warnings: [],
       });
     } finally {
-      cleanupTestRepo(cwd);
+      await cleanupTestRepo(cwd);
     }
   });
 });

@@ -35,7 +35,7 @@ describe("test helper: MCP server isolation", () => {
       } else {
         process.env["GIT_WORK_TREE"] = previousGitWorkTree;
       }
-      cleanupTestRepo(repoDir);
+      await cleanupTestRepo(repoDir);
     }
   });
 
@@ -73,7 +73,7 @@ describe("test helper: MCP server isolation", () => {
       expect(result["projection"]).toBe("content");
       expect(result["content"]).toContain("ready");
     } finally {
-      cleanupTestRepo(repoDir);
+      await cleanupTestRepo(repoDir);
     }
   });
 });
