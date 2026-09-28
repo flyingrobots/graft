@@ -35,7 +35,7 @@ the Docker daemon on the development host did not answer on three attempts (see 
 | exit 2 warns and continues; other failures abort with no `dist/` | unit cases and one real type-error build |
 | two concurrent calls build once | superseded in the third review: two concurrent calls each publish a complete build (unit case, in one process) |
 | executing consumers pass from no `dist/` | 20 of 20 |
-| Docker path unchanged | by construction only; not run (see Drift) |
+| Docker path unchanged | CI, isolated Docker runner on `a416ed84`: the image ran `pnpm build`, then 277 of 277 files and 2,498 of 2,498 tests passed (see Drift) |
 
 ## Drift
 
@@ -52,7 +52,10 @@ the Docker daemon on the development host did not answer on three attempts (see 
   review: attempted and not run. On 2026-09-28 `docker info` on the development host did not
   return within 20 s (`timeout 20 docker info` exit 124; the client section printed, the server
   section never did), so the Docker daemon was not reachable and the Docker-isolated helper-suite
-  run was not attempted.
+  run was not attempted. Third review: CI ran the full suite in the isolated Docker runner on
+  `a416ed84` (GitHub Actions run 36422725410, job `test (22)`): the image built with
+  `RUN --network=none pnpm build` and the suite, with this setup, passed 2,498 of 2,498 tests. The
+  setup prints nothing when it finds `dist/` fresh, so the log does not show whether it rebuilt.
 - **Partial `dist/`.** A `dist/` whose surviving files were all new passed the time rule even when
   modules were missing (for example `dist/cli/entrypoint.js`) or when the build that wrote it never
   finished. Review added two checks: every non-declaration `src/` module must have its `.js`, and
@@ -334,6 +337,6 @@ See `witness/verification.md`.
 
 ## Follow-Ons
 
-- Run `pnpm test` (Docker) on this branch before merge to confirm the setup reports `fresh` there.
+- Make the setup report its outcome, so a Docker run can show whether it found `dist/` fresh or rebuilt it.
 - @flyingrobots to triage `structural-blame.test.ts` (reproduced on main, a 5000 ms ceiling under
   load) and decide remediation or an owned quarantine with an expiry.

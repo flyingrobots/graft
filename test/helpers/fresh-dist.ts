@@ -212,7 +212,9 @@ function publish(root: string, staging: string): boolean {
     try {
       fs.renameSync(retired, dist);
     } catch (restoreError: unknown) {
-      if (!isMissing(restoreError)) throw new AggregateError([error, restoreError], `Publishing the dist/ build failed and the previous dist/ is left at ${retired}.`, { cause: restoreError });
+      if (isMissing(restoreError)) throw error;
+      const message = `Publishing the dist/ build failed and the previous dist/ is left at ${retired}.`;
+      throw new AggregateError([error, restoreError], message, { cause: restoreError });
     }
     throw error;
   }
