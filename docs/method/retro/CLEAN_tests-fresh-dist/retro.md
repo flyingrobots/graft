@@ -8,14 +8,16 @@ Met locally on host Vitest. The Docker-isolated `pnpm test` and CI have not run 
 
 - `test/helpers/fresh-dist.ts`: `ensureFreshDist` treats `dist/` as fresh only when its oldest file
   is newer than the newest build input (every file and directory under `src/`, plus
-  `tsconfig.json`, `tsconfig.build.json`, `package.json`, `pnpm-lock.yaml`). Otherwise it removes
-  `dist/` and runs the repository's own build, under a lock in `node_modules/.cache/graft/` that
-  serializes Vitest processes sharing one checkout.
+  `tsconfig.json`, `tsconfig.build.json`, `package.json`, `pnpm-lock.yaml`). Otherwise it runs the
+  repository's own build into a private staging directory beside `dist/` and publishes it by
+  rename (third review; earlier revisions removed `dist/` and built into it under a lock, which
+  the third review deleted).
 - `test/global-setup-fresh-dist.ts`, registered as Vitest `globalSetup`, runs it once per Vitest
   process before any worker starts, and (second review) again before every watch-mode rerun.
 - The enhance CLI test's own build step, which checked for one file, is deleted.
 - `test/unit/helpers/fresh-dist.test.ts`: 13 cases when this retro was first written, 22 after the
-  first review, 33 after the second (32 for `ensureFreshDist`, 1 for the watch-mode hook), on a
+  first review, 33 after the second (32 for `ensureFreshDist`, 1 for the watch-mode hook), 28 after
+  the third (10 lock and marker cases deleted with the lock, 5 publication cases added), on a
   temporary fake package with mtimes set explicitly.
 
 ## Outcome Against the Packet
@@ -26,7 +28,7 @@ Met locally on host Vitest. The Docker-isolated `pnpm test` and CI have not run 
 | stale `dist/` rebuilds clean, dropping orphans | source, config (4 files), deleted-source and predating-output cases |
 | fresh `dist/` does not compile | unit case; about 9 to 16 ms measured |
 | exit 2 warns and continues; other failures abort with no `dist/` | unit cases and one real type-error build |
-| two concurrent calls build once | unit case, in one process |
+| two concurrent calls build once | superseded in the third review: two concurrent calls each publish a complete build (unit case, in one process) |
 | executing consumers pass from no `dist/` | 20 of 20 |
 | Docker path unchanged | by construction only; not run (see Drift) |
 
@@ -246,7 +248,8 @@ before it, on the helper suite, unless stated.
   instead of rejecting`. Residual: a build that genuinely runs past two minutes loses its lock to a
   waiter, and the two can both be writing `dist/` until the first one fails; a process still running
   the first version could recreate its lock directory while a new-version waiter is removing a dead
-  one.
+  one. (Superseded: the third review found that residual was a defect, not a bounded risk, and
+  deleted the lock; see "Third review".)
 - **Case count and interrupted builds (finding 9).** Corrected above: the case count, and the
   design's claim that the oldest-output rule catches an interrupted rebuild (only the pending marker
   does). Documentation only; no RED applies.
@@ -272,6 +275,32 @@ before it, on the helper suite, unless stated.
   staging files (`*.tmp`) whose writer is dead or which are past the lock age bound, and leaves a
   live, young writer's alone. RED: `expected [ ...(2) ] to deeply equal []`, both dead writers' files
   still present.
+
+## Third review
+
+- **A build past the lock age could leave its output in a vouched-for `dist/` (major).** The
+  second review's lock presumed a two-minute-old build dead; the taker built and published, but
+  the slow build's compiler, which the lock could not stop, kept writing `dist/` and the next check
+  returned `fresh` with the pre-edit output (reproduced by the Reviewer: third call `fresh`, `src`
+  `a = 2`, `dist` `a = 1`). Fixed by removing the cause rather than the symptom: every build writes
+  a private `dist.staging.<pid>.<uuid>/` beside `dist/`, and publishes it only when its inputs did
+  not change under it and its output passes the freshness rules, by renaming `dist/` aside and the
+  staging directory into place. Nothing else writes `dist/`, so overlapping builds cannot mix, and
+  the lock, its takeover claims, the two-minute age, the wait timeout, the first version's lock
+  directory handling and the pending marker were deleted as redundant (design packet,
+  "Concurrency: no lock"). Given up: two concurrent calls now build twice. RED, five new cases on
+  the previous helper: the slow-build case `expected 'export const a = 1;\n' to be 'export const a
+  = 2;\n'` at the check after the slow build finished (the Reviewer's defect); a build that throws
+  after emitting `expected 'export const a = 2;\n' to be 'export const a = 1;\n'` (it had removed
+  the previous `dist/`); the peer-publishes-between-renames case `expected false to be true` (no
+  rename existed); the two-calls case `expected [ 'built', 'fresh' ] to deeply equal [ 'built',
+  'built' ]` (the old contract); the abandoned-directory case `expected [ …(3) ] to deeply equal [
+  Array(1) ]`. Calibration: with the input-change recheck disabled (one line, restored byte for
+  byte, run under a scratch config with no global setup), the slow-build case fails again at the
+  same check, with two older cases. The Reviewer's reproduction, adapted only to write into the
+  directory it is given, now ends `third call: fresh`, `src` and `dist` both `a = 2`. The setup's
+  staged build is byte-identical to `pnpm build` (1304 files, `diff -r`), because the staging
+  directory sits at `dist/`'s depth and source maps stay `../src/...`.
 
 ## Non-Goals Held
 

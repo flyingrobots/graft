@@ -76,9 +76,9 @@ second review).
 - `dist/` is fresh only when it contains at least one file and its **oldest**
   file is strictly newer than the **newest** input. Using the oldest output
   means an orphan left by a deleted source file counts as stale. It does not
-  catch a `dist/` left by an interrupted rebuild: every file such a build
-  writes lands after `dist/` was removed and is newer than the inputs. Only
-  the pending marker below catches that (corrected in the second review; the
+  catch a partial `dist/` whose surviving files are all new; the
+  missing-module check below and, since the third review, building in a
+  private staging directory cover that (corrected in the second review; the
   first version of this packet credited the oldest-output rule with it).
 - Two completeness checks, added in review, because a partial `dist/` whose
   surviving files are all new passes the time rule:
@@ -86,81 +86,87 @@ second review).
     must have its `dist/**/*.js`. A missing one (for example
     `dist/cli/entrypoint.js`, which `bin/graft.js` loads) is stale. This needs
     no list of required outputs to maintain.
-  - **An unfinished build is stale.** Before removing `dist/` the setup writes
-    `node_modules/.cache/graft/dist-build.pending`, outside the published
-    package, and removes it only after the build has finished. If the process
-    dies in between, or the build function throws, the marker survives and
-    the next run rebuilds. `dist/` produced by `pnpm build` alone (Docker, CI)
-    has no marker, so it is judged by the other rules and is not rebuilt.
+  - **An unfinished build never reaches `dist/`** (third review; this
+    replaces the pending marker). The setup's build writes only a private
+    staging directory, so a build that dies or throws leaves `dist/` as it
+    was, which is stale because it was stale before the build started.
   - **Inputs must not change under the build** (added in the second
     review). `tsc` reads every input before it writes anything, so a source
     saved during a build gets an mtime older than every output and would pass
-    the time rule from then on while `dist/` holds the output from before the
+    the time rule from then on while holding the output from before the
     edit. Before each build the setup records the newest input mtime, the
-    moment the build reads its inputs from, in the pending marker; after the
-    build it rescans, and if any input is now newer than that snapshot it
-    rebuilds. The marker is removed only after a build whose inputs did not
-    change under it. After three builds that each saw a change it fails the
-    run and leaves the marker, so the next run rebuilds.
+    moment the build reads its inputs from; after the build it rescans, and
+    if any input is now newer than that snapshot it discards the output and
+    builds again. After three builds that each saw a change it fails the run
+    and leaves `dist/` as it was. An edit saved after the rescan is newer
+    than every output of that build, so the time rule catches it on the next
+    check.
 
   Residual: a `pnpm build` that is itself killed after emitting every `.js`
-  but before its declaration files leaves no marker and passes both checks.
-  Tests execute only the `.js`. Likewise a source saved during a `pnpm build`
-  run outside the setup is not caught, because only the setup's own builds
-  take the snapshot.
+  but before its declaration files passes both checks. Tests execute only the
+  `.js`. Likewise a source saved during a `pnpm build` run outside the setup
+  is not caught, because only the setup's own builds take the snapshot.
 
-When stale it removes `dist/` and runs the repository's own build,
-`tsc -p tsconfig.build.json` (what `pnpm build`, CI and the Docker image run),
+When stale it runs the repository's own build, `tsc -p tsconfig.build.json`
+(what `pnpm build`, CI and the Docker image run) with only `--outDir` changed,
 so the tested output is the shipped output, not a look-alike.
 
+- **Build privately, publish by rename** (third review). The build writes
+  `dist.staging.<pid>.<uuid>/` beside `dist/`: the same depth, so source-map
+  paths match `pnpm build` byte for byte (checked: 1304 files identical), and
+  the same filesystem, so publishing is a rename. After the build, and only
+  if its inputs did not change under it and its output passes the freshness
+  rules, the setup renames `dist/` aside to `dist.retired.<pid>.<uuid>/`,
+  renames its staging directory to `dist/`, and deletes the retired one. A
+  reader therefore finds `dist/` absent (stale, so it builds) or one build's
+  complete output, never a mixture. If another process publishes between the
+  two renames, the second rename fails because `dist/` is not empty; the
+  setup keeps that build if it is current and otherwise builds again. Build
+  directories whose creating process has exited are deleted at the start of
+  the next build.
+
 - **An input dated in the future fails the run before anything is
-  removed** (added in the second review). No build can write outputs newer
-  than it, so rebuilding would delete a usable `dist/` and fail the same way on
-  every run until the clock caught up. The setup names the file and its time
+  built** (added in the second review). No build can write outputs newer
+  than it, so building would fail the same way on every run until the clock
+  caught up. The setup names the file and its time
   and says to fix the clock or reset the file's time. It is checked only when
   `dist/` is already stale.
 - **Type errors do not block the run.** `tsc` exits 2 when it reports
   diagnostics but still emits every file; JavaScript emit does not depend on
   type checking, so that output is current. The setup prints the diagnostics
   as a warning and continues. `pnpm typecheck` remains the type gate.
-- **Any other non-zero exit fails the run** with the compiler output and
-  removes `dist/`, so the next run cannot mistake a partial emit for a fresh
-  build.
-- **Concurrency.** Workers are separate processes, but `globalSetup` runs once
-  in the parent before they start, so workers never race each other. Two
-  Vitest processes in one checkout (two agents, or a watcher plus a run) are
-  serialized by a lock file, `node_modules/.cache/graft/dist-build.lock`,
-  holding the owner's pid and a random token that names this lock instance.
-  It is created by hard-linking a fully written staging file into place, so
-  it never exists without its content and one of several racing creators
-  wins. A waiter re-checks freshness after acquiring the lock, so the second
-  process does not rebuild. The first check runs without the lock, so it can
-  scan `dist/` while another process is deleting it; a file or directory that
-  vanishes mid-scan counts as absent, which makes `dist/` stale, and the
-  process then takes the lock and checks again (changed in the second
-  review: it used to throw `ENOENT` and fail the run). A lock whose pid is no longer alive is taken over,
-  but only the instance the waiter saw (changed in review): whoever removes an
-  instance, its owner releasing it or a waiter taking it over, first creates
-  `dist-build.lock.retire.<token>.<n>` exclusively, then removes the lock only
-  if it still carries that token. So two waiters that both saw the same dead
-  owner cannot both acquire: one wins the claim, and the other either loses
-  it or finds a newer lock and leaves it alone. A claim whose holder died is
-  superseded by claim n+1, so a crash while retiring does not wedge the lock.
-  Liveness by pid alone let a crashed owner's pid, reused by any live process,
-  wedge the lock for good, so (second review) each lock and claim also records
-  when it was created, and one older than two minutes is presumed dead
-  whatever its pid says. A build normally holds the lock for about 3.5 s. A
-  build that outlives the bound finds after it returns that its lock is no
-  longer its own instance, and fails without touching `dist/` or the pending
-  marker, so a slow build loses its lock but cannot vouch for output another
-  process may be rewriting. A timeout names the holder's pid and says how to
-  clear the lock. The first version of this setup locked with a directory
-  holding a `pid` file; such a directory is waited on while its owner is alive
-  and younger than the bound, and otherwise removed file by file with `rmdir`,
-  which cannot remove a current (file) lock created at that path meanwhile.
-  A process that dies between writing a staging file and removing it leaves a
-  `*.tmp` file beside the lock; whoever next acquires the lock removes those
-  whose writer is dead or which are past the age bound.
+- **Any other non-zero exit fails the run** with the compiler output,
+  discards the staging directory and leaves `dist/` as it was (stale), so the
+  next run builds again.
+- **Concurrency: no lock** (third review). Workers are separate processes,
+  but `globalSetup` runs once in the parent before they start, so workers
+  never race each other. Two Vitest processes in one checkout (two agents, or
+  a watcher plus a run) that both find `dist/` stale each build into their own
+  staging directory and each publish by rename. Nothing but a publish writes
+  `dist/`, every publish is one build's complete, verified output, and the
+  freshness rule reads only mtimes, so whichever build lands last is judged
+  correctly on the next check. The cost is a second build (about 3.5 s) when
+  two processes start on a stale `dist/` at once. A check that scans `dist/`
+  while another process is moving it aside sees entries vanish; a vanished
+  file or directory counts as absent, which makes `dist/` stale and the
+  process builds (changed in the second review: it used to throw `ENOENT`).
+
+  Removed in the third review, and why. The earlier revisions serialized
+  builds with a lock file in `node_modules/.cache/graft/` (pid and token,
+  exclusive-create retirement claims for takeover, a two-minute age after
+  which a live pid was presumed dead, a wait timeout, handling for the first
+  version's lock directory, and cleanup of the lock's staging files), plus a
+  pending marker for builds that died mid-write. The builds wrote `dist/`
+  directly, so the lock was what kept two builds apart, and it could not: a
+  build older than the age bound lost the lock but its compiler kept writing
+  `dist/` after the taker had built and vouched for it, and the next check
+  returned fresh with the pre-edit output (reproduced in review). With
+  private staging and rename publication, overlapping builds cannot corrupt
+  `dist/`, so the lock, the takeover protocol, the wall-clock age and the
+  timeout protected nothing that is still at risk; they were deleted rather
+  than made monotonic. The marker is replaced by staging, since a build that
+  dies never touches `dist/`. What was given up: "two concurrent calls build
+  once" (they now build twice), and nothing waits on another process.
 - **Docker harness.** The image's `build` stage runs `pnpm build` after
   `COPY . .`, so inside the container every `dist/` file is newer than every
   input and the setup does nothing. `.dockerignore` already keeps the host's
@@ -179,8 +185,8 @@ so the tested output is the shipped output, not a look-alike.
 - **Per-test build in each consuming file.** Only the two executing files would
   pay, but each future test that loads `dist/` must remember to call it, and
   forgetting reproduces the silent-stale failure this cycle exists to remove.
-  It also moves the build into parallel workers, which then need the lock for
-  every run instead of only across processes.
+  It also moves the build into parallel workers, so every run would build
+  once per worker instead of once per process.
 - **Fail loudly instead of building.** Honest, but turns every source edit into
   a manual `pnpm build` step before tests, and developers will learn to reach
   for a stale build to get green again.
@@ -203,16 +209,20 @@ so the tested output is the shipped output, not a look-alike.
   any test starts, names the missing input, and does not invoke the compiler.
 - A Vitest run whose `dist/` is newer than every input does not invoke the
   compiler.
-- A `dist/` missing the `.js` of any `src/` module, or left by a build that did
-  not finish, is rebuilt even when every file it holds is new.
+- A `dist/` missing the `.js` of any `src/` module is rebuilt even when every
+  file it holds is new.
 - A stale `dist/` with an input dated in the future fails the run, names the
-  file, and neither removes `dist/` nor invokes the compiler.
+  file, and neither changes `dist/` nor invokes the compiler.
 - An input saved while the setup's build is running is never accepted as
-  built: the setup rebuilds, and fails leaving `dist/` marked stale if the
+  built: the setup rebuilds, and fails leaving `dist/` as it was if the
   inputs change under three builds in a row.
 - A compiler exit of 2 (diagnostics, output emitted) warns and continues; any
-  other failure aborts the run and leaves no `dist/`.
-- Two concurrent `ensureFreshDist` calls on one checkout build once.
+  other failure, or a build that throws, aborts the run and leaves `dist/` as
+  it was and no build directory beside it.
+- `dist/` is only ever absent or one build's complete output: a build that
+  read an input edited before it finished never ends up in `dist/`, whatever
+  the wall clock does, and two concurrent calls each publish a complete build.
+  (Third review; replaces "two concurrent calls build once".)
 - `test/unit/warp/sidecar.test.ts` and
   `test/integration/cli/git-graft-enhance-cli.test.ts` pass from a checkout
   with no `dist/`.
@@ -232,7 +242,8 @@ so the tested output is the shipped output, not a look-alike.
 
 - [ ] Does any test that executes `dist/` still rely on its own build step?
 - [ ] Does a failed build leave something a later run would take as fresh?
-- [ ] Do two concurrent Vitest processes in one checkout build once?
+- [ ] Can two concurrent Vitest processes in one checkout leave a `dist/`
+      that mixes two builds, or one built from inputs edited mid-build?
 
 ## Non-goals
 
@@ -255,17 +266,19 @@ so the tested output is the shipped output, not a look-alike.
   the file passes alone, shuffled and with `--sequence.concurrent` (changed in
   the second review: a shared cleanup list broke concurrent runs). The oracle
   is the Decision above: build exactly when an input is not older than the
-  oldest output, a module's `.js` is missing, or the pending marker is
-  present; never accept a build whose inputs changed under it; fail without
+  oldest output or a module's `.js` is missing; publish only a complete build
+  whose inputs did not change under it, by rename; fail without
   building on a missing or future-dated input. RED first: with today's policy (build only when `dist/` is absent),
   the stale-dist case must fail because the stale output is kept.
 - Size: medium (Rule 9), owner @flyingrobots. Every case does application
-  filesystem I/O in its own temp directory, and the dead-owner cases spawn one
-  short `node` child to obtain an exited pid, so the suite is not small.
+  filesystem I/O in its own temp directory, and the abandoned-build-directory
+  case spawns one short `node` child to obtain an exited pid, so the suite is
+  not small.
   Ceiling: 2000 ms per case, enforced by the `describe` timeout; at most one
   child process at a time; no network; suite budget 2 s for the file.
-  Measured on a macOS host, Node 26.0.0, 10 cores: 2 to 120 ms per case,
-  about 0.5 s for the file (second review; 4 to 141 ms at 22 cases).
+  Measured on a macOS host, Node 26.0.0, 10 cores: 2 to 64 ms per case,
+  about 0.39 s for the file over three runs at 28 cases (third review;
+  2 to 120 ms and about 0.5 s at 33 cases in the second; 4 to 141 ms at 22).
   (Corrected in review: the first version declared the suite small.)
 - CI stage: pre-merge, as Rule 9 places medium tests. The CI workflow's
   `test` job runs `pnpm test` (the Docker-isolated full Vitest run, whose
@@ -277,18 +290,17 @@ so the tested output is the shipped output, not a look-alike.
   these claims (for example building before every run). Displaced risk if it
   is deleted without either: a test executing a stale or partial `dist/`,
   the failure this cycle exists to prevent. Added in the second review.
-- The concurrency case is two calls in one process against a build the test
-  holds open. It synchronizes on the build having started, not on a timer:
-  the second call starts only once the first holds the lock and is building.
-  Cross-process locking is the same code path through the filesystem but is
-  not separately exercised (model limit).
+- The concurrency cases are calls in one process against builds the test
+  holds open. They synchronize on a build having started, not on a timer.
+  The slow-build case also fakes `Date` three minutes forward, past the age
+  at which the removed lock presumed a build dead, so an age-based design
+  cannot return unnoticed. Two processes run the same filesystem path, but
+  cross-process schedules are not separately exercised (model limit).
 - Races with another process are staged without production hooks: a
-  pass-through `node:fs` mock runs a one-shot callback before `readdirSync`
-  of a registered directory (a directory deleted mid-scan), and a
-  `process.kill` spy acts inside the helper's liveness probe (a dead lock
-  replaced between being read and being taken over). The helper exports
-  three `@internal` seams, `buildLockPath`, `writeBuildLock` and
-  `buildLockHolder`, so the tests plant and read locks without copying the
-  record format.
+  pass-through `node:fs` mock runs a callback before `readdirSync` of a
+  registered directory (a directory deleted mid-scan) and before
+  `renameSync` (another process publishing between this one's two renames,
+  and an observer that records what `dist/` holds at every rename). The
+  helper exports only `ensureFreshDist`, `keepDistFresh` and `tscBuild`.
 - Run the two executing consumers from a checkout with no `dist/`, then lint,
   typecheck, and one full host Vitest run.

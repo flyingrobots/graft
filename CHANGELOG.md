@@ -97,16 +97,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   the run continues; `pnpm typecheck` stays the type gate. If `src/` or one
   of those config files is missing, the setup fails and names it instead of
   accepting the old build. A `dist/` that lacks the `.js` of any `src/`
-  module, or that a test-run build left unfinished, is rebuilt. A source
-  saved while that build runs is not accepted as built: the setup rebuilds,
-  and fails with `dist/` still marked stale if sources change under three
-  builds in a row. A source dated in the future fails the setup, naming the
-  file, before `dist/` is removed or rebuilt. Two Vitest processes in one
-  checkout build once, and one checking `dist/` while the other deletes it
-  treats it as stale instead of failing. A build lock is taken over when its
-  process has exited or it is more than two minutes old, and only if it is
-  still the lock that was seen dead; a lock directory left by an earlier
-  revision of this setup is handled the same way.
+  module, is rebuilt. The setup builds into a private directory beside
+  `dist/` and replaces `dist/` by rename only once that build is complete,
+  so `dist/` is never a partial or mixed build and a build that fails leaves
+  it as it was. A source saved while that build runs is not accepted as
+  built: the setup rebuilds, and fails leaving `dist/` as it was if sources
+  change under three builds in a row. A source dated in the future fails the
+  setup, naming the file, before anything is built. Two Vitest processes in
+  one checkout need no lock: each builds privately and publishes a complete
+  build, and one checking `dist/` while the other replaces it treats it as
+  stale instead of failing.
 
 - **Refused automatic authorization**: when a routed daemon call cannot
   persist the default authorization for its workspace, Graft now discards that

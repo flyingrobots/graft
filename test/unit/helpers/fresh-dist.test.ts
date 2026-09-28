@@ -4,34 +4,25 @@ import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
 import { describe, expect, it, vi, type TestContext } from "vitest";
-import {
-  buildLockHolder,
-  buildLockPath,
-  ensureFreshDist,
-  keepDistFresh,
-  writeBuildLock,
-  type DistBuildResult,
-} from "../../helpers/fresh-dist.js";
+import { ensureFreshDist, keepDistFresh, type DistBuildResult } from "../../helpers/fresh-dist.js";
 
 // Oracle: docs/design/CLEAN_tests-fresh-dist.md. dist/ is fresh only when it holds at least one
-// file and its oldest file is newer than the newest build input (every file and directory under
-// src/, plus tsconfig.json, tsconfig.build.json, package.json, pnpm-lock.yaml). A stale dist/ is
-// removed and rebuilt; tsc's exit 2 (diagnostics, output emitted) warns; any other failure throws
-// and leaves no dist/. src/ and each config file are required; a missing one fails setup unbuilt.
-// A dist/ lacking any src module's .js, or left by a build that did not finish, is stale. A build
-// whose inputs changed under it is rebuilt, and a future-dated input fails setup unbuilt. Locks are
-// taken over when their owner has exited or they are over two minutes old. keepDistFresh rechecks
-// before every watch-mode rerun.
+// file, every src module other than a .d.ts has its .js, and its oldest file is newer than the newest
+// build input (every file and directory under src/, plus tsconfig.json, tsconfig.build.json,
+// package.json, pnpm-lock.yaml). A stale dist/ is rebuilt into a private staging directory beside
+// it and published by rename, so dist/ is only ever absent or one build's complete output; a build
+// whose inputs changed under it is rebuilt before publishing. tsc's exit 2 (diagnostics, output
+// emitted) warns; any other failure throws and leaves dist/ as it was. src/ and each config file
+// are required, and a future-dated input fails setup; both unbuilt. Build directories left by dead
+// processes are removed. keepDistFresh rechecks before every watch-mode rerun.
 // Size: medium (TESTING_STANDARDS.md Rule 9). Owner: @flyingrobots. Resources: files only under a
 // private mkdtemp root per case, removed by that case (onTestFinished); at most one child process
-// at a time (the dead-lock-owner cases spawn `node -e ""` to obtain a pid that has exited); no
-// network. `node:fs` is mocked as a pass-through whose readdirSync can run a one-shot hook for a
-// registered directory (the concurrent-deletion case). Time: mtimes are set with utimes; no case
-// waits on a test timer. The helper's own lock poll and lock timeout are real time, set per case
-// (LOCK_POLL_MS; 50 to 200 ms timeouts). Ceiling: CASE_TIMEOUT_MS per case, enforced by the
-// describe timeout; suite budget 2 s for the file. Measured on a macOS host, Node 26.0.0, 10 cores:
-// 2 to 120 ms per case, about 0.5 s for the file. Isolation checked alone, shuffled and with
-// --sequence.concurrent.
+// at a time (the abandoned-build-directory case spawns `node -e ""` to obtain a pid that has exited);
+// no network. `node:fs` is mocked as a pass-through whose readdirSync and renameSync can run hooks
+// registered by a case (another process deleting or publishing dist/ at that moment). Time: mtimes
+// are set with utimes; no case waits on a timer; one case fakes Date to move the wall clock three
+// minutes on. Ceiling: CASE_TIMEOUT_MS per case, enforced by the describe timeout; suite budget 2 s
+// for the file. Isolation checked alone, shuffled and with --sequence.concurrent.
 // CI stage: pre-merge. The CI workflow's `test` job (Node 22 leg, step "Tests") runs `pnpm test`,
 // the Docker-isolated full Vitest run, on every pull request to main and every push to main.
 // Deletion criterion (Rule 18): delete with test/helpers/fresh-dist.ts when no test executes dist/
@@ -44,7 +35,6 @@ const BUILD_TIME = new Date("2026-02-01T00:00:00Z");
 const EDIT_TIME = new Date("2026-03-01T00:00:00Z");
 const CONFIG_FILES = ["tsconfig.json", "tsconfig.build.json", "package.json", "pnpm-lock.yaml"] as const;
 const CASE_TIMEOUT_MS = 2_000;
-const LOCK_POLL_MS = 5;
 
 /**
  * Runs just before `fs.readdirSync(directory)` for a directory registered here, once. Stands in for
@@ -52,6 +42,15 @@ const LOCK_POLL_MS = 5;
  * `node:fs` mock below passes every call through to the real module.
  */
 const beforeReaddir = vi.hoisted(() => new Map<string, () => void>());
+
+/**
+ * Runs just before `fs.renameSync(from, to)` for a destination registered here, once. Stands in for
+ * another process publishing its own build between this process's two publishing renames.
+ */
+const beforeRenameTo = vi.hoisted(() => new Map<string, () => void>());
+
+/** Called before every `fs.renameSync` whose source or destination is under a registered root. */
+const renameObservers = vi.hoisted(() => new Map<string, () => void>());
 
 vi.mock("node:fs", async (importOriginal) => {
   const actual = await importOriginal<typeof import("node:fs")>();
@@ -62,7 +61,16 @@ vi.mock("node:fs", async (importOriginal) => {
     hook?.();
     return actual.readdirSync(...args);
   };
-  return { ...actual, readdirSync: readdirSync as typeof actual.readdirSync };
+  const renameSync = (from: fs.PathLike, to: fs.PathLike): void => {
+    for (const [root, observe] of renameObservers) {
+      if (String(to).startsWith(root) || String(from).startsWith(root)) observe();
+    }
+    const hook = beforeRenameTo.get(String(to));
+    beforeRenameTo.delete(String(to));
+    hook?.();
+    actual.renameSync(from, to);
+  };
+  return { ...actual, readdirSync: readdirSync as typeof actual.readdirSync, renameSync };
 });
 
 function setTime(target: string, time: Date): void {
@@ -98,12 +106,12 @@ function packageRoot(onTestFinished: TestContext["onTestFinished"]): string {
 
 interface FakeBuild {
   readonly calls: number;
-  readonly build: (root: string) => Promise<DistBuildResult>;
+  readonly build: (root: string, outDir?: string) => Promise<DistBuildResult>;
 }
 
 /**
- * Stands in for tsc: writes dist/<source>.js carrying the source text for each .ts module, and like
- * tsc emits nothing for a declaration file (.d.ts), then reports `result`.
+ * Stands in for tsc: reads every module, then writes <outDir>/<source>.js carrying the source text
+ * for each .ts module (like tsc, nothing for a declaration file), then reports `result`.
  */
 function fakeBuild(
   result: DistBuildResult = { status: 0, output: "" },
@@ -115,16 +123,18 @@ function fakeBuild(
     get calls() {
       return calls;
     },
-    build: async (root: string): Promise<DistBuildResult> => {
+    build: async (root: string, outDir: string = path.join(root, "dist")): Promise<DistBuildResult> => {
       calls += 1;
+      const src = path.join(root, "src");
+      const modules = walk(src)
+        .filter((entry) => entry.endsWith(".ts") && !entry.endsWith(".d.ts"))
+        .map((entry) => ({ entry, text: fs.readFileSync(entry, "utf8") }));
       onStart?.();
       if (gate !== undefined) await gate;
-      const src = path.join(root, "src");
-      for (const entry of walk(src)) {
-        if (!entry.endsWith(".ts") || entry.endsWith(".d.ts")) continue;
-        const target = path.join(root, "dist", path.relative(src, entry).replace(/\.ts$/u, ".js"));
+      for (const { entry, text } of modules) {
+        const target = path.join(outDir, path.relative(src, entry).replace(/\.ts$/u, ".js"));
         fs.mkdirSync(path.dirname(target), { recursive: true });
-        fs.writeFileSync(target, fs.readFileSync(entry, "utf8"));
+        fs.writeFileSync(target, text);
       }
       return result;
     },
@@ -149,6 +159,154 @@ function exitedPid(): number {
 function distText(root: string, relative: string): string {
   return fs.readFileSync(path.join(root, "dist", relative), "utf8");
 }
+
+/** Build directories beside dist/ (a build's private output, or a replaced dist/) still present. */
+function buildDirectoriesBesideDist(root: string): string[] {
+  return fs.readdirSync(root).filter((name) => name.startsWith("dist."));
+}
+
+describe("test support: ensureFreshDist publishes whole builds", { timeout: CASE_TIMEOUT_MS }, () => {
+  it("never leaves in dist the output of a build that read a source edited before it finished", async ({ onTestFinished }) => {
+    const root = packageRoot(onTestFinished);
+    const source = path.join(root, "src", "a.ts");
+    let release!: () => void;
+    const gate = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    let started!: () => void;
+    const slowStarted = new Promise<void>((resolve) => {
+      started = resolve;
+    });
+    // The slow build reads a = 1, then waits; its output lands only after the fast one's.
+    const slow = fakeBuild({ status: 0, output: "" }, gate, started);
+    let slowCalls = 0;
+    const slowOnce = (target: string, outDir?: string): Promise<DistBuildResult> => {
+      slowCalls += 1;
+      return slowCalls === 1 ? slow.build(target, outDir) : fakeBuild().build(target, outDir);
+    };
+    const first = ensureFreshDist({ root, build: slowOnce });
+    await slowStarted;
+    fs.writeFileSync(source, "export const a = 2;\n");
+    setTime(source, EDIT_TIME);
+    // Three minutes on, past the age at which the earlier lock-based design presumed a build dead
+    // and let a second build run beside it; kept so that design cannot quietly come back.
+    vi.useFakeTimers({ toFake: ["Date"] });
+    onTestFinished(() => {
+      vi.useRealTimers();
+    });
+    vi.setSystemTime(Date.now() + 3 * 60_000);
+    await expect(ensureFreshDist({ root, build: fakeBuild().build })).resolves.toBe("built");
+    expect(distText(root, "a.js")).toBe("export const a = 2;\n");
+
+    release();
+    await first.catch(() => undefined);
+
+    expect(distText(root, "a.js")).toBe("export const a = 2;\n");
+    const build = fakeBuild();
+    await expect(ensureFreshDist({ root, build: build.build })).resolves.toBe("fresh");
+    expect(build.calls).toBe(0);
+  });
+
+  it("leaves the previous dist in place, and no build directory, when a build fails after emitting", async ({ onTestFinished }) => {
+    const root = await builtRoot(onTestFinished);
+    fs.writeFileSync(path.join(root, "src", "a.ts"), "export const a = 2;\n");
+    setTime(path.join(root, "src", "a.ts"), EDIT_TIME);
+    const emitted = fakeBuild();
+    const dies = async (target: string, outDir?: string): Promise<DistBuildResult> => {
+      await emitted.build(target, outDir);
+      throw new Error("build process died after emitting");
+    };
+
+    await expect(ensureFreshDist({ root, build: dies })).rejects.toThrow("build process died after emitting");
+
+    expect(distText(root, "a.js")).toBe("export const a = 1;\n");
+    expect(distText(root, "nested/b.js")).toBe("export const b = 1;\n");
+    expect(buildDirectoriesBesideDist(root)).toEqual([]);
+    const build = fakeBuild();
+    await expect(ensureFreshDist({ root, build: build.build })).resolves.toBe("built");
+    expect(distText(root, "a.js")).toBe("export const a = 2;\n");
+  });
+
+  it("keeps another process's build when it publishes between this build's two renames", async ({ onTestFinished }) => {
+    const root = await builtRoot(onTestFinished);
+    fs.writeFileSync(path.join(root, "src", "a.ts"), "export const a = 2;\n");
+    setTime(path.join(root, "src", "a.ts"), EDIT_TIME);
+    const dist = path.join(root, "dist");
+    let peerPublished = false;
+    // This process has moved the old dist aside; before it renames its build into place, a peer's
+    // complete build of the same inputs lands at dist.
+    beforeRenameTo.set(dist, () => {
+      fs.mkdirSync(path.join(dist, "nested"), { recursive: true });
+      fs.writeFileSync(path.join(dist, "a.js"), "export const a = 2;\n");
+      fs.writeFileSync(path.join(dist, "nested", "b.js"), "export const b = 1;\n");
+      fs.writeFileSync(path.join(dist, "peer-marker.js"), "");
+      peerPublished = true;
+    });
+    onTestFinished(() => {
+      beforeRenameTo.delete(dist);
+    });
+    const build = fakeBuild();
+
+    await expect(ensureFreshDist({ root, build: build.build })).resolves.toBe("built");
+
+    expect(peerPublished).toBe(true);
+    expect(fs.existsSync(path.join(dist, "peer-marker.js"))).toBe(true);
+    expect(buildDirectoriesBesideDist(root)).toEqual([]);
+  });
+
+  it("two concurrent calls each publish a complete build, and dist is whole at every rename", async ({ onTestFinished }) => {
+    const root = packageRoot(onTestFinished);
+    const dist = path.join(root, "dist");
+    const seenAtRename: string[] = [];
+    renameObservers.set(root, () => {
+      seenAtRename.push(fs.existsSync(dist) ? walk(dist).map((entry) => path.relative(dist, entry)).join(",") : "absent");
+    });
+    onTestFinished(() => {
+      renameObservers.delete(root);
+    });
+    let release!: () => void;
+    const gate = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    let started!: () => void;
+    const buildStarted = new Promise<void>((resolve) => {
+      started = resolve;
+    });
+    const build = fakeBuild({ status: 0, output: "" }, gate, started);
+
+    const first = ensureFreshDist({ root, build: build.build });
+    await buildStarted;
+    const second = ensureFreshDist({ root, build: build.build });
+    release();
+
+    expect(await Promise.all([first, second])).toEqual(["built", "built"]);
+    expect(build.calls).toBe(2);
+    // Before each rename dist is either absent or one build's complete output, never a mixture.
+    expect(seenAtRename).toContain("a.js,nested,nested/b.js");
+    expect(new Set(seenAtRename)).toEqual(new Set(["absent", "a.js,nested,nested/b.js"]));
+    expect(distText(root, "a.js")).toBe("export const a = 1;\n");
+    expect(buildDirectoriesBesideDist(root)).toEqual([]);
+  });
+
+  it("removes build directories left beside dist by processes that died, and keeps a live one's", async ({ onTestFinished }) => {
+    const root = packageRoot(onTestFinished);
+    const dead = exitedPid();
+    const abandoned = [
+      `dist.staging.${String(dead)}.${crypto.randomUUID()}`,
+      `dist.retired.${String(dead)}.${crypto.randomUUID()}`,
+    ];
+    const live = `dist.staging.${String(process.ppid)}.${crypto.randomUUID()}`;
+    for (const name of [...abandoned, live]) {
+      fs.mkdirSync(path.join(root, name, "nested"), { recursive: true });
+      fs.writeFileSync(path.join(root, name, "a.js"), "export const a = 0;\n");
+    }
+    const build = fakeBuild();
+
+    await expect(ensureFreshDist({ root, build: build.build })).resolves.toBe("built");
+
+    expect(buildDirectoriesBesideDist(root)).toEqual([live]);
+  });
+});
 
 describe("test support: ensureFreshDist", { timeout: CASE_TIMEOUT_MS }, () => {
   it("builds dist when it is missing", async ({ onTestFinished }) => {
@@ -210,15 +368,15 @@ describe("test support: ensureFreshDist", { timeout: CASE_TIMEOUT_MS }, () => {
     let calls = 0;
     // Like tsc: reads every input first, then emits. The first build sees the edit land in between,
     // with an mtime older than anything it is about to write.
-    const build = async (target: string): Promise<DistBuildResult> => {
+    const build = async (target: string, outDir: string): Promise<DistBuildResult> => {
       calls += 1;
       const read = fs.readFileSync(source, "utf8");
       if (calls === 1) {
         fs.writeFileSync(source, "export const a = 2;\n");
         setTime(source, EDIT_TIME);
       }
-      await fakeBuild().build(target);
-      fs.writeFileSync(path.join(target, "dist", "a.js"), read);
+      await fakeBuild().build(target, outDir);
+      fs.writeFileSync(path.join(outDir, "a.js"), read);
       return { status: 0, output: "" };
     };
 
@@ -228,19 +386,21 @@ describe("test support: ensureFreshDist", { timeout: CASE_TIMEOUT_MS }, () => {
     expect(calls).toBe(2);
   });
 
-  it("gives up, leaving dist marked stale, when a source changes during every build", async ({ onTestFinished }) => {
+  it("gives up, leaving dist as it was, when a source changes during every build", async ({ onTestFinished }) => {
     const root = packageRoot(onTestFinished);
     const source = path.join(root, "src", "a.ts");
     let edits = 0;
-    const churning = async (target: string): Promise<DistBuildResult> => {
+    const churning = async (target: string, outDir: string): Promise<DistBuildResult> => {
       edits += 1;
       fs.writeFileSync(source, `export const a = ${String(edits + 1)};\n`);
       setTime(source, new Date(EDIT_TIME.getTime() + edits * 1_000));
-      return fakeBuild().build(target);
+      return fakeBuild().build(target, outDir);
     };
 
-    await expect(ensureFreshDist({ root, build: churning })).rejects.toThrow(/kept changing while dist\/ was being built/u);
+    await expect(ensureFreshDist({ root, build: churning })).rejects.toThrow(/could not be built from unchanging inputs in 3 attempts \(src\/a\.ts changed/u);
     expect(edits).toBe(3);
+    expect(fs.existsSync(path.join(root, "dist"))).toBe(false);
+    expect(buildDirectoriesBesideDist(root)).toEqual([]);
     const build = fakeBuild();
 
     await expect(ensureFreshDist({ root, build: build.build })).resolves.toBe("built");
@@ -333,23 +493,6 @@ describe("test support: ensureFreshDist", { timeout: CASE_TIMEOUT_MS }, () => {
     expect(build.calls).toBe(0);
   });
 
-  it("rebuilds after an earlier build ended before finishing, even though it had emitted every file", async ({ onTestFinished }) => {
-    const root = packageRoot(onTestFinished);
-    const interrupted = fakeBuild();
-    const dies = async (target: string): Promise<DistBuildResult> => {
-      await interrupted.build(target);
-      throw new Error("build process died after emitting");
-    };
-
-    await expect(ensureFreshDist({ root, build: dies })).rejects.toThrow("build process died after emitting");
-    expect(distText(root, "a.js")).toBe("export const a = 1;\n");
-    const build = fakeBuild();
-
-    await expect(ensureFreshDist({ root, build: build.build })).resolves.toBe("built");
-
-    expect(build.calls).toBe(1);
-  });
-
   it("keeps the emitted output and warns when tsc reports diagnostics with exit 2", async ({ onTestFinished }) => {
     const root = packageRoot(onTestFinished);
     const build = fakeBuild({ status: 2, output: "src/a.ts(1,1): error TS2322: example" });
@@ -370,169 +513,7 @@ describe("test support: ensureFreshDist", { timeout: CASE_TIMEOUT_MS }, () => {
     await expect(ensureFreshDist({ root, build: build.build })).rejects.toThrow(/error TS5083/u);
 
     expect(fs.existsSync(path.join(root, "dist"))).toBe(false);
-  });
-
-  it("builds once when two calls race on the same stale checkout", async ({ onTestFinished }) => {
-    const root = packageRoot(onTestFinished);
-    let release!: () => void;
-    const gate = new Promise<void>((resolve) => {
-      release = resolve;
-    });
-    let started!: () => void;
-    const buildStarted = new Promise<void>((resolve) => {
-      started = resolve;
-    });
-    const build = fakeBuild({ status: 0, output: "" }, gate, started);
-
-    // The first call holds the lock from before its build starts until after it returns. Starting
-    // the second call only once that build has started means the second call's synchronous part
-    // (the staleness check and its first lock attempt) runs while the lock is held.
-    const first = ensureFreshDist({ root, build: build.build, lockPollMs: LOCK_POLL_MS });
-    await buildStarted;
-    const second = ensureFreshDist({ root, build: build.build, lockPollMs: LOCK_POLL_MS });
-    release();
-
-    expect((await Promise.all([first, second])).sort()).toEqual(["built", "fresh"]);
-    expect(build.calls).toBe(1);
-  });
-
-  it("takes over a build lock whose owning process has exited", async ({ onTestFinished }) => {
-    const root = packageRoot(onTestFinished);
-    expect(writeBuildLock(root, exitedPid())).toBe(true);
-    const build = fakeBuild();
-
-    await expect(ensureFreshDist({ root, build: build.build, lockPollMs: LOCK_POLL_MS })).resolves.toBe("built");
-
-    expect(build.calls).toBe(1);
-    expect(buildLockHolder(root)).toBeUndefined();
-  });
-
-  it("takes over a dead owner's lock even when an earlier taker died while retiring it", async ({ onTestFinished }) => {
-    const root = packageRoot(onTestFinished);
-    expect(writeBuildLock(root, exitedPid())).toBe(true);
-    const lock = buildLockPath(root);
-    const [, token] = fs.readFileSync(lock, "utf8").split(" ");
-    // The first retirement claim on this instance, left by a process that died holding it.
-    fs.writeFileSync(`${lock}.retire.${String(token)}.1`, String(exitedPid()));
-    const build = fakeBuild();
-
-    await expect(ensureFreshDist({ root, build: build.build, lockPollMs: LOCK_POLL_MS })).resolves.toBe("built");
-
-    expect(build.calls).toBe(1);
-    expect(buildLockHolder(root)).toBeUndefined();
-    expect(fs.readdirSync(path.dirname(lock)).filter((name) => name.includes(".retire."))).toEqual([]);
-  });
-
-  it("leaves alone a live lock that replaced the dead one it saw, instead of taking it over", async ({ onTestFinished }) => {
-    const root = packageRoot(onTestFinished);
-    const deadOwner = exitedPid();
-    expect(writeBuildLock(root, deadOwner)).toBe(true);
-    // A live process other than this one: the Vitest parent outlives this case.
-    const livePeer = process.ppid;
-    let sawDeadOwner = 0;
-    const realKill = process.kill.bind(process);
-    // The helper probes liveness with process.kill(pid, 0) after reading the lock and before acting
-    // on it; that probe is the window in which another process can replace the dead lock.
-    const kill = vi.spyOn(process, "kill").mockImplementation((pid, signal) => {
-      if (pid === deadOwner && sawDeadOwner === 0) {
-        sawDeadOwner += 1;
-        fs.rmSync(buildLockPath(root), { recursive: true, force: true });
-        expect(writeBuildLock(root, livePeer)).toBe(true);
-      }
-      return realKill(pid, signal);
-    });
-    onTestFinished(() => {
-      kill.mockRestore();
-    });
-    const build = fakeBuild();
-
-    const attempt = ensureFreshDist({ root, build: build.build, lockPollMs: LOCK_POLL_MS, lockTimeoutMs: 0 });
-
-    await expect(attempt).rejects.toThrow(/Timed out/u);
-    expect(sawDeadOwner).toBe(1);
-    expect(build.calls).toBe(0);
-    expect(buildLockHolder(root)).toBe(livePeer);
-  });
-
-  it("removes lock staging files left by processes that died, and keeps a live process's", async ({ onTestFinished }) => {
-    const root = packageRoot(onTestFinished);
-    const lock = buildLockPath(root);
-    fs.mkdirSync(path.dirname(lock), { recursive: true });
-    const dead = exitedPid();
-    const leftovers = [
-      `${lock}.${String(dead)}.${crypto.randomUUID()}.tmp`,
-      `${lock}.retire.${crypto.randomUUID()}.1.${String(dead)}.${crypto.randomUUID()}.tmp`,
-    ];
-    const inFlight = `${lock}.${String(process.ppid)}.${crypto.randomUUID()}.tmp`;
-    for (const file of [...leftovers, inFlight]) fs.writeFileSync(file, "staged");
-    const build = fakeBuild();
-
-    await expect(ensureFreshDist({ root, build: build.build })).resolves.toBe("built");
-
-    expect(leftovers.filter((file) => fs.existsSync(file))).toEqual([]);
-    expect(fs.existsSync(inFlight)).toBe(true);
-  });
-
-  it("takes over a lock older than the maximum lock age even though its pid names a live process", async ({ onTestFinished }) => {
-    const root = packageRoot(onTestFinished);
-    // A crashed owner whose pid now belongs to an unrelated live process (the Vitest parent).
-    expect(writeBuildLock(root, process.ppid, Date.now() - 60 * 60_000)).toBe(true);
-    const build = fakeBuild();
-
-    await expect(ensureFreshDist({ root, build: build.build, lockPollMs: LOCK_POLL_MS, lockTimeoutMs: 200 }))
-      .resolves.toBe("built");
-
-    expect(build.calls).toBe(1);
-    expect(buildLockHolder(root)).toBeUndefined();
-  });
-
-  it("takes over a lock directory left by the earlier version of this setup when its owner has exited", async ({ onTestFinished }) => {
-    const root = packageRoot(onTestFinished);
-    const lock = buildLockPath(root);
-    // The first version's lock: a directory holding the owner's pid in a file named `pid`.
-    fs.mkdirSync(lock, { recursive: true });
-    fs.writeFileSync(path.join(lock, "pid"), String(exitedPid()));
-    const build = fakeBuild();
-
-    await expect(ensureFreshDist({ root, build: build.build, lockPollMs: LOCK_POLL_MS, lockTimeoutMs: 200 }))
-      .resolves.toBe("built");
-
-    expect(build.calls).toBe(1);
-    expect(fs.existsSync(lock)).toBe(false);
-  });
-
-  it("waits on, and leaves alone, a young lock directory from the earlier version whose owner is alive", async ({ onTestFinished }) => {
-    const root = packageRoot(onTestFinished);
-    const lock = buildLockPath(root);
-    fs.mkdirSync(lock, { recursive: true });
-    fs.writeFileSync(path.join(lock, "pid"), String(process.ppid));
-    const build = fakeBuild();
-
-    await expect(ensureFreshDist({ root, build: build.build, lockPollMs: LOCK_POLL_MS, lockTimeoutMs: 50 }))
-      .rejects.toThrow(/Timed out/u);
-
-    expect(build.calls).toBe(0);
-    expect(fs.readFileSync(path.join(lock, "pid"), "utf8")).toBe(String(process.ppid));
-  });
-
-  it("fails, leaving dist marked stale, when its lock was taken over while it was building", async ({ onTestFinished }) => {
-    const root = packageRoot(onTestFinished);
-    const lock = buildLockPath(root);
-    const inner = fakeBuild();
-    const overtaken = async (target: string): Promise<DistBuildResult> => {
-      // Another process judged this build's lock too old, took it over, and holds it now.
-      fs.rmSync(lock, { force: true });
-      expect(writeBuildLock(target, process.ppid)).toBe(true);
-      return inner.build(target);
-    };
-
-    await expect(ensureFreshDist({ root, build: overtaken })).rejects.toThrow(/taken over/u);
-
-    expect(buildLockHolder(root)).toBe(process.ppid);
-    fs.rmSync(lock, { force: true });
-    const build = fakeBuild();
-    await expect(ensureFreshDist({ root, build: build.build })).resolves.toBe("built");
-    expect(build.calls).toBe(1);
+    expect(buildDirectoriesBesideDist(root)).toEqual([]);
   });
 });
 
