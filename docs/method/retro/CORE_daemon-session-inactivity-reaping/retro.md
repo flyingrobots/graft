@@ -305,6 +305,21 @@ RED, on the unmodified code, observed tombstone and released-claim counts of
 and no released residue after every cycle. The existing deterministic-tombstone
 test and the new delayed-reclaimer and name-safety tests stay green.
 
+**Stranded quarantines (P2).** A crash between the quarantine rename and the
+end of deletion left a `.graft-removing-*` directory that every later scan
+preserved as `UNKNOWN_ENTRY_NAME`, so the cleanup protocol itself created
+permanent residue; the guarded walk's refusal path now leaves such entries by
+design. Startup and sweeps now recognise the exact generated quarantine name,
+skip a session still protected in this process, verify a real directory with a
+valid ownership marker for the embedded session UUID, and finish it with the
+guarded walk; anything else is preserved with a `QUARANTINE_*` reason. RED, on
+the unmodified code, observed the planted quarantine still present after
+startup, and `UNKNOWN_ENTRY_NAME` where the look-alike, link, and protected
+cases expect quarantine-specific reasons or no report. GREEN completes the
+stranded quarantine at startup with no diagnostic and preserves every look-alike
+and link with its target and contents unchanged. `docs/MCP.md` now also states
+the item 1 walk and threat model, which the item 1 commit had not carried there.
+
 ## Drift
 
 The largest drift was procedural: implementation and PR publication preceded

@@ -169,6 +169,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   no delete-by-inode API, so a window remains between each check and its
   deletion; using it needs a same-user process acting inside the private 0700
   sessions root, which can already delete that user's files.
+  A quarantine stranded by a crash or a refused removal is no longer preserved
+  forever as `UNKNOWN_ENTRY_NAME`: startup and every sweep recognise the exact
+  generated `.graft-removing-<session>-<uuid>` name, skip a session still
+  protected in this process, and finish the removal with the guarded walk when
+  the entry is a real directory with a valid ownership marker for that session.
+  Anything else is preserved with a `QUARANTINE_*` reason (link, non-directory,
+  unmarked, or unsafe, unreadable, or malformed marker) and left untouched.
 - **First-call daemon workspace opening**: routed repository tools now treat a
   non-empty explicit `cwd` as bounded opening intent. Graft resolves its exact
   containing Git worktree, persists the default authorization when needed,

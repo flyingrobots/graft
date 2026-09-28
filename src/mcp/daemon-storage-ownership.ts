@@ -26,6 +26,13 @@ const GENERATED_UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9
 const GENERIC_UNIX_PROCESS_WITNESS_PREFIX = "graft-daemon:";
 const GENERIC_UNIX_PROCESS_WITNESS_PATTERN = /^graft-daemon:[0-9a-f]{32}$/u;
 const UUID_SOURCE = "[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}";
+const SESSION_QUARANTINE_PREFIX = ".graft-removing-";
+/** Exactly the names sessionQuarantineName() generates: `.graft-removing-<sessionId>-<uuid>`. */
+const SESSION_QUARANTINE_PATTERN = new RegExp(`^${SESSION_QUARANTINE_PREFIX.replaceAll(".", "\\.")}(${UUID_SOURCE})-${UUID_SOURCE}$`, "u");
+
+function sessionQuarantineName(sessionId: string): string {
+  return `${SESSION_QUARANTINE_PREFIX}${sessionId}-${crypto.randomUUID()}`;
+}
 
 export interface DaemonRootOwnerRecord {
   readonly schemaVersion: 2;
@@ -75,7 +82,13 @@ export type SessionOrphanPreservationReason =
   | "SYMBOLIC_LINK"
   | "UNSAFE_OWNERSHIP_MARKER"
   | "UNREADABLE_OWNERSHIP_MARKER"
-  | "MALFORMED_OWNERSHIP_MARKER";
+  | "MALFORMED_OWNERSHIP_MARKER"
+  | "QUARANTINE_SYMBOLIC_LINK"
+  | "QUARANTINE_NOT_DIRECTORY"
+  | "QUARANTINE_UNMARKED"
+  | "QUARANTINE_UNSAFE_OWNERSHIP_MARKER"
+  | "QUARANTINE_UNREADABLE_OWNERSHIP_MARKER"
+  | "QUARANTINE_MALFORMED_OWNERSHIP_MARKER";
 
 export interface SessionOrphanPreservedEntry {
   readonly entryName: string;
@@ -1349,7 +1362,7 @@ export async function removeSessionDirectory(
       throw new UnsafeDaemonSessionDirectoryError(sessionDir);
     }
 
-    const quarantineName = `.graft-removing-${sessionId}-${crypto.randomUUID()}`;
+    const quarantineName = sessionQuarantineName(sessionId);
     const quarantinePath = path.join(sessionsRoot, quarantineName);
     try {
       await fs.rename(resolvedSessionDir, quarantinePath);
@@ -1417,11 +1430,10 @@ type SessionDirectoryInspection =
   | { readonly status: "preserved"; readonly reason: SessionOrphanPreservationReason };
 
 async function inspectSessionDirectory(
-  sessionsRoot: string,
+  sessionDir: string,
   sessionId: string,
   legacyUnmarkedPolicy: LegacyUnmarkedSessionPolicy,
 ): Promise<SessionDirectoryInspection> {
-  const sessionDir = path.join(sessionsRoot, sessionId);
   const stat = await fs.lstat(sessionDir, { bigint: true }).catch((error: unknown) => {
     if (errorCode(error) === "ENOENT") return null;
     throw error;
@@ -1461,6 +1473,58 @@ async function inspectSessionDirectory(
   }
 }
 
+const QUARANTINE_PRESERVATION_REASONS: Readonly<
+  Record<SessionOrphanPreservationReason, SessionOrphanPreservationReason>
+> = {
+  UNKNOWN_ENTRY_NAME: "UNKNOWN_ENTRY_NAME",
+  LEGACY_SESSION_UNMARKED: "QUARANTINE_UNMARKED",
+  NOT_DIRECTORY: "QUARANTINE_NOT_DIRECTORY",
+  SYMBOLIC_LINK: "QUARANTINE_SYMBOLIC_LINK",
+  UNSAFE_OWNERSHIP_MARKER: "QUARANTINE_UNSAFE_OWNERSHIP_MARKER",
+  UNREADABLE_OWNERSHIP_MARKER: "QUARANTINE_UNREADABLE_OWNERSHIP_MARKER",
+  MALFORMED_OWNERSHIP_MARKER: "QUARANTINE_MALFORMED_OWNERSHIP_MARKER",
+  QUARANTINE_SYMBOLIC_LINK: "QUARANTINE_SYMBOLIC_LINK",
+  QUARANTINE_NOT_DIRECTORY: "QUARANTINE_NOT_DIRECTORY",
+  QUARANTINE_UNMARKED: "QUARANTINE_UNMARKED",
+  QUARANTINE_UNSAFE_OWNERSHIP_MARKER: "QUARANTINE_UNSAFE_OWNERSHIP_MARKER",
+  QUARANTINE_UNREADABLE_OWNERSHIP_MARKER: "QUARANTINE_UNREADABLE_OWNERSHIP_MARKER",
+  QUARANTINE_MALFORMED_OWNERSHIP_MARKER: "QUARANTINE_MALFORMED_OWNERSHIP_MARKER",
+};
+
+type StrandedQuarantineOutcome =
+  | { readonly status: "removed" }
+  | { readonly status: "missing" }
+  | { readonly status: "preserved"; readonly reason: SessionOrphanPreservationReason };
+
+/**
+ * Finishes a removal that a crash or refusal left in quarantine. The entry's
+ * name already matched the exact generated quarantine pattern. It must still be
+ * a real directory (never a link) carrying a valid ownership marker for the
+ * session UUID embedded in that name, the same ownership test orphan cleanup
+ * applies to a UUID directory, whatever the legacy-unmarked policy. A verified
+ * quarantine is removed with the guarded walk; everything inside it is treated
+ * as daemon-owned scratch. Anything else is preserved with a quarantine-specific
+ * reason.
+ */
+async function completeStrandedQuarantine(
+  root: PinnedDaemonSessionsRoot,
+  quarantinePath: string,
+  sessionId: string,
+): Promise<StrandedQuarantineOutcome> {
+  const inspection = await inspectSessionDirectory(quarantinePath, sessionId, "preserve");
+  await assertPinnedDaemonSessionsRoot(root);
+  if (inspection.status === "missing") return inspection;
+  if (inspection.status === "preserved") {
+    return { status: "preserved", reason: QUARANTINE_PRESERVATION_REASONS[inspection.reason] };
+  }
+  await removeQuarantinedSessionTree(
+    quarantinePath,
+    inspection.identity,
+    () => assertPinnedDaemonSessionsRoot(root),
+  );
+  return { status: "removed" };
+}
+
 export async function removeSessionOrphanDirectories(
   sessionsRoot: string,
   liveSessionIds: ReadonlySet<string>,
@@ -1478,6 +1542,25 @@ export async function removeSessionOrphanDirectories(
     for (const entry of entries) {
       const sessionId = entry.name;
       const sessionPath = path.join(sessionsRoot, sessionId);
+      const quarantinedSessionId = SESSION_QUARANTINE_PATTERN.exec(entry.name)?.[1];
+      if (quarantinedSessionId !== undefined) {
+        // A protected session may own a removal still in flight in this process.
+        if (liveSessionIds.has(quarantinedSessionId)) continue;
+        await assertPinnedDaemonSessionsRoot(root);
+        const outcome = await completeStrandedQuarantine(
+          root,
+          sessionPath,
+          quarantinedSessionId,
+        ).catch((error: unknown) => ({ status: "failed" as const, error }));
+        if (outcome.status === "removed") {
+          removed++;
+        } else if (outcome.status === "preserved") {
+          preservedEntries.push({ entryName: entry.name, path: sessionPath, reason: outcome.reason });
+        } else if (outcome.status === "failed") {
+          failures.push({ sessionId: quarantinedSessionId, path: sessionPath, error: outcome.error });
+        }
+        continue;
+      }
       if (!GENERATED_UUID_PATTERN.test(sessionId)) {
         preservedEntries.push({
           entryName: sessionId,
@@ -1491,7 +1574,7 @@ export async function removeSessionOrphanDirectories(
       let inspection: SessionDirectoryInspection;
       try {
         inspection = await inspectSessionDirectory(
-          sessionsRoot,
+          sessionPath,
           sessionId,
           legacyUnmarkedPolicy,
         );
@@ -1510,7 +1593,7 @@ export async function removeSessionOrphanDirectories(
         continue;
       }
       try {
-        const quarantineName = `.graft-removing-${sessionId}-${crypto.randomUUID()}`;
+        const quarantineName = sessionQuarantineName(sessionId);
         const quarantinePath = path.join(sessionsRoot, quarantineName);
         try {
           await fs.rename(sessionPath, quarantinePath);

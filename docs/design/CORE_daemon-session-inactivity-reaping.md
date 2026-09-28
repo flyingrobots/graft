@@ -379,6 +379,23 @@ process can already delete that user's files directly, so the window grants it
 nothing it lacks. The walk's guarantee is narrower and holds: the daemon never
 removes an entry that it can observe changed after enumeration.
 
+Stranded quarantines. A crash between quarantine and the end of the walk, or a
+walk refusal, leaves a `.graft-removing-<session>-<uuid>` directory. Startup
+and every sweep recognise exactly that generated name (both UUIDs lowercase
+version 4), skip it while its session UUID is protected in this process (a
+removal may be in flight), and otherwise inspect it with the same ownership
+test orphan cleanup uses for a UUID directory: a real directory, never a link,
+carrying a valid ownership marker for the embedded session UUID. The legacy
+unmarked policy does not apply; an unmarked quarantine is preserved. A verified
+quarantine is removed with the guarded walk and counted in the removed total;
+because the marker is removed last, a partly removed quarantine still verifies.
+A verified quarantine's contents are treated as daemon-owned scratch, including
+anything a same-user process placed inside it. A failed verification is
+preserved with `QUARANTINE_SYMBOLIC_LINK`, `QUARANTINE_NOT_DIRECTORY`,
+`QUARANTINE_UNMARKED`, or `QUARANTINE_UNSAFE_`, `QUARANTINE_UNREADABLE_`, or
+`QUARANTINE_MALFORMED_OWNERSHIP_MARKER`; any other name remains
+`UNKNOWN_ENTRY_NAME`. A walk failure is an ordinary retryable orphan failure.
+
 Startup removes prior-process orphans. Each periodic sweep also discovers
 current-process owned directories absent from the session map, covering a hard
 failure between directory creation and rollback. Cleanup failures remain debt
@@ -584,6 +601,8 @@ authority has been retired, and each failed close layer is reported separately.
 - [ ] Orphan cleanup reports factual retryability, recovers owned quarantine
       residue after crashes, isolates inspection failures per candidate, and
       continues processing later eligible candidates.
+      Crash-stranded quarantine recovery was added on 2026-09-28 (operator
+      decision); the remaining clauses were not re-audited in that pass.
 - [ ] Root and child identities use lossless device/inode values.
 - [x] Root-claim crash recovery has a bounded retention protocol rather than
       accumulating one permanent tombstone per recovery: tombstones are

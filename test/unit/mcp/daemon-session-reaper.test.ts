@@ -1543,6 +1543,156 @@ describe("mcp: daemon session reaper", () => {
     },
   );
 
+  const strandedSessionId = "00000000-0000-4000-8000-000000000701";
+  const strandedQuarantineName = `.graft-removing-${strandedSessionId}-00000000-0000-4000-8000-000000000702`;
+
+  function plantStrandedQuarantine(
+    sessionsRoot: string,
+    name: string,
+    marker: { readonly sessionId: string } | null,
+  ): string {
+    const quarantine = path.join(sessionsRoot, name);
+    fs.mkdirSync(path.join(quarantine, "partly", "removed"), { recursive: true });
+    fs.writeFileSync(path.join(quarantine, "partly", "removed", "scratch.txt"), "scratch\n");
+    if (marker !== null) {
+      fs.writeFileSync(path.join(quarantine, ".graft-session-owner.json"), `${JSON.stringify({
+        schemaVersion: 1,
+        daemonInstanceId: "00000000-0000-4000-8000-000000000799",
+        sessionId: marker.sessionId,
+      })}\n`);
+    }
+    return quarantine;
+  }
+
+  it("completes a quarantine stranded by a crash on the next daemon startup", async () => {
+    const rootDir = fs.mkdtempSync(path.join(os.tmpdir(), "gq-stranded-"));
+    const sessionsRoot = path.join(rootDir, "sessions");
+    const socketPath = path.join(rootDir, "daemon.sock");
+    fs.mkdirSync(sessionsRoot, { recursive: true, mode: 0o700 });
+    const quarantine = plantStrandedQuarantine(sessionsRoot, strandedQuarantineName, {
+      sessionId: strandedSessionId,
+    });
+    cleanups.push(() => {
+      fs.rmSync(rootDir, { recursive: true, force: true });
+    });
+    const consoleError = vi.spyOn(console, "error").mockImplementation(() => undefined);
+    cleanups.push(() => {
+      consoleError.mockRestore();
+    });
+
+    const daemon = await startDaemonServer({
+      graftDir: rootDir,
+      socketPath,
+      sessionReaperIntervalMs: 0,
+    });
+    cleanups.push(() => daemon.close());
+
+    expect(fs.existsSync(quarantine)).toBe(false);
+    expect(fs.readdirSync(sessionsRoot)).toEqual([]);
+    expect(consoleError).not.toHaveBeenCalled();
+  });
+
+  it("preserves quarantine look-alikes without the exact name or a valid ownership marker", async () => {
+    const rootDir = fs.mkdtempSync(path.join(os.tmpdir(), "gq-lookalike-"));
+    const sessionsRoot = path.join(rootDir, "sessions");
+    fs.mkdirSync(sessionsRoot, { recursive: true });
+    const unmarked = plantStrandedQuarantine(sessionsRoot, strandedQuarantineName, null);
+    const otherSessionName = ".graft-removing-00000000-0000-4000-8000-000000000711-00000000-0000-4000-8000-000000000712";
+    const otherSession = plantStrandedQuarantine(sessionsRoot, otherSessionName, {
+      sessionId: strandedSessionId,
+    });
+    const inexactName = `.graft-removing-${strandedSessionId}-not-a-generated-uuid`;
+    const inexact = plantStrandedQuarantine(sessionsRoot, inexactName, { sessionId: strandedSessionId });
+    cleanups.push(() => {
+      fs.rmSync(rootDir, { recursive: true, force: true });
+    });
+    const sessionsRootAuthority = await retainTestSessionsRoot(sessionsRoot);
+
+    const result = await removeSessionOrphanDirectories(
+      sessionsRoot,
+      new Set(),
+      "remove",
+      sessionsRootAuthority,
+    );
+
+    expect(result.removed).toBe(0);
+    expect(result.failures).toEqual([]);
+    expect([...result.preservedEntries].sort((left, right) => left.entryName.localeCompare(right.entryName)))
+      .toEqual([
+        { entryName: otherSessionName, path: otherSession, reason: "QUARANTINE_MALFORMED_OWNERSHIP_MARKER" },
+        { entryName: strandedQuarantineName, path: unmarked, reason: "QUARANTINE_UNMARKED" },
+        { entryName: inexactName, path: inexact, reason: "UNKNOWN_ENTRY_NAME" },
+      ].sort((left, right) => left.entryName.localeCompare(right.entryName)));
+    for (const quarantine of [unmarked, otherSession, inexact]) {
+      expect(fs.readFileSync(path.join(quarantine, "partly", "removed", "scratch.txt"), "utf-8"))
+        .toBe("scratch\n");
+    }
+  });
+
+  it("preserves a link named like a quarantine without touching its target", async () => {
+    if (process.platform === "win32") return;
+    const rootDir = fs.mkdtempSync(path.join(os.tmpdir(), "gq-link-"));
+    const externalRoot = fs.mkdtempSync(path.join(os.tmpdir(), "gq-link-ext-"));
+    const sessionsRoot = path.join(rootDir, "sessions");
+    fs.mkdirSync(sessionsRoot, { recursive: true });
+    plantStrandedQuarantine(externalRoot, "target", { sessionId: strandedSessionId });
+    const target = path.join(externalRoot, "target");
+    const link = path.join(sessionsRoot, strandedQuarantineName);
+    fs.symlinkSync(target, link, "dir");
+    cleanups.push(() => {
+      fs.rmSync(rootDir, { recursive: true, force: true });
+      fs.rmSync(externalRoot, { recursive: true, force: true });
+    });
+    const sessionsRootAuthority = await retainTestSessionsRoot(sessionsRoot);
+
+    const result = await removeSessionOrphanDirectories(
+      sessionsRoot,
+      new Set(),
+      "remove",
+      sessionsRootAuthority,
+    );
+
+    expect(result).toEqual({
+      removed: 0,
+      failures: [],
+      preservedEntries: [{ entryName: strandedQuarantineName, path: link, reason: "QUARANTINE_SYMBOLIC_LINK" }],
+    });
+    expect(fs.lstatSync(link).isSymbolicLink()).toBe(true);
+    expect(fs.readFileSync(path.join(target, "partly", "removed", "scratch.txt"), "utf-8")).toBe("scratch\n");
+    expect(fs.existsSync(path.join(target, ".graft-session-owner.json"))).toBe(true);
+  });
+
+  it("leaves a quarantine alone while its session is still protected", async () => {
+    const rootDir = fs.mkdtempSync(path.join(os.tmpdir(), "gq-protected-"));
+    const sessionsRoot = path.join(rootDir, "sessions");
+    fs.mkdirSync(sessionsRoot, { recursive: true });
+    const quarantine = plantStrandedQuarantine(sessionsRoot, strandedQuarantineName, {
+      sessionId: strandedSessionId,
+    });
+    cleanups.push(() => {
+      fs.rmSync(rootDir, { recursive: true, force: true });
+    });
+    const sessionsRootAuthority = await retainTestSessionsRoot(sessionsRoot);
+
+    const protectedResult = await removeSessionOrphanDirectories(
+      sessionsRoot,
+      new Set([strandedSessionId]),
+      "remove",
+      sessionsRootAuthority,
+    );
+    expect(protectedResult).toEqual({ removed: 0, failures: [], preservedEntries: [] });
+    expect(fs.existsSync(path.join(quarantine, "partly", "removed", "scratch.txt"))).toBe(true);
+
+    const releasedResult = await removeSessionOrphanDirectories(
+      sessionsRoot,
+      new Set(),
+      "remove",
+      sessionsRootAuthority,
+    );
+    expect(releasedResult).toEqual({ removed: 1, failures: [], preservedEntries: [] });
+    expect(fs.existsSync(quarantine)).toBe(false);
+  });
+
   it.each([
     { phase: "enumeration", observer: "readdir" },
     { phase: "removal", observer: "readFile" },

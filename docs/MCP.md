@@ -111,7 +111,17 @@ lifecycle does not claim to bound every daemon cache or working set.
   that cleanup starts, so a legacy daemon cannot create live scratch inside the
   startup scan window. Orphan discovery pins the original sessions-root handle
   and refuses the scan if the root's device/inode identity changes during
-  enumeration, candidate inspection, or removal.
+  enumeration, candidate inspection, or removal. Quarantined directories are
+  deleted child by child: each entry is re-checked by device/inode before it is
+  removed, links are unlinked without following them, and an entry replaced
+  after enumeration stops the removal with `DAEMON_QUARANTINE_ENTRY_CHANGED`,
+  leaving the rest in quarantine. Startup and every sweep finish a
+  `.graft-removing-<session>-<uuid>` quarantine left by a crash or refusal when
+  it is a real directory with a valid ownership marker for that session;
+  otherwise it is preserved with a `QUARANTINE_*` reason. Node cannot delete by
+  inode, so a window remains between each check and its deletion; using it
+  needs a same-user process acting inside the private 0700 sessions root, which
+  can already delete that user's files.
 
 The required programmatic sweep method,
 `GraftDaemonServer.reapExpiredSessions()`, returns separate facts:
