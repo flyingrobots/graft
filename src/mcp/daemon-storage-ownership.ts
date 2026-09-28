@@ -88,6 +88,8 @@ export interface DaemonSessionDirectoryIdentity {
 
 export interface DaemonSessionsRootAuthority {
   readonly path: string;
+  readonly device: number;
+  readonly inode: number;
   assertCurrent(): Promise<void>;
   close(): Promise<void>;
 }
@@ -104,11 +106,13 @@ export interface DaemonSessionStorage {
   removeSessionDirectory(
     sessionDir: string,
     expectedIdentity: DaemonSessionDirectoryIdentity,
+    sessionsRootAuthority: DaemonSessionsRootAuthority,
   ): Promise<boolean>;
   removeSessionOrphanDirectories(
     sessionsRoot: string,
     liveSessionIds: ReadonlySet<string>,
     legacyUnmarkedPolicy: LegacyUnmarkedSessionPolicy,
+    sessionsRootAuthority: DaemonSessionsRootAuthority,
   ): Promise<SessionOrphanRemovalResult>;
 }
 
@@ -194,6 +198,19 @@ function daemonSessionDirectoryIdentityMatches(
     && stat.ino === expected.inode;
 }
 
+function assertPinnedRootMatchesAuthority(
+  root: PinnedDaemonSessionsRoot,
+  authority: DaemonSessionsRootAuthority,
+): void {
+  if (
+    root.path !== authority.path
+    || root.device !== authority.device
+    || root.inode !== authority.inode
+  ) {
+    throw new UnsafeDaemonSessionsRootError(root.path);
+  }
+}
+
 async function assertPinnedDaemonSessionsRoot(root: PinnedDaemonSessionsRoot): Promise<void> {
   const current = await fs.lstat(root.path).catch((error: unknown) => {
     if (errorCode(error) === "ENOENT") return null;
@@ -257,6 +274,8 @@ export async function retainDaemonSessionsRoot(
   let closed = false;
   return Object.freeze({
     path: root.path,
+    device: root.device,
+    inode: root.inode,
     async assertCurrent(): Promise<void> {
       if (closed) throw new UnsafeDaemonSessionsRootError(root.path);
       await assertPinnedDaemonSessionsRoot(root);
@@ -1013,6 +1032,7 @@ async function restoreQuarantinedSessionDirectoryInPinnedRoot(
 export async function removeSessionDirectory(
   sessionDir: string,
   expectedIdentity: DaemonSessionDirectoryIdentity,
+  sessionsRootAuthority: DaemonSessionsRootAuthority,
 ): Promise<boolean> {
   const resolvedSessionDir = path.resolve(sessionDir);
   const sessionId = path.basename(resolvedSessionDir);
@@ -1026,6 +1046,7 @@ export async function removeSessionDirectory(
   const root = await pinDaemonSessionsRoot(sessionsRoot);
   let sessionHandle: fs.FileHandle | null = null;
   try {
+    assertPinnedRootMatchesAuthority(root, sessionsRootAuthority);
     await assertPinnedDaemonSessionsRoot(root);
     const stat = await fs.lstat(resolvedSessionDir).catch((error: unknown) => {
       if (errorCode(error) === "ENOENT") return null;
@@ -1172,9 +1193,11 @@ export async function removeSessionOrphanDirectories(
   sessionsRoot: string,
   liveSessionIds: ReadonlySet<string>,
   legacyUnmarkedPolicy: LegacyUnmarkedSessionPolicy,
+  sessionsRootAuthority: DaemonSessionsRootAuthority,
 ): Promise<SessionOrphanRemovalResult> {
   const root = await pinDaemonSessionsRoot(sessionsRoot);
   try {
+    assertPinnedRootMatchesAuthority(root, sessionsRootAuthority);
     const entries = await fs.readdir(sessionsRoot, { withFileTypes: true });
     await assertPinnedDaemonSessionsRoot(root);
     let removed = 0;

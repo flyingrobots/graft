@@ -360,7 +360,11 @@ async function createDaemonSession(
     }
     if (directoryReady && directoryIdentity !== undefined) {
       try {
-        await options.sessionStorage.removeSessionDirectory(sessionGraftDir, directoryIdentity);
+        await options.sessionStorage.removeSessionDirectory(
+          sessionGraftDir,
+          directoryIdentity,
+          options.sessionsRootAuthority,
+        );
       } catch (cleanupError) {
         rollbackErrors.push(cleanupError);
       }
@@ -441,6 +445,7 @@ export function createDaemonSessionHost(options: CreateDaemonSessionHostOptions)
         liveDirectoryRemoved = await options.sessionStorage.removeSessionDirectory(
           session.graftDir,
           session.directoryIdentity,
+          options.sessionsRootAuthority,
         );
       } catch (error) {
         cleanupFailures.push(cleanupFailure({
@@ -613,6 +618,7 @@ export function createDaemonSessionHost(options: CreateDaemonSessionHostOptions)
         path.join(options.graftDir, "sessions"),
         protectedSessionIds,
         options.legacyUnmarkedSessionPolicy,
+        options.sessionsRootAuthority,
       );
       orphanDirectoriesRemoved = orphanResult.removed;
       preservedEntries = orphanResult.preservedEntries;

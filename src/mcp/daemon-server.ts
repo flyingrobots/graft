@@ -176,6 +176,7 @@ export async function startDaemonServer(options: StartDaemonServerOptions = {}):
       sessionsRoot,
       new Set(),
       legacyUnmarkedSessionPolicy,
+      sessionsRootAuthority,
     );
     if (startupOrphans.preservedEntries.length > 0) {
       console.error(

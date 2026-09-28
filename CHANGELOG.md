@@ -34,6 +34,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   sweep capability rejects calls after daemon-root ownership is released.
   Failed construction rollback preserves every control-plane, protocol,
   fallback transport, and directory-cleanup error with the primary failure.
+  Session-directory removal and orphan sweeps take the daemon's retained
+  sessions-root authority and refuse, with `UNSAFE_DAEMON_SESSIONS_ROOT`, when the
+  root now at that path is not the retained directory (same path, different
+  device or inode), so a replaced root is never swept.
   Orphan scans report preserved unknown, malformed, non-directory, and link
   entries with stable reason codes instead of silently treating them as clean.
   A rejected request-start or request-settlement clock sample is retained until

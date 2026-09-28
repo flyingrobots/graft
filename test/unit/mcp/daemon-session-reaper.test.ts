@@ -15,6 +15,7 @@ import {
   captureSessionDirectoryIdentity,
   DaemonRootOwnerClaimTimeoutError,
   type DaemonSessionDirectoryIdentity,
+  type DaemonSessionsRootAuthority,
   daemonRootOwnerIsLive,
   deriveGenericUnixProcessStartIdentity,
   type LegacyUnmarkedSessionPolicy,
@@ -23,6 +24,7 @@ import {
   readProcessStartIdentity,
   removeSessionDirectory,
   removeSessionOrphanDirectories,
+  retainDaemonSessionsRoot,
   UnsafeDaemonSessionDirectoryError,
   writeSessionOwnershipMarker,
 } from "../../../src/mcp/daemon-storage-ownership.js";
@@ -94,6 +96,14 @@ vi.mock("node:fs/promises", async (importOriginal) => {
 });
 
 const cleanups: (() => Promise<void> | void)[] = [];
+
+async function retainTestSessionsRoot(
+  sessionsRoot: string,
+): Promise<DaemonSessionsRootAuthority> {
+  const authority = await retainDaemonSessionsRoot(sessionsRoot);
+  cleanups.push(() => authority.close());
+  return authority;
+}
 
 afterEach(async () => {
   renameObserver.mockReset();
@@ -737,13 +747,14 @@ describe("mcp: daemon session reaper", () => {
       async removeSessionDirectory(
         sessionDir: string,
         expectedIdentity: DaemonSessionDirectoryIdentity,
+        sessionsRootAuthority: DaemonSessionsRootAuthority,
       ): Promise<boolean> {
         if (!firstRemovalGated && path.basename(sessionDir) === gatedSessionId) {
           firstRemovalGated = true;
           markFirstRemovalEntered();
           await firstRemovalGate;
         }
-        return removeSessionDirectory(sessionDir, expectedIdentity);
+        return removeSessionDirectory(sessionDir, expectedIdentity, sessionsRootAuthority);
       },
     };
     const daemon = await startDaemonServer({
@@ -1024,6 +1035,105 @@ describe("mcp: daemon session reaper", () => {
     expect(fs.readFileSync(path.join(externalSession, "keep.txt"), "utf-8")).toBe("external\n");
   });
 
+  it("refuses a real sessions-root replacement between periodic sweeps", async () => {
+    const rootDir = fs.mkdtempSync(path.join(os.tmpdir(), "graft-session-root-generation-"));
+    const socketPath = path.join(rootDir, "daemon.sock");
+    const sessionsRoot = path.join(rootDir, "sessions");
+    const parkedSessionsRoot = path.join(rootDir, "sessions-before-replacement");
+    const replacementSessionId = "00000000-0000-4000-8000-000000000001";
+    const replacementSession = path.join(sessionsRoot, replacementSessionId);
+    cleanups.push(() => { fs.rmSync(rootDir, { recursive: true, force: true }); });
+
+    const daemon = await startDaemonServer({
+      graftDir: rootDir,
+      socketPath,
+      sessionReaperIntervalMs: 0,
+    });
+    cleanups.push(() => daemon.close());
+    expect((await daemon.reapExpiredSessions()).cleanupFailures).toEqual([]);
+
+    fs.renameSync(sessionsRoot, parkedSessionsRoot);
+    fs.mkdirSync(replacementSession, { recursive: true });
+    fs.writeFileSync(path.join(replacementSession, "keep.txt"), "replacement\n");
+    await writeSessionOwnershipMarker(
+      replacementSession,
+      "00000000-0000-4000-8000-000000000099",
+      replacementSessionId,
+    );
+    cleanups.push(() => {
+      fs.rmSync(sessionsRoot, { recursive: true, force: true });
+      if (fs.existsSync(parkedSessionsRoot)) fs.renameSync(parkedSessionsRoot, sessionsRoot);
+    });
+
+    const sweep = await daemon.reapExpiredSessions();
+
+    expect(sweep.orphanDirectoriesRemoved).toBe(0);
+    expect(sweep.cleanupFailures).toEqual([
+      expect.objectContaining({
+        code: "ORPHAN_SCAN_FAILED",
+        path: sessionsRoot,
+      }),
+    ]);
+    expect(fs.readFileSync(path.join(replacementSession, "keep.txt"), "utf-8"))
+      .toBe("replacement\n");
+  });
+
+  it("refuses session removal when the sessions root is not the retained root", async () => {
+    if (process.platform === "win32") return;
+    const rootDir = fs.mkdtempSync(path.join(os.tmpdir(), "graft-retained-root-session-"));
+    const sessionsRoot = path.join(rootDir, "sessions");
+    const retainedRoot = path.join(rootDir, "sessions-retained");
+    const sessionId = "00000000-0000-4000-8000-000000000001";
+    const sessionDir = path.join(sessionsRoot, sessionId);
+    fs.mkdirSync(sessionsRoot);
+    cleanups.push(() => {
+      fs.rmSync(rootDir, { recursive: true, force: true });
+    });
+    const sessionsRootAuthority = await retainTestSessionsRoot(sessionsRoot);
+
+    // The retained root moves away and a look-alike takes its path, with a session
+    // whose identity is captured after the swap, so only the retained-root check
+    // can tell the two roots apart.
+    fs.renameSync(sessionsRoot, retainedRoot);
+    fs.mkdirSync(sessionDir, { recursive: true });
+    fs.writeFileSync(path.join(sessionDir, "keep.txt"), "look-alike\n");
+    const expectedIdentity = await captureSessionDirectoryIdentity(sessionDir);
+
+    await expect(removeSessionDirectory(sessionDir, expectedIdentity, sessionsRootAuthority))
+      .rejects
+      .toMatchObject({ code: "UNSAFE_DAEMON_SESSIONS_ROOT" });
+    expect(fs.readFileSync(path.join(sessionDir, "keep.txt"), "utf-8")).toBe("look-alike\n");
+  });
+
+  it("refuses an orphan sweep when the sessions root is not the retained root", async () => {
+    if (process.platform === "win32") return;
+    const rootDir = fs.mkdtempSync(path.join(os.tmpdir(), "graft-retained-root-orphan-"));
+    const sessionsRoot = path.join(rootDir, "sessions");
+    const retainedRoot = path.join(rootDir, "sessions-retained");
+    const orphanDir = path.join(sessionsRoot, "00000000-0000-4000-8000-000000000001");
+    fs.mkdirSync(sessionsRoot);
+    cleanups.push(() => {
+      fs.rmSync(rootDir, { recursive: true, force: true });
+    });
+    const sessionsRootAuthority = await retainTestSessionsRoot(sessionsRoot);
+
+    // An unmarked directory under "remove" is exactly what a sweep deletes, so the
+    // retained-root check is the only thing that can spare it.
+    fs.renameSync(sessionsRoot, retainedRoot);
+    fs.mkdirSync(orphanDir, { recursive: true });
+    fs.writeFileSync(path.join(orphanDir, "keep.txt"), "look-alike\n");
+
+    const outcome = await removeSessionOrphanDirectories(
+      sessionsRoot,
+      new Set(),
+      "remove",
+      sessionsRootAuthority,
+    ).then((result) => result, (error: unknown) => error);
+
+    expect(outcome).toMatchObject({ code: "UNSAFE_DAEMON_SESSIONS_ROOT" });
+    expect(fs.readFileSync(path.join(orphanDir, "keep.txt"), "utf-8")).toBe("look-alike\n");
+  });
+
   it("refuses live-session cleanup after the sessions root becomes a symlink", async () => {
     if (process.platform === "win32") return;
     const rootDir = fs.mkdtempSync(path.join(os.tmpdir(), "graft-live-session-root-swap-"));
@@ -1047,6 +1157,7 @@ describe("mcp: daemon session reaper", () => {
       async removeSessionDirectory(
         sessionDir: string,
         expectedIdentity: DaemonSessionDirectoryIdentity,
+        sessionsRootAuthority: DaemonSessionsRootAuthority,
       ): Promise<boolean> {
         if (!swapped) {
           fs.renameSync(sessionsRoot, parkedSessionsRoot);
@@ -1054,7 +1165,7 @@ describe("mcp: daemon session reaper", () => {
           swapped = true;
         }
         try {
-          return await removeSessionDirectory(sessionDir, expectedIdentity);
+          return await removeSessionDirectory(sessionDir, expectedIdentity, sessionsRootAuthority);
         } finally {
           markRemovalFinished();
         }
@@ -1125,7 +1236,9 @@ describe("mcp: daemon session reaper", () => {
 
     const expectedIdentity = await captureSessionDirectoryIdentity(sessionDir);
 
-    await expect(removeSessionDirectory(sessionDir, expectedIdentity))
+    const sessionsRootAuthority = await retainTestSessionsRoot(sessionsRoot);
+
+    await expect(removeSessionDirectory(sessionDir, expectedIdentity, sessionsRootAuthority))
       .rejects
       .toBeInstanceOf(UnsafeDaemonSessionDirectoryError);
 
@@ -1156,7 +1269,9 @@ describe("mcp: daemon session reaper", () => {
     });
     const expectedIdentity = await captureSessionDirectoryIdentity(sessionDir);
 
-    await expect(removeSessionDirectory(sessionDir, expectedIdentity))
+    const sessionsRootAuthority = await retainTestSessionsRoot(sessionsRoot);
+
+    await expect(removeSessionDirectory(sessionDir, expectedIdentity, sessionsRootAuthority))
       .rejects
       .toMatchObject({ code: "UNSAFE_DAEMON_SESSIONS_ROOT" });
 
@@ -1195,10 +1310,13 @@ describe("mcp: daemon session reaper", () => {
       swapped = true;
     });
 
+    const sessionsRootAuthority = await retainTestSessionsRoot(sessionsRoot);
+
     const result = await removeSessionOrphanDirectories(
       sessionsRoot,
       new Set(),
       "preserve",
+      sessionsRootAuthority,
     );
 
     expect(swapped).toBe(true);
@@ -1265,10 +1383,13 @@ describe("mcp: daemon session reaper", () => {
       fs.rmSync(externalRoot, { recursive: true, force: true });
     });
 
+    const sessionsRootAuthority = await retainTestSessionsRoot(sessionsRoot);
+
     const scanError = await removeSessionOrphanDirectories(
       sessionsRoot,
       new Set(),
       "preserve",
+      sessionsRootAuthority,
     ).then(() => null, (error: unknown) => error);
     const externalSurvived = fs.existsSync(externalSession);
 
@@ -1367,6 +1488,7 @@ describe("mcp: daemon session reaper", () => {
         sessionsRoot: string,
         liveSessionIds: ReadonlySet<string>,
         legacyUnmarkedPolicy: LegacyUnmarkedSessionPolicy,
+        sessionsRootAuthority: DaemonSessionsRootAuthority,
       ) {
         scanCalls++;
         if (scanCalls > 1) {
@@ -1377,6 +1499,7 @@ describe("mcp: daemon session reaper", () => {
           sessionsRoot,
           liveSessionIds,
           legacyUnmarkedPolicy,
+          sessionsRootAuthority,
         );
       },
     };
@@ -1523,6 +1646,7 @@ describe("mcp: daemon session reaper", () => {
         sessionsRoot: string,
         liveSessionIds: ReadonlySet<string>,
         legacyUnmarkedPolicy: LegacyUnmarkedSessionPolicy,
+        sessionsRootAuthority: DaemonSessionsRootAuthority,
       ) {
         scanCalls++;
         if (scanCalls > 1) {
@@ -1533,6 +1657,7 @@ describe("mcp: daemon session reaper", () => {
           sessionsRoot,
           liveSessionIds,
           legacyUnmarkedPolicy,
+          sessionsRootAuthority,
         );
       },
     };
@@ -1742,6 +1867,7 @@ describe("mcp: daemon session reaper", () => {
         sessionsRoot: string,
         liveSessionIds: ReadonlySet<string>,
         legacyUnmarkedPolicy: LegacyUnmarkedSessionPolicy,
+        sessionsRootAuthority: DaemonSessionsRootAuthority,
       ) {
         markScanEntered();
         await scanGate;
@@ -1749,6 +1875,7 @@ describe("mcp: daemon session reaper", () => {
           sessionsRoot,
           liveSessionIds,
           legacyUnmarkedPolicy,
+          sessionsRootAuthority,
         );
       },
     };
@@ -2341,10 +2468,11 @@ describe("mcp: daemon session reaper", () => {
       async removeSessionDirectory(
         sessionDir: string,
         expectedIdentity: DaemonSessionDirectoryIdentity,
+        sessionsRootAuthority: DaemonSessionsRootAuthority,
       ): Promise<boolean> {
         removalCalls++;
         if (removalCalls > 1) return false;
-        return removeSessionDirectory(sessionDir, expectedIdentity);
+        return removeSessionDirectory(sessionDir, expectedIdentity, sessionsRootAuthority);
       },
     };
     const unregisterTransport = vi.spyOn(DaemonControlPlane.prototype, "unregisterTransport");
@@ -2447,13 +2575,14 @@ describe("mcp: daemon session reaper", () => {
       async removeSessionDirectory(
         sessionDir: string,
         expectedIdentity: DaemonSessionDirectoryIdentity,
+        sessionsRootAuthority: DaemonSessionsRootAuthority,
       ): Promise<boolean> {
         removalCalls++;
         if (removalCalls === 1) {
           markRemovalStarted();
           await removalGate;
         }
-        const removed = await removeSessionDirectory(sessionDir, expectedIdentity);
+        const removed = await removeSessionDirectory(sessionDir, expectedIdentity, sessionsRootAuthority);
         if (removalCalls === 1) markRemovalFinished();
         return removed;
       },
@@ -2556,10 +2685,11 @@ describe("mcp: daemon session reaper", () => {
       async removeSessionDirectory(
         sessionDir: string,
         expectedIdentity: DaemonSessionDirectoryIdentity,
+        sessionsRootAuthority: DaemonSessionsRootAuthority,
       ): Promise<boolean> {
         markRemovalStarted();
         await removalGate;
-        return removeSessionDirectory(sessionDir, expectedIdentity);
+        return removeSessionDirectory(sessionDir, expectedIdentity, sessionsRootAuthority);
       },
       removeSessionOrphanDirectories(
         _sessionsRoot: string,
@@ -2746,10 +2876,11 @@ describe("mcp: daemon session reaper", () => {
       async removeSessionDirectory(
         sessionDir: string,
         expectedIdentity: DaemonSessionDirectoryIdentity,
+        sessionsRootAuthority: DaemonSessionsRootAuthority,
       ): Promise<boolean> {
         markRemovalStarted();
         await removalGate;
-        return removeSessionDirectory(sessionDir, expectedIdentity);
+        return removeSessionDirectory(sessionDir, expectedIdentity, sessionsRootAuthority);
       },
     };
     const daemon = await startDaemonServer({
